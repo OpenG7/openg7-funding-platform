@@ -168,7 +168,6 @@ test('runtime config uses its supplied environment and preserves valid values', 
 
 test('optional limits fall back on invalid values while zero and blank quotas are retained', () => {
   const positiveSettings = {
-    FUNDING_ADMIN_SESSION_TTL_MINUTES: 'adminSessionTtlMinutes',
     FUNDING_SPONSORSHIP_FOLLOWUP_TOKEN_TTL_DAYS:
       'sponsorshipFollowupTokenTtlDays',
     FUNDING_RATE_LIMIT_WINDOW_MS: 'rateLimitWindowMs',
@@ -229,6 +228,45 @@ test('optional limits fall back on invalid values while zero and blank quotas ar
         .allowedContributionAmounts
     ],
     []
+  );
+});
+
+test('token administration duration rejects invalid or unbounded configured values', () => {
+  for (const value of ['', '  ', '0', '-1', '1.5', 'invalid', 'Infinity', '61'])
+    assert.throws(
+      () => loadStartupConfig({ FUNDING_ADMIN_SESSION_TTL_MINUTES: value }),
+      /FUNDING_ADMIN_SESSION_TTL_MINUTES must be an integer between 1 and 60/
+    );
+  for (const value of ['1', '60'])
+    assert.equal(
+      loadStartupConfig({ FUNDING_ADMIN_SESSION_TTL_MINUTES: value })
+        .adminSessionTtlMinutes,
+      Number(value)
+    );
+});
+
+test('production requires OIDC with no implicit token downgrade while explicit test stacks retain token mode', () => {
+  for (const env of [
+    { NODE_ENV: 'production' },
+    { FUNDING_PLATFORM_ENV: 'production' },
+    { FUNDING_PLATFORM_ENV: 'production', FUNDING_ADMIN_AUTH_MODE: 'token' }
+  ]) {
+    assert.throws(
+      () => loadApiRuntimeAdminAuthMode(env),
+      /must be oidc in production/
+    );
+    assert.equal(
+      loadApiRuntimeAdminAuthMode({ ...env, FUNDING_ADMIN_AUTH_MODE: 'oidc' }),
+      'oidc'
+    );
+  }
+  assert.equal(
+    loadApiRuntimeAdminAuthMode({
+      NODE_ENV: 'production',
+      FUNDING_PLATFORM_ENV: 'test',
+      FUNDING_ADMIN_AUTH_MODE: 'token'
+    }),
+    'token'
   );
 });
 
@@ -391,10 +429,55 @@ test('production validation retains required settings and its error priority', (
         })
       )
     );
-  assert.equal(
-    loadApiRuntimeConfig({ FUNDING_PLATFORM_ENV: 'Production' }).isProduction,
-    false
-  );
+});
+
+test('runtime environment is explicit, strict and falls back to NODE_ENV only when absent', () => {
+  for (const [env, environment] of [
+    [{}, 'development'],
+    [{ NODE_ENV: 'production' }, 'production'],
+    [{ NODE_ENV: 'test' }, 'test'],
+    [{ NODE_ENV: 'development' }, 'development'],
+    [{ FUNDING_PLATFORM_ENV: 'production' }, 'production'],
+    [
+      { FUNDING_PLATFORM_ENV: 'production', NODE_ENV: 'development' },
+      'production'
+    ],
+    [
+      { FUNDING_PLATFORM_ENV: 'development', NODE_ENV: 'production' },
+      'development'
+    ],
+    [{ FUNDING_PLATFORM_ENV: 'test', NODE_ENV: 'production' }, 'test']
+  ]) {
+    const config = loadStartupConfig(env);
+    assert.equal(config.environment, environment);
+    assert.equal(config.isProduction, environment === 'production');
+    if (config.isProduction)
+      assert.throws(
+        () => validateApiRuntimeConfig(config),
+        /STRIPE_SECRET_KEY/
+      );
+  }
+  for (const value of [
+    '',
+    ' ',
+    'Production',
+    'production ',
+    'prod',
+    'staging'
+  ]) {
+    assert.throws(
+      () =>
+        loadStartupConfig({
+          FUNDING_PLATFORM_ENV: value,
+          NODE_ENV: 'production'
+        }),
+      /FUNDING_PLATFORM_ENV must be development, test, or production/
+    );
+    assert.throws(
+      () => loadStartupConfig({ NODE_ENV: value }),
+      /NODE_ENV must be development, test, or production/
+    );
+  }
 });
 
 test('Checkout return URLs allow configured HTTPS origins and fall back safely', () => {

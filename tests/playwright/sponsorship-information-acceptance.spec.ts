@@ -16,12 +16,10 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
-import { ADMIN_TOKEN } from './fixtures/e2e-fixtures.mjs';
-import { signInAsAdmin } from './support/admin-auth.js';
+import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptanceReviewReminder } from './support/acceptance-review-reminder.js';
 import { test, expect } from './support/test.js';
 
-const headers = { 'x-funding-admin-token': ADMIN_TOKEN };
 const requestUrl = '/api/admin/sponsorships/request-information';
 const detailsUrl = '/api/admin/sponsorships/details';
 interface Mail {
@@ -57,7 +55,10 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
   const errors: string[] = [];
   admin.on('pageerror', (e) => errors.push(e.message));
   const get = async <T>(url: string, auth = true): Promise<T> => {
-    const r = await request.get(url, auth ? { headers } : {});
+    const r = await request.get(
+      url,
+      auth ? { headers: await adminSessionHeaders(request) } : {}
+    );
     expect(r.ok(), url).toBe(true);
     return r.json();
   };
@@ -249,7 +250,7 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
       const pdf = await request.get(
         '/api/admin/sponsorship-invoices/pdf?invoiceId=' +
           (await invoices())[0]!.id,
-        { headers }
+        { headers: await adminSessionHeaders(request) }
       );
       expect(pdf.ok()).toBe(true);
       pdfHash = createHash('sha256')
@@ -274,7 +275,7 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
       expect((await sponsor()).sponsor_review_status).toBe('pending_review');
       await assertFinance();
       const replay = await request.post(detailsUrl, {
-        headers,
+        headers: await adminSessionHeaders(request),
         data: correction
       });
       expect(replay.ok()).toBe(true);
@@ -282,7 +283,7 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
         (await audit()).filter((e) => e.action === 'sponsorship.details.update')
       ).toHaveLength(1);
       const noConfirmation = await request.post(detailsUrl, {
-        headers,
+        headers: await adminSessionHeaders(request),
         data: { ...correction, confirmed: false }
       });
       expect(noConfirmation.status()).toBe(400);
@@ -292,7 +293,7 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
       expect(
         (
           await request.post(detailsUrl, {
-            headers,
+            headers: await adminSessionHeaders(request),
             data: { ...correction, contactEmail: currentContact }
           })
         ).status()
@@ -357,7 +358,7 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
         '/admin/fundraiser/email-queue?messageId=' + informationMessageId
       );
       const noConfirmation = await request.post(requestUrl, {
-        headers,
+        headers: await adminSessionHeaders(request),
         data: { ...sentRequest, confirmed: false }
       });
       expect(noConfirmation.status()).toBe(400);
@@ -365,8 +366,11 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
         (await request.post(requestUrl, { data: sentRequest })).status()
       ).toBe(401);
       const replays = await Promise.all(
-        [1, 2].map(() =>
-          request.post(requestUrl, { headers, data: sentRequest })
+        [1, 2].map(async () =>
+          request.post(requestUrl, {
+            headers: await adminSessionHeaders(request),
+            data: sentRequest
+          })
         )
       );
       for (const replay of replays) {
@@ -479,7 +483,7 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
       expect((await sponsor()).sponsor_review_status).toBe('pending_review');
       expect(JSON.stringify(await publicData())).not.toContain(name);
       const repeat = await request.post(requestUrl, {
-        headers,
+        headers: await adminSessionHeaders(request),
         data: sentRequest
       });
       expect(repeat.ok()).toBe(true);
@@ -487,7 +491,7 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
       expect(
         (
           await request.post(requestUrl, {
-            headers,
+            headers: await adminSessionHeaders(request),
             data: {
               ...sentRequest,
               subject: 'Nouvelle demande devenue inutile'
@@ -566,7 +570,7 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
       const pdf = await request.get(
         '/api/admin/sponsorship-invoices/pdf?invoiceId=' +
           (await invoices())[0]!.id,
-        { headers }
+        { headers: await adminSessionHeaders(request) }
       );
       expect(pdf.ok()).toBe(true);
       expect(

@@ -5,6 +5,10 @@ import { fileURLToPath } from 'node:url';
 
 import { loadDotEnv } from './lib/load-dotenv.mjs';
 import {
+  buildRuntimeRoleSql,
+  runtimeRoleConfig
+} from './lib/database-runtime-role.mjs';
+import {
   buildMigrationSql,
   migrationFailure,
   migrationReport,
@@ -65,6 +69,14 @@ try {
     resolve(root, process.env.MIGRATIONS_DIR || 'apps/funding-api/migrations')
   );
   sql = buildMigrationSql(migrations, { ...options, database });
+  const runtimeRole = runtimeRoleConfig(process.env);
+  if (options.mode === 'apply' && runtimeRole) {
+    // Grants follow new tables atomically; role creation/password changes are separate.
+    sql = sql.replace(
+      /COMMIT;\s*$/,
+      buildRuntimeRoleSql(runtimeRole) + '\nCOMMIT;\n'
+    );
+  }
 } catch {
   fail(
     'Invalid migration directory, filenames or baseline boundary. No database operation was attempted.'

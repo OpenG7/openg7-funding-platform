@@ -8,12 +8,10 @@ import type {
   FundTransparencyPublicResponse
 } from '@openg7/funding-core';
 
-import { ADMIN_TOKEN } from './fixtures/e2e-fixtures.mjs';
 import { acceptanceSql } from './support/acceptance-database.js';
-import { signInAsAdmin } from './support/admin-auth.js';
+import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { test, expect } from './support/test.js';
 
-const headers = { 'x-funding-admin-token': ADMIN_TOKEN };
 test.use({
   contextOptions: {
     timezoneId: 'America/Toronto',
@@ -29,7 +27,9 @@ async function get<T>(
   url: string,
   admin = false
 ): Promise<T> {
-  const response = await request.get(url, { headers: admin ? headers : {} });
+  const response = await request.get(url, {
+    headers: admin ? await adminSessionHeaders(request) : {}
+  });
   expect(response.ok()).toBe(true);
   return response.json();
 }
@@ -68,7 +68,10 @@ test('allocation: confirmed publication, public proof, concurrent edit, hide and
       expect(
         (
           await request.post(target, {
-            headers: { ...headers, 'Content-Type': 'application/json' },
+            headers: {
+              ...(await adminSessionHeaders(request)),
+              'Content-Type': 'application/json'
+            },
             data: body
           })
         ).status()
@@ -84,7 +87,7 @@ test('allocation: confirmed publication, public proof, concurrent edit, hide and
     { status: 'active', confirmation: 'incorrect' }
   ]) {
     const denied = await request.post(endpoint, {
-      headers,
+      headers: await adminSessionHeaders(request),
       data: { ...input, ...change }
     });
     expect(denied.status()).toBe(400);
@@ -144,7 +147,7 @@ test('allocation: confirmed publication, public proof, concurrent edit, hide and
   expect(await allocations()).toEqual([]);
   for (const confirmation of [undefined, 'wrong-allocation']) {
     const denied = await request.post(endpoint + '/update', {
-      headers,
+      headers: await adminSessionHeaders(request),
       data: {
         expenseId: id,
         expectedVersion: original.updated_at,
@@ -203,7 +206,7 @@ test('allocation: confirmed publication, public proof, concurrent edit, hide and
   expect(delivered.published_at).toBe(published.published_at);
   expect((await allocations())[0]!.proof_url).toBe(proof);
   const unconfirmedEdit = await request.post(endpoint + '/update', {
-    headers,
+    headers: await adminSessionHeaders(request),
     data: {
       expenseId: id,
       expectedVersion: delivered.updated_at,

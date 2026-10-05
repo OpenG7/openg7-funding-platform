@@ -178,5 +178,66 @@ test(
       'SELECT count(*) FROM cli_probe; SELECT count(*) FROM openg7_schema_migrations;'
     ]);
     assert.equal(rows.stdout.trim().replaceAll('\r\n', '\n'), '1\n1');
+    env.FUNDING_DATABASE_RUNTIME_USER = 'og7_runtime_cli';
+    env.FUNDING_DATABASE_RUNTIME_PASSWORD =
+      "synthetic-password-$og7_runtime_role$'; CREATE ROLE injected_role SUPERUSER;--";
+    const provision = await exec(
+      process.execPath,
+      [
+        'scripts/db-runtime-role.mjs',
+        '--apply',
+        '--confirm-database',
+        'og7_migration_cli',
+        '--confirm-role',
+        'og7_runtime_cli'
+      ],
+      { env, windowsHide: true, timeout: 30000 }
+    );
+    assert.match(provision.stdout, /grants committed/);
+    assert.ok(
+      !provision.stdout.includes(env.FUNDING_DATABASE_RUNTIME_PASSWORD)
+    );
+    await unlink(join(directory, '002_failure.sql'));
+    await writeFile(
+      join(directory, '002_runtime_table.sql'),
+      'CREATE TABLE runtime_new_facts(id integer);'
+    );
+    const future = await run([]);
+    assert.equal(future.status, 0, future.output);
+    const privilegeProbe = (sql) =>
+      docker([
+        'compose',
+        'exec',
+        '-T',
+        'postgres',
+        'psql',
+        '-X',
+        '-At',
+        '-U',
+        'og7_test',
+        '-d',
+        'og7_migration_cli',
+        '-c',
+        sql
+      ]);
+    const granted =
+      await privilegeProbe(`SELECT has_table_privilege('og7_runtime_cli','runtime_new_facts','SELECT,INSERT,UPDATE'),
+      has_table_privilege('og7_runtime_cli','runtime_new_facts','DELETE'),
+      has_table_privilege('og7_runtime_cli','openg7_schema_migrations','INSERT'),
+      EXISTS(SELECT 1 FROM pg_roles WHERE rolname='injected_role');`);
+    assert.equal(granted.stdout.trim(), 't|f|f|f');
+    await privilegeProbe('ALTER ROLE og7_runtime_cli CREATEDB;');
+    await writeFile(
+      join(directory, '003_atomic_grants.sql'),
+      'CREATE TABLE runtime_pending_facts(id integer);'
+    );
+    const unsafe = await run([]);
+    assert.notEqual(unsafe.status, 0);
+    const rolledBack = await privilegeProbe(
+      "SELECT to_regclass('public.runtime_pending_facts') IS NULL; SELECT count(*) FROM openg7_schema_migrations;"
+    );
+    assert.equal(rolledBack.stdout.trim().replaceAll('\r\n', '\n'), 't\n2');
+    await privilegeProbe('ALTER ROLE og7_runtime_cli NOCREATEDB;');
+    assert.equal((await run([])).status, 0);
   }
 );

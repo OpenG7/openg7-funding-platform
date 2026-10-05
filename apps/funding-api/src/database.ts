@@ -4,7 +4,8 @@ const databaseUrl = process.env.DATABASE_URL;
 
 export const dbPool = databaseUrl
   ? new Pool({
-      connectionString: databaseUrl
+      connectionString: databaseUrl,
+      connectionTimeoutMillis: 10000
     })
   : null;
 

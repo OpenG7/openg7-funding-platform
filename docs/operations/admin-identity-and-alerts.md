@@ -1,6 +1,7 @@
 # Configurer les accès et les alertes
 
-Ces fonctions restent désactivées par défaut. Aucun compte, webhook externe
+La production exige les comptes OIDC avec MFA vérifié avant de démarrer l'API.
+Les alertes restent désactivées par défaut. Aucun compte externe, webhook externe
 ou environnement de production n'est créé par les tests.
 
 ## Comptes nominatifs
@@ -27,12 +28,21 @@ changements et les révocations dans l'interface. La déconnexion termine la
 session OpenG7; elle ne ferme pas la session globale chez le fournisseur.
 
 Une panne OIDC refuse la connexion : aucun retour automatique au secret
-racine. Revenir au mode `token` est un changement explicite de configuration,
-qui retire les garanties nominatives. Les migrations additives peuvent rester.
-Les paramètres OIDC passent par le `env_file` du service API existant.
+racine. Le mode `token` est réservé aux environnements explicitement
+`development` ou `test`; la production le refuse au démarrage, même avec des
+secrets présents. Les migrations additives peuvent rester.
+Les paramètres OIDC sont transmis explicitement au service API par Compose.
 
 L'exception HTTP de boucle locale est refusée dès que `NODE_ENV` ou
 `FUNDING_PLATFORM_ENV` vaut `production`, pour OIDC comme pour les alertes.
+Pour les garde-fous de démarrage et d'administration, `FUNDING_PLATFORM_ENV`
+explicite fait autorité : seules `development`, `test` et `production` sont
+acceptées exactement. Une valeur vide ou inconnue arrête l'API. Si cette variable
+est absente, `NODE_ENV` fournit l'environnement avec les mêmes valeurs autorisées;
+sans les deux variables, le défaut reste `development`. Un lancement standalone
+avec seulement `NODE_ENV=production` exige donc aussi `FUNDING_ADMIN_AUTH_MODE=oidc`.
+Une plateforme explicitement
+`development` ou `test` permet les piles locales dont Node est optimisé en production.
 Les réponses administratives, dont les sessions et exports privés, portent
 `Cache-Control: no-store`; les politiques explicites `private, no-store`
 restent valables. Les caches des ressources publiques restent distincts.
@@ -47,6 +57,21 @@ partagés entre plusieurs instances API.
 La page est `/admin/fundraiser/access`. Elle exige le rôle propriétaire côté
 API. Les sessions OIDC durent une heure sans renouvellement automatique;
 `FUNDING_ADMIN_SESSION_TTL_MINUTES` concerne seulement le mode `token`.
+
+Hors production, le mode `token` exige deux secrets aléatoires distincts d'au
+moins 32 caractères : `FUNDING_ADMIN_TOKEN` et `FUNDING_ADMIN_SESSION_SECRET`.
+Aucune administration anonyme ni signature avec l'identifiant public du projet
+n'est permise. La durée configurée est un entier de 1 à 60 minutes, avec 60
+minutes par défaut; une valeur invalide bloque le démarrage. Les paramètres
+token sont ignorés lorsque le mode OIDC est choisi.
+
+Le secret racine sert uniquement à `POST /api/admin/session` ou son alias
+`/admin/session`, dans un corps JSON `{ "token": "<secret local>" }`. Une origine
+navigateur étrangère est refusée. Les autres routes administratives exigent le
+jeton de session signé, transmis avec `Authorization: Bearer <sessionToken>`;
+un secret racine transmis directement reçoit `401`. Ces sessions locales restent
+partagées et sans révocation individuelle; elles ne remplacent pas OIDC/MFA.
+En production, l'échange token reçoit `403` et aucune session token n'est acceptée.
 
 | Rôle OIDC    | Autorisations                                                                                                                              |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -160,7 +185,9 @@ node scripts/services-check.mjs --env <configuration-de-test> --env-only
 ```
 
 Le diagnostic vérifie les paramètres du mode `FUNDING_ADMIN_AUTH_MODE` choisi
-(`token` par défaut) et refuse un mode inconnu. En OIDC, il contrôle issuer,
+(`token` par défaut hors production), refuse un mode inconnu et exige OIDC en
+production. En mode token, il contrôle les deux secrets distincts d'au moins
+32 caractères et la durée de 1 à 60 minutes. En OIDC, il contrôle issuer,
 client ID, secret client, origine publique HTTPS sans identifiants, origine
 commune Web/API et présence de PostgreSQL. Les secrets et la durée du mode token
 ne sont pas exigés. Une liste de propriétaires absente produit un avertissement :

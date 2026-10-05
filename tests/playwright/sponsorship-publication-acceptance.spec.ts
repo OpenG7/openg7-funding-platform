@@ -18,11 +18,9 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
-import { ADMIN_TOKEN } from './fixtures/e2e-fixtures.mjs';
-import { signInAsAdmin } from './support/admin-auth.js';
+import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { test, expect } from './support/test.js';
 
-const headers = { 'x-funding-admin-token': ADMIN_TOKEN };
 const automationUrl = '/api/admin/publication-automation';
 const cockpit = '/admin/fundraiser/publications/automation';
 const feeds: PublicationFeedId[] = ['openg7:facebook', 'openg7:linkedin'];
@@ -50,15 +48,21 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
   const privateNote = 'Note privée de recette, à exclure de toute publication.';
   const privateEmail = 'contact@simulation.example.test';
   const get = async <T>(url: string, authenticated = true): Promise<T> => {
-    const response = await request.get(url, authenticated ? { headers } : {});
+    const response = await request.get(
+      url,
+      authenticated ? { headers: await adminSessionHeaders(request) } : {}
+    );
     expect(response.ok(), url).toBe(true);
     return response.json() as Promise<T>;
   };
   const state = () => get<PublicationAutomationState>(automationUrl);
-  const command = (data: PublicationAutomationCommand, authenticated = true) =>
+  const command = async (
+    data: PublicationAutomationCommand,
+    authenticated = true
+  ) =>
     request.post(automationUrl, {
       data,
-      ...(authenticated ? { headers } : {})
+      ...(authenticated ? { headers: await adminSessionHeaders(request) } : {})
     });
   const initial = await state();
   expect(initial.feeds.every((f) => f.mode === 'mock')).toBe(true);

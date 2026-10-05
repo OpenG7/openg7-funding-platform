@@ -117,7 +117,7 @@ test('enqueue and deferred delivery only persist the rendered message and its co
       sql: /INSERT INTO email_messages/,
       rows: [{ id: 'synthetic-message' }],
       inspect(params) {
-        assert.deepEqual(params, [
+        assert.deepEqual(params.slice(0, 10), [
           input.idempotencyKey,
           input.templateKey,
           input.to,
@@ -129,6 +129,10 @@ test('enqueue and deferred delivery only persist the rendered message and its co
           JSON.stringify(input.metadata),
           5
         ]);
+        assert.match(
+          params[10],
+          /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/
+        );
       }
     }
   ]);

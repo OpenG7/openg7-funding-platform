@@ -1,7 +1,14 @@
+import { randomUUID } from 'node:crypto';
+
 import type { Pool, PoolClient } from 'pg';
 import type { AdminEmailTestResult } from '@openg7/funding-core';
 
 import { hasEmailMessagesTable } from './email-queue.persistence.js';
+import {
+  protectPrivateText,
+  revealPrivateText,
+  protectEmailMetadata
+} from './private-data-protection.js';
 
 export {
   getAdminEmailQueueMessageById,
@@ -68,9 +75,9 @@ const projectClaimedEmailMessage = (
   to: row.recipient_email,
   fromEmail: row.from_email,
   replyToEmail: row.reply_to_email,
-  subject: row.subject,
-  text: row.text_body,
-  html: row.html_body,
+  subject: revealPrivateText(row.subject, `email:${row.id}:subject`),
+  text: revealPrivateText(row.text_body, `email:${row.id}:text`),
+  html: revealPrivateText(row.html_body, `email:${row.id}:html`),
   attempts: row.attempts,
   maxAttempts: row.max_attempts
 });
@@ -89,6 +96,7 @@ export const insertEmailQueueMessage = async (
     };
   }
 
+  const id = randomUUID();
   const insert = await pool.query<{ id: string }>(
     `
       INSERT INTO email_messages (
@@ -101,9 +109,10 @@ export const insertEmailQueueMessage = async (
         text_body,
         html_body,
         metadata,
-        max_attempts
+        max_attempts,
+        id
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11::uuid)
       ON CONFLICT (idempotency_key) DO NOTHING
       RETURNING id
     `,
@@ -113,11 +122,12 @@ export const insertEmailQueueMessage = async (
       input.to,
       input.fromEmail,
       input.replyToEmail,
-      input.subject,
-      input.text,
-      input.html,
-      JSON.stringify(input.metadata),
-      input.maxAttempts
+      protectPrivateText(input.subject, `email:${id}:subject`),
+      protectPrivateText(input.text, `email:${id}:text`),
+      protectPrivateText(input.html, `email:${id}:html`),
+      JSON.stringify(protectEmailMetadata(input.metadata, id)),
+      input.maxAttempts,
+      id
     ]
   );
 

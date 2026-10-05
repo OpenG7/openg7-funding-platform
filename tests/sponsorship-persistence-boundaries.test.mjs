@@ -78,7 +78,6 @@ test('sponsorship reads and mutations retain their distinct absent-database resu
   ])
     assert.equal(await operation(null, id, version), null);
   for (const operation of [
-    facade.recordSponsorshipDetails,
     facade.recordSponsorshipDetailsForContribution,
     facade.markSponsorshipFollowupEmailResult,
     facade.updateSponsorshipRefundWorkflowStatus,
@@ -386,14 +385,23 @@ test('Stripe event recording preserves duplicate/failed retry results and safe s
       await facade.insertStripeEventRecord(db.pool, {
         stripeEventId: 'evt_boundary',
         eventType: 'checkout.session.completed',
-        payload: { fixture: true }
+        payload: {
+          id: 'evt_boundary',
+          data: {
+            object: {
+              id: 'cs_boundary',
+              client_secret: 'synthetic-private-secret'
+            }
+          },
+          fixture: true
+        }
       }),
       rowCount === 1
     );
     assert.deepEqual(db.calls[0].params, [
       'evt_boundary',
       'checkout.session.completed',
-      '{"fixture":true}'
+      '{"id":"evt_boundary","data":{"object":{"id":"cs_boundary"}}}'
     ]);
   }
   const db = database({ rows: [], rowCount: 1 }, { rows: [], rowCount: 1 });
@@ -416,7 +424,6 @@ test('database failures propagate across each extracted responsibility instead o
     [facade.updateSponsorshipLogoUrl, { contributionId: id }],
     [facade.clearSponsorshipLogoUrl, { contributionId: id }],
     [facade.getSponsorshipFollowupByTokenHash, 'synthetic-hash', version],
-    [facade.recordSponsorshipDetails, { currency: 'CAD' }],
     [facade.recordSponsorshipDetailsForContribution, { contributionId: id }],
     [
       facade.markSponsorshipFollowupEmailResult,

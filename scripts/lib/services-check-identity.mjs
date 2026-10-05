@@ -22,6 +22,25 @@ export function checkAdminIdentity(context, env) {
     return;
   }
 
+  const environment = env.FUNDING_PLATFORM_ENV ?? env.NODE_ENV ?? 'development';
+  if (!['development', 'test', 'production'].includes(environment)) {
+    record(
+      'missing',
+      'Admin',
+      'FUNDING_PLATFORM_ENV',
+      'must be development, test, or production'
+    );
+    return;
+  }
+  if (environment === 'production' && mode !== 'oidc') {
+    record(
+      'missing',
+      'Admin',
+      'FUNDING_ADMIN_AUTH_MODE',
+      'production requires OIDC and verified MFA'
+    );
+    return;
+  }
   record('ok', 'Admin', 'FUNDING_ADMIN_AUTH_MODE', mode);
   if (mode === 'token') {
     requiredSecret(
@@ -54,6 +73,17 @@ export function checkAdminIdentity(context, env) {
       'FUNDING_ADMIN_SESSION_TTL_MINUTES',
       'set a positive session duration'
     );
+    if (
+      readValue('FUNDING_ADMIN_SESSION_TTL_MINUTES') &&
+      (!/^\d+$/.test(readValue('FUNDING_ADMIN_SESSION_TTL_MINUTES')) ||
+        Number(readValue('FUNDING_ADMIN_SESSION_TTL_MINUTES')) > 60)
+    )
+      record(
+        'missing',
+        'Admin',
+        'FUNDING_ADMIN_SESSION_TTL_MINUTES',
+        'session duration must be at most 60 minutes'
+      );
     return;
   }
 

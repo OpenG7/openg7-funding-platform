@@ -126,4 +126,5 @@ traefik/acme/*
 .s3cfg
 aws-credentials*
 *.aws-credentials
+*.agekey
 strapi/types/generated/contentTypes.d.ts

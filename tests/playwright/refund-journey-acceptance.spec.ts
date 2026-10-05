@@ -11,8 +11,7 @@ import type {
   FundTransparencyPublicResponse
 } from '@openg7/funding-core';
 
-import { ADMIN_TOKEN } from './fixtures/e2e-fixtures.mjs';
-import { signInAsAdmin } from './support/admin-auth.js';
+import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import {
   buildPaymentIntentSucceededEvent,
   buildSignedWebhookRequest,
@@ -20,7 +19,6 @@ import {
 } from './support/stripe-webhook.js';
 import { test, expect } from './support/test.js';
 
-const headers = { 'x-funding-admin-token': ADMIN_TOKEN };
 const refundUrl = '/api/admin/sponsorships/refund';
 const amountMinor = 50000;
 // Synthetic fee, retained after refund; this is not a Stripe pricing claim.
@@ -61,7 +59,10 @@ for (const amounts of [[20000, 30000], [50000]]) {
     page.on('pageerror', (e) => errors.push(e.message));
     const stub = process.env.STRIPE_STUB_BASE_URL!;
     const get = async <T>(url: string, authenticated = false): Promise<T> => {
-      const result = await request.get(url, authenticated ? { headers } : {});
+      const result = await request.get(
+        url,
+        authenticated ? { headers: await adminSessionHeaders(request) } : {}
+      );
       expect(result.ok(), url).toBe(true);
       return result.json() as Promise<T>;
     };
@@ -178,8 +179,16 @@ for (const amounts of [[20000, 30000], [50000]]) {
           };
         } & Record<string, unknown>
       >(stub + '/v1/charges/' + chargeId);
-    const postRefund = (data: Record<string, unknown>, authenticated = true) =>
-      request.post(refundUrl, { data, ...(authenticated ? { headers } : {}) });
+    const postRefund = async (
+      data: Record<string, unknown>,
+      authenticated = true
+    ) =>
+      request.post(refundUrl, {
+        data,
+        ...(authenticated
+          ? { headers: await adminSessionHeaders(request) }
+          : {})
+      });
     const baseRequest = (version: string, amount: number) => ({
       contributionId: record.id,
       expectedVersion: version,

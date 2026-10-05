@@ -25,6 +25,7 @@ import {
 import { startDisposableProvider } from './support/disposable-provider.mjs';
 import { createS3RecoveryProxy } from './support/s3-recovery-proxy.mjs';
 import { captureS3, restoreS3 } from '../../scripts/lib/s3-backup.mjs';
+import { createAgeFixture } from './support/age-fixture.mjs';
 
 const exec = promisify(execFile);
 test(
@@ -96,6 +97,7 @@ test(
       new PutObjectCommand({ Bucket: 'source-private', Key: 'empty', Body: '' })
     );
     const root = await mkdtemp(join(tmpdir(), 'og7-s3-backup-'));
+    const age = createAgeFixture(root);
     t.after(async () => {
       assert.ok(resolve(root).startsWith(resolve(tmpdir()) + sep));
       assert.ok(root.split(sep).pop().startsWith('og7-s3-backup-'));
@@ -106,7 +108,9 @@ test(
       'scripts/load-env.sh',
       'scripts/backup-artifacts.mjs',
       'scripts/storage-backup.mjs',
-      'scripts/lib/s3-backup.mjs'
+      'scripts/lib/s3-backup.mjs',
+      'scripts/lib/tar-stream.mjs',
+      'scripts/lib/backup-encryption.mjs'
     ]) {
       await mkdir(dirname(join(root, file)), { recursive: true });
       await writeFile(
@@ -134,6 +138,8 @@ test(
     }
     const settings = {
       NODE_ENV: 'test',
+      FUNDING_FULL_BACKUP_AGE_RECIPIENT: age.recipient,
+      FUNDING_BACKUP_AGE_BINARY: age.ageBinary.replaceAll('\\', '/'),
       DATABASE_URL: '',
       SPONSOR_MEDIA_STORAGE_DRIVER: 'ovh-s3',
       SPONSOR_MEDIA_ENDPOINT: endpoint,
@@ -194,7 +200,7 @@ test(
       /synthetic-s3-backup-secret/
     );
     const names = await readdir(join(root, 'backups'));
-    const config = names.find((n) => /^openg7-backup-.*\.tar.gz$/.test(n));
+    const config = names.find((n) => /^openg7-backup-.*\.tar.gz.age$/.test(n));
     const manifest = JSON.parse(
       await readFile(join(root, 'backups', config + '.manifest.json'), 'utf8')
     );
@@ -208,7 +214,9 @@ test(
     );
     const unpacked = join(root, 'unpacked');
     await mkdir(unpacked);
-    await exec('tar', ['-xzf', media, '-C', unpacked]);
+    const decryptedMedia = join(root, 'media.tar.gz');
+    await writeFile(decryptedMedia, age.decrypt(media));
+    await exec('tar', ['-xzf', decryptedMedia, '-C', unpacked]);
     const inventory = JSON.parse(
       await readFile(join(unpacked, 'manifest.json'), 'utf8')
     );
@@ -288,7 +296,9 @@ test(
         'restore-archive',
         join(root, 'backups', config),
         media,
-        'target-private,target-public'
+        'target-private,target-public',
+        '--identity',
+        age.identity
       ],
       {
         env: { ...cleanEnv, ...settings, ...target },

@@ -28,6 +28,8 @@ test(
           PATH: process.env.PATH,
           SystemRoot: process.env.SystemRoot,
           FUNDING_API_PORT: '0',
+          FUNDING_PLATFORM_ENV: 'test',
+          FUNDING_ADMIN_AUTH_MODE: 'token',
           FUNDING_ADMIN_TOKEN: token,
           FUNDING_ADMIN_SESSION_SECRET: sessionSecret,
           FUNDING_ADMIN_SESSION_TTL_MINUTES: '7',
@@ -62,7 +64,22 @@ test(
       const url = `http://127.0.0.1:${port}/api/admin/attention`;
       const anonymous = await fetch(url);
       assert.equal(anonymous.status, 401);
-      const headers = { authorization: `Bearer ${token}` };
+      assert.equal(
+        (await fetch(url, { headers: { authorization: `Bearer ${token}` } }))
+          .status,
+        401
+      );
+      const sessionResponse = await fetch(
+        `http://127.0.0.1:${port}/api/admin/session`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token })
+        }
+      );
+      assert.equal(sessionResponse.status, 200);
+      const session = await sessionResponse.json();
+      const headers = { authorization: `Bearer ${session.sessionToken}` };
       const valid = await fetch(url, { headers });
       assert.equal(valid.status, 200);
       assert.equal(valid.headers.get('cache-control'), 'private, no-store');
@@ -112,13 +129,6 @@ test(
       );
       assert.equal((await fetch(url + '?pageSize=101')).status, 401);
       const base = `http://127.0.0.1:${port}/api/admin`;
-      const sessionResponse = await fetch(base + '/session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token })
-      });
-      assert.equal(sessionResponse.status, 200);
-      const session = await sessionResponse.json();
       assert.equal(session.actor, 'funding-admin-session');
       assert.equal(session.ttlSeconds, 7 * 60);
       const authorizedSession = await fetch(url, {

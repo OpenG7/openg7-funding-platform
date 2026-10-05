@@ -592,39 +592,15 @@ test('Sponsorship details migration adds optional company follow-up columns', ()
   }
 });
 
-test('recordSponsorshipDetails upserts against the partial unique index', () => {
-  const source = readFundingPersistenceSource('contributions');
-
-  const match = source.match(
-    /export const recordSponsorshipDetails[\s\S]*?ON CONFLICT \(stripe_session_id\)([\s\S]{0,80}?)DO UPDATE/
-  );
-
-  assert.ok(
-    match,
-    'expected recordSponsorshipDetails to upsert on stripe_session_id'
-  );
-  assert.ok(match[1].includes('WHERE stripe_session_id IS NOT NULL'));
-  assert.ok(source.includes("sponsor_review_status = 'pending_review'"));
-  assert.ok(source.includes('sponsor_reviewed_at = NULL'));
-});
-
-test('Sponsorship details endpoint validates required fields and payment state', () => {
+test('Legacy sponsorship details cannot reach a session-ID-based persistence writer', () => {
   const source = readFundingApiSource();
-
-  assert.ok(source.includes("'/sponsorship-details'"));
-  assert.ok(source.includes("'/api/sponsorship-details'"));
-  assert.ok(source.includes('isNonEmptySponsorText(parsed.companyName'));
-  assert.ok(source.includes('isNonEmptySponsorText(parsed.contactName'));
-  assert.ok(source.includes('isValidSponsorEmail(parsed.contactEmail)'));
-  assert.ok(source.includes('isValidOptionalHttpsUrl(parsed.websiteUrl)'));
-  assert.ok(source.includes('isValidOptionalHttpsUrl(parsed.logoUrl)'));
-  assert.ok(
-    /normalizeContributionType\(sessionMetadata\.contributionType\)\s*!==\s*'sponsorship_interest'/.test(
-      source
-    )
+  const persistence = readFundingPersistenceSource('contributions');
+  assert.ok(source.includes('SPONSORSHIP_LEGACY_ENDPOINT_RETIRED'));
+  assert.equal(source.includes('recordSponsorshipDetails(dbPool'), false);
+  assert.equal(
+    persistence.includes('export const recordSponsorshipDetails ='),
+    false
   );
-  assert.ok(source.includes("session.payment_status !== 'paid'"));
-  assert.ok(source.includes('recordSponsorshipDetails(dbPool'));
 });
 
 test('Checkout requires a public display name when public display consent is granted', () => {

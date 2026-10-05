@@ -44,6 +44,7 @@ export interface AdminSponsorshipAccessResult {
     'queued' | 'already_queued' | 'already_sent' | 'delivery_failed';
 }
 
+/** @deprecated The session-ID endpoint returns 410; use SponsorshipFollowupDetailsRequest. */
 export interface SponsorshipDetailsRequest {
   readonly sessionId: string;
   readonly companyName: string;
@@ -54,6 +55,7 @@ export interface SponsorshipDetailsRequest {
   readonly message?: string;
 }
 
+/** @deprecated The session-ID endpoint no longer accepts writes. */
 export interface SponsorshipDetailsResult {
   readonly received: true;
   readonly recorded: boolean;

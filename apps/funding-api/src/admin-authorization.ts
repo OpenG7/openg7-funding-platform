@@ -45,7 +45,6 @@ export const createAdminAuthorization = ({
   isProduction,
   hasDatabase,
   verifyAdminSession,
-  adminTokenMatches,
   writeJson
 }: AdminAuthorizationDependencies) => {
   const resolveAdminAuthorization = (
@@ -57,14 +56,7 @@ export const createAdminAuthorization = ({
         ? { actor: `admin:${identity.id}`, source: 'oidc' }
         : null;
     }
-    if (!adminTokenConfigured) {
-      return isProduction
-        ? null
-        : {
-            actor: 'local-dev-admin',
-            source: 'local-dev'
-          };
-    }
+    if (isProduction || !adminTokenConfigured) return null;
 
     const token = readAdminToken(request);
     if (!token) {
@@ -75,13 +67,6 @@ export const createAdminAuthorization = ({
       return {
         actor: 'funding-admin-session',
         source: 'session'
-      };
-    }
-
-    if (adminTokenMatches(token)) {
-      return {
-        actor: 'funding-admin-token',
-        source: 'static-token'
       };
     }
 
@@ -96,9 +81,11 @@ export const createAdminAuthorization = ({
     request: ApiRequest,
     response: ApiResponse
   ): boolean => {
-    if (!adminIdentity && !adminTokenConfigured && isProduction) {
+    if (!adminIdentity && (isProduction || !adminTokenConfigured)) {
       writeJson(request, response, 503, {
-        error: 'Admin review is not configured.'
+        error: isProduction
+          ? 'OIDC admin sign-in is required in production.'
+          : 'Admin review is not configured.'
       });
       return false;
     }
@@ -142,7 +129,7 @@ export const createAdminAuthorization = ({
   };
 
   const getAdminAuditActor = (request: ApiRequest): string =>
-    resolveAdminAuthorization(request)?.actor ?? 'local-dev-admin';
+    resolveAdminAuthorization(request)?.actor ?? 'unauthenticated';
 
   return {
     resolveAdminAuthorization,

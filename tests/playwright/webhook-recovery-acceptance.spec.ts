@@ -10,8 +10,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { test, expect } from './support/test.js';
-import { signInAsAdmin } from './support/admin-auth.js';
-import { ADMIN_TOKEN } from './fixtures/e2e-fixtures.mjs';
+import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import {
   acceptanceSql,
   restartAcceptanceApi
@@ -21,7 +20,6 @@ import {
   buildSignedWebhookRequest
 } from './support/stripe-webhook.js';
 
-const headers = { 'x-funding-admin-token': ADMIN_TOKEN };
 interface EventState {
   stripe_event_id: string;
   processing_status: string;
@@ -48,7 +46,10 @@ for (const fault of ['invoice_insert', 'invoice_email_connection'] as const) {
     const email = `webhook-${randomUUID()}@simulation.example.test`;
     const name = `Reprise webhook ${randomUUID().slice(0, 8)}`;
     const get = async <T>(url: string, auth = false): Promise<T> => {
-      const response = await request.get(url, auth ? { headers } : {});
+      const response = await request.get(
+        url,
+        auth ? { headers: await adminSessionHeaders(request) } : {}
+      );
       expect(response.ok(), url).toBe(true);
       return response.json() as Promise<T>;
     };
@@ -276,7 +277,9 @@ for (const fault of ['invoice_insert', 'invoice_email_connection'] as const) {
           async () => {
             try {
               return (
-                await request.get('/api/admin/dashboard', { headers })
+                await request.get('/api/admin/dashboard', {
+                  headers: await adminSessionHeaders(request)
+                })
               ).status();
             } catch {
               return 0;
@@ -381,7 +384,7 @@ for (const fault of ['invoice_insert', 'invoice_email_connection'] as const) {
       ).not.toContain(name);
       const pdf = await request.get(
         '/api/admin/sponsorship-invoices/pdf?invoiceId=' + finalInvoice.id,
-        { headers }
+        { headers: await adminSessionHeaders(request) }
       );
       expect(pdf.ok()).toBe(true);
       expect((await pdf.body()).subarray(0, 5).toString()).toBe('%PDF-');

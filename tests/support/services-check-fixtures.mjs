@@ -2,7 +2,7 @@
 export const completeConfig = {
   APP_DOMAIN: 'funding.test',
   LETSENCRYPT_EMAIL: 'ops@funding.test',
-  FUNDING_PLATFORM_ENV: 'production',
+  FUNDING_PLATFORM_ENV: 'test',
   FUNDING_PLATFORM_API_BASE_URL: 'https://funding.test/api',
   FUNDING_PUBLIC_BASE_URL: 'https://funding.test',
   FUNDING_ALLOWED_ORIGINS: 'https://funding.test',

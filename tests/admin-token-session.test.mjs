@@ -7,17 +7,17 @@ import { createAdminTokenSessionService } from '../dist/apps/funding-api/src/adm
 const prefix = 'openg7-admin-session.';
 const now = Date.UTC(2026, 9, 2, 12);
 const config = Object.freeze({
-  adminToken: 'synthetic-root-admin-token',
-  sessionSecret: 'synthetic-admin-session-secret',
+  adminToken: 'synthetic-root-admin-token-32-characters',
+  sessionSecret: 'synthetic-admin-session-secret-32-characters',
   sessionTtlMinutes: 15,
-  isProduction: true,
+  isProduction: false,
   projectId: 'synthetic-project'
 });
 const payload = Object.freeze({
   actor: 'funding-admin-session',
   exp: now + config.sessionTtlMinutes * 60 * 1000,
   iat: now,
-  nonce: 'synthetic-session-nonce',
+  nonce: 's'.repeat(22),
   v: 1
 });
 const signEncoded = (encoded, secret = config.sessionSecret) =>
@@ -104,6 +104,7 @@ test('token session verification refuses tampering, wrong secrets and malformed 
     `${prefix}.${signature}`,
     `${prefix}${encoded}.`,
     `${prefix}${encoded}.short`,
+    `${valid}.extra`,
     `${prefix}${encoded}.${changedSignature}`,
     `${prefix}${changedEncoded}.${signature}`,
     signedToken(payload, 'synthetic-other-secret'),
@@ -115,7 +116,7 @@ test('token session verification refuses tampering, wrong secrets and malformed 
   assert.equal(
     createAdminTokenSessionService({
       ...config,
-      sessionSecret: 'synthetic-other-secret'
+      sessionSecret: 'synthetic-other-secret-32-characters'
     }).verifyAdminSession(valid, now),
     null
   );
@@ -138,7 +139,12 @@ test('signed sessions still require the expected actor, version and integer time
     { exp: null },
     { exp: undefined },
     { exp: now - 1 },
-    { exp: now }
+    { exp: now },
+    { iat: now + 1 },
+    { exp: payload.exp + 1 },
+    { nonce: undefined },
+    { nonce: 'short' },
+    { nonce: '!'.repeat(22) }
   ]) {
     assert.equal(
       service.verifyAdminSession(signedToken({ ...payload, ...invalid }), now),
@@ -147,35 +153,55 @@ test('signed sessions still require the expected actor, version and integer time
   }
 });
 
-test('signing secret precedence and the local project fallback match the existing startup policy', () => {
-  for (const [overrides, signingSecret] of [
-    [{}, config.sessionSecret],
-    [{ sessionSecret: '' }, config.adminToken],
-    [
-      { adminToken: '', sessionSecret: '', isProduction: false },
-      config.projectId
-    ],
-    [{ adminToken: '' }, config.sessionSecret]
-  ]) {
-    const service = createAdminTokenSessionService({ ...config, ...overrides });
-    const response = service.createAdminSession(now);
-    const [encoded] = response.sessionToken.slice(prefix.length).split('.');
-    assert.equal(response.sessionToken, signEncoded(encoded, signingSecret));
-    assert.deepEqual(
-      service.verifyAdminSession(signedToken(payload, signingSecret), now),
-      payload
-    );
-  }
-
+test('absent credentials and production never fall back to the root token or public project ID', () => {
   for (const overrides of [
     { adminToken: '', sessionSecret: '' },
-    { adminToken: '', sessionSecret: '', isProduction: false, projectId: '' }
+    { adminToken: '', sessionSecret: '', projectId: 'known-public-project' },
+    { isProduction: true }
   ]) {
     const service = createAdminTokenSessionService({ ...config, ...overrides });
     assert.equal(service.createAdminSession(now), null);
     assert.equal(service.verifyAdminSession(signedToken(payload), now), null);
     assert.equal(service.adminTokenMatches(''), false);
   }
+});
+
+test('token sessions reject weak, missing or shared signing credentials and unbounded durations', () => {
+  for (const overrides of [
+    { adminToken: 'short' },
+    { sessionSecret: 'short' },
+    { adminToken: '' },
+    { sessionSecret: '' },
+    { sessionSecret: config.adminToken },
+    { sessionTtlMinutes: 0 },
+    { sessionTtlMinutes: 61 },
+    { sessionTtlMinutes: 1.5 }
+  ])
+    assert.throws(
+      () => createAdminTokenSessionService({ ...config, ...overrides }),
+      /FUNDING_ADMIN_/
+    );
+  for (const value of [null, [], 'value'])
+    assert.equal(
+      createAdminTokenSessionService(config).verifyAdminSession(
+        signedToken(value),
+        now
+      ),
+      null
+    );
+});
+
+test('OIDC disables legacy token credentials without validating or falling back to them', () => {
+  const service = createAdminTokenSessionService({
+    ...config,
+    enabled: false,
+    adminToken: 'unused-short-root',
+    sessionSecret: 'unused-short-secret',
+    sessionTtlMinutes: 120
+  });
+  assert.equal(service.adminTokenMatches('unused-short-root'), false);
+  assert.equal(service.createAdminSession(now), null);
+  assert.equal(service.verifyAdminSession(signedToken(payload), now), null);
 });
 
 test('static admin tokens require the exact configured value and refuse absent configuration', () => {
@@ -193,7 +219,8 @@ test('static admin tokens require the exact configured value and refuse absent c
   }
   const unconfigured = createAdminTokenSessionService({
     ...config,
-    adminToken: ''
+    adminToken: '',
+    sessionSecret: ''
   });
   assert.equal(unconfigured.adminTokenMatches(''), false);
   assert.equal(unconfigured.adminTokenMatches(config.adminToken), false);

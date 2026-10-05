@@ -2,8 +2,12 @@ import { randomUUID } from 'node:crypto';
 
 import type { AdminEmailQueueResponse } from '@openg7/funding-core';
 
-import { ADMIN_TOKEN, SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
-import { openFixtureSponsorship, signInAsAdmin } from './support/admin-auth.js';
+import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
+import {
+  openFixtureSponsorship,
+  signInAsAdmin,
+  adminSessionHeaders
+} from './support/admin-auth.js';
 import { expect, test } from './support/test.js';
 
 test('persistent drafts, public recovery and confirmed admin resend use the real API', async ({
@@ -11,7 +15,7 @@ test('persistent drafts, public recovery and confirmed admin resend use the real
   request
 }) => {
   const fixture = SPONSORSHIP_FIXTURES.followupRecovery;
-  const headers = { 'x-funding-admin-token': ADMIN_TOKEN };
+  const headers = await adminSessionHeaders(request);
   const records = await (
     await request.get(
       '/api/admin/sponsorships?search=' +

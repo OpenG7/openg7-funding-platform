@@ -9,14 +9,12 @@ import type {
 } from '@openg7/funding-core';
 
 import { test, expect } from './support/test.js';
-import { signInAsAdmin } from './support/admin-auth.js';
-import { ADMIN_TOKEN } from './fixtures/e2e-fixtures.mjs';
+import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import {
   buildStripeEvent,
   buildSignedWebhookRequest
 } from './support/stripe-webhook.js';
 
-const headers = { 'x-funding-admin-token': ADMIN_TOKEN };
 interface Session {
   id: string;
   payment_intent: string;
@@ -51,7 +49,10 @@ for (const outcome of ['abandoned', 'declined', 'expired'] as const) {
     const english = outcome === 'expired';
     const prefix = english ? '/en' : '';
     const get = async <T>(url: string, auth = false): Promise<T> => {
-      const response = await request.get(url, auth ? { headers } : {});
+      const response = await request.get(
+        url,
+        auth ? { headers: await adminSessionHeaders(request) } : {}
+      );
       expect(response.ok(), url).toBe(true);
       return response.json() as Promise<T>;
     };

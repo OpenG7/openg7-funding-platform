@@ -1,4 +1,6 @@
 import type { Pool } from 'pg';
+
+import { projectStoredStripeEvent } from './stripe-event-projection.js';
 export interface StripeEventRecordInput {
   readonly stripeEventId: string;
   readonly eventType: string;
@@ -30,7 +32,11 @@ export const insertStripeEventRecord = async (
         processed_at = NULL
       WHERE stripe_events.processing_status = 'failed'
     `,
-    [input.stripeEventId, input.eventType, JSON.stringify(input.payload)]
+    [
+      input.stripeEventId,
+      input.eventType,
+      JSON.stringify(projectStoredStripeEvent(input.payload))
+    ]
   );
 
   return result.rowCount === 1;

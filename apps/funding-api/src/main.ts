@@ -31,6 +31,7 @@ import { AdminStripeBackfillService } from './admin-stripe-backfill.service.js';
 import { createAdminTokenSessionService } from './admin-token-session.js';
 import { ContributionActivityService } from './contribution-activity.service.js';
 import { dbPool, hasDatabase } from './database.js';
+import { assertProductionDatabasePrivileges } from './database-runtime-security.js';
 import {
   getEmailQueueStatus,
   processQueuedEmailMessages
@@ -48,6 +49,7 @@ import {
   readBodyBuffer
 } from './http-transport.js';
 import { createPublicTransparencyCache } from './public-transparency-cache.js';
+import { privateDataEncryptionKey } from './private-data-protection.js';
 import { PublicationAutomationService } from './publication-automation/service.js';
 import { getTransactionalEmailConfigStatus } from './services/email/index.js';
 import { configuredSocialPublicationChannels } from './social-publication.service.js';
@@ -96,8 +98,10 @@ const {
   sponsorLogoMaxBytes,
   sponsorMediaStorageConfig
 } = startupConfig;
+const adminAuthMode = loadApiRuntimeAdminAuthMode();
 const { adminTokenMatches, createAdminSession, verifyAdminSession } =
   createAdminTokenSessionService({
+    enabled: adminAuthMode === 'token',
     adminToken,
     sessionSecret: adminSessionSecret,
     sessionTtlMinutes: adminSessionTtlMinutes,
@@ -172,6 +176,7 @@ const readCockpitSystems = createCockpitSystemsReader({
 });
 const socialPublicationConfig = loadApiRuntimeSocialPublicationConfig();
 validateApiRuntimeConfig(runtimeConfig);
+privateDataEncryptionKey();
 
 const { writeJson, writeText, writeCsv, writeBinary, writePdf, writeOptions } =
   createHttpTransport({ isProduction, allowedOrigins });
@@ -234,7 +239,6 @@ const socialPublicationRuntime = (): {
   )
 });
 
-const adminAuthMode = loadApiRuntimeAdminAuthMode();
 if (adminAuthMode === 'oidc' && !dbPool)
   throw new Error('OIDC requires PostgreSQL.');
 const adminIdentity =
@@ -431,6 +435,13 @@ const handleRequest = createHttpDispatcher({
     lastCheckedAt: new Date().toISOString()
   })
 });
+
+try {
+  await assertProductionDatabasePrivileges(dbPool, isProduction);
+} catch (error) {
+  await dbPool?.end();
+  throw error;
+}
 
 createServer(
   createApiRequestListener({

@@ -1,6 +1,7 @@
 import type { ContributionType } from '@openg7/funding-core';
 import type { Pool, PoolClient } from 'pg';
 
+import { projectStoredCheckoutMetadata } from './stripe-event-projection.js';
 import { allowedPreviousPaymentStatuses } from './contribution-payment-state.js';
 import { recordContributionActivity } from './contribution-activity.repository.js';
 
@@ -71,7 +72,7 @@ export const insertCheckoutSessionRecord = async (
         input.contributionType,
         input.amountCents,
         input.currency.toLowerCase(),
-        JSON.stringify(input.metadata)
+        JSON.stringify(projectStoredCheckoutMetadata(input.metadata))
       ]
     );
 
@@ -185,7 +186,7 @@ export const upsertCheckoutSessionFromWebhook = async (
         input.contributionType,
         input.amountCents,
         input.currency.toLowerCase(),
-        JSON.stringify(input.metadata),
+        JSON.stringify(projectStoredCheckoutMetadata(input.metadata)),
         input.status,
         allowedPreviousPaymentStatuses(input.status)
       ]

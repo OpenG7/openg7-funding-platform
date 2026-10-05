@@ -9,10 +9,17 @@ Elles ne remplacent pas les ensembles complets DB/médias/configuration ci-desso
 
 ## Créer un ensemble cohérent
 
-Prérequis : Bash, Node 22, Docker Compose et l'image `postgres:16-alpine`.
+Prérequis : Bash, Node 22, Docker Compose, `age` et l'image `postgres:16-alpine`.
 Identifier l'environnement, la révision et les digests API/Web. Prévoir l'espace,
 un emplacement protégé hors serveur et une rétention adaptée avant la sauvegarde.
-Le script ne chiffre ni ne transfère les archives et ne supprime aucun historique.
+Le script chiffre chaque flux de configuration, SQL et médias avec age avant
+écriture (`*.tar.gz.age`, `*.sql.age`). Il ne transfère pas les copies et ne supprime
+aucun historique. Préparer `FUNDING_FULL_BACKUP_AGE_RECIPIENT`, destinataire public
+généré sur un poste de confiance. Sa clé privée reste indépendante du VPS, avec une
+copie protégée de la clé de chiffrement applicative pour la récupération des données.
+Une variable absente/invalide ou un outil indisponible bloque la capture; aucune
+option ne crée de nouvelle sauvegarde en clair. `FUNDING_BACKUP_AGE_BINARY` permet
+seulement de sélectionner le chemin de l'exécutable age sur l'hôte.
 
 Pour une récupération DB **et** médias cohérente, arrêter les écritures applicatives,
 workers et téléversements pendant toute la capture. `pg_dump` fournit un snapshot
@@ -26,7 +33,8 @@ bash scripts/backup.sh
 Les archives de configuration, dump SQL et volume de médias partagent leur
 horodatage. Le fichier adjacent à la configuration, `*.tar.gz.manifest.json`,
 est écrit seulement après réussite de la capture : version, date UTC,
-environnement, base, pilote des médias, nom, taille et SHA-256 de chaque fichier.
+environnement, base, pilote des médias, chiffrement age (version 2), nom, taille et
+SHA-256 du contenu chiffré de chaque fichier.
 L'absence de manifeste signifie que l'ensemble n'est pas terminé. Un verrou
 empêche deux sauvegardes simultanées dans le même répertoire; après interruption
 brutale, vérifier qu'aucune capture ne tourne avant de retirer ce verrou.
@@ -43,10 +51,13 @@ deux buckets, leurs clés, rôles privé/public, type MIME, cache, métadonnées
 version observée et SHA-256. Le script utilise le SDK déjà installé par Yarn,
 parcourt la pagination et relit l'inventaire avant de conclure. Garder les écritures
 arrêtées : cette vérification ne rend pas atomiques PostgreSQL et S3. La capture
-est bornée à 100 000 objets au total et les requêtes à 60 secondes.
+est bornée à 100 000 objets au total et les requêtes à 60 secondes. Les objets et
+leur manifeste interne sont transmis en tar/gzip directement au chiffrement, sans
+staging en clair sur disque côté serveur.
 Les versions historiques, marqueurs de suppression, politiques, ACL et règles
-de rétention ne sont pas sauvegardés. Un échec garde le staging privé `.s3-*`
-pour investigation et ne produit aucun manifeste d'ensemble terminé.
+de rétention ne sont pas sauvegardés. Un échec retire les temporaires chiffrés et
+ne produit aucun manifeste d'ensemble terminé; les autres artéfacts déjà terminés
+ne constituent pas un ensemble complet.
 
 ### Récupération des objets S3 en quarantaine
 
@@ -57,13 +68,14 @@ Ne pas charger la configuration source pour cette opération.
 
 ```sh
 node --env-file=/secure/recovery-s3.env scripts/storage-backup.mjs restore-archive \
-  /archives/openg7-backup-20260925T020000Z.tar.gz \
-  /archives/openg7-sponsor-logos-20260925T020000Z.tar.gz \
-  recovery-private,recovery-public
+  /archives/openg7-backup-20261004T020000Z.tar.gz.age \
+  /archives/openg7-sponsor-logos-20261004T020000Z.tar.gz.age \
+  recovery-private,recovery-public --identity /secure/offline-recovery.agekey
 ```
 
 Le dernier argument confirme exactement les deux buckets configurés. Le manifeste
-adjacent à la configuration est obligatoire. La commande vérifie les empreintes,
+adjacent à la configuration est obligatoire. La commande vérifie les empreintes
+chiffrées, déchiffre avec l'identité externe dans un dossier privé de récupération,
 les entrées d'archive et chaque objet avant toute écriture distante. Elle réserve
 les cibles avec des écritures conditionnelles, refuse tout écrasement et relit
 chaque objet restauré. Tous les objets reçoivent une ACL privée, y compris ceux
@@ -99,16 +111,32 @@ Après l'autorisation explicite de l'opération et vérification de ses sauvegar
 ```sh
 bash scripts/restore-from-backup.sh \
   --target-project openg7-recovery-20260925 \
-  --config-backup /archives/openg7-backup-20260925T020000Z.tar.gz \
-  --database-dump /archives/openg7-funding-db-20260925T020000Z.sql \
-  --sponsor-logos-backup /archives/openg7-sponsor-logos-20260925T020000Z.tar.gz
+  --config-backup /archives/openg7-backup-20261004T020000Z.tar.gz.age \
+  --database-dump /archives/openg7-funding-db-20261004T020000Z.sql.age \
+  --sponsor-logos-backup /archives/openg7-sponsor-logos-20261004T020000Z.tar.gz.age \
+  --identity /secure/offline-recovery.agekey
 ```
 
 Le manifeste doit accompagner le fichier de configuration avec le suffixe
 `.manifest.json`. Les anciens ensembles sans manifeste ne sont pas acceptés par
 ce flux : une empreinte calculée après coup ne prouve pas leur intégrité passée.
 La confirmation saisie est `RESTORE <nom-du-projet>`; `--force` omet seulement
-cette saisie, jamais les vérifications.
+cette saisie, jamais les vérifications. Le déchiffrement précède toute création de
+volume ou écriture DB et valide les chemins/types d'entrées avant extraction. La
+clé privée n'entre ni dans `.env` restauré ni dans les conteneurs. Les temporaires
+déchiffrés, privés (`0700`/`0600`), sont retirés à la fin, y compris sur échec.
+
+Les ensembles historiques de version 1 restent restaurables uniquement après
+revue et ajout de `--allow-legacy-plaintext`; la même option est obligatoire pour
+`storage-backup.mjs restore-archive` avec de telles copies. Les archives existantes
+ne sont ni chiffrées rétroactivement ni supprimées par cette modification.
+
+Les nouveaux dumps utilisent `--no-owner --no-acl` : l'import restaure le schéma
+et les données sous le propriétaire de la cible, sans supposer l'existence des
+rôles globaux source. Avant toute activation, vérifier `DATABASE_URL`, préparer le
+[compte API restreint](../docker-deployment.md#compte-postgresql-applicatif) sur la
+cible et contrôler ses privilèges. Le flux de restauration ne provisionne aucun
+rôle et ne démarre jamais l'API à la place de l'opérateur.
 
 ### Variante PostgreSQL et S3
 

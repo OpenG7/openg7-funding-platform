@@ -26,6 +26,7 @@ services:
 
   api:
     environment:
+      FUNDING_ADMIN_AUTH_MODE: token
       STRIPE_API_HOST: stripe-stub
       STRIPE_API_PORT: '4242'
       STRIPE_API_PROTOCOL: http

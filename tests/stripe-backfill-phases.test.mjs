@@ -359,8 +359,10 @@ test('writing phases retain metadata, references, consent and provenance in thei
     sql.startsWith('INSERT INTO stripe_checkout_sessions')
   );
   const mergedMetadata = JSON.parse(upsert.values[5]);
-  assert.equal(mergedMetadata.intentOnly, 'preserved');
-  assert.equal(mergedMetadata.publicDisplayName, 'Session name');
+  assert.equal(mergedMetadata.intentOnly, undefined);
+  assert.equal(mergedMetadata.publicDisplayName, undefined);
+  assert.equal(mergedMetadata.project, 'openg7');
+  assert.equal(mergedMetadata.publicReference, 'OG7-2025-1234ABCD');
   const contribution = pool.queries.find(({ sql }) =>
     sql.startsWith('INSERT INTO fund_contributions')
   );

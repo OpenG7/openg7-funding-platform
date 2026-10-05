@@ -8,8 +8,7 @@ import type {
   PublicationAutomationState
 } from '@openg7/funding-core';
 
-import { ADMIN_TOKEN } from './fixtures/e2e-fixtures.mjs';
-import { signInAsAdmin } from './support/admin-auth.js';
+import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { expect, test } from './support/test.js';
 
 // Only the disposable runner supplies this flag and a fresh PostgreSQL database.
@@ -26,7 +25,7 @@ for (const loseResponse of [false, true]) {
       : 'pilotage confirmation persists its decision, receipt and audit through the real API',
     async ({ page, request, baseURL }) => {
       expect(new URL(baseURL!).hostname).toBe('127.0.0.1');
-      const headers = { 'x-funding-admin-token': ADMIN_TOKEN };
+      const headers = await adminSessionHeaders(request);
       const automationUrl = '/api/admin/publication-automation';
       const automation = async (): Promise<PublicationAutomationState> => {
         const response = await request.get(automationUrl, { headers });

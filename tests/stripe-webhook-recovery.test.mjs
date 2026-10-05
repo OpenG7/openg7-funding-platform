@@ -556,7 +556,8 @@ test('Checkout forwards references and consents while a historical payment remai
   const session = database.calls.find(({ sql }) =>
     sql.includes('INSERT INTO stripe_checkout_sessions')
   );
-  assert.deepEqual(JSON.parse(session.values[5]), metadata);
+  const { publicDisplayName: _privateName, ...storedMetadata } = metadata;
+  assert.deepEqual(JSON.parse(session.values[5]), storedMetadata);
   const contribution = database.calls.find(({ sql }) =>
     sql.includes('INSERT INTO fund_contributions')
   );

@@ -271,17 +271,17 @@ async function recoveryScenario(mediaDriver, { playwright }, info) {
       files = {
         config: join(
           directory,
-          names.find((n) => /^openg7-backup-.*\.tar\.gz$/.test(n))
+          names.find((n) => /^openg7-backup-.*\.tar\.gz\.age$/.test(n))
         ),
         database: join(
           directory,
-          names.find((n) => n.endsWith('.sql'))
+          names.find((n) => n.endsWith('.sql.age'))
         ),
         media: join(
           directory,
           names.find(
             (n) =>
-              n.startsWith('openg7-sponsor-logos-') && n.endsWith('.tar.gz')
+              n.startsWith('openg7-sponsor-logos-') && n.endsWith('.tar.gz.age')
           )
         )
       };
@@ -324,6 +324,8 @@ async function recoveryScenario(mediaDriver, { playwright }, info) {
       selected.database,
       '--sponsor-logos-backup',
       selected.media,
+      '--identity',
+      fixture.age.identity,
       ...(s3
         ? [
             '--s3-env',
@@ -412,15 +414,16 @@ async function recoveryScenario(mediaDriver, { playwright }, info) {
         database = join(failed.directory, 'broken.sql');
       await writeFile(config, await readFile(files.config));
       const sql = Buffer.concat([
-        await readFile(files.database),
+        fixture.age.decrypt(files.database),
         Buffer.from('\nSELECT nonexistent_recovery_function();\n')
       ]);
-      await writeFile(database, sql);
+      const encryptedSql = fixture.age.encrypt(sql);
+      await writeFile(database, encryptedSql);
       const manifest = JSON.parse(
         await readFile(files.config + '.manifest.json', 'utf8')
       );
-      manifest.artifacts.database.sha256 = digest(sql);
-      manifest.artifacts.database.bytes = sql.length;
+      manifest.artifacts.database.sha256 = digest(encryptedSql);
+      manifest.artifacts.database.bytes = encryptedSql.length;
       await writeFile(config + '.manifest.json', JSON.stringify(manifest));
       const result = await failed.script('restore-from-backup.sh', [
         ...restoreArgs(failed, { ...files, config, database }),

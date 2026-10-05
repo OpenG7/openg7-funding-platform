@@ -32,17 +32,18 @@ Behavior:
 
 - Webhook signature verification using `STRIPE_WEBHOOK_SECRET`
 - Idempotency through unique `stripe_event_id` and `processing_status`
-- PostgreSQL serializes each event on a dedicated connection; interrupted
-  processing can resume on redelivery, while concurrent deliveries receive
-  `503` for retry and completed duplicates receive `200`.
+- PostgreSQL locks each event on one connection. Redelivery resumes interrupted
+  processing; concurrent deliveries receive `503`, completed duplicates `200`.
 - Delayed failures cannot replace confirmed payment, dispute, or refund states.
 - Refund events reconcile current provider facts under a per-refund lock.
   Missing invoices or financial contradictions keep the event failed; no sponsor
   email is inferred. See [refund recovery](../operations/stripe-refund-integrity.md).
 - Sponsorship follow-up and invoice emails are queued for the email worker.
 - `balance_transaction` retrieval to compute fee/net fields
-- For the fast launch, webhook deliveries are validated and acknowledged without local storage
-- Statistics use Stripe while `DATABASE_URL` remains unset
+- Development without PostgreSQL acknowledges verified webhooks without storage;
+  transparency reads Stripe. Production requires PostgreSQL.
+
+[Private data](../operations/private-data-protection.md).
 
 See [payment confirmation and recovery checks](../payment-trust-validation.md)
 for the UI behavior, refund totals, and isolated PostgreSQL/browser tests.

@@ -134,25 +134,25 @@ const ensureBackupDownloadDir = () => {
 const prepareLatestConfigBackup = () =>
   inAppDir([
     'bash scripts/backup.sh',
-    'manifest="$(ls -t backups/openg7-backup-*.tar.gz.manifest.json 2>/dev/null | head -n 1)"',
+    'manifest="$(ls -t backups/openg7-backup-*.tar.gz.age.manifest.json 2>/dev/null | head -n 1)"',
     'latest="${manifest%.manifest.json}"',
     'if [ -z "$latest" ]; then echo "No configuration backup was created." >&2; exit 1; fi',
-    'cp "$latest" backups/latest-config-backup.tar.gz',
-    'cp "$manifest" backups/latest-config-backup.tar.gz.manifest.json',
-    'stamp="${latest#backups/openg7-backup-}"; stamp="${stamp%.tar.gz}"',
-    'rm -f backups/latest-sponsor-logos-backup.tar.gz backups/latest-db-backup.sql',
-    'if [ -f "backups/openg7-sponsor-logos-${stamp}.tar.gz" ]; then cp "backups/openg7-sponsor-logos-${stamp}.tar.gz" backups/latest-sponsor-logos-backup.tar.gz; fi',
-    'if [ -f "backups/openg7-funding-db-${stamp}.sql" ]; then cp "backups/openg7-funding-db-${stamp}.sql" backups/latest-db-backup.sql; fi',
+    'cp "$latest" backups/latest-config-backup.tar.gz.age',
+    'cp "$manifest" backups/latest-config-backup.tar.gz.age.manifest.json',
+    'stamp="${latest#backups/openg7-backup-}"; stamp="${stamp%.tar.gz.age}"',
+    'rm -f backups/latest-sponsor-logos-backup.tar.gz.age backups/latest-db-backup.sql.age',
+    'if [ -f "backups/openg7-sponsor-logos-${stamp}.tar.gz.age" ]; then cp "backups/openg7-sponsor-logos-${stamp}.tar.gz.age" backups/latest-sponsor-logos-backup.tar.gz.age; fi',
+    'if [ -f "backups/openg7-funding-db-${stamp}.sql.age" ]; then cp "backups/openg7-funding-db-${stamp}.sql.age" backups/latest-db-backup.sql.age; fi',
     'chmod 600 backups/latest-*'
   ]);
 
 const prepareLatestDatabaseBackup = () =>
   inAppDir([
     'bash scripts/backup.sh',
-    'latest="$(ls -t backups/openg7-funding-db-*.sql 2>/dev/null | head -n 1)"',
+    'latest="$(ls -t backups/openg7-funding-db-*.sql.age 2>/dev/null | head -n 1)"',
     'if [ -z "$latest" ]; then echo "No database backup was created. Is DATABASE_URL configured and postgres running?" >&2; exit 1; fi',
-    'cp "$latest" backups/latest-db-backup.sql',
-    'chmod 600 backups/latest-db-backup.sql'
+    'cp "$latest" backups/latest-db-backup.sql.age',
+    'chmod 600 backups/latest-db-backup.sql.age'
   ]);
 
 const listBackupFiles = (filters, emptyMessage) =>
@@ -163,13 +163,13 @@ const listBackupFiles = (filters, emptyMessage) =>
 
 const listBackups = () =>
   listBackupFiles(
-    "\\( -name 'openg7-backup-*.tar.gz' -o -name 'openg7-funding-db-*.sql' -o -name 'openg7-sponsor-logos-*.tar.gz' \\)",
+    "\\( -name 'openg7-backup-*.tar.gz.age' -o -name 'openg7-funding-db-*.sql.age' -o -name 'openg7-sponsor-logos-*.tar.gz.age' -o -name 'openg7-backup-*.tar.gz' -o -name 'openg7-funding-db-*.sql' -o -name 'openg7-sponsor-logos-*.tar.gz' \\)",
     'No backups found in backups/.'
   );
 
 const listDatabaseBackups = () =>
   listBackupFiles(
-    "-name 'openg7-funding-db-*.sql'",
+    "\\( -name 'openg7-funding-db-*.sql.age' -o -name 'openg7-funding-db-*.sql' \\)",
     'No database backups found in backups/.'
   );
 
@@ -259,28 +259,31 @@ try {
     await ssh(prepareLatestConfigBackup());
     const downloadPath = localPath(
       backupDownloadDir,
-      `openg7-config-backup-vps-${timestamp()}.tar.gz`
+      `openg7-config-backup-vps-${timestamp()}.tar.gz.age`
     );
     await scpFromVps(
-      `${vpsAppDir}/backups/latest-config-backup.tar.gz`,
+      `${vpsAppDir}/backups/latest-config-backup.tar.gz.age`,
       downloadPath
     );
     console.log(`Backup configuration telecharge: ${downloadPath}`);
     await scpFromVps(
-      `${vpsAppDir}/backups/latest-config-backup.tar.gz.manifest.json`,
+      `${vpsAppDir}/backups/latest-config-backup.tar.gz.age.manifest.json`,
       downloadPath + '.manifest.json'
     );
-    const remoteDatabaseBackup = `${vpsAppDir}/backups/latest-db-backup.sql`;
+    const remoteDatabaseBackup = `${vpsAppDir}/backups/latest-db-backup.sql.age`;
     if (await remoteFileExists(remoteDatabaseBackup)) {
-      await scpFromVps(remoteDatabaseBackup, downloadPath + '.database.sql');
+      await scpFromVps(
+        remoteDatabaseBackup,
+        downloadPath + '.database.sql.age'
+      );
       console.log('Dump PostgreSQL du meme ensemble telecharge.');
     }
 
-    const remoteLogoBackup = `${vpsAppDir}/backups/latest-sponsor-logos-backup.tar.gz`;
+    const remoteLogoBackup = `${vpsAppDir}/backups/latest-sponsor-logos-backup.tar.gz.age`;
     if (await remoteFileExists(remoteLogoBackup)) {
       const logoDownloadPath = localPath(
         backupDownloadDir,
-        `openg7-sponsor-logos-backup-vps-${timestamp()}.tar.gz`
+        `openg7-sponsor-logos-backup-vps-${timestamp()}.tar.gz.age`
       );
       await scpFromVps(remoteLogoBackup, logoDownloadPath);
       console.log(
@@ -302,9 +305,12 @@ try {
     await ssh(prepareLatestDatabaseBackup());
     const downloadPath = localPath(
       backupDownloadDir,
-      `openg7-db-backup-vps-${timestamp()}.sql`
+      `openg7-db-backup-vps-${timestamp()}.sql.age`
     );
-    await scpFromVps(`${vpsAppDir}/backups/latest-db-backup.sql`, downloadPath);
+    await scpFromVps(
+      `${vpsAppDir}/backups/latest-db-backup.sql.age`,
+      downloadPath
+    );
     console.log(`Backup PostgreSQL telecharge: ${downloadPath}`);
   } else {
     console.error(`Commande VPS inconnue: ${command}`);

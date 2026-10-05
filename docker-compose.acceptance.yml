@@ -55,12 +55,13 @@ services:
       dockerfile: apps/funding-api/Dockerfile
     environment:
       FUNDING_PLATFORM_ENV: development
+      FUNDING_ADMIN_AUTH_MODE: token
       FUNDING_API_PORT: '3333'
       FUNDING_PUBLIC_BASE_URL: '${PLAYWRIGHT_BASE_URL:?}'
       FUNDING_ALLOWED_ORIGINS: '${PLAYWRIGHT_BASE_URL:?}'
       FUNDING_BUSINESS_SPONSORSHIP_ENABLED: 'true'
       FUNDING_ADMIN_TOKEN: '${FUNDING_ADMIN_TOKEN:?}'
-      FUNDING_ADMIN_SESSION_SECRET: local-acceptance-session-only
+      FUNDING_ADMIN_SESSION_SECRET: local-acceptance-session-signing-secret-32-characters
       FUNDING_ADMIN_RATE_LIMIT_MAX: '0'
       FUNDING_PUBLIC_WRITE_RATE_LIMIT_MAX: '0'
       FUNDING_SPONSORSHIP_FOLLOWUP_RATE_LIMIT_MAX: '0'

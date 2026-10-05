@@ -13,8 +13,7 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
-import { ADMIN_TOKEN } from './fixtures/e2e-fixtures.mjs';
-import { signInAsAdmin } from './support/admin-auth.js';
+import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import {
   buildPaymentIntentSucceededEvent,
   buildSignedWebhookRequest,
@@ -22,7 +21,6 @@ import {
 } from './support/stripe-webhook.js';
 import { test, expect } from './support/test.js';
 
-const headers = { 'x-funding-admin-token': ADMIN_TOKEN };
 const automation = '/api/admin/publication-automation';
 const cockpit = '/admin/fundraiser/publications/automation';
 const feeds: PublicationFeedId[] = ['openg7:facebook', 'openg7:linkedin'];
@@ -53,12 +51,18 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
   page.on('pageerror', (e) => errors.push(e.message));
   const stub = process.env.STRIPE_STUB_BASE_URL!;
   const get = async <T>(url: string, authenticated = true): Promise<T> => {
-    const response = await request.get(url, authenticated ? { headers } : {});
+    const response = await request.get(
+      url,
+      authenticated ? { headers: await adminSessionHeaders(request) } : {}
+    );
     expect(response.ok(), url).toBe(true);
     return response.json() as Promise<T>;
   };
   const command = async (data: PublicationAutomationCommand) => {
-    const response = await request.post(automation, { headers, data });
+    const response = await request.post(automation, {
+      headers: await adminSessionHeaders(request),
+      data
+    });
     expect(response.ok(), await response.text()).toBe(true);
     return response.json();
   };
@@ -441,7 +445,7 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
             paymentStatus: company.scenario
           });
           const stale = await request.post(automation, {
-            headers,
+            headers: await adminSessionHeaders(request),
             data: {
               action: 'approve',
               id: job.id,
@@ -454,7 +458,7 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
             code: 'VERSION_CONFLICT'
           });
           const fresh = await request.post(automation, {
-            headers,
+            headers: await adminSessionHeaders(request),
             data: {
               action: 'approve',
               id: job.id,

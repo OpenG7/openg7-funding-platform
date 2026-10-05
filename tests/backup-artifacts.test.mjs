@@ -5,6 +5,10 @@ import { tmpdir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import test from 'node:test';
+import {
+  ageAvailable,
+  createAgeFixture
+} from './integration/support/age-fixture.mjs';
 
 // Minimal ustar fixture lets Windows and Linux exercise unsafe entries identically.
 const archive = (entries) => {
@@ -175,3 +179,85 @@ test('restore preflight rejects mismatched volumes, external networks and a remo
     assert.ok(!result.output.includes('private-fixture'));
   }
 });
+
+test(
+  'encrypted artifacts keep secrets private and require the matching identity even when ciphertext checksums match',
+  { skip: !ageAvailable },
+  async (t) => {
+    const directory = await mkdtemp(join(tmpdir(), 'og7-encrypted-backup-'));
+    t.after(async () => {
+      assert.ok(resolve(directory).startsWith(resolve(tmpdir()) + sep));
+      await rm(directory, { recursive: true, force: true });
+    });
+    const age = createAgeFixture(directory);
+    const config = join(directory, 'config.tar.gz.age');
+    const database = join(directory, 'database.sql.age');
+    const media = join(directory, 'media.tar.gz.age');
+    const configBytes = archive([
+      { name: '.env', text: 'SYNTHETIC_SECRET=encrypted-private-fixture\n' },
+      { name: 'docker-compose.yml', text: 'services: {}\n' }
+    ]);
+    const sql = Buffer.from("SELECT 'encrypted-private-fixture';\n");
+    await writeFile(config, age.encrypt(configBytes));
+    await writeFile(database, age.encrypt(sql));
+    await writeFile(
+      media,
+      age.encrypt(
+        archive([
+          { name: 'private/image.webp', text: 'encrypted-private-fixture' }
+        ])
+      )
+    );
+    const create = async () => {
+      await rm(config + '.manifest.json', { force: true });
+      assert.equal(
+        cli(['manifest-encrypted', config, database, media, 'local']).code,
+        0
+      );
+    };
+    await create();
+    assert.equal(cli(['encryption', config]).output.trim(), 'age');
+    assert.equal(cli(['verify', config, database, media]).code, 0);
+    for (const path of [config, database, media]) {
+      assert.ok(
+        !(await readFile(path)).includes(
+          Buffer.from('encrypted-private-fixture')
+        )
+      );
+    }
+    const clearConfig = join(directory, 'clear-config.tar.gz');
+    const clearMedia = join(directory, 'clear-media.tar.gz');
+    const clearSql = join(directory, 'clear-database.sql');
+    assert.equal(cli(['decrypt', config, clearConfig, age.identity]).code, 0);
+    assert.equal(cli(['decrypt', media, clearMedia, age.identity]).code, 0);
+    assert.equal(cli(['decrypt', database, clearSql, age.identity]).code, 0);
+    assert.deepEqual(await readFile(clearSql), sql);
+    assert.equal(cli(['validate-decrypted', clearConfig, clearMedia]).code, 0);
+    const otherDirectory = join(directory, 'other');
+    await (await import('node:fs/promises')).mkdir(otherDirectory);
+    const other = createAgeFixture(otherDirectory);
+    assert.notEqual(
+      cli(['decrypt', database, join(directory, 'wrong.sql'), other.identity])
+        .code,
+      0
+    );
+    assert.notEqual(
+      cli(['decrypt', database, join(directory, 'missing.sql')]).code,
+      0
+    );
+    const encrypted = await readFile(database);
+    encrypted[encrypted.length - 1] ^= 1;
+    await writeFile(database, encrypted);
+    assert.notEqual(cli(['verify', config, database, media]).code, 0);
+    await create(); // An attacker can rehash ciphertext but cannot repair its AEAD tag.
+    assert.equal(cli(['verify', config, database, media]).code, 0);
+    const corrupt = cli([
+      'decrypt',
+      database,
+      join(directory, 'corrupt.sql'),
+      age.identity
+    ]);
+    assert.notEqual(corrupt.code, 0);
+    assert.ok(!corrupt.output.includes('encrypted-private-fixture'));
+  }
+);

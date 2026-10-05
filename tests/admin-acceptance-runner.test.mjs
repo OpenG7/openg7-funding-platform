@@ -28,6 +28,11 @@ test('acceptance ignores inherited application credentials, Compose targets and 
     stripePort: 44242
   });
   assert.equal(env.PATH, '/toolchain');
+  assert.equal(env.FUNDING_PLATFORM_ENV, 'test');
+  assert.equal(env.FUNDING_ADMIN_AUTH_MODE, 'token');
+  assert.ok(env.FUNDING_ADMIN_TOKEN.length >= 32);
+  assert.ok(env.FUNDING_ADMIN_SESSION_SECRET.length >= 32);
+  assert.notEqual(env.FUNDING_ADMIN_SESSION_SECRET, env.FUNDING_ADMIN_TOKEN);
   assert.equal(env.DATABASE_URL, undefined);
   assert.equal(env.SMTP_PASSWORD, undefined);
   assert.equal(env.MIGRATIONS_DIR, undefined);

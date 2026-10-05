@@ -6,6 +6,17 @@ import test from 'node:test';
 
 import { createAdminTokenSessionService } from '../dist/apps/funding-api/src/admin-token-session.js';
 
+const adminToken = 'synthetic-admin-token-for-local-tests';
+const sessionSecret = 'synthetic-session-secret-for-local-tests';
+const tokenSessions = () =>
+  createAdminTokenSessionService({
+    adminToken,
+    sessionSecret,
+    sessionTtlMinutes: 60,
+    isProduction: false,
+    projectId: 'openg7'
+  });
+
 const startApi = async (t, configuration = {}) => {
   // Isolate credentials and providers. PostgreSQL is simulated only in the
   // identity fixture; no query can reach a database or an external provider.
@@ -37,8 +48,9 @@ const startApi = async (t, configuration = {}) => {
       PATH: process.env.PATH,
       SystemRoot: process.env.SystemRoot,
       FUNDING_API_PORT: '0',
-      FUNDING_ADMIN_TOKEN: 'synthetic-admin-token',
-      FUNDING_ADMIN_SESSION_SECRET: 'synthetic-session-secret',
+      FUNDING_PLATFORM_ENV: 'test',
+      FUNDING_ADMIN_TOKEN: adminToken,
+      FUNDING_ADMIN_SESSION_SECRET: sessionSecret,
       FUNDING_PUBLIC_BASE_URL: 'http://127.0.0.1',
       FUNDING_EMAIL_WORKER_ENABLED: 'false',
       FUNDING_ADMIN_REVIEW_REMINDER_ENABLED: 'false',
@@ -172,7 +184,7 @@ test(
       );
       assert.equal(
         (await api.exchange(prefix + '/sponsorship-details', malformed)).status,
-        503
+        410
       );
       assert.equal(
         (await api.exchange(prefix + '/sponsorship-details')).status,
@@ -198,7 +210,9 @@ test(
       assert.equal(
         (
           await api.exchange(prefix + '/admin/setup-status', {
-            headers: { authorization: 'Bearer synthetic-admin-token' }
+            headers: {
+              authorization: `Bearer ${tokenSessions().createAdminSession().sessionToken}`
+            }
           })
         ).status,
         200,
@@ -297,7 +311,7 @@ test(
       assert.equal(
         (
           await api.beforeBody(prefix + '/admin/sponsorships/refund', {
-            authorization: 'Bearer synthetic-admin-token'
+            authorization: `Bearer ${adminToken}`
           })
         ).status,
         401,
@@ -332,13 +346,7 @@ test(
   { timeout: 20000 },
   async (t) => {
     const api = await startApi(t);
-    const sessions = createAdminTokenSessionService({
-      adminToken: 'synthetic-admin-token',
-      sessionSecret: 'synthetic-session-secret',
-      sessionTtlMinutes: 60,
-      isProduction: false,
-      projectId: 'openg7'
-    });
+    const sessions = tokenSessions();
     const valid = sessions.createAdminSession().sessionToken;
     const expired = sessions.createAdminSession(
       Date.now() - 7200000

@@ -13,11 +13,9 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
-import { ADMIN_TOKEN } from './fixtures/e2e-fixtures.mjs';
-import { signInAsAdmin } from './support/admin-auth.js';
+import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { test, expect } from './support/test.js';
 
-const headers = { 'x-funding-admin-token': ADMIN_TOKEN };
 const automation = '/api/admin/publication-automation';
 const cockpit = '/admin/fundraiser/publications/automation';
 const feeds: PublicationFeedId[] = ['openg7:facebook', 'openg7:linkedin'];
@@ -45,12 +43,18 @@ for (const review of ['pending', 'reapproved'] as const) {
     const errors: string[] = [];
     admin.on('pageerror', (error) => errors.push(error.message));
     const get = async <T>(url: string, authenticated = true): Promise<T> => {
-      const response = await request.get(url, authenticated ? { headers } : {});
+      const response = await request.get(
+        url,
+        authenticated ? { headers: await adminSessionHeaders(request) } : {}
+      );
       expect(response.ok(), url).toBe(true);
       return response.json() as Promise<T>;
     };
     const command = async (data: PublicationAutomationCommand) => {
-      const response = await request.post(automation, { headers, data });
+      const response = await request.post(automation, {
+        headers: await adminSessionHeaders(request),
+        data
+      });
       expect(response.ok(), await response.text()).toBe(true);
       return response.json();
     };
@@ -337,7 +341,7 @@ for (const review of ['pending', 'reapproved'] as const) {
         });
         expect((await receipt(job.id)).requests).toHaveLength(0);
         const stale = await request.post(automation, {
-          headers,
+          headers: await adminSessionHeaders(request),
           data: {
             action: 'approve',
             id: job.id,
@@ -349,7 +353,7 @@ for (const review of ['pending', 'reapproved'] as const) {
         expect(await stale.json()).toMatchObject({ code: 'VERSION_CONFLICT' });
         const blocked = await delivery(job.id);
         const direct = await request.post(automation, {
-          headers,
+          headers: await adminSessionHeaders(request),
           data: {
             action: 'approve',
             id: job.id,

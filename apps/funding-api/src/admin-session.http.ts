@@ -41,10 +41,29 @@ export const createAdminSessionHttpHandler = ({
       !routeMatches(request.url, '/admin/session', '/api/admin/session')
     )
       return false;
-    if (!adminTokenConfigured && isProduction) {
+    if (isProduction) {
+      writeJson(request, response, 403, {
+        error: 'OIDC admin sign-in is required in production.'
+      });
+      return true;
+    }
+    if (!adminTokenConfigured) {
       writeJson(request, response, 503, {
         error: 'Admin session is not configured.'
       });
+      return true;
+    }
+    if (
+      request.headers['content-type']?.split(';')[0]?.trim().toLowerCase() !==
+      'application/json'
+    ) {
+      writeJson(request, response, 415, {
+        error: 'Content-Type must be application/json.'
+      });
+      return true;
+    }
+    if (request.headers.origin && request.headers.origin !== publicBaseOrigin) {
+      writeJson(request, response, 403, { error: 'Origin refused.' });
       return true;
     }
     let parsed: AdminSessionCreateRequest;
@@ -61,7 +80,7 @@ export const createAdminSessionHttpHandler = ({
     }
     const suppliedToken =
       typeof parsed.token === 'string' ? parsed.token.trim() : '';
-    if (adminTokenConfigured && !adminTokenMatches(suppliedToken)) {
+    if (!adminTokenMatches(suppliedToken)) {
       writeJson(request, response, 401, {
         error: 'Admin authorization is required.'
       });

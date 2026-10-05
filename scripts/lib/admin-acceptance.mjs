@@ -43,6 +43,11 @@ export function acceptanceEnvironment({
     POSTGRES_DB: 'acceptance',
     POSTGRES_USER: 'acceptance',
     FUNDING_ADMIN_TOKEN: ADMIN_TOKEN,
+    FUNDING_PLATFORM_ENV: 'test',
+    FUNDING_ADMIN_AUTH_MODE: 'token',
+    FUNDING_ADMIN_SESSION_SECRET:
+      'local-acceptance-session-signing-secret-32-characters',
+    FUNDING_ADMIN_SESSION_TTL_MINUTES: '60',
     STRIPE_SECRET_KEY: STRIPE_TEST_SECRET_KEY,
     STRIPE_WEBHOOK_SECRET: STRIPE_TEST_WEBHOOK_SECRET
   };

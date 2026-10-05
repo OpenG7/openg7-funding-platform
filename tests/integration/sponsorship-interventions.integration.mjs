@@ -262,6 +262,8 @@ test(
           PATH: process.env.PATH,
           SystemRoot: process.env.SystemRoot,
           FUNDING_API_PORT: '0',
+          FUNDING_PLATFORM_ENV: 'test',
+          FUNDING_ADMIN_AUTH_MODE: 'token',
           DATABASE_URL: `postgresql://${encodeURIComponent(db.user)}:${encodeURIComponent(db.password)}@127.0.0.1:${db.port}/${db.database}`,
           FUNDING_ADMIN_TOKEN: token,
           FUNDING_ADMIN_SESSION_SECRET: randomUUID(),
@@ -299,8 +301,18 @@ test(
         }
       });
     });
+    const sessionResponse = await fetch(
+      `http://127.0.0.1:${port}/api/admin/session`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+      }
+    );
+    assert.equal(sessionResponse.status, 200);
+    const session = await sessionResponse.json();
     const headers = {
-      authorization: `Bearer ${token}`,
+      authorization: `Bearer ${session.sessionToken}`,
       'Content-Type': 'application/json'
     };
     for (const prefix of ['/api/admin', '/admin']) {
@@ -347,7 +359,7 @@ test(
       });
       assert.equal(response.status, 200);
       const entry = await response.json();
-      assert.equal(entry.actor, 'funding-admin-token');
+      assert.equal(entry.actor, 'funding-admin-session');
       assert.match(response.headers.get('cache-control'), /no-store/);
       const read = await fetch(url + `?sponsorshipId=${ids[0]}`, { headers });
       assert.equal(read.status, 200);

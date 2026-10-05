@@ -1,6 +1,32 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Page, type APIRequestContext } from '@playwright/test';
 
 import { ADMIN_TOKEN } from '../fixtures/e2e-fixtures.mjs';
+
+const sessions = new WeakMap<
+  APIRequestContext,
+  Promise<Record<string, string>>
+>();
+
+/** Exercise the same bounded session exchange used by the browser before private API calls. */
+export const adminSessionHeaders = (
+  request: APIRequestContext
+): Promise<Record<string, string>> => {
+  let pending = sessions.get(request);
+  if (!pending) {
+    pending = (async () => {
+      const response = await request.post('/api/admin/session', {
+        data: { token: ADMIN_TOKEN }
+      });
+      expect(response.status()).toBe(200);
+      const session = await response.json();
+      expect(typeof session.sessionToken).toBe('string');
+      return { Authorization: `Bearer ${session.sessionToken}` };
+    })();
+    sessions.set(request, pending);
+    pending.catch(() => sessions.delete(request));
+  }
+  return pending;
+};
 
 export const signInAsAdmin = async (page: Page): Promise<void> => {
   await page.goto('/admin/fundraiser/sponsors');

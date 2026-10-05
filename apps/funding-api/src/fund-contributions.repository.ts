@@ -67,13 +67,11 @@ export type {
   SponsorshipLogoDeleteInput
 } from './sponsorship-decisions.repository.js';
 export {
-  recordSponsorshipDetails,
   getSponsorshipFollowupByTokenHash,
   recordSponsorshipDetailsForContribution,
   markSponsorshipFollowupEmailResult
 } from './sponsorship-followup.repository.js';
 export type {
-  SponsorshipDetailsRecordInput,
   SponsorshipFollowupRecordInput,
   SponsorshipFollowupEmailRecordInput,
   SponsorshipFollowupLookup
