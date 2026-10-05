@@ -6,18 +6,19 @@ foi. Utiliser Node 22 et Yarn 4; ne pas changer le lockfile sans nécessité.
 
 ## Matrice minimale
 
-| Changement                                           | Vérifications                                                                                                                                    |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Documentation                                        | `git diff --check`, format ciblé, liens/ancres et `node scripts/check-project-standards.mjs` et `node scripts/check-agent-docs.mjs`              |
-| UI/style                                             | Format, `yarn lint`, build Angular, tests d'états/interactions pertinents, SSR, i18n, clavier/focus et responsive                                |
-| Configuration ou package                             | Compilation et tests de configuration/domaine; consommateurs concernés                                                                           |
-| API                                                  | Format, `yarn lint`, `yarn test`; contrats, erreurs et chemins de reprise                                                                        |
-| Stripe/webhook, comptabilité, courriel, transparence | [Scénarios financiers](financial-rules.md#scenarios) applicables, tests unitaires/intégration                                                    |
-| Commandite, média, publication                       | [Scénarios commandites](sponsorship-rules.md#validation), permissions, consentement, états, audit et reprises                                    |
-| Admin                                                | Session valide/expirée/absente, endpoint protégé, confirmation sensible, secrets absents, rôle, audit, CSV privé; OIDC/MFA/révocation si touchés |
-| Migration                                            | Base locale propre et existante, contraintes et tests API; lire la [limite du runner](../operations/database-migrations.md) avant exécution      |
-| Docker/Traefik                                       | `docker compose config --quiet`, santé ciblée, délais/dépendances, aucun secret imprimé                                                          |
-| Scripts/VPS                                          | Analyse statique et syntaxe shell, tests locaux ciblés; aucune opération de production implicite                                                 |
+<!-- prettier-ignore -->
+| Changement | Vérifications |
+| --- | --- |
+| Documentation | `git diff --check`, format ciblé et `yarn docs:check` (standards, budgets et liens/ancres) |
+| UI/style | Format, `yarn lint`, build Angular, tests d'états/interactions pertinents, SSR, i18n, clavier/focus et responsive |
+| Configuration ou package | Compilation et tests de configuration/domaine; consommateurs concernés |
+| API | Format, `yarn lint`, `yarn test`; contrats, erreurs et chemins de reprise |
+| Stripe/webhook, comptabilité, courriel, transparence | [Scénarios financiers](financial-rules.md#scenarios) applicables, tests unitaires/intégration |
+| Commandite, média, publication | [Scénarios commandites](sponsorship-rules.md#validation), permissions, consentement, états, audit et reprises |
+| Admin | Session valide/expirée/absente, endpoint protégé, confirmation sensible, secrets absents, rôle, audit, CSV privé; OIDC/MFA/révocation si touchés |
+| Migration | Base locale propre et existante, contraintes et tests API; lire la [limite du runner](../operations/database-migrations.md) avant exécution |
+| Docker/Traefik | `docker compose config --quiet`, santé ciblée, délais/dépendances, aucun secret imprimé |
+| Scripts/VPS | Analyse statique et syntaxe shell, tests locaux ciblés; aucune opération de production implicite |
 
 Ajouter les tests adaptés avec le changement fonctionnel. Préserver signature,
 répétition, ordre, données fournisseur partielles, reprise après échec et double
@@ -26,22 +27,30 @@ documentaire n'exige pas de lancer les suites applicatives.
 
 ## Portée des commandes
 
-| Commande                                                                  | Ce qu'elle vérifie                                                                                                                                  |
-| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `yarn build`                                                              | Compilation TypeScript via `tsconfig.build.json`; pas le build Angular                                                                              |
-| `yarn test`                                                               | Compilation TypeScript puis tests Node; ne pas refaire `yarn build` juste avant                                                                     |
-| `yarn workspace @openg7/funding-web build --configuration production`     | Build Angular et rendu initial/SSR configuré                                                                                                        |
-| `yarn test:sponsorship`                                                   | Suite Node de couverture commandite; aucun navigateur                                                                                               |
-| `yarn test:e2e:acceptance`                                                | API/DB/navigateur en pile Docker jetable, fournisseurs simulés                                                                                      |
-| `yarn test:e2e:identity`                                                  | API réelle, Web compilé, PostgreSQL jetable et fournisseur OIDC signé local; rôles et révocation                                                    |
-| `yarn test:e2e:playwright`                                                | Démarrage/réutilisation Docker local, migrations et seed, puis Playwright; modifie l'état local                                                     |
-| `yarn test:ui:admin`                                                      | UI admin sur build Angular avec fixtures/interceptions                                                                                              |
-| `yarn test:ui:public-journeys`                                            | Parcours publics FR/EN sur plusieurs navigateurs avec API interceptées                                                                              |
-| `yarn test:ui:platform-accessibility`                                     | Accessibilité, routes 404 et chargement différé                                                                                                     |
-| `yarn test:integration`                                                   | Compilation puis intégrations jetables sous `tests/integration/`                                                                                    |
-| `yarn test:rehearsal`                                                     | Recette jetable des adaptateurs, SMTP/S3 et restauration                                                                                            |
-| `yarn test:automation`                                                    | Tests Node, build Angular production, alertes/S3 jetables, restauration applicative et parcours navigateur publics/accessibilité; aucun secret réel |
-| `yarn exec playwright test --config tests/playwright-recovery.config.mjs` | Scripts de sauvegarde/restauration et récupération applicative sur cibles jetables                                                                  |
+<!-- prettier-ignore -->
+| Commande | Ce qu'elle vérifie |
+| --- | --- |
+| `yarn build` | Compilation TypeScript via `tsconfig.build.json`; pas le build Angular |
+| `yarn docs:check` | Standards OpenG7 puis budgets UTF-8, liens/ancres et scripts documentés ; lecture seule |
+| `yarn docs:report` | Rapport JSON du contrôle documentaire, dont les chaînes de consignes et leurs budgets |
+| `yarn keycloak:check` | Préflight de configuration Keycloak locale ; aucun service démarré ni qualification OIDC/MFA |
+| `yarn test` | Compilation TypeScript puis tests Node; ne pas refaire `yarn build` juste avant |
+| `yarn workspace @openg7/funding-web build --configuration production` | Build Angular et rendu initial/SSR configuré |
+| `yarn test:sponsorship` | Suite Node de couverture commandite; aucun navigateur |
+| `yarn test:e2e:acceptance` | API/DB/navigateur en pile Docker jetable, fournisseurs simulés |
+| `yarn test:e2e:identity` | API réelle, Web compilé, PostgreSQL jetable et fournisseur OIDC signé local; rôles et révocation |
+| `yarn test:e2e:playwright` | Démarrage/réutilisation Docker local, migrations et seed, puis Playwright; modifie l'état local |
+| `yarn test:ui:admin` | UI admin sur build Angular avec fixtures/interceptions |
+| `yarn test:ui:public-journeys` | Parcours publics FR/EN sur plusieurs navigateurs avec API interceptées |
+| `yarn test:ui:platform-accessibility` | Accessibilité, routes 404 et chargement différé |
+| `yarn test:integration` | Compilation puis intégrations jetables sous `tests/integration/` |
+| `yarn test:rehearsal` | Recette jetable des adaptateurs, SMTP/S3 et restauration |
+| `yarn test:automation` | Tests Node, build Angular production, alertes/S3 jetables, restauration applicative et parcours navigateur publics/accessibilité; aucun secret réel |
+| `yarn exec playwright test --config tests/playwright-recovery.config.mjs` | Scripts de sauvegarde/restauration et récupération applicative sur cibles jetables |
+
+`keycloak:check` exige Docker Compose lorsqu'il lit un fichier d'environnement,
+sans contacter le daemon ou le fournisseur. Le [runbook Keycloak](../operations/keycloak-vps.md)
+décrit les vérifications DNS/HTTPS et OIDC/MFA distinctes.
 
 Prérequis et preuves datées : [état de la plateforme](../platform-status.md),
 [recette fournisseurs](../operations/integration-rehearsal.md),

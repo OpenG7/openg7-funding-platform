@@ -83,7 +83,7 @@ en `--dry-run` ; cette lecture ne contacte ni le daemon ni le fournisseur et ne
 démarre aucun service. Le préflight n'imprime aucune valeur privée :
 
 ```sh
-node scripts/keycloak-config.mjs --check
+yarn keycloak:check
 docker compose --env-file .env -f docker-compose.yml -f docker-compose.identity.yml config --quiet
 docker compose --env-file .env -f docker-compose.yml -f docker-compose.identity.yml build keycloak
 docker compose --env-file .env -f docker-compose.yml -f docker-compose.identity.yml up -d --wait identity-postgres keycloak traefik
@@ -172,7 +172,7 @@ Pour le secret client OIDC :
    environnement et sa configuration OIDC mise en cache :
 
    ```sh
-   node scripts/keycloak-config.mjs --check
+   yarn keycloak:check
    docker compose --env-file .env -f docker-compose.yml -f docker-compose.identity.yml up -d --no-deps --force-recreate api
    ```
 
@@ -324,8 +324,12 @@ des lecteurs et de la sélection Compose, sous Node 22.23.3 :
 - Build de l'image, syntaxe des cinq scripts shell, format ciblé,
   `git diff --check` et standard OpenG7 réussis. `yarn lint` : aucune erreur,
   un avertissement préexistant dans `scripts/smoke-public.mjs`.
-- `check-agent-docs` reste en échec sur les budgets préexistants de
-  `docs/technical/admin-api.md` et `docs/technical/stripe.md`, hors changement.
+- Le contrôle des budgets a échoué dans le checkout Windows initial en CRLF.
+  Les blobs Git en LF sont conformes ; la
+  [clarification des preuves](../development/application-consolidation.md#vérification)
+  consigne les mesures et la CI. Le
+  [guide de documentation](../development/documentation.md)
+  précise la règle LF.
 
 Après correction et consolidation, le même jour sous Node 22.23.3 :
 `yarn build` et **54 tests ciblés** réussis, sans test ignoré. Ils couvrent les

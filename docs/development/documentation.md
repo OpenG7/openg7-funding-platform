@@ -36,16 +36,23 @@ Le [standard interprojets](../standards/README.md) fixe le socle à **8 Kio**; c
 leurs déclencheurs sont dans le socle. Garder de la marge pour les instructions
 globales et les autres sources de contexte.
 
+Les budgets mesurent des **octets UTF-8**, pas des caractères ou des tokens
+(1 Kio = 1 024 octets). Les fichiers Markdown utilisent des fins de ligne **LF**,
+imposées par [.gitattributes](../../.gitattributes), pour conserver les mêmes
+tailles sous Windows et Linux. Les plafonds restent inchangés.
+
 Les plafonds par document sont déclarés dans
 [check-agent-docs.mjs](../../scripts/check-agent-docs.mjs). Pour une nouvelle règle,
 choisir d'abord son propriétaire et son déclencheur; modifier un plafond demande
 une justification, pas une augmentation pour absorber une duplication.
 
 ```sh
-node scripts/check-project-standards.mjs
-node scripts/check-agent-docs.mjs
-node scripts/check-agent-docs.mjs --json
+yarn docs:check
+yarn docs:report
 ```
+
+`docs:check` exécute les standards OpenG7 puis le contrôle documentaire.
+`docs:report` produit le rapport de ce dernier en JSON.
 
 Le contrôle est en lecture seule, sans dépendance ni réseau. Il vérifie tailles
 UTF-8, chaînes d'instructions, cibles/ancres des liens Markdown directs et scripts

@@ -64,8 +64,23 @@ Résultats de cette passe sous Node 22.23.3 :
 - `yarn lint` : aucune erreur ; un avertissement préexistant dans
   `scripts/smoke-public.mjs`.
 - Format ciblé, standard OpenG7 et `git diff --check` réussis.
-- Le contrôle des budgets documentaires reste en échec sur les dépassements
-  préexistants de `docs/technical/admin-api.md` et `docs/technical/stripe.md`.
+- Le contrôle des budgets documentaires a échoué localement sous Windows sur
+  des fichiers en CRLF. Les blobs Git en LF respectent les plafonds :
+  `docs/technical/admin-api.md` compte 15 342 octets sur 15 360,
+  `docs/technical/stripe.md` 8 186 sur 8 192. Le job **Agent documentation**
+  de la PR #284 a réussi dans le
+  [run 37384858970](https://github.com/OpenG7/openg7-funding-platform/actions/runs/37384858970).
+  Le [guide de documentation](documentation.md) précise
+  la règle LF.
+
+Ces résultats restent des preuves de la passe initiale. Les prochaines révisions
+exigent une nouvelle exécution des contrôles applicables selon la matrice.
+
+Le complément documentaire du 5 octobre 2026 ajoute les raccourcis
+`docs:check`, `docs:report` et `keycloak:check`, et impose LF aux fichiers Markdown.
+`yarn docs:check` et `yarn docs:report` réussissent localement : 19 budgets et
+255 liens/ancres vérifiés, aucun échec. Le format ciblé et `git diff --check`
+passent également ; les suites applicatives restent celles de la passe initiale.
 
 Les recettes navigateur restent limitées aux fixtures interceptées ; aucun
 fournisseur réel, compte de production, déploiement ou migration n'a été utilisé.
