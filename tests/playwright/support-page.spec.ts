@@ -61,7 +61,7 @@ for (const prefix of ['', '/en']) {
     );
     expect(calls).toBe(0);
 
-    await input.fill(reference.toLowerCase());
+    await input.fill(`  ${reference.toLowerCase()}  `);
     await input.press('Enter');
     await expect(input).toHaveAttribute('aria-invalid', 'false');
     await expect(status).toContainText(

@@ -1,0 +1,91 @@
+# Optional identity stack. Select explicitly after preparing DNS and secrets.
+# Its database and lifecycle are independent of the funding API database.
+services:
+  traefik:
+    environment:
+      FUNDING_KEYCLOAK_HOSTNAME: ${FUNDING_KEYCLOAK_HOSTNAME:-auth.openg7.org}
+    volumes:
+      - ./traefik/keycloak.yml:/etc/traefik/dynamic/keycloak.yml:ro
+
+  keycloak:
+    image: openg7-keycloak:26.8.0
+    build:
+      context: .
+      dockerfile: docker/keycloak/Dockerfile
+    command: ['start', '--optimized', '--import-realm']
+    environment:
+      KC_HOSTNAME: https://${FUNDING_KEYCLOAK_HOSTNAME:-auth.openg7.org}
+      KC_HOSTNAME_STRICT: 'true'
+      KC_HTTP_ENABLED: 'true'
+      KC_PROXY_HEADERS: xforwarded
+      KC_HTTP_MANAGEMENT_SCHEME: http
+      KC_HTTP_MANAGEMENT_PORT: '9000'
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://identity-postgres:5432/openg7_identity
+      KC_DB_USERNAME: openg7_identity
+      KC_DB_PASSWORD: ${FUNDING_KEYCLOAK_DB_PASSWORD:?Set the private identity database password}
+      KC_DB_POOL_INITIAL_SIZE: '2'
+      KC_DB_POOL_MIN_SIZE: '2'
+      KC_DB_POOL_MAX_SIZE: '10'
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${FUNDING_KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME:?Set the temporary Keycloak administrator username}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${FUNDING_KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:?Set the temporary Keycloak administrator password}
+      FUNDING_PUBLIC_BASE_URL: ${FUNDING_PUBLIC_BASE_URL:-https://openg7.org}
+      FUNDING_ADMIN_OIDC_CLIENT_ID: ${FUNDING_ADMIN_OIDC_CLIENT_ID:?Set the OpenG7 OIDC client ID}
+      FUNDING_ADMIN_OIDC_CLIENT_SECRET: ${FUNDING_ADMIN_OIDC_CLIENT_SECRET:?Set the private OpenG7 OIDC client secret}
+    depends_on:
+      identity-postgres:
+        condition: service_healthy
+    networks: [edge, identity-data]
+    restart: unless-stopped
+    init: true
+    cpus: '1.00'
+    mem_limit: 2g
+    pids_limit: 256
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    stop_grace_period: 30s
+    healthcheck:
+      test: ['CMD', '/bin/bash', '/opt/keycloak/bin/container-healthcheck.sh']
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 120s
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+  identity-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: openg7_identity
+      POSTGRES_USER: openg7_identity
+      POSTGRES_PASSWORD: ${FUNDING_KEYCLOAK_DB_PASSWORD:?Set the private identity database password}
+    volumes:
+      - identity-postgres-data:/var/lib/postgresql/data
+    networks: [identity-data]
+    restart: unless-stopped
+    cpus: '0.50'
+    mem_limit: 512m
+    pids_limit: 128
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+networks:
+  identity-data:
+    driver: bridge
+    internal: true
+
+volumes:
+  identity-postgres-data:

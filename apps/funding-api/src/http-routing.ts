@@ -4,6 +4,10 @@ export const firstHeaderValue = (
 ): string | null =>
   Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
 
+/** Exact JSON media type; parameters, surrounding whitespace and casing are ignored. */
+export const isJsonContentType = (value: string | undefined): boolean =>
+  value?.split(';')[0]?.trim().toLowerCase() === 'application/json';
+
 export const createRouteMatcher = (publicBaseOrigin: string) => {
   const routeMatches = (
     url: string | undefined,

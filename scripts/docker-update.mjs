@@ -2,7 +2,14 @@
 import { spawnSync } from 'node:child_process';
 import { argv, env, exit, platform, stdin, stdout } from 'node:process';
 import { createInterface } from 'node:readline/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
+  dockerCommandEnvironment,
+  readDockerConfiguration
+} from './lib/docker-environment.mjs';
+import {
+  assertDockerUpdateTopology,
   chooseDockerUpdateEnvironment,
   dockerUpdateInvocation,
   dockerUpdatePlan,
@@ -60,12 +67,15 @@ try {
     console.log(help.trim());
     exit(0);
   }
+  process.chdir(resolve(dirname(fileURLToPath(import.meta.url)), '..'));
+  const shellEnv = { ...env };
+  const configurationEnv = readDockerConfiguration({ env: shellEnv });
 
   let targetEnvironment;
   let readline;
   try {
     targetEnvironment = await chooseDockerUpdateEnvironment(options, {
-      env,
+      env: configurationEnv,
       interactive: Boolean(stdin.isTTY && stdout.isTTY),
       ask: (question) => {
         readline ??= createInterface({ input: stdin, output: stdout });
@@ -80,16 +90,16 @@ try {
   const resolvedOptions = await resolveDockerUpdateOptions(
     options,
     targetEnvironment,
-    { env, askYesNo }
+    { env: configurationEnv, askYesNo }
   );
-  const plan = dockerUpdatePlan(resolvedOptions, { env });
+  const plan = dockerUpdatePlan(resolvedOptions, { env: configurationEnv });
   const { useDatabase, buildAppFirst, pruneImages, startStripeWebhook } = plan;
 
   const run = (command, commandArgs, commandEnv) => {
     console.log(`\n> ${command} ${commandArgs.join(' ')}`);
     const invocation = dockerUpdateInvocation(command, commandArgs, {
       platform,
-      env: commandEnv
+      env: dockerCommandEnvironment(commandEnv, configurationEnv, shellEnv)
     });
     const result = spawnSync(
       invocation.command,
@@ -128,6 +138,23 @@ try {
       : 'Stripe webhook listener ignore.'
   );
 
+  await assertDockerUpdateTopology(plan, {
+    readComposeServices: async (args, commandEnv) => {
+      const invocation = dockerUpdateInvocation('docker', args, {
+        platform,
+        env: dockerCommandEnvironment(commandEnv, configurationEnv, shellEnv)
+      });
+      const result = spawnSync(invocation.command, invocation.args, {
+        ...invocation.options,
+        stdio: 'pipe',
+        encoding: 'utf8',
+        windowsHide: true
+      });
+      if (result.error || result.status !== 0)
+        throw new Error('Cannot verify Compose services before Docker update.');
+      return result.stdout;
+    }
+  });
   await executeDockerUpdate(plan, {
     runCommand: run,
     beforeStripeWebhook: () => {

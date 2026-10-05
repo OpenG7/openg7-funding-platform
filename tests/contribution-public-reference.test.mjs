@@ -2,6 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { normalizeContributionPublicReference } from '../dist/apps/funding-api/src/contribution-public-reference.js';
+import { normalizeContributionPublicReference as sharedNormalizeReference } from '../dist/packages/funding-core/src/index.js';
+
+const normalizers = [
+  normalizeContributionPublicReference,
+  sharedNormalizeReference
+];
 
 test('contribution references normalize surrounding whitespace and letter case', () => {
   for (const [value, expected] of [
@@ -9,7 +15,9 @@ test('contribution references normalize surrounding whitespace and letter case',
     ['  og7-2026-a1b2c3d4  ', 'OG7-2026-A1B2C3D4'],
     ['\tOg7-2026-ab12cd\n', 'OG7-2026-AB12CD']
   ]) {
-    assert.equal(normalizeContributionPublicReference(value), expected);
+    for (const normalizeReference of normalizers) {
+      assert.equal(normalizeReference(value), expected);
+    }
   }
 });
 
@@ -32,17 +40,15 @@ test('missing and malformed contribution references do not become usable referen
     'prefix-OG7-2026-ABCD',
     'OG7-2026-ABCD-suffix'
   ]) {
-    assert.equal(normalizeContributionPublicReference(value), null);
+    for (const normalizeReference of normalizers) {
+      assert.equal(normalizeReference(value), null);
+    }
   }
 });
 
 test('reference format validation preserves historical years without imposing a calendar policy', () => {
-  assert.equal(
-    normalizeContributionPublicReference('OG7-0000-0000'),
-    'OG7-0000-0000'
-  );
-  assert.equal(
-    normalizeContributionPublicReference('OG7-9999-99999999'),
-    'OG7-9999-99999999'
-  );
+  for (const normalizeReference of normalizers) {
+    assert.equal(normalizeReference('OG7-0000-0000'), 'OG7-0000-0000');
+    assert.equal(normalizeReference('OG7-9999-99999999'), 'OG7-9999-99999999');
+  }
 });

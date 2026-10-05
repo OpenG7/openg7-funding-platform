@@ -2,14 +2,56 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  WORK_QUEUE_PRIORITIES,
   buildWorkQueueItems,
   getAdminWorkQueue,
   loadAdminWorkQueue,
   paginateWorkQueue,
   parseWorkQueueQuery
 } from '../dist/apps/funding-api/src/admin-work-queue.service.js';
+import {
+  WORK_QUEUE_PRIORITIES as corePriorities,
+  compareAdminWorkQueueItems
+} from '../dist/packages/funding-core/src/index.js';
 
 const now = new Date('2026-09-15T14:00:00Z');
+
+test('queue and pilotage share priority ordering, dated-first items and stable ID ties', () => {
+  assert.equal(WORK_QUEUE_PRIORITIES, corePriorities);
+  const keys = Object.freeze(
+    [
+      { id: 'week-dated', severity: 'this_week', dueAt: '2020-01-01' },
+      { id: 'urgent-undated-z', severity: 'urgent' },
+      { id: 'info-dated', severity: 'informational', dueAt: '2010-01-01' },
+      { id: 'urgent-early-b', severity: 'urgent', dueAt: '2026-10-05' },
+      { id: 'urgent-undated-a', severity: 'urgent', dueAt: null },
+      { id: 'urgent-late', severity: 'urgent', dueAt: '2026-10-06' },
+      { id: 'today-undated', severity: 'today' },
+      { id: 'urgent-early-a', severity: 'urgent', dueAt: '2026-10-05' }
+    ].map(Object.freeze)
+  );
+  assert.deepEqual(
+    [...keys].sort(compareAdminWorkQueueItems).map((key) => key.id),
+    [
+      'urgent-early-a',
+      'urgent-early-b',
+      'urgent-late',
+      'urgent-undated-a',
+      'urgent-undated-z',
+      'today-undated',
+      'week-dated',
+      'info-dated'
+    ]
+  );
+  assert.equal(compareAdminWorkQueueItems(keys[0], keys[0]), 0);
+  assert.equal(
+    compareAdminWorkQueueItems(
+      { id: 'same', severity: 'today', dueAt: null },
+      { id: 'same', severity: 'today' }
+    ),
+    0
+  );
+});
 
 test('navigation action counts and fallback dossier use the complete queue before filters', () => {
   const items = [

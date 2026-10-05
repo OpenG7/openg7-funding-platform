@@ -60,6 +60,7 @@ project/
 - `api`: Node funding API for checkout, public transparency, and Stripe webhooks.
 - `postgres`: private PostgreSQL 16 service, enabled by the `database` profile for persistent features.
 - `operations`: optional independent alert watcher from `docker-compose.operations.yml`, managed by delivery after explicit opt-in.
+- `keycloak` and `identity-postgres`: optional OIDC provider and separate private DB from `docker-compose.identity.yml`; see the [same-VPS identity runbook](operations/keycloak-vps.md) for explicit activation, MFA bootstrap, capacity and independent backup/recovery.
 - `cadvisor`: local-only Docker metrics on `127.0.0.1:8082`.
 
 ## Environment
@@ -144,7 +145,10 @@ signing secret, approved owner subjects and the required private-data encryption
 before starting the API. Named OIDC accounts, MFA and
 revocable sessions require PostgreSQL and the settings in the
 [identity/alerts runbook](operations/admin-identity-and-alerts.md). OIDC requires
-one public origin for Web and API. Set `FUNDING_OPERATIONS_WATCHER_ENABLED=true`
+one public origin for Web and API. For the optional provider on this VPS, follow
+the [Keycloak preparation and verification procedure](operations/keycloak-vps.md);
+its startup and database recovery are separate from application delivery.
+Set `FUNDING_OPERATIONS_WATCHER_ENABLED=true`
 after qualifying the receiver to include the operations overlay in deploy,
 health checks and rollback. It follows the selected API image revision.
 
@@ -324,8 +328,13 @@ pas de serveur, ne changent pas les secrets et ne remplacent pas la procedure de
 deploiement. PostgreSQL peut etre ajoute avec `--database`.
 Sans terminal, `--environment local|prod|autre` est obligatoire, meme si
 `FUNDING_PLATFORM_ENV` figure dans `.env`. `--dry-run` affiche uniquement les
-commandes prevues, sans contacter Docker ou Stripe. Les migrations et le
-rattrapage des paiements restent des operations separees.
+commandes prevues. Lorsqu'un fichier d'environnement est present, Docker Compose
+doit etre installe : son parseur resout la configuration sans contacter le daemon
+ni Stripe et sans demarrer de service. Les references entre variables, guillemets
+et commentaires suivent la syntaxe Compose ; le shell reste prioritaire et les
+valeurs privees ne sont pas imprimees. Le meme lecteur sert a `docker:update` et
+au preflight Keycloak. Les migrations et le rattrapage des paiements restent des
+operations separees.
 
 ### HTTPS local de confiance
 
@@ -580,6 +589,10 @@ Backups include:
 - ACME certificates
 - scripts
 - docs
+
+The optional Keycloak identity database and its overlay/image need a separate
+[backup and recovery procedure](operations/keycloak-vps.md#sauvegarde-identite).
+Application backup/restore and rollback do not restore this provider.
 
 Install `age` on the backup host, and set the public
 `FUNDING_FULL_BACKUP_AGE_RECIPIENT` generated on an independent recovery workstation.

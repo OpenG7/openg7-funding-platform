@@ -11,6 +11,7 @@ import type { CockpitSystem, CockpitSystemCheck } from '@openg7/funding-core';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 
 import { systemExpired, systemState } from './system-state.js';
+import { formatCockpitDateTime } from './admin-cockpit-date-time.js';
 
 /** Admin presentation molecule shared by setup and cockpit; no data loading. */
 @Component({
@@ -98,10 +99,6 @@ export class AdminStripeStatusComponent {
     return 'admin.cockpit.health.' + this.state(check);
   }
   date(value: string): string {
-    return new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
-      timeZone: 'America/Toronto',
-      dateStyle: 'short',
-      timeStyle: 'short'
-    }).format(new Date(value));
+    return formatCockpitDateTime(value, this.i18n.currentLanguage());
   }
 }

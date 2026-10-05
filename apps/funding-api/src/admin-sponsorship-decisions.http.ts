@@ -22,7 +22,7 @@ import type {
   updateSponsorshipRefundWorkflowStatus,
   updateSponsorshipReview
 } from './fund-contributions.repository.js';
-import { createRouteMatcher } from './http-routing.js';
+import { createRouteMatcher, isJsonContentType } from './http-routing.js';
 import type { createHttpTransport } from './http-transport.js';
 import type {
   isSponsorshipWebsiteVisibilityRequest,
@@ -431,10 +431,7 @@ export const createAdminSponsorshipDecisionsHttpHandler = ({
     ) {
       if (!ensureAdminAccess(request, response) || !databaseAvailable())
         return true;
-      if (
-        request.headers['content-type']?.split(';')[0]?.trim().toLowerCase() !==
-        'application/json'
-      ) {
+      if (!isJsonContentType(request.headers['content-type'])) {
         writeJson(request, response, 415, {
           code: 'WEBSITE_VISIBILITY_CONTENT_TYPE',
           error: 'JSON content type required.'

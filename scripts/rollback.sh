@@ -81,9 +81,10 @@ echo "Rolling back to previous application images."
 echo "Web: ${ROLLBACK_WEB_IMAGE}"
 echo "API: ${ROLLBACK_API_IMAGE}"
 
+application_services
 WEB_IMAGE="${ROLLBACK_WEB_IMAGE}" \
   API_IMAGE="${ROLLBACK_API_IMAGE}" \
-  compose up -d --no-build
+  compose up -d --no-build "${APPLICATION_SERVICES[@]}"
 
 OPENG7_OPERATIONS_CHECK_ENABLED="${PREVIOUS_OPERATIONS}" bash scripts/check.sh
 if [[ -n "${VERIFIED_REVISION}" ]]; then

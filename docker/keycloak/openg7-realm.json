@@ -1,0 +1,111 @@
+{
+  "realm": "openg7",
+  "displayName": "OpenG7 administration",
+  "enabled": true,
+  "sslRequired": "all",
+  "registrationAllowed": false,
+  "registrationEmailAsUsername": false,
+  "resetPasswordAllowed": false,
+  "editUsernameAllowed": false,
+  "rememberMe": false,
+  "duplicateEmailsAllowed": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 3600,
+  "accessTokenLifespan": 300,
+  "accessCodeLifespan": 60,
+  "passwordPolicy": "length(14)",
+  "otpPolicyType": "totp",
+  "otpPolicyAlgorithm": "HmacSHA1",
+  "otpPolicyDigits": 6,
+  "otpPolicyPeriod": 30,
+  "otpPolicyLookAheadWindow": 1,
+  "otpPolicyCodeReusable": false,
+  "browserFlow": "openg7-password-otp",
+  "authenticationFlows": [
+    {
+      "alias": "openg7-password-otp",
+      "description": "Password and OTP are both mandatory; no SSO or identity-provider bypass.",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "auth-username-password-form",
+          "authenticatorConfig": "openg7-password-reference",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticator": "auth-otp-form",
+          "authenticatorConfig": "openg7-otp-reference",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 20,
+          "userSetupAllowed": true
+        }
+      ]
+    }
+  ],
+  "authenticatorConfig": [
+    {
+      "alias": "openg7-password-reference",
+      "config": {
+        "default.reference.value": "pwd",
+        "default.reference.maxAge": "3600"
+      }
+    },
+    {
+      "alias": "openg7-otp-reference",
+      "config": {
+        "default.reference.value": "mfa",
+        "default.reference.maxAge": "3600"
+      }
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "${FUNDING_ADMIN_OIDC_CLIENT_ID}",
+      "name": "OpenG7 Funding administration",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "clientAuthenticatorType": "client-secret",
+      "publicClient": false,
+      "secret": "${FUNDING_ADMIN_OIDC_CLIENT_SECRET}",
+      "redirectUris": ["${FUNDING_PUBLIC_BASE_URL}/api/admin/auth/callback"],
+      "webOrigins": [],
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": false,
+      "consentRequired": false,
+      "defaultClientScopes": ["profile"],
+      "optionalClientScopes": [],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "oauth2.device.authorization.grant.enabled": "false",
+        "oidc.ciba.grant.enabled": "false",
+        "use.refresh.tokens": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "Completed authentication methods",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-amr-mapper",
+          "consentRequired": false,
+          "config": {
+            "id.token.claim": "true",
+            "access.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ]
+}

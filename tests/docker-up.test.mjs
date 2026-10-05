@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { EventEmitter } from 'node:events';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import {
   chooseDockerEnvironment,
@@ -348,7 +357,7 @@ test('listener output masks credentials even when a secret spans multiple chunks
   assert.doesNotMatch(result.stdout + result.stderr, /privatecanary/);
 });
 
-test('CLI help and dry runs need neither Docker nor Stripe and do not disclose secrets', () => {
+test('CLI help and dry runs without environment files need neither Docker nor Stripe and do not disclose secrets', (t) => {
   for (const file of [
     'scripts/docker-up.mjs',
     'scripts/stripe-webhook-listen.mjs'
@@ -359,12 +368,35 @@ test('CLI help and dry runs need neither Docker nor Stripe and do not disclose s
     assert.equal(help.status, 0, help.stderr);
     assert.match(help.stdout, /Usage:/);
   }
+  const root = mkdtempSync(join(tmpdir(), 'og7-docker-up-dry-run-'));
+  t.after(() => {
+    assert.equal(dirname(resolve(root)), resolve(tmpdir()));
+    assert.ok(root.startsWith(join(tmpdir(), 'og7-docker-up-dry-run-')));
+    rmSync(root, { recursive: true, force: true });
+  });
+  mkdirSync(join(root, 'scripts/lib'), { recursive: true });
+  for (const name of [
+    'docker-up.mjs',
+    'lib/docker-up.mjs',
+    'lib/docker-config.mjs',
+    'lib/keycloak-config.mjs',
+    'lib/docker-environment.mjs'
+  ])
+    writeFileSync(
+      join(root, 'scripts', name),
+      readFileSync(join('scripts', name))
+    );
   const result = spawnSync(
     process.execPath,
     ['scripts/docker-up.mjs', '--env=local', '--dry-run'],
     {
       encoding: 'utf8',
-      env: { ...process.env, ...testEnv }
+      cwd: root,
+      env: {
+        PATH: process.env.PATH,
+        SystemRoot: process.env.SystemRoot,
+        ...testEnv
+      }
     }
   );
   assert.equal(result.status, 0, result.stderr);

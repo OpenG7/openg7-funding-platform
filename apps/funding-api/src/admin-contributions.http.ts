@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 
 import type { AdminContributionsResponse } from '@openg7/funding-core';
 
-import { createRouteMatcher } from './http-routing.js';
+import { createRouteMatcher, isJsonContentType } from './http-routing.js';
 import type { createHttpTransport } from './http-transport.js';
 
 type ApiRequest = IncomingMessage;
@@ -109,10 +109,7 @@ export const createAdminContributionsHttpHandler = ({
         });
         return true;
       }
-      if (
-        request.headers['content-type']?.split(';')[0]?.trim().toLowerCase() !==
-        'application/json'
-      ) {
+      if (!isJsonContentType(request.headers['content-type'])) {
         writeJson(request, response, 415, {
           error: 'A JSON export selection is required.'
         });

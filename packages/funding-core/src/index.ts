@@ -29,6 +29,11 @@ export type {
   SponsorshipFollowupDetailsRequest
 } from './sponsorship-followup.js';
 
+export {
+  WORK_QUEUE_PRIORITIES,
+  compareAdminWorkQueueItems
+} from './admin-work-queue.js';
+
 export type {
   AdminAttentionDueFilter,
   AdminWorkQueueQuery,
@@ -221,6 +226,8 @@ export type {
   ReferenceRecoveryRequest,
   ReferenceRecoveryResult
 } from './public-reference.js';
+
+export { normalizeContributionPublicReference } from './public-reference.js';
 
 export type { AdminPagination } from './admin-pagination.js';
 

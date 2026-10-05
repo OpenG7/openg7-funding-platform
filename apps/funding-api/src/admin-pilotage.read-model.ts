@@ -1,16 +1,14 @@
 import type { Pool } from 'pg';
 
-import type {
-  PilotDecision,
-  PilotDomain,
-  PilotState,
-  PublicationAutomationState
+import {
+  compareAdminWorkQueueItems,
+  type PilotDecision,
+  type PilotDomain,
+  type PilotState,
+  type PublicationAutomationState
 } from '../../../packages/funding-core/src/index.js';
 
-import {
-  loadAdminWorkQueue,
-  WORK_QUEUE_PRIORITIES
-} from './admin-work-queue.service.js';
+import { loadAdminWorkQueue } from './admin-work-queue.service.js';
 import { listAdminExpenses } from './fund-admin.repository.js';
 import { pilotageVersion as hash } from './admin-pilotage-version.js';
 import { revealPrivateText } from './private-data-protection.js';
@@ -268,11 +266,7 @@ export async function loadAdminPilotageState(
       });
   else if (projectResult.status === 'rejected') missing.push('projects');
   const sorted = [...new Map(decisions.map((d) => [d.id, d])).values()].sort(
-    (a, b) =>
-      WORK_QUEUE_PRIORITIES.indexOf(a.severity) -
-        WORK_QUEUE_PRIORITIES.indexOf(b.severity) ||
-      (a.dueAt ?? '9999').localeCompare(b.dueAt ?? '9999') ||
-      a.id.localeCompare(b.id)
+    compareAdminWorkQueueItems
   );
   if (!writable)
     for (const d of sorted) for (const a of d.actions) a.blocked = 'READ_ONLY';

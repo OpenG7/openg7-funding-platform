@@ -442,10 +442,14 @@ const cli = (args, failure = null) =>
       '-e',
       `
   import childProcess from 'node:child_process';
+  import fs from 'node:fs';
   import { syncBuiltinESMExports } from 'node:module';
+  // The CLI must not load the developer's real .env in this isolated simulation.
+  fs.existsSync = () => false;
   let calls = 0;
   const failure = ${JSON.stringify(failure)};
   childProcess.spawnSync = (command, args, options) => {
+    if (args.join(' ').includes(' ps --all --services ')) return { status: 0, stdout: '' };
     console.log('STUB_CALL=' + JSON.stringify({ command, args, environment: options.env.FUNDING_PLATFORM_ENV, angular: options.env.ANGULAR_CONFIGURATION }));
     const index = calls++;
     if (failure?.index === index) return failure.error ? { error: new Error(failure.error) } : { status: failure.status };

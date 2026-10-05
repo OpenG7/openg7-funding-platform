@@ -1,0 +1,34 @@
+http:
+  routers:
+    openg7-keycloak:
+      rule: 'Host(`{{ env "FUNDING_KEYCLOAK_HOSTNAME" }}`)'
+      entryPoints: [websecure]
+      service: openg7-keycloak
+      middlewares: [keycloak-headers, keycloak-in-flight, keycloak-rate-limit]
+      tls:
+        certResolver: letsencrypt
+
+  services:
+    openg7-keycloak:
+      loadBalancer:
+        servers:
+          - url: 'http://keycloak:8080'
+
+  middlewares:
+    # Preserve Keycloak's own CSP and frame policies for its login/session flows.
+    keycloak-headers:
+      headers:
+        contentTypeNosniff: true
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        customResponseHeaders:
+          X-Robots-Tag: 'noindex, nofollow'
+          Server: ''
+    keycloak-in-flight:
+      inFlightReq:
+        amount: 40
+    keycloak-rate-limit:
+      rateLimit:
+        average: 120
+        burst: 40
+        period: 1m

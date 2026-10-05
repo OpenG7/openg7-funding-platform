@@ -12,6 +12,9 @@ les règles du chemin et du domaine concernés. La [matrice de validation](devel
 centralise les commandes et leurs garanties; l'[architecture](ARCHITECTURE.md)
 se lit en français **ou** en [anglais](ARCHITECTURE.en.md).
 
+La [consolidation de l'application](development/application-consolidation.md)
+décrit les propriétaires des règles partagées et les vérifications de cette passe.
+
 Références techniques extraites du README : [configuration](technical/configuration.md),
 [API admin](technical/admin-api.md), [API publique](technical/public-api.md) et
 [Stripe/webhooks/backfill](technical/stripe.md). Lire la section utile seulement.
@@ -86,6 +89,7 @@ retour au contexte, à partir de la file complète et paginée de **À traiter**
 | Démarrer et contribuer                          | [README principal](../README.md), [contribution](../CONTRIBUTING.md)                   |
 | Frontières et règles de travail                 | [Architecture](ARCHITECTURE.md), [AGENTS.md](../AGENTS.md)                             |
 | Déployer selon le périmètre choisi              | [Checklist](production-launch-checklist.md), [Docker/VPS](docker-deployment.md)        |
+| Préparer le fournisseur OIDC sur le même VPS    | [Keycloak, MFA et récupération identité](operations/keycloak-vps.md)                   |
 | Appliquer le schéma et connaître ses limites    | [Migrations PostgreSQL](operations/database-migrations.md)                             |
 | Retrouver une commande                          | [Aide-mémoire](command-cheatsheet.md)                                                  |
 | Vérifier configuration et services              | [Smoke tests](operations/production-smoke-tests.md)                                    |

@@ -5,7 +5,7 @@ import type {
   AdminSessionResponse
 } from '@openg7/funding-core';
 
-import { createRouteMatcher } from './http-routing.js';
+import { createRouteMatcher, isJsonContentType } from './http-routing.js';
 import type { createHttpTransport } from './http-transport.js';
 
 type ApiRequest = IncomingMessage;
@@ -53,10 +53,7 @@ export const createAdminSessionHttpHandler = ({
       });
       return true;
     }
-    if (
-      request.headers['content-type']?.split(';')[0]?.trim().toLowerCase() !==
-      'application/json'
-    ) {
+    if (!isJsonContentType(request.headers['content-type'])) {
       writeJson(request, response, 415, {
         error: 'Content-Type must be application/json.'
       });

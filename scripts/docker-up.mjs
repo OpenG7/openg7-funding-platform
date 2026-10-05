@@ -4,7 +4,10 @@ import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
-import { loadDotEnv } from './lib/load-dotenv.mjs';
+import {
+  dockerCommandEnvironment,
+  readDockerConfiguration
+} from './lib/docker-environment.mjs';
 import {
   chooseDockerEnvironment,
   dockerUpPlan,
@@ -28,6 +31,9 @@ Options:
   --no-database       Ne pas activer le profil PostgreSQL.
   --dry-run           Afficher les commandes sans les executer.
   --help              Afficher cette aide.
+
+Avec .env, le dry-run exige Docker Compose pour resoudre la configuration,
+sans daemon Docker ni modification de la pile.
 `;
 
 const runNode = (args, env) =>
@@ -72,9 +78,10 @@ try {
     } finally {
       readline?.close();
     }
-    loadDotEnv('.env');
+    const shellEnv = { ...process.env };
+    const configurationEnv = readDockerConfiguration({ env: shellEnv });
     const plan = dockerUpPlan(options, {
-      env: process.env,
+      env: configurationEnv,
       localTls:
         existsSync('traefik/certs/localhost.pem') &&
         existsSync('traefik/certs/localhost-key.pem')
@@ -90,16 +97,24 @@ try {
           : 'Relais Stripe desactive.'
       );
     } else {
+      const commandEnvironment = (plannedEnv) =>
+        dockerCommandEnvironment(plannedEnv, configurationEnv, shellEnv);
       await startDockerStack(plan, {
         runDocker: (args, env) =>
-          runNode(['scripts/docker-ready.mjs', '--', 'docker', ...args], env),
+          runNode(
+            ['scripts/docker-ready.mjs', '--', 'docker', ...args],
+            commandEnvironment(env)
+          ),
         checkStripe: () =>
           runNode(
             ['scripts/stripe-webhook-listen.mjs', '--check'],
-            plan.commandEnv
+            commandEnvironment(plan.commandEnv)
           ),
         listenStripe: () =>
-          runNode(['scripts/stripe-webhook-listen.mjs'], plan.commandEnv)
+          runNode(
+            ['scripts/stripe-webhook-listen.mjs'],
+            commandEnvironment(plan.commandEnv)
+          )
       });
     }
   }

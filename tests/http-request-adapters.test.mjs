@@ -3,7 +3,8 @@ import test from 'node:test';
 
 import {
   createRouteMatcher,
-  firstHeaderValue
+  firstHeaderValue,
+  isJsonContentType
 } from '../dist/apps/funding-api/src/http-routing.js';
 import {
   parseMultipartBoundary,
@@ -17,6 +18,28 @@ import {
 
 const contributionId = 'ABCDEFAB-1234-4567-89AB-ABCDEFABCDEF';
 const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+test('JSON media type accepts existing parameters and casing without accepting related formats', () => {
+  for (const [header, expected] of [
+    ['application/json', true],
+    ['APPLICATION/JSON', true],
+    ['  Application/Json \t; charset=utf-8', true],
+    ['application/json; charset=utf-8; profile="example"', true],
+    ['application/json;', true],
+    [undefined, false],
+    ['', false],
+    [' \t', false],
+    ['; application/json', false],
+    ['text/plain; application/json', false],
+    ['application/jsonp', false],
+    ['application/json-patch+json', false],
+    ['application/ld+json', false],
+    ['application/json, application/json', false],
+    ['application / json', false]
+  ]) {
+    assert.equal(isJsonContentType(header), expected, String(header));
+  }
+});
 
 test('route matching accepts path aliases and query strings without matching another endpoint', () => {
   const { routeMatches, routeStartsWith } = createRouteMatcher(
