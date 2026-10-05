@@ -2,11 +2,13 @@ import { mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import sharp from 'sharp';
+import {
+  fundingAssetsDirectory,
+  generateWebpDerivative
+} from './lib/image-derivatives.mjs';
 
 // Reproducible display derivatives; source PNGs remain available to other pages.
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const assets = path.join(root, 'apps/funding-web/src/assets');
 const page = await readFile(
   path.join(
     root,
@@ -32,14 +34,11 @@ const images = [
     'openg7-coffre-fort-ferme-dragon'
   ].map((name) => ({ name, widths: [960, 1920] }))
 ];
-await mkdir(assets, { recursive: true });
+await mkdir(fundingAssetsDirectory, { recursive: true });
 let bytes = 0;
 for (const { name, widths } of images) {
   for (const width of widths) {
-    const result = await sharp(path.join(assets, `${name}.png`))
-      .resize({ width })
-      .webp({ quality: 80, effort: 6 })
-      .toFile(path.join(assets, `${name}-${width}.webp`));
+    const result = await generateWebpDerivative(name, width);
     bytes += result.size;
   }
 }

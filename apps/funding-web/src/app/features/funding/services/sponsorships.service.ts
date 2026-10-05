@@ -2,42 +2,26 @@ import { Injectable } from '@angular/core';
 import type { PublicSponsorshipsResponse } from '@openg7/funding-core';
 
 import { resolveFundingApiBaseUrl } from './funding-api-base-url.js';
+import { FundingPublicClient } from './funding-public.client.js';
 
 @Injectable({ providedIn: 'root' })
 export class SponsorshipsService {
-  private readonly apiBaseUrl = resolveFundingApiBaseUrl();
+  private readonly publicClient = new FundingPublicClient(
+    resolveFundingApiBaseUrl()
+  );
 
   async getPublicSponsorshipPage(
     page: number,
     pageSize: number,
     signal?: AbortSignal
   ): Promise<PublicSponsorshipsResponse> {
-    const params = new URLSearchParams({
-      page: String(page),
-      pageSize: String(pageSize)
-    });
-    return this.getPublicSponsorships(signal, params);
+    return this.publicClient.getPublicSponsorshipPage(page, pageSize, signal);
   }
 
   async getPublicSponsorships(
     signal?: AbortSignal,
     params?: URLSearchParams
   ): Promise<PublicSponsorshipsResponse> {
-    const response = await fetch(
-      `${this.apiBaseUrl}/public/sponsorships${params ? '?' + params : ''}`,
-      {
-        method: 'GET',
-        signal,
-        headers: {
-          Accept: 'application/json'
-        }
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error('Failed to load public sponsorship data');
-    }
-
-    return (await response.json()) as PublicSponsorshipsResponse;
+    return this.publicClient.getPublicSponsorships(signal, params);
   }
 }

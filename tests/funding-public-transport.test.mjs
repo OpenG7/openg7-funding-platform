@@ -92,6 +92,79 @@ const requests = [
     },
     fallback: 'Sponsorship batch availability could not be loaded.',
     invoke: (client) => client.getSponsorshipBatchAvailability()
+  },
+  {
+    name: 'public builders',
+    path: '/public/builders?page=2&pageSize=6',
+    headers: { Accept: 'application/json' },
+    result: {
+      data_source: 'empty',
+      last_updated_at: '2026-01-01T00:00:00.000Z',
+      builders: [],
+      pagination: { page: 2, page_size: 6, total_count: 0 }
+    },
+    cancellable: true,
+    fallback: 'Failed to load public builders',
+    invoke: (client, signal) => client.getPublicBuilders(2, 6, signal)
+  },
+  {
+    name: 'public transparency',
+    path: '/public/fund-transparency',
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+    result: {
+      data_source: 'empty',
+      currency: 'CAD',
+      total_received: 0,
+      total_fees: 0,
+      total_net: 0,
+      total_refunded: 0,
+      total_payouts: 0,
+      current_available_estimate: 0,
+      contributions_count: 0,
+      pending_fee_count: null,
+      monthly_summary: [],
+      public_builders: [],
+      latest_public_allocations: [],
+      last_updated_at: '2026-01-01T00:00:00.000Z'
+    },
+    cancellable: true,
+    fallback: 'Failed to load public transparency data',
+    invoke: (client, signal) => client.getPublicTransparency(signal)
+  },
+  {
+    name: 'public sponsorship directory',
+    path: '/public/sponsorships',
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+    result: {
+      data_source: 'empty',
+      last_updated_at: '2026-01-01T00:00:00.000Z',
+      sponsorships: []
+    },
+    cancellable: true,
+    fallback: 'Failed to load public sponsorship data',
+    invoke: (client, signal) => client.getPublicSponsorships(signal)
+  },
+  {
+    name: 'public sponsorship directory page',
+    path: '/public/sponsorships?page=2&pageSize=6',
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+    result: {
+      data_source: 'empty',
+      last_updated_at: '2026-01-01T00:00:00.000Z',
+      sponsorships: [],
+      pagination: {
+        page: 2,
+        page_size: 6,
+        total_count: 0,
+        published_count: 0
+      }
+    },
+    cancellable: true,
+    fallback: 'Failed to load public sponsorship data',
+    invoke: (client, signal) => client.getPublicSponsorshipPage(2, 6, signal)
   }
 ];
 
@@ -108,7 +181,7 @@ test('public requests preserve payloads, response data and optional cancellation
             assert.equal(url, baseUrl + request.path);
             assert.deepEqual(options, {
               ...(request.cancellable ? { signal } : {}),
-              method: request.method,
+              ...(request.method ? { method: request.method } : {}),
               headers: request.headers,
               ...(request.body ? { body: JSON.stringify(request.body) } : {})
             });
@@ -296,7 +369,7 @@ test('checkout transport rejects incomplete or unknown success responses so an u
   }
 });
 
-test('reference cancellation forwards the same signal and abort reason before or during fetch', async (t) => {
+test('public cancellation forwards the same signal and abort reason before or during fetch', async (t) => {
   for (const request of requests.filter((request) => request.cancellable)) {
     for (const alreadyAborted of [false, true]) {
       await t.test(

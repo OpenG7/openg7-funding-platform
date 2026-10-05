@@ -8,7 +8,7 @@ export interface CheckoutConsentPayload {
   readonly nonCharityAcknowledged: boolean;
 }
 
-export interface CheckoutRequest {
+export interface CheckoutRequest extends CheckoutConsentPayload {
   /** Opaque identifier retained when retrying the same logical checkout attempt. */
   readonly idempotencyKey: string;
   readonly amount: number;
@@ -16,11 +16,6 @@ export interface CheckoutRequest {
   readonly projectId: string;
   readonly successUrl: string;
   readonly cancelUrl: string;
-  readonly contributionType: ContributionType;
-  readonly publicDisplayConsent: boolean;
-  readonly publicDisplayName?: string;
-  readonly displayAmountConsent: boolean;
-  readonly nonCharityAcknowledged: boolean;
 }
 
 export interface MockCheckoutResult {

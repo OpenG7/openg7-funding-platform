@@ -1,4 +1,7 @@
-import type { FundTransparencyPublicResponse } from './public-funding.js';
+import type {
+  FundTransparencyPublicResponse,
+  PublicFundAllocation
+} from './public-funding.js';
 
 /** Public allocation policy shared by the API and its confirmation UI. */
 export const PUBLIC_ALLOCATION_CREATE_CONFIRMATION = 'CREATE_PUBLIC_ALLOCATION';
@@ -39,19 +42,9 @@ export function isPublicAllocationProofUrl(value: unknown): boolean {
 export type AdminExpenseStatus =
   'draft' | 'published' | 'active' | 'private' | 'archived';
 
-export interface AdminExpenseRecord {
+export interface AdminExpenseRecord extends PublicFundAllocation {
   readonly id: string;
-  readonly project_name: string;
-  readonly public_description: string;
-  readonly expected_outcome: string;
-  readonly progress_status: 'planned' | 'in_progress' | 'delivered';
-  readonly proof_url: string | null;
-  readonly proof_source: string | null;
-  readonly proof_published_at: string | null;
-  readonly amount_allocated: number;
-  readonly currency: string;
   readonly status: AdminExpenseStatus;
-  readonly published_at: string | null;
   readonly created_at: string;
   readonly updated_at: string;
 }
@@ -89,21 +82,9 @@ export interface AdminExpenseCreateRequest {
   readonly publishedAt?: string | null;
 }
 
-export interface AdminExpenseUpdateRequest {
-  readonly confirmation?: string;
+export interface AdminExpenseUpdateRequest extends Partial<AdminExpenseCreateRequest> {
   readonly expenseId: string;
   readonly expectedVersion: string;
-  readonly projectName?: string;
-  readonly publicDescription?: string;
-  readonly expectedOutcome?: string;
-  readonly progressStatus?: 'planned' | 'in_progress' | 'delivered';
-  readonly proofUrl?: string | null;
-  readonly proofSource?: string | null;
-  readonly proofPublishedAt?: string | null;
-  readonly amountAllocated?: number;
-  readonly currency?: 'CAD';
-  readonly status?: AdminExpenseStatus;
-  readonly publishedAt?: string | null;
 }
 
 export interface AdminExpenseMutationResult {

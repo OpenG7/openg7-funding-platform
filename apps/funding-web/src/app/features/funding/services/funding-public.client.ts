@@ -1,10 +1,13 @@
 import type {
   CheckoutRequest,
   CheckoutResult,
+  FundTransparencyPublicResponse,
+  PublicBuildersResponse,
   PublicFundingRuntimeConfig,
   PublicReferenceLookupRequest,
   PublicReferenceLookupResponse,
   PublicSponsorshipBatchAvailabilityResponse,
+  PublicSponsorshipsResponse,
   ReferenceRecoveryRequest,
   ReferenceRecoveryResult
 } from '@openg7/funding-core';
@@ -58,18 +61,55 @@ export class FundingPublicClient {
   }
 
   async getPublicFundingConfig(): Promise<PublicFundingRuntimeConfig> {
-    const response = await fetch(`${this.apiBaseUrl}/public/funding-config`, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json'
-      }
-    });
+    return this.getPublicData(
+      '/public/funding-config',
+      'Funding runtime config could not be loaded.'
+    );
+  }
 
-    if (!response.ok) {
-      throw new Error('Funding runtime config could not be loaded.');
-    }
+  async getPublicBuilders(
+    page: number,
+    pageSize: number,
+    signal?: AbortSignal
+  ): Promise<PublicBuildersResponse> {
+    const params = this.paginationParams(page, pageSize);
+    return this.getPublicData(
+      `/public/builders?${params}`,
+      'Failed to load public builders',
+      { signal }
+    );
+  }
 
-    return (await response.json()) as PublicFundingRuntimeConfig;
+  async getPublicTransparency(
+    signal?: AbortSignal
+  ): Promise<FundTransparencyPublicResponse> {
+    return this.getPublicData(
+      '/public/fund-transparency',
+      'Failed to load public transparency data',
+      { method: 'GET', signal }
+    );
+  }
+
+  async getPublicSponsorshipPage(
+    page: number,
+    pageSize: number,
+    signal?: AbortSignal
+  ): Promise<PublicSponsorshipsResponse> {
+    return this.getPublicSponsorships(
+      signal,
+      this.paginationParams(page, pageSize)
+    );
+  }
+
+  async getPublicSponsorships(
+    signal?: AbortSignal,
+    params?: URLSearchParams
+  ): Promise<PublicSponsorshipsResponse> {
+    return this.getPublicData(
+      `/public/sponsorships${params ? '?' + params : ''}`,
+      'Failed to load public sponsorship data',
+      { method: 'GET', signal }
+    );
   }
 
   async lookupPublicReference(
@@ -119,20 +159,35 @@ export class FundingPublicClient {
   }
 
   async getSponsorshipBatchAvailability(): Promise<PublicSponsorshipBatchAvailabilityResponse> {
-    const response = await fetch(
-      `${this.apiBaseUrl}/public/sponsorship-batches/availability`,
-      {
-        method: 'GET',
-        headers: {
-          Accept: 'application/json'
-        }
-      }
+    return this.getPublicData(
+      '/public/sponsorship-batches/availability',
+      'Sponsorship batch availability could not be loaded.'
     );
+  }
+
+  private paginationParams(page: number, pageSize: number): URLSearchParams {
+    return new URLSearchParams({
+      page: String(page),
+      pageSize: String(pageSize)
+    });
+  }
+
+  private async getPublicData<T>(
+    path: string,
+    fallback: string,
+    options: { readonly method?: 'GET'; readonly signal?: AbortSignal } = {
+      method: 'GET'
+    }
+  ): Promise<T> {
+    const response = await fetch(`${this.apiBaseUrl}${path}`, {
+      ...options,
+      headers: { Accept: 'application/json' }
+    });
 
     if (!response.ok) {
-      throw new Error('Sponsorship batch availability could not be loaded.');
+      throw new Error(fallback);
     }
 
-    return (await response.json()) as PublicSponsorshipBatchAvailabilityResponse;
+    return (await response.json()) as T;
   }
 }
