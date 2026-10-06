@@ -16,15 +16,24 @@ corepack enable
 yarn install
 ```
 
-Copy [.env.example](.env.example) to an ignored `.env`, configure the required
-local services, then run `yarn dev`. See the
-[configuration reference](docs/technical/configuration.md) for service variables,
-Stripe-direct startup and optional PostgreSQL. Mock Checkout is local-only;
-production without Stripe configuration returns an error.
+Copy [.env.example](.env.example) to an ignored `.env`. The template selects
+`production` and `oidc`; it needs configuration before the API can start.
+For Docker on a VPS, follow the
+[first OIDC startup](docs/operations/keycloak-vps.md#premier-demarrage-oidc)
+through Keycloak, the application database, API/Web and the first admin login.
+Production requires named OIDC accounts with MFA and private PostgreSQL.
 
-Stripe-direct provides Checkout and aggregate transparency without PostgreSQL.
-Persistent admin, sponsor follow-up, directories, OIDC and alert episodes need
-the private database. Before `yarn db:migrate`, read the
+For local token mode, explicitly select `development` or `test` and `token`,
+with two independent random secrets of at least 32 characters:
+`FUNDING_ADMIN_TOKEN` and `FUNDING_ADMIN_SESSION_SECRET`. See the
+[configuration reference](docs/technical/configuration.md) for the settings,
+then run `yarn dev`. Mock Checkout is local-only; production without Stripe
+configuration returns an error.
+
+Real Checkout requires PostgreSQL. Development can use the limited Stripe-direct
+fallback for aggregate transparency. Persistent admin, sponsor follow-up,
+directories and alert episodes also need the private database.
+Before `yarn db:migrate`, read the
 [migration registry and legacy history adoption procedure](docs/operations/database-migrations.md).
 
 ## Workspaces and reuse
