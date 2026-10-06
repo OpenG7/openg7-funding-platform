@@ -7,18 +7,34 @@ ou environnement de production n'est créé par les tests.
 ## Comptes nominatifs
 
 Pour le fournisseur hébergé sur le VPS OpenG7, suivre le
-[runbook Keycloak](keycloak-vps.md) : DNS/HTTPS, realm et client confidentiel,
+[premier démarrage Keycloak](keycloak-vps.md#premier-demarrage-oidc) : DNS/HTTPS, realm et client confidentiel,
 enrôlement OTP, bootstrap, sauvegarde et restauration de sa DB distincte.
 Ce choix d'hébergement ne remplace pas les contrôles API ci-dessous.
 
-1. Préparer les migrations jusqu'à `020` sur un environnement de test selon
+Pour un fournisseur externe, laisser `FUNDING_KEYCLOAK_ENABLED=false` et préparer
+son client confidentiel et son MFA. Les exigences API suivantes s'appliquent
+également à ce fournisseur.
+
+1. Préparer le schéma complet actuel, dont `020` pour l'identité, selon
    la [procédure et l'adoption des bases existantes](database-migrations.md). En
-   production, vérifier une sauvegarde avant toute migration autorisée.
-2. Enregistrer un client confidentiel OIDC auprès du fournisseur choisi.
+   production, vérifier une sauvegarde avant toute migration autorisée, puis
+   utiliser le [compte API limité](../docker-deployment.md#compte-postgresql-applicatif)
+   distinct du propriétaire des migrations.
+2. Enregistrer un client confidentiel OIDC auprès du fournisseur choisi,
+   avec flux authorization code et PKCE S256, scopes `openid profile`.
    Son callback exact est `https://<site>/api/admin/auth/callback`, sans wildcard.
 3. Définir les variables de `.env.example` : `FUNDING_ADMIN_AUTH_MODE=oidc`,
-   issuer, client ID, secret et subjects des premiers propriétaires.
+   issuer HTTPS, client ID, secret et subjects des premiers propriétaires.
    `FUNDING_PUBLIC_BASE_URL` doit désigner l'origine HTTPS commune Web/API.
+   En production, `FUNDING_PRIVATE_DATA_ENCRYPTION_KEY` est obligatoire :
+   exactement 32 octets aléatoires en base64 standard, avec copie de récupération
+   protégée. Les secrets du mode token ne sont pas requis en OIDC.
+   Créer les personnes chez le fournisseur et relever leur `sub` vérifié.
+   Sur une base neuve, renseigner au moins un subject dans
+   `FUNDING_ADMIN_OIDC_OWNER_SUBJECTS`, séparés par des virgules : l'API crée
+   son compte propriétaire lors de sa première connexion MFA réussie. Une liste vide suppose
+   un propriétaire actif déjà présent pour cet issuer ; elle ne permet pas
+   d'amorcer une base neuve.
 4. Exiger le MFA chez le fournisseur. Vérifier qu'il retourne le claim signé
    `amr` contenant `mfa`, ou configurer `FUNDING_ADMIN_OIDC_MFA_ACR` uniquement
    avec les valeurs dont le fournisseur garantit la signification MFA.

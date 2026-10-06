@@ -97,9 +97,7 @@ FUNDING_ADMIN_OIDC_CLIENT_ID=replace_with_configured_client_id
 FUNDING_ADMIN_OIDC_CLIENT_SECRET=replace_with_configured_client_secret
 FUNDING_ADMIN_OIDC_OWNER_SUBJECTS=replace_with_verified_owner_subject
 FUNDING_ADMIN_OIDC_MFA_ACR=
-FUNDING_ADMIN_SESSION_SECRET=replace_with_a_different_long_random_session_secret
 FUNDING_PRIVATE_DATA_ENCRYPTION_KEY=replace_with_32_random_bytes_in_base64
-FUNDING_ADMIN_SESSION_TTL_MINUTES=60
 SMTP_ENABLED=true
 SMTP_HOST=mail.papamail.net
 SMTP_PORT=465
@@ -140,8 +138,8 @@ FUNDING_FULL_BACKUP_AGE_RECIPIENT=
 ```
 
 Production requires named OIDC accounts and MFA. Legacy token authentication is
-limited to local development/test. Configure the issuer, client, independent session
-signing secret, approved owner subjects and the required private-data encryption key
+limited to local development/test. Configure the issuer, client, approved owner
+subjects and the private-data encryption key (exactly 32 random bytes, standard base64)
 before starting the API. Named OIDC accounts, MFA and
 revocable sessions require PostgreSQL and the settings in the
 [identity/alerts runbook](operations/admin-identity-and-alerts.md). OIDC requires
@@ -151,6 +149,11 @@ its startup and database recovery are separate from application delivery.
 Set `FUNDING_OPERATIONS_WATCHER_ENABLED=true`
 after qualifying the receiver to include the operations overlay in deploy,
 health checks and rollback. It follows the selected API image revision.
+`STRIPE_SECRET_KEY` is also required by the API startup checks; qualifying identity
+does not require a live payment. Session signing secret and token TTL settings
+apply only to local/test `token` mode, not OIDC. Because `deploy.sh` sources `.env`
+in Bash, use literal assignments compatible with Bash and Compose, single quotes
+for values containing `$` or spaces, and URL-encoded credentials in `DATABASE_URL`.
 
 ## First VPS Installation
 
@@ -164,10 +167,30 @@ cd openg7-funding-platform
 sudo bash scripts/install-vps.sh
 cp .env.example .env
 nano .env
-bash scripts/deploy.sh
+chmod 600 .env
 ```
 
-Single command after `.env` is configured:
+The installer prepares Docker, firewall and ACME storage; it does not install
+Node/Yarn or start OpenG7. Ensure Node 22 and Corepack are available on the host
+(see the [repository prerequisites](../README.md#quick-start)). From a workstation
+with the workspace installed, `yarn vps:node:install` prepares Node/Corepack on
+the configured VPS when missing; verify `node --version` reports 22.x and
+`corepack --version` succeeds.
+Before the first
+application delivery, complete the [OIDC startup sequence](operations/keycloak-vps.md#premier-demarrage-oidc):
+start identity alone, verify DNS/HTTPS and the realm, prepare named OTP accounts
+and owner subjects, then migrate the separate Funding database and provision its
+restricted runtime role. For another provider, meet the same application
+prerequisites using the [identity runbook](operations/admin-identity-and-alerts.md).
+
+Yarn shortcuts require a host workspace installed with `yarn install --immutable`.
+On a Docker-only checkout, use the direct Node commands in that startup sequence;
+the migration and diagnostic scripts need Node 22 but no host npm dependencies.
+The standard `deploy.sh` installs the workspace with Corepack and compiles the
+applications on the host before building their Docker images. The registry
+`--no-build` path skips that installation and those builds.
+
+Only after those prerequisites and authorization for the target, deliver API/Web:
 
 ```bash
 bash scripts/deploy.sh
@@ -203,7 +226,7 @@ docker compose --profile database up -d postgres
    override explicitly empty for this first application (the runner otherwise loads `.env`):
 
 ```bash
-FUNDING_DATABASE_RUNTIME_USER= yarn db:migrate
+FUNDING_DATABASE_RUNTIME_USER= node scripts/db-migrate.mjs
 ```
 
 Use the complete migration directory; applying only `001`–`007` leaves most
@@ -212,11 +235,11 @@ files and their checksums. An existing database without that registry requires
 [reviewed history adoption](operations/database-migrations.md#adoption-dune-base-existante-sans-registre)
 before any further application. It never infers migration history from table names.
 
-4. Follow the separately authorized runtime-role provisioning below, then restart the API:
-
-```bash
-docker compose up -d api
-```
+4. Follow the separately authorized runtime-role provisioning below. For a first
+   production start, return to the [OIDC startup sequence](operations/keycloak-vps.md#premier-demarrage-oidc)
+   and deliver the application only once the provider and owners are ready.
+   The application deployment retains the identity overlay for Traefik; a bare
+   `docker compose up` omits that managed overlay.
 
 Security notes:
 
@@ -293,7 +316,7 @@ suivantes evitent la question, notamment sans terminal interactif :
 
 ```sh
 yarn docker:up:dev
-yarn docker:up --environment prod
+yarn docker:up --environment prod --database
 yarn docker:up --environment autre
 yarn docker:up:dev --dry-run
 ```
@@ -326,6 +349,11 @@ Prod utilise les builds de production et ne lance aucun relais. Autre conserve
 la configuration `.env`/shell et ne lance aucun relais. Ces choix ne selectionnent
 pas de serveur, ne changent pas les secrets et ne remplacent pas la procedure de
 deploiement. PostgreSQL peut etre ajoute avec `--database`.
+En production OIDC, ce profil est requis pour la DB Funding privee. La commande
+construit et demarre la pile complete, y compris l'identite activee, mais ne migre
+pas la base et ne provisionne pas son role runtime. Suivre le
+[premier demarrage OIDC](operations/keycloak-vps.md#premier-demarrage-oidc) avant une
+reconstruction autorisee ; la livraison applicative reste `bash scripts/deploy.sh`.
 Sans terminal, `--environment local|prod|autre` est obligatoire, meme si
 `FUNDING_PLATFORM_ENV` figure dans `.env`. `--dry-run` affiche uniquement les
 commandes prevues. Lorsqu'un fichier d'environnement est present, Docker Compose
@@ -451,6 +479,11 @@ Applied:
 - Traefik dashboard and cAdvisor bound to localhost only
 
 ## Deployment
+
+For the first production start, finish the [OIDC prerequisites and application sequence](operations/keycloak-vps.md#premier-demarrage-oidc)
+before running this delivery. Application deployment and rollback preserve the
+managed identity overlay but do not build, start or restore Keycloak or its DB.
+Prepare and maintain those identity services separately.
 
 The deployment runner calls `scripts/db-migrate.sh` when a database is configured.
 Both migration entrypoints require Node 22 or newer on the host, including image-only
@@ -790,10 +823,15 @@ http://127.0.0.1:8082
 
 ## Troubleshooting
 
+If Web reports `dependency api failed to start`, it is waiting for the API
+healthcheck; inspect the API's startup refusal first. For managed Keycloak, use
+the [startup diagnostic with the identity overlay](operations/keycloak-vps.md#diagnostic-dependance-api).
+Do not omit enabled overlays when recreating Traefik or the application.
+
 Check containers:
 
 ```bash
-docker compose ps
+docker compose ps -a api web
 ```
 
 If the API restarts in a loop:
@@ -801,33 +839,26 @@ If the API restarts in a loop:
 ```bash
 docker compose logs --tail=100 api
 docker compose config --quiet
-yarn services:check
+node scripts/services-check.mjs
 ```
 
 These checks avoid printing expanded secret values. `services:check` validates
 the selected token/OIDC configuration and any configured operations webhook.
-It makes no provider calls and does not verify MFA, migrations or alert delivery.
+It makes no provider calls and does not verify MFA, migrations, runtime DB rights,
+the encryption key or alert delivery.
 Use the [identity runbook](operations/admin-identity-and-alerts.md#diagnostic-de-configuration-avant-recette)
 for the remaining checks.
 
-Most startup loops come from missing production variables in `.env`, especially:
-
-```env
-APP_DOMAIN=openg7.org
-FUNDING_PUBLIC_BASE_URL=https://openg7.org
-FUNDING_ALLOWED_ORIGINS=https://openg7.org,https://www.openg7.org
-FUNDING_ADMIN_TOKEN=replace_with_a_long_random_admin_token
-FUNDING_ADMIN_SESSION_SECRET=replace_with_a_different_long_random_session_secret
-SPONSOR_MEDIA_STORAGE_DRIVER=ovh-s3
-SPONSOR_MEDIA_REGION=bhs
-SPONSOR_MEDIA_ENDPOINT=https://s3.bhs.io.cloud.ovh.net
-SPONSOR_MEDIA_PRIVATE_BUCKET=openg7-funding-sponsor-media-private-prod
-FUNDING_SPONSOR_LOGO_STORAGE_DIR=/app/var/sponsor-logos
-FUNDING_SPONSOR_LOGO_MAX_BYTES=524288
-FUNDING_SPONSOR_MEDIA_MAX_BYTES=8388608
-FUNDING_SPONSOR_MEDIA_MAX_SUPPORTING_IMAGES=3
-STRIPE_SECRET_KEY=sk_live_or_test_key
-```
+`OIDC requires a secure origin, issuer, client ID and client secret.` means that
+the API's OIDC configuration is missing or invalid. Verify the protected `.env`
+and the explicit API variables in Compose: HTTPS origin and issuer, confidential
+client ID/secret, owner subjects, production mode, Funding `DATABASE_URL` and
+private-data encryption key. Read logs locally and redact private values before
+sharing them; never print `.env`, tokens or expanded `docker compose config`.
+Other startup refusals require checking the restricted database role, migrations
+or provider settings identified by the error. Correct the cause before an
+authorized delivery. Production cannot fall back to `token`; do not remove data
+volumes to make a container start.
 
 Check Traefik:
 

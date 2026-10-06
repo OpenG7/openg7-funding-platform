@@ -22,15 +22,23 @@ Les exemples n'autorisent aucune exécution.
 | Rapport documentaire JSON | `yarn docs:report` |
 | Configuration sans afficher de secrets | `yarn services:check` |
 
+`.env.example` sélectionne production/OIDC et exige une configuration avant
+le démarrage. Le mode token est réservé à `development` ou `test` explicite,
+avec deux secrets aléatoires distincts d'au moins 32 caractères :
+`FUNDING_ADMIN_TOKEN` et `FUNDING_ADMIN_SESSION_SECRET`.
+Détail des réglages : [configuration](technical/configuration.md).
+
 La [matrice de validation](development/validation.md) précise contrôles,
 suites navigateur et prérequis. `yarn test` compile déjà. `services:check` lit
-la configuration locale, pas celle des conteneurs; contrôle admin token,
+la configuration locale, pas celle des conteneurs; valide le mode admin choisi,
 sans recette OIDC/MFA.
 
 ## Docker Compose
 
 Les raccourcis Docker/DB locaux attendent Docker et tentent d'ouvrir Docker Desktop
 si nécessaire. Guide détaillé : [Docker](docker-deployment.md).
+Sur VPS, suivre le [premier démarrage OIDC](operations/keycloak-vps.md#premier-demarrage-oidc)
+jusqu'à API/Web et la première connexion admin avant d'utiliser les raccourcis de livraison.
 
 <!-- prettier-ignore -->
 | Besoin | Commande |
@@ -150,6 +158,7 @@ Sans clé SSH, le terminal peut demander un mot de passe.
 
 | Opération autorisée                     | Commande                                               |
 | --------------------------------------- | ------------------------------------------------------ |
+| Préparer Node/Corepack sur le VPS       | `yarn vps:node:install`                                |
 | Mettre à jour le checkout puis déployer | `yarn vps:update`                                      |
 | Même opération sans build VPS           | `yarn vps:update --no-build`                           |
 | Déployer le checkout préparé            | `yarn vps:deploy`                                      |

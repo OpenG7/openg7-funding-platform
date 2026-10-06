@@ -41,11 +41,26 @@ Avant toute opération sur une cible réelle :
    [Dockerfile Keycloak](../../docker/keycloak/Dockerfile), PostgreSQL et Traefik.
    Une mise à jour d'image requiert sa recette et sa sauvegarde : ne pas remplacer
    un tag par `latest` ni revenir à une ancienne image après migration de sa DB.
+4. Disposer de Node 22, Corepack et Docker Compose sur l'hôte, avec accès Docker
+   pour l'opérateur. Sur un VPS neuf, suivre l'[installation de base](../docker-deployment.md#first-vps-installation)
+   avant ces étapes, sans encore lancer la livraison applicative.
+
+Les commandes Node directes ci-dessous n'exigent aucune dépendance npm sur
+l'hôte. Les raccourcis Yarn équivalents, dont `yarn keycloak:check`, supposent
+Yarn 4 et une installation du workspace par `yarn install --immutable`.
+Sur un checkout VPS neuf, utiliser les commandes Node directes si cette
+installation n'a pas été faite. Le déploiement standard installe lui-même
+les dépendances avec Corepack et construit aussi les applications sur l'hôte
+avant leurs images Docker ; le parcours registre `--no-build` évite ces builds.
 
 ## Configuration et démarrage séparé
 
 Éditer `.env` avec un outil local protégé, permissions `600`, sans copier son
-contenu dans un ticket, un log ou Git. Valeurs publiques de la cible prévue :
+contenu dans un ticket, un log ou Git. La livraison Bash charge ce fichier :
+utiliser des valeurs littérales `KEY=value` compatibles Bash et Compose,
+avec des quotes simples si elles contiennent `$` ou des espaces. Encoder les
+caractères réservés des credentials dans `DATABASE_URL` selon le guide du rôle DB.
+Valeurs publiques de la cible prévue :
 
 ```env
 FUNDING_KEYCLOAK_ENABLED=true
@@ -67,7 +82,8 @@ séparément `FUNDING_KEYCLOAK_DB_PASSWORD`,
 `FUNDING_ADMIN_OIDC_CLIENT_SECRET`. Les trois mots de passe/secrets doivent
 être distincts, aléatoires et d'au moins 32 caractères ; aucun défaut n'est
 fourni. Garder également les préconditions API du runbook des accès : DB
-Funding migrée, secret de session et clé de chiffrement privée. Les subjects
+Funding migrée et `FUNDING_PRIVATE_DATA_ENCRYPTION_KEY` encodant exactement
+32 octets aléatoires en base64 standard. Les subjects
 propriétaires seront renseignés après création des personnes nominatives.
 
 Les commandes ci-dessous décrivent une opération à exécuter seulement sur la
@@ -83,12 +99,17 @@ en `--dry-run` ; cette lecture ne contacte ni le daemon ni le fournisseur et ne
 démarre aucun service. Le préflight n'imprime aucune valeur privée :
 
 ```sh
-yarn keycloak:check
+node scripts/keycloak-config.mjs --check
 docker compose --env-file .env -f docker-compose.yml -f docker-compose.identity.yml config --quiet
 docker compose --env-file .env -f docker-compose.yml -f docker-compose.identity.yml build keycloak
 docker compose --env-file .env -f docker-compose.yml -f docker-compose.identity.yml up -d --wait identity-postgres keycloak traefik
 docker compose --env-file .env -f docker-compose.yml -f docker-compose.identity.yml ps identity-postgres keycloak traefik
 ```
+
+Ces services peuvent démarrer sans API/Web : Keycloak attend uniquement sa DB,
+Traefik n'a pas de dépendance applicative. Les routes OpenG7 peuvent donc encore
+répondre en erreur pendant cette préparation. Vérifier maintenant DNS, certificat
+et discovery du realm, puis préparer les comptes ci-dessous avant de livrer l'API.
 
 Ne démarrer l'API en production qu'après qualification du fournisseur et des
 comptes. `docker:up` et `docker:update` partagent la sélection des fichiers Compose
@@ -135,11 +156,15 @@ aucun claim constant `mfa`, ACR arbitraire ou relâchement serveur n'est admissi
    lui attribuer les droits nécessaires, exiger son enrôlement OTP et vérifier
    une nouvelle connexion avec les deux facteurs avant de quitter le bootstrap.
 2. Créer les personnes OpenG7 dans le realm `openg7`, avec mot de passe propre
-   et enrôlement OTP. Conserver leurs identifiants utilisateur/`sub` dans un
+   et enrôlement OTP. La [console de compte Keycloak](https://www.keycloak.org/docs/latest/server_admin/index.html#_account-console)
+   `https://auth.openg7.org/realms/openg7/account/` permet cet enrôlement avant
+   le démarrage d'OpenG7 ; effectuer ensuite une nouvelle connexion mot de passe +
+   OTP. Dans le profil livré, le **User ID** Keycloak est le subject `sub`.
+   Conserver ces identifiants dans un
    registre d'accès protégé ; un email ou un nom n'est pas un subject OIDC.
 3. Définir `FUNDING_ADMIN_OIDC_OWNER_SUBJECTS` avec les subjects vérifiés des
-   premiers propriétaires, puis effectuer la livraison API autorisée. Les
-   rôles lecteur/opérateur/propriétaire sont contrôlés et persistés par l'API
+   premiers propriétaires, puis suivre le [premier démarrage applicatif](#premier-demarrage-oidc).
+   Les rôles lecteur/opérateur/propriétaire sont contrôlés et persistés par l'API
    OpenG7, pas déduits des rôles Keycloak. Ajouter les autres comptes depuis
    **Accès et sessions**, selon le runbook propriétaire.
 4. Si la connexion utilisée pour enrôler OTP est refusée par OpenG7, ouvrir une
@@ -154,6 +179,104 @@ Les opérations console modifient une identité réelle : elles requièrent la
 cible et l'autorisation correspondantes. Ne pas recopier les claims privés ou
 credentials dans les preuves. La [documentation d'administration](https://www.keycloak.org/docs/latest/server_admin/index.html)
 reste la référence pour gérer comptes, OTP et sessions du fournisseur.
+
+<a id="premier-demarrage-oidc"></a>
+
+## Premier démarrage OIDC de l'application
+
+Après préparation du fournisseur et des propriétaires, depuis le même checkout
+autorisé et avec le même projet Compose :
+
+1. Vérifier le certificat HTTPS de `auth.openg7.org`, la discovery du realm
+   `openg7`, le callback exact et les comptes avec OTP. Renseigner leurs subjects
+   propriétaires dans `.env` protégé. Le compte bootstrap du realm `master`
+   n'est pas un propriétaire OpenG7.
+2. Préparer la **DB Funding**, service `postgres`, distincte d'`identity-postgres`.
+   Sur une base neuve, suivre [l'initialisation PostgreSQL](../docker-deployment.md#optional-private-postgresql) :
+   profil `database`, migrations complètes avec le compte propriétaire, puis
+   [provisionnement séparé du rôle runtime restreint](../docker-deployment.md#compte-postgresql-applicatif).
+   `DATABASE_URL` doit utiliser ce rôle et viser `postgres:5432`, jamais la DB
+   identité. Sur une base existante, préserver DB, volume et compte propriétaire ;
+   examiner le [plan de migrations](database-migrations.md) et la sauvegarde.
+   Sans registre, effectuer l'[adoption revue](database-migrations.md#adoption-dune-base-existante-sans-registre)
+   avant les migrations restantes ; ne pas rejouer l'initialisation d'une base neuve.
+3. Vérifier la clé `FUNDING_PRIVATE_DATA_ENCRYPTION_KEY`, les variables OIDC,
+   `FUNDING_PLATFORM_ENV=production` et les réglages applicatifs requis dans
+   [.env.example](../../.env.example), dont `STRIPE_SECRET_KEY`, requis au démarrage
+   de l'API même pour préparer l'administration. Lancer les préflights :
+
+   ```sh
+   node scripts/keycloak-config.mjs --check
+   node scripts/services-check.mjs
+   ```
+
+   Ces diagnostics ne contactent pas le fournisseur. Ils ne prouvent ni MFA réel,
+   migrations, droits DB ni validité de la clé de chiffrement. Vérifier ces
+   préconditions séparément. Si le surveillant d'alertes est activé, qualifier
+   d'abord son récepteur signé et ses migrations selon le [runbook des alertes](admin-identity-and-alerts.md#proposition-de-canal-dalerte).
+
+4. Après autorisation de livrer l'application, utiliser la commande canonique :
+
+   ```sh
+   bash scripts/deploy.sh
+   ```
+
+   Le runner installe le workspace et compile les applications sur l'hôte avec
+   Corepack, construit les images applicatives, applique les migrations Funding
+   restantes avec le propriétaire, démarre API/Web puis contrôle leur santé.
+   Il active le profil `database` si `DATABASE_URL` est renseigné et sélectionne
+   les overlays identité et opérations selon leurs commutateurs. Keycloak et sa
+   DB déjà préparés restent dans leur cycle séparé. Pour des images de registre,
+   suivre la [livraison qualifiée par révision](../docker-deployment.md#deployment).
+   `yarn docker:up --environment prod --database` construit et démarre la pile
+   complète pour une reconstruction autorisée ; il **ne migre pas** la DB et
+   peut reconstruire l'identité. Il ne remplace pas cette première livraison.
+
+5. Contrôler les états puis les routes publiques :
+
+   ```sh
+   docker compose --env-file .env -f docker-compose.yml -f docker-compose.identity.yml --profile database ps api web postgres keycloak identity-postgres traefik
+   curl -fsS https://openg7.org/health
+   curl -fsS https://openg7.org/api/admin/auth/config
+   docker compose --env-file .env -f docker-compose.yml -f docker-compose.identity.yml exec -T api node -e 'fetch("http://127.0.0.1:3333/health").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))'
+   ```
+
+   `/health` public vérifie le Web ; l'endpoint public d'authentification doit
+   annoncer `mode: "oidc"`. La dernière commande vérifie le `/health` interne de
+   l'API, également utilisé par son healthcheck Docker. Si les opérations sont
+   activées, inclure leur overlay et contrôler aussi le service `operations`.
+
+6. Ouvrir `https://openg7.org/admin/fundraiser`, se connecter avec un propriétaire
+   du realm `openg7` et son OTP, puis effectuer les [vérifications d'accès](#verifications-avant-activation).
+   Un enrôlement OTP pendant cette première connexion peut nécessiter une nouvelle
+   connexion complète avant acceptation du MFA. Vérifier rôle propriétaire,
+   refus sans MFA, révocation et audit avant toute action administrative réelle.
+
+<a id="diagnostic-dependance-api"></a>
+
+### Si la dépendance API empêche le démarrage Web
+
+`dependency api failed to start` indique que Web attend une API saine ; ce message
+ne désigne pas la cause du refus API. Sur le projet concerné, examiner uniquement
+les états et les logs utiles, sans afficher la configuration développée :
+
+```sh
+docker compose --env-file .env -f docker-compose.yml -f docker-compose.identity.yml --profile database ps -a api web postgres keycloak identity-postgres
+docker compose --env-file .env -f docker-compose.yml -f docker-compose.identity.yml logs --tail=80 api
+docker compose --env-file .env -f docker-compose.yml -f docker-compose.identity.yml config --quiet
+node scripts/keycloak-config.mjs --check
+node scripts/services-check.mjs
+```
+
+`OIDC requires a secure origin, issuer, client ID and client secret.` signale des
+valeurs OIDC absentes ou invalides : corriger l'origine HTTPS, l'issuer exact,
+le client et son secret dans le fichier protégé, sans les imprimer. Un refus
+PostgreSQL, de droits runtime ou de chiffrement doit être traité dans sa
+procédure propriétaire. Lire les logs localement ; ne publier aucun token,
+cookie, credential ou corps privé. Corriger la cause avant une relivraison
+autorisée ; ne pas basculer vers le mode `token` en production ni supprimer un
+volume pour contourner l'erreur. Le [diagnostic des accès](admin-identity-and-alerts.md#diagnostic-de-configuration-avant-recette)
+précise les limites des préflights.
 
 ## Rotation des credentials sur un realm existant
 
@@ -172,7 +295,7 @@ Pour le secret client OIDC :
    environnement et sa configuration OIDC mise en cache :
 
    ```sh
-   yarn keycloak:check
+   node scripts/keycloak-config.mjs --check
    docker compose --env-file .env -f docker-compose.yml -f docker-compose.identity.yml up -d --no-deps --force-recreate api
    ```
 
@@ -191,6 +314,8 @@ services identité. Utiliser un client SQL de confiance avec saisie protégée
 dans un argument de commande ou un SQL enregistré dans l'historique. Vérifier
 readiness DB/Keycloak puis connexion MFA. L'environnement `POSTGRES_PASSWORD`
 ne change pas à lui seul un credential d'une DB déjà initialisée.
+
+<a id="verifications-avant-activation"></a>
 
 ## Vérifications avant activation
 

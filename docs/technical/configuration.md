@@ -13,11 +13,13 @@ Set these variables for API and webhook processing:
 - `FUNDING_ALLOWED_ORIGINS` — comma-separated browser origins allowed to call the API in production.
 
 - `FUNDING_BUSINESS_SPONSORSHIP_ENABLED` - set to `true` only when the business sponsorship flow is ready to accept new sponsorship checkouts. Defaults to `false`.
-- `FUNDING_ADMIN_AUTH_MODE` - `token` by default; `oidc` enables named accounts, MFA, API roles and revocable sessions.
-- `FUNDING_ADMIN_TOKEN` - root secret required for production admin access in `token` mode; rejected as an authentication method in `oidc` mode.
-- `FUNDING_ADMIN_SESSION_SECRET` - recommended separate HMAC secret for signed browser sessions in `token` mode.
-- `FUNDING_ADMIN_SESSION_TTL_MINUTES` - token-mode session duration, defaulting to 60 minutes. OIDC sessions currently last one hour without automatic renewal.
+- `FUNDING_ADMIN_AUTH_MODE` - `oidc` is required in production for named accounts, MFA, API roles and revocable sessions. `token` administration is limited to development/test.
+- `FUNDING_ADMIN_TOKEN` - random root secret of at least 32 characters, required for local/test `token` administration; ignored in `oidc` mode.
+- `FUNDING_ADMIN_SESSION_SECRET` - independent random HMAC secret of at least 32 characters, required for `token` administration and distinct from `FUNDING_ADMIN_TOKEN`; ignored in `oidc` mode.
+- `FUNDING_ADMIN_SESSION_TTL_MINUTES` - token-mode duration: integer from 1 to 60 minutes, default 60. OIDC sessions last one hour without automatic renewal.
 - `FUNDING_ADMIN_OIDC_ISSUER`, `FUNDING_ADMIN_OIDC_CLIENT_ID`, `FUNDING_ADMIN_OIDC_CLIENT_SECRET`, `FUNDING_ADMIN_OIDC_OWNER_SUBJECTS`, `FUNDING_ADMIN_OIDC_MFA_ACR` - server-only identity configuration; see the [identity and alerts runbook](../operations/admin-identity-and-alerts.md).
+- `FUNDING_PRIVATE_DATA_ENCRYPTION_KEY` - private API key of exactly 32 random bytes in standard base64, required in production. Keep an independent protected recovery copy; a malformed configured key is rejected in every environment.
+- `DATABASE_URL` - private PostgreSQL connection, required for OIDC, real Checkout and all production API starts. Production uses a limited runtime role distinct from the migration owner; see [private PostgreSQL](#private-postgresql).
 - `FUNDING_OPERATIONS_WEBHOOK_URL`, `FUNDING_OPERATIONS_WEBHOOK_SECRET` - optional independent signed alert channel, enabled by configuring and starting the operations watcher.
 - `FUNDING_CONTRIBUTION_EMAIL_ENABLED`, `FUNDING_CONTRIBUTION_SMS_MODE`, `FUNDING_CONTRIBUTION_SMS_MOCK_URL` — private payment-notification settings, disabled by default; see [contribution activity](../operations/contribution-activity.md). `STRIPE_SIMULATED_CHECKOUT_ENABLED` is a separate local-only acceptance setting.
 - `SPONSOR_MEDIA_STORAGE_DRIVER` - sponsor media storage backend. Use `local` for filesystem storage or `ovh-s3` for OVH Object Storage.
@@ -42,9 +44,19 @@ descriptions, the admin attention queue and private contribution website cards. 
 also supplies publication settings; review, visibility and publication
 authorization remain separate decisions.
 
-For the initial production launch, you can leave `DATABASE_URL` unset. Public transparency reads directly from Stripe so the platform can launch without PostgreSQL.
+Production startup requires OIDC, PostgreSQL with the complete current schema,
+the limited database runtime role and the private-data encryption key. Prepare
+the HTTPS provider, confidential client, MFA and first owner accounts according
+to the [identity runbook](../operations/admin-identity-and-alerts.md) before starting the API.
+The API verifies database privileges before opening its listener.
 
-When `FUNDING_PLATFORM_ENV=production`, checkout mock fallbacks are disabled. Missing Stripe configuration returns an API error instead of simulating a successful checkout.
+`.env.example` and Compose select `oidc`. A standalone API defaults to `token`
+when `FUNDING_ADMIN_AUTH_MODE` is absent, which production rejects; set the mode
+explicitly. `FUNDING_PLATFORM_ENV` takes precedence over `NODE_ENV`, with
+`development`, `test` and `production` as the only accepted values.
+
+When `FUNDING_PLATFORM_ENV=production`, checkout mock fallbacks are disabled.
+An absent `STRIPE_SECRET_KEY` blocks API startup.
 
 Example values are available in [.env.example](../../.env.example).
 
@@ -60,30 +72,35 @@ Send a manual test only to an explicitly provided recipient:
 npm run email:test -- --to=adresse@example.com
 ```
 
-## Fast launch without PostgreSQL
+## Development without PostgreSQL
 
-When `DATABASE_URL` is absent and `STRIPE_SECRET_KEY` is configured, the public
-transparency endpoint aggregates Stripe Checkout sessions and payouts directly
-from Stripe. This is a limited deployment option:
+Compatible development configurations can use Stripe-direct public transparency
+without PostgreSQL: select `FUNDING_PLATFORM_ENV=development` and `token` mode
+with the two independent token secrets described above.
+With `STRIPE_SECRET_KEY` configured, the endpoint aggregates Stripe Checkout
+sessions and payouts directly:
 
 ```bash
 GET http://localhost:3333/api/public/fund-transparency
 ```
 
-This is the default quick-launch path. It avoids local persistence while still showing real Stripe totals.
+This path cannot start an OIDC or production API. Real Checkout requires durable
+PostgreSQL operations even in development; local simulation remains separate.
 
-## Optional private PostgreSQL
+## Private PostgreSQL
 
-PostgreSQL is optional and must stay private. The Compose service is behind the `database` profile and publishes no `5432` port.
+PostgreSQL is required for production, OIDC and real Checkout. The Compose service
+stays private behind the `database` profile and publishes no `5432` port.
 
-Enable it for persistent checkout/webhook state, sponsor follow-up, directories,
-administration, OIDC and alert episodes:
+On an authorized fresh environment, configure distinct migration and API roles:
 
 ```env
 POSTGRES_DB=openg7_funding
-POSTGRES_USER=openg7_funding
+POSTGRES_USER=openg7_funding_owner
 POSTGRES_PASSWORD=replace_with_a_long_random_secret
-DATABASE_URL=postgres://openg7_funding:replace_with_a_long_random_secret@postgres:5432/openg7_funding
+FUNDING_DATABASE_RUNTIME_USER=openg7_funding_api
+FUNDING_DATABASE_RUNTIME_PASSWORD=replace_with_a_different_long_random_secret
+DATABASE_URL=postgres://openg7_funding_api:replace_with_a_different_long_random_secret@postgres:5432/openg7_funding
 ```
 
 Start the private database:
@@ -92,41 +109,29 @@ Start the private database:
 docker compose --profile database up -d postgres
 ```
 
-For a **fresh local database**, apply all versioned migrations:
+For a **fresh local database**, apply the complete migration directory before
+provisioning the runtime role. Clear its override for this first application:
 
 ```bash
-yarn db:migrate
+FUNDING_DATABASE_RUNTIME_USER= yarn db:migrate
 ```
 
-Read the current migration inventory and the
-[migration procedure and replay limitation](../operations/database-migrations.md)
-before updating an existing database: the runners currently replay every file,
-and migrations `019`–`021` cannot be applied twice.
+Then follow the [runtime-role provisioning procedure](../docker-deployment.md#compte-postgresql-applicatif)
+before starting the API. `POSTGRES_USER` remains on the host and PostgreSQL
+container for migrations; never use it in the production API's `DATABASE_URL`.
+The API rejects administrative, owner and destructive privileges. URL-encode
+reserved characters in the runtime password.
 
-The initial migrations create the tables below; consult the linked inventory
-for later publication automation and administrative command receipt tables:
+The [migration procedure and inventory](../operations/database-migrations.md)
+owns database targeting and upgrades. The runner checks the registry and file
+checksums, then applies only pending migrations in one transaction. A nonempty
+existing database without a registry requires reviewed history adoption before
+application; table presence alone is insufficient. Use the full current schema,
+including migration `020` for OIDC, rather than stopping at that minimum.
+Production migration and role provisioning require authorization for the target.
 
-- `fund_transactions` (Stripe event level, aggregate-safe values only)
-- `fund_allocations` (publicly publishable allocations)
-- `stripe_events` (webhook idempotency and processing status)
-- `stripe_checkout_sessions` (created Checkout Sessions)
-- `fund_contributions` (pending contribution records, sponsor follow-up details, private review status, hashed follow-up tokens, and sponsor feed placement fields)
-- `sponsor_publication_drafts` (private sponsored publication drafts for manual review)
-- `sponsor_publication_batches` (collective Facebook/LinkedIn publication batches)
-- `publication_slots` (capacity-bound publication calendar slots by target, channel, date and timezone)
-- `social_publication_jobs` (idempotent social provider publication jobs)
-- `admin_audit_log` (private admin action log)
-- `email_messages` (queued email templates with retry status)
-- `sponsorship_invoices` (private app-generated sponsorship invoice snapshots)
-- `sponsorship_credit_notes` (private app-generated sponsorship credit-note snapshots tied to Stripe refunds)
-- `sponsor_media_assets` (private originals and reviewed public media)
-- `sponsorship_access_tokens`, `sponsorship_followup_drafts` (access recovery and revision-protected drafts)
-- `admin_accounts`, `admin_identity_sessions`, `admin_login_challenges` (OIDC access)
-- `operations_alerts` (persistent incident episodes and delivery retries)
-
-Migration `018` also adds achievement/proof fields to public allocations.
-
-When `DATABASE_URL` is absent, the API continues to run with Stripe-direct public transparency.
+The PostgreSQL migration owner and the API runtime role have separate credentials;
+Keycloak, when self-hosted, uses its own independent database.
 
 ## Local setup stepper
 
