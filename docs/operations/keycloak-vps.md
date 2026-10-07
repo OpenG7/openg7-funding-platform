@@ -184,6 +184,12 @@ reste la référence pour gérer comptes, OTP et sessions du fournisseur.
 
 ## Premier démarrage OIDC de l'application
 
+Le parcours public `/admin/oidc-setup` présente ces étapes avant connexion, sans
+appel API ni configuration runtime. Après livraison et connexion propriétaire,
+`/admin/fundraiser/setup?section=identity` affiche le diagnostic de configuration
+et son guide. Ces pages ne créent pas le fournisseur et ne prouvent pas son MFA ;
+voir le [contrat et les limites du guidage](admin-setup.md#guidage-oidc).
+
 Après préparation du fournisseur et des propriétaires, depuis le même checkout
 autorisé et avec le même projet Compose :
 

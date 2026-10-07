@@ -43,11 +43,12 @@
               <span
                 class="status-pill compact"
                 [class.status-ok]="labels.envConfigured(data, row.key)"
-                [class.status-warn]="!labels.envConfigured(data, row.key)"
+                [class.status-warn]="
+                  labels.envConfigured(data, row.key) === false &&
+                  row.key !== 'FUNDING_ADMIN_OIDC_OWNER_SUBJECTS'
+                "
               >
-                {{
-                  labels.configuredLabel(labels.envConfigured(data, row.key))
-                }}
+                {{ labels.envStateLabel(data, row.key) }}
               </span>
             </td>
             <td>{{ row.note }}</td>

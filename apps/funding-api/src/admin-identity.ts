@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
+import type { AdminIdentitySetupStatus } from '@openg7/funding-core';
 import type { Pool } from 'pg';
 
 import {
@@ -31,6 +32,21 @@ export {
   satisfiesMfa
 } from './admin-identity/policy.js';
 
+export const buildAdminIdentitySetupStatus = (
+  identity: Pick<AdminIdentityService, 'setupStatus'> | null,
+  privateDataEncryptionConfigured: boolean
+): AdminIdentitySetupStatus =>
+  identity?.setupStatus(privateDataEncryptionConfigured) ?? {
+    mode: 'token',
+    issuer: null,
+    callback_url: null,
+    client_id_configured: false,
+    client_secret_configured: false,
+    owner_bootstrap_configured: false,
+    mfa_policy: 'amr',
+    private_data_encryption_configured: privateDataEncryptionConfigured
+  };
+
 export class AdminIdentityService {
   private readonly config: AdminIdentityConfig;
   private readonly persistence: AdminIdentityPersistence;
@@ -48,6 +64,26 @@ export class AdminIdentityService {
 
   identity(request: IncomingMessage): AdminIdentity | undefined {
     return this.identities.get(request);
+  }
+
+  setupStatus(
+    privateDataEncryptionConfigured: boolean
+  ): AdminIdentitySetupStatus {
+    return {
+      mode: 'oidc',
+      issuer:
+        this.config.issuer.search || this.config.issuer.hash
+          ? null
+          : this.config.issuer.href,
+      callback_url: `${this.config.origin}/api/admin/auth/callback`,
+      client_id_configured: Boolean(this.config.clientId),
+      client_secret_configured: Boolean(this.config.clientSecret),
+      owner_bootstrap_configured: this.config.ownerSubjects.some(Boolean),
+      mfa_policy: this.config.mfaAcr.split(',').some((value) => value.trim())
+        ? 'acr'
+        : 'amr',
+      private_data_encryption_configured: privateDataEncryptionConfigured
+    };
   }
 
   async resolve(request: IncomingMessage): Promise<void> {

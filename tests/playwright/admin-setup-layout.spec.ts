@@ -3,20 +3,17 @@ import { AxeBuilder } from '@axe-core/playwright';
 
 import { expect, test } from './support/test.js';
 import { cockpitFixtures } from './support/cockpit-fixtures.js';
-import { setupFixture } from './support/setup-fixtures.js';
+import {
+  installAdminTokenSession,
+  setupFixture
+} from './support/setup-fixtures.js';
 
 async function installFixtures(page: Page, language = 'fr-CA') {
-  await page.addInitScript((locale) => {
-    localStorage.setItem('openg7.language', locale);
-    sessionStorage.setItem(
-      'openg7-admin-session-token',
-      'openg7-admin-session.setup-layout-fixture'
-    );
-    sessionStorage.setItem(
-      'openg7-admin-session-expires-at',
-      '2099-01-01T00:00:00Z'
-    );
-  }, language);
+  await installAdminTokenSession(
+    page,
+    'openg7-admin-session.setup-layout-fixture',
+    language
+  );
   const base = setupFixture();
   const data = {
     setup: {
@@ -98,7 +95,7 @@ for (const language of ['fr-CA', 'en']) {
           : 'Un service demande votre attention'
       );
       await expect(page.locator('[data-og7="setup-checklist"]')).toContainText(
-        '5 / 5'
+        '6 / 6'
       );
       await card(page, 'storage').focus();
       await page.keyboard.press('Enter');
@@ -507,14 +504,14 @@ test('a Stripe incident opens the filtered work queue and the entire guide stays
   );
   const guide = root(page).getByRole('button', { name: 'Guide', exact: true });
   await guide.click();
-  for (let step = 1; step < 7; step++) {
-    await expect(page.getByRole('dialog')).toContainText(`Etape ${step} / 7`);
+  for (let step = 1; step < 8; step++) {
+    await expect(page.getByRole('dialog')).toContainText(`Etape ${step} / 8`);
     await page
       .getByRole('dialog')
       .getByRole('button', { name: 'Suivant', exact: true })
       .click();
   }
-  await expect(page.getByRole('dialog')).toContainText('Etape 7 / 7');
+  await expect(page.getByRole('dialog')).toContainText('Etape 8 / 8');
   await page
     .getByRole('dialog')
     .getByRole('button', { name: 'Terminer', exact: true })

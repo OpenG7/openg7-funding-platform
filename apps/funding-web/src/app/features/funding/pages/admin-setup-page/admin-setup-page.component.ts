@@ -21,6 +21,7 @@ import { AdminBackupsComponent } from '../../components/admin-backups/admin-back
 import { AdminIconComponent } from '../../components/admin-ui/admin-icon.component.js';
 import { AdminDrawerComponent } from '../../components/admin-ui/admin-drawer.component.js';
 import { AdminCockpitActivityComponent } from '../../components/admin-cockpit/admin-cockpit-activity.component.js';
+import { AdminIdentitySetupComponent } from '../../components/admin-identity-setup/admin-identity-setup.component.js';
 import { createCockpitBlock } from '../../components/admin-cockpit/cockpit-block.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 
@@ -58,6 +59,7 @@ interface SetupTourStep {
     AdminIconComponent,
     AdminDrawerComponent,
     AdminCockpitActivityComponent,
+    AdminIdentitySetupComponent,
     AdminSetupReadinessComponent,
     AdminSetupRecommendationComponent,
     AdminSetupServicesComponent,
@@ -171,6 +173,11 @@ export class AdminSetupPageComponent implements OnInit {
         body: this.i18n.t('admin.setup.tourSystems')
       },
       {
+        anchor: 'identity',
+        title: this.i18n.t('admin.identitySetup.title'),
+        body: this.i18n.t('admin.identitySetup.tour')
+      },
+      {
         anchor: 'stripe',
         title: this.i18n.t('admin.messages.paiement_stripe'),
         body: this.i18n.t(
@@ -227,6 +234,7 @@ export class AdminSetupPageComponent implements OnInit {
       [
         'overview',
         'readiness',
+        'identity',
         'stripe',
         'email',
         'queue',
@@ -309,6 +317,7 @@ export class AdminSetupPageComponent implements OnInit {
       section === 'overview'
         ? 'readiness'
         : section === 'readiness' ||
+            section === 'identity' ||
             section === 'env' ||
             section === 'backups' ||
             section === 'activity'

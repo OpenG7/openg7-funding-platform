@@ -3,6 +3,7 @@ import type { Page } from '@playwright/test';
 import type { AdminEmailQueueMessageRecord } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
+import { installAdminTokenSession } from './support/setup-fixtures.js';
 
 const date = '2026-09-23T12:00:00Z';
 const refreshedDate = '2026-09-24T12:00:00Z';
@@ -51,17 +52,11 @@ const queueSnapshot = (sent: boolean) => ({
 
 async function preparePage(page: Page, language: string, width: number) {
   await page.setViewportSize({ width, height: 950 });
-  await page.addInitScript((locale) => {
-    localStorage.setItem('openg7.language', locale);
-    sessionStorage.setItem(
-      'openg7-admin-session-token',
-      'openg7-admin-session.email-fixture'
-    );
-    sessionStorage.setItem(
-      'openg7-admin-session-expires-at',
-      '2099-01-01T00:00:00Z'
-    );
-  }, language);
+  await installAdminTokenSession(
+    page,
+    'openg7-admin-session.email-fixture',
+    language
+  );
 }
 
 async function expectSentQueue(page: Page, english: boolean) {

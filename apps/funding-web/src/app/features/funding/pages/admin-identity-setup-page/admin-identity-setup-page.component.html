@@ -1,0 +1,38 @@
+<main class="identity-setup-shell" data-og7="identity-setup-page">
+  <div class="identity-setup-content">
+    <header>
+      <div>
+        <span>OpenG7</span>
+        <h1>{{ 'admin.identitySetup.publicTitle' | translate }}</h1>
+        <p>{{ 'admin.identitySetup.publicSubtitle' | translate }}</p>
+      </div>
+      <button
+        type="button"
+        (click)="i18n.toggleLanguage()"
+        [attr.aria-label]="
+          (i18n.currentLanguage() === 'fr-CA'
+            ? 'admin.shell.toEnglish'
+            : 'admin.shell.toFrench'
+          ) | translate
+        "
+      >
+        {{ i18n.currentLanguage() === 'fr-CA' ? 'EN' : 'FR' }}
+      </button>
+    </header>
+    <p class="guide-limit">
+      {{ 'admin.identitySetup.publicLimit' | translate }}
+    </p>
+    <openg7-admin-identity-setup />
+    <footer>
+      <a routerLink="/admin/login">{{
+        'admin.identitySetup.backToLogin' | translate
+      }}</a>
+      <a
+        routerLink="/admin/login"
+        [queryParams]="setupReturn"
+        data-og7="identity-setup-sign-in"
+        >{{ 'admin.identitySetup.signInToVerify' | translate }}</a
+      >
+    </footer>
+  </div>
+</main>

@@ -1,10 +1,40 @@
 import type { AdminSetupStatusResponse } from '@openg7/funding-core';
+import type { Page } from '@playwright/test';
+
+/** Local token sessions used by setup and email UI fixtures. */
+export async function installAdminTokenSession(
+  page: Page,
+  token: string,
+  language = 'fr-CA'
+): Promise<void> {
+  await page.addInitScript(
+    ({ locale, sessionToken }) => {
+      localStorage.setItem('openg7.language', locale);
+      sessionStorage.setItem('openg7-admin-session-token', sessionToken);
+      sessionStorage.setItem(
+        'openg7-admin-session-expires-at',
+        '2099-01-01T00:00:00Z'
+      );
+    },
+    { locale: language, sessionToken: token }
+  );
+}
 
 export const setupFixture = (): AdminSetupStatusResponse => ({
   data_source: 'database',
   environment: 'test',
   public_base_url: 'https://example.test',
   allowed_origins: [],
+  identity: {
+    mode: 'oidc',
+    issuer: 'https://auth.example.test/realms/funding',
+    callback_url: 'https://example.test/api/admin/auth/callback',
+    client_id_configured: true,
+    client_secret_configured: true,
+    owner_bootstrap_configured: false,
+    mfa_policy: 'amr',
+    private_data_encryption_configured: true
+  },
   stripe: {
     secret_key_configured: false,
     webhook_secret_configured: false,

@@ -2859,7 +2859,7 @@
       "viewChecks": "View checks",
       "checklist": "Configuration checklist",
       "checklistCount": "{{count}} / {{total}} items checked",
-      "checklistScope": "These items describe the current configuration. They do not validate a deployment or email receipt.",
+      "checklistScope": "These items describe current configuration. They do not validate a deployment, email receipt or an OIDC/MFA sign-in.",
       "viewConfiguration": "View configuration",
       "openAudit": "Open administrative audit log",
       "checks": {
@@ -2867,7 +2867,9 @@
         "email": "Email settings",
         "queue": "Queue readable without failures",
         "database": "PostgreSQL connection",
-        "invoice": "Invoice issuer"
+        "invoice": "Invoice issuer",
+        "identity": "Local OIDC configuration",
+        "identityToken": "Prepare OIDC for production"
       },
       "tourSystems": "These cards distinguish configuration from recent observations. An expired check becomes unknown. Select a service to view its details.",
       "databaseNote": "Persistence, administration and email queue.",
@@ -2915,6 +2917,16 @@
           "title": "No issues detected in the available checks",
           "body": "All four observations are recent and the configuration items are checked. Coverage remains limited to the checks shown.",
           "action": "View recent activity"
+        },
+        "identity": {
+          "title": "Check OIDC access configuration",
+          "body": "Identity settings are incomplete or not observed by this API. Follow the guide and distinguish settings being present from manual verification.",
+          "action": "Prepare OIDC access"
+        },
+        "identityToken": {
+          "title": "Prepare the switch to OIDC",
+          "body": "The current token mode remains limited to development and test. Production requires named accounts with MFA; follow the guide before switching.",
+          "action": "Open the OIDC guide"
         }
       },
       "refreshSystems": "Refresh service checks",
@@ -2932,6 +2944,106 @@
       "invalidEvidence": "Enter a non-secret reference using letters, numbers, dot, colon, hyphen or underscore (max 100 characters).",
       "reconciled": "Delivery reconciled. Refresh the queue before any retry.",
       "explanation": "Automatic delivery is paused until the provider outcome is reconciled."
+    },
+    "identitySetup": {
+      "publicTitle": "Configure OIDC access",
+      "publicSubtitle": "Prepare named accounts and MFA before your first administrator sign-in.",
+      "publicLimit": "This guide provides instructions only. Server diagnostics are unavailable before sign-in. If Web or API cannot start, use the VPS runbook.",
+      "openGuide": "Configure OIDC access",
+      "backToLogin": "Back to sign-in",
+      "signInToVerify": "Sign in to check configuration",
+      "eyebrow": "Administrative identity",
+      "title": "Prepare OIDC access",
+      "nav": "OIDC access",
+      "scope": "These indicators describe local configuration reported by the API. They do not prove provider availability or a successful MFA sign-in. The guide changes no service or secret.",
+      "notObserved": "No server configuration is observed here. On the public guide or with an older API, follow the operator steps, then check configuration after sign-in.",
+      "tokenHelp": "Token mode is reserved for explicit development and test environments. It cannot administer production; prepare OIDC and MFA before switching.",
+      "mode": "Administrative mode",
+      "modes": {
+        "oidc": "Named OIDC accounts",
+        "token": "Local / test token"
+      },
+      "configuration": {
+        "configured": "Local configuration present",
+        "incomplete": "Local configuration incomplete",
+        "unknown": "Configuration not observed",
+        "token": "Local / test token mode"
+      },
+      "observations": {
+        "reported": "Presence reported",
+        "missing": "Missing setting",
+        "unknown": "Not observed",
+        "manual": "Operator verification"
+      },
+      "issuer": "Configured issuer",
+      "callback": "Expected callback",
+      "clientId": "Client identifier",
+      "clientSecret": "Client secret",
+      "encryption": "Private encryption key",
+      "mfaPolicy": "MFA claim policy",
+      "policies": {
+        "amr": "AMR: mfa required in the signed token",
+        "acr": "ACR: provider-guaranteed MFA value required"
+      },
+      "ownerBootstrap": "First owner bootstrap",
+      "ownerPresent": "Initial subjects present; first MFA sign-in remains to be checked.",
+      "ownerExisting": "No initial subjects: an active owner must already exist for this issuer.",
+      "stepsLabel": "OIDC preparation steps",
+      "stepPosition": "Step {{current}} of {{total}}",
+      "previous": "Previous step",
+      "next": "Next step",
+      "allSteps": "All steps",
+      "navigationScope": "Moving to the next step validates no operation or MFA check.",
+      "accessLink": "Access and sessions",
+      "runbook": "VPS runbook and first OIDC startup",
+      "tour": "Prepare the provider, confidential client, server settings and accounts. Settings being present do not prove MFA: perform the manual checks and open Access and sessions after signing in as an owner.",
+      "steps": {
+        "provider": {
+          "title": "Choose and prepare the provider",
+          "body": "Use an external OIDC-compatible provider or Keycloak on the OVH VPS. Prepare a dedicated hostname, its DNS and a valid HTTPS certificate before sign-in.",
+          "detail": "For Keycloak, follow the VPS runbook: a separate private identity PostgreSQL database, resources, backups and a named administrator with MFA. An external provider keeps FUNDING_KEYCLOAK_ENABLED=false. An issuer being present is not an availability check."
+        },
+        "client": {
+          "title": "Register the confidential client",
+          "body": "Create a confidential client using authorization code, mandatory PKCE S256 and openid profile scopes. Register a single exact callback without wildcards.",
+          "detail": "The callback follows https://<site>/api/admin/auth/callback. Replace <site> with the domain of the shared Web/API HTTPS origin; no extra trailing slash. Keep the client secret server-side. Do not enable the password grant."
+        },
+        "environment": {
+          "title": "Configure server settings",
+          "body": "In the target’s protected .env file, set FUNDING_ADMIN_AUTH_MODE=oidc, FUNDING_PUBLIC_BASE_URL, FUNDING_ADMIN_OIDC_ISSUER, FUNDING_ADMIN_OIDC_CLIENT_ID and FUNDING_ADMIN_OIDC_CLIENT_SECRET. Also prepare FUNDING_ADMIN_OIDC_OWNER_SUBJECTS and the FUNDING_ADMIN_OIDC_MFA_ACR policy.",
+          "detail": "FUNDING_PUBLIC_BASE_URL is the shared Web/API HTTPS origin, without a path or trailing slash. The issuer must exactly match the provider. Inject secrets into the API only, never into Angular, Git or screenshots of this page. The operator changes these settings outside this guide."
+        },
+        "database": {
+          "title": "Prepare the Funding database and encryption",
+          "body": "The Funding PostgreSQL database is separate from Keycloak’s identity database. Prepare a backup, then apply the full current schema, including identity migration 020, using the fresh-database or history-adoption procedure.",
+          "detail": "The API uses a limited PostgreSQL role, separate from the migration owner, through DATABASE_URL. FUNDING_PRIVATE_DATA_ENCRYPTION_KEY must contain exactly 32 random bytes in standard base64 in production; keep a protected recovery copy. A PostgreSQL connection does not prove that all migrations were applied."
+        },
+        "mfa": {
+          "title": "Enroll MFA and the first owner",
+          "body": "Create people at the provider, require their OTP/MFA and record verified sub values, never email addresses. On a fresh database, set at least one sub in FUNDING_ADMIN_OIDC_OWNER_SUBJECTS to bootstrap the owner account on its first successful MFA sign-in.",
+          "detail": "Verify a signed amr claim containing mfa; an external provider may instead use only an ACR whose MFA meaning it guarantees. Managed Keycloak uses AMR and leaves FUNDING_ADMIN_OIDC_MFA_ACR empty. After initial Keycloak OTP enrollment, sign in again with password and OTP. An empty subjects list assumes an active owner already exists for this issuer and does not block that existing account."
+        },
+        "deployment": {
+          "title": "Start the prepared revision",
+          "body": "After preparing the provider, schema and accounts, start or recreate the API and Web using the authorized delivery procedure. Identity provider startup and updates are separate operations.",
+          "detail": "Review the target, backups, images and recovery before a production operation. Do not replace OIDC with a token when the provider is unavailable. Editing .env does not change secrets in an existing client or database; follow their rotation procedure."
+        },
+        "verification": {
+          "title": "Verify sign-in, roles and revocation",
+          "body": "Open /admin/fundraiser and verify an owner sign-in with MFA, then rejection without MFA or for an unknown subject. In Access and sessions, assign roles to other people and confirm that a reader cannot perform mutations.",
+          "detail": "Revoke a session and confirm rejection on its next request. Check expiration and audit without copying tokens or secrets. No presence indicator, Next button or self-declared checkbox certifies these checks. Qualify the provider on the authorized target."
+        }
+      },
+      "variables": {
+        "FUNDING_ADMIN_AUTH_MODE": "OIDC required in production; token reserved for explicit development and test.",
+        "FUNDING_PUBLIC_BASE_URL": "Shared Web/API HTTPS origin; the exact callback is derived from it.",
+        "FUNDING_ADMIN_OIDC_ISSUER": "Provider issuer; presence only, no availability probe.",
+        "FUNDING_ADMIN_OIDC_CLIENT_ID": "Confidential client identifier; only its presence is reported.",
+        "FUNDING_ADMIN_OIDC_CLIENT_SECRET": "Private secret injected into the API; its value is never displayed.",
+        "FUNDING_ADMIN_OIDC_OWNER_SUBJECTS": "Fresh-database bootstrap; an empty list assumes an existing active owner for this issuer.",
+        "FUNDING_ADMIN_OIDC_MFA_ACR": "Local MFA policy; empty for AMR/managed Keycloak. Does not prove successful MFA.",
+        "FUNDING_PRIVATE_DATA_ENCRYPTION_KEY": "Private key of 32 random bytes in standard base64; keep a protected recovery copy."
+      }
     }
   },
   "funding": {

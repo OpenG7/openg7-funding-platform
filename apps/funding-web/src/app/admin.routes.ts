@@ -23,8 +23,12 @@ const adminSessionRequired: CanMatchFn = async (_route, segments) => {
 
 export const adminRoutes: Routes = [
   {
-    path: 'fundraiser/pilotage', canMatch: [adminSessionRequired],
-    loadComponent: () => import('./features/funding/pages/admin-pilotage-page/admin-pilotage-page.component.js').then(m => m.AdminPilotagePageComponent)
+    path: 'fundraiser/pilotage',
+    canMatch: [adminSessionRequired],
+    loadComponent: () =>
+      import('./features/funding/pages/admin-pilotage-page/admin-pilotage-page.component.js').then(
+        (m) => m.AdminPilotagePageComponent
+      )
   },
   {
     path: 'fundraiser/access',
@@ -39,6 +43,13 @@ export const adminRoutes: Routes = [
     loadComponent: () =>
       import('./features/funding/pages/admin-login-page/admin-login-page.component.js').then(
         (m) => m.AdminLoginPageComponent
+      )
+  },
+  {
+    path: 'oidc-setup',
+    loadComponent: () =>
+      import('./features/funding/pages/admin-identity-setup-page/admin-identity-setup-page.component.js').then(
+        (m) => m.AdminIdentitySetupPageComponent
       )
   },
   {
@@ -95,7 +106,10 @@ export const adminRoutes: Routes = [
     children: [
       {
         path: 'automation',
-        loadComponent: () => import('./features/funding/pages/admin-publication-automation-page/admin-publication-automation-page.component.js').then(m => m.AdminPublicationAutomationPageComponent)
+        loadComponent: () =>
+          import('./features/funding/pages/admin-publication-automation-page/admin-publication-automation-page.component.js').then(
+            (m) => m.AdminPublicationAutomationPageComponent
+          )
       },
       {
         // One route configuration preserves local edits between these pages.

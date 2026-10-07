@@ -21,7 +21,10 @@ import {
   createCockpitSystemsReader,
   readSystemObservation
 } from './admin-cockpit/systems.js';
-import { AdminIdentityService } from './admin-identity.js';
+import {
+  AdminIdentityService,
+  buildAdminIdentitySetupStatus
+} from './admin-identity.js';
 import { AdminPilotageService } from './admin-pilotage.service.js';
 import {
   buildSponsorshipReviewReminderAdminUrl,
@@ -176,7 +179,7 @@ const readCockpitSystems = createCockpitSystemsReader({
 });
 const socialPublicationConfig = loadApiRuntimeSocialPublicationConfig();
 validateApiRuntimeConfig(runtimeConfig);
-privateDataEncryptionKey();
+const privateDataEncryptionConfigured = privateDataEncryptionKey() !== null;
 
 const { writeJson, writeText, writeCsv, writeBinary, writePdf, writeOptions } =
   createHttpTransport({ isProduction, allowedOrigins });
@@ -273,6 +276,11 @@ const resolveCheckoutReturnUrl = createCheckoutReturnUrlResolver(runtimeConfig);
 const setupDatabasePool = dbPool;
 const { getDatabaseConnectionStatus, buildAdminSetupStatus } =
   createAdminSetupHelpers({
+    getAdminIdentitySetupStatus: () =>
+      buildAdminIdentitySetupStatus(
+        adminIdentity,
+        privateDataEncryptionConfigured
+      ),
     checkDatabaseConnection: setupDatabasePool
       ? () => setupDatabasePool.query('SELECT 1')
       : null,
