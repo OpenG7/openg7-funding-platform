@@ -28,11 +28,9 @@ downloaded or previously cached under older headers. See the
 
 Admin dashboard: `/admin/fundraiser`.
 
-Open `/admin/login`. Production requires OIDC with verified MFA and revocable
-HttpOnly sessions. Local token mode exchanges `FUNDING_ADMIN_TOKEN` at
-`POST /api/admin/session`; other admin routes refuse the root secret.
-Every admin endpoint checks authorization. Angular guards control navigation;
-`admin.routes.ts` loads admin routes on demand.
+`/admin/login`: production requires OIDC/MFA and revocable HttpOnly sessions.
+Local/test token mode exchanges `FUNDING_ADMIN_TOKEN` at `POST /api/admin/session`;
+other routes refuse the root secret. API authorization remains authoritative.
 
 Session, sponsorship review/publication and draft/slot/batch mutations
 require JSON objects. `null`, arrays or primitives return `400` before provider,
@@ -42,13 +40,10 @@ DB or audit effects; protected routes authorize first.
 Stripe or PostgreSQL. Use `/api/sponsorship-followup/details` with the private
 token and draft revision, or `/api/sponsorship-followup/recover` for lost access.
 
-The [access and sessions page](../operations/admin-identity-and-alerts.md)
-at `/admin/fundraiser/access` lets OIDC owners manage readers, operators and
-owners, disable accounts and revoke sessions. Changing an account revokes its
-sessions; the last active owner is protected. Token mode does not provide these
-named-account guarantees. Independent alerts use `yarn operations:watch` or the
-optional Compose overlay and remain disabled until configured and started.
-Access changes require `confirmation`; update API/Web.
+[Access and sessions](../operations/admin-identity-and-alerts.md), `/admin/fundraiser/access`:
+OIDC owners manage roles, disable accounts and revoke sessions. Account changes
+revoke sessions and protect the last owner; confirmation is required. Token mode
+has no named accounts. Alerts remain opt-in (`yarn operations:watch` or Compose).
 
 UI guides: [layout](../admin-ux-lot-1.md), [queue](../admin-ux-lot-2.md),
 [assistant](../admin-ux-lot-3.md), [dossier](../admin-ux-lot-4.md),
@@ -130,10 +125,12 @@ see the [confirmation, version and amount contract](../funding-transparency.md#a
 Publications generate and moderate drafts for approved sponsorships;
 audit lists recent sensitive admin actions.
 
-Owner-only `/admin/fundraiser/setup` reports configuration and supports idempotent
-SMTP tests. Its [system status and configuration view](../operations/admin-setup.md)
-reuses the cockpit observations with expiry, a diagnostic recommendation and
-configuration checklist. See the [test contract](../email-smtp.md#admin-configuration-test).
+Owner-only `/admin/fundraiser/setup` uses cockpit observations and [idempotent SMTP tests](../email-smtp.md#admin-configuration-test).
+`GET /api/admin/setup-status` adds optional `identity`: `mode=oidc|token`, nullable
+`issuer`/`callback_url`, booleans `client_id_configured`, `client_secret_configured`,
+`owner_bootstrap_configured`, `private_data_encryption_configured`, and `mfa_policy=amr|acr`.
+No secrets/subjects/claims; presence does not prove provider/MFA validity. Missing
+identity stays unknown; bootstrap=false allows existing owners. See [guided setup](../operations/admin-setup.md#guidage-oidc).
 
 `/admin/fundraiser/email-queue` lists queued, sending, sent, failed and `uncertain`
 messages. Uncertain delivery blocks automatic sends and ordinary retry
@@ -185,14 +182,10 @@ POST /api/admin/sponsorships/refund
 POST /api/admin/sponsorships/publication
 ```
 
-In `token` mode, first exchange `FUNDING_ADMIN_TOKEN` from `/admin/login` through
-`POST /api/admin/session`. The browser admin then calls operational endpoints
-with `Authorization: Bearer <sessionToken>`. The static token remains accepted
-for scripts and backwards-compatible admin operations. In local development,
-admin endpoints can be used without a token when `FUNDING_ADMIN_TOKEN` is unset,
-but the frontend admin routes still expect a browser session. In `oidc` mode,
-root tokens and legacy signed sessions are rejected; the API requires a valid
-cookie session and sufficient role, plus the exact public origin on mutations.
+Local/test `token` mode uses `Authorization: Bearer <sessionToken>` after the
+session exchange; no anonymous or root-secret operational access. OIDC rejects
+legacy tokens and requires its cookie session, role and exact mutation origin.
+See [authentication rules](../operations/admin-identity-and-alerts.md).
 
 The sponsorship publication endpoint prepares the public sponsor profile and
 records feed placement metadata:
@@ -223,8 +216,9 @@ See [refund integrity and recovery](../operations/stripe-refund-integrity.md).
 Admins choose an amount and reason (`requested_by_customer`, `duplicate`, or
 `fraudulent`) and can queue a confirmation email. Partial refunds preserve `paid`;
 only the full confirmed total marks `refunded`. When a matching sponsorship invoice
-exists, the refund also creates an app-generated credit note tied to the Stripe
-refund; the credit note is visible and resendable from `/admin/fundraiser/invoices`,
+exists, the refund also creates an app-generated credit note in
+`sponsorship_credit_notes`, tied to the Stripe refund; the credit note is visible
+and resendable from `/admin/fundraiser/invoices`,
 with its own downloadable PDF.
 New credit-note numbers include a deterministic suffix derived from the invoice
 and Stripe refund identifiers, so several refunds of one invoice receive distinct

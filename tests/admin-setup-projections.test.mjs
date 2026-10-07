@@ -7,9 +7,21 @@ import {
   projectOperationalCount,
   projectRecommendation
 } from '../dist/apps/funding-web/src/app/features/funding/pages/admin-setup-page/setup-projections.js';
+import { projectIdentityConfiguration } from '../dist/apps/funding-web/src/app/features/funding/components/admin-identity-setup/identity-setup-projections.js';
 
 const now = Date.parse('2026-10-03T12:00:00Z');
+const identityFixture = () => ({
+  mode: 'oidc',
+  issuer: 'https://identity.example.invalid/realms/funding',
+  callback_url: 'https://funding.example.invalid/api/admin/auth/callback',
+  client_id_configured: true,
+  client_secret_configured: true,
+  owner_bootstrap_configured: true,
+  mfa_policy: 'amr',
+  private_data_encryption_configured: true
+});
 const setupFixture = () => ({
+  identity: identityFixture(),
   stripe: { secret_key_configured: true, webhook_secret_configured: true },
   email: {
     smtp_configured: true,
@@ -101,6 +113,7 @@ test('readiness keeps configuration distinct from observations and checklist ord
   assert.equal(projectReadiness(setup).email, false);
   assert.equal(projectReadiness(setup).canSendEmailTest, false);
   assert.deepEqual(projectChecklist(setup), [
+    { id: 'identity', ready: true },
     { id: 'stripe', ready: false },
     { id: 'email', ready: false },
     { id: 'queue', ready: true },
@@ -108,6 +121,94 @@ test('readiness keeps configuration distinct from observations and checklist ord
     { id: 'invoice', ready: false }
   ]);
   assert.deepEqual(projectChecklist(null), []);
+});
+
+test('identity configuration describes presence without asserting provider or MFA verification', () => {
+  for (const mfaPolicy of ['amr', 'acr']) {
+    const setup = setupFixture();
+    setup.identity.mfa_policy = mfaPolicy;
+    setup.identity.owner_bootstrap_configured = false;
+    const before = structuredClone(setup.identity);
+    Object.freeze(setup.identity);
+    assert.equal(projectIdentityConfiguration(setup.identity), 'configured');
+    assert.deepEqual(
+      projectChecklist(setup).find((item) => item.id === 'identity'),
+      { id: 'identity', ready: true }
+    );
+    assert.equal(
+      projectRecommendation({ ...inputFixture(), setup }).key,
+      'ready'
+    );
+    assert.deepEqual(setup.identity, before);
+  }
+});
+
+test('missing OIDC prerequisites recommend the identity panel when services have no reported incidents', () => {
+  for (const [field, missingValue] of [
+    ['issuer', null],
+    ['callback_url', null],
+    ['issuer', ''],
+    ['callback_url', ''],
+    ['issuer', '  '],
+    ['callback_url', '  '],
+    ['client_id_configured', false],
+    ['client_secret_configured', false],
+    ['private_data_encryption_configured', false]
+  ]) {
+    const input = inputFixture();
+    input.setup.identity[field] = missingValue;
+    assert.equal(
+      projectIdentityConfiguration(input.setup.identity),
+      'incomplete'
+    );
+    assert.deepEqual(
+      projectChecklist(input.setup).find((item) => item.id === 'identity'),
+      { id: 'identity', ready: false }
+    );
+    const recommendation = projectRecommendation(input);
+    assert.equal(recommendation.key, 'identity');
+    assert.equal(recommendation.section, 'identity');
+  }
+});
+
+test('legacy setup responses keep services usable and leave the identity diagnosis unknown', () => {
+  for (const identity of [undefined, null]) {
+    const input = inputFixture();
+    if (identity === undefined) delete input.setup.identity;
+    else input.setup.identity = identity;
+    assert.equal(projectIdentityConfiguration(input.setup.identity), 'unknown');
+    assert.equal(projectReadiness(input.setup).canSendEmailTest, true);
+    assert.deepEqual(
+      projectChecklist(input.setup).find((item) => item.id === 'identity'),
+      { id: 'identity', ready: false, state: 'unknown' }
+    );
+    assert.equal(projectOperationalCount(input.systems, now, false), 4);
+    const recommendation = projectRecommendation(input);
+    assert.equal(recommendation.key, 'identity');
+    assert.equal(recommendation.section, 'identity');
+  }
+});
+
+test('local token administration is identified without claiming OIDC configuration', () => {
+  const input = inputFixture();
+  input.setup.identity = {
+    mode: 'token',
+    issuer: null,
+    callback_url: null,
+    client_id_configured: false,
+    client_secret_configured: false,
+    owner_bootstrap_configured: false,
+    mfa_policy: 'amr',
+    private_data_encryption_configured: false
+  };
+  assert.equal(projectIdentityConfiguration(input.setup.identity), 'token');
+  assert.deepEqual(
+    projectChecklist(input.setup).find((item) => item.id === 'identity'),
+    { id: 'identity', ready: false, state: 'manual' }
+  );
+  const recommendation = projectRecommendation(input);
+  assert.equal(recommendation.key, 'identityToken');
+  assert.equal(recommendation.section, 'identity');
 });
 
 test('the recommendation prioritizes database, queue readability, then delivery failures', () => {
@@ -126,6 +227,71 @@ test('the recommendation prioritizes database, queue readability, then delivery 
     tone: 'warning',
     url: '/admin/fundraiser/email-queue'
   });
+});
+
+test('reported incidents take priority over identity guidance in token, legacy and incomplete OIDC modes', async (t) => {
+  for (const [mode, identity, guidance] of [
+    [
+      'legacy absent',
+      undefined,
+      { key: 'identity', section: 'identity', tone: 'neutral' }
+    ],
+    [
+      'legacy null',
+      null,
+      { key: 'identity', section: 'identity', tone: 'neutral' }
+    ],
+    [
+      'token',
+      { ...identityFixture(), mode: 'token' },
+      { key: 'identityToken', section: 'identity', tone: 'neutral' }
+    ],
+    [
+      'incomplete OIDC',
+      { ...identityFixture(), client_secret_configured: false },
+      { key: 'identity', section: 'identity', tone: 'warning' }
+    ]
+  ]) {
+    await t.test(mode, () => {
+      const input = inputFixture();
+      if (identity === undefined) delete input.setup.identity;
+      else input.setup.identity = identity;
+      input.setup.database.reachable = false;
+      input.setup.email.queue_available = false;
+      input.setup.email.failed_count = 1;
+      input.systems.find((system) => system.id === 'email').state =
+        'unavailable';
+      assert.deepEqual(projectRecommendation(input), {
+        key: 'database',
+        section: 'database',
+        tone: 'warning'
+      });
+      input.setup.database.reachable = true;
+      assert.deepEqual(projectRecommendation(input), {
+        key: 'queue',
+        section: 'queue',
+        tone: 'warning'
+      });
+      input.setup.email.queue_available = true;
+      assert.deepEqual(projectRecommendation(input), {
+        key: 'emailFailures',
+        section: 'queue',
+        tone: 'warning',
+        url: '/admin/fundraiser/email-queue'
+      });
+      input.setup.email.failed_count = 0;
+      assert.deepEqual(projectRecommendation(input), {
+        key: 'service',
+        section: 'email',
+        tone: 'warning',
+        url: '/admin/fundraiser/email-queue',
+        urlAction: 'openQueue'
+      });
+      input.systems.find((system) => system.id === 'email').state =
+        'operational';
+      assert.deepEqual(projectRecommendation(input), guidance);
+    });
+  }
 });
 
 test('service diagnostics preserve local destinations and the email queue link', () => {

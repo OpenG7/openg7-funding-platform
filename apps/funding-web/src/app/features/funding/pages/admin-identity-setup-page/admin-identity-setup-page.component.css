@@ -1,0 +1,49 @@
+.identity-setup-shell {
+  min-height: 100vh;
+  padding: clamp(1rem, 4vw, 3rem);
+  background: var(--admin-bg);
+}
+.identity-setup-content {
+  display: grid;
+  gap: 1.5rem;
+  max-width: 64rem;
+  margin: 0 auto;
+  min-width: 0;
+}
+header,
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+header > div {
+  flex: 1 1 20rem;
+  min-width: 0;
+}
+header span,
+header p,
+.guide-limit {
+  color: var(--admin-muted);
+}
+h1 {
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  margin-block: 0.5rem;
+}
+.guide-limit {
+  padding: 1rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 0.5rem;
+  background: var(--admin-panel);
+}
+a {
+  color: var(--admin-accent);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--admin-focus);
+  outline-offset: 4px;
+}

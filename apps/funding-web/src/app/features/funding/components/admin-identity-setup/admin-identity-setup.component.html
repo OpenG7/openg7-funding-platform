@@ -1,0 +1,232 @@
+<ng-template #stepInstructions let-step>
+  <p>{{ 'admin.identitySetup.steps.' + step + '.body' | translate }}</p>
+  <p class="scope">
+    {{ 'admin.identitySetup.steps.' + step + '.detail' | translate }}
+  </p>
+</ng-template>
+<section
+  class="identity-panel"
+  data-og7="identity-setup"
+  [class.tour-target]="tourTarget()"
+  aria-labelledby="identity-setup-title"
+>
+  <header>
+    <div>
+      <p class="eyebrow">{{ 'admin.identitySetup.eyebrow' | translate }}</p>
+      <h2 id="identity-setup-title">
+        {{ 'admin.identitySetup.title' | translate }}
+      </h2>
+    </div>
+    <span
+      class="observation"
+      data-og7="identity-configuration-state"
+      [attr.data-state]="configuration()"
+    >
+      {{ 'admin.identitySetup.configuration.' + configuration() | translate }}
+    </span>
+  </header>
+  <p class="scope">{{ 'admin.identitySetup.scope' | translate }}</p>
+  @if (status(); as identity) {
+    <dl class="identity-summary" data-og7="identity-configuration">
+      <div>
+        <dt>{{ 'admin.identitySetup.mode' | translate }}</dt>
+        <dd>{{ 'admin.identitySetup.modes.' + identity.mode | translate }}</dd>
+      </div>
+      @if (identity.mode === 'oidc') {
+        <div>
+          <dt>{{ 'admin.identitySetup.issuer' | translate }}</dt>
+          <dd>
+            <code>{{
+              identity.issuer ||
+                ('admin.identitySetup.observations.missing' | translate)
+            }}</code>
+          </dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.identitySetup.callback' | translate }}</dt>
+          <dd>
+            <code>{{
+              identity.callback_url ||
+                ('admin.identitySetup.observations.missing' | translate)
+            }}</code>
+          </dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.identitySetup.clientId' | translate }}</dt>
+          <dd>
+            {{
+              'admin.identitySetup.observations.' +
+                (identity.client_id_configured ? 'reported' : 'missing')
+                | translate
+            }}
+          </dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.identitySetup.clientSecret' | translate }}</dt>
+          <dd>
+            {{
+              'admin.identitySetup.observations.' +
+                (identity.client_secret_configured ? 'reported' : 'missing')
+                | translate
+            }}
+          </dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.identitySetup.encryption' | translate }}</dt>
+          <dd>
+            {{
+              'admin.identitySetup.observations.' +
+                (identity.private_data_encryption_configured
+                  ? 'reported'
+                  : 'missing') | translate
+            }}
+          </dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.identitySetup.mfaPolicy' | translate }}</dt>
+          <dd>
+            {{
+              'admin.identitySetup.policies.' + identity.mfa_policy | translate
+            }}
+          </dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.identitySetup.ownerBootstrap' | translate }}</dt>
+          <dd>
+            {{
+              'admin.identitySetup.' +
+                (identity.owner_bootstrap_configured
+                  ? 'ownerPresent'
+                  : 'ownerExisting') | translate
+            }}
+          </dd>
+        </div>
+      }
+    </dl>
+  } @else {
+    <p class="notice" data-og7="identity-not-observed">
+      {{ 'admin.identitySetup.notObserved' | translate }}
+    </p>
+  }
+  @if (status()?.mode === 'token') {
+    <p class="notice" data-og7="identity-token-mode">
+      {{ 'admin.identitySetup.tokenHelp' | translate }}
+    </p>
+  }
+
+  <nav [attr.aria-label]="'admin.identitySetup.stepsLabel' | translate">
+    <ol class="steps">
+      @for (step of steps; track step; let index = $index) {
+        <li>
+          <button
+            type="button"
+            class="admin-button"
+            [attr.aria-current]="stepIndex() === index ? 'step' : null"
+            [attr.data-og7-id]="step"
+            data-og7="identity-step-link"
+            (click)="selectStep(index)"
+          >
+            <span aria-hidden="true">{{ index + 1 }}</span>
+            {{ 'admin.identitySetup.steps.' + step + '.title' | translate }}
+          </button>
+        </li>
+      }
+    </ol>
+  </nav>
+  <article
+    class="step-detail"
+    data-og7="identity-current-step"
+    [attr.data-og7-id]="currentStep()"
+  >
+    <p class="step-position" aria-live="polite" aria-atomic="true">
+      {{
+        'admin.identitySetup.stepPosition'
+          | translate: { current: stepIndex() + 1, total: steps.length }
+      }}
+    </p>
+    <h3 #stepHeading tabindex="-1" data-og7="identity-step-heading">
+      {{ 'admin.identitySetup.steps.' + currentStep() + '.title' | translate }}
+    </h3>
+    <span class="observation" [attr.data-state]="observations()[currentStep()]">
+      {{
+        'admin.identitySetup.observations.' + observations()[currentStep()]
+          | translate
+      }}
+    </span>
+    <ng-container
+      [ngTemplateOutlet]="stepInstructions"
+      [ngTemplateOutletContext]="{ $implicit: currentStep() }"
+    ></ng-container>
+    @if (currentStep() === 'client') {
+      <code class="callback-example"
+        >https://&lt;site&gt;/api/admin/auth/callback</code
+      >
+    }
+    @if (currentStep() === 'environment') {
+      <ul class="variables">
+        @for (variable of environmentVariables; track variable) {
+          <li>
+            <code>{{ variable }}</code>
+          </li>
+        }
+      </ul>
+    }
+    @if (currentStep() === 'database') {
+      <p>
+        <code>DATABASE_URL</code> ·
+        <code>FUNDING_PRIVATE_DATA_ENCRYPTION_KEY</code>
+      </p>
+    }
+    <div class="step-actions">
+      <button
+        type="button"
+        class="admin-button"
+        (click)="previousStep()"
+        [disabled]="stepIndex() === 0"
+        data-og7="identity-step-previous"
+      >
+        {{ 'admin.identitySetup.previous' | translate }}
+      </button>
+      <button
+        type="button"
+        class="admin-button"
+        (click)="nextStep()"
+        [disabled]="stepIndex() === steps.length - 1"
+        data-og7="identity-step-next"
+      >
+        {{ 'admin.identitySetup.next' | translate }}
+      </button>
+    </div>
+    <p class="scope">{{ 'admin.identitySetup.navigationScope' | translate }}</p>
+  </article>
+  <details class="all-steps" data-og7="identity-all-steps">
+    <summary>{{ 'admin.identitySetup.allSteps' | translate }}</summary>
+    <ol>
+      @for (step of steps; track step) {
+        <li>
+          <h3>
+            {{ 'admin.identitySetup.steps.' + step + '.title' | translate }}
+          </h3>
+          <ng-container
+            [ngTemplateOutlet]="stepInstructions"
+            [ngTemplateOutletContext]="{ $implicit: step }"
+          ></ng-container>
+        </li>
+      }
+    </ol>
+  </details>
+  <footer class="guide-links">
+    <a routerLink="/admin/oidc-setup" data-og7="identity-public-guide">{{
+      'admin.identitySetup.openGuide' | translate
+    }}</a>
+    <a routerLink="/admin/fundraiser/access" data-og7="identity-access-link">{{
+      'admin.identitySetup.accessLink' | translate
+    }}</a>
+    <a
+      href="https://github.com/OpenG7/openg7-funding-platform/blob/main/docs/operations/keycloak-vps.md#premier-demarrage-oidc"
+      target="_blank"
+      rel="noreferrer"
+      >{{ 'admin.identitySetup.runbook' | translate }}</a
+    >
+  </footer>
+</section>

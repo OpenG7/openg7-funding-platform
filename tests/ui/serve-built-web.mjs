@@ -40,7 +40,7 @@ export const createBuiltWebServer = (apiHandler) =>
       if (info?.isDirectory()) file = resolve(file, 'index.html');
       else if (!info?.isFile()) {
         const clientRoute =
-          /^\/(?:admin\/(?:login|auth\/callback|fundraiser(?:\/(?:pilotage|attention|assistant|contributions|sponsors|invoices|publications(?:\/(?:drafts|batches|calendar|automation))?|expenses|transparency|audit|email-queue|setup|access))?)|dev\/(?:stripe-setup|webhooks|api-keys)|(?:en\/)?fonds-des-batisseurs\/suivi-commandite)\/?$/.test(
+          /^\/(?:admin\/(?:login|oidc-setup|auth\/callback|fundraiser(?:\/(?:pilotage|attention|assistant|contributions|sponsors|invoices|publications(?:\/(?:drafts|batches|calendar|automation))?|expenses|transparency|audit|email-queue|setup|access))?)|dev\/(?:stripe-setup|webhooks|api-keys)|(?:en\/)?fonds-des-batisseurs\/suivi-commandite)\/?$/.test(
             pathname
           );
         status = clientRoute ? 200 : 404;

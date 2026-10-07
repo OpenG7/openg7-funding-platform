@@ -2,7 +2,10 @@ import type { AdminEmailTestResult } from '@openg7/funding-core';
 import type { Page } from '@playwright/test';
 
 import { expect, test } from './support/test.js';
-import { setupFixture } from './support/setup-fixtures.js';
+import {
+  installAdminTokenSession,
+  setupFixture
+} from './support/setup-fixtures.js';
 
 const setup = setupFixture();
 
@@ -12,17 +15,11 @@ for (const language of ['fr-CA', 'en']) {
   }) => {
     const english = language === 'en';
     await page.setViewportSize({ width: english ? 390 : 1280, height: 950 });
-    await page.addInitScript((locale) => {
-      localStorage.setItem('openg7.language', locale);
-      sessionStorage.setItem(
-        'openg7-admin-session-token',
-        'openg7-admin-session.setup-fixture'
-      );
-      sessionStorage.setItem(
-        'openg7-admin-session-expires-at',
-        '2099-01-01T00:00:00Z'
-      );
-    }, language);
+    await installAdminTokenSession(
+      page,
+      'openg7-admin-session.setup-fixture',
+      language
+    );
     let status: AdminEmailTestResult['status'] = 'queued';
     let requestId = '';
     let calls = 0;
@@ -140,17 +137,11 @@ for (const language of ['fr-CA', 'en']) {
 }
 
 async function installRecoveryFixtures(page: Page, language: string) {
-  await page.addInitScript((locale) => {
-    localStorage.setItem('openg7.language', locale);
-    sessionStorage.setItem(
-      'openg7-admin-session-token',
-      'openg7-admin-session.setup-recovery-fixture'
-    );
-    sessionStorage.setItem(
-      'openg7-admin-session-expires-at',
-      '2099-01-01T00:00:00Z'
-    );
-  }, language);
+  await installAdminTokenSession(
+    page,
+    'openg7-admin-session.setup-recovery-fixture',
+    language
+  );
   const data = {
     postStatus: 200,
     getStatus: 200,

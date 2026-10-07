@@ -4,6 +4,7 @@ import type {
 } from '@openg7/funding-core';
 
 import type { CockpitBlockState } from '../../components/admin-cockpit/cockpit-block.js';
+import { projectIdentityConfiguration } from '../../components/admin-identity-setup/identity-setup-projections.js';
 import {
   serviceState,
   systemExpired,
@@ -13,6 +14,7 @@ import {
 export type SetupSection =
   | 'overview'
   | 'readiness'
+  | 'identity'
   | 'stripe'
   | 'email'
   | 'queue'
@@ -24,6 +26,8 @@ export type SetupSection =
 
 export interface SetupRecommendation {
   readonly key:
+    | 'identity'
+    | 'identityToken'
     | 'database'
     | 'queue'
     | 'emailFailures'
@@ -48,8 +52,10 @@ export interface SetupReadiness {
 }
 
 export interface SetupChecklistItem {
-  readonly id: 'stripe' | 'email' | 'queue' | 'database' | 'invoice';
+  readonly id:
+    'identity' | 'stripe' | 'email' | 'queue' | 'database' | 'invoice';
   readonly ready: boolean;
+  readonly state?: 'unknown' | 'manual';
 }
 
 export interface SetupRecommendationInput {
@@ -92,7 +98,17 @@ export function projectChecklist(
 ): readonly SetupChecklistItem[] {
   if (!setup) return [];
   const readiness = projectReadiness(setup);
+  const identity = projectIdentityConfiguration(setup.identity);
   return [
+    {
+      id: 'identity',
+      ready: identity === 'configured',
+      ...(identity === 'unknown'
+        ? { state: 'unknown' as const }
+        : identity === 'token'
+          ? { state: 'manual' as const }
+          : {})
+    },
     { id: 'stripe', ready: readiness.stripe },
     { id: 'email', ready: readiness.email },
     { id: 'queue', ready: readiness.queue },
@@ -161,6 +177,15 @@ export function projectRecommendation({
       urlAction: 'openQueue'
     };
   if (problem) return { key: 'service', section: problem.id, tone: 'warning' };
+  const identity = projectIdentityConfiguration(setup.identity);
+  if (identity === 'unknown' || identity === 'incomplete')
+    return {
+      key: 'identity',
+      section: 'identity',
+      tone: identity === 'unknown' ? 'neutral' : 'warning'
+    };
+  if (identity === 'token')
+    return { key: 'identityToken', section: 'identity', tone: 'neutral' };
   if (!readiness.stripe)
     return { key: 'stripe', section: 'stripe', tone: 'warning' };
   if (!readiness.email)

@@ -2855,7 +2855,7 @@
       "viewChecks": "Consulter les contrôles",
       "checklist": "Configuration à vérifier",
       "checklistCount": "{{count}} / {{total}} points vérifiés",
-      "checklistScope": "Ces points décrivent la configuration actuelle. Ils ne valident pas un déploiement ni la réception des courriels.",
+      "checklistScope": "Ces points décrivent la configuration actuelle. Ils ne valident ni un déploiement, ni la réception des courriels, ni une connexion OIDC/MFA.",
       "viewConfiguration": "Voir la configuration",
       "openAudit": "Ouvrir le journal administratif",
       "checks": {
@@ -2863,7 +2863,9 @@
         "email": "Paramètres courriel",
         "queue": "Lecture de la file sans échec",
         "database": "Connexion PostgreSQL",
-        "invoice": "Émetteur des factures"
+        "invoice": "Émetteur des factures",
+        "identity": "Configuration OIDC locale",
+        "identityToken": "Préparer OIDC pour la production"
       },
       "tourSystems": "Ces cartes distinguent la configuration des observations récentes. Un contrôle périmé redevient indéterminé. Sélectionnez un service pour consulter ses détails.",
       "databaseNote": "Persistance, administration et file courriel.",
@@ -2911,6 +2913,16 @@
           "title": "Aucun problème détecté dans les contrôles disponibles",
           "body": "Les quatre observations sont récentes et les points de configuration sont vérifiés. Leur portée reste limitée aux contrôles affichés.",
           "action": "Voir l’activité récente"
+        },
+        "identity": {
+          "title": "Vérifier la configuration des accès OIDC",
+          "body": "Les paramètres d’identité sont incomplets ou ne sont pas observés par cette API. Consultez le guide et distinguez présence des paramètres et vérifications manuelles.",
+          "action": "Préparer les accès OIDC"
+        },
+        "identityToken": {
+          "title": "Préparer le passage à OIDC",
+          "body": "Le mode token actuel reste réservé au développement et aux tests. La production exige des comptes nominatifs avec MFA ; suivez le guide avant ce passage.",
+          "action": "Consulter le guide OIDC"
         }
       },
       "refreshSystems": "Actualiser les contrôles des services",
@@ -2928,6 +2940,106 @@
       "invalidEvidence": "Saisissez une référence non secrète avec lettres, chiffres, point, deux-points, tiret ou soulignement (100 caractères maximum).",
       "reconciled": "Livraison réconciliée. Actualisez la file avant toute relance.",
       "explanation": "L’envoi automatique est suspendu jusqu’à la réconciliation du résultat fournisseur."
+    },
+    "identitySetup": {
+      "publicTitle": "Configurer les accès OIDC",
+      "publicSubtitle": "Préparez les accès nominatifs et le MFA avant votre première connexion administrateur.",
+      "publicLimit": "Ce guide fournit des instructions uniquement. Aucun diagnostic serveur n’est disponible avant connexion. Si Web ou API ne démarrent pas, utilisez le runbook VPS.",
+      "openGuide": "Configurer les accès OIDC",
+      "backToLogin": "Retour à la connexion",
+      "signInToVerify": "Se connecter pour vérifier la configuration",
+      "eyebrow": "Identité administrative",
+      "title": "Préparation des accès OIDC",
+      "nav": "Accès OIDC",
+      "scope": "Ces indicateurs décrivent la configuration locale rapportée par l’API. Ils ne prouvent ni la disponibilité du fournisseur, ni une connexion MFA réussie. Le guide ne modifie aucun service ou secret.",
+      "notObserved": "Aucune configuration serveur n’est observée ici. Sur le guide public ou avec une ancienne API, suivez les étapes opérateur puis consultez la configuration après connexion.",
+      "tokenHelp": "Le mode token est réservé au développement et aux tests explicites. Il ne permet pas l’administration en production ; préparez OIDC et le MFA avant ce passage.",
+      "mode": "Mode administratif",
+      "modes": {
+        "oidc": "OIDC nominatif",
+        "token": "Token local / test"
+      },
+      "configuration": {
+        "configured": "Configuration locale renseignée",
+        "incomplete": "Configuration locale à compléter",
+        "unknown": "Configuration non observée",
+        "token": "Mode token local / test"
+      },
+      "observations": {
+        "reported": "Présence rapportée",
+        "missing": "Paramètre manquant",
+        "unknown": "Non observé",
+        "manual": "Vérification opérateur"
+      },
+      "issuer": "Issuer configuré",
+      "callback": "Callback attendu",
+      "clientId": "Identifiant du client",
+      "clientSecret": "Secret du client",
+      "encryption": "Clé de chiffrement privée",
+      "mfaPolicy": "Politique de claim MFA",
+      "policies": {
+        "amr": "AMR : mfa requis dans le jeton signé",
+        "acr": "ACR : valeur MFA garantie par le fournisseur requise"
+      },
+      "ownerBootstrap": "Amorçage du premier propriétaire",
+      "ownerPresent": "Subjects initiaux renseignés ; première connexion MFA à vérifier.",
+      "ownerExisting": "Subjects initiaux non renseignés : un propriétaire actif doit déjà exister pour cet issuer.",
+      "stepsLabel": "Étapes de préparation OIDC",
+      "stepPosition": "Étape {{current}} sur {{total}}",
+      "previous": "Étape précédente",
+      "next": "Étape suivante",
+      "allSteps": "Toutes les étapes",
+      "navigationScope": "Passer à l’étape suivante ne valide aucune opération ni aucun contrôle MFA.",
+      "accessLink": "Accès et sessions",
+      "runbook": "Runbook VPS et premier démarrage OIDC",
+      "tour": "Préparez le fournisseur, le client confidentiel, les variables serveur et les comptes. La présence des paramètres ne prouve pas le MFA : effectuez les vérifications manuelles et consultez Accès et sessions après connexion propriétaire.",
+      "steps": {
+        "provider": {
+          "title": "Choisir et préparer le fournisseur",
+          "body": "Utilisez un fournisseur externe compatible OIDC ou Keycloak sur le VPS OVH. Préparez un hostname dédié, son DNS et un certificat HTTPS valide avant la connexion.",
+          "detail": "Pour Keycloak, suivez le runbook VPS : PostgreSQL identité privé et distinct, ressources, sauvegardes et compte administrateur nominatif avec MFA. Un fournisseur externe conserve FUNDING_KEYCLOAK_ENABLED=false. La présence d’un issuer ne constitue pas un contrôle de disponibilité."
+        },
+        "client": {
+          "title": "Enregistrer le client confidentiel",
+          "body": "Créez un client confidentiel avec le flux authorization code, PKCE S256 obligatoire et les scopes openid profile. Enregistrez un seul callback exact, sans wildcard.",
+          "detail": "Le callback suit https://<site>/api/admin/auth/callback. Remplacez <site> par le domaine de l’origine HTTPS commune Web/API ; aucun slash final supplémentaire. Le secret du client reste côté serveur. N’activez pas le password grant."
+        },
+        "environment": {
+          "title": "Configurer les variables serveur",
+          "body": "Dans le fichier .env protégé de la cible, définir FUNDING_ADMIN_AUTH_MODE=oidc, FUNDING_PUBLIC_BASE_URL, FUNDING_ADMIN_OIDC_ISSUER, FUNDING_ADMIN_OIDC_CLIENT_ID et FUNDING_ADMIN_OIDC_CLIENT_SECRET. Préparer aussi FUNDING_ADMIN_OIDC_OWNER_SUBJECTS et la politique FUNDING_ADMIN_OIDC_MFA_ACR.",
+          "detail": "FUNDING_PUBLIC_BASE_URL est l’origine HTTPS commune Web/API, sans chemin ni slash final. L’issuer doit correspondre exactement à celui du fournisseur. Injectez les secrets côté API uniquement, jamais dans Angular, Git ou une capture de cette page. Ces variables sont modifiées par l’opérateur, pas depuis ce guide."
+        },
+        "database": {
+          "title": "Préparer la base Funding et le chiffrement",
+          "body": "La base PostgreSQL Funding est distincte de la base identité Keycloak. Préparez une sauvegarde puis appliquez le schéma actuel complet, dont la migration 020 pour l’identité, selon la procédure d’une base neuve ou d’adoption d’historique.",
+          "detail": "L’API utilise un rôle PostgreSQL limité, distinct du propriétaire des migrations, via DATABASE_URL. FUNDING_PRIVATE_DATA_ENCRYPTION_KEY doit contenir exactement 32 octets aléatoires en base64 standard en production ; gardez une copie de récupération protégée. Une connexion PostgreSQL ne prouve pas que toutes les migrations ont été appliquées."
+        },
+        "mfa": {
+          "title": "Enrôler le MFA et le premier propriétaire",
+          "body": "Créez les personnes chez le fournisseur, imposez leur OTP/MFA et relevez leurs sub vérifiés, jamais leur courriel. Sur une base neuve, renseignez au moins un sub dans FUNDING_ADMIN_OIDC_OWNER_SUBJECTS pour amorcer le compte propriétaire à sa première connexion MFA réussie.",
+          "detail": "Vérifiez le claim signé amr contenant mfa ; un fournisseur externe peut utiliser uniquement un ACR dont il garantit la signification MFA. Keycloak géré utilise AMR et laisse FUNDING_ADMIN_OIDC_MFA_ACR vide. Après l’enrôlement OTP initial Keycloak, reconnectez-vous avec mot de passe et OTP. Une liste de subjects vide suppose un propriétaire actif déjà présent pour cet issuer et ne bloque pas ce compte existant."
+        },
+        "deployment": {
+          "title": "Démarrer la révision préparée",
+          "body": "Après préparation du fournisseur, du schéma et des comptes, démarrer ou recréer l’API et Web selon la procédure de livraison autorisée. Le démarrage et les mises à jour du fournisseur identité sont des opérations distinctes.",
+          "detail": "Relisez la cible, les sauvegardes, les images et le retour avant une opération de production. Ne remplacez pas OIDC par un token si le fournisseur est indisponible. Modifier un fichier .env ne suffit pas à modifier les secrets du client ou de la base déjà créés ; suivez leur procédure de rotation."
+        },
+        "verification": {
+          "title": "Vérifier connexion, rôles et révocation",
+          "body": "Ouvrez /admin/fundraiser et vérifiez une connexion propriétaire avec MFA, puis le refus sans MFA ou pour un subject inconnu. Dans Accès et sessions, attribuez les rôles aux autres personnes et vérifiez qu’un lecteur ne peut pas effectuer de mutation.",
+          "detail": "Révoquez une session et confirmez son refus à la requête suivante. Contrôlez l’expiration et l’audit sans copier de jeton ou de secret. Aucun indicateur de présence, bouton Suivant ou case déclarative ne certifie ces vérifications. La qualification du fournisseur doit être effectuée sur la cible autorisée."
+        }
+      },
+      "variables": {
+        "FUNDING_ADMIN_AUTH_MODE": "OIDC requis en production ; token réservé au développement et aux tests explicites.",
+        "FUNDING_PUBLIC_BASE_URL": "Origine HTTPS commune Web/API ; callback exact dérivé de cette origine.",
+        "FUNDING_ADMIN_OIDC_ISSUER": "Issuer du fournisseur ; présence uniquement, aucune sonde de disponibilité.",
+        "FUNDING_ADMIN_OIDC_CLIENT_ID": "Identifiant du client confidentiel ; seule sa présence est rapportée.",
+        "FUNDING_ADMIN_OIDC_CLIENT_SECRET": "Secret privé injecté côté API ; sa valeur n’est jamais affichée.",
+        "FUNDING_ADMIN_OIDC_OWNER_SUBJECTS": "Amorçage d’une base neuve ; une liste vide suppose un propriétaire actif existant pour cet issuer.",
+        "FUNDING_ADMIN_OIDC_MFA_ACR": "Politique MFA locale ; vide pour AMR/Keycloak géré. Ne prouve pas un MFA réussi.",
+        "FUNDING_PRIVATE_DATA_ENCRYPTION_KEY": "Clé privée de 32 octets aléatoires en base64 standard ; copie de récupération protégée."
+      }
     }
   },
   "funding": {

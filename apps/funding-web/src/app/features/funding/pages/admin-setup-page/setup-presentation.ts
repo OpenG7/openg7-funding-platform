@@ -3,6 +3,10 @@ import type {
   AdminEmailTestResult
 } from '@openg7/funding-core';
 
+import {
+  IDENTITY_SETUP_ENV_KEYS,
+  type IdentitySetupEnvKey
+} from '../../components/admin-identity-setup/identity-setup-fields.js';
 import type { FundingI18nService } from '../../services/funding-i18n.service.js';
 
 export type SetupEmailTestState =
@@ -16,6 +20,7 @@ export type SetupEmailTestState =
   | 'unknown'
   | 'error';
 export type SetupEnvKey =
+  | IdentitySetupEnvKey
   | 'STRIPE_SECRET_KEY'
   | 'STRIPE_WEBHOOK_SECRET'
   | 'SMTP_ENABLED'
@@ -61,6 +66,11 @@ export class SetupPresentation {
   ) {}
   get envRows(): readonly SetupEnvRow[] {
     return [
+      ...IDENTITY_SETUP_ENV_KEYS.map((key) => ({
+        key,
+        label: key,
+        note: this.i18n.t('admin.identitySetup.variables.' + key)
+      })),
       {
         key: 'STRIPE_SECRET_KEY',
         label: this.i18n.t('admin.messages.stripe_secret'),
@@ -190,8 +200,28 @@ export class SetupPresentation {
     ];
   }
 
-  envConfigured(setup: AdminSetupStatusResponse, key: SetupEnvKey): boolean {
+  envConfigured(
+    setup: AdminSetupStatusResponse,
+    key: SetupEnvKey
+  ): boolean | null {
+    const identity = setup.identity?.mode === 'oidc' ? setup.identity : null;
     switch (key) {
+      case 'FUNDING_ADMIN_AUTH_MODE':
+        return setup.identity ? true : null;
+      case 'FUNDING_PUBLIC_BASE_URL':
+        return Boolean(setup.public_base_url);
+      case 'FUNDING_ADMIN_OIDC_ISSUER':
+        return identity ? Boolean(identity.issuer) : null;
+      case 'FUNDING_ADMIN_OIDC_CLIENT_ID':
+        return identity?.client_id_configured ?? null;
+      case 'FUNDING_ADMIN_OIDC_CLIENT_SECRET':
+        return identity?.client_secret_configured ?? null;
+      case 'FUNDING_ADMIN_OIDC_OWNER_SUBJECTS':
+        return identity?.owner_bootstrap_configured ?? null;
+      case 'FUNDING_ADMIN_OIDC_MFA_ACR':
+        return identity ? true : null;
+      case 'FUNDING_PRIVATE_DATA_ENCRYPTION_KEY':
+        return identity?.private_data_encryption_configured ?? null;
       case 'STRIPE_SECRET_KEY':
         return setup.stripe.secret_key_configured;
       case 'STRIPE_WEBHOOK_SECRET':
@@ -245,7 +275,32 @@ export class SetupPresentation {
     );
   }
 
-  configuredLabel(configured: boolean): string {
+  envStateLabel(setup: AdminSetupStatusResponse, key: SetupEnvKey): string {
+    if (key === 'FUNDING_ADMIN_AUTH_MODE' && setup.identity)
+      return this.i18n.t('admin.identitySetup.modes.' + setup.identity.mode);
+    if (
+      key.startsWith('FUNDING_ADMIN_OIDC_') ||
+      key === 'FUNDING_PRIVATE_DATA_ENCRYPTION_KEY'
+    ) {
+      if (setup.identity?.mode === 'token')
+        return this.i18n.t('admin.identitySetup.observations.manual');
+      if (key === 'FUNDING_ADMIN_OIDC_MFA_ACR' && setup.identity)
+        return this.i18n.t(
+          'admin.identitySetup.policies.' + setup.identity.mfa_policy
+        );
+      if (
+        key === 'FUNDING_ADMIN_OIDC_OWNER_SUBJECTS' &&
+        setup.identity &&
+        !setup.identity.owner_bootstrap_configured
+      )
+        return this.i18n.t('admin.identitySetup.ownerExisting');
+    }
+    return this.configuredLabel(this.envConfigured(setup, key));
+  }
+
+  configuredLabel(configured: boolean | null): string {
+    if (configured === null)
+      return this.i18n.t('admin.identitySetup.observations.unknown');
     return configured
       ? this.i18n.t('admin.messages.configure')
       : this.i18n.t('admin.messages.manquant');

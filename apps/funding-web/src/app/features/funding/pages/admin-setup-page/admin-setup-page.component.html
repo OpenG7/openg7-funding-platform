@@ -72,6 +72,16 @@
           }}
         </button>
         <button
+          [attr.aria-current]="navSection() === 'identity' ? 'location' : null"
+          type="button"
+          (click)="focusSection('identity')"
+          data-og7="setup-identity-nav"
+        >
+          <openg7-admin-icon name="settings" />{{
+            'admin.identitySetup.nav' | translate
+          }}
+        </button>
+        <button
           [attr.aria-current]="navSection() === 'stripe' ? 'location' : null"
           type="button"
           (click)="focusSection('stripe')"
@@ -124,6 +134,14 @@
         [recommendation]="recommendation()"
         (inspect)="focusSection($event)"
       />
+      <div id="setup-identity" tabindex="-1" data-tour-anchor="identity">
+        <openg7-admin-identity-setup
+          [status]="data.identity ?? null"
+          [databaseConfigured]="data.database.configured"
+          [databaseReachable]="data.database.reachable"
+          [tourTarget]="isTourAnchor('identity')"
+        />
+      </div>
       <div class="workspace-grid">
         <openg7-admin-setup-services
           [setup]="data"

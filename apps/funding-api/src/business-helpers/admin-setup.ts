@@ -1,4 +1,7 @@
-import type { AdminSetupStatusResponse } from '@openg7/funding-core';
+import type {
+  AdminIdentitySetupStatus,
+  AdminSetupStatusResponse
+} from '@openg7/funding-core';
 
 import type { AdminSponsorshipReviewReminderConfig } from '../admin-reminder.service.js';
 import type { EmailQueueStatus } from '../email-notification.service.js';
@@ -8,6 +11,7 @@ import type { SponsorshipInvoiceConfig } from '../sponsorship-invoice-config.js'
 import type { ReportFailure } from './contracts.js';
 
 export interface AdminSetupDependencies {
+  readonly getAdminIdentitySetupStatus: () => AdminIdentitySetupStatus;
   readonly checkDatabaseConnection: (() => Promise<unknown>) | null;
   readonly getEmailQueueStatus: () => Promise<EmailQueueStatus>;
   readonly getTransactionalEmailConfigStatus: () => TransactionalEmailConfigStatus;
@@ -40,6 +44,7 @@ export interface AdminSetupDependencies {
 }
 
 export const createAdminSetupHelpers = ({
+  getAdminIdentitySetupStatus,
   checkDatabaseConnection,
   getEmailQueueStatus,
   getTransactionalEmailConfigStatus,
@@ -102,6 +107,7 @@ export const createAdminSetupHelpers = ({
       environment: readEnvironment('FUNDING_PLATFORM_ENV') ?? 'development',
       public_base_url: publicBaseUrl ?? null,
       allowed_origins: allowedOrigins,
+      identity: getAdminIdentitySetupStatus(),
       stripe: {
         secret_key_configured: stripeSecretKeyConfigured,
         webhook_secret_configured: stripeWebhookSecretConfigured,

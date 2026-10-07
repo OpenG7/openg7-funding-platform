@@ -7,6 +7,52 @@ financiers; `/admin/fundraiser/pilotage` conserve les décisions métier.
 
 ## Parcours
 
+<a id="guidage-oidc"></a>
+
+### Identité et premier accès OIDC
+
+Avant la première connexion, `/admin/oidc-setup` présente un parcours statique :
+fournisseur et client confidentiel, HTTPS/callback, MFA, personnes et subjects,
+DB Funding/migrations/rôle restreint, configuration serveur puis livraison et
+connexion. Cette page fonctionne sans session ni appel API ; elle ne lit aucune
+configuration runtime et ne collecte aucun secret. Elle ne démarre pas de service
+et ne modifie ni `.env` ni le fournisseur. Les opérations réelles suivent le
+[premier démarrage Keycloak](keycloak-vps.md#premier-demarrage-oidc) ou le
+[runbook des accès](admin-identity-and-alerts.md) pour un fournisseur externe.
+
+Après connexion propriétaire, `/admin/fundraiser/setup?section=identity` ouvre
+le diagnostic et son guide pas à pas. Les informations viennent du bloc optionnel
+`identity` de `GET /api/admin/setup-status` :
+
+- `mode` : `oidc` ou `token` ; `issuer` et `callback_url` : URL publique sûre ou `null`.
+- `client_id_configured`, `client_secret_configured`, `owner_bootstrap_configured`,
+  `private_data_encryption_configured` : présence/configuration seulement, sans valeurs.
+- `mfa_policy` : claim `amr` ou politique `acr` prévue côté API, sans claim ni token.
+
+Une ancienne API peut omettre `identity` : le diagnostic reste inconnu et les
+autres panneaux continuent de fonctionner. Le mode token est identifié comme
+local/test. Une configuration OIDC complète n'atteste ni discovery/JWKS, ni
+validité du secret client, ni connexion au fournisseur, ni MFA réellement effectué.
+Le guide explique les vérifications manuelles et renvoie aux procédures propriétaires ;
+parcourir une étape n'en valide pas l'exécution.
+
+Le guide et le tableau des paramètres partagent leur
+[catalogue de variables](../../apps/funding-web/src/app/features/funding/components/admin-identity-setup/identity-setup-fields.ts).
+Les [projections du guide](../../apps/funding-web/src/app/features/funding/components/admin-identity-setup/identity-setup-projections.ts)
+calculent les observations ; le composant conserve la navigation et le focus,
+avec un seul template pour les instructions actives et la lecture complète.
+Le [module identité API](../../apps/funding-api/src/admin-identity.ts) construit
+les diagnostics OIDC et token ; l’agrégateur setup reçoit ce snapshot.
+
+`owner_bootstrap_configured=false` ne bloque pas le bilan de configuration : un
+propriétaire peut déjà exister en base. Sur une base neuve, les premiers subjects
+restent à préparer selon le runbook des accès. Aucun subject, credential, cookie,
+claim ou token n'est exposé. Le diagnostic est une lecture réservée au propriétaire,
+avec refus `401` sans session et `403` pour lecteur/opérateur ; aucun changement de
+droits, de MFA ou de secrets n'est proposé par cette page.
+
+### Observations des services
+
 Les cartes Stripe, courriel, stockage et PostgreSQL utilisent
 `GET /api/admin/cockpit/systems`. Elles affichent la source, la date et la portée
 du contrôle. Une observation périmée ou une actualisation échouée retire le
@@ -39,10 +85,11 @@ ne sont jamais exposés. L'absence du champ, avec une ancienne API, ne prouve
 aucune connexion. Les requêtes simultanées partagent le même contrôle en cours.
 
 La recommandation priorise la connexion DB, la lecture de la file, les messages
-en échec et les problèmes observés, puis la configuration incomplète et les
-observations manquantes. Son bouton ouvre un diagnostic ou la file courriel;
-il ne lance aucune opération externe. Le bilan favorable exige les quatre
-contrôles de service valides et les points de configuration vérifiés. Pour Stripe,
+en échec et les problèmes observés, puis les conseils d’identité et les autres
+paramètres incomplets, avant les observations manquantes. Son bouton ouvre un
+diagnostic ou la file courriel; il ne lance aucune opération externe. Le bilan
+favorable exige les quatre contrôles de service valides et les points de
+configuration vérifiés. Pour Stripe,
 une absence d'activité seule n'invalide pas une connexion confirmée; les erreurs
 de webhooks et les observations indisponibles ou périmées restent à examiner.
 
@@ -58,7 +105,7 @@ Une modification d'environnement exige un redémarrage de l'API; les documents
 déjà émis conservent leurs snapshots.
 
 Les paramètres détaillés se déplient dans chaque panneau. Les cartes et les
-liens `?section=storage` ou `?section=database` ouvrent et focalisent le panneau
+liens `?section=identity`, `?section=storage` ou `?section=database` ouvrent et focalisent le panneau
 correspondant. Le guide utilise le panneau accessible commun : Tab, fermeture
 par Échap et retour du focus. Toutes ces consultations restent sans mutation.
 
@@ -104,12 +151,38 @@ SQL, de commande Docker ni de changement d'environnement.
 ## Vérification ciblée
 
 Après le build Angular production, exécuter le contrôle TypeScript admin et les
-tests `admin-setup-layout.spec.ts`, `admin-setup-email-ui.spec.ts` et
+tests `admin-identity-setup-ui.spec.ts`, `admin-setup-layout.spec.ts`, `admin-setup-email-ui.spec.ts` et
 `admin-cockpit.spec.ts` avec `tests/playwright-admin-ui.config.mjs`.
 Ils utilisent des API interceptées et des données synthétiques, sans `.env`,
 envoi SMTP ni fournisseur réel. Les captures sont dans `test-results/admin-layout/`.
 La recette SMTP/OIDC réelle reste celle du guide courriel; ces tests UI ne la
 remplacent pas.
+
+Le 6 octobre 2026, sous Node 22.23.3, le guidage OIDC et les régressions setup/
+courriel ont été vérifiés sur le build production : 33 scénarios UI réussis,
+dont neuf pour le guide, avec FR/EN, mobile, axe, clavier et lecture sans
+JavaScript. L'API indisponible laisse le guide public consultable lorsque le Web
+est servi ; aucune requête API ni mutation n'est émise par ce guide. Les réponses
+anciennes, les paramètres manquants, le mode token et les erreurs/refus de lecture
+restent non confirmés. Les tests Node des diagnostics et projections réussissent,
+y compris la protection des URL issuer avec paramètres privés. Le build produit
+25 routes prérendues ; Nginx est vérifié sur un conteneur local jetable, avec et
+sans slash final, et conserve les 404 des routes inconnues. TypeScript, format,
+standards et budgets passent ; lint sans erreur, avec l'avertissement existant
+de `scripts/smoke-public.mjs`. Aucun fournisseur réel ni VPS n'a été qualifié.
+
+Après correction des P2/P3 le même jour, les 20 tests de projections et les
+25 scénarios UI du guidage et de la configuration réussissent, dont onze pour
+le guide. Les incidents précèdent les conseils d’identité en mode token, avec
+une ancienne API et en OIDC incomplet. Les deux scénarios FR/EN suivent le chemin
+prescrit `/admin/fundraiser` jusqu’à la connexion OIDC, avec API simulée.
+
+Après consolidation à comportement constant le même jour, `yarn test` compte
+5 551 réussites, un test ignoré et aucun échec. Les 57 scénarios navigateur du
+guide, de la configuration et de la récupération courriel réussissent avec API
+interceptée. Une comparaison avant/après conserve les lignes du tableau et les
+libellés d’identité sur 12 cas synthétiques. Build Angular/TypeScript, format,
+documentation et diff passent ; l’avertissement lint préexistant reste présent.
 
 Vérification locale du 30 septembre 2026, avec Node 22.23.3 et Yarn 4.9.4 :
 build Angular production et 24 routes prérendues, compilations TypeScript

@@ -1,8 +1,23 @@
+/** Configuration indicators only; they do not verify provider health or MFA. */
+export interface AdminIdentitySetupStatus {
+  readonly mode: 'oidc' | 'token';
+  readonly issuer: string | null;
+  readonly callback_url: string | null;
+  readonly client_id_configured: boolean;
+  readonly client_secret_configured: boolean;
+  /** An existing owner can sign in even when bootstrap is no longer configured. */
+  readonly owner_bootstrap_configured: boolean;
+  readonly mfa_policy: 'amr' | 'acr';
+  readonly private_data_encryption_configured: boolean;
+}
+
 export interface AdminSetupStatusResponse {
   readonly data_source: 'database' | 'stripe_direct' | 'empty';
   readonly environment: string;
   readonly public_base_url: string | null;
   readonly allowed_origins: readonly string[];
+  /** Older API responses omit the identity diagnostic. */
+  readonly identity?: AdminIdentitySetupStatus;
   readonly stripe: {
     readonly secret_key_configured: boolean;
     readonly webhook_secret_configured: boolean;

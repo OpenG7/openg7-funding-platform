@@ -23,10 +23,23 @@
         <button type="button" (click)="inspect.emit(item.id)">
           <openg7-admin-icon
             [name]="item.ready ? 'check' : 'warning'"
-          /><span>{{ 'admin.setup.checks.' + item.id | translate }}</span
+          /><span>{{
+            'admin.setup.checks.' +
+              (item.id === 'identity' && item.state === 'manual'
+                ? 'identityToken'
+                : item.id) | translate
+          }}</span
           ><small>{{
-            (item.ready ? 'admin.setup.complete' : 'admin.setup.incomplete')
-              | translate
+            (item.state === 'unknown'
+              ? 'admin.identitySetup.observations.unknown'
+              : item.state === 'manual'
+                ? 'admin.identitySetup.observations.manual'
+                : item.id === 'identity' && item.ready
+                  ? 'admin.identitySetup.observations.reported'
+                  : item.ready
+                    ? 'admin.setup.complete'
+                    : 'admin.setup.incomplete'
+            ) | translate
           }}</small>
         </button>
       </li>

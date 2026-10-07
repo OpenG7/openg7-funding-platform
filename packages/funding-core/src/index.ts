@@ -240,6 +240,7 @@ export type {
 } from './admin-contributions.js';
 
 export type {
+  AdminIdentitySetupStatus,
   AdminSetupStatusResponse,
   AdminEmailTestRequest,
   AdminEmailTestResult,

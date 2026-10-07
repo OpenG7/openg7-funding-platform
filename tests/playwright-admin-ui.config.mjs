@@ -13,6 +13,7 @@ export default defineBuiltWebSuite({
     'admin-setup-email-ui.spec.ts',
     'admin-backups-ui.spec.ts',
     'admin-setup-layout.spec.ts',
+    'admin-identity-setup-ui.spec.ts',
     'admin-pilotage.spec.ts',
     'admin-inspection.spec.ts',
     'admin-email-recovery-ui.spec.ts',

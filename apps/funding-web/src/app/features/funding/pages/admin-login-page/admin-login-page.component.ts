@@ -88,6 +88,10 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
           }}
         </p>
 
+        <a routerLink="/admin/oidc-setup" data-og7="identity-setup-link">{{
+          'admin.identitySetup.openGuide' | translate
+        }}</a>
+
         <a routerLink="/fonds-des-batisseurs">{{
           'admin.legacy.retour_au_fonds' | translate
         }}</a>

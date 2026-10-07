@@ -3,9 +3,13 @@ import test from 'node:test';
 
 import { createAdminSetupHttpHandler } from '../dist/apps/funding-api/src/admin-setup.http.js';
 
-const fixture = ({ denied, failure } = {}) => {
+const fixture = ({ denied, failure, identity } = {}) => {
   const calls = [];
-  const setup = { checkedAt: '2026-10-03T12:00:00Z', services: [] };
+  const setup = {
+    checkedAt: '2026-10-03T12:00:00Z',
+    services: [],
+    ...(identity ? { identity } : {})
+  };
   const writeJson = (_request, response, status, payload) => {
     calls.push(['json', status]);
     Object.assign(response, { status, payload });
@@ -65,6 +69,33 @@ test('setup missing, expired, forbidden and unconfigured authorization stop serv
     const result = await f.request();
     assert.equal(result.status, denied);
     assert.equal(result.headers['Cache-Control'], 'private, no-store');
+    assert.deepEqual(f.calls, [['authorization'], ['json', denied]]);
+  }
+});
+
+test('setup identity diagnostics remain private and are absent from rejected reads', async () => {
+  const identity = {
+    mode: 'oidc',
+    issuer: 'https://identity.example.test/realms/synthetic',
+    callback_url: 'https://funding.example.test/api/admin/auth/callback',
+    client_id_configured: true,
+    client_secret_configured: true,
+    owner_bootstrap_configured: false,
+    mfa_policy: 'amr',
+    private_data_encryption_configured: true
+  };
+  const permitted = await fixture({ identity }).request();
+  assert.deepEqual(permitted.payload.identity, identity);
+  assert.equal(permitted.headers['Cache-Control'], 'private, no-store');
+  for (const denied of [401, 403]) {
+    const f = fixture({ identity, denied });
+    const rejected = await f.request();
+    assert.equal('identity' in rejected.payload, false);
+    assert.equal(
+      JSON.stringify(rejected.payload).includes(identity.issuer),
+      false
+    );
+    assert.equal(rejected.headers['Cache-Control'], 'private, no-store');
     assert.deepEqual(f.calls, [['authorization'], ['json', denied]]);
   }
 });

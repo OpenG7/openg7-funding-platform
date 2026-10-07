@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { buildAdminIdentitySetupStatus } from '../dist/apps/funding-api/src/admin-identity.js';
 import { createAdminSetupHelpers } from '../dist/apps/funding-api/src/business-helpers/admin-setup.js';
 import { createAssistantAuditRecorder } from '../dist/apps/funding-api/src/business-helpers/assistant-audit.js';
 import {
@@ -20,6 +21,8 @@ const emptyQueue = {
 const setupFixture = (overrides = {}) => {
   const calls = [];
   const dependencies = {
+    getAdminIdentitySetupStatus: () =>
+      buildAdminIdentitySetupStatus(null, false),
     checkDatabaseConnection: null,
     getEmailQueueStatus: async () => {
       calls.push('queue');
@@ -85,6 +88,7 @@ test('setup without PostgreSQL still inspects email configuration and uses the p
   assert.equal(status.public_base_url, null);
   assert.equal(status.allowed_origins, f.dependencies.allowedOrigins);
   assert.deepEqual(status.database, { configured: false, reachable: false });
+  assert.deepEqual(status.identity, buildAdminIdentitySetupStatus(null, false));
   assert.equal(status.email.queue_available, false);
   assert.equal(status.email.admin_notification_email, null);
   assert.equal(status.email.last_error, null);
@@ -205,6 +209,34 @@ test('Stripe-direct diagnostics expose configuration indicators and retain the c
   assert.equal('issuer_tax_id' in status.invoice, false);
   assert.equal('secret_key' in status.stripe, false);
   assert.equal('webhook_secret' in status.stripe, false);
+});
+
+test('setup includes the current identity snapshot without treating absent owner bootstrap as a failure', async () => {
+  let encrypted = false;
+  const calls = [];
+  const f = setupFixture({
+    getAdminIdentitySetupStatus: () => {
+      calls.push('identity');
+      return {
+        mode: 'oidc',
+        issuer: 'https://identity.example.test/realms/synthetic',
+        callback_url: 'https://funding.example.test/api/admin/auth/callback',
+        client_id_configured: true,
+        client_secret_configured: true,
+        owner_bootstrap_configured: false,
+        mfa_policy: 'amr',
+        private_data_encryption_configured: encrypted
+      };
+    }
+  });
+  const first = await f.buildAdminSetupStatus();
+  encrypted = true;
+  const second = await f.buildAdminSetupStatus();
+  assert.equal(first.identity.mode, 'oidc');
+  assert.equal(first.identity.owner_bootstrap_configured, false);
+  assert.equal(first.identity.private_data_encryption_configured, false);
+  assert.equal(second.identity.private_data_encryption_configured, true);
+  assert.deepEqual(calls, ['identity', 'identity']);
 });
 
 test('setup reads live environment values and its timestamp after the asynchronous queue inspection', async (t) => {
