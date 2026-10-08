@@ -70,11 +70,10 @@ test(
       const base = `http://127.0.0.1:${port}/api/sponsorship-followup`;
       const exchange = async (url, options = {}) => {
         try {
-          // Each refusal case owns a fresh connection and consumes its response;
-          // socket reuse and garbage collection must not gate the next assertion.
+          // Keep the connection open while an early 413 drains the upload;
+          // consume each response before starting the next exchange.
           const response = await fetch(url, {
             ...options,
-            headers: { ...options.headers, connection: 'close' },
             signal: AbortSignal.timeout(5000)
           });
           const body = await response.text();
