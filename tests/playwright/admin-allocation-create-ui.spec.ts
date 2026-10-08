@@ -300,7 +300,10 @@ for (const language of ['fr-CA', 'en']) {
       await page.locator('[data-og7="confirm-action"]').focus();
       await page.keyboard.press('Enter');
       await expect.poll(() => submissions.length).toBe(1);
+      // The POST can start before the modal releases the underlying form.
+      await expect(dialog).toHaveCount(0);
       await fill(form, english, draft('private-next'));
+      await expectDraft(form, english, draft('private-next'));
       expect(submissions[0].payload).toMatchObject({
         projectName: 'public-fixture',
         status: 'published',
