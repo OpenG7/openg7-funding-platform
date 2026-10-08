@@ -17,8 +17,23 @@ test.describe('Sponsor side rejected state validation', () => {
     const fixture = SPONSORSHIP_FIXTURES.rejectedFollowup;
     await openFixtureSponsorship(page, fixture.companyName);
 
+    // Incoming payment notifications can cover the decision actions. Dismiss
+    // them through the UI if they arrive while Playwright attempts the click.
+    const toasts = page.locator('[data-og7="contribution-toast"]');
+    const firstToast = toasts.first();
+    await page.addLocatorHandler(firstToast, async () => {
+      while (await toasts.count()) {
+        await toasts
+          .first()
+          .getByRole('button', { name: 'Fermer', exact: true })
+          .click();
+      }
+      await expect(toasts).toHaveCount(0);
+    });
+
     // Admin rejects the sponsorship with an internal reason
     await page.getByRole('button', { name: 'Refuser' }).click();
+    await page.removeLocatorHandler(firstToast);
     await page
       .getByLabel(/Raison interne du refus/i)
       .fill('E2E Playwright: refus de test pour validation sponsor.');
