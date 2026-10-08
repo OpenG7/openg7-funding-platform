@@ -70,7 +70,6 @@ test(
       const base = `http://127.0.0.1:${port}/api/sponsorship-followup`;
       const exchange = async (url, options = {}) => {
         try {
-          // A body-limit rejection can close its request socket before EOF.
           // Each refusal case owns a fresh connection and consumes its response;
           // socket reuse and garbage collection must not gate the next assertion.
           const response = await fetch(url, {
