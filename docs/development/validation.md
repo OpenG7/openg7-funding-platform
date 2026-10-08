@@ -48,6 +48,12 @@ documentaire n'exige pas de lancer les suites applicatives.
 | `yarn test:automation` | Tests Node, build Angular production, alertes/S3 jetables, restauration applicative et parcours navigateur publics/accessibilité; aucun secret réel |
 | `yarn exec playwright test --config tests/playwright-recovery.config.mjs` | Scripts de sauvegarde/restauration et récupération applicative sur cibles jetables |
 
+La recette `yarn test:e2e:acceptance` exécute les scénarios séquentiellement sur
+un seul worker, même si une option CLI `--workers` indique une autre valeur.
+Les scénarios partagent la base, les réglages et les redémarrages de l’API.
+Pour paralléliser les contrôles navigateur, utiliser les suites UI isolées par
+leurs fixtures/interceptions.
+
 `keycloak:check` exige Docker Compose lorsqu'il lit un fichier d'environnement,
 sans contacter le daemon ou le fournisseur. Le [runbook Keycloak](../operations/keycloak-vps.md)
 décrit les vérifications DNS/HTTPS et OIDC/MFA distinctes.

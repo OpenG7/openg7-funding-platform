@@ -62,6 +62,72 @@ test('acceptance refuses remote Docker daemons', () => {
     assert.throws(() => assertLocalDockerEndpoint(endpoint));
 });
 
+test('acceptance preserves browser filters and project while forcing one worker', async () => {
+  const calls = [];
+  const args = [
+    'tests/playwright/webhook-recovery-acceptance.spec.ts',
+    '--grep',
+    'invoice_insert',
+    '--project=chromium',
+    '--workers=2'
+  ];
+  await acceptanceStages({
+    node: 'node',
+    cli: 'playwright',
+    args,
+    diagnostics: async () => {},
+    run: async (command, stageArgs) => {
+      calls.push([command, ...stageArgs]);
+    }
+  });
+  const browserCalls = calls.filter(
+    ([command, cli]) => command === 'node' && cli === 'playwright'
+  );
+  assert.deepEqual(browserCalls, [
+    ['node', 'playwright', 'test', ...args, '--workers=1']
+  ]);
+});
+
+test('acceptance places its worker override before the option terminator without changing source arguments', async () => {
+  const calls = [];
+  const args = Object.freeze([
+    '--project=chromium',
+    '--grep',
+    'invoice_insert',
+    '--workers=2',
+    'tests/playwright/webhook-recovery-acceptance.spec.ts',
+    '--',
+    '--workers=3'
+  ]);
+  await acceptanceStages({
+    node: 'node',
+    cli: 'playwright',
+    args,
+    diagnostics: async () => {},
+    run: async (command, stageArgs) => {
+      calls.push([command, ...stageArgs]);
+    }
+  });
+  const browserCalls = calls.filter(
+    ([command, cli]) => command === 'node' && cli === 'playwright'
+  );
+  assert.deepEqual(browserCalls, [
+    [
+      'node',
+      'playwright',
+      'test',
+      '--project=chromium',
+      '--grep',
+      'invoice_insert',
+      '--workers=2',
+      'tests/playwright/webhook-recovery-acceptance.spec.ts',
+      '--workers=1',
+      '--',
+      '--workers=3'
+    ]
+  ]);
+});
+
 test('acceptance stops at every failed stage and always tears down its stack', async () => {
   for (let failure = 0; failure < 7; failure++) {
     const calls = [];

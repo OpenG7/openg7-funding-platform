@@ -27,7 +27,12 @@ interface EventState {
 interface Mail {
   ID: string;
   Subject: string;
+  Snippet: string;
   To: { Address: string }[];
+}
+interface Sms {
+  id: string;
+  idempotencyKey: string;
 }
 
 for (const fault of ['invoice_insert', 'invoice_email_connection'] as const) {
@@ -70,21 +75,23 @@ for (const fault of ['invoice_insert', 'invoice_email_connection'] as const) {
       (await get<{ messages: Mail[] }>(stub + '/__test__/mail')).messages;
     const companyMails = async () =>
       (await mails()).filter((m) => m.To.some((r) => r.Address === email));
-    const adminMails = async () =>
+    const adminMails = async (reference: string) =>
       (await mails()).filter(
         (m) =>
           m.To.some((r) => r.Address === 'admin@simulation.example.test') &&
-          m.Subject.includes('Contribution')
+          m.Subject.includes('Contribution') &&
+          m.Snippet.startsWith(`${reference} :`)
       );
-    const sms = () => get<{ items: unknown[] }>(stub + '/__test__/sms');
+    const sms = async (activityId: string) =>
+      (await get<{ items: Sms[] }>(stub + '/__test__/sms')).items.filter(
+        (item) => item.idempotencyKey === `contribution:${activityId}:admin-sms`
+      );
     const queuedCompanyMails = async () =>
       (
         await get<AdminEmailQueueResponse>('/api/admin/email-queue', true)
       ).messages.filter((m) => m.recipient_email === email);
     const before = amounts(await summary());
     const statusBefore = (await dashboard()).stripe_events;
-    const smsBefore = (await sms()).items.length;
-    const adminMailBefore = (await adminMails()).length;
     // Earlier scenarios can leave three unpresented notifications. Drain this
     // initial catch-up before paying, so the new payment has a visible slot.
     const initialActivity = await activity();
@@ -235,6 +242,14 @@ for (const fault of ['invoice_insert', 'invoice_email_connection'] as const) {
       const item = (await activity()).items.find(
         (i) => i.contributionId === id
       )!;
+      // Earlier payments can still be delivered by the notification workers.
+      // Only this payment's receipts establish its once-only external effects.
+      const initialAdminMails = await adminMails(reference);
+      const initialSms = await sms(item.id);
+      expect(initialAdminMails).toHaveLength(1);
+      expect(initialSms).toHaveLength(1);
+      const initialAdminMailIds = initialAdminMails.map((m) => m.ID);
+      const initialSmsIds = initialSms.map((m) => m.id);
       await expect(
         admin.locator(
           `[data-og7="contribution-toast"][data-og7-id="${item.id}"]`
@@ -359,8 +374,10 @@ for (const fault of ['invoice_insert', 'invoice_email_connection'] as const) {
       );
       expect(await invoices()).toEqual([finalInvoice]);
       expect(await companyMails()).toHaveLength(2);
-      expect(await adminMails()).toHaveLength(adminMailBefore + 1);
-      expect((await sms()).items).toHaveLength(smsBefore + 1);
+      expect((await adminMails(reference)).map((m) => m.ID)).toEqual(
+        initialAdminMailIds
+      );
+      expect((await sms(item.id)).map((m) => m.id)).toEqual(initialSmsIds);
       expect(
         (await activity()).items
           .filter((i) => i.contributionId === id)

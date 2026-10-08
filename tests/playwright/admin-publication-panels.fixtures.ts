@@ -182,7 +182,10 @@ export async function openSpace(
   space: 'overview' | 'drafts' | 'batches' | 'calendar'
 ): Promise<void> {
   const drawer = page.locator('[data-og7="admin-drawer"][open]');
-  if (await drawer.count()) await drawer.getByRole('button').first().click();
+  if (await drawer.count()) {
+    await drawer.getByRole('button').first().click();
+    await expect(drawer).toHaveCount(0);
+  }
   const home = page.locator('[data-og7="publications-home"]');
   if (await home.count()) await home.click();
   if (space !== 'overview')

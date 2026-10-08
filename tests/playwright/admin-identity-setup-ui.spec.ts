@@ -143,9 +143,18 @@ for (const language of ['fr-CA', 'en']) {
       return route.fulfill({ status: 401, json: {} });
     });
     await page.goto('/admin/oidc-setup');
-    await page
-      .locator('[data-og7="identity-step-link"][data-og7-id="verification"]')
-      .click();
+    // Wait for the browser locale and the guide's translated control before
+    // interacting with the prerendered step controls.
+    await expect(page.locator('html')).toHaveAttribute('lang', language);
+    const verification = page.locator(
+      '[data-og7="identity-step-link"][data-og7-id="verification"]'
+    );
+    await expect(verification).toContainText(
+      language === 'en'
+        ? 'Verify sign-in, roles and revocation'
+        : 'Vérifier connexion, rôles et révocation'
+    );
+    await verification.click();
     await expect(current(page)).toHaveAttribute('data-og7-id', 'verification');
     await expect(current(page)).toContainText('/admin/fundraiser');
     const prescribedPath = (await current(page).innerText()).match(
