@@ -79,6 +79,14 @@ test('private CSV: filtered confirmation, concurrent change, audit failure, down
     });
     let downloads = 0;
     owner.on('download', () => downloads++);
+    let exportRequests = 0;
+    owner.on('request', (request) => {
+      if (
+        request.method() === 'POST' &&
+        new URL(request.url()).pathname.endsWith('/admin/contributions.csv')
+      )
+        exportRequests++;
+    });
     const errors: string[] = [];
     owner.on('pageerror', (error) => errors.push(error.message));
     const button = owner.locator('[data-og7="contribution-export"]');
@@ -143,10 +151,16 @@ test('private CSV: filtered confirmation, concurrent change, audit failure, down
       await expect(owner.getByRole('dialog')).toContainText(
         'données privées des 2 contributions'
       );
-      await expect(button).toBeDisabled();
-      await owner.keyboard.press('Escape');
+      // Keep the opener focusable; the phase guard blocks another submission.
       await expect(button).toBeEnabled();
+      await button.dispatchEvent('click');
+      await expect(owner.getByRole('dialog')).toHaveCount(1);
+      await owner.keyboard.press('Escape');
+      await expect(owner.getByRole('dialog')).toHaveCount(0);
+      await expect(button).toBeFocused();
+      expect(exportRequests).toBe(0);
       expect(downloads).toBe(0);
+      expect((await exports()).rows).toHaveLength(0);
       await button.click();
       await stack.pool.query(
         "UPDATE fund_contributions SET updated_at=updated_at+interval '1 microsecond' WHERE id=$1",
@@ -289,9 +303,16 @@ test('private CSV: filtered confirmation, concurrent change, audit failure, down
       );
       await confirm.click();
       expect((await expired).status()).toBe(401);
+      await expect(owner).toHaveURL(/\/admin\/login\?.*sessionExpired=1/);
+      await expect(owner.getByRole('status')).toHaveText(
+        'Your session has expired or been revoked. Sign in again to continue.'
+      );
+      await expect(owner.getByRole('main')).not.toContainText('export-fixture');
       await expect(
-        owner.locator('[data-og7="contribution-export-error"]')
-      ).toContainText('session has expired');
+        owner.locator('[data-og7="contributions-list"]')
+      ).toHaveCount(0);
+      await expect(button).toHaveCount(0);
+      await expect(owner.getByRole('dialog')).toHaveCount(0);
       expect(downloads).toBe(1);
       expect((await exports()).rows).toHaveLength(1);
       expect(

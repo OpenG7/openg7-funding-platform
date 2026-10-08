@@ -87,6 +87,48 @@ test('contributions reads are explicit and preserve the historical target and to
   assert.deepEqual(f.saved, ['synthetic-session']);
 });
 
+test('an authorized reload restores the historical route selection after identity refresh', async () => {
+  const f = fixture();
+  const historical = row('historical');
+  let read = async () => response([historical]);
+  f.ports.admin.getContributions = (token, contributionId) => {
+    f.reads.push({ token, contributionId });
+    return read();
+  };
+  f.controller.setRouteContribution(historical.id);
+  await f.controller.load();
+  assert.equal(f.controller.selectedContribution(), historical);
+
+  f.controller.notifyAccessChanged();
+  assert.equal(f.controller.data(), null);
+  assert.equal(f.controller.selectedContributionId(), null);
+  read = async () => {
+    throw new Error('Synthetic unavailable');
+  };
+  await f.controller.load();
+  assert.equal(f.controller.state(), 'error');
+  assert.equal(f.controller.data(), null);
+  assert.equal(f.controller.selectedContribution(), null);
+
+  const pending = deferred();
+  read = () => pending.promise;
+  const loading = f.controller.load();
+  assert.equal(f.controller.state(), 'loading');
+  assert.equal(f.controller.selectedContributionId(), null);
+  pending.resolve(response([historical]));
+  await loading;
+  assert.equal(f.controller.state(), 'ready');
+  assert.equal(f.controller.selectedContributionId(), historical.id);
+  assert.equal(f.controller.selectedContribution(), historical);
+  assert.deepEqual(
+    f.reads,
+    Array.from({ length: 3 }, () => ({
+      token: 'synthetic-session',
+      contributionId: historical.id
+    }))
+  );
+});
+
 test('search retains all private and public searchable fields and combines the filters', async () => {
   const f = fixture();
   const privateFields = [
