@@ -3,7 +3,7 @@ import { signInAsAdmin } from './support/admin-auth.js';
 
 // Covers admin-setup-page.component.ts: a read-only operational-readiness
 // dashboard (Stripe/Email/Queue/Database), one real write action (the
-// "Envoyer un test" email button), and a 7-step guided tour overlay.
+// "Envoyer un test" email button), and an 8-step guided tour overlay.
 //
 // getTransactionalEmailConfigStatus() (apps/funding-api/src/services/email
 // /email.config.ts) only reports `configured: true` when SMTP_ENABLED is
@@ -70,6 +70,7 @@ test.describe('Docker admin setup', () => {
     const titles = [
       'Vue de controle',
       'Etat rapide',
+      'Préparation des accès OIDC',
       'Paiement Stripe',
       'Courriel applicatif',
       'File et retries',
@@ -82,7 +83,9 @@ test.describe('Docker admin setup', () => {
 
     for (const [index, title] of titles.entries()) {
       await expect(
-        dialog.getByText(`Etape ${index + 1} / 7`, { exact: true })
+        dialog.getByText(`Etape ${index + 1} / ${titles.length}`, {
+          exact: true
+        })
       ).toBeVisible();
       await expect(dialog.getByRole('heading', { name: title })).toBeVisible();
 
