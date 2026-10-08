@@ -131,7 +131,10 @@ test(
             'exec',
             '-T',
             'postgres',
-            'psql',
+            'sh',
+            '-c',
+            'PGPASSWORD="$POSTGRES_PASSWORD" exec psql -h 127.0.0.1 "$@"',
+            'fixture-sql',
             '-X',
             '-q',
             '-At',
@@ -221,6 +224,21 @@ test(
         postgres: {
           image: 'postgres:16-alpine',
           profiles: ['database'],
+          // Detect an import into the socket-only initialization server.
+          entrypoint: [
+            'sh',
+            '-ec',
+            [
+              "cat > /docker-entrypoint-initdb.d/00-restore-readiness.sql <<'SQL'",
+              'CREATE TEMP TABLE restore_initialization_guard (valid boolean NOT NULL CHECK (valid));',
+              'SELECT pg_sleep(7);',
+              "INSERT INTO restore_initialization_guard VALUES (to_regclass('public.fund_contributions') IS NULL);",
+              'SQL',
+              'exec /usr/local/bin/docker-entrypoint.sh "$$@"'
+            ].join('\n'),
+            'fixture-entrypoint'
+          ],
+          command: ['postgres'],
           environment: {
             POSTGRES_DB: '${POSTGRES_DB}',
             POSTGRES_USER: '${POSTGRES_USER}',
