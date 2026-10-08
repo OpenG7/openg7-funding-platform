@@ -37,7 +37,7 @@ documentaire n'exige pas de lancer les suites applicatives.
 | `yarn test` | Compilation TypeScript puis tests Node; ne pas refaire `yarn build` juste avant |
 | `yarn workspace @openg7/funding-web build --configuration production` | Build Angular et rendu initial/SSR configuré |
 | `yarn test:sponsorship` | Suite Node de couverture commandite; aucun navigateur |
-| `yarn test:e2e:acceptance` | API/DB/navigateur en pile Docker jetable, fournisseurs simulés |
+| `yarn test:e2e:acceptance` | API/DB/navigateur en pile Docker jetable, fournisseurs simulés; lanceur hôte Node.js `>=22`, images et CI sous Node 22 |
 | `yarn test:e2e:identity` | API réelle, Web compilé, PostgreSQL jetable et fournisseur OIDC signé local; rôles et révocation |
 | `yarn test:e2e:playwright` | Démarrage/réutilisation Docker local, migrations et seed, puis Playwright; modifie l'état local |
 | `yarn test:ui:admin` | UI admin sur build Angular avec fixtures/interceptions |

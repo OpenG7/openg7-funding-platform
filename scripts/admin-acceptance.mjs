@@ -14,8 +14,8 @@ import {
   assertLocalDockerEndpoint
 } from './lib/admin-acceptance.mjs';
 
-if (Number(process.versions.node.split('.')[0]) !== 22) {
-  throw new Error('Acceptance requires Node.js 22 (repository runtime).');
+if (Number(process.versions.node.split('.')[0]) < 22) {
+  throw new Error('Acceptance requires Node.js 22 or newer.');
 }
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const temporary = await mkdtemp(join(tmpdir(), 'og7-acceptance-'));
