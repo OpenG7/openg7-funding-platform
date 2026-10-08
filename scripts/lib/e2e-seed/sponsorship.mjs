@@ -1,6 +1,6 @@
 import { sha256Hex, sqlLiteral } from './sql.mjs';
 
-// Publication cleanup runs before contribution and media cascades. Its guards
+// Cleanup runs before contribution and media cascades. Its publication guards
 // also protect authorized batches belonging to unrelated local records.
 export function buildSponsorshipSeedFragments({
   fixtures,
@@ -42,6 +42,19 @@ BEGIN
   DELETE FROM publication_deliveries WHERE id = ANY(delivery_ids);
   DELETE FROM publication_recurrences WHERE batch_id = ANY(batch_ids);
   DELETE FROM sponsor_publication_batches WHERE id = ANY(batch_ids);
+  -- These audit dependencies intentionally do not cascade in the application.
+  -- Only the selected test fixtures may be reset by this seed transaction.
+  DELETE FROM sponsorship_refund_operations WHERE contribution_id = ANY(contribution_ids);
+  DELETE FROM contribution_activity_history WHERE activity_id IN (
+    SELECT id FROM contribution_activity WHERE contribution_id = ANY(contribution_ids)
+  );
+  DELETE FROM contribution_sms_deliveries WHERE activity_id IN (
+    SELECT id FROM contribution_activity WHERE contribution_id = ANY(contribution_ids)
+  );
+  DELETE FROM contribution_activity_presentations WHERE activity_id IN (
+    SELECT id FROM contribution_activity WHERE contribution_id = ANY(contribution_ids)
+  );
+  DELETE FROM contribution_activity WHERE contribution_id = ANY(contribution_ids);
 END $$;`;
 
   const deleteStatements = fixtures

@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 
 import {
+  ACCOUNTING_FIXTURES,
   BACKFILL_FIXTURES,
   EMAIL_QUEUE_FIXTURE,
   SPONSORSHIP_FIXTURES,
@@ -207,6 +208,13 @@ test(
     });
     const seed = seedSql(false);
     const cleanup = seedSql(true);
+    const dependencyTables = [
+      'sponsorship_refund_operations',
+      'contribution_activity',
+      'contribution_activity_history',
+      'contribution_sms_deliveries',
+      'contribution_activity_presentations'
+    ];
     async function run(sql) {
       try {
         return await client.query(sql);
@@ -222,22 +230,49 @@ test(
       publication_editorial_observations CASCADE`);
       await run(seed);
     }
-    async function contribution(publicReference) {
+    async function contribution(publicReference, contactEmail = null) {
       return (
         await client.query(
-          `INSERT INTO fund_contributions(contribution_type,amount_cents,status,public_reference)
-       VALUES('sponsorship_interest',25000,'paid',$1) RETURNING id`,
-          [publicReference]
+          `INSERT INTO fund_contributions(contribution_type,amount_cents,status,
+            public_reference,sponsor_contact_email)
+       VALUES('sponsorship_interest',25000,'paid',$1,$2) RETURNING id`,
+          [publicReference, contactEmail]
         )
       ).rows[0].id;
     }
-    async function fixtureId() {
+    async function fixtureId(
+      publicReference = SPONSORSHIP_FIXTURES.publicationBatch.publicReference
+    ) {
       return (
         await client.query(
           'SELECT id FROM fund_contributions WHERE public_reference=$1',
-          [SPONSORSHIP_FIXTURES.publicationBatch.publicReference]
+          [publicReference]
+        )
+      ).rows[0]?.id;
+    }
+    async function financialDependencies(contributionId, status = 'succeeded') {
+      await client.query(
+        `INSERT INTO sponsorship_refund_operations(contribution_id,expected_version,
+          payment_intent_id,amount_minor,currency,reason,actor,status)
+        VALUES($1,$2,$3,1,'cad','Disposable cleanup regression','fixture-cleanup-test',$4)`,
+        [contributionId, randomUUID(), `pi_cleanup_${contributionId}`, status]
+      );
+      const activityId = (
+        await client.query(
+          `INSERT INTO contribution_activity(contribution_id,amount_minor,currency,confirmed_at)
+          VALUES($1,1,'cad',NOW()) RETURNING id`,
+          [contributionId]
         )
       ).rows[0].id;
+      for (const sql of [
+        `INSERT INTO contribution_activity_history(activity_id,revision,state,reasons)
+        VALUES($1,0,'blocked','[]')`,
+        `INSERT INTO contribution_sms_deliveries(activity_id) VALUES($1)`,
+        `INSERT INTO contribution_activity_presentations(activity_id,actor)
+        VALUES($1,'fixture-cleanup-test')`
+      ]) {
+        await client.query(sql, [activityId]);
+      }
     }
     async function publication(
       contributionIds,
@@ -284,9 +319,8 @@ test(
       );
       return { batchId, deliveryId };
     }
-    async function snapshot() {
-      const result = {};
-      for (const table of [
+    async function snapshot(
+      tables = [
         'fund_contributions',
         'sponsor_media_assets',
         'sponsor_publication_drafts',
@@ -298,8 +332,12 @@ test(
         'fund_allocations',
         'fund_transactions',
         'stripe_events',
-        'stripe_checkout_sessions'
-      ]) {
+        'stripe_checkout_sessions',
+        ...dependencyTables
+      ]
+    ) {
+      const result = {};
+      for (const table of tables) {
         result[table] = (
           await client.query(`SELECT * FROM ${table} ORDER BY 1,2`)
         ).rows;
@@ -308,6 +346,78 @@ test(
     }
 
     for (const action of ['cleanup', 'reseed']) {
+      await t.test(
+        `${action} removes fixture refund and activity dependencies while preserving foreign records`,
+        async () => {
+          await reset();
+          const outsideId = await contribution(`outside-${randomUUID()}`);
+          await financialDependencies(outsideId, 'uncertain');
+          const outsideDependencies = await snapshot(dependencyTables);
+          const outsideContribution = async () =>
+            (
+              await client.query(
+                'SELECT * FROM fund_contributions WHERE id=$1',
+                [outsideId]
+              )
+            ).rows;
+          const outsideBefore = await outsideContribution();
+          const fixtures = [
+            SPONSORSHIP_FIXTURES.refund,
+            WEBHOOK_FIXTURES.idempotence,
+            WEBHOOK_FIXTURES.replaySponsorship,
+            ACCOUNTING_FIXTURES.scenario,
+            ACCOUNTING_FIXTURES.excludedExpired,
+            BACKFILL_FIXTURES.matchedSession,
+            BACKFILL_FIXTURES.sponsorshipSession
+          ];
+          const statuses = [
+            'submitting',
+            'uncertain',
+            'pending',
+            'succeeded',
+            'failed'
+          ];
+          const ids = [];
+          for (const [index, fixture] of fixtures.entries()) {
+            const id =
+              (await fixtureId(fixture.publicReference)) ??
+              (await contribution(fixture.publicReference));
+            ids.push(id);
+            await financialDependencies(id, statuses[index % statuses.length]);
+          }
+          // A prior run may retain a changed reference with its fixture email.
+          const emailOnlyId = await contribution(
+            `email-only-${randomUUID()}`,
+            SPONSORSHIP_FIXTURES.refund.contactEmail
+          );
+          ids.push(emailOnlyId);
+          await financialDependencies(emailOnlyId, 'failed');
+          await assert.rejects(
+            client.query('DELETE FROM fund_contributions WHERE id=$1', [
+              ids[0]
+            ]),
+            { code: '23503' }
+          );
+          const sql = action === 'cleanup' ? cleanup : seed;
+          for (let repeat = 0; repeat < 2; repeat += 1) {
+            await run(sql);
+            assert.deepEqual(
+              await snapshot(dependencyTables),
+              outsideDependencies
+            );
+            assert.deepEqual(await outsideContribution(), outsideBefore);
+            assert.equal(
+              (
+                await client.query(
+                  'SELECT id FROM fund_contributions WHERE id=ANY($1::uuid[])',
+                  [ids]
+                )
+              ).rowCount,
+              0
+            );
+          }
+        }
+      );
       for (const status of ['approved', 'publishing', 'uncertain']) {
         await t.test(
           `${action} removes ${status} fixture publications and preserves unrelated authorizations`,
@@ -513,7 +623,9 @@ test(
       async () => {
         for (const sql of [seed, cleanup]) {
           await reset();
-          await publication([await fixtureId()]);
+          const fixture = await fixtureId();
+          await publication([fixture]);
+          await financialDependencies(fixture);
           const id = await contribution(
             BACKFILL_FIXTURES.matchedSession.publicReference
           );
@@ -539,8 +651,11 @@ test(
       'rejects shared batches without partially cleaning the database',
       async () => {
         await reset();
+        const fixture = await fixtureId();
+        await financialDependencies(fixture, 'pending');
         const outsideId = await contribution(`outside-${randomUUID()}`);
-        await publication([await fixtureId(), outsideId]);
+        await financialDependencies(outsideId, 'uncertain');
+        await publication([fixture, outsideId]);
         const before = await snapshot();
         await assert.rejects(
           run(cleanup),
@@ -554,7 +669,9 @@ test(
       'rejects live publications without removing fixtures',
       async () => {
         await reset();
-        await publication([await fixtureId()], 'approved', 'live');
+        const fixture = await fixtureId();
+        await financialDependencies(fixture, 'submitting');
+        await publication([fixture], 'approved', 'live');
         const before = await snapshot();
         await assert.rejects(run(cleanup), /live or non-fixture publications/);
         assert.deepEqual(await snapshot(), before);
