@@ -9,7 +9,7 @@ import {
   type Page
 } from '@playwright/test';
 
-export const test = base.extend<{
+const windowsTest = base.extend<{
   context: BrowserContext;
   page: Page;
 }>({
@@ -40,5 +40,9 @@ export const test = base.extend<{
     await use(page);
   }
 });
+
+// Keep the profile-cleanup workaround on Windows. Elsewhere the native fixtures
+// isolate each test's context while sharing the browser for the worker.
+export const test = process.platform === 'win32' ? windowsTest : base;
 
 export { expect };
