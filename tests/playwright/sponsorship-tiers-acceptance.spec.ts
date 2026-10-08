@@ -456,7 +456,9 @@ for (const amount of [100, 250]) {
               .getByLabel(/Slug public/i)
               .fill('tier-' + contributionId);
             await admin.getByLabel(/Destination feed/i).selectOption('openg7');
-            await admin.getByLabel(/^Statut feed/i).selectOption('planned');
+            await admin
+              .getByRole('combobox', { name: 'Statut feed', exact: true })
+              .selectOption('planned');
             await admin
               .getByLabel(/Resume public/i)
               .fill('Présentation publique synthétique du commanditaire.');

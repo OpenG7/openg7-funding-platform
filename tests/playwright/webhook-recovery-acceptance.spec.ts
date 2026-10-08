@@ -214,10 +214,15 @@ for (const fault of ['invoice_insert', 'invoice_email_connection'] as const) {
       });
       const initialInvoices = await invoices();
       expect(initialInvoices).toHaveLength(fault === 'invoice_insert' ? 0 : 1);
-      await expect.poll(async () => (await companyMails()).length).toBe(1);
-      expect((await queuedCompanyMails()).map((m) => m.template_key)).toEqual([
-        'sponsorship_followup'
-      ]);
+      // The invoice is created before either company email is queued. A later
+      // invoice-email connection failure leaves the follow-up durable.
+      const initialCompanyMailCount = fault === 'invoice_insert' ? 0 : 1;
+      await expect
+        .poll(async () => (await companyMails()).length)
+        .toBe(initialCompanyMailCount);
+      expect((await queuedCompanyMails()).map((m) => m.template_key)).toEqual(
+        initialCompanyMailCount ? ['sponsorship_followup'] : []
+      );
       await expect
         .poll(
           async () =>
@@ -263,13 +268,13 @@ for (const fault of ['invoice_insert', 'invoice_email_connection'] as const) {
         path: info.outputPath('webhook-interrupted.png')
       });
       // The fault is still active: another signed delivery must not pretend to
-      // finish, nor duplicate the already delivered follow-up or paid amount.
+      // finish, nor duplicate any delivered follow-up or the paid amount.
       expect((await replay()).status()).toBe(502);
       expect((await eventState())[0]).toEqual(event);
       expect((await queuedCompanyMails()).map((m) => m.id)).toEqual(
         initialMailIds
       );
-      expect(await companyMails()).toHaveLength(1);
+      expect(await companyMails()).toHaveLength(initialCompanyMailCount);
 
       await restartAcceptanceApi();
       await expect
@@ -313,7 +318,8 @@ for (const fault of ['invoice_insert', 'invoice_email_connection'] as const) {
         });
       const finalMailIds = (await queuedCompanyMails()).map((m) => m.id).sort();
       expect(finalMailIds).toHaveLength(2);
-      expect(finalMailIds).toContain(initialMailIds[0]);
+      for (const initialMailId of initialMailIds)
+        expect(finalMailIds).toContain(initialMailId);
       const signed = buildSignedWebhookRequest(
         buildStripeEvent(
           event.stripe_event_id,
