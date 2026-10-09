@@ -380,6 +380,7 @@ test('CLI help and dry runs without environment files need neither Docker nor St
     'lib/docker-up.mjs',
     'lib/docker-config.mjs',
     'lib/keycloak-config.mjs',
+    'lib/local-identity.mjs',
     'lib/docker-environment.mjs'
   ])
     writeFileSync(

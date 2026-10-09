@@ -26,7 +26,7 @@
     "tls:local:setup": "node scripts/setup-local-tls.mjs",
     "tls:local:renew": "node scripts/setup-local-tls.mjs --renew",
     "docker:playwright": "node scripts/docker-ready.mjs -- node scripts/playwright-docker-up.mjs",
-    "docker:recreate": "node scripts/docker-ready.mjs -- docker compose up -d --force-recreate api web",
+    "docker:recreate": "node scripts/docker-recreate.mjs",
     "docker:update": "node scripts/docker-ready.mjs -- node scripts/docker-update.mjs",
     "docker:update:dev": "node scripts/docker-ready.mjs -- node scripts/docker-update.mjs --development --database --no-build-app --prune-images --stripe-webhook",
     "docker:down": "node scripts/docker-ready.mjs -- docker compose down",

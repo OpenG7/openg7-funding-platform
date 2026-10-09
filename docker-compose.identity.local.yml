@@ -1,0 +1,24 @@
+# Development HTTPS only; prepare with scripts/prepare-local-identity.mjs.
+# Layer after base, local-tls and identity. Production keeps its canonical files.
+services:
+  traefik:
+    command: ['--configFile=/etc/traefik/traefik.yml']
+    # Compose >=2.24.4 replaces the production publications as a whole.
+    ports: !override
+      - '127.0.0.1:80:80'
+      - '127.0.0.1:443:443'
+      - '127.0.0.1:443:443/udp'
+      - '127.0.0.1:8081:8080'
+    volumes:
+      - ./traefik/local/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/local/dynamic.yml:/etc/traefik/dynamic/routes.yml:ro
+      - ./traefik/local/keycloak.yml:/etc/traefik/dynamic/keycloak.yml:ro
+    networks:
+      edge:
+        aliases: [auth.openg7.test]
+
+  api:
+    environment:
+      NODE_EXTRA_CA_CERTS: /certs/rootCA.pem
+    volumes:
+      - ./traefik/certs/rootCA.pem:/certs/rootCA.pem:ro

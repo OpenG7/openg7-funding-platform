@@ -89,6 +89,7 @@ retour au contexte, à partir de la file complète et paginée de **À traiter**
 | Démarrer et contribuer                          | [README principal](../README.md), [contribution](../CONTRIBUTING.md)                   |
 | Frontières et règles de travail                 | [Architecture](ARCHITECTURE.md), [AGENTS.md](../AGENTS.md)                             |
 | Déployer selon le périmètre choisi              | [Checklist](production-launch-checklist.md), [Docker/VPS](docker-deployment.md)        |
+| Configurer Keycloak local sous Windows/Docker   | [Keycloak local, HTTPS et OTP](operations/keycloak-local.md)                           |
 | Préparer le fournisseur OIDC sur le même VPS    | [Keycloak, MFA et récupération identité](operations/keycloak-vps.md)                   |
 | Appliquer le schéma et connaître ses limites    | [Migrations PostgreSQL](operations/database-migrations.md)                             |
 | Retrouver une commande                          | [Aide-mémoire](command-cheatsheet.md)                                                  |

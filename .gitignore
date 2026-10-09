@@ -111,6 +111,7 @@ traefik/acme/*
 # --- Local development certificates -----------------------------------------
 traefik/certs/*
 !traefik/certs/.gitkeep
+traefik/local/
 
 # --- Production certificates ------------------------------------------------
 traefik/acme/*

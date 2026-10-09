@@ -2,6 +2,10 @@
 
 This production stack is designed for the OVH VPS configured through `VPS_HOST` on Ubuntu 24.04 LTS.
 
+For Windows/Docker development with the real OIDC provider, use the
+[local Keycloak guide](operations/keycloak-local.md). Its trusted local HTTPS
+profile is separate from this VPS procedure and its Let's Encrypt configuration.
+
 The public application URL is:
 
 ```text
@@ -369,7 +373,7 @@ operations separees.
 Le certificat genere par defaut par Traefik n'est pas approuve par les
 navigateurs. Sous Windows, le raccourci suivant installe `mkcert` avec
 `winget` lorsqu'il est absent, installe son autorite locale, genere un
-certificat pour `localhost`, `127.0.0.1` et `::1`, puis recree uniquement
+certificat pour `localhost`, `127.0.0.1`, `::1` et `auth.openg7.test`, puis recree uniquement
 Traefik avec `docker-compose.local-tls.yml` :
 
 ```powershell
@@ -382,6 +386,13 @@ certificat local utilise :
 ```powershell
 yarn tls:local:renew
 ```
+
+Le setup copie aussi le certificat public de la CA dans `traefik/certs/rootCA.pem`.
+Pour utiliser Keycloak local avec confiance HTTPS dans le navigateur et l'API
+Docker, suivre le [guide Windows/Docker](operations/keycloak-local.md) : résolution
+du domaine, préparation de la surcharge locale, OTP et DB Funding distincte.
+`yarn docker:up:dev` conserve le mode d'authentification configuré ; il ne remplace
+ni l'amorçage des comptes ni les migrations.
 
 Les fichiers sous `traefik/certs/` sont locaux et ignores par Git. Ne jamais
 copier `localhost-key.pem` ni la cle privee de l'autorite mkcert vers le depot

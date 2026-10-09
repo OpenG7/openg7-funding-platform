@@ -54,12 +54,16 @@ jusqu'à API/Web et la première connexion admin avant d'utiliser les raccourcis
 | Ajouter le listener Stripe local | `yarn docker:update --development --stripe-webhook` |
 | Conserver / supprimer les images dangling | `yarn docker:update --no-prune-images` / `yarn docker:update --prune-images` |
 | Arrêter sans supprimer les volumes | `yarn docker:down` |
-| Recréer Web/API | `yarn docker:recreate` |
+| Recréer Web/API avec les overlays configurés | `yarn docker:recreate` |
 | Redémarrer un service | `docker compose restart web` (ou `api`, `traefik`) |
 | État / ressources | `docker compose ps` / `docker stats` |
 | Logs ciblés | `docker compose logs --tail=100 api` (ou `web`, `traefik`; `-f` pour suivre) |
 | Valider sans exposer l'environnement | `docker compose config --quiet` |
 | Préflight de configuration Keycloak | `yarn keycloak:check` |
+
+`docker:recreate` conserve la configuration `.env`/shell et les profils Compose
+existants, dont le HTTPS Keycloak local. `--dry-run` affiche les commandes sans
+recréer les services ni générer de fichiers.
 
 `keycloak:check` lit la configuration locale sans afficher de valeurs privées.
 Lire un fichier d'environnement exige Docker Compose ; aucun service ne démarre
@@ -70,14 +74,9 @@ toujours API et Angular. `yarn docker:update:dev` utilise cette option pour évi
 une double compilation. `yarn build`, restart et recreate ne reconstruisent pas
 les images. Recharger la page après update; en développement, `Ctrl+F5` peut être utile.
 
-`docker:up` demande l'environnement en terminal; sinon, passer
-`--environment local|prod|autre` ou un raccourci explicite. Il attend la
-disponibilité des conteneurs démarrés en arrière-plan. En local/dev, le relais
-Stripe de test reste au premier plan; `Ctrl+C` l'arrête sans arrêter les conteneurs.
-`--no-stripe-webhook` omet le relais local; `--no-database` désactive le profil PostgreSQL.
-Prod/autre ne change ni cible Docker ni secrets; autre conserve la configuration.
-Aucune migration ni aucun rattrapage des paiements.
-Prérequis et HTTPS : [demarrage guide](docker-deployment.md#demarrage-docker-guide).
+Les modes `local|prod|autre`, options, prérequis et HTTPS de `docker:up` sont
+détaillés dans le [démarrage guidé Docker](docker-deployment.md#demarrage-docker-guide).
+Ce lanceur n'applique aucune migration ni aucun rattrapage des paiements.
 
 Pour forcer un rebuild local Web sans cache :
 

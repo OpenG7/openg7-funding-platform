@@ -21,6 +21,7 @@ var
 backups
 traefik/acme
 traefik/certs
+traefik/local
 apps/production-launch-agent/secrets
 apps/production-launch-agent/logs
 apps/production-launch-agent/database/*.sqlite*

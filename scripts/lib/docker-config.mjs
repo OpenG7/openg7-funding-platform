@@ -1,4 +1,8 @@
 import { validateKeycloakConfig } from './keycloak-config.mjs';
+import {
+  localIdentityHostname,
+  validateLocalIdentityConfig
+} from './local-identity.mjs';
 
 // Startup and update share configuration; each retains its own choices/defaults.
 export function normalizeDockerBuildEnvironment(value) {
@@ -31,6 +35,13 @@ export function dockerOperationsEnabled(env) {
 
 export function dockerComposeFileArgs(env, { localTls = false } = {}) {
   const identity = validateKeycloakConfig(env);
+  const localIdentity =
+    identity && env.FUNDING_KEYCLOAK_HOSTNAME === localIdentityHostname;
+  if (localIdentity) validateLocalIdentityConfig(env);
+  if (localIdentity && !localTls)
+    throw new Error(
+      'Local identity requires local TLS. Run yarn tls:local:setup --renew --no-restart.'
+    );
   const operations = dockerOperationsEnabled(env);
   if (env.COMPOSE_FILE) {
     if (identity)
@@ -45,6 +56,7 @@ export function dockerComposeFileArgs(env, { localTls = false } = {}) {
     'docker-compose.yml',
     ...(localTls ? ['-f', 'docker-compose.local-tls.yml'] : []),
     ...(operations ? ['-f', 'docker-compose.operations.yml'] : []),
-    ...(identity ? ['-f', 'docker-compose.identity.yml'] : [])
+    ...(identity ? ['-f', 'docker-compose.identity.yml'] : []),
+    ...(localIdentity ? ['-f', 'docker-compose.identity.local.yml'] : [])
   ];
 }

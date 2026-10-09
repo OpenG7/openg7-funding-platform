@@ -1,5 +1,15 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { basename, dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 
 import {
@@ -10,6 +20,8 @@ import {
   parseDockerUpdateArgs,
   resolveDockerUpdateOptions
 } from '../scripts/lib/docker-update.mjs';
+import { prepareLocalIdentity } from '../scripts/lib/local-identity.mjs';
+import { createLocalTlsFixture } from './support/local-tls-fixture.mjs';
 
 const unattended = async (args = [], env = {}) => {
   const options = parseDockerUpdateArgs(args);
@@ -527,4 +539,159 @@ test('CLI help and argument errors cannot execute update or pruning commands', (
     assert.doesNotMatch(result.stdout, /STUB_CALL=/);
     assert.equal(result.stderr.includes('Usage:'), args[0] === '--unknown');
   }
+});
+
+const localIdentityCli = (t, existingServices) => {
+  const root = mkdtempSync(join(tmpdir(), 'og7-update-local-topology-'));
+  t.after(() => {
+    assert.equal(dirname(resolve(root)), resolve(tmpdir()));
+    assert.ok(basename(root).startsWith('og7-update-local-topology-'));
+    rmSync(root, { recursive: true, force: true });
+  });
+  const configuration = {
+    FUNDING_PLATFORM_ENV: 'development',
+    FUNDING_KEYCLOAK_ENABLED: 'true',
+    FUNDING_KEYCLOAK_HOSTNAME: 'auth.openg7.test',
+    FUNDING_PUBLIC_BASE_URL: 'https://localhost',
+    FUNDING_ADMIN_AUTH_MODE: 'oidc',
+    FUNDING_ADMIN_OIDC_ISSUER: 'https://auth.openg7.test/realms/openg7',
+    FUNDING_ADMIN_OIDC_CLIENT_ID: 'synthetic-update-client',
+    FUNDING_ADMIN_OIDC_CLIENT_SECRET: 'private-canary-client-' + 'c'.repeat(32),
+    FUNDING_KEYCLOAK_DB_PASSWORD: 'private-canary-db-' + 'd'.repeat(32),
+    FUNDING_KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME: 'synthetic-bootstrap',
+    FUNDING_KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:
+      'private-canary-bootstrap-' + 'b'.repeat(32),
+    FUNDING_OPERATIONS_WATCHER_ENABLED: 'false'
+  };
+  for (const file of [
+    'scripts/docker-update.mjs',
+    'scripts/lib/docker-update.mjs',
+    'scripts/lib/docker-config.mjs',
+    'scripts/lib/docker-environment.mjs',
+    'scripts/lib/keycloak-config.mjs',
+    'scripts/lib/local-identity.mjs',
+    'traefik/traefik.yml',
+    'traefik/dynamic.yml',
+    'traefik/keycloak.yml'
+  ]) {
+    mkdirSync(dirname(join(root, file)), { recursive: true });
+    copyFileSync(file, join(root, file));
+  }
+  writeFileSync(
+    join(root, '.env'),
+    Object.entries(configuration)
+      .map(([name, value]) => `${name}=${value}`)
+      .join('\n') + '\n'
+  );
+  createLocalTlsFixture(root);
+  const files = prepareLocalIdentity({ root, env: configuration });
+  const prepared = files.map((file) => readFileSync(file, 'utf8'));
+  for (const file of files)
+    writeFileSync(
+      file,
+      readFileSync(file, 'utf8') +
+        '\n# SYNTHETIC_PREVIOUS_LOCAL_CONFIGURATION\n'
+    );
+  const before = files.map((file) => readFileSync(file, 'utf8'));
+  // Every Docker invocation is simulated before the copied CLI imports it.
+  // Real files and certificates still exercise preparation and its ordering.
+  const result = spawnSync(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      `
+import assert from 'node:assert/strict';
+import childProcess from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
+const configuration = ${JSON.stringify(configuration)};
+const capture = (phase) => {
+  const previous = ['traefik.yml', 'dynamic.yml', 'keycloak.yml'].map(name =>
+    readFileSync('traefik/local/' + name, 'utf8').includes('SYNTHETIC_PREVIOUS_LOCAL_CONFIGURATION')
+  );
+  console.log('LOCAL_UPDATE_CALL=' + JSON.stringify({
+    phase, allPrevious: previous.every(Boolean), allPrepared: previous.every(value => !value)
+  }));
+};
+childProcess.spawnSync = (command, args, options) => {
+  if (command === 'docker' && args.includes('config') && args.includes('-')) {
+    const environment = {};
+    for (const name of Object.keys(JSON.parse(options.input).services.configuration.environment)) {
+      const presence = name.startsWith('__OPENG7_PRESENT_');
+      const key = presence ? name.slice('__OPENG7_PRESENT_'.length) : name;
+      environment[name] = presence ? (Object.hasOwn(configuration, key) ? '1' : '') : (configuration[key] ?? '');
+    }
+    return { status: 0, stdout: JSON.stringify({ services: { configuration: { environment } } }) };
+  }
+  const invocation = command === 'docker' ? ['docker', ...args].join(' ') : args.at(-1);
+  assert.match(invocation, /^docker compose /, 'Only simulated Docker commands are allowed.');
+  if (invocation.includes(' ps --all --services --orphans=true')) {
+    capture('topology');
+    return { status: 0, stdout: ${JSON.stringify(existingServices)} };
+  }
+  assert.match(invocation, / (pull|build|up)( |$)/, 'Unexpected simulated Docker command.');
+  capture('mutation');
+  return { status: 0 };
+};
+syncBuiltinESMExports();
+process.argv = [process.execPath, 'scripts/docker-update.mjs', '--development', '--database', '--no-build-app', '--no-prune-images', '--no-stripe-webhook'];
+await import('./scripts/docker-update.mjs');
+`
+    ],
+    {
+      cwd: root,
+      env: Object.fromEntries(
+        ['PATH', 'Path', 'SystemRoot', 'WINDIR', 'TEMP', 'TMP']
+          .filter((name) => process.env[name] !== undefined)
+          .map((name) => [name, process.env[name]])
+      ),
+      encoding: 'utf8',
+      timeout: 15_000,
+      windowsHide: true
+    }
+  );
+  assert.equal(result.error, undefined);
+  assert.doesNotMatch(result.stdout + result.stderr, /private-canary/);
+  const calls = result.stdout
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith('LOCAL_UPDATE_CALL='))
+    .map((line) => JSON.parse(line.slice('LOCAL_UPDATE_CALL='.length)));
+  return {
+    result,
+    calls,
+    before,
+    prepared,
+    after: files.map((file) => readFileSync(file, 'utf8'))
+  };
+};
+
+test('local identity CLI topology refusal leaves existing Traefik files unchanged', (t) => {
+  const { result, calls, before, after } = localIdentityCli(
+    t,
+    'api\nweb\noperations\n'
+  );
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Operations containers exist/);
+  assert.deepEqual(calls, [
+    { phase: 'topology', allPrevious: true, allPrepared: false }
+  ]);
+  assert.deepEqual(after, before);
+});
+
+test('local identity CLI prepares Traefik after topology approval and before mutation', (t) => {
+  const { result, calls, prepared, after } = localIdentityCli(
+    t,
+    'api\nweb\nkeycloak\nidentity-postgres\n'
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(calls, [
+    { phase: 'topology', allPrevious: true, allPrepared: false },
+    ...Array.from({ length: 3 }, () => ({
+      phase: 'mutation',
+      allPrevious: false,
+      allPrepared: true
+    }))
+  ]);
+  assert.deepEqual(after, prepared);
 });

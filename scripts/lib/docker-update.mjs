@@ -157,7 +157,7 @@ export async function resolveDockerUpdateOptions(
   };
 }
 
-export function dockerUpdatePlan(options, { env }) {
+export function dockerUpdatePlan(options, { env, localTls = false }) {
   const {
     targetEnvironment,
     useDatabase,
@@ -170,7 +170,9 @@ export function dockerUpdatePlan(options, { env }) {
   const commandEnv = dockerBuildEnvironment(targetEnvironment, env);
   const compose = [
     'compose',
-    ...dockerComposeFileArgs(commandEnv),
+    ...dockerComposeFileArgs(commandEnv, {
+      localTls: targetEnvironment === 'development' && localTls
+    }),
     ...dockerComposeProfileArgs(useDatabase),
     '--progress',
     'plain'

@@ -5,6 +5,10 @@ L'activation est explicite ; préparer les fichiers ne déploie aucun service.
 Les droits, sessions et confirmations OpenG7 restent décrits dans le
 [runbook des accès](admin-identity-and-alerts.md).
 
+Pour le développement Windows/Docker avec HTTPS local et le fournisseur réel,
+suivre le [guide Keycloak local](keycloak-local.md). Les recettes jetables en fin
+de ce document ne remplacent pas ce guide d'utilisation ni la qualification du VPS.
+
 ## Cible, ressources et préconditions
 
 La cible prévue dispose de 4 vCPU, 8 Go de RAM, 75 Go NVMe et 400 Mbit/s.
@@ -487,6 +491,10 @@ Elle utilise des réseaux uniques, une DB jetable en mémoire, des ports de bouc
 locale et une exception HTTP locale ; les ressources sont nettoyées après usage.
 Le callback utilise le handler OpenG7 réel avec une persistance injectée en mémoire,
 sans qualifier ici sa persistance PostgreSQL complète ni le proxy HTTPS public.
+
+La [preuve HTTPS locale du 8 octobre 2026](keycloak-local.md#preuve-https-locale)
+consigne la plateforme, les versions, la couverture et les résultats dans le guide Windows/Docker.
+Cette preuve locale ne qualifie pas le proxy/DNS public ni le VPS.
 
 Les contrôles de charge, la restauration isolée, l'administration du realm
 `master` et la qualification DNS/HTTPS/MFA sur le VPS restent à exécuter sur la
