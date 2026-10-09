@@ -41,6 +41,13 @@ const response = (
 const dialog = (page: Page) => page.getByRole('dialog');
 const input = (page: Page) => dialog(page).getByRole('searchbox');
 
+interface LateSearchFixture {
+  searchAborted: boolean;
+  searchStarted: Promise<void>;
+  searchFinished: Promise<void>;
+  releaseSearch(): void;
+}
+
 async function fixtures(page: Page) {
   await page.addInitScript(() => {
     sessionStorage.setItem(
@@ -255,18 +262,31 @@ for (const outcome of ['response', 'access denial'] as const) {
       await fixtures(page);
       await page.addInitScript((lateOutcome) => {
         const original = window.fetch;
-        (window as unknown as { searchAborted: boolean }).searchAborted = false;
+        const fixture = window as unknown as LateSearchFixture;
+        fixture.searchAborted = false;
+        let started!: () => void;
+        let finished!: () => void;
+        fixture.searchStarted = new Promise<void>((resolve) => {
+          started = resolve;
+        });
+        fixture.searchFinished = new Promise<void>((resolve) => {
+          finished = resolve;
+        });
+        const pending = new Promise<void>((resolve) => {
+          fixture.releaseSearch = resolve;
+        });
         window.fetch = async (url, options) => {
           if (
             String(url).endsWith('/admin/search') &&
             String(options?.body).includes('Slow')
           ) {
             options?.signal?.addEventListener('abort', () => {
-              (window as unknown as { searchAborted: boolean }).searchAborted =
-                true;
+              fixture.searchAborted = true;
             });
             // Simulate an adapter that resolves even after abort.
-            await new Promise((resolve) => setTimeout(resolve, 1200));
+            started();
+            await pending;
+            finished();
             return new Response(
               JSON.stringify({
                 available: true,
@@ -288,22 +308,37 @@ for (const outcome of ['response', 'access denial'] as const) {
       ).toBeVisible();
       await page.keyboard.press('Control+k');
       await input(page).fill('Slow');
-      await page.waitForTimeout(400);
-      await input(page).fill('Acme');
-      await expect(
-        dialog(page).getByRole('heading', { name: 'Atelier Boréal' })
-      ).toBeVisible();
-      await page.waitForTimeout(1300);
-      await expect(
-        dialog(page).getByRole('heading', { name: 'Atelier Boréal' })
-      ).toBeVisible();
-      expect(
-        await page.evaluate(
-          () => (window as unknown as { searchAborted: boolean }).searchAborted
-        )
-      ).toBe(true);
-      await expect(input(page)).toHaveValue('Acme');
-      expect(new URL(page.url()).pathname).toBe('/admin/fundraiser');
+      await page.evaluate(
+        () => (window as unknown as LateSearchFixture).searchStarted
+      );
+      try {
+        await input(page).fill('Acme');
+        await expect(
+          dialog(page).getByRole('heading', { name: 'Atelier Boréal' })
+        ).toBeVisible();
+        await page.evaluate(async () => {
+          const fixture = window as unknown as LateSearchFixture;
+          fixture.releaseSearch();
+          await fixture.searchFinished;
+          await new Promise<void>((resolve) => {
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+          });
+        });
+        await expect(
+          dialog(page).getByRole('heading', { name: 'Atelier Boréal' })
+        ).toBeVisible();
+        expect(
+          await page.evaluate(
+            () => (window as unknown as LateSearchFixture).searchAborted
+          )
+        ).toBe(true);
+        await expect(input(page)).toHaveValue('Acme');
+        expect(new URL(page.url()).pathname).toBe('/admin/fundraiser');
+      } finally {
+        await page.evaluate(() =>
+          (window as unknown as LateSearchFixture).releaseSearch()
+        );
+      }
     }
   );
 }
@@ -374,6 +409,7 @@ for (const [status, message] of [
 test('shortening private input cancels its debounce and navigating away clears the dialog', async ({
   page
 }) => {
+  await page.clock.install();
   await fixtures(page);
   const queries: string[] = [];
   await page.route('**/api/admin/search', (route) => {
@@ -384,7 +420,7 @@ test('shortening private input cancels its debounce and navigating away clears t
   await page.locator('[data-og7="admin-search-open"]').click();
   await input(page).fill('Pending private query');
   await input(page).fill('x');
-  await page.waitForTimeout(400);
+  await page.clock.runFor(400);
   expect(queries).toEqual([]);
   await expect(dialog(page).getByRole('listitem')).toHaveCount(0);
   await input(page).fill('private@example.invalid');
@@ -494,6 +530,7 @@ for (const destination of [
 test('unavailable sources can be retried and closing cancels a pending search', async ({
   page
 }) => {
+  await page.clock.install();
   await fixtures(page);
   let calls = 0;
   await page.route('**/api/admin/search', (route) => {
@@ -521,7 +558,7 @@ test('unavailable sources can be retried and closing cancels a pending search', 
   await input(page).fill('Pending private text');
   await page.keyboard.press('Escape');
   await expect(opener).toBeFocused();
-  await page.waitForTimeout(400);
+  await page.clock.runFor(400);
   expect(calls).toBe(2);
   await opener.click();
   await expect(input(page)).toHaveValue('');

@@ -18,6 +18,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
+import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import { expect, test } from './support/test.js';
 
 const automation = '/api/admin/publication-automation';
@@ -86,6 +87,13 @@ for (const amount of [100, 250]) {
             confirmation: enabled ? 'enable-worker' : 'disable-worker'
           });
       };
+      const tick = (now: Date) =>
+        expect
+          .poll(() => runAcceptancePublicationWorker(now), {
+            timeout: 15000,
+            intervals: [100, 500, 1000]
+          })
+          .toBe(true);
       const directory = () =>
         get<PublicSponsorshipsResponse>('/api/public/sponsorships', false);
       const totals = async () => {
@@ -179,7 +187,7 @@ for (const amount of [100, 250]) {
         expect(JSON.stringify(await directory())).not.toContain(name);
       try {
         await worker(false);
-        // Isolate scheduling from other recipes, keeping the actual worker cadence.
+        // Isolate scheduling from other recipes before controlled delivery ticks.
         for (const feed of initial.feeds)
           await command({
             action: 'settings',
@@ -620,6 +628,9 @@ for (const amount of [100, 250]) {
               .getByRole('button', { name: 'Accepter et programmer' })
               .click();
             await expect(dialog).toContainText('Autorisée');
+            const authorized = (await jobs())[0]!;
+            const due = new Date(authorized.scheduledAt);
+            expect(due.toISOString()).toBe(date.toISOString());
             const feed = (await state()).feeds.find(
               (f) => f.id === 'openg7:facebook'
             )!;
@@ -629,12 +640,30 @@ for (const amount of [100, 250]) {
             });
             await worker(true);
             await admin.close();
+            await tick(new Date(due.getTime() - 1));
+            expect((await jobs())[0]).toMatchObject({
+              status: 'approved',
+              scheduledAt: authorized.scheduledAt,
+              approvedAt: authorized.approvedAt,
+              version: authorized.version,
+              attempts: 0,
+              publishedAt: null
+            });
+            const beforeDue = await receipts(job.id);
+            expect(beforeDue.requests).toHaveLength(0);
+            expect(beforeDue.posts).toHaveLength(0);
             await expect
-              .poll(async () => (await jobs())[0]?.status, {
-                timeout: 155000,
-                intervals: [1000, 3000]
-              })
+              .poll(
+                async () => {
+                  await runAcceptancePublicationWorker(due);
+                  return (await jobs())[0]?.status;
+                },
+                { timeout: 15000, intervals: [100, 500, 1000] }
+              )
               .toBe('published');
+            const published = (await jobs())[0]!;
+            await tick(due);
+            expect((await jobs())[0]).toEqual(published);
             expect((await jobs())[0]).toMatchObject({
               mode: 'mock',
               attempts: 1,
@@ -657,6 +686,13 @@ for (const amount of [100, 250]) {
             const audit = await get<AdminAuditLogResponse>(
               '/api/admin/audit-log'
             );
+            expect(
+              audit.entries.filter(
+                (e) =>
+                  e.entity_id === job.id &&
+                  e.action === 'publication_automation.claim'
+              )
+            ).toHaveLength(1);
             expect(
               audit.entries.filter(
                 (e) =>
@@ -720,6 +756,10 @@ for (const amount of [100, 250]) {
             body: JSON.stringify(
               {
                 providers: 'simulated',
+                publicationWorkerClock:
+                  publicConsent && amount === 250
+                    ? 'controlled'
+                    : 'no delivery',
                 amountMinor: amount * 100,
                 currency: 'CAD',
                 publicConsent,
@@ -749,6 +789,7 @@ for (const amount of [100, 250]) {
           expect(errors).toEqual([]);
         });
       } finally {
+        await worker(false);
         await company.close();
         for (const feed of initial.feeds)
           await command({ action: 'settings', settings: feed });

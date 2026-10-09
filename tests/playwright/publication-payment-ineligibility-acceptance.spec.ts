@@ -14,6 +14,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
+import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import {
   buildPaymentIntentSucceededEvent,
   buildSignedWebhookRequest,
@@ -72,6 +73,18 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
     expect(job).toBeTruthy();
     return job!;
   };
+  const receipt = (id: string) =>
+    get<{ requests: unknown[]; posts: unknown[] }>(
+      stub + '/__test__/social/receipts?deliveryId=' + id,
+      false
+    );
+  const tick = (now: Date) =>
+    expect
+      .poll(() => runAcceptancePublicationWorker(now), {
+        timeout: 15000,
+        intervals: [100, 500, 1000]
+      })
+      .toBe(true);
   const sponsor = async (reference: string) => {
     const result = await get<AdminSponsorshipsResponse>(
       '/api/admin/sponsorships?search=' + encodeURIComponent(reference)
@@ -118,6 +131,12 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
   };
   try {
     await setWorker(false);
+    for (const feed of initial.feeds.filter((f) => !feeds.includes(f.id))) {
+      await command({
+        action: 'settings',
+        settings: { ...feed, autoPrepare: false }
+      });
+    }
     for (const id of feeds) {
       await command({
         action: 'settings',
@@ -274,7 +293,8 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
         ).toBe(true);
       }
     });
-    // Keep all jobs on one real future deadline. No test-only clock or DB mutation.
+    // Keep the exact future deadline approved in the UI; only the disposable
+    // worker's clock advances to verify dispatch without waiting for wall time.
     const due = new Date(Math.ceil((Date.now() + 120000) / 60000) * 60000);
     await test.step('Explicitly authorize the six exact publications in the browser', async () => {
       for (const company of companies) {
@@ -412,9 +432,11 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
       await expect(
         page.locator('[data-og7="publication-worker-toggle"]')
       ).toHaveAttribute('aria-checked', 'true');
+      const now = new Date();
       await expect
         .poll(
           async () => {
+            await runAcceptancePublicationWorker(now);
             const current = await state();
             return invalid
               .flatMap((c) => c.jobs)
@@ -424,7 +446,7 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
                   'blocked'
               );
           },
-          { timeout: 45000, intervals: [1000, 2000] }
+          { timeout: 15000, intervals: [100, 500, 1000] }
         )
         .toBe(true);
       expect(Date.now()).toBeLessThan(due.getTime());
@@ -505,9 +527,22 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
 
     await test.step('After the deadline only the eligible control sends, with the browser closed', async () => {
       await page.close();
+      await tick(new Date(due.getTime() - 1));
+      for (const job of control.jobs) {
+        expect(await delivery(job.id)).toMatchObject({
+          status: 'approved',
+          scheduledAt: due.toISOString(),
+          attempts: 0,
+          publishedAt: null
+        });
+        const captured = await receipt(job.id);
+        expect(captured.requests).toHaveLength(0);
+        expect(captured.posts).toHaveLength(0);
+      }
       await expect
         .poll(
           async () => {
+            await runAcceptancePublicationWorker(due);
             const current = await state();
             return control.jobs.every(
               (j) =>
@@ -515,16 +550,27 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
                 'published'
             );
           },
-          { timeout: 210000, intervals: [1000, 3000] }
+          { timeout: 15000, intervals: [100, 500, 1000] }
         )
         .toBe(true);
-      for (const job of control.jobs)
+      const published = await Promise.all(
+        control.jobs.map((job) => delivery(job.id))
+      );
+      await tick(due);
+      expect(
+        await Promise.all(control.jobs.map((job) => delivery(job.id)))
+      ).toEqual(published);
+      for (const job of control.jobs) {
         expect(await delivery(job.id)).toMatchObject({
           attempts: 1,
           mode: 'mock',
           externalPostId: 'mock-' + job.id,
           publishedAt: expect.any(String)
         });
+        const captured = await receipt(job.id);
+        expect(captured.requests).toHaveLength(1);
+        expect(captured.posts).toHaveLength(1);
+      }
       // Re-deliver both financial facts and earlier successes. A late payment
       // confirmation must never restore an invalidated publication authorization.
       for (const event of [...events].reverse()) await deliverEvent(event);
@@ -541,7 +587,7 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
         ).toBe(company.scenario);
       }
       for (const company of invalid)
-        for (const job of company.jobs)
+        for (const job of company.jobs) {
           expect(await delivery(job.id)).toMatchObject({
             status: 'blocked',
             attempts: 0,
@@ -550,6 +596,10 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
             publishedAt: null,
             version: job.version + 1
           });
+          const captured = await receipt(job.id);
+          expect(captured.requests).toHaveLength(0);
+          expect(captured.posts).toHaveLength(0);
+        }
       const audit = await get<AdminAuditLogResponse>('/api/admin/audit-log');
       const evidence = audit.entries.filter((e) =>
         companies.some((c) => c.jobs.some((j) => j.id === e.entity_id))
@@ -577,7 +627,7 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
             )
           ).toBe(false);
         }
-      for (const job of control.jobs)
+      for (const job of control.jobs) {
         expect(
           evidence.filter(
             (e) =>
@@ -585,10 +635,19 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
               e.action === 'publication_automation.published'
           )
         ).toHaveLength(1);
+        expect(
+          evidence.filter(
+            (e) =>
+              e.entity_id === job.id &&
+              e.action === 'publication_automation.claim'
+          )
+        ).toHaveLength(1);
+      }
       await info.attach('publication-payment-ineligibility-evidence', {
         body: JSON.stringify(
           {
             providers: 'simulated',
+            publicationWorkerClock: 'controlled at the approved schedule',
             deadline: due,
             companies: companies.map(({ scenario, record }) => ({
               scenario,
@@ -608,7 +667,7 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
     });
   } finally {
     await setWorker(false);
-    for (const id of feeds) {
+    for (const { id } of initial.feeds) {
       const {
         paused,
         autoPrepare,

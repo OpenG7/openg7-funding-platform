@@ -203,6 +203,11 @@ puis l'enregistre explicitement : le contenu conservé revient en brouillon.
 Le rejeu de la commande conserve le même résultat. Une nouvelle approbation de
 son texte et de son horaire produit un seul envoi au fournisseur simulé.
 
+La recette pilote l'horloge du vrai worker dans le conteneur API jetable : blocage
+à l'heure actuelle, aucun envoi juste avant la date approuvée relue depuis l'API,
+puis envoi à cette date et rejeu sans doublon. Tous les réglages de feeds sont
+restaurés après arrêt du moteur.
+
 ```sh
 node scripts/admin-acceptance.mjs collective-publication-repair-acceptance.spec.ts --project=chromium
 ```

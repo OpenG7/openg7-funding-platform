@@ -172,7 +172,9 @@ La suite Docker complète et les workflows GitHub n'ont pas été exécutés pou
 scénarios 12, 15, 16 et 54 de l’[inventaire](development/end-to-end-scenarios-inventory.md).
 Le navigateur, PostgreSQL, l’API, le worker et le transport SMTP sont réels ;
 Stripe est simulé et Mailpit capture les courriels dans la pile jetable.
-Aucune requête applicative n’est interceptée et la recette ne modifie pas la base.
+Aucune requête applicative n’est interceptée. Une seule date de prochaine tentative
+du message synthétique est avancée dans la base jetable, après les contrôles
+de persistance et d'absence de relance anticipée.
 
 ```sh
 yarn test:e2e:acceptance sponsorship-email-recovery-acceptance.spec.ts --project=chromium
@@ -189,8 +191,11 @@ yarn test:e2e:acceptance sponsorship-email-recovery-acceptance.spec.ts --project
    constate l’échec, peut annuler une relance sans effet, et retrouve le même
    message lors d’un renvoi administratif dans la fenêtre de regroupement.
 4. La recette redémarre uniquement l’API du projet Docker isolé vérifié. Le
-   message et sa prochaine tentative persistent. Le worker reprend à l’échéance
-   réelle d’une minute ; un second refus SMTP confirme son fonctionnement.
+   message et son backoff de 60 secondes persistent, sans relance anticipée. Après
+   ces contrôles, seule l'éligibilité du message synthétique concerné est avancée,
+   sous conditions d'état, de tentative et de date attendue. Le vrai worker de
+   l'API redémarrée effectue la deuxième tentative ; un second refus SMTP et un
+   nouveau backoff de 120 secondes confirment son fonctionnement.
 5. Après confirmation administrative, une connexion retenue par la passerelle
    permet de lancer deux relances concurrentes. Elles n’effectuent aucun envoi.
    La libération de la connexion donne un seul courriel accepté par Mailpit,

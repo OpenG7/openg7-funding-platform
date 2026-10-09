@@ -14,6 +14,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
+import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import { test, expect } from './support/test.js';
 
 const automation = '/api/admin/publication-automation';
@@ -66,6 +67,13 @@ for (const review of ['pending', 'reapproved'] as const) {
     };
     const receipt = (id: string) =>
       get<Receipt>(stub + '/__test__/social/receipts?deliveryId=' + id, false);
+    const tick = (now: Date) =>
+      expect
+        .poll(() => runAcceptancePublicationWorker(now), {
+          timeout: 15000,
+          intervals: [100, 500, 1000]
+        })
+        .toBe(true);
     const totals = async () => {
       const value = await get<FundTransparencyPublicResponse>(
         '/api/public/fund-transparency',
@@ -141,6 +149,12 @@ for (const review of ['pending', 'reapproved'] as const) {
     let jobs: PublicationDelivery[] = [];
     try {
       await setWorker(false);
+      for (const feed of initial.feeds.filter((f) => !feeds.includes(f.id))) {
+        await command({
+          action: 'settings',
+          settings: { ...feed, autoPrepare: false }
+        });
+      }
       for (const id of feeds) {
         await command({
           action: 'settings',
@@ -323,11 +337,13 @@ for (const review of ['pending', 'reapproved'] as const) {
       await setWorker(true);
       await expect
         .poll(
-          async () =>
-            (await state()).deliveries
+          async () => {
+            await runAcceptancePublicationWorker(new Date());
+            return (await state()).deliveries
               .filter((j) => jobs.some((old) => old.id === j.id))
-              .map((j) => j.status),
-          { timeout: 45000, intervals: [1000, 2000] }
+              .map((j) => j.status);
+          },
+          { timeout: 15000, intervals: [100, 500, 1000] }
         )
         .toEqual(['blocked', 'blocked']);
       expect(Date.now()).toBeLessThan(originalDue.getTime());
@@ -339,7 +355,9 @@ for (const review of ['pending', 'reapproved'] as const) {
           publishedAt: null,
           version: job.version + 1
         });
-        expect((await receipt(job.id)).requests).toHaveLength(0);
+        const captured = await receipt(job.id);
+        expect(captured.requests).toHaveLength(0);
+        expect(captured.posts).toHaveLength(0);
         const stale = await request.post(automation, {
           headers: await adminSessionHeaders(request),
           data: {
@@ -408,15 +426,38 @@ for (const review of ['pending', 'reapproved'] as const) {
         await setWorker(true);
         await company.close();
         await admin.close();
+        await tick(new Date(due.getTime() - 1));
+        for (const job of jobs) {
+          expect(await delivery(job.id)).toMatchObject({
+            status: 'approved',
+            scheduledAt: due.toISOString(),
+            attempts: 0,
+            publishedAt: null
+          });
+          const captured = await receipt(job.id);
+          expect(captured.requests).toHaveLength(0);
+          expect(captured.posts).toHaveLength(0);
+        }
         await expect
           .poll(
-            async () =>
-              (await state()).deliveries
+            async () => {
+              await runAcceptancePublicationWorker(due);
+              return (await state()).deliveries
                 .filter((j) => jobs.some((old) => old.id === j.id))
-                .map((j) => j.status),
-            { timeout: 180000, intervals: [1000, 3000] }
+                .map((j) => j.status);
+            },
+            { timeout: 15000, intervals: [100, 500, 1000] }
           )
           .toEqual(['published', 'published']);
+        const published = await Promise.all(jobs.map((j) => delivery(j.id)));
+        expect(published.map((job) => job.status)).toEqual([
+          'published',
+          'published'
+        ]);
+        await tick(due);
+        expect(await Promise.all(jobs.map((j) => delivery(j.id)))).toEqual(
+          published
+        );
       });
       for (const job of jobs) {
         expect(await delivery(job.id)).toMatchObject({
@@ -470,12 +511,16 @@ for (const review of ['pending', 'reapproved'] as const) {
         expect(
           entries.filter((e) => e.action === 'publication_automation.published')
         ).toHaveLength(1);
+        expect(
+          entries.filter((e) => e.action === 'publication_automation.claim')
+        ).toHaveLength(1);
       }
       await info.attach('sponsorship-revision-evidence', {
         contentType: 'application/json',
         body: JSON.stringify(
           {
             providers: 'simulated',
+            publicationWorkerClock: 'controlled',
             reviewBeforeWorker: review,
             contributionId: id,
             invoiceId: originalInvoices[0]!.id,
@@ -490,8 +535,7 @@ for (const review of ['pending', 'reapproved'] as const) {
       expect(errors).toEqual([]);
     } finally {
       await setWorker(false);
-      for (const id of feeds) {
-        const feed = initial.feeds.find((f) => f.id === id)!;
+      for (const feed of initial.feeds) {
         await command({ action: 'settings', settings: { ...feed } });
       }
       if (!company.isClosed()) await company.close();
