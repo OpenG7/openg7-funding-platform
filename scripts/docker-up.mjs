@@ -14,6 +14,7 @@ import {
   parseDockerUpArgs,
   startDockerStack
 } from './lib/docker-up.mjs';
+import { prepareLocalIdentity } from './lib/local-identity.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const help = `Usage: yarn docker:up [--environment local|prod|autre] [options]
@@ -90,6 +91,10 @@ try {
       `Environnement : ${plan.environment}. Conteneurs en arriere-plan.`
     );
     if (options.dryRun) {
+      if (plan.commands[0].includes('docker-compose.identity.local.yml'))
+        console.log(
+          'node scripts/prepare-local-identity.mjs (before Docker; no files written in dry-run)'
+        );
       for (const args of plan.commands) console.log(`docker ${args.join(' ')}`);
       console.log(
         plan.stripeWebhook
@@ -97,6 +102,8 @@ try {
           : 'Relais Stripe desactive.'
       );
     } else {
+      if (plan.commands[0].includes('docker-compose.identity.local.yml'))
+        prepareLocalIdentity({ root, env: plan.commandEnv });
       const commandEnvironment = (plannedEnv) =>
         dockerCommandEnvironment(plannedEnv, configurationEnv, shellEnv);
       await startDockerStack(plan, {

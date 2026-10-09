@@ -288,12 +288,15 @@ test(
     );
 
     await t.test(
-      'failed delivery persists a safe retry and later uses worker configuration',
+      'failed delivery before DATA persists a safe retry and later uses worker configuration',
       async () => {
         const env = createEnv('failure');
         const rawError = `private SMTP failure ${env.SMTP_PASSWORD}`;
         const failure = createDelivery(
-          Object.assign(new Error(rawError), { code: 'ECONNECTION' })
+          Object.assign(new Error(rawError), {
+            code: 'ECONNECTION',
+            command: 'RCPT TO'
+          })
         );
         const options = {
           now: new Date('2030-01-03'),
@@ -308,7 +311,7 @@ test(
         assert.equal(result.attempted, true);
         assert.equal(
           result.error,
-          'Email delivery failed and will be retried.'
+          'Email delivery failed; inspect the queue before retrying.'
         );
         const failed = await readMessage(db.pool, result.messageId);
         assert.equal(failed.status, 'failed');

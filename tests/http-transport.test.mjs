@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createServer, request } from 'node:http';
+import { Agent, createServer, request } from 'node:http';
 import { Readable } from 'node:stream';
 import test from 'node:test';
 
@@ -21,12 +21,22 @@ const startServer = async (t, handler) => {
     server.once('error', reject);
     server.listen(0, '127.0.0.1', resolve);
   });
-  t.after(() => new Promise((resolve) => server.close(resolve)));
+  t.after(() => {
+    server.closeAllConnections();
+    return new Promise((resolve) => server.close(resolve));
+  });
   const { port } = server.address();
-  return ({ method = 'GET', headers = {}, path = '/' } = {}) =>
+  return ({
+    method = 'GET',
+    headers = {},
+    path = '/',
+    body,
+    send,
+    agent = false
+  } = {}) =>
     new Promise((resolve, reject) => {
       const outgoing = request(
-        { hostname: '127.0.0.1', port, method, headers, path, agent: false },
+        { hostname: '127.0.0.1', port, method, headers, path, agent },
         (response) => {
           const chunks = [];
           response.on('data', (chunk) => chunks.push(chunk));
@@ -41,7 +51,12 @@ const startServer = async (t, handler) => {
         }
       );
       outgoing.on('error', reject);
-      outgoing.end();
+      outgoing.setTimeout(5000, () =>
+        outgoing.destroy(new Error('Isolated HTTP exchange timeout'))
+      );
+      t.after(() => outgoing.destroy());
+      if (send) send(outgoing);
+      else outgoing.end(body);
     });
 };
 
@@ -411,3 +426,203 @@ test('body readers propagate request stream failures without returning a partial
     await assert.rejects(reader(incoming, 1024), (error) => error === failure);
   }
 });
+
+test(
+  'real HTTP bodies retain the exact byte limit and complete 413 responses across framing modes',
+  { timeout: 10000 },
+  async (t) => {
+    const limit = 32;
+    const exchange = await startServer(t, async (incoming, response) => {
+      if (incoming.url === '/health') {
+        production.writeJson(incoming, response, 200, { ok: true });
+        return;
+      }
+      try {
+        const body = await readBodyBuffer(incoming, limit);
+        production.writeBinary(
+          incoming,
+          response,
+          200,
+          body,
+          'application/octet-stream'
+        );
+      } catch (error) {
+        production.writeJson(incoming, response, 413, { error: error.message });
+      }
+    });
+    for (const framing of ['content-length', 'chunked']) {
+      for (const size of [limit, limit + 1]) {
+        const body = Buffer.alloc(size, 97);
+        const result = await exchange({
+          method: 'POST',
+          body,
+          headers:
+            framing === 'content-length'
+              ? { 'Content-Length': String(size) }
+              : { 'Transfer-Encoding': 'chunked' }
+        });
+        assert.equal(
+          result.status,
+          size === limit ? 200 : 413,
+          `${framing}: ${size} bytes`
+        );
+        if (size === limit) assert.deepEqual(result.body, body);
+        else {
+          assert.deepEqual(JSON.parse(result.body), {
+            error: 'Request body is too large.'
+          });
+          assert.equal((await exchange({ path: '/health' })).status, 200);
+        }
+      }
+    }
+  }
+);
+
+test(
+  'over-limit HTTP requests preserve their socket before EOF and handle completion or abort while draining',
+  { timeout: 10000 },
+  async (t) => {
+    const limit = 32;
+    for (const [framing, abort] of [
+      ['content-length', false],
+      ['chunked', false],
+      ['chunked', true]
+    ]) {
+      await t.test(
+        `${framing}: ${abort ? 'abort' : 'complete'} after 413`,
+        { timeout: 3000 },
+        async (nested) => {
+          const agent = new Agent({ keepAlive: true, maxSockets: 1 });
+          nested.after(() => agent.destroy());
+          const rejected = Promise.withResolvers();
+          const finished = Promise.withResolvers();
+          const socketClosed = Promise.withResolvers();
+          let incomingUpload;
+          let healthSocket;
+          const exchange = await startServer(
+            nested,
+            async (incoming, response) => {
+              if (incoming.url === '/health') {
+                healthSocket = incoming.socket;
+                production.writeJson(incoming, response, 200, { ok: true });
+                return;
+              }
+              incomingUpload = incoming;
+              incoming.once('end', () => finished.resolve());
+              incoming.socket.once('close', () => socketClosed.resolve());
+              try {
+                await readBodyBuffer(incoming, limit);
+                response.end('Unexpectedly accepted an oversized body');
+              } catch (error) {
+                const state = {
+                  destroyed: incoming.destroyed,
+                  complete: incoming.complete
+                };
+                rejected.resolve(state);
+                production.writeJson(incoming, response, 413, {
+                  error: error.message
+                });
+              }
+            }
+          );
+          let outgoingUpload;
+          const outcome = exchange({
+            method: 'POST',
+            agent,
+            headers:
+              framing === 'content-length'
+                ? { 'Content-Length': String(limit + 2) }
+                : { 'Transfer-Encoding': 'chunked' },
+            send: (outgoing) => {
+              outgoingUpload = outgoing;
+              outgoing.write(Buffer.alloc(limit + 1));
+            }
+          }).then(
+            (result) => ({ result }),
+            (error) => ({ error })
+          );
+          const state = await rejected.promise;
+          assert.equal(state.complete, false, 'refusal precedes request EOF');
+          assert.equal(
+            state.destroyed,
+            false,
+            'the reader must leave the response socket intact'
+          );
+          const { result, error } = await outcome;
+          assert.ifError(error);
+          assert.equal(result.status, 413);
+          assert.deepEqual(JSON.parse(result.body), {
+            error: 'Request body is too large.'
+          });
+          if (abort) {
+            outgoingUpload.destroy();
+            await socketClosed.promise;
+          } else {
+            outgoingUpload.end(Buffer.from([1]));
+            await finished.promise;
+            assert.equal(incomingUpload.complete, true);
+          }
+          assert.equal(
+            (await exchange({ path: '/health', agent })).status,
+            200
+          );
+          if (!abort)
+            assert.equal(
+              healthSocket,
+              incomingUpload.socket,
+              'drain permits keep-alive reuse'
+            );
+        }
+      );
+    }
+  }
+);
+
+test(
+  'a client abort below the HTTP body limit rejects instead of returning partial bytes',
+  { timeout: 10000 },
+  async (t) => {
+    const started = Promise.withResolvers();
+    const rejected = Promise.withResolvers();
+    let partialBody;
+    const exchange = await startServer(t, async (incoming, response) => {
+      if (incoming.url === '/health') {
+        production.writeJson(incoming, response, 200, { ok: true });
+        return;
+      }
+      const reading = readBodyBuffer(incoming, 32);
+      started.resolve();
+      try {
+        partialBody = await reading;
+        response.end('Unexpectedly accepted a partial body');
+      } catch (error) {
+        rejected.resolve({
+          error,
+          aborted: incoming.aborted,
+          complete: incoming.complete
+        });
+      }
+    });
+    let outgoingUpload;
+    const outcome = exchange({
+      method: 'POST',
+      headers: { 'Content-Length': '32' },
+      send: (outgoing) => {
+        outgoingUpload = outgoing;
+        outgoing.write(Buffer.from('partial'));
+      }
+    }).then(
+      (result) => ({ result }),
+      (error) => ({ error })
+    );
+    await started.promise;
+    outgoingUpload.destroy(new Error('Synthetic client abort'));
+    assert.match((await outcome).error.message, /Synthetic client abort/);
+    const failure = await rejected.promise;
+    assert.ok(failure.error);
+    assert.equal(failure.aborted, true);
+    assert.equal(failure.complete, false);
+    assert.equal(partialBody, undefined);
+    assert.equal((await exchange({ path: '/health' })).status, 200);
+  }
+);

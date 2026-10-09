@@ -182,10 +182,14 @@ export const readBodyBuffer = async (
 ): Promise<Buffer> => {
   const chunks: Buffer[] = [];
   let totalBytes = 0;
-  for await (const chunk of request) {
+  // A body-limit rejection must leave the socket available for the HTTP response.
+  for await (const chunk of request.iterator({ destroyOnReturn: false })) {
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
     totalBytes += buffer.byteLength;
     if (totalBytes > maxBytes) {
+      chunks.length = 0;
+      // Resume after iterator cleanup so its readable listener cannot pause the drain.
+      setImmediate(() => request.resume());
       throw new Error('Request body is too large.');
     }
     chunks.push(buffer);

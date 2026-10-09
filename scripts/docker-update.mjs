@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { argv, env, exit, platform, stdin, stdout } from 'node:process';
 import { createInterface } from 'node:readline/promises';
 import { dirname, resolve } from 'node:path';
@@ -17,6 +18,7 @@ import {
   parseDockerUpdateArgs,
   resolveDockerUpdateOptions
 } from './lib/docker-update.mjs';
+import { prepareLocalIdentity } from './lib/local-identity.mjs';
 
 const help = `
 Usage:
@@ -67,7 +69,8 @@ try {
     console.log(help.trim());
     exit(0);
   }
-  process.chdir(resolve(dirname(fileURLToPath(import.meta.url)), '..'));
+  const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+  process.chdir(root);
   const shellEnv = { ...env };
   const configurationEnv = readDockerConfiguration({ env: shellEnv });
 
@@ -92,7 +95,12 @@ try {
     targetEnvironment,
     { env: configurationEnv, askYesNo }
   );
-  const plan = dockerUpdatePlan(resolvedOptions, { env: configurationEnv });
+  const plan = dockerUpdatePlan(resolvedOptions, {
+    env: configurationEnv,
+    localTls:
+      existsSync('traefik/certs/localhost.pem') &&
+      existsSync('traefik/certs/localhost-key.pem')
+  });
   const { useDatabase, buildAppFirst, pruneImages, startStripeWebhook } = plan;
 
   const run = (command, commandArgs, commandEnv) => {
@@ -155,6 +163,12 @@ try {
       return result.stdout;
     }
   });
+  if (
+    plan.commands.some(({ args }) =>
+      args.includes('docker-compose.identity.local.yml')
+    )
+  )
+    prepareLocalIdentity({ root, env: plan.commandEnv });
   await executeDockerUpdate(plan, {
     runCommand: run,
     beforeStripeWebhook: () => {

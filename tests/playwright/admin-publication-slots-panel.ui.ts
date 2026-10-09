@@ -106,6 +106,7 @@ export function registerSlotPanelTests(): void {
     ).toBeEnabled();
 
     await drawer.getByRole('button', { name: 'Fermer', exact: true }).click();
+    await expect(drawer).not.toBeVisible();
     await openSpace(page, 'drafts');
     await openSpace(page, 'calendar');
     await entry.click();
@@ -114,6 +115,7 @@ export function registerSlotPanelTests(): void {
 
     // A refresh can invalidate a saved selection; it must not remain actionable.
     await drawer.getByRole('button', { name: 'Fermer', exact: true }).click();
+    await expect(drawer).not.toBeVisible();
     currentSlot = { ...slot, capacityUsed: 5, capacityAvailable: 0 };
     await page.getByRole('button', { name: 'Actualiser', exact: true }).click();
     await expect(

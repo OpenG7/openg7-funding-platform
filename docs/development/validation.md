@@ -34,11 +34,13 @@ documentaire n'exige pas de lancer les suites applicatives.
 | `yarn docs:check` | Standards OpenG7 puis budgets UTF-8, liens/ancres et scripts documentés ; lecture seule |
 | `yarn docs:report` | Rapport JSON du contrôle documentaire, dont les chaînes de consignes et leurs budgets |
 | `yarn keycloak:check` | Préflight de configuration Keycloak locale ; aucun service démarré ni qualification OIDC/MFA |
+| `node scripts/prepare-local-identity.mjs` | Vérifie le profil local et ses certificats, génère les fichiers Traefik locaux ; aucun service ou compte créé |
 | `yarn test` | Compilation TypeScript puis tests Node; ne pas refaire `yarn build` juste avant |
 | `yarn workspace @openg7/funding-web build --configuration production` | Build Angular et rendu initial/SSR configuré |
 | `yarn test:sponsorship` | Suite Node de couverture commandite; aucun navigateur |
-| `yarn test:e2e:acceptance` | API/DB/navigateur en pile Docker jetable, fournisseurs simulés |
+| `yarn test:e2e:acceptance` | API/DB/navigateur en pile Docker jetable, fournisseurs simulés; lanceur hôte Node.js `>=22`, images et CI sous Node 22 |
 | `yarn test:e2e:identity` | API réelle, Web compilé, PostgreSQL jetable et fournisseur OIDC signé local; rôles et révocation |
+| `node --test tests/identity/keycloak-local-https.integration.mjs` | Recette opt-in du profil Compose HTTPS local, Keycloak/OTP, API/Web et deux DB jetables ; images préconstruites et CA déjà approuvée requises |
 | `yarn test:e2e:playwright` | Démarrage/réutilisation Docker local, migrations et seed, puis Playwright; modifie l'état local |
 | `yarn test:ui:admin` | UI admin sur build Angular avec fixtures/interceptions |
 | `yarn test:ui:public-journeys` | Parcours publics FR/EN sur plusieurs navigateurs avec API interceptées |
@@ -48,9 +50,22 @@ documentaire n'exige pas de lancer les suites applicatives.
 | `yarn test:automation` | Tests Node, build Angular production, alertes/S3 jetables, restauration applicative et parcours navigateur publics/accessibilité; aucun secret réel |
 | `yarn exec playwright test --config tests/playwright-recovery.config.mjs` | Scripts de sauvegarde/restauration et récupération applicative sur cibles jetables |
 
+La recette `yarn test:e2e:acceptance` exécute les scénarios séquentiellement sur
+un seul worker, même si une option CLI `--workers` indique une autre valeur.
+Les scénarios partagent la base, les réglages et les redémarrages de l’API.
+Le workflow [Admin acceptance](../../.github/workflows/admin-acceptance.yml)
+exécute en parallèle trois blocs, chacun sur son propre runner : contrôles et
+intégrations, navigateurs UI/identité/récupération, et recette Docker. Ce
+parallélisme entre jobs préserve le worker unique de la recette Docker ; les
+suites UI utilisent leurs fixtures/interceptions isolées. Le contrôle final
+`acceptance` exige la réussite des trois jobs.
+
 `keycloak:check` exige Docker Compose lorsqu'il lit un fichier d'environnement,
 sans contacter le daemon ou le fournisseur. Le [runbook Keycloak](../operations/keycloak-vps.md)
 décrit les vérifications DNS/HTTPS et OIDC/MFA distinctes.
+Le [guide Windows/Docker](../operations/keycloak-local.md) décrit le profil HTTPS
+local persistant ; les préparatifs et tests de configuration ne prouvent pas
+une connexion réelle avec OTP ni une qualification de production.
 
 Prérequis et preuves datées : [état de la plateforme](../platform-status.md),
 [recette fournisseurs](../operations/integration-rehearsal.md),

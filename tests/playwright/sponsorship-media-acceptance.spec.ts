@@ -313,7 +313,9 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
           .click();
         await admin.getByLabel(/Slug public/i).fill('media-' + id);
         await admin.getByLabel(/Destination feed/i).selectOption('openg7');
-        await admin.getByLabel(/^Statut feed/i).selectOption('planned');
+        await admin
+          .getByRole('combobox', { name: 'Statut feed', exact: true })
+          .selectOption('planned');
         await admin
           .getByLabel(/Resume public/i)
           .fill('Présentation publique synthétique.');

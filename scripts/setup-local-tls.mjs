@@ -10,6 +10,15 @@ import {
 import { dirname, join, resolve } from 'node:path';
 import { env, exit, platform } from 'node:process';
 import { fileURLToPath } from 'node:url';
+import { dockerComposeFileArgs } from './lib/docker-config.mjs';
+import { readDockerConfiguration } from './lib/docker-environment.mjs';
+import { keycloakEnabled } from './lib/keycloak-config.mjs';
+import {
+  copyPublicLocalCa,
+  localIdentityHostname,
+  prepareLocalIdentity,
+  validateLocalIdentityConfig
+} from './lib/local-identity.mjs';
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const packageJsonPath = join(repositoryRoot, 'package.json');
@@ -20,8 +29,9 @@ const keyPath = join(certificateDirectory, 'localhost-key.pem');
 const usage = `Usage: yarn tls:local:setup [--renew] [--no-restart]
 
 Installe mkcert avec winget sous Windows lorsqu'il est absent, approuve son
-autorite locale, genere un certificat pour localhost, 127.0.0.1 et ::1, puis
-redemarre Traefik avec la surcharge Docker locale.
+autorite locale, genere un certificat pour localhost, 127.0.0.1, ::1 et
+auth.openg7.test, copie seulement la CA publique, puis redemarre Traefik
+avec les surcharges Docker configurees.
 
 Options:
   --renew       Regenerer le certificat localhost existant.
@@ -48,6 +58,14 @@ const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
 if (packageJson.name !== 'openg7-funding-platform') {
   throw new Error('La racine du depot OpenG7 est introuvable.');
 }
+const configuration = readDockerConfiguration({ cwd: repositoryRoot });
+const identity = keycloakEnabled(configuration);
+if (identity) validateLocalIdentityConfig(configuration);
+if (configuration.COMPOSE_FILE)
+  throw new Error(
+    'Local TLS setup requires the managed Compose files without COMPOSE_FILE.'
+  );
+const composeFiles = dockerComposeFileArgs(configuration, { localTls: true });
 
 const run = (command, commandArgs, options = {}) => {
   const result = spawnSync(command, commandArgs, {
@@ -134,6 +152,20 @@ if (platform === 'win32') {
 }
 run(mkcert, ['-install']);
 
+const caRootResult = spawnSync(mkcert, ['-CAROOT'], {
+  cwd: repositoryRoot,
+  encoding: 'utf8',
+  stdio: 'pipe',
+  windowsHide: true
+});
+if (
+  caRootResult.error ||
+  caRootResult.status !== 0 ||
+  !caRootResult.stdout.trim()
+)
+  throw new Error('Impossible de trouver la CA publique mkcert.');
+copyPublicLocalCa(resolve(caRootResult.stdout.trim()), certificateDirectory);
+
 mkdirSync(certificateDirectory, { recursive: true });
 const renew = args.includes('--renew');
 const certificatePairExists =
@@ -150,11 +182,15 @@ if (renew || !certificatePairExists) {
     keyPath,
     'localhost',
     '127.0.0.1',
-    '::1'
+    '::1',
+    localIdentityHostname
   ]);
 } else {
   console.log('Le certificat HTTPS local existe deja; il est conserve.');
 }
+
+if (identity)
+  prepareLocalIdentity({ root: repositoryRoot, env: configuration });
 
 if (!args.includes('--no-restart')) {
   console.log('Redemarrage de Traefik avec le certificat local...');
@@ -163,10 +199,7 @@ if (!args.includes('--no-restart')) {
     '--',
     'docker',
     'compose',
-    '-f',
-    'docker-compose.yml',
-    '-f',
-    'docker-compose.local-tls.yml',
+    ...composeFiles,
     'up',
     '-d',
     '--force-recreate',

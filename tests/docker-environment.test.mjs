@@ -333,6 +333,7 @@ test(
       'lib/docker-update.mjs',
       'lib/docker-config.mjs',
       'lib/keycloak-config.mjs',
+      'lib/local-identity.mjs',
       'lib/docker-environment.mjs'
     ])
       writeFileSync(

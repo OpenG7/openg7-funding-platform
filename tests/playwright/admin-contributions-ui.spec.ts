@@ -355,6 +355,8 @@ for (const language of ['fr-CA', 'en']) {
       await page.goto('/admin/fundraiser/contributions');
       const exportButton = page.locator('[data-og7="contribution-export"]');
       const search = page.getByLabel(searchLabel, { exact: true });
+      const dialog = page.getByRole('dialog');
+      const rows = page.locator('[data-og7="contribution-row"]');
       await expect(exportButton).toBeEnabled();
       const downloads: string[] = [];
       page.on('download', (download) =>
@@ -362,7 +364,7 @@ for (const language of ['fr-CA', 'en']) {
       );
 
       await exportButton.click();
-      await expect(page.getByRole('dialog')).toContainText('2');
+      await expect(dialog).toContainText('2');
       // A scope update may arrive while the modal prevents direct pointer input.
       // Even restoring the original filters must require a fresh decision.
       for (const value of ['Entreprise', '']) {
@@ -372,11 +374,15 @@ for (const language of ['fr-CA', 'en']) {
         }, value);
       }
       await page.locator('[data-og7="confirm-action"]').click();
+      // An enabled export button does not mean the native modal is closed.
+      await expect(dialog).toHaveCount(0);
       await expect(exportButton).toBeEnabled();
       expect(exports).toHaveLength(0);
 
       for (const status of [200, 403] as const) {
         await search.fill('Entreprise');
+        await expect(rows).toHaveCount(1);
+        await expect(rows).toHaveAttribute('data-og7-id', sponsor.id);
         options.status = status;
         let release!: () => void;
         options.gate = new Promise<void>((resolve) => {
@@ -384,10 +390,15 @@ for (const language of ['fr-CA', 'en']) {
         });
         await exportButton.click();
         await page.locator('[data-og7="confirm-action"]').click();
+        await expect(dialog).toHaveCount(0);
         await expect.poll(() => exports.length).toBe(status === 200 ? 1 : 2);
         await expect(exportButton).toBeDisabled();
         await search.fill('Personne');
+        await expect(search).toHaveValue('Personne');
+        await expect(rows).toHaveAttribute('data-og7-id', personal.id);
         await search.fill('Entreprise');
+        await expect(search).toHaveValue('Entreprise');
+        await expect(rows).toHaveAttribute('data-og7-id', sponsor.id);
         const completed = page.waitForResponse((response) =>
           new URL(response.url()).pathname.endsWith('/contributions.csv')
         );
@@ -413,6 +424,7 @@ for (const language of ['fr-CA', 'en']) {
       await refresh.dispatchEvent('click');
       await expect.poll(() => options.listLoads).toBe(2);
       await page.locator('[data-og7="confirm-action"]').click();
+      await expect(dialog).toHaveCount(0);
       await expect(exportButton).toBeEnabled();
       expect(exports).toHaveLength(2);
     });

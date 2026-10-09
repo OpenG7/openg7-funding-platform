@@ -87,7 +87,16 @@ export async function acceptanceStages({
     await run(node, ['scripts/db-migrate.mjs']);
     await run(node, ['scripts/e2e-seed.mjs']);
     await run('docker', ['compose', 'up', '-d', '--wait']);
-    await run(node, [cli, 'test', ...args]);
+    // Scenarios share the database, global settings and API restarts. Keep the
+    // stack sequential. The override must precede the CLI option terminator.
+    const browserArgs = [...args];
+    const separator = browserArgs.indexOf('--');
+    browserArgs.splice(
+      separator < 0 ? browserArgs.length : separator,
+      0,
+      '--workers=1'
+    );
+    await run(node, [cli, 'test', ...browserArgs]);
   } catch (error) {
     await diagnostics().catch(() => {});
     throw error;

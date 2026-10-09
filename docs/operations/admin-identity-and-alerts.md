@@ -6,6 +6,10 @@ ou environnement de production n'est créé par les tests.
 
 ## Comptes nominatifs
 
+Pour le développement Windows/Docker avec Keycloak réel, suivre le
+[guide local HTTPS et OTP](keycloak-local.md). Il prépare le fournisseur et les
+deux bases privées avant le démarrage d'OpenG7, avec les mêmes contrôles OIDC/MFA.
+
 Pour le fournisseur hébergé sur le VPS OpenG7, suivre le
 [premier démarrage Keycloak](keycloak-vps.md#premier-demarrage-oidc) : DNS/HTTPS, realm et client confidentiel,
 enrôlement OTP, bootstrap, sauvegarde et restauration de sa DB distincte.

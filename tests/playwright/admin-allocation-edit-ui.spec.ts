@@ -312,9 +312,14 @@ for (const language of ['fr-CA', 'en']) {
       await expect.poll(() => reads.length).toBe(2);
       await save(page, card('1'), english, true);
       await expect.poll(() => submissions.length).toBe(1);
+      // The POST can start before the modal releases the underlying fields.
+      await expect(page.getByRole('dialog')).toHaveCount(0);
       await card('1')
         .getByLabel(outcome, { exact: true })
         .fill('Typed while publishing');
+      await expect(card('1').getByLabel(outcome, { exact: true })).toHaveValue(
+        'Typed while publishing'
+      );
       expect(submissions[0].payload).toMatchObject({
         expectedVersion: date,
         confirmation: '1',

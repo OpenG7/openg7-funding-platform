@@ -65,6 +65,9 @@ services:
       FUNDING_ADMIN_RATE_LIMIT_MAX: '0'
       FUNDING_PUBLIC_WRITE_RATE_LIMIT_MAX: '0'
       FUNDING_SPONSORSHIP_FOLLOWUP_RATE_LIMIT_MAX: '0'
+      # Scenarios share one proxy IP; isolated API tests cover rate limiting.
+      FUNDING_REFERENCE_LOOKUP_RATE_LIMIT_MAX: '0'
+      FUNDING_REFERENCE_RECOVERY_RATE_LIMIT_MAX: '0'
       FUNDING_ADMIN_REVIEW_REMINDER_ENABLED: 'false'
       DATABASE_URL: postgres://acceptance:local-acceptance-only@postgres:5432/acceptance
       STRIPE_SECRET_KEY: '${STRIPE_SECRET_KEY:?}'

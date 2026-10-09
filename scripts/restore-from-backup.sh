@@ -165,11 +165,13 @@ cp "$STAGE/docker-compose.yml" "$ROOT_DIR/docker-compose.yml"
 if [[ -d "$STAGE/traefik" ]]; then cp -R "$STAGE/traefik" "$ROOT_DIR/"; fi
 chmod 600 .env
 compose up -d --no-deps postgres
+# The image's temporary initialization server accepts socket connections only.
+# Wait for the final TCP server before importing into the restored database.
 for _ in $(seq 1 60); do
-  if compose exec -T postgres sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"' >/dev/null 2>&1; then break; fi
+  if compose exec -T postgres sh -c 'pg_isready -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' >/dev/null 2>&1; then break; fi
   sleep 1
 done
-compose exec -T postgres sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"' >/dev/null || fail "PostgreSQL did not become ready."
+compose exec -T postgres sh -c 'pg_isready -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' >/dev/null || fail "PostgreSQL did not become ready."
 # A failed statement rolls back the entire import, including schema creation.
 report database-importing
 compose exec -T postgres sh -c 'exec psql -X --single-transaction -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < "$DATABASE_DUMP" >/dev/null 2>&1 || fail "Database import failed; application remains stopped."

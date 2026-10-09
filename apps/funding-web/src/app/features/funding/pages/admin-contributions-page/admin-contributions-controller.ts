@@ -98,6 +98,9 @@ export class AdminContributionsController {
       );
       if (!this.currentAccess(generation, accessRevision)) return;
       this.data.set(response);
+      if (!this.selectedContributionId() && this.contributionId) {
+        this.selectedContributionId.set(this.contributionId.trim() || null);
+      }
       this.state.set('ready');
       this.ports.admin.saveAdminToken(token);
     } catch (error) {

@@ -16,7 +16,12 @@ const checkout = (name) => ({
   contributionType: 'sponsorship_interest',
   amountCents: 12345,
   currency: 'CAD',
-  metadata: { fixture: name },
+  metadata: {
+    project: 'openg7',
+    publicReference: `OG7-WRITE-${name}`,
+    fixture: name,
+    sponsorshipFollowupToken: 'synthetic-private-token'
+  },
   publicDisplayConsent: true,
   publicName: 'Provider fixture',
   displayAmountConsent: true,
@@ -114,7 +119,11 @@ test(
               status,
               paidAtIso: '2026-10-01T12:00:00.000Z',
               publicReference: 'OG7-WRITE-REPLAY-OTHER',
-              metadata: { replay: status }
+              metadata: {
+                publicDisplayConsent: String(status === 'paid'),
+                replay: status,
+                sponsorshipFollowupToken: 'synthetic-private-replay-token'
+              }
             })
           );
         }
@@ -140,8 +149,9 @@ test(
           [fixture.stripeSessionId]
         );
         assert.deepEqual(session.rows[0].metadata, {
-          fixture: 'replay',
-          replay: 'paid'
+          project: 'openg7',
+          publicReference: fixture.publicReference,
+          publicDisplayConsent: 'true'
         });
       }
     );

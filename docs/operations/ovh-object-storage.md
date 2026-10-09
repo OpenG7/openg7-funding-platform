@@ -150,7 +150,14 @@ du token, de l'identifiant du média et de sa version.
 Livrer le Web et l'API ensemble : un ancien client sans cette confirmation
 reçoit HTTP 400 et doit recharger la page. Aucune migration de données n'est requise.
 Un dépassement de taille retourne HTTP 413 avec `SPONSOR_MEDIA_TOO_LARGE`.
+L'enveloppe multipart est limitée au plafond du fichier augmenté de 128 Kio.
+Son dépassement est refusé sans attendre la fin de l'envoi; le lecteur conserve
+la connexion pour transmettre le refus et évacue le reste sans le mémoriser.
 Les formulaires multipart contenant des champs inconnus ou répétés sont refusés.
+Les [tests HTTP du lecteur](../../tests/http-transport.test.mjs) couvrent le refus
+avant la fin de l'envoi et la réutilisation de la connexion après évacuation;
+le [test d'upload](../../tests/sponsorship-upload-http.test.mjs) vérifie les limites
+du fichier et de l'enveloppe avec une API isolée, sans fournisseur réel.
 
 La création du média, le remplacement éventuel du logo, la remise du dossier
 en revue et l'audit d'upload partagent une transaction PostgreSQL. Un audit absent

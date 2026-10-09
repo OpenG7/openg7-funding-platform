@@ -432,7 +432,9 @@ for (const lateStatus of [200, 401, 403])
       });
       await opener.click();
       await seen;
+      await expect(drawer(page)).toBeVisible();
       await page.keyboard.press('Escape');
+      await expect(drawer(page)).toHaveCount(0);
       await page
         .locator(`[data-og7="invoice-selection"][data-og7-id="${nextId}"]`)
         .click();
@@ -461,13 +463,16 @@ for (const lateStatus of [200, 401, 403])
         )
       ).toEqual([currentUrl]);
       await page.keyboard.press('Escape');
-      expect(
-        await page.evaluate(
-          () =>
-            (window as unknown as { revokedResources: string[] })
-              .revokedResources
+      await expect(drawer(page)).toHaveCount(0);
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () =>
+              (window as unknown as { revokedResources: string[] })
+                .revokedResources
+          )
         )
-      ).toEqual([currentUrl]);
+        .toEqual([currentUrl]);
     } finally {
       release();
     }

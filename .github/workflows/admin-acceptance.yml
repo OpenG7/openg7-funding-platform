@@ -12,7 +12,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  acceptance:
+  validation:
+    name: Checks and PostgreSQL integration
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -34,6 +35,36 @@ jobs:
       - run: docker pull adobe/s3mock:5.1.0
       - name: PostgreSQL integration suites
         run: node --test tests/integration/*.integration.mjs
+      - name: Preserve integration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-acceptance-integration-results
+          path: test-results/
+          retention-days: 7
+
+  browser:
+    name: Browser, identity and recovery
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable Corepack
+        run: corepack enable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+      - run: yarn install --immutable
+      - name: Build runtime for identity and recovery fixtures
+        run: yarn build
+      - name: Install encrypted backup tooling
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends age
+      - name: Prepare isolated integration providers
+        run: |
+          docker pull postgres:16-alpine
+          docker pull axllent/mailpit:v1.27.4
+          docker pull adobe/s3mock:5.1.0
       - run: yarn exec playwright install --with-deps chromium firefox webkit
       - name: Build shared development Web fixtures and typecheck UI suites
         run: |
@@ -56,6 +87,28 @@ jobs:
         run: yarn exec playwright test --config tests/playwright-identity.config.mjs
       - name: Backup and application recovery on disposable targets
         run: yarn exec playwright test --config tests/playwright-recovery.config.mjs
+      - name: Preserve browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-acceptance-browser-results
+          path: test-results/
+          retention-days: 7
+
+  docker_acceptance:
+    name: Docker acceptance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable Corepack
+        run: corepack enable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+      - run: yarn install --immutable
+      - run: yarn exec playwright install --with-deps chromium
       - name: Docker acceptance with disposable fixtures
         run: yarn test:e2e:acceptance
       - name: Preserve acceptance evidence
@@ -65,3 +118,19 @@ jobs:
           name: admin-acceptance-results
           path: test-results/
           retention-days: 7
+
+  # Keep the existing check successful only when every suite passes.
+  acceptance:
+    needs: [validation, browser, docker_acceptance]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every acceptance suite to pass
+        env:
+          VALIDATION_RESULT: ${{ needs.validation.result }}
+          BROWSER_RESULT: ${{ needs.browser.result }}
+          DOCKER_RESULT: ${{ needs.docker_acceptance.result }}
+        run: |
+          printf 'validation=%s browser=%s docker=%s\n' "$VALIDATION_RESULT" "$BROWSER_RESULT" "$DOCKER_RESULT"
+          test "$VALIDATION_RESULT" = success && test "$BROWSER_RESULT" = success && test "$DOCKER_RESULT" = success
