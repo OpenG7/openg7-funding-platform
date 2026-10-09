@@ -149,7 +149,7 @@ Appliquer la migration avant de démarrer la nouvelle API ; les anciennes tables
 - `yarn test` : contrats, validation des brouillons incomplets et contrôles historiques.
 - `yarn test:integration` : PostgreSQL jetable, migration sur un dossier existant, concurrence, idempotence, expiration, destinataire autoritaire, renvoi d'un message déjà envoyé et rollback de la file.
 - `yarn test:ui:followup` : restauration après rechargement, saisie pendant une sauvegarde lente, erreur/reprise, abandon, conflit, récupération FR/EN et non-régression du suivi.
-- `yarn test:e2e:acceptance tests/playwright/sponsorship-access.spec.ts tests/playwright/sponsor-navigation.spec.ts` : vraie API, base et navigateur dans une pile Docker isolée. Vérifie la persistance, l'autorisation admin, la confirmation du destinataire, la file, l'audit et les parcours existants. SMTP est désactivé ; aucun courriel réel n'est envoyé.
+- `yarn test:e2e:acceptance tests/playwright/sponsorship-access.spec.ts tests/playwright/sponsor-navigation.spec.ts` : vraie API, base et navigateur dans une pile Docker isolée. Vérifie la persistance, l'autorisation admin, la confirmation du destinataire, la file, l'audit et les parcours existants. Le worker SMTP utilise la passerelle simulée et Mailpit : la lecture peut constater `queued`, `sending` ou `sent`, avec le compteur de tentatives correspondant. Les demandes répétées conservent le même message et un seul audit, même après livraison simulée.
 
 Les nouvelles suites sont découvertes par les étapes PostgreSQL, suivi UI et Docker des workflows existants. Les résultats locaux finaux sont rapportés avec le changement ; les intégrations externes réelles et les workflows distants doivent encore être vérifiés lors de leur exécution.
 
