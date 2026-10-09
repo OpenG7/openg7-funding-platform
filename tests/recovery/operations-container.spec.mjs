@@ -40,6 +40,10 @@ test('operations overlay delivers signed incidents without HTTP API, survives re
             command: ['node', '--input-type=module', '-e', program],
             environment: {
               NODE_ENV: 'test',
+              // The image defaults to production; match the API fixture's
+              // development profile for this HTTP loopback receiver.
+              FUNDING_PLATFORM_ENV:
+                base.services.api.environment.FUNDING_PLATFORM_ENV,
               DATABASE_URL: base.services.api.environment.DATABASE_URL,
               FUNDING_PUBLIC_BASE_URL: source.origin
             },
