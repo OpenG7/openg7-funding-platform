@@ -287,7 +287,24 @@ test('historical Stripe payment: bounded preview, silent recovery, late events a
   );
   await expect(task).toBeVisible();
   await expect(task.getByRole('link')).toBeVisible();
-  await task.getByRole('link').click();
+  // Earlier payment notifications can cover this link. Dismiss them through
+  // the UI only while opening the historical contribution's invoice action.
+  const toasts = page.locator('[data-og7="contribution-toast"]');
+  const firstToast = toasts.first();
+  await page.addLocatorHandler(firstToast, async () => {
+    while (await toasts.count()) {
+      await toasts
+        .first()
+        .getByRole('button', { name: 'Fermer', exact: true })
+        .click();
+    }
+    await expect(toasts).toHaveCount(0);
+  });
+  try {
+    await task.getByRole('link').click();
+  } finally {
+    await page.removeLocatorHandler(firstToast);
+  }
   await expect(
     page.locator('[data-og7="attention-invoice-target"]')
   ).toContainText(contributionId);
