@@ -108,7 +108,11 @@ for (const language of ['fr', 'en'] as const) {
     const save = page.getByRole('button', {
       name: language === 'fr' ? 'Enregistrer les accès' : 'Save access'
     });
+    // ngModel writes the selected account asynchronously. Wait for that write
+    // before fill() selects and replaces the field's text.
+    await expect(name).toHaveValue('Operator fixture');
     await name.fill('Retained draft fixture');
+    await expect(name).toHaveValue('Retained draft fixture');
     await role.selectOption('reader');
     await confirmation.check();
     await expect(save).toBeEnabled();
@@ -197,6 +201,9 @@ for (const status of [401, 403]) {
     await page
       .locator('[data-og7="admin-account"][data-og7-id="operator"] button')
       .click();
+    await expect(page.locator('input[name="name"]')).toHaveValue(
+      'Operator fixture'
+    );
     await page.locator('input[name="name"]').fill('Private pending fixture');
     await page.locator('input[name="confirmed"]').check();
     let releaseChange!: () => void;
@@ -256,6 +263,9 @@ for (const language of ['fr', 'en'] as const) {
         '[data-og7="admin-account"][data-og7-id="operator"]'
       );
       await operator.getByRole('button').click();
+      await expect(page.locator('input[name="name"]')).toHaveValue(
+        'Operator fixture'
+      );
       const confirm = page.locator('input[name="confirmed"]');
       const save = page.getByRole('button', {
         name: language === 'fr' ? 'Enregistrer les accès' : 'Save access'
@@ -358,6 +368,9 @@ for (const language of ['fr', 'en'] as const) {
       await page
         .locator('[data-og7="admin-account"][data-og7-id="operator"] button')
         .click();
+      await expect(page.locator('input[name="name"]')).toHaveValue(
+        'Operator fixture'
+      );
       await page.locator('input[name="name"]').fill('Private draft fixture');
       await page.locator('input[name="confirmed"]').check();
       state.changeStatus = 403;
