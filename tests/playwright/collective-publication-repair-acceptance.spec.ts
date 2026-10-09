@@ -13,6 +13,7 @@ import type {
 
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
+import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import { expect, test } from './support/test.js';
 
 test('a rejected company blocks its approved collective post; reviewed recomposition and new approval publish only the retained company', async ({
@@ -41,6 +42,13 @@ test('a rejected company blocks its approved collective post; reviewed recomposi
   const state = () => get<PublicationAutomationState>(automation);
   const command = (input: PublicationAutomationCommand) =>
     post(automation, input);
+  const tick = (now: Date) =>
+    expect
+      .poll(() => runAcceptancePublicationWorker(now), {
+        timeout: 15000,
+        intervals: [100, 500, 1000]
+      })
+      .toBe(true);
   const programme = () => get<ProgrammeState>('/api/admin/pilotage/programme');
   const worker = async (enabled: boolean) => {
     const current = await state();
@@ -95,6 +103,12 @@ test('a rejected company blocks its approved collective post; reviewed recomposi
   };
   try {
     await worker(false);
+    for (const feed of initial.feeds.filter((f) => f.id !== feedId)) {
+      await command({
+        action: 'settings',
+        settings: { ...feed, autoPrepare: false }
+      });
+    }
     await command({
       action: 'settings',
       settings: {
@@ -175,8 +189,15 @@ test('a rejected company blocks its approved collective post; reviewed recomposi
       expect(proposed.removed).toContain(removed.id);
       expect(proposed.sponsors.map((s) => s.id)).toEqual([retained.id]);
       await worker(true);
+      const now = new Date();
       await expect
-        .poll(async () => (await delivery()).status, { timeout: 30000 })
+        .poll(
+          async () => {
+            await runAcceptancePublicationWorker(now);
+            return (await delivery()).status;
+          },
+          { timeout: 15000, intervals: [100, 500, 1000] }
+        )
         .toBe('blocked');
       await worker(false);
       expect(await delivery()).toMatchObject({
@@ -260,13 +281,15 @@ test('a rejected company blocks its approved collective post; reviewed recomposi
       await dialog
         .getByRole('button', { name: 'Modifier', exact: true })
         .click();
-      const due = new Date(Date.now() + 60000);
+      const requestedDate = new Date(
+        Math.ceil((Date.now() + 60000) / 60000) * 60000
+      );
       const local = await page.evaluate((iso) => {
         const d = new Date(iso);
         return new Date(d.getTime() - d.getTimezoneOffset() * 60000)
           .toISOString()
           .slice(0, 16);
-      }, due.toISOString());
+      }, requestedDate.toISOString());
       await dialog.locator('input[name="date"]').fill(local);
       await dialog
         .getByRole('button', { name: 'Enregistrer le brouillon' })
@@ -279,6 +302,9 @@ test('a rejected company blocks its approved collective post; reviewed recomposi
         .getByRole('button', { name: 'Accepter et programmer' })
         .click();
       await expect(dialog).toContainText('Autorisée');
+      // The UI accepts minute precision. Drive the worker against the exact
+      // approved date returned by the API, not an unpersisted browser value.
+      const due = new Date((await delivery()).scheduledAt);
       await command({
         action: 'settings',
         settings: {
@@ -289,12 +315,27 @@ test('a rejected company blocks its approved collective post; reviewed recomposi
         }
       });
       await worker(true);
+      await tick(new Date(due.getTime() - 1));
+      expect(await delivery()).toMatchObject({
+        status: 'approved',
+        scheduledAt: due.toISOString(),
+        attempts: 0,
+        publishedAt: null
+      });
+      expect((await receipts()).requests).toHaveLength(0);
+      expect((await receipts()).posts).toHaveLength(0);
       await expect
-        .poll(async () => (await delivery()).status, {
-          timeout: 100000,
-          intervals: [1000, 2000]
-        })
+        .poll(
+          async () => {
+            await runAcceptancePublicationWorker(due);
+            return (await delivery()).status;
+          },
+          { timeout: 15000, intervals: [100, 500, 1000] }
+        )
         .toBe('published');
+      const published = await delivery();
+      await tick(due);
+      expect(await delivery()).toEqual(published);
       await worker(false);
       const received = await receipts();
       expect(received.requests).toHaveLength(1);
@@ -322,10 +363,14 @@ test('a rejected company blocks its approved collective post; reviewed recomposi
       expect(
         audits.filter((e) => e.action === 'publication_automation.published')
       ).toHaveLength(1);
+      expect(
+        audits.filter((e) => e.action === 'publication_automation.claim')
+      ).toHaveLength(1);
       await info.attach('collective-repair-evidence', {
         contentType: 'application/json',
         body: JSON.stringify({
           providers: 'simulated',
+          publicationWorkerClock: 'controlled at the approved schedule',
           delivery: await delivery(),
           receipts: received
         })
@@ -334,6 +379,9 @@ test('a rejected company blocks its approved collective post; reviewed recomposi
     });
   } finally {
     await worker(false);
-    await command({ action: 'settings', settings: initialFeed });
+    for (const feed of initial.feeds) {
+      await command({ action: 'settings', settings: feed });
+    }
+    await worker(initial.workerEnabled);
   }
 });

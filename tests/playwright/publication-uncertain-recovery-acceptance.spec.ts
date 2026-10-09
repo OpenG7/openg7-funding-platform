@@ -16,6 +16,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
+import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import { test, expect } from './support/test.js';
 
 const automation = '/api/admin/publication-automation';
@@ -85,6 +86,13 @@ test('lost social responses survive restart and recover through verified reconci
   };
   const receipt = (id: string) =>
     get<Receipt>(social + '/receipts?deliveryId=' + id, false);
+  const tick = (now: Date) =>
+    expect
+      .poll(() => runAcceptancePublicationWorker(now), {
+        timeout: 15000,
+        intervals: [100, 500, 1000]
+      })
+      .toBe(true);
   const initial = await state();
   expect(initial.feeds.every((f) => f.mode === 'mock')).toBe(true);
   const companies: Company[] = [];
@@ -143,6 +151,12 @@ test('lost social responses survive restart and recover through verified reconci
     .toBuffer();
   try {
     await setWorker(false);
+    for (const feed of initial.feeds.filter((f) => !feeds.includes(f.id))) {
+      await command({
+        action: 'settings',
+        settings: { ...feed, autoPrepare: false }
+      });
+    }
     for (const id of feeds) {
       await command({
         action: 'settings',
@@ -614,9 +628,25 @@ test('lost social responses survive restart and recover through verified reconci
     });
     await test.step('The new approvals send once with the browser closed; receipts and audit prove no duplicates', async () => {
       await page.close();
+      // The restart and control delivery above use the API's real timer. Only
+      // these freshly authorized retries advance the disposable worker clock.
+      const due = new Date((await delivery(absent.jobs[0]!.id)).scheduledAt);
+      await tick(new Date(due.getTime() - 1));
+      for (const job of absent.jobs) {
+        expect(await delivery(job.id)).toMatchObject({
+          status: 'approved',
+          scheduledAt: due.toISOString(),
+          attempts: 1,
+          publishedAt: null
+        });
+        const captured = await receipt(job.id);
+        expect(captured.requests).toHaveLength(1);
+        expect(captured.posts).toHaveLength(0);
+      }
       await expect
         .poll(
           async () => {
+            await runAcceptancePublicationWorker(due);
             const current = await state();
             return absent.jobs.every(
               (j) =>
@@ -624,9 +654,16 @@ test('lost social responses survive restart and recover through verified reconci
                 'published'
             );
           },
-          { timeout: 150000, intervals: [1000, 3000] }
+          { timeout: 15000, intervals: [100, 500, 1000] }
         )
         .toBe(true);
+      const published = await Promise.all(
+        absent.jobs.map((job) => delivery(job.id))
+      );
+      await tick(due);
+      expect(
+        await Promise.all(absent.jobs.map((job) => delivery(job.id)))
+      ).toEqual(published);
       const audit = await get<AdminAuditLogResponse>('/api/admin/audit-log');
       const evidence: unknown[] = [];
       for (const company of companies)
@@ -644,6 +681,9 @@ test('lost social responses survive restart and recover through verified reconci
           expect(remote.requests).toHaveLength(attempts);
           expect(remote.posts).toHaveLength(1);
           expect(remote.requests.filter((r) => r.accepted)).toHaveLength(1);
+          expect(
+            entries.filter((e) => e.action === 'publication_automation.claim')
+          ).toHaveLength(attempts);
           expect(
             entries.filter(
               (e) => e.action === 'publication_automation.published'
@@ -679,6 +719,7 @@ test('lost social responses survive restart and recover through verified reconci
           {
             providers: 'simulated',
             apiRestarted: true,
+            newApprovalWorkerClock: 'controlled at the approved schedule',
             due,
             controlDue,
             evidence
@@ -692,7 +733,7 @@ test('lost social responses survive restart and recover through verified reconci
     });
   } finally {
     await setWorker(false);
-    for (const id of feeds) {
+    for (const { id } of initial.feeds) {
       const {
         paused,
         autoPrepare,

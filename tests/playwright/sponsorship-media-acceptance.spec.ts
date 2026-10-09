@@ -14,6 +14,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
+import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import { test, expect } from './support/test.js';
 
 const automation = '/api/admin/publication-automation';
@@ -92,6 +93,13 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         confirmation: enabled ? 'enable-worker' : 'disable-worker'
       });
     };
+    const tick = (now: Date) =>
+      expect
+        .poll(() => runAcceptancePublicationWorker(now), {
+          timeout: 15000,
+          intervals: [100, 500, 1000]
+        })
+        .toBe(true);
     const openDelivery = async (id: string) => {
       await admin.goto(cockpit + '?deliveryId=' + id);
       const dialog = admin.getByRole('dialog', { name: 'Publication finale' });
@@ -150,6 +158,12 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
     let jobs: PublicationDelivery[] = [];
     try {
       await setWorker(false);
+      for (const feed of initial.feeds.filter((f) => !feeds.includes(f.id))) {
+        await command({
+          action: 'settings',
+          settings: { ...feed, autoPrepare: false }
+        });
+      }
       for (const id of feeds) {
         await command({
           action: 'settings',
@@ -561,11 +575,13 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
       await setWorker(true);
       await expect
         .poll(
-          async () =>
-            (await state()).deliveries
+          async () => {
+            await runAcceptancePublicationWorker(new Date());
+            return (await state()).deliveries
               .filter((j) => jobs.some((old) => old.id === j.id))
-              .map((j) => j.status),
-          { timeout: 45000, intervals: [1000, 2000] }
+              .map((j) => j.status);
+          },
+          { timeout: 15000, intervals: [100, 500, 1000] }
         )
         .toEqual(['blocked', 'blocked']);
       expect(Date.now()).toBeLessThan(originalDue.getTime());
@@ -577,7 +593,9 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
           publishedAt: null,
           version: job.version + 1
         });
-        expect((await receipt(job.id)).requests).toHaveLength(0);
+        const captured = await receipt(job.id);
+        expect(captured.requests).toHaveLength(0);
+        expect(captured.posts).toHaveLength(0);
         const stale = await request.post(automation, {
           headers: await adminSessionHeaders(request),
           data: {
@@ -628,6 +646,11 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
             due
           );
         }
+        expect(jobs.map((job) => job.scheduledAt)).toEqual([
+          due.toISOString(),
+          due.toISOString()
+        ]);
+        const authorizedDue = new Date(jobs[0]!.scheduledAt);
         expect((await sponsor()).sponsor_review_status).toBe('approved');
         for (const feedId of feeds) {
           const feed = (await state()).feeds.find((f) => f.id === feedId)!;
@@ -639,15 +662,38 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         await setWorker(true);
         await company.close();
         await admin.close();
+        await tick(new Date(authorizedDue.getTime() - 1));
+        for (const job of jobs) {
+          expect(await delivery(job.id)).toMatchObject({
+            status: 'approved',
+            scheduledAt: job.scheduledAt,
+            approvedAt: job.approvedAt,
+            version: job.version,
+            attempts: 0,
+            publishedAt: null
+          });
+          const captured = await receipt(job.id);
+          expect(captured.requests).toHaveLength(0);
+          expect(captured.posts).toHaveLength(0);
+        }
         await expect
           .poll(
-            async () =>
-              (await state()).deliveries
+            async () => {
+              await runAcceptancePublicationWorker(authorizedDue);
+              return (await state()).deliveries
                 .filter((j) => jobs.some((old) => old.id === j.id))
-                .map((j) => j.status),
-            { timeout: 180000, intervals: [1000, 3000] }
+                .map((j) => j.status);
+            },
+            { timeout: 15000, intervals: [100, 500, 1000] }
           )
           .toEqual(['published', 'published']);
+        const published = await Promise.all(
+          jobs.map((job) => delivery(job.id))
+        );
+        await tick(authorizedDue);
+        expect(await Promise.all(jobs.map((job) => delivery(job.id)))).toEqual(
+          published
+        );
       });
       for (const job of jobs) {
         expect(await delivery(job.id)).toMatchObject({
@@ -710,12 +756,16 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         expect(
           entries.filter((e) => e.action === 'publication_automation.published')
         ).toHaveLength(1);
+        expect(
+          entries.filter((e) => e.action === 'publication_automation.claim')
+        ).toHaveLength(1);
       }
       await info.attach('sponsorship-media-evidence', {
         contentType: 'application/json',
         body: JSON.stringify(
           {
             providers: 'simulated',
+            publicationWorkerClock: 'controlled',
             mediaChange: change,
             removedMediaId: originalAsset.id,
             expectedMediaId: selectedMediaId,
@@ -733,8 +783,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
       expect(errors).toEqual([]);
     } finally {
       await setWorker(false);
-      for (const id of feeds) {
-        const feed = initial.feeds.find((f) => f.id === id)!;
+      for (const feed of initial.feeds) {
         await command({ action: 'settings', settings: { ...feed } });
       }
       if (!company.isClosed()) await company.close();

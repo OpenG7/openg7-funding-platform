@@ -60,6 +60,15 @@ parallélisme entre jobs préserve le worker unique de la recette Docker ; les
 suites UI utilisent leurs fixtures/interceptions isolées. Le contrôle final
 `acceptance` exige la réussite des trois jobs.
 
+Certaines recettes de publication utilisent un
+[passage à heure contrôlée](../../tests/playwright/support/acceptance-publication-worker.ts)
+du vrai service dans le conteneur API jetable. Elles vérifient les frontières
+avant/à échéance et le rejeu sans attendre le calendrier. La recette de résultat
+incertain conserve un contrôle au vrai timer après redémarrage. La récupération
+par courriel vérifie les backoffs persistants, puis avance uniquement l'éligibilité
+de son message synthétique avant sa reprise par le worker API. Ces contrôles
+de temps ne changent pas les cadences de production.
+
 `keycloak:check` exige Docker Compose lorsqu'il lit un fichier d'environnement,
 sans contacter le daemon ou le fournisseur. Le [runbook Keycloak](../operations/keycloak-vps.md)
 décrit les vérifications DNS/HTTPS et OIDC/MFA distinctes.

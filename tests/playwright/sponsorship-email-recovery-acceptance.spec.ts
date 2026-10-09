@@ -1,9 +1,7 @@
-import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
-import { promisify } from 'node:util';
+import { join } from 'node:path';
 
 import type { BrowserContext } from '@playwright/test';
 import type {
@@ -16,6 +14,10 @@ import type {
 } from '@openg7/funding-core';
 
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
+import {
+  acceptanceSql,
+  restartAcceptanceApi
+} from './support/acceptance-database.js';
 import { expect, test } from './support/test.js';
 
 const queueUrl = '/api/admin/email-queue';
@@ -112,6 +114,19 @@ test('paid company recovers its saved dossier from a captured email after SMTP f
     );
     expect(response.messages).toHaveLength(1);
     return response.messages[0]!;
+  };
+  const assertBackoff = async (attempts: number, delayMs: number) => {
+    const rows = await acceptanceSql<{ delay_ms: number; pending: boolean }>(
+      `SELECT EXTRACT(EPOCH FROM (next_attempt_at-updated_at))*1000 AS delay_ms,
+              next_attempt_at>NOW() AS pending
+       FROM email_messages WHERE id=$1 AND status='failed' AND attempts=$2`,
+      [message.id, attempts]
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.pending).toBe(true);
+    // DB settlement may follow the application's delay calculation slightly.
+    expect(Number(rows[0]!.delay_ms)).toBeGreaterThanOrEqual(delayMs - 5000);
+    expect(Number(rows[0]!.delay_ms)).toBeLessThanOrEqual(delayMs + 5000);
   };
   try {
     await gate('allow');
@@ -226,6 +241,7 @@ test('paid company recovers its saved dossier from a captured email after SMTP f
         sent_at: null
       });
       expect(message.last_error).toMatch(/^EMAIL_/);
+      await assertBackoff(1, 60000);
       expect(await captured(message.subject)).toHaveLength(0);
       // Repeated public requests keep the same logical message and token.
       await Promise.all(
@@ -269,16 +285,7 @@ test('paid company recovers its saved dossier from a captured email after SMTP f
     });
     await test.step('Restart the isolated API and preserve the draft, failed message and retry backoff', async () => {
       const before = await currentMessage();
-      const project = process.env.COMPOSE_PROJECT_NAME!;
-      expect(project).toMatch(/^og7-acceptance-[a-f0-9-]+$/);
-      expect(process.env.COMPOSE_FILE).toBe(
-        resolve('docker-compose.acceptance.yml')
-      );
-      await promisify(execFile)(
-        'docker',
-        ['compose', '--project-name', project, 'restart', 'api'],
-        { windowsHide: true, timeout: 60000 }
-      );
+      await restartAcceptanceApi();
       await expect
         .poll(
           async () => {
@@ -303,17 +310,27 @@ test('paid company recovers its saved dossier from a captured email after SMTP f
       expect(new Date(before.next_attempt_at).getTime()).toBeGreaterThan(
         Date.now()
       );
-      // The real one-minute backoff expires after restart: a second rejected
-      // greeting proves that the resumed worker consumes the persistent queue.
+      // Persistence and no early retry have been checked before changing only
+      // this disposable message's eligibility. The restarted API owns its retry.
+      const due = await acceptanceSql<{ id: string }>(
+        `UPDATE email_messages SET next_attempt_at=NOW()
+         WHERE id=$1 AND status='failed' AND attempts=1
+           AND template_key='sponsorship_access_recovery'
+           AND next_attempt_at=$2::timestamptz AND next_attempt_at>NOW()
+         RETURNING id`,
+        [message.id, before.next_attempt_at]
+      );
+      expect(due).toEqual([{ id: message.id }]);
       await expect
         .poll(
           async () => {
             const current = await currentMessage();
             return { status: current.status, attempts: current.attempts };
           },
-          { timeout: 75000, intervals: [1000] }
+          { timeout: 15000, intervals: [100, 500, 1000] }
         )
         .toEqual({ status: 'failed', attempts: 2 });
+      await assertBackoff(2, 120000);
       expect(
         new Date((await currentMessage()).next_attempt_at).getTime()
       ).toBeGreaterThan(new Date(before.next_attempt_at).getTime());
@@ -518,6 +535,8 @@ test('paid company recovers its saved dossier from a captured email after SMTP f
               amountMinor: 50000,
               currency: 'CAD',
               apiRestarted: true,
+              retryEligibility: 'controlled for the disposable message',
+              retryBackoffSeconds: [60, 120],
               draftRestored: true,
               smtp: await smtp(),
               message: await currentMessage(),

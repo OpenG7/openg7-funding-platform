@@ -42,6 +42,11 @@ le consentement et la préparation privée de la cartouche du site.
   factures, courriels et livraisons, une seule activité et les totaux attendus.
   Les reçus sociaux comptent un seul appel et un seul résultat pour Facebook.
 
+Le cas de 250 CAD consentis pilote l'horloge du vrai worker dans la pile jetable :
+aucun envoi juste avant la date approuvée, un envoi à cette date, puis un rejeu
+sans doublon. Les autres parcours conservent leurs contrôles de seuils,
+de confidentialité et d'activité ; aucune attente calendrier ne leur est ajoutée.
+
 Les tests PostgreSQL du moteur complètent ces parcours aux limites 249,99/250 et
 499,99/500 CAD, avant et après revue. Ils vérifient aussi le consentement, la
 devise, la répétition et l’absence d’approbation automatique.
@@ -83,11 +88,37 @@ yarn test:e2e:acceptance sponsorship-publication-acceptance.spec.ts --project=ch
 ```
 
 Le runner Node 22 crée une pile Docker jetable et ignore `.env`. Les paramètres
-des deux feeds sont restaurés en fin de test. Captures et preuves JSON sont
+de tous les feeds sont restaurés en fin de test. Captures et preuves JSON sont
 conservées sous `test-results/acceptance/`.
-La recette conserve la cadence réelle : la préparation peut attendre cinq
-minutes après un test précédent, puis chaque envoi attend son échéance et le
-prochain passage du worker. Son délai maximal est de douze minutes.
+Le [helper de publication](../tests/playwright/support/acceptance-publication-worker.ts)
+pilote uniquement l’horloge du vrai `PublicationAutomationService.tick(now)` dans
+le conteneur API, avec sa base et son stockage réels. La fixture remet à `NULL`
+le marqueur `last_prepared_at` des deux feeds OpenG7 uniquement lorsque le moteur
+est arrêté, puis fait préparer les propositions par le worker. La préparation
+automatique de tous les feeds est ensuite désactivée avant d’avancer l’horloge,
+bornée à trois minutes de celle du conteneur. Les passages contrôlés évitent
+d’attendre la fenêtre de préparation, la cadence périodique et l’échéance du
+calendrier ; les autorisations, horaires approuvés et faits financiers restent
+inchangés.
+
+Mesure locale du 9 octobre 2026, Node 22.23.3 et Chromium, sur `5bca4e0` avec
+ces modifications locales : les trois scénarios publication/révision exécutés
+trois fois sur la même pile donnent **9 réussites, sans échec ni reprise**.
+La publication prend 19,2 à 19,5 secondes ; les révisions, 13,4 à 15,5 secondes.
+Ces durées excluent la préparation Docker ; le gain en CI reste à mesurer.
+
+Après extension aux médias, seuils, inadmissibilité financière, réparation
+collective, reprise incertaine et récupération par courriel, le même environnement
+local donne **13 réussites en 6 min 20 s**, sans échec, reprise ni test ignoré.
+Les 13 scénarios cumulent 6 min 17 s, contre 27 min 07 s dans le rapport local
+du 8 octobre où ils réussissaient également. La reprise incertaine conserve
+son vrai timer et prend 3 min 05 s. Cette comparaison exclut la préparation Docker.
+
+La suite complète `yarn test:e2e:acceptance` valide ensuite **247 tests en
+15 min 25 s**, sans échec, reprise ni test ignoré, avec un seul worker et les
+projets Chromium/mobile. Les 13 scénarios optimisés y cumulent 6 min 29 s.
+La pile jetable est supprimée après la recette ; la pile locale de développement
+reste saine. Ces mesures incluent les tests, hors préparation Docker.
 
 Exécution du 23 septembre 2026 sur `30d37c0` avec les changements locaux :
 **1 recette réussie en 4,5 minutes**, sans échec, reprise ni test ignoré.
@@ -110,9 +141,10 @@ La recette vérifie les étapes suivantes :
 4. Modification de Facebook après approbation : l’autorisation est retirée,
    une version obsolète est refusée et LinkedIn peut être envoyé sans que
    Facebook ne parte. Une nouvelle décision explicite autorise ensuite Facebook.
-5. Envois à échéance par le worker, page admin fermée. Les résultats conservent
-   le mode `mock`, un identifiant simulé et une seule tentative par destination.
-   Les lots et brouillons sources ne deviennent pas des publications réelles.
+5. Passages du worker juste avant l’échéance, à l’échéance puis au rejeu, page
+   admin fermée : aucune requête avant la date, puis un seul envoi par destination.
+   Les résultats conservent le mode `mock`, un identifiant simulé et une seule
+   tentative. Les lots et brouillons sources ne deviennent pas des publications réelles.
 6. Décision distincte de visibilité Web, enregistrée dans le dossier. La fiche et
    ses médias deviennent alors publics, sans divulguer les données privées.
    Le rejeu du paiement conserve un seul événement d’activité et deux livraisons.
@@ -170,7 +202,11 @@ yarn test:e2e:acceptance publication-payment-ineligibility-acceptance.spec.ts --
    blocages et l’absence d’envoi. Captures et preuve JSON sont conservées sous
    `test-results/acceptance/` ; les réglages du moteur et des feeds sont restaurés.
 
-Le test conserve une échéance réelle et le passage du worker toutes les 30 secondes.
+Le test pilote le vrai worker à l'heure actuelle pour invalider les autorisations,
+puis juste avant et à l'échéance approuvée pour les publications témoins. Le rejeu
+conserve un seul appel et une seule publication par destination. Seule l'horloge
+du passage dans la pile jetable est contrôlée ; aucune date financière ou
+autorisation n'est réécrite.
 Il couvre Chromium, les deux destinations OpenG7, un commanditaire par publication
 et un remboursement intégral. Il ne couvre pas la clôture d’une contestation,
 les lots mixtes, tous les motifs d’inadmissibilité, ni les fournisseurs réels.
@@ -229,8 +265,11 @@ tentatives pour détecter les doublons, sans les masquer par une déduplication.
 
 Captures et preuves JSON sont conservées dans `test-results/acceptance/`. Les
 réglages initiaux des feeds et du moteur sont restaurés en fin de recette.
-Le délai maximal est de huit minutes pour respecter les échéances et la cadence
-réelle de 30 secondes du worker. Les tests UI séparés couvrent la reprise en
+Le contrôle témoin après redémarrage conserve l'échéance et le vrai timer de
+l'API : il vérifie que le worker reprend son activité. Seuls les envois après
+attestation d'absence et nouvelle approbation utilisent l'horloge contrôlée du
+worker, avec contrôles avant échéance, à échéance et au rejeu. Le délai maximal
+reste de huit minutes. Les tests UI séparés couvrent la reprise en
 français/anglais, sur mobile/ordinateur, au clavier et avec contrôle d’accessibilité.
 
 La qualification porte sur Chromium, les textes sans image et les deux canaux
@@ -263,17 +302,20 @@ remet le dossier en revue.
 
 Deux variantes vérifient le contrôle avant échéance : le dossier reste en attente,
 ou l'admin le réapprouve pendant que le moteur est encore arrêté. Dans les deux
-cas, le worker réactivé bloque les anciens envois avec `SPONSOR_REVIEW_REQUIRED`,
-retire leur autorisation et laisse une trace d'audit, sans requête au réseau social.
+cas, un passage piloté du worker réactivé bloque les anciens envois avec
+`SPONSOR_REVIEW_REQUIRED`, retire leur autorisation et laisse une trace d'audit,
+sans requête au réseau social.
 Le panneau explique la nouvelle revue et ouvre le dossier concerné. Les commandes
 avec une ancienne version et les approbations directes d'un envoi bloqué échouent.
 
 L'admin saisit ensuite le texte exact révisé et une nouvelle date, enregistre le
 brouillon et autorise chaque destination. Une soumission identique répétée par
-l'entreprise conserve cette nouvelle autorisation. Le worker publie la nouvelle
-version une seule fois par destination, navigateurs fermés. Les reçus locaux
-comptent chaque requête et chaque publication ; la facture, le paiement de 500 CAD
-et les totaux sont conservés, et la fiche Web reste privée.
+l'entreprise conserve cette nouvelle autorisation. Navigateurs fermés, un passage
+juste avant l'échéance conserve les autorisations sans requête au réseau social ;
+le passage à l'échéance publie la nouvelle version, et son rejeu conserve le même
+résultat. Les reçus locaux comptent une seule requête et publication par destination ;
+la facture, le paiement de 500 CAD et les totaux sont conservés, et la fiche Web
+reste privée.
 
 ```sh
 node scripts/admin-acceptance.mjs sponsorship-revision-acceptance.spec.ts --project=chromium
@@ -281,7 +323,11 @@ node scripts/admin-acceptance.mjs sponsorship-revision-acceptance.spec.ts --proj
 
 La pile utilise l'API, PostgreSQL et les workers réels, avec Stripe, SMTP, SMS et
 réseaux sociaux simulés, sans interception applicative ni mutation directe de la
-base par cette recette. Les captures et les preuves JSON excluant le jeton de
+base par cette recette. Le [helper de publication](../tests/playwright/support/acceptance-publication-worker.ts)
+appelle le vrai service dans le conteneur API avec une horloge contrôlée, sans
+attendre la cadence du worker ni l'échéance du calendrier. La préparation automatique
+reste désactivée pendant ces passages ; les réglages de tous les feeds sont
+restaurés en fin de test. Les captures et les preuves JSON excluant le jeton de
 suivi sont sous `test-results/acceptance/`. Le runner supprime sa pile jetable.
 
 Exécution du 23 septembre 2026 (America/Toronto), sur `3c4af8e` avec les changements
@@ -334,7 +380,11 @@ Le cockpit explique le motif et ouvre l'onglet Médias. L'admin enregistre ensui
 le nouveau logo ou choisit explicitement une publication sans image, puis autorise
 chaque destination. La variante suppression conserve une autre photo approuvée
 dans le dossier ; elle ne qualifie pas le retrait de tous les médias obligatoires.
-Navigateurs fermés, le worker envoie une seule fois par destination. Les reçus du
+Navigateurs fermés, des passages pilotés du vrai worker vérifient l'absence d'envoi
+juste avant la nouvelle échéance approuvée, l'envoi à cette échéance puis le rejeu
+sans doublon. L'invalidation des anciens médias est vérifiée à l'heure actuelle,
+avant leur échéance initiale. Les réglages de tous les feeds sont restaurés après
+arrêt du moteur. Les reçus du
 simulateur vérifient l'identifiant du média et l'empreinte SHA-256 du JPEG préparé
 (ou leur absence pour le texte seul). Paiement, facture et totaux restent inchangés.
 

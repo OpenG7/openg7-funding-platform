@@ -19,6 +19,8 @@ import type {
 } from '@openg7/funding-core';
 
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
+import { acceptanceSql } from './support/acceptance-database.js';
+import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import { test, expect } from './support/test.js';
 
 const automationUrl = '/api/admin/publication-automation';
@@ -84,6 +86,18 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
     expect(job).toBeTruthy();
     return job!;
   };
+  const receipt = (id: string) =>
+    get<{ requests: unknown[]; posts: unknown[] }>(
+      stub + '/__test__/social/receipts?deliveryId=' + id,
+      false
+    );
+  const tick = (now: Date) =>
+    expect
+      .poll(() => runAcceptancePublicationWorker(now), {
+        timeout: 15000,
+        intervals: [100, 500, 1000]
+      })
+      .toBe(true);
   const feedCard = (id: PublicationFeedId) =>
     admin.locator('[data-og7="publication-feed-settings"] article').filter({
       hasText: new RegExp(
@@ -104,6 +118,19 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
     await expect(
       admin.locator('[data-og7="publication-worker-toggle"]')
     ).toHaveAttribute('aria-checked', 'false');
+  } else {
+    // The migration leaves the switch nullable; persist an explicit OFF before
+    // resetting this fixture's preparation window.
+    expect(
+      (
+        await command({
+          action: 'worker',
+          enabled: false,
+          version: initial.workerVersion,
+          confirmation: 'disable-worker'
+        })
+      ).ok()
+    ).toBe(true);
   }
   const companyContext = await playwright.chromium.launchPersistentContext(
     await mkdtemp(join(tmpdir(), 'og7-sponsorship-publication-')),
@@ -296,6 +323,16 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
 
     let jobs: PublicationDelivery[] = [];
     await test.step('The worker prepares both channels but cannot authorize missing media', async () => {
+      // A new scenario owns a fresh preparation window in the disposable DB.
+      // Keep the real automatic planner; no approval or schedule is rewritten.
+      const reset = await acceptanceSql<{ id: string }>(
+        `UPDATE publication_feeds SET last_prepared_at=NULL
+         WHERE id=ANY($1::text[])
+           AND (SELECT enabled FROM publication_worker_settings WHERE id=TRUE) IS FALSE
+         RETURNING id`,
+        [feeds]
+      );
+      expect(reset.map((feed) => feed.id).sort()).toEqual(feeds);
       await admin.bringToFront();
       await admin.locator('[data-og7="publication-worker-toggle"]').click();
       await admin.locator('[data-og7="confirm-action"]').click();
@@ -305,14 +342,13 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
       await expect
         .poll(
           async () => {
+            await runAcceptancePublicationWorker(new Date());
             jobs = (await state()).deliveries.filter((j) =>
               j.sponsors.some((s) => s.id === record.id)
             );
             return jobs.map((j) => j.feedId).sort();
           },
-          // Earlier acceptance tests may have claimed the five-minute preparation
-          // window. Keep the real throttle and allow the next worker tick.
-          { timeout: 340000, intervals: [1000, 5000] }
+          { timeout: 15000, intervals: [100, 500, 1000] }
         )
         .toEqual(feeds);
       for (const job of jobs) {
@@ -360,6 +396,18 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
         path: info.outputPath('approval-blocked-before-media-review.png')
       });
     });
+
+    // Future delivery ticks must not advance preparation markers for any feed.
+    // The automatic preparation above has already been observed end to end.
+    for (const feed of (await state()).feeds) {
+      if (feed.autoPrepare) {
+        const response = await command({
+          action: 'settings',
+          settings: { ...feed, autoPrepare: false }
+        });
+        expect(response.ok(), await response.text()).toBe(true);
+      }
+    }
 
     await test.step('Review the uploaded media through the admin dossier', async () => {
       await admin.goto(
@@ -412,8 +460,8 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
       expect((await request.get(photoPath)).status()).toBe(404);
     });
 
-    // Approval requires a future time. The form accepts minute precision; leave
-    // 60–120 seconds for the explicit review, then let the real 30-second worker run.
+    // Keep the exact future schedule approved through the minute-precision UI.
+    // The disposable worker checks the boundary without waiting for wall time.
     const nearFuture = () =>
       new Date(Math.ceil((Date.now() + 60000) / 60000) * 60000);
     const editForDelivery = async (
@@ -491,17 +539,33 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
         ).toBeVisible();
       }
       await admin.close();
+      const due = new Date((await delivery(linkedin.id)).scheduledAt);
+      await tick(new Date(due.getTime() - 1));
+      expect(await delivery(linkedin.id)).toMatchObject({
+        status: 'approved',
+        attempts: 0,
+        publishedAt: null
+      });
+      expect((await receipt(linkedin.id)).requests).toHaveLength(0);
+      expect((await receipt(linkedin.id)).posts).toHaveLength(0);
       await expect
-        .poll(async () => (await delivery(linkedin.id)).status, {
-          timeout: 155000,
-          intervals: [1000, 3000]
-        })
+        .poll(
+          async () => {
+            await runAcceptancePublicationWorker(due);
+            return (await delivery(linkedin.id)).status;
+          },
+          { timeout: 15000, intervals: [100, 500, 1000] }
+        )
         .toBe('published');
+      await tick(due);
+      expect((await receipt(linkedin.id)).requests).toHaveLength(1);
+      expect((await receipt(linkedin.id)).posts).toHaveLength(1);
       expect(await delivery(facebook.id)).toMatchObject({
         status: 'draft',
         attempts: 0,
         publishedAt: null
       });
+      expect((await receipt(facebook.id)).requests).toHaveLength(0);
     });
     await test.step('Explicitly reauthorize Facebook and observe its server-side simulated delivery', async () => {
       admin = await context.newPage();
@@ -515,13 +579,28 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
         .click();
       await expect(preview).toContainText('Autorisée');
       await admin.close();
+      const due = new Date((await delivery(facebook.id)).scheduledAt);
+      await tick(new Date(due.getTime() - 1));
+      expect(await delivery(facebook.id)).toMatchObject({
+        status: 'approved',
+        attempts: 0,
+        publishedAt: null
+      });
+      expect((await receipt(facebook.id)).requests).toHaveLength(0);
+      expect((await receipt(facebook.id)).posts).toHaveLength(0);
       await expect
-        .poll(async () => (await delivery(facebook.id)).status, {
-          timeout: 155000,
-          intervals: [1000, 3000]
-        })
+        .poll(
+          async () => {
+            await runAcceptancePublicationWorker(due);
+            return (await delivery(facebook.id)).status;
+          },
+          { timeout: 15000, intervals: [100, 500, 1000] }
+        )
         .toBe('published');
+      await tick(due);
       for (const job of [facebook, linkedin]) {
+        expect((await receipt(job.id)).requests).toHaveLength(1);
+        expect((await receipt(job.id)).posts).toHaveLength(1);
         expect(await delivery(job.id)).toMatchObject({
           mode: 'mock',
           status: 'published',
@@ -666,6 +745,7 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
         body: JSON.stringify(
           {
             providers: 'simulated',
+            workerClock: 'controlled at the approved schedule',
             amountMinor: 50000,
             currency: 'CAD',
             contributionId: record.id,
@@ -683,7 +763,20 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
   } finally {
     await companyContext.close();
     // Restore shared runner settings without deleting the synthetic evidence.
-    for (const id of feeds) {
+    const beforeRestore = await state();
+    if (beforeRestore.workerEnabled) {
+      expect(
+        (
+          await command({
+            action: 'worker',
+            enabled: false,
+            version: beforeRestore.workerVersion,
+            confirmation: 'disable-worker'
+          })
+        ).ok()
+      ).toBe(true);
+    }
+    for (const { id } of initial.feeds) {
       const {
         paused,
         autoPrepare,

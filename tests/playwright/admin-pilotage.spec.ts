@@ -348,6 +348,7 @@ test('short screens and enlarged text keep appearance and decisions reachable', 
 test('appearance owns controller input and the stick scrolls the focused workspace', async ({
   page
 }) => {
+  await controllerClock(page);
   const { commands } = await fixtures(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/admin/fundraiser/pilotage');
@@ -359,7 +360,7 @@ test('appearance owns controller input and the stick scrolls the focused workspa
     'data-og7-pilot-theme',
     'mineral'
   );
-  await page.waitForTimeout(400);
+  await page.clock.runFor(400);
   await expect(
     page.locator('[data-og7="pilot-panel-appearance"]')
   ).toBeVisible();
@@ -1233,6 +1234,7 @@ test('guide explains real targets, resumes after reload and remembers completion
 test('guide owns controller shortcuts, requires release and traps keyboard focus', async ({
   page
 }) => {
+  await controllerClock(page);
   const { commands } = await fixtures(page);
   await page.goto('/admin/fundraiser/pilotage');
   await guideLaunch(page).click();
@@ -1243,7 +1245,7 @@ test('guide owns controller shortcuts, requires release and traps keyboard focus
     'data-og7-id',
     'domains'
   );
-  await page.waitForTimeout(600);
+  await page.clock.runFor(600);
   await expect(tour.locator('[data-og7="guide-card"]')).toHaveAttribute(
     'data-og7-id',
     'domains'
@@ -1697,6 +1699,13 @@ async function fixtures(page: Page, count = 4) {
     }
   };
 }
+const controllerClocks = new WeakSet<Page>();
+
+async function controllerClock(page: Page): Promise<void> {
+  await page.clock.install();
+  controllerClocks.add(page);
+}
+
 async function buttons(page: Page, pressed: number[] = []): Promise<void> {
   await page.evaluate((indices) => {
     const pad = (
@@ -1709,7 +1718,18 @@ async function buttons(page: Page, pressed: number[] = []): Promise<void> {
       b.pressed = !!b.value;
     });
   }, pressed);
-  await page.waitForTimeout(70);
+  // The controller samples on RAF. Process both the transition and a following
+  // frame before returning, including the neutral frames that arm the input.
+  if (controllerClocks.has(page)) {
+    await page.clock.runFor(32);
+  } else {
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        })
+    );
+  }
 }
 async function tap(page: Page, button: number): Promise<void> {
   await buttons(page);
@@ -1720,18 +1740,19 @@ async function tap(page: Page, button: number): Promise<void> {
 test('controller approval is contextual, requires release and processes twenty decisions without the portal', async ({
   page
 }) => {
+  await controllerClock(page);
   const { commands } = await fixtures(page, 20);
   await page.goto('/admin/fundraiser/pilotage');
   await expect(page.locator('[data-og7="pilot-decision"]')).toBeVisible();
   await buttons(page);
   await buttons(page, [0]);
   await expect(page.locator('[data-og7="pilot-panel-confirm"]')).toBeVisible();
-  await page.waitForTimeout(600);
+  await page.clock.runFor(600);
   expect(commands).toHaveLength(0);
   await buttons(page);
   await buttons(page, [0]);
   await expect(page.locator('[data-og7="pilot-receipt"]')).toBeVisible();
-  await page.waitForTimeout(400);
+  await page.clock.runFor(400);
   expect(commands).toHaveLength(1);
   for (let i = 1; i < 20; i++) {
     await tap(page, 5);
@@ -2029,6 +2050,7 @@ for (const width of [390, 1512]) {
 test('shared navigation and search suppress pilotage shortcuts until controller release', async ({
   page
 }) => {
+  await controllerClock(page);
   const { commands } = await fixtures(page);
   await page.goto('/admin/fundraiser/pilotage');
   const decision = page.locator('[data-og7="pilot-decision"]');
@@ -2054,7 +2076,7 @@ test('shared navigation and search suppress pilotage shortcuts until controller 
   await buttons(page, [0]);
   await page.keyboard.press('Escape');
   await page.locator('#admin-main').focus();
-  await page.waitForTimeout(350);
+  await page.clock.runFor(350);
   await expect(page.getByRole('dialog')).not.toBeVisible();
   await buttons(page);
   await tap(page, 0);
@@ -2269,6 +2291,7 @@ test('a failed programme replacement clears the old plan and failed refresh clea
 test('weekly calendar and rehearsal show proposed changes before a controller confirmation', async ({
   page
 }) => {
+  await controllerClock(page);
   const f = await programmeFixtures(page);
   await f.open();
   await page
@@ -2311,7 +2334,7 @@ test('weekly calendar and rehearsal show proposed changes before a controller co
     .focus();
   await buttons(page);
   await buttons(page, [0]);
-  await page.waitForTimeout(500);
+  await page.clock.runFor(500);
   expect(f.commands).toHaveLength(1);
   expect(f.commands[0]!.action).toBe('programme.apply');
   expect(f.commands[0]!.payload!.moves).toHaveLength(2);

@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
-import type { AdminEmailQueueResponse } from '@openg7/funding-core';
+import type {
+  AdminEmailQueueResponse,
+  AdminSponsorshipsResponse
+} from '@openg7/funding-core';
 
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import {
@@ -113,14 +116,24 @@ test('persistent drafts, public recovery and confirmed admin resend use the real
   await expect(panel.getByRole('status')).toContainText(
     'Le courriel est en file'
   );
-  const queued = { messages: await accessEmails() };
-  expect(queued.messages).toHaveLength(1);
-  expect(queued.messages[0].recipient_email).toBe(fixture.paymentEmail);
-  expect(queued.messages[0].status).toBe('queued');
-  expect(queued.messages[0].attempts).toBe(0);
-  expect(queued.messages[0].template_key).toBe('sponsorship_access_recovery');
+  const messages = await accessEmails();
+  expect(messages).toHaveLength(1);
+  const message = messages[0]!;
+  expect(message.recipient_email).toBe(fixture.paymentEmail);
+  // The real worker may claim or deliver the message before this queue read.
+  expect([
+    { status: 'queued', attempts: 0 },
+    { status: 'sending', attempts: 1 },
+    { status: 'sent', attempts: 1 }
+  ]).toContainEqual({ status: message.status, attempts: message.attempts });
+  expect(message.template_key).toBe('sponsorship_access_recovery');
   const retry = await request.post(accessUrl, { headers, data: payload });
-  expect((await retry.json()).status).toBe('already_queued');
+  expect(retry.status()).toBe(200);
+  expect(
+    message.status === 'sent'
+      ? ['already_sent']
+      : ['already_queued', 'already_sent']
+  ).toContain((await retry.json()).status);
   expect(
     (
       await request.post('/api/sponsorship-followup/recover', {
@@ -128,20 +141,28 @@ test('persistent drafts, public recovery and confirmed admin resend use the real
       })
     ).status()
   ).toBe(202);
-  expect(await accessEmails()).toHaveLength(1);
-  const after = await (
+  const replayedMessages = await accessEmails();
+  expect(replayedMessages).toHaveLength(1);
+  expect(replayedMessages[0]).toMatchObject({
+    id: message.id,
+    recipient_email: fixture.paymentEmail,
+    template_key: 'sponsorship_access_recovery'
+  });
+  if (message.status === 'sent') {
+    expect(replayedMessages[0]).toMatchObject({ status: 'sent', attempts: 1 });
+  }
+  const after = (await (
     await request.get(
       '/api/admin/sponsorships?search=' +
         encodeURIComponent(fixture.companyName),
       { headers }
     )
-  ).json();
-  expect(
-    after.items[0].admin_audit_entries.some(
-      (entry: { action: string }) =>
-        entry.action === 'sponsorship.access_link_requested'
-    )
-  ).toBe(true);
+  ).json()) as AdminSponsorshipsResponse;
+  const accessAudits = after.items[0]!.admin_audit_entries.filter(
+    (entry) => entry.action === 'sponsorship.access_link_requested'
+  );
+  expect(accessAudits).toHaveLength(1);
+  expect(accessAudits[0]!.metadata.messageId).toBe(message.id);
   const draft = await (
     await request.get(
       '/api/sponsorship-followup/draft?token=' + fixture.followupToken
