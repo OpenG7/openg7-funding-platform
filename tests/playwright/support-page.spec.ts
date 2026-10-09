@@ -221,16 +221,44 @@ for (const prefix of ['', '/en']) {
       const errors: string[] = [];
       page.on('pageerror', (error) => errors.push(error.message));
       await page.route(`**/api/${endpoint}`, () => {});
-      await page.goto(`${prefix}/support`);
-      if (kind === 'reference')
-        await page.locator('[data-og7="reference-recovery"] summary').click();
+      let resumeBootstrap: (() => void) | undefined;
+      if (kind === 'sponsorship') {
+        // Keep the prerendered form visible before Angular binds its controls.
+        const bootstrap = new Promise<void>((resolve) => {
+          resumeBootstrap = resolve;
+        });
+        await page.route('**/main*.js', async (route) => {
+          await bootstrap;
+          await route.continue();
+        });
+      }
       const input = page.locator(`#${inputId}`);
+      try {
+        await page.goto(`${prefix}/support`, {
+          waitUntil: kind === 'sponsorship' ? 'commit' : 'load'
+        });
+        if (kind === 'reference')
+          await page.locator('[data-og7="reference-recovery"] summary').click();
+        if (kind === 'sponsorship') {
+          await expect(input).toHaveJSProperty('readOnly', true);
+          await expect(
+            input.locator('xpath=ancestor::form').getByRole('button')
+          ).toBeDisabled();
+        }
+      } finally {
+        resumeBootstrap?.();
+      }
       await input.fill(
         kind === 'lookup' ? reference : 'fixture@example.invalid'
       );
       const request = page.waitForRequest(`**/api/${endpoint}`);
       await input.press('Enter');
-      await request;
+      const pendingRequest = await request;
+      if (kind === 'sponsorship')
+        expect(pendingRequest.postDataJSON()).toEqual({
+          email: 'fixture@example.invalid',
+          locale
+        });
       const aborted = page.waitForEvent('requestfailed', (r) =>
         r.url().endsWith(endpoint)
       );

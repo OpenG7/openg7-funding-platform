@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  afterNextRender,
   inject,
   input,
   signal
@@ -46,11 +47,11 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
         required
         maxlength="254"
         [formControl]="email"
-        [readOnly]="state() === 'sending'"
+        [readOnly]="!ready() || state() === 'sending'"
         [attr.aria-invalid]="attempted() && email.invalid"
         aria-describedby="followup-recovery-status"
       />
-      <button type="submit" [disabled]="state() === 'sending'">
+      <button type="submit" [disabled]="!ready() || state() === 'sending'">
         {{
           'funding.followup.recovery.' +
             (state() === 'sending' ? 'sending' : 'submit') | translate
@@ -88,13 +89,16 @@ export class SponsorshipAccessRecoveryComponent {
       Validators.maxLength(254)
     ]
   });
+  readonly ready = signal(false);
   readonly attempted = signal(false);
   readonly state = signal<'idle' | 'sending' | 'accepted' | 'error'>('idle');
   constructor() {
+    // Hydration writes the initial FormControl value; defer editing until then.
+    afterNextRender(() => this.ready.set(true));
     this.destroyRef.onDestroy(() => this.controller?.abort());
   }
   async submit(): Promise<void> {
-    if (this.state() === 'sending') return;
+    if (!this.ready() || this.state() === 'sending') return;
     this.attempted.set(true);
     this.email.setValue(this.email.value.trim());
     if (this.email.invalid) return;
