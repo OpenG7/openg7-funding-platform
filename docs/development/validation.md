@@ -53,8 +53,12 @@ documentaire n'exige pas de lancer les suites applicatives.
 La recette `yarn test:e2e:acceptance` exécute les scénarios séquentiellement sur
 un seul worker, même si une option CLI `--workers` indique une autre valeur.
 Les scénarios partagent la base, les réglages et les redémarrages de l’API.
-Pour paralléliser les contrôles navigateur, utiliser les suites UI isolées par
-leurs fixtures/interceptions.
+Le workflow [Admin acceptance](../../.github/workflows/admin-acceptance.yml)
+exécute en parallèle trois blocs, chacun sur son propre runner : contrôles et
+intégrations, navigateurs UI/identité/récupération, et recette Docker. Ce
+parallélisme entre jobs préserve le worker unique de la recette Docker ; les
+suites UI utilisent leurs fixtures/interceptions isolées. Le contrôle final
+`acceptance` exige la réussite des trois jobs.
 
 `keycloak:check` exige Docker Compose lorsqu'il lit un fichier d'environnement,
 sans contacter le daemon ou le fournisseur. Le [runbook Keycloak](../operations/keycloak-vps.md)
