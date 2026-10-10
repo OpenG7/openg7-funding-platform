@@ -2962,16 +2962,27 @@ test('browser history restores the viewport after visiting a next-step section',
   page
 }) => {
   await fixtures(page);
+  // Measure saved history positions without a smooth scroll still in flight.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 1280, height: 844 });
   await page.goto(path('identity'));
   const next = progress(page).locator('[data-og7="dossier-next"]');
   await next.scrollIntoViewIfNeeded();
-  await next.focus();
+  // Start away from the top and keep the link visible so clicking cannot scroll it.
+  await next.evaluate((element) => {
+    element.focus({ preventScroll: true });
+    window.scrollTo({
+      top: scrollY + element.getBoundingClientRect().top - 120,
+      behavior: 'instant'
+    });
+  });
   const before = await page.evaluate(() => scrollY);
+  expect(before).toBeGreaterThan(0);
   await next.click();
   await expect(page.locator('#dossier-review')).toBeFocused();
   await expect(page.locator('#dossier-review')).toBeInViewport();
   const destination = await page.evaluate(() => scrollY);
+  expect(destination).toBeGreaterThan(before);
   await page.goBack();
   await expect(page).toHaveURL(path('identity'));
   await expect(
