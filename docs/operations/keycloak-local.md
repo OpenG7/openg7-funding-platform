@@ -205,7 +205,8 @@ valident et réutilisent la préparation, et Keycloak ignore l'import si le
 realm existe. `docker:update` et `docker:recreate` réutilisent
 aussi ce subject sauvegardé lorsque la liste explicite est vide ; `recreate`
 ne peut pas amorcer cette préparation. Modifier le mot de passe dans `.env`
-ne réinitialise jamais un utilisateur existant.
+ne réinitialise jamais un utilisateur existant ; utiliser le
+[raccourci de réinitialisation locale](#reinitialiser-mot-de-passe-local).
 
 Avec cette option, **ne pas démarrer les services identité manuellement à
 l'étape 4** : cela créerait le volume avant l'amorçage. Après HTTPS, passer
@@ -357,6 +358,52 @@ son UUID dans la configuration privée.
 Un email, un nom d'utilisateur et le compte bootstrap `master` ne conviennent
 pas. Garder ces identifiants dans la configuration privée. Sur DB neuve, l'API
 créera le compte propriétaire à sa première connexion MFA réussie.
+
+<a id="reinitialiser-mot-de-passe-local"></a>
+
+### Réinitialiser le mot de passe d'une personne locale
+
+Sur une pile déjà démarrée en `development`, utiliser
+`yarn keycloak:reset-password` pour une personne du realm **openg7** sur
+`https://auth.openg7.test`. Vérifier le plan, puis lancer la commande dans un
+terminal interactif :
+
+```powershell
+yarn keycloak:reset-password --dry-run
+yarn keycloak:reset-password --username NOM --admin-user NOM
+```
+
+Remplacer `NOM` par les comptes concernés. `--username` est facultatif si
+`FUNDING_KEYCLOAK_INITIAL_USER_USERNAME` désigne la personne ; `--admin-user`
+prend par défaut `FUNDING_KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME`. Si le bootstrap
+a été retiré, préciser un administrateur `master` existant dont la connexion
+`admin-cli` accepte l'authentification par mot de passe. Pour un administrateur
+avec OTP, effectuer la réinitialisation depuis la
+[console Keycloak](https://auth.openg7.test/admin/) avec MFA. Les mots de passe
+présents dans `.env` ne sont pas réutilisés ; `--help` décrit les options.
+
+Confirmer la personne et la cible affichées, puis saisir aux invites masquées
+le nouveau mot de passe d'au moins **14 caractères** et le mot de passe actuel
+de l'administrateur. Le client administratif utilise HTTPS avec la CA publique
+locale montée en lecture seule dans un conteneur éphémère `--rm`, en lecture
+seule avec un espace temporaire en tmpfs et sans fichier de connexion
+persistant (`--no-config`). Le raccourci exige un daemon Docker local via un
+socket Unix ou `npipe` Windows ; la cible, son identité et le conteneur
+Keycloak sont vérifiés puis revérifiés après confirmation.
+Le contrôle réseau exige un proxy et un Keycloak uniques dans le même projet
+Compose et refuse les réseaux partagés avec une autre pile.
+
+La réinitialisation conserve le **User ID** et l'authentificateur OTP.
+Vérifier ensuite une nouvelle connexion complète mot de passe et OTP.
+Les sessions OpenG7 déjà émises se révoquent séparément depuis **Accès et
+sessions**. Ce raccourci ne réinitialise aucun compte du realm `master` et
+refuse la production.
+
+Le journal privé, ignoré par Git,
+`var/keycloak-local/<projet-compose>/password-resets.jsonl`, consigne acteur,
+action, cible, date, daemon, corrélation et résultat sans mot de passe.
+En cas de résultat indéterminé, vérifier le compte et le journal avant de
+relancer ; la commande ne réessaie pas automatiquement.
 
 ## 6. Initialiser la DB Funding et démarrer OpenG7
 

@@ -34,6 +34,7 @@ documentaire n'exige pas de lancer les suites applicatives.
 | `yarn docs:check` | Standards OpenG7 puis budgets UTF-8, liens/ancres et scripts documentés ; lecture seule |
 | `yarn docs:report` | Rapport JSON du contrôle documentaire, dont les chaînes de consignes et leurs budgets |
 | `yarn keycloak:check` | Préflight de configuration Keycloak locale ; aucun service démarré ni qualification OIDC/MFA |
+| `yarn keycloak:reset-password --dry-run` | Plan de réinitialisation d'une personne du realm local `openg7`, sans changer de mot de passe ; l'exécution interactive exige confirmation de cible et saisies masquées, avec révocation OpenG7 séparée |
 | `node scripts/prepare-local-identity.mjs` | Vérifie le profil local et ses certificats, génère les fichiers Traefik et l'import utilisateur initial si configuré ; aucun service ou compte créé |
 | `yarn test` | Compilation TypeScript puis tests Node; ne pas refaire `yarn build` juste avant |
 | `yarn workspace @openg7/funding-web build --configuration production` | Build Angular et rendu initial/SSR configuré |
