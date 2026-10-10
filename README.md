@@ -56,6 +56,11 @@ Use signals for local presentation and NgRx only for durable shared data; see
 
 ## Development and validation
 
+Run `yarn menu` for a numbered menu of development, Docker, checks and operational
+tools, or `yarn menu --list` to browse all root scripts without running them.
+See the [interactive menu guide](docs/command-cheatsheet.md#menu-interactif) for
+arguments, terminal behavior and confirmations before sensitive operations.
+
 | Need                                                            | Reference                                                         |
 | --------------------------------------------------------------- | ----------------------------------------------------------------- |
 | Commands, Docker updates and troubleshooting                    | [Command cheatsheet](docs/command-cheatsheet.md)                  |
