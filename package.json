@@ -18,6 +18,7 @@
     "shell-quote": "1.9.0"
   },
   "scripts": {
+    "menu": "node scripts/menu.mjs",
     "dev": "concurrently \"yarn dev:api\" \"yarn dev:web\"",
     "dev:web": "yarn workspace @openg7/funding-web start --proxy-config apps/funding-web/proxy.conf.json",
     "dev:api": "yarn workspace @openg7/funding-api start",

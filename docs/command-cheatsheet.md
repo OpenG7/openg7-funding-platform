@@ -5,6 +5,32 @@ fait foi. Lire la section utile. Production, live et opérations destructives
 exigent la [procédure à risque élevé](../AGENTS.md#risque-eleve).
 Les exemples n'autorisent aucune exécution.
 
+## Menu interactif
+
+`yarn menu` propose un questionnaire numéroté : développement (Web/API), Docker
+(démarrer, arrêter, mettre à jour), vérifications, outils et production/VPS/stockage.
+Le catalogue recherche par nom ou description dans [package.json](../package.json).
+
+```sh
+yarn menu
+yarn menu --list --search docker
+yarn menu --help
+```
+
+`--list` (filtre facultatif) et `--help` sont sans exécution et sans terminal
+interactif. Le [lanceur](../scripts/menu.mjs) conserve les questionnaires
+existants, dont `docker:up`. Il affiche la commande et propose des arguments
+facultatifs, transmis sans interprétation par un shell; ne saisir aucun secret.
+
+Les commandes sensibles ou non classées exigent de saisir
+`executer <nom-script>`. `docker:down -v/--volumes` avertit de la suppression
+des volumes et exige `supprimer volumes docker:down`. Ces confirmations ne
+remplacent pas l'autorisation, la cible et les préconditions du runbook.
+
+La commande utilise le terminal; le menu revient après sa fin. `Ctrl+C` quitte
+le questionnaire ou interrompt la commande; le retour dépend du terminal.
+Interrompre le relais Stripe ne stoppe pas les conteneurs : utiliser l'arrêt Docker.
+
 ## Local
 
 <!-- prettier-ignore -->
