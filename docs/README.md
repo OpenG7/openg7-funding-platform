@@ -1,6 +1,6 @@
 # Documentation de la plateforme
 
-Révision documentaire : 19 septembre 2026, après la PR #127 (`137720c`).
+Révision de l’index : 3 octobre 2026.
 L'[état de la plateforme](platform-status.md) distingue les fonctionnalités
 livrées, leurs préconditions et les preuves d'exécution disponibles. Une fonction
 présente dans le dépôt n'est pas nécessairement activée en production.
@@ -18,6 +18,11 @@ décrit les propriétaires des règles partagées et les vérifications de cette
 Références techniques extraites du README : [configuration](technical/configuration.md),
 [API admin](technical/admin-api.md), [API publique](technical/public-api.md) et
 [Stripe/webhooks/backfill](technical/stripe.md). Lire la section utile seulement.
+
+L’[inventaire des barrières de sécurité](technical/security-barriers.md) décrit
+le bouclier intégré, ses preuves de code et de tests, ses conditions d’activation
+et ses limites. Les résultats de validation y sont datés et rattachés à la
+révision examinée ; ils ne certifient pas l’état de production.
 
 L’[inventaire daté des 71 scénarios de bout en bout](development/end-to-end-scenarios-inventory.md)
 conserve les parcours recensés pour préparer les prochaines recettes. Ses numéros
@@ -81,6 +86,11 @@ fournisseur IA externe n'est actuellement raccordé à ce volet dans l'API.
 La [vue d'ensemble de l'Assistant](admin-assistant-overview.md) propose une
 synthèse, des catégories filtrables, des groupes de courriels et un détail avec
 retour au contexte, à partir de la file complète et paginée de **À traiter**.
+
+## Travaux envisagés
+
+- [Plan de travail — OpenG7 Admin pour Windows](funding-windows-plan-de-travail.md) :
+  application de gestion des contributions et commandites, à réaliser ultérieurement.
 
 ## Exploitation et validation
 
