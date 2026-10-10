@@ -1,6 +1,7 @@
 import { expect, test } from './support/test.js';
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { signInAsAdmin, openFixtureSponsorship } from './support/admin-auth.js';
+import { dismissContributionToasts } from './support/contribution-toasts.js';
 
 // Tests for sponsor side rejection state validation
 // The admin can reject sponsorships via admin-sponsorship-review.spec.ts,
@@ -21,19 +22,16 @@ test.describe('Sponsor side rejected state validation', () => {
     // them through the UI if they arrive while Playwright attempts the click.
     const toasts = page.locator('[data-og7="contribution-toast"]');
     const firstToast = toasts.first();
-    await page.addLocatorHandler(firstToast, async () => {
-      while (await toasts.count()) {
-        await toasts
-          .first()
-          .getByRole('button', { name: 'Fermer', exact: true })
-          .click();
-      }
-      await expect(toasts).toHaveCount(0);
-    });
+    await page.addLocatorHandler(firstToast, () =>
+      dismissContributionToasts(page)
+    );
 
     // Admin rejects the sponsorship with an internal reason
-    await page.getByRole('button', { name: 'Refuser' }).click();
-    await page.removeLocatorHandler(firstToast);
+    try {
+      await page.getByRole('button', { name: 'Refuser' }).click();
+    } finally {
+      await page.removeLocatorHandler(firstToast);
+    }
     await page
       .getByLabel(/Raison interne du refus/i)
       .fill('E2E Playwright: refus de test pour validation sponsor.');

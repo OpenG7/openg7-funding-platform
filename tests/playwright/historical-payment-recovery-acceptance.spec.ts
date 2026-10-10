@@ -13,6 +13,7 @@ import {
   acceptanceSql
 } from './support/acceptance-database.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
+import { dismissContributionToasts } from './support/contribution-toasts.js';
 import {
   buildPaymentIntentSucceededEvent,
   buildSignedWebhookRequest,
@@ -291,15 +292,9 @@ test('historical Stripe payment: bounded preview, silent recovery, late events a
   // the UI only while opening the historical contribution's invoice action.
   const toasts = page.locator('[data-og7="contribution-toast"]');
   const firstToast = toasts.first();
-  await page.addLocatorHandler(firstToast, async () => {
-    while (await toasts.count()) {
-      await toasts
-        .first()
-        .getByRole('button', { name: 'Fermer', exact: true })
-        .click();
-    }
-    await expect(toasts).toHaveCount(0);
-  });
+  await page.addLocatorHandler(firstToast, () =>
+    dismissContributionToasts(page)
+  );
   try {
     await task.getByRole('link').click();
   } finally {
