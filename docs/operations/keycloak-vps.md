@@ -49,6 +49,11 @@ Avant toute opération sur une cible réelle :
    pour l'opérateur. Sur un VPS neuf, suivre l'[installation de base](../docker-deployment.md#first-vps-installation)
    avant ces étapes, sans encore lancer la livraison applicative.
 
+Le parcours HTTPS automatique ci-dessous exige un hôte POSIX ; l'exécution
+réelle est refusée sous Windows avant tout effet. Renseigner `LETSENCRYPT_EMAIL`
+avec une adresse opérationnelle réelle, sans reprendre les valeurs d'exemple.
+Le lanceur ne crée ni DNS ni règle de pare-feu.
+
 Les commandes Node directes ci-dessous n'exigent aucune dépendance npm sur
 l'hôte. Les raccourcis Yarn équivalents, dont `yarn keycloak:check`, supposent
 Yarn 4 et une installation du workspace par `yarn install --immutable`.
@@ -71,6 +76,7 @@ FUNDING_KEYCLOAK_ENABLED=true
 FUNDING_KEYCLOAK_HOSTNAME=auth.openg7.org
 FUNDING_ADMIN_AUTH_MODE=oidc
 FUNDING_PUBLIC_BASE_URL=https://openg7.org
+FUNDING_PLATFORM_API_BASE_URL=https://openg7.org/api
 FUNDING_ADMIN_OIDC_ISSUER=https://auth.openg7.org/realms/openg7
 FUNDING_ADMIN_OIDC_CLIENT_ID=openg7-funding-admin
 FUNDING_ADMIN_OIDC_MFA_ACR=
@@ -90,6 +96,78 @@ Funding migrée et `FUNDING_PRIVATE_DATA_ENCRYPTION_KEY` encodant exactement
 32 octets aléatoires en base64 standard. Les subjects
 propriétaires seront renseignés après création des personnes nominatives.
 
+Le lanceur `yarn docker:up:prod` inclut le profil PostgreSQL et propose en
+terminal interactif `keycloak`, `oidc` ou `configured`. Entrée et `configured`
+conservent `.env`/shell. Sans terminal interactif ou avec `--dry-run`, il ne
+pose aucune question d'authentification et conserve ce mode sauf choix
+explicite. Un mode token est refusé en production, y compris depuis `.env`.
+
+`yarn docker:up:prod:keycloak` applique `--auth keycloak` pour cette invocation :
+il garde l'hôte DNS public (sans domaine `.test`), l'origine publique, le client,
+le nom bootstrap et les secrets préparés, calcule l'issuer
+`https://<FUNDING_KEYCLOAK_HOSTNAME>/realms/openg7` et fixe
+`FUNDING_ADMIN_OIDC_MFA_ACR` vide. Aucun domaine local, nom par défaut ni secret
+n'est généré. `yarn docker:up:prod:oidc` applique `--auth oidc` pour un fournisseur
+externe : issuer, client, secret, preuve MFA et origine publique sont conservés,
+et la surcharge Keycloak est exclue. Les deux aliases incluent PostgreSQL ;
+ni TLS local ni relais Stripe ne sont activés en production. Un choix explicite
+refuse un `COMPOSE_FILE` personnalisé ; `configured` ou l'absence de choix
+conserve cette composition.
+
+Examiner uniquement le plan avant une reconstruction autorisée :
+
+```sh
+yarn docker:up:prod --dry-run
+yarn docker:up:prod:keycloak --dry-run
+yarn docker:up:prod:keycloak --identity-only --dry-run
+yarn docker:up:prod:oidc --dry-run
+```
+
+Pour les choix explicites `keycloak` et `oidc` en production, le préflight
+vérifie la configuration : origine publique exacte, issuer HTTPS hors loopback
+et base API sur la même origine publique. Il ne contacte pas le
+fournisseur et ne prouve ni DNS/HTTPS réels, comptes, OTP, propriétaires,
+migrations, sauvegardes ni qualification de la cible. Ces préconditions restent
+à préparer et vérifier selon ce guide et le
+[runbook des accès](admin-identity-and-alerts.md), avant toute opération autorisée.
+Le sélecteur ne réconcilie pas le realm ou client déjà stocké, ne provisionne
+aucun compte OpenG7 et ne retire ni n'arrête les anciens services.
+
+L'exécution réelle Keycloak ajoute une préparation HTTPS après le préflight :
+validation Compose et build, puis création si nécessaire du stockage persistant
+`traefik/acme/acme.json` : répertoire `700`, fichier `600`. Un état déjà protégé
+est conservé sans lecture du contenu ni nouveau `chmod`. L'opérateur non-root
+ayant accès au daemon Docker local exécuté par root peut garder ce stockage
+appartenant à root, inaccessible à son compte, sans lancer le script avec `sudo`.
+Un conteneur éphémère vérifie uniquement les métadonnées, avec l'image Traefik
+effective de Compose, sans réseau et en lecture seule. Un stockage incorrect
+bloque le démarrage de l'identité ; la correction des permissions revient à son
+propriétaire. Ce contrôle est prévu pour ce VPS local ; un contexte distant ou
+rootless peut être refusé. Voir les [garanties du contrôle ACME](../docker-deployment.md#https-de-lidentite-en-production).
+
+Le lanceur démarre `identity-postgres`, `keycloak` et `traefik` avec une attente
+bornée à 180 secondes. Il sonde ensuite le
+fournisseur avec la vérification TLS native de Node : discovery, issuer exact,
+endpoints OIDC et JWKS doivent réussir dans un budget total de 180 secondes
+avant le démarrage complet. En cas d'échec, le parcours s'arrête ; examiner les
+services déjà démarrés. `--dry-run` annonce ces étapes sans écriture de fichiers,
+réseau ni contact du daemon et ne démarre aucun conteneur de contrôle.
+
+Cette préparation concerne uniquement le certificat de l'hôte Keycloak ; les
+routes Web/API demeurent celles de `openg7.org` et `www.openg7.org`. Elle ne crée
+pas de routage pour un autre site et ne génère ni ne répare les certificats d'un
+fournisseur OIDC externe. Discovery et JWKS ne prouvent ni MFA ni rôle applicatif.
+
+Le choix est limité à cette invocation et ne modifie pas `.env`. Pour une
+reconstruction suivante avec le même choix, reprendre le même alias.
+`docker:update`, `docker:recreate`, `keycloak:check`, la livraison et les commandes
+TLS lisent toujours `.env`/shell ; y préparer une configuration cohérente.
+Changer d'issuer filtre les comptes et sessions OpenG7 selon cet issuer, sans
+transférer les comptes. Les anciennes sessions restent en DB et peuvent
+redevenir valides si leur issuer est rétabli alors qu'elles sont encore actives,
+non expirées et non révoquées. Gérer ou révoquer explicitement ces sessions selon
+le [processus d'accès approuvé](admin-identity-and-alerts.md), avant la bascule.
+
 Les commandes ci-dessous décrivent une opération à exécuter seulement sur la
 cible autorisée. Le préflight lit `.env` à la racine ; l'environnement du
 processus reste prioritaire. Le lecteur commun des commandes Docker utilise
@@ -100,16 +178,22 @@ plan sont examinés. Ces valeurs ne sont pas exportées dans l'environnement des
 commandes suivantes : Compose conserve la résolution des variables runtime.
 Docker Compose doit être installé pour lire un fichier d'environnement, y compris
 en `--dry-run` ; cette lecture ne contacte ni le daemon ni le fournisseur et ne
-démarre aucun service. Le préflight n'imprime aucune valeur privée :
+démarre aucun service. Le préflight n'imprime aucune valeur privée.
+Pour le premier bootstrap, utiliser `--identity-only` sur la cible autorisée :
+ce mode réservé à Keycloak en production construit uniquement Keycloak et
+exécute la préparation ACME et la sonde HTTPS ci-dessus. Il démarre uniquement
+les trois services d'identité, sans API, Web, workers ni DB Funding, même si
+l'alias active le profil PostgreSQL. Sur un checkout sans dépendances Yarn,
+utiliser la commande Node équivalente :
 
 ```sh
 node scripts/keycloak-config.mjs --check
-docker compose --env-file .env -f docker-compose.yml -f docker-compose.identity.yml config --quiet
-docker compose --env-file .env -f docker-compose.yml -f docker-compose.identity.yml build keycloak
-docker compose --env-file .env -f docker-compose.yml -f docker-compose.identity.yml up -d --wait identity-postgres keycloak traefik
+node scripts/docker-up.mjs --environment prod --auth keycloak --database --identity-only
 docker compose --env-file .env -f docker-compose.yml -f docker-compose.identity.yml ps identity-postgres keycloak traefik
 ```
 
+Avec le workspace installé, le raccourci équivalent est
+`yarn docker:up:prod:keycloak --identity-only`.
 Ces services peuvent démarrer sans API/Web : Keycloak attend uniquement sa DB,
 Traefik n'a pas de dépendance applicative. Les routes OpenG7 peuvent donc encore
 répondre en erreur pendant cette préparation. Vérifier maintenant DNS, certificat
@@ -117,7 +201,8 @@ et discovery du realm, puis préparer les comptes ci-dessous avant de livrer l'A
 
 Ne démarrer l'API en production qu'après qualification du fournisseur et des
 comptes. `docker:up` et `docker:update` partagent la sélection des fichiers Compose
-et ajoutent l'overlay identité lorsque le commutateur est `true`. Si
+et ajoutent l'overlay identité lorsque le commutateur effectif est `true` : celui
+de l'invocation pour `docker:up`, celui de `.env`/shell pour `docker:update`. Si
 `FUNDING_OPERATIONS_WATCHER_ENABLED=true`, ils conservent aussi l'overlay
 `docker-compose.operations.yml` et son surveillant. La livraison applicative et son rollback conservent
 l'overlay pour Traefik, mais ne reconstruisent, ne démarrent ni ne restaurent
@@ -238,9 +323,11 @@ autorisé et avec le même projet Compose :
    les overlays identité et opérations selon leurs commutateurs. Keycloak et sa
    DB déjà préparés restent dans leur cycle séparé. Pour des images de registre,
    suivre la [livraison qualifiée par révision](../docker-deployment.md#deployment).
-   `yarn docker:up --environment prod --database` construit et démarre la pile
-   complète pour une reconstruction autorisée ; il **ne migre pas** la DB et
-   peut reconstruire l'identité. Il ne remplace pas cette première livraison.
+   `yarn docker:up:prod` et ses aliases `:keycloak`/`:oidc` construisent et
+   démarrent la pile complète pour une reconstruction autorisée ; ils
+   **ne migrent pas** la DB et peuvent reconstruire l'identité sélectionnée.
+   Leur choix d'authentification reste limité à l'invocation. Ils ne remplacent
+   pas cette première livraison canonique.
 
 5. Contrôler les états puis les routes publiques :
 

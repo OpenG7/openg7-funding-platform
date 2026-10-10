@@ -5,6 +5,7 @@ import { loadDotEnv } from './lib/load-dotenv.mjs';
 import {
   runStripeListener,
   stripeListenerEnvironment,
+  stripeSnapshotListenerArgs,
   verifyLocalStripeTls,
   verifyStripeSigningSecret
 } from './lib/stripe-listener.mjs';
@@ -26,6 +27,9 @@ Garder ce terminal ouvert; Ctrl+C arrete uniquement le relais.`);
     process.chdir(resolve(dirname(fileURLToPath(import.meta.url)), '..'));
     loadDotEnv('.env');
     const env = stripeListenerEnvironment(process.env);
+    const listenerArgs = stripeSnapshotListenerArgs(
+      await runStripeListener(['listen', '--help'], { env, capture: true })
+    );
     const secret = await runStripeListener(['listen', '--print-secret'], {
       env,
       capture: true
@@ -37,10 +41,7 @@ Garder ce terminal ouvert; Ctrl+C arrete uniquement le relais.`);
       console.log(
         'Relais Stripe vers https://localhost/api/stripe/webhook. Garder ce terminal ouvert (Ctrl+C pour arreter).'
       );
-      await runStripeListener(
-        ['listen', '--forward-to', 'https://localhost/api/stripe/webhook'],
-        { env }
-      );
+      await runStripeListener(listenerArgs, { env });
     }
   }
 } catch (error) {

@@ -22,6 +22,7 @@ import {
   redactStripeOutput,
   runStripeListener,
   stripeListenerEnvironment,
+  stripeSnapshotListenerArgs,
   verifyLocalStripeTls,
   verifyStripeSigningSecret
 } from '../scripts/lib/stripe-listener.mjs';
@@ -252,6 +253,33 @@ test('listener uses the application test account and rejects missing, live or mi
   );
 });
 
+test('recent Stripe CLIs explicitly select all snapshot events advertised in their help', () => {
+  const help = `Flags:
+      --all-snapshot         Listen to all snapshot events
+      --all-thin             Listen to all thin events
+  -e, --events strings       The events to listen for
+      --forward-to string    Forward webhook events to this URL`;
+  assert.deepEqual(stripeSnapshotListenerArgs(help), [
+    'listen',
+    '--all-snapshot',
+    '--forward-to',
+    'https://localhost/api/stripe/webhook'
+  ]);
+});
+
+test('older Stripe CLIs explicitly select wildcard snapshot events without the all-snapshot flag', () => {
+  const help = `Flags:
+  -e, --events strings       The events to listen for
+      --forward-to string    Forward webhook events to this URL`;
+  assert.deepEqual(stripeSnapshotListenerArgs(help), [
+    'listen',
+    '--events',
+    '*',
+    '--forward-to',
+    'https://localhost/api/stripe/webhook'
+  ]);
+});
+
 test('local TLS preflight rejects untrusted certificates before any event forwarding', async () => {
   for (const event of ['trusted', 'untrusted', 'error', 'timeout']) {
     const socket = new EventEmitter();
@@ -380,7 +408,10 @@ test('CLI help and dry runs without environment files need neither Docker nor St
     'lib/docker-up.mjs',
     'lib/docker-config.mjs',
     'lib/keycloak-config.mjs',
+    'lib/production-identity.mjs',
     'lib/local-identity.mjs',
+    'lib/services-check-context.mjs',
+    'lib/services-check-identity.mjs',
     'lib/docker-environment.mjs'
   ])
     writeFileSync(

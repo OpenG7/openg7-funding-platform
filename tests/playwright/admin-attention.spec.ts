@@ -5,6 +5,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
+import { dismissContributionToasts } from './support/contribution-toasts.js';
 
 const emailId = '10000000-0000-4000-8000-000000000151';
 const contributionId = '10000000-0000-4000-8000-000000000251';
@@ -141,6 +142,84 @@ async function fixtures(page: Page): Promise<void> {
       status: 503,
       json: { error: 'Unavailable fixture' }
     });
+  });
+}
+
+for (const scenario of [
+  { name: 'one toast', ids: ['1'], addDuringDismissal: false },
+  { name: 'three toasts', ids: ['1', '2', '3'], addDuringDismissal: false },
+  {
+    name: 'a toast arriving during dismissal',
+    ids: ['1'],
+    addDuringDismissal: true
+  }
+]) {
+  test(`invoice action handles delayed toast dismissal: ${scenario.name}`, async ({
+    page
+  }) => {
+    await page.setContent(`
+      <style>
+        #invoice-action { position: absolute; top: 2rem; left: 2rem; }
+        #notifications { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
+        [data-og7="contribution-toast"] { width: 18rem; padding: 1rem; background: #eee; pointer-events: auto; }
+      </style>
+      <button id="invoice-action" type="button">Générer la facture</button>
+      <section id="notifications"></section>
+      <output id="close-counts">{}</output>
+    `);
+    await page.evaluate(({ ids, addDuringDismissal }) => {
+      const notifications = document.getElementById('notifications')!;
+      const counts = document.getElementById('close-counts')!;
+      const closeCounts: Record<string, number> = {};
+      let added = false;
+      const addToast = (id: string) => {
+        const toast = document.createElement('article');
+        toast.dataset['og7'] = 'contribution-toast';
+        toast.dataset['og7Id'] = id;
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.textContent = 'Fermer';
+        close.onclick = () => {
+          closeCounts[id] = (closeCounts[id] ?? 0) + 1;
+          counts.textContent = JSON.stringify(closeCounts);
+          if (addDuringDismissal && !added) {
+            added = true;
+            setTimeout(() => addToast('4'), 100);
+          }
+          // Angular can remove the article after the click promise settles.
+          setTimeout(() => toast.remove(), 250);
+        };
+        toast.append(close);
+        notifications.append(toast);
+      };
+      for (const id of ids) addToast(id);
+      document.getElementById('invoice-action')!.onclick = (event) => {
+        (event.currentTarget as HTMLElement).dataset['clicked'] = 'true';
+      };
+    }, scenario);
+    const toasts = page.locator('[data-og7="contribution-toast"]');
+    const firstToast = toasts.first();
+    await page.addLocatorHandler(firstToast, () =>
+      dismissContributionToasts(page)
+    );
+    try {
+      await page
+        .getByRole('button', { name: 'Générer la facture', exact: true })
+        .click();
+    } finally {
+      await page.removeLocatorHandler(firstToast);
+    }
+    await expect(toasts).toHaveCount(0);
+    await expect(page.locator('#invoice-action')).toHaveAttribute(
+      'data-clicked',
+      'true'
+    );
+    const ids = scenario.addDuringDismissal
+      ? [...scenario.ids, '4']
+      : scenario.ids;
+    expect(
+      JSON.parse((await page.locator('#close-counts').textContent())!)
+    ).toEqual(Object.fromEntries(ids.map((id) => [id, 1])));
   });
 }
 
