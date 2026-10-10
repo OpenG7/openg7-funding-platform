@@ -22,6 +22,9 @@ h3,
 p {
   margin: 0;
 }
+p {
+  overflow-wrap: anywhere;
+}
 .eyebrow,
 .step-position {
   color: var(--admin-muted);

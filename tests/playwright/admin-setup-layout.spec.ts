@@ -134,6 +134,10 @@ for (const language of ['fr-CA', 'en']) {
       await card(page, 'identity').focus();
       await page.keyboard.press('Enter');
       await expect(page.locator('#setup-identity')).toBeFocused();
+      await expect(page.locator('#setup-identity details')).toHaveAttribute(
+        'open',
+        ''
+      );
       await card(page, 'storage').focus();
       await page.keyboard.press('Enter');
       await expect(page.locator('#setup-storage')).toBeFocused();
@@ -177,6 +181,19 @@ for (const language of ['fr-CA', 'en']) {
           () => document.documentElement.scrollWidth <= innerWidth
         )
       ).toBe(true);
+      if (width === 390) {
+        // Font metrics differ across hosts; keep the expanded guide contained.
+        const fallbackFont = await page.addStyleTag({
+          content:
+            'openg7-admin-layout { --admin-font-family: Arial, sans-serif; }'
+        });
+        expect(
+          await page.evaluate(() => document.documentElement.scrollWidth)
+        ).toBeLessThanOrEqual(width);
+        await fallbackFont.evaluate((element) => {
+          element.parentNode?.removeChild(element);
+        });
+      }
       const accessibility = await new AxeBuilder({ page })
         .include('openg7-admin-setup-page')
         .analyze();
