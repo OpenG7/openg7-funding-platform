@@ -317,6 +317,7 @@ const cliFixture = (t) => {
     'scripts/lib/keycloak-config.mjs',
     'scripts/lib/production-identity.mjs',
     'scripts/lib/local-identity.mjs',
+    'scripts/lib/keycloak-initial-user.mjs',
     'scripts/lib/services-check-context.mjs',
     'scripts/lib/services-check-identity.mjs',
     'tests/support/local-tls-fixture.mjs',

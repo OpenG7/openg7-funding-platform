@@ -19,6 +19,7 @@ import {
   resolveDockerUpdateOptions
 } from './lib/docker-update.mjs';
 import { prepareLocalIdentity } from './lib/local-identity.mjs';
+import { prepareLocalInitialUser } from './lib/keycloak-initial-user.mjs';
 
 const help = `
 Usage:
@@ -146,6 +147,11 @@ try {
       : 'Stripe webhook listener ignore.'
   );
 
+  const localIdentity = plan.commands.some(({ args }) =>
+    args.includes('docker-compose.identity.local.yml')
+  );
+  // Pin the initial user's Docker target before the topology inspection, too.
+  if (localIdentity) prepareLocalInitialUser({ root, env: plan.commandEnv });
   await assertDockerUpdateTopology(plan, {
     readComposeServices: async (args, commandEnv) => {
       const invocation = dockerUpdateInvocation('docker', args, {
@@ -163,12 +169,9 @@ try {
       return result.stdout;
     }
   });
-  if (
-    plan.commands.some(({ args }) =>
-      args.includes('docker-compose.identity.local.yml')
-    )
-  )
+  if (localIdentity) {
     prepareLocalIdentity({ root, env: plan.commandEnv });
+  }
   await executeDockerUpdate(plan, {
     runCommand: run,
     beforeStripeWebhook: () => {

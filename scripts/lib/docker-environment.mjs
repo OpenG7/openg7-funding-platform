@@ -2,9 +2,10 @@ import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { delimiter, dirname, resolve } from 'node:path';
 
-// These values are read to choose/validate a plan. Runtime settings stay in
-// Compose's environment files instead of being exported to child processes.
+// These values are read to choose/validate a plan. Original runtime settings
+// stay in Compose's environment files; launchers export only derived overrides.
 const configurationNames = [
+  'COMPOSE_PROJECT_NAME',
   'COMPOSE_FILE',
   'COMPOSE_PATH_SEPARATOR',
   'COMPOSE_PROFILES',
@@ -23,9 +24,12 @@ const configurationNames = [
   'FUNDING_ADMIN_OIDC_MFA_ACR',
   'FUNDING_ADMIN_OIDC_CLIENT_ID',
   'FUNDING_ADMIN_OIDC_CLIENT_SECRET',
+  'FUNDING_ADMIN_OIDC_OWNER_SUBJECTS',
   'FUNDING_KEYCLOAK_DB_PASSWORD',
   'FUNDING_KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME',
-  'FUNDING_KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD'
+  'FUNDING_KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD',
+  'FUNDING_KEYCLOAK_INITIAL_USER_USERNAME',
+  'FUNDING_KEYCLOAK_INITIAL_USER_PASSWORD'
 ];
 const presencePrefix = '__OPENG7_PRESENT_';
 const configurationError = () =>

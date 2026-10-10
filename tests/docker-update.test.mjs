@@ -570,6 +570,7 @@ const localIdentityCli = (t, existingServices) => {
     'scripts/lib/docker-environment.mjs',
     'scripts/lib/keycloak-config.mjs',
     'scripts/lib/local-identity.mjs',
+    'scripts/lib/keycloak-initial-user.mjs',
     'traefik/traefik.yml',
     'traefik/dynamic.yml',
     'traefik/keycloak.yml'

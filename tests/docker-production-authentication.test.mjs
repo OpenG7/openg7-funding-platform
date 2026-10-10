@@ -541,6 +541,7 @@ test(
       'lib/keycloak-config.mjs',
       'lib/production-identity.mjs',
       'lib/local-identity.mjs',
+      'lib/keycloak-initial-user.mjs',
       'lib/services-check-context.mjs',
       'lib/services-check-identity.mjs'
     ]) {

@@ -293,6 +293,7 @@ test('update CLI loads identity activation from its isolated .env before selecti
     'lib/docker-config.mjs',
     'lib/keycloak-config.mjs',
     'lib/local-identity.mjs',
+    'lib/keycloak-initial-user.mjs',
     'lib/docker-environment.mjs'
   ])
     writeFileSync(

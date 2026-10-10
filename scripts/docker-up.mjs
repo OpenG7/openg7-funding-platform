@@ -20,6 +20,7 @@ import {
   prepareLocalIdentity,
   validateLocalIdentityCertificates
 } from './lib/local-identity.mjs';
+import { prepareLocalInitialUser } from './lib/keycloak-initial-user.mjs';
 import {
   inspectProductionAcmeWithDocker,
   prepareProductionAcme,
@@ -59,7 +60,9 @@ sans daemon Docker ni modification de la pile.
 Le choix --auth vaut pour cette invocation; les autres lanceurs conservent .env/shell.
 Keycloak local verifie les certificats et lance le setup TLS --renew --no-restart si necessaire.
 Ce setup peut installer mkcert et demander l'approbation de sa CA dans Windows.
-Les secrets, hosts et comptes restent a preparer selon docs/operations/keycloak-local.md.
+Les secrets et hosts restent a preparer selon docs/operations/keycloak-local.md.
+Un premier utilisateur local peut etre prepare avec FUNDING_KEYCLOAK_INITIAL_USER_USERNAME/PASSWORD.
+La preparation exige une nouvelle base identite; mot de passe et OTP restent a changer/configurer personnellement.
 Production OIDC/Keycloak : suivre docs/operations/keycloak-vps.md et admin-identity-and-alerts.md.
 Keycloak production prepare ACME sans ecraser le stockage, puis verifie HTTPS et OIDC avant l'application.
 La preparation exige un hote POSIX, un email Let's Encrypt et DNS/ports 80/443 publics prets.
@@ -146,6 +149,10 @@ try {
         console.log(
           'node scripts/prepare-local-identity.mjs (before Docker; no files written in dry-run)'
         );
+        if (plan.commandEnv.FUNDING_KEYCLOAK_INITIAL_USER_USERNAME)
+          console.log(
+            'Preparation du premier utilisateur local et de son UUID stable (aucun fichier ni volume inspecte en dry-run).'
+          );
       }
       for (const args of plan.commands) {
         if (args === plan.identityUp)
@@ -180,7 +187,26 @@ try {
           );
           localCaChanged = readLocalCa() !== previousCa;
         },
-        prepareIdentity: (env) => prepareLocalIdentity({ root, env })
+        prepareIdentity: async (env) => {
+          prepareLocalIdentity({ root, env });
+          // The volume probe needs the daemon. Retain Docker Desktop auto-start
+          // without running a Compose mutation before the initial-user checks.
+          if (env.FUNDING_KEYCLOAK_INITIAL_USER_USERNAME)
+            await runNode(
+              [
+                'scripts/docker-ready.mjs',
+                '--',
+                process.execPath,
+                '--eval',
+                ''
+              ],
+              commandEnvironment(env)
+            );
+          if (prepareLocalInitialUser({ root, env }))
+            console.log(
+              'Import du premier utilisateur local prepare; changement de mot de passe et OTP requis a la connexion.'
+            );
+        }
       });
       if (localCaChanged) {
         // Node reads its extra CA at startup. Stop only the API after the build

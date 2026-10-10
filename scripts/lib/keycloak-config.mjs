@@ -6,6 +6,44 @@ export function keycloakEnabled(env) {
   return value === 'true';
 }
 
+export function validateKeycloakInitialUserConfig(env) {
+  const username = env.FUNDING_KEYCLOAK_INITIAL_USER_USERNAME ?? '';
+  const password = env.FUNDING_KEYCLOAK_INITIAL_USER_PASSWORD ?? '';
+  if (!username && !password) return false;
+  if (!username || !password)
+    throw new Error(
+      'Initial Keycloak user requires both FUNDING_KEYCLOAK_INITIAL_USER_USERNAME and FUNDING_KEYCLOAK_INITIAL_USER_PASSWORD.'
+    );
+  if (
+    env.FUNDING_PLATFORM_ENV !== 'development' ||
+    env.FUNDING_KEYCLOAK_HOSTNAME !== 'auth.openg7.test' ||
+    env.FUNDING_KEYCLOAK_ENABLED !== 'true' ||
+    env.COMPOSE_FILE
+  )
+    throw new Error(
+      'Initial Keycloak user preparation is restricted to managed local development.'
+    );
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9._@-]{0,127}$/.test(username))
+    throw new Error(
+      'FUNDING_KEYCLOAK_INITIAL_USER_USERNAME must be a valid username of at most 128 characters.'
+    );
+  if (password.trim().length < 14 || /[\r\n\0]/.test(password))
+    throw new Error(
+      'FUNDING_KEYCLOAK_INITIAL_USER_PASSWORD must contain at least 14 characters without CR, LF or NUL.'
+    );
+  if (
+    [
+      env.FUNDING_ADMIN_OIDC_CLIENT_SECRET,
+      env.FUNDING_KEYCLOAK_DB_PASSWORD,
+      env.FUNDING_KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD
+    ].includes(password)
+  )
+    throw new Error(
+      'The initial user password must be distinct from Keycloak database, bootstrap and OIDC secrets.'
+    );
+  return true;
+}
+
 export function validateKeycloakConfig(env) {
   if (!keycloakEnabled(env)) return false;
   const hostname = env.FUNDING_KEYCLOAK_HOSTNAME ?? '';
@@ -63,5 +101,6 @@ export function validateKeycloakConfig(env) {
     throw new Error(
       'Keycloak database, bootstrap and OIDC secrets must be distinct.'
     );
+  validateKeycloakInitialUserConfig(env);
   return true;
 }

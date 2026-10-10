@@ -1,6 +1,12 @@
 # Development HTTPS only; prepare with scripts/prepare-local-identity.mjs.
 # Layer after base, local-tls and identity. Production keeps its canonical files.
 services:
+  keycloak:
+    environment:
+      FUNDING_KEYCLOAK_INITIAL_USER_PASSWORD_JSON: ${FUNDING_KEYCLOAK_INITIAL_USER_PASSWORD_JSON:-}
+    volumes:
+      - ${FUNDING_KEYCLOAK_LOCAL_REALM_IMPORT_FILE:-./docker/keycloak/openg7-realm.json}:/opt/keycloak/data/import/openg7-realm.json:ro
+
   traefik:
     command: ['--configFile=/etc/traefik/traefik.yml']
     # Compose >=2.24.4 replaces the production publications as a whole.

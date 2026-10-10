@@ -34,13 +34,14 @@ documentaire n'exige pas de lancer les suites applicatives.
 | `yarn docs:check` | Standards OpenG7 puis budgets UTF-8, liens/ancres et scripts documentés ; lecture seule |
 | `yarn docs:report` | Rapport JSON du contrôle documentaire, dont les chaînes de consignes et leurs budgets |
 | `yarn keycloak:check` | Préflight de configuration Keycloak locale ; aucun service démarré ni qualification OIDC/MFA |
-| `node scripts/prepare-local-identity.mjs` | Vérifie le profil local et ses certificats, génère les fichiers Traefik locaux ; aucun service ou compte créé |
+| `node scripts/prepare-local-identity.mjs` | Vérifie le profil local et ses certificats, génère les fichiers Traefik et l'import utilisateur initial si configuré ; aucun service ou compte créé |
 | `yarn test` | Compilation TypeScript puis tests Node; ne pas refaire `yarn build` juste avant |
 | `yarn workspace @openg7/funding-web build --configuration production` | Build Angular et rendu initial/SSR configuré |
 | `yarn test:sponsorship` | Suite Node de couverture commandite; aucun navigateur |
 | `yarn test:e2e:acceptance` | API/DB/navigateur en pile Docker jetable, fournisseurs simulés; lanceur hôte Node.js `>=22`, images et CI sous Node 22 |
 | `yarn test:e2e:identity` | API réelle, Web compilé, PostgreSQL jetable et fournisseur OIDC signé local; rôles et révocation |
 | `node --test tests/identity/keycloak-local-https.integration.mjs` | Recette opt-in du profil Compose HTTPS local, Keycloak/OTP, API/Web et deux DB jetables ; images préconstruites et CA déjà approuvée requises |
+| `node --test tests/identity/keycloak-initial-user.integration.mjs` | Avec `FUNDING_KEYCLOAK_INITIAL_USER_TEST=1`, import initial réel et conservation après redémarrage sur Keycloak/PostgreSQL jetables ; HTTPS/CA synthétiques, images locales et OpenSSL requis, sans port publié |
 | `yarn test:e2e:playwright` | Démarrage/réutilisation Docker local, migrations et seed, puis Playwright; modifie l'état local |
 | `yarn test:ui:admin` | UI admin sur build Angular avec fixtures/interceptions |
 | `yarn test:ui:public-journeys` | Parcours publics FR/EN sur plusieurs navigateurs avec API interceptées |
