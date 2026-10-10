@@ -4,8 +4,12 @@ import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dockerComposeFileArgs } from './lib/docker-config.mjs';
-import { readDockerConfiguration } from './lib/docker-environment.mjs';
+import {
+  dockerCommandEnvironment,
+  readDockerConfiguration
+} from './lib/docker-environment.mjs';
 import { prepareLocalIdentity } from './lib/local-identity.mjs';
+import { prepareLocalInitialUser } from './lib/keycloak-initial-user.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const help = `Usage: yarn docker:recreate [--dry-run] [--help]
@@ -45,14 +49,42 @@ try {
         );
       for (const args of commands) console.log(`docker ${args.join(' ')}`);
     } else {
-      if (localIdentity) prepareLocalIdentity({ root, env: configurationEnv });
+      const commandEnv = { ...configurationEnv };
+      if (localIdentity) {
+        prepareLocalIdentity({ root, env: commandEnv });
+        if (commandEnv.FUNDING_KEYCLOAK_INITIAL_USER_USERNAME) {
+          const readiness = spawnSync(
+            process.execPath,
+            ['scripts/docker-ready.mjs', '--', process.execPath, '--eval', ''],
+            {
+              cwd: root,
+              env: dockerCommandEnvironment(
+                commandEnv,
+                configurationEnv,
+                shellEnv
+              ),
+              stdio: 'inherit',
+              windowsHide: true
+            }
+          );
+          if (readiness.error || readiness.signal || readiness.status !== 0)
+            throw new Error(
+              'Docker recreation failed before initial-user preparation.'
+            );
+        }
+        prepareLocalInitialUser({ root, env: commandEnv, allowCreate: false });
+      }
       for (const args of commands) {
         const result = spawnSync(
           process.execPath,
           ['scripts/docker-ready.mjs', '--', 'docker', ...args],
           {
             cwd: root,
-            env: shellEnv,
+            env: dockerCommandEnvironment(
+              commandEnv,
+              configurationEnv,
+              shellEnv
+            ),
             stdio: 'inherit',
             windowsHide: true
           }

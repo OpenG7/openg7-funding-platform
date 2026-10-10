@@ -300,7 +300,7 @@ test(
     ];
     for (const name of names)
       writeFileSync(join(root, name), readFileSync(name));
-    const render = (files) => {
+    const render = (files, overrides = {}) => {
       const result = spawnSync(
         'docker',
         [
@@ -317,7 +317,7 @@ test(
           'json'
         ],
         {
-          env: { ...hostEnv, ...configuration },
+          env: { ...hostEnv, ...configuration, ...overrides },
           encoding: 'utf8',
           stdio: 'pipe',
           windowsHide: true,
@@ -362,10 +362,81 @@ test(
     );
     assert.equal(local.networks['identity-data'].internal, true);
     assert.equal(local.networks.data.internal, true);
-    const canonical = render([
-      'docker-compose.yml',
-      'docker-compose.identity.yml'
-    ]);
+    const initialUser = {
+      FUNDING_KEYCLOAK_INITIAL_USER_PASSWORD:
+        'synthetic"password\\${placeholder}-canary',
+      FUNDING_KEYCLOAK_INITIAL_USER_PASSWORD_JSON:
+        'synthetic\\"password\\\\' + '\\u0024' + '{placeholder}-canary',
+      FUNDING_KEYCLOAK_LOCAL_REALM_IMPORT_FILE: join(
+        root,
+        'initial-realm.json'
+      ),
+      FUNDING_ADMIN_OIDC_OWNER_SUBJECTS: '7de82296-28b6-40a7-8350-b2238dbdd7e7'
+    };
+    const initialized = render(names, initialUser);
+    assert.equal(
+      initialized.services.keycloak.environment
+        .FUNDING_KEYCLOAK_INITIAL_USER_PASSWORD_JSON,
+      initialUser.FUNDING_KEYCLOAK_INITIAL_USER_PASSWORD_JSON
+    );
+    assert.equal(
+      JSON.parse(
+        '"' + initialUser.FUNDING_KEYCLOAK_INITIAL_USER_PASSWORD_JSON + '"'
+      ),
+      initialUser.FUNDING_KEYCLOAK_INITIAL_USER_PASSWORD
+    );
+    assert.equal(
+      initialized.services.api.environment.FUNDING_ADMIN_OIDC_OWNER_SUBJECTS,
+      initialUser.FUNDING_ADMIN_OIDC_OWNER_SUBJECTS
+    );
+    for (const name of [
+      'api',
+      'web',
+      'postgres',
+      'identity-postgres',
+      'keycloak',
+      'traefik'
+    ])
+      assert.equal(
+        initialized.services[name].environment
+          ?.FUNDING_KEYCLOAK_INITIAL_USER_PASSWORD,
+        undefined
+      );
+    for (const name of [
+      'api',
+      'web',
+      'postgres',
+      'identity-postgres',
+      'traefik'
+    ])
+      assert.equal(
+        initialized.services[name].environment
+          ?.FUNDING_KEYCLOAK_INITIAL_USER_PASSWORD_JSON,
+        undefined
+      );
+    const realmImport = initialized.services.keycloak.volumes.find(
+      ({ target }) => target === '/opt/keycloak/data/import/openg7-realm.json'
+    );
+    assert.equal(realmImport.read_only, true);
+    assert.equal(
+      realmImport.source.replaceAll('\\', '/'),
+      initialUser.FUNDING_KEYCLOAK_LOCAL_REALM_IMPORT_FILE.replaceAll('\\', '/')
+    );
+    const canonical = render(
+      ['docker-compose.yml', 'docker-compose.identity.yml'],
+      initialUser
+    );
+    for (const service of Object.values(canonical.services))
+      for (const name of [
+        'FUNDING_KEYCLOAK_INITIAL_USER_PASSWORD',
+        'FUNDING_KEYCLOAK_INITIAL_USER_PASSWORD_JSON'
+      ])
+        assert.equal(service.environment?.[name], undefined);
+    assert.ok(
+      !canonical.services.keycloak.volumes?.some(
+        ({ target }) => target === '/opt/keycloak/data/import/openg7-realm.json'
+      )
+    );
     assert.equal(
       canonical.services.api.environment.NODE_EXTRA_CA_CERTS,
       undefined

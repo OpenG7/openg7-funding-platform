@@ -77,9 +77,11 @@ FUNDING_EMAIL_WORKER_ENABLED=false
 SOCIAL_PUBLICATION_WORKER_ENABLED=false
 ```
 
-La liste des propriétaires reste vide pendant la création des personnes chez
-Keycloak ; elle doit être renseignée avant le premier démarrage de l'API sur
-une DB neuve. Le callback importé sera exactement
+Pour une création manuelle des personnes, la liste des propriétaires reste
+vide pendant leur préparation chez Keycloak ; elle doit être renseignée avant
+le premier démarrage de l'API sur une DB neuve. La création automatique locale
+ci-dessous peut fournir le premier subject à cette invocation. Le callback
+importé sera exactement
 `https://localhost/api/admin/auth/callback`, sans wildcard.
 
 Créer dans un gestionnaire de mots de passe trois secrets aléatoires distincts
@@ -145,6 +147,72 @@ Ce plan inclut les surcharges identité et TLS, même si les certificats sont
 absents. `--dry-run` annonce la préparation TLS nécessaire sans installer mkcert,
 modifier la confiance Windows, générer des fichiers ou démarrer les services.
 
+<a id="premier-utilisateur-local"></a>
+
+### Préparer automatiquement le premier utilisateur local
+
+Sur une **DB identité neuve**, renseigner également
+`FUNDING_KEYCLOAK_INITIAL_USER_USERNAME` et
+`FUNDING_KEYCLOAK_INITIAL_USER_PASSWORD` dans `.env`. Ces deux valeurs privées
+sont facultatives et doivent être présentes ensemble. Choisir un mot de passe
+temporaire aléatoire d'au moins **14 caractères**, distinct des secrets DB,
+bootstrap et client OIDC, sans CR, LF ni NUL. Protéger les valeurs littérales
+dans `.env` : des apostrophes dotenv empêchent l'interpolation de `$` ou de
+`${...}` ; échapper une apostrophe présente dans la valeur selon cette syntaxe.
+Aucun mot de passe réel ne figure dans les exemples
+ni dans Git. Cette option est réservée à `development` et à
+`auth.openg7.test` ; elle ne prépare aucun compte de production.
+
+Avant sa première préparation, le lanceur vérifie que le volume nommé réel
+d'`identity-postgres` n'existe pas encore, même s'il serait encore vide. Une
+panne de connexion ne prouve pas une base neuve. Si un volume existe sans
+préparation sauvegardée, il refuse cet amorçage ; conserver les données et
+suivre le parcours manuel.
+Le lancement géré attend d'abord la disponibilité de Docker Desktop ; un
+échec de cette attente arrête la préparation avant l'inspection du volume.
+Le préparateur local ou `yarn docker:up:dev:keycloak` génère un UUID stable
+et un import privé sous
+`var/keycloak-local/<projet-compose>/`, ignoré par Git. Le mot de passe reste
+un placeholder d'environnement dans cet import. Le lanceur encode le mot de
+passe en JSON pour préserver ses guillemets, antislashs et caractères `$`
+lors de l'import Keycloak. Seule la valeur privée dérivée
+`FUNDING_KEYCLOAK_INITIAL_USER_PASSWORD_JSON` est transmise au conteneur
+Keycloak local ; ne pas la configurer soi-même. Ni l'API ni le Web ne
+reçoivent le mot de passe brut ou sa valeur encodée.
+
+L'état **v2** lie cet UUID à l'identifiant du daemon Docker, au projet, au
+volume et au nom d'utilisateur. Le contexte Docker effectif est figé pour
+les contrôles et les commandes du lancement. Un autre daemon ne peut pas
+réutiliser silencieusement la préparation même si projet et volume portent
+les mêmes noms. Un état **v1**, sans identifiant de daemon, est conservé et
+refusé : aucune réassociation automatique n'est effectuée. Pour une pile
+existante, vérifier la cible Docker et relever son User ID dans le realm,
+renseigner ce propriétaire explicitement, puis retirer les deux variables
+initiales pour reprendre le parcours manuel. Conserver l'ancien état pour
+sa réconciliation, sans effacer la base identité.
+
+Si `FUNDING_ADMIN_OIDC_OWNER_SUBJECTS` est vide, le lanceur transmet l'UUID
+généré à l'API pour cette invocation, sans modifier `.env`. Une liste explicite
+reste inchangée : ajouter soi-même le nouvel UUID si cette personne doit aussi
+être propriétaire. La création du compte OpenG7 attend toujours sa première
+connexion MFA réussie ; le compte bootstrap `master` reste distinct.
+
+Conserver les deux variables initiales et le répertoire privé avec les noms
+du projet et des volumes tant que `FUNDING_ADMIN_OIDC_OWNER_SUBJECTS` est vide.
+Avant de retirer les deux variables, renseigner explicitement l'UUID propriétaire :
+les vider désactive aussi le subject automatique. Les démarrages suivants
+valident et réutilisent la préparation, et Keycloak ignore l'import si le
+realm existe. `docker:update` et `docker:recreate` réutilisent
+aussi ce subject sauvegardé lorsque la liste explicite est vide ; `recreate`
+ne peut pas amorcer cette préparation. Modifier le mot de passe dans `.env`
+ne réinitialise jamais un utilisateur existant.
+
+Avec cette option, **ne pas démarrer les services identité manuellement à
+l'étape 4** : cela créerait le volume avant l'amorçage. Après HTTPS, passer
+à l'étape 6 pour préparer la DB Funding puis lancer la pile gérée ; effectuer
+ensuite l'enrôlement de l'étape 5 avant la connexion OpenG7. Sans ces deux
+variables, le parcours manuel des étapes 4 à 6 reste inchangé.
+
 ## 3. Préparer la résolution et HTTPS
 
 Dans le fichier hosts Windows
@@ -172,8 +240,9 @@ CA inchangée ne déclenche pas cet arrêt.
 Cette préparation automatique exclut token, OIDC externe et production ; elle
 ne crée ni secrets, entrée hosts, comptes ni OTP.
 
-Pour ce premier démarrage, préparer HTTPS séparément afin de démarrer le
-fournisseur seul avant l'application aux étapes suivantes :
+Pour ce premier démarrage, préparer HTTPS séparément. Le parcours manuel
+démarre ensuite le fournisseur seul ; le parcours automatique suit
+[l'ordre indiqué ci-dessus](#premier-utilisateur-local).
 
 ```powershell
 yarn tls:local:setup --renew --no-restart
@@ -205,7 +274,7 @@ La clé `rootCA-key.pem` reste dans le magasin mkcert de la machine, sans copie
 dans le dépôt ou un conteneur. La clé du certificat serveur est montée uniquement
 dans Traefik. Ne pas désactiver la vérification TLS pour contourner un échec.
 
-## 4. Démarrer Keycloak avant l'application
+## 4. Démarrer Keycloak avant l'application (parcours manuel)
 
 Définir une fois les fichiers Compose pour les commandes manuelles de ce guide :
 
@@ -222,6 +291,11 @@ docker compose @identityCompose build keycloak
 docker compose @identityCompose up -d --wait identity-postgres keycloak traefik
 docker compose @identityCompose ps identity-postgres keycloak traefik
 ```
+
+Avec la création automatique du premier utilisateur, conserver la définition
+`$identityCompose` et la validation `config --quiet`, puis passer à l'étape 6
+sans exécuter les commandes `build`, `up` et `ps` ci-dessus. Le lanceur géré
+prépare l'import avant de créer le volume identité.
 
 Si le surveillant d'opérations est activé, ajouter son fichier
 `docker-compose.operations.yml` après `docker-compose.local-tls.yml` et avant
@@ -242,7 +316,10 @@ $discovery.issuer
 ```
 
 L'issuer attendu est `https://auth.openg7.test/realms/openg7`. Le realm `openg7`
-et son client confidentiel sont importés, sans création d'utilisateur OpenG7.
+et son client confidentiel sont importés. Sans les deux variables initiales,
+aucune personne n'est créée dans ce realm. Avec l'option automatique, seul le
+compte Keycloak est importé ; son profil propriétaire OpenG7 attend encore sa
+première connexion MFA réussie.
 Un realm déjà présent est conservé : une modification du JSON Git ou d'un
 secret dans `.env` ne met pas à jour automatiquement son client existant.
 Réconcilier la configuration dans la console avant de redémarrer, sans effacer
@@ -256,11 +333,15 @@ droits nécessaires et vérifier son OTP avant de retirer le compte temporaire.
 Les variables bootstrap restent requises par Compose ; elles ne recréent pas
 le compte supprimé dans un realm existant.
 
-Dans le realm **openg7**, créer le premier utilisateur OpenG7 et son mot de
-passe propre. Lui demander l'action **Configure OTP**, puis ouvrir sa console
-de compte `https://auth.openg7.test/realms/openg7/account/` pour enrôler un
-authentificateur. Faire ensuite une nouvelle connexion complète mot de passe
-et OTP : le seul enrôlement ne prouve pas le MFA du token courant.
+Dans le realm **openg7**, le parcours manuel crée le premier utilisateur
+OpenG7 et son mot de passe propre, avec l'action **Configure OTP**. Avec la
+[préparation automatique](#premier-utilisateur-local), ce compte existe déjà
+après le premier lancement géré et exige **Update Password** et **Configure
+OTP**. Ouvrir sa console de compte
+`https://auth.openg7.test/realms/openg7/account/`, changer le mot de passe
+temporaire si demandé, puis enrôler personnellement l'authentificateur.
+Faire ensuite une nouvelle connexion complète mot de passe et OTP : le seul
+enrôlement ne prouve pas le MFA du token courant.
 
 Le flow importé `openg7-password-otp` et son mapper natif produisent `amr`
 contenant `mfa` à partir des facteurs exécutés. Garder
@@ -270,6 +351,9 @@ constant ni désactiver OTP. Les rôles Keycloak ne donnent aucun rôle OpenG7.
 Relever le **User ID** UUID dans la fiche de l'utilisateur du realm `openg7` :
 il est son `sub` dans ce profil. Renseigner cet UUID dans
 `FUNDING_ADMIN_OIDC_OWNER_SUBJECTS`, ou plusieurs UUID séparés par des virgules.
+Le lanceur géré peut déjà fournir le subject sauvegardé du compte automatique
+si cette liste est vide ; pour les commandes manuelles, renseigner explicitement
+son UUID dans la configuration privée.
 Un email, un nom d'utilisateur et le compte bootstrap `master` ne conviennent
 pas. Garder ces identifiants dans la configuration privée. Sur DB neuve, l'API
 créera le compte propriétaire à sa première connexion MFA réussie.
@@ -282,7 +366,7 @@ Pour une **DB neuve dédiée**, les exemples suivants supposent
 si ces noms diffèrent :
 
 ```powershell
-docker compose @identityCompose --profile database up -d --wait postgres
+docker compose --env-file .env -f docker-compose.yml --profile database up -d --wait postgres
 node scripts/db-runtime-role.mjs --plan
 node scripts/db-runtime-role.mjs --apply --confirm-database openg7_funding --confirm-role openg7_funding_api
 yarn db:migrate
@@ -290,8 +374,10 @@ yarn keycloak:check
 yarn docker:up:dev:keycloak --no-stripe-webhook
 ```
 
-Le provisionnement crée d'abord le rôle runtime sur le schéma vide. Les
-migrations complètes s'exécutent ensuite avec le propriétaire et réappliquent
+La première commande utilise seulement le Compose de base pour ne pas créer
+le volume identité avant sa préparation automatique. Le provisionnement crée
+d'abord le rôle runtime sur le schéma vide. Les migrations complètes
+s'exécutent ensuite avec le propriétaire et réappliquent
 les droits sur les tables nouvelles. Si le rôle runtime est configuré mais
 n'existe pas encore, une migration peut échouer lors de l'application des droits.
 Les scripts DB ciblent uniquement `postgres` du même projet ; ils ne démarrent
@@ -387,6 +473,7 @@ dans `.env`/shell. Le préflight `keycloak:check` et `docker:recreate` suivent
 | Retour OIDC refusé après changement de secret/callback   | Comparer le client existant du realm avec la configuration attendue ; l'import ne met pas à jour un realm existant.                                    |
 | Connexion refusée après Configure OTP                    | Ouvrir une nouvelle connexion complète mot de passe + OTP, puis vérifier le User ID propriétaire. Ne pas afficher l'ID token.                          |
 | API arrêtée ou propriétaire inconnu                      | Vérifier migrations complètes, rôle runtime, URL DB Funding, subjects et prérequis des fonctionnalités activées avant de relancer.                     |
+| Amorçage utilisateur refusé sur volume identité existant | Ne pas supprimer le volume ; réutiliser sa préparation privée si elle existe ou créer la personne manuellement dans le realm existant.                 |
 | Refus 401 après expiration/révocation                    | Revenir à la connexion ; vérifier séparément la session OpenG7 et la session SSO fournisseur. Aucun retour automatique au token.                       |
 
 Les fichiers et diagnostics prouvent une préparation, pas une connexion réelle.
@@ -394,6 +481,30 @@ Une validation complète relève séparément HTTPS navigateur/API, discovery,
 mot de passe + OTP, rôle propriétaire, refus du lecteur et révocation. Les
 recettes doivent utiliser des identités et des données synthétiques sur une
 pile jetable, sans réutiliser la base de développement.
+
+## Recette du premier utilisateur sur une pile jetable
+
+Le [test d'import initial](../../tests/identity/keycloak-initial-user.integration.mjs)
+est facultatif et exige Node.js 22, OpenSSL, un Docker local Linux et les
+images locales `openg7-keycloak:26.8.0` et `postgres:16-alpine` déjà présentes.
+Il utilise une CA et un certificat HTTPS synthétiques, sans installer de
+confiance sur la machine, modifier `.env` ou employer des comptes existants.
+Depuis la racine du dépôt, dans PowerShell :
+
+```powershell
+$env:FUNDING_KEYCLOAK_INITIAL_USER_TEST = '1'
+node --test tests/identity/keycloak-initial-user.integration.mjs
+$env:FUNDING_KEYCLOAK_INITIAL_USER_TEST = $null
+```
+
+La pile jetable utilise un réseau interne et une DB en tmpfs, sans port publié.
+Le test vérifie l'UUID et les actions obligatoires, la reconnaissance du mot
+de passe fourni par l'environnement et le refus d'un mot de passe incorrect.
+Il modifie ensuite l'import et confirme que le redémarrage préserve le compte,
+son mot de passe et ses actions existantes. Le nettoyage reste limité aux
+ressources créées par cette recette. Ce test ne vérifie pas l'enrôlement OTP
+dans le navigateur ni la connexion propriétaire OpenG7 ; utiliser la recette
+HTTPS suivante pour ces contrôles.
 
 ## Recette HTTPS jetable reproductible
 
