@@ -12,193 +12,270 @@ export const MENU_CATEGORIES = [
   { id: 'other', label: 'Autres outils' }
 ];
 
-const labels = {
-  dev: 'Démarrer le Web et l’API',
-  'dev:web': 'Démarrer le Web',
-  'dev:api': 'Démarrer l’API',
-  'docker:up': 'Démarrer Docker — choisir l’environnement',
-  'docker:up:dev': 'Démarrer Docker local',
-  'docker:up:dev:token': 'Démarrer Docker local avec un jeton admin',
-  'docker:up:dev:keycloak': 'Démarrer Docker local avec Keycloak',
-  'docker:up:prod':
-    'Démarrer Docker en production — choisir l’authentification',
-  'docker:up:prod:keycloak': 'Démarrer Docker en production avec Keycloak',
-  'docker:up:prod:oidc': 'Démarrer Docker en production avec OIDC externe',
-  'docker:playwright': 'Démarrer la pile Docker des tests Playwright',
-  'docker:recreate': 'Recréer les conteneurs Web et API',
-  'docker:update': 'Mettre à jour Docker — choisir les options',
-  'docker:update:dev': 'Mettre à jour Docker local et écouter Stripe',
-  'docker:down': 'Arrêter et retirer les conteneurs Docker',
-  'db:up': 'Démarrer PostgreSQL dans Docker',
-  'db:stop': 'Arrêter PostgreSQL',
-  'db:logs': 'Suivre les journaux PostgreSQL',
-  'db:psql': 'Ouvrir une console SQL',
-  'db:migrate': 'Appliquer les migrations de la base',
-  'db:backup': 'Sauvegarder la base de données',
-  'db:restore': 'Restaurer la base depuis une sauvegarde',
-  'prod:check': 'Vérifier la pile de production',
-  'prod:deploy': 'Déployer en production',
-  'prod:backup': 'Sauvegarder la production',
-  'prod:rollback': 'Revenir à une version précédente en production',
-  'services:check': 'Vérifier la configuration et les outils locaux',
-  'keycloak:check': 'Vérifier la configuration Keycloak locale',
-  'smoke:public': 'Vérifier les endpoints publics de la cible configurée',
-  'storage:check': 'Vérifier le stockage OVH',
-  'storage:test': 'Tester le stockage OVH',
-  'storage:provision': 'Provisionner le stockage OVH',
-  'storage:publish': 'Publier des médias de commanditaires',
-  'storage:unpublish': 'Retirer la publication de médias',
-  'vps:ssh': 'Ouvrir une session SSH sur le VPS',
-  'vps:env': 'Configurer l’environnement du VPS',
-  'vps:node:install': 'Installer Node.js sur le VPS',
-  'vps:update': 'Mettre à jour le VPS',
-  'vps:deploy': 'Déployer sur le VPS',
-  'vps:rollback': 'Revenir à une version précédente sur le VPS',
-  'vps:check': 'Vérifier les services du VPS',
-  'vps:logs': 'Consulter les journaux du VPS',
-  'vps:ps': 'Afficher les conteneurs du VPS',
-  'vps:backup': 'Sauvegarder le VPS',
-  'vps:backup:list': 'Lister les sauvegardes du VPS',
-  'vps:backup:download': 'Télécharger une sauvegarde du VPS',
-  'vps:db:update': 'Mettre à jour la base sur le VPS',
-  'vps:db:psql': 'Ouvrir une console SQL sur le VPS',
-  'vps:db:backup': 'Sauvegarder la base du VPS',
-  'vps:db:backup:list': 'Lister les sauvegardes de la base du VPS',
-  'vps:db:backup:download': 'Télécharger une sauvegarde de la base du VPS',
-  'stripe:cli:install': 'Installer Stripe CLI globalement',
-  'stripe:webhook:listen': 'Écouter les webhooks Stripe en mode test',
-  'stripe:events:resend': 'Renvoyer des événements Stripe en mode test',
-  'stripe:events:resend:live': 'Renvoyer des événements Stripe live',
-  'stripe:backfill': 'Récupérer l’historique Stripe en mode test',
-  'stripe:backfill:live': 'Récupérer l’historique Stripe live',
-  'email:dns': 'Vérifier les enregistrements DNS des courriels',
-  'email:verify': 'Vérifier la connexion SMTP',
-  'email:test': 'Envoyer un courriel de test réel',
-  'tls:local:setup': 'Installer les certificats HTTPS locaux',
-  'tls:local:renew': 'Renouveler les certificats HTTPS locaux',
-  'playwright:install': 'Installer le navigateur Chromium pour Playwright',
-  lint: 'Vérifier le code avec ESLint',
-  format: 'Reformater les fichiers du dépôt',
-  'format:check': 'Vérifier le format des fichiers',
-  test: 'Compiler et lancer les tests Node',
-  'test:integration': 'Compiler et lancer les tests d’intégration',
-  'test:sponsorship': 'Vérifier les scénarios de commandite',
-  'test:e2e:seed': 'Créer les données de test dans la base',
-  'test:e2e:seed:cleanup': 'Supprimer les données de test de la base',
-  'test:e2e:playwright':
-    'Démarrer Docker, migrer, préparer et tester avec Playwright',
-  'test:e2e:acceptance': 'Lancer la recette admin dans une pile Docker jetable',
-  'test:e2e:identity': 'Tester l’identité dans une pile Docker jetable',
-  'test:ui:admin': 'Tester l’interface admin',
-  'test:ui:followup': 'Tester les parcours de suivi',
-  'test:ui:funding-home': 'Tester la page d’accueil',
-  'test:ui:funding-about': 'Tester la page À propos',
-  'test:ui:funding-transparency': 'Tester les pages de transparence',
-  'test:ui:sponsors': 'Tester les pages de commanditaires',
-  'test:ui:public-journeys': 'Tester les parcours publics',
-  'test:ui:platform-accessibility': 'Tester l’accessibilité de la plateforme',
-  'test:rehearsal': 'Tester les fournisseurs dans un environnement jetable',
-  'test:automation': 'Tester les automatisations et les parcours publics',
-  build: 'Compiler les packages et l’API TypeScript',
-  docs: 'Générer la documentation TypeDoc',
-  'docs:check': 'Vérifier les standards et la documentation',
-  'docs:report': 'Afficher le rapport des contrôles documentaires',
-  'images:funding-home': 'Optimiser les images de la page d’accueil',
-  'images:sponsors': 'Optimiser les images des commanditaires',
-  'images:support': 'Optimiser les images des contributions',
-  'providers:verify': 'Vérifier l’accès aux fournisseurs configurés',
-  'operations:watch': 'Démarrer la surveillance et l’envoi des alertes',
-  opencode: 'Ouvrir OpenCode avec l’environnement du dépôt'
-};
-
-// Only these known local commands can run without an additional confirmation.
+// Known local commands explicitly opt out of confirmation.
 // New scripts remain available, but always require confirmation.
-const localCommands = new Set([
-  'dev',
-  'dev:web',
-  'dev:api',
-  'services:check',
-  'keycloak:check',
-  'lint',
-  'format:check',
-  'test',
-  'test:integration',
-  'test:sponsorship',
-  'test:ui:admin',
-  'test:ui:followup',
-  'test:ui:funding-home',
-  'test:ui:funding-about',
-  'test:ui:funding-transparency',
-  'test:ui:sponsors',
-  'test:ui:public-journeys',
-  'test:ui:platform-accessibility',
-  'build',
-  'docs',
-  'docs:check',
-  'docs:report',
-  'images:funding-home',
-  'images:sponsors',
-  'images:support'
-]);
-
-const continuousCommands = new Set([
-  'dev',
-  'dev:web',
-  'dev:api',
-  'docker:up:dev',
-  'docker:up:dev:token',
-  'docker:up:dev:keycloak',
-  'docker:update:dev',
-  'db:logs',
-  'stripe:webhook:listen',
-  'operations:watch',
-  'opencode',
-  'vps:ssh',
-  'vps:db:psql',
-  'db:psql'
-]);
-
-const notes = {
-  'docker:up':
-    'Le questionnaire peut cibler la production. En mode local, l’écoute Stripe garde le terminal occupé.',
-  'docker:down':
-    'Retire les conteneurs et les réseaux Compose. Sans -v/--volumes, les volumes sont conservés.',
-  'docker:update':
-    'Vérifier l’environnement choisi et les options de suppression d’images avant la mise à jour.',
-  'docker:update:dev':
-    'Met à jour les services locaux, supprime les images inutilisées et démarre l’écoute Stripe.',
-  'db:psql': 'La console SQL permet de modifier la base configurée.',
-  'db:migrate': 'Applique des changements de schéma à la base configurée.',
-  'db:backup':
-    'Vérifier la base cible et l’emplacement privé de la sauvegarde.',
-  'db:restore':
-    'Vérifier la cible et la sauvegarde; la restauration remplace des données.',
-  'stripe:cli:install': 'Installe un outil global via npm.',
-  'stripe:webhook:listen':
-    'Transmet les événements Stripe de test à l’API configurée et garde le terminal occupé.',
-  'stripe:events:resend':
-    'Exige des identifiants d’événements. Vérifier compte, endpoint, volume et mode; commencer par --dry-run.',
-  'stripe:backfill':
-    'Peut modifier la base configurée. Vérifier compte, dates et volume; commencer par --dry-run.',
-  'email:test': 'Envoie réellement un message au destinataire configuré.',
-  'tls:local:setup':
-    'Modifie les certificats locaux; peut installer une autorité de certification de confiance.',
-  'tls:local:renew':
-    'Remplace les certificats locaux; vérifier les domaines et l’autorité de certification.',
-  format: 'Réécrit les fichiers du dépôt; vérifier les modifications en cours.',
-  'test:e2e:seed': 'Insère des données de test dans la base configurée.',
-  'test:e2e:seed:cleanup':
-    'Supprime les données de test et réinitialise le simulateur Stripe configuré.',
-  'test:e2e:playwright':
-    'Démarre ou réutilise Docker local, applique les migrations et modifie les données de test.',
-  'test:e2e:acceptance': 'Crée puis retire une pile Docker jetable de recette.',
-  'test:e2e:identity':
-    'Crée une pile locale jetable pour les tests d’identité.',
-  'test:rehearsal': 'Utilise des fournisseurs et une base jetables de test.',
-  'providers:verify': 'Contacte les fournisseurs de l’environnement configuré.',
-  'operations:watch':
-    'Lit la base configurée et envoie des alertes au webhook de supervision.',
-  opencode: 'Donne à un outil externe accès à l’environnement du dépôt.'
+const commandDefinitions = {
+  dev: {
+    label: 'Démarrer le Web et l’API',
+    confirmation: false,
+    continuous: true
+  },
+  'dev:web': {
+    label: 'Démarrer le Web',
+    confirmation: false,
+    continuous: true
+  },
+  'dev:api': { label: 'Démarrer l’API', confirmation: false, continuous: true },
+  'docker:up': {
+    label: 'Démarrer Docker — choisir l’environnement',
+    note: 'Le questionnaire peut cibler la production. En mode local, l’écoute Stripe garde le terminal occupé.'
+  },
+  'docker:up:dev': { label: 'Démarrer Docker local', continuous: true },
+  'docker:up:dev:token': {
+    label: 'Démarrer Docker local avec un jeton admin',
+    continuous: true
+  },
+  'docker:up:dev:keycloak': {
+    label: 'Démarrer Docker local avec Keycloak',
+    continuous: true
+  },
+  'docker:up:prod': {
+    label: 'Démarrer Docker en production — choisir l’authentification'
+  },
+  'docker:up:prod:keycloak': {
+    label: 'Démarrer Docker en production avec Keycloak'
+  },
+  'docker:up:prod:oidc': {
+    label: 'Démarrer Docker en production avec OIDC externe'
+  },
+  'docker:playwright': {
+    label: 'Démarrer la pile Docker des tests Playwright'
+  },
+  'docker:recreate': { label: 'Recréer les conteneurs Web et API' },
+  'docker:update': {
+    label: 'Mettre à jour Docker — choisir les options',
+    note: 'Vérifier l’environnement choisi et les options de suppression d’images avant la mise à jour.'
+  },
+  'docker:update:dev': {
+    label: 'Mettre à jour Docker local et écouter Stripe',
+    continuous: true,
+    note: 'Met à jour les services locaux, supprime les images inutilisées et démarre l’écoute Stripe.'
+  },
+  'docker:down': {
+    label: 'Arrêter et retirer les conteneurs Docker',
+    note: 'Retire les conteneurs et les réseaux Compose. Sans -v/--volumes, les volumes sont conservés.'
+  },
+  'db:up': { label: 'Démarrer PostgreSQL dans Docker' },
+  'db:stop': { label: 'Arrêter PostgreSQL' },
+  'db:logs': { label: 'Suivre les journaux PostgreSQL', continuous: true },
+  'db:psql': {
+    label: 'Ouvrir une console SQL',
+    continuous: true,
+    note: 'La console SQL permet de modifier la base configurée.'
+  },
+  'db:migrate': {
+    label: 'Appliquer les migrations de la base',
+    note: 'Applique des changements de schéma à la base configurée.'
+  },
+  'db:backup': {
+    label: 'Sauvegarder la base de données',
+    note: 'Vérifier la base cible et l’emplacement privé de la sauvegarde.'
+  },
+  'db:restore': {
+    label: 'Restaurer la base depuis une sauvegarde',
+    note: 'Vérifier la cible et la sauvegarde; la restauration remplace des données.'
+  },
+  'prod:check': { label: 'Vérifier la pile de production' },
+  'prod:deploy': { label: 'Déployer en production' },
+  'prod:backup': { label: 'Sauvegarder la production' },
+  'prod:rollback': { label: 'Revenir à une version précédente en production' },
+  'services:check': {
+    label: 'Vérifier la configuration et les outils locaux',
+    confirmation: false
+  },
+  'keycloak:check': {
+    label: 'Vérifier la configuration Keycloak locale',
+    confirmation: false
+  },
+  'smoke:public': {
+    label: 'Vérifier les endpoints publics de la cible configurée'
+  },
+  'storage:check': { label: 'Vérifier le stockage OVH' },
+  'storage:test': { label: 'Tester le stockage OVH' },
+  'storage:provision': { label: 'Provisionner le stockage OVH' },
+  'storage:publish': { label: 'Publier des médias de commanditaires' },
+  'storage:unpublish': { label: 'Retirer la publication de médias' },
+  'vps:ssh': { label: 'Ouvrir une session SSH sur le VPS', continuous: true },
+  'vps:env': { label: 'Configurer l’environnement du VPS' },
+  'vps:node:install': { label: 'Installer Node.js sur le VPS' },
+  'vps:update': { label: 'Mettre à jour le VPS' },
+  'vps:deploy': { label: 'Déployer sur le VPS' },
+  'vps:rollback': { label: 'Revenir à une version précédente sur le VPS' },
+  'vps:check': { label: 'Vérifier les services du VPS' },
+  'vps:logs': { label: 'Consulter les journaux du VPS' },
+  'vps:ps': { label: 'Afficher les conteneurs du VPS' },
+  'vps:backup': { label: 'Sauvegarder le VPS' },
+  'vps:backup:list': { label: 'Lister les sauvegardes du VPS' },
+  'vps:backup:download': { label: 'Télécharger une sauvegarde du VPS' },
+  'vps:db:update': { label: 'Mettre à jour la base sur le VPS' },
+  'vps:db:psql': {
+    label: 'Ouvrir une console SQL sur le VPS',
+    continuous: true
+  },
+  'vps:db:backup': { label: 'Sauvegarder la base du VPS' },
+  'vps:db:backup:list': { label: 'Lister les sauvegardes de la base du VPS' },
+  'vps:db:backup:download': {
+    label: 'Télécharger une sauvegarde de la base du VPS'
+  },
+  'stripe:cli:install': {
+    label: 'Installer Stripe CLI globalement',
+    note: 'Installe un outil global via npm.'
+  },
+  'stripe:webhook:listen': {
+    label: 'Écouter les webhooks Stripe en mode test',
+    continuous: true,
+    note: 'Transmet les événements Stripe de test à l’API configurée et garde le terminal occupé.'
+  },
+  'stripe:events:resend': {
+    label: 'Renvoyer des événements Stripe en mode test',
+    note: 'Exige des identifiants d’événements. Vérifier compte, endpoint, volume et mode; commencer par --dry-run.'
+  },
+  'stripe:events:resend:live': { label: 'Renvoyer des événements Stripe live' },
+  'stripe:backfill': {
+    label: 'Récupérer l’historique Stripe en mode test',
+    note: 'Peut modifier la base configurée. Vérifier compte, dates et volume; commencer par --dry-run.'
+  },
+  'stripe:backfill:live': { label: 'Récupérer l’historique Stripe live' },
+  'email:dns': { label: 'Vérifier les enregistrements DNS des courriels' },
+  'email:verify': { label: 'Vérifier la connexion SMTP' },
+  'email:test': {
+    label: 'Envoyer un courriel de test réel',
+    note: 'Envoie réellement un message au destinataire configuré.'
+  },
+  'tls:local:setup': {
+    label: 'Installer les certificats HTTPS locaux',
+    note: 'Modifie les certificats locaux; peut installer une autorité de certification de confiance.'
+  },
+  'tls:local:renew': {
+    label: 'Renouveler les certificats HTTPS locaux',
+    note: 'Remplace les certificats locaux; vérifier les domaines et l’autorité de certification.'
+  },
+  'playwright:install': {
+    label: 'Installer le navigateur Chromium pour Playwright'
+  },
+  lint: { label: 'Vérifier le code avec ESLint', confirmation: false },
+  format: {
+    label: 'Reformater les fichiers du dépôt',
+    note: 'Réécrit les fichiers du dépôt; vérifier les modifications en cours.'
+  },
+  'format:check': {
+    label: 'Vérifier le format des fichiers',
+    confirmation: false
+  },
+  test: { label: 'Compiler et lancer les tests Node', confirmation: false },
+  'test:integration': {
+    label: 'Compiler et lancer les tests d’intégration',
+    confirmation: false
+  },
+  'test:sponsorship': {
+    label: 'Vérifier les scénarios de commandite',
+    confirmation: false
+  },
+  'test:e2e:seed': {
+    label: 'Créer les données de test dans la base',
+    note: 'Insère des données de test dans la base configurée.'
+  },
+  'test:e2e:seed:cleanup': {
+    label: 'Supprimer les données de test de la base',
+    note: 'Supprime les données de test et réinitialise le simulateur Stripe configuré.'
+  },
+  'test:e2e:playwright': {
+    label: 'Démarrer Docker, migrer, préparer et tester avec Playwright',
+    note: 'Démarre ou réutilise Docker local, applique les migrations et modifie les données de test.'
+  },
+  'test:e2e:acceptance': {
+    label: 'Lancer la recette admin dans une pile Docker jetable',
+    note: 'Crée puis retire une pile Docker jetable de recette.'
+  },
+  'test:e2e:identity': {
+    label: 'Tester l’identité dans une pile Docker jetable',
+    note: 'Crée une pile locale jetable pour les tests d’identité.'
+  },
+  'test:ui:admin': { label: 'Tester l’interface admin', confirmation: false },
+  'test:ui:followup': {
+    label: 'Tester les parcours de suivi',
+    confirmation: false
+  },
+  'test:ui:funding-home': {
+    label: 'Tester la page d’accueil',
+    confirmation: false
+  },
+  'test:ui:funding-about': {
+    label: 'Tester la page À propos',
+    confirmation: false
+  },
+  'test:ui:funding-transparency': {
+    label: 'Tester les pages de transparence',
+    confirmation: false
+  },
+  'test:ui:sponsors': {
+    label: 'Tester les pages de commanditaires',
+    confirmation: false
+  },
+  'test:ui:public-journeys': {
+    label: 'Tester les parcours publics',
+    confirmation: false
+  },
+  'test:ui:platform-accessibility': {
+    label: 'Tester l’accessibilité de la plateforme',
+    confirmation: false
+  },
+  'test:rehearsal': {
+    label: 'Tester les fournisseurs dans un environnement jetable',
+    note: 'Utilise des fournisseurs et une base jetables de test.'
+  },
+  'test:automation': {
+    label: 'Tester les automatisations et les parcours publics'
+  },
+  build: {
+    label: 'Compiler les packages et l’API TypeScript',
+    confirmation: false
+  },
+  docs: { label: 'Générer la documentation TypeDoc', confirmation: false },
+  'docs:check': {
+    label: 'Vérifier les standards et la documentation',
+    confirmation: false
+  },
+  'docs:report': {
+    label: 'Afficher le rapport des contrôles documentaires',
+    confirmation: false
+  },
+  'images:funding-home': {
+    label: 'Optimiser les images de la page d’accueil',
+    confirmation: false
+  },
+  'images:sponsors': {
+    label: 'Optimiser les images des commanditaires',
+    confirmation: false
+  },
+  'images:support': {
+    label: 'Optimiser les images des contributions',
+    confirmation: false
+  },
+  'providers:verify': {
+    label: 'Vérifier l’accès aux fournisseurs configurés',
+    note: 'Contacte les fournisseurs de l’environnement configuré.'
+  },
+  'operations:watch': {
+    label: 'Démarrer la surveillance et l’envoi des alertes',
+    continuous: true,
+    note: 'Lit la base configurée et envoie des alertes au webhook de supervision.'
+  },
+  opencode: {
+    label: 'Ouvrir OpenCode avec l’environnement du dépôt',
+    continuous: true,
+    note: 'Donne à un outil externe accès à l’environnement du dépôt.'
+  }
 };
 
 function categoryFor(name) {
@@ -241,27 +318,30 @@ export function createCommandCatalog(scripts) {
     )
     .map(([name]) => {
       const category = categoryFor(name);
+      const definition = Object.hasOwn(commandDefinitions, name)
+        ? commandDefinitions[name]
+        : undefined;
       const command = {
         name,
-        label: Object.hasOwn(labels, name) ? labels[name] : name,
+        label: definition?.label ?? name,
         category,
-        confirmation: !localCommands.has(name)
+        confirmation: definition?.confirmation !== false
       };
 
-      if (Object.hasOwn(notes, name)) {
-        command.note = notes[name];
+      if (definition?.note !== undefined) {
+        command.note = definition.note;
       } else if (name.startsWith('docker:up:dev')) {
         command.note =
           'Démarre les services locaux; l’écoute Stripe garde le terminal occupé.';
       } else if (category === 'advanced') {
         command.note =
           'Vérifier la cible, la portée et les préconditions; une opération réelle exige une instruction explicite.';
-      } else if (!Object.hasOwn(labels, name)) {
+      } else if (!definition) {
         command.note =
           'Commande ajoutée au dépôt. Vérifier sa définition et ses effets avant de l’exécuter.';
       }
 
-      if (continuousCommands.has(name)) {
+      if (definition?.continuous) {
         command.continuous = true;
       }
 

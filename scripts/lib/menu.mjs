@@ -368,9 +368,9 @@ export async function runMenu({ catalog, ask, write, run }) {
     }
   };
 
-  const commands = async (title, filter) => {
-    const entries = catalog.filter(filter).map((command) => ({
-      ...command,
+  const commands = async (title, selectedCommands) => {
+    const entries = selectedCommands.map((command) => ({
+      command,
       label: `${command.label} [${command.name}]${command.confirmation ? ' — confirmation' : ''}`
     }));
     if (!entries.length) {
@@ -380,8 +380,7 @@ export async function runMenu({ catalog, ask, write, run }) {
     while (!ended) {
       const selected = await choose(title, entries);
       if (!selected) return;
-      // Keep the plain label in the execution recap.
-      await launch(catalog.find(({ name }) => name === selected.name));
+      await launch(selected.command);
     }
   };
 
@@ -417,22 +416,17 @@ export async function runMenu({ catalog, ask, write, run }) {
         if (!category) break;
         await commands(
           category.label,
-          ({ category: id }) => id === category.id
+          catalog.filter(({ category: id }) => id === category.id)
         );
       }
     } else if (action.search) {
       const query = await ask('Rechercher une commande (Entrée : toutes) : ');
       if (query === null) break;
-      const matches = new Set(
-        searchCatalog(catalog, query).map(({ name }) => name)
-      );
-      await commands('Catalogue des commandes', ({ name }) =>
-        matches.has(name)
-      );
+      await commands('Catalogue des commandes', searchCatalog(catalog, query));
     } else {
       await commands(
         action.label,
-        ({ category }) => category === action.category
+        catalog.filter(({ category }) => category === action.category)
       );
     }
   }

@@ -322,7 +322,6 @@ test('catalog exposes every package script once except the menu itself', () => {
       .sort()
   );
   const categories = new Set(MENU_CATEGORIES.map(({ id }) => id));
-  assert.equal(new Set(catalog.map(({ name }) => name)).size, catalog.length);
   for (const command of catalog) {
     assert.ok(categories.has(command.category), command.name);
     assert.ok(command.label, command.name);
