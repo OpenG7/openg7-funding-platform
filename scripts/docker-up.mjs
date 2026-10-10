@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
@@ -9,17 +9,36 @@ import {
   readDockerConfiguration
 } from './lib/docker-environment.mjs';
 import {
+  chooseDockerAuthentication,
   chooseDockerEnvironment,
   dockerUpPlan,
   parseDockerUpArgs,
+  prepareDockerLocalIdentity,
   startDockerStack
 } from './lib/docker-up.mjs';
-import { prepareLocalIdentity } from './lib/local-identity.mjs';
+import {
+  prepareLocalIdentity,
+  validateLocalIdentityCertificates
+} from './lib/local-identity.mjs';
+import {
+  inspectProductionAcmeWithDocker,
+  prepareProductionAcme,
+  waitForProductionIdentity
+} from './lib/production-identity.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const readLocalCa = () => {
+  try {
+    return readFileSync(resolve(root, 'traefik/certs/rootCA.pem'), 'utf8');
+  } catch {
+    return null;
+  }
+};
 const help = `Usage: yarn docker:up [--environment local|prod|autre] [options]
 
 Sans option, demande l'environnement dans un terminal interactif.
+En local interactif, propose token, Keycloak ou OIDC; Entree conserve .env/shell.
+En production interactive, propose Keycloak ou OIDC externe; token est refuse.
 local/dev : build de developpement, PostgreSQL et relais Stripe de test.
 prod      : build de production, sans relais Stripe.
 autre     : conserve la configuration .env/shell, sans relais Stripe.
@@ -27,14 +46,24 @@ Les conteneurs demarrent en arriere-plan; le relais reste dans ce terminal.
 La cible Docker et les secrets proviennent de la configuration existante.
 
 Options:
+  --auth token|keycloak|oidc|configured  Choisir l'authentification sans modifier .env (token uniquement local).
   --no-stripe-webhook  Demarrer le mode local sans relais Stripe.
   --database          Activer PostgreSQL aussi pour prod/autre.
   --no-database       Ne pas activer le profil PostgreSQL.
+  --identity-only     Preparer HTTPS et demarrer uniquement Keycloak gere en production.
   --dry-run           Afficher les commandes sans les executer.
   --help              Afficher cette aide.
 
 Avec .env, le dry-run exige Docker Compose pour resoudre la configuration,
 sans daemon Docker ni modification de la pile.
+Le choix --auth vaut pour cette invocation; les autres lanceurs conservent .env/shell.
+Keycloak local verifie les certificats et lance le setup TLS --renew --no-restart si necessaire.
+Ce setup peut installer mkcert et demander l'approbation de sa CA dans Windows.
+Les secrets, hosts et comptes restent a preparer selon docs/operations/keycloak-local.md.
+Production OIDC/Keycloak : suivre docs/operations/keycloak-vps.md et admin-identity-and-alerts.md.
+Keycloak production prepare ACME sans ecraser le stockage, puis verifie HTTPS et OIDC avant l'application.
+La preparation exige un hote POSIX, un email Let's Encrypt et DNS/ports 80/443 publics prets.
+Le mode prod reconstruit la pile; la livraison canonique reste bash scripts/deploy.sh.
 `;
 
 const runNode = (args, env) =>
@@ -64,49 +93,129 @@ try {
   if (options.help) console.log(help);
   else {
     process.chdir(root);
+    const shellEnv = { ...process.env };
+    let configurationEnv;
     let readline;
+    const interaction = {
+      interactive: Boolean(process.stdin.isTTY && process.stdout.isTTY),
+      ask: (question) => {
+        readline ??= createInterface({
+          input: process.stdin,
+          output: process.stdout
+        });
+        return readline.question(question);
+      }
+    };
     try {
-      options.environment = await chooseDockerEnvironment(options, {
-        interactive: Boolean(process.stdin.isTTY && process.stdout.isTTY),
-        ask: (question) => {
-          readline ??= createInterface({
-            input: process.stdin,
-            output: process.stdout
-          });
-          return readline.question(question);
-        }
+      options.environment = await chooseDockerEnvironment(options, interaction);
+      configurationEnv = readDockerConfiguration({ env: shellEnv });
+      options.authentication = await chooseDockerAuthentication(options, {
+        ...interaction,
+        env: configurationEnv
       });
     } finally {
       readline?.close();
     }
-    const shellEnv = { ...process.env };
-    const configurationEnv = readDockerConfiguration({ env: shellEnv });
     const plan = dockerUpPlan(options, {
       env: configurationEnv,
       localTls:
         existsSync('traefik/certs/localhost.pem') &&
         existsSync('traefik/certs/localhost-key.pem')
     });
+    if (
+      plan.productionIdentity &&
+      !options.dryRun &&
+      process.platform === 'win32'
+    )
+      throw new Error(
+        'La preparation ACME de production exige un hote POSIX (VPS Linux), pas Windows. Utiliser --dry-run ici puis executer sur la cible autorisee.'
+      );
     console.log(
       `Environnement : ${plan.environment}. Conteneurs en arriere-plan.`
     );
+    console.log(`Authentification : ${plan.authentication}.`);
     if (options.dryRun) {
-      if (plan.commands[0].includes('docker-compose.identity.local.yml'))
+      if (plan.localIdentity) {
+        try {
+          validateLocalIdentityCertificates(root);
+        } catch {
+          console.log(
+            'node scripts/setup-local-tls.mjs --renew --no-restart (before Docker; no certificate or trust changes in dry-run)'
+          );
+        }
         console.log(
           'node scripts/prepare-local-identity.mjs (before Docker; no files written in dry-run)'
         );
-      for (const args of plan.commands) console.log(`docker ${args.join(' ')}`);
+      }
+      for (const args of plan.commands) {
+        if (args === plan.identityUp)
+          console.log(
+            'Preparation du stockage ACME persistant (0600, hote POSIX; aucun fichier modifie en dry-run).'
+          );
+        console.log(`docker ${args.join(' ')}`);
+        if (args === plan.identityUp)
+          console.log(
+            'Verification HTTPS publique et OIDC (issuer et JWKS; delai maximal 180s; aucun contact reseau en dry-run).'
+          );
+      }
       console.log(
         plan.stripeWebhook
           ? 'yarn stripe:webhook:listen (verification avant Docker, puis relais)'
           : 'Relais Stripe desactive.'
       );
     } else {
-      if (plan.commands[0].includes('docker-compose.identity.local.yml'))
-        prepareLocalIdentity({ root, env: plan.commandEnv });
       const commandEnvironment = (plannedEnv) =>
         dockerCommandEnvironment(plannedEnv, configurationEnv, shellEnv);
+      let localCaChanged = false;
+      await prepareDockerLocalIdentity(plan, {
+        checkCertificates: () => validateLocalIdentityCertificates(root),
+        setupTls: async (env) => {
+          const previousCa = readLocalCa();
+          console.log(
+            'Certificats HTTPS locaux absents ou invalides : preparation TLS avec mkcert, sans redemarrage.'
+          );
+          await runNode(
+            ['scripts/setup-local-tls.mjs', '--renew', '--no-restart'],
+            commandEnvironment(env)
+          );
+          localCaChanged = readLocalCa() !== previousCa;
+        },
+        prepareIdentity: (env) => prepareLocalIdentity({ root, env })
+      });
+      if (localCaChanged) {
+        // Node reads its extra CA at startup. Stop only the API after the build
+        // succeeds; the existing final up restarts it with the updated trust.
+        const up = plan.commands.at(-1);
+        plan.commands.splice(-1, 0, [
+          ...up.slice(0, up.indexOf('up')),
+          'stop',
+          'api'
+        ]);
+        console.log(
+          'CA locale mise a jour : l\u2019API sera redemarree apres le build pour actualiser sa confiance TLS.'
+        );
+      }
       await startDockerStack(plan, {
+        prepareProductionTls: (env) => {
+          console.log('Preparation du stockage ACME persistant pour Traefik.');
+          return prepareProductionAcme(root, {
+            inspectProtectedStorage: (storage) =>
+              inspectProductionAcmeWithDocker({
+                root,
+                storage,
+                composeArgs: plan.identityUp.slice(
+                  0,
+                  plan.identityUp.indexOf('up')
+                ),
+                env: commandEnvironment(env)
+              })
+          });
+        },
+        checkProductionIdentity: async (env) => {
+          console.log('Verification HTTPS publique et OIDC de Keycloak...');
+          await waitForProductionIdentity(env);
+          console.log('HTTPS et discovery OIDC de Keycloak valides.');
+        },
         runDocker: (args, env) =>
           runNode(
             ['scripts/docker-ready.mjs', '--', 'docker', ...args],

@@ -316,14 +316,86 @@ Traefik uses Let's Encrypt HTTP-01 challenge:
 ### Demarrage Docker guide
 
 `yarn docker:up` propose local/dev (par defaut), prod ou autre. Les commandes
-suivantes evitent la question, notamment sans terminal interactif :
+suivantes fixent l'environnement, notamment sans terminal interactif :
 
 ```sh
 yarn docker:up:dev
-yarn docker:up --environment prod --database
+yarn docker:up:prod --dry-run
 yarn docker:up --environment autre
 yarn docker:up:dev --dry-run
 ```
+
+En terminal interactif, le lanceur demande ensuite l'authentification :
+`yarn docker:up:dev` propose `token`, `keycloak`, `oidc` ou `configured`, et
+`yarn docker:up:prod` propose `keycloak`, `oidc` ou `configured`. Entree et
+`configured` conservent le mode de `.env`/shell. Sans terminal interactif ou
+avec `--dry-run`, aucune question d'authentification n'est posee et ce mode
+reste configure, sauf choix explicite. `--auth token|keycloak|oidc|configured`
+fixe ce choix pour local/dev ou prod ; token est reserve au developpement et
+refuse en production, meme lorsqu'il vient de `.env`. Un choix explicite
+`token`, `keycloak` ou `oidc` est refuse avec un `COMPOSE_FILE` personnalise ;
+`configured` et l'absence de choix conservent ce modele. Ces exemples fixent
+aussi le choix d'authentification :
+
+```sh
+yarn docker:up:dev:token --no-stripe-webhook
+yarn docker:up:dev:keycloak --no-stripe-webhook
+yarn docker:up:dev --auth configured --no-stripe-webhook
+yarn docker:up:dev --auth keycloak --no-stripe-webhook --dry-run
+```
+
+Token utilise les secrets locaux existants et exclut la surcharge identite.
+Des conteneurs Keycloak deja presents peuvent rester actifs ; ce choix ne les
+arrete pas et ne supprime ni leur DB ni leurs volumes. Keycloak active OIDC avec
+`auth.openg7.test`, `https://localhost`, l'issuer
+`https://auth.openg7.test/realms/openg7` et `FUNDING_ADMIN_OIDC_MFA_ACR` vide.
+Il reutilise les secrets, le client et le compte bootstrap configures ; les
+valeurs par defaut des deux noms sont `openg7-funding-admin` et
+`keycloak-local-bootstrap`. Le selecteur ne genere aucun secret et ne cree
+pas de compte OpenG7. Ces valeurs locales s'appliquent uniquement a local/dev.
+Le profil Keycloak local inclut la surcharge TLS meme si les certificats sont
+absents ; le lanceur les prepare si necessaire avant Docker, selon la procedure
+[HTTPS locale](#https-local-de-confiance).
+Le choix `oidc`, disponible aussi en developpement, utilise la configuration
+OIDC externe existante et exclut la surcharge Keycloak.
+
+En production, les aliases `docker:up:prod`, `docker:up:prod:keycloak` et
+`docker:up:prod:oidc` incluent le profil PostgreSQL. Le choix Keycloak conserve
+l'hote DNS public (sans domaine `.test`), l'origine publique, le client, le
+compte bootstrap et les secrets prepares dans `.env`/shell. Il calcule l'issuer
+`https://<FUNDING_KEYCLOAK_HOSTNAME>/realms/openg7` et fixe
+`FUNDING_ADMIN_OIDC_MFA_ACR` vide ; aucun defaut local n'est applique.
+Le choix `oidc` designe un fournisseur externe : il conserve issuer, client,
+secret, preuve MFA et origine publique configures, et exclut la surcharge
+Keycloak. Ces modes de production n'utilisent ni TLS local ni relais Stripe.
+
+```sh
+yarn docker:up:prod:keycloak --dry-run
+yarn docker:up:prod:oidc --dry-run
+```
+
+Pour les choix explicites de production `keycloak` et `oidc`, le preflight
+controle la configuration : HTTPS hors loopback, origine publique exacte et
+base API sur la meme origine. Il ne contacte pas le fournisseur et
+ne qualifie ni DNS/certificats, comptes, OTP, proprietaires, migrations ni
+sauvegardes. Suivre le [guide Keycloak VPS](operations/keycloak-vps.md) et le
+[runbook des acces](operations/admin-identity-and-alerts.md) pour ces
+preconditions sur une cible autorisee. Le choix ne reconcilie pas un realm
+ou client deja stocke et ne retire ni n'arrete les anciens services.
+Pour Keycloak, l'execution reelle ajoute la preparation et la verification
+[HTTPS du fournisseur](#https-de-lidentite-en-production) avant le demarrage
+applicatif ; le preflight et `--dry-run` restent sans appel au fournisseur.
+
+Ce choix vaut uniquement pour cette invocation et ne modifie pas `.env`.
+Pour redemarrer avec le meme choix explicite, reprendre le meme alias
+`:token`, `:keycloak` ou `:oidc`. `docker:recreate`, `docker:update`, les commandes TLS
+et `keycloak:check` continuent de lire `.env`/shell ; les configurer de facon
+coherente avant de les utiliser, car ils ne memorisent pas le choix precedent.
+Un changement d'issuer filtre les comptes et sessions selon le nouvel issuer,
+sans transferer les comptes. Les anciennes sessions restent en DB et peuvent
+redevenir valides si l'ancien issuer est retabli avant expiration, sans
+revocation. Gerer ou revoquer explicitement ces sessions avant la bascule selon
+le [processus d'acces approuve](operations/admin-identity-and-alerts.md).
 
 Local/dev utilise la configuration de developpement pour l'API et le build
 Angular, active PostgreSQL, construit les images puis attend les services avec
@@ -333,7 +405,8 @@ les paiements de test; `Ctrl+C` arrete le relais, les conteneurs restent actifs.
 `--no-stripe-webhook` desactive ce relais et `--no-database` desactive le profil
 PostgreSQL. Pour le demarrage local detache sans relais, utiliser
 `yarn docker:up:dev --no-stripe-webhook` : build de developpement, PostgreSQL
-et surcharge TLS locale lorsque les certificats sont presents.
+et surcharge TLS locale lorsque les certificats sont presents, ou preparation
+automatique de cette surcharge pour Keycloak local.
 
 Local/dev ajoute `https://localhost` et `https://127.0.0.1` aux origines
 autorisees de l'API, en conservant celles de `FUNDING_ALLOWED_ORIGINS`.
@@ -349,13 +422,23 @@ avec `yarn tls:local:setup`. Lorsque les fichiers de certificat sont presents,
 le mode local ajoute la surcharge TLS ci-dessous, sauf si `COMPOSE_FILE` definit
 deja une configuration personnalisee (qui doit alors inclure cette surcharge).
 
+Le relais consulte `stripe listen --help` et choisit explicitement les evenements
+snapshot : `--all-snapshot` lorsque l'aide annonce cette option, sinon
+`--events '*'` pour les anciennes CLI. La selection des arguments et les
+garde-fous du lanceur se verifient avec des fixtures synthetiques, sans demarrer
+Docker ni une CLI Stripe reelle :
+
+```sh
+node --test tests/docker-up.test.mjs
+```
+
 Prod utilise les builds de production et ne lance aucun relais. Autre conserve
 la configuration `.env`/shell et ne lance aucun relais. Ces choix ne selectionnent
 pas de serveur, ne changent pas les secrets et ne remplacent pas la procedure de
 deploiement. PostgreSQL peut etre ajoute avec `--database`.
-En production OIDC, ce profil est requis pour la DB Funding privee. La commande
-construit et demarre la pile complete, y compris l'identite activee, mais ne migre
-pas la base et ne provisionne pas son role runtime. Suivre le
+En production OIDC, ce profil est requis pour la DB Funding privee. Sans
+`--identity-only`, la commande construit et demarre la pile complete, y compris
+l'identite activee, mais ne migre pas la base et ne provisionne pas son role runtime. Suivre le
 [premier demarrage OIDC](operations/keycloak-vps.md#premier-demarrage-oidc) avant une
 reconstruction autorisee ; la livraison applicative reste `bash scripts/deploy.sh`.
 Sans terminal, `--environment local|prod|autre` est obligatoire, meme si
@@ -367,6 +450,63 @@ et commentaires suivent la syntaxe Compose ; le shell reste prioritaire et les
 valeurs privees ne sont pas imprimees. Le meme lecteur sert a `docker:update` et
 au preflight Keycloak. Les migrations et le rattrapage des paiements restent des
 operations separees.
+
+### HTTPS de l'identite en production
+
+Sur un VPS Linux autorise, `yarn docker:up:prod:keycloak` prepare HTTPS pour
+`FUNDING_KEYCLOAK_HOSTNAME` avec Let's Encrypt. Cet hote doit resoudre
+publiquement vers ce VPS, avec TCP 80 accessible pour HTTP-01 et TCP 443 pour
+HTTPS. Conserver un AAAA uniquement si IPv6 dessert effectivement l'hote et
+renseigner `LETSENCRYPT_EMAIL` avec une adresse operationnelle reelle, sans
+reprendre les valeurs d'exemple. Le lanceur ne configure ni DNS ni pare-feu.
+Cette preparation gere le certificat de l'hote Keycloak ; les routes Web/API
+restent celles de `openg7.org` et `www.openg7.org`, sans generation de routage
+pour un autre site.
+
+Apres validation Compose et build, le lanceur cree si necessaire le stockage
+persistant `traefik/acme/acme.json` : repertoire `700`, fichier `600`. Un etat
+deja protege est conserve sans lecture de son contenu ni nouveau `chmod`.
+L'execution reelle est refusee sous Windows avant tout effet.
+
+Un operateur non-root ayant acces Docker peut utiliser un repertoire ACME
+appartenant a root, inaccessible a son compte. Le lanceur ne demande pas `sudo` :
+dans ce cas, un conteneur ephemere utilisant l'image Traefik effective de Compose
+controle uniquement les types, modes et l'identite du repertoire (peripherique/inode),
+avec reseau desactive, systeme de fichiers et montage ACME en lecture seule.
+Il ne lit aucun contenu et ne cree, ne reinitialise ni ne change le proprietaire
+du stockage. Un stockage incorrect bloque le demarrage de l'identite ; son
+proprietaire doit corriger les permissions. Ce controle exige le daemon Docker
+local execute par root sur le VPS : un contexte distant ou rootless peut etre
+refuse si l'identite ou les permissions ne peuvent etre prouvees. Docker peut
+telecharger l'image Traefik si elle est absente, comme lors du demarrage Compose.
+
+Le lanceur demarre `identity-postgres`, `keycloak` et `traefik` avec une attente
+bornee a 180 secondes, puis sonde HTTPS avec la verification TLS native de Node.
+Un second budget total de 180 secondes couvre discovery, issuer exact, endpoints
+OIDC et JWKS. La pile complete demarre uniquement apres cette verification ;
+un echec interrompt le parcours et les services deja demarres restent a examiner.
+
+Pour le premier bootstrap, examiner le plan limite a l'identite :
+
+```sh
+yarn docker:up:prod:keycloak --identity-only --dry-run
+```
+
+`--identity-only` est reserve a Keycloak en production : il construit uniquement
+Keycloak, puis prepare ACME, demarre et verifie les trois services d'identite.
+Il ne demarre ni API, Web, workers ni DB Funding. Utiliser ce parcours sur la
+cible autorisee avant de preparer les comptes nominatifs, OTP, subjects
+proprietaires, migrations et role DB runtime selon le
+[guide VPS](operations/keycloak-vps.md#configuration-et-démarrage-séparé).
+Ces preconditions et la qualification de production restent manuelles avant
+tout demarrage complet ; `bash scripts/deploy.sh` reste la livraison canonique.
+Discovery et JWKS ne prouvent ni MFA ni droits applicatifs.
+
+`--dry-run` annonce la preparation ACME, les commandes et la sonde sans ecriture
+de fichiers, reseau ni contact du daemon ; aucun conteneur de controle n'est
+demarre. OIDC externe conserve ses certificats et sa preparation propres :
+ce lanceur ne genere ni ne repare le certificat du
+fournisseur externe. Aucun certificat mkcert local n'est utilise en production.
 
 ### HTTPS local de confiance
 
@@ -391,8 +531,25 @@ Le setup copie aussi le certificat public de la CA dans `traefik/certs/rootCA.pe
 Pour utiliser Keycloak local avec confiance HTTPS dans le navigateur et l'API
 Docker, suivre le [guide Windows/Docker](operations/keycloak-local.md) : résolution
 du domaine, préparation de la surcharge locale, OTP et DB Funding distincte.
-`yarn docker:up:dev` conserve le mode d'authentification configuré ; il ne remplace
-ni l'amorçage des comptes ni les migrations.
+`yarn docker:up:dev:keycloak --no-stripe-webhook` fixe ce choix pour le démarrage.
+Avant Docker, le lanceur valide le certificat, sa clé et la CA publique. Si ces
+fichiers sont absents, invalides ou expirés, il exécute
+`node scripts/setup-local-tls.mjs --renew --no-restart` avec la configuration
+effective du choix Keycloak, puis revalide les certificats et prépare les fichiers
+Traefik locaux. Des certificats valides sont conservés. Ce setup peut installer
+`mkcert` avec `winget` et demander l'approbation de sa CA dans Windows ; un échec
+interrompt le démarrage avant Docker. `--dry-run` annonce les étapes nécessaires
+sans installation, changement de confiance, génération de fichier ni démarrage.
+Si le setup automatique change la CA publique, le lanceur arrête uniquement
+`api` après le build et avant `up -d --wait` pour que Node recharge la CA ; une
+CA inchangée ne déclenche pas cet arrêt.
+
+Cette préparation automatique concerne uniquement Keycloak local, pas les modes
+token, OIDC externe ou production. Les commandes TLS lancées séparément lisent
+toujours `.env`/shell. Les secrets, hosts, comptes, OTP, propriétaires, rôle DB
+runtime et migrations restent à préparer une fois selon le guide ; le lanceur
+ne les crée pas. Le choix `--auth keycloak` en production conserve les domaines
+publics prepares et n'active pas ce profil TLS local.
 
 Les fichiers sous `traefik/certs/` sont locaux et ignores par Git. Ne jamais
 copier `localhost-key.pem` ni la cle privee de l'autorite mkcert vers le depot

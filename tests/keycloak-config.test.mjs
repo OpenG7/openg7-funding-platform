@@ -118,9 +118,17 @@ test('identity refuses absent secrets, reused credentials and unsafe or mismatch
 });
 
 test('startup and update preserve identity topology through every Compose stage', () => {
+  const production = {
+    ...configured,
+    FUNDING_KEYCLOAK_HOSTNAME: 'auth.example.org',
+    FUNDING_PUBLIC_BASE_URL: 'https://openg7.org',
+    FUNDING_PLATFORM_API_BASE_URL: 'https://openg7.org/api',
+    FUNDING_ADMIN_OIDC_ISSUER: 'https://auth.example.org/realms/openg7',
+    LETSENCRYPT_EMAIL: 'ops@example.org'
+  };
   const up = dockerUpPlan(
     { environment: 'production', database: true, stripeWebhook: false },
-    { env: configured, localTls: false }
+    { env: production, localTls: false }
   );
   const update = dockerUpdatePlan(
     {
@@ -130,7 +138,7 @@ test('startup and update preserve identity topology through every Compose stage'
       pruneImages: false,
       startStripeWebhook: false
     },
-    { env: configured }
+    { env: production }
   );
   for (const args of [
     ...up.commands,

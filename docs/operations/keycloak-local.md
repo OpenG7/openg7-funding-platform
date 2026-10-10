@@ -110,9 +110,40 @@ ne pas recopier des valeurs de production dans cette configuration locale.
 Les paramètres du mode token ne sont pas utilisés en OIDC et une
 panne du fournisseur ne provoque aucun retour automatique à ce mode.
 
-Ne pas définir `COMPOSE_FILE` pour le profil géré. Le mode local de
-`docker:up:dev` conserve le choix OIDC ; `FUNDING_PLATFORM_ENV=development`
+Ne pas définir `COMPOSE_FILE` pour le profil géré. `FUNDING_PLATFORM_ENV=development`
 désigne la cible locale même si l'image API utilise `NODE_ENV=production`.
+Conserver les paramètres OIDC ci-dessus dans `.env` pour les commandes
+`keycloak:check`, `docker:recreate`, `docker:update` et TLS : elles lisent
+`.env`/shell et ne mémorisent pas le dernier choix du lanceur.
+
+En terminal interactif, `yarn docker:up:dev` propose `token`, `keycloak`, `oidc` ou
+`configured` ; Entrée et `configured` conservent le mode configuré. Sans terminal
+ou en `--dry-run`, aucune question d'authentification n'est posée. Pour imposer
+Keycloak au démarrage, utiliser `yarn docker:up:dev:keycloak` ou
+`yarn docker:up:dev --auth keycloak`. Le mode `token` reste réservé au
+développement ; les choix de production Keycloak/OIDC sont décrits dans le
+[guide VPS](keycloak-vps.md#configuration-et-démarrage-séparé) et conservent
+les domaines publics préparés. L'option `--auth` vaut uniquement pour cette
+invocation et ne modifie pas `.env`. Un choix explicite `token`, `keycloak` ou
+`oidc` refuse un `COMPOSE_FILE` personnalisé ;
+`configured` ou l'absence de choix conserve ce modèle.
+Le choix `oidc` conserve la configuration du fournisseur externe existant et
+désactive la surcharge Keycloak pour cette invocation.
+
+Le choix Keycloak fixe l'hôte `auth.openg7.test`, l'origine `https://localhost`,
+l'issuer HTTPS de ce guide et `FUNDING_ADMIN_OIDC_MFA_ACR` vide. Il garde les
+secrets existants et les noms de client/bootstrap configurés, avec les valeurs
+par défaut `openg7-funding-admin` et `keycloak-local-bootstrap` si ces noms sont
+absents. Le sélecteur ne génère aucun secret et ne crée pas de compte OpenG7.
+Vérifier le plan sans démarrer Docker ni le relais Stripe :
+
+```powershell
+yarn docker:up:dev:keycloak --no-stripe-webhook --dry-run
+```
+
+Ce plan inclut les surcharges identité et TLS, même si les certificats sont
+absents. `--dry-run` annonce la préparation TLS nécessaire sans installer mkcert,
+modifier la confiance Windows, générer des fichiers ou démarrer les services.
 
 ## 3. Préparer la résolution et HTTPS
 
@@ -127,6 +158,22 @@ ajouter l'entrée suivante si elle n'existe pas :
 Cette modification est locale et manuelle ; aucun script du dépôt ne l'effectue.
 Le navigateur doit résoudre l'hôte d'identité vers la machine qui expose
 Traefik. Ne pas créer d'enregistrement DNS public pour `.test`.
+
+Lors d'un démarrage Keycloak local, le lanceur valide le certificat serveur,
+sa clé et la CA publique, y compris leurs dates de validité. Si les fichiers sont
+absents, invalides ou expirés, il lance
+`node scripts/setup-local-tls.mjs --renew --no-restart` avec la configuration
+effective de l'alias, même si `.env` sélectionne un autre mode. Il revalide ensuite
+les certificats, prépare les fichiers Traefik locaux et démarre Docker uniquement
+si cette préparation réussit. Les certificats valides sont conservés.
+Si le setup automatique change la CA publique, le lanceur arrête uniquement
+`api` après le build et avant `up -d --wait` pour que Node recharge la CA ; une
+CA inchangée ne déclenche pas cet arrêt.
+Cette préparation automatique exclut token, OIDC externe et production ; elle
+ne crée ni secrets, entrée hosts, comptes ni OTP.
+
+Pour ce premier démarrage, préparer HTTPS séparément afin de démarrer le
+fournisseur seul avant l'application aux étapes suivantes :
 
 ```powershell
 yarn tls:local:setup --renew --no-restart
@@ -149,7 +196,8 @@ Son alias réseau `auth.openg7.test` permet à l'API de
 joindre Traefik depuis Docker. Elle monte uniquement la CA publique dans l'API
 avec `NODE_EXTRA_CA_CERTS=/certs/rootCA.pem` ; la confiance installée dans Windows
 ne suffit pas au processus Node du conteneur. La variable est lue au lancement
-de Node : après une modification de CA, recréer l'API et le Web avec
+de Node : si la CA a été modifiée manuellement avant l'invocation du lanceur,
+recréer l'API et le Web avec
 `yarn docker:recreate`, qui conserve les surcharges et le profil HTTPS local.
 [Documentation Node](https://github.com/nodejs/node/blob/v22.x/doc/api/cli.md#node_extra_ca_certsfile)
 
@@ -239,7 +287,7 @@ node scripts/db-runtime-role.mjs --plan
 node scripts/db-runtime-role.mjs --apply --confirm-database openg7_funding --confirm-role openg7_funding_api
 yarn db:migrate
 yarn keycloak:check
-yarn docker:up:dev --no-stripe-webhook
+yarn docker:up:dev:keycloak --no-stripe-webhook
 ```
 
 Le provisionnement crée d'abord le rôle runtime sur le schéma vide. Les
@@ -251,8 +299,9 @@ ni ne retirent Keycloak ou Traefik. Ne pas appliquer cette initialisation à une
 base existante sans suivre son [historique de migrations](database-migrations.md).
 
 Les diagnostics ne prouvent ni le MFA ni la connexion au fournisseur. Le
-lanceur local prépare la surcharge HTTPS, construit la pile et attend les
-services ; il **ne lance pas les migrations**. L'option `--no-stripe-webhook`
+lanceur local vérifie les certificats et les prépare si nécessaire selon
+l'étape HTTPS, puis construit la pile et attend les services ; il
+**ne lance pas les migrations**. L'option `--no-stripe-webhook`
 laisse le relais Stripe arrêté pour cette configuration d'identité.
 Le diagnostic global `node scripts/services-check.mjs` est facultatif ici :
 il peut signaler Stripe ou SMTP absents comme des erreurs alors que ces
@@ -288,12 +337,23 @@ est activé, sans supprimer les volumes :
 docker compose @identityCompose --profile database stop
 ```
 
-Redémarrer avec la configuration existante :
+Une fois la pile préparée, conserver certificats, hosts, comptes, OTP,
+propriétaires, rôle runtime et historique des migrations. Ces initialisations
+ne se répètent pas à chaque démarrage. Redémarrer avec le même alias Keycloak,
+qui applique le choix pour cette invocation et renouvelle les certificats
+uniquement s'ils sont absents, invalides ou expirés :
 
 ```powershell
-yarn docker:up:dev --no-stripe-webhook
+yarn docker:up:dev:keycloak --no-stripe-webhook
 docker compose @identityCompose --profile database ps
 ```
+
+Pour démarrer temporairement l'application en token, utiliser
+`yarn docker:up:dev:token --no-stripe-webhook` avec les secrets token locaux
+déjà configurés. La surcharge identité est exclue, mais ses anciens conteneurs
+peuvent rester actifs ; ce choix ne les arrête pas et ne supprime aucune DB ni
+aucun volume. Reprendre l'alias `:keycloak` pour revenir à ce profil. Chaque choix
+reste limité à son invocation ; `.env` est inchangé.
 
 Conserver `.env`, les noms de projet/volumes et les deux bases. Ne pas utiliser
 `down -v` pour un redémarrage. Les utilisateurs, OTP, rôles et sessions persistent
@@ -308,10 +368,13 @@ Pour actualiser une pile existante sans relais Stripe ni élagage d'images :
 node scripts/docker-update.mjs --development --database --no-prune-images --no-stripe-webhook
 ```
 
-Ce lanceur prépare et conserve les variantes locales, l'alias et la CA publique.
+Ce lanceur prépare et conserve les variantes locales, l'alias et la CA publique
+selon `.env`/shell, pas selon le choix `--auth` d'une invocation précédente.
 Le raccourci `yarn docker:update:dev` impose le relais Stripe et l'élagage ;
 il ne convient donc pas à cette recette d'identité seule. Le renouvellement TLS
-et son redémarrage conservent les surcharges identités et opérations activées.
+et son redémarrage conservent les surcharges identités et opérations activées
+dans `.env`/shell. Le préflight `keycloak:check` et `docker:recreate` suivent
+également cette configuration persistante.
 
 ## Dépannage et limites des preuves
 

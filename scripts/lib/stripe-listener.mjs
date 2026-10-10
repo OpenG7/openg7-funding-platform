@@ -28,6 +28,18 @@ export function verifyStripeSigningSecret(output, expected) {
     );
 }
 
+export function stripeSnapshotListenerArgs(help) {
+  const subscription = /^\s*--all-snapshot(?:\s|$)/m.test(help)
+    ? ['--all-snapshot']
+    : ['--events', '*'];
+  return [
+    'listen',
+    ...subscription,
+    '--forward-to',
+    'https://localhost/api/stripe/webhook'
+  ];
+}
+
 export const redactStripeOutput = (line) =>
   line.replace(
     /(?:[sr]k_(?:test|live)_|whsec_)[A-Za-z0-9_]+/g,
