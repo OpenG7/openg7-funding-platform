@@ -62,6 +62,22 @@ secrets présents. Les migrations additives peuvent rester.
 Les paramètres OIDC passent par les variables explicites du service API dans
 Compose, sans transmettre le fichier `.env` complet au conteneur.
 
+Dans l'administration, les indicateurs de configuration OIDC décrivent les
+paramètres chargés. Le cockpit affiche aussi la santé **Keycloak/OIDC** : il
+vérifie par HTTPS la discovery et, pour Keycloak géré, les clés publiques JWKS,
+sans authentification. L'exception HTTP de boucle locale reste réservée au
+développement.
+L'overlay Docker identité configure aussi la readiness interne Keycloak sur
+`http://keycloak:9000/health/ready` via `FUNDING_KEYCLOAK_HEALTH_URL`, sans port
+publié : elle doit confirmer la santé du serveur et de ses connexions DB.
+Hors Docker, sans cette URL interne configurée, la preuve se limite à la
+discovery et aux clés publiques ; elle ne vérifie pas la DB identité.
+Des métadonnées invalides ou un fournisseur inaccessible donnent **Indisponible** ;
+le mode `token` donne **Non configuré** sans appel au fournisseur. Le contrôle est
+borné à 2,5 secondes, partagé entre les lectures concurrentes et mis en cache
+60 secondes. Cet état ne valide ni MFA, ni secret client, ni compte propriétaire ;
+une connexion complète reste nécessaire pour ces garanties.
+
 L'exception HTTP de boucle locale est refusée dès que `NODE_ENV` ou
 `FUNDING_PLATFORM_ENV` vaut `production`, pour OIDC comme pour les alertes.
 Pour les garde-fous de démarrage et d'administration, `FUNDING_PLATFORM_ENV`

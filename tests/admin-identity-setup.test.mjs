@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { generateKeyPairSync } from 'node:crypto';
 import test from 'node:test';
 
 import {
@@ -30,6 +31,132 @@ const createIdentity = (env = environment()) =>
     },
     env
   );
+
+test('the managed provider flag labels health without changing OIDC configuration diagnostics', (t) => {
+  const fetch = t.mock.method(globalThis, 'fetch', () => {
+    assert.fail('Configuration diagnostics must not contact the provider.');
+  });
+  for (const [value, provider] of [
+    [undefined, 'OIDC'],
+    ['false', 'OIDC'],
+    ['true', 'Keycloak']
+  ]) {
+    const identity = createIdentity(
+      environment({ FUNDING_KEYCLOAK_ENABLED: value })
+    );
+    assert.equal(identity.providerHealth.provider, provider);
+    assert.equal(identity.providerHealth.evidence, 'oidc_discovery');
+    assert.equal(identity.setupStatus(true).mode, 'oidc');
+  }
+  for (const value of ['', 'yes', 'synthetic-private-invalid-flag'])
+    assert.throws(
+      () => createIdentity(environment({ FUNDING_KEYCLOAK_ENABLED: value })),
+      (error) => {
+        assert.equal(
+          error.message,
+          'FUNDING_KEYCLOAK_ENABLED must be true or false.'
+        );
+        return true;
+      }
+    );
+  assert.equal(fetch.mock.callCount(), 0);
+});
+
+test('managed readiness is private, validated at startup and separate from configuration indicators', () => {
+  const privateUrl = 'http://keycloak:9000/health/ready';
+  const identity = createIdentity(
+    environment({
+      FUNDING_KEYCLOAK_ENABLED: 'true',
+      FUNDING_KEYCLOAK_HEALTH_URL: privateUrl
+    })
+  );
+  assert.equal(identity.providerHealth.provider, 'Keycloak');
+  assert.equal(identity.providerHealth.evidence, 'keycloak_readiness');
+  assert.ok(!JSON.stringify(identity.setupStatus(true)).includes(privateUrl));
+  assert.ok(!JSON.stringify(identity.providerHealth).includes(privateUrl));
+  assert.equal(createIdentity().providerHealth.evidence, 'oidc_discovery');
+  assert.throws(
+    () =>
+      createIdentity(environment({ FUNDING_KEYCLOAK_HEALTH_URL: privateUrl })),
+    /requires managed Keycloak/
+  );
+  for (const value of [
+    'http://other-service:9000/health/ready',
+    'http://keycloak:9000/private',
+    'https://user:synthetic-private-password@keycloak.example.test/health/ready'
+  ])
+    assert.throws(
+      () =>
+        createIdentity(
+          environment({
+            FUNDING_KEYCLOAK_ENABLED: 'true',
+            FUNDING_KEYCLOAK_HEALTH_URL: value
+          })
+        ),
+      (error) => {
+        assert.ok(!error.message.includes(value));
+        assert.ok(!error.message.includes('synthetic-private-password'));
+        return true;
+      }
+    );
+});
+
+test('the identity health port uses discovery, signing keys and managed database readiness without credentials', async (t) => {
+  const env = environment({
+    FUNDING_KEYCLOAK_ENABLED: 'true',
+    FUNDING_KEYCLOAK_HEALTH_URL: 'http://keycloak:9000/health/ready'
+  });
+  const signingKey = generateKeyPairSync('rsa', {
+    modulusLength: 2048
+  }).publicKey.export({ format: 'jwk' });
+  const requests = [];
+  const responses = [
+    {
+      issuer,
+      authorization_endpoint: `${issuer}/authorize`,
+      token_endpoint: `${issuer}/token`,
+      jwks_uri: `${issuer}/jwks`
+    },
+    { keys: [{ ...signingKey, alg: 'RS256', use: 'sig' }] },
+    {
+      status: 'UP',
+      checks: [
+        {
+          name: 'Keycloak database connections async health check',
+          status: 'UP'
+        }
+      ]
+    }
+  ];
+  const fetch = t.mock.method(globalThis, 'fetch', async (url, options) => {
+    requests.push({ url: String(url), options });
+    return new Response(JSON.stringify(responses[requests.length - 1]), {
+      headers: { 'Content-Type': 'application/json' }
+    });
+  });
+  const controller = new AbortController();
+  await createIdentity(env).providerHealth.read(controller.signal);
+  assert.equal(fetch.mock.callCount(), 3);
+  assert.deepEqual(
+    requests.map((request) => request.url),
+    [
+      `${issuer}/.well-known/openid-configuration`,
+      `${issuer}/jwks`,
+      env.FUNDING_KEYCLOAK_HEALTH_URL
+    ]
+  );
+  for (const request of requests) {
+    assert.equal(request.options.method, 'GET');
+    assert.equal(request.options.signal, controller.signal);
+    assert.equal(request.options.credentials, 'omit');
+    assert.equal(request.options.body, undefined);
+    assert.equal(request.options.headers.Authorization, undefined);
+    assert.equal(request.options.headers.Cookie, undefined);
+  }
+  const serialized = JSON.stringify(requests);
+  assert.ok(!serialized.includes(env.FUNDING_ADMIN_OIDC_CLIENT_SECRET));
+  assert.ok(!serialized.includes(env.FUNDING_ADMIN_OIDC_OWNER_SUBJECTS));
+});
 
 test('token diagnostics have no provider configuration and retain the validated encryption indicator', () => {
   for (const encrypted of [false, true]) {

@@ -153,30 +153,6 @@ const adminStripeBackfill =
     : null;
 
 loadApiRuntimeEmailConfig();
-const readCockpitSystems = createCockpitSystemsReader({
-  stripeApiConfigured: Boolean(stripe),
-  stripeConnection: async () => {
-    if (!stripe) throw new Error('Stripe API not configured');
-    await readStripeConnection(stripe);
-  },
-  stripeConfigured: Boolean(stripe && stripeWebhookSecret),
-  emailConfigured: getTransactionalEmailConfigStatus().configured,
-  storageProvider: sponsorMediaStorage.driver === 'ovh-s3' ? 'OVH S3' : 'Local',
-  databaseConfigured: Boolean(dbPool),
-  database: async () => {
-    if (!dbPool) throw new Error('Database unavailable');
-    await readSnapshot(dbPool, async (client) => {
-      await client.query('SELECT 1');
-    });
-  },
-  stripe: () => readSystemObservation(dbPool, 'stripe'),
-  email: () => readSystemObservation(dbPool, 'email'),
-  storage: async (signal) => {
-    if (!sponsorMediaStorage.checkReadAccess)
-      throw new Error('Storage check unavailable');
-    await sponsorMediaStorage.checkReadAccess(signal);
-  }
-});
 const socialPublicationConfig = loadApiRuntimeSocialPublicationConfig();
 validateApiRuntimeConfig(runtimeConfig);
 const privateDataEncryptionConfigured = privateDataEncryptionKey() !== null;
@@ -248,6 +224,32 @@ const adminIdentity =
   adminAuthMode === 'oidc'
     ? new AdminIdentityService(dbPool!, process.env)
     : null;
+
+const readCockpitSystems = createCockpitSystemsReader({
+  stripeApiConfigured: Boolean(stripe),
+  stripeConnection: async () => {
+    if (!stripe) throw new Error('Stripe API not configured');
+    await readStripeConnection(stripe);
+  },
+  stripeConfigured: Boolean(stripe && stripeWebhookSecret),
+  emailConfigured: getTransactionalEmailConfigStatus().configured,
+  storageProvider: sponsorMediaStorage.driver === 'ovh-s3' ? 'OVH S3' : 'Local',
+  identity: adminIdentity?.providerHealth ?? null,
+  databaseConfigured: Boolean(dbPool),
+  database: async () => {
+    if (!dbPool) throw new Error('Database unavailable');
+    await readSnapshot(dbPool, async (client) => {
+      await client.query('SELECT 1');
+    });
+  },
+  stripe: () => readSystemObservation(dbPool, 'stripe'),
+  email: () => readSystemObservation(dbPool, 'email'),
+  storage: async (signal) => {
+    if (!sponsorMediaStorage.checkReadAccess)
+      throw new Error('Storage check unavailable');
+    await sponsorMediaStorage.checkReadAccess(signal);
+  }
+});
 
 const {
   resolveAdminAuthorization,

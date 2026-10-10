@@ -101,6 +101,12 @@ test('undated payments invalidate affected trends and unsafe amounts fail closed
   assert.equal((await getCockpitMetrics(null, now)).available, false);
 });
 
+const identityPort = (overrides = {}) => ({
+  provider: 'Keycloak',
+  evidence: 'oidc_discovery',
+  read: async () => {},
+  ...overrides
+});
 const ports = () => ({
   stripeApiConfigured: true,
   stripeConnection: async () => {},
@@ -109,6 +115,7 @@ const ports = () => ({
   databaseConfigured: true,
   storageProvider: 'Local',
   database: async () => {},
+  identity: identityPort(),
   storage: async () => {},
   stripe: async () => ({ lastSuccess: now.toISOString(), issues: 0 }),
   email: async () => ({ lastSuccess: null, issues: 0 })
@@ -323,6 +330,208 @@ test('health requests share bounded probes and refresh when evidence expires', a
   assert.equal((await blocked()).systems[2].state, 'unavailable');
   assert.equal(aborted, true);
 });
+
+test('identity health reports public OIDC discovery for either provider without disclosing probe details', async () => {
+  for (const provider of ['Keycloak', 'OIDC']) {
+    let calls = 0;
+    const result = await createCockpitSystemsReader(
+      {
+        ...ports(),
+        identity: identityPort({
+          provider,
+          read: async (signal) => {
+            calls++;
+            assert.ok(signal instanceof AbortSignal);
+            assert.equal(signal.aborted, false);
+          }
+        })
+      },
+      () => now
+    )();
+    const identity = result.systems.find((system) => system.id === 'identity');
+    assert.equal(calls, 1);
+    assert.deepEqual(
+      result.systems.map((system) => system.id),
+      ['stripe', 'email', 'storage', 'database', 'identity']
+    );
+    assert.equal(identity.provider, provider);
+    assert.equal(identity.state, 'operational');
+    assert.equal(identity.evidence, 'oidc_discovery');
+    assert.equal(identity.observedAt, now.toISOString());
+    assert.equal(identity.checkedAt, now.toISOString());
+    assert.equal(
+      identity.validUntil,
+      new Date(now.getTime() + 60_000).toISOString()
+    );
+    assert.equal(identity.adminUrl, '/admin/fundraiser/setup');
+    assert.equal('mfa_verified' in identity, false);
+    assert.equal('owner_exists' in identity, false);
+    assert.equal('client_secret' in identity, false);
+  }
+});
+
+test('token mode leaves identity unconfigured and never calls the OIDC probe', async (t) => {
+  const fetch = t.mock.method(globalThis, 'fetch', () => {
+    assert.fail('Unconfigured identity must not be probed.');
+  });
+  const result = await createCockpitSystemsReader(
+    {
+      ...ports(),
+      identity: null
+    },
+    () => now
+  )();
+  const identity = result.systems.find((system) => system.id === 'identity');
+  assert.equal(fetch.mock.callCount(), 0);
+  assert.equal(identity.state, 'not_configured');
+  assert.equal(identity.evidence, 'not_configured');
+  assert.equal(identity.observedAt, null);
+  assert.equal(
+    result.systems.find((system) => system.id === 'database').state,
+    'operational'
+  );
+});
+
+test('managed Keycloak readiness has distinct evidence when its internal database check is enabled', async () => {
+  let calls = 0;
+  const result = await createCockpitSystemsReader(
+    {
+      ...ports(),
+      identity: identityPort({
+        evidence: 'keycloak_readiness',
+        read: async () => {
+          calls++;
+        }
+      })
+    },
+    () => now
+  )();
+  const identity = result.systems.find((system) => system.id === 'identity');
+  assert.equal(calls, 1);
+  assert.equal(identity.provider, 'Keycloak');
+  assert.equal(identity.state, 'operational');
+  assert.equal(identity.evidence, 'keycloak_readiness');
+  assert.equal(identity.observedAt, now.toISOString());
+});
+
+test('a failed identity probe remains unavailable without leaking errors or hiding other systems', async () => {
+  const privateCanary = 'synthetic-private-identity-health-secret';
+  const result = await createCockpitSystemsReader(
+    {
+      ...ports(),
+      identity: identityPort({
+        read: async () => {
+          throw new Error(privateCanary);
+        }
+      })
+    },
+    () => now
+  )();
+  const identity = result.systems.find((system) => system.id === 'identity');
+  assert.equal(identity.state, 'unavailable');
+  assert.equal(identity.evidence, 'check_failed');
+  assert.equal(identity.observedAt, null);
+  assert.equal(
+    result.systems.find((system) => system.id === 'stripe').connection.state,
+    'operational'
+  );
+  assert.equal(
+    result.systems.find((system) => system.id === 'storage').state,
+    'operational'
+  );
+  assert.equal(
+    result.systems.find((system) => system.id === 'database').state,
+    'operational'
+  );
+  assert.ok(!JSON.stringify(result).includes(privateCanary));
+});
+
+test('identity health aborts a timed-out probe and still reports independent services', async () => {
+  let identitySignal;
+  let aborts = 0;
+  const result = await createCockpitSystemsReader(
+    {
+      ...ports(),
+      identity: identityPort({
+        read: (signal) => {
+          identitySignal = signal;
+          return new Promise((_, reject) => {
+            signal.addEventListener(
+              'abort',
+              () => {
+                aborts++;
+                reject(new Error('synthetic-private-aborted-identity-probe'));
+              },
+              { once: true }
+            );
+          });
+        }
+      })
+    },
+    () => now,
+    20
+  )();
+  const identity = result.systems.find((system) => system.id === 'identity');
+  assert.equal(identitySignal.aborted, true);
+  assert.equal(aborts, 1);
+  assert.equal(identity.state, 'unavailable');
+  assert.equal(identity.evidence, 'check_failed');
+  assert.equal(
+    result.systems.find((system) => system.id === 'database').state,
+    'operational'
+  );
+  assert.ok(!JSON.stringify(result).includes('synthetic-private'));
+});
+
+test('identity health shares concurrent probes and recovers only after the cached failure expires', async () => {
+  let clock = now;
+  let calls = 0;
+  let rejectProbe;
+  const read = createCockpitSystemsReader(
+    {
+      ...ports(),
+      identity: identityPort({
+        read: () => {
+          calls++;
+          if (calls === 1)
+            return new Promise((_, reject) => {
+              rejectProbe = reject;
+            });
+          return Promise.resolve();
+        }
+      })
+    },
+    () => clock
+  );
+  const pending = [read(), read(), read()];
+  assert.equal(calls, 1);
+  rejectProbe(new Error('synthetic-private-identity-discovery-error'));
+  const first = await Promise.all(pending);
+  assert.deepEqual(first[0], first[2]);
+  assert.equal(
+    first[0].systems.find((system) => system.id === 'identity').state,
+    'unavailable'
+  );
+  clock = new Date(now.getTime() + 59_999);
+  assert.deepEqual(await read(), first[0]);
+  assert.equal(calls, 1);
+  clock = new Date(now.getTime() + 60_000);
+  const recovered = await Promise.all([read(), read(), read()]);
+  assert.equal(calls, 2);
+  assert.deepEqual(recovered[0], recovered[2]);
+  const identity = recovered[0].systems.find(
+    (system) => system.id === 'identity'
+  );
+  assert.equal(identity.state, 'operational');
+  assert.equal(identity.evidence, 'oidc_discovery');
+  assert.equal(identity.observedAt, clock.toISOString());
+  assert.equal(
+    identity.validUntil,
+    new Date(clock.getTime() + 60_000).toISOString()
+  );
+  assert.ok(!JSON.stringify(recovered).includes('synthetic-private'));
+});
+
 test('an acquired connection arriving after timeout is released', async () => {
   let resolve;
   let released = false;

@@ -82,7 +82,8 @@ export class AdminSystemCardsComponent {
     stripe: 'contributions',
     email: 'email',
     storage: 'cloud',
-    database: 'database'
+    database: 'database',
+    identity: 'settings'
   };
   state(system: CockpitSystem) {
     return serviceState(system, this.now(), this.failed());

@@ -23,9 +23,14 @@ import {
 } from './admin-identity/oidc.js';
 import { createAdminIdentityPersistence } from './admin-identity/persistence.js';
 import { adminRoleAllows } from './admin-identity/policy.js';
+import {
+  createIdentityProviderHealth,
+  type IdentityProviderHealth
+} from './admin-identity/provider-health.js';
 
 export { identityHash } from './admin-identity/contracts.js';
 export type { AdminIdentity, AdminRole } from './admin-identity/contracts.js';
+export type { IdentityProviderHealth } from './admin-identity/provider-health.js';
 export {
   adminRoleAllows,
   safeAdminReturnPath,
@@ -48,6 +53,7 @@ export const buildAdminIdentitySetupStatus = (
   };
 
 export class AdminIdentityService {
+  readonly providerHealth: IdentityProviderHealth;
   private readonly config: AdminIdentityConfig;
   private readonly persistence: AdminIdentityPersistence;
   private readonly handleOidc: ReturnType<typeof createAdminOidcHandler>;
@@ -55,6 +61,7 @@ export class AdminIdentityService {
 
   constructor(pool: Pool, env: NodeJS.ProcessEnv) {
     this.config = loadAdminIdentityConfig(env);
+    this.providerHealth = createIdentityProviderHealth(this.config.issuer, env);
     this.persistence = createAdminIdentityPersistence(
       pool,
       this.config.issuer.href

@@ -53,7 +53,8 @@ const systemsFixture = () => [
   },
   { id: 'email', ...checkFixture() },
   { id: 'storage', ...checkFixture('operational', 'storage_read') },
-  { id: 'database', ...checkFixture('operational', 'database_read') }
+  { id: 'database', ...checkFixture('operational', 'database_read') },
+  { id: 'identity', ...checkFixture('operational', 'oidc_discovery') }
 ];
 const inputFixture = () => ({
   setup: setupFixture(),
@@ -182,7 +183,7 @@ test('legacy setup responses keep services usable and leave the identity diagnos
       projectChecklist(input.setup).find((item) => item.id === 'identity'),
       { id: 'identity', ready: false, state: 'unknown' }
     );
-    assert.equal(projectOperationalCount(input.systems, now, false), 4);
+    assert.equal(projectOperationalCount(input.systems, now, false), 5);
     const recommendation = projectRecommendation(input);
     assert.equal(recommendation.key, 'identity');
     assert.equal(recommendation.section, 'identity');
@@ -294,8 +295,8 @@ test('reported incidents take priority over identity guidance in token, legacy a
   }
 });
 
-test('service diagnostics preserve local destinations and the email queue link', () => {
-  for (const id of ['database', 'storage', 'email']) {
+test('service diagnostics preserve local destinations, identity details and the email queue link', () => {
+  for (const id of ['database', 'storage', 'email', 'identity']) {
     const input = inputFixture();
     input.systems.find((system) => system.id === id).state = 'unavailable';
     assert.deepEqual(projectRecommendation(input), {
@@ -343,12 +344,12 @@ test('configuration recommendations precede missing observations in their existi
   input.setup.email.smtp_configured = true;
   assert.equal(projectRecommendation(input).key, 'invoice');
   input.setup.invoice.ready = true;
-  assert.equal(projectRecommendation(input).key, 'verification');
+  assert.equal(projectRecommendation(input).key, 'identityHealth');
 });
 
 test('fresh confirmed connections allow readiness without recent Stripe webhook activity', () => {
   const input = inputFixture();
-  assert.equal(projectOperationalCount(input.systems, now, false), 4);
+  assert.equal(projectOperationalCount(input.systems, now, false), 5);
   assert.deepEqual(projectRecommendation(input), {
     key: 'ready',
     section: 'activity',
@@ -356,27 +357,115 @@ test('fresh confirmed connections allow readiness without recent Stripe webhook 
   });
 });
 
-test('expired observations and failed-refresh retries cannot retain operational readiness', () => {
+test('OIDC availability must be observed independently of the configured identity checklist', () => {
   for (const change of [
     (input) => {
-      input.now = Date.parse('2026-10-03T12:01:00Z');
+      input.systems = input.systems.filter(
+        (system) => system.id !== 'identity'
+      );
     },
     (input) => {
-      input.systems[0].connection.validUntil = 'invalid';
+      input.systems.find((system) => system.id === 'identity').state =
+        'unknown';
     },
     (input) => {
-      input.failed = true;
+      input.systems.find((system) => system.id === 'identity').validUntil =
+        '2026-10-03T11:59:59Z';
     },
     (input) => {
-      input.failed = true;
-      input.systemsState = 'loading';
+      input.systems.find((system) => system.id === 'identity').evidence =
+        'check_failed';
     }
   ]) {
     const input = inputFixture();
     change(input);
-    assert.equal(projectRecommendation(input).key, 'verification');
+    assert.deepEqual(
+      projectChecklist(input.setup).find((item) => item.id === 'identity'),
+      { id: 'identity', ready: true }
+    );
+    assert.deepEqual(projectRecommendation(input), {
+      key: 'identityHealth',
+      section: 'identity',
+      tone: 'neutral'
+    });
+  }
+});
+
+test('managed Keycloak readiness and external OIDC discovery both prove a fresh identity observation', () => {
+  for (const evidence of ['oidc_discovery', 'keycloak_readiness']) {
+    const input = inputFixture();
+    input.systems.find((system) => system.id === 'identity').evidence =
+      evidence;
+    assert.equal(projectRecommendation(input).key, 'ready');
+  }
+});
+
+test('operational duplicate IDs cannot substitute for a missing required service', () => {
+  const input = inputFixture();
+  input.systems = input.systems.map((system) =>
+    system.id === 'database' ? { ...system, id: 'storage' } : system
+  );
+  assert.equal(input.systems.length, 5);
+  assert.equal(projectOperationalCount(input.systems, now, false), 5);
+  assert.deepEqual(projectRecommendation(input), {
+    key: 'verification',
+    section: 'readiness',
+    tone: 'neutral'
+  });
+});
+
+test('legacy four-service and current five-service responses preserve token-mode guidance without an OIDC check', () => {
+  for (const includeIdentity of [false, true]) {
+    const input = inputFixture();
+    input.setup.identity.mode = 'token';
+    input.systems = input.systems.filter((system) => system.id !== 'identity');
+    if (includeIdentity)
+      input.systems.push({
+        id: 'identity',
+        ...checkFixture('not_configured', 'not_configured')
+      });
+    assert.equal(projectOperationalCount(input.systems, now, false), 4);
+    assert.deepEqual(projectRecommendation(input), {
+      key: 'identityToken',
+      section: 'identity',
+      tone: 'neutral'
+    });
+  }
+});
+
+test('expired observations and failed-refresh retries cannot retain operational readiness', () => {
+  for (const [change, recommendation] of [
+    [
+      (input) => {
+        input.now = Date.parse('2026-10-03T12:01:00Z');
+      },
+      'identityHealth'
+    ],
+    [
+      (input) => {
+        input.systems[0].connection.validUntil = 'invalid';
+      },
+      'verification'
+    ],
+    [
+      (input) => {
+        input.failed = true;
+      },
+      'identityHealth'
+    ],
+    [
+      (input) => {
+        input.failed = true;
+        input.systemsState = 'loading';
+      },
+      'identityHealth'
+    ]
+  ]) {
+    const input = inputFixture();
+    change(input);
+    assert.equal(projectRecommendation(input).key, recommendation);
     assert.ok(
-      projectOperationalCount(input.systems, input.now, input.failed) < 4
+      projectOperationalCount(input.systems, input.now, input.failed) < 5
     );
   }
 });
@@ -396,7 +485,9 @@ test('legacy Stripe responses and missing or failed webhook checks do not prove 
       input.systems[0].evidence = 'not_configured';
     },
     (input) => {
-      input.systems.pop();
+      input.systems = input.systems.filter(
+        (system) => system.id !== 'database'
+      );
     },
     (input) => {
       input.systemsState = 'loading';

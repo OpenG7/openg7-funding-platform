@@ -388,6 +388,14 @@ test(
     );
     assert.equal(rendered.status, 0, rendered.stderr);
     const model = JSON.parse(rendered.stdout);
+    assert.equal(
+      model.services.api.environment.FUNDING_KEYCLOAK_ENABLED,
+      'true'
+    );
+    assert.equal(
+      model.services.api.environment.FUNDING_KEYCLOAK_HEALTH_URL,
+      'http://keycloak:9000/health/ready'
+    );
     const identity = model.services['identity-postgres'];
     const keycloak = model.services.keycloak;
     assert.deepEqual(Object.keys(identity.networks), ['identity-data']);
@@ -445,5 +453,36 @@ test(
     });
     assert.notEqual(absent.status, 0);
     assert.doesNotMatch(absent.stdout + absent.stderr, /synthetic-/);
+    const external = spawnSync(
+      'docker',
+      [
+        'compose',
+        '--env-file',
+        envFile,
+        '-f',
+        'docker-compose.yml',
+        '--profile',
+        'database',
+        'config',
+        '--format',
+        'json'
+      ],
+      {
+        encoding: 'utf8',
+        env: { ...env, FUNDING_KEYCLOAK_ENABLED: 'false' },
+        windowsHide: true
+      }
+    );
+    assert.equal(external.status, 0, external.stderr);
+    assert.equal(
+      JSON.parse(external.stdout).services.api.environment
+        .FUNDING_KEYCLOAK_ENABLED,
+      'false'
+    );
+    assert.equal(
+      JSON.parse(external.stdout).services.api.environment
+        .FUNDING_KEYCLOAK_HEALTH_URL,
+      undefined
+    );
   }
 );

@@ -1,6 +1,11 @@
 # Optional identity stack. Select explicitly after preparing DNS and secrets.
 # Its database and lifecycle are independent of the funding API database.
 services:
+  api:
+    environment:
+      # Private management read; no database credentials or published health port.
+      FUNDING_KEYCLOAK_HEALTH_URL: http://keycloak:9000/health/ready
+
   traefik:
     environment:
       FUNDING_KEYCLOAK_HOSTNAME: ${FUNDING_KEYCLOAK_HOSTNAME:-auth.openg7.org}
