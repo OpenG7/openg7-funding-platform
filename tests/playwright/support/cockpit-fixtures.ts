@@ -8,6 +8,11 @@ import type {
 export const cockpitFixtures = () => {
   const now = new Date();
   const generatedAt = now.toISOString();
+  const observation = {
+    checkedAt: generatedAt,
+    observedAt: generatedAt,
+    validUntil: new Date(now.getTime() + 60_000).toISOString()
+  };
   const trend: CockpitTrend = {
     current: 20000,
     previous: 10000,
@@ -95,13 +100,10 @@ export const cockpitFixtures = () => {
         connection: {
           state: 'operational',
           evidence: 'stripe_api_read',
-          checkedAt: generatedAt,
-          observedAt: generatedAt,
-          validUntil: new Date(now.getTime() + 60_000).toISOString()
+          ...observation
         },
-        checkedAt: generatedAt,
+        ...observation,
         observedAt: null,
-        validUntil: new Date(now.getTime() + 60_000).toISOString(),
         adminUrl: '/admin/fundraiser/attention?type=stripe_event_failed'
       },
       {
@@ -109,9 +111,8 @@ export const cockpitFixtures = () => {
         provider: 'SMTP',
         state: 'degraded',
         evidence: 'pending_errors',
-        checkedAt: generatedAt,
+        ...observation,
         observedAt: null,
-        validUntil: new Date(now.getTime() + 60_000).toISOString(),
         adminUrl: '/admin/fundraiser/email-queue'
       },
       {
@@ -119,9 +120,7 @@ export const cockpitFixtures = () => {
         provider: 'Local',
         state: 'operational',
         evidence: 'storage_read',
-        checkedAt: generatedAt,
-        observedAt: generatedAt,
-        validUntil: new Date(now.getTime() + 60_000).toISOString(),
+        ...observation,
         adminUrl: '/admin/fundraiser/setup'
       },
       {
@@ -129,9 +128,15 @@ export const cockpitFixtures = () => {
         provider: 'PostgreSQL',
         state: 'operational',
         evidence: 'database_read',
-        checkedAt: generatedAt,
-        observedAt: generatedAt,
-        validUntil: new Date(now.getTime() + 60_000).toISOString(),
+        ...observation,
+        adminUrl: '/admin/fundraiser/setup'
+      },
+      {
+        id: 'identity',
+        provider: 'Keycloak',
+        state: 'operational',
+        evidence: 'keycloak_readiness',
+        ...observation,
         adminUrl: '/admin/fundraiser/setup'
       }
     ]

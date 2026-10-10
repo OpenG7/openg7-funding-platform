@@ -5,6 +5,8 @@ import type {
 } from '@openg7/funding-core';
 import type { Pool } from 'pg';
 
+import type { IdentityProviderHealth } from '../admin-identity.js';
+
 import { readSnapshot } from './read.js';
 
 export const SYSTEM_CACHE_MS = 60_000;
@@ -19,6 +21,7 @@ export interface SystemHealthPorts {
   readonly stripeConfigured: boolean;
   readonly emailConfigured: boolean;
   readonly storageProvider: 'Local' | 'OVH S3';
+  readonly identity: IdentityProviderHealth | null;
   readonly databaseConfigured: boolean;
   readonly database: () => Promise<void>;
   readonly stripe: () => Promise<Observation>;
@@ -98,6 +101,14 @@ export const createCockpitSystemsReader = (
           configured: ports.databaseConfigured,
           read: ports.database,
           evidence: 'database_read',
+          url: '/admin/fundraiser/setup'
+        },
+        {
+          id: 'identity',
+          provider: ports.identity?.provider ?? 'OIDC',
+          configured: Boolean(ports.identity),
+          read: async (signal: AbortSignal) => ports.identity?.read(signal),
+          evidence: ports.identity?.evidence ?? 'oidc_discovery',
           url: '/admin/fundraiser/setup'
         }
       ] as const;

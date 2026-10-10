@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import { AxeBuilder } from '@axe-core/playwright';
+import type { CockpitSystem } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
 import { cockpitFixtures } from './support/cockpit-fixtures.js';
@@ -56,6 +57,20 @@ async function installFixtures(page: Page, language = 'fr-CA') {
   return data;
 }
 
+function markSystemsOperational(
+  data: Awaited<ReturnType<typeof installFixtures>>,
+  identityPatch: Partial<CockpitSystem> = {}
+): void {
+  data.systems = {
+    ...data.systems,
+    systems: data.systems.systems.map((system) => ({
+      ...system,
+      state: 'operational',
+      ...(system.id === 'identity' ? identityPatch : {})
+    }))
+  };
+}
+
 const root = (page: Page) => page.locator('[data-og7="admin-setup"]');
 const recommendation = (page: Page) =>
   page.locator('[data-og7="setup-recommendation"]');
@@ -77,7 +92,7 @@ for (const language of ['fr-CA', 'en']) {
           ? 'Configuration and system status'
           : 'Configuration et état du système'
       );
-      await expect(page.locator('[data-og7="setup-system"]')).toHaveCount(4);
+      await expect(page.locator('[data-og7="setup-system"]')).toHaveCount(5);
       await expect(card(page, 'stripe')).toHaveAttribute(
         'data-state',
         'operational'
@@ -89,6 +104,25 @@ for (const language of ['fr-CA', 'en']) {
         'data-state',
         'operational'
       );
+      await expect(card(page, 'identity')).toHaveAttribute(
+        'data-state',
+        'operational'
+      );
+      await expect(card(page, 'identity')).toContainText('Keycloak');
+      await expect(card(page, 'identity')).toContainText(
+        en
+          ? 'Realm, public keys, and Keycloak and database readiness verified'
+          : 'Realm, clés publiques et disponibilité de Keycloak et de sa base vérifiés'
+      );
+      await expect(card(page, 'identity').locator('time')).toHaveAttribute(
+        'datetime',
+        data.systems.generatedAt
+      );
+      await expect(page.locator('#setup-readiness')).toContainText(
+        en
+          ? 'OIDC checks validate neither client sign-in nor MFA'
+          : 'Les contrôles OIDC ne valident ni la connexion du client ni le MFA'
+      );
       await expect(recommendation(page)).toContainText(
         en
           ? 'A service needs your attention'
@@ -97,6 +131,9 @@ for (const language of ['fr-CA', 'en']) {
       await expect(page.locator('[data-og7="setup-checklist"]')).toContainText(
         '6 / 6'
       );
+      await card(page, 'identity').focus();
+      await page.keyboard.press('Enter');
+      await expect(page.locator('#setup-identity')).toBeFocused();
       await card(page, 'storage').focus();
       await page.keyboard.press('Enter');
       await expect(page.locator('#setup-storage')).toBeFocused();
@@ -155,23 +192,130 @@ for (const language of ['fr-CA', 'en']) {
   }
 }
 
+test('a timed-out identity check blocks readiness without changing the configuration checklist', async ({
+  page
+}) => {
+  const data = await installFixtures(page);
+  markSystemsOperational(data, {
+    state: 'unavailable',
+    evidence: 'check_failed',
+    observedAt: null
+  });
+  await page.goto('/admin/fundraiser/setup');
+  await expect(card(page, 'identity')).toHaveAttribute(
+    'data-state',
+    'unavailable'
+  );
+  await expect(card(page, 'identity')).toContainText(
+    'La vérification n’a pas abouti'
+  );
+  await expect(card(page, 'identity').locator('time')).toHaveAttribute(
+    'datetime',
+    data.systems.generatedAt
+  );
+  await expect(page.locator('[data-og7="setup-checklist"]')).toContainText(
+    '6 / 6'
+  );
+  await expect(recommendation(page)).toHaveAttribute('data-tone', 'warning');
+  await recommendation(page).getByRole('button').click();
+  await expect(page.locator('#setup-identity')).toBeFocused();
+  expect(data.writes).toBe(0);
+});
+
+test('identity freshness expires independently and its recommendation opens the identity section', async ({
+  page
+}) => {
+  await page.clock.install({ time: new Date() });
+  const data = await installFixtures(page);
+  markSystemsOperational(data, {
+    validUntil: new Date(Date.now() + 15_000).toISOString()
+  });
+  await page.goto('/admin/fundraiser/setup');
+  await expect(recommendation(page)).toHaveAttribute('data-tone', 'success');
+  await page.clock.runFor(31_000);
+  await expect(card(page, 'identity')).toHaveAttribute('data-state', 'unknown');
+  await expect(card(page, 'identity')).toContainText('Observation périmée');
+  await expect(card(page, 'database')).toHaveAttribute(
+    'data-state',
+    'operational'
+  );
+  await expect(page.locator('#setup-readiness')).toContainText(
+    '4 / 5 contrôles confirmés'
+  );
+  await expect(recommendation(page)).toContainText(
+    'La disponibilité OIDC reste à vérifier'
+  );
+  await recommendation(page).getByRole('button').click();
+  await expect(page.locator('#setup-identity')).toBeFocused();
+  expect(data.writes).toBe(0);
+});
+
+test('an older four-system response cannot prove OIDC readiness', async ({
+  page
+}) => {
+  const data = await installFixtures(page);
+  markSystemsOperational(data);
+  data.systems = {
+    ...data.systems,
+    systems: data.systems.systems.filter((system) => system.id !== 'identity')
+  };
+  await page.goto('/admin/fundraiser/setup');
+  await expect(page.locator('[data-og7="setup-system"]')).toHaveCount(4);
+  await expect(recommendation(page)).toHaveAttribute('data-tone', 'neutral');
+  await expect(recommendation(page)).toContainText(
+    'La disponibilité OIDC reste à vérifier'
+  );
+  await recommendation(page).getByRole('button').click();
+  await expect(page.locator('#setup-identity')).toBeFocused();
+  expect(data.writes).toBe(0);
+});
+
+for (const count of [4, 5]) {
+  test(`token mode keeps its configuration guidance with a ${count}-system response`, async ({
+    page
+  }) => {
+    const data = await installFixtures(page);
+    data.setup.identity = { ...data.setup.identity!, mode: 'token' };
+    markSystemsOperational(data, {
+      state: 'not_configured',
+      provider: 'OIDC',
+      evidence: 'not_configured',
+      observedAt: null
+    });
+    data.systems = {
+      ...data.systems,
+      systems: data.systems.systems.filter(
+        (system) => count === 5 || system.id !== 'identity'
+      )
+    };
+    await page.goto('/admin/fundraiser/setup');
+    await expect(page.locator('[data-og7="setup-system"]')).toHaveCount(count);
+    if (count === 5)
+      await expect(card(page, 'identity')).toHaveAttribute(
+        'data-state',
+        'not_configured'
+      );
+    await expect(recommendation(page)).toContainText(
+      'Préparer le passage à OIDC'
+    );
+    await expect(recommendation(page)).toHaveAttribute('data-tone', 'neutral');
+    await recommendation(page).getByRole('button').click();
+    await expect(page.locator('#setup-identity')).toBeFocused();
+    expect(data.writes).toBe(0);
+  });
+}
+
 test('expired service observations remove the reassuring recommendation without reloading', async ({
   page
 }) => {
   await page.clock.install();
   const data = await installFixtures(page);
-  data.systems = {
-    ...data.systems,
-    systems: data.systems.systems.map((system) => ({
-      ...system,
-      state: 'operational'
-    }))
-  };
+  markSystemsOperational(data);
   await page.goto('/admin/fundraiser/setup');
   await expect(recommendation(page)).toHaveAttribute('data-tone', 'success');
   await page.clock.runFor(61_000);
   await expect(recommendation(page)).toContainText(
-    'Des observations restent à confirmer'
+    'La disponibilité OIDC reste à vérifier'
   );
   await expect(card(page, 'database')).toHaveAttribute('data-state', 'unknown');
   expect(data.writes).toBe(0);
@@ -181,13 +325,7 @@ test('a failed service refresh stays unconfirmed throughout a pending retry, the
   page
 }) => {
   const data = await installFixtures(page);
-  data.systems = {
-    ...data.systems,
-    systems: data.systems.systems.map((system) => ({
-      ...system,
-      state: 'operational'
-    }))
-  };
+  markSystemsOperational(data);
   await page.goto('/admin/fundraiser/setup');
   await expect(recommendation(page)).toHaveAttribute('data-tone', 'success');
   await expect(card(page, 'database')).toHaveAttribute(
@@ -227,7 +365,7 @@ test('a failed service refresh stays unconfirmed throughout a pending retry, the
       'unknown'
     );
     await expect(page.locator('#setup-readiness')).toContainText(
-      '0 / 4 contrôles confirmés'
+      '0 / 5 contrôles confirmés'
     );
     await expect(page.locator('#setup-readiness')).toContainText(
       'Dernière lecture conservée'

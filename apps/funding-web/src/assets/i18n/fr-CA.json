@@ -639,7 +639,8 @@
         "stripe": "Paiements",
         "email": "Courriels",
         "storage": "Stockage",
-        "database": "Base de données"
+        "database": "Base de données",
+        "identity": "Identité"
       },
       "health": {
         "operational": "Opérationnel",
@@ -652,6 +653,8 @@
         "database_read": "Lecture PostgreSQL réussie.",
         "storage_read": "Accès en lecture au répertoire ou aux buckets vérifié.",
         "stripe_api_read": "Lecture authentifiée de l’API Stripe réussie. Ce contrôle ne confirme ni un paiement ni la réception des webhooks.",
+        "oidc_discovery": "Découverte OIDC validée ; clés publiques vérifiées pour Keycloak géré.",
+        "keycloak_readiness": "Realm, clés publiques et disponibilité de Keycloak et de sa base vérifiés.",
         "recent_webhook": "Webhook de paiement traité il y a moins de 15 minutes.",
         "recent_email": "Courriel remis au transport il y a moins de 15 minutes.",
         "pending_errors": "Échecs ou traitements en retard à vérifier.",
@@ -662,7 +665,7 @@
       },
       "observed": "Dernier succès :",
       "checked": "Vérifié le",
-      "healthScope": "Contrôles en lecture seule, conservés au plus une minute. Ils ne prouvent ni l’écriture dans le stockage, ni la réception des courriels, ni la disponibilité complète du fournisseur."
+      "healthScope": "Contrôles en lecture seule, conservés au plus une minute. Les contrôles OIDC ne valident ni la connexion du client ni le MFA. La disponibilité de la base identité est vérifiée uniquement par le contrôle interne de Keycloak géré. Ces observations ne prouvent ni l’écriture dans le stockage ni la réception des courriels."
     },
     "dossier": {
       "noteEditor": {
@@ -2911,13 +2914,18 @@
         },
         "ready": {
           "title": "Aucun problème détecté dans les contrôles disponibles",
-          "body": "Les quatre observations sont récentes et les points de configuration sont vérifiés. Leur portée reste limitée aux contrôles affichés.",
+          "body": "Les observations requises sont récentes et les points de configuration sont vérifiés. Leur portée reste limitée aux contrôles affichés.",
           "action": "Voir l’activité récente"
         },
         "identity": {
           "title": "Vérifier la configuration des accès OIDC",
           "body": "Les paramètres d’identité sont incomplets ou ne sont pas observés par cette API. Consultez le guide et distinguez présence des paramètres et vérifications manuelles.",
           "action": "Préparer les accès OIDC"
+        },
+        "identityHealth": {
+          "title": "La disponibilité OIDC reste à vérifier",
+          "body": "Le contrôle du fournisseur est absent, périmé ou non confirmé. La configuration des accès reste distincte de sa santé et d’une connexion MFA à vérifier manuellement.",
+          "action": "Consulter l’identité"
         },
         "identityToken": {
           "title": "Préparer le passage à OIDC",

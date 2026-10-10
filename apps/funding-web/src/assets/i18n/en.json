@@ -639,7 +639,8 @@
         "stripe": "Payments",
         "email": "Email",
         "storage": "Storage",
-        "database": "Database"
+        "database": "Database",
+        "identity": "Identity"
       },
       "health": {
         "operational": "Operational",
@@ -652,6 +653,8 @@
         "database_read": "PostgreSQL read succeeded.",
         "storage_read": "Read access to the directory or buckets verified.",
         "stripe_api_read": "Authenticated Stripe API read succeeded. This check confirms neither a payment nor webhook delivery.",
+        "oidc_discovery": "OIDC discovery validated; public keys checked for managed Keycloak.",
+        "keycloak_readiness": "Realm, public keys, and Keycloak and database readiness verified.",
         "recent_webhook": "Payment webhook processed within the last 15 minutes.",
         "recent_email": "Email handed to the transport within the last 15 minutes.",
         "pending_errors": "Failures or delayed processing require review.",
@@ -662,7 +665,7 @@
       },
       "observed": "Last success:",
       "checked": "Checked at",
-      "healthScope": "Read-only checks cached for at most one minute. They do not prove storage writes, email receipt or full provider availability."
+      "healthScope": "Read-only checks cached for at most one minute. OIDC checks validate neither client sign-in nor MFA. Identity database availability is checked only by managed Keycloak’s internal readiness check. These observations do not prove storage writes or email receipt."
     },
     "dossier": {
       "noteEditor": {
@@ -2915,13 +2918,18 @@
         },
         "ready": {
           "title": "No issues detected in the available checks",
-          "body": "All four observations are recent and the configuration items are checked. Coverage remains limited to the checks shown.",
+          "body": "The required observations are recent and the configuration items are checked. Coverage remains limited to the checks shown.",
           "action": "View recent activity"
         },
         "identity": {
           "title": "Check OIDC access configuration",
           "body": "Identity settings are incomplete or not observed by this API. Follow the guide and distinguish settings being present from manual verification.",
           "action": "Prepare OIDC access"
+        },
+        "identityHealth": {
+          "title": "OIDC availability needs verification",
+          "body": "The provider check is missing, expired or unconfirmed. Access configuration is separate from provider health and a manually verified MFA sign-in.",
+          "action": "Inspect identity"
         },
         "identityToken": {
           "title": "Prepare the switch to OIDC",

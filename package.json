@@ -46,6 +46,7 @@
     "prod:check": "bash scripts/check.sh",
     "services:check": "node scripts/services-check.mjs",
     "keycloak:check": "node scripts/keycloak-config.mjs --check",
+    "keycloak:reset-password": "node scripts/keycloak-reset-password.mjs",
     "smoke:public": "node scripts/smoke-public.mjs",
     "prod:deploy": "bash scripts/deploy.sh",
     "prod:backup": "bash scripts/backup.sh",

@@ -27,6 +27,7 @@ export type SetupSection =
 export interface SetupRecommendation {
   readonly key:
     | 'identity'
+    | 'identityHealth'
     | 'identityToken'
     | 'database'
     | 'queue'
@@ -153,8 +154,11 @@ export function projectRecommendation({
     };
   const problem = systems.find(
     (system) =>
-      ['unavailable', 'degraded'].includes(serviceState(system, now, failed)) ||
-      systemState(system, now, failed) === 'degraded'
+      !(system.id === 'identity' && setup.identity?.mode === 'token') &&
+      (['unavailable', 'degraded'].includes(
+        serviceState(system, now, failed)
+      ) ||
+        systemState(system, now, failed) === 'degraded')
   );
   if (problem?.id === 'stripe')
     return {
@@ -192,16 +196,43 @@ export function projectRecommendation({
     return { key: 'email', section: 'email', tone: 'warning' };
   if (!setup.invoice.ready)
     return { key: 'invoice', section: 'email', tone: 'warning' };
+  const identitySystem = systems.find((system) => system.id === 'identity');
+  if (
+    !identitySystem ||
+    serviceState(identitySystem, now, failed) !== 'operational' ||
+    !['oidc_discovery', 'keycloak_readiness'].includes(identitySystem.evidence)
+  )
+    return {
+      key: 'identityHealth',
+      section: 'identity',
+      tone:
+        identitySystem &&
+        systemState(identitySystem, now, failed) === 'not_configured'
+          ? 'warning'
+          : 'neutral'
+    };
+  const requiredIds: readonly CockpitSystem['id'][] = [
+    'stripe',
+    'email',
+    'storage',
+    'database'
+  ];
   if (
     systemsState !== 'ready' ||
-    systems.length !== 4 ||
+    requiredIds.some(
+      (id) =>
+        !systems.some(
+          (system) =>
+            system.id === id &&
+            serviceState(system, now, failed) === 'operational'
+        )
+    ) ||
     systems.some(
       (system) =>
         system.id === 'stripe' &&
         (systemExpired(system, now, failed) ||
           ['check_failed', 'not_configured'].includes(system.evidence))
-    ) ||
-    projectOperationalCount(systems, now, failed) !== 4
+    )
   )
     return { key: 'verification', section: 'readiness', tone: 'neutral' };
   return { key: 'ready', section: 'activity', tone: 'success' };
