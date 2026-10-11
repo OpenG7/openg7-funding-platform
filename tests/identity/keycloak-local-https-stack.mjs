@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import {
   copyFile,
   mkdir,
@@ -21,6 +21,7 @@ import {
   readMigrations
 } from '../../scripts/lib/database-migrations.mjs';
 import { buildRuntimeRoleSql } from '../../scripts/lib/database-runtime-role.mjs';
+import { provisionKeycloakUser } from '../../scripts/lib/keycloak-provision-user.mjs';
 import { prepareLocalIdentity } from '../../scripts/lib/local-identity.mjs';
 import { createLocalHttpsExchange } from './local-https-exchange.mjs';
 
@@ -74,7 +75,9 @@ export const eventually = async (operation, description, timeout = 120_000) => {
 
 // All Docker calls name this fixture's project; inherited application credentials
 // and the checkout's .env are never consulted. Command errors omit sensitive output.
-export async function startLocalKeycloakHttpsStack() {
+export async function startLocalKeycloakHttpsStack({
+  provisionUser = false
+} = {}) {
   if (Number(process.versions.node.split('.')[0]) < 22)
     throw new Error(
       'Local Keycloak HTTPS acceptance requires Node 22 or newer.'
@@ -133,8 +136,9 @@ export async function startLocalKeycloakHttpsStack() {
 
   const root = await mkdtemp(join(tmpdir(), 'og7-keycloak-https-'));
   const project = 'og7-keycloak-https-' + randomUUID().slice(0, 12);
-  const ownerSubject = randomUUID();
+  let ownerSubject = provisionUser ? '' : randomUUID();
   const password = randomBytes(24).toString('hex');
+  const initialPassword = randomBytes(24).toString('hex');
   const runtime = {
     role: 'fixture_runtime',
     database: 'fixture_funding',
@@ -156,6 +160,13 @@ export async function startLocalKeycloakHttpsStack() {
     FUNDING_ADMIN_OIDC_CLIENT_ID: 'synthetic-local-funding',
     FUNDING_ADMIN_OIDC_CLIENT_SECRET: randomBytes(32).toString('hex'),
     FUNDING_ADMIN_OIDC_OWNER_SUBJECTS: ownerSubject,
+    ...(provisionUser
+      ? {
+          FUNDING_KEYCLOAK_PROVISION_USER: 'true',
+          FUNDING_KEYCLOAK_INITIAL_USER_USERNAME: 'synthetic-local-owner',
+          FUNDING_KEYCLOAK_INITIAL_USER_PASSWORD: initialPassword
+        }
+      : {}),
     FUNDING_ADMIN_OIDC_MFA_ACR: '',
     FUNDING_PRIVATE_DATA_ENCRYPTION_KEY: randomBytes(32).toString('base64'),
     FUNDING_ADMIN_RATE_LIMIT_MAX: '0',
@@ -263,18 +274,22 @@ export async function startLocalKeycloakHttpsStack() {
       )
     );
     assert.equal(realm.sslRequired, 'all');
-    realm.users = [
-      {
-        id: ownerSubject,
-        username: 'synthetic-local-owner',
-        enabled: true,
-        email: 'synthetic-local-owner@example.test',
-        emailVerified: true,
-        firstName: 'Synthetic',
-        lastName: 'Administrator',
-        credentials: [{ type: 'password', value: password, temporary: false }]
-      }
-    ];
+    realm.users = provisionUser
+      ? []
+      : [
+          {
+            id: ownerSubject,
+            username: 'synthetic-local-owner',
+            enabled: true,
+            email: 'synthetic-local-owner@example.test',
+            emailVerified: true,
+            firstName: 'Synthetic',
+            lastName: 'Administrator',
+            credentials: [
+              { type: 'password', value: password, temporary: false }
+            ]
+          }
+        ];
     await mkdir(join(root, 'docker/keycloak'), { recursive: true });
     await writeFile(
       join(root, 'docker/keycloak/openg7-realm.json'),
@@ -386,24 +401,27 @@ export async function startLocalKeycloakHttpsStack() {
       ),
       'f'
     );
-    await compose([
-      'up',
-      '-d',
-      '--no-build',
-      '--pull',
-      'never',
-      'keycloak',
-      'api',
-      'web'
-    ]);
-    for (const service of ['keycloak', 'api', 'web'])
-      await eventually(async () => {
-        const id = await compose(['ps', '-q', service]);
-        assert.equal(
-          await docker(['inspect', id, '--format', '{{.State.Health.Status}}']),
-          'healthy'
-        );
-      }, `Disposable ${service} did not become healthy.`);
+    const start = (services) =>
+      compose(['up', '-d', '--no-build', '--pull', 'never', ...services]);
+    const healthy = async (services) => {
+      for (const service of services)
+        await eventually(async () => {
+          const id = await compose(['ps', '-q', service]);
+          assert.equal(
+            await docker([
+              'inspect',
+              id,
+              '--format',
+              '{{.State.Health.Status}}'
+            ]),
+            'healthy'
+          );
+        }, `Disposable ${service} did not become healthy.`);
+    };
+    // A real account is provisioned only after Keycloak is ready and before the
+    // API receives the newly discovered owner subject in its environment.
+    await start(['keycloak']);
+    await healthy(['keycloak']);
     const ca = await readFile(join(certs, 'rootCA.pem'));
     const exchange = createLocalHttpsExchange({
       port,
@@ -411,6 +429,83 @@ export async function startLocalKeycloakHttpsStack() {
       issuer: env.FUNDING_ADMIN_OIDC_ISSUER,
       ca
     });
+    const request = ({ url, method, headers, body }) => {
+      const target = new URL(url);
+      assert.equal(
+        target.origin,
+        `https://${hostname}`,
+        'Provisioning requests must target this fixture identity provider.'
+      );
+      return exchange(target.pathname + target.search, {
+        provider: true,
+        method,
+        headers,
+        body
+      });
+    };
+    const identitySql = async (statement) =>
+      compose(
+        [
+          'exec',
+          '-T',
+          'identity-postgres',
+          'sh',
+          '-c',
+          'PGPASSWORD="$POSTGRES_PASSWORD" exec psql -h 127.0.0.1 -X -q -At -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+        ],
+        { input: statement }
+      );
+    const snapshotUser = async () => {
+      const value = await identitySql(`
+        SELECT json_build_object(
+          'id', u.id, 'username', u.username, 'enabled', u.enabled,
+          'actions', (SELECT coalesce(json_agg(a.required_action ORDER BY a.required_action), '[]'::json)
+            FROM user_required_action a WHERE a.user_id = u.id),
+          'roles', (SELECT coalesce(json_agg(r.name ORDER BY r.name), '[]'::json)
+            FROM user_role_mapping m JOIN keycloak_role r ON r.id = m.role_id WHERE m.user_id = u.id),
+          'credentials', (SELECT coalesce(json_agg(json_build_object('id', c.id, 'type', c.type,
+            'secretData', c.secret_data, 'credentialData', c.credential_data) ORDER BY c.id), '[]'::json)
+            FROM credential c WHERE c.user_id = u.id)
+        ) FROM user_entity u JOIN realm r ON r.id = u.realm_id
+          WHERE r.name = 'openg7' AND u.username = 'synthetic-local-owner';
+      `);
+      assert.ok(value, 'The synthetic owner must exist in the identity DB.');
+      const user = JSON.parse(value);
+      return {
+        subject: user.id,
+        username: user.username,
+        enabled: user.enabled,
+        actions: user.actions,
+        roles: user.roles,
+        credentialTypes: user.credentials.map(({ type }) => type).sort(),
+        // Comparisons preserve password/OTP bytes without returning them to
+        // assertion diagnostics, logs or the browser.
+        fingerprint: createHash('sha256').update(value).digest('hex')
+      };
+    };
+    let provisioned;
+    if (provisionUser) {
+      assert.equal(
+        await identitySql(
+          "SELECT count(*) FROM user_entity u JOIN realm r ON r.id = u.realm_id WHERE r.name = 'openg7';"
+        ),
+        '0',
+        'The imported realm must contain no personal account before provisioning.'
+      );
+      provisioned = await provisionKeycloakUser({ root, env, request });
+      assert.ok(
+        provisioned?.created,
+        'Provisioning must create the absent user.'
+      );
+      ownerSubject = provisioned.subject;
+      assert.ok(
+        env.FUNDING_ADMIN_OIDC_OWNER_SUBJECTS === ownerSubject,
+        'The provisioning result must configure the owner before API startup.'
+      );
+      await configure();
+    }
+    await start(['api', 'web']);
+    await healthy(['api', 'web']);
     for (const service of ['postgres', 'identity-postgres']) {
       const id = await compose(['ps', '-q', service]);
       const [container] = JSON.parse(await docker(['inspect', id]));
@@ -462,9 +557,143 @@ export async function startLocalKeycloakHttpsStack() {
       origin,
       port,
       password,
+      initialPassword,
       ownerSubject,
+      provisioned,
       sql,
       exchange,
+      snapshotUser,
+      async prepareProvisioningClient() {
+        const tokenResponse = await request({
+          url: `https://${hostname}/realms/master/protocol/openid-connect/token`,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            grant_type: 'password',
+            client_id: 'admin-cli',
+            username: env.FUNDING_KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME,
+            password: env.FUNDING_KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD
+          }).toString()
+        });
+        assert.equal(tokenResponse.status, 200);
+        const token = JSON.parse(tokenResponse.body).access_token;
+        assert.ok(typeof token === 'string' && token.length > 0);
+        const headers = {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json'
+        };
+        const admin = (path, { method = 'GET', body } = {}) =>
+          request({
+            url: `https://${hostname}/admin/realms/openg7` + path,
+            method,
+            headers,
+            body: body === undefined ? undefined : JSON.stringify(body)
+          });
+        const clientId = 'synthetic-provisioner';
+        const clientSecret = randomBytes(32).toString('hex');
+        const created = await admin('/clients', {
+          method: 'POST',
+          body: {
+            clientId,
+            secret: clientSecret,
+            enabled: true,
+            protocol: 'openid-connect',
+            publicClient: false,
+            serviceAccountsEnabled: true,
+            directAccessGrantsEnabled: false,
+            standardFlowEnabled: false
+          }
+        });
+        assert.equal(created.status, 201);
+        const findClient = async (id) => {
+          const response = await admin(
+            '/clients?' + new URLSearchParams({ clientId: id })
+          );
+          assert.equal(response.status, 200);
+          const clients = JSON.parse(response.body);
+          assert.equal(clients.length, 1);
+          assert.ok(clients[0].clientId === id && clients[0].id);
+          return clients[0].id;
+        };
+        const serviceClient = await findClient(clientId);
+        const realmManagement = await findClient('realm-management');
+        const serviceUser = await admin(
+          '/clients/' + serviceClient + '/service-account-user'
+        );
+        assert.equal(serviceUser.status, 200);
+        const serviceSubject = JSON.parse(serviceUser.body).id;
+        assert.ok(serviceSubject);
+        const roleResponse = await admin(
+          '/clients/' + realmManagement + '/roles'
+        );
+        assert.equal(roleResponse.status, 200);
+        const allowedRoles = new Set([
+          'query-users',
+          'manage-users',
+          'view-realm'
+        ]);
+        const roles = JSON.parse(roleResponse.body).filter(({ name }) =>
+          allowedRoles.has(name)
+        );
+        assert.equal(roles.length, allowedRoles.size);
+        const assigned = await admin(
+          '/users/' +
+            serviceSubject +
+            '/role-mappings/clients/' +
+            realmManagement,
+          { method: 'POST', body: roles.map(({ id, name }) => ({ id, name })) }
+        );
+        assert.equal(assigned.status, 204);
+        return { clientId, clientSecret };
+      },
+      async reprovision({
+        ownerSubjects = '',
+        password: suppliedPassword,
+        adoption = false,
+        requireEnrollment = false,
+        provisioningClient
+      } = {}) {
+        let stateRoot = root;
+        if (adoption) {
+          stateRoot = join(root, 'existing-user-adoption');
+          const adoptionCerts = join(stateRoot, 'traefik/certs');
+          await mkdir(adoptionCerts, { recursive: true });
+          for (const file of [
+            'localhost.pem',
+            'localhost-key.pem',
+            'rootCA.pem'
+          ])
+            await copyFile(join(certs, file), join(adoptionCerts, file));
+        }
+        const replayEnv = {
+          ...env,
+          FUNDING_ADMIN_OIDC_OWNER_SUBJECTS: ownerSubjects,
+          FUNDING_KEYCLOAK_INITIAL_USER_PASSWORD:
+            suppliedPassword || initialPassword,
+          ...(provisioningClient
+            ? {
+                FUNDING_KEYCLOAK_PROVISION_CLIENT_ID:
+                  provisioningClient.clientId,
+                FUNDING_KEYCLOAK_PROVISION_CLIENT_SECRET:
+                  provisioningClient.clientSecret,
+                // Successful service authentication must not depend on these
+                // intentionally different synthetic bootstrap credentials.
+                FUNDING_KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:
+                  randomBytes(32).toString('hex')
+              }
+            : {})
+        };
+        const result = await provisionKeycloakUser({
+          root: stateRoot,
+          env: replayEnv,
+          request,
+          requireEnrollment
+        });
+        return {
+          result,
+          ownerSubjects: replayEnv.FUNDING_ADMIN_OIDC_OWNER_SUBJECTS
+        };
+      },
       async restartApi() {
         await compose(['restart', 'api']);
         await eventually(

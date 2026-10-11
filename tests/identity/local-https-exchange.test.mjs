@@ -85,6 +85,53 @@ test(
 );
 
 test(
+  'trusted HTTPS forwards a provider POST with headers and its complete body',
+  { timeout: 5_000 },
+  async (t) => {
+    let requestScope;
+    const exchange = await fixture(t, (request, response) => {
+      const chunks = [];
+      request.on('data', (chunk) => chunks.push(chunk));
+      request.on('end', () => {
+        requestScope = {
+          method: request.method,
+          host: request.headers.host,
+          servername: request.socket.servername,
+          authorization: request.headers.authorization,
+          contentType: request.headers['content-type'],
+          path: request.url,
+          body: Buffer.concat(chunks).toString('utf8')
+        };
+        response.writeHead(201, {
+          Location: '/admin/realms/openg7/users/probe'
+        });
+        response.end();
+      });
+    });
+    const result = await exchange('/admin/realms/openg7/users', {
+      provider: true,
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer synthetic-fixture-token',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ username: 'synthetic-provisioned-owner' })
+    });
+    assert.equal(result.status, 201);
+    assert.equal(result.headers.location, '/admin/realms/openg7/users/probe');
+    assert.deepEqual(requestScope, {
+      method: 'POST',
+      host: 'auth.openg7.test',
+      servername: 'auth.openg7.test',
+      authorization: 'Bearer synthetic-fixture-token',
+      contentType: 'application/json',
+      path: '/admin/realms/openg7/users',
+      body: '{"username":"synthetic-provisioned-owner"}'
+    });
+  }
+);
+
+test(
   'an interrupted HTTPS body rejects instead of leaving the exchange pending',
   { timeout: 5_000 },
   async (t) => {

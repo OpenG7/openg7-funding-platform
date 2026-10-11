@@ -8,7 +8,10 @@ export function createLocalHttpsExchange({
   ca,
   timeout = 10_000
 }) {
-  return (path, { cookie, provider = false } = {}) =>
+  return (
+    path,
+    { cookie, provider = false, method = 'GET', headers = {}, body } = {}
+  ) =>
     new Promise((resolve, reject) => {
       let pending;
       let response;
@@ -37,9 +40,14 @@ export function createLocalHttpsExchange({
             port,
             servername: url.hostname,
             path: url.pathname + url.search,
+            method,
             ca,
             agent: false,
-            headers: { Host: url.host, ...(cookie ? { Cookie: cookie } : {}) }
+            headers: {
+              ...headers,
+              Host: url.host,
+              ...(cookie ? { Cookie: cookie } : {})
+            }
           },
           (incoming) => {
             response = incoming;
@@ -63,7 +71,7 @@ export function createLocalHttpsExchange({
         pending.once('error', () =>
           finish(new Error('Trusted local HTTPS request failed.'))
         );
-        pending.end();
+        pending.end(body);
       } catch {
         finish(new Error('Trusted local HTTPS request failed.'));
       }

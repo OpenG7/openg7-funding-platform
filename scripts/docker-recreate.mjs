@@ -40,12 +40,26 @@ try {
     const localIdentity = compose.includes('docker-compose.identity.local.yml');
     const commands = [
       [...compose, 'config', '--quiet'],
-      [...compose, 'up', '-d', '--force-recreate', 'api', 'web']
+      [
+        ...compose,
+        'up',
+        '-d',
+        '--force-recreate',
+        ...(configurationEnv.FUNDING_KEYCLOAK_PROVISION_USER === 'true'
+          ? ['--no-deps']
+          : []),
+        'api',
+        'web'
+      ]
     ];
     if (options.includes('--dry-run')) {
       if (localIdentity)
         console.log(
           'node scripts/prepare-local-identity.mjs (before Docker; no files written in dry-run)'
+        );
+      if (configurationEnv.FUNDING_KEYCLOAK_PROVISION_USER === 'true')
+        console.log(
+          'Preparation du compte Keycloak et des subjects proprietaires avant l\u2019application (aucun compte modifie ni contact reseau en dry-run).'
         );
       for (const args of commands) console.log(`docker ${args.join(' ')}`);
     } else {
@@ -73,6 +87,16 @@ try {
             );
         }
         prepareLocalInitialUser({ root, env: commandEnv, allowCreate: false });
+      }
+      if (commandEnv.FUNDING_KEYCLOAK_PROVISION_USER === 'true') {
+        const { provisionKeycloakUser } =
+          await import('./lib/keycloak-provision-user.mjs');
+        await provisionKeycloakUser({
+          root,
+          env: commandEnv,
+          requireEnrollment: commandEnv.FUNDING_PLATFORM_ENV === 'production'
+        });
+        console.log('Compte Keycloak et subjects proprietaires verifies.');
       }
       for (const args of commands) {
         const result = spawnSync(

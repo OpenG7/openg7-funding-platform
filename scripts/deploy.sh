@@ -99,6 +99,22 @@ if [[ -n "${CURRENT_OPERATIONS}" && "${FUNDING_OPERATIONS_WATCHER_ENABLED:-false
   exit 1
 fi
 
+# The identity provider has its own lifecycle and must already be ready.
+# Capture only verified subjects; credentials and user identifiers stay out of logs.
+if [[ "${FUNDING_KEYCLOAK_PROVISION_USER:-false}" == true ]]; then
+  if ! provisioned_subjects="$(node scripts/keycloak-provision-user.mjs --subjects-only)"; then
+    echo 'Keycloak user preparation failed before application deployment.' >&2
+    exit 1
+  fi
+  uuid_pattern='[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
+  [[ "${provisioned_subjects}" =~ ^${uuid_pattern}(,${uuid_pattern})*$ ]] || {
+    echo 'Keycloak user preparation returned invalid owner subjects.' >&2
+    exit 1
+  }
+  export FUNDING_ADMIN_OIDC_OWNER_SUBJECTS="${provisioned_subjects}"
+  unset provisioned_subjects uuid_pattern
+fi
+
 PREVIOUS_REVISION=""
 if [[ -n "${CURRENT_WEB}" && -n "${CURRENT_API}" && -f backups/deployment-current.revision ]]; then
   previous_web_id="$(deployment_image_id "${CURRENT_WEB}")" || previous_web_id=unknown

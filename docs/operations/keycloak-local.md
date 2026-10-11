@@ -151,6 +151,14 @@ modifier la confiance Windows, générer des fichiers ou démarrer les services.
 
 ### Préparer automatiquement le premier utilisateur local
 
+Pour une base neuve **ou existante**, le
+[provisionnement au déploiement](keycloak-provisioning.md) est activable avec
+`FUNDING_KEYCLOAK_PROVISION_USER=true`. Il prépare le compte après disponibilité
+HTTPS, vérifie son UUID et transmet le subject propriétaire à l'API ; le mot de
+passe définitif et OTP restent personnels. Un compte existant exige un UUID
+déjà vérifié, jamais le seul nom. Le parcours par import ci-dessous reste
+disponible sans ce commutateur, uniquement sur une base neuve.
+
 Sur une **DB identité neuve**, renseigner également
 `FUNDING_KEYCLOAK_INITIAL_USER_USERNAME` et
 `FUNDING_KEYCLOAK_INITIAL_USER_PASSWORD` dans `.env`. Ces deux valeurs privées
@@ -166,8 +174,14 @@ ni dans Git. Cette option est réservée à `development` et à
 Avant sa première préparation, le lanceur vérifie que le volume nommé réel
 d'`identity-postgres` n'existe pas encore, même s'il serait encore vide. Une
 panne de connexion ne prouve pas une base neuve. Si un volume existe sans
-préparation sauvegardée, il refuse cet amorçage ; conserver les données et
-suivre le parcours manuel.
+préparation sauvegardée, le lancement continue avec un avertissement et ignore
+la création automatique : aucun compte, mot de passe ou UUID propriétaire
+n'est généré. L'import canonique est conservé et tout mot de passe encodé hérité
+est neutralisé. Configurer les personnes dans le realm `openg7` et renseigner
+leurs User ID dans `FUNDING_ADMIN_OIDC_OWNER_SUBJECTS` selon le parcours manuel,
+ou activer le [provisionnement HTTPS](keycloak-provisioning.md#parcours-local).
+Une liste explicite reste inchangée ; une liste vide ne reçoit aucun subject
+automatique. L'API conserve ses contrôles de propriétaire et de MFA.
 Le lancement géré attend d'abord la disponibilité de Docker Desktop ; un
 échec de cette attente arrête la préparation avant l'inspection du volume.
 Le préparateur local ou `yarn docker:up:dev:keycloak` génère un UUID stable
@@ -204,7 +218,10 @@ les vider désactive aussi le subject automatique. Les démarrages suivants
 valident et réutilisent la préparation, et Keycloak ignore l'import si le
 realm existe. `docker:update` et `docker:recreate` réutilisent
 aussi ce subject sauvegardé lorsque la liste explicite est vide ; `recreate`
-ne peut pas amorcer cette préparation. Modifier le mot de passe dans `.env`
+ne peut pas amorcer cette préparation sur une DB neuve. Sans état sauvegardé
+sur une DB existante, ils ignorent également la création automatique avec un
+avertissement. Un état présent mais incohérent reste bloquant, sans modification
+de l'état ni de la DB. Modifier le mot de passe dans `.env`
 ne réinitialise jamais un utilisateur existant ; utiliser le
 [raccourci de réinitialisation locale](#reinitialiser-mot-de-passe-local).
 
@@ -317,10 +334,10 @@ $discovery.issuer
 ```
 
 L'issuer attendu est `https://auth.openg7.test/realms/openg7`. Le realm `openg7`
-et son client confidentiel sont importés. Sans les deux variables initiales,
-aucune personne n'est créée dans ce realm. Avec l'option automatique, seul le
-compte Keycloak est importé ; son profil propriétaire OpenG7 attend encore sa
-première connexion MFA réussie.
+et son client confidentiel sont importés. Sans option de préparation utilisateur,
+aucune personne n'est créée dans ce realm. L'import local automatique ou le
+[provisionnement HTTPS](keycloak-provisioning.md) prépare seulement le compte
+Keycloak ; son profil propriétaire OpenG7 attend sa première connexion MFA réussie.
 Un realm déjà présent est conservé : une modification du JSON Git ou d'un
 secret dans `.env` ne met pas à jour automatiquement son client existant.
 Réconcilier la configuration dans la console avant de redémarrer, sans effacer
@@ -336,7 +353,8 @@ le compte supprimé dans un realm existant.
 
 Dans le realm **openg7**, le parcours manuel crée le premier utilisateur
 OpenG7 et son mot de passe propre, avec l'action **Configure OTP**. Avec la
-[préparation automatique](#premier-utilisateur-local), ce compte existe déjà
+[préparation automatique](#premier-utilisateur-local) ou le
+[provisionnement au déploiement](keycloak-provisioning.md), ce compte existe déjà
 après le premier lancement géré et exige **Update Password** et **Configure
 OTP**. Ouvrir sa console de compte
 `https://auth.openg7.test/realms/openg7/account/`, changer le mot de passe
@@ -516,12 +534,20 @@ dans `.env`/shell. Le préflight `keycloak:check` et `docker:recreate` suivent
 | `auth.openg7.test` introuvable dans le navigateur        | Vérifier l'entrée hosts Windows et les ports HTTPS de Docker Desktop.                                                                                  |
 | Certificat refusé ou hôte absent des SAN                 | Relancer le setup TLS avec `--renew --no-restart`, vérifier la CA Windows, puis le préparateur et la pile locale. Ne pas ignorer TLS.                  |
 | Discovery fonctionne dans Windows mais échoue dans l'API | Vérifier alias Docker, montage du `rootCA.pem` public et `NODE_EXTRA_CA_CERTS`; recréer l'API après modification.                                      |
+| Console : échec de chargement d'un module JavaScript     | Vérifier le statut du fichier `/resources/…/*.js` dans Réseau ; pour un 429, suivre la reprise ci-dessous.                                             |
 | Surcharge locale refusée                                 | Vérifier plateforme `development`, hôte `auth.openg7.test`, origine `https://localhost`, issuer exact, secrets distincts et absence de `COMPOSE_FILE`. |
 | Retour OIDC refusé après changement de secret/callback   | Comparer le client existant du realm avec la configuration attendue ; l'import ne met pas à jour un realm existant.                                    |
 | Connexion refusée après Configure OTP                    | Ouvrir une nouvelle connexion complète mot de passe + OTP, puis vérifier le User ID propriétaire. Ne pas afficher l'ID token.                          |
 | API arrêtée ou propriétaire inconnu                      | Vérifier migrations complètes, rôle runtime, URL DB Funding, subjects et prérequis des fonctionnalités activées avant de relancer.                     |
-| Amorçage utilisateur refusé sur volume identité existant | Ne pas supprimer le volume ; réutiliser sa préparation privée si elle existe ou créer la personne manuellement dans le realm existant.                 |
+| Premier utilisateur ignoré sur volume existant           | Conserver le volume ; configurer la personne dans `openg7` et son User ID propriétaire. Les variables initiales ne créent aucun compte.                |
 | Refus 401 après expiration/révocation                    | Revenir à la connexion ; vérifier séparément la session OpenG7 et la session SSO fournisseur. Aucun retour automatique au token.                       |
+
+Pour un module refusé par le quota, régénérer les fichiers avec
+`node scripts/prepare-local-identity.mjs`, puis exécuter
+`docker compose @identityCompose restart traefik` avec les fichiers définis à
+l'étape 4 et recharger la console avec `Ctrl+F5`. Les ressources ont un quota
+distinct dans la [configuration canonique](../../traefik/keycloak.yml).
+Le 404 d'un fichier `.js.map` concerne seulement le débogage.
 
 Les fichiers et diagnostics prouvent une préparation, pas une connexion réelle.
 Une validation complète relève séparément HTTPS navigateur/API, discovery,
@@ -598,8 +624,12 @@ secrets synthétiques, et deux DB en tmpfs sans port publié. Le nettoyage retir
 uniquement cette pile et son répertoire temporaire, jamais les volumes de
 développement. Aucun paiement ni livraison externe n'est exécuté.
 
-Le scénario vérifie l'enrôlement OTP avec refus du premier callback sans MFA,
-le refus d'un OTP incorrect, puis la connexion propriétaire après MFA. Il
+Le scénario prépare le compte par HTTPS sur la DB identité déjà démarrée,
+vérifie la répétition sans changement de credential et le refus du contrôle
+d'enrôlement utilisé avant la livraison API. Il change le mot de passe temporaire,
+enrôle OTP avec refus du premier callback sans MFA, puis vérifie le refus d'un
+OTP incorrect et la connexion propriétaire après MFA. Le rejeu du
+provisionnement après enrôlement conserve le mot de passe et OTP. Il
 contrôle le cookie HttpOnly/Secure, le hash de session dans PostgreSQL,
 l'audit, la conservation de la même session après redémarrage de l'API et sa
 révocation avec refus 401. Il ne teste pas la création manuelle des comptes dans

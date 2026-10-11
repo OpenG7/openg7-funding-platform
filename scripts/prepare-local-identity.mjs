@@ -9,7 +9,7 @@ import { prepareLocalInitialUser } from './lib/keycloak-initial-user.mjs';
 try {
   if (process.argv.slice(2).join(' ') === '--help') {
     console.log(
-      'Usage: node scripts/prepare-local-identity.mjs\nPrepare development HTTPS identity from canonical Traefik files. With INITIAL_USER_USERNAME/PASSWORD, also prepare the private first-user import after verifying a new local Docker identity volume. Requires existing local certificates and public rootCA.pem; no Docker services, accounts or trust stores are changed.'
+      'Usage: node scripts/prepare-local-identity.mjs\nPrepare development HTTPS identity from canonical Traefik files. With INITIAL_USER_USERNAME/PASSWORD, prepare the private first-user import on a new local Docker identity volume, or warn and skip it for an existing volume without saved state. Requires existing local certificates and public rootCA.pem; no Docker services, accounts or trust stores are changed.'
     );
   } else {
     if (process.argv.length !== 2)

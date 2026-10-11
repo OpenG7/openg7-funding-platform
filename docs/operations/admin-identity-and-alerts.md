@@ -12,6 +12,12 @@ deux bases privées avant le démarrage d'OpenG7, avec les mêmes contrôles OID
 Sur une DB identité neuve, sa [préparation automatique locale](keycloak-local.md#premier-utilisateur-local)
 peut créer la première personne et transmettre son subject propriétaire ;
 le changement de mot de passe et l'enrôlement OTP restent personnels.
+Le [provisionnement HTTPS au déploiement](keycloak-provisioning.md), facultatif,
+prépare aussi une personne sur une base existante ou en production et transmet
+son UUID vérifié à l'API. Il conserve les comptes, mots de passe et OTP existants.
+En production, préparer d'abord l'identité seule, puis changer le mot de passe
+et enrôler OTP avant la livraison applicative. Le contrôle d'enrôlement ne
+remplace pas la qualification d'une connexion complète avec les deux facteurs.
 
 Pour le fournisseur hébergé sur le VPS OpenG7, suivre le
 [premier démarrage Keycloak](keycloak-vps.md#premier-demarrage-oidc) : DNS/HTTPS, realm et client confidentiel,
@@ -36,12 +42,13 @@ son client confidentiel et son MFA. Les exigences API suivantes s'appliquent
    En production, `FUNDING_PRIVATE_DATA_ENCRYPTION_KEY` est obligatoire :
    exactement 32 octets aléatoires en base64 standard, avec copie de récupération
    protégée. Les secrets du mode token ne sont pas requis en OIDC.
-   Créer les personnes chez le fournisseur et relever leur `sub` vérifié.
-   Sur une base neuve, renseigner au moins un subject dans
-   `FUNDING_ADMIN_OIDC_OWNER_SUBJECTS`, séparés par des virgules : l'API crée
-   son compte propriétaire lors de sa première connexion MFA réussie. Une liste vide suppose
-   un propriétaire actif déjà présent pour cet issuer ; elle ne permet pas
-   d'amorcer une base neuve.
+   Créer les personnes chez le fournisseur et relever leur `sub` vérifié, ou
+   utiliser le provisionnement géré pour la première personne Keycloak.
+   Sur une base neuve, transmettre au moins un subject à l'API dans
+   `FUNDING_ADMIN_OIDC_OWNER_SUBJECTS`, explicitement ou par le provisionnement :
+   l'API crée son compte propriétaire lors de sa première connexion MFA réussie.
+   Une liste vide dans l'environnement chargé par l'API suppose un propriétaire
+   actif déjà présent pour cet issuer ; elle ne permet pas d'amorcer une base neuve.
 4. Exiger le MFA chez le fournisseur. Vérifier qu'il retourne le claim signé
    `amr` contenant `mfa`, ou configurer `FUNDING_ADMIN_OIDC_MFA_ACR` uniquement
    avec les valeurs dont le fournisseur garantit la signification MFA.

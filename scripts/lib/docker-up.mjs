@@ -264,6 +264,7 @@ export function dockerUpPlan(options, { env, localTls }) {
   const productionIdentity =
     environment === 'production' &&
     commandEnv.FUNDING_KEYCLOAK_ENABLED === 'true';
+  const provisionUser = commandEnv.FUNDING_KEYCLOAK_PROVISION_USER === 'true';
   if (productionIdentity) {
     validateProductionAuthentication(commandEnv);
     validateProductionTlsSettings(commandEnv);
@@ -291,23 +292,25 @@ export function dockerUpPlan(options, { env, localTls }) {
     );
   }
   if (options.identityOnly) build.push('keycloak');
-  const identityUp = productionIdentity
-    ? [
-        ...compose,
-        'up',
-        '-d',
-        '--wait',
-        '--wait-timeout',
-        '180',
-        'identity-postgres',
-        'keycloak',
-        'traefik'
-      ]
-    : null;
+  const identityUp =
+    productionIdentity || (localIdentity && provisionUser)
+      ? [
+          ...compose,
+          'up',
+          '-d',
+          '--wait',
+          '--wait-timeout',
+          '180',
+          'identity-postgres',
+          'keycloak',
+          'traefik'
+        ]
+      : null;
   return {
     environment,
     localIdentity,
     productionIdentity,
+    provisionUser,
     identityOnly: Boolean(options.identityOnly),
     identityUp,
     authentication:
@@ -348,7 +351,8 @@ export async function startDockerStack(
     checkStripe,
     listenStripe,
     prepareProductionTls,
-    checkProductionIdentity
+    checkProductionIdentity,
+    prepareKeycloakUser
   }
 ) {
   if (
@@ -357,12 +361,18 @@ export async function startDockerStack(
       typeof checkProductionIdentity !== 'function')
   )
     throw new Error('Production Keycloak requires ACME and HTTPS checks.');
+  if (plan.provisionUser && typeof prepareKeycloakUser !== 'function')
+    throw new Error('Keycloak user provisioning requires a preparation hook.');
   if (plan.stripeWebhook) await checkStripe();
   for (const args of plan.commands) {
-    if (args === plan.identityUp) await prepareProductionTls(plan.commandEnv);
+    if (args === plan.identityUp && plan.productionIdentity)
+      await prepareProductionTls(plan.commandEnv);
     await runDocker(args, plan.commandEnv);
-    if (args === plan.identityUp)
-      await checkProductionIdentity(plan.commandEnv);
+    if (args === plan.identityUp) {
+      if (plan.productionIdentity)
+        await checkProductionIdentity(plan.commandEnv);
+      if (plan.provisionUser) await prepareKeycloakUser(plan.commandEnv);
+    }
   }
   if (plan.stripeWebhook) await listenStripe();
 }

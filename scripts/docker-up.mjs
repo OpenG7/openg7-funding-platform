@@ -62,7 +62,10 @@ Keycloak local verifie les certificats et lance le setup TLS --renew --no-restar
 Ce setup peut installer mkcert et demander l'approbation de sa CA dans Windows.
 Les secrets et hosts restent a preparer selon docs/operations/keycloak-local.md.
 Un premier utilisateur local peut etre prepare avec FUNDING_KEYCLOAK_INITIAL_USER_USERNAME/PASSWORD.
-La preparation exige une nouvelle base identite; mot de passe et OTP restent a changer/configurer personnellement.
+Sans opt-in de provisionnement, l'import exige une nouvelle base identite; un volume existant sans etat est conserve avec un avertissement.
+FUNDING_KEYCLOAK_PROVISION_USER=true prepare le compte par HTTPS sur une base neuve ou existante, avant l'API.
+Avec FUNDING_KEYCLOAK_PROVISION_USER=true, le compte et ses subjects sont prepares apres le demarrage de Keycloak, sur une base neuve ou existante.
+Mot de passe et OTP restent a changer/configurer personnellement.
 Production OIDC/Keycloak : suivre docs/operations/keycloak-vps.md et admin-identity-and-alerts.md.
 Keycloak production prepare ACME sans ecraser le stockage, puis verifie HTTPS et OIDC avant l'application.
 La preparation exige un hote POSIX, un email Let's Encrypt et DNS/ports 80/443 publics prets.
@@ -149,20 +152,27 @@ try {
         console.log(
           'node scripts/prepare-local-identity.mjs (before Docker; no files written in dry-run)'
         );
-        if (plan.commandEnv.FUNDING_KEYCLOAK_INITIAL_USER_USERNAME)
+        if (
+          plan.commandEnv.FUNDING_KEYCLOAK_INITIAL_USER_USERNAME &&
+          !plan.provisionUser
+        )
           console.log(
             'Preparation du premier utilisateur local et de son UUID stable (aucun fichier ni volume inspecte en dry-run).'
           );
       }
       for (const args of plan.commands) {
-        if (args === plan.identityUp)
+        if (args === plan.identityUp && plan.productionIdentity)
           console.log(
             'Preparation du stockage ACME persistant (0600, hote POSIX; aucun fichier modifie en dry-run).'
           );
         console.log(`docker ${args.join(' ')}`);
-        if (args === plan.identityUp)
+        if (args === plan.identityUp && plan.productionIdentity)
           console.log(
             'Verification HTTPS publique et OIDC (issuer et JWKS; delai maximal 180s; aucun contact reseau en dry-run).'
+          );
+        if (args === plan.identityUp && plan.provisionUser)
+          console.log(
+            'Preparation du compte Keycloak et des subjects proprietaires avant l\u2019application (aucun compte modifie ni contact reseau en dry-run).'
           );
       }
       console.log(
@@ -222,6 +232,16 @@ try {
         );
       }
       await startDockerStack(plan, {
+        prepareKeycloakUser: async (env) => {
+          const { provisionKeycloakUser } =
+            await import('./lib/keycloak-provision-user.mjs');
+          await provisionKeycloakUser({
+            root,
+            env,
+            requireEnrollment: plan.productionIdentity && !plan.identityOnly
+          });
+          console.log('Compte Keycloak et subjects proprietaires verifies.');
+        },
         prepareProductionTls: (env) => {
           console.log('Preparation du stockage ACME persistant pour Traefik.');
           return prepareProductionAcme(root, {
