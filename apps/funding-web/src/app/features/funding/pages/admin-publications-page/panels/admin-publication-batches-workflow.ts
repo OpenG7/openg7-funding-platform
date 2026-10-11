@@ -67,7 +67,7 @@ export class AdminPublicationBatchesWorkflow {
 
   async scheduleBatch(batch: AdminPublicationBatchRecord): Promise<void> {
     const { state } = this.ports;
-    if (state.batchActionState()) return;
+    if (state.batchActionState() || batch.slotId) return;
     const scheduledAt = this.ports.scheduleFor(batch.id);
     if (!scheduledAt) return;
 

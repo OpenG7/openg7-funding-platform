@@ -56,14 +56,33 @@ export const createMediaExposureHelpers = ({
   };
 
   const deleteControlledSponsorLogoFile = async (
-    logoUrl: string | null
+    logoUrl: string | null,
+    contributionId: string
   ): Promise<boolean> => {
-    const filename = getSponsorLogoFilenameFromUrl(logoUrl ?? undefined);
+    if (!logoUrl || !isValidUuid(contributionId)) {
+      return false;
+    }
+
+    try {
+      if (
+        new URL(logoUrl, publicBaseOrigin).origin !==
+        new URL(publicBaseOrigin).origin
+      ) {
+        return false;
+      }
+    } catch {
+      return false;
+    }
+
+    const filename = getSponsorLogoFilenameFromUrl(logoUrl);
     if (!filename) {
       return false;
     }
 
-    if (!SPONSOR_LOGO_FILENAME_PATTERN.test(filename)) {
+    if (
+      !SPONSOR_LOGO_FILENAME_PATTERN.test(filename) ||
+      !filename.startsWith(`sponsor-logo-${contributionId.toLowerCase()}-`)
+    ) {
       return false;
     }
 

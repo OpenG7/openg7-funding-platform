@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { PublicationClaimLost } from '../dist/apps/funding-api/src/publication-automation/claims.js';
 import {
   feedConfig,
   recurrenceTimes,
@@ -215,4 +216,47 @@ test('refuses foreign upload URLs and mismatched remote publications', async (t)
     checkConnection(feedConfig(job.feedId, env).config, 'facebook', '20'),
     { code: 'ACCOUNT_MISMATCH' }
   );
+});
+
+test('LinkedIn rechecks ownership before every request and propagates a lost claim unchanged', async (t) => {
+  const j = { ...job, feedId: 'openg20:linkedin', mediaId: 'image' };
+  const config = feedConfig(j.feedId, env).config;
+  const lost = new PublicationClaimLost();
+  for (const stopAt of [1, 2, 3, 4]) {
+    let checks = 0;
+    let calls = 0;
+    let persisted = null;
+    t.mock.method(globalThis, 'fetch', async (url) => {
+      calls++;
+      if (url.includes('initializeUpload'))
+        return Response.json({
+          value: {
+            image: 'urn:li:image:synthetic',
+            uploadUrl: 'https://www.linkedin.com/dms-uploads/synthetic'
+          }
+        });
+      if (url.includes('dms-uploads')) return new Response('', { status: 201 });
+      if (url.includes('/images/'))
+        return Response.json({ status: 'AVAILABLE' });
+      assert.fail('a revoked claim cannot submit its public post');
+    });
+    await assert.rejects(
+      sendDelivery(
+        config,
+        j,
+        Buffer.from('synthetic'),
+        null,
+        async (id) => {
+          persisted = id;
+        },
+        async () => {
+          if (++checks === stopAt) throw lost;
+        }
+      ),
+      (error) => error === lost
+    );
+    assert.equal(calls, stopAt - 1);
+    assert.equal(persisted, stopAt >= 3 ? 'urn:li:image:synthetic' : null);
+    t.mock.restoreAll();
+  }
 });

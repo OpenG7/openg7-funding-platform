@@ -108,12 +108,17 @@ export async function sendDelivery(
   job: PublicationDelivery,
   media: Buffer | null,
   cachedImage: string | null = null,
-  persistImage: (id: string) => Promise<void> = async () => {}
+  persistImage: (id: string) => Promise<void> = async () => {},
+  assertActive: () => Promise<void> = async () => {}
 ): Promise<SocialPublicationProviderResult> {
   assert(c.mode !== 'disabled' && c.mode === job.mode, 'MODE_CHANGED');
+  const ownedCall = async (...args: Parameters<typeof call>) => {
+    await assertActive();
+    return call(...args);
+  };
   if (c.mode === 'mock') {
     if (c.mockBaseUrl) {
-      const { data } = await call(
+      const { data } = await ownedCall(
         `${c.mockBaseUrl}/deliveries`,
         {
           method: 'POST',
@@ -131,7 +136,7 @@ export async function sendDelivery(
       );
       if (data.id !== `mock-${job.id}`)
         throw new DeliveryFailure('PROVIDER_MISSING_ID', 'uncertain');
-    }
+    } else await assertActive();
     return {
       externalPostId: `mock-${job.id}`,
       externalPostUrl: `https://social.openg7.local/${job.feedId}/${job.id}`
@@ -149,7 +154,7 @@ export async function sendDelivery(
       body.set('caption', job.message);
       body.set('alt_text_custom', job.mediaAlt || '');
     } else body = new URLSearchParams({ message: job.message });
-    const { data } = await call(
+    const { data } = await ownedCall(
       `${c.facebook.graphBaseUrl}/${encodeURIComponent(job.accountId)}/${media ? 'photos' : 'feed'}`,
       {
         method: 'POST',
@@ -167,7 +172,7 @@ export async function sendDelivery(
   }
   let imageId: string | null = cachedImage;
   if (media && !imageId) {
-    const { data } = await call(
+    const { data } = await ownedCall(
       `${c.linkedin.apiBaseUrl}/images?action=initializeUpload`,
       {
         method: 'POST',
@@ -187,7 +192,7 @@ export async function sendDelivery(
         imageId.startsWith('urn:li:image:'),
       'INVALID_UPLOAD'
     );
-    await call(upload.href, {
+    await ownedCall(upload.href, {
       method: 'PUT',
       headers: {
         Authorization: `Bearer ${c.linkedin.accessToken}`,
@@ -199,7 +204,7 @@ export async function sendDelivery(
   }
   if (imageId) {
     // No public post exists at this point. A not-yet-available upload is safe to retry.
-    const { data: image } = await call(
+    const { data: image } = await ownedCall(
       `${c.linkedin.apiBaseUrl}/images/${encodeURIComponent(imageId)}`,
       { headers: headers(c) }
     );
@@ -209,7 +214,7 @@ export async function sendDelivery(
         image.status === 'PROCESSING_FAILED' ? 'rejected' : 'retry'
       );
   }
-  const { response, data } = await call(
+  const { response, data } = await ownedCall(
     `${c.linkedin.apiBaseUrl}/posts`,
     {
       method: 'POST',

@@ -24,6 +24,7 @@ const modules = {
     'fund-publication-content.ts',
     'fund-publication-drafts.repository.ts',
     'fund-publication-batches.repository.ts',
+    'fund-publication-batch-scheduling.persistence.ts',
     'social-publication-jobs.repository.ts',
     'fund-admin.repository.ts'
   ],

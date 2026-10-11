@@ -169,7 +169,7 @@ test('legacy public keys are ignored and a revoked dossier is checked again befo
   assert.deepEqual(f.values('privateRead'), ['synthetic/private.webp']);
 });
 
-test('approved controlled logos preserve canonical approval URL and one-day public caching', async (t) => {
+test('approved controlled logos preserve canonical approval URL without public caching', async (t) => {
   for (const prefix of [
     '/public/sponsor-logos/',
     '/api/public/sponsor-logos/'
@@ -182,7 +182,7 @@ test('approved controlled logos preserve canonical approval URL and one-day publ
       assert.deepEqual(result.payload, bytes);
       assert.equal(result.contentType, 'image/png');
       assert.deepEqual(result.headers, {
-        'Cache-Control': 'public, max-age=86400'
+        'Cache-Control': 'no-store'
       });
       assert.deepEqual(f.values('approvedLogo'), [logoUrl]);
       assert.deepEqual(f.values('logoRead'), [filename]);

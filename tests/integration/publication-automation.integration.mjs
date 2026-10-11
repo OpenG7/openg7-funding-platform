@@ -1013,11 +1013,10 @@ test(
           assert.equal(blocked.errorCode, 'SPONSOR_REVIEW_REQUIRED');
           assert.equal(blocked.approvedAt, null);
           assert.equal(blocked.externalPostId, null);
-          assert.equal(
-            blocked.attempts,
-            scenario.startsWith('before-dispatch') ? 1 : 0
-          );
-          assert.equal(blocked.version, original.version + 1);
+          const claimCount = scenario.startsWith('before-dispatch') ? 1 : 0;
+          assert.equal(blocked.attempts, claimCount);
+          // The approved snapshot precedes any claim and the blocked transition.
+          assert.equal(blocked.version, original.version + claimCount + 1);
           await assert.rejects(approve(job.id), {
             code: 'APPROVAL_UNAVAILABLE'
           });
@@ -1263,8 +1262,10 @@ test(
             change === 'reapproved' ? 'MEDIA_CHANGED' : 'MEDIA_NOT_APPROVED'
           );
           assert.equal(blocked.approvedAt, null);
-          assert.equal(blocked.version, authorized.version + 1);
-          assert.equal(blocked.attempts, change === 'after-preflight' ? 1 : 0);
+          const claimCount = change === 'after-preflight' ? 1 : 0;
+          // The approved snapshot precedes any claim and the blocked transition.
+          assert.equal(blocked.version, authorized.version + claimCount + 1);
+          assert.equal(blocked.attempts, claimCount);
           assert.equal(blocked.publishedAt, null);
           const audits = (
             await pool.query(

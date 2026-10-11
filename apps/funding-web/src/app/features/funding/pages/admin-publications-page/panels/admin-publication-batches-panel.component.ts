@@ -10,6 +10,7 @@ import {
   signal
 } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
+import { RouterLink } from '@angular/router';
 import type {
   AdminPublicationBatchRecord,
   AdminPublicationDraftRecord,
@@ -33,6 +34,7 @@ import {
   publicationBatchStatusLabel,
   publicationChannelLabel,
   publicationDateLabel,
+  publicationDateTimeLocal,
   publicationValueFromEvent
 } from '../publication-panels.helpers.js';
 
@@ -45,6 +47,7 @@ import { AdminPublicationBatchesWorkflow } from './admin-publication-batches-wor
   imports: [
     CommonModule,
     TranslatePipe,
+    RouterLink,
     AdminPublicationCalendarComponent,
     AdminDrawerComponent
   ],
@@ -174,10 +177,13 @@ export class AdminPublicationBatchesPanelComponent {
   }
 
   batchScheduleFor(batchId: string): string {
+    const batch = this.batches().find((record) => record.id === batchId);
+    if (batch?.slotId) return publicationDateTimeLocal(batch.scheduledAt);
     return this.batchScheduleEdits()[batchId] ?? '';
   }
 
   setBatchSchedule(batchId: string, event: Event): void {
+    if (this.batches().find((batch) => batch.id === batchId)?.slotId) return;
     const value = publicationValueFromEvent(event);
     this.batchScheduleEdits.update((edits) => ({ ...edits, [batchId]: value }));
   }

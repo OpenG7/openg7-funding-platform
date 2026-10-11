@@ -137,24 +137,84 @@ test('controlled logo deletion refuses unsafe decoded filenames before storage',
     `/api/public/sponsor-logos/${filename}%2fextra`,
     `/api/public/sponsor-logos/${filename.replace('.png', '.svg')}`
   ]) {
-    assert.equal(await f.deleteControlledSponsorLogoFile(url), false);
+    assert.equal(
+      await f.deleteControlledSponsorLogoFile(url, contributionId),
+      false
+    );
   }
   assert.deepEqual(f.calls, []);
   assert.deepEqual(f.warnings, []);
   assert.equal(
     await f.deleteControlledSponsorLogoFile(
-      `/public/sponsor-logos/${filename}`
+      `/public/sponsor-logos/${filename}`,
+      contributionId
     ),
     true
   );
   assert.deepEqual(f.calls, [['logo', filename]]);
 });
 
+test('controlled logo cleanup requires both the application origin and the confirmed dossier owner', async () => {
+  const f = mediaFixture();
+  const otherContributionId = '00000000-0000-4000-8000-000000000099';
+  const otherFilename = filename.replace(contributionId, otherContributionId);
+  for (const [url, owner] of [
+    [`/api/public/sponsor-logos/${otherFilename}`, contributionId],
+    [`${origin}/public/sponsor-logos/${otherFilename}`, contributionId],
+    [`/api/public/sponsor-logos/${filename}`, otherContributionId],
+    [`/api/public/sponsor-logos/${filename}`, 'not-a-contribution-id'],
+    [
+      `https://cdn.example.test/api/public/sponsor-logos/${filename}`,
+      contributionId
+    ],
+    [`//cdn.example.test/public/sponsor-logos/${filename}`, contributionId],
+    [
+      `http://funding.example.test/public/sponsor-logos/${filename}`,
+      contributionId
+    ],
+    [
+      `https://funding.example.test:8443/public/sponsor-logos/${filename}`,
+      contributionId
+    ]
+  ]) {
+    assert.equal(await f.deleteControlledSponsorLogoFile(url, owner), false);
+  }
+  assert.deepEqual(f.calls, []);
+  assert.deepEqual(f.warnings, []);
+
+  for (const url of [
+    `/api/public/sponsor-logos/${filename}`,
+    `${origin}/api/public/sponsor-logos/${filename}?download=1`,
+    `${origin}/public/sponsor-logos/%73${filename.slice(1)}`
+  ]) {
+    assert.equal(
+      await f.deleteControlledSponsorLogoFile(url, contributionId),
+      true
+    );
+  }
+  const mixedCaseOwner = 'abcdef00-0000-4000-8000-000000000001';
+  const mixedCaseFilename = filename.replace(contributionId, mixedCaseOwner);
+  assert.equal(
+    await f.deleteControlledSponsorLogoFile(
+      `/api/public/sponsor-logos/${mixedCaseFilename}`,
+      mixedCaseOwner.toUpperCase()
+    ),
+    true
+  );
+  assert.deepEqual(f.calls, [
+    ['logo', filename],
+    ['logo', filename],
+    ['logo', filename],
+    ['logo', mixedCaseFilename]
+  ]);
+});
+
 test('controlled logo deletion preserves false results and reports a failure once', async () => {
   const missing = mediaFixture({ logoDelete: () => false });
   assert.equal(
     await missing.deleteControlledSponsorLogoFile(
-      sponsorLogoPublicUrlForFilename(filename)
+      sponsorLogoPublicUrlForFilename(filename),
+      contributionId
     ),
     false
   );
@@ -164,7 +224,8 @@ test('controlled logo deletion preserves false results and reports a failure onc
   const failed = mediaFixture({ logoDelete: () => Promise.reject(error) });
   assert.equal(
     await failed.deleteControlledSponsorLogoFile(
-      sponsorLogoPublicUrlForFilename(filename)
+      sponsorLogoPublicUrlForFilename(filename),
+      contributionId
     ),
     false
   );

@@ -259,6 +259,14 @@ test('schedule sends the submitted ISO date and leaves later schedule edits inta
   ]);
 });
 
+test('a batch attached to a calendar slot cannot be rescheduled through the batch workflow', async () => {
+  const f = fixture();
+  await f.workflow.scheduleBatch({ ...batch, slotId: 'synthetic-slot' });
+  assert.deepEqual(f.mutations, []);
+  assert.deepEqual(f.events, []);
+  assert.equal(f.schedules[batch.id], '2030-06-10T09:45');
+});
+
 test('an empty schedule makes no request and an invalid date reports failure and releases the lock', async (t) => {
   for (const scheduledAt of ['', 'invalid']) {
     await t.test(JSON.stringify(scheduledAt), async () => {

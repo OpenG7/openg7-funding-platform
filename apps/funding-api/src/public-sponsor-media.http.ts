@@ -118,7 +118,7 @@ export const createPublicSponsorMediaHttpHandler = ({
           }
 
           writeBinary(request, response, 200, logo, contentType, {
-            'Cache-Control': 'public, max-age=86400'
+            'Cache-Control': 'no-store'
           });
         } catch (error) {
           reportFailure('Failed to serve sponsor logo.', error);

@@ -260,7 +260,13 @@ delivery as a draft or cancel its authorization before changing its source. Mixe
 OpenG7/OpenG20 legacy batches must be split before a destination can be approved.
 
 Claims use PostgreSQL row locks with `SKIP LOCKED`. A five-minute expired claim
-becomes `uncertain`. Remote publication, its local result and audit cannot share
+becomes `uncertain`. Each claim advances the delivery version, including after
+a global stop restores the attempt count. Preflight, every provider request,
+image-reference persistence and completion verify that same version, publishing
+state, approval and unexpired lease against the database clock. An older worker
+cannot dispatch after losing its claim or overwrite a newer decision, retry,
+image reference or sponsorship projection. These checks require no migration.
+Remote publication, its local result and audit cannot share
 one distributed transaction; a timeout, 5xx, missing post ID or failed database
 commit after sending therefore **never causes a blind retry**. A definitely
 rejected rate limit can retry with bounded backoff (four attempts maximum).
@@ -300,6 +306,11 @@ concurrently.
   recalled. Disabling the worker leaves persistent state available for inspection.
 - **Restart/database interruption:** the next worker reconciles expired claims
   into exceptions. Audit or completion failure never returns a false success.
+  A successful provider response received after claim loss is retained in
+  `publication_automation.late_result` with the claim version and external ID/URL;
+  it does not change the current delivery or its projections. Inspect this audit
+  and provider history before attesting absence or authorizing another attempt.
+  A request submitted before lease expiration or revocation cannot be recalled.
 
 The cockpit provides the operational summary and exceptions; it does not send a
 new daily email or external chat notification. Existing operations monitoring
@@ -314,6 +325,11 @@ isolation, time zones/DST, error classification, upload resumption and remote ch
 for migrations, concurrent claims/planning, source revocation, approval versions,
 stale leases and a database failure after provider success. Browser fixtures cover
 exact approval, edits, stale versions, exceptions, mobile focus and accessibility.
+
+[`publication-worker-claims.integration.mjs`](../../tests/integration/publication-worker-claims.integration.mjs)
+uses disposable PostgreSQL and simulated provider responses to resume an expired
+worker after reconciliation and a newer claim, including late results and image
+reference writes. No request reaches an external provider.
 
 [`publication-media-scope.integration.mjs`](../../tests/integration/publication-media-scope.integration.mjs)
 uses disposable PostgreSQL to cover foreign-image refusal without command writes
