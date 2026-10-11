@@ -6,6 +6,7 @@ import {
   listPublicSponsorMediaByContributionIds
 } from '../../dist/apps/funding-api/src/sponsor-media.repository.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
+import { approveFixtureSubject } from './support/moderation-fixture.mjs';
 
 test(
   'Public sponsor directory on disposable PostgreSQL',
@@ -29,7 +30,7 @@ test(
       FROM generate_series(1, $1::integer) n RETURNING id`,
         [count]
       );
-      await pool.query(`
+      const { rows: mediaRows } = await pool.query(`
       WITH media AS (
         SELECT gen_random_uuid() AS asset_id, id AS contribution_id
         FROM fund_contributions
@@ -40,7 +41,11 @@ test(
       SELECT asset_id, contribution_id, 'supporting_image', 'approved', 'photo.png', 'image/png', 100,
         'private/' || contribution_id, 50, 'processed/' || contribution_id, NULL,
         '/api/public/sponsor-media/' || asset_id, repeat('a', 64), 960, 640
-      FROM media`);
+      FROM media RETURNING id`);
+      for (const { id } of rows)
+        await approveFixtureSubject(pool, { type: 'sponsorship', id });
+      for (const { id } of mediaRows)
+        await approveFixtureSubject(pool, { type: 'media', id });
       return rows.map((row) => row.id);
     };
 
@@ -128,6 +133,10 @@ test(
           'UPDATE fund_contributions SET sponsor_public_summary=NULL WHERE id=$1',
           [ids[8]]
         );
+        await approveFixtureSubject(pool, {
+          type: 'sponsorship',
+          id: ids[8]
+        });
         const withoutSummary = (await listPublicSponsorships(pool))
           .sponsorships[0];
         assert.equal(withoutSummary.public_summary, null);
@@ -259,6 +268,8 @@ test(
             )
           ).rows.map((row) => [row.original_filename, row.id])
         );
+        for (const id of [assetId, ...extraAssets.values()])
+          await approveFixtureSubject(pool, { type: 'media', id });
         const media = (
           await listPublicSponsorMediaByContributionIds(pool, ids)
         ).get(ids[0]);
