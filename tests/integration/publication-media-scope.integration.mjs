@@ -4,6 +4,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 import { PublicationAutomationService } from '../../dist/apps/funding-api/src/publication-automation/service.js';
+import { composePublicationRecognition } from '../../dist/packages/funding-core/src/index.js';
+import { approveFixtureSubject } from './support/moderation-fixture.mjs';
 
 test(
   'publication media batch scope with disposable PostgreSQL',
@@ -62,6 +64,7 @@ test(
         `INSERT INTO fund_contributions(id,contribution_type,amount_cents,status,public_display_consent,sponsor_review_status,sponsor_company_name,sponsor_public_summary,sponsor_feed_target,sponsor_feed_channels) VALUES($1,'sponsorship_interest',25000,'paid',TRUE,'approved',$2,'Approved synthetic summary','openg20','["facebook"]')`,
         [id, name]
       );
+      await approveFixtureSubject(pool, { type: 'sponsorship', id });
       return id;
     }
 
@@ -79,6 +82,8 @@ test(
         ]
       );
       for (const id of ids) objects.set(`${id}/processed`, bytes);
+      for (const id of ids)
+        await approveFixtureSubject(pool, { type: 'media', id });
       return ids;
     }
 
@@ -113,6 +118,30 @@ test(
     }
 
     async function compose(batchId, mediaId = null) {
+      const sources = batchId
+        ? (
+            await pool.query(
+              `SELECT draft.id, draft.contribution_id, draft.title, draft.body,
+                    draft.disclosure_text, contribution.sponsor_company_name
+             FROM sponsor_publication_drafts draft
+             JOIN fund_contributions contribution ON contribution.id=draft.contribution_id
+             WHERE draft.batch_id=$1 ORDER BY draft.id`,
+              [batchId]
+            )
+          ).rows
+        : [];
+      const message = batchId
+        ? composePublicationRecognition(
+            sources.map((source) => ({
+              id: source.id,
+              contributionId: source.contribution_id,
+              name: source.sponsor_company_name,
+              title: source.title,
+              body: source.body,
+              disclosureText: source.disclosure_text
+            }))
+          )
+        : 'Exact synthetic publication';
       return (
         await service.command(
           {
@@ -120,7 +149,7 @@ test(
             feedId,
             kind: batchId ? 'sponsorship' : 'news',
             batchId,
-            message: 'Exact synthetic publication',
+            message,
             scheduledAt: future,
             mediaId
           },
@@ -154,6 +183,7 @@ test(
     }
 
     async function approve(id) {
+      await approveFixtureSubject(pool, { type: 'publication_delivery', id });
       await service.command(approval(await record(id)), 'reviewer');
     }
 
@@ -212,7 +242,7 @@ test(
               action: 'edit',
               id,
               version: job.version,
-              message: 'Rejected foreign image edit',
+              message: job.message,
               scheduledAt: future,
               mediaId: f.mediaB
             },

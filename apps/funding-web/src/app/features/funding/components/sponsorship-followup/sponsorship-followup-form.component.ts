@@ -76,6 +76,7 @@ export class SponsorshipFollowupFormComponent implements AfterViewInit {
   readonly followup = input.required<SponsorshipFollowupResponse>();
   readonly token = input.required<string>();
   readonly busy = input(false);
+  readonly correctionAllowed = input(false);
   readonly draftBlocked = input(false);
   readonly savedDetails = input<SponsorshipDetailsDraft | null>(null);
   readonly restoredDraft = input<SponsorshipDraftSnapshot | null>(null);
@@ -126,12 +127,14 @@ export class SponsorshipFollowupFormComponent implements AfterViewInit {
   readonly allowed = computed(
     () =>
       canEditSponsorshipDetails(this.followup().paymentStatus) &&
-      this.followup().reviewStatus !== 'rejected'
+      (this.followup().reviewStatus !== 'rejected' || this.correctionAllowed())
   );
   readonly readOnly = computed(
     () =>
       !this.allowed() ||
-      (this.followup().reviewStatus === 'approved' && !this.editing())
+      (this.followup().reviewStatus === 'approved' &&
+        !this.editing() &&
+        !this.correctionAllowed())
   );
   readonly changed = computed(() => {
     this.revision();
@@ -165,7 +168,7 @@ export class SponsorshipFollowupFormComponent implements AfterViewInit {
     this.sponsorshipForm.valueChanges
       .pipe(takeUntilDestroyed())
       .subscribe(() => {
-        if (!this.readOnly())
+        if (!this.readOnly() && !this.correctionAllowed())
           this.draftChanged.emit(this.sponsorshipForm.getRawValue());
       });
     effect(() => {

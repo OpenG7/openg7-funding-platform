@@ -75,6 +75,24 @@ avant l'API mise à jour. Elle préserve les messages et ne lance aucun envoi.
 Une tentative SMTP ambiguë ou un bail d'envoi expiré exige une réconciliation
 administrative avant toute reprise; voir le [guide SMTP](../email-smtp.md).
 
+Les migrations [034](../../apps/funding-api/migrations/034_create_sponsorship_moderation.sql)
+à [040](../../apps/funding-api/migrations/040_allow_versioned_draft_restrictions_during_delivery.sql)
+ajoutent les décisions éditoriales versionnées, corrections, recours, acceptations
+de charte et observations de retrait/conservation. Les appliquer avant l'API
+correspondante. La charte publique reste inactive. `038` observe les contenus déjà
+publics sans fabriquer une décision N0; une modification ou restriction invalide
+ce maintien historique. Tout nouvel envoi exige une revue explicite.
+Voir [modération, adoption et reprise](sponsorship-moderation.md). Un retour à une
+API antérieure retire ces gardes : garder les envois désactivés pendant la reprise.
+Le rôle API dédié peut lire et verrouiller les politiques; leurs statuts et
+activation restent réservés au propriétaire de migrations. Le droit technique
+`UPDATE(version)` permet le verrouillage; `039` interdit de changer cette version.
+Réappliquer les grants avec le runner
+mis à jour lors de l'adoption, sans transférer la propriété des tables.
+`040` permet la projection d'un refus versionné de brouillon pendant un envoi
+déjà restreint; elle maintient l'interdiction de modifier son contenu ou son lot
+tant qu'une livraison est autorisée, en cours ou incertaine.
+
 La migration [029](../../apps/funding-api/migrations/029_create_sponsorship_refund_operations.sql)
 ajoute les demandes de remboursement durables et leur exclusion mutuelle.
 Elle ne modifie aucun fait financier existant. L'appliquer avant l'API mise à

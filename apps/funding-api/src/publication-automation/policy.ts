@@ -5,6 +5,7 @@ import type {
   PublicationFeedSettings
 } from '@openg7/funding-core';
 
+import { isValidPublicationMessage } from '../../../../packages/funding-core/src/index.js';
 import {
   loadSocialPublicationConfig,
   type SocialPublicationConfig
@@ -78,13 +79,7 @@ export function validateContent(
   message: unknown,
   scheduledAt: unknown
 ): asserts message is string {
-  assert(
-    typeof message === 'string' &&
-      message.trim().length > 0 &&
-      message.length <= 2900,
-    'INVALID_MESSAGE',
-    400
-  );
+  assert(isValidPublicationMessage(message), 'INVALID_MESSAGE', 400);
   assert(
     typeof scheduledAt === 'string' &&
       /(?:Z|[+-]\d{2}:\d{2})$/.test(scheduledAt) &&

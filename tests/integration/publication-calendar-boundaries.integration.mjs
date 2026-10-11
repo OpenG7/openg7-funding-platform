@@ -274,6 +274,21 @@ test(
           assert.equal(result.slot.capacityUsed, 0);
           assert.deepEqual(result.slot.assignedBatchIds, []);
         }
+        const roomySlot = await createSlot({ capacity: 3 });
+        await pool.query(
+          'UPDATE sponsor_publication_batches SET capacity=1 WHERE id=$1::uuid',
+          [oversizedBatch]
+        );
+        assert.equal(
+          (
+            await assignBatchToPublicationSlot(pool, {
+              slotId: roomySlot.id,
+              batchId: oversizedBatch
+            })
+          ).updated,
+          false,
+          'slot availability must not hide an already over-capacity batch'
+        );
       }
     );
 
@@ -294,6 +309,60 @@ test(
         BEFORE UPDATE ON sponsor_publication_batches
         FOR EACH ROW EXECUTE FUNCTION synthetic_calendar_failure();
     `);
+
+    for (const operation of ['batch assignment', 'slot update']) {
+      await t.test(
+        `${operation} rolls back its linked writes and can be retried`,
+        async () => {
+          let fixture;
+          let mutate;
+          if (operation === 'batch assignment') {
+            const slot = await createSlot();
+            const batchId = await createBatch();
+            fixture = {
+              slotId: slot.id,
+              batchId,
+              batchDraftId: await createDraft({ batchId }),
+              directDraftId: await createDraft()
+            };
+            mutate = () =>
+              assignBatchToPublicationSlot(pool, {
+                slotId: fixture.slotId,
+                batchId: fixture.batchId
+              });
+          } else {
+            fixture = await lifecycleFixture();
+            mutate = () =>
+              updateAdminPublicationSlot(pool, {
+                slotId: fixture.slotId,
+                startsAt: future(20),
+                capacity: 3
+              });
+          }
+          const before = await snapshot(fixture);
+          await pool.query(
+            'INSERT INTO synthetic_calendar_failures (target_id) VALUES ($1::uuid)',
+            [fixture.batchDraftId]
+          );
+          try {
+            await assert.rejects(
+              mutate(),
+              /Synthetic calendar lifecycle failure/
+            );
+            assert.deepEqual(await snapshot(fixture), before);
+          } finally {
+            await pool.query('DELETE FROM synthetic_calendar_failures');
+          }
+          assert.equal((await mutate()).updated, true);
+          const after = await snapshot(fixture);
+          assert.equal(after.batch.slot_id, fixture.slotId);
+          assert.equal(
+            after.drafts.find(({ id }) => id === fixture.batchDraftId).slot_id,
+            fixture.slotId
+          );
+        }
+      );
+    }
 
     for (const [name, mutate, target] of [
       ['publication', publishAdminPublicationSlot, 'batchDraftId'],

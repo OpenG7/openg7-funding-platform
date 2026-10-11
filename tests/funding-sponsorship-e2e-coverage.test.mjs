@@ -510,7 +510,7 @@ test('E2E 6/8: admin can prepare OpenG7/OpenG20 Facebook and LinkedIn feed place
       'assignDraftToPublicationSlot',
       'publishAdminPublicationSlot',
       'cancelAdminPublicationSlot',
-      'slot.starts_at > NOW()',
+      'slot.starts_at > clock_timestamp()',
       'target_slot.used + CASE'
     ],
     'publication calendar repository'

@@ -1,8 +1,11 @@
 import { randomUUID } from 'node:crypto';
 
 import sharp from 'sharp';
+import { composePublicationRecognition } from '@openg7/funding-core';
 import type {
   AdminAuditLogResponse,
+  AdminPublicationDraftMutationResult,
+  AdminPublicationDraftsResponse,
   AdminSponsorshipsResponse,
   AdminSponsorshipInvoicesResponse,
   FundTransparencyPublicResponse,
@@ -279,7 +282,7 @@ for (const review of ['pending', 'reapproved'] as const) {
       for (let index = 0; index < jobs.length; index++) {
         jobs[index] = await authorize(
           jobs[index]!,
-          `Merci à ${name}. Commandite rémunérée, recette simulée.`,
+          `${jobs[index]!.message}\n\nMerci à ${name}. Commandite rémunérée, recette simulée.`,
           originalDue
         );
       }
@@ -401,9 +404,60 @@ for (const review of ['pending', 'reapproved'] as const) {
         await setWorker(false);
         const due = new Date(Math.ceil((Date.now() + 60000) / 60000) * 60000);
         for (let index = 0; index < jobs.length; index++) {
+          const job = jobs[index]!;
+          const sources = (
+            await get<AdminPublicationDraftsResponse>(
+              '/api/admin/publication-drafts?contributionId=' + id
+            )
+          ).drafts.filter((draft) => draft.batch_id === job.batchId);
+          expect(sources).toHaveLength(1);
+          // Revise the source itself before reviewing the final publication;
+          // changing only the final copy cannot replace a protected block.
+          const revisedSources = [];
+          for (const source of sources) {
+            const update = await request.post(
+              '/api/admin/publication-drafts/update',
+              {
+                headers: await adminSessionHeaders(request),
+                data: {
+                  draftId: source.id,
+                  title: source.title.replaceAll(name, revisedName)
+                }
+              }
+            );
+            expect(update.ok(), await update.text()).toBe(true);
+            const revised = (
+              (await update.json()) as AdminPublicationDraftMutationResult
+            ).draft!;
+            expect(revised).toMatchObject({
+              sponsor_company_name: revisedName,
+              title:
+                job.feedId === 'openg7:facebook'
+                  ? `Merci à ${revisedName}`
+                  : `Un partenaire engagé : ${revisedName}`,
+              body: source.body,
+              disclosure_text: source.disclosure_text
+            });
+            revisedSources.push({
+              id: revised.id,
+              contributionId: revised.contribution_id,
+              name: revised.sponsor_company_name,
+              title: revised.title,
+              body: revised.body,
+              disclosureText: revised.disclosure_text
+            });
+          }
+          const protectedMessage =
+            composePublicationRecognition(revisedSources);
+          expect(protectedMessage).toContain(revisedName);
+          expect(protectedMessage).not.toContain(name);
+          expect(protectedMessage).toContain(
+            'Merci de soutenir le Fonds des Bâtisseurs OpenG7.'
+          );
+          expect(protectedMessage).toContain('Commandite rémunérée.');
           jobs[index] = await authorize(
-            jobs[index]!,
-            `Merci à ${revisedName}. Présentation révisée et approuvée. Commandite rémunérée, recette simulée.`,
+            job,
+            `${protectedMessage}\n\nMerci à ${revisedName}. Présentation révisée et approuvée. Commandite rémunérée, recette simulée.`,
             due
           );
         }

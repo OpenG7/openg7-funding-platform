@@ -1,5 +1,66 @@
 {
   "admin": {
+    "moderation": {
+      "title": "Décision de modération",
+      "context": "Examinez le contenu dans son contexte. Un désaccord, une controverse ou une citation dénonçant la haine ne suffit pas à justifier un refus.",
+      "loading": "Chargement du contenu à examiner…",
+      "unavailable": "Le contenu ne peut pas être chargé. Fermez le panneau et rechargez le dossier avant de décider.",
+      "contentVersion": "Version du contenu",
+      "exactContent": "Voir le contenu exact",
+      "primaryReason": "Motif principal *",
+      "chooseReason": "Choisir un motif",
+      "secondaryReasons": "Motifs secondaires",
+      "editorialProvision": "Disposition éditoriale applicable *",
+      "chooseProvision": "Choisir une disposition",
+      "internalReason": "Justification interne — réservée à l’équipe habilitée *",
+      "sponsorExplanation": "Explication destinée au commanditaire *",
+      "privacy": "Seule l’explication destinée au commanditaire peut apparaître dans son suivi et les notifications. Les notes internes restent privées.",
+      "independentReview": "Cette décision nécessite la confirmation d’une autre personne habilitée. Les restrictions restent en place pendant cette revue indépendante.",
+      "confirm": "J’ai examiné cette version exacte et je confirme la portée et les conséquences de cette décision.",
+      "continue": "Confirmer la décision",
+      "saveFirst": "Enregistrez d’abord les modifications, puis examinez la version enregistrée.",
+      "actions": "Modération du contenu",
+      "open": "Examiner",
+      "saved": "Décision enregistrée. La visibilité et l’autorisation d’envoi restent des actions distinctes.",
+      "history": "Historique des décisions",
+      "assignmentTitle": "Affectation de la revue",
+      "assignedMember": "Personne affectée",
+      "unassigned": "Sans affectation",
+      "saveAssignment": "Enregistrer l’affectation",
+      "assignmentConfirm": "Je confirme le changement d’affectation de la revue. L’affectation ne confère aucun droit administratif.",
+      "assignmentSaved": "Affectation de la revue enregistrée.",
+      "assignmentUnavailable": "Les membres ne peuvent pas être chargés. Rechargez avant de changer l’affectation.",
+      "retry": "Réessayer",
+      "reconsiderationTitle": "Demande de réexamen humain",
+      "reconsiderationHelp": "Choisissez l’issue ci-dessus, puis examinez la version exacte actuelle et donnez une explication externe. Le réexamen n’autorise ni publication ni remboursement.",
+      "resolveReconsideration": "Examiner et résoudre la demande",
+      "reconsiderationStates": {
+        "open": "En attente de réexamen humain",
+        "resolved": "Réexamen résolu"
+      },
+      "independentAction": "Confirmer la revue indépendante",
+      "independentIdentityRequired": "Connectez-vous avec une identité administrative nominative pour cette revue indépendante.",
+      "independentActorRequired": "Une autre personne habilitée doit examiner cette décision grave. Son auteur initial ne peut pas la confirmer ou la lever seul.",
+      "independentConfirm": "Je confirme cette décision après une revue indépendante. L’API vérifie que je suis une autre personne habilitée.",
+      "failed": "La décision n’a pas pu être confirmée. Rechargez son contenu et ses restrictions avant de réessayer.",
+      "levels": {
+        "N0": "Approuver le contenu",
+        "N1": "Demander une correction",
+        "N2": "Suspendre l’examen",
+        "N3": "Refuser cet élément",
+        "N4": "Refuser le dossier",
+        "N5": "Retirer le contenu public"
+      },
+      "states": {
+        "unreviewed": "À examiner",
+        "approved": "Contenu approuvé",
+        "correction_requested": "Correction demandée",
+        "on_hold": "Examen suspendu",
+        "rejected": "Refusé",
+        "removed": "Retiré",
+        "pending_independent_review": "Revue indépendante requise"
+      }
+    },
     "appearance": {
       "intro": "Choisissez votre ambiance et votre confort de lecture. Le dossier en cours reste ouvert.",
       "palette": "Palette de l’administration",
@@ -1710,7 +1771,7 @@
       "action_sensible": "Action sensible",
       "refuser_la_commandite": "Refuser la commandite",
       "fermer_le_refus": "Fermer le refus",
-      "raison_interne_du_refus": "Raison interne du refus *",
+      "raison_interne_du_refus": "Justification interne — réservée à l’équipe habilitée *",
       "message_au_commanditaire": "Message au commanditaire *",
       "envoyer_le_courriel_de_refus": "Envoyer le courriel de refus",
       "remboursement": "Remboursement",
@@ -1935,7 +1996,7 @@
       "les_medias_commanditaires_ne_peuvent_pas_etre_charges": "Les medias commanditaires ne peuvent pas etre charges.",
       "selon_votre_institution_financiere_le_credit_peut_prendre_quelques_jours_ouvrables_avant_d_appa": "Selon votre institution financiere, le credit peut prendre quelques jours ouvrables avant d apparaitre.",
       "nous_confirmons_que_le_remboursement_stripe_de_votre_commandite_openg7_vient_d_etre_lance": "Nous confirmons que le remboursement Stripe de votre commandite OpenG7 vient d etre lance.",
-      "merci_de_votre_comprehension_vous_pouvez_repondre_a_ce_courriel_si_vous_souhaitez_clarifier_la_": "Merci de votre comprehension. Vous pouvez repondre a ce courriel si vous souhaitez clarifier la situation.",
+      "merci_de_votre_comprehension_vous_pouvez_repondre_a_ce_courriel_si_vous_souhaitez_clarifier_la_": "Consultez votre suivi privé pour lire l’explication et les démarches de correction ou de réexamen autorisées. Le paiement et les conséquences financières restent distincts de la décision éditoriale.",
       "apres_revision_nous_ne_pouvons_pas_accepter_cette_commandite_openg7_pour_le_moment": "Apres revision, nous ne pouvons pas accepter cette commandite OpenG7 pour le moment.",
       "copie_impossible": "Copie impossible.",
       "reference_copiee": "Reference copiee.",
@@ -2338,6 +2399,7 @@
         "VERSION_CONFLICT": "Cette publication a changé. Fermez-la et actualisez la page avant de continuer.",
         "WORKER_VERSION_CONFLICT": "L’état du moteur a changé depuis votre dernière consultation. Actualisez la page avant de continuer.",
         "SOURCE_CHANGED": "Un brouillon du lot a changé. Enregistrez et vérifiez à nouveau le contenu final.",
+        "SOURCE_CONTENT_MISSING": "Le texte final ne contient pas un bloc complet pour chaque commanditaire, avec son nom, le contenu du brouillon et la mention de commandite. Rétablissez les blocs manquants. Pour modifier leur contenu, modifiez les brouillons sources, puis recomposez le texte final, enregistrez-le et approuvez à nouveau cette publication.",
         "MEDIA_CHANGED": "L’image a changé. Choisissez une image approuvée et validez à nouveau.",
         "SOURCE_NOT_ELIGIBLE": "Un commanditaire de ce lot ne remplit plus les conditions de publication.",
         "SPONSOR_REVIEW_REQUIRED": "Un dossier commanditaire a été modifié ou remis en revue depuis l’autorisation. Vérifiez sa nouvelle version, puis enregistrez et approuvez à nouveau cette publication. Accepter le dossier seul ne réautorise pas cet envoi.",
@@ -2353,6 +2415,8 @@
         "SPONSOR_APPROVAL_REQUIRED": "Vérifiez les commanditaires en attente et confirmez leur approbation avec cette publication.",
         "SPONSOR_MEDIA_REQUIRED": "Une photo de présentation approuvée est requise pour chaque nouveau commanditaire."
       },
+      "editSourceDrafts": "Modifier les brouillons sources",
+      "sourceContentUncertain": "Cet envoi peut déjà avoir créé une publication, mais son contenu ne permet pas de confirmer tous les commanditaires. Consultez les références conservées dans l’audit et vérifiez l’historique du compte réel sur le réseau social. Si la publication existe, conservez l’état incertain : ne confirmez jamais son absence et ne renvoyez pas cet envoi. L’édition et la recomposition sont indisponibles dans cet état.",
       "absenceTitle": "Après vérification : la publication est absente",
       "absenceHelp": "Utilisez cette action seulement après avoir vérifié l’historique du compte sur le réseau social. Elle permet une nouvelle préparation suivie d’une nouvelle approbation.",
       "absenceReason": "Vérification effectuée (20 caractères minimum, sans donnée privée)",
@@ -3053,6 +3117,36 @@
     }
   },
   "funding": {
+    "charter": {
+      "changed": "Les conditions de commandite ont changé. Relisez la version applicable et confirmez-la avant une nouvelle tentative.",
+      "title": "Charte d’intégrité éditoriale et des commandites",
+      "loading": "Vérification des conditions de commandite…",
+      "unavailable": "Les conditions applicables ne peuvent pas être vérifiées. Réessayez avant de démarrer le paiement.",
+      "acceptance": "J’ai lu la charte {{version}}. Le paiement ne garantit aucune approbation éditoriale."
+    },
+    "moderation": {
+      "title": "Décisions et prochaines démarches",
+      "loading": "Chargement de vos décisions…",
+      "unavailable": "Vos décisions ou votre demande ne peuvent pas être vérifiées. Votre contenu reste soumis aux restrictions existantes.",
+      "empty": "Aucune décision versionnée n’est disponible dans ce suivi.",
+      "policyVersion": "Politique examinée : {{version}}",
+      "independentReview": "Une autre personne habilitée doit confirmer cette décision. Les restrictions restent en place.",
+      "correct": "Fournir une correction",
+      "reconsider": "Demander un réexamen",
+      "requestExplanation": "Expliquez votre demande de réexamen *",
+      "noAutomaticApproval": "Une correction ou un réexamen ne rétablit pas automatiquement la visibilité ni une autorisation de publication. Les conséquences financières sont examinées séparément.",
+      "confirmRequest": "Je confirme l’envoi de cette demande.",
+      "submitRequest": "Envoyer la demande",
+      "requestReceived": "Votre demande a été enregistrée pour examen humain.",
+      "requestOpen": "Une demande de réexamen est déjà en cours pour cette décision.",
+      "correctionActive": "Votre correction porte sur les renseignements du dossier. Après soumission, la nouvelle version reste privée et retourne en revue.",
+      "subjects": {
+        "sponsorship": "Dossier commanditaire",
+        "media": "Média commanditaire",
+        "publication_draft": "Brouillon de publication",
+        "publication_delivery": "Publication"
+      }
+    },
     "brand": {
       "title": "Fonds des bâtisseurs",
       "organization": "OpenG7"
@@ -3358,7 +3452,7 @@
           "copy": "OpenG7 conserve un contrôle éditorial sur les présentations publiques des commanditaires.",
           "items": {
             "approval": "Une commandite validée peut apparaître sur la page des commanditaires selon les consentements applicables.",
-            "removal": "OpenG7 peut refuser, retirer ou modifier une présentation incompatible, trompeuse ou risquée.",
+            "removal": "OpenG7 examine les contenus dans leur contexte. Une décision éditoriale concerne les éléments examinés et peut demander une correction, suspendre l’examen, refuser un élément ou retirer un contenu public. Un désaccord ou une controverse ne suffit pas à justifier un refus.",
             "feed": "Les publications Facebook et LinkedIn dépendent des avantages associés à la commandite et d’une préparation suivie par l’équipe. Leur publication n’est pas automatique après paiement."
           }
         },
@@ -3929,7 +4023,7 @@
           },
           "reviewNote": "Chaque commandite est vérifiée et approuvée manuellement avant sa publication.",
           "afterPaymentNote": "Après le paiement, vous pourrez transmettre les renseignements de votre entreprise, votre site Web et votre logo aux fins de validation.",
-          "manualReviewNote": "Toute commandite est vérifiée et approuvée manuellement avant sa publication. Les présences sur les réseaux sociaux sont planifiées dans les prochains lots disponibles.",
+          "manualReviewNote": "Toute commandite fait l’objet d’une revue humaine. Le paiement ne garantit aucune approbation éditoriale. Les présences sur les réseaux sociaux exigent une autorisation distincte, selon les avantages et les disponibilités applicables.",
           "amountFormatError": "Le montant minimal pour une commandite est de 50 $.",
           "disabled": "Temporairement indisponible",
           "minimumAmountError": "Le montant minimal pour une commandite est de {{ minimum }}."
@@ -4622,7 +4716,7 @@
         "rejected": {
           "label": "Refusée",
           "title": "Commandite refusée",
-          "copy": "La visibilité publique n’est pas activée. Contactez le support pour toute clarification. Le refus ne confirme pas un remboursement."
+          "copy": "La visibilité publique n’est pas activée. Consultez vos décisions et les démarches autorisées de correction ou de réexamen dans ce suivi privé. Le refus ne confirme pas un remboursement."
         }
       },
       "steps": {

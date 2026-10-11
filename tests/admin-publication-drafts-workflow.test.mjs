@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { signal } from '@angular/core';
+import { moderationDecision } from './support/moderation-ui-fixture.mjs';
 
 import { AdminPublicationDraftsWorkflow } from '../dist/apps/funding-web/src/app/features/funding/pages/admin-publications-page/panels/admin-publication-drafts-workflow.js';
 
@@ -45,6 +46,8 @@ const fixture = (records = [draft()]) => {
     return result;
   };
   const ports = {
+    moderate: async (subject, level, initial) =>
+      moderationDecision(subject, level, initial),
     state,
     api: {
       createPublicationDraft: write('create', {
@@ -79,6 +82,33 @@ const fixture = (records = [draft()]) => {
   return { workflow, ports, state, calls, selections, edit };
 };
 const methods = (f) => f.calls.map(({ method }) => method);
+
+test('approval requires a saved draft and rejects local edits made during contextual review', async () => {
+  const f = fixture();
+  f.edit('synthetic-draft', { body: 'Unsaved content' });
+  await f.workflow.saveDraft(draft(), 'approved');
+  assert.deepEqual(f.calls, [
+    { method: 'notice', key: 'admin.moderation.saveFirst' }
+  ]);
+  f.state.dirtyDraftIds.set(new Set());
+  f.workflow.reconcileDrafts([draft()]);
+  const gate = deferred();
+  f.ports.moderate = () => gate.promise;
+  const pending = f.workflow.saveDraft(draft(), 'approved');
+  f.edit('synthetic-draft', { body: 'Changed while the panel was open' });
+  gate.resolve(
+    moderationDecision(
+      { type: 'publication_draft', id: 'synthetic-draft' },
+      'N0'
+    )
+  );
+  await pending;
+  assert.equal(
+    f.calls.some(({ method }) => method === 'save'),
+    false
+  );
+  assert.equal(f.state.actionState(), null);
+});
 
 test('reconciliation refreshes clean drafts and retains dirty revisions even when omitted', () => {
   const f = fixture([
@@ -146,20 +176,21 @@ test('save submits the exact captured payload and waits for confirmation before 
     assert.equal(f.state.dirtyDraftIds().has('synthetic-draft'), false);
     return reload.promise;
   };
-  f.edit('synthetic-draft', { title: 'Before confirmation' });
   const pending = f.workflow.saveDraft(draft(), 'published');
   assert.deepEqual(f.calls, [
     { method: 'confirm', action: 'publish', target: 'Server title' }
   ]);
   assert.equal(f.state.actionState(), null);
-  f.edit('synthetic-draft', {
-    title: 'Confirmed title',
-    body: 'Confirmed body',
-    disclosureText: 'Confirmed disclosure',
-    publicUrl: 'https://example.test/post',
-    scheduledAt: '2030-06-03T10:30',
-    reviewNote: 'Confirmed note'
-  });
+  f.workflow.reconcileDrafts([
+    draft({
+      title: 'Confirmed title',
+      body: 'Confirmed body',
+      disclosure_text: 'Confirmed disclosure',
+      public_url: 'https://example.test/post',
+      scheduled_at: '2030-06-03T14:30:00.000Z',
+      review_note: 'Confirmed note'
+    })
+  ]);
   confirmation.resolve(true);
   await settle();
   assert.equal(f.state.actionState(), 'synthetic-draft');
@@ -168,6 +199,11 @@ test('save submits the exact captured payload and waits for confirmation before 
     token: 'synthetic-session',
     payload: {
       draftId: 'synthetic-draft',
+      confirmation: 'synthetic-draft',
+      moderationDecision: moderationDecision(
+        { type: 'publication_draft', id: 'synthetic-draft' },
+        'N0'
+      ),
       title: 'Confirmed title',
       body: 'Confirmed body',
       disclosureText: 'Confirmed disclosure',

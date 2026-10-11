@@ -46,7 +46,15 @@ export class CheckoutAttempts {
       intent.publicDisplayConsent,
       intent.publicDisplayName,
       intent.displayAmountConsent,
-      intent.nonCharityAcknowledged
+      intent.nonCharityAcknowledged,
+      ...(intent.charterAcceptance
+        ? [
+            intent.charterAcceptance.policyVersion,
+            intent.charterAcceptance.fingerprint,
+            intent.charterAcceptance.locale,
+            intent.charterAcceptance.accepted
+          ]
+        : [])
     ]);
     const existing = this.pending.get(payload);
     if (existing) return existing;

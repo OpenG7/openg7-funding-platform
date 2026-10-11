@@ -57,6 +57,10 @@ le [guide des produits vedettes](boutique-products.md).
 
 ## Administration
 
+La [modération des commandites](operations/sponsorship-moderation.md) décrit les
+décisions versionnées, les corrections et réexamens privés, la charte préparée,
+les droits et les conditions de mise en service.
+
 Le [suivi des contributions reçues](operations/contribution-activity.md) relie
 confirmation, toast global, courriel admin, SMS simulé et préparation privée
 d’une cartouche Web. Il nécessite la migration 027 ; les envois sont configurés

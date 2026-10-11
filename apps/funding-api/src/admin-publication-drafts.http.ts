@@ -12,6 +12,7 @@ import type {
   insertAdminAuditLog
 } from './fund-admin.repository.js';
 import { createRouteMatcher } from './http-routing.js';
+import { ModerationError } from './moderation/policy.js';
 import type { AdminPublicationHttpDependencies } from './admin-publication-http.shared.js';
 
 type ApiRequest = IncomingMessage;
@@ -40,7 +41,8 @@ export interface AdminPublicationDraftsHttpDependencies extends AdminPublication
     input: Parameters<typeof createAdminPublicationDraft>[1]
   ) => ReturnType<typeof createAdminPublicationDraft>;
   readonly updateAdminPublicationDraft: (
-    input: Parameters<typeof updateAdminPublicationDraft>[1]
+    input: Parameters<typeof updateAdminPublicationDraft>[1],
+    actor?: string
   ) => ReturnType<typeof updateAdminPublicationDraft>;
   readonly insertAdminAuditLog: (
     input: Parameters<typeof insertAdminAuditLog>[1]
@@ -292,7 +294,10 @@ export const createAdminPublicationDraftsHttpHandler = ({
       }
 
       try {
-        const result = await updateAdminPublicationDraft(parsed);
+        const result = await updateAdminPublicationDraft(
+          parsed,
+          getAdminAuditActor(request)
+        );
         if (!result.updated || !result.draft) {
           writeJson(request, response, 404, {
             error: 'Publication draft was not found.'
@@ -317,6 +322,13 @@ export const createAdminPublicationDraftsHttpHandler = ({
         });
         writeJson(request, response, 200, result);
       } catch (error) {
+        if (error instanceof ModerationError) {
+          writeJson(request, response, error.status, {
+            code: error.code,
+            error: error.code
+          });
+          return true;
+        }
         reportFailure('Failed to update publication draft.', error);
         writeJson(request, response, 502, {
           error: 'Publication draft could not be updated.'

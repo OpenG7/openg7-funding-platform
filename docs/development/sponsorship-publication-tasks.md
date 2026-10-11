@@ -3,7 +3,7 @@
 Date : 11 octobre 2026. Référence de diagnostic : `8edb18ee6b3f`.
 
 Statut du chantier : **Construction active**. Cadrage et découpage disponibles;
-réalisation locale autorisée, 44 tâches applicatives à faire.
+réalisation locale démarrée, 4 tâches en cours et 40 à faire.
 
 Le feu vert de l'utilisateur couvre la réalisation locale de tous les lots de
 l'[analyse](sponsorship-visibility-analysis.md). Ce plan les découpe en **44 tâches**
@@ -12,8 +12,9 @@ avec dépendances, critères d'acceptation et validations. Les
 livraison et vérification de leurs critères. Ce fichier devient la référence
 de suivi des tâches; l'analyse conserve le diagnostic et ses sources.
 
-Les tâches applicatives sont **à faire**. La création de ce découpage ne constitue
-pas leur réalisation. L'approbation administrative de chaque publication reste
+SP07, SP08, SP12 et SP20 sont **en cours** dans le premier lot local. Leurs avances
+et limites figurent ci-dessous; aucune des 44 tâches n'est déclarée terminée.
+L'approbation administrative de chaque publication reste
 distincte du développement. Les essais utilisent des dossiers synthétiques et
 des fournisseurs simulés; la mise en service réelle se prépare dans SP43.
 
@@ -63,6 +64,50 @@ Après ces fondations, A et B convergent vers les obligations. C et D fiabilisen
 leur livraison. E exploite les projections privées; F ajoute les capacités
 visuelles. L'adoption historique commence par un aperçu de rapprochement et
 reste distincte de l'activation des envois.
+
+## Premier lot local — 11 octobre 2026
+
+Branche : `feat/sponsorship-publication-foundations`. Le premier lot implémente
+les blocs de reconnaissance, leur contrôle avant approbation/envoi/finalisation,
+les réservations manuelles atomiques et l'observation indépendante des résultats
+fournisseur. [Décision et limites](../decisions/2026-10-11-sponsorship-recognition-blocks.md);
+[procédure de reprise](../operations/publication-automation.md#exceptions-and-recovery).
+Réception locale sous Node 22.23.3 et Yarn 4.9.4 : `yarn test` passe, **5 943 tests
+réussis et 8 ignorés** par leurs préconditions de plateforme. Les neuf suites
+PostgreSQL ciblées passent, **100 tests**, sur bases jetables :
+
+```sh
+node --test tests/integration/publication-capacity-concurrency.integration.mjs tests/integration/publication-calendar-boundaries.integration.mjs tests/integration/publication-batch-scheduling.integration.mjs tests/integration/publication-workflow-persistence-boundaries.integration.mjs tests/integration/publication-media-scope.integration.mjs tests/integration/publication-automation.integration.mjs tests/integration/publication-worker-claims.integration.mjs tests/integration/editorial-programme.integration.mjs tests/integration/sponsorship-benefit-policy.integration.mjs
+```
+
+Les suites ont été exécutées séparément, avec leurs propres conteneurs PostgreSQL
+16; la commande ci-dessus en donne les fichiers. Le build Angular production
+passe avec 25 routes prérendues. Compilation des tests UI via
+`yarn exec tsc -p tests/tsconfig.admin-ui.json`, puis recette
+`yarn exec playwright test --config tests/playwright-admin-ui.config.mjs admin-publication-automation.spec.ts` :
+43 cas existants passent initialement; le sélecteur anglais d'un nouveau cas est
+corrigé, puis les dix cas de contenu manquant passent à la relance ciblée,
+y compris quatre cas d'incertitude ajoutés après revue. Tous les 53 cas ont
+donc été vérifiés; les autres cas déjà verts n'ont pas été relancés.
+
+`yarn lint` passe avec l'avertissement préexistant de `scripts/smoke-public.mjs:165`.
+Prettier ciblé, standards OpenG7, contrôle documentaire et `git diff --check`
+passent. Les essais utilisent des dossiers synthétiques et fournisseurs simulés;
+ils ne qualifient pas un envoi réel. Aucun nouveau schéma n'est nécessaire à ce lot.
+Les 19 garanties complètes restent ouvertes.
+
+Après fusion du cadrage #301, les recettes d'identité et Docker ont révélé des
+fixtures qui attendaient des textes abrégés supprimant une partie des blocs.
+Les fixtures conservent maintenant les sources complètes; une révision du nom
+modifie aussi le titre source avant recomposition et nouvelle approbation.
+Le scénario `editorial-preferences-journey.spec.ts` reproduit l'échec, puis passe
+avec API/Web réels, PostgreSQL jetable et OIDC signé local. La recette ciblée
+via `node scripts/admin-acceptance.mjs` passe : **11 cas dans six suites**
+(paiement inadmissible, résultat incertain, médias, publication, révision et
+niveaux de commandite). Elle vérifie aussi le refus `SOURCE_CONTENT_MISSING`
+sans autorisation ni envoi. Compilation TypeScript complète sans émission,
+lint, format, contrôles documentaires et diff passent. Ces correctifs ne changent
+aucun garde-fou applicatif; la CI complète reste une validation distincte.
 
 ## Cadrage
 
@@ -191,7 +236,13 @@ déjà émise conserve ses données.
 
 ### SP07 — Centraliser la composition et le budget du rendu final
 
-- [ ] À faire · P0 · Dépendances : SP01 · Garanties : G03 à G07.
+- [ ] En cours · P0 · Dépendances : SP01 · Garanties : G03 à G07.
+
+**Avancée du premier lot :** politique pure exportée, blocs complets avec identité
+du dossier et budget UTF-16 partagé; composition, rafraîchissement et réparation
+préservent les blocs malgré les préférences éditoriales. Reste la sélection
+structurée des retenus/différés/à corriger et le calcul commun de capacité sur
+tous les chemins d'affectation.
 
 **Périmètre :** politique pure partagée, composition et transformations éditoriales.
 Produire rendu final, blocs de reconnaissance, bénéficiaires retenus, différés,
@@ -210,7 +261,15 @@ et ajouter les tests de la politique pure.
 
 ### SP08 — Vérifier les bénéficiaires avant approbation et finalisation
 
-- [ ] À faire · P0 · Dépendances : SP07 · Garanties : G03 à G05, G14, G17.
+- [ ] En cours · P0 · Dépendances : SP07 · Garanties : G03 à G05, G14, G17.
+
+**Avancée du premier lot :** message final des livraisons automatiques contrôlé avant décisions de revue,
+autorisation, envoi et finalisation; source entière exigée, homonymes et mentions
+incidentes distingués. Erreur `SOURCE_CONTENT_MISSING` expliquée en FR/EN avec
+accès aux brouillons sources. Reste le raccordement aux éléments promis des
+offres figées et aux obligations SP19; le bloc source complet est protégé en attendant.
+Les jobs sociaux historiques et mutations manuelles de statut ne passent pas
+encore par ce contrôle et restent à faire converger.
 
 **Périmètre :** commandes, préflight et contrat du contenu approuvé.
 Lier chaque dossier à ses éléments de reconnaissance et à l'empreinte du rendu.
@@ -285,7 +344,18 @@ lot sans livraison; étendre progression et détecteurs de publication.
 
 ### SP12 — Protéger la dernière place sous concurrence réelle
 
-- [ ] À faire · P0 · Dépendances : aucune pour reproduction; SP01 pour correction et ordre des verrous; SP07 pour contrôle du rendu · Garanties : G06, G14.
+- [ ] En cours · P0 · Dépendances : aucune pour reproduction; SP01 pour correction et ordre des verrous; SP07 pour contrôle du rendu · Garanties : G06, G14.
+
+**Avancée du premier lot :** cinq scénarios ont reproduit une surréservation ou
+une réduction concurrente invalide avant correction sur PostgreSQL 16. Les trois
+affectations manuelles et la modification de créneau verrouillent maintenant le
+parent avant recompte; les cascades sont transactionnelles et l'heure est relue
+après attente. Reste le raccordement du planificateur automatique, du rendu final
+et des autres mutations historiques. Voir la
+[recette de concurrence](../../tests/integration/publication-capacity-concurrency.integration.mjs).
+La revue a aussi reproduit un interblocage PostgreSQL entre finalisation et
+modification de créneau. La finalisation automatique live verrouille maintenant
+livraison, créneau, lot puis brouillons; la même recette passe après correction.
 
 **Périmètre :** repositories de lots et créneaux, transaction d'affectation commune.
 Reproduire le risque avec deux connexions PostgreSQL, puis verrouiller le parent
@@ -430,7 +500,16 @@ passages et simulation; étendre
 
 ### SP20 — Conserver l'acquittement fournisseur malgré une finalisation échouée
 
-- [ ] À faire · P0 · Dépendances : aucune pour correction existante; SP19 pour raccordement des preuves · Garanties : G16, G17.
+- [ ] En cours · P0 · Dépendances : aucune pour correction existante; SP19 pour raccordement des preuves · Garanties : G16, G17.
+
+**Avancée du premier lot :** audit `provider_result_observed` commis avant
+finalisation, lié au claim et dédupliqué sous verrou; échec suivant conservé comme
+incertain sans projection publiée ni renvoi automatique. Références également
+retenues dans l'audit d'incertitude si l'observation initiale échoue. Reste le
+raccordement à la preuve des obligations SP19 et leur projection administrative.
+Si l'identité du dossier a changé après envoi, le contrôle peut conserver une
+incertitude que la réconciliation actuelle ne peut clore; conserver les preuves
+et traiter dans SP19/SP21, sans attestation d'absence si le post existe.
 
 **Périmètre :** exécution, résultats, claims et observation persistante de tentative.
 Conserver les références reçues indépendamment de la projection finale.

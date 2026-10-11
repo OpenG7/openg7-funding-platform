@@ -2,6 +2,9 @@ import type { AdminRole } from './contracts.js';
 
 export const roles: readonly string[] = ['reader', 'operator', 'owner'];
 const operatorActions = new Set([
+  '/admin/moderation/decisions',
+  '/admin/moderation/independent-review',
+  '/admin/moderation/reconsiderations/resolve',
   '/admin/pilotage/command',
   '/admin/pilotage/receipt',
   '/admin/pilotage/programme',
@@ -15,6 +18,7 @@ const operatorActions = new Set([
   '/admin/sponsorships/media',
   '/admin/sponsorships/media/delete',
   '/admin/sponsorships/media/review',
+  '/admin/sponsorships/media/metadata',
   '/admin/sponsorships/logo',
   '/admin/sponsorships/logo/delete',
   '/admin/email-queue/retry',
@@ -47,6 +51,19 @@ export const adminRoleAllows = (
 ): boolean => {
   const path = pathname.replace(/^\/api(?=\/)/, '');
   if (role === 'owner') return true;
+  if (
+    [
+      '/admin/moderation/adoption-preview',
+      '/admin/moderation/retention-preview',
+      '/admin/moderation/assignment'
+    ].includes(path)
+  )
+    return false;
+  if (path.startsWith('/admin/moderation/'))
+    return (
+      role === 'operator' &&
+      (method === 'GET' || (method === 'POST' && operatorActions.has(path)))
+    );
   if (
     path.startsWith('/admin/access') ||
     path === '/admin/contributions.csv' ||

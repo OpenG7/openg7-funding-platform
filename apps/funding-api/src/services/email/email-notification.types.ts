@@ -14,6 +14,8 @@ export type EmailTemplateKey =
   | 'sponsorship_followup'
   | 'sponsorship_confirmation'
   | 'sponsorship_rejection'
+  | 'moderation_decision'
+  | 'moderation_submission'
   | 'sponsorship_refund'
   | 'sponsorship_invoice'
   | 'sponsorship_credit_note'
@@ -69,7 +71,6 @@ export interface SponsorshipRejectionEmailInput {
   readonly sponsorName: string;
   readonly amount: number;
   readonly currency: string;
-  readonly reviewReason: string;
   readonly sponsorMessage: string;
   readonly refundHandling: AdminSponsorshipRejectionRefundHandling;
   readonly refundNote?: string;

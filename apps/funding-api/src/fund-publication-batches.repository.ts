@@ -19,6 +19,10 @@ import {
 import { getAdminBackofficePresence } from './fund-admin.persistence.js';
 import { getPublicationDraftById } from './fund-publication-drafts.repository.js';
 import { schedulePublicationBatch } from './fund-publication-batch-scheduling.persistence.js';
+import { lockPublicationBatchCapacity } from './fund-publication-capacity.persistence.js';
+import { withPostgresTransaction } from './postgres-transaction.js';
+import { ModerationError } from './moderation/policy.js';
+import { assertModerationApproved } from './moderation/repository.js';
 
 export const allowedPublicationBatchStatuses = new Set<PublicationBatchStatus>([
   'open',
@@ -154,8 +158,8 @@ export const createAdminPublicationBatch = async (
 
 /**
  * Assigns an already-approved draft to an open batch of the same channel,
- * atomically enforcing the batch's remaining capacity in a single statement
- * so two concurrent admin actions cannot overbook the same collective post.
+ * locking the slot (when associated), then the batch before counting members.
+ * The count is read after obtaining those locks on the same transaction client.
  */
 export const assignDraftToPublicationBatch = async (
   pool: Pool | null,
@@ -170,8 +174,16 @@ export const assignDraftToPublicationBatch = async (
     return { updated: false, draft: null };
   }
 
-  const result = await pool.query(
-    `
+  const updated = await withPostgresTransaction(pool, async (client) => {
+    if (!(await lockPublicationBatchCapacity(client, input.batchId))) {
+      return false;
+    }
+    await client.query(
+      'SELECT id FROM sponsor_publication_drafts WHERE id=$1::uuid FOR UPDATE',
+      [input.draftId]
+    );
+    const result = await client.query(
+      `
       WITH target_batch AS (
         SELECT
           batch.id,
@@ -221,6 +233,7 @@ export const assignDraftToPublicationBatch = async (
       WHERE draft.id = $1::uuid
         AND draft.status = 'approved'
         AND draft.batch_id IS NULL
+        AND (draft.slot_id IS NULL OR draft.slot_id = target_batch.slot_id)
         AND draft.channel = target_batch.channel
         AND target_batch.status IN ('open', 'scheduled')
         AND target_batch.used < target_batch.capacity
@@ -229,16 +242,18 @@ export const assignDraftToPublicationBatch = async (
           OR (
             draft.feed_target = target_batch.slot_feed_target
             AND target_batch.slot_status IN ('open', 'scheduled')
-            AND target_batch.slot_starts_at > NOW()
+            AND target_batch.slot_starts_at > clock_timestamp()
             AND target_batch.slot_used < target_batch.slot_capacity
           )
         )
     `,
-    [input.draftId, input.batchId]
-  );
+      [input.draftId, input.batchId]
+    );
+    return (result.rowCount ?? 0) > 0;
+  });
 
   return {
-    updated: (result.rowCount ?? 0) > 0,
+    updated,
     draft: await getPublicationDraftById(pool, input.draftId)
   };
 };
@@ -310,8 +325,42 @@ export const publishAdminPublicationBatch = async (
     return { updated: false, batch: null };
   }
 
-  const result = await pool.query(
-    `
+  if (input.confirmation !== input.batchId)
+    throw new ModerationError('CONFIRMATION_REQUIRED', 400);
+  return withPostgresTransaction(
+    pool,
+    async (db) => {
+      if (!(await lockPublicationBatchCapacity(db, input.batchId)))
+        return { updated: false, batch: null };
+      const current = (
+        await db.query<{ status: PublicationBatchStatus }>(
+          'SELECT status FROM sponsor_publication_batches WHERE id=$1',
+          [input.batchId]
+        )
+      ).rows[0];
+      if (current?.status !== 'scheduled')
+        return {
+          updated: false,
+          batch: await getPublicationBatchById(db, input.batchId)
+        };
+      const drafts = await db.query<{ id: string; contribution_id: string }>(
+        'SELECT id,contribution_id FROM sponsor_publication_drafts WHERE batch_id=$1 ORDER BY id',
+        [input.batchId]
+      );
+      if (!drafts.rows.length)
+        throw new ModerationError('MODERATION_CONTENT_REQUIRED');
+      for (const draft of drafts.rows) {
+        await assertModerationApproved(db, {
+          type: 'sponsorship',
+          id: draft.contribution_id
+        });
+        await assertModerationApproved(db, {
+          type: 'publication_draft',
+          id: draft.id
+        });
+      }
+      const result = await db.query(
+        `
       UPDATE sponsor_publication_batches
       SET
         status = 'published',
@@ -320,12 +369,12 @@ export const publishAdminPublicationBatch = async (
       WHERE id = $1::uuid
         AND status = 'scheduled'
     `,
-    [input.batchId]
-  );
+        [input.batchId]
+      );
 
-  if ((result.rowCount ?? 0) > 0) {
-    await pool.query(
-      `
+      if ((result.rowCount ?? 0) > 0) {
+        await db.query(
+          `
         UPDATE sponsor_publication_drafts
         SET
           status = 'published',
@@ -334,12 +383,12 @@ export const publishAdminPublicationBatch = async (
         WHERE batch_id = $1::uuid
           AND status IN ('approved', 'scheduled')
       `,
-      [input.batchId]
-    );
+          [input.batchId]
+        );
 
-    if (presence.has_publication_slots) {
-      await pool.query(
-        `
+        if (presence.has_publication_slots) {
+          await db.query(
+            `
           UPDATE publication_slots slot
           SET status = 'published', updated_at = NOW()
           WHERE slot.id IN (
@@ -365,15 +414,18 @@ export const publishAdminPublicationBatch = async (
                 AND draft.status <> 'published'
             )
         `,
-        [input.batchId]
-      );
-    }
-  }
+            [input.batchId]
+          );
+        }
+      }
 
-  return {
-    updated: (result.rowCount ?? 0) > 0,
-    batch: await getPublicationBatchById(pool, input.batchId)
-  };
+      return {
+        updated: (result.rowCount ?? 0) > 0,
+        batch: await getPublicationBatchById(db, input.batchId)
+      };
+    },
+    { shouldCommit: (result) => result.updated }
+  );
 };
 
 export const cancelAdminPublicationBatch = async (

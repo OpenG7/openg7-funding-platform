@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readdir, readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
+import { approveFixtureSubject } from './support/moderation-fixture.mjs';
 import { getSponsorshipProgress } from '../../dist/apps/funding-api/src/sponsorship-progress.service.js';
 import { getAdminWorkQueue } from '../../dist/apps/funding-api/src/admin-work-queue.service.js';
 import { getAdminAssistantContext } from '../../dist/apps/funding-api/src/admin-assistant/context.service.js';
@@ -60,12 +61,14 @@ test(
       sponsor_contact_email, sponsor_details_submitted_at, public_display_consent, stripe_session_id, stripe_payment_intent_id)
       VALUES ('sponsorship_interest', 50000, 'cad', 'paid', NOW(), '2020-01-01', 'Synthetic dossier', 'private@example.invalid', NOW(), true, 'cs_progress_fixture', 'pi_progress_fixture') RETURNING id`)
       ).rows[0].id;
-      await pool.query(
-        `INSERT INTO sponsor_media_assets (contribution_id, kind, review_status, original_filename, original_mime_type, original_size_bytes,
+      const mediaId = (
+        await pool.query(
+          `INSERT INTO sponsor_media_assets (contribution_id, kind, review_status, original_filename, original_mime_type, original_size_bytes,
       original_storage_key, processed_size_bytes, processed_storage_key, public_storage_key, public_url, checksum_sha256, width, height)
-      VALUES ($1, 'supporting_image', 'approved', 'fixture.png', 'image/png', 100, 'private-original', 100, 'private-processed', 'public-fixture', 'https://example.invalid/fixture.webp', repeat('a',64), 100,100)`,
-        [id]
-      );
+      VALUES ($1, 'supporting_image', 'approved', 'fixture.png', 'image/png', 100, 'private-original', 100, 'private-processed', 'public-fixture', 'https://example.invalid/fixture.webp', repeat('a',64), 100,100) RETURNING id`,
+          [id]
+        )
+      ).rows[0].id;
       const invoice = (
         await pool.query(
           `INSERT INTO sponsorship_invoices (contribution_id, invoice_number, stripe_session_id, currency, subtotal_cents, total_cents, issuer_name, sponsor_name)
@@ -232,6 +235,8 @@ test(
         "UPDATE fund_contributions SET sponsor_review_status='approved' WHERE id=$1",
         [id]
       );
+      await approveFixtureSubject(pool, { type: 'media', id: mediaId });
+      await approveFixtureSubject(pool, { type: 'sponsorship', id });
       const deliveryId = (
         await pool.query(
           `INSERT INTO publication_deliveries

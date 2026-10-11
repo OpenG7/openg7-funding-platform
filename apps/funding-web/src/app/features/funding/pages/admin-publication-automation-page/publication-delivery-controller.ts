@@ -8,6 +8,7 @@ import type {
 import { BlobPreviewResource } from '../../services/blob-preview-resource.js';
 import type { FundingAdminService } from '../../services/funding-admin.service.js';
 import type { FundingI18nService } from '../../services/funding-i18n.service.js';
+import type { FundingModerationService } from '../../services/funding-moderation.service.js';
 
 import type {
   PublicationAutomationCommandRunner,
@@ -15,6 +16,8 @@ import type {
 } from './publication-automation.ports.js';
 
 export interface PublicationDeliveryPorts {
+  refresh(): Promise<boolean>;
+  moderate: FundingModerationService['requestDecision'];
   readonly state: Signal<PublicationAutomationState | null>;
   readonly busy: Signal<boolean>;
   readonly error: Signal<string>;
@@ -31,6 +34,9 @@ export interface PublicationDeliveryPorts {
 
 /** Local delivery review and drafts; the page owns loading and lifecycle cleanup. */
 export class PublicationDeliveryController {
+  async refreshModeration(): Promise<void> {
+    await this.ports.refresh();
+  }
   readonly selected = signal<PublicationDelivery | null>(null);
   readonly composing = signal(false);
   readonly editing = signal(false);
@@ -271,6 +277,7 @@ export class PublicationDeliveryController {
 
   async approve(): Promise<void> {
     const selected = this.selected();
+    const generation = this.generation;
     if (
       !this.disposed &&
       !this.busy() &&
@@ -279,23 +286,53 @@ export class PublicationDeliveryController {
       !this.dirty() &&
       !this.missingPresentation() &&
       (!selected.mediaId || this.previewUrl())
-    )
+    ) {
+      const approveSponsors: {
+        id: string;
+        version: string;
+        moderationDecision: import('@openg7/funding-core').ModerationDecisionInput;
+      }[] = [];
+      for (const sponsor of this.pendingSponsors()) {
+        const decision = await this.ports.moderate(
+          { type: 'sponsorship', id: sponsor.id },
+          'N0'
+        );
+        if (
+          !decision ||
+          !this.currentSelection(selected, generation) ||
+          this.busy()
+        )
+          return;
+        approveSponsors.push({
+          id: sponsor.id,
+          version: sponsor.version,
+          moderationDecision: decision
+        });
+      }
+      const moderationDecision = await this.ports.moderate(
+        { type: 'publication_delivery', id: selected.id },
+        'N0'
+      );
+      if (
+        !moderationDecision ||
+        !this.currentSelection(selected, generation) ||
+        this.busy() ||
+        this.dirty()
+      )
+        return;
       await this.ports.commands.run({
         action: 'approve',
         id: selected.id,
         version: selected.version,
         confirmation: selected.id,
-        ...(this.pendingSponsors().length
+        moderationDecision,
+        ...(approveSponsors.length
           ? {
-              approveSponsors: this.pendingSponsors().map(
-                ({ id, version }) => ({
-                  id,
-                  version
-                })
-              )
+              approveSponsors
             }
           : {})
       });
+    }
   }
 
   async reject(): Promise<void> {
@@ -306,18 +343,25 @@ export class PublicationDeliveryController {
       this.disposed ||
       this.busy() ||
       !this.editable() ||
-      !(await this.ports.confirm(
-        this.ports.i18n.t('admin.publicationAutomation.rejectConfirm'),
-        selected.feedId
-      )) ||
       !this.currentSelection(selected, generation)
+    )
+      return;
+    const moderationDecision = await this.ports.moderate(
+      { type: 'publication_delivery', id: selected.id },
+      'N3'
+    );
+    if (
+      !moderationDecision ||
+      !this.currentSelection(selected, generation) ||
+      this.busy()
     )
       return;
     await this.ports.commands.run({
       action: 'reject',
       id: selected.id,
       version: selected.version,
-      confirmation: selected.id
+      confirmation: selected.id,
+      moderationDecision
     });
   }
 

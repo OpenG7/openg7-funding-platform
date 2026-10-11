@@ -63,6 +63,19 @@ const fixture = (t, overrides = {}) => {
         posts.push(payload);
         state.current = followup({ ...payload, detailsSubmitted: true });
         return { received: true, recorded: true };
+      },
+      submitSponsorshipCorrection: async (payload) => {
+        posts.push(payload);
+        state.current = followup({
+          ...payload.data,
+          reviewStatus: 'pending_review'
+        });
+        return {
+          received: true,
+          recorded: true,
+          contentVersion: 2,
+          revision: 5
+        };
       }
     },
     drafts: {
@@ -77,6 +90,7 @@ const fixture = (t, overrides = {}) => {
         state.flushes++;
         return true;
       },
+      pauseAutosave: async () => {},
       clear: () => {
         state.clears++;
         ports.drafts.revision.set(null);
@@ -103,6 +117,44 @@ const fixture = (t, overrides = {}) => {
   t.after(() => controller.dispose());
   return { controller, ports, state, reads, posts, draftLoads, browserCalls };
 };
+
+test('a permitted dossier correction uses its decision and revision, preserving the attempt after an uncertain response', async (t) => {
+  const f = fixture(t, { reviewStatus: 'rejected' });
+  await f.controller.initialize(token);
+  f.controller.correctionDecisionId.set('synthetic-N1-decision');
+  const requests = [];
+  f.ports.api.submitSponsorshipCorrection = async (payload) => {
+    requests.push(payload);
+    if (requests.length === 1)
+      throw new TypeError('Synthetic lost correction response');
+    f.state.current = followup({
+      ...payload.data,
+      reviewStatus: 'pending_review'
+    });
+    return { received: true, recorded: true, contentVersion: 2, revision: 5 };
+  };
+  await f.controller.submit(details('Corrected workshop'));
+  assert.equal(f.controller.saveState(), 'error');
+  assert.equal(
+    f.state.flushes,
+    0,
+    'correction does not call the legacy autosave route'
+  );
+  await f.controller.submit(details('Corrected workshop'));
+  assert.equal(f.state.flushes, 0, 'retry keeps the original durable revision');
+  assert.deepEqual(requests[1], requests[0]);
+  assert.equal(requests[0].expectedRevision, 4);
+  assert.equal(requests[0].decisionId, 'synthetic-N1-decision');
+  assert.equal(requests[0].data.companyName, 'Corrected workshop');
+  assert.match(requests[0].requestId, /^[a-f0-9-]{36}$/);
+  assert.equal(f.controller.saveState(), 'saved');
+  assert.equal(f.controller.correctionDecisionId(), null);
+  assert.deepEqual(
+    f.posts,
+    [],
+    'correction never invokes ordinary details submission'
+  );
+});
 
 test('a URL token overrides remembered access, is remembered and cleaned before reading', async (t) => {
   const f = fixture(t);

@@ -26,6 +26,10 @@ import {
   upsertCheckoutSessionFromWebhook
 } from '../../dist/apps/funding-api/src/fund-contributions.repository.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
+import {
+  approveFixtureSubject,
+  fixtureModerationActor
+} from './support/moderation-fixture.mjs';
 
 test(
   'extracted sponsorship persistence preserves dossier decisions, privacy, refund recovery and caller transactions on PostgreSQL',
@@ -225,6 +229,8 @@ test(
         const before = await getAdminSponsorshipById(pool, id);
         const request = {
           contributionId: id,
+          confirmation: id,
+          actor: fixtureModerationActor,
           expectedVersion: before.version,
           reviewStatus: 'approved',
           reviewNote: 'PRIVATE REVIEW NOTE'
@@ -233,16 +239,21 @@ test(
           (await updateSponsorshipReview(pool, request)).status,
           'media_required'
         );
-        await pool.query(
+        const media = await pool.query(
           `INSERT INTO sponsor_media_assets
           (contribution_id, kind, review_status, original_filename, original_mime_type,
            original_size_bytes, original_storage_key, processed_size_bytes,
            processed_storage_key, public_storage_key, public_url, checksum_sha256, width, height)
          VALUES ($1, 'supporting_image', 'approved', 'fixture.png', 'image/png', 100,
            'private/boundary-photo', 80, 'processed/boundary-photo', 'public/boundary-photo',
-           'https://example.invalid/photo.webp', repeat('a', 64), 100, 100)`,
+           'https://example.invalid/photo.webp', repeat('a', 64), 100, 100) RETURNING id`,
           [id]
         );
+        await approveFixtureSubject(pool, {
+          type: 'media',
+          id: media.rows[0].id
+        });
+        await approveFixtureSubject(pool, { type: 'sponsorship', id });
         const approved = await updateSponsorshipReview(pool, request);
         assert.equal(approved.status, 'updated');
         assert.equal(
@@ -265,6 +276,28 @@ test(
           feedPublicUrl: ' https://example.invalid/post ',
           feedNotes: ' PRIVATE FEED NOTE '
         };
+        const prepared = await updateSponsorshipPublication(pool, {
+          ...publication,
+          feedStatus: 'planned',
+          feedPublicUrl: null
+        });
+        assert.equal(prepared.status, 'updated');
+        await approveFixtureSubject(pool, { type: 'sponsorship', id });
+        for (const channel of prepared.feedChannels) {
+          const draft = (
+            await pool.query(
+              `INSERT INTO sponsor_publication_drafts(contribution_id,feed_target,channel,title,body,disclosure_text,status)
+             VALUES($1,'openg7',$2,'Synthetic authorized title','Synthetic authorized public summary','Sponsored','approved') RETURNING id`,
+              [id, channel]
+            )
+          ).rows[0];
+          await approveFixtureSubject(pool, {
+            type: 'publication_draft',
+            id: draft.id
+          });
+        }
+        publication.expectedVersion = prepared.currentVersion;
+        publication.confirmation = id;
         const published = await updateSponsorshipPublication(pool, publication);
         assert.equal(published.status, 'updated');
         assert.deepEqual(published.feedChannels, ['facebook', 'linkedin']);

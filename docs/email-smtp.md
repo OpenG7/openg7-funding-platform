@@ -17,6 +17,13 @@ so they do not rely on this SMTP service.
 
 ## Private queue data at rest
 
+Moderation notices and correction/reconsideration receipts use the existing
+transactional queue. Only active adverse decisions notify the sponsor; pending
+independent review does not send a refusal. FR/EN bodies expose sponsor-facing
+explanations only, never internal review notes. Payment-confirmed recipients are
+authoritative. Existing queued or delivered messages are not rewritten. See the
+[moderation contracts](operations/sponsorship-moderation.md).
+
 Production requires `FUNDING_PRIVATE_DATA_ENCRYPTION_KEY` (32 random bytes,
 canonical base64). New queue subjects/bodies and private metadata use AES-256-GCM.
 See [key provisioning, bounded historical maintenance and restore limits](operations/private-data-protection.md).

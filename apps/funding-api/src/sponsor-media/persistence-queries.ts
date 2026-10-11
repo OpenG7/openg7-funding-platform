@@ -1,5 +1,7 @@
 import type { PoolClient } from 'pg';
 
+import { moderationVisibleSql } from '../moderation/policy.js';
+
 import type { SponsorMediaAssetRow } from './persistence-contracts.js';
 
 export const selectAssetColumns = `
@@ -45,5 +47,6 @@ export const publicMediaContributionSql = `
   contribution.status IN ('paid', 'refunded', 'disputed')
   AND contribution.public_display_consent IS TRUE
   AND contribution.sponsor_review_status = 'approved'
+  AND ${moderationVisibleSql('sponsorship', 'contribution.id')}
   AND COALESCE((to_jsonb(contribution)->>'sponsor_site_visibility_held')::boolean,FALSE) IS FALSE
 `;

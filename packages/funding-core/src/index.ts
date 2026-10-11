@@ -108,6 +108,14 @@ export type {
 
 export * from './publication-automation.js';
 
+export * from './publication-recognition.js';
+
+export * from './moderation.js';
+
+export * from './moderation-followup.js';
+
+export * from './moderation-assistance.js';
+
 export * from './admin-pilotage.js';
 
 export * from './editorial-programme.js';
@@ -193,6 +201,7 @@ export type {
   SponsorMediaDeleteRequest,
   SponsorMediaDeleteResult,
   AdminSponsorMediaReviewRequest,
+  AdminSponsorMediaMetadataRequest,
   AdminSponsorMediaReviewResult,
   AdminSponsorMediaDeleteRequest,
   AdminSponsorLogoUploadResult,

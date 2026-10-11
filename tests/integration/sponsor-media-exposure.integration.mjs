@@ -18,6 +18,11 @@ import {
 } from '../../dist/apps/funding-api/src/sponsor-media.repository.js';
 import { setSponsorshipWebsiteVisibility } from '../../dist/apps/funding-api/src/sponsorship-website.service.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
+import {
+  approveFixtureSubject,
+  fixtureModerationActor,
+  fixtureModerationDecision
+} from './support/moderation-fixture.mjs';
 
 test(
   'approved media remain private until website visibility and known URLs are revoked immediately',
@@ -65,7 +70,7 @@ test(
         writeJson(request, response, 401, { error: 'Unauthorized' });
         return false;
       },
-      getAdminAuditActor: () => 'synthetic-media-reviewer',
+      getAdminAuditActor: () => fixtureModerationActor,
       readBody,
       writeJson,
       isValidUuid: isUuid,
@@ -150,6 +155,13 @@ test(
         )
       ).rows[0];
     const fresh = await seedAsset();
+    await pool.query(
+      'UPDATE sponsor_media_assets SET alt_text=$2 WHERE id=$1',
+      [fresh.id, 'Synthetic approved presentation']
+    );
+    fresh.version = (
+      await getSponsorMediaStorageRecord(pool, fresh.id)
+    ).version;
     const path = `/api/public/sponsor-media/${fresh.id}`;
     const reviewResponse = await fetch(
       localOrigin + '/api/admin/sponsorships/media/review',
@@ -161,9 +173,14 @@ test(
         },
         body: JSON.stringify({
           assetId: fresh.id,
+          confirmation: fresh.id,
           expectedVersion: fresh.version,
           reviewStatus: 'approved',
-          altText: 'Synthetic approved presentation'
+          altText: 'Synthetic approved presentation',
+          moderationDecision: await fixtureModerationDecision(pool, {
+            type: 'media',
+            id: fresh.id
+          })
         })
       }
     );
@@ -196,10 +213,16 @@ test(
           [contributionId]
         )
       ).rows[0].version;
+    await approveFixtureSubject(pool, {
+      type: 'sponsorship',
+      id: contributionId
+    });
     assert.equal(
       (
         await updateSponsorshipReview(pool, {
           contributionId,
+          confirmation: contributionId,
+          actor: fixtureModerationActor,
           expectedVersion: await version(),
           reviewStatus: 'approved',
           reviewNote: null
@@ -242,6 +265,7 @@ test(
     await decide(true);
     await expectVisible(path, fresh.processed_storage_key);
     const legacy = await seedAsset(true);
+    await approveFixtureSubject(pool, { type: 'media', id: legacy.id });
     const legacyPath = `/api/public/sponsor-media/${legacy.id}`;
     const publicAssets = (
       await listPublicSponsorMediaByContributionIds(pool, [contributionId])
@@ -355,7 +379,18 @@ test(
       historicalRows,
       'the migration changes constraints without rewriting historical objects or metadata'
     );
+    for (const filename of (await readdir(directory))
+      .filter(
+        (name) => /^\d{3}_.+\.sql$/.test(name) && Number(name.slice(0, 3)) >= 33
+      )
+      .sort()) {
+      await pool.query(await readFile(new URL(filename, directory), 'utf8'));
+    }
     const fresh = await seed();
+    await pool.query(
+      'UPDATE sponsor_media_assets SET alt_text=$2 WHERE id=$1',
+      [fresh.id, 'Synthetic private photo']
+    );
     const version = async (id) =>
       (
         await pool.query(
@@ -365,12 +400,17 @@ test(
       ).rows[0].version;
     const approved = await reviewSponsorMediaAsset(pool, {
       assetId: fresh.id,
+      confirmation: fresh.id,
       expectedVersion: await version(fresh.id),
       reviewStatus: 'approved',
       altText: 'Synthetic private photo',
       publicStorageKey: null,
       publicUrl: `/api/public/sponsor-media/${fresh.id}`,
-      reviewedBy: 'synthetic-media-reviewer'
+      reviewedBy: fixtureModerationActor,
+      moderationDecision: await fixtureModerationDecision(pool, {
+        type: 'media',
+        id: fresh.id
+      })
     });
     assert.equal(approved.status, 'updated');
     assert.equal(approved.asset.publicStorageKey, null);
@@ -384,12 +424,18 @@ test(
     );
     const rejected = await reviewSponsorMediaAsset(pool, {
       assetId: legacy.id,
+      confirmation: legacy.id,
       expectedVersion: await version(legacy.id),
       reviewStatus: 'rejected',
       altText: null,
       publicStorageKey: legacy.public_storage_key,
       publicUrl: null,
-      reviewedBy: 'synthetic-media-reviewer'
+      reviewedBy: fixtureModerationActor,
+      moderationDecision: await fixtureModerationDecision(
+        pool,
+        { type: 'media', id: legacy.id },
+        'N3'
+      )
     });
     assert.equal(rejected.status, 'updated');
     assert.equal(rejected.asset.publicUrl, null);

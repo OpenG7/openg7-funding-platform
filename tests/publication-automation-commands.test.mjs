@@ -5,11 +5,14 @@ import sharp from 'sharp';
 
 import { command } from '../dist/apps/funding-api/src/publication-automation/commands.js';
 import { digest } from '../dist/apps/funding-api/src/publication-automation/policy.js';
+import { moderationQueryFixture } from './support/moderation-query-fixture.mjs';
 
 const id = '11111111-1111-4111-8111-111111111111';
 const batchId = '22222222-2222-4222-8222-222222222222';
 const sponsorId = '33333333-3333-4333-8333-333333333333';
 const feedId = 'openg20:facebook';
+const sponsorMessage =
+  'Synthetic sponsor\n\nApproved public synthetic summary\n\nCommandite rémunérée.';
 const env = {
   SOCIAL_PUBLICATION_MODE: 'live',
   SOCIAL_PUBLICATION_OPENG20_FACEBOOK_ACCOUNT_ID: '20',
@@ -21,7 +24,9 @@ const delivery = (overrides = {}) => ({
   feed_id: feedId,
   kind: 'news',
   batch_id: null,
-  message: 'Exact approved synthetic message',
+  message: overrides.batch_id
+    ? sponsorMessage
+    : 'Exact approved synthetic message',
   scheduled_at: new Date('2099-01-01T14:00:00Z'),
   media_id: null,
   media_snapshot: null,
@@ -56,6 +61,8 @@ const fixture = ({
   const client = {
     async query(sql, parameters = []) {
       calls.push({ kind: 'query', sql, parameters });
+      const moderation = moderationQueryFixture(sql, [sponsorId]);
+      if (moderation) return moderation;
       if (sql.startsWith('INSERT INTO admin_audit_log')) {
         if (auditFailure) throw auditFailure;
         audits.push(parameters);
@@ -345,6 +352,27 @@ test('rejection and cancellation revoke sending authorization without changing t
       const f = fixture({
         row: delivery({ status: 'approved', batch_id: batchId })
       });
+      if (action === 'reject') {
+        await assert.rejects(
+          command(
+            f.context,
+            { action, id, version: 4, confirmation: id },
+            'fixture-reviewer'
+          ),
+          { code: 'MODERATION_DECISION_REQUIRED' }
+        );
+        assert.equal(
+          f.queries().some((call) => /^(INSERT|UPDATE)/.test(call.sql)),
+          false
+        );
+        assert.deepEqual(f.lifecycle(), [
+          'connect',
+          'BEGIN',
+          'ROLLBACK',
+          'release'
+        ]);
+        return;
+      }
       assert.deepEqual(
         await command(
           f.context,
@@ -417,6 +445,11 @@ const source = {
 };
 const sponsorVersion = '2098-01-01 14:00:00.123456+00';
 const sponsorQuery = (sql) => {
+  if (sql.startsWith('SELECT id,sponsor_company_name FROM fund_contributions'))
+    return {
+      rows: [{ id: sponsorId, sponsor_company_name: 'Synthetic sponsor' }],
+      rowCount: 1
+    };
   if (sql.startsWith('SELECT * FROM sponsor_publication_batches'))
     return { rows: [{ status: 'open', capacity: 5 }], rowCount: 1 };
   if (sql.startsWith('SELECT 1 FROM social_publication_jobs'))
@@ -459,6 +492,58 @@ const secondSource = {
   id: '88888888-8888-4888-8888-888888888888',
   contribution_id: '99999999-9999-4999-8999-999999999999'
 };
+
+test('a truncated beneficiary block cannot approve sponsors or authorize sending', async () => {
+  const f = fixture({
+    row: delivery({
+      batch_id: batchId,
+      source_snapshot: [source],
+      message: source.title
+    }),
+    query: sponsorQuery
+  });
+  await assert.rejects(
+    command(
+      f.context,
+      {
+        action: 'approve',
+        id,
+        version: 4,
+        confirmation: id,
+        approveSponsors: [{ id: sponsorId, version: sponsorVersion }]
+      },
+      'reviewer'
+    ),
+    { code: 'SOURCE_CONTENT_MISSING' }
+  );
+  assert.equal(
+    f.queries().some((call) => /^(INSERT|UPDATE)/.test(call.sql)),
+    false
+  );
+  assert.deepEqual(f.audits, []);
+  assert.deepEqual(f.lifecycle(), ['connect', 'BEGIN', 'ROLLBACK', 'release']);
+});
+
+test('approval validates the UTF-16 budget again for previously stored messages', async () => {
+  const f = fixture({ row: delivery({ message: '😀'.repeat(1450) + 'x' }) });
+  await assert.rejects(
+    command(
+      f.context,
+      {
+        action: 'approve',
+        id,
+        version: 4,
+        confirmation: id
+      },
+      'reviewer'
+    ),
+    { code: 'INVALID_MESSAGE', status: 400 }
+  );
+  assert.equal(
+    f.queries().some((call) => /^(INSERT|UPDATE)/.test(call.sql)),
+    false
+  );
+});
 
 test('composition and edit restrict sponsorship images to either source of a collective batch before bytes or writes', async (t) => {
   for (const action of ['compose', 'edit']) {

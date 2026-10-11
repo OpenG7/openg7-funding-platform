@@ -14,7 +14,10 @@ import {
 } from '../models/funding-home.utils.js';
 
 import type { CheckoutStatusMonitor } from './checkout-status-monitor.service.js';
-import { CheckoutReconciliationRequiredError } from './checkout-error.js';
+import {
+  CheckoutReconciliationRequiredError,
+  CheckoutCharterChangedError
+} from './checkout-error.js';
 import type { FundTransparencyService } from './fund-transparency.service.js';
 import type { FundingService } from './funding.service.js';
 
@@ -71,6 +74,7 @@ export class FundingHomeController {
   );
   readonly checkoutResultMode = signal<'mocked' | null>(null);
   readonly checkoutRequiresVerification = signal(false);
+  readonly checkoutCharterChanged = signal(false);
   readonly pendingSponsorFollowupToken = signal<string | null>(null);
   readonly currentMonthContributions = computed(() =>
     monthlyContributions(
@@ -265,6 +269,7 @@ export class FundingHomeController {
     )
       return;
     this.checkoutResultMode.set(null);
+    this.checkoutCharterChanged.set(false);
     this.loadingState.set('loading');
     try {
       const result = await this.ports.funding.startCheckout(
@@ -281,6 +286,9 @@ export class FundingHomeController {
       void this.loadPublicTransparency({ silent: true });
     } catch (error) {
       if (!this.disposed) {
+        this.checkoutCharterChanged.set(
+          error instanceof CheckoutCharterChangedError
+        );
         this.checkoutRequiresVerification.set(
           error instanceof CheckoutReconciliationRequiredError
         );

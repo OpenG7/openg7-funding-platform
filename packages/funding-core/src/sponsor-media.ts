@@ -71,11 +71,20 @@ export interface AdminSponsorMediaReviewRequest {
   readonly expectedVersion: string;
   readonly reviewStatus: SponsorMediaReviewStatus;
   readonly altText?: string;
+  readonly moderationDecision?: import('./moderation.js').ModerationDecisionInput;
+  readonly confirmation?: string;
 }
 
 export interface AdminSponsorMediaReviewResult {
   readonly updated: true;
   readonly asset: SponsorMediaAsset;
+}
+
+export interface AdminSponsorMediaMetadataRequest {
+  readonly assetId: string;
+  readonly expectedVersion: string;
+  readonly confirmation: string;
+  readonly altText: string | null;
 }
 
 export interface AdminSponsorMediaDeleteRequest {

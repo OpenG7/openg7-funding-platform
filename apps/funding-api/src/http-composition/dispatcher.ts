@@ -16,6 +16,8 @@ export const createHttpDispatcher = ({
   const { writeOptions, writeJson, writeText } = transport;
   const { routeMatches, routeStartsWith } = matcher;
   const {
+    handleAdminModerationRequest,
+    handlePublicModerationRequest,
     handleAdminStripeBackfillRequest,
     handleAdminPilotageRequest,
     handleAdminContributionActivityRequest,
@@ -103,6 +105,8 @@ export const createHttpDispatcher = ({
     }
 
     // Keep the historical interleaving: regrouping public/admin routes changes precedence.
+    if (await handleAdminModerationRequest(request, response)) return;
+    if (await handlePublicModerationRequest(request, response)) return;
     if (await handleAdminStripeBackfillRequest(request, response)) return;
     if (await handleAdminPilotageRequest(request, response)) return;
     if (await handleAdminContributionActivityRequest(request, response)) return;

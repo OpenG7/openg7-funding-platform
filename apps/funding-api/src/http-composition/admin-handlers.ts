@@ -1,5 +1,6 @@
 import { reconcileEmailDelivery } from '../email-delivery-reconciliation.repository.js';
 import { createAdminAccountingHttpHandler } from '../admin-accounting.http.js';
+import { createAdminModerationHttpHandler } from '../moderation/admin-http.js';
 import { createAdminAuditHttpHandler } from '../admin-audit.http.js';
 import { createAdminBackupsHttpHandler } from '../admin-backups.http.js';
 import { createAdminContributionActivityHttpHandler } from '../admin-contribution-activity.http.js';
@@ -119,6 +120,7 @@ import {
   deleteSponsorMediaAsset,
   getSponsorMediaStorageRecord,
   listSponsorMediaAssets,
+  updateSponsorMediaMetadata,
   reviewSponsorMediaAsset
 } from '../sponsor-media.repository.js';
 import {
@@ -229,6 +231,24 @@ export const createAdminHttpHandlers = ({
   createAdminSession,
   buildAdminSetupStatus
 }: AdminHttpCompositionContext): AdminHttpHandlers => {
+  const handleAdminModerationRequest = createAdminModerationHttpHandler({
+    publicBaseOrigin,
+    pool: dbPool,
+    readBody,
+    writeJson,
+    ensureAdminAccess,
+    canReview: (request) =>
+      adminIdentity
+        ? ['operator', 'owner'].includes(
+            adminIdentity.identity(request)?.role ?? ''
+          )
+        : Boolean(resolveAdminAuthorization(request)),
+    canOwn: (request) =>
+      adminIdentity
+        ? adminIdentity.identity(request)?.role === 'owner'
+        : Boolean(resolveAdminAuthorization(request)),
+    getAdminAuditActor
+  });
   const handleAdminContributionsRequest = createAdminContributionsHttpHandler({
     publicBaseOrigin,
     ensureAdminAccess,
@@ -434,6 +454,8 @@ export const createAdminHttpHandlers = ({
         getSponsorMediaStorageRecord(dbPool, id),
       reviewSponsorMediaAsset: (input) =>
         reviewSponsorMediaAsset(dbPool, input),
+      updateSponsorMediaMetadata: (input) =>
+        updateSponsorMediaMetadata(dbPool, input),
       deleteSponsorMediaAsset: (input) =>
         deleteSponsorMediaAsset(dbPool, input),
       sponsorMediaStorage,
@@ -503,8 +525,8 @@ export const createAdminHttpHandlers = ({
         listAdminPublicationDrafts(dbPool, input),
       createAdminPublicationDraft: (input) =>
         createAdminPublicationDraft(dbPool, input),
-      updateAdminPublicationDraft: (input) =>
-        updateAdminPublicationDraft(dbPool, input),
+      updateAdminPublicationDraft: (input, actor) =>
+        updateAdminPublicationDraft(dbPool, input, actor),
       insertAdminAuditLog: (input) => insertAdminAuditLog(dbPool, input)
     });
 
@@ -724,6 +746,7 @@ export const createAdminHttpHandlers = ({
     });
 
   return {
+    handleAdminModerationRequest,
     handleAdminContributionsRequest,
     handleAdminDocumentsRequest,
     handleAdminAccountingRequest,

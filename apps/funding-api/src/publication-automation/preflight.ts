@@ -10,7 +10,9 @@ import type {
 import type { SponsorMediaStorage } from '../sponsor-media-storage.js';
 
 import { resolveMedia, type Media } from './media.js';
-import { assert, digest } from './policy.js';
+import { assertSponsorshipContent } from './content.js';
+import { assert, digest, validateContent } from './policy.js';
+import { assertDeliveryModeration } from './moderation.js';
 import {
   sourceEqual,
   sourceIssues,
@@ -30,14 +32,18 @@ export interface PreflightDelivery {
   scheduled_at: Date;
   media_id: string | null;
   media_snapshot: Media | null;
+  message: string;
 }
 
 export async function ready(
   db: Db,
   row: PreflightDelivery,
   storage: SponsorMediaStorage,
-  feeds: (db: Db) => Promise<PublicationFeed[]>
+  feeds: (db: Db) => Promise<PublicationFeed[]>,
+  lockSources = true
 ): Promise<Buffer | null> {
+  validateContent(row.message, row.scheduled_at.toISOString());
+  await assertDeliveryModeration(db, row);
   const feed = (await feeds(db)).find((f) => f.id === row.feed_id)!;
   assert(feed.configured && feed.connection === 'ready', 'CONNECTION_REQUIRED');
   assert(
@@ -51,7 +57,8 @@ export async function ready(
       db,
       row.batch_id,
       row.feed_id,
-      Boolean(row.approved_at)
+      Boolean(row.approved_at),
+      lockSources
     );
     if (row.approved_at) {
       // Reapproving a dossier cannot revive an older delivery authorization.
@@ -63,6 +70,7 @@ export async function ready(
       );
     }
     assert(sourceEqual(sources, row.source_snapshot), 'SOURCE_CHANGED');
+    await assertSponsorshipContent(db, row);
   }
   if (row.batch_id && row.approved_at) {
     const batch = (
@@ -77,7 +85,13 @@ export async function ready(
       'SOURCE_CHANGED'
     );
   }
-  const media = await resolveMedia(db, storage, row.media_id, row.batch_id);
+  const media = await resolveMedia(
+    db,
+    storage,
+    row.media_id,
+    row.batch_id,
+    lockSources
+  );
   assert(isDeepStrictEqual(media, row.media_snapshot), 'MEDIA_CHANGED');
   if (!media) return null;
   const bytes = await storage.readPrivateObject(media.key);

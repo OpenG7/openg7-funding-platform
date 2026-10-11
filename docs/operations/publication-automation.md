@@ -22,6 +22,19 @@ Counters, worker controls and feed settings remain global. Collective deliveries
 retain their full membership: approval still covers the whole displayed post.
 A missing delivery is reported without opening another one or composing a batch.
 
+Sponsorship composition now preserves a complete recognition block per source:
+title, body and disclosure. Its public identity comes from the dossier; custom
+titles receive a separate identity line. Each beneficiary needs a distinct block,
+including homonymous dossiers. Incidental mentions do not qualify. Complete blocks
+can be reordered and copy added around them. Editorial preferences are retained
+only when every block survives and the resulting message stays within the budget.
+The check runs at approval, immediately before dispatch and at completion, including
+reconciliation. Draft editing still revokes authorization; an incomplete draft
+cannot be approved. See the [decision](../decisions/2026-10-11-sponsorship-recognition-blocks.md).
+This protects sponsorship `publication_deliveries` with a batch. Legacy social
+jobs and manual batch/slot status changes do not use this guard; their convergence
+remains part of the open work and cannot be claimed as validated by these checks.
+
 Dossier progress reads the matching automatic delivery by batch and destination,
 with legacy job fallback. It exposes its identifier, state, mode, safe error code,
 feed pause, date and public result link; it never exposes draft text or credentials.
@@ -283,6 +296,21 @@ concurrently.
 
 ## Exceptions and recovery
 
+- **Blocked/draft `SOURCE_CONTENT_MISSING`:** at least one source block or its dossier identity
+  is missing from the final message. Restore the complete block, or correct its
+  source under `/admin/fundraiser/publications/drafts`, recompose, save and approve
+  again. This also applies to earlier abbreviated authorizations; no historical
+  snapshot is silently rewritten. The drawer provides the source-draft link.
+- **Uncertain `SOURCE_CONTENT_MISSING`:** a provider response may have been
+  received before the content check failed, for example when the dossier identity
+  changed during dispatch. Inspect the result observations and actual account.
+  This state cannot be edited, and reconciliation applies the same content check:
+  a real existing post can therefore remain uncertain. Keep that evidence; never
+  attest absence or authorize another send when the post exists. Closing such a
+  case requires the dedicated historical/obligation proof work tracked in
+  SP19–SP21, rather than rewriting the approved snapshot or forcing published.
+  The drawer and reconciliation feedback show investigation guidance in both
+  languages, without an edit link or approval action in this state.
 - **Blocked:** repair the connection, source, media or date; save the draft and
   approve again. Deliveries more than 24 hours overdue require rescheduling.
   A refunded or disputed payment remains ineligible: editing or approving the
@@ -306,6 +334,15 @@ concurrently.
   recalled. Disabling the worker leaves persistent state available for inspection.
 - **Restart/database interruption:** the next worker reconciles expired claims
   into exceptions. Audit or completion failure never returns a false success.
+  An active claim's provider response is first committed independently as
+  `publication_automation.provider_result_observed`, with delivery, claim version,
+  feed, mode and external ID/URL. Replaying the same observation has no new effect;
+  a conflicting reference is rejected. Completion failure leaves the delivery
+  uncertain and does not mark its batch or sponsors published. If the observation
+  itself fails, the uncertainty audit retains those references when writable.
+  Inspect both observations and uncertainty audits before attesting absence.
+  A database outage or process interruption before either write can still lose
+  the local reference and requires inspection of provider history.
   A successful provider response received after claim loss is retained in
   `publication_automation.late_result` with the claim version and external ID/URL;
   it does not change the current delivery or its projections. Inspect this audit
@@ -318,6 +355,20 @@ remains separate. Settings changes affect future recurring slots, not dates alre
 prepared. Cancel or reschedule existing slots explicitly when changing cadence.
 
 ## Validation and references
+
+Manual assignments to batches and slots, and slot capacity reductions, now lock
+the shared parent before counting and changing membership, in the order slot,
+batch, drafts. Coupled schedule changes commit together; failures roll them back.
+The future-date guard uses the database clock after lock waits.
+Live automatic completion locks the delivery first, then the same slot and batch,
+before updating draft and slot projections. A deterministic PostgreSQL test
+reproduced a deadlock with the earlier batch-before-slot completion order and
+passes with this order; a changed association cannot produce published projections.
+`tests/integration/publication-capacity-concurrency.integration.mjs` reproduces
+last-place races and checks the corrected paths with disposable PostgreSQL 16.
+This does not yet provide a common effective-account reservation, final text
+capacity checks on every assignment path, or cross-feed collision prevention;
+those remain tracked in [SP07/SP12–SP17](../development/sponsorship-publication-tasks.md#sp12).
 
 `tests/publication-automation.test.mjs` exercises provider payloads, destination
 isolation, time zones/DST, error classification, upload resumption and remote checks.

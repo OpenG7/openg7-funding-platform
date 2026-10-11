@@ -113,11 +113,12 @@ export async function sources(
   db: Db,
   batchId: string,
   feedId: PublicationFeedId,
-  allowPending = false
+  allowPending = false,
+  lock = true
 ): Promise<Source[]> {
   const batch = (
     await db.query(
-      `SELECT * FROM sponsor_publication_batches WHERE id=$1 FOR UPDATE`,
+      `SELECT * FROM sponsor_publication_batches WHERE id=$1${lock ? ' FOR UPDATE' : ''}`,
       [batchId]
     )
   ).rows[0];
@@ -136,7 +137,7 @@ export async function sources(
   );
   const all = (
     await db.query(
-      `SELECT d.id,d.contribution_id,d.title,d.body,d.disclosure_text,d.feed_target,d.channel,d.status,c.sponsor_feed_status,c.public_display_consent,c.sponsor_review_status,c.status AS payment_status,(${eligibleDestination('c', 'd.feed_target', 'd.channel')}) AS destination_eligible FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id WHERE d.batch_id=$1 ORDER BY d.id FOR UPDATE OF d,c`,
+      `SELECT d.id,d.contribution_id,d.title,d.body,d.disclosure_text,d.feed_target,d.channel,d.status,c.sponsor_feed_status,c.public_display_consent,c.sponsor_review_status,c.status AS payment_status,(${eligibleDestination('c', 'd.feed_target', 'd.channel')}) AS destination_eligible FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id WHERE d.batch_id=$1 ORDER BY d.id${lock ? ' FOR UPDATE OF d,c' : ''}`,
       [batchId]
     )
   ).rows;

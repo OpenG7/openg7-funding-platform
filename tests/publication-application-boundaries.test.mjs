@@ -19,6 +19,7 @@ import {
 } from '../dist/apps/funding-api/src/publication-automation/media.js';
 import { ready } from '../dist/apps/funding-api/src/publication-automation/preflight.js';
 import { digest } from '../dist/apps/funding-api/src/publication-automation/policy.js';
+import { moderationQueryFixture } from './support/moderation-query-fixture.mjs';
 
 const source = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -69,6 +70,7 @@ const delivery = {
   batch_id: '55555555-5555-4555-8555-555555555555',
   approved_at: new Date('2030-01-01T12:00:00Z'),
   source_snapshot: [source],
+  message: `${source.title}\n\n${source.body}\n\n${source.disclosure_text}`,
   scheduled_at: new Date('2030-01-02T12:00:00Z'),
   media_id: null,
   media_snapshot: null
@@ -79,6 +81,8 @@ function sequenceDb(...results) {
   return {
     calls,
     async query(sql, parameters) {
+      const moderation = moderationQueryFixture(sql, [source.contribution_id]);
+      if (moderation) return moderation;
       calls.push({ sql, parameters });
       assert.ok(results.length, 'Unexpected extra database query');
       const rows = results.shift();
@@ -102,6 +106,7 @@ function authorizedDb({
     [],
     rows,
     facts,
+    [{ id: source.contribution_id, sponsor_company_name: 'Exemple' }],
     [{ status: 'scheduled', scheduled_at: delivery.scheduled_at, ...batch }],
     ...(mediaRows === undefined ? [] : [mediaRows])
   );
@@ -450,10 +455,45 @@ test('preflight checks the authorized batch schedule and permits preparation wit
     null
   );
   assert.equal(
-    await ready(batchDb(), { ...delivery, approved_at: null }, {}, async () => [
-      feed
-    ]),
+    await ready(
+      sequenceDb(
+        [{ status: 'open', capacity: 3 }],
+        [],
+        [eligible],
+        [{ id: source.contribution_id, sponsor_company_name: 'Exemple' }]
+      ),
+      { ...delivery, approved_at: null },
+      {},
+      async () => [feed]
+    ),
     null
+  );
+});
+
+test('preflight refuses a complete source snapshot whose final message lost its beneficiary block', async () => {
+  await assert.rejects(
+    ready(
+      authorizedDb(),
+      {
+        ...delivery,
+        message: source.title
+      },
+      {},
+      async () => [feed]
+    ),
+    { code: 'SOURCE_CONTENT_MISSING' }
+  );
+  await assert.rejects(
+    ready(
+      authorizedDb(),
+      {
+        ...delivery,
+        message: '😀'.repeat(1450) + 'x'
+      },
+      {},
+      async () => [feed]
+    ),
+    { code: 'INVALID_MESSAGE' }
   );
 });
 

@@ -447,6 +447,12 @@ test('editorial variants: exact review, distinct observations and explicit prefe
     });
 
     // Synthetic already-paid records only in the disposable DB; this recipe does not exercise Stripe.
+    const sponsorMessage = (name: string) =>
+      [
+        `Merci à ${name}`,
+        'Le projet avance. Ensemble, nous avançons.',
+        'Commandite rémunérée.'
+      ].join('\n\n');
     const seedSponsor = async (name: string) => {
       await stack.pool.query(
         `INSERT INTO fund_contributions
@@ -474,6 +480,8 @@ test('editorial variants: exact review, distinct observations and explicit prefe
     const automatic = (await state()).deliveries.filter((d) => d.autoManaged);
     expect(automatic).toHaveLength(3);
     const [human, rejected, untouched] = automatic;
+    const untouchedMessage = sponsorMessage(untouched.sponsors[0].name);
+    expect(untouched.message).toBe(untouchedMessage);
     await mutate({
       action: 'edit',
       id: human.id,
@@ -531,6 +539,11 @@ test('editorial variants: exact review, distinct observations and explicit prefe
         code: 'VERSION_CONFLICT'
       });
       expect((await profile()).preferences).toEqual(['concise']);
+      await mutate({ action: 'prepare', feedId });
+      expect((await record(untouched.id)).message).toBe(untouchedMessage);
+      expect(
+        (await facts()).deliveries.filter((d) => protectedIds.includes(d.id))
+      ).toEqual(protectedBefore);
       await show(operator, 'Préférences');
       await programme(operator)
         .getByRole('checkbox', { name: 'Raccourcir' })
@@ -587,15 +600,17 @@ test('editorial variants: exact review, distinct observations and explicit prefe
       ).toEqual(protectedBefore);
     });
 
-    await test.step('preparation uses enabled preferences only for intact drafts and disabling them preserves reviewed work', async () => {
+    await test.step('preparation preserves complete sponsorship blocks under preferences and disabling them preserves reviewed work', async () => {
       await seedSponsor('Atelier fictif Nouveau');
       await mutate({ action: 'prepare', feedId });
-      expect((await record(untouched.id)).message).toMatch(/^Partenaire : /);
+      expect((await record(untouched.id)).message).toBe(untouchedMessage);
       const newDelivery = (await state()).deliveries.find((d) =>
         d.sponsors.some((s) => s.name === 'Atelier fictif Nouveau')
       )!;
-      expect(newDelivery.message).toMatch(/^Partenaire : /);
+      const newMessage = sponsorMessage('Atelier fictif Nouveau');
+      expect(newDelivery.message).toBe(newMessage);
       expect(newDelivery.status).toBe('draft');
+      expect((await profile()).preferences).toEqual(['neutral']);
       expect(
         (await facts()).deliveries.filter((d) => protectedIds.includes(d.id))
       ).toEqual(protectedBefore);
@@ -611,8 +626,8 @@ test('editorial variants: exact review, distinct observations and explicit prefe
         .click();
       expect((await confirm()).status).toBe('completed');
       await mutate({ action: 'prepare', feedId });
-      expect((await record(untouched.id)).message).toMatch(/^Merci à /);
-      expect((await record(newDelivery.id)).message).toMatch(/^Merci à /);
+      expect((await record(untouched.id)).message).toBe(untouchedMessage);
+      expect((await record(newDelivery.id)).message).toBe(newMessage);
       expect(
         (await facts()).deliveries.filter((d) => protectedIds.includes(d.id))
       ).toEqual(protectedBefore);

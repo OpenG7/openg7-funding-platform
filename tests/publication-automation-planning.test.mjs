@@ -33,6 +33,7 @@ const source = {
 };
 const facts = {
   id: source.contribution_id,
+  sponsor_company_name: 'Exemple',
   status: 'paid',
   public_display_consent: true,
   sponsor_review_status: 'approved',
@@ -148,7 +149,7 @@ function preparationDb({
   members = [],
   candidates = [source]
 } = {}) {
-  return database((sql) => {
+  return database((sql, parameters) => {
     if (sql.startsWith('SELECT id FROM publication_feeds'))
       return [{ id: feed.id }];
     if (sql.startsWith('INSERT INTO sponsor_publication_drafts')) return [];
@@ -163,6 +164,13 @@ function preparationDb({
       return [...members];
     if (sql.startsWith('SELECT d.* FROM sponsor_publication_drafts'))
       return candidates;
+    if (
+      sql.startsWith('SELECT id,sponsor_company_name FROM fund_contributions')
+    )
+      return parameters[0].map((id) => ({
+        id,
+        sponsor_company_name: facts.sponsor_company_name
+      }));
     if (sql.startsWith('SELECT 1 FROM social_publication_jobs')) return [];
     if (sql.startsWith('SELECT d.id,d.contribution_id'))
       return [...members, ...candidates].map((s) => ({
@@ -377,7 +385,7 @@ function repairDb({
     contribution_id: 'sponsor-replacement',
     name: 'Replacement'
   };
-  const db = database((sql) => {
+  const db = database((sql, parameters) => {
     if (sql.startsWith('SELECT feed_id FROM publication_deliveries'))
       return [{ feed_id: row.feed_id }];
     if (sql.startsWith('SELECT * FROM publication_deliveries WHERE id='))
@@ -394,6 +402,19 @@ function repairDb({
     if (sql.startsWith('SELECT capacity FROM sponsor_publication_batches'))
       return [{ capacity: 3 }];
     if (sql.startsWith('SELECT d.id,d.contribution_id')) return [replacement];
+    if (
+      sql.startsWith('SELECT id,sponsor_company_name FROM fund_contributions')
+    )
+      return [
+        {
+          id: source.contribution_id,
+          sponsor_company_name: facts.sponsor_company_name
+        },
+        {
+          id: replacement.contribution_id,
+          sponsor_company_name: replacement.name
+        }
+      ].filter(({ id }) => parameters[0].includes(id));
     if (sql.includes('to_regclass')) return [{ table_name: null }];
     if (
       sql.startsWith('SELECT contribution_id FROM sponsor_publication_drafts')

@@ -4,6 +4,7 @@ import {
   Component,
   OnChanges,
   computed,
+  effect,
   inject,
   input,
   output,
@@ -28,6 +29,7 @@ import { FUNDING_PROJECT_CONFIG } from '../../config/funding-project-config.toke
 import { OPENG7_FUNDING_CONFIG } from '../../config/openg7-funding.config.js';
 import { parseContributionMinor } from '../../models/funding-home.utils.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { SponsorshipCharterService } from '../../services/sponsorship-charter.service.js';
 
 export interface FundingContributionSubmission {
   readonly amount: number;
@@ -45,6 +47,18 @@ export interface FundingContributionSubmission {
   styles: [':host { display: block; min-width: 0; }']
 })
 export class FundingContributionFormComponent implements OnChanges {
+  readonly charter = inject(SponsorshipCharterService);
+  readonly charterAccepted = signal(false);
+  constructor() {
+    effect(() => {
+      this.charter.charter();
+      this.i18n.currentLanguage();
+      this.charterAccepted.set(false);
+    });
+    effect(() => {
+      if (this.checkoutCharterChanged()) void this.charter.load();
+    });
+  }
   private readonly i18n = inject(FundingI18nService);
   readonly config =
     inject(FUNDING_PROJECT_CONFIG, { optional: true }) ?? OPENG7_FUNDING_CONFIG;
@@ -63,6 +77,7 @@ export class FundingContributionFormComponent implements OnChanges {
   );
   readonly checkoutResultMode = input<'mocked' | null>(null);
   readonly checkoutRequiresVerification = input(false);
+  readonly checkoutCharterChanged = input(false);
   readonly contributionSubmitted = output<FundingContributionSubmission>();
   readonly policyPath = computed(() =>
     this.i18n.localizedPath('/politique-utilisation-remboursement')
@@ -92,6 +107,9 @@ export class FundingContributionFormComponent implements OnChanges {
   readonly canStartCheckout = computed(
     () =>
       this.nonCharityAcknowledged() &&
+      (this.contributionType() !== 'sponsorship_interest' ||
+        (this.charter.state() === 'ready' &&
+          (!this.charter.charter()?.active || this.charterAccepted()))) &&
       !this.checkoutRequiresVerification() &&
       this.loadingState() !== 'loading' &&
       !this.hasInvalidCustomContribution() &&
@@ -261,12 +279,30 @@ export class FundingContributionFormComponent implements OnChanges {
           ? this.publicDisplayName().trim()
           : undefined,
         displayAmountConsent: this.displayAmountConsent(),
-        nonCharityAcknowledged: this.nonCharityAcknowledged()
+        nonCharityAcknowledged: this.nonCharityAcknowledged(),
+        ...(this.contributionType() === 'sponsorship_interest' &&
+        this.charter.charter()?.active &&
+        this.charterAccepted()
+          ? {
+              charterAcceptance: {
+                accepted: true as const,
+                policyVersion: this.charter.charter()!.policyVersion,
+                fingerprint: this.charter.charter()!.fingerprint!,
+                locale:
+                  this.i18n.currentLanguage() === 'en'
+                    ? ('en' as const)
+                    : ('fr-CA' as const)
+              }
+            }
+          : {})
       }
     });
   }
   private checkedFromEvent(event: Event): boolean {
     return Boolean((event.target as HTMLInputElement | null)?.checked);
+  }
+  acceptCharter(event: Event): void {
+    this.charterAccepted.set(this.checkedFromEvent(event));
   }
 
   private valueFromEvent(event: Event): string {

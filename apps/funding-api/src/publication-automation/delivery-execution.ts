@@ -11,7 +11,11 @@ import {
   type DeliveryRow,
   type PublicationDeliveryWorkerContext
 } from './context.js';
-import { complete, handleDeliveryFailure } from './delivery-outcomes.js';
+import {
+  complete,
+  handleDeliveryFailure,
+  observeProviderResult
+} from './delivery-outcomes.js';
 import { assert, feedConfig, PublicationAutomationError } from './policy.js';
 import { ready } from './preflight.js';
 import { sendDelivery } from './provider.js';
@@ -34,7 +38,15 @@ export async function executeDelivery(
         ])
       ).rows[0];
       assert(!f.paused, 'FEED_PAUSED');
-      const media = await ready(db, current, context.storage, context.feeds);
+      // Restrictions and metadata edits lock deliveries before their sources.
+      // Read sources without locks and check authorization again at dispatch.
+      const media = await ready(
+        db,
+        current,
+        context.storage,
+        context.feeds,
+        false
+      );
       // Storage reads/transformation may outlive the reservation.
       await lockClaim(db, row);
       return media;
@@ -58,6 +70,9 @@ export async function executeDelivery(
       () => assertDispatchClaim(context, row)
     );
     const published = result;
+    // This observation commits independently of completion and grants no
+    // published status. A later failure still requires reconciliation.
+    await observeProviderResult(context, row, published);
     // Persist the external result and audit in one transaction. Failure leaves an uncertain job; never resend blindly.
     await withPostgresTransaction(context.pool, async (db) => {
       await complete(

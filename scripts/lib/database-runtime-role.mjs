@@ -71,7 +71,12 @@ BEGIN
   FOR item IN SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
     WHERE n.nspname='public' AND c.relkind IN ('r','p','v','m','f') LOOP
     EXECUTE format('GRANT SELECT ON TABLE public.%I TO %I', item.relname, runtime_name);
-    IF item.relname <> 'openg7_schema_migrations' THEN
+    IF item.relname = 'moderation_policies' THEN
+      -- Row locks require UPDATE on a column. The version is immutable, and no
+      -- public activation or policy-status column is writable by the API.
+      EXECUTE format('GRANT UPDATE (version) ON TABLE public.%I TO %I', item.relname, runtime_name);
+    END IF;
+    IF item.relname NOT IN ('openg7_schema_migrations','moderation_policies') THEN
       EXECUTE format('GRANT INSERT ON TABLE public.%I TO %I', item.relname, runtime_name);
       IF item.relname <> 'admin_audit_log' THEN
         EXECUTE format('GRANT UPDATE ON TABLE public.%I TO %I', item.relname, runtime_name);

@@ -21,6 +21,7 @@ import type {
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
+import { FundingModerationService } from '../../services/funding-moderation.service.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import { AdminPublicationCalendarComponent } from '../../components/admin-publications/admin-publication-calendar.component.js';
 import type { PublicationCalendarEntry } from '../../components/admin-publications/publication-calendar.js';
@@ -58,6 +59,7 @@ export class AdminPublicationAutomationPageComponent {
   private readonly admin = inject(FundingAdminService);
   readonly i18n = inject(FundingI18nService);
   private readonly confirmation = inject(AdminConfirmationService);
+  private readonly moderation = inject(FundingModerationService);
   private readonly route = inject(ActivatedRoute);
   readonly feedSettingsExpanded =
     this.route.snapshot.queryParamMap.get('settings') === 'feeds';
@@ -116,6 +118,9 @@ export class AdminPublicationAutomationPageComponent {
     admin: this.admin,
     i18n: this.i18n,
     confirm: (message, title) => this.confirmation.confirm(message, title),
+    moderate: (subject, level, initial) =>
+      this.moderation.requestDecision(subject, level, initial),
+    refresh: () => this.load(),
     showError: (error) => this.showError(error),
     clearError: () => this.error.set('')
   });
@@ -260,10 +265,18 @@ export class AdminPublicationAutomationPageComponent {
   }
   private showError(error: unknown): void {
     const code = error instanceof Error ? error.message : '';
+    if (
+      code === 'SOURCE_CONTENT_MISSING' &&
+      this.delivery.selected()?.status === 'uncertain'
+    ) {
+      this.error.set('admin.publicationAutomation.sourceContentUncertain');
+      return;
+    }
     const key = [
       'VERSION_CONFLICT',
       'WORKER_VERSION_CONFLICT',
       'SOURCE_CHANGED',
+      'SOURCE_CONTENT_MISSING',
       'MEDIA_CHANGED',
       'SOURCE_NOT_ELIGIBLE',
       'SPONSOR_APPROVAL_REQUIRED',

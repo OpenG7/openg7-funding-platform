@@ -7,6 +7,7 @@ import {
 } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 
+import { FundingModerationActionsComponent } from '../../admin-moderation/funding-moderation-actions.component.js';
 import type {
   AdminSponsorMediaAssetView,
   AdminSponsorMediaDeleteEvent,
@@ -16,7 +17,7 @@ import type {
 @Component({
   selector: 'openg7-admin-sponsor-media-card',
   standalone: true,
-  imports: [CommonModule, TranslatePipe],
+  imports: [CommonModule, TranslatePipe, FundingModerationActionsComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-sponsor-media-card.component.html',
   styleUrls: [
@@ -34,6 +35,7 @@ export class AdminSponsorMediaCardComponent {
   readonly previewMedia = output<{ id: string; alt: string }>();
   readonly reviewMedia = output<AdminSponsorMediaReviewEvent>();
   readonly deleteMedia = output<AdminSponsorMediaDeleteEvent>();
+  readonly moderationChanged = output<void>();
 
   setAltText(event: Event): void {
     this.altTextChange.emit((event.target as HTMLInputElement).value);

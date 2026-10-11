@@ -17,6 +17,15 @@ publication sont distincts. Toute approbation conserve acteur, date et note/rais
 pertinente; un refus conserve l'historique financier. Les contrats réels de code
 font foi sur les noms exacts des états.
 
+La revue éditoriale utilise les décisions N0–N5, les 17 motifs et la version du
+contenu effectivement examiné. Une modification invalide cette autorisation;
+une écriture comptable ou un claim worker ne vaut pas modification éditoriale.
+Les notes internes restent privées, distinctes de l'explication commanditaire.
+Les décisions graves et leur atténuation exigent des personnes identifiables
+distinctes. Ni une correction ni un recours ne rétablit la publication.
+Contrats, maintien historique sans nouvelle approbation et limites d'activation :
+[runbook de modération](../operations/sponsorship-moderation.md).
+
 Publication (`not_planned`, `planned`, `drafted`, `published`, `hidden`) : contenu
 validé, liens externes conservés, cibles `openg7`/`openg20` et canaux
 `facebook`/`linkedin` explicites. Paiement sans publication automatique; masquage
@@ -29,8 +38,16 @@ modifier préparation, approbation, worker ou reprise. L'envoi exige l'approbati
 administrative du contenu exact, de sa version, du média, de la destination, du
 mode et de l'horaire. Modifier révoque l'autorisation; préparer n'approuve pas.
 Le worker revalide consentement, admissibilité, contenu et média avant envoi.
+Chaque source doit rester présente dans un bloc de reconnaissance complet et
+distinct du texte final; une mention incidente ou un homonyme ne suffit pas.
+L'identité vient du dossier, indépendamment du titre éditable. Approbation, envoi
+et finalisation des livraisons automatiques appliquent la même politique. Voir la
+[décision sur les blocs](../decisions/2026-10-11-sponsorship-recognition-blocks.md).
 Résultat externe ambigu : quarantaine, aucune relance aveugle; attestation humaine
 d'absence motivée et auditée avant nouvelle autorisation.
+Une réponse fournisseur reçue est conservée dans un audit indépendant avant la
+finalisation. Elle ne suffit pas à déclarer publié : un échec de finalisation
+exige la réconciliation et conserve les références disponibles.
 
 La préparation privée (migration 023) accepte paiement confirmé et consentement
 même avec revue en attente. « Accepter et programmer » peut réunir approbation du

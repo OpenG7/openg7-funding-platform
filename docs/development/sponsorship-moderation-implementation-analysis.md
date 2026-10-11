@@ -10,10 +10,20 @@ exige des changements de contrats, de persistance, d'autorisation et de parcours
 en plus du remplacement des textes. Le socle de paiement, les états de publication,
 les dossiers, les médias et le journal d'audit existants restent leurs sources de vérité.
 
-Statut : **analyse de réalisation**. Les tâches MOD01 à MOD25 ci-dessous sont
-à réaliser et à vérifier. Les changements parallèles sur la composition, les
-réservations et les résultats fournisseur constituent des fondations locales;
-leur présence ne prouve pas la livraison du domaine de modération.
+Statut : **analyse initiale et suivi du chantier local**. Le tableau MOD01 à MOD25
+conserve les critères du plan initial. L'implémentation locale ajoute le service
+transactionnel N0–N5, les gardes transversales, les parcours administratifs et
+privés, les textes FR/EN et l'acceptation versionnée préparée. Les migrations
+034–040 sont vérifiées sur PostgreSQL jetable, y compris l'adoption de contenus
+déjà publics sans décision fictive. Les contrats actuels et limites figurent dans
+le [runbook de modération](../operations/sponsorship-moderation.md).
+
+La charte contractuelle demeure inactive dans l'attente de sa validation.
+L'assistance locale textuelle est facultative et limitée; l'OCR, l'exploration
+réseau isolée, la qualification d'un corpus, les suppressions sociales réelles
+et les durées de purge demandent encore les choix et validations identifiés
+ci-dessous. La présence de leurs contrats ou aperçus ne prouve pas leur livraison.
+Le chantier ne déploie aucune modification ni n'exécute de migration de production.
 
 La source distingue les orientations éditoriales approuvées de la charte publique,
 des clauses contractuelles et des délais encore proposés. Les textes peuvent être
