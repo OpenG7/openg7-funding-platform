@@ -289,7 +289,7 @@ test('lost social responses survive restart and recover through verified reconci
           await approve(
             job,
             company.scenario === 'control' ? controlDue : due,
-            `Merci à ${company.name}. Commandite rémunérée, recette simulée.`
+            `${job.message}\n\nMerci à ${company.name}. Commandite rémunérée, recette simulée.`
           );
           if (company.scenario !== 'control') {
             const fault = await request.post(social + '/faults', {

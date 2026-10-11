@@ -96,6 +96,19 @@ passent. Les essais utilisent des dossiers synthétiques et fournisseurs simulé
 ils ne qualifient pas un envoi réel. Aucun nouveau schéma n'est nécessaire à ce lot.
 Les 19 garanties complètes restent ouvertes.
 
+Après fusion du cadrage #301, les recettes d'identité et Docker ont révélé des
+fixtures qui attendaient des textes abrégés supprimant une partie des blocs.
+Les fixtures conservent maintenant les sources complètes; une révision du nom
+modifie aussi le titre source avant recomposition et nouvelle approbation.
+Le scénario `editorial-preferences-journey.spec.ts` reproduit l'échec, puis passe
+avec API/Web réels, PostgreSQL jetable et OIDC signé local. La recette ciblée
+via `node scripts/admin-acceptance.mjs` passe : **11 cas dans six suites**
+(paiement inadmissible, résultat incertain, médias, publication, révision et
+niveaux de commandite). Elle vérifie aussi le refus `SOURCE_CONTENT_MISSING`
+sans autorisation ni envoi. Compilation TypeScript complète sans émission,
+lint, format, contrôles documentaires et diff passent. Ces correctifs ne changent
+aucun garde-fou applicatif; la CI complète reste une validation distincte.
+
 ## Cadrage
 
 <a id="sp01"></a>
