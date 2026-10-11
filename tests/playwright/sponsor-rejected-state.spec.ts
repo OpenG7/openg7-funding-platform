@@ -1,47 +1,46 @@
+import type {
+  AdminSponsorshipsResponse,
+  SponsorshipFollowupResponse
+} from '@openg7/funding-core';
+
 import { expect, test } from './support/test.js';
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
-import { signInAsAdmin, openFixtureSponsorship } from './support/admin-auth.js';
-import { dismissContributionToasts } from './support/contribution-toasts.js';
+import { adminSessionHeaders } from './support/admin-auth.js';
 
-// Tests for sponsor side rejection state validation
-// The admin can reject sponsorships via admin-sponsorship-review.spec.ts,
-// but there are NO tests that validate the sponsor sees the rejected state
-// on their followup page. This test fills that gap.
+// A terminal synthetic fixture exercises sponsor follow-up independently of
+// N4 proposals, which remain restricted pending a distinct person's review.
 
 test.describe('Sponsor side rejected state validation', () => {
-  test('admin rejects a sponsorship and sponsor sees rejected state on followup page', async ({
-    page
+  test('a sponsor sees a previously rejected dossier with payment still confirmed', async ({
+    page,
+    request
   }) => {
-    // 1. Admin signs in and rejects the sponsorship
-    await signInAsAdmin(page);
-
     const fixture = SPONSORSHIP_FIXTURES.rejectedFollowup;
-    await openFixtureSponsorship(page, fixture.companyName);
-
-    // Incoming payment notifications can cover the decision actions. Dismiss
-    // them through the UI if they arrive while Playwright attempts the click.
-    const toasts = page.locator('[data-og7="contribution-toast"]');
-    const firstToast = toasts.first();
-    await page.addLocatorHandler(firstToast, () =>
-      dismissContributionToasts(page)
+    const privateResponse = await request.get(
+      '/api/admin/sponsorships?search=' + fixture.publicReference,
+      { headers: await adminSessionHeaders(request) }
     );
-
-    // Admin rejects the sponsorship with an internal reason
-    try {
-      await page.getByRole('button', { name: 'Refuser' }).click();
-    } finally {
-      await page.removeLocatorHandler(firstToast);
-    }
-    await page
-      .getByLabel(/Raison interne du refus/i)
-      .fill('E2E Playwright: refus de test pour validation sponsor.');
-    await page.getByRole('button', { name: /Confirmer le refus/i }).click();
-
-    await expect(
-      page.getByText('Action confirmee: commandite refusee.')
-    ).toBeVisible();
-
-    // 2. Sponsor visits the followup page and validates rejected state
+    expect(privateResponse.ok()).toBe(true);
+    const privateRecords =
+      (await privateResponse.json()) as AdminSponsorshipsResponse;
+    expect(privateRecords.items).toHaveLength(1);
+    expect(fixture.reviewNote).toBeTruthy();
+    expect(privateRecords.items[0]).toMatchObject({
+      public_reference: fixture.publicReference,
+      sponsor_review_status: 'rejected',
+      sponsor_review_note: fixture.reviewNote,
+      payment_status: 'paid'
+    });
+    const response = await request.get('/api/sponsorship-followup', {
+      params: { token: fixture.followupToken }
+    });
+    expect(response.ok()).toBe(true);
+    const stored = (await response.json()) as SponsorshipFollowupResponse;
+    expect(stored.reviewStatus).toBe('rejected');
+    expect(stored.paymentStatus).toBe('paid');
+    expect(stored).not.toHaveProperty('sponsor_review_note');
+    expect(stored).not.toHaveProperty('internalReason');
+    expect(JSON.stringify(stored)).not.toContain(fixture.reviewNote);
     await page.goto(
       `/fonds-des-batisseurs/suivi-commandite?token=${fixture.followupToken}`
     );
@@ -50,16 +49,12 @@ test.describe('Sponsor side rejected state validation', () => {
     await expect(
       page.getByRole('heading', { name: /Commandite refus.e/i })
     ).toBeVisible();
+    await expect(page.locator('body')).not.toContainText(fixture.reviewNote);
     await expect(
       page
         .locator('.reference-code', { hasText: fixture.publicReference })
         .first()
     ).toBeVisible();
-
-    // The internal refusal reason must remain private on the sponsor page.
-    await expect(
-      page.getByText('E2E Playwright: refus de test pour validation sponsor.')
-    ).toHaveCount(0);
 
     // Verify the payment status is still paid
     await expect(

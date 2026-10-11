@@ -3071,7 +3071,7 @@ test('publication cancellation, partial refund, missing credit and failed email 
 test('return to filtered queue survives tab navigation and badge counts refresh after confirmed review', async ({
   page
 }) => {
-  const { options } = await fixtures(page);
+  const { calls, options } = await fixtures(page);
   const destination =
     '/admin/fundraiser/attention?type=sponsorship_needs_review&priority=today&page=2';
   await page.goto(path() + '&returnTo=' + encodeURIComponent(destination));
@@ -3088,9 +3088,19 @@ test('return to filtered queue survives tab navigation and badge counts refresh 
   options.queueCount = 0;
   await tabs(page).getByRole('button', { name: 'Aperçu', exact: true }).click();
   await page.getByRole('button', { name: 'Accepter', exact: true }).click();
+  expect(postsTo(calls, '/review')).toHaveLength(0);
+  await completeModeration(page);
   await expect(
     page.locator('[data-og7="nav-count"][data-og7-id="sponsors"]')
   ).toHaveCount(0);
+  const reviews = postsTo(calls, '/review');
+  expect(reviews).toHaveLength(1);
+  expect(reviews[0]!.body).toMatchObject({
+    contributionId: id,
+    reviewStatus: 'approved',
+    confirmation: id,
+    moderationDecision: { level: 'N0' }
+  });
   await page.locator('[data-og7="return-to-attention"]').click();
   await expect(page).toHaveURL(destination);
 });

@@ -1,6 +1,6 @@
 // Generated from e2e-fixtures.mjs using TypeScript declaration emit.
 // Regenerate when fixture exports change; do not narrow this list by hand.
-export const ADMIN_TOKEN: 'local-playwright-admin-token';
+export const ADMIN_TOKEN: 'local-playwright-admin-token-32-characters';
 export const SPONSORSHIP_FIXTURES: Readonly<{
   draftConcurrency: Readonly<{
     publicReference: 'OG7-E2E-DRAFT-CONCURRENCY';
@@ -87,7 +87,8 @@ export const SPONSORSHIP_FIXTURES: Readonly<{
     websiteUrl: 'https://example.com/e2e-rejected-followup';
     followupToken: 'e2e-rejected-followup-local-only-token-0000000';
     amountCents: 25000;
-    reviewStatus: 'pending_review';
+    reviewStatus: 'rejected';
+    reviewNote: 'E2E: justification interne privee du dossier deja refuse.';
   }>;
   directory: Readonly<{
     publicReference: 'OG7-E2E-DIRECTORY';

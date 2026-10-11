@@ -18,6 +18,7 @@ import type {
 
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptanceReviewReminder } from './support/acceptance-review-reminder.js';
+import { completeModeration } from './support/moderation.js';
 import { test, expect } from './support/test.js';
 
 const requestUrl = '/api/admin/sponsorships/request-information';
@@ -542,9 +543,30 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
       await admin.goto(
         '/admin/fundraiser/sponsors?sponsorshipId=' + id + '&tab=media'
       );
+      const pendingMedia = (await media()).filter(
+        (asset) => asset.reviewStatus !== 'approved'
+      );
+      const pendingIds = new Set(pendingMedia.map((asset) => asset.id));
       await admin
         .getByRole('button', { name: 'Tout approuver', exact: true })
         .click();
+      for (let index = 0; index < pendingMedia.length; index++) {
+        const reviewed = admin.waitForResponse(
+          (response) =>
+            response.url().endsWith('/api/admin/sponsorships/media/review') &&
+            response.request().method() === 'POST'
+        );
+        await completeModeration(admin);
+        const response = await reviewed;
+        expect(response.ok(), await response.text()).toBe(true);
+        const reviewedAsset = response.request().postDataJSON();
+        expect(pendingIds.delete(reviewedAsset.assetId)).toBe(true);
+        expect(reviewedAsset).toMatchObject({
+          reviewStatus: 'approved',
+          moderationDecision: { level: 'N0' }
+        });
+      }
+      expect(pendingIds.size).toBe(0);
       await expect
         .poll(async () =>
           (await media()).every((m) => m.reviewStatus === 'approved')
@@ -553,6 +575,7 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
       await admin
         .getByRole('button', { name: 'Accepter', exact: true })
         .click();
+      await completeModeration(admin);
       await expect
         .poll(async () => (await sponsor()).sponsor_review_status)
         .toBe('approved');

@@ -15,6 +15,7 @@ import type {
 
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
+import { completeModeration } from './support/moderation.js';
 import {
   buildPaymentIntentSucceededEvent,
   buildSignedWebhookRequest,
@@ -265,9 +266,30 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
             company.record.id +
             '&tab=media'
         );
+        const pendingMedia = (await media(company.record.id)).assets.filter(
+          (asset) => asset.reviewStatus !== 'approved'
+        );
+        const pendingIds = new Set(pendingMedia.map((asset) => asset.id));
         await page
           .getByRole('button', { name: 'Tout approuver', exact: true })
           .click();
+        for (let index = 0; index < pendingMedia.length; index++) {
+          const reviewed = page.waitForResponse(
+            (response) =>
+              response.url().endsWith('/api/admin/sponsorships/media/review') &&
+              response.request().method() === 'POST'
+          );
+          await completeModeration(page);
+          const response = await reviewed;
+          expect(response.ok(), await response.text()).toBe(true);
+          const input = response.request().postDataJSON();
+          expect(pendingIds.delete(input.assetId)).toBe(true);
+          expect(input).toMatchObject({
+            reviewStatus: 'approved',
+            moderationDecision: { level: 'N0' }
+          });
+        }
+        expect(pendingIds.size).toBe(0);
         await expect
           .poll(async () =>
             (await media(company.record.id)).assets.every(
@@ -325,10 +347,16 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
             .getByRole('button', { name: 'Enregistrer le brouillon' })
             .click();
           expect((await save).ok()).toBe(true);
+          const pendingSponsors = (await delivery(job.id)).sponsors.filter(
+            (sponsor) => sponsor.reviewStatus === 'pending_review'
+          );
           await dialog.getByRole('checkbox', { name: /J’approuve/ }).check();
           await dialog
             .getByRole('button', { name: 'Accepter et programmer' })
             .click();
+          for (let index = 0; index < pendingSponsors.length; index++)
+            await completeModeration(page);
+          await completeModeration(page);
           await expect(dialog).toContainText('Autorisée');
           const approved = await delivery(job.id);
           expect(approved).toMatchObject({

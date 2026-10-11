@@ -9,6 +9,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
+import { completeModeration } from './support/moderation.js';
 import { expect, test } from './support/test.js';
 
 // Only the disposable runner supplies this flag and a fresh PostgreSQL database.
@@ -129,6 +130,7 @@ for (const loseResponse of [false, true]) {
           r.method() === 'POST'
       );
       await page.locator('[data-og7="pilot-confirm"]').click();
+      await completeModeration(page);
       const commandRequest = await sent;
       if (loseResponse) {
         await expect(
@@ -143,6 +145,12 @@ for (const loseResponse of [false, true]) {
         targetId: id,
         confirmation: id,
         version: String(draft.version)
+      });
+      expect(commands[0]!.payload?.['moderationDecision']).toMatchObject({
+        level: 'N0',
+        confirmation: id,
+        contentVersion: expect.any(Number),
+        contentFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/)
       });
       // Same browser session/actor: receipt access must pass the real authorization.
       const authorization = commandRequest.headers()['authorization'];

@@ -1016,7 +1016,9 @@ test('worker switch waits for the server and reports a stale decision without fa
   );
   await expect(toggle).toBeEnabled();
   await expect(toggle).toHaveAttribute('aria-checked', 'true');
-  await expect(page.getByRole('status')).not.toContainText('enregistr');
+  await expect(
+    page.getByRole('status').filter({ hasText: /enregistr/i })
+  ).toHaveCount(0);
 });
 
 for (const role of ['reader', 'operator'] as const) {

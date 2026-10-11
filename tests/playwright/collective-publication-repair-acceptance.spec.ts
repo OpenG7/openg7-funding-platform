@@ -14,9 +14,14 @@ import type {
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
+import {
+  approveCurrentModeration,
+  completeModeration,
+  currentModerationApproval
+} from './support/moderation.js';
 import { expect, test } from './support/test.js';
 
-test('a rejected company blocks its approved collective post; reviewed recomposition and new approval publish only the retained company', async ({
+test('a changed company destination blocks its approved collective post; reviewed recomposition and new approval publish only the retained company', async ({
   page,
   request
 }, info) => {
@@ -99,6 +104,7 @@ test('a rejected company blocks its approved collective post; reviewed recomposi
     await dialog
       .getByRole('button', { name: 'Accepter et programmer' })
       .click();
+    await completeModeration(page);
     await expect(dialog).toContainText('Autorisée');
   };
   try {
@@ -129,16 +135,27 @@ test('a rejected company blocks its approved collective post; reviewed recomposi
         }
       )
     ).batch!;
+    const drafts: string[] = [];
     for (const s of [removed, retained]) {
+      await approveCurrentModeration(request, {
+        type: 'sponsorship',
+        id: s.id
+      });
       const draft = (
         await post<AdminPublicationDraftMutationResult>(
           '/api/admin/publication-drafts',
           { contributionId: s.id, feedTarget: 'openg7', channel: 'facebook' }
         )
       ).draft!;
+      drafts.push(draft.id);
       await post('/api/admin/publication-drafts/update', {
         draftId: draft.id,
-        status: 'approved'
+        status: 'approved',
+        confirmation: draft.id,
+        moderationDecision: await currentModerationApproval(request, {
+          type: 'publication_draft',
+          id: draft.id
+        })
       });
       await post('/api/admin/publication-batches/assign', {
         batchId: batch.id,
@@ -149,6 +166,11 @@ test('a rejected company blocks its approved collective post; reviewed recomposi
       batchId: batch.id,
       scheduledAt: new Date(Date.now() + 86400000).toISOString()
     });
+    for (const draftId of drafts)
+      await approveCurrentModeration(request, {
+        type: 'publication_draft',
+        id: draftId
+      });
     id = (
       await post<{ id: string }>(automation, {
         action: 'compose',
@@ -163,29 +185,53 @@ test('a rejected company blocks its approved collective post; reviewed recomposi
     await signInAsAdmin(page);
     await approve();
     const approved = await delivery();
-    await test.step('Reject one company through the admin form while its approved publication is still in the future', async () => {
+    await test.step('Change one company destination through the admin form while its approved publication is still in the future', async () => {
       await page.goto(
         '/admin/fundraiser/sponsors?sponsorshipId=' +
           removed.id +
-          '&tab=overview'
+          '&tab=publication'
       );
-      await page.getByRole('button', { name: 'Refuser', exact: true }).click();
-      await page
-        .getByLabel(/Raison interne du refus/i)
-        .fill(
-          'Entreprise retirée du lot de recette. Aucun remboursement demandé.'
-        );
-      await page.getByRole('button', { name: /Confirmer le refus/i }).click();
+      await page.locator('[data-og7="publication-advanced"] > summary').click();
+      const editor = page.locator('[data-og7="dossier-publication-editor"]');
+      // The editor suggests a slug; preserve reviewed content while rerouting.
+      await editor
+        .getByLabel(/Slug public/i)
+        .fill(removed.sponsor_public_slug ?? '');
+      await editor.getByLabel(/Destination feed/i).selectOption('openg20');
+      const saved = page.waitForResponse(
+        (response) =>
+          response.url().endsWith('/api/admin/sponsorships/publication') &&
+          response.request().method() === 'POST'
+      );
+      await editor
+        .getByRole('button', { name: 'Enregistrer', exact: true })
+        .click();
+      const response = await saved;
+      expect(response.ok(), await response.text()).toBe(true);
+      expect(response.request().postDataJSON()).toMatchObject({
+        contributionId: removed.id,
+        feedTarget: 'openg20',
+        confirmation: removed.id
+      });
+      expect(response.request().postDataJSON().publicSlug ?? null).toBe(
+        removed.sponsor_public_slug
+      );
       await expect
-        .poll(
-          async () =>
-            (await sponsor(removedFixture.publicReference))
-              .sponsor_review_status
-        )
-        .toBe('rejected');
-      const proposed = (await programme()).issues.find(
+        .poll(() => sponsor(removedFixture.publicReference))
+        .toMatchObject({
+          payment_status: 'paid',
+          sponsor_review_status: 'approved',
+          public_display_consent: true,
+          sponsor_public_slug: removed.sponsor_public_slug,
+          sponsor_feed_target: 'openg20',
+          amount: removed.amount
+        });
+      const issue = (await programme()).issues.find(
         (i) => i.deliveryId === id
-      )!.repair!;
+      )!;
+      expect(issue.codes).toContain('DESTINATION_CHANGED');
+      expect(issue.repair).not.toBeNull();
+      const proposed = issue.repair!;
       expect(proposed.removed).toContain(removed.id);
       expect(proposed.sponsors.map((s) => s.id)).toEqual([retained.id]);
       await worker(true);
@@ -301,6 +347,7 @@ test('a rejected company blocks its approved collective post; reviewed recomposi
       await dialog
         .getByRole('button', { name: 'Accepter et programmer' })
         .click();
+      await completeModeration(page);
       await expect(dialog).toContainText('Autorisée');
       // The UI accepts minute precision. Drive the worker against the exact
       // approved date returned by the API, not an unpersisted browser value.
@@ -346,7 +393,9 @@ test('a rejected company blocks its approved collective post; reviewed recomposi
       );
       expect(await sponsor(removedFixture.publicReference)).toMatchObject({
         payment_status: 'paid',
-        sponsor_review_status: 'rejected',
+        sponsor_review_status: 'approved',
+        public_display_consent: true,
+        sponsor_feed_target: 'openg20',
         amount: removed.amount
       });
       const audits = (

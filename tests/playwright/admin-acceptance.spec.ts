@@ -1,10 +1,15 @@
 import type {
   AdminSponsorshipsResponse,
-  AdminWorkQueueResponse
+  AdminWorkQueueResponse,
+  SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
+import {
+  approveCurrentModeration,
+  completeModeration
+} from './support/moderation.js';
 import { expect, test } from './support/test.js';
 
 // Real API + PostgreSQL journeys. No route interception or shared mutation fixture.
@@ -14,6 +19,26 @@ test('a confirmed review removes its task, preserves queue filters and leaves pu
 }) => {
   const fixture = SPONSORSHIP_FIXTURES.acceptanceReview;
   const headers = await adminSessionHeaders(request);
+  const fixtureResponse = await request.get(
+    '/api/admin/sponsorships?search=' + fixture.publicReference,
+    { headers }
+  );
+  expect(fixtureResponse.ok()).toBe(true);
+  const seeded = (await fixtureResponse.json()) as AdminSponsorshipsResponse;
+  expect(seeded.items).toHaveLength(1);
+  const mediaResponse = await request.get(
+    '/api/admin/sponsorships/media?contributionId=' + seeded.items[0]!.id,
+    { headers }
+  );
+  expect(mediaResponse.ok()).toBe(true);
+  const presentation = (
+    (await mediaResponse.json()) as SponsorshipMediaResponse
+  ).assets.filter((asset) => asset.kind === 'supporting_image');
+  expect(presentation).toHaveLength(1);
+  await approveCurrentModeration(request, {
+    type: 'media',
+    id: presentation[0]!.id
+  });
   const queueUrl =
     '/api/admin/attention?type=sponsorship_needs_review&pageSize=100';
   const beforeResponse = await request.get(queueUrl, { headers });
@@ -33,6 +58,7 @@ test('a confirmed review removes its task, preserves queue filters and leaves pu
     page.locator('[data-og7="return-to-attention"]')
   ).toHaveAttribute('href', destination);
   await page.getByRole('button', { name: 'Accepter', exact: true }).click();
+  await completeModeration(page);
   await expect(
     page.getByText('Action confirmee: commandite acceptee.')
   ).toBeVisible();

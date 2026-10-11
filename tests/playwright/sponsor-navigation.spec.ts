@@ -1,17 +1,42 @@
+import type { APIRequestContext } from '@playwright/test';
 import type {
+  AdminSponsorshipsResponse,
   PublicSponsorshipsResponse,
-  SponsorshipFollowupResponse
+  SponsorshipFollowupResponse,
+  SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
+import { adminSessionHeaders } from './support/admin-auth.js';
+import { approveCurrentModeration } from './support/moderation.js';
 
 // Covers the public, sponsor-facing side of the business sponsorship journey
 // (the admin review side is covered by admin-sponsorship-review.spec.ts):
 // funding page tier selection -> mocked checkout -> checkout-return states ->
 // sponsorship follow-up page -> public sponsors directory -> support/policy
-// pages reachable from that flow. The `directory` fixture is seeded already
-// approved so these specs do not depend on run order against the admin spec.
+// pages reachable from that flow. Public scenarios explicitly review their
+// seeded approved dossier, independently of the admin review spec.
+
+async function reviewPresentation(
+  request: APIRequestContext,
+  contributionId: string
+): Promise<void> {
+  const response = await request.get(
+    '/api/admin/sponsorships/media?contributionId=' + contributionId,
+    { headers: await adminSessionHeaders(request) }
+  );
+  expect(response.ok()).toBe(true);
+  const presentation = (
+    (await response.json()) as SponsorshipMediaResponse
+  ).assets.filter((asset) => asset.kind === 'supporting_image');
+  expect(presentation).toHaveLength(1);
+  expect(presentation[0]!.reviewStatus).toBe('approved');
+  await approveCurrentModeration(request, {
+    type: 'media',
+    id: presentation[0]!.id
+  });
+}
 
 test.describe('Docker corporate sponsor navigation', () => {
   test('selects the business sponsorship tier, sees the benefits update and opens the configured checkout simulation', async ({
@@ -106,11 +131,23 @@ test.describe('Docker corporate sponsor navigation', () => {
     );
   });
 
-  // This approved fixture is read-only: editing uses its own record below.
   test('lists the approved sponsorship in the public directory reachable from the header navigation', async ({
-    page
+    page,
+    request
   }) => {
     const fixture = SPONSORSHIP_FIXTURES.directory;
+    const seeded = await request.get(
+      '/api/admin/sponsorships?search=' + fixture.publicReference,
+      { headers: await adminSessionHeaders(request) }
+    );
+    expect(seeded.ok()).toBe(true);
+    const records = (await seeded.json()) as AdminSponsorshipsResponse;
+    expect(records.items).toHaveLength(1);
+    await approveCurrentModeration(request, {
+      type: 'sponsorship',
+      id: records.items[0]!.id
+    });
+    await reviewPresentation(request, records.items[0]!.id);
 
     await page.goto('/fonds-des-batisseurs');
     await page
@@ -141,6 +178,18 @@ test.describe('Docker corporate sponsor navigation', () => {
     request
   }) => {
     const fixture = SPONSORSHIP_FIXTURES.followupEditing;
+    const seeded = await request.get(
+      '/api/admin/sponsorships?search=' + fixture.publicReference,
+      { headers: await adminSessionHeaders(request) }
+    );
+    expect(seeded.ok()).toBe(true);
+    const records = (await seeded.json()) as AdminSponsorshipsResponse;
+    expect(records.items).toHaveLength(1);
+    await approveCurrentModeration(request, {
+      type: 'sponsorship',
+      id: records.items[0]!.id
+    });
+    await reviewPresentation(request, records.items[0]!.id);
     const publicProfiles = async () => {
       const response = await request.get('/api/public/sponsorships');
       expect(response.ok()).toBe(true);

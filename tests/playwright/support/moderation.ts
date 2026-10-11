@@ -1,6 +1,65 @@
-import type { Page, Route } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
+
+import {
+  MODERATION_POLICY_VERSION,
+  type ModerationContent,
+  type ModerationDecisionInput,
+  type ModerationDecisionRecord,
+  type ModerationSubject
+} from '@openg7/funding-core';
+import type { APIRequestContext, Page, Route } from '@playwright/test';
 
 import { expect } from './test.js';
+import { adminSessionHeaders } from './admin-auth.js';
+
+/** Explicit approval of the current synthetic subject, through the real admin API. */
+export async function currentModerationApproval(
+  request: APIRequestContext,
+  subject: ModerationSubject
+): Promise<ModerationDecisionInput> {
+  const query = new URLSearchParams({
+    subjectType: subject.type,
+    subjectId: subject.id
+  });
+  const response = await request.get('/api/admin/moderation/content?' + query, {
+    headers: await adminSessionHeaders(request)
+  });
+  expect(response.ok()).toBe(true);
+  const content = (await response.json()) as ModerationContent;
+  expect(content.subject).toEqual(subject);
+  return {
+    requestId: randomUUID(),
+    policyVersion: MODERATION_POLICY_VERSION,
+    contentVersion: content.contentVersion,
+    contentFingerprint: content.fingerprint,
+    expectedDecisionId: content.currentDecisionId,
+    confirmation: subject.id,
+    level: 'N0'
+  };
+}
+
+export async function approveCurrentModeration(
+  request: APIRequestContext,
+  subject: ModerationSubject
+): Promise<ModerationDecisionRecord> {
+  const decision = await currentModerationApproval(request, subject);
+  const response = await request.post('/api/admin/moderation/decisions', {
+    headers: await adminSessionHeaders(request),
+    data: { subject, decision }
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+  const result = (await response.json()) as {
+    decision: ModerationDecisionRecord;
+  };
+  expect(result.decision).toMatchObject({
+    subject,
+    level: 'N0',
+    state: 'active',
+    contentVersion: decision.contentVersion,
+    contentFingerprint: decision.contentFingerprint
+  });
+  return result.decision;
+}
 
 /** Subject-bound synthetic content for existing administrative journey fixtures. */
 export async function moderationFixture(route: Route): Promise<boolean> {

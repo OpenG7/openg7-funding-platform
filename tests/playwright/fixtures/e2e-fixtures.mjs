@@ -93,7 +93,10 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
     websiteUrl: 'https://example.com/e2e-rejected-followup',
     followupToken: 'e2e-rejected-followup-local-only-token-0000000',
     amountCents: 25000,
-    reviewStatus: 'pending_review'
+    // Terminal follow-up state is independent of a new N4 proposal, which
+    // requires a distinct identified reviewer to become effective.
+    reviewStatus: 'rejected',
+    reviewNote: 'E2E: justification interne privee du dossier deja refuse.'
   }),
   // Seeded already approved (rather than approved via the admin UI, like the
   // two fixtures above) so the public sponsor-navigation spec can assert on
