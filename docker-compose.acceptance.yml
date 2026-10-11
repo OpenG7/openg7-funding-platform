@@ -99,6 +99,7 @@ services:
       ADMIN_AI_ASSISTANT_ENABLED: 'false'
     volumes:
       - ./tests/identity/oidc-provider.mjs:/app/tests/identity/oidc-provider.mjs:ro
+      - ./tests/identity/docker-moderation-config.mjs:/app/tests/identity/docker-moderation-config.mjs:ro
       - ./tests/identity/docker-moderation-server.mjs:/app/tests/identity/docker-moderation-server.mjs:ro
     ports:
       - '127.0.0.1:${ACCEPTANCE_OIDC_PROVIDER_PORT:?}:${ACCEPTANCE_OIDC_PROVIDER_PORT:?}'

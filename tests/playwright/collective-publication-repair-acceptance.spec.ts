@@ -15,9 +15,9 @@ import { rejectAcceptanceSponsorship } from './support/acceptance-oidc-moderatio
 import {
   approveAcceptanceFixture,
   approveAcceptanceSubject,
-  acceptanceModerationDecision
+  acceptanceModerationDecision,
+  completePublicationModeration
 } from './support/acceptance-moderation.js';
-import { completePublicationModeration } from './support/acceptance-moderation.js';
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';

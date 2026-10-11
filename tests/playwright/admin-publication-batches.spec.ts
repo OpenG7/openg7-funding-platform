@@ -3,9 +3,9 @@ import type { Page } from '@playwright/test';
 import { completeModeration } from './support/moderation.js';
 import {
   approveAcceptanceFixture,
-  approveAcceptanceSubject
+  approveAcceptanceSubject,
+  completePublicationModeration
 } from './support/acceptance-moderation.js';
-import { completePublicationModeration } from './support/acceptance-moderation.js';
 import { expect, test } from './support/test.js';
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { signInAsAdmin } from './support/admin-auth.js';

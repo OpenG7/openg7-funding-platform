@@ -19,9 +19,7 @@ import type {
 
 import {
   acceptanceModerationDecision,
-  approveAcceptanceSubject
-} from './support/acceptance-moderation.js';
-import {
+  approveAcceptanceSubject,
   approveAllAcceptanceMedia,
   completePublicationModeration
 } from './support/acceptance-moderation.js';

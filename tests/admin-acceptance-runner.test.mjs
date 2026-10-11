@@ -158,7 +158,8 @@ test(
     });
     const readiness = calls.find(
       ({ command, args }) =>
-        command === process.execPath && args.includes('--input-type=module')
+        command === process.execPath &&
+        args[0] === 'scripts/lib/admin-acceptance-readiness.mjs'
     );
     assert.ok(readiness, 'The recipe must execute its real readiness program.');
 

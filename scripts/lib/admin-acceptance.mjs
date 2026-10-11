@@ -113,30 +113,7 @@ export async function acceptanceStages({
       'node',
       '/app/tests/identity/docker-moderation-server.mjs'
     ]);
-    await run(node, [
-      '--input-type=module',
-      '-e',
-      `const issuer = 'http://127.0.0.1:' + process.env.ACCEPTANCE_OIDC_PROVIDER_PORT;
-       const endpoint = process.env.MODERATION_WEB_BASE_URL + '/api/admin/auth/config';
-       // AbortSignal timeout timers are unreferenced; keep this CLI alive during startup.
-       const keepAlive = setTimeout(() => {}, 35000);
-       const deadline = Date.now() + 30000;
-       let status = [];
-       try { while (Date.now() < deadline) {
-         const results = await Promise.allSettled([
-           [endpoint, body => body.mode === 'oidc'],
-           [issuer + '/.well-known/openid-configuration', body => body.issuer === issuer]
-         ].map(async ([url, matches]) => {
-           const response = await fetch(url, { signal: AbortSignal.timeout(1000) });
-           return { status: response.status, ready: response.ok && matches(await response.json()) };
-         }));
-         status = results.map(result => result.status === 'fulfilled' ? result.value : { error: result.reason.cause?.code ?? result.reason.name });
-         if (status.every(result => result.ready)) process.exit(0);
-         await new Promise(resolve => setTimeout(resolve, 500));
-       }
-       throw new Error('Moderation OIDC acceptance API and provider did not become reachable: ' + JSON.stringify(status));
-       } finally { clearTimeout(keepAlive); }`
-    ]);
+    await run(node, ['scripts/lib/admin-acceptance-readiness.mjs']);
     // Scenarios share the database, global settings and API restarts. Keep the
     // stack sequential. The override must precede the CLI option terminator.
     const browserArgs = [...args];

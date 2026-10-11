@@ -20,9 +20,9 @@ import type {
 
 import {
   completePublicationModeration,
-  approveAllAcceptanceMedia
+  approveAllAcceptanceMedia,
+  approveAcceptanceSubject
 } from './support/acceptance-moderation.js';
-import { approveAcceptanceSubject } from './support/acceptance-moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { acceptanceSql } from './support/acceptance-database.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';

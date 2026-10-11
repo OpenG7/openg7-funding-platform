@@ -1,12 +1,13 @@
 import { randomUUID } from 'node:crypto';
 
 import type { APIRequestContext, Page } from '@playwright/test';
-import type {
-  AdminSponsorshipsResponse,
-  ModerationContent,
-  ModerationDecisionInput,
-  ModerationSubject,
-  SponsorshipMediaResponse
+import {
+  MODERATION_POLICY_VERSION,
+  type AdminSponsorshipsResponse,
+  type ModerationContent,
+  type ModerationDecisionInput,
+  type ModerationSubject,
+  type SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
 import { adminSessionHeaders } from './admin-auth.js';
@@ -28,7 +29,7 @@ export async function acceptanceModerationDecision(
   expect(content.subject).toEqual(subject);
   return {
     requestId: randomUUID(),
-    policyVersion: '1.0',
+    policyVersion: MODERATION_POLICY_VERSION,
     contentVersion: content.contentVersion,
     contentFingerprint: content.fingerprint,
     expectedDecisionId: content.currentDecisionId,

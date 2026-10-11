@@ -13,8 +13,8 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
-import { approveAcceptanceSubject } from './support/acceptance-moderation.js';
 import {
+  approveAcceptanceSubject,
   approveAllAcceptanceMedia,
   completePublicationModeration
 } from './support/acceptance-moderation.js';
