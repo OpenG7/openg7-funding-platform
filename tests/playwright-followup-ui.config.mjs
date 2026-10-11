@@ -5,6 +5,7 @@ import { defineBuiltWebSuite } from './ui/playwright-fixtures.config.mjs';
 export default defineBuiltWebSuite({
   testMatch: [
     'sponsorship-followup.spec.ts',
+    'sponsorship-moderation-followup.spec.ts',
     'sponsor-media-upload-feedback.spec.ts'
   ],
   outputDir: '../test-results/followup',

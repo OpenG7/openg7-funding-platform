@@ -5,7 +5,7 @@ import { defineBuiltWebSuite } from './ui/playwright-fixtures.config.mjs';
 export default defineBuiltWebSuite({
   testMatch: [
     'admin-sponsorship-progress.spec.ts',
-    'sponsorship-followup.spec.ts',
+    'sponsorship-moderation-followup.spec.ts',
     'funding-home-trust.spec.ts'
   ],
   grep: /moderation V1/,
