@@ -300,7 +300,12 @@ test('publication and cancellation confirm the target before mutation and reload
         {
           action: operation.action,
           token: 'synthetic-token',
-          payload: { batchId: batch.id }
+          payload: {
+            batchId: batch.id,
+            ...(operation.action === 'publish'
+              ? { confirmation: batch.id }
+              : {})
+          }
         }
       ]);
       assert.deepEqual(f.events, [

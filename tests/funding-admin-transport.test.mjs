@@ -157,6 +157,80 @@ const families = [
   }
 ];
 
+test('structured moderation transports exact content scope, version evidence and separate media metadata', async (t) => {
+  const { service } = serviceFixture(t);
+  const subject = { type: 'media', id: 'synthetic-media /' };
+  const decision = {
+    requestId: 'synthetic-request',
+    policyVersion: '1.0',
+    contentVersion: 9,
+    contentFingerprint: 'a'.repeat(64),
+    level: 'N3',
+    primaryReason: 'DEHUMANIZATION',
+    internalReason: 'Synthetic private rationale',
+    sponsorExplanation: 'Synthetic external explanation',
+    confirmation: subject.id
+  };
+  const requests = [];
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    requests.push({ url, options });
+    return Response.json(
+      url.includes('content?')
+        ? { subject, contentVersion: 9, fingerprint: 'a'.repeat(64) }
+        : { decision: { id: 'synthetic-decision' } }
+    );
+  });
+  await service.moderationContent(subject);
+  await service.moderationDecision(subject, decision);
+  await service.moderationIndependentReview(
+    'synthetic-decision',
+    'synthetic-second-review'
+  );
+  const metadata = {
+    assetId: subject.id,
+    expectedVersion: 'media-v2',
+    confirmation: subject.id,
+    altText: 'Exact new alternate text'
+  };
+  await service.updateSponsorMediaMetadata(syntheticToken, metadata);
+  assert.equal(
+    requests[0].url,
+    `${baseUrl}/admin/moderation/content?subjectType=media&subjectId=synthetic-media+%2F`
+  );
+  assert.equal(requests[0].options.cache, 'no-store');
+  assert.deepEqual(JSON.parse(requests[1].options.body), { subject, decision });
+  assert.deepEqual(JSON.parse(requests[2].options.body), {
+    decisionId: 'synthetic-decision',
+    requestId: 'synthetic-second-review',
+    confirmation: 'synthetic-decision'
+  });
+  assert.equal(requests[3].url, `${baseUrl}/admin/sponsorships/media/metadata`);
+  assert.deepEqual(JSON.parse(requests[3].options.body), metadata);
+  await service.moderationReconsiderations(subject);
+  await service.resolveModerationReconsideration(
+    'synthetic-appeal',
+    subject,
+    decision
+  );
+  await service.assignModeration(subject, 'admin:synthetic-reviewer', null);
+  assert.equal(
+    requests[4].url,
+    `${baseUrl}/admin/moderation/reconsiderations?subjectType=media&subjectId=synthetic-media+%2F`
+  );
+  assert.equal(requests[4].options.cache, 'no-store');
+  assert.deepEqual(JSON.parse(requests[5].options.body), {
+    appealId: 'synthetic-appeal',
+    subject,
+    decision
+  });
+  assert.deepEqual(JSON.parse(requests[6].options.body), {
+    subject,
+    assignedTo: 'admin:synthetic-reviewer',
+    expectedAssignedTo: null,
+    confirmation: subject.id
+  });
+});
+
 test('admin JSON requests preserve GET/POST, query, payload, authentication and timeout policies', async (t) => {
   for (const family of families) {
     for (const token of [syntheticToken, cookieMarker]) {

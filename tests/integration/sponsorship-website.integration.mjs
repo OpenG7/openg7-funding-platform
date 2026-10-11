@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
+import {
+  approveFixtureSubject,
+  fixtureModerationActor
+} from './support/moderation-fixture.mjs';
 import { getSponsorshipProgress } from '../../dist/apps/funding-api/src/sponsorship-progress.service.js';
 import { setSponsorshipWebsiteVisibility } from '../../dist/apps/funding-api/src/sponsorship-website.service.js';
 import {
@@ -67,11 +71,16 @@ test(
             [id]
           );
         }
-        await pool.query(
+        const media = await pool.query(
           `INSERT INTO sponsor_media_assets (contribution_id,kind,review_status,original_filename,original_mime_type,original_size_bytes,original_storage_key,processed_size_bytes,processed_storage_key,public_storage_key,public_url,checksum_sha256,width,height)
-        VALUES($1,'supporting_image','approved','fixture.png','image/png',100,'private-original-' || $1::uuid::text,100,'private-processed-' || $1::uuid::text,'public-fixture-' || $1::uuid::text,'https://example.invalid/fixture.webp',repeat('a',64),100,100)`,
+        VALUES($1,'supporting_image','approved','fixture.png','image/png',100,'private-original-' || $1::uuid::text,100,'private-processed-' || $1::uuid::text,'public-fixture-' || $1::uuid::text,'https://example.invalid/fixture.webp',repeat('a',64),100,100) RETURNING id`,
           [id]
         );
+        await approveFixtureSubject(pool, {
+          type: 'media',
+          id: media.rows[0].id
+        });
+        await approveFixtureSubject(pool, { type: 'sponsorship', id });
         const version = async () =>
           (
             await pool.query(
@@ -94,6 +103,8 @@ test(
           );
         const review = await updateSponsorshipReview(pool, {
           contributionId: id,
+          confirmation: id,
+          actor: fixtureModerationActor,
           expectedVersion: await version(),
           reviewStatus: 'approved',
           reviewNote: null
@@ -121,6 +132,7 @@ test(
           'metadata does not release the visibility hold'
         );
         assert.equal(await directoryHas(), false);
+        await approveFixtureSubject(pool, { type: 'sponsorship', id });
         const input = {
           contributionId: id,
           expectedVersion: await version(),
@@ -206,20 +218,33 @@ test(
             [id]
           );
           assert.equal((await load()).website.canPublish, false, change);
-          assert.equal(
-            await setSponsorshipWebsiteVisibility(
-              pool,
-              { ...input, expectedVersion: await version() },
-              'fixture-admin'
-            ),
-            'blocked',
-            change
-          );
+          const changedInput = { ...input, expectedVersion: await version() };
+          if (change === "sponsor_company_name=''") {
+            await assert.rejects(
+              setSponsorshipWebsiteVisibility(
+                pool,
+                changedInput,
+                'fixture-admin'
+              ),
+              { code: 'MODERATION_RESTRICTED' }
+            );
+          } else {
+            assert.equal(
+              await setSponsorshipWebsiteVisibility(
+                pool,
+                changedInput,
+                'fixture-admin'
+              ),
+              'blocked',
+              change
+            );
+          }
           assert.equal(await directoryHas(), false);
           await pool.query(
             `UPDATE fund_contributions SET ${restore} WHERE id=$1`,
             [id]
           );
+          await approveFixtureSubject(pool, { type: 'sponsorship', id });
         }
         await pool.query(
           "UPDATE sponsor_media_assets SET review_status='pending_review', public_storage_key=NULL, public_url=NULL WHERE contribution_id=$1",

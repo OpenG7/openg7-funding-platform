@@ -161,7 +161,7 @@ export class AdminSponsorMediaWorkflow {
       this.ports.t('admin.messages.decision_en_cours')
     );
     try {
-      await this.saveSponsorMediaReview(event);
+      if (!(await this.saveSponsorMediaReview(event, sponsorship))) return;
       await this.loadSponsorMedia(sponsorship.id);
       this.setSponsorMediaMessage(
         sponsorship.id,
@@ -221,7 +221,7 @@ export class AdminSponsorMediaWorkflow {
             item.assetId === asset.id && item.expectedVersion === asset.version
         );
         if (!review) continue;
-        await this.saveSponsorMediaReview(review);
+        if (!(await this.saveSponsorMediaReview(review, sponsorship))) break;
         approvedCount += 1;
       }
       await this.loadSponsorMedia(sponsorship.id);
@@ -258,15 +258,47 @@ export class AdminSponsorMediaWorkflow {
   }
 
   private async saveSponsorMediaReview(
-    event: AdminSponsorMediaReviewEvent
-  ): Promise<void> {
+    event: AdminSponsorMediaReviewEvent,
+    sponsorship: AdminSponsorshipRecord
+  ): Promise<boolean> {
     const altText = event.altText.trim();
+    let expectedVersion = event.expectedVersion;
+    const asset = this.sponsorMedia()[sponsorship.id]?.find(
+      (item) => item.id === event.assetId
+    );
+    if (altText !== (asset?.altText ?? '')) {
+      const result = await this.ports.admin.updateSponsorMediaMetadata(
+        this.ports.adminToken(),
+        {
+          assetId: event.assetId,
+          expectedVersion,
+          confirmation: event.assetId,
+          altText: altText || null
+        }
+      );
+      expectedVersion = result.asset.version;
+      await this.loadSponsorMedia(sponsorship.id);
+    }
+    if (this.disposed || !this.ports.canContinue(sponsorship)) return false;
+    const moderationDecision = await this.ports.moderate(
+      { type: 'media', id: event.assetId },
+      event.reviewStatus === 'approved' ? 'N0' : 'N3'
+    );
+    if (
+      !moderationDecision ||
+      this.disposed ||
+      !this.ports.canContinue(sponsorship)
+    )
+      return false;
     await this.ports.admin.reviewSponsorMedia(this.ports.adminToken(), {
       assetId: event.assetId,
-      expectedVersion: event.expectedVersion,
+      expectedVersion,
       reviewStatus: event.reviewStatus,
-      altText: altText || undefined
+      altText: altText || undefined,
+      moderationDecision,
+      confirmation: event.assetId
     });
+    return true;
   }
 
   async deleteSponsorMedia(

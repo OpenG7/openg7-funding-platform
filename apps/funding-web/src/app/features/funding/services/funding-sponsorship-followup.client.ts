@@ -16,6 +16,47 @@ import { SponsorshipFollowupError } from '../models/sponsorship-followup-ui.js';
 /** Private sponsor follow-up endpoints; tokens retain their endpoint-specific location. */
 export class FundingSponsorshipFollowupClient {
   constructor(private readonly apiBaseUrl: string) {}
+  async moderation(
+    token: string
+  ): Promise<import('@openg7/funding-core').SponsorshipModerationResponse> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/sponsorship-followup/moderation?${new URLSearchParams({ token })}`,
+      { cache: 'no-store' }
+    );
+    if (!response.ok) throw new SponsorshipFollowupError(response.status);
+    return response.json();
+  }
+  async reconsideration(
+    payload: import('@openg7/funding-core').SponsorshipReconsiderationRequest
+  ): Promise<{ id: string; state: string }> {
+    return this.moderationMutation(
+      '/sponsorship-followup/reconsideration',
+      payload
+    );
+  }
+  async correction(
+    payload: import('@openg7/funding-core').SponsorshipCorrectionRequest
+  ): Promise<SponsorshipDetailsResult> {
+    return this.moderationMutation('/sponsorship-followup/correction', payload);
+  }
+  private async moderationMutation<T>(
+    path: string,
+    payload: unknown
+  ): Promise<T> {
+    const response = await fetch(`${this.apiBaseUrl}${path}`, {
+      method: 'POST',
+      cache: 'no-store',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok) {
+      const data = (await response.json().catch(() => ({}))) as {
+        code?: string;
+      };
+      throw new SponsorshipFollowupError(response.status, data.code ?? '');
+    }
+    return response.json() as Promise<T>;
+  }
 
   async getSponsorshipFollowup(
     token: string

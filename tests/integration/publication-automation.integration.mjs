@@ -5,6 +5,10 @@ import { readdir, readFile } from 'node:fs/promises';
 import sharp from 'sharp';
 import { composePublicationRecognition } from '../../dist/packages/funding-core/src/index.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
+import {
+  approveFixtureSubject,
+  fixtureModerationDecision
+} from './support/moderation-fixture.mjs';
 import { PublicationAutomationService } from '../../dist/apps/funding-api/src/publication-automation/service.js';
 import { sources } from '../../dist/apps/funding-api/src/publication-automation/sources.js';
 import { mediaRecord } from '../../dist/apps/funding-api/src/publication-automation/media.js';
@@ -81,7 +85,16 @@ test(
     async function approve(id, s = service) {
       const j = (await s.state()).deliveries.find((j) => j.id === id);
       await s.command(
-        { action: 'approve', id, version: j.version, confirmation: id },
+        {
+          action: 'approve',
+          id,
+          version: j.version,
+          confirmation: id,
+          moderationDecision: await fixtureModerationDecision(pool, {
+            type: 'publication_delivery',
+            id
+          })
+        },
         'tester'
       );
     }
@@ -106,6 +119,7 @@ test(
         `INSERT INTO fund_contributions(id,contribution_type,amount_cents,status,public_display_consent,sponsor_review_status,sponsor_company_name,sponsor_public_summary,sponsor_feed_target,sponsor_feed_channels) VALUES($1,'sponsorship_interest',25000,'paid',TRUE,'approved','Fixture sponsor','Approved public summary','openg20','["facebook"]')`,
         [id]
       );
+      await approveFixtureSubject(pool, { type: 'sponsorship', id });
       return id;
     }
     async function presentation(contributionId) {
@@ -121,6 +135,7 @@ test(
           '0'.repeat(64)
         ]
       );
+      await approveFixtureSubject(pool, { type: 'media', id });
       return id;
     }
     async function pendingProposal() {
@@ -135,15 +150,26 @@ test(
       );
       return { contributionId, job };
     }
-    function combinedApproval(job) {
+    async function combinedApproval(job) {
       return {
         action: 'approve',
         id: job.id,
         version: job.version,
         confirmation: job.id,
-        approveSponsors: job.sponsors
-          .filter((s) => s.reviewStatus === 'pending_review')
-          .map(({ id, version }) => ({ id, version }))
+        moderationDecision: await fixtureModerationDecision(pool, {
+          type: 'publication_delivery',
+          id: job.id
+        }),
+        approveSponsors: await Promise.all(
+          job.sponsors.map(async ({ id, version }) => ({
+            id,
+            version,
+            moderationDecision: await fixtureModerationDecision(pool, {
+              type: 'sponsorship',
+              id
+            })
+          }))
+        )
       };
     }
     await t.test(
@@ -597,7 +623,12 @@ test(
             action: 'reject',
             id: job.id,
             version: (await record(job.id)).version,
-            confirmation: job.id
+            confirmation: job.id,
+            moderationDecision: await fixtureModerationDecision(
+              pool,
+              { type: 'publication_delivery', id: job.id },
+              'N3'
+            )
           },
           'reviewer'
         );
@@ -628,7 +659,7 @@ test(
           code: 'SPONSOR_APPROVAL_REQUIRED'
         });
         await assert.rejects(
-          service.command(combinedApproval(job), 'reviewer'),
+          service.command(await combinedApproval(job), 'reviewer'),
           { code: 'SPONSOR_MEDIA_REQUIRED' }
         );
         const mediaId = await presentation(contributionId);
@@ -638,7 +669,7 @@ test(
         );
         const fresh = await record(job.id);
         await assert.rejects(
-          service.command(combinedApproval(fresh), 'reviewer'),
+          service.command(await combinedApproval(fresh), 'reviewer'),
           { code: 'CONNECTION_REQUIRED' }
         );
         assert.equal(
@@ -647,7 +678,7 @@ test(
         );
         await activate();
         await service.command(
-          combinedApproval(await record(job.id)),
+          await combinedApproval(await record(job.id)),
           'reviewer'
         );
         assert.equal((await record(job.id)).status, 'approved');
@@ -694,6 +725,10 @@ test(
         );
         assert.equal((await listPublicBuilders(pool)).builders.length, 0);
         assert.equal(await getApprovedPublicSponsorMedia(pool, mediaId), null);
+        await approveFixtureSubject(pool, {
+          type: 'sponsorship',
+          id: contributionId
+        });
         assert.equal(
           await setSponsorshipWebsiteVisibility(
             pool,
@@ -721,7 +756,7 @@ test(
         const { contributionId, job } = await pendingProposal();
         await presentation(contributionId);
         await activate();
-        const stale = combinedApproval(job);
+        const stale = await combinedApproval(job);
         await pool.query(
           "UPDATE fund_contributions SET sponsor_company_name='Changed company',updated_at=NOW() WHERE id=$1",
           [contributionId]
@@ -734,7 +769,10 @@ test(
           [contributionId]
         );
         await assert.rejects(
-          service.command(combinedApproval(await record(job.id)), 'reviewer'),
+          service.command(
+            await combinedApproval(await record(job.id)),
+            'reviewer'
+          ),
           { code: 'SOURCE_NOT_ELIGIBLE' }
         );
         await service.prepare(feedId, 'planner');
@@ -1027,7 +1065,12 @@ test(
           }
           const blocked = await record(job.id);
           assert.equal(blocked.status, 'blocked');
-          assert.equal(blocked.errorCode, 'SPONSOR_REVIEW_REQUIRED');
+          assert.equal(
+            blocked.errorCode,
+            scenario.startsWith('before-dispatch')
+              ? 'MODERATION_RESTRICTED'
+              : 'SPONSOR_REVIEW_REQUIRED'
+          );
           assert.equal(blocked.approvedAt, null);
           assert.equal(blocked.externalPostId, null);
           const claimCount = scenario.startsWith('before-dispatch') ? 1 : 0;
@@ -1065,7 +1108,7 @@ test(
             'reviewer'
           );
           await service.command(
-            combinedApproval(await record(job.id)),
+            await combinedApproval(await record(job.id)),
             'reviewer'
           );
           const authorized = await record(job.id);
@@ -1255,7 +1298,13 @@ test(
                   reviewStatus === 'approved'
                     ? 'https://example.test/image.webp'
                     : null,
-                reviewedBy: 'tester'
+                reviewedBy: 'tester',
+                confirmation: mediaId,
+                moderationDecision: await fixtureModerationDecision(
+                  pool,
+                  { type: 'media', id: mediaId },
+                  reviewStatus === 'rejected' ? 'N3' : 'N0'
+                )
               });
               assert.equal(result.status, 'updated');
             }
@@ -1279,7 +1328,9 @@ test(
           assert.equal(blocked.status, 'blocked');
           assert.equal(
             blocked.errorCode,
-            change === 'reapproved' ? 'MEDIA_CHANGED' : 'MEDIA_NOT_APPROVED'
+            change === 'deleted'
+              ? 'MEDIA_NOT_APPROVED'
+              : 'MODERATION_RESTRICTED'
           );
           assert.equal(blocked.approvedAt, null);
           const claimCount = change === 'after-preflight' ? 1 : 0;
@@ -1293,7 +1344,17 @@ test(
               [id]
             )
           ).rows;
-          assert.equal(audits.length, 1);
+          assert.equal(audits.length, change === 'reapproved' ? 0 : 1);
+          if (change === 'reapproved')
+            assert.equal(
+              (
+                await pool.query(
+                  "SELECT COUNT(*)::int AS count FROM moderation_decisions WHERE subject_type='media' AND subject_id=$1 AND level='N3'",
+                  [mediaId]
+                )
+              ).rows[0].count,
+              1
+            );
           await assert.rejects(
             service.command(
               {
@@ -1359,6 +1420,7 @@ test(
             '0'.repeat(64)
           ]
         );
+        await approveFixtureSubject(pool, { type: 'media', id: mediaId });
         const { id } = await service.command(
           {
             action: 'compose',
@@ -1474,7 +1536,7 @@ test(
         await service.tick(due);
         const blocked = await record(job.id);
         assert.equal(blocked.status, 'blocked');
-        assert.equal(blocked.errorCode, 'SOURCE_CONTENT_MISSING');
+        assert.equal(blocked.errorCode, 'MODERATION_RESTRICTED');
         assert.equal(blocked.approvedAt, null);
         assert.equal(blocked.externalPostId, null);
         assert.deepEqual(

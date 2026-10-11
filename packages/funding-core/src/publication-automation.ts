@@ -151,13 +151,19 @@ export type PublicationAutomationCommand =
       id: string;
       version: number;
       confirmation: string;
-      approveSponsors?: { id: string; version: string }[];
+      moderationDecision?: import('./moderation.js').ModerationDecisionInput;
+      approveSponsors?: {
+        id: string;
+        version: string;
+        moderationDecision?: import('./moderation.js').ModerationDecisionInput;
+      }[];
     }
   | {
       action: 'reject' | 'cancel';
       id: string;
       version: number;
       confirmation: string;
+      moderationDecision?: import('./moderation.js').ModerationDecisionInput;
     }
   | {
       action: 'reconcile';

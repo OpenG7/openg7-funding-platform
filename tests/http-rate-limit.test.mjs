@@ -87,6 +87,38 @@ test('rate-limit groups keep recovery, lookup, follow-up, checkout and administr
   assert.equal(limiter.writes.length, 5);
 });
 
+test('moderation follow-up reads, corrections and reconsideration share the existing private IP quota', () => {
+  for (const [suffix, method] of [
+    ['moderation', 'GET'],
+    ['correction', 'POST'],
+    ['reconsideration', 'POST']
+  ]) {
+    for (const prefix of ['', '/api']) {
+      const limiter = fixture();
+      assert.equal(
+        limiter.enforce(request('/api/sponsorship-followup/draft')),
+        true
+      );
+      assert.equal(
+        limiter.enforce(
+          request(`${prefix}/sponsorship-followup/${suffix}`, { method })
+        ),
+        false
+      );
+      assert.equal(limiter.writes[0].status, 429);
+      assert.equal(
+        limiter.enforce(
+          request(`${prefix}/sponsorship-followup/${suffix}`, {
+            method,
+            peer: '192.0.2.2'
+          })
+        ),
+        true
+      );
+    }
+  }
+});
+
 test('legacy sponsorship details writes share the Checkout quota across aliases', () => {
   for (const path of ['/sponsorship-details', '/api/sponsorship-details']) {
     const limiter = fixture();

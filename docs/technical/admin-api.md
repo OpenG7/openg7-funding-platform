@@ -7,6 +7,11 @@ permissions and simulation: [contribution activity](../operations/contribution-a
 
 Contracts: feature guides and code; [documentation index](../README.md).
 
+Versioned moderation decisions, independent review, private reconsideration,
+assistance and owner-only governance previews:
+[moderation contracts](../operations/sponsorship-moderation.md). These reads require
+operator/owner rights; reader sessions cannot inspect the underlying evidence.
+
 ## Fundraiser admin
 
 `GET/POST /api/admin/backups`: [database backups](../operations/admin-database-backups.md)

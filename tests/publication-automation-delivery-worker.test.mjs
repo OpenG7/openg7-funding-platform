@@ -10,6 +10,7 @@ import {
   observeProviderResult
 } from '../dist/apps/funding-api/src/publication-automation/delivery-outcomes.js';
 import { PublicationAutomationError } from '../dist/apps/funding-api/src/publication-automation/policy.js';
+import { moderationQueryFixture } from './support/moderation-query-fixture.mjs';
 
 const now = new Date('2030-10-03T12:00:00Z');
 const delivery = (id = 'synthetic-delivery', overrides = {}) => ({
@@ -70,6 +71,9 @@ function fixture(options = {}) {
     const text = sql.replace(/\s+/g, ' ').trim();
     events.push({ type: 'query', text, values, transactional });
     const result = (rows = []) => ({ rows, rowCount: rows.length });
+    const moderation = moderationQueryFixture(text);
+    if (moderation) return moderation;
+    if (text.startsWith('UPDATE moderation_remote_removals')) return result();
     if (text.startsWith('INSERT INTO admin_audit_log')) {
       if (
         values[1] === 'publication_automation.published' &&
@@ -223,6 +227,7 @@ function fixture(options = {}) {
         row.lease_until = null;
         row.version++;
         if (
+          values[2].startsWith('MODERATION_') ||
           [
             'SPONSOR_REVIEW_REQUIRED',
             'MEDIA_CHANGED',

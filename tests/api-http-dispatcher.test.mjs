@@ -10,6 +10,8 @@ import { createRouteMatcher } from '../dist/apps/funding-api/src/http-routing.js
 
 const origin = 'https://funding.example.test';
 const handlerNames = [
+  'handleAdminModerationRequest',
+  'handlePublicModerationRequest',
   'handleAdminStripeBackfillRequest',
   'handleAdminPilotageRequest',
   'handleAdminContributionActivityRequest',
@@ -493,7 +495,13 @@ test('route and development status failures propagate to the listener without fa
     routes.dispatch(request('/api/checkout-sessions', 'POST'), {}),
     (error) => error === failure
   );
-  assert.deepEqual(routes.calls, ['quota', ...handlerNames.slice(0, 7)]);
+  assert.deepEqual(routes.calls, [
+    'quota',
+    ...handlerNames.slice(
+      0,
+      handlerNames.indexOf('handlePublicPaymentsRequest')
+    )
+  ]);
   assert.deepEqual(routes.writes, []);
   const development = fixture({
     async readDevelopmentStatus() {

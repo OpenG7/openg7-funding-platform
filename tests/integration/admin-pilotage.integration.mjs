@@ -5,6 +5,11 @@ import { once } from 'node:events';
 import { readFile, readdir } from 'node:fs/promises';
 import test from 'node:test';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
+import {
+  approveFixtureSubject,
+  fixtureModerationActor,
+  fixtureModerationDecision
+} from './support/moderation-fixture.mjs';
 import { PublicationAutomationService } from '../../dist/apps/funding-api/src/publication-automation/service.js';
 import { AdminPilotageService } from '../../dist/apps/funding-api/src/admin-pilotage.service.js';
 
@@ -38,7 +43,7 @@ test(
       }
     );
     const pilot = new AdminPilotageService(pool, automation);
-    const actor = 'fixture-operator';
+    const actor = fixtureModerationActor;
     const command = (action, targetId, version, payload) => ({
       requestId: randomUUID(),
       action,
@@ -67,6 +72,11 @@ test(
         const before = await pilot.state();
         assert.equal(before.writable, false);
         assert.ok(before.missingSources.includes('commands'));
+        const proposal = (
+          await pool.query('SELECT * FROM publication_deliveries WHERE id=$1', [
+            id
+          ])
+        ).rows[0];
         await pool.query(
           await readFile(
             new URL('024_create_admin_command_receipts.sql', migrations),
@@ -75,10 +85,29 @@ test(
         );
         const after = await pilot.state();
         assert.equal(after.writable, true);
-        assert.equal(
-          after.decisions.find((d) => d.targetId === id).version,
-          '1'
+        assert.equal(proposal.version, 1);
+        assert.deepEqual(
+          (
+            await pool.query(
+              'SELECT * FROM publication_deliveries WHERE id=$1',
+              [id]
+            )
+          ).rows[0],
+          proposal
         );
+        // The upgrade assertion remains on 024; later commands use the current
+        // schema and explicit editorial decisions, rather than legacy grants.
+        for (const file of (await readdir(migrations))
+          .filter(
+            (f) =>
+              /^\d{3}_.+\.sql$/.test(f) &&
+              Number(f.slice(0, 3)) >= 25 &&
+              !f.startsWith('026_')
+          )
+          .sort()) {
+          await pool.query(await readFile(new URL(file, migrations), 'utf8'));
+        }
+        await approveFixtureSubject(pool, { type: 'publication_delivery', id });
       }
     );
     await t.test(
@@ -209,11 +238,17 @@ test(
         assert.equal(failed.code, 'SPONSOR_MEDIA_REQUIRED');
         const rejected = await pilot.command(
           command('sponsor.reject', sponsorId, card.version, {
-            reason: 'Fixture review declined'
+            reason: 'Fixture review declined',
+            moderationDecision: await fixtureModerationDecision(
+              pool,
+              { type: 'sponsorship', id: sponsorId },
+              'N4'
+            )
           }),
           actor
         );
         assert.equal(rejected.status, 'completed');
+        assert.equal(rejected.code, 'PENDING_INDEPENDENT_REVIEW');
         await pool.query(
           "UPDATE fund_contributions SET sponsor_review_status='pending_review',updated_at=NOW() WHERE id=$1",
           [sponsorId]
@@ -221,6 +256,22 @@ test(
         await pool.query(
           "UPDATE sponsor_media_assets SET review_status='approved',public_storage_key='fixture/public',public_url='https://example.test/fixture.webp' WHERE contribution_id=$1",
           [sponsorId]
+        );
+        const media = (
+          await pool.query(
+            'SELECT id FROM sponsor_media_assets WHERE contribution_id=$1',
+            [sponsorId]
+          )
+        ).rows[0];
+        await approveFixtureSubject(pool, { type: 'media', id: media.id });
+        await assert.rejects(
+          approveFixtureSubject(pool, { type: 'sponsorship', id: sponsorId }),
+          { code: 'MODERATION_INDEPENDENT_REVIEW_REQUIRED' }
+        );
+        await approveFixtureSubject(
+          pool,
+          { type: 'sponsorship', id: sponsorId },
+          'admin:00000000-0000-4000-8000-000000000005'
         );
         const fresh = (
           await pilot.state({ domain: 'sponsors' })
@@ -370,15 +421,6 @@ test(
     await t.test(
       'real HTTP routes enforce OIDC roles, origin, receipt ownership and closed catalog',
       async () => {
-        await pool.query(
-          await readFile(
-            new URL(
-              '025_create_publication_editorial_profiles.sql',
-              migrations
-            ),
-            'utf8'
-          )
-        );
         const issuer = 'https://issuer.example.test/',
           origin = 'http://127.0.0.1:4179';
         const cookies = {};
@@ -457,6 +499,42 @@ test(
         });
         const base = `http://127.0.0.1:${port}`;
         for (const prefix of ['/admin', '/api/admin']) {
+          for (const path of [
+            'content',
+            'assistance',
+            'cases',
+            'decisions',
+            'reconsiderations',
+            'metrics',
+            'assignment',
+            'adoption-preview',
+            'retention-preview',
+            'remote-removals'
+          ]) {
+            assert.equal(
+              (
+                await fetch(base + prefix + '/moderation/' + path, {
+                  headers: { cookie: cookies.reader }
+                })
+              ).status,
+              403,
+              `reader cannot inspect ${prefix}/moderation/${path}`
+            );
+          }
+          assert.equal(
+            (
+              await fetch(base + prefix + '/moderation/decisions', {
+                method: 'POST',
+                headers: {
+                  cookie: cookies.reader,
+                  origin,
+                  'Content-Type': 'application/json'
+                },
+                body: '{}'
+              })
+            ).status,
+            403
+          );
           const automationUrl = base + prefix + '/publication-automation';
           const workerCommand = {
             action: 'worker',
@@ -576,7 +654,13 @@ test(
             ).status,
             400
           );
-          const c = command('publication.reject', id, 2);
+          const c = command('publication.reject', id, 2, {
+            moderationDecision: await fixtureModerationDecision(
+              pool,
+              { type: 'publication_delivery', id },
+              'N3'
+            )
+          });
           assert.equal((await post('reader', c)).status, 403);
           assert.equal((await post('operator', c, false)).status, 403);
           assert.equal(

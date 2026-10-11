@@ -9,6 +9,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { test, expect } from './support/test.js';
+import { moderationFixture, completeModeration } from './support/moderation.js';
 
 const initialJob: PublicationDelivery = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -146,6 +147,7 @@ async function fixtures(
     );
   }, options.role);
   await page.route('**/api/**', async (route) => {
+    if (await moderationFixture(route)) return;
     const path = new URL(route.request().url()).pathname;
     if (path.endsWith('/auth/current'))
       return route.fulfill({
@@ -1017,8 +1019,9 @@ test('approves the exact destination and version only after an explicit decision
   await expect(authorize).toBeDisabled();
   await dialog.getByRole('checkbox', { name: /J’approuve/ }).check();
   await authorize.click();
+  await completeModeration(page);
   await expect(dialog).toContainText('Autorisée');
-  expect(commands[0]).toEqual({
+  expect(commands[0]).toMatchObject({
     action: 'approve',
     id: initialJob.id,
     version: 1,
@@ -1441,7 +1444,14 @@ for (const language of ['fr-CA', 'en'] as const) {
           externalPostId: 'verified-post'
         }
       ]);
-      await dialog.locator('summary').click();
+      await dialog
+        .locator('summary')
+        .filter({
+          hasText: english
+            ? 'After checking: the publication is absent'
+            : 'Après vérification : la publication est absente'
+        })
+        .click();
       await expect(dialog.getByRole('checkbox')).not.toBeChecked();
       await expect(
         dialog.getByRole('button', {
@@ -1697,7 +1707,14 @@ for (const language of ['fr-CA', 'en'] as const) {
       await page.unroute('**/api/**');
       const absenceCommands = await fixtures(page, 'uncertain');
       await page.reload();
-      await dialog.locator('summary').click();
+      await dialog
+        .locator('summary')
+        .filter({
+          hasText: en
+            ? 'After checking: the publication is absent'
+            : 'Après vérification : la publication est absente'
+        })
+        .click();
       const reason = dialog.locator('textarea');
       const checkbox = dialog.getByRole('checkbox');
       const confirm = dialog.getByRole('button', {
@@ -1769,6 +1786,8 @@ test('one explicit acceptance reviews pending sponsors and the publication toget
     .getByRole('checkbox', { name: /J’approuve ces commanditaires/ })
     .check();
   await dialog.getByRole('button', { name: 'Accepter et programmer' }).click();
+  await completeModeration(page);
+  await completeModeration(page);
   expect(commands[0]).toMatchObject({
     action: 'approve',
     approveSponsors: [{ id: sponsors[0]!.id, version: sponsors[0]!.version }]
@@ -1810,11 +1829,9 @@ test('refusing a proposal requires a decision and moves it to history', async ({
   await page.locator('[data-og7-id="' + initialJob.id + '"]').click();
   const dialog = page.getByRole('dialog', { name: 'Publication finale' });
   await dialog.getByRole('button', { name: 'Refuser', exact: true }).click();
-  await expect(
-    page.getByText(/Ce lot restera dans l’historique/)
-  ).toBeVisible();
+  await expect(page.locator('[data-og7="moderation-decision"]')).toBeVisible();
   expect(commands).toHaveLength(0);
-  await page.locator('[data-og7="confirm-action"]').click();
+  await completeModeration(page, true);
   await expect(dialog).toContainText('Refusée');
   expect(commands[0]).toMatchObject({
     action: 'reject',
@@ -2049,6 +2066,7 @@ test('approval rereads the dossier scope and waits for server state before feedb
     await drawer
       .getByRole('button', { name: 'Accepter et programmer', exact: true })
       .click();
+    await completeModeration(page);
     await expect.poll(() => reads).toBe(2);
     expect(commands).toHaveLength(1);
     await expect(
@@ -2361,6 +2379,7 @@ test('a command confirmation supersedes an older polling response without restor
     await drawer
       .getByRole('button', { name: 'Accepter et programmer', exact: true })
       .click();
+    await completeModeration(page);
     await expect(drawer).toContainText('Autorisée');
     await expect(page.getByText('Enregistré.', { exact: true })).toBeVisible();
     expect(reads).toBe(3);

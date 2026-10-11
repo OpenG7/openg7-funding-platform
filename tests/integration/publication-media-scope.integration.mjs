@@ -5,6 +5,7 @@ import sharp from 'sharp';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 import { PublicationAutomationService } from '../../dist/apps/funding-api/src/publication-automation/service.js';
 import { composePublicationRecognition } from '../../dist/packages/funding-core/src/index.js';
+import { approveFixtureSubject } from './support/moderation-fixture.mjs';
 
 test(
   'publication media batch scope with disposable PostgreSQL',
@@ -63,6 +64,7 @@ test(
         `INSERT INTO fund_contributions(id,contribution_type,amount_cents,status,public_display_consent,sponsor_review_status,sponsor_company_name,sponsor_public_summary,sponsor_feed_target,sponsor_feed_channels) VALUES($1,'sponsorship_interest',25000,'paid',TRUE,'approved',$2,'Approved synthetic summary','openg20','["facebook"]')`,
         [id, name]
       );
+      await approveFixtureSubject(pool, { type: 'sponsorship', id });
       return id;
     }
 
@@ -80,6 +82,8 @@ test(
         ]
       );
       for (const id of ids) objects.set(`${id}/processed`, bytes);
+      for (const id of ids)
+        await approveFixtureSubject(pool, { type: 'media', id });
       return ids;
     }
 
@@ -179,6 +183,7 @@ test(
     }
 
     async function approve(id) {
+      await approveFixtureSubject(pool, { type: 'publication_delivery', id });
       await service.command(approval(await record(id)), 'reviewer');
     }
 

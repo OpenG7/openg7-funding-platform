@@ -254,6 +254,34 @@
       }}</span>
     </label>
   </fieldset>
+  @if (contributionType() === 'sponsorship_interest') {
+    @if (charter.state() === 'loading') {
+      <p role="status">{{ 'funding.charter.loading' | translate }}</p>
+    }
+    @if (charter.state() === 'error') {
+      <p role="alert">{{ 'funding.charter.unavailable' | translate }}</p>
+      <button type="button" (click)="charter.load()">
+        {{ 'funding.followup.retry' | translate }}
+      </button>
+    }
+    @if (charter.charter()?.active) {
+      <section data-og7="sponsorship-charter">
+        <h3>{{ 'funding.charter.title' | translate }}</h3>
+        <p style="white-space: pre-wrap">{{ charter.text() }}</p>
+        <label class="consent-option required"
+          ><input
+            type="checkbox"
+            [checked]="charterAccepted()"
+            (change)="acceptCharter($event)"
+            data-og7="charter-acceptance"
+          /><span>{{
+            'funding.charter.acceptance'
+              | translate: { version: charter.charter()?.policyVersion }
+          }}</span></label
+        >
+      </section>
+    }
+  }
   <button type="submit" class="gold-cta" [disabled]="!canStartCheckout()">
     {{ 'funding.nav.supportCta' | translate }}
   </button>
@@ -283,7 +311,9 @@
     {{
       (checkoutRequiresVerification()
         ? 'funding.home.contribution.verificationRequired'
-        : 'funding.home.contribution.error'
+        : checkoutCharterChanged()
+          ? 'funding.charter.changed'
+          : 'funding.home.contribution.error'
       ) | translate
     }}
   </p>

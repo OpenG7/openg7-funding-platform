@@ -1,0 +1,152 @@
+@if (canReview()) {
+  <section
+    class="moderation-actions"
+    data-og7="moderation-actions"
+    [attr.aria-busy]="busy()"
+  >
+    <h3>{{ 'admin.moderation.actions' | translate }}</h3>
+    @if (caseState()) {
+      <p role="status">
+        {{ 'admin.moderation.states.' + caseState() | translate }}
+      </p>
+    }
+    <label
+      >{{ 'admin.moderation.title' | translate
+      }}<select
+        [value]="level()"
+        (change)="setLevel($event)"
+        [disabled]="busy() || disabled()"
+      >
+        @for (option of levels(); track option) {
+          <option [value]="option">
+            {{ 'admin.moderation.levels.' + option | translate }}
+          </option>
+        }
+      </select></label
+    >
+    <button
+      type="button"
+      class="admin-button"
+      [disabled]="busy() || disabled()"
+      (click)="decide()"
+      data-og7="moderation-open"
+    >
+      {{ 'admin.moderation.open' | translate }}
+    </button>
+    @if (notice()) {
+      <p role="status">{{ notice() | translate }}</p>
+    }
+    <details (toggle)="historyOpened($event)">
+      <summary>{{ 'admin.moderation.history' | translate }}</summary>
+      @if (canAssign()) {
+        <section data-og7="moderation-assignment">
+          <h4>{{ 'admin.moderation.assignmentTitle' | translate }}</h4>
+          @if (assignmentState() === 'loading') {
+            <p role="status">
+              {{ 'admin.moderation.loading' | translate }}
+            </p>
+          }
+          @if (assignmentState() === 'error') {
+            <p role="alert">
+              {{ 'admin.moderation.assignmentUnavailable' | translate }}
+            </p>
+            <button type="button" [disabled]="busy()" (click)="loadHistory()">
+              {{ 'admin.moderation.retry' | translate }}
+            </button>
+          }
+          @if (assignmentState() === 'ready') {
+            <label
+              >{{ 'admin.moderation.assignedMember' | translate
+              }}<select
+                [value]="assignmentDraft()"
+                [disabled]="busy() || disabled()"
+                (change)="assignmentDraft.set(selectValue($event))"
+                data-og7="moderation-assigned-member"
+              >
+                <option value="">
+                  {{ 'admin.moderation.unassigned' | translate }}
+                </option>
+                @for (member of members(); track member.id) {
+                  <option [value]="'admin:' + member.id">
+                    {{ member.displayName }}
+                  </option>
+                }
+              </select></label
+            >
+            <button
+              type="button"
+              class="admin-button"
+              [disabled]="
+                busy() ||
+                disabled() ||
+                (assignmentDraft() || null) === assignedTo()
+              "
+              (click)="assign()"
+              data-og7="moderation-assign"
+            >
+              {{ 'admin.moderation.saveAssignment' | translate }}
+            </button>
+          }
+        </section>
+      }
+      @for (appeal of reconsiderations(); track appeal.id) {
+        <article
+          data-og7="moderation-reconsideration"
+          [attr.data-og7-id]="appeal.id"
+        >
+          <h4>{{ 'admin.moderation.reconsiderationTitle' | translate }}</h4>
+          <p>{{ appeal.message }}</p>
+          <p>
+            {{
+              'admin.moderation.reconsiderationStates.' + appeal.state
+                | translate
+            }}
+          </p>
+          @if (appeal.state === 'open') {
+            <p>{{ 'admin.moderation.reconsiderationHelp' | translate }}</p>
+            <button
+              type="button"
+              class="admin-button"
+              [disabled]="busy() || disabled()"
+              (click)="resolveReconsideration(appeal.id)"
+              data-og7="moderation-resolve-reconsideration"
+            >
+              {{ 'admin.moderation.resolveReconsideration' | translate }}
+            </button>
+          }
+        </article>
+      }
+      @for (decision of decisions(); track decision.id) {
+        <article
+          data-og7="moderation-history-decision"
+          [attr.data-og7-id]="decision.id"
+        >
+          <strong>{{
+            'admin.moderation.levels.' + decision.level | translate
+          }}</strong>
+          <p>{{ reason(decision.primaryReason) }}</p>
+          <p>{{ decision.sponsorExplanation }}</p>
+          <small
+            >{{ decision.createdAt }} · {{ decision.policyVersion }} ·
+            {{ decision.contentVersion }}</small
+          >
+          @if (
+            decision.state === 'pending_independent_review' &&
+            decision.id === currentDecisionId()
+          ) {
+            <p>{{ 'admin.moderation.independentReview' | translate }}</p>
+            <button
+              type="button"
+              class="admin-button"
+              [disabled]="busy() || disabled()"
+              (click)="independent(decision.id)"
+              data-og7="moderation-independent"
+            >
+              {{ 'admin.moderation.independentAction' | translate }}
+            </button>
+          }
+        </article>
+      }
+    </details>
+  </section>
+}

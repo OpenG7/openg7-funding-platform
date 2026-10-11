@@ -1,5 +1,9 @@
 # Reprise du suivi commanditaire sans compte
 
+Les décisions éditoriales, corrections N1 et demandes de réexamen utilisent ce
+même accès privé. Contrats, confidentialité et séparation des effets financiers :
+[modération des commandites](operations/sponsorship-moderation.md).
+
 ## Parcours livrés
 
 1. **Retrouver son accès** : la page de suivi sans lien valide et la page Support proposent de demander un nouveau lien privé avec le courriel utilisé au paiement. La réponse publique reste identique pour une adresse connue ou inconnue. Une adresse de contact saisie dans le formulaire ou le brouillon ne permet pas de récupérer l'accès.

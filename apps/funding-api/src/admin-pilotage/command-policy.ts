@@ -76,6 +76,7 @@ export function parsePilotCommand(value: unknown): PilotCommand {
             'scheduledAt',
             'mediaId',
             'approveSponsors',
+            'moderationDecision',
             'reason',
             'editorialIntent',
             'preferences',
@@ -173,8 +174,10 @@ export function parsePilotCommand(value: unknown): PilotCommand {
             mediaId: c.payload.mediaId,
             approveSponsors: c.payload.approveSponsors?.map((s) => ({
               id: s.id,
-              version: s.version
+              version: s.version,
+              moderationDecision: s.moderationDecision
             })),
+            moderationDecision: c.payload.moderationDecision,
             reason: c.payload.reason,
             editorialIntent: c.payload.editorialIntent,
             preferences: c.payload.preferences,

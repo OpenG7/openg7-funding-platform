@@ -89,6 +89,7 @@ import { AdminSponsorMediaCardComponent } from './detail-media/admin-sponsor-med
             (previewMedia)="previewMedia.emit($event)"
             (reviewMedia)="reviewMedia.emit($event)"
             (deleteMedia)="deleteMedia.emit($event)"
+            (moderationChanged)="moderationChanged.emit()"
           />
         </div>
 
@@ -209,6 +210,7 @@ import { AdminSponsorMediaCardComponent } from './detail-media/admin-sponsor-med
   ]
 })
 export class AdminSponsorDetailMediaComponent {
+  readonly moderationChanged = output<void>();
   readonly previewMedia = output<{ id: string; alt: string }>();
   readonly identity = input.required<AdminSponsorDetailIdentityView>();
   readonly uploadLogo = output<Event>();

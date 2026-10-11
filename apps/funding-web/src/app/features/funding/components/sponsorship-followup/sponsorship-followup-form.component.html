@@ -8,6 +8,11 @@
     </h2>
     <p>{{ 'funding.followup.form.privacy' | translate }}</p>
   </header>
+  @if (correctionAllowed()) {
+    <p class="notice-panel" role="status">
+      {{ 'funding.moderation.correctionActive' | translate }}
+    </p>
+  }
   <p *ngIf="!allowed()" class="notice-panel">
     {{ 'funding.followup.form.unavailable' | translate }}
   </p>

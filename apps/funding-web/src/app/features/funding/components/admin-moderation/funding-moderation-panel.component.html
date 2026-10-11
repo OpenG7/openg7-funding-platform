@@ -1,0 +1,155 @@
+<openg7-admin-drawer
+  [opened]="!!moderation.pending()"
+  [title]="'admin.moderation.title' | translate"
+  [closeLabel]="'admin.confirmation.cancel' | translate"
+  (closed)="moderation.answer(null)"
+>
+  @if (moderation.pending(); as request) {
+    <div class="moderation-fields" data-og7="moderation-decision">
+      <p>
+        {{ 'admin.moderation.levels.' + request.level | translate }} ·
+        {{ policyVersion }}
+      </p>
+      <p>{{ 'admin.moderation.context' | translate }}</p>
+      @if (loading()) {
+        <p role="status">{{ 'admin.moderation.loading' | translate }}</p>
+      }
+      @if (error()) {
+        <p role="alert">{{ error() | translate }}</p>
+      }
+      @if (content(); as current) {
+        <p>
+          {{ 'admin.moderation.contentVersion' | translate }}:
+          {{ current.contentVersion }}
+        </p>
+        <details>
+          <summary>{{ 'admin.moderation.exactContent' | translate }}</summary>
+          <pre data-og7="moderation-snapshot">{{ snapshot() }}</pre>
+        </details>
+        @if (adverse()) {
+          <label
+            >{{ 'admin.moderation.primaryReason' | translate }}
+            <select
+              [value]="primaryReason()"
+              (change)="reasonChanged($event)"
+              data-og7="moderation-primary-reason"
+              required
+            >
+              <option value="">
+                {{ 'admin.moderation.chooseReason' | translate }}
+              </option>
+              @for (reason of reasons(); track reason.code) {
+                <option [value]="reason.code">{{ label(reason) }}</option>
+              }
+            </select>
+          </label>
+          @for (reason of reasons(); track reason.code) {
+            @if (reason.code === primaryReason()) {
+              <p>{{ definition(reason) }}</p>
+            }
+          }
+          <details>
+            <summary>
+              {{ 'admin.moderation.secondaryReasons' | translate }}
+            </summary>
+            @for (reason of reasons(); track reason.code) {
+              @if (reason.code !== primaryReason()) {
+                <label
+                  ><input
+                    type="checkbox"
+                    [checked]="secondaryReasons().includes(reason.code)"
+                    (change)="secondaryChanged(reason.code, $event)"
+                  />{{ label(reason) }}</label
+                >
+              }
+            }
+          </details>
+          @if (
+            primaryReason() === 'EDITORIAL_INCOMPATIBILITY' ||
+            secondaryReasons().includes('EDITORIAL_INCOMPATIBILITY')
+          ) {
+            <label
+              >{{ 'admin.moderation.editorialProvision' | translate
+              }}<select
+                required
+                [value]="editorialProvision()"
+                (change)="
+                  editorialProvision.set(value($event)); confirmed.set(false)
+                "
+                data-og7="moderation-provision"
+              >
+                <option value="">
+                  {{ 'admin.moderation.chooseProvision' | translate }}
+                </option>
+                @for (provision of provisions; track provision.id) {
+                  <option [value]="provision.id">
+                    {{
+                      provision.label[
+                        i18n.currentLanguage() === 'en' ? 'en' : 'fr'
+                      ]
+                    }}
+                  </option>
+                }
+              </select></label
+            >
+          }
+          <label
+            >{{ 'admin.moderation.internalReason' | translate
+            }}<textarea
+              required
+              maxlength="2000"
+              [value]="internalReason()"
+              (input)="internalReason.set(value($event)); confirmed.set(false)"
+              data-og7="moderation-internal-reason"
+            ></textarea>
+          </label>
+        }
+        @if (explanationRequired()) {
+          <label
+            >{{ 'admin.moderation.sponsorExplanation' | translate
+            }}<textarea
+              required
+              maxlength="2000"
+              [value]="sponsorExplanation()"
+              (input)="
+                sponsorExplanation.set(value($event)); confirmed.set(false)
+              "
+              data-og7="moderation-explanation"
+            ></textarea>
+          </label>
+          <p>{{ 'admin.moderation.privacy' | translate }}</p>
+        }
+        @if (independent()) {
+          <p role="status">
+            {{ 'admin.moderation.independentReview' | translate }}
+          </p>
+        }
+        <label
+          ><input
+            type="checkbox"
+            [checked]="confirmed()"
+            (change)="confirmed.set(checked($event))"
+            data-og7="moderation-confirmation"
+          />{{ 'admin.moderation.confirm' | translate }}</label
+        >
+      }
+      <footer>
+        <button
+          type="button"
+          class="admin-button"
+          (click)="moderation.answer(null)"
+        >
+          {{ 'admin.confirmation.cancel' | translate }}</button
+        ><button
+          type="button"
+          class="admin-button admin-button--primary"
+          [disabled]="!valid()"
+          (click)="accept()"
+          data-og7="moderation-submit"
+        >
+          {{ 'admin.moderation.continue' | translate }}
+        </button>
+      </footer>
+    </div>
+  }
+</openg7-admin-drawer>

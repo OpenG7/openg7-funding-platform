@@ -214,6 +214,7 @@ export class AdminSponsorPublicationWorkflow {
             ...(draft.linkedin ? ['linkedin' as const] : [])
           ],
           feedStatus: draft.feedStatus,
+          confirmation: sponsorship.id,
           feedPublicUrl: draft.feedPublicUrl.trim() || undefined,
           feedNotes: draft.feedNotes.trim() || undefined
         }

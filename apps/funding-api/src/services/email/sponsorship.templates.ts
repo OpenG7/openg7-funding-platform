@@ -159,9 +159,6 @@ export const renderSponsorshipRejectionEmail = (
     'Message de notre equipe:',
     input.sponsorMessage,
     '',
-    'Motif de revue:',
-    input.reviewReason,
-    '',
     'Remboursement:',
     refundLabel,
     ...(refundNote ? ['', 'Note remboursement:', refundNote] : []),
@@ -178,8 +175,6 @@ export const renderSponsorshipRejectionEmail = (
     </p>
     <p><strong>Message de notre equipe</strong></p>
     <p>${escapeHtml(input.sponsorMessage).replaceAll('\n', '<br />')}</p>
-    <p><strong>Motif de revue</strong></p>
-    <p>${escapeHtml(input.reviewReason).replaceAll('\n', '<br />')}</p>
     <p>
       <strong>Remboursement:</strong>
       ${escapeHtml(refundLabel)}

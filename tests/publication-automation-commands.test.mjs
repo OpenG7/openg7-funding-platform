@@ -5,6 +5,7 @@ import sharp from 'sharp';
 
 import { command } from '../dist/apps/funding-api/src/publication-automation/commands.js';
 import { digest } from '../dist/apps/funding-api/src/publication-automation/policy.js';
+import { moderationQueryFixture } from './support/moderation-query-fixture.mjs';
 
 const id = '11111111-1111-4111-8111-111111111111';
 const batchId = '22222222-2222-4222-8222-222222222222';
@@ -60,6 +61,8 @@ const fixture = ({
   const client = {
     async query(sql, parameters = []) {
       calls.push({ kind: 'query', sql, parameters });
+      const moderation = moderationQueryFixture(sql, [sponsorId]);
+      if (moderation) return moderation;
       if (sql.startsWith('INSERT INTO admin_audit_log')) {
         if (auditFailure) throw auditFailure;
         audits.push(parameters);
@@ -349,6 +352,27 @@ test('rejection and cancellation revoke sending authorization without changing t
       const f = fixture({
         row: delivery({ status: 'approved', batch_id: batchId })
       });
+      if (action === 'reject') {
+        await assert.rejects(
+          command(
+            f.context,
+            { action, id, version: 4, confirmation: id },
+            'fixture-reviewer'
+          ),
+          { code: 'MODERATION_DECISION_REQUIRED' }
+        );
+        assert.equal(
+          f.queries().some((call) => /^(INSERT|UPDATE)/.test(call.sql)),
+          false
+        );
+        assert.deepEqual(f.lifecycle(), [
+          'connect',
+          'BEGIN',
+          'ROLLBACK',
+          'release'
+        ]);
+        return;
+      }
       assert.deepEqual(
         await command(
           f.context,

@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { FundingPublicClient } from '../dist/apps/funding-web/src/app/features/funding/services/funding-public.client.js';
-import { CheckoutReconciliationRequiredError } from '../dist/apps/funding-web/src/app/features/funding/services/checkout-error.js';
+import {
+  CheckoutReconciliationRequiredError,
+  CheckoutCharterChangedError
+} from '../dist/apps/funding-web/src/app/features/funding/services/checkout-error.js';
 
 const baseUrl = 'https://funding.example.test/api';
 const checkoutRequest = {
@@ -167,6 +170,49 @@ const requests = [
     invoke: (client, signal) => client.getPublicSponsorshipPage(2, 6, signal)
   }
 ];
+
+test('public charter keeps inactive proposals unavailable and preserves exact active server evidence', async (t) => {
+  const client = new FundingPublicClient(baseUrl);
+  for (const charter of [
+    { active: false, policyVersion: '1.0', fingerprint: null, text: null },
+    {
+      active: true,
+      policyVersion: '1.0',
+      fingerprint: 'a'.repeat(64),
+      text: { fr: 'Texte synthétique exact', en: 'Exact synthetic text' }
+    }
+  ]) {
+    t.mock.method(globalThis, 'fetch', async (url, options) => {
+      assert.equal(url, `${baseUrl}/sponsorship-charter`);
+      assert.equal(options.cache, 'no-store');
+      return Response.json(charter);
+    });
+    assert.deepEqual(await client.sponsorshipCharter(), charter);
+    t.mock.restoreAll();
+  }
+  t.mock.method(globalThis, 'fetch', async () =>
+    Response.json({
+      active: true,
+      policyVersion: '1.0',
+      fingerprint: null,
+      text: null
+    })
+  );
+  await assert.rejects(client.sponsorshipCharter());
+});
+
+test('changed charter evidence asks for renewed acceptance without converting the failure to payment reconciliation', async (t) => {
+  const client = new FundingPublicClient(baseUrl);
+  t.mock.method(globalThis, 'fetch', async () =>
+    Response.json({ code: 'CHARTER_VERSION_CHANGED' }, { status: 409 })
+  );
+  await assert.rejects(
+    client.startCheckout(checkoutRequest),
+    (error) =>
+      error instanceof CheckoutCharterChangedError &&
+      !(error instanceof CheckoutReconciliationRequiredError)
+  );
+});
 
 test('public requests preserve payloads, response data and optional cancellation without admin credentials', async (t) => {
   for (const request of requests) {

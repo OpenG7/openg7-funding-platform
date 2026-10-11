@@ -19,6 +19,7 @@ import {
 } from '../dist/apps/funding-api/src/publication-automation/media.js';
 import { ready } from '../dist/apps/funding-api/src/publication-automation/preflight.js';
 import { digest } from '../dist/apps/funding-api/src/publication-automation/policy.js';
+import { moderationQueryFixture } from './support/moderation-query-fixture.mjs';
 
 const source = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -80,6 +81,8 @@ function sequenceDb(...results) {
   return {
     calls,
     async query(sql, parameters) {
+      const moderation = moderationQueryFixture(sql, [source.contribution_id]);
+      if (moderation) return moderation;
       calls.push({ sql, parameters });
       assert.ok(results.length, 'Unexpected extra database query');
       const rows = results.shift();

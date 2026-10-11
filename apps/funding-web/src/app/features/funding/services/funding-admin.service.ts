@@ -115,6 +115,7 @@ import { FundingAdminAccountingClient } from './funding-admin-accounting.client.
 import { FundingAdminActivityClient } from './funding-admin-activity.client.js';
 import { FundingAdminPilotageClient } from './funding-admin-pilotage.client.js';
 import { FundingAdminAssistantClient } from './funding-admin-assistant.client.js';
+import { FundingAdminModerationClient } from './funding-admin-moderation.client.js';
 export type { AdminSponsorshipListQuery } from './funding-admin-sponsorships.client.js';
 export { AdminDashboardRequestError } from './funding-admin-session.js';
 export type {
@@ -166,6 +167,56 @@ export class FundingAdminService {
   );
   readonly sessionGeneration = this.session.sessionGeneration;
   readonly identity = this.session.identity;
+  private readonly moderationClient = new FundingAdminModerationClient(
+    this.session
+  );
+  moderationContent(subject: import('@openg7/funding-core').ModerationSubject) {
+    return this.moderationClient.content(subject);
+  }
+  moderationDecision(
+    subject: import('@openg7/funding-core').ModerationSubject,
+    decision: import('@openg7/funding-core').ModerationDecisionInput
+  ) {
+    return this.moderationClient.decide(subject, decision);
+  }
+  moderationCases(subject: import('@openg7/funding-core').ModerationSubject) {
+    return this.moderationClient.cases(subject);
+  }
+  moderationDecisions(
+    subject: import('@openg7/funding-core').ModerationSubject
+  ) {
+    return this.moderationClient.decisions(subject);
+  }
+  moderationIndependentReview(decisionId: string, requestId: string) {
+    return this.moderationClient.independentReview(decisionId, requestId);
+  }
+  moderationReconsiderations(
+    subject: import('@openg7/funding-core').ModerationSubject
+  ) {
+    return this.moderationClient.reconsiderations(subject);
+  }
+  resolveModerationReconsideration(
+    appealId: string,
+    subject: import('@openg7/funding-core').ModerationSubject,
+    decision: import('@openg7/funding-core').ModerationDecisionInput
+  ) {
+    return this.moderationClient.resolveReconsideration(
+      appealId,
+      subject,
+      decision
+    );
+  }
+  assignModeration(
+    subject: import('@openg7/funding-core').ModerationSubject,
+    assignedTo: string | null,
+    expectedAssignedTo: string | null
+  ) {
+    return this.moderationClient.assign(
+      subject,
+      assignedTo,
+      expectedAssignedTo
+    );
+  }
   stripeBackfill(
     payload?: import('@openg7/funding-core').AdminStripeBackfillRequest,
     id?: string
@@ -747,6 +798,12 @@ export class FundingAdminService {
     payload: AdminSponsorMediaReviewRequest
   ): Promise<AdminSponsorMediaReviewResult> {
     return this.sponsorshipsClient.reviewSponsorMedia(token, payload);
+  }
+  updateSponsorMediaMetadata(
+    token: string,
+    payload: import('@openg7/funding-core').AdminSponsorMediaMetadataRequest
+  ) {
+    return this.sponsorshipsClient.updateSponsorMediaMetadata(token, payload);
   }
 
   deleteSponsorMedia(
