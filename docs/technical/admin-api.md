@@ -201,6 +201,11 @@ The legacy publication-batch social endpoint now returns HTTP 409
 [publication automation workspace](../operations/publication-automation.md);
 the authorized worker owns delivery and recovery. Payment alone never authorizes sending.
 
+Optional automation `queue` has full-scope counters and 200-source pages.
+`queueOffset` requires a nonnegative safe integer (`400 INVALID_FILTER` otherwise).
+[Source diagnostics](../operations/publication-automation.md#source-preparation-queue)
+cover statuses, filters, pages and correction.
+
 When an admin refuses a sponsorship from `/admin/fundraiser/sponsors`, the
 review flow requires an internal refusal reason, can send a sponsor-facing
 email through the queued email system, and records the chosen refund handling

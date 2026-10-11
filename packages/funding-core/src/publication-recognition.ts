@@ -1,5 +1,7 @@
 /** Application budget, measured as JavaScript UTF-16 code units. */
 export const PUBLICATION_MESSAGE_MAX_CODE_UNITS = 2900;
+/** Changes when the protected rendering or its admissibility rules change. */
+export const PUBLICATION_RECOGNITION_POLICY_VERSION = 'recognition-v1';
 
 export interface PublicationRecognitionSource {
   readonly id: string;
@@ -15,6 +17,33 @@ export interface PublicationRecognitionBlock {
   readonly sourceId: string;
   readonly contributionId: string;
   readonly text: string;
+}
+
+export interface PublicationRecognitionCorrection {
+  readonly source: PublicationRecognitionSource;
+  readonly codeUnits: number;
+  readonly reason: 'SOURCE_TEXT_TOO_LONG' | 'SOURCE_CONTENT_MISSING';
+}
+
+export interface PublicationRecognitionSelection {
+  readonly message: string;
+  readonly codeUnits: number;
+  /** Existing members are retained even when their combined content is invalid. */
+  readonly retained: readonly PublicationRecognitionSource[];
+  readonly deferred: readonly PublicationRecognitionSource[];
+  readonly needsCorrection: readonly PublicationRecognitionCorrection[];
+  readonly existingIssue:
+    | 'EXISTING_CAPACITY_EXCEEDED'
+    | 'EXISTING_MESSAGE_TOO_LONG'
+    | 'SOURCE_CONTENT_MISSING'
+    | null;
+}
+
+export interface PublicationRecognitionSelectionInput {
+  readonly existingSources: readonly PublicationRecognitionSource[];
+  /** The caller supplies its stable queue order; this policy never changes it. */
+  readonly candidates: readonly PublicationRecognitionSource[];
+  readonly capacity: number;
 }
 
 const canonicalText = (text: string): string =>
@@ -119,4 +148,83 @@ export function missingPublicationRecognitionSources(
   return sources
     .filter((source) => missing.has(source.id))
     .map((source) => source.id);
+}
+
+/**
+ * Reserve only complete blocks within the application budget. A source that
+ * cannot fit alone does not stop later sources. The first otherwise valid
+ * source that needs the next batch also defers later valid sources, preserving
+ * the supplied order. No source text, approval or existing membership changes.
+ */
+export function selectPublicationRecognitionSources({
+  existingSources,
+  candidates,
+  capacity
+}: PublicationRecognitionSelectionInput): PublicationRecognitionSelection {
+  if (!Number.isSafeInteger(capacity) || capacity < 1)
+    throw new RangeError('Publication capacity must be a positive integer.');
+
+  const retained = [...existingSources];
+  const deferred: PublicationRecognitionSource[] = [];
+  const needsCorrection: PublicationRecognitionCorrection[] = [];
+  let message = composePublicationRecognition(retained);
+  const existingIssue =
+    retained.length > capacity
+      ? 'EXISTING_CAPACITY_EXCEEDED'
+      : message.length > PUBLICATION_MESSAGE_MAX_CODE_UNITS
+        ? 'EXISTING_MESSAGE_TOO_LONG'
+        : retained.length &&
+            missingPublicationRecognitionSources(message, retained).length
+          ? 'SOURCE_CONTENT_MISSING'
+          : null;
+  let deferFollowing = existingIssue !== null;
+
+  for (const source of candidates) {
+    const individualMessage = composePublicationRecognition([source]);
+    if (individualMessage.length > PUBLICATION_MESSAGE_MAX_CODE_UNITS) {
+      needsCorrection.push({
+        source,
+        codeUnits: individualMessage.length,
+        reason: 'SOURCE_TEXT_TOO_LONG'
+      });
+      continue;
+    }
+    if (
+      missingPublicationRecognitionSources(individualMessage, [source]).length
+    ) {
+      needsCorrection.push({
+        source,
+        codeUnits: individualMessage.length,
+        reason: 'SOURCE_CONTENT_MISSING'
+      });
+      continue;
+    }
+    if (deferFollowing || retained.length === capacity) {
+      deferred.push(source);
+      deferFollowing = true;
+      continue;
+    }
+    const combinedSources = [...retained, source];
+    const combinedMessage = composePublicationRecognition(combinedSources);
+    if (
+      combinedMessage.length > PUBLICATION_MESSAGE_MAX_CODE_UNITS ||
+      missingPublicationRecognitionSources(combinedMessage, combinedSources)
+        .length
+    ) {
+      deferred.push(source);
+      deferFollowing = true;
+      continue;
+    }
+    retained.push(source);
+    message = combinedMessage;
+  }
+
+  return {
+    message,
+    codeUnits: message.length,
+    retained,
+    deferred,
+    needsCorrection,
+    existingIssue
+  };
 }

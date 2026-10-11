@@ -149,6 +149,7 @@ function preparationDb({
   members = [],
   candidates = [source]
 } = {}) {
+  const assigned = new Set();
   return database((sql, parameters) => {
     if (sql.startsWith('SELECT id FROM publication_feeds'))
       return [{ id: feed.id }];
@@ -160,10 +161,17 @@ function preparationDb({
       return job ? [job] : [];
     if (sql.startsWith('SELECT * FROM sponsor_publication_batches'))
       return [{ id: 'batch', status: 'open', capacity: feed.capacity }];
-    if (sql.startsWith('SELECT * FROM sponsor_publication_drafts'))
-      return [...members];
-    if (sql.startsWith('SELECT d.* FROM sponsor_publication_drafts'))
-      return candidates;
+    if (sql.startsWith('SELECT d.*,c.sponsor_company_name AS name FROM'))
+      return members.map((member) => ({
+        ...member,
+        name: facts.sponsor_company_name
+      }));
+    if (sql.startsWith('SELECT d.*,c.sponsor_company_name AS name,'))
+      return candidates.map((candidate) => ({
+        ...candidate,
+        name: candidate.name ?? facts.sponsor_company_name,
+        source_fingerprint_material: JSON.stringify(candidate)
+      }));
     if (
       sql.startsWith('SELECT id,sponsor_company_name FROM fund_contributions')
     )
@@ -173,7 +181,10 @@ function preparationDb({
       }));
     if (sql.startsWith('SELECT 1 FROM social_publication_jobs')) return [];
     if (sql.startsWith('SELECT d.id,d.contribution_id'))
-      return [...members, ...candidates].map((s) => ({
+      return [
+        ...members,
+        ...candidates.filter((candidate) => assigned.has(candidate.id))
+      ].map((s) => ({
         ...s,
         status: 'draft',
         sponsor_feed_status: 'planned',
@@ -183,6 +194,8 @@ function preparationDb({
         destination_eligible: true
       }));
     if (sql.includes('to_regclass')) return [{ table_name: null }];
+    if (sql.startsWith('UPDATE sponsor_publication_drafts SET batch_id=$2'))
+      assigned.add(parameters[0]);
     if (sql.startsWith('UPDATE ')) return [];
   });
 }
@@ -236,6 +249,44 @@ test('private preparation accepts pending review on paused unconfigured feeds an
   );
 });
 
+test('preparation isolates an impossible individual block and assigns the next source without truncation', async () => {
+  const oversized = { ...source, id: 'oversized', body: 'x'.repeat(2901) };
+  const db = preparationDb({ candidates: [oversized, source] });
+  await prepare(context(db), feed.id, 'planner', now);
+  const assignments = db.calls.filter((call) =>
+    call.sql.startsWith('UPDATE sponsor_publication_drafts SET batch_id=$2')
+  );
+  assert.deepEqual(
+    assignments.map((call) => call.parameters[0]),
+    [source.id]
+  );
+  const diagnostic = db
+    .audits()
+    .find(
+      (entry) => entry.action === 'publication_automation.source_render_blocked'
+    );
+  assert.equal(diagnostic.id, oversized.id);
+  assert.equal(diagnostic.metadata.reason, 'SOURCE_TEXT_TOO_LONG');
+  assert.equal(diagnostic.metadata.budget, 2900);
+  assert.ok(diagnostic.metadata.renderedLength > 2900);
+  assert.deepEqual(Object.keys(diagnostic.metadata).sort(), [
+    'budget',
+    'fingerprint',
+    'policyVersion',
+    'reason',
+    'renderedLength'
+  ]);
+  const candidateRead = db.calls.find((call) =>
+    call.sql.includes('source_fingerprint_material')
+  );
+  assert.equal(candidateRead.parameters[2], 400);
+  assert.ok(candidateRead.sql.includes("AND d.status IN ('draft','approved')"));
+  assert.ok(
+    candidateRead.sql.indexOf('AND NOT EXISTS') <
+      candidateRead.sql.indexOf('LIMIT $3')
+  );
+});
+
 test('preparation preserves authorized, rejected, uncertain and human edited deliveries with their photos', async (t) => {
   for (const changes of [
     { status: 'approved', approved_at: now, approved_by: 'reviewer' },
@@ -261,9 +312,7 @@ test('preparation preserves authorized, rejected, uncertain and human edited del
         false
       );
       assert.equal(
-        db.calls.some((c) =>
-          c.sql.startsWith('SELECT d.* FROM sponsor_publication_drafts')
-        ),
+        db.calls.some((c) => c.sql.includes('source_fingerprint_material')),
         false
       );
       assert.deepEqual(db.audits().at(-1).metadata, { proposedBatches: 0 });
@@ -377,7 +426,9 @@ test('automatic refresh keeps the selected approved photo and leaves approval fo
 function repairDb({
   row = { ...delivery, status: 'blocked' },
   legacy = false,
-  keepMedia = true
+  keepMedia = true,
+  existing = [],
+  capacity = 3
 } = {}) {
   const replacement = {
     ...source,
@@ -400,8 +451,9 @@ function repairDb({
     if (sql.startsWith('SELECT c.id,c.status'))
       return [{ ...facts, public_display_consent: false }];
     if (sql.startsWith('SELECT capacity FROM sponsor_publication_batches'))
-      return [{ capacity: 3 }];
-    if (sql.startsWith('SELECT d.id,d.contribution_id')) return [replacement];
+      return [{ capacity }];
+    if (sql.startsWith('SELECT d.id,d.contribution_id'))
+      return sql.includes('WHERE d.batch_id=$1') ? existing : [replacement];
     if (
       sql.startsWith('SELECT id,sponsor_company_name FROM fund_contributions')
     )
@@ -455,6 +507,27 @@ test('repair preview excludes legacy and externally uncertain deliveries without
     );
     assert.equal(
       db.calls.some((c) => c.sql.startsWith('UPDATE ')),
+      false
+    );
+  }
+});
+
+test('repair preview cannot propose dropping or truncating invalid retained members', async () => {
+  for (const options of [
+    { existing: [{ ...source, name: 'Retained', body: 'x'.repeat(2900) }] },
+    { existing: [{ ...source, name: null }] },
+    {
+      existing: [
+        { ...source, name: 'Retained' },
+        { ...source, id: 'retained-two', name: 'Retained two' }
+      ],
+      capacity: 1
+    }
+  ]) {
+    const { db } = repairDb(options);
+    assert.equal(await repairPreview(context(db), delivery.id), null);
+    assert.equal(
+      db.calls.some(({ sql }) => sql.startsWith('UPDATE ')),
       false
     );
   }

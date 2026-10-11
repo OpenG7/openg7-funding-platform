@@ -3,9 +3,18 @@ import { isDeepStrictEqual } from 'node:util';
 import type { Pool, PoolClient } from 'pg';
 import type { PublicationFeedId } from '@openg7/funding-core';
 
-import { DEFAULT_SPONSORSHIP_PRICING_CONFIG } from '../../../../packages/funding-core/src/index.js';
+import { selectPublicationRecognitionSources } from '../../../../packages/funding-core/src/index.js';
 
 import { assert } from './policy.js';
+import {
+  eligibleDestination,
+  recognitionSource,
+  preparationEligibilitySql,
+  currentBlockedSourceSql,
+  PREPARATION_SCAN_LIMIT
+} from './preparation-sources.js';
+
+export { eligibleDestination } from './preparation-sources.js';
 
 export type Db = Pool | PoolClient;
 export interface Source {
@@ -26,18 +35,6 @@ export const sourceMessage = (sources: Source[]) =>
       [s.title, s.body, s.disclosure_text].filter(Boolean).join('\n\n')
     )
     .join('\n\n');
-
-// Explicit destinations take precedence. Unassigned CAD orders use the existing
-// promised benefits, routed to OpenG7; preparation does not publish the profile.
-export const eligibleDestination = (
-  alias: string,
-  target: string,
-  channel: string
-) =>
-  `COALESCE(${alias}.sponsor_feed_target,'openg7')=${target} AND (
-    ${alias}.sponsor_feed_channels ? ${channel} OR (
-      ${alias}.sponsor_feed_channels='[]'::jsonb AND lower(${alias}.currency)='cad'
-      AND ${alias}.amount_cents >= CASE WHEN ${channel}='facebook' THEN ${DEFAULT_SPONSORSHIP_PRICING_CONFIG.benefits.facebookBatch.minimumAmount * 100} ELSE ${DEFAULT_SPONSORSHIP_PRICING_CONFIG.benefits.linkedinBatch.minimumAmount * 100} END))`;
 
 /** Current source facts, also used by preflight before an authorized send is due. */
 export async function sourceIssues(
@@ -95,18 +92,39 @@ export async function repairSources(
   ).rows[0];
   if (!batch) return [];
   const [target, channel] = row.feed_id.split(':');
-  const rows = (
+  const existing = (
     await db.query(
-      `SELECT d.id,d.contribution_id,d.title,d.body,d.disclosure_text,d.feed_target,d.channel,c.sponsor_company_name AS name FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id WHERE (d.batch_id=$1 OR (d.batch_id IS NULL AND d.slot_id IS NULL)) AND d.feed_target=$2 AND d.channel=$3 AND d.status IN ('draft','approved','scheduled') AND c.status='paid' AND c.public_display_consent IS TRUE AND c.sponsor_review_status IN ('pending_review','approved') AND c.sponsor_feed_status NOT IN ('hidden','published') AND ${eligibleDestination('c', '$2', '$3')} ORDER BY (d.batch_id=$1) DESC NULLS LAST,d.created_at,d.id LIMIT $4`,
-      [row.batch_id, target, channel, batch.capacity]
+      `SELECT d.id,d.contribution_id,d.title,d.body,d.disclosure_text,d.feed_target,d.channel,c.sponsor_company_name AS name
+       FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id
+       WHERE d.batch_id=$1 AND ${preparationEligibilitySql('d', 'c', '$2', '$3')}
+       ORDER BY d.id`,
+      [row.batch_id, target, channel]
     )
   ).rows as (Source & { name: string })[];
-  const result: typeof rows = [];
-  for (const r of rows) {
-    if (sourceMessage([...result, r]).length > 2900) break;
-    result.push(r);
-  }
-  return result;
+  const candidates = (
+    await db.query(
+      `SELECT d.id,d.contribution_id,d.title,d.body,d.disclosure_text,d.feed_target,d.channel,c.sponsor_company_name AS name
+       FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id
+       WHERE d.batch_id IS NULL AND d.slot_id IS NULL
+         AND d.status IN ('draft','approved')
+         AND ${preparationEligibilitySql('d', 'c', '$1', '$2')}
+         AND NOT ${currentBlockedSourceSql()}
+       ORDER BY d.created_at,d.id LIMIT $3`,
+      [target, channel, PREPARATION_SCAN_LIMIT]
+    )
+  ).rows as (Source & { name: string })[];
+  const selected = selectPublicationRecognitionSources({
+    existingSources: existing.map(recognitionSource),
+    candidates: candidates.map(recognitionSource),
+    capacity: batch.capacity
+  });
+  // A repair recipe must keep every eligible existing member intact. An invalid
+  // retained base requires a source correction, not a proposal that cannot apply.
+  if (selected.existingIssue) return [];
+  const retained = new Set(selected.retained.map((source) => source.id));
+  return [...existing, ...candidates].filter((source) =>
+    retained.has(source.id)
+  );
 }
 
 export async function sources(

@@ -1,5 +1,6 @@
 import type { ProgrammeIssue, PublicationFeedId } from '@openg7/funding-core';
 
+import { selectPublicationRecognitionSources } from '../../../../packages/funding-core/src/index.js';
 import { withPostgresTransaction } from '../postgres-transaction.js';
 
 import {
@@ -9,6 +10,13 @@ import {
 } from './context.js';
 import { composeSponsorshipContent } from './content.js';
 import { mediaRecord, mediaSnapshotIssue } from './media.js';
+import {
+  PREPARATION_SCAN_LIMIT,
+  preparationCandidates,
+  recognitionSource,
+  recordBlockedSource,
+  type PreparationSource
+} from './preparation-sources.js';
 import {
   assert,
   digest,
@@ -22,7 +30,6 @@ import {
   type Source,
   eligibleDestination,
   sourceEqual,
-  sourceMessage,
   sourceIssues,
   repairSources,
   sources as loadSources
@@ -36,6 +43,7 @@ export async function prepare(
 ): Promise<void> {
   const proposals: string[] = [];
   await withPostgresTransaction(context.pool, async (db) => {
+    let pendingCandidates: PreparationSource[] | null = null;
     await db.query(
       `SELECT id FROM publication_feeds WHERE id=$1 FOR NO KEY UPDATE`,
       [feedId]
@@ -119,27 +127,49 @@ export async function prepare(
       )
         continue;
       const members = (
-        await db.query<Source>(
-          `SELECT * FROM sponsor_publication_drafts WHERE batch_id=$1 ORDER BY id`,
+        await db.query<Source & { name: string | null }>(
+          `SELECT d.*,c.sponsor_company_name AS name FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id WHERE d.batch_id=$1 ORDER BY d.id`,
           [batch.id]
         )
       ).rows;
-      const remaining = Math.max(0, batch.capacity - members.length);
-      const candidates = (
-        await db.query<Source>(
-          `SELECT d.* FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id WHERE d.batch_id IS NULL AND d.slot_id IS NULL AND d.feed_target=$1 AND d.channel=$2 AND d.status IN ('draft','approved') AND c.status='paid' AND c.public_display_consent IS TRUE AND c.sponsor_review_status IN ('pending_review','approved') AND ${eligibleDestination('c', '$1', '$2')} AND c.sponsor_feed_status NOT IN ('hidden','published') ORDER BY d.created_at,d.id LIMIT $3 FOR UPDATE OF d SKIP LOCKED`,
-          [target, channel, remaining]
-        )
-      ).rows;
-      for (const candidate of candidates) {
-        // Capacity is a maximum, and provider text limits also bound a batch.
-        if (sourceMessage([...members, candidate]).length > 2900) break;
+      // Scan once per preparation. Deferred valid sources keep their FIFO order
+      // in memory for the following recurrence; they do not consume a second scan.
+      pendingCandidates ??= await preparationCandidates(
+        db,
+        target!,
+        channel!,
+        PREPARATION_SCAN_LIMIT
+      );
+      const selection = selectPublicationRecognitionSources({
+        existingSources: members.map(recognitionSource),
+        candidates: pendingCandidates.map(recognitionSource),
+        capacity: batch.capacity
+      });
+      const byId: Map<string, PreparationSource> = new Map(
+        pendingCandidates.map((source) => [source.id, source])
+      );
+      for (const correction of selection.needsCorrection) {
+        await recordBlockedSource(
+          db,
+          actor,
+          byId.get(correction.source.id)!,
+          correction.codeUnits,
+          correction.reason
+        );
+      }
+      const existingIds = new Set(members.map((member) => member.id));
+      for (const retained of selection.retained) {
+        if (existingIds.has(retained.id)) continue;
+        const candidate = byId.get(retained.id)!;
         await db.query(
           `UPDATE sponsor_publication_drafts SET batch_id=$2,scheduled_at=$3,updated_at=NOW() WHERE id=$1`,
           [candidate.id, batch.id, date]
         );
         members.push(candidate);
       }
+      pendingCandidates = selection.deferred.map((source): PreparationSource =>
+        byId.get(source.id)!
+      );
       if (!members.length) continue;
       if (job) {
         try {

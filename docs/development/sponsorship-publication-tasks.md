@@ -3,7 +3,7 @@
 Date : 11 octobre 2026. Référence de diagnostic : `8edb18ee6b3f`.
 
 Statut du chantier : **Construction active**. Cadrage et découpage disponibles;
-réalisation locale démarrée, 4 tâches en cours et 40 à faire.
+réalisation locale démarrée, 5 tâches en cours et 39 à faire.
 
 Le feu vert de l'utilisateur couvre la réalisation locale de tous les lots de
 l'[analyse](sponsorship-visibility-analysis.md). Ce plan les découpe en **44 tâches**
@@ -12,7 +12,7 @@ avec dépendances, critères d'acceptation et validations. Les
 livraison et vérification de leurs critères. Ce fichier devient la référence
 de suivi des tâches; l'analyse conserve le diagnostic et ses sources.
 
-SP07, SP08, SP12 et SP20 sont **en cours** dans le premier lot local. Leurs avances
+SP07, SP08, SP09, SP12 et SP20 sont **en cours** dans les lots locaux. Leurs avances
 et limites figurent ci-dessous; aucune des 44 tâches n'est déclarée terminée.
 L'approbation administrative de chaque publication reste
 distincte du développement. Les essais utilisent des dossiers synthétiques et
@@ -108,6 +108,47 @@ niveaux de commandite). Elle vérifie aussi le refus `SOURCE_CONTENT_MISSING`
 sans autorisation ni envoi. Compilation TypeScript complète sans émission,
 lint, format, contrôles documentaires et diff passent. Ces correctifs ne changent
 aucun garde-fou applicatif; la CI complète reste une validation distincte.
+
+## Deuxième lot local — 11 octobre 2026
+
+Branche : `feat/sponsorship-rendered-queue`. SP07 et SP09 avancent avec la
+sélection des blocs complets dans le budget rendu, la progression au-delà des
+sources individuellement trop longues et leur diagnostic dans le cockpit.
+Le cache des sources inchangées réutilise l'audit existant; aucune migration
+n'est ajoutée. Une correction conserve l'identifiant et l'ancienneté de la
+source, sans approbation ni diffusion automatique.
+[Fonctionnement et limites](../operations/publication-automation.md#source-preparation-queue).
+
+Réception locale sous Node 22.23.3 et Yarn 4.9.4 : `yarn test` passe, **5 963 tests
+réussis et 8 ignorés** par leurs préconditions de plateforme. Les quatre suites
+PostgreSQL suivantes passent séparément sur bases jetables : **64 tests**.
+
+```sh
+node --test tests/integration/publication-rendered-queue.integration.mjs tests/integration/publication-source-render-cache.integration.mjs tests/integration/publication-automation.integration.mjs tests/integration/editorial-programme.integration.mjs
+```
+
+La recette UI ciblée passe : **19 cas**, dont neuf nouveaux cas de file,
+en français et en anglais, sur mobile et bureau. Les cas existants de contenu
+manquant et de résultat incertain restent verts. La recette avec API/Web réels,
+PostgreSQL jetable et fournisseurs simulés passe : **deux scénarios**, via
+`node scripts/admin-acceptance.mjs tests/playwright/sponsorship-rendered-queue-acceptance.spec.ts tests/playwright/sponsorship-publication-acceptance.spec.ts --project chromium`.
+Elle vérifie la source trop longue, sa visibilité après rechargement, la
+correction sans changement d'ancienneté, la préparation privée et l'absence
+d'approbation ou d'envoi; le parcours de paiement/publication existant passe aussi.
+
+Le build Angular production passe avec 25 routes prérendues. Compilation
+TypeScript sans émission, lint, format ciblé, standards OpenG7, contrôle
+documentaire et `git diff --check` passent. Le lint conserve l'avertissement
+préexistant de `scripts/smoke-public.mjs:165`. La CI distante reste une
+validation distincte de cette réception locale.
+
+SP07 et SP09 restent en cours : la file décrit les sources privées actuellement
+admissibles, et les engagements durables restent à construire. Une préparation
+parcourt au plus 400 nouvelles sources; plusieurs passes peuvent être nécessaires.
+Le calcul des totaux parcourt le périmètre complet et n'a pas été mesuré sur un
+très grand arriéré. Les textes finaux modifiés ou bloqués restent protégés et
+nécessitent leur propre correction et une nouvelle approbation exacte.
+Les 19 garanties complètes restent ouvertes; aucun envoi réel n'est qualifié.
 
 ## Cadrage
 
@@ -240,9 +281,10 @@ déjà émise conserve ses données.
 
 **Avancée du premier lot :** politique pure exportée, blocs complets avec identité
 du dossier et budget UTF-16 partagé; composition, rafraîchissement et réparation
-préservent les blocs malgré les préférences éditoriales. Reste la sélection
-structurée des retenus/différés/à corriger et le calcul commun de capacité sur
-tous les chemins d'affectation.
+préservent les blocs malgré les préférences éditoriales. Le second lot ajoute la
+sélection structurée des retenus/différés/à corriger et le budget réel dans la
+préparation et la réparation. Reste le calcul commun de capacité sur tous les
+chemins d'affectation, puis le raccordement aux engagements durables.
 
 **Périmètre :** politique pure partagée, composition et transformations éditoriales.
 Produire rendu final, blocs de reconnaissance, bénéficiaires retenus, différés,
@@ -287,7 +329,16 @@ frontières; tester suppression, mauvais lien et deux noms identiques.
 
 ### SP09 — Isoler les textes trop longs et poursuivre la file
 
-- [ ] À faire · P1 · Dépendances : SP04, SP07 · Garanties : G02, G04, G07 à G09.
+- [ ] En cours · P1 · Dépendances : SP04, SP07 · Garanties : G02, G04, G07 à G09.
+
+**Avancée du second lot :** sélection pure sur les blocs complets, sources
+individuellement impossibles isolées et file poursuivie. Les 400 candidats maximum
+par préparation partagent leur rang entre les créneaux; une empreinte de diagnostic
+exclut les échecs inchangés avant la limite du passage suivant. La correction
+conserve la date de création et invalide cette empreinte. La projection privée
+du cockpit expose les résultats et les dossiers sans livraison, avec compteurs
+de tout le périmètre et pages serveur de 200 sources. Les offres figées et
+obligations SP04 restent à raccorder; aucune garantie complète n'est clôturée.
 
 **Périmètre :** préparation et réparation des sources, raisons de blocage.
 Traiter individuellement un dossier qui ne tient même pas seul.

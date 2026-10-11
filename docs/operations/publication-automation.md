@@ -75,6 +75,71 @@ The existing media workflow manages uploads and review. Editorial text can be
 entered directly; videos, multi-image posts and a general editorial asset library
 are outside this implementation.
 
+<a id="source-preparation-queue"></a>
+
+## Source preparation queue
+
+Preparation and source repair select complete recognition blocks with the shared
+pure policy, including authoritative identities, separators and disclosure. The
+budget is 2,900 UTF-16 code units. Existing members are preserved; an invalid
+existing batch receives no additional members. An individually impossible source
+is left for correction while following sources advance. A source that fits alone
+but not in the current batch moves to the next recurrence, together with later
+valid sources in their existing `created_at, id` order. New payments do not pass
+those deferred sources. Selection never truncates or rejects a source block.
+
+One preparation examines at most 400 new candidates. Valid deferred candidates
+remain available to subsequent recurrences in that pass. Individual rendering
+failures are recorded transactionally in append-only audit as
+`publication_automation.source_render_blocked`, entity `sponsor_publication_draft`.
+Only the reason, rendered length, budget, policy version and SHA-256 fingerprint
+are recorded; no source body is copied to this diagnostic. Unchanged failures are
+excluded **before** the next candidate limit, so 400 impossible sources do not
+permanently hide source 401. Correcting the identity or source text invalidates
+the fingerprint while preserving its creation date. A policy or budget change
+also causes reevaluation. Collective capacity, missing dates and human refusals
+never enter this negative cache. Audit failures roll back preparation.
+Changes to rendering or individual admissibility must advance
+`PUBLICATION_RECOGNITION_POLICY_VERSION` to invalidate older diagnostics.
+
+The cockpit and `GET /api/admin/publication-automation` expose `queue` even when
+no delivery exists. Its entries describe private, eligible sources awaiting
+preparation or review: retained in a complete final draft, deferred with a reason,
+or requiring individual correction. Each entry carries its source/dossier IDs,
+destination, complete individual block length, budget, current proposed date or
+absence, and any batch/delivery reference. This does not describe an authorized
+send or a completed benefit. Authorized, in-flight, uncertain, published and
+rejected deliveries stay in their existing delivery/investigation workflows.
+A source reserved directly in a manual slot remains visible with
+`MANUAL_RESERVATION`; the recurring planner does not reassign it. A final draft
+with an ineligible member is reported as an invalid batch, preserving the
+remaining eligible sources for review rather than announcing them as retained.
+
+Queue totals cover the full selected scope, independently of the 200-delivery
+limit. `sponsorshipId` and `deliveryId` intersect for both lists; existing delivery
+counters and controls remain global. `queueOffset` pages only the source list, in
+groups of 200. The response includes `total`, `offset`, `limit`, `hasMore`, scope
+and evaluation time. Each GET evaluates current facts in a read-only repeatable
+snapshot, scanning the full scope in chunks; only the requested page is retained
+in memory. This is linear work over the scope and is not a performance guarantee
+for an arbitrarily large backlog. Separate pages are fresh reads; corrections or
+new arrivals can move their boundaries. Refresh or prepare again to return to
+the first page. Older API responses without `queue` show an unavailable state.
+
+The source queue remains independent of the local destination filter for
+deliveries. A missing date is explicit. `NO_SLOT_IN_HORIZON` is reported only after
+preparation against unchanged source/feed facts and when no compatible batch in
+the current horizon can accept that source. Failed composition without a delivery
+is visible as `PREPARATION_FAILED`. Open the linked source draft, save the
+correction and prepare its destination again; check the confirmed distribution
+and approve the exact final proposal separately. Human-edited and blocked final
+drafts keep their text: open the delivery, restore the corrected source blocks
+and save the final message separately. Preparation does not overwrite these
+decisions. Creation dates remain unchanged.
+This uses current drafts, not frozen offers or durable benefit obligations;
+those, manual-path convergence and effective-account scheduling remain open in
+the [construction tasks](../development/sponsorship-publication-tasks.md#sp09).
+
 ## Configuration and activation
 
 Apply the missing additive migrations through

@@ -3,7 +3,9 @@ import { AxeBuilder } from '@axe-core/playwright';
 import type {
   PublicationAutomationCommand,
   PublicationAutomationState,
-  PublicationDelivery
+  PublicationDelivery,
+  PublicationPreparationEntry,
+  PublicationPreparationQueue
 } from '@openg7/funding-core';
 
 import { test, expect } from './support/test.js';
@@ -32,6 +34,45 @@ const initialJob: PublicationDelivery = {
   approvedAt: null,
   publishedAt: null
 };
+const sourceEntry = (
+  index: number,
+  overrides: Partial<PublicationPreparationEntry> = {}
+): PublicationPreparationEntry => ({
+  draftId: `44444444-4444-4444-8444-${String(index).padStart(12, '0')}`,
+  sponsorshipId: `55555555-5555-4555-8555-${String(index).padStart(12, '0')}`,
+  name: `Atelier fictif ${index}`,
+  feedId: 'openg7:facebook',
+  status: 'deferred',
+  reason: 'AWAITING_PREPARATION',
+  renderedLength: 420,
+  budget: 2900,
+  createdAt: '2030-06-01T12:00:00Z',
+  scheduledAt: null,
+  batchId: null,
+  deliveryId: null,
+  deliveryStatus: null,
+  ...overrides
+});
+const sourceQueue = (
+  entries: PublicationPreparationEntry[],
+  overrides: Partial<PublicationPreparationQueue> = {}
+): PublicationPreparationQueue => ({
+  entries,
+  summary: {
+    retained: entries.filter((entry) => entry.status === 'retained').length,
+    deferred: entries.filter((entry) => entry.status === 'deferred').length,
+    needsCorrection: entries.filter(
+      (entry) => entry.status === 'needs_correction'
+    ).length
+  },
+  total: entries.length,
+  offset: 0,
+  limit: 200,
+  hasMore: false,
+  scope: 'global',
+  evaluatedAt: '2030-06-01T12:00:00Z',
+  ...overrides
+});
 async function fixtures(
   page: Page,
   status: PublicationDelivery['status'] = 'draft',
@@ -51,12 +92,17 @@ async function fixtures(
     >;
     mediaResponse?: (deliveryId: string | null) => Promise<void>;
     contentMissing?: boolean;
+    queue?: PublicationPreparationQueue;
+    queuePages?: Record<number, PublicationPreparationQueue>;
+    preparedQueue?: PublicationPreparationQueue;
+    queueFailureOffset?: number;
   } = {}
 ): Promise<PublicationAutomationCommand[]> {
   const commands: PublicationAutomationCommand[] = [];
   const state: PublicationAutomationState = {
     workerEnabled: options.workerEnabled ?? true,
     workerVersion: 1,
+    ...(options.queue ? { queue: options.queue } : {}),
     summary: {
       awaitingApproval: 1,
       scheduled: 0,
@@ -135,9 +181,18 @@ async function fixtures(
       return route.fulfill({ status: 503, json: {} });
     if (route.request().method() === 'GET') {
       const params = new URL(route.request().url()).searchParams;
+      const queueOffset = Number(params.get('queueOffset') ?? 0);
+      if (queueOffset === options.queueFailureOffset)
+        return route.fulfill({
+          status: 503,
+          json: { code: 'QUEUE_UNAVAILABLE' }
+        });
       // A delayed GET retains the facts read before any concurrent command.
       const snapshot = structuredClone({
         ...state,
+        ...(queueOffset && options.queuePages?.[queueOffset]
+          ? { queue: options.queuePages[queueOffset] }
+          : {}),
         deliveries: state.deliveries.filter(
           (d) =>
             (!params.has('sponsorshipId') ||
@@ -176,6 +231,8 @@ async function fixtures(
       state.workerEnabled = c.enabled;
       state.workerVersion++;
     }
+    if (c.action === 'prepare' && options.preparedQueue)
+      state.queue = options.preparedQueue;
     const job = state.deliveries[0]!;
     if (c.action === 'reconcile') {
       if (c.externalPostId === 'missing-post')
@@ -222,6 +279,377 @@ async function fixtures(
   });
   return commands;
 }
+
+for (const language of ['fr-CA', 'en'] as const) {
+  for (const width of [390, 1280]) {
+    test(`source preparation queue explains server allocation and source correction in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.addInitScript(
+        (locale) => localStorage.setItem('openg7.language', locale),
+        language
+      );
+      const correction = sourceEntry(3, {
+        name: 'Atelier fictif Boréal 👩🏽‍🔧 — présentation et savoir-faire pour la communauté',
+        status: 'needs_correction',
+        reason: 'INDIVIDUAL_TEXT_TOO_LONG',
+        renderedLength: 3012
+      });
+      const queue = sourceQueue(
+        [
+          sourceEntry(1, {
+            status: 'retained',
+            reason: 'AWAITING_APPROVAL',
+            scheduledAt: initialJob.scheduledAt,
+            batchId: '66666666-6666-4666-8666-666666666666',
+            deliveryId: initialJob.id,
+            deliveryStatus: 'draft'
+          }),
+          sourceEntry(2, {
+            feedId: 'openg7:linkedin',
+            reason: 'NO_SLOT_IN_HORIZON'
+          }),
+          correction,
+          sourceEntry(4, {
+            reason: 'MANUAL_RESERVATION',
+            scheduledAt: initialJob.scheduledAt
+          })
+        ],
+        {
+          summary: { retained: 7, deferred: 4, needsCorrection: 1 },
+          total: 12,
+          hasMore: true
+        }
+      );
+      const commands = await fixtures(page, 'draft', false, [], {}, { queue });
+      await page.goto('/admin/fundraiser/publications/automation');
+      const english = language === 'en';
+      const section = page.locator('[data-og7="publication-source-queue"]');
+      await expect(section.getByRole('heading', { level: 2 })).toHaveText(
+        english ? 'Sponsorship allocation' : 'Répartition des commandites'
+      );
+      await expect(
+        section.locator('[data-og7="publication-source-retained-count"]')
+      ).toHaveText('7');
+      await expect(
+        section.locator('[data-og7="publication-source-deferred-count"]')
+      ).toHaveText('4');
+      await expect(
+        section.locator('[data-og7="publication-source-correction-count"]')
+      ).toHaveText('1');
+      await expect(
+        section.locator('[data-og7="publication-source-partial"]')
+      ).toContainText(
+        english ? '4 sources shown out of 12' : '4 sources affichées sur 12'
+      );
+      await expect(section).toContainText('UTF-16');
+      const row = section.locator(`[data-og7-id="${correction.draftId}"]`);
+      await expect(row).toContainText('3012 / 2900');
+      await expect(row).toContainText(
+        english
+          ? 'even in an individual publication'
+          : 'même dans une publication individuelle'
+      );
+      await expect(row).toContainText(
+        english
+          ? 'The source draft is retained'
+          : 'Le brouillon source est conservé'
+      );
+      await expect(row).toContainText(
+        english
+          ? 'open the final publication, correct its blocks and save it separately'
+          : 'ouvrez la publication finale, corrigez ses blocs et enregistrez-la séparément'
+      );
+      await expect(row).toContainText(
+        english ? 'No date assigned' : 'Aucune date attribuée'
+      );
+      const manual = section.locator(
+        `[data-og7-id="${queue.entries[3]!.draftId}"]`
+      );
+      await expect(manual).toContainText(
+        english ? 'Slot reserved manually' : 'Créneau réservé manuellement'
+      );
+      await expect(manual).toContainText(
+        english ? 'The reservation is retained' : 'La réservation est conservée'
+      );
+      await expect(manual).toContainText(
+        english ? 'Proposed date:' : 'Date proposée :'
+      );
+      await expect(
+        manual.getByRole('link', {
+          name: english
+            ? 'Edit the draft for Atelier fictif 4'
+            : 'Modifier le brouillon de Atelier fictif 4',
+          exact: true
+        })
+      ).toBeVisible();
+      await expect(
+        section.getByRole('button', {
+          name: english ? 'Accept and schedule' : 'Accepter et programmer'
+        })
+      ).toHaveCount(0);
+      await expect(
+        section.locator(`[data-og7-id="${queue.entries[0]!.draftId}"]`)
+      ).toContainText(english ? 'Proposed date:' : 'Date proposée :');
+      await page
+        .getByRole('combobox', { name: 'Feed', exact: true })
+        .selectOption('openg7:linkedin');
+      await expect(
+        section.locator('[data-og7="publication-source-entry"]')
+      ).toHaveCount(4);
+      await expect(section).toContainText(
+        english
+          ? 'independently of the publication filter'
+          : 'indépendamment du filtre des publications'
+      );
+      expect(
+        await section.evaluate(
+          (element) => element.scrollWidth <= element.clientWidth
+        )
+      ).toBe(true);
+      expect(
+        (
+          await new AxeBuilder({ page })
+            .include('[data-og7="publication-source-queue"]')
+            .analyze()
+        ).violations
+      ).toEqual([]);
+      expect(commands).toHaveLength(0);
+      const link = row.getByRole('link', {
+        name: english
+          ? `Edit the draft for ${correction.name}`
+          : `Modifier le brouillon de ${correction.name}`,
+        exact: true
+      });
+      await expect(link).toHaveAttribute(
+        'href',
+        '/admin/fundraiser/publications/drafts?draftId=' + correction.draftId
+      );
+      await link.focus();
+      await expect(link).toBeFocused();
+      await page.keyboard.press('Enter');
+      await expect(page).toHaveURL(
+        new RegExp('/publications/drafts\\?draftId=' + correction.draftId)
+      );
+      expect(commands).toHaveLength(0);
+    });
+  }
+
+  test(`source preparation queue distinguishes unavailable, empty and failed refresh states in ${language}`, async ({
+    page
+  }) => {
+    await page.setViewportSize({ width: 390, height: 900 });
+    await page.addInitScript(
+      (locale) => localStorage.setItem('openg7.language', locale),
+      language
+    );
+    const commands = await fixtures(page);
+    await page.goto('/admin/fundraiser/publications/automation');
+    const english = language === 'en';
+    const section = page.locator('[data-og7="publication-source-queue"]');
+    await expect(section).toContainText(
+      english
+        ? 'Source tracking is unavailable'
+        : 'Le suivi des sources n’est pas disponible'
+    );
+    await expect(
+      section.locator('[data-og7="publication-source-retained-count"]')
+    ).toHaveCount(0);
+    await page.route('**/api/admin/publication-automation', (route) =>
+      route.fulfill({
+        json: {
+          workerEnabled: true,
+          workerVersion: 1,
+          feeds: [],
+          deliveries: [],
+          queue: sourceQueue([]),
+          summary: {
+            awaitingApproval: 0,
+            scheduled: 0,
+            exceptions: 0,
+            publishedToday: 0
+          }
+        }
+      })
+    );
+    await section
+      .getByRole('button', {
+        name: english ? 'Refresh source tracking' : 'Actualiser le suivi'
+      })
+      .click();
+    await expect(section).toContainText(
+      english ? 'No source drafts to track' : 'Aucun brouillon source à suivre'
+    );
+    await expect(
+      section.locator('[data-og7="publication-source-retained-count"]')
+    ).toHaveText('0');
+    await page.route('**/api/admin/publication-automation', (route) =>
+      route.fulfill({ status: 503, json: { code: 'QUEUE_UNAVAILABLE' } })
+    );
+    await section
+      .getByRole('button', {
+        name: english ? 'Refresh source tracking' : 'Actualiser le suivi'
+      })
+      .click();
+    await expect(page.getByRole('alert')).toBeVisible();
+    await expect(section).toContainText(
+      english ? 'No source drafts to track' : 'Aucun brouillon source à suivre'
+    );
+    await expect(
+      section.locator('[data-og7="publication-source-retained-count"]')
+    ).toHaveText('0');
+    expect(commands).toHaveLength(0);
+  });
+
+  test(`source preparation queue paginates server facts and resets after preparation in ${language}`, async ({
+    page
+  }) => {
+    await page.setViewportSize({ width: 390, height: 1000 });
+    await page.addInitScript(
+      (locale) => localStorage.setItem('openg7.language', locale),
+      language
+    );
+    const first = sourceEntry(1, {
+      status: 'needs_correction',
+      reason: 'INDIVIDUAL_TEXT_TOO_LONG',
+      renderedLength: 3100
+    });
+    const summary = { retained: 0, deferred: 200, needsCorrection: 1 };
+    const queue = sourceQueue([first], { total: 201, summary, hasMore: true });
+    const later = sourceEntry(201, { name: 'Atelier fictif dernière page' });
+    const next = sourceQueue([later], { total: 201, summary, offset: 200 });
+    const prepared = sourceQueue(
+      [
+        sourceEntry(1, {
+          status: 'retained',
+          reason: 'AWAITING_APPROVAL',
+          renderedLength: 2700,
+          scheduledAt: initialJob.scheduledAt,
+          deliveryId: initialJob.id,
+          deliveryStatus: 'draft'
+        })
+      ],
+      {
+        total: 201,
+        hasMore: true,
+        summary: { retained: 1, deferred: 200, needsCorrection: 0 }
+      }
+    );
+    const commands = await fixtures(
+      page,
+      'draft',
+      false,
+      [],
+      {},
+      { queue, queuePages: { 200: next }, preparedQueue: prepared }
+    );
+    await page.goto('/admin/fundraiser/publications/automation?settings=feeds');
+    const english = language === 'en';
+    const section = page.locator('[data-og7="publication-source-queue"]');
+    const reads: string[] = [];
+    page.on('request', (request) => {
+      if (
+        request.method() === 'GET' &&
+        new URL(request.url()).pathname.endsWith('/publication-automation')
+      )
+        reads.push(request.url());
+    });
+    await section
+      .getByRole('button', {
+        name: english ? 'Next sources' : 'Sources suivantes'
+      })
+      .press('Enter');
+    await expect(section).toContainText(later.name);
+    expect(new URL(reads.at(-1)!).searchParams.get('queueOffset')).toBe('200');
+    await expect(section.getByRole('heading', { level: 2 })).toBeFocused();
+    await expect(
+      section.locator('[data-og7="publication-source-correction-count"]')
+    ).toHaveText('1');
+    await expect(
+      section.getByRole('button', {
+        name: english ? 'Next sources' : 'Sources suivantes'
+      })
+    ).toBeDisabled();
+    await page
+      .getByRole('button', {
+        name: english ? 'Settings' : 'Réglages',
+        exact: true
+      })
+      .first()
+      .click();
+    const dialog = page.getByRole('dialog', {
+      name: english ? 'Settings' : 'Réglages',
+      exact: true
+    });
+    await dialog
+      .getByRole('button', {
+        name: english ? 'Prepare now' : 'Préparer maintenant',
+        exact: true
+      })
+      .click();
+    await expect
+      .poll(() => commands.some((command) => command.action === 'prepare'))
+      .toBe(true);
+    await expect(
+      section.locator('[data-og7="publication-source-correction-count"]')
+    ).toHaveText('0');
+    await expect(
+      section.locator('[data-og7="publication-source-retained-count"]')
+    ).toHaveText('1');
+    await expect(
+      section.locator(`[data-og7-id="${first.draftId}"]`)
+    ).toContainText('2700 / 2900');
+    expect(new URL(reads.at(-1)!).searchParams.has('queueOffset')).toBe(false);
+    expect(
+      commands.filter((command) => command.action === 'approve')
+    ).toHaveLength(0);
+    await dialog
+      .getByRole('button', { name: english ? 'Close' : 'Fermer', exact: true })
+      .first()
+      .click();
+    await page.reload();
+    await expect(
+      section.locator('[data-og7="publication-source-correction-count"]')
+    ).toHaveText('0');
+    await expect(
+      section.locator('[data-og7="publication-source-retained-count"]')
+    ).toHaveText('1');
+  });
+}
+
+test('source preparation queue keeps its confirmed page when another page fails', async ({
+  page
+}) => {
+  const entry = sourceEntry(1);
+  const commands = await fixtures(
+    page,
+    'draft',
+    false,
+    [],
+    {},
+    {
+      queue: sourceQueue([entry], {
+        total: 201,
+        hasMore: true,
+        summary: { retained: 0, deferred: 201, needsCorrection: 0 }
+      }),
+      queueFailureOffset: 200
+    }
+  );
+  await page.goto('/admin/fundraiser/publications/automation');
+  const section = page.locator('[data-og7="publication-source-queue"]');
+  await section.getByRole('button', { name: 'Sources suivantes' }).click();
+  await expect(page.getByRole('alert')).toBeVisible();
+  await expect(section).toContainText(entry.name);
+  await expect(
+    section.locator('[data-og7="publication-source-deferred-count"]')
+  ).toHaveText('201');
+  await expect(
+    section.getByRole('button', { name: 'Sources suivantes' })
+  ).toBeEnabled();
+  expect(commands).toHaveLength(0);
+});
 
 for (const [language, width] of [
   ['fr-CA', 1280],

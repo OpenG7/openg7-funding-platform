@@ -8,6 +8,7 @@ import type {
 } from '@openg7/funding-core';
 
 import type { SponsorMediaStorage } from '../sponsor-media-storage.js';
+import { withPostgresTransaction } from '../postgres-transaction.js';
 import { isSocialPublicationChannelConfigured } from '../social-publication.service.js';
 
 import { assert, feedConfig, validId } from './policy.js';
@@ -28,6 +29,7 @@ import {
   guardEligibility
 } from './planning.js';
 import { complete, PublicationDeliveryWorker } from './delivery-worker.js';
+import { preparationQueue } from './preparation-queue.js';
 
 export class PublicationAutomationService {
   private readonly context: PublicationCommandsContext &
@@ -115,6 +117,18 @@ export class PublicationAutomationService {
   ): Promise<PublicationAutomationState> {
     for (const id of [filter.sponsorshipId, filter.deliveryId])
       assert(id === undefined || validId(id), 'INVALID_FILTER', 400);
+    assert(
+      filter.queueOffset === undefined ||
+        (Number.isSafeInteger(filter.queueOffset) && filter.queueOffset >= 0),
+      'INVALID_FILTER',
+      400
+    );
+    if (db === this.pool)
+      return withPostgresTransaction(
+        this.pool,
+        (client) => this.state(client, filter),
+        { readOnlySnapshot: true }
+      );
     const worker = await this.workerSettings(db);
     const feeds = await this.feeds(db);
     const jobs = await db.query<DeliveryRow>(
@@ -132,6 +146,7 @@ export class PublicationAutomationService {
       workerVersion: worker.version,
       feeds,
       deliveries: jobs.rows.map(publicDelivery),
+      queue: await preparationQueue(db, feeds, filter),
       summary: counts.rows[0]
     };
   }
