@@ -14,6 +14,7 @@ import {
   mediaOptions,
   mediaRecord,
   resolveMedia,
+  assertMediaScope,
   mediaSnapshotIssue
 } from '../dist/apps/funding-api/src/publication-automation/media.js';
 import { ready } from '../dist/apps/funding-api/src/publication-automation/preflight.js';
@@ -90,10 +91,20 @@ function batchDb(rows = [eligible], batch = { status: 'open', capacity: 3 }) {
   return sequenceDb([batch], [], rows);
 }
 
-function authorizedDb({ rows = [eligible], facts = [], batch = {} } = {}) {
-  return sequenceDb([{ status: 'scheduled', capacity: 3 }], [], rows, facts, [
-    { status: 'scheduled', scheduled_at: delivery.scheduled_at, ...batch }
-  ]);
+function authorizedDb({
+  rows = [eligible],
+  facts = [],
+  batch = {},
+  mediaRows
+} = {}) {
+  return sequenceDb(
+    [{ status: 'scheduled', capacity: 3 }],
+    [],
+    rows,
+    facts,
+    [{ status: 'scheduled', scheduled_at: delivery.scheduled_at, ...batch }],
+    ...(mediaRows === undefined ? [] : [mediaRows])
+  );
 }
 
 test('source snapshots preserve exact content, membership and order', () => {
@@ -304,6 +315,63 @@ test('media resolution distinguishes absent selection, invalid id, approval and 
   );
 });
 
+test('batch media scope is applied in database selection and rejects foreign assets before reading bytes', async () => {
+  const optionsDb = sequenceDb([]);
+  assert.deepEqual(await mediaOptions(optionsDb, delivery.batch_id), []);
+  assert.deepEqual(optionsDb.calls[0].parameters, [delivery.batch_id]);
+  assert.match(
+    optionsDb.calls[0].sql,
+    /s\.batch_id=\$1::uuid AND s\.contribution_id=m\.contribution_id.*ORDER BY.*LIMIT 200/
+  );
+  const foreignDb = sequenceDb([]);
+  await assert.rejects(
+    resolveMedia(
+      foreignDb,
+      {
+        readPrivateObject: async () => assert.fail('Foreign bytes are private')
+      },
+      media.id,
+      delivery.batch_id
+    ),
+    { code: 'MEDIA_NOT_APPROVED' }
+  );
+  assert.deepEqual(foreignDb.calls[0].parameters, [
+    media.id,
+    delivery.batch_id
+  ]);
+  assert.match(
+    foreignDb.calls[0].sql,
+    /s\.batch_id=\$2::uuid AND s\.contribution_id=m\.contribution_id/
+  );
+  const ownDb = sequenceDb([media]);
+  const bytes = Buffer.from('Approved batch image');
+  assert.deepEqual(
+    await resolveMedia(
+      ownDb,
+      { readPrivateObject: async () => bytes },
+      media.id,
+      delivery.batch_id
+    ),
+    { ...media, hash: digest(bytes) }
+  );
+  assert.deepEqual(ownDb.calls[0].parameters, [media.id, delivery.batch_id]);
+});
+
+test('scope-only approval check allows pending dossiers and skips editorial or absent media', async () => {
+  const noSelection = sequenceDb();
+  await assertMediaScope(noSelection, null, delivery.batch_id);
+  await assertMediaScope(noSelection, media.id, null);
+  assert.deepEqual(noSelection.calls, []);
+  const ownDb = sequenceDb([{ id: media.id }]);
+  await assertMediaScope(ownDb, media.id, delivery.batch_id);
+  assert.deepEqual(ownDb.calls[0].parameters, [media.id, delivery.batch_id]);
+  assert.equal(ownDb.calls[0].sql.includes('sponsor_review_status'), false);
+  await assert.rejects(
+    assertMediaScope(sequenceDb([]), media.id, delivery.batch_id),
+    { code: 'MEDIA_NOT_APPROVED' }
+  );
+});
+
 test('media metadata comparison is exact, including submillisecond timestamp versions', () => {
   const snapshot = { ...media, hash: digest('original') };
   assert.equal(mediaSnapshotIssue(media.id, snapshot, { ...media }), null);
@@ -387,6 +455,48 @@ test('preflight checks the authorized batch schedule and permits preparation wit
     ]),
     null
   );
+});
+
+test('preflight blocks a previously authorized foreign image before reading bytes and permits an image from its batch', async () => {
+  const bytes = await sharp({
+    create: { width: 2, height: 2, channels: 3, background: '#345678' }
+  })
+    .png()
+    .toBuffer();
+  const withImage = {
+    ...delivery,
+    media_id: media.id,
+    media_snapshot: { ...media, hash: digest(bytes) }
+  };
+  const foreignDb = authorizedDb({ mediaRows: [] });
+  await assert.rejects(
+    ready(
+      foreignDb,
+      withImage,
+      {
+        readPrivateObject: async () =>
+          assert.fail('A foreign asset must never be read before dispatch')
+      },
+      async () => [feed]
+    ),
+    { code: 'MEDIA_NOT_APPROVED' }
+  );
+  assert.deepEqual(foreignDb.calls.at(-1).parameters, [
+    media.id,
+    delivery.batch_id
+  ]);
+  const ownDb = authorizedDb({ mediaRows: [media] });
+  const result = await ready(
+    ownDb,
+    withImage,
+    { readPrivateObject: async () => bytes },
+    async () => [feed]
+  );
+  assert.equal((await sharp(result).metadata()).format, 'jpeg');
+  assert.deepEqual(ownDb.calls.at(-1).parameters, [
+    media.id,
+    delivery.batch_id
+  ]);
 });
 
 test('preflight detects changed media bytes on either storage read before converting the approved image', async () => {

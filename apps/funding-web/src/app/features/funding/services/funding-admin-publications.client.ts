@@ -61,11 +61,13 @@ export class FundingAdminPublicationsClient {
     >;
   }
 
-  async publicationMedia(): Promise<
-    { id: string; url: string; alt: string; company: string }[]
-  > {
+  async publicationMedia(
+    deliveryId?: string
+  ): Promise<{ id: string; url: string; alt: string; company: string }[]> {
+    const query = new URLSearchParams();
+    if (deliveryId !== undefined) query.set('deliveryId', deliveryId);
     const response = await this.session.requestAdminJson(
-      '/admin/publication-automation/media',
+      `/admin/publication-automation/media${query.size ? `?${query}` : ''}`,
       { auth: 'saved', cache: 'no-store' }
     );
     if (!response.ok) throw new Error('AUTOMATION_UNAVAILABLE');
