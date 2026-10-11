@@ -108,6 +108,8 @@ export interface AdminSponsorshipReviewRequest {
   readonly reviewStatus: SponsorshipReviewStatus;
   readonly reviewNote?: string;
   readonly expectedVersion: string;
+  readonly moderationDecision?: import('./moderation.js').ModerationDecisionInput;
+  readonly confirmation?: string;
   readonly notifySponsor?: boolean;
   readonly notificationEmail?: string;
   readonly sponsorMessage?: string;
@@ -121,6 +123,7 @@ export type AdminSponsorshipRejectionRefundHandling =
 export interface AdminSponsorshipReviewResult {
   readonly updated: boolean;
   readonly reviewStatus: SponsorshipReviewStatus;
+  readonly decisionState?: 'active' | 'pending_independent_review';
   readonly refundHandling?: AdminSponsorshipRejectionRefundHandling;
   readonly refundWorkflowStatus?: AdminSponsorshipRefundWorkflowStatus;
   readonly notification?: {
@@ -167,6 +170,7 @@ export interface AdminSponsorshipRefundResult {
 }
 
 export interface AdminSponsorshipPublicationRequest {
+  readonly confirmation?: string;
   readonly contributionId: string;
   readonly expectedVersion: string;
   readonly publicSlug?: string;

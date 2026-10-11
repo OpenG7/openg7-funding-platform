@@ -120,6 +120,14 @@ visibility closed. Preserve rejections, human edits and existing authorizations.
 See [domain rules](development/sponsorship-rules.md) and the
 [publication runbook](operations/publication-automation.md).
 
+Moderation versions the reviewed content separately from human decisions.
+A valid editorial decision replaces neither payment nor visibility or sending
+authorization. Serious decisions and their appeals require an independent
+person; the outbox contains only the external explanation. Existing public facts
+are preserved without inferred approval or permission for a new send. See the
+[moderation decision](decisions/2026-10-11-sponsorship-moderation.md) and its
+[runbook](operations/sponsorship-moderation.md).
+
 ## Administration, agents and controls
 
 The API checks every permission. Optional OIDC delegates authentication/MFA to

@@ -138,6 +138,29 @@ const fixture = ({
   return { calls, invoke };
 };
 
+test('Checkout rejects a charter locale array before any provider or persistence request', async () => {
+  const f = fixture();
+  const result = await f.invoke({
+    ...payload,
+    amount: 50,
+    contributionType: 'sponsorship_interest',
+    charterAcceptance: {
+      accepted: true,
+      policyVersion: '1.0',
+      fingerprint: 'a'.repeat(64),
+      locale: ['en']
+    }
+  });
+  assert.equal(result.status, 400);
+  assert.equal(result.payload.code, 'CHARTER_ACCEPTANCE_INVALID');
+  assert.equal(
+    f.calls.some(({ name }) =>
+      ['operation', 'provider', 'persist'].includes(name)
+    ),
+    false
+  );
+});
+
 test('Checkout aliases and queries dispatch POST only; other routes never consume a body', async () => {
   for (const url of ['/checkout-sessions?x=1', '/api/checkout-sessions']) {
     const f = fixture();

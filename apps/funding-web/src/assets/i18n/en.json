@@ -1,5 +1,66 @@
 {
   "admin": {
+    "moderation": {
+      "title": "Moderation decision",
+      "context": "Review the content in context. Disagreement, controversy or a quotation condemning hatred alone does not justify rejection.",
+      "loading": "Loading the content to review…",
+      "unavailable": "The content could not be loaded. Close this panel and reload the record before deciding.",
+      "contentVersion": "Content version",
+      "exactContent": "View the exact content",
+      "primaryReason": "Primary reason *",
+      "chooseReason": "Choose a reason",
+      "secondaryReasons": "Secondary reasons",
+      "editorialProvision": "Applicable editorial provision *",
+      "chooseProvision": "Choose a provision",
+      "internalReason": "Internal rationale — authorized staff only *",
+      "sponsorExplanation": "Sponsor-facing explanation *",
+      "privacy": "Only the sponsor-facing explanation may appear in private follow-up and notifications. Internal notes remain private.",
+      "independentReview": "This decision requires confirmation by another authorized person. Restrictions remain in place during independent review.",
+      "confirm": "I have reviewed this exact version and confirm the scope and consequences of this decision.",
+      "continue": "Confirm decision",
+      "saveFirst": "Save your changes first, then review the saved version.",
+      "actions": "Content moderation",
+      "open": "Review",
+      "saved": "Decision recorded. Visibility and sending authorization remain separate actions.",
+      "history": "Decision history",
+      "assignmentTitle": "Review assignment",
+      "assignedMember": "Assigned member",
+      "unassigned": "Unassigned",
+      "saveAssignment": "Save assignment",
+      "assignmentConfirm": "I confirm changing the review assignment. Assignment does not grant administrative rights.",
+      "assignmentSaved": "Review assignment saved.",
+      "assignmentUnavailable": "Members could not be loaded. Reload before changing the assignment.",
+      "retry": "Retry",
+      "reconsiderationTitle": "Human reconsideration request",
+      "reconsiderationHelp": "Choose the outcome above, then review the current exact version and provide an external explanation. Reconsideration does not authorize publication or a refund.",
+      "resolveReconsideration": "Review and resolve request",
+      "reconsiderationStates": {
+        "open": "Awaiting human reconsideration",
+        "resolved": "Reconsideration resolved"
+      },
+      "independentAction": "Confirm independent review",
+      "independentIdentityRequired": "Sign in with a personal administrative identity for this independent review.",
+      "independentActorRequired": "Another authorized person must review this serious decision. The original reviewer cannot confirm or lift it alone.",
+      "independentConfirm": "I confirm this decision after an independent review. The API checks that I am a different authorized person.",
+      "failed": "The decision could not be confirmed. Reload its content and restrictions before retrying.",
+      "levels": {
+        "N0": "Approve content",
+        "N1": "Request a correction",
+        "N2": "Place review on hold",
+        "N3": "Reject this item",
+        "N4": "Reject the sponsorship",
+        "N5": "Remove public content"
+      },
+      "states": {
+        "unreviewed": "Awaiting review",
+        "approved": "Content approved",
+        "correction_requested": "Correction requested",
+        "on_hold": "Review on hold",
+        "rejected": "Rejected",
+        "removed": "Removed",
+        "pending_independent_review": "Independent review required"
+      }
+    },
     "appearance": {
       "intro": "Choose your palette and reading comfort. Your current dossier stays open.",
       "palette": "Administration palette",
@@ -1712,7 +1773,7 @@
       "action_sensible": "Sensitive action",
       "refuser_la_commandite": "Reject sponsorship",
       "fermer_le_refus": "Close rejection",
-      "raison_interne_du_refus": "Internal rejection reason *",
+      "raison_interne_du_refus": "Internal rationale — authorized staff only *",
       "message_au_commanditaire": "Message to sponsor *",
       "envoyer_le_courriel_de_refus": "Send rejection email",
       "remboursement": "Refund",
@@ -1939,7 +2000,7 @@
       "les_medias_commanditaires_ne_peuvent_pas_etre_charges": "Sponsor media could not be loaded.",
       "selon_votre_institution_financiere_le_credit_peut_prendre_quelques_jours_ouvrables_avant_d_appa": "Depending on your financial institution, the credit may take a few business days to appear.",
       "nous_confirmons_que_le_remboursement_stripe_de_votre_commandite_openg7_vient_d_etre_lance": "We confirm that the Stripe refund for your OpenG7 sponsorship has been initiated.",
-      "merci_de_votre_comprehension_vous_pouvez_repondre_a_ce_courriel_si_vous_souhaitez_clarifier_la_": "Thank you for your understanding. You can reply to this email to clarify the situation.",
+      "merci_de_votre_comprehension_vous_pouvez_repondre_a_ce_courriel_si_vous_souhaitez_clarifier_la_": "Open your private follow-up to read the explanation and any authorized correction or reconsideration steps. Payment and financial consequences remain separate from the editorial decision.",
       "apres_revision_nous_ne_pouvons_pas_accepter_cette_commandite_openg7_pour_le_moment": "After review, we cannot accept this OpenG7 sponsorship at this time.",
       "copie_impossible": "Copy failed.",
       "reference_copiee": "Reference copied.",
@@ -3060,6 +3121,36 @@
     }
   },
   "funding": {
+    "charter": {
+      "changed": "The sponsorship terms changed. Read and confirm the applicable version before trying again.",
+      "title": "Editorial Integrity and Sponsorship Charter",
+      "loading": "Checking applicable sponsorship terms…",
+      "unavailable": "The applicable terms could not be verified. Retry before starting payment.",
+      "acceptance": "I have read Charter {{version}}. Payment does not guarantee editorial approval."
+    },
+    "moderation": {
+      "title": "Decisions and next steps",
+      "loading": "Loading your decisions…",
+      "unavailable": "Your decisions or request could not be verified. Existing content restrictions remain in place.",
+      "empty": "No versioned decision is available in this follow-up.",
+      "policyVersion": "Reviewed policy: {{version}}",
+      "independentReview": "Another authorized person must confirm this decision. Restrictions remain in place.",
+      "correct": "Submit a correction",
+      "reconsider": "Request reconsideration",
+      "requestExplanation": "Explain your reconsideration request *",
+      "noAutomaticApproval": "Correction or reconsideration does not automatically restore visibility or publication authorization. Financial consequences are assessed separately.",
+      "confirmRequest": "I confirm submitting this request.",
+      "submitRequest": "Submit request",
+      "requestReceived": "Your request has been recorded for human review.",
+      "requestOpen": "A reconsideration request is already open for this decision.",
+      "correctionActive": "Your correction concerns the sponsorship details. Once submitted, the new version remains private and returns to review.",
+      "subjects": {
+        "sponsorship": "Sponsorship record",
+        "media": "Sponsor media",
+        "publication_draft": "Publication draft",
+        "publication_delivery": "Publication"
+      }
+    },
     "brand": {
       "title": "Builders Fund",
       "organization": "OpenG7"
@@ -3365,7 +3456,7 @@
           "copy": "OpenG7 retains editorial control over public sponsor presentations.",
           "items": {
             "approval": "A reviewed and approved sponsorship may appear on the sponsors page, subject to the applicable consent.",
-            "removal": "OpenG7 may decline, remove or edit a presentation that is incompatible, misleading or risky.",
+            "removal": "OpenG7 reviews content in context. Editorial decisions concern the reviewed items and may request a correction, place review on hold, reject an item or remove public content. Disagreement or controversy alone does not justify rejection.",
             "feed": "Facebook and LinkedIn posts depend on the benefits associated with the sponsorship and preparation managed by the team. Payment does not publish them automatically."
           }
         },
@@ -3936,7 +4027,7 @@
           },
           "reviewNote": "Each sponsorship is manually verified and approved before publication.",
           "afterPaymentNote": "After payment, you will be able to submit your company details, website, and logo for validation.",
-          "manualReviewNote": "Every sponsorship is manually verified and approved before publication. Social media placements are scheduled in the next available batch.",
+          "manualReviewNote": "Every sponsorship undergoes human review. Payment does not guarantee editorial approval. Social media placements require separate authorization, subject to applicable benefits and availability.",
           "amountFormatError": "The minimum sponsorship amount is $50.",
           "disabled": "Temporarily unavailable",
           "minimumAmountError": "The minimum sponsorship amount is {{ minimum }}."
@@ -4629,7 +4720,7 @@
         "rejected": {
           "label": "Rejected",
           "title": "Sponsorship rejected",
-          "copy": "Public visibility is not enabled. Contact support for clarification. Rejection does not confirm a refund."
+          "copy": "Public visibility is not enabled. Read your decisions and authorized correction or reconsideration steps in this private follow-up. Rejection does not confirm a refund."
         }
       },
       "steps": {

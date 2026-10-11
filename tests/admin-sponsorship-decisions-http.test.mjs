@@ -71,6 +71,8 @@ const fixture = ({
   role = 'owner',
   database = true,
   mutationStatus = 'updated',
+  reviewStatus,
+  decisionState,
   visibilityOutcome = 'updated',
   failing,
   sponsorRecord = sponsor,
@@ -155,7 +157,11 @@ const fixture = ({
     isSponsorshipWebsiteVisibilityRequest,
     updateSponsorshipReview: async (input) => {
       record('review', input);
-      return mutation;
+      return {
+        ...mutation,
+        ...(reviewStatus ? { reviewStatus } : {}),
+        ...(decisionState ? { decisionState } : {})
+      };
     },
     updateSponsorshipRefundWorkflowStatus: async (input) => {
       record('workflow', input);
@@ -284,12 +290,16 @@ test('approval and pending review preserve version, trim notes and require no re
           contributionId,
           expectedVersion,
           reviewStatus,
-          reviewNote: 'Synthetic note'
+          reviewNote: 'Synthetic note',
+          actor,
+          confirmation: undefined,
+          moderationDecision: undefined
         }
       ]);
       assert.deepEqual(f.names(), [
         'access',
         'body',
+        'actor',
         'review',
         'actor',
         'audit',
@@ -298,11 +308,60 @@ test('approval and pending review preserve version, trim notes and require no re
       assert.deepEqual(f.values('body'), [undefined]);
       assert.deepEqual(f.values('audit')[0].metadata, {
         reviewStatus,
+        decisionState: null,
         hasReviewNote: true
       });
       assert.equal(f.values('audit')[0].actor, actor);
     });
   }
+});
+
+test('structured severe refusal preserves pending independent review and queues no legacy rejection or refund workflow', async () => {
+  const f = fixture({
+    reviewStatus: 'approved',
+    decisionState: 'pending_independent_review'
+  });
+  const moderationDecision = {
+    requestId: '22222222-2222-4222-8222-222222222222',
+    policyVersion: '1.0',
+    contentVersion: 2,
+    contentFingerprint: 'a'.repeat(64),
+    level: 'N4',
+    primaryReason: 'THREAT',
+    internalReason: 'Synthetic private evidence',
+    sponsorExplanation: 'The submission requires an independent review.',
+    confirmation: contributionId
+  };
+  const result = await f.run('review', {
+    body: JSON.stringify({
+      ...review,
+      reviewStatus: 'rejected',
+      confirmation: contributionId,
+      refundHandling: 'manual_required',
+      moderationDecision
+    })
+  });
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.payload, {
+    updated: true,
+    reviewStatus: 'approved',
+    decisionState: 'pending_independent_review',
+    refundHandling: 'manual_required'
+  });
+  assert.deepEqual(f.values('review'), [
+    {
+      contributionId,
+      expectedVersion,
+      reviewStatus: 'rejected',
+      reviewNote: null,
+      actor,
+      confirmation: contributionId,
+      moderationDecision
+    }
+  ]);
+  assert.deepEqual(f.names(), ['access', 'body', 'actor', 'review', 'json']);
+  for (const sideEffect of ['workflow', 'sponsor', 'email', 'audit'])
+    assert.deepEqual(f.values(sideEffect), []);
 });
 
 test('rejection records manual workflow choices and a default notification tied to the returned version', async (t) => {
@@ -347,7 +406,6 @@ test('rejection records manual workflow choices and a default notification tied 
           sponsorName: sponsor.sponsor_company_name,
           amount: 250,
           currency: 'CAD',
-          reviewReason: 'Synthetic review reason',
           sponsorMessage: 'Synthetic sponsor message',
           refundHandling,
           refundNote: 'Synthetic refund note',
@@ -357,6 +415,7 @@ test('rejection records manual workflow choices and a default notification tied 
       assert.deepEqual(f.names(), [
         'access',
         'body',
+        'actor',
         'review',
         ...(refundWorkflowStatus ? ['workflow'] : []),
         'sponsor',
@@ -367,6 +426,7 @@ test('rejection records manual workflow choices and a default notification tied 
       ]);
       assert.deepEqual(f.values('audit')[0].metadata, {
         reviewStatus: 'rejected',
+        decisionState: null,
         hasReviewNote: true,
         notifySponsor: true,
         notificationEmail: recipient,
@@ -683,6 +743,7 @@ test('publication metadata normalizes optional text and distinct channels, then 
     {
       contributionId,
       expectedVersion,
+      confirmation: undefined,
       publicSlug: 'synthetic-sponsor',
       publicSummary: 'Synthetic public summary',
       feedTarget: 'openg7',
@@ -732,6 +793,7 @@ test('publication empty optional fields and channels retain existing clearing se
         {
           contributionId,
           expectedVersion,
+          confirmation: undefined,
           feedStatus,
           publicSlug: undefined,
           publicSummary: undefined,

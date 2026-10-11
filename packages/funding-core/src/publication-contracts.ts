@@ -82,6 +82,8 @@ export interface AdminPublicationDraftUpdateRequest {
   readonly publicUrl?: string;
   readonly scheduledAt?: string | null;
   readonly reviewNote?: string;
+  readonly moderationDecision?: import('./moderation.js').ModerationDecisionInput;
+  readonly confirmation?: string;
 }
 
 export interface AdminPublicationDraftMutationResult {
@@ -145,6 +147,7 @@ export interface AdminPublicationBatchScheduleRequest {
 
 export interface AdminPublicationBatchLifecycleRequest {
   readonly batchId: string;
+  readonly confirmation?: string;
 }
 
 export interface AdminPublicationBatchMutationResult {

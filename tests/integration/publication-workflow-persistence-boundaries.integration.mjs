@@ -22,6 +22,10 @@ import {
   updateAdminPublicationDraft
 } from '../../dist/apps/funding-api/src/fund-admin.repository.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
+import {
+  approveFixtureSubject,
+  fixtureModerationActor
+} from './support/moderation-fixture.mjs';
 
 const future = (days) => new Date(Date.now() + days * 86_400_000).toISOString();
 
@@ -47,6 +51,7 @@ test(
                 'Synthetic private message', 'https://example.test/sponsor')`,
         [id, status, consent, review]
       );
+      await approveFixtureSubject(pool, { type: 'sponsorship', id });
       return id;
     };
     const draft = async ({ channel = 'facebook' } = {}) => {
@@ -56,10 +61,19 @@ test(
         channel
       });
       assert.equal(created.updated, true);
-      const approved = await updateAdminPublicationDraft(pool, {
-        draftId: created.draft.id,
-        status: 'approved'
+      await approveFixtureSubject(pool, {
+        type: 'publication_draft',
+        id: created.draft.id
       });
+      const approved = await updateAdminPublicationDraft(
+        pool,
+        {
+          draftId: created.draft.id,
+          confirmation: created.draft.id,
+          status: 'approved'
+        },
+        fixtureModerationActor
+      );
       assert.equal(approved.updated, true);
       return approved.draft;
     };
@@ -114,6 +128,11 @@ test(
         ).updated,
         true
       );
+      for (const record of [first, second])
+        await approveFixtureSubject(pool, {
+          type: 'publication_draft',
+          id: record.id
+        });
       const job = await createSocialPublicationJobForBatch(pool, {
         batchId: createdBatch.id,
         provider: 'facebook',
@@ -217,7 +236,8 @@ test(
         assert.equal(
           (
             await publishAdminPublicationBatch(pool, {
-              batchId: createdBatch.id
+              batchId: createdBatch.id,
+              confirmation: createdBatch.id
             })
           ).updated,
           false,
@@ -301,8 +321,13 @@ test(
           ).updated,
           true
         );
+        await approveFixtureSubject(pool, {
+          type: 'publication_draft',
+          id: first.id
+        });
         const published = await publishAdminPublicationBatch(pool, {
-          batchId: createdBatch.id
+          batchId: createdBatch.id,
+          confirmation: createdBatch.id
         });
         assert.equal(published.updated, true);
         assert.equal(published.batch.status, 'published');
@@ -312,7 +337,8 @@ test(
           'published'
         );
         const replay = await publishAdminPublicationBatch(pool, {
-          batchId: createdBatch.id
+          batchId: createdBatch.id,
+          confirmation: createdBatch.id
         });
         assert.equal(replay.updated, false);
         assert.equal(replay.batch.publishedAt, published.batch.publishedAt);
@@ -490,7 +516,11 @@ test(
             unassignDraftFromPublicationBatch(pool, {
               draftId: record.draftIds[0]
             }),
-          () => publishAdminPublicationBatch(pool, { batchId: record.batchId }),
+          () =>
+            publishAdminPublicationBatch(pool, {
+              batchId: record.batchId,
+              confirmation: record.batchId
+            }),
           () => markSocialPublicationJobPublished(pool, resultInput(record))
         ]) {
           await assert.rejects(action(), (error) => error.code === '55000');

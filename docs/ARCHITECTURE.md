@@ -125,6 +125,14 @@ visibilité publique. Refus persistants, modifications humaines et autorisations
 existantes sont préservés. Voir les [règles métier](development/sponsorship-rules.md)
 et le [runbook](operations/publication-automation.md).
 
+La modération versionne séparément le contenu examiné et les décisions humaines.
+Une décision éditoriale valide ne remplace ni le paiement ni l'autorisation de
+visibilité ou d'envoi. Les décisions graves et leurs recours exigent une personne
+indépendante; l'outbox ne contient que l'explication externe. Les faits publics
+historiques sont conservés sans approbation inventée ni droit de nouvel envoi.
+Voir la [décision de modération](decisions/2026-10-11-sponsorship-moderation.md)
+et son [runbook](operations/sponsorship-moderation.md).
+
 ## Administration, agents et pilotage
 
 L'API vérifie chaque droit. Le mode OIDC optionnel délègue authentification/MFA

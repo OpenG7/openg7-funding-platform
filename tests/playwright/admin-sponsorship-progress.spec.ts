@@ -10,6 +10,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
+import { moderationFixture, completeModeration } from './support/moderation.js';
 import { registerSponsorHistoryPanelTests } from './admin-sponsor-history-panels.ui.js';
 import { registerSponsorFiltersTests } from './admin-sponsors-filters.ui.js';
 import { registerSponsorResultsTests } from './admin-sponsors-results.ui.js';
@@ -188,6 +189,7 @@ async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
     progressOverrides: {} as Partial<AdminSponsorshipProgress>
   };
   await page.route('**/api/**', async (route) => {
+    if (await moderationFixture(route)) return;
     const req = route.request(),
       url = new URL(req.url());
     calls.push({
@@ -376,6 +378,7 @@ async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
       req.method() === 'POST' &&
       [
         '/api/admin/sponsorships/media/review',
+        '/api/admin/sponsorships/media/metadata',
         '/api/admin/sponsorships/media/delete',
         '/api/admin/sponsorships/logo',
         '/api/admin/sponsorships/logo/delete',
@@ -407,17 +410,27 @@ async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
           publicationCompletion: { done: input.visible ? 1 : 0, total: 1 }
         };
       }
-      if (url.pathname.endsWith('/media/review'))
+      if (
+        url.pathname.endsWith('/media/review') ||
+        url.pathname.endsWith('/media/metadata')
+      )
         options.media = options.media.map((asset) =>
           asset.id === input.assetId
             ? {
                 ...asset,
                 altText: input.altText || null,
-                reviewStatus: input.reviewStatus,
+                reviewStatus: input.reviewStatus ?? 'pending_review',
                 version: asset.version + '-updated'
               }
             : asset
         );
+      if (url.pathname.endsWith('/media/metadata'))
+        return route.fulfill({
+          json: {
+            updated: true,
+            asset: options.media.find((asset) => asset.id === input.assetId)
+          }
+        });
       if (url.pathname.endsWith('/media/delete'))
         options.media = options.media.filter(
           (asset) => asset.id !== input.assetId
@@ -1174,6 +1187,7 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
     await expect(approve).toHaveAttribute('data-state', 'idle');
     await approve.focus();
     await page.keyboard.press('Enter');
+    await completeModeration(page);
     await expect(approve).toHaveAttribute('data-state', 'pending');
     await expect(approve).toHaveAttribute('aria-busy', 'true');
     await expect(approve).toBeDisabled();
@@ -1245,6 +1259,7 @@ for (const failure of ['http', 'not_updated'] as const) {
     await page.goto(path());
     const approve = page.locator('[data-og7="sponsorship-approve"]');
     await approve.click();
+    await completeModeration(page);
     await expect(approve).toHaveAttribute('data-state', 'error');
     await expect(approve).toHaveAttribute('aria-busy', 'false');
     await expect(approve).toBeEnabled();
@@ -1253,6 +1268,7 @@ for (const failure of ['http', 'not_updated'] as const) {
     options.reviewUpdated = true;
     options.edited.set(id, { sponsor_review_status: 'approved' });
     await approve.click();
+    await completeModeration(page);
     await expect(approve).toHaveAttribute('data-state', 'success');
     expect(postsTo(calls, '/review')).toHaveLength(2);
   });
@@ -1271,6 +1287,7 @@ test('late approval never celebrates on another dossier or after returning to it
   await page.locator('[data-og7="sponsor-row"]').first().click();
   const approve = page.locator('[data-og7="sponsorship-approve"]');
   await approve.click();
+  await completeModeration(page);
   await expect(approve).toHaveAttribute('data-state', 'pending');
   await page
     .getByRole('button', { name: 'Dossier suivant', exact: true })
@@ -1303,16 +1320,17 @@ test('review controls disable redundant decisions and retain mandatory refusal c
   await reject.click();
   await expect(page).toHaveURL(path('overview'));
   const form = page.locator('[data-og7="dossier-rejection-form"]');
-  await expect(form.getByLabel('Raison interne du refus')).toBeFocused();
+  await expect(form.getByLabel(/Justification interne/)).toBeFocused();
   const confirm = form.getByRole('button', { name: /Confirmer/ });
   await expect(confirm).toBeDisabled();
-  await form.getByLabel('Raison interne du refus').fill('Motif synthétique');
+  await form.getByLabel(/Justification interne/).fill('Motif synthétique');
   await form.getByRole('checkbox').uncheck();
   await form.getByRole('button', { name: 'Annuler', exact: true }).click();
   await expect(reject).toBeFocused();
   expect(postsTo(calls, '/review')).toHaveLength(0);
   await reject.click();
   await confirm.click();
+  await completeModeration(page, true);
   await expect(form).toHaveCount(0);
   expect(postsTo(calls, '/review')[0]?.body).toMatchObject({
     contributionId: id,
@@ -1338,6 +1356,7 @@ test('review controls disable redundant decisions and retain mandatory refusal c
     .getByRole('button', { name: 'Remettre en attente' })
     .click();
   await page.locator('[data-og7="confirm-action"]').click();
+  await completeModeration(page, true);
   await expect.poll(() => postsTo(calls, '/review').length).toBe(2);
 });
 
@@ -1352,6 +1371,7 @@ test('bulk media approval keeps edited alternative text and approved media text 
     .getByRole('textbox')
     .fill('Description préparée avant approbation');
   await page.getByRole('button', { name: 'Tout approuver' }).click();
+  await completeModeration(page);
   await expect(media.getByRole('textbox')).toHaveValue(
     'Description préparée avant approbation'
   );
@@ -1367,10 +1387,11 @@ test('bulk media approval keeps edited alternative text and approved media text 
     .fill('Description corrigée après approbation');
   await expect(saveText).toBeEnabled();
   await saveText.click();
+  await completeModeration(page);
   await expect(saveText).toBeDisabled();
   expect(postsTo(calls, '/media/review')[1]?.body).toMatchObject({
     reviewStatus: 'approved',
-    expectedVersion: 'v1-updated',
+    expectedVersion: 'v1-updated-updated-updated',
     altText: 'Description corrigée après approbation'
   });
 });
@@ -1387,6 +1408,7 @@ test('media decisions lock competing actions and deletion needs confirmation', a
   await page.goto(path('media'));
   const media = page.locator('[data-og7="admin-sponsor-media"]');
   await media.getByRole('button', { name: 'Approuver le media' }).click();
+  await completeModeration(page);
   for (const button of ['Accepter', 'Refuser'])
     await expect(
       actions(page).getByRole('button', { name: button, exact: true })
@@ -1413,6 +1435,7 @@ test('media decisions lock competing actions and deletion needs confirmation', a
   expect(postsTo(calls, '/media/review')).toHaveLength(1);
   await media.getByRole('button', { name: 'Refuser', exact: true }).click();
   await page.locator('[data-og7="confirm-action"]').click();
+  await completeModeration(page, true);
   await expect(
     media.getByRole('button', { name: 'Refuser', exact: true })
   ).toBeDisabled();
@@ -1761,12 +1784,12 @@ test('failed media approval preserves its text and can be retried without changi
   await expect(media.getByRole('textbox')).toHaveValue('Description conservée');
   options.mutationStatus = 200;
   await page.getByRole('button', { name: 'Tout approuver' }).click();
+  await completeModeration(page);
   await expect(
     media.getByRole('button', { name: 'Enregistrer le texte alternatif' })
   ).toBeDisabled();
-  expect(postsTo(calls, '/media/review')[1]?.body).toEqual(
-    postsTo(calls, '/media/review')[0]?.body
-  );
+  expect(postsTo(calls, '/media/review')).toHaveLength(1);
+  expect(postsTo(calls, '/media/metadata')).toHaveLength(2);
 });
 
 test('English mobile media editing works with keyboard and without horizontal overflow', async ({
@@ -1784,6 +1807,7 @@ test('English mobile media editing works with keyboard and without horizontal ov
   const save = media.getByRole('button', { name: 'Save alternative text' });
   await save.focus();
   await save.press('Enter');
+  await completeModeration(page);
   await expect(save).toBeDisabled();
   expect(postsTo(calls, '/media/review')[0]?.body?.['altText']).toBe(
     'Updated alternative text'
@@ -3082,6 +3106,7 @@ test('version conflict offers reload; pending action is disabled and retry uses 
   await page.goto(path());
   const approve = page.getByRole('button', { name: 'Accepter', exact: true });
   await approve.click();
+  await completeModeration(page);
   await expect(approve).toBeDisabled();
   release();
   await expect(
@@ -3098,6 +3123,7 @@ test('version conflict offers reload; pending action is disabled and retry uses 
   ).toHaveCount(0);
   options.reviewStatus = 200;
   await approve.click();
+  await completeModeration(page);
   await expect(approve).toBeEnabled();
   expect(
     calls
@@ -3995,3 +4021,343 @@ test('workspace sections remain accessible with distinct financial and publicati
   ).toBeVisible();
   expect(calls.every((call) => call.method === 'GET')).toBe(true);
 });
+
+for (const english of [false, true]) {
+  test(`moderation V1 requires contextual reasons and separates private notes from external explanation ${english ? 'EN mobile' : 'FR desktop'}`, async ({
+    page
+  }) => {
+    await fixtures(page, 'operator');
+    await page.setViewportSize(
+      english ? { width: 390, height: 844 } : { width: 1280, height: 900 }
+    );
+    const decisions: Record<string, unknown>[] = [];
+    let currentDecision: Record<string, unknown> | null = null;
+    await page.route('**/api/admin/moderation/**', async (route) => {
+      const url = new URL(route.request().url());
+      expect(url.searchParams.get('subjectId') ?? id).toBe(id);
+      if (url.pathname.endsWith('/content'))
+        return route.fulfill({
+          json: {
+            subject: { type: 'sponsorship', id },
+            contributionId: id,
+            contributionIds: [id],
+            contentVersion: 8,
+            fingerprint: 'b'.repeat(64),
+            snapshot: {
+              companyName: 'Atelier Boréal',
+              message: 'Synthetic current submitted content'
+            },
+            currentDecisionId: null
+          }
+        });
+      if (url.pathname.endsWith('/cases'))
+        return route.fulfill({
+          json: {
+            items: currentDecision
+              ? [
+                  {
+                    id: 'synthetic-case',
+                    state: 'pending_independent_review',
+                    currentDecisionId: secondId
+                  }
+                ]
+              : []
+          }
+        });
+      if (url.pathname.endsWith('/reconsiderations'))
+        return route.fulfill({ json: { items: [] } });
+      if (route.request().method() === 'GET')
+        return route.fulfill({
+          json: { items: currentDecision ? [currentDecision] : [] }
+        });
+      const payload = route.request().postDataJSON();
+      decisions.push(payload);
+      currentDecision = {
+        ...payload.decision,
+        id: secondId,
+        subjectType: 'sponsorship',
+        subjectId: id,
+        state: 'pending_independent_review',
+        createdAt: date
+      };
+      return route.fulfill({ json: { decision: currentDecision } });
+    });
+    await page.goto(path());
+    if (english)
+      await page
+        .getByRole('button', {
+          name: 'Switch administration language to English'
+        })
+        .click();
+    const actions = page.locator('[data-og7="moderation-actions"]').first();
+    await actions.getByRole('combobox').selectOption('N1');
+    await actions.locator('[data-og7="moderation-open"]').click();
+    let panel = page.locator('[data-og7="moderation-decision"]');
+    await expect(
+      panel.locator(
+        '[data-og7="moderation-primary-reason"] option[value="HATE_TARGETED"]'
+      )
+    ).toHaveCount(0);
+    await panel
+      .getByRole('button', {
+        name: english ? 'Cancel' : 'Annuler',
+        exact: true
+      })
+      .click();
+    expect(decisions).toHaveLength(0);
+    await actions.getByRole('combobox').selectOption('N4');
+    await actions.locator('[data-og7="moderation-open"]').click();
+    panel = page.locator('[data-og7="moderation-decision"]');
+    await panel.locator('[data-og7="moderation-confirmation"]').check();
+    await expect(
+      panel.locator('[data-og7="moderation-submit"]')
+    ).toBeDisabled();
+    await panel
+      .locator('[data-og7="moderation-primary-reason"]')
+      .selectOption('DEHUMANIZATION');
+    await panel
+      .locator('[data-og7="moderation-internal-reason"]')
+      .fill('PRIVATE-RATIONALE-ONLY');
+    await panel
+      .locator('[data-og7="moderation-explanation"]')
+      .fill(
+        english
+          ? 'This submitted message dehumanizes people; please use the private reconsideration route.'
+          : 'Ce message soumis déshumanise des personnes; utilisez le parcours privé de réexamen.'
+      );
+    await expect(
+      panel.locator('[data-og7="moderation-confirmation"]')
+    ).not.toBeChecked();
+    await panel.locator('summary').first().click();
+    await expect(
+      panel.locator('[data-og7="moderation-snapshot"]')
+    ).toContainText('Synthetic current submitted content');
+    expect(
+      (await new AxeBuilder({ page }).include('dialog[open]').analyze())
+        .violations
+    ).toEqual([]);
+    await panel.locator('[data-og7="moderation-confirmation"]').check();
+    await panel.locator('[data-og7="moderation-submit"]').click();
+    await expect.poll(() => decisions.length).toBe(1);
+    expect(decisions[0]).toMatchObject({
+      subject: { type: 'sponsorship', id },
+      decision: {
+        policyVersion: '1.0',
+        contentVersion: 8,
+        contentFingerprint: 'b'.repeat(64),
+        level: 'N4',
+        primaryReason: 'DEHUMANIZATION',
+        internalReason: 'PRIVATE-RATIONALE-ONLY',
+        confirmation: id
+      }
+    });
+    await expect(actions).toContainText(
+      english ? 'another authorized person' : 'autre personne habilitée'
+    );
+    await actions.locator('summary').click();
+    await expect(
+      actions.locator('[data-og7="moderation-independent"]')
+    ).toBeVisible();
+    await expect(actions).not.toContainText('PRIVATE-RATIONALE-ONLY');
+    await expect(page.locator('[data-og7="moderation-decision"]')).toHaveCount(
+      0
+    );
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1
+      )
+    ).toBe(true);
+  });
+}
+
+for (const english of [false, true]) {
+  test(`moderation V1 owner assigns an active member and resolves reconsideration with a fresh explained decision ${english ? 'EN mobile' : 'FR desktop'}`, async ({
+    page
+  }) => {
+    const { calls } = await fixtures(page, 'owner');
+    await page.setViewportSize(
+      english ? { width: 390, height: 844 } : { width: 1280, height: 900 }
+    );
+    let assignedTo: string | null = null;
+    let resolved = false;
+    const mutations: { path: string; body: Record<string, unknown> }[] = [];
+    await page.route('**/api/admin/access', (route) =>
+      route.fulfill({
+        json: {
+          accounts: [
+            {
+              id: secondId,
+              subject: 'synthetic-operator',
+              displayName: 'Camille Reviewer',
+              role: 'operator',
+              disabled: false
+            },
+            {
+              id: 'reader-only',
+              subject: 'synthetic-reader',
+              displayName: 'Reader Only',
+              role: 'reader',
+              disabled: false
+            },
+            {
+              id: 'disabled-owner',
+              subject: 'synthetic-disabled',
+              displayName: 'Disabled Member',
+              role: 'owner',
+              disabled: true
+            }
+          ],
+          sessions: []
+        }
+      })
+    );
+    await page.route('**/api/admin/moderation/**', async (route) => {
+      const url = new URL(route.request().url());
+      if (route.request().method() === 'POST') {
+        const body = route.request().postDataJSON();
+        mutations.push({ path: url.pathname, body });
+        if (url.pathname.endsWith('/assignment')) {
+          assignedTo = body.assignedTo;
+          return route.fulfill({ json: { assignedTo } });
+        }
+        expect(url.pathname).toBe(
+          '/api/admin/moderation/reconsiderations/resolve'
+        );
+        resolved = true;
+        return route.fulfill({
+          json: {
+            decision: {
+              ...body.decision,
+              id: secondId,
+              subject: body.subject,
+              state: 'active'
+            }
+          }
+        });
+      }
+      expect(url.searchParams.get('subjectId')).toBe(id);
+      if (url.pathname.endsWith('/content'))
+        return route.fulfill({
+          json: {
+            subject: { type: 'sponsorship', id },
+            contributionId: id,
+            contributionIds: [id],
+            contentVersion: 9,
+            fingerprint: 'c'.repeat(64),
+            snapshot: {
+              companyName: 'Atelier Boréal',
+              message: 'Corrected current version'
+            },
+            currentDecisionId: secondId
+          }
+        });
+      if (url.pathname.endsWith('/cases'))
+        return route.fulfill({
+          json: {
+            items: [
+              {
+                id: 'synthetic-case',
+                state: resolved ? 'approved' : 'rejected',
+                currentDecisionId: secondId,
+                assignedTo
+              }
+            ]
+          }
+        });
+      if (url.pathname.endsWith('/reconsiderations'))
+        return route.fulfill({
+          json: {
+            items: [
+              {
+                id: secondId,
+                decisionId: secondId,
+                subjectType: 'sponsorship',
+                subjectId: id,
+                message: 'Please reconsider the corrected version in context.',
+                state: resolved ? 'resolved' : 'open',
+                createdAt: date
+              }
+            ]
+          }
+        });
+      return route.fulfill({ json: { items: [] } });
+    });
+    await page.goto(path());
+    if (english)
+      await page
+        .getByRole('button', {
+          name: 'Switch administration language to English'
+        })
+        .click();
+    const actions = page.locator('[data-og7="moderation-actions"]').first();
+    await actions.locator('summary').click();
+    const member = actions.locator('[data-og7="moderation-assigned-member"]');
+    await expect(member).toBeVisible();
+    await expect(member.locator('option')).toHaveCount(2);
+    await member.selectOption('admin:' + secondId);
+    await actions.locator('[data-og7="moderation-assign"]').click();
+    expect(mutations).toHaveLength(0);
+    await page.locator('[data-og7="confirm-action"]').click();
+    await expect.poll(() => mutations.length).toBe(1);
+    expect(mutations[0]).toMatchObject({
+      path: '/api/admin/moderation/assignment',
+      body: {
+        subject: { type: 'sponsorship', id },
+        assignedTo: 'admin:' + secondId,
+        expectedAssignedTo: null,
+        confirmation: id
+      }
+    });
+    await member.selectOption('');
+    await actions.locator('[data-og7="moderation-assign"]').click();
+    await page.locator('[data-og7="confirm-action"]').click();
+    await expect.poll(() => mutations.length).toBe(2);
+    expect(mutations[1].body).toMatchObject({
+      assignedTo: null,
+      expectedAssignedTo: 'admin:' + secondId
+    });
+    await actions.getByRole('combobox').first().selectOption('N0');
+    await actions
+      .locator('[data-og7="moderation-resolve-reconsideration"]')
+      .click();
+    const panel = page.locator('[data-og7="moderation-decision"]');
+    await expect(
+      panel.locator('[data-og7="moderation-internal-reason"]')
+    ).toHaveCount(0);
+    await panel.locator('[data-og7="moderation-confirmation"]').check();
+    await expect(
+      panel.locator('[data-og7="moderation-submit"]')
+    ).toBeDisabled();
+    await panel
+      .locator('[data-og7="moderation-explanation"]')
+      .fill(
+        'The corrected current version is approved editorially after human reconsideration.'
+      );
+    await panel.locator('[data-og7="moderation-confirmation"]').check();
+    await panel.locator('[data-og7="moderation-submit"]').click();
+    await expect.poll(() => mutations.length).toBe(3);
+    expect(mutations[2]).toMatchObject({
+      path: '/api/admin/moderation/reconsiderations/resolve',
+      body: {
+        appealId: secondId,
+        subject: { type: 'sponsorship', id },
+        decision: {
+          level: 'N0',
+          contentVersion: 9,
+          contentFingerprint: 'c'.repeat(64),
+          expectedDecisionId: secondId,
+          sponsorExplanation:
+            'The corrected current version is approved editorially after human reconsideration.',
+          confirmation: id
+        }
+      }
+    });
+    await expect(
+      actions.locator('[data-og7="moderation-resolve-reconsideration"]')
+    ).toHaveCount(0);
+    expect(
+      calls.filter((call) => call.method === 'POST'),
+      'editorial reconsideration alone never publishes or approves a commercial dossier'
+    ).toHaveLength(0);
+  });
+}

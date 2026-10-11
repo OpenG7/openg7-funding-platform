@@ -7,6 +7,10 @@ import {
 } from '../../dist/apps/funding-api/src/fund-contributions.repository.js';
 import { setSponsorshipWebsiteVisibility } from '../../dist/apps/funding-api/src/sponsorship-website.service.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
+import {
+  approveFixtureSubject,
+  fixtureModerationActor
+} from './support/moderation-fixture.mjs';
 
 test(
   'review and website visibility require an active approved presentation photo, including at the review write',
@@ -26,7 +30,7 @@ test(
         [name]
       );
       if (media) {
-        await pool.query(
+        const inserted = await pool.query(
           `INSERT INTO sponsor_media_assets
             (contribution_id, kind, review_status, original_filename, original_mime_type,
              original_size_bytes, original_storage_key, processed_size_bytes,
@@ -36,15 +40,23 @@ test(
              80, 'processed/' || $1::uuid::text,
              CASE WHEN $3 = 'approved' THEN 'public/' || $1::uuid::text END,
              CASE WHEN $3 = 'approved' THEN 'https://example.invalid/photo.webp' END,
-             repeat('a', 64), 100, 100, CASE WHEN $4 THEN NOW() END)`,
+             repeat('a', 64), 100, 100, CASE WHEN $4 THEN NOW() END) RETURNING id`,
           [row.id, media.kind, media.status, media.deleted ?? false]
         );
+        if (media.status === 'approved' && !media.deleted)
+          await approveFixtureSubject(pool, {
+            type: 'media',
+            id: inserted.rows[0].id
+          });
       }
+      await approveFixtureSubject(pool, { type: 'sponsorship', id: row.id });
       return row;
     };
     const approve = (database, row) =>
       updateSponsorshipReview(database, {
         contributionId: row.id,
+        confirmation: row.id,
+        actor: fixtureModerationActor,
         expectedVersion: row.version,
         reviewStatus: 'approved',
         reviewNote: null
@@ -111,7 +123,7 @@ test(
 
     for (const revocation of ['deleted', 'rejected']) {
       await t.test(
-        `photo ${revocation} after the read still prevents approval`,
+        `photo ${revocation} after a prior dossier read still prevents approval`,
         async () => {
           const row = await seed(`Revoked ${revocation}`, {
             kind: 'supporting_image',
@@ -125,25 +137,16 @@ test(
               )
             ).rows[0];
           const before = await read();
-          let queries = 0;
-          const database = {
-            async query(...args) {
-              const result = await pool.query(...args);
-              if (++queries === 1) {
-                // Commit the independent media change between the target read and guarded UPDATE.
-                await pool.query(
-                  revocation === 'deleted'
-                    ? 'UPDATE sponsor_media_assets SET deleted_at = NOW() WHERE contribution_id = $1'
-                    : "UPDATE sponsor_media_assets SET review_status = 'rejected', public_storage_key = NULL, public_url = NULL WHERE contribution_id = $1",
-                  [row.id]
-                );
-              }
-              return result;
-            }
-          };
-          const result = await approve(database, row);
-          assert.equal(queries, 2);
-          assert.equal(result.status, 'conflict');
+          // A UI read does not authorize the later command: its transaction
+          // rechecks presentation eligibility after the independent edit commits.
+          await pool.query(
+            revocation === 'deleted'
+              ? 'UPDATE sponsor_media_assets SET deleted_at = NOW() WHERE contribution_id = $1'
+              : "UPDATE sponsor_media_assets SET review_status = 'rejected', public_storage_key = NULL, public_url = NULL WHERE contribution_id = $1",
+            [row.id]
+          );
+          const result = await approve(pool, row);
+          assert.equal(result.status, 'media_required');
           assert.equal(result.updated, false);
           assert.deepEqual(await read(), before);
           assert.equal(await directoryHas(`Revoked ${revocation}`), false);

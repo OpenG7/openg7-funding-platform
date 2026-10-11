@@ -39,7 +39,11 @@ const checkoutMetadataKeys = [
   'nonCharityAcknowledged',
   'sponsorshipFollowupTokenHash',
   'openg7CheckoutOperationId',
-  'checkoutOperationId'
+  'checkoutOperationId',
+  'sponsorshipLocale',
+  'charterPolicyVersion',
+  'charterFingerprint',
+  'charterLocale'
 ] as const;
 
 export const projectStoredCheckoutMetadata = (

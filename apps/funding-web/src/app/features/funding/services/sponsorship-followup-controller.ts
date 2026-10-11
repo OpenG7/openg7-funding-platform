@@ -20,17 +20,20 @@ const sponsorshipFollowupTokenPattern = /^[A-Za-z0-9_-]{32,128}$/;
 export interface SponsorshipFollowupPorts {
   api: Pick<
     FundingService,
-    'getSponsorshipFollowup' | 'submitSponsorshipFollowupDetails'
+    | 'getSponsorshipFollowup'
+    | 'submitSponsorshipFollowupDetails'
+    | 'submitSponsorshipCorrection'
   >;
   drafts: Pick<
     SponsorshipDraftService,
-    'revision' | 'load' | 'flush' | 'state' | 'clear'
+    'revision' | 'load' | 'flush' | 'pauseAutosave' | 'state' | 'clear'
   >;
   browser: SponsorshipFollowupBrowserPort;
 }
 
 /** One routed page's private snapshot and submissions; the API confirms changes. */
 export class SponsorshipFollowupController {
+  readonly correctionDecisionId = signal<string | null>(null);
   readonly token = signal('');
   readonly recoveryEntry = signal(false);
   readonly followup = signal<SponsorshipFollowupResponse | null>(null);
@@ -78,6 +81,8 @@ export class SponsorshipFollowupController {
   private readSequence = 0;
   private accessGeneration = 0;
   private disposed = false;
+  private correctionAttempt:
+    import('@openg7/funding-core').SponsorshipCorrectionRequest | null = null;
 
   constructor(private readonly ports: SponsorshipFollowupPorts) {}
 
@@ -109,6 +114,7 @@ export class SponsorshipFollowupController {
       );
       if (this.disposed || sequence !== this.readSequence) return false;
       this.followup.set(followup);
+      this.correctionDecisionId.set(null);
       if (this.ports.drafts.revision() === null)
         await this.ports.drafts.load(this.token());
       return !this.disposed && sequence === this.readSequence;
@@ -130,7 +136,7 @@ export class SponsorshipFollowupController {
       this.busy() ||
       !current ||
       this.loadError() === 'access' ||
-      current.reviewStatus === 'rejected' ||
+      (current.reviewStatus === 'rejected' && !this.correctionDecisionId()) ||
       !canEditSponsorshipDetails(current.paymentStatus)
     )
       return;
@@ -149,13 +155,43 @@ export class SponsorshipFollowupController {
     this.saving.set(true);
     this.saveState.set('idle');
     try {
-      if (!(await this.ports.drafts.flush()) || !this.active(generation))
-        return;
-      const result = await this.ports.api.submitSponsorshipFollowupDetails({
-        token: this.token(),
-        ...draft,
-        draftRevision: this.ports.drafts.revision()!
-      });
+      const decisionId = this.correctionDecisionId();
+      const correctionData = {
+        companyName: draft.companyName,
+        contactName: draft.contactName,
+        contactEmail: draft.contactEmail,
+        websiteUrl: draft.websiteUrl ?? '',
+        logoUrl: draft.logoUrl ?? '',
+        message: draft.message ?? ''
+      };
+      const previousAttempt = this.correctionAttempt;
+      const retryCorrection =
+        decisionId &&
+        previousAttempt?.decisionId === decisionId &&
+        JSON.stringify(previousAttempt.data) === JSON.stringify(correctionData);
+      if (!retryCorrection) {
+        if (decisionId) await this.ports.drafts.pauseAutosave();
+        else if (!(await this.ports.drafts.flush())) return;
+        if (!this.active(generation) || this.ports.drafts.revision() === null)
+          return;
+      }
+      if (decisionId && !retryCorrection)
+        this.correctionAttempt = {
+          token: this.token(),
+          decisionId,
+          requestId: globalThis.crypto.randomUUID(),
+          expectedRevision: this.ports.drafts.revision()!,
+          data: correctionData
+        };
+      const result = decisionId
+        ? await this.ports.api.submitSponsorshipCorrection(
+            this.correctionAttempt!
+          )
+        : await this.ports.api.submitSponsorshipFollowupDetails({
+            token: this.token(),
+            ...draft,
+            draftRevision: this.ports.drafts.revision()!
+          });
       if (!this.active(generation)) return;
       if (result.received !== true || result.recorded !== true) {
         this.saveState.set('unconfirmed');
@@ -163,6 +199,7 @@ export class SponsorshipFollowupController {
       }
       // Only the confirmed mutation may mark this draft as saved.
       this.savedDetails.set(draft);
+      this.correctionAttempt = null;
       this.saveState.set('saved');
       await this.ports.drafts.load(this.token(), false);
       if (this.active(generation)) await this.readFollowup();
@@ -201,6 +238,8 @@ export class SponsorshipFollowupController {
     this.loadError.set('access');
     this.followup.set(null);
     this.savedDetails.set(null);
+    this.correctionDecisionId.set(null);
+    this.correctionAttempt = null;
     this.token.set('');
     this.ports.browser.clearToken();
   }

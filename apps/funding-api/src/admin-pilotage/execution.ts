@@ -11,10 +11,12 @@ import {
 } from '../fund-admin.repository.js';
 import { updateSponsorshipReview } from '../fund-contributions.repository.js';
 import { withPostgresTransaction } from '../postgres-transaction.js';
+import { ModerationError } from '../moderation/policy.js';
+import { lockModerationDependencies } from '../moderation/content.js';
 
 import { audit } from './audit.js';
 import type { PilotExecutionPorts } from './contracts.js';
-import { requireValue } from './errors.js';
+import { PilotError, requireValue } from './errors.js';
 
 export class AdminPilotageExecution {
   constructor(
@@ -23,6 +25,19 @@ export class AdminPilotageExecution {
   ) {}
 
   async execute(c: PilotCommand, actor: string): Promise<string> {
+    try {
+      return await this.executeCommand(c, actor);
+    } catch (error) {
+      if (error instanceof ModerationError)
+        throw new PilotError(error.code, error.status);
+      throw error;
+    }
+  }
+
+  private async executeCommand(
+    c: PilotCommand,
+    actor: string
+  ): Promise<string> {
     if (c.action === 'programme.apply') {
       await this.ports.editorial.apply(
         c.targetId as PublicationFeedId,
@@ -75,7 +90,8 @@ export class AdminPilotageExecution {
             id: c.targetId,
             version,
             confirmation: c.targetId,
-            approveSponsors: c.payload?.approveSponsors
+            approveSponsors: c.payload?.approveSponsors,
+            moderationDecision: c.payload?.moderationDecision
           },
           actor
         );
@@ -85,7 +101,8 @@ export class AdminPilotageExecution {
             action: 'reject',
             id: c.targetId,
             version,
-            confirmation: c.targetId
+            confirmation: c.targetId,
+            moderationDecision: c.payload?.moderationDecision
           },
           actor
         );
@@ -130,7 +147,12 @@ export class AdminPilotageExecution {
       return 'SAVED';
     }
     if (c.action.startsWith('sponsor.')) {
-      await withPostgresTransaction(this.pool, async (db) => {
+      return withPostgresTransaction(this.pool, async (db) => {
+        if (c.action === 'sponsor.reject')
+          await lockModerationDependencies(db, {
+            type: 'sponsorship',
+            id: c.targetId
+          });
         const row = (
           await db.query(
             'SELECT sponsor_review_status FROM fund_contributions WHERE id=$1 FOR UPDATE',
@@ -146,7 +168,10 @@ export class AdminPilotageExecution {
           expectedVersion: c.version,
           reviewStatus:
             c.action === 'sponsor.approve' ? 'approved' : 'rejected',
-          reviewNote: c.payload?.reason ?? null
+          reviewNote: c.payload?.reason ?? null,
+          moderationDecision: c.payload?.moderationDecision,
+          actor,
+          confirmation: c.targetId
         });
         requireValue(
           r.updated,
@@ -161,9 +186,20 @@ export class AdminPilotageExecution {
             'UPDATE fund_contributions SET sponsor_site_visibility_held=TRUE WHERE id=$1',
             [c.targetId]
           );
-        await audit(db, actor, c.action, c.targetId);
+        await audit(
+          db,
+          actor,
+          r.decisionState === 'pending_independent_review'
+            ? 'sponsor.independent_review_pending'
+            : c.action,
+          c.targetId
+        );
+        return r.decisionState === 'pending_independent_review'
+          ? 'PENDING_INDEPENDENT_REVIEW'
+          : c.action === 'sponsor.approve'
+            ? 'APPROVED'
+            : 'REJECTED';
       });
-      return c.action === 'sponsor.approve' ? 'APPROVED' : 'REJECTED';
     }
     if (c.action === 'email.retry') {
       await withPostgresTransaction(this.pool, async (db) => {

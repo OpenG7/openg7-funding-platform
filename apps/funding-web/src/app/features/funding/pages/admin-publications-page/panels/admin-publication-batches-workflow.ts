@@ -92,7 +92,8 @@ export class AdminPublicationBatchesWorkflow {
     state.batchActionState.set(batch.id);
     try {
       await this.ports.api.publishPublicationBatch(this.ports.token(), {
-        batchId: batch.id
+        batchId: batch.id,
+        confirmation: batch.id
       });
       await this.ports.reload();
     } catch {

@@ -55,6 +55,15 @@ test.beforeEach(async ({ page }) => {
   // Stripe account, or configured local API.
   await page.route('**/api/**', async (route) => {
     const pathname = new URL(route.request().url()).pathname;
+    if (pathname === '/api/sponsorship-charter')
+      return route.fulfill({
+        json: {
+          active: false,
+          policyVersion: '1.0',
+          fingerprint: null,
+          text: null
+        }
+      });
     if (pathname === '/api/public/funding-config') {
       await route.fulfill({ json: { business_sponsorship_enabled: false } });
     } else if (pathname === '/api/public/fund-transparency') {
@@ -371,6 +380,115 @@ test('switching the default personal amount to sponsorship submits a valid 50 CA
   await expect(contributionForm(page).getByRole('status')).toContainText(
     /Mode local/i
   );
+});
+
+for (const english of [false, true]) {
+  test(`moderation V1 charter uses exact activated API text and renews changed acceptance ${english ? 'EN mobile' : 'FR desktop'}`, async ({
+    page
+  }) => {
+    await enableSponsorship(page);
+    await page.setViewportSize(
+      english ? { width: 390, height: 844 } : { width: 1280, height: 900 }
+    );
+    let revision = 1;
+    const requests: Record<string, unknown>[] = [];
+    await page.route('**/api/sponsorship-charter', (route) =>
+      route.fulfill({
+        json: {
+          active: true,
+          policyVersion: '1.0',
+          fingerprint: (revision === 1 ? 'a' : 'b').repeat(64),
+          text: {
+            fr: `Texte exact synthétique serveur ${revision}`,
+            en: `Exact synthetic server text ${revision}`
+          }
+        }
+      })
+    );
+    await page.route('**/api/checkout-sessions', async (route) => {
+      requests.push(route.request().postDataJSON());
+      if (requests.length === 1) {
+        revision = 2;
+        return route.fulfill({
+          status: 409,
+          json: { code: 'CHARTER_VERSION_CHANGED' }
+        });
+      }
+      return route.fulfill({
+        json: {
+          status: 'mocked',
+          checkoutId: 'synthetic-charter-test',
+          redirectUrl: 'https://example.test/unused'
+        }
+      });
+    });
+    await page.goto((english ? '/en' : '') + '/fonds-des-batisseurs');
+    await page
+      .getByRole('button', {
+        name: english ? 'Business sponsorship' : /Commandite d'entreprise/i
+      })
+      .click();
+    const form = contributionForm(page);
+    await form
+      .getByLabel(
+        english
+          ? /OpenG7 is an independent project/
+          : /OpenG7 est un projet indépendant/
+      )
+      .check();
+    const submit = form.getByRole('button', {
+      name: english ? 'Support OpenG7' : 'Soutenir OpenG7',
+      exact: true
+    });
+    const acceptance = form.locator('[data-og7="charter-acceptance"]');
+    await expect(
+      form.locator('[data-og7="sponsorship-charter"]')
+    ).toContainText(
+      english
+        ? 'Exact synthetic server text 1'
+        : 'Texte exact synthétique serveur 1'
+    );
+    await expect(submit).toBeDisabled();
+    await acceptance.check();
+    await submit.click();
+    await expect(
+      form.locator('[data-og7="sponsorship-charter"]')
+    ).toContainText(
+      english
+        ? 'Exact synthetic server text 2'
+        : 'Texte exact synthétique serveur 2'
+    );
+    await expect(acceptance).not.toBeChecked();
+    await expect(submit).toBeDisabled();
+    await acceptance.check();
+    await submit.click();
+    await expect.poll(() => requests.length).toBe(2);
+    expect(requests[0].charterAcceptance).toEqual({
+      accepted: true,
+      policyVersion: '1.0',
+      fingerprint: 'a'.repeat(64),
+      locale: english ? 'en' : 'fr-CA'
+    });
+    expect(requests[1].charterAcceptance).toEqual({
+      accepted: true,
+      policyVersion: '1.0',
+      fingerprint: 'b'.repeat(64),
+      locale: english ? 'en' : 'fr-CA'
+    });
+    expect(requests[0].idempotencyKey).not.toBe(requests[1].idempotencyKey);
+  });
+}
+
+test('moderation V1 proposed charter remains inactive and imposes no fabricated acceptance', async ({
+  page
+}) => {
+  await enableSponsorship(page);
+  await page.goto('/fonds-des-batisseurs');
+  await page.getByRole('button', { name: /Commandite d'entreprise/i }).click();
+  await acknowledge(page);
+  await expect(page.locator('[data-og7="charter-acceptance"]')).toHaveCount(0);
+  await expect(page.locator('[data-og7="sponsorship-charter"]')).toHaveCount(0);
+  await expect(checkoutButton(page)).toBeEnabled();
 });
 
 for (const language of ['fr-CA', 'en'] as const) {

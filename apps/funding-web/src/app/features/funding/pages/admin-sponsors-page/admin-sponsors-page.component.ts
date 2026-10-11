@@ -44,6 +44,8 @@ import { AdminInspectionService } from '../../services/admin-inspection.service.
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
 import { AdminAssistantContextComponent } from '../../components/admin-assistant/admin-assistant-context.component.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
+import { FundingModerationService } from '../../services/funding-moderation.service.js';
+import { FundingModerationActionsComponent } from '../../components/admin-moderation/funding-moderation-actions.component.js';
 import {
   AdminDashboardRequestError,
   FundingAdminService
@@ -96,6 +98,7 @@ import { AdminSponsorsNavigationAdapter } from './admin-sponsors-navigation.adap
     CommonModule,
     RouterLink,
     AdminLayoutComponent,
+    FundingModerationActionsComponent,
     AdminSponsorDetailHeaderComponent,
     AdminSponsorEditComponent,
     AdminSponsorDetailIdentityComponent,
@@ -146,6 +149,7 @@ export class AdminSponsorsPageComponent implements OnInit {
   private readonly sponsorAssistant = viewChild(AdminAssistantContextComponent);
   private readonly i18n = inject(FundingI18nService);
   private readonly confirmation = inject(AdminConfirmationService);
+  private readonly moderation = inject(FundingModerationService);
   readonly inspection = inject(AdminInspectionService);
   private readonly admin = inject(FundingAdminService);
   private readonly injector = inject(Injector);
@@ -241,6 +245,8 @@ export class AdminSponsorsPageComponent implements OnInit {
         this.admin.reviewSponsorship(token, payload)
     },
     confirm: (message, detail) => this.confirmation.confirm(message, detail),
+    moderate: (subject, level, initial) =>
+      this.moderation.requestDecision(subject, level, initial),
     canManage: () => this.canManage(),
     paymentEligibilityMessage: (sponsorship) =>
       this.paymentEligibilityMessage(sponsorship),
@@ -318,27 +324,39 @@ export class AdminSponsorsPageComponent implements OnInit {
     stripeRefundReasonLabel: (reason) =>
       this.historyProjection.stripeRefundReasonLabel(reason)
   });
-  readonly mediaWorkflow = new AdminSponsorMediaWorkflow({
-    ...this.sponsorActionPorts,
-    admin: {
-      uploadSponsorLogo: (token, id, version, file) =>
-        this.admin.uploadSponsorLogo(token, id, version, file),
-      deleteSponsorLogo: (token, id, version, confirmation) =>
-        this.admin.deleteSponsorLogo(token, id, version, confirmation),
-      getSponsorLogoPreview: (token, id) =>
-        this.admin.getSponsorLogoPreview(token, id),
-      getSponsorMedia: (token, id) => this.admin.getSponsorMedia(token, id),
-      getSponsorMediaPreview: (token, id) =>
-        this.admin.getSponsorMediaPreview(token, id),
-      reviewSponsorMedia: (token, payload) =>
-        this.admin.reviewSponsorMedia(token, payload),
-      deleteSponsorMedia: (token, payload) =>
-        this.admin.deleteSponsorMedia(token, payload)
-    },
-    confirm: (message) => this.confirmation.confirm(message),
-    isBrowser: () => isPlatformBrowser(this.platformId),
-    mediaLoaded: () => this.assistantRefresh.update((value) => value + 1)
-  });
+  readonly mediaWorkflow: AdminSponsorMediaWorkflow =
+    new AdminSponsorMediaWorkflow({
+      ...this.sponsorActionPorts,
+      canContinue: (sponsorship) =>
+        !this.destroyRef.destroyed &&
+        this.canManage() &&
+        this.state() !== 'loading' &&
+        !this.versionConflict() &&
+        this.selectedSponsorship()?.id === sponsorship.id &&
+        this.selectedSponsorship()?.version === sponsorship.version,
+      admin: {
+        uploadSponsorLogo: (token, id, version, file) =>
+          this.admin.uploadSponsorLogo(token, id, version, file),
+        deleteSponsorLogo: (token, id, version, confirmation) =>
+          this.admin.deleteSponsorLogo(token, id, version, confirmation),
+        getSponsorLogoPreview: (token, id) =>
+          this.admin.getSponsorLogoPreview(token, id),
+        getSponsorMedia: (token, id) => this.admin.getSponsorMedia(token, id),
+        getSponsorMediaPreview: (token, id) =>
+          this.admin.getSponsorMediaPreview(token, id),
+        reviewSponsorMedia: (token, payload) =>
+          this.admin.reviewSponsorMedia(token, payload),
+        updateSponsorMediaMetadata: (token, payload) =>
+          this.admin.updateSponsorMediaMetadata(token, payload),
+        deleteSponsorMedia: (token, payload) =>
+          this.admin.deleteSponsorMedia(token, payload)
+      },
+      confirm: (message) => this.confirmation.confirm(message),
+      moderate: (subject, level, initial) =>
+        this.moderation.requestDecision(subject, level, initial),
+      isBrowser: () => isPlatformBrowser(this.platformId),
+      mediaLoaded: () => this.assistantRefresh.update((value) => value + 1)
+    });
 
   readonly adminToken = this.listController.adminToken;
   readonly sponsorships = this.listController.sponsorships;

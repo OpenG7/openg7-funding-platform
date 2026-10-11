@@ -16,6 +16,7 @@ import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
 import { AdminInspectorComponent } from '../admin-inspector/admin-inspector.component.js';
 import { AdminConfirmationComponent } from '../admin-ui/admin-confirmation.component.js';
 import { ContributionActivityComponent } from '../contribution-activity/contribution-activity.component.js';
+import { FundingModerationPanelComponent } from '../admin-moderation/funding-moderation-panel.component.js';
 
 /** Admin page template: placement and navigation, no business data loading. */
 @Component({
@@ -29,6 +30,7 @@ import { ContributionActivityComponent } from '../contribution-activity/contribu
     AdminGlobalSearchComponent,
     AdminInspectorComponent,
     AdminConfirmationComponent,
+    FundingModerationPanelComponent,
     ContributionActivityComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -105,6 +107,7 @@ import { ContributionActivityComponent } from '../contribution-activity/contribu
         <main id="admin-main" #main tabindex="-1"><ng-content /></main>
         <openg7-admin-inspector />
         <openg7-admin-confirmation />
+        <openg7-funding-moderation-panel />
       </div>
     </div>
   `,

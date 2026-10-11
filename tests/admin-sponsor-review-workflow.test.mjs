@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { moderationDecision } from './support/moderation-ui-fixture.mjs';
 
 import { AdminSponsorReviewWorkflow } from '../dist/apps/funding-web/src/app/features/funding/services/admin-sponsor-review-workflow.js';
 import { AdminDashboardRequestError } from '../dist/apps/funding-web/src/app/features/funding/services/funding-admin-session.js';
@@ -50,6 +51,8 @@ const fixture = (t, record = sponsor()) => {
   const feedback = [];
   const opened = [];
   const ports = {
+    moderate: async (subject, level, initial) =>
+      moderationDecision(subject, level, initial),
     admin: {
       async reviewSponsorship(token, payload) {
         calls.push({ token, payload });
@@ -332,6 +335,7 @@ test('approval uses the version and trimmed note, keeps lock and feedback pendin
     return reload.promise;
   };
   const request = f.workflow.review(record, 'approved');
+  await Promise.resolve();
   assert.equal(f.state.action, `review:${record.id}`);
   assert.match(f.workflow.reviewMessageFor(record.id), /action_en_cours/);
   assert.equal(f.feedback[0].attempt.phase, 'pending');
@@ -343,7 +347,12 @@ test('approval uses the version and trimmed note, keeps lock and feedback pendin
       contributionId: record.id,
       reviewStatus: 'approved',
       reviewNote: 'Synthetic approval note',
-      expectedVersion: record.version
+      expectedVersion: record.version,
+      confirmation: record.id,
+      moderationDecision: moderationDecision(
+        { type: 'sponsorship', id: record.id },
+        'N0'
+      )
     }
   });
   mutation.resolve(reviewResult());
@@ -392,6 +401,15 @@ test('refusal sends complete trimmed form once and waits for server refresh befo
     reviewStatus: 'rejected',
     reviewNote: 'Synthetic internal reason',
     expectedVersion: record.version,
+    confirmation: record.id,
+    moderationDecision: moderationDecision(
+      { type: 'sponsorship', id: record.id },
+      'N4',
+      {
+        internalReason: 'Synthetic internal reason',
+        sponsorExplanation: 'Synthetic sponsor message'
+      }
+    ),
     notifySponsor: true,
     notificationEmail: 'synthetic-correction@example.test',
     sponsorMessage: 'Synthetic sponsor message',
@@ -411,7 +429,7 @@ test('refusal sends complete trimmed form once and waits for server refresh befo
   reload.resolve();
   await request;
   assert.equal(f.workflow.isRejectionPanelOpen(record), false);
-  assert.match(f.workflow.reviewMessageFor(record.id), /commandite_refusee/);
+  assert.match(f.workflow.reviewMessageFor(record.id), /independentReview/);
   assert.match(f.workflow.reviewMessageFor(record.id), /courriel_mis_en_file/);
   assert.match(f.workflow.reviewMessageFor(record.id), /workflow:requested/);
   assert.equal(
@@ -626,6 +644,7 @@ test('late successes and errors after changing selection and returning keep new 
           : action === 'rejection'
             ? f.workflow.confirmRejection(record)
             : f.workflow.saveReviewNote(record);
+      await Promise.resolve();
       f.state.selected = 'synthetic-other';
       f.state.revision++;
       f.workflow.activeRejectionId.set('synthetic-other');
@@ -701,6 +720,7 @@ test('disposal prevents late refresh, central errors and UI changes after either
           : action === 'rejection'
             ? f.workflow.confirmRejection(record)
             : f.workflow.saveReviewNote(record);
+      await Promise.resolve();
       const reviewMessages = f.workflow.reviewMessages();
       const noteMessages = f.workflow.noteMessages();
       f.workflow.dispose();
@@ -774,11 +794,39 @@ test('FR and EN use existing translations for forms, actions, note states and no
     f.workflow.rejectionRefundResultLabel('manual_required', 'requested');
     f.workflow.rejectionRefundResultLabel('manual_completed', 'completed');
     assert.equal(f.workflow.rejectionRefundResultLabel('none'), '');
-    assert.ok(
-      translated.includes('admin.messages.action_confirmee_commandite_refusee')
-    );
+    assert.ok(translated.includes('admin.moderation.independentReview'));
   }
   assert.notEqual(phrases[0], phrases[1]);
   assert.match(phrases[0], /Synthetic company/);
   assert.match(phrases[1], /Synthetic company/);
+});
+
+test('decision cancellation and selection changes never submit a stale dossier approval', async (t) => {
+  for (const outcome of ['cancel', 'change', 'return']) {
+    const f = fixture(t);
+    const gate = deferred();
+    f.ports.moderate = () => gate.promise;
+    const pending = f.workflow.review(f.state.record, 'approved');
+    await f.workflow.review(f.state.record, 'approved');
+    assert.equal(f.calls.length, 0);
+    if (outcome !== 'cancel') {
+      f.state.selected = 'another-dossier';
+      f.state.revision++;
+      if (outcome === 'return') {
+        f.state.selected = f.state.record.id;
+        f.state.revision++;
+      }
+    }
+    gate.resolve(
+      outcome === 'cancel'
+        ? null
+        : moderationDecision(
+            { type: 'sponsorship', id: f.state.record.id },
+            'N0'
+          )
+    );
+    await pending;
+    assert.deepEqual(f.calls, []);
+    assert.equal(f.state.action, null);
+  }
 });

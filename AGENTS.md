@@ -63,6 +63,11 @@ documentation de production.
 10. Actions sensibles auditées : acteur, action, cible, date, résultat et corrélation, sans secret. Confirmation UI et validation serveur pour remboursement, suppression de logo, publication, refus, masquage, retry massif, backfill, correction de destinataire et export privé.
 11. Aucun déploiement, restauration, migration de production, remboursement réel, suppression de données, rollback, changement de secret, approbation/publication ou lot réel de courriels sans instruction explicite et garde-fous.
 
+## Pull requests
+
+À chaque création de PR, consulter les labels disponibles du dépôt, ajouter ceux
+qui correspondent au contenu du diff, puis vérifier leur présence sur la PR.
+
 ## Lectures selon la tâche
 
 <!-- prettier-ignore -->

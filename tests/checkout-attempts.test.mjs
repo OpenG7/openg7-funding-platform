@@ -24,6 +24,48 @@ const result = {
 const uuidPattern =
   /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 
+test('a changed charter fingerprint requires a fresh Checkout attempt while identical evidence retries safely', async () => {
+  const attempts = new CheckoutAttempts();
+  const evidence = {
+    accepted: true,
+    policyVersion: '1.0',
+    fingerprint: 'a'.repeat(64),
+    locale: 'fr-CA'
+  };
+  const requests = [];
+  const execute = async (request) => {
+    requests.push(request);
+    throw new TypeError('Synthetic uncertain Checkout');
+  };
+  const sponsorship = {
+    ...intent,
+    contributionType: 'business_sponsorship',
+    charterAcceptance: evidence
+  };
+  await assert.rejects(attempts.start(sponsorship, execute));
+  await assert.rejects(
+    attempts.start(
+      { ...sponsorship, charterAcceptance: { ...evidence } },
+      execute
+    )
+  );
+  await assert.rejects(
+    attempts.start(
+      {
+        ...sponsorship,
+        charterAcceptance: { ...evidence, fingerprint: 'b'.repeat(64) }
+      },
+      execute
+    )
+  );
+  assert.equal(requests[0].idempotencyKey, requests[1].idempotencyKey);
+  assert.notEqual(requests[0].idempotencyKey, requests[2].idempotencyKey);
+  assert.deepEqual(requests[2].charterAcceptance, {
+    ...evidence,
+    fingerprint: 'b'.repeat(64)
+  });
+});
+
 function memoryStorage() {
   const entries = new Map();
   return {

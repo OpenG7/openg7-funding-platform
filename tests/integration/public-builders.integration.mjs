@@ -5,6 +5,7 @@ import {
   getPublicTransparencySummary
 } from '../../dist/apps/funding-api/src/fund-transparency.repository.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
+import { approveFixtureSubject } from './support/moderation-fixture.mjs';
 
 test(
   'public builder pagination preserves consent and the transparency preview',
@@ -61,6 +62,11 @@ test(
       ('sponsorship_interest',2501,'cad','paid',true,false,'Approved','approved'),
       ('personal_support',2501,'cad','refunded',true,true,'Refunded','pending_review'),
       ('personal_support',2501,'cad','disputed',true,true,'Disputed','pending_review')`);
+        const { rows } = await pool.query(
+          "SELECT id FROM fund_contributions WHERE contribution_type='sponsorship_interest' AND sponsor_review_status='approved'"
+        );
+        for (const { id } of rows)
+          await approveFixtureSubject(pool, { type: 'sponsorship', id });
         const result = await listPublicBuilders(pool);
         assert.equal(result.pagination.total_count, 4);
         assert.deepEqual(result.builders.map((b) => b.display_name).sort(), [

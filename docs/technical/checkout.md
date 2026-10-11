@@ -15,6 +15,13 @@ contacting Stripe. Stripe-direct statistics remain available. The explicit local
 mock still works without a database when Stripe Checkout is not configured.
 Deploy the updated Web with the API; older clients without a key are refused.
 
+For sponsorships, a validated public charter can additionally require
+`charterAcceptance: { accepted: true, policyVersion, fingerprint, locale }`.
+The acceptance and durable operation commit together before Stripe; retries
+retain the original evidence. Personal contributions remain outside this scope.
+The prepared V1 charter is inactive by default. See the
+[moderation contract and activation limits](../operations/sponsorship-moderation.md).
+
 The API persists the original parameters before contacting Stripe and uses the
 operation UUID as Stripe's idempotency key. A completed operation returns its
 original redirect without another provider call. A changed amount, consent,

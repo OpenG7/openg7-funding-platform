@@ -12,11 +12,32 @@ import type {
   ReferenceRecoveryResult
 } from '@openg7/funding-core';
 
-import { CheckoutReconciliationRequiredError } from './checkout-error.js';
+import {
+  CheckoutReconciliationRequiredError,
+  CheckoutCharterChangedError
+} from './checkout-error.js';
 
 /** Public funding endpoints; checkout attempts and return URLs belong to FundingService. */
 export class FundingPublicClient {
   constructor(private readonly apiBaseUrl: string) {}
+  async sponsorshipCharter(): Promise<
+    import('@openg7/funding-core').PublicSponsorshipCharter
+  > {
+    const response = await fetch(`${this.apiBaseUrl}/sponsorship-charter`, {
+      cache: 'no-store'
+    });
+    if (!response.ok) throw new Error('CHARTER_UNAVAILABLE');
+    const result =
+      (await response.json()) as import('@openg7/funding-core').PublicSponsorshipCharter;
+    if (
+      typeof result.active !== 'boolean' ||
+      typeof result.policyVersion !== 'string' ||
+      (result.active &&
+        (!result.fingerprint || !result.text?.fr || !result.text.en))
+    )
+      throw new Error('CHARTER_UNAVAILABLE');
+    return result;
+  }
 
   async startCheckout(request: CheckoutRequest): Promise<CheckoutResult> {
     const response = await fetch(`${this.apiBaseUrl}/checkout-sessions`, {
@@ -28,6 +49,19 @@ export class FundingPublicClient {
     });
 
     if (!response.ok) {
+      const charterFailure = (await response
+        .clone()
+        .json()
+        .catch(() => null)) as { code?: string } | null;
+      if (
+        [
+          'CHARTER_VERSION_CHANGED',
+          'CHARTER_NOT_ACTIVE',
+          'CHARTER_ACCEPTANCE_REQUIRED',
+          'CHARTER_ACCEPTANCE_INVALID'
+        ].includes(charterFailure?.code ?? '')
+      )
+        throw new CheckoutCharterChangedError();
       if (response.status === 409) {
         const failure: unknown = await response.json().catch(() => null);
         if (
