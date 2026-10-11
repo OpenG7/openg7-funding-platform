@@ -298,6 +298,9 @@ for (const language of ['fr-CA', 'en'] as const) {
         reason: 'INDIVIDUAL_TEXT_TOO_LONG',
         renderedLength: 3012
       });
+      const restricted = sourceEntry(5, {
+        reason: 'MODERATION_REVIEW_REQUIRED'
+      });
       const queue = sourceQueue(
         [
           sourceEntry(1, {
@@ -316,7 +319,8 @@ for (const language of ['fr-CA', 'en'] as const) {
           sourceEntry(4, {
             reason: 'MANUAL_RESERVATION',
             scheduledAt: initialJob.scheduledAt
-          })
+          }),
+          restricted
         ],
         {
           summary: { retained: 7, deferred: 4, needsCorrection: 1 },
@@ -343,7 +347,7 @@ for (const language of ['fr-CA', 'en'] as const) {
       await expect(
         section.locator('[data-og7="publication-source-partial"]')
       ).toContainText(
-        english ? '4 sources shown out of 12' : '4 sources affichées sur 12'
+        english ? '5 sources shown out of 12' : '5 sources affichées sur 12'
       );
       await expect(section).toContainText('UTF-16');
       const row = section.locator(`[data-og7-id="${correction.draftId}"]`);
@@ -386,6 +390,44 @@ for (const language of ['fr-CA', 'en'] as const) {
           exact: true
         })
       ).toBeVisible();
+      const restrictedRow = section.locator(
+        `[data-og7-id="${restricted.draftId}"]`
+      );
+      await expect(restrictedRow).toBeVisible();
+      await expect(restrictedRow).toContainText(
+        english ? 'Deferred' : 'Reportées'
+      );
+      await expect(restrictedRow).toContainText(
+        english
+          ? 'A current moderation review is required before preparation'
+          : 'Une revue de modération à jour est requise avant la préparation'
+      );
+      await expect(restrictedRow).toContainText(
+        english ? 'No date assigned' : 'Aucune date attribuée'
+      );
+      await expect(restrictedRow.getByRole('button')).toHaveCount(0);
+      await expect(
+        restrictedRow.getByRole('link', {
+          name: english
+            ? `View the publication for ${restricted.name}`
+            : `Consulter la publication de ${restricted.name}`,
+          exact: true
+        })
+      ).toHaveCount(0);
+      const reviewLink = restrictedRow.getByRole('link', {
+        name: english
+          ? `View the dossier for ${restricted.name}`
+          : `Consulter le dossier de ${restricted.name}`,
+        exact: true
+      });
+      await expect(reviewLink).toHaveAttribute(
+        'href',
+        '/admin/fundraiser/sponsors?sponsorshipId=' +
+          restricted.sponsorshipId +
+          '&tab=publication'
+      );
+      await reviewLink.focus();
+      await expect(reviewLink).toBeFocused();
       await expect(
         section.getByRole('button', {
           name: english ? 'Accept and schedule' : 'Accepter et programmer'
@@ -399,7 +441,7 @@ for (const language of ['fr-CA', 'en'] as const) {
         .selectOption('openg7:linkedin');
       await expect(
         section.locator('[data-og7="publication-source-entry"]')
-      ).toHaveCount(4);
+      ).toHaveCount(5);
       await expect(section).toContainText(
         english
           ? 'independently of the publication filter'

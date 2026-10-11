@@ -13,6 +13,8 @@ import { mediaRecord, mediaSnapshotIssue } from './media.js';
 import {
   PREPARATION_SCAN_LIMIT,
   preparationCandidates,
+  preparationModerationSql,
+  preparationModerationSubjectSql,
   recognitionSource,
   recordBlockedSource,
   type PreparationSource
@@ -34,6 +36,19 @@ import {
   repairSources,
   sources as loadSources
 } from './sources.js';
+
+async function blockPreparationProposal(
+  db: Db,
+  id: string,
+  code: string,
+  actor: string
+): Promise<void> {
+  await db.query(
+    `UPDATE publication_deliveries SET status='blocked',error_code=$2,version=version+1,updated_at=NOW() WHERE id=$1`,
+    [id, code]
+  );
+  await audit(db, actor, 'blocked', id, { code });
+}
 
 export async function prepare(
   context: PublicationPlanningContext,
@@ -110,8 +125,10 @@ export async function prepare(
       }
       // Match approval's lock order (delivery, then batch).
       const job = (
-        await db.query<DeliveryRow>(
-          `SELECT * FROM publication_deliveries WHERE batch_id=$1 AND status<>'cancelled' FOR UPDATE`,
+        await db.query<
+          DeliveryRow & { preparation_moderation_allowed: boolean }
+        >(
+          `SELECT *,${preparationModerationSubjectSql('publication_delivery', 'publication_deliveries.id')} AS preparation_moderation_allowed FROM publication_deliveries WHERE batch_id=$1 AND status<>'cancelled' FOR UPDATE`,
           [batch.id]
         )
       ).rows[0];
@@ -126,12 +143,32 @@ export async function prepare(
         (job && !(job.status === 'draft' && job.auto_managed))
       )
         continue;
-      const members = (
-        await db.query<Source & { name: string | null }>(
-          `SELECT d.*,c.sponsor_company_name AS name FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id WHERE d.batch_id=$1 ORDER BY d.id`,
+      if (job) {
+        // A stale editorial decision cannot suppress existing financial guards.
+        try {
+          await loadSources(db, batch.id, feedId, true);
+        } catch (error) {
+          if (!(error instanceof PublicationAutomationError)) throw error;
+          await blockPreparationProposal(db, job.id, error.code, actor);
+          continue;
+        }
+        if (!job.preparation_moderation_allowed) continue;
+      }
+      const memberFacts = (
+        await db.query<
+          Source & {
+            name: string | null;
+            preparation_moderation_allowed: boolean;
+          }
+        >(
+          `SELECT d.*,c.sponsor_company_name AS name,(${preparationModerationSql()}) AS preparation_moderation_allowed FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id WHERE d.batch_id=$1 ORDER BY d.id`,
           [batch.id]
         )
       ).rows;
+      // Existing membership and dates survive a hold or an obsolete decision.
+      if (memberFacts.some((member) => !member.preparation_moderation_allowed))
+        continue;
+      const members: (Source & { name: string | null })[] = memberFacts;
       // Scan once per preparation. Deferred valid sources keep their FIFO order
       // in memory for the following recurrence; they do not consume a second scan.
       pendingCandidates ??= await preparationCandidates(
@@ -197,11 +234,7 @@ export async function prepare(
           }
         } catch (error) {
           if (!(error instanceof PublicationAutomationError)) throw error;
-          await db.query(
-            `UPDATE publication_deliveries SET status='blocked',error_code=$2,version=version+1,updated_at=NOW() WHERE id=$1`,
-            [job.id, error.code]
-          );
-          await audit(db, actor, 'blocked', job.id, { code: error.code });
+          await blockPreparationProposal(db, job.id, error.code, actor);
         }
       } else proposals.push(batch.id);
     }

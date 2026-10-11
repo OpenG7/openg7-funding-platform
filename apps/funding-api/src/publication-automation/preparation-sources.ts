@@ -4,6 +4,7 @@ import {
   PUBLICATION_RECOGNITION_POLICY_VERSION,
   type PublicationRecognitionSource
 } from '../../../../packages/funding-core/src/index.js';
+import { moderationApprovedSql } from '../moderation/policy.js';
 
 import { audit } from './context.js';
 import { digest } from './policy.js';
@@ -61,6 +62,21 @@ export const preparationEligibilitySql = (
    AND ${eligibleDestination(contribution, target, channel)}
    AND ${contribution}.sponsor_feed_status NOT IN ('hidden','published')`;
 
+/** Private preparation accepts never-reviewed content, without granting N0. */
+export const preparationModerationSubjectSql = (
+  subjectType: 'sponsorship' | 'publication_draft' | 'publication_delivery',
+  subjectId: string
+) =>
+  `(NOT EXISTS(SELECT 1 FROM moderation_cases preparation_review
+      WHERE preparation_review.subject_type='${subjectType}'
+        AND preparation_review.subject_id=${subjectId}
+        AND preparation_review.current_decision_id IS NOT NULL)
+    OR ${moderationApprovedSql(subjectType, subjectId)})`;
+
+export const preparationModerationSql = (draft = 'd', contribution = 'c') =>
+  `${preparationModerationSubjectSql('sponsorship', `${contribution}.id`)}
+   AND ${preparationModerationSubjectSql('publication_draft', `${draft}.id`)}`;
+
 export const currentBlockedSourceSql = (draft = 'd', contribution = 'c') =>
   `EXISTS (SELECT 1 FROM admin_audit_log diagnostic
     WHERE diagnostic.entity_type='sponsor_publication_draft'
@@ -83,6 +99,7 @@ export async function preparationCandidates(
        WHERE d.batch_id IS NULL AND d.slot_id IS NULL
          AND d.status IN ('draft','approved')
          AND ${preparationEligibilitySql()}
+         AND ${preparationModerationSql()}
          AND NOT ${currentBlockedSourceSql()}
        ORDER BY d.created_at,d.id LIMIT $3 FOR UPDATE OF d SKIP LOCKED`,
       [target, channel, limit]

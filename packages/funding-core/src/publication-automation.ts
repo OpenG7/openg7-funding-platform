@@ -84,6 +84,7 @@ export type PublicationPreparationReason =
   | 'EXISTING_BATCH_INVALID'
   | 'MANUAL_RESERVATION'
   | 'PREPARATION_FAILED'
+  | 'MODERATION_REVIEW_REQUIRED'
   | 'AWAITING_APPROVAL';
 export interface PublicationPreparationEntry {
   draftId: string;

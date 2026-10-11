@@ -2335,6 +2335,7 @@
         "openDelivery": "Consulter la publication de {{name}}",
         "reasons": {
           "AWAITING_PREPARATION": "En attente de préparation pour cette destination.",
+          "MODERATION_REVIEW_REQUIRED": "Une revue de modération à jour est requise avant la préparation. Le brouillon est conservé. Consultez le dossier ou le brouillon source pour examiner la restriction.",
           "NO_SLOT_IN_HORIZON": "Aucun créneau disponible dans l’horizon de préparation.",
           "MANUAL_RESERVATION": "Créneau réservé manuellement, sans livraison finale préparée. La réservation est conservée.",
           "INDIVIDUAL_TEXT_TOO_LONG": "Le bloc complet dépasse la limite même dans une publication individuelle. Les autres dossiers peuvent avancer.",

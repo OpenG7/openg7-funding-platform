@@ -81,7 +81,7 @@ are outside this implementation.
 
 Preparation and source repair select complete recognition blocks with the shared
 pure policy, including authoritative identities, separators and disclosure. The
-budget is 2,900 UTF-16 code units. Existing members are preserved; an invalid
+budget is 2,900 UTF-16 code units. Existing eligible members are preserved; an invalid
 existing batch receives no additional members. An individually impossible source
 is left for correction while following sources advance. A source that fits alone
 but not in the current batch moves to the next recurrence, together with later
@@ -114,6 +114,18 @@ A source reserved directly in a manual slot remains visible with
 `MANUAL_RESERVATION`; the recurring planner does not reassign it. A final draft
 with an ineligible member is reported as an invalid batch, preserving the
 remaining eligible sources for review rather than announcing them as retained.
+
+Sources never individually reviewed remain eligible for private preparation.
+When a dossier or source already has a moderation decision, only its current N0
+permits another assignment; a restriction, open appeal or stale review leaves it
+visible as deferred with `MODERATION_REVIEW_REQUIRED`. A final draft whose own
+review or any source review is no longer current receives the same diagnosis.
+This projection grants no editorial approval and never restores an authorization.
+Assigning a previously reviewed source to a batch can invalidate that source's
+reviewed revision; review its new revision before treating it as retained.
+An explicit repair can still remove financially ineligible members, including
+withdrawn consent; its preview lists those removals. This does not restore
+moderation approval for the remaining sources or final delivery.
 
 Queue totals cover the full selected scope, independently of the 200-delivery
 limit. `sponsorshipId` and `deliveryId` intersect for both lists; existing delivery

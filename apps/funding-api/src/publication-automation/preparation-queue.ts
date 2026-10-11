@@ -20,6 +20,8 @@ import { recurrenceTimes } from './policy.js';
 import {
   eligibleDestination,
   preparationEligibilitySql,
+  preparationModerationSql,
+  preparationModerationSubjectSql,
   recognitionSource
 } from './preparation-sources.js';
 import type { Db, Source } from './sources.js';
@@ -40,6 +42,9 @@ interface QueueRow extends Source {
   batch_capacity: number | null;
   batch_sources: PublicationRecognitionSource[];
   batch_all_eligible: boolean;
+  moderation_allowed: boolean;
+  batch_moderation_allowed: boolean;
+  delivery_moderation_allowed: boolean;
   preparation_failed: boolean;
   prepared_current: boolean;
 }
@@ -61,6 +66,11 @@ const batchEligibilitySql = (batch: string, target: string, channel: string) =>
     JOIN fund_contributions identity ON identity.id=member.contribution_id
     WHERE member.batch_id=${batch} AND (${preparationEligibilitySql('member', 'identity', target, channel)}) IS NOT TRUE)`;
 
+const batchModerationSql = (batch: string) =>
+  `NOT EXISTS(SELECT 1 FROM sponsor_publication_drafts member
+    JOIN fund_contributions identity ON identity.id=member.contribution_id
+    WHERE member.batch_id=${batch} AND (${preparationModerationSql('member', 'identity')}) IS NOT TRUE)`;
+
 /** Classify current facts only. This does not prepare, authorize or record audit. */
 function queueEntry(
   row: QueueRow,
@@ -70,7 +80,13 @@ function queueEntry(
   const message = composePublicationRecognition([source]);
   let status: PublicationPreparationEntry['status'] = 'deferred';
   let reason: PublicationPreparationEntry['reason'] = 'AWAITING_PREPARATION';
-  if (message.length > PUBLICATION_MESSAGE_MAX_CODE_UNITS) {
+  if (
+    !row.moderation_allowed ||
+    !row.batch_moderation_allowed ||
+    !row.delivery_moderation_allowed
+  ) {
+    reason = 'MODERATION_REVIEW_REQUIRED';
+  } else if (message.length > PUBLICATION_MESSAGE_MAX_CODE_UNITS) {
     status = 'needs_correction';
     reason = 'INDIVIDUAL_TEXT_TOO_LONG';
   } else if (missingPublicationRecognitionSources(message, [source]).length) {
@@ -148,6 +164,8 @@ export async function preparationQueue(
        LEFT JOIN publication_deliveries delivery ON delivery.batch_id=b.id AND delivery.status<>'cancelled'
        WHERE b.status='open' AND r.starts_at>$1 AND r.starts_at<=$1+interval '29 days'
          AND (delivery.id IS NULL OR (delivery.status='draft' AND delivery.auto_managed))
+         AND ${batchModerationSql('b.id')}
+         AND (delivery.id IS NULL OR ${preparationModerationSubjectSql('publication_delivery', 'delivery.id')})
          AND ${batchEligibilitySql('b.id', "split_part(r.feed_id,':',1)", "split_part(r.feed_id,':',2)")}`,
       [now]
     )
@@ -174,6 +192,9 @@ export async function preparationQueue(
            delivery.id AS delivery_id,delivery.status AS delivery_status,delivery.message AS delivery_message,
            b.capacity AS batch_capacity,${batchSourcesSql('d.batch_id')} AS batch_sources,
            ${batchEligibilitySql('d.batch_id', 'd.feed_target', 'd.channel')} AS batch_all_eligible,
+           (${preparationModerationSql()}) AS moderation_allowed,
+           ${batchModerationSql('d.batch_id')} AS batch_moderation_allowed,
+           (delivery.id IS NULL OR ${preparationModerationSubjectSql('publication_delivery', 'delivery.id')}) AS delivery_moderation_allowed,
            EXISTS(SELECT 1 FROM admin_audit_log failed WHERE failed.action='publication_automation.preparation_blocked' AND failed.entity_id=d.batch_id::text AND failed.created_at>=b.updated_at) AS preparation_failed,
            EXISTS(SELECT 1 FROM admin_audit_log prepared WHERE prepared.action='publication_automation.prepare' AND prepared.entity_id=d.feed_target||':'||d.channel AND prepared.created_at>=greatest(d.updated_at,c.updated_at,feed.updated_at)) AS prepared_current
          FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id

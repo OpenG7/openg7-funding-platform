@@ -2339,6 +2339,7 @@
         "openDelivery": "View the publication for {{name}}",
         "reasons": {
           "AWAITING_PREPARATION": "Awaiting preparation for this destination.",
+          "MODERATION_REVIEW_REQUIRED": "A current moderation review is required before preparation. The draft is retained. Open the dossier or source draft to review the restriction.",
           "NO_SLOT_IN_HORIZON": "No available slot within the preparation horizon.",
           "MANUAL_RESERVATION": "Slot reserved manually, with no final delivery prepared. The reservation is retained.",
           "INDIVIDUAL_TEXT_TOO_LONG": "The complete block exceeds the limit even in an individual publication. Other dossiers can progress.",

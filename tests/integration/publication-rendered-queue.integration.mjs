@@ -11,7 +11,15 @@ import {
 import { PublicationAutomationService } from '../../dist/apps/funding-api/src/publication-automation/service.js';
 import { prepare } from '../../dist/apps/funding-api/src/publication-automation/planning.js';
 import { PublicationAutomationError } from '../../dist/apps/funding-api/src/publication-automation/policy.js';
+import { repairSources } from '../../dist/apps/funding-api/src/publication-automation/sources.js';
+import { recordModerationDecision } from '../../dist/apps/funding-api/src/moderation/repository.js';
+import { withPostgresTransaction } from '../../dist/apps/funding-api/src/postgres-transaction.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
+import {
+  approveFixtureSubject,
+  fixtureModerationActor,
+  fixtureModerationDecision
+} from './support/moderation-fixture.mjs';
 
 test(
   'rendered preparation queue with disposable PostgreSQL',
@@ -23,6 +31,20 @@ test(
     const feedId = 'openg7:facebook';
     const env = { SOCIAL_PUBLICATION_MODE: 'mock' };
     const service = new PublicationAutomationService(pool, {}, env);
+    const subjectFor = (type, record) => ({
+      type,
+      id: type === 'sponsorship' ? record.id : record.draftId
+    });
+    async function restrict(subject, level) {
+      const decision = await fixtureModerationDecision(pool, subject, level);
+      return withPostgresTransaction(pool, (db) =>
+        recordModerationDecision(db, {
+          subject,
+          decision,
+          actor: fixtureModerationActor
+        })
+      );
+    }
     const now = new Date();
     const wall = new Date(now.getTime() + 3600000);
     const localTime = wall.toISOString().slice(11, 16);
@@ -473,6 +495,252 @@ test(
           []
         );
         assert.ok(updated.message.length <= PUBLICATION_MESSAGE_MAX_CODE_UNITS);
+      }
+    );
+
+    await t.test(
+      'N1 and N2 sources remain visible but cannot be recruited or negatively cached; correction alone grants no approval',
+      async () => {
+        for (const type of ['sponsorship', 'publication_draft']) {
+          for (const level of ['N1', 'N2']) {
+            await reset(1, 2);
+            const records = await seed([{ body: 'x'.repeat(3000) }, {}]);
+            const subject = subjectFor(type, records[0]);
+            await restrict(subject, level);
+            await service.prepare(feedId, 'planner', now);
+            const firstJobs = await jobs();
+            assert.equal(firstJobs.length, 1);
+            assert.equal(
+              (await assignments()).find((row) => row.id === records[0].draftId)
+                .batch_id,
+              null
+            );
+            assert.equal((await diagnostics()).length, 0);
+            let state = await service.state();
+            assert.deepEqual(state.queue.summary, {
+              retained: 1,
+              deferred: 1,
+              needsCorrection: 0
+            });
+            assert.equal(
+              state.queue.entries.find(
+                (entry) => entry.draftId === records[0].draftId
+              ).reason,
+              'MODERATION_REVIEW_REQUIRED'
+            );
+            records[0].body = 'Corrected complete protected source.';
+            await pool.query(
+              'UPDATE sponsor_publication_drafts SET body=$2 WHERE id=$1',
+              [records[0].draftId, records[0].body]
+            );
+            await service.prepare(feedId, 'after-correction', now);
+            assert.equal(
+              (await assignments()).find((row) => row.id === records[0].draftId)
+                .batch_id,
+              null
+            );
+            assert.equal((await diagnostics()).length, 0);
+            assert.equal(
+              (await service.state()).queue.entries.find(
+                (entry) => entry.draftId === records[0].draftId
+              ).reason,
+              'MODERATION_REVIEW_REQUIRED'
+            );
+            await approveFixtureSubject(pool, subject);
+            await service.prepare(feedId, 'after-explicit-N0', now);
+            const after = await jobs();
+            assert.equal(after.length, 1);
+            assert.equal(after[0].id, firstJobs[0].id);
+            assert.equal(
+              after[0].scheduled_at.toISOString(),
+              firstJobs[0].scheduled_at.toISOString()
+            );
+            await assertComplete(after, records);
+            const source = (await assignments()).find(
+              (row) => row.id === records[0].draftId
+            );
+            assert.equal(source.created_at.toISOString(), records[0].createdAt);
+            if (type === 'publication_draft') {
+              // Assigning the reviewed draft changes its versioned association.
+              state = await service.state();
+              assert.equal(state.queue.summary.retained, 0);
+              assert.ok(
+                state.queue.entries.every(
+                  (entry) => entry.reason === 'MODERATION_REVIEW_REQUIRED'
+                )
+              );
+              await approveFixtureSubject(pool, subject);
+            }
+            assert.equal((await service.state()).queue.summary.retained, 2);
+          }
+        }
+      }
+    );
+
+    await t.test(
+      'obsolete N0 on a dossier or draft cannot re-enter preparation until an explicit current decision',
+      async () => {
+        for (const type of ['sponsorship', 'publication_draft']) {
+          await reset(1, 2);
+          const records = await seed([{}, {}]);
+          const subject = subjectFor(type, records[0]);
+          await approveFixtureSubject(pool, subject);
+          if (type === 'sponsorship') {
+            records[0].name = 'Corrected authoritative synthetic identity';
+            await pool.query(
+              'UPDATE fund_contributions SET sponsor_company_name=$2 WHERE id=$1',
+              [records[0].id, records[0].name]
+            );
+          } else {
+            records[0].body = 'Corrected complete draft body.';
+            await pool.query(
+              'UPDATE sponsor_publication_drafts SET body=$2 WHERE id=$1',
+              [records[0].draftId, records[0].body]
+            );
+          }
+          await service.prepare(feedId, 'after-change', now);
+          assert.equal(
+            (await assignments()).find((row) => row.id === records[0].draftId)
+              .batch_id,
+            null
+          );
+          assert.equal(
+            (await service.state()).queue.entries.find(
+              (entry) => entry.draftId === records[0].draftId
+            ).reason,
+            'MODERATION_REVIEW_REQUIRED'
+          );
+          assert.equal((await diagnostics()).length, 0);
+          await approveFixtureSubject(pool, subject);
+          await service.prepare(feedId, 'after-explicit-N0', now);
+          await assertComplete(await jobs(), records);
+          if (type === 'publication_draft') {
+            assert.equal((await service.state()).queue.summary.retained, 0);
+            await approveFixtureSubject(pool, subject);
+          }
+          assert.equal((await service.state()).queue.summary.retained, 2);
+        }
+      }
+    );
+
+    await t.test(
+      'moderation of one existing member preserves every member and date and blocks repair without restoring delivery approval',
+      async () => {
+        for (const level of ['N1', 'N2']) {
+          await reset(1, 2);
+          const records = await seed([{}, {}]);
+          await service.prepare(feedId, 'planner', now);
+          const subject = subjectFor('publication_draft', records[1]);
+          await restrict(subject, level);
+          const before = await assignments();
+          const blocked = (await jobs())[0];
+          assert.equal(blocked.status, 'blocked');
+          assert.equal(blocked.approved_at, null);
+          await service.prepare(feedId, 'during-hold', now);
+          assert.deepEqual(await assignments(), before);
+          assert.deepEqual(await jobs(), [blocked]);
+          assert.deepEqual(await repairSources(pool, blocked), []);
+          const state = await service.state();
+          assert.deepEqual(state.queue.summary, {
+            retained: 0,
+            deferred: 2,
+            needsCorrection: 0
+          });
+          assert.ok(
+            state.queue.entries.every(
+              (entry) => entry.reason === 'MODERATION_REVIEW_REQUIRED'
+            )
+          );
+          await approveFixtureSubject(pool, subject);
+          await service.prepare(feedId, 'after-N0', now);
+          assert.deepEqual(await assignments(), before);
+          assert.deepEqual(await jobs(), [blocked]);
+          assert.equal((await service.state()).queue.summary.retained, 0);
+          assert.equal((await diagnostics()).length, 0);
+        }
+      }
+    );
+
+    await t.test(
+      'current or obsolete moderation of the final draft stays visible and prevents automatic refresh',
+      async () => {
+        for (const level of ['N1', 'N2', 'stale-N0']) {
+          await reset(1, 2);
+          const records = await seed([{}, {}]);
+          await service.prepare(feedId, 'planner', now);
+          let delivery = (await jobs())[0];
+          const subject = { type: 'publication_delivery', id: delivery.id };
+          if (level === 'stale-N0') {
+            await approveFixtureSubject(pool, subject);
+            await pool.query(
+              'UPDATE publication_deliveries SET message=$2 WHERE id=$1',
+              [delivery.id, `Editorial preface.\n\n${delivery.message}`]
+            );
+          } else await restrict(subject, level);
+          delivery = (await jobs())[0];
+          const before = await assignments();
+          await service.prepare(feedId, 'during-final-review', now);
+          assert.deepEqual(await jobs(), [delivery]);
+          assert.deepEqual(await assignments(), before);
+          const state = await service.state();
+          assert.equal(state.queue.summary.retained, 0);
+          assert.ok(
+            state.queue.entries.every(
+              (entry) => entry.reason === 'MODERATION_REVIEW_REQUIRED'
+            )
+          );
+          await pool.query(
+            'UPDATE fund_contributions SET public_display_consent=FALSE WHERE id=$1',
+            [records[1].id]
+          );
+          assert.ok(
+            (
+              await service.sourceIssues(delivery.id)
+            ).excludedSponsorIds.includes(records[1].id)
+          );
+          assert.equal(await service.repairPreview(delivery.id), null);
+          assert.deepEqual(await repairSources(pool, delivery), []);
+          assert.deepEqual(await assignments(), before);
+          await approveFixtureSubject(pool, subject);
+          const after = (await jobs())[0];
+          assert.equal(after.status, delivery.status);
+          assert.equal(after.approved_at, null);
+          assert.equal(after.published_at, null);
+          assert.equal(after.message, delivery.message);
+          assert.deepEqual(await assignments(), before);
+          assert.equal((await diagnostics()).length, 0);
+        }
+      }
+    );
+
+    await t.test(
+      'an obsolete moderation decision cannot hide revoked consent from the existing preparation guard',
+      async () => {
+        await reset(1);
+        const records = await seed([{}]);
+        await service.prepare(feedId, 'planner', now);
+        await approveFixtureSubject(
+          pool,
+          subjectFor('sponsorship', records[0])
+        );
+        await pool.query(
+          'UPDATE fund_contributions SET sponsor_company_name=$2,public_display_consent=FALSE WHERE id=$1',
+          [records[0].id, 'Changed synthetic identity']
+        );
+        const before = await assignments();
+        const previous = (await jobs())[0];
+        await service.prepare(feedId, 'after-revocation', now);
+        const blocked = (await jobs())[0];
+        assert.equal(blocked.status, 'blocked');
+        assert.equal(blocked.error_code, 'SOURCE_NOT_ELIGIBLE');
+        assert.equal(blocked.message, previous.message);
+        assert.equal(
+          blocked.scheduled_at.toISOString(),
+          previous.scheduled_at.toISOString()
+        );
+        assert.equal(blocked.approved_at, null);
+        assert.deepEqual(await assignments(), before);
+        assert.equal((await diagnostics()).length, 0);
       }
     );
 

@@ -158,11 +158,15 @@ function preparationDb({
     if (sql.startsWith('SELECT b.* FROM publication_recurrences'))
       return [{ id: 'batch', status: 'open', capacity: feed.capacity }];
     if (sql.includes("WHERE batch_id=$1 AND status<>'cancelled'"))
-      return job ? [job] : [];
+      return job ? [{ preparation_moderation_allowed: true, ...job }] : [];
     if (sql.startsWith('SELECT * FROM sponsor_publication_batches'))
       return [{ id: 'batch', status: 'open', capacity: feed.capacity }];
-    if (sql.startsWith('SELECT d.*,c.sponsor_company_name AS name FROM'))
+    if (
+      sql.startsWith('SELECT d.*,c.sponsor_company_name AS name,') &&
+      sql.includes('WHERE d.batch_id=$1 ORDER BY d.id')
+    )
       return members.map((member) => ({
+        preparation_moderation_allowed: true,
         ...member,
         name: facts.sponsor_company_name
       }));
@@ -285,6 +289,42 @@ test('preparation isolates an impossible individual block and assigns the next s
     candidateRead.sql.indexOf('AND NOT EXISTS') <
       candidateRead.sql.indexOf('LIMIT $3')
   );
+  assert.ok(
+    candidateRead.sql.indexOf('preparation_review') <
+      candidateRead.sql.indexOf('LIMIT $3')
+  );
+});
+
+test('preparation preserves moderated existing members or final drafts without recruiting or refreshing', async () => {
+  for (const options of [
+    { members: [{ ...source, preparation_moderation_allowed: false }] },
+    {
+      job: { ...delivery, preparation_moderation_allowed: false },
+      members: [source]
+    }
+  ]) {
+    const db = preparationDb(options);
+    await prepare(
+      context(db, async () =>
+        assert.fail('Moderated proposal must stay unchanged')
+      ),
+      feed.id,
+      'planner',
+      now
+    );
+    assert.equal(
+      db.calls.some(({ sql }) => sql.startsWith('UPDATE ')),
+      false
+    );
+    assert.equal(
+      db.calls.some(({ sql }) => sql.includes('source_fingerprint_material')),
+      false
+    );
+    assert.deepEqual(
+      db.audits().map(({ action }) => action),
+      ['publication_automation.prepare']
+    );
+  }
 });
 
 test('preparation preserves authorized, rejected, uncertain and human edited deliveries with their photos', async (t) => {
@@ -397,7 +437,7 @@ test('preparation records blocked composition after commit and preserves unexpec
 
 test('automatic refresh keeps the selected approved photo and leaves approval for the human decision', async () => {
   const job = { ...delivery };
-  const db = preparationDb({ job });
+  const db = preparationDb({ job, members: [source], candidates: [] });
   await prepare(
     context(db, async () =>
       assert.fail('Existing proposal must not be recomposed')
@@ -428,7 +468,8 @@ function repairDb({
   legacy = false,
   keepMedia = true,
   existing = [],
-  capacity = 3
+  capacity = 3,
+  finalModerationAllowed = true
 } = {}) {
   const replacement = {
     ...source,
@@ -450,10 +491,17 @@ function repairDb({
       return legacy ? [{}] : [];
     if (sql.startsWith('SELECT c.id,c.status'))
       return [{ ...facts, public_display_consent: false }];
-    if (sql.startsWith('SELECT capacity FROM sponsor_publication_batches'))
-      return [{ capacity }];
+    if (sql.startsWith('SELECT capacity,'))
+      return [
+        { capacity, preparation_moderation_allowed: finalModerationAllowed }
+      ];
     if (sql.startsWith('SELECT d.id,d.contribution_id'))
-      return sql.includes('WHERE d.batch_id=$1') ? existing : [replacement];
+      return sql.includes('WHERE d.batch_id=$1')
+        ? existing.map((member) => ({
+            preparation_moderation_allowed: true,
+            ...member
+          }))
+        : [replacement];
     if (
       sql.startsWith('SELECT id,sponsor_company_name FROM fund_contributions')
     )
@@ -495,6 +543,12 @@ test('repair preview defaults to the pool and stays read only with a stable vers
 
 test('repair preview excludes legacy and externally uncertain deliveries without proposing a resend', async () => {
   for (const options of [
+    { finalModerationAllowed: false },
+    {
+      existing: [
+        { ...source, name: 'Retained', preparation_moderation_allowed: false }
+      ]
+    },
     { row: { ...delivery, status: 'uncertain' } },
     { row: { ...delivery, status: 'published' } },
     { row: { ...delivery, status: 'rejected' } },

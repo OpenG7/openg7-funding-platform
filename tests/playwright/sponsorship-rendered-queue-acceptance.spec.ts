@@ -35,6 +35,19 @@ test('oversized recognition stays visible and correction returns the same source
     const response = await request.post(url, { headers, data });
     expect(response.ok(), await response.text()).toBe(true);
   };
+  const moderationContent = async (draftId: string) => {
+    const response = await request.get(
+      '/api/admin/moderation/content?subjectType=publication_draft&subjectId=' +
+        draftId,
+      { headers }
+    );
+    expect(response.ok(), await response.text()).toBe(true);
+    return response.json() as Promise<{
+      contentVersion: number;
+      fingerprint: string;
+      currentDecisionId: string | null;
+    }>;
+  };
   const initial = await state();
   expect(initial.feeds.every((feed) => feed.mode === 'mock')).toBe(true);
   if (initial.workerEnabled)
@@ -144,17 +157,25 @@ test('oversized recognition stays visible and correction returns the same source
       path: info.outputPath('source-correction-mobile.png'),
       fullPage: true
     });
+    const reviewBefore = await moderationContent(draftIds[0]!);
+    expect(reviewBefore.currentDecisionId).toBeNull();
+    const correctedBody =
+      'Texte corrigé de recette, sans troncature automatique.';
     const response = await request.post(
       '/api/admin/publication-drafts/update',
       {
         headers,
         data: {
           draftId: draftIds[0],
-          body: 'Texte corrigé de recette, sans troncature automatique.'
+          body: correctedBody
         }
       }
     );
     expect(response.ok(), await response.text()).toBe(true);
+    const reviewAfter = await moderationContent(draftIds[0]!);
+    expect(reviewAfter.contentVersion).toBe(reviewBefore.contentVersion + 1);
+    expect(reviewAfter.fingerprint).not.toBe(reviewBefore.fingerprint);
+    expect(reviewAfter.currentDecisionId).toBeNull();
     await command({ action: 'prepare', feedId });
     blocked = await state(sponsorIds[0]);
     expect(blocked.queue?.summary).toEqual({
@@ -174,6 +195,23 @@ test('oversized recognition stays visible and correction returns the same source
       attempts: 0
     });
     expect(blocked.deliveries[0]!.message).toContain(names[0]!);
+    expect(blocked.deliveries[0]!.message).toContain(correctedBody);
+    expect(blocked.deliveries[0]!.message).toContain('Commandite rémunérée.');
+    const [prepared] = await acceptanceSql<{
+      source_snapshot: { id: string; body: string }[];
+    }>('SELECT source_snapshot FROM publication_deliveries WHERE id=$1', [
+      blocked.deliveries[0]!.id
+    ]);
+    expect(prepared!.source_snapshot).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: draftIds[0], body: correctedBody })
+      ])
+    );
+    const [decisions] = await acceptanceSql<{ count: number }>(
+      'SELECT count(*)::int FROM moderation_decisions WHERE subject_id=ANY($1::uuid[])',
+      [[...sponsorIds, ...draftIds, ...blocked.deliveries.map((job) => job.id)]]
+    );
+    expect(decisions!.count).toBe(0);
     await page.reload();
     await expect(row).toContainText(names[0]!);
     await expect(

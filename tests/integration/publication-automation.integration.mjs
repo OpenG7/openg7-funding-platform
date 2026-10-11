@@ -113,13 +113,14 @@ test(
         .filter(Boolean)
         .join('\n\n');
     }
-    async function sponsor() {
+    async function sponsor({ reviewed = true } = {}) {
       const id = randomUUID();
       await pool.query(
         `INSERT INTO fund_contributions(id,contribution_type,amount_cents,status,public_display_consent,sponsor_review_status,sponsor_company_name,sponsor_public_summary,sponsor_feed_target,sponsor_feed_channels) VALUES($1,'sponsorship_interest',25000,'paid',TRUE,'approved','Fixture sponsor','Approved public summary','openg20','["facebook"]')`,
         [id]
       );
-      await approveFixtureSubject(pool, { type: 'sponsorship', id });
+      if (reviewed)
+        await approveFixtureSubject(pool, { type: 'sponsorship', id });
       return id;
     }
     async function presentation(contributionId) {
@@ -541,12 +542,12 @@ test(
       async () => {
         await reset();
         env.SOCIAL_PUBLICATION_MODE = 'disabled';
-        const valid = await sponsor();
-        const noConsent = await sponsor();
-        const unpaid = await sponsor();
-        const rejected = await sponsor();
-        const lowerTier = await sponsor();
-        const foreignCurrency = await sponsor();
+        const valid = await sponsor({ reviewed: false });
+        const noConsent = await sponsor({ reviewed: false });
+        const unpaid = await sponsor({ reviewed: false });
+        const rejected = await sponsor({ reviewed: false });
+        const lowerTier = await sponsor({ reviewed: false });
+        const foreignCurrency = await sponsor({ reviewed: false });
         await pool.query(
           "UPDATE fund_contributions SET sponsor_feed_target=NULL,sponsor_feed_channels='[]',sponsor_public_summary=NULL,sponsor_review_status='pending_review'"
         );
@@ -572,6 +573,15 @@ test(
         );
         await pool.query(
           "UPDATE publication_feeds SET auto_prepare=TRUE WHERE id='openg7:facebook'"
+        );
+        assert.equal(
+          (
+            await pool.query(
+              'SELECT COUNT(*)::int AS count FROM moderation_decisions WHERE subject_id=ANY($1::uuid[])',
+              [[valid, noConsent, unpaid, rejected, lowerTier, foreignCurrency]]
+            )
+          ).rows[0].count,
+          0
         );
         await service.tick();
         const state = await service.state();
@@ -1552,6 +1562,70 @@ test(
           (
             await pool.query(
               "SELECT count(*)::int AS n FROM admin_audit_log WHERE entity_id=$1 AND action IN ('publication_automation.published','publication_automation.provider_result_observed')",
+              [job.id]
+            )
+          ).rows[0].n,
+          0
+        );
+      }
+    );
+    await t.test(
+      'current editorial N0 cannot authorize incomplete recognition in a private draft',
+      async (st) => {
+        await reset();
+        await activate();
+        await sponsor();
+        await service.prepare(feedId, 'planner');
+        const job = (await service.state()).deliveries.find(
+          (j) => j.status === 'draft'
+        );
+        assert.ok(job);
+        // A synthetic private legacy draft has never held a sending claim.
+        await pool.query(
+          "UPDATE publication_deliveries SET message='Incomplete recognition' WHERE id=$1",
+          [job.id]
+        );
+        const subject = { type: 'publication_delivery', id: job.id };
+        await approveFixtureSubject(pool, subject);
+        const before = await record(job.id);
+        assert.equal(before.status, 'draft');
+        assert.equal(before.approvedAt, null);
+        const sourcesBefore = (
+          await pool.query(
+            'SELECT status,approved_at,published_at FROM sponsor_publication_drafts WHERE batch_id=$1 ORDER BY id',
+            [job.batchId]
+          )
+        ).rows;
+        st.mock.method(globalThis, 'fetch', async () =>
+          assert.fail('incomplete recognition must not reach a provider')
+        );
+        await assert.rejects(
+          service.command(
+            {
+              action: 'approve',
+              id: job.id,
+              version: before.version,
+              confirmation: job.id,
+              moderationDecision: await fixtureModerationDecision(pool, subject)
+            },
+            'tester'
+          ),
+          { code: 'SOURCE_CONTENT_MISSING' }
+        );
+        assert.deepEqual(await record(job.id), before);
+        assert.deepEqual(
+          (
+            await pool.query(
+              'SELECT status,approved_at,published_at FROM sponsor_publication_drafts WHERE batch_id=$1 ORDER BY id',
+              [job.batchId]
+            )
+          ).rows,
+          sourcesBefore
+        );
+        assert.equal(
+          (
+            await pool.query(
+              "SELECT count(*)::int AS n FROM admin_audit_log WHERE entity_id=$1 AND action IN ('publication_automation.approve','publication_automation.published','publication_automation.provider_result_observed')",
               [job.id]
             )
           ).rows[0].n,

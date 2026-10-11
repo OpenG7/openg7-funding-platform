@@ -119,12 +119,13 @@ n'est ajoutée. Une correction conserve l'identifiant et l'ancienneté de la
 source, sans approbation ni diffusion automatique.
 [Fonctionnement et limites](../operations/publication-automation.md#source-preparation-queue).
 
-Réception locale sous Node 22.23.3 et Yarn 4.9.4 : `yarn test` passe, **5 963 tests
-réussis et 8 ignorés** par leurs préconditions de plateforme. Les quatre suites
-PostgreSQL suivantes passent séparément sur bases jetables : **64 tests**.
+Réception locale sous Node 22.23.3 et Yarn 4.9.4 : après raccordement de la
+modération fusionnée dans `main`, les tests globaux passent, **6 004 tests
+réussis et 8 ignorés** par leurs préconditions de plateforme. Les cinq suites
+PostgreSQL suivantes passent séparément sur bases jetables : **85 tests**.
 
 ```sh
-node --test tests/integration/publication-rendered-queue.integration.mjs tests/integration/publication-source-render-cache.integration.mjs tests/integration/publication-automation.integration.mjs tests/integration/editorial-programme.integration.mjs
+node --test tests/integration/publication-rendered-queue.integration.mjs tests/integration/publication-source-render-cache.integration.mjs tests/integration/publication-automation.integration.mjs tests/integration/editorial-programme.integration.mjs tests/integration/moderation-publication-guards.integration.mjs
 ```
 
 La recette UI ciblée passe : **19 cas**, dont neuf nouveaux cas de file,
@@ -135,6 +136,14 @@ PostgreSQL jetable et fournisseurs simulés passe : **deux scénarios**, via
 Elle vérifie la source trop longue, sa visibilité après rechargement, la
 correction sans changement d'ancienneté, la préparation privée et l'absence
 d'approbation ou d'envoi; le parcours de paiement/publication existant passe aussi.
+
+Le raccord de modération couvre N1/N2, les N0 obsolètes et les restrictions du
+rendu final : les sources privées restent visibles, sans affectation nouvelle.
+Une correction ou une affectation ne fabrique aucune revue favorable. Le retrait
+de consentement continue de bloquer la livraison avant l'arrêt pour modération.
+Une N0 courante ne suffit pas à approuver une reconnaissance incomplète : le
+test PostgreSQL refuse `SOURCE_CONTENT_MISSING` sans modifier les sources ni
+la livraison, ni appeler un fournisseur.
 
 Le build Angular production passe avec 25 routes prérendues. Compilation
 TypeScript sans émission, lint, format ciblé, standards OpenG7, contrôle

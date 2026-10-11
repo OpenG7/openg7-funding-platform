@@ -9,6 +9,7 @@ import {
   selectPublicationRecognitionSources
 } from '../../dist/packages/funding-core/src/index.js';
 import { withPostgresTransaction } from '../../dist/apps/funding-api/src/postgres-transaction.js';
+import { getModerationContent } from '../../dist/apps/funding-api/src/moderation/repository.js';
 import {
   preparationCandidates,
   preparationFingerprintSql,
@@ -235,6 +236,11 @@ test(
           body: 'x'.repeat(2820)
         });
         const before = await fingerprint(source.draftId);
+        const subject = { type: 'publication_draft', id: source.draftId };
+        const reviewBefore = await withPostgresTransaction(runtime, (client) =>
+          getModerationContent(client, subject)
+        );
+        assert.equal(reviewBefore.currentDecisionId, null);
         await service.prepare(feedId, 'synthetic-planner', now);
         assert.equal(
           (
@@ -248,6 +254,15 @@ test(
           'UPDATE fund_contributions SET sponsor_company_name=$2,updated_at=clock_timestamp() WHERE id=$1',
           [source.contributionId, 'Court']
         );
+        const reviewAfter = await withPostgresTransaction(runtime, (client) =>
+          getModerationContent(client, subject)
+        );
+        assert.equal(
+          reviewAfter.contentVersion,
+          reviewBefore.contentVersion + 1
+        );
+        assert.notEqual(reviewAfter.fingerprint, reviewBefore.fingerprint);
+        assert.equal(reviewAfter.currentDecisionId, null);
         await service.prepare(feedId, 'synthetic-planner', now);
         const delivery = (
           await runtime.query('SELECT * FROM publication_deliveries')
@@ -272,6 +287,15 @@ test(
           )
         ).rows[0];
         assert.deepEqual(draft, { status: 'draft', approved_at: null });
+        assert.equal(
+          (
+            await runtime.query(
+              'SELECT count(*)::int AS n FROM moderation_decisions WHERE subject_id=ANY($1::uuid[])',
+              [[source.draftId, source.contributionId, delivery.id]]
+            )
+          ).rows[0].n,
+          0
+        );
       }
     );
 

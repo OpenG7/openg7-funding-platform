@@ -10,6 +10,8 @@ import {
   eligibleDestination,
   recognitionSource,
   preparationEligibilitySql,
+  preparationModerationSql,
+  preparationModerationSubjectSql,
   currentBlockedSourceSql,
   PREPARATION_SCAN_LIMIT
 } from './preparation-sources.js';
@@ -86,21 +88,29 @@ export async function repairSources(
 ): Promise<(Source & { name: string })[]> {
   const batch = (
     await db.query(
-      'SELECT capacity FROM sponsor_publication_batches WHERE id=$1',
+      `SELECT capacity,NOT EXISTS(SELECT 1 FROM publication_deliveries delivery
+        WHERE delivery.batch_id=b.id AND delivery.status<>'cancelled'
+          AND (${preparationModerationSubjectSql('publication_delivery', 'delivery.id')}) IS NOT TRUE) AS preparation_moderation_allowed
+        FROM sponsor_publication_batches b WHERE id=$1`,
       [row.batch_id]
     )
   ).rows[0];
-  if (!batch) return [];
+  if (!batch || !batch.preparation_moderation_allowed) return [];
   const [target, channel] = row.feed_id.split(':');
   const existing = (
     await db.query(
-      `SELECT d.id,d.contribution_id,d.title,d.body,d.disclosure_text,d.feed_target,d.channel,c.sponsor_company_name AS name
+      `SELECT d.id,d.contribution_id,d.title,d.body,d.disclosure_text,d.feed_target,d.channel,c.sponsor_company_name AS name,(${preparationModerationSql()}) AS preparation_moderation_allowed
        FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id
        WHERE d.batch_id=$1 AND ${preparationEligibilitySql('d', 'c', '$2', '$3')}
        ORDER BY d.id`,
       [row.batch_id, target, channel]
     )
-  ).rows as (Source & { name: string })[];
+  ).rows as (Source & {
+    name: string;
+    preparation_moderation_allowed: boolean;
+  })[];
+  if (existing.some((source) => !source.preparation_moderation_allowed))
+    return [];
   const candidates = (
     await db.query(
       `SELECT d.id,d.contribution_id,d.title,d.body,d.disclosure_text,d.feed_target,d.channel,c.sponsor_company_name AS name
@@ -108,6 +118,7 @@ export async function repairSources(
        WHERE d.batch_id IS NULL AND d.slot_id IS NULL
          AND d.status IN ('draft','approved')
          AND ${preparationEligibilitySql('d', 'c', '$1', '$2')}
+         AND ${preparationModerationSql()}
          AND NOT ${currentBlockedSourceSql()}
        ORDER BY d.created_at,d.id LIMIT $3`,
       [target, channel, PREPARATION_SCAN_LIMIT]
