@@ -135,7 +135,7 @@ test('a changed company destination blocks its approved collective post; reviewe
         }
       )
     ).batch!;
-    const drafts: string[] = [];
+    const drafts = new Map<string, string>();
     for (const s of [removed, retained]) {
       await approveCurrentModeration(request, {
         type: 'sponsorship',
@@ -147,7 +147,7 @@ test('a changed company destination blocks its approved collective post; reviewe
           { contributionId: s.id, feedTarget: 'openg7', channel: 'facebook' }
         )
       ).draft!;
-      drafts.push(draft.id);
+      drafts.set(s.id, draft.id);
       await post('/api/admin/publication-drafts/update', {
         draftId: draft.id,
         status: 'approved',
@@ -166,7 +166,7 @@ test('a changed company destination blocks its approved collective post; reviewe
       batchId: batch.id,
       scheduledAt: new Date(Date.now() + 86400000).toISOString()
     });
-    for (const draftId of drafts)
+    for (const draftId of drafts.values())
       await approveCurrentModeration(request, {
         type: 'publication_draft',
         id: draftId
@@ -323,6 +323,12 @@ test('a changed company destination blocks its approved collective post; reviewe
       });
     });
     await test.step('Review the exact recomposed content, authorize its new schedule and capture one provider post', async () => {
+      // Repair reassigns the retained source and invalidates its individual N0.
+      // Review that current revision before authorizing the new final rendering.
+      await approveCurrentModeration(request, {
+        type: 'publication_draft',
+        id: drafts.get(retained.id)!
+      });
       const dialog = await openDelivery();
       await dialog
         .getByRole('button', { name: 'Modifier', exact: true })

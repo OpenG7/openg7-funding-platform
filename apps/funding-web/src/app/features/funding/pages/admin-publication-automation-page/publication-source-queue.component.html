@@ -157,13 +157,15 @@
           </div>
         </li>
       } @empty {
-        <li class="empty" role="status">
-          {{
-            (q.total === 0
-              ? 'admin.publicationAutomation.sourceQueue.empty'
-              : 'admin.publicationAutomation.sourceQueue.emptyPage'
-            ) | translate
-          }}
+        <li class="empty">
+          <span role="status">
+            {{
+              (q.total === 0
+                ? 'admin.publicationAutomation.sourceQueue.empty'
+                : 'admin.publicationAutomation.sourceQueue.emptyPage'
+              ) | translate
+            }}
+          </span>
         </li>
       }
     </ul>
