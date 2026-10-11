@@ -47,3 +47,17 @@ Références : [tâches SP07/SP08](../development/sponsorship-publication-tasks.
 [politique](../../packages/funding-core/src/publication-recognition.ts),
 [tests](../../tests/publication-recognition.test.mjs) et
 [reprise administrative](../operations/publication-automation.md#exceptions-and-recovery).
+
+Le second lot local, `feat/sponsorship-rendered-queue`, réutilise cette politique
+pour la sélection avant affectation. Une source trop longue même seule reste
+non affectée et visible; un dépassement collectif conserve l'ordre vers le
+créneau suivant. Le diagnostic négatif porte uniquement sur une impossibilité
+individuelle déterministe, identifiée par les faits sources bruts, l'identité
+autoritaire, la version de politique et le budget. L'audit existant conserve son
+empreinte et les mesures minimales; SQL calcule la même empreinte pour exclure
+les diagnostics inchangés avant la limite de scan, sans reproduire le rendu métier.
+Une correction rend immédiatement l'ancien diagnostic inapplicable. Cette
+réutilisation n'enregistre ni refus ni livraison et ne crée pas de nouveau schéma.
+La [projection privée](../operations/publication-automation.md#source-preparation-queue)
+relit les faits actuels sans mutation et ne prend pas l'historique des diagnostics
+pour une preuve de publication ou une obligation soldée.

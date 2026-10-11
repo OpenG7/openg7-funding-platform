@@ -5,6 +5,11 @@ import { randomUUID } from 'node:crypto';
 
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 
+import {
+  approveCurrentModeration,
+  completeModeration
+} from '../playwright/support/moderation.js';
+
 import { startIdentityStack } from './stack.mjs';
 
 const login = async (
@@ -71,17 +76,19 @@ test('owner creates roles, operator reviews, role withdrawal blocks an open acti
     );
     // The identity recipe starts with an existing paid dossier and reviewed media,
     // as does the Docker seed. It does not qualify payment or media storage.
-    await stack.pool.query(
-      `INSERT INTO sponsor_media_assets
+    const mediaId = (
+      await stack.pool.query<{ id: string }>(
+        `INSERT INTO sponsor_media_assets
       (contribution_id,kind,review_status,uploaded_by,original_filename,original_mime_type,
        original_size_bytes,original_storage_key,processed_size_bytes,processed_storage_key,
        public_storage_key,public_url,checksum_sha256,width,height,alt_text,reviewed_at,reviewed_by)
       VALUES($1,'supporting_image','approved','admin','identity.png','image/png',68,
        'identity/original.png',44,'identity/processed.webp','identity/public.webp',
        'data:image/webp;base64,UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEAAUAmJaQAA3AA/v89WAAAAA==',
-       repeat('a',64),1,1,'Image de recette',NOW(),'identity-fixture')`,
-      [id]
-    );
+       repeat('a',64),1,1,'Image de recette',NOW(),'identity-fixture') RETURNING id`,
+        [id]
+      )
+    ).rows[0]!.id;
     const before = (
       await stack.pool.query(
         'SELECT amount_cents,status,sponsor_feed_status FROM fund_contributions WHERE id=$1',
@@ -159,6 +166,11 @@ test('owner creates roles, operator reviews, role withdrawal blocks an open acti
       expect(
         (await owner.request.get('/api/admin/auth/current')).status()
       ).toBe(200);
+      await approveCurrentModeration(
+        owner.request,
+        { type: 'media', id: mediaId },
+        { Origin: stack.origin }
+      );
     });
 
     await test.step('The last owner is protected and changing a confirmed draft requires confirmation again', async () => {
@@ -268,6 +280,7 @@ test('owner creates roles, operator reviews, role withdrawal blocks an open acti
       await operator
         .getByRole('button', { name: 'Accepter', exact: true })
         .click();
+      await completeModeration(operator);
       await expect(
         operator.getByText('Action confirmee: commandite acceptee.')
       ).toBeVisible();
@@ -314,6 +327,7 @@ test('owner creates roles, operator reviews, role withdrawal blocks an open acti
           r.status() === 401
       );
       await operator.locator('[data-og7="confirm-action"]').click();
+      await completeModeration(operator, true);
       await held;
       try {
         await owner.reload();

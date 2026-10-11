@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import { test, expect } from '@playwright/test';
 import sharp from 'sharp';
 import { createRecoveryFixture, token } from './fixture.mjs';
+import { approveCurrentModeration } from '../playwright/support/moderation.js';
 
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const read = (url) =>
@@ -220,6 +221,25 @@ async function recoveryScenario(mediaDriver, { playwright }, info) {
         ]);
       }
       const admin = await login(source);
+      // Back up real current review evidence alongside the public synthetic
+      // dossier and image; commercial approval alone cannot expose content.
+      const moderationRequest = await playwright.request.newContext({
+        baseURL: source.origin
+      });
+      try {
+        await approveCurrentModeration(
+          moderationRequest,
+          { type: 'sponsorship', id: id.sponsor },
+          admin.headers
+        );
+        await approveCurrentModeration(
+          moderationRequest,
+          { type: 'media', id: id.media },
+          admin.headers
+        );
+      } finally {
+        await moderationRequest.dispose();
+      }
       console.log('Recovery journey: source documents.');
       const documentPaths = [
         `/api/admin/sponsorship-invoices/pdf?invoiceId=${id.invoice}`,

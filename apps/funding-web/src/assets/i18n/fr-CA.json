@@ -2303,10 +2303,49 @@
         "manualHelp": "Préparez les prochains lots à partir des réglages enregistrés pour cette destination.",
         "saveFirst": "Enregistrez vos modifications avant de lancer la préparation.",
         "approvalHelp": "Les propositions préparées restent à valider avant publication.",
-        "prepared": "Préparation terminée. Consultez les propositions à valider.",
+        "prepared": "Préparation terminée. Consultez la répartition des commandites et les propositions à valider.",
         "checked": "Vérification terminée. L’état de connexion a été actualisé."
       },
       "summary": "Bilan des publications",
+      "sourceQueue": {
+        "title": "Répartition des commandites",
+        "intro": "Ce suivi décrit les brouillons sources par destination. Une affectation ne constitue pas une autorisation de publication.",
+        "unavailable": "Le suivi des sources n’est pas disponible. Aucun résultat ne peut être confirmé.",
+        "empty": "Aucun brouillon source à suivre dans ce périmètre.",
+        "emptyPage": "Aucune source sur cette page. Actualisez le suivi pour revenir à la première page.",
+        "partial": "{{shown}} sources affichées sur {{total}}. Les compteurs portent sur toutes les sources de ce suivi.",
+        "evaluatedAt": "Évalué le {{date}}",
+        "refresh": "Actualiser le suivi",
+        "pages": "Pages du suivi des sources",
+        "previous": "Sources précédentes",
+        "next": "Sources suivantes",
+        "scope": {
+          "global": "Toutes les destinations, indépendamment du filtre des publications",
+          "filtered": "Sources correspondant au dossier ou à la publication sélectionnés"
+        },
+        "retained": "Retenues",
+        "deferred": "Reportées",
+        "needsCorrection": "À corriger",
+        "proposedDate": "Date proposée : {{date}}",
+        "noDate": "Aucune date attribuée.",
+        "budget": "Bloc composé : {{count}} / {{limit}} unités de texte",
+        "budgetHelp": "Le budget applicatif compte le texte composé en unités UTF-16, y compris le nom, les séparateurs et la mention de commandite. Certains emojis comptent pour plusieurs unités.",
+        "editDraft": "Modifier le brouillon de {{name}}",
+        "openDossier": "Consulter le dossier de {{name}}",
+        "openDelivery": "Consulter la publication de {{name}}",
+        "reasons": {
+          "AWAITING_PREPARATION": "En attente de préparation pour cette destination.",
+          "MODERATION_REVIEW_REQUIRED": "Une revue de modération à jour est requise avant la préparation. Le brouillon est conservé. Consultez le dossier ou le brouillon source pour examiner la restriction.",
+          "NO_SLOT_IN_HORIZON": "Aucun créneau disponible dans l’horizon de préparation.",
+          "MANUAL_RESERVATION": "Créneau réservé manuellement, sans livraison finale préparée. La réservation est conservée.",
+          "INDIVIDUAL_TEXT_TOO_LONG": "Le bloc complet dépasse la limite même dans une publication individuelle. Les autres dossiers peuvent avancer.",
+          "INVALID_SOURCE_CONTENT": "Le contenu source ne permet pas de reconnaître ce commanditaire. Vérifiez le nom et le brouillon.",
+          "EXISTING_BATCH_INVALID": "Le lot existant ne permet pas de préparer une publication valide. Vérifiez sa composition.",
+          "PREPARATION_FAILED": "La préparation de cette publication a échoué. Vérifiez le brouillon et la livraison éventuelle.",
+          "AWAITING_APPROVAL": "Incluse dans un brouillon final qui reste à approuver."
+        },
+        "correctionHelp": "Le brouillon source est conservé. Corrigez son contenu et enregistrez-le, puis préparez à nouveau cette destination pour relire la répartition. Si le brouillon final a été modifié par une personne ou est bloqué, ouvrez la publication finale, corrigez ses blocs et enregistrez-la séparément. Vérifiez le texte final et approuvez à nouveau avant l’envoi."
+      },
       "last24h": "publiées en 24 h",
       "filter": "Filtrer les publications",
       "feed": "Feed",
@@ -3350,7 +3389,7 @@
         "kicker": "Conditions publiques",
         "title": "Politique d’utilisation et de remboursement",
         "copy": "Comprendre votre contribution, demander un remboursement et connaître les conditions de visibilité d’une commandite.",
-        "updated": "Mise à jour : 19 septembre 2026"
+        "updated": "Mise à jour : {{date}}"
       },
       "version": "Version {{version}}",
       "actions": {

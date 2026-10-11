@@ -30,6 +30,12 @@ le 19 septembre 2026 : délai généralement estimé à 5–10 jours ouvrables a
 émission, vers le moyen de paiement d’origine. L’analyse préalable n’entre pas
 dans ce délai. Un retard, échec ou débit annulé peut nécessiter un suivi.
 
+## Révision du 11 octobre 2026
+
+La révision éditoriale ajoute la charte des commandites et sa version de politique.
+Elle conserve la distinction entre décision de modération et remboursement. La
+date de consultation Stripe du 19 septembre reste une référence historique.
+
 ## Présentation et accessibilité
 
 La page propose un résumé, une procédure en trois étapes, un sommaire avec ancres
@@ -43,8 +49,9 @@ pour le PNG. Régénération avec `yarn images:support`. L’image décorative a
 texte alternatif vide et ses dimensions sont définies.
 
 La date de révision est fixe, identique en SSR et dans le navigateur. Lors d’une
-nouvelle révision, modifier `revision` dans le composant et les deux libellés de
-date traduits. L’impression conserve tous les textes, la date, l’adresse de
+nouvelle révision, modifier la [métadonnée de la page](../apps/funding-web/src/app/features/funding/pages/usage-refund-policy-page/usage-refund-policy-page.metadata.ts).
+Le texte FR/EN formate cette date en UTC et les traductions reçoivent la date
+formatée. L’impression conserve tous les textes, la date, l’adresse de
 contact et le lien Stripe, sur fond blanc. Elle masque les actions, le sommaire,
 la navigation du site et le lecteur musical. Le navigateur permet d’enregistrer
 le document en PDF ; aucun PDF externe n’est généré à la volée.

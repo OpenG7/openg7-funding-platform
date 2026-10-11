@@ -2307,10 +2307,49 @@
         "manualHelp": "Prepare the next batches using the saved settings for this destination.",
         "saveFirst": "Save your changes before starting preparation.",
         "approvalHelp": "Prepared proposals still need approval before publication.",
-        "prepared": "Preparation complete. Review the proposals awaiting approval.",
+        "prepared": "Preparation complete. Review the sponsorship allocation and the proposals awaiting approval.",
         "checked": "Check complete. The connection status has been refreshed."
       },
       "summary": "Publication summary",
+      "sourceQueue": {
+        "title": "Sponsorship allocation",
+        "intro": "This view tracks source drafts by destination. An allocation does not authorize publication.",
+        "unavailable": "Source tracking is unavailable. No result can be confirmed.",
+        "empty": "No source drafts to track within this scope.",
+        "emptyPage": "No sources on this page. Refresh source tracking to return to the first page.",
+        "partial": "{{shown}} sources shown out of {{total}}. The counters cover all sources in this view.",
+        "evaluatedAt": "Evaluated on {{date}}",
+        "refresh": "Refresh source tracking",
+        "pages": "Source tracking pages",
+        "previous": "Previous sources",
+        "next": "Next sources",
+        "scope": {
+          "global": "All destinations, independently of the publication filter",
+          "filtered": "Sources matching the selected dossier or publication"
+        },
+        "retained": "Included",
+        "deferred": "Deferred",
+        "needsCorrection": "Needs correction",
+        "proposedDate": "Proposed date: {{date}}",
+        "noDate": "No date assigned.",
+        "budget": "Composed block: {{count}} / {{limit}} text units",
+        "budgetHelp": "The application budget counts the composed text in UTF-16 units, including the name, separators and sponsorship disclosure. Some emojis count as several units.",
+        "editDraft": "Edit the draft for {{name}}",
+        "openDossier": "View the dossier for {{name}}",
+        "openDelivery": "View the publication for {{name}}",
+        "reasons": {
+          "AWAITING_PREPARATION": "Awaiting preparation for this destination.",
+          "MODERATION_REVIEW_REQUIRED": "A current moderation review is required before preparation. The draft is retained. Open the dossier or source draft to review the restriction.",
+          "NO_SLOT_IN_HORIZON": "No available slot within the preparation horizon.",
+          "MANUAL_RESERVATION": "Slot reserved manually, with no final delivery prepared. The reservation is retained.",
+          "INDIVIDUAL_TEXT_TOO_LONG": "The complete block exceeds the limit even in an individual publication. Other dossiers can progress.",
+          "INVALID_SOURCE_CONTENT": "The source content cannot identify this sponsor. Check the name and draft.",
+          "EXISTING_BATCH_INVALID": "The existing batch cannot produce a valid publication. Check its composition.",
+          "PREPARATION_FAILED": "Preparation of this publication failed. Check the draft and any associated delivery.",
+          "AWAITING_APPROVAL": "Included in a final draft that still requires approval."
+        },
+        "correctionHelp": "The source draft is retained. Correct and save its content, then prepare this destination again to review the allocation. If the final draft was edited by a person or is blocked, open the final publication, correct its blocks and save it separately. Check the final text and approve again before sending."
+      },
       "last24h": "published in 24 h",
       "filter": "Filter publications",
       "feed": "Feed",
@@ -3354,7 +3393,7 @@
         "kicker": "Public terms",
         "title": "Usage and refund policy",
         "copy": "Understand your contribution, request a refund and learn how sponsorship visibility is reviewed.",
-        "updated": "Updated: September 19, 2026"
+        "updated": "Updated: {{date}}"
       },
       "version": "Version {{version}}",
       "actions": {

@@ -1,5 +1,6 @@
 import type { ProgrammeIssue, PublicationFeedId } from '@openg7/funding-core';
 
+import { selectPublicationRecognitionSources } from '../../../../packages/funding-core/src/index.js';
 import { withPostgresTransaction } from '../postgres-transaction.js';
 
 import {
@@ -9,6 +10,15 @@ import {
 } from './context.js';
 import { composeSponsorshipContent } from './content.js';
 import { mediaRecord, mediaSnapshotIssue } from './media.js';
+import {
+  PREPARATION_SCAN_LIMIT,
+  preparationCandidates,
+  preparationModerationSql,
+  preparationModerationSubjectSql,
+  recognitionSource,
+  recordBlockedSource,
+  type PreparationSource
+} from './preparation-sources.js';
 import {
   assert,
   digest,
@@ -22,11 +32,23 @@ import {
   type Source,
   eligibleDestination,
   sourceEqual,
-  sourceMessage,
   sourceIssues,
   repairSources,
   sources as loadSources
 } from './sources.js';
+
+async function blockPreparationProposal(
+  db: Db,
+  id: string,
+  code: string,
+  actor: string
+): Promise<void> {
+  await db.query(
+    `UPDATE publication_deliveries SET status='blocked',error_code=$2,version=version+1,updated_at=NOW() WHERE id=$1`,
+    [id, code]
+  );
+  await audit(db, actor, 'blocked', id, { code });
+}
 
 export async function prepare(
   context: PublicationPlanningContext,
@@ -36,6 +58,7 @@ export async function prepare(
 ): Promise<void> {
   const proposals: string[] = [];
   await withPostgresTransaction(context.pool, async (db) => {
+    let pendingCandidates: PreparationSource[] | null = null;
     await db.query(
       `SELECT id FROM publication_feeds WHERE id=$1 FOR NO KEY UPDATE`,
       [feedId]
@@ -102,8 +125,10 @@ export async function prepare(
       }
       // Match approval's lock order (delivery, then batch).
       const job = (
-        await db.query<DeliveryRow>(
-          `SELECT * FROM publication_deliveries WHERE batch_id=$1 AND status<>'cancelled' FOR UPDATE`,
+        await db.query<
+          DeliveryRow & { preparation_moderation_allowed: boolean }
+        >(
+          `SELECT *,${preparationModerationSubjectSql('publication_delivery', 'publication_deliveries.id')} AS preparation_moderation_allowed FROM publication_deliveries WHERE batch_id=$1 AND status<>'cancelled' FOR UPDATE`,
           [batch.id]
         )
       ).rows[0];
@@ -118,28 +143,70 @@ export async function prepare(
         (job && !(job.status === 'draft' && job.auto_managed))
       )
         continue;
-      const members = (
-        await db.query<Source>(
-          `SELECT * FROM sponsor_publication_drafts WHERE batch_id=$1 ORDER BY id`,
+      if (job) {
+        // A stale editorial decision cannot suppress existing financial guards.
+        try {
+          await loadSources(db, batch.id, feedId, true);
+        } catch (error) {
+          if (!(error instanceof PublicationAutomationError)) throw error;
+          await blockPreparationProposal(db, job.id, error.code, actor);
+          continue;
+        }
+        if (!job.preparation_moderation_allowed) continue;
+      }
+      const memberFacts = (
+        await db.query<
+          Source & {
+            name: string | null;
+            preparation_moderation_allowed: boolean;
+          }
+        >(
+          `SELECT d.*,c.sponsor_company_name AS name,(${preparationModerationSql()}) AS preparation_moderation_allowed FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id WHERE d.batch_id=$1 ORDER BY d.id`,
           [batch.id]
         )
       ).rows;
-      const remaining = Math.max(0, batch.capacity - members.length);
-      const candidates = (
-        await db.query<Source>(
-          `SELECT d.* FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id WHERE d.batch_id IS NULL AND d.slot_id IS NULL AND d.feed_target=$1 AND d.channel=$2 AND d.status IN ('draft','approved') AND c.status='paid' AND c.public_display_consent IS TRUE AND c.sponsor_review_status IN ('pending_review','approved') AND ${eligibleDestination('c', '$1', '$2')} AND c.sponsor_feed_status NOT IN ('hidden','published') ORDER BY d.created_at,d.id LIMIT $3 FOR UPDATE OF d SKIP LOCKED`,
-          [target, channel, remaining]
-        )
-      ).rows;
-      for (const candidate of candidates) {
-        // Capacity is a maximum, and provider text limits also bound a batch.
-        if (sourceMessage([...members, candidate]).length > 2900) break;
+      // Existing membership and dates survive a hold or an obsolete decision.
+      if (memberFacts.some((member) => !member.preparation_moderation_allowed))
+        continue;
+      const members: (Source & { name: string | null })[] = memberFacts;
+      // Scan once per preparation. Deferred valid sources keep their FIFO order
+      // in memory for the following recurrence; they do not consume a second scan.
+      pendingCandidates ??= await preparationCandidates(
+        db,
+        target!,
+        channel!,
+        PREPARATION_SCAN_LIMIT
+      );
+      const selection = selectPublicationRecognitionSources({
+        existingSources: members.map(recognitionSource),
+        candidates: pendingCandidates.map(recognitionSource),
+        capacity: batch.capacity
+      });
+      const byId: Map<string, PreparationSource> = new Map(
+        pendingCandidates.map((source) => [source.id, source])
+      );
+      for (const correction of selection.needsCorrection) {
+        await recordBlockedSource(
+          db,
+          actor,
+          byId.get(correction.source.id)!,
+          correction.codeUnits,
+          correction.reason
+        );
+      }
+      const existingIds = new Set(members.map((member) => member.id));
+      for (const retained of selection.retained) {
+        if (existingIds.has(retained.id)) continue;
+        const candidate = byId.get(retained.id)!;
         await db.query(
           `UPDATE sponsor_publication_drafts SET batch_id=$2,scheduled_at=$3,updated_at=NOW() WHERE id=$1`,
           [candidate.id, batch.id, date]
         );
         members.push(candidate);
       }
+      pendingCandidates = selection.deferred.map((source): PreparationSource =>
+        byId.get(source.id)!
+      );
       if (!members.length) continue;
       if (job) {
         try {
@@ -167,11 +234,7 @@ export async function prepare(
           }
         } catch (error) {
           if (!(error instanceof PublicationAutomationError)) throw error;
-          await db.query(
-            `UPDATE publication_deliveries SET status='blocked',error_code=$2,version=version+1,updated_at=NOW() WHERE id=$1`,
-            [job.id, error.code]
-          );
-          await audit(db, actor, 'blocked', job.id, { code: error.code });
+          await blockPreparationProposal(db, job.id, error.code, actor);
         }
       } else proposals.push(batch.id);
     }

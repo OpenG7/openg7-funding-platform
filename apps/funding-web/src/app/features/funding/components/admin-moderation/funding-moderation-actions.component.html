@@ -4,7 +4,7 @@
     data-og7="moderation-actions"
     [attr.aria-busy]="busy()"
   >
-    <h3>{{ 'admin.moderation.actions' | translate }}</h3>
+    <h2>{{ 'admin.moderation.actions' | translate }}</h2>
     @if (caseState()) {
       <p role="status">
         {{ 'admin.moderation.states.' + caseState() | translate }}
@@ -40,7 +40,7 @@
       <summary>{{ 'admin.moderation.history' | translate }}</summary>
       @if (canAssign()) {
         <section data-og7="moderation-assignment">
-          <h4>{{ 'admin.moderation.assignmentTitle' | translate }}</h4>
+          <h3>{{ 'admin.moderation.assignmentTitle' | translate }}</h3>
           @if (assignmentState() === 'loading') {
             <p role="status">
               {{ 'admin.moderation.loading' | translate }}
@@ -94,7 +94,7 @@
           data-og7="moderation-reconsideration"
           [attr.data-og7-id]="appeal.id"
         >
-          <h4>{{ 'admin.moderation.reconsiderationTitle' | translate }}</h4>
+          <h3>{{ 'admin.moderation.reconsiderationTitle' | translate }}</h3>
           <p>{{ appeal.message }}</p>
           <p>
             {{
