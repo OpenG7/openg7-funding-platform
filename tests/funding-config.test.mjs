@@ -135,7 +135,7 @@ test('Backup download and documentation expose the recovery entry point', () => 
   assert.ok(docs.includes('--sponsor-logos-backup'));
 });
 
-test('Production rehearsal docs cover PostgreSQL sponsor lifecycle', () => {
+test('Production rehearsal docs require PostgreSQL and OIDC and cover the sponsor lifecycle', () => {
   const launchChecklist = fs.readFileSync(
     'docs/production-launch-checklist.md',
     'utf8'
@@ -145,6 +145,18 @@ test('Production rehearsal docs cover PostgreSQL sponsor lifecycle', () => {
     'apps/production-launch-agent/checklists/production-launch-checklist.yaml',
     'utf8'
   );
+  const productionEnvironment = extractBetween(
+    launchChecklist,
+    '## Required Production Environment',
+    '## Build Validation',
+    'production environment'
+  );
+  const rehearsal = extractBetween(
+    launchChecklist,
+    '## PostgreSQL-Backed Rehearsal',
+    '## Final Preflight',
+    'production rehearsal'
+  ).replace(/\s+/g, ' ');
 
   assert.equal(mvpStatus.includes('- upload et moderation de logos;'), false);
   assert.equal(mvpStatus.includes('- Aucun upload de logo'), false);
@@ -153,37 +165,52 @@ test('Production rehearsal docs cover PostgreSQL sponsor lifecycle', () => {
     mvpStatus.includes("Aucun fichier televerse n'est public automatiquement")
   );
 
-  assert.ok(launchChecklist.includes('## PostgreSQL-Backed Rehearsal'));
-  assert.ok(launchChecklist.includes('POST /api/admin/session'));
-  assert.ok(launchChecklist.includes('GET /api/admin/sponsorships/logo'));
-  assert.ok(
-    launchChecklist.includes('POST /api/admin/sponsorships/logo/delete')
+  assert.match(launchChecklist, /Production requires PostgreSQL and OIDC/);
+  assert.match(productionEnvironment, /^FUNDING_PLATFORM_ENV=production$/m);
+  assert.match(productionEnvironment, /^FUNDING_ADMIN_AUTH_MODE=oidc$/m);
+  assert.match(productionEnvironment, /^DATABASE_URL=postgres:\/\/.+$/m);
+  assert.match(
+    productionEnvironment,
+    /^FUNDING_PRIVATE_DATA_ENCRYPTION_KEY=.+$/m
   );
-  assert.ok(
-    launchChecklist.includes('POST /api/admin/sponsorships/media/review')
+  assert.match(productionEnvironment, /restricted API database role/);
+  assert.match(productionEnvironment, /Verify signed MFA evidence/);
+  assert.doesNotMatch(
+    productionEnvironment,
+    /^FUNDING_ADMIN_AUTH_MODE=token$/m
+  );
+  assert.doesNotMatch(productionEnvironment, /^DATABASE_URL=[ \t]*$/m);
+  assert.match(rehearsal, /Authenticate with MFA/);
+  assert.match(rehearsal, /approval still keeps the site profile private/);
+  assert.match(rehearsal, /separately authorize and confirm site publication/);
+  assert.match(
+    rehearsal,
+    /Originals and optimized files stay in private storage/
   );
   assert.match(
-    launchChecklist,
-    /previous controlled file is no longer\s+served/
+    rehearsal,
+    /Masking the profile or refusing an asset must remove public access/
   );
-  assert.ok(
-    launchChecklist.includes(
-      '[backup/recovery procedure](operations/backup-recovery.md)'
-    )
-  );
-  assert.ok(launchChecklist.includes('--target-project'));
   assert.match(
-    launchChecklist,
-    /An audit exit code of 0 does not authorize activation/
+    rehearsal,
+    /Test confirmed deletion only on a designated synthetic asset/
   );
+  assert.match(rehearsal, /verify the audit and object cleanup/);
+  assert.ok(rehearsal.includes('(public-sponsors.md)'));
+  assert.ok(rehearsal.includes('(operations/backup-recovery.md)'));
+  assert.match(
+    rehearsal,
+    /Keep restored application services stopped while running the read-only recovery audit/
+  );
+  assert.match(rehearsal, /before separately authorizing startup/);
   assert.ok(
     launchChecklist.includes(
       '[production launch agent](../apps/production-launch-agent/README.md)'
     )
   );
   assert.match(
-    launchChecklist,
-    /Execution requires\s+authorization for the exact operations/
+    rehearsal,
+    /its role setting grants no additional authorization/
   );
   assert.ok(agentChecklist.includes('post-deploy-api-logs'));
   assert.ok(agentChecklist.includes('analyze-post-deploy-api-logs'));
