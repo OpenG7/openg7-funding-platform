@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import sharp from 'sharp';
+
 import { command } from '../dist/apps/funding-api/src/publication-automation/commands.js';
+import { digest } from '../dist/apps/funding-api/src/publication-automation/policy.js';
 
 const id = '11111111-1111-4111-8111-111111111111';
 const batchId = '22222222-2222-4222-8222-222222222222';
@@ -441,6 +444,256 @@ const sponsorQuery = (sql) => {
       rowCount: 1
     };
 };
+
+const image = {
+  id: '55555555-5555-4555-8555-555555555555',
+  url: '/api/public/sponsor-media/55555555-5555-4555-8555-555555555555',
+  alt: 'Approved synthetic presentation',
+  key: 'private/synthetic-presentation',
+  version: sponsorVersion
+};
+const secondImageId = '66666666-6666-4666-8666-666666666666';
+const foreignImageId = '77777777-7777-4777-8777-777777777777';
+const secondSource = {
+  ...source,
+  id: '88888888-8888-4888-8888-888888888888',
+  contribution_id: '99999999-9999-4999-8999-999999999999'
+};
+
+test('composition and edit restrict sponsorship images to either source of a collective batch before bytes or writes', async (t) => {
+  for (const action of ['compose', 'edit']) {
+    for (const mediaId of [image.id, secondImageId, foreignImageId]) {
+      await t.test(`${action}: ${mediaId}`, async () => {
+        const foreign = mediaId === foreignImageId;
+        const f = fixture({
+          row: delivery({
+            kind: 'sponsorship',
+            batch_id: batchId,
+            source_snapshot: [source, secondSource]
+          }),
+          query(sql, parameters) {
+            if (sql.startsWith('SELECT id FROM sponsor_publication_batches'))
+              return { rows: [{ id: batchId }], rowCount: 1 };
+            if (sql.startsWith('SELECT id,mode,status,feed_id'))
+              return { rows: [], rowCount: 0 };
+            if (sql.startsWith('SELECT d.id,d.contribution_id'))
+              return {
+                rows: [source, secondSource].map((source) => ({
+                  ...source,
+                  status: 'draft',
+                  sponsor_feed_status: 'planned',
+                  public_display_consent: true,
+                  sponsor_review_status: 'approved',
+                  payment_status: 'paid',
+                  destination_eligible: true
+                })),
+                rowCount: 2
+              };
+            if (sql.startsWith('SELECT m.id,m.public_url')) {
+              assert.deepEqual(parameters, [mediaId, batchId]);
+              assert.match(
+                sql,
+                /s\.batch_id=\$2::uuid AND s\.contribution_id=m\.contribution_id/
+              );
+              return {
+                rows: foreign
+                  ? []
+                  : [
+                      {
+                        ...image,
+                        id: mediaId,
+                        url: '/api/public/sponsor-media/' + mediaId
+                      }
+                    ],
+                rowCount: foreign ? 0 : 1
+              };
+            }
+            return sponsorQuery(sql);
+          }
+        });
+        let reads = 0;
+        f.context.storage.readPrivateObject = async () => {
+          reads++;
+          return Buffer.from('Synthetic image bytes');
+        };
+        const input =
+          action === 'compose'
+            ? { ...composition, kind: 'sponsorship', batchId, mediaId }
+            : {
+                action,
+                id,
+                version: 4,
+                message: composition.message,
+                scheduledAt: composition.scheduledAt,
+                mediaId
+              };
+        if (foreign) {
+          await assert.rejects(command(f.context, input, 'reviewer'), {
+            code: 'MEDIA_NOT_APPROVED'
+          });
+          assert.equal(reads, 0);
+          assert.equal(
+            f.queries().some((call) => /^(INSERT|UPDATE)/.test(call.sql)),
+            false
+          );
+          assert.deepEqual(f.lifecycle(), [
+            'connect',
+            'BEGIN',
+            'ROLLBACK',
+            'release'
+          ]);
+        } else {
+          assert.deepEqual(await command(f.context, input, 'reviewer'), {
+            id
+          });
+          assert.equal(reads, 1);
+          assert.equal(
+            f.queries().filter((call) => /^(INSERT|UPDATE)/.test(call.sql))
+              .length,
+            2
+          );
+        }
+      });
+    }
+  }
+});
+
+test('editorial composition and edit keep shared images without a batch scope', async () => {
+  for (const action of ['compose', 'edit']) {
+    const f = fixture({
+      query(sql, parameters) {
+        if (!sql.startsWith('SELECT m.id,m.public_url')) return;
+        assert.deepEqual(parameters, [foreignImageId, null]);
+        return {
+          rows: [
+            {
+              ...image,
+              id: foreignImageId,
+              url: '/api/public/sponsor-media/' + foreignImageId
+            }
+          ],
+          rowCount: 1
+        };
+      }
+    });
+    let reads = 0;
+    f.context.storage.readPrivateObject = async () => {
+      reads++;
+      return Buffer.from('Shared editorial image');
+    };
+    const input =
+      action === 'compose'
+        ? { ...composition, mediaId: foreignImageId }
+        : {
+            action,
+            id,
+            version: 4,
+            message: composition.message,
+            scheduledAt: composition.scheduledAt,
+            mediaId: foreignImageId
+          };
+    assert.deepEqual(await command(f.context, input, 'reviewer'), { id });
+    assert.equal(reads, 1);
+  }
+});
+
+test('combined approval refuses foreign media before sponsor decisions, image reads or persistence', async () => {
+  const f = fixture({
+    row: delivery({
+      kind: 'sponsorship',
+      batch_id: batchId,
+      source_snapshot: [source],
+      media_id: foreignImageId
+    }),
+    query(sql, parameters) {
+      if (sql.startsWith('SELECT m.id FROM sponsor_media_assets')) {
+        assert.deepEqual(parameters, [foreignImageId, batchId]);
+        return { rows: [], rowCount: 0 };
+      }
+      return sponsorQuery(sql);
+    }
+  });
+  await assert.rejects(
+    command(
+      f.context,
+      {
+        action: 'approve',
+        id,
+        version: 4,
+        confirmation: id,
+        approveSponsors: [{ id: sponsorId, version: sponsorVersion }]
+      },
+      'reviewer'
+    ),
+    { code: 'MEDIA_NOT_APPROVED' }
+  );
+  assert.equal(
+    f.queries().some((call) => /^(INSERT|UPDATE)/.test(call.sql)),
+    false
+  );
+  assert.deepEqual(f.audits, []);
+  assert.deepEqual(f.lifecycle(), ['connect', 'BEGIN', 'ROLLBACK', 'release']);
+});
+
+test('combined approval checks media ownership before approving its pending sponsor and resolves it after approval', async () => {
+  const bytes = await sharp({
+    create: { width: 2, height: 2, channels: 3, background: '#345678' }
+  })
+    .png()
+    .toBuffer();
+  let approved = false;
+  const f = fixture({
+    row: delivery({
+      kind: 'sponsorship',
+      batch_id: batchId,
+      source_snapshot: [source],
+      media_id: image.id,
+      media_snapshot: { ...image, hash: digest(bytes) }
+    }),
+    query(sql, parameters) {
+      if (sql.startsWith('SELECT m.id FROM sponsor_media_assets')) {
+        assert.equal(approved, false);
+        assert.deepEqual(parameters, [image.id, batchId]);
+        return { rows: [{ id: image.id }], rowCount: 1 };
+      }
+      if (sql.startsWith('UPDATE fund_contributions')) {
+        approved = true;
+        return { rows: [], rowCount: 1 };
+      }
+      if (sql.startsWith('SELECT m.id,m.public_url')) {
+        assert.equal(approved, true);
+        assert.deepEqual(parameters, [image.id, batchId]);
+        return { rows: [image], rowCount: 1 };
+      }
+      const result = sponsorQuery(sql);
+      if (approved && sql.startsWith('SELECT d.id,d.contribution_id'))
+        result.rows[0].sponsor_review_status = 'approved';
+      return result;
+    }
+  });
+  let reads = 0;
+  f.context.storage.readPrivateObject = async () => {
+    assert.equal(approved, true);
+    reads++;
+    return bytes;
+  };
+  assert.deepEqual(
+    await command(
+      f.context,
+      {
+        action: 'approve',
+        id,
+        version: 4,
+        confirmation: id,
+        approveSponsors: [{ id: sponsorId, version: sponsorVersion }]
+      },
+      'reviewer'
+    ),
+    { id }
+  );
+  assert.equal(reads, 2);
+  assert.deepEqual(f.lifecycle(), ['connect', 'BEGIN', 'COMMIT', 'release']);
+});
 
 test('combined approval retains microsecond dossier versions and requests rollback after failed preflight', async (t) => {
   for (const version of ['2098-01-01 14:00:00.123000+00', sponsorVersion]) {

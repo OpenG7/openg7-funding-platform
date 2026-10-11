@@ -158,10 +158,26 @@ export class PublicationAutomationService {
     return guardEligibility(this.context);
   }
 
-  async mediaOptions(): Promise<
-    { id: string; url: string; alt: string; company: string }[]
-  > {
-    return mediaOptions(this.pool);
+  async mediaOptions(
+    deliveryId?: string
+  ): Promise<{ id: string; url: string; alt: string; company: string }[]> {
+    assert(
+      deliveryId === undefined || validId(deliveryId),
+      'INVALID_FILTER',
+      400
+    );
+    let batchId: string | null = null;
+    if (deliveryId !== undefined) {
+      const delivery = (
+        await this.pool.query<{ batch_id: string | null }>(
+          'SELECT batch_id FROM publication_deliveries WHERE id=$1',
+          [deliveryId]
+        )
+      ).rows[0];
+      assert(delivery, 'DELIVERY_NOT_FOUND', 404);
+      batchId = delivery.batch_id;
+    }
+    return mediaOptions(this.pool, batchId);
   }
 
   async command(

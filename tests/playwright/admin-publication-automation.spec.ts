@@ -45,6 +45,11 @@ async function fixtures(
     settingsResponse?: () => Promise<void>;
     readResponse?: () => Promise<void>;
     extraDeliveries?: PublicationDelivery[];
+    sponsorMedia?: Record<
+      string,
+      { id: string; url: string; alt: string; company: string }[]
+    >;
+    mediaResponse?: (deliveryId: string | null) => Promise<void>;
   } = {}
 ): Promise<PublicationAutomationCommand[]> {
   const commands: PublicationAutomationCommand[] = [];
@@ -105,8 +110,26 @@ async function fixtures(
           expiresAt: '2099-01-01T00:00:00Z'
         }
       });
-    if (path.endsWith('/publication-automation/media'))
-      return route.fulfill({ json: [] });
+    if (path.endsWith('/publication-automation/media')) {
+      const deliveryId = new URL(route.request().url()).searchParams.get(
+        'deliveryId'
+      );
+      const job = state.deliveries.find(
+        (delivery) => delivery.id === deliveryId
+      );
+      if (deliveryId !== null && !job)
+        return route.fulfill({
+          status: 404,
+          json: { code: 'DELIVERY_NOT_FOUND' }
+        });
+      const media = job?.batchId
+        ? job.sponsors.flatMap(
+            (sponsor) => options.sponsorMedia?.[sponsor.id] ?? []
+          )
+        : Object.values(options.sponsorMedia ?? {}).flat();
+      await options.mediaResponse?.(deliveryId);
+      return route.fulfill({ json: media });
+    }
     if (!path.endsWith('/publication-automation'))
       return route.fulfill({ status: 503, json: {} });
     if (route.request().method() === 'GET') {
@@ -1445,6 +1468,129 @@ test('polling waits 30 seconds and stays suspended while delivery, settings or c
   await tick(5);
   expect(commands).toHaveLength(0);
 });
+
+for (const [language, width] of [
+  ['fr-CA', 1280],
+  ['en', 390]
+] as const) {
+  test(`delivery image choices stay inside their batch while editorial composition keeps both sponsors in ${language} at ${width}px`, async ({
+    page
+  }) => {
+    const secondDeliveryId = '66666666-6666-4666-8666-666666666666';
+    const firstSponsorId = '22222222-2222-4222-8222-222222222222';
+    const secondSponsorId = '44444444-4444-4444-8444-444444444444';
+    const firstImageId = '33333333-3333-4333-8333-333333333333';
+    const secondImageId = '55555555-5555-4555-8555-555555555555';
+    let releaseSecondCatalog!: () => void;
+    const secondCatalog = new Promise<void>((resolve) => {
+      releaseSecondCatalog = resolve;
+    });
+    const requests: (string | null)[] = [];
+    const sponsor = (
+      id: string,
+      name: string
+    ): PublicationDelivery['sponsors'][number] => ({
+      id,
+      name,
+      version: 'v1',
+      reviewStatus: 'approved',
+      presentationApproved: true
+    });
+    const commands = await fixtures(
+      page,
+      'draft',
+      false,
+      [sponsor(firstSponsorId, 'Company A')],
+      { kind: 'sponsorship', batchId: '77777777-7777-4777-8777-777777777777' },
+      {
+        extraDeliveries: [
+          {
+            ...initialJob,
+            id: secondDeliveryId,
+            kind: 'sponsorship',
+            batchId: '88888888-8888-4888-8888-888888888888',
+            message: 'Company B publication',
+            sponsors: [sponsor(secondSponsorId, 'Company B')]
+          }
+        ],
+        sponsorMedia: {
+          [firstSponsorId]: [
+            { id: firstImageId, url: '', alt: 'Image A', company: 'Company A' }
+          ],
+          [secondSponsorId]: [
+            { id: secondImageId, url: '', alt: 'Image B', company: 'Company B' }
+          ]
+        },
+        mediaResponse: async (deliveryId) => {
+          requests.push(deliveryId);
+          if (deliveryId === secondDeliveryId) await secondCatalog;
+        }
+      }
+    );
+    await page.setViewportSize({ width, height: 1000 });
+    await page.addInitScript(
+      (locale) => localStorage.setItem('openg7.language', locale),
+      language
+    );
+    const english = language === 'en';
+    const dialog = page.getByRole('dialog', {
+      name: english ? 'Final publication' : 'Publication finale'
+    });
+    const imageOptions = dialog.locator('select[name="media"] option');
+    const values = () =>
+      imageOptions.evaluateAll((options) =>
+        options.map((option) => (option as HTMLOptionElement).value)
+      );
+    const modify = () =>
+      dialog
+        .getByRole('button', {
+          name: english ? 'Edit' : 'Modifier',
+          exact: true
+        })
+        .click();
+    const close = () =>
+      dialog
+        .getByRole('button', {
+          name: english ? 'Close' : 'Fermer',
+          exact: true
+        })
+        .first()
+        .click();
+    try {
+      await page.goto('/admin/fundraiser/publications/automation');
+      await page.locator(`[data-og7-id="${initialJob.id}"]`).click();
+      await modify();
+      await expect.poll(values).toEqual(['', firstImageId]);
+      await expect(imageOptions).toHaveText([
+        english ? 'No image' : 'Sans image',
+        'Company A · Image A'
+      ]);
+      await close();
+      await page.locator(`[data-og7-id="${secondDeliveryId}"]`).click();
+      await modify();
+      await expect.poll(() => requests.includes(secondDeliveryId)).toBe(true);
+      await expect.poll(values).toEqual(['']);
+      releaseSecondCatalog();
+      await expect.poll(values).toEqual(['', secondImageId]);
+      await expect(imageOptions).toHaveText([
+        english ? 'No image' : 'Sans image',
+        'Company B · Image B'
+      ]);
+      await close();
+      await page
+        .getByRole('button', {
+          name: english ? 'New publication' : 'Nouvelle publication',
+          exact: true
+        })
+        .click();
+      await expect.poll(values).toEqual(['', firstImageId, secondImageId]);
+      expect(requests).toEqual([initialJob.id, secondDeliveryId, null]);
+      expect(commands).toHaveLength(0);
+    } finally {
+      releaseSecondCatalog();
+    }
+  });
+}
 
 test('a command confirmation supersedes an older polling response without restoring its draft or retrying', async ({
   page

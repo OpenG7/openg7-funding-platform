@@ -88,7 +88,7 @@ export class PublicationDeliveryController {
     };
     if (this.mediaBlocked(job)) this.clearPreview();
     else void this.loadPreview(this.edit.mediaId);
-    void this.loadMedia();
+    void this.loadMedia(job.id);
   }
 
   create(): void {
@@ -114,6 +114,7 @@ export class PublicationDeliveryController {
   clear(): void {
     this.generation++;
     this.mediaGeneration++;
+    this.media.set([]);
     this.clearPreview();
     this.selected.set(null);
     this.composing.set(false);
@@ -132,6 +133,7 @@ export class PublicationDeliveryController {
     this.disposed = true;
     this.generation++;
     this.mediaGeneration++;
+    this.media.set([]);
     this.previewResource.dispose();
   }
 
@@ -144,12 +146,15 @@ export class PublicationDeliveryController {
     );
   }
 
-  async loadMedia(): Promise<void> {
+  async loadMedia(
+    deliveryId: string | undefined = this.selected()?.id
+  ): Promise<void> {
     if (this.disposed) return;
     const generation = this.generation;
     const mediaGeneration = ++this.mediaGeneration;
+    this.media.set([]);
     try {
-      const media = await this.ports.admin.publicationMedia();
+      const media = await this.ports.admin.publicationMedia(deliveryId);
       if (
         !this.disposed &&
         generation === this.generation &&
@@ -208,17 +213,34 @@ export class PublicationDeliveryController {
     );
   }
 
+  mediaSelectionValid(): boolean {
+    return (
+      !this.edit.mediaId ||
+      this.edit.mediaId === this.selected()?.mediaId ||
+      this.media().some((media) => media.id === this.edit.mediaId)
+    );
+  }
+
   changeEdit(
     field: 'message' | 'scheduledAt' | 'mediaId',
     value: string
   ): void {
     this.approved = false;
     this.edit[field] = value;
-    if (field === 'mediaId') void this.loadPreview(value);
+    if (field === 'mediaId') {
+      if (this.mediaSelectionValid()) void this.loadPreview(value);
+      else this.clearPreview();
+    }
   }
 
   async save(): Promise<void> {
-    if (this.disposed || this.busy() || !this.editable()) return;
+    if (
+      this.disposed ||
+      this.busy() ||
+      !this.editable() ||
+      !this.mediaSelectionValid()
+    )
+      return;
     const timestamp = new Date(this.edit.scheduledAt);
     if (!Number.isFinite(timestamp.getTime())) return;
     if (this.composing())

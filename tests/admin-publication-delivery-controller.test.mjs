@@ -244,17 +244,25 @@ test('late private preview results and failures do not replace another delivery 
 });
 
 test('late media catalog responses and errors are ignored after navigation and disposal', async (t) => {
-  for (const outcome of ['changed', 'closed', 'disposed', 'failed']) {
+  for (const outcome of [
+    'changed',
+    'composing',
+    'closed',
+    'disposed',
+    'failed'
+  ]) {
     await t.test(outcome, async (t) => {
       const f = fixture(t);
       const response = deferred();
       f.ports.admin.publicationMedia = () => response.promise;
       f.controller.open(delivery());
-      if (outcome === 'changed') {
+      if (outcome === 'changed' || outcome === 'composing') {
         f.ports.admin.publicationMedia = async () => [
           { id: 'current', url: '', alt: 'Current', company: 'Synthetic' }
         ];
-        f.controller.open(delivery({ id: 'next-delivery' }));
+        if (outcome === 'changed')
+          f.controller.open(delivery({ id: 'next-delivery' }));
+        else f.controller.create();
       } else if (outcome === 'disposed') f.controller.dispose();
       else f.controller.close();
       if (outcome === 'failed')
@@ -267,11 +275,125 @@ test('late media catalog responses and errors are ignored after navigation and d
       await Promise.resolve();
       assert.deepEqual(
         f.controller.media().map((item) => item.id),
-        outcome === 'changed' ? ['current'] : []
+        outcome === 'changed' || outcome === 'composing' ? ['current'] : []
       );
       assert.equal(f.calls.errors.length, 0);
     });
   }
+});
+
+test('assigned images omitted from the catalog do not block exact approval of a complete pending sponsor', async (t) => {
+  const f = fixture(t);
+  f.controller.open(
+    delivery({ mediaId: 'assigned-private-image', sponsors: [sponsor()] })
+  );
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.deepEqual(f.controller.media(), []);
+  assert.ok(f.controller.previewUrl());
+  f.controller.approved = true;
+  await f.controller.approve();
+  assert.deepEqual(f.calls.commands[0].command, {
+    action: 'approve',
+    id: 'synthetic-delivery',
+    version: 7,
+    confirmation: 'synthetic-delivery',
+    approveSponsors: [{ id: 'synthetic-sponsor', version: 'sponsor-v4' }]
+  });
+});
+
+test('delivery changes request their own catalog while editorial composition requests the global catalog', async (t) => {
+  const f = fixture(t);
+  const first = {
+    id: 'first-image',
+    url: '',
+    alt: 'First',
+    company: 'First sponsor'
+  };
+  const second = {
+    id: 'second-image',
+    url: '',
+    alt: 'Second',
+    company: 'Second sponsor'
+  };
+  const contexts = [];
+  f.ports.admin.publicationMedia = async (id) => {
+    contexts.push(id);
+    return id === undefined
+      ? [first, second]
+      : id === 'first-delivery'
+        ? [first]
+        : [second];
+  };
+  f.controller.open(delivery({ id: 'first-delivery' }));
+  await Promise.resolve();
+  assert.deepEqual(f.controller.media(), [first]);
+  f.controller.open(delivery({ id: 'second-delivery' }));
+  assert.deepEqual(f.controller.media(), []);
+  await Promise.resolve();
+  assert.deepEqual(f.controller.media(), [second]);
+  f.controller.create();
+  assert.deepEqual(f.controller.media(), []);
+  await Promise.resolve();
+  assert.deepEqual(f.controller.media(), [first, second]);
+  f.controller.close();
+  assert.deepEqual(f.controller.media(), []);
+  assert.deepEqual(contexts, ['first-delivery', 'second-delivery', undefined]);
+});
+
+test('a failed catalog load after changing delivery or composing leaves no previous options', async (t) => {
+  for (const context of ['delivery', 'editorial']) {
+    await t.test(context, async (t) => {
+      const f = fixture(t);
+      f.ports.admin.publicationMedia = async () => [
+        { id: 'old-image', url: '', alt: 'Old', company: 'Previous sponsor' }
+      ];
+      f.controller.open(delivery());
+      await Promise.resolve();
+      const response = deferred();
+      f.ports.admin.publicationMedia = () => response.promise;
+      if (context === 'delivery')
+        f.controller.open(delivery({ id: 'second-delivery' }));
+      else f.controller.create();
+      assert.deepEqual(f.controller.media(), []);
+      const failure = new Error('CURRENT_CATALOG_UNAVAILABLE');
+      response.reject(failure);
+      await Promise.resolve();
+      await Promise.resolve();
+      assert.deepEqual(f.controller.media(), []);
+      assert.deepEqual(f.calls.errors, [failure]);
+    });
+  }
+});
+
+test('saving rejects a new image outside the current catalog but retains the assigned image and image-free posts', async (t) => {
+  const f = fixture(t);
+  const existing = 'existing-reviewed-image';
+  f.controller.open(delivery({ mediaId: existing }));
+  f.controller.edit.message = 'Revised text with the existing reviewed image';
+  await f.controller.save();
+  assert.equal(f.calls.commands[0].command.mediaId, existing);
+  const previewCount = f.calls.previews.length;
+  f.controller.changeEdit('mediaId', 'foreign-image');
+  assert.equal(f.controller.mediaSelectionValid(), false);
+  assert.equal(f.calls.previews.length, previewCount);
+  await f.controller.save();
+  assert.equal(f.calls.commands.length, 1);
+  f.ports.admin.publicationMedia = async () => [
+    { id: 'current-image', url: '', alt: 'Current', company: 'Current sponsor' }
+  ];
+  await f.controller.loadMedia();
+  f.controller.changeEdit('mediaId', 'current-image');
+  await f.controller.save();
+  assert.equal(f.calls.commands[1].command.mediaId, 'current-image');
+  f.controller.changeEdit('mediaId', '');
+  await f.controller.save();
+  assert.equal(f.calls.commands[2].command.mediaId, null);
+  f.controller.create();
+  f.controller.edit.message = 'Editorial text';
+  f.controller.edit.mediaId = 'foreign-image';
+  await f.controller.save();
+  assert.equal(f.calls.commands.length, 3);
 });
 
 test('current catalog and preview failures use the page error policy', async (t) => {

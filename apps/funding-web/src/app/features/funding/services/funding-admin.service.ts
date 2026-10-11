@@ -233,10 +233,10 @@ export class FundingAdminService {
   ): Promise<PublicationAutomationState | { id?: string }> {
     return this.publicationsClient.publicationAutomation(command, filter);
   }
-  publicationMedia(): Promise<
-    { id: string; url: string; alt: string; company: string }[]
-  > {
-    return this.publicationsClient.publicationMedia();
+  publicationMedia(
+    deliveryId?: string
+  ): Promise<{ id: string; url: string; alt: string; company: string }[]> {
+    return this.publicationsClient.publicationMedia(deliveryId);
   }
   authMode(): Promise<'oidc' | 'token'> {
     return this.session.authMode();

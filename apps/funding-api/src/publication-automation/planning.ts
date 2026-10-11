@@ -374,7 +374,9 @@ export async function guardEligibility(
       }
       // Metadata is cheap to check before the due date. Bytes are still
       // re-read and hashed immediately before dispatch.
-      const media = row.media_id ? await mediaRecord(db, row.media_id) : null;
+      const media = row.media_id
+        ? await mediaRecord(db, row.media_id, row.batch_id)
+        : null;
       const mediaCode = mediaSnapshotIssue(
         row.media_id,
         row.media_snapshot,

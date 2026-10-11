@@ -13,7 +13,7 @@ import {
   type PublicationCommandsContext
 } from './context.js';
 import { editorialMessage } from './editorial-profiles.js';
-import { resolveMedia } from './media.js';
+import { assertMediaScope, resolveMedia } from './media.js';
 import {
   assert,
   feedConfig,
@@ -179,13 +179,6 @@ export async function command(
         )
       )
         return { id: existing.id as string };
-      if (existing) {
-        await db.query(
-          "UPDATE publication_deliveries SET status='cancelled',version=version+1 WHERE id=$1",
-          [existing.id]
-        );
-        await audit(db, actor, 'archive_simulation', existing.id);
-      }
       assert(
         (input.kind === 'sponsorship') === Boolean(input.batchId),
         'INVALID_BATCH',
@@ -218,8 +211,16 @@ export async function command(
       const media = await resolveMedia(
         db,
         context.storage,
-        input.mediaId ?? null
+        input.mediaId ?? null,
+        input.batchId ?? null
       );
+      if (existing) {
+        await db.query(
+          "UPDATE publication_deliveries SET status='cancelled',version=version+1 WHERE id=$1",
+          [existing.id]
+        );
+        await audit(db, actor, 'archive_simulation', existing.id);
+      }
       const r = await db.query(
         `INSERT INTO publication_deliveries(feed_id,kind,batch_id,message,scheduled_at,source_snapshot,media_id,media_snapshot,account_id,mode,auto_managed) VALUES($1,$2,$3,$4,$5,$6::jsonb,$7,$8::jsonb,$9,$10,$11) RETURNING id`,
         [
@@ -271,10 +272,15 @@ export async function command(
         'DELIVERY_LOCKED'
       );
       validateContent(input.message, input.scheduledAt);
-      const media = await resolveMedia(db, context.storage, input.mediaId);
       const sources = row.batch_id
         ? await loadSources(db, row.batch_id, row.feed_id, true)
         : [];
+      const media = await resolveMedia(
+        db,
+        context.storage,
+        input.mediaId,
+        row.batch_id
+      );
       const c = feedConfig(row.feed_id, context.env);
       await db.query(
         `UPDATE publication_deliveries SET message=$2,scheduled_at=$3,media_id=$4,media_snapshot=$5::jsonb,source_snapshot=$6::jsonb,account_id=$7,mode=$8,status='draft',auto_managed=FALSE,approved_at=NULL,approved_by=NULL,error_code=NULL,next_attempt_at=NULL,provider_media_id=NULL,version=version+1,updated_at=NOW() WHERE id=$1`,
@@ -306,6 +312,7 @@ export async function command(
             true
           );
           assert(sourceEqual(sources, row.source_snapshot), 'SOURCE_CHANGED');
+          await assertMediaScope(db, row.media_id, row.batch_id);
           const pending = (
             await db.query<{
               id: string;

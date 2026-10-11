@@ -67,7 +67,9 @@ export const createAdminPublicationAutomationHttpHandler = ({
             response,
             200,
             isMedia
-              ? await publicationAutomation.mediaOptions()
+              ? await publicationAutomation.mediaOptions(
+                  automationUrl.searchParams.get('deliveryId') ?? undefined
+                )
               : await publicationAutomation.state(undefined, {
                   sponsorshipId:
                     automationUrl.searchParams.get('sponsorshipId') ??
