@@ -43,7 +43,8 @@
           'funding.policyPage.version' | translate: { version: revision }
         }}</span>
         <time [attr.datetime]="revision">{{
-          'funding.policyPage.hero.updated' | translate
+          'funding.policyPage.hero.updated'
+            | translate: { date: revisionDate() }
         }}</time>
       </p>
       <div class="policy-actions">

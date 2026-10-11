@@ -3389,7 +3389,7 @@
         "kicker": "Conditions publiques",
         "title": "Politique d’utilisation et de remboursement",
         "copy": "Comprendre votre contribution, demander un remboursement et connaître les conditions de visibilité d’une commandite.",
-        "updated": "Mise à jour : 19 septembre 2026"
+        "updated": "Mise à jour : {{date}}"
       },
       "version": "Version {{version}}",
       "actions": {
