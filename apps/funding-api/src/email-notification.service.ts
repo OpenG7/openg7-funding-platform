@@ -44,10 +44,8 @@ import {
   enqueueEmailMessage,
   processQueuedEmailMessages,
   queueAndProcessEmail,
-  sendEmailPayload,
   snapshotEmailDependencies,
-  type EmailQueueResult,
-  type EmailSendResult
+  type EmailQueueResult
 } from './services/email/email-queue.service.js';
 
 export {
@@ -73,19 +71,6 @@ export const projectExistingSponsorshipEmailStatus = (
     : status === 'failed'
       ? 'delivery_failed'
       : 'already_queued';
-
-export const sendSponsorshipFollowupEmail = async (
-  input: SponsorshipFollowupEmailInput
-): Promise<EmailSendResult> => {
-  const rendered = renderSponsorshipFollowupEmail(input);
-  return sendEmailPayload({
-    to: input.to,
-    replyTo: null,
-    subject: rendered.subject,
-    text: rendered.text,
-    html: rendered.html
-  });
-};
 
 export const queueSponsorshipFollowupEmail = async (
   pool: Pool | null,

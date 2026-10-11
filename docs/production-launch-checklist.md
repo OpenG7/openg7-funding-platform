@@ -1,354 +1,315 @@
 # Production Launch Checklist
 
-This checklist covers the selected OpenG7 deployment scope. The minimal path is
-Angular, Funding API, Stripe Checkout and Stripe-direct aggregate transparency.
-The full platform adds private PostgreSQL and the configured operational services.
+This checklist covers the production Funding platform: Angular Web, Funding API,
+private PostgreSQL, Stripe Checkout and named OIDC administration with MFA.
+Use the [current platform status](platform-status.md) to identify delivered
+features and open qualifications; the [configuration reference](technical/configuration.md)
+and repository code define the startup contract.
 
-The minimal launch path does not include the full sponsor follow-up,
-public directories or persistent administration. Those features require private
-PostgreSQL; access recovery also requires working email. Start with the
-[current platform status](platform-status.md) and the
-[controlled integration rehearsal](operations/integration-rehearsal.md) to choose
-the scope being validated.
+Production requires PostgreSQL and OIDC even when business sponsorships are
+disabled. Stripe-direct aggregate statistics remain a limited
+[development configuration](technical/configuration.md#development-without-postgresql);
+they do not provide a production launch path without a database.
 
-Before updating an existing database, follow the
-[migration registry and execution procedure](operations/database-migrations.md#registre-et-réexécution).
-The local and VPS runners share a checksum registry and apply only pending
-migrations under a database lock, in one transaction. Recorded migrations are
-checked and skipped; missing or changed historical files block execution.
-An existing database without a registry requires
-[reviewed history adoption](operations/database-migrations.md#adoption-dune-base-existante-sans-registre)
-after backup verification and rehearsal on an isolated copy. A successful fresh
-database rehearsal does not establish the history of an existing database.
+Record the exact target, release revision, provider accounts and test/live mode,
+operator, authorized actions, volume limits, recovery plan and evidence location
+before any external operation. Deployment, production migrations, real refunds,
+media deletion, publication and external sending require their own explicit
+authorization under the [operational safeguards](../AGENTS.md#risque-eleve).
+Completing this document does not authorize those operations.
 
 ## Launch Decision
 
-- PostgreSQL is optional only for the limited Stripe-direct path.
-- Leave `DATABASE_URL` unset for the simplest Stripe-direct launch.
-- If `DATABASE_URL` is unset, public transparency reads directly from Stripe through `STRIPE_SECRET_KEY`.
-- Persistent sponsorship, directories, admin state, OIDC and alert episodes require private PostgreSQL and the complete migration directory from the selected release; see the [schema inventory](operations/database-migrations.md#schéma-disponible).
-- Checkout mock fallbacks must stay disabled in production.
-- NorthDragon and GitHub links remain external redirects; no Shopify iframe or repository mirroring is hosted by this app.
+- [ ] Identify the target URLs, full release SHA, Web/API image tags and digests,
+      and successful CI runs for that revision.
+- [ ] Prepare private PostgreSQL with the release's complete migration directory.
+      Checkout requires durable operations, including
+      [migration 031](../apps/funding-api/migrations/031_create_checkout_operations.sql).
+      Follow the [migration procedure](operations/database-migrations.md#registre-et-réexécution);
+      do not stop at a historical minimum schema.
+- [ ] Prepare the OIDC provider, confidential client, MFA and first owner subjects
+      before starting the production API. Keycloak hosting is optional; OIDC is
+      mandatory. Follow the
+      [first application startup](operations/keycloak-vps.md#premier-demarrage-oidc)
+      or the [external-provider requirements](operations/admin-identity-and-alerts.md).
+- [ ] Qualify Stripe on an identified test account and test URL before separately
+      authorizing live activation. Keep mock Checkout disabled in production.
+- [ ] Keep business sponsorships disabled until their complete private follow-up,
+      email, media and administrative review journeys have passed.
+- [ ] Decide separately whether to activate independent alerts or real social
+      delivery. Keep social delivery disabled during the normal launch rehearsal.
+- [ ] Keep NorthDragon and GitHub integrations as external links within their
+      current documented scope.
 
 ## Required Production Environment
 
-Set these variables on the API host:
+Start from [.env.example](../.env.example) and the
+[configuration reference](technical/configuration.md). This excerpt shows the
+mandatory application settings; it is not a complete VPS, SMTP or storage file.
+Replace every synthetic value for the identified target before use:
 
-```bash
+```env
 FUNDING_PLATFORM_ENV=production
-FUNDING_API_PORT=<platform-provided-port-or-3333>
-FUNDING_ALLOWED_ORIGINS=https://openg7.org,https://www.openg7.org
+FUNDING_API_PORT=3333
+FUNDING_PUBLIC_BASE_URL=https://funding.example.com
+FUNDING_ALLOWED_ORIGINS=https://funding.example.com
 FUNDING_BUSINESS_SPONSORSHIP_ENABLED=false
-FUNDING_ADMIN_AUTH_MODE=token
-FUNDING_ADMIN_TOKEN=<long-random-root-admin-secret>
-FUNDING_ADMIN_SESSION_SECRET=<different-long-random-session-secret>
-FUNDING_ADMIN_SESSION_TTL_MINUTES=60
-FUNDING_SPONSOR_LOGO_STORAGE_DIR=/app/var/sponsor-logos
-FUNDING_SPONSOR_LOGO_MAX_BYTES=524288
-STRIPE_SECRET_KEY=<stripe-live-or-final-test-secret-key>
-STRIPE_WEBHOOK_SECRET=<stripe-webhook-signing-secret>
+FUNDING_ADMIN_AUTH_MODE=oidc
+FUNDING_ADMIN_OIDC_ISSUER=https://identity.example.com/realms/openg7
+FUNDING_ADMIN_OIDC_CLIENT_ID=<confidential-client-id>
+FUNDING_ADMIN_OIDC_CLIENT_SECRET=<independent-private-client-secret>
+FUNDING_ADMIN_OIDC_OWNER_SUBJECTS=<verified-first-owner-subject>
+FUNDING_ADMIN_OIDC_MFA_ACR=
+FUNDING_PRIVATE_DATA_ENCRYPTION_KEY=<standard-base64-of-32-random-bytes>
+DATABASE_URL=postgres://<runtime-user>:<url-encoded-runtime-password>@postgres:5432/<funding-db>
+STRIPE_SECRET_KEY=<secret-for-the-explicitly-authorized-account-and-mode>
+STRIPE_WEBHOOK_SECRET=<signing-secret-for-that-account-mode-and-endpoint>
+SOCIAL_PUBLICATION_MODE=disabled
 ```
 
-Do not set this variable for the simplest Stripe-direct launch:
-
-```bash
-DATABASE_URL=
-```
-
-These admin secret/session values describe `token` mode. For named accounts,
-choose `FUNDING_ADMIN_AUTH_MODE=oidc` and follow the
-[identity and alerts runbook](operations/admin-identity-and-alerts.md), including
-MFA, owner subjects and same-origin Web/API hosting. Root tokens are rejected in
-OIDC mode. Enable the separate operations watcher only after testing its receiver.
-
-For the PostgreSQL-backed platform, configure the private database values from
-[the Docker guide](docker-deployment.md) and prepare the required migrations
-before deployment according to the migration procedure above.
-
-Proxy `/api` through the Web origin for OIDC. For the public API and legacy token
-mode, a separate API origin can also be configured through:
-
-```js
-window.__OPENG7_FUNDING_API_BASE_URL__ = 'https://api.openg7.org/api';
-```
+- [ ] Host Web and `/api` on the same HTTPS origin. Register the exact callback
+      `https://<site>/api/admin/auth/callback`, without a wildcard.
+- [ ] Verify signed MFA evidence: `amr` containing `mfa`, or an ACR whose MFA
+      meaning is guaranteed by the provider. A healthy discovery/JWKS endpoint
+      does not qualify login or MFA.
+- [ ] On a new database, supply verified owner subjects explicitly or through
+      the [managed Keycloak provisioning](operations/keycloak-provisioning.md).
+      An empty list requires an existing active owner for that issuer.
+- [ ] Use a restricted API database role in `DATABASE_URL`, separate from the
+      migration owner. Follow the
+      [runtime-role procedure](docker-deployment.md#compte-postgresql-applicatif).
+      PostgreSQL publishes no public port and has no Traefik route.
+- [ ] Generate the application encryption key as exactly 32 random bytes in
+      standard base64 and retain an independent protected recovery copy.
+- [ ] Keep secrets on the API or deployment host as appropriate, outside Git,
+      images, browser bundles, public URLs and logs. Protect the host `.env` with mode
+      `600`; token-mode admin secrets are not required for OIDC.
+- [ ] Configure the selected
+      [media backend](operations/ovh-object-storage.md), upload limits,
+      [SMTP service](email-smtp.md), invoice identity and API rate limits from
+      their owning guides. Qualify email recovery before offering it.
+- [ ] Review configuration with `node scripts/services-check.mjs --env .env --env-only`.
+      This checks configuration, not MFA, migrations, database privileges,
+      encryption-key validity or provider delivery.
 
 ## Build Validation
 
-Select the exact release commit and check its GitHub Actions results, including
-`Admin acceptance` and the build/deployment workflow checks that apply to that
-revision. Record the commit and run links with the release evidence. A merged PR,
-an in-progress run or successful tests on another revision do not establish a
-successful acceptance run for this release. Resolve failures before activation.
+Select the exact release commit and inspect its GitHub Actions results, including
+[Admin acceptance](../.github/workflows/admin-acceptance.yml) and applicable
+[build/deployment checks](../.github/workflows/deploy.yml). Record successful run
+links for that revision; a merged PR or another revision's results are insufficient.
 
-Run these local checks for that revision as applicable under the
-[validation matrix](development/validation.md):
+Use Node 22 and the Yarn version declared in [package.json](../package.json).
+Apply the [validation matrix](development/validation.md) for the selected release:
 
 ```bash
 corepack yarn install --immutable
 corepack yarn lint
+corepack yarn exec tsc --noEmit -p tsconfig.json
 corepack yarn test
 corepack yarn workspace @openg7/funding-web build --configuration production
+corepack yarn docs:check
+git diff --check
 ```
 
-The production web build uses Angular SSG and prerenders these public French routes:
-
-- `/`
-- `/fonds-des-batisseurs`
-- `/ecosystem`
-- `/support`
-- `/music`
-- `/boutique`
-- `/batisseurs`
-- `/commanditaires`
-- `/politique-utilisation-remboursement`
-- `/fonds-des-batisseurs/a-propos`
-- `/fonds-des-batisseurs/transparence`
-- `/404` (error document, excluded from indexing)
-
-It also prerenders the English equivalents:
-
-- `/en`
-- `/en/fonds-des-batisseurs`
-- `/en/ecosystem`
-- `/en/support`
-- `/en/music`
-- `/en/boutique`
-- `/en/batisseurs`
-- `/en/commanditaires`
-- `/en/politique-utilisation-remboursement`
-- `/en/fonds-des-batisseurs/a-propos`
-- `/en/fonds-des-batisseurs/transparence`
-- `/en/404` (error document, excluded from indexing)
-
-Confirm the build writes `dist/apps/funding-web/prerendered-routes.json` with those routes before deployment.
-The build currently prerenders 24 routes. Indexable public pages include a
-language-specific canonical URL and `hreflang` alternates for `fr-CA`, `en`
-and `x-default`; error documents use `noindex`. The production initial bundle
-has an 800 kB warning budget and a 900 kB error budget.
-
-Known note: if Angular reports a `.tsbuildinfo` path mismatch on Windows, remove only the generated cache and rebuild:
-
-```powershell
-if (Test-Path ".angular/cache") { Remove-Item ".angular/cache" -Recurse -Force }
-corepack yarn workspace @openg7/funding-web build --configuration production
-```
+- [ ] Record the applicable PostgreSQL, identity, recovery and browser acceptance
+      results, including failures and skipped checks. Disposable Docker, Mailpit,
+      S3Mock and signed local OIDC tests qualify different guarantees from real
+      provider rehearsals.
+- [ ] Compare `dist/apps/funding-web/prerendered-routes.json` with
+      [server routes](../apps/funding-web/src/app/app.routes.server.ts), including
+      public FR/EN pages, both 404 documents and `/admin/oidc-setup`.
+      Private follow-up and protected admin pages remain client-rendered.
+- [ ] Verify bundle budgets against [angular.json](../angular.json).
+      Check canonical URLs and `hreflang` against the chosen production domain;
+      the current [SEO service](../apps/funding-web/src/app/features/funding/services/funding-seo.service.ts)
+      targets `https://openg7.org`. Another host requires a separately reviewed
+      configuration change before release.
 
 ## Deployment Wiring
 
-The frontend must serve the Angular production output:
+Serve the Angular static production output from
+`dist/apps/funding-web/browser` using the routing contract in
+[Nginx](../apps/funding-web/nginx.conf). Public content is prerendered at build
+time; financial data is loaded from the API in the browser.
 
-```text
-dist/apps/funding-web/browser
-```
+- [ ] Serve prerendered public files and the public OIDC setup guide directly.
+      Only known client-rendered routes receive `index.csr.html`; unknown URLs
+      return localized HTTP 404 and `noindex`.
+- [ ] Proxy `/api` through the same Web origin to the compiled API runtime.
+      Verify public configuration/directories/transparency, Checkout, private
+      follow-up, admin/authentication, media and the Stripe webhook routes.
+- [ ] Keep PostgreSQL private and technical dashboards bound to loopback.
+      Verify HTTPS, security headers, healthchecks and service dependencies.
+- [ ] Verify Node 22 and Docker Compose are available on the migration host,
+      including image-only deployments, and that the migration target matches
+      the API database.
+- [ ] For SSH delivery, independently verify the negotiated host key before
+      configuring `VPS_SSH_FINGERPRINT`. The optional launch agent uses its own
+      `PLA_SSH_HOST_FINGERPRINT`; follow the
+      [delivery configuration](docker-deployment.md#github-actions-cicd).
+- [ ] Deploy Web and API from the same full SHA with matching image tags.
+      Prepare the checkout explicitly and follow the
+      [deployment procedure](docker-deployment.md#deployment).
+      The deployment script applies migrations; a verified backup must already
+      exist before an authorized upgrade.
 
-Serve prerendered files directly. Only known client-rendered routes (admin and
-private sponsor follow-up) receive `index.csr.html`. Unknown URLs must return
-HTTP 404 with the FR/EN error document, as in `apps/funding-web/nginx.conf`.
-Do not replace this behavior with an unrestricted successful SPA fallback.
-
-The API must run:
-
-```bash
-corepack yarn workspace @openg7/funding-api start
-```
-
-The hosting layer must provide:
-
-- HTTPS for the public frontend.
-- HTTPS for the API or an HTTPS frontend proxy to `/api`.
-- Prerendered public files, an explicit allowlist of client-rendered routes, and localized HTTP 404 responses for unknown paths.
-- `/api/checkout-sessions` routed to the Funding API.
-- `/api/public/fund-transparency` routed to the Funding API.
-- `/api/public/sponsorships` routed to the Funding API.
-- `/api/public/builders`, `/api/public/funding-config`, private sponsor follow-up and `/api/admin/*` routed to the Funding API.
-- `/api/public/sponsor-logos/*` routed to the Funding API.
-- `/api/stripe/webhook` routed to the Funding API.
+An existing database without a migration registry needs
+[reviewed history adoption](operations/database-migrations.md#adoption-dune-base-existante-sans-registre)
+after backup verification and rehearsal on an isolated copy. After authorized
+application, `node scripts/db-migrate.mjs --plan` must report no pending migration
+or history mismatch. The plan does not infer legacy history or detect manual
+schema drift.
 
 ## Stripe Setup
 
-In Stripe Dashboard:
-
-- Confirm the account is ready for real payments.
-- Confirm the public business/support information is correct.
-- Create a webhook endpoint pointing to:
-
-```text
-https://<production-domain>/api/stripe/webhook
-```
-
-- Subscribe the webhook to:
-  - `checkout.session.completed`
-  - `checkout.session.expired`
-  - `payment_intent.succeeded`
-  - `payment_intent.payment_failed`
-  - `charge.updated` (late fee/net enrichment)
-  - `charge.refunded`
-  - `charge.dispute.created`
-  - `payout.paid`
-  - `payout.failed`
-- Copy the webhook signing secret into `STRIPE_WEBHOOK_SECRET`.
-- Use the final intended `STRIPE_SECRET_KEY` on the API host.
+- [ ] Identify and record the intended Stripe account, mode and endpoint.
+      Verify business/support information and the exact HTTPS webhook URL:
+      `https://<target-domain>/api/stripe/webhook`.
+- [ ] Configure the endpoint's signing secret and the API secret for that same
+      account and mode; keep test and live configuration separate.
+- [ ] Match the endpoint subscriptions to the release's
+      [Stripe contract](technical/stripe.md#stripe-webhook-endpoint), including
+      `refund.updated` and `refund.failed` for asynchronous refund outcomes.
+      Subscribe to `checkout.session.async_payment_succeeded` and
+      `checkout.session.async_payment_failed` when delayed payment methods are
+      explicitly enabled and qualified.
+- [ ] Qualify the [durable Checkout contract](technical/checkout.md): a new
+      contribution uses a new `idempotencyKey`; retries retain the same key and
+      payload. Missing/invalid keys fail with `400`; unavailable durable storage
+      fails with `503 CHECKOUT_STORAGE_UNAVAILABLE` before calling Stripe.
+      Reconcile an uncertain result before starting another operation.
+- [ ] Exercise webhook signature rejection, repeated and delayed delivery,
+      failure/restart recovery and asynchronous refund outcomes on the approved
+      test target. Follow the
+      [refund integrity procedure](operations/stripe-refund-integrity.md).
+      Dispute resolution and financial correction of a returned refund require
+      separately prepared and authorized authoritative workflows; the current
+      processing does not automate them.
 
 ## Smoke Tests
 
-After deployment, verify these public routes:
-
-- `/`
-- `/fonds-des-batisseurs`
-- `/ecosystem`
-- `/support`
-- `/music`
-- `/boutique`
-- `/batisseurs`
-- `/commanditaires`
-- `/politique-utilisation-remboursement`
-- `/fonds-des-batisseurs/a-propos`
-- `/fonds-des-batisseurs/transparence`
-- `/en`
-- `/en/fonds-des-batisseurs`
-- `/en/batisseurs`
-- `/en/commanditaires`
-- `/en/politique-utilisation-remboursement`
-- `/en/fonds-des-batisseurs/transparence`
-
-Verify these API endpoints:
+Use the [read-only smoke runbook](operations/production-smoke-tests.md) against
+the explicitly identified URL. Replace the synthetic URL below with that target.
+The public HTTP command performs GET requests:
 
 ```bash
-GET /health
-GET /api/public/fund-transparency
-POST /api/checkout-sessions
+node scripts/smoke-public.mjs --base-url https://funding.example.com --expect-secure-headers
 ```
 
-Expected checkout behavior:
+- [ ] Verify public FR/EN navigation, static content without JavaScript, canonical
+      URLs, policy/support links, responsive behavior and localized 404 responses.
+- [ ] Verify Web/API health, public configuration and safe directory/transparency
+      responses. Initial loading or provider failure must not appear as zero;
+      financial aggregates require a successful API response.
+- [ ] Verify anonymous access to protected admin data is refused and that
+      private responses use `no-store`. Exercise owner login, MFA rejection,
+      reader/operator/owner permissions, session expiry and revocation through
+      the separate [identity rehearsal](operations/admin-identity-and-alerts.md#recette-des-accès-administrateurs).
+- [ ] Confirm developer setup, webhook and API-key tools are unavailable on the
+      production domain. Inspect public responses for private contacts,
+      contribution references, tokens and secrets.
 
-- With valid Stripe configuration, `POST /api/checkout-sessions` returns `status: "redirected"` and a Stripe checkout URL.
-- With missing Stripe configuration in production, the API fails or returns an error. It must not return `status: "mocked"`.
-
-Expected transparency behavior:
-
-- `/fonds-des-batisseurs/transparence` loads aggregate public values.
-- `/batisseurs` loads public builder profiles when consented data exists, or a safe empty state.
-- `/commanditaires` loads approved public sponsor profiles when consented data exists, or a safe empty state.
-- `/politique-utilisation-remboursement` explains contribution use, refunds, disputes, sponsorship approval, feed visibility, and privacy limits.
-- If no Stripe contributions exist yet, the page may show an empty public state.
-- No private contributor contact details or payment references are exposed.
-
-Also verify unknown FR/EN URLs return HTTP 404 and `noindex`, and that a direct
-visit to a known admin or follow-up route still loads its client-rendered shell.
-Public sponsor and builder pages may expose only the fields explicitly allowed
-by consent; contact details and private payment references remain excluded.
+Creating a Checkout session, sending email, replaying an event, writing a storage
+test object or publishing content is an external effect. Perform these only in
+the authorized rehearsal below or under a separately authorized live operation.
 
 ## PostgreSQL-Backed Rehearsal
 
-Run this rehearsal on staging or a private production-like VPS before choosing
-the PostgreSQL-backed launch path for real payments. First complete the
-[target preparation](operations/integration-rehearsal.md#fiche-de-préparation-de-la-recette-réelle):
-confirm the test URL, dedicated recipient, Stripe test account, storage targets,
-revision and authorized test actions. Keep real social delivery disabled.
+PostgreSQL is required for the production platform. Rehearse on a dedicated,
+identified test target with synthetic data, Stripe test keys and a dedicated
+inbox. Complete the
+[target preparation](operations/integration-rehearsal.md#fiche-de-préparation-de-la-recette-réelle),
+including permissions for each mutation, limits and cleanup. Keep real social
+delivery disabled.
 
-1. Prepare new private PostgreSQL and media volumes or dedicated S3 buckets for
-   the identified test target, preserving existing environments.
-2. Configure `DATABASE_URL`, the selected admin authentication mode,
-   `SPONSOR_MEDIA_STORAGE_DRIVER`, Stripe
-   test keys, and a signed Stripe webhook secret.
-3. Use the shared migration runner with the release's complete migration
-   directory. Node 22 and Docker Compose are required on the host, including
-   image-only deployments. Once applied, `node scripts/db-migrate.mjs --plan`
-   should report all migrations as `skipped`, with no pending file. The plan does
-   not start PostgreSQL, infer legacy history or detect manual schema drift.
-   Complete the revision's applicable build and test checks described above.
-4. Complete one Stripe test checkout for `sponsorship_interest` and confirm the
-   signed webhook stores the private contribution row with a hashed follow-up
-   token. Confirm the browser return uses `followup_token` and does not rely on
-   `session_id`.
-5. Open the sponsor follow-up link, refresh it, close the tab, reopen the same
-   link, submit company details, submit them a second time, and confirm the
-   commandite remains a single paid row that returns to manual review.
-6. Open `/admin/login`, create a token-mode session through
-   `POST /api/admin/session` or authenticate with MFA in OIDC mode, then continue to
-   `/admin/fundraiser/sponsors` and review the paid sponsorship.
-   Confirm the guided Stripe refund panel and optional sponsor email fields are
-   present for a paid sponsorship, but do not submit it during the normal launch
-   rehearsal. Also open `/admin/fundraiser/invoices` and confirm the page has
-   the credit-note area and PDF download controls ready for refunded invoices.
-   Confirm the sponsorship detail panel shows the refund workflow badge and
-   that the refund history tab exposes milestones, notes/errors, and refund
-   audit entries. Confirm the guided refund form exposes partial amount and
-   Stripe reason controls. Confirm a guided refund cannot be launched again
-   while the workflow is processing or after a manual completed refund.
-   Qualify historical invoice backfills separately on prepared synthetic data,
-   with their own authorization and audit, before considering any invoice resend.
-   Open `/admin/fundraiser/email-queue` and confirm the queue summary,
-   failed-message filter, and manual retry controls load for the admin session.
-7. Through the sponsor follow-up token, upload a small PNG/JPEG/WebP logo and a
-   presentation photo. Confirm both stay private and that the sponsorship is
-   not included in the review reminder until a presentation photo exists.
-8. Confirm `GET /api/admin/sponsorships/media` returns protected previews, then
-   approve the assets through `POST /api/admin/sponsorships/media/review` with
-   alt text. Approve the sponsorship and confirm `/commanditaires` shows only
-   the optimized media after consent and approval.
-9. Refuse or delete a media asset through the admin flow and confirm its public
-   copy is unavailable while its original remains private. Also exercise the
-   legacy logo path: upload through `POST /api/admin/sponsorships/logo`, confirm
-   its private preview with `GET /api/admin/sponsorships/logo`, replace it and
-   confirm the previous controlled file is no longer served through
-   `/api/public/sponsor-logos/<file>`, then delete it through
-   `POST /api/admin/sponsorships/logo/delete`.
-10. Follow the [backup/recovery procedure](operations/backup-recovery.md):
-    capture a coherent set with its manifest, then exercise the local-media or
-    S3 variant with all required artifacts and an explicit `--target-project`
-    on a fresh disposable target. Run the
-    [read-only recovery audit](operations/backup-recovery.md#audit-automatisé-en-lecture-seule)
-    while application services remain stopped. Reconcile provider state and
-    public URLs, then separately authorize startup and verify recovered journeys.
-    An audit exit code of 0 does not authorize activation.
-11. Replay the same signed Stripe test webhook event and confirm idempotence:
-    no duplicate contribution, no duplicate public sponsor, and no unexpected
-    status regression. Use `corepack yarn stripe:events:resend evt_...` with
-    the selected test configuration. Live event recovery is a separate operation
-    governed by the [financial operation safeguards](development/financial-rules.md#backfill-provenance-et-réconciliation).
-
-12. Fetch and inspect API logs after the rehearsal:
-    `docker compose logs --tail=300 api`. Look specifically for webhook errors,
-    PostgreSQL errors, orphaned sponsorships, follow-up form errors, logo
-    processing errors, duplicate handling, and idempotence warnings.
-13. If using the optional [production launch agent](../apps/production-launch-agent/README.md),
-    review its dry-run for the chosen target and checklist. Execution requires
-    authorization for the exact operations; a passing rehearsal or `PLA_ROLE`
-    value alone does not grant it.
+1. Prepare the private database, complete release schema, restricted runtime
+   role, encryption key, OIDC/MFA and dedicated media storage. When testing
+   sponsorship Checkout, explicitly enable business sponsorships on this test
+   target. Preserve existing environments.
+2. For each separately scoped rehearsal, complete the selected personal or
+   enabled business Checkout through the released Web/API within the approved
+   volume limits. Verify the return remains pending until Stripe confirms payment;
+   neither a success URL nor browser state creates a paid contribution.
+   Repeat the same request key/payload and replay the signed test event to
+   verify one logical operation, contribution and financial record. Test
+   conflicting payloads and uncertain/restarted requests.
+3. For a paid sponsorship, use the private follow-up link, refresh, save details,
+   resubmit and exercise draft conflicts. Verify access recovery through the
+   dedicated inbox. The current return uses `suivi-commandite?token=...`.
+   Tokens stay private and are removed from the browser URL;
+   a fresh tab without stored access may require the original link or recovery.
+   Follow the [access contract](sponsorship-access-and-drafts.md).
+4. Authenticate with MFA, review the paid dossier and inspect invoices, PDF
+   snapshots, the email queue and audit. Qualify refund success/failure,
+   partial/full amounts, retries and credit notes only on synthetic test
+   payments under the separately identified refund rehearsal.
+   Historical backfills and invoice resends require their own bounded scope.
+5. Upload valid PNG/JPEG/WebP media and verify invalid access, malformed files,
+   oversized uploads and upload-count limits are refused. Review assets with
+   alt text and approve the dossier; confirm approval still keeps the site
+   profile private. Then separately authorize and confirm site publication.
+6. Verify the [public sponsor contract](public-sponsors.md): consent, review,
+   approved presentation image and site visibility govern the directory and
+   public API media routes. Originals and optimized files stay in private
+   storage; the API controls their delivery. Masking the profile or refusing an
+   asset must remove public access. Test confirmed deletion only on a designated synthetic
+   asset and verify the audit and object cleanup.
+   [Historical public copies](operations/ovh-object-storage.md) need separate
+   inventory and authorized removal; hiding a profile cannot revoke a copy
+   already held outside the API.
+7. Qualify actual email receipt, DNS alignment and retry/restart behavior.
+   SMTP acceptance is distinct from inbox receipt. An uncertain delivery
+   requires provider reconciliation before an explicitly confirmed retry;
+   use the [SMTP guide](email-smtp.md).
+8. Exercise a coherent encrypted backup and restoration on a fresh disposable
+   target using the [recovery procedure](operations/backup-recovery.md).
+   Keep restored application services stopped while running the read-only
+   recovery audit. Reconcile Stripe state, pending work, media and public URLs
+   before separately authorizing startup and verifying recovered journeys.
+9. Record safe correlated outcomes and unresolved exceptions without raw
+   webhook payloads, private URLs or tokens. If using the optional
+   [production launch agent](../apps/production-launch-agent/README.md), review
+   its dry-run for the same scope; its role setting grants no additional
+   authorization.
 
 ## Final Preflight
 
-- Confirm the chosen launch mode.
-- Record the selected release commit, image tags and completed CI results; keep external qualification evidence separate from local tests.
-- For Stripe-direct launch, confirm `DATABASE_URL` is absent.
-- For PostgreSQL-backed launch, confirm PostgreSQL has no public port and is restricted to the private data network and intended services.
-- For PostgreSQL-backed launch, protect database backups as private secrets because `stripe_events.payload` stores signed Stripe webhook payloads for idempotence and auditability.
-- Confirm `FUNDING_PLATFORM_ENV=production`.
-- Confirm `FUNDING_ALLOWED_ORIGINS` contains only the intended production frontend origins.
-- Confirm sponsorship follow-up and admin rate limit variables are set for the expected traffic volume.
-- Confirm sponsor logo and media upload limits and the selected sponsor media storage driver are configured.
-- Confirm Node 22 and Docker Compose are available on the migration host, and the Compose database target matches the API database.
-- Confirm the full release migration plan has no pending file or history mismatch after authorized application. An existing database without a registry needs reviewed adoption first; reconcile partial or ambiguous history before proceeding.
-- In OIDC mode, verify MFA, reader/operator/owner authorization, account disabling and session revocation with the real test identity provider.
-- If independent alerts are enabled, verify the signed receiver, deduplication and separate monitoring of the watcher/VPS.
-- If `SPONSOR_MEDIA_STORAGE_DRIVER=local`, confirm `scripts/backup.sh` creates and offloads `openg7-sponsor-logos-*.tar.gz`; this volume now contains both legacy logos and `media-assets`.
-- If `SPONSOR_MEDIA_STORAGE_DRIVER=ovh-s3`, confirm `npm run storage:check` and `npm run storage:test` pass on the VPS.
-- Review the [read-only email DNS diagnostic](email-smtp.md#read-only-dns-diagnostic) with confirmed From, envelope and signing domains/selectors; separately verify receipt in the dedicated test inbox.
-- Confirm a sponsor can upload JPEG/PNG/WebP through a valid follow-up token, while an invalid token and an oversized or malformed file are refused.
-- Confirm private media preview, admin approval/refusal, alt text, replacement cleanup and delete flows work before public sponsorship display is enabled.
-- Confirm the original remains private, only the approved WebP copy is public, and a sponsorship without a presentation photo is excluded from review reminders.
-- Confirm `/dev/stripe-setup`, `/dev/webhooks`, and `/dev/api-keys` are not accessible from the production domain.
-- Confirm all NorthDragon links open `https://northdragon.org` in a new tab.
-- Confirm GitHub repository links open the intended OpenG7 repositories.
-- Confirm the public usage/refund policy reflects the current Stripe, sponsorship, privacy, and support process before accepting real payments.
-- Confirm no Shopify iframe, Facebook iframe, or third-party embed was introduced.
-- Confirm the production deployment includes all required assets from `apps/funding-web/src/assets`.
+- [ ] Record the target, operator, exact release SHA/digests, successful CI links,
+      authorized operation and dated provider qualification evidence.
+- [ ] Confirm production mode, same-origin HTTPS, OIDC/MFA, active owner access,
+      restricted private PostgreSQL, encryption key and complete migration plan.
+- [ ] Verify protected coherent backups of configuration, PostgreSQL and the
+      selected local/S3 media backend, with manifests and checksums.
+      Full backups use age encryption; arrange off-server transfer and retention
+      explicitly, because `backup.sh` performs neither.
+      Keep the decryption identity and application encryption key recoverable
+      independently of the VPS.
+- [ ] If hosting Keycloak, verify its separate
+      [identity database backup](operations/keycloak-vps.md#sauvegarde-identite)
+      and recovery procedure. The Funding backup does not capture it automatically.
+- [ ] Rehearse the chosen restore/rollback plan on an isolated target.
+      Image rollback does not undo database migrations.
+- [ ] Verify SMTP receipt and recovery, media privacy and controlled API
+      visibility, invoice identity and public usage/refund policy for enabled
+      features. Storage tests create and delete objects; run them only on the
+      explicitly authorized target.
+- [ ] If alerts are enabled, verify the signed receiver, deduplication,
+      failure delivery, retry, receiver recovery and independent watcher/VPS monitoring.
+      If real social delivery is enabled, qualify provider accounts and rights;
+      each publication still requires its own administrative approval.
+- [ ] Check assets, external links, developer-route restrictions and public
+      responses for confidential data. Complete human screen-reader, native
+      zoom and physical-device checks.
+- [ ] Record go/no-go, exceptions, rollback triggers and responsible operators.
+      After authorized deployment, verify service health, HTTPS, public
+      contracts, owner access and the release revision before closing the operation.
 
 ## Remaining Operational Checks
 
-- Exercise the real OIDC provider and external alert receiver before activation.
-- Keep hosting/proxy rate limits and security headers aligned with the API-level limits.
-- Keep the existing responsive WebP variants and production bundle budgets verified when assets change.
-- Run the controlled provider and full-VPS recovery rehearsal on an identified test target; local Docker, OIDC, Mailpit and S3Mock tests already exist.
-- Complete human screen-reader, native zoom and physical-device checks described in the integration rehearsal.
+Track unresolved qualifications in the release record with an owner and expected
+evidence. Keep local test results, actual provider delivery, human accessibility
+checks and production activation as separate evidence. Use the
+[integration rehearsal](operations/integration-rehearsal.md) and
+[platform status](platform-status.md) to assess remaining work; this checklist
+does not certify that an external operation has occurred.
