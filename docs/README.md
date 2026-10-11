@@ -89,6 +89,9 @@ retour au contexte, à partir de la file complète et paginée de **À traiter**
 
 ## Travaux envisagés
 
+- [Analyse de mise en œuvre de la modération des commandites](development/sponsorship-moderation-implementation-analysis.md) :
+  écarts avec la politique V1.0, textes FR/EN, décisions versionnées, corrections,
+  réexamens et 25 tâches P0 à P3 à réaliser et vérifier.
 - [Plan de tâches — Reconnaissance et diffusion des commandites](development/sponsorship-publication-tasks.md) :
   **Construction active** : 44 tâches de réalisation locale autorisées, dépendances,
   réception et suivi des 19 garanties.
