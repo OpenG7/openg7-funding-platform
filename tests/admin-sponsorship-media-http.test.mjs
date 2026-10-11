@@ -4,6 +4,7 @@ import test from 'node:test';
 
 import { createAdminSponsorshipMediaHttpHandler } from '../dist/apps/funding-api/src/admin-sponsorship-media.http.js';
 import { adminRoleAllows } from '../dist/apps/funding-api/src/admin-identity.js';
+import { createMediaExposureHelpers } from '../dist/apps/funding-api/src/business-helpers/media-exposure.js';
 import {
   readBody,
   readBodyBuffer
@@ -78,6 +79,7 @@ const fixture = ({
   denied,
   role = 'owner',
   storageDriver = 'local',
+  realLogoCleanup = false,
   results = {},
   failures = {},
   assetPatch = {}
@@ -117,6 +119,23 @@ const fixture = ({
     calls.push({ name: 'json', value: status });
     Object.assign(response, { status, payload });
   };
+  const sponsorLogoStorage = {
+    driver: storageDriver,
+    readLogo: (filename) => call('logoRead', filename, png),
+    writeLogo: (input) => call('logoWrite', input, undefined),
+    deleteLogo: (filename) => call('logoDelete', filename, true)
+  };
+  const { deleteControlledSponsorLogoFile } = createMediaExposureHelpers({
+    publicBaseOrigin: origin,
+    sponsorLogoStorage,
+    sponsorMediaStorage: {
+      driver: storageDriver,
+      deletePrivateObject: () =>
+        assert.fail('Unexpected private media cleanup.'),
+      deletePublicObject: () => assert.fail('Unexpected public media cleanup.')
+    },
+    reportWarning: (...args) => calls.push({ name: 'warning', value: args })
+  });
   const handler = createAdminSponsorshipMediaHttpHandler({
     publicBaseOrigin: origin,
     sponsorMediaMaxBytes: 1024,
@@ -236,12 +255,7 @@ const fixture = ({
         previousLogoUrl: logoUrl,
         currentVersion: version
       }),
-    sponsorLogoStorage: {
-      driver: 'local',
-      readLogo: (filename) => call('logoRead', filename, png),
-      writeLogo: (input) => call('logoWrite', input, undefined),
-      deleteLogo: (filename) => call('logoDelete', filename, true)
-    },
+    sponsorLogoStorage,
     getSponsorLogoFilenameFromUrl: (url) => {
       if (!url) return null;
       const path = new URL(url, origin).pathname;
@@ -253,7 +267,16 @@ const fixture = ({
     },
     sponsorLogoPublicUrlForFilename: (filename) =>
       `/api/public/sponsor-logos/${filename}`,
-    deleteControlledSponsorLogoFile: (url) => call('cleanupLogo', url, true),
+    deleteControlledSponsorLogoFile: async (url, id) => {
+      const result = await call(
+        'cleanupLogo',
+        { url, contributionId: id },
+        true
+      );
+      return realLogoCleanup
+        ? deleteControlledSponsorLogoFile(url, id)
+        : result;
+    },
     writeSponsorshipMutationFailure: (request, response, status, details) => {
       calls.push({ name: 'logoFailure', value: { status, details } });
       writeJson(
@@ -913,7 +936,9 @@ test('logo removal preserves version validation, cleanup order and audited resul
       assert.deepEqual(f.values('clearLogo'), [
         { contributionId, expectedVersion: version }
       ]);
-      assert.deepEqual(f.values('cleanupLogo'), [logoUrl]);
+      assert.deepEqual(f.values('cleanupLogo'), [
+        { url: logoUrl, contributionId }
+      ]);
       assert.deepEqual(f.values('audit'), [
         {
           actor,
@@ -1031,7 +1056,9 @@ test('logo uploads validate actual multipart bytes before writing a controlled f
       assert.deepEqual(f.values('updateLogo'), [
         { contributionId, logoUrl: newUrl, expectedVersion: version }
       ]);
-      assert.deepEqual(f.values('cleanupLogo'), [logoUrl]);
+      assert.deepEqual(f.values('cleanupLogo'), [
+        { url: logoUrl, contributionId }
+      ]);
       assert.deepEqual(result.payload, {
         updated: true,
         contributionId,
@@ -1067,6 +1094,90 @@ test('logo uploads validate actual multipart bytes before writing a controlled f
         'json'
       ]);
     });
+  }
+});
+
+test('legacy logo deletion and replacement clean only application files belonging to the selected dossier', async (t) => {
+  const otherContributionId = '00000000-0000-4000-8000-000000000099';
+  const foreignFilename = logoFilename.replace(
+    contributionId,
+    otherContributionId
+  );
+  for (const storageDriver of ['local', 'ovh-s3']) {
+    for (const operation of ['delete', 'replace']) {
+      for (const [description, previousLogoUrl, cleaned] of [
+        ['same dossier and origin', `${origin}${logoUrl}`, true],
+        [
+          'another dossier',
+          `${origin}/api/public/sponsor-logos/${foreignFilename}`,
+          false
+        ],
+        [
+          'external origin with a local-looking path',
+          `https://cdn.example.test${logoUrl}`,
+          false
+        ],
+        ['modern media route', publicUrl, false]
+      ]) {
+        await t.test(
+          `${storageDriver} ${operation}: ${description}`,
+          async () => {
+            const mutation =
+              operation === 'delete' ? 'clearLogo' : 'updateLogo';
+            const f = fixture({
+              storageDriver,
+              realLogoCleanup: true,
+              results: {
+                [mutation]: {
+                  updated: true,
+                  status: 'updated',
+                  previousLogoUrl,
+                  currentVersion: version
+                }
+              }
+            });
+            const result = await f.run(
+              operation === 'delete'
+                ? '/api/admin/sponsorships/logo/delete'
+                : '/admin/sponsorships/logo',
+              {
+                method: 'POST',
+                ...(operation === 'delete'
+                  ? { body: JSON.stringify(logoDeleteInput) }
+                  : uploadBody())
+              }
+            );
+            assert.equal(result.status, 200);
+            assert.equal(result.payload.contributionId, contributionId);
+            assert.equal(f.values(mutation)[0].contributionId, contributionId);
+            assert.deepEqual(f.values('cleanupLogo'), [
+              { url: previousLogoUrl, contributionId }
+            ]);
+            assert.deepEqual(
+              f.values('logoDelete'),
+              cleaned ? [logoFilename] : []
+            );
+            assert.deepEqual(f.values('cleanupMedia'), []);
+            const audit = f.values('audit')[0];
+            assert.equal(audit.entityId, contributionId);
+            assert.equal(
+              audit.metadata[
+                operation === 'delete'
+                  ? 'deletedMediaObject'
+                  : 'replacedMediaObject'
+              ],
+              cleaned
+            );
+            assert.equal(audit.metadata.storageDriver, storageDriver);
+            if (cleaned) {
+              assert.ok(
+                f.names().indexOf(mutation) < f.names().indexOf('logoDelete')
+              );
+            }
+          }
+        );
+      }
+    }
   }
 });
 

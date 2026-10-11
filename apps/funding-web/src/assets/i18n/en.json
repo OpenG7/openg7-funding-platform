@@ -2177,6 +2177,8 @@
         }
       },
       "slotTimeHelp": "The date and time use the timezone specified for this slot.",
+      "batchSlotScheduleHelp": "This batch follows its slot schedule. Change its date in the calendar.",
+      "openBatchSlot": "Open the slot",
       "draftTimeHelp": "Scheduling uses the America/Toronto timezone.",
       "invalidLocalTime": "Check the date and timezone. Choose a time that occurs once in that timezone; missing or repeated times during a clock change are rejected."
     },

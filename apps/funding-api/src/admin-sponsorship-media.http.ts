@@ -113,7 +113,8 @@ export interface AdminSponsorshipMediaHttpDependencies {
   ) => string | null;
   readonly sponsorLogoPublicUrlForFilename: (filename: string) => string;
   readonly deleteControlledSponsorLogoFile: (
-    logoUrl: string | null
+    logoUrl: string | null,
+    contributionId: string
   ) => Promise<boolean>;
   readonly writeSponsorshipMutationFailure: (
     request: ApiRequest,
@@ -613,7 +614,8 @@ export const createAdminSponsorshipMediaHttpHandler = ({
         }
 
         const deletedMediaObject = await deleteControlledSponsorLogoFile(
-          deleteResult.previousLogoUrl
+          deleteResult.previousLogoUrl,
+          contributionId
         );
 
         await insertAdminAuditLog({
@@ -753,7 +755,8 @@ export const createAdminSponsorshipMediaHttpHandler = ({
         }
 
         const replacedMediaObject = await deleteControlledSponsorLogoFile(
-          updateResult.previousLogoUrl
+          updateResult.previousLogoUrl,
+          contributionId
         );
 
         await insertAdminAuditLog({

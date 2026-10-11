@@ -84,6 +84,15 @@ conserve la responsabilité des mutations et confirmations.
 Le calendrier porte uniquement sur les données chargées par les endpoints
 existants ; il ne charge pas un historique exhaustif en changeant de mois.
 
+Depuis Lots, un lot sans créneau peut être reprogrammé. Un lot rattaché conserve
+la date du créneau, même s'il en est actuellement le seul membre : sa programmation
+à cette date ne change ni le créneau ni les autres lots ou brouillons. Une autre
+date renvoie `409 PUBLICATION_SLOT_SCHEDULE_REQUIRED` sans écriture. Modifier la
+date depuis Calendrier éditorial utilise la commande dédiée
+`POST /api/admin/publication-slots/update`, qui synchronise les lots et brouillons
+admissibles du créneau. Un lot publié, annulé ou une date passée est refusé avant
+toute écriture ; la programmation du lot et de ses brouillons est transactionnelle.
+
 ## Carrousel
 
 La vue d’ensemble de `/admin/fundraiser/publications` présente un carrousel

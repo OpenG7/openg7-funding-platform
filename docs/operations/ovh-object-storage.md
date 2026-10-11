@@ -223,6 +223,15 @@ Pour les logos commanditaires existants, l'URL conserve la forme controlee
 et ne sert le fichier publiquement que si PostgreSQL confirme une commandite
 approuvee et consentie. Le navigateur ne parle jamais directement a OVH S3 et ne
 voit jamais les cles privees.
+Ces reponses utilisent aussi `Cache-Control: no-store` : une nouvelle lecture
+repasse par le controle d'admissibilite avant de lire les octets. Les reponses
+deja mises en cache avec l'ancienne duree de 24 heures ne sont pas purgees par
+ce changement et peuvent rester visibles jusqu'a l'expiration de leur cache.
+Lors d'une suppression ou d'un remplacement, le nettoyage du fichier legacy
+exige l'origine de l'application et un nom de fichier portant le `contributionId`
+du dossier confirme. Une URL d'un autre dossier ou d'une origine externe ne
+declenche aucun retrait de fichier, sur disque comme dans le stockage S3 prive.
+Les URL externes restent utilisables pour l'affichage selon les regles existantes.
 Leur suppression administrative exige aussi `confirmation` exactement égale au
 `contributionId`, après confirmation dans l'interface. Une confirmation absente
 ou différente donne HTTP 400 `CONFIRMATION_REQUIRED` avant tout retrait. Livrer
@@ -236,6 +245,14 @@ utilise PostgreSQL jetable et un stockage simule. Elle verifie l'approbation san
 copie publique, le maintien prive d'une fiche approuvee mais masquee, la lecture
 controlee puis sa revocation, et la normalisation des anciennes URL S3. Elle
 n'exerce aucune ACL ni aucun cache OVH reel.
+
+La recette navigateur isolee `node --test tests/browser/public-sponsor-logo-cache.mjs`
+exige un build API a jour et Chromium installe (`yarn playwright:install`). Elle
+demarre uniquement un serveur HTTP local avec les vrais handler et transport,
+des ports PostgreSQL/stockage simules et un contexte navigateur neuf. Apres une
+lecture admissible, elle verifie qu'une requete normale apres revocation retourne
+HTTP 404 sans relire le fichier. Cette recette est separee des suites Node et
+PostgreSQL habituelles; elle ne contacte ni OVH ni une API de production.
 
 ## Sauvegarde et restauration
 

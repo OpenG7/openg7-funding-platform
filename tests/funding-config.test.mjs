@@ -1607,14 +1607,8 @@ test('Publication batch repository enforces capacity, channel match, and approva
 test('Publication batch lifecycle requires schedule before publish and preserves published drafts on unassign', () => {
   const repository = readFundingPersistenceSource('administration');
 
-  // Scheduling cascades scheduled_at/status to member drafts, only from open/scheduled.
-  assert.ok(repository.includes("AND status IN ('open', 'scheduled')"));
-  assert.ok(
-    repository.includes(
-      "SET status = 'scheduled', scheduled_at = $2::timestamptz, updated_at = NOW()"
-    )
-  );
-  assert.ok(repository.includes('AND $2::timestamptz > NOW()'));
+  // Scheduling behavior and transaction rollback are covered by the dedicated
+  // batch scheduling unit and PostgreSQL integration tests.
 
   // Publishing is only possible from an already-scheduled batch (never open -> published directly).
   assert.ok(repository.includes("AND status = 'scheduled'"));

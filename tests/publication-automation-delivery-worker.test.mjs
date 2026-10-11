@@ -56,6 +56,7 @@ function fixture(options = {}) {
   let enabled = options.enabled ?? true;
   let commitFailures = options.commitFailures ?? 0;
   let guardCalls = 0;
+  let clock = now;
 
   async function query(target, sql, values = [], transactional = false) {
     const text = sql.replace(/\s+/g, ' ').trim();
@@ -84,6 +85,20 @@ function fixture(options = {}) {
     }
     if (text.startsWith('SELECT paused FROM publication_feeds'))
       return result([{ paused: feed.paused }]);
+    if (text.startsWith('SELECT * FROM publication_deliveries')) {
+      return result(
+        structuredClone(
+          target.rows.filter(
+            (row) =>
+              row.id === values[0] &&
+              row.status === 'publishing' &&
+              row.version === values[1] &&
+              row.approved_at &&
+              row.lease_until > clock
+          )
+        )
+      );
+    }
     if (text.startsWith('SELECT d.* FROM publication_deliveries')) {
       const rows = target.rows
         .filter(
@@ -98,7 +113,7 @@ function fixture(options = {}) {
     }
     if (text.startsWith('SELECT id FROM publication_deliveries'))
       return result([{ id: values[0] }]);
-    if (text.includes("error_code='LEASE_EXPIRED'")) {
+    if (text.includes("WHERE status='publishing' AND lease_until<$1")) {
       const stale = target.rows.filter(
         (row) => row.status === 'publishing' && row.lease_until < values[0]
       );
@@ -112,11 +127,19 @@ function fixture(options = {}) {
     if (text.startsWith('UPDATE publication_deliveries')) {
       const row = target.rows.find((row) => row.id === values[0]);
       assert.ok(row, 'delivery exists');
+      const owns = (version) =>
+        row.status === 'publishing' &&
+        row.version === version &&
+        row.approved_at &&
+        row.lease_until > clock;
       if (text.includes("SET status='publishing'")) {
         row.status = 'publishing';
         row.attempts++;
-        row.lease_until = new Date(now.getTime() + 300000);
+        row.version++;
+        row.lease_until = new Date(clock.getTime() + 300000);
+        return result([structuredClone(row)]);
       } else if (text.includes("SET status='published'")) {
+        if (values.length === 4 && !owns(values[3])) return result();
         row.status = 'published';
         row.external_post_id = values[1];
         row.external_post_url = values[2];
@@ -124,12 +147,12 @@ function fixture(options = {}) {
         row.error_code = null;
         row.version++;
       } else if (text.includes("SET status='approved',attempts=attempts-1")) {
-        if (row.status !== 'publishing') return result();
+        if (!owns(values[1])) return result();
         row.status = 'approved';
         row.attempts--;
         row.lease_until = null;
       } else if (text.includes('SET status=$2')) {
-        if (row.status !== 'publishing') return result();
+        if (!owns(values[4])) return result();
         row.status = values[1];
         row.error_code = values[2];
         row.next_attempt_at =
@@ -138,10 +161,29 @@ function fixture(options = {}) {
             : null;
         row.lease_until = null;
         row.version++;
+        if (
+          [
+            'SPONSOR_REVIEW_REQUIRED',
+            'MEDIA_CHANGED',
+            'MEDIA_NOT_APPROVED',
+            'MEDIA_UNAVAILABLE'
+          ].includes(values[2])
+        )
+          row.approved_at = null;
       } else if (text.includes('SET provider_media_id=$2')) {
+        if (!owns(values[2])) return result();
         row.provider_media_id = values[1];
+      } else if (
+        text.includes("SET status='uncertain',error_code='LEASE_EXPIRED'")
+      ) {
+        if (row.status !== 'publishing' || row.version !== values[1])
+          return result();
+        row.status = 'uncertain';
+        row.error_code = 'LEASE_EXPIRED';
+        row.lease_until = null;
+        row.version++;
       } else assert.fail(`Unexpected delivery update: ${text}`);
-      return result();
+      return result([{ id: row.id }]);
     }
     for (const table of [
       'sponsor_publication_batches',
@@ -204,6 +246,12 @@ function fixture(options = {}) {
     },
     disable() {
       enabled = false;
+    },
+    enable() {
+      enabled = true;
+    },
+    advance(milliseconds) {
+      clock = new Date(clock.getTime() + milliseconds);
     }
   };
   controls.context = {
@@ -471,4 +519,130 @@ test('completion updates sponsorship projections only for live deliveries', asyn
       ]);
     }
   }
+});
+
+test('revocation after preflight stops the old worker before dispatch', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => assert.fail('no dispatch'));
+  let settingsReads = 0;
+  const f = fixture({
+    onSettings(controls, db) {
+      if (!db && ++settingsReads === 2) {
+        const row = controls.state.rows[0];
+        row.status = 'blocked';
+        row.approved_at = null;
+        row.version++;
+      }
+    }
+  });
+  await f.worker.tick(now);
+  assert.equal(f.state.rows[0].status, 'blocked');
+  assert.equal(f.state.rows[0].approved_at, null);
+  assert.equal(f.state.rows[0].version, 3);
+  assert.equal(f.state.projections.length, 0);
+  assert.deepEqual(
+    f.state.audits.map((a) => a.action),
+    ['publication_automation.claim']
+  );
+});
+
+test('lease expiration without another worker stops dispatch and quarantines once', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => assert.fail('no dispatch'));
+  let settingsReads = 0;
+  const f = fixture({
+    onSettings(controls, db) {
+      if (!db && ++settingsReads === 2) controls.advance(300001);
+    }
+  });
+  await f.worker.tick(now);
+  await f.worker.tick(now);
+  assert.equal(f.state.rows[0].status, 'uncertain');
+  assert.equal(f.state.rows[0].error_code, 'LEASE_EXPIRED');
+  assert.equal(
+    f.state.audits.filter((a) => a.action.endsWith('.uncertain')).length,
+    1
+  );
+});
+
+test('late provider success preserves the newer decision and records its external result', async (t) => {
+  const f = fixture({
+    rows: [delivery('synthetic-live', { mode: 'live', account_id: '20' })],
+    env: {
+      SOCIAL_PUBLICATION_MODE: 'live',
+      SOCIAL_PUBLICATION_OPENG7_FACEBOOK_ACCOUNT_ID: '20',
+      SOCIAL_PUBLICATION_OPENG7_FACEBOOK_ACCESS_TOKEN: 'synthetic-token'
+    }
+  });
+  let calls = 0;
+  t.mock.method(globalThis, 'fetch', async () => {
+    calls++;
+    const row = f.state.rows[0];
+    row.status = 'blocked';
+    row.approved_at = null;
+    row.error_code = 'synthetic-new-decision';
+    row.version++;
+    return Response.json({ id: '20_8' });
+  });
+  await f.worker.tick(now);
+  assert.equal(calls, 1);
+  assert.equal(f.state.rows[0].status, 'blocked');
+  assert.equal(f.state.rows[0].version, 3);
+  assert.equal(f.state.rows[0].external_post_id, null);
+  assert.equal(f.state.rows[0].error_code, 'synthetic-new-decision');
+  assert.equal(f.state.projections.length, 0);
+  assert.deepEqual(f.state.audits.at(-1), {
+    actor: 'publication-worker',
+    action: 'publication_automation.late_result',
+    id: 'synthetic-live',
+    metadata: {
+      claimVersion: 2,
+      mode: 'live',
+      feedId: 'openg7:facebook',
+      externalPostId: '20_8',
+      externalPostUrl: 'https://www.facebook.com/20_8'
+    }
+  });
+});
+
+test('late provider rejection cannot change a newer claim or its connection', async (t) => {
+  const f = fixture({
+    rows: [delivery('synthetic-live', { mode: 'live', account_id: '20' })],
+    env: {
+      SOCIAL_PUBLICATION_MODE: 'live',
+      SOCIAL_PUBLICATION_OPENG7_FACEBOOK_ACCOUNT_ID: '20',
+      SOCIAL_PUBLICATION_OPENG7_FACEBOOK_ACCESS_TOKEN: 'synthetic-token'
+    }
+  });
+  t.mock.method(globalThis, 'fetch', async () => {
+    const row = f.state.rows[0];
+    row.version++;
+    row.provider_media_id = 'synthetic-new-image';
+    return new Response('{}', { status: 403 });
+  });
+  await f.worker.tick(now);
+  assert.equal(f.state.rows[0].status, 'publishing');
+  assert.equal(f.state.rows[0].version, 3);
+  assert.equal(f.state.rows[0].provider_media_id, 'synthetic-new-image');
+  assert.equal(f.state.rows[0].error_code, null);
+  assert.equal(f.feed.connection, 'ready');
+  assert.deepEqual(
+    f.state.audits.map((a) => a.action),
+    ['publication_automation.claim']
+  );
+});
+
+test('claims keep increasing versions when the global switch restores the attempt count', async () => {
+  const f = fixture({ onPreflight: (controls) => controls.disable() });
+  await f.worker.tick(now);
+  assert.equal(f.state.rows[0].attempts, 0);
+  assert.equal(f.state.rows[0].version, 2);
+  f.enable();
+  await f.worker.tick(now);
+  assert.equal(f.state.rows[0].attempts, 0);
+  assert.equal(f.state.rows[0].version, 3);
+  assert.deepEqual(
+    f.state.audits
+      .filter((a) => a.action.endsWith('.claim'))
+      .map((a) => a.metadata.claimVersion),
+    [2, 3]
+  );
 });

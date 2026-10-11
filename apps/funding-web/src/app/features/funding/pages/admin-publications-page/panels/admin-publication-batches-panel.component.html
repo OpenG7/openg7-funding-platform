@@ -124,6 +124,19 @@
                 </small>
               </div>
 
+              <p
+                *ngIf="batch.slotId as slotId"
+                [attr.id]="'batch-slot-schedule-' + batch.id"
+                data-og7="batch-slot-schedule"
+              >
+                {{ 'admin.publications.batchSlotScheduleHelp' | translate }}
+                <a
+                  routerLink="/admin/fundraiser/publications/calendar"
+                  [queryParams]="{ slotId: slotId }"
+                  data-og7="batch-slot-calendar"
+                  >{{ 'admin.publications.openBatchSlot' | translate }}</a
+                >
+              </p>
               <div
                 class="draft-grid"
                 *ngIf="batch.status === 'open' || batch.status === 'scheduled'"
@@ -133,6 +146,10 @@
                   }}<input
                     type="datetime-local"
                     [value]="batchScheduleFor(batch.id)"
+                    [disabled]="!!batch.slotId"
+                    [attr.aria-describedby]="
+                      batch.slotId ? 'batch-slot-schedule-' + batch.id : null
+                    "
                     (input)="setBatchSchedule(batch.id, $event)"
                   />
                 </label>
@@ -140,6 +157,7 @@
                   type="button"
                   class="neutral"
                   [disabled]="
+                    !!batch.slotId ||
                     !batchScheduleFor(batch.id) ||
                     batchActionState() === batch.id
                   "

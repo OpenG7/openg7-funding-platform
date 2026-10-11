@@ -90,7 +90,9 @@ export function registerBatchPanelTests(): void {
   test('batch schedule edits survive workspace changes, refresh and a failed request before retry', async ({
     page
   }) => {
-    const records = [batch('first', '2030-06-03T14:00:00Z')];
+    const records = [
+      { ...batch('first', '2030-06-03T14:00:00Z'), slotId: null }
+    ];
     await fixtures(page, records);
     const writes: Record<string, unknown>[] = [];
     await page.route(
@@ -151,6 +153,59 @@ export function registerBatchPanelTests(): void {
     ]);
     await expect(schedule).toHaveValue(editedSchedule);
   });
+
+  for (const layout of [
+    { language: 'fr', width: 1280, height: 900 },
+    { language: 'en', width: 390, height: 844 }
+  ]) {
+    test(`attached batch keeps its slot schedule and opens that calendar slot (${layout.language})`, async ({
+      page
+    }) => {
+      await page.setViewportSize(layout);
+      const mutations = await fixtures(page, [
+        batch('first', '2030-06-03T14:00:00Z')
+      ]);
+      await page.goto('/admin/fundraiser/publications/batches');
+      if (layout.language === 'en')
+        await page
+          .getByRole('button', {
+            name: 'Switch administration language to English',
+            exact: true
+          })
+          .click();
+      await page.goto('/admin/fundraiser/publications/batches?batchId=first');
+      const editor = page.locator('#attention-object-first');
+      await expect(editor).toBeVisible();
+      const schedule = editor.locator('input[type="datetime-local"]');
+      await expect(schedule).toBeDisabled();
+      await expect(schedule).toHaveValue('2030-06-03T10:00');
+      await expect(
+        editor.getByRole('button', {
+          name: layout.language === 'fr' ? 'Planifier' : 'Schedule',
+          exact: true
+        })
+      ).toBeDisabled();
+      await expect(
+        editor.locator('[data-og7="batch-slot-schedule"]')
+      ).toContainText(
+        layout.language === 'fr'
+          ? 'Ce lot suit l’horaire de son créneau.'
+          : 'This batch follows its slot schedule.'
+      );
+      await editor
+        .getByRole('link', {
+          name:
+            layout.language === 'fr' ? 'Ouvrir le créneau' : 'Open the slot',
+          exact: true
+        })
+        .click();
+      await expect(page).toHaveURL(
+        /\/publications\/calendar\?slotId=slot-first$/
+      );
+      await expect(page.locator('#attention-object-slot-first')).toBeVisible();
+      expect(mutations).toEqual([]);
+    });
+  }
 
   test('preparing a social batch navigates to automation with its target and preserves the return workspace', async ({
     page

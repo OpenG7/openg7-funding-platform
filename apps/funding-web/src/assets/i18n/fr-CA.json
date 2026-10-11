@@ -2173,6 +2173,8 @@
         }
       },
       "slotTimeHelp": "La date et l’heure utilisent le fuseau indiqué pour ce créneau.",
+      "batchSlotScheduleHelp": "Ce lot suit l’horaire de son créneau. Modifiez sa date dans le calendrier.",
+      "openBatchSlot": "Ouvrir le créneau",
       "draftTimeHelp": "La planification utilise le fuseau America/Toronto.",
       "invalidLocalTime": "Vérifiez la date et le fuseau. Choisissez une heure qui existe une seule fois dans ce fuseau; les heures absentes ou répétées au changement d’heure sont refusées."
     },

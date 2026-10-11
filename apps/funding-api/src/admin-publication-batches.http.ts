@@ -403,7 +403,11 @@ export const createAdminPublicationBatchesHttpHandler = ({
         const result = await scheduleAdminPublicationBatch(parsed);
         if (!result.updated || !result.batch) {
           writeJson(request, response, 409, {
-            error: 'Publication batch was not found or cannot be scheduled.'
+            code: result.code ?? 'PUBLICATION_BATCH_NOT_SCHEDULABLE',
+            error:
+              result.code === 'PUBLICATION_SLOT_SCHEDULE_REQUIRED'
+                ? 'Change this batch date through the publication slot calendar (/api/admin/publication-slots/update).'
+                : 'Publication batch was not found or cannot be scheduled.'
           });
           return true;
         }

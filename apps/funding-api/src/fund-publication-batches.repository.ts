@@ -10,7 +10,7 @@ import type {
   AdminPublicationDraftMutationResult,
   PublicationBatchStatus
 } from '@openg7/funding-core';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 
 import {
   mapPublicationBatchRow,
@@ -18,6 +18,7 @@ import {
 } from './fund-publication.mapping.js';
 import { getAdminBackofficePresence } from './fund-admin.persistence.js';
 import { getPublicationDraftById } from './fund-publication-drafts.repository.js';
+import { schedulePublicationBatch } from './fund-publication-batch-scheduling.persistence.js';
 
 export const allowedPublicationBatchStatuses = new Set<PublicationBatchStatus>([
   'open',
@@ -48,7 +49,7 @@ const publicationBatchSelect = `
 `;
 
 export const getPublicationBatchById = async (
-  pool: Pool | null,
+  pool: Pool | PoolClient | null,
   batchId: string
 ): Promise<AdminPublicationBatchRecord | null> => {
   if (!pool) {
@@ -283,64 +284,12 @@ export const unassignDraftFromPublicationBatch = async (
 export const scheduleAdminPublicationBatch = async (
   pool: Pool | null,
   input: AdminPublicationBatchScheduleRequest
-): Promise<AdminPublicationBatchMutationResult> => {
-  if (!pool) {
-    return { updated: false, batch: null };
+): Promise<
+  AdminPublicationBatchMutationResult & {
+    readonly code?: 'PUBLICATION_SLOT_SCHEDULE_REQUIRED';
   }
-
-  const presence = await getAdminBackofficePresence(pool);
-  if (!presence.has_publication_batches) {
-    return { updated: false, batch: null };
-  }
-
-  if (presence.has_publication_slots) {
-    await pool.query(
-      `
-        UPDATE publication_slots slot
-        SET starts_at = $2::timestamptz, status = 'scheduled', updated_at = NOW()
-        FROM sponsor_publication_batches batch
-        WHERE batch.id = $1::uuid
-          AND batch.slot_id = slot.id
-          AND slot.status IN ('open', 'scheduled')
-          AND $2::timestamptz > NOW()
-      `,
-      [input.batchId, input.scheduledAt]
-    );
-  }
-
-  const result = await pool.query(
-    `
-      UPDATE sponsor_publication_batches
-      SET status = 'scheduled', scheduled_at = $2::timestamptz, updated_at = NOW()
-      WHERE id = $1::uuid
-        AND status IN ('open', 'scheduled')
-        AND $2::timestamptz > NOW()
-    `,
-    [input.batchId, input.scheduledAt]
-  );
-
-  if ((result.rowCount ?? 0) > 0) {
-    await pool.query(
-      `
-        UPDATE sponsor_publication_drafts draft
-        SET
-          status = 'scheduled',
-          slot_id = batch.slot_id,
-          scheduled_at = $2::timestamptz,
-          updated_at = NOW()
-        FROM sponsor_publication_batches batch
-        WHERE draft.batch_id = batch.id
-          AND batch.id = $1::uuid
-          AND draft.status IN ('approved', 'scheduled')
-      `,
-      [input.batchId, input.scheduledAt]
-    );
-  }
-
-  return {
-    updated: (result.rowCount ?? 0) > 0,
-    batch: await getPublicationBatchById(pool, input.batchId)
-  };
+> => {
+  return schedulePublicationBatch(pool, input, getPublicationBatchById);
 };
 
 /**

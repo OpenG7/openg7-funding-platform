@@ -349,6 +349,28 @@ test('successful publication mutations retain domain inputs and actor audit befo
   }
 });
 
+test('attached batch date changes identify the dedicated slot action without a success audit', async () => {
+  const f = fixture({
+    overrides: {
+      scheduleAdminPublicationBatch: () => ({
+        updated: false,
+        batch,
+        code: 'PUBLICATION_SLOT_SCHEDULE_REQUIRED'
+      })
+    }
+  });
+  const result = await f.run('/api/admin/publication-batches/schedule', {
+    method: 'POST',
+    input: { batchId: id, scheduledAt: future }
+  });
+  assert.equal(result.status, 409);
+  assert.equal(result.payload.code, 'PUBLICATION_SLOT_SCHEDULE_REQUIRED');
+  assert.match(result.payload.error, /publication slot calendar/);
+  assert.match(result.payload.error, /\/api\/admin\/publication-slots\/update/);
+  assert.equal(f.values('audit').length, 0);
+  assert.equal(f.values('report').length, 0);
+});
+
 test('publication mutation failures preserve conflicts, missing records and safe provider errors without success audit', async (t) => {
   for (const [path, name, input, , missingStatus] of mutations) {
     for (const failure of ['ineligible', 'exception']) {
