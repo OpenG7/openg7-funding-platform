@@ -88,7 +88,10 @@ for (const locale of locales) {
     );
     await expect(page.locator('time')).toHaveAttribute(
       'datetime',
-      '2026-09-19'
+      '2026-10-11'
+    );
+    await expect(page.locator('time')).toHaveText(
+      english ? 'Updated: October 11, 2026' : 'Mise à jour : 11 octobre 2026'
     );
     await expect(page.locator('[data-og7="refund-policy"]')).not.toContainText(
       /funding\.policyPage\.|webhook|idempotence|idempotency|\bMVP\b/

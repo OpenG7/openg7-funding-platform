@@ -36,6 +36,7 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
 })
 export class FundingModerationActionsComponent {
   readonly subject = input.required<ModerationSubject>();
+  readonly headingLevel = input<2 | 3>(3);
   readonly disabled = input(false);
   readonly changed = output<void>();
   private readonly admin = inject(FundingAdminService);

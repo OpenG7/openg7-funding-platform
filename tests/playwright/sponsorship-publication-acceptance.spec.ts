@@ -18,6 +18,11 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
+import {
+  completePublicationModeration,
+  approveAllAcceptanceMedia
+} from './support/acceptance-moderation.js';
+import { approveAcceptanceSubject } from './support/acceptance-moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { acceptanceSql } from './support/acceptance-database.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
@@ -419,7 +424,7 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
         exact: true
       });
       await expect(approveAll).toBeEnabled();
-      await approveAll.click();
+      await approveAllAcceptanceMedia(admin);
       await expect
         .poll(async () =>
           (await media()).assets.every((m) => m.reviewStatus === 'approved')
@@ -447,6 +452,7 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
       await preview
         .getByRole('button', { name: 'Accepter et programmer' })
         .click();
+      await completePublicationModeration(admin);
       await expect(preview).toContainText('Autorisée');
       firstApproval = await delivery(facebook.id);
       expect(firstApproval).toMatchObject({
@@ -547,6 +553,7 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
       await preview
         .getByRole('button', { name: 'Accepter et programmer' })
         .click();
+      await completePublicationModeration(admin);
       await expect(preview).toContainText('Autorisée');
       await preview.screenshot({
         path: info.outputPath('linkedin-exact-approval.png')
@@ -599,6 +606,7 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
       await preview
         .getByRole('button', { name: 'Accepter et programmer' })
         .click();
+      await completePublicationModeration(admin);
       await expect(preview).toContainText('Autorisée');
       await admin.close();
       const due = new Date((await delivery(facebook.id)).scheduledAt);
@@ -683,6 +691,10 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
         editor.getByText('Publication enregistree.', { exact: true })
       ).toBeVisible();
       await assertPrivate();
+      await approveAcceptanceSubject(request, {
+        type: 'sponsorship',
+        id: record.id
+      });
       await admin.locator('[data-og7="website-visibility"]').click();
       await admin.locator('[data-og7="confirm-action"]').click();
       await expect

@@ -16,6 +16,11 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
+import { completeModeration } from './support/moderation.js';
+import {
+  approveAllAcceptanceMedia,
+  completePublicationModeration
+} from './support/acceptance-moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import { test, expect } from './support/test.js';
@@ -140,6 +145,7 @@ for (const review of ['pending', 'reapproved'] as const) {
       await dialog
         .getByRole('button', { name: 'Accepter et programmer' })
         .click();
+      await completePublicationModeration(admin);
       await expect(dialog).toContainText('Autorisée');
       return delivery(job.id);
     };
@@ -258,9 +264,7 @@ for (const review of ['pending', 'reapproved'] as const) {
       await admin.goto(
         '/admin/fundraiser/sponsors?sponsorshipId=' + id + '&tab=media'
       );
-      await admin
-        .getByRole('button', { name: 'Tout approuver', exact: true })
-        .click();
+      await approveAllAcceptanceMedia(admin);
       await expect
         .poll(async () =>
           (
@@ -333,6 +337,7 @@ for (const review of ['pending', 'reapproved'] as const) {
         await admin
           .getByRole('button', { name: 'Accepter', exact: true })
           .click();
+        await completeModeration(admin);
         await expect
           .poll(async () => (await sponsor()).sponsor_review_status)
           .toBe('approved');

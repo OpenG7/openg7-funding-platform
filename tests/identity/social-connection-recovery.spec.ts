@@ -9,6 +9,9 @@ import type {
   PublicationFeedId
 } from '@openg7/funding-core';
 
+import { acceptanceModerationDecision } from '../playwright/support/acceptance-moderation.js';
+import { completeModeration } from '../playwright/support/moderation.js';
+
 import { startIdentityStack } from './stack.mjs';
 import {
   startSocialProvider,
@@ -144,6 +147,7 @@ test('social connections: missing access, wrong account, expiry and provider den
       (r) => r.url().endsWith(endpoint) && r.request().method() === 'POST'
     );
     await button.click();
+    await completeModeration(page);
     expect((await response).status()).toBe(200);
     await expect(drawer).toContainText('Autorisée');
   };
@@ -201,7 +205,12 @@ test('social connections: missing access, wrong account, expiry and provider den
               action: 'approve',
               id: current.id,
               version: current.version,
-              confirmation: current.id
+              confirmation: current.id,
+              moderationDecision: await acceptanceModerationDecision(
+                owner.request,
+                { type: 'publication_delivery', id: current.id },
+                headers
+              )
             },
             409
           )

@@ -11,6 +11,9 @@ import type {
   PublicationAutomationState
 } from '@openg7/funding-core';
 
+import { acceptanceModerationDecision } from '../playwright/support/acceptance-moderation.js';
+import { completeModeration } from '../playwright/support/moderation.js';
+
 import { startIdentityStack } from './stack.mjs';
 
 test('weekly programme: preview, discard, stale plan, lost response, renewed approval and expired session', async ({
@@ -116,7 +119,12 @@ test('weekly programme: preview, discard, stale plan, lost response, renewed app
       action: 'approve',
       id: ids[0],
       version: 1,
-      confirmation: ids[0]
+      confirmation: ids[0],
+      moderationDecision: await acceptanceModerationDecision(
+        owner.request,
+        { type: 'publication_delivery', id: ids[0] },
+        headers
+      )
     });
     const operator = await open('operator');
     const reader = await open('reader');
@@ -285,7 +293,12 @@ test('weekly programme: preview, discard, stale plan, lost response, renewed app
         action: 'approve',
         id: a.id,
         version: a.version,
-        confirmation: a.id
+        confirmation: a.id,
+        moderationDecision: await acceptanceModerationDecision(
+          owner.request,
+          { type: 'publication_delivery', id: a.id },
+          headers
+        )
       });
       await calendar(operator);
       await programme(operator).getByRole('checkbox').check();
@@ -411,6 +424,7 @@ test('weekly programme: preview, discard, stale plan, lost response, renewed app
         (await state()).deliveries.find((row) => row.id === a.id)?.status
       ).toBe('draft');
       await operator.locator('[data-og7="pilot-confirm"]').click();
+      await completeModeration(operator);
       await expect
         .poll(
           async () =>

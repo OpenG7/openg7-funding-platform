@@ -3,6 +3,8 @@ import type {
   AdminWorkQueueResponse
 } from '@openg7/funding-core';
 
+import { approveAcceptanceFixture } from './support/acceptance-moderation.js';
+import { completeModeration } from './support/moderation.js';
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { expect, test } from './support/test.js';
@@ -13,6 +15,7 @@ test('a confirmed review removes its task, preserves queue filters and leaves pu
   request
 }) => {
   const fixture = SPONSORSHIP_FIXTURES.acceptanceReview;
+  await approveAcceptanceFixture(request, fixture.publicReference, false);
   const headers = await adminSessionHeaders(request);
   const queueUrl =
     '/api/admin/attention?type=sponsorship_needs_review&pageSize=100';
@@ -33,6 +36,7 @@ test('a confirmed review removes its task, preserves queue filters and leaves pu
     page.locator('[data-og7="return-to-attention"]')
   ).toHaveAttribute('href', destination);
   await page.getByRole('button', { name: 'Accepter', exact: true }).click();
+  await completeModeration(page);
   await expect(
     page.getByText('Action confirmee: commandite acceptee.')
   ).toBeVisible();

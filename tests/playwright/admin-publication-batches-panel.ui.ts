@@ -304,7 +304,12 @@ export function registerBatchPanelTests(): void {
         .click();
       await expect.poll(() => writes.length).toBe(1);
       await expect(trigger).toBeDisabled();
-      expect(writes).toEqual([{ batchId: 'first' }]);
+      expect(writes).toEqual([
+        {
+          batchId: 'first',
+          ...(action.endpoint === 'publish' ? { confirmation: 'first' } : {})
+        }
+      ]);
       expect(reads).toBe(readsBeforeMutation);
       await expect(
         editor.getByLabel('Prochaine disponibilite', { exact: true })

@@ -1,5 +1,11 @@
 import type { Page } from '@playwright/test';
 
+import { completeModeration } from './support/moderation.js';
+import {
+  approveAcceptanceFixture,
+  approveAcceptanceSubject
+} from './support/acceptance-moderation.js';
+import { completePublicationModeration } from './support/acceptance-moderation.js';
 import { expect, test } from './support/test.js';
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { signInAsAdmin } from './support/admin-auth.js';
@@ -36,11 +42,13 @@ async function openBatch(page: Page, id: string | null): Promise<void> {
 
 test.describe('Docker admin publication batches', () => {
   test('creates a draft, assigns a calendar slot and authorizes its final content', async ({
-    page
+    page,
+    request
   }) => {
     await signInAsAdmin(page);
 
     const fixture = SPONSORSHIP_FIXTURES.publicationBatch;
+    await approveAcceptanceFixture(request, fixture.publicReference);
     await page.goto('/admin/fundraiser/publications/drafts');
     await page
       .getByRole('button', { name: 'Préparer une publication', exact: true })
@@ -61,6 +69,8 @@ test.describe('Docker admin publication batches', () => {
       hasText: fixture.companyName
     });
     await expect(draftCard).toBeVisible();
+    const draftId = await draftCard.getAttribute('data-og7-id');
+    if (!draftId) throw new Error('Created publication draft id is missing.');
 
     await draftCard
       .getByLabel('Titre')
@@ -71,6 +81,17 @@ test.describe('Docker admin publication batches', () => {
     await draftCard
       .getByLabel('Divulgation')
       .fill('Commandite payante divulguee pour un test automatise.');
+    const savedDraft = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname ===
+          '/api/admin/publication-drafts/update' &&
+        response.request().method() === 'POST'
+    );
+    await draftCard
+      .getByRole('button', { name: 'Enregistrer', exact: true })
+      .click();
+    const saved = await savedDraft;
+    expect(saved.ok(), await saved.text()).toBe(true);
     const approveDraft = draftCard.getByRole('button', {
       name: 'Approuver',
       exact: true,
@@ -79,10 +100,12 @@ test.describe('Docker admin publication batches', () => {
     if (await approveDraft.count()) {
       await draftCard.getByText('Autres actions', { exact: true }).click();
       await approveDraft.click();
+      await completeModeration(page);
     } else {
-      await draftCard
-        .getByRole('button', { name: 'Enregistrer', exact: true })
-        .click();
+      await approveAcceptanceSubject(request, {
+        type: 'publication_draft',
+        id: draftId
+      });
     }
 
     await expect(
@@ -199,6 +222,12 @@ test.describe('Docker admin publication batches', () => {
     await openBatch(page, batchId);
     await expect(batchCard).toContainText('Planifie');
 
+    // Batch assignment invalidates the previous review even if the text is unchanged.
+    await approveAcceptanceSubject(request, {
+      type: 'publication_draft',
+      id: draftId
+    });
+
     const deliveryPrepared = page.waitForResponse((response) => {
       if (
         new URL(response.url()).pathname !==
@@ -246,6 +275,7 @@ test.describe('Docker admin publication batches', () => {
     await preview
       .getByRole('button', { name: 'Accepter et programmer' })
       .click();
+    await completePublicationModeration(page);
     await expect(preview).toContainText('Autorisée');
     await expect(preview).toContainText('Simulation');
     await preview.getByRole('button', { name: 'Fermer', exact: true }).click();

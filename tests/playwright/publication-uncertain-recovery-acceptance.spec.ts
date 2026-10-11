@@ -15,6 +15,10 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
+import {
+  approveAllAcceptanceMedia,
+  completePublicationModeration
+} from './support/acceptance-moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import { test, expect } from './support/test.js';
@@ -138,6 +142,7 @@ test('lost social responses survive restart and recover through verified reconci
     await dialog
       .getByRole('button', { name: 'Accepter et programmer' })
       .click();
+    await completePublicationModeration(page);
     await expect(dialog).toContainText('Autorisée');
     Object.assign(job, await delivery(job.id));
     expect(job.status).toBe('approved');
@@ -264,9 +269,7 @@ test('lost social responses survive restart and recover through verified reconci
             company.record.id +
             '&tab=media'
         );
-        await page
-          .getByRole('button', { name: 'Tout approuver', exact: true })
-          .click();
+        await approveAllAcceptanceMedia(page);
         await expect
           .poll(async () =>
             (

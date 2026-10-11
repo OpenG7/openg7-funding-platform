@@ -1,6 +1,14 @@
 import { expect, test } from './support/test.js';
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
-import { openFixtureSponsorship, signInAsAdmin } from './support/admin-auth.js';
+import {
+  openFixtureSponsorship,
+  signInAsAdmin,
+  adminSessionHeaders
+} from './support/admin-auth.js';
+import {
+  approveAcceptanceFixture,
+  acceptanceModerationDecision
+} from './support/acceptance-moderation.js';
 
 // Covers the admin feed-publication editor (OpenG7/OpenG20, Facebook/
 // LinkedIn placement). No external network call is involved: the static
@@ -11,7 +19,8 @@ import { openFixtureSponsorship, signInAsAdmin } from './support/admin-auth.js';
 
 test.describe('Docker admin sponsorship feed publication', () => {
   test('saves a feed placement and shows it on the public sponsors directory', async ({
-    page
+    page,
+    request
   }) => {
     await signInAsAdmin(page);
 
@@ -31,7 +40,7 @@ test.describe('Docker admin sponsorship feed publication', () => {
 
     await editor.getByLabel(/Slug public/i).fill(slug);
     await editor.getByLabel(/Destination feed/i).selectOption('openg7');
-    await editor.getByLabel(/Statut feed/i).selectOption('published');
+    await editor.getByLabel(/Statut feed/i).selectOption('planned');
 
     // Some tiers force a channel on (isPromisedFeedChannel), which disables
     // the checkbox -- only check the ones this fixture's tier leaves free.
@@ -52,6 +61,39 @@ test.describe('Docker admin sponsorship feed publication', () => {
       .getByLabel(/Notes feed/i)
       .fill('E2E Playwright: note de feed automatisee.');
 
+    // Persist the exact public metadata before its explicit editorial review.
+    await page.getByRole('button', { name: 'Enregistrer' }).click();
+    await expect(page.getByText('Publication enregistree')).toBeVisible();
+    const contributionId = await approveAcceptanceFixture(
+      request,
+      fixture.publicReference
+    );
+    const headers = await adminSessionHeaders(request);
+    for (const channel of ['facebook', 'linkedin']) {
+      const created = await request.post('/api/admin/publication-drafts', {
+        headers,
+        data: { contributionId, feedTarget: 'openg7', channel }
+      });
+      expect(created.ok(), await created.text()).toBe(true);
+      const { draft } = await created.json();
+      const approved = await request.post(
+        '/api/admin/publication-drafts/update',
+        {
+          headers,
+          data: {
+            draftId: draft.id,
+            status: 'approved',
+            confirmation: draft.id,
+            moderationDecision: await acceptanceModerationDecision(request, {
+              type: 'publication_draft',
+              id: draft.id
+            })
+          }
+        }
+      );
+      expect(approved.ok(), await approved.text()).toBe(true);
+    }
+    await editor.getByLabel(/Statut feed/i).selectOption('published');
     await page.getByRole('button', { name: 'Enregistrer' }).click();
     await page.locator('[data-og7="confirm-action"]').click();
 

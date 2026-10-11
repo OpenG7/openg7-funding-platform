@@ -8,6 +8,7 @@ import type {
   PublicationAutomationState
 } from '@openg7/funding-core';
 
+import { completeModeration } from './support/moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { expect, test } from './support/test.js';
 
@@ -129,6 +130,7 @@ for (const loseResponse of [false, true]) {
           r.method() === 'POST'
       );
       await page.locator('[data-og7="pilot-confirm"]').click();
+      await completeModeration(page);
       const commandRequest = await sent;
       if (loseResponse) {
         await expect(

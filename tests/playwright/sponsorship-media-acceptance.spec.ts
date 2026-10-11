@@ -13,6 +13,12 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
+import { approveAcceptanceSubject } from './support/acceptance-moderation.js';
+import {
+  approveAllAcceptanceMedia,
+  completePublicationModeration
+} from './support/acceptance-moderation.js';
+import { completeModeration } from './support/moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import { test, expect } from './support/test.js';
@@ -146,6 +152,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
       await dialog
         .getByRole('button', { name: 'Accepter et programmer' })
         .click();
+      await completePublicationModeration(admin);
       await expect(dialog).toContainText('Autorisée');
       return delivery(job.id);
     };
@@ -271,9 +278,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
       await admin.goto(
         '/admin/fundraiser/sponsors?sponsorshipId=' + id + '&tab=media'
       );
-      await admin
-        .getByRole('button', { name: 'Tout approuver', exact: true })
-        .click();
+      await approveAllAcceptanceMedia(admin);
       await expect
         .poll(async () =>
           (
@@ -299,6 +304,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
       await admin
         .getByRole('button', { name: 'Accepter', exact: true })
         .click();
+      await completeModeration(admin);
       await expect
         .poll(async () => (await sponsor()).sponsor_review_status)
         .toBe('approved');
@@ -344,6 +350,10 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
             await request.get('/api/public/sponsor-media/' + originalAsset.id)
           ).status()
         ).toBe(404);
+        await approveAcceptanceSubject(request, {
+          type: 'sponsorship',
+          id: id
+        });
         await admin.locator('[data-og7="website-visibility"]').click();
         await admin.locator('[data-og7="confirm-action"]').click();
         await expect(
@@ -512,6 +522,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         await card
           .getByRole('button', { name: 'Approuver le media', exact: true })
           .click();
+        await completeModeration(admin);
         await expect
           .poll(
             async () =>
@@ -527,6 +538,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         await admin
           .getByRole('button', { name: 'Accepter', exact: true })
           .click();
+        await completeModeration(admin);
         await expect
           .poll(async () => (await sponsor()).sponsor_review_status)
           .toBe('approved');
@@ -540,6 +552,10 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         await admin
           .getByRole('button', { name: 'Publication', exact: true })
           .click();
+        await approveAcceptanceSubject(request, {
+          type: 'sponsorship',
+          id: id
+        });
         await admin.locator('[data-og7="website-visibility"]').click();
         await admin.locator('[data-og7="confirm-action"]').click();
         await expect(

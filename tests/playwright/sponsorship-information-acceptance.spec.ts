@@ -16,6 +16,8 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
+import { completeModeration } from './support/moderation.js';
+import { approveAllAcceptanceMedia } from './support/acceptance-moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptanceReviewReminder } from './support/acceptance-review-reminder.js';
 import { test, expect } from './support/test.js';
@@ -542,9 +544,7 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
       await admin.goto(
         '/admin/fundraiser/sponsors?sponsorshipId=' + id + '&tab=media'
       );
-      await admin
-        .getByRole('button', { name: 'Tout approuver', exact: true })
-        .click();
+      await approveAllAcceptanceMedia(admin);
       await expect
         .poll(async () =>
           (await media()).every((m) => m.reviewStatus === 'approved')
@@ -553,6 +553,7 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
       await admin
         .getByRole('button', { name: 'Accepter', exact: true })
         .click();
+      await completeModeration(admin);
       await expect
         .poll(async () => (await sponsor()).sponsor_review_status)
         .toBe('approved');

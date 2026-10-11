@@ -3,6 +3,7 @@ import type {
   SponsorshipFollowupResponse
 } from '@openg7/funding-core';
 
+import { approveAcceptanceFixture } from './support/acceptance-moderation.js';
 import { expect, test } from './support/test.js';
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 
@@ -108,9 +109,11 @@ test.describe('Docker corporate sponsor navigation', () => {
 
   // This approved fixture is read-only: editing uses its own record below.
   test('lists the approved sponsorship in the public directory reachable from the header navigation', async ({
-    page
+    page,
+    request
   }) => {
     const fixture = SPONSORSHIP_FIXTURES.directory;
+    await approveAcceptanceFixture(request, fixture.publicReference);
 
     await page.goto('/fonds-des-batisseurs');
     await page
@@ -141,6 +144,7 @@ test.describe('Docker corporate sponsor navigation', () => {
     request
   }) => {
     const fixture = SPONSORSHIP_FIXTURES.followupEditing;
+    await approveAcceptanceFixture(request, fixture.publicReference);
     const publicProfiles = async () => {
       const response = await request.get('/api/public/sponsorships');
       expect(response.ok()).toBe(true);

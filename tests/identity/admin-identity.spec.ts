@@ -5,6 +5,9 @@ import { randomUUID } from 'node:crypto';
 
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 
+import { acceptanceModerationDecision } from '../playwright/support/acceptance-moderation.js';
+import { completeModeration } from '../playwright/support/moderation.js';
+
 import { startIdentityStack } from './stack.mjs';
 
 const login = async (
@@ -71,16 +74,17 @@ test('owner creates roles, operator reviews, role withdrawal blocks an open acti
     );
     // The identity recipe starts with an existing paid dossier and reviewed media,
     // as does the Docker seed. It does not qualify payment or media storage.
+    const mediaId = randomUUID();
     await stack.pool.query(
       `INSERT INTO sponsor_media_assets
-      (contribution_id,kind,review_status,uploaded_by,original_filename,original_mime_type,
+      (id,contribution_id,kind,review_status,uploaded_by,original_filename,original_mime_type,
        original_size_bytes,original_storage_key,processed_size_bytes,processed_storage_key,
        public_storage_key,public_url,checksum_sha256,width,height,alt_text,reviewed_at,reviewed_by)
-      VALUES($1,'supporting_image','approved','admin','identity.png','image/png',68,
+      VALUES($2,$1,'supporting_image','approved','admin','identity.png','image/png',68,
        'identity/original.png',44,'identity/processed.webp','identity/public.webp',
        'data:image/webp;base64,UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEAAUAmJaQAA3AA/v89WAAAAA==',
        repeat('a',64),1,1,'Image de recette',NOW(),'identity-fixture')`,
-      [id]
+      [id, mediaId]
     );
     const before = (
       await stack.pool.query(
@@ -193,6 +197,28 @@ test('owner creates roles, operator reviews, role withdrawal blocks an open acti
       ).toEqual({ disabled: false, role: 'owner' });
     });
 
+    const mediaSubject = { type: 'media' as const, id: mediaId };
+    const mediaReview = await owner.request.post(
+      '/api/admin/moderation/decisions',
+      {
+        headers: { Origin: stack.origin },
+        data: {
+          subject: mediaSubject,
+          decision: await acceptanceModerationDecision(
+            owner.request,
+            mediaSubject,
+            { Origin: stack.origin }
+          )
+        }
+      }
+    );
+    expect(mediaReview.status(), await mediaReview.text()).toBe(200);
+    expect((await mediaReview.json()).decision).toMatchObject({
+      subject: mediaSubject,
+      level: 'N0',
+      state: 'active'
+    });
+
     await login(
       operator,
       'operator',
@@ -268,6 +294,7 @@ test('owner creates roles, operator reviews, role withdrawal blocks an open acti
       await operator
         .getByRole('button', { name: 'Accepter', exact: true })
         .click();
+      await completeModeration(operator);
       await expect(
         operator.getByText('Action confirmee: commandite acceptee.')
       ).toBeVisible();
@@ -314,6 +341,7 @@ test('owner creates roles, operator reviews, role withdrawal blocks an open acti
           r.status() === 401
       );
       await operator.locator('[data-og7="confirm-action"]').click();
+      await completeModeration(operator, true);
       await held;
       try {
         await owner.reload();

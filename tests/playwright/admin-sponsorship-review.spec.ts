@@ -1,3 +1,6 @@
+import { rejectAcceptanceSponsorship } from './support/acceptance-oidc-moderation.js';
+import { approveAcceptanceFixture } from './support/acceptance-moderation.js';
+import { completeModeration } from './support/moderation.js';
 import { expect, test } from './support/test.js';
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { openFixtureSponsorship, signInAsAdmin } from './support/admin-auth.js';
@@ -30,37 +33,32 @@ test.describe('Docker admin sponsorship review', () => {
   });
 
   test('approves a paid sponsorship from the detail panel', async ({
-    page
+    page,
+    request
   }) => {
     await signInAsAdmin(page);
 
     const fixture = SPONSORSHIP_FIXTURES.approve;
+    await approveAcceptanceFixture(request, fixture.publicReference, false);
     await openFixtureSponsorship(page, fixture.companyName);
 
     await page.getByRole('button', { name: 'Accepter' }).click();
+    await completeModeration(page);
 
     await expect(
       page.getByText('Action confirmee: commandite acceptee.')
     ).toBeVisible();
   });
 
-  test('rejects a paid sponsorship with an internal reason', async ({
-    page
+  test('rejects a paid sponsorship with an internal reason after independent review', async ({
+    browser
   }) => {
-    await signInAsAdmin(page);
-
     const fixture = SPONSORSHIP_FIXTURES.reject;
-    await openFixtureSponsorship(page, fixture.companyName);
-
-    await page.getByRole('button', { name: 'Refuser' }).click();
-    await page
-      .getByLabel(/Raison interne du refus/i)
-      .fill('E2E Playwright: refus de test automatise.');
-    await page.getByRole('button', { name: /Confirmer le refus/i }).click();
-
-    await expect(
-      page.getByText('Action confirmee: commandite refusee.')
-    ).toBeVisible();
+    await rejectAcceptanceSponsorship(
+      browser,
+      fixture.publicReference,
+      'E2E Playwright: refus de test automatise.'
+    );
   });
 
   test('resets an approved sponsorship back to pending review', async ({
@@ -74,6 +72,7 @@ test.describe('Docker admin sponsorship review', () => {
     // Confirm the reviewed administrative action in the shared dialog.
     await page.getByRole('button', { name: 'Remettre en attente' }).click();
     await page.locator('[data-og7="confirm-action"]').click();
+    await completeModeration(page, true);
 
     await expect(
       page.getByText('Action confirmee: commandite remise en attente.')
@@ -201,35 +200,24 @@ test.describe('Docker admin sponsorship review', () => {
   });
 
   test('rejects a sponsorship and marks the refund as already handled manually', async ({
-    page
+    page,
+    browser
   }) => {
-    await signInAsAdmin(page);
-
     const fixture = SPONSORSHIP_FIXTURES.rejectRefund;
+    await rejectAcceptanceSponsorship(
+      browser,
+      fixture.publicReference,
+      'E2E Playwright: refus avec remboursement deja traite.',
+      'manual_completed'
+    );
+    await signInAsAdmin(page);
     await openFixtureSponsorship(page, fixture.companyName);
-
-    await page.getByRole('button', { name: 'Refuser' }).click();
-    await page
-      .getByLabel(/Raison interne du refus/i)
-      .fill('E2E Playwright: refus avec remboursement deja traite.');
-    // Distinct code path from the Stripe-guided refund panel tested above:
-    // this is a DB-only flag recorded alongside the rejection, no Stripe
-    // call involved (apps/funding-api/src/main.ts, isRejection branch of the
-    // /admin/sponsorships/review handler). A <label> wrapping a <select>
-    // computes its accessible name as the label text plus the select's own
-    // name (the currently selected option's text), e.g. "RemboursementNe pas
-    // rembourser maintenant" -- so anchor to the start only (^Remboursement,
-    // no trailing $) rather than an exact match, which would never match.
-    // That start-anchor still excludes "Note remboursement" (starts with
-    // "Note", not "Remboursement").
-    await page.getByLabel(/^Remboursement/i).selectOption('manual_completed');
-    await page.getByRole('button', { name: /Confirmer le refus/i }).click();
-
+    const header = page.locator('openg7-admin-sponsor-detail-header');
     await expect(
-      page.getByText(/Remboursement marque comme deja traite/i)
+      header.getByRole('heading', { name: fixture.companyName, exact: true })
     ).toBeVisible();
     await expect(
-      page.getByText(/Suivi: Remboursement complete/i)
+      header.getByText('Remboursement complete', { exact: true })
     ).toBeVisible();
   });
 

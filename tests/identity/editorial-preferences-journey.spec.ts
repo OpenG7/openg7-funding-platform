@@ -11,6 +11,8 @@ import type {
   PublicationAutomationState
 } from '@openg7/funding-core';
 
+import { acceptanceModerationDecision } from '../playwright/support/acceptance-moderation.js';
+
 import { startIdentityStack } from './stack.mjs';
 
 test('editorial variants: exact review, distinct observations and explicit preferences preserve human decisions', async ({
@@ -155,7 +157,12 @@ test('editorial variants: exact review, distinct observations and explicit prefe
       action: 'approve',
       id: ids[0],
       version: 1,
-      confirmation: ids[0]
+      confirmation: ids[0],
+      moderationDecision: await acceptanceModerationDecision(
+        owner.request,
+        { type: 'publication_delivery', id: ids[0] },
+        headers
+      )
     });
     const operator = await open('operator');
     const reader = await open('reader');
@@ -361,7 +368,12 @@ test('editorial variants: exact review, distinct observations and explicit prefe
         action: 'approve',
         id: a.id,
         version: a.version,
-        confirmation: a.id
+        confirmation: a.id,
+        moderationDecision: await acceptanceModerationDecision(
+          owner.request,
+          { type: 'publication_delivery', id: a.id },
+          headers
+        )
       });
     });
 
@@ -442,7 +454,12 @@ test('editorial variants: exact review, distinct observations and explicit prefe
         action: 'approve',
         id: a.id,
         version: a.version,
-        confirmation: a.id
+        confirmation: a.id,
+        moderationDecision: await acceptanceModerationDecision(
+          owner.request,
+          { type: 'publication_delivery', id: a.id },
+          headers
+        )
       });
     });
 
@@ -495,7 +512,18 @@ test('editorial variants: exact review, distinct observations and explicit prefe
       id: rejected.id,
       version: rejected.version,
       confirmation: rejected.id,
-      reason: 'Refus synthétique de recette'
+      reason: 'Refus synthétique de recette',
+      moderationDecision: {
+        ...(await acceptanceModerationDecision(
+          owner.request,
+          { type: 'publication_delivery', id: rejected.id },
+          headers
+        )),
+        level: 'N3',
+        primaryReason: 'MISLEADING_CLAIM',
+        internalReason: 'Refus synthétique de recette',
+        sponsorExplanation: 'Cet élément synthétique doit être corrigé.'
+      }
     });
     const protectedIds = [...ids, human.id, rejected.id];
     const protectedBefore = (await facts()).deliveries.filter((d) =>

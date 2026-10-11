@@ -13,6 +13,10 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
+import {
+  approveAllAcceptanceMedia,
+  completePublicationModeration
+} from './support/acceptance-moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import {
@@ -265,9 +269,7 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
             company.record.id +
             '&tab=media'
         );
-        await page
-          .getByRole('button', { name: 'Tout approuver', exact: true })
-          .click();
+        await approveAllAcceptanceMedia(page);
         await expect
           .poll(async () =>
             (await media(company.record.id)).assets.every(
@@ -329,6 +331,7 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
           await dialog
             .getByRole('button', { name: 'Accepter et programmer' })
             .click();
+          await completePublicationModeration(page);
           await expect(dialog).toContainText('Autorisée');
           const approved = await delivery(job.id);
           expect(approved).toMatchObject({
