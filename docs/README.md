@@ -89,6 +89,13 @@ retour au contexte, à partir de la file complète et paginée de **À traiter**
 
 ## Travaux envisagés
 
+- [Plan de tâches — Reconnaissance et diffusion des commandites](development/sponsorship-publication-tasks.md) :
+  **Construction active** : 44 tâches de réalisation locale autorisées, dépendances,
+  réception et suivi des 19 garanties.
+- [Garanties de diffusion des commandites à traiter](development/sponsorship-publication-guarantees.md) :
+  suivi des engagements, répartition des lots, conflits de calendrier et preuves de diffusion.
+- [Analyse de la reconnaissance et de la diffusion des commandites](development/sponsorship-visibility-analysis.md) :
+  diagnostic, photos individuelles et collectives, suivi privé et plan de réalisation.
 - [Plan de travail — OpenG7 Admin pour Windows](funding-windows-plan-de-travail.md) :
   application de gestion des contributions et commandites, à réaliser ultérieurement.
 
