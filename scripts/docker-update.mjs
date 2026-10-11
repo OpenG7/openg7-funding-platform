@@ -172,6 +172,34 @@ try {
   if (localIdentity) {
     prepareLocalIdentity({ root, env: plan.commandEnv });
   }
+  if (plan.commandEnv.FUNDING_KEYCLOAK_PROVISION_USER === 'true') {
+    const { provisionKeycloakUser } =
+      await import('./lib/keycloak-provision-user.mjs');
+    await provisionKeycloakUser({
+      root,
+      env: plan.commandEnv,
+      requireEnrollment: targetEnvironment === 'production'
+    });
+    console.log('Compte Keycloak et subjects proprietaires verifies.');
+    // The provider must already run: this update preserves its lifecycle.
+    const applicationServices = [
+      'traefik',
+      'api',
+      'web',
+      'cadvisor',
+      ...(useDatabase ? ['postgres'] : []),
+      ...(plan.commandEnv.FUNDING_OPERATIONS_WATCHER_ENABLED === 'true'
+        ? ['operations']
+        : [])
+    ];
+    for (const command of plan.commands) {
+      if (command.command !== 'docker') continue;
+      if (command.args.includes('up'))
+        command.args.push('--no-deps', ...applicationServices);
+      else if (command.args.includes('pull') || command.args.includes('build'))
+        command.args.push(...applicationServices);
+    }
+  }
   await executeDockerUpdate(plan, {
     runCommand: run,
     beforeStripeWebhook: () => {

@@ -215,13 +215,23 @@ function writeImport(path, text) {
   }
 }
 
-/** Prepare a local first-start import; never call the Keycloak Admin API. */
+/** Prepare a local first-start import or preserve its DB; no Keycloak Admin API. */
 export function prepareLocalInitialUser({
   root,
   env,
   runDocker = spawnSync,
-  allowCreate = true
+  allowCreate = true,
+  onWarning = console.warn
 }) {
+  if (env.FUNDING_KEYCLOAK_PROVISION_USER === 'true') {
+    // Explicit Admin API provisioning runs after provider readiness. Never
+    // invent an owner UUID or expand an import password in this path.
+    validateKeycloakInitialUserConfig(env);
+    env.FUNDING_KEYCLOAK_LOCAL_REALM_IMPORT_FILE =
+      './docker/keycloak/openg7-realm.json';
+    env.FUNDING_KEYCLOAK_INITIAL_USER_PASSWORD_JSON = '';
+    return null;
+  }
   if (!validateInitialUserConfig(env)) return null;
   const realm = readCanonicalRealm(root);
   const target = dockerTarget({ root, env, runDocker });
@@ -234,13 +244,15 @@ export function prepareLocalInitialUser({
   };
   const directory = resolve(root, 'var', 'keycloak-local', project);
   const statePath = join(directory, 'initial-user.json');
+  let stateInfo;
+  try {
+    stateInfo = lstatSync(statePath, { throwIfNoEntry: false });
+  } catch {
+    throw stateError();
+  }
   let state;
-  if (existsSync(statePath)) state = readState(statePath, expected);
+  if (stateInfo) state = readState(statePath, expected);
   else {
-    if (!allowCreate)
-      throw new Error(
-        'Initial-user state is missing. Initialize a new local identity database with yarn docker:up:dev:keycloak first.'
-      );
     const names = capturedDocker(
       runDocker,
       [
@@ -257,13 +269,25 @@ export function prepareLocalInitialUser({
       .trim()
       .split(/\r?\n/)
       .filter(Boolean);
-    if (names.includes(volume))
-      throw new Error(
-        'The identity database volume already exists without initial-user state. Configure its users manually; automatic preparation requires a new local identity database.'
+    if (names.length === 1 && names[0] === volume) {
+      // Never invent an owner or reuse an unverified import/password override.
+      Object.assign(env, target.pinnedEnv, {
+        FUNDING_KEYCLOAK_LOCAL_REALM_IMPORT_FILE:
+          './docker/keycloak/openg7-realm.json',
+        FUNDING_KEYCLOAK_INITIAL_USER_PASSWORD_JSON: ''
+      });
+      onWarning(
+        'The local identity database already exists without initial-user state. Automatic first-user preparation skipped; configure users and owner subjects manually.'
       );
+      return null;
+    }
     // Fail closed on unexpected output rather than treating it as an empty target.
     if (names.length)
       throw new Error('Cannot verify a new local identity database volume.');
+    if (!allowCreate)
+      throw new Error(
+        'Initial-user state is missing. Initialize a new local identity database with yarn docker:up:dev:keycloak first.'
+      );
     mkdirSync(directory, { recursive: true, mode: 0o700 });
     state = { version: 2, ...expected, subject: randomUUID() };
     try {

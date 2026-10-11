@@ -33,15 +33,16 @@ documentaire n'exige pas de lancer les suites applicatives.
 | `yarn build` | Compilation TypeScript via `tsconfig.build.json`; pas le build Angular |
 | `yarn docs:check` | Standards OpenG7 puis budgets UTF-8, liens/ancres et scripts documentés ; lecture seule |
 | `yarn docs:report` | Rapport JSON du contrôle documentaire, dont les chaînes de consignes et leurs budgets |
-| `yarn keycloak:check` | Préflight de configuration Keycloak locale ; aucun service démarré ni qualification OIDC/MFA |
+| `yarn keycloak:check` | Préflight de configuration Keycloak ; aucun service démarré ni qualification OIDC/MFA |
 | `yarn keycloak:reset-password --dry-run` | Plan de réinitialisation d'une personne du realm local `openg7`, sans changer de mot de passe ; l'exécution interactive exige confirmation de cible et saisies masquées, avec révocation OpenG7 séparée |
+| `yarn keycloak:provision-user --dry-run` | Configuration sans réseau/écriture ; [contrats et tests](../operations/keycloak-provisioning.md) |
 | `node scripts/prepare-local-identity.mjs` | Vérifie le profil local et ses certificats, génère les fichiers Traefik et l'import utilisateur initial si configuré ; aucun service ou compte créé |
 | `yarn test` | Compilation TypeScript puis tests Node; ne pas refaire `yarn build` juste avant |
 | `yarn workspace @openg7/funding-web build --configuration production` | Build Angular et rendu initial/SSR configuré |
 | `yarn test:sponsorship` | Suite Node de couverture commandite; aucun navigateur |
 | `yarn test:e2e:acceptance` | API/DB/navigateur en pile Docker jetable, fournisseurs simulés; lanceur hôte Node.js `>=22`, images et CI sous Node 22 |
 | `yarn test:e2e:identity` | API réelle, Web compilé, PostgreSQL jetable et fournisseur OIDC signé local; rôles et révocation |
-| `node --test tests/identity/keycloak-local-https.integration.mjs` | Recette opt-in du profil Compose HTTPS local, Keycloak/OTP, API/Web et deux DB jetables ; images préconstruites et CA déjà approuvée requises |
+| `node --test tests/identity/keycloak-local-https.integration.mjs` | HTTPS local opt-in : provisionnement/répétition, OTP, API/Web et deux DB jetables ; images préconstruites et CA approuvée requises |
 | `node --test tests/identity/keycloak-initial-user.integration.mjs` | Avec `FUNDING_KEYCLOAK_INITIAL_USER_TEST=1`, import initial réel et conservation après redémarrage sur Keycloak/PostgreSQL jetables ; HTTPS/CA synthétiques, images locales et OpenSSL requis, sans port publié |
 | `yarn test:e2e:playwright` | Démarrage/réutilisation Docker local, migrations et seed, puis Playwright; modifie l'état local |
 | `yarn test:ui:admin` | UI admin sur build Angular avec fixtures/interceptions |

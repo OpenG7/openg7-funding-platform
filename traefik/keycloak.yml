@@ -1,5 +1,18 @@
 http:
   routers:
+    # Console module imports must not consume the identity endpoint quota.
+    openg7-keycloak-resources:
+      rule: 'Host(`{{ env "FUNDING_KEYCLOAK_HOSTNAME" }}`) && PathPrefix(`/resources/`) && (Method(`GET`) || Method(`HEAD`))'
+      entryPoints: [websecure]
+      service: openg7-keycloak
+      middlewares:
+        [
+          keycloak-headers,
+          keycloak-resources-in-flight,
+          keycloak-resources-rate-limit
+        ]
+      tls:
+        certResolver: letsencrypt
     openg7-keycloak:
       rule: 'Host(`{{ env "FUNDING_KEYCLOAK_HOSTNAME" }}`)'
       entryPoints: [websecure]
@@ -31,4 +44,12 @@ http:
       rateLimit:
         average: 120
         burst: 40
+        period: 1m
+    keycloak-resources-in-flight:
+      inFlightReq:
+        amount: 80
+    keycloak-resources-rate-limit:
+      rateLimit:
+        average: 1200
+        burst: 120
         period: 1m

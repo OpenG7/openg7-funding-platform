@@ -21,6 +21,11 @@ y compris la console, vers le service Keycloak. La console conserve son
 authentification Keycloak ; aucune restriction réseau supplémentaire n'est
 livrée ici. Les endpoints de gestion du port 9000 ne passent pas par Traefik.
 
+Les lectures `GET`/`HEAD` sous `/resources/` ont un quota distinct pour charger
+les modules de la console sans épuiser celui des endpoints d'identité et
+d'administration. Les deux routes gardent HTTPS et les mêmes en-têtes ; leurs
+limites restent définies dans la configuration Traefik ci-dessus.
+
 Les plafonds mémoire sont 2 Gio pour Keycloak et 512 Mio pour sa DB. Avec les
 1,75 Gio de la pile Compose de base, cela représente 4,25 Gio de plafonds,
 hors surveillant d'alertes optionnel, système, caches et builds. Leurs plafonds
@@ -130,8 +135,12 @@ fournisseur et ne prouve ni DNS/HTTPS réels, comptes, OTP, propriétaires,
 migrations, sauvegardes ni qualification de la cible. Ces préconditions restent
 à préparer et vérifier selon ce guide et le
 [runbook des accès](admin-identity-and-alerts.md), avant toute opération autorisée.
-Le sélecteur ne réconcilie pas le realm ou client déjà stocké, ne provisionne
-aucun compte OpenG7 et ne retire ni n'arrête les anciens services.
+Le sélecteur ne réconcilie pas le realm ou client déjà stocké et ne retire ni
+n'arrête les anciens services. Avec le commutateur explicite
+`FUNDING_KEYCLOAK_PROVISION_USER=true`, le
+[provisionnement au déploiement](keycloak-provisioning.md) prépare la première
+personne après disponibilité HTTPS et transmet son subject vérifié à l'API.
+Sans ce commutateur, le parcours des comptes reste manuel.
 
 L'exécution réelle Keycloak ajoute une préparation HTTPS après le préflight :
 validation Compose et build, puis création si nécessaire du stockage persistant
@@ -149,7 +158,9 @@ Le lanceur démarre `identity-postgres`, `keycloak` et `traefik` avec une attent
 bornée à 180 secondes. Il sonde ensuite le
 fournisseur avec la vérification TLS native de Node : discovery, issuer exact,
 endpoints OIDC et JWKS doivent réussir dans un budget total de 180 secondes
-avant le démarrage complet. En cas d'échec, le parcours s'arrête ; examiner les
+avant le démarrage complet. Le provisionnement optionnel s'exécute ensuite ;
+un lancement applicatif exige l'enrôlement OTP et le changement du mot de passe
+temporaire de la personne préparée. En cas d'échec, le parcours s'arrête ; examiner les
 services déjà démarrés. `--dry-run` annonce ces étapes sans écriture de fichiers,
 réseau ni contact du daemon et ne démarre aucun conteneur de contrôle.
 
@@ -233,6 +244,15 @@ met pas à jour sa configuration. Examiner l'état existant et appliquer toute
 évolution séparément, après sauvegarde ; ne pas forcer un réimport écrasant.
 Voir les [règles d'import Keycloak](https://www.keycloak.org/server/importExport).
 
+Le [provisionnement optionnel](keycloak-provisioning.md#parcours-de-production)
+remplace la création manuelle de la première personne et la copie de son User ID
+pour une base neuve ou existante. Préparer d'abord l'identité avec
+`--identity-only`, puis changer le mot de passe et enrôler OTP personnellement.
+La livraison applicative vérifie ensuite cet enrôlement avant de démarrer l'API.
+Un compte existant sans état doit avoir un UUID propriétaire déjà vérifié ;
+aucun privilège n'est attribué au seul nom. L'administration nominative de
+Keycloak, sa qualification MFA et le retrait du bootstrap restent distincts.
+
 Le flow `openg7-password-otp` exige mot de passe puis OTP, sans alternative
 Cookie ou fournisseur externe. Le mapper natif `oidc-amr-mapper` produit le
 claim signé de l'ID token à partir des authentificateurs réellement exécutés.
@@ -252,7 +272,9 @@ aucun claim constant `mfa`, ACR arbitraire ou relâchement serveur n'est admissi
    Conserver ces identifiants dans un
    registre d'accès protégé ; un email ou un nom n'est pas un subject OIDC.
 3. Définir `FUNDING_ADMIN_OIDC_OWNER_SUBJECTS` avec les subjects vérifiés des
-   premiers propriétaires, puis suivre le [premier démarrage applicatif](#premier-demarrage-oidc).
+   premiers propriétaires, ou conserver la transmission du subject vérifié par
+   le provisionnement lorsque cette liste est vide. Suivre ensuite le
+   [premier démarrage applicatif](#premier-demarrage-oidc).
    Les rôles lecteur/opérateur/propriétaire sont contrôlés et persistés par l'API
    OpenG7, pas déduits des rôles Keycloak. Ajouter les autres comptes depuis
    **Accès et sessions**, selon le runbook propriétaire.
@@ -284,7 +306,8 @@ autorisé et avec le même projet Compose :
 
 1. Vérifier le certificat HTTPS de `auth.openg7.org`, la discovery du realm
    `openg7`, le callback exact et les comptes avec OTP. Renseigner leurs subjects
-   propriétaires dans `.env` protégé. Le compte bootstrap du realm `master`
+   propriétaires dans `.env` protégé, ou utiliser la transmission vérifiée du
+   [provisionnement optionnel](keycloak-provisioning.md). Le compte bootstrap du realm `master`
    n'est pas un propriétaire OpenG7.
 2. Préparer la **DB Funding**, service `postgres`, distincte d'`identity-postgres`.
    Sur une base neuve, suivre [l'initialisation PostgreSQL](../docker-deployment.md#optional-private-postgresql) :

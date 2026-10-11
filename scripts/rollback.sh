@@ -32,6 +32,19 @@ fail() {
   exit 1
 }
 
+# Reload the verified private UUID after .env, including standalone rollback.
+# Rollback does not contact Keycloak or change its users, credentials or OTP.
+if [[ "${FUNDING_KEYCLOAK_PROVISION_USER:-false}" == true ]]; then
+  if ! rollback_owner_subjects="$(node scripts/keycloak-provision-user.mjs --restore-subjects-only)"; then
+    fail 'Cannot restore verified Keycloak owner subjects before rollback.'
+  fi
+  uuid_pattern='[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
+  [[ "${rollback_owner_subjects}" =~ ^${uuid_pattern}(,${uuid_pattern})*$ ]] ||
+    fail 'Invalid private Keycloak owner subjects for rollback.'
+  export FUNDING_ADMIN_OIDC_OWNER_SUBJECTS="${rollback_owner_subjects}"
+  unset rollback_owner_subjects uuid_pattern
+fi
+
 command -v docker >/dev/null 2>&1 || fail "docker is not installed."
 docker compose version >/dev/null 2>&1 ||
   fail "docker compose plugin is not installed."

@@ -101,6 +101,7 @@ retour au contexte, à partir de la file complète et paginée de **À traiter**
 | Déployer selon le périmètre choisi              | [Checklist](production-launch-checklist.md), [Docker/VPS](docker-deployment.md)        |
 | Configurer Keycloak local sous Windows/Docker   | [Keycloak local, HTTPS et OTP](operations/keycloak-local.md)                           |
 | Préparer le fournisseur OIDC sur le même VPS    | [Keycloak, MFA et récupération identité](operations/keycloak-vps.md)                   |
+| Préparer le premier compte au déploiement       | [Provisionnement Keycloak et reprise](operations/keycloak-provisioning.md)             |
 | Appliquer le schéma et connaître ses limites    | [Migrations PostgreSQL](operations/database-migrations.md)                             |
 | Retrouver une commande                          | [Aide-mémoire](command-cheatsheet.md)                                                  |
 | Vérifier configuration et services              | [Smoke tests](operations/production-smoke-tests.md)                                    |

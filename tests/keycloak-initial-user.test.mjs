@@ -2,12 +2,15 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
+  readlinkSync,
   rmSync,
   statSync,
+  symlinkSync,
   writeFileSync
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -294,22 +297,176 @@ test('an explicit owner list remains authoritative and unchanged', async (t) => 
   assert.equal(env.FUNDING_ADMIN_OIDC_OWNER_SUBJECTS, owners);
 });
 
-test('an existing volume cannot acquire an automatic owner when bootstrap state is missing', async (t) => {
-  const root = fixture(t);
-  const env = configuration();
-  const original = { ...env };
-  const docker = dockerFixture();
-  await assert.rejects(
-    async () =>
-      prepareLocalInitialUser({
+test('an existing identity database skips automatic preparation and preserves manually configured owners', (t) => {
+  const explicitOwners = `${randomUUID()},${randomUUID()}`;
+  for (const allowCreate of [true, false]) {
+    for (const owners of [undefined, '', explicitOwners]) {
+      const root = fixture(t);
+      const env = {
+        ...configuration(),
+        FUNDING_KEYCLOAK_LOCAL_REALM_IMPORT_FILE:
+          '/synthetic/stale-import.json',
+        FUNDING_KEYCLOAK_INITIAL_USER_PASSWORD_JSON: 'synthetic-stale-password'
+      };
+      if (owners === undefined) delete env.FUNDING_ADMIN_OIDC_OWNER_SUBJECTS;
+      else env.FUNDING_ADMIN_OIDC_OWNER_SUBJECTS = owners;
+      const original = { ...env };
+      const canonicalPath = join(
         root,
-        env,
-        ...dockerFixture({ existingVolumes: [docker.volume] })
-      }),
-    assertSafeError
-  );
-  assert.deepEqual(env, original);
-  assertNoPrivateFiles(root);
+        'docker',
+        'keycloak',
+        'openg7-realm.json'
+      );
+      const canonical = readFileSync(canonicalPath, 'utf8');
+      const { volume } = dockerFixture();
+      const docker = dockerFixture({ existingVolumes: [volume] });
+      const warnings = [];
+      assert.equal(
+        prepareLocalInitialUser({
+          root,
+          env,
+          ...docker,
+          allowCreate,
+          onWarning: (message) => warnings.push(message)
+        }),
+        null
+      );
+      assert.deepEqual(env, {
+        ...original,
+        DOCKER_CONTEXT: docker.context,
+        FUNDING_KEYCLOAK_LOCAL_REALM_IMPORT_FILE:
+          './docker/keycloak/openg7-realm.json',
+        FUNDING_KEYCLOAK_INITIAL_USER_PASSWORD_JSON: ''
+      });
+      assert.deepEqual(warnings, [
+        'The local identity database already exists without initial-user state. Automatic first-user preparation skipped; configure users and owner subjects manually.'
+      ]);
+      assert.equal(readFileSync(canonicalPath, 'utf8'), canonical);
+      assertNoPrivateFiles(root);
+      assert.equal(
+        docker.calls.filter(
+          ({ operationArgs }) => operationArgs[0] === 'volume'
+        ).length,
+        1
+      );
+    }
+  }
+});
+
+test('ambiguous identity volume output cannot skip automatic preparation', (t) => {
+  const { volume } = dockerFixture();
+  for (const existingVolumes of [
+    ['synthetic-other-volume'],
+    [volume, 'synthetic-other-volume'],
+    [volume, volume]
+  ]) {
+    const root = fixture(t);
+    const env = configuration();
+    const original = { ...env };
+    const warnings = [];
+    assert.throws(
+      () =>
+        prepareLocalInitialUser({
+          root,
+          env,
+          ...dockerFixture({ existingVolumes }),
+          onWarning: (message) => warnings.push(message)
+        }),
+      assertSafeError
+    );
+    assert.deepEqual(env, original);
+    assert.deepEqual(warnings, []);
+    assertNoPrivateFiles(root);
+  }
+});
+
+test('an existing identity database cannot bypass a malformed or directory bootstrap state', (t) => {
+  for (const stateIsDirectory of [true, false]) {
+    for (const allowCreate of [true, false]) {
+      const root = fixture(t);
+      const { volume } = dockerFixture();
+      const docker = dockerFixture({ existingVolumes: [volume] });
+      const file = statePath(root, docker.project);
+      const malformed = '{invalid-' + passwordCanary;
+      mkdirSync(dirname(file), { recursive: true });
+      if (stateIsDirectory) mkdirSync(file);
+      else writeFileSync(file, malformed);
+      const env = configuration();
+      const original = { ...env };
+      const warnings = [];
+      assert.throws(
+        () =>
+          prepareLocalInitialUser({
+            root,
+            env,
+            ...docker,
+            allowCreate,
+            onWarning: (message) => warnings.push(message)
+          }),
+        (error) => {
+          assertSafeError(error);
+          assert.match(error.message, /Invalid local initial-user state/);
+          return true;
+        }
+      );
+      assert.deepEqual(env, original);
+      assert.deepEqual(warnings, []);
+      assert.ok(
+        docker.calls.every(({ operationArgs }) => operationArgs[0] !== 'volume')
+      );
+      assert.deepEqual(readdirSync(dirname(file)), ['initial-user.json']);
+      if (stateIsDirectory) assert.equal(lstatSync(file).isDirectory(), true);
+      else assert.equal(readFileSync(file, 'utf8'), malformed);
+    }
+  }
+});
+
+test('a dangling bootstrap-state symlink is invalid even when the identity database exists', (t) => {
+  const root = fixture(t);
+  const { volume } = dockerFixture();
+  const docker = dockerFixture({ existingVolumes: [volume] });
+  const file = statePath(root, docker.project);
+  const missing = join(dirname(file), 'missing-state.json');
+  mkdirSync(dirname(file), { recursive: true });
+  try {
+    symlinkSync(missing, file, 'file');
+  } catch (error) {
+    if (process.platform === 'win32' && error.code === 'EPERM') {
+      t.skip(
+        'Windows does not permit creating file symlinks for this process.'
+      );
+      return;
+    }
+    throw error;
+  }
+  for (const allowCreate of [true, false]) {
+    const env = configuration();
+    const original = { ...env };
+    const warnings = [];
+    assert.throws(
+      () =>
+        prepareLocalInitialUser({
+          root,
+          env,
+          ...docker,
+          allowCreate,
+          onWarning: (message) => warnings.push(message)
+        }),
+      (error) => {
+        assertSafeError(error);
+        assert.match(error.message, /Invalid local initial-user state/);
+        return true;
+      }
+    );
+    assert.deepEqual(env, original);
+    assert.deepEqual(warnings, []);
+    assert.ok(
+      docker.calls.every(({ operationArgs }) => operationArgs[0] !== 'volume')
+    );
+    assert.equal(lstatSync(file).isSymbolicLink(), true);
+    assert.equal(readlinkSync(file), missing);
+    assert.deepEqual(readdirSync(dirname(file)), ['initial-user.json']);
+  }
 });
 
 test('recreation recovers existing state but cannot create an initial identity', async (t) => {

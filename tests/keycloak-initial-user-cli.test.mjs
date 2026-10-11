@@ -148,9 +148,11 @@ const simulated = (command, args, options = {}) => {
     action: 'execution',
     args,
     owner: options.env?.FUNDING_ADMIN_OIDC_OWNER_SUBJECTS ?? null,
+    effectiveOwner: options.env?.FUNDING_ADMIN_OIDC_OWNER_SUBJECTS ?? configuration.FUNDING_ADMIN_OIDC_OWNER_SUBJECTS,
     importFile: options.env?.FUNDING_KEYCLOAK_LOCAL_REALM_IMPORT_FILE ?? null,
     context: options.env?.DOCKER_CONTEXT ?? null,
     passwordEncoded: typeof encodedPassword === 'string',
+    passwordEmpty: encodedPassword === '',
     passwordRoundtripMatches,
     encodedHasDollar: encodedPassword?.includes('$') ?? true,
     exportedPrivateNames: privateNames.filter((name) => Object.hasOwn(options.env ?? {}, name)),
@@ -173,7 +175,11 @@ await import(pathToFileURL(process.argv[1]).href);
 
 const fixture = (
   t,
-  { existingVolume = false, readinessFailure = false } = {}
+  {
+    existingVolume = false,
+    readinessFailure = false,
+    configurationOverrides = {}
+  } = {}
 ) => {
   const root = mkdtempSync(join(tmpdir(), 'og7-initial-user-cli-'));
   t.after(() => {
@@ -186,6 +192,7 @@ const fixture = (
     'scripts/docker-up.mjs',
     'scripts/docker-update.mjs',
     'scripts/docker-recreate.mjs',
+    'scripts/prepare-local-identity.mjs',
     'scripts/lib/docker-up.mjs',
     'scripts/lib/docker-update.mjs',
     'scripts/lib/docker-config.mjs',
@@ -204,14 +211,15 @@ const fixture = (
     mkdirSync(dirname(join(root, file)), { recursive: true });
     writeFileSync(join(root, file), readFileSync(file));
   }
+  const fixtureConfiguration = { ...configuration, ...configurationOverrides };
   const content =
-    Object.entries(configuration)
+    Object.entries(fixtureConfiguration)
       .map(([name, value]) => `${name}='${value}'`)
       .join('\n') + '\n';
   writeFileSync(join(root, '.env'), content);
   writeFileSync(
     join(root, '.fixture-configuration.json'),
-    JSON.stringify(configuration)
+    JSON.stringify(fixtureConfiguration)
   );
   writeFileSync(
     join(root, '.fixture-scenario.json'),
@@ -403,23 +411,76 @@ test('recreation cannot create missing first-user state or invoke a Docker mutat
   assert.equal(calls.filter((call) => call.action === 'readiness').length, 1);
   assert.equal(
     calls.filter((call) => call.action === 'volumeLookup').length,
-    0
-  );
-  assert.equal(calls.filter((call) => call.action === 'execution').length, 0);
-});
-
-test('startup refuses an existing identity volume before any Docker mutation or first-user state', (t) => {
-  const prepared = fixture(t, { existingVolume: true });
-  const { result, calls } = runCli(prepared, 'docker-up.mjs', upArguments);
-  assert.equal(result.status, 1);
-  assert.match(result.stderr, /identity database volume already exists/);
-  assert.equal(existsSync(join(prepared.root, 'var/keycloak-local')), false);
-  assert.equal(
-    calls.filter((call) => call.action === 'volumeLookup').length,
     1
   );
   assert.equal(calls.filter((call) => call.action === 'execution').length, 0);
 });
+
+for (const [cli, args] of [
+  ['docker-up.mjs', upArguments],
+  ['docker-update.mjs', updateArguments],
+  ['docker-recreate.mjs', []],
+  ['prepare-local-identity.mjs', []]
+])
+  for (const owners of ['', 'd0a55954-b6e8-4c7a-85b9-6e75589d6142'])
+    test(`${cli} continues with an existing identity database and ${owners ? 'manual owners' : 'no automatic owner'}`, (t) => {
+      const prepared = fixture(t, {
+        existingVolume: true,
+        configurationOverrides: { FUNDING_ADMIN_OIDC_OWNER_SUBJECTS: owners }
+      });
+      const { result, calls } = runCli(prepared, cli, args);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(
+        result.stderr,
+        /The local identity database already exists without initial-user state\. Automatic first-user preparation skipped; configure users and owner subjects manually\./
+      );
+      assert.doesNotMatch(
+        result.stdout + result.stderr,
+        /Import du premier utilisateur local prepare|Private initial-user import prepared/
+      );
+      assert.equal(
+        existsSync(join(prepared.root, 'var/keycloak-local')),
+        false
+      );
+      assert.equal(
+        calls.filter((call) => call.action === 'contextShow').length,
+        1
+      );
+      assert.equal(
+        calls.filter((call) => call.action === 'daemonInfo').length,
+        1
+      );
+      assert.equal(
+        calls.filter((call) => call.action === 'volumeLookup').length,
+        1
+      );
+      const executions = calls.filter((call) => call.action === 'execution');
+      if (cli === 'prepare-local-identity.mjs') {
+        assert.equal(executions.length, 0);
+        assert.match(result.stdout, /Local HTTPS identity prepared/);
+      } else {
+        assert.ok(executions.length >= 2);
+        for (const call of executions) {
+          assert.equal(call.effectiveOwner, owners);
+          assert.equal(
+            call.owner,
+            null,
+            'No automatic owner override is exported'
+          );
+          assert.equal(call.importFile, './docker/keycloak/openg7-realm.json');
+          assert.equal(call.context, capturedContext);
+          assert.equal(call.passwordEmpty, true);
+          assert.equal(call.passwordRoundtripMatches, false);
+          assert.deepEqual(call.exportedPrivateNames, []);
+          assert.equal(call.privateArgument, false);
+        }
+        if (cli === 'docker-update.mjs')
+          assert.equal(
+            calls.find((call) => call.action === 'topology').context,
+            capturedContext
+          );
+      }
+    });
 
 test('failed daemon readiness stops before volume lookup, first-user state and Docker mutations', (t) => {
   const prepared = fixture(t, { readinessFailure: true });
