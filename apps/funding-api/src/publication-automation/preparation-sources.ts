@@ -85,6 +85,19 @@ export const currentBlockedSourceSql = (draft = 'd', contribution = 'c') =>
       AND diagnostic.metadata->>'reason' IN ('SOURCE_TEXT_TOO_LONG','SOURCE_CONTENT_MISSING')
       AND diagnostic.metadata->>'fingerprint'=encode(digest(${preparationFingerprintSql(draft, contribution)},'sha256'),'hex'))`;
 
+/** Only new recruits share this scope; existing members keep their own guards. */
+export const preparationCandidateSql = (
+  draft = 'd',
+  contribution = 'c',
+  target = '$1',
+  channel = '$2'
+) =>
+  `${draft}.batch_id IS NULL AND ${draft}.slot_id IS NULL
+   AND ${draft}.status IN ('draft','approved')
+   AND ${preparationEligibilitySql(draft, contribution, target, channel)}
+   AND ${preparationModerationSql(draft, contribution)}
+   AND NOT ${currentBlockedSourceSql(draft, contribution)}`;
+
 export async function preparationCandidates(
   db: Db,
   target: string,
@@ -96,11 +109,7 @@ export async function preparationCandidates(
     await db.query<PreparationSource>(
       `SELECT d.*,c.sponsor_company_name AS name,${preparationFingerprintSql()} AS source_fingerprint_material
        FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id
-       WHERE d.batch_id IS NULL AND d.slot_id IS NULL
-         AND d.status IN ('draft','approved')
-         AND ${preparationEligibilitySql()}
-         AND ${preparationModerationSql()}
-         AND NOT ${currentBlockedSourceSql()}
+       WHERE ${preparationCandidateSql()}
        ORDER BY d.created_at,d.id LIMIT $3 FOR UPDATE OF d SKIP LOCKED`,
       [target, channel, limit]
     )

@@ -46,8 +46,8 @@ test(
     };
     const service = new PublicationAutomationService(pool, storage, env);
     const feedId = 'openg20:facebook';
-    const future = new Date(Date.now() + 60000).toISOString();
-    const due = new Date(Date.now() + 120000);
+    let future;
+    let due;
     async function reset() {
       await pool.query(
         'TRUNCATE fund_contributions,publication_deliveries,publication_recurrences,social_publication_jobs,sponsor_publication_drafts,sponsor_publication_batches,publication_slots,admin_audit_log CASCADE'
@@ -59,6 +59,9 @@ test(
       await pool.query(
         'UPDATE publication_worker_settings SET enabled=NULL,version=1'
       );
+      const scenarioStartedAt = Date.now();
+      future = new Date(scenarioStartedAt + 60000).toISOString();
+      due = new Date(scenarioStartedAt + 120000);
     }
     async function activate(s = service) {
       await s.command({ action: 'check', feedId }, 'tester');

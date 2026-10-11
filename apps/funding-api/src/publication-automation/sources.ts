@@ -12,7 +12,7 @@ import {
   preparationEligibilitySql,
   preparationModerationSql,
   preparationModerationSubjectSql,
-  currentBlockedSourceSql,
+  preparationCandidateSql,
   PREPARATION_SCAN_LIMIT
 } from './preparation-sources.js';
 
@@ -115,11 +115,7 @@ export async function repairSources(
     await db.query(
       `SELECT d.id,d.contribution_id,d.title,d.body,d.disclosure_text,d.feed_target,d.channel,c.sponsor_company_name AS name
        FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id
-       WHERE d.batch_id IS NULL AND d.slot_id IS NULL
-         AND d.status IN ('draft','approved')
-         AND ${preparationEligibilitySql('d', 'c', '$1', '$2')}
-         AND ${preparationModerationSql()}
-         AND NOT ${currentBlockedSourceSql()}
+       WHERE ${preparationCandidateSql()}
        ORDER BY d.created_at,d.id LIMIT $3`,
       [target, channel, PREPARATION_SCAN_LIMIT]
     )

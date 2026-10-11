@@ -18,7 +18,6 @@ import {
 
 import { recurrenceTimes } from './policy.js';
 import {
-  eligibleDestination,
   preparationEligibilitySql,
   preparationModerationSql,
   preparationModerationSubjectSql,
@@ -201,9 +200,7 @@ export async function preparationQueue(
          JOIN publication_feeds feed ON feed.id=d.feed_target||':'||d.channel
          LEFT JOIN sponsor_publication_batches b ON b.id=d.batch_id
          LEFT JOIN publication_deliveries delivery ON delivery.batch_id=d.batch_id AND delivery.status<>'cancelled'
-         WHERE d.status IN ('draft','approved','scheduled') AND c.status='paid' AND c.public_display_consent IS TRUE
-           AND c.sponsor_review_status IN ('pending_review','approved') AND c.sponsor_feed_status NOT IN ('hidden','published')
-           AND ${eligibleDestination('c', 'd.feed_target', 'd.channel')}
+         WHERE ${preparationEligibilitySql('d', 'c', 'd.feed_target', 'd.channel')}
            AND (d.batch_id IS NULL OR b.status IN ('open','scheduled'))
            AND (delivery.id IS NULL OR delivery.status IN ('draft','blocked'))
            AND ($1::uuid IS NULL OR d.contribution_id=$1)
