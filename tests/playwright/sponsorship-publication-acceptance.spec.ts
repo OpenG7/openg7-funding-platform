@@ -498,10 +498,32 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
       return preview;
     };
     const finalMessages = {
-      facebook: `Merci à ${companyName} de soutenir les Bâtisseurs OpenG7. Commandite rémunérée.`,
-      linkedin: `${companyName} soutient le développement de l’écosystème OpenG7. Commandite rémunérée.`
+      facebook: `${facebook.message}\n\nMerci à ${companyName} de soutenir les Bâtisseurs OpenG7. Commandite rémunérée.`,
+      linkedin: `${linkedin.message}\n\n${companyName} soutient le développement de l’écosystème OpenG7. Commandite rémunérée.`
     };
     await test.step('Changing approved content revokes it; a stale approval is rejected', async () => {
+      // A name and sponsorship mention alone cannot replace the source block.
+      await editForDelivery(
+        facebook,
+        `Merci à ${companyName} de soutenir les Bâtisseurs OpenG7. Commandite rémunérée.`
+      );
+      const incomplete = await delivery(facebook.id);
+      const missingBlock = await command({
+        action: 'approve',
+        id: facebook.id,
+        version: incomplete.version,
+        confirmation: facebook.id
+      });
+      expect(missingBlock.status()).toBe(409);
+      expect(await missingBlock.json()).toMatchObject({
+        code: 'SOURCE_CONTENT_MISSING'
+      });
+      expect(await delivery(facebook.id)).toMatchObject({
+        status: 'draft',
+        approvedAt: null,
+        attempts: 0
+      });
+      expect((await receipt(facebook.id)).requests).toHaveLength(0);
       await editForDelivery(facebook, finalMessages.facebook);
       expect(await delivery(facebook.id)).toMatchObject({
         status: 'draft',

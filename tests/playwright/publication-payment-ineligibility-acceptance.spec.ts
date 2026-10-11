@@ -306,7 +306,7 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
           await dialog
             .getByLabel('Texte exact à publier')
             .fill(
-              `Merci à ${company.name}. Commandite rémunérée, recette simulée.`
+              `${job.message}\n\nMerci à ${company.name}. Commandite rémunérée, recette simulée.`
             );
           const localDate = await page.evaluate((iso) => {
             const d = new Date(iso);

@@ -10,7 +10,8 @@ import type {
 import type { SponsorMediaStorage } from '../sponsor-media-storage.js';
 
 import { resolveMedia, type Media } from './media.js';
-import { assert, digest } from './policy.js';
+import { assertSponsorshipContent } from './content.js';
+import { assert, digest, validateContent } from './policy.js';
 import {
   sourceEqual,
   sourceIssues,
@@ -30,6 +31,7 @@ export interface PreflightDelivery {
   scheduled_at: Date;
   media_id: string | null;
   media_snapshot: Media | null;
+  message: string;
 }
 
 export async function ready(
@@ -38,6 +40,7 @@ export async function ready(
   storage: SponsorMediaStorage,
   feeds: (db: Db) => Promise<PublicationFeed[]>
 ): Promise<Buffer | null> {
+  validateContent(row.message, row.scheduled_at.toISOString());
   const feed = (await feeds(db)).find((f) => f.id === row.feed_id)!;
   assert(feed.configured && feed.connection === 'ready', 'CONNECTION_REQUIRED');
   assert(
@@ -63,6 +66,7 @@ export async function ready(
       );
     }
     assert(sourceEqual(sources, row.source_snapshot), 'SOURCE_CHANGED');
+    await assertSponsorshipContent(db, row);
   }
   if (row.batch_id && row.approved_at) {
     const batch = (

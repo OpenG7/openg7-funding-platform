@@ -7,7 +7,7 @@ import {
   type DeliveryRow,
   type PublicationPlanningContext
 } from './context.js';
-import { editorialMessage } from './editorial-profiles.js';
+import { composeSponsorshipContent } from './content.js';
 import { mediaRecord, mediaSnapshotIssue } from './media.js';
 import {
   assert,
@@ -144,12 +144,7 @@ export async function prepare(
       if (job) {
         try {
           const sources = await loadSources(db, batch.id, feedId, true);
-          const message = await editorialMessage(
-            db,
-            feedId,
-            sourceMessage(sources),
-            sources.map((s) => s.contribution_id)
-          );
+          const message = await composeSponsorshipContent(db, feedId, sources);
           validateContent(message, date);
           const c = feedConfig(feedId, context.env);
           if (
@@ -233,12 +228,7 @@ export async function repairPreview(
       ? row.scheduled_at.toISOString()
       : recurrenceTimes(feed, new Date())[0];
   if (!scheduledAt) return null;
-  const message = await editorialMessage(
-    db,
-    row.feed_id,
-    sourceMessage(candidates),
-    candidates.map((s) => s.contribution_id)
-  );
+  const message = await composeSponsorshipContent(db, row.feed_id, candidates);
   const original = (
     await db.query(
       'SELECT contribution_id FROM sponsor_publication_drafts WHERE batch_id=$1',

@@ -21,6 +21,11 @@ import {
   mapPublicationSlotRow,
   type PublicationSlotRow
 } from './fund-publication.mapping.js';
+import {
+  lockPublicationSlotCapacity,
+  lockPublicationSlotMembers
+} from './fund-publication-capacity.persistence.js';
+import { withPostgresTransaction } from './postgres-transaction.js';
 
 export const allowedPublicationSlotStatuses = new Set<PublicationSlotStatus>([
   'open',
@@ -274,8 +279,12 @@ export const updateAdminPublicationSlot = async (
   }
 
   const notesTouched = input.notes !== undefined;
-  const result = await pool.query<{ readonly id: string }>(
-    `
+  const updated = await withPostgresTransaction(pool, async (client) => {
+    if (!(await lockPublicationSlotCapacity(client, input.slotId)))
+      return false;
+    await lockPublicationSlotMembers(client, input.slotId);
+    const result = await client.query<{ readonly id: string }>(
+      `
       WITH slot_usage AS (
         SELECT
           slot.id,
@@ -305,24 +314,24 @@ export const updateAdminPublicationSlot = async (
       WHERE slot.id = slot_usage.id
         AND slot.id = $1::uuid
         AND slot.status IN ('open', 'scheduled')
-        AND COALESCE($2::timestamptz, slot.starts_at) > NOW()
+        AND COALESCE($2::timestamptz, slot.starts_at) > clock_timestamp()
         AND COALESCE($4::integer, slot.capacity) >= slot_usage.capacity_used
       RETURNING slot.id::text AS id
     `,
-    [
-      input.slotId,
-      input.startsAt ?? null,
-      input.timezone?.trim() ?? null,
-      input.capacity ?? null,
-      notesTouched,
-      input.notes?.trim() ?? ''
-    ]
-  );
+      [
+        input.slotId,
+        input.startsAt ?? null,
+        input.timezone?.trim() ?? null,
+        input.capacity ?? null,
+        notesTouched,
+        input.notes?.trim() ?? ''
+      ]
+    );
 
-  const slotId = result.rows[0]?.id;
-  if (slotId) {
-    await pool.query(
-      `
+    const slotId = result.rows[0]?.id;
+    if (slotId) {
+      await client.query(
+        `
         UPDATE sponsor_publication_batches batch
         SET
           scheduled_at = slot.starts_at,
@@ -336,10 +345,10 @@ export const updateAdminPublicationSlot = async (
           AND slot.id = $1::uuid
           AND batch.status IN ('open', 'scheduled')
       `,
-      [slotId]
-    );
-    await pool.query(
-      `
+        [slotId]
+      );
+      await client.query(
+        `
         UPDATE sponsor_publication_drafts draft
         SET
           scheduled_at = slot.starts_at,
@@ -349,16 +358,23 @@ export const updateAdminPublicationSlot = async (
           END,
           updated_at = NOW()
         FROM publication_slots slot
-        WHERE draft.slot_id = slot.id
+        WHERE (
+            draft.slot_id = slot.id
+            OR draft.batch_id IN (
+              SELECT id FROM sponsor_publication_batches WHERE slot_id=slot.id
+            )
+          )
           AND slot.id = $1::uuid
           AND draft.status IN ('approved', 'scheduled')
       `,
-      [slotId]
-    );
-  }
+        [slotId]
+      );
+    }
+    return Boolean(slotId);
+  });
 
   return {
-    updated: Boolean(slotId),
+    updated,
     slot: await getPublicationSlotById(pool, input.slotId)
   };
 };
@@ -376,8 +392,19 @@ export const assignBatchToPublicationSlot = async (
     return { updated: false, slot: null };
   }
 
-  const result = await pool.query<{ readonly id: string }>(
-    `
+  const updated = await withPostgresTransaction(pool, async (client) => {
+    if (!(await lockPublicationSlotCapacity(client, input.slotId)))
+      return false;
+    await client.query(
+      'SELECT id FROM sponsor_publication_batches WHERE id=$1::uuid FOR UPDATE',
+      [input.batchId]
+    );
+    await client.query(
+      'SELECT id FROM sponsor_publication_drafts WHERE batch_id=$1::uuid ORDER BY id FOR UPDATE',
+      [input.batchId]
+    );
+    const result = await client.query<{ readonly id: string }>(
+      `
       WITH target_slot AS (
         SELECT
           slot.id,
@@ -396,13 +423,14 @@ export const assignBatchToPublicationSlot = async (
         FROM publication_slots slot
         WHERE slot.id = $1::uuid
           AND slot.status IN ('open', 'scheduled')
-          AND slot.starts_at > NOW()
+          AND slot.starts_at > clock_timestamp()
       ),
       target_batch AS (
         SELECT
           batch.id,
           batch.channel,
           batch.status,
+          batch.capacity,
           batch.slot_id,
           COUNT(draft.id)::integer AS draft_count,
           COALESCE(BOOL_AND(draft.feed_target = target_slot.feed_target), TRUE)
@@ -425,19 +453,20 @@ export const assignBatchToPublicationSlot = async (
         AND target_batch.status IN ('open', 'scheduled')
         AND (target_batch.slot_id IS NULL OR target_batch.slot_id = target_slot.id)
         AND target_batch.drafts_match_target
+        AND target_batch.draft_count <= target_batch.capacity
         AND target_slot.used + CASE
           WHEN target_batch.slot_id = target_slot.id THEN 0
           ELSE target_batch.draft_count
         END <= target_slot.capacity
       RETURNING batch.slot_id::text AS id
     `,
-    [input.slotId, input.batchId]
-  );
+      [input.slotId, input.batchId]
+    );
 
-  const slotId = result.rows[0]?.id;
-  if (slotId) {
-    await pool.query(
-      `
+    const slotId = result.rows[0]?.id;
+    if (slotId) {
+      await client.query(
+        `
         UPDATE sponsor_publication_drafts draft
         SET
           slot_id = $1::uuid,
@@ -449,12 +478,14 @@ export const assignBatchToPublicationSlot = async (
           AND slot.id = $1::uuid
           AND draft.status IN ('approved', 'scheduled')
       `,
-      [slotId, input.batchId]
-    );
-  }
+        [slotId, input.batchId]
+      );
+    }
+    return Boolean(slotId);
+  });
 
   return {
-    updated: Boolean(slotId),
+    updated,
     slot: await getPublicationSlotById(pool, input.slotId)
   };
 };
@@ -472,8 +503,15 @@ export const assignDraftToPublicationSlot = async (
     return { updated: false, slot: null };
   }
 
-  const result = await pool.query<{ readonly id: string }>(
-    `
+  const updated = await withPostgresTransaction(pool, async (client) => {
+    if (!(await lockPublicationSlotCapacity(client, input.slotId)))
+      return false;
+    await client.query(
+      'SELECT id FROM sponsor_publication_drafts WHERE id=$1::uuid FOR UPDATE',
+      [input.draftId]
+    );
+    const result = await client.query<{ readonly id: string }>(
+      `
       WITH target_slot AS (
         SELECT
           slot.id,
@@ -492,7 +530,7 @@ export const assignDraftToPublicationSlot = async (
         FROM publication_slots slot
         WHERE slot.id = $1::uuid
           AND slot.status IN ('open', 'scheduled')
-          AND slot.starts_at > NOW()
+          AND slot.starts_at > clock_timestamp()
       )
       UPDATE sponsor_publication_drafts draft
       SET
@@ -513,12 +551,13 @@ export const assignDraftToPublicationSlot = async (
         END <= target_slot.capacity
       RETURNING draft.slot_id::text AS id
     `,
-    [input.slotId, input.draftId]
-  );
+      [input.slotId, input.draftId]
+    );
 
-  const slotId = result.rows[0]?.id;
+    return Boolean(result.rows[0]?.id);
+  });
   return {
-    updated: Boolean(slotId),
+    updated,
     slot: await getPublicationSlotById(pool, input.slotId)
   };
 };

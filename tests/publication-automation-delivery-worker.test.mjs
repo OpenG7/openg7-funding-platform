@@ -5,6 +5,11 @@ import {
   complete,
   PublicationDeliveryWorker
 } from '../dist/apps/funding-api/src/publication-automation/delivery-worker.js';
+import {
+  handleDeliveryFailure,
+  observeProviderResult
+} from '../dist/apps/funding-api/src/publication-automation/delivery-outcomes.js';
+import { PublicationAutomationError } from '../dist/apps/funding-api/src/publication-automation/policy.js';
 
 const now = new Date('2030-10-03T12:00:00Z');
 const delivery = (id = 'synthetic-delivery', overrides = {}) => ({
@@ -55,6 +60,9 @@ function fixture(options = {}) {
   const preparations = new Map();
   let enabled = options.enabled ?? true;
   let commitFailures = options.commitFailures ?? 0;
+  let publishedAuditFailures = options.publishedAuditFailures ?? 0;
+  let observedAuditFailures = options.observedAuditFailures ?? 0;
+  let databaseUnavailable = false;
   let guardCalls = 0;
   let clock = now;
 
@@ -63,6 +71,20 @@ function fixture(options = {}) {
     events.push({ type: 'query', text, values, transactional });
     const result = (rows = []) => ({ rows, rowCount: rows.length });
     if (text.startsWith('INSERT INTO admin_audit_log')) {
+      if (
+        values[1] === 'publication_automation.published' &&
+        publishedAuditFailures
+      ) {
+        publishedAuditFailures--;
+        throw new Error('synthetic completion audit failure');
+      }
+      if (
+        values[1] === 'publication_automation.provider_result_observed' &&
+        observedAuditFailures
+      ) {
+        observedAuditFailures--;
+        throw new Error('synthetic observation audit failure');
+      }
       target.audits.push({
         actor: values[0],
         action: values[1],
@@ -73,6 +95,18 @@ function fixture(options = {}) {
         await options.onClaim?.(controls);
       return result();
     }
+    if (text.startsWith('SELECT metadata FROM admin_audit_log'))
+      return result(
+        target.audits
+          .filter(
+            (audit) =>
+              audit.id === values[0] &&
+              audit.action ===
+                'publication_automation.provider_result_observed' &&
+              String(audit.metadata.claimVersion) === values[1]
+          )
+          .map(({ metadata }) => ({ metadata: structuredClone(metadata) }))
+      );
     if (text.startsWith('UPDATE publication_feeds SET last_prepared_at=')) {
       const previous = preparations.get(values[0]);
       if (previous && previous >= values[1].getTime() - 300000) return result();
@@ -85,6 +119,33 @@ function fixture(options = {}) {
     }
     if (text.startsWith('SELECT paused FROM publication_feeds'))
       return result([{ paused: feed.paused }]);
+    if (
+      text.startsWith(
+        'SELECT slot_id::text AS slot_id FROM sponsor_publication_batches'
+      )
+    ) {
+      return result([
+        {
+          slot_id:
+            text.includes('FOR UPDATE') &&
+            Object.hasOwn(options, 'batchSlotAfterLock')
+              ? options.batchSlotAfterLock
+              : (options.batchSlotId ?? null)
+        }
+      ]);
+    }
+    if (text.startsWith('SELECT id::text AS id FROM publication_slots')) {
+      return result([{ id: values[0] }]);
+    }
+    if (
+      text.startsWith('SELECT id,sponsor_company_name FROM fund_contributions')
+    )
+      return result(
+        values[0].map((id) => ({
+          id,
+          sponsor_company_name: 'Synthetic sponsor'
+        }))
+      );
     if (text.startsWith('SELECT * FROM publication_deliveries')) {
       return result(
         structuredClone(
@@ -166,7 +227,9 @@ function fixture(options = {}) {
             'SPONSOR_REVIEW_REQUIRED',
             'MEDIA_CHANGED',
             'MEDIA_NOT_APPROVED',
-            'MEDIA_UNAVAILABLE'
+            'MEDIA_UNAVAILABLE',
+            'SOURCE_CONTENT_MISSING',
+            'INVALID_MESSAGE'
           ].includes(values[2])
         )
           row.approved_at = null;
@@ -199,8 +262,14 @@ function fixture(options = {}) {
   }
 
   const pool = {
-    query: (sql, values) => query(state, sql, values),
+    query: (sql, values) => {
+      if (databaseUnavailable)
+        throw new Error('synthetic database unavailable');
+      return query(state, sql, values);
+    },
     async connect() {
+      if (databaseUnavailable)
+        throw new Error('synthetic database unavailable');
       let pending;
       const client = {
         async query(sql, values) {
@@ -252,6 +321,12 @@ function fixture(options = {}) {
     },
     advance(milliseconds) {
       clock = new Date(clock.getTime() + milliseconds);
+    },
+    stopDatabase() {
+      databaseUnavailable = true;
+    },
+    restoreDatabase() {
+      databaseUnavailable = false;
     }
   };
   controls.context = {
@@ -446,6 +521,156 @@ test('provider success followed by completion commit failure is quarantined with
     f.state.audits.at(-1).action,
     'publication_automation.uncertain'
   );
+  assert.deepEqual(
+    f.state.audits.filter(
+      (audit) =>
+        audit.action === 'publication_automation.provider_result_observed'
+    ),
+    [
+      {
+        actor: 'publication-worker',
+        action: 'publication_automation.provider_result_observed',
+        id: 'synthetic-live',
+        metadata: {
+          claimVersion: 2,
+          mode: 'live',
+          feedId: 'openg7:facebook',
+          externalPostId: '20_1',
+          externalPostUrl: 'https://www.facebook.com/20_1'
+        }
+      }
+    ]
+  );
+  assert.equal(f.state.audits.at(-1).metadata.externalPostId, '20_1');
+});
+
+test('provider acknowledgement survives completion audit failure and failed initial observation', async (t) => {
+  for (const failure of ['publishedAuditFailures', 'observedAuditFailures']) {
+    await t.test(failure, async (st) => {
+      const f = fixture({
+        rows: [delivery('synthetic-live', { mode: 'live', account_id: '20' })],
+        env: {
+          SOCIAL_PUBLICATION_MODE: 'live',
+          SOCIAL_PUBLICATION_OPENG7_FACEBOOK_ACCOUNT_ID: '20',
+          SOCIAL_PUBLICATION_OPENG7_FACEBOOK_ACCESS_TOKEN: 'synthetic-token'
+        },
+        [failure]: 1
+      });
+      let calls = 0;
+      st.mock.method(globalThis, 'fetch', async () => {
+        calls++;
+        return Response.json({ id: '20_2' });
+      });
+      await f.worker.tick(now);
+      await new PublicationDeliveryWorker(f.context).tick(now);
+      assert.equal(calls, 1);
+      assert.equal(f.state.rows[0].status, 'uncertain');
+      assert.equal(f.state.rows[0].external_post_id, null);
+      assert.equal(f.state.rows[0].next_attempt_at, null);
+      assert.equal(
+        f.state.audits.some((audit) => audit.action.endsWith('.published')),
+        false
+      );
+      assert.deepEqual(f.state.audits.at(-1).metadata, {
+        code: 'DELIVERY_INTERRUPTED',
+        claimVersion: 2,
+        mode: 'live',
+        feedId: 'openg7:facebook',
+        externalPostId: '20_2',
+        externalPostUrl: 'https://www.facebook.com/20_2'
+      });
+    });
+  }
+});
+
+test('observation is idempotent for its claim and rejects incompatible references without publishing', async () => {
+  const f = fixture({
+    rows: [
+      delivery('synthetic-observation', {
+        status: 'publishing',
+        lease_until: new Date(now.getTime() + 300000)
+      })
+    ]
+  });
+  const row = structuredClone(f.state.rows[0]);
+  const result = {
+    externalPostId: 'synthetic-post',
+    externalPostUrl: 'https://example.test/post'
+  };
+  await observeProviderResult(f.context, row, result);
+  await observeProviderResult(f.context, row, result);
+  assert.equal(f.state.audits.length, 1);
+  assert.equal(f.state.rows[0].status, 'publishing');
+  assert.equal(f.state.rows[0].external_post_id, null);
+  assert.equal(f.state.projections.length, 0);
+  await assert.rejects(
+    observeProviderResult(f.context, row, {
+      ...result,
+      externalPostId: 'incompatible-post'
+    }),
+    { code: 'PROVIDER_RESULT_CONFLICT' }
+  );
+  assert.equal(f.state.audits.length, 1);
+});
+
+test('a business failure after acknowledgement stays uncertain and cannot return to an approved retry', async () => {
+  const f = fixture({
+    rows: [
+      delivery('synthetic-acknowledged', {
+        status: 'publishing',
+        attempts: 1,
+        lease_until: new Date(now.getTime() + 300000)
+      })
+    ]
+  });
+  const row = structuredClone(f.state.rows[0]);
+  await handleDeliveryFailure(
+    f.context,
+    row,
+    new PublicationAutomationError('WORKER_DISABLED'),
+    true,
+    { externalPostId: 'synthetic-post', externalPostUrl: null }
+  );
+  assert.equal(f.state.rows[0].status, 'uncertain');
+  assert.equal(f.state.rows[0].next_attempt_at, null);
+  assert.equal(f.state.rows[0].attempts, 1);
+  assert.equal(f.state.audits.at(-1).metadata.externalPostId, 'synthetic-post');
+});
+
+test('persistent database unavailability cannot invent a stored acknowledgement or retry a submitted delivery', async (t) => {
+  const f = fixture({
+    rows: [delivery('synthetic-live', { mode: 'live', account_id: '20' })],
+    env: {
+      SOCIAL_PUBLICATION_MODE: 'live',
+      SOCIAL_PUBLICATION_OPENG7_FACEBOOK_ACCOUNT_ID: '20',
+      SOCIAL_PUBLICATION_OPENG7_FACEBOOK_ACCESS_TOKEN: 'synthetic-token'
+    }
+  });
+  let calls = 0;
+  t.mock.method(globalThis, 'fetch', async () => {
+    calls++;
+    f.stopDatabase();
+    return Response.json({ id: '20_3' });
+  });
+  await assert.rejects(f.worker.tick(now), /synthetic database unavailable/);
+  assert.equal(f.state.rows[0].status, 'publishing');
+  assert.equal(f.state.rows[0].external_post_id, null);
+  assert.equal(
+    f.state.audits.length,
+    1,
+    'only the claim committed before the outage'
+  );
+  f.restoreDatabase();
+  f.advance(300001);
+  await new PublicationDeliveryWorker(f.context).tick(
+    new Date(now.getTime() + 300001)
+  );
+  assert.equal(f.state.rows[0].status, 'uncertain');
+  assert.equal(calls, 1);
+  assert.equal(
+    f.state.audits.some((audit) => audit.action.endsWith('.published')),
+    false
+  );
 });
 
 test('ambiguous provider response is quarantined without an implicit retry', async (t) => {
@@ -471,6 +696,25 @@ test('ambiguous provider response is quarantined without an implicit retry', asy
   assert.equal(f.state.rows[0].next_attempt_at, null);
 });
 
+test('an invalid legacy approved message revokes authorization before dispatch', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => assert.fail('no dispatch'));
+  const f = fixture({
+    rows: [delivery('synthetic-invalid', { message: 'x'.repeat(2901) })]
+  });
+  await f.worker.tick(now);
+  assert.equal(f.state.rows[0].status, 'blocked');
+  assert.equal(f.state.rows[0].error_code, 'INVALID_MESSAGE');
+  assert.equal(f.state.rows[0].approved_at, null);
+  assert.equal(f.state.rows[0].external_post_id, null);
+  assert.equal(f.state.projections.length, 0);
+  assert.equal(
+    f.state.audits.some((audit) =>
+      audit.action.endsWith('.provider_result_observed')
+    ),
+    false
+  );
+});
+
 test('simulation completes a delivery without marking sponsorship benefits delivered', async () => {
   const f = fixture();
   await f.worker.tick(now);
@@ -487,7 +731,19 @@ test('completion updates sponsorship projections only for live deliveries', asyn
         delivery('synthetic-batch-delivery', {
           mode,
           batch_id: 'synthetic-batch',
-          source_snapshot: [{ id: 'synthetic-draft' }]
+          message:
+            'Synthetic sponsor\n\nSynthetic sponsor contribution\n\nPaid sponsorship.',
+          source_snapshot: [
+            {
+              id: 'synthetic-draft',
+              contribution_id: 'synthetic-sponsor',
+              title: 'Synthetic sponsor',
+              body: 'Synthetic sponsor contribution',
+              disclosure_text: 'Paid sponsorship.',
+              feed_target: 'openg7',
+              channel: 'facebook'
+            }
+          ]
         })
       ]
     });
@@ -519,6 +775,77 @@ test('completion updates sponsorship projections only for live deliveries', asyn
       ]);
     }
   }
+});
+
+test('completion cannot record an older externally verified post whose beneficiary block is missing', async () => {
+  const f = fixture({
+    rows: [
+      delivery('synthetic-incomplete-batch', {
+        mode: 'live',
+        batch_id: 'synthetic-batch',
+        message: 'A historical post that omitted its sponsor',
+        source_snapshot: [
+          {
+            id: 'synthetic-draft',
+            contribution_id: 'synthetic-sponsor',
+            title: 'Synthetic sponsor',
+            body: 'Synthetic sponsor contribution',
+            disclosure_text: 'Paid sponsorship.',
+            feed_target: 'openg7',
+            channel: 'facebook'
+          }
+        ]
+      })
+    ]
+  });
+  const before = structuredClone(f.state.rows[0]);
+  await assert.rejects(
+    complete(
+      f.pool,
+      before,
+      'synthetic-post',
+      'https://example.test/post',
+      'synthetic-reviewer'
+    ),
+    { code: 'SOURCE_CONTENT_MISSING' }
+  );
+  assert.deepEqual(f.state.rows[0], before);
+  assert.equal(f.state.audits.length, 0);
+  assert.equal(f.state.projections.length, 0);
+});
+
+test('completion preserves an uncertain delivery when its batch association changes before locking', async () => {
+  const f = fixture({
+    batchSlotId: 'synthetic-original-slot',
+    batchSlotAfterLock: 'synthetic-new-slot',
+    rows: [
+      delivery('synthetic-uncertain-batch', {
+        mode: 'live',
+        batch_id: 'synthetic-batch',
+        status: 'uncertain'
+      })
+    ]
+  });
+  const before = structuredClone(f.state.rows[0]);
+  await assert.rejects(
+    complete(
+      f.pool,
+      before,
+      'synthetic-post',
+      'https://example.test/post',
+      'synthetic-reviewer'
+    ),
+    { code: 'SOURCE_CHANGED' }
+  );
+  assert.deepEqual(f.state.rows[0], before);
+  assert.equal(f.state.projections.length, 0);
+  assert.equal(f.state.audits.length, 0);
+  assert.equal(
+    f.events.some(({ text }) =>
+      text?.startsWith('UPDATE publication_deliveries')
+    ),
+    false
+  );
 });
 
 test('revocation after preflight stops the old worker before dispatch', async (t) => {

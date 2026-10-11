@@ -12,6 +12,10 @@ import {
   type DeliveryRow,
   type PublicationCommandsContext
 } from './context.js';
+import {
+  assertSponsorshipContent,
+  composeSponsorshipContent
+} from './content.js';
 import { editorialMessage } from './editorial-profiles.js';
 import { assertMediaScope, resolveMedia } from './media.js';
 import {
@@ -25,11 +29,7 @@ import {
 } from './policy.js';
 import { ready } from './preflight.js';
 import { checkConnection, DeliveryFailure, verifyRemote } from './provider.js';
-import {
-  sourceEqual,
-  sourceMessage,
-  sources as loadSources
-} from './sources.js';
+import { sourceEqual, sources as loadSources } from './sources.js';
 
 export async function command(
   context: PublicationCommandsContext,
@@ -189,12 +189,9 @@ export async function command(
         : [];
       const message =
         input.message ??
-        (await editorialMessage(
-          db,
-          input.feedId,
-          sourceMessage(sources),
-          sources.map((s) => s.contribution_id)
-        ));
+        (input.batchId
+          ? await composeSponsorshipContent(db, input.feedId, sources)
+          : await editorialMessage(db, input.feedId, '', []));
       const date =
         input.scheduledAt ??
         (input.batchId
@@ -302,6 +299,7 @@ export async function command(
           row.status === 'draft' && row.scheduled_at.getTime() > Date.now(),
           'APPROVAL_UNAVAILABLE'
         );
+        validateContent(row.message, row.scheduled_at.toISOString());
         if (row.batch_id) {
           // All decisions share the delivery transaction: any failed check
           // rolls back sponsor approvals as well as the sending authorization.
@@ -351,6 +349,7 @@ export async function command(
             pending.every((s) => s.presentation_approved),
             'SPONSOR_MEDIA_REQUIRED'
           );
+          await assertSponsorshipContent(db, row);
           for (const sponsor of pending) {
             await db.query(
               `UPDATE fund_contributions SET sponsor_review_status='approved',sponsor_reviewed_at=NOW(),sponsor_site_visibility_held=TRUE,updated_at=NOW() WHERE id=$1`,

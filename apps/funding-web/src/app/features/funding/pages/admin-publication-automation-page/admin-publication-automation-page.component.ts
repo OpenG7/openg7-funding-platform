@@ -260,10 +260,18 @@ export class AdminPublicationAutomationPageComponent {
   }
   private showError(error: unknown): void {
     const code = error instanceof Error ? error.message : '';
+    if (
+      code === 'SOURCE_CONTENT_MISSING' &&
+      this.delivery.selected()?.status === 'uncertain'
+    ) {
+      this.error.set('admin.publicationAutomation.sourceContentUncertain');
+      return;
+    }
     const key = [
       'VERSION_CONFLICT',
       'WORKER_VERSION_CONFLICT',
       'SOURCE_CHANGED',
+      'SOURCE_CONTENT_MISSING',
       'MEDIA_CHANGED',
       'SOURCE_NOT_ELIGIBLE',
       'SPONSOR_APPROVAL_REQUIRED',

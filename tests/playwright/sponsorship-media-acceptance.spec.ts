@@ -314,7 +314,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
       for (let index = 0; index < jobs.length; index++) {
         jobs[index] = await authorize(
           jobs[index]!,
-          `Merci à ${name}. Commandite rémunérée, recette simulée.`,
+          `${jobs[index]!.message}\n\nMerci à ${name}. Commandite rémunérée, recette simulée.`,
           originalDue
         );
       }
@@ -642,7 +642,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         for (let index = 0; index < jobs.length; index++) {
           jobs[index] = await authorize(
             jobs[index]!,
-            `Merci à ${name}. Visuel révisé et approuvé. Commandite rémunérée, recette simulée.`,
+            `${jobs[index]!.message}\n\nMerci à ${name}. Visuel révisé et approuvé. Commandite rémunérée, recette simulée.`,
             due
           );
         }

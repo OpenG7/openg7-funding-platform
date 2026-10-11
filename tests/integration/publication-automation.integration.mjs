@@ -3,6 +3,7 @@ import test from 'node:test';
 import { createHash, randomUUID } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import sharp from 'sharp';
+import { composePublicationRecognition } from '../../dist/packages/funding-core/src/index.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 import { PublicationAutomationService } from '../../dist/apps/funding-api/src/publication-automation/service.js';
 import { sources } from '../../dist/apps/funding-api/src/publication-automation/sources.js';
@@ -86,6 +87,18 @@ test(
     }
     async function record(id) {
       return (await service.state()).deliveries.find((j) => j.id === id);
+    }
+    async function sponsorshipMessage(batchId, prefix = '') {
+      const sources = (
+        await pool.query(
+          `SELECT d.id,d.contribution_id AS "contributionId",c.sponsor_company_name AS name,d.title,d.body,d.disclosure_text AS "disclosureText"
+        FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id WHERE d.batch_id=$1 ORDER BY d.id`,
+          [batchId]
+        )
+      ).rows;
+      return [prefix, composePublicationRecognition(sources)]
+        .filter(Boolean)
+        .join('\n\n');
     }
     async function sponsor() {
       const id = randomUUID();
@@ -560,12 +573,16 @@ test(
         const filled = await record(job.id);
         assert.equal(filled.sponsors.length, 2);
         assert.equal(filled.version, job.version + 1);
+        const humanMessage = await sponsorshipMessage(
+          job.batchId,
+          'Human editorial choice'
+        );
         await service.command(
           {
             action: 'edit',
             id: job.id,
             version: filled.version,
-            message: 'Human editorial choice',
+            message: humanMessage,
             scheduledAt: filled.scheduledAt,
             mediaId: null
           },
@@ -573,7 +590,7 @@ test(
         );
         await sponsor();
         await service.prepare(feedId, 'planner');
-        assert.equal((await record(job.id)).message, 'Human editorial choice');
+        assert.equal((await record(job.id)).message, humanMessage);
         assert.equal((await record(job.id)).sponsors.length, 2);
         await service.command(
           {
@@ -1038,7 +1055,10 @@ test(
               action: 'edit',
               id: job.id,
               version: blocked.version,
-              message: 'Reviewed publication for Revised company',
+              message: await sponsorshipMessage(
+                job.batchId,
+                'Reviewed publication for Revised company'
+              ),
               scheduledAt: job.scheduledAt,
               mediaId: null
             },
@@ -1091,7 +1111,7 @@ test(
         );
         assert.equal(
           (await record(id)).message,
-          'Custom title\n\nCustom full body\n\nDisclosure'
+          'Partenaire : Fixture sponsor\n\nCustom title\n\nCustom full body\n\nDisclosure'
         );
         await approve(id);
         await assert.rejects(
@@ -1113,7 +1133,7 @@ test(
             action: 'edit',
             id,
             version: (await record(id)).version,
-            message: 'Reviewed final message',
+            message: await sponsorshipMessage(b, 'Reviewed final message'),
             scheduledAt: future,
             mediaId: null
           },
@@ -1413,6 +1433,71 @@ test(
       }
     );
     await t.test(
+      'an older approved truncated sponsorship is blocked before dispatch without publication projections',
+      async (st) => {
+        await reset();
+        await activate();
+        await sponsor();
+        await service.prepare(feedId, 'planner');
+        const job = (await service.state()).deliveries.find(
+          (j) => j.status === 'draft'
+        );
+        assert.ok(job);
+        await service.command(
+          {
+            action: 'edit',
+            id: job.id,
+            version: job.version,
+            message: job.message,
+            scheduledAt: future,
+            mediaId: null
+          },
+          'tester'
+        );
+        await approve(job.id);
+        const before = (
+          await pool.query(
+            'SELECT status,published_at FROM sponsor_publication_drafts WHERE batch_id=$1 ORDER BY id',
+            [job.batchId]
+          )
+        ).rows;
+        // Reproduce an authorized legacy row whose free-form message lost its
+        // protected source block before the new approval controls were present.
+        await pool.query(
+          "UPDATE publication_deliveries SET message='Truncated thank-you without beneficiary' WHERE id=$1",
+          [job.id]
+        );
+        st.mock.method(globalThis, 'fetch', async () =>
+          assert.fail('invalid recognition must not reach a provider')
+        );
+        await service.tick(due);
+        await service.tick(due);
+        const blocked = await record(job.id);
+        assert.equal(blocked.status, 'blocked');
+        assert.equal(blocked.errorCode, 'SOURCE_CONTENT_MISSING');
+        assert.equal(blocked.approvedAt, null);
+        assert.equal(blocked.externalPostId, null);
+        assert.deepEqual(
+          (
+            await pool.query(
+              'SELECT status,published_at FROM sponsor_publication_drafts WHERE batch_id=$1 ORDER BY id',
+              [job.batchId]
+            )
+          ).rows,
+          before
+        );
+        assert.equal(
+          (
+            await pool.query(
+              "SELECT count(*)::int AS n FROM admin_audit_log WHERE entity_id=$1 AND action IN ('publication_automation.published','publication_automation.provider_result_observed')",
+              [job.id]
+            )
+          ).rows[0].n,
+          0
+        );
+      }
+    );
+    await t.test(
       'database failure after provider success cannot turn into an automatic resend',
       async (st) => {
         await reset();
@@ -1426,6 +1511,7 @@ test(
         await activate();
         const id = await compose();
         await approve(id);
+        const approvedVersion = (await record(id)).version;
         await pool.query(
           `CREATE FUNCTION fail_publication_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.action='publication_automation.published' THEN RAISE EXCEPTION 'synthetic commit failure'; END IF; RETURN NEW; END $$; CREATE TRIGGER fail_publication_audit BEFORE INSERT ON admin_audit_log FOR EACH ROW EXECUTE FUNCTION fail_publication_audit()`
         );
@@ -1433,7 +1519,33 @@ test(
           await service.tick(due);
           await service.tick(due);
           assert.equal((await record(id)).status, 'uncertain');
+          assert.equal((await record(id)).externalPostId, null);
           assert.equal(calls, 1);
+          const observed = await pool.query(
+            "SELECT actor,metadata FROM admin_audit_log WHERE entity_id=$1 AND action='publication_automation.provider_result_observed'",
+            [id]
+          );
+          assert.deepEqual(observed.rows, [
+            {
+              actor: 'publication-worker',
+              metadata: {
+                claimVersion: approvedVersion + 1,
+                mode: 'live',
+                feedId: 'openg20:facebook',
+                externalPostId: '20_2',
+                externalPostUrl: 'https://www.facebook.com/20_2'
+              }
+            }
+          ]);
+          assert.equal(
+            (
+              await pool.query(
+                "SELECT count(*)::int AS n FROM admin_audit_log WHERE entity_id=$1 AND action='publication_automation.published'",
+                [id]
+              )
+            ).rows[0].n,
+            0
+          );
         } finally {
           await pool.query(
             'DROP TRIGGER fail_publication_audit ON admin_audit_log; DROP FUNCTION fail_publication_audit()'

@@ -593,7 +593,7 @@ for (const amount of [100, 250]) {
             await dialog
               .getByRole('button', { name: 'Modifier', exact: true })
               .click();
-            const message = `Merci à ${name}. Commandite rémunérée, recette simulée.`;
+            const message = `${job.message}\n\nMerci à ${name}. Commandite rémunérée, recette simulée.`;
             await dialog.getByLabel('Texte exact à publier').fill(message);
             await dialog.getByLabel('Image approuvée').selectOption(photo.id);
             const date = new Date(

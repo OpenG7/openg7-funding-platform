@@ -11,7 +11,11 @@ import {
   type DeliveryRow,
   type PublicationDeliveryWorkerContext
 } from './context.js';
-import { complete, handleDeliveryFailure } from './delivery-outcomes.js';
+import {
+  complete,
+  handleDeliveryFailure,
+  observeProviderResult
+} from './delivery-outcomes.js';
 import { assert, feedConfig, PublicationAutomationError } from './policy.js';
 import { ready } from './preflight.js';
 import { sendDelivery } from './provider.js';
@@ -58,6 +62,9 @@ export async function executeDelivery(
       () => assertDispatchClaim(context, row)
     );
     const published = result;
+    // This observation commits independently of completion and grants no
+    // published status. A later failure still requires reconciliation.
+    await observeProviderResult(context, row, published);
     // Persist the external result and audit in one transaction. Failure leaves an uncertain job; never resend blindly.
     await withPostgresTransaction(context.pool, async (db) => {
       await complete(

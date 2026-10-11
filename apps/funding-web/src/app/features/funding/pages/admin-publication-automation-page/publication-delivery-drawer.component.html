@@ -24,6 +24,15 @@
         <p class="alert">
           {{ 'admin.publicationAutomation.uncertain' | translate }}
         </p>
+        @if (job.errorCode === 'SOURCE_CONTENT_MISSING') {
+          <section data-og7="publication-content-uncertain" role="status">
+            <p>
+              {{
+                'admin.publicationAutomation.sourceContentUncertain' | translate
+              }}
+            </p>
+          </section>
+        }
       }
       @if (job.status === 'blocked') {
         <p class="alert">
@@ -58,6 +67,19 @@
                 >{{ sponsor.name }}</a
               >
             }
+          </section>
+        }
+        @if (job.errorCode === 'SOURCE_CONTENT_MISSING') {
+          <section data-og7="publication-content-blocker" role="status">
+            <p>
+              {{
+                'admin.publicationAutomation.errors.SOURCE_CONTENT_MISSING'
+                  | translate
+              }}
+            </p>
+            <a routerLink="/admin/fundraiser/publications/drafts">
+              {{ 'admin.publicationAutomation.editSourceDrafts' | translate }}
+            </a>
           </section>
         }
         @if (job.errorCode === 'SOURCE_NOT_ELIGIBLE') {
