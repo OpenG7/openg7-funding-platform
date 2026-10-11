@@ -136,6 +136,11 @@ test('rejection and refund messages preserve explicit handling and escape multil
       /Note remboursement:<\/strong> Note &lt;synthetic&gt;/
     );
     assert.doesNotMatch(message.html, /<script>/);
+    assert.doesNotMatch(
+      message.text,
+      /Motif <synthetic>|Suite & originale\n\nMotif de revue/
+    );
+    assert.doesNotMatch(message.html, /Motif &lt;synthetic&gt;|Motif de revue/);
     assert.equal(message.metadata.refundHandling, refundHandling);
   }
   const refund = renderSponsorshipRefundEmail(input);

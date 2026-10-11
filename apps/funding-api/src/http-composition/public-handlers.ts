@@ -6,6 +6,8 @@ import {
 } from '../business-helpers/contribution-reference.js';
 import { createDevelopmentCheckoutResult } from '../business-helpers/development-results.js';
 import { createDurableCheckoutService } from '../checkout-operations.service.js';
+import { createPublicModerationHttpHandler } from '../moderation/public-http.js';
+import { recordSponsorshipCharterAcceptance } from '../moderation/charter.js';
 import { sponsorLogoPublicUrlForFilename } from '../business-helpers/media-exposure.js';
 import {
   PUBLIC_DISPLAY_NAME_MAX_LENGTH,
@@ -109,6 +111,13 @@ export const createPublicHttpHandlers = ({
   writeSponsorMediaMutationFailure,
   readStripeTransparency
 }: PublicHttpCompositionContext): PublicHttpHandlers => {
+  const handlePublicModerationRequest = createPublicModerationHttpHandler({
+    publicBaseOrigin,
+    pool: dbPool,
+    ttlDays: sponsorshipFollowupTokenTtlDays,
+    readBody,
+    writeJson
+  });
   const handleSponsorshipFollowupRequest = createSponsorshipFollowupHttpHandler(
     {
       publicBaseOrigin,
@@ -249,6 +258,7 @@ export const createPublicHttpHandlers = ({
     buildContributionReceiptDescription,
     truncateStripeMetadataValue,
     runCheckout: createDurableCheckoutService(dbPool, stripe),
+    recordCharterAcceptance: recordSponsorshipCharterAcceptance,
     reportFailure: (message, code) => console.error(message, code)
   });
 
@@ -293,6 +303,7 @@ export const createPublicHttpHandlers = ({
 
   // Dispatch order belongs to the dispatcher, which interleaves both groups.
   return {
+    handlePublicModerationRequest,
     handlePublicFundingRequest,
     handlePublicPaymentsRequest,
     handleReferenceLookupRequest,

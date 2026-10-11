@@ -5,6 +5,8 @@ import type {
 } from '@openg7/funding-core';
 import type { Pool, PoolClient } from 'pg';
 
+import { moderationVisibleSql } from '../moderation/policy.js';
+
 import type {
   SponsorMediaAssetRow,
   SponsorMediaStorageRecord
@@ -111,6 +113,7 @@ export const listPublicSponsorMediaByContributionIds = async (
        WHERE contribution_id = ANY($1::uuid[])
          AND deleted_at IS NULL
          AND review_status = 'approved'
+         AND ${moderationVisibleSql('media', 'sponsor_media_assets.id')}
          AND public_url IS NOT NULL
      ) AS media
      INNER JOIN fund_contributions AS contribution
@@ -150,6 +153,7 @@ export const getApprovedPublicSponsorMedia = async (
      WHERE media.id = $1::uuid
        AND media.deleted_at IS NULL
        AND media.review_status = 'approved'
+       AND ${moderationVisibleSql('media', 'media.id')}
        AND EXISTS (
          SELECT 1
          FROM fund_contributions AS contribution

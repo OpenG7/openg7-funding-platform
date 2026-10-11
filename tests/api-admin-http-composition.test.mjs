@@ -159,6 +159,7 @@ const fixture = ({ database = true, role, permitted = true, pool } = {}) => {
 
 // Representative owned routes include both authorization-only and database-bound checks.
 const protectedRoutes = [
+  ['AdminModeration', 'moderation/content', 'GET'],
   ['AdminContributions', 'contributions.csv'],
   ['AdminDocuments', 'sponsorship-invoices/backfill'],
   ['AdminAccounting', 'expenses'],

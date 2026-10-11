@@ -23,6 +23,7 @@ import type {
   updateSponsorshipReview
 } from './fund-contributions.repository.js';
 import { createRouteMatcher, isJsonContentType } from './http-routing.js';
+import { ModerationError } from './moderation/policy.js';
 import type { createHttpTransport } from './http-transport.js';
 import type {
   isSponsorshipWebsiteVisibilityRequest,
@@ -230,7 +231,11 @@ export const createAdminSponsorshipDecisionsHttpHandler = ({
       const reviewNote =
         typeof parsed.reviewNote === 'string' ? parsed.reviewNote.trim() : '';
       const isRejection = parsed.reviewStatus === 'rejected';
-      const notifySponsor = isRejection && parsed.notifySponsor !== false;
+      // Structured decisions reserve their external-only notification atomically.
+      const notifySponsor =
+        isRejection &&
+        !parsed.moderationDecision &&
+        parsed.notifySponsor !== false;
       const notificationEmail =
         typeof parsed.notificationEmail === 'string'
           ? parsed.notificationEmail.trim()
@@ -256,7 +261,7 @@ export const createAdminSponsorshipDecisionsHttpHandler = ({
         return true;
       }
 
-      if (isRejection && !reviewNote) {
+      if (isRejection && !reviewNote && !parsed.moderationDecision) {
         writeJson(request, response, 400, {
           error: 'A rejection reason is required.'
         });
@@ -323,7 +328,10 @@ export const createAdminSponsorshipDecisionsHttpHandler = ({
           contributionId: parsed.contributionId,
           reviewStatus: parsed.reviewStatus,
           reviewNote: reviewNote || null,
-          expectedVersion: parsed.expectedVersion
+          expectedVersion: parsed.expectedVersion,
+          moderationDecision: parsed.moderationDecision,
+          confirmation: parsed.confirmation,
+          actor: getAdminAuditActor(request)
         });
 
         if (!updated.updated) {
@@ -334,10 +342,14 @@ export const createAdminSponsorshipDecisionsHttpHandler = ({
           return true;
         }
 
+        const finalizedRejection =
+          isRejection &&
+          updated.decisionState !== 'pending_independent_review' &&
+          (updated.reviewStatus ?? parsed.reviewStatus) === 'rejected';
         const refundWorkflowStatus =
-          isRejection && refundHandling === 'manual_required'
+          finalizedRejection && refundHandling === 'manual_required'
             ? 'requested'
-            : isRejection && refundHandling === 'manual_completed'
+            : finalizedRejection && refundHandling === 'manual_completed'
               ? 'completed'
               : undefined;
         if (refundWorkflowStatus) {
@@ -348,7 +360,7 @@ export const createAdminSponsorshipDecisionsHttpHandler = ({
           });
         }
 
-        const updatedSponsorship = isRejection
+        const updatedSponsorship = finalizedRejection
           ? await getAdminSponsorshipById(parsed.contributionId)
           : null;
         const notificationResult =
@@ -363,7 +375,6 @@ export const createAdminSponsorshipDecisionsHttpHandler = ({
                   'commanditaire',
                 amount: updatedSponsorship.amount,
                 currency: updatedSponsorship.currency,
-                reviewReason: reviewNote,
                 sponsorMessage,
                 refundHandling,
                 refundNote: refundNote || undefined,
@@ -373,7 +384,10 @@ export const createAdminSponsorshipDecisionsHttpHandler = ({
 
         const result: AdminSponsorshipReviewResult = {
           updated: updated.updated,
-          reviewStatus: parsed.reviewStatus,
+          reviewStatus: updated.reviewStatus ?? parsed.reviewStatus,
+          ...(updated.decisionState
+            ? { decisionState: updated.decisionState }
+            : {}),
           ...(isRejection ? { refundHandling } : {}),
           ...(refundWorkflowStatus ? { refundWorkflowStatus } : {}),
           ...(notificationResult
@@ -388,31 +402,41 @@ export const createAdminSponsorshipDecisionsHttpHandler = ({
               }
             : {})
         };
-        await insertAdminAuditLog({
-          actor: getAdminAuditActor(request),
-          action: `sponsorship_review.${parsed.reviewStatus}`,
-          entityType: 'sponsorship',
-          entityId: parsed.contributionId,
-          summary: `Sponsorship review set to ${parsed.reviewStatus}.`,
-          metadata: {
-            reviewStatus: parsed.reviewStatus,
-            hasReviewNote: Boolean(reviewNote),
-            ...(isRejection
-              ? {
-                  notifySponsor,
-                  notificationEmail: notifySponsor ? notificationEmail : null,
-                  notificationMessageId: notificationResult?.messageId ?? null,
-                  notificationSent: notificationResult?.sent ?? false,
-                  notificationError: notificationResult?.error ?? null,
-                  refundHandling,
-                  refundWorkflowStatus: refundWorkflowStatus ?? null,
-                  hasRefundNote: Boolean(refundNote)
-                }
-              : {})
-          }
-        });
+        if (!updated.decisionState)
+          await insertAdminAuditLog({
+            actor: getAdminAuditActor(request),
+            action: `sponsorship_review.${updated.reviewStatus ?? parsed.reviewStatus}`,
+            entityType: 'sponsorship',
+            entityId: parsed.contributionId,
+            summary: 'Sponsorship review decision recorded.',
+            metadata: {
+              reviewStatus: updated.reviewStatus ?? parsed.reviewStatus,
+              decisionState: updated.decisionState ?? null,
+              hasReviewNote: Boolean(reviewNote),
+              ...(isRejection
+                ? {
+                    notifySponsor,
+                    notificationEmail: notifySponsor ? notificationEmail : null,
+                    notificationMessageId:
+                      notificationResult?.messageId ?? null,
+                    notificationSent: notificationResult?.sent ?? false,
+                    notificationError: notificationResult?.error ?? null,
+                    refundHandling,
+                    refundWorkflowStatus: refundWorkflowStatus ?? null,
+                    hasRefundNote: Boolean(refundNote)
+                  }
+                : {})
+            }
+          });
         writeJson(request, response, 200, result);
       } catch (error) {
+        if (error instanceof ModerationError) {
+          writeJson(request, response, error.status, {
+            code: error.code,
+            error: error.code
+          });
+          return true;
+        }
         reportFailure('Failed to update sponsorship review.', error);
         writeJson(request, response, 502, {
           error: 'Sponsorship review could not be updated.'
@@ -466,7 +490,14 @@ export const createAdminSponsorshipDecisionsHttpHandler = ({
           outcome,
           code: `WEBSITE_VISIBILITY_${outcome.toUpperCase()}`
         });
-      } catch {
+      } catch (error) {
+        if (error instanceof ModerationError) {
+          writeJson(request, response, error.status, {
+            code: error.code,
+            error: error.code
+          });
+          return true;
+        }
         writeJson(request, response, 503, {
           error: 'Website visibility could not be updated.',
           code: 'WEBSITE_VISIBILITY_UNAVAILABLE'
@@ -607,6 +638,7 @@ export const createAdminSponsorshipDecisionsHttpHandler = ({
             parsed.feedPublicUrl.trim().length > 0
               ? parsed.feedPublicUrl.trim()
               : undefined,
+          confirmation: parsed.confirmation,
           feedNotes:
             typeof parsed.feedNotes === 'string' &&
             parsed.feedNotes.trim().length > 0
@@ -646,6 +678,13 @@ export const createAdminSponsorshipDecisionsHttpHandler = ({
         });
         writeJson(request, response, 200, result);
       } catch (error) {
+        if (error instanceof ModerationError) {
+          writeJson(request, response, error.status, {
+            code: error.code,
+            error: error.code
+          });
+          return true;
+        }
         reportFailure('Failed to update sponsorship publication.', error);
         writeJson(request, response, 502, {
           error: 'Sponsorship publication could not be updated.'

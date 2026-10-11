@@ -57,7 +57,12 @@ test(
           const batchId = f.members[0].batchId;
           if (action === 'published')
             assert.equal(
-              (await publishAdminPublicationBatch(pool, { batchId })).updated,
+              (
+                await publishAdminPublicationBatch(pool, {
+                  batchId,
+                  confirmation: batchId
+                })
+              ).updated,
               true
             );
           if (action === 'cancelled')

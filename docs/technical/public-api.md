@@ -4,6 +4,10 @@ Reference extracted from the main README. Read only the relevant section; curren
 feature guides and implementation define the exact contract. Commands run from
 the repository root. [Documentation index](../README.md).
 
+Prepared public charter, private decisions, corrections and human reconsideration:
+[moderation contracts](../operations/sponsorship-moderation.md). Public terms remain
+inactive until explicit editorial validation and matching server policy.
+
 ## Public sponsorship page
 
 Approved, consented sponsorships are exposed through:

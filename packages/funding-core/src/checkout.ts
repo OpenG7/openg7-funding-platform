@@ -1,4 +1,5 @@
 import type { ContributionType } from './contribution-contracts.js';
+import type { SponsorshipCharterAcceptance } from './moderation-followup.js';
 
 export interface CheckoutConsentPayload {
   readonly contributionType: ContributionType;
@@ -6,6 +7,8 @@ export interface CheckoutConsentPayload {
   readonly publicDisplayName?: string;
   readonly displayAmountConsent: boolean;
   readonly nonCharityAcknowledged: boolean;
+  /** Required only when the API has activated validated public charter terms. */
+  readonly charterAcceptance?: SponsorshipCharterAcceptance;
 }
 
 export interface CheckoutRequest extends CheckoutConsentPayload {

@@ -189,6 +189,7 @@ test('saving a publication sends the existing trimmed contract with the dossier 
       token: 'synthetic-token',
       payload: {
         contributionId: 'synthetic-sponsor',
+        confirmation: 'synthetic-sponsor',
         expectedVersion: 'synthetic-dossier-v1',
         publicSlug: 'equipe-synthetique',
         publicSummary: 'Synthetic edited summary',
@@ -221,6 +222,7 @@ test('empty optional fields retain their undefined or null payload semantics', a
   await f.workflow.savePublication(f.state.records[0]);
   assert.deepEqual(f.calls[0].payload, {
     contributionId: 'synthetic-sponsor',
+    confirmation: 'synthetic-sponsor',
     expectedVersion: 'synthetic-dossier-v1',
     publicSlug: undefined,
     publicSummary: undefined,

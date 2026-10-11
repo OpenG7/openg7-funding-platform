@@ -4,6 +4,7 @@ import type {
   AdminSponsorMediaDeleteRequest,
   AdminSponsorMediaReviewRequest,
   AdminSponsorMediaReviewResult,
+  AdminSponsorMediaMetadataRequest,
   AdminSponsorLogoDeleteRequest,
   AdminSponsorLogoDeleteResult,
   AdminSponsorLogoUploadResult,
@@ -25,6 +26,7 @@ import {
   type MultipartPart
 } from './http-multipart.js';
 import { createRouteMatcher } from './http-routing.js';
+import { ModerationError } from './moderation/policy.js';
 import type { createHttpTransport } from './http-transport.js';
 import {
   parseSponsorLogoUpload,
@@ -34,6 +36,7 @@ import {
 import type {
   deleteSponsorMediaAsset as DeleteSponsorMediaAsset,
   reviewSponsorMediaAsset as ReviewSponsorMediaAsset,
+  updateSponsorMediaMetadata as UpdateSponsorMediaMetadata,
   SponsorMediaMutationResult,
   SponsorMediaStorageRecord
 } from './sponsor-media.repository.js';
@@ -80,6 +83,9 @@ export interface AdminSponsorshipMediaHttpDependencies {
   ) => Promise<SponsorMediaStorageRecord | null>;
   readonly reviewSponsorMediaAsset: (
     input: Parameters<typeof ReviewSponsorMediaAsset>[1]
+  ) => Promise<SponsorMediaMutationResult>;
+  readonly updateSponsorMediaMetadata: (
+    input: Parameters<typeof UpdateSponsorMediaMetadata>[1]
   ) => Promise<SponsorMediaMutationResult>;
   readonly deleteSponsorMediaAsset: (
     input: Parameters<typeof DeleteSponsorMediaAsset>[1]
@@ -148,6 +154,7 @@ export const createAdminSponsorshipMediaHttpHandler = ({
   listSponsorMediaAssets,
   getSponsorMediaStorageRecord,
   reviewSponsorMediaAsset,
+  updateSponsorMediaMetadata,
   deleteSponsorMediaAsset,
   sponsorMediaStorage,
   sponsorMediaPublicUrl,
@@ -268,6 +275,69 @@ export const createAdminSponsorshipMediaHttpHandler = ({
       request.method === 'POST' &&
       routeMatches(
         request.url,
+        '/admin/sponsorships/media/metadata',
+        '/api/admin/sponsorships/media/metadata'
+      )
+    ) {
+      if (!ensureAdminAccess(request, response)) return true;
+      let parsed: AdminSponsorMediaMetadataRequest;
+      try {
+        parsed = JSON.parse(
+          await readBody(request, 32 * 1024)
+        ) as AdminSponsorMediaMetadataRequest;
+        if (
+          !parsed ||
+          !isValidUuid(parsed.assetId) ||
+          !isValidAdminExpectedVersion(parsed.expectedVersion) ||
+          parsed.confirmation !== parsed.assetId ||
+          (parsed.altText !== null &&
+            (typeof parsed.altText !== 'string' ||
+              parsed.altText.length > SPONSOR_MEDIA_ALT_TEXT_MAX_LENGTH))
+        )
+          throw new Error('Invalid media metadata.');
+      } catch {
+        writeJson(request, response, 400, {
+          code: 'INVALID_MEDIA_METADATA',
+          error: 'Asset id, version, confirmation and caption are required.'
+        });
+        return true;
+      }
+      try {
+        const result = await updateSponsorMediaMetadata({
+          ...parsed,
+          actor: getAdminAuditActor(request)
+        });
+        if (result.status !== 'updated' || !result.asset)
+          writeSponsorMediaMutationFailure(
+            request,
+            response,
+            result.status === 'conflict' ? 'conflict' : 'not_found'
+          );
+        else
+          writeJson(request, response, 200, {
+            updated: true,
+            asset: result.asset
+          });
+      } catch (error) {
+        if (error instanceof ModerationError)
+          writeJson(request, response, error.status, {
+            code: error.code,
+            error: error.code
+          });
+        else {
+          reportFailure('Failed to update sponsor media caption.', error);
+          writeJson(request, response, 503, {
+            code: 'MEDIA_METADATA_UNAVAILABLE',
+            error: 'Sponsor media caption could not be saved.'
+          });
+        }
+      }
+      return true;
+    }
+    if (
+      request.method === 'POST' &&
+      routeMatches(
+        request.url,
         '/admin/sponsorships/media/review',
         '/api/admin/sponsorships/media/review'
       )
@@ -323,7 +393,9 @@ export const createAdminSponsorshipMediaHttpHandler = ({
             reviewStatus === 'approved'
               ? sponsorMediaPublicUrl(current.id)
               : null,
-          reviewedBy: getAdminAuditActor(request)
+          reviewedBy: getAdminAuditActor(request),
+          confirmation: parsed.confirmation,
+          moderationDecision: parsed.moderationDecision
         });
 
         if (reviewed.status !== 'updated' || !reviewed.asset) {
@@ -370,6 +442,13 @@ export const createAdminSponsorshipMediaHttpHandler = ({
           });
         } else writeJson(request, response, 200, result);
       } catch (error) {
+        if (error instanceof ModerationError) {
+          writeJson(request, response, error.status, {
+            code: error.code,
+            error: error.code
+          });
+          return true;
+        }
         reportFailure('Failed to review sponsor media.', error);
         writeJson(request, response, 502, {
           error: 'Sponsor media review could not be completed.'

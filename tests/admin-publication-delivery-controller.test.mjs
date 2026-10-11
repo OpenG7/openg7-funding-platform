@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 import { signal } from '@angular/core';
+import { moderationDecision } from './support/moderation-ui-fixture.mjs';
 
 import { PublicationDeliveryController } from '../dist/apps/funding-web/src/app/features/funding/pages/admin-publication-automation-page/publication-delivery-controller.js';
 
@@ -59,6 +60,9 @@ const fixture = (t) => {
   });
   t.mock.method(URL, 'revokeObjectURL', (url) => revoked.push(url));
   const ports = {
+    moderate: async (subject, level, initial) =>
+      moderationDecision(subject, level, initial),
+    refresh: async () => true,
     state: signal({ feeds: [], deliveries: [] }),
     busy: signal(false),
     error: signal(''),
@@ -108,7 +112,20 @@ test('approval binds the displayed delivery version and pending sponsor dossier 
         id: selected.id,
         version: 7,
         confirmation: selected.id,
-        approveSponsors: [{ id: 'synthetic-sponsor', version: 'sponsor-v4' }]
+        approveSponsors: [
+          {
+            id: 'synthetic-sponsor',
+            version: 'sponsor-v4',
+            moderationDecision: moderationDecision(
+              { type: 'sponsorship', id: 'synthetic-sponsor' },
+              'N0'
+            )
+          }
+        ],
+        moderationDecision: moderationDecision(
+          { type: 'publication_delivery', id: selected.id },
+          'N0'
+        )
       },
       open: false
     }
@@ -117,7 +134,7 @@ test('approval binds the displayed delivery version and pending sponsor dossier 
   assert.equal(f.controller.selected().status, 'draft');
 });
 
-test('approval without pending sponsors preserves the original payload', async (t) => {
+test('approval without pending sponsors binds editorial evidence to the delivery', async (t) => {
   const f = fixture(t);
   f.controller.open(delivery());
   f.controller.approved = true;
@@ -126,7 +143,11 @@ test('approval without pending sponsors preserves the original payload', async (
     action: 'approve',
     id: 'synthetic-delivery',
     version: 7,
-    confirmation: 'synthetic-delivery'
+    confirmation: 'synthetic-delivery',
+    moderationDecision: moderationDecision(
+      { type: 'publication_delivery', id: 'synthetic-delivery' },
+      'N0'
+    )
   });
 });
 
@@ -298,7 +319,20 @@ test('assigned images omitted from the catalog do not block exact approval of a 
     id: 'synthetic-delivery',
     version: 7,
     confirmation: 'synthetic-delivery',
-    approveSponsors: [{ id: 'synthetic-sponsor', version: 'sponsor-v4' }]
+    approveSponsors: [
+      {
+        id: 'synthetic-sponsor',
+        version: 'sponsor-v4',
+        moderationDecision: moderationDecision(
+          { type: 'sponsorship', id: 'synthetic-sponsor' },
+          'N0'
+        )
+      }
+    ],
+    moderationDecision: moderationDecision(
+      { type: 'publication_delivery', id: 'synthetic-delivery' },
+      'N0'
+    )
   });
 });
 
@@ -468,17 +502,30 @@ for (const action of ['reject', 'cancel']) {
       delivery({ status: action === 'cancel' ? 'approved' : 'draft' })
     );
     await f.controller[action]();
-    assert.deepEqual(f.calls.confirmations, [
-      {
-        message: `admin.publicationAutomation.${action}Confirm`,
-        title: 'openg20:linkedin'
-      }
-    ]);
+    assert.deepEqual(
+      f.calls.confirmations,
+      action === 'reject'
+        ? []
+        : [
+            {
+              message: `admin.publicationAutomation.${action}Confirm`,
+              title: 'openg20:linkedin'
+            }
+          ]
+    );
     assert.deepEqual(f.calls.commands[0].command, {
       action,
       id: 'synthetic-delivery',
       version: 7,
-      confirmation: 'synthetic-delivery'
+      confirmation: 'synthetic-delivery',
+      ...(action === 'reject'
+        ? {
+            moderationDecision: moderationDecision(
+              { type: 'publication_delivery', id: 'synthetic-delivery' },
+              'N3'
+            )
+          }
+        : {})
     });
   });
 
@@ -495,14 +542,21 @@ for (const action of ['reject', 'cancel']) {
         f.controller.open(
           delivery({ status: action === 'cancel' ? 'approved' : 'draft' })
         );
-        f.ports.confirm = async () => {
+        f.ports[action === 'reject' ? 'moderate' : 'confirm'] = async () => {
           if (outcome === 'changed')
             f.controller.open(delivery({ id: 'different' }));
           if (outcome === 'version')
             f.controller.selected.set(delivery({ version: 8 }));
           if (outcome === 'closed') f.controller.close();
           if (outcome === 'busy') f.ports.busy.set(true);
-          return outcome !== 'cancelled';
+          return outcome === 'cancelled'
+            ? null
+            : action === 'reject'
+              ? moderationDecision(
+                  { type: 'publication_delivery', id: 'synthetic-delivery' },
+                  'N3'
+                )
+              : true;
         };
         await f.controller[action]();
         assert.equal(f.calls.commands.length, 0);

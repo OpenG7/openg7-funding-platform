@@ -9,6 +9,7 @@ import type {
 
 import type { SponsorMediaStorage } from '../sponsor-media-storage.js';
 import { isSocialPublicationChannelConfigured } from '../social-publication.service.js';
+import { moderationApprovedSql } from '../moderation/policy.js';
 
 import { assert, feedConfig, validId } from './policy.js';
 import { type Db, sourceIssues } from './sources.js';
@@ -118,7 +119,7 @@ export class PublicationAutomationService {
     const worker = await this.workerSettings(db);
     const feeds = await this.feeds(db);
     const jobs = await db.query<DeliveryRow>(
-      `SELECT d.*,COALESCE((SELECT jsonb_agg(jsonb_build_object('id',c.id,'name',c.sponsor_company_name,'version',c.updated_at::text,'reviewStatus',c.sponsor_review_status,'paymentStatus',c.status,'presentationApproved',EXISTS(SELECT 1 FROM sponsor_media_assets m WHERE m.contribution_id=c.id AND m.kind='supporting_image' AND m.review_status='approved' AND m.deleted_at IS NULL)) ORDER BY c.id) FROM fund_contributions c WHERE c.id IN (SELECT s.contribution_id FROM sponsor_publication_drafts s WHERE s.batch_id=d.batch_id)),'[]'::jsonb) AS sponsors FROM publication_deliveries d
+      `SELECT d.*,COALESCE((SELECT jsonb_agg(jsonb_build_object('id',c.id,'name',c.sponsor_company_name,'version',c.updated_at::text,'reviewStatus',c.sponsor_review_status,'paymentStatus',c.status,'presentationApproved',EXISTS(SELECT 1 FROM sponsor_media_assets m WHERE m.contribution_id=c.id AND m.kind='supporting_image' AND m.review_status='approved' AND ${moderationApprovedSql('media', 'm.id')} AND m.deleted_at IS NULL)) ORDER BY c.id) FROM fund_contributions c WHERE c.id IN (SELECT s.contribution_id FROM sponsor_publication_drafts s WHERE s.batch_id=d.batch_id)),'[]'::jsonb) AS sponsors FROM publication_deliveries d
       WHERE ($1::uuid IS NULL OR EXISTS (SELECT 1 FROM sponsor_publication_drafts s WHERE s.batch_id=d.batch_id AND s.contribution_id=$1::uuid))
         AND ($2::uuid IS NULL OR d.id=$2::uuid)
       ORDER BY CASE WHEN status IN ('blocked','uncertain') THEN 0 WHEN status IN ('draft','approved','publishing') THEN 1 ELSE 2 END,scheduled_at DESC LIMIT 200`,

@@ -96,6 +96,7 @@
         <openg7-sponsorship-followup-form
           [followup]="current"
           [token]="token()"
+          [correctionAllowed]="!!correctionDecisionId()"
           [busy]="busy()"
           [draftBlocked]="!drafts.ready()"
           [restoredDraft]="drafts.restored()"
@@ -141,6 +142,12 @@
         </openg7-sponsorship-followup-form>
         <openg7-sponsorship-followup-status [followup]="current" />
       </div>
+      <openg7-sponsorship-moderation-followup
+        [token]="token()"
+        [refreshKey]="moderationRefresh()"
+        (correctionRequested)="correct($event)"
+        (accessLost)="clearAccess()"
+      />
     </ng-container>
   </section>
 </main>

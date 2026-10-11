@@ -83,7 +83,7 @@ interface Dossier {
   sponsor_message: string | null;
   sponsor_details_submitted_at: string | null;
 }
-async function authorizedDossier(
+export async function authorizedSponsorshipDossier(
   client: PoolClient,
   token: string,
   ttlDays: number
@@ -155,7 +155,10 @@ export const getSponsorshipDraft = (
   ttlDays: number
 ): Promise<SponsorshipDraftSnapshot> =>
   withPostgresTransaction(pool, async (client) =>
-    readDraft(client, (await authorizedDossier(client, token, ttlDays)).id)
+    readDraft(
+      client,
+      (await authorizedSponsorshipDossier(client, token, ttlDays)).id
+    )
   );
 
 export const saveSponsorshipDraft = (
@@ -169,7 +172,7 @@ export const saveSponsorshipDraft = (
     throw new SponsorshipAccessError(400, 'validation');
   const data = validateSponsorshipDraft(input);
   return withPostgresTransaction(pool, async (client) => {
-    const row = await authorizedDossier(client, token, ttlDays);
+    const row = await authorizedSponsorshipDossier(client, token, ttlDays);
     ensureEditable(row);
     const current = await readDraft(client, row.id);
     // Same-body retry after a lost acknowledgement is harmless.
@@ -189,7 +192,7 @@ export const submitSponsorshipDraft = (
   data: SponsorshipDraftValues
 ): Promise<boolean> =>
   withPostgresTransaction(pool, async (client) => {
-    const row = await authorizedDossier(client, token, ttlDays);
+    const row = await authorizedSponsorshipDossier(client, token, ttlDays);
     ensureEditable(row);
     const current = await readDraft(client, row.id);
     const previous = {

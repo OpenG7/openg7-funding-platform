@@ -7,9 +7,12 @@ import type {
   CheckoutResult,
   ContributionType
 } from '@openg7/funding-core';
+import type { PoolClient } from 'pg';
+import type { SponsorshipCharterAcceptance } from '@openg7/funding-core';
 
 import { isValidSponsorshipAmount } from '../../../packages/funding-core/src/index.js';
 
+import { validateCharterAcceptance } from './moderation/charter.js';
 import {
   buildSponsorshipFollowupUrl,
   sponsorshipFollowupLocaleFromUrl
@@ -75,6 +78,11 @@ export interface PublicPaymentsHttpDependencies {
   ) => string;
   readonly truncateStripeMetadataValue: (value: string) => string;
   readonly runCheckout: ReturnType<typeof createDurableCheckoutService>;
+  readonly recordCharterAcceptance?: (
+    db: PoolClient,
+    operationId: string,
+    acceptance: SponsorshipCharterAcceptance | undefined
+  ) => Promise<void>;
   readonly reportFailure: (message: string, error?: unknown) => void;
 }
 
@@ -104,6 +112,7 @@ export const createPublicPaymentsHttpHandler = ({
   buildContributionReceiptDescription,
   truncateStripeMetadataValue,
   runCheckout,
+  recordCharterAcceptance,
   reportFailure
 }: PublicPaymentsHttpDependencies) => {
   const { routeMatches } = createRouteMatcher(publicBaseOrigin);
@@ -240,6 +249,11 @@ export const createPublicPaymentsHttpHandler = ({
       }
 
       try {
+        const charterAcceptance = validateCharterAcceptance(
+          parsed.charterAcceptance
+        );
+        if (charterAcceptance && !isSponsorshipContribution)
+          throw new CheckoutOperationError('CHARTER_NOT_APPLICABLE', 400);
         const successUrl = resolveCheckoutReturnUrl(
           parsed.successUrl,
           '/?checkout=success'
@@ -265,13 +279,20 @@ export const createPublicPaymentsHttpHandler = ({
               displayAmountConsent: parsed.displayAmountConsent,
               nonCharityAcknowledged: parsed.nonCharityAcknowledged,
               successUrl,
-              cancelUrl
+              cancelUrl,
+              ...(charterAcceptance ? { charterAcceptance } : {})
             })
           )
           .digest('hex');
         const result = await runCheckout({
           key: JSON.stringify([projectId, parsed.idempotencyKey]),
           requestHash,
+          ...(isSponsorshipContribution && recordCharterAcceptance
+            ? {
+                afterPrepare: (db: PoolClient, operationId: string) =>
+                  recordCharterAcceptance(db, operationId, charterAcceptance)
+              }
+            : {}),
           prepare: (operationId) => {
             const requiresReview =
               parsed.contributionType === 'sponsorship_interest';
@@ -305,6 +326,19 @@ export const createPublicPaymentsHttpHandler = ({
               displayAmountConsent: String(parsed.displayAmountConsent),
               nonCharityAcknowledged: String(parsed.nonCharityAcknowledged),
               requiresReview: String(requiresReview),
+              ...(requiresReview
+                ? {
+                    sponsorshipLocale:
+                      sponsorshipFollowupLocaleFromUrl(successUrl)
+                  }
+                : {}),
+              ...(charterAcceptance
+                ? {
+                    charterPolicyVersion: charterAcceptance.policyVersion,
+                    charterFingerprint: charterAcceptance.fingerprint,
+                    charterLocale: charterAcceptance.locale
+                  }
+                : {}),
               ...(publicDisplayName
                 ? {
                     publicDisplayName:

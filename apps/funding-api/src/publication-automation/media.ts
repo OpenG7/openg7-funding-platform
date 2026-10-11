@@ -2,6 +2,7 @@ import { isDeepStrictEqual } from 'node:util';
 
 import type { SponsorMediaStorage } from '../sponsor-media-storage.js';
 import { sponsorMediaPublicUrl } from '../sponsor-media/public-url.js';
+import { moderationApprovedSql } from '../moderation/policy.js';
 
 import { assert, digest, validId } from './policy.js';
 import type { Db } from './sources.js';
@@ -23,7 +24,7 @@ export async function mediaOptions(
   batchId: string | null = null
 ): Promise<{ id: string; url: string; alt: string; company: string }[]> {
   const result = await db.query(
-    `SELECT m.id,m.public_url AS url,m.alt_text AS alt,c.sponsor_company_name AS company FROM sponsor_media_assets m JOIN fund_contributions c ON c.id=m.contribution_id WHERE m.deleted_at IS NULL AND m.review_status='approved' AND c.public_display_consent IS TRUE AND c.sponsor_review_status='approved' AND c.status='paid' AND m.public_url IS NOT NULL AND ($1::uuid IS NULL OR ${belongsToBatchSql('$1')}) ORDER BY m.created_at DESC LIMIT 200`,
+    `SELECT m.id,m.public_url AS url,m.alt_text AS alt,c.sponsor_company_name AS company FROM sponsor_media_assets m JOIN fund_contributions c ON c.id=m.contribution_id WHERE m.deleted_at IS NULL AND m.review_status='approved' AND ${moderationApprovedSql('media', 'm.id')} AND ${moderationApprovedSql('sponsorship', 'c.id')} AND c.public_display_consent IS TRUE AND c.sponsor_review_status='approved' AND c.status='paid' AND m.public_url IS NOT NULL AND ($1::uuid IS NULL OR ${belongsToBatchSql('$1')}) ORDER BY m.created_at DESC LIMIT 200`,
     [batchId]
   );
   return result.rows.map((row) => ({
@@ -35,11 +36,12 @@ export async function mediaOptions(
 export async function mediaRecord(
   db: Db,
   id: string,
-  batchId: string | null = null
+  batchId: string | null = null,
+  lock = true
 ): Promise<Omit<Media, 'hash'> | undefined> {
   const record = (
     await db.query<Omit<Media, 'hash'>>(
-      `SELECT m.id,m.public_url AS url,m.alt_text AS alt,m.processed_storage_key AS key,m.updated_at::text AS version FROM sponsor_media_assets m JOIN fund_contributions c ON c.id=m.contribution_id WHERE m.id=$1 AND m.deleted_at IS NULL AND m.review_status='approved' AND m.public_url IS NOT NULL AND LENGTH(TRIM(m.alt_text))>0 AND c.public_display_consent IS TRUE AND c.sponsor_review_status='approved' AND c.status='paid' AND ($2::uuid IS NULL OR ${belongsToBatchSql('$2')}) FOR SHARE OF m,c`,
+      `SELECT m.id,m.public_url AS url,m.alt_text AS alt,m.processed_storage_key AS key,m.updated_at::text AS version FROM sponsor_media_assets m JOIN fund_contributions c ON c.id=m.contribution_id WHERE m.id=$1 AND m.deleted_at IS NULL AND m.review_status='approved' AND ${moderationApprovedSql('media', 'm.id')} AND ${moderationApprovedSql('sponsorship', 'c.id')} AND m.public_url IS NOT NULL AND LENGTH(TRIM(m.alt_text))>0 AND c.public_display_consent IS TRUE AND c.sponsor_review_status='approved' AND c.status='paid' AND ($2::uuid IS NULL OR ${belongsToBatchSql('$2')})${lock ? ' FOR SHARE OF m,c' : ''}`,
       [id, batchId]
     )
   ).rows[0];
@@ -52,11 +54,12 @@ export async function resolveMedia(
   db: Db,
   storage: SponsorMediaStorage,
   id: string | null,
-  batchId: string | null = null
+  batchId: string | null = null,
+  lock = true
 ): Promise<Media | null> {
   if (!id) return null;
   assert(validId(id), 'INVALID_MEDIA', 400);
-  const r = await mediaRecord(db, id, batchId);
+  const r = await mediaRecord(db, id, batchId, lock);
   assert(r, 'MEDIA_NOT_APPROVED');
   const bytes = await storage.readPrivateObject(r.key);
   assert(bytes, 'MEDIA_UNAVAILABLE');

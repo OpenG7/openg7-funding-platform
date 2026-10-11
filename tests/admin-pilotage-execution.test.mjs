@@ -102,6 +102,7 @@ const dispatches = [
         id: targetId,
         version: 2,
         confirmation: targetId,
+        moderationDecision: undefined,
         approveSponsors
       },
       actor
@@ -112,7 +113,13 @@ const dispatches = [
     code: 'REJECTED',
     method: 'publications.command',
     args: [
-      { action: 'reject', id: targetId, version: 2, confirmation: targetId },
+      {
+        action: 'reject',
+        id: targetId,
+        version: 2,
+        confirmation: targetId,
+        moderationDecision: undefined
+      },
       actor
     ]
   }

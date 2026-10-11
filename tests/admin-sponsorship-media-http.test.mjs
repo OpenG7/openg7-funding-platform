@@ -28,6 +28,7 @@ const isValidUuid = (value) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 const reviewInput = {
   assetId,
+  confirmation: assetId,
   expectedVersion: version,
   reviewStatus: 'approved',
   altText: ' Synthetic photo '
@@ -202,6 +203,15 @@ const fixture = ({
     },
     listSponsorMediaAssets: (id) => call('list', id, [asset]),
     getSponsorMediaStorageRecord: (id) => call('get', id, asset),
+    updateSponsorMediaMetadata: (input) =>
+      call('metadata', input, {
+        status: 'updated',
+        asset: {
+          ...asset,
+          altText: input.altText,
+          reviewStatus: 'pending_review'
+        }
+      }),
     reviewSponsorMediaAsset: (input) =>
       call('review', input, {
         status: 'updated',
@@ -501,6 +511,43 @@ test('controlled logo previews reject invalid contributions, URLs, filenames and
   assert.deepEqual(f.names(), ['access', 'json']);
 });
 
+test('media caption edits require server authorization, exact version and asset confirmation without storage effects', async (t) => {
+  const input = {
+    assetId,
+    expectedVersion: version,
+    confirmation: assetId,
+    altText: 'Edited synthetic caption'
+  };
+  for (const prefix of ['/admin/sponsorships/', '/api/admin/sponsorships/']) {
+    await t.test(prefix, async () => {
+      const f = fixture();
+      const result = await f.run(prefix + 'media/metadata', {
+        method: 'POST',
+        body: JSON.stringify(input)
+      });
+      assert.equal(result.status, 200);
+      assert.equal(result.payload.asset.reviewStatus, 'pending_review');
+      assert.deepEqual(f.values('metadata'), [{ ...input, actor }]);
+      assert.deepEqual(f.names(), [
+        'access',
+        'body',
+        'actor',
+        'metadata',
+        'json'
+      ]);
+      for (const confirmation of [undefined, contributionId]) {
+        const invalid = fixture();
+        const refused = await invalid.run(prefix + 'media/metadata', {
+          method: 'POST',
+          body: JSON.stringify({ ...input, confirmation })
+        });
+        assert.equal(refused.status, 400);
+        assert.deepEqual(invalid.values('metadata'), []);
+      }
+    });
+  }
+});
+
 test('media approval keeps private storage and records the controlled API URL for both drivers and aliases', async (t) => {
   for (const storageDriver of ['local', 'ovh-s3']) {
     for (const prefix of ['/admin/sponsorships/', '/api/admin/sponsorships/']) {
@@ -526,7 +573,9 @@ test('media approval keeps private storage and records the controlled API URL fo
             altText: 'Synthetic photo',
             publicStorageKey: null,
             publicUrl,
-            reviewedBy: actor
+            reviewedBy: actor,
+            confirmation: assetId,
+            moderationDecision: undefined
           }
         ]);
         assert.deepEqual(f.values('audit'), [
@@ -585,7 +634,9 @@ test('legacy public object references are retained for separate remediation and 
         altText: null,
         publicStorageKey: assetPatch.publicStorageKey,
         publicUrl: reviewStatus === 'approved' ? publicUrl : null,
-        reviewedBy: actor
+        reviewedBy: actor,
+        confirmation: assetId,
+        moderationDecision: undefined
       }
     ]);
     assert.equal(

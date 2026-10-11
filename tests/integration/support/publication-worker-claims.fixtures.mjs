@@ -4,6 +4,7 @@ import sharp from 'sharp';
 
 import { startDisposablePostgres } from './disposable-postgres.mjs';
 import { PublicationAutomationService } from '../../../dist/apps/funding-api/src/publication-automation/service.js';
+import { approveFixtureSubject } from './moderation-fixture.mjs';
 
 // Private fixtures for publication-worker-claims.integration.mjs.
 export function gate() {
@@ -189,6 +190,7 @@ export async function createPublicationWorkerClaimsFixture(t) {
   }
 
   async function approve(id) {
+    await approveFixtureSubject(pool, { type: 'publication_delivery', id });
     const row = await record(id);
     await service.command(
       { action: 'approve', id, version: row.version, confirmation: id },
@@ -210,6 +212,10 @@ export async function createPublicationWorkerClaimsFixture(t) {
        VALUES($1,'sponsorship_interest',50000,'paid',TRUE,'approved','Claim fence fixture','openg20','["facebook"]')`,
         [contributionId]
       );
+      await approveFixtureSubject(pool, {
+        type: 'sponsorship',
+        id: contributionId
+      });
       const slot = (
         await pool.query(
           "INSERT INTO publication_slots(feed_target,channel,starts_at,capacity,status) VALUES('openg20','facebook',$1,1,'scheduled') RETURNING id",
@@ -352,6 +358,11 @@ export async function createPublicationWorkerClaimsFixture(t) {
         createHash('sha256').update(imageBytes).digest('hex')
       ]
     );
+    await approveFixtureSubject(pool, {
+      type: 'sponsorship',
+      id: contributionId
+    });
+    await approveFixtureSubject(pool, { type: 'media', id: mediaId });
     return mediaId;
   }
 

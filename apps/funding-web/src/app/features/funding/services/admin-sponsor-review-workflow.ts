@@ -25,6 +25,7 @@ export class AdminSponsorReviewWorkflow {
     ReturnType<typeof setTimeout>
   >();
   private disposed = false;
+  private awaitingDecision = false;
 
   constructor(private readonly ports: AdminSponsorReviewPorts) {}
 
@@ -82,6 +83,7 @@ export class AdminSponsorReviewWorkflow {
   ): Promise<void> {
     if (
       this.disposed ||
+      this.awaitingDecision ||
       !this.ports.canActOn(sponsorship) ||
       reviewStatus === sponsorship.sponsor_review_status
     )
@@ -118,6 +120,23 @@ export class AdminSponsorReviewWorkflow {
       !this.ports.canActOn(sponsorship)
     )
       return;
+    this.awaitingDecision = true;
+    let moderationDecision;
+    try {
+      moderationDecision = await this.ports.moderate(
+        { type: 'sponsorship', id: sponsorship.id },
+        reviewStatus === 'approved' ? 'N0' : 'N2',
+        { internalReason: reviewNote }
+      );
+    } finally {
+      this.awaitingDecision = false;
+    }
+    if (
+      !moderationDecision ||
+      !this.isCurrent(sponsorship.id, revision) ||
+      !this.ports.canActOn(sponsorship)
+    )
+      return;
     const approvalAttempt = this.ports.beginApprovalFeedback(
       reviewStatus === 'approved' ? sponsorship.id : null
     );
@@ -133,7 +152,9 @@ export class AdminSponsorReviewWorkflow {
           contributionId: sponsorship.id,
           reviewStatus,
           reviewNote: reviewNote || undefined,
-          expectedVersion: sponsorship.version
+          expectedVersion: sponsorship.version,
+          moderationDecision,
+          confirmation: sponsorship.id
         }
       );
       if (this.disposed) return;
@@ -186,7 +207,8 @@ export class AdminSponsorReviewWorkflow {
   }
 
   closeRejectionPanel(): boolean {
-    if (this.disposed || this.ports.actionPending()) return false;
+    if (this.disposed || this.awaitingDecision || this.ports.actionPending())
+      return false;
     this.activeRejectionId.set(null);
     return true;
   }
@@ -274,7 +296,12 @@ export class AdminSponsorReviewWorkflow {
   }
 
   async confirmRejection(sponsorship: AdminSponsorshipRecord): Promise<void> {
-    if (this.disposed || !this.ports.canActOn(sponsorship)) return;
+    if (
+      this.disposed ||
+      this.awaitingDecision ||
+      !this.ports.canActOn(sponsorship)
+    )
+      return;
     if (!this.canConfirmRejection(sponsorship)) {
       this.setReviewMessage(
         sponsorship.id,
@@ -286,6 +313,23 @@ export class AdminSponsorReviewWorkflow {
     const revision = this.ports.selectionRevision();
     const draft = this.rejectionDraftFor(sponsorship);
     const reviewNote = this.reviewNoteFor(sponsorship.id).trim();
+    this.awaitingDecision = true;
+    let moderationDecision;
+    try {
+      moderationDecision = await this.ports.moderate(
+        { type: 'sponsorship', id: sponsorship.id },
+        'N4',
+        { internalReason: reviewNote, sponsorExplanation: draft.sponsorMessage }
+      );
+    } finally {
+      this.awaitingDecision = false;
+    }
+    if (
+      !moderationDecision ||
+      !this.isCurrent(sponsorship.id, revision) ||
+      !this.ports.canActOn(sponsorship)
+    )
+      return;
     this.ports.setActionState(this.reviewActionId(sponsorship.id));
     const pendingMessage = this.ports.t('admin.messages.action_en_cours_refus');
     this.setReviewMessage(sponsorship.id, pendingMessage);
@@ -295,6 +339,8 @@ export class AdminSponsorReviewWorkflow {
         {
           contributionId: sponsorship.id,
           reviewStatus: 'rejected',
+          moderationDecision,
+          confirmation: sponsorship.id,
           reviewNote,
           expectedVersion: sponsorship.version,
           notifySponsor: draft.notifySponsor,
@@ -318,7 +364,7 @@ export class AdminSponsorReviewWorkflow {
       this.setReviewMessage(
         sponsorship.id,
         [
-          this.reviewSuccessMessage('rejected'),
+          this.ports.t('admin.moderation.independentReview'),
           this.rejectionNotificationResultLabel(result),
           this.rejectionRefundResultLabel(
             result.refundHandling,

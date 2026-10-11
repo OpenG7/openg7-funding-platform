@@ -140,6 +140,11 @@
         </button>
       </header>
       @if (selectedDraftId() === draft.id) {
+        <openg7-funding-moderation-actions
+          [subject]="{ type: 'publication_draft', id: draft.id }"
+          [disabled]="!!actionState() || dirtyDraftIds().has(draft.id)"
+          (changed)="reload()()"
+        />
         <fieldset
           class="item-editor"
           [disabled]="!!actionState()"

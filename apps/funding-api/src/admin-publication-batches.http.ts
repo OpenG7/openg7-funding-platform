@@ -22,6 +22,7 @@ import type {
 } from './fund-admin.repository.js';
 import type { queuePublicationBatchFullNotification } from './email-notification.service.js';
 import { createRouteMatcher } from './http-routing.js';
+import { ModerationError } from './moderation/policy.js';
 import type { AdminPublicationHttpDependencies } from './admin-publication-http.shared.js';
 import {
   PUBLICATION_BATCH_MIN_CAPACITY,
@@ -488,6 +489,13 @@ export const createAdminPublicationBatchesHttpHandler = ({
         });
         writeJson(request, response, 200, result);
       } catch (error) {
+        if (error instanceof ModerationError) {
+          writeJson(request, response, error.status, {
+            code: error.code,
+            error: error.code
+          });
+          return true;
+        }
         reportFailure('Failed to publish publication batch.', error);
         writeJson(request, response, 502, {
           error: 'Publication batch could not be published.'

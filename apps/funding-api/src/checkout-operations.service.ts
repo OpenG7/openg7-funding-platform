@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 
 import type { RedirectCheckoutResult } from '@openg7/funding-core';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import type Stripe from 'stripe';
 
 import {
@@ -25,6 +25,11 @@ export class CheckoutOperationError extends Error {
 export interface DurableCheckoutInput {
   readonly key: string;
   readonly requestHash: string;
+  /** Persist additional terms atomically with a new operation, before contacting Stripe. */
+  readonly afterPrepare?: (
+    db: PoolClient,
+    operationId: string
+  ) => Promise<void>;
   readonly prepare: (operationId: string) => {
     params: Stripe.Checkout.SessionCreateParams;
     record: Omit<
@@ -104,28 +109,38 @@ export const createDurableCheckoutService =
       if (!operation) {
         const id = randomUUID();
         const prepared = input.prepare(id);
-        operation = (
-          await db.query<OperationRow>(
-            `INSERT INTO checkout_operations
+        if (input.afterPrepare) await db.query('BEGIN');
+        try {
+          operation = (
+            await db.query<OperationRow>(
+              `INSERT INTO checkout_operations
          (id,key_hash,request_hash,state,params,contribution_input)
          VALUES($1,$2,$3,'prepared',$4::jsonb,$5::jsonb)
          RETURNING *, true AS retry_allowed`,
-            [
-              id,
-              keyHash,
-              input.requestHash,
-              JSON.stringify(
-                protectPrivateJson(prepared.params, `checkout:${id}:params`)
-              ),
-              JSON.stringify(
-                protectPrivateJson(
-                  prepared.record,
-                  `checkout:${id}:contribution`
+              [
+                id,
+                keyHash,
+                input.requestHash,
+                JSON.stringify(
+                  protectPrivateJson(prepared.params, `checkout:${id}:params`)
+                ),
+                JSON.stringify(
+                  protectPrivateJson(
+                    prepared.record,
+                    `checkout:${id}:contribution`
+                  )
                 )
-              )
-            ]
-          )
-        ).rows[0];
+              ]
+            )
+          ).rows[0];
+          if (input.afterPrepare) {
+            await input.afterPrepare(db, id);
+            await db.query('COMMIT');
+          }
+        } catch (error) {
+          if (input.afterPrepare) await db.query('ROLLBACK');
+          throw error;
+        }
       }
 
       operation = {

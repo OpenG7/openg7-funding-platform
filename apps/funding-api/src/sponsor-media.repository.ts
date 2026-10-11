@@ -18,5 +18,6 @@ export {
 export {
   createSponsorMediaAsset,
   deleteSponsorMediaAsset,
-  reviewSponsorMediaAsset
+  reviewSponsorMediaAsset,
+  updateSponsorMediaMetadata
 } from './sponsor-media/persistence-write.js';

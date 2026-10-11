@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import {
+  approveFixtureSubject,
+  fixtureModerationActor
+} from './moderation-fixture.mjs';
 
 import {
   assignBatchToPublicationSlot,
@@ -42,12 +46,25 @@ export function createSchedulingFixture(pool) {
         })
       ).draft;
       assert.ok(draft);
+      await approveFixtureSubject(pool, {
+        type: 'sponsorship',
+        id: contributionId
+      });
+      await approveFixtureSubject(pool, {
+        type: 'publication_draft',
+        id: draft.id
+      });
       assert.equal(
         (
-          await updateAdminPublicationDraft(pool, {
-            draftId: draft.id,
-            status: 'approved'
-          })
+          await updateAdminPublicationDraft(
+            pool,
+            {
+              draftId: draft.id,
+              confirmation: draft.id,
+              status: 'approved'
+            },
+            fixtureModerationActor
+          )
         ).updated,
         true
       );
@@ -77,6 +94,10 @@ export function createSchedulingFixture(pool) {
           ).updated,
           true
         );
+      await approveFixtureSubject(pool, {
+        type: 'publication_draft',
+        id: draft.id
+      });
       members.push({ batchId: batch.id, draftId: draft.id });
     }
     return { slotId: slot.id, originalDate, changedDate, members };

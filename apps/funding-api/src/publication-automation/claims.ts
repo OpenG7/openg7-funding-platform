@@ -1,4 +1,5 @@
 import { withPostgresTransaction } from '../postgres-transaction.js';
+import { recordRemoteRemovalProviderResult } from '../moderation/governance.js';
 
 import {
   audit,
@@ -6,7 +7,8 @@ import {
   type PublicationDeliveryWorkerContext
 } from './context.js';
 import { assert } from './policy.js';
-import type { Db } from './sources.js';
+import { assertDeliveryModeration } from './moderation.js';
+import { sourceIssues, type Db } from './sources.js';
 
 /** A claim's monotonically increasing delivery version fences every worker write. */
 export const activeClaimSql = (version: '$2' | '$3' | '$4' | '$5') =>
@@ -48,7 +50,7 @@ export async function abandonClaim(
         code: 'LEASE_EXPIRED',
         claimVersion: row.version
       });
-    if (result)
+    if (result) {
       await audit(db, 'publication-worker', 'late_result', row.id, {
         claimVersion: row.version,
         mode: row.mode,
@@ -56,6 +58,11 @@ export async function abandonClaim(
         externalPostId: result.externalPostId,
         externalPostUrl: result.externalPostUrl
       });
+      await recordRemoteRemovalProviderResult(db, {
+        deliveryId: row.id,
+        externalPostId: result.externalPostId
+      });
+    }
   });
 }
 
@@ -112,7 +119,11 @@ export async function assertDispatchClaim(
       (await context.workerSettings(db, 'FOR SHARE')).enabled,
       'WORKER_DISABLED'
     );
-    await lockClaim(db, row);
+    const current = await lockClaim(db, row);
+    assert(
+      current.error_code !== 'MODERATION_RESTRICTED',
+      'MODERATION_RESTRICTED'
+    );
     const f = (
       await db.query(
         'SELECT paused FROM publication_feeds WHERE id=$1 FOR SHARE',
@@ -120,5 +131,24 @@ export async function assertDispatchClaim(
       )
     ).rows[0];
     assert(!f.paused, 'FEED_PAUSED');
+    await assertDeliveryModeration(db, current);
+    if (current.batch_id) {
+      const issues = await sourceIssues(db, current.id);
+      assert(
+        issues.codes.length === 0,
+        issues.codes[0] ?? 'SOURCE_NOT_ELIGIBLE'
+      );
+      const batch = (
+        await db.query(
+          'SELECT status,scheduled_at FROM sponsor_publication_batches WHERE id=$1',
+          [current.batch_id]
+        )
+      ).rows[0];
+      assert(
+        batch?.status === 'scheduled' &&
+          batch.scheduled_at?.getTime() === current.scheduled_at.getTime(),
+        'SOURCE_CHANGED'
+      );
+    }
   });
 }

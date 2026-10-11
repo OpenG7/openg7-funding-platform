@@ -107,6 +107,7 @@ export class FundingPageComponent implements OnInit, OnDestroy {
   readonly checkoutResultMode = this.controller.checkoutResultMode;
   readonly checkoutRequiresVerification =
     this.controller.checkoutRequiresVerification;
+  readonly checkoutCharterChanged = this.controller.checkoutCharterChanged;
   readonly pendingSponsorFollowupToken =
     this.controller.pendingSponsorFollowupToken;
   readonly transparencyState = this.controller.transparencyState;

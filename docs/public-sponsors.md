@@ -14,6 +14,12 @@ Le champ optionnel `public_id` est une clé stable dérivée de l’identifiant 
 
 ## Visibilité et confidentialité
 
+Les décisions éditoriales versionnées contrôlent aussi les fiches et leurs médias.
+Les contenus déjà publics peuvent conserver leur visibilité historique tant que
+contenu, consentement et admissibilité restent inchangés; cette observation ne
+crée aucune approbation pour un nouvel envoi. Une restriction ou modification
+invalide ce maintien. Voir le [contrat de modération](operations/sponsorship-moderation.md).
+
 Une fiche exige le consentement public, l’approbation administrative, un nom d’entreprise et une image de présentation approuvée non supprimée. Les montants individuels restent absents sans consentement d’affichage du montant. Les contacts, notes administratives et références Stripe ne font pas partie de la projection.
 
 Le [prérequis SQL de photo approuvée](../apps/funding-api/src/sponsorship-media-eligibility.ts)

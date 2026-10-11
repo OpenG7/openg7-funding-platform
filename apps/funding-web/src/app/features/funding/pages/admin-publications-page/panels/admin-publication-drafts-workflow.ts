@@ -7,6 +7,7 @@ import type {
 } from '@openg7/funding-core';
 
 import type { FundingAdminService } from '../../../services/funding-admin.service.js';
+import type { FundingModerationService } from '../../../services/funding-moderation.service.js';
 import {
   publicationDateTimeLocal,
   updatedPublicationDateTime
@@ -22,6 +23,7 @@ export interface PublicationDraftEdit {
 }
 
 export interface AdminPublicationDraftsWorkflowPorts {
+  moderate: FundingModerationService['requestDecision'];
   readonly api: Pick<
     FundingAdminService,
     | 'createPublicationDraft'
@@ -116,12 +118,36 @@ export class AdminPublicationDraftsWorkflow {
     )
       return;
     const edit = this.editFor(draft.id);
+    const requiresDecision =
+      status === 'approved' || status === 'published' || status === 'rejected';
+    if (requiresDecision && state.dirtyDraftIds().has(draft.id)) {
+      this.ports.notice('admin.moderation.saveFirst');
+      return;
+    }
+    const moderationDecision = requiresDecision
+      ? await this.ports.moderate(
+          { type: 'publication_draft', id: draft.id },
+          status === 'rejected' ? 'N3' : 'N0',
+          { internalReason: edit.reviewNote }
+        )
+      : null;
+    if (
+      (requiresDecision &&
+        (!moderationDecision ||
+          state.dirtyDraftIds().has(draft.id) ||
+          this.editFor(draft.id) !== edit)) ||
+      state.actionState()
+    )
+      return;
     state.actionState.set(draft.id);
     try {
       const result = await this.ports.api.updatePublicationDraft(
         this.ports.token(),
         {
           draftId: draft.id,
+          ...(moderationDecision
+            ? { moderationDecision, confirmation: draft.id }
+            : {}),
           title: edit.title,
           body: edit.body,
           disclosureText: edit.disclosureText,

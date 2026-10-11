@@ -38,7 +38,15 @@ export async function executeDelivery(
         ])
       ).rows[0];
       assert(!f.paused, 'FEED_PAUSED');
-      const media = await ready(db, current, context.storage, context.feeds);
+      // Restrictions and metadata edits lock deliveries before their sources.
+      // Read sources without locks and check authorization again at dispatch.
+      const media = await ready(
+        db,
+        current,
+        context.storage,
+        context.feeds,
+        false
+      );
       // Storage reads/transformation may outlive the reservation.
       await lockClaim(db, row);
       return media;
