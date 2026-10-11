@@ -50,6 +50,7 @@ async function fixtures(
       { id: string; url: string; alt: string; company: string }[]
     >;
     mediaResponse?: (deliveryId: string | null) => Promise<void>;
+    contentMissing?: boolean;
   } = {}
 ): Promise<PublicationAutomationCommand[]> {
   const commands: PublicationAutomationCommand[] = [];
@@ -151,6 +152,16 @@ async function fixtures(
     commands.push(c);
     if (c.action === 'worker') await options.workerResponse?.();
     if (c.action === 'settings') await options.settingsResponse?.();
+    if (
+      options.contentMissing &&
+      (c.action === 'edit' ||
+        c.action === 'approve' ||
+        c.action === 'reconcile')
+    )
+      return route.fulfill({
+        status: 409,
+        json: { code: 'SOURCE_CONTENT_MISSING' }
+      });
     if (conflict)
       return route.fulfill({
         status: 409,
@@ -805,6 +816,303 @@ for (const language of ['fr-CA', 'en'] as const) {
       );
     });
   }
+}
+
+for (const language of ['fr-CA', 'en'] as const) {
+  for (const width of [390, 1280]) {
+    test(`missing sponsor content explains source correction and links to drafts in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.addInitScript(
+        (locale) => localStorage.setItem('openg7.language', locale),
+        language
+      );
+      const commands = await fixtures(
+        page,
+        'blocked',
+        false,
+        [
+          {
+            id: '22222222-2222-4222-8222-222222222222',
+            name: 'Atelier Boréal',
+            version: 'v1',
+            reviewStatus: 'approved',
+            presentationApproved: true,
+            paymentStatus: 'paid'
+          }
+        ],
+        {
+          kind: 'sponsorship',
+          batchId: '33333333-3333-4333-8333-333333333333',
+          errorCode: 'SOURCE_CONTENT_MISSING'
+        }
+      );
+      await page.goto(
+        '/admin/fundraiser/publications/automation?deliveryId=' + initialJob.id
+      );
+      const english = language === 'en';
+      const dialog = page.getByRole('dialog', {
+        name: english ? 'Final publication' : 'Publication finale'
+      });
+      const explanation = dialog.locator(
+        '[data-og7="publication-content-blocker"]'
+      );
+      await expect(explanation).toContainText(
+        english
+          ? 'a complete block for every sponsor'
+          : 'un bloc complet pour chaque commanditaire'
+      );
+      await expect(explanation).toContainText(
+        english
+          ? 'save it and approve this publication again'
+          : 'enregistrez-le et approuvez à nouveau cette publication'
+      );
+      await expect(
+        dialog.getByRole('button', {
+          name: english ? 'Accept and schedule' : 'Accepter et programmer'
+        })
+      ).toHaveCount(0);
+      expect(commands).toHaveLength(0);
+      expect(
+        await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth)
+      ).toBe(true);
+      expect(
+        (await new AxeBuilder({ page }).include('dialog[open]').analyze())
+          .violations
+      ).toEqual([]);
+      const link = explanation.getByRole('link', {
+        name: english ? 'Edit source drafts' : 'Modifier les brouillons sources'
+      });
+      await expect(link).toHaveAttribute(
+        'href',
+        '/admin/fundraiser/publications/drafts'
+      );
+      await link.focus();
+      await expect(link).toBeFocused();
+      await page.keyboard.press('Enter');
+      await expect(page).toHaveURL(
+        /\/admin\/fundraiser\/publications\/drafts$/
+      );
+      expect(commands).toHaveLength(0);
+    });
+
+    test(`missing sponsor content keeps an uncertain delivery under investigation in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.addInitScript(
+        (locale) => localStorage.setItem('openg7.language', locale),
+        language
+      );
+      const commands = await fixtures(
+        page,
+        'uncertain',
+        false,
+        [
+          {
+            id: '22222222-2222-4222-8222-222222222222',
+            name: 'Atelier Boréal',
+            version: 'v1',
+            reviewStatus: 'approved',
+            presentationApproved: true,
+            paymentStatus: 'paid'
+          }
+        ],
+        {
+          kind: 'sponsorship',
+          batchId: '33333333-3333-4333-8333-333333333333',
+          errorCode: 'SOURCE_CONTENT_MISSING'
+        },
+        { contentMissing: true }
+      );
+      await page.goto(
+        '/admin/fundraiser/publications/automation?deliveryId=' + initialJob.id
+      );
+      const english = language === 'en';
+      const dialog = page.getByRole('dialog', {
+        name: english ? 'Final publication' : 'Publication finale'
+      });
+      const explanation = dialog.locator(
+        '[data-og7="publication-content-uncertain"]'
+      );
+      await expect(explanation).toContainText(
+        english
+          ? 'references retained in the audit'
+          : 'références conservées dans l’audit'
+      );
+      await expect(explanation).toContainText(
+        english ? 'actual account’s history' : 'l’historique du compte réel'
+      );
+      await expect(explanation).toContainText(
+        english
+          ? 'If the publication exists, keep the uncertain status'
+          : 'Si la publication existe, conservez l’état incertain'
+      );
+      await expect(explanation).toContainText(
+        english
+          ? 'never attest its absence or resend this delivery'
+          : 'ne confirmez jamais son absence et ne renvoyez pas cet envoi'
+      );
+      const editLinks = dialog.locator(
+        'a[href="/admin/fundraiser/publications/drafts"]'
+      );
+      const editButton = dialog.getByRole('button', {
+        name: english ? 'Edit' : 'Modifier',
+        exact: true
+      });
+      const approveButton = dialog.getByRole('button', {
+        name: english ? 'Accept and schedule' : 'Accepter et programmer'
+      });
+      await expect(editLinks).toHaveCount(0);
+      await expect(editButton).toHaveCount(0);
+      await expect(approveButton).toHaveCount(0);
+      expect(commands).toHaveLength(0);
+
+      const remoteId = dialog.getByRole('textbox', {
+        name: english
+          ? 'ID of the post already visible on the network'
+          : 'Identifiant de la publication déjà visible sur le réseau'
+      });
+      const reconcile = dialog.getByRole('button', {
+        name: english
+          ? 'Verify and confirm publication'
+          : 'Vérifier et confirmer la publication'
+      });
+      await expect(reconcile).toBeDisabled();
+      await remoteId.fill('verified-post');
+      await reconcile.focus();
+      await expect(reconcile).toBeFocused();
+      await page.keyboard.press('Enter');
+      const feedback = dialog.getByRole('alert');
+      await expect(feedback).toContainText(
+        english
+          ? 'If the publication exists, keep the uncertain status'
+          : 'Si la publication existe, conservez l’état incertain'
+      );
+      await expect(feedback).not.toContainText(
+        english
+          ? 'Restore the missing blocks'
+          : 'Rétablissez les blocs manquants'
+      );
+      await expect(explanation).toBeVisible();
+      await expect(editLinks).toHaveCount(0);
+      await expect(editButton).toHaveCount(0);
+      await expect(approveButton).toHaveCount(0);
+      await expect(
+        dialog.getByRole('link', {
+          name: english ? 'View publication' : 'Voir la publication'
+        })
+      ).toHaveCount(0);
+      expect(commands).toEqual([
+        {
+          action: 'reconcile',
+          id: initialJob.id,
+          version: 1,
+          confirmation: initialJob.id,
+          externalPostId: 'verified-post'
+        }
+      ]);
+      await dialog.locator('summary').click();
+      await expect(dialog.getByRole('checkbox')).not.toBeChecked();
+      await expect(
+        dialog.getByRole('button', {
+          name: english ? 'Record verification' : 'Consigner la vérification'
+        })
+      ).toBeDisabled();
+      expect(
+        await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth)
+      ).toBe(true);
+      expect(
+        (await new AxeBuilder({ page }).include('dialog[open]').analyze())
+          .violations
+      ).toEqual([]);
+    });
+  }
+}
+
+for (const [language, width] of [
+  ['fr-CA', 1280],
+  ['en', 390]
+] as const) {
+  // Defensive UI error handling; current API permits an incomplete private draft
+  // and rejects it at approval. This interception verifies feedback on failure.
+  test(`missing sponsor content error response keeps unsaved local text in ${language}`, async ({
+    page
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.addInitScript(
+      (locale) => localStorage.setItem('openg7.language', locale),
+      language
+    );
+    const commands = await fixtures(
+      page,
+      'draft',
+      false,
+      [
+        {
+          id: '22222222-2222-4222-8222-222222222222',
+          name: 'Atelier Boréal',
+          version: 'v1',
+          reviewStatus: 'approved',
+          presentationApproved: true,
+          paymentStatus: 'paid'
+        }
+      ],
+      {
+        kind: 'sponsorship',
+        batchId: '33333333-3333-4333-8333-333333333333',
+        message:
+          'Merci à Atelier Boréal\n\nUne contribution publique.\n\nCommandite rémunérée.'
+      },
+      { contentMissing: true }
+    );
+    await page.goto(
+      '/admin/fundraiser/publications/automation?deliveryId=' + initialJob.id
+    );
+    const english = language === 'en';
+    const dialog = page.getByRole('dialog', {
+      name: english ? 'Final publication' : 'Publication finale'
+    });
+    await dialog
+      .getByRole('button', {
+        name: english ? 'Edit' : 'Modifier',
+        exact: true
+      })
+      .click();
+    const text = dialog.locator('textarea[name="message"]');
+    const incompleteMessage =
+      'Local text without the sponsor recognition block.';
+    await text.fill(incompleteMessage);
+    await dialog
+      .getByRole('button', {
+        name: english ? 'Save draft' : 'Enregistrer le brouillon'
+      })
+      .click();
+    await expect(dialog.getByRole('alert')).toContainText(
+      english ? 'edit the source drafts' : 'modifiez les brouillons sources'
+    );
+    await expect(text).toHaveValue(incompleteMessage);
+    await expect(dialog.getByRole('checkbox')).toBeDisabled();
+    await expect(
+      dialog.getByRole('button', {
+        name: english ? 'Accept and schedule' : 'Accepter et programmer'
+      })
+    ).toBeDisabled();
+    await expect(
+      page.getByText(english ? 'Saved.' : 'Enregistré.', { exact: true })
+    ).toHaveCount(0);
+    expect(commands).toHaveLength(1);
+    expect(commands[0]).toMatchObject({
+      action: 'edit',
+      id: initialJob.id,
+      version: 1,
+      message: incompleteMessage
+    });
+    expect(commands.some((command) => command.action === 'approve')).toBe(
+      false
+    );
+  });
 }
 
 for (const language of ['fr-CA', 'en'] as const) {

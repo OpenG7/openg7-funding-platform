@@ -29,8 +29,16 @@ modifier préparation, approbation, worker ou reprise. L'envoi exige l'approbati
 administrative du contenu exact, de sa version, du média, de la destination, du
 mode et de l'horaire. Modifier révoque l'autorisation; préparer n'approuve pas.
 Le worker revalide consentement, admissibilité, contenu et média avant envoi.
+Chaque source doit rester présente dans un bloc de reconnaissance complet et
+distinct du texte final; une mention incidente ou un homonyme ne suffit pas.
+L'identité vient du dossier, indépendamment du titre éditable. Approbation, envoi
+et finalisation des livraisons automatiques appliquent la même politique. Voir la
+[décision sur les blocs](../decisions/2026-10-11-sponsorship-recognition-blocks.md).
 Résultat externe ambigu : quarantaine, aucune relance aveugle; attestation humaine
 d'absence motivée et auditée avant nouvelle autorisation.
+Une réponse fournisseur reçue est conservée dans un audit indépendant avant la
+finalisation. Elle ne suffit pas à déclarer publié : un échec de finalisation
+exige la réconciliation et conserve les références disponibles.
 
 La préparation privée (migration 023) accepte paiement confirmé et consentement
 même avec revue en attente. « Accepter et programmer » peut réunir approbation du

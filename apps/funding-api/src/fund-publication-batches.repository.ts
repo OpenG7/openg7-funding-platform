@@ -19,6 +19,8 @@ import {
 import { getAdminBackofficePresence } from './fund-admin.persistence.js';
 import { getPublicationDraftById } from './fund-publication-drafts.repository.js';
 import { schedulePublicationBatch } from './fund-publication-batch-scheduling.persistence.js';
+import { lockPublicationBatchCapacity } from './fund-publication-capacity.persistence.js';
+import { withPostgresTransaction } from './postgres-transaction.js';
 
 export const allowedPublicationBatchStatuses = new Set<PublicationBatchStatus>([
   'open',
@@ -154,8 +156,8 @@ export const createAdminPublicationBatch = async (
 
 /**
  * Assigns an already-approved draft to an open batch of the same channel,
- * atomically enforcing the batch's remaining capacity in a single statement
- * so two concurrent admin actions cannot overbook the same collective post.
+ * locking the slot (when associated), then the batch before counting members.
+ * The count is read after obtaining those locks on the same transaction client.
  */
 export const assignDraftToPublicationBatch = async (
   pool: Pool | null,
@@ -170,8 +172,16 @@ export const assignDraftToPublicationBatch = async (
     return { updated: false, draft: null };
   }
 
-  const result = await pool.query(
-    `
+  const updated = await withPostgresTransaction(pool, async (client) => {
+    if (!(await lockPublicationBatchCapacity(client, input.batchId))) {
+      return false;
+    }
+    await client.query(
+      'SELECT id FROM sponsor_publication_drafts WHERE id=$1::uuid FOR UPDATE',
+      [input.draftId]
+    );
+    const result = await client.query(
+      `
       WITH target_batch AS (
         SELECT
           batch.id,
@@ -221,6 +231,7 @@ export const assignDraftToPublicationBatch = async (
       WHERE draft.id = $1::uuid
         AND draft.status = 'approved'
         AND draft.batch_id IS NULL
+        AND (draft.slot_id IS NULL OR draft.slot_id = target_batch.slot_id)
         AND draft.channel = target_batch.channel
         AND target_batch.status IN ('open', 'scheduled')
         AND target_batch.used < target_batch.capacity
@@ -229,16 +240,18 @@ export const assignDraftToPublicationBatch = async (
           OR (
             draft.feed_target = target_batch.slot_feed_target
             AND target_batch.slot_status IN ('open', 'scheduled')
-            AND target_batch.slot_starts_at > NOW()
+            AND target_batch.slot_starts_at > clock_timestamp()
             AND target_batch.slot_used < target_batch.slot_capacity
           )
         )
     `,
-    [input.draftId, input.batchId]
-  );
+      [input.draftId, input.batchId]
+    );
+    return (result.rowCount ?? 0) > 0;
+  });
 
   return {
-    updated: (result.rowCount ?? 0) > 0,
+    updated,
     draft: await getPublicationDraftById(pool, input.draftId)
   };
 };

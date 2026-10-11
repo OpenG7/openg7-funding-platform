@@ -1653,7 +1653,7 @@ test('Publication slot repository enforces future dates, capacity, assignment, c
     assert.ok(repository.includes(fn), `repository must expose ${fn}`);
   }
 
-  assert.ok(repository.includes('slot.starts_at > NOW()'));
+  assert.ok(repository.includes('slot.starts_at > clock_timestamp()'));
   assert.ok(
     repository.includes(
       'COALESCE($4::integer, slot.capacity) >= slot_usage.capacity_used'

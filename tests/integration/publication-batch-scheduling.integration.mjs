@@ -12,8 +12,7 @@ import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 import {
   createSchedulingFixture,
   future,
-  observeSchedulingTransaction,
-  updateSlotInTransaction
+  observeSchedulingTransaction
 } from './support/publication-batch-scheduling-fixture.mjs';
 
 const barrier = () => {
@@ -303,7 +302,7 @@ test(
       'slot-first batch locking permits a concurrent transactional slot update to finish',
       async () => {
         const f = await fixture();
-        const slotWritten = barrier();
+        const slotLocked = barrier();
         const slotLockRequested = barrier();
         const resumeSlotCascade = barrier();
         const schedulingPool = observeSchedulingTransaction(pool, {
@@ -315,18 +314,26 @@ test(
               slotLockRequested.open();
           }
         });
-        // Batch-before-slot locking would deadlock with this stronger boundary.
-        const calendarUpdate = updateSlotInTransaction(
-          pool,
-          { slotId: f.slotId, startsAt: f.changedDate },
-          async () => {
-            slotWritten.open();
-            await resumeSlotCascade.promise;
+        // Hold the real calendar transaction after its slot lock and before
+        // its batch locks. Batch-first scheduling would deadlock this boundary.
+        const calendarPool = observeSchedulingTransaction(pool, {
+          async afterQuery(sql) {
+            if (
+              sql.includes('FROM publication_slots') &&
+              sql.includes('FOR UPDATE')
+            ) {
+              slotLocked.open();
+              await resumeSlotCascade.promise;
+            }
           }
-        );
+        });
+        const calendarUpdate = updateAdminPublicationSlot(calendarPool, {
+          slotId: f.slotId,
+          startsAt: f.changedDate
+        });
         let scheduling;
         try {
-          await slotWritten.promise;
+          await slotLocked.promise;
           scheduling = scheduleAdminPublicationBatch(schedulingPool, {
             batchId: f.members[0].batchId,
             scheduledAt: f.originalDate

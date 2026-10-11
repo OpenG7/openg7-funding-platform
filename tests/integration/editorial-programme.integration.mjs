@@ -243,7 +243,11 @@ test(
         const automatic = (await service.state()).deliveries.find(
           (d) => d.autoManaged
         );
-        assert.ok(automatic.message.startsWith('Partenaire :'));
+        // Preferences may not replace a protected source title or omit its copy.
+        assert.equal(
+          automatic.message,
+          'Merci à Atelier des projets\n\nLe projet avance. Ensemble, nous avançons.\n\nCommandite rémunérée.'
+        );
         await service.command(
           {
             action: 'edit',
@@ -272,6 +276,58 @@ test(
           }),
           { code: 'INTENT_NOT_SUPPORTED' }
         );
+      }
+    );
+    await t.test(
+      'concise preferences retain the complete source block through refresh and approval',
+      async () => {
+        await reset();
+        assert.equal(
+          (
+            await pilot.command(
+              command('editorial.preferences', feedId, 1, {
+                preferences: ['concise']
+              }),
+              'fixture'
+            )
+          ).status,
+          'completed'
+        );
+        const contributionId = await sponsor('Atelier complet');
+        await service.prepare(feedId, 'worker');
+        let job = (await service.state()).deliveries.find(
+          (delivery) => delivery.autoManaged
+        );
+        assert.ok(job);
+        const completeBlock =
+          'Merci à Atelier complet\n\nLe projet avance. Ensemble, nous avançons.\n\nCommandite rémunérée.';
+        assert.equal(job.message, completeBlock);
+        assert.deepEqual(
+          job.sponsors.map(({ id }) => id),
+          [contributionId]
+        );
+        assert.deepEqual(
+          (await editorial.state()).profiles.find(
+            (profile) => profile.feedId === feedId
+          ).preferences,
+          ['concise']
+        );
+        await service.prepare(feedId, 'worker');
+        job = await record(job.id);
+        assert.equal(job.message, completeBlock);
+        await service.command(
+          {
+            action: 'approve',
+            id: job.id,
+            version: job.version,
+            confirmation: job.id
+          },
+          'fixture'
+        );
+        job = await record(job.id);
+        assert.equal(job.status, 'approved');
+        assert.equal(job.message, completeBlock);
+        assert.ok(job.approvedAt);
       }
     );
     await t.test(

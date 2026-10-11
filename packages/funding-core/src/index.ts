@@ -108,6 +108,8 @@ export type {
 
 export * from './publication-automation.js';
 
+export * from './publication-recognition.js';
+
 export * from './admin-pilotage.js';
 
 export * from './editorial-programme.js';

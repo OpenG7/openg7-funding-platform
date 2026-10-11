@@ -4,6 +4,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 import { PublicationAutomationService } from '../../dist/apps/funding-api/src/publication-automation/service.js';
+import { composePublicationRecognition } from '../../dist/packages/funding-core/src/index.js';
 
 test(
   'publication media batch scope with disposable PostgreSQL',
@@ -113,6 +114,30 @@ test(
     }
 
     async function compose(batchId, mediaId = null) {
+      const sources = batchId
+        ? (
+            await pool.query(
+              `SELECT draft.id, draft.contribution_id, draft.title, draft.body,
+                    draft.disclosure_text, contribution.sponsor_company_name
+             FROM sponsor_publication_drafts draft
+             JOIN fund_contributions contribution ON contribution.id=draft.contribution_id
+             WHERE draft.batch_id=$1 ORDER BY draft.id`,
+              [batchId]
+            )
+          ).rows
+        : [];
+      const message = batchId
+        ? composePublicationRecognition(
+            sources.map((source) => ({
+              id: source.id,
+              contributionId: source.contribution_id,
+              name: source.sponsor_company_name,
+              title: source.title,
+              body: source.body,
+              disclosureText: source.disclosure_text
+            }))
+          )
+        : 'Exact synthetic publication';
       return (
         await service.command(
           {
@@ -120,7 +145,7 @@ test(
             feedId,
             kind: batchId ? 'sponsorship' : 'news',
             batchId,
-            message: 'Exact synthetic publication',
+            message,
             scheduledAt: future,
             mediaId
           },
@@ -212,7 +237,7 @@ test(
               action: 'edit',
               id,
               version: job.version,
-              message: 'Rejected foreign image edit',
+              message: job.message,
               scheduledAt: future,
               mediaId: f.mediaB
             },

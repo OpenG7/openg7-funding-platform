@@ -2338,6 +2338,7 @@
         "VERSION_CONFLICT": "Cette publication a changé. Fermez-la et actualisez la page avant de continuer.",
         "WORKER_VERSION_CONFLICT": "L’état du moteur a changé depuis votre dernière consultation. Actualisez la page avant de continuer.",
         "SOURCE_CHANGED": "Un brouillon du lot a changé. Enregistrez et vérifiez à nouveau le contenu final.",
+        "SOURCE_CONTENT_MISSING": "Le texte final ne contient pas un bloc complet pour chaque commanditaire, avec son nom, le contenu du brouillon et la mention de commandite. Rétablissez les blocs manquants. Pour modifier leur contenu, modifiez les brouillons sources, puis recomposez le texte final, enregistrez-le et approuvez à nouveau cette publication.",
         "MEDIA_CHANGED": "L’image a changé. Choisissez une image approuvée et validez à nouveau.",
         "SOURCE_NOT_ELIGIBLE": "Un commanditaire de ce lot ne remplit plus les conditions de publication.",
         "SPONSOR_REVIEW_REQUIRED": "Un dossier commanditaire a été modifié ou remis en revue depuis l’autorisation. Vérifiez sa nouvelle version, puis enregistrez et approuvez à nouveau cette publication. Accepter le dossier seul ne réautorise pas cet envoi.",
@@ -2353,6 +2354,8 @@
         "SPONSOR_APPROVAL_REQUIRED": "Vérifiez les commanditaires en attente et confirmez leur approbation avec cette publication.",
         "SPONSOR_MEDIA_REQUIRED": "Une photo de présentation approuvée est requise pour chaque nouveau commanditaire."
       },
+      "editSourceDrafts": "Modifier les brouillons sources",
+      "sourceContentUncertain": "Cet envoi peut déjà avoir créé une publication, mais son contenu ne permet pas de confirmer tous les commanditaires. Consultez les références conservées dans l’audit et vérifiez l’historique du compte réel sur le réseau social. Si la publication existe, conservez l’état incertain : ne confirmez jamais son absence et ne renvoyez pas cet envoi. L’édition et la recomposition sont indisponibles dans cet état.",
       "absenceTitle": "Après vérification : la publication est absente",
       "absenceHelp": "Utilisez cette action seulement après avoir vérifié l’historique du compte sur le réseau social. Elle permet une nouvelle préparation suivie d’une nouvelle approbation.",
       "absenceReason": "Vérification effectuée (20 caractères minimum, sans donnée privée)",

@@ -255,18 +255,37 @@ test('draft edits preserve normalization, explicit nulls, timestamps and no-op r
 });
 
 test('conflicting assignments reread the unchanged draft without reporting success', async () => {
+  let transactionOpen = false;
+  let released = false;
+  const client = {
+    async query(sql) {
+      if (sql === 'BEGIN') transactionOpen = true;
+      if (sql === 'COMMIT' || sql === 'ROLLBACK') transactionOpen = false;
+      if (sql.includes('SELECT slot_id::text')) {
+        return { rows: [{ slot_id: null }] };
+      }
+      return { rows: [], rowCount: 0 };
+    },
+    release() {
+      assert.equal(transactionOpen, false);
+      released = true;
+    }
+  };
   const pool = {
     async query(sql) {
+      assert.equal(transactionOpen, false);
       if (sql.includes('to_regclass')) return { rows: [presence] };
-      if (sql.includes('UPDATE sponsor_publication_drafts'))
-        return { rows: [], rowCount: 0 };
       return { rows: [draftRow] };
+    },
+    async connect() {
+      return client;
     }
   };
   assert.deepEqual(
     await facade.assignDraftToPublicationBatch(pool, mutations[3][1]),
     { updated: false, draft: draftRow }
   );
+  assert.equal(released, true);
 });
 
 test('manual publication preserves sequential cascades and propagates database errors', async () => {

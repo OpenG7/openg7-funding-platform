@@ -234,7 +234,7 @@ export async function createPublicationWorkerClaimsFixture(t) {
         feedId,
         kind: batch ? 'sponsorship' : 'news',
         batchId,
-        message: 'Exact claim fence message',
+        message: batch ? undefined : 'Exact claim fence message',
         scheduledAt,
         mediaId
       },
@@ -286,7 +286,9 @@ export async function createPublicationWorkerClaimsFixture(t) {
         action: 'edit',
         id,
         version: row.version,
-        message: 'New exact approved message',
+        message: row.batch_id
+          ? `${row.message}\n\nReauthorized after review.`
+          : 'New exact approved message',
         scheduledAt,
         mediaId: row.media_id
       },
