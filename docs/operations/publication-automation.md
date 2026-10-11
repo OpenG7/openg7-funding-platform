@@ -160,11 +160,27 @@ not application admin endpoints. Only synthetic content belongs in this receiver
 ## Authorization and concurrency
 
 `GET /api/admin/publication-automation` returns safe feed metadata, summaries and
-up to 200 recent/actionable deliveries. `GET .../media` lists up to 200 approved,
-eligible assets. `POST /api/admin/publication-automation` accepts the shared typed
+up to 200 recent/actionable deliveries.
+`GET /api/admin/publication-automation/media?deliveryId=<uuid>` lists up to 200
+approved, eligible assets for that delivery. A sponsorship delivery restricts
+the catalogue to contributions belonging to its batch, before applying the limit.
+An editorial delivery, or a request without `deliveryId`, uses the global eligible
+catalogue. An invalid identifier returns `400 INVALID_FILTER`; an unknown delivery
+returns `404 DELIVERY_NOT_FOUND`.
+`POST /api/admin/publication-automation` accepts the shared typed
 commands for worker control, settings, preparation, composition, editing, approval, rejection, cancellation,
 connection checks and reconciliation. All routes use the existing server admin
 authentication, role/origin checks and rate limiter. No token is returned.
+
+The sponsorship image field uses the restricted catalogue. Any dossier in the
+batch may supply the selected image; editorial composition keeps the global
+catalogue. The API enforces this ownership when composing, editing and approving,
+independently of the picker. A foreign asset returns `409 MEDIA_NOT_APPROVED`
+before storage reads or command writes. Combined acceptance checks ownership
+before approving pending dossiers, then verifies media eligibility within the
+same transaction after those approvals. A pending dossier's image is absent from
+the catalogue until its dossier is approved, but its already saved selection may
+be approved through this combined decision.
 
 Each delivery's sponsor metadata includes its current `paymentStatus`, alongside
 review and presentation readiness. Clients tolerate its absence from older API
@@ -207,11 +223,14 @@ the provider cannot be recalled by a later dossier revision.
 
 Preflight also checks the selected media of sponsorship and editorial deliveries,
 including future deliveries on paused feeds. A removed or unapproved asset blocks
-the delivery with `MEDIA_NOT_APPROVED`; a changed metadata version blocks it with
-`MEDIA_CHANGED`, even if the asset was rejected and reapproved between worker
-passes. The worker clears the old authorization and audits `media_invalidated`
-once. Before dispatch it checks the asset again under a database lock and hashes
-the stored bytes. A media failure at that stage also clears authorization.
+the delivery with `MEDIA_NOT_APPROVED`. The same code blocks a sponsorship delivery
+whose asset belongs to a contribution outside its batch. A changed metadata version
+blocks it with `MEDIA_CHANGED`, even if the asset was rejected and reapproved
+between worker passes. The worker clears the old authorization and audits
+`media_invalidated` once. Before dispatch it checks the asset again under a database
+lock and hashes the stored bytes. Batch membership is checked before reading bytes,
+including for older authorized deliveries. A media failure at that stage also
+clears authorization.
 
 The cockpit explains the block and, for sponsorship deliveries, links to the
 dossier's Media tab. It avoids
@@ -295,6 +314,13 @@ isolation, time zones/DST, error classification, upload resumption and remote ch
 for migrations, concurrent claims/planning, source revocation, approval versions,
 stale leases and a database failure after provider success. Browser fixtures cover
 exact approval, edits, stale versions, exceptions, mobile focus and accessibility.
+
+[`publication-media-scope.integration.mjs`](../../tests/integration/publication-media-scope.integration.mjs)
+uses disposable PostgreSQL to cover foreign-image refusal without command writes
+or storage reads, both dossiers of a batch, the global editorial catalogue,
+batch filtering before the catalogue limit, combined pending-dossier acceptance,
+and revocation of older authorizations before dispatch. These scope checks use
+the existing media/source snapshots and require no migration.
 
 ### Local connection recovery recipe
 

@@ -523,7 +523,20 @@ test('eligibility invalidates review, combined source and media failures while r
       status: 'approved',
       media_id: 'removed-photo'
     },
-    { ...delivery, id: 'valid', status: 'approved' }
+    {
+      ...delivery,
+      id: 'media-foreign',
+      status: 'approved',
+      media_id: 'foreign-photo'
+    },
+    { ...delivery, id: 'valid', status: 'approved' },
+    {
+      ...delivery,
+      id: 'editorial-valid',
+      batch_id: null,
+      kind: 'news',
+      status: 'approved'
+    }
   ];
   const db = database((sql, parameters) => {
     if (sql.startsWith('SELECT * FROM publication_deliveries WHERE status'))
@@ -538,10 +551,18 @@ test('eligibility invalidates review, combined source and media failures while r
       return [facts];
     }
     if (sql.startsWith('SELECT m.id,m.public_url')) {
-      if (parameters[0] === 'removed-photo') return [];
       const current = db.calls
         .filter((c) => c.sql.startsWith('SELECT c.id,c.status'))
         .at(-1).parameters[0];
+      assert.equal(
+        parameters[1],
+        current === 'editorial-valid' ? null : delivery.batch_id
+      );
+      assert.match(
+        sql,
+        /s\.batch_id=\$2::uuid AND s\.contribution_id=m\.contribution_id/
+      );
+      if (['removed-photo', 'foreign-photo'].includes(parameters[0])) return [];
       return [
         {
           ...media,
@@ -565,7 +586,8 @@ test('eligibility invalidates review, combined source and media failures while r
       ['review', 'SPONSOR_REVIEW_REQUIRED'],
       ['combined', 'SOURCE_NOT_ELIGIBLE'],
       ['media-changed', 'MEDIA_CHANGED'],
-      ['media-removed', 'MEDIA_NOT_APPROVED']
+      ['media-removed', 'MEDIA_NOT_APPROVED'],
+      ['media-foreign', 'MEDIA_NOT_APPROVED']
     ]
   );
   assert.deepEqual(db.audits()[1].metadata, {
@@ -573,8 +595,14 @@ test('eligibility invalidates review, combined source and media failures while r
     affected: [source.contribution_id]
   });
   assert.equal(
-    db.audits().some((a) => a.id === 'valid'),
+    db.audits().some((a) => ['valid', 'editorial-valid'].includes(a.id)),
     false
   );
+  const foreignAudit = db.audits().find((a) => a.id === 'media-foreign');
+  assert.equal(foreignAudit.action, 'publication_automation.media_invalidated');
+  assert.deepEqual(foreignAudit.metadata, {
+    code: 'MEDIA_NOT_APPROVED',
+    mediaId: 'foreign-photo'
+  });
   assert.equal(db.calls.at(-1).sql, 'COMMIT');
 });

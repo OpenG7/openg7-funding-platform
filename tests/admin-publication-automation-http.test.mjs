@@ -177,14 +177,94 @@ test('automation state passes exact intersecting dossier filters and media reads
       assert.deepEqual(f.values('state'), [[undefined, filters]]);
       assert.deepEqual(f.names(), ['access', 'state', 'json']);
     }
-    const f = fixture();
-    assert.equal(
-      (await f.run(prefix + '/media?sponsorshipId=ignored')).status,
-      200
-    );
-    assert.deepEqual(f.values('mediaOptions'), [[]]);
-    assert.deepEqual(f.names(), ['access', 'mediaOptions', 'json']);
+    for (const [query, deliveryId] of [
+      ['', undefined],
+      ['?sponsorshipId=ignored', undefined],
+      [`?deliveryId=${id}&sponsorshipId=ignored`, id],
+      ['?deliveryId=', '']
+    ]) {
+      const f = fixture();
+      assert.equal((await f.run(prefix + '/media' + query)).status, 200);
+      assert.deepEqual(f.values('mediaOptions'), [[deliveryId]]);
+      assert.deepEqual(f.names(), ['access', 'mediaOptions', 'json']);
+    }
   }
+});
+
+test('real media listing derives its batch from the delivery and keeps editorial selection shared', async () => {
+  const batchId = '22222222-2222-4222-8222-222222222222';
+  const option = {
+    id: '33333333-3333-4333-8333-333333333333',
+    url: '/api/public/sponsor-media/33333333-3333-4333-8333-333333333333',
+    alt: 'Synthetic approved image',
+    company: 'Synthetic sponsor'
+  };
+  for (const [deliveryId, batch] of [
+    [undefined, null],
+    [id, null],
+    [id, batchId]
+  ]) {
+    const queries = [];
+    const service = new PublicationAutomationService(
+      {
+        async query(sql, parameters) {
+          queries.push({ sql, parameters });
+          if (sql.startsWith('SELECT batch_id FROM publication_deliveries'))
+            return { rows: [{ batch_id: batch }], rowCount: 1 };
+          assert.match(
+            sql,
+            /s\.batch_id=\$1::uuid AND s\.contribution_id=m\.contribution_id.*ORDER BY.*LIMIT 200/
+          );
+          return { rows: [option], rowCount: 1 };
+        }
+      },
+      {},
+      {}
+    );
+    assert.deepEqual(await service.mediaOptions(deliveryId), [option]);
+    assert.deepEqual(
+      queries.map((query) => query.parameters),
+      deliveryId === undefined ? [[null]] : [[deliveryId], [batch]]
+    );
+  }
+});
+
+test('real media listing rejects invalid or missing deliveries before querying any candidates', async () => {
+  const queries = [];
+  const service = new PublicationAutomationService(
+    {
+      async query(sql, parameters) {
+        queries.push({ sql, parameters });
+        assert.equal(
+          sql,
+          'SELECT batch_id FROM publication_deliveries WHERE id=$1'
+        );
+        return { rows: [], rowCount: 0 };
+      }
+    },
+    {},
+    {}
+  );
+  const f = fixture({
+    overrides: { mediaOptions: (...args) => service.mediaOptions(...args) }
+  });
+  for (const deliveryId of ['', 'invalid-id']) {
+    const result = await f.run(
+      '/admin/publication-automation/media?deliveryId=' + deliveryId
+    );
+    assert.equal(result.status, 400);
+    assert.deepEqual(result.payload, { code: 'INVALID_FILTER' });
+  }
+  assert.deepEqual(queries, []);
+  const missing = await f.run(
+    '/api/admin/publication-automation/media?deliveryId=' + id
+  );
+  assert.equal(missing.status, 404);
+  assert.deepEqual(missing.payload, { code: 'DELIVERY_NOT_FOUND' });
+  assert.deepEqual(
+    queries.map((query) => query.parameters),
+    [[id]]
+  );
 });
 
 test('automation delegates exact command version and confirmation with the resolved audit actor', async () => {

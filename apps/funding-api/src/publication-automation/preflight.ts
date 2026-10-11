@@ -77,7 +77,7 @@ export async function ready(
       'SOURCE_CHANGED'
     );
   }
-  const media = await resolveMedia(db, storage, row.media_id);
+  const media = await resolveMedia(db, storage, row.media_id, row.batch_id);
   assert(isDeepStrictEqual(media, row.media_snapshot), 'MEDIA_CHANGED');
   if (!media) return null;
   const bytes = await storage.readPrivateObject(media.key);

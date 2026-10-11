@@ -186,7 +186,11 @@
             <button
               class="admin-button"
               type="submit"
-              [disabled]="!c.edit.message.trim() || !c.edit.scheduledAt"
+              [disabled]="
+                !c.edit.message.trim() ||
+                !c.edit.scheduledAt ||
+                !c.mediaSelectionValid()
+              "
             >
               {{ 'admin.publicationAutomation.save' | translate }}
             </button>

@@ -2082,6 +2082,34 @@ test('collection queries preserve omitted IDs and default sponsorship filters', 
   ]);
 });
 
+test('publication media preserves saved authentication and encodes the optional delivery scope', async (t) => {
+  for (const token of [explicitToken, cookieMarker]) {
+    await t.test(token, async (t) => {
+      const { service } = serviceFixture(t, token);
+      const requests = [];
+      t.mock.method(globalThis, 'fetch', async (url, options) => {
+        requests.push(url);
+        assert.equal(options.cache, 'no-store');
+        assert.equal(options.body, undefined);
+        assert.deepEqual(options.headers, {
+          Accept: 'application/json',
+          ...(token === cookieMarker
+            ? {}
+            : { Authorization: `Bearer ${token}` })
+        });
+        return Response.json([]);
+      });
+      assert.deepEqual(await service.publicationMedia('delivery /?&'), []);
+      assert.deepEqual(await service.publicationMedia(), []);
+      assert.deepEqual(requests, [
+        baseUrl +
+          '/admin/publication-automation/media?deliveryId=delivery+%2F%3F%26',
+        baseUrl + '/admin/publication-automation/media'
+      ]);
+    });
+  }
+});
+
 test('sponsorship and publication requests share session expiry, cache invalidation and revocation', async (t) => {
   const { service, sessionStorage } = serviceFixture(t);
   sessionStorage.setItem(expiryKey, '2000-01-01T00:00:00.000Z');
