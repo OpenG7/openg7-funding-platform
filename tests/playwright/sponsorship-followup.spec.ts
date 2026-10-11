@@ -1344,7 +1344,7 @@ for (const english of [false, true]) {
     await page.setViewportSize(
       english ? { width: 390, height: 844 } : { width: 1280, height: 900 }
     );
-    const moderation = moderationSnapshot();
+    const moderation = { ...moderationSnapshot() };
     const requests: Record<string, unknown>[] = [];
     await mock(page, {
       current: { ...fixture(), reviewStatus: 'rejected' },
@@ -1427,7 +1427,7 @@ for (const english of [false, true]) {
       ...fixture(),
       reviewStatus: 'rejected'
     };
-    const moderation = moderationSnapshot(true);
+    const moderation = { ...moderationSnapshot(true) };
     const corrections: Record<string, unknown>[] = [];
     let legacySaves = 0;
     await mock(page, {
