@@ -18,6 +18,7 @@ import {
   nowUnixSeconds
 } from './support/stripe-webhook.js';
 import { test, expect } from './support/test.js';
+import { acceptDisplayedSponsorshipOffer } from './support/sponsorship-checkout.js';
 
 const minor = (value: number) => Math.round(value * 100);
 const hook = (page: Page, name: string) => page.locator(`[data-og7="${name}"]`);
@@ -97,6 +98,7 @@ test('250 CAD company: late fees, repeated and failed payouts, replacement and c
   await form.locator('#public-display-name').fill(company);
   await form.getByRole('checkbox').nth(1).uncheck();
   await form.getByRole('checkbox').nth(2).check();
+  await acceptDisplayedSponsorshipOffer(form);
   await form.locator('button[type="submit"]').click();
   await expect(payer).toHaveURL(/\/checkout\/cs_test_/);
   const sessionId = new URL(payer.url()).pathname.split('/').at(-1)!;

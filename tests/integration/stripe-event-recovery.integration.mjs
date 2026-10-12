@@ -179,7 +179,11 @@ test('Stripe event ownership and recovery on disposable PostgreSQL', async (t) =
       );
       try {
         const pid = await started.promise;
-        await pool.query('SELECT pg_terminate_backend($1)', [pid]);
+        const terminated = await pool.query(
+          'SELECT pg_terminate_backend($1,5000) AS terminated',
+          [pid]
+        );
+        assert.equal(terminated.rows[0].terminated, true);
         await disconnected.promise;
         const retry = await withStripeEventProcessing(
           pool,
