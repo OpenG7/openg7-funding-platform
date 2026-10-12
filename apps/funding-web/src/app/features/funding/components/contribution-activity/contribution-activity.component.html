@@ -8,6 +8,8 @@
 </button>
 <section
   class="toasts"
+  data-og7="contribution-notifications"
+  [attr.tabindex]="activity.toasts().length ? 0 : null"
   aria-live="polite"
   aria-relevant="additions text"
   [attr.aria-label]="'admin.contributionActivity.title' | translate"

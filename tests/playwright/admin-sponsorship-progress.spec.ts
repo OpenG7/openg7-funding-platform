@@ -14,6 +14,7 @@ import { moderationFixture, completeModeration } from './support/moderation.js';
 import { registerSponsorHistoryPanelTests } from './admin-sponsor-history-panels.ui.js';
 import { registerSponsorFiltersTests } from './admin-sponsors-filters.ui.js';
 import { registerSponsorResultsTests } from './admin-sponsors-results.ui.js';
+import { registerContributionActivityOverlayTests } from './contribution-activity-overlays.ui.js';
 
 const id = '10000000-0000-4000-8000-000000000401';
 const secondId = '10000000-0000-4000-8000-000000000402';
@@ -541,6 +542,13 @@ const tabs = (page: Page) => page.locator('[data-og7="dossier-tabs"]');
 registerSponsorHistoryPanelTests({ fixtures, path, tabs });
 registerSponsorFiltersTests({ fixtures, path });
 registerSponsorResultsTests({ fixtures });
+registerContributionActivityOverlayTests({
+  setup: async (page) => {
+    const { options } = await fixtures(page, 'operator');
+    options.reviewStatus = 200;
+  },
+  sponsorshipId: id
+});
 
 const editForm = (page: Page) => page.locator('[data-og7="edit-dossier-form"]');
 const guide = (page: Page) => page.locator('[data-og7="dossier-guide"]');

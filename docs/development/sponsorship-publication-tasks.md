@@ -264,11 +264,17 @@ remboursements partiels/complets, panne courriel, revue/publication simulée,
 révisions, paliers, interruptions webhook, frais/versements rapprochés et refus
 avec revue indépendante. Builds, migrations 001–041, seed et
 readiness passent; le nettoyage vérifié ne laisse aucun conteneur ni réseau de
-cette pile jetable. Cette réception précède le commit et décrit les sources
-applicatives figées; aucune source runtime n'est modifiée par les corrections
-ultérieures des fixtures PostgreSQL et de l'acceptation Checkout dans le parcours
-de versements.
-Les clics de refus sont centrés pour éviter l'en-tête superposé, sans clic forcé.
+cette pile jetable. Cette réception précède la correction de disposition des
+notifications détectée dans la suite Docker complète : trois notifications fixes
+pouvaient recouvrir le bouton de refus, même après centrage. La pile réserve
+désormais sa place dans le bandeau et reste utilisable au clavier; elle est
+masquée pendant les dialogues, puis restaurée sans supprimer les activités.
+Les clics de refus conservent leur centrage et n'utilisent aucun clic forcé.
+Les deux recettes UI de notifications passent : trois cartes, français desktop,
+1280 × 720, anglais mobile avec texte agrandi à 200 %, absence d'obstruction du refus, N4,
+défilement clavier, historique, actions de notification et retour du focus.
+Les deux scénarios Docker de refus passent à nouveau avec cette disposition,
+les assertions financières et la revue indépendante conservées.
 Le test clavier du guide admin attend l'hydratation avant d'envoyer Entrée au
 bouton focalisé; son cas français 390 px passe avec les contrôles Axe conservés.
 Ces synchronisations de fixtures ne modifient aucun droit ni comportement API.
