@@ -981,9 +981,10 @@
         "invoice_missing": "Generate the missing invoice from dossier billing.",
         "invoice_waiting": "Billing awaits payment.",
         "publication_failed": "The latest publication attempt failed.",
-        "publication_done": "All benefits included in this contribution have been delivered.",
+        "publication_done": "All benefits are closed through verified delivery or a validated adjustment.",
         "publication_cancelled": "Publication, batch or slot cancelled. Check scheduling.",
         "consent_missing": "Public consent is missing.",
+        "commitment_needs_confirmation": "Commitments need confirmation: check the accepted offer or historical evidence.",
         "publication_blocked": "Check payment, review, media and refund before publication.",
         "publication_pending": "Prepare or monitor expected publications.",
         "refund_check": "Check the refund and its Stripe result.",
@@ -1029,11 +1030,13 @@
         "blocker": {
           "consent": "Obtain the sponsor’s public consent",
           "review": "Review and accept the dossier",
-          "media": "Approve a presentation photo",
+          "media": "Review and approve the media required by the commitments",
           "payment": "Check payment eligibility",
           "refund": "Review the pending or full refund",
           "hidden": "Review the sponsor’s hidden status",
-          "identity": "Complete the company name"
+          "identity": "Complete the company name",
+          "commitment_needs_confirmation": "Check the accepted offer or evidence of historical commitments",
+          "commitment_blocked": "Review the commitment’s blocking condition and requirements"
         },
         "status": {
           "waiting": "Awaiting preparation",

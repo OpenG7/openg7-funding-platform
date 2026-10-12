@@ -4,6 +4,10 @@ import { createHash } from 'node:crypto';
 
 import { CheckoutAttempts } from '../dist/apps/funding-web/src/app/features/funding/services/checkout-attempts.js';
 import {
+  CHECKOUT_ATTEMPT_LOCK_NAME,
+  createCheckoutAttemptCoordinator
+} from '../dist/apps/funding-web/src/app/features/funding/services/checkout-attempt-coordination.js';
+import {
   CheckoutReconciliationRequiredError,
   CheckoutRecoveryUnavailableError,
   CheckoutOfferChangedError,
@@ -139,37 +143,43 @@ test('altering the resumed payment intent cannot replace the submitted sponsorsh
   assert.equal(storage.getItem('openg7.checkout-attempts.v2'), before);
 });
 
-test('a proven offer refusal forgets only the unprepared attempt and permits explicit current-offer acceptance', async () => {
+test('an offer refusal retains the submitted UUID and terms instead of authorizing a replacement offer', async () => {
   const storage = memoryStorage();
   const attempts = new CheckoutAttempts(() => storage);
   const old = sponsorshipOffer();
+  let key;
   await assert.rejects(
     attempts.start(
       sponsorshipIntent(old),
-      async () => {
+      async (request) => {
+        key = request.idempotencyKey;
         throw new CheckoutOfferChangedError();
       },
       old
     ),
     CheckoutOfferChangedError
   );
-  assert.equal(storage.entries.size, 0);
-  assert.equal(
-    (await attempts.retainedSponsorshipOffer(25000, 'CAD')).state,
-    'none'
-  );
+  assert.equal(storage.entries.size, 2);
+  assert.deepEqual(await attempts.retainedSponsorshipOffer(25000, 'CAD'), {
+    state: 'retained',
+    quote: old
+  });
+  const saved = storage.getItem('openg7.checkout-attempts.v2');
+  assert.equal(Object.values(JSON.parse(saved))[0].idempotencyKey, key);
   const current = sponsorshipOffer('sponsorship-v2');
-  await attempts.start(
-    sponsorshipIntent(current),
-    async (request) => {
-      assert.deepEqual(request.offerAcceptance, {
-        version: current.version,
-        fingerprint: current.fingerprint
-      });
-      return result;
-    },
-    current
+  await assert.rejects(
+    attempts.start(
+      sponsorshipIntent(current),
+      async () =>
+        assert.fail(
+          'A prepare refusal cannot replace another in-flight operation.'
+        ),
+      current
+    ),
+    CheckoutReconciliationRequiredError
   );
+  assert.equal(storage.getItem('openg7.checkout-attempts.v2'), saved);
+  assert.equal(attempts.requiresVerification(), true);
 });
 
 test('missing, corrupted, expired or mismatched retained offer blocks payment instead of blindly rotating a pending key', async () => {
@@ -246,8 +256,10 @@ test('missing, corrupted, expired or mismatched retained offer blocks payment in
 const uuidPattern =
   /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 
-test('a changed charter fingerprint requires a fresh Checkout attempt while identical evidence retries safely', async () => {
-  const attempts = new CheckoutAttempts();
+test('an uncertain sponsorship preserves its charter evidence and blocks a changed fingerprint', async () => {
+  const memory = memoryStorage();
+  const attempts = new CheckoutAttempts(() => memory);
+  const offer = sponsorshipOffer();
   const evidence = {
     accepted: true,
     policyVersion: '1.0',
@@ -260,15 +272,15 @@ test('a changed charter fingerprint requires a fresh Checkout attempt while iden
     throw new TypeError('Synthetic uncertain Checkout');
   };
   const sponsorship = {
-    ...intent,
-    contributionType: 'business_sponsorship',
+    ...sponsorshipIntent(offer),
     charterAcceptance: evidence
   };
-  await assert.rejects(attempts.start(sponsorship, execute));
+  await assert.rejects(attempts.start(sponsorship, execute, offer));
   await assert.rejects(
     attempts.start(
       { ...sponsorship, charterAcceptance: { ...evidence } },
-      execute
+      execute,
+      offer
     )
   );
   await assert.rejects(
@@ -277,15 +289,16 @@ test('a changed charter fingerprint requires a fresh Checkout attempt while iden
         ...sponsorship,
         charterAcceptance: { ...evidence, fingerprint: 'b'.repeat(64) }
       },
-      execute
-    )
+      async () =>
+        assert.fail('Changed charter evidence cannot mint a new key.'),
+      offer
+    ),
+    CheckoutReconciliationRequiredError
   );
+  assert.equal(requests.length, 2);
   assert.equal(requests[0].idempotencyKey, requests[1].idempotencyKey);
-  assert.notEqual(requests[0].idempotencyKey, requests[2].idempotencyKey);
-  assert.deepEqual(requests[2].charterAcceptance, {
-    ...evidence,
-    fingerprint: 'b'.repeat(64)
-  });
+  assert.deepEqual(requests[1].charterAcceptance, evidence);
+  assert.equal(attempts.requiresVerification(), true);
 });
 
 function memoryStorage() {
@@ -721,9 +734,11 @@ test('a previously blocked operation still prunes its expired recovery while kee
   );
   assert.notEqual(storage.getItem('openg7.checkout-offer-recovery.v1'), null);
   now += 24 * 60 * 60 * 1000;
+  const expired = new CheckoutAttempts(() => storage);
+  assert.equal(expired.requiresVerification(), true);
   assert.equal(
-    new CheckoutAttempts(() => storage).requiresVerification(),
-    true
+    (await expired.retainedSponsorshipOffer(25000, 'CAD')).state,
+    'verification_required'
   );
   assert.equal(storage.getItem('openg7.checkout-attempts.v2'), null);
   assert.equal(storage.getItem('openg7.checkout-offer-recovery.v1'), null);
@@ -827,4 +842,526 @@ test('sponsorship acceptance without its displayed terms cannot start an unrecov
     CheckoutOfferChangedError
   );
   assert.equal(storage.entries.size, 0);
+});
+
+test('two instances completing their intent digests together preserve one uncertain UUID through reload', async (t) => {
+  const storage = memoryStorage();
+  const offer = sponsorshipOffer();
+  const digest = crypto.subtle.digest.bind(crypto.subtle);
+  const releases = [];
+  let digests = 0;
+  t.mock.method(crypto.subtle, 'digest', async (...args) => {
+    const value = await digest(...args);
+    if (++digests > 2) return value;
+    return new Promise((resolve) => {
+      releases.push(() => resolve(value));
+      if (releases.length === 2)
+        queueMicrotask(() => releases.forEach((release) => release()));
+    });
+  });
+  const requests = [];
+  const lostResponse = new TypeError('Synthetic response lost');
+  const dispatch = async (request) => {
+    requests.push(request);
+    throw lostResponse;
+  };
+  const concurrent = [
+    new CheckoutAttempts(() => storage),
+    new CheckoutAttempts(() => storage)
+  ].map((instance) =>
+    assert.rejects(
+      instance.start(sponsorshipIntent(offer), dispatch, offer),
+      (error) => error === lostResponse
+    )
+  );
+  await Promise.all(concurrent);
+  assert.equal(requests.length, 2);
+  assert.equal(
+    new Set(requests.map((request) => request.idempotencyKey)).size,
+    1
+  );
+  assert.equal(
+    Object.keys(JSON.parse(storage.getItem('openg7.checkout-attempts.v2')))
+      .length,
+    1
+  );
+  assert.equal(
+    Object.keys(
+      JSON.parse(storage.getItem('openg7.checkout-offer-recovery.v1'))
+    ).length,
+    1
+  );
+  const saved = [...storage.entries];
+  const reload = new CheckoutAttempts(() => storage);
+  assert.deepEqual(await reload.retainedSponsorshipOffer(25000, 'CAD'), {
+    state: 'retained',
+    quote: offer
+  });
+  await assert.rejects(
+    reload.start(sponsorshipIntent(offer), dispatch, offer),
+    (error) => error === lostResponse
+  );
+  assert.equal(
+    new Set(requests.map((request) => request.idempotencyKey)).size,
+    1
+  );
+  assert.deepEqual([...storage.entries], saved);
+});
+
+test(
+  'an API wait holds no coordination lock and a late cleanup cannot erase a newer owner',
+  { timeout: 5000 },
+  async () => {
+    const storage = memoryStorage();
+    const offer = sponsorshipOffer();
+    let entered;
+    let release;
+    let oldKey;
+    const started = new Promise((resolve) => {
+      entered = resolve;
+    });
+    const old = new CheckoutAttempts(() => storage).start(
+      sponsorshipIntent(offer),
+      (request) => {
+        oldKey = request.idempotencyKey;
+        entered();
+        return new Promise((resolve) => {
+          release = () => resolve(result);
+        });
+      },
+      offer
+    );
+    await started;
+    try {
+      await new CheckoutAttempts(() => storage).start(
+        sponsorshipIntent(offer),
+        async (request) => {
+          assert.equal(request.idempotencyKey, oldKey);
+          return result;
+        },
+        offer
+      );
+      let newKey;
+      await assert.rejects(
+        new CheckoutAttempts(() => storage).start(
+          sponsorshipIntent(offer),
+          async (request) => {
+            newKey = request.idempotencyKey;
+            throw new Error(
+              'Synthetic new uncertain operation after known completion'
+            );
+          },
+          offer
+        )
+      );
+      assert.notEqual(newKey, oldKey);
+      const saved = [...storage.entries];
+      release();
+      await old;
+      assert.deepEqual([...storage.entries], saved);
+      const reload = new CheckoutAttempts(() => storage);
+      assert.equal(
+        (await reload.retainedSponsorshipOffer(25000, 'CAD')).state,
+        'retained'
+      );
+      await reload.start(
+        sponsorshipIntent(offer),
+        async (request) => {
+          assert.equal(request.idempotencyKey, newKey);
+          return result;
+        },
+        offer
+      );
+      assert.equal(storage.entries.size, 0);
+    } finally {
+      release();
+    }
+  }
+);
+
+test('cleanup verifies the offer owner as well as the matching attempt owner', async () => {
+  const storage = memoryStorage();
+  const offer = sponsorshipOffer();
+  const attempts = new CheckoutAttempts(() => storage);
+  const foreignKey = '00000000-0000-4000-8000-000000000099';
+  await attempts.start(
+    sponsorshipIntent(offer),
+    async () => {
+      const entries = JSON.parse(
+        storage.getItem('openg7.checkout-offer-recovery.v1')
+      );
+      Object.values(entries)[0].idempotencyKey = foreignKey;
+      storage.setItem(
+        'openg7.checkout-offer-recovery.v1',
+        JSON.stringify(entries)
+      );
+      return result;
+    },
+    offer
+  );
+  assert.equal(
+    Object.keys(JSON.parse(storage.getItem('openg7.checkout-attempts.v2')))
+      .length,
+    1
+  );
+  assert.equal(
+    Object.values(
+      JSON.parse(storage.getItem('openg7.checkout-offer-recovery.v1'))
+    )[0].idempotencyKey,
+    foreignKey
+  );
+  const reload = new CheckoutAttempts(() => storage);
+  assert.equal(
+    (await reload.retainedSponsorshipOffer(25000, 'CAD')).state,
+    'verification_required'
+  );
+  await assert.rejects(
+    reload.start(
+      sponsorshipIntent(offer),
+      async () => assert.fail('Ambiguous owners cannot replace an operation.'),
+      offer
+    ),
+    CheckoutReconciliationRequiredError
+  );
+});
+
+test('without shared coordination new persisted operations are unavailable while exact retries stay read-only', async () => {
+  const storage = memoryStorage();
+  const offer = sponsorshipOffer();
+  const readOnly = { run: async (operation) => operation(false) };
+  const unsupported = new CheckoutAttempts(() => storage, undefined, readOnly);
+  for (const [submission, quote] of [
+    [sponsorshipIntent(offer), offer],
+    [intent, undefined]
+  ]) {
+    await assert.rejects(
+      unsupported.start(
+        submission,
+        async () => assert.fail('No uncoordinated shared write.'),
+        quote
+      ),
+      CheckoutRecoveryUnavailableError
+    );
+  }
+  assert.equal(storage.entries.size, 0);
+  const initial = new CheckoutAttempts(() => storage);
+  let knownKey;
+  await assert.rejects(
+    initial.start(
+      sponsorshipIntent(offer),
+      async (request) => {
+        knownKey = request.idempotencyKey;
+        throw new Error('Synthetic uncertain operation');
+      },
+      offer
+    )
+  );
+  const saved = [...storage.entries];
+  const retry = new CheckoutAttempts(() => storage, undefined, readOnly);
+  assert.equal(
+    (await retry.retainedSponsorshipOffer(25000, 'CAD')).state,
+    'retained'
+  );
+  await retry.start(
+    sponsorshipIntent(offer),
+    async (request) => {
+      assert.equal(request.idempotencyKey, knownKey);
+      return result;
+    },
+    offer
+  );
+  assert.deepEqual([...storage.entries], saved);
+  await new CheckoutAttempts(() => null, undefined, readOnly).start(
+    intent,
+    async () => result
+  );
+});
+
+test('expired recovery blocks synchronously and is purged only when coordination becomes writable', async (t) => {
+  let now = Date.UTC(2026, 9, 11, 12);
+  t.mock.method(Date, 'now', () => now);
+  const storage = memoryStorage();
+  const offer = sponsorshipOffer();
+  await assert.rejects(
+    new CheckoutAttempts(() => storage).start(
+      sponsorshipIntent(offer),
+      async () => {
+        throw new Error('Synthetic uncertainty');
+      },
+      offer
+    )
+  );
+  let writable = false;
+  const coordinator = { run: async (operation) => operation(writable) };
+  const expired = new CheckoutAttempts(() => storage, undefined, coordinator);
+  now += 24 * 60 * 60 * 1000;
+  assert.equal(expired.requiresVerification(), true);
+  assert.equal(
+    (await expired.retainedSponsorshipOffer(25000, 'CAD')).state,
+    'verification_required'
+  );
+  assert.notEqual(storage.getItem('openg7.checkout-attempts.v2'), null);
+  assert.notEqual(storage.getItem('openg7.checkout-offer-recovery.v1'), null);
+  writable = true;
+  assert.equal(
+    (await expired.retainedSponsorshipOffer(25000, 'CAD')).state,
+    'verification_required'
+  );
+  assert.equal(storage.getItem('openg7.checkout-attempts.v2'), null);
+  assert.equal(storage.getItem('openg7.checkout-offer-recovery.v1'), null);
+  assert.equal(
+    storage.getItem('openg7.checkout-verification-required.v1'),
+    'true'
+  );
+});
+
+test('browser coordination requires a secure Web Lock and never retries a failed callback', async (t) => {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  t.after(() => {
+    if (previous) Object.defineProperty(globalThis, 'window', previous);
+    else delete globalThis.window;
+  });
+  const requests = [];
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: {
+      isSecureContext: true,
+      navigator: {
+        locks: {
+          request: async (name, options, callback) => {
+            requests.push([name, options]);
+            return callback();
+          }
+        }
+      }
+    }
+  });
+  const coordinator = createCheckoutAttemptCoordinator();
+  assert.equal(await coordinator.run((writable) => writable), true);
+  assert.deepEqual(requests, [
+    [CHECKOUT_ATTEMPT_LOCK_NAME, { mode: 'exclusive' }]
+  ]);
+  let invocations = 0;
+  const failure = new Error('Synthetic callback error');
+  await assert.rejects(
+    coordinator.run(() => {
+      invocations++;
+      throw failure;
+    }),
+    (error) => error === failure
+  );
+  assert.equal(invocations, 1);
+  window.isSecureContext = false;
+  assert.equal(await coordinator.run((writable) => writable), false);
+  window.isSecureContext = true;
+  window.navigator.locks.request = async () => {
+    throw new DOMException('Synthetic denied locks', 'SecurityError');
+  };
+  assert.equal(await coordinator.run((writable) => writable), false);
+});
+
+test('a parallel prepare refusal does not erase an in-flight request sharing the same UUID', async (t) => {
+  for (const refusal of [
+    new CheckoutOfferChangedError(),
+    new CheckoutCharterChangedError('CHARTER_NOT_ACTIVE')
+  ]) {
+    await t.test(refusal.code, async () => {
+      const storage = memoryStorage();
+      const offer = sponsorshipOffer();
+      const submission = sponsorshipIntent(offer);
+      let entered;
+      let reject;
+      let key;
+      const started = new Promise((resolve) => {
+        entered = resolve;
+      });
+      const lost = new TypeError('Synthetic delayed response lost');
+      const inFlight = new CheckoutAttempts(() => storage).start(
+        submission,
+        (request) => {
+          key = request.idempotencyKey;
+          entered();
+          return new Promise((_, rejectRequest) => {
+            reject = rejectRequest;
+          });
+        },
+        offer
+      );
+      const uncertain = assert.rejects(inFlight, (error) => error === lost);
+      await started;
+      const saved = [...storage.entries];
+      const other = new CheckoutAttempts(() => storage);
+      try {
+        await assert.rejects(
+          other.start(
+            submission,
+            async (request) => {
+              assert.equal(request.idempotencyKey, key);
+              throw refusal;
+            },
+            offer
+          ),
+          (error) => error === refusal
+        );
+        assert.equal(other.requiresVerification(), false);
+        assert.deepEqual([...storage.entries], saved);
+      } finally {
+        reject(lost);
+      }
+      await uncertain;
+      const cold = new CheckoutAttempts(() => storage);
+      assert.deepEqual(await cold.retainedSponsorshipOffer(25000, 'CAD'), {
+        state: 'retained',
+        quote: offer
+      });
+      await assert.rejects(
+        cold.start(
+          submission,
+          async (request) => {
+            assert.equal(request.idempotencyKey, key);
+            throw lost;
+          },
+          offer
+        ),
+        (error) => error === lost
+      );
+      assert.deepEqual([...storage.entries], saved);
+    });
+  }
+});
+
+test('expiration during checksum verification blocks and purges under the same lock', async (t) => {
+  for (const operation of ['resume', 'retry']) {
+    await t.test(operation, async (t) => {
+      let now = Date.UTC(2026, 9, 11, 12);
+      t.mock.method(Date, 'now', () => now);
+      const storage = memoryStorage();
+      const offer = sponsorshipOffer();
+      await assert.rejects(
+        new CheckoutAttempts(() => storage).start(
+          sponsorshipIntent(offer),
+          async () => {
+            throw new Error('Synthetic uncertain operation');
+          },
+          offer
+        )
+      );
+      const storedExpiry = Object.values(
+        JSON.parse(storage.getItem('openg7.checkout-attempts.v2'))
+      )[0].expiresAt;
+      const digest = crypto.subtle.digest.bind(crypto.subtle);
+      let checksums = 0;
+      t.mock.method(crypto.subtle, 'digest', async (...args) => {
+        const value = await digest(...args);
+        if (++checksums === (operation === 'resume' ? 1 : 2))
+          now = storedExpiry;
+        return value;
+      });
+      const boundary = new CheckoutAttempts(() => storage);
+      if (operation === 'resume') {
+        assert.equal(
+          (await boundary.retainedSponsorshipOffer(25000, 'CAD')).state,
+          'verification_required'
+        );
+      } else {
+        await assert.rejects(
+          boundary.start(
+            sponsorshipIntent(offer),
+            async () => assert.fail('No API after expiration.'),
+            offer
+          ),
+          CheckoutReconciliationRequiredError
+        );
+      }
+      assert.equal(now, storedExpiry);
+      assert.equal(boundary.requiresVerification(), true);
+      assert.equal(storage.getItem('openg7.checkout-attempts.v2'), null);
+      assert.equal(storage.getItem('openg7.checkout-offer-recovery.v1'), null);
+      assert.equal(
+        storage.getItem('openg7.checkout-verification-required.v1'),
+        'true'
+      );
+    });
+  }
+});
+
+test('an expired orphaned offer is purged only after a durable verification marker', async (t) => {
+  for (const denyMarker of [false, true]) {
+    await t.test(
+      denyMarker ? 'marker write denied' : 'marker writable',
+      async (t) => {
+        let now = Date.UTC(2026, 9, 12, 12);
+        t.mock.method(Date, 'now', () => now);
+        const storage = memoryStorage();
+        const offer = sponsorshipOffer();
+        const originalRemove = storage.removeItem;
+        const originalSet = storage.setItem;
+        let denyOfferRemoval = true;
+        let markerDenied = false;
+        const offerKey = 'openg7.checkout-offer-recovery.v1';
+        const markerKey = 'openg7.checkout-verification-required.v1';
+        storage.removeItem = (key) => {
+          if (key === offerKey) {
+            if (denyOfferRemoval)
+              throw new DOMException(
+                'Synthetic denied cleanup',
+                'SecurityError'
+              );
+            assert.equal(storage.getItem(markerKey), 'true');
+          }
+          return originalRemove(key);
+        };
+        storage.setItem = (key, value) => {
+          if (key === markerKey && markerDenied)
+            throw new DOMException('Synthetic denied marker', 'SecurityError');
+          return originalSet(key, value);
+        };
+        assert.deepEqual(
+          await new CheckoutAttempts(() => storage).start(
+            sponsorshipIntent(offer),
+            async () => result,
+            offer
+          ),
+          result
+        );
+        assert.equal(storage.getItem('openg7.checkout-attempts.v2'), null);
+        const orphaned = storage.getItem(offerKey);
+        assert.notEqual(orphaned, null);
+        const expiry = Object.values(JSON.parse(orphaned))[0].expiresAt;
+        now = expiry + 1;
+        denyOfferRemoval = false;
+        markerDenied = denyMarker;
+        const cold = new CheckoutAttempts(() => storage);
+        assert.equal(cold.requiresVerification(), true);
+        assert.equal(
+          (await cold.retainedSponsorshipOffer(25000, 'CAD')).state,
+          'verification_required'
+        );
+        if (denyMarker) {
+          assert.equal(storage.getItem(offerKey), orphaned);
+          assert.equal(storage.getItem(markerKey), null);
+          markerDenied = false;
+          assert.equal(
+            (await cold.retainedSponsorshipOffer(25000, 'CAD')).state,
+            'verification_required'
+          );
+        }
+        assert.equal(storage.getItem(offerKey), null);
+        assert.equal(storage.getItem('openg7.checkout-attempts.v2'), null);
+        assert.equal(storage.getItem(markerKey), 'true');
+        assert.equal(
+          new CheckoutAttempts(() => storage).requiresVerification(),
+          true
+        );
+        await assert.rejects(
+          cold.start(
+            sponsorshipIntent(offer),
+            async () => assert.fail('Expiry cannot authorize a new Checkout.'),
+            offer
+          ),
+          CheckoutReconciliationRequiredError
+        );
+      }
+    );
+  }
 });

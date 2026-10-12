@@ -11,6 +11,17 @@ created. Contributor names, contacts and return URLs are not stored in this
 browser recovery record.
 An accepted result ends that attempt; provider/network failures remain errors.
 
+Shared browser reservations and cleanup use an exclusive, origin-scoped
+[Web Lock](https://developer.mozilla.org/en-US/docs/Web/API/Web_Locks_API)
+in a secure context. Two tabs submitting the same intent retain the same UUID;
+cleanup checks ownership in both the attempt and offer records. Network requests
+run outside the lock. Without reliable coordination, no new operation is started
+against shared recovery storage; an exact known retry keeps its original key.
+Personal contributions without browser storage retain their in-memory recovery.
+An offer or charter refusal also retains the dispatched key: another tab can
+still have a request in flight with that key. Retrying the original intent keeps
+the key; replacing its terms requires reconciliation before any new operation.
+
 Apply [migration 031](../../apps/funding-api/migrations/031_create_checkout_operations.sql)
 before starting the updated API. Configured Checkout now requires PostgreSQL;
 without durable storage it returns `503 CHECKOUT_STORAGE_UNAVAILABLE` before
@@ -72,7 +83,9 @@ Business Checkout requires `offerAcceptance: { version, fingerprint }`. This
 reference cannot supply commercial terms to the server. Missing acceptance
 returns `400 SPONSORSHIP_OFFER_ACCEPTANCE_REQUIRED`; a changed quote returns
 `409 SPONSORSHIP_OFFER_CHANGED` before contacting Stripe. The interface reloads
-the terms and requests a new confirmation. Personal contributions cannot include
+the terms and clears acceptance, while retaining the dispatched attempt key.
+Replacing those terms requires verification because another tab can still be
+using the original attempt. Personal contributions cannot include
 this reference (`400 SPONSORSHIP_OFFER_NOT_APPLICABLE`).
 
 [Migration 041](../../apps/funding-api/migrations/041_sponsorship_commitments.sql)
@@ -83,6 +96,9 @@ The browser retains only the public quote, attempt UUID and payload fingerprint
 for up to 24 hours; this retention does not extend the server's 23-hour retry
 window and never confirms a payment. A different payload, expired or ambiguous
 cache requires verification instead of silently creating a replacement attempt.
+Expiry blocks submission immediately; pruning shared expired records waits for
+reliable coordination. If that coordination is unavailable, residual public
+recovery data stays blocked until it can be pruned safely.
 Resuming requires re-entering the same details, consent, language, return URLs
 and charter acceptance. A changed charter requires verification; the cache does
 not reconstruct private details or silently accept newer terms.
@@ -93,12 +109,23 @@ per promised ordinal. Early payment confirmation is reconciled with the exact
 existing financial journal entry. If evidence is incomplete or inconsistent,
 the payment fact remains intact and the commitment needs confirmation; an active
 or explicitly qualified offer is not replaced by an incompatible replay.
+An unconfirmed failure event cannot activate an offer. PaymentIntent success
+qualifies obligations only after its financial journal write or exact replay
+succeeds; a conflicting journal leaves the commercial record unqualified.
+Checkout producers supply monetary evidence explicitly for a paid Session.
+Backfill does not infer that evidence from a paid projection, and existing
+journal facts remain authoritative even without a notification marker.
 
 Existing paid sponsorships have `historical_unverified` provenance and
 `needs_confirmation` state, with no inferred offer or invented obligations.
 Historical qualification requires an owner decision and an evidence reference.
 Current payment, consent, review and media guards can block an obligation without
 erasing it. Partial or failed refunds alone do not rewrite promised terms.
+Private progress retains these blocks, including a required logo that is absent
+or whose moderation is incomplete; apparent media approval cannot clear a
+repository block. Qualification and blocker messages are translated in FR/EN.
+Completion can include an approved adjustment; its label distinguishes that
+outcome from delivery backed by evidence.
 Fulfilment on provider evidence remains a separate publication task; this lot
 creates no `fulfilled` result. Invoice snapshots preserve the recorded terms and
 financial facts at issuance; a later qualification does not rewrite an invoice.

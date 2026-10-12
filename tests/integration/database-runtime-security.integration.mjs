@@ -132,6 +132,11 @@ test(
         const paid = {
           ...checkout,
           status: 'paid',
+          trustedPaymentFacts: {
+            amountCents: 50000,
+            currency: 'CAD',
+            publicReference
+          },
           paidAtIso: '2026-10-11T12:00:00.000Z',
           emailPrivate: null,
           notifyAdmin: false
@@ -178,7 +183,12 @@ test(
         };
         await upsertCheckoutSessionFromWebhook(runtime, {
           ...paid,
-          ...historical
+          ...historical,
+          trustedPaymentFacts: {
+            amountCents: historical.amountCents,
+            currency: historical.currency,
+            publicReference: historical.publicReference
+          }
         });
         const historicalId = (
           await runtime.query(

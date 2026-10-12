@@ -268,6 +268,15 @@ test('failed, refunded and disputed PaymentIntent updates preserve their guarded
       ),
       false
     );
+    assert.equal(
+      db.calls.some(({ sql }) =>
+        /sponsorship_commitments|sponsorship_offers|sponsorship_obligations/.test(
+          sql
+        )
+      ),
+      false,
+      'non-payment states cannot create or qualify commercial commitments'
+    );
     db.assertReleased();
   }
 });

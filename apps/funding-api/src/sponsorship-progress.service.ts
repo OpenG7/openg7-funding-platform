@@ -17,6 +17,7 @@ import {
 } from './admin-assistant/context.repository.js';
 import { resolveSponsorshipSelection } from './admin-work-queue.service.js';
 import { withPostgresTransaction } from './postgres-transaction.js';
+import { projectSponsorshipObligationProgress } from './sponsorship-progress-obligations.js';
 import {
   findSponsorshipPreparationActivityId,
   loadSponsorshipProgressFacts,
@@ -109,11 +110,19 @@ export const buildSponsorshipProgress = (
   const paid = ['paid', 'refunded', 'disputed'].includes(record.paymentStatus);
   const invoice = facts.documents.some((d) => d.kind === 'invoice');
   const commitment = facts.commitment;
-  const qualified =
-    commitment?.state === 'active' &&
-    commitment.offer?.amountMinor === facts.amountMinor &&
-    commitment.offer?.currency === currency;
-  const obligations = commitment?.obligations ?? [];
+  const {
+    qualified,
+    websiteRequired,
+    completion: publicationCompletion,
+    complete: publicationComplete,
+    blockers: obligationBlockers
+  } = projectSponsorshipObligationProgress({
+    commitment,
+    amountMinor: facts.amountMinor,
+    currency,
+    hasCompanyName: record.hasCompanyName,
+    media: source.media
+  });
   const cancelled = (d: SponsorshipProgressPublication) =>
     d.deliveryStatus === 'cancelled' ||
     d.deliveryStatus === 'rejected' ||
@@ -124,21 +133,6 @@ export const buildSponsorshipProgress = (
   const published = (d: SponsorshipProgressPublication) =>
     (d.status === 'published' && d.deliveryMode !== 'mock') ||
     (d.deliveryStatus === 'published' && d.deliveryMode === 'live');
-  const websiteRequired = obligations.some((o) => o.channel === 'website');
-  const publicationCompletion = {
-    total: obligations.filter((o) => o.state !== 'adjusted').length,
-    done: obligations.filter(
-      (o) => o.state === 'fulfilled' && o.fulfilmentEvidenceId !== null
-    ).length
-  };
-  const publicationComplete =
-    qualified &&
-    obligations.length > 0 &&
-    obligations.every(
-      (o) =>
-        o.state === 'adjusted' ||
-        (o.state === 'fulfilled' && o.fulfilmentEvidenceId !== null)
-    );
   const publicationError = facts.publications.some(
     (d) =>
       ['failed', 'uncertain'].includes(d.deliveryStatus ?? '') && !published(d)
@@ -158,8 +152,9 @@ export const buildSponsorshipProgress = (
       ? ['hidden']
       : [])
   ];
-  const publicationBlockers = visibilityBlockers('social');
-  if (!qualified) publicationBlockers.push('commitment_needs_confirmation');
+  const publicationBlockers = [
+    ...new Set([...visibilityBlockers('social'), ...obligationBlockers])
+  ];
   const publicationBlocked =
     publicationBlockers.length > 0 ||
     facts.publications.some(

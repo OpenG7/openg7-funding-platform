@@ -279,6 +279,63 @@ Le test clavier du guide admin attend l'hydratation avant d'envoyer Entrée au
 bouton focalisé; son cas français 390 px passe avec les contrôles Axe conservés.
 Ces synchronisations de fixtures ne modifient aucun droit ni comportement API.
 
+### Consolidation du troisième lot — 12 octobre 2026
+
+Référence : [PR #308](https://github.com/OpenG7/openg7-funding-platform/pull/308),
+toujours en construction active. La revue à quatre agents a reproduit cinq
+défauts prioritaires et des défauts de progression. Un événement de paiement
+échoué pouvait qualifier une offre; une confirmation contradictoire avec le
+journal pouvait activer ses obligations avant le rejet financier; deux onglets
+pouvaient perdre leur clé de reprise commune. La revue croisée a aussi reproduit
+l'effacement après un refus de préparation reçu pendant une autre requête en
+vol, et une activation par backfill basée sur le montant de session plutôt que
+sur celui reçu. Une obligation bloquée pouvait
+également apparaître en attente sans motif, et les motifs de qualification
+historique ne disposaient pas de traductions FR/EN. Le libellé de clôture
+assimilait également un engagement ajusté à une livraison.
+
+La qualification monétaire suit maintenant l'insertion ou le rejeu exact du
+journal. Le setter de statut ne qualifie plus les montants et les statuts non
+payés n'activent aucun engagement. Les trois producteurs Checkout réutilisent
+une preuve explicite de Session payée; le journal est prioritaire même sans
+marqueur de notification. Le backfill PI qualifie seulement après son journal.
+La reprise Checkout sépare l'intention, le
+stockage, le cache et la coordination des réservations; le verrou d'origine
+couvre la relecture et le nettoyage des deux caches, avec contrôle du propriétaire.
+L'appel réseau reste hors verrou. Un refus offre/charte conserve la clé déjà
+envoyée; il ne permet pas de remplacer les termes d'une opération potentiellement
+encore en vol. Une coordination indisponible empêche toute
+nouvelle opération partagée; un rejeu connu conserve sa clé. La purge couvre aussi
+les offres orphelines expirées, après persistance du bloc de vérification, et
+le franchissement du délai pendant un calcul d'empreinte. La projection pure
+des obligations conserve les blocages du repository, les quantités, ajustements
+et preuves existantes; les liens et motifs sont traduits dans les deux langues.
+Le [contrat Checkout](../technical/checkout.md) décrit la reprise et ses limites.
+
+La suite globale passe sous Node 22.23.3 après compilation :
+`node --test --test-concurrency=4 "tests/**/*.test.mjs"`, **6 083 réussites et
+8 ignorés** selon leurs préconditions de plateforme. Les recettes ciblées passent
+également : **47 tests paiement/consommateurs**, **36 tests de reprise**, **35 tests
+de transport** et **26 tests de progression**. Six suites
+PostgreSQL jetables passent, **44 tests**, dont les événements retardés, les
+confirmations contradictoires, les arrivées Checkout intercalées et les exigences
+logo/N0. Le cas de journal sans marqueur corrige uniquement sa fixture de frais
+à zéro selon le schéma existant; les contraintes restent intactes.
+Les **46 cas navigateur financement/offre/reprise** sont vérifiés : 44 passent
+dans la suite dédiée, puis les deux fixtures de charte sont adaptées à la
+conservation de clé et passent séparément. Deux nouveaux cas FR desktop/EN mobile
+utilisent les vrais verrous d'origine, avec refus de préparation concurrent,
+réponse perdue, fermeture des onglets et reprise de la même clé. Les cas de
+progression vérifient les traductions, le guide et les liens clavier sans aucune
+mutation. TypeScript sans émission, lint, format, standards, contrôle documentaire
+et `git diff --check` passent. Le lint conserve son avertissement existant de
+`scripts/smoke-public.mjs:165`. Le build Angular production passe, avec 25 routes
+prérendues; le bundle initial atteint 800,89 kB et dépasse le seuil d'avertissement
+de 889 octets, sans changement de budget.
+La migration 041 et le lockfile restent inchangés. Ces corrections
+conservent les droits administratifs et ne produisent aucune diffusion réelle;
+les 19 garanties complètes restent ouvertes.
+
 ## Cadrage
 
 <a id="sp01"></a>

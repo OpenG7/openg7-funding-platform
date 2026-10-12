@@ -23,6 +23,12 @@ export interface CheckoutSessionRecordInput {
 
 export interface CheckoutSessionWebhookInput extends CheckoutSessionRecordInput {
   readonly notifyAdmin?: boolean;
+  /** Monetary facts from a paid provider object, never inferred from local status. */
+  readonly trustedPaymentFacts?: {
+    readonly amountCents: number;
+    readonly currency: string;
+    readonly publicReference?: string | null;
+  };
   readonly status: 'pending' | 'paid' | 'expired' | 'failed';
   readonly paidAtIso: string | null;
   readonly emailPrivate: string | null;
@@ -35,32 +41,17 @@ export interface PaymentIntentStatusInput {
     readonly currency: string;
   };
   readonly notifyAdmin?: boolean;
-  /** Monetary facts from the authoritative PaymentIntent, never Checkout input. */
-  readonly trustedPaymentFacts?: {
-    readonly amountCents: number;
-    readonly currency: string;
-    readonly publicReference?: string | null;
-  };
   readonly stripePaymentIntentId: string;
   readonly status: 'paid' | 'failed' | 'refunded' | 'disputed';
   readonly paidAtIso?: string | null;
 }
 
-const readPaymentConfirmation = async (
+const readPaymentJournal = async (
   client: PoolClient,
   paymentIntentId: string | null
 ) => {
-  if (!paymentIntentId) return null;
-  await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
-    'payment-confirmation:' + paymentIntentId
-  ]);
-  const proof = await client.query<{ paid_at: Date }>(
-    'SELECT paid_at FROM contribution_payment_confirmations WHERE payment_intent_id=$1',
-    [paymentIntentId]
-  );
-  if (!proof.rows[0]) return null;
-  // The early-confirmation marker predates monetary evidence. Reuse the
-  // confirmed journal entry rather than trusting the local Checkout quote.
+  if (!paymentIntentId)
+    return { journalPresent: false, trustedPaymentFacts: undefined };
   const payments = await client.query<{ amount: string; currency: string }>(
     `SELECT amount::text,currency FROM fund_transactions
      WHERE stripe_object_id=$1 AND type='payment_intent.succeeded'
@@ -79,11 +70,31 @@ const readPaymentConfirmation = async (
         row.currency.toUpperCase() === first.currency.toUpperCase()
     );
   return {
-    paidAtIso: proof.rows[0].paid_at.toISOString(),
     journalPresent: payments.rows.length > 0,
     trustedPaymentFacts: trustworthy
       ? { amountCents, currency: first.currency }
       : undefined
+  };
+};
+
+const readPaymentConfirmation = async (
+  client: PoolClient,
+  paymentIntentId: string | null
+) => {
+  if (!paymentIntentId) return null;
+  await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+    'payment-confirmation:' + paymentIntentId
+  ]);
+  const proof = await client.query<{ paid_at: Date }>(
+    'SELECT paid_at FROM contribution_payment_confirmations WHERE payment_intent_id=$1',
+    [paymentIntentId]
+  );
+  if (!proof.rows[0]) return null;
+  // The marker confirms timing, not monetary terms. A silent backfill can also
+  // retain a journal without this marker; neither path may infer its price.
+  return {
+    paidAtIso: proof.rows[0].paid_at.toISOString(),
+    ...(await readPaymentJournal(client, paymentIntentId))
   };
 };
 
@@ -224,14 +235,13 @@ export const upsertCheckoutSessionFromWebhook = async (
       client,
       input.stripePaymentIntentId
     );
-    const trustedPaymentFacts = confirmation?.journalPresent
-      ? confirmation.trustedPaymentFacts
+    const journal =
+      confirmation ??
+      (await readPaymentJournal(client, input.stripePaymentIntentId));
+    const trustedPaymentFacts = journal.journalPresent
+      ? journal.trustedPaymentFacts
       : input.status === 'paid'
-        ? {
-            amountCents: input.amountCents,
-            currency: input.currency,
-            publicReference: input.publicReference
-          }
+        ? input.trustedPaymentFacts
         : undefined;
     if (confirmation) {
       input = {
@@ -459,11 +469,12 @@ export const updateContributionStatusByPaymentIntent = async (
       ]
     );
 
-    await activateSponsorshipCommitments(client, {
-      stripePaymentIntentId: input.stripePaymentIntentId,
-      trustedPaymentFacts: input.trustedPaymentFacts ?? input.checkoutMatch
-    });
     if (input.status === 'paid') {
+      // Payment status can arrive before its journal. Preserve ambiguity here;
+      // the financial handler qualifies terms only after monetary facts commit.
+      await activateSponsorshipCommitments(client, {
+        stripePaymentIntentId: input.stripePaymentIntentId
+      });
       await recordContributionActivity(
         client,
         null,

@@ -981,9 +981,10 @@
         "invoice_waiting": "Facturation en attente de paiement.",
         "invoice_not_required": "Aucune facture Stripe attendue pour cette provenance.",
         "publication_failed": "La dernière tentative de publication a échoué.",
-        "publication_done": "Toutes les contreparties prévues pour cette contribution sont livrées.",
+        "publication_done": "Toutes les contreparties sont clôturées par une livraison prouvée ou un ajustement validé.",
         "publication_cancelled": "Publication, lot ou créneau annulé. Vérifier la planification.",
         "consent_missing": "Le consentement public manque.",
+        "commitment_needs_confirmation": "Engagements à qualifier : vérifier l’offre acceptée ou les justificatifs historiques.",
         "publication_blocked": "Vérifier le paiement, la revue, les médias et le remboursement avant publication.",
         "publication_pending": "Préparer ou suivre les publications attendues.",
         "refund_check": "Vérifier le remboursement et son résultat Stripe.",
@@ -1029,11 +1030,13 @@
         "blocker": {
           "consent": "Obtenir le consentement public du commanditaire",
           "review": "Vérifier et accepter le dossier",
-          "media": "Approuver une photo de présentation",
+          "media": "Vérifier et approuver les médias requis par les engagements",
           "payment": "Vérifier l’admissibilité du paiement",
           "refund": "Examiner le remboursement en cours ou complet",
           "hidden": "Vérifier le masquage du commanditaire",
-          "identity": "Compléter le nom de l’entreprise"
+          "identity": "Compléter le nom de l’entreprise",
+          "commitment_needs_confirmation": "Vérifier l’offre acceptée ou les justificatifs des engagements historiques",
+          "commitment_blocked": "Examiner le blocage de l’engagement et ses exigences"
         },
         "status": {
           "waiting": "En attente de préparation",

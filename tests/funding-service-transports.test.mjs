@@ -70,12 +70,35 @@ function sponsorshipQuote(amountMinor) {
   };
 }
 
+function exclusiveBrowserLocks() {
+  const queues = new Map();
+  return {
+    request(name, options, callback) {
+      const previous = queues.get(name) ?? Promise.resolve();
+      const result = previous.then(() =>
+        callback({ name, mode: options.mode })
+      );
+      queues.set(
+        name,
+        result.then(
+          () => undefined,
+          () => undefined
+        )
+      );
+      return result;
+    }
+  };
+}
+
 function fixture(t, href, config) {
   const original = Object.getOwnPropertyDescriptor(globalThis, 'window');
   if (href) {
     Object.defineProperty(globalThis, 'window', {
       configurable: true,
       value: {
+        // The transport fixture exposes a secure browser's real locking semantics.
+        isSecureContext: true,
+        navigator: { locks: exclusiveBrowserLocks() },
         location: new URL(href),
         localStorage: memoryStorage(),
         sessionStorage: memoryStorage(),

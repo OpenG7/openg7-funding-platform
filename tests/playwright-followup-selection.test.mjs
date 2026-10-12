@@ -50,7 +50,8 @@ test('funding-home and offer fixtures run once in their dedicated suite and stay
   const fixtures = new Map([
     ['funding-home-trust.spec.ts', 26],
     ['payment-recovery-ui.spec.ts', 8],
-    ['sponsorship-offer-ui.spec.ts', 10]
+    ['sponsorship-offer-ui.spec.ts', 10],
+    ['sponsorship-offer-concurrency.ui.ts', 2]
   ]);
   const home = discover('tests/playwright/home-trust.config.ts');
   assert.deepEqual(

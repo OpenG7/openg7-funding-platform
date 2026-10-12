@@ -7,6 +7,7 @@ import {
   quoteFromSnapshot,
   syntheticSponsorshipOffer
 } from './support/sponsorship-offer-fixture.js';
+import { registerSponsorshipOfferConcurrencyTests } from './sponsorship-offer-concurrency.ui.js';
 
 const emptyReport = {
   data_source: 'database',
@@ -90,6 +91,18 @@ function revisedOffer(previous: SponsorshipOfferQuote): SponsorshipOfferQuote {
   });
 }
 
+registerSponsorshipOfferConcurrencyTests({
+  setup: setupPublicApis,
+  submit,
+  prepare: async (page, english) => {
+    await page.goto(path(english));
+    await expect(offer(page)).toContainText('sponsorship-v1');
+    await acknowledge(page, english);
+    await acceptance(page).check();
+    await expect(submit(page)).toBeEnabled();
+  }
+});
+
 for (const english of [false, true]) {
   const variant = english ? 'EN mobile' : 'FR desktop';
   test.describe(variant, () => {
@@ -100,7 +113,7 @@ for (const english of [false, true]) {
       await setupPublicApis(context);
     });
 
-    test(`sponsorship offer changes require a fresh human confirmation before a new Checkout (${variant})`, async ({
+    test(`sponsorship offer changes retain the dispatched key and block replacement terms (${variant})`, async ({
       page,
       context
     }) => {
@@ -140,18 +153,26 @@ for (const english of [false, true]) {
       expect(requests).toHaveLength(1);
       await acceptance(page).check();
       await submit(page).click();
-      await expect.poll(() => requests.length).toBe(2);
+      await expect(form(page).getByRole('alert')).toContainText(
+        english ? 'requires verification' : 'nécessite une vérification'
+      );
+      await expect(submit(page)).toBeDisabled();
+      expect(requests).toHaveLength(1);
       expect(requests[0].offerAcceptance).toEqual({
         version: original.version,
         fingerprint: original.fingerprint
       });
-      expect(requests[1].offerAcceptance).toEqual({
-        version: current.version,
-        fingerprint: current.fingerprint
-      });
-      expect(requests[1].idempotencyKey).not.toBe(requests[0].idempotencyKey);
-      expect(requests[1]).not.toHaveProperty('offerQuote');
-      expect(requests[1]).not.toHaveProperty('benefits');
+      const retained = await page.evaluate(() => ({
+        attempts: localStorage.getItem('openg7.checkout-attempts.v2'),
+        offer: localStorage.getItem('openg7.checkout-offer-recovery.v1')
+      }));
+      expect(Object.values(JSON.parse(retained.attempts!))).toEqual([
+        expect.objectContaining({ idempotencyKey: requests[0].idempotencyKey })
+      ]);
+      expect(retained.offer).toContain(original.fingerprint);
+      expect(retained.offer).not.toContain(current.fingerprint);
+      expect(requests[0]).not.toHaveProperty('offerQuote');
+      expect(requests[0]).not.toHaveProperty('benefits');
       await expect(
         page.locator('[data-og7="home-funding-totals"]')
       ).toContainText(

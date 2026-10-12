@@ -243,6 +243,11 @@ test(
             contributionType: 'sponsorship_interest',
             amountCents: 50000,
             currency: 'cad',
+            trustedPaymentFacts: {
+              amountCents: 50000,
+              currency: 'cad',
+              publicReference: prepared.publicReference
+            },
             metadata: {
               openg7CheckoutOperationId: (
                 await pool.query(
@@ -329,6 +334,11 @@ test(
               contributionType: 'sponsorship_interest',
               amountCents: 50000,
               currency: 'cad',
+              trustedPaymentFacts: {
+                amountCents: 50000,
+                currency: 'cad',
+                publicReference: `SYNTHETIC-${label}`
+              },
               metadata,
               publicDisplayConsent: false,
               publicName: null,
@@ -415,6 +425,11 @@ test(
             contributionType: 'sponsorship_interest',
             amountCents: 50000,
             currency: 'cad',
+            trustedPaymentFacts: {
+              amountCents: 50000,
+              currency: 'cad',
+              publicReference
+            },
             metadata,
             publicDisplayConsent: false,
             publicName: null,
@@ -433,7 +448,12 @@ test(
           ]) {
             await upsertCheckoutSessionFromWebhook(pool, {
               ...input,
-              ...change
+              ...change,
+              trustedPaymentFacts: {
+                amountCents: change.amountCents ?? input.amountCents,
+                currency: change.currency ?? input.currency,
+                publicReference: change.publicReference ?? input.publicReference
+              }
             });
             const pending = await read(id);
             assert.equal(pending.state, 'needs_confirmation');

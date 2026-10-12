@@ -4,7 +4,10 @@ import {
   buildSponsorshipProgress,
   getSponsorshipProgress
 } from '../dist/apps/funding-api/src/sponsorship-progress.service.js';
-import { createSponsorshipOfferSnapshot } from '../dist/packages/funding-core/src/index.js';
+import {
+  createSponsorshipOfferSnapshot,
+  normalizeSponsorshipOfferSnapshot
+} from '../dist/packages/funding-core/src/index.js';
 
 const committed = (amountMinor = 50000, fulfilled = []) => {
   const offer = createSponsorshipOfferSnapshot(amountMinor, 'CAD');
@@ -370,6 +373,145 @@ test('publication blockers explain the missing prerequisites without approving a
   assert.equal(result.website.canPublish, false);
   assert.equal(result.reviewStatus, 'pending_review');
   assert.equal(result.feedStatus, 'hidden');
+});
+
+test('a qualified promise requiring a missing logo blocks publication without requesting qualification again', () => {
+  const commitment = committed();
+  commitment.provenance = 'qualified_historical';
+  commitment.offer = normalizeSponsorshipOfferSnapshot({
+    ...commitment.offer,
+    version: 'historical-qualification-v1',
+    benefits: commitment.offer.benefits.map((benefit) => ({
+      ...benefit,
+      requiredElements:
+        benefit.id === 'facebook_batch'
+          ? ['company_name', 'approved_logo', 'approved_presentation']
+          : benefit.requiredElements
+    }))
+  });
+  const obligation = commitment.obligations.find(
+    (obligation) => obligation.channel === 'facebook'
+  );
+  obligation.state = 'blocked';
+  obligation.blockedReason = 'required_elements_missing';
+  const result = buildSponsorshipProgress(
+    source({ reviewStatus: 'approved' }),
+    facts({ commitment })
+  );
+  assert.equal(step(result, 'publication').state, 'blocked');
+  assert.equal(step(result, 'publication').reason, 'publication_blocked');
+  assert.equal(result.next.reason, 'publication_blocked');
+  assert.equal(result.next.tab, 'publication');
+  assert.deepEqual(result.publicationBlockers, ['media']);
+  assert.deepEqual(result.publicationCompletion, { done: 0, total: 3 });
+  assert.equal(result.commitment.state, 'active');
+  assert.equal(result.commitment.obligations[1].state, 'blocked');
+  assert.equal(result.reviewStatus, 'approved');
+  assert.equal(result.feedStatus, 'not_planned');
+});
+
+test('repository blocks remain actionable when visible requirements appear satisfied', () => {
+  for (const blockedReason of [
+    'required_elements_missing',
+    'unclassified_server_block',
+    null
+  ]) {
+    const commitment = committed();
+    const obligation = commitment.obligations[1];
+    obligation.state = 'blocked';
+    obligation.blockedReason = blockedReason;
+    const result = buildSponsorshipProgress(
+      source({ reviewStatus: 'approved' }),
+      facts({ commitment })
+    );
+    assert.equal(step(result, 'publication').state, 'blocked');
+    assert.equal(step(result, 'publication').reason, 'publication_blocked');
+    assert.deepEqual(result.publicationBlockers, ['commitment_blocked']);
+    assert.equal(result.commitment.state, 'active');
+    assert.equal(result.publicationCompletion.done, 0);
+  }
+});
+
+test('blocked company-name requirements and moderation decisions use the existing identity and review actions', () => {
+  const commitment = committed();
+  commitment.obligations[1].state = 'blocked';
+  commitment.obligations[1].blockedReason = 'required_elements_missing';
+  const identity = buildSponsorshipProgress(
+    source({ reviewStatus: 'approved', hasCompanyName: false }),
+    facts({ commitment })
+  );
+  assert.deepEqual(identity.publicationBlockers, ['identity']);
+  assert.equal(step(identity, 'publication').state, 'blocked');
+  assert.equal(identity.next.tab, 'identity');
+
+  commitment.obligations[1].blockedReason = 'moderation_review_required';
+  const moderation = buildSponsorshipProgress(
+    source({ reviewStatus: 'approved' }),
+    facts({ commitment })
+  );
+  assert.deepEqual(moderation.publicationBlockers, ['review']);
+  assert.equal(step(moderation, 'publication').state, 'blocked');
+  assert.equal(step(moderation, 'publication').reason, 'publication_blocked');
+});
+
+test('multiple blocked ordinals keep exact quantities and deduplicate existing prerequisites', () => {
+  const commitment = committed();
+  const facebook = commitment.obligations[1];
+  facebook.state = 'blocked';
+  facebook.blockedReason = 'refund_processing';
+  commitment.obligations.push({
+    ...facebook,
+    id: 'synthetic-facebook-ordinal-2',
+    ordinal: 2
+  });
+  commitment.offer.benefits[1].quantity = 2;
+  const result = buildSponsorshipProgress(
+    source({ reviewStatus: 'approved', refundStatus: 'processing' }),
+    facts({ commitment })
+  );
+  assert.deepEqual(result.publicationBlockers, ['refund']);
+  assert.deepEqual(result.publicationCompletion, { done: 0, total: 4 });
+  assert.equal(result.next.reason, 'refund_check');
+});
+
+test('fulfilled and adjusted history cannot become blocked by a stale reason or a missing current requirement', () => {
+  const commitment = committed(50000, ['website', 'facebook']);
+  commitment.obligations[0].blockedReason = 'required_elements_missing';
+  commitment.obligations[1].blockedReason = 'moderation_review_required';
+  commitment.obligations[2].state = 'adjusted';
+  commitment.obligations[2].blockedReason = 'required_elements_missing';
+  const result = buildSponsorshipProgress(
+    source({ reviewStatus: 'approved' }),
+    facts({ commitment })
+  );
+  assert.deepEqual(result.publicationBlockers, []);
+  assert.deepEqual(result.publicationCompletion, { done: 2, total: 2 });
+  assert.equal(step(result, 'publication').state, 'complete');
+  assert.equal(result.commitment.obligations[2].fulfilmentEvidenceId, null);
+  assert.deepEqual(
+    result.commitment.obligations.map((obligation) => obligation.state),
+    ['fulfilled', 'fulfilled', 'adjusted']
+  );
+});
+
+test('explicitly adjusted obligations close the milestone without claiming any delivered benefit', () => {
+  const commitment = committed();
+  for (const obligation of commitment.obligations)
+    obligation.state = 'adjusted';
+  const result = buildSponsorshipProgress(
+    source({ reviewStatus: 'approved' }),
+    facts({ commitment })
+  );
+  assert.equal(step(result, 'publication').state, 'complete');
+  assert.equal(step(result, 'publication').reason, 'publication_done');
+  assert.deepEqual(result.publicationCompletion, { done: 0, total: 0 });
+  assert.ok(
+    result.commitment.obligations.every(
+      (obligation) =>
+        obligation.state === 'adjusted' &&
+        obligation.fulfilmentEvidenceId === null
+    )
+  );
 });
 
 test('website identity and hidden social feed remain independent prerequisites', () => {

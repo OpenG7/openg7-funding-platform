@@ -15,6 +15,7 @@ import { registerSponsorHistoryPanelTests } from './admin-sponsor-history-panels
 import { registerSponsorFiltersTests } from './admin-sponsors-filters.ui.js';
 import { registerSponsorResultsTests } from './admin-sponsors-results.ui.js';
 import { registerContributionActivityOverlayTests } from './contribution-activity-overlays.ui.js';
+import { registerSponsorshipObligationProgressTests } from './sponsorship-progress-obligations.ui.js';
 
 const id = '10000000-0000-4000-8000-000000000401';
 const secondId = '10000000-0000-4000-8000-000000000402';
@@ -548,6 +549,11 @@ registerContributionActivityOverlayTests({
     options.reviewStatus = 200;
   },
   sponsorshipId: id
+});
+registerSponsorshipObligationProgressTests({
+  setup: (page) => fixtures(page, 'operator'),
+  path,
+  dossier
 });
 
 const editForm = (page: Page) => page.locator('[data-og7="edit-dossier-form"]');
@@ -3605,7 +3611,9 @@ for (const width of [1280, 390]) {
       journey.locator('[data-og7="publication-social-notice"]')
     ).toHaveCount(0);
     await expect(
-      journey.getByRole('link', { name: 'Approuver une photo de présentation' })
+      journey.getByRole('link', {
+        name: 'Vérifier et approuver les médias requis par les engagements'
+      })
     ).toHaveAttribute('href', path('media'));
     const link = journey.getByRole('link', { name: 'Vérifier et programmer' });
     await expect(link).toHaveAttribute(

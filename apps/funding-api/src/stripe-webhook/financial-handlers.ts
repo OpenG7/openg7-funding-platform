@@ -58,7 +58,6 @@ export const handleStripeFinancialEvent = async (
             }
           }
         : {}),
-      trustedPaymentFacts,
       notifyAdmin: true,
       stripePaymentIntentId: paymentIntent.id,
       status: 'paid',
@@ -105,9 +104,9 @@ export const handleStripeFinancialEvent = async (
     });
 
     if (pool) {
-      // A Checkout row can arrive between the first payment confirmation and
-      // its journal insert. Reconcile that race after the authoritative facts
-      // are durable; repeated confirmations still create one commitment only.
+      // A status update alone cannot qualify terms. Validate the immutable
+      // journal first, including replays, then reconcile a Checkout row that
+      // arrived between confirmation and journal insertion.
       await withPostgresTransaction(pool, async (db) => {
         await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
           'payment-confirmation:' + paymentIntent.id
