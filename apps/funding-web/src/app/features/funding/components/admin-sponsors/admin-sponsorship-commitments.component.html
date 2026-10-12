@@ -1,0 +1,575 @@
+<section
+  class="commitments"
+  data-og7="admin-commitments"
+  aria-labelledby="commitments-title"
+>
+  <header>
+    <h3 id="commitments-title">{{ 'admin.commitments.title' | translate }}</h3>
+    <p>{{ 'admin.commitments.separation' | translate }}</p>
+    <button
+      type="button"
+      (click)="c.load()"
+      [disabled]="c.loading() || c.saving()"
+      data-og7="commitments-refresh"
+    >
+      {{ 'admin.commitments.refresh' | translate }}
+    </button>
+  </header>
+  @if (c.loading()) {
+    <p role="status">{{ 'admin.commitments.loading' | translate }}</p>
+  }
+  @if (c.error()) {
+    <p id="commitments-error" role="alert" data-og7="commitments-error">
+      {{ 'admin.commitments.errors.' + c.error() | translate }}
+    </p>
+  }
+  @if (c.saved()) {
+    <p role="status" data-og7="commitments-saved">
+      {{ 'admin.commitments.saved' | translate }}
+    </p>
+  }
+  @if (!canOwn()) {
+    <p>{{ 'admin.commitments.ownerOnly' | translate }}</p>
+  }
+  @if (c.data(); as m) {
+    <p>
+      {{ 'admin.commitments.provenance.' + m.provenance | translate }} ·
+      {{ 'admin.commitments.version' | translate }} {{ m.version }}
+    </p>
+    @if (m.offer; as offer) {
+      <h4>{{ 'admin.commitments.recordedOffer' | translate }}</h4>
+      <p>
+        {{ offer.version }} · {{ money(offer.amountMinor, offer.currency) }}
+      </p>
+      <ul class="terms" data-og7="commitments-accepted-offer">
+        @for (b of offer.benefits; track b.id) {
+          <li>
+            <strong
+              >{{ 'admin.commitments.channels.' + b.channel | translate }} ·
+              {{ b.target }}</strong
+            >
+            — {{ b.quantity }} {{ 'admin.commitments.passage' | translate }}
+            @if (b.channel !== 'website') {
+              <span>{{
+                'admin.commitments.formats.' + (b.format ?? 'unknown')
+                  | translate
+              }}</span>
+            }
+            <span
+              >{{ 'admin.commitments.deadline' | translate }}:
+              {{ period(b.deadlineDays) }} ·
+              {{ 'admin.commitments.duration' | translate }}:
+              {{ period(b.durationDays) }}</span
+            >
+            <span>
+              @for (r of b.requiredElements; track r) {
+                {{ 'admin.commitments.requirements.' + r | translate }};
+              }
+            </span>
+          </li>
+        }
+      </ul>
+      <h4>{{ 'admin.commitments.currentObligations' | translate }}</h4>
+      <p>{{ 'admin.commitments.currentHelp' | translate }}</p>
+      <ul class="obligations" data-og7="commitments-obligations">
+        @for (o of m.obligations; track o.id) {
+          <li [attr.data-og7-id]="o.id">
+            <strong
+              >{{ 'admin.commitments.channels.' + o.channel | translate }} ·
+              {{ o.target }} · #{{ o.ordinal }}</strong
+            >
+            <span
+              >{{ 'admin.commitments.states.' + o.state | translate }} ·
+              @if (o.channel !== 'website') {
+                {{
+                  'admin.commitments.formats.' + (o.format ?? 'unknown')
+                    | translate
+                }}
+              }
+              · v{{ o.version }}</span
+            >
+            @if (o.fulfilmentEvidenceId) {
+              <span
+                >{{ 'admin.commitments.evidenceId' | translate }}:
+                {{ o.fulfilmentEvidenceId }}</span
+              >
+            }
+            @if (
+              o.timing &&
+              (o.timing.deadlineDays !== null || o.timing.durationDays !== null)
+            ) {
+              <openg7-admin-sponsorship-timing
+                [obligation]="o"
+                [canOwn]="canOwn()"
+                (changed)="c.load(); changed.emit()"
+              />
+            }
+            @if (
+              canOwn() && o.state !== 'fulfilled' && o.state !== 'adjusted'
+            ) {
+              <button
+                type="button"
+                (click)="c.chooseObligation(o.id)"
+                [disabled]="locked()"
+                data-og7="commitments-adjust-open"
+              >
+                {{ 'admin.commitments.adjust' | translate }}
+              </button>
+            }
+          </li>
+        }
+      </ul>
+    }
+    @if (canOwn() && m.state === 'needs_confirmation') {
+      @if (dossier().currency !== 'CAD') {
+        <p>{{ 'admin.commitments.unsupportedCurrency' | translate }}</p>
+      } @else {
+        <form
+          (submit)="$event.preventDefault(); c.qualify()"
+          data-og7="commitments-qualification"
+          [attr.aria-describedby]="c.error() ? 'commitments-error' : null"
+        >
+          <h4>{{ 'admin.commitments.qualify' | translate }}</h4>
+          <p>{{ 'admin.commitments.historicalHelp' | translate }}</p>
+          <p>
+            {{ 'admin.commitments.financialFact' | translate }}:
+            {{ money(dossier().amountMinor, dossier().currency) }}
+          </p>
+          <fieldset [disabled]="locked()">
+            <legend>{{ 'admin.commitments.agreedTerms' | translate }}</legend>
+            @for (b of c.benefits(); track $index; let index = $index) {
+              <fieldset class="benefit-editor" [attr.data-og7-id]="index">
+                <legend>
+                  {{ 'admin.commitments.benefit' | translate }} {{ index + 1 }}
+                </legend>
+                <label
+                  >{{ 'admin.commitments.channel' | translate
+                  }}<select
+                    [value]="b.channel"
+                    (change)="updateText(index, 'channel', $event)"
+                    data-og7="commitments-benefit-channel"
+                    required
+                  >
+                    <option value="">
+                      {{ 'admin.commitments.choose' | translate }}
+                    </option>
+                    <option value="website">
+                      {{ 'admin.commitments.channels.website' | translate }}
+                    </option>
+                    <option value="facebook">Facebook</option>
+                    <option value="linkedin">LinkedIn</option>
+                  </select></label
+                >
+                <label
+                  >{{ 'admin.commitments.target' | translate
+                  }}<select
+                    [value]="b.target"
+                    (change)="updateText(index, 'target', $event)"
+                    data-og7="commitments-benefit-target"
+                    required
+                  >
+                    <option value="">
+                      {{ 'admin.commitments.choose' | translate }}
+                    </option>
+                    <option value="openg7">OpenG7</option>
+                    <option value="openg20">OpenG20</option>
+                  </select></label
+                >
+                <label
+                  >{{ 'admin.commitments.quantity' | translate
+                  }}<input
+                    type="number"
+                    min="1"
+                    max="100"
+                    step="1"
+                    [value]="b.quantity"
+                    (input)="updateText(index, 'quantity', $event)"
+                    data-og7="commitments-benefit-quantity"
+                    required
+                /></label>
+                @if (b.channel && b.channel !== 'website') {
+                  <label
+                    >{{ 'admin.commitments.format' | translate
+                    }}<select
+                      [value]="b.format"
+                      (change)="updateText(index, 'format', $event)"
+                      data-og7="commitments-benefit-format"
+                    >
+                      <option value="">
+                        {{ 'admin.commitments.formats.unknown' | translate }}
+                      </option>
+                      @for (format of formatChoices; track format) {
+                        <option [value]="format">
+                          {{
+                            'admin.commitments.formats.' + format | translate
+                          }}
+                        </option>
+                      }
+                    </select></label
+                  >
+                }
+                <p>{{ 'admin.commitments.requiredHelp' | translate }}</p>
+                <div class="checks">
+                  <label
+                    ><input
+                      type="checkbox"
+                      [checked]="b.companyName"
+                      (change)="updateCheck(index, 'companyName', $event)"
+                      data-og7="commitments-company-required"
+                    />{{
+                      'admin.commitments.requirements.company_name' | translate
+                    }}</label
+                  >
+                  <label
+                    ><input
+                      type="checkbox"
+                      [checked]="b.presentation"
+                      (change)="updateCheck(index, 'presentation', $event)"
+                    />{{
+                      'admin.commitments.requirements.approved_presentation'
+                        | translate
+                    }}</label
+                  >
+                  <label
+                    ><input
+                      type="checkbox"
+                      [checked]="b.logo"
+                      (change)="updateCheck(index, 'logo', $event)"
+                    />{{
+                      'admin.commitments.requirements.approved_logo' | translate
+                    }}</label
+                  >
+                </div>
+                <label
+                  >{{ 'admin.commitments.deadlineDays' | translate
+                  }}<input
+                    type="number"
+                    min="1"
+                    max="3650"
+                    step="1"
+                    [value]="b.deadlineDays"
+                    (input)="updateText(index, 'deadlineDays', $event)"
+                    data-og7="commitments-deadline"
+                /></label>
+                <label
+                  >{{ 'admin.commitments.durationDays' | translate
+                  }}<input
+                    type="number"
+                    min="1"
+                    max="3650"
+                    step="1"
+                    [value]="b.durationDays"
+                    (input)="updateText(index, 'durationDays', $event)"
+                    data-og7="commitments-duration"
+                /></label>
+                <p>{{ 'admin.commitments.periodHelp' | translate }}</p>
+                <p>
+                  {{ 'admin.commitments.durationUnsupportedHelp' | translate }}
+                </p>
+                <button type="button" (click)="c.removeBenefit(index)">
+                  {{ 'admin.commitments.removeBenefit' | translate }}
+                </button>
+              </fieldset>
+            }
+            <button
+              type="button"
+              (click)="c.addBenefit()"
+              [disabled]="c.benefits().length >= 3"
+              data-og7="commitments-add-benefit"
+            >
+              {{ 'admin.commitments.addBenefit' | translate }}
+            </button>
+            <label
+              >{{ 'admin.commitments.evidenceReference' | translate
+              }}<textarea
+                [value]="c.evidence()"
+                (input)="c.evidence.set(value($event))"
+                maxlength="2000"
+                required
+                data-og7="commitments-evidence"
+              ></textarea>
+            </label>
+            <label
+              >{{ 'admin.commitments.reason' | translate
+              }}<textarea
+                [value]="c.reason()"
+                (input)="c.reason.set(value($event))"
+                maxlength="2000"
+                required
+                data-og7="commitments-reason"
+              ></textarea>
+            </label>
+            <label
+              >{{ 'admin.commitments.confirmation' | translate }}
+              <code>{{ dossier().contributionId }}</code
+              ><input
+                [value]="c.confirmation()"
+                (input)="c.confirmation.set(value($event))"
+                autocomplete="off"
+                spellcheck="false"
+                required
+                data-og7="commitments-confirmation"
+            /></label>
+            <button
+              type="submit"
+              [disabled]="!c.benefits().length"
+              data-og7="commitments-qualify"
+            >
+              {{ 'admin.commitments.qualify' | translate }}
+            </button>
+          </fieldset>
+        </form>
+      }
+    }
+    @if (canOwn() && c.selectedObligation()) {
+      <form
+        (submit)="$event.preventDefault(); c.adjust()"
+        data-og7="commitments-adjustment"
+        [attr.aria-describedby]="c.error() ? 'commitments-error' : null"
+      >
+        <h4>{{ 'admin.commitments.adjust' | translate }}</h4>
+        <p>{{ 'admin.commitments.adjustHelp' | translate }}</p>
+        <fieldset [disabled]="locked()">
+          <legend>{{ 'admin.commitments.changeTerms' | translate }}</legend>
+          <label
+            >{{ 'admin.commitments.changeKind' | translate
+            }}<select
+              [value]="c.adjustment()"
+              (change)="c.adjustment.set(value($event))"
+              data-og7="commitments-adjust-kind"
+              required
+            >
+              <option value="">
+                {{ 'admin.commitments.choose' | translate }}
+              </option>
+              <option value="destination">
+                {{ 'admin.commitments.destinationChange' | translate }}
+              </option>
+              @if (obligation()?.channel !== 'website') {
+                <option value="format">
+                  {{ 'admin.commitments.formatChange' | translate }}
+                </option>
+              }
+              <option value="waiver">
+                {{ 'admin.commitments.waiver' | translate }}
+              </option>
+            </select></label
+          >
+          @if (c.adjustment() === 'destination') {
+            <label
+              >{{ 'admin.commitments.target' | translate
+              }}<select
+                [value]="c.target()"
+                (change)="c.target.set(value($event))"
+                data-og7="commitments-adjust-target"
+                required
+              >
+                <option value="">
+                  {{ 'admin.commitments.choose' | translate }}
+                </option>
+                <option value="openg7">OpenG7</option>
+                <option value="openg20">OpenG20</option>
+              </select></label
+            >
+          }
+          @if (c.adjustment() === 'format') {
+            <label
+              >{{ 'admin.commitments.format' | translate
+              }}<select
+                [value]="c.format()"
+                (change)="c.format.set(value($event))"
+                data-og7="commitments-adjust-format"
+                required
+              >
+                <option value="">
+                  {{ 'admin.commitments.choose' | translate }}
+                </option>
+                @for (format of formatChoices; track format) {
+                  <option [value]="format">
+                    {{ 'admin.commitments.formats.' + format | translate }}
+                  </option>
+                }
+              </select></label
+            >
+          }
+          @if (c.adjustment() === 'waiver') {
+            <label
+              ><input
+                type="checkbox"
+                [checked]="c.waiverAcknowledged()"
+                (change)="c.waiverAcknowledged.set(checked($event))"
+                required
+                data-og7="commitments-waiver-confirm"
+              />{{ 'admin.commitments.waiverHelp' | translate }}</label
+            >
+          }
+          <label
+            >{{ 'admin.commitments.reason' | translate
+            }}<textarea
+              [value]="c.reason()"
+              (input)="c.reason.set(value($event))"
+              maxlength="2000"
+              required
+              data-og7="commitments-adjust-reason"
+            ></textarea>
+          </label>
+          <label
+            >{{ 'admin.commitments.confirmation' | translate }}
+            <code>{{ c.selectedObligation() }}</code
+            ><input
+              [value]="c.confirmation()"
+              (input)="c.confirmation.set(value($event))"
+              autocomplete="off"
+              spellcheck="false"
+              required
+              data-og7="commitments-adjust-confirmation"
+          /></label>
+          <button type="submit" data-og7="commitments-adjust-save">
+            {{ 'admin.commitments.saveAdjustment' | translate }}
+          </button>
+        </fieldset>
+      </form>
+    }
+  } @else if (!c.loading()) {
+    <p>{{ 'admin.commitments.unavailable' | translate }}</p>
+  }
+  @if (canOwn()) {
+    @if (c.pending(); as pending) {
+      <aside role="status" data-og7="commitments-pending">
+        <p>{{ 'admin.commitments.retryHelp' | translate }}</p>
+        <details>
+          <summary>
+            {{ 'admin.commitments.pendingRequest' | translate }}
+          </summary>
+          <p>
+            <code>{{ pending.payload.requestId }}</code> ·
+            {{ 'admin.commitments.version' | translate }}
+            {{ pending.payload.expectedVersion }}
+          </p>
+          <p>{{ pending.payload.reason }}</p>
+          @if (pending.kind === 'qualify') {
+            <p>{{ pending.payload.evidenceReference }}</p>
+            <ul>
+              @for (b of pending.payload.offer.benefits; track b.id) {
+                <li>
+                  {{ 'admin.commitments.channels.' + b.channel | translate }} ·
+                  {{ b.target }} · {{ b.quantity }}
+                  {{ 'admin.commitments.passage' | translate }}
+                  @if (b.format) {
+                    · {{ 'admin.commitments.formats.' + b.format | translate }}
+                  }
+                </li>
+              }
+            </ul>
+          } @else {
+            <p>
+              {{ 'admin.commitments.changeKind' | translate }}:
+              {{
+                'admin.commitments.kinds.' + pending.payload.kind | translate
+              }}
+            </p>
+            @if (pending.payload.target) {
+              <p>{{ pending.payload.target }}</p>
+            }
+            @if (pending.payload.format) {
+              <p>
+                {{
+                  'admin.commitments.formats.' + pending.payload.format
+                    | translate
+                }}
+              </p>
+            }
+          }
+        </details>
+        <button
+          type="button"
+          [disabled]="c.saving() || c.loading()"
+          (click)="c.retry()"
+          data-og7="commitments-retry"
+        >
+          {{ 'admin.commitments.retry' | translate }}
+        </button>
+      </aside>
+    }
+  }
+  @if (canOwn()) {
+    <details data-og7="commitments-adoption">
+      <summary>{{ 'admin.commitments.adoptionTitle' | translate }}</summary>
+      <p>{{ 'admin.commitments.adoptionHelp' | translate }}</p>
+      <label
+        >{{ 'admin.commitments.pageSize' | translate
+        }}<select
+          [value]="c.pageSize()"
+          (change)="setPageSize($event)"
+          [disabled]="c.previewLoading()"
+        >
+          <option value="25">25</option>
+          <option value="50">50</option>
+        </select></label
+      >
+      <button
+        type="button"
+        (click)="c.loadPreview()"
+        [disabled]="c.previewLoading()"
+        data-og7="commitments-adoption-load"
+      >
+        {{ 'admin.commitments.loadPreview' | translate }}
+      </button>
+      @if (c.previewLoading()) {
+        <p role="status">{{ 'admin.commitments.loading' | translate }}</p>
+      }
+      @if (c.previewError()) {
+        <p role="alert">
+          {{ 'admin.commitments.errors.' + c.previewError() | translate }}
+        </p>
+      }
+      @if (c.preview(); as preview) {
+        <ul>
+          @for (item of preview.items; track item.contributionId) {
+            <li>
+              <a
+                routerLink="/admin/fundraiser/sponsors"
+                [queryParams]="{
+                  sponsorshipId: item.contributionId,
+                  tab: 'publication'
+                }"
+                >{{ item.reference ?? item.contributionId }}</a
+              >
+              ·
+              {{
+                'admin.commitments.classifications.' + item.classification
+                  | translate
+              }}<span>{{
+                'admin.commitments.inventoryCounts'
+                  | translate
+                    : {
+                        obligations: item.obligationCount,
+                        evidence: item.fulfilledWithEvidenceCount,
+                        declarations: item.historicalDeclarationCount
+                      }
+              }}</span>
+            </li>
+          } @empty {
+            <li>{{ 'admin.commitments.emptyPreview' | translate }}</li>
+          }
+        </ul>
+        @if (preview.nextCursor) {
+          <button
+            type="button"
+            (click)="c.loadPreview(true)"
+            [disabled]="c.previewLoading()"
+            data-og7="commitments-adoption-next"
+          >
+            {{ 'admin.commitments.nextPage' | translate }}
+          </button>
+        }
+      }
+    </details>
+  }
+</section>
+@if (canOwn()) {
+  <openg7-admin-sponsorship-historical-audit
+    [contributionId]="dossier().contributionId"
+    [canOwn]="canOwn()"
+  />
+}

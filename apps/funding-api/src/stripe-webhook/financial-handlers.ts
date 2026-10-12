@@ -14,6 +14,8 @@ import {
   updateContributionFundTransactionBalance
 } from '../fund-transparency.repository.js';
 import { syncStripeChargeRefunds } from '../stripe-refunds.service.js';
+import { withPostgresTransaction } from '../postgres-transaction.js';
+import { activateSponsorshipCommitments } from '../sponsorship-commitments.repository.js';
 
 import { toIsoFromUnix } from './event-time.js';
 import { handleStripeRefundEvent } from './refund-handlers.js';
@@ -41,12 +43,17 @@ export const handleStripeFinancialEvent = async (
     const publicReference = normalizeContributionPublicReference(
       paymentIntent.metadata.publicReference
     );
+    const trustedPaymentFacts = {
+      amountCents: paymentIntent.amount_received || paymentIntent.amount,
+      currency: paymentIntent.currency,
+      publicReference
+    };
     const statusUpdated = await updateContributionStatusByPaymentIntent(pool, {
       ...(publicReference
         ? {
             checkoutMatch: {
               publicReference,
-              amountCents: paymentIntent.amount,
+              amountCents: trustedPaymentFacts.amountCents,
               currency: paymentIntent.currency
             }
           }
@@ -95,6 +102,21 @@ export const handleStripeFinancialEvent = async (
         eventType: event.type
       }
     });
+
+    if (pool) {
+      // A status update alone cannot qualify terms. Validate the immutable
+      // journal first, including replays, then reconcile a Checkout row that
+      // arrived between confirmation and journal insertion.
+      await withPostgresTransaction(pool, async (db) => {
+        await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+          'payment-confirmation:' + paymentIntent.id
+        ]);
+        await activateSponsorshipCommitments(db, {
+          stripePaymentIntentId: paymentIntent.id,
+          trustedPaymentFacts
+        });
+      });
+    }
 
     await finalizeSponsorshipPaymentIntent(
       pool,

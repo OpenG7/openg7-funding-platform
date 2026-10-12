@@ -1,9 +1,12 @@
+import { createHash } from 'node:crypto';
+
 import type {
   ModerationDecisionInput,
   SponsorMediaReviewStatus
 } from '@openg7/funding-core';
 import type { Pool, PoolClient } from 'pg';
 
+import { normalizeSponsorMediaUsage } from '../../../../packages/funding-core/src/index.js';
 import { insertAdminAuditLog } from '../fund-admin-audit.repository.js';
 import { withPostgresTransaction } from '../postgres-transaction.js';
 import {
@@ -136,10 +139,10 @@ export const createSponsorMediaAsset = async (
          id, contribution_id, kind, uploaded_by, original_filename,
          original_mime_type, original_size_bytes, original_storage_key,
          processed_size_bytes, processed_storage_key, checksum_sha256,
-         width, height, alt_text, sort_order
+         width, height, alt_text, sort_order, usage_rights
        ) VALUES (
          $1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8,
-         $9, $10, $11, $12, $13, $14, $15
+         $9, $10, $11, $12, $13, $14, $15, $16::jsonb
        )
        RETURNING ${selectAssetColumns}`,
       [
@@ -157,7 +160,8 @@ export const createSponsorMediaAsset = async (
         input.width,
         input.height,
         input.altText,
-        sortOrder
+        sortOrder,
+        JSON.stringify(normalizeSponsorMediaUsage(input.usage))
       ]
     );
     if (input.uploadedBy === 'sponsor') {
@@ -186,6 +190,35 @@ export const createSponsorMediaAsset = async (
     });
     if (!audited) {
       throw new Error('Sponsor media upload audit is unavailable.');
+    }
+    const usage = normalizeSponsorMediaUsage(input.usage);
+    if (usage.state === 'confirmed') {
+      const captured = {
+        assetId: input.id,
+        usage,
+        source: 'upload',
+        checksumSha256: input.checksumSha256
+      };
+      await client.query(
+        `INSERT INTO sponsor_media_usage_commands(contribution_id,request_id,operation,payload_fingerprint,result)
+        VALUES($1,$2,'usage',$3,$4::jsonb)`,
+        [
+          input.contributionId,
+          input.id,
+          createHash('sha256').update(JSON.stringify(captured)).digest('hex'),
+          JSON.stringify({ updated: true, asset: mapAsset(inserted.rows[0]!) })
+        ]
+      );
+      await client.query(
+        `INSERT INTO sponsor_media_usage_history(asset_id,contribution_id,request_id,usage_rights,evidence_reference,actor)
+        VALUES($1,$2,$1,$3::jsonb,NULL,$4)`,
+        [
+          input.id,
+          input.contributionId,
+          JSON.stringify(usage),
+          input.auditActor
+        ]
+      );
     }
     return {
       status: 'created',
@@ -268,6 +301,7 @@ export const reviewSponsorMediaAsset = async (
     readonly reviewedBy: string;
     readonly confirmation?: string;
     readonly moderationDecision?: ModerationDecisionInput;
+    readonly usageRestrictionsConfirmed?: true;
   }
 ): Promise<SponsorMediaMutationResult> => {
   if (!pool) {
@@ -310,6 +344,31 @@ export const reviewSponsorMediaAsset = async (
       }
       if ((current.alt_text?.trim() || null) !== input.altText)
         throw new ModerationError('MODERATION_CONTENT_CHANGED');
+      const usage = normalizeSponsorMediaUsage(current.usage_rights);
+      if (usage.state !== 'confirmed')
+        throw new ModerationError(
+          usage.state === 'withdrawn'
+            ? 'MEDIA_USAGE_WITHDRAWN'
+            : 'MEDIA_USAGE_CONFIRMATION_REQUIRED'
+        );
+      if (
+        usage.restrictions &&
+        !current.usage_restrictions_reviewed &&
+        input.usageRestrictionsConfirmed !== true
+      )
+        throw new ModerationError('MEDIA_RESTRICTIONS_REVIEW_REQUIRED');
+      if (usage.restrictions && input.usageRestrictionsConfirmed === true) {
+        const audited = await insertAdminAuditLog(db, {
+          actor: input.reviewedBy,
+          action: 'sponsorship.media.restrictions-reviewed',
+          entityType: 'sponsor_media_asset',
+          entityId: input.assetId,
+          summary: 'Exact image usage restrictions explicitly reviewed.',
+          metadata: { version: input.expectedVersion }
+        });
+        if (!audited)
+          throw new ModerationError('MEDIA_USAGE_AUDIT_UNAVAILABLE', 503);
+      }
       await approveModeratedSubject(
         db,
         subject,
@@ -324,6 +383,7 @@ export const reviewSponsorMediaAsset = async (
          public_url = $5,
          reviewed_at = NOW(),
          reviewed_by = $6,
+         usage_restrictions_reviewed = $8,
          updated_at = NOW()
      WHERE id = $1::uuid
        AND deleted_at IS NULL
@@ -336,7 +396,10 @@ export const reviewSponsorMediaAsset = async (
           input.publicStorageKey,
           input.publicUrl,
           input.reviewedBy,
-          input.expectedVersion
+          input.expectedVersion,
+          !usage.restrictions ||
+            input.usageRestrictionsConfirmed === true ||
+            current.usage_restrictions_reviewed === true
         ]
       );
       if (result.rows[0]) {

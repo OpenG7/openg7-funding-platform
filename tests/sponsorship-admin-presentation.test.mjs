@@ -19,7 +19,7 @@ import {
   buildSponsorshipReviewReminderAdminUrl,
   buildSponsorshipReviewReminderCandidate
 } from '../dist/apps/funding-api/src/admin-reminder.service.js';
-import { resolveSponsorshipSocialChannels } from '../dist/apps/funding-api/src/sponsorship-benefits.js';
+import { pendingSponsorshipSocialChannels } from '../dist/packages/funding-core/src/index.js';
 
 test('sponsorship links encode reserved characters without adding query parameters or a fragment', () => {
   const id = 'demo /?&=#é';
@@ -82,7 +82,7 @@ test('sponsorship references preserve public values and use a short fallback onl
 test('attention keeps its existing presentation and social-channel exports', () => {
   assert.equal(attentionAdminUrl, sponsorshipAdminUrl);
   assert.equal(attentionRef, sponsorshipRef);
-  assert.equal(promisedSocialChannels, resolveSponsorshipSocialChannels);
+  assert.equal(promisedSocialChannels, pendingSponsorshipSocialChannels);
 });
 
 test('attention, context, tools and reminders share presentation while omitting synthetic private fields', () => {

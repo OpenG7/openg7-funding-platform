@@ -11,15 +11,65 @@ import type {
   ReferenceRecoveryRequest,
   ReferenceRecoveryResult
 } from '@openg7/funding-core';
+import {
+  normalizeSponsorshipOfferSnapshot,
+  normalizeSponsorshipOfferFormats,
+  type SponsorshipOfferQuote,
+  type SponsorshipOfferFormatOptions
+} from '@openg7/funding-core';
 
 import {
   CheckoutReconciliationRequiredError,
-  CheckoutCharterChangedError
+  CheckoutCharterChangedError,
+  CheckoutOfferChangedError
 } from './checkout-error.js';
 
 /** Public funding endpoints; checkout attempts and return URLs belong to FundingService. */
 export class FundingPublicClient {
   constructor(private readonly apiBaseUrl: string) {}
+  async sponsorshipOffer(
+    amountMinor: number,
+    currency: string,
+    signal?: AbortSignal,
+    formats?: SponsorshipOfferFormatOptions
+  ): Promise<SponsorshipOfferQuote> {
+    const params = new URLSearchParams({
+      amountMinor: String(amountMinor),
+      currency
+    });
+    for (const [channel, format] of Object.entries(
+      normalizeSponsorshipOfferFormats(formats) ?? {}
+    ))
+      params.set(channel + 'Format', format);
+    const response = await fetch(
+      `${this.apiBaseUrl}/sponsorship-offer?${params}`,
+      {
+        method: 'GET',
+        cache: 'no-store',
+        signal,
+        headers: { Accept: 'application/json' }
+      }
+    );
+    if (!response.ok) throw new Error('SPONSORSHIP_OFFER_UNAVAILABLE');
+    const data: unknown = await response.json();
+    const snapshot = normalizeSponsorshipOfferSnapshot(data);
+    for (const [channel, format] of Object.entries(formats ?? {})) {
+      const benefit = snapshot.benefits.find(
+        (item) => item.channel === channel
+      );
+      if (benefit && benefit.format !== format)
+        throw new Error('SPONSORSHIP_OFFER_UNAVAILABLE');
+    }
+    const fingerprint = (data as { fingerprint?: unknown }).fingerprint;
+    if (
+      snapshot.amountMinor !== amountMinor ||
+      snapshot.currency !== currency ||
+      typeof fingerprint !== 'string' ||
+      !/^[a-f0-9]{64}$/.test(fingerprint)
+    )
+      throw new Error('SPONSORSHIP_OFFER_UNAVAILABLE');
+    return { ...snapshot, fingerprint };
+  }
   async sponsorshipCharter(): Promise<
     import('@openg7/funding-core').PublicSponsorshipCharter
   > {
@@ -55,13 +105,21 @@ export class FundingPublicClient {
         .catch(() => null)) as { code?: string } | null;
       if (
         [
+          'SPONSORSHIP_OFFER_ACCEPTANCE_REQUIRED',
+          'SPONSORSHIP_OFFER_CHANGED',
+          'SPONSORSHIP_OFFER_INVALID'
+        ].includes(charterFailure?.code ?? '')
+      )
+        throw new CheckoutOfferChangedError(charterFailure!.code);
+      if (
+        [
           'CHARTER_VERSION_CHANGED',
           'CHARTER_NOT_ACTIVE',
           'CHARTER_ACCEPTANCE_REQUIRED',
           'CHARTER_ACCEPTANCE_INVALID'
         ].includes(charterFailure?.code ?? '')
       )
-        throw new CheckoutCharterChangedError();
+        throw new CheckoutCharterChangedError(charterFailure!.code);
       if (response.status === 409) {
         const failure: unknown = await response.json().catch(() => null);
         if (

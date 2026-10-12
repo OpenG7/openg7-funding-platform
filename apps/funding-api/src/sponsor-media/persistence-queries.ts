@@ -5,6 +5,8 @@ import { moderationVisibleSql } from '../moderation/policy.js';
 import type { SponsorMediaAssetRow } from './persistence-contracts.js';
 
 export const selectAssetColumns = `
+  usage_rights,
+  usage_restrictions_reviewed,
   id,
   contribution_id,
   kind,

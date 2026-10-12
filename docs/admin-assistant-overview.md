@@ -38,9 +38,15 @@ un compteur nul interprété comme une absence de travail.
 
 La détection, la préparation et le contexte utilisent la même
 [couverture des canaux de publication](../apps/funding-api/src/sponsorship-publication-coverage.ts).
-Les canaux promis proviennent de la politique d'avantages partagée. Un brouillon
-du dossier couvre son canal tant qu'il n'est ni refusé ni annulé, y compris après
-publication. Cette couverture sert à repérer les canaux encore à préparer;
+Les canaux à préparer proviennent des obligations restantes de l'engagement
+enregistré, issu de l'offre figée. Aucun canal n'est déduit du montant ou du barème
+actuel. Les dossiers historiques sans termes confirmés rejoignent la catégorie
+`sponsorship_needs_commitment`, accessible par
+`GET /api/admin/attention?type=sponsorship_needs_commitment` et incluse dans les
+compteurs globaux `typeCounts` et `actionCounts`. Cette lecture ne qualifie aucun
+engagement. Un brouillon du dossier couvre son canal et sa destination tant qu'il
+n'est ni refusé ni annulé, y compris après publication. Cette couverture sert à
+repérer les canaux encore à préparer;
 l'autorisation d'envoi et les preuves de publication restent vérifiées dans leurs
 parcours respectifs.
 

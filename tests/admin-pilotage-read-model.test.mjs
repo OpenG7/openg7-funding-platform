@@ -4,6 +4,7 @@ import test from 'node:test';
 
 import { loadAdminPilotageState } from '../dist/apps/funding-api/src/admin-pilotage.read-model.js';
 import { pilotageVersion } from '../dist/apps/funding-api/src/admin-pilotage-version.js';
+import { recordedSponsorshipCommitment } from './support/sponsorship-commitment-fixture.mjs';
 
 const version = '2026-10-03 12:34:56.123456+00';
 const future = '2099-10-03T12:00:00.000Z';
@@ -49,6 +50,18 @@ const project = (id, overrides = {}) => ({
   ...overrides
 });
 const sponsor = (id, overrides = {}) => ({
+  commitment: (() => {
+    const recorded = recordedSponsorshipCommitment(['website_mention']);
+    return {
+      ...recorded,
+      contributionId: id,
+      offer: { ...recorded.offer, amountMinor: 10000 },
+      obligations: recorded.obligations.map((o) => ({
+        ...o,
+        contributionId: id
+      }))
+    };
+  })(),
   contribution_id: id,
   public_reference: 'SYNTHETIC-' + id,
   amount_cents: '10000',

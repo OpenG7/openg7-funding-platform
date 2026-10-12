@@ -64,7 +64,7 @@ test('Playwright runs a desktop + mobile matrix without duplicating DB-mutating 
 
   // The @mobile tag routing is what keeps DB-mutating specs desktop-only:
   // desktop greps the tag out, mobile greps it in.
-  assert.ok(config.includes('grepInvert: MOBILE_TAG'));
+  assert.ok(config.includes('grepInvert: [MOBILE_TAG, OFFER_UI_TAG]'));
   assert.ok(config.includes('grep: MOBILE_TAG'));
 
   // Pixel 5 is a Chromium device, so the matrix adds no new browser binary and

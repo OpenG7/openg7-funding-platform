@@ -12,6 +12,19 @@ rétroactivement les engagements existants sans décision explicite. Les valeurs
 actives se trouvent dans `DEFAULT_SPONSORSHIP_PRICING_CONFIG` et la configuration
 Funding Web; la politique est décrite dans le [guide commanditaires](../public-sponsors.md).
 
+L'offre serveur en unités mineures CAD, version et empreinte est figée avant
+Stripe dans la transaction Checkout. Un rejeu conserve ces termes ; le paiement
+confirmé crée les obligations une fois. Historique sans offre : qualification par
+le propriétaire avec preuve et raison, sans barème rétroactif. Offres et changements
+sont immuables ; ajustement
+ou dispense exige version, confirmation et audit. Refus/remboursement bloquent
+sans solder automatiquement. `fulfilled` exige une preuve qualifiée, distincte
+de la visibilité courante ou d'un statut historique publié. Contrats :
+[Checkout](../technical/checkout.md), [engagements](../technical/sponsorship-commitments.md).
+
+L'historique sans format promet du texte. Toute image exige une qualification
+ou un ajustement explicite.
+
 Revue (`pending`, `approved`, `refused`), paiement, consentement, visibilité et
 publication sont distincts. Toute approbation conserve acteur, date et note/raison
 pertinente; un refus conserve l'historique financier. Les contrats réels de code

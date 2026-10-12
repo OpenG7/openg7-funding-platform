@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createHash } from 'node:crypto';
 
 import {
   AdminDashboardRequestError,
@@ -45,6 +46,97 @@ const serviceFixture = (t, token = syntheticToken) => {
   });
   return { service: new FundingAdminService(), sessionStorage };
 };
+
+test('exact JPEG previews authenticate a delivery version and verify bytes/hash headers before display', async (t) => {
+  const { service } = serviceFixture(t),
+    bytes = Buffer.from('synthetic prepared JPEG bytes'),
+    hash = createHash('sha256').update(bytes).digest('hex');
+  let responseHash = hash,
+    responseVersion = '7',
+    responseType = 'image/jpeg';
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    assert.equal(
+      url,
+      baseUrl +
+        '/admin/publication-automation/image-preview?deliveryId=synthetic-delivery&version=7'
+    );
+    assert.equal(options.cache, 'no-store');
+    assert.equal(options.headers.Accept, 'image/jpeg');
+    assert.equal(options.headers.Authorization, `Bearer ${syntheticToken}`);
+    return new Response(bytes, {
+      headers: {
+        'Content-Type': responseType,
+        'X-Content-SHA256': responseHash,
+        'X-Publication-Delivery-Version': responseVersion
+      }
+    });
+  });
+  const image = await service.publicationImagePreview(
+    'synthetic-delivery',
+    7,
+    hash
+  );
+  assert.equal(image.type, 'image/jpeg');
+  assert.deepEqual(Buffer.from(await image.arrayBuffer()), bytes);
+  responseHash = 'b'.repeat(64);
+  await assert.rejects(
+    service.publicationImagePreview('synthetic-delivery', 7, hash),
+    /MEDIA_CHANGED/
+  );
+  responseHash = hash;
+  responseVersion = '8';
+  await assert.rejects(
+    service.publicationImagePreview('synthetic-delivery', 7, hash),
+    /MEDIA_CHANGED/
+  );
+  responseVersion = '7';
+  responseType = 'image/webp';
+  await assert.rejects(
+    service.publicationImagePreview('synthetic-delivery', 7, hash),
+    /MEDIA_CHANGED/
+  );
+});
+test('admin image rights and preference review transport retains confirmation version UUID and private evidence', async (t) => {
+  const { service } = serviceFixture(t),
+    commands = [];
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    commands.push({ url, body: JSON.parse(options.body) });
+    assert.equal(options.headers.Authorization, `Bearer ${syntheticToken}`);
+    return Response.json({ updated: true });
+  });
+  const usage = {
+    requestId: 'synthetic-request',
+    assetId: 'synthetic-asset',
+    expectedVersion: 'v1',
+    confirmation: 'synthetic-asset',
+    usage: {
+      state: 'confirmed',
+      channels: ['website'],
+      targets: ['openg7'],
+      transformations: ['technical'],
+      credit: null,
+      restrictions: null
+    },
+    evidenceReference: 'Synthetic private permission record'
+  };
+  const preference = {
+    requestId: 'synthetic-review',
+    contributionId: 'synthetic-owner',
+    expectedRevision: 3,
+    state: 'accepted',
+    sponsorExplanation: 'This photograph is suitable for preparation.',
+    confirmation: 'synthetic-owner'
+  };
+  await service.updateSponsorMediaUsage(usage);
+  await service.decideSponsorMediaPreference(preference);
+  assert.deepEqual(commands, [
+    { url: baseUrl + '/admin/sponsorships/media/usage', body: usage },
+    {
+      url: baseUrl + '/admin/sponsorships/media/preference-review',
+      body: preference
+    }
+  ]);
+});
 
 const backfillPreview = {
   action: 'preview',

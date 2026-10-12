@@ -5,7 +5,8 @@ import type Stripe from 'stripe';
 import type {
   CheckoutRequest,
   CheckoutResult,
-  ContributionType
+  ContributionType,
+  SponsorshipOfferQuote
 } from '@openg7/funding-core';
 import type { PoolClient } from 'pg';
 import type { SponsorshipCharterAcceptance } from '@openg7/funding-core';
@@ -13,6 +14,12 @@ import type { SponsorshipCharterAcceptance } from '@openg7/funding-core';
 import { isValidSponsorshipAmount } from '../../../packages/funding-core/src/index.js';
 
 import { validateCharterAcceptance } from './moderation/charter.js';
+import {
+  quoteSponsorshipOffer,
+  validateSponsorshipOfferAcceptance,
+  validateSponsorshipOfferFormats,
+  type recordCheckoutSponsorshipOffer
+} from './sponsorship-commitments/offers.js';
 import {
   buildSponsorshipFollowupUrl,
   sponsorshipFollowupLocaleFromUrl
@@ -83,6 +90,7 @@ export interface PublicPaymentsHttpDependencies {
     operationId: string,
     acceptance: SponsorshipCharterAcceptance | undefined
   ) => Promise<void>;
+  readonly recordSponsorshipOffer?: typeof recordCheckoutSponsorshipOffer;
   readonly reportFailure: (message: string, error?: unknown) => void;
 }
 
@@ -113,6 +121,7 @@ export const createPublicPaymentsHttpHandler = ({
   truncateStripeMetadataValue,
   runCheckout,
   recordCharterAcceptance,
+  recordSponsorshipOffer,
   reportFailure
 }: PublicPaymentsHttpDependencies) => {
   const { routeMatches } = createRouteMatcher(publicBaseOrigin);
@@ -121,6 +130,63 @@ export const createPublicPaymentsHttpHandler = ({
     request: ApiRequest,
     response: ApiResponse
   ): Promise<boolean> => {
+    if (
+      request.method === 'GET' &&
+      routeMatches(request.url, '/sponsorship-offer', '/api/sponsorship-offer')
+    ) {
+      if (!businessSponsorshipEnabled) {
+        writeJson(request, response, 403, {
+          code: 'SPONSORSHIP_DISABLED',
+          error: 'Business sponsorship checkout is disabled.'
+        });
+        return true;
+      }
+      try {
+        const query = new URL(request.url!, publicBaseOrigin).searchParams;
+        const rawAmount = query.get('amountMinor');
+        if (
+          !rawAmount ||
+          !/^[1-9]\d*$/.test(rawAmount) ||
+          query.getAll('amountMinor').length !== 1 ||
+          query.getAll('currency').length !== 1
+        )
+          throw new CheckoutOperationError('SPONSORSHIP_OFFER_INVALID', 400);
+        const formats = validateSponsorshipOfferFormats({
+          ...(query.has('facebookFormat')
+            ? { facebook: query.get('facebookFormat') }
+            : {}),
+          ...(query.has('linkedinFormat')
+            ? { linkedin: query.get('linkedinFormat') }
+            : {})
+        });
+        if (
+          query.getAll('facebookFormat').length > 1 ||
+          query.getAll('linkedinFormat').length > 1
+        )
+          throw new CheckoutOperationError('SPONSORSHIP_OFFER_INVALID', 400);
+        writeJson(
+          request,
+          response,
+          200,
+          quoteSponsorshipOffer(
+            Number(rawAmount),
+            query.get('currency') ?? '',
+            undefined,
+            formats
+          )
+        );
+      } catch (error) {
+        const failure =
+          error instanceof CheckoutOperationError
+            ? error
+            : new CheckoutOperationError('SPONSORSHIP_OFFER_INVALID', 400);
+        writeJson(request, response, failure.status, {
+          code: failure.code,
+          error: 'A valid CAD sponsorship amount in minor units is required.'
+        });
+      }
+      return true;
+    }
     if (
       request.method === 'POST' &&
       routeMatches(request.url, '/checkout-sessions', '/api/checkout-sessions')
@@ -222,6 +288,48 @@ export const createPublicPaymentsHttpHandler = ({
       // navigable Checkout and still confirms payment through the signed webhook.
       if (!stripe || (stripeApiHost && !navigableSimulatedCheckout)) {
         if (!isProduction) {
+          if (isSponsorshipContribution) {
+            try {
+              const acceptance = validateSponsorshipOfferAcceptance(
+                parsed.offerAcceptance
+              );
+              const formats = validateSponsorshipOfferFormats(
+                parsed.offerFormats
+              );
+              const quote = quoteSponsorshipOffer(
+                Math.round(amount * 100),
+                'CAD',
+                undefined,
+                formats
+              );
+              if (!acceptance)
+                throw new CheckoutOperationError(
+                  'SPONSORSHIP_OFFER_ACCEPTANCE_REQUIRED',
+                  400
+                );
+              if (
+                quote.version !== acceptance.version ||
+                quote.fingerprint !== acceptance.fingerprint
+              )
+                throw new CheckoutOperationError(
+                  'SPONSORSHIP_OFFER_CHANGED',
+                  409
+                );
+            } catch (error) {
+              const failure =
+                error instanceof CheckoutOperationError
+                  ? error
+                  : new CheckoutOperationError(
+                      'SPONSORSHIP_OFFER_INVALID',
+                      400
+                    );
+              writeJson(request, response, failure.status, {
+                code: failure.code,
+                error: 'The displayed sponsorship offer must be confirmed.'
+              });
+              return true;
+            }
+          }
           writeJson(
             request,
             response,
@@ -249,6 +357,22 @@ export const createPublicPaymentsHttpHandler = ({
       }
 
       try {
+        const offerAcceptance = validateSponsorshipOfferAcceptance(
+          parsed.offerAcceptance
+        );
+        const offerFormats = validateSponsorshipOfferFormats(
+          parsed.offerFormats
+        );
+        if (offerFormats && !isSponsorshipContribution)
+          throw new CheckoutOperationError(
+            'SPONSORSHIP_OFFER_NOT_APPLICABLE',
+            400
+          );
+        if (offerAcceptance && !isSponsorshipContribution)
+          throw new CheckoutOperationError(
+            'SPONSORSHIP_OFFER_NOT_APPLICABLE',
+            400
+          );
         const charterAcceptance = validateCharterAcceptance(
           parsed.charterAcceptance
         );
@@ -280,20 +404,57 @@ export const createPublicPaymentsHttpHandler = ({
               nonCharityAcknowledged: parsed.nonCharityAcknowledged,
               successUrl,
               cancelUrl,
-              ...(charterAcceptance ? { charterAcceptance } : {})
+              ...(charterAcceptance ? { charterAcceptance } : {}),
+              ...(offerAcceptance ? { offerAcceptance } : {}),
+              ...(offerFormats ? { offerFormats } : {})
             })
           )
           .digest('hex');
+        let preparedOffer:
+          { publicReference: string; quote: SponsorshipOfferQuote } | undefined;
         const result = await runCheckout({
           key: JSON.stringify([projectId, parsed.idempotencyKey]),
           requestHash,
-          ...(isSponsorshipContribution && recordCharterAcceptance
+          ...(isSponsorshipContribution
             ? {
-                afterPrepare: (db: PoolClient, operationId: string) =>
-                  recordCharterAcceptance(db, operationId, charterAcceptance)
+                afterPrepare: async (db: PoolClient, operationId: string) => {
+                  if (!preparedOffer || !recordSponsorshipOffer)
+                    throw new CheckoutOperationError(
+                      'CHECKOUT_STORAGE_UNAVAILABLE',
+                      503
+                    );
+                  await recordSponsorshipOffer(db, operationId, preparedOffer);
+                  await recordCharterAcceptance?.(
+                    db,
+                    operationId,
+                    charterAcceptance
+                  );
+                }
               }
             : {}),
           prepare: (operationId) => {
+            const quote = isSponsorshipContribution
+              ? quoteSponsorshipOffer(
+                  Math.round(amount * 100),
+                  'CAD',
+                  undefined,
+                  offerFormats
+                )
+              : null;
+            if (quote && !offerAcceptance)
+              throw new CheckoutOperationError(
+                'SPONSORSHIP_OFFER_ACCEPTANCE_REQUIRED',
+                400
+              );
+            if (
+              quote &&
+              (quote.version !== offerAcceptance!.version ||
+                quote.fingerprint !== offerAcceptance!.fingerprint)
+            )
+              throw new CheckoutOperationError(
+                'SPONSORSHIP_OFFER_CHANGED',
+                409
+              );
             const requiresReview =
               parsed.contributionType === 'sponsorship_interest';
             const sponsorshipFollowupToken = requiresReview
@@ -303,6 +464,7 @@ export const createPublicPaymentsHttpHandler = ({
               ? hashSponsorshipFollowupToken(sponsorshipFollowupToken)
               : null;
             const publicReference = createContributionPublicReference();
+            if (quote) preparedOffer = { publicReference, quote };
             const checkoutCancelUrl = new URL(cancelUrl);
             checkoutCancelUrl.searchParams.set('reference', publicReference);
             const checkoutSuccessUrl = sponsorshipFollowupToken

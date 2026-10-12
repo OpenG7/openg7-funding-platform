@@ -131,14 +131,30 @@ test('invoice and credit-note issuance share the immutable startup snapshot', as
   } =
     await import('../dist/apps/funding-api/src/sponsorship-invoices.repository.js');
   let invoiceParams;
+  const invoiceQueries = [];
+  let invoiceClientReleased = 0;
+  const invoiceClient = {
+    async query(sql, params) {
+      invoiceQueries.push(sql);
+      if (sql.startsWith('SELECT amount_cents::text')) {
+        assert.match(sql, /FOR UPDATE/);
+        assert.deepEqual(params, ['cs_invoice_config_test']);
+        return { rows: [{ amount_cents: '25000' }] };
+      }
+      // This historical fixture has no recorded accepted offer.
+      if (sql.includes('SELECT o.snapshot')) return { rows: [] };
+      if (sql.includes('INSERT INTO sponsorship_invoices')) {
+        invoiceParams = params;
+      }
+      return { rows: [] };
+    },
+    release() {
+      invoiceClientReleased++;
+    }
+  };
   await createSponsorshipInvoiceForStripeSession(
     {
-      async query(sql, params) {
-        if (sql.includes('INSERT INTO sponsorship_invoices')) {
-          invoiceParams = params;
-        }
-        return { rows: [] };
-      }
+      connect: async () => invoiceClient
     },
     {
       stripeSessionId: 'cs_invoice_config_test',
@@ -160,6 +176,11 @@ test('invoice and credit-note issuance share the immutable startup snapshot', as
     startup.issuerTaxId || null
   ]);
   assert.ok(invoiceParams[12].endsWith(startup.invoiceLegalNote));
+  assert.equal(invoiceQueries[0], 'BEGIN');
+  assert.match(invoiceQueries[1], /FOR UPDATE/);
+  assert.match(invoiceQueries[2], /SELECT o.snapshot/);
+  assert.equal(invoiceQueries.at(-1), 'COMMIT');
+  assert.equal(invoiceClientReleased, 1);
 
   let creditNoteParams;
   let creditNoteQueryCount = 0;

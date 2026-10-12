@@ -1,11 +1,17 @@
-import { computed, signal, type Signal } from '@angular/core';
+import {
+  computed,
+  signal,
+  type Signal,
+  type WritableSignal
+} from '@angular/core';
 import type {
   PublicationAutomationState,
   PublicationDelivery,
-  PublicationFeedId
+  PublicationFeedId,
+  PublicationPhotoSelection,
+  SponsorshipPublicationFormat
 } from '@openg7/funding-core';
 
-import { BlobPreviewResource } from '../../services/blob-preview-resource.js';
 import type { FundingAdminService } from '../../services/funding-admin.service.js';
 import type { FundingI18nService } from '../../services/funding-i18n.service.js';
 import type { FundingModerationService } from '../../services/funding-moderation.service.js';
@@ -14,6 +20,7 @@ import type {
   PublicationAutomationCommandRunner,
   PublicationAutomationMedia
 } from './publication-automation.ports.js';
+import { PublicationDeliveryMediaController } from './publication-delivery-media-controller.js';
 
 export interface PublicationDeliveryPorts {
   refresh(): Promise<boolean>;
@@ -24,7 +31,10 @@ export interface PublicationDeliveryPorts {
   readonly commands: PublicationAutomationCommandRunner;
   readonly admin: Pick<
     FundingAdminService,
-    'publicationMedia' | 'getSponsorMediaPreview' | 'getSavedAdminToken'
+    | 'publicationMedia'
+    | 'publicationImagePreview'
+    | 'getSponsorMediaPreview'
+    | 'getSavedAdminToken'
   >;
   readonly i18n: Pick<FundingI18nService, 't' | 'currentLanguage'>;
   confirm(message: string, title: string): Promise<boolean>;
@@ -40,9 +50,10 @@ export class PublicationDeliveryController {
   readonly selected = signal<PublicationDelivery | null>(null);
   readonly composing = signal(false);
   readonly editing = signal(false);
-  readonly media = signal<PublicationAutomationMedia[]>([]);
-  private readonly previewResource = new BlobPreviewResource();
-  readonly previewUrl = this.previewResource.url;
+  readonly media: WritableSignal<PublicationAutomationMedia[]>;
+  private readonly mediaController: PublicationDeliveryMediaController;
+  readonly previewUrl: Signal<string>;
+  readonly previewExact: WritableSignal<boolean>;
   readonly pendingSponsors = computed(() =>
     (this.selected()?.sponsors ?? []).filter(
       (sponsor) => sponsor.reviewStatus === 'pending_review'
@@ -59,7 +70,20 @@ export class PublicationDeliveryController {
   readonly state: PublicationDeliveryPorts['state'];
   readonly busy: PublicationDeliveryPorts['busy'];
   readonly error: PublicationDeliveryPorts['error'];
-  edit = { message: '', scheduledAt: '', mediaId: '' };
+  edit: {
+    message: string;
+    scheduledAt: string;
+    mediaId: string;
+    publicationFormat: SponsorshipPublicationFormat;
+    photoSelections: readonly PublicationPhotoSelection[];
+  } = {
+    message: '',
+    scheduledAt: '',
+    mediaId: '',
+    publicationFormat: 'collective_text',
+    photoSelections: []
+  };
+  readonly formats: readonly SponsorshipPublicationFormat[];
   composeFeed: PublicationFeedId = 'openg7:facebook';
   composeKind: PublicationDelivery['kind'] = 'news';
   approved = false;
@@ -68,13 +92,28 @@ export class PublicationDeliveryController {
   absenceChecked = false;
   browserTimezone = '';
   private generation = 0;
-  private mediaGeneration = 0;
   private disposed = false;
 
   constructor(private readonly ports: PublicationDeliveryPorts) {
     this.state = ports.state;
     this.busy = ports.busy;
     this.error = ports.error;
+    this.mediaController = new PublicationDeliveryMediaController({
+      admin: ports.admin,
+      selected: this.selected,
+      edit: () => this.edit,
+      composeFeed: () => this.composeFeed,
+      generation: () => this.generation,
+      isDisposed: () => this.disposed,
+      selectionChanged: () => {
+        this.approved = false;
+      },
+      showError: (error) => this.ports.showError(error)
+    });
+    this.media = this.mediaController.media;
+    this.previewUrl = this.mediaController.previewUrl;
+    this.previewExact = this.mediaController.previewExact;
+    this.formats = this.mediaController.formats;
   }
 
   open(job: PublicationDelivery): void {
@@ -90,10 +129,12 @@ export class PublicationDeliveryController {
     this.edit = {
       message: job.message,
       scheduledAt: this.localDate(job.scheduledAt),
-      mediaId: job.mediaId ?? ''
+      mediaId: this.derived(job.publicationFormat) ? '' : (job.mediaId ?? ''),
+      publicationFormat: job.publicationFormat ?? 'collective_text',
+      photoSelections: structuredClone(job.photoSelections ?? [])
     };
     if (this.mediaBlocked(job)) this.clearPreview();
-    else void this.loadPreview(this.edit.mediaId);
+    else void this.loadPreview(job.mediaId ?? '');
     void this.loadMedia(job.id);
   }
 
@@ -107,7 +148,9 @@ export class PublicationDeliveryController {
       scheduledAt: this.localDate(
         new Date(Date.now() + 86400000).toISOString()
       ),
-      mediaId: ''
+      mediaId: '',
+      publicationFormat: 'collective_text',
+      photoSelections: []
     };
     void this.loadMedia();
   }
@@ -119,9 +162,7 @@ export class PublicationDeliveryController {
 
   clear(): void {
     this.generation++;
-    this.mediaGeneration++;
-    this.media.set([]);
-    this.clearPreview();
+    this.mediaController.clear();
     this.selected.set(null);
     this.composing.set(false);
     this.editing.set(false);
@@ -132,74 +173,31 @@ export class PublicationDeliveryController {
   }
 
   clearPreview(): void {
-    this.previewResource.clear();
+    this.mediaController.clearPreview();
   }
 
   dispose(): void {
     this.disposed = true;
     this.generation++;
-    this.mediaGeneration++;
-    this.media.set([]);
-    this.previewResource.dispose();
+    this.mediaController.dispose();
   }
 
   mediaBlocked(job: PublicationDelivery): boolean {
-    return (
-      job.status === 'blocked' &&
-      ['MEDIA_CHANGED', 'MEDIA_NOT_APPROVED', 'MEDIA_UNAVAILABLE'].includes(
-        job.errorCode ?? ''
-      )
-    );
+    return this.mediaController.mediaBlocked(job);
   }
 
-  async loadMedia(
+  loadMedia(
     deliveryId: string | undefined = this.selected()?.id
   ): Promise<void> {
-    if (this.disposed) return;
-    const generation = this.generation;
-    const mediaGeneration = ++this.mediaGeneration;
-    this.media.set([]);
-    try {
-      const media = await this.ports.admin.publicationMedia(deliveryId);
-      if (
-        !this.disposed &&
-        generation === this.generation &&
-        mediaGeneration === this.mediaGeneration
-      )
-        this.media.set(media);
-    } catch (error) {
-      if (
-        !this.disposed &&
-        generation === this.generation &&
-        mediaGeneration === this.mediaGeneration
-      )
-        this.ports.showError(error);
-    }
+    return this.mediaController.loadMedia(deliveryId);
   }
 
-  async loadPreview(id: string): Promise<void> {
-    await this.previewResource.load(
-      id
-        ? () =>
-            this.ports.admin.getSponsorMediaPreview(
-              this.ports.admin.getSavedAdminToken(),
-              id
-            )
-        : null,
-      (error) => this.ports.showError(error)
-    );
+  loadPreview(id: string): Promise<void> {
+    return this.mediaController.loadPreview(id);
   }
 
   mediaPreview(): { url: string; alt: string } | undefined {
-    return this.previewUrl()
-      ? {
-          url: this.previewUrl(),
-          alt:
-            this.media().find((media) => media.id === this.edit.mediaId)?.alt ??
-            this.selected()?.mediaAlt ??
-            ''
-        }
-      : undefined;
+    return this.mediaController.mediaPreview();
   }
 
   editable(): boolean {
@@ -215,16 +213,19 @@ export class PublicationDeliveryController {
       !!selected &&
       (this.edit.message !== selected.message ||
         this.edit.scheduledAt !== this.localDate(selected.scheduledAt) ||
-        this.edit.mediaId !== (selected.mediaId ?? ''))
+        this.edit.mediaId !==
+          (this.derived(selected.publicationFormat)
+            ? ''
+            : (selected.mediaId ?? '')) ||
+        this.edit.publicationFormat !==
+          (selected.publicationFormat ?? 'collective_text') ||
+        JSON.stringify(this.edit.photoSelections) !==
+          JSON.stringify(selected.photoSelections ?? []))
     );
   }
 
   mediaSelectionValid(): boolean {
-    return (
-      !this.edit.mediaId ||
-      this.edit.mediaId === this.selected()?.mediaId ||
-      this.media().some((media) => media.id === this.edit.mediaId)
-    );
+    return this.mediaController.mediaSelectionValid();
   }
 
   changeEdit(
@@ -270,7 +271,14 @@ export class PublicationDeliveryController {
           version: selected.version,
           message: this.edit.message,
           scheduledAt: timestamp.toISOString(),
-          mediaId: this.edit.mediaId || null
+          mediaId: this.edit.mediaId || null,
+          ...(selected.publicationFormat ||
+          this.derived(this.edit.publicationFormat)
+            ? {
+                publicationFormat: this.edit.publicationFormat,
+                photoSelections: this.edit.photoSelections
+              }
+            : {})
         });
     }
   }
@@ -285,7 +293,8 @@ export class PublicationDeliveryController {
       this.approved &&
       !this.dirty() &&
       !this.missingPresentation() &&
-      (!selected.mediaId || this.previewUrl())
+      ((!selected.mediaId && !this.derived(selected.publicationFormat)) ||
+        (this.previewUrl() && this.previewExact()))
     ) {
       const approveSponsors: {
         id: string;
@@ -410,7 +419,9 @@ export class PublicationDeliveryController {
     if (
       !this.disposed &&
       !this.busy() &&
-      selected?.status === 'uncertain' &&
+      selected &&
+      (selected.status === 'uncertain' ||
+        selected.accountRecoveryRequired === true) &&
       this.absenceChecked &&
       this.absenceReason.trim().length >= 20
     )
@@ -421,6 +432,51 @@ export class PublicationDeliveryController {
         confirmation: selected.id,
         reason: this.absenceReason
       });
+  }
+  derived(format: SponsorshipPublicationFormat | undefined): boolean {
+    return this.mediaController.derived(format);
+  }
+  formatAvailable(format: SponsorshipPublicationFormat): boolean {
+    return this.mediaController.formatAvailable(format);
+  }
+  changeFormat(value: string): void {
+    this.mediaController.changeFormat(value);
+  }
+  photoOptions(contributionId: string): PublicationAutomationMedia[] {
+    return this.mediaController.photoOptions(contributionId);
+  }
+  photoSelection(contributionId: string): string {
+    return this.mediaController.photoSelection(contributionId);
+  }
+  selectPhoto(contributionId: string, assetId: string): void {
+    this.mediaController.selectPhoto(contributionId, assetId);
+  }
+
+  async checkVisibility(): Promise<void> {
+    const selected = this.selected();
+    const generation = this.generation;
+    if (
+      !selected ||
+      selected.status !== 'published' ||
+      selected.mode !== 'live' ||
+      !this.currentSelection(selected, generation)
+    )
+      return;
+    if (
+      !(await this.ports.confirm(
+        this.ports.i18n.t('admin.publicationAutomation.checkVisibilityConfirm'),
+        selected.feedId
+      )) ||
+      !this.currentSelection(selected, generation)
+    )
+      return;
+    await this.ports.commands.run({
+      action: 'check-visibility',
+      id: selected.id,
+      version: selected.version,
+      confirmation: selected.id,
+      requestId: crypto.randomUUID()
+    });
   }
 
   dateLabel(value: string): string {

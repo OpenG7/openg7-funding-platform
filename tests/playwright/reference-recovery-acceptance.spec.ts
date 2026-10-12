@@ -11,6 +11,7 @@ import type {
 import { adminSessionHeaders } from './support/admin-auth.js';
 import { acceptanceSql } from './support/acceptance-database.js';
 import { test, expect } from './support/test.js';
+import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
 
 const recoveryUrl = '/api/reference-recovery';
 interface Mail {
@@ -114,6 +115,7 @@ test('forgotten references: private responses during queue failure, unique captu
     if (company) await form.locator('#public-display-name').fill(companyName);
     await form.getByRole('checkbox').nth(1).uncheck();
     await form.getByRole('checkbox').nth(2).check();
+    if (company) await acceptDisplayedSponsorshipOffer(form);
     await form.locator('button[type="submit"]').click();
     await expect(payer).toHaveURL(/\/checkout\/cs_test_/);
     const sessionId = new URL(payer.url()).pathname.split('/').at(-1)!;

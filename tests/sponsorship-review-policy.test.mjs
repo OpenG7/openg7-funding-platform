@@ -6,9 +6,14 @@ import {
   detectPublicationPreparationItems
 } from '../dist/apps/funding-api/src/admin-assistant/attention.service.js';
 import { prepareDraftFromDataset } from '../dist/apps/funding-api/src/admin-assistant/preparation.service.js';
+import { recordedSponsorshipCommitment } from './support/sponsorship-commitment-fixture.mjs';
 
 const sponsorship = (overrides = {}) =>
   Object.freeze({
+    commitment: recordedSponsorshipCommitment([
+      'facebook_batch',
+      'linkedin_batch'
+    ]),
     contributionId: '10000000-0000-4000-8000-000000000001',
     publicReference: 'OG7-CMD-REVIEW-POLICY',
     amount: 500,
@@ -113,19 +118,30 @@ test('approved counts, publication attention and private preparation agree acros
   }
 });
 
-test('approved counts include sponsors with no missing social promise while preparation remains unnecessary', () => {
+test('approved counts include sponsors whose recorded social promise is absent or already covered while preparation remains unnecessary', () => {
   const covered = sponsorship();
+  const websiteAgreement = recordedSponsorshipCommitment(['website_mention']);
   for (const ds of [
-    dataset(sponsorship({ amount: 249 })),
+    dataset(
+      sponsorship({
+        amount: 249,
+        commitment: {
+          ...websiteAgreement,
+          offer: { ...websiteAgreement.offer, amountMinor: 24900 }
+        }
+      })
+    ),
     dataset(covered, [
       Object.freeze({
         contribution_id: covered.contributionId,
         channel: 'facebook',
+        feed_target: 'openg7',
         status: 'approved'
       }),
       Object.freeze({
         contribution_id: covered.contributionId,
         channel: 'linkedin',
+        feed_target: 'openg7',
         status: 'published'
       })
     ])

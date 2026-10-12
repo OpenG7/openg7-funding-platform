@@ -190,15 +190,21 @@ small {
 .sponsor-photo {
   grid-column: 1 / -1;
   margin: 0;
-  aspect-ratio: 16 / 5;
+  height: auto;
   overflow: hidden;
   background: #0b2132;
   border-radius: 0.3rem;
 }
 .sponsor-photo img {
+  display: block;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
+  aspect-ratio: 16 / 5;
+  object-fit: contain;
+}
+.sponsor-photo figcaption {
+  padding: 0.5rem 0.75rem;
+  overflow-wrap: anywhere;
 }
 .sponsor-logo {
   display: flex;
@@ -277,7 +283,7 @@ small {
   .sponsors-content {
     grid-template-columns: 1fr;
   }
-  .sponsor-photo {
+  .sponsor-photo img {
     aspect-ratio: 16 / 9;
   }
 }

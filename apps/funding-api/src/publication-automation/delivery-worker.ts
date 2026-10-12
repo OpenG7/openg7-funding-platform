@@ -44,7 +44,7 @@ export class PublicationDeliveryWorker {
       for (let i = 0; i < 5; i++) {
         const row = await claimNextDelivery(this.context, now);
         if (!row) break;
-        if ((await executeDelivery(this.context, row, now)) === 'stop') return;
+        if ((await executeDelivery(this.context, row)) === 'stop') return;
       }
     } finally {
       this.running = false;

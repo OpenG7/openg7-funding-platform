@@ -1,25 +1,27 @@
 import {
-  DEFAULT_SPONSORSHIP_PRICING_CONFIG,
   PUBLICATION_MESSAGE_MAX_CODE_UNITS,
   PUBLICATION_RECOGNITION_POLICY_VERSION,
   type PublicationRecognitionSource
 } from '../../../../packages/funding-core/src/index.js';
 import { moderationApprovedSql } from '../moderation/policy.js';
+import { publicationDraftFormatSql } from '../fund-publication-draft-obligations.persistence.js';
+import { publicationSourceUncertainSql } from '../fund-publication-draft-retirement.persistence.js';
 
 import { audit } from './context.js';
 import { digest } from './policy.js';
 import type { Db, Source } from './sources.js';
 
-// Explicit routing wins. Otherwise use the existing promised CAD benefits.
+// Routing cannot create a commercial promise. Only a recorded, open obligation qualifies.
 export const eligibleDestination = (
   alias: string,
   target: string,
   channel: string
 ) =>
-  `COALESCE(${alias}.sponsor_feed_target,'openg7')=${target} AND (
-    ${alias}.sponsor_feed_channels ? ${channel} OR (
-      ${alias}.sponsor_feed_channels='[]'::jsonb AND lower(${alias}.currency)='cad'
-      AND ${alias}.amount_cents >= CASE WHEN ${channel}='facebook' THEN ${DEFAULT_SPONSORSHIP_PRICING_CONFIG.benefits.facebookBatch.minimumAmount * 100} ELSE ${DEFAULT_SPONSORSHIP_PRICING_CONFIG.benefits.linkedinBatch.minimumAmount * 100} END))`;
+  `EXISTS(SELECT 1 FROM sponsorship_obligations destination_obligation
+    JOIN sponsorship_commitments destination_commitment ON destination_commitment.id=destination_obligation.commitment_id
+    WHERE destination_obligation.contribution_id=${alias}.id AND destination_commitment.state='active'
+      AND destination_obligation.state IN ('pending','blocked')
+      AND destination_obligation.target=${target} AND destination_obligation.channel=${channel})`;
 
 /** Bound work per preparation, independently of the number of recurrences. */
 export const PREPARATION_SCAN_LIMIT = 400;
@@ -27,7 +29,11 @@ export const PREPARATION_SCAN_LIMIT = 400;
 export interface PreparationSource extends Source {
   name: string | null;
   source_fingerprint_material: string;
+  publication_format: import('@openg7/funding-core').SponsorshipPublicationFormat;
 }
+
+/** The recorded format governs grouping; legacy drafts retain their recorded agreement. */
+export const preparationFormatSql = publicationDraftFormatSql;
 
 export const recognitionSource = (
   source: Source & { name: string | null }
@@ -60,7 +66,11 @@ export const preparationEligibilitySql = (
    AND ${contribution}.status='paid' AND ${contribution}.public_display_consent IS TRUE
    AND ${contribution}.sponsor_review_status IN ('pending_review','approved')
    AND ${eligibleDestination(contribution, target, channel)}
-   AND ${contribution}.sponsor_feed_status NOT IN ('hidden','published')`;
+   AND ${contribution}.sponsor_feed_status<>'hidden'
+   AND NOT ${publicationSourceUncertainSql(`${contribution}.id`, `${draft}.channel`)}
+   AND (${draft}.obligation_id IS NULL OR EXISTS(SELECT 1 FROM sponsorship_obligations own_passage
+     WHERE own_passage.id=${draft}.obligation_id AND own_passage.state IN ('pending','blocked')
+       AND own_passage.target=${target} AND own_passage.channel=${channel}))`;
 
 /** Private preparation accepts never-reviewed content, without granting N0. */
 export const preparationModerationSubjectSql = (
@@ -107,7 +117,7 @@ export async function preparationCandidates(
   if (limit <= 0) return [];
   return (
     await db.query<PreparationSource>(
-      `SELECT d.*,c.sponsor_company_name AS name,${preparationFingerprintSql()} AS source_fingerprint_material
+      `SELECT d.*,c.sponsor_company_name AS name,${preparationFingerprintSql()} AS source_fingerprint_material,${preparationFormatSql()} AS publication_format
        FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id
        WHERE ${preparationCandidateSql()}
        ORDER BY d.created_at,d.id LIMIT $3 FOR UPDATE OF d SKIP LOCKED`,

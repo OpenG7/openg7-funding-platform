@@ -6,13 +6,10 @@ import type {
 } from '@openg7/funding-core';
 import type { Pool } from 'pg';
 
-import { resolveSponsorshipBenefits } from '../../../packages/funding-core/src/index.js';
-
 import {
   sponsorshipAdminUrl,
   sponsorshipRef
 } from './sponsorship-admin-presentation.js';
-import { resolveSponsorshipSocialChannels } from './sponsorship-benefits.js';
 import { summarizeSponsorshipMedia } from './sponsorship-media-policy.js';
 import {
   loadSponsorshipAssistantDataset,
@@ -20,6 +17,7 @@ import {
 } from './admin-assistant/context.repository.js';
 import { resolveSponsorshipSelection } from './admin-work-queue.service.js';
 import { withPostgresTransaction } from './postgres-transaction.js';
+import { projectSponsorshipObligationProgress } from './sponsorship-progress-obligations.js';
 import {
   findSponsorshipPreparationActivityId,
   loadSponsorshipProgressFacts,
@@ -111,14 +109,20 @@ export const buildSponsorshipProgress = (
   const mediaComplete = imageApproved && pendingMedia === 0;
   const paid = ['paid', 'refunded', 'disputed'].includes(record.paymentStatus);
   const invoice = facts.documents.some((d) => d.kind === 'invoice');
-  const promises =
-    currency === 'CAD'
-      ? resolveSponsorshipSocialChannels(record.amount)
-      : [
-          ...new Set(
-            facts.publications.map((publication) => publication.channel)
-          )
-        ];
+  const commitment = facts.commitment;
+  const {
+    qualified,
+    websiteRequired,
+    completion: publicationCompletion,
+    complete: publicationComplete,
+    blockers: obligationBlockers
+  } = projectSponsorshipObligationProgress({
+    commitment,
+    amountMinor: facts.amountMinor,
+    currency,
+    hasCompanyName: record.hasCompanyName,
+    media: source.media
+  });
   const cancelled = (d: SponsorshipProgressPublication) =>
     d.deliveryStatus === 'cancelled' ||
     d.deliveryStatus === 'rejected' ||
@@ -129,25 +133,6 @@ export const buildSponsorshipProgress = (
   const published = (d: SponsorshipProgressPublication) =>
     (d.status === 'published' && d.deliveryMode !== 'mock') ||
     (d.deliveryStatus === 'published' && d.deliveryMode === 'live');
-  const websiteRequired =
-    currency === 'CAD' &&
-    resolveSponsorshipBenefits(
-      facts.amountMinor / 100
-    ).achievedBenefits.includes('website_mention');
-  const publicationCompletion = {
-    total: Number(websiteRequired) + promises.length,
-    done:
-      Number(websiteRequired && facts.websiteVisible) +
-      promises.filter((channel) =>
-        facts.publications.some((d) => d.channel === channel && published(d))
-      ).length
-  };
-  const publicationComplete =
-    (websiteRequired || promises.length > 0) &&
-    (!websiteRequired || facts.websiteVisible) &&
-    promises.every((channel) =>
-      facts.publications.some((d) => d.channel === channel && published(d))
-    );
   const publicationError = facts.publications.some(
     (d) =>
       ['failed', 'uncertain'].includes(d.deliveryStatus ?? '') && !published(d)
@@ -167,7 +152,9 @@ export const buildSponsorshipProgress = (
       ? ['hidden']
       : [])
   ];
-  const publicationBlockers = visibilityBlockers('social');
+  const publicationBlockers = [
+    ...new Set([...visibilityBlockers('social'), ...obligationBlockers])
+  ];
   const publicationBlocked =
     publicationBlockers.length > 0 ||
     facts.publications.some(
@@ -259,27 +246,31 @@ export const buildSponsorshipProgress = (
       id: 'publication',
       state: publicationComplete
         ? 'complete'
-        : publicationError
-          ? 'error'
-          : publicationCancelled
-            ? 'cancelled'
-            : publicationBlocked
-              ? 'blocked'
-              : (websiteRequired && facts.websiteVisible) ||
-                  facts.publications.some(published)
-                ? 'partial'
-                : 'pending',
+        : !qualified
+          ? 'blocked'
+          : publicationError
+            ? 'error'
+            : publicationCancelled
+              ? 'cancelled'
+              : publicationBlocked
+                ? 'blocked'
+                : (websiteRequired && facts.websiteVisible) ||
+                    facts.publications.some(published)
+                  ? 'partial'
+                  : 'pending',
       reason: publicationComplete
         ? 'publication_done'
-        : publicationError
-          ? 'publication_failed'
-          : publicationCancelled
-            ? 'publication_cancelled'
-            : !consent
-              ? 'consent_missing'
-              : publicationBlocked
-                ? 'publication_blocked'
-                : 'publication_pending',
+        : !qualified
+          ? 'commitment_needs_confirmation'
+          : publicationError
+            ? 'publication_failed'
+            : publicationCancelled
+              ? 'publication_cancelled'
+              : !consent
+                ? 'consent_missing'
+                : publicationBlocked
+                  ? 'publication_blocked'
+                  : 'publication_pending',
       tab: 'publication'
     }
   ];
@@ -302,6 +293,8 @@ export const buildSponsorshipProgress = (
                 : { reason: 'complete', tab: 'overview' as const };
   return {
     contributionId: record.contributionId,
+    commitment: commitment ?? null,
+    fulfilmentEvidence: facts.fulfilmentEvidence ?? [],
     reference: sponsorshipRef(record),
     companyName: facts.companyName,
     version: source.version,

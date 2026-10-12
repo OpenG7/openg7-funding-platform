@@ -11,12 +11,45 @@ import {
 } from '../dist/apps/funding-api/src/admin-assistant/attention.service.js';
 import { prepareDraftFromDataset } from '../dist/apps/funding-api/src/admin-assistant/preparation.service.js';
 import { buildSponsorshipAssistantContext } from '../dist/apps/funding-api/src/admin-assistant/context.service.js';
+import { createSponsorshipOfferSnapshot } from '../dist/packages/funding-core/src/index.js';
 
 const contributionId = '10000000-0000-4000-8000-000000000001';
 const otherContributionId = '10000000-0000-4000-8000-000000000002';
+const recorded = (amount) => {
+  if (amount < 50) return null;
+  const offer = createSponsorshipOfferSnapshot(Math.round(amount * 100), 'CAD');
+  return {
+    id: 'synthetic-agreement',
+    contributionId,
+    offerId: 'synthetic-offer',
+    provenance: 'qualified_historical',
+    state: 'active',
+    version: 1,
+    qualificationReason: null,
+    offer,
+    obligations: offer.benefits.map((b) => ({
+      id: b.id,
+      commitmentId: 'synthetic-agreement',
+      contributionId,
+      benefitId: b.id,
+      channel: b.channel,
+      target: b.target,
+      ordinal: 1,
+      state: 'pending',
+      version: 1,
+      blockedReason: null,
+      fulfilmentEvidenceId: null
+    }))
+  };
+};
 
 const draft = (channel, status, id = contributionId) =>
-  Object.freeze({ contribution_id: id, channel, status });
+  Object.freeze({
+    contribution_id: id,
+    channel,
+    feed_target: 'openg7',
+    status
+  });
 
 test('active channels retain unpublished and published drafts while excluding rejected, cancelled and unrelated drafts', () => {
   for (const status of [
@@ -62,7 +95,7 @@ test('coverage deduplicates active channels in insertion order and preserves cha
   );
   assert.deepEqual(
     resolveSponsorshipPublicationCoverage(
-      { contributionId, amount: 500 },
+      { contributionId, amount: 500, commitment: recorded(500) },
       drafts
     ),
     {
@@ -72,9 +105,10 @@ test('coverage deduplicates active channels in insertion order and preserves cha
     }
   );
   assert.deepEqual(
-    resolveSponsorshipPublicationCoverage({ contributionId, amount: 250 }, [
-      draft('linkedin', 'draft')
-    ]),
+    resolveSponsorshipPublicationCoverage(
+      { contributionId, amount: 250, commitment: recorded(250) },
+      [draft('linkedin', 'draft')]
+    ),
     {
       promisedChannels: ['facebook'],
       coveredChannels: ['linkedin'],
@@ -83,7 +117,7 @@ test('coverage deduplicates active channels in insertion order and preserves cha
   );
 });
 
-test('promised and missing channels follow the existing paid-amount boundaries', () => {
+test('promised and missing channels follow the recorded synthetic agreements, without recomputing the financial amount', () => {
   for (const [amount, expected] of [
     [0, []],
     [249, []],
@@ -94,7 +128,10 @@ test('promised and missing channels follow the existing paid-amount boundaries',
     [500, ['facebook', 'linkedin']]
   ]) {
     assert.deepEqual(
-      resolveSponsorshipPublicationCoverage({ contributionId, amount }, []),
+      resolveSponsorshipPublicationCoverage(
+        { contributionId, amount: amount + 9999, commitment: recorded(amount) },
+        []
+      ),
       {
         promisedChannels: expected,
         coveredChannels: [],
@@ -111,6 +148,7 @@ test('attention preserves the active-channel export as the same function', () =>
 
 const sponsorship = (amount) =>
   Object.freeze({
+    commitment: recorded(amount),
     contributionId,
     publicReference: 'OG7-CMD-DEMO',
     amount,
@@ -131,14 +169,55 @@ const sponsorship = (amount) =>
     refundStatus: 'not_requested'
   });
 
-test('published drafts retain channel coverage while only unfinished drafts require context monitoring', () => {
+test('unknown historical amounts never promise channels and an old destination does not cover an adjusted obligation', () => {
+  assert.deepEqual(
+    resolveSponsorshipPublicationCoverage(
+      { contributionId, commitment: null },
+      []
+    ),
+    { promisedChannels: [], coveredChannels: [], missingChannels: [] }
+  );
+  const agreement = recorded(500);
+  const adjusted = {
+    ...agreement,
+    obligations: agreement.obligations.map((o) =>
+      o.channel === 'facebook' ? { ...o, target: 'openg20' } : o
+    )
+  };
+  const coverage = resolveSponsorshipPublicationCoverage(
+    { contributionId, commitment: adjusted },
+    [draft('facebook', 'published'), draft('linkedin', 'approved')]
+  );
+  assert.deepEqual(coverage, {
+    promisedChannels: ['facebook', 'linkedin'],
+    coveredChannels: ['linkedin'],
+    missingChannels: ['facebook']
+  });
+  const settled = {
+    ...agreement,
+    obligations: agreement.obligations.map((o) => ({
+      ...o,
+      state: 'fulfilled',
+      fulfilmentEvidenceId: 'synthetic-proof'
+    }))
+  };
+  assert.deepEqual(
+    resolveSponsorshipPublicationCoverage(
+      { contributionId, commitment: settled },
+      []
+    ).promisedChannels,
+    []
+  );
+});
+
+test('published drafts retain channel coverage and obligations without qualified evidence still require monitoring', () => {
   const record = sponsorship(300);
   for (const [status, coveredChannels, missingChannels, nextStep] of [
     ['draft', ['facebook'], [], 'monitor_publication'],
     ['pending_review', ['facebook'], [], 'monitor_publication'],
     ['approved', ['facebook'], [], 'monitor_publication'],
     ['scheduled', ['facebook'], [], 'monitor_publication'],
-    ['published', ['facebook'], [], 'complete'],
+    ['published', ['facebook'], [], 'monitor_publication'],
     ['rejected', [], ['facebook'], 'prepare_publication'],
     ['cancelled', [], ['facebook'], 'prepare_publication']
   ]) {
@@ -215,11 +294,12 @@ test('attention, preparatory proposals and context agree on missing channels and
       nextStep: 'monitor_publication'
     },
     {
-      label: 'published drafts cover both channels without further monitoring',
+      label:
+        'published drafts cover both channels but do not fulfil recorded obligations',
       drafts: [draft('facebook', 'published'), draft('linkedin', 'published')],
       covered: ['facebook', 'linkedin'],
       missing: [],
-      nextStep: 'complete'
+      nextStep: 'monitor_publication'
     },
     {
       label: 'rejected and cancelled drafts leave both promises uncovered',
@@ -262,13 +342,36 @@ test('attention, preparatory proposals and context agree on missing channels and
       drafts: [],
       covered: [],
       missing: [],
+      nextStep: 'monitor_publication'
+    },
+    {
+      label:
+        'qualified evidence completes each recorded obligation independently of published declarations',
+      fulfilled: true,
+      promised: [],
+      drafts: [draft('facebook', 'published'), draft('linkedin', 'published')],
+      covered: ['facebook', 'linkedin'],
+      missing: [],
       nextStep: 'complete'
     }
   ];
 
   for (const scenario of cases) {
     const amount = scenario.amount ?? 500;
-    const record = sponsorship(amount);
+    const original = sponsorship(amount);
+    const record = scenario.fulfilled
+      ? {
+          ...original,
+          commitment: {
+            ...original.commitment,
+            obligations: original.commitment.obligations.map((o) => ({
+              ...o,
+              state: 'fulfilled',
+              fulfilmentEvidenceId: `synthetic-qualified-${o.id}`
+            }))
+          }
+        }
+      : original;
     const dataset = Object.freeze({
       now: new Date('2026-09-24T00:00:00.000Z'),
       sponsorships: Object.freeze([record]),

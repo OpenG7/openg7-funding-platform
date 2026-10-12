@@ -22,6 +22,8 @@ import {
   buildStripeEvent
 } from './support/stripe-webhook.js';
 import { test, expect } from './support/test.js';
+import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
+import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';
 
 const automation = '/api/admin/publication-automation';
 const cockpit = '/admin/fundraiser/publications/automation';
@@ -167,6 +169,7 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
         await form.locator('#public-display-name').fill(name);
         await form.getByRole('checkbox').nth(1).uncheck();
         await form.getByRole('checkbox').nth(2).check();
+        await acceptDisplayedSponsorshipOffer(form);
         await form.locator('button[type="submit"]').click();
         await expect(page).toHaveURL(/\/checkout\/cs_test_/);
         const sessionId = new URL(page.url()).pathname.split('/').at(-1)!;
@@ -209,6 +212,7 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
         await page
           .locator('#followup-websiteUrl')
           .fill('https://simulation.example.test');
+        await confirmAcceptanceMediaUsage(page);
         for (const [label, filename] of [
           ['Ajouter le logo', 'logo.png'],
           ['Ajouter des photos', 'photo.png']

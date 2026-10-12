@@ -3,6 +3,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import type Stripe from 'stripe';
 
 import { normalizeContributionPublicReference } from '../contribution-public-reference.js';
+import { confirmedCheckoutSessionPaymentFacts } from '../checkout-payment-facts.js';
 import {
   normalizeContributionType,
   parseMetadataBoolean,
@@ -104,6 +105,7 @@ export const createSponsorshipFollowupHelpers = ({
         contributionType: 'sponsorship_interest',
         amountCents: session.amount_total ?? 0,
         currency: session.currency ?? 'cad',
+        trustedPaymentFacts: confirmedCheckoutSessionPaymentFacts(session),
         metadata,
         publicDisplayConsent: parseMetadataBoolean(
           metadata.publicDisplayConsent

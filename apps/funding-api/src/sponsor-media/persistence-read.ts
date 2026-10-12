@@ -6,6 +6,7 @@ import type {
 import type { Pool, PoolClient } from 'pg';
 
 import { moderationVisibleSql } from '../moderation/policy.js';
+import { normalizeSponsorMediaUsage } from '../../../../packages/funding-core/src/index.js';
 
 import type {
   SponsorMediaAssetRow,
@@ -21,6 +22,7 @@ import {
   selectAssetColumns
 } from './persistence-queries.js';
 import { sponsorMediaPublicUrl } from './public-url.js';
+import { confirmedMediaUsageSql } from './usage-policy.js';
 
 export const listSponsorMediaAssets = async (
   pool: Pool | PoolClient | null,
@@ -113,13 +115,14 @@ export const listPublicSponsorMediaByContributionIds = async (
        WHERE contribution_id = ANY($1::uuid[])
          AND deleted_at IS NULL
          AND review_status = 'approved'
+         AND ${confirmedMediaUsageSql('sponsor_media_assets', 'website', 'openg7')}
          AND ${moderationVisibleSql('media', 'sponsor_media_assets.id')}
          AND public_url IS NOT NULL
      ) AS media
      INNER JOIN fund_contributions AS contribution
        ON contribution.id = media.contribution_id
      WHERE ${publicMediaContributionSql}
-     ORDER BY media.kind, media.sort_order, media.created_at`,
+     ORDER BY media.kind, media.sort_order, media.created_at, media.id`,
     [contributionIds]
   );
   const grouped = new Map<string, PublicSponsorMediaAsset[]>();
@@ -127,6 +130,7 @@ export const listPublicSponsorMediaByContributionIds = async (
     const assets = grouped.get(row.contribution_id) ?? [];
     assets.push({
       id: row.id,
+      credit: normalizeSponsorMediaUsage(row.usage_rights).credit,
       kind: row.kind,
       url: sponsorMediaPublicUrl(row.id),
       width: row.width,
@@ -153,6 +157,7 @@ export const getApprovedPublicSponsorMedia = async (
      WHERE media.id = $1::uuid
        AND media.deleted_at IS NULL
        AND media.review_status = 'approved'
+       AND ${confirmedMediaUsageSql('media', 'website', 'openg7')}
        AND ${moderationVisibleSql('media', 'media.id')}
        AND EXISTS (
          SELECT 1

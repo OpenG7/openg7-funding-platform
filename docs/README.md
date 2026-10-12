@@ -1,6 +1,6 @@
 # Documentation de la plateforme
 
-Révision de l’index : 3 octobre 2026.
+Révision de l’index : 12 octobre 2026.
 L'[état de la plateforme](platform-status.md) distingue les fonctionnalités
 livrées, leurs préconditions et les preuves d'exécution disponibles. Une fonction
 présente dans le dépôt n'est pas nécessairement activée en production.
@@ -44,6 +44,20 @@ avec un minimum de 50 CAD. Les avantages cumulatifs commencent à 50 CAD pour
 la mention Web, 250 CAD pour Facebook et 500 CAD pour LinkedIn. Les sources
 sont `packages/funding-core/src/index.ts` et la configuration Funding du Web.
 Le paiement, le consentement, la revue et la publication restent distincts.
+
+Les [engagements durables](technical/sponsorship-commitments.md) décrivent l'offre
+acceptée avant Checkout et les dossiers historiques à qualifier.
+Les [preuves de reconnaissance](technical/sponsorship-fulfilment.md) distinguent
+livraisons attestées, simulations et visibilité actuelle.
+Le [suivi des délais et durées](technical/sponsorship-obligation-timing.md)
+décrit les origines justifiées et les attestations humaines pour le site OpenG7.
+L'[audit des preuves historiques](technical/sponsorship-historical-audit.md)
+organise leur examen sans réécrire les faits conservés.
+Les [incidents de fiabilité](technical/publication-reliability.md) permettent une
+consultation filtrée et paginée avec accès au dossier concerné. La
+[mesure des grandes files](development/publication-performance.md) décrit la recette synthétique.
+Les [formats de publication](technical/publication-formats.md) indiquent les
+capacités vérifiées des adaptateurs et les formats encore indisponibles.
 
 Les pages `/ecosystem`, `/music` et `/boutique` sont des surfaces éditoriales
 avec liens externes, disponibles également sous `/en`. La politique publique

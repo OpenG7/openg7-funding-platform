@@ -5,6 +5,7 @@ import test from 'node:test';
 import { createPublicPaymentsHttpHandler } from '../dist/apps/funding-api/src/public-payments.http.js';
 import { readBody } from '../dist/apps/funding-api/src/http-transport.js';
 import { CheckoutOperationError } from '../dist/apps/funding-api/src/checkout-operations.service.js';
+import { quoteSponsorshipOffer } from '../dist/apps/funding-api/src/sponsorship-commitments/offers.js';
 
 const origin = 'https://funding.example.test';
 const reference = 'OG7-2026-ABCDEF';
@@ -100,6 +101,7 @@ const fixture = ({
     runCheckout: async (input) => {
       record('operation', { key: input.key, requestHash: input.requestHash });
       const prepared = input.prepare('00000000-0000-4000-8000-000000000001');
+      await input.afterPrepare?.({}, '00000000-0000-4000-8000-000000000001');
       try {
         record('provider', prepared.params);
       } catch {
@@ -120,6 +122,7 @@ const fixture = ({
         status: 'redirected'
       };
     },
+    recordSponsorshipOffer: async (_db, _id, offer) => record('offer', offer),
     reportFailure: (...args) => record('failure', args),
     ...overrides
   });
@@ -327,6 +330,10 @@ test('Custom sponsorship Checkout sends a follow-up URL and persists only the to
       await f.invoke({
         ...payload,
         amount: 123.45,
+        offerAcceptance: (({ version, fingerprint }) => ({
+          version,
+          fingerprint
+        }))(quoteSponsorshipOffer(12345, 'CAD')),
         contributionType: 'sponsorship_interest'
       })
     ).status,
@@ -344,10 +351,144 @@ test('Custom sponsorship Checkout sends a follow-up URL and persists only the to
     'synthetic-followup-hash'
   );
   assert.equal('sponsorshipFollowupToken' in provider.metadata, false);
+  assert.ok(
+    f.calls.findIndex(({ name }) => name === 'offer') <
+      f.calls.findIndex(({ name }) => name === 'provider')
+  );
   assert.equal(
     f.calls.find(({ name }) => name === 'persist').value
       .sponsorshipFollowupTokenHash,
     'synthetic-followup-hash'
+  );
+});
+
+test('a new business Checkout requires the displayed current server offer before provider or persistence access', async () => {
+  const quote = quoteSponsorshipOffer(25000, 'CAD');
+  for (const [offerAcceptance, code, status] of [
+    [undefined, 'SPONSORSHIP_OFFER_ACCEPTANCE_REQUIRED', 400],
+    [
+      { version: quote.version, fingerprint: 'a'.repeat(64) },
+      'SPONSORSHIP_OFFER_CHANGED',
+      409
+    ],
+    [
+      { version: quote.version, fingerprint: [quote.fingerprint] },
+      'SPONSORSHIP_OFFER_INVALID',
+      400
+    ]
+  ]) {
+    const f = fixture();
+    const result = await f.invoke({
+      ...payload,
+      amount: 250,
+      contributionType: 'sponsorship_interest',
+      ...(offerAcceptance ? { offerAcceptance } : {})
+    });
+    assert.equal(result.status, status);
+    assert.equal(result.payload.code, code);
+    assert.ok(
+      !f.calls.some(({ name }) =>
+        ['provider', 'persist', 'offer'].includes(name)
+      )
+    );
+  }
+});
+
+test('a pre-existing durable business operation without an offer snapshot can replay its original payload', async () => {
+  const f = fixture({
+    runCheckout: async (input) => {
+      assert.equal(typeof input.prepare, 'function');
+      // The durable service already knows this operation and deliberately skips preparation.
+      return {
+        checkoutId: session.id,
+        redirectUrl: session.url,
+        status: 'redirected'
+      };
+    }
+  });
+  const result = await f.invoke({
+    ...payload,
+    amount: 250,
+    contributionType: 'sponsorship_interest'
+  });
+  assert.equal(result.status, 200);
+  assert.equal(result.payload.checkoutId, session.id);
+  assert.ok(
+    !f.calls.some(({ name }) => ['provider', 'persist', 'offer'].includes(name))
+  );
+});
+
+test('Checkout binds the accepted formats before provider access and preserves retry fingerprints', async () => {
+  const formats = {
+    facebook: 'individual_portrait',
+    linkedin: 'collective_composite'
+  };
+  const quote = quoteSponsorshipOffer(50000, 'CAD', undefined, formats);
+  const input = {
+    ...payload,
+    amount: 500,
+    contributionType: 'sponsorship_interest',
+    offerFormats: formats,
+    offerAcceptance: { version: quote.version, fingerprint: quote.fingerprint }
+  };
+  const f = fixture();
+  assert.equal((await f.invoke(input)).status, 200);
+  assert.deepEqual(
+    f.calls.find(({ name }) => name === 'offer').value.quote,
+    quote
+  );
+  assert.ok(
+    f.calls.findIndex(({ name }) => name === 'offer') <
+      f.calls.findIndex(({ name }) => name === 'provider')
+  );
+  for (const [offerFormats, code, status] of [
+    [undefined, 'SPONSORSHIP_OFFER_CHANGED', 409],
+    [{ facebook: 'image_collection' }, 'FORMAT_UNAVAILABLE', 400],
+    [{ facebook: ['individual_portrait'] }, 'SPONSORSHIP_OFFER_INVALID', 400]
+  ]) {
+    const failed = fixture();
+    const result = await failed.invoke({ ...input, offerFormats });
+    assert.equal(result.status, status);
+    assert.equal(result.payload.code, code);
+    assert.ok(
+      !failed.calls.some(({ name }) =>
+        ['provider', 'persist', 'offer'].includes(name)
+      )
+    );
+  }
+  const hashes = [];
+  const replay = fixture({
+    runCheckout: async (operation) => {
+      hashes.push(operation.requestHash);
+      // Existing durable operation: do not re-quote/re-prepare its accepted terms.
+      return {
+        checkoutId: session.id,
+        redirectUrl: session.url,
+        status: 'redirected'
+      };
+    }
+  });
+  await replay.invoke(input);
+  await replay.invoke({
+    ...input,
+    offerFormats: {
+      linkedin: 'collective_composite',
+      facebook: 'individual_portrait'
+    }
+  });
+  assert.equal(hashes[0], hashes[1]);
+  await replay.invoke({
+    ...input,
+    offerFormats: {
+      facebook: 'collective_text',
+      linkedin: 'collective_composite'
+    }
+  });
+  assert.notEqual(hashes[0], hashes[2]);
+  assert.ok(
+    !replay.calls.some(({ name }) =>
+      ['provider', 'persist', 'offer'].includes(name)
+    )
   );
 });
 

@@ -1,8 +1,34 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createSponsorshipOfferSnapshot } from '../dist/packages/funding-core/src/index.js';
 
 import { buildSponsorshipAssistantContext } from '../dist/apps/funding-api/src/admin-assistant/context.service.js';
 import { buildSponsorshipProgress } from '../dist/apps/funding-api/src/sponsorship-progress.service.js';
+
+const offer = createSponsorshipOfferSnapshot(50000, 'CAD');
+const commitment = {
+  id: '10000000-0000-4000-8000-000000000010',
+  contributionId: '10000000-0000-4000-8000-000000000001',
+  offerId: '10000000-0000-4000-8000-000000000011',
+  provenance: 'accepted_offer',
+  state: 'active',
+  qualificationReason: null,
+  version: 1,
+  offer,
+  obligations: offer.benefits.map((benefit, index) => ({
+    id: `10000000-0000-4000-8000-${String(index + 12).padStart(12, '0')}`,
+    commitmentId: '10000000-0000-4000-8000-000000000010',
+    contributionId: '10000000-0000-4000-8000-000000000001',
+    benefitId: benefit.id,
+    channel: benefit.channel,
+    target: benefit.target,
+    ordinal: 1,
+    state: 'pending',
+    blockedReason: null,
+    version: 1,
+    fulfilmentEvidenceId: null
+  }))
+};
 
 const record = Object.freeze({
   contributionId: '10000000-0000-4000-8000-000000000001',
@@ -16,7 +42,8 @@ const record = Object.freeze({
   detailsSubmittedAt: '2026-09-01',
   hasCompanyName: true,
   hasContactEmail: true,
-  hasSupportingImage: true
+  hasSupportingImage: true,
+  commitment
 });
 
 const facts = {
@@ -25,6 +52,7 @@ const facts = {
   websiteVersion: 'synthetic-version',
   companyName: 'Fixture company',
   amountMinor: 50000,
+  commitment,
   refundId: null,
   refundAmountMinor: null,
   refundError: false,

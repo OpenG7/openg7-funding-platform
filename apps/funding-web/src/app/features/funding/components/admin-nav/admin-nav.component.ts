@@ -220,6 +220,7 @@ export class AdminNavComponent implements OnInit {
     if (key === 'sponsors')
       return (
         (counts.sponsorship_needs_info ?? 0) +
+        (counts.sponsorship_needs_commitment ?? 0) +
         (counts.sponsorship_needs_review ?? 0)
       );
     if (key === 'email') return counts.email_delivery_failed ?? 0;

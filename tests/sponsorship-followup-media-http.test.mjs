@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { Readable } from 'node:stream';
 import test from 'node:test';
+import { UNKNOWN_SPONSOR_MEDIA_USAGE } from '../dist/packages/funding-core/src/index.js';
 
 import { createSponsorshipFollowupMediaHttpHandler } from '../dist/apps/funding-api/src/sponsorship-followup-media.http.js';
 import { SponsorMediaPersistenceError } from '../dist/apps/funding-api/src/sponsor-media.repository.js';
@@ -474,7 +475,8 @@ test('media upload checks eligibility then processes and stores private bytes be
         width: 100,
         height: 75,
         altText: 'Synthetic photo',
-        maxSupportingImages: 4
+        maxSupportingImages: 4,
+        usage: UNKNOWN_SPONSOR_MEDIA_USAGE
       });
       assert.deepEqual(f.values('audit'), []);
       assert.deepEqual(f.names(), [

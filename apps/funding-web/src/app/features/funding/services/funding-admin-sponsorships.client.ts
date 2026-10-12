@@ -43,6 +43,66 @@ export interface AdminSponsorshipListQuery {
 
 /** Funding admin dossiers, media and review endpoints; authentication belongs to the shared session. */
 export class FundingAdminSponsorshipsClient {
+  async updateSponsorMediaUsage(
+    payload: import('@openg7/funding-core').AdminSponsorMediaUsageRequest
+  ): Promise<{
+    updated: true;
+    asset: import('@openg7/funding-core').SponsorMediaAsset;
+  }> {
+    const response = await this.session.requestAdminJson(
+      '/admin/sponsorships/media/usage',
+      {
+        auth: 'saved',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
+      }
+    );
+    if (!response.ok)
+      throw await this.mediaMutationError(response, 'MEDIA_USAGE_UNAVAILABLE');
+    return response.json();
+  }
+  async decideSponsorMediaPreference(
+    payload: import('@openg7/funding-core').AdminSponsorMediaPreferenceDecisionRequest
+  ): Promise<{
+    updated: true;
+    preference: import('@openg7/funding-core').SponsorMediaPreference;
+  }> {
+    const response = await this.session.requestAdminJson(
+      '/admin/sponsorships/media/preference-review',
+      {
+        auth: 'saved',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
+      }
+    );
+    if (!response.ok)
+      throw await this.mediaMutationError(
+        response,
+        'MEDIA_PREFERENCE_UNAVAILABLE'
+      );
+    return response.json();
+  }
+  private async mediaMutationError(
+    response: Response,
+    fallback: string
+  ): Promise<AdminDashboardRequestError> {
+    const payload = (await response.json().catch(() => null)) as {
+      code?: unknown;
+      message?: unknown;
+      error?: unknown;
+    } | null;
+    return new AdminDashboardRequestError(
+      response.status,
+      typeof payload?.message === 'string'
+        ? payload.message
+        : typeof payload?.error === 'string'
+          ? payload.error
+          : fallback,
+      typeof payload?.code === 'string' ? payload.code : undefined
+    );
+  }
   constructor(private readonly session: FundingAdminSession) {}
 
   async getSponsorshipProgress(

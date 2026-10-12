@@ -58,6 +58,7 @@ export class AdminAttentionPanelComponent implements OnInit, OnChanges {
   readonly returnTo = signal('/admin/fundraiser/attention');
   readonly types = [
     'sponsorship_needs_info',
+    'sponsorship_needs_commitment',
     'sponsorship_needs_review',
     'publication_needs_preparation',
     'publication_late',

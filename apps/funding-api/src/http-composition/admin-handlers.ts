@@ -1,6 +1,8 @@
 import { reconcileEmailDelivery } from '../email-delivery-reconciliation.repository.js';
 import { createAdminAccountingHttpHandler } from '../admin-accounting.http.js';
 import { createAdminModerationHttpHandler } from '../moderation/admin-http.js';
+import { createSponsorMediaUsageHttpHandler } from '../sponsor-media-usage.http.js';
+import { getSponsorMediaPreference } from '../sponsor-media-usage.repository.js';
 import { createAdminAuditHttpHandler } from '../admin-audit.http.js';
 import { createAdminBackupsHttpHandler } from '../admin-backups.http.js';
 import { createAdminContributionActivityHttpHandler } from '../admin-contribution-activity.http.js';
@@ -39,6 +41,8 @@ import { createAdminSponsorshipDecisionsHttpHandler } from '../admin-sponsorship
 import { updateAdminSponsorshipDetails } from '../admin-sponsorship-details.service.js';
 import { createAdminSponsorshipMediaHttpHandler } from '../admin-sponsorship-media.http.js';
 import { createAdminSponsorshipRecordsHttpHandler } from '../admin-sponsorship-records.http.js';
+import { createSponsorshipCommitmentsHttpHandler } from '../sponsorship-commitments/admin-http.js';
+import { createSponsorshipTimingHttpHandler } from '../sponsorship-timing/admin-http.js';
 import { AdminStripeBackfillError } from '../admin-stripe-backfill.service.js';
 import {
   getAdminStripeEvent,
@@ -374,7 +378,33 @@ export const createAdminHttpHandlers = ({
     reportFailure: (message, error) => console.error(message, error)
   });
 
-  const handleAdminSponsorshipRecordsRequest =
+  const handleSponsorshipCommitmentsRequest =
+    createSponsorshipCommitmentsHttpHandler({
+      publicBaseOrigin,
+      pool: dbPool,
+      readBody,
+      writeJson,
+      ensureAdminAccess,
+      getAdminAuditActor,
+      canOwn: (request) =>
+        adminIdentity
+          ? adminIdentity.identity(request)?.role === 'owner'
+          : Boolean(resolveAdminAuthorization(request))
+    });
+  const handleSponsorshipTimingRequest = createSponsorshipTimingHttpHandler({
+    publicBaseOrigin,
+    pool: dbPool,
+    readBody,
+    writeJson,
+    ensureAdminAccess,
+    getAdminAuditActor,
+    storage: sponsorMediaStorage,
+    canOwn: (request) =>
+      adminIdentity
+        ? adminIdentity.identity(request)?.role === 'owner'
+        : Boolean(resolveAdminAuthorization(request))
+  });
+  const handleExistingAdminSponsorshipRecordsRequest =
     createAdminSponsorshipRecordsHttpHandler({
       publicBaseOrigin,
       ensureAdminAuthorization,
@@ -397,6 +427,12 @@ export const createAdminHttpHandlers = ({
         recordSponsorshipIntervention(dbPool!, input, actor),
       reportFailure: (message, error) => console.error(message, error)
     });
+
+  const handleAdminSponsorshipRecordsRequest: typeof handleExistingAdminSponsorshipRecordsRequest =
+    async (request, response) =>
+      (await handleSponsorshipTimingRequest(request, response)) ||
+      (await handleSponsorshipCommitmentsRequest(request, response)) ||
+      (await handleExistingAdminSponsorshipRecordsRequest(request, response));
 
   const handleAdminSponsorshipDecisionsRequest =
     createAdminSponsorshipDecisionsHttpHandler({
@@ -426,56 +462,74 @@ export const createAdminHttpHandlers = ({
       queueSponsorshipRejectionEmail: (input) =>
         queueSponsorshipRejectionEmail(dbPool, input),
       setSponsorshipWebsiteVisibility: (input, actor) =>
-        setSponsorshipWebsiteVisibility(dbPool!, input, actor),
+        setSponsorshipWebsiteVisibility(
+          dbPool!,
+          input,
+          actor,
+          sponsorMediaStorage
+        ),
       updateSponsorshipPublication: (input) =>
         updateSponsorshipPublication(dbPool, input),
       insertAdminAuditLog: (input) => insertAdminAuditLog(dbPool, input),
       reportFailure: (message, error) => console.error(message, error)
     });
 
-  const handleAdminSponsorshipMediaRequest =
-    createAdminSponsorshipMediaHttpHandler({
-      publicBaseOrigin,
-      sponsorMediaMaxBytes,
-      sponsorMediaMaxSupportingImages,
-      sponsorLogoMaxBytes,
-      SPONSOR_MEDIA_ALT_TEXT_MAX_LENGTH,
-      ensureAdminAccess,
-      getAdminAuditActor,
-      readBody,
-      readBodyBuffer,
-      writeJson,
-      writeBinary,
-      isValidUuid,
-      isValidAdminExpectedVersion,
-      routeAssetId,
-      listSponsorMediaAssets: (id) => listSponsorMediaAssets(dbPool, id),
-      getSponsorMediaStorageRecord: (id) =>
-        getSponsorMediaStorageRecord(dbPool, id),
-      reviewSponsorMediaAsset: (input) =>
-        reviewSponsorMediaAsset(dbPool, input),
-      updateSponsorMediaMetadata: (input) =>
-        updateSponsorMediaMetadata(dbPool, input),
-      deleteSponsorMediaAsset: (input) =>
-        deleteSponsorMediaAsset(dbPool, input),
-      sponsorMediaStorage,
-      sponsorMediaPublicUrl,
-      deleteSponsorMediaObjects,
-      writeSponsorMediaMutationFailure,
-      getAdminSponsorshipLogoUrl: (id) =>
-        getAdminSponsorshipLogoUrl(dbPool, id),
-      clearSponsorshipLogoUrl: (input) =>
-        clearSponsorshipLogoUrl(dbPool, input),
-      updateSponsorshipLogoUrl: (input) =>
-        updateSponsorshipLogoUrl(dbPool, input),
-      sponsorLogoStorage,
-      getSponsorLogoFilenameFromUrl,
-      sponsorLogoPublicUrlForFilename,
-      deleteControlledSponsorLogoFile,
-      writeSponsorshipMutationFailure,
-      insertAdminAuditLog: (input) => insertAdminAuditLog(dbPool, input),
-      reportFailure: (message, error) => console.error(message, error)
-    });
+  const handleAdminMediaUsage = createSponsorMediaUsageHttpHandler({
+    mode: 'admin',
+    pool: dbPool,
+    publicBaseOrigin,
+    readBody,
+    writeJson,
+    ensureAdminAccess,
+    getAdminAuditActor,
+    reportFailure: (message, error) => console.error(message, error)
+  });
+  const handleAdminMedia = createAdminSponsorshipMediaHttpHandler({
+    publicBaseOrigin,
+    sponsorMediaMaxBytes,
+    sponsorMediaMaxSupportingImages,
+    sponsorLogoMaxBytes,
+    SPONSOR_MEDIA_ALT_TEXT_MAX_LENGTH,
+    ensureAdminAccess,
+    getAdminAuditActor,
+    getSponsorMediaPreference: (id) => getSponsorMediaPreference(dbPool, id),
+    readBody,
+    readBodyBuffer,
+    writeJson,
+    writeBinary,
+    isValidUuid,
+    isValidAdminExpectedVersion,
+    routeAssetId,
+    listSponsorMediaAssets: (id) => listSponsorMediaAssets(dbPool, id),
+    getSponsorMediaStorageRecord: (id) =>
+      getSponsorMediaStorageRecord(dbPool, id),
+    reviewSponsorMediaAsset: (input) => reviewSponsorMediaAsset(dbPool, input),
+    updateSponsorMediaMetadata: (input) =>
+      updateSponsorMediaMetadata(dbPool, input),
+    deleteSponsorMediaAsset: (input) => deleteSponsorMediaAsset(dbPool, input),
+    sponsorMediaStorage,
+    sponsorMediaPublicUrl,
+    deleteSponsorMediaObjects,
+    writeSponsorMediaMutationFailure,
+    getAdminSponsorshipLogoUrl: (id) => getAdminSponsorshipLogoUrl(dbPool, id),
+    clearSponsorshipLogoUrl: (input) => clearSponsorshipLogoUrl(dbPool, input),
+    updateSponsorshipLogoUrl: (input) =>
+      updateSponsorshipLogoUrl(dbPool, input),
+    sponsorLogoStorage,
+    getSponsorLogoFilenameFromUrl,
+    sponsorLogoPublicUrlForFilename,
+    deleteControlledSponsorLogoFile,
+    writeSponsorshipMutationFailure,
+    insertAdminAuditLog: (input) => insertAdminAuditLog(dbPool, input),
+    reportFailure: (message, error) => console.error(message, error)
+  });
+
+  const handleAdminSponsorshipMediaRequest = async (
+    request: Parameters<typeof handleAdminMediaUsage>[0],
+    response: Parameters<typeof handleAdminMediaUsage>[1]
+  ) =>
+    (await handleAdminMediaUsage(request, response)) ||
+    (await handleAdminMedia(request, response));
 
   const handleAdminAssistantRequest = createAdminAssistantHttpHandler({
     publicBaseOrigin,
@@ -523,8 +577,8 @@ export const createAdminHttpHandlers = ({
       isValidOptionalIsoDate,
       listAdminPublicationDrafts: (input) =>
         listAdminPublicationDrafts(dbPool, input),
-      createAdminPublicationDraft: (input) =>
-        createAdminPublicationDraft(dbPool, input),
+      createAdminPublicationDraft: (input, actor) =>
+        createAdminPublicationDraft(dbPool, input, actor),
       updateAdminPublicationDraft: (input, actor) =>
         updateAdminPublicationDraft(dbPool, input, actor),
       insertAdminAuditLog: (input) => insertAdminAuditLog(dbPool, input)
@@ -546,8 +600,8 @@ export const createAdminHttpHandlers = ({
         listAdminPublicationSlots(dbPool, input),
       createAdminPublicationSlot: (input) =>
         createAdminPublicationSlot(dbPool, input),
-      updateAdminPublicationSlot: (input) =>
-        updateAdminPublicationSlot(dbPool, input),
+      updateAdminPublicationSlot: (input, actor) =>
+        updateAdminPublicationSlot(dbPool, input, actor),
       assignBatchToPublicationSlot: (input) =>
         assignBatchToPublicationSlot(dbPool, input),
       assignDraftToPublicationSlot: (input) =>
@@ -614,6 +668,7 @@ export const createAdminHttpHandlers = ({
       getAdminAuditActor,
       readBody,
       writeJson,
+      writeBinary,
       publicationAutomation,
       PublicationAutomationError
     });

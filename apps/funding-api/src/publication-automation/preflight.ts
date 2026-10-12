@@ -1,17 +1,24 @@
 import { isDeepStrictEqual } from 'node:util';
 
-import sharp from 'sharp';
 import type {
   PublicationDelivery,
   PublicationFeed,
   PublicationFeedId
 } from '@openg7/funding-core';
+import type { PublicationObligationSnapshot } from '@openg7/funding-core';
 
 import type { SponsorMediaStorage } from '../sponsor-media-storage.js';
+import { assertPublicationObligations } from '../sponsorship-fulfilment.repository.js';
 
-import { resolveMedia, type Media } from './media.js';
+import { type Media } from './media.js';
+import {
+  resolvePublicationVisual,
+  type DerivedPublicationMedia,
+  type VisualDelivery
+} from './visuals.js';
+import { canonicalPublicationAccount } from './account-reservations.js';
 import { assertSponsorshipContent } from './content.js';
-import { assert, digest, validateContent } from './policy.js';
+import { assert, validateContent } from './policy.js';
 import { assertDeliveryModeration } from './moderation.js';
 import {
   sourceEqual,
@@ -21,7 +28,7 @@ import {
   type Source
 } from './sources.js';
 
-export interface PreflightDelivery {
+export interface PreflightDelivery extends VisualDelivery {
   id: string;
   feed_id: PublicationFeedId;
   account_id: string;
@@ -29,9 +36,10 @@ export interface PreflightDelivery {
   batch_id: string | null;
   approved_at: Date | null;
   source_snapshot: Source[];
+  obligation_snapshot?: PublicationObligationSnapshot[];
   scheduled_at: Date;
   media_id: string | null;
-  media_snapshot: Media | null;
+  media_snapshot: Media | DerivedPublicationMedia | null;
   message: string;
 }
 
@@ -47,7 +55,10 @@ export async function ready(
   const feed = (await feeds(db)).find((f) => f.id === row.feed_id)!;
   assert(feed.configured && feed.connection === 'ready', 'CONNECTION_REQUIRED');
   assert(
-    feed.accountId === row.account_id && feed.mode === row.mode,
+    feed.accountId !== null &&
+      canonicalPublicationAccount({ ...row, account_id: feed.accountId })
+        .accountId === canonicalPublicationAccount(row).accountId &&
+      feed.mode === row.mode,
     'DESTINATION_CHANGED'
   );
   if (row.batch_id) {
@@ -71,6 +82,7 @@ export async function ready(
     }
     assert(sourceEqual(sources, row.source_snapshot), 'SOURCE_CHANGED');
     await assertSponsorshipContent(db, row);
+    if (row.approved_at) await assertPublicationObligations(db, row);
   }
   if (row.batch_id && row.approved_at) {
     const batch = (
@@ -85,16 +97,10 @@ export async function ready(
       'SOURCE_CHANGED'
     );
   }
-  const media = await resolveMedia(
-    db,
-    storage,
-    row.media_id,
-    row.batch_id,
-    lockSources
+  const visual = await resolvePublicationVisual(db, storage, row, lockSources);
+  assert(
+    isDeepStrictEqual(visual.snapshot, row.media_snapshot),
+    'MEDIA_CHANGED'
   );
-  assert(isDeepStrictEqual(media, row.media_snapshot), 'MEDIA_CHANGED');
-  if (!media) return null;
-  const bytes = await storage.readPrivateObject(media.key);
-  assert(bytes && digest(bytes) === media.hash, 'MEDIA_CHANGED');
-  return sharp(bytes).rotate().jpeg({ quality: 90 }).toBuffer();
+  return visual.prepared?.bytes ?? null;
 }

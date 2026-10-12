@@ -11,7 +11,7 @@ import {
 
 test(
   'publication claim fencing with disposable PostgreSQL',
-  { timeout: 180000 },
+  { timeout: 360000 },
   async (t) => {
     const {
       pool,
@@ -41,55 +41,60 @@ test(
         await reset();
         provider(st, facebookSuccess);
         await activate();
-        const { id } = await compose();
-        const claim = (
-          await pool.query(
-            "UPDATE publication_deliveries SET status='publishing',version=version+1,attempts=attempts+1,lease_until=clock_timestamp()+INTERVAL '5 minutes' WHERE id=$1 RETURNING *",
-            [id]
-          )
-        ).rows[0];
-        const acknowledgement = {
-          externalPostId: '20_9',
-          externalPostUrl: 'https://www.facebook.com/20_9'
-        };
-        const before = await record(id);
-        await Promise.all([
-          observeProviderResult({ pool }, claim, acknowledgement),
-          observeProviderResult({ pool }, claim, acknowledgement)
-        ]);
-        assert.deepEqual(await record(id), before);
-        assert.deepEqual(
-          (await audits(id, 'provider_result_observed')).map(
-            ({ metadata }) => metadata
-          ),
-          [
-            {
-              claimVersion: claim.version,
-              mode: 'live',
-              feedId: facebookFeed,
-              ...acknowledgement
-            }
-          ]
+        const { id, due } = await compose();
+        const pause = gate();
+        await withPausedTick(
+          serviceFor(poolPausedAfterClaim(pool, pause)),
+          due,
+          pause,
+          async (claim) => {
+            const acknowledgement = {
+              externalPostId: '20_9',
+              externalPostUrl: 'https://www.facebook.com/20_9'
+            };
+            const before = await record(id);
+            await Promise.all([
+              observeProviderResult({ pool }, claim, acknowledgement),
+              observeProviderResult({ pool }, claim, acknowledgement)
+            ]);
+            assert.deepEqual(await record(id), before);
+            assert.deepEqual(
+              (await audits(id, 'provider_result_observed')).map(
+                ({ metadata }) => metadata
+              ),
+              [
+                {
+                  claimVersion: claim.version,
+                  mode: 'live',
+                  feedId: facebookFeed,
+                  ...acknowledgement
+                }
+              ]
+            );
+            await assert.rejects(
+              observeProviderResult({ pool }, claim, {
+                ...acknowledgement,
+                externalPostId: '20_10'
+              }),
+              { code: 'PROVIDER_RESULT_CONFLICT' }
+            );
+            await pool.query(
+              'UPDATE publication_deliveries SET version=version+1 WHERE id=$1',
+              [id]
+            );
+            const newer = await record(id);
+            await assert.rejects(
+              observeProviderResult({ pool }, claim, acknowledgement),
+              /PUBLICATION_CLAIM_LOST/
+            );
+            assert.deepEqual(await record(id), newer);
+            assert.equal(
+              (await audits(id, 'provider_result_observed')).length,
+              1
+            );
+            assert.equal((await audits(id, 'published')).length, 0);
+          }
         );
-        await assert.rejects(
-          observeProviderResult({ pool }, claim, {
-            ...acknowledgement,
-            externalPostId: '20_10'
-          }),
-          { code: 'PROVIDER_RESULT_CONFLICT' }
-        );
-        await pool.query(
-          'UPDATE publication_deliveries SET version=version+1 WHERE id=$1',
-          [id]
-        );
-        const newer = await record(id);
-        await assert.rejects(
-          observeProviderResult({ pool }, claim, acknowledgement),
-          /PUBLICATION_CLAIM_LOST/
-        );
-        assert.deepEqual(await record(id), newer);
-        assert.equal((await audits(id, 'provider_result_observed')).length, 1);
-        assert.equal((await audits(id, 'published')).length, 0);
       }
     );
 

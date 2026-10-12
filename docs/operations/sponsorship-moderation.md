@@ -120,6 +120,19 @@ contrat validé. L'activation exige une validation éditoriale explicite, une da
 de validation publique, une date d'effet et l'empreinte exacte du texte FR/EN
 servi. Aucun endpoint d'activation n'est fourni dans ce chantier.
 
+Le propriétaire peut lire `GET /api/admin/moderation/charter-preview` pour examiner
+les textes FR/EN de la charte, leur empreinte exacte et les conditions de
+reconnaissance proposées. La réponse privée indique séparément l'état public,
+la date de validation et la date d'effet. Cette lecture utilise un snapshot en
+lecture seule ; elle ne valide aucun texte, n'enregistre aucune acceptation et
+n'active rien. Les conditions proposées décrivent l'offre figée, les quantités,
+les droits des photos, les dates provisoires et les preuves. Toute adoption
+publique exige une décision éditoriale explicite et une version additive
+compatible avec les acceptations et preuves historiques. Consigner texte FR/EN,
+version, empreinte, personne ayant validé, date et cible avant une mise en service
+séparément autorisée. Voir [les engagements](../technical/sponsorship-commitments.md)
+et [les preuves](../technical/sponsorship-fulfilment.md).
+
 Pour une charte active seulement, un nouveau Checkout de type
 `sponsorship_interest` exige
 `charterAcceptance: { accepted: true, policyVersion, fingerprint, locale }`.

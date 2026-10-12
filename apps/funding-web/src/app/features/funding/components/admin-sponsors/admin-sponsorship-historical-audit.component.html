@@ -1,0 +1,226 @@
+<section
+  data-og7="historical-evidence-audit"
+  class="mt-6 space-y-4 rounded-xl border border-slate-300 p-4"
+  aria-labelledby="historical-audit-title"
+>
+  <h3 id="historical-audit-title" class="font-semibold">
+    {{ 'admin.historicalAudit.title' | translate }}
+  </h3>
+  <p>{{ 'admin.historicalAudit.description' | translate }}</p>
+  @if (!canOwn()) {
+    <p>{{ 'admin.historicalAudit.ownerRequired' | translate }}</p>
+  } @else {
+    <div class="flex flex-wrap items-center gap-3">
+      <button
+        type="button"
+        class="admin-button"
+        data-og7-id="historical-audit-load"
+        [disabled]="c.loading() || c.saving()"
+        (click)="c.load()"
+      >
+        {{ 'admin.historicalAudit.load' | translate }}
+      </button>
+      <label class="flex items-center gap-2"
+        ><input
+          type="checkbox"
+          [checked]="c.global()"
+          [disabled]="c.saving() || !!c.pending()"
+          (change)="setGlobal($event)"
+        />{{ 'admin.historicalAudit.global' | translate }}</label
+      >
+      <label class="audit-filter"
+        >{{ 'admin.historicalAudit.filter' | translate }}
+        <select
+          class="admin-select"
+          [value]="c.filter()"
+          [disabled]="c.saving() || !!c.pending()"
+          (change)="setFilter($event)"
+        >
+          <option value="">
+            {{ 'admin.historicalAudit.all' | translate }}
+          </option>
+          @for (filter of filters; track filter) {
+            <option [value]="filter">
+              {{ 'admin.historicalAudit.filterLabels.' + filter | translate }}
+            </option>
+          }
+        </select>
+      </label>
+    </div>
+    @if (c.loading()) {
+      <p role="status">{{ 'admin.historicalAudit.loading' | translate }}</p>
+    }
+    @if (c.error()) {
+      <p role="alert" class="text-red-800">
+        {{ 'admin.historicalAudit.' + c.error() | translate }}
+      </p>
+    }
+    @if (c.saved()) {
+      <p role="status">{{ 'admin.historicalAudit.saved' | translate }}</p>
+    }
+    @if (c.data(); as data) {
+      <p data-og7-id="historical-audit-counts">
+        {{
+          'admin.historicalAudit.counts'
+            | translate
+              : {
+                  total: data.totals.evidence,
+                  filtered: data.totals.filtered,
+                  unreviewed: data.totals.unreviewed
+                }
+        }}
+      </p>
+      <p>
+        {{
+          'admin.historicalAudit.globalCounts'
+            | translate
+              : {
+                  duration: data.totals.durationUnverified,
+                  missing: data.totals.requiredElementMissing,
+                  incomplete: data.totals.snapshotIncomplete
+                }
+        }}
+      </p>
+      @if (data.items.length === 0) {
+        <p>{{ 'admin.historicalAudit.empty' | translate }}</p>
+      }
+      <ul class="space-y-3">
+        @for (item of data.items; track item.evidenceId) {
+          <li
+            class="space-y-2 rounded-lg border border-slate-300 p-3"
+            data-og7-id="historical-audit-item"
+          >
+            <p class="break-all">
+              {{ item.channel }} · {{ item.target }} · {{ item.deliveredAt
+              }}<br />{{ item.evidenceId }}
+            </p>
+            @if (item.findings.length === 0) {
+              <p>
+                {{
+                  'admin.historicalAudit.findings.no_issue_detected' | translate
+                }}
+              </p>
+            }
+            @for (finding of item.findings; track finding) {
+              <p>
+                {{ 'admin.historicalAudit.findings.' + finding | translate }}
+              </p>
+            }
+            @for (requirement of item.requirements; track requirement.element) {
+              <p>
+                {{
+                  'admin.historicalAudit.elements.' + requirement.element
+                    | translate
+                }}:
+                {{
+                  'admin.historicalAudit.observations.' +
+                    requirement.observation | translate
+                }}
+              </p>
+            }
+            @if (item.latestReview; as review) {
+              <p>
+                {{
+                  'admin.historicalAudit.conclusions.' + review.conclusion
+                    | translate
+                }}
+                · {{ review.reviewedAt }}
+              </p>
+            }
+            <button
+              type="button"
+              class="admin-button"
+              data-og7-id="historical-audit-review"
+              [disabled]="c.saving() || !!c.pending()"
+              (click)="c.choose(item)"
+            >
+              {{ 'admin.historicalAudit.review' | translate }}
+            </button>
+          </li>
+        }
+      </ul>
+      @if (data.nextCursor) {
+        <button
+          type="button"
+          class="admin-button"
+          data-og7-id="historical-audit-next"
+          [disabled]="c.loading() || c.saving() || !!c.pending()"
+          (click)="c.load(data.nextCursor)"
+        >
+          {{ 'admin.historicalAudit.next' | translate }}
+        </button>
+      }
+    }
+    @if (c.selected(); as selected) {
+      <form
+        data-og7-id="historical-audit-form"
+        class="space-y-3"
+        (submit)="$event.preventDefault(); c.submit()"
+      >
+        <p class="break-all">{{ selected.evidenceId }}</p>
+        <label class="block"
+          >{{ 'admin.historicalAudit.conclusion' | translate }}
+          <select
+            class="admin-select"
+            [value]="c.conclusion()"
+            [disabled]="c.saving() || !!c.pending()"
+            (change)="setConclusion($event)"
+          >
+            @for (conclusion of conclusions; track conclusion) {
+              <option [value]="conclusion">
+                {{
+                  'admin.historicalAudit.conclusions.' + conclusion | translate
+                }}
+              </option>
+            }
+          </select>
+        </label>
+        <label class="block"
+          >{{ 'admin.historicalAudit.reason' | translate
+          }}<textarea
+            class="admin-input w-full"
+            rows="3"
+            maxlength="2000"
+            [value]="c.reason()"
+            [disabled]="c.saving() || !!c.pending()"
+            (input)="setReason($event)"
+          ></textarea>
+        </label>
+        <label class="flex items-start gap-2"
+          ><input
+            type="checkbox"
+            [checked]="c.confirmation()"
+            [disabled]="c.saving() || !!c.pending()"
+            (change)="setConfirmation($event)"
+          />{{ 'admin.historicalAudit.confirmation' | translate }}</label
+        >
+        <button
+          class="admin-button"
+          type="submit"
+          data-og7-id="historical-audit-save"
+          [disabled]="
+            !c.confirmation() ||
+            !c.reason().trim() ||
+            c.saving() ||
+            c.loading() ||
+            !!c.pending()
+          "
+        >
+          {{ 'admin.historicalAudit.save' | translate }}
+        </button>
+      </form>
+    }
+    @if (c.pending()) {
+      <p role="status">{{ 'admin.historicalAudit.uncertain' | translate }}</p>
+      <button
+        type="button"
+        class="admin-button"
+        data-og7-id="historical-audit-retry"
+        [disabled]="c.saving()"
+        (click)="c.retry()"
+      >
+        {{ 'admin.historicalAudit.retry' | translate }}
+      </button>
+    }
+  }
+</section>

@@ -19,6 +19,8 @@ const operatorActions = new Set([
   '/admin/sponsorships/media/delete',
   '/admin/sponsorships/media/review',
   '/admin/sponsorships/media/metadata',
+  '/admin/sponsorships/media/usage',
+  '/admin/sponsorships/media/preference-review',
   '/admin/sponsorships/logo',
   '/admin/sponsorships/logo/delete',
   '/admin/email-queue/retry',
@@ -55,6 +57,7 @@ export const adminRoleAllows = (
     [
       '/admin/moderation/adoption-preview',
       '/admin/moderation/retention-preview',
+      '/admin/moderation/charter-preview',
       '/admin/moderation/assignment'
     ].includes(path)
   )

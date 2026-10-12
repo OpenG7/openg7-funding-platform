@@ -158,10 +158,12 @@ const fixture = ({ denied, role = 'operator', overrides = {} } = {}) => {
     calls.push({ name: 'json', value: status });
     Object.assign(response, { status, payload });
   };
-  const record = (name, fallback) => async (value) => {
-    calls.push({ name, value });
-    return name in overrides ? overrides[name](value) : fallback;
-  };
+  const record =
+    (name, fallback) =>
+    async (value, ...args) => {
+      calls.push({ name, value });
+      return name in overrides ? overrides[name](value, ...args) : fallback;
+    };
   const dependencies = {
     publicBaseOrigin: 'https://funding.example.test',
     ensureAdminAccess: (request, response) => {
@@ -369,6 +371,25 @@ test('attached batch date changes identify the dedicated slot action without a s
   assert.match(result.payload.error, /\/api\/admin\/publication-slots\/update/);
   assert.equal(f.values('audit').length, 0);
   assert.equal(f.values('report').length, 0);
+});
+
+test('slot updates pass the authenticated actor to transactional approval revocations', async () => {
+  let receivedActor;
+  const f = fixture({
+    overrides: {
+      updateAdminPublicationSlot: (_input, auditActor) => {
+        receivedActor = auditActor;
+        return { updated: true, slot };
+      }
+    }
+  });
+  const response = await f.run('/api/admin/publication-slots/update', {
+    method: 'POST',
+    input: { slotId: id, startsAt: future, actor: 'untrusted-body-actor' }
+  });
+  assert.equal(response.status, 200);
+  assert.equal(receivedActor, actor);
+  assert.equal(f.values('audit')[0].actor, actor);
 });
 
 test('publication mutation failures preserve conflicts, missing records and safe provider errors without success audit', async (t) => {

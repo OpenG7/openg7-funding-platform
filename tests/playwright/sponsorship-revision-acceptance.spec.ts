@@ -21,6 +21,8 @@ import { completePublicationModeration } from './support/acceptance-moderation.j
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import { test, expect } from './support/test.js';
+import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
+import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';
 
 const automation = '/api/admin/publication-automation';
 const cockpit = '/admin/fundraiser/publications/automation';
@@ -193,6 +195,7 @@ for (const review of ['pending', 'reapproved'] as const) {
       await form.locator('#public-display-name').fill(name);
       await form.getByRole('checkbox').nth(1).uncheck();
       await form.getByRole('checkbox').nth(2).check();
+      await acceptDisplayedSponsorshipOffer(form);
       await form.locator('button[type="submit"]').click();
       await expect(company).toHaveURL(/\/checkout\/cs_test_/);
       const sessionId = new URL(company.url()).pathname.split('/').at(-1)!;
@@ -235,6 +238,7 @@ for (const review of ['pending', 'reapproved'] as const) {
       })
         .png()
         .toBuffer();
+      await confirmAcceptanceMediaUsage(company);
       for (const [label, filename] of [
         ['Ajouter le logo', 'logo.png'],
         ['Ajouter des photos', 'photo.png']

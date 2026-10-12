@@ -18,6 +18,7 @@ import {
   buildStripeEvent
 } from './support/stripe-webhook.js';
 import { test, expect } from './support/test.js';
+import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
 
 const refundUrl = '/api/admin/sponsorships/refund';
 const amountMinor = 50000;
@@ -101,6 +102,7 @@ for (const amounts of [[20000, 30000], [50000]]) {
       await form.getByRole('checkbox').nth(0).uncheck();
       await form.getByRole('checkbox').nth(1).uncheck();
       await form.getByRole('checkbox').nth(2).check();
+      await acceptDisplayedSponsorshipOffer(form);
       await form.locator('button[type="submit"]').click();
       await expect(page).toHaveURL(/\/checkout\/cs_test_/);
       sessionId = new URL(page.url()).pathname.split('/').at(-1)!;

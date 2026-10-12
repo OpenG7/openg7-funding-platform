@@ -12,6 +12,14 @@ import {
 const contributionId = '10000000-0000-4000-8000-000000000001';
 const assetId = '10000000-0000-4000-8000-000000000002';
 const version = '2026-09-01 00:00:00+00';
+const syntheticUsage = {
+  state: 'confirmed',
+  channels: ['website'],
+  targets: ['openg7'],
+  transformations: ['technical'],
+  credit: null,
+  restrictions: null
+};
 
 const assetRow = (overrides = {}) => ({
   id: assetId,
@@ -34,6 +42,8 @@ const assetRow = (overrides = {}) => ({
   alt_text: 'Synthetic logo',
   sort_order: 0,
   reviewed_at: version,
+  usage_rights: syntheticUsage,
+  usage_restrictions_reviewed: true,
   version,
   created_at: version,
   ...overrides
@@ -97,7 +107,9 @@ test('dossier assets omit storage keys while storage lookups retain cleanup meta
       publicUrl: `/api/public/sponsor-media/${assetId}`,
       reviewedAt: version,
       version,
-      createdAt: version
+      createdAt: version,
+      usage: syntheticUsage,
+      usageRestrictionsReviewed: true
     }
   ]);
   const expectedRecord = {
@@ -176,6 +188,7 @@ test('public media groups preserve row order and trim or supply image alt text',
   const otherContributionId = '10000000-0000-4000-8000-000000000003';
   const first = assetRow({
     alt_text: '  Public logo  ',
+    usage_rights: { ...syntheticUsage, credit: 'Logo : Atelier synthétique' },
     company_name: 'Synthetic'
   });
   const second = assetRow({
@@ -189,6 +202,7 @@ test('public media groups preserve row order and trim or supply image alt text',
     kind: 'supporting_image',
     company_name: 'Synthetic',
     sort_order: 2,
+    usage_rights: { ...syntheticUsage, credit: 'Photo : Élise Tremblay' },
     alt_text: null
   });
   const { pool, calls } = queryFixture(
@@ -199,6 +213,7 @@ test('public media groups preserve row order and trim or supply image alt text',
   const result = await listPublicSponsorMediaByContributionIds(pool, ids);
   const publicAsset = (row, altText) => ({
     id: row.id,
+    credit: row.usage_rights.credit,
     kind: row.kind,
     url: `/api/public/sponsor-media/${row.id}`,
     width: row.width,

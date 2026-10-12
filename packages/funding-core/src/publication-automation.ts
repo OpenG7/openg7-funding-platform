@@ -1,3 +1,17 @@
+import type { SponsorshipPublicationFormat } from './sponsorship-publication-formats.js';
+import type { PublicationReliability } from './publication-reliability.js';
+export type {
+  PublicationReliability,
+  PublicationReliabilityIncident,
+  PublicationReliabilityIncidentCode
+} from './publication-reliability.js';
+
+export interface PublicationPhotoSelection {
+  readonly contributionId: string;
+  readonly assetId: string;
+  readonly assetVersion: string;
+}
+
 export type PublicationFeedId =
   | 'openg7:facebook'
   | 'openg7:linkedin'
@@ -31,6 +45,8 @@ export interface PublicationFeed extends PublicationFeedSettings {
   checkedAt: string | null;
 }
 export interface PublicationDelivery {
+  readonly publicationFormat?: SponsorshipPublicationFormat;
+  readonly photoSelections?: readonly PublicationPhotoSelection[];
   id: string;
   feedId: PublicationFeedId;
   kind: 'sponsorship' | 'news' | 'achievement' | 'campaign';
@@ -40,6 +56,8 @@ export interface PublicationDelivery {
   mediaId: string | null;
   mediaUrl: string | null;
   mediaAlt: string | null;
+  readonly mediaDerivedHash?: string | null;
+  readonly mediaTransform?: string | null;
   accountId: string;
   mode: 'disabled' | 'mock' | 'live';
   autoManaged: boolean;
@@ -59,8 +77,22 @@ export interface PublicationDelivery {
   externalPostId: string | null;
   externalPostUrl: string | null;
   errorCode: string | null;
+  /** Private admin diagnostic: an account outcome still requires human reconciliation. */
+  accountRecoveryRequired?: boolean;
   approvedAt: string | null;
   publishedAt: string | null;
+}
+/** Private, scoped image catalogue. No storage keys or authorization evidence. */
+export interface PublicationMediaOption {
+  readonly id: string;
+  readonly url: string;
+  readonly alt: string;
+  readonly company: string;
+  readonly credit?: string | null;
+  readonly contributionId?: string;
+  readonly version?: string;
+  readonly kind?: string;
+  readonly transformations?: readonly string[];
 }
 export interface PublicationAutomationState {
   workerEnabled: boolean;
@@ -69,6 +101,8 @@ export interface PublicationAutomationState {
   deliveries: PublicationDelivery[];
   /** Private preparation facts; absent on older API responses. Never authorizes sending. */
   queue?: PublicationPreparationQueue;
+  /** Complete persisted scope, independent of filters/pages; no publication authorization. */
+  reliability?: PublicationReliability;
   summary: {
     awaitingApproval: number;
     scheduled: number;
@@ -121,6 +155,13 @@ export interface PublicationAutomationFilter {
 }
 export type PublicationAutomationCommand =
   | {
+      action: 'check-visibility';
+      id: string;
+      version: number;
+      confirmation: string;
+      requestId: string;
+    }
+  | {
       action: 'worker';
       enabled: boolean;
       version: number;
@@ -132,6 +173,8 @@ export type PublicationAutomationCommand =
   | { action: 'prepare'; feedId: PublicationFeedId }
   | {
       action: 'compose';
+      publicationFormat?: SponsorshipPublicationFormat;
+      photoSelections?: readonly PublicationPhotoSelection[];
       feedId: PublicationFeedId;
       kind: PublicationDelivery['kind'];
       batchId?: string;
@@ -141,6 +184,8 @@ export type PublicationAutomationCommand =
     }
   | {
       action: 'edit';
+      publicationFormat?: SponsorshipPublicationFormat;
+      photoSelections?: readonly PublicationPhotoSelection[];
       id: string;
       version: number;
       message: string;

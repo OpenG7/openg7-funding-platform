@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from 'node:util';
+
 import type { Pool, PoolClient } from 'pg';
 import type {
   ProgrammeIssue,
@@ -11,10 +13,12 @@ import type { SponsorMediaStorage } from '../sponsor-media-storage.js';
 import { withPostgresTransaction } from '../postgres-transaction.js';
 import { isSocialPublicationChannelConfigured } from '../social-publication.service.js';
 import { moderationApprovedSql } from '../moderation/policy.js';
+import { preparePublicationImage } from '../publication-image.service.js';
 
 import { assert, feedConfig, validId } from './policy.js';
 import { type Db, sourceIssues } from './sources.js';
 import { mediaOptions } from './media.js';
+import { resolvePublicationVisual } from './visuals.js';
 import {
   type DeliveryRow,
   type PublicationCommandsContext,
@@ -31,8 +35,25 @@ import {
 } from './planning.js';
 import { complete, PublicationDeliveryWorker } from './delivery-worker.js';
 import { preparationQueue } from './preparation-queue.js';
+import { publicationReliability } from './reliability.js';
+import {
+  publicationReliabilityIncidentPage,
+  validateReliabilityIncidentFilter
+} from './reliability-incidents.js';
 
 export class PublicationAutomationService {
+  async reliabilityIncidents(
+    filter: import('@openg7/funding-core').PublicationReliabilityIncidentFilter = {}
+  ): Promise<
+    import('@openg7/funding-core').PublicationReliabilityIncidentPage
+  > {
+    validateReliabilityIncidentFilter(filter);
+    return withPostgresTransaction(
+      this.pool,
+      (db) => publicationReliabilityIncidentPage(db, filter),
+      { readOnlySnapshot: true }
+    );
+  }
   private readonly context: PublicationCommandsContext &
     PublicationPlanningContext &
     PublicationDeliveryWorkerContext;
@@ -53,7 +74,8 @@ export class PublicationAutomationService {
         this.command(input, actor, automatic, client),
       prepare: (feedId, actor, now) => this.prepare(feedId, actor, now),
       guardEligibility: () => this.guardEligibility(),
-      complete
+      complete: (db, row, postId, url, actor, provenance) =>
+        complete(db, row, postId, url, actor, undefined, provenance)
     };
     this.worker = new PublicationDeliveryWorker(this.context);
   }
@@ -133,7 +155,7 @@ export class PublicationAutomationService {
     const worker = await this.workerSettings(db);
     const feeds = await this.feeds(db);
     const jobs = await db.query<DeliveryRow>(
-      `SELECT d.*,COALESCE((SELECT jsonb_agg(jsonb_build_object('id',c.id,'name',c.sponsor_company_name,'version',c.updated_at::text,'reviewStatus',c.sponsor_review_status,'paymentStatus',c.status,'presentationApproved',EXISTS(SELECT 1 FROM sponsor_media_assets m WHERE m.contribution_id=c.id AND m.kind='supporting_image' AND m.review_status='approved' AND ${moderationApprovedSql('media', 'm.id')} AND m.deleted_at IS NULL)) ORDER BY c.id) FROM fund_contributions c WHERE c.id IN (SELECT s.contribution_id FROM sponsor_publication_drafts s WHERE s.batch_id=d.batch_id)),'[]'::jsonb) AS sponsors FROM publication_deliveries d
+      `SELECT d.*,EXISTS(SELECT 1 FROM publication_account_leases a WHERE a.delivery_id=d.id AND a.uncertain) AS account_recovery_required,COALESCE((SELECT jsonb_agg(jsonb_build_object('id',c.id,'name',c.sponsor_company_name,'version',c.updated_at::text,'reviewStatus',c.sponsor_review_status,'paymentStatus',c.status,'presentationApproved',EXISTS(SELECT 1 FROM sponsor_media_assets m WHERE m.contribution_id=c.id AND m.kind='supporting_image' AND m.review_status='approved' AND ${moderationApprovedSql('media', 'm.id')} AND m.deleted_at IS NULL)) ORDER BY c.id) FROM fund_contributions c WHERE c.id IN (SELECT s.contribution_id FROM sponsor_publication_drafts s WHERE s.batch_id=d.batch_id)),'[]'::jsonb) AS sponsors FROM publication_deliveries d
       WHERE ($1::uuid IS NULL OR EXISTS (SELECT 1 FROM sponsor_publication_drafts s WHERE s.batch_id=d.batch_id AND s.contribution_id=$1::uuid))
         AND ($2::uuid IS NULL OR d.id=$2::uuid)
       ORDER BY CASE WHEN status IN ('blocked','uncertain') THEN 0 WHEN status IN ('draft','approved','publishing') THEN 1 ELSE 2 END,scheduled_at DESC LIMIT 200`,
@@ -148,6 +170,7 @@ export class PublicationAutomationService {
       feeds,
       deliveries: jobs.rows.map(publicDelivery),
       queue: await preparationQueue(db, feeds, filter),
+      reliability: await publicationReliability(db),
       summary: counts.rows[0]
     };
   }
@@ -185,15 +208,53 @@ export class PublicationAutomationService {
     let batchId: string | null = null;
     if (deliveryId !== undefined) {
       const delivery = (
-        await this.pool.query<{ batch_id: string | null }>(
-          'SELECT batch_id FROM publication_deliveries WHERE id=$1',
-          [deliveryId]
-        )
+        await this.pool.query<{
+          batch_id: string | null;
+          feed_id: PublicationFeedId;
+        }>('SELECT batch_id,feed_id FROM publication_deliveries WHERE id=$1', [
+          deliveryId
+        ])
       ).rows[0];
       assert(delivery, 'DELIVERY_NOT_FOUND', 404);
       batchId = delivery.batch_id;
+      return mediaOptions(this.pool, batchId, delivery.feed_id);
     }
     return mediaOptions(this.pool, batchId);
+  }
+
+  /** Private preparation can be reviewed before a combined sponsor approval; it authorizes no send. */
+  async imagePreview(
+    id: string,
+    version: number
+  ): Promise<Awaited<ReturnType<typeof preparePublicationImage>>> {
+    assert(
+      validId(id) && Number.isSafeInteger(version) && version > 0,
+      'INVALID_FILTER',
+      400
+    );
+    return withPostgresTransaction(this.pool, async (db) => {
+      const row = (
+        await db.query<DeliveryRow>(
+          'SELECT * FROM publication_deliveries WHERE id=$1 FOR SHARE',
+          [id]
+        )
+      ).rows[0];
+      assert(row, 'DELIVERY_NOT_FOUND', 404);
+      assert(row.version === version, 'VERSION_CONFLICT');
+      const visual = await resolvePublicationVisual(
+        db,
+        this.storage,
+        row,
+        false,
+        true
+      );
+      assert(visual.snapshot && visual.prepared, 'MEDIA_NOT_FOUND', 404);
+      assert(
+        isDeepStrictEqual(visual.snapshot, row.media_snapshot),
+        'MEDIA_CHANGED'
+      );
+      return visual.prepared;
+    });
   }
 
   async command(

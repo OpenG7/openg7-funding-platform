@@ -162,6 +162,14 @@ export class SponsorsPageComponent implements OnInit {
       ? { ...photo, url }
       : null;
   }
+  logoCredit(sponsor: PublicSponsorshipProfile): string | null {
+    const logo = this.logoUrl(sponsor);
+    return logo
+      ? (sponsor.media.find(
+          (asset) => asset.kind === 'logo' && asset.url === logo
+        )?.credit ?? null)
+      : null;
+  }
   websiteUrl = (sponsor: PublicSponsorshipProfile) =>
     publicHttpsUrl(sponsor.website_url);
   publicationUrl = (sponsor: PublicSponsorshipProfile) =>

@@ -31,6 +31,8 @@ import { AdminPublicationAutomationSettingsComponent } from './admin-publication
 import { PublicationDeliveryController } from './publication-delivery-controller.js';
 import { PublicationDeliveryDrawerComponent } from './publication-delivery-drawer.component.js';
 import { PublicationSourceQueueComponent } from './publication-source-queue.component.js';
+import { PublicationReliabilityPanelComponent } from './publication-reliability-panel.component.js';
+import { PublicationReliabilityController } from './publication-reliability-controller.js';
 import { AdminPublicationAutomationCommandWorkflow } from './admin-publication-automation-command-workflow.js';
 import { PublicationAutomationReadController } from './publication-automation-read-controller.js';
 import type { PublicationAutomationCommandRunner } from './publication-automation.ports.js';
@@ -47,7 +49,8 @@ import type { PublicationAutomationCommandRunner } from './publication-automatio
     AdminPublicationCalendarComponent,
     AdminPublicationAutomationSettingsComponent,
     PublicationDeliveryDrawerComponent,
-    PublicationSourceQueueComponent
+    PublicationSourceQueueComponent,
+    PublicationReliabilityPanelComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-publication-automation-page.component.html',
@@ -84,6 +87,9 @@ export class AdminPublicationAutomationPageComponent {
       settings: () => Boolean(this.settingsController.settings())
     });
   readonly state = this.readController.state;
+  readonly reliabilityController = new PublicationReliabilityController({
+    read: (filter) => this.admin.publicationReliabilityIncidents(filter)
+  });
   readonly sponsorshipId = this.readController.sponsorshipId;
   readonly deliveryId = this.readController.deliveryId;
   readonly requestedDeliveryMissing =
@@ -222,6 +228,7 @@ export class AdminPublicationAutomationPageComponent {
     const destroy = inject(DestroyRef);
     destroy.onDestroy(() => {
       this.readController.dispose();
+      this.reliabilityController.dispose();
       this.delivery.dispose();
       this.settingsController.dispose();
     });
@@ -254,11 +261,34 @@ export class AdminPublicationAutomationPageComponent {
               !this.sponsorshipId() &&
               !deliveryId &&
               this.state()?.feeds.some((feed) => feed.id === feedId)
-            )
-              await this.run(
-                { action: 'compose', feedId, kind: 'sponsorship', batchId },
-                true
-              );
+            ) {
+              try {
+                const batches = await this.admin.getPublicationBatches(
+                  this.admin.getSavedAdminToken(),
+                  batchId
+                );
+                if (!this.readController.isCurrent(context)) return;
+                const batch = batches.batches.find(
+                  (item) => item.id === batchId
+                );
+                if (!batch) throw new Error('SOURCE_CONTENT_MISSING');
+                await this.run(
+                  {
+                    action: 'compose',
+                    feedId,
+                    kind: 'sponsorship',
+                    batchId,
+                    ...(batch.publicationFormat
+                      ? { publicationFormat: batch.publicationFormat }
+                      : {})
+                  },
+                  true
+                );
+              } catch (error) {
+                if (this.readController.isCurrent(context))
+                  this.showError(error);
+              }
+            }
           });
         });
       this.readController.startPolling();

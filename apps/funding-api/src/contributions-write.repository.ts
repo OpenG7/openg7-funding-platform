@@ -4,6 +4,7 @@ import type { Pool, PoolClient } from 'pg';
 import { projectStoredCheckoutMetadata } from './stripe-event-projection.js';
 import { allowedPreviousPaymentStatuses } from './contribution-payment-state.js';
 import { recordContributionActivity } from './contribution-activity.repository.js';
+import { activateSponsorshipCommitments } from './sponsorship-commitments.repository.js';
 
 export interface CheckoutSessionRecordInput {
   readonly stripeSessionId: string;
@@ -22,6 +23,12 @@ export interface CheckoutSessionRecordInput {
 
 export interface CheckoutSessionWebhookInput extends CheckoutSessionRecordInput {
   readonly notifyAdmin?: boolean;
+  /** Monetary facts from a paid provider object, never inferred from local status. */
+  readonly trustedPaymentFacts?: {
+    readonly amountCents: number;
+    readonly currency: string;
+    readonly publicReference?: string | null;
+  };
   readonly status: 'pending' | 'paid' | 'expired' | 'failed';
   readonly paidAtIso: string | null;
   readonly emailPrivate: string | null;
@@ -39,6 +46,58 @@ export interface PaymentIntentStatusInput {
   readonly paidAtIso?: string | null;
 }
 
+const readPaymentJournal = async (
+  client: PoolClient,
+  paymentIntentId: string | null
+) => {
+  if (!paymentIntentId)
+    return { journalPresent: false, trustedPaymentFacts: undefined };
+  const payments = await client.query<{ amount: string; currency: string }>(
+    `SELECT amount::text,currency FROM fund_transactions
+     WHERE stripe_object_id=$1 AND type='payment_intent.succeeded'
+       AND status='succeeded' AND public_category='contribution'`,
+    [paymentIntentId]
+  );
+  const first = payments.rows[0];
+  const amountCents = Number(first?.amount);
+  const trustworthy =
+    first &&
+    Number.isSafeInteger(amountCents) &&
+    amountCents > 0 &&
+    payments.rows.every(
+      (row) =>
+        row.amount === first.amount &&
+        row.currency.toUpperCase() === first.currency.toUpperCase()
+    );
+  return {
+    journalPresent: payments.rows.length > 0,
+    trustedPaymentFacts: trustworthy
+      ? { amountCents, currency: first.currency }
+      : undefined
+  };
+};
+
+const readPaymentConfirmation = async (
+  client: PoolClient,
+  paymentIntentId: string | null
+) => {
+  if (!paymentIntentId) return null;
+  await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+    'payment-confirmation:' + paymentIntentId
+  ]);
+  const proof = await client.query<{ paid_at: Date }>(
+    'SELECT paid_at FROM contribution_payment_confirmations WHERE payment_intent_id=$1',
+    [paymentIntentId]
+  );
+  if (!proof.rows[0]) return null;
+  // The marker confirms timing, not monetary terms. A silent backfill can also
+  // retain a journal without this marker; neither path may infer its price.
+  return {
+    paidAtIso: proof.rows[0].paid_at.toISOString(),
+    ...(await readPaymentJournal(client, paymentIntentId))
+  };
+};
+
 export const insertCheckoutSessionRecord = async (
   pool: Pool | PoolClient | null,
   input: CheckoutSessionRecordInput
@@ -51,6 +110,11 @@ export const insertCheckoutSessionRecord = async (
   const client: PoolClient = 'release' in pool ? pool : await pool.connect();
   try {
     await client.query('BEGIN');
+
+    const confirmation = await readPaymentConfirmation(
+      client,
+      input.stripePaymentIntentId
+    );
 
     const sessionResult = await client.query(
       `
@@ -115,6 +179,36 @@ export const insertCheckoutSessionRecord = async (
       ]
     );
 
+    if (confirmation) {
+      // A genuine success received before the local pending row must converge
+      // here too, while terminal financial states and local choices survive.
+      await client.query(
+        `UPDATE stripe_checkout_sessions SET status='paid',updated_at=NOW()
+         WHERE stripe_session_id=$1 AND status=ANY($2::text[])`,
+        [input.stripeSessionId, allowedPreviousPaymentStatuses('paid')]
+      );
+      await client.query(
+        `UPDATE fund_contributions SET status='paid',
+           paid_at=COALESCE(paid_at,$2::timestamptz),updated_at=NOW()
+         WHERE stripe_session_id=$1 AND status=ANY($3::text[])`,
+        [
+          input.stripeSessionId,
+          confirmation.paidAtIso,
+          allowedPreviousPaymentStatuses('paid')
+        ]
+      );
+      await activateSponsorshipCommitments(client, {
+        stripeSessionId: input.stripeSessionId,
+        stripePaymentIntentId: input.stripePaymentIntentId,
+        trustedPaymentFacts: confirmation.trustedPaymentFacts
+      });
+      await recordContributionActivity(
+        client,
+        input.stripeSessionId,
+        input.stripePaymentIntentId,
+        true
+      );
+    }
     await client.query('COMMIT');
     return sessionResult.rowCount === 1;
   } catch (error) {
@@ -137,21 +231,24 @@ export const upsertCheckoutSessionFromWebhook = async (
   try {
     await client.query('BEGIN');
 
-    if (input.stripePaymentIntentId) {
-      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
-        'payment-confirmation:' + input.stripePaymentIntentId
-      ]);
-      const proof = await client.query<{ paid_at: Date }>(
-        'SELECT paid_at FROM contribution_payment_confirmations WHERE payment_intent_id=$1',
-        [input.stripePaymentIntentId]
-      );
-      if (proof.rows[0]) {
-        input = {
-          ...input,
-          status: 'paid',
-          paidAtIso: proof.rows[0].paid_at.toISOString()
-        };
-      }
+    const confirmation = await readPaymentConfirmation(
+      client,
+      input.stripePaymentIntentId
+    );
+    const journal =
+      confirmation ??
+      (await readPaymentJournal(client, input.stripePaymentIntentId));
+    const trustedPaymentFacts = journal.journalPresent
+      ? journal.trustedPaymentFacts
+      : input.status === 'paid'
+        ? input.trustedPaymentFacts
+        : undefined;
+    if (confirmation) {
+      input = {
+        ...input,
+        status: 'paid',
+        paidAtIso: confirmation.paidAtIso
+      };
     }
 
     await client.query(
@@ -169,8 +266,8 @@ export const upsertCheckoutSessionFromWebhook = async (
         ON CONFLICT (stripe_session_id) DO UPDATE
         SET
           stripe_payment_intent_id = COALESCE(
-            EXCLUDED.stripe_payment_intent_id,
-            stripe_checkout_sessions.stripe_payment_intent_id
+            stripe_checkout_sessions.stripe_payment_intent_id,
+            EXCLUDED.stripe_payment_intent_id
           ),
           metadata = stripe_checkout_sessions.metadata || EXCLUDED.metadata,
           status = CASE
@@ -220,8 +317,8 @@ export const upsertCheckoutSessionFromWebhook = async (
         DO UPDATE
         SET
           stripe_payment_intent_id = COALESCE(
-            EXCLUDED.stripe_payment_intent_id,
-            fund_contributions.stripe_payment_intent_id
+            fund_contributions.stripe_payment_intent_id,
+            EXCLUDED.stripe_payment_intent_id
           ),
           public_reference = COALESCE(
             fund_contributions.public_reference,
@@ -267,6 +364,11 @@ export const upsertCheckoutSessionFromWebhook = async (
       ]
     );
 
+    await activateSponsorshipCommitments(client, {
+      stripeSessionId: input.stripeSessionId,
+      stripePaymentIntentId: input.stripePaymentIntentId,
+      trustedPaymentFacts
+    });
     await recordContributionActivity(
       client,
       input.stripeSessionId,
@@ -368,6 +470,11 @@ export const updateContributionStatusByPaymentIntent = async (
     );
 
     if (input.status === 'paid') {
+      // Payment status can arrive before its journal. Preserve ambiguity here;
+      // the financial handler qualifies terms only after monetary facts commit.
+      await activateSponsorshipCommitments(client, {
+        stripePaymentIntentId: input.stripePaymentIntentId
+      });
       await recordContributionActivity(
         client,
         null,

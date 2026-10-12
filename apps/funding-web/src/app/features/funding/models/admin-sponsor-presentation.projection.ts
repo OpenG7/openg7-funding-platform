@@ -1,7 +1,3 @@
-import {
-  DEFAULT_SPONSORSHIP_PRICING_CONFIG,
-  resolveSponsorshipBenefits
-} from '@openg7/funding-core';
 import type {
   AdminSponsorshipRecord,
   SponsorFeedStatus,
@@ -186,6 +182,9 @@ export class AdminSponsorPresentationProjection {
       previewSource: state.mediaPreviewUrls[asset.id] ?? null,
       altText: asset.altText ?? '',
       dimensionsLabel: `${asset.width} x ${asset.height} px`,
+      contributionId: asset.contributionId,
+      usage: asset.usage,
+      usageRestrictionsReviewed: asset.usageRestrictionsReviewed,
       sizeLabel: this.presentation.media.formatMediaSize(
         asset.processedSizeBytes
       )
@@ -209,6 +208,7 @@ export class AdminSponsorPresentationProjection {
           'admin.messages.formats_acceptes_png_jpeg_ou_webp_max_512_kib'
         ),
       mediaAssets,
+      contributionId: sponsorship.id,
       mediaMessage:
         state.mediaMessage ??
         this.presentation.t(
@@ -336,10 +336,17 @@ export class AdminSponsorPresentationProjection {
   }
 
   sponsorshipTierLabel(sponsorship: AdminSponsorshipRecord): string {
-    const { tier } = resolveSponsorshipBenefits(
-      sponsorship.amount,
-      DEFAULT_SPONSORSHIP_PRICING_CONFIG
-    );
+    const benefits =
+      sponsorship.commitment?.state === 'active'
+        ? (sponsorship.commitment.offer?.benefits.map((b) => b.id) ?? [])
+        : [];
+    const tier = benefits.includes('linkedin_batch')
+      ? 'website_facebook_linkedin'
+      : benefits.includes('facebook_batch')
+        ? 'website_facebook'
+        : benefits.includes('website_mention')
+          ? 'website_only'
+          : null;
     switch (tier) {
       case 'website_facebook_linkedin':
         return 'Or';
@@ -353,16 +360,30 @@ export class AdminSponsorPresentationProjection {
   }
 
   tierClass(sponsorship: AdminSponsorshipRecord): string {
-    const tier = this.sponsorshipTierLabel(sponsorship).toLowerCase();
-    const state =
-      tier === 'or' ? 'gold' : tier === 'argent' ? 'silver' : 'bronze';
+    const benefits =
+      sponsorship.commitment?.state === 'active'
+        ? (sponsorship.commitment.offer?.benefits.map((b) => b.id) ?? [])
+        : [];
+    const state = benefits.includes('linkedin_batch')
+      ? 'gold'
+      : benefits.includes('facebook_batch')
+        ? 'silver'
+        : benefits.includes('website_mention')
+          ? 'bronze'
+          : 'unknown';
     return `tier-badge tier-${state}`;
   }
 
   sponsorshipBenefitsLabel(sponsorship: AdminSponsorshipRecord): string {
-    const { achievedBenefits } = resolveSponsorshipBenefits(
-      sponsorship.amount,
-      DEFAULT_SPONSORSHIP_PRICING_CONFIG
+    if (
+      sponsorship.commitment?.state !== 'active' ||
+      !sponsorship.commitment.offer
+    )
+      return this.presentation.t(
+        'admin.dossier.publicationBridge.commitmentUnknown'
+      );
+    const achievedBenefits = sponsorship.commitment.offer.benefits.map(
+      (b) => b.id
     );
     if (achievedBenefits.length === 0)
       return this.presentation.t(

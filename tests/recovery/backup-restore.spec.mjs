@@ -160,8 +160,9 @@ async function recoveryScenario(mediaDriver, { playwright }, info) {
       for (const approved of [true, false]) {
         const mediaId = approved ? id.media : id.privateMedia;
         await source.pool.query(
-          `INSERT INTO sponsor_media_assets(id,contribution_id,kind,review_status,original_filename,original_mime_type,original_size_bytes,original_storage_key,processed_size_bytes,processed_storage_key,public_storage_key,public_url,checksum_sha256,width,height)
-          VALUES($1,$2,'supporting_image',$3,'fixture.webp','image/webp',$4,$5,$4,$6,$7,$8,$9,8,8)`,
+          `INSERT INTO sponsor_media_assets(id,contribution_id,kind,review_status,original_filename,original_mime_type,original_size_bytes,original_storage_key,processed_size_bytes,processed_storage_key,public_storage_key,public_url,checksum_sha256,width,height,usage_rights)
+          VALUES($1,$2,'supporting_image',$3,'fixture.webp','image/webp',$4,$5,$4,$6,$7,$8,$9,8,8,
+            '{"state":"confirmed","channels":["website"],"targets":["openg7"],"transformations":["technical"],"credit":null,"restrictions":null}'::jsonb)`,
           [
             mediaId,
             id.sponsor,

@@ -4,6 +4,10 @@ import test from 'node:test';
 import sharp from 'sharp';
 
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
+import { recordFixtureSponsorshipAgreement } from './support/sponsorship-agreement-fixture.mjs';
+import { lockModerationDependencies } from '../../dist/apps/funding-api/src/moderation/content.js';
+import { recordRemoteRemovalRequirement } from '../../dist/apps/funding-api/src/moderation/governance.js';
+import { updateSponsorMediaUsage } from '../../dist/apps/funding-api/src/sponsor-media-usage.repository.js';
 import { withPostgresTransaction } from '../../dist/apps/funding-api/src/postgres-transaction.js';
 import {
   getModerationContent,
@@ -71,9 +75,7 @@ test(
       future = new Date(Date.now() + 60000).toISOString();
       due = new Date(Date.now() + 120000);
       await service.command({ action: 'check', feedId }, actor);
-      const feed = (await service.state()).feeds.find(
-        (entry) => entry.id === feedId
-      );
+      const feed = (await service.feeds()).find((entry) => entry.id === feedId);
       await service.command(
         { action: 'settings', settings: { ...feed, paused: false } },
         actor
@@ -125,7 +127,8 @@ test(
 
     async function fixture({
       sponsorApproval = true,
-      mediaApproval = true
+      mediaApproval = true,
+      format = 'collective_text'
     } = {}) {
       await reset();
       const sponsorId = randomUUID();
@@ -137,10 +140,17 @@ test(
         [sponsorId]
       );
       await pool.query(
-        `INSERT INTO sponsor_media_assets(id,contribution_id,kind,review_status,original_filename,original_mime_type,original_size_bytes,original_storage_key,processed_size_bytes,processed_storage_key,checksum_sha256,width,height,alt_text,public_url) VALUES($1::uuid,$2,'supporting_image','approved','synthetic.webp','image/webp',$3,$1::uuid::text||'/original',$3,$1::uuid::text||'/processed',$4,2,2,'Synthetic approved image','https://example.test/synthetic.webp')`,
+        `INSERT INTO sponsor_media_assets(id,contribution_id,kind,review_status,original_filename,original_mime_type,original_size_bytes,original_storage_key,processed_size_bytes,processed_storage_key,checksum_sha256,width,height,alt_text,public_url,usage_rights) VALUES($1::uuid,$2,'supporting_image','approved','synthetic.webp','image/webp',$3,$1::uuid::text||'/original',$3,$1::uuid::text||'/processed',$4,2,2,'Synthetic approved image','https://example.test/synthetic.webp',
+        '{"state":"confirmed","channels":["website","facebook","linkedin"],"targets":["openg7","openg20"],"transformations":["technical","portrait","composite"],"credit":null,"restrictions":null}')`,
         [mediaId, sponsorId, bytes.length, hash]
       );
       objects.set(`${mediaId}/processed`, bytes);
+      await recordFixtureSponsorshipAgreement(pool, sponsorId, {
+        benefits: [
+          { channel: 'website', target: 'openg7', quantity: 1 },
+          { channel: 'facebook', target: 'openg20', quantity: 1, format }
+        ]
+      });
       await pool.query(
         "INSERT INTO sponsor_publication_batches(id,channel,capacity,status,scheduled_at) VALUES($1,'facebook',1,'scheduled',$2)",
         [batchId, future]
@@ -151,7 +161,7 @@ test(
       );
       if (sponsorApproval) await record(subject('sponsorship', sponsorId));
       if (mediaApproval) await record(subject('media', mediaId));
-      return { sponsorId, mediaId, draftId, batchId };
+      return { sponsorId, mediaId, draftId, batchId, format };
     }
 
     async function compose(f) {
@@ -175,7 +185,21 @@ test(
             batchId: f.batchId,
             message,
             scheduledAt: future,
-            mediaId: f.mediaId
+            mediaId: f.format === 'collective_text' ? f.mediaId : null,
+            publicationFormat: f.format,
+            photoSelections:
+              f.format === 'collective_text'
+                ? []
+                : [
+                    {
+                      contributionId: f.sponsorId,
+                      assetId: f.mediaId,
+                      assetVersion: await version(
+                        'sponsor_media_assets',
+                        f.mediaId
+                      )
+                    }
+                  ]
           },
           actor
         )
@@ -216,6 +240,174 @@ test(
       );
       return delivery;
     }
+
+    async function inactivePhotoCopy(id, f) {
+      const historicalId = randomUUID();
+      // An explicit synthetic historical copy tests removal qualification only;
+      // it creates no financial fulfilment evidence or provider request.
+      await pool.query(
+        `INSERT INTO publication_deliveries(id,feed_id,kind,message,scheduled_at,account_id,mode,status,external_post_id,published_at)
+        SELECT $1,feed_id,'news','Synthetic inactive historical copy',scheduled_at,account_id,mode,'published','mock-historical-inactive-copy',clock_timestamp()
+        FROM publication_deliveries WHERE id=$2`,
+        [historicalId, id]
+      );
+      await pool.query(
+        `INSERT INTO publication_delivery_photos(delivery_id,contribution_id,asset_id,asset_version,active)
+        VALUES($1,$2,$3,$4,FALSE)`,
+        [
+          historicalId,
+          f.sponsorId,
+          f.mediaId,
+          await version('sponsor_media_assets', f.mediaId)
+        ]
+      );
+      return historicalId;
+    }
+
+    await t.test(
+      'media dependency locks include active derived deliveries and exclude inactive historical selections',
+      async () => {
+        const f = await fixture({ format: 'individual_portrait' });
+        const id = await compose(f);
+        const historicalId = await inactivePhotoCopy(id, f);
+        const lock = await pool.connect();
+        const contender = await pool.connect();
+        try {
+          await lock.query('BEGIN');
+          await lockModerationDependencies(lock, subject('media', f.mediaId));
+          await contender.query('BEGIN');
+          await contender.query("SET LOCAL lock_timeout='100ms'");
+          await assert.rejects(
+            contender.query(
+              'SELECT id FROM publication_deliveries WHERE id=$1 FOR UPDATE',
+              [id]
+            ),
+            { code: '55P03' }
+          );
+          await contender.query('ROLLBACK');
+          await contender.query('BEGIN');
+          await contender.query("SET LOCAL lock_timeout='100ms'");
+          assert.equal(
+            (
+              await contender.query(
+                'SELECT id FROM publication_deliveries WHERE id=$1 FOR UPDATE',
+                [historicalId]
+              )
+            ).rowCount,
+            1
+          );
+          await contender.query('ROLLBACK');
+          await lock.query('ROLLBACK');
+        } finally {
+          await contender.query('ROLLBACK');
+          await lock.query('ROLLBACK');
+          contender.release();
+          lock.release();
+        }
+      }
+    );
+
+    for (const change of ['hold', 'usage-withdrawal']) {
+      await t.test(
+        `a derived photograph ${change} revokes its approved render before dispatch`,
+        async () => {
+          const f = await fixture({ format: 'individual_portrait' });
+          const id = await compose(f);
+          assert.equal(
+            (await row('publication_deliveries', id)).media_id,
+            null
+          );
+          await approveDelivery(id);
+          let changed = false;
+          service.workerSettings = async (db, lock) => {
+            if (!db && reads.length > 0 && !changed) {
+              changed = true;
+              if (change === 'hold')
+                await record(subject('media', f.mediaId), 'N2');
+              else
+                await updateSponsorMediaUsage(pool, {
+                  contributionId: f.sponsorId,
+                  assetId: f.mediaId,
+                  requestId: randomUUID(),
+                  expectedVersion: await version(
+                    'sponsor_media_assets',
+                    f.mediaId
+                  ),
+                  actor: 'sponsor-followup',
+                  usage: {
+                    state: 'withdrawn',
+                    channels: [],
+                    targets: [],
+                    transformations: [],
+                    credit: null,
+                    restrictions: null
+                  }
+                });
+            }
+            return originalWorkerSettings(db, lock);
+          };
+          await service.tick(due);
+          assert.equal(changed, true);
+          assert.equal(
+            (await assertNotPublished(id)).error_code,
+            'MODERATION_RESTRICTED'
+          );
+          assert.ok(reads.length > 0);
+          assert.equal(
+            (await row('fund_contributions', f.sponsorId)).status,
+            'paid'
+          );
+          assert.equal(
+            (
+              await pool.query(
+                'SELECT count(*)::int AS n FROM sponsorship_fulfilment_evidence WHERE delivery_id=$1',
+                [id]
+              )
+            ).rows[0].n,
+            0
+          );
+        }
+      );
+    }
+
+    await t.test(
+      'an active media N5 records a derived remote removal requirement once without selecting an inactive historical copy',
+      async () => {
+        const f = await fixture({ format: 'individual_portrait' });
+        const id = await compose(f);
+        const historicalId = await inactivePhotoCopy(id, f);
+        await pool.query(
+          "UPDATE publication_deliveries SET status='published',external_post_id='mock-historical-derived-copy',published_at=clock_timestamp() WHERE id=$1",
+          [id]
+        );
+        const removal = await record(subject('media', f.mediaId), 'N5', {
+          primaryReason: 'IP_RIGHTS'
+        });
+        assert.equal(removal.state, 'active');
+        await transact((db) => recordRemoteRemovalRequirement(db, removal));
+        const requirements = (
+          await pool.query(
+            'SELECT delivery_id,status FROM moderation_remote_removals WHERE decision_id=$1 ORDER BY delivery_id',
+            [removal.id]
+          )
+        ).rows;
+        assert.deepEqual(requirements, [
+          { delivery_id: id, status: 'not_supported' }
+        ]);
+        assert.equal(
+          (await row('publication_deliveries', id)).status,
+          'published'
+        );
+        assert.equal(
+          (await row('publication_deliveries', historicalId)).error_code,
+          null
+        );
+        assert.equal(
+          (await row('fund_contributions', f.sponsorId)).status,
+          'paid'
+        );
+      }
+    );
 
     await t.test(
       'historical dossier approval cannot bypass a missing N0; explicit N0 remains separate from site visibility',
@@ -389,7 +581,8 @@ test(
             visible: true,
             confirmed: true
           },
-          actor
+          actor,
+          storage
         );
         await waiting(locked.promise);
         const edit = updateSponsorMediaMetadata(mediaPool, {

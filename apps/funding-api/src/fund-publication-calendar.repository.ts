@@ -26,6 +26,13 @@ import {
   lockPublicationSlotMembers
 } from './fund-publication-capacity.persistence.js';
 import { withPostgresTransaction } from './postgres-transaction.js';
+import { publicationMembershipFits } from './fund-publication-rendering.persistence.js';
+import {
+  lockPublicationSlotDeliveries,
+  publicationSlotDeliveriesUnchanged,
+  canRescheduleSlotDeliveries,
+  rescheduleSlotDeliveries
+} from './fund-publication-calendar-deliveries.persistence.js';
 
 export const allowedPublicationSlotStatuses = new Set<PublicationSlotStatus>([
   'open',
@@ -267,7 +274,8 @@ export const createAdminPublicationSlot = async (
 
 export const updateAdminPublicationSlot = async (
   pool: Pool | null,
-  input: AdminPublicationSlotUpdateRequest
+  input: AdminPublicationSlotUpdateRequest,
+  actor = 'publication-calendar'
 ): Promise<AdminPublicationSlotMutationResult> => {
   if (!pool) {
     return { updated: false, slot: null };
@@ -280,10 +288,46 @@ export const updateAdminPublicationSlot = async (
 
   const notesTouched = input.notes !== undefined;
   const updated = await withPostgresTransaction(pool, async (client) => {
+    const deliveries = await lockPublicationSlotDeliveries(
+      client,
+      input.slotId
+    );
     if (!(await lockPublicationSlotCapacity(client, input.slotId)))
       return false;
+    if (
+      !(await publicationSlotDeliveriesUnchanged(
+        client,
+        input.slotId,
+        deliveries
+      ))
+    )
+      return false;
+    const previous = (
+      await client.query<{ starts_at: Date }>(
+        'SELECT starts_at FROM publication_slots WHERE id=$1::uuid',
+        [input.slotId]
+      )
+    ).rows[0]!;
+    const changesDate =
+      input.startsAt !== undefined &&
+      new Date(input.startsAt).getTime() !== previous.starts_at.getTime();
+    if (changesDate && !(await canRescheduleSlotDeliveries(client, deliveries)))
+      return false;
     await lockPublicationSlotMembers(client, input.slotId);
-    const result = await client.query<{ readonly id: string }>(
+    // A first composition can commit while the batch lock is awaited. Decline
+    // rather than acquire its new delivery lock after the shared slot.
+    if (
+      !(await publicationSlotDeliveriesUnchanged(
+        client,
+        input.slotId,
+        deliveries
+      ))
+    )
+      return false;
+    const result = await client.query<{
+      readonly id: string;
+      readonly starts_at: Date;
+    }>(
       `
       WITH slot_usage AS (
         SELECT
@@ -316,7 +360,7 @@ export const updateAdminPublicationSlot = async (
         AND slot.status IN ('open', 'scheduled')
         AND COALESCE($2::timestamptz, slot.starts_at) > clock_timestamp()
         AND COALESCE($4::integer, slot.capacity) >= slot_usage.capacity_used
-      RETURNING slot.id::text AS id
+      RETURNING slot.id::text AS id,slot.starts_at
     `,
       [
         input.slotId,
@@ -330,6 +374,14 @@ export const updateAdminPublicationSlot = async (
 
     const slotId = result.rows[0]?.id;
     if (slotId) {
+      if (changesDate)
+        await rescheduleSlotDeliveries(
+          client,
+          slotId,
+          deliveries,
+          result.rows[0]!.starts_at,
+          actor
+        );
       await client.query(
         `
         UPDATE sponsor_publication_batches batch
@@ -365,9 +417,9 @@ export const updateAdminPublicationSlot = async (
             )
           )
           AND slot.id = $1::uuid
-          AND draft.status IN ('approved', 'scheduled')
+          AND (draft.status IN ('approved', 'scheduled') OR ($2::boolean AND draft.status='draft'))
       `,
-        [slotId]
+        [slotId, changesDate]
       );
     }
     return Boolean(slotId);
@@ -403,6 +455,13 @@ export const assignBatchToPublicationSlot = async (
       'SELECT id FROM sponsor_publication_drafts WHERE batch_id=$1::uuid ORDER BY id FOR UPDATE',
       [input.batchId]
     );
+    if (
+      !(await publicationMembershipFits(client, {
+        slotId: input.slotId,
+        incomingBatchId: input.batchId
+      }))
+    )
+      return false;
     const result = await client.query<{ readonly id: string }>(
       `
       WITH target_slot AS (
@@ -510,6 +569,13 @@ export const assignDraftToPublicationSlot = async (
       'SELECT id FROM sponsor_publication_drafts WHERE id=$1::uuid FOR UPDATE',
       [input.draftId]
     );
+    if (
+      !(await publicationMembershipFits(client, {
+        slotId: input.slotId,
+        draftIds: [input.draftId]
+      }))
+    )
+      return false;
     const result = await client.query<{ readonly id: string }>(
       `
       WITH target_slot AS (

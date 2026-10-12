@@ -1,4 +1,7 @@
-import type { AdminSponsorshipRejectionRefundHandling } from '@openg7/funding-core';
+import type {
+  AdminSponsorshipRejectionRefundHandling,
+  SponsorshipOfferSnapshot
+} from '@openg7/funding-core';
 
 import type {
   SponsorshipCreditNoteRecord,
@@ -7,6 +10,7 @@ import type {
 import type { ContributionReferenceRecoveryRecord } from '../../fund-contributions.repository.js';
 
 export type EmailTemplateKey =
+  | 'sponsorship_obligation'
   | 'admin_contribution_received'
   | 'sponsorship_access_recovery'
   | 'contribution_reference_recovery'
@@ -38,6 +42,7 @@ export interface ContributionReferenceRecoveryEmailInput {
 }
 
 export interface SponsorshipConfirmationEmailInput {
+  readonly offer?: SponsorshipOfferSnapshot | null;
   readonly to: string;
   readonly publicReference: string | null;
   readonly amount: number;

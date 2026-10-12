@@ -108,6 +108,10 @@ arrière-plan et augmente le délai après une erreur. Il conserve le contexte l
 d’un changement de page, efface les données à la déconnexion et refuse une réponse
 revenue après un changement de session. Trois toasts au maximum sont présentés ;
 les autres contributions restent accessibles dans l’activité paginée.
+La pile de notifications réserve sa place dans le bandeau administratif et
+reste accessible au clavier. Elle est masquée pendant les dialogues afin de
+laisser les confirmations et leurs actions accessibles. Ce masquage ne suspend
+pas les lectures et ne supprime aucune activité ; la pile revient à leur fermeture.
 
 ## Recette isolée
 

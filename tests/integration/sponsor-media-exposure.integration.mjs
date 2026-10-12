@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { once } from 'node:events';
 import { readFile, readdir } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import test from 'node:test';
+import sharp from 'sharp';
 
 import { createAdminSponsorshipMediaHttpHandler } from '../../dist/apps/funding-api/src/admin-sponsorship-media.http.js';
 import { createPublicSponsorMediaHttpHandler } from '../../dist/apps/funding-api/src/public-sponsor-media.http.js';
@@ -31,7 +33,20 @@ test(
     const { pool, stop } = await startDisposablePostgres();
     t.after(stop);
     const origin = 'https://funding.example.test';
-    const image = Buffer.from('synthetic-private-processed-image');
+    const image = await sharp({
+      create: { width: 100, height: 100, channels: 3, background: '#345678' }
+    })
+      .webp()
+      .toBuffer();
+    const checksum = createHash('sha256').update(image).digest('hex');
+    const syntheticUsage = {
+      state: 'confirmed',
+      channels: ['website'],
+      targets: ['openg7'],
+      transformations: ['technical'],
+      credit: null,
+      restrictions: null
+    };
     const privateReads = [];
     const failures = [];
     const isUuid = (value) =>
@@ -138,11 +153,11 @@ test(
             (contribution_id, kind, original_filename, original_mime_type,
              original_size_bytes, original_storage_key, processed_size_bytes,
              processed_storage_key, public_storage_key, public_url, checksum_sha256,
-             width, height, review_status)
+             width, height, review_status, usage_rights)
            VALUES ($1, 'supporting_image', 'synthetic.png', 'image/png', 100,
              'private/original/' || gen_random_uuid(), 80,
-             'private/processed/' || gen_random_uuid(), $2, $3, repeat('a', 64),
-             100, 100, $4) RETURNING id, updated_at::text AS version,
+             'private/processed/' || gen_random_uuid(), $2, $3, $5,
+             100, 100, $4, $6::jsonb) RETURNING id, updated_at::text AS version,
                processed_storage_key`,
           [
             contributionId,
@@ -150,7 +165,9 @@ test(
             legacy
               ? 'https://storage.example.invalid/synthetic-legacy.webp'
               : null,
-            legacy ? 'approved' : 'pending_review'
+            legacy ? 'approved' : 'pending_review',
+            checksum,
+            JSON.stringify(syntheticUsage)
           ]
         )
       ).rows[0];
@@ -241,7 +258,8 @@ test(
             visible,
             confirmed: true
           },
-          'synthetic-media-reviewer'
+          'synthetic-media-reviewer',
+          storage
         ),
         'updated'
       );
@@ -388,8 +406,19 @@ test(
     }
     const fresh = await seed();
     await pool.query(
-      'UPDATE sponsor_media_assets SET alt_text=$2 WHERE id=$1',
-      [fresh.id, 'Synthetic private photo']
+      'UPDATE sponsor_media_assets SET alt_text=$2, usage_rights=$3::jsonb WHERE id=$1',
+      [
+        fresh.id,
+        'Synthetic private photo',
+        JSON.stringify({
+          state: 'confirmed',
+          channels: ['website'],
+          targets: ['openg7'],
+          transformations: ['technical'],
+          credit: null,
+          restrictions: null
+        })
+      ]
     );
     const version = async (id) =>
       (

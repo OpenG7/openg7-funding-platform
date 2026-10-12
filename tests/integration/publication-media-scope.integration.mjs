@@ -6,6 +6,7 @@ import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 import { PublicationAutomationService } from '../../dist/apps/funding-api/src/publication-automation/service.js';
 import { composePublicationRecognition } from '../../dist/packages/funding-core/src/index.js';
 import { approveFixtureSubject } from './support/moderation-fixture.mjs';
+import { recordFixtureSponsorshipAgreement } from './support/sponsorship-agreement-fixture.mjs';
 
 test(
   'publication media batch scope with disposable PostgreSQL',
@@ -64,6 +65,10 @@ test(
         `INSERT INTO fund_contributions(id,contribution_type,amount_cents,status,public_display_consent,sponsor_review_status,sponsor_company_name,sponsor_public_summary,sponsor_feed_target,sponsor_feed_channels) VALUES($1,'sponsorship_interest',25000,'paid',TRUE,'approved',$2,'Approved synthetic summary','openg20','["facebook"]')`,
         [id, name]
       );
+      await recordFixtureSponsorshipAgreement(pool, id, {
+        channel: 'facebook',
+        target: 'openg20'
+      });
       await approveFixtureSubject(pool, { type: 'sponsorship', id });
       return id;
     }
@@ -71,8 +76,10 @@ test(
     async function media(contributionId, count = 1, newer = false) {
       const ids = Array.from({ length: count }, () => randomUUID());
       await pool.query(
-        `INSERT INTO sponsor_media_assets(id,contribution_id,kind,review_status,original_filename,original_mime_type,original_size_bytes,original_storage_key,processed_size_bytes,processed_storage_key,public_storage_key,public_url,checksum_sha256,width,height,alt_text,created_at)
-         SELECT id,$2,'supporting_image','approved','fixture.webp','image/webp',$3,id::text||'/original',$3,id::text||'/processed',id::text||'/public','https://example.test/fixture.webp',$4,2,2,'Approved synthetic image',$5 FROM unnest($1::uuid[]) AS fixture(id)`,
+        `INSERT INTO sponsor_media_assets(id,contribution_id,kind,review_status,original_filename,original_mime_type,original_size_bytes,original_storage_key,processed_size_bytes,processed_storage_key,public_storage_key,public_url,checksum_sha256,width,height,alt_text,created_at,usage_rights)
+         SELECT id,$2,'supporting_image','approved','fixture.webp','image/webp',$3,id::text||'/original',$3,id::text||'/processed',id::text||'/public','https://example.test/fixture.webp',$4,2,2,'Approved synthetic image',$5,
+         '{"state":"confirmed","channels":["website","facebook","linkedin"],"targets":["openg7","openg20"],"transformations":["technical"],"credit":null,"restrictions":null}'::jsonb
+         FROM unnest($1::uuid[]) AS fixture(id)`,
         [
           ids,
           contributionId,

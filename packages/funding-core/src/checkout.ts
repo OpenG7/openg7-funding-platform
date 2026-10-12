@@ -1,5 +1,7 @@
 import type { ContributionType } from './contribution-contracts.js';
 import type { SponsorshipCharterAcceptance } from './moderation-followup.js';
+import type { SponsorshipOfferAcceptance } from './sponsorship-offers.js';
+import type { SponsorshipOfferFormatOptions } from './sponsorship-publication-formats.js';
 
 export interface CheckoutConsentPayload {
   readonly contributionType: ContributionType;
@@ -9,6 +11,9 @@ export interface CheckoutConsentPayload {
   readonly nonCharityAcknowledged: boolean;
   /** Required only when the API has activated validated public charter terms. */
   readonly charterAcceptance?: SponsorshipCharterAcceptance;
+  /** The reference displayed before a new business Checkout; the API snapshots its own terms. */
+  readonly offerAcceptance?: SponsorshipOfferAcceptance;
+  readonly offerFormats?: SponsorshipOfferFormatOptions;
 }
 
 export interface CheckoutRequest extends CheckoutConsentPayload {

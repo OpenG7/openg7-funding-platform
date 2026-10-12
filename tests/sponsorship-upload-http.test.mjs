@@ -21,7 +21,7 @@ test(
       if (sql.includes('AS supporting_count')) return {rows:[{status:'paid',sponsor_review_status:values[0].startsWith('2')?'rejected':'pending_review',supporting_count:'3',approved_logo:false}]};
       return {rows:[],rowCount:0};
     };
-    pg.Pool.prototype.connect = async function(){ return {query:async()=>({rows:[],rowCount:0}),release(){}}; };
+    pg.Pool.prototype.connect = async function(){ return {query:this.query.bind(this),release(){}}; };
     const listen = http.Server.prototype.listen;
     http.Server.prototype.listen = function(_port, callback) {
       return listen.call(this, 0, '127.0.0.1', () => {console.log('TEST_PORT='+this.address().port);callback?.();});

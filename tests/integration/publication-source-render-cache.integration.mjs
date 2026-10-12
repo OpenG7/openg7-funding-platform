@@ -19,6 +19,7 @@ import {
 import { PublicationAutomationService } from '../../dist/apps/funding-api/src/publication-automation/service.js';
 import { buildRuntimeRoleSql } from '../../scripts/lib/database-runtime-role.mjs';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
+import { recordFixtureSponsorshipAgreement } from './support/sponsorship-agreement-fixture.mjs';
 
 test(
   'source rendering cache advances and invalidates under append-only runtime permissions',
@@ -84,6 +85,10 @@ test(
          VALUES($1,'sponsorship_interest',25000,'cad','paid',TRUE,'pending_review',$2,'openg20','["facebook"]')`,
         [contributionId, source.name]
       );
+      await recordFixtureSponsorshipAgreement(pool, contributionId, {
+        channel: 'facebook',
+        target: 'openg20'
+      });
       await pool.query(
         `INSERT INTO sponsor_publication_drafts(id,contribution_id,feed_target,channel,title,body,disclosure_text,created_at)
          VALUES($1,$2,'openg20','facebook',$3,$4,$5,'2026-01-01T00:00:00.123456Z')`,
@@ -317,6 +322,12 @@ test(
            FROM jsonb_to_recordset($1::jsonb) AS fixture(contribution_id uuid,name text)`,
           [JSON.stringify(fixtures)]
         );
+        for (const fixture of fixtures)
+          await recordFixtureSponsorshipAgreement(
+            pool,
+            fixture.contribution_id,
+            { channel: 'facebook', target: 'openg20' }
+          );
         await pool.query(
           `INSERT INTO sponsor_publication_drafts(id,contribution_id,feed_target,channel,title,body,disclosure_text,created_at)
            SELECT draft_id,contribution_id,'openg20','facebook','Annonce complète','Corps intégral.','Commandite rémunérée.',

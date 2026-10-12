@@ -14,7 +14,10 @@ type ApiResponse = ServerResponse<IncomingMessage>;
 export type AdminPublicationAutomationHttpPort = Pick<
   PublicationAutomationService,
   'state' | 'mediaOptions' | 'command'
->;
+> &
+  Partial<
+    Pick<PublicationAutomationService, 'imagePreview' | 'reliabilityIncidents'>
+  >;
 
 export interface AdminPublicationAutomationHttpDependencies {
   readonly publicBaseOrigin: string;
@@ -28,6 +31,7 @@ export interface AdminPublicationAutomationHttpDependencies {
     maxBytes?: number
   ) => Promise<string>;
   readonly writeJson: ReturnType<typeof createHttpTransport>['writeJson'];
+  readonly writeBinary?: ReturnType<typeof createHttpTransport>['writeBinary'];
   readonly publicationAutomation: AdminPublicationAutomationHttpPort | null;
   readonly PublicationAutomationError: typeof PublicationAutomationError;
 }
@@ -39,6 +43,7 @@ export const createAdminPublicationAutomationHttpHandler = ({
   getAdminAuditActor,
   readBody,
   writeJson,
+  writeBinary,
   publicationAutomation,
   PublicationAutomationError
 }: AdminPublicationAutomationHttpDependencies) => {
@@ -47,6 +52,101 @@ export const createAdminPublicationAutomationHttpHandler = ({
     request: ApiRequest,
     response: ApiResponse
   ): Promise<boolean> => {
+    if (
+      routeMatches(
+        request.url,
+        '/admin/publication-automation/incidents',
+        '/api/admin/publication-automation/incidents'
+      )
+    ) {
+      if (!ensureAdminAccess(request, response)) return true;
+      try {
+        if (request.method !== 'GET')
+          throw new PublicationAutomationError('METHOD_NOT_ALLOWED', 405);
+        if (!publicationAutomation?.reliabilityIncidents)
+          throw new PublicationAutomationError('RELIABILITY_UNAVAILABLE', 503);
+        const query = new URL(request.url ?? '/', publicBaseOrigin)
+          .searchParams;
+        const filter: import('@openg7/funding-core').PublicationReliabilityIncidentFilter =
+          {
+            ...(query.has('code')
+              ? {
+                  code: query.get(
+                    'code'
+                  ) as import('@openg7/funding-core').PublicationReliabilityIncidentCode
+                }
+              : {}),
+            ...(query.has('subjectType')
+              ? {
+                  subjectType: query.get(
+                    'subjectType'
+                  ) as import('@openg7/funding-core').PublicationReliabilitySubjectType
+                }
+              : {}),
+            ...(query.has('cursor') ? { cursor: query.get('cursor')! } : {})
+          };
+        const result = await publicationAutomation.reliabilityIncidents(filter);
+        writeJson(request, response, 200, result, {
+          'Cache-Control': 'private, no-store'
+        });
+      } catch (error) {
+        writeJson(
+          request,
+          response,
+          error instanceof PublicationAutomationError ? error.status : 503,
+          {
+            code:
+              error instanceof PublicationAutomationError
+                ? error.code
+                : 'RELIABILITY_UNAVAILABLE'
+          }
+        );
+      }
+      return true;
+    }
+    if (
+      routeMatches(
+        request.url,
+        '/admin/publication-automation/image-preview',
+        '/api/admin/publication-automation/image-preview'
+      )
+    ) {
+      if (!ensureAdminAccess(request, response) || !publicationAutomation)
+        return true;
+      try {
+        if (request.method !== 'GET')
+          throw new PublicationAutomationError('METHOD_NOT_ALLOWED', 405);
+        const query = new URL(request.url ?? '/', publicBaseOrigin)
+          .searchParams;
+        const version = query.get('version');
+        if (!version || !/^\d+$/.test(version))
+          throw new PublicationAutomationError('INVALID_FILTER', 400);
+        if (!writeBinary || !publicationAutomation.imagePreview)
+          throw new PublicationAutomationError('AUTOMATION_UNAVAILABLE', 503);
+        const image = await publicationAutomation.imagePreview(
+          query.get('deliveryId') ?? '',
+          Number(version)
+        );
+        writeBinary(request, response, 200, image.bytes, image.mimeType, {
+          'Cache-Control': 'private, no-store',
+          'X-Content-SHA256': image.sha256,
+          'X-Publication-Delivery-Version': version
+        });
+      } catch (error) {
+        writeJson(
+          request,
+          response,
+          error instanceof PublicationAutomationError ? error.status : 503,
+          {
+            code:
+              error instanceof PublicationAutomationError
+                ? error.code
+                : 'AUTOMATION_UNAVAILABLE'
+          }
+        );
+      }
+      return true;
+    }
     if (
       routeMatches(
         request.url,

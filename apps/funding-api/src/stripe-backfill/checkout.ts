@@ -4,6 +4,7 @@ import type { Pool } from 'pg';
 import type Stripe from 'stripe';
 
 import { normalizeContributionPublicReference } from '../contribution-public-reference.js';
+import { confirmedCheckoutSessionPaymentFacts } from '../checkout-payment-facts.js';
 import {
   normalizeContributionType,
   parseMetadataBoolean,
@@ -19,6 +20,8 @@ import {
 } from '../stripe-object-normalization.js';
 import { stripeSessionBelongsToProject } from '../stripe-project-scope.js';
 import { syncStripeChargeRefunds } from '../stripe-refunds.service.js';
+import { withPostgresTransaction } from '../postgres-transaction.js';
+import { activateSponsorshipCommitments } from '../sponsorship-commitments.repository.js';
 
 import type {
   StripeBackfillOptions,
@@ -114,6 +117,11 @@ const backfillCheckoutSession = async (
       paymentIntent?.amount ??
       0,
     currency: session.currency ?? paymentIntent?.currency ?? 'cad',
+    // A succeeded PI is qualified only after its journal is accepted below.
+    trustedPaymentFacts:
+      paymentIntent?.status === 'succeeded'
+        ? undefined
+        : confirmedCheckoutSessionPaymentFacts(session),
     metadata,
     publicDisplayConsent: parseMetadataBoolean(metadata.publicDisplayConsent),
     publicName: metadata.publicDisplayName ?? null,
@@ -168,10 +176,7 @@ const backfillPaymentIntentTransaction = async (
     summary.paymentIntents.missingBalanceTransactions += 1;
   }
 
-  const amount =
-    paymentIntent.amount_received ||
-    session.amount_total ||
-    paymentIntent.amount;
+  const amount = paymentIntent.amount_received || paymentIntent.amount;
   const balanceData = buildContributionBalanceData(
     balanceTransaction,
     amount,
@@ -208,6 +213,25 @@ const backfillPaymentIntentTransaction = async (
     },
     options.dryRun
   );
+
+  if (!options.dryRun) {
+    await withPostgresTransaction(pool, async (db) => {
+      await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+        'payment-confirmation:' + paymentIntent.id
+      ]);
+      await activateSponsorshipCommitments(db, {
+        stripeSessionId: session.id,
+        stripePaymentIntentId: paymentIntent.id,
+        trustedPaymentFacts: {
+          amountCents: amount,
+          currency: paymentIntent.currency,
+          publicReference: normalizeContributionPublicReference(
+            paymentIntent.metadata.publicReference
+          )
+        }
+      });
+    });
+  }
 
   applyInsertResult(summary.paymentIntents, insertResult);
   return charge;

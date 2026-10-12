@@ -20,6 +20,8 @@ import { completeModeration } from './support/moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptanceReviewReminder } from './support/acceptance-review-reminder.js';
 import { test, expect } from './support/test.js';
+import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
+import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';
 
 const requestUrl = '/api/admin/sponsorships/request-information';
 const detailsUrl = '/api/admin/sponsorships/details';
@@ -232,6 +234,7 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
       await form.getByRole('checkbox').nth(0).check();
       await form.locator('#public-display-name').fill(name);
       await form.getByRole('checkbox').nth(2).check();
+      await acceptDisplayedSponsorshipOffer(form);
       await form.locator('button[type="submit"]').click();
       await expect(company).toHaveURL(/\/checkout\/cs_test_/);
       sessionId = new URL(company.url()).pathname.split('/').at(-1)!;
@@ -455,11 +458,23 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
       await company
         .getByLabel('Description des images à téléverser')
         .fill('Présentation synthétique du dossier.');
-      await company.getByLabel('Ajouter des photos').setInputFiles({
+      await confirmAcceptanceMediaUsage(company);
+      const photoUpload = company.getByLabel('Ajouter des photos');
+      // Confirmation reaches the upload component asynchronously. File selection
+      // can bypass disabled controls, so wait for the actual upload readiness.
+      await expect(photoUpload).toBeEnabled();
+      const uploaded = company.waitForResponse(
+        (response) =>
+          response.url().endsWith('/api/sponsorship-followup/media') &&
+          response.request().method() === 'POST'
+      );
+      await photoUpload.setInputFiles({
         name: 'presentation.png',
         mimeType: 'image/png',
         buffer
       });
+      const uploadResponse = await uploaded;
+      expect(uploadResponse.ok(), await uploadResponse.text()).toBe(true);
       await expect(
         company.locator('[data-og7="media-upload-attempt"]')
       ).toHaveCount(0, { timeout: 15000 });

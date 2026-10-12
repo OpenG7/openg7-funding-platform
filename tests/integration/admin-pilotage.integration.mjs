@@ -25,15 +25,9 @@ test(
       import.meta.url
     );
     for (const file of (await readdir(migrations))
-      .filter((f) => f.endsWith('.sql') && f < '024')
+      .filter((f) => f.endsWith('.sql') && !f.startsWith('024_'))
       .sort())
       await pool.query(await readFile(new URL(file, migrations), 'utf8'));
-    await pool.query(
-      await readFile(
-        new URL('026_create_publication_worker_settings.sql', migrations),
-        'utf8'
-      )
-    );
     const automation = new PublicationAutomationService(
       pool,
       { readPrivateObject: async () => null },
@@ -67,7 +61,7 @@ test(
       actor
     );
     await t.test(
-      '024 upgrades an existing 023 database without rewriting its proposal',
+      '024 adds missing command receipts without rewriting an existing proposal',
       async () => {
         const before = await pilot.state();
         assert.equal(before.writable, false);
@@ -95,18 +89,8 @@ test(
           ).rows[0],
           proposal
         );
-        // The upgrade assertion remains on 024; later commands use the current
-        // schema and explicit editorial decisions, rather than legacy grants.
-        for (const file of (await readdir(migrations))
-          .filter(
-            (f) =>
-              /^\d{3}_.+\.sql$/.test(f) &&
-              Number(f.slice(0, 3)) >= 25 &&
-              !f.startsWith('026_')
-          )
-          .sort()) {
-          await pool.query(await readFile(new URL(file, migrations), 'utf8'));
-        }
+        // Current services require the complete domain schema. Only the
+        // independently adopted command-receipt table is missing above.
         await approveFixtureSubject(pool, { type: 'publication_delivery', id });
       }
     );

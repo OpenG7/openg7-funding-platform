@@ -16,6 +16,11 @@ import {
 } from '../../dist/apps/funding-api/src/publication-automation/delivery-outcomes.js';
 import { withPostgresTransaction } from '../../dist/apps/funding-api/src/postgres-transaction.js';
 import { composePublicationRecognition } from '../../dist/packages/funding-core/src/index.js';
+import { approveFixtureSubject } from './support/moderation-fixture.mjs';
+import { recordFixtureSponsorshipAgreement } from './support/sponsorship-agreement-fixture.mjs';
+import { capturePublicationObligations } from '../../dist/apps/funding-api/src/sponsorship-fulfilment.repository.js';
+import { reserveAccountSchedule } from '../../dist/apps/funding-api/src/publication-automation/account-reservations.js';
+import { claimNextDelivery } from '../../dist/apps/funding-api/src/publication-automation/claims.js';
 
 const barrier = () => {
   let release;
@@ -167,10 +172,13 @@ test(
       sequence += 1;
       const contribution = await pool.query(
         `INSERT INTO fund_contributions (
-          contribution_type, amount_cents, currency, status, stripe_session_id
-        ) VALUES ('sponsorship_interest', 10000, 'cad', 'paid', $1)
+          contribution_type, amount_cents, currency, status, stripe_session_id, sponsor_company_name
+        ) VALUES ('sponsorship_interest', 10000, 'cad', 'paid', $1, $2)
         RETURNING id::text AS id`,
-        [`cs_test_capacity_${sequence}`]
+        [
+          `cs_test_capacity_${sequence}`,
+          `Synthetic capacity sponsor ${sequence}`
+        ]
       );
       const result = await pool.query(
         `INSERT INTO sponsor_publication_drafts (
@@ -407,7 +415,7 @@ test(
     );
 
     await t.test(
-      'active live completion and calendar update share the slot-before-batch order',
+      'active live completion and calendar update lock the delivery before its slot and batch',
       async () => {
         const slotId = await createSlot(2);
         const batchId = await createBatch();
@@ -436,6 +444,13 @@ test(
             [draftId]
           )
         ).rows[0];
+        await recordFixtureSponsorshipAgreement(pool, source.contribution_id, {
+          channel: 'facebook'
+        });
+        await approveFixtureSubject(pool, {
+          type: 'sponsorship',
+          id: source.contribution_id
+        });
         const message = composePublicationRecognition([
           {
             id: source.id,
@@ -451,10 +466,30 @@ test(
             `INSERT INTO publication_deliveries(feed_id,kind,batch_id,message,scheduled_at,
          account_id,mode,source_snapshot,status,approved_at,approved_by)
          VALUES('openg7:facebook','sponsorship',$1::uuid,$2,$3::timestamptz,
-         'synthetic-account','live',$4::jsonb,'approved',NOW(),'synthetic-reviewer') RETURNING *`,
+         'synthetic-account','live',$4::jsonb,'draft',NULL,NULL) RETURNING *`,
             [batchId, message, startsAt, JSON.stringify([source])]
           )
         ).rows[0];
+        await approveFixtureSubject(pool, {
+          type: 'publication_delivery',
+          id: initial.id
+        });
+        await withPostgresTransaction(pool, async (db) => {
+          const snapshot = await capturePublicationObligations(db, initial);
+          await reserveAccountSchedule(db, initial);
+          await db.query(
+            `UPDATE publication_deliveries SET obligation_snapshot=$2::jsonb,status='approved',
+            version=version+1,approved_at=NOW(),approved_by='synthetic-reviewer' WHERE id=$1`,
+            [initial.id, JSON.stringify(snapshot)]
+          );
+          await db.query(
+            "UPDATE sponsor_publication_batches SET status='scheduled' WHERE id=$1",
+            [batchId]
+          );
+        });
+        await pool.query(
+          "UPDATE publication_feeds SET paused=FALSE WHERE id='openg7:facebook'"
+        );
         const [calendarClient, completionClient] = await Promise.all([
           pool.connect(),
           pool.connect()
@@ -462,33 +497,23 @@ test(
         const calendarPid = (
           await calendarClient.query('SELECT pg_backend_pid() AS pid')
         ).rows[0].pid;
-        const slotLocked = barrier();
-        const resumeCalendar = barrier();
-        const calendarNeedsBatch = barrier();
-        const resumeCalendarBatch = barrier();
         const completionNeedsSlot = barrier();
         const resumeCompletion = barrier();
-        let calendarSettled = false;
+        let calendarHeldSlot = false;
+        const calendarQueries = [];
         let calendarOutcome;
         let completionOutcome;
         const calendarPool = {
           query: (...args) => pool.query(...args),
           connect: async () => ({
             async query(sql, values) {
-              if (
-                sql.includes('SELECT id FROM sponsor_publication_batches') &&
-                sql.includes('FOR UPDATE')
-              ) {
-                calendarNeedsBatch.open();
-                await resumeCalendarBatch.promise;
-              }
+              calendarQueries.push(sql);
               const result = await calendarClient.query(sql, values);
               if (
                 sql.includes('FROM publication_slots') &&
                 sql.includes('FOR UPDATE')
               ) {
-                slotLocked.open();
-                await resumeCalendar.promise;
+                calendarHeldSlot = true;
               }
               return result;
             },
@@ -498,8 +523,7 @@ test(
         const completionPool = {
           connect: async () => ({
             async query(sql, values) {
-              // The legacy path reaches this barrier after locking its batch;
-              // the corrected path reaches it before acquiring that batch lock.
+              // Completion holds the active delivery before requesting its slot.
               if (
                 (sql.includes('FROM publication_slots') &&
                   sql.includes('FOR UPDATE')) ||
@@ -525,18 +549,6 @@ test(
             }
           );
         try {
-          calendarOutcome = outcome(
-            updateAdminPublicationSlot(calendarPool, { slotId, capacity: 3 }),
-            () => {
-              calendarSettled = true;
-            }
-          );
-          await waitFor(
-            async () => slotLocked.opened,
-            'the calendar must acquire its slot lock'
-          );
-          // A calendar update can acquire the slot before it becomes due. Keep
-          // that lock while a real, currently due delivery acquires its claim.
           await waitFor(
             async () =>
               (
@@ -547,13 +559,14 @@ test(
               ).rows[0].due,
             'the delivery must be due before taking its active claim'
           );
-          const row = (
-            await pool.query(
-              `UPDATE publication_deliveries SET status='publishing',attempts=1,version=2,
-           lease_until=clock_timestamp()+interval '5 minutes' WHERE id=$1 RETURNING *`,
-              [initial.id]
-            )
-          ).rows[0];
+          const row = await claimNextDelivery(
+            {
+              pool,
+              workerSettings: async () => ({ enabled: true, version: 1 })
+            },
+            new Date()
+          );
+          assert.equal(row?.id, initial.id);
           const providerResult = {
             externalPostId: 'synthetic-capacity-post',
             externalPostUrl: 'https://example.test/capacity-post'
@@ -575,17 +588,22 @@ test(
             async () => completionNeedsSlot.opened,
             'completion must request its slot lock'
           );
-          resumeCalendar.open();
-          await waitFor(
-            async () => calendarNeedsBatch.opened,
-            'the calendar must request its batch locks'
+          calendarOutcome = outcome(
+            updateAdminPublicationSlot(calendarPool, { slotId, capacity: 3 })
           );
-          resumeCalendarBatch.open();
           await waitFor(
-            async () =>
-              calendarSettled ||
-              (await blockedConnections(pool, [calendarPid])) === 1,
-            'the calendar must finish or contend for the batch before completing'
+            async () => (await blockedConnections(pool, [calendarPid])) === 1,
+            'the calendar must wait on the delivery while completion owns it'
+          );
+          assert.equal(
+            calendarHeldSlot,
+            false,
+            'no slot lock may precede the delivery lock'
+          );
+          assert.ok(
+            calendarQueries.some((sql) =>
+              sql.includes('FOR UPDATE OF delivery')
+            )
           );
           resumeCompletion.open();
           const outcomes = await Promise.all([
@@ -597,7 +615,7 @@ test(
           assert.equal(
             outcomes[0].value.updated,
             false,
-            'the slot date elapsed while its update was blocked'
+            'the completed, elapsed slot cannot change capacity'
           );
           const delivered = (
             await pool.query(
@@ -634,8 +652,6 @@ test(
             'publication_automation.published'
           ]);
         } finally {
-          resumeCalendar.open();
-          resumeCalendarBatch.open();
           resumeCompletion.open();
           await Promise.allSettled([calendarOutcome, completionOutcome]);
           calendarClient.release();

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
@@ -7,6 +8,13 @@ import { getSponsorshipProgress } from '../../dist/apps/funding-api/src/sponsors
 import { getAdminWorkQueue } from '../../dist/apps/funding-api/src/admin-work-queue.service.js';
 import { getAdminAssistantContext } from '../../dist/apps/funding-api/src/admin-assistant/context.service.js';
 import { PublicationAutomationService } from '../../dist/apps/funding-api/src/publication-automation/service.js';
+import { activateSponsorshipCommitments } from '../../dist/apps/funding-api/src/sponsorship-commitments/repository.js';
+import {
+  adjustSponsorshipObligation,
+  qualifySponsorshipCommitment
+} from '../../dist/apps/funding-api/src/sponsorship-commitments/changes.js';
+import { createSponsorshipOfferSnapshot } from '../../dist/packages/funding-core/src/index.js';
+import { withPostgresTransaction } from '../../dist/apps/funding-api/src/postgres-transaction.js';
 
 test(
   'dossier progress reads exact persisted facts and the complete work queue on PostgreSQL',
@@ -61,6 +69,28 @@ test(
       sponsor_contact_email, sponsor_details_submitted_at, public_display_consent, stripe_session_id, stripe_payment_intent_id)
       VALUES ('sponsorship_interest', 50000, 'cad', 'paid', NOW(), '2020-01-01', 'Synthetic dossier', 'private@example.invalid', NOW(), true, 'cs_progress_fixture', 'pi_progress_fixture') RETURNING id`)
       ).rows[0].id;
+      await withPostgresTransaction(pool, async (db) => {
+        await activateSponsorshipCommitments(db, {
+          stripeSessionId: 'cs_progress_fixture'
+        });
+        await qualifySponsorshipCommitment(
+          db,
+          {
+            requestId: '00000000-0000-4000-8000-000000000741',
+            contributionId: id,
+            expectedVersion: 1,
+            confirmation: id,
+            reason:
+              'The synthetic dossier has an explicit commercial agreement',
+            evidenceReference: 'synthetic://progress-agreement',
+            offer: {
+              ...createSponsorshipOfferSnapshot(50000, 'CAD'),
+              version: 'historical-qualification-v1'
+            }
+          },
+          'admin:00000000-0000-4000-8000-000000000041'
+        );
+      });
       const mediaId = (
         await pool.query(
           `INSERT INTO sponsor_media_assets (contribution_id, kind, review_status, original_filename, original_mime_type, original_size_bytes,
@@ -423,6 +453,180 @@ test(
         ).rows[0],
         before,
         'opening the dossier performs no writes'
+      );
+    } finally {
+      await stop();
+    }
+  }
+);
+
+test(
+  'qualified obligations expose missing logos and moderation blocks, preserve quantities, and never fulfil a waived promise',
+  { timeout: 90000 },
+  async () => {
+    const { pool, stop } = await startDisposablePostgres();
+    try {
+      const actor = 'admin:00000000-0000-4000-8000-000000000041';
+      const id = (
+        await pool.query(`INSERT INTO fund_contributions
+          (contribution_type,amount_cents,currency,status,paid_at,sponsor_review_status,
+           sponsor_company_name,sponsor_contact_email,sponsor_details_submitted_at,
+           public_display_consent,stripe_payment_intent_id)
+          VALUES ('sponsorship_interest',50000,'cad','paid',NOW(),'approved',
+            'Synthetic logo agreement','synthetic@example.invalid',NOW(),true,
+            'pi_progress_logo_agreement') RETURNING id`)
+      ).rows[0].id;
+      const snapshot = createSponsorshipOfferSnapshot(50000, 'CAD');
+      await withPostgresTransaction(pool, async (db) => {
+        await activateSponsorshipCommitments(db, {
+          stripePaymentIntentId: 'pi_progress_logo_agreement'
+        });
+        await qualifySponsorshipCommitment(
+          db,
+          {
+            requestId: randomUUID(),
+            contributionId: id,
+            expectedVersion: 1,
+            confirmation: id,
+            reason: 'Synthetic historical agreement requires two logo mentions',
+            evidenceReference: 'synthetic://progress-logo-agreement',
+            offer: {
+              ...snapshot,
+              version: 'historical-qualification-v1',
+              benefits: [
+                {
+                  ...snapshot.benefits.find(
+                    (benefit) => benefit.id === 'facebook_batch'
+                  ),
+                  quantity: 2,
+                  requiredElements: [
+                    'company_name',
+                    'approved_logo',
+                    'approved_presentation'
+                  ]
+                }
+              ]
+            }
+          },
+          actor
+        );
+      });
+      const addMedia = async (kind, storageKey) => {
+        const mediaId = randomUUID();
+        return (
+          await pool.query(
+            `INSERT INTO sponsor_media_assets
+              (id,contribution_id,kind,review_status,original_filename,original_mime_type,
+               original_size_bytes,original_storage_key,processed_size_bytes,
+               processed_storage_key,public_url,checksum_sha256,width,height)
+              VALUES ($4::uuid,$1,$2,'approved','synthetic.png','image/png',100,$3,100,$3,
+                '/api/public/sponsor-media/' || $4::text,repeat('a',64),100,100) RETURNING id`,
+            [id, kind, storageKey, mediaId]
+          )
+        ).rows[0].id;
+      };
+      const presentationId = await addMedia(
+        'supporting_image',
+        'private-progress-presentation'
+      );
+      await approveFixtureSubject(pool, { type: 'media', id: presentationId });
+      await approveFixtureSubject(pool, { type: 'sponsorship', id });
+      const load = async () => (await getSponsorshipProgress(pool, id)).dossier;
+      const publication = (dossier) =>
+        dossier.milestones.find((milestone) => milestone.id === 'publication');
+      const missingLogo = await load();
+      assert.equal(missingLogo.commitment.state, 'active');
+      assert.equal(missingLogo.commitment.provenance, 'qualified_historical');
+      assert.ok(
+        missingLogo.commitment.obligations.every(
+          (obligation) =>
+            obligation.state === 'blocked' &&
+            obligation.blockedReason === 'required_elements_missing'
+        )
+      );
+      assert.equal(publication(missingLogo).state, 'blocked');
+      assert.equal(publication(missingLogo).reason, 'publication_blocked');
+      assert.equal(missingLogo.next.reason, 'publication_blocked');
+      assert.deepEqual(missingLogo.publicationBlockers, ['media']);
+      assert.deepEqual(missingLogo.publicationCompletion, {
+        done: 0,
+        total: 2
+      });
+
+      const logoId = await addMedia('logo', 'private-progress-logo');
+      await approveFixtureSubject(pool, { type: 'sponsorship', id });
+      const unreviewedVersion = await load();
+      assert.equal(publication(unreviewedVersion).state, 'blocked');
+      assert.deepEqual(unreviewedVersion.publicationBlockers, [
+        'commitment_blocked'
+      ]);
+      await approveFixtureSubject(pool, { type: 'media', id: logoId });
+      const ready = await load();
+      assert.equal(publication(ready).state, 'pending');
+      assert.deepEqual(ready.publicationBlockers, []);
+      assert.deepEqual(ready.publicationCompletion, { done: 0, total: 2 });
+      assert.ok(
+        ready.commitment.obligations.every(
+          (obligation) =>
+            obligation.state === 'pending' &&
+            obligation.fulfilmentEvidenceId === null
+        )
+      );
+      assert.equal(ready.publications.length, 0);
+
+      const obligation = ready.commitment.obligations[0];
+      const adjustment = {
+        requestId: randomUUID(),
+        obligationId: obligation.id,
+        expectedVersion: obligation.version,
+        confirmation: obligation.id,
+        kind: 'waiver',
+        reason: 'Synthetic agreement explicitly waives one ordinal'
+      };
+      const adjust = () =>
+        withPostgresTransaction(pool, (db) =>
+          adjustSponsorshipObligation(db, adjustment, actor)
+        );
+      await Promise.all([adjust(), adjust()]);
+      const waived = await load();
+      assert.deepEqual(waived.publicationCompletion, { done: 0, total: 1 });
+      assert.equal(publication(waived).state, 'pending');
+      assert.equal(
+        waived.commitment.obligations.find((row) => row.id === obligation.id)
+          .state,
+        'adjusted'
+      );
+      assert.equal(waived.commitment.offer.benefits[0].quantity, 2);
+      assert.equal(
+        (
+          await pool.query(
+            'SELECT count(*)::integer n FROM sponsorship_commitment_changes WHERE request_id=$1::uuid',
+            [adjustment.requestId]
+          )
+        ).rows[0].n,
+        1
+      );
+      await pool.query(
+        'UPDATE fund_contributions SET public_display_consent=false WHERE id=$1::uuid',
+        [id]
+      );
+      const withdrawn = await load();
+      assert.equal(publication(withdrawn).state, 'blocked');
+      assert.ok(withdrawn.publicationBlockers.includes('consent'));
+      assert.equal(
+        withdrawn.commitment.obligations.find((row) => row.id === obligation.id)
+          .state,
+        'adjusted'
+      );
+      assert.ok(
+        withdrawn.commitment.obligations.every(
+          (row) => row.fulfilmentEvidenceId === null
+        )
+      );
+      assert.equal(withdrawn.commitment.state, 'active');
+      assert.doesNotMatch(
+        JSON.stringify(withdrawn),
+        /synthetic@example|private-progress-/
       );
     } finally {
       await stop();

@@ -1,6 +1,6 @@
 import type { ModerationDecisionRecord } from '@openg7/funding-core';
 
-import type { ModerationDb } from './content.js';
+import { mediaDeliveryScopeSql, type ModerationDb } from './content.js';
 
 /** Aggregates contain neither content, actor, recipient nor a small-case breakdown. */
 export async function moderationMetrics(db: ModerationDb) {
@@ -108,7 +108,7 @@ export async function recordRemoteRemovalRequirement(
     decision.subject.type === 'publication_delivery'
       ? 'p.id=$1'
       : decision.subject.type === 'media'
-        ? 'p.media_id=$1'
+        ? mediaDeliveryScopeSql
         : decision.subject.type === 'publication_draft'
           ? 'p.batch_id IN(SELECT batch_id FROM sponsor_publication_drafts WHERE id=$1)'
           : 'p.batch_id IN(SELECT batch_id FROM sponsor_publication_drafts WHERE contribution_id=$1)';

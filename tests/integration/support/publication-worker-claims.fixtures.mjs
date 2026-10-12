@@ -5,6 +5,8 @@ import sharp from 'sharp';
 import { startDisposablePostgres } from './disposable-postgres.mjs';
 import { PublicationAutomationService } from '../../../dist/apps/funding-api/src/publication-automation/service.js';
 import { approveFixtureSubject } from './moderation-fixture.mjs';
+import { recordFixtureSponsorshipAgreement } from './sponsorship-agreement-fixture.mjs';
+import { waitForFixtureAccountCooldown } from './publication-account-cooldown-fixture.mjs';
 
 // Private fixtures for publication-worker-claims.integration.mjs.
 export function gate() {
@@ -166,7 +168,7 @@ export async function createPublicationWorkerClaimsFixture(t) {
 
   async function activate(feedId = facebookFeed) {
     await service.command({ action: 'check', feedId }, 'claim-tester');
-    const feed = (await service.state()).feeds.find((f) => f.id === feedId);
+    const feed = (await service.feeds()).find((f) => f.id === feedId);
     assert.equal(feed.connection, 'ready');
     await service.command(
       { action: 'settings', settings: { ...feed, paused: false } },
@@ -212,6 +214,10 @@ export async function createPublicationWorkerClaimsFixture(t) {
        VALUES($1,'sponsorship_interest',50000,'paid',TRUE,'approved','Claim fence fixture','openg20','["facebook"]')`,
         [contributionId]
       );
+      await recordFixtureSponsorshipAgreement(pool, contributionId, {
+        channel: 'facebook',
+        target: 'openg20'
+      });
       await approveFixtureSubject(pool, {
         type: 'sponsorship',
         id: contributionId
@@ -301,6 +307,10 @@ export async function createPublicationWorkerClaimsFixture(t) {
       'claim-tester'
     );
     await approve(id);
+    // Live dispatch spacing uses the database clock. These synthetic-provider
+    // fencing scenarios wait for that real bound rather than rewriting the bail
+    // or letting the injected worker date bypass the account cooldown.
+    await waitForFixtureAccountCooldown(pool, id);
     return new Date(Date.parse(scheduledAt) + 1000);
   }
 
@@ -346,8 +356,9 @@ export async function createPublicationWorkerClaimsFixture(t) {
       [contributionId]
     );
     await pool.query(
-      `INSERT INTO sponsor_media_assets(id,contribution_id,kind,review_status,original_filename,original_mime_type,original_size_bytes,original_storage_key,processed_size_bytes,processed_storage_key,public_storage_key,public_url,checksum_sha256,width,height,alt_text)
-       VALUES($1,$2,'supporting_image','approved','fixture.webp','image/webp',$3,$4,$3,$5,$6,'https://example.test/fixture.webp',$7,2,2,'Synthetic approved image')`,
+      `INSERT INTO sponsor_media_assets(id,contribution_id,kind,review_status,original_filename,original_mime_type,original_size_bytes,original_storage_key,processed_size_bytes,processed_storage_key,public_storage_key,public_url,checksum_sha256,width,height,alt_text,usage_rights)
+       VALUES($1,$2,'supporting_image','approved','fixture.webp','image/webp',$3,$4,$3,$5,$6,'https://example.test/fixture.webp',$7,2,2,'Synthetic approved image',
+       '{"state":"confirmed","channels":["website","facebook","linkedin"],"targets":["openg7","openg20"],"transformations":["technical"],"credit":null,"restrictions":null}')`,
       [
         mediaId,
         contributionId,

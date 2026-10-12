@@ -2,6 +2,7 @@ import type Stripe from 'stripe';
 import type { Pool } from 'pg';
 
 import { normalizeContributionPublicReference } from '../contribution-public-reference.js';
+import { confirmedCheckoutSessionPaymentFacts } from '../checkout-payment-facts.js';
 import { resolvePaymentIntentId } from '../stripe-object-normalization.js';
 import {
   normalizeContributionType,
@@ -34,6 +35,7 @@ const buildCheckoutSessionWebhookInput = (
     contributionType: normalizeContributionType(metadata.contributionType),
     amountCents,
     currency: session.currency ?? 'cad',
+    trustedPaymentFacts: confirmedCheckoutSessionPaymentFacts(session),
     metadata,
     publicDisplayConsent: parseMetadataBoolean(metadata.publicDisplayConsent),
     publicName: metadata.publicDisplayName ?? null,
