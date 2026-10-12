@@ -305,6 +305,20 @@ délais existants sont conservés. TypeScript sans émission, ESLint et format
 ciblés, contrôles documentaires et `git diff --check` passent également.
 Les journaux sont `test-results/ci-information-docker-fixed-{1,2,3}.log`.
 
+La CI sur `7e39308` confirme également **257 scénarios Docker** réussis et les
+**646 parcours administratifs**. La lecture des étapes suivantes a repéré deux
+autres fixtures obsolètes : les commandites du parcours OIDC n'enregistraient
+aucun engagement, et les médias de récupération gardaient des droits inconnus.
+Le parcours d'identité déclare puis qualifie son accord explicite par la vraie
+API propriétaire ; son obligation reste bloquée avant modération. La récupération
+enregistre les usages Web synthétiques avant N0 et conserve public `200`, privé
+`404`, octets exacts et gardes d'échec. Le scénario OIDC complet et les deux
+recettes de sauvegarde/restauration (local et S3 simulé) passent sans reprise ni
+omission, sur piles jetables. TypeScript sans émission, format et diff passent.
+Les journaux sont `ci-editorial-identity-final.log` et
+`ci-recovery-media-rights.log`. La suite Node locale rejouée explicitement sous
+Node 22 garde **6 176 réussites**, zéro échec et huit omissions.
+
 - P0 : conformité de la reconnaissance, conservation des engagements et reprise
   des résultats incertains. P1 : file, réservations, dates et suivi fiable.
   P2 : personnalisation et nouveaux formats. La priorité ne remplace pas une dépendance.

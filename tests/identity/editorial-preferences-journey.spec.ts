@@ -8,7 +8,8 @@ import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import type {
   PilotCommand,
   ProgrammeState,
-  PublicationAutomationState
+  PublicationAutomationState,
+  SponsorshipOfferSnapshot
 } from '@openg7/funding-core';
 
 import { currentModerationApproval } from '../playwright/support/moderation.js';
@@ -471,12 +472,68 @@ test('editorial variants: exact review, distinct observations and explicit prefe
         'Commandite rémunérée.'
       ].join('\n\n');
     const seedSponsor = async (name: string) => {
+      const contributionId = randomUUID();
       await stack.pool.query(
         `INSERT INTO fund_contributions
         (id,contribution_type,amount_cents,currency,status,public_display_consent,sponsor_review_status,sponsor_company_name,sponsor_public_summary,sponsor_feed_target,sponsor_feed_channels)
         VALUES($1,'sponsorship_interest',25000,'CAD','paid',TRUE,'approved',$2,'Le projet avance. Ensemble, nous avançons.','openg7','["facebook"]')`,
-        [randomUUID(), name]
+        [contributionId, name]
       );
+      await stack.pool.query(
+        `INSERT INTO sponsorship_commitments(contribution_id,provenance,state,qualification_reason)
+         VALUES($1,'historical_unverified','needs_confirmation','Explicit synthetic editorial agreement awaiting qualification')`,
+        [contributionId]
+      );
+      // This recipe declares one text placement; payment and routing alone grant no terms.
+      const offer: SponsorshipOfferSnapshot = {
+        version: 'historical-qualification-v1',
+        amountMinor: 25000,
+        currency: 'CAD',
+        benefits: [
+          {
+            id: 'facebook_batch',
+            channel: 'facebook',
+            target: 'openg7',
+            quantity: 1,
+            format: 'collective_text',
+            requiredElements: ['company_name'],
+            deadlineDays: null,
+            durationDays: null
+          }
+        ]
+      };
+      const qualification = await owner.request.post(
+        '/api/admin/sponsorship-commitments/qualify',
+        {
+          headers,
+          data: {
+            requestId: randomUUID(),
+            contributionId,
+            expectedVersion: 1,
+            confirmation: contributionId,
+            reason:
+              'Explicit synthetic agreement for the editorial preference recipe.',
+            evidenceReference: `synthetic://editorial-agreement/${contributionId}`,
+            offer
+          }
+        }
+      );
+      expect(qualification.ok(), await qualification.text()).toBe(true);
+      expect((await qualification.json()).commitment).toMatchObject({
+        contributionId,
+        provenance: 'qualified_historical',
+        state: 'active',
+        offer,
+        obligations: [
+          {
+            channel: 'facebook',
+            target: 'openg7',
+            format: 'collective_text',
+            state: 'blocked',
+            blockedReason: 'moderation_review_required'
+          }
+        ]
+      });
     };
     await mutate({
       action: 'settings',
