@@ -459,6 +459,17 @@ indépendante ne relève aucun problème. Les journaux sont
 `ci-planning-lock-unit-fixtures.log` et `ci-planning-lock-full-node22.log` dans
 `test-results/`.
 
+Sur `8e50df1`, la nouvelle régression passe en CI ; 608 des 610 intégrations
+réussissent. Le seul sous-test en échec et son groupe attendaient encore deux
+planificateurs sur le verrou de ligne du feed. L'observateur vérifie maintenant
+la chaîne réelle : session bloqueuse, premier planificateur en attente sur cette
+ligne, second en attente sur le verrou advisory exact du même feed. La concurrence
+et les contrôles de diagnostics, affectation et livraison uniques sont conservés.
+La baseline reproduit l'échec, puis la suite complète de file de préparation passe
+**18 tests** sans omission. ESLint, format et diff passent ; aucun code applicatif
+n'est modifié. Les journaux sont `ci-rendered-queue-planning-lock-{before,after}.log`
+dans `test-results/`.
+
 - P0 : conformité de la reconnaissance, conservation des engagements et reprise
   des résultats incertains. P1 : file, réservations, dates et suivi fiable.
   P2 : personnalisation et nouveaux formats. La priorité ne remplace pas une dépendance.
