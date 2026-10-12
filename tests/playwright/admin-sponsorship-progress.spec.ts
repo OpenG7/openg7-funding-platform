@@ -3915,7 +3915,9 @@ test('website visibility errors retain the previous state and missing prerequisi
   await page.reload();
   await expect(site.locator('[data-og7="website-visibility"]')).toBeDisabled();
   await expect(
-    site.getByRole('link', { name: 'Approuver une photo de présentation' })
+    site.getByRole('link', {
+      name: 'Vérifier et approuver les médias requis par les engagements'
+    })
   ).toHaveAttribute('href', path('media'));
 });
 

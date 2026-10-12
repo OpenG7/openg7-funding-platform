@@ -294,8 +294,8 @@ sur celui reçu. Une obligation bloquée pouvait
 historique ne disposaient pas de traductions FR/EN. Le libellé de clôture
 assimilait également un engagement ajusté à une livraison.
 
-La qualification monétaire suit maintenant l'insertion ou le rejeu exact du
-journal. Le setter de statut ne qualifie plus les montants et les statuts non
+La qualification des PaymentIntent suit maintenant l'insertion ou le rejeu exact
+du journal. Le setter de statut ne qualifie plus les montants et les statuts non
 payés n'activent aucun engagement. Les trois producteurs Checkout réutilisent
 une preuve explicite de Session payée; le journal est prioritaire même sans
 marqueur de notification. Le backfill PI qualifie seulement après son journal.
@@ -335,6 +335,15 @@ de 889 octets, sans changement de budget.
 La migration 041 et le lockfile restent inchangés. Ces corrections
 conservent les droits administratifs et ne produisent aucune diffusion réelle;
 les 19 garanties complètes restent ouvertes.
+
+La CI de `98453f1` confirme **6 086 réussites Node et 5 ignorés**, **483/483 tests
+PostgreSQL** et **221/221 recettes Docker**. La suite admin passe 611 cas sur 612;
+son unique échec est le second sélecteur qui attend l'ancien libellé du lien média.
+La section de visibilité Web utilise elle aussi la traduction commune
+`publicationBridge.blocker.media`. Ce consommateur est corrigé en conservant le
+refus 503, la visibilité précédente, le bouton désactivé et le lien vers les
+médias. La nouvelle CI doit encore vérifier les suites navigateur qui avaient
+été ignorées après cet échec; les résultats de l'ancien commit restent datés.
 
 ## Cadrage
 
