@@ -54,6 +54,10 @@ services:
       context: .
       dockerfile: apps/funding-api/Dockerfile
     environment:
+      OPENG7_E2E_ISOLATED: '1'
+      COMPOSE_PROJECT_NAME: '${COMPOSE_PROJECT_NAME:?}'
+      MODERATION_WEB_BASE_URL: '${MODERATION_WEB_BASE_URL:?}'
+      ACCEPTANCE_OIDC_PROVIDER_PORT: '${ACCEPTANCE_OIDC_PROVIDER_PORT:?}'
       FUNDING_PLATFORM_ENV: development
       FUNDING_ADMIN_AUTH_MODE: token
       FUNDING_API_PORT: '3333'
@@ -93,10 +97,18 @@ services:
       SOCIAL_PUBLICATION_MOCK_URL: http://stripe-stub:4242/__test__/social
       SPONSOR_MEDIA_STORAGE_DRIVER: local
       ADMIN_AI_ASSISTANT_ENABLED: 'false'
+    volumes:
+      - ./tests/identity/oidc-provider.mjs:/app/tests/identity/oidc-provider.mjs:ro
+      - ./tests/identity/docker-moderation-config.mjs:/app/tests/identity/docker-moderation-config.mjs:ro
+      - ./tests/identity/docker-moderation-server.mjs:/app/tests/identity/docker-moderation-server.mjs:ro
+    ports:
+      - '127.0.0.1:${ACCEPTANCE_OIDC_PROVIDER_PORT:?}:${ACCEPTANCE_OIDC_PROVIDER_PORT:?}'
     depends_on:
       postgres: { condition: service_healthy }
       stripe-stub: { condition: service_healthy }
-    networks: [data]
+    # The loopback-published OIDC fixture must be reachable by the host browser.
+    # PostgreSQL remains only on data; neither API listener has a host mapping.
+    networks: [edge, data]
     healthcheck:
       test:
         [
@@ -110,6 +122,7 @@ services:
       retries: 30
 
   web:
+    image: '${COMPOSE_PROJECT_NAME:?}-web'
     build:
       context: .
       dockerfile: Dockerfile
@@ -117,6 +130,21 @@ services:
       api: { condition: service_healthy }
     ports:
       - '127.0.0.1:${ACCEPTANCE_WEB_PORT:?}:8080'
+    networks: [edge, data]
+    healthcheck:
+      test: [CMD-SHELL, 'wget -qO- http://127.0.0.1:8080/health | grep -q ok']
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  web-oidc:
+    image: '${COMPOSE_PROJECT_NAME:?}-web'
+    depends_on:
+      api: { condition: service_healthy }
+    ports:
+      - '127.0.0.1:${ACCEPTANCE_MODERATION_WEB_PORT:?}:8080'
+    volumes:
+      - '${ACCEPTANCE_OIDC_NGINX_FILE:?}:/etc/nginx/conf.d/default.conf:ro'
     networks: [edge, data]
     healthcheck:
       test: [CMD-SHELL, 'wget -qO- http://127.0.0.1:8080/health | grep -q ok']

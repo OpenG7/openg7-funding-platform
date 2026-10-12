@@ -3,10 +3,13 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  Injector,
   OnInit,
+  signal,
   PLATFORM_ID,
   ViewChild,
   effect,
+  afterNextRender,
   inject
 } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -16,6 +19,7 @@ import { FundingHeaderComponent } from '../../components/funding-header/funding-
 import { SponsorshipAccessRecoveryComponent } from '../../components/sponsorship-followup/sponsorship-access-recovery.component.js';
 import { SponsorshipFollowupFormComponent } from '../../components/sponsorship-followup/sponsorship-followup-form.component.js';
 import { SponsorshipFollowupStatusComponent } from '../../components/sponsorship-followup/sponsorship-followup-status.component.js';
+import { SponsorshipModerationFollowupComponent } from '../../components/sponsorship-followup/sponsorship-moderation-followup.component.js';
 import type { SponsorshipDetailsDraft } from '../../models/sponsorship-followup-ui.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { FundingService } from '../../services/funding.service.js';
@@ -33,6 +37,7 @@ import { SponsorshipFollowupController } from '../../services/sponsorship-follow
     FundingHeaderComponent,
     SponsorshipFollowupFormComponent,
     SponsorshipFollowupStatusComponent,
+    SponsorshipModerationFollowupComponent,
     SponsorshipAccessRecoveryComponent
   ],
   providers: [SponsorshipDraftService],
@@ -45,6 +50,7 @@ export class SponsorshipFollowupPageComponent implements OnInit {
   private readonly fundingService = inject(FundingService);
   private readonly platformId = inject(PLATFORM_ID);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly injector = inject(Injector);
   readonly i18n = inject(FundingI18nService);
   readonly drafts = inject(SponsorshipDraftService);
   private readonly controller = new SponsorshipFollowupController({
@@ -58,6 +64,8 @@ export class SponsorshipFollowupPageComponent implements OnInit {
   private form?: SponsorshipFollowupFormComponent;
 
   readonly token = this.controller.token;
+  readonly correctionDecisionId = this.controller.correctionDecisionId;
+  readonly moderationRefresh = signal(0);
   readonly recoveryEntry = this.controller.recoveryEntry;
   readonly followup = this.controller.followup;
   readonly loading = this.controller.loading;
@@ -72,6 +80,10 @@ export class SponsorshipFollowupPageComponent implements OnInit {
   constructor() {
     effect(() => {
       if (this.drafts.accessExpired()) this.controller.clearAccess();
+    });
+    effect(() => {
+      this.followup();
+      this.moderationRefresh.update((value) => value + 1);
     });
   }
 
@@ -96,5 +108,12 @@ export class SponsorshipFollowupPageComponent implements OnInit {
 
   focusForm(): void {
     this.form?.focusFirstField();
+  }
+  correct(decisionId: string): void {
+    this.correctionDecisionId.set(decisionId);
+    afterNextRender(() => this.focusForm(), { injector: this.injector });
+  }
+  clearAccess(): void {
+    this.controller.clearAccess();
   }
 }

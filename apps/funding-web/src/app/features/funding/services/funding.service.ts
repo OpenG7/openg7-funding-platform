@@ -24,7 +24,10 @@ import { FUNDING_PROJECT_CONFIG } from '../config/funding-project-config.token.j
 import { OPENG7_FUNDING_CONFIG } from '../config/openg7-funding.config.js';
 
 import { CheckoutAttempts } from './checkout-attempts.js';
-import { CheckoutReconciliationRequiredError } from './checkout-error.js';
+import {
+  CheckoutReconciliationRequiredError,
+  CheckoutCharterChangedError
+} from './checkout-error.js';
 import { resolveFundingApiBaseUrl } from './funding-api-base-url.js';
 import { FundingPublicClient } from './funding-public.client.js';
 import { FundingSponsorshipFollowupClient } from './funding-sponsorship-followup.client.js';
@@ -63,7 +66,10 @@ export class FundingService {
       publicDisplayConsent: consent.publicDisplayConsent,
       publicDisplayName: consent.publicDisplayName,
       displayAmountConsent: consent.displayAmountConsent,
-      nonCharityAcknowledged: consent.nonCharityAcknowledged
+      nonCharityAcknowledged: consent.nonCharityAcknowledged,
+      ...(consent.charterAcceptance
+        ? { charterAcceptance: consent.charterAcceptance }
+        : {})
     };
 
     try {
@@ -80,13 +86,33 @@ export class FundingService {
         return result;
       });
     } catch (error) {
-      if (error instanceof CheckoutReconciliationRequiredError) throw error;
+      if (
+        error instanceof CheckoutReconciliationRequiredError ||
+        error instanceof CheckoutCharterChangedError
+      )
+        throw error;
       throw new Error('Checkout could not be started.');
     }
   }
 
   async getPublicFundingConfig(): Promise<PublicFundingRuntimeConfig> {
     return this.publicClient.getPublicFundingConfig();
+  }
+  getSponsorshipCharter() {
+    return this.publicClient.sponsorshipCharter();
+  }
+  getSponsorshipModeration(token: string) {
+    return this.followupClient.moderation(token);
+  }
+  requestSponsorshipReconsideration(
+    payload: import('@openg7/funding-core').SponsorshipReconsiderationRequest
+  ) {
+    return this.followupClient.reconsideration(payload);
+  }
+  submitSponsorshipCorrection(
+    payload: import('@openg7/funding-core').SponsorshipCorrectionRequest
+  ) {
+    return this.followupClient.correction(payload);
   }
 
   async lookupPublicReference(

@@ -12,6 +12,11 @@
   </div>
 
   <div class="media-review-copy">
+    <openg7-funding-moderation-actions
+      [subject]="{ type: 'media', id: asset().id }"
+      [disabled]="mediaBusy()"
+      (changed)="moderationChanged.emit()"
+    />
     <div class="media-review-heading">
       <strong>{{ asset().kindLabel }}</strong>
       <span [class]="'media-status ' + asset().reviewStatus">

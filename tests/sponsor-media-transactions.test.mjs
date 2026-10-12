@@ -373,6 +373,7 @@ test('media deletion commits after locking the sponsor dossier before the asset'
 
 const reviewInput = {
   assetId,
+  confirmation: assetId,
   expectedVersion: version,
   reviewStatus: 'approved',
   altText: 'Synthetic logo',
@@ -384,8 +385,32 @@ const reviewInput = {
 test('media review returns the accepted version and storage references', async () => {
   const reviewedVersion = '2026-09-02 00:00:00+00';
   const calls = [];
+  const transaction = [];
   const pool = {
     async query(sql, parameters) {
+      if (['BEGIN', 'COMMIT', 'ROLLBACK'].includes(sql)) {
+        transaction.push(sql);
+        return { rows: [] };
+      }
+      if (sql.includes('FOR UPDATE'))
+        return { rows: [assetRow({ alt_text: reviewInput.altText })] };
+      if (sql.startsWith('SELECT d.level,c.state'))
+        return {
+          rows: [
+            {
+              level: 'N0',
+              state: 'approved',
+              editorial_status: 'approved',
+              content_version: 1,
+              current_content_version: 1,
+              content_fingerprint: 'a'.repeat(64),
+              current_fingerprint: 'a'.repeat(64),
+              actual_fingerprint: 'a'.repeat(64)
+            }
+          ]
+        };
+      if (sql.includes('INSERT INTO admin_audit_log'))
+        return { rows: [], rowCount: 1 };
       calls.push({ sql, parameters });
       return {
         rows: [
@@ -398,6 +423,14 @@ test('media review returns the accepted version and storage references', async (
             version: reviewedVersion
           })
         ]
+      };
+    },
+    async connect() {
+      return {
+        query: this.query.bind(this),
+        release() {
+          transaction.push('release');
+        }
       };
     }
   };
@@ -412,6 +445,7 @@ test('media review returns the accepted version and storage references', async (
     `/api/public/sponsor-media/${result.asset.id}`
   );
   assert.equal(calls.length, 1);
+  assert.deepEqual(transaction, ['BEGIN', 'COMMIT', 'release']);
   assert.deepEqual(calls[0].parameters, [
     assetId,
     reviewInput.reviewStatus,
@@ -423,17 +457,30 @@ test('media review returns the accepted version and storage references', async (
   ]);
 });
 
-test('media review distinguishes stale versions from missing assets through a fresh lookup', async (t) => {
+test('media review declines stale versions and missing assets before any write', async (t) => {
   const currentVersion = '2026-09-02 00:00:00+00';
   for (const current of [assetRow({ version: currentVersion }), null]) {
     await t.test(current ? 'conflict' : 'not_found', async () => {
       const calls = [];
-      const responses = [[], current ? [current] : []];
+      const responses = [current ? [current] : []];
+      const transaction = [];
       const pool = {
         async query(sql, parameters) {
+          if (['BEGIN', 'COMMIT', 'ROLLBACK'].includes(sql)) {
+            transaction.push(sql);
+            return { rows: [] };
+          }
           calls.push({ sql, parameters });
           assert.ok(responses.length, 'Unexpected database query');
           return { rows: responses.shift() };
+        },
+        async connect() {
+          return {
+            query: this.query.bind(this),
+            release() {
+              transaction.push('release');
+            }
+          };
         }
       };
       const result = await reviewSponsorMediaAsset(pool, reviewInput);
@@ -442,8 +489,9 @@ test('media review distinguishes stale versions from missing assets through a fr
         result.asset?.version ?? null,
         current ? currentVersion : null
       );
-      assert.equal(calls.length, 2);
-      assert.deepEqual(calls[1].parameters, [assetId]);
+      assert.equal(calls.length, 1);
+      assert.deepEqual(calls[0].parameters, [assetId]);
+      assert.deepEqual(transaction, ['BEGIN', 'ROLLBACK', 'release']);
     });
   }
 });

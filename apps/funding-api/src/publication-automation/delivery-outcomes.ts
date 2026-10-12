@@ -1,4 +1,5 @@
 import { withPostgresTransaction } from '../postgres-transaction.js';
+import { recordRemoteRemovalProviderResult } from '../moderation/governance.js';
 import { lockPublicationBatchCapacity } from '../fund-publication-capacity.persistence.js';
 import type { SocialPublicationProviderResult } from '../social-publication.service.js';
 
@@ -54,6 +55,10 @@ export async function observeProviderResult(
           previous.externalPostUrl === metadata.externalPostUrl,
         'PROVIDER_RESULT_CONFLICT'
       );
+      await recordRemoteRemovalProviderResult(db, {
+        deliveryId: row.id,
+        externalPostId: result.externalPostId
+      });
       return;
     }
     await audit(
@@ -63,6 +68,10 @@ export async function observeProviderResult(
       row.id,
       metadata
     );
+    await recordRemoteRemovalProviderResult(db, {
+      deliveryId: row.id,
+      externalPostId: result.externalPostId
+    });
   });
 }
 
@@ -161,8 +170,8 @@ export async function handleDeliveryFailure(
   const changed = await withPostgresTransaction(context.pool, async (db) => {
     const failed = await db.query(
       `UPDATE publication_deliveries SET status=$2,error_code=$3,next_attempt_at=CASE WHEN $2='approved' THEN NOW()+($4 * INTERVAL '1 minute') ELSE NULL END,lease_until=NULL,
-       approved_at=CASE WHEN $3 IN ('SPONSOR_REVIEW_REQUIRED','MEDIA_CHANGED','MEDIA_NOT_APPROVED','MEDIA_UNAVAILABLE','SOURCE_CONTENT_MISSING','INVALID_MESSAGE') THEN NULL ELSE approved_at END,
-       approved_by=CASE WHEN $3 IN ('SPONSOR_REVIEW_REQUIRED','MEDIA_CHANGED','MEDIA_NOT_APPROVED','MEDIA_UNAVAILABLE','SOURCE_CONTENT_MISSING','INVALID_MESSAGE') THEN NULL ELSE approved_by END,
+       approved_at=CASE WHEN $3 LIKE 'MODERATION_%' OR $3 IN ('SPONSOR_REVIEW_REQUIRED','MEDIA_CHANGED','MEDIA_NOT_APPROVED','MEDIA_UNAVAILABLE','SOURCE_CONTENT_MISSING','INVALID_MESSAGE') THEN NULL ELSE approved_at END,
+       approved_by=CASE WHEN $3 LIKE 'MODERATION_%' OR $3 IN ('SPONSOR_REVIEW_REQUIRED','MEDIA_CHANGED','MEDIA_NOT_APPROVED','MEDIA_UNAVAILABLE','SOURCE_CONTENT_MISSING','INVALID_MESSAGE') THEN NULL ELSE approved_by END,
        version=version+1,updated_at=NOW() WHERE id=$1 AND ${activeClaimSql('$5')} RETURNING id`,
       [
         row.id,

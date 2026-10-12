@@ -286,6 +286,29 @@ export class FundingAdminSponsorshipsClient {
     }
     return (await response.json()) as AdminSponsorMediaReviewResult;
   }
+  async updateSponsorMediaMetadata(
+    token: string,
+    payload: import('@openg7/funding-core').AdminSponsorMediaMetadataRequest
+  ): Promise<AdminSponsorMediaReviewResult> {
+    const response = await this.session.requestAdminJson(
+      '/admin/sponsorships/media/metadata',
+      {
+        auth: { token },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
+      }
+    );
+    if (!response.ok)
+      throw new AdminDashboardRequestError(
+        response.status,
+        await errorMessageFromResponse(
+          response,
+          'Sponsor media metadata could not be saved.'
+        )
+      );
+    return response.json() as Promise<AdminSponsorMediaReviewResult>;
+  }
 
   async deleteSponsorMedia(
     token: string,

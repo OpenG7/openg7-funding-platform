@@ -40,6 +40,7 @@ export type HttpDispatcher = (
 ) => Promise<void>;
 
 export interface PublicHttpHandlers {
+  readonly handlePublicModerationRequest: HttpHandler;
   readonly handlePublicFundingRequest: HttpHandler;
   readonly handlePublicPaymentsRequest: HttpHandler;
   readonly handleReferenceLookupRequest: HttpHandler;
@@ -52,6 +53,7 @@ export interface PublicHttpHandlers {
 }
 
 export interface AdminHttpHandlers {
+  readonly handleAdminModerationRequest: HttpHandler;
   readonly handleAdminContributionsRequest: HttpHandler;
   readonly handleAdminDocumentsRequest: HttpHandler;
   readonly handleAdminAccountingRequest: HttpHandler;

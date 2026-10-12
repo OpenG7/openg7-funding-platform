@@ -22,6 +22,8 @@ import type {
 } from '@openg7/funding-core';
 
 import { AdminConfirmationService } from '../../../services/admin-confirmation.service.js';
+import { FundingModerationService } from '../../../services/funding-moderation.service.js';
+import { FundingModerationActionsComponent } from '../../../components/admin-moderation/funding-moderation-actions.component.js';
 import { FundingAdminService } from '../../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../../services/funding-i18n.service.js';
 import type { PublicationLoadState } from '../publication-panels.contracts.js';
@@ -49,7 +51,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
 @Component({
   selector: 'openg7-admin-publication-drafts-panel',
   standalone: true,
-  imports: [CommonModule, TranslatePipe],
+  imports: [CommonModule, TranslatePipe, FundingModerationActionsComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-publication-drafts-panel.component.html',
   styleUrls: [
@@ -62,6 +64,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
 export class AdminPublicationDraftsPanelComponent {
   private readonly admin = inject(FundingAdminService);
   private readonly confirmation = inject(AdminConfirmationService);
+  private readonly moderation = inject(FundingModerationService);
   private readonly i18n = inject(FundingI18nService);
   private readonly document = inject(DOCUMENT);
 
@@ -102,6 +105,8 @@ export class AdminPublicationDraftsPanelComponent {
       statusFilter: this.statusFilter
     },
     token: () => this.adminToken(),
+    moderate: (subject, level, initial) =>
+      this.moderation.requestDecision(subject, level, initial),
     reload: () => this.reload()(),
     confirm: (action, target) =>
       this.confirmation.confirm(

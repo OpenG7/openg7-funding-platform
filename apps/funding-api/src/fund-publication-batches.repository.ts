@@ -21,6 +21,8 @@ import { getPublicationDraftById } from './fund-publication-drafts.repository.js
 import { schedulePublicationBatch } from './fund-publication-batch-scheduling.persistence.js';
 import { lockPublicationBatchCapacity } from './fund-publication-capacity.persistence.js';
 import { withPostgresTransaction } from './postgres-transaction.js';
+import { ModerationError } from './moderation/policy.js';
+import { assertModerationApproved } from './moderation/repository.js';
 
 export const allowedPublicationBatchStatuses = new Set<PublicationBatchStatus>([
   'open',
@@ -323,8 +325,42 @@ export const publishAdminPublicationBatch = async (
     return { updated: false, batch: null };
   }
 
-  const result = await pool.query(
-    `
+  if (input.confirmation !== input.batchId)
+    throw new ModerationError('CONFIRMATION_REQUIRED', 400);
+  return withPostgresTransaction(
+    pool,
+    async (db) => {
+      if (!(await lockPublicationBatchCapacity(db, input.batchId)))
+        return { updated: false, batch: null };
+      const current = (
+        await db.query<{ status: PublicationBatchStatus }>(
+          'SELECT status FROM sponsor_publication_batches WHERE id=$1',
+          [input.batchId]
+        )
+      ).rows[0];
+      if (current?.status !== 'scheduled')
+        return {
+          updated: false,
+          batch: await getPublicationBatchById(db, input.batchId)
+        };
+      const drafts = await db.query<{ id: string; contribution_id: string }>(
+        'SELECT id,contribution_id FROM sponsor_publication_drafts WHERE batch_id=$1 ORDER BY id',
+        [input.batchId]
+      );
+      if (!drafts.rows.length)
+        throw new ModerationError('MODERATION_CONTENT_REQUIRED');
+      for (const draft of drafts.rows) {
+        await assertModerationApproved(db, {
+          type: 'sponsorship',
+          id: draft.contribution_id
+        });
+        await assertModerationApproved(db, {
+          type: 'publication_draft',
+          id: draft.id
+        });
+      }
+      const result = await db.query(
+        `
       UPDATE sponsor_publication_batches
       SET
         status = 'published',
@@ -333,12 +369,12 @@ export const publishAdminPublicationBatch = async (
       WHERE id = $1::uuid
         AND status = 'scheduled'
     `,
-    [input.batchId]
-  );
+        [input.batchId]
+      );
 
-  if ((result.rowCount ?? 0) > 0) {
-    await pool.query(
-      `
+      if ((result.rowCount ?? 0) > 0) {
+        await db.query(
+          `
         UPDATE sponsor_publication_drafts
         SET
           status = 'published',
@@ -347,12 +383,12 @@ export const publishAdminPublicationBatch = async (
         WHERE batch_id = $1::uuid
           AND status IN ('approved', 'scheduled')
       `,
-      [input.batchId]
-    );
+          [input.batchId]
+        );
 
-    if (presence.has_publication_slots) {
-      await pool.query(
-        `
+        if (presence.has_publication_slots) {
+          await db.query(
+            `
           UPDATE publication_slots slot
           SET status = 'published', updated_at = NOW()
           WHERE slot.id IN (
@@ -378,15 +414,18 @@ export const publishAdminPublicationBatch = async (
                 AND draft.status <> 'published'
             )
         `,
-        [input.batchId]
-      );
-    }
-  }
+            [input.batchId]
+          );
+        }
+      }
 
-  return {
-    updated: (result.rowCount ?? 0) > 0,
-    batch: await getPublicationBatchById(pool, input.batchId)
-  };
+      return {
+        updated: (result.rowCount ?? 0) > 0,
+        batch: await getPublicationBatchById(db, input.batchId)
+      };
+    },
+    { shouldCommit: (result) => result.updated }
+  );
 };
 
 export const cancelAdminPublicationBatch = async (

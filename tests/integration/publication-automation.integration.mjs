@@ -5,6 +5,10 @@ import { readdir, readFile } from 'node:fs/promises';
 import sharp from 'sharp';
 import { composePublicationRecognition } from '../../dist/packages/funding-core/src/index.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
+import {
+  approveFixtureSubject,
+  fixtureModerationDecision
+} from './support/moderation-fixture.mjs';
 import { PublicationAutomationService } from '../../dist/apps/funding-api/src/publication-automation/service.js';
 import { sources } from '../../dist/apps/funding-api/src/publication-automation/sources.js';
 import { mediaRecord } from '../../dist/apps/funding-api/src/publication-automation/media.js';
@@ -42,8 +46,8 @@ test(
     };
     const service = new PublicationAutomationService(pool, storage, env);
     const feedId = 'openg20:facebook';
-    const future = new Date(Date.now() + 60000).toISOString();
-    const due = new Date(Date.now() + 120000);
+    let future;
+    let due;
     async function reset() {
       await pool.query(
         'TRUNCATE fund_contributions,publication_deliveries,publication_recurrences,social_publication_jobs,sponsor_publication_drafts,sponsor_publication_batches,publication_slots,admin_audit_log CASCADE'
@@ -55,6 +59,9 @@ test(
       await pool.query(
         'UPDATE publication_worker_settings SET enabled=NULL,version=1'
       );
+      const scenarioStartedAt = Date.now();
+      future = new Date(scenarioStartedAt + 60000).toISOString();
+      due = new Date(scenarioStartedAt + 120000);
     }
     async function activate(s = service) {
       await s.command({ action: 'check', feedId }, 'tester');
@@ -81,7 +88,16 @@ test(
     async function approve(id, s = service) {
       const j = (await s.state()).deliveries.find((j) => j.id === id);
       await s.command(
-        { action: 'approve', id, version: j.version, confirmation: id },
+        {
+          action: 'approve',
+          id,
+          version: j.version,
+          confirmation: id,
+          moderationDecision: await fixtureModerationDecision(pool, {
+            type: 'publication_delivery',
+            id
+          })
+        },
         'tester'
       );
     }
@@ -100,12 +116,14 @@ test(
         .filter(Boolean)
         .join('\n\n');
     }
-    async function sponsor() {
+    async function sponsor({ reviewed = true } = {}) {
       const id = randomUUID();
       await pool.query(
         `INSERT INTO fund_contributions(id,contribution_type,amount_cents,status,public_display_consent,sponsor_review_status,sponsor_company_name,sponsor_public_summary,sponsor_feed_target,sponsor_feed_channels) VALUES($1,'sponsorship_interest',25000,'paid',TRUE,'approved','Fixture sponsor','Approved public summary','openg20','["facebook"]')`,
         [id]
       );
+      if (reviewed)
+        await approveFixtureSubject(pool, { type: 'sponsorship', id });
       return id;
     }
     async function presentation(contributionId) {
@@ -121,6 +139,7 @@ test(
           '0'.repeat(64)
         ]
       );
+      await approveFixtureSubject(pool, { type: 'media', id });
       return id;
     }
     async function pendingProposal() {
@@ -135,15 +154,26 @@ test(
       );
       return { contributionId, job };
     }
-    function combinedApproval(job) {
+    async function combinedApproval(job) {
       return {
         action: 'approve',
         id: job.id,
         version: job.version,
         confirmation: job.id,
-        approveSponsors: job.sponsors
-          .filter((s) => s.reviewStatus === 'pending_review')
-          .map(({ id, version }) => ({ id, version }))
+        moderationDecision: await fixtureModerationDecision(pool, {
+          type: 'publication_delivery',
+          id: job.id
+        }),
+        approveSponsors: await Promise.all(
+          job.sponsors.map(async ({ id, version }) => ({
+            id,
+            version,
+            moderationDecision: await fixtureModerationDecision(pool, {
+              type: 'sponsorship',
+              id
+            })
+          }))
+        )
       };
     }
     await t.test(
@@ -515,12 +545,12 @@ test(
       async () => {
         await reset();
         env.SOCIAL_PUBLICATION_MODE = 'disabled';
-        const valid = await sponsor();
-        const noConsent = await sponsor();
-        const unpaid = await sponsor();
-        const rejected = await sponsor();
-        const lowerTier = await sponsor();
-        const foreignCurrency = await sponsor();
+        const valid = await sponsor({ reviewed: false });
+        const noConsent = await sponsor({ reviewed: false });
+        const unpaid = await sponsor({ reviewed: false });
+        const rejected = await sponsor({ reviewed: false });
+        const lowerTier = await sponsor({ reviewed: false });
+        const foreignCurrency = await sponsor({ reviewed: false });
         await pool.query(
           "UPDATE fund_contributions SET sponsor_feed_target=NULL,sponsor_feed_channels='[]',sponsor_public_summary=NULL,sponsor_review_status='pending_review'"
         );
@@ -546,6 +576,15 @@ test(
         );
         await pool.query(
           "UPDATE publication_feeds SET auto_prepare=TRUE WHERE id='openg7:facebook'"
+        );
+        assert.equal(
+          (
+            await pool.query(
+              'SELECT COUNT(*)::int AS count FROM moderation_decisions WHERE subject_id=ANY($1::uuid[])',
+              [[valid, noConsent, unpaid, rejected, lowerTier, foreignCurrency]]
+            )
+          ).rows[0].count,
+          0
         );
         await service.tick();
         const state = await service.state();
@@ -597,7 +636,12 @@ test(
             action: 'reject',
             id: job.id,
             version: (await record(job.id)).version,
-            confirmation: job.id
+            confirmation: job.id,
+            moderationDecision: await fixtureModerationDecision(
+              pool,
+              { type: 'publication_delivery', id: job.id },
+              'N3'
+            )
           },
           'reviewer'
         );
@@ -628,7 +672,7 @@ test(
           code: 'SPONSOR_APPROVAL_REQUIRED'
         });
         await assert.rejects(
-          service.command(combinedApproval(job), 'reviewer'),
+          service.command(await combinedApproval(job), 'reviewer'),
           { code: 'SPONSOR_MEDIA_REQUIRED' }
         );
         const mediaId = await presentation(contributionId);
@@ -638,7 +682,7 @@ test(
         );
         const fresh = await record(job.id);
         await assert.rejects(
-          service.command(combinedApproval(fresh), 'reviewer'),
+          service.command(await combinedApproval(fresh), 'reviewer'),
           { code: 'CONNECTION_REQUIRED' }
         );
         assert.equal(
@@ -647,7 +691,7 @@ test(
         );
         await activate();
         await service.command(
-          combinedApproval(await record(job.id)),
+          await combinedApproval(await record(job.id)),
           'reviewer'
         );
         assert.equal((await record(job.id)).status, 'approved');
@@ -694,6 +738,10 @@ test(
         );
         assert.equal((await listPublicBuilders(pool)).builders.length, 0);
         assert.equal(await getApprovedPublicSponsorMedia(pool, mediaId), null);
+        await approveFixtureSubject(pool, {
+          type: 'sponsorship',
+          id: contributionId
+        });
         assert.equal(
           await setSponsorshipWebsiteVisibility(
             pool,
@@ -721,7 +769,7 @@ test(
         const { contributionId, job } = await pendingProposal();
         await presentation(contributionId);
         await activate();
-        const stale = combinedApproval(job);
+        const stale = await combinedApproval(job);
         await pool.query(
           "UPDATE fund_contributions SET sponsor_company_name='Changed company',updated_at=NOW() WHERE id=$1",
           [contributionId]
@@ -734,7 +782,10 @@ test(
           [contributionId]
         );
         await assert.rejects(
-          service.command(combinedApproval(await record(job.id)), 'reviewer'),
+          service.command(
+            await combinedApproval(await record(job.id)),
+            'reviewer'
+          ),
           { code: 'SOURCE_NOT_ELIGIBLE' }
         );
         await service.prepare(feedId, 'planner');
@@ -1027,7 +1078,12 @@ test(
           }
           const blocked = await record(job.id);
           assert.equal(blocked.status, 'blocked');
-          assert.equal(blocked.errorCode, 'SPONSOR_REVIEW_REQUIRED');
+          assert.equal(
+            blocked.errorCode,
+            scenario.startsWith('before-dispatch')
+              ? 'MODERATION_RESTRICTED'
+              : 'SPONSOR_REVIEW_REQUIRED'
+          );
           assert.equal(blocked.approvedAt, null);
           assert.equal(blocked.externalPostId, null);
           const claimCount = scenario.startsWith('before-dispatch') ? 1 : 0;
@@ -1065,7 +1121,7 @@ test(
             'reviewer'
           );
           await service.command(
-            combinedApproval(await record(job.id)),
+            await combinedApproval(await record(job.id)),
             'reviewer'
           );
           const authorized = await record(job.id);
@@ -1255,7 +1311,13 @@ test(
                   reviewStatus === 'approved'
                     ? 'https://example.test/image.webp'
                     : null,
-                reviewedBy: 'tester'
+                reviewedBy: 'tester',
+                confirmation: mediaId,
+                moderationDecision: await fixtureModerationDecision(
+                  pool,
+                  { type: 'media', id: mediaId },
+                  reviewStatus === 'rejected' ? 'N3' : 'N0'
+                )
               });
               assert.equal(result.status, 'updated');
             }
@@ -1279,7 +1341,9 @@ test(
           assert.equal(blocked.status, 'blocked');
           assert.equal(
             blocked.errorCode,
-            change === 'reapproved' ? 'MEDIA_CHANGED' : 'MEDIA_NOT_APPROVED'
+            change === 'deleted'
+              ? 'MEDIA_NOT_APPROVED'
+              : 'MODERATION_RESTRICTED'
           );
           assert.equal(blocked.approvedAt, null);
           const claimCount = change === 'after-preflight' ? 1 : 0;
@@ -1293,7 +1357,17 @@ test(
               [id]
             )
           ).rows;
-          assert.equal(audits.length, 1);
+          assert.equal(audits.length, change === 'reapproved' ? 0 : 1);
+          if (change === 'reapproved')
+            assert.equal(
+              (
+                await pool.query(
+                  "SELECT COUNT(*)::int AS count FROM moderation_decisions WHERE subject_type='media' AND subject_id=$1 AND level='N3'",
+                  [mediaId]
+                )
+              ).rows[0].count,
+              1
+            );
           await assert.rejects(
             service.command(
               {
@@ -1359,6 +1433,7 @@ test(
             '0'.repeat(64)
           ]
         );
+        await approveFixtureSubject(pool, { type: 'media', id: mediaId });
         const { id } = await service.command(
           {
             action: 'compose',
@@ -1474,7 +1549,7 @@ test(
         await service.tick(due);
         const blocked = await record(job.id);
         assert.equal(blocked.status, 'blocked');
-        assert.equal(blocked.errorCode, 'SOURCE_CONTENT_MISSING');
+        assert.equal(blocked.errorCode, 'MODERATION_RESTRICTED');
         assert.equal(blocked.approvedAt, null);
         assert.equal(blocked.externalPostId, null);
         assert.deepEqual(
@@ -1490,6 +1565,70 @@ test(
           (
             await pool.query(
               "SELECT count(*)::int AS n FROM admin_audit_log WHERE entity_id=$1 AND action IN ('publication_automation.published','publication_automation.provider_result_observed')",
+              [job.id]
+            )
+          ).rows[0].n,
+          0
+        );
+      }
+    );
+    await t.test(
+      'current editorial N0 cannot authorize incomplete recognition in a private draft',
+      async (st) => {
+        await reset();
+        await activate();
+        await sponsor();
+        await service.prepare(feedId, 'planner');
+        const job = (await service.state()).deliveries.find(
+          (j) => j.status === 'draft'
+        );
+        assert.ok(job);
+        // A synthetic private legacy draft has never held a sending claim.
+        await pool.query(
+          "UPDATE publication_deliveries SET message='Incomplete recognition' WHERE id=$1",
+          [job.id]
+        );
+        const subject = { type: 'publication_delivery', id: job.id };
+        await approveFixtureSubject(pool, subject);
+        const before = await record(job.id);
+        assert.equal(before.status, 'draft');
+        assert.equal(before.approvedAt, null);
+        const sourcesBefore = (
+          await pool.query(
+            'SELECT status,approved_at,published_at FROM sponsor_publication_drafts WHERE batch_id=$1 ORDER BY id',
+            [job.batchId]
+          )
+        ).rows;
+        st.mock.method(globalThis, 'fetch', async () =>
+          assert.fail('incomplete recognition must not reach a provider')
+        );
+        await assert.rejects(
+          service.command(
+            {
+              action: 'approve',
+              id: job.id,
+              version: before.version,
+              confirmation: job.id,
+              moderationDecision: await fixtureModerationDecision(pool, subject)
+            },
+            'tester'
+          ),
+          { code: 'SOURCE_CONTENT_MISSING' }
+        );
+        assert.deepEqual(await record(job.id), before);
+        assert.deepEqual(
+          (
+            await pool.query(
+              'SELECT status,approved_at,published_at FROM sponsor_publication_drafts WHERE batch_id=$1 ORDER BY id',
+              [job.batchId]
+            )
+          ).rows,
+          sourcesBefore
+        );
+        assert.equal(
+          (
+            await pool.query(
+              "SELECT count(*)::int AS n FROM admin_audit_log WHERE entity_id=$1 AND action IN ('publication_automation.approve','publication_automation.published','publication_automation.provider_result_observed')",
               [job.id]
             )
           ).rows[0].n,

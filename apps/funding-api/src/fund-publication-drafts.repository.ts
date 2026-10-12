@@ -9,6 +9,15 @@ import type {
 import type { Pool, PoolClient } from 'pg';
 
 import {
+  approveModeratedSubject,
+  auditModeratedMutation,
+  recordAdverseModeration
+} from './moderation-legacy.js';
+import { ModerationError } from './moderation/policy.js';
+import { assertModerationApproved } from './moderation/repository.js';
+import { withPostgresTransaction } from './postgres-transaction.js';
+import { lockModerationDependencies } from './moderation/content.js';
+import {
   mapPublicationDraftRow,
   type PublicationDraftRow
 } from './fund-publication.mapping.js';
@@ -29,7 +38,7 @@ export const allowedPublicationDraftStatuses = new Set<PublicationDraftStatus>([
 ]);
 
 export const getPublicationDraftById = async (
-  pool: Pool,
+  pool: Pool | PoolClient,
   draftId: string
 ): Promise<AdminPublicationDraftRecord | null> => {
   const query = await pool.query<PublicationDraftRow>(
@@ -239,7 +248,8 @@ export const createAdminPublicationDraft = async (
 
 export const updateAdminPublicationDraft = async (
   pool: Pool | null,
-  input: AdminPublicationDraftUpdateRequest
+  input: AdminPublicationDraftUpdateRequest,
+  actor = ''
 ): Promise<AdminPublicationDraftMutationResult> => {
   if (!pool) {
     return { updated: false, draft: null };
@@ -250,67 +260,154 @@ export const updateAdminPublicationDraft = async (
     return { updated: false, draft: null };
   }
 
-  const assignments: string[] = [];
-  const values: unknown[] = [input.draftId];
+  return withPostgresTransaction(
+    pool,
+    async (db) => {
+      if (input.status === 'rejected')
+        await lockModerationDependencies(db, {
+          type: 'publication_draft',
+          id: input.draftId
+        });
+      const current = (
+        await db.query<{
+          id: string;
+          contribution_id: string;
+          title: string;
+          body: string;
+          disclosure_text: string;
+          public_url: string | null;
+          scheduled_at: Date | null;
+        }>(
+          'SELECT id,contribution_id,title,body,disclosure_text,public_url,scheduled_at FROM sponsor_publication_drafts WHERE id=$1 FOR UPDATE',
+          [input.draftId]
+        )
+      ).rows[0];
+      if (!current) return { updated: false, draft: null };
+      if (
+        [
+          'approved',
+          'scheduled',
+          'published',
+          'rejected',
+          'cancelled'
+        ].includes(input.status ?? '') &&
+        (input.confirmation ?? input.moderationDecision?.confirmation) !==
+          input.draftId
+      )
+        throw new ModerationError('CONFIRMATION_REQUIRED', 400);
+      if (input.status === 'rejected') {
+        if (
+          (input.title !== undefined && input.title.trim() !== current.title) ||
+          (input.body !== undefined && input.body.trim() !== current.body) ||
+          (input.disclosureText !== undefined &&
+            input.disclosureText.trim() !== current.disclosure_text) ||
+          (input.publicUrl !== undefined &&
+            (input.publicUrl.trim() || null) !== current.public_url) ||
+          (input.scheduledAt !== undefined &&
+            (input.scheduledAt === null
+              ? null
+              : Date.parse(input.scheduledAt)) !==
+              (current.scheduled_at?.getTime() ?? null))
+        )
+          throw new ModerationError('MODERATION_CONTENT_CHANGED');
+        // The structured decision owns the refusal and its confidential reason.
+        // Revoke dependent claims before projecting status; do not rewrite the
+        // legacy reviewNote or any source metadata underneath an in-flight claim.
+        await recordAdverseModeration(
+          db,
+          { type: 'publication_draft', id: input.draftId },
+          actor,
+          input.moderationDecision,
+          ['N3']
+        );
+        return {
+          updated: true,
+          draft: await getPublicationDraftById(db, input.draftId)
+        };
+      }
+      const assignments: string[] = [];
+      const values: unknown[] = [input.draftId];
 
-  const addAssignment = (sql: string, value: unknown): void => {
-    values.push(value);
-    assignments.push(sql.replace('?', `$${values.length}`));
-  };
+      const addAssignment = (sql: string, value: unknown): void => {
+        values.push(value);
+        assignments.push(sql.replace('?', `$${values.length}`));
+      };
 
-  if (input.title !== undefined) {
-    addAssignment('title = ?', input.title.trim());
-  }
+      if (input.title !== undefined) {
+        addAssignment('title = ?', input.title.trim());
+      }
 
-  if (input.body !== undefined) {
-    addAssignment('body = ?', input.body.trim());
-  }
+      if (input.body !== undefined) {
+        addAssignment('body = ?', input.body.trim());
+      }
 
-  if (input.disclosureText !== undefined) {
-    addAssignment('disclosure_text = ?', input.disclosureText.trim());
-  }
+      if (input.disclosureText !== undefined) {
+        addAssignment('disclosure_text = ?', input.disclosureText.trim());
+      }
 
-  if (input.status !== undefined) {
-    addAssignment('status = ?', input.status);
-    if (input.status === 'approved') {
-      assignments.push('approved_at = COALESCE(approved_at, NOW())');
-    }
-    if (input.status === 'published') {
-      assignments.push('published_at = COALESCE(published_at, NOW())');
-    }
-  }
+      if (input.status !== undefined) {
+        addAssignment('status = ?', input.status);
+        if (input.status === 'approved') {
+          assignments.push('approved_at = COALESCE(approved_at, NOW())');
+        }
+        if (input.status === 'published') {
+          assignments.push('published_at = COALESCE(published_at, NOW())');
+        }
+      }
 
-  if (input.publicUrl !== undefined) {
-    addAssignment("public_url = NULLIF(?, '')", input.publicUrl.trim());
-  }
+      if (input.publicUrl !== undefined) {
+        addAssignment("public_url = NULLIF(?, '')", input.publicUrl.trim());
+      }
 
-  if (input.scheduledAt !== undefined) {
-    addAssignment('scheduled_at = ?::timestamptz', input.scheduledAt);
-  }
+      if (input.scheduledAt !== undefined) {
+        addAssignment('scheduled_at = ?::timestamptz', input.scheduledAt);
+      }
 
-  if (input.reviewNote !== undefined) {
-    addAssignment("review_note = NULLIF(?, '')", input.reviewNote.trim());
-  }
+      if (input.reviewNote !== undefined) {
+        addAssignment("review_note = NULLIF(?, '')", input.reviewNote.trim());
+      }
 
-  if (assignments.length === 0) {
-    return {
-      updated: false,
-      draft: await getPublicationDraftById(pool, input.draftId)
-    };
-  }
+      if (assignments.length === 0) {
+        return {
+          updated: false,
+          draft: await getPublicationDraftById(db, input.draftId)
+        };
+      }
 
-  assignments.push('updated_at = NOW()');
-  const result = await pool.query(
-    `
+      assignments.push('updated_at = NOW()');
+      const result = await db.query(
+        `
       UPDATE sponsor_publication_drafts
       SET ${assignments.join(', ')}
       WHERE id = $1::uuid
     `,
-    values
-  );
+        values
+      );
 
-  return {
-    updated: (result.rowCount ?? 0) > 0,
-    draft: await getPublicationDraftById(pool, input.draftId)
-  };
+      const subject = { type: 'publication_draft', id: input.draftId } as const;
+      if (['approved', 'scheduled', 'published'].includes(input.status ?? '')) {
+        await assertModerationApproved(db, {
+          type: 'sponsorship',
+          id: current.contribution_id
+        });
+        await approveModeratedSubject(
+          db,
+          subject,
+          actor,
+          input.moderationDecision
+        );
+        await auditModeratedMutation(
+          db,
+          subject,
+          actor,
+          `publication_draft.${input.status}`
+        );
+      }
+      return {
+        updated: (result.rowCount ?? 0) > 0,
+        draft: await getPublicationDraftById(db, input.draftId)
+      };
+    },
+    { shouldCommit: (result) => result.updated }
+  );
 };

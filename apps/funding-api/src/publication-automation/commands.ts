@@ -5,6 +5,14 @@ import type {
 } from '@openg7/funding-core';
 
 import { withPostgresTransaction } from '../postgres-transaction.js';
+import {
+  approveModeratedSubject,
+  recordAdverseModeration
+} from '../moderation-legacy.js';
+import {
+  ModerationError,
+  moderationApprovedSql
+} from '../moderation/policy.js';
 
 import {
   audit,
@@ -31,7 +39,7 @@ import { ready } from './preflight.js';
 import { checkConnection, DeliveryFailure, verifyRemote } from './provider.js';
 import { sourceEqual, sources as loadSources } from './sources.js';
 
-export async function command(
+async function executeCommand(
   context: PublicationCommandsContext,
   input: PublicationAutomationCommand,
   actor: string,
@@ -317,7 +325,7 @@ export async function command(
               version: string;
               presentation_approved: boolean;
             }>(
-              `SELECT c.id,c.updated_at::text AS version,EXISTS(SELECT 1 FROM sponsor_media_assets m WHERE m.contribution_id=c.id AND m.kind='supporting_image' AND m.review_status='approved' AND m.deleted_at IS NULL) AS presentation_approved FROM fund_contributions c WHERE c.id=ANY($1::uuid[]) AND c.sponsor_review_status='pending_review' ORDER BY c.id`,
+              `SELECT c.id,c.updated_at::text AS version,EXISTS(SELECT 1 FROM sponsor_media_assets m WHERE m.contribution_id=c.id AND m.kind='supporting_image' AND m.review_status='approved' AND ${moderationApprovedSql('media', 'm.id')} AND m.deleted_at IS NULL) AS presentation_approved FROM fund_contributions c WHERE c.id=ANY($1::uuid[]) AND c.sponsor_review_status='pending_review' ORDER BY c.id`,
               [sources.map((s) => s.contribution_id)]
             )
           ).rows;
@@ -350,7 +358,23 @@ export async function command(
             'SPONSOR_MEDIA_REQUIRED'
           );
           await assertSponsorshipContent(db, row);
+          for (const sponsor of confirmed.filter(
+            (item) => !pending.some((candidate) => candidate.id === item.id)
+          ))
+            await approveModeratedSubject(
+              db,
+              { type: 'sponsorship', id: sponsor.id },
+              actor,
+              sponsor.moderationDecision
+            );
           for (const sponsor of pending) {
+            await approveModeratedSubject(
+              db,
+              { type: 'sponsorship', id: sponsor.id },
+              actor,
+              confirmed.find((item) => item.id === sponsor.id)
+                ?.moderationDecision
+            );
             await db.query(
               `UPDATE fund_contributions SET sponsor_review_status='approved',sponsor_reviewed_at=NOW(),sponsor_site_visibility_held=TRUE,updated_at=NOW() WHERE id=$1`,
               [sponsor.id]
@@ -361,6 +385,12 @@ export async function command(
             });
           }
         }
+        await approveModeratedSubject(
+          db,
+          { type: 'publication_delivery', id: row.id },
+          actor,
+          input.moderationDecision
+        );
         await ready(db, row, context.storage, context.feeds);
         await db.query(
           `UPDATE publication_deliveries SET status='approved',approved_at=NOW(),approved_by=$2,version=version+1,updated_at=NOW() WHERE id=$1`,
@@ -381,6 +411,14 @@ export async function command(
           ['draft', 'approved', 'blocked'].includes(row.status),
           'DELIVERY_LOCKED'
         );
+        if (input.action === 'reject')
+          await recordAdverseModeration(
+            db,
+            { type: 'publication_delivery', id: row.id },
+            actor,
+            input.moderationDecision,
+            ['N3']
+          );
         await db.query(
           `UPDATE publication_deliveries SET status=$2,auto_managed=FALSE,approved_at=NULL,approved_by=NULL,version=version+1,updated_at=NOW() WHERE id=$1`,
           [row.id, input.action === 'reject' ? 'rejected' : 'cancelled']
@@ -434,4 +472,20 @@ export async function command(
     });
     return { id: row.id };
   });
+}
+
+export async function command(
+  context: PublicationCommandsContext,
+  input: PublicationAutomationCommand,
+  actor: string,
+  automatic = false,
+  client?: PoolClient
+): Promise<{ id?: string }> {
+  try {
+    return await executeCommand(context, input, actor, automatic, client);
+  } catch (error) {
+    if (error instanceof ModerationError)
+      throw new PublicationAutomationError(error.code, error.status);
+    throw error;
+  }
 }

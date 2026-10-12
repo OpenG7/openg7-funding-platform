@@ -7,7 +7,7 @@ import {
   inject,
   signal
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, DOCUMENT } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -21,6 +21,7 @@ import type {
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
+import { FundingModerationService } from '../../services/funding-moderation.service.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import { AdminPublicationCalendarComponent } from '../../components/admin-publications/admin-publication-calendar.component.js';
 import type { PublicationCalendarEntry } from '../../components/admin-publications/publication-calendar.js';
@@ -29,6 +30,7 @@ import { PublicationAutomationSettingsController } from './publication-automatio
 import { AdminPublicationAutomationSettingsComponent } from './admin-publication-automation-settings.component.js';
 import { PublicationDeliveryController } from './publication-delivery-controller.js';
 import { PublicationDeliveryDrawerComponent } from './publication-delivery-drawer.component.js';
+import { PublicationSourceQueueComponent } from './publication-source-queue.component.js';
 import { AdminPublicationAutomationCommandWorkflow } from './admin-publication-automation-command-workflow.js';
 import { PublicationAutomationReadController } from './publication-automation-read-controller.js';
 import type { PublicationAutomationCommandRunner } from './publication-automation.ports.js';
@@ -44,7 +46,8 @@ import type { PublicationAutomationCommandRunner } from './publication-automatio
     AdminLayoutComponent,
     AdminPublicationCalendarComponent,
     AdminPublicationAutomationSettingsComponent,
-    PublicationDeliveryDrawerComponent
+    PublicationDeliveryDrawerComponent,
+    PublicationSourceQueueComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-publication-automation-page.component.html',
@@ -58,7 +61,9 @@ export class AdminPublicationAutomationPageComponent {
   private readonly admin = inject(FundingAdminService);
   readonly i18n = inject(FundingI18nService);
   private readonly confirmation = inject(AdminConfirmationService);
+  private readonly moderation = inject(FundingModerationService);
   private readonly route = inject(ActivatedRoute);
+  private readonly document = inject(DOCUMENT);
   readonly feedSettingsExpanded =
     this.route.snapshot.queryParamMap.get('settings') === 'feeds';
   private readonly readController: PublicationAutomationReadController =
@@ -89,6 +94,7 @@ export class AdminPublicationAutomationPageComponent {
   );
   readonly error = signal('');
   readonly notice = signal('');
+  readonly queueDateLabel = (value: string): string => this.dateLabel(value);
   readonly tab = signal('review');
   readonly feedFilter = signal('');
   private readonly commands: PublicationAutomationCommandRunner = {
@@ -116,6 +122,9 @@ export class AdminPublicationAutomationPageComponent {
     admin: this.admin,
     i18n: this.i18n,
     confirm: (message, title) => this.confirmation.confirm(message, title),
+    moderate: (subject, level, initial) =>
+      this.moderation.requestDecision(subject, level, initial),
+    refresh: () => this.load(),
     showError: (error) => this.showError(error),
     clearError: () => this.error.set('')
   });
@@ -256,7 +265,20 @@ export class AdminPublicationAutomationPageComponent {
     });
   }
   load(): Promise<boolean> {
-    return this.readController.load();
+    this.readController.resetQueueOffset();
+    return this.readController.load(true);
+  }
+  async loadQueuePage(offset: number): Promise<void> {
+    if (this.busy() || this.delivery.selected() || this.delivery.composing())
+      return;
+    this.busy.set(true);
+    try {
+      const loaded = await this.readController.loadQueuePage(offset);
+      if (loaded)
+        this.document.getElementById('publication-source-queue-title')?.focus();
+    } finally {
+      this.busy.set(false);
+    }
   }
   private showError(error: unknown): void {
     const code = error instanceof Error ? error.message : '';

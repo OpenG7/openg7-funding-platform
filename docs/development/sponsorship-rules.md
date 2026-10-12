@@ -17,6 +17,15 @@ publication sont distincts. Toute approbation conserve acteur, date et note/rais
 pertinente; un refus conserve l'historique financier. Les contrats réels de code
 font foi sur les noms exacts des états.
 
+La revue éditoriale utilise les décisions N0–N5, les 17 motifs et la version du
+contenu effectivement examiné. Une modification invalide cette autorisation;
+une écriture comptable ou un claim worker ne vaut pas modification éditoriale.
+Les notes internes restent privées, distinctes de l'explication commanditaire.
+Les décisions graves et leur atténuation exigent des personnes identifiables
+distinctes. Ni une correction ni un recours ne rétablit la publication.
+Contrats, maintien historique sans nouvelle approbation et limites d'activation :
+[runbook de modération](../operations/sponsorship-moderation.md).
+
 Publication (`not_planned`, `planned`, `drafted`, `published`, `hidden`) : contenu
 validé, liens externes conservés, cibles `openg7`/`openg20` et canaux
 `facebook`/`linkedin` explicites. Paiement sans publication automatique; masquage

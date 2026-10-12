@@ -1,5 +1,8 @@
 import type { Page } from '@playwright/test';
-import type { SponsorMediaAsset } from '@openg7/funding-core';
+import type {
+  SponsorMediaAsset,
+  SponsorshipModerationResponse
+} from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
 
@@ -9,6 +12,10 @@ const onePixelPng = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
   'base64'
 );
+const emptyModeration: SponsorshipModerationResponse = {
+  items: [],
+  reconsiderations: []
+};
 
 test('@mobile keeps a failed photo preview visible until it is removed', async ({
   page
@@ -16,6 +23,11 @@ test('@mobile keeps a failed photo preview visible until it is removed', async (
   await page.route('**/api/sponsorship-followup**', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
+
+    if (url.pathname.endsWith('/moderation') && request.method() === 'GET') {
+      await route.fulfill({ json: emptyModeration });
+      return;
+    }
 
     if (url.pathname.endsWith('/draft')) {
       await route.fulfill({
@@ -151,7 +163,9 @@ async function mockConfirmedUpload(page: Page) {
   await page.route('**/api/sponsorship-followup**', async (route) => {
     const request = route.request();
     const pathname = new URL(request.url()).pathname;
-    if (pathname.endsWith('/draft')) {
+    if (pathname.endsWith('/moderation') && request.method() === 'GET') {
+      await route.fulfill({ json: emptyModeration });
+    } else if (pathname.endsWith('/draft')) {
       await route.fulfill({
         json: { revision: 0, data: null, updatedAt: null }
       });

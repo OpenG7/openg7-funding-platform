@@ -1,0 +1,124 @@
+<section
+  class="state-card"
+  data-og7="followup-moderation"
+  [attr.aria-busy]="loading() || busy()"
+>
+  <h2>{{ 'funding.moderation.title' | translate }}</h2>
+  @if (loading()) {
+    <p role="status">{{ 'funding.moderation.loading' | translate }}</p>
+  }
+  @if (error()) {
+    <p role="alert">{{ 'funding.moderation.unavailable' | translate }}</p>
+    <button type="button" [disabled]="busy()" (click)="load()">
+      {{ 'funding.followup.retry' | translate }}
+    </button>
+  }
+  @if (notice()) {
+    <p role="status">{{ 'funding.moderation.requestReceived' | translate }}</p>
+  }
+  @if (data(); as current) {
+    @if (!current.items.length) {
+      <p>{{ 'funding.moderation.empty' | translate }}</p>
+    }
+    @for (item of current.items; track item.decision.id) {
+      <article
+        [attr.data-og7-id]="item.decision.id"
+        data-og7="followup-moderation-decision"
+      >
+        <h3>
+          {{ 'admin.moderation.levels.' + item.decision.level | translate }}
+        </h3>
+        <p>
+          {{
+            'funding.moderation.subjects.' + item.decision.subject.type
+              | translate
+          }}
+        </p>
+        @if (item.decision.primaryReason) {
+          <p>{{ reason(item.decision.primaryReason) }}</p>
+        }
+        <p
+          class="moderation-explanation"
+          style="white-space: pre-wrap"
+          data-og7="followup-moderation-explanation"
+        >
+          {{ item.decision.sponsorExplanation }}
+        </p>
+        <p>
+          {{
+            'funding.moderation.policyVersion'
+              | translate: { version: item.decision.policyVersion }
+          }}
+        </p>
+        @if (item.decision.state === 'pending_independent_review') {
+          <p>{{ 'funding.moderation.independentReview' | translate }}</p>
+        }
+        @if (item.canCorrect && item.decision.subject.type === 'sponsorship') {
+          <button
+            type="button"
+            [disabled]="busy()"
+            (click)="correctionRequested.emit(item.decision.id)"
+            data-og7="followup-correction"
+          >
+            {{ 'funding.moderation.correct' | translate }}
+          </button>
+        }
+        @if (hasOpenRequest(item.decision.id)) {
+          <p>{{ 'funding.moderation.requestOpen' | translate }}</p>
+        } @else if (item.canRequestReconsideration) {
+          <button
+            type="button"
+            [disabled]="busy()"
+            (click)="
+              activeDecision.set(item.decision.id);
+              explanation.set('');
+              confirmed.set(false)
+            "
+            data-og7="followup-reconsideration"
+          >
+            {{ 'funding.moderation.reconsider' | translate }}
+          </button>
+        }
+      </article>
+    }
+    @if (activeDecision()) {
+      <form
+        (submit)="$event.preventDefault(); reconsider()"
+        data-og7="followup-reconsideration-form"
+      >
+        <label
+          >{{ 'funding.moderation.requestExplanation' | translate
+          }}<textarea
+            required
+            maxlength="2000"
+            [value]="explanation()"
+            (input)="edit($event)"
+            [disabled]="busy()"
+          ></textarea>
+        </label>
+        <p>{{ 'funding.moderation.noAutomaticApproval' | translate }}</p>
+        <label
+          ><input
+            type="checkbox"
+            [checked]="confirmed()"
+            (change)="check($event)"
+            [disabled]="busy()"
+          />{{ 'funding.moderation.confirmRequest' | translate }}</label
+        >
+        <button
+          type="submit"
+          [disabled]="busy() || !confirmed() || !explanation().trim()"
+        >
+          {{ 'funding.moderation.submitRequest' | translate }}
+        </button>
+        <button
+          type="button"
+          [disabled]="busy()"
+          (click)="activeDecision.set(null)"
+        >
+          {{ 'funding.followup.form.cancel' | translate }}
+        </button>
+      </form>
+    }
+  }
+</section>

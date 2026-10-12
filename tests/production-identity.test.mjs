@@ -399,7 +399,7 @@ const hostEnv = Object.fromEntries(
     .filter((name) => process.env[name])
     .map((name) => [name, process.env[name]])
 );
-const nativeProbe = (port, caPath) =>
+const nativeProbe = (port, caPath, { retryLimit, beforeRetry } = {}) =>
   new Promise((resolveChild, reject) => {
     const code = `
 import dns from 'node:dns';
@@ -412,9 +412,25 @@ dns.lookup = (hostname, options, callback) => {
 };
 syncBuiltinESMExports();
 const { waitForProductionIdentity } = await import(${JSON.stringify(new URL('../scripts/lib/production-identity.mjs', import.meta.url).href)});
+const retryLimit = ${JSON.stringify(retryLimit ?? null)};
+let readinessClock = 0, retries = 0;
+const controlledRetries = retryLimit ? {
+  timeoutMs: 4_000,
+  requestTimeoutMs: 2_000,
+  now: () => readinessClock,
+  sleep: async () => {
+    const retry = ++retries;
+    await new Promise((resume) => {
+      process.once('message', resume);
+      process.send({ retry });
+    });
+    if (retry === retryLimit) readinessClock = 4_000;
+  }
+} : {};
 try {
   await waitForProductionIdentity(${JSON.stringify(env())}, {
     timeoutMs: 450, intervalMs: 20, requestTimeoutMs: 200,
+    ...controlledRetries,
     fetchImpl: (url, options) => {
       const target = new URL(url);
       if (target.hostname !== 'auth.example.org') throw new Error('Unsafe synthetic request');
@@ -426,10 +442,11 @@ try {
 } catch (error) {
   console.log(JSON.stringify({ ok: false, message: error.message }));
 }
+if (process.connected) process.disconnect();
 `;
     const child = spawn(process.execPath, ['--input-type=module', '-e', code], {
       env: { ...hostEnv, ...(caPath ? { NODE_EXTRA_CA_CERTS: caPath } : {}) },
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ['ignore', 'pipe', 'pipe', ...(retryLimit ? ['ipc'] : [])],
       windowsHide: true
     });
     let stdout = '',
@@ -443,6 +460,16 @@ try {
     });
     child.stderr.on('data', (chunk) => {
       stderr += chunk;
+    });
+    child.on('message', async ({ retry }) => {
+      try {
+        await beforeRetry(retry);
+        child.send({ retry });
+      } catch (error) {
+        clearTimeout(timer);
+        child.kill();
+        reject(error);
+      }
     });
     child.once('error', (error) => {
       clearTimeout(timer);
@@ -639,20 +666,42 @@ test(
   'native HTTPS closes an unconsumed failing response before retrying',
   { timeout: 7_000 },
   async (t) => {
+    const events = [];
+    const closures = [];
     const fixture = await httpsFixture(t, {
       handler: (_request, response) => {
+        const request = closures.length + 1;
+        events.push(`request:${request}`);
+        closures.push(
+          new Promise((closed) => {
+            response.once('close', () => {
+              assert.equal(response.writableEnded, false);
+              events.push(`close:${request}`);
+              closed();
+            });
+          })
+        );
         response.writeHead(503, { 'Content-Type': 'application/json' });
         response.write('{');
         const interval = setInterval(() => response.write(' '), 10);
         response.once('close', () => clearInterval(interval));
       }
     });
-    const result = await nativeProbe(fixture.port, fixture.caPath);
+    // End the retry budget after two observed server-side closes, rather than
+    // racing the final TLS handshake against a few remaining milliseconds.
+    const result = await nativeProbe(fixture.port, fixture.caPath, {
+      retryLimit: 2,
+      beforeRetry: async (retry) => {
+        assert.equal(closures.length, retry);
+        await closures[retry - 1];
+      }
+    });
     assert.equal(result.ok, false);
     assert.match(
       result.message,
       /HTTPS readiness timed out: HTTPS response is not ready/
     );
-    assert.ok(fixture.requests.length >= 1);
+    assert.equal(fixture.requests.length, 2);
+    assert.deepEqual(events, ['request:1', 'close:1', 'request:2', 'close:2']);
   }
 );

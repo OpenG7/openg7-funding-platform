@@ -17,15 +17,27 @@ export function acceptanceEnvironment({
   project,
   envFile,
   webPort,
-  stripePort
+  stripePort,
+  moderationWebPort,
+  oidcProviderPort,
+  moderationNginxFile
 }) {
   if (!/^og7-acceptance-[a-f0-9-]+$/.test(project))
     throw new Error('Invalid acceptance project.');
-  for (const port of [webPort, stripePort]) {
+  const ports = [webPort, stripePort, moderationWebPort, oidcProviderPort];
+  for (const port of ports) {
     if (!Number.isInteger(port) || port < 1024 || port > 65535)
       throw new Error('Invalid loopback port.');
   }
-  if (webPort === stripePort) throw new Error('Acceptance ports must differ.');
+  if (
+    new Set(ports).size !== ports.length ||
+    ports.some((port) => [3333, 3334].includes(port))
+  )
+    throw new Error(
+      'Acceptance ports must differ from each other and internal API ports.'
+    );
+  if (!moderationNginxFile)
+    throw new Error('Missing isolated OIDC proxy configuration.');
   return {
     ...Object.fromEntries(
       Object.entries(parent).filter(([key]) => toolchainKeys.test(key))
@@ -38,7 +50,11 @@ export function acceptanceEnvironment({
     OPENG7_E2E_ISOLATED: '1',
     ACCEPTANCE_WEB_PORT: String(webPort),
     ACCEPTANCE_STRIPE_PORT: String(stripePort),
+    ACCEPTANCE_MODERATION_WEB_PORT: String(moderationWebPort),
+    ACCEPTANCE_OIDC_PROVIDER_PORT: String(oidcProviderPort),
+    ACCEPTANCE_OIDC_NGINX_FILE: moderationNginxFile,
     PLAYWRIGHT_BASE_URL: `http://127.0.0.1:${webPort}`,
+    MODERATION_WEB_BASE_URL: `http://127.0.0.1:${moderationWebPort}`,
     STRIPE_STUB_BASE_URL: `http://127.0.0.1:${stripePort}`,
     POSTGRES_DB: 'acceptance',
     POSTGRES_USER: 'acceptance',
@@ -87,6 +103,17 @@ export async function acceptanceStages({
     await run(node, ['scripts/db-migrate.mjs']);
     await run(node, ['scripts/e2e-seed.mjs']);
     await run('docker', ['compose', 'up', '-d', '--wait']);
+    // A separate OIDC API process exercises decisions requiring two stable
+    // identities. It shares the disposable database and local media only.
+    await run('docker', [
+      'compose',
+      'exec',
+      '-d',
+      'api',
+      'node',
+      '/app/tests/identity/docker-moderation-server.mjs'
+    ]);
+    await run(node, ['scripts/lib/admin-acceptance-readiness.mjs']);
     // Scenarios share the database, global settings and API restarts. Keep the
     // stack sequential. The override must precede the CLI option terminator.
     const browserArgs = [...args];

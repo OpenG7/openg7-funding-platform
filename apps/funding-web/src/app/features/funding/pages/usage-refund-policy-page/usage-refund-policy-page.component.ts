@@ -14,6 +14,9 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { FundingHeaderComponent } from '../../components/funding-header/funding-header.component.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { FundingSeoService } from '../../services/funding-seo.service.js';
+import { SponsorshipCharterService } from '../../services/sponsorship-charter.service.js';
+
+import { USAGE_REFUND_POLICY_REVISION } from './usage-refund-policy-page.metadata.js';
 
 interface PolicySection {
   readonly id: string;
@@ -31,13 +34,20 @@ interface PolicySection {
   styleUrl: './usage-refund-policy-page.component.css'
 })
 export class UsageRefundPolicyPageComponent {
+  readonly charter = inject(SponsorshipCharterService);
   private readonly document = inject(DOCUMENT);
   private readonly i18n = inject(FundingI18nService);
   private readonly injector = inject(Injector);
   private readonly seo = inject(FundingSeoService);
 
   // Editorial revision, not a new financial eligibility rule.
-  readonly revision = '2026-09-19';
+  readonly revision = USAGE_REFUND_POLICY_REVISION;
+  readonly revisionDate = computed(() =>
+    new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
+      dateStyle: 'long',
+      timeZone: 'UTC'
+    }).format(new Date(`${this.revision}T00:00:00.000Z`))
+  );
   readonly contactEmail = 'contact@openg7.org';
   readonly canPrint = signal(false);
   readonly summaryItems = ['nature', 'refunds', 'visibility'] as const;

@@ -18,9 +18,11 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
+import { completePublicationModeration } from './support/acceptance-moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { acceptanceSql } from './support/acceptance-database.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
+import { completeModeration } from './support/moderation.js';
 import { test, expect } from './support/test.js';
 
 const automationUrl = '/api/admin/publication-automation';
@@ -419,7 +421,28 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
         exact: true
       });
       await expect(approveAll).toBeEnabled();
+      const pendingMedia = (await media()).assets.filter(
+        (asset) => asset.reviewStatus !== 'approved'
+      );
+      const pendingIds = new Set(pendingMedia.map((asset) => asset.id));
       await approveAll.click();
+      for (let index = 0; index < pendingMedia.length; index++) {
+        const reviewed = admin.waitForResponse(
+          (response) =>
+            response.url().endsWith('/api/admin/sponsorships/media/review') &&
+            response.request().method() === 'POST'
+        );
+        await completeModeration(admin);
+        const response = await reviewed;
+        expect(response.ok(), await response.text()).toBe(true);
+        const reviewedAsset = response.request().postDataJSON();
+        expect(pendingIds.delete(reviewedAsset.assetId)).toBe(true);
+        expect(reviewedAsset).toMatchObject({
+          reviewStatus: 'approved',
+          moderationDecision: { level: 'N0' }
+        });
+      }
+      expect(pendingIds.size).toBe(0);
       await expect
         .poll(async () =>
           (await media()).assets.every((m) => m.reviewStatus === 'approved')
@@ -447,6 +470,7 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
       await preview
         .getByRole('button', { name: 'Accepter et programmer' })
         .click();
+      await completePublicationModeration(admin);
       await expect(preview).toContainText('Autorisée');
       firstApproval = await delivery(facebook.id);
       expect(firstApproval).toMatchObject({
@@ -547,6 +571,7 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
       await preview
         .getByRole('button', { name: 'Accepter et programmer' })
         .click();
+      await completePublicationModeration(admin);
       await expect(preview).toContainText('Autorisée');
       await preview.screenshot({
         path: info.outputPath('linkedin-exact-approval.png')
@@ -599,6 +624,7 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
       await preview
         .getByRole('button', { name: 'Accepter et programmer' })
         .click();
+      await completePublicationModeration(admin);
       await expect(preview).toContainText('Autorisée');
       await admin.close();
       const due = new Date((await delivery(facebook.id)).scheduledAt);
@@ -683,6 +709,30 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
         editor.getByText('Publication enregistree.', { exact: true })
       ).toBeVisible();
       await assertPrivate();
+      // Saving the public summary changes the dossier's editorial revision.
+      const moderation = admin.locator('[data-og7="moderation-actions"]');
+      await moderation.getByRole('combobox').first().selectOption('N0');
+      const moderated = admin.waitForResponse(
+        (response) =>
+          response.url().endsWith('/api/admin/moderation/decisions') &&
+          response.request().method() === 'POST'
+      );
+      await moderation.locator('[data-og7="moderation-open"]').click();
+      await completeModeration(admin);
+      const moderationResponse = await moderated;
+      expect(moderationResponse.ok(), await moderationResponse.text()).toBe(
+        true
+      );
+      expect(await moderationResponse.json()).toMatchObject({
+        decision: {
+          subject: { type: 'sponsorship', id: record.id },
+          level: 'N0',
+          state: 'active'
+        }
+      });
+      await expect(
+        admin.locator('[data-og7="website-visibility"]')
+      ).toBeEnabled();
       await admin.locator('[data-og7="website-visibility"]').click();
       await admin.locator('[data-og7="confirm-action"]').click();
       await expect

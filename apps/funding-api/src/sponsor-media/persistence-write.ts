@@ -1,8 +1,19 @@
-import type { SponsorMediaReviewStatus } from '@openg7/funding-core';
+import type {
+  ModerationDecisionInput,
+  SponsorMediaReviewStatus
+} from '@openg7/funding-core';
 import type { Pool, PoolClient } from 'pg';
 
 import { insertAdminAuditLog } from '../fund-admin-audit.repository.js';
 import { withPostgresTransaction } from '../postgres-transaction.js';
+import {
+  approveModeratedSubject,
+  auditModeratedMutation,
+  recordAdverseModeration
+} from '../moderation-legacy.js';
+import { ModerationError } from '../moderation/policy.js';
+import { SPONSOR_MEDIA_ALT_TEXT_MAX_LENGTH } from '../business-helpers/request-validation.js';
+import { lockModerationDependencies } from '../moderation/content.js';
 
 import type {
   CreateSponsorMediaAssetInput,
@@ -21,7 +32,6 @@ import {
   getAssetForUpdate,
   selectAssetColumns
 } from './persistence-queries.js';
-import { getSponsorMediaStorageRecord } from './persistence-read.js';
 
 const createMediaTransaction = async (
   pool: Pool,
@@ -256,13 +266,58 @@ export const reviewSponsorMediaAsset = async (
     readonly publicStorageKey: string | null;
     readonly publicUrl: string | null;
     readonly reviewedBy: string;
+    readonly confirmation?: string;
+    readonly moderationDecision?: ModerationDecisionInput;
   }
 ): Promise<SponsorMediaMutationResult> => {
   if (!pool) {
     return { status: 'not_found', asset: null };
   }
-  const result = await pool.query<SponsorMediaAssetRow>(
-    `UPDATE sponsor_media_assets
+  return withPostgresTransaction(
+    pool,
+    async (db) => {
+      if (input.reviewStatus === 'rejected')
+        await lockModerationDependencies(db, {
+          type: 'media',
+          id: input.assetId
+        });
+      const current = await getAssetForUpdate(db, input.assetId);
+      if (!current) return { status: 'not_found', asset: null } as const;
+      if (current.version !== input.expectedVersion)
+        return {
+          status: 'conflict',
+          asset: mapStorageRecord(current)
+        } as const;
+      if (
+        (input.confirmation ?? input.moderationDecision?.confirmation) !==
+        input.assetId
+      )
+        throw new ModerationError('CONFIRMATION_REQUIRED', 400);
+      const subject = { type: 'media', id: input.assetId } as const;
+      if (input.reviewStatus === 'rejected') {
+        await recordAdverseModeration(
+          db,
+          subject,
+          input.reviewedBy,
+          input.moderationDecision,
+          ['N3']
+        );
+        const reviewed = await getAssetForUpdate(db, input.assetId);
+        return {
+          status: 'updated',
+          asset: reviewed ? mapStorageRecord(reviewed) : null
+        } as const;
+      }
+      if ((current.alt_text?.trim() || null) !== input.altText)
+        throw new ModerationError('MODERATION_CONTENT_CHANGED');
+      await approveModeratedSubject(
+        db,
+        subject,
+        input.reviewedBy,
+        input.moderationDecision
+      );
+      const result = await db.query<SponsorMediaAssetRow>(
+        `UPDATE sponsor_media_assets
      SET review_status = $2,
          alt_text = $3,
          public_storage_key = $4,
@@ -274,19 +329,87 @@ export const reviewSponsorMediaAsset = async (
        AND deleted_at IS NULL
        AND updated_at::text = $7
      RETURNING ${selectAssetColumns}`,
-    [
-      input.assetId,
-      input.reviewStatus,
-      input.altText,
-      input.publicStorageKey,
-      input.publicUrl,
-      input.reviewedBy,
-      input.expectedVersion
-    ]
+        [
+          input.assetId,
+          input.reviewStatus,
+          input.altText,
+          input.publicStorageKey,
+          input.publicUrl,
+          input.reviewedBy,
+          input.expectedVersion
+        ]
+      );
+      if (result.rows[0]) {
+        await auditModeratedMutation(
+          db,
+          subject,
+          input.reviewedBy,
+          'sponsorship.media.approved'
+        );
+        return { status: 'updated', asset: mapStorageRecord(result.rows[0]) };
+      }
+      return { status: 'conflict', asset: mapStorageRecord(current) } as const;
+    },
+    { shouldCommit: (result) => result.status === 'updated' }
   );
-  if (result.rows[0]) {
-    return { status: 'updated', asset: mapStorageRecord(result.rows[0]) };
+};
+
+/** Prepare an edited public caption before a separate review of its exact content. */
+export const updateSponsorMediaMetadata = async (
+  pool: Pool | null,
+  input: {
+    readonly assetId: string;
+    readonly expectedVersion: string;
+    readonly confirmation: string;
+    readonly altText: string | null;
+    readonly actor: string;
   }
-  const current = await getSponsorMediaStorageRecord(pool, input.assetId);
-  return { status: current ? 'conflict' : 'not_found', asset: current };
+): Promise<SponsorMediaMutationResult> => {
+  if (!pool) return { status: 'not_found', asset: null };
+  if (input.confirmation !== input.assetId)
+    throw new ModerationError('CONFIRMATION_REQUIRED', 400);
+  if (
+    input.altText != null &&
+    (typeof input.altText !== 'string' ||
+      input.altText.length > SPONSOR_MEDIA_ALT_TEXT_MAX_LENGTH)
+  )
+    throw new ModerationError('INVALID_MEDIA_METADATA', 400);
+  return withPostgresTransaction(
+    pool,
+    async (db) => {
+      await lockModerationDependencies(db, {
+        type: 'media',
+        id: input.assetId
+      });
+      const current = await getAssetForUpdate(db, input.assetId);
+      if (!current) return { status: 'not_found', asset: null } as const;
+      if (current.version !== input.expectedVersion)
+        return {
+          status: 'conflict',
+          asset: mapStorageRecord(current)
+        } as const;
+      const altText = input.altText?.trim() || null;
+      if ((current.alt_text?.trim() || null) === altText)
+        return { status: 'updated', asset: mapStorageRecord(current) } as const;
+      const result = await db.query<SponsorMediaAssetRow>(
+        `UPDATE sponsor_media_assets SET alt_text=$2,review_status='pending_review',public_url=NULL,reviewed_at=NULL,reviewed_by=NULL,updated_at=NOW() WHERE id=$1 RETURNING ${selectAssetColumns}`,
+        [input.assetId, altText]
+      );
+      const audited = await insertAdminAuditLog(db, {
+        actor: input.actor,
+        action: 'sponsorship.media.metadata',
+        entityType: 'sponsor_media_asset',
+        entityId: input.assetId,
+        summary: 'Sponsor media caption changed and requires a new review.',
+        metadata: { contributionId: current.contribution_id }
+      });
+      if (!audited)
+        throw new Error('Sponsor media metadata audit is unavailable.');
+      return {
+        status: 'updated',
+        asset: mapStorageRecord(result.rows[0]!)
+      } as const;
+    },
+    { shouldCommit: (result) => result.status === 'updated' }
+  );
 };

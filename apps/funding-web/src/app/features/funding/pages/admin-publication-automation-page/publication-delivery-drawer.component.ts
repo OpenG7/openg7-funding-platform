@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { AdminDrawerComponent } from '../../components/admin-ui/admin-drawer.component.js';
+import { FundingModerationActionsComponent } from '../../components/admin-moderation/funding-moderation-actions.component.js';
 
 import type { PublicationDeliveryController } from './publication-delivery-controller.js';
 
@@ -11,7 +12,13 @@ import type { PublicationDeliveryController } from './publication-delivery-contr
 @Component({
   selector: 'openg7-publication-delivery-drawer',
   standalone: true,
-  imports: [FormsModule, RouterLink, TranslatePipe, AdminDrawerComponent],
+  imports: [
+    FormsModule,
+    RouterLink,
+    TranslatePipe,
+    AdminDrawerComponent,
+    FundingModerationActionsComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './publication-delivery-drawer.component.html',
   styleUrls: [

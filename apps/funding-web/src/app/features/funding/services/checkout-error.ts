@@ -7,3 +7,10 @@ export class CheckoutReconciliationRequiredError extends Error {
     this.name = 'CheckoutReconciliationRequiredError';
   }
 }
+/** Safe public failure: reread the active terms; never reuse a stale acceptance. */
+export class CheckoutCharterChangedError extends Error {
+  constructor() {
+    super('The applicable sponsorship charter changed.');
+    this.name = 'CheckoutCharterChangedError';
+  }
+}

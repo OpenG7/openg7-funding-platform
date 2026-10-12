@@ -211,14 +211,39 @@ test('draft creation declines ineligible sponsors without inserting a publicatio
 
 test('draft edits preserve normalization, explicit nulls, timestamps and no-op rereads', async () => {
   const updates = [];
+  const transactions = [];
   const pool = {
     async query(sql, values) {
+      if (['BEGIN', 'COMMIT', 'ROLLBACK'].includes(sql)) {
+        transactions.push(sql);
+        return { rows: [] };
+      }
       if (sql.includes('to_regclass')) return { rows: [presence] };
+      if (sql.startsWith('SELECT d.level,c.state'))
+        return {
+          rows: [
+            {
+              level: 'N0',
+              state: 'approved',
+              editorial_status: 'approved',
+              content_version: 1,
+              current_content_version: 1,
+              content_fingerprint: 'a'.repeat(64),
+              current_fingerprint: 'a'.repeat(64),
+              actual_fingerprint: 'a'.repeat(64)
+            }
+          ]
+        };
+      if (sql.includes('INSERT INTO admin_audit_log'))
+        return { rows: [], rowCount: 1 };
       if (sql.includes('UPDATE sponsor_publication_drafts')) {
         updates.push({ sql, values });
         return { rows: [], rowCount: 1 };
       }
       return { rows: [draftRow] };
+    },
+    async connect() {
+      return { query: this.query.bind(this), release() {} };
     }
   };
   assert.equal(
@@ -232,7 +257,7 @@ test('draft edits preserve normalization, explicit nulls, timestamps and no-op r
     title: '  Revised title  ',
     body: '  Revised body  ',
     disclosureText: '  Revised disclosure  ',
-    status: 'approved',
+    status: 'pending_review',
     publicUrl: '  ',
     scheduledAt: null,
     reviewNote: '  '
@@ -244,14 +269,71 @@ test('draft edits preserve normalization, explicit nulls, timestamps and no-op r
     'Revised title',
     'Revised body',
     'Revised disclosure',
-    'approved',
+    'pending_review',
     '',
     null,
     ''
   ]);
-  assert.ok(
-    updates[0].sql.includes('approved_at = COALESCE(approved_at, NOW())')
+  await facade.updateAdminPublicationDraft(
+    pool,
+    { draftId: draftRow.id, status: 'approved', confirmation: draftRow.id },
+    'synthetic-admin'
   );
+  assert.ok(
+    updates[1].sql.includes('approved_at = COALESCE(approved_at, NOW())')
+  );
+  assert.deepEqual(transactions, [
+    'BEGIN',
+    'ROLLBACK',
+    'BEGIN',
+    'COMMIT',
+    'BEGIN',
+    'COMMIT'
+  ]);
+});
+
+test('a legacy draft refusal rejects simultaneous source edits before any decision or projection write', async () => {
+  const current = { ...draftRow, id: '44444444-4444-4444-8444-444444444444' };
+  for (const changes of [
+    { title: 'Another title' },
+    { body: 'Another message' },
+    { disclosureText: 'Another disclosure' },
+    { publicUrl: 'https://example.test/another-result' },
+    { scheduledAt: '2027-01-01T00:00:00Z' }
+  ]) {
+    const queries = [];
+    const pool = {
+      query: async () => ({ rows: [presence] }),
+      async connect() {
+        return {
+          async query(sql) {
+            queries.push(sql);
+            return { rows: [current] };
+          },
+          release() {}
+        };
+      }
+    };
+    await assert.rejects(
+      facade.updateAdminPublicationDraft(
+        pool,
+        {
+          draftId: current.id,
+          status: 'rejected',
+          confirmation: current.id,
+          moderationDecision: { level: 'N3' },
+          ...changes
+        },
+        'synthetic-admin'
+      ),
+      { code: 'MODERATION_CONTENT_CHANGED' }
+    );
+    assert.equal(queries.at(-1), 'ROLLBACK');
+    assert.equal(
+      queries.some((sql) => /^(INSERT|UPDATE|DELETE) /.test(sql)),
+      false
+    );
+  }
 });
 
 test('conflicting assignments reread the unchanged draft without reporting success', async () => {
@@ -288,12 +370,37 @@ test('conflicting assignments reread the unchanged draft without reporting succe
   assert.equal(released, true);
 });
 
-test('manual publication preserves sequential cascades and propagates database errors', async () => {
+test('manual publication rolls back its atomic cascades when a draft write fails', async () => {
   const events = [];
   const failure = new Error('Synthetic draft cascade failure');
   const pool = {
     async query(sql) {
+      if (['BEGIN', 'COMMIT', 'ROLLBACK'].includes(sql)) {
+        events.push(sql);
+        return { rows: [] };
+      }
       if (sql.includes('to_regclass')) return { rows: [presence] };
+      if (sql.includes('SELECT slot_id::text'))
+        return { rows: [{ slot_id: null }] };
+      if (sql.startsWith('SELECT status FROM sponsor_publication_batches'))
+        return { rows: [{ status: 'scheduled' }] };
+      if (sql.includes('SELECT id,contribution_id'))
+        return { rows: [draftRow] };
+      if (sql.startsWith('SELECT d.level,c.state'))
+        return {
+          rows: [
+            {
+              level: 'N0',
+              state: 'approved',
+              editorial_status: 'approved',
+              content_version: 1,
+              current_content_version: 1,
+              content_fingerprint: 'a'.repeat(64),
+              current_fingerprint: 'a'.repeat(64),
+              actual_fingerprint: 'a'.repeat(64)
+            }
+          ]
+        };
       if (sql.includes('UPDATE sponsor_publication_batches')) {
         events.push('batch');
         return { rows: [], rowCount: 1 };
@@ -306,15 +413,23 @@ test('manual publication preserves sequential cascades and propagates database e
         'a failed draft cascade must not continue to slots or rereads'
       );
     },
-    connect() {
-      assert.fail('manual batch publication retains its pool-based queries');
+    async connect() {
+      return {
+        query: this.query.bind(this),
+        release() {
+          events.push('release');
+        }
+      };
     }
   };
   await assert.rejects(
-    facade.publishAdminPublicationBatch(pool, { batchId: batchRow.id }),
+    facade.publishAdminPublicationBatch(pool, {
+      batchId: batchRow.id,
+      confirmation: batchRow.id
+    }),
     (error) => error === failure
   );
-  assert.deepEqual(events, ['batch', 'drafts']);
+  assert.deepEqual(events, ['BEGIN', 'batch', 'drafts', 'ROLLBACK', 'release']);
 });
 
 const publicationTransaction = ({

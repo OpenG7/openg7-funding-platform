@@ -1,6 +1,86 @@
+import type { APIRequestContext, Page } from '@playwright/test';
+import type {
+  AdminSponsorshipRecord,
+  AdminSponsorshipsResponse,
+  SponsorshipMediaResponse
+} from '@openg7/funding-core';
+
+import { rejectAcceptanceSponsorship } from './support/acceptance-oidc-moderation.js';
 import { expect, test } from './support/test.js';
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
-import { openFixtureSponsorship, signInAsAdmin } from './support/admin-auth.js';
+import {
+  adminSessionHeaders,
+  openFixtureSponsorship,
+  signInAsAdmin
+} from './support/admin-auth.js';
+import {
+  approveCurrentModeration,
+  completeModeration
+} from './support/moderation.js';
+
+const independentReviewMessage =
+  'Cette décision nécessite la confirmation d’une autre personne habilitée. Les restrictions restent en place pendant cette revue indépendante.';
+
+const financialState = (record: AdminSponsorshipRecord) => ({
+  amount: record.amount,
+  currency: record.currency,
+  paymentStatus: record.payment_status,
+  refundStatus: record.sponsorship_refund_status,
+  refundRequestedAt: record.sponsorship_refund_requested_at,
+  refundProcessedAt: record.sponsorship_refund_processed_at,
+  refundId: record.sponsorship_refund_id,
+  refundAmount: record.sponsorship_refund_amount,
+  refundReason: record.sponsorship_refund_reason,
+  refundNote: record.sponsorship_refund_note,
+  refundError: record.sponsorship_refund_error,
+  refundCompletedAt: record.sponsorship_refund_completed_at
+});
+
+async function storedSponsorship(
+  request: APIRequestContext,
+  reference: string
+): Promise<AdminSponsorshipRecord> {
+  const response = await request.get(
+    '/api/admin/sponsorships?search=' + encodeURIComponent(reference),
+    { headers: await adminSessionHeaders(request) }
+  );
+  expect(response.ok(), await response.text()).toBe(true);
+  const records = (await response.json()) as AdminSponsorshipsResponse;
+  const exact = records.items.filter(
+    (item) => item.public_reference === reference
+  );
+  expect(exact).toHaveLength(1);
+  return exact[0]!;
+}
+
+async function confirmPendingRejection(
+  page: Page,
+  request: APIRequestContext,
+  before: AdminSponsorshipRecord
+): Promise<void> {
+  const reviewed = page.waitForResponse(
+    (response) =>
+      response.url().endsWith('/api/admin/sponsorships/review') &&
+      response.request().method() === 'POST' &&
+      response.request().postDataJSON().contributionId === before.id
+  );
+  await completeModeration(page, true);
+  const response = await reviewed;
+  expect(response.ok(), await response.text()).toBe(true);
+  expect(await response.json()).toMatchObject({
+    decisionState: 'pending_independent_review',
+    reviewStatus: before.sponsor_review_status
+  });
+  expect(response.request().postDataJSON()).toMatchObject({
+    contributionId: before.id,
+    reviewStatus: 'rejected',
+    moderationDecision: { level: 'N4', confirmation: before.id }
+  });
+  await expect(page.getByText(independentReviewMessage)).toBeVisible();
+  const after = await storedSponsorship(request, before.public_reference!);
+  expect(after.sponsor_review_status).toBe(before.sponsor_review_status);
+  expect(financialState(after)).toEqual(financialState(before));
+}
 
 test.describe('Docker admin sponsorship review', () => {
   test('rejects an invalid admin token and stays on the login page', async ({
@@ -30,54 +110,91 @@ test.describe('Docker admin sponsorship review', () => {
   });
 
   test('approves a paid sponsorship from the detail panel', async ({
-    page
+    page,
+    request
   }) => {
     await signInAsAdmin(page);
 
     const fixture = SPONSORSHIP_FIXTURES.approve;
+    const seeded = await storedSponsorship(request, fixture.publicReference);
+    const mediaResponse = await request.get(
+      '/api/admin/sponsorships/media?contributionId=' + seeded.id,
+      { headers: await adminSessionHeaders(request) }
+    );
+    expect(mediaResponse.ok()).toBe(true);
+    const presentation = (
+      (await mediaResponse.json()) as SponsorshipMediaResponse
+    ).assets.filter((asset) => asset.kind === 'supporting_image');
+    expect(presentation).toHaveLength(1);
+    await approveCurrentModeration(request, {
+      type: 'media',
+      id: presentation[0]!.id
+    });
     await openFixtureSponsorship(page, fixture.companyName);
 
     await page.getByRole('button', { name: 'Accepter' }).click();
+    await completeModeration(page);
 
     await expect(
       page.getByText('Action confirmee: commandite acceptee.')
     ).toBeVisible();
   });
 
-  test('rejects a paid sponsorship with an internal reason', async ({
-    page
+  test('proposes a paid sponsorship rejection pending independent review without changing financial facts', async ({
+    page,
+    request
   }) => {
     await signInAsAdmin(page);
 
     const fixture = SPONSORSHIP_FIXTURES.reject;
+    const before = await storedSponsorship(request, fixture.publicReference);
     await openFixtureSponsorship(page, fixture.companyName);
 
     await page.getByRole('button', { name: 'Refuser' }).click();
     await page
-      .getByLabel(/Raison interne du refus/i)
+      .getByLabel(/Justification interne/i)
       .fill('E2E Playwright: refus de test automatise.');
     await page.getByRole('button', { name: /Confirmer le refus/i }).click();
-
-    await expect(
-      page.getByText('Action confirmee: commandite refusee.')
-    ).toBeVisible();
+    await confirmPendingRejection(page, request, before);
   });
 
-  test('resets an approved sponsorship back to pending review', async ({
-    page
+  test('places an approved sponsorship under editorial hold without changing financial facts', async ({
+    page,
+    request
   }) => {
     await signInAsAdmin(page);
 
     const fixture = SPONSORSHIP_FIXTURES.approve;
+    const before = await storedSponsorship(request, fixture.publicReference);
     await openFixtureSponsorship(page, fixture.companyName);
 
     // Confirm the reviewed administrative action in the shared dialog.
     await page.getByRole('button', { name: 'Remettre en attente' }).click();
     await page.locator('[data-og7="confirm-action"]').click();
+    const reviewed = page.waitForResponse(
+      (response) =>
+        response.url().endsWith('/api/admin/sponsorships/review') &&
+        response.request().method() === 'POST' &&
+        response.request().postDataJSON().contributionId === before.id
+    );
+    await completeModeration(page, true);
+    const response = await reviewed;
+    expect(response.ok(), await response.text()).toBe(true);
+    expect(await response.json()).toMatchObject({
+      decisionState: 'active',
+      reviewStatus: before.sponsor_review_status
+    });
+    expect(response.request().postDataJSON()).toMatchObject({
+      reviewStatus: 'pending_review',
+      moderationDecision: { level: 'N2', confirmation: before.id }
+    });
 
     await expect(
       page.getByText('Action confirmee: commandite remise en attente.')
     ).toBeVisible();
+    const after = await storedSponsorship(request, fixture.publicReference);
+    expect(after.sponsor_review_status).toBe(before.sponsor_review_status);
+    expect(financialState(after)).toEqual(financialState(before));
   });
 
   test('generates missing sponsorship invoices and downloads the invoice PDF', async ({
@@ -200,36 +317,73 @@ test.describe('Docker admin sponsorship review', () => {
     await expect(paymentStatus).toHaveText('Paye');
   });
 
-  test('rejects a sponsorship and marks the refund as already handled manually', async ({
-    page
+  test('a proposed rejection cannot mark a manual refund completed before independent review', async ({
+    page,
+    request
   }) => {
     await signInAsAdmin(page);
 
     const fixture = SPONSORSHIP_FIXTURES.rejectRefund;
+    const before = await storedSponsorship(request, fixture.publicReference);
     await openFixtureSponsorship(page, fixture.companyName);
 
     await page.getByRole('button', { name: 'Refuser' }).click();
     await page
-      .getByLabel(/Raison interne du refus/i)
+      .getByLabel(/Justification interne/i)
       .fill('E2E Playwright: refus avec remboursement deja traite.');
-    // Distinct code path from the Stripe-guided refund panel tested above:
-    // this is a DB-only flag recorded alongside the rejection, no Stripe
-    // call involved (apps/funding-api/src/main.ts, isRejection branch of the
-    // /admin/sponsorships/review handler). A <label> wrapping a <select>
-    // computes its accessible name as the label text plus the select's own
-    // name (the currently selected option's text), e.g. "RemboursementNe pas
-    // rembourser maintenant" -- so anchor to the start only (^Remboursement,
-    // no trailing $) rather than an exact match, which would never match.
-    // That start-anchor still excludes "Note remboursement" (starts with
-    // "Note", not "Remboursement").
+    // Choosing a manual refund outcome cannot finalize a pending N4 decision
+    // or write financial facts without the required independent review.
     await page.getByLabel(/^Remboursement/i).selectOption('manual_completed');
     await page.getByRole('button', { name: /Confirmer le refus/i }).click();
 
+    await confirmPendingRejection(page, request, before);
+  });
+
+  test('an identified rejection becomes effective only after independent review without changing financial facts', async ({
+    browser,
+    request
+  }) => {
+    const fixture = SPONSORSHIP_FIXTURES.independentReject;
+    const before = await storedSponsorship(request, fixture.publicReference);
+    await rejectAcceptanceSponsorship(
+      browser,
+      fixture.publicReference,
+      'Synthetic independently confirmed rejection.'
+    );
+    const after = await storedSponsorship(request, fixture.publicReference);
+    expect(after.sponsor_review_status).toBe('rejected');
+    expect(financialState(after)).toEqual(financialState(before));
+  });
+
+  test('an independently confirmed rejection records the separately confirmed manual refund outcome', async ({
+    page,
+    browser,
+    request
+  }) => {
+    const fixture = SPONSORSHIP_FIXTURES.independentRejectRefund;
+    const before = await storedSponsorship(request, fixture.publicReference);
+    await rejectAcceptanceSponsorship(
+      browser,
+      fixture.publicReference,
+      'Synthetic rejection with a separately confirmed manual refund.',
+      'manual_completed'
+    );
+    const after = await storedSponsorship(request, fixture.publicReference);
+    expect(after).toMatchObject({
+      sponsor_review_status: 'rejected',
+      payment_status: before.payment_status,
+      amount: before.amount,
+      currency: before.currency,
+      sponsorship_refund_status: 'completed'
+    });
+    await signInAsAdmin(page);
+    await openFixtureSponsorship(page, fixture.companyName);
+    const header = page.locator('openg7-admin-sponsor-detail-header');
     await expect(
-      page.getByText(/Remboursement marque comme deja traite/i)
+      header.getByRole('heading', { name: fixture.companyName, exact: true })
     ).toBeVisible();
     await expect(
-      page.getByText(/Suivi: Remboursement complete/i)
+      header.getByText('Remboursement complete', { exact: true })
     ).toBeVisible();
   });
 

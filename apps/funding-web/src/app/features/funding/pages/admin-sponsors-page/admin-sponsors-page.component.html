@@ -182,6 +182,12 @@
               </button>
             </p>
           }
+          <openg7-funding-moderation-actions
+            [subject]="{ type: 'sponsorship', id: selected.id }"
+            [headingLevel]="2"
+            [disabled]="actionsDisabled()"
+            (changed)="loadSponsorships(true)"
+          />
           <openg7-admin-sponsor-detail-tabs
             [activeTab]="activeTab()"
             (activeTabChange)="setActiveTab($event)"
@@ -298,6 +304,10 @@
               "
               (deleteLogo)="mediaWorkflow.deleteLogo(selected)"
               (reviewMedia)="mediaWorkflow.reviewSponsorMedia(selected, $event)"
+              (moderationChanged)="
+                mediaWorkflow.loadSponsorMedia(selected.id);
+                loadSponsorships(true)
+              "
               (approveAllMedia)="
                 mediaWorkflow.approveAllSponsorMedia(selected, $event)
               "

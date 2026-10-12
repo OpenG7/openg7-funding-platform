@@ -1,0 +1,200 @@
+<section
+  data-og7="publication-source-queue"
+  aria-labelledby="publication-source-queue-title"
+  [attr.aria-busy]="busy()"
+>
+  <header>
+    <h2 id="publication-source-queue-title" tabindex="-1">
+      {{ 'admin.publicationAutomation.sourceQueue.title' | translate }}
+    </h2>
+    <button class="admin-button" [disabled]="busy()" (click)="refresh.emit()">
+      {{ 'admin.publicationAutomation.sourceQueue.refresh' | translate }}
+    </button>
+  </header>
+  <p>{{ 'admin.publicationAutomation.sourceQueue.intro' | translate }}</p>
+  @if (queue(); as q) {
+    <p class="detail">
+      {{
+        'admin.publicationAutomation.sourceQueue.scope.' + q.scope | translate
+      }}
+      ·
+      {{
+        'admin.publicationAutomation.sourceQueue.evaluatedAt'
+          | translate: { date: dateLabel()(q.evaluatedAt) }
+      }}
+    </p>
+    <div role="status" aria-atomic="true">
+      <dl class="source-summary">
+        <div>
+          <dt>
+            {{ 'admin.publicationAutomation.sourceQueue.retained' | translate }}
+          </dt>
+          <dd data-og7="publication-source-retained-count">
+            {{ q.summary.retained }}
+          </dd>
+        </div>
+        <div>
+          <dt>
+            {{ 'admin.publicationAutomation.sourceQueue.deferred' | translate }}
+          </dt>
+          <dd data-og7="publication-source-deferred-count">
+            {{ q.summary.deferred }}
+          </dd>
+        </div>
+        <div>
+          <dt>
+            {{
+              'admin.publicationAutomation.sourceQueue.needsCorrection'
+                | translate
+            }}
+          </dt>
+          <dd data-og7="publication-source-correction-count">
+            {{ q.summary.needsCorrection }}
+          </dd>
+        </div>
+      </dl>
+    </div>
+    <p class="detail" id="publication-source-budget-help">
+      {{ 'admin.publicationAutomation.sourceQueue.budgetHelp' | translate }}
+    </p>
+    @if (q.hasMore || q.offset > 0) {
+      <p data-og7="publication-source-partial" role="status">
+        {{
+          'admin.publicationAutomation.sourceQueue.partial'
+            | translate: { shown: q.entries.length, total: q.total }
+        }}
+      </p>
+    }
+    <ul class="source-list">
+      @for (entry of q.entries; track entry.draftId) {
+        <li
+          data-og7="publication-source-entry"
+          [attr.data-og7-id]="entry.draftId"
+        >
+          <header>
+            <h3>{{ entry.name }}</h3>
+            <span class="source-status">
+              {{
+                'admin.publicationAutomation.sourceQueue.' +
+                  (entry.status === 'needs_correction'
+                    ? 'needsCorrection'
+                    : entry.status) | translate
+              }}
+            </span>
+          </header>
+          <p class="detail">{{ entry.feedId }}</p>
+          <p>
+            {{
+              'admin.publicationAutomation.sourceQueue.reasons.' + entry.reason
+                | translate
+            }}
+          </p>
+          <p aria-describedby="publication-source-budget-help">
+            {{
+              'admin.publicationAutomation.sourceQueue.budget'
+                | translate
+                  : { count: entry.renderedLength, limit: entry.budget }
+            }}
+          </p>
+          @if (entry.scheduledAt; as date) {
+            <p>
+              {{
+                'admin.publicationAutomation.sourceQueue.proposedDate'
+                  | translate: { date: dateLabel()(date) }
+              }}
+            </p>
+          } @else {
+            <p>
+              {{ 'admin.publicationAutomation.sourceQueue.noDate' | translate }}
+            </p>
+          }
+          @if (entry.status === 'needs_correction') {
+            <p>
+              {{
+                'admin.publicationAutomation.sourceQueue.correctionHelp'
+                  | translate
+              }}
+            </p>
+          }
+          <div class="source-links">
+            @if (sourceEditable(entry)) {
+              <a
+                routerLink="/admin/fundraiser/publications/drafts"
+                [queryParams]="{ draftId: entry.draftId }"
+              >
+                {{
+                  'admin.publicationAutomation.sourceQueue.editDraft'
+                    | translate: { name: entry.name }
+                }}
+              </a>
+            }
+            <a
+              routerLink="/admin/fundraiser/sponsors"
+              [queryParams]="{
+                sponsorshipId: entry.sponsorshipId,
+                tab: 'publication'
+              }"
+            >
+              {{
+                'admin.publicationAutomation.sourceQueue.openDossier'
+                  | translate: { name: entry.name }
+              }}
+            </a>
+            @if (entry.deliveryId; as id) {
+              <a
+                routerLink="/admin/fundraiser/publications/automation"
+                [queryParams]="{
+                  sponsorshipId: entry.sponsorshipId,
+                  deliveryId: id
+                }"
+              >
+                {{
+                  'admin.publicationAutomation.sourceQueue.openDelivery'
+                    | translate: { name: entry.name }
+                }}
+              </a>
+            }
+          </div>
+        </li>
+      } @empty {
+        <li class="empty">
+          <span role="status">
+            {{
+              (q.total === 0
+                ? 'admin.publicationAutomation.sourceQueue.empty'
+                : 'admin.publicationAutomation.sourceQueue.emptyPage'
+              ) | translate
+            }}
+          </span>
+        </li>
+      }
+    </ul>
+    @if (q.hasMore || q.offset > 0) {
+      <nav
+        class="source-pages"
+        [attr.aria-label]="
+          'admin.publicationAutomation.sourceQueue.pages' | translate
+        "
+      >
+        <button
+          class="admin-button"
+          [disabled]="busy() || q.offset === 0"
+          (click)="page.emit(previousOffset(q))"
+        >
+          {{ 'admin.publicationAutomation.sourceQueue.previous' | translate }}
+        </button>
+        <button
+          class="admin-button"
+          [disabled]="busy() || !q.hasMore"
+          (click)="page.emit(q.offset + q.limit)"
+        >
+          {{ 'admin.publicationAutomation.sourceQueue.next' | translate }}
+        </button>
+      </nav>
+    }
+  } @else {
+    <p role="status">
+      {{ 'admin.publicationAutomation.sourceQueue.unavailable' | translate }}
+    </p>
+  }
+</section>

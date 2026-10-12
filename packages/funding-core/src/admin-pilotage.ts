@@ -79,7 +79,12 @@ export interface PilotCommand {
     message?: string;
     scheduledAt?: string;
     mediaId?: string | null;
-    approveSponsors?: { id: string; version: string }[];
+    moderationDecision?: import('./moderation.js').ModerationDecisionInput;
+    approveSponsors?: {
+      id: string;
+      version: string;
+      moderationDecision?: import('./moderation.js').ModerationDecisionInput;
+    }[];
     reason?: string;
     editorialIntent?: import('./editorial-programme.js').EditorialIntent;
     preferences?: import('./editorial-programme.js').EditorialIntent[];

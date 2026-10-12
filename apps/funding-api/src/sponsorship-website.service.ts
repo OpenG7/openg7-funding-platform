@@ -5,6 +5,7 @@ import { insertAdminAuditLog } from './fund-admin.repository.js';
 import { lockSponsorshipContribution } from './fund-contributions.repository.js';
 import { withPostgresTransaction } from './postgres-transaction.js';
 import { SPONSOR_WEBSITE_ELIGIBLE_SQL } from './sponsorship-website-eligibility.js';
+import { assertModerationApproved } from './moderation/repository.js';
 
 type SponsorshipWebsiteVisibilityResult =
   'updated' | 'unchanged' | 'not_found' | 'conflict' | 'blocked';
@@ -44,10 +45,14 @@ export const setSponsorshipWebsiteVisibility = async (
     async (db) => {
       if (!(await lockSponsorshipContribution(db, input.contributionId)))
         return 'not_found';
-      await db.query(
-        'SELECT id FROM sponsor_media_assets WHERE contribution_id=$1 FOR SHARE',
-        [input.contributionId]
-      );
+      if (input.visible)
+        await assertModerationApproved(db, {
+          type: 'sponsorship',
+          id: input.contributionId
+        });
+      // Eligibility reads the current media decisions below. A later media
+      // restriction immediately removes public visibility through the same SQL
+      // guard, without a source lock that conflicts with its version trigger.
       const {
         rows: [row]
       } = await db.query<{

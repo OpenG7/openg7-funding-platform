@@ -1,5 +1,21 @@
 <openg7-funding-header />
 <main class="policy-page" data-og7="refund-policy">
+  @if (charter.charter()?.active) {
+    <section
+      class="policy-section"
+      data-og7="sponsorship-charter-policy"
+      aria-labelledby="charter-title"
+    >
+      <h2 id="charter-title">{{ 'funding.charter.title' | translate }}</h2>
+      <p>
+        {{
+          'funding.moderation.policyVersion'
+            | translate: { version: charter.charter()?.policyVersion }
+        }}
+      </p>
+      <p style="white-space: pre-wrap">{{ charter.text() }}</p>
+    </section>
+  }
   <section class="policy-hero" aria-labelledby="policy-title">
     <img
       src="assets/fonds-des-batisseurs-canada-coffre-lumineux-960.webp"
@@ -27,7 +43,8 @@
           'funding.policyPage.version' | translate: { version: revision }
         }}</span>
         <time [attr.datetime]="revision">{{
-          'funding.policyPage.hero.updated' | translate
+          'funding.policyPage.hero.updated'
+            | translate: { date: revisionDate() }
         }}</time>
       </p>
       <div class="policy-actions">

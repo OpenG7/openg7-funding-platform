@@ -89,6 +89,11 @@ export class SponsorshipDraftService {
       void this.flush();
     }, 2000);
   }
+  async pauseAutosave(): Promise<void> {
+    clearTimeout(this.timer);
+    if (this.inFlight) await this.inFlight;
+    this.pending = undefined;
+  }
   async flush(): Promise<boolean> {
     clearTimeout(this.timer);
     if (this.destroyRef.destroyed || !this.ready()) return false;

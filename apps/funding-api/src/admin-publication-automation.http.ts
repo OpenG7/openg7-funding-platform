@@ -62,6 +62,14 @@ export const createAdminPublicationAutomationHttpHandler = ({
         if (request.method === 'GET') {
           const automationUrl = new URL(request.url ?? '/', publicBaseOrigin);
           const isMedia = automationUrl.pathname.endsWith('/media');
+          const queueOffset = automationUrl.searchParams.get('queueOffset');
+          if (
+            !isMedia &&
+            queueOffset !== null &&
+            (!/^\d+$/.test(queueOffset) ||
+              !Number.isSafeInteger(Number(queueOffset)))
+          )
+            throw new PublicationAutomationError('INVALID_FILTER', 400);
           writeJson(
             request,
             response,
@@ -75,7 +83,10 @@ export const createAdminPublicationAutomationHttpHandler = ({
                     automationUrl.searchParams.get('sponsorshipId') ??
                     undefined,
                   deliveryId:
-                    automationUrl.searchParams.get('deliveryId') ?? undefined
+                    automationUrl.searchParams.get('deliveryId') ?? undefined,
+                  ...(queueOffset !== null
+                    ? { queueOffset: Number(queueOffset) }
+                    : {})
                 })
           );
         } else if (

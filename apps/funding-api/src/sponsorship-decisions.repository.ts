@@ -1,5 +1,6 @@
 import type {
   AdminSponsorshipPublicationRequest,
+  ModerationDecisionInput,
   SponsorFeedChannel,
   SponsorFeedStatus,
   SponsorFeedTarget,
@@ -18,11 +19,23 @@ import {
   normalizeSponsorFeedTarget,
   parseSponsorFeedChannels
 } from './sponsorship-persistence-helpers.js';
+import {
+  approveModeratedSubject,
+  auditModeratedMutation,
+  recordAdverseModeration,
+  withModerationTransaction
+} from './moderation-legacy.js';
+import { ModerationError } from './moderation/policy.js';
+import { assertModerationApproved } from './moderation/repository.js';
+import { lockModerationDependencies } from './moderation/content.js';
 export interface SponsorshipReviewInput {
   readonly contributionId: string;
   readonly reviewStatus: SponsorshipReviewStatus;
   readonly reviewNote: string | null;
   readonly expectedVersion: string;
+  readonly confirmation?: string;
+  readonly moderationDecision?: ModerationDecisionInput;
+  readonly actor?: string;
 }
 
 export type SponsorshipPublicationInput = AdminSponsorshipPublicationRequest;
@@ -39,6 +52,8 @@ export interface SponsorshipReviewMutationResult {
   readonly updated: boolean;
   readonly currentVersion: string | null;
   readonly paymentStatus: string | null;
+  readonly reviewStatus?: SponsorshipReviewStatus;
+  readonly decisionState?: 'active' | 'pending_independent_review';
 }
 
 export interface SponsorshipPublicationMutationResult {
@@ -112,7 +127,7 @@ export const lockSponsorshipContribution = async (
 };
 
 export const updateSponsorshipReview = async (
-  pool: Pool | null,
+  pool: Pool | PoolClient | null,
   input: SponsorshipReviewInput
 ): Promise<SponsorshipReviewMutationResult> => {
   if (!pool) {
@@ -124,13 +139,21 @@ export const updateSponsorshipReview = async (
     };
   }
 
-  const target = await pool.query<{
-    readonly status: string;
-    readonly review_status: SponsorshipReviewStatus;
-    readonly version: string;
-    readonly has_approved_presentation_photo: boolean;
-  }>(
-    `
+  return withModerationTransaction<SponsorshipReviewMutationResult>(
+    pool,
+    async (db) => {
+      if (input.reviewStatus !== 'approved')
+        await lockModerationDependencies(db, {
+          type: 'sponsorship',
+          id: input.contributionId
+        });
+      const target = await db.query<{
+        readonly status: string;
+        readonly review_status: SponsorshipReviewStatus;
+        readonly version: string;
+        readonly has_approved_presentation_photo: boolean;
+      }>(
+        `
       SELECT
         status,
         COALESCE(sponsor_review_status, 'pending_review') AS review_status,
@@ -140,56 +163,98 @@ export const updateSponsorshipReview = async (
       WHERE id = $1::uuid
         AND contribution_type = 'sponsorship_interest'
         AND status IN ('paid', 'refunded', 'disputed')
+      FOR UPDATE
     `,
-    [input.contributionId]
-  );
+        [input.contributionId]
+      );
 
-  const targetRow = target.rows[0];
-  if (!targetRow) {
-    return {
-      status: 'not_found',
-      updated: false,
-      currentVersion: null,
-      paymentStatus: null
-    };
-  }
+      const targetRow = target.rows[0];
+      if (!targetRow) {
+        return {
+          status: 'not_found',
+          updated: false,
+          currentVersion: null,
+          paymentStatus: null
+        };
+      }
 
-  if (targetRow.version !== input.expectedVersion) {
-    return {
-      status: 'conflict',
-      updated: false,
-      currentVersion: targetRow.version,
-      paymentStatus: targetRow.status
-    };
-  }
+      if (targetRow.version !== input.expectedVersion) {
+        return {
+          status: 'conflict',
+          updated: false,
+          currentVersion: targetRow.version,
+          paymentStatus: targetRow.status
+        };
+      }
 
-  if (
-    input.reviewStatus === 'approved' &&
-    targetRow.status !== 'paid' &&
-    targetRow.review_status !== 'approved'
-  ) {
-    return {
-      status: 'payment_not_eligible',
-      updated: false,
-      currentVersion: targetRow.version,
-      paymentStatus: targetRow.status
-    };
-  }
+      if (
+        input.reviewStatus === 'approved' &&
+        targetRow.status !== 'paid' &&
+        targetRow.review_status !== 'approved'
+      ) {
+        return {
+          status: 'payment_not_eligible',
+          updated: false,
+          currentVersion: targetRow.version,
+          paymentStatus: targetRow.status
+        };
+      }
 
-  if (
-    input.reviewStatus === 'approved' &&
-    !targetRow.has_approved_presentation_photo
-  ) {
-    return {
-      status: 'media_required',
-      updated: false,
-      currentVersion: targetRow.version,
-      paymentStatus: targetRow.status
-    };
-  }
+      if (
+        input.reviewStatus === 'approved' &&
+        !targetRow.has_approved_presentation_photo
+      ) {
+        return {
+          status: 'media_required',
+          updated: false,
+          currentVersion: targetRow.version,
+          paymentStatus: targetRow.status
+        };
+      }
 
-  const result = await pool.query<{ readonly version: string }>(
-    `
+      if (
+        (input.confirmation ?? input.moderationDecision?.confirmation) !==
+        input.contributionId
+      )
+        throw new ModerationError('CONFIRMATION_REQUIRED', 400);
+      const subject = {
+        type: 'sponsorship',
+        id: input.contributionId
+      } as const;
+      if (input.reviewStatus !== 'approved') {
+        const decision = await recordAdverseModeration(
+          db,
+          subject,
+          input.actor ?? '',
+          input.moderationDecision,
+          input.reviewStatus === 'rejected' ? ['N4'] : ['N1', 'N2']
+        );
+        const current = (
+          await db.query<{
+            version: string;
+            review_status: SponsorshipReviewStatus;
+          }>(
+            'SELECT updated_at::text AS version,sponsor_review_status AS review_status FROM fund_contributions WHERE id=$1',
+            [input.contributionId]
+          )
+        ).rows[0]!;
+        return {
+          status: 'updated',
+          updated: true,
+          currentVersion: current.version,
+          paymentStatus: targetRow.status,
+          reviewStatus: current.review_status,
+          decisionState: decision.state
+        };
+      }
+      await approveModeratedSubject(
+        db,
+        subject,
+        input.actor ?? '',
+        input.moderationDecision
+      );
+      const result = await db.query<{ readonly version: string }>(
+        `
       UPDATE fund_contributions
       SET
         sponsor_review_status = $2,
@@ -207,28 +272,40 @@ export const updateSponsorshipReview = async (
         )
       RETURNING updated_at::text AS version
     `,
-    [
-      input.contributionId,
-      input.reviewStatus,
-      input.reviewNote,
-      input.expectedVersion
-    ]
-  );
+        [
+          input.contributionId,
+          input.reviewStatus,
+          input.reviewNote,
+          input.expectedVersion
+        ]
+      );
 
-  const updatedVersion = result.rows[0]?.version;
-  return updatedVersion
-    ? {
-        status: 'updated',
-        updated: true,
-        currentVersion: updatedVersion,
-        paymentStatus: targetRow.status
-      }
-    : {
-        status: 'conflict',
-        updated: false,
-        currentVersion: targetRow.version,
-        paymentStatus: targetRow.status
-      };
+      const updatedVersion = result.rows[0]?.version;
+      if (updatedVersion)
+        await auditModeratedMutation(
+          db,
+          subject,
+          input.actor ?? '',
+          'sponsorship_review.approved'
+        );
+      return updatedVersion
+        ? {
+            status: 'updated',
+            updated: true,
+            currentVersion: updatedVersion,
+            paymentStatus: targetRow.status,
+            reviewStatus: 'approved',
+            decisionState: 'active'
+          }
+        : {
+            status: 'conflict',
+            updated: false,
+            currentVersion: targetRow.version,
+            paymentStatus: targetRow.status
+          };
+    },
+    (result) => result.updated
+  );
 };
 
 export const updateSponsorshipPublication = async (
@@ -245,18 +322,21 @@ export const updateSponsorshipPublication = async (
     };
   }
 
-  const target = await pool.query<{
-    readonly amount_cents: string;
-    readonly status: string;
-    readonly version: string;
-    readonly sponsor_public_slug: string | null;
-    readonly sponsor_public_summary: string | null;
-    readonly sponsor_feed_target: SponsorFeedTarget | null;
-    readonly sponsor_feed_channels: unknown;
-    readonly sponsor_feed_status: SponsorFeedStatus | null;
-    readonly sponsor_feed_public_url: string | null;
-  }>(
-    `
+  return withModerationTransaction<SponsorshipPublicationMutationResult>(
+    pool,
+    async (db) => {
+      const target = await db.query<{
+        readonly amount_cents: string;
+        readonly status: string;
+        readonly version: string;
+        readonly sponsor_public_slug: string | null;
+        readonly sponsor_public_summary: string | null;
+        readonly sponsor_feed_target: SponsorFeedTarget | null;
+        readonly sponsor_feed_channels: unknown;
+        readonly sponsor_feed_status: SponsorFeedStatus | null;
+        readonly sponsor_feed_public_url: string | null;
+      }>(
+        `
       SELECT
         amount_cents::text AS amount_cents,
         status,
@@ -271,67 +351,68 @@ export const updateSponsorshipPublication = async (
       WHERE id = $1::uuid
         AND contribution_type = 'sponsorship_interest'
         AND status IN ('paid', 'refunded', 'disputed')
+      FOR UPDATE
     `,
-    [input.contributionId]
-  );
+        [input.contributionId]
+      );
 
-  const targetRow = target.rows[0];
-  if (!targetRow) {
-    return {
-      status: 'not_found',
-      updated: false,
-      feedChannels: input.feedChannels,
-      currentVersion: null,
-      paymentStatus: null
-    };
-  }
+      const targetRow = target.rows[0];
+      if (!targetRow) {
+        return {
+          status: 'not_found',
+          updated: false,
+          feedChannels: input.feedChannels,
+          currentVersion: null,
+          paymentStatus: null
+        };
+      }
 
-  if (targetRow.version !== input.expectedVersion) {
-    return {
-      status: 'conflict',
-      updated: false,
-      feedChannels: input.feedChannels,
-      currentVersion: targetRow.version,
-      paymentStatus: targetRow.status
-    };
-  }
+      if (targetRow.version !== input.expectedVersion) {
+        return {
+          status: 'conflict',
+          updated: false,
+          feedChannels: input.feedChannels,
+          currentVersion: targetRow.version,
+          paymentStatus: targetRow.status
+        };
+      }
 
-  const requestedFeedChannels = [...new Set(input.feedChannels)];
-  const currentFeedChannels = parseSponsorFeedChannels(
-    targetRow.sponsor_feed_channels
-  );
-  const feedChannels =
-    targetRow.status === 'paid'
-      ? mergePromisedSponsorFeedChannels(
-          requestedFeedChannels,
-          centsToAmount(parseDbInt(targetRow.amount_cents))
-        )
-      : requestedFeedChannels;
-  const visibilityMetadataChanged =
-    normalizedNullableText(input.publicSlug) !==
-      normalizedNullableText(targetRow.sponsor_public_slug) ||
-    normalizedNullableText(input.publicSummary) !==
-      normalizedNullableText(targetRow.sponsor_public_summary) ||
-    (input.feedTarget ?? null) !==
-      normalizeSponsorFeedTarget(targetRow.sponsor_feed_target) ||
-    !sponsorFeedChannelsEqual(feedChannels, currentFeedChannels) ||
-    input.feedStatus !==
-      normalizeSponsorFeedStatus(targetRow.sponsor_feed_status) ||
-    normalizedNullableText(input.feedPublicUrl) !==
-      normalizedNullableText(targetRow.sponsor_feed_public_url);
+      const requestedFeedChannels = [...new Set(input.feedChannels)];
+      const currentFeedChannels = parseSponsorFeedChannels(
+        targetRow.sponsor_feed_channels
+      );
+      const feedChannels =
+        targetRow.status === 'paid'
+          ? mergePromisedSponsorFeedChannels(
+              requestedFeedChannels,
+              centsToAmount(parseDbInt(targetRow.amount_cents))
+            )
+          : requestedFeedChannels;
+      const visibilityMetadataChanged =
+        normalizedNullableText(input.publicSlug) !==
+          normalizedNullableText(targetRow.sponsor_public_slug) ||
+        normalizedNullableText(input.publicSummary) !==
+          normalizedNullableText(targetRow.sponsor_public_summary) ||
+        (input.feedTarget ?? null) !==
+          normalizeSponsorFeedTarget(targetRow.sponsor_feed_target) ||
+        !sponsorFeedChannelsEqual(feedChannels, currentFeedChannels) ||
+        input.feedStatus !==
+          normalizeSponsorFeedStatus(targetRow.sponsor_feed_status) ||
+        normalizedNullableText(input.feedPublicUrl) !==
+          normalizedNullableText(targetRow.sponsor_feed_public_url);
 
-  if (targetRow.status !== 'paid' && visibilityMetadataChanged) {
-    return {
-      status: 'payment_not_eligible',
-      updated: false,
-      feedChannels,
-      currentVersion: targetRow.version,
-      paymentStatus: targetRow.status
-    };
-  }
+      if (targetRow.status !== 'paid' && visibilityMetadataChanged) {
+        return {
+          status: 'payment_not_eligible',
+          updated: false,
+          feedChannels,
+          currentVersion: targetRow.version,
+          paymentStatus: targetRow.status
+        };
+      }
 
-  const result = await pool.query<{ readonly version: string }>(
-    `
+      const result = await db.query<{ readonly version: string }>(
+        `
       UPDATE fund_contributions
       SET
         sponsor_public_slug = $2,
@@ -349,27 +430,65 @@ export const updateSponsorshipPublication = async (
         AND updated_at::text = $9
       RETURNING updated_at::text AS version
     `,
-    [
-      input.contributionId,
-      input.publicSlug?.trim() || null,
-      input.publicSummary?.trim() || null,
-      input.feedTarget ?? null,
-      JSON.stringify(feedChannels),
-      input.feedStatus,
-      input.feedPublicUrl?.trim() || null,
-      input.feedNotes?.trim() || null,
-      input.expectedVersion
-    ]
-  );
+        [
+          input.contributionId,
+          input.publicSlug?.trim() || null,
+          input.publicSummary?.trim() || null,
+          input.feedTarget ?? null,
+          JSON.stringify(feedChannels),
+          input.feedStatus,
+          input.feedPublicUrl?.trim() || null,
+          input.feedNotes?.trim() || null,
+          input.expectedVersion
+        ]
+      );
 
-  const updatedVersion = result.rows[0]?.version;
-  return {
-    status: updatedVersion ? 'updated' : 'conflict',
-    updated: Boolean(updatedVersion),
-    feedChannels,
-    currentVersion: updatedVersion ?? targetRow.version,
-    paymentStatus: targetRow.status
-  };
+      const updatedVersion = result.rows[0]?.version;
+      if (
+        updatedVersion &&
+        input.feedStatus === 'published' &&
+        (normalizeSponsorFeedStatus(targetRow.sponsor_feed_status) !==
+          'published' ||
+          normalizedNullableText(input.feedPublicUrl) !==
+            normalizedNullableText(targetRow.sponsor_feed_public_url))
+      ) {
+        if (input.confirmation !== input.contributionId)
+          throw new ModerationError('CONFIRMATION_REQUIRED', 400);
+        await assertModerationApproved(db, {
+          type: 'sponsorship',
+          id: input.contributionId
+        });
+        const drafts = await db.query<{
+          id: string;
+          channel: SponsorFeedChannel;
+        }>(
+          `SELECT id,channel FROM sponsor_publication_drafts WHERE contribution_id=$1 AND feed_target=$2 AND channel=ANY($3::text[]) AND status IN ('approved','scheduled','published') ORDER BY id FOR SHARE`,
+          [input.contributionId, input.feedTarget, feedChannels]
+        );
+        for (const channel of feedChannels) {
+          const draft = drafts.rows.find(
+            (candidate) => candidate.channel === channel
+          );
+          if (!draft)
+            throw new ModerationError(
+              'MODERATION_PUBLICATION_DECISION_REQUIRED'
+            );
+          await assertModerationApproved(db, {
+            type: 'publication_draft',
+            id: draft.id
+          });
+        }
+      }
+      return {
+        status: updatedVersion ? 'updated' : 'conflict',
+        updated: Boolean(updatedVersion),
+        feedChannels,
+        currentVersion: updatedVersion ?? targetRow.version,
+        paymentStatus: targetRow.status
+      };
+    },
+    (result) => result.updated
+  );
 };
 
 export const updateSponsorshipLogoUrl = async (

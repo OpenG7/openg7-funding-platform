@@ -31,6 +31,8 @@ import {
   type ProgrammeCommand
 } from '../../components/admin-pilotage/editorial-programme.component.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
+import { FundingModerationService } from '../../services/funding-moderation.service.js';
+import { FundingModerationActionsComponent } from '../../components/admin-moderation/funding-moderation-actions.component.js';
 import { AdminDrawerComponent } from '../../components/admin-ui/admin-drawer.component.js';
 import {
   AdminIconComponent,
@@ -78,6 +80,7 @@ type Panel =
     PilotDecisionDetailsComponent,
     AdminPublicationCalendarComponent,
     AdminLayoutComponent,
+    FundingModerationActionsComponent,
     EditorialProgrammeComponent,
     AdminGuideComponent
   ],
@@ -91,6 +94,7 @@ type Panel =
   ]
 })
 export class AdminPilotagePageComponent {
+  readonly moderation = inject(FundingModerationService);
   readonly admin = inject(FundingAdminService);
   readonly i18n = inject(FundingI18nService);
   readonly controller = inject(ControllerService);
@@ -559,7 +563,7 @@ export class AdminPilotagePageComponent {
       .toISOString()
       .slice(0, 16);
   }
-  confirm(): void {
+  async confirm(): Promise<void> {
     const p = this.pending();
     if (!p || this.busy() || this.unresolved()) return;
     if (p.action === 'sponsor.reject' && this.reason.trim().length < 3) return;
@@ -574,7 +578,58 @@ export class AdminPilotagePageComponent {
         : p.action === 'sponsor.reject'
           ? { reason: this.reason.trim() }
           : undefined;
-    void this.commands.send({ ...p, payload });
+    if (
+      [
+        'sponsor.approve',
+        'sponsor.reject',
+        'publication.approve',
+        'publication.reject'
+      ].includes(p.action)
+    ) {
+      this.controller.reset();
+      const approveSponsors: NonNullable<
+        NonNullable<PilotCommand['payload']>['approveSponsors']
+      > = [];
+      if (p.action === 'publication.approve')
+        for (const sponsor of this.pendingSponsors()) {
+          const decision = await this.moderation.requestDecision(
+            { type: 'sponsorship', id: sponsor.id },
+            'N0'
+          );
+          if (!decision || this.pending() !== p || this.busy()) return;
+          this.controller.reset();
+          approveSponsors.push({
+            id: sponsor.id,
+            version: sponsor.version,
+            moderationDecision: decision
+          });
+        }
+      const moderationDecision = await this.moderation.requestDecision(
+        {
+          type: p.action.startsWith('sponsor.')
+            ? 'sponsorship'
+            : 'publication_delivery',
+          id: p.targetId
+        },
+        p.action.endsWith('.approve')
+          ? 'N0'
+          : p.action.startsWith('sponsor.')
+            ? 'N4'
+            : 'N3',
+        { internalReason: this.reason.trim() }
+      );
+      if (!moderationDecision || this.pending() !== p || this.busy()) return;
+      await this.commands.send({
+        ...p,
+        payload: {
+          ...payload,
+          moderationDecision,
+          ...(approveSponsors.length ? { approveSponsors } : {})
+        }
+      });
+      return;
+    }
+    await this.commands.send({ ...p, payload });
   }
   recover(): Promise<void> {
     return this.commands.recover();
@@ -650,6 +705,27 @@ export class AdminPilotagePageComponent {
     this.error.set('');
   }
   intent(intent: ControllerIntent): void {
+    if (this.moderation.pending()) {
+      if (intent === 'secondary') {
+        this.moderation.answer(null);
+        this.controller.reset();
+      } else if (['up', 'down', 'left', 'right'].includes(intent))
+        this.moveFocus(intent);
+      else if (intent === 'primary') {
+        const active = this.document.activeElement as HTMLElement | null;
+        const top = Array.from(
+          this.document.querySelectorAll('dialog[open]')
+        ).at(-1);
+        if (
+          active &&
+          top?.contains(active) &&
+          active.matches('button,input[type="checkbox"]')
+        )
+          active.click();
+        this.controller.reset();
+      }
+      return;
+    }
     if (
       this.guide()?.handleIntent(intent) ||
       this.programme()?.guide()?.handleIntent(intent)
@@ -808,7 +884,7 @@ export class AdminPilotagePageComponent {
       return;
     }
     const scope =
-      this.document.querySelector('dialog[open]') ??
+      Array.from(this.document.querySelectorAll('dialog[open]')).at(-1) ??
       this.document.querySelector('.pilot');
     const elements = Array.from(
       scope?.querySelectorAll<HTMLElement>(

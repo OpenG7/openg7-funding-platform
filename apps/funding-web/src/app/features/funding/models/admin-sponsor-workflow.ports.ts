@@ -13,6 +13,7 @@ import type {
 } from '@openg7/funding-core';
 
 import type { FundingAdminService } from '../services/funding-admin.service.js';
+import type { FundingModerationService } from '../services/funding-moderation.service.js';
 
 export interface AdminSponsorTranslation {
   t(key: string, params?: Record<string, unknown>): string;
@@ -35,6 +36,7 @@ export interface AdminSponsorSelectionPorts extends AdminSponsorActionPorts {
 }
 
 export interface AdminSponsorReviewPorts extends AdminSponsorSelectionPorts {
+  moderate: FundingModerationService['requestDecision'];
   admin: Pick<FundingAdminService, 'reviewSponsorship'>;
   confirm(message: string, detail?: string): Promise<boolean>;
   canManage(): boolean;
@@ -145,6 +147,8 @@ export interface AdminSponsorRefundPorts extends AdminSponsorActionPorts {
 }
 
 export interface AdminSponsorMediaPorts extends AdminSponsorActionPorts {
+  canContinue(sponsorship: AdminSponsorshipRecord): boolean;
+  moderate: FundingModerationService['requestDecision'];
   admin: Pick<
     FundingAdminService,
     | 'uploadSponsorLogo'
@@ -153,6 +157,7 @@ export interface AdminSponsorMediaPorts extends AdminSponsorActionPorts {
     | 'getSponsorMedia'
     | 'getSponsorMediaPreview'
     | 'reviewSponsorMedia'
+    | 'updateSponsorMediaMetadata'
     | 'deleteSponsorMedia'
   >;
   confirm(message: string): Promise<boolean>;

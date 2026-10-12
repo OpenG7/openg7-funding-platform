@@ -7,6 +7,7 @@ import { discoverPlaywright as discover } from './ui/discover-playwright.mjs';
 test('follow-up fixtures run once in isolation while persisted journeys remain in Docker', () => {
   const fixtures = new Set([
     'sponsorship-followup.spec.ts',
+    'sponsorship-moderation-followup.spec.ts',
     'sponsor-media-upload-feedback.spec.ts'
   ]);
   const followup = discover('tests/playwright-followup-ui.config.mjs');

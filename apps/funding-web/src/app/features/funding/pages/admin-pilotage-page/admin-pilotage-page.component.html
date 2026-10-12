@@ -289,6 +289,19 @@
           >
         </section>
       } @else if (selected(); as d) {
+        @if (d.domain === 'sponsors' || d.domain === 'publications') {
+          <openg7-funding-moderation-actions
+            [subject]="{
+              type:
+                d.domain === 'sponsors'
+                  ? 'sponsorship'
+                  : 'publication_delivery',
+              id: d.targetId
+            }"
+            [disabled]="busy() || !state()?.writable || !!panel()"
+            (changed)="load(true)"
+          />
+        }
         <div class="workspace">
           <article
             class="decision"

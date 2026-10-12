@@ -1,8 +1,16 @@
 import type { Page } from '@playwright/test';
 
+import {
+  approveAcceptanceFixture,
+  completePublicationModeration
+} from './support/acceptance-moderation.js';
 import { expect, test } from './support/test.js';
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { signInAsAdmin } from './support/admin-auth.js';
+import {
+  approveCurrentModeration,
+  completeModeration
+} from './support/moderation.js';
 
 // Exercises the real admin API through final content approval. Sending/recovery
 // is covered separately with disposable PostgreSQL and synthetic provider responses.
@@ -36,7 +44,8 @@ async function openBatch(page: Page, id: string | null): Promise<void> {
 
 test.describe('Docker admin publication batches', () => {
   test('creates a draft, assigns a calendar slot and authorizes its final content', async ({
-    page
+    page,
+    request
   }) => {
     await signInAsAdmin(page);
 
@@ -53,6 +62,9 @@ test.describe('Docker admin publication batches', () => {
       }
     );
     await expect(eligibleCard).toBeVisible();
+    const sponsorshipId = await eligibleCard.getAttribute('data-og7-id');
+    if (!sponsorshipId) throw new Error('Eligible sponsorship id is missing.');
+    await approveAcceptanceFixture(request, fixture.publicReference);
     await eligibleCard
       .getByRole('button', { name: 'Facebook', exact: true })
       .click();
@@ -61,6 +73,8 @@ test.describe('Docker admin publication batches', () => {
       hasText: fixture.companyName
     });
     await expect(draftCard).toBeVisible();
+    const draftId = await draftCard.getAttribute('data-og7-id');
+    if (!draftId) throw new Error('Created publication draft id is missing.');
 
     await draftCard
       .getByLabel('Titre')
@@ -71,6 +85,17 @@ test.describe('Docker admin publication batches', () => {
     await draftCard
       .getByLabel('Divulgation')
       .fill('Commandite payante divulguee pour un test automatise.');
+    // Moderation reviews persisted content, so save the edits before approval.
+    const draftSaved = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname ===
+          '/api/admin/publication-drafts/update' &&
+        response.request().method() === 'POST'
+    );
+    await draftCard
+      .getByRole('button', { name: 'Enregistrer', exact: true })
+      .click();
+    expect((await draftSaved).ok()).toBe(true);
     const approveDraft = draftCard.getByRole('button', {
       name: 'Approuver',
       exact: true,
@@ -79,10 +104,12 @@ test.describe('Docker admin publication batches', () => {
     if (await approveDraft.count()) {
       await draftCard.getByText('Autres actions', { exact: true }).click();
       await approveDraft.click();
+      await completeModeration(page);
     } else {
-      await draftCard
-        .getByRole('button', { name: 'Enregistrer', exact: true })
-        .click();
+      await approveCurrentModeration(request, {
+        type: 'publication_draft',
+        id: draftId
+      });
     }
 
     await expect(
@@ -198,6 +225,11 @@ test.describe('Docker admin publication batches', () => {
     await page.getByLabel('Choisir un mois').fill(slotStartsAt.slice(0, 7));
     await openBatch(page, batchId);
     await expect(batchCard).toContainText('Planifie');
+    // Assigning the lot and its date creates a new source revision to review.
+    await approveCurrentModeration(request, {
+      type: 'publication_draft',
+      id: draftId
+    });
 
     const deliveryPrepared = page.waitForResponse((response) => {
       if (
@@ -246,6 +278,7 @@ test.describe('Docker admin publication batches', () => {
     await preview
       .getByRole('button', { name: 'Accepter et programmer' })
       .click();
+    await completePublicationModeration(page);
     await expect(preview).toContainText('Autorisée');
     await expect(preview).toContainText('Simulation');
     await preview.getByRole('button', { name: 'Fermer', exact: true }).click();

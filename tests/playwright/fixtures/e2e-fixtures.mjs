@@ -40,6 +40,61 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
     feedTarget: 'openg7',
     feedChannels: ['facebook']
   }),
+  // These mutating scenarios never reuse historical refusals or another repair pair.
+  collectiveDestinationRemoved: Object.freeze({
+    publicReference: 'OG7-E2E-DESTINATION-REMOVED',
+    companyName: 'E2E Destination Removed Inc.',
+    contactName: 'E2E Dedicated Contact',
+    contactEmail: 'destination-removed@simulation.example.test',
+    websiteUrl: 'https://example.invalid/destination-removed',
+    followupToken: 'e2e-destination-removed-local-only-token-0000000000',
+    amountCents: 50000,
+    reviewStatus: 'approved',
+    feedTarget: 'openg7',
+    feedChannels: ['facebook']
+  }),
+  collectiveDestinationRetained: Object.freeze({
+    publicReference: 'OG7-E2E-DESTINATION-RETAINED',
+    companyName: 'E2E Destination Retained Inc.',
+    contactName: 'E2E Dedicated Contact',
+    contactEmail: 'destination-retained@simulation.example.test',
+    websiteUrl: 'https://example.invalid/destination-retained',
+    followupToken: 'e2e-destination-retained-local-only-token-0000000000',
+    amountCents: 50000,
+    reviewStatus: 'approved',
+    feedTarget: 'openg7',
+    feedChannels: ['facebook']
+  }),
+  independentReject: Object.freeze({
+    publicReference: 'OG7-E2E-INDEPENDENT-REJECT',
+    companyName: 'E2E Independent Reject Inc.',
+    contactName: 'E2E Dedicated Contact',
+    contactEmail: 'independent-reject@simulation.example.test',
+    websiteUrl: 'https://example.invalid/independent-reject',
+    followupToken: 'e2e-independent-reject-local-only-token-0000000000',
+    amountCents: 25000,
+    reviewStatus: 'pending_review'
+  }),
+  independentRejectRefund: Object.freeze({
+    publicReference: 'OG7-E2E-INDEPENDENT-REFUND',
+    companyName: 'E2E Independent Refund Inc.',
+    contactName: 'E2E Dedicated Contact',
+    contactEmail: 'independent-refund@simulation.example.test',
+    websiteUrl: 'https://example.invalid/independent-refund',
+    followupToken: 'e2e-independent-refund-local-only-token-0000000000',
+    amountCents: 40000,
+    reviewStatus: 'pending_review'
+  }),
+  independentRejectedFollowup: Object.freeze({
+    publicReference: 'OG7-E2E-INDEPENDENT-FOLLOWUP',
+    companyName: 'E2E Independent Followup Inc.',
+    contactName: 'E2E Dedicated Contact',
+    contactEmail: 'independent-followup@simulation.example.test',
+    websiteUrl: 'https://example.invalid/independent-followup',
+    followupToken: 'e2e-independent-followup-local-only-token-0000000000',
+    amountCents: 25000,
+    reviewStatus: 'pending_review'
+  }),
   followupRecovery: Object.freeze({
     publicReference: 'OG7-E2E-FOLLOWUP-RECOVERY',
     companyName: 'E2E Followup Recovery Inc.',
@@ -93,7 +148,10 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
     websiteUrl: 'https://example.com/e2e-rejected-followup',
     followupToken: 'e2e-rejected-followup-local-only-token-0000000',
     amountCents: 25000,
-    reviewStatus: 'pending_review'
+    // Terminal follow-up state is independent of a new N4 proposal, which
+    // requires a distinct identified reviewer to become effective.
+    reviewStatus: 'rejected',
+    reviewNote: 'E2E: justification interne privee du dossier deja refuse.'
   }),
   // Seeded already approved (rather than approved via the admin UI, like the
   // two fixtures above) so the public sponsor-navigation spec can assert on

@@ -11,6 +11,11 @@
       <p role="alert" class="alert">{{ c.error() | translate }}</p>
     }
     @if (c.selected(); as job) {
+      <openg7-funding-moderation-actions
+        [subject]="{ type: 'publication_delivery', id: job.id }"
+        [disabled]="c.busy() || c.dirty()"
+        (changed)="c.refreshModeration()"
+      />
       <p class="destination">
         <strong>{{ job.feedId }} · {{ job.accountId }}</strong
         ><span

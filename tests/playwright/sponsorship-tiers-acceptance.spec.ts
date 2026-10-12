@@ -17,6 +17,12 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
+import {
+  acceptanceModerationDecision,
+  approveAcceptanceSubject,
+  completePublicationModeration
+} from './support/acceptance-moderation.js';
+import { completeModeration } from './support/moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import { expect, test } from './support/test.js';
@@ -428,9 +434,36 @@ for (const amount of [100, 250]) {
               contributionId +
               '&tab=media'
           );
+          const pendingMedia = (await media()).filter(
+            (asset) => asset.reviewStatus !== 'approved'
+          );
+          expect(pendingMedia).toHaveLength(2);
+          const pendingIds = new Set(pendingMedia.map((asset) => asset.id));
           await admin
             .getByRole('button', { name: 'Tout approuver', exact: true })
             .click();
+          for (let index = 0; index < pendingMedia.length; index++) {
+            const reviewed = admin.waitForResponse(
+              (response) =>
+                response
+                  .url()
+                  .endsWith('/api/admin/sponsorships/media/review') &&
+                response.request().method() === 'POST'
+            );
+            await completeModeration(admin);
+            const response = await reviewed;
+            expect(response.ok(), await response.text()).toBe(true);
+            const reviewedAsset = response.request().postDataJSON();
+            expect(pendingIds.delete(reviewedAsset.assetId)).toBe(true);
+            expect(reviewedAsset).toMatchObject({
+              reviewStatus: 'approved',
+              moderationDecision: {
+                level: 'N0',
+                confirmation: reviewedAsset.assetId
+              }
+            });
+          }
+          expect(pendingIds.size).toBe(0);
           await expect
             .poll(async () =>
               (await media()).every((m) => m.reviewStatus === 'approved')
@@ -446,6 +479,7 @@ for (const amount of [100, 250]) {
           await admin
             .getByRole('button', { name: 'Accepter', exact: true })
             .click();
+          await completeModeration(admin);
           await expect
             .poll(async () => (await sponsor()).sponsor_review_status)
             .toBe('approved');
@@ -477,6 +511,13 @@ for (const amount of [100, 250]) {
               admin.getByText('Publication enregistree.', { exact: true })
             ).toBeVisible();
             await assertPrivate();
+            // The summary and slug belong to a new editorial revision. Review
+            // it before the separate, consent-controlled visibility decision.
+            await approveAcceptanceSubject(request, {
+              type: 'sponsorship',
+              id: contributionId
+            });
+            await admin.reload();
             await admin.locator('[data-og7="website-visibility"]').click();
             await admin.locator('[data-og7="confirm-action"]').click();
             await expect
@@ -548,7 +589,12 @@ for (const amount of [100, 250]) {
             ).draft!;
             await post('/api/admin/publication-drafts/update', {
               draftId: draft.id,
-              status: 'approved'
+              status: 'approved',
+              confirmation: draft.id,
+              moderationDecision: await acceptanceModerationDecision(request, {
+                type: 'publication_draft',
+                id: draft.id
+              })
             });
             const batch = (
               await post<AdminPublicationBatchMutationResult>(
@@ -559,6 +605,10 @@ for (const amount of [100, 250]) {
             await post('/api/admin/publication-batches/assign', {
               batchId: batch.id,
               draftId: draft.id
+            });
+            await approveAcceptanceSubject(request, {
+              type: 'publication_draft',
+              id: draft.id
             });
             const composed = await request.post(automation, {
               headers: await adminSessionHeaders(request),
@@ -627,6 +677,7 @@ for (const amount of [100, 250]) {
             await dialog
               .getByRole('button', { name: 'Accepter et programmer' })
               .click();
+            await completePublicationModeration(admin);
             await expect(dialog).toContainText('Autorisée');
             const authorized = (await jobs())[0]!;
             const due = new Date(authorized.scheduledAt);

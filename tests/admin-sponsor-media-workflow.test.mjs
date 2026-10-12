@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
+import { moderationDecision } from './support/moderation-ui-fixture.mjs';
 
 import { AdminSponsorMediaWorkflow } from '../dist/apps/funding-web/src/app/features/funding/services/admin-sponsor-media-workflow.js';
 
@@ -77,6 +78,12 @@ const fixture = (t, locale = null) => {
   });
   t.mock.method(URL, 'revokeObjectURL', (url) => revoked.push(url));
   const ports = {
+    moderate: async (subject, level, initial) =>
+      moderationDecision(subject, level, initial),
+    canContinue: (record) =>
+      state.allowed &&
+      state.selected?.id === record.id &&
+      state.selected?.version === record.version,
     adminToken: () => 'synthetic-session',
     canActOn: (record) =>
       state.allowed &&
@@ -112,6 +119,17 @@ const fixture = (t, locale = null) => {
     isBrowser: () => state.browser,
     mediaLoaded: () => calls.push(['mediaLoaded']),
     admin: {
+      updateSponsorMediaMetadata: async (token, payload) => {
+        calls.push(['metadata', token, payload]);
+        return {
+          updated: true,
+          asset: {
+            ...mediaAsset(payload.assetId),
+            altText: payload.altText,
+            version: `${payload.assetId}-metadata-v3`
+          }
+        };
+      },
       uploadSponsorLogo: async (...args) => {
         calls.push(['uploadLogo', ...args]);
         return { sizeBytes: args[3].size };
@@ -311,14 +329,25 @@ test('reviews preserve asset version and trimmed or absent alt text without auto
       'synthetic-session',
       {
         assetId: asset.id,
-        expectedVersion: asset.version,
+        expectedVersion: `${asset.id}-metadata-v3`,
         reviewStatus: 'approved',
-        altText: 'Vue synthétique du kiosque'
+        altText: 'Vue synthétique du kiosque',
+        confirmation: asset.id,
+        moderationDecision: moderationDecision(
+          { type: 'media', id: asset.id },
+          'N0'
+        )
       }
     ]
   );
   assert.equal(f.calls.filter(([name]) => name === 'confirm').length, 0);
-  assert.equal(f.calls.filter(([name]) => name === 'media').length, 1);
+  assert.equal(f.calls.filter(([name]) => name === 'media').length, 2);
+  assert.deepEqual(f.calls.find(([name]) => name === 'metadata')[2], {
+    assetId: asset.id,
+    expectedVersion: asset.version,
+    confirmation: asset.id,
+    altText: 'Vue synthétique du kiosque'
+  });
   assert.match(
     f.workflow.sponsorMediaMessages()[f.selected.id],
     /visible_seulement_lorsque/
@@ -333,7 +362,12 @@ test('reviews preserve asset version and trimmed or absent alt text without auto
     assetId: asset.id,
     expectedVersion: asset.version,
     reviewStatus: 'rejected',
-    altText: undefined
+    altText: undefined,
+    confirmation: asset.id,
+    moderationDecision: moderationDecision(
+      { type: 'media', id: asset.id },
+      'N3'
+    )
   });
   assert.equal(f.calls.filter(([name]) => name === 'confirm').length, 1);
   assert.equal(f.state.action, null);
@@ -367,7 +401,7 @@ test('bulk approval processes exact versions sequentially and reports partial in
       .map((entry) => entry[2].assetId),
     ['first', 'second']
   );
-  assert.equal(f.calls.filter(([name]) => name === 'media').length, 1);
+  assert.equal(f.calls.filter(([name]) => name === 'media').length, 2);
   assert.equal(f.calls.find(([name]) => name === 'error')[1], failure);
   assert.match(
     f.workflow.sponsorMediaMessages()[f.selected.id],
@@ -398,9 +432,14 @@ test('bulk approval has no mutation when all assets are already approved and cou
     [
       {
         assetId: first.id,
-        expectedVersion: first.version,
+        expectedVersion: `${first.id}-metadata-v3`,
         reviewStatus: 'approved',
-        altText: 'Vue'
+        altText: 'Vue',
+        confirmation: first.id,
+        moderationDecision: moderationDecision(
+          { type: 'media', id: first.id },
+          'N0'
+        )
       }
     ]
   );

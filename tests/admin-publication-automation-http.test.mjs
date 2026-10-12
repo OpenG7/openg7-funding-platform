@@ -191,6 +191,55 @@ test('automation state passes exact intersecting dossier filters and media reads
   }
 });
 
+test('queue pagination is validated after access and does not change delivery or media filters', async () => {
+  for (const prefix of [
+    '/admin/publication-automation',
+    '/api/admin/publication-automation'
+  ]) {
+    for (const offset of [0, 200]) {
+      const f = fixture();
+      const result = await f.run(
+        `${prefix}?sponsorshipId=${id}&queueOffset=${offset}`
+      );
+      assert.equal(result.status, 200);
+      assert.deepEqual(f.values('state'), [
+        [
+          undefined,
+          {
+            sponsorshipId: id,
+            deliveryId: undefined,
+            queueOffset: offset
+          }
+        ]
+      ]);
+    }
+    for (const invalid of [
+      '',
+      '-1',
+      '1.5',
+      '1e3',
+      'Infinity',
+      '9007199254740992'
+    ]) {
+      const f = fixture();
+      const result = await f.run(`${prefix}?queueOffset=${invalid}`);
+      assert.equal(result.status, 400);
+      assert.deepEqual(result.payload, { code: 'INVALID_FILTER' });
+      assert.deepEqual(f.names(), ['access', 'json']);
+    }
+    const denied = fixture({ denied: 401 });
+    assert.equal((await denied.run(`${prefix}?queueOffset=-1`)).status, 401);
+    assert.deepEqual(denied.names(), ['access', 'json']);
+    const media = fixture();
+    assert.equal(
+      (await media.run(`${prefix}/media?deliveryId=${id}&queueOffset=-1`))
+        .status,
+      200
+    );
+    assert.deepEqual(media.values('mediaOptions'), [[id]]);
+  }
+});
+
 test('real media listing derives its batch from the delivery and keeps editorial selection shared', async () => {
   const batchId = '22222222-2222-4222-8222-222222222222';
   const option = {

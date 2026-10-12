@@ -29,20 +29,52 @@ const review = (overrides = {}) => ({
   expectedVersion: version,
   reviewStatus: 'approved',
   reviewNote: 'Private review',
+  confirmation: id,
+  actor: 'admin:00000000-0000-4000-8000-000000000003',
   ...overrides
 });
 const database = (...responses) => {
   const calls = [];
+  const transaction = [];
+  const query = async (sql, params) => {
+    if (['BEGIN', 'COMMIT', 'ROLLBACK'].includes(sql)) {
+      transaction.push(sql);
+      return { rows: [] };
+    }
+    if (sql.startsWith('SELECT d.level,c.state'))
+      return {
+        rows: [
+          {
+            level: 'N0',
+            state: 'approved',
+            editorial_status: 'approved',
+            content_version: 1,
+            current_content_version: 1,
+            content_fingerprint: 'a'.repeat(64),
+            current_fingerprint: 'a'.repeat(64),
+            actual_fingerprint: 'a'.repeat(64)
+          }
+        ]
+      };
+    if (sql.includes('INSERT INTO admin_audit_log'))
+      return { rows: [{ id }], rowCount: 1 };
+    calls.push({ sql, params });
+    assert.ok(responses.length > 0, 'Unexpected extra database query');
+    const response = responses.shift();
+    if (response instanceof Error) throw response;
+    return response;
+  };
   return {
     calls,
+    transaction,
     pool: {
-      query: async (sql, params) => {
-        calls.push({ sql, params });
-        assert.ok(responses.length > 0, 'Unexpected extra database query');
-        const response = responses.shift();
-        if (response instanceof Error) throw response;
-        return response;
-      }
+      query,
+      connect: async () => ({
+        query,
+        release() {
+          transaction.push('release');
+        }
+      })
     }
   };
 };
@@ -170,6 +202,7 @@ test('review preserves version, payment and presentation-photo prerequisites bef
     assert.equal(result.status, expected);
     assert.equal(result.updated, false);
     assert.equal(db.calls.length, 1);
+    assert.deepEqual(db.transaction, ['BEGIN', 'ROLLBACK', 'release']);
   }
   for (const [rows, expected] of [
     [[], 'conflict'],
@@ -183,6 +216,11 @@ test('review preserves version, payment and presentation-photo prerequisites bef
       expected === 'updated' ? 'next' : version
     );
     assert.equal(result.paymentStatus, 'paid');
+    assert.deepEqual(db.transaction, [
+      'BEGIN',
+      expected === 'updated' ? 'COMMIT' : 'ROLLBACK',
+      'release'
+    ]);
     assert.deepEqual(db.calls[1].params, [
       id,
       'approved',

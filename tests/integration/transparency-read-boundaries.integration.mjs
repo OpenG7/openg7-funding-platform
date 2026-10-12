@@ -7,6 +7,7 @@ import {
   listPublicBuilders
 } from '../../dist/apps/funding-api/src/fund-transparency.repository.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
+import { approveFixtureSubject } from './support/moderation-fixture.mjs';
 
 test(
   'transparency reads retain public and financial boundaries on disposable PostgreSQL',
@@ -84,6 +85,11 @@ test(
         ('personal_support',2501,'cad','pending','Awaiting payment',true,true,'pending_review',false,true,'private@example.invalid'),
         ('personal_support',2501,'cad','paid',' ',true,true,'pending_review',false,true,'private@example.invalid')
     `);
+        const { rows: approvedSponsors } = await pool.query(
+          "SELECT id FROM fund_contributions WHERE contribution_type='sponsorship_interest' AND sponsor_review_status='approved'"
+        );
+        for (const { id } of approvedSponsors)
+          await approveFixtureSubject(pool, { type: 'sponsorship', id });
         const builders = [];
         for (let page = 1; page <= 3; page++) {
           const response = await listPublicBuilders(pool, {

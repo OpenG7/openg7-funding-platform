@@ -11,6 +11,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { test, expect } from './support/test.js';
+import { moderationFixture, completeModeration } from './support/moderation.js';
 
 function guide(page: Page, id = 'pilotage') {
   return page.locator(`[data-og7="admin-guide"][data-og7-id="${id}"]`);
@@ -1001,6 +1002,7 @@ test('overview counts confirmed decisions and opened details for this visit only
   const release = hold();
   try {
     await page.locator('[data-og7="pilot-confirm"]').click();
+    await completeModeration(page);
     await expect.poll(() => commands.length).toBe(1);
     await expect(page.locator('[data-og7="pilot-confirm"]')).toBeDisabled();
     await expect(done).toHaveText('0');
@@ -1017,7 +1019,15 @@ test('overview counts confirmed decisions and opened details for this visit only
     targetId: '11111111-1111-4111-8111-000000000001',
     version: '1',
     confirmation: '11111111-1111-4111-8111-000000000001',
-    payload: { approveSponsors: [] }
+    payload: {
+      approveSponsors: [],
+      moderationDecision: expect.objectContaining({
+        level: 'N0',
+        contentVersion: 3,
+        contentFingerprint: 'a'.repeat(64),
+        confirmation: '11111111-1111-4111-8111-000000000001'
+      })
+    }
   });
   await page.reload();
   await expect(pending).toHaveText('3');
@@ -1036,6 +1046,7 @@ for (const status of ['failed', 'uncertain'] as const) {
     await page.locator('[data-og7="pilot-accept"]').click();
     const response = page.waitForResponse('**/api/admin/pilotage/command');
     await page.locator('[data-og7="pilot-confirm"]').click();
+    await completeModeration(page);
     expect(await (await response).json()).toMatchObject({ status });
     await expect(
       page.locator('[data-og7="pilot-panel-confirm"]')
@@ -1576,6 +1587,7 @@ async function fixtures(page: Page, count = 4) {
   let commandGate: Promise<void> | undefined;
   let status: 'completed' | 'failed' | 'uncertain' = 'completed';
   await page.route('**/api/**', async (route) => {
+    if (await moderationFixture(route)) return;
     const url = new URL(route.request().url());
     if (url.pathname.includes('/media/content/'))
       return route.fulfill({ contentType: 'image/webp', body: photo });
@@ -1751,6 +1763,10 @@ test('controller approval is contextual, requires release and processes twenty d
   expect(commands).toHaveLength(0);
   await buttons(page);
   await buttons(page, [0]);
+  await expect(page.locator('[data-og7="moderation-decision"]')).toBeVisible();
+  await page.clock.runFor(600);
+  expect(commands).toHaveLength(0);
+  await completeModeration(page);
   await expect(page.locator('[data-og7="pilot-receipt"]')).toBeVisible();
   await page.clock.runFor(400);
   expect(commands).toHaveLength(1);
@@ -1761,6 +1777,7 @@ test('controller approval is contextual, requires release and processes twenty d
       page.locator('[data-og7="pilot-panel-confirm"]')
     ).toBeVisible();
     await tap(page, 0);
+    await completeModeration(page);
     await expect.poll(() => commands.length).toBe(i + 1);
     await expect(page.locator('[data-og7="pilot-receipt"]')).toBeVisible();
   }
@@ -1805,6 +1822,7 @@ test('details, edit, rejection, calendar chord and return preserve decision cont
   await tap(page, 1);
   await expect(page.locator('[data-og7="pilot-panel-confirm"]')).toBeVisible();
   await tap(page, 0);
+  await completeModeration(page, true);
   await expect.poll(() => commands.length).toBe(2);
   expect(commands[1]!.action).toBe('publication.reject');
 });
@@ -1816,6 +1834,7 @@ test('lost response recovers its receipt without replaying a command, including 
   await page.goto('/admin/fundraiser/pilotage');
   await page.locator('[data-og7="pilot-accept"]').click();
   await page.locator('[data-og7="pilot-confirm"]').click();
+  await completeModeration(page);
   await expect(
     page.getByRole('button', { name: 'Vérifier le résultat' })
   ).toBeVisible();
@@ -1840,6 +1859,7 @@ test('an uncertain recovered receipt survives the slower initial projection with
   await page.goto('/admin/fundraiser/pilotage');
   await page.locator('[data-og7="pilot-accept"]').click();
   await page.locator('[data-og7="pilot-confirm"]').click();
+  await completeModeration(page);
   await expect(
     page.getByRole('button', { name: 'Vérifier le résultat' })
   ).toBeVisible();
@@ -1925,6 +1945,7 @@ test('uncertain command is acknowledged after investigation without another muta
   await page.goto('/admin/fundraiser/pilotage');
   await page.locator('[data-og7="pilot-accept"]').click();
   await page.locator('[data-og7="pilot-confirm"]').click();
+  await completeModeration(page);
   await page.getByRole('button', { name: 'Examiner cet incident' }).click();
   const save = page.getByRole('button', {
     name: 'Consigner mon constat et reprendre le pilotage'
