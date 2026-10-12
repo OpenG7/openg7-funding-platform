@@ -114,6 +114,28 @@ L'adoption historique, les délais commerciaux et les qualifications réelles
 gardent leurs conditions dans le guide d'adoption ; ce reçu ne clôture pas les
 19 garanties dans tous les comptes et formats.
 
+### Correctif CI — stockage de reprise Checkout
+
+Sur le commit `9116b6c4`, le [run CI 255](https://github.com/OpenG7/openg7-funding-platform/actions/runs/38316407330)
+valide les contrôles Node et PostgreSQL. La recette Docker reçoit 255 parcours
+et échoue sur les deux variantes FR/EN de vérification après rechargement :
+l'assertion cherche encore le cache v1 dans `sessionStorage`, alors que le
+contrat courant utilise `localStorage/v2` avec UUID et expiration.
+
+Le correctif adapte les deux lectures et vérifie l'UUID de l'entrée conservée.
+Le cache complet doit rester identique après rechargement et changement de
+langue ; le refus 409, le bouton désactivé et l'unique requête restent exigés.
+La reprise d'offre vérifie également le nettoyage effectif des deux caches
+actifs, au lieu de lire un stockage legacy déjà vide. Les fixtures Node
+consacrées au legacy restent inchangées.
+
+Les deux échecs sont reproduits localement avant correction. Après correction,
+cinq parcours de vérification/charte et deux reprises d'offre FR desktop
+Chromium/EN mobile WebKit passent, ainsi que 69 tests Node Checkout/transport.
+Les types UI, lint et format ciblés passent. La revue indépendante ne relève
+aucun écart ; aucun runtime, skip, timeout ou configuration CI n'est modifié.
+Ces résultats ciblés sont distincts de la prochaine réception CI complète.
+
 ## Complément autorisé — cinq travaux
 
 Feu vert du 12 octobre 2026 sur la base `a7d9ea0`, avec conservation des

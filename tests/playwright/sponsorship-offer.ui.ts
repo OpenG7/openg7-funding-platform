@@ -1007,10 +1007,11 @@ export function registerSponsorshipOfferTests(
             .filter({ hasText: english ? /Local mode/ : /Mode local/ })
         ).toBeVisible();
         expect(
-          await page.evaluate(() =>
-            sessionStorage.getItem('openg7.checkout-offer-recovery.v1')
-          )
-        ).toBeNull();
+          await page.evaluate(() => ({
+            attempts: localStorage.getItem('openg7.checkout-attempts.v2'),
+            offer: localStorage.getItem('openg7.checkout-offer-recovery.v1')
+          }))
+        ).toEqual({ attempts: null, offer: null });
       }
     );
 

@@ -566,11 +566,11 @@ for (const language of ['fr-CA', 'en'] as const) {
     });
     expect(requests[0].idempotencyKey).toMatch(/^[a-f0-9-]{36}$/i);
     const savedAttempts = await page.evaluate(() =>
-      sessionStorage.getItem('openg7.checkout-attempts.v1')
+      localStorage.getItem('openg7.checkout-attempts.v2')
     );
     expect(savedAttempts).not.toBeNull();
     expect(Object.values(JSON.parse(savedAttempts!))).toEqual([
-      requests[0].idempotencyKey
+      expect.objectContaining({ idempotencyKey: requests[0].idempotencyKey })
     ]);
     await form.dispatchEvent('submit');
     expect(requests).toHaveLength(1);
@@ -600,7 +600,7 @@ for (const language of ['fr-CA', 'en'] as const) {
     expect(requests).toHaveLength(1);
     expect(
       await page.evaluate(() =>
-        sessionStorage.getItem('openg7.checkout-attempts.v1')
+        localStorage.getItem('openg7.checkout-attempts.v2')
       )
     ).toBe(savedAttempts);
   });
