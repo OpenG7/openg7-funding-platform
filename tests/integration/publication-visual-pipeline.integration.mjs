@@ -126,7 +126,7 @@ test(
         const contributionId = randomUUID();
         const assetId = randomUUID();
         const draftId = randomUUID();
-        const name = `Synthetic full workshop identity ${index + 1}`;
+        const name = `Synthetic workshop ${index + 1}`;
         const credit = `Synthetic photograph credit ${index + 1}`;
         const bytes = await sharp({
           create: {

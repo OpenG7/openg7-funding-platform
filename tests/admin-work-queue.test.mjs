@@ -95,6 +95,41 @@ const dataset = (overrides = {}) => ({
   ...overrides
 });
 
+test('unqualified sponsorships are counted and reachable through the public queue filter', () => {
+  const items = buildWorkQueueItems(
+    dataset({
+      sponsorships: [
+        {
+          contributionId: 'unqualified',
+          paymentStatus: 'paid',
+          refundStatus: 'not_requested',
+          reviewStatus: 'approved',
+          detailsSubmittedAt: now.toISOString(),
+          hasCompanyName: true,
+          hasContactEmail: true,
+          hasSupportingImage: true,
+          commitment: {
+            state: 'needs_confirmation',
+            offer: null,
+            obligations: []
+          }
+        }
+      ]
+    })
+  );
+  const query = parseWorkQueueQuery(
+    new URLSearchParams({ type: 'sponsorship_needs_commitment' })
+  );
+  const result = paginateWorkQueue(items, now, query);
+  assert.equal(result.total, 1);
+  assert.equal(result.filteredTotal, 1);
+  assert.equal(result.typeCounts.sponsorship_needs_commitment, 1);
+  assert.equal(result.actionCounts.sponsorship_needs_commitment, 1);
+  assert.equal(result.firstSponsorshipId, 'unqualified');
+  assert.equal(result.items[0].type, 'sponsorship_needs_commitment');
+  assert.equal(result.items[0].contributionId, 'unqualified');
+});
+
 test('a refused incomplete dossier does not request information through navigation badges', () => {
   const items = buildWorkQueueItems(
     dataset({

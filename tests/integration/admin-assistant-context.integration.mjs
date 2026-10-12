@@ -322,7 +322,11 @@ test(
         'facebook',
         'linkedin'
       ]);
-      assert.equal(publications.nextStep, 'monitor_publication');
+      assert.equal(
+        publications.nextStep,
+        'qualify_commitment',
+        'legacy publication records do not establish recorded commercial terms'
+      );
       await pool.query(
         "UPDATE fund_contributions SET sponsor_review_status='rejected' WHERE id=$1",
         [id]

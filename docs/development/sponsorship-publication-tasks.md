@@ -265,6 +265,32 @@ Les reçus ignorés par Git sont `suggestions-node-full-final.log`,
 à leur propre révision. Cette réception reste locale, sans publication,
 activation, migration de production ou envoi externe.
 
+### Correction de la CI — 12 octobre 2026
+
+Le workflow de la PR 309 sur `047de40` a révélé des fixtures encore fondées sur
+le barème courant, des droits photo implicites et des schémas incomplets. Les
+recettes utilisent désormais des offres enregistrées, des usages média explicites
+et les migrations actuelles. Les dossiers historiques sans termes restent à
+qualifier ; une publication sans preuve qualifiée ne devient pas un engagement
+soldé. Le registre API inclut maintenant `sponsorship_needs_commitment`, pour
+que le filtre et ses compteurs globaux exposent réellement ces dossiers.
+
+Le nettoyage couvre séparément les anciens jeux sans accord et les fixtures
+actuelles avec historique commercial immuable. Nettoyage et réensemencement de
+ces dernières sont refusés atomiquement, sans perte d'historique. La recette
+Docker vérifie le refus répété des destinations non promises, puis la garde de
+composition sur un brouillon historique créé dans la seule base jetable.
+
+La réception locale de ce correctif passe **6 176 tests Node** (huit omissions,
+zéro échec), **83 tests d'intégration PostgreSQL/CLI**, **16 parcours navigateur**
+FR/EN, desktop/mobile et **quatre variantes Docker** des paliers 100/250 CAD avec
+et sans consentement. Les parcours navigateur et Docker passent sans reprise.
+Lint, TypeScript sans émission et build Angular de développement passent ; ce
+dernier correspond au build du job navigateur CI et génère 25 routes SSR.
+Les reçus locaux sont conservés dans `test-results/ci-*.log`, ignorés par Git.
+Ces contrôles ciblent les échecs observés ; la recette Docker complète et les
+autres suites restent à confirmer sur le nouveau commit par la CI distante.
+
 - P0 : conformité de la reconnaissance, conservation des engagements et reprise
   des résultats incertains. P1 : file, réservations, dates et suivi fiable.
   P2 : personnalisation et nouveaux formats. La priorité ne remplace pas une dépendance.

@@ -5,7 +5,6 @@ import type {
   AdminAuditLogResponse,
   AdminEmailQueueResponse,
   AdminPublicationBatchMutationResult,
-  AdminPublicationDraftMutationResult,
   AdminPublicationDraftsResponse,
   AdminSponsorshipInvoicesResponse,
   AdminSponsorshipsResponse,
@@ -26,6 +25,7 @@ import { completeModeration } from './support/moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
 import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';
+import { acceptanceSql } from './support/acceptance-database.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import { expect, test } from './support/test.js';
 
@@ -64,6 +64,10 @@ for (const amount of [100, 250]) {
       const email = `tier-${randomUUID()}@simulation.example.test`;
       const privateNote = 'Message confidentiel du commanditaire de recette.';
       const amountConsent = amount === 250;
+      const excludedChannels =
+        amount === 100 || !publicConsent
+          ? ['facebook', 'linkedin']
+          : ['linkedin'];
       const errors: string[] = [];
       admin.on('pageerror', (e) => errors.push(e.message));
       const get = async <T>(url: string, auth = true): Promise<T> => {
@@ -564,11 +568,9 @@ for (const amount of [100, 250]) {
         });
 
         await test.step('Excluded destinations cannot become sendable through direct API requests', async () => {
-          const excluded =
-            amount === 100 || !publicConsent
-              ? ['facebook', 'linkedin']
-              : ['linkedin'];
-          for (const channel of excluded) {
+          const beforeDrafts = await drafts();
+          const beforeJobs = await jobs();
+          for (const channel of excludedChannels) {
             const input = { contributionId, feedTarget: 'openg7', channel };
             expect(
               (
@@ -577,61 +579,97 @@ for (const amount of [100, 250]) {
                 })
               ).status()
             ).toBe(401);
-            const created = await request.post(
-              '/api/admin/publication-drafts',
-              { headers: await adminSessionHeaders(request), data: input }
-            );
-            if (!publicConsent) {
+            // An active commitment cannot acquire an unpromised destination.
+            // Replaying the refusal must preserve its existing drafts/deliveries.
+            for (let attempt = 0; attempt < 2; attempt++) {
+              const created = await request.post(
+                '/api/admin/publication-drafts',
+                { headers: await adminSessionHeaders(request), data: input }
+              );
               expect(created.status()).toBe(404);
-              continue;
+              expect(await created.json()).toEqual({
+                error:
+                  'Approved sponsorship was not found or publication drafts migration is missing.'
+              });
+              expect(await drafts()).toEqual(beforeDrafts);
+              expect(await jobs()).toEqual(beforeJobs);
             }
-            // Legacy manual drafts are allowed. The final composer must enforce
-            // destination eligibility even for a manually approved source draft.
-            expect(created.ok()).toBe(true);
-            const draft = (
-              (await created.json()) as AdminPublicationDraftMutationResult
-            ).draft!;
-            await post('/api/admin/publication-drafts/update', {
-              draftId: draft.id,
-              status: 'approved',
-              confirmation: draft.id,
-              moderationDecision: await acceptanceModerationDecision(request, {
-                type: 'publication_draft',
-                id: draft.id
-              })
-            });
-            const batch = (
-              await post<AdminPublicationBatchMutationResult>(
-                '/api/admin/publication-batches',
-                { channel, capacity: 1 }
-              )
-            ).batch!;
-            await post('/api/admin/publication-batches/assign', {
-              batchId: batch.id,
-              draftId: draft.id
-            });
-            await approveAcceptanceSubject(request, {
-              type: 'publication_draft',
-              id: draft.id
-            });
-            const composed = await request.post(automation, {
-              headers: await adminSessionHeaders(request),
-              data: {
-                action: 'compose',
-                feedId: `openg7:${channel}`,
-                kind: 'sponsorship',
-                batchId: batch.id
-              }
-            });
-            expect(composed.status()).toBe(409);
-            expect(await composed.json()).toMatchObject({
-              code: 'SOURCE_NOT_ELIGIBLE'
-            });
           }
-          expect((await jobs()).map((j) => j.feedId)).toEqual(
+          expect(beforeJobs.map((j) => j.feedId)).toEqual(
             publicConsent && amount === 250 ? ['openg7:facebook'] : []
           );
         });
+
+        if (publicConsent)
+          await test.step('Existing legacy drafts cannot bypass final destination eligibility', async () => {
+            for (const channel of excludedChannels) {
+              // Model an existing unbound historical source only in the guarded
+              // disposable DB; the public API must not create this new draft.
+              const draftId = randomUUID();
+              expect(
+                await acceptanceSql<{ id: string }>(
+                  `INSERT INTO sponsor_publication_drafts
+                   (id,contribution_id,feed_target,channel,title,body,disclosure_text,obligation_id)
+                 VALUES($1::uuid,$2::uuid,'openg7',$3,$4,$5,$6,NULL)
+                 RETURNING id::text AS id`,
+                  [
+                    draftId,
+                    contributionId,
+                    channel,
+                    'Merci à ' + name,
+                    'Reconnaissance historique synthétique du commanditaire.',
+                    'Commandite rémunérée, recette simulée.'
+                  ]
+                )
+              ).toEqual([{ id: draftId }]);
+              await post('/api/admin/publication-drafts/update', {
+                draftId,
+                status: 'approved',
+                confirmation: draftId,
+                moderationDecision: await acceptanceModerationDecision(
+                  request,
+                  {
+                    type: 'publication_draft',
+                    id: draftId
+                  }
+                )
+              });
+              const batch = (
+                await post<AdminPublicationBatchMutationResult>(
+                  '/api/admin/publication-batches',
+                  { channel, capacity: 1 }
+                )
+              ).batch!;
+              await post('/api/admin/publication-batches/assign', {
+                batchId: batch.id,
+                draftId
+              });
+              await approveAcceptanceSubject(request, {
+                type: 'publication_draft',
+                id: draftId
+              });
+              const beforeComposeDrafts = await drafts();
+              const beforeComposeJobs = await jobs();
+              const composed = await request.post(automation, {
+                headers: await adminSessionHeaders(request),
+                data: {
+                  action: 'compose',
+                  feedId: `openg7:${channel}`,
+                  kind: 'sponsorship',
+                  batchId: batch.id
+                }
+              });
+              expect(composed.status()).toBe(409);
+              expect(await composed.json()).toMatchObject({
+                code: 'SOURCE_NOT_ELIGIBLE'
+              });
+              expect(await drafts()).toEqual(beforeComposeDrafts);
+              expect(await jobs()).toEqual(beforeComposeJobs);
+            }
+            expect((await jobs()).map((j) => j.feedId)).toEqual(
+              publicConsent && amount === 250 ? ['openg7:facebook'] : []
+            );
+          });
 
         if (publicConsent && amount === 250)
           await test.step('Only explicitly approved Facebook content is delivered once by the worker', async () => {

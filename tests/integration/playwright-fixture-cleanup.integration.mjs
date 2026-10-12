@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
+import { buildAccountingSeedFragments } from '../../scripts/lib/e2e-seed/accounting.mjs';
+import { buildSponsorshipSeedFragments } from '../../scripts/lib/e2e-seed/sponsorship.mjs';
 import {
   ACCOUNTING_FIXTURES,
   BACKFILL_FIXTURES,
@@ -197,7 +199,7 @@ test('stub failure stops the CLI after SQL success without later registrations',
 });
 
 test(
-  'Playwright fixture cleanup respects publication guards',
+  'Playwright fixture cleanup preserves immutable history and protects legacy publication cleanup',
   { timeout: 180000 },
   async (t) => {
     const database = await startDisposablePostgres();
@@ -206,8 +208,24 @@ test(
       client.release();
       await database.stop();
     });
-    const seed = seedSql(false);
+    const currentSeed = seedSql(false);
     const cleanup = seedSql(true);
+    // Model a dataset predating recorded agreements. The actual cleanup SQL and
+    // its guards remain unchanged; current seeded agreements are tested below.
+    const fixtures = Object.values(SPONSORSHIP_FIXTURES);
+    const accounting = buildAccountingSeedFragments({
+      webhookFixtures: WEBHOOK_FIXTURES,
+      accountingFixtures: ACCOUNTING_FIXTURES,
+      backfillFixtures: BACKFILL_FIXTURES,
+      emailQueueFixture: EMAIL_QUEUE_FIXTURE
+    });
+    const { agreementInsertStatements } = buildSponsorshipSeedFragments({
+      fixtures,
+      publicationFixtures: [...fixtures, ...accounting.publicationFixtures]
+    });
+    assert.ok(agreementInsertStatements.length > 0);
+    assert.equal(currentSeed.split(agreementInsertStatements).length, 2);
+    const seed = currentSeed.replace(agreementInsertStatements, '');
     const dependencyTables = [
       'sponsorship_refund_operations',
       'contribution_activity',
@@ -333,6 +351,11 @@ test(
         'fund_transactions',
         'stripe_events',
         'stripe_checkout_sessions',
+        'sponsorship_offers',
+        'sponsorship_commitments',
+        'sponsorship_obligations',
+        'sponsorship_obligation_timing',
+        'sponsor_media_usage_history',
         ...dependencyTables
       ]
     ) {
@@ -344,6 +367,36 @@ test(
       }
       return result;
     }
+
+    await t.test(
+      'current seeded agreements reject cleanup and reseed atomically without altering fixture or foreign history',
+      async () => {
+        await client.query(
+          'TRUNCATE fund_contributions, sponsor_publication_batches, publication_deliveries, publication_recurrences, publication_editorial_observations CASCADE'
+        );
+        await run(currentSeed);
+        const id = await fixtureId();
+        await financialDependencies(id);
+        const foreignId = await contribution(`outside-${randomUUID()}`);
+        await financialDependencies(foreignId, 'uncertain');
+        assert.ok(
+          (
+            await client.query(
+              'SELECT 1 FROM sponsorship_commitments WHERE contribution_id=$1',
+              [id]
+            )
+          ).rowCount > 0
+        );
+        const before = await snapshot();
+        for (const sql of [cleanup, currentSeed]) {
+          await assert.rejects(
+            run(sql),
+            /preserve commercial and image-use history/
+          );
+          assert.deepEqual(await snapshot(), before);
+        }
+      }
+    );
 
     for (const action of ['cleanup', 'reseed']) {
       await t.test(

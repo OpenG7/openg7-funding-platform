@@ -5,6 +5,8 @@ import type {
   AdminSponsorshipProgressResponse,
   AdminSponsorshipRecord,
   SponsorMediaAsset,
+  SponsorshipCommitmentRecord,
+  SponsorshipOfferedBenefit,
   SponsorshipIntervention,
   SponsorshipInterventionsResponse
 } from '@openg7/funding-core';
@@ -362,6 +364,13 @@ async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
     }
     if (url.pathname === '/api/admin/sponsorships/media')
       return route.fulfill({ json: { assets: options.media } });
+    if (
+      url.pathname === '/api/admin/sponsorship-commitments' &&
+      req.method() === 'GET'
+    )
+      return route.fulfill({
+        json: { commitment: options.progressOverrides.commitment ?? null }
+      });
     if (
       url.pathname.includes('/sponsorships/media/content/') ||
       (url.pathname === '/api/admin/sponsorships/logo' &&
@@ -1393,14 +1402,13 @@ test('bulk media approval keeps edited alternative text and approved media text 
   options.media = [mediaAsset()];
   await page.goto(path('media'));
   const media = page.locator('[data-og7="admin-sponsor-media"]');
-  await media
-    .getByRole('textbox')
-    .fill('Description préparée avant approbation');
+  const altText = media.getByRole('textbox', {
+    name: 'Texte alternatif (optionnel)'
+  });
+  await altText.fill('Description préparée avant approbation');
   await page.getByRole('button', { name: 'Tout approuver' }).click();
   await completeModeration(page);
-  await expect(media.getByRole('textbox')).toHaveValue(
-    'Description préparée avant approbation'
-  );
+  await expect(altText).toHaveValue('Description préparée avant approbation');
   const saveText = media.getByRole('button', {
     name: 'Enregistrer le texte alternatif'
   });
@@ -1408,9 +1416,7 @@ test('bulk media approval keeps edited alternative text and approved media text 
   expect(postsTo(calls, '/media/review')[0]?.body?.['altText']).toBe(
     'Description préparée avant approbation'
   );
-  await media
-    .getByRole('textbox')
-    .fill('Description corrigée après approbation');
+  await altText.fill('Description corrigée après approbation');
   await expect(saveText).toBeEnabled();
   await saveText.click();
   await completeModeration(page);
@@ -1802,12 +1808,15 @@ test('failed media approval preserves its text and can be retried without changi
   options.mutationStatus = 503;
   await page.goto(path('media'));
   const media = page.locator('[data-og7="admin-sponsor-media"]');
-  await media.getByRole('textbox').fill('Description conservée');
+  const altText = media.getByRole('textbox', {
+    name: 'Texte alternatif (optionnel)'
+  });
+  await altText.fill('Description conservée');
   await page.getByRole('button', { name: 'Tout approuver' }).click();
   await expect(page.locator('openg7-admin-sponsor-detail-media')).toContainText(
     'Synthetic action failure'
   );
-  await expect(media.getByRole('textbox')).toHaveValue('Description conservée');
+  await expect(altText).toHaveValue('Description conservée');
   options.mutationStatus = 200;
   await page.getByRole('button', { name: 'Tout approuver' }).click();
   await completeModeration(page);
@@ -1829,7 +1838,9 @@ test('English mobile media editing works with keyboard and without horizontal ov
     .getByRole('button', { name: 'Switch administration language to English' })
     .click();
   const media = page.locator('[data-og7="admin-sponsor-media"]');
-  await media.getByRole('textbox').fill('Updated alternative text');
+  await media
+    .getByRole('textbox', { name: 'Alt text (optional)' })
+    .fill('Updated alternative text');
   const save = media.getByRole('button', { name: 'Save alternative text' });
   await save.focus();
   await save.press('Enter');
@@ -3582,12 +3593,74 @@ test('a late progress response cannot overwrite a newly selected dossier or rese
   });
 });
 
+/** Captured synthetic terms are independent of today's pricing thresholds. */
+function recordedCommitment(
+  amountMinor = 50000,
+  socialBenefits = true
+): SponsorshipCommitmentRecord {
+  const commitmentId = '10000000-0000-4000-8000-000000000450';
+  const definitions: readonly Pick<
+    SponsorshipOfferedBenefit,
+    'id' | 'channel'
+  >[] = [
+    { id: 'website_mention', channel: 'website' },
+    ...(socialBenefits
+      ? ([
+          { id: 'facebook_batch', channel: 'facebook' },
+          { id: 'linkedin_batch', channel: 'linkedin' }
+        ] as const)
+      : [])
+  ];
+  const benefits: SponsorshipOfferedBenefit[] = definitions.map((benefit) => ({
+    ...benefit,
+    target: 'openg7',
+    quantity: 1,
+    requiredElements: ['company_name', 'approved_presentation'],
+    deadlineDays: null,
+    durationDays: null,
+    ...(benefit.channel === 'website'
+      ? {}
+      : { format: 'collective_text' as const })
+  }));
+  return {
+    id: commitmentId,
+    contributionId: id,
+    offerId: '10000000-0000-4000-8000-000000000452',
+    provenance: 'accepted_offer',
+    state: 'active',
+    qualificationReason: null,
+    version: 1,
+    offer: {
+      version: 'synthetic-captured-offer-v1',
+      amountMinor,
+      currency: 'CAD',
+      benefits
+    },
+    obligations: benefits.map((benefit, index) => ({
+      id: `10000000-0000-4000-8000-${String(451 + index).padStart(12, '0')}`,
+      commitmentId,
+      contributionId: id,
+      benefitId: benefit.id,
+      channel: benefit.channel,
+      target: benefit.target,
+      ordinal: 1,
+      state: 'pending',
+      format: benefit.format ?? null,
+      blockedReason: null,
+      version: 1,
+      fulfilmentEvidenceId: null
+    }))
+  };
+}
+
 for (const width of [1280, 390]) {
   test(`publication bridge explains benefits and opens the exact delivery at ${width}px`, async ({
     page
   }) => {
     const { calls, options } = await fixtures(page);
     options.progressOverrides = {
+      amountMinor: 10000,
+      commitment: recordedCommitment(10000),
       publicationCompletion: { done: 0, total: 3 },
       publicationBlockers: ['media'],
       publications: [
@@ -3656,20 +3729,50 @@ for (const width of [1280, 390]) {
   });
 }
 
-for (const [deliveryStatus, deliveryMode, label] of [
-  ['approved', 'live', 'Programmée avec autorisation'],
-  ['published', 'mock', 'Simulation terminée'],
-  ['published', 'live', 'Publiée'],
-  ['uncertain', 'live', 'Résultat à vérifier'],
-  ['blocked', 'live', 'Envoi bloqué']
+for (const [deliveryStatus, deliveryMode, label, qualified] of [
+  ['approved', 'live', 'Programmée avec autorisation', false],
+  ['published', 'mock', 'Simulation terminée', false],
+  ['published', 'live', 'Publiée', true],
+  ['published', 'live', 'Publication déclarée, preuve à qualifier', false],
+  ['uncertain', 'live', 'Résultat à vérifier', false],
+  ['blocked', 'live', 'Envoi bloqué', false]
 ] as const) {
-  test(`publication bridge displays ${deliveryStatus}/${deliveryMode} without inventing success`, async ({
+  test(`publication bridge displays ${deliveryStatus}/${deliveryMode} ${qualified ? 'with qualified evidence' : 'without qualified evidence'} without inventing success`, async ({
     page
   }) => {
     const { calls, options } = await fixtures(page);
+    const commitment = recordedCommitment();
+    const obligation = commitment.obligations.find(
+      (item) => item.channel === 'facebook'
+    )!;
+    const evidenceId = '10000000-0000-4000-8000-000000000460';
     options.progressOverrides = {
+      commitment: {
+        ...commitment,
+        obligations: commitment.obligations.map((item) =>
+          item.id === obligation.id && qualified
+            ? { ...item, state: 'fulfilled', fulfilmentEvidenceId: evidenceId }
+            : item
+        )
+      },
+      fulfilmentEvidence: qualified
+        ? [
+            {
+              id: evidenceId,
+              obligationId: obligation.id,
+              deliveryId: secondId,
+              channel: 'facebook',
+              target: 'openg7',
+              provenance: 'provider_acknowledged',
+              deliveredAt: date,
+              externalPostUrl: 'https://example.invalid/post',
+              visibility: 'unknown',
+              visibilityObservedAt: null
+            }
+          ]
+        : [],
       publicationCompletion: {
-        done: deliveryStatus === 'published' && deliveryMode === 'live' ? 1 : 0,
+        done: qualified ? 1 : 0,
         total: 3
       },
       publications: [
@@ -3690,7 +3793,7 @@ for (const [deliveryStatus, deliveryMode, label] of [
     const journey = page.locator('[data-og7="dossier-publication-journey"]');
     await expect(journey).toContainText(label);
     await expect(journey).not.toContainText('UNKNOWN_PROVIDER_CODE');
-    const published = deliveryStatus === 'published' && deliveryMode === 'live';
+    const published = qualified;
     await expect(journey).toContainText(
       `Contreparties livrées : ${published ? 1 : 0} / 3`
     );
@@ -3706,6 +3809,32 @@ for (const [deliveryStatus, deliveryMode, label] of [
     expect(calls.every((call) => call.method === 'GET')).toBe(true);
   });
 }
+
+test('publication bridge keeps unqualified CAD benefits unknown despite current thresholds', async ({
+  page
+}) => {
+  const { options, calls } = await fixtures(page, 'reader');
+  options.progressOverrides = {
+    commitment: null,
+    publications: [],
+    publicationCompletion: { done: 0, total: 0 }
+  };
+  await page.goto(path('publication'));
+  const journey = page.locator('[data-og7="dossier-publication-journey"]');
+  await expect(journey).toContainText(
+    'Les engagements de ce dossier restent à qualifier à partir de son accord d’origine.'
+  );
+  await expect(journey).not.toContainText(
+    'Reconnaissance collective sur Facebook'
+  );
+  await expect(journey).not.toContainText(
+    'Reconnaissance collective sur LinkedIn'
+  );
+  await expect(journey.locator('[data-og7="publication-channel"]')).toHaveCount(
+    0
+  );
+  expect(calls.every((call) => call.method === 'GET')).toBe(true);
+});
 
 test('publication bridge keeps CAD thresholds out of other currencies and supports English read-only access', async ({
   page
@@ -3752,6 +3881,7 @@ for (const width of [1280, 390]) {
     const { options, calls } = await fixtures(page, 'operator');
     options.progressOverrides = {
       amountMinor: 10000,
+      commitment: recordedCommitment(10000, false),
       publications: [],
       website: {
         visible: false,
