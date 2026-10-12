@@ -6,7 +6,11 @@ import { defineConfig, devices } from '@playwright/test';
 // Standalone browser checks with mocked APIs, without Docker, seed, or cleanup.
 export default defineConfig({
   testDir: '.',
-  testMatch: ['funding-home-trust.spec.ts', 'payment-recovery-ui.spec.ts'],
+  testMatch: [
+    'funding-home-trust.spec.ts',
+    'payment-recovery-ui.spec.ts',
+    'sponsorship-offer-ui.spec.ts'
+  ],
   outputDir: '../../test-results/funding-home',
   timeout: 30_000,
   expect: { timeout: 7_500 },

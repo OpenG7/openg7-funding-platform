@@ -16,7 +16,9 @@ import {
 import type { CheckoutStatusMonitor } from './checkout-status-monitor.service.js';
 import {
   CheckoutReconciliationRequiredError,
-  CheckoutCharterChangedError
+  CheckoutRecoveryUnavailableError,
+  CheckoutCharterChangedError,
+  CheckoutOfferChangedError
 } from './checkout-error.js';
 import type { FundTransparencyService } from './fund-transparency.service.js';
 import type { FundingService } from './funding.service.js';
@@ -75,6 +77,8 @@ export class FundingHomeController {
   readonly checkoutResultMode = signal<'mocked' | null>(null);
   readonly checkoutRequiresVerification = signal(false);
   readonly checkoutCharterChanged = signal(false);
+  readonly checkoutOfferChanged = signal(false);
+  readonly checkoutRecoveryUnavailable = signal(false);
   readonly pendingSponsorFollowupToken = signal<string | null>(null);
   readonly currentMonthContributions = computed(() =>
     monthlyContributions(
@@ -270,11 +274,14 @@ export class FundingHomeController {
       return;
     this.checkoutResultMode.set(null);
     this.checkoutCharterChanged.set(false);
+    this.checkoutOfferChanged.set(false);
+    this.checkoutRecoveryUnavailable.set(false);
     this.loadingState.set('loading');
     try {
       const result = await this.ports.funding.startCheckout(
         submission.amount,
-        submission.consent
+        submission.consent,
+        submission.offerQuote
       );
       if (this.disposed) return;
       if (result.status === 'redirected') {
@@ -288,6 +295,12 @@ export class FundingHomeController {
       if (!this.disposed) {
         this.checkoutCharterChanged.set(
           error instanceof CheckoutCharterChangedError
+        );
+        this.checkoutOfferChanged.set(
+          error instanceof CheckoutOfferChangedError
+        );
+        this.checkoutRecoveryUnavailable.set(
+          error instanceof CheckoutRecoveryUnavailableError
         );
         this.checkoutRequiresVerification.set(
           error instanceof CheckoutReconciliationRequiredError

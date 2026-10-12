@@ -1,11 +1,12 @@
 import { createHash } from 'node:crypto';
 
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 
-import { formatSponsorshipBenefitList } from '../sponsorship-benefits.js';
+import { withPostgresTransaction } from '../postgres-transaction.js';
+import { formatRecordedSponsorshipBenefits } from '../sponsorship-commitments/offers.js';
+import { loadSponsorshipOfferForSession } from '../sponsorship-commitments/repository.js';
 import { sponsorshipInvoiceConfig } from '../sponsorship-invoice-config.js';
 import {
-  centsToAmount,
   mapSponsorshipInvoiceRow,
   type SponsorshipInvoiceLineItem,
   type SponsorshipInvoiceRecord,
@@ -58,23 +59,43 @@ const createInvoiceNumber = (
   )}`;
 };
 
-export const createSponsorshipInvoiceForStripeSession = async (
-  pool: Pool | null,
+const readExistingInvoice = async (
+  db: PoolClient,
+  stripeSessionId: string
+): Promise<SponsorshipInvoiceRecord | null> => {
+  const existing = await db.query<SponsorshipInvoiceRow>(
+    `SELECT ${sponsorshipInvoiceSelect}
+     FROM sponsorship_invoices invoice WHERE invoice.stripe_session_id = $1 LIMIT 1`,
+    [stripeSessionId]
+  );
+  return existing.rows[0] ? mapSponsorshipInvoiceRow(existing.rows[0]) : null;
+};
+
+/** The supplied client must already belong to the caller's transaction. */
+const issueSponsorshipInvoice = async (
+  db: PoolClient,
   input: CreateSponsorshipInvoiceInput
 ): Promise<SponsorshipInvoiceRecord | null> => {
-  if (!pool) {
-    return null;
-  }
+  // Qualification and activation take this same contribution lock. Keep the
+  // accepted offer and every financial/profile field in one issuance snapshot.
+  const contribution = await db.query<{ amount_cents: string }>(
+    `SELECT amount_cents::text FROM fund_contributions
+     WHERE stripe_session_id=$1 AND contribution_type='sponsorship_interest'
+       AND status IN ('paid','refunded','disputed') FOR UPDATE`,
+    [input.stripeSessionId]
+  );
+  if (!contribution.rows[0])
+    return readExistingInvoice(db, input.stripeSessionId);
 
   const invoiceNumber = createInvoiceNumber(input);
   // Persist the benefits with the issued document: resends and PDF downloads
   // must not resolve them again against a future pricing configuration.
+  const offer = await loadSponsorshipOfferForSession(db, input.stripeSessionId);
   const notes = [
     'Avantages de votre commandite :',
-    ...formatSponsorshipBenefitList(
-      centsToAmount(input.amountCents),
-      input.currency
-    ).map((benefit) => `- ${benefit}`),
+    ...formatRecordedSponsorshipBenefits(offer).map(
+      (benefit) => `- ${benefit}`
+    ),
     '',
     'Ces présences nécessitent votre consentement et une validation administrative. Aucune publication n’est automatique au paiement.',
     '',
@@ -84,12 +105,12 @@ export const createSponsorshipInvoiceForStripeSession = async (
     {
       description: 'Commandite de visibilite OpenG7 - Fonds des batisseurs',
       quantity: 1,
-      unitAmountCents: input.amountCents,
-      totalCents: input.amountCents
+      unitAmountCents: Number(contribution.rows[0].amount_cents),
+      totalCents: Number(contribution.rows[0].amount_cents)
     }
   ];
 
-  const result = await pool.query<SponsorshipInvoiceRow>(
+  const result = await db.query<SponsorshipInvoiceRow>(
     `
       WITH contribution AS (
         SELECT
@@ -215,10 +236,17 @@ export const createSponsorshipInvoiceForStripeSession = async (
 
   // A conflicting insert can wait for an emission absent from its own snapshot.
   // Read again in a separate statement to see that committed, immutable invoice.
-  const existing = await pool.query<SponsorshipInvoiceRow>(
-    `SELECT ${sponsorshipInvoiceSelect}
-     FROM sponsorship_invoices invoice WHERE invoice.stripe_session_id = $1 LIMIT 1`,
-    [input.stripeSessionId]
-  );
-  return existing.rows[0] ? mapSponsorshipInvoiceRow(existing.rows[0]) : null;
+  return readExistingInvoice(db, input.stripeSessionId);
+};
+
+export const createSponsorshipInvoiceForStripeSession = async (
+  pool: Pool | PoolClient | null,
+  input: CreateSponsorshipInvoiceInput
+): Promise<SponsorshipInvoiceRecord | null> => {
+  if (!pool) return null;
+  // Webhook/finalization callers use a pool. A transaction owner can supply its
+  // client without a nested BEGIN or an early COMMIT of unrelated writes.
+  return 'release' in pool
+    ? issueSponsorshipInvoice(pool, input)
+    : withPostgresTransaction(pool, (db) => issueSponsorshipInvoice(db, input));
 };

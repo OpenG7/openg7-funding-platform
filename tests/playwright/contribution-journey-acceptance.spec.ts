@@ -7,6 +7,10 @@ import sharp from 'sharp';
 import { AxeBuilder } from '@axe-core/playwright';
 import type { ContributionActivityResponse } from '@openg7/funding-core';
 
+import {
+  acceptDisplayedSponsorshipOffer,
+  readSponsorshipOfferAcceptance
+} from './support/sponsorship-checkout.js';
 import { test, expect } from './support/test.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 
@@ -22,6 +26,7 @@ test('offline admin receives captured messages, catches up once across tabs, and
   );
   test.setTimeout(60000);
   const headers = await adminSessionHeaders(request);
+  const offerAcceptance = await readSponsorshipOfferAcceptance(request, 5000);
   const checkout = await request.post('/api/checkout-sessions', {
     data: {
       idempotencyKey: randomUUID(),
@@ -29,6 +34,7 @@ test('offline admin receives captured messages, catches up once across tabs, and
       currency: 'CAD',
       projectId: 'openg7',
       contributionType: 'sponsorship_interest',
+      offerAcceptance,
       publicDisplayConsent: true,
       publicDisplayName: 'Atelier hors ligne',
       displayAmountConsent: false,
@@ -137,6 +143,7 @@ test('company pays 50 CAD: signed confirmation, admin toast, captured email/SMS 
     await form.getByRole('checkbox').nth(0).check();
     await form.locator('#public-display-name').fill('Atelier Démo E2E');
     await form.getByRole('checkbox').nth(2).check();
+    await acceptDisplayedSponsorshipOffer(form);
     const checkoutResponse = company.waitForResponse(
       (r) =>
         r.url().endsWith('/checkout-sessions') &&

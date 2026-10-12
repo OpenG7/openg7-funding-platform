@@ -18,6 +18,7 @@ import type {
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import { completeModeration } from './support/moderation.js';
+import { acceptDisplayedSponsorshipOffer } from './support/sponsorship-checkout.js';
 import { test, expect } from './support/test.js';
 
 const automation = '/api/admin/publication-automation';
@@ -193,6 +194,7 @@ test('lost social responses survive restart and recover through verified reconci
         await form.locator('#public-display-name').fill(name);
         await form.getByRole('checkbox').nth(1).uncheck();
         await form.getByRole('checkbox').nth(2).check();
+        await acceptDisplayedSponsorshipOffer(form);
         await form.locator('button[type="submit"]').click();
         await expect(page).toHaveURL(/\/checkout\/cs_test_/);
         const sessionId = new URL(page.url()).pathname.split('/').at(-1)!;

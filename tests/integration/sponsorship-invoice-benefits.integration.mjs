@@ -6,7 +6,12 @@ import { setTimeout } from 'node:timers/promises';
 import { promisify } from 'node:util';
 import { inflateSync } from 'node:zlib';
 
-import { DEFAULT_SPONSORSHIP_PRICING_CONFIG } from '../../dist/packages/funding-core/src/index.js';
+import {
+  DEFAULT_SPONSORSHIP_PRICING_CONFIG,
+  createSponsorshipOfferSnapshot
+} from '../../dist/packages/funding-core/src/index.js';
+import { qualifySponsorshipCommitment } from '../../dist/apps/funding-api/src/sponsorship-commitments/changes.js';
+import { withPostgresTransaction } from '../../dist/apps/funding-api/src/postgres-transaction.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 import { createSponsorshipInvoiceForStripeSession } from '../../dist/apps/funding-api/src/sponsorship-invoices.repository.js';
 import {
@@ -35,14 +40,44 @@ test(
   async (t) => {
     const { pool, stop } = await startDisposablePostgres();
     t.after(stop);
-    const seed = async (amountCents, status = 'paid') => {
+    const seed = async (amountCents, status = 'paid', qualified = true) => {
       const stripeSessionId = 'cs_invoice_benefits_' + randomUUID();
-      await pool.query(
-        `INSERT INTO fund_contributions
+      const contribution = (
+        await pool.query(
+          `INSERT INTO fund_contributions
         (contribution_type, amount_cents, currency, status, paid_at, stripe_session_id)
-       VALUES ('sponsorship_interest', $1, 'cad', $2, NOW(), $3)`,
-        [amountCents, status, stripeSessionId]
+       VALUES ('sponsorship_interest', $1, 'cad', $2, NOW(), $3) RETURNING id`,
+          [amountCents, status, stripeSessionId]
+        )
+      ).rows[0];
+      await pool.query(
+        `INSERT INTO sponsorship_commitments(contribution_id,provenance,state,qualification_reason)
+        VALUES($1,'historical_unverified','needs_confirmation','synthetic historical fixture')`,
+        [contribution.id]
       );
+      if (
+        qualified &&
+        amountCents >= 5000 &&
+        ['paid', 'refunded', 'disputed'].includes(status)
+      )
+        await withPostgresTransaction(pool, (db) =>
+          qualifySponsorshipCommitment(
+            db,
+            {
+              requestId: randomUUID(),
+              contributionId: contribution.id,
+              expectedVersion: 1,
+              confirmation: contribution.id,
+              reason: 'Synthetic agreement supplies explicit recorded benefits',
+              evidenceReference: 'synthetic://invoice-benefits-agreement',
+              offer: {
+                ...createSponsorshipOfferSnapshot(amountCents, 'CAD'),
+                version: 'historical-qualification-v1'
+              }
+            },
+            'admin:00000000-0000-4000-8000-000000000041'
+          )
+        );
       return {
         stripeSessionId,
         stripePaymentIntentId: null,
@@ -374,7 +409,7 @@ test(
         try {
           await winner.query('BEGIN ISOLATION LEVEL READ COMMITTED');
           winningInvoice = await createSponsorshipInvoiceForStripeSession(
-            { query: winner.query.bind(winner) },
+            winner,
             input
           );
           const stored = await snapshot(winningInvoice.id, winner);
@@ -385,8 +420,10 @@ test(
               .transaction_isolation,
             'read committed'
           );
+          await loser.query('BEGIN');
           pending = createSponsorshipInvoiceForStripeSession(
             {
+              release() {},
               query: (sql, values) => {
                 loserQueries.push(sql);
                 return loser.query(sql, values);
@@ -408,7 +445,7 @@ test(
           while (Date.now() < deadline) {
             const activity = await pool.query(
               `SELECT wait_event_type FROM pg_stat_activity
-               WHERE pid = $1 AND query LIKE '%INSERT INTO sponsorship_invoices%'`,
+               WHERE pid = $1 AND query LIKE '%FROM fund_contributions%'`,
               [loserPid]
             );
             if (activity.rows[0]?.wait_event_type === 'Lock') {
@@ -420,22 +457,24 @@ test(
           assert.equal(
             blocked,
             true,
-            'the losing INSERT began before the winning commit'
+            'the losing emission waits for the same dossier snapshot lock'
           );
           await winner.query('COMMIT');
           committed = true;
           const result = await pending;
           assert.ifError(result.error);
           assert.deepEqual(result.invoice, winningInvoice);
-          assert.equal(loserQueries.length, 2);
+          assert.equal(loserQueries.length, 4);
           assert.match(
-            loserQueries[1],
+            loserQueries[3],
             /SELECT[\s\S]*FROM sponsorship_invoices invoice/
           );
           assert.deepEqual(await snapshot(winningInvoice.id), stored);
+          await loser.query('COMMIT');
         } finally {
           if (!committed) await winner.query('ROLLBACK');
           if (pending) await pending;
+          await loser.query('ROLLBACK');
           winner.release();
           loser.release();
         }
@@ -447,6 +486,130 @@ test(
             )
           ).rows[0].count,
           1
+        );
+      }
+    );
+
+    await t.test(
+      'qualification and first invoice issuance share one ordered snapshot without retroactive document changes',
+      async () => {
+        const input = await seed(50000, 'paid', false);
+        const contributionId = (
+          await pool.query(
+            'SELECT id FROM fund_contributions WHERE stripe_session_id=$1',
+            [input.stripeSessionId]
+          )
+        ).rows[0].id;
+        const qualification = await pool.connect();
+        const emission = await pool.connect();
+        let pending;
+        let committed = false;
+        try {
+          await qualification.query('BEGIN');
+          await qualifySponsorshipCommitment(
+            qualification,
+            {
+              requestId: randomUUID(),
+              contributionId,
+              expectedVersion: 1,
+              confirmation: contributionId,
+              reason: 'Synthetic agreement qualified before first issuance',
+              evidenceReference: 'synthetic://concurrent-invoice-agreement',
+              offer: {
+                ...createSponsorshipOfferSnapshot(50000, 'CAD'),
+                version: 'historical-qualification-v1'
+              }
+            },
+            'admin:00000000-0000-4000-8000-000000000041'
+          );
+          const pid = (await emission.query('SELECT pg_backend_pid() AS pid'))
+            .rows[0].pid;
+          pending = createSponsorshipInvoiceForStripeSession(
+            {
+              connect: async () => ({
+                query: emission.query.bind(emission),
+                release() {}
+              })
+            },
+            { ...input, amountCents: 90000 }
+          ).then(
+            (invoice) => ({ invoice }),
+            (error) => ({ error })
+          );
+          let blocked = false;
+          const deadline = Date.now() + 5000;
+          while (Date.now() < deadline) {
+            const activity = await pool.query(
+              "SELECT wait_event_type FROM pg_stat_activity WHERE pid=$1 AND query LIKE '%FROM fund_contributions%'",
+              [pid]
+            );
+            if (activity.rows[0]?.wait_event_type === 'Lock') {
+              blocked = true;
+              break;
+            }
+            await setTimeout(10);
+          }
+          assert.equal(
+            blocked,
+            true,
+            'issuance must wait before reading commercial terms'
+          );
+          assert.equal(
+            (
+              await pool.query(
+                'SELECT count(*)::int AS count FROM sponsorship_invoices WHERE contribution_id=$1',
+                [contributionId]
+              )
+            ).rows[0].count,
+            0
+          );
+          await qualification.query('COMMIT');
+          committed = true;
+          const result = await pending;
+          assert.ifError(result.error);
+          assert.match(result.invoice.notes, /Facebook/);
+          assert.match(result.invoice.notes, /LinkedIn/);
+          assert.equal(result.invoice.totalCents, 50000);
+          assert.equal(
+            result.invoice.lineItems[0].totalCents,
+            50000,
+            'line item matches the locked financial record, not a replay input'
+          );
+        } finally {
+          if (!committed) await qualification.query('ROLLBACK');
+          if (pending) await pending;
+          qualification.release();
+          emission.release();
+        }
+        const historical = await seed(50000, 'paid', false);
+        const invoice = await createSponsorshipInvoiceForStripeSession(
+          pool,
+          historical
+        );
+        assert.match(invoice.notes, /historiques à qualifier/);
+        const historicalId = invoice.contributionId;
+        await withPostgresTransaction(pool, (db) =>
+          qualifySponsorshipCommitment(
+            db,
+            {
+              requestId: randomUUID(),
+              contributionId: historicalId,
+              expectedVersion: 1,
+              confirmation: historicalId,
+              reason:
+                'Synthetic later qualification does not rewrite issued documents',
+              evidenceReference: 'synthetic://later-invoice-agreement',
+              offer: {
+                ...createSponsorshipOfferSnapshot(50000, 'CAD'),
+                version: 'historical-qualification-v1'
+              }
+            },
+            'admin:00000000-0000-4000-8000-000000000041'
+          )
+        );
+        assert.deepEqual(
+          await createSponsorshipInvoiceForStripeSession(pool, historical),
+          invoice
         );
       }
     );

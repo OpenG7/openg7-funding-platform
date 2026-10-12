@@ -19,6 +19,7 @@ import type {
 import { completeModeration } from './support/moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptanceReviewReminder } from './support/acceptance-review-reminder.js';
+import { acceptDisplayedSponsorshipOffer } from './support/sponsorship-checkout.js';
 import { test, expect } from './support/test.js';
 
 const requestUrl = '/api/admin/sponsorships/request-information';
@@ -232,6 +233,7 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
       await form.getByRole('checkbox').nth(0).check();
       await form.locator('#public-display-name').fill(name);
       await form.getByRole('checkbox').nth(2).check();
+      await acceptDisplayedSponsorshipOffer(form);
       await form.locator('button[type="submit"]').click();
       await expect(company).toHaveURL(/\/checkout\/cs_test_/);
       sessionId = new URL(company.url()).pathname.split('/').at(-1)!;

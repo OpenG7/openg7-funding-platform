@@ -7,6 +7,10 @@ import { getSponsorshipProgress } from '../../dist/apps/funding-api/src/sponsors
 import { getAdminWorkQueue } from '../../dist/apps/funding-api/src/admin-work-queue.service.js';
 import { getAdminAssistantContext } from '../../dist/apps/funding-api/src/admin-assistant/context.service.js';
 import { PublicationAutomationService } from '../../dist/apps/funding-api/src/publication-automation/service.js';
+import { activateSponsorshipCommitments } from '../../dist/apps/funding-api/src/sponsorship-commitments/repository.js';
+import { qualifySponsorshipCommitment } from '../../dist/apps/funding-api/src/sponsorship-commitments/changes.js';
+import { createSponsorshipOfferSnapshot } from '../../dist/packages/funding-core/src/index.js';
+import { withPostgresTransaction } from '../../dist/apps/funding-api/src/postgres-transaction.js';
 
 test(
   'dossier progress reads exact persisted facts and the complete work queue on PostgreSQL',
@@ -61,6 +65,28 @@ test(
       sponsor_contact_email, sponsor_details_submitted_at, public_display_consent, stripe_session_id, stripe_payment_intent_id)
       VALUES ('sponsorship_interest', 50000, 'cad', 'paid', NOW(), '2020-01-01', 'Synthetic dossier', 'private@example.invalid', NOW(), true, 'cs_progress_fixture', 'pi_progress_fixture') RETURNING id`)
       ).rows[0].id;
+      await withPostgresTransaction(pool, async (db) => {
+        await activateSponsorshipCommitments(db, {
+          stripeSessionId: 'cs_progress_fixture'
+        });
+        await qualifySponsorshipCommitment(
+          db,
+          {
+            requestId: '00000000-0000-4000-8000-000000000741',
+            contributionId: id,
+            expectedVersion: 1,
+            confirmation: id,
+            reason:
+              'The synthetic dossier has an explicit commercial agreement',
+            evidenceReference: 'synthetic://progress-agreement',
+            offer: {
+              ...createSponsorshipOfferSnapshot(50000, 'CAD'),
+              version: 'historical-qualification-v1'
+            }
+          },
+          'admin:00000000-0000-4000-8000-000000000041'
+        );
+      });
       const mediaId = (
         await pool.query(
           `INSERT INTO sponsor_media_assets (contribution_id, kind, review_status, original_filename, original_mime_type, original_size_bytes,

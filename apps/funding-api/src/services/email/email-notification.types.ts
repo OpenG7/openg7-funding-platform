@@ -1,4 +1,7 @@
-import type { AdminSponsorshipRejectionRefundHandling } from '@openg7/funding-core';
+import type {
+  AdminSponsorshipRejectionRefundHandling,
+  SponsorshipOfferSnapshot
+} from '@openg7/funding-core';
 
 import type {
   SponsorshipCreditNoteRecord,
@@ -38,6 +41,7 @@ export interface ContributionReferenceRecoveryEmailInput {
 }
 
 export interface SponsorshipConfirmationEmailInput {
+  readonly offer?: SponsorshipOfferSnapshot | null;
   readonly to: string;
   readonly publicReference: string | null;
   readonly amount: number;

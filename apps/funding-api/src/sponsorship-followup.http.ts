@@ -257,6 +257,7 @@ export const createSponsorshipFollowupHttpHandler = ({
         }
 
         const result: SponsorshipFollowupResponse = {
+          ...(followup.commitment ? { commitment: followup.commitment } : {}),
           found: true,
           paymentStatus: followup.paymentStatus,
           publicReference: followup.publicReference,

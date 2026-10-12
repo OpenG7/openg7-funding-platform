@@ -8,6 +8,7 @@ import type {
   FundTransparencyPublicResponse
 } from '@openg7/funding-core';
 
+import { acceptDisplayedSponsorshipOffer } from './support/sponsorship-checkout.js';
 import { test, expect } from './support/test.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import {
@@ -144,6 +145,7 @@ for (const outcome of ['abandoned', 'declined', 'expired'] as const) {
       await form.locator('#public-display-name').fill(companyName);
       await form.getByRole('checkbox').nth(1).uncheck();
       await form.getByRole('checkbox').nth(2).check();
+      await acceptDisplayedSponsorshipOffer(form);
       await form.locator('button[type="submit"]').click();
       await expect(company).toHaveURL(/\/checkout\/cs_test_/);
       const id = new URL(company.url()).pathname.split('/').at(-1)!;

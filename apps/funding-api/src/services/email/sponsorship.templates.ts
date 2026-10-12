@@ -1,6 +1,6 @@
 import type { AdminSponsorshipRejectionRefundHandling } from '@openg7/funding-core';
 
-import { formatSponsorshipBenefitList } from '../../sponsorship-benefits.js';
+import { formatRecordedSponsorshipBenefits } from '../../sponsorship-commitments/offers.js';
 
 import { escapeHtml, formatDate, formatMoney } from './email-rendering.js';
 import type {
@@ -76,7 +76,7 @@ export const renderSponsorshipConfirmationEmail = (
   const amount = formatMoney(input.amount, input.currency);
   const paidAt = formatDate(input.paidAtIso);
   const safeFollowupUrl = escapeHtml(input.followupUrl);
-  const benefits = formatSponsorshipBenefitList(input.amount, input.currency);
+  const benefits = formatRecordedSponsorshipBenefits(input.offer ?? null);
   const escapedBenefits = benefits.map((benefit) => escapeHtml(benefit));
   const subject = `Confirmation de commandite OpenG7 - ${reference}`;
   const text = [
@@ -86,7 +86,7 @@ export const renderSponsorshipConfirmationEmail = (
     `Montant confirme: ${amount}`,
     `Date du paiement: ${paidAt}`,
     '',
-    'Avantages associes au montant, sous reserve de validation manuelle:',
+    'Engagements enregistrés, sous réserve de validation manuelle :',
     ...benefits.map((benefit) => `- ${benefit}`),
     '',
     'Prochaine etape:',
@@ -103,7 +103,7 @@ export const renderSponsorshipConfirmationEmail = (
       <strong>Date du paiement:</strong> ${escapeHtml(paidAt)}
     </p>
     <p>
-      Avantages associes au montant, sous reserve de validation manuelle:
+      Engagements enregistrés, sous réserve de validation manuelle :
     </p>
     <ul>
       ${escapedBenefits.map((benefit) => `<li>${benefit}</li>`).join('')}

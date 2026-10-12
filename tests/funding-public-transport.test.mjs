@@ -4,7 +4,8 @@ import test from 'node:test';
 import { FundingPublicClient } from '../dist/apps/funding-web/src/app/features/funding/services/funding-public.client.js';
 import {
   CheckoutReconciliationRequiredError,
-  CheckoutCharterChangedError
+  CheckoutCharterChangedError,
+  CheckoutOfferChangedError
 } from '../dist/apps/funding-web/src/app/features/funding/services/checkout-error.js';
 
 const baseUrl = 'https://funding.example.test/api';
@@ -21,6 +22,71 @@ const checkoutRequest = {
   displayAmountConsent: false,
   nonCharityAcknowledged: true
 };
+
+test('server offers use exact minor units, explicit CAD and cancellable uncached reads', async (t) => {
+  const client = new FundingPublicClient(baseUrl);
+  const abort = new AbortController();
+  const offer = {
+    version: 'sponsorship-v1',
+    fingerprint: 'a'.repeat(64),
+    amountMinor: 25000,
+    currency: 'CAD',
+    benefits: [
+      {
+        id: 'website_mention',
+        channel: 'website',
+        target: 'openg7',
+        quantity: 1,
+        requiredElements: ['company_name', 'approved_logo'],
+        deadlineDays: null,
+        durationDays: null
+      }
+    ]
+  };
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    assert.equal(
+      url,
+      baseUrl + '/sponsorship-offer?amountMinor=25000&currency=CAD'
+    );
+    assert.equal(options.method, 'GET');
+    assert.equal(options.cache, 'no-store');
+    assert.equal(options.signal, abort.signal);
+    assert.deepEqual(options.headers, { Accept: 'application/json' });
+    return Response.json(offer);
+  });
+  assert.deepEqual(
+    await client.sponsorshipOffer(25000, 'CAD', abort.signal),
+    offer
+  );
+  for (const malformed of [
+    { ...offer, amountMinor: 25001 },
+    { ...offer, currency: 'USD' },
+    { ...offer, fingerprint: 'invalid' },
+    { ...offer, benefits: [] },
+    { ...offer, privateField: 'unknown' },
+    { ...offer, benefits: [{ ...offer.benefits[0], automaticApproval: true }] }
+  ]) {
+    t.mock.method(globalThis, 'fetch', async () => Response.json(malformed));
+    await assert.rejects(client.sponsorshipOffer(25000, 'CAD'));
+  }
+});
+
+test('offer refusal requires renewed human acceptance, independently of payment reconciliation', async (t) => {
+  const client = new FundingPublicClient(baseUrl);
+  for (const code of [
+    'SPONSORSHIP_OFFER_ACCEPTANCE_REQUIRED',
+    'SPONSORSHIP_OFFER_CHANGED',
+    'SPONSORSHIP_OFFER_INVALID'
+  ]) {
+    t.mock.method(globalThis, 'fetch', async () =>
+      Response.json({ code }, { status: code.endsWith('CHANGED') ? 409 : 400 })
+    );
+    await assert.rejects(
+      client.startCheckout(checkoutRequest),
+      CheckoutOfferChangedError
+    );
+  }
+});
 
 const requests = [
   {

@@ -1,3 +1,5 @@
+import type { SponsorshipCommitmentRecord } from './sponsorship-commitments.js';
+
 export type SponsorshipDossierTab =
   | 'overview'
   | 'identity'
@@ -49,6 +51,7 @@ export interface SponsorshipProgressPublication {
   readonly publishedAt: string | null;
 }
 export interface AdminSponsorshipProgress {
+  readonly commitment?: SponsorshipCommitmentRecord | null;
   /** Absent on older servers: never infer visibility from review or feed status. */
   readonly website?: {
     readonly visible: boolean;

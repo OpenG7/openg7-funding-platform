@@ -45,6 +45,36 @@ const invoiceRow = (id) => ({
   last_email_error: null
 });
 
+// Backfill owns a transaction per emission. Historical candidates have a
+// confirmed financial amount but no inferred commercial offer.
+const invoicePool = (query, candidates, transactionEvents = []) => ({
+  query,
+  connect: async () => ({
+    query: async (sql, values) => {
+      if (['BEGIN', 'COMMIT', 'ROLLBACK'].includes(sql)) {
+        transactionEvents.push(sql);
+        return { rows: [] };
+      }
+      if (sql.startsWith('SELECT amount_cents::text')) {
+        assert.match(sql, /FOR UPDATE/);
+        const contribution = candidates.find(
+          (item) => item.stripe_session_id === values[0]
+        );
+        assert.ok(contribution, 'lock must select a known paid candidate');
+        return { rows: [{ amount_cents: contribution.amount_cents }] };
+      }
+      if (sql.includes('SELECT o.snapshot')) {
+        assert.ok(
+          candidates.some((item) => item.stripe_session_id === values[0])
+        );
+        return { rows: [] };
+      }
+      return query(sql, values);
+    },
+    release: () => transactionEvents.push('RELEASE')
+  })
+});
+
 test('backfill remains the public owning function and reports no work without a pool', async () => {
   assert.equal(publicBackfill, backfillMissingSponsorshipInvoices);
   const result = await publicBackfill(null, { limit: 1000 });
@@ -115,8 +145,9 @@ test('backfill continues after null results and errors while preserving all coun
   ].map(candidate);
   const writes = [];
   const reads = [];
-  const pool = {
-    query: async (sql, values) => {
+  const transactionEvents = [];
+  const pool = invoicePool(
+    async (sql, values) => {
       if (sql.includes('COUNT(contribution.id)')) {
         return { rows: [{ eligible_count: '10', missing_count: '8' }] };
       }
@@ -146,14 +177,33 @@ test('backfill continues after null results and errors while preserving all coun
         };
       }
       throw new Error('Unexpected backfill query');
-    }
-  };
+    },
+    candidates,
+    transactionEvents
+  );
   const result = await publicBackfill(pool, { limit: 6 });
   assert.deepEqual(
     writes.map((values) => values[0]),
     candidates.map((item) => item.stripe_session_id)
   );
   assert.equal(JSON.parse(writes[0][11])[0].totalCents, 25000);
+  assert.match(writes[0][12], /Engagements historiques à qualifier/);
+  assert.equal(
+    transactionEvents.filter((event) => event === 'BEGIN').length,
+    6
+  );
+  assert.equal(
+    transactionEvents.filter((event) => event === 'COMMIT').length,
+    4
+  );
+  assert.equal(
+    transactionEvents.filter((event) => event === 'ROLLBACK').length,
+    2
+  );
+  assert.equal(
+    transactionEvents.filter((event) => event === 'RELEASE').length,
+    6
+  );
   assert.deepEqual(reads, [
     'invoice-first',
     'invoice-last',
@@ -193,22 +243,21 @@ test('backfill continues after null results and errors while preserving all coun
 
 test('count, candidate and administrative read failures remain visible to the caller', async () => {
   for (const failure of ['count', 'candidate', 'read']) {
-    const pool = {
-      query: async (sql) => {
-        if (sql.includes('COUNT(contribution.id)')) {
-          if (failure === 'count') throw new Error('Synthetic count failure');
-          return { rows: [{ eligible_count: '1', missing_count: '1' }] };
-        }
-        if (sql.includes('invoice.id IS NULL') && sql.includes('LIMIT $1')) {
-          if (failure === 'candidate')
-            throw new Error('Synthetic candidate failure');
-          return { rows: [candidate('first')] };
-        }
-        if (sql.includes('INSERT INTO sponsorship_invoices'))
-          return { rows: [invoiceRow('first')] };
-        throw new Error('Synthetic read failure');
+    const candidates = [candidate('first')];
+    const pool = invoicePool(async (sql) => {
+      if (sql.includes('COUNT(contribution.id)')) {
+        if (failure === 'count') throw new Error('Synthetic count failure');
+        return { rows: [{ eligible_count: '1', missing_count: '1' }] };
       }
-    };
+      if (sql.includes('invoice.id IS NULL') && sql.includes('LIMIT $1')) {
+        if (failure === 'candidate')
+          throw new Error('Synthetic candidate failure');
+        return { rows: candidates };
+      }
+      if (sql.includes('INSERT INTO sponsorship_invoices'))
+        return { rows: [invoiceRow('first')] };
+      throw new Error('Synthetic read failure');
+    }, candidates);
     await assert.rejects(
       publicBackfill(pool),
       new RegExp(`Synthetic ${failure} failure`)

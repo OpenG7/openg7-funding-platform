@@ -148,7 +148,9 @@ const stripeFixture = () =>
 // PostgreSQL constraints and transaction rollback are covered by integrations.
 const databaseFixture = ({
   busy = false,
-  sponsorshipContribution = null
+  sponsorshipContribution = null,
+  commitmentContribution = null,
+  commitmentAfterJournal = false
 } = {}) => {
   const calls = [];
   const events = new Map();
@@ -172,6 +174,18 @@ const databaseFixture = ({
       events.set(values[0], 'failed');
     if (sql.includes('FROM contribution_activity'))
       return { rowCount: 0, rows: [] };
+    if (
+      sql.includes(
+        'FROM fund_contributions c LEFT JOIN stripe_checkout_sessions'
+      )
+    )
+      return {
+        rows:
+          commitmentContribution &&
+          (!commitmentAfterJournal || transactions.size)
+            ? [commitmentContribution]
+            : []
+      };
     if (sql.includes('SELECT public_reference,email_private,paid_at'))
       return {
         rowCount: sponsorshipContribution ? 1 : 0,
@@ -271,6 +285,84 @@ test('a tagged project mismatch is ignored before claiming or handling the event
     statusCode: 200,
     payload: { received: true, ignored: true, reason: 'PROJECT_MISMATCH' }
   });
+});
+
+test('signed PaymentIntent confirmation uses received monetary facts without requiring public metadata, including a late Checkout association', async () => {
+  for (const commitmentAfterJournal of [false, true]) {
+    const stripeClient = stripeFixture();
+    const commitmentContribution = {
+      id: '00000000-0000-4000-8000-000000000073',
+      public_reference: 'OG7-2026-PAYMENTFACTS',
+      amount_cents: 3900,
+      currency: 'cad',
+      stripe_session_id: 'cs_test_payment_facts',
+      stripe_payment_intent_id: 'pi_test_payment_facts',
+      metadata: {
+        openg7CheckoutOperationId: '00000000-0000-4000-8000-000000000074'
+      }
+    };
+    const database = databaseFixture({
+      commitmentContribution,
+      commitmentAfterJournal
+    });
+    const event = {
+      id: 'evt_test_payment_facts',
+      type: 'payment_intent.succeeded',
+      data: {
+        object: {
+          id: commitmentContribution.stripe_payment_intent_id,
+          latest_charge: null,
+          amount: 6400,
+          amount_received: 3900,
+          currency: 'cad',
+          status: 'succeeded',
+          created: 1735689600,
+          metadata: { project: 'openg7' }
+        }
+      }
+    };
+    const response = await signedEvent(stripeClient, database.pool, event);
+    assert.equal(response.statusCode, 200);
+    assert.equal(database.transactions.size, 1);
+    assert.equal(
+      database.transactions.get(
+        'pi_test_payment_facts:payment_intent.succeeded'
+      ).amount,
+      3900
+    );
+    const offerLookups = database.calls.filter(({ sql }) =>
+      sql.includes('SELECT id,snapshot FROM sponsorship_offers')
+    );
+    assert.equal(offerLookups.length, commitmentAfterJournal ? 1 : 2);
+    for (const lookup of offerLookups)
+      assert.deepEqual(lookup.values, [
+        commitmentContribution.metadata.openg7CheckoutOperationId,
+        commitmentContribution.public_reference,
+        3900,
+        'CAD'
+      ]);
+    if (commitmentAfterJournal) {
+      const journalIndex = database.calls.findIndex(({ sql }) =>
+        sql.includes('INSERT INTO fund_transactions')
+      );
+      assert.ok(
+        database.calls.indexOf(offerLookups[0]) > journalIndex,
+        'late association is reconciled after durable journal facts'
+      );
+    }
+    assert.equal(
+      database.calls.some(({ sql }) =>
+        /INSERT INTO sponsorship_obligations|publication_deliveries/.test(sql)
+      ),
+      false,
+      'unknown offer does not fabricate benefits or delivery'
+    );
+    assert.equal(
+      (await signedEvent(stripeClient, database.pool, event)).payload.duplicate,
+      true
+    );
+    assert.equal(database.transactions.size, 1);
+  }
 });
 
 test('converted payment balances fail safely and the same event recovers after a compatible balance is supplied', async () => {

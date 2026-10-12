@@ -39,6 +39,7 @@ import { createAdminSponsorshipDecisionsHttpHandler } from '../admin-sponsorship
 import { updateAdminSponsorshipDetails } from '../admin-sponsorship-details.service.js';
 import { createAdminSponsorshipMediaHttpHandler } from '../admin-sponsorship-media.http.js';
 import { createAdminSponsorshipRecordsHttpHandler } from '../admin-sponsorship-records.http.js';
+import { createSponsorshipCommitmentsHttpHandler } from '../sponsorship-commitments/admin-http.js';
 import { AdminStripeBackfillError } from '../admin-stripe-backfill.service.js';
 import {
   getAdminStripeEvent,
@@ -374,7 +375,20 @@ export const createAdminHttpHandlers = ({
     reportFailure: (message, error) => console.error(message, error)
   });
 
-  const handleAdminSponsorshipRecordsRequest =
+  const handleSponsorshipCommitmentsRequest =
+    createSponsorshipCommitmentsHttpHandler({
+      publicBaseOrigin,
+      pool: dbPool,
+      readBody,
+      writeJson,
+      ensureAdminAccess,
+      getAdminAuditActor,
+      canOwn: (request) =>
+        adminIdentity
+          ? adminIdentity.identity(request)?.role === 'owner'
+          : Boolean(resolveAdminAuthorization(request))
+    });
+  const handleExistingAdminSponsorshipRecordsRequest =
     createAdminSponsorshipRecordsHttpHandler({
       publicBaseOrigin,
       ensureAdminAuthorization,
@@ -397,6 +411,11 @@ export const createAdminHttpHandlers = ({
         recordSponsorshipIntervention(dbPool!, input, actor),
       reportFailure: (message, error) => console.error(message, error)
     });
+
+  const handleAdminSponsorshipRecordsRequest: typeof handleExistingAdminSponsorshipRecordsRequest =
+    async (request, response) =>
+      (await handleSponsorshipCommitmentsRequest(request, response)) ||
+      (await handleExistingAdminSponsorshipRecordsRequest(request, response));
 
   const handleAdminSponsorshipDecisionsRequest =
     createAdminSponsorshipDecisionsHttpHandler({

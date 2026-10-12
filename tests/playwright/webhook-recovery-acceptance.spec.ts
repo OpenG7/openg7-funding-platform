@@ -9,6 +9,7 @@ import type {
   FundTransparencyPublicResponse
 } from '@openg7/funding-core';
 
+import { acceptDisplayedSponsorshipOffer } from './support/sponsorship-checkout.js';
 import { test, expect } from './support/test.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import {
@@ -137,6 +138,7 @@ for (const fault of ['invoice_insert', 'invoice_email_connection'] as const) {
     await form.getByRole('checkbox').nth(0).check();
     await form.locator('#public-display-name').fill(name);
     await form.getByRole('checkbox').nth(2).check();
+    await acceptDisplayedSponsorshipOffer(form);
     await form.locator('button[type="submit"]').click();
     await expect(company).toHaveURL(/\/checkout\/cs_test_/);
     const sessionId = new URL(company.url()).pathname.split('/').at(-1)!;

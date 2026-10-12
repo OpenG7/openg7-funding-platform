@@ -9,17 +9,54 @@ import type {
   PublicSponsorshipBatchAvailabilityResponse,
   PublicSponsorshipsResponse,
   ReferenceRecoveryRequest,
-  ReferenceRecoveryResult
+  ReferenceRecoveryResult,
+  SponsorshipOfferQuote
 } from '@openg7/funding-core';
+
+import { normalizeSponsorshipOfferSnapshot } from '../../../../../../../packages/funding-core/src/index.js';
 
 import {
   CheckoutReconciliationRequiredError,
-  CheckoutCharterChangedError
+  CheckoutCharterChangedError,
+  CheckoutOfferChangedError
 } from './checkout-error.js';
 
 /** Public funding endpoints; checkout attempts and return URLs belong to FundingService. */
 export class FundingPublicClient {
   constructor(private readonly apiBaseUrl: string) {}
+  async sponsorshipOffer(
+    amountMinor: number,
+    currency: string,
+    signal?: AbortSignal
+  ): Promise<SponsorshipOfferQuote> {
+    const params = new URLSearchParams({
+      amountMinor: String(amountMinor),
+      currency
+    });
+    const response = await fetch(
+      `${this.apiBaseUrl}/sponsorship-offer?${params}`,
+      {
+        method: 'GET',
+        cache: 'no-store',
+        signal,
+        headers: { Accept: 'application/json' }
+      }
+    );
+    if (!response.ok) throw new Error('SPONSORSHIP_OFFER_UNAVAILABLE');
+    const data: unknown = await response.json();
+    if (!data || typeof data !== 'object' || Array.isArray(data))
+      throw new Error('SPONSORSHIP_OFFER_UNAVAILABLE');
+    const { fingerprint, ...terms } = data as Record<string, unknown>;
+    const snapshot = normalizeSponsorshipOfferSnapshot(terms);
+    if (
+      snapshot.amountMinor !== amountMinor ||
+      snapshot.currency !== currency ||
+      typeof fingerprint !== 'string' ||
+      !/^[a-f0-9]{64}$/.test(fingerprint)
+    )
+      throw new Error('SPONSORSHIP_OFFER_UNAVAILABLE');
+    return { ...snapshot, fingerprint };
+  }
   async sponsorshipCharter(): Promise<
     import('@openg7/funding-core').PublicSponsorshipCharter
   > {
@@ -55,13 +92,21 @@ export class FundingPublicClient {
         .catch(() => null)) as { code?: string } | null;
       if (
         [
+          'SPONSORSHIP_OFFER_ACCEPTANCE_REQUIRED',
+          'SPONSORSHIP_OFFER_CHANGED',
+          'SPONSORSHIP_OFFER_INVALID'
+        ].includes(charterFailure?.code ?? '')
+      )
+        throw new CheckoutOfferChangedError(charterFailure!.code);
+      if (
+        [
           'CHARTER_VERSION_CHANGED',
           'CHARTER_NOT_ACTIVE',
           'CHARTER_ACCEPTANCE_REQUIRED',
           'CHARTER_ACCEPTANCE_INVALID'
         ].includes(charterFailure?.code ?? '')
       )
-        throw new CheckoutCharterChangedError();
+        throw new CheckoutCharterChangedError(charterFailure!.code);
       if (response.status === 409) {
         const failure: unknown = await response.json().catch(() => null);
         if (

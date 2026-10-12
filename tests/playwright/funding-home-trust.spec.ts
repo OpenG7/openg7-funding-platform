@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 
 import { expect, test } from './support/test.js';
+import { syntheticSponsorshipOffer } from './support/sponsorship-offer-fixture.js';
 
 const emptyReport = {
   data_source: 'database',
@@ -325,6 +326,19 @@ async function enableSponsorship(page: Page, amounts = [5, 10, 25, 50]) {
       json: { data_source: 'empty', availability: [], slots: [] }
     })
   );
+  await page.route('**/api/sponsorship-offer?**', (route) => {
+    const amountMinor = Number(
+      new URL(route.request().url()).searchParams.get('amountMinor')
+    );
+    try {
+      return route.fulfill({ json: syntheticSponsorshipOffer(amountMinor) });
+    } catch {
+      return route.fulfill({
+        status: 400,
+        json: { code: 'SPONSORSHIP_OFFER_INVALID' }
+      });
+    }
+  });
 }
 
 const contributionForm = (page: Page) =>
@@ -365,6 +379,7 @@ test('switching the default personal amount to sponsorship submits a valid 50 CA
     contributionForm(page).getByRole('button', { name: /^50\s*\$$/ })
   ).toHaveAttribute('aria-pressed', 'true');
   await acknowledge(page);
+  await contributionForm(page).locator('[data-og7="offer-acceptance"]').check();
   await checkoutButton(page).click();
   await expect(checkoutButton(page)).toBeDisabled();
   // A second form submission must not start another checkout.
@@ -449,6 +464,7 @@ for (const english of [false, true]) {
         : 'Texte exact synthétique serveur 1'
     );
     await expect(submit).toBeDisabled();
+    await form.locator('[data-og7="offer-acceptance"]').check();
     await acceptance.check();
     await submit.click();
     await expect(
@@ -488,6 +504,8 @@ test('moderation V1 proposed charter remains inactive and imposes no fabricated 
   await acknowledge(page);
   await expect(page.locator('[data-og7="charter-acceptance"]')).toHaveCount(0);
   await expect(page.locator('[data-og7="sponsorship-charter"]')).toHaveCount(0);
+  await expect(checkoutButton(page)).toBeDisabled();
+  await contributionForm(page).locator('[data-og7="offer-acceptance"]').check();
   await expect(checkoutButton(page)).toBeEnabled();
 });
 
@@ -544,12 +562,14 @@ for (const language of ['fr-CA', 'en'] as const) {
     });
     expect(requests[0].idempotencyKey).toMatch(/^[a-f0-9-]{36}$/i);
     const savedAttempts = await page.evaluate(() =>
-      sessionStorage.getItem('openg7.checkout-attempts.v1')
+      localStorage.getItem('openg7.checkout-attempts.v2')
     );
     expect(savedAttempts).not.toBeNull();
-    expect(Object.values(JSON.parse(savedAttempts!))).toEqual([
-      requests[0].idempotencyKey
-    ]);
+    expect(
+      Object.values(
+        JSON.parse(savedAttempts!) as Record<string, { idempotencyKey: string }>
+      ).map((entry) => entry.idempotencyKey)
+    ).toEqual([requests[0].idempotencyKey]);
     await form.dispatchEvent('submit');
     expect(requests).toHaveLength(1);
 
@@ -578,7 +598,7 @@ for (const language of ['fr-CA', 'en'] as const) {
     expect(requests).toHaveLength(1);
     expect(
       await page.evaluate(() =>
-        sessionStorage.getItem('openg7.checkout-attempts.v1')
+        localStorage.getItem('openg7.checkout-attempts.v2')
       )
     ).toBe(savedAttempts);
   });
@@ -621,6 +641,8 @@ test('invalid sponsorship input is preserved and blocked instead of silently cha
   }
   await amount.fill('50,25');
   await expect(amount).toHaveAttribute('aria-invalid', 'false');
+  await expect(checkoutButton(page)).toBeDisabled();
+  await contributionForm(page).locator('[data-og7="offer-acceptance"]').check();
   await expect(checkoutButton(page)).toBeEnabled();
   await page.getByRole('button', { name: /Contribution personnelle/i }).click();
   await expect(checkoutButton(page)).toBeDisabled();

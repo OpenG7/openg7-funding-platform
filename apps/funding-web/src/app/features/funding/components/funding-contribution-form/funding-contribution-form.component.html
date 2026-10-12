@@ -165,23 +165,104 @@
       !hasInvalidCustomContribution()
     "
   >
-    <p class="sponsorship-tier-summary-title">
-      {{ 'funding.home.contribution.sponsorship.summary.title' | translate }}
-    </p>
-    <ul class="sponsorship-tier-achieved" role="list">
-      <li *ngFor="let benefitId of sponsorshipBenefits().achievedBenefits">
-        {{ sponsorshipBenefitLabelKeys[benefitId] | translate }}
-      </li>
-    </ul>
-    <p
-      class="sponsorship-tier-upcoming"
-      *ngFor="let upcoming of sponsorshipBenefits().upcomingBenefits"
+    <section
+      data-og7="sponsorship-offer"
+      [attr.aria-busy]="offer.state() === 'loading'"
+      aria-labelledby="sponsorship-offer-title"
     >
-      {{
-        sponsorshipUpcomingLabelKeys[upcoming.id]
-          | translate: { amount: formatMoney(upcoming.minimumAmount) }
-      }}
-    </p>
+      <h3 id="sponsorship-offer-title">
+        {{ 'funding.offer.title' | translate }}
+      </h3>
+      @if (offer.state() === 'loading') {
+        <p role="status">{{ 'funding.offer.loading' | translate }}</p>
+      }
+      @if (offer.state() === 'error') {
+        <p role="alert">{{ 'funding.offer.unavailable' | translate }}</p>
+        <button type="button" (click)="reloadOffer()">
+          {{ 'funding.followup.retry' | translate }}
+        </button>
+      }
+      @if (offer.state() === 'verification_required') {
+        <p role="alert">
+          {{ 'funding.home.contribution.verificationRequired' | translate }}
+        </p>
+        <a [routerLink]="supportPath()" fragment="contribution-help">{{
+          'funding.offer.support' | translate
+        }}</a>
+      }
+      @if (offer.state() === 'recovery_unavailable') {
+        <p role="alert">
+          {{ 'funding.offer.recoveryUnavailable' | translate }}
+        </p>
+        <button type="button" (click)="reloadOffer()">
+          {{ 'funding.followup.retry' | translate }}
+        </button>
+      }
+      @if (offer.quote(); as quoted) {
+        @if (offer.retained()) {
+          <p role="status">{{ 'funding.offer.retained' | translate }}</p>
+          @if (quoted.amountMinor !== effectiveAmountMinor()) {
+            <button
+              type="button"
+              (click)="setContributionAmount(quoted.amountMinor / 100)"
+            >
+              {{
+                'funding.offer.resumeAmount'
+                  | translate: { amount: formatMoney(quoted.amountMinor / 100) }
+              }}
+            </button>
+          }
+        }
+        <p>
+          {{ 'funding.offer.version' | translate: { version: quoted.version } }}
+        </p>
+        <ul class="sponsorship-tier-achieved" role="list">
+          @for (benefit of quoted.benefits; track benefit.id) {
+            <li [attr.data-og7-id]="benefit.id">
+              <strong
+                >{{ benefit.quantity }} ×
+                {{
+                  'funding.offer.channels.' + benefit.channel | translate
+                }}</strong
+              >
+              <p>
+                {{
+                  'funding.offer.destination'
+                    | translate: { target: benefit.target.toUpperCase() }
+                }}
+              </p>
+              <p>
+                {{ 'funding.offer.required' | translate }}
+                @for (
+                  element of benefit.requiredElements;
+                  track element;
+                  let last = $last
+                ) {
+                  {{ requiredElementKeys[element] | translate
+                  }}{{ last ? '.' : ', ' }}
+                }
+              </p>
+              <p>
+                {{
+                  (benefit.deadlineDays === null
+                    ? 'funding.offer.noDeadline'
+                    : 'funding.offer.deadline'
+                  ) | translate: { days: benefit.deadlineDays }
+                }}
+              </p>
+              <p>
+                {{
+                  (benefit.durationDays === null
+                    ? 'funding.offer.noDuration'
+                    : 'funding.offer.duration'
+                  ) | translate: { days: benefit.durationDays }
+                }}
+              </p>
+            </li>
+          }
+        </ul>
+      }
+    </section>
     <p
       class="sponsorship-tier-availability"
       *ngFor="let entry of sponsorshipAvailabilityEntries()"
@@ -281,6 +362,21 @@
         >
       </section>
     }
+    @if (offer.quote(); as quoted) {
+      <label class="consent-option required">
+        <input
+          type="checkbox"
+          [checked]="offer.accepted()"
+          (change)="acceptOffer($event)"
+          data-og7="offer-acceptance"
+          aria-describedby="sponsorship-offer-title"
+        />
+        <span>{{
+          'funding.offer.acceptance'
+            | translate: { amount: formatMoney(quoted.amountMinor / 100) }
+        }}</span>
+      </label>
+    }
   }
   <button type="submit" class="gold-cta" [disabled]="!canStartCheckout()">
     {{ 'funding.nav.supportCta' | translate }}
@@ -313,8 +409,21 @@
         ? 'funding.home.contribution.verificationRequired'
         : checkoutCharterChanged()
           ? 'funding.charter.changed'
-          : 'funding.home.contribution.error'
+          : checkoutRecoveryUnavailable()
+            ? 'funding.offer.recoveryUnavailable'
+            : checkoutOfferChanged()
+              ? 'funding.offer.changed'
+              : 'funding.home.contribution.error'
       ) | translate
     }}
   </p>
+  @if (
+    checkoutRecoveryUnavailable() &&
+    offer.state() !== 'recovery_unavailable' &&
+    offer.state() !== 'error'
+  ) {
+    <button type="button" (click)="reloadOffer()">
+      {{ 'funding.followup.retry' | translate }}
+    </button>
+  }
 </form>

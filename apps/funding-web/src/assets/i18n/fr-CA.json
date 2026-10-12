@@ -3156,6 +3156,34 @@
     }
   },
   "funding": {
+    "offer": {
+      "title": "Offre de commandite à confirmer",
+      "loading": "Chargement de l’offre applicable…",
+      "unavailable": "L’offre ne peut pas être chargée. Réessayez avant de commencer le paiement.",
+      "changed": "L’offre a changé avant le début du paiement. Relisez les avantages et confirmez la nouvelle offre.",
+      "retained": "Une tentative précédente reste à vérifier. L’offre initialement confirmée est conservée. Pour la reprendre, utilisez les mêmes renseignements et consentements.",
+      "recoveryUnavailable": "La reprise ne peut pas être lue ou conservée dans ce navigateur. Une nouvelle commandite ne peut pas démarrer tant qu’elle n’est pas disponible. Vérifiez les paramètres de stockage du navigateur, puis réessayez.",
+      "support": "Contacter l’équipe pour vérifier cette tentative",
+      "resumeAmount": "Reprendre la commandite de {{amount}}",
+      "version": "Offre {{version}}",
+      "destination": "Destination : {{target}}",
+      "required": "Éléments requis :",
+      "noDeadline": "Aucun délai de publication fixe n’est promis par cette offre.",
+      "noDuration": "Aucune durée d’exposition fixe n’est promise par cette offre.",
+      "deadline": "Délai de réalisation : {{days}} jours.",
+      "duration": "Durée d’exposition : {{days}} jours.",
+      "acceptance": "Je confirme les avantages et les conditions affichés pour ma commandite de {{amount}}.",
+      "channels": {
+        "website": "mention sur le site",
+        "facebook": "publication groupée sur Facebook",
+        "linkedin": "publication groupée sur LinkedIn"
+      },
+      "elements": {
+        "company_name": "nom de l’entreprise",
+        "approved_logo": "logo approuvé",
+        "approved_presentation": "photo de présentation approuvée"
+      }
+    },
     "charter": {
       "changed": "Les conditions de commandite ont changé. Relisez la version applicable et confirmez-la avant une nouvelle tentative.",
       "title": "Charte d’intégrité éditoriale et des commandites",

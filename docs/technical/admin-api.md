@@ -1,16 +1,19 @@
 # Administration API
 
-Payment notifications and private website preparation use protected
-`GET /api/admin/contribution-activity` and per-actor
-`POST /api/admin/contribution-activity/present`. Pagination, states,
-permissions and simulation: [contribution activity](../operations/contribution-activity.md).
+Payment notifications and private website preparation:
+[protected contribution activity API](../operations/contribution-activity.md).
 
-Contracts: feature guides and code; [documentation index](../README.md).
+Contracts: [guides](../README.md) and code.
 
 Versioned moderation decisions, independent review, private reconsideration,
 assistance and owner-only governance previews:
 [moderation contracts](../operations/sponsorship-moderation.md). These reads require
 operator/owner rights; reader sessions cannot inspect the underlying evidence.
+
+## Commercial sponsorship commitments
+
+Private reads, owner qualification/adjustment, confirmation and audit:
+[commitment API](checkout.md#commercial-commitment-administration).
 
 ## Fundraiser admin
 

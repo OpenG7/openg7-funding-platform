@@ -309,3 +309,5 @@ export type {
   AdminAssistantPrepareStatus,
   AdminAssistantPrepareResponse
 } from './admin-assistant.js';
+export * from './sponsorship-offers.js';
+export * from './sponsorship-commitments.js';

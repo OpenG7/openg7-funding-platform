@@ -92,6 +92,21 @@ test(
         ['personal_support', 75.25, 400]
       ]) {
         for (const prefix of ['', '/api']) {
+          let offerAcceptance;
+          if (contributionType === 'sponsorship_interest' && status === 200) {
+            const quoteResponse = await fetch(
+              `http://127.0.0.1:${port}${prefix}/sponsorship-offer?amountMinor=${Math.round(amount * 100)}&currency=CAD`
+            );
+            assert.equal(quoteResponse.status, 200);
+            const quote = await quoteResponse.json();
+            assert.equal(quote.amountMinor, Math.round(amount * 100));
+            assert.equal(quote.currency, 'CAD');
+            assert.match(quote.fingerprint, /^[a-f0-9]{64}$/);
+            offerAcceptance = {
+              version: quote.version,
+              fingerprint: quote.fingerprint
+            };
+          }
           const checkout = await fetch(
             `http://127.0.0.1:${port}${prefix}/checkout-sessions`,
             {
@@ -100,6 +115,7 @@ test(
               body: JSON.stringify({
                 projectId: 'synthetic-project',
                 contributionType,
+                ...(offerAcceptance ? { offerAcceptance } : {}),
                 amount,
                 currency: 'CAD',
                 publicDisplayConsent: false,

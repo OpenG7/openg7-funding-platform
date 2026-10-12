@@ -25,6 +25,7 @@ import {
 import { completeModeration } from './support/moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
+import { acceptDisplayedSponsorshipOffer } from './support/sponsorship-checkout.js';
 import { expect, test } from './support/test.js';
 
 const automation = '/api/admin/publication-automation';
@@ -233,6 +234,7 @@ for (const amount of [100, 250]) {
             await form.locator('#public-display-name').fill(name);
           await form.getByRole('checkbox').nth(1).setChecked(amountConsent);
           await form.getByRole('checkbox').nth(2).check();
+          await acceptDisplayedSponsorshipOffer(form);
           const checkout = company.waitForResponse(
             (r) =>
               r.url().endsWith('/checkout-sessions') &&

@@ -886,7 +886,6 @@ test('Contribution form uses sponsorship pricing and the personal server allowli
   assert.ok(config.includes('facebookBatch: { minimumAmount: 250 },'));
   assert.ok(config.includes('linkedinBatch: { minimumAmount: 500 }'));
 
-  assert.ok(source.includes('resolveSponsorshipBenefits'));
   assert.ok(source.includes('isValidSponsorshipAmount'));
   assert.ok(
     source.includes(
@@ -899,9 +898,8 @@ test('Contribution form uses sponsorship pricing and the personal server allowli
   assert.ok(
     source.includes('isValidSponsorshipAmount(amount, this.config.sponsorship)')
   );
-  assert.ok(source.includes('readonly sponsorshipBenefits = computed(() =>'));
-  assert.ok(source.includes('sponsorshipBenefits().achievedBenefits'));
-  assert.ok(source.includes('sponsorshipBenefits().upcomingBenefits'));
+  assert.ok(source.includes('data-og7="sponsorship-offer"'));
+  assert.ok(source.includes('data-og7="offer-acceptance"'));
   assert.ok(
     source.includes('funding.home.contribution.sponsorship.minimumAmountError')
   );
@@ -929,29 +927,19 @@ test('Checkout API validates sponsorship custom amounts against the real minimum
   assert.ok(
     source.includes('const isAmountAllowed = isSponsorshipContribution')
   );
-  assert.ok(source.includes('? isValidSponsorshipAmount(amount)'));
+  assert.ok(source.includes(': isValidSponsorshipAmount(amount)'));
   assert.ok(source.includes(': allowedContributionAmounts.has(amount);'));
   assert.ok(source.includes('allowedContributionAmounts.has(amount)'));
 });
 
-test('Sponsorship follow-up benefits are derived server-side from the paid amount, never trusted from the client', () => {
+test('Sponsorship follow-up benefits read the accepted server offer, never client details or the current pricing', () => {
   const repository = readFundingPersistenceSource('contributions');
   const api = readFundingApiSource();
   const core = readFundingCoreSource('sponsorship-followup');
 
-  assert.ok(
-    repository.includes(
-      'const sponsorshipBenefits = resolveSponsorshipBenefits(amount);'
-    )
-  );
-  assert.ok(repository.includes('import { resolveSponsorshipBenefits }'));
-  assert.ok(repository.includes('amount: number'));
-  assert.ok(repository.includes('sponsorshipTier: sponsorshipBenefits.tier,'));
-  assert.ok(
-    repository.includes(
-      'sponsorshipBenefits: sponsorshipBenefits.achievedBenefits,'
-    )
-  );
+  assert.equal(repository.includes('resolveSponsorshipBenefits'), false);
+  assert.ok(repository.includes('row.offer_snapshot?.benefits'));
+  assert.ok(repository.includes("'needs_confirmation'"));
   assert.ok(api.includes('sponsorshipTier: followup.sponsorshipTier,'));
   assert.ok(api.includes('sponsorshipBenefits: followup.sponsorshipBenefits,'));
 

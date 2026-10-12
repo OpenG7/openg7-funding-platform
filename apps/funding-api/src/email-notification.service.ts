@@ -40,6 +40,7 @@ import {
   recordEmailConfigurationTestQueuedAudit
 } from './email-queue.repository.js';
 import { withPostgresTransaction } from './postgres-transaction.js';
+import { loadSponsorshipOfferForSession } from './sponsorship-commitments/repository.js';
 import {
   enqueueEmailMessage,
   processQueuedEmailMessages,
@@ -119,7 +120,10 @@ export const queueSponsorshipConfirmationEmail = async (
   pool: Pool | null,
   input: SponsorshipConfirmationEmailInput
 ): Promise<EmailQueueResult> => {
-  const rendered = renderSponsorshipConfirmationEmail(input);
+  const offer = pool
+    ? await loadSponsorshipOfferForSession(pool, input.stripeSessionId)
+    : null;
+  const rendered = renderSponsorshipConfirmationEmail({ ...input, offer });
   return queueAndProcessEmail(pool, {
     ...rendered,
     to: input.to,

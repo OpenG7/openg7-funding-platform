@@ -5,7 +5,10 @@
 Stripe Checkout is configured. Use a fresh UUID for a new contribution and keep
 the same key and payload when retrying an uncertain request. Missing or invalid
 keys return `400 CHECKOUT_IDEMPOTENCY_KEY_INVALID`. The Web keeps the pending
-key and a payload hash in session storage and merges concurrent submissions.
+key and a payload hash in bounded local storage and merges concurrent submissions.
+Older session-storage attempts require verification before a new key can be
+created. Contributor names, contacts and return URLs are not stored in this
+browser recovery record.
 An accepted result ends that attempt; provider/network failures remain errors.
 
 Apply [migration 031](../../apps/funding-api/migrations/031_create_checkout_operations.sql)
@@ -38,13 +41,15 @@ another session: Stripe can prune keys after 24 hours ([Stripe reference](https:
 An operator must reconcile the operation UUID/public reference against Stripe
 before deciding recovery; changing the key is not an uncertainty recovery.
 The Web displays a specific French/English verification message and retains
-both the pending key and a separate verification flag in session storage.
-The flag blocks further Checkout requests throughout that browser tab, including
+both the pending key and a separate verification flag in browser storage.
+The flag blocks further Checkout requests, including
 after reload, route changes, or changes to the amount, name and consent. Reload
 restores the verification message before submission without contacting Stripe.
 This flag contains no contributor data and is not cleared by editing the form;
 recovery still requires the operator's reconciliation. When browser storage is
-unavailable, the block lasts only for the current service instance.
+unavailable, an already retained attempt remains protected in memory. A new
+sponsorship cannot start without reliable recovery storage; the interface
+explains this availability failure without asserting that payment occurred.
 
 `checkout_operations` is private: its snapshots include the return URLs needed
 for exact retries (including sponsorship follow-up tokens), consent/name and
@@ -53,6 +58,65 @@ and Stripe metadata retain only the follow-up token hash. Protect these records
 and backups with the same controls as private contribution data. Creation and
 retries only record a pending contribution; payment still requires Stripe's
 authoritative confirmation and never authorizes publication.
+
+## Accepted sponsorship offers and obligations
+
+`GET /api/sponsorship-offer?amountMinor=<integer>&currency=CAD` returns the
+current server quote: version, amount in integer minor units, currency, benefits
+and SHA-256 fingerprint. Each benefit identifies its channel, logical target,
+quantity, required elements and any promised deadline/duration. A null deadline
+or duration means that none is promised. The existing `*_batch` IDs identify
+collective recognition; individual portraits are not offered by this version.
+
+Business Checkout requires `offerAcceptance: { version, fingerprint }`. This
+reference cannot supply commercial terms to the server. Missing acceptance
+returns `400 SPONSORSHIP_OFFER_ACCEPTANCE_REQUIRED`; a changed quote returns
+`409 SPONSORSHIP_OFFER_CHANGED` before contacting Stripe. The interface reloads
+the terms and requests a new confirmation. Personal contributions cannot include
+this reference (`400 SPONSORSHIP_OFFER_NOT_APPLICABLE`).
+
+[Migration 041](../../apps/funding-api/migrations/041_sponsorship_commitments.sql)
+adds immutable commercial offer snapshots, commitments, obligations and audited
+changes. The offer commits with the new durable Checkout operation before
+Stripe. An uncertain retry retains that snapshot despite a later pricing change.
+The browser retains only the public quote, attempt UUID and payload fingerprint
+for up to 24 hours; this retention does not extend the server's 23-hour retry
+window and never confirms a payment. A different payload, expired or ambiguous
+cache requires verification instead of silently creating a replacement attempt.
+Resuming requires re-entering the same details, consent, language, return URLs
+and charter acceptance. A changed charter requires verification; the cache does
+not reconstruct private details or silently accept newer terms.
+
+Authoritative Stripe amount, currency and Session/PaymentIntent associations must
+match before activation. Repeated events create one commitment and one obligation
+per promised ordinal. Early payment confirmation is reconciled with the exact
+existing financial journal entry. If evidence is incomplete or inconsistent,
+the payment fact remains intact and the commitment needs confirmation; an active
+or explicitly qualified offer is not replaced by an incompatible replay.
+
+Existing paid sponsorships have `historical_unverified` provenance and
+`needs_confirmation` state, with no inferred offer or invented obligations.
+Historical qualification requires an owner decision and an evidence reference.
+Current payment, consent, review and media guards can block an obligation without
+erasing it. Partial or failed refunds alone do not rewrite promised terms.
+Fulfilment on provider evidence remains a separate publication task; this lot
+creates no `fulfilled` result. Invoice snapshots preserve the recorded terms and
+financial facts at issuance; a later qualification does not rewrite an invoice.
+
+### Commercial commitment administration
+
+`GET /api/admin/sponsorship-commitments?contributionId=<uuid>` requires existing
+server-side admin access and returns a private, non-cacheable commercial record.
+`POST /api/admin/sponsorship-commitments/qualify` records historical terms with
+an evidence reference; `POST /api/admin/sponsorship-commitments/adjust` records
+an explicit destination change or waiver. Mutations require owner rights in
+OIDC mode, or the authorized signed local token session, plus JSON, a request UUID,
+the expected version, a reason and confirmation equal to the selected target ID.
+They are idempotent and audited in the same transaction. An identical request,
+input and actor reuses the original logical receipt even after its version has
+advanced; a different input or a new request on a stale version returns a conflict.
+No mutation creates payment, provider proof, publication or a refund. Owner UI
+workflows and complete obligation-based scheduling remain later work.
 
 ## Local validation
 

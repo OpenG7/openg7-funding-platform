@@ -3160,6 +3160,34 @@
     }
   },
   "funding": {
+    "offer": {
+      "title": "Confirm the sponsorship offer",
+      "loading": "Loading the applicable offer…",
+      "unavailable": "The offer could not be loaded. Try again before starting payment.",
+      "changed": "The offer changed before payment started. Review the benefits and confirm the new offer.",
+      "retained": "An earlier attempt still needs verification. Its originally confirmed offer is retained. To resume it, use the same details and consents.",
+      "recoveryUnavailable": "Recovery cannot be read or retained in this browser. A new sponsorship payment cannot start until it is available. Check the browser storage settings, then try again.",
+      "support": "Contact the team to verify this attempt",
+      "resumeAmount": "Resume the {{amount}} sponsorship",
+      "version": "Offer {{version}}",
+      "destination": "Destination: {{target}}",
+      "required": "Required elements:",
+      "noDeadline": "This offer promises no fixed publication deadline.",
+      "noDuration": "This offer promises no fixed exposure duration.",
+      "deadline": "Delivery deadline: {{days}} days.",
+      "duration": "Exposure duration: {{days}} days.",
+      "acceptance": "I confirm the benefits and terms displayed for my {{amount}} sponsorship.",
+      "channels": {
+        "website": "website mention",
+        "facebook": "grouped Facebook publication",
+        "linkedin": "grouped LinkedIn publication"
+      },
+      "elements": {
+        "company_name": "company name",
+        "approved_logo": "approved logo",
+        "approved_presentation": "approved presentation image"
+      }
+    },
     "charter": {
       "changed": "The sponsorship terms changed. Read and confirm the applicable version before trying again.",
       "title": "Editorial Integrity and Sponsorship Charter",

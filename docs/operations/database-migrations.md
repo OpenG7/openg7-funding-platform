@@ -93,6 +93,17 @@ mis à jour lors de l'adoption, sans transférer la propriété des tables.
 déjà restreint; elle maintient l'interdiction de modifier son contenu ou son lot
 tant qu'une livraison est autorisée, en cours ou incertaine.
 
+La migration [041](../../apps/funding-api/migrations/041_sponsorship_commitments.sql)
+ajoute les offres commerciales immuables, engagements, obligations et décisions
+privées auditées. L'appliquer avant l'API correspondante. Les dossiers historiques
+payés, remboursés ou contestés deviennent `needs_confirmation` sans offre
+reconstituée depuis le barème courant ni nouvelle preuve financière. L'activation
+exige des faits Stripe associés au montant et à la devise convenus; elle ne
+publie aucun contenu et ne crée aucune preuve de livraison. Voir le
+[contrat Checkout](../technical/checkout.md#accepted-sponsorship-offers-and-obligations).
+Cette migration reste distincte des futures réservations par compte et des
+preuves SP19; aucune migration de production n'est exécutée par ce chantier.
+
 La migration [029](../../apps/funding-api/migrations/029_create_sponsorship_refund_operations.sql)
 ajoute les demandes de remboursement durables et leur exclusion mutuelle.
 Elle ne modifie aucun fait financier existant. L'appliquer avant l'API mise à

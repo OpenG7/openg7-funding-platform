@@ -49,8 +49,10 @@ test(
       sequence += 1;
       const contribution = await pool.query(
         `INSERT INTO fund_contributions (
-          contribution_type, amount_cents, currency, status, stripe_session_id
-        ) VALUES ('sponsorship_interest', 10000, 'cad', 'paid', $1)
+          contribution_type, amount_cents, currency, status, stripe_session_id,
+          sponsor_company_name
+        ) VALUES ('sponsorship_interest', 10000, 'cad', 'paid', $1,
+                  'Synthetic calendar sponsor')
         RETURNING id::text AS id`,
         [`cs_test_calendar_${sequence}`]
       );

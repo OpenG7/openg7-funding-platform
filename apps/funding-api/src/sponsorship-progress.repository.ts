@@ -7,6 +7,7 @@ import type { PoolClient } from 'pg';
 
 import { effectiveRefundsSql } from './fund-refund-projection.js';
 import { SPONSOR_WEBSITE_VISIBLE_SQL } from './sponsorship-website-eligibility.js';
+import { loadSponsorshipCommitment } from './sponsorship-commitments/repository.js';
 
 export interface SponsorshipRefundFact {
   readonly id: string;
@@ -15,6 +16,7 @@ export interface SponsorshipRefundFact {
 }
 /** Persisted inputs for the progress projection; this model grants no action. */
 export interface SponsorshipProgressFacts {
+  readonly commitment?: AdminSponsorshipProgress['commitment'];
   readonly websiteVisible: boolean;
   readonly websiteHeld: boolean;
   readonly websiteVersion: string;
@@ -135,6 +137,7 @@ export const loadSponsorshipProgressFacts = async (
     [id]
   );
   return {
+    commitment: await loadSponsorshipCommitment(client, id),
     ...details.rows[0]!,
     documents: documents.rows,
     publications: publications.rows,

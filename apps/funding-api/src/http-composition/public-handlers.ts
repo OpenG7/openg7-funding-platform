@@ -6,6 +6,7 @@ import {
 } from '../business-helpers/contribution-reference.js';
 import { createDevelopmentCheckoutResult } from '../business-helpers/development-results.js';
 import { createDurableCheckoutService } from '../checkout-operations.service.js';
+import { recordCheckoutSponsorshipOffer } from '../sponsorship-commitments/offers.js';
 import { createPublicModerationHttpHandler } from '../moderation/public-http.js';
 import { recordSponsorshipCharterAcceptance } from '../moderation/charter.js';
 import { sponsorLogoPublicUrlForFilename } from '../business-helpers/media-exposure.js';
@@ -259,6 +260,7 @@ export const createPublicHttpHandlers = ({
     truncateStripeMetadataValue,
     runCheckout: createDurableCheckoutService(dbPool, stripe),
     recordCharterAcceptance: recordSponsorshipCharterAcceptance,
+    recordSponsorshipOffer: recordCheckoutSponsorshipOffer,
     reportFailure: (message, code) => console.error(message, code)
   });
 

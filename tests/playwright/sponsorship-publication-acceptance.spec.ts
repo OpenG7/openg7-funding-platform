@@ -23,6 +23,7 @@ import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { acceptanceSql } from './support/acceptance-database.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import { completeModeration } from './support/moderation.js';
+import { acceptDisplayedSponsorshipOffer } from './support/sponsorship-checkout.js';
 import { test, expect } from './support/test.js';
 
 const automationUrl = '/api/admin/publication-automation';
@@ -213,6 +214,7 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
       await form.locator('#public-display-name').fill(companyName);
       await form.getByRole('checkbox').nth(1).uncheck();
       await form.getByRole('checkbox').nth(2).check();
+      await acceptDisplayedSponsorshipOffer(form);
       const checkout = company.waitForRequest(
         (r) => r.url().endsWith('/checkout-sessions') && r.method() === 'POST'
       );

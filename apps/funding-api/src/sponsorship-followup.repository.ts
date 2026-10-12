@@ -3,8 +3,11 @@ import type {
   SponsorshipReviewStatus
 } from '@openg7/funding-core';
 import type { Pool, PoolClient } from 'pg';
-
-import { resolveSponsorshipBenefits } from '../../../packages/funding-core/src/index.js';
+import type {
+  SponsorshipOfferSnapshot,
+  SponsorshipCommitmentProvenance,
+  SponsorshipTierId
+} from '@openg7/funding-core';
 
 import {
   centsToAmount,
@@ -35,6 +38,9 @@ export interface SponsorshipFollowupEmailRecordInput {
 }
 
 interface SponsorshipFollowupRow {
+  readonly offer_snapshot: SponsorshipOfferSnapshot | null;
+  readonly commitment_provenance: SponsorshipCommitmentProvenance | null;
+  readonly commitment_state: 'active' | 'needs_confirmation' | null;
   readonly id: string;
   readonly public_reference: string | null;
   readonly amount_cents: string;
@@ -86,7 +92,10 @@ export const getSponsorshipFollowupByTokenHash = async (
         stripe_session_id,
         stripe_payment_intent_id,
         email_private,
-        sponsorship_followup_email_sent_at::text AS sponsorship_followup_email_sent_at
+        sponsorship_followup_email_sent_at::text AS sponsorship_followup_email_sent_at,
+        (SELECT o.snapshot FROM sponsorship_commitments m JOIN sponsorship_offers o ON o.id=m.offer_id WHERE m.contribution_id=fund_contributions.id) AS offer_snapshot,
+        (SELECT m.provenance FROM sponsorship_commitments m WHERE m.contribution_id=fund_contributions.id) AS commitment_provenance,
+        (SELECT m.state FROM sponsorship_commitments m WHERE m.contribution_id=fund_contributions.id) AS commitment_state
       FROM fund_contributions
       WHERE contribution_type = 'sponsorship_interest'
         AND ((sponsorship_followup_token_hash = $1
@@ -105,7 +114,17 @@ export const getSponsorshipFollowupByTokenHash = async (
   }
 
   const amount = centsToAmount(parseDbInt(row.amount_cents));
-  const sponsorshipBenefits = resolveSponsorshipBenefits(amount);
+  const sponsorshipBenefits =
+    row.offer_snapshot?.benefits.map((b) => b.id) ?? [];
+  const tier: SponsorshipTierId | null = sponsorshipBenefits.includes(
+    'linkedin_batch'
+  )
+    ? 'website_facebook_linkedin'
+    : sponsorshipBenefits.includes('facebook_batch')
+      ? 'website_facebook'
+      : sponsorshipBenefits.includes('website_mention')
+        ? 'website_only'
+        : null;
 
   return {
     found: true,
@@ -120,8 +139,13 @@ export const getSponsorshipFollowupByTokenHash = async (
     amount,
     currency: row.currency.toUpperCase(),
     paidAt: row.paid_at,
-    sponsorshipTier: sponsorshipBenefits.tier,
-    sponsorshipBenefits: sponsorshipBenefits.achievedBenefits,
+    sponsorshipTier: tier,
+    sponsorshipBenefits,
+    commitment: {
+      provenance: row.commitment_provenance ?? 'historical_unverified',
+      state: row.commitment_state ?? 'needs_confirmation',
+      offer: row.offer_snapshot ?? null
+    },
     detailsSubmitted: Boolean(row.sponsor_details_submitted_at),
     companyName: row.sponsor_company_name,
     contactName: row.sponsor_contact_name,

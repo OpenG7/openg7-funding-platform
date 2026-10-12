@@ -8,6 +8,19 @@ Prepared public charter, private decisions, corrections and human reconsideratio
 [moderation contracts](../operations/sponsorship-moderation.md). Public terms remain
 inactive until explicit editorial validation and matching server policy.
 
+## Displayed sponsorship offers
+
+`GET /api/sponsorship-offer?amountMinor=<integer>&currency=CAD` provides a public
+server quote without payment or publication. Business Checkout sends only the
+accepted version and fingerprint as `offerAcceptance`; the API calculates and
+records the terms. Missing or changed acceptance is refused before Stripe.
+See [durable offers and browser recovery](checkout.md#accepted-sponsorship-offers-and-obligations).
+
+Private follow-up responses can expose the recorded offer, provenance and
+`active` or `needs_confirmation` state. This record does not grant publication
+rights and contains no administrative qualification evidence. Historical terms
+are not recomputed from the active price list.
+
 ## Public sponsorship page
 
 Approved, consented sponsorships are exposed through:

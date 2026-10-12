@@ -3,6 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 import adminUiConfig from './tests/playwright-admin-ui.config.mjs';
 import followupUiConfig from './tests/playwright-followup-ui.config.mjs';
 import publicJourneysConfig from './tests/playwright-public-journeys.config.mjs';
+import homeTrustConfig from './tests/playwright/home-trust.config.js';
 
 const baseURL =
   process.env.PLAYWRIGHT_BASE_URL?.replace(/\/$/, '') ??
@@ -15,12 +16,13 @@ const MOBILE_TAG = /@mobile/;
 
 export default defineConfig({
   testDir: './tests/playwright',
-  // Follow-up fixtures run in their isolated CI step in both workflows.
+  // Follow-up and funding-home fixtures run in their dedicated UI steps.
   // Admin fixtures have a separate step in the disposable acceptance workflow.
   // Reuse each suite's testMatch so no fixture is replayed against Docker there.
   testIgnore: [
     'platform-accessibility.spec.ts',
     followupUiConfig.testMatch ?? [],
+    homeTrustConfig.testMatch ?? [],
     publicJourneysConfig.testMatch ?? [],
     process.env.OPENG7_E2E_ISOLATED === '1'
       ? (adminUiConfig.testMatch ?? [])

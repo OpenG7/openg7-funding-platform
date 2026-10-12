@@ -1,28 +1,29 @@
-import { CommonModule } from '@angular/common';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   OnChanges,
+  PLATFORM_ID,
   computed,
   effect,
   inject,
   input,
   output,
-  signal
+  signal,
+  untracked
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
-import {
-  isValidSponsorshipAmount,
-  resolveSponsorshipBenefits
-} from '@openg7/funding-core';
+import { isValidSponsorshipAmount } from '@openg7/funding-core';
 import type {
   CheckoutConsentPayload,
   ContributionType,
   PublicSponsorshipBatchAvailabilityResponse,
   SponsorFeedChannel,
-  SponsorshipBenefitId
+  SponsorshipOfferedBenefit,
+  SponsorshipOfferQuote
 } from '@openg7/funding-core';
 
 import { FUNDING_PROJECT_CONFIG } from '../../config/funding-project-config.token.js';
@@ -30,10 +31,13 @@ import { OPENG7_FUNDING_CONFIG } from '../../config/openg7-funding.config.js';
 import { parseContributionMinor } from '../../models/funding-home.utils.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { SponsorshipCharterService } from '../../services/sponsorship-charter.service.js';
+import { SponsorshipOfferController } from '../../services/sponsorship-offer-controller.js';
+import { FundingService } from '../../services/funding.service.js';
 
 export interface FundingContributionSubmission {
   readonly amount: number;
   readonly consent: CheckoutConsentPayload;
+  readonly offerQuote?: SponsorshipOfferQuote;
 }
 
 /** Funding organism: contribution choices and consent; checkout stays with the page. */
@@ -49,6 +53,14 @@ export interface FundingContributionSubmission {
 export class FundingContributionFormComponent implements OnChanges {
   readonly charter = inject(SponsorshipCharterService);
   readonly charterAccepted = signal(false);
+  private readonly funding = inject(FundingService);
+  private readonly browser = isPlatformBrowser(inject(PLATFORM_ID));
+  readonly offer = new SponsorshipOfferController({
+    quote: (amountMinor, currency, signal) =>
+      this.funding.getSponsorshipOffer(amountMinor, currency, signal),
+    resume: (amountMinor, currency) =>
+      this.funding.getRetainedSponsorshipOffer(amountMinor, currency)
+  });
   constructor() {
     effect(() => {
       this.charter.charter();
@@ -58,6 +70,34 @@ export class FundingContributionFormComponent implements OnChanges {
     effect(() => {
       if (this.checkoutCharterChanged()) void this.charter.load();
     });
+    effect(() => {
+      const parsedAmount = this.effectiveAmountMinor();
+      const amountMinor =
+        this.contributionType() === 'sponsorship_interest' &&
+        this.sponsorshipSelectionEnabled() &&
+        parsedAmount !== null &&
+        parsedAmount > 0
+          ? parsedAmount
+          : null;
+      untracked(() => {
+        if (this.browser)
+          void this.offer.load(amountMinor, this.config.currency);
+      });
+    });
+    effect(() => {
+      if (this.checkoutOfferChanged()) {
+        const amountMinor = this.effectiveAmountMinor();
+        untracked(() => {
+          if (this.browser)
+            void this.offer.load(amountMinor, this.config.currency, true);
+        });
+      }
+    });
+    effect(() => {
+      this.i18n.currentLanguage();
+      untracked(() => this.offer.accept(false));
+    });
+    inject(DestroyRef).onDestroy(() => this.offer.dispose());
   }
   private readonly i18n = inject(FundingI18nService);
   readonly config =
@@ -78,6 +118,8 @@ export class FundingContributionFormComponent implements OnChanges {
   readonly checkoutResultMode = input<'mocked' | null>(null);
   readonly checkoutRequiresVerification = input(false);
   readonly checkoutCharterChanged = input(false);
+  readonly checkoutOfferChanged = input(false);
+  readonly checkoutRecoveryUnavailable = input(false);
   readonly contributionSubmitted = output<FundingContributionSubmission>();
   readonly policyPath = computed(() =>
     this.i18n.localizedPath('/politique-utilisation-remboursement')
@@ -101,6 +143,11 @@ export class FundingContributionFormComponent implements OnChanges {
       ? this.parseCustomContributionAmount(this.customContributionValue())
       : this.selectedContributionAmount()
   );
+  readonly supportPath = computed(() => this.i18n.localizedPath('/support'));
+  readonly effectiveAmountMinor = computed(() => {
+    const amount = this.effectiveAmount();
+    return amount === null ? null : parseContributionMinor(String(amount));
+  });
   readonly hasInvalidCustomContribution = computed(
     () => !this.isAllowedAmount(this.effectiveAmount())
   );
@@ -109,7 +156,9 @@ export class FundingContributionFormComponent implements OnChanges {
       this.nonCharityAcknowledged() &&
       (this.contributionType() !== 'sponsorship_interest' ||
         (this.charter.state() === 'ready' &&
-          (!this.charter.charter()?.active || this.charterAccepted()))) &&
+          (!this.charter.charter()?.active || this.charterAccepted()) &&
+          this.offer.ready() &&
+          this.offer.quote()?.amountMinor === this.effectiveAmountMinor())) &&
       !this.checkoutRequiresVerification() &&
       this.loadingState() !== 'loading' &&
       !this.hasInvalidCustomContribution() &&
@@ -133,27 +182,12 @@ export class FundingContributionFormComponent implements OnChanges {
       ? 'funding.home.contribution.sponsorship.minimumAmountError'
       : 'funding.home.contribution.amountFormatHint';
   });
-  readonly sponsorshipBenefits = computed(() =>
-    resolveSponsorshipBenefits(
-      this.effectiveAmount() ?? 0,
-      this.config.sponsorship
-    )
-  );
-
-  readonly sponsorshipBenefitLabelKeys: Readonly<
-    Record<SponsorshipBenefitId, string>
+  readonly requiredElementKeys: Readonly<
+    Record<SponsorshipOfferedBenefit['requiredElements'][number], string>
   > = {
-    website_mention: 'funding.home.contribution.sponsorship.benefits.openg7',
-    facebook_batch: 'funding.home.contribution.sponsorship.benefits.facebook',
-    linkedin_batch: 'funding.home.contribution.sponsorship.benefits.linkedin'
-  };
-
-  readonly sponsorshipUpcomingLabelKeys: Readonly<
-    Record<SponsorshipBenefitId, string>
-  > = {
-    website_mention: 'funding.home.contribution.sponsorship.upcoming.openg7',
-    facebook_batch: 'funding.home.contribution.sponsorship.upcoming.facebook',
-    linkedin_batch: 'funding.home.contribution.sponsorship.upcoming.linkedin'
+    company_name: 'funding.offer.elements.company_name',
+    approved_logo: 'funding.offer.elements.approved_logo',
+    approved_presentation: 'funding.offer.elements.approved_presentation'
   };
 
   readonly sponsorshipAvailabilityLabelKeys: Readonly<
@@ -199,7 +233,11 @@ export class FundingContributionFormComponent implements OnChanges {
     if (amount === null || parseContributionMinor(String(amount)) === null)
       return false;
     return this.contributionType() === 'sponsorship_interest'
-      ? isValidSponsorshipAmount(amount, this.config.sponsorship)
+      ? (this.offer.state() === 'ready' &&
+          this.offer.quote()?.amountMinor ===
+            parseContributionMinor(String(amount)) &&
+          this.offer.quote()?.currency === this.config.currency) ||
+          isValidSponsorshipAmount(amount, this.config.sponsorship)
       : this.allowedAmounts().includes(amount);
   }
   private reconcilePreset(): void {
@@ -272,6 +310,9 @@ export class FundingContributionFormComponent implements OnChanges {
     if (!this.canStartCheckout() || amount === null) return;
     this.contributionSubmitted.emit({
       amount,
+      ...(this.contributionType() === 'sponsorship_interest'
+        ? { offerQuote: this.offer.quote()! }
+        : {}),
       consent: {
         contributionType: this.contributionType(),
         publicDisplayConsent: this.publicDisplayConsent(),
@@ -280,6 +321,14 @@ export class FundingContributionFormComponent implements OnChanges {
           : undefined,
         displayAmountConsent: this.displayAmountConsent(),
         nonCharityAcknowledged: this.nonCharityAcknowledged(),
+        ...(this.contributionType() === 'sponsorship_interest'
+          ? {
+              offerAcceptance: {
+                version: this.offer.quote()!.version,
+                fingerprint: this.offer.quote()!.fingerprint
+              }
+            }
+          : {}),
         ...(this.contributionType() === 'sponsorship_interest' &&
         this.charter.charter()?.active &&
         this.charterAccepted()
@@ -303,6 +352,13 @@ export class FundingContributionFormComponent implements OnChanges {
   }
   acceptCharter(event: Event): void {
     this.charterAccepted.set(this.checkedFromEvent(event));
+  }
+  acceptOffer(event: Event): void {
+    this.offer.accept(this.checkedFromEvent(event));
+  }
+  reloadOffer(): void {
+    if (this.browser)
+      void this.offer.load(this.effectiveAmountMinor(), this.config.currency);
   }
 
   private valueFromEvent(event: Event): string {

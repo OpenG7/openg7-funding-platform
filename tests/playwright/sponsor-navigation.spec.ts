@@ -7,6 +7,7 @@ import type {
 
 import { approveAcceptanceFixture } from './support/acceptance-moderation.js';
 import { expect, test } from './support/test.js';
+import { acceptDisplayedSponsorshipOffer } from './support/sponsorship-checkout.js';
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { adminSessionHeaders } from './support/admin-auth.js';
 
@@ -60,6 +61,9 @@ test.describe('Docker corporate sponsor navigation', () => {
     await page
       .getByLabel(/OpenG7 est un projet ind.pendant en d.veloppement/i)
       .check();
+    await acceptDisplayedSponsorshipOffer(
+      page.locator('[data-og7="contribution-form"]')
+    );
     await expect(submitButton).toBeEnabled();
 
     await submitButton.click();

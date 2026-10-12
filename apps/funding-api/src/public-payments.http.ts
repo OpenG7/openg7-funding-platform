@@ -5,7 +5,9 @@ import type Stripe from 'stripe';
 import type {
   CheckoutRequest,
   CheckoutResult,
-  ContributionType
+  ContributionType,
+  SponsorshipOfferAcceptance,
+  SponsorshipOfferQuote
 } from '@openg7/funding-core';
 import type { PoolClient } from 'pg';
 import type { SponsorshipCharterAcceptance } from '@openg7/funding-core';
@@ -13,6 +15,11 @@ import type { SponsorshipCharterAcceptance } from '@openg7/funding-core';
 import { isValidSponsorshipAmount } from '../../../packages/funding-core/src/index.js';
 
 import { validateCharterAcceptance } from './moderation/charter.js';
+import {
+  quoteSponsorshipOffer,
+  validateSponsorshipOfferAcceptance,
+  type recordCheckoutSponsorshipOffer
+} from './sponsorship-commitments/offers.js';
 import {
   buildSponsorshipFollowupUrl,
   sponsorshipFollowupLocaleFromUrl
@@ -83,6 +90,7 @@ export interface PublicPaymentsHttpDependencies {
     operationId: string,
     acceptance: SponsorshipCharterAcceptance | undefined
   ) => Promise<void>;
+  readonly recordSponsorshipOffer?: typeof recordCheckoutSponsorshipOffer;
   readonly reportFailure: (message: string, error?: unknown) => void;
 }
 
@@ -113,6 +121,7 @@ export const createPublicPaymentsHttpHandler = ({
   truncateStripeMetadataValue,
   runCheckout,
   recordCharterAcceptance,
+  recordSponsorshipOffer,
   reportFailure
 }: PublicPaymentsHttpDependencies) => {
   const { routeMatches } = createRouteMatcher(publicBaseOrigin);
@@ -121,6 +130,45 @@ export const createPublicPaymentsHttpHandler = ({
     request: ApiRequest,
     response: ApiResponse
   ): Promise<boolean> => {
+    if (
+      request.method === 'GET' &&
+      routeMatches(request.url, '/sponsorship-offer', '/api/sponsorship-offer')
+    ) {
+      if (!businessSponsorshipEnabled) {
+        writeJson(request, response, 403, {
+          code: 'SPONSORSHIP_DISABLED',
+          error: 'Business sponsorship checkout is disabled.'
+        });
+        return true;
+      }
+      try {
+        const query = new URL(request.url!, publicBaseOrigin).searchParams;
+        const rawAmount = query.get('amountMinor');
+        if (
+          !rawAmount ||
+          !/^[1-9]\d*$/.test(rawAmount) ||
+          query.getAll('amountMinor').length !== 1 ||
+          query.getAll('currency').length !== 1
+        )
+          throw new CheckoutOperationError('SPONSORSHIP_OFFER_INVALID', 400);
+        writeJson(
+          request,
+          response,
+          200,
+          quoteSponsorshipOffer(Number(rawAmount), query.get('currency') ?? '')
+        );
+      } catch (error) {
+        const failure =
+          error instanceof CheckoutOperationError
+            ? error
+            : new CheckoutOperationError('SPONSORSHIP_OFFER_INVALID', 400);
+        writeJson(request, response, failure.status, {
+          code: failure.code,
+          error: 'A valid CAD sponsorship amount in minor units is required.'
+        });
+      }
+      return true;
+    }
     if (
       request.method === 'POST' &&
       routeMatches(request.url, '/checkout-sessions', '/api/checkout-sessions')
@@ -144,8 +192,12 @@ export const createPublicPaymentsHttpHandler = ({
           : NaN;
       const isSponsorshipContribution =
         parsed.contributionType === 'sponsorship_interest';
+      const durableCheckoutConfigured =
+        stripe !== null && (!stripeApiHost || navigableSimulatedCheckout);
       const isAmountAllowed = isSponsorshipContribution
-        ? isValidSponsorshipAmount(amount)
+        ? durableCheckoutConfigured
+          ? Math.round(amount * 100) > 0
+          : isValidSponsorshipAmount(amount)
         : allowedContributionAmounts.has(amount);
 
       if (
@@ -218,10 +270,67 @@ export const createPublicPaymentsHttpHandler = ({
         return true;
       }
 
+      let offerAcceptance: SponsorshipOfferAcceptance | undefined;
+      try {
+        offerAcceptance = validateSponsorshipOfferAcceptance(
+          parsed.offerAcceptance
+        );
+        if (offerAcceptance && !isSponsorshipContribution)
+          throw new CheckoutOperationError(
+            'SPONSORSHIP_OFFER_NOT_APPLICABLE',
+            400
+          );
+      } catch (error) {
+        const failure =
+          error instanceof CheckoutOperationError
+            ? error
+            : new CheckoutOperationError('SPONSORSHIP_OFFER_INVALID', 400);
+        writeJson(request, response, failure.status, {
+          code: failure.code,
+          error:
+            'The sponsorship offer reference is invalid for this contribution.'
+        });
+        return true;
+      }
+
       // Legacy local fallback remains available. Acceptance opts into a local,
       // navigable Checkout and still confirms payment through the signed webhook.
       if (!stripe || (stripeApiHost && !navigableSimulatedCheckout)) {
         if (!isProduction) {
+          if (isSponsorshipContribution) {
+            try {
+              const quote = quoteSponsorshipOffer(
+                Math.round(amount * 100),
+                'CAD'
+              );
+              if (!offerAcceptance)
+                throw new CheckoutOperationError(
+                  'SPONSORSHIP_OFFER_ACCEPTANCE_REQUIRED',
+                  400
+                );
+              if (
+                quote.version !== offerAcceptance.version ||
+                quote.fingerprint !== offerAcceptance.fingerprint
+              )
+                throw new CheckoutOperationError(
+                  'SPONSORSHIP_OFFER_CHANGED',
+                  409
+                );
+            } catch (error) {
+              const failure =
+                error instanceof CheckoutOperationError
+                  ? error
+                  : new CheckoutOperationError(
+                      'SPONSORSHIP_OFFER_INVALID',
+                      400
+                    );
+              writeJson(request, response, failure.status, {
+                code: failure.code,
+                error: 'The displayed sponsorship offer must be confirmed.'
+              });
+              return true;
+            }
+          }
           writeJson(
             request,
             response,
@@ -280,20 +389,51 @@ export const createPublicPaymentsHttpHandler = ({
               nonCharityAcknowledged: parsed.nonCharityAcknowledged,
               successUrl,
               cancelUrl,
-              ...(charterAcceptance ? { charterAcceptance } : {})
+              ...(charterAcceptance ? { charterAcceptance } : {}),
+              ...(offerAcceptance ? { offerAcceptance } : {})
             })
           )
           .digest('hex');
+        let preparedOffer:
+          { publicReference: string; quote: SponsorshipOfferQuote } | undefined;
         const result = await runCheckout({
           key: JSON.stringify([projectId, parsed.idempotencyKey]),
           requestHash,
-          ...(isSponsorshipContribution && recordCharterAcceptance
+          ...(isSponsorshipContribution
             ? {
-                afterPrepare: (db: PoolClient, operationId: string) =>
-                  recordCharterAcceptance(db, operationId, charterAcceptance)
+                afterPrepare: async (db: PoolClient, operationId: string) => {
+                  if (!preparedOffer || !recordSponsorshipOffer)
+                    throw new CheckoutOperationError(
+                      'CHECKOUT_STORAGE_UNAVAILABLE',
+                      503
+                    );
+                  await recordSponsorshipOffer(db, operationId, preparedOffer);
+                  await recordCharterAcceptance?.(
+                    db,
+                    operationId,
+                    charterAcceptance
+                  );
+                }
               }
             : {}),
           prepare: (operationId) => {
+            const quote = isSponsorshipContribution
+              ? quoteSponsorshipOffer(Math.round(amount * 100), 'CAD')
+              : null;
+            if (quote && !offerAcceptance)
+              throw new CheckoutOperationError(
+                'SPONSORSHIP_OFFER_ACCEPTANCE_REQUIRED',
+                400
+              );
+            if (
+              quote &&
+              (quote.version !== offerAcceptance!.version ||
+                quote.fingerprint !== offerAcceptance!.fingerprint)
+            )
+              throw new CheckoutOperationError(
+                'SPONSORSHIP_OFFER_CHANGED',
+                409
+              );
             const requiresReview =
               parsed.contributionType === 'sponsorship_interest';
             const sponsorshipFollowupToken = requiresReview
@@ -303,6 +443,7 @@ export const createPublicPaymentsHttpHandler = ({
               ? hashSponsorshipFollowupToken(sponsorshipFollowupToken)
               : null;
             const publicReference = createContributionPublicReference();
+            if (quote) preparedOffer = { publicReference, quote };
             const checkoutCancelUrl = new URL(cancelUrl);
             checkoutCancelUrl.searchParams.set('reference', publicReference);
             const checkoutSuccessUrl = sponsorshipFollowupToken
