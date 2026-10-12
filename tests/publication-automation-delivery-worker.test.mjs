@@ -80,6 +80,10 @@ function fixture(options = {}) {
     const text = sql.replace(/\s+/g, ' ').trim();
     events.push({ type: 'query', text, values, transactional });
     const result = (rows = []) => ({ rows, rowCount: rows.length });
+    if (text.startsWith('SELECT clock_timestamp()<=$1::timestamptz'))
+      return result([
+        { within_window: clock.getTime() - values[0].getTime() <= 86400000 }
+      ]);
     const account = accountQueryFixture(target, text, values, clock);
     if (account) return account;
     const fulfilment = fulfilmentQueryFixture(target, text, values);
@@ -281,7 +285,8 @@ function fixture(options = {}) {
             'MEDIA_NOT_APPROVED',
             'MEDIA_UNAVAILABLE',
             'SOURCE_CONTENT_MISSING',
-            'INVALID_MESSAGE'
+            'INVALID_MESSAGE',
+            'SCHEDULE_EXPIRED'
           ].includes(values[2])
         )
           row.approved_at = null;
@@ -774,6 +779,75 @@ test('simulation completes a delivery without marking sponsorship benefits deliv
   assert.equal(f.state.rows[0].external_post_id, 'mock-synthetic-delivery');
   assert.equal(f.state.audits.at(-1).metadata.mode, 'mock');
   assert.equal(f.state.projections.length, 0);
+});
+
+test('a preparation crossing the 24-hour limit revokes authorization before any provider call', async (t) => {
+  let advanced = false;
+  const f = fixture({
+    rows: [
+      delivery('synthetic-expired-preparation', {
+        mode: 'live',
+        account_id: '20',
+        scheduled_at: new Date(now.getTime() - 86400000 + 1000)
+      })
+    ],
+    env: {
+      SOCIAL_PUBLICATION_MODE: 'live',
+      SOCIAL_PUBLICATION_OPENG7_FACEBOOK_ACCOUNT_ID: '20',
+      SOCIAL_PUBLICATION_OPENG7_FACEBOOK_ACCESS_TOKEN: 'synthetic-token'
+    },
+    onPreflight(controls) {
+      if (!advanced) {
+        advanced = true;
+        controls.advance(2000);
+      }
+    }
+  });
+  t.mock.method(globalThis, 'fetch', async () =>
+    assert.fail('No provider call after expiry.')
+  );
+  await f.worker.tick(now);
+  const row = f.state.rows[0];
+  assert.equal(row.status, 'blocked');
+  assert.equal(row.error_code, 'SCHEDULE_EXPIRED');
+  assert.equal(row.approved_at, null);
+  assert.equal(row.next_attempt_at, null);
+  assert.equal(row.external_post_id, null);
+  assert.equal(f.state.projections.length, 0);
+  assert.equal(
+    f.state.audits.some((item) =>
+      item.action.endsWith('.provider_result_observed')
+    ),
+    false
+  );
+});
+
+test('the exact 24-hour boundary remains inside the authorized window', async (t) => {
+  const f = fixture({
+    rows: [
+      delivery('synthetic-window-boundary', {
+        mode: 'live',
+        account_id: '20',
+        scheduled_at: new Date(now.getTime() - 86400000)
+      })
+    ],
+    env: {
+      SOCIAL_PUBLICATION_MODE: 'live',
+      SOCIAL_PUBLICATION_OPENG7_FACEBOOK_ACCOUNT_ID: '20',
+      SOCIAL_PUBLICATION_OPENG7_FACEBOOK_ACCESS_TOKEN: 'synthetic-token'
+    }
+  });
+  let posts = 0;
+  t.mock.method(globalThis, 'fetch', async () => {
+    posts++;
+    assert.equal(f.transactions.size, 0);
+    return new Response(JSON.stringify({ id: 'synthetic-boundary-post' }), {
+      status: 200
+    });
+  });
+  await f.worker.tick(now);
+  assert.equal(posts, 1);
+  assert.equal(f.state.rows[0].status, 'published');
 });
 
 test('completion updates sponsorship projections only for live deliveries', async () => {

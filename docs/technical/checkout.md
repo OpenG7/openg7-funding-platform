@@ -5,7 +5,12 @@
 Stripe Checkout is configured. Use a fresh UUID for a new contribution and keep
 the same key and payload when retrying an uncertain request. Missing or invalid
 keys return `400 CHECKOUT_IDEMPOTENCY_KEY_INVALID`. The Web keeps the pending
-key and a payload hash in session storage and merges concurrent submissions.
+key and a payload hash in local storage and merges concurrent submissions.
+Reservations and cleanup use an exclusive Web Lock shared by same-origin tabs;
+the provider call happens outside that lock. The original UUID survives a lost
+response or a refusal while another request is still in flight. Cleanup checks
+ownership before removing an entry. Without usable locks, a known exact attempt
+can retry read-only; a new sponsorship cannot call the provider.
 An accepted result ends that attempt; provider/network failures remain errors.
 
 Apply [migration 031](../../apps/funding-api/migrations/031_create_checkout_operations.sql)
@@ -50,7 +55,13 @@ references return `400 SPONSORSHIP_OFFER_ACCEPTANCE_REQUIRED` or
 reference returns `400 SPONSORSHIP_OFFER_INVALID`. Reconfirm the current quote
 for a new attempt; provider/network failures retain the original key, payload
 and offer. The public offer snapshot and its checksum can be cached for exact
-recovery without contributor details. Local mocked business Checkout also
+recovery without contributor details. The selected format options are retained
+and restored verbatim; historical absent options remain absent. Public recovery
+entries expire after 24 hours. Expiration first persists a verification marker,
+then removes the expired entries; it never grants permission for a fresh payment.
+Unreadable legacy session/local caches require verification. A new sponsorship
+requires both its UUID and public terms to be durably retained before any call.
+Local mocked business Checkout also
 requires the displayed reference, but creates no payment, durable operation or
 obligation.
 
@@ -59,7 +70,11 @@ unchanged after a price change. Operations prepared before 041 without an offer
 can replay their original payload; confirmed dossiers remain explicitly
 `needs_confirmation` rather than receiving today's benefits. Stripe-confirmed
 payment activates one set of obligations from a matching operation/reference,
-amount and currency. Payment, review, consent, visibility and publication stay
+amount and currency. Session activation requires an explicit server-confirmed
+paid amount and currency. PaymentIntent activation and backfill use the validated
+financial journal; a failed event, missing journal or contradictory amount cannot
+activate accepted terms from the local contribution amount. Payment, review,
+consent, visibility and publication stay
 independent. New invoices and confirmation messages describe the recorded offer;
 issued documents and queued messages keep their existing snapshots.
 
@@ -79,8 +94,8 @@ another session: Stripe can prune keys after 24 hours ([Stripe reference](https:
 An operator must reconcile the operation UUID/public reference against Stripe
 before deciding recovery; changing the key is not an uncertainty recovery.
 The Web displays a specific French/English verification message and retains
-both the pending key and a separate verification flag in session storage.
-The flag blocks further Checkout requests throughout that browser tab, including
+both the pending key and a separate verification flag in local storage.
+The flag blocks further Checkout requests across same-origin tabs, including
 after reload, route changes, or changes to the amount, name and consent. Reload
 restores the verification message before submission without contacting Stripe.
 This flag contains no contributor data and is not cleared by editing the form;

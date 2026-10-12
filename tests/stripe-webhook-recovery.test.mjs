@@ -148,7 +148,9 @@ const stripeFixture = () =>
 // PostgreSQL constraints and transaction rollback are covered by integrations.
 const databaseFixture = ({
   busy = false,
-  sponsorshipContribution = null
+  sponsorshipContribution = null,
+  commitmentContribution = null,
+  commitmentAfterJournal = false
 } = {}) => {
   const calls = [];
   const events = new Map();
@@ -172,6 +174,18 @@ const databaseFixture = ({
       events.set(values[0], 'failed');
     if (sql.includes('FROM contribution_activity'))
       return { rowCount: 0, rows: [] };
+    if (
+      sql.includes(
+        'FROM fund_contributions c LEFT JOIN stripe_checkout_sessions'
+      )
+    )
+      return {
+        rows:
+          commitmentContribution &&
+          (!commitmentAfterJournal || transactions.size)
+            ? [commitmentContribution]
+            : []
+      };
     if (sql.includes('SELECT public_reference,email_private,paid_at'))
       return {
         rowCount: sponsorshipContribution ? 1 : 0,
@@ -271,6 +285,252 @@ test('a tagged project mismatch is ignored before claiming or handling the event
     statusCode: 200,
     payload: { received: true, ignored: true, reason: 'PROJECT_MISMATCH' }
   });
+});
+
+test('signed PaymentIntent confirmation uses received monetary facts without requiring public metadata, including a late Checkout association', async () => {
+  for (const commitmentAfterJournal of [false, true]) {
+    const stripeClient = stripeFixture();
+    const commitmentContribution = {
+      id: '00000000-0000-4000-8000-000000000073',
+      public_reference: 'OG7-2026-PAYMENTFACTS',
+      amount_cents: 3900,
+      currency: 'cad',
+      stripe_session_id: 'cs_test_payment_facts',
+      stripe_payment_intent_id: 'pi_test_payment_facts',
+      metadata: {
+        openg7CheckoutOperationId: '00000000-0000-4000-8000-000000000074'
+      }
+    };
+    const database = databaseFixture({
+      commitmentContribution,
+      commitmentAfterJournal
+    });
+    const event = {
+      id: 'evt_test_payment_facts',
+      type: 'payment_intent.succeeded',
+      data: {
+        object: {
+          id: commitmentContribution.stripe_payment_intent_id,
+          latest_charge: null,
+          amount: 6400,
+          amount_received: 3900,
+          currency: 'cad',
+          status: 'succeeded',
+          created: 1735689600,
+          metadata: { project: 'openg7' }
+        }
+      }
+    };
+    const response = await signedEvent(stripeClient, database.pool, event);
+    assert.equal(response.statusCode, 200);
+    assert.equal(database.transactions.size, 1);
+    assert.equal(
+      database.transactions.get(
+        'pi_test_payment_facts:payment_intent.succeeded'
+      ).amount,
+      3900
+    );
+    const offerLookups = database.calls.filter(({ sql }) =>
+      sql.includes('SELECT id,snapshot FROM sponsorship_offers')
+    );
+    assert.equal(offerLookups.length, 1);
+    for (const lookup of offerLookups)
+      assert.deepEqual(lookup.values, [
+        commitmentContribution.metadata.openg7CheckoutOperationId,
+        commitmentContribution.public_reference,
+        3900,
+        'CAD'
+      ]);
+    const journalIndex = database.calls.findIndex(({ sql }) =>
+      sql.includes('INSERT INTO fund_transactions')
+    );
+    assert.ok(
+      database.calls.indexOf(offerLookups[0]) > journalIndex,
+      'every association is qualified only after durable journal facts'
+    );
+    assert.equal(
+      database.calls.some(({ sql }) =>
+        /INSERT INTO sponsorship_obligations|publication_deliveries/.test(sql)
+      ),
+      false,
+      'unknown offer does not fabricate benefits or delivery'
+    );
+    assert.equal(
+      (await signedEvent(stripeClient, database.pool, event)).payload.duplicate,
+      true
+    );
+    assert.equal(database.transactions.size, 1);
+  }
+});
+
+test('a signed failed PaymentIntent never evaluates commercial terms from its attempted amount', async () => {
+  const stripeClient = stripeFixture();
+  const contribution = {
+    id: '00000000-0000-4000-8000-000000000075',
+    public_reference: 'OG7-2026-ABCDEF12',
+    amount_cents: 50000,
+    currency: 'cad',
+    stripe_session_id: 'cs_test_failed_offer',
+    stripe_payment_intent_id: 'pi_test_failed_offer',
+    metadata: {
+      openg7CheckoutOperationId: '00000000-0000-4000-8000-000000000076'
+    }
+  };
+  const database = databaseFixture({ commitmentContribution: contribution });
+  const response = await signedEvent(stripeClient, database.pool, {
+    id: 'evt_test_failed_offer',
+    type: 'payment_intent.payment_failed',
+    data: {
+      object: {
+        id: contribution.stripe_payment_intent_id,
+        amount: 50000,
+        amount_received: 0,
+        currency: 'cad',
+        status: 'requires_payment_method',
+        metadata: {
+          project: 'openg7',
+          publicReference: contribution.public_reference
+        }
+      }
+    }
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(database.transactions.size, 0);
+  assert.equal(
+    database.calls.some(({ sql }) =>
+      /sponsorship_commitments|sponsorship_offers|sponsorship_obligations/.test(
+        sql
+      )
+    ),
+    false
+  );
+});
+
+test('Checkout qualifies only an actually paid Session without a known contradictory expanded PI', async () => {
+  for (const [paymentStatus, received, expectedLookups] of [
+    ['unpaid', 50000, 0],
+    ['paid', 40000, 0],
+    ['paid', 50000, 1]
+  ]) {
+    const contribution = {
+      id: '00000000-0000-4000-8000-000000000079',
+      public_reference: 'OG7-2026-ABCDEF56',
+      amount_cents: 50000,
+      currency: 'cad',
+      stripe_session_id: 'cs_test_paid_session_facts',
+      stripe_payment_intent_id: 'pi_test_paid_session_facts',
+      metadata: {
+        openg7CheckoutOperationId: '00000000-0000-4000-8000-000000000080'
+      }
+    };
+    const database = databaseFixture({ commitmentContribution: contribution });
+    const response = await signedEvent(stripeFixture(), database.pool, {
+      id: 'evt_test_paid_session_facts',
+      type: 'checkout.session.completed',
+      data: {
+        object: {
+          id: contribution.stripe_session_id,
+          payment_status: paymentStatus,
+          amount_total: 50000,
+          currency: 'cad',
+          created: 1735689600,
+          payment_intent: {
+            id: contribution.stripe_payment_intent_id,
+            status: 'succeeded',
+            amount: 50000,
+            amount_received: received,
+            currency: 'cad'
+          },
+          metadata: {
+            project: 'openg7',
+            contributionType: 'sponsorship_interest',
+            publicReference: contribution.public_reference,
+            ...contribution.metadata
+          }
+        }
+      }
+    });
+    assert.equal(response.statusCode, 200);
+    assert.equal(
+      database.calls.filter(({ sql }) =>
+        sql.includes('SELECT id,snapshot FROM sponsorship_offers')
+      ).length,
+      expectedLookups
+    );
+    assert.equal(database.transactions.size, 0);
+  }
+});
+
+test('a contradictory signed success rejects the journal before evaluating a matching offer', async () => {
+  const stripeClient = stripeFixture();
+  const contribution = {
+    id: '00000000-0000-4000-8000-000000000077',
+    public_reference: 'OG7-2026-ABCDEF34',
+    amount_cents: 50000,
+    currency: 'cad',
+    stripe_session_id: 'cs_test_conflicting_offer',
+    stripe_payment_intent_id: 'pi_test_conflicting_offer',
+    metadata: {
+      openg7CheckoutOperationId: '00000000-0000-4000-8000-000000000078'
+    }
+  };
+  const database = databaseFixture({ commitmentContribution: contribution });
+  const event = (id, amount) => ({
+    id,
+    type: 'payment_intent.succeeded',
+    data: {
+      object: {
+        id: contribution.stripe_payment_intent_id,
+        latest_charge: null,
+        amount,
+        amount_received: amount,
+        currency: 'cad',
+        status: 'succeeded',
+        created: 1735689600,
+        metadata: {
+          project: 'openg7',
+          publicReference: contribution.public_reference
+        }
+      }
+    }
+  });
+  assert.equal(
+    (
+      await signedEvent(
+        stripeClient,
+        database.pool,
+        event('evt_test_first_offer_payment', 40000)
+      )
+    ).statusCode,
+    200
+  );
+  database.calls.length = 0;
+  const response = await signedEvent(
+    stripeClient,
+    database.pool,
+    event('evt_test_conflicting_offer_payment', 50000)
+  );
+  assert.equal(response.statusCode, 500);
+  assert.equal(
+    database.events.get('evt_test_conflicting_offer_payment'),
+    'failed'
+  );
+  assert.equal(database.transactions.size, 1);
+  assert.equal(
+    database.transactions.get(
+      'pi_test_conflicting_offer:payment_intent.succeeded'
+    ).amount,
+    40000
+  );
+  assert.equal(
+    database.calls.some(({ sql }) =>
+      /SELECT id,snapshot FROM sponsorship_offers|INSERT INTO sponsorship_obligations/.test(
+        sql
+      )
+    ),
+    false,
+    'the immutable journal rejects conflicting money before any qualification'
+  );
 });
 
 test('converted payment balances fail safely and the same event recovers after a compatible balance is supplied', async () => {

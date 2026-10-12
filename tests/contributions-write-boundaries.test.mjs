@@ -109,12 +109,14 @@ test('Checkout creation and duplicate delivery both commit the linked contributi
       db.calls.map(({ sql }) => sql.trim().split('\n')[0]),
       [
         'BEGIN',
+        'SELECT pg_advisory_xact_lock(hashtext($1))',
+        'SELECT paid_at FROM contribution_payment_confirmations WHERE payment_intent_id=$1',
         'INSERT INTO stripe_checkout_sessions (',
         'INSERT INTO fund_contributions (',
         'COMMIT'
       ]
     );
-    assert.deepEqual(db.calls[1].params, [
+    assert.deepEqual(db.calls[3].params, [
       'cs_test_write_boundary',
       'pi_test_write_boundary',
       'personal_support',
@@ -122,7 +124,7 @@ test('Checkout creation and duplicate delivery both commit the linked contributi
       'cad',
       '{"project":"openg7","publicReference":"OG7-WRITE-BOUNDARY"}'
     ]);
-    assert.deepEqual(db.calls[2].params.slice(0, 8), [
+    assert.deepEqual(db.calls[4].params.slice(0, 8), [
       'OG7-WRITE-BOUNDARY',
       'personal_support',
       12345,
@@ -166,15 +168,16 @@ test('a stored payment confirmation overrides stale Checkout state before linked
     db.calls[1].params[0],
     'payment-confirmation:pi_test_write_boundary'
   );
-  assert.equal(db.calls[3].params[6], 'paid');
-  assert.deepEqual(db.calls[3].params[7], [
-    'pending',
-    'expired',
-    'failed',
-    'paid'
-  ]);
-  assert.equal(db.calls[4].params[11], 'paid');
-  assert.equal(db.calls[4].params[12], paidAt.toISOString());
+  const session = db.calls.find(({ sql }) =>
+    sql.includes('INSERT INTO stripe_checkout_sessions')
+  );
+  const contribution = db.calls.find(({ sql }) =>
+    sql.includes('INSERT INTO fund_contributions')
+  );
+  assert.equal(session.params[6], 'paid');
+  assert.deepEqual(session.params[7], ['pending', 'expired', 'failed', 'paid']);
+  assert.equal(contribution.params[11], 'paid');
+  assert.equal(contribution.params[12], paidAt.toISOString());
   const activity = db.calls.find(({ sql }) =>
     sql.includes('INSERT INTO contribution_activity')
   );
@@ -264,6 +267,15 @@ test('failed, refunded and disputed PaymentIntent updates preserve their guarded
         )
       ),
       false
+    );
+    assert.equal(
+      db.calls.some(({ sql }) =>
+        /sponsorship_commitments|sponsorship_offers|sponsorship_obligations/.test(
+          sql
+        )
+      ),
+      false,
+      'non-payment states cannot create or qualify commercial commitments'
     );
     db.assertReleased();
   }

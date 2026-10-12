@@ -478,6 +478,33 @@ test('expired Checkout without metadata keeps a stable fallback reference and ex
   );
 });
 
+test('backfill uses the authoritative PI amount when received amount is absent, without a Session price fallback', async () => {
+  const checkout = session(
+    payment('pi_authoritative_fallback', {
+      amount: 2000,
+      amount_received: 0
+    }),
+    { payment_status: 'unpaid', amount_total: 1500 }
+  );
+  const pool = simulatedPool({ readOnly: false });
+  await runStripeBackfill(simulatedStripe({ sessions: [checkout] }), pool, {
+    ...options,
+    dryRun: false
+  });
+  const journal = pool.queries.find(({ sql }) =>
+    sql.startsWith('INSERT INTO fund_transactions')
+  );
+  assert.equal(journal.values[4], 2000);
+  const contribution = pool.queries.find(({ sql }) =>
+    sql.startsWith('INSERT INTO fund_contributions')
+  );
+  assert.equal(
+    contribution.values[2],
+    1500,
+    'retained local amount stays distinct'
+  );
+});
+
 test('provider failure retains its identity and prevents subsequent backfill phases and completion log', async () => {
   const failure = new Error('Synthetic transient provider failure');
   const stripe = simulatedStripe({ sessions: [session('pi_failure')] });

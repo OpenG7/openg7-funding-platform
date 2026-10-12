@@ -22,8 +22,10 @@ import { setSponsorshipWebsiteVisibility } from '../../dist/apps/funding-api/src
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 import {
   approveFixtureSubject,
+  fixtureModerationDecision,
   fixtureModerationActor as actor
 } from './support/moderation-fixture.mjs';
+import { recordModerationDecision } from '../../dist/apps/funding-api/src/moderation/repository.js';
 
 test(
   'commercial timing preserves unknown history and requires explicit duration evidence with exact current sources',
@@ -374,8 +376,17 @@ test(
         const { id, ob } = await seed();
         await visibility(id);
         const startId = await backdatedObservation(ob.id);
+        const priorStart = (await timing(ob.id)).startObservation;
         assert.equal(await visibility(id, false), 'updated');
+        const interrupted = await timing(ob.id);
+        assert.equal(interrupted.durationState, 'restart_required');
+        assert.deepEqual(interrupted.startObservation, priorStart);
         assert.equal(await visibility(id), 'updated');
+        assert.equal((await timing(ob.id)).durationState, 'awaiting_review');
+        assert.notEqual(
+          (await timing(ob.id)).startObservation.id,
+          priorStart.id
+        );
         await assert.rejects(
           executeSponsorshipTimingCommand(
             pool,
@@ -420,6 +431,7 @@ test(
           'UPDATE sponsor_media_assets SET usage_rights=$2::jsonb,updated_at=clock_timestamp() WHERE id=$1',
           [mediaId, JSON.stringify({ ...usage, state: 'withdrawn' })]
         );
+        assert.equal((await timing(ob.id)).durationState, 'restart_required');
         await assert.rejects(
           executeSponsorshipTimingCommand(
             pool,
@@ -435,6 +447,7 @@ test(
         await approveFixtureSubject(pool, { type: 'media', id: mediaId });
         await approveFixtureSubject(pool, { type: 'sponsorship', id });
         await visibility(id);
+        assert.equal((await timing(ob.id)).durationState, 'restart_required');
         await assert.rejects(
           executeSponsorshipTimingCommand(
             pool,
@@ -444,6 +457,45 @@ test(
           ),
           { code: 'DURATION_SOURCE_CHANGED' }
         );
+        const restarted = await executeSponsorshipTimingCommand(
+          pool,
+          await command(ob.id, 'observe'),
+          actor,
+          storage
+        );
+        assert.equal(restarted.timing.durationState, 'awaiting_review');
+        assert.notEqual(restarted.timing.startObservation.id, startId);
+        assert.equal(
+          (
+            await pool.query(
+              'SELECT count(*)::int AS n FROM sponsorship_fulfilment_evidence WHERE obligation_id=$1',
+              [ob.id]
+            )
+          ).rows[0].n,
+          0
+        );
+      }
+    );
+    await t.test(
+      'moderation holds are visible as a required new start and restored N0 never reuses the earlier observation',
+      async () => {
+        const { id, ob } = await seed();
+        await visibility(id);
+        const old = (await timing(ob.id)).startObservation;
+        const subject = { type: 'sponsorship', id },
+          decision = await fixtureModerationDecision(pool, subject, 'N1');
+        await withPostgresTransaction(pool, (db) =>
+          recordModerationDecision(db, { subject, decision, actor })
+        );
+        const held = await timing(ob.id);
+        assert.equal(held.durationState, 'restart_required');
+        assert.deepEqual(held.startObservation, old);
+        await approveFixtureSubject(pool, subject);
+        assert.equal((await timing(ob.id)).durationState, 'restart_required');
+        await visibility(id);
+        const restored = await timing(ob.id);
+        assert.equal(restored.durationState, 'awaiting_review');
+        assert.notEqual(restored.startObservation.id, old.id);
         assert.equal(
           (
             await pool.query(

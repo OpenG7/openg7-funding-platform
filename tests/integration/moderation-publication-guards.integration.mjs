@@ -75,9 +75,7 @@ test(
       future = new Date(Date.now() + 60000).toISOString();
       due = new Date(Date.now() + 120000);
       await service.command({ action: 'check', feedId }, actor);
-      const feed = (await service.state()).feeds.find(
-        (entry) => entry.id === feedId
-      );
+      const feed = (await service.feeds()).find((entry) => entry.id === feedId);
       await service.command(
         { action: 'settings', settings: { ...feed, paused: false } },
         actor

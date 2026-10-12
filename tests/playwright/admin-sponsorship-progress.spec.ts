@@ -421,7 +421,12 @@ async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
             version: 'v2',
             blockers: []
           },
-          publicationCompletion: { done: input.visible ? 1 : 0, total: 1 }
+          publicationCompletion: {
+            done: input.visible
+              ? 1
+              : (options.progressOverrides.publicationCompletion?.done ?? 0),
+            total: 1
+          }
         };
       }
       if (
@@ -3696,7 +3701,9 @@ for (const width of [1280, 390]) {
       journey.locator('[data-og7="publication-social-notice"]')
     ).toHaveCount(0);
     await expect(
-      journey.getByRole('link', { name: 'Approuver une photo de présentation' })
+      journey.getByRole('link', {
+        name: 'Vérifier et approuver les médias requis par les engagements'
+      })
     ).toHaveAttribute('href', path('media'));
     const link = journey.getByRole('link', { name: 'Vérifier et programmer' });
     await expect(link).toHaveAttribute(
@@ -3961,7 +3968,7 @@ for (const width of [1280, 390]) {
     await action.click();
     await page.locator('[data-og7="confirm-action"]').click();
     await expect(site).toContainText('Fiche masquée');
-    await expect(progress).toHaveAttribute('value', '0');
+    await expect(progress).toHaveAttribute('value', '1');
     await board.screenshot({
       path: `test-results/publication-hidden-${width}.png`
     });
@@ -4055,7 +4062,9 @@ test('website visibility errors retain the previous state and missing prerequisi
   await page.reload();
   await expect(site.locator('[data-og7="website-visibility"]')).toBeDisabled();
   await expect(
-    site.getByRole('link', { name: 'Approuver une photo de présentation' })
+    site.getByRole('link', {
+      name: 'Vérifier et approuver les médias requis par les engagements'
+    })
   ).toHaveAttribute('href', path('media'));
 });
 

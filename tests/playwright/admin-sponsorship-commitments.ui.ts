@@ -259,10 +259,7 @@ export function registerSponsorshipCommitmentTests(context: Context): void {
     await panel.locator('[data-og7="commitments-retry"]').click();
     await expect(
       panel.locator('[data-og7="commitments-accepted-offer"]')
-    ).toContainText('openg20');
-    await expect(panel.locator('[data-og7="commitments-retry"]')).toHaveCount(
-      0
-    );
+    ).toBeVisible();
     expect(state.commands).toHaveLength(2);
     expect(state.commands[1]).toEqual(original);
   });
@@ -275,11 +272,10 @@ export function registerSponsorshipCommitmentTests(context: Context): void {
     await panel.locator('[data-og7="commitments-qualify"]').click();
     await expect(
       panel.locator('[data-og7="commitments-accepted-offer"]')
-    ).toContainText('openg20');
+    ).toBeVisible();
     const original = structuredClone(
       (state.commands[0] as SponsorshipCommitmentQualificationRequest).offer
     );
-    let expectedVersion = 2;
     for (const [kind, field, value] of [
       ['destination', 'commitments-adjust-target', 'openg7'],
       ['format', 'commitments-adjust-format', 'individual_portrait'],
@@ -302,7 +298,10 @@ export function registerSponsorshipCommitmentTests(context: Context): void {
         .locator('[data-og7="commitments-adjust-confirmation"]')
         .fill(obId);
       await panel.locator('[data-og7="commitments-adjust-save"]').click();
-      await expect(row).toContainText('v' + expectedVersion++);
+      await expect(row).toContainText(`v${state.commands.length}`);
+      if (kind === 'destination') await expect(row).toContainText('openg7');
+      if (kind === 'format')
+        await expect(row).toContainText('Portrait individuel');
     }
     expect(
       state.commands

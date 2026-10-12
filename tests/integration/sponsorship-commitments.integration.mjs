@@ -216,6 +216,10 @@ test(
             paidAtIso: '2026-10-11T12:00:00Z',
             notifyAdmin: true
           });
+          const awaitingFacts = await read(contributionId);
+          assert.equal(awaitingFacts.state, 'needs_confirmation');
+          assert.equal(awaitingFacts.offer, null);
+          assert.deepEqual(awaitingFacts.obligations, []);
           const sessionInput = {
             stripeSessionId: 'cs_commitment_fixture',
             stripePaymentIntentId: 'pi_commitment_fixture',
@@ -223,6 +227,11 @@ test(
             contributionType: 'sponsorship_interest',
             amountCents: 50000,
             currency: 'cad',
+            trustedPaymentFacts: {
+              amountCents: 50000,
+              currency: 'cad',
+              publicReference: prepared.publicReference
+            },
             metadata: {
               openg7CheckoutOperationId: (
                 await pool.query(
@@ -317,6 +326,11 @@ test(
               contributionType: 'sponsorship_interest',
               amountCents: 50000,
               currency: 'cad',
+              trustedPaymentFacts: {
+                amountCents: 50000,
+                currency: 'cad',
+                publicReference: `SYNTHETIC-${label}`
+              },
               metadata,
               publicDisplayConsent: false,
               publicName: null,

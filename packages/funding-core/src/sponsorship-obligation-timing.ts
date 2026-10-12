@@ -12,6 +12,7 @@ export interface SponsorshipObligationTiming {
     | 'unsupported'
     | 'awaiting_observation'
     | 'awaiting_review'
+    | 'restart_required'
     | 'attested';
   readonly startObservation: {
     readonly id: string;

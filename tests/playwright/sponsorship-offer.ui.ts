@@ -46,6 +46,224 @@ export function sponsorshipOfferQuote(
 export function registerSponsorshipCommitmentTests() {
   for (const english of [false, true]) {
     const suffix = english ? 'EN mobile @mobile' : 'FR desktop';
+    test(`sponsorship offer exposure due date remains open until continuity evidence is recorded ${suffix} @offer-ui`, async ({
+      page
+    }) => {
+      await page.setViewportSize(
+        english ? { width: 390, height: 844 } : { width: 1280, height: 900 }
+      );
+      const startedAt = '2026-09-12T12:00:00Z',
+        dueAt = '2026-10-12T12:00:00Z';
+      const originalTerms = createSponsorshipOfferSnapshot(25000, 'CAD');
+      const terms = normalizeSponsorshipOfferSnapshot({
+        ...originalTerms,
+        benefits: originalTerms.benefits.map((benefit) => ({
+          ...benefit,
+          durationDays:
+            benefit.channel === 'website' ? 30 : benefit.durationDays
+        }))
+      });
+      const offer = {
+        ...terms,
+        fingerprint: createHash('sha256')
+          .update(JSON.stringify(terms))
+          .digest('hex')
+      };
+      await mock(page, {
+        current: {
+          ...fixture(),
+          commitment: {
+            provenance: 'qualified_historical',
+            state: 'active',
+            offer,
+            obligations: [
+              {
+                id: 'website-duration',
+                channel: 'website',
+                target: 'openg7',
+                ordinal: 1,
+                state: 'pending',
+                format: null,
+                version: 1,
+                fulfilmentEvidenceId: null,
+                blockedReason: null,
+                timing: {
+                  version: 1,
+                  deadlineDays: null,
+                  durationDays: 30,
+                  originAt: null,
+                  originProvenance: null,
+                  dueAt: null,
+                  overdue: false,
+                  durationState: 'awaiting_review',
+                  startObservation: {
+                    id: 'synthetic-observation',
+                    observedAt: startedAt,
+                    earliestCompletionAt: dueAt
+                  }
+                }
+              }
+            ]
+          }
+        }
+      });
+      await visit(page, english);
+      const obligation = page.locator(
+        '[data-og7="followup-current-obligations"] [data-og7-id="website-duration"]'
+      );
+      const exposure = obligation.locator(
+        '[data-og7="followup-obligation-timing"]'
+      );
+      await expect(exposure).toContainText(
+        english
+          ? 'Duration needs confirmation with continuity evidence'
+          : 'Durée à confirmer avec preuve de continuité'
+      );
+      await expect(exposure.locator('time').nth(0)).toHaveAttribute(
+        'datetime',
+        startedAt
+      );
+      await expect(exposure.locator('time').nth(1)).toHaveAttribute(
+        'datetime',
+        dueAt
+      );
+      await expect(obligation).toContainText(
+        english ? 'Awaiting delivery' : 'À réaliser'
+      );
+      await expect(
+        obligation.locator('[data-og7="followup-obligation-proof"]')
+      ).toHaveCount(0);
+      await expect(
+        page.locator('[data-og7="followup-fulfilment-evidence"]')
+      ).toHaveCount(0);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+    });
+    test(`sponsorship offer each fulfilled passage links to its exact proof and keeps the remaining passage open ${suffix} @offer-ui`, async ({
+      page
+    }) => {
+      await page.setViewportSize(
+        english ? { width: 390, height: 844 } : { width: 1280, height: 900 }
+      );
+      const deliveredAt = '2026-10-11T12:00:00Z';
+      const evidence = {
+        id: 'passage-one-proof',
+        obligationId: 'passage-one',
+        deliveryId: null,
+        channel: 'facebook' as const,
+        target: 'openg7' as const,
+        provenance: 'provider_acknowledged' as const,
+        deliveredAt,
+        externalPostUrl: 'https://www.facebook.com/synthetic-passage-one',
+        visibility: 'unknown' as const,
+        visibilityObservedAt: null
+      };
+      const base = {
+        benefitId: 'facebook_post',
+        channel: 'facebook' as const,
+        target: 'openg7' as const,
+        version: 1,
+        format: 'collective_text' as const,
+        blockedReason: null
+      };
+      await mock(page, {
+        current: {
+          ...fixture(),
+          commitment: {
+            provenance: 'accepted_offer',
+            state: 'active',
+            offer: sponsorshipOfferQuote(25000, 'two-passages', 2),
+            obligations: [
+              {
+                ...base,
+                id: 'passage-one',
+                ordinal: 1,
+                state: 'fulfilled',
+                fulfilmentEvidenceId: evidence.id
+              },
+              {
+                ...base,
+                id: 'passage-two',
+                ordinal: 2,
+                state: 'pending',
+                fulfilmentEvidenceId: null
+              },
+              {
+                ...base,
+                id: 'passage-mismatched',
+                ordinal: 3,
+                state: 'fulfilled',
+                fulfilmentEvidenceId: evidence.id
+              }
+            ]
+          },
+          fulfilmentEvidence: [evidence]
+        }
+      });
+      await visit(page, english);
+      const obligations = page.locator(
+        '[data-og7="followup-current-obligations"]'
+      );
+      const first = obligations.locator('[data-og7-id="passage-one"]');
+      const second = obligations.locator('[data-og7-id="passage-two"]');
+      const link = first.getByRole('link', {
+        name: english
+          ? 'View evidence for passage #1'
+          : 'Voir la preuve du passage nº 1'
+      });
+      await expect(link).toHaveAttribute(
+        'href',
+        /#sponsorship-evidence-passage-one-proof$/
+      );
+      await expect(second).toContainText(
+        english ? 'Awaiting delivery' : 'À réaliser'
+      );
+      await expect(second.getByRole('link')).toHaveCount(0);
+      await expect(
+        obligations.locator('[data-og7-id="passage-mismatched"] a')
+      ).toHaveCount(0);
+      const before = new URL(page.url());
+      expect(before.searchParams.has('token')).toBe(false);
+      await link.focus();
+      await page.keyboard.press('Enter');
+      const proof = page.locator('#sponsorship-evidence-passage-one-proof');
+      await expect(proof).toBeFocused();
+      await expect(proof.locator('time')).toHaveAttribute(
+        'datetime',
+        deliveredAt
+      );
+      await expect(proof).toContainText(
+        english ? 'Visibility unverified' : 'Visibilité non vérifiée'
+      );
+      await expect(proof.getByRole('link')).toHaveAttribute(
+        'href',
+        evidence.externalPostUrl
+      );
+      expect(new URL(page.url()).searchParams.has('token')).toBe(false);
+      expect(new URL(page.url()).pathname).toBe(before.pathname);
+      expect(new URL(page.url()).search).toBe(before.search);
+      await expect(link).toHaveAttribute(
+        'href',
+        before.pathname +
+          before.search +
+          '#sponsorship-evidence-passage-one-proof'
+      );
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+      expect(
+        (
+          await new AxeBuilder({ page })
+            .include('[data-og7="followup-summary"]')
+            .analyze()
+        ).violations
+      ).toEqual([]);
+    });
     test(`sponsorship offer private delivery evidence preserves dated facts and safe links within its dossier ${suffix} @offer-ui`, async ({
       page
     }) => {
@@ -467,6 +685,79 @@ export function registerSponsorshipOfferTests(
       };
     };
 
+    test(`sponsorship offer two tabs retain one key after a lost response and a concurrent refusal ${suffix} @offer-ui`, async ({
+      page,
+      context
+    }) => {
+      const other = await context.newPage();
+      // The parent suite intercepts only its first page; isolate the second too.
+      await other.route('**/api/**', (route) => {
+        const pathname = new URL(route.request().url()).pathname;
+        return pathname === '/api/sponsorship-charter'
+          ? route.fulfill({
+              json: {
+                active: false,
+                policyVersion: '1.0',
+                fingerprint: null,
+                text: null
+              }
+            })
+          : route.fulfill({ status: 503, json: {} });
+      });
+      const pages = [page, other];
+      const requests: Record<string, unknown>[] = [];
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      for (const tab of pages) {
+        await setup(tab);
+        await tab.route('**/api/checkout-sessions', async (route) => {
+          requests.push(route.request().postDataJSON());
+          const index = requests.length;
+          if (index <= 2) {
+            await held;
+            return tab === page
+              ? route.abort('failed')
+              : route.fulfill({
+                  status: 409,
+                  json: { code: 'SPONSORSHIP_OFFER_CHANGED' }
+                });
+          }
+          return route.fulfill({
+            json: {
+              status: 'mocked',
+              checkoutId: 'synthetic-two-tab-checkout',
+              redirectUrl: 'https://example.test/unused'
+            }
+          });
+        });
+      }
+      try {
+        const forms = [];
+        for (const tab of pages) {
+          const form = await open(tab);
+          await form.acceptance.check();
+          await expect(form.submit).toBeEnabled();
+          forms.push(form);
+        }
+        await Promise.all(forms.map((form) => form.submit.click()));
+        await expect.poll(() => requests.length).toBe(2);
+        expect(requests[1]).toEqual(requests[0]);
+        release();
+        await expect(forms[0].submit).toBeEnabled();
+        const retained = await page.evaluate(() =>
+          localStorage.getItem('openg7.checkout-attempts.v2')
+        );
+        expect(retained).toContain(String(requests[0].idempotencyKey));
+        await forms[0].submit.click();
+        await expect.poll(() => requests.length).toBe(3);
+        expect(requests[2]).toEqual(requests[0]);
+      } finally {
+        release();
+        await other.close();
+      }
+    });
     test(
       `sponsorship offer changing format requires fresh exact terms and keeps an uncertain retry ${suffix}`,
       { tag: '@offer-ui' },
@@ -552,7 +843,7 @@ export function registerSponsorshipOfferTests(
     );
 
     test(
-      `sponsorship offer requires fresh human acceptance when the server terms change ${suffix}`,
+      `sponsorship offer retains the dispatched key when changed server terms require verification ${suffix}`,
       { tag: '@offer-ui' },
       async ({ page }) => {
         await setup(page);
@@ -611,20 +902,30 @@ export function registerSponsorshipOfferTests(
         expect(requests).toHaveLength(1);
         await acceptance.check();
         await submit.click();
-        await expect.poll(() => requests.length).toBe(2);
-        for (const index of [0, 1]) {
-          const quoted = sponsorshipOfferQuote(
-            5000,
-            `sponsorship-v${index + 1}`,
-            index + 1
-          );
-          expect(requests[index].offerAcceptance).toEqual({
-            version: quoted.version,
-            fingerprint: quoted.fingerprint
-          });
-        }
-        expect(requests[1].idempotencyKey).not.toBe(requests[0].idempotencyKey);
-        expect(requests[1]).not.toHaveProperty('offerQuote');
+        await expect(form.getByRole('alert')).toContainText(
+          english ? 'requires verification' : 'nécessite une vérification'
+        );
+        await expect(submit).toBeDisabled();
+        expect(requests).toHaveLength(1);
+        const quoted = sponsorshipOfferQuote(5000, 'sponsorship-v1', 1);
+        expect(requests[0].offerAcceptance).toEqual({
+          version: quoted.version,
+          fingerprint: quoted.fingerprint
+        });
+        const retained = await page.evaluate(() => ({
+          attempts: localStorage.getItem('openg7.checkout-attempts.v2'),
+          offer: localStorage.getItem('openg7.checkout-offer-recovery.v1')
+        }));
+        expect(Object.values(JSON.parse(retained.attempts!))).toEqual([
+          expect.objectContaining({
+            idempotencyKey: requests[0].idempotencyKey
+          })
+        ]);
+        expect(retained.offer).toContain(quoted.fingerprint);
+        expect(retained.offer).not.toContain(
+          sponsorshipOfferQuote(5000, 'sponsorship-v2', 2).fingerprint
+        );
+        expect(requests[0]).not.toHaveProperty('offerQuote');
       }
     );
 

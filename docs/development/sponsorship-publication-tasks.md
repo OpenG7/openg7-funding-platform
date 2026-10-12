@@ -21,6 +21,76 @@ L'approbation administrative de chaque publication reste
 distincte du développement. Les essais utilisent des dossiers synthétiques et
 des fournisseurs simulés; la mise en service réelle se prépare dans SP43.
 
+## Complément autorisé — cinq travaux
+
+Feu vert du 12 octobre 2026 sur la base `a7d9ea0`, avec conservation des
+changements locaux. La réception de ce complément est distincte des six
+priorités historiques ci-dessous. Son [registre de garanties](sponsorship-publication-guarantees.md#registre-de-réception-du-complément)
+relie chaque critère à ses suites propriétaires et à ses limites restantes.
+
+| Travail                            | Résultat attendu                                                                                                                                                      | Réception du complément                                                                |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| T1 — Paiements et reprise Checkout | Montant/devise autoritaires et journal validé avant activation ; UUID et formats conservés entre onglets/reprises ; progression et factures cohérentes.               | Reçu : faits financiers, 25 tests PG et 13 parcours Checkout/charte.                   |
+| T2 — Créneaux et heure d'envoi     | Déplacement atomique, ancienne approbation révoquée, réservations certaines libérées ; refus des opérations en vol/incertaines ; heure courante revalidée avant HTTP. | Reçu : concurrence, refus, autorisation et horloge courante ; course compose corrigée. |
+| T3 — Durées d'exposition           | Suivi website/openg7, échéance UTC, interruptions sans cumul, clôture owner après échéance avec preuve de continuité ; aucune réalisation au premier affichage.       | Reçu : 12 tests PG et cinq parcours owner, reprise explicite sans cumul.               |
+| T4 — Preuves individuelles         | Chaque passage réalisé mène à sa propre date/preuve ; passage restant et visibilité inconnue restent explicites, FR/EN et clavier/mobile.                             | Reçu : 12 parcours privés FR/EN, preuve exacte, clavier et jeton absent de l’URL.      |
+| T5 — Réception des garanties       | Dix-neuf lignes traçables par révision, scénario exécuté et limite ; fermeture locale séparée de la qualification externe.                                            | Reçu : registre de 19 critères, résultats datés et empreinte des sources.              |
+
+Aucun résultat historique n'est réattribué à cette révision. Une réception
+locale ne qualifie ni un compte social réel ni une surveillance HTTP continue.
+
+### Réception locale du complément
+
+Réception du 12 octobre 2026, Node 22.23.3 et Yarn 4.9.4. Le résultat combiné
+préserve les ajouts de `047de40e` sur la base `a7d9ea00`; les reçus de ce commit
+ci-dessous restent distincts. Empreinte SHA-256 des 157 fichiers modifiés de
+sources, scripts et tests, avant intégration (documentation exclue) :
+
+`a052510ab00ae34ed4a8cada34ff4fe13d6ae752e22224333018074a914632f6`.
+
+| Vérification exécutée                                                                                           | Résultat et portée                                                                                                                                                                                                                                                                                                          |
+| --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tsc -p tsconfig.build.json`, puis `node --test --test-concurrency=4 "tests/**/*.test.mjs"`                     | 6 217 réussites, zéro échec/annulation, huit omissions : six contrôles POSIX, un lien symbolique Windows indisponible et une recette de chiffrement conditionnelle. Les builds Angular et TypeScript sont exécutés successivement : le build Angular remplace son dossier de sortie, utilisé aussi par certains tests Node. |
+| Activation, engagements et sécurité du rôle API, trois fichiers PG                                              | 25 tests réussis ; faits confirmés, incohérences, journal prioritaire, rejeu et rôle restreint.                                                                                                                                                                                                                             |
+| Calendrier, capacité, file et passages, cinq fichiers PG                                                        | 62 tests réussis avant le dernier recontrôle des livraisons. Après recompilation, calendrier d’autorisation : 10 tests réussis, dont la course de première composition ; file rendue : 18 tests réussis, dont 401 dossiers, trois pages, compteurs, ancienneté, rejeu et correction.                                        |
+| `sponsorship-obligation-timing.integration.mjs`                                                                 | 12 tests réussis ; origine inconnue, durée minimale UTC, restrictions connues, N0, droits, reprise, passages distincts, idempotence et migration existante.                                                                                                                                                                 |
+| Termes Web, éléments requis, preuves, réconciliation, modération, visuels et audit historique, sept fichiers PG | 62 tests réussis, aucune omission. Sources et médias exacts, consentement, remboursements partiels, preuves immuables et instantanés historiques incomplets.                                                                                                                                                                |
+| Playwright `home-trust.config.ts`, filtres `sponsorship offer` et `moderation V1.*charter`                      | 10 + 3 parcours réussis ; offre, formats et UUID conservés après réponse perdue, refus concurrent, reprise et changement de charte.                                                                                                                                                                                         |
+| Playwright `playwright-admin-ui.config.mjs`, engagements/durées/liaison publication/visibilité                  | 24 parcours réussis ; owner/operator/reader, confirmations, FR/EN, clavier, mobile et Axe.                                                                                                                                                                                                                                  |
+| Playwright `playwright-followup-ui.config.mjs`, filtre `sponsorship offer`                                      | 12 parcours réussis ; preuves par passage, référence incohérente sans lien, dates, visibilité inconnue, focus et absence du jeton dans l’URL.                                                                                                                                                                               |
+| Build Angular production et TypeScript UI sans émission                                                         | 25 routes SSR ; avertissement de taille initiale à 858,03 kB pour un seuil de 800 kB conservé.                                                                                                                                                                                                                              |
+| Lint, format ciblé, standards, consignes/liens et `git diff --check`                                            | Réussis ; avertissement de lint préexistant de `smoke-public.mjs` conservé.                                                                                                                                                                                                                                                 |
+
+La revue indépendante a fait corriger la course de première composition, la
+réintroduction du jeton par une navigation de preuve, les dates françaises et
+le contraste/mobile des panneaux temporels. La validation stricte des réponses
+et les versions monotones du contrôleur temporel de `047de40e` sont conservées
+avec le nouvel état de reprise. Aucun P1/P2 établi ne reste ouvert
+dans ces corrections. Les liens privés utilisent le chemin courant nettoyé et
+une ancre locale, compatible avec le `base href` Angular.
+
+Les reçus de ce complément sont conservés hors Git dans le worktree de
+réception et le répertoire temporaire `funding-guarantees-5-*`. Les migrations
+additives 051–052 existantes sont conservées sans réécriture. Aucun déploiement,
+publication réelle, remboursement, envoi de courriel ni migration de production
+n’est effectué. La durée nécessite une attestation humaine documentée ; aucun
+monitoring continu ni garantie de vues n’est livré. Les collections d’images,
+délais commerciaux et qualifications de comptes externes gardent leurs limites
+dans le registre des 19 garanties.
+
+### Synchronisation avant publication de la PR
+
+Les correctifs CI `250aa14`, `7e39308` et `53f7ba5` sont conservés avant
+publication du complément. La résolution des trois conflits porte uniquement
+sur des recettes de tests; le code applicatif reste identique à celui de la
+réception ci-dessus. Après synchronisation : 25 tests Node de file administrative,
+25 tests PostgreSQL de file/contrats/calendrier et 26 parcours administratifs
+réussissent sans omission. Les builds Angular et TypeScript, les types UI,
+lint, format, standards/liens et `git diff --check` passent. Les nouveaux cas
+conservent les compteurs complets, la preuve qualifiée distincte d'une déclaration
+et le solde historique après masquage. Cette vérification locale ne préjuge pas
+du résultat de la nouvelle CI distante.
+
 ## Règles de réalisation
 
 ### Progression des six chantiers autorisés

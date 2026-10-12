@@ -91,7 +91,7 @@ test(
         { action: 'check', feedId },
         'reservation-tester'
       );
-      const settings = (await activeService.state()).feeds.find(
+      const settings = (await activeService.feeds()).find(
         (item) => item.id === feedId
       );
       assert.equal(settings.connection, 'ready');

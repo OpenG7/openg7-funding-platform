@@ -133,16 +133,23 @@ export const activateSponsorshipCommitments = async (
   input: {
     readonly stripeSessionId?: string | null;
     readonly stripePaymentIntentId?: string | null;
+    readonly trustedPaymentFacts?: {
+      readonly amountCents: number;
+      readonly currency: string;
+      readonly publicReference?: string | null;
+    };
   }
 ): Promise<void> => {
   const contributions = await db.query<{
     id: string;
     public_reference: string | null;
-    amount_cents: number;
+    amount_cents: number | string;
     currency: string;
+    stripe_session_id: string | null;
+    stripe_payment_intent_id: string | null;
     metadata: Record<string, string>;
   }>(
-    `SELECT c.id,c.public_reference,c.amount_cents,c.currency,COALESCE(s.metadata,'{}'::jsonb) AS metadata
+    `SELECT c.id,c.public_reference,c.amount_cents,c.currency,c.stripe_session_id,c.stripe_payment_intent_id,COALESCE(s.metadata,'{}'::jsonb) AS metadata
     FROM fund_contributions c LEFT JOIN stripe_checkout_sessions s ON s.stripe_session_id=c.stripe_session_id
     WHERE c.contribution_type='sponsorship_interest' AND c.status IN ('paid','refunded','disputed') AND c.paid_at IS NOT NULL
       AND (($1::text IS NOT NULL AND c.stripe_session_id=$1) OR ($2::text IS NOT NULL AND c.stripe_payment_intent_id=$2))
@@ -152,8 +159,22 @@ export const activateSponsorshipCommitments = async (
   for (const c of contributions.rows) {
     const operationId =
       c.metadata.openg7CheckoutOperationId ?? c.metadata.checkoutOperationId;
+    const facts = input.trustedPaymentFacts;
+    const paymentMatches =
+      facts !== undefined &&
+      (input.stripeSessionId == null ||
+        input.stripeSessionId === c.stripe_session_id) &&
+      (input.stripePaymentIntentId == null ||
+        input.stripePaymentIntentId === c.stripe_payment_intent_id) &&
+      Number.isSafeInteger(facts.amountCents) &&
+      facts.amountCents > 0 &&
+      facts.amountCents === Number(c.amount_cents) &&
+      typeof facts.currency === 'string' &&
+      facts.currency.toUpperCase() === c.currency.toUpperCase() &&
+      (facts.publicReference == null ||
+        facts.publicReference === c.public_reference);
     const offerResult =
-      operationId && isValidUuid(operationId)
+      paymentMatches && operationId && isValidUuid(operationId)
         ? await db.query<{ id: string; snapshot: SponsorshipOfferSnapshot }>(
             `SELECT id,snapshot FROM sponsorship_offers
         WHERE checkout_operation_id=$1::uuid AND public_reference=$2 AND amount_minor=$3 AND currency=$4`,

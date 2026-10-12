@@ -108,9 +108,7 @@ test(
       outcome = 'acknowledged';
       afterPost = undefined;
       await service.command({ action: 'check', feedId }, actor);
-      const feed = (await service.state()).feeds.find(
-        (item) => item.id === feedId
-      );
+      const feed = (await service.feeds()).find((item) => item.id === feedId);
       await service.command(
         { action: 'settings', settings: { ...feed, paused: false } },
         actor

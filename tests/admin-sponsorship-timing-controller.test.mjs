@@ -273,3 +273,46 @@ test('a replay may return a later current timing version and an attested local r
   await f.c.submit('origin');
   assert.equal(f.sent.length, 1);
 });
+
+test('a known interruption preserves its old observation, forbids duration attestation, and permits a fresh observation', async () => {
+  const f = fixture();
+  f.fill();
+  f.c.select({
+    ...f.obligation,
+    timing: { ...f.obligation.timing, durationState: 'restart_required' }
+  });
+  await f.c.submit('duration');
+  assert.equal(f.sent.length, 0);
+  assert.equal(f.state.requests, 0);
+  assert.equal(f.c.error(), 'sourceChanged');
+  assert.equal(f.c.obligation().timing.startObservation.id, observationId);
+  await f.c.submit('observe');
+  assert.equal(f.sent.length, 1);
+  assert.equal(f.sent[0].kind, 'observe');
+  assert.equal(f.c.obligation().timing.durationState, 'awaiting_review');
+});
+
+test('a confirmed restart-required receipt retains the pending benefit and requires a fresh observation before attestation', async () => {
+  const f = fixture();
+  f.fill();
+  f.state.result = {
+    obligationId: id,
+    timing: {
+      ...f.obligation.timing,
+      version: 2,
+      durationState: 'restart_required'
+    }
+  };
+  await f.c.submit('observe');
+  assert.equal(f.c.saved(), true);
+  assert.equal(f.c.pending(), null);
+  assert.equal(f.c.obligation().timing.version, 2);
+  assert.equal(f.c.obligation().timing.durationState, 'restart_required');
+  assert.equal(f.c.obligation().state, 'pending');
+  assert.equal(f.c.obligation().fulfilmentEvidenceId, null);
+  f.fill();
+  await f.c.submit('duration');
+  assert.equal(f.c.error(), 'sourceChanged');
+  assert.equal(f.sent.length, 1);
+  assert.equal(f.state.requests, 1);
+});

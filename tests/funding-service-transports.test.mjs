@@ -5,6 +5,7 @@ import {
   runInInjectionContext
 } from '@angular/core';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { registerHooks } from 'node:module';
 import test from 'node:test';
@@ -49,10 +50,20 @@ const apiBase = 'https://funding.example.test/custom-api';
 function fixture(t, href, config) {
   const original = Object.getOwnPropertyDescriptor(globalThis, 'window');
   if (href) {
+    const entries = new Map();
     Object.defineProperty(globalThis, 'window', {
       configurable: true,
       value: {
         location: new URL(href),
+        isSecureContext: true,
+        localStorage: {
+          getItem: (key) => entries.get(key) ?? null,
+          setItem: (key, value) => entries.set(key, value),
+          removeItem: (key) => entries.delete(key)
+        },
+        navigator: {
+          locks: { request: async (_name, _options, operation) => operation() }
+        },
         __OPENG7_FUNDING_API_BASE_URL__: apiBase + '/'
       }
     });
@@ -90,8 +101,44 @@ test('Angular checkout preserves configuration, consent and localized return URL
           requests.push({ url, options });
           return Response.json(redirected);
         });
+        const terms = {
+          version: 'synthetic-offer-v1',
+          amountMinor: 12500,
+          currency: 'CAD',
+          benefits: [
+            {
+              id: 'website_mention',
+              channel: 'website',
+              target: 'openg7',
+              quantity: 1,
+              requiredElements: ['company_name', 'approved_logo'],
+              deadlineDays: null,
+              durationDays: null
+            }
+          ]
+        };
+        const quote =
+          contributionType === 'sponsorship_interest'
+            ? {
+                ...terms,
+                fingerprint: createHash('sha256')
+                  .update(JSON.stringify(terms))
+                  .digest('hex')
+              }
+            : undefined;
+        const offerAcceptance = quote
+          ? { version: quote.version, fingerprint: quote.fingerprint }
+          : undefined;
         assert.deepEqual(
-          await service.startCheckout(125, { ...consent, contributionType }),
+          await service.startCheckout(
+            125,
+            {
+              ...consent,
+              contributionType,
+              ...(offerAcceptance ? { offerAcceptance } : {})
+            },
+            quote
+          ),
           redirected
         );
         assert.equal(requests.length, 1);
@@ -107,7 +154,8 @@ test('Angular checkout preserves configuration, consent and localized return URL
           currency: 'CAD',
           projectId: 'synthetic-project',
           ...consent,
-          contributionType
+          contributionType,
+          ...(offerAcceptance ? { offerAcceptance } : {})
         });
         for (const [flow, value] of [
           ['success', successUrl],
@@ -184,7 +232,7 @@ test('checkout failures remain errors on every host and explicit mocked response
 test('Angular Checkout retains one key across decoding failures, coalesces retries and rotates after a valid result', async (t) => {
   const service = fixture(t, 'http://localhost/fonds-des-batisseurs');
   const entries = new Map();
-  window.sessionStorage = {
+  window.localStorage = {
     getItem: (key) => entries.get(key) ?? null,
     setItem: (key, value) => entries.set(key, value),
     removeItem: (key) => entries.delete(key)
@@ -241,7 +289,7 @@ test('reconciliation required passes from HTTP through Angular to the controller
     setItem: (key, value) => entries.set(key, value),
     removeItem: (key) => entries.delete(key)
   };
-  window.sessionStorage = storage;
+  window.localStorage = storage;
   const requests = [];
   t.mock.method(globalThis, 'fetch', async (_url, options) => {
     requests.push(JSON.parse(options.body));
@@ -285,7 +333,8 @@ test('reconciliation required passes from HTTP through Angular to the controller
   assert.equal(requests[0].amount, 50);
   assert.equal(entries.size, 2);
   assert.equal(
-    Object.values(JSON.parse(entries.get('openg7.checkout-attempts.v1')))[0],
+    Object.values(JSON.parse(entries.get('openg7.checkout-attempts.v2')))[0]
+      .idempotencyKey,
     requests[0].idempotencyKey
   );
   await controller.supportProject({ amount: 25, consent });
@@ -297,7 +346,7 @@ test('reconciliation required passes from HTTP through Angular to the controller
     t,
     'https://funding.example.test/en/fonds-des-batisseurs'
   );
-  window.sessionStorage = storage;
+  window.localStorage = storage;
   assert.equal(reloadedService.requiresCheckoutVerification(), true);
   await assert.rejects(
     reloadedService.startCheckout(25, {

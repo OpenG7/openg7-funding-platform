@@ -3,11 +3,11 @@
   width: 100%;
 }
 section {
-  background: var(--admin-panel-raised, #1b2d44);
-  color: var(--admin-text, #f1f5fc);
   padding: 0.75rem;
   border: 1px solid var(--admin-border, #344860);
   border-radius: 0.5rem;
+  background: var(--admin-panel, #142338);
+  color: var(--admin-text, #f1f5fc);
 }
 dl {
   display: grid;

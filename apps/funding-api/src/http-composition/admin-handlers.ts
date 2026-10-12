@@ -600,8 +600,8 @@ export const createAdminHttpHandlers = ({
         listAdminPublicationSlots(dbPool, input),
       createAdminPublicationSlot: (input) =>
         createAdminPublicationSlot(dbPool, input),
-      updateAdminPublicationSlot: (input) =>
-        updateAdminPublicationSlot(dbPool, input),
+      updateAdminPublicationSlot: (input, actor) =>
+        updateAdminPublicationSlot(dbPool, input, actor),
       assignBatchToPublicationSlot: (input) =>
         assignBatchToPublicationSlot(dbPool, input),
       assignDraftToPublicationSlot: (input) =>

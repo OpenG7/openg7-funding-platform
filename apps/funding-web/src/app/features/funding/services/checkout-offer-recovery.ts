@@ -5,10 +5,18 @@ import {
   type SponsorshipOfferFormatOptions
 } from '@openg7/funding-core';
 
-export type CheckoutAttemptStorage = Pick<
-  Storage,
-  'getItem' | 'setItem' | 'removeItem'
->;
+import { CheckoutRecoveryUnavailableError } from './checkout-error.js';
+import {
+  CHECKOUT_RECOVERY_RETENTION_MS,
+  checkoutAttemptKeyPattern as attemptKeyPattern,
+  checkoutFingerprintPattern as fingerprintPattern,
+  type CheckoutAttemptStorage
+} from './checkout-recovery-storage.js';
+
+export {
+  CHECKOUT_RECOVERY_RETENTION_MS,
+  type CheckoutAttemptStorage
+} from './checkout-recovery-storage.js';
 export type CheckoutOfferResume =
   | { readonly state: 'none' }
   | {
@@ -16,6 +24,7 @@ export type CheckoutOfferResume =
       readonly quote: SponsorshipOfferQuote;
       readonly formats?: SponsorshipOfferFormatOptions;
     }
+  | { readonly state: 'unavailable' }
   | { readonly state: 'verification_required' };
 interface RetainedOffer {
   readonly idempotencyKey: string;
@@ -24,12 +33,9 @@ interface RetainedOffer {
   readonly formats?: SponsorshipOfferFormatOptions;
 }
 const storageKey = 'openg7.checkout-offer-recovery.v1';
-const fingerprintPattern = /^[a-f0-9]{64}$/;
-const attemptKeyPattern =
-  /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 // A client recovery window, not an expiry or a delivery deadline in the contract.
-const retentionMs = 24 * 60 * 60 * 1000;
-class OfferStorageUnavailableError extends Error {}
+const retentionMs = CHECKOUT_RECOVERY_RETENTION_MS;
+class RecoveryStorageUnavailable extends Error {}
 
 /** Retain public terms only; an incomplete recovery cannot create a fresh payment attempt. */
 export class CheckoutOfferRecovery {
@@ -43,22 +49,34 @@ export class CheckoutOfferRecovery {
     idempotencyKey: string,
     quote: SponsorshipOfferQuote,
     formats?: SponsorshipOfferFormatOptions
-  ): void {
+  ): boolean {
     const normalized = structuredClone(this.normalizeQuote(quote));
+    const prior = this.memory.get(fingerprint);
     const entry = {
       idempotencyKey,
       quote: normalized,
       ...(formats
         ? { formats: normalizeSponsorshipOfferFormats(formats) }
         : {}),
-      expiresAt: Date.now() + retentionMs
+      expiresAt: prior?.expiresAt ?? Date.now() + retentionMs
     };
     this.memory.set(fingerprint, entry);
     try {
       const entries = this.read();
-      this.write({ ...entries, [fingerprint]: entry });
+      const saved = entries[fingerprint];
+      if (
+        saved &&
+        saved.idempotencyKey === idempotencyKey &&
+        saved.quote.fingerprint === quote.fingerprint &&
+        saved.expiresAt > Date.now()
+      ) {
+        this.memory.set(fingerprint, saved);
+        return true;
+      }
+      if (saved) return false;
+      return this.write({ ...entries, [fingerprint]: entry });
     } catch {
-      // Restricted storage still preserves the exact offer within this service instance.
+      return false;
     }
   }
 
@@ -69,28 +87,20 @@ export class CheckoutOfferRecovery {
   ): Promise<CheckoutOfferResume> {
     let entries: Record<string, RetainedOffer>;
     try {
-      entries = { ...this.read(), ...Object.fromEntries(this.memory) };
-    } catch {
-      const retained = [...this.memory.values()].find(
-        (entry) =>
-          entry.quote.amountMinor === amountMinor &&
-          entry.quote.currency === currency
-      );
-      if (
-        retained &&
-        retained.expiresAt > Date.now() &&
-        (await this.validChecksum(retained.quote))
-      )
-        return {
-          state: 'retained',
-          quote: retained.quote,
-          ...(retained.formats ? { formats: retained.formats } : {})
-        };
-      return { state: 'verification_required' };
+      entries = { ...Object.fromEntries(this.memory), ...this.read() };
+    } catch (error) {
+      if (!(error instanceof RecoveryStorageUnavailable))
+        return { state: 'verification_required' };
+      entries = Object.fromEntries(this.memory);
+      if (!Object.keys(entries).length) return { state: 'unavailable' };
     }
     if (!Object.keys(entries).length)
       return {
-        state: Object.keys(attempts).length ? 'verification_required' : 'none'
+        state: Object.keys(attempts).length
+          ? 'verification_required'
+          : this.canPersist()
+            ? 'none'
+            : 'unavailable'
       };
     for (const [fingerprint, entry] of Object.entries(entries)) {
       if (
@@ -118,13 +128,15 @@ export class CheckoutOfferRecovery {
   ): Promise<boolean> {
     let entries: Record<string, RetainedOffer>;
     try {
-      entries = { ...this.read(), ...Object.fromEntries(this.memory) };
+      entries = { ...Object.fromEntries(this.memory), ...this.read() };
     } catch (error) {
+      if (!(error instanceof RecoveryStorageUnavailable)) return false;
       entries = Object.fromEntries(this.memory);
-      // Personal support keeps its existing storage-denied behavior. An unreadable
-      // sponsorship cache or a known retained offer still requires verification.
-      if (!Object.keys(entries).length)
-        return !acceptance && error instanceof OfferStorageUnavailableError;
+      if (!Object.keys(entries).length) {
+        if (acceptance && !Object.keys(attempts).length)
+          throw new CheckoutRecoveryUnavailableError();
+        return !acceptance;
+      }
     }
     if (!Object.keys(entries).length)
       return !acceptance || !Object.keys(attempts).length;
@@ -140,10 +152,40 @@ export class CheckoutOfferRecovery {
     );
   }
 
-  forget(fingerprint: string): void {
-    this.memory.delete(fingerprint);
+  ownerMatches(fingerprint: string, idempotencyKey: string): boolean {
+    try {
+      const saved = this.read()[fingerprint];
+      if (saved) return saved.idempotencyKey === idempotencyKey;
+    } catch (error) {
+      if (!(error instanceof RecoveryStorageUnavailable)) return false;
+    }
+    const remembered = this.memory.get(fingerprint);
+    return !remembered || remembered.idempotencyKey === idempotencyKey;
+  }
+
+  /** Read-only expiry facts; removal stays inside the attempt coordinator. */
+  expiredOwners(): Readonly<Record<string, string>> {
+    let entries: Record<string, RetainedOffer>;
+    try {
+      entries = { ...Object.fromEntries(this.memory), ...this.read() };
+    } catch (error) {
+      if (!(error instanceof RecoveryStorageUnavailable)) return {};
+      entries = Object.fromEntries(this.memory);
+    }
+    return Object.fromEntries(
+      Object.entries(entries)
+        .filter(([, entry]) => entry.expiresAt <= Date.now())
+        .map(([fingerprint, entry]) => [fingerprint, entry.idempotencyKey])
+    );
+  }
+
+  forget(fingerprint: string, idempotencyKey: string, persist = true): void {
+    if (this.memory.get(fingerprint)?.idempotencyKey === idempotencyKey)
+      this.memory.delete(fingerprint);
+    if (!persist) return;
     try {
       const entries = this.read();
+      if (entries[fingerprint]?.idempotencyKey !== idempotencyKey) return;
       delete entries[fingerprint];
       this.write(entries);
     } catch {
@@ -152,8 +194,10 @@ export class CheckoutOfferRecovery {
   }
 
   private normalizeQuote(value: unknown): SponsorshipOfferQuote {
-    const snapshot = normalizeSponsorshipOfferSnapshot(value);
-    const fingerprint = (value as { fingerprint?: unknown }).fingerprint;
+    if (!value || typeof value !== 'object' || Array.isArray(value))
+      throw new Error('Invalid retained offer.');
+    const { fingerprint, ...terms } = value as Record<string, unknown>;
+    const snapshot = normalizeSponsorshipOfferSnapshot(terms);
     if (
       typeof fingerprint !== 'string' ||
       !fingerprintPattern.test(fingerprint)
@@ -163,14 +207,15 @@ export class CheckoutOfferRecovery {
   }
 
   private async validChecksum(quote: SponsorshipOfferQuote): Promise<boolean> {
+    const { fingerprint, ...terms } = quote;
     const bytes = new TextEncoder().encode(
-      JSON.stringify(normalizeSponsorshipOfferSnapshot(quote))
+      JSON.stringify(normalizeSponsorshipOfferSnapshot(terms))
     );
     const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
     return (
       Array.from(new Uint8Array(digest), (byte) =>
         byte.toString(16).padStart(2, '0')
-      ).join('') === quote.fingerprint
+      ).join('') === fingerprint
     );
   }
 
@@ -179,7 +224,7 @@ export class CheckoutOfferRecovery {
     try {
       serialized = this.getStorage()?.getItem(storageKey);
     } catch {
-      throw new OfferStorageUnavailableError();
+      throw new RecoveryStorageUnavailable();
     }
     if (!serialized) return {};
     const parsed: unknown = JSON.parse(serialized);
@@ -209,10 +254,37 @@ export class CheckoutOfferRecovery {
     return entries;
   }
 
-  private write(entries: Record<string, RetainedOffer>): void {
+  private canPersist(): boolean {
+    const probeKey =
+      'openg7.checkout-recovery-probe.' + globalThis.crypto.randomUUID();
+    let storage: CheckoutAttemptStorage | null = null;
+    try {
+      storage = this.getStorage();
+      if (!storage) return false;
+      storage.setItem(probeKey, '1');
+      const persisted = storage.getItem(probeKey) === '1';
+      storage.removeItem(probeKey);
+      return persisted;
+    } catch {
+      return false;
+    } finally {
+      try {
+        storage?.removeItem(probeKey);
+      } catch {
+        /* The probe contains no recovery data. */
+      }
+    }
+  }
+
+  private write(entries: Record<string, RetainedOffer>): boolean {
     const storage = this.getStorage();
-    if (Object.keys(entries).length)
-      storage?.setItem(storageKey, JSON.stringify(entries));
-    else storage?.removeItem(storageKey);
+    if (!storage) return false;
+    if (Object.keys(entries).length) {
+      const serialized = JSON.stringify(entries);
+      storage.setItem(storageKey, serialized);
+      return storage.getItem(storageKey) === serialized;
+    }
+    storage.removeItem(storageKey);
+    return storage.getItem(storageKey) === null;
   }
 }

@@ -415,7 +415,7 @@ test(
     );
 
     await t.test(
-      'active live completion and calendar update share the slot-before-batch order',
+      'active live completion and calendar update lock the delivery before its slot and batch',
       async () => {
         const slotId = await createSlot(2);
         const batchId = await createBatch();
@@ -497,33 +497,23 @@ test(
         const calendarPid = (
           await calendarClient.query('SELECT pg_backend_pid() AS pid')
         ).rows[0].pid;
-        const slotLocked = barrier();
-        const resumeCalendar = barrier();
-        const calendarNeedsBatch = barrier();
-        const resumeCalendarBatch = barrier();
         const completionNeedsSlot = barrier();
         const resumeCompletion = barrier();
-        let calendarSettled = false;
+        let calendarHeldSlot = false;
+        const calendarQueries = [];
         let calendarOutcome;
         let completionOutcome;
         const calendarPool = {
           query: (...args) => pool.query(...args),
           connect: async () => ({
             async query(sql, values) {
-              if (
-                sql.includes('SELECT id FROM sponsor_publication_batches') &&
-                sql.includes('FOR UPDATE')
-              ) {
-                calendarNeedsBatch.open();
-                await resumeCalendarBatch.promise;
-              }
+              calendarQueries.push(sql);
               const result = await calendarClient.query(sql, values);
               if (
                 sql.includes('FROM publication_slots') &&
                 sql.includes('FOR UPDATE')
               ) {
-                slotLocked.open();
-                await resumeCalendar.promise;
+                calendarHeldSlot = true;
               }
               return result;
             },
@@ -533,8 +523,7 @@ test(
         const completionPool = {
           connect: async () => ({
             async query(sql, values) {
-              // The legacy path reaches this barrier after locking its batch;
-              // the corrected path reaches it before acquiring that batch lock.
+              // Completion holds the active delivery before requesting its slot.
               if (
                 (sql.includes('FROM publication_slots') &&
                   sql.includes('FOR UPDATE')) ||
@@ -560,18 +549,6 @@ test(
             }
           );
         try {
-          calendarOutcome = outcome(
-            updateAdminPublicationSlot(calendarPool, { slotId, capacity: 3 }),
-            () => {
-              calendarSettled = true;
-            }
-          );
-          await waitFor(
-            async () => slotLocked.opened,
-            'the calendar must acquire its slot lock'
-          );
-          // A calendar update can acquire the slot before it becomes due. Keep
-          // that lock while a real, currently due delivery acquires its claim.
           await waitFor(
             async () =>
               (
@@ -611,17 +588,22 @@ test(
             async () => completionNeedsSlot.opened,
             'completion must request its slot lock'
           );
-          resumeCalendar.open();
-          await waitFor(
-            async () => calendarNeedsBatch.opened,
-            'the calendar must request its batch locks'
+          calendarOutcome = outcome(
+            updateAdminPublicationSlot(calendarPool, { slotId, capacity: 3 })
           );
-          resumeCalendarBatch.open();
           await waitFor(
-            async () =>
-              calendarSettled ||
-              (await blockedConnections(pool, [calendarPid])) === 1,
-            'the calendar must finish or contend for the batch before completing'
+            async () => (await blockedConnections(pool, [calendarPid])) === 1,
+            'the calendar must wait on the delivery while completion owns it'
+          );
+          assert.equal(
+            calendarHeldSlot,
+            false,
+            'no slot lock may precede the delivery lock'
+          );
+          assert.ok(
+            calendarQueries.some((sql) =>
+              sql.includes('FOR UPDATE OF delivery')
+            )
           );
           resumeCompletion.open();
           const outcomes = await Promise.all([
@@ -633,7 +615,7 @@ test(
           assert.equal(
             outcomes[0].value.updated,
             false,
-            'the slot date elapsed while its update was blocked'
+            'the completed, elapsed slot cannot change capacity'
           );
           const delivered = (
             await pool.query(
@@ -670,8 +652,6 @@ test(
             'publication_automation.published'
           ]);
         } finally {
-          resumeCalendar.open();
-          resumeCalendarBatch.open();
           resumeCompletion.open();
           await Promise.allSettled([calendarOutcome, completionOutcome]);
           calendarClient.release();

@@ -197,8 +197,8 @@ export async function handleDeliveryFailure(
   const changed = await withPostgresTransaction(context.pool, async (db) => {
     const failed = await db.query(
       `UPDATE publication_deliveries SET status=$2,error_code=$3,next_attempt_at=CASE WHEN $2='approved' THEN NOW()+($4 * INTERVAL '1 minute') ELSE NULL END,lease_until=NULL,
-       approved_at=CASE WHEN $3 LIKE 'MODERATION_%' OR $3 LIKE 'MEDIA_%' OR $3 IN ('SPONSOR_REVIEW_REQUIRED','SOURCE_CONTENT_MISSING','INVALID_MESSAGE') THEN NULL ELSE approved_at END,
-       approved_by=CASE WHEN $3 LIKE 'MODERATION_%' OR $3 LIKE 'MEDIA_%' OR $3 IN ('SPONSOR_REVIEW_REQUIRED','SOURCE_CONTENT_MISSING','INVALID_MESSAGE') THEN NULL ELSE approved_by END,
+       approved_at=CASE WHEN $3 LIKE 'MODERATION_%' OR $3 LIKE 'MEDIA_%' OR $3 IN ('SPONSOR_REVIEW_REQUIRED','SOURCE_CONTENT_MISSING','INVALID_MESSAGE','SCHEDULE_EXPIRED') THEN NULL ELSE approved_at END,
+       approved_by=CASE WHEN $3 LIKE 'MODERATION_%' OR $3 LIKE 'MEDIA_%' OR $3 IN ('SPONSOR_REVIEW_REQUIRED','SOURCE_CONTENT_MISSING','INVALID_MESSAGE','SCHEDULE_EXPIRED') THEN NULL ELSE approved_by END,
        version=version+1,updated_at=NOW() WHERE id=$1 AND ${activeClaimSql('$5')} RETURNING id`,
       [
         row.id,

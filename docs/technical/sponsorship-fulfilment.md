@@ -120,6 +120,14 @@ Les clés privées des objets, contacts d'autres dossiers et notes internes ne s
 pas transférés. En l'absence d'observation, la visibilité est `unknown` ; chaque
 observation reste datée.
 
+Dans le portail privé, un passage réalisé mène à sa preuve seulement si les
+identifiants de preuve et d'obligation, le canal et la destination correspondent
+exactement. Une ancre locale place le focus clavier sur la preuve sans
+réintroduire le jeton privé retiré de l'URL après accès. Un passage restant ou
+une référence incohérente ne reçoit pas de
+lien de réalisation. Les dates d'observation et de fin minimum d'une durée
+restent distinctes d'une preuve de réalisation ou d'une attestation de continuité.
+
 Les événements d'ajustement, de date approuvée et de solde utilisent la file de
 courriels persistante existante. Le destinataire vient du paiement confirmé.
 Une date approuvée en mode `mock` n'enfile aucune notification `date_approved` ;

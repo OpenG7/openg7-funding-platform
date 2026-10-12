@@ -187,6 +187,13 @@ export async function assertDispatchClaim(
         'SOURCE_CHANGED'
       );
     }
+    const withinWindow = (
+      await db.query<{ within_window: boolean }>(
+        "SELECT clock_timestamp()<=$1::timestamptz+INTERVAL '24 hours' AS within_window",
+        [current.scheduled_at]
+      )
+    ).rows[0]?.within_window;
+    assert(withinWindow === true, 'SCHEDULE_EXPIRED');
     if (!(await markAccountDispatch(db, row))) throw new PublicationClaimLost();
   });
 }

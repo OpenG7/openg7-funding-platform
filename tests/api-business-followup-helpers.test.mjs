@@ -295,6 +295,11 @@ test('a compatible provider payment persists exact consent and financial facts b
       contributionType: 'sponsorship_interest',
       amountCents: 25000,
       currency: 'cad',
+      trustedPaymentFacts: {
+        amountCents: 25000,
+        currency: 'cad',
+        publicReference: 'OG7-2026-ABCDEF'
+      },
       metadata,
       publicDisplayConsent: true,
       publicName: 'Synthetic public company',
@@ -348,6 +353,7 @@ test('partial provider data retains nullish fallbacks without replacing empty va
     assert.equal(input.nonCharityAcknowledged, false);
     assert.equal(input.status, 'expired');
     assert.equal(input.paidAtIso, null);
+    assert.equal(input.trustedPaymentFacts, undefined);
     assert.equal(input.metadata, providerMetadata);
   }
   const f = fixture({

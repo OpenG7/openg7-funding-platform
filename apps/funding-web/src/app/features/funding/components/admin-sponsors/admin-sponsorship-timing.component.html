@@ -14,7 +14,7 @@
           <dd>
             {{
               t.originAt
-                ? dateLabel(t.originAt)
+                ? formatDate(t.originAt)
                 : ('admin.timing.unknownOrigin' | translate)
             }}
           </dd>
@@ -23,7 +23,7 @@
           <dt>{{ 'admin.timing.due' | translate }}</dt>
           <dd>
             {{
-              t.dueAt ? dateLabel(t.dueAt) : ('admin.timing.noDue' | translate)
+              t.dueAt ? formatDate(t.dueAt) : ('admin.timing.noDue' | translate)
             }}
           </dd>
         </div>
@@ -41,17 +41,22 @@
           <div>
             <dt>{{ 'admin.timing.observedAt' | translate }}</dt>
             <dd>
-              {{ dateLabel(start.observedAt) }}
+              {{ formatDate(start.observedAt) }}
             </dd>
           </div>
           <div>
             <dt>{{ 'admin.timing.earliest' | translate }}</dt>
             <dd>
-              {{ dateLabel(start.earliestCompletionAt) }}
+              {{ formatDate(start.earliestCompletionAt) }}
             </dd>
           </div>
         }
       </dl>
+      @if (t.durationState === 'restart_required') {
+        <p role="status" data-og7="timing-restart-required">
+          {{ 'admin.timing.restartHelp' | translate }}
+        </p>
+      }
       @if (t.overdue) {
         <p role="status" data-og7="timing-overdue">
           {{ 'admin.timing.overdue' | translate }}
@@ -142,7 +147,9 @@
               >
                 {{ 'admin.timing.observe' | translate }}
               </button>
-              @if (t.startObservation) {
+              @if (
+                t.startObservation && t.durationState !== 'restart_required'
+              ) {
                 <label
                   ><input
                     type="checkbox"

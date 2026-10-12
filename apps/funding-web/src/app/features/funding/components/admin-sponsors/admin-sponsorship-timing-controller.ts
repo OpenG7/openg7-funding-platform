@@ -48,6 +48,7 @@ function confirmedTiming(
       'unsupported',
       'awaiting_observation',
       'awaiting_review',
+      'restart_required',
       'attested'
     ].includes(t.durationState as string)
   )
@@ -164,6 +165,10 @@ export class AdminSponsorshipTimingController {
       (!timing.startObservation || !this.continuity() || !text(this.evidence()))
     ) {
       this.error.set('invalid');
+      return;
+    }
+    if (kind === 'duration' && timing.durationState === 'restart_required') {
+      this.error.set('sourceChanged');
       return;
     }
     const request: SponsorshipTimingCommandRequest = {

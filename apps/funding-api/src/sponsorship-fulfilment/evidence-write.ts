@@ -10,7 +10,7 @@ type Db = Pool | PoolClient;
 const hash = (value: unknown) =>
   createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
-interface EvidenceInput {
+export interface EvidenceInput {
   obligationId: string;
   contributionId: string;
   obligationVersion: number;

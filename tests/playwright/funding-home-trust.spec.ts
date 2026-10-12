@@ -397,7 +397,7 @@ test('switching the default personal amount to sponsorship submits a valid 50 CA
 });
 
 for (const english of [false, true]) {
-  test(`moderation V1 charter uses exact activated API text and renews changed acceptance ${english ? 'EN mobile' : 'FR desktop'}`, async ({
+  test(`moderation V1 charter retains the dispatched key when activated acceptance changes ${english ? 'EN mobile' : 'FR desktop'}`, async ({
     page
   }) => {
     await enableSponsorship(page);
@@ -475,22 +475,28 @@ for (const english of [false, true]) {
     );
     await expect(acceptance).not.toBeChecked();
     await expect(submit).toBeDisabled();
+    const retained = await page.evaluate(() =>
+      localStorage.getItem('openg7.checkout-attempts.v2')
+    );
+    expect(retained).toContain(String(requests[0].idempotencyKey));
     await acceptance.check();
     await submit.click();
-    await expect.poll(() => requests.length).toBe(2);
+    await expect(form.getByRole('alert')).toContainText(
+      english ? 'requires verification' : 'nécessite une vérification'
+    );
+    await expect(submit).toBeDisabled();
+    expect(requests).toHaveLength(1);
     expect(requests[0].charterAcceptance).toEqual({
       accepted: true,
       policyVersion: '1.0',
       fingerprint: 'a'.repeat(64),
       locale: english ? 'en' : 'fr-CA'
     });
-    expect(requests[1].charterAcceptance).toEqual({
-      accepted: true,
-      policyVersion: '1.0',
-      fingerprint: 'b'.repeat(64),
-      locale: english ? 'en' : 'fr-CA'
-    });
-    expect(requests[0].idempotencyKey).not.toBe(requests[1].idempotencyKey);
+    expect(
+      await page.evaluate(() =>
+        localStorage.getItem('openg7.checkout-attempts.v2')
+      )
+    ).toBe(retained);
   });
 }
 

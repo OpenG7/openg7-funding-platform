@@ -47,7 +47,8 @@ export interface AdminPublicationSlotsHttpDependencies extends AdminPublicationH
     input: Parameters<typeof createAdminPublicationSlot>[1]
   ) => ReturnType<typeof createAdminPublicationSlot>;
   readonly updateAdminPublicationSlot: (
-    input: Parameters<typeof updateAdminPublicationSlot>[1]
+    input: Parameters<typeof updateAdminPublicationSlot>[1],
+    actor?: string
   ) => ReturnType<typeof updateAdminPublicationSlot>;
   readonly assignBatchToPublicationSlot: (
     input: Parameters<typeof assignBatchToPublicationSlot>[1]
@@ -309,21 +310,24 @@ export const createAdminPublicationSlotsHttpHandler = ({
       }
 
       try {
-        const result = await updateAdminPublicationSlot({
-          ...parsed,
-          startsAt:
-            parsed.startsAt !== undefined
-              ? new Date(parsed.startsAt).toISOString()
-              : undefined,
-          timezone:
-            parsed.timezone !== undefined
-              ? normalizePublicationSlotTimezone(parsed.timezone)
-              : undefined
-        });
+        const result = await updateAdminPublicationSlot(
+          {
+            ...parsed,
+            startsAt:
+              parsed.startsAt !== undefined
+                ? new Date(parsed.startsAt).toISOString()
+                : undefined,
+            timezone:
+              parsed.timezone !== undefined
+                ? normalizePublicationSlotTimezone(parsed.timezone)
+                : undefined
+          },
+          getAdminAuditActor(request)
+        );
         if (!result.updated || !result.slot) {
           writeJson(request, response, 409, {
             error:
-              'Publication slot was not found, is final, is in the past, or capacity would be exceeded.'
+              'Publication slot was not found, is final, is in the past, capacity would be exceeded, or a linked delivery cannot be rescheduled.'
           });
           return true;
         }

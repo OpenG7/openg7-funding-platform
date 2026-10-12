@@ -11,6 +11,19 @@ New or edited dates that do not exist or occur twice during a clock change are
 rejected: choose a unique local time before saving. Changing a slot's timezone
 interprets its entered local date/time in the new timezone.
 
+Moving a slot with linked deliveries is transactional: the server locks the
+deliveries before calendar membership, revokes obsolete approval, releases
+certain account/obligation reservations and updates the dates together. Text,
+media and participants are retained. An in-flight or uncertain operation, a held
+account lease or a rejected/published delivery prevents the move. A new date
+requires a new human approval; the move is audited with its actor.
+
+Immediately before provider dispatch, the server checks the current database
+time against the authorized date and the maximum 24-hour lateness window.
+Time captured at the start of the worker tick cannot authorize a late send after
+slow image preparation. `SCHEDULE_EXPIRED` clears the obsolete approval and
+requires rescheduling and review; it creates no provider call or fulfilled benefit.
+
 ## Dossier bridge
 
 The sponsorship dossier’s Publication step links to this workspace with

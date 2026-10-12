@@ -50,10 +50,8 @@ OIDC owners manage roles, disable accounts and revoke sessions. Account changes
 revoke sessions and protect the last owner; confirmation is required. Token mode
 has no named accounts. Alerts remain opt-in (`yarn operations:watch` or Compose).
 
-UI guides: [layout](../admin-ux-lot-1.md), [queue](../admin-ux-lot-2.md),
-[assistant](../admin-ux-lot-3.md), [dossier](../admin-ux-lot-4.md),
-[cockpit](../admin-ux-lot-5.md), [search](../admin-ux-lot-6.md) and
-[drawers](../admin-ux-lot-7.md). `yarn test:ui:admin` uses synthetic APIs without DB.
+UI guides are in the [documentation index](../README.md).
+`yarn test:ui:admin` uses synthetic APIs without DB.
 `GET /api/admin/attention` serves `/admin/fundraiser/attention` with pagination,
 URL filters and exact record links. `GET /api/admin/assistant/context` accepts
 optional `sponsorshipId`; information requests require an editable preview and
@@ -61,20 +59,24 @@ confirmation at `POST /api/admin/sponsorships/request-information`. Queue and au
 are atomic; duplicate requests reuse the original email.
 `GET /api/admin/sponsorships/progress?sponsorshipId=<uuid>` reads one dossier.
 Recorded offers, obligations and owner actions: [commitment API](sponsorship-commitments.md).
+
+`POST /api/admin/sponsorship-commitments/timing`: owner-only commands with UUID,
+current timing version, reason and exact obligation confirmation. Duration
+closure also requires its start observation and confirmed continuity evidence.
+Commitment reads expose timing. Scope, schema, interruptions and retries:
+[timing contract](sponsorship-obligation-timing.md).
 Protected cockpit reads use `/api/admin/cockpit/metrics`, `/activity` and `/systems`.
 Amounts are integer minor units per currency; missing fees keep net receipts
 unavailable. System checks provide dated evidence with expiry, without sending
 email or writing test files. Stripe's optional `connection` is separate from
 webhooks; see [check semantics](../operations/admin-setup.md).
 `POST /api/admin/search` uses private JSON, grouped results and bounded pagination;
-terms stay out of URLs/storage. Exact contribution, audit and expense IDs precede
-list limits; invoice/publication pages reload on target changes. Drawers protect
-invoice/media previews and require action confirmations; Stripe inspection excludes
-raw webhook payloads. Dashboard `data_available=false` means no PostgreSQL, not an
-empty fund. Reproduction and integration limits are in the linked guides.
+terms stay out of URLs/storage. Exact IDs precede list limits;
+invoice/publication pages reload on target changes. Drawers protect private
+previews and require confirmations; Stripe inspection excludes raw webhooks.
+Dashboard `data_available=false` means no PostgreSQL. Recipes are in the linked guides.
 
-Selected operational endpoints (the feature guides in the
-[documentation index](../README.md) describe the additional contracts):
+Additional endpoint contracts: [documentation index](../README.md).
 
 ```text
 GET /api/admin/dashboard

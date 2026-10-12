@@ -16,6 +16,15 @@ export class CheckoutCharterChangedError extends Error {
 }
 
 /** Safe public failure before a new operation: reread and confirm the offered benefits. */
+export class CheckoutRecoveryUnavailableError extends Error {
+  readonly code = 'CHECKOUT_RECOVERY_UNAVAILABLE';
+  constructor() {
+    super('Checkout recovery cannot be retained in this browser.');
+    this.name = 'CheckoutRecoveryUnavailableError';
+  }
+}
+
+/** Safe public failure before a new operation: reread and confirm the offered benefits. */
 export class CheckoutOfferChangedError extends Error {
   constructor(readonly code = 'SPONSORSHIP_OFFER_CHANGED') {
     super('The applicable sponsorship offer changed.');

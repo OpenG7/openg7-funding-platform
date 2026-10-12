@@ -62,6 +62,10 @@ export class SponsorshipOfferController {
           this.state.set('verification_required');
           return;
         }
+        if (resume.state === 'unavailable') {
+          this.state.set('error');
+          return;
+        }
         if (resume.state === 'retained') {
           this.quote.set(resume.quote);
           this.formats.set(resume.formats);

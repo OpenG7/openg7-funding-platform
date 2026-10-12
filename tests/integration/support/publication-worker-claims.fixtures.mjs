@@ -168,7 +168,7 @@ export async function createPublicationWorkerClaimsFixture(t) {
 
   async function activate(feedId = facebookFeed) {
     await service.command({ action: 'check', feedId }, 'claim-tester');
-    const feed = (await service.state()).feeds.find((f) => f.id === feedId);
+    const feed = (await service.feeds()).find((f) => f.id === feedId);
     assert.equal(feed.connection, 'ready');
     await service.command(
       { action: 'settings', settings: { ...feed, paused: false } },

@@ -2,6 +2,11 @@
   display: block;
   font-family: 'Trebuchet MS', Arial, sans-serif;
 }
+[data-og7='followup-fulfilment-evidence'] li:focus-visible {
+  outline: 3px solid #155cbb;
+  outline-offset: 0.25rem;
+  scroll-margin-block: 1rem;
+}
 .followup-shell {
   background: #f3f6fa;
   color: #121b2d;

@@ -6,6 +6,7 @@ import {
   updateContributionStatusByPaymentIntent,
   upsertCheckoutSessionFromWebhook
 } from '../../dist/apps/funding-api/src/fund-contributions.repository.js';
+import { insertFundTransaction } from '../../dist/apps/funding-api/src/fund-transparency.repository.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 
 const paidAtIso = '2026-09-01T12:00:00.000Z';
@@ -179,6 +180,57 @@ test(
         assert.equal(state.paid_at.toISOString(), paidAtIso);
         assert.equal(state.activity_count, 1);
         assert.equal(state.confirmation_count, 1);
+      }
+    );
+
+    await t.test(
+      'a PaymentIntent confirmed before the pending creation converges immediately, retains one activity and never invents historical benefits',
+      async () => {
+        const fixture = checkout('proof_before_pending');
+        await updateContributionStatusByPaymentIntent(
+          db.pool,
+          payment(fixture)
+        );
+        await insertFundTransaction(db.pool, {
+          stripeEventId: 'evt_test_proof_before_pending',
+          stripeObjectId: fixture.stripePaymentIntentId,
+          stripeBalanceTransactionId: null,
+          type: 'payment_intent.succeeded',
+          amount: fixture.amountCents,
+          fee: 0,
+          net: fixture.amountCents,
+          currency: fixture.currency.toLowerCase(),
+          status: 'succeeded',
+          createdAtIso: paidAtIso,
+          publicCategory: 'contribution',
+          metadataJson: { source: 'stripe', project: 'openg7' }
+        });
+        for (const inserted of [true, false]) {
+          assert.equal(
+            await insertCheckoutSessionRecord(db.pool, fixture),
+            inserted
+          );
+          const state = await storedState(db.pool, fixture);
+          assert.equal(state.status, 'paid');
+          assert.equal(state.session_status, 'paid');
+          assert.equal(state.paid_at.toISOString(), paidAtIso);
+          assert.equal(state.activity_count, 1);
+          assert.equal(state.confirmation_count, 1);
+          assert.equal(state.sponsor_review_status, null);
+          assert.equal(state.sponsor_feed_status, 'not_planned');
+        }
+        const commitment = (
+          await db.pool.query(
+            `SELECT m.state,m.offer_id,(SELECT count(*)::int FROM sponsorship_obligations o WHERE o.commitment_id=m.id) AS obligations
+           FROM sponsorship_commitments m JOIN fund_contributions c ON c.id=m.contribution_id WHERE c.stripe_session_id=$1`,
+            [fixture.stripeSessionId]
+          )
+        ).rows[0];
+        assert.deepEqual(commitment, {
+          state: 'needs_confirmation',
+          offer_id: null,
+          obligations: 0
+        });
       }
     );
 

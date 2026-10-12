@@ -27,6 +27,7 @@ import { OPENG7_FUNDING_CONFIG } from '../config/openg7-funding.config.js';
 import { CheckoutAttempts } from './checkout-attempts.js';
 import {
   CheckoutReconciliationRequiredError,
+  CheckoutRecoveryUnavailableError,
   CheckoutCharterChangedError,
   CheckoutOfferChangedError
 } from './checkout-error.js';
@@ -40,8 +41,9 @@ export class FundingService {
     inject(FUNDING_PROJECT_CONFIG, { optional: true }) ?? OPENG7_FUNDING_CONFIG;
   private readonly apiBaseUrl = resolveFundingApiBaseUrl();
   private readonly publicClient = new FundingPublicClient(this.apiBaseUrl);
-  private readonly checkoutAttempts = new CheckoutAttempts(() =>
-    typeof window === 'undefined' ? null : window.sessionStorage
+  private readonly checkoutAttempts = new CheckoutAttempts(
+    () => (typeof window === 'undefined' ? null : window.localStorage),
+    () => (typeof window === 'undefined' ? null : window.sessionStorage)
   );
   private readonly followupClient = new FundingSponsorshipFollowupClient(
     this.apiBaseUrl
@@ -103,6 +105,7 @@ export class FundingService {
     } catch (error) {
       if (
         error instanceof CheckoutReconciliationRequiredError ||
+        error instanceof CheckoutRecoveryUnavailableError ||
         error instanceof CheckoutCharterChangedError ||
         error instanceof CheckoutOfferChangedError
       )

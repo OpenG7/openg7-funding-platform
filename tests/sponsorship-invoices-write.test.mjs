@@ -23,19 +23,50 @@ const frozenOffer = {
     durationDays: null
   }))
 };
-// Financial query fixtures receive recorded commercial terms independently.
-const emit = (pool, request) =>
-  publicCreate(
-    pool
-      ? {
-          query: (sql, values) =>
-            sql.includes('SELECT o.snapshot')
-              ? Promise.resolve({ rows: [{ snapshot: frozenOffer }] })
-              : pool.query(sql, values)
-        }
-      : null,
-    request
-  );
+// The fixture owns a real transaction-shaped client. The contribution lock and
+// offer read are separate from the invoice statements inspected by each test.
+const emit = async (pool, request) => {
+  if (!pool) return publicCreate(null, request);
+  const steps = [];
+  let released = 0;
+  let failed = false;
+  const client = {
+    query: async (sql, values) => {
+      if (['BEGIN', 'COMMIT', 'ROLLBACK'].includes(sql)) {
+        steps.push(sql);
+        return { rows: [] };
+      }
+      if (sql.startsWith('SELECT amount_cents::text')) {
+        assert.match(sql, /FOR UPDATE/);
+        assert.deepEqual(values, [request.stripeSessionId]);
+        steps.push('contribution_lock');
+        return { rows: [{ amount_cents: '50000' }] };
+      }
+      if (sql.includes('SELECT o.snapshot')) {
+        assert.equal(steps.at(-1), 'contribution_lock');
+        assert.deepEqual(values, [request.stripeSessionId]);
+        steps.push('offer_snapshot');
+        return { rows: [{ snapshot: frozenOffer }] };
+      }
+      assert.ok(steps.includes('offer_snapshot'));
+      steps.push('invoice_statement');
+      return pool.query(sql, values);
+    },
+    release: () => {
+      released++;
+    }
+  };
+  try {
+    return await publicCreate({ connect: async () => client }, request);
+  } catch (error) {
+    failed = true;
+    throw error;
+  } finally {
+    assert.equal(steps[0], 'BEGIN');
+    assert.equal(steps.at(-1), failed ? 'ROLLBACK' : 'COMMIT');
+    assert.equal(released, 1);
+  }
+};
 
 const input = (overrides = {}) => ({
   stripeSessionId: 'cs_test_invoice_write',

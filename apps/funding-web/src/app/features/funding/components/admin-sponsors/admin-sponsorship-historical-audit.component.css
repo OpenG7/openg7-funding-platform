@@ -3,10 +3,13 @@
   min-width: 0;
 }
 section {
-  min-width: 0;
-  overflow-wrap: anywhere;
   border-color: var(--admin-border);
   color: var(--admin-text);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+li {
+  border-color: var(--admin-border);
 }
 .audit-filter {
   display: grid;
@@ -14,12 +17,10 @@ section {
   min-width: 0;
   max-width: 100%;
 }
-select {
-  width: 100%;
+label {
   min-width: 0;
-}
-li {
-  border-color: var(--admin-border);
+  max-width: 100%;
+  flex-wrap: wrap;
 }
 select,
 textarea {
@@ -28,11 +29,14 @@ textarea {
   border-radius: 0.5rem;
   color: var(--admin-text);
   display: block;
+  box-sizing: border-box;
   font: inherit;
   margin-block-start: 0.5rem;
   max-width: 100%;
+  min-width: 0;
   min-height: 2.75rem;
   padding: 0.5rem;
+  width: 100%;
 }
 textarea:focus-visible {
   outline: 3px solid var(--admin-focus, #9edaff);

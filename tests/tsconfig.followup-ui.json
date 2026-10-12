@@ -8,6 +8,7 @@
     "playwright/payment-recovery-ui.spec.ts",
     "playwright/sponsorship-followup.spec.ts",
     "playwright/sponsorship-moderation-followup.spec.ts",
-    "playwright/sponsor-media-upload-feedback.spec.ts"
+    "playwright/sponsor-media-upload-feedback.spec.ts",
+    "playwright/sponsorship-offer.ui.ts"
   ]
 }

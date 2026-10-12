@@ -55,6 +55,11 @@ car aucun parcours de contrôle de durée n'y est livré.
 Un masquage suivi d'un nouvel affichage ou une modification des sources,
 autorisations ou droits invalide l'ancien point de départ. L'historique reste
 conservé; une nouvelle observation et une nouvelle période sont nécessaires.
+La lecture affiche alors `restart_required` pour les restrictions ou changements
+connus dans les faits locaux. L'ancienne date reste historique; elle n'est pas
+une date d'interruption mesurée. Le formulaire propose une nouvelle observation
+et retire l'attestation de cette observation invalidée. Cette projection ne lit
+aucun fichier, n'effectue aucune requête publique et n'atteste aucune continuité.
 Cette règle est conservatrice : une modification administrative qui change la
 version de la contribution peut également nécessiter un nouveau départ.
 

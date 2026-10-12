@@ -51,12 +51,14 @@ export class AdminSponsorshipTimingComponent {
     });
   }
   readonly browser = isPlatformBrowser(this.platform);
-  dateLabel(value: string): string {
+  formatDate(value: string): string {
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) return '—';
     return new Intl.DateTimeFormat(this.language(), {
       dateStyle: 'medium',
-      timeStyle: 'short',
+      timeStyle: 'medium',
       timeZone: 'UTC'
-    }).format(new Date(value));
+    }).format(date);
   }
   value(event: Event): string {
     return (event.target as HTMLInputElement).value;

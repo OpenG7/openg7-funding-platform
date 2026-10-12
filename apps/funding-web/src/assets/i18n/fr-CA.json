@@ -1090,7 +1090,7 @@
         "invoice_not_required": "Aucune facture Stripe attendue pour cette provenance.",
         "commitment_needs_confirmation": "L’accord d’origine doit être qualifié avant de confirmer les prestations attendues.",
         "publication_failed": "La dernière tentative de publication a échoué.",
-        "publication_done": "Toutes les contreparties prévues pour cette contribution sont livrées.",
+        "publication_done": "Toutes les contreparties sont clôturées par une livraison prouvée ou un ajustement validé.",
         "publication_cancelled": "Publication, lot ou créneau annulé. Vérifier la planification.",
         "consent_missing": "Le consentement public manque.",
         "publication_blocked": "Vérifier le paiement, la revue, les médias et le remboursement avant publication.",
@@ -1138,12 +1138,13 @@
         "blocker": {
           "consent": "Obtenir le consentement public du commanditaire",
           "review": "Vérifier et accepter le dossier",
-          "media": "Approuver une photo de présentation",
+          "media": "Vérifier et approuver les médias requis par les engagements",
           "payment": "Vérifier l’admissibilité du paiement",
           "refund": "Examiner le remboursement en cours ou complet",
           "hidden": "Vérifier le masquage du commanditaire",
           "identity": "Compléter le nom de l’entreprise",
-          "commitment_needs_confirmation": "Qualifier les engagements à partir de l’accord d’origine"
+          "commitment_needs_confirmation": "Qualifier les engagements à partir de l’accord d’origine",
+          "commitment_blocked": "Examiner le blocage de l’engagement et ses exigences"
         },
         "status": {
           "waiting": "En attente de préparation",
@@ -3464,6 +3465,7 @@
         "unsupported": "Durée non prise en charge pour ce canal ou cette destination",
         "awaiting_observation": "Début d’exposition à constater",
         "awaiting_review": "Durée à confirmer avec preuve de continuité",
+        "restart_required": "Nouveau début d’exposition requis",
         "attested": "Durée réalisée avec attestation justifiée"
       },
       "errors": {
@@ -3477,7 +3479,8 @@
         "previousPassageOpen": "La période précédente de cette prestation doit être réalisée ou explicitement dispensée avant un nouveau début.",
         "periodOverlap": "Cette période a commencé avant la clôture de la précédente. Constatez un nouveau début distinct.",
         "notFound": "Cette prestation est indisponible. Relisez le dossier avant une nouvelle décision."
-      }
+      },
+      "restartHelp": "Une restriction ou modification connue a rendu l’ancienne observation inutilisable. Elle reste historique. Vérifiez l’affichage et observez un nouveau début ; aucune période n’est cumulée."
     }
   },
   "funding": {
@@ -3494,6 +3497,9 @@
       "currentObligations": "État actuel des prestations",
       "currentObligationsSeparate": "Ces états reflètent les prestations et ajustements enregistrés aujourd’hui. Ils ne modifient pas l’offre acceptée ci-dessus. Une préparation ou une simulation n’est pas une prestation livrée.",
       "fulfilmentRecorded": "Une preuve de réalisation a été enregistrée pour cette prestation.",
+      "viewPassageEvidence": "Voir la preuve du passage nº {{ordinal}}",
+      "timingStarted": "Début d’exposition constaté le :",
+      "timingEarliestCompletion": "Fin minimale de la période :",
       "evidenceTitle": "Publications enregistrées pour votre dossier",
       "evidenceSeparate": "Ces faits concernent votre dossier. La visibilité peut évoluer après l’envoi ; une visibilité non vérifiée ne prouve ni présence ni absence.",
       "evidenceProvenance": {
@@ -3570,7 +3576,8 @@
         "unsupported": "Durée non prise en charge pour ce canal ou cette destination",
         "awaiting_observation": "Début d’exposition à constater",
         "awaiting_review": "Durée à confirmer avec preuve de continuité",
-        "attested": "Durée réalisée avec attestation justifiée"
+        "attested": "Durée réalisée avec attestation justifiée",
+        "restart_required": "Une modification ou restriction exige un nouveau début vérifié. L’ancienne observation ne suffit plus à réaliser cette durée."
       }
     },
     "charter": {

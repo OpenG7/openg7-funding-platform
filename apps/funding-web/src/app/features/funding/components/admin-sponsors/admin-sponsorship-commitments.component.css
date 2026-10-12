@@ -1,12 +1,15 @@
 :host {
   display: block;
+  min-width: 0;
 }
 .commitments {
+  min-width: 0;
+  overflow-wrap: anywhere;
   padding: 1.25rem;
   border: 1px solid var(--admin-border, #cbd5e1);
   border-radius: 1rem;
   background: var(--admin-panel, #142338);
-  color: var(--admin-text, #f1f5fc);
+  color: var(--admin-text, #0f172a);
 }
 header {
   display: flex;
@@ -43,6 +46,7 @@ details {
   padding-top: 1rem;
 }
 fieldset {
+  min-width: 0;
   display: grid;
   gap: 0.75rem;
   border: 0;
@@ -55,6 +59,7 @@ fieldset {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 label {
+  min-width: 0;
   display: grid;
   gap: 0.35rem;
   font-weight: 600;
@@ -71,6 +76,8 @@ label {
 input,
 textarea,
 select {
+  box-sizing: border-box;
+  min-width: 0;
   width: 100%;
   max-width: 100%;
 }
@@ -85,11 +92,13 @@ code {
   font-size: 0.85rem;
 }
 button {
+  max-width: 100%;
+  white-space: normal;
   width: fit-content;
 }
 aside {
   padding: 1rem;
-  background: var(--admin-warning-bg, #3b3020);
+  background: var(--admin-warning-surface, #fffbeb);
   border-radius: 0.75rem;
 }
 summary {
@@ -97,7 +106,7 @@ summary {
   font-weight: 700;
 }
 [role='alert'] {
-  color: var(--admin-danger, #ffb5bc);
+  color: var(--admin-danger, #b91c1c);
 }
 :focus-visible {
   outline: 3px solid var(--admin-accent, #2563eb);

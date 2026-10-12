@@ -1,7 +1,5 @@
 import type { Page } from '@playwright/test';
 import type {
-  AdminSponsorshipRecord,
-  AdminSponsorshipProgress,
   SponsorshipCommitmentRecord,
   SponsorshipTimingCommandRequest
 } from '@openg7/funding-core';
@@ -12,23 +10,19 @@ interface Context {
   fixtures(
     page: Page,
     role?: 'owner' | 'operator' | 'reader'
-  ): Promise<{
-    options: {
-      edited: Map<string, Partial<AdminSponsorshipRecord>>;
-      progressOverrides: Partial<AdminSponsorshipProgress>;
-    };
-  }>;
+  ): Promise<unknown>;
   path(tab?: string, value?: string): string;
 }
 const id = '10000000-0000-4000-8000-000000000401',
   obId = '10000000-0000-4000-8000-000000000904';
 async function fixtures(page: Page, context: Context) {
-  const base = await context.fixtures(page, 'owner');
+  await context.fixtures(page, 'owner');
   const state: {
     commands: SponsorshipTimingCommandRequest[];
     lost: boolean;
     early: boolean;
-  } = { commands: [], lost: false, early: false };
+    restart: boolean;
+  } = { commands: [], lost: false, early: false, restart: false };
   let m: SponsorshipCommitmentRecord = {
     id: '10000000-0000-4000-8000-000000000900',
     contributionId: id,
@@ -84,24 +78,22 @@ async function fixtures(page: Page, context: Context) {
       }
     ]
   };
-  const sync = () => {
-    base.options.progressOverrides = {
-      ...base.options.progressOverrides,
-      commitment: m
-    };
-    base.options.edited.set(id, {
-      ...base.options.edited.get(id),
-      commitment: m
-    });
-  };
-  sync();
   await page.route('**/admin/sponsorship-commitments**', async (route) => {
     const url = new URL(route.request().url());
     if (
       url.pathname.endsWith('/sponsorship-commitments') &&
       route.request().method() === 'GET'
-    )
+    ) {
+      if (state.restart)
+        m = {
+          ...m,
+          obligations: m.obligations.map((o) => ({
+            ...o,
+            timing: { ...o.timing!, durationState: 'restart_required' }
+          }))
+        };
       return route.fulfill({ json: { commitment: m } });
+    }
     if (!url.pathname.endsWith('/sponsorship-commitments/timing'))
       return route.fallback();
     const payload = route
@@ -129,6 +121,15 @@ async function fixtures(page: Page, context: Context) {
       timing.durationState = 'attested';
       timing.overdue = false;
     }
+    if (payload.kind === 'observe') {
+      timing.durationState = 'awaiting_review';
+      state.restart = false;
+      timing.startObservation = {
+        id: '10000000-0000-4000-8000-000000000907',
+        observedAt: '2026-10-12T00:00:00.000Z',
+        earliestCompletionAt: '2026-11-11T00:00:00.000Z'
+      };
+    }
     m = {
       ...m,
       obligations: [
@@ -139,19 +140,21 @@ async function fixtures(page: Page, context: Context) {
         }
       ]
     };
-    sync();
     await route.fulfill({ json: { obligationId: obId, timing } });
   });
   return state;
 }
-async function statement(page: Page) {
+async function openTimingDetails(page: Page) {
   const panel = page.locator('[data-og7="sponsorship-timing"]');
-  if (
-    !(await panel
-      .locator('details')
-      .evaluate((details) => details.hasAttribute('open')))
-  )
+  await expect(panel).toBeVisible();
+  await expect(page.locator('[data-og7="commitments-refresh"]')).toBeEnabled();
+  const details = panel.locator('details');
+  if (!(await details.evaluate((element) => element.hasAttribute('open'))))
     await panel.locator('summary').click();
+  return panel;
+}
+async function statement(page: Page) {
+  const panel = await openTimingDetails(page);
   await panel
     .locator('[data-og7="timing-reason"]')
     .fill('Synthetic supported owner statement');
@@ -162,6 +165,66 @@ async function statement(page: Page) {
   return panel;
 }
 export function registerSponsorshipTimingTests(context: Context): void {
+  for (const [locale, width] of [
+    ['fr-CA', 1280],
+    ['en', 390]
+  ] as const) {
+    test(`sponsorship timing known interruption requires a fresh owner observation in ${locale} at ${width}px`, async ({
+      page
+    }) => {
+      const state = await fixtures(page, context);
+      state.restart = true;
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(context.path('publication'));
+      if (locale === 'en')
+        await page
+          .getByRole('button', {
+            name: 'Switch administration language to English'
+          })
+          .click();
+      const panel = await statement(page);
+      await expect(
+        panel.locator('[data-og7="timing-restart-required"]')
+      ).toBeVisible();
+      await expect(
+        panel.locator('[data-og7="timing-attest-duration"]')
+      ).toHaveCount(0);
+      expect(state.commands).toHaveLength(0);
+      const observe = panel.locator('[data-og7="timing-observe"]');
+      await observe.focus();
+      await expect(observe).toBeFocused();
+      await observe.press('Enter');
+      await expect(
+        panel.locator('[data-og7="timing-restart-required"]')
+      ).toHaveCount(0);
+      await expect(panel.locator('dl')).toContainText(
+        locale === 'fr-CA' ? '12 oct. 2026' : 'Oct 12, 2026'
+      );
+      await openTimingDetails(page);
+      await expect(
+        panel.locator('[data-og7="timing-attest-duration"]')
+      ).toBeVisible();
+      expect(state.commands).toHaveLength(1);
+      expect(state.commands[0]).toMatchObject({
+        kind: 'observe',
+        confirmation: obId,
+        expectedVersion: 1
+      });
+      expect(state.commands[0].continuityConfirmed).toBeUndefined();
+      await expect(panel).not.toContainText(
+        'admin.timing.states.restart_required'
+      );
+      const issues = await new AxeBuilder({ page })
+        .include('[data-og7="sponsorship-timing"]')
+        .analyze();
+      expect(issues.violations).toEqual([]);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+    });
+  }
   for (const [locale, width] of [
     ['fr-CA', 1280],
     ['en', 390]
@@ -192,7 +255,10 @@ export function registerSponsorshipTimingTests(context: Context): void {
       });
       const origin = panel.locator('[data-og7="timing-origin"]');
       await expect(origin).toHaveCount(0);
-      await statement(page);
+      await expect(panel.locator('dl')).toContainText(
+        locale === 'fr-CA' ? '8 janv. 2026' : 'Jan 8, 2026'
+      );
+      await openTimingDetails(page);
       await panel
         .locator('[data-og7="timing-reason"]')
         .fill('Synthetic verified continuity statement');
