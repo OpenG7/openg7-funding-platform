@@ -459,11 +459,22 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
         .getByLabel('Description des images à téléverser')
         .fill('Présentation synthétique du dossier.');
       await confirmAcceptanceMediaUsage(company);
-      await company.getByLabel('Ajouter des photos').setInputFiles({
+      const photoUpload = company.getByLabel('Ajouter des photos');
+      // Confirmation reaches the upload component asynchronously. File selection
+      // can bypass disabled controls, so wait for the actual upload readiness.
+      await expect(photoUpload).toBeEnabled();
+      const uploaded = company.waitForResponse(
+        (response) =>
+          response.url().endsWith('/api/sponsorship-followup/media') &&
+          response.request().method() === 'POST'
+      );
+      await photoUpload.setInputFiles({
         name: 'presentation.png',
         mimeType: 'image/png',
         buffer
       });
+      const uploadResponse = await uploaded;
+      expect(uploadResponse.ok(), await uploadResponse.text()).toBe(true);
       await expect(
         company.locator('[data-og7="media-upload-attempt"]')
       ).toHaveCount(0, { timeout: 15000 });

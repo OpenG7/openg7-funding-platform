@@ -291,6 +291,20 @@ Les reçus locaux sont conservés dans `test-results/ci-*.log`, ignorés par Git
 Ces contrôles ciblent les échecs observés ; la recette Docker complète et les
 autres suites restent à confirmer sur le nouveau commit par la CI distante.
 
+L'exécution distante sur `250aa14` confirme **6 179 tests Node** (cinq omissions),
+**580 intégrations** et **646 parcours administratifs** réussis. Les quatre suites
+UI complémentaires passent aussi localement : suivi privé 69, annuaire 40,
+offres figées 21 et droits média 28, soit **158 tests sans reprise**.
+Docker passe 256 scénarios sur 257 : les deux échecs initiaux sont corrigés ; la
+trace du seul nouvel échec montre une sélection de fichier sur un champ encore
+désactivé, sans aucun POST de téléversement. Le test attend désormais l'activation
+du champ et vérifie la réponse API avant de contrôler les médias persistés.
+Trois exécutions corrigées sur trois piles Docker neuves passent sans échec,
+omission ou reprise ; leurs conteneurs et réseaux sont nettoyés. Les gardes et
+délais existants sont conservés. TypeScript sans émission, ESLint et format
+ciblés, contrôles documentaires et `git diff --check` passent également.
+Les journaux sont `test-results/ci-information-docker-fixed-{1,2,3}.log`.
+
 - P0 : conformité de la reconnaissance, conservation des engagements et reprise
   des résultats incertains. P1 : file, réservations, dates et suivi fiable.
   P2 : personnalisation et nouveaux formats. La priorité ne remplace pas une dépendance.
