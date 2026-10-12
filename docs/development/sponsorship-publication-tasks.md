@@ -420,6 +420,21 @@ Les journaux sont `ci-integrated-node22.log`, `ci-integrated-account-reservation
 `ci-integrated-identity-production.log` et `ci-integrated-recovery.log` dans
 `test-results/`. Ces reçus locaux restent distincts du résultat de la CI distante.
 
+La CI sur `0caa20f` confirme **6 221 tests Node** (cinq omissions) et **609
+intégrations**, sans échec. Docker réussit 255 scénarios sur 257 ; les deux échecs
+FR/EN lisaient encore le cache Checkout `sessionStorage` v1, remplacé par les
+enregistrements partagés `localStorage` v2. Les assertions vérifient désormais
+l'empreinte, l'UUID initial et l'expiration, puis le cache inchangé après
+rechargement et changement de langue, sans nouvelle requête. Une autre assertion
+de purge contrôle maintenant la présence réelle des deux caches avant la réponse
+perdue, puis leur suppression après succès, avec l'offre et le payload d'origine.
+Les deux échecs Docker sont reproduits avant correction ; les **deux cas Docker**
+et les **deux parcours de reprise d'offre FR/EN** passent ensuite sans reprise.
+TypeScript sans émission, ESLint, format et diff passent ; la revue indépendante
+ne relève aucun problème. Aucun code applicatif n'est modifié dans ce complément.
+Les journaux sont `ci-checkout-recovery-{baseline,corrected}.log` et
+`ci-offer-storage-recovery.log` dans `test-results/`.
+
 - P0 : conformité de la reconnaissance, conservation des engagements et reprise
   des résultats incertains. P1 : file, réservations, dates et suivi fiable.
   P2 : personnalisation et nouveaux formats. La priorité ne remplace pas une dépendance.

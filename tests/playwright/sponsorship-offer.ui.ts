@@ -937,6 +937,10 @@ export function registerSponsorshipOfferTests(
         let quotes = 0;
         let version = 1;
         const requests: Record<string, unknown>[] = [];
+        const beforeFailure: {
+          attempts: string | null;
+          offer: string | null;
+        }[] = [];
         await page.route('**/api/sponsorship-offer?**', (route) => {
           quotes++;
           return route.fulfill({
@@ -948,20 +952,27 @@ export function registerSponsorshipOfferTests(
             )
           });
         });
-        await page.route('**/api/checkout-sessions', (route) => {
+        await page.route('**/api/checkout-sessions', async (route) => {
           requests.push(route.request().postDataJSON());
-          return requests.length === 1
-            ? route.fulfill({
-                status: 503,
-                json: { code: 'SYNTHETIC_LOST_RESPONSE' }
-              })
-            : route.fulfill({
-                json: {
-                  status: 'mocked',
-                  checkoutId: 'synthetic-exact-retry',
-                  redirectUrl: 'https://example.test/unused'
-                }
-              });
+          if (requests.length === 1) {
+            beforeFailure.push(
+              await page.evaluate(() => ({
+                attempts: localStorage.getItem('openg7.checkout-attempts.v2'),
+                offer: localStorage.getItem('openg7.checkout-offer-recovery.v1')
+              }))
+            );
+            return route.fulfill({
+              status: 503,
+              json: { code: 'SYNTHETIC_LOST_RESPONSE' }
+            });
+          }
+          return route.fulfill({
+            json: {
+              status: 'mocked',
+              checkoutId: 'synthetic-exact-retry',
+              redirectUrl: 'https://example.test/unused'
+            }
+          });
         });
         const { form, offer, acceptance, submit } = await open(page);
         await form.locator('#custom-contribution').fill('250');
@@ -971,6 +982,17 @@ export function registerSponsorshipOfferTests(
         await submit.click();
         await expect(form.getByRole('alert')).toBeVisible();
         expect(requests).toHaveLength(1);
+        expect(beforeFailure).toHaveLength(1);
+        const retained = beforeFailure[0]!;
+        for (const serialized of [retained.attempts, retained.offer]) {
+          expect(serialized).not.toBeNull();
+          expect(Object.values(JSON.parse(serialized!))).toEqual([
+            expect.objectContaining({
+              idempotencyKey: requests[0].idempotencyKey,
+              expiresAt: expect.any(Number)
+            })
+          ]);
+        }
         const quoteCount = quotes;
         version = 2;
         await page.reload();
@@ -1007,10 +1029,11 @@ export function registerSponsorshipOfferTests(
             .filter({ hasText: english ? /Local mode/ : /Mode local/ })
         ).toBeVisible();
         expect(
-          await page.evaluate(() =>
-            sessionStorage.getItem('openg7.checkout-offer-recovery.v1')
-          )
-        ).toBeNull();
+          await page.evaluate(() => ({
+            attempts: localStorage.getItem('openg7.checkout-attempts.v2'),
+            offer: localStorage.getItem('openg7.checkout-offer-recovery.v1')
+          }))
+        ).toEqual({ attempts: null, offer: null });
       }
     );
 
