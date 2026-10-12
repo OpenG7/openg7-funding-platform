@@ -34,12 +34,44 @@ réconciliation qualifiée. La contrainte interdit qu'une même publication dist
 solde deux passages du même dossier, canal et destination. Chaque ordinal est
 soldé séparément, dans la même transaction que sa preuve et son audit.
 
-Le site OpenG7 utilise `website_verified` uniquement après une transition de
-visibilité explicitement autorisée, avec consentement, paiement admissible,
-présentation approuvée et N0 actuelle. Une approbation de dossier seule ne
-constitue pas cette transition. Une obligation pour le site OpenG20 ne peut pas
+Le site OpenG7 utilise `website_verified` après une transition de visibilité
+explicitement autorisée pour une prestation sans durée fixe, ou après
+l'attestation humaine distincte d'une durée promise. Dans les deux cas, le
+consentement, le paiement admissible, la présentation approuvée et la N0 actuelle
+sont revalidés. Une approbation de dossier seule ne constitue pas une preuve.
+Une obligation pour le site OpenG20 ne peut pas
 être soldée par la visibilité du site OpenG7. Rejouer une décision inchangée ne
 solde pas un second passage.
+
+Les éléments exigés par l'accord sont vérifiés dans la sélection exacte attestée.
+Un logo approuvé pour Facebook seul, absent de l'annuaire, ne satisfait pas
+`approved_logo`. L'absence d'un élément requis renvoie `REQUIRED_ELEMENTS_MISSING`
+(409) et annule atomiquement la transition, l'audit et le solde. Le logo reste
+facultatif dans les offres qui ne l'exigent pas.
+
+Une durée fixe est qualifiable uniquement pour le site OpenG7. L'affichage initial
+enregistre une observation datée avec les sources exactes, sans solder la durée.
+Après le minimum écoulé, le propriétaire doit confirmer une continuité documentée
+avec raison, justificatif privé, version et confirmation de l'obligation. L'API
+revalide alors les fichiers, sources et autorisations exacts. Un masquage, une
+modification ou des périodes qui se chevauchent imposent un nouveau point de
+départ. La seconde observation, l'attestation humaine immuable, la preuve, le
+solde, l'audit et la notification sont atomiques et idempotents.
+Une horloge ou deux observations seules ne constituent jamais une preuve de
+continuité; aucun contrôle continu de disponibilité n'est livré. Les autres
+destinations gardent `duration_unsupported`. Voir les
+[échéances et durées](sponsorship-obligation-timing.md).
+
+Les preuves historiques déjà créées restent immuables. L'
+[audit historique](sponsorship-historical-audit.md) compare leurs faits enregistrés
+aux termes de l'accord et permet un examen propriétaire séparé; une conclusion
+n'efface ni une lacune détectée ni l'ancien solde commercial.
+
+La visibilité et le solde commercial gardent leurs propres gardes. Un remboursement
+partiel confirmé n'empêche pas la transition d'un dossier qui reste admissible à
+l'annuaire, y compris sans accord qualifié. Les obligations bloquées par ce
+remboursement ne reçoivent ni preuve de réalisation ni notification de solde.
+Un remboursement demandé, en cours ou total continue de bloquer la transition.
 
 Avant cette transition, l'API lit les fichiers privés réellement sélectionnés
 pour l'annuaire, hors transaction PostgreSQL. Elle vérifie leur présence,
@@ -74,6 +106,11 @@ de suppression certaine. Une observation ne déclenche ni remboursement, ni
 renvoi, ni nouvelle autorisation. Voir
 [le runbook de publication](../operations/publication-automation.md).
 
+Le panneau de [fiabilité](publication-reliability.md) conserve les compteurs
+globaux et propose une lecture paginée au-delà des 50 corrélations de l'extrait.
+Les liens ouvrent le dossier ou l'objet concerné avec l'action attendue; ils ne
+réconcilient aucun résultat et n'autorisent aucune reprise automatiquement.
+
 ## Projections privées et notifications
 
 Le suivi authentifié et la progression administrative exposent seulement les
@@ -105,6 +142,10 @@ observations de visibilité.
 Les suites propriétaires sont
 [solde exact et rôle API](../../tests/integration/sponsorship-fulfilment.integration.mjs),
 [fichiers et versions de l'annuaire](../../tests/integration/sponsorship-website-storage.integration.mjs),
+[éléments requis affichés](../../tests/integration/sponsorship-website-required-elements.integration.mjs),
+[durées et remboursements partiels](../../tests/integration/sponsorship-website-terms.integration.mjs),
+[calendrier, attestations et migration existante](../../tests/integration/sponsorship-obligation-timing.integration.mjs),
+[examens des preuves historiques](../../tests/integration/sponsorship-historical-audit.integration.mjs),
 [réconciliation et visibilité](../../tests/integration/publication-reconciliation-visibility.integration.mjs)
 et les tests de notifications des engagements. Elles utilisent des dossiers
 synthétiques et PostgreSQL jetable. Le

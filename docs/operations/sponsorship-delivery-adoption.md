@@ -18,18 +18,20 @@ Les migrations appliquées ne sont ni modifiées ni rejouées.
 L'inventaire ci-dessous couvre les ajouts relus; vérifier le répertoire des
 migrations et la réception datée pour tout ajout ultérieur du chantier.
 
-| Ajout                                                                                 | Rôle dans l'adoption                                                                                                                                                                               |
-| ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [041](../../apps/funding-api/migrations/041_sponsorship_commitments.sql)              | Offres capturées, provenance, obligations et changements immuables; anciens accords inconnus conservés à qualifier.                                                                                |
-| [042](../../apps/funding-api/migrations/042_publication_account_reservations.sql)     | Bail et réservations du compte effectif, séparation mock/live et quarantaine.                                                                                                                      |
-| [043](../../apps/funding-api/migrations/043_sponsorship_fulfilment_evidence.sql)      | Passage exact réservé, preuve qualifiée et observations de visibilité distinctes.                                                                                                                  |
-| [044](../../apps/funding-api/migrations/044_sponsor_media_usage.sql)                  | Usages/préférences et preuves d'utilisation des médias.                                                                                                                                            |
-| [045](../../apps/funding-api/migrations/045_sponsorship_publication_formats.sql)      | Format social enregistré; absence historique conservée.                                                                                                                                            |
-| [046](../../apps/funding-api/migrations/046_obligation_reservation_release.sql)       | Libération par UPDATE, sans élargir les droits DELETE du rôle API.                                                                                                                                 |
-| [047](../../apps/funding-api/migrations/047_publication_visual_sources.sql)           | Formats visuels et sélection versionnée de leurs sources.                                                                                                                                          |
-| [048](../../apps/funding-api/migrations/048_qualified_derived_media_snapshot.sql)     | Snapshot qualifié d'un dérivé unique, sans détourner le couplage d'un média source.                                                                                                                |
-| [049](../../apps/funding-api/migrations/049_publication_draft_passages.sql)           | Préparation locale du passage suivant sans écraser un brouillon/lot publié; nouveau rattachement inclus dans la revue éditoriale. Réception d'intégration en cours au moment de préparer ce guide. |
-| [050](../../apps/funding-api/migrations/050_private_visual_moderation_projection.sql) | Projection actuelle des faits visuels sans clés d'objets privées; anciens snapshots immuables, nouvelle revue si leur empreinte est devenue obsolète.                                              |
+| Ajout                                                                                    | Rôle dans l'adoption                                                                                                                                                           |
+| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [041](../../apps/funding-api/migrations/041_sponsorship_commitments.sql)                 | Offres capturées, provenance, obligations et changements immuables; anciens accords inconnus conservés à qualifier.                                                            |
+| [042](../../apps/funding-api/migrations/042_publication_account_reservations.sql)        | Bail et réservations du compte effectif, séparation mock/live et quarantaine.                                                                                                  |
+| [043](../../apps/funding-api/migrations/043_sponsorship_fulfilment_evidence.sql)         | Passage exact réservé, preuve qualifiée et observations de visibilité distinctes.                                                                                              |
+| [044](../../apps/funding-api/migrations/044_sponsor_media_usage.sql)                     | Usages/préférences et preuves d'utilisation des médias.                                                                                                                        |
+| [045](../../apps/funding-api/migrations/045_sponsorship_publication_formats.sql)         | Format social enregistré; absence historique conservée.                                                                                                                        |
+| [046](../../apps/funding-api/migrations/046_obligation_reservation_release.sql)          | Libération par UPDATE, sans élargir les droits DELETE du rôle API.                                                                                                             |
+| [047](../../apps/funding-api/migrations/047_publication_visual_sources.sql)              | Formats visuels et sélection versionnée de leurs sources.                                                                                                                      |
+| [048](../../apps/funding-api/migrations/048_qualified_derived_media_snapshot.sql)        | Snapshot qualifié d'un dérivé unique, sans détourner le couplage d'un média source.                                                                                            |
+| [049](../../apps/funding-api/migrations/049_publication_draft_passages.sql)              | Préparation locale du passage suivant sans écraser un brouillon/lot publié; nouveau rattachement inclus dans la revue éditoriale.                                              |
+| [050](../../apps/funding-api/migrations/050_private_visual_moderation_projection.sql)    | Projection actuelle des faits visuels sans clés d'objets privées; anciens snapshots immuables, nouvelle revue si leur empreinte est devenue obsolète.                          |
+| [051](../../apps/funding-api/migrations/051_sponsorship_obligation_timing.sql)           | Termes temporels par obligation, origine documentaire explicite, observations du site OpenG7 et attestations humaines de durée; aucune date historique ou continuité inventée. |
+| [052](../../apps/funding-api/migrations/052_sponsorship_historical_evidence_reviews.sql) | Examens historiques immuables, versionnés et audités; aucune modification des preuves ni du solde commercial existant.                                                         |
 
 Déployer des versions compatibles des contrats, API et Web seulement après la
 réception correspondante. Les migrations de modération 034–040 restent des
@@ -68,7 +70,17 @@ de barème. Voir [Checkout](../technical/checkout.md).
 Pour qualifier, l'owner saisit les termes établis par l'accord : canal,
 destination, quantité, éléments requis et délai/durée seulement s'ils sont connus.
 Les lignes partent vides; un délai/durée vide signifie `null`, pas une promesse
-par défaut. Montant en unités mineures et devise viennent du fait confirmé et
+par défaut. Une durée fixe est prise en charge seulement pour le site OpenG7;
+les réseaux sociaux et OpenG20 sont refusés à la qualification pour ce terme.
+Le délai enregistré reste sans échéance tant que le propriétaire n'a pas
+établi son origine UTC avec une référence documentaire, une raison, la version
+du calendrier et une confirmation. Ni le paiement ni la date de qualification
+ne prouvent cette origine. Chaque passage reçoit son origine contractuelle
+documentée + délai, sans délai supplémentaire automatique par ordinal. Pour
+un accord à origine commune, reporter la même origine démontrée dans chaque
+obligation. Voir les
+[échéances et durées](../technical/sponsorship-obligation-timing.md).
+Montant en unités mineures et devise viennent du fait confirmé et
 restent non modifiables. Le serveur exige version, UUID de confirmation, raison
 et référence de preuve. Une devise non prise en charge reste à traiter explicitement,
 sans lui appliquer les avantages CAD. Les [contrats d'engagements](../technical/sponsorship-commitments.md)
@@ -87,6 +99,35 @@ un nouvel ordre jusqu'à sa reprise exacte. Elle ne stocke pas ce brouillon priv
 dans le navigateur. Après fermeture/rechargement, relire l'état serveur et
 l'historique avant toute nouvelle décision. Aucun rejeu aveugle du fournisseur
 ou du courriel n'appartient à l'adoption.
+
+## Examen des preuves historiques et durées
+
+Depuis le panneau d'administration des commanditaires, l'owner peut inventorier
+les preuves historiques, leurs exigences enregistrées et les éléments observables
+dans leurs snapshots immuables. Les filtres distinguent durée non vérifiée,
+élément requis manquant, snapshot incomplet et absence d'écart détecté. Les
+compteurs portent sur tout l'inventaire à la borne datée `asOf`, indépendamment
+des pages de 25, 50 ou 100 et du dossier sélectionné. La pagination conserve cette
+borne et ses filtres; elle ne fige pas les examens ajoutés entre deux lectures.
+Le [contrat d'examen historique](../technical/sponsorship-historical-audit.md)
+précise les accès, résultats et limites des constats.
+
+Un écart technique est un signal d'examen, pas une conclusion juridique ni une
+nouvelle preuve. L'owner peut enregistrer « confirmé », « suivi nécessaire » ou
+« indéterminé », avec raison privée, version d'examen, UUID et confirmation de
+la preuve exacte. Ce reçu ne supprime ni preuve, ni attestation, ni offre; il ne
+réouvre ni ne solde une obligation et n'envoie aucun courriel. Une correction
+commerciale ou financière éventuelle exige sa propre décision et ses garde-fous.
+
+Pour une durée du site OpenG7 encore ouverte, afficher la fiche exige les droits,
+la N0 et les fichiers physiques courants. L'affichage enregistre une observation
+privée datée et laisse le solde ouvert. Après la durée minimale, l'owner examine
+des pièces privées de continuité, sélectionne l'observation de départ et confirme
+explicitement la continuité avec raison et référence de preuve. L'API revalide
+les sources, droits, médias et durée avant l'attestation, le solde et la mise en
+file de leur notification atomiques. Un masquage, un changement de contenu ou
+de droits invalide le départ précédent; l'observation historique reste conservée.
+Deux observations ne démontrent pas à elles seules une disponibilité continue.
 
 ## Médias, visibilité et passages suivants
 
@@ -138,6 +179,15 @@ incertitudes et écarts preuve/réservations/baux. Les corrélations affichées 
 bornées à 50 codes avec UUID internes; `incidentTotal` porte sur tous les écarts,
 jamais sur cet extrait. Le panneau Fiabilité FR/EN garde cette portée explicite.
 Ces lectures ne produisent ni audit, notification, adoption ou correction.
+
+Le panneau permet également de parcourir les incidents par code et type, par
+pages de 50, et d'ouvrir les dossiers, livraisons, lots ou créneaux existants.
+Chaque incident explique l'action attendue; un lien n'exécute aucune réparation,
+reprise ou approbation. L'échéance dépassée et l'origine encore inconnue sont
+signalées séparément. Le curseur conserve filtres et empreinte de l'ensemble
+des incidents; si cet ensemble change, `RELIABILITY_SNAPSHOT_CHANGED` impose
+un rafraîchissement explicite. Voir la
+[référence de fiabilité](../technical/publication-reliability.md).
 
 Le détecteur complet alimente les épisodes d'alerte opérationnels existants,
 sans limiter leur nombre aux corrélations visibles : répétition d'un même
@@ -240,9 +290,11 @@ inventaire; les petites réceptions locales ne prouvent pas le coût d'un arrié
 de production. Les alertes/audits existants donnent corrélation, répétitions,
 conflits et âge; conserver les causes sûres sans publier les notes internes.
 Le contrôle des conflits examine les réservations actives d'un même compte :
-son coût peut croître avec le nombre de paires. Les tests de réception couvrent
-une grande file et les écarts, pas un budget de latence pour tout volume de
-production; mesurer aussi ce plan sur le périmètre représentatif.
+son coût peut croître avec le nombre de paires. Le
+[profil de performance sur un arriéré synthétique](../development/publication-performance.md)
+mesure les vraies lectures et préparations, leurs transactions et plans PostgreSQL.
+Les latences locales ne constituent pas un budget de production; répéter les
+mesures sur le volume, la répartition des comptes et le matériel représentatifs.
 Avant toute activation SMTP, examiner aussi la file héritée de refus selon le
 runbook de modération : un ancien payload peut contenir une note interne.
 L'inventaire n'en lit pas le corps et ne purge ni ne réécrit automatiquement la file.

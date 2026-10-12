@@ -172,11 +172,98 @@ Les avertissements déjà signalés ci-dessus sont inchangés. La recette Docker
 257 scénarios ci-dessus appartient à la réception avant extraction ; les nouvelles
 validations sont celles décrites ici.
 
-Les cinq P2 de la revue restent ouverts : solde avant la fin d'une durée promise,
+À la réception de cette défragmentation, les cinq P2 de la revue restaient ouverts : solde avant la fin d'une durée promise,
 logo promis absent de la preuve Web, anciens brouillons après ajustement,
 commande de retrait des droits bloquée après conflit et visibilité refusée après
 remboursement partiel. Cette défragmentation préserve ces comportements ; elle
 ne constitue pas leur correctif.
+
+Réception locale des cinq P2 autorisés le 12 octobre 2026 :
+durées non vérifiables explicitement refusées à la qualification et jamais soldées
+au premier affichage ; logo promis vérifié dans la sélection Web attestée ;
+brouillons obsolètes retirés logiquement avec leurs amendements et leurs audits ;
+conflits certains des commandes média distingués des résultats incertains ;
+visibilité admissible après remboursement partiel séparée du solde commercial.
+Les essais portent sur les erreurs, le rejeu, la concurrence et la conservation
+des historiques et des réservations incertaines. La durée continue d'exposition
+reste indisponible ; aucun accord ou preuve historique n'est réécrit.
+
+Validation du correctif : 6 121 tests Node réussis (zéro échec, huit omissions),
+85 tests PostgreSQL jetables et 30 parcours navigateur FR/EN sur desktop/mobile
+réussis, sans omission ni reprise. TypeScript sans émission, lint, format et
+contrôles documentaires passent. La garde des lots incertains utilise un ensemble
+SQL non corrélé ; le scénario de 400 dossiers passe d'environ 122 à 15 secondes
+dans les essais avant/après optimisation. Le build Angular produit 25 routes SSR
+avec l'avertissement de taille initiale à 835,70 kB pour un seuil de 800 kB ;
+l'avertissement de lint préexistant est conservé. La recette Docker de 257
+scénarios reste la réception historique mentionnée avant extraction.
+
+<a id="sponsorship-followup-improvements"></a>
+
+### Réception complémentaire — cinq améliorations autorisées
+
+Le chantier du 12 octobre 2026 traite cinq suggestions distinctes avec quatre
+agents : audit des preuves historiques, délais et durées, incidents exploitables,
+performance sur grande file et mise à jour du guide d'adoption. Sa réception ne
+clôture pas les 44 fiches ou les qualifications fournisseur encore ouvertes.
+
+L'[audit historique](../technical/sponsorship-historical-audit.md) détecte les
+durées sans attestation et les éléments absents ou non vérifiables dans les
+snapshots conservés. Les conclusions humaines sont versionnées et append-only;
+elles ne remplacent aucune preuve, obligation, décision de visibilité ou écriture
+financière. L'inventaire est paginé, avec totaux globaux et examen individuel.
+
+Le [suivi temporel](../technical/sponsorship-obligation-timing.md) conserve les
+termes convenus. L'origine d'une échéance reste inconnue jusqu'à sa déclaration
+justifiée par le propriétaire. Pour Website/OpenG7, une observation exacte, la
+durée minimale écoulée, une confirmation humaine de continuité et sa référence
+de preuve sont nécessaires au solde. Les interruptions connues, changements de
+source et chevauchements entre passages empêchent le solde. Les autres canaux
+et le site OpenG20 restent indisponibles pour une durée promise. Aucun monitoring
+continu de la présence publique n'est livré par cette attestation.
+
+Les [incidents](../technical/publication-reliability.md) ont des raisons, étapes
+d'examen et liens vers les objets concernés. Les pages de 50, filtres et curseurs
+conservent les totaux complets; un jeu modifié exige une nouvelle lecture.
+Les retards documentés et origines manquantes rejoignent le détecteur existant,
+sans activation d'alerte externe. La [recette de performance](publication-performance.md)
+mesure 3 000 dossiers sur PostgreSQL jetable et conserve un rapport numérique
+ignoré par Git. Le [guide d'adoption](../operations/sponsorship-delivery-adoption.md)
+reflète ces contrats et les migrations additives 051–052.
+
+Réception locale : **100 / 100 % des cinq améliorations autorisées**, avec revue
+croisée puis intégration finale. La revue a corrigé les reprises de reçus anciens,
+les métadonnées historiques malformées, les reçus temporels incomplets et le
+retour à la première page avec un jeu d'incidents modifié. Les parcours navigateur
+ont aussi révélé et permis de corriger les accents, dates, contraste et débordements.
+
+La suite Node complète passe **6 174 tests**, avec huit omissions et aucun échec.
+Après les dernières corrections Web, **89 tests ciblés** passent, sans omission.
+La réception PostgreSQL couvre **92 tests fonctionnels** et **un benchmark**.
+Un premier passage du test de claims concurrents supposait le premier dossier
+forcément choisi; la reprise et la revue ont confirmé que `SKIP LOCKED` permet
+l'autre dossier du même compte. La recette vérifie désormais un seul claim par
+compte, le dossier restant intact et le cooldown, sans supposer une FIFO globale.
+Les autres intégrations du groupe sont conservées; les recettes concernées sont
+rejouées séparément après correction. Aucune migration appliquée n'est modifiée.
+
+**21 parcours navigateur** passent sans reprise : 17 administratifs et quatre de
+suivi privé, en FR/EN, desktop/mobile, avec clavier, accessibilité et accès privés.
+TypeScript sans émission, lint, format, standards/liens et `git diff --check`
+passent. Le build Angular produit 25 routes SSR; son avertissement de budget
+initial reste à **856,60 kB pour 800 kB**. L'avertissement de lint préexistant dans
+`smoke-public.mjs` demeure. La mesure sur 3 000 dossiers conserve 6 020 incidents;
+les agrégats passent d'environ 1,87 à 0,48 s et l'état complet de 25,88 à 11,79 s.
+Ce dernier reste lent et la recette synthétique ne qualifie pas la production.
+
+Les reçus ignorés par Git sont `suggestions-node-full-final.log`,
+`suggestions-node-corrected.log`, `suggestions-pg-final.log`,
+`suggestions-account-pg-receipt.log`, `suggestions-spacing-pg.log`,
+`suggestions-admin-ui-receipt.log`, `suggestions-followup-ui-receipt.log` et
+`publication-backlog-performance-receipt.log`; le rapport numérique est
+`publication-backlog-performance.json`. Les reçus des P2 ci-dessus appartiennent
+à leur propre révision. Cette réception reste locale, sans publication,
+activation, migration de production ou envoi externe.
 
 - P0 : conformité de la reconnaissance, conservation des engagements et reprise
   des résultats incertains. P1 : file, réservations, dates et suivi fiable.

@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { FundingSponsorshipFollowupClient } from '../dist/apps/funding-web/src/app/features/funding/services/funding-sponsorship-followup.client.js';
+import { FundingAdminSponsorshipsClient } from '../dist/apps/funding-web/src/app/features/funding/services/funding-admin-sponsorships.client.js';
+import { AdminDashboardRequestError } from '../dist/apps/funding-web/src/app/features/funding/services/funding-admin-session.js';
+import { SponsorshipFollowupError } from '../dist/apps/funding-web/src/app/features/funding/models/sponsorship-followup-ui.js';
 const base = 'https://funding.example.test/api';
 const usage = {
   state: 'confirmed',
@@ -75,4 +78,67 @@ test('multipart uploads preserve explicit usage facts separately from editorial 
   assert.equal(posted.get('altText'), 'Exact public description');
   assert.equal(posted.has('moderationDecision'), false);
   assert.equal(result.asset.reviewStatus, 'pending_review');
+});
+test('media mutations preserve explicit error status and code without automatically replaying a refused or uncertain command', async (t) => {
+  for (const [status, code] of [
+    [409, 'VERSION_CONFLICT'],
+    [409, 'IDEMPOTENCY_CONFLICT'],
+    [409, 'RECEIPT_UNCERTAIN'],
+    [400, 'INVALID_MEDIA_USAGE_REQUEST'],
+    [503, 'MEDIA_USAGE_UNAVAILABLE']
+  ]) {
+    let adminCalls = 0,
+      privateCalls = 0;
+    const admin = new FundingAdminSponsorshipsClient({
+      requestAdminJson: async () => {
+        adminCalls++;
+        return Response.json({ code, error: 'Synthetic refusal' }, { status });
+      }
+    });
+    t.mock.method(globalThis, 'fetch', async () => {
+      privateCalls++;
+      return Response.json({ code }, { status });
+    });
+    for (const invoke of [
+      () => admin.updateSponsorMediaUsage({}),
+      () => admin.decideSponsorMediaPreference({})
+    ])
+      await assert.rejects(
+        invoke,
+        (error) =>
+          error instanceof AdminDashboardRequestError &&
+          error.status === status &&
+          error.code === code &&
+          error.message === 'Synthetic refusal'
+      );
+    const client = new FundingSponsorshipFollowupClient(base);
+    for (const invoke of [
+      () => client.updateSponsorshipMediaUsage({}),
+      () => client.requestSponsorshipMediaPreference({})
+    ])
+      await assert.rejects(
+        invoke,
+        (error) =>
+          error instanceof SponsorshipFollowupError &&
+          error.status === status &&
+          error.code === code
+      );
+    assert.equal(adminCalls, 2);
+    assert.equal(privateCalls, 2);
+    t.mock.restoreAll();
+  }
+});
+test('unreadable admin media error bodies retain their status and fallback without fabricating a definite refusal', async () => {
+  const admin = new FundingAdminSponsorshipsClient({
+    requestAdminJson: async () =>
+      new Response('Synthetic invalid JSON', { status: 409 })
+  });
+  await assert.rejects(
+    admin.updateSponsorMediaUsage({}),
+    (error) =>
+      error instanceof AdminDashboardRequestError &&
+      error.status === 409 &&
+      error.code === undefined &&
+      error.message === 'MEDIA_USAGE_UNAVAILABLE'
+  );
 });

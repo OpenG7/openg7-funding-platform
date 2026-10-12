@@ -1,0 +1,43 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+section {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  border-color: var(--admin-border);
+  color: var(--admin-text);
+}
+.audit-filter {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+  max-width: 100%;
+}
+select {
+  width: 100%;
+  min-width: 0;
+}
+li {
+  border-color: var(--admin-border);
+}
+select,
+textarea {
+  background: var(--admin-panel-raised);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.5rem;
+  color: var(--admin-text);
+  display: block;
+  font: inherit;
+  margin-block-start: 0.5rem;
+  max-width: 100%;
+  min-height: 2.75rem;
+  padding: 0.5rem;
+}
+textarea:focus-visible {
+  outline: 3px solid var(--admin-focus, #9edaff);
+  outline-offset: 4px;
+}
+[role='alert'] {
+  color: var(--admin-danger, #ffb7b7);
+}

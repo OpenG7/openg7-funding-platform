@@ -7,6 +7,7 @@ import { adminRoleAllows } from '../dist/apps/funding-api/src/admin-identity.js'
 import { readBody } from '../dist/apps/funding-api/src/http-transport.js';
 import { PublicationAutomationError } from '../dist/apps/funding-api/src/publication-automation/policy.js';
 import { PublicationAutomationService } from '../dist/apps/funding-api/src/publication-automation/service.js';
+import { validateReliabilityIncidentFilter } from '../dist/apps/funding-api/src/publication-reliability.repository.js';
 
 const origin = 'https://funding.example.test';
 const actor = 'synthetic-automation-owner';
@@ -67,6 +68,12 @@ const fixture = ({
       : {
           state: port('state', { deliveries: [] }),
           mediaOptions: port('mediaOptions', { media: [] }),
+          reliabilityIncidents: port('reliabilityIncidents', {
+            scope: 'global',
+            globalTotal: 72,
+            filteredTotal: 3,
+            incidents: []
+          }),
           command: port('command', { id })
         },
     PublicationAutomationError
@@ -104,7 +111,7 @@ test('automation aliases reject absent, forbidden and unavailable access before 
       '/admin/publication-automation',
       '/api/admin/publication-automation'
     ]) {
-      for (const suffix of ['', '/media']) {
+      for (const suffix of ['', '/media', '/incidents']) {
         for (const method of ['GET', 'POST']) {
           await t.test(`${denied} ${method} ${prefix}${suffix}`, async () => {
             const f = fixture({ denied });
@@ -135,7 +142,7 @@ test('automation retains role and origin decisions from the injected admin guard
       403
     );
     assert.deepEqual(f.names(), ['access', 'json']);
-    for (const suffix of ['', '/media']) {
+    for (const suffix of ['', '/media', '/incidents']) {
       assert.equal(
         (await fixture({ role }).run('/admin/publication-automation' + suffix))
           .status,
@@ -155,6 +162,66 @@ test('automation retains role and origin decisions from the injected admin guard
     403
   );
   assert.deepEqual(f.names(), ['access', 'json']);
+});
+
+test('reliability incident aliases are read-only and pass exact filters after permissions', async () => {
+  for (const prefix of [
+    '/admin/publication-automation/incidents',
+    '/api/admin/publication-automation/incidents'
+  ]) {
+    const f = fixture({ role: 'reader' });
+    const result = await f.run(
+      prefix +
+        '?code=ACCOUNT_RESULT_UNCERTAIN&subjectType=delivery&cursor=synthetic_cursor'
+    );
+    assert.equal(result.status, 200);
+    assert.deepEqual(f.values('reliabilityIncidents'), [
+      [
+        {
+          code: 'ACCOUNT_RESULT_UNCERTAIN',
+          subjectType: 'delivery',
+          cursor: 'synthetic_cursor'
+        }
+      ]
+    ]);
+    assert.deepEqual(f.names(), ['access', 'reliabilityIncidents', 'json']);
+    const owner = fixture();
+    assert.equal(
+      (await owner.run(prefix, { method: 'POST', input: command })).status,
+      405
+    );
+    assert.deepEqual(owner.names(), ['access', 'json']);
+    const unavailable = fixture({ unavailable: true });
+    assert.deepEqual((await unavailable.run(prefix)).payload, {
+      code: 'RELIABILITY_UNAVAILABLE'
+    });
+    assert.deepEqual(unavailable.names(), ['access', 'json']);
+    const invalid = fixture({
+      overrides: {
+        reliabilityIncidents: async (filter) =>
+          validateReliabilityIncidentFilter(filter)
+      }
+    });
+    assert.equal((await invalid.run(prefix + '?code=')).status, 400);
+    assert.equal(
+      (await invalid.run(prefix + '?subjectType=other')).status,
+      400
+    );
+    assert.equal((await invalid.run(prefix + '?cursor=not-valid')).status, 400);
+    const changed = fixture({
+      overrides: {
+        reliabilityIncidents: async () => {
+          throw new PublicationAutomationError(
+            'RELIABILITY_SNAPSHOT_CHANGED',
+            409
+          );
+        }
+      }
+    });
+    assert.deepEqual((await changed.run(prefix)).payload, {
+      code: 'RELIABILITY_SNAPSHOT_CHANGED'
+    });
+  }
 });
 
 test('automation state passes exact intersecting dossier filters and media reads use the separate service port', async () => {

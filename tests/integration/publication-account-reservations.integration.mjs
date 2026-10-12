@@ -288,15 +288,22 @@ test(
           claims.map((item) => item.feed_id.split(':')[1]).sort(),
           ['facebook', 'linkedin']
         );
-        assert.equal((await row(second)).attempts, 0);
+        const activeFacebook = claims.find((item) =>
+          item.feed_id.endsWith(':facebook')
+        );
+        assert.ok([first, second].includes(activeFacebook.id));
+        // SKIP LOCKED does not promise global FIFO while another claim holds a row.
+        // Exactly one shared-account delivery advances; the other must remain untouched.
+        const waitingFacebook = activeFacebook.id === first ? second : first;
+        assert.equal((await row(waitingFacebook)).attempts, 0);
+        assert.equal((await row(activeFacebook.id)).attempts, 1);
         assert.equal(await claimNextDelivery(context, due), null);
         await withPostgresTransaction(pool, async (db) => {
-          const active = claims.find((item) => item.id === first);
           await db.query(
             "UPDATE publication_deliveries SET status='published',version=version+1 WHERE id=$1",
-            [first]
+            [activeFacebook.id]
           );
-          await finishAccountClaim(db, active, 'published');
+          await finishAccountClaim(db, activeFacebook, 'published');
         });
         // A far-future injected recipe time cannot bypass real per-account spacing.
         assert.equal(await claimNextDelivery(context, due), null);
@@ -310,18 +317,12 @@ test(
           "UPDATE publication_account_leases SET next_dispatch_at=clock_timestamp()-INTERVAL '1 second' WHERE provider='facebook'"
         );
         const later = await claimNextDelivery(context, due);
-        assert.equal(later.id, second);
+        assert.equal(later.id, waitingFacebook);
         assert.ok(
-          later.accountClaimVersion >
-            claims.find((item) => item.id === first).accountClaimVersion
+          later.accountClaimVersion > activeFacebook.accountClaimVersion
         );
         await assert.rejects(
-          withPostgresTransaction(pool, (db) =>
-            lockClaim(
-              db,
-              claims.find((item) => item.id === first)
-            )
-          ),
+          withPostgresTransaction(pool, (db) => lockClaim(db, activeFacebook)),
           /PUBLICATION_CLAIM_LOST/
         );
       }

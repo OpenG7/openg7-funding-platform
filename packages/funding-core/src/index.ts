@@ -311,6 +311,9 @@ export type {
 } from './admin-assistant.js';
 export * from './sponsorship-offers.js';
 export * from './sponsorship-commitments.js';
+export * from './sponsorship-historical-audit.js';
+export * from './sponsorship-obligation-timing.js';
+export * from './publication-reliability.js';
 export * from './sponsorship-publication-formats.js';
 export * from './sponsor-media-usage.js';
 export type {

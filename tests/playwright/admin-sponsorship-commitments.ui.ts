@@ -185,6 +185,20 @@ export function registerSponsorshipCommitmentTests(context: Context): void {
       await panel.locator('[data-og7="commitments-duration"]').fill('30');
       await panel.locator('[data-og7="commitments-qualify"]').click();
       await expect(
+        panel.getByText(
+          locale === 'en'
+            ? 'This exposure duration cannot currently be qualified. No terms were recorded; preserve the promised duration in the agreement for review.'
+            : 'Cette durée d’exposition ne peut pas être qualifiée actuellement. Aucun terme n’est enregistré; conservez la durée promise dans l’accord à examiner.',
+          { exact: true }
+        )
+      ).toBeVisible();
+      expect(state.commands).toHaveLength(0);
+      await expect(
+        panel.locator('[data-og7="commitments-duration"]')
+      ).toHaveValue('30');
+      await panel.locator('[data-og7="commitments-duration"]').fill('');
+      await panel.locator('[data-og7="commitments-qualify"]').click();
+      await expect(
         panel.locator('[data-og7="commitments-accepted-offer"]')
       ).toBeVisible();
       expect(state.commands).toHaveLength(1);
@@ -205,7 +219,7 @@ export function registerSponsorshipCommitmentTests(context: Context): void {
             quantity: 2,
             requiredElements: ['company_name'],
             deadlineDays: 7,
-            durationDays: 30
+            durationDays: null
           }
         ]
       });
@@ -243,7 +257,12 @@ export function registerSponsorshipCommitmentTests(context: Context): void {
     const original = structuredClone(state.commands[0]);
     state.failure = false;
     await panel.locator('[data-og7="commitments-retry"]').click();
-    await expect(panel.locator('[data-og7="commitments-saved"]')).toBeVisible();
+    await expect(
+      panel.locator('[data-og7="commitments-accepted-offer"]')
+    ).toContainText('openg20');
+    await expect(panel.locator('[data-og7="commitments-retry"]')).toHaveCount(
+      0
+    );
     expect(state.commands).toHaveLength(2);
     expect(state.commands[1]).toEqual(original);
   });
@@ -254,10 +273,13 @@ export function registerSponsorshipCommitmentTests(context: Context): void {
     await page.goto(context.path('publication'));
     const panel = await fill(page);
     await panel.locator('[data-og7="commitments-qualify"]').click();
-    await expect(panel.locator('[data-og7="commitments-saved"]')).toBeVisible();
+    await expect(
+      panel.locator('[data-og7="commitments-accepted-offer"]')
+    ).toContainText('openg20');
     const original = structuredClone(
       (state.commands[0] as SponsorshipCommitmentQualificationRequest).offer
     );
+    let expectedVersion = 2;
     for (const [kind, field, value] of [
       ['destination', 'commitments-adjust-target', 'openg7'],
       ['format', 'commitments-adjust-format', 'individual_portrait'],
@@ -280,9 +302,7 @@ export function registerSponsorshipCommitmentTests(context: Context): void {
         .locator('[data-og7="commitments-adjust-confirmation"]')
         .fill(obId);
       await panel.locator('[data-og7="commitments-adjust-save"]').click();
-      await expect(
-        panel.locator('[data-og7="commitments-saved"]')
-      ).toBeVisible();
+      await expect(row).toContainText('v' + expectedVersion++);
     }
     expect(
       state.commands

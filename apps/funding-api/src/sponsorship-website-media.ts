@@ -2,7 +2,10 @@ import { createHash } from 'node:crypto';
 
 import type { Pool, PoolClient } from 'pg';
 import sharp from 'sharp';
-import type { SponsorMediaUsageRights } from '@openg7/funding-core';
+import type {
+  SponsorMediaUsageRights,
+  SponsorshipOfferedBenefit
+} from '@openg7/funding-core';
 
 import {
   normalizeSponsorMediaUsage,
@@ -162,4 +165,28 @@ export function assertWebsiteMediaAttested(
     JSON.stringify(sources) !== JSON.stringify(attestation.sources)
   )
     throw new ModerationError('MEDIA_CHANGED');
+}
+
+/** Commercial requirements are checked against the exact controlled public artifacts. */
+export function assertWebsiteRequiredElements(
+  contributionId: string,
+  requiredElements: SponsorshipOfferedBenefit['requiredElements'],
+  companyName: string,
+  displayed: readonly WebsiteMediaSource[],
+  attestation: WebsiteMediaAttestation | null
+): void {
+  assertWebsiteMediaAttested(contributionId, displayed, attestation);
+  const present = requiredElements.every((requirement) => {
+    switch (requirement) {
+      case 'company_name':
+        return companyName.trim().length > 0;
+      case 'approved_presentation':
+        return displayed.some((source) => source.kind === 'supporting_image');
+      case 'approved_logo':
+        return displayed.some((source) => source.kind === 'logo');
+      default:
+        return false;
+    }
+  });
+  if (!present) throw new ModerationError('REQUIRED_ELEMENTS_MISSING');
 }

@@ -5,6 +5,7 @@ import {
 } from '../../../../packages/funding-core/src/index.js';
 import { moderationApprovedSql } from '../moderation/policy.js';
 import { publicationDraftFormatSql } from '../fund-publication-draft-obligations.persistence.js';
+import { publicationSourceUncertainSql } from '../fund-publication-draft-retirement.persistence.js';
 
 import { audit } from './context.js';
 import { digest } from './policy.js';
@@ -66,6 +67,7 @@ export const preparationEligibilitySql = (
    AND ${contribution}.sponsor_review_status IN ('pending_review','approved')
    AND ${eligibleDestination(contribution, target, channel)}
    AND ${contribution}.sponsor_feed_status<>'hidden'
+   AND NOT ${publicationSourceUncertainSql(`${contribution}.id`, `${draft}.channel`)}
    AND (${draft}.obligation_id IS NULL OR EXISTS(SELECT 1 FROM sponsorship_obligations own_passage
      WHERE own_passage.id=${draft}.obligation_id AND own_passage.state IN ('pending','blocked')
        AND own_passage.target=${target} AND own_passage.channel=${channel}))`;

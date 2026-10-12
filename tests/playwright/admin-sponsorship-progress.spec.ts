@@ -16,6 +16,8 @@ import { registerSponsorFiltersTests } from './admin-sponsors-filters.ui.js';
 import { registerSponsorResultsTests } from './admin-sponsors-results.ui.js';
 import { registerContributionActivityOverlayTests } from './contribution-activity-overlays.ui.js';
 import { registerSponsorshipCommitmentTests } from './admin-sponsorship-commitments.ui.js';
+import { registerSponsorshipHistoricalAuditTests } from './admin-sponsorship-historical-audit.ui.js';
+import { registerSponsorshipTimingTests } from './admin-sponsorship-timing.ui.js';
 import { registerAdminMediaUsageTests } from './sponsor-media-usage.ui.js';
 
 const id = '10000000-0000-4000-8000-000000000401';
@@ -544,6 +546,8 @@ const tabs = (page: Page) => page.locator('[data-og7="dossier-tabs"]');
 registerSponsorHistoryPanelTests({ fixtures, path, tabs });
 registerAdminMediaUsageTests({ fixtures, path, asset: () => mediaAsset() });
 registerSponsorshipCommitmentTests({ fixtures, path });
+registerSponsorshipHistoricalAuditTests({ fixtures, path });
+registerSponsorshipTimingTests({ fixtures, path });
 registerSponsorFiltersTests({ fixtures, path });
 registerSponsorResultsTests({ fixtures });
 registerContributionActivityOverlayTests({

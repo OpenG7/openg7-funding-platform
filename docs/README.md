@@ -1,6 +1,6 @@
 # Documentation de la plateforme
 
-Révision de l’index : 3 octobre 2026.
+Révision de l’index : 12 octobre 2026.
 L'[état de la plateforme](platform-status.md) distingue les fonctionnalités
 livrées, leurs préconditions et les preuves d'exécution disponibles. Une fonction
 présente dans le dépôt n'est pas nécessairement activée en production.
@@ -49,6 +49,13 @@ Les [engagements durables](technical/sponsorship-commitments.md) décrivent l'of
 acceptée avant Checkout et les dossiers historiques à qualifier.
 Les [preuves de reconnaissance](technical/sponsorship-fulfilment.md) distinguent
 livraisons attestées, simulations et visibilité actuelle.
+Le [suivi des délais et durées](technical/sponsorship-obligation-timing.md)
+décrit les origines justifiées et les attestations humaines pour le site OpenG7.
+L'[audit des preuves historiques](technical/sponsorship-historical-audit.md)
+organise leur examen sans réécrire les faits conservés.
+Les [incidents de fiabilité](technical/publication-reliability.md) permettent une
+consultation filtrée et paginée avec accès au dossier concerné. La
+[mesure des grandes files](development/publication-performance.md) décrit la recette synthétique.
 Les [formats de publication](technical/publication-formats.md) indiquent les
 capacités vérifiées des adaptateurs et les formats encore indisponibles.
 

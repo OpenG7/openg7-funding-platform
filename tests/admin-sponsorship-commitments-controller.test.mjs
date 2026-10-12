@@ -176,6 +176,19 @@ test('qualification starts with no inferred terms and preserves explicit quantit
   assert.equal(f.c.pending(), null);
   assert.equal(f.c.saved(), true);
 });
+test('a promised exposure duration remains explicit and cannot be qualified without duration evidence support', async () => {
+  const f = fixture();
+  f.fill();
+  f.c.updateBenefit(0, 'durationDays', '30');
+  await f.c.qualify();
+  assert.equal(f.c.error(), 'durationUnsupported');
+  assert.equal(f.c.benefits()[0].durationDays, '30');
+  assert.equal(f.calls.length, 0);
+  assert.equal(f.state.nonces, 0);
+  assert.equal(f.c.data().state, 'needs_confirmation');
+  assert.equal(f.c.pending(), null);
+});
+
 test('owner, evidence, explicit prerequisites and UUID confirmation are checked before mutation', async () => {
   for (const change of [
     (f) => (f.state.owner = false),

@@ -2,6 +2,7 @@ import type { SponsorshipObligationAdjustmentRequest } from '@openg7/funding-cor
 import type { PoolClient } from 'pg';
 
 import { publicationFormatCapability } from '../../../../packages/funding-core/src/index.js';
+import { retireAdjustedPublicationDrafts } from '../fund-publication-draft-retirement.persistence.js';
 import {
   lockCommitmentDeliveries,
   revokeCommitmentDeliveries
@@ -142,6 +143,10 @@ export const adjustSponsorshipObligation = async (
     );
     await audit(db, actor, input.kind, contributionId, input.requestId);
     await revokeCommitmentDeliveries(db, contributionId);
+    if (
+      !(await retireAdjustedPublicationDrafts(db, o.id, actor, input.requestId))
+    )
+      throw new SponsorshipCommitmentError('COMMITMENT_AUDIT_UNAVAILABLE', 503);
     await enqueueSponsorshipObligationNotification(db, {
       event: 'terms_changed',
       eventId: input.requestId,

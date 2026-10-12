@@ -64,6 +64,9 @@ test(
       'CREATE TABLE security_unapproved_table (id integer)',
       'CREATE TEMP TABLE security_unapproved_temp (id integer)',
       "UPDATE admin_audit_log SET actor='modified'",
+      "UPDATE sponsorship_website_exposure_observations SET actor='modified'",
+      "UPDATE sponsorship_obligation_duration_attestations SET actor='modified'",
+      "UPDATE sponsorship_historical_evidence_reviews SET actor='modified'",
       'DELETE FROM admin_audit_log'
     ]) {
       await assert.rejects(runtime.query(sql), { code: '42501' });
@@ -84,6 +87,18 @@ test(
     });
     await database.pool.query(buildRuntimeRoleSql(config));
     await assertProductionDatabasePrivileges(runtime, true);
+
+    for (const table of [
+      'sponsorship_website_exposure_observations',
+      'sponsorship_obligation_duration_attestations',
+      'sponsorship_historical_evidence_reviews'
+    ]) {
+      await database.pool.query(`GRANT UPDATE ON ${table} TO ${role}`);
+      await assert.rejects(assertProductionDatabasePrivileges(runtime, true), {
+        message: 'DATABASE_RUNTIME_PRIVILEGES_UNSAFE'
+      });
+      await database.pool.query(buildRuntimeRoleSql(config));
+    }
 
     await database.pool.query(`GRANT TEMP ON DATABASE ${name} TO PUBLIC`);
     await assert.rejects(assertProductionDatabasePrivileges(runtime, true), {

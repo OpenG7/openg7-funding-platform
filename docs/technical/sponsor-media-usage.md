@@ -18,8 +18,13 @@ Le portail, l’annuaire et les courriels ne reçoivent pas cette référence pr
 la version du fichier, la confirmation et la clé de requête. Son équivalent admin
 vérifie aussi les droits et la confirmation de l’identifiant du fichier. Même clé
 et contenu : même reçu ; une autre intention avec cette clé est refusée. Une
-réponse incertaine conserve la même demande. Modifier ou retirer les droits remet
-le fichier en revue, invalide sa N0 et bloque les prochains envois concernés.
+réponse incertaine conserve la même demande, avec sa clé et son contenu exacts.
+Un refus explicite `VERSION_CONFLICT` libère cette commande refusée et recharge
+le média ou la préférence ; une nouvelle décision confirmée utilise la version
+actuelle et une nouvelle clé. Une erreur réseau, un 5xx, un conflit de reçu ou
+un 409 sans code reconnu conserve la commande à vérifier. Le suivi privé et les
+contrôles administratifs appliquent cette distinction. Modifier ou retirer les
+droits remet le fichier en revue, invalide sa N0 et bloque les prochains envois concernés.
 Le retrait ne prétend pas supprimer une publication déjà diffusée ailleurs.
 
 Une restriction libre exige une lecture humaine explicitement confirmée et auditée

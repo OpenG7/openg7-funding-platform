@@ -59,10 +59,7 @@ export class FundingAdminSponsorshipsClient {
       }
     );
     if (!response.ok)
-      throw new AdminDashboardRequestError(
-        response.status,
-        await errorMessageFromResponse(response, 'MEDIA_USAGE_UNAVAILABLE')
-      );
+      throw await this.mediaMutationError(response, 'MEDIA_USAGE_UNAVAILABLE');
     return response.json();
   }
   async decideSponsorMediaPreference(
@@ -81,11 +78,30 @@ export class FundingAdminSponsorshipsClient {
       }
     );
     if (!response.ok)
-      throw new AdminDashboardRequestError(
-        response.status,
-        await errorMessageFromResponse(response, 'MEDIA_PREFERENCE_UNAVAILABLE')
+      throw await this.mediaMutationError(
+        response,
+        'MEDIA_PREFERENCE_UNAVAILABLE'
       );
     return response.json();
+  }
+  private async mediaMutationError(
+    response: Response,
+    fallback: string
+  ): Promise<AdminDashboardRequestError> {
+    const payload = (await response.json().catch(() => null)) as {
+      code?: unknown;
+      message?: unknown;
+      error?: unknown;
+    } | null;
+    return new AdminDashboardRequestError(
+      response.status,
+      typeof payload?.message === 'string'
+        ? payload.message
+        : typeof payload?.error === 'string'
+          ? payload.error
+          : fallback,
+      typeof payload?.code === 'string' ? payload.code : undefined
+    );
   }
   constructor(private readonly session: FundingAdminSession) {}
 

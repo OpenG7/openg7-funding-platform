@@ -14,7 +14,9 @@ import { TranslatePipe } from '@ngx-translate/core';
 import type { AdminSponsorMediaUsageRequest } from '@openg7/funding-core';
 
 import type { AdminSponsorMediaAssetView } from '../../models/admin-sponsors-ui.models.js';
+import { sponsorMediaMutationRejection } from '../../models/sponsor-media-mutation-outcome.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
+import { AdminDashboardRequestError } from '../../services/funding-admin-session.js';
 
 import {
   SponsorMediaUsageEditorComponent,
@@ -138,9 +140,18 @@ export class AdminSponsorMediaUsageComponent implements OnDestroy {
       this.pending.set(null);
       this.notice.set('saved');
       this.changed.emit();
-    } catch {
-      if (!this.disposed && generation === this.generation)
-        this.notice.set('mutationUnavailable');
+    } catch (error) {
+      if (!this.disposed && generation === this.generation) {
+        const rejection =
+          error instanceof AdminDashboardRequestError
+            ? sponsorMediaMutationRejection(error.status, error.code)
+            : null;
+        if (rejection) {
+          this.pending.set(null);
+          this.notice.set(rejection);
+          this.changed.emit();
+        } else this.notice.set('mutationUnavailable');
+      }
     } finally {
       if (!this.disposed && generation === this.generation) this.setBusy(false);
     }

@@ -5,12 +5,14 @@ import type {
   SponsorshipObligationTarget
 } from './sponsorship-offers.js';
 import type { SponsorshipPublicationFormat } from './sponsorship-publication-formats.js';
+import type { SponsorshipObligationTiming } from './sponsorship-obligation-timing.js';
 
 export type SponsorshipCommitmentProvenance =
   'accepted_offer' | 'historical_unverified' | 'qualified_historical';
 export type SponsorshipObligationState =
   'pending' | 'blocked' | 'fulfilled' | 'adjusted';
 export interface SponsorshipObligation {
+  readonly timing?: SponsorshipObligationTiming | null;
   readonly format?: SponsorshipPublicationFormat | null;
   readonly id: string;
   readonly commitmentId: string;
@@ -38,6 +40,7 @@ export interface SponsorshipCommitmentRecord {
 
 /** Sponsor-facing current work; internal reasons and agreement evidence stay private. */
 export interface SponsorshipPublicObligation {
+  readonly timing?: SponsorshipObligationTiming | null;
   readonly id: string;
   readonly channel: SponsorshipObligationChannel;
   readonly target: SponsorshipObligationTarget;
@@ -64,7 +67,8 @@ const publicBlockingCodes = new Set([
   'review_pending_review',
   'review_rejected',
   'moderation_review_required',
-  'required_elements_missing'
+  'required_elements_missing',
+  'duration_unsupported'
 ]);
 export const publicSponsorshipObligations = (
   obligations: readonly (SponsorshipObligation | SponsorshipPublicObligation)[]
@@ -78,6 +82,7 @@ export const publicSponsorshipObligations = (
     format: o.format ?? null,
     version: o.version,
     fulfilmentEvidenceId: o.fulfilmentEvidenceId,
+    ...(o.timing ? { timing: o.timing } : {}),
     blockedReason:
       o.blockedReason && publicBlockingCodes.has(o.blockedReason)
         ? o.blockedReason

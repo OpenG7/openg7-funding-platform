@@ -148,6 +148,31 @@
                 @if (obligation.fulfilmentEvidenceId) {
                   <p>{{ 'funding.offer.fulfilmentRecorded' | translate }}</p>
                 }
+                @if (obligation.timing; as timing) {
+                  @if (timing.deadlineDays !== null) {
+                    <p data-og7="followup-obligation-deadline">
+                      {{ 'funding.offer.timingDue' | translate }}
+                      {{
+                        timing.dueAt
+                          ? dateLabel(timing.dueAt)
+                          : ('funding.offer.timingOriginUnknown' | translate)
+                      }}
+                    </p>
+                    @if (timing.overdue) {
+                      <p data-og7="followup-obligation-overdue">
+                        {{ 'funding.offer.timingOverdue' | translate }}
+                      </p>
+                    }
+                  }
+                  @if (timing.durationDays !== null) {
+                    <p data-og7="followup-obligation-duration">
+                      {{
+                        'funding.offer.timingDurationStates.' +
+                          timing.durationState | translate
+                      }}
+                    </p>
+                  }
+                }
               </li>
             }
           </ul>

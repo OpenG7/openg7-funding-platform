@@ -230,7 +230,44 @@ export function registerSponsorshipCommitmentTests() {
                 format: 'individual_portrait',
                 version: 3,
                 fulfilmentEvidenceId: null,
-                blockedReason: 'moderation_review_required'
+                blockedReason: 'moderation_review_required',
+                timing: {
+                  version: 1,
+                  deadlineDays: 7,
+                  durationDays: 30,
+                  originAt: null,
+                  originProvenance: null,
+                  dueAt: null,
+                  overdue: false,
+                  durationState: 'unsupported',
+                  startObservation: null
+                }
+              },
+              {
+                id: 'synthetic-website-obligation',
+                channel: 'website',
+                format: null,
+                target: 'openg7',
+                ordinal: 1,
+                state: 'pending',
+                version: 1,
+                fulfilmentEvidenceId: null,
+                blockedReason: null,
+                timing: {
+                  version: 2,
+                  deadlineDays: 7,
+                  durationDays: 30,
+                  originAt: '2026-01-01T00:00:00.000Z',
+                  originProvenance: 'owner_recorded',
+                  dueAt: '2026-01-08T00:00:00.000Z',
+                  overdue: true,
+                  durationState: 'awaiting_review',
+                  startObservation: {
+                    id: 'synthetic-start-observation',
+                    observedAt: '2026-01-01T00:00:00.000Z',
+                    earliestCompletionAt: '2026-01-31T00:00:00.000Z'
+                  }
+                }
               }
             ]
           }
@@ -253,6 +290,36 @@ export function registerSponsorshipCommitmentTests() {
         summary.locator('openg7-sponsorship-offer-summary')
       ).not.toContainText('OPENG20');
       await expect(current).not.toContainText('moderation_review_required');
+      const unknown = current.locator('[data-og7-id="synthetic-obligation"]');
+      await expect(
+        unknown.locator('[data-og7="followup-obligation-deadline"]')
+      ).toContainText(
+        english ? 'Origin needs verification' : 'L’origine doit être vérifiée'
+      );
+      await expect(
+        unknown.locator('[data-og7="followup-obligation-duration"]')
+      ).toContainText(
+        english ? 'Duration is unsupported' : 'Durée non prise en charge'
+      );
+      await expect(
+        unknown.locator('[data-og7="followup-obligation-overdue"]')
+      ).toHaveCount(0);
+      const timed = current.locator(
+        '[data-og7-id="synthetic-website-obligation"]'
+      );
+      await expect(
+        timed.locator('[data-og7="followup-obligation-deadline"]')
+      ).not.toContainText(
+        english ? 'Origin needs verification' : 'L’origine doit être vérifiée'
+      );
+      await expect(
+        timed.locator('[data-og7="followup-obligation-overdue"]')
+      ).toContainText(
+        english ? 'benefit remains outstanding' : 'prestation reste à réaliser'
+      );
+      await expect(
+        timed.locator('[data-og7="followup-obligation-duration"]')
+      ).toContainText(english ? 'continuity evidence' : 'preuve de continuité');
       await expect(current).not.toContainText(
         english ? 'Delivery recorded' : 'Réalisation enregistrée'
       );

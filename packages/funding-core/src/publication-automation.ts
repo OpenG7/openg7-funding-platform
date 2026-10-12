@@ -1,4 +1,10 @@
 import type { SponsorshipPublicationFormat } from './sponsorship-publication-formats.js';
+import type { PublicationReliability } from './publication-reliability.js';
+export type {
+  PublicationReliability,
+  PublicationReliabilityIncident,
+  PublicationReliabilityIncidentCode
+} from './publication-reliability.js';
 
 export interface PublicationPhotoSelection {
   readonly contributionId: string;
@@ -103,58 +109,6 @@ export interface PublicationAutomationState {
     exceptions: number;
     publishedToday: number;
   };
-}
-export type PublicationReliabilityIncidentCode =
-  | 'FULFILMENT_EVIDENCE_MISMATCH'
-  | 'ORPHAN_FULFILMENT_EVIDENCE'
-  | 'OBLIGATION_RESERVATION_MISMATCH'
-  | 'ACCOUNT_RESERVATION_MISMATCH'
-  | 'ACCOUNT_LEASE_MISMATCH'
-  | 'ACCOUNT_RESULT_UNCERTAIN'
-  | 'ACCOUNT_SCHEDULE_CONFLICT'
-  | 'BATCH_CAPACITY_EXCEEDED'
-  | 'SLOT_CAPACITY_EXCEEDED';
-export interface PublicationReliabilityIncident {
-  readonly code: PublicationReliabilityIncidentCode;
-  readonly subjectType: 'obligation' | 'delivery' | 'batch' | 'slot';
-  readonly subjectId: string;
-}
-export interface PublicationReliability {
-  readonly scope: 'global';
-  readonly evaluatedAt: string;
-  readonly obligations: {
-    readonly open: number;
-    readonly undatedSocial: number;
-    readonly oldestOpenAt: string | null;
-    readonly oldestUndatedAt: string | null;
-    readonly fulfilledWithEvidence: number;
-    readonly waived: number;
-    readonly unqualifiedDossiers: number;
-  };
-  readonly capacity: {
-    readonly saturatedBatches: number;
-    readonly saturatedSlots: number;
-    readonly accountConflicts: number;
-  };
-  readonly deliveries: {
-    readonly publishing: number;
-    readonly uncertain: number;
-    readonly uncertainAccounts: number;
-    readonly oldestUncertainAccountAt: string | null;
-    readonly overdueApproved: number;
-  };
-  readonly discrepancies: {
-    readonly proof: number;
-    readonly orphanProof: number;
-    readonly obligationReservation: number;
-    readonly accountReservation: number;
-    readonly accountLease: number;
-    readonly batchCapacity: number;
-    readonly slotCapacity: number;
-  };
-  readonly incidents: readonly PublicationReliabilityIncident[];
-  readonly incidentTotal: number;
-  readonly correlationLimit: number;
 }
 export type PublicationPreparationReason =
   | 'AWAITING_PREPARATION'

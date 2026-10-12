@@ -35,6 +35,7 @@
       "deadlineDays": "Deadline in days — optional",
       "durationDays": "Duration in days — optional",
       "periodHelp": "An empty field means this agreement establishes no fixed deadline or duration.",
+      "durationUnsupportedHelp": "Exposure duration is supported for the OpenG7 website with dated observations and justified owner attestation. Other channels and destinations remain unavailable; do not omit a duration promised in the agreement.",
       "unspecified": "Not fixed",
       "days": "{{value}} day(s)",
       "removeBenefit": "Remove this benefit",
@@ -97,6 +98,7 @@
         "unqualified": "Agreement to qualify"
       },
       "errors": {
+        "durationUnsupported": "This exposure duration cannot currently be qualified. No terms were recorded; preserve the promised duration in the agreement for review.",
         "invalid": "Check the terms, evidence, justification and exact confirmation. No change is confirmed.",
         "loadError": "Commitments are unavailable. Retry the read.",
         "uncertain": "The result is unconfirmed. Keep and retry the exact request; do not create a new adjustment.",
@@ -2392,7 +2394,7 @@
       "title": "Reliability and internal discrepancies",
       "scope": "Global scope: these counts cover the entire queue, even when the displayed dossier or page is filtered.",
       "evaluated": "State observed at",
-      "limits": "Recorded states do not establish current eligibility. A reservation, simulation or historical visibility does not fulfil a benefit. Uncertain results still require investigation.",
+      "limits": "These diagnostics are neither publication evidence nor permission to retry. The first correlations are limited to 50; browse the pages to examine every incident.",
       "incidents": "Correlations displayed: {{shown}} of {{total}} (internal identifiers only)",
       "noIncident": "No discrepancy detected by these internal checks.",
       "metrics": {
@@ -2413,7 +2415,10 @@
         "accountMismatch": "Account reservation or lease discrepancies",
         "oldestOpenHours": "Oldest open obligation (hours)",
         "oldestUndatedHours": "Oldest undated passage (hours)",
-        "oldestUncertainHours": "Oldest uncertain account state (hours)"
+        "oldestUncertainHours": "Oldest uncertain account state (hours)",
+        "overdueObligations": "Commitments past their contractual deadline",
+        "missingDeadlineOrigin": "Deadlines without a documented origin",
+        "awaitingDuration": "Website durations awaiting verification"
       },
       "codes": {
         "FULFILMENT_EVIDENCE_MISMATCH": "Evidence inconsistent with the fulfilled obligation",
@@ -2424,8 +2429,61 @@
         "ACCOUNT_RESULT_UNCERTAIN": "Provider result still uncertain",
         "ACCOUNT_SCHEDULE_CONFLICT": "Incompatible account schedule",
         "BATCH_CAPACITY_EXCEEDED": "Effective batch capacity exceeded",
-        "SLOT_CAPACITY_EXCEEDED": "Shared slot capacity exceeded"
-      }
+        "SLOT_CAPACITY_EXCEEDED": "Shared slot capacity exceeded",
+        "SPONSORSHIP_DEADLINE_EXCEEDED": "Contractual deadline exceeded",
+        "SPONSORSHIP_DEADLINE_ORIGIN_UNKNOWN": "Deadline origin needs documentation"
+      },
+      "reasons": {
+        "SPONSORSHIP_DEADLINE_EXCEEDED": "The commitment remains open or blocked after its documented contractual deadline. A payment or moderation block preserves this deadline.",
+        "SPONSORSHIP_DEADLINE_ORIGIN_UNKNOWN": "A deadline was promised, but its starting date is undocumented. No historical date is invented.",
+        "FULFILMENT_EVIDENCE_MISMATCH": "The commitment is marked fulfilled, but its evidence does not match its current version or destination.",
+        "ORPHAN_FULFILMENT_EVIDENCE": "Evidence exists without being linked to the commitment’s fulfilled state.",
+        "OBLIGATION_RESERVATION_MISMATCH": "The reservation no longer matches the commitment or the delivery’s authorized content.",
+        "ACCOUNT_RESERVATION_MISMATCH": "The provider account reservation differs from the delivery or is missing for an active delivery.",
+        "ACCOUNT_LEASE_MISMATCH": "The account claim is missing, expired or no longer matches the current delivery.",
+        "ACCOUNT_RESULT_UNCERTAIN": "The external outcome is uncertain; the account remains protected against a blind retry.",
+        "ACCOUNT_SCHEDULE_CONFLICT": "Two reservations of the same live account are too close to respect the minimum dispatch interval.",
+        "BATCH_CAPACITY_EXCEEDED": "The number of sources exceeds the batch’s capacity or permitted format.",
+        "SLOT_CAPACITY_EXCEEDED": "Sources assigned to batches or directly to the slot exceed its shared capacity."
+      },
+      "actions": {
+        "SPONSORSHIP_DEADLINE_EXCEEDED": "Examine the commitment, blockers and schedule in the dossier. Arrange its treatment or an authorized, traced adjustment without bypassing publication approvals.",
+        "SPONSORSHIP_DEADLINE_ORIGIN_UNKNOWN": "Ask the owner to document the starting date and its evidence in the dossier before calculating the deadline.",
+        "FULFILMENT_EVIDENCE_MISMATCH": "Examine the commitment and its evidence in the dossier; request a traced correction if needed, preserving the evidence.",
+        "ORPHAN_FULFILMENT_EVIDENCE": "Compare the commitment history and evidence; arrange a review of the discrepancy without declaring a new delivery.",
+        "OBLIGATION_RESERVATION_MISMATCH": "Compare the commitment and delivery; preserve every reservation tied to an uncertain outcome and request a technical review of the discrepancy.",
+        "ACCOUNT_RESERVATION_MISMATCH": "Examine the delivery destination, mode and schedule; arrange a review of the reservation before granting new authorization.",
+        "ACCOUNT_LEASE_MISMATCH": "Examine the delivery state and latest outcome; request a technical review before releasing the account or retrying.",
+        "ACCOUNT_RESULT_UNCERTAIN": "Open the delivery and check the provider. Reconcile a discovered publication or attest its absence with a reason before granting new authorization.",
+        "ACCOUNT_SCHEDULE_CONFLICT": "Compare the account schedules. Change only editable deliveries, then review their authorization again; reconcile any uncertain outcome first.",
+        "BATCH_CAPACITY_EXCEEDED": "Examine the batch sources and format, then correct its membership in the Batches workspace before granting new approval.",
+        "SLOT_CAPACITY_EXCEEDED": "Examine every slot assignment in the calendar and correct their distribution before granting any approval."
+      },
+      "codeFilter": "Incident type",
+      "subjectFilter": "Affected object",
+      "allCodes": "All incidents",
+      "allSubjects": "All objects",
+      "subjects": {
+        "obligation": "Commitment",
+        "delivery": "Delivery",
+        "batch": "Batch",
+        "slot": "Slot"
+      },
+      "refreshIncidents": "Refresh incidents",
+      "loading": "Loading incidents…",
+      "emptyFiltered": "No incident matches the selected filters.",
+      "snapshotChanged": "Incidents have changed since the first page. Refresh to restart your review with the current facts.",
+      "unavailable": "Incidents could not be loaded. Refresh to try again.",
+      "pageScope": "{{filtered}} incidents match the filters; {{total}} incidents in the complete global scope.",
+      "action": "Expected action:",
+      "openDossier": "Open dossier {{id}}",
+      "openDelivery": "Open delivery {{id}}",
+      "openBatch": "Open batch {{id}}",
+      "openSlot": "Open slot {{id}}",
+      "pages": "Reliability incident pages",
+      "previous": "Previous page",
+      "next": "Next page",
+      "position": "{{start}}–{{end}} of {{total}}"
     },
     "publicationAutomation": {
       "title": "Feed management",
@@ -3329,6 +3387,101 @@
         "FUNDING_ADMIN_OIDC_MFA_ACR": "Local MFA policy; empty for AMR/managed Keycloak. Does not prove successful MFA.",
         "FUNDING_PRIVATE_DATA_ENCRYPTION_KEY": "Private key of 32 random bytes in standard base64; keep a protected recovery copy."
       }
+    },
+    "historicalAudit": {
+      "findings": {
+        "duration_unverified": "Promised duration has no matching verified continuity record.",
+        "required_element_missing": "A required element is absent from the recorded display.",
+        "snapshot_incomplete": "The historical snapshot is incomplete; human examination is needed.",
+        "no_issue_detected": "No issue detected in the recorded facts."
+      },
+      "elements": {
+        "company_name": "Company name",
+        "approved_logo": "Approved logo",
+        "approved_presentation": "Approved presentation"
+      },
+      "observations": {
+        "satisfied": "Recorded",
+        "missing": "Absent",
+        "unknown": "Unknown"
+      },
+      "conclusions": {
+        "confirmed": "Agreement reviewed and confirmed",
+        "follow_up_required": "Follow-up required",
+        "inconclusive": "Inconclusive"
+      },
+      "title": "Historical evidence audit",
+      "description": "Examine previously fulfilled obligations. Observations and review conclusions preserve the original evidence, commercial balance, visibility and financial history.",
+      "ownerRequired": "Only the account owner may examine historical evidence.",
+      "load": "Load audit",
+      "global": "All dossiers",
+      "filter": "Observation",
+      "all": "All observations",
+      "loading": "Loading historical evidence…",
+      "loadUnavailable": "Historical evidence could not be loaded.",
+      "reviewUnavailable": "The review result is uncertain. Verify it or retry this exact command.",
+      "conflict": "Another review changed this evidence. Reload the audit before submitting a new conclusion.",
+      "saved": "Review recorded. Commercial and financial facts remain unchanged.",
+      "counts": "{{total}} evidence records overall; {{filtered}} match the filters; {{unreviewed}} overall have no review.",
+      "globalCounts": "Overall observations: {{duration}} durations to verify; {{missing}} missing elements; {{incomplete}} incomplete snapshots.",
+      "empty": "No historical evidence matches these filters.",
+      "review": "Examine evidence",
+      "next": "Next page",
+      "conclusion": "Conclusion",
+      "reason": "Private review reason",
+      "confirmation": "I confirm this conclusion for the displayed evidence. This review does not amend the agreement or authorize an external action.",
+      "save": "Record review",
+      "uncertain": "An exact review command awaits a confirmed result. New commands remain blocked.",
+      "retry": "Retry exact review",
+      "filterLabels": {
+        "duration_unverified": "Duration to verify",
+        "required_element_missing": "Missing element",
+        "snapshot_incomplete": "Incomplete snapshot",
+        "no_issue_detected": "No issue detected"
+      }
+    },
+    "timing": {
+      "title": "Delivery deadlines and exposure duration",
+      "origin": "Agreed origin — UTC",
+      "unknownOrigin": "Establish the origin from the agreement",
+      "due": "Agreed deadline — UTC",
+      "noDue": "No calculable deadline",
+      "overdue": "The deadline has passed; the benefit remains outstanding.",
+      "duration": "Exposure duration: {{days}} day(s)",
+      "observedAt": "Observed start — UTC",
+      "earliest": "Minimum end — UTC",
+      "manage": "Establish dates or attest a duration",
+      "help": "The agreement must establish the origin date. An observation requires an already visible profile and authorized media. Two observations alone do not prove continuity: duration attestation requires separate evidence. These actions authorize no sending.",
+      "originInput": "Origin date established by the agreement — enter UTC",
+      "evidence": "Private evidence reference",
+      "reason": "Internal justification",
+      "confirm": "Type {{id}} to confirm.",
+      "recordOrigin": "Record the agreed origin",
+      "observe": "Record a new observed start",
+      "continuity": "I attest, with the stated evidence, that the required exposure was maintained without interruption from the observed start.",
+      "attest": "Confirm completion of the exposure duration",
+      "saved": "Decision recorded. Reload the current benefit status.",
+      "retryHelp": "The result remains uncertain. Keep the exact request and verify its result before any new decision.",
+      "retry": "Retry the exact request",
+      "states": {
+        "not_required": "No fixed duration agreed",
+        "unsupported": "Duration is unsupported for this channel or destination",
+        "awaiting_observation": "Exposure start needs observation",
+        "awaiting_review": "Duration needs confirmation with continuity evidence",
+        "attested": "Duration fulfilled with supported attestation"
+      },
+      "errors": {
+        "invalid": "Check the date, evidence, justification and exact confirmation.",
+        "conflict": "Current facts or version do not allow this decision. Reload commitments and their authorizations.",
+        "tooEarly": "The minimum duration has not elapsed. The benefit remains outstanding.",
+        "sourceChanged": "Sources or their authorizations changed. Verify visibility and record a new start.",
+        "ownerOnly": "This decision requires the owner.",
+        "unauthorized": "The session expired. Sign in before retrying the request.",
+        "uncertain": "The result is unconfirmed. Keep and retry the exact request.",
+        "previousPassageOpen": "The previous period of this benefit must be fulfilled or explicitly waived before a new start.",
+        "periodOverlap": "This period began before the previous one closed. Record a distinct new start.",
+        "notFound": "This benefit is unavailable. Reload the dossier before a new decision."
+      }
     }
   },
   "funding": {
@@ -3380,7 +3533,8 @@
         "review_pending_review": "Record review required.",
         "review_rejected": "Record declined: consult the explanation and reconsideration process.",
         "moderation_review_required": "Editorial review required.",
-        "required_elements_missing": "Required elements need completion."
+        "required_elements_missing": "Required elements need completion.",
+        "duration_unsupported": "The agreed exposure duration still needs verification; an initial placement does not fulfil this obligation."
       },
       "formatChoice": "Requested format for {{channel}}",
       "formatHelp": "These choices apply to the channels included in the displayed offer. Image formats require an authorized and reviewed photo; image collections remain unavailable.",
@@ -3411,6 +3565,16 @@
         "company_name": "company name",
         "approved_logo": "approved logo",
         "approved_presentation": "approved presentation image"
+      },
+      "timingDue": "Agreed deadline:",
+      "timingOriginUnknown": "Origin needs verification from the agreement.",
+      "timingOverdue": "The deadline has passed; the benefit remains outstanding.",
+      "timingDurationStates": {
+        "not_required": "No fixed duration agreed",
+        "unsupported": "Duration is unsupported for this channel or destination",
+        "awaiting_observation": "Exposure start needs observation",
+        "awaiting_review": "Duration needs confirmation with continuity evidence",
+        "attested": "Duration fulfilled with supported attestation"
       }
     },
     "charter": {
@@ -5127,6 +5291,8 @@
           "rejectPreference": "Decline this preference",
           "preferenceReviewed": "Decision recorded. Preparation and publication review remain necessary.",
           "mutationUnavailable": "The result could not be confirmed. Retry the same request before making another change.",
+          "versionConflict": "This request was refused because the information changed. Review the refreshed information, then confirm a new request.",
+          "mutationRejected": "This request was refused. Review the information and confirmation, then submit a new request.",
           "verificationRequired": "A previous request must be verified before changing these details.",
           "retry": "Verify and resume the same request"
         },

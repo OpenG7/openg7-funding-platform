@@ -36,8 +36,24 @@ import {
 import { complete, PublicationDeliveryWorker } from './delivery-worker.js';
 import { preparationQueue } from './preparation-queue.js';
 import { publicationReliability } from './reliability.js';
+import {
+  publicationReliabilityIncidentPage,
+  validateReliabilityIncidentFilter
+} from './reliability-incidents.js';
 
 export class PublicationAutomationService {
+  async reliabilityIncidents(
+    filter: import('@openg7/funding-core').PublicationReliabilityIncidentFilter = {}
+  ): Promise<
+    import('@openg7/funding-core').PublicationReliabilityIncidentPage
+  > {
+    validateReliabilityIncidentFilter(filter);
+    return withPostgresTransaction(
+      this.pool,
+      (db) => publicationReliabilityIncidentPage(db, filter),
+      { readOnlySnapshot: true }
+    );
+  }
   private readonly context: PublicationCommandsContext &
     PublicationPlanningContext &
     PublicationDeliveryWorkerContext;

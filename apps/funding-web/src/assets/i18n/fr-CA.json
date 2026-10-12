@@ -35,6 +35,7 @@
       "deadlineDays": "Délai en jours — facultatif",
       "durationDays": "Durée en jours — facultative",
       "periodHelp": "Un champ vide signifie qu’aucun délai ou durée fixe n’est établi par cet accord.",
+      "durationUnsupportedHelp": "La durée d’exposition est prise en charge pour le site OpenG7 avec des observations datées et une attestation justifiée du propriétaire. Les autres canaux et destinations restent indisponibles; n’omettez pas une durée promise dans l’accord.",
       "unspecified": "Non fixé",
       "days": "{{value}} jour(s)",
       "removeBenefit": "Retirer cette prestation",
@@ -97,6 +98,7 @@
         "unqualified": "Accord à qualifier"
       },
       "errors": {
+        "durationUnsupported": "Cette durée d’exposition ne peut pas être qualifiée actuellement. Aucun terme n’est enregistré; conservez la durée promise dans l’accord à examiner.",
         "invalid": "Vérifiez les termes, la preuve, la justification et la confirmation exacte. Aucun changement n’est confirmé.",
         "loadError": "Les engagements ne sont pas disponibles. Réessayez la lecture.",
         "uncertain": "Résultat non confirmé. Conservez la requête exacte et reprenez-la; ne créez pas un nouvel ajustement.",
@@ -2388,7 +2390,7 @@
       "title": "Fiabilité et écarts internes",
       "scope": "Périmètre global : ces compteurs couvrent toute la file, même lorsque le dossier ou la page affichée est filtré.",
       "evaluated": "État observé le",
-      "limits": "Les états enregistrés ne valent pas admissibilité actuelle. Une réservation, une simulation ou une visibilité historique ne solde pas un avantage. Les résultats incertains restent à examiner.",
+      "limits": "Ces diagnostics ne valent ni preuve de publication ni autorisation de relance. Les premières corrélations sont limitées à 50; consultez les pages pour examiner tous les incidents.",
       "incidents": "Corrélations affichées : {{shown}} sur {{total}} (identifiants internes seulement)",
       "noIncident": "Aucun écart détecté par ces contrôles internes.",
       "metrics": {
@@ -2409,7 +2411,10 @@
         "accountMismatch": "Écarts de réservation ou bail de compte",
         "oldestOpenHours": "Ancienneté maximale ouverte (heures)",
         "oldestUndatedHours": "Ancienneté maximale sans date (heures)",
-        "oldestUncertainHours": "Ancienneté maximale de l’état compte incertain (heures)"
+        "oldestUncertainHours": "Ancienneté maximale de l’état compte incertain (heures)",
+        "overdueObligations": "Engagements dont l’échéance est dépassée",
+        "missingDeadlineOrigin": "Échéances sans origine documentée",
+        "awaitingDuration": "Durées Web à vérifier"
       },
       "codes": {
         "FULFILMENT_EVIDENCE_MISMATCH": "Preuve incompatible avec l’obligation réalisée",
@@ -2420,8 +2425,61 @@
         "ACCOUNT_RESULT_UNCERTAIN": "Résultat fournisseur encore incertain",
         "ACCOUNT_SCHEDULE_CONFLICT": "Horaires du compte incompatibles",
         "BATCH_CAPACITY_EXCEEDED": "Capacité effective du lot dépassée",
-        "SLOT_CAPACITY_EXCEEDED": "Capacité partagée du créneau dépassée"
-      }
+        "SLOT_CAPACITY_EXCEEDED": "Capacité partagée du créneau dépassée",
+        "SPONSORSHIP_DEADLINE_EXCEEDED": "Échéance contractuelle dépassée",
+        "SPONSORSHIP_DEADLINE_ORIGIN_UNKNOWN": "Origine de l’échéance à documenter"
+      },
+      "reasons": {
+        "SPONSORSHIP_DEADLINE_EXCEEDED": "L’engagement reste ouvert ou bloqué après son échéance contractuelle documentée. Un blocage de paiement ou de modération conserve cette échéance.",
+        "SPONSORSHIP_DEADLINE_ORIGIN_UNKNOWN": "Un délai est promis, mais sa date de départ n’est pas documentée. Aucune date historique n’est inventée.",
+        "FULFILMENT_EVIDENCE_MISMATCH": "L’engagement est marqué livré, mais sa preuve ne correspond pas à sa version ou à sa destination actuelle.",
+        "ORPHAN_FULFILMENT_EVIDENCE": "Une preuve existe sans être rattachée à l’état livré de l’engagement concerné.",
+        "OBLIGATION_RESERVATION_MISMATCH": "La réservation ne correspond plus à l’engagement ou au contenu autorisé de la livraison.",
+        "ACCOUNT_RESERVATION_MISMATCH": "La réservation du compte fournisseur diverge de la livraison ou manque pour une livraison active.",
+        "ACCOUNT_LEASE_MISMATCH": "La prise en charge du compte manque, a expiré ou ne correspond plus à la livraison en cours.",
+        "ACCOUNT_RESULT_UNCERTAIN": "Le résultat externe est incertain; le compte reste protégé contre une nouvelle tentative aveugle.",
+        "ACCOUNT_SCHEDULE_CONFLICT": "Deux réservations du même compte live sont trop proches pour respecter la cadence minimale.",
+        "BATCH_CAPACITY_EXCEEDED": "Le nombre de sources dépasse la capacité ou le format autorisé du lot.",
+        "SLOT_CAPACITY_EXCEEDED": "Les sources liées aux lots ou directement au créneau dépassent sa capacité partagée."
+      },
+      "actions": {
+        "SPONSORSHIP_DEADLINE_EXCEEDED": "Examiner l’engagement, les blocages et l’horaire dans le dossier. Organiser son traitement ou un ajustement autorisé et tracé sans contourner les autorisations de publication.",
+        "SPONSORSHIP_DEADLINE_ORIGIN_UNKNOWN": "Faire documenter par le propriétaire la date de départ et sa preuve dans le dossier avant de calculer l’échéance.",
+        "FULFILMENT_EVIDENCE_MISMATCH": "Examiner l’engagement et sa preuve dans le dossier; demander une correction tracée si nécessaire, sans effacer la preuve.",
+        "ORPHAN_FULFILMENT_EVIDENCE": "Comparer l’historique de l’engagement et la preuve; faire examiner l’écart sans déclarer une nouvelle livraison.",
+        "OBLIGATION_RESERVATION_MISMATCH": "Comparer l’engagement et la livraison; conserver toute réservation liée à un résultat incertain et demander un examen technique de l’écart.",
+        "ACCOUNT_RESERVATION_MISMATCH": "Examiner la destination, le mode et l’horaire de la livraison; faire examiner la réservation avant toute nouvelle autorisation.",
+        "ACCOUNT_LEASE_MISMATCH": "Examiner l’état et le dernier résultat de la livraison; demander un examen technique avant de libérer le compte ou de relancer.",
+        "ACCOUNT_RESULT_UNCERTAIN": "Ouvrir la livraison et vérifier le fournisseur. Réconcilier une publication retrouvée ou attester son absence avec raison avant une nouvelle autorisation.",
+        "ACCOUNT_SCHEDULE_CONFLICT": "Comparer les horaires du compte. Modifier seulement les livraisons modifiables, puis réexaminer leur autorisation; réconcilier d’abord tout résultat incertain.",
+        "BATCH_CAPACITY_EXCEEDED": "Examiner les sources et le format du lot, puis corriger sa composition dans l’espace Lots avant une nouvelle approbation.",
+        "SLOT_CAPACITY_EXCEEDED": "Examiner toutes les affectations du créneau dans le calendrier et corriger leur répartition avant toute approbation."
+      },
+      "codeFilter": "Type d’incident",
+      "subjectFilter": "Objet concerné",
+      "allCodes": "Tous les incidents",
+      "allSubjects": "Tous les objets",
+      "subjects": {
+        "obligation": "Engagement",
+        "delivery": "Livraison",
+        "batch": "Lot",
+        "slot": "Créneau"
+      },
+      "refreshIncidents": "Actualiser les incidents",
+      "loading": "Chargement des incidents…",
+      "emptyFiltered": "Aucun incident ne correspond aux filtres sélectionnés.",
+      "snapshotChanged": "Les incidents ont changé depuis la première page. Actualisez pour recommencer leur examen avec les faits actuels.",
+      "unavailable": "Les incidents n’ont pas pu être chargés. Actualisez pour réessayer.",
+      "pageScope": "{{filtered}} incidents correspondent aux filtres; {{total}} incidents au total dans le périmètre global.",
+      "action": "Action attendue :",
+      "openDossier": "Ouvrir le dossier {{id}}",
+      "openDelivery": "Ouvrir la livraison {{id}}",
+      "openBatch": "Ouvrir le lot {{id}}",
+      "openSlot": "Ouvrir le créneau {{id}}",
+      "pages": "Pages des incidents de fiabilité",
+      "previous": "Page précédente",
+      "next": "Page suivante",
+      "position": "{{start}}–{{end}} sur {{total}}"
     },
     "publicationAutomation": {
       "title": "Pilotage des feeds",
@@ -3325,6 +3383,101 @@
         "FUNDING_ADMIN_OIDC_MFA_ACR": "Politique MFA locale ; vide pour AMR/Keycloak géré. Ne prouve pas un MFA réussi.",
         "FUNDING_PRIVATE_DATA_ENCRYPTION_KEY": "Clé privée de 32 octets aléatoires en base64 standard ; copie de récupération protégée."
       }
+    },
+    "historicalAudit": {
+      "findings": {
+        "duration_unverified": "La durée promise n’a pas de relevé de continuité vérifié correspondant.",
+        "required_element_missing": "Un élément requis est absent de l’affichage enregistré.",
+        "snapshot_incomplete": "L’instantané historique est incomplet; un examen humain est nécessaire.",
+        "no_issue_detected": "Aucun problème détecté parmi les faits enregistrés."
+      },
+      "filterLabels": {
+        "duration_unverified": "Durée à vérifier",
+        "required_element_missing": "Élément manquant",
+        "snapshot_incomplete": "Instantané incomplet",
+        "no_issue_detected": "Aucun problème détecté"
+      },
+      "elements": {
+        "company_name": "Nom de l’entreprise",
+        "approved_logo": "Logo approuvé",
+        "approved_presentation": "Présentation approuvée"
+      },
+      "observations": {
+        "satisfied": "Enregistré",
+        "missing": "Absent",
+        "unknown": "Inconnu"
+      },
+      "conclusions": {
+        "confirmed": "Accord examiné et confirmé",
+        "follow_up_required": "Suivi nécessaire",
+        "inconclusive": "Conclusion indéterminée"
+      },
+      "title": "Audit des preuves historiques",
+      "description": "Examiner les obligations déjà soldées. Les observations et conclusions conservent la preuve, le solde commercial, la visibilité et l’historique financier.",
+      "ownerRequired": "Seul le propriétaire du compte peut examiner les preuves historiques.",
+      "load": "Charger l’audit",
+      "global": "Tous les dossiers",
+      "filter": "Observation",
+      "all": "Toutes les observations",
+      "loading": "Chargement des preuves historiques…",
+      "loadUnavailable": "Les preuves historiques n’ont pas pu être chargées.",
+      "reviewUnavailable": "Le résultat de l’examen est incertain. Vérifiez-le ou rejouez cette commande exacte.",
+      "conflict": "Un autre examen a modifié cette preuve. Rechargez l’audit avant une nouvelle conclusion.",
+      "saved": "Examen enregistré. Les faits commerciaux et financiers sont conservés.",
+      "counts": "{{total}} preuves au total; {{filtered}} correspondent aux filtres; {{unreviewed}} au total n’ont aucun examen.",
+      "globalCounts": "Observations globales : {{duration}} durées à vérifier; {{missing}} éléments absents; {{incomplete}} instantanés incomplets.",
+      "empty": "Aucune preuve historique ne correspond à ces filtres.",
+      "review": "Examiner la preuve",
+      "next": "Page suivante",
+      "conclusion": "Conclusion",
+      "reason": "Raison privée de l’examen",
+      "confirmation": "Je confirme cette conclusion pour la preuve affichée. Cet examen ne modifie pas l’accord et n’autorise aucune action externe.",
+      "save": "Enregistrer l’examen",
+      "uncertain": "Une commande d’examen exacte attend un résultat confirmé. Les nouvelles commandes restent bloquées.",
+      "retry": "Rejouer l’examen exact"
+    },
+    "timing": {
+      "title": "Délais et durée de réalisation",
+      "origin": "Origine convenue — UTC",
+      "unknownOrigin": "Origine à établir à partir de l’accord",
+      "due": "Échéance convenue — UTC",
+      "noDue": "Aucune échéance calculable",
+      "overdue": "L’échéance est dépassée; la prestation reste à réaliser.",
+      "duration": "Durée d’exposition : {{days}} jour(s)",
+      "observedAt": "Début constaté — UTC",
+      "earliest": "Fin minimale — UTC",
+      "manage": "Établir les dates ou attester une durée",
+      "help": "La date d’origine doit être établie par l’accord. Une observation exige une fiche déjà visible et des médias autorisés. Deux observations seules ne prouvent pas la continuité : une attestation de durée exige une preuve distincte. Aucun envoi n’est autorisé par ces actions.",
+      "originInput": "Date d’origine établie par l’accord — saisir en UTC",
+      "evidence": "Référence privée de la preuve",
+      "reason": "Justification interne",
+      "confirm": "Recopiez {{id}} pour confirmer.",
+      "recordOrigin": "Enregistrer l’origine convenue",
+      "observe": "Enregistrer un nouveau début constaté",
+      "continuity": "J’atteste, avec la preuve indiquée, que l’exposition requise a été maintenue sans interruption depuis le début constaté.",
+      "attest": "Confirmer la réalisation de la durée",
+      "saved": "Décision enregistrée. Relisez l’état actuel de la prestation.",
+      "retryHelp": "Le résultat reste incertain. Conservez la requête exacte et vérifiez son résultat avant toute nouvelle décision.",
+      "retry": "Reprendre la requête exacte",
+      "states": {
+        "not_required": "Aucune durée fixe convenue",
+        "unsupported": "Durée non prise en charge pour ce canal ou cette destination",
+        "awaiting_observation": "Début d’exposition à constater",
+        "awaiting_review": "Durée à confirmer avec preuve de continuité",
+        "attested": "Durée réalisée avec attestation justifiée"
+      },
+      "errors": {
+        "invalid": "Vérifiez la date, la preuve, la justification et la confirmation exacte.",
+        "conflict": "Les faits ou la version ne permettent pas cette décision. Relisez les engagements et leurs autorisations.",
+        "tooEarly": "La durée minimale n’est pas encore écoulée. La prestation reste ouverte.",
+        "sourceChanged": "Les sources ou leurs autorisations ont changé. Vérifiez la visibilité puis constatez un nouveau début.",
+        "ownerOnly": "Cette décision est réservée au propriétaire.",
+        "unauthorized": "La session a expiré. Reconnectez-vous avant de reprendre la requête.",
+        "uncertain": "Le résultat n’est pas confirmé. Gardez la requête et reprenez-la exactement.",
+        "previousPassageOpen": "La période précédente de cette prestation doit être réalisée ou explicitement dispensée avant un nouveau début.",
+        "periodOverlap": "Cette période a commencé avant la clôture de la précédente. Constatez un nouveau début distinct.",
+        "notFound": "Cette prestation est indisponible. Relisez le dossier avant une nouvelle décision."
+      }
     }
   },
   "funding": {
@@ -3376,7 +3529,8 @@
         "review_pending_review": "Revue du dossier requise.",
         "review_rejected": "Dossier refusé : consultez l’explication et le parcours de réexamen.",
         "moderation_review_required": "Revue éditoriale requise.",
-        "required_elements_missing": "Éléments requis à compléter."
+        "required_elements_missing": "Éléments requis à compléter.",
+        "duration_unsupported": "La durée d’exposition convenue reste à vérifier; un premier affichage ne solde pas cette obligation."
       },
       "formatChoice": "Format souhaité pour {{channel}}",
       "formatHelp": "Ces choix s’appliquent aux canaux compris dans l’offre affichée. Les formats avec image nécessitent une photo autorisée et revue ; la collection d’images reste indisponible.",
@@ -3407,6 +3561,16 @@
         "company_name": "nom de l’entreprise",
         "approved_logo": "logo approuvé",
         "approved_presentation": "photo de présentation approuvée"
+      },
+      "timingDue": "Échéance convenue :",
+      "timingOriginUnknown": "L’origine doit être vérifiée à partir de l’accord.",
+      "timingOverdue": "L’échéance est dépassée; la prestation reste à réaliser.",
+      "timingDurationStates": {
+        "not_required": "Aucune durée fixe convenue",
+        "unsupported": "Durée non prise en charge pour ce canal ou cette destination",
+        "awaiting_observation": "Début d’exposition à constater",
+        "awaiting_review": "Durée à confirmer avec preuve de continuité",
+        "attested": "Durée réalisée avec attestation justifiée"
       }
     },
     "charter": {
@@ -5123,6 +5287,8 @@
           "rejectPreference": "Refuser cette préférence",
           "preferenceReviewed": "Décision enregistrée. La préparation et la revue de la publication restent nécessaires.",
           "mutationUnavailable": "Le résultat n’a pas pu être confirmé. Réessayez la même demande avant tout autre changement.",
+          "versionConflict": "Cette demande a été refusée car les informations ont changé. Vérifiez les informations actualisées, puis confirmez une nouvelle demande.",
+          "mutationRejected": "Cette demande a été refusée. Vérifiez les informations et la confirmation, puis soumettez une nouvelle demande.",
           "verificationRequired": "Une demande précédente doit être vérifiée avant de changer ces informations.",
           "retry": "Vérifier et reprendre la même demande"
         },

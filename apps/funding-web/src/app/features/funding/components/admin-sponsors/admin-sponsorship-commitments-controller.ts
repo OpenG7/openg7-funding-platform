@@ -186,6 +186,16 @@ export class AdminSponsorshipCommitmentsController {
   }
   async qualify(): Promise<void> {
     if (!this.permitted() || this.loading() || this.pending()) return;
+    if (
+      this.benefits().some(
+        (row) =>
+          row.durationDays.trim() &&
+          (row.channel !== 'website' || row.target !== 'openg7')
+      )
+    ) {
+      this.error.set('durationUnsupported');
+      return;
+    }
     const d = this.ports.dossier(),
       m = this.data();
     try {
@@ -408,17 +418,20 @@ export class AdminSponsorshipCommitmentsController {
       this.pending.set(null);
     }
     this.error.set(
-      status === 401
-        ? 'unauthorized'
-        : status === 403
-          ? 'ownerOnly'
-          : status === 400
-            ? 'invalid'
-            : status === 409
-              ? 'conflict'
-              : mutation
-                ? 'uncertain'
-                : 'loadError'
+      error instanceof AdminDashboardRequestError &&
+        error.code === 'COMMITMENT_DURATION_UNSUPPORTED'
+        ? 'durationUnsupported'
+        : status === 401
+          ? 'unauthorized'
+          : status === 403
+            ? 'ownerOnly'
+            : status === 400
+              ? 'invalid'
+              : status === 409
+                ? 'conflict'
+                : mutation
+                  ? 'uncertain'
+                  : 'loadError'
     );
     if (status === 401) await this.ports.unauthorized();
   }

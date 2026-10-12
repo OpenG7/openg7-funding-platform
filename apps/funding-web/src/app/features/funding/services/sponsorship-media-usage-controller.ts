@@ -7,6 +7,9 @@ import type {
   SponsorMediaPreferenceRequest
 } from '@openg7/funding-core';
 
+import { SponsorshipFollowupError } from '../models/sponsorship-followup-ui.js';
+import { sponsorMediaMutationRejection } from '../models/sponsor-media-mutation-outcome.js';
+
 import type { FundingService } from './funding.service.js';
 
 interface Ports {
@@ -176,13 +179,26 @@ export class SponsorshipMediaUsageController {
       this.notice.set(pending.kind === 'usage' ? 'saved' : 'preferenceSent');
       if (pending.kind === 'preference') this.correction.set('');
       await this.ports.refresh();
-    } catch {
+    } catch (error) {
       if (
         generation === this.generation &&
         !this.disposed &&
         pending.token === this.ports.token()
-      )
-        this.notice.set('mutationUnavailable');
+      ) {
+        const rejection =
+          error instanceof SponsorshipFollowupError
+            ? sponsorMediaMutationRejection(error.status, error.code)
+            : null;
+        if (rejection) {
+          this.pending.set(null);
+          this.notice.set(rejection);
+          try {
+            await this.ports.refresh();
+          } catch {
+            // A failed read does not make this confirmed refusal uncertain.
+          }
+        } else this.notice.set('mutationUnavailable');
+      }
     } finally {
       if (generation === this.generation && !this.disposed) this.setBusy(false);
     }

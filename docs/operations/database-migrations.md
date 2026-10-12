@@ -120,6 +120,27 @@ détaillés dans le [guide d'adoption](sponsorship-delivery-adoption.md).
 Les nouvelles N0 exigées par un changement de contenu restent humaines ; ces
 migrations ne qualifient aucun ancien accord et ne déclenchent aucun envoi.
 
+La migration [051](../../apps/funding-api/migrations/051_sponsorship_obligation_timing.sql)
+ajoute les termes temporels par obligation, les observations des sources du site
+OpenG7 et les attestations humaines de durée. Les délais et durées viennent du
+snapshot immuable existant. Aucune origine, échéance historique, continuité ou
+réalisation n'est inférée. Les anciennes obligations gardent leurs états et
+preuves; le propriétaire documente l'origine avant de calculer une échéance.
+Les observations et attestations sont immuables, sans droits API de réécriture
+ou suppression. Le calendrier conserve une version distincte et une origine
+enregistrée une seule fois. Voir le [contrat temporel](../technical/sponsorship-obligation-timing.md).
+
+La migration [052](../../apps/funding-api/migrations/052_sponsorship_historical_evidence_reviews.sql)
+ajoute les examens historiques immuables, leur version et leur clé de requête
+uniques, ainsi que les index de lecture des preuves. Elle ne lance aucun examen
+et ne modifie aucune preuve, obligation, autorisation, visibilité ou donnée
+financière. Voir l'[audit historique](../technical/sponsorship-historical-audit.md).
+Appliquer ces deux migrations après 050 et avant l'API/Web correspondants, puis
+rafraîchir les grants du rôle applicatif avec le runner à jour. Les gardes de
+démarrage vérifient que ce rôle ne peut réécrire ni supprimer ces observations,
+attestations et examens. Les parcours de fiabilité restent des lectures;
+une migration ne résout aucun incident ou résultat fournisseur incertain.
+
 La migration [029](../../apps/funding-api/migrations/029_create_sponsorship_refund_operations.sql)
 ajoute les demandes de remboursement durables et leur exclusion mutuelle.
 Elle ne modifie aucun fait financier existant. L'appliquer avant l'API mise à

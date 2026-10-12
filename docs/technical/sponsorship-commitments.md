@@ -4,7 +4,9 @@ Apply the complete current schema, including
 [041](../../apps/funding-api/migrations/041_sponsorship_commitments.sql),
 [043](../../apps/funding-api/migrations/043_sponsorship_fulfilment_evidence.sql),
 [045](../../apps/funding-api/migrations/045_sponsorship_publication_formats.sql) and
-[046](../../apps/funding-api/migrations/046_obligation_reservation_release.sql),
+[046](../../apps/funding-api/migrations/046_obligation_reservation_release.sql), plus
+[051](../../apps/funding-api/migrations/051_sponsorship_obligation_timing.sql) and
+[052](../../apps/funding-api/migrations/052_sponsorship_historical_evidence_reviews.sql),
 before this API. The [Checkout contract](checkout.md) captures the server offer
 before Stripe. Confirmed payment activates obligations once; payment, consent,
 moderation, visibility and publication remain independent. Existing financial
@@ -13,7 +15,10 @@ facts, issued invoices and queued email bodies are preserved.
 `GET /api/admin/sponsorship-commitments?contributionId=<uuid>` returns
 `{ commitment }`. The record contains its offer, provenance, version and individual
 obligations: benefit, channel, logical destination, ordinal, state, blocking reason,
-version, recorded publication format and fulfilment evidence ID. `accepted_offer` refers to a captured Checkout
+version, recorded publication format, fulfilment evidence ID and a separate timing
+record. Timing exposes its own version, documented origin, due date, lateness,
+duration state and dated starting observation. Its reasons, documentary references
+and full observations remain private. `accepted_offer` refers to a captured Checkout
 offer. `historical_unverified` remains `needs_confirmation`, with no invented
 offer or obligations. `qualified_historical` records an explicitly reviewed agreement.
 The private sponsor follow-up projects provenance, state, the public offer and
@@ -37,7 +42,15 @@ reason, evidenceReference, offer
 Historical terms use version `historical-qualification-v1`, integer `amountMinor`
 and `currency: "CAD"` matching the original financial fact. Each benefit records
 its ID, channel, destination, quantity, required elements and nullable deadline/
-duration. Qualification requires a previously unqualified dossier and preserves
+duration. A fixed exposure duration is supported only for the OpenG7 website,
+with the explicit evidence-backed human workflow described in the
+[timing contract](sponsorship-obligation-timing.md). Social networks and OpenG20
+return HTTP 400 `COMMITMENT_DURATION_UNSUPPORTED` for a new duration promise.
+Do not omit an agreed duration to bypass this guard. An unsupported agreement
+remains unqualified until its terms can be supported or explicitly resolved.
+Recorded deadlines have no assumed origin: the owner documents the contractual
+starting point for each obligation before the API calculates its due date.
+Qualification requires a previously unqualified dossier and preserves
 its historical provenance; it never invents a past Checkout acceptance or N0.
 
 Owner-only `POST /api/admin/sponsorship-commitments/adjust` requires:
@@ -52,6 +65,16 @@ already waived obligations cannot be rewritten. Both actions return `{ commitmen
 use transactional audit and immutable change records, replay identical requests and
 reject incompatible request UUIDs or stale versions. Adjustments retain the original
 offer and revoke delivery authorization with the existing fencing/uncertainty guards.
+Their obsolete open source drafts are cancelled in that transaction and individually
+audited, retaining their content, dates and batch references. Preparation and manual
+creation can then bind fresh drafts to the amended or next remaining obligation;
+they inherit no approval. Published sources and drafts held by an uncertain provider
+operation remain unchanged and continue blocking competing preparation until
+reconciliation. Manual creation never returns a draft for a different destination.
+Preparation or manual creation also repairs pre-correction destination/waiver
+bindings, at most 400 dossiers per pass, after revalidation under the same locks
+and with audit linked to the original immutable amendment. Unknown or uncertain
+operations retain their sources and reservations.
 They authorize no payment, moderation approval or new publication.
 
 The administration dossier's Publication tab contains the owner qualification
@@ -59,7 +82,10 @@ and adjustment forms. Historical term rows start empty: quantity, destination,
 required elements and any established periods are entered from the agreement,
 not current pricing. The confirmed amount/currency are read only. Confirmation
 requires the exact dossier/obligation UUID, current version and internal reason;
-qualification also requires an evidence reference. Accepted terms and current
+qualification also requires an evidence reference. The duration field explains
+the supported website workflow and unsupported destinations in French and English,
+and keeps the entered value.
+Accepted terms and current
 obligations are displayed separately. Owner adoption preview pages contain 25 or
 50 dossiers and link to this individual review; no bulk mutation is offered.
 Uncertain responses retain the original UUID/payload in component memory and
@@ -77,7 +103,18 @@ delivery authorization just like destination changes; they do not create a
 new approval, payment or evidence of fulfilment.
 
 Refusal, consent withdrawal and refund block pending work without completing or
-waiving it. Current media eligibility reuses the approved presentation predicate;
+waiving it. Recorded durations remain immutable. Unsupported destinations project
+open work as `blocked` with `duration_unsupported`. A supported website duration
+starts with a dated exact-source observation, without completing the obligation
+or notifying fulfilment. Human completion requires a justified continuity
+statement, private documentary reference, elapsed minimum duration and current
+exact-source revalidation. Successive periods cannot overlap. An elapsed clock
+or two snapshots alone never establish continuity. See the
+[temporal workflow](sponsorship-obligation-timing.md) for commands, versions,
+interruptions and replay. Existing fulfilled evidence remains history; the
+[historical audit](sponsorship-historical-audit.md) examines possible gaps without
+rewriting its commercial or financial facts.
+Current media eligibility reuses the approved presentation predicate;
 the optional logo is separate. `fulfilled` requires qualified evidence, not a legacy
 `published` status or current website visibility alone. Progress counts obligations
 from the recorded offer; evidence history remains distinct from current visibility.
@@ -100,7 +137,12 @@ delivery pages or preparation scans. Open/undated obligations, qualified evidenc
 effective capacity, account schedule collisions, uncertain results and reservation/
 proof discrepancies are aggregated in SQL. The displayed correlation excerpt is
 limited to 50 codes and internal UUIDs; `incidentTotal` counts the complete scope.
-GET performs no writes. The complete detector also feeds existing idempotent
+The read-only incident endpoint and panel page through the complete set, with
+safe links to the corresponding dossier, delivery, batch or slot. The 50-item
+excerpt does not limit examination or alerts. Documented late commitments and
+unknown contractual origins emit distinct incidents. See the
+[reliability contract](publication-reliability.md) for filters, stable cursors,
+snapshot conflicts and expected actions. GET performs no writes. The complete detector also feeds existing idempotent
 operations alert episodes, without configuring or activating any external webhook.
 
 The read-only administrative assistant emits `qualify_commitment` for unknown

@@ -19,12 +19,19 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 
 import { AdminSponsorshipCommitmentsController } from './admin-sponsorship-commitments-controller.js';
+import { AdminSponsorshipTimingComponent } from './admin-sponsorship-timing.component.js';
+import { AdminSponsorshipHistoricalAuditComponent } from './admin-sponsorship-historical-audit.component.js';
 
 /** Funding organism: explicitly evidenced historical terms and owner-only amendments. */
 @Component({
   selector: 'openg7-admin-sponsorship-commitments',
   standalone: true,
-  imports: [TranslatePipe, RouterLink],
+  imports: [
+    TranslatePipe,
+    RouterLink,
+    AdminSponsorshipTimingComponent,
+    AdminSponsorshipHistoricalAuditComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-sponsorship-commitments.component.html',
   styleUrls: [

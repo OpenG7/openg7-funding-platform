@@ -32,6 +32,7 @@ import { PublicationDeliveryController } from './publication-delivery-controller
 import { PublicationDeliveryDrawerComponent } from './publication-delivery-drawer.component.js';
 import { PublicationSourceQueueComponent } from './publication-source-queue.component.js';
 import { PublicationReliabilityPanelComponent } from './publication-reliability-panel.component.js';
+import { PublicationReliabilityController } from './publication-reliability-controller.js';
 import { AdminPublicationAutomationCommandWorkflow } from './admin-publication-automation-command-workflow.js';
 import { PublicationAutomationReadController } from './publication-automation-read-controller.js';
 import type { PublicationAutomationCommandRunner } from './publication-automation.ports.js';
@@ -86,6 +87,9 @@ export class AdminPublicationAutomationPageComponent {
       settings: () => Boolean(this.settingsController.settings())
     });
   readonly state = this.readController.state;
+  readonly reliabilityController = new PublicationReliabilityController({
+    read: (filter) => this.admin.publicationReliabilityIncidents(filter)
+  });
   readonly sponsorshipId = this.readController.sponsorshipId;
   readonly deliveryId = this.readController.deliveryId;
   readonly requestedDeliveryMissing =
@@ -224,6 +228,7 @@ export class AdminPublicationAutomationPageComponent {
     const destroy = inject(DestroyRef);
     destroy.onDestroy(() => {
       this.readController.dispose();
+      this.reliabilityController.dispose();
       this.delivery.dispose();
       this.settingsController.dispose();
     });

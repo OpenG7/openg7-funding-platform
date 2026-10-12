@@ -42,6 +42,7 @@ import { updateAdminSponsorshipDetails } from '../admin-sponsorship-details.serv
 import { createAdminSponsorshipMediaHttpHandler } from '../admin-sponsorship-media.http.js';
 import { createAdminSponsorshipRecordsHttpHandler } from '../admin-sponsorship-records.http.js';
 import { createSponsorshipCommitmentsHttpHandler } from '../sponsorship-commitments/admin-http.js';
+import { createSponsorshipTimingHttpHandler } from '../sponsorship-timing/admin-http.js';
 import { AdminStripeBackfillError } from '../admin-stripe-backfill.service.js';
 import {
   getAdminStripeEvent,
@@ -390,6 +391,19 @@ export const createAdminHttpHandlers = ({
           ? adminIdentity.identity(request)?.role === 'owner'
           : Boolean(resolveAdminAuthorization(request))
     });
+  const handleSponsorshipTimingRequest = createSponsorshipTimingHttpHandler({
+    publicBaseOrigin,
+    pool: dbPool,
+    readBody,
+    writeJson,
+    ensureAdminAccess,
+    getAdminAuditActor,
+    storage: sponsorMediaStorage,
+    canOwn: (request) =>
+      adminIdentity
+        ? adminIdentity.identity(request)?.role === 'owner'
+        : Boolean(resolveAdminAuthorization(request))
+  });
   const handleExistingAdminSponsorshipRecordsRequest =
     createAdminSponsorshipRecordsHttpHandler({
       publicBaseOrigin,
@@ -416,6 +430,7 @@ export const createAdminHttpHandlers = ({
 
   const handleAdminSponsorshipRecordsRequest: typeof handleExistingAdminSponsorshipRecordsRequest =
     async (request, response) =>
+      (await handleSponsorshipTimingRequest(request, response)) ||
       (await handleSponsorshipCommitmentsRequest(request, response)) ||
       (await handleExistingAdminSponsorshipRecordsRequest(request, response));
 
@@ -562,8 +577,8 @@ export const createAdminHttpHandlers = ({
       isValidOptionalIsoDate,
       listAdminPublicationDrafts: (input) =>
         listAdminPublicationDrafts(dbPool, input),
-      createAdminPublicationDraft: (input) =>
-        createAdminPublicationDraft(dbPool, input),
+      createAdminPublicationDraft: (input, actor) =>
+        createAdminPublicationDraft(dbPool, input, actor),
       updateAdminPublicationDraft: (input, actor) =>
         updateAdminPublicationDraft(dbPool, input, actor),
       insertAdminAuditLog: (input) => insertAdminAuditLog(dbPool, input)

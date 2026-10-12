@@ -117,6 +117,7 @@ import { FundingAdminPilotageClient } from './funding-admin-pilotage.client.js';
 import { FundingAdminAssistantClient } from './funding-admin-assistant.client.js';
 import { FundingAdminModerationClient } from './funding-admin-moderation.client.js';
 import { FundingAdminCommitmentsClient } from './funding-admin-commitments.client.js';
+import { FundingAdminHistoricalAuditClient } from './funding-admin-historical-audit.client.js';
 export type { AdminSponsorshipListQuery } from './funding-admin-sponsorships.client.js';
 export { AdminDashboardRequestError } from './funding-admin-session.js';
 export type {
@@ -171,6 +172,23 @@ export class FundingAdminService {
   private readonly commitmentsClient = new FundingAdminCommitmentsClient(
     this.session
   );
+  private readonly historicalAuditClient =
+    new FundingAdminHistoricalAuditClient(this.session);
+  historicalSponsorshipAudit(
+    query: Parameters<FundingAdminHistoricalAuditClient['preview']>[0]
+  ) {
+    return this.historicalAuditClient.preview(query);
+  }
+  reviewHistoricalSponsorshipEvidence(
+    request: import('@openg7/funding-core').SponsorshipHistoricalAuditReviewRequest
+  ) {
+    return this.historicalAuditClient.review(request);
+  }
+  sponsorshipTimingCommand(
+    request: import('@openg7/funding-core').SponsorshipTimingCommandRequest
+  ) {
+    return this.commitmentsClient.timing(request);
+  }
   getSponsorshipCommitment(contributionId: string) {
     return this.commitmentsClient.get(contributionId);
   }
@@ -301,6 +319,14 @@ export class FundingAdminService {
   ): Promise<PilotReceipt> {
     return this.pilotageClient.acknowledgePilotReceipt(requestId, reason);
   }
+  publicationReliabilityIncidents(
+    filter: import('@openg7/funding-core').PublicationReliabilityIncidentFilter = {}
+  ): Promise<
+    import('@openg7/funding-core').PublicationReliabilityIncidentPage
+  > {
+    return this.publicationsClient.publicationReliabilityIncidents(filter);
+  }
+
   publicationAutomation(
     command?: PublicationAutomationCommand,
     filter: import('@openg7/funding-core').PublicationAutomationFilter = {}

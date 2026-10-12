@@ -6,8 +6,13 @@ import type {
 import type { PoolClient } from 'pg';
 
 import { moderationApprovedSql } from '../moderation/policy.js';
+import { confirmedMediaUsageSql } from '../sponsor-media/usage-policy.js';
 import { SPONSOR_APPROVED_PRESENTATION_SQL } from '../sponsorship-media-eligibility.js';
 import { isValidUuid } from '../business-helpers/request-validation.js';
+import {
+  sponsorshipObligationTimingProjectionSql,
+  initializeSponsorshipObligationTiming
+} from '../sponsorship-obligation-timing.read.js';
 
 export const loadSponsorshipOfferForSession = async (
   db: Pick<PoolClient, 'query'>,
@@ -50,17 +55,24 @@ export const loadSponsorshipCommitment = async (
   const row = result.rows[0];
   if (!row) return null;
   const obligations = await db.query<
-    SponsorshipObligation & { requirementsMet: boolean }
+    SponsorshipObligation & {
+      requirementsMet: boolean;
+      durationUnsupported: boolean;
+    }
   >(
     `SELECT ob.id,ob.commitment_id AS "commitmentId",ob.contribution_id AS "contributionId",
     ob.benefit_id AS "benefitId",ob.channel,ob.target,ob.publication_format AS format,ob.ordinal,ob.state,ob.blocked_reason AS "blockedReason",ob.version,ob.fulfilment_evidence_id AS "fulfilmentEvidenceId",
+    ${sponsorshipObligationTimingProjectionSql('ob')} AS timing,
+    EXISTS (SELECT 1 FROM jsonb_array_elements(o.snapshot->'benefits') b
+      WHERE b->>'id'=ob.benefit_id AND b->>'durationDays' IS NOT NULL AND (ob.channel<>'website' OR ob.target<>'openg7')) AS "durationUnsupported",
     NOT EXISTS (SELECT 1 FROM jsonb_array_elements(o.snapshot->'benefits') b CROSS JOIN LATERAL jsonb_array_elements_text(b->'requiredElements') requirement
       WHERE b->>'id'=ob.benefit_id AND (
         (requirement='company_name' AND NULLIF(btrim(c.sponsor_company_name),'') IS NULL) OR
         (requirement='approved_presentation' AND NOT (${SPONSOR_APPROVED_PRESENTATION_SQL.replaceAll('fund_contributions.id', 'c.id')})) OR
         (requirement='approved_logo' AND NOT EXISTS(SELECT 1 FROM sponsor_media_assets media
           WHERE media.contribution_id=c.id AND media.deleted_at IS NULL AND media.review_status='approved'
-            AND media.kind='logo' AND ${moderationApprovedSql('media', 'media.id')})))) AS "requirementsMet"
+            AND media.kind='logo' AND ${moderationApprovedSql('media', 'media.id')}
+            AND (ob.channel<>'website' OR (media.public_url IS NOT NULL AND ${confirmedMediaUsageSql('media', 'website', 'openg7')})))))) AS "requirementsMet"
     FROM sponsorship_obligations ob JOIN sponsorship_commitments m ON m.id=ob.commitment_id
     JOIN sponsorship_offers o ON o.id=m.offer_id JOIN fund_contributions c ON c.id=ob.contribution_id
     WHERE ob.commitment_id=$1::uuid ORDER BY ob.channel,ob.target,ob.ordinal,ob.id`,
@@ -69,17 +81,24 @@ export const loadSponsorshipCommitment = async (
   const { blockedReason, ...commitment } = row;
   return {
     ...commitment,
-    obligations: obligations.rows.map(({ requirementsMet, ...o }) => {
-      const reason =
-        blockedReason ?? (requirementsMet ? null : 'required_elements_missing');
-      return ['fulfilled', 'adjusted'].includes(o.state)
-        ? o
-        : {
-            ...o,
-            state: reason ? 'blocked' : o.state,
-            blockedReason: reason ?? o.blockedReason
-          };
-    })
+    obligations: obligations.rows.map(
+      ({ requirementsMet, durationUnsupported, ...o }) => {
+        const reason =
+          blockedReason ??
+          (!requirementsMet
+            ? 'required_elements_missing'
+            : durationUnsupported
+              ? 'duration_unsupported'
+              : null);
+        return ['fulfilled', 'adjusted'].includes(o.state)
+          ? o
+          : {
+              ...o,
+              state: reason ? 'blocked' : o.state,
+              blockedReason: reason ?? o.blockedReason
+            };
+      }
+    )
   };
 };
 
@@ -105,6 +124,7 @@ export const createSponsorshipObligations = async (
       ]
     );
   }
+  await initializeSponsorshipObligationTiming(db, commitmentId);
 };
 
 /** Called inside the financial write transaction after server-confirmed paid state. */

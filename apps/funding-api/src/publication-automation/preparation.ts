@@ -7,6 +7,11 @@ import { selectPublicationRecognitionSources } from '../../../../packages/fundin
 import { withPostgresTransaction } from '../postgres-transaction.js';
 import { lockPublicationBatchCapacity } from '../fund-publication-capacity.persistence.js';
 import { publicationMembershipFits } from '../fund-publication-rendering.persistence.js';
+import {
+  publicationSourceUncertainSql,
+  retireObsoletePublicationDrafts
+} from '../fund-publication-draft-retirement.persistence.js';
+import { revokeCommitmentDeliveries } from '../sponsorship-fulfilment.repository.js';
 
 import { canonicalPublicationAccount } from './account-reservations.js';
 import {
@@ -17,6 +22,7 @@ import {
 import { composeSponsorshipContent } from './content.js';
 import {
   PREPARATION_SCAN_LIMIT,
+  eligibleDestination,
   preparationCandidates,
   preparationFormatSql,
   preparationModerationSql,
@@ -59,6 +65,16 @@ export async function prepare(
   now = new Date()
 ): Promise<void> {
   const proposals: { id: string; format: SponsorshipPublicationFormat }[] = [];
+  const [target, channel] = feedId.split(':');
+  await retireObsoletePublicationDrafts(
+    context.pool,
+    {
+      target: target!,
+      channel: channel!
+    },
+    actor,
+    revokeCommitmentDeliveries
+  );
   await withPostgresTransaction(context.pool, async (db) => {
     let pendingCandidates: PreparationSource[] | null = null;
     await db.query(
@@ -67,7 +83,24 @@ export async function prepare(
     );
     const feed = (await context.feeds(db)).find((f) => f.id === feedId)!;
     assert(feed, 'INVALID_FEED', 400);
-    const [target, channel] = feedId.split(':');
+    const candidateScope = `c.contribution_type='sponsorship_interest' AND c.status='paid'
+      AND c.public_display_consent IS TRUE AND c.sponsor_review_status IN ('pending_review','approved')
+      AND NULLIF(btrim(c.sponsor_company_name),'') IS NOT NULL AND c.sponsor_feed_status<>'hidden'`;
+    // Lock delivery authority before source contributions, like term adjustments.
+    // Creation then uses only this locked set and rereads current terms after a wait.
+    await db.query(
+      `SELECT delivery.id FROM publication_deliveries delivery WHERE delivery.feed_id=$3
+       OR delivery.batch_id IN(SELECT source.batch_id FROM sponsor_publication_drafts source
+         JOIN fund_contributions c ON c.id=source.contribution_id
+         WHERE ${candidateScope} AND ${eligibleDestination('c', '$1', '$2')})
+       ORDER BY delivery.id FOR UPDATE OF delivery`,
+      [target, channel, feedId]
+    );
+    const lockedContributions = await db.query<{ id: string }>(
+      `SELECT c.id FROM fund_contributions c WHERE ${candidateScope}
+       AND ${eligibleDestination('c', '$1', '$2')} ORDER BY c.id FOR UPDATE OF c`,
+      [target, channel]
+    );
     // Only confirmed payments and public consent enter private preparation.
     // Sponsor review belongs to the final human decision, never to this worker.
     await db.query(
@@ -77,13 +110,14 @@ export async function prepare(
         JOIN LATERAL(SELECT o.id,o.ordinal,o.created_at FROM sponsorship_obligations o JOIN sponsorship_commitments a ON a.id=o.commitment_id
           WHERE a.state='active' AND o.contribution_id=c.id AND o.channel=$2 AND o.target=$1 AND o.state IN ('pending','blocked')
           ORDER BY o.ordinal,o.id LIMIT 1) passage ON TRUE
-        WHERE c.contribution_type='sponsorship_interest' AND c.status='paid' AND c.public_display_consent IS TRUE AND c.sponsor_review_status IN ('pending_review','approved') AND NULLIF(btrim(c.sponsor_company_name),'') IS NOT NULL AND c.sponsor_feed_status<>'hidden'
+        WHERE ${candidateScope} AND c.id=ANY($3::uuid[])
+          AND NOT ${publicationSourceUncertainSql('c.id', '$2')}
           AND NOT EXISTS(SELECT 1 FROM sponsor_publication_drafts existing WHERE existing.contribution_id=c.id AND existing.feed_target=$1 AND existing.channel=$2 AND existing.status NOT IN ('published','cancelled','rejected'))
           AND NOT EXISTS(SELECT 1 FROM sponsor_publication_drafts refusal WHERE refusal.contribution_id=c.id AND refusal.feed_target=$1 AND refusal.channel=$2
             AND refusal.status='rejected' AND (refusal.obligation_id IS NULL OR refusal.obligation_id=passage.id))
         ORDER BY c.created_at,c.id
         ON CONFLICT(obligation_id) WHERE obligation_id IS NOT NULL AND status NOT IN ('published','cancelled','rejected') DO NOTHING`,
-      [target, channel]
+      [target, channel, lockedContributions.rows.map((row) => row.id)]
     );
     // An untouched, overdue proposal is repacked into the next recurrence.
     // Human edits and authorized/uncertain/rejected deliveries are never moved.

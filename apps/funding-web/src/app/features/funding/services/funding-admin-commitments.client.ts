@@ -2,7 +2,9 @@ import type {
   SponsorshipCommitmentRecord,
   SponsorshipCommitmentQualificationRequest,
   SponsorshipObligationAdjustmentRequest,
-  SponsorshipCommitmentAdoptionPreview
+  SponsorshipCommitmentAdoptionPreview,
+  SponsorshipTimingCommandRequest,
+  SponsorshipObligationTiming
 } from '@openg7/funding-core';
 
 import {
@@ -29,6 +31,11 @@ export class FundingAdminCommitmentsClient {
     payload: SponsorshipObligationAdjustmentRequest
   ): Promise<{ commitment: SponsorshipCommitmentRecord | null }> {
     return this.request('/admin/sponsorship-commitments/adjust', payload);
+  }
+  timing(
+    payload: SponsorshipTimingCommandRequest
+  ): Promise<{ obligationId: string; timing: SponsorshipObligationTiming }> {
+    return this.request('/admin/sponsorship-commitments/timing', payload);
   }
   adoptionPreview(
     pageSize: 25 | 50 = 25,

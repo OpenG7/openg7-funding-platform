@@ -6,7 +6,8 @@ import sharp from 'sharp';
 import {
   attestWebsiteMedia,
   readWebsiteMediaSources,
-  assertWebsiteMediaAttested
+  assertWebsiteMediaAttested,
+  assertWebsiteRequiredElements
 } from '../dist/apps/funding-api/src/sponsorship-website-media.js';
 
 const contributionId = '10000000-0000-4000-8000-000000000001';
@@ -188,6 +189,72 @@ test('transaction revalidation rejects any changed selection, version, hash, key
   );
   assert.throws(
     () => assertWebsiteMediaAttested(contributionId, attestation.sources, null),
+    { code: 'MEDIA_CHANGED' }
+  );
+});
+
+test('website commercial requirements use only the attested public selection and preserve optional logos', async () => {
+  const photo = await attestWebsiteMedia(
+    db([row()]),
+    { readPrivateObject: async () => image },
+    contributionId,
+    null
+  );
+  assert.doesNotThrow(() =>
+    assertWebsiteRequiredElements(
+      contributionId,
+      ['company_name', 'approved_presentation'],
+      'Synthetic sponsor',
+      photo.sources,
+      photo
+    )
+  );
+  assert.throws(
+    () =>
+      assertWebsiteRequiredElements(
+        contributionId,
+        ['company_name', 'approved_presentation', 'approved_logo'],
+        'Synthetic sponsor',
+        photo.sources,
+        photo
+      ),
+    { code: 'REQUIRED_ELEMENTS_MISSING', status: 409 }
+  );
+  assert.throws(
+    () =>
+      assertWebsiteRequiredElements(
+        contributionId,
+        ['company_name'],
+        '  ',
+        photo.sources,
+        photo
+      ),
+    { code: 'REQUIRED_ELEMENTS_MISSING' }
+  );
+  const withLogo = await attestWebsiteMedia(
+    db([row(), row({ id: 'logo', kind: 'logo' })]),
+    { readPrivateObject: async () => image },
+    contributionId,
+    null
+  );
+  assert.doesNotThrow(() =>
+    assertWebsiteRequiredElements(
+      contributionId,
+      ['company_name', 'approved_presentation', 'approved_logo'],
+      'Synthetic sponsor',
+      withLogo.sources,
+      withLogo
+    )
+  );
+  assert.throws(
+    () =>
+      assertWebsiteRequiredElements(
+        contributionId,
+        ['approved_logo'],
+        'Synthetic sponsor',
+        withLogo.sources,
+        photo
+      ),
     { code: 'MEDIA_CHANGED' }
   );
 });

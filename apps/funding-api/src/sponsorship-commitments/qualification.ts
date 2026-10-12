@@ -78,6 +78,19 @@ export const qualifySponsorshipCommitment = async (
     throw new SponsorshipCommitmentError('COMMITMENT_VERSION_CONFLICT');
   if (m.state !== 'needs_confirmation')
     throw new SponsorshipCommitmentError('COMMITMENT_ALREADY_ACTIVE');
+  // Only the controlled OpenG7 website has an explicit, evidence-backed human
+  // duration completion workflow. External feeds provide no continuous exposure guarantee.
+  if (
+    offer.benefits.some(
+      (benefit) =>
+        benefit.durationDays !== null &&
+        (benefit.channel !== 'website' || benefit.target !== 'openg7')
+    )
+  )
+    throw new SponsorshipCommitmentError(
+      'COMMITMENT_DURATION_UNSUPPORTED',
+      400
+    );
   if (
     Number(c.amount_cents) !== offer.amountMinor ||
     c.currency.toUpperCase() !== offer.currency

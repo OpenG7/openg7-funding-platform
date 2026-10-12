@@ -5,8 +5,8 @@
   padding: 1.25rem;
   border: 1px solid var(--admin-border, #cbd5e1);
   border-radius: 1rem;
-  background: var(--admin-surface, #fff);
-  color: var(--admin-text, #0f172a);
+  background: var(--admin-panel, #142338);
+  color: var(--admin-text, #f1f5fc);
 }
 header {
   display: flex;
@@ -89,7 +89,7 @@ button {
 }
 aside {
   padding: 1rem;
-  background: var(--admin-warning-surface, #fffbeb);
+  background: var(--admin-warning-bg, #3b3020);
   border-radius: 0.75rem;
 }
 summary {
@@ -97,7 +97,7 @@ summary {
   font-weight: 700;
 }
 [role='alert'] {
-  color: var(--admin-danger, #b91c1c);
+  color: var(--admin-danger, #ffb5bc);
 }
 :focus-visible {
   outline: 3px solid var(--admin-accent, #2563eb);

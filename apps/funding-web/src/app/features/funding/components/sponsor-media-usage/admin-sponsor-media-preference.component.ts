@@ -19,6 +19,8 @@ import type {
 } from '@openg7/funding-core';
 
 import { FundingAdminService } from '../../services/funding-admin.service.js';
+import { AdminDashboardRequestError } from '../../services/funding-admin-session.js';
+import { sponsorMediaMutationRejection } from '../../models/sponsor-media-mutation-outcome.js';
 
 /** Admin organism: reviews the sponsor's requested choice without publishing or granting usage rights. */
 @Component({
@@ -109,6 +111,7 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
           type="button"
           [disabled]="disabled() || busy()"
           (click)="retry()"
+          data-og7="admin-media-preference-retry"
         >
           {{ 'funding.followup.media.usage.retry' | translate }}
         </button>
@@ -239,9 +242,19 @@ export class AdminSponsorMediaPreferenceComponent implements OnDestroy {
       this.confirmed.set(false);
       this.notice.set('preferenceReviewed');
       this.changed.emit();
-    } catch {
-      if (!this.disposed && generation === this.generation)
-        this.notice.set('mutationUnavailable');
+    } catch (error) {
+      if (!this.disposed && generation === this.generation) {
+        const rejection =
+          error instanceof AdminDashboardRequestError
+            ? sponsorMediaMutationRejection(error.status, error.code)
+            : null;
+        if (rejection) {
+          this.pending.set(null);
+          this.notice.set(rejection);
+          this.confirmed.set(false);
+          await this.refresh();
+        } else this.notice.set('mutationUnavailable');
+      }
     } finally {
       if (!this.disposed && generation === this.generation) this.setBusy(false);
     }

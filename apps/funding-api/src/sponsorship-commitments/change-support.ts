@@ -38,7 +38,7 @@ export const validateCommand = (
   return value;
 };
 export const prior = async (
-  db: PoolClient,
+  db: Pick<PoolClient, 'query'>,
   requestId: string,
   hash: string
 ): Promise<boolean> => {

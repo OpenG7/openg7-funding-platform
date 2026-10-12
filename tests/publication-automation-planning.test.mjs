@@ -161,6 +161,13 @@ function preparationDb({
 } = {}) {
   const assigned = new Set();
   return database((sql, parameters) => {
+    if (sql.startsWith('SELECT DISTINCT draft.contribution_id')) return [];
+    if (sql.startsWith('SELECT delivery.id FROM publication_deliveries'))
+      return [];
+    if (sql.startsWith('SELECT c.id FROM fund_contributions'))
+      return [...members, ...candidates].map((candidate) => ({
+        id: candidate.contribution_id
+      }));
     if (
       sql.startsWith(
         'SELECT slot_id::text AS slot_id FROM sponsor_publication_batches'

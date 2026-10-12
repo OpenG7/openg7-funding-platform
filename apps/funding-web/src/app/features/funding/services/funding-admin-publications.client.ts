@@ -31,6 +31,31 @@ import { errorMessageFromResponse } from './funding-admin-response.js';
 export class FundingAdminPublicationsClient {
   constructor(private readonly session: FundingAdminSession) {}
 
+  async publicationReliabilityIncidents(
+    filter: import('@openg7/funding-core').PublicationReliabilityIncidentFilter = {}
+  ): Promise<
+    import('@openg7/funding-core').PublicationReliabilityIncidentPage
+  > {
+    const query = new URLSearchParams();
+    if (filter.code !== undefined) query.set('code', filter.code);
+    if (filter.subjectType !== undefined)
+      query.set('subjectType', filter.subjectType);
+    if (filter.cursor !== undefined) query.set('cursor', filter.cursor);
+    const response = await this.session.requestAdminJson(
+      `/admin/publication-automation/incidents${query.size ? `?${query}` : ''}`,
+      { auth: 'saved', cache: 'no-store' }
+    );
+    if (!response.ok) {
+      const data = (await response.json().catch(() => ({}))) as {
+        code?: string;
+      };
+      throw new Error(data.code ?? 'RELIABILITY_UNAVAILABLE');
+    }
+    return response.json() as Promise<
+      import('@openg7/funding-core').PublicationReliabilityIncidentPage
+    >;
+  }
+
   async publicationAutomation(
     command?: PublicationAutomationCommand,
     filter: import('@openg7/funding-core').PublicationAutomationFilter = {}

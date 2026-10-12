@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { AxeBuilder } from '@axe-core/playwright';
 import type {
   SponsorMediaAsset,
@@ -70,7 +70,8 @@ async function privateMedia(
     } as SponsorMediaPreference,
     commands: [] as Record<string, unknown>[],
     uploads: [] as string[],
-    failure: false
+    failure: false,
+    conflict: false
   };
   await page.route('**/api/sponsorship-followup/media**', async (route) => {
     const req = route.request(),
@@ -93,6 +94,11 @@ async function privateMedia(
     ) {
       const payload = req.postDataJSON();
       state.commands.push(payload);
+      if (state.conflict) {
+        state.conflict = false;
+        state.assets = state.assets.map((item) => ({ ...item, version: 'v2' }));
+        return json(route, { code: 'VERSION_CONFLICT' }, 409);
+      }
       if (state.failure)
         return json(route, { code: 'MEDIA_USAGE_UNAVAILABLE' }, 503);
       if (url.pathname.endsWith('/usage')) {
@@ -101,7 +107,7 @@ async function privateMedia(
             ? {
                 ...item,
                 usage: payload.usage,
-                version: 'v2',
+                version: item.version === 'v1' ? 'v2' : 'v3',
                 reviewStatus: 'pending_review',
                 publicUrl: null
               }
@@ -230,6 +236,38 @@ export function registerPrivateMediaUsageTests(): void {
       expect(state.preference.preferredAssetId).toBe(id);
       expect(state.commands).toHaveLength(1);
     });
+    test(`image usage refused stale withdrawal refreshes the photo and accepts a new confirmed command ${suffix}`, async ({
+      page
+    }) => {
+      await viewport(page);
+      const state = await privateMedia(page, [asset()]);
+      await visit(page, english);
+      state.conflict = true;
+      page.once('dialog', (dialog) => dialog.accept());
+      await page.locator('[data-og7="media-usage-withdraw"]').click();
+      await expect(page.locator('[data-og7="media-preference"]')).toContainText(
+        english
+          ? 'Review the refreshed information'
+          : 'Vérifiez les informations actualisées'
+      );
+      await expect(page.locator('[data-og7="media-usage-retry"]')).toHaveCount(
+        0
+      );
+      expect(state.commands).toHaveLength(1);
+      expect(state.commands[0].expectedVersion).toBe('v1');
+      page.once('dialog', (dialog) => dialog.accept());
+      await page.locator('[data-og7="media-usage-withdraw"]').click();
+      await expect(
+        page.locator('[data-og7="media-preference-propose"]')
+      ).toBeDisabled();
+      expect(state.commands).toHaveLength(2);
+      expect(state.commands[1]).toMatchObject({
+        expectedVersion: 'v2',
+        confirmed: true,
+        usage: { ...rights, state: 'withdrawn' }
+      });
+      expect(state.commands[1].requestId).not.toBe(state.commands[0].requestId);
+    });
   }
 }
 interface AdminContext {
@@ -240,7 +278,224 @@ interface AdminContext {
   path(tab?: string): string;
   asset(): SponsorMediaAsset;
 }
+async function qualifyRights(editor: Locator): Promise<void> {
+  await editor.locator('[data-og7-id="channel:website"]').check();
+  await editor.locator('[data-og7-id="target:openg7"]').check();
+  await editor.locator('[data-og7-id="transform:technical"]').check();
+  await editor
+    .locator('[data-og7="media-usage-evidence"]')
+    .fill('Synthetic private permission record');
+  await editor.locator('[data-og7="media-usage-confirmation"]').check();
+}
+async function adminMediaPage(
+  page: Page,
+  context: AdminContext,
+  english: boolean
+): Promise<void> {
+  await page.setViewportSize(
+    english ? { width: 390, height: 844 } : { width: 1280, height: 900 }
+  );
+  await page.goto(context.path('media'));
+  if (english)
+    await page
+      .getByRole('button', {
+        name: 'Switch administration language to English'
+      })
+      .click();
+}
 export function registerAdminMediaUsageTests(context: AdminContext): void {
+  for (const english of [false, true]) {
+    const suffix = english ? 'EN mobile' : 'FR desktop';
+    test(`image usage admin stale qualification refreshes the version before a new confirmed command ${suffix}`, async ({
+      page
+    }) => {
+      const { options } = await context.fixtures(page, 'operator');
+      options.media = [{ ...context.asset(), usage: unknown }];
+      const commands: Record<string, unknown>[] = [];
+      await page.route(
+        '**/api/admin/sponsorships/media/usage',
+        async (route) => {
+          const payload = route.request().postDataJSON();
+          commands.push(payload);
+          if (commands.length === 1) {
+            options.media = options.media.map((item) => ({
+              ...item,
+              version: 'v2'
+            }));
+            return json(route, { code: 'VERSION_CONFLICT' }, 409);
+          }
+          options.media = options.media.map((item) => ({
+            ...item,
+            version: 'v3',
+            usage: payload.usage
+          }));
+          return json(route, { updated: true, asset: options.media[0] });
+        }
+      );
+      await adminMediaPage(page, context, english);
+      const card = page.locator('[data-og7="admin-sponsor-media"]'),
+        editor = card.locator('[data-og7="media-usage-editor"]');
+      await qualifyRights(editor);
+      await editor.locator('[data-og7="media-usage-save"]').click();
+      await expect(card).toContainText(
+        english
+          ? 'Review the refreshed information'
+          : 'Vérifiez les informations actualisées'
+      );
+      await expect(
+        card.locator('[data-og7="admin-media-usage-retry"]')
+      ).toHaveCount(0);
+      await expect(
+        editor.locator('[data-og7="media-usage-confirmation"]')
+      ).not.toBeChecked();
+      await qualifyRights(editor);
+      await editor.locator('[data-og7="media-usage-save"]').click();
+      await expect(
+        card.locator('[data-og7="admin-media-approve"]')
+      ).toBeEnabled();
+      expect(commands).toHaveLength(2);
+      expect(commands.map((command) => command.expectedVersion)).toEqual([
+        'v1',
+        'v2'
+      ]);
+      expect(commands[1].requestId).not.toBe(commands[0].requestId);
+      expect(options.media[0].reviewStatus).toBe('pending_review');
+    });
+    test(`image usage admin lost response retains the UUID and exact qualification even after an attempted edit ${suffix}`, async ({
+      page
+    }) => {
+      const { options } = await context.fixtures(page, 'operator');
+      options.media = [{ ...context.asset(), usage: unknown }];
+      const commands: Record<string, unknown>[] = [];
+      await page.route(
+        '**/api/admin/sponsorships/media/usage',
+        async (route) => {
+          const payload = route.request().postDataJSON();
+          commands.push(payload);
+          options.media = options.media.map((item) => ({
+            ...item,
+            version: 'v2',
+            usage: payload.usage
+          }));
+          if (commands.length === 1) return route.abort('failed');
+          return json(route, { updated: true, asset: options.media[0] });
+        }
+      );
+      await adminMediaPage(page, context, english);
+      const card = page.locator('[data-og7="admin-sponsor-media"]'),
+        editor = card.locator('[data-og7="media-usage-editor"]');
+      await qualifyRights(editor);
+      await editor.locator('[data-og7="media-usage-save"]').click();
+      const retry = card.locator('[data-og7="admin-media-usage-retry"]');
+      await expect(retry).toBeVisible();
+      const original = structuredClone(commands[0]);
+      await editor
+        .locator('[data-og7="media-usage-credit"]')
+        .fill('Changed synthetic credit');
+      await editor.locator('[data-og7="media-usage-confirmation"]').check();
+      await editor.locator('[data-og7="media-usage-save"]').click();
+      await expect(card).toContainText(
+        english
+          ? 'A previous request must be verified'
+          : 'Une demande précédente doit être vérifiée'
+      );
+      expect(commands).toHaveLength(1);
+      await retry.click();
+      await expect(retry).toHaveCount(0);
+      expect(commands).toHaveLength(2);
+      expect(commands[1]).toEqual(original);
+      expect(options.media[0].reviewStatus).toBe('pending_review');
+    });
+    for (const uncertain of [false, true])
+      test(`image usage admin preference ${uncertain ? 'lost response replays the exact decision' : 'stale decision refreshes before a new confirmation'} ${suffix}`, async ({
+        page
+      }) => {
+        const { options } = await context.fixtures(page, 'operator');
+        options.media = [context.asset()];
+        let preference: SponsorMediaPreference = {
+          revision: 7,
+          preferredAssetId: options.media[0].id,
+          correction: 'Please use this owned photograph.',
+          state: 'pending',
+          sponsorExplanation: null,
+          available: true
+        };
+        const commands: Record<string, unknown>[] = [];
+        await page.route('**/api/admin/sponsorships/media**', async (route) => {
+          const req = route.request(),
+            url = new URL(req.url());
+          if (url.pathname.endsWith('/media') && req.method() === 'GET')
+            return json(route, { assets: options.media, preference });
+          if (!url.pathname.endsWith('/preference-review'))
+            return route.fallback();
+          const payload = req.postDataJSON();
+          commands.push(payload);
+          if (commands.length === 1) {
+            preference = {
+              ...preference,
+              revision: 8,
+              ...(uncertain
+                ? {
+                    state: 'accepted',
+                    sponsorExplanation: payload.sponsorExplanation
+                  }
+                : {})
+            };
+            return uncertain
+              ? route.abort('failed')
+              : json(route, { code: 'VERSION_CONFLICT' }, 409);
+          }
+          if (!uncertain)
+            preference = {
+              ...preference,
+              revision: 9,
+              state: 'accepted',
+              sponsorExplanation: payload.sponsorExplanation
+            };
+          return json(route, { updated: true, preference });
+        });
+        await adminMediaPage(page, context, english);
+        const panel = page.locator('[data-og7="admin-media-preference"]'),
+          confirmation = panel.locator(
+            '[data-og7="admin-media-preference-confirmation"]'
+          ),
+          accept = panel.locator('[data-og7="admin-media-preference-accept"]');
+        await panel
+          .getByRole('textbox')
+          .fill('The requested photo is suitable for preparation.');
+        await confirmation.check();
+        await accept.click();
+        const retry = panel.locator(
+          '[data-og7="admin-media-preference-retry"]'
+        );
+        if (uncertain) {
+          await expect(retry).toBeVisible();
+          await retry.click();
+        } else {
+          await expect(panel).toContainText(
+            english
+              ? 'Review the refreshed information'
+              : 'Vérifiez les informations actualisées'
+          );
+          await expect(retry).toHaveCount(0);
+          await expect(confirmation).not.toBeChecked();
+          await confirmation.check();
+          await accept.click();
+        }
+        await expect(panel).toContainText(
+          english ? 'Preference accepted' : 'Préférence acceptée'
+        );
+        expect(commands).toHaveLength(2);
+        if (uncertain) expect(commands[1]).toEqual(commands[0]);
+        else {
+          expect(commands.map((command) => command.expectedRevision)).toEqual([
+            7, 8
+          ]);
+          expect(commands[1].requestId).not.toBe(commands[0].requestId);
+        }
+        expect(options.media[0].reviewStatus).toBe('pending_review');
+      });
+  }
   for (const english of [false, true])
     test(`image usage admin qualifies historical rights from private evidence without auto approval ${english ? 'EN mobile' : 'FR desktop'}`, async ({
       page

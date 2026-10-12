@@ -95,6 +95,16 @@
               >
             }
             @if (
+              o.timing &&
+              (o.timing.deadlineDays !== null || o.timing.durationDays !== null)
+            ) {
+              <openg7-admin-sponsorship-timing
+                [obligation]="o"
+                [canOwn]="canOwn()"
+                (changed)="c.load(); changed.emit()"
+              />
+            }
+            @if (
               canOwn() && o.state !== 'fulfilled' && o.state !== 'adjusted'
             ) {
               <button
@@ -253,6 +263,9 @@
                     data-og7="commitments-duration"
                 /></label>
                 <p>{{ 'admin.commitments.periodHelp' | translate }}</p>
+                <p>
+                  {{ 'admin.commitments.durationUnsupportedHelp' | translate }}
+                </p>
                 <button type="button" (click)="c.removeBenefit(index)">
                   {{ 'admin.commitments.removeBenefit' | translate }}
                 </button>
@@ -554,3 +567,9 @@
     </details>
   }
 </section>
+@if (canOwn()) {
+  <openg7-admin-sponsorship-historical-audit
+    [contributionId]="dossier().contributionId"
+    [canOwn]="canOwn()"
+  />
+}
