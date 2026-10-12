@@ -18,6 +18,7 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
+import { completePublicationModeration } from './support/acceptance-moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { acceptanceSql } from './support/acceptance-database.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
@@ -469,8 +470,7 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
       await preview
         .getByRole('button', { name: 'Accepter et programmer' })
         .click();
-      await completeModeration(admin); // The pending sponsorship's exact content.
-      await completeModeration(admin); // The final Facebook publication.
+      await completePublicationModeration(admin);
       await expect(preview).toContainText('Autorisée');
       firstApproval = await delivery(facebook.id);
       expect(firstApproval).toMatchObject({
@@ -571,7 +571,7 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
       await preview
         .getByRole('button', { name: 'Accepter et programmer' })
         .click();
-      await completeModeration(admin);
+      await completePublicationModeration(admin);
       await expect(preview).toContainText('Autorisée');
       await preview.screenshot({
         path: info.outputPath('linkedin-exact-approval.png')
@@ -624,7 +624,7 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
       await preview
         .getByRole('button', { name: 'Accepter et programmer' })
         .click();
-      await completeModeration(admin);
+      await completePublicationModeration(admin);
       await expect(preview).toContainText('Autorisée');
       await admin.close();
       const due = new Date((await delivery(facebook.id)).scheduledAt);

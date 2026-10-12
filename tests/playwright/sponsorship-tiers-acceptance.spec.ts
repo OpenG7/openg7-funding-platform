@@ -17,13 +17,14 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
+import {
+  acceptanceModerationDecision,
+  approveAcceptanceSubject,
+  completePublicationModeration
+} from './support/acceptance-moderation.js';
+import { completeModeration } from './support/moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
-import {
-  approveCurrentModeration,
-  completeModeration,
-  currentModerationApproval
-} from './support/moderation.js';
 import { expect, test } from './support/test.js';
 
 const automation = '/api/admin/publication-automation';
@@ -512,7 +513,7 @@ for (const amount of [100, 250]) {
             await assertPrivate();
             // The summary and slug belong to a new editorial revision. Review
             // it before the separate, consent-controlled visibility decision.
-            await approveCurrentModeration(request, {
+            await approveAcceptanceSubject(request, {
               type: 'sponsorship',
               id: contributionId
             });
@@ -590,7 +591,7 @@ for (const amount of [100, 250]) {
               draftId: draft.id,
               status: 'approved',
               confirmation: draft.id,
-              moderationDecision: await currentModerationApproval(request, {
+              moderationDecision: await acceptanceModerationDecision(request, {
                 type: 'publication_draft',
                 id: draft.id
               })
@@ -604,6 +605,10 @@ for (const amount of [100, 250]) {
             await post('/api/admin/publication-batches/assign', {
               batchId: batch.id,
               draftId: draft.id
+            });
+            await approveAcceptanceSubject(request, {
+              type: 'publication_draft',
+              id: draft.id
             });
             const composed = await request.post(automation, {
               headers: await adminSessionHeaders(request),
@@ -672,7 +677,7 @@ for (const amount of [100, 250]) {
             await dialog
               .getByRole('button', { name: 'Accepter et programmer' })
               .click();
-            await completeModeration(admin);
+            await completePublicationModeration(admin);
             await expect(dialog).toContainText('Autorisée');
             const authorized = (await jobs())[0]!;
             const due = new Date(authorized.scheduledAt);

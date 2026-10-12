@@ -184,6 +184,7 @@
           }
           <openg7-funding-moderation-actions
             [subject]="{ type: 'sponsorship', id: selected.id }"
+            [headingLevel]="2"
             [disabled]="actionsDisabled()"
             (changed)="loadSponsorships(true)"
           />

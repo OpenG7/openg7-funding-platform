@@ -5,6 +5,7 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
+import { rejectAcceptanceSponsorship } from './support/acceptance-oidc-moderation.js';
 import { expect, test } from './support/test.js';
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import {
@@ -336,6 +337,54 @@ test.describe('Docker admin sponsorship review', () => {
     await page.getByRole('button', { name: /Confirmer le refus/i }).click();
 
     await confirmPendingRejection(page, request, before);
+  });
+
+  test('an identified rejection becomes effective only after independent review without changing financial facts', async ({
+    browser,
+    request
+  }) => {
+    const fixture = SPONSORSHIP_FIXTURES.independentReject;
+    const before = await storedSponsorship(request, fixture.publicReference);
+    await rejectAcceptanceSponsorship(
+      browser,
+      fixture.publicReference,
+      'Synthetic independently confirmed rejection.'
+    );
+    const after = await storedSponsorship(request, fixture.publicReference);
+    expect(after.sponsor_review_status).toBe('rejected');
+    expect(financialState(after)).toEqual(financialState(before));
+  });
+
+  test('an independently confirmed rejection records the separately confirmed manual refund outcome', async ({
+    page,
+    browser,
+    request
+  }) => {
+    const fixture = SPONSORSHIP_FIXTURES.independentRejectRefund;
+    const before = await storedSponsorship(request, fixture.publicReference);
+    await rejectAcceptanceSponsorship(
+      browser,
+      fixture.publicReference,
+      'Synthetic rejection with a separately confirmed manual refund.',
+      'manual_completed'
+    );
+    const after = await storedSponsorship(request, fixture.publicReference);
+    expect(after).toMatchObject({
+      sponsor_review_status: 'rejected',
+      payment_status: before.payment_status,
+      amount: before.amount,
+      currency: before.currency,
+      sponsorship_refund_status: 'completed'
+    });
+    await signInAsAdmin(page);
+    await openFixtureSponsorship(page, fixture.companyName);
+    const header = page.locator('openg7-admin-sponsor-detail-header');
+    await expect(
+      header.getByRole('heading', { name: fixture.companyName, exact: true })
+    ).toBeVisible();
+    await expect(
+      header.getByText('Remboursement complete', { exact: true })
+    ).toBeVisible();
   });
 
   test('uploads and deletes a sponsorship logo', async ({ page }) => {

@@ -16,9 +16,10 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
+import { completeModeration } from './support/moderation.js';
+import { completePublicationModeration } from './support/acceptance-moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
-import { completeModeration } from './support/moderation.js';
 import { test, expect } from './support/test.js';
 
 const automation = '/api/admin/publication-automation';
@@ -140,13 +141,14 @@ for (const review of ['pending', 'reapproved'] as const) {
       const pendingSponsors = (await delivery(job.id)).sponsors.filter(
         (sponsor) => sponsor.reviewStatus === 'pending_review'
       );
+      await expect(
+        dialog.locator('[data-og7="publication-sponsor-review"] li a')
+      ).toHaveCount(pendingSponsors.length);
       await dialog.getByRole('checkbox', { name: /J’approuve/ }).check();
       await dialog
         .getByRole('button', { name: 'Accepter et programmer' })
         .click();
-      for (let index = 0; index < pendingSponsors.length; index++)
-        await completeModeration(admin);
-      await completeModeration(admin);
+      await completePublicationModeration(admin);
       await expect(dialog).toContainText('Autorisée');
       return delivery(job.id);
     };

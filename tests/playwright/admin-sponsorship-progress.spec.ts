@@ -3072,6 +3072,10 @@ test('return to filtered queue survives tab navigation and badge counts refresh 
   page
 }) => {
   const { calls, options } = await fixtures(page);
+  let release!: () => void;
+  options.reviewGate = new Promise((resolve) => {
+    release = resolve;
+  });
   const destination =
     '/admin/fundraiser/attention?type=sponsorship_needs_review&priority=today&page=2';
   await page.goto(path() + '&returnTo=' + encodeURIComponent(destination));
@@ -3085,11 +3089,29 @@ test('return to filtered queue survives tab navigation and badge counts refresh 
     page.locator('[data-og7="return-to-attention"]')
   ).toHaveAttribute('href', destination);
   options.reviewStatus = 200;
-  options.queueCount = 0;
   await tabs(page).getByRole('button', { name: 'Aperçu', exact: true }).click();
   await page.getByRole('button', { name: 'Accepter', exact: true }).click();
+  await expect(page.locator('[data-og7="moderation-decision"]')).toBeVisible();
   expect(postsTo(calls, '/review')).toHaveLength(0);
   await completeModeration(page);
+  await expect.poll(() => postsTo(calls, '/review').length).toBe(1);
+  expect(postsTo(calls, '/review')[0]?.body).toMatchObject({
+    contributionId: id,
+    expectedVersion: 'v1',
+    confirmation: id,
+    moderationDecision: {
+      policyVersion: '1.0',
+      contentVersion: 3,
+      contentFingerprint: 'a'.repeat(64),
+      level: 'N0',
+      confirmation: id
+    }
+  });
+  await expect(
+    page.locator('[data-og7="nav-count"][data-og7-id="sponsors"]')
+  ).toHaveText('3');
+  options.queueCount = 0;
+  release();
   await expect(
     page.locator('[data-og7="nav-count"][data-og7-id="sponsors"]')
   ).toHaveCount(0);
@@ -4304,6 +4326,7 @@ for (const english of [false, true]) {
     const member = actions.locator('[data-og7="moderation-assigned-member"]');
     await expect(member).toBeVisible();
     await expect(member.locator('option')).toHaveCount(2);
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
     await member.selectOption('admin:' + secondId);
     await actions.locator('[data-og7="moderation-assign"]').click();
     expect(mutations).toHaveLength(0);

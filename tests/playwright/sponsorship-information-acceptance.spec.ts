@@ -16,9 +16,9 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
+import { completeModeration } from './support/moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptanceReviewReminder } from './support/acceptance-review-reminder.js';
-import { completeModeration } from './support/moderation.js';
 import { test, expect } from './support/test.js';
 
 const requestUrl = '/api/admin/sponsorships/request-information';

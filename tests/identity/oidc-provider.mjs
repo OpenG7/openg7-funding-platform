@@ -8,7 +8,40 @@ import {
   sign
 } from 'node:crypto';
 
-export async function startIdentityProvider(origin) {
+export async function startIdentityProvider(origin, options = {}) {
+  const host = options.host ?? '127.0.0.1';
+  const port = options.port ?? 0;
+  const clientSecret = options.clientSecret ?? randomBytes(24).toString('hex');
+  let publicIssuer;
+  if (options.publicIssuer !== undefined) {
+    try {
+      if (typeof options.publicIssuer !== 'string') throw new Error();
+      const configured = new URL(options.publicIssuer);
+      if (
+        configured.protocol !== 'http:' ||
+        !['localhost', '127.0.0.1', '[::1]'].includes(configured.hostname) ||
+        configured.username ||
+        configured.password ||
+        configured.pathname !== '/' ||
+        configured.search ||
+        configured.hash
+      )
+        throw new Error();
+      publicIssuer = configured.origin;
+    } catch {
+      throw new Error('Identity fixture requires a loopback public issuer.');
+    }
+  }
+  if (
+    !['127.0.0.1', 'localhost', '::1', '0.0.0.0'].includes(host) ||
+    !Number.isInteger(port) ||
+    port < 0 ||
+    port > 65535 ||
+    typeof clientSecret !== 'string' ||
+    clientSecret.length < 16 ||
+    (host === '0.0.0.0' && !publicIssuer)
+  )
+    throw new Error('Invalid identity fixture listener configuration.');
   const { publicKey, privateKey } = generateKeyPairSync('rsa', {
     modulusLength: 2048
   });
@@ -23,7 +56,6 @@ export async function startIdentityProvider(origin) {
   let issuer,
     tokenAvailable = true;
   const clientId = 'identity-acceptance';
-  const clientSecret = randomBytes(24).toString('hex');
   const subjects = [
     'owner',
     'operator',
@@ -144,9 +176,11 @@ export async function startIdentityProvider(origin) {
       res.writeHead(500).end('{}');
     }
   });
-  server.listen(0, '127.0.0.1');
+  server.listen(port, host);
   await once(server, 'listening');
-  issuer = `http://127.0.0.1:${server.address().port}`;
+  issuer =
+    publicIssuer ??
+    `http://${host === '::1' ? '[::1]' : host}:${server.address().port}`;
   return {
     issuer,
     clientId,

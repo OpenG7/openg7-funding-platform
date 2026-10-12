@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawn, execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -21,7 +21,15 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const temporary = await mkdtemp(join(tmpdir(), 'og7-acceptance-'));
 const envFile = join(temporary, 'empty.env');
 await writeFile(envFile, '');
-const servers = [createServer(), createServer()];
+const moderationNginxFile = join(temporary, 'nginx-oidc.conf');
+const nginx = await readFile(join(root, 'apps/funding-web/nginx.conf'), 'utf8');
+if (!nginx.includes('proxy_pass http://api:3333;'))
+  throw new Error('Missing acceptance API proxy upstream.');
+await writeFile(
+  moderationNginxFile,
+  nginx.replaceAll('proxy_pass http://api:3333;', 'proxy_pass http://api:3334;')
+);
+const servers = Array.from({ length: 4 }, () => createServer());
 const ports = await Promise.all(
   servers.map(
     (server) =>
@@ -43,7 +51,10 @@ const env = acceptanceEnvironment({
   project,
   envFile,
   webPort: ports[0],
-  stripePort: ports[1]
+  stripePort: ports[1],
+  moderationWebPort: ports[2],
+  oidcProviderPort: ports[3],
+  moderationNginxFile
 });
 const artifacts = join(root, 'test-results', 'acceptance');
 await mkdir(artifacts, { recursive: true });

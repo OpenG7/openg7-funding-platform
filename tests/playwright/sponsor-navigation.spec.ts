@@ -1,15 +1,14 @@
 import type { APIRequestContext } from '@playwright/test';
 import type {
-  AdminSponsorshipsResponse,
   PublicSponsorshipsResponse,
   SponsorshipFollowupResponse,
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
+import { approveAcceptanceFixture } from './support/acceptance-moderation.js';
 import { expect, test } from './support/test.js';
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { adminSessionHeaders } from './support/admin-auth.js';
-import { approveCurrentModeration } from './support/moderation.js';
 
 // Covers the public, sponsor-facing side of the business sponsorship journey
 // (the admin review side is covered by admin-sponsorship-review.spec.ts):
@@ -18,7 +17,7 @@ import { approveCurrentModeration } from './support/moderation.js';
 // pages reachable from that flow. Public scenarios explicitly review their
 // seeded approved dossier, independently of the admin review spec.
 
-async function reviewPresentation(
+async function expectApprovedPresentation(
   request: APIRequestContext,
   contributionId: string
 ): Promise<void> {
@@ -32,10 +31,6 @@ async function reviewPresentation(
   ).assets.filter((asset) => asset.kind === 'supporting_image');
   expect(presentation).toHaveLength(1);
   expect(presentation[0]!.reviewStatus).toBe('approved');
-  await approveCurrentModeration(request, {
-    type: 'media',
-    id: presentation[0]!.id
-  });
 }
 
 test.describe('Docker corporate sponsor navigation', () => {
@@ -136,18 +131,11 @@ test.describe('Docker corporate sponsor navigation', () => {
     request
   }) => {
     const fixture = SPONSORSHIP_FIXTURES.directory;
-    const seeded = await request.get(
-      '/api/admin/sponsorships?search=' + fixture.publicReference,
-      { headers: await adminSessionHeaders(request) }
+    const contributionId = await approveAcceptanceFixture(
+      request,
+      fixture.publicReference
     );
-    expect(seeded.ok()).toBe(true);
-    const records = (await seeded.json()) as AdminSponsorshipsResponse;
-    expect(records.items).toHaveLength(1);
-    await approveCurrentModeration(request, {
-      type: 'sponsorship',
-      id: records.items[0]!.id
-    });
-    await reviewPresentation(request, records.items[0]!.id);
+    await expectApprovedPresentation(request, contributionId);
 
     await page.goto('/fonds-des-batisseurs');
     await page
@@ -178,18 +166,11 @@ test.describe('Docker corporate sponsor navigation', () => {
     request
   }) => {
     const fixture = SPONSORSHIP_FIXTURES.followupEditing;
-    const seeded = await request.get(
-      '/api/admin/sponsorships?search=' + fixture.publicReference,
-      { headers: await adminSessionHeaders(request) }
+    const contributionId = await approveAcceptanceFixture(
+      request,
+      fixture.publicReference
     );
-    expect(seeded.ok()).toBe(true);
-    const records = (await seeded.json()) as AdminSponsorshipsResponse;
-    expect(records.items).toHaveLength(1);
-    await approveCurrentModeration(request, {
-      type: 'sponsorship',
-      id: records.items[0]!.id
-    });
-    await reviewPresentation(request, records.items[0]!.id);
+    await expectApprovedPresentation(request, contributionId);
     const publicProfiles = async () => {
       const response = await request.get('/api/public/sponsorships');
       expect(response.ok()).toBe(true);

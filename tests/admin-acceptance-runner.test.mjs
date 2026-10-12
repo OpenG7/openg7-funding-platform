@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
+import { once } from 'node:events';
+import { createServer } from 'node:http';
 import test from 'node:test';
+import { promisify } from 'node:util';
+import { dockerModerationConfiguration } from './identity/docker-moderation-server.mjs';
 
 import {
   acceptanceEnvironment,
@@ -19,13 +24,20 @@ test('acceptance ignores inherited application credentials, Compose targets and 
       SMTP_PASSWORD: 'forbidden-password',
       PLAYWRIGHT_BASE_URL: 'https://example.invalid',
       STRIPE_STUB_BASE_URL: 'https://example.invalid',
+      MODERATION_WEB_BASE_URL: 'https://forbidden.example.invalid',
+      ACCEPTANCE_OIDC_PROVIDER_PORT: '443',
+      ACCEPTANCE_OIDC_NGINX_FILE: '/forbidden/nginx.conf',
+      FUNDING_ADMIN_OIDC_ISSUER: 'https://forbidden.example.invalid',
       MIGRATIONS_DIR: 'forbidden'
     },
     root: '/repo',
     project: 'og7-acceptance-a1b2',
     envFile: '/temporary/empty.env',
     webPort: 48080,
-    stripePort: 44242
+    stripePort: 44242,
+    moderationWebPort: 48081,
+    oidcProviderPort: 48082,
+    moderationNginxFile: '/temporary/nginx-oidc.conf'
   });
   assert.equal(env.PATH, '/toolchain');
   assert.equal(env.FUNDING_PLATFORM_ENV, 'test');
@@ -41,10 +53,40 @@ test('acceptance ignores inherited application credentials, Compose targets and 
   assert.match(env.COMPOSE_FILE, /docker-compose.acceptance.yml$/);
   assert.equal(env.PLAYWRIGHT_BASE_URL, 'http://127.0.0.1:48080');
   assert.equal(env.STRIPE_STUB_BASE_URL, 'http://127.0.0.1:44242');
+  assert.equal(env.MODERATION_WEB_BASE_URL, 'http://127.0.0.1:48081');
+  assert.equal(env.ACCEPTANCE_OIDC_PROVIDER_PORT, '48082');
+  assert.equal(env.ACCEPTANCE_OIDC_NGINX_FILE, '/temporary/nginx-oidc.conf');
+  assert.equal(env.FUNDING_ADMIN_OIDC_ISSUER, undefined);
   assert.equal(
     Object.values(env).some((value) => value.includes('forbidden')),
     false
   );
+});
+
+test('acceptance rejects missing, duplicate and internal API ports', () => {
+  const options = {
+    parent: {},
+    root: '/repo',
+    project: 'og7-acceptance-a1b2',
+    envFile: '/temporary/empty.env',
+    moderationNginxFile: '/temporary/nginx-oidc.conf',
+    webPort: 48080,
+    stripePort: 44242,
+    moderationWebPort: 48081,
+    oidcProviderPort: 48082
+  };
+  for (const changes of [
+    { moderationWebPort: undefined },
+    { oidcProviderPort: 443 },
+    { moderationWebPort: 48080 },
+    { oidcProviderPort: 44242 },
+    { oidcProviderPort: 3333 },
+    { moderationWebPort: 3334 }
+  ])
+    assert.throws(
+      () => acceptanceEnvironment({ ...options, ...changes }),
+      /port/i
+    );
 });
 
 test('acceptance refuses remote Docker daemons', () => {
@@ -61,6 +103,118 @@ test('acceptance refuses remote Docker daemons', () => {
   ])
     assert.throws(() => assertLocalDockerEndpoint(endpoint));
 });
+
+test('moderation identity preflight confines the API and providers to the disposable stack', () => {
+  const env = {
+    OPENG7_E2E_ISOLATED: '1',
+    COMPOSE_PROJECT_NAME: 'og7-acceptance-a1b2',
+    FUNDING_PLATFORM_ENV: 'development',
+    MODERATION_WEB_BASE_URL: 'http://127.0.0.1:48081',
+    ACCEPTANCE_OIDC_PROVIDER_PORT: '48082',
+    DATABASE_URL:
+      'postgres://acceptance:local-acceptance-only@postgres:5432/acceptance',
+    STRIPE_API_HOST: 'stripe-stub',
+    STRIPE_API_PROTOCOL: 'http',
+    STRIPE_API_PORT: '4242',
+    SOCIAL_PUBLICATION_MODE: 'mock'
+  };
+  const configuration = dockerModerationConfiguration(env);
+  assert.equal(configuration.apiPort, 3334);
+  assert.equal(configuration.webOrigin, env.MODERATION_WEB_BASE_URL);
+  assert.equal(configuration.issuer, 'http://127.0.0.1:48082');
+  for (const changes of [
+    { OPENG7_E2E_ISOLATED: undefined },
+    { COMPOSE_PROJECT_NAME: 'production' },
+    { FUNDING_PLATFORM_ENV: 'production' },
+    { MODERATION_WEB_BASE_URL: 'https://example.invalid' },
+    { MODERATION_WEB_BASE_URL: 'http://127.0.0.1:48081/private' },
+    { ACCEPTANCE_OIDC_PROVIDER_PORT: '48081' },
+    { ACCEPTANCE_OIDC_PROVIDER_PORT: '3334' },
+    {
+      DATABASE_URL:
+        'postgres://acceptance:synthetic@external.invalid:5432/acceptance'
+    },
+    {
+      DATABASE_URL: 'postgres://acceptance:synthetic@postgres:5432/production'
+    },
+    { STRIPE_API_HOST: 'api.stripe.com' },
+    { SOCIAL_PUBLICATION_MODE: 'live' }
+  ])
+    assert.throws(() => dockerModerationConfiguration({ ...env, ...changes }));
+});
+
+test(
+  'acceptance readiness waits for HTTP recovery and the OIDC mode using real fetch responses',
+  { timeout: 10000 },
+  async (t) => {
+    const calls = [];
+    await acceptanceStages({
+      node: process.execPath,
+      cli: 'playwright',
+      diagnostics: async () => {},
+      run: async (command, args) => {
+        calls.push({ command, args });
+      }
+    });
+    const readiness = calls.find(
+      ({ command, args }) =>
+        command === process.execPath &&
+        args[0] === 'scripts/lib/admin-acceptance-readiness.mjs'
+    );
+    assert.ok(readiness, 'The recipe must execute its real readiness program.');
+
+    const modes = [];
+    let providerRequests = 0;
+    let issuer;
+    const config = createServer((req, res) => {
+      assert.equal(req.url, '/api/admin/auth/config');
+      const mode = modes.length < 2 ? 'token' : 'oidc';
+      const status = modes.length === 0 ? 502 : 200;
+      modes.push({ status, mode });
+      res.writeHead(status, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ mode }));
+    });
+    const provider = createServer((req, res) => {
+      assert.equal(req.url, '/.well-known/openid-configuration');
+      providerRequests++;
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ issuer }));
+    });
+    for (const server of [config, provider]) {
+      t.after(async () => {
+        if (!server.listening) return;
+        await new Promise((resolve, reject) => {
+          server.close((error) => (error ? reject(error) : resolve()));
+          server.closeAllConnections();
+        });
+      });
+      server.listen(0, '127.0.0.1');
+      await once(server, 'listening');
+    }
+    issuer = `http://127.0.0.1:${provider.address().port}`;
+    const { stdout, stderr } = await promisify(execFile)(
+      process.execPath,
+      readiness.args,
+      {
+        // Do not inherit application credentials or unrelated provider targets.
+        env: {
+          MODERATION_WEB_BASE_URL: `http://127.0.0.1:${config.address().port}`,
+          ACCEPTANCE_OIDC_PROVIDER_PORT: String(provider.address().port)
+        },
+        timeout: 8000,
+        windowsHide: true
+      }
+    );
+    assert.equal(stdout, '');
+    assert.equal(stderr, '');
+    assert.deepEqual(modes, [
+      { status: 502, mode: 'token' },
+      { status: 200, mode: 'token' },
+      { status: 200, mode: 'oidc' }
+    ]);
+    assert.equal(providerRequests, modes.length);
+  }
+);
 
 test('acceptance preserves browser filters and project while forcing one worker', async () => {
   const calls = [];
@@ -129,7 +283,7 @@ test('acceptance places its worker override before the option terminator without
 });
 
 test('acceptance stops at every failed stage and always tears down its stack', async () => {
-  for (let failure = 0; failure < 7; failure++) {
+  for (let failure = 0; failure < 9; failure++) {
     const calls = [];
     let diagnostics = 0;
     await assert.rejects(

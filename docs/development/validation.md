@@ -53,15 +53,17 @@ documentaire n'exige pas de lancer les suites applicatives.
 | `yarn test:automation` | Tests Node, build Angular production, alertes/S3 jetables, restauration applicative et parcours navigateur publics/accessibilité; aucun secret réel |
 | `yarn exec playwright test --config tests/playwright-recovery.config.mjs` | Scripts de sauvegarde/restauration et récupération applicative sur cibles jetables |
 
-La recette `yarn test:e2e:acceptance` exécute les scénarios séquentiellement sur
-un seul worker, même si une option CLI `--workers` indique une autre valeur.
-Les scénarios partagent la base, les réglages et les redémarrages de l’API.
-Le workflow [Admin acceptance](../../.github/workflows/admin-acceptance.yml)
-exécute en parallèle trois blocs, chacun sur son propre runner : contrôles et
-intégrations, navigateurs UI/identité/récupération, et recette Docker. Ce
-parallélisme entre jobs préserve le worker unique de la recette Docker ; les
-suites UI utilisent leurs fixtures/interceptions isolées. Le contrôle final
-`acceptance` exige la réussite des trois jobs.
+La recette Docker impose un worker, même avec `--workers` : base, réglages et
+redémarrages API sont partagés. Le workflow
+[Admin acceptance](../../.github/workflows/admin-acceptance.yml) sépare les
+contrôles/intégrations, l'UI/identité/récupération et Docker sur trois runners;
+le contrôle final exige leur réussite.
+
+En recette Docker, N0 porte sur le contenu persisté avant publication. Le refus
+N4 attend une seconde identité OIDC signée locale; l'auteur ne peut pas le
+confirmer. L'API OIDC partage base et médias jetables avec l'API token, sans
+worker supplémentaire. Web et fournisseur ont des ports loopback distincts;
+aucun fournisseur externe ni `.env` n'est utilisé.
 
 Certaines recettes de publication utilisent un
 [passage à heure contrôlée](../../tests/playwright/support/acceptance-publication-worker.ts)

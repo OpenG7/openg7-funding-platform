@@ -13,9 +13,13 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
+import {
+  approveAcceptanceSubject,
+  completePublicationModeration
+} from './support/acceptance-moderation.js';
+import { completeModeration } from './support/moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
-import { completeModeration } from './support/moderation.js';
 import { test, expect } from './support/test.js';
 
 const automation = '/api/admin/publication-automation';
@@ -152,7 +156,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
       await dialog
         .getByRole('button', { name: 'Accepter et programmer' })
         .click();
-      await completeModeration(admin);
+      await completePublicationModeration(admin);
       const response = await approved;
       expect(response.ok(), await response.text()).toBe(true);
       expect(response.request().postDataJSON()).toMatchObject({
@@ -603,6 +607,10 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         await admin
           .getByRole('button', { name: 'Publication', exact: true })
           .click();
+        await approveAcceptanceSubject(request, {
+          type: 'sponsorship',
+          id: id
+        });
         await admin.locator('[data-og7="website-visibility"]').click();
         await admin.locator('[data-og7="confirm-action"]').click();
         await expect(

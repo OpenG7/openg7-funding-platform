@@ -1,5 +1,9 @@
 import type { Page } from '@playwright/test';
 
+import {
+  approveAcceptanceFixture,
+  completePublicationModeration
+} from './support/acceptance-moderation.js';
 import { expect, test } from './support/test.js';
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { signInAsAdmin } from './support/admin-auth.js';
@@ -60,10 +64,7 @@ test.describe('Docker admin publication batches', () => {
     await expect(eligibleCard).toBeVisible();
     const sponsorshipId = await eligibleCard.getAttribute('data-og7-id');
     if (!sponsorshipId) throw new Error('Eligible sponsorship id is missing.');
-    await approveCurrentModeration(request, {
-      type: 'sponsorship',
-      id: sponsorshipId
-    });
+    await approveAcceptanceFixture(request, fixture.publicReference);
     await eligibleCard
       .getByRole('button', { name: 'Facebook', exact: true })
       .click();
@@ -277,7 +278,7 @@ test.describe('Docker admin publication batches', () => {
     await preview
       .getByRole('button', { name: 'Accepter et programmer' })
       .click();
-    await completeModeration(page);
+    await completePublicationModeration(page);
     await expect(preview).toContainText('Autorisée');
     await expect(preview).toContainText('Simulation');
     await preview.getByRole('button', { name: 'Fermer', exact: true }).click();
