@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 
 import type {
   SponsorshipOfferAcceptance,
+  SponsorshipOfferFormatOptions,
   SponsorshipOfferQuote,
   SponsorshipOfferSnapshot
 } from '@openg7/funding-core';
@@ -10,56 +11,47 @@ import type { PoolClient } from 'pg';
 
 import {
   createSponsorshipOfferSnapshot,
-  normalizeSponsorshipOfferSnapshot
+  normalizeSponsorshipOfferSnapshot,
+  normalizeSponsorshipOfferFormats,
+  publicationFormatCapability
 } from '../../../../packages/funding-core/src/index.js';
 import { CheckoutOperationError } from '../checkout-operations.service.js';
 
 export const sponsorshipOfferFingerprint = (
-  snapshot: SponsorshipOfferSnapshot | SponsorshipOfferQuote
-): string => {
-  // A quote adds only a derived digest; every commercial term remains validated.
-  const terms = { ...snapshot } as SponsorshipOfferSnapshot & {
-    fingerprint?: string;
-  };
-  delete terms.fingerprint;
-  return createHash('sha256')
-    .update(JSON.stringify(normalizeSponsorshipOfferSnapshot(terms)))
+  snapshot: SponsorshipOfferSnapshot
+): string =>
+  createHash('sha256')
+    .update(JSON.stringify(normalizeSponsorshipOfferSnapshot(snapshot)))
     .digest('hex');
-};
-
-export const formatRecordedSponsorshipBenefits = (
-  snapshot: SponsorshipOfferSnapshot | null
-): readonly string[] => {
-  if (!snapshot)
-    return [
-      'Engagements historiques à qualifier : aucune offre acceptée enregistrée.'
-    ];
-  const labels = {
-    website_mention: 'Mention de votre entreprise sur OpenG7.org',
-    facebook_batch: 'Publication collective de reconnaissance sur Facebook',
-    linkedin_batch: 'Publication collective de reconnaissance sur LinkedIn'
-  };
-  return snapshot.benefits.map((b) => {
-    const label =
-      b.id === 'website_mention' && b.target === 'openg20'
-        ? 'Mention de votre entreprise sur OpenG20.org'
-        : labels[b.id];
-    return `${b.quantity} × ${label} (${b.target === 'openg7' ? 'OpenG7' : 'OpenG20'})`;
-  });
-};
 
 export const quoteSponsorshipOffer = (
   amountMinor: number,
   currency: string,
-  pricing?: SponsorshipPricingConfig
+  pricing?: SponsorshipPricingConfig,
+  formats?: SponsorshipOfferFormatOptions
 ): SponsorshipOfferQuote => {
   try {
+    for (const [channel, format] of Object.entries(formats ?? {}))
+      if (!publicationFormatCapability(channel, format).available)
+        throw new CheckoutOperationError('FORMAT_UNAVAILABLE', 400);
     const snapshot = createSponsorshipOfferSnapshot(
       amountMinor,
       currency,
-      pricing
+      pricing,
+      formats
     );
     return { ...snapshot, fingerprint: sponsorshipOfferFingerprint(snapshot) };
+  } catch (error) {
+    if (error instanceof CheckoutOperationError) throw error;
+    throw new CheckoutOperationError('SPONSORSHIP_OFFER_INVALID', 400);
+  }
+};
+
+export const validateSponsorshipOfferFormats = (
+  value: unknown
+): SponsorshipOfferFormatOptions | undefined => {
+  try {
+    return normalizeSponsorshipOfferFormats(value);
   } catch {
     throw new CheckoutOperationError('SPONSORSHIP_OFFER_INVALID', 400);
   }

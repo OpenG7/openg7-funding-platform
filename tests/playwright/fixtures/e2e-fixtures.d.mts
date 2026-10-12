@@ -4,6 +4,7 @@ export const ADMIN_TOKEN: 'local-playwright-admin-token-32-characters';
 export const SPONSORSHIP_FIXTURES: Readonly<{
   draftConcurrency: Readonly<{
     publicReference: 'OG7-E2E-DRAFT-CONCURRENCY';
+    agreedChannels: string[];
     companyName: 'E2E Concurrent Drafts Inc.';
     contactName: 'E2E Draft Contact';
     contactEmail: 'draft-contact@example.invalid';
@@ -14,6 +15,7 @@ export const SPONSORSHIP_FIXTURES: Readonly<{
   }>;
   collectiveRemoved: Readonly<{
     publicReference: 'OG7-E2E-COLLECTIVE-REMOVED';
+    agreedChannels: string[];
     companyName: 'E2E Collective Removed Inc.';
     contactName: 'E2E Removed Contact';
     contactEmail: 'removed-contact@example.invalid';
@@ -26,6 +28,7 @@ export const SPONSORSHIP_FIXTURES: Readonly<{
   }>;
   collectiveRetained: Readonly<{
     publicReference: 'OG7-E2E-COLLECTIVE-RETAINED';
+    agreedChannels: string[];
     companyName: 'E2E Collective Retained Inc.';
     contactName: 'E2E Retained Contact';
     contactEmail: 'retained-contact@example.invalid';
@@ -38,6 +41,7 @@ export const SPONSORSHIP_FIXTURES: Readonly<{
   }>;
   collectiveDestinationRemoved: Readonly<{
     publicReference: 'OG7-E2E-DESTINATION-REMOVED';
+    agreedChannels: string[];
     companyName: 'E2E Destination Removed Inc.';
     contactName: 'E2E Dedicated Contact';
     contactEmail: 'destination-removed@simulation.example.test';
@@ -50,6 +54,7 @@ export const SPONSORSHIP_FIXTURES: Readonly<{
   }>;
   collectiveDestinationRetained: Readonly<{
     publicReference: 'OG7-E2E-DESTINATION-RETAINED';
+    agreedChannels: string[];
     companyName: 'E2E Destination Retained Inc.';
     contactName: 'E2E Dedicated Contact';
     contactEmail: 'destination-retained@simulation.example.test';
@@ -62,6 +67,7 @@ export const SPONSORSHIP_FIXTURES: Readonly<{
   }>;
   independentReject: Readonly<{
     publicReference: 'OG7-E2E-INDEPENDENT-REJECT';
+    agreedChannels: string[];
     companyName: 'E2E Independent Reject Inc.';
     contactName: 'E2E Dedicated Contact';
     contactEmail: 'independent-reject@simulation.example.test';
@@ -72,6 +78,7 @@ export const SPONSORSHIP_FIXTURES: Readonly<{
   }>;
   independentRejectRefund: Readonly<{
     publicReference: 'OG7-E2E-INDEPENDENT-REFUND';
+    agreedChannels: string[];
     companyName: 'E2E Independent Refund Inc.';
     contactName: 'E2E Dedicated Contact';
     contactEmail: 'independent-refund@simulation.example.test';
@@ -82,6 +89,7 @@ export const SPONSORSHIP_FIXTURES: Readonly<{
   }>;
   independentRejectedFollowup: Readonly<{
     publicReference: 'OG7-E2E-INDEPENDENT-FOLLOWUP';
+    agreedChannels: string[];
     companyName: 'E2E Independent Followup Inc.';
     contactName: 'E2E Dedicated Contact';
     contactEmail: 'independent-followup@simulation.example.test';
@@ -92,6 +100,7 @@ export const SPONSORSHIP_FIXTURES: Readonly<{
   }>;
   followupRecovery: Readonly<{
     publicReference: 'OG7-E2E-FOLLOWUP-RECOVERY';
+    agreedChannels: string[];
     companyName: 'E2E Followup Recovery Inc.';
     contactName: 'E2E Recovery';
     contactEmail: 'recovery-contact@example.invalid';
@@ -103,6 +112,7 @@ export const SPONSORSHIP_FIXTURES: Readonly<{
   }>;
   acceptanceReview: Readonly<{
     publicReference: 'OG7-E2E-ACCEPTANCE';
+    agreedChannels: string[];
     companyName: 'E2E Acceptance Atelier Nord Inc.';
     contactName: 'E2E Acceptance';
     contactEmail: 'acceptance@example.invalid';
@@ -114,6 +124,7 @@ export const SPONSORSHIP_FIXTURES: Readonly<{
   }>;
   approve: Readonly<{
     publicReference: 'OG7-E2E-APPROVE';
+    agreedChannels: string[];
     companyName: 'E2E Playwright Fixture Approve Inc.';
     contactName: 'E2E Playwright Approve';
     contactEmail: 'e2e-playwright-fixture-approve@example.com';
@@ -125,6 +136,7 @@ export const SPONSORSHIP_FIXTURES: Readonly<{
   }>;
   reject: Readonly<{
     publicReference: 'OG7-E2E-REJECT';
+    agreedChannels: string[];
     companyName: 'E2E Playwright Fixture Reject Inc.';
     contactName: 'E2E Playwright Reject';
     contactEmail: 'e2e-playwright-fixture-reject@example.com';
@@ -135,6 +147,7 @@ export const SPONSORSHIP_FIXTURES: Readonly<{
   }>;
   rejectedFollowup: Readonly<{
     publicReference: 'OG7-E2E-REJECTED-FOLLOWUP';
+    agreedChannels: string[];
     companyName: 'E2E Rejected Followup Inc.';
     contactName: 'E2E Followup Contact';
     contactEmail: 'rejected-followup@simulation.example.test';
@@ -146,6 +159,7 @@ export const SPONSORSHIP_FIXTURES: Readonly<{
   }>;
   directory: Readonly<{
     publicReference: 'OG7-E2E-DIRECTORY';
+    agreedChannels: string[];
     companyName: 'E2E Playwright Fixture Directory Inc.';
     contactName: 'E2E Playwright Directory';
     contactEmail: 'e2e-playwright-fixture-directory@example.com';
@@ -156,6 +170,7 @@ export const SPONSORSHIP_FIXTURES: Readonly<{
   }>;
   followupEditing: Readonly<{
     publicReference: 'OG7-E2E-FOLLOWUP-EDIT';
+    agreedChannels: string[];
     companyName: 'E2E Followup Editing Inc.';
     contactName: 'E2E Followup Editing';
     contactEmail: 'followup-editing@example.invalid';
@@ -166,6 +181,7 @@ export const SPONSORSHIP_FIXTURES: Readonly<{
   }>;
   refund: Readonly<{
     publicReference: 'OG7-E2E-REFUND';
+    agreedChannels: string[];
     companyName: 'E2E Playwright Fixture Refund Inc.';
     contactName: 'E2E Playwright Refund';
     contactEmail: 'e2e-playwright-fixture-refund@example.com';
@@ -178,6 +194,7 @@ export const SPONSORSHIP_FIXTURES: Readonly<{
   }>;
   partialRefund: Readonly<{
     publicReference: 'OG7-E2E-PARTIAL-REFUND';
+    agreedChannels: string[];
     companyName: 'E2E Playwright Fixture Partial Refund Inc.';
     contactName: 'E2E Playwright Partial Refund';
     contactEmail: 'e2e-playwright-fixture-partial-refund@example.com';
@@ -190,6 +207,7 @@ export const SPONSORSHIP_FIXTURES: Readonly<{
   }>;
   rejectRefund: Readonly<{
     publicReference: 'OG7-E2E-REJECT-REFUND';
+    agreedChannels: string[];
     companyName: 'E2E Playwright Fixture Reject Refund Inc.';
     contactName: 'E2E Playwright Reject Refund';
     contactEmail: 'e2e-playwright-fixture-reject-refund@example.com';
@@ -200,6 +218,7 @@ export const SPONSORSHIP_FIXTURES: Readonly<{
   }>;
   logo: Readonly<{
     publicReference: 'OG7-E2E-LOGO';
+    agreedChannels: string[];
     companyName: 'E2E Playwright Fixture Logo Inc.';
     contactName: 'E2E Playwright Logo';
     contactEmail: 'e2e-playwright-fixture-logo@example.com';
@@ -210,6 +229,7 @@ export const SPONSORSHIP_FIXTURES: Readonly<{
   }>;
   publicationBatch: Readonly<{
     publicReference: 'OG7-E2E-PUBLICATION-BATCH';
+    agreedChannels: string[];
     companyName: 'E2E Playwright Fixture Publication Batch Inc.';
     contactName: 'E2E Playwright Publication Batch';
     contactEmail: 'e2e-playwright-fixture-publication-batch@example.com';
@@ -222,6 +242,7 @@ export const SPONSORSHIP_FIXTURES: Readonly<{
   }>;
   multiPartialRefund: Readonly<{
     publicReference: 'OG7-E2E-MULTI-PARTIAL-REFUND';
+    agreedChannels: string[];
     companyName: 'E2E Playwright Fixture Multi Partial Refund Inc.';
     contactName: 'E2E Playwright Multi Partial Refund';
     contactEmail: 'e2e-playwright-fixture-multi-partial-refund@example.com';
@@ -234,6 +255,7 @@ export const SPONSORSHIP_FIXTURES: Readonly<{
   }>;
   concurrentRefund: Readonly<{
     publicReference: 'OG7-E2E-CONCURRENT-REFUND';
+    agreedChannels: string[];
     companyName: 'E2E Playwright Fixture Concurrent Refund Inc.';
     contactName: 'E2E Playwright Concurrent Refund';
     contactEmail: 'e2e-playwright-fixture-concurrent-refund@example.com';

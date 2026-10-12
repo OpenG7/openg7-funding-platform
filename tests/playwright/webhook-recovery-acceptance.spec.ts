@@ -9,8 +9,8 @@ import type {
   FundTransparencyPublicResponse
 } from '@openg7/funding-core';
 
-import { acceptDisplayedSponsorshipOffer } from './support/sponsorship-checkout.js';
 import { test, expect } from './support/test.js';
+import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import {
   acceptanceSql,

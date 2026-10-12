@@ -125,7 +125,12 @@ test('operator permissions allow named moderation actions and refuse unknown mut
     adminRoleAllows('reader', 'POST', '/api/admin/moderation/decisions'),
     false
   );
-  for (const path of ['adoption-preview', 'retention-preview', 'assignment']) {
+  for (const path of [
+    'adoption-preview',
+    'retention-preview',
+    'assignment',
+    'charter-preview'
+  ]) {
     const method = path === 'assignment' ? 'POST' : 'GET';
     assert.equal(
       adminRoleAllows('operator', method, `/api/admin/moderation/${path}`),
@@ -166,6 +171,60 @@ test('owner-only moderation previews reject operators before any storage access'
     assert.equal(result.payload.code, 'MODERATION_OWNER_REQUIRED');
     assert.equal(result.headers['Cache-Control'], 'no-store');
   }
+});
+
+test('the owner can review exact charter candidates without activating or accepting them', async () => {
+  const queries = [];
+  const handler = createAdminModerationHttpHandler({
+    publicBaseOrigin: origin,
+    pool: {
+      connect: async () => ({
+        query: async (sql) => {
+          queries.push(sql);
+          if (sql.startsWith('SELECT public_active'))
+            return {
+              rows: [
+                {
+                  public_active: false,
+                  public_validated_at: null,
+                  effective_at: null
+                }
+              ]
+            };
+          assert.ok(sql.startsWith('BEGIN') || sql === 'COMMIT');
+          return { rows: [] };
+        },
+        release() {}
+      })
+    },
+    ensureAdminAccess: () => true,
+    canReview: () => true,
+    canOwn: () => true,
+    getAdminAuditActor: () => `admin:${id}`,
+    readBody: async () => assert.fail('The preview is a read.'),
+    writeJson
+  });
+  const result = response();
+  await handler(request('/api/admin/moderation/charter-preview'), result);
+  assert.equal(result.status, 200);
+  assert.equal(result.headers['Cache-Control'], 'no-store');
+  assert.equal(result.payload.active, false);
+  assert.equal(result.payload.recognitionTerms.status, 'proposed');
+  assert.match(result.payload.charter.fingerprint, /^[a-f0-9]{64}$/);
+  assert.match(result.payload.recognitionTerms.fingerprint, /^[a-f0-9]{64}$/);
+  assert.ok(result.payload.charter.text.fr.includes('déshumanisation'));
+  assert.ok(
+    result.payload.recognitionTerms.text.en.includes('No delivery deadline')
+  );
+  assert.equal(queries[0], 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+  assert.equal(
+    adminRoleAllows('operator', 'GET', '/api/admin/moderation/charter-preview'),
+    false
+  );
+  assert.equal(
+    adminRoleAllows('reader', 'GET', '/api/admin/moderation/charter-preview'),
+    false
+  );
 });
 
 test('admin moderation rejects non-JSON and malformed subject before any domain mutation', async () => {

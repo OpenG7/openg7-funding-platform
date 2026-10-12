@@ -9,6 +9,7 @@ import * as followup from '../dist/apps/funding-api/src/sponsorship-followup.rep
 import * as refunds from '../dist/apps/funding-api/src/sponsorship-refund-workflow.repository.js';
 import * as events from '../dist/apps/funding-api/src/stripe-event-records.repository.js';
 import * as helpers from '../dist/apps/funding-api/src/sponsorship-persistence-helpers.js';
+import { recordedSponsorshipCommitment } from './support/sponsorship-commitment-fixture.mjs';
 
 const id = '11111111-1111-4111-8111-111111111111';
 const version = '2026-09-01 12:00:00+00';
@@ -36,8 +37,14 @@ const review = (overrides = {}) => ({
 const database = (...responses) => {
   const calls = [];
   const transaction = [];
+  const commercial = [];
+  const agreement = recordedSponsorshipCommitment([
+    'website_mention',
+    'facebook_batch',
+    'linkedin_batch'
+  ]);
   const query = async (sql, params) => {
-    if (['BEGIN', 'COMMIT', 'ROLLBACK'].includes(sql)) {
+    if (sql.startsWith('BEGIN') || ['COMMIT', 'ROLLBACK'].includes(sql)) {
       transaction.push(sql);
       return { rows: [] };
     }
@@ -58,6 +65,25 @@ const database = (...responses) => {
       };
     if (sql.includes('INSERT INTO admin_audit_log'))
       return { rows: [{ id }], rowCount: 1 };
+    if (
+      sql.includes('FROM sponsorship_commitments m JOIN fund_contributions')
+    ) {
+      commercial.push({ sql, params });
+      return { rows: [{ ...agreement, blockedReason: null }] };
+    }
+    if (
+      sql.includes(
+        'FROM sponsorship_obligations ob JOIN sponsorship_commitments'
+      )
+    ) {
+      commercial.push({ sql, params });
+      return {
+        rows: agreement.obligations.map((o) => ({
+          ...o,
+          requirementsMet: true
+        }))
+      };
+    }
     calls.push({ sql, params });
     assert.ok(responses.length > 0, 'Unexpected extra database query');
     const response = responses.shift();
@@ -67,6 +93,7 @@ const database = (...responses) => {
   return {
     calls,
     transaction,
+    commercial,
     pool: {
       query,
       connect: async () => ({
@@ -258,6 +285,8 @@ test('publication retains promised channels, nonpaid metadata restrictions and o
   );
   assert.equal(updated.status, 'updated');
   assert.deepEqual(updated.feedChannels, ['facebook', 'linkedin']);
+  assert.equal(paid.commercial.length, 2);
+  assert.deepEqual(paid.commercial[0].params, [id]);
   assert.deepEqual(paid.calls[1].params, [
     id,
     'boundary-company',

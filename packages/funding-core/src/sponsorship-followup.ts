@@ -4,6 +4,8 @@ import type {
 } from './sponsorship-benefits.js';
 import type { SponsorshipReviewStatus } from './sponsorship-contracts.js';
 import type { SponsorshipOfferSnapshot } from './sponsorship-offers.js';
+import type { SponsorshipFulfilmentEvidence } from './sponsorship-fulfilment.js';
+import type { SponsorshipPublicObligation } from './sponsorship-commitments.js';
 
 /** Incomplete private text; never a published profile or a payment fact. */
 export interface SponsorshipDraftValues {
@@ -63,11 +65,13 @@ export interface SponsorshipDetailsResult {
 }
 
 export interface SponsorshipFollowupResponse {
+  readonly fulfilmentEvidence?: readonly SponsorshipFulfilmentEvidence[];
   readonly commitment?: {
     readonly provenance:
       'accepted_offer' | 'historical_unverified' | 'qualified_historical';
     readonly state: 'active' | 'needs_confirmation';
     readonly offer: SponsorshipOfferSnapshot | null;
+    readonly obligations?: readonly SponsorshipPublicObligation[];
   };
   readonly found: true;
   readonly publicReference: string | null;

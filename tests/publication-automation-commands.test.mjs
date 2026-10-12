@@ -5,12 +5,19 @@ import sharp from 'sharp';
 
 import { command } from '../dist/apps/funding-api/src/publication-automation/commands.js';
 import { digest } from '../dist/apps/funding-api/src/publication-automation/policy.js';
+import { preparePublicationImage } from '../dist/apps/funding-api/src/publication-image.service.js';
 import { moderationQueryFixture } from './support/moderation-query-fixture.mjs';
+import { accountQueryFixture } from './support/publication-account-query-fixture.mjs';
+import {
+  qualifyCommercialFixture,
+  fulfilmentQueryFixture
+} from './support/publication-fulfilment-query-fixture.mjs';
 
 const id = '11111111-1111-4111-8111-111111111111';
 const batchId = '22222222-2222-4222-8222-222222222222';
 const sponsorId = '33333333-3333-4333-8333-333333333333';
 const feedId = 'openg20:facebook';
+const planningLockSql = 'SELECT pg_advisory_xact_lock(hashtextextended($1,0))';
 const sponsorMessage =
   'Synthetic sponsor\n\nApproved public synthetic summary\n\nCommandite rémunérée.';
 const env = {
@@ -58,9 +65,15 @@ const fixture = ({
   const calls = [];
   const audits = [];
   const completions = [];
+  const accountState = { rows: row ? [row] : [] };
+  qualifyCommercialFixture(accountState);
   const client = {
     async query(sql, parameters = []) {
       calls.push({ kind: 'query', sql, parameters });
+      if (sql === planningLockSql) {
+        assert.deepEqual(parameters, [`publication-planning:${feedId}`]);
+        return { rows: [], rowCount: 1 };
+      }
       const moderation = moderationQueryFixture(sql, [sponsorId]);
       if (moderation) return moderation;
       if (sql.startsWith('INSERT INTO admin_audit_log')) {
@@ -70,6 +83,18 @@ const fixture = ({
       }
       const response = await query(sql, parameters);
       if (response !== undefined) return response;
+      const fulfilment = fulfilmentQueryFixture(
+        accountState,
+        sql.replace(/\s+/g, ' ').trim(),
+        parameters
+      );
+      if (fulfilment) return fulfilment;
+      const account = accountQueryFixture(
+        accountState,
+        sql.replace(/\s+/g, ' ').trim(),
+        parameters
+      );
+      if (account) return account;
       if (sql.startsWith('SELECT * FROM publication_deliveries'))
         return { rows: [row], rowCount: 1 };
       if (sql.startsWith('INSERT INTO publication_deliveries'))
@@ -169,11 +194,22 @@ test('composition keeps exact content and automatic ownership in its supplied or
         f.lifecycle(),
         supplied ? [] : ['connect', 'BEGIN', 'COMMIT', 'release']
       );
+      assert.deepEqual(
+        f
+          .queries()
+          .slice(0, supplied ? 1 : 2)
+          .map(({ sql }) => sql),
+        supplied ? [planningLockSql] : ['BEGIN', planningLockSql]
+      );
       const inserted = f
         .queries()
         .find((call) =>
           call.sql.startsWith('INSERT INTO publication_deliveries')
         );
+      assert.match(
+        inserted.parameters[11],
+        /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i
+      );
       assert.deepEqual(inserted.parameters, [
         feedId,
         'news',
@@ -185,7 +221,10 @@ test('composition keeps exact content and automatic ownership in its supplied or
         null,
         '20',
         'live',
-        true
+        true,
+        inserted.parameters[11],
+        'collective_text',
+        '[]'
       ]);
       assert.equal(f.audits.length, 1);
       assert.equal(f.audits[0][0], 'fixture-reviewer');
@@ -216,6 +255,13 @@ test('failed composition audit rejects and rolls back only an owned transaction'
           f.lifecycle(),
           supplied ? [] : ['connect', 'BEGIN', 'ROLLBACK', 'release']
         );
+        assert.deepEqual(
+          f
+            .queries()
+            .slice(0, supplied ? 1 : 2)
+            .map(({ sql }) => sql),
+          supplied ? [planningLockSql] : ['BEGIN', planningLockSql]
+        );
         assert.ok(
           f
             .queries()
@@ -244,6 +290,11 @@ test('composition returns an existing batch delivery without creating another dr
   const input = { ...composition, kind: 'sponsorship', batchId };
   assert.deepEqual(await command(f.context, input, 'fixture-reviewer'), { id });
   assert.deepEqual(await command(f.context, input, 'fixture-reviewer'), { id });
+  const queries = f.queries();
+  for (const [index, call] of queries.entries()) {
+    if (call.sql === 'BEGIN')
+      assert.equal(queries[index + 1].sql, planningLockSql);
+  }
   assert.equal(f.audits.length, 0);
   assert.ok(!f.queries().some((call) => /^(INSERT|UPDATE)/.test(call.sql)));
   assert.equal(
@@ -383,8 +434,28 @@ test('rejection and cancellation revoke sending authorization without changing t
       );
       const updates = f
         .queries()
-        .filter((call) => call.sql.startsWith('UPDATE'));
+        .filter((call) => call.sql.startsWith('UPDATE publication_deliveries'));
       assert.equal(updates.length, 1);
+      assert.equal(
+        f
+          .queries()
+          .filter((call) =>
+            call.sql.startsWith(
+              "UPDATE publication_account_reservations SET status='released'"
+            )
+          ).length,
+        1
+      );
+      assert.ok(
+        f
+          .queries()
+          .filter((call) => call.sql.startsWith('UPDATE'))
+          .every((call) =>
+            /UPDATE (publication_(deliveries|account_reservations)|sponsorship_obligation_reservations)/.test(
+              call.sql
+            )
+          )
+      );
       assert.match(
         updates[0].sql,
         /^UPDATE publication_deliveries SET status=\$2,auto_managed=FALSE,approved_at=NULL,approved_by=NULL/
@@ -422,9 +493,9 @@ test('approval uses the caller client for preflight and sending authorization wi
     .find((call) => call.sql.startsWith('UPDATE publication_deliveries'));
   assert.match(
     update.sql,
-    /status='approved',approved_at=NOW\(\),approved_by=\$2,version=version\+1/
+    /status='approved',approved_at=NOW\(\),approved_by=\$2,obligation_snapshot=\$3::jsonb,version=version\+1/
   );
-  assert.deepEqual(update.parameters, [id, 'fixture-reviewer']);
+  assert.deepEqual(update.parameters, [id, 'fixture-reviewer', '[]']);
   assert.deepEqual(f.lifecycle(), []);
   assert.equal(f.audits[0][1], 'publication_automation.approve');
   assert.deepEqual(JSON.parse(f.audits[0][3]), {
@@ -478,12 +549,27 @@ const sponsorQuery = (sql) => {
     };
 };
 
+const syntheticImageBytes = await sharp({
+  create: { width: 2, height: 2, channels: 3, background: '#345678' }
+})
+  .png()
+  .toBuffer();
 const image = {
   id: '55555555-5555-4555-8555-555555555555',
   url: '/api/public/sponsor-media/55555555-5555-4555-8555-555555555555',
   alt: 'Approved synthetic presentation',
   key: 'private/synthetic-presentation',
-  version: sponsorVersion
+  hash: digest(syntheticImageBytes),
+  version: sponsorVersion,
+  usage: {
+    state: 'confirmed',
+    channels: ['website', 'facebook', 'linkedin'],
+    targets: ['openg7', 'openg20'],
+    transformations: ['technical'],
+    credit: null,
+    restrictions: null
+  },
+  restrictionsReviewed: false
 };
 const secondImageId = '66666666-6666-4666-8666-666666666666';
 const foreignImageId = '77777777-7777-4777-8777-777777777777';
@@ -599,7 +685,7 @@ test('composition and edit restrict sponsorship images to either source of a col
         let reads = 0;
         f.context.storage.readPrivateObject = async () => {
           reads++;
-          return Buffer.from('Synthetic image bytes');
+          return syntheticImageBytes;
         };
         const input =
           action === 'compose'
@@ -631,11 +717,37 @@ test('composition and edit restrict sponsorship images to either source of a col
           assert.deepEqual(await command(f.context, input, 'reviewer'), {
             id
           });
-          assert.equal(reads, 1);
+          assert.equal(reads, 2);
           assert.equal(
-            f.queries().filter((call) => /^(INSERT|UPDATE)/.test(call.sql))
-              .length,
+            f
+              .queries()
+              .filter(
+                (call) =>
+                  /^(INSERT|UPDATE)/.test(call.sql) &&
+                  !call.sql.includes('publication_account_') &&
+                  !call.sql.includes('sponsorship_obligation_reservations')
+              ).length,
             2
+          );
+          assert.equal(
+            f
+              .queries()
+              .filter((call) =>
+                call.sql.startsWith(
+                  'UPDATE sponsorship_obligation_reservations'
+                )
+              ).length,
+            action === 'edit' ? 1 : 0
+          );
+          assert.equal(
+            f
+              .queries()
+              .filter(
+                (call) =>
+                  /^(INSERT|UPDATE)/.test(call.sql) &&
+                  call.sql.includes('publication_account_')
+              ).length,
+            action === 'edit' ? 2 : 0
           );
         }
       });
@@ -664,7 +776,7 @@ test('editorial composition and edit keep shared images without a batch scope', 
     let reads = 0;
     f.context.storage.readPrivateObject = async () => {
       reads++;
-      return Buffer.from('Shared editorial image');
+      return syntheticImageBytes;
     };
     const input =
       action === 'compose'
@@ -678,7 +790,7 @@ test('editorial composition and edit keep shared images without a batch scope', 
             mediaId: foreignImageId
           };
     assert.deepEqual(await command(f.context, input, 'reviewer'), { id });
-    assert.equal(reads, 1);
+    assert.equal(reads, 2);
   }
 });
 
@@ -721,19 +833,21 @@ test('combined approval refuses foreign media before sponsor decisions, image re
 });
 
 test('combined approval checks media ownership before approving its pending sponsor and resolves it after approval', async () => {
-  const bytes = await sharp({
-    create: { width: 2, height: 2, channels: 3, background: '#345678' }
-  })
-    .png()
-    .toBuffer();
+  const bytes = syntheticImageBytes;
   let approved = false;
+  const prepared = await preparePublicationImage(bytes);
   const f = fixture({
     row: delivery({
       kind: 'sponsorship',
       batch_id: batchId,
       source_snapshot: [source],
       media_id: image.id,
-      media_snapshot: { ...image, hash: digest(bytes) }
+      media_snapshot: {
+        ...image,
+        hash: digest(bytes),
+        derivedHash: prepared.sha256,
+        transform: prepared.transform
+      }
     }),
     query(sql, parameters) {
       if (sql.startsWith('SELECT m.id FROM sponsor_media_assets')) {
@@ -882,7 +996,9 @@ test('editing exact approved content revokes authorization and automatic ownersh
     null,
     '[]',
     '20',
-    'live'
+    'live',
+    'collective_text',
+    '[]'
   ]);
   assert.equal(f.audits[0][1], 'publication_automation.edit');
   assert.deepEqual(f.lifecycle(), ['connect', 'BEGIN', 'COMMIT', 'release']);
@@ -923,7 +1039,7 @@ test('an absence attestation requires uncertainty and a reason, clears approval 
         assert.deepEqual(await pending, { id });
         assert.match(
           f.queries().find((call) => call.sql.startsWith('UPDATE')).sql,
-          /status='blocked',approved_at=NULL,approved_by=NULL,error_code='ABSENCE_CONFIRMED'/
+          /status='blocked',approved_at=NULL,approved_by=NULL,error_code=CASE WHEN status='blocked' THEN error_code ELSE 'ABSENCE_CONFIRMED' END/
         );
         assert.deepEqual(
           f.audits.map((entry) => entry[1]),
@@ -975,7 +1091,7 @@ test('reconciliation lookup failure preserves uncertainty and never treats inacc
       assert.deepEqual(f.lifecycle(), [
         'connect',
         'BEGIN',
-        'ROLLBACK',
+        'COMMIT',
         'release'
       ]);
     });
@@ -987,6 +1103,18 @@ test('reconciliation refuses changed mode or destination, images and wrong conte
     [{ mode: 'mock' }, null, 'MODE_CHANGED'],
     [{ account_id: '7' }, null, 'DESTINATION_CHANGED'],
     [{ media_id: sponsorId }, null, 'MEDIA_RECONCILIATION_REQUIRED'],
+    [
+      {
+        media_id: null,
+        media_snapshot: {
+          kind: 'derived',
+          derivedHash: 'a'.repeat(64),
+          sources: []
+        }
+      },
+      null,
+      'MEDIA_RECONCILIATION_REQUIRED'
+    ],
     [
       {},
       { from: { id: '20' }, message: 'Different content', is_published: true },
@@ -1026,14 +1154,40 @@ test('reconciliation refuses changed mode or destination, images and wrong conte
       assert.deepEqual(f.lifecycle(), [
         'connect',
         'BEGIN',
-        'ROLLBACK',
+        'COMMIT',
         'release'
       ]);
     });
   }
 });
 
-test('verified reconciliation completes with the caller client, and completion failure prevents success audit', async (t) => {
+test('remote reconciliation refuses caller transactions before provider access', async (t) => {
+  const f = fixture({ row: delivery({ status: 'uncertain' }) });
+  t.mock.method(globalThis, 'fetch', async () =>
+    assert.fail('a caller transaction must never cross provider HTTP')
+  );
+  await assert.rejects(
+    command(
+      f.context,
+      {
+        action: 'reconcile',
+        id,
+        version: 4,
+        confirmation: id,
+        externalPostId: '20_99'
+      },
+      'fixture-reviewer',
+      false,
+      f.client
+    ),
+    { code: 'RECONCILIATION_TRANSACTION_UNAVAILABLE' }
+  );
+  assert.equal(f.completions.length, 0);
+  assert.equal(f.audits.length, 0);
+  assert.deepEqual(f.lifecycle(), []);
+});
+
+test('verified reconciliation has no open transaction during HTTP and preserves observation on completion failure', async (t) => {
   for (const failure of [
     undefined,
     new Error('Synthetic completion failure')
@@ -1045,6 +1199,12 @@ test('verified reconciliation completes with the caller client, and completion f
         const f = fixture({ row, completeFailure: failure });
         t.mock.method(globalThis, 'fetch', async (_url, init) => {
           assert.equal(init.method ?? 'GET', 'GET');
+          assert.deepEqual(f.lifecycle(), [
+            'connect',
+            'BEGIN',
+            'COMMIT',
+            'release'
+          ]);
           return Response.json({
             from: { id: '20' },
             message: row.message,
@@ -1060,9 +1220,7 @@ test('verified reconciliation completes with the caller client, and completion f
             confirmation: id,
             externalPostId: '20_99'
           },
-          'fixture-reviewer',
-          false,
-          f.client
+          'fixture-reviewer'
         );
         if (failure) await assert.rejects(result, (error) => error === failure);
         else assert.deepEqual(await result, { id });
@@ -1071,10 +1229,28 @@ test('verified reconciliation completes with the caller client, and completion f
           row,
           '20_99',
           'https://www.facebook.com/20_99',
-          'fixture-reviewer'
+          'fixture-reviewer',
+          'provider_verified'
         ]);
-        assert.deepEqual(f.lifecycle(), []);
-        assert.equal(f.audits.length, failure ? 0 : 1);
+        assert.deepEqual(f.lifecycle(), [
+          'connect',
+          'BEGIN',
+          'COMMIT',
+          'release',
+          'connect',
+          'BEGIN',
+          'COMMIT',
+          'release',
+          'connect',
+          'BEGIN',
+          failure ? 'ROLLBACK' : 'COMMIT',
+          'release'
+        ]);
+        assert.equal(f.audits.length, failure ? 1 : 2);
+        assert.equal(
+          f.audits[0][1],
+          'publication_automation.reconciliation_result_observed'
+        );
       }
     );
   }

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createHash } from 'node:crypto';
 
 import { createPublicSponsorMediaHttpHandler } from '../dist/apps/funding-api/src/public-sponsor-media.http.js';
 
@@ -9,6 +10,7 @@ const assetId = '00000000-0000-4000-8000-000000000002';
 const filename = `sponsor-logo-${contributionId}-1727188800000-0123456789abcdef.png`;
 const logoUrl = `/api/public/sponsor-logos/${filename}`;
 const bytes = Buffer.from('synthetic-public-image');
+const checksum = createHash('sha256').update(bytes).digest('hex');
 
 const fixture = ({
   databaseAvailable = true,
@@ -57,6 +59,7 @@ const fixture = ({
       call('approvedMedia', id, {
         id,
         processedStorageKey: 'synthetic/private.webp',
+        checksumSha256: checksum,
         publicStorageKey: null
       }),
     sponsorMediaStorage: {
@@ -143,11 +146,22 @@ test('missing, unapproved or unreadable public media reveals only safe 404 error
   }
 });
 
+test('public media never serves private bytes changed after the approved checksum was captured', async () => {
+  const f = fixture({
+    results: { privateRead: Buffer.from('different unreviewed private bytes') }
+  });
+  const result = await f.run('/api/public/sponsor-media/' + assetId);
+  assert.equal(result.status, 404);
+  assert.deepEqual(result.payload, { error: 'Not found' });
+  assert.deepEqual(f.values('binary'), []);
+});
+
 test('legacy public keys are ignored and a revoked dossier is checked again before reading private bytes', async () => {
   const results = {
     approvedMedia: {
       id: assetId,
       processedStorageKey: 'synthetic/private.webp',
+      checksumSha256: checksum,
       publicStorageKey: 'legacy/public.webp',
       publicUrl: 'https://cdn.example.test/legacy.webp'
     }

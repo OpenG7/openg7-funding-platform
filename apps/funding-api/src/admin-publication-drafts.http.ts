@@ -38,7 +38,8 @@ export interface AdminPublicationDraftsHttpDependencies extends AdminPublication
     input?: Parameters<typeof listAdminPublicationDrafts>[1]
   ) => ReturnType<typeof listAdminPublicationDrafts>;
   readonly createAdminPublicationDraft: (
-    input: Parameters<typeof createAdminPublicationDraft>[1]
+    input: Parameters<typeof createAdminPublicationDraft>[1],
+    actor?: string
   ) => ReturnType<typeof createAdminPublicationDraft>;
   readonly updateAdminPublicationDraft: (
     input: Parameters<typeof updateAdminPublicationDraft>[1],
@@ -158,7 +159,10 @@ export const createAdminPublicationDraftsHttpHandler = ({
       }
 
       try {
-        const result = await createAdminPublicationDraft(parsed);
+        const result = await createAdminPublicationDraft(
+          parsed,
+          getAdminAuditActor(request)
+        );
         if (!result.updated || !result.draft) {
           writeJson(request, response, 404, {
             error:

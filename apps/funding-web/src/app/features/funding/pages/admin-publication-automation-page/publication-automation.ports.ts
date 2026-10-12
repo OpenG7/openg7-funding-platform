@@ -2,19 +2,15 @@ import type { WritableSignal } from '@angular/core';
 import type {
   PublicationAutomationCommand,
   PublicationAutomationFilter,
-  PublicationAutomationState
+  PublicationAutomationState,
+  PublicationMediaOption
 } from '@openg7/funding-core';
 
 export interface PublicationAutomationCommandRunner {
   run(command: PublicationAutomationCommand, open?: boolean): Promise<void>;
 }
 
-export interface PublicationAutomationMedia {
-  id: string;
-  url: string;
-  alt: string;
-  company: string;
-}
+export type PublicationAutomationMedia = PublicationMediaOption;
 
 export interface PublicationAutomationCommandResult {
   id?: string;

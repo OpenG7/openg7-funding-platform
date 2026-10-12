@@ -37,10 +37,11 @@ test(
       )
       INSERT INTO sponsor_media_assets (id, contribution_id, kind, review_status, original_filename,
         original_mime_type, original_size_bytes, original_storage_key, processed_size_bytes,
-        processed_storage_key, public_storage_key, public_url, checksum_sha256, width, height)
+        processed_storage_key, public_storage_key, public_url, checksum_sha256, width, height, usage_rights)
       SELECT asset_id, contribution_id, 'supporting_image', 'approved', 'photo.png', 'image/png', 100,
         'private/' || contribution_id, 50, 'processed/' || contribution_id, NULL,
-        '/api/public/sponsor-media/' || asset_id, repeat('a', 64), 960, 640
+        '/api/public/sponsor-media/' || asset_id, repeat('a', 64), 960, 640,
+        '{"state":"confirmed","channels":["website"],"targets":["openg7"],"transformations":["technical"],"credit":null,"restrictions":null}'::jsonb
       FROM media RETURNING id`);
       for (const { id } of rows)
         await approveFixtureSubject(pool, { type: 'sponsorship', id });
@@ -256,12 +257,13 @@ test(
               INSERT INTO sponsor_media_assets (id, contribution_id, kind, review_status,
                 original_filename, original_mime_type, original_size_bytes, original_storage_key,
                 processed_size_bytes, processed_storage_key, public_storage_key, public_url,
-                checksum_sha256, width, height, sort_order, alt_text, created_at)
+                checksum_sha256, width, height, sort_order, alt_text, created_at, usage_rights)
               SELECT fixture.asset_id, $1::uuid, fixture.kind, 'approved', fixture.label || '.png', 'image/png', 100,
                 'private/' || $1::uuid || '/' || fixture.label, 50,
                 'processed/' || $1::uuid || '/' || fixture.label,
                 NULL, '/api/public/sponsor-media/' || fixture.asset_id,
-                repeat('a', 64), 960, 640, fixture.sort_order, fixture.alt_text, fixture.created_at
+                repeat('a', 64), 960, 640, fixture.sort_order, fixture.alt_text, fixture.created_at,
+                '{"state":"confirmed","channels":["website"],"targets":["openg7"],"transformations":["technical"],"credit":null,"restrictions":null}'::jsonb
               FROM fixtures AS fixture
               RETURNING id, original_filename`,
               [ids[0]]

@@ -40,6 +40,7 @@ export function buildE2eSeedSql({
         sponsorship.publicationCleanup,
         sponsorship.deleteStatements,
         sponsorship.insertStatements,
+        sponsorship.agreementInsertStatements,
         sponsorship.sponsorMediaInsertStatements,
         accounting.emailQueueDelete,
         accounting.emailQueueInsert,

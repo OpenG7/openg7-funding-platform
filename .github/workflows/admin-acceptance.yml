@@ -77,10 +77,12 @@ jobs:
         run: yarn exec playwright test --config tests/playwright-followup-ui.config.mjs
       - name: Public sponsor directory UI
         run: yarn exec playwright test --config tests/playwright-sponsors-ui.config.mjs
+      - name: Frozen offer and media rights UI
+        run: |
+          yarn exec playwright test --config tests/playwright-sponsorship-offer.config.mjs
+          yarn exec playwright test --config tests/playwright-sponsor-media-usage.config.mjs
       - name: Public journeys across browsers and accessibility
         run: yarn exec playwright test --config tests/playwright-public-journeys.config.mjs
-      - name: Funding Checkout offers and recovery
-        run: yarn test:ui:funding-home
       - name: Build shared production Web fixtures
         run: yarn workspace @openg7/funding-web build --configuration production
       - name: Admin accessibility and HTTP 404 across browsers

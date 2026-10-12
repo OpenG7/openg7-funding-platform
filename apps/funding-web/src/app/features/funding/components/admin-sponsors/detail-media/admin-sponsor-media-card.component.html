@@ -14,7 +14,7 @@
   <div class="media-review-copy">
     <openg7-funding-moderation-actions
       [subject]="{ type: 'media', id: asset().id }"
-      [disabled]="mediaBusy()"
+      [disabled]="busy()"
       (changed)="moderationChanged.emit()"
     />
     <div class="media-review-heading">
@@ -24,6 +24,28 @@
       </span>
     </div>
     <small>{{ asset().dimensionsLabel }} · {{ asset().sizeLabel }}</small>
+    <openg7-admin-sponsor-media-usage
+      [asset]="asset()"
+      [disabled]="mediaBusy()"
+      (busyChange)="setUsageBusy($event)"
+      (changed)="moderationChanged.emit()"
+    />
+    @if (asset().usage?.restrictions) {
+      <p>{{ asset().usage?.restrictions }}</p>
+      @if (!asset().usageRestrictionsReviewed) {
+        <label
+          ><input
+            type="checkbox"
+            [checked]="restrictionsConfirmed()"
+            [disabled]="busy()"
+            (change)="confirmRestrictions($event)"
+            data-og7="admin-media-restrictions-confirmation"
+          />{{
+            'funding.followup.media.usage.restrictionsConfirmation' | translate
+          }}</label
+        >
+      }
+    }
     <label>
       {{ 'admin.legacy.texte_alternatif' | translate
       }}<span>{{ 'admin.legacy.optionnel' | translate }}</span>
@@ -35,12 +57,13 @@
         "
         [value]="altText()"
         (input)="setAltText($event)"
-        [disabled]="mediaBusy()"
+        [disabled]="busy()"
       />
     </label>
     <div class="media-review-actions">
       <button
         type="button"
+        class="admin-button"
         (click)="
           previewMedia.emit({
             id: asset().id,
@@ -53,19 +76,14 @@
       <button
         type="button"
         class="approve-action"
+        data-og7="admin-media-approve"
         [disabled]="
-          mediaBusy() ||
+          busy() ||
+          !usageReady() ||
           (asset().reviewStatus === 'approved' &&
             altText().trim() === asset().altText)
         "
-        (click)="
-          reviewMedia.emit({
-            assetId: asset().id,
-            expectedVersion: asset().version,
-            reviewStatus: 'approved',
-            altText: altText()
-          })
-        "
+        (click)="approve()"
       >
         {{
           (asset().reviewStatus === 'approved'
@@ -77,7 +95,7 @@
       <button
         type="button"
         class="reject-action"
-        [disabled]="mediaBusy() || asset().reviewStatus === 'rejected'"
+        [disabled]="busy() || asset().reviewStatus === 'rejected'"
         (click)="
           reviewMedia.emit({
             assetId: asset().id,
@@ -92,7 +110,7 @@
       <button
         type="button"
         class="secondary-danger-action"
-        [disabled]="mediaBusy()"
+        [disabled]="busy()"
         (click)="
           deleteMedia.emit({
             assetId: asset().id,

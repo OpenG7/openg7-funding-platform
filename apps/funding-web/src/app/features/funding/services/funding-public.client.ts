@@ -9,11 +9,14 @@ import type {
   PublicSponsorshipBatchAvailabilityResponse,
   PublicSponsorshipsResponse,
   ReferenceRecoveryRequest,
-  ReferenceRecoveryResult,
-  SponsorshipOfferQuote
+  ReferenceRecoveryResult
 } from '@openg7/funding-core';
-
-import { normalizeSponsorshipOfferSnapshot } from '../../../../../../../packages/funding-core/src/index.js';
+import {
+  normalizeSponsorshipOfferSnapshot,
+  normalizeSponsorshipOfferFormats,
+  type SponsorshipOfferQuote,
+  type SponsorshipOfferFormatOptions
+} from '@openg7/funding-core';
 
 import {
   CheckoutReconciliationRequiredError,
@@ -27,12 +30,17 @@ export class FundingPublicClient {
   async sponsorshipOffer(
     amountMinor: number,
     currency: string,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    formats?: SponsorshipOfferFormatOptions
   ): Promise<SponsorshipOfferQuote> {
     const params = new URLSearchParams({
       amountMinor: String(amountMinor),
       currency
     });
+    for (const [channel, format] of Object.entries(
+      normalizeSponsorshipOfferFormats(formats) ?? {}
+    ))
+      params.set(channel + 'Format', format);
     const response = await fetch(
       `${this.apiBaseUrl}/sponsorship-offer?${params}`,
       {
@@ -44,10 +52,15 @@ export class FundingPublicClient {
     );
     if (!response.ok) throw new Error('SPONSORSHIP_OFFER_UNAVAILABLE');
     const data: unknown = await response.json();
-    if (!data || typeof data !== 'object' || Array.isArray(data))
-      throw new Error('SPONSORSHIP_OFFER_UNAVAILABLE');
-    const { fingerprint, ...terms } = data as Record<string, unknown>;
-    const snapshot = normalizeSponsorshipOfferSnapshot(terms);
+    const snapshot = normalizeSponsorshipOfferSnapshot(data);
+    for (const [channel, format] of Object.entries(formats ?? {})) {
+      const benefit = snapshot.benefits.find(
+        (item) => item.channel === channel
+      );
+      if (benefit && benefit.format !== format)
+        throw new Error('SPONSORSHIP_OFFER_UNAVAILABLE');
+    }
+    const fingerprint = (data as { fingerprint?: unknown }).fingerprint;
     if (
       snapshot.amountMinor !== amountMinor ||
       snapshot.currency !== currency ||

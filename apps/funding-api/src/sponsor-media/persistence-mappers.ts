@@ -1,5 +1,6 @@
 import type { SponsorMediaAsset } from '@openg7/funding-core';
 
+import { normalizeSponsorMediaUsage } from '../../../../packages/funding-core/src/index.js';
 import { isEditableSponsorship } from '../sponsorship-review-policy.js';
 
 import type {
@@ -9,6 +10,8 @@ import type {
 import { sponsorMediaPublicUrl } from './public-url.js';
 
 export const mapAsset = (row: SponsorMediaAssetRow): SponsorMediaAsset => ({
+  usage: normalizeSponsorMediaUsage(row.usage_rights),
+  usageRestrictionsReviewed: row.usage_restrictions_reviewed === true,
   id: row.id,
   contributionId: row.contribution_id,
   kind: row.kind,

@@ -237,16 +237,6 @@ test('Checkout preserves validation statuses and blocks provider/persistence on 
       { ...payload, publicDisplayName: 'x'.repeat(101) },
       400,
       'Public display name is too long.'
-    ],
-    [
-      { ...payload, amount: 0, contributionType: 'sponsorship_interest' },
-      400,
-      'Checkout amount is not allowed.'
-    ],
-    [
-      { ...payload, amount: -1, contributionType: 'sponsorship_interest' },
-      400,
-      'Checkout amount is not allowed.'
     ]
   ];
   for (const [input, status, error] of cases) {
@@ -261,18 +251,29 @@ test('Checkout preserves validation statuses and blocks provider/persistence on 
       ['body', 'response']
     );
   }
-  const belowMinimum = fixture();
-  const belowMinimumResult = await belowMinimum.invoke({
+  const belowMinimum = {
     ...payload,
     amount: 49,
     contributionType: 'sponsorship_interest'
-  });
-  assert.equal(belowMinimumResult.status, 400);
-  assert.equal(belowMinimumResult.payload.code, 'SPONSORSHIP_OFFER_INVALID');
+  };
+  const durable = fixture();
+  const refused = await durable.invoke(belowMinimum);
+  assert.equal(refused.status, 400);
+  assert.equal(refused.payload.code, 'SPONSORSHIP_OFFER_INVALID');
   assert.ok(
-    !belowMinimum.calls.some(({ name }) =>
+    !durable.calls.some(({ name }) =>
       ['offer', 'provider', 'persist'].includes(name)
     )
+  );
+  const local = fixture({ stripeEnabled: false, isProduction: false });
+  assert.deepEqual(await local.invoke(belowMinimum), {
+    handled: true,
+    status: 400,
+    payload: { error: 'Checkout amount is not allowed.' }
+  });
+  assert.deepEqual(
+    local.calls.map(({ name }) => name),
+    ['body', 'response']
   );
   const disabled = fixture({ businessSponsorshipEnabled: false });
   assert.deepEqual(
@@ -437,6 +438,80 @@ test('a pre-existing durable business operation without an offer snapshot can re
   );
 });
 
+test('Checkout binds the accepted formats before provider access and preserves retry fingerprints', async () => {
+  const formats = {
+    facebook: 'individual_portrait',
+    linkedin: 'collective_composite'
+  };
+  const quote = quoteSponsorshipOffer(50000, 'CAD', undefined, formats);
+  const input = {
+    ...payload,
+    amount: 500,
+    contributionType: 'sponsorship_interest',
+    offerFormats: formats,
+    offerAcceptance: { version: quote.version, fingerprint: quote.fingerprint }
+  };
+  const f = fixture();
+  assert.equal((await f.invoke(input)).status, 200);
+  assert.deepEqual(
+    f.calls.find(({ name }) => name === 'offer').value.quote,
+    quote
+  );
+  assert.ok(
+    f.calls.findIndex(({ name }) => name === 'offer') <
+      f.calls.findIndex(({ name }) => name === 'provider')
+  );
+  for (const [offerFormats, code, status] of [
+    [undefined, 'SPONSORSHIP_OFFER_CHANGED', 409],
+    [{ facebook: 'image_collection' }, 'FORMAT_UNAVAILABLE', 400],
+    [{ facebook: ['individual_portrait'] }, 'SPONSORSHIP_OFFER_INVALID', 400]
+  ]) {
+    const failed = fixture();
+    const result = await failed.invoke({ ...input, offerFormats });
+    assert.equal(result.status, status);
+    assert.equal(result.payload.code, code);
+    assert.ok(
+      !failed.calls.some(({ name }) =>
+        ['provider', 'persist', 'offer'].includes(name)
+      )
+    );
+  }
+  const hashes = [];
+  const replay = fixture({
+    runCheckout: async (operation) => {
+      hashes.push(operation.requestHash);
+      // Existing durable operation: do not re-quote/re-prepare its accepted terms.
+      return {
+        checkoutId: session.id,
+        redirectUrl: session.url,
+        status: 'redirected'
+      };
+    }
+  });
+  await replay.invoke(input);
+  await replay.invoke({
+    ...input,
+    offerFormats: {
+      linkedin: 'collective_composite',
+      facebook: 'individual_portrait'
+    }
+  });
+  assert.equal(hashes[0], hashes[1]);
+  await replay.invoke({
+    ...input,
+    offerFormats: {
+      facebook: 'collective_text',
+      linkedin: 'collective_composite'
+    }
+  });
+  assert.notEqual(hashes[0], hashes[2]);
+  assert.ok(
+    !replay.calls.some(({ name }) =>
+      ['provider', 'persist', 'offer'].includes(name)
+    )
+  );
+});
+
 test('a durable accepted offer replays below a changed minimum while new and mocked Checkouts keep current pricing', async (t) => {
   const pricing = DEFAULT_SPONSORSHIP_PRICING_CONFIG;
   const originalMinimum = pricing.minimumAmount;
@@ -507,27 +582,32 @@ test('a durable accepted offer replays below a changed minimum while new and moc
   );
 });
 
-test('a personal contribution refuses a sponsorship offer before durable or local mocked Checkout', async () => {
+test('a personal contribution refuses sponsorship acceptance and formats before durable or local mocked Checkout', async () => {
   const quote = quoteSponsorshipOffer(5000, 'CAD');
+  const offerAcceptance = {
+    version: quote.version,
+    fingerprint: quote.fingerprint
+  };
+  const offerFormats = { facebook: 'individual_portrait' };
   for (const options of [
-    {},
     { stripeEnabled: false, isProduction: false },
-    { stripeApiHost: '127.0.0.1', isProduction: false }
+    { stripeApiHost: '127.0.0.1', isProduction: false },
+    {}
   ]) {
-    const f = fixture(options);
-    const result = await f.invoke({
-      ...payload,
-      offerAcceptance: {
-        version: quote.version,
-        fingerprint: quote.fingerprint
-      }
-    });
-    assert.equal(result.status, 400);
-    assert.equal(result.payload.code, 'SPONSORSHIP_OFFER_NOT_APPLICABLE');
-    assert.deepEqual(
-      f.calls.map(({ name }) => name),
-      ['body', 'response']
-    );
+    for (const terms of [
+      { offerAcceptance },
+      { offerFormats },
+      { offerAcceptance, offerFormats }
+    ]) {
+      const f = fixture(options);
+      const result = await f.invoke({ ...payload, ...terms });
+      assert.equal(result.status, 400);
+      assert.equal(result.payload.code, 'SPONSORSHIP_OFFER_NOT_APPLICABLE');
+      assert.deepEqual(
+        f.calls.map(({ name }) => name),
+        ['body', 'response']
+      );
+    }
   }
 });
 

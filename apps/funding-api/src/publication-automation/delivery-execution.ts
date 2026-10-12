@@ -16,15 +16,14 @@ import {
   handleDeliveryFailure,
   observeProviderResult
 } from './delivery-outcomes.js';
-import { assert, feedConfig, PublicationAutomationError } from './policy.js';
+import { assert, feedConfig } from './policy.js';
 import { ready } from './preflight.js';
 import { sendDelivery } from './provider.js';
 
 /** Dispatch one reservation and persist its outcome without extending its authority. */
 export async function executeDelivery(
   context: PublicationDeliveryWorkerContext,
-  row: DeliveryRow,
-  now: Date
+  row: DeliveryRow
 ): Promise<'continue' | 'stop'> {
   let sending = false;
   let result: Awaited<ReturnType<typeof sendDelivery>> | null = null;
@@ -51,8 +50,6 @@ export async function executeDelivery(
       await lockClaim(db, row);
       return media;
     });
-    if (now.getTime() - row.scheduled_at.getTime() > 86400000)
-      throw new PublicationAutomationError('SCHEDULE_EXPIRED');
     assert((await context.workerSettings()).enabled, 'WORKER_DISABLED');
     sending = true;
     result = await sendDelivery(

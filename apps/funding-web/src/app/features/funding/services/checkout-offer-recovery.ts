@@ -1,6 +1,9 @@
-import type { SponsorshipOfferQuote } from '@openg7/funding-core';
-
-import { normalizeSponsorshipOfferSnapshot } from '../../../../../../../packages/funding-core/src/index.js';
+import {
+  normalizeSponsorshipOfferSnapshot,
+  normalizeSponsorshipOfferFormats,
+  type SponsorshipOfferQuote,
+  type SponsorshipOfferFormatOptions
+} from '@openg7/funding-core';
 
 import { CheckoutRecoveryUnavailableError } from './checkout-error.js';
 import {
@@ -16,13 +19,18 @@ export {
 } from './checkout-recovery-storage.js';
 export type CheckoutOfferResume =
   | { readonly state: 'none' }
-  | { readonly state: 'retained'; readonly quote: SponsorshipOfferQuote }
+  | {
+      readonly state: 'retained';
+      readonly quote: SponsorshipOfferQuote;
+      readonly formats?: SponsorshipOfferFormatOptions;
+    }
   | { readonly state: 'unavailable' }
   | { readonly state: 'verification_required' };
 interface RetainedOffer {
   readonly idempotencyKey: string;
   readonly expiresAt: number;
   readonly quote: SponsorshipOfferQuote;
+  readonly formats?: SponsorshipOfferFormatOptions;
 }
 const storageKey = 'openg7.checkout-offer-recovery.v1';
 // A client recovery window, not an expiry or a delivery deadline in the contract.
@@ -39,13 +47,17 @@ export class CheckoutOfferRecovery {
   capture(
     fingerprint: string,
     idempotencyKey: string,
-    quote: SponsorshipOfferQuote
+    quote: SponsorshipOfferQuote,
+    formats?: SponsorshipOfferFormatOptions
   ): boolean {
     const normalized = structuredClone(this.normalizeQuote(quote));
     const prior = this.memory.get(fingerprint);
     const entry = {
       idempotencyKey,
       quote: normalized,
+      ...(formats
+        ? { formats: normalizeSponsorshipOfferFormats(formats) }
+        : {}),
       expiresAt: prior?.expiresAt ?? Date.now() + retentionMs
     };
     this.memory.set(fingerprint, entry);
@@ -102,7 +114,11 @@ export class CheckoutOfferRecovery {
     if (retained.length !== 1 || retained[0]!.quote.currency !== currency)
       return { state: 'verification_required' };
     // Even the form's default amount after reload cannot requote an uncertain operation.
-    return { state: 'retained', quote: retained[0]!.quote };
+    return {
+      state: 'retained',
+      quote: retained[0]!.quote,
+      ...(retained[0]!.formats ? { formats: retained[0]!.formats } : {})
+    };
   }
 
   async acceptsIntent(
@@ -229,7 +245,10 @@ export class CheckoutOfferRecovery {
       entries[fingerprint] = {
         idempotencyKey: entry.idempotencyKey,
         expiresAt: entry.expiresAt!,
-        quote: this.normalizeQuote(entry.quote)
+        quote: this.normalizeQuote(entry.quote),
+        ...(entry.formats === undefined
+          ? {}
+          : { formats: normalizeSponsorshipOfferFormats(entry.formats) })
       };
     }
     return entries;

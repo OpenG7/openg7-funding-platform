@@ -20,6 +20,8 @@ import {
 } from './support/acceptance-moderation.js';
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
+import { adjustAcceptanceObligationDestination } from './support/acceptance-agreement.js';
+import { parkAcceptancePublicationCandidates } from './support/acceptance-publication-isolation.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import { expect, test } from './support/test.js';
 
@@ -90,6 +92,7 @@ for (const cause of ['rejection', 'destination'] as const)
       const retained = await sponsor(retainedFixture.publicReference);
       const initial = await state();
       const initialFeed = initial.feeds.find((f) => f.id === feedId)!;
+      let restoreCandidates: (() => Promise<void>) | undefined;
       expect(initial.feeds.every((f) => f.mode === 'mock')).toBe(true);
       const errors: string[] = [];
       page.on('pageerror', (e) => errors.push(e.message));
@@ -122,6 +125,12 @@ for (const cause of ['rejection', 'destination'] as const)
       };
       try {
         await worker(false);
+        // Mock delivery leaves recorded promises open. Isolate unrelated private
+        // drafts without changing payment, agreements, moderation or fulfilment.
+        restoreCandidates = await parkAcceptancePublicationCandidates([
+          removed.id,
+          retained.id
+        ]);
         for (const feed of initial.feeds.filter((f) => f.id !== feedId)) {
           await command({
             action: 'settings',
@@ -219,6 +228,12 @@ for (const cause of ['rejection', 'destination'] as const)
                 )
                 .toBe('rejected');
             } else {
+              await adjustAcceptanceObligationDestination(
+                request,
+                removed.id,
+                'facebook',
+                'openg20'
+              );
               await page.goto(
                 '/admin/fundraiser/sponsors?sponsorshipId=' +
                   removed.id +
@@ -552,10 +567,14 @@ for (const cause of ['rejection', 'destination'] as const)
         });
       } finally {
         await worker(false);
-        for (const feed of initial.feeds) {
-          await command({ action: 'settings', settings: feed });
+        try {
+          await restoreCandidates?.();
+        } finally {
+          for (const feed of initial.feeds) {
+            await command({ action: 'settings', settings: feed });
+          }
+          await worker(initial.workerEnabled);
         }
-        await worker(initial.workerEnabled);
       }
     }
   );

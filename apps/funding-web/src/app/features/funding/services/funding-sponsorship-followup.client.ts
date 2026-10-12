@@ -181,12 +181,17 @@ export class FundingSponsorshipFollowupClient {
     token: string,
     kind: SponsorMediaKind,
     file: File,
-    altText?: string
+    altText?: string,
+    usage?: import('@openg7/funding-core').SponsorMediaUsageRights
   ): Promise<SponsorMediaUploadResult> {
     const body = new FormData();
     body.set('token', token);
     body.set('kind', kind);
     body.set('media', file);
+    if (usage) {
+      body.set('usage', JSON.stringify(usage));
+      body.set('usageConfirmed', 'true');
+    }
     if (altText?.trim()) {
       body.set('altText', altText.trim());
     }
@@ -221,5 +226,27 @@ export class FundingSponsorshipFollowupClient {
       throw new Error(body?.error ?? 'Sponsor media could not be deleted.');
     }
     return (await response.json()) as SponsorMediaDeleteResult;
+  }
+  updateSponsorshipMediaUsage(
+    payload: import('@openg7/funding-core').SponsorMediaUsageRequest
+  ): Promise<{
+    updated: true;
+    asset: import('@openg7/funding-core').SponsorMediaAsset;
+  }> {
+    return this.moderationMutation(
+      '/sponsorship-followup/media/usage',
+      payload
+    );
+  }
+  requestSponsorshipMediaPreference(
+    payload: import('@openg7/funding-core').SponsorMediaPreferenceRequest
+  ): Promise<{
+    updated: true;
+    preference: import('@openg7/funding-core').SponsorMediaPreference;
+  }> {
+    return this.moderationMutation(
+      '/sponsorship-followup/media/preference',
+      payload
+    );
   }
 }

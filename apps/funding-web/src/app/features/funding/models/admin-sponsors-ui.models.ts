@@ -96,6 +96,7 @@ export interface AdminSponsorDetailOverviewView {
 }
 
 export interface AdminSponsorDetailIdentityView {
+  readonly contributionId?: string;
   readonly companyName: string;
   readonly logoPreviewSource: string | null;
   readonly logoUrl: string | null;
@@ -112,6 +113,9 @@ export interface AdminSponsorDetailIdentityView {
 }
 
 export interface AdminSponsorMediaAssetView {
+  readonly contributionId?: string;
+  readonly usage?: import('@openg7/funding-core').SponsorMediaUsageRights;
+  readonly usageRestrictionsReviewed?: boolean;
   readonly id: string;
   readonly version: string;
   readonly kindLabel: string;
@@ -124,6 +128,7 @@ export interface AdminSponsorMediaAssetView {
 }
 
 export interface AdminSponsorMediaReviewEvent {
+  readonly usageRestrictionsConfirmed?: true;
   readonly assetId: string;
   readonly expectedVersion: string;
   readonly reviewStatus: Exclude<SponsorMediaReviewStatus, 'pending_review'>;

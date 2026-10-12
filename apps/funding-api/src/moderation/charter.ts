@@ -8,7 +8,10 @@ import type { PoolClient } from 'pg';
 
 import {
   MODERATION_POLICY_VERSION,
-  SPONSORSHIP_CHARTER_TEXT
+  SPONSORSHIP_CHARTER_TEXT,
+  SPONSORSHIP_RECOGNITION_TERMS_VERSION,
+  SPONSORSHIP_RECOGNITION_TERMS_TEXT,
+  type SponsorshipCharterReviewPreview
 } from '../../../../packages/funding-core/src/index.js';
 import { CheckoutOperationError } from '../checkout-operations.service.js';
 
@@ -85,6 +88,47 @@ async function readSponsorshipCharter(
 
 export const getPublicSponsorshipCharter = (db: Pick<PoolClient, 'query'>) =>
   readSponsorshipCharter(db);
+
+/** Owner-only editorial preview. Neither reading nor downloading approves or activates either text. */
+export async function getSponsorshipCharterReviewPreview(
+  db: Pick<PoolClient, 'query'>
+): Promise<SponsorshipCharterReviewPreview> {
+  const row = (
+    await db.query<{
+      public_active: boolean;
+      public_validated_at: Date | null;
+      effective_at: Date | null;
+    }>(
+      'SELECT public_active,public_validated_at,effective_at FROM moderation_policies WHERE version=$1',
+      [MODERATION_POLICY_VERSION]
+    )
+  ).rows[0];
+  if (!row)
+    throw new CheckoutOperationError('CHARTER_CONFIGURATION_INVALID', 503);
+  return {
+    active: row.public_active,
+    validatedAt: row.public_validated_at?.toISOString() ?? null,
+    effectiveAt: row.effective_at?.toISOString() ?? null,
+    charter: {
+      policyVersion: MODERATION_POLICY_VERSION,
+      fingerprint: sponsorshipCharterFingerprint,
+      text: SPONSORSHIP_CHARTER_TEXT
+    },
+    recognitionTerms: {
+      status: 'proposed',
+      version: SPONSORSHIP_RECOGNITION_TERMS_VERSION,
+      fingerprint: createHash('sha256')
+        .update(
+          JSON.stringify({
+            version: SPONSORSHIP_RECOGNITION_TERMS_VERSION,
+            text: SPONSORSHIP_RECOGNITION_TERMS_TEXT
+          })
+        )
+        .digest('hex'),
+      text: SPONSORSHIP_RECOGNITION_TERMS_TEXT
+    }
+  };
+}
 
 /** Executed only for a new durable operation, before any provider request. */
 export async function recordSponsorshipCharterAcceptance(

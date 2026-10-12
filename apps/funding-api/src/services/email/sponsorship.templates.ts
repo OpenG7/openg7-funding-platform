@@ -1,6 +1,6 @@
 import type { AdminSponsorshipRejectionRefundHandling } from '@openg7/funding-core';
 
-import { formatRecordedSponsorshipBenefits } from '../../sponsorship-commitments/offers.js';
+import { formatRecordedSponsorshipBenefits } from '../../sponsorship-benefits.js';
 
 import { escapeHtml, formatDate, formatMoney } from './email-rendering.js';
 import type {

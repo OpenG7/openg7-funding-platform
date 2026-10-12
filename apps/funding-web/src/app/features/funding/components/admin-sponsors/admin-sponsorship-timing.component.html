@@ -1,0 +1,186 @@
+@if (c.obligation(); as o) {
+  @if (o.timing; as t) {
+    <section
+      data-og7="sponsorship-timing"
+      [attr.data-og7-id]="o.id"
+      [attr.aria-labelledby]="'timing-title-' + o.id"
+    >
+      <h5 [id]="'timing-title-' + o.id">
+        {{ 'admin.timing.title' | translate }}
+      </h5>
+      <dl>
+        <div>
+          <dt>{{ 'admin.timing.origin' | translate }}</dt>
+          <dd>
+            {{
+              t.originAt
+                ? formatDate(t.originAt)
+                : ('admin.timing.unknownOrigin' | translate)
+            }}
+          </dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.timing.due' | translate }}</dt>
+          <dd>
+            {{
+              t.dueAt ? formatDate(t.dueAt) : ('admin.timing.noDue' | translate)
+            }}
+          </dd>
+        </div>
+        @if (t.durationDays !== null) {
+          <div>
+            <dt>
+              {{
+                'admin.timing.duration' | translate: { days: t.durationDays }
+              }}
+            </dt>
+            <dd>{{ 'admin.timing.states.' + t.durationState | translate }}</dd>
+          </div>
+        }
+        @if (t.startObservation; as start) {
+          <div>
+            <dt>{{ 'admin.timing.observedAt' | translate }}</dt>
+            <dd>
+              {{ formatDate(start.observedAt) }}
+            </dd>
+          </div>
+          <div>
+            <dt>{{ 'admin.timing.earliest' | translate }}</dt>
+            <dd>
+              {{ formatDate(start.earliestCompletionAt) }}
+            </dd>
+          </div>
+        }
+      </dl>
+      @if (t.durationState === 'restart_required') {
+        <p role="status" data-og7="timing-restart-required">
+          {{ 'admin.timing.restartHelp' | translate }}
+        </p>
+      }
+      @if (t.overdue) {
+        <p role="status" data-og7="timing-overdue">
+          {{ 'admin.timing.overdue' | translate }}
+        </p>
+      }
+      @if (c.error()) {
+        <p role="alert" data-og7="timing-error">
+          {{ 'admin.timing.errors.' + c.error() | translate }}
+        </p>
+      }
+      @if (c.saved()) {
+        <p role="status" data-og7="timing-saved">
+          {{ 'admin.timing.saved' | translate }}
+        </p>
+      }
+      @if (
+        canOwn() &&
+        browser &&
+        t.durationState !== 'attested' &&
+        (o.state === 'pending' || o.state === 'blocked')
+      ) {
+        <details>
+          <summary>{{ 'admin.timing.manage' | translate }}</summary>
+          <p>{{ 'admin.timing.help' | translate }}</p>
+          <fieldset [disabled]="c.busy() || !!c.pending()">
+            @if (!t.originAt && t.deadlineDays !== null) {
+              <label [for]="'timing-origin-' + o.id">{{
+                'admin.timing.originInput' | translate
+              }}</label>
+              <input
+                [id]="'timing-origin-' + o.id"
+                type="datetime-local"
+                [value]="c.origin()"
+                (input)="c.origin.set(value($event))"
+                data-og7="timing-origin"
+              />
+            }
+            <label [for]="'timing-evidence-' + o.id">{{
+              'admin.timing.evidence' | translate
+            }}</label>
+            <input
+              [id]="'timing-evidence-' + o.id"
+              type="text"
+              maxlength="2000"
+              [value]="c.evidence()"
+              (input)="c.evidence.set(value($event))"
+              data-og7="timing-evidence"
+            />
+            <label [for]="'timing-reason-' + o.id">{{
+              'admin.timing.reason' | translate
+            }}</label>
+            <textarea
+              [id]="'timing-reason-' + o.id"
+              maxlength="2000"
+              [value]="c.reason()"
+              (input)="c.reason.set(value($event))"
+              data-og7="timing-reason"
+            ></textarea>
+            <label [for]="'timing-confirmation-' + o.id">{{
+              'admin.timing.confirm' | translate: { id: o.id }
+            }}</label>
+            <input
+              [id]="'timing-confirmation-' + o.id"
+              type="text"
+              autocomplete="off"
+              [value]="c.confirmation()"
+              (input)="c.confirmation.set(value($event))"
+              data-og7="timing-confirmation"
+            />
+            @if (!t.originAt && t.deadlineDays !== null) {
+              <button
+                type="button"
+                (click)="c.submit('origin')"
+                data-og7="timing-record-origin"
+              >
+                {{ 'admin.timing.recordOrigin' | translate }}
+              </button>
+            }
+            @if (
+              o.channel === 'website' &&
+              o.target === 'openg7' &&
+              t.durationDays !== null
+            ) {
+              <button
+                type="button"
+                (click)="c.submit('observe')"
+                data-og7="timing-observe"
+              >
+                {{ 'admin.timing.observe' | translate }}
+              </button>
+              @if (
+                t.startObservation && t.durationState !== 'restart_required'
+              ) {
+                <label
+                  ><input
+                    type="checkbox"
+                    [checked]="c.continuity()"
+                    (change)="c.continuity.set(checked($event))"
+                    data-og7="timing-continuity"
+                  />{{ 'admin.timing.continuity' | translate }}</label
+                >
+                <button
+                  type="button"
+                  (click)="c.submit('duration')"
+                  data-og7="timing-attest-duration"
+                >
+                  {{ 'admin.timing.attest' | translate }}
+                </button>
+              }
+            }
+          </fieldset>
+          @if (c.pending()) {
+            <p role="status">{{ 'admin.timing.retryHelp' | translate }}</p>
+            <button
+              type="button"
+              [disabled]="c.busy()"
+              (click)="c.retry()"
+              data-og7="timing-retry"
+            >
+              {{ 'admin.timing.retry' | translate }}
+            </button>
+          }
+        </details>
+      }
+    </section>
+  }
+}

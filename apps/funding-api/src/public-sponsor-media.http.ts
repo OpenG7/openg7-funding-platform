@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { createHash } from 'node:crypto';
 
 import type { createHttpTransport } from './http-transport.js';
 import {
@@ -72,7 +73,12 @@ export const createPublicSponsorMediaHttpHandler = ({
               asset.processedStorageKey
             )
           : null;
-        if (!asset || !image) {
+        if (
+          !asset ||
+          !image ||
+          createHash('sha256').update(image).digest('hex') !==
+            asset.checksumSha256
+        ) {
           writeJson(request, response, 404, { error: 'Not found' });
           return true;
         }

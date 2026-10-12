@@ -6,6 +6,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { adminSessionHeaders, signInAsAdmin } from './support/admin-auth.js';
+import { recordAcceptanceHistoricalAgreement } from './support/acceptance-agreement.js';
 import { acceptanceSql } from './support/acceptance-database.js';
 import { expect, test } from './support/test.js';
 
@@ -83,15 +84,50 @@ test('oversized recognition stays visible and correction returns the same source
        VALUES($1,'sponsorship_interest',50000,'paid',TRUE,'pending_review',$2,'openg20','["linkedin"]')`,
       [sponsorIds[index], names[index]]
     );
+    const agreement = await recordAcceptanceHistoricalAgreement(
+      request,
+      sponsorIds[index]!,
+      {
+        version: 'historical-qualification-v1',
+        amountMinor: 50000,
+        currency: 'CAD',
+        benefits: [
+          {
+            id: 'linkedin_batch',
+            channel: 'linkedin',
+            target: 'openg20',
+            quantity: 1,
+            format: 'collective_text',
+            requiredElements: ['company_name', 'approved_presentation'],
+            deadlineDays: null,
+            durationDays: null
+          }
+        ]
+      }
+    );
+    expect(agreement.obligations[0]).toMatchObject({
+      channel: 'linkedin',
+      target: 'openg20',
+      format: 'collective_text',
+      state: 'blocked',
+      blockedReason: 'review_pending_review'
+    });
+    expect(
+      await acceptanceSql(
+        'SELECT state FROM sponsorship_obligations WHERE id=$1',
+        [agreement.obligations[0]!.id]
+      )
+    ).toEqual([{ state: 'pending' }]);
     await acceptanceSql(
-      `INSERT INTO sponsor_publication_drafts(id,contribution_id,feed_target,channel,title,body,disclosure_text,created_at)
-       VALUES($1,$2,'openg20','linkedin',$3,$4,'Commandite rémunérée.',NOW()-($5::int * INTERVAL '1 minute'))`,
+      `INSERT INTO sponsor_publication_drafts(id,contribution_id,feed_target,channel,title,body,disclosure_text,created_at,obligation_id)
+       VALUES($1,$2,'openg20','linkedin',$3,$4,'Commandite rémunérée.',NOW()-($5::int * INTERVAL '1 minute'),$6::uuid)`,
       [
         draftIds[index],
         sponsorIds[index],
         'Merci à ' + names[index],
         index === 0 ? 'x'.repeat(2900) : 'Reconnaissance de recette.',
-        2 - index
+        2 - index,
+        agreement.obligations[0]!.id
       ]
     );
   }

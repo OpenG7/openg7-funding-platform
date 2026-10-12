@@ -3,8 +3,9 @@ import type {
   SponsorFeedChannel
 } from '@openg7/funding-core';
 
+import { pendingSponsorshipSocialChannels } from '../../../packages/funding-core/src/index.js';
+
 import type { SponsorshipAttentionRecord } from './fund-contributions.repository.js';
-import { resolveSponsorshipSocialChannels } from './sponsorship-benefits.js';
 
 export interface SponsorshipPublicationCoverage {
   readonly promisedChannels: readonly SponsorFeedChannel[];
@@ -40,11 +41,24 @@ export const activeDraftChannels = (
 };
 
 export const resolveSponsorshipPublicationCoverage = (
-  record: Pick<SponsorshipAttentionRecord, 'amount' | 'contributionId'>,
+  record: Pick<SponsorshipAttentionRecord, 'commitment' | 'contributionId'>,
   drafts: readonly AdminPublicationDraftRecord[]
 ): SponsorshipPublicationCoverage => {
-  const promisedChannels = resolveSponsorshipSocialChannels(record.amount);
-  const covered = activeDraftChannels(drafts, record.contributionId);
+  const promisedChannels = pendingSponsorshipSocialChannels(record.commitment);
+  const outstanding =
+    record.commitment?.obligations.filter((o) =>
+      ['pending', 'blocked'].includes(o.state)
+    ) ?? [];
+  const covered = activeDraftChannels(
+    drafts.filter(
+      (d) =>
+        !promisedChannels.includes(d.channel) ||
+        outstanding.some(
+          (o) => o.channel === d.channel && o.target === d.feed_target
+        )
+    ),
+    record.contributionId
+  );
   return {
     promisedChannels,
     coveredChannels: [...covered],

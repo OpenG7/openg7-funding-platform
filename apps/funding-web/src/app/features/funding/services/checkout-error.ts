@@ -14,7 +14,8 @@ export class CheckoutCharterChangedError extends Error {
     this.name = 'CheckoutCharterChangedError';
   }
 }
-/** No new provider call is permitted when accepted terms cannot be retained. */
+
+/** Safe public failure before a new operation: reread and confirm the offered benefits. */
 export class CheckoutRecoveryUnavailableError extends Error {
   readonly code = 'CHECKOUT_RECOVERY_UNAVAILABLE';
   constructor() {

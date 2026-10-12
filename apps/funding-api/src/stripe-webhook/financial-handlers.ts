@@ -15,7 +15,7 @@ import {
 } from '../fund-transparency.repository.js';
 import { syncStripeChargeRefunds } from '../stripe-refunds.service.js';
 import { withPostgresTransaction } from '../postgres-transaction.js';
-import { activateSponsorshipCommitments } from '../sponsorship-commitments/repository.js';
+import { activateSponsorshipCommitments } from '../sponsorship-commitments.repository.js';
 
 import { toIsoFromUnix } from './event-time.js';
 import { handleStripeRefundEvent } from './refund-handlers.js';

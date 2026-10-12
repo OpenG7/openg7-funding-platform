@@ -1,5 +1,8 @@
 import { computed, signal } from '@angular/core';
-import type { SponsorshipOfferQuote } from '@openg7/funding-core';
+import type {
+  SponsorshipOfferQuote,
+  SponsorshipOfferFormatOptions
+} from '@openg7/funding-core';
 
 import type { CheckoutOfferResume } from './checkout-offer-recovery.js';
 
@@ -7,7 +10,8 @@ export interface SponsorshipOfferPorts {
   quote(
     amountMinor: number,
     currency: string,
-    signal: AbortSignal
+    signal: AbortSignal,
+    formats?: SponsorshipOfferFormatOptions
   ): Promise<SponsorshipOfferQuote>;
   resume(amountMinor: number, currency: string): Promise<CheckoutOfferResume>;
 }
@@ -25,6 +29,9 @@ export class SponsorshipOfferController {
   >('idle');
   readonly accepted = signal(false);
   readonly retained = signal(false);
+  readonly formats = signal<SponsorshipOfferFormatOptions | undefined>(
+    undefined
+  );
   readonly ready = computed(
     () => this.state() === 'ready' && !!this.quote() && this.accepted()
   );
@@ -37,7 +44,9 @@ export class SponsorshipOfferController {
   async load(
     amountMinor: number | null,
     currency: string,
-    forceFresh = false
+    forceFresh = false,
+    formats?: SponsorshipOfferFormatOptions,
+    allowNewQuote = true
   ): Promise<void> {
     const generation = ++this.generation;
     this.abort?.abort();
@@ -45,6 +54,7 @@ export class SponsorshipOfferController {
     this.quote.set(null);
     this.accepted.set(false);
     this.retained.set(false);
+    this.formats.set(formats ? structuredClone(formats) : undefined);
     this.state.set('idle');
     if (this.disposed || amountMinor === null) return;
     this.state.set('loading');
@@ -64,12 +74,22 @@ export class SponsorshipOfferController {
         }
         if (resume.state === 'retained') {
           this.quote.set(resume.quote);
+          this.formats.set(resume.formats);
           this.retained.set(true);
           this.state.set('ready');
           return;
         }
       }
-      const quote = await this.ports.quote(amountMinor, currency, abort.signal);
+      if (!allowNewQuote) {
+        this.state.set('idle');
+        return;
+      }
+      const quote = await this.ports.quote(
+        amountMinor,
+        currency,
+        abort.signal,
+        formats
+      );
       if (this.disposed || generation !== this.generation) return;
       if (quote.amountMinor !== amountMinor || quote.currency !== currency)
         throw new Error('Offer context changed.');

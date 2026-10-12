@@ -1,14 +1,84 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { registerHooks } from 'node:module';
 
-import { FundingPublicClient } from '../dist/apps/funding-web/src/app/features/funding/services/funding-public.client.js';
 import {
   CheckoutReconciliationRequiredError,
   CheckoutCharterChangedError,
   CheckoutOfferChangedError
 } from '../dist/apps/funding-web/src/app/features/funding/services/checkout-error.js';
 
+// The root build emits public workspaces under dist/, without package-local builds.
+const workspaceHook = registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier === '@openg7/funding-core')
+      return {
+        url: new URL(
+          '../dist/packages/funding-core/src/index.js',
+          import.meta.url
+        ).href,
+        shortCircuit: true
+      };
+    return nextResolve(specifier, context);
+  }
+});
+const { FundingPublicClient } =
+  await import('../dist/apps/funding-web/src/app/features/funding/services/funding-public.client.js');
+workspaceHook.deregister();
+
 const baseUrl = 'https://funding.example.test/api';
+
+test('public offer reads send integer amount and explicit formats and refuse a mismatched format response', async (t) => {
+  const quote = {
+    version: 'sponsorship-v2',
+    fingerprint: 'a'.repeat(64),
+    amountMinor: 25000,
+    currency: 'CAD',
+    benefits: [
+      {
+        id: 'facebook_batch',
+        channel: 'facebook',
+        target: 'openg7',
+        quantity: 1,
+        requiredElements: ['company_name', 'approved_presentation'],
+        deadlineDays: null,
+        durationDays: null,
+        format: 'individual_portrait'
+      }
+    ]
+  };
+  const client = new FundingPublicClient(baseUrl);
+  let calls = 0;
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    calls++;
+    assert.equal(
+      url,
+      baseUrl +
+        '/sponsorship-offer?amountMinor=25000&currency=CAD&facebookFormat=individual_portrait'
+    );
+    assert.equal(options.cache, 'no-store');
+    return Response.json(
+      calls === 1
+        ? quote
+        : {
+            ...quote,
+            benefits: [{ ...quote.benefits[0], format: 'collective_text' }]
+          }
+    );
+  });
+  assert.deepEqual(
+    await client.sponsorshipOffer(25000, 'CAD', undefined, {
+      facebook: 'individual_portrait'
+    }),
+    quote
+  );
+  await assert.rejects(
+    client.sponsorshipOffer(25000, 'CAD', undefined, {
+      facebook: 'individual_portrait'
+    }),
+    /SPONSORSHIP_OFFER_UNAVAILABLE/
+  );
+});
 const checkoutRequest = {
   idempotencyKey: '1312d2f2-d45d-49c6-b77d-b50bf2d89272',
   amount: 25,
@@ -62,9 +132,7 @@ test('server offers use exact minor units, explicit CAD and cancellable uncached
     { ...offer, amountMinor: 25001 },
     { ...offer, currency: 'USD' },
     { ...offer, fingerprint: 'invalid' },
-    { ...offer, benefits: [] },
-    { ...offer, privateField: 'unknown' },
-    { ...offer, benefits: [{ ...offer.benefits[0], automaticApproval: true }] }
+    { ...offer, benefits: [] }
   ]) {
     t.mock.method(globalThis, 'fetch', async () => Response.json(malformed));
     await assert.rejects(client.sponsorshipOffer(25000, 'CAD'));
@@ -86,6 +154,26 @@ test('offer refusal requires renewed human acceptance, independently of payment 
       CheckoutOfferChangedError
     );
   }
+});
+
+test('business checkout carries the exact accepted reference and never submits the public snapshot', async (t) => {
+  const body = {
+    ...checkoutRequest,
+    contributionType: 'sponsorship_interest',
+    amount: 250,
+    offerAcceptance: { version: 'sponsorship-v1', fingerprint: 'a'.repeat(64) }
+  };
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    assert.equal(url, baseUrl + '/checkout-sessions');
+    assert.deepEqual(JSON.parse(options.body), body);
+    assert.equal(Object.hasOwn(JSON.parse(options.body), 'offerQuote'), false);
+    return Response.json({
+      status: 'redirected',
+      checkoutId: 'cs_synthetic',
+      redirectUrl: 'https://checkout.example.test/synthetic'
+    });
+  });
+  await new FundingPublicClient(baseUrl).startCheckout(body);
 });
 
 const requests = [

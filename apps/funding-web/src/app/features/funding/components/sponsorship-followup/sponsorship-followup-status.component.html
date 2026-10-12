@@ -87,16 +87,195 @@
       <p>{{ 'funding.followup.steps.publicationUnknown' | translate }}</p>
     </li>
   </ol>
-  <details
-    class="sponsorship-benefits-recap"
-    *ngIf="current.sponsorshipBenefits.length"
-  >
-    <summary>{{ 'funding.followup.benefits.title' | translate }}</summary>
-    <ul>
-      <li *ngFor="let benefit of current.sponsorshipBenefits">
-        {{ 'funding.followup.benefits.' + benefit | translate }}
-      </li>
-    </ul>
-    <p>{{ 'funding.followup.benefits.manual' | translate }}</p>
-  </details>
+  @if (current.commitment; as commitment) {
+    <section
+      data-og7="followup-commitment"
+      aria-labelledby="followup-commitment-title"
+    >
+      <h3 id="followup-commitment-title">
+        {{ 'funding.offer.savedTitle' | translate }}
+      </h3>
+      @if (commitment.state === 'needs_confirmation' || !commitment.offer) {
+        <p role="status">{{ 'funding.offer.needsConfirmation' | translate }}</p>
+      } @else {
+        @if (commitment.provenance === 'qualified_historical') {
+          <p>{{ 'funding.offer.qualifiedHistorical' | translate }}</p>
+        }
+        <openg7-sponsorship-offer-summary [offer]="commitment.offer" />
+        <p>{{ 'funding.followup.benefits.manual' | translate }}</p>
+      }
+      @if (commitment.obligations?.length) {
+        <section
+          data-og7="followup-current-obligations"
+          aria-labelledby="followup-current-obligations-title"
+        >
+          <h4 id="followup-current-obligations-title">
+            {{ 'funding.offer.currentObligations' | translate }}
+          </h4>
+          <p>{{ 'funding.offer.currentObligationsSeparate' | translate }}</p>
+          <ul role="list">
+            @for (obligation of commitment.obligations; track obligation.id) {
+              <li [attr.data-og7-id]="obligation.id">
+                <strong
+                  >{{
+                    'funding.offer.channels.' + obligation.channel | translate
+                  }}
+                  · {{ obligation.target.toUpperCase() }} ·
+                  {{ obligation.ordinal }}</strong
+                >
+                <p>
+                  {{
+                    'funding.offer.obligationStates.' + obligation.state
+                      | translate
+                  }}
+                </p>
+                @if (obligation.format) {
+                  <p>
+                    {{ 'funding.offer.format' | translate }}
+                    {{
+                      'funding.offer.formats.' + obligation.format | translate
+                    }}
+                  </p>
+                }
+                @if (obligation.blockedReason) {
+                  <p>
+                    {{
+                      'funding.offer.obligationBlocking.' +
+                        obligation.blockedReason | translate
+                    }}
+                  </p>
+                }
+                @if (evidenceFor(obligation); as evidence) {
+                  <p>
+                    <a
+                      [href]="evidenceHref(evidence.id)"
+                      (click)="focusEvidence(evidence.id)"
+                      data-og7="followup-obligation-proof"
+                      >{{
+                        'funding.offer.viewPassageEvidence'
+                          | translate: { ordinal: obligation.ordinal }
+                      }}</a
+                    >
+                  </p>
+                } @else if (obligation.fulfilmentEvidenceId) {
+                  <p>{{ 'funding.offer.fulfilmentRecorded' | translate }}</p>
+                }
+                @if (obligation.timing; as timing) {
+                  <div data-og7="followup-obligation-timing">
+                    @if (timing.deadlineDays !== null) {
+                      <p data-og7="followup-obligation-deadline">
+                        {{ 'funding.offer.timingDue' | translate }}
+                        {{
+                          timing.dueAt
+                            ? dateLabel(timing.dueAt)
+                            : ('funding.offer.timingOriginUnknown' | translate)
+                        }}
+                      </p>
+                      @if (timing.overdue) {
+                        <p data-og7="followup-obligation-overdue">
+                          {{ 'funding.offer.timingOverdue' | translate }}
+                        </p>
+                      }
+                    }
+                    @if (timing.durationDays !== null) {
+                      <p data-og7="followup-obligation-duration">
+                        {{
+                          'funding.offer.timingDurationStates.' +
+                            timing.durationState | translate
+                        }}
+                      </p>
+                    }
+                    @if (timing.startObservation; as observation) {
+                      <p>
+                        {{ 'funding.offer.timingStarted' | translate }}
+                        <time [attr.datetime]="observation.observedAt">{{
+                          dateLabel(observation.observedAt)
+                        }}</time>
+                      </p>
+                      <p>
+                        {{
+                          'funding.offer.timingEarliestCompletion' | translate
+                        }}
+                        <time
+                          [attr.datetime]="observation.earliestCompletionAt"
+                          >{{
+                            dateLabel(observation.earliestCompletionAt)
+                          }}</time
+                        >
+                      </p>
+                    }
+                  </div>
+                }
+              </li>
+            }
+          </ul>
+        </section>
+      }
+    </section>
+  } @else {
+    <details
+      class="sponsorship-benefits-recap"
+      *ngIf="current.sponsorshipBenefits.length"
+    >
+      <summary>{{ 'funding.followup.benefits.title' | translate }}</summary>
+      <ul>
+        <li *ngFor="let benefit of current.sponsorshipBenefits">
+          {{ 'funding.followup.benefits.' + benefit | translate }}
+        </li>
+      </ul>
+      <p>{{ 'funding.followup.benefits.manual' | translate }}</p>
+    </details>
+  }
+  @if (current.fulfilmentEvidence?.length) {
+    <section
+      data-og7="followup-fulfilment-evidence"
+      aria-labelledby="followup-fulfilment-evidence-title"
+    >
+      <h3 id="followup-fulfilment-evidence-title">
+        {{ 'funding.offer.evidenceTitle' | translate }}
+      </h3>
+      <p>{{ 'funding.offer.evidenceSeparate' | translate }}</p>
+      <ul role="list">
+        @for (evidence of current.fulfilmentEvidence; track evidence.id) {
+          <li
+            [attr.data-og7-id]="evidence.id"
+            [id]="evidenceAnchor(evidence.id)"
+            tabindex="-1"
+          >
+            <strong
+              >{{ 'funding.offer.channels.' + evidence.channel | translate }} ·
+              {{ evidence.target.toUpperCase() }}</strong
+            >
+            <p>
+              {{
+                'funding.offer.evidenceProvenance.' + evidence.provenance
+                  | translate
+              }}
+              ·
+              <time [attr.datetime]="evidence.deliveredAt">{{
+                dateLabel(evidence.deliveredAt)
+              }}</time>
+            </p>
+            <p>
+              {{
+                'funding.offer.evidenceVisibility.' + evidence.visibility
+                  | translate
+              }}
+              @if (evidence.visibilityObservedAt) {
+                ·
+                <time [attr.datetime]="evidence.visibilityObservedAt">{{
+                  dateLabel(evidence.visibilityObservedAt)
+                }}</time>
+              }
+            </p>
+            @if (evidenceUrl(evidence.externalPostUrl); as url) {
+              <a [href]="url" target="_blank" rel="noopener noreferrer">{{
+                'funding.offer.openPublication' | translate
+              }}</a>
+            }
+          </li>
+        }
+      </ul>
+    </section>
+  }
 </section>

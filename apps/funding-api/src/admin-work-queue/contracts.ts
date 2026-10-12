@@ -5,6 +5,7 @@ export { WORK_QUEUE_PRIORITIES } from '../../../../packages/funding-core/src/ind
 export const WORK_QUEUE_TYPES: readonly AdminAttentionItemType[] = [
   'sponsorship_needs_info',
   'sponsorship_needs_review',
+  'sponsorship_needs_commitment',
   'publication_needs_preparation',
   'publication_late',
   'email_delivery_failed',

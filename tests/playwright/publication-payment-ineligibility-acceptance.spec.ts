@@ -21,8 +21,9 @@ import {
   buildSignedWebhookRequest,
   buildStripeEvent
 } from './support/stripe-webhook.js';
-import { acceptDisplayedSponsorshipOffer } from './support/sponsorship-checkout.js';
 import { test, expect } from './support/test.js';
+import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
+import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';
 
 const automation = '/api/admin/publication-automation';
 const cockpit = '/admin/fundraiser/publications/automation';
@@ -211,6 +212,7 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
         await page
           .locator('#followup-websiteUrl')
           .fill('https://simulation.example.test');
+        await confirmAcceptanceMediaUsage(page);
         for (const [label, filename] of [
           ['Ajouter le logo', 'logo.png'],
           ['Ajouter des photos', 'photo.png']

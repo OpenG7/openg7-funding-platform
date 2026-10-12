@@ -64,7 +64,11 @@ test(
         )
       ).rows[0].approved;
     assert.equal(await visible('sponsorship', legacy.id), true);
-    assert.equal(await visible('media', legacy.mediaId), true);
+    assert.equal(
+      await visible('media', legacy.mediaId),
+      false,
+      'the recorded historical observation cannot supply current image-use rights'
+    );
     assert.equal(await approved('sponsorship', legacy.id), false);
     assert.equal(await approved('media', legacy.mediaId), false);
     assert.equal(
@@ -76,7 +80,24 @@ test(
       0
     );
     const page = await listPublicSponsorships(pool, { page: 1, pageSize: 10 });
-    assert.equal(page.pagination.total_count, 2);
+    assert.equal(page.pagination.total_count, 0);
+    assert.equal(
+      (
+        await pool.query(
+          'SELECT COUNT(*)::int AS count FROM sponsor_media_assets'
+        )
+      ).rows[0].count,
+      2,
+      'private historical files remain preserved'
+    );
+    assert.deepEqual(
+      (
+        await pool.query(
+          "SELECT DISTINCT usage_rights->>'state' AS state FROM sponsor_media_assets"
+        )
+      ).rows.map(({ state }) => state),
+      ['needs_confirmation']
+    );
     await pool.query(
       'UPDATE fund_contributions SET amount_cents=amount_cents+1,updated_at=NOW() WHERE id=$1',
       [legacy.id]

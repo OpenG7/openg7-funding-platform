@@ -5,6 +5,10 @@ import type {
 } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
+import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';
+import { registerPrivateMediaUsageTests } from './sponsor-media-usage.ui.js';
+
+registerPrivateMediaUsageTests();
 
 test.use({ ignoreHTTPSErrors: true });
 
@@ -93,6 +97,8 @@ test('@mobile keeps a failed photo preview visible until it is removed', async (
   );
 
   const photoInput = page.getByLabel('Ajouter des photos');
+  await expect(photoInput).toBeDisabled();
+  await confirmAcceptanceMediaUsage(page);
   await expect(photoInput).toBeEnabled();
   await photoInput.setInputFiles({
     name: 'presentation.png',
@@ -236,6 +242,8 @@ for (const english of [false, true])
       const input = page.getByLabel(
         english ? 'Add photos' : 'Ajouter des photos'
       );
+      await expect(input).toBeDisabled();
+      await confirmAcceptanceMediaUsage(page);
       await expect(input).toBeEnabled();
       await input.setInputFiles([
         {
@@ -281,6 +289,7 @@ test('uploaded attempt requires explicit deletion confirmation and sends the sav
   const token = 'e2e-delete-media-fixture-local-only-0000000001';
   await page.goto('/fonds-des-batisseurs/suivi-commandite?token=' + token);
   const input = page.getByLabel('Ajouter des photos');
+  await confirmAcceptanceMediaUsage(page);
   await expect(input).toBeEnabled();
   await input.setInputFiles({
     name: 'presentation.png',

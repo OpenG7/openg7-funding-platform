@@ -187,7 +187,7 @@ test('backfill continues after null results and errors while preserving all coun
     candidates.map((item) => item.stripe_session_id)
   );
   assert.equal(JSON.parse(writes[0][11])[0].totalCents, 25000);
-  assert.match(writes[0][12], /Engagements historiques à qualifier/);
+  assert.match(writes[0][12], /Engagements à qualifier/);
   assert.equal(
     transactionEvents.filter((event) => event === 'BEGIN').length,
     6

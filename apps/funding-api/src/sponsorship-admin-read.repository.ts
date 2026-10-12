@@ -9,6 +9,7 @@ import type {
   SponsorFeedTarget,
   SponsorshipReviewStatus
 } from '@openg7/funding-core';
+import type { SponsorshipCommitmentRecord } from '@openg7/funding-core';
 import type { Pool, PoolClient } from 'pg';
 
 import {
@@ -23,6 +24,7 @@ import {
   normalizeSponsorshipRefundWorkflowStatus,
   normalizeSponsorshipStripeRefundReason
 } from './sponsorship-persistence-helpers.js';
+import { sponsorshipCommitmentProjectionSql } from './sponsorship-commitments.repository.js';
 export interface AdminSponsorshipListInput {
   readonly page: number;
   readonly pageSize: number;
@@ -47,6 +49,7 @@ export interface AdminSponsorshipListResult {
 }
 
 interface AdminSponsorshipRow {
+  readonly commitment: SponsorshipCommitmentRecord | null;
   readonly id: string;
   readonly version: string;
   readonly public_reference: string | null;
@@ -104,6 +107,7 @@ const mapAdminSponsorshipRow = (
   row: AdminSponsorshipRow,
   adminAuditEntries: readonly AdminAuditLogEntry[] = []
 ): AdminSponsorshipRecord => ({
+  commitment: row.commitment ?? null,
   id: row.id,
   version: row.version,
   public_reference: row.public_reference,
@@ -390,6 +394,7 @@ export const listAdminSponsorships = async (
       sponsor_public_summary,
       sponsor_feed_target,
       sponsor_feed_channels,
+      ${sponsorshipCommitmentProjectionSql('fund_contributions.id')} AS commitment,
       COALESCE(sponsor_feed_status, 'not_planned') AS sponsor_feed_status,
       sponsor_feed_public_url,
       sponsor_feed_notes,
@@ -446,6 +451,7 @@ export const listAdminSponsorships = async (
  * raw personal data never leaves the database layer.
  */
 export interface SponsorshipAttentionRecord {
+  readonly commitment?: SponsorshipCommitmentRecord | null;
   readonly contributionId: string;
   readonly publicReference: string | null;
   readonly amount: number;
@@ -473,6 +479,7 @@ export interface SponsorshipAttentionQueryResult {
 }
 
 interface SponsorshipAttentionRow {
+  readonly commitment: SponsorshipCommitmentRecord | null;
   readonly contribution_id: string;
   readonly public_reference: string | null;
   readonly amount_cents: string;
@@ -546,6 +553,7 @@ export const listSponsorshipsForAttention = async (
       COALESCE(sponsor_feed_status, 'not_planned') AS sponsor_feed_status,
       sponsor_feed_target,
       sponsor_feed_channels,
+      ${sponsorshipCommitmentProjectionSql('fund_contributions.id')} AS commitment,
       COALESCE(sponsorship_refund_status, 'not_requested') AS sponsorship_refund_status
     FROM fund_contributions
     WHERE contribution_type = 'sponsorship_interest'
@@ -560,6 +568,7 @@ export const listSponsorshipsForAttention = async (
   const truncated = cap !== null && query.rows.length > cap;
   const rows = truncated ? query.rows.slice(0, cap ?? undefined) : query.rows;
   const items = rows.map((row): SponsorshipAttentionRecord => ({
+    commitment: row.commitment ?? null,
     contributionId: row.contribution_id,
     publicReference: row.public_reference,
     amount: centsToAmount(parseDbInt(row.amount_cents)),
@@ -625,6 +634,7 @@ export const getAdminSponsorshipById = async (
         sponsor_public_summary,
         sponsor_feed_target,
         sponsor_feed_channels,
+        ${sponsorshipCommitmentProjectionSql('fund_contributions.id')} AS commitment,
         COALESCE(sponsor_feed_status, 'not_planned') AS sponsor_feed_status,
         sponsor_feed_public_url,
         sponsor_feed_notes,

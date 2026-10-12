@@ -7,6 +7,7 @@ import type {
   CheckoutResult,
   ContributionType,
   SponsorshipOfferAcceptance,
+  SponsorshipOfferFormatOptions,
   SponsorshipOfferQuote
 } from '@openg7/funding-core';
 import type { PoolClient } from 'pg';
@@ -18,6 +19,7 @@ import { validateCharterAcceptance } from './moderation/charter.js';
 import {
   quoteSponsorshipOffer,
   validateSponsorshipOfferAcceptance,
+  validateSponsorshipOfferFormats,
   type recordCheckoutSponsorshipOffer
 } from './sponsorship-commitments/offers.js';
 import {
@@ -151,11 +153,29 @@ export const createPublicPaymentsHttpHandler = ({
           query.getAll('currency').length !== 1
         )
           throw new CheckoutOperationError('SPONSORSHIP_OFFER_INVALID', 400);
+        const formats = validateSponsorshipOfferFormats({
+          ...(query.has('facebookFormat')
+            ? { facebook: query.get('facebookFormat') }
+            : {}),
+          ...(query.has('linkedinFormat')
+            ? { linkedin: query.get('linkedinFormat') }
+            : {})
+        });
+        if (
+          query.getAll('facebookFormat').length > 1 ||
+          query.getAll('linkedinFormat').length > 1
+        )
+          throw new CheckoutOperationError('SPONSORSHIP_OFFER_INVALID', 400);
         writeJson(
           request,
           response,
           200,
-          quoteSponsorshipOffer(Number(rawAmount), query.get('currency') ?? '')
+          quoteSponsorshipOffer(
+            Number(rawAmount),
+            query.get('currency') ?? '',
+            undefined,
+            formats
+          )
         );
       } catch (error) {
         const failure =
@@ -271,11 +291,13 @@ export const createPublicPaymentsHttpHandler = ({
       }
 
       let offerAcceptance: SponsorshipOfferAcceptance | undefined;
+      let offerFormats: SponsorshipOfferFormatOptions | undefined;
       try {
         offerAcceptance = validateSponsorshipOfferAcceptance(
           parsed.offerAcceptance
         );
-        if (offerAcceptance && !isSponsorshipContribution)
+        offerFormats = validateSponsorshipOfferFormats(parsed.offerFormats);
+        if ((offerAcceptance || offerFormats) && !isSponsorshipContribution)
           throw new CheckoutOperationError(
             'SPONSORSHIP_OFFER_NOT_APPLICABLE',
             400
@@ -301,7 +323,9 @@ export const createPublicPaymentsHttpHandler = ({
             try {
               const quote = quoteSponsorshipOffer(
                 Math.round(amount * 100),
-                'CAD'
+                'CAD',
+                undefined,
+                offerFormats
               );
               if (!offerAcceptance)
                 throw new CheckoutOperationError(
@@ -390,7 +414,8 @@ export const createPublicPaymentsHttpHandler = ({
               successUrl,
               cancelUrl,
               ...(charterAcceptance ? { charterAcceptance } : {}),
-              ...(offerAcceptance ? { offerAcceptance } : {})
+              ...(offerAcceptance ? { offerAcceptance } : {}),
+              ...(offerFormats ? { offerFormats } : {})
             })
           )
           .digest('hex');
@@ -418,7 +443,12 @@ export const createPublicPaymentsHttpHandler = ({
             : {}),
           prepare: (operationId) => {
             const quote = isSponsorshipContribution
-              ? quoteSponsorshipOffer(Math.round(amount * 100), 'CAD')
+              ? quoteSponsorshipOffer(
+                  Math.round(amount * 100),
+                  'CAD',
+                  undefined,
+                  offerFormats
+                )
               : null;
             if (quote && !offerAcceptance)
               throw new CheckoutOperationError(

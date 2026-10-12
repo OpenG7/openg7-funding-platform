@@ -78,6 +78,10 @@ export class FundingService {
       ...(consent.contributionType === 'sponsorship_interest' &&
       consent.offerAcceptance
         ? { offerAcceptance: consent.offerAcceptance }
+        : {}),
+      ...(consent.contributionType === 'sponsorship_interest' &&
+      consent.offerFormats
+        ? { offerFormats: consent.offerFormats }
         : {})
     };
 
@@ -119,9 +123,15 @@ export class FundingService {
   getSponsorshipOffer(
     amountMinor: number,
     currency: string,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    formats?: import('@openg7/funding-core').SponsorshipOfferFormatOptions
   ) {
-    return this.publicClient.sponsorshipOffer(amountMinor, currency, signal);
+    return this.publicClient.sponsorshipOffer(
+      amountMinor,
+      currency,
+      signal,
+      formats
+    );
   }
   getRetainedSponsorshipOffer(amountMinor: number, currency: string) {
     return this.checkoutAttempts.retainedSponsorshipOffer(
@@ -240,13 +250,15 @@ export class FundingService {
     token: string,
     kind: SponsorMediaKind,
     file: File,
-    altText?: string
+    altText?: string,
+    usage?: import('@openg7/funding-core').SponsorMediaUsageRights
   ): Promise<SponsorMediaUploadResult> {
     return this.followupClient.uploadSponsorshipMedia(
       token,
       kind,
       file,
-      altText
+      altText,
+      usage
     );
   }
 
@@ -254,6 +266,16 @@ export class FundingService {
     payload: SponsorMediaDeleteRequest
   ): Promise<SponsorMediaDeleteResult> {
     return this.followupClient.deleteSponsorshipMedia(payload);
+  }
+  updateSponsorshipMediaUsage(
+    payload: import('@openg7/funding-core').SponsorMediaUsageRequest
+  ) {
+    return this.followupClient.updateSponsorshipMediaUsage(payload);
+  }
+  requestSponsorshipMediaPreference(
+    payload: import('@openg7/funding-core').SponsorMediaPreferenceRequest
+  ) {
+    return this.followupClient.requestSponsorshipMediaPreference(payload);
   }
 
   private canUseDevelopmentCheckoutFallback(): boolean {

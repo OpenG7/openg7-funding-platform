@@ -294,6 +294,7 @@ export const buildSponsorshipProgress = (
   return {
     contributionId: record.contributionId,
     commitment: commitment ?? null,
+    fulfilmentEvidence: facts.fulfilmentEvidence ?? [],
     reference: sponsorshipRef(record),
     companyName: facts.companyName,
     version: source.version,

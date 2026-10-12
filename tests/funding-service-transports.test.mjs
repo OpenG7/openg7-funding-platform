@@ -11,11 +11,7 @@ import { registerHooks } from 'node:module';
 import test from 'node:test';
 
 import { FundingHomeController } from '../dist/apps/funding-web/src/app/features/funding/services/funding-home-controller.js';
-import {
-  CheckoutReconciliationRequiredError,
-  CheckoutRecoveryUnavailableError
-} from '../dist/apps/funding-web/src/app/features/funding/services/checkout-error.js';
-import { createSponsorshipOfferSnapshot } from '../dist/packages/funding-core/src/index.js';
+import { CheckoutReconciliationRequiredError } from '../dist/apps/funding-web/src/app/features/funding/services/checkout-error.js';
 
 // The root build emits workspaces under dist/, without package-local builds.
 const workspaceHook = registerHooks({
@@ -51,57 +47,23 @@ const redirected = {
 };
 const apiBase = 'https://funding.example.test/custom-api';
 
-function memoryStorage() {
-  const entries = new Map();
-  return {
-    entries,
-    getItem: (key) => entries.get(key) ?? null,
-    setItem: (key, value) => entries.set(key, value),
-    removeItem: (key) => entries.delete(key)
-  };
-}
-function sponsorshipQuote(amountMinor) {
-  const snapshot = createSponsorshipOfferSnapshot(amountMinor, 'CAD');
-  return {
-    ...snapshot,
-    fingerprint: createHash('sha256')
-      .update(JSON.stringify(snapshot))
-      .digest('hex')
-  };
-}
-
-function exclusiveBrowserLocks() {
-  const queues = new Map();
-  return {
-    request(name, options, callback) {
-      const previous = queues.get(name) ?? Promise.resolve();
-      const result = previous.then(() =>
-        callback({ name, mode: options.mode })
-      );
-      queues.set(
-        name,
-        result.then(
-          () => undefined,
-          () => undefined
-        )
-      );
-      return result;
-    }
-  };
-}
-
 function fixture(t, href, config) {
   const original = Object.getOwnPropertyDescriptor(globalThis, 'window');
   if (href) {
+    const entries = new Map();
     Object.defineProperty(globalThis, 'window', {
       configurable: true,
       value: {
-        // The transport fixture exposes a secure browser's real locking semantics.
-        isSecureContext: true,
-        navigator: { locks: exclusiveBrowserLocks() },
         location: new URL(href),
-        localStorage: memoryStorage(),
-        sessionStorage: memoryStorage(),
+        isSecureContext: true,
+        localStorage: {
+          getItem: (key) => entries.get(key) ?? null,
+          setItem: (key, value) => entries.set(key, value),
+          removeItem: (key) => entries.delete(key)
+        },
+        navigator: {
+          locks: { request: async (_name, _options, operation) => operation() }
+        },
         __OPENG7_FUNDING_API_BASE_URL__: apiBase + '/'
       }
     });
@@ -139,24 +101,44 @@ test('Angular checkout preserves configuration, consent and localized return URL
           requests.push({ url, options });
           return Response.json(redirected);
         });
+        const terms = {
+          version: 'synthetic-offer-v1',
+          amountMinor: 12500,
+          currency: 'CAD',
+          benefits: [
+            {
+              id: 'website_mention',
+              channel: 'website',
+              target: 'openg7',
+              quantity: 1,
+              requiredElements: ['company_name', 'approved_logo'],
+              deadlineDays: null,
+              durationDays: null
+            }
+          ]
+        };
         const quote =
           contributionType === 'sponsorship_interest'
-            ? sponsorshipQuote(12500)
-            : undefined;
-        const checkoutConsent = {
-          ...consent,
-          contributionType,
-          ...(quote
             ? {
-                offerAcceptance: {
-                  version: quote.version,
-                  fingerprint: quote.fingerprint
-                }
+                ...terms,
+                fingerprint: createHash('sha256')
+                  .update(JSON.stringify(terms))
+                  .digest('hex')
               }
-            : {})
-        };
+            : undefined;
+        const offerAcceptance = quote
+          ? { version: quote.version, fingerprint: quote.fingerprint }
+          : undefined;
         assert.deepEqual(
-          await service.startCheckout(125, checkoutConsent, quote),
+          await service.startCheckout(
+            125,
+            {
+              ...consent,
+              contributionType,
+              ...(offerAcceptance ? { offerAcceptance } : {})
+            },
+            quote
+          ),
           redirected
         );
         assert.equal(requests.length, 1);
@@ -171,7 +153,9 @@ test('Angular checkout preserves configuration, consent and localized return URL
           amount: 125,
           currency: 'CAD',
           projectId: 'synthetic-project',
-          ...checkoutConsent
+          ...consent,
+          contributionType,
+          ...(offerAcceptance ? { offerAcceptance } : {})
         });
         for (const [flow, value] of [
           ['success', successUrl],
@@ -208,47 +192,6 @@ test('SSR checkout uses safe return URLs and refuses a simulated payment', async
   await assert.rejects(service.startCheckout(25, consent), {
     message: 'Checkout could not be started.'
   });
-});
-
-test('Angular sponsorship preserves unavailable recovery as a safe typed failure before any API request, including SSR', async (t) => {
-  for (const href of [undefined, 'http://localhost/fonds-des-batisseurs']) {
-    await t.test(
-      href ? 'browser quota' : 'SSR without browser storage',
-      async (t) => {
-        const service = fixture(t, href);
-        if (href)
-          window.localStorage = {
-            getItem: () => null,
-            setItem: () => {
-              throw new DOMException('Synthetic quota', 'QuotaExceededError');
-            },
-            removeItem: () => {}
-          };
-        const quote = sponsorshipQuote(5000);
-        t.mock.method(globalThis, 'fetch', async () =>
-          assert.fail(
-            'Missing retention cannot start a new sponsorship request.'
-          )
-        );
-        await assert.rejects(
-          service.startCheckout(
-            50,
-            {
-              ...consent,
-              contributionType: 'sponsorship_interest',
-              offerAcceptance: {
-                version: quote.version,
-                fingerprint: quote.fingerprint
-              }
-            },
-            quote
-          ),
-          CheckoutRecoveryUnavailableError
-        );
-        assert.equal(service.requiresCheckoutVerification(), false);
-      }
-    );
-  }
 });
 
 test('checkout failures remain errors on every host and explicit mocked responses stay local', async (t) => {

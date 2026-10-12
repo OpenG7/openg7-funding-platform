@@ -384,6 +384,14 @@ const reviewInput = {
 
 test('media review returns the accepted version and storage references', async () => {
   const reviewedVersion = '2026-09-02 00:00:00+00';
+  const syntheticUsage = {
+    state: 'confirmed',
+    channels: ['website'],
+    targets: ['openg7'],
+    transformations: ['technical'],
+    credit: null,
+    restrictions: null
+  };
   const calls = [];
   const transaction = [];
   const pool = {
@@ -393,7 +401,14 @@ test('media review returns the accepted version and storage references', async (
         return { rows: [] };
       }
       if (sql.includes('FOR UPDATE'))
-        return { rows: [assetRow({ alt_text: reviewInput.altText })] };
+        return {
+          rows: [
+            assetRow({
+              alt_text: reviewInput.altText,
+              usage_rights: syntheticUsage
+            })
+          ]
+        };
       if (sql.startsWith('SELECT d.level,c.state'))
         return {
           rows: [
@@ -420,7 +435,9 @@ test('media review returns the accepted version and storage references', async (
             public_storage_key: reviewInput.publicStorageKey,
             public_url: reviewInput.publicUrl,
             reviewed_at: reviewedVersion,
-            version: reviewedVersion
+            version: reviewedVersion,
+            usage_rights: syntheticUsage,
+            usage_restrictions_reviewed: true
           })
         ]
       };
@@ -453,7 +470,8 @@ test('media review returns the accepted version and storage references', async (
     reviewInput.publicStorageKey,
     reviewInput.publicUrl,
     reviewInput.reviewedBy,
-    version
+    version,
+    true
   ]);
 });
 

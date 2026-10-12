@@ -83,6 +83,35 @@ test('navigation action counts and fallback dossier use the complete queue befor
   assert.equal(result.actionCounts.sponsorship_needs_review, 1);
   assert.equal(result.items[0].id, 'other');
 });
+
+test('historical commitment qualification remains counted and reachable through the public type filter', () => {
+  const items = [
+    {
+      id: 'sponsorship_needs_commitment:historical',
+      type: 'sponsorship_needs_commitment',
+      severity: 'this_week',
+      sponsorshipId: 'historical'
+    },
+    {
+      id: 'invoice_missing:historical',
+      type: 'invoice_missing',
+      severity: 'today',
+      sponsorshipId: 'historical'
+    }
+  ];
+  const query = parseWorkQueueQuery(
+    new URLSearchParams('type=sponsorship_needs_commitment')
+  );
+  const result = paginateWorkQueue(items, now, query);
+  assert.equal(result.total, 2);
+  assert.equal(result.filteredTotal, 1);
+  assert.equal(result.typeCounts.sponsorship_needs_commitment, 1);
+  assert.equal(result.actionCounts.sponsorship_needs_commitment, 1);
+  assert.deepEqual(
+    result.items.map((item) => item.id),
+    [items[0].id]
+  );
+});
 const dataset = (overrides = {}) => ({
   now,
   sponsorships: [],
@@ -93,6 +122,41 @@ const dataset = (overrides = {}) => ({
   emailMessages: [],
   financialTotals: { grossPaid: 0, refunded: 0, disputed: 0, currency: 'CAD' },
   ...overrides
+});
+
+test('unqualified sponsorships are counted and reachable through the public queue filter', () => {
+  const items = buildWorkQueueItems(
+    dataset({
+      sponsorships: [
+        {
+          contributionId: 'unqualified',
+          paymentStatus: 'paid',
+          refundStatus: 'not_requested',
+          reviewStatus: 'approved',
+          detailsSubmittedAt: now.toISOString(),
+          hasCompanyName: true,
+          hasContactEmail: true,
+          hasSupportingImage: true,
+          commitment: {
+            state: 'needs_confirmation',
+            offer: null,
+            obligations: []
+          }
+        }
+      ]
+    })
+  );
+  const query = parseWorkQueueQuery(
+    new URLSearchParams({ type: 'sponsorship_needs_commitment' })
+  );
+  const result = paginateWorkQueue(items, now, query);
+  assert.equal(result.total, 1);
+  assert.equal(result.filteredTotal, 1);
+  assert.equal(result.typeCounts.sponsorship_needs_commitment, 1);
+  assert.equal(result.actionCounts.sponsorship_needs_commitment, 1);
+  assert.equal(result.firstSponsorshipId, 'unqualified');
+  assert.equal(result.items[0].type, 'sponsorship_needs_commitment');
+  assert.equal(result.items[0].contributionId, 'unqualified');
 });
 
 test('a refused incomplete dossier does not request information through navigation badges', () => {

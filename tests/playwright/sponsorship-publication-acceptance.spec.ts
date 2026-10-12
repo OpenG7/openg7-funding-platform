@@ -20,10 +20,11 @@ import type {
 
 import { completePublicationModeration } from './support/acceptance-moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
+import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
+import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';
 import { acceptanceSql } from './support/acceptance-database.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import { completeModeration } from './support/moderation.js';
-import { acceptDisplayedSponsorshipOffer } from './support/sponsorship-checkout.js';
 import { test, expect } from './support/test.js';
 
 const automationUrl = '/api/admin/publication-automation';
@@ -261,6 +262,7 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
       })
         .png()
         .toBuffer();
+      await confirmAcceptanceMediaUsage(company);
       for (const [label, filename] of [
         ['Ajouter le logo', 'logo-demo.png'],
         ['Ajouter des photos', 'photo-demo.png']

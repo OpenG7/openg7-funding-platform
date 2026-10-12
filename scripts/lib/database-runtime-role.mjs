@@ -78,7 +78,8 @@ BEGIN
     END IF;
     IF item.relname NOT IN ('openg7_schema_migrations','moderation_policies') THEN
       EXECUTE format('GRANT INSERT ON TABLE public.%I TO %I', item.relname, runtime_name);
-      IF item.relname <> 'admin_audit_log' THEN
+      IF item.relname NOT IN ('admin_audit_log', 'sponsorship_website_exposure_observations',
+        'sponsorship_obligation_duration_attestations', 'sponsorship_historical_evidence_reviews') THEN
         EXECUTE format('GRANT UPDATE ON TABLE public.%I TO %I', item.relname, runtime_name);
       END IF;
     END IF;

@@ -6,7 +6,10 @@ import type {
   SponsorshipFollowupResponse
 } from '@openg7/funding-core';
 
-import { isSafeSponsorshipText } from '../../../packages/funding-core/src/index.js';
+import {
+  isSafeSponsorshipText,
+  publicSponsorshipObligations
+} from '../../../packages/funding-core/src/index.js';
 
 import type { SponsorshipFollowupLookup } from './fund-contributions.repository.js';
 import { createRouteMatcher } from './http-routing.js';
@@ -257,7 +260,21 @@ export const createSponsorshipFollowupHttpHandler = ({
         }
 
         const result: SponsorshipFollowupResponse = {
-          ...(followup.commitment ? { commitment: followup.commitment } : {}),
+          ...(followup.fulfilmentEvidence
+            ? { fulfilmentEvidence: followup.fulfilmentEvidence }
+            : {}),
+          ...(followup.commitment
+            ? {
+                commitment: {
+                  provenance: followup.commitment.provenance,
+                  state: followup.commitment.state,
+                  offer: followup.commitment.offer,
+                  obligations: publicSponsorshipObligations(
+                    followup.commitment.obligations ?? []
+                  )
+                }
+              }
+            : {}),
           found: true,
           paymentStatus: followup.paymentStatus,
           publicReference: followup.publicReference,

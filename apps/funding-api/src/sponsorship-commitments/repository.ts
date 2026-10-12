@@ -6,8 +6,13 @@ import type {
 import type { PoolClient } from 'pg';
 
 import { moderationApprovedSql } from '../moderation/policy.js';
+import { confirmedMediaUsageSql } from '../sponsor-media/usage-policy.js';
 import { SPONSOR_APPROVED_PRESENTATION_SQL } from '../sponsorship-media-eligibility.js';
 import { isValidUuid } from '../business-helpers/request-validation.js';
+import {
+  sponsorshipObligationTimingProjectionSql,
+  initializeSponsorshipObligationTiming
+} from '../sponsorship-obligation-timing.read.js';
 
 export const loadSponsorshipOfferForSession = async (
   db: Pick<PoolClient, 'query'>,
@@ -31,16 +36,14 @@ interface CommitmentRow extends Omit<
 
 /** Read commercial history separately from current eligibility; completed evidence remains history. */
 export const loadSponsorshipCommitment = async (
-  db: PoolClient,
+  db: Pick<PoolClient, 'query'>,
   contributionId: string
 ): Promise<SponsorshipCommitmentRecord | null> => {
   const result = await db.query<CommitmentRow>(
     `SELECT m.id,m.contribution_id AS "contributionId",m.offer_id AS "offerId",m.provenance,m.state,
     m.qualification_reason AS "qualificationReason",m.version,o.snapshot AS offer,
     CASE WHEN c.status <> 'paid' THEN 'payment_' || c.status
-      WHEN c.sponsorship_refund_status IN ('requested','processing') THEN 'refund_' || c.sponsorship_refund_status
-      WHEN c.sponsorship_refund_status='completed'
-        AND COALESCE(c.sponsorship_refund_amount_cents,0) >= c.amount_cents THEN 'refund_completed'
+      WHEN c.sponsorship_refund_status <> 'not_requested' THEN 'refund_' || c.sponsorship_refund_status
       WHEN NOT c.public_display_consent THEN 'consent_missing'
       WHEN c.sponsor_review_status <> 'approved' THEN 'review_' || c.sponsor_review_status
       WHEN NOT (${moderationApprovedSql('sponsorship', 'c.id')}) THEN 'moderation_review_required'
@@ -52,17 +55,24 @@ export const loadSponsorshipCommitment = async (
   const row = result.rows[0];
   if (!row) return null;
   const obligations = await db.query<
-    SponsorshipObligation & { requirementsMet: boolean }
+    SponsorshipObligation & {
+      requirementsMet: boolean;
+      durationUnsupported: boolean;
+    }
   >(
     `SELECT ob.id,ob.commitment_id AS "commitmentId",ob.contribution_id AS "contributionId",
-    ob.benefit_id AS "benefitId",ob.channel,ob.target,ob.ordinal,ob.state,ob.blocked_reason AS "blockedReason",ob.version,ob.fulfilment_evidence_id AS "fulfilmentEvidenceId",
+    ob.benefit_id AS "benefitId",ob.channel,ob.target,ob.publication_format AS format,ob.ordinal,ob.state,ob.blocked_reason AS "blockedReason",ob.version,ob.fulfilment_evidence_id AS "fulfilmentEvidenceId",
+    ${sponsorshipObligationTimingProjectionSql('ob')} AS timing,
+    EXISTS (SELECT 1 FROM jsonb_array_elements(o.snapshot->'benefits') b
+      WHERE b->>'id'=ob.benefit_id AND b->>'durationDays' IS NOT NULL AND (ob.channel<>'website' OR ob.target<>'openg7')) AS "durationUnsupported",
     NOT EXISTS (SELECT 1 FROM jsonb_array_elements(o.snapshot->'benefits') b CROSS JOIN LATERAL jsonb_array_elements_text(b->'requiredElements') requirement
       WHERE b->>'id'=ob.benefit_id AND (
         (requirement='company_name' AND NULLIF(btrim(c.sponsor_company_name),'') IS NULL) OR
         (requirement='approved_presentation' AND NOT (${SPONSOR_APPROVED_PRESENTATION_SQL.replaceAll('fund_contributions.id', 'c.id')})) OR
         (requirement='approved_logo' AND NOT EXISTS(SELECT 1 FROM sponsor_media_assets media
           WHERE media.contribution_id=c.id AND media.deleted_at IS NULL AND media.review_status='approved'
-            AND media.kind='logo' AND ${moderationApprovedSql('media', 'media.id')})))) AS "requirementsMet"
+            AND media.kind='logo' AND ${moderationApprovedSql('media', 'media.id')}
+            AND (ob.channel<>'website' OR (media.public_url IS NOT NULL AND ${confirmedMediaUsageSql('media', 'website', 'openg7')})))))) AS "requirementsMet"
     FROM sponsorship_obligations ob JOIN sponsorship_commitments m ON m.id=ob.commitment_id
     JOIN sponsorship_offers o ON o.id=m.offer_id JOIN fund_contributions c ON c.id=ob.contribution_id
     WHERE ob.commitment_id=$1::uuid ORDER BY ob.channel,ob.target,ob.ordinal,ob.id`,
@@ -71,17 +81,24 @@ export const loadSponsorshipCommitment = async (
   const { blockedReason, ...commitment } = row;
   return {
     ...commitment,
-    obligations: obligations.rows.map(({ requirementsMet, ...o }) => {
-      const reason =
-        blockedReason ?? (requirementsMet ? null : 'required_elements_missing');
-      return ['fulfilled', 'adjusted'].includes(o.state)
-        ? o
-        : {
-            ...o,
-            state: reason ? 'blocked' : o.state,
-            blockedReason: reason ?? o.blockedReason
-          };
-    })
+    obligations: obligations.rows.map(
+      ({ requirementsMet, durationUnsupported, ...o }) => {
+        const reason =
+          blockedReason ??
+          (!requirementsMet
+            ? 'required_elements_missing'
+            : durationUnsupported
+              ? 'duration_unsupported'
+              : null);
+        return ['fulfilled', 'adjusted'].includes(o.state)
+          ? o
+          : {
+              ...o,
+              state: reason ? 'blocked' : o.state,
+              blockedReason: reason ?? o.blockedReason
+            };
+      }
+    )
   };
 };
 
@@ -93,8 +110,8 @@ export const createSponsorshipObligations = async (
 ): Promise<void> => {
   for (const benefit of snapshot.benefits) {
     await db.query(
-      `INSERT INTO sponsorship_obligations(commitment_id,contribution_id,benefit_id,channel,target,ordinal)
-      SELECT $1::uuid,$2::uuid,$3,$4,$5,n FROM generate_series(1,$6::integer) n
+      `INSERT INTO sponsorship_obligations(commitment_id,contribution_id,benefit_id,channel,target,ordinal,publication_format)
+      SELECT $1::uuid,$2::uuid,$3,$4,$5,n,$7 FROM generate_series(1,$6::integer) n
       ON CONFLICT(commitment_id,benefit_id,ordinal) DO NOTHING`,
       [
         commitmentId,
@@ -102,10 +119,12 @@ export const createSponsorshipObligations = async (
         benefit.id,
         benefit.channel,
         benefit.target,
-        benefit.quantity
+        benefit.quantity,
+        benefit.format ?? null
       ]
     );
   }
+  await initializeSponsorshipObligationTiming(db, commitmentId);
 };
 
 /** Called inside the financial write transaction after server-confirmed paid state. */

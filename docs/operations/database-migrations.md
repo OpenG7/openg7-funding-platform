@@ -94,15 +94,52 @@ déjà restreint; elle maintient l'interdiction de modifier son contenu ou son l
 tant qu'une livraison est autorisée, en cours ou incertaine.
 
 La migration [041](../../apps/funding-api/migrations/041_sponsorship_commitments.sql)
-ajoute les offres commerciales immuables, engagements, obligations et décisions
-privées auditées. L'appliquer avant l'API correspondante. Les dossiers historiques
-payés, remboursés ou contestés deviennent `needs_confirmation` sans offre
-reconstituée depuis le barème courant ni nouvelle preuve financière. L'activation
-exige des faits Stripe associés au montant et à la devise convenus; elle ne
-publie aucun contenu et ne crée aucune preuve de livraison. Voir le
-[contrat Checkout](../technical/checkout.md#accepted-sponsorship-offers-and-obligations).
-Cette migration reste distincte des futures réservations par compte et des
-preuves SP19; aucune migration de production n'est exécutée par ce chantier.
+ajoute les offres commerciales immuables, engagements, obligations et changements
+administratifs traçables. L'appliquer avant l'API et le Web correspondants. Elle
+classe les dossiers payés, remboursés ou contestés existants sans offre enregistrée
+en `historical_unverified` / `needs_confirmation`, sans recalculer le barème ni créer
+de prestations rétroactives. Une qualification explicite du propriétaire exige
+une référence de preuve et conserve la provenance historique. Aucun paiement,
+remboursement, revue, visibilité ou envoi n'est déclenché par cette migration.
+Les obligations `fulfilled` exigent une référence de preuve ; un simple ancien
+statut publié ne remplit pas cette condition. Voir le
+[contrat Checkout](../technical/checkout.md) et les
+[routes d'engagements](../technical/admin-api.md).
+
+La migration [045](../../apps/funding-api/migrations/045_sponsorship_publication_formats.sql)
+ajoute le format nullable aux obligations sociales et l'ajustement audité `format`.
+Elle ne modifie aucun snapshot d'offre ni empreinte historique. `NULL` conserve
+l'absence de promesse d'image; aucune prestation, approbation ou diffusion n'est
+créée. Appliquer avant les contrats de formats de l'API/Web correspondants.
+
+Les migrations 042 à 050 complètent ce chantier : compte effectif, preuves de
+livraison, droits et préférences des médias, libération des réservations sans
+DELETE, dérivés visuels, passages successifs et projection de modération sans
+clés privées. L'ordre, les effets sur les anciennes photos et la reprise sont
+détaillés dans le [guide d'adoption](sponsorship-delivery-adoption.md).
+Les nouvelles N0 exigées par un changement de contenu restent humaines ; ces
+migrations ne qualifient aucun ancien accord et ne déclenchent aucun envoi.
+
+La migration [051](../../apps/funding-api/migrations/051_sponsorship_obligation_timing.sql)
+ajoute les termes temporels par obligation, les observations des sources du site
+OpenG7 et les attestations humaines de durée. Les délais et durées viennent du
+snapshot immuable existant. Aucune origine, échéance historique, continuité ou
+réalisation n'est inférée. Les anciennes obligations gardent leurs états et
+preuves; le propriétaire documente l'origine avant de calculer une échéance.
+Les observations et attestations sont immuables, sans droits API de réécriture
+ou suppression. Le calendrier conserve une version distincte et une origine
+enregistrée une seule fois. Voir le [contrat temporel](../technical/sponsorship-obligation-timing.md).
+
+La migration [052](../../apps/funding-api/migrations/052_sponsorship_historical_evidence_reviews.sql)
+ajoute les examens historiques immuables, leur version et leur clé de requête
+uniques, ainsi que les index de lecture des preuves. Elle ne lance aucun examen
+et ne modifie aucune preuve, obligation, autorisation, visibilité ou donnée
+financière. Voir l'[audit historique](../technical/sponsorship-historical-audit.md).
+Appliquer ces deux migrations après 050 et avant l'API/Web correspondants, puis
+rafraîchir les grants du rôle applicatif avec le runner à jour. Les gardes de
+démarrage vérifient que ce rôle ne peut réécrire ni supprimer ces observations,
+attestations et examens. Les parcours de fiabilité restent des lectures;
+une migration ne résout aucun incident ou résultat fournisseur incertain.
 
 La migration [029](../../apps/funding-api/migrations/029_create_sponsorship_refund_operations.sql)
 ajoute les demandes de remboursement durables et leur exclusion mutuelle.

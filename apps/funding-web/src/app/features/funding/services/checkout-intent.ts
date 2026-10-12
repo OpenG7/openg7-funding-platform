@@ -25,7 +25,8 @@ export function checkoutIntentPayload(intent: CheckoutIntent): string {
       : []),
     ...(intent.offerAcceptance
       ? [intent.offerAcceptance.version, intent.offerAcceptance.fingerprint]
-      : [])
+      : []),
+    ...(intent.offerFormats ? [intent.offerFormats] : [])
   ]);
 }
 

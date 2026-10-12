@@ -8,6 +8,7 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
   // Each mutating acceptance journey owns its records, including when the whole suite runs.
   draftConcurrency: Object.freeze({
     publicReference: 'OG7-E2E-DRAFT-CONCURRENCY',
+    agreedChannels: ['website', 'facebook', 'linkedin'],
     companyName: 'E2E Concurrent Drafts Inc.',
     contactName: 'E2E Draft Contact',
     contactEmail: 'draft-contact@example.invalid',
@@ -18,6 +19,7 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
   }),
   collectiveRemoved: Object.freeze({
     publicReference: 'OG7-E2E-COLLECTIVE-REMOVED',
+    agreedChannels: ['website', 'facebook'],
     companyName: 'E2E Collective Removed Inc.',
     contactName: 'E2E Removed Contact',
     contactEmail: 'removed-contact@example.invalid',
@@ -30,6 +32,7 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
   }),
   collectiveRetained: Object.freeze({
     publicReference: 'OG7-E2E-COLLECTIVE-RETAINED',
+    agreedChannels: ['website', 'facebook'],
     companyName: 'E2E Collective Retained Inc.',
     contactName: 'E2E Retained Contact',
     contactEmail: 'retained-contact@example.invalid',
@@ -43,6 +46,7 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
   // These mutating scenarios never reuse historical refusals or another repair pair.
   collectiveDestinationRemoved: Object.freeze({
     publicReference: 'OG7-E2E-DESTINATION-REMOVED',
+    agreedChannels: ['website', 'facebook'],
     companyName: 'E2E Destination Removed Inc.',
     contactName: 'E2E Dedicated Contact',
     contactEmail: 'destination-removed@simulation.example.test',
@@ -55,6 +59,7 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
   }),
   collectiveDestinationRetained: Object.freeze({
     publicReference: 'OG7-E2E-DESTINATION-RETAINED',
+    agreedChannels: ['website', 'facebook'],
     companyName: 'E2E Destination Retained Inc.',
     contactName: 'E2E Dedicated Contact',
     contactEmail: 'destination-retained@simulation.example.test',
@@ -67,6 +72,7 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
   }),
   independentReject: Object.freeze({
     publicReference: 'OG7-E2E-INDEPENDENT-REJECT',
+    agreedChannels: ['website', 'facebook'],
     companyName: 'E2E Independent Reject Inc.',
     contactName: 'E2E Dedicated Contact',
     contactEmail: 'independent-reject@simulation.example.test',
@@ -77,6 +83,7 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
   }),
   independentRejectRefund: Object.freeze({
     publicReference: 'OG7-E2E-INDEPENDENT-REFUND',
+    agreedChannels: ['website', 'facebook'],
     companyName: 'E2E Independent Refund Inc.',
     contactName: 'E2E Dedicated Contact',
     contactEmail: 'independent-refund@simulation.example.test',
@@ -87,6 +94,7 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
   }),
   independentRejectedFollowup: Object.freeze({
     publicReference: 'OG7-E2E-INDEPENDENT-FOLLOWUP',
+    agreedChannels: ['website', 'facebook'],
     companyName: 'E2E Independent Followup Inc.',
     contactName: 'E2E Dedicated Contact',
     contactEmail: 'independent-followup@simulation.example.test',
@@ -97,6 +105,7 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
   }),
   followupRecovery: Object.freeze({
     publicReference: 'OG7-E2E-FOLLOWUP-RECOVERY',
+    agreedChannels: ['website', 'facebook', 'linkedin'],
     companyName: 'E2E Followup Recovery Inc.',
     contactName: 'E2E Recovery',
     contactEmail: 'recovery-contact@example.invalid',
@@ -108,6 +117,7 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
   }),
   acceptanceReview: Object.freeze({
     publicReference: 'OG7-E2E-ACCEPTANCE',
+    agreedChannels: ['website', 'facebook', 'linkedin'],
     companyName: 'E2E Acceptance Atelier Nord Inc.',
     contactName: 'E2E Acceptance',
     contactEmail: 'acceptance@example.invalid',
@@ -119,6 +129,7 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
   }),
   approve: Object.freeze({
     publicReference: 'OG7-E2E-APPROVE',
+    agreedChannels: ['website', 'facebook', 'linkedin'],
     companyName: 'E2E Playwright Fixture Approve Inc.',
     contactName: 'E2E Playwright Approve',
     contactEmail: 'e2e-playwright-fixture-approve@example.com',
@@ -132,6 +143,7 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
   }),
   reject: Object.freeze({
     publicReference: 'OG7-E2E-REJECT',
+    agreedChannels: ['website', 'facebook'],
     companyName: 'E2E Playwright Fixture Reject Inc.',
     contactName: 'E2E Playwright Reject',
     contactEmail: 'e2e-playwright-fixture-reject@example.com',
@@ -142,6 +154,7 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
   }),
   rejectedFollowup: Object.freeze({
     publicReference: 'OG7-E2E-REJECTED-FOLLOWUP',
+    agreedChannels: ['website', 'facebook'],
     companyName: 'E2E Rejected Followup Inc.',
     contactName: 'E2E Followup Contact',
     contactEmail: 'rejected-followup@simulation.example.test',
@@ -159,6 +172,7 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
   // without depending on another spec file running first.
   directory: Object.freeze({
     publicReference: 'OG7-E2E-DIRECTORY',
+    agreedChannels: ['website', 'facebook', 'linkedin'],
     companyName: 'E2E Playwright Fixture Directory Inc.',
     contactName: 'E2E Playwright Directory',
     contactEmail: 'e2e-playwright-fixture-directory@example.com',
@@ -171,6 +185,7 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
   // validation tests keep their approved fixture, regardless of test order.
   followupEditing: Object.freeze({
     publicReference: 'OG7-E2E-FOLLOWUP-EDIT',
+    agreedChannels: ['website', 'facebook', 'linkedin'],
     companyName: 'E2E Followup Editing Inc.',
     contactName: 'E2E Followup Editing',
     contactEmail: 'followup-editing@example.invalid',
@@ -184,6 +199,7 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
   // pipeline against the dev-mode refund mock (no real Stripe call).
   refund: Object.freeze({
     publicReference: 'OG7-E2E-REFUND',
+    agreedChannels: ['website', 'facebook', 'linkedin'],
     companyName: 'E2E Playwright Fixture Refund Inc.',
     contactName: 'E2E Playwright Refund',
     contactEmail: 'e2e-playwright-fixture-refund@example.com',
@@ -198,6 +214,7 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
   // with the full-refund spec's own mutation of the same row.
   partialRefund: Object.freeze({
     publicReference: 'OG7-E2E-PARTIAL-REFUND',
+    agreedChannels: ['website', 'facebook', 'linkedin'],
     companyName: 'E2E Playwright Fixture Partial Refund Inc.',
     contactName: 'E2E Playwright Partial Refund',
     contactEmail: 'e2e-playwright-fixture-partial-refund@example.com',
@@ -213,6 +230,7 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
   // panel -- no Stripe payment intent needed.
   rejectRefund: Object.freeze({
     publicReference: 'OG7-E2E-REJECT-REFUND',
+    agreedChannels: ['website', 'facebook'],
     companyName: 'E2E Playwright Fixture Reject Refund Inc.',
     contactName: 'E2E Playwright Reject Refund',
     contactEmail: 'e2e-playwright-fixture-reject-refund@example.com',
@@ -223,6 +241,7 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
   }),
   logo: Object.freeze({
     publicReference: 'OG7-E2E-LOGO',
+    agreedChannels: ['website', 'facebook', 'linkedin'],
     companyName: 'E2E Playwright Fixture Logo Inc.',
     contactName: 'E2E Playwright Logo',
     contactEmail: 'e2e-playwright-fixture-logo@example.com',
@@ -237,6 +256,7 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
   // depending on admin-sponsorship-publication.spec.ts having run first.
   publicationBatch: Object.freeze({
     publicReference: 'OG7-E2E-PUBLICATION-BATCH',
+    agreedChannels: ['website', 'facebook'],
     companyName: 'E2E Playwright Fixture Publication Batch Inc.',
     contactName: 'E2E Playwright Publication Batch',
     contactEmail: 'e2e-playwright-fixture-publication-batch@example.com',
@@ -260,6 +280,7 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
   // fixtures; publication preparation reads all pages of approved sponsors.
   multiPartialRefund: Object.freeze({
     publicReference: 'OG7-E2E-MULTI-PARTIAL-REFUND',
+    agreedChannels: ['website', 'facebook', 'linkedin'],
     companyName: 'E2E Playwright Fixture Multi Partial Refund Inc.',
     contactName: 'E2E Playwright Multi Partial Refund',
     contactEmail: 'e2e-playwright-fixture-multi-partial-refund@example.com',
@@ -279,6 +300,7 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
   // to exercise a refund independently of sponsor approval.
   concurrentRefund: Object.freeze({
     publicReference: 'OG7-E2E-CONCURRENT-REFUND',
+    agreedChannels: ['website', 'facebook', 'linkedin'],
     companyName: 'E2E Playwright Fixture Concurrent Refund Inc.',
     contactName: 'E2E Playwright Concurrent Refund',
     contactEmail: 'e2e-playwright-fixture-concurrent-refund@example.com',

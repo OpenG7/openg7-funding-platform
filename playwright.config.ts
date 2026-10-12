@@ -3,7 +3,6 @@ import { defineConfig, devices } from '@playwright/test';
 import adminUiConfig from './tests/playwright-admin-ui.config.mjs';
 import followupUiConfig from './tests/playwright-followup-ui.config.mjs';
 import publicJourneysConfig from './tests/playwright-public-journeys.config.mjs';
-import homeTrustConfig from './tests/playwright/home-trust.config.js';
 
 const baseURL =
   process.env.PLAYWRIGHT_BASE_URL?.replace(/\/$/, '') ??
@@ -13,16 +12,17 @@ const baseURL =
 // Session creation is allowed. Real business mutations run once on desktop
 // Chromium; replaying them on a second browser would reuse modified fixtures.
 const MOBILE_TAG = /@mobile/;
+// Intercepted offer fixtures run in their own CI suite on the built Web.
+const OFFER_UI_TAG = /@offer-ui/;
 
 export default defineConfig({
   testDir: './tests/playwright',
-  // Follow-up and funding-home fixtures run in their dedicated UI steps.
+  // Follow-up fixtures run in their isolated CI step in both workflows.
   // Admin fixtures have a separate step in the disposable acceptance workflow.
   // Reuse each suite's testMatch so no fixture is replayed against Docker there.
   testIgnore: [
     'platform-accessibility.spec.ts',
     followupUiConfig.testMatch ?? [],
-    homeTrustConfig.testMatch ?? [],
     publicJourneysConfig.testMatch ?? [],
     process.env.OPENG7_E2E_ISOLATED === '1'
       ? (adminUiConfig.testMatch ?? [])
@@ -62,7 +62,7 @@ export default defineConfig({
       // database-mutating specs are not needlessly duplicated.
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
-      grepInvert: MOBILE_TAG
+      grepInvert: [MOBILE_TAG, OFFER_UI_TAG]
     },
     {
       // Public/admin reads or isolated fixtures on an emulated
@@ -71,7 +71,8 @@ export default defineConfig({
       // download and no change to the install script.
       name: 'mobile-chrome',
       use: { ...devices['Pixel 5'] },
-      grep: MOBILE_TAG
+      grep: MOBILE_TAG,
+      grepInvert: OFFER_UI_TAG
     }
   ]
 });

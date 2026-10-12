@@ -11,6 +11,7 @@ export interface AssistantEmailGroupFilter {
 }
 export const ASSISTANT_TYPES: readonly AdminAttentionItemType[] = [
   'sponsorship_needs_info',
+  'sponsorship_needs_commitment',
   'sponsorship_needs_review',
   'publication_needs_preparation',
   'publication_late',

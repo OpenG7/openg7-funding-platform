@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash } from 'node:crypto';
 
-import { CheckoutAttempts } from '../dist/apps/funding-web/src/app/features/funding/services/checkout-attempts.js';
+import { registerHooks } from 'node:module';
 import {
   CHECKOUT_ATTEMPT_LOCK_NAME,
   createCheckoutAttemptCoordinator
@@ -13,6 +13,24 @@ import {
   CheckoutOfferChangedError,
   CheckoutCharterChangedError
 } from '../dist/apps/funding-web/src/app/features/funding/services/checkout-error.js';
+
+// The root build emits public workspaces under dist/, without package-local builds.
+const workspaceHook = registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier === '@openg7/funding-core')
+      return {
+        url: new URL(
+          '../dist/packages/funding-core/src/index.js',
+          import.meta.url
+        ).href,
+        shortCircuit: true
+      };
+    return nextResolve(specifier, context);
+  }
+});
+const { CheckoutAttempts } =
+  await import('../dist/apps/funding-web/src/app/features/funding/services/checkout-attempts.js');
+workspaceHook.deregister();
 
 const intent = {
   amount: 25,
@@ -1364,4 +1382,67 @@ test('an expired orphaned offer is purged only after a durable verification mark
       }
     );
   }
+});
+
+test('a formatted uncertain checkout restores exact options and payload, while old offers never acquire defaults', async () => {
+  const storage = memoryStorage();
+  const quote = sponsorshipOffer('sponsorship-v2');
+  const payload = {
+    ...sponsorshipIntent(quote),
+    offerFormats: {
+      linkedin: 'individual_portrait',
+      facebook: 'collective_composite'
+    }
+  };
+  const first = new CheckoutAttempts(() => storage);
+  let captured;
+  await assert.rejects(
+    first.start(
+      payload,
+      async (request) => {
+        captured = request;
+        throw new Error('Synthetic uncertain provider result');
+      },
+      quote
+    )
+  );
+  const reloaded = new CheckoutAttempts(() => storage),
+    resume = await reloaded.retainedSponsorshipOffer(5000, 'CAD');
+  assert.deepEqual(resume.formats, {
+    facebook: 'collective_composite',
+    linkedin: 'individual_portrait'
+  });
+  await reloaded.start(
+    { ...payload, offerFormats: resume.formats },
+    async (request) => {
+      assert.deepEqual(request, captured);
+      return result;
+    },
+    resume.quote
+  );
+  const oldStorage = memoryStorage(),
+    old = new CheckoutAttempts(() => oldStorage);
+  let original;
+  await assert.rejects(
+    old.start(
+      sponsorshipIntent(quote),
+      async (request) => {
+        original = request;
+        throw new Error('Synthetic uncertain old attempt');
+      },
+      quote
+    )
+  );
+  const oldReloaded = new CheckoutAttempts(() => oldStorage),
+    oldResume = await oldReloaded.retainedSponsorshipOffer(25000, 'CAD');
+  assert.equal(Object.hasOwn(oldResume, 'formats'), false);
+  await oldReloaded.start(
+    sponsorshipIntent(oldResume.quote),
+    async (request) => {
+      assert.deepEqual(request, original);
+      assert.equal(Object.hasOwn(request, 'offerFormats'), false);
+      return result;
+    },
+    oldResume.quote
+  );
 });

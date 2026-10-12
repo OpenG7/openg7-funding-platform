@@ -586,7 +586,7 @@ test(
           pool,
           historical
         );
-        assert.match(invoice.notes, /historiques à qualifier/);
+        assert.match(invoice.notes, /Engagements à qualifier/);
         const historicalId = invoice.contributionId;
         await withPostgresTransaction(pool, (db) =>
           qualifySponsorshipCommitment(

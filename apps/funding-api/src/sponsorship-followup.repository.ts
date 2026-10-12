@@ -9,10 +9,15 @@ import type {
   SponsorshipTierId
 } from '@openg7/funding-core';
 
+import { publicSponsorshipObligations } from '../../../packages/funding-core/src/index.js';
+
 import {
   centsToAmount,
   parseDbInt
 } from './contributions-persistence-helpers.js';
+import { withPostgresTransaction } from './postgres-transaction.js';
+import { listSponsorshipFulfilmentEvidence } from './sponsorship-fulfilment.repository.js';
+import { loadSponsorshipCommitment } from './sponsorship-commitments.repository.js';
 export interface SponsorshipFollowupLookup extends SponsorshipFollowupResponse {
   readonly contributionId: string;
   readonly stripeSessionId: string | null;
@@ -63,13 +68,20 @@ interface SponsorshipFollowupRow {
 }
 
 export const getSponsorshipFollowupByTokenHash = async (
-  pool: Pool | null,
+  pool: Pool | PoolClient | null,
   tokenHash: string,
   tokenCreatedAfterIso: string
 ): Promise<SponsorshipFollowupLookup | null> => {
   if (!pool) {
     return null;
   }
+  if (!('release' in pool))
+    return withPostgresTransaction(
+      pool,
+      (db) =>
+        getSponsorshipFollowupByTokenHash(db, tokenHash, tokenCreatedAfterIso),
+      { readOnlySnapshot: true }
+    );
 
   const query = await pool.query<SponsorshipFollowupRow>(
     `
@@ -112,6 +124,7 @@ export const getSponsorshipFollowupByTokenHash = async (
   if (!row) {
     return null;
   }
+  const commitment = await loadSponsorshipCommitment(pool, row.id);
 
   const amount = centsToAmount(parseDbInt(row.amount_cents));
   const sponsorshipBenefits =
@@ -128,6 +141,7 @@ export const getSponsorshipFollowupByTokenHash = async (
 
   return {
     found: true,
+    fulfilmentEvidence: await listSponsorshipFulfilmentEvidence(pool, row.id),
     publicReference: row.public_reference,
     contributionId: row.id,
     stripeSessionId: row.stripe_session_id,
@@ -144,7 +158,8 @@ export const getSponsorshipFollowupByTokenHash = async (
     commitment: {
       provenance: row.commitment_provenance ?? 'historical_unverified',
       state: row.commitment_state ?? 'needs_confirmation',
-      offer: row.offer_snapshot ?? null
+      offer: row.offer_snapshot ?? null,
+      obligations: publicSponsorshipObligations(commitment?.obligations ?? [])
     },
     detailsSubmitted: Boolean(row.sponsor_details_submitted_at),
     companyName: row.sponsor_company_name,

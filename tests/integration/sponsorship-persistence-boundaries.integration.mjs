@@ -26,6 +26,7 @@ import {
   upsertCheckoutSessionFromWebhook
 } from '../../dist/apps/funding-api/src/fund-contributions.repository.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
+import { recordFixtureSponsorshipAgreement } from './support/sponsorship-agreement-fixture.mjs';
 import {
   approveFixtureSubject,
   fixtureModerationActor
@@ -80,6 +81,9 @@ test(
       [input.stripeSessionId]
     );
     const id = seed.id;
+    await recordFixtureSponsorshipAgreement(pool, id, {
+      channels: ['website', 'facebook', 'linkedin']
+    });
     assert.equal(
       await recordSponsorshipDetailsForContribution(pool, {
         contributionId: id,
@@ -243,10 +247,11 @@ test(
           `INSERT INTO sponsor_media_assets
           (contribution_id, kind, review_status, original_filename, original_mime_type,
            original_size_bytes, original_storage_key, processed_size_bytes,
-           processed_storage_key, public_storage_key, public_url, checksum_sha256, width, height)
+           processed_storage_key, public_storage_key, public_url, checksum_sha256, width, height, usage_rights)
          VALUES ($1, 'supporting_image', 'approved', 'fixture.png', 'image/png', 100,
            'private/boundary-photo', 80, 'processed/boundary-photo', 'public/boundary-photo',
-           'https://example.invalid/photo.webp', repeat('a', 64), 100, 100) RETURNING id`,
+           'https://example.invalid/photo.webp', repeat('a', 64), 100, 100,
+           '{"state":"confirmed","channels":["website"],"targets":["openg7"],"transformations":["technical"],"credit":null,"restrictions":null}'::jsonb) RETURNING id`,
           [id]
         );
         await approveFixtureSubject(pool, {

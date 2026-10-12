@@ -4,12 +4,26 @@ The calendar is at `/admin/fundraiser/publications/calendar`. The delivery cockp
 is at `/admin/fundraiser/publications/automation`, with its own calendar including
 editorial posts. The three existing publication workspaces remain separate.
 
-Manual slot date/time fields use the slot's selected IANA timezone; draft scheduling
-uses `America/Toronto`, matching the calendar. Text-only edits retain the exact
-stored instant, including seconds and the selected occurrence during a clock change.
-New or edited dates that do not exist or occur twice during a clock change are
-rejected: choose a unique local time before saving. Changing a slot's timezone
-interprets its entered local date/time in the new timezone.
+Manual slot date/time fields use the slot's selected IANA timezone. Text-only slot
+edits retain the exact stored instant, including seconds and the selected occurrence
+during a clock change. New or edited slot dates that do not exist or occur twice
+during a clock change are rejected: choose a unique local time before saving.
+Changing a slot's timezone interprets its entered local date/time in the new timezone.
+The delivery drawer uses the browser's local timezone and minute precision; saving
+a delivery serialises that displayed time.
+
+Moving a slot with linked deliveries is transactional: the server locks the
+deliveries before calendar membership, revokes obsolete approval, releases
+certain account/obligation reservations and updates the dates together. Text,
+media and participants are retained. An in-flight or uncertain operation, a held
+account lease or a rejected/published delivery prevents the move. A new date
+requires a new human approval; the move is audited with its actor.
+
+Immediately before provider dispatch, the server checks the current database
+time against the authorized date and the maximum 24-hour lateness window.
+Time captured at the start of the worker tick cannot authorize a late send after
+slow image preparation. `SCHEDULE_EXPIRED` clears the obsolete approval and
+requires rescheduling and review; it creates no provider call or fulfilled benefit.
 
 ## Dossier bridge
 
@@ -67,6 +81,11 @@ its reasons and local notification rehearsal. It does not publish website profil
 
 The worker is deterministic. There is no autonomous AI publishing decision, no
 publication based on payment alone, and no automatic approval of generated text.
+Preparation and composition acquire the same transaction-scoped advisory lock for
+their feed before business row locks. Composition remains a separate transaction
+after the planning commit. This coordination prevents the observed same-feed
+preparation/composition cycle between batch and contribution locks; it is not a
+global planner lock or a guarantee against every possible database deadlock.
 The recurring planner uses public summaries (or a neutral thank-you when absent)
 and distinct Facebook/LinkedIn titles;
 it does not fetch external news or generate images. Existing approved sponsor
@@ -148,9 +167,10 @@ and approve the exact final proposal separately. Human-edited and blocked final
 drafts keep their text: open the delivery, restore the corrected source blocks
 and save the final message separately. Preparation does not overwrite these
 decisions. Creation dates remain unchanged.
-This uses current drafts, not frozen offers or durable benefit obligations;
-those, manual-path convergence and effective-account scheduling remain open in
-the [construction tasks](../development/sponsorship-publication-tasks.md#sp09).
+Destination eligibility requires an active recorded commitment with a matching
+pending or blocked benefit obligation. Private preparation neither approves nor
+completes that obligation; see the
+[construction tasks](../development/sponsorship-publication-tasks.md#sp09).
 
 ## Configuration and activation
 
@@ -187,11 +207,10 @@ per five minutes, with a horizon of 1–28 days and capacity of 1–10 sponsors.
 The provider's text limit may result in smaller batches. Empty calendar slots
 are reserved; only nonempty batches produce review proposals.
 
-Explicit sponsor destinations/channels take precedence. When unset, confirmed
-CAD orders use the existing promised benefit thresholds (Facebook from 25,000
-minor units, LinkedIn from 50,000) on OpenG7. Other currencies need explicit
-routing. No private sponsor message, contact details or payment amount enters
-generated copy. Rejected, hidden, unpaid or nonconsenting sponsors are excluded.
+Only recorded obligations qualify the promised destination and channel. A payment
+amount or a routing preference cannot create a commercial promise. No private
+sponsor message, contact details or payment amount enters generated copy.
+Rejected, hidden, unpaid or nonconsenting sponsors are excluded.
 
 Untouched automatic proposals can fill as new payments arrive; their version
 changes and any stale review fails. Overdue untouched proposals are repacked at
@@ -349,13 +368,20 @@ membership or lifecycle of an authorized, in-flight or uncertain batch. Save the
 delivery as a draft or cancel its authorization before changing its source. Mixed
 OpenG7/OpenG20 legacy batches must be split before a destination can be approved.
 
-Claims use PostgreSQL row locks with `SKIP LOCKED`. A five-minute expired claim
-becomes `uncertain`. Each claim advances the delivery version, including after
-a global stop restores the attempt count. Preflight, every provider request,
-image-reference persistence and completion verify that same version, publishing
-state, approval and unexpired lease against the database clock. An older worker
-cannot dispatch after losing its claim or overwrite a newer decision, retry,
-image reference or sponsorship projection. These checks require no migration.
+Claims use PostgreSQL row locks with `SKIP LOCKED` and, with migration 042,
+a second lease for the effective provider/account/mode tuple. LinkedIn organization
+IDs and URNs identify the same account; OpenG7/OpenG20 feeds sharing it serialize
+their sends. Live approvals reserve a 60-second technical window. This fixed spacing
+is not a provider quota or a promised cadence. Mock spacing is zero, while concurrent
+claims remain serialized. Approval checks the database clock after acquiring locks.
+Every claim advances the delivery version and account fence. Provider requests,
+image-reference persistence and completion check the active authority and five-minute
+leases. The first actual dispatch starts live spacing against the database clock;
+future recipe times and resumed backlogs cannot bypass it. Other accounts can advance.
+An expired or ambiguous lease remains held for investigation, rather than admitting
+another send. A legacy overlapping authorization becomes blocked with
+`ACCOUNT_SLOT_RESERVED` and an explicit qualification audit; published history is
+never silently rewritten. Reprepare and review the exact remaining proposal.
 Remote publication, its local result and audit cannot share
 one distributed transaction; a timeout, 5xx, missing post ID or failed database
 commit after sending therefore **never causes a blind retry**. A definitely
@@ -395,7 +421,13 @@ concurrently.
   authorization, replaying an earlier payment confirmation does not restore it.
 - **Uncertain:** inspect the actual destination account. For text-only posts,
   supply the existing external ID; the API checks author, exact text and published
-  state before recording success. Image cases require investigation of the image
+  state outside any open transaction. It retains a separate
+  `reconciliation_result_observed` audit, then relocks the delivery and rechecks
+  version, destination and credentials before qualified completion. A decision
+  changed during HTTP or a completion failure preserves that observation without
+  granting published status. Provider-verified evidence remains distinct from an
+  original provider acknowledgement. A caller-owned transaction is refused with
+  `RECONCILIATION_TRANSACTION_UNAVAILABLE`. Image cases require investigation of the image
   as well and are not automatically reconciled by text alone.
   An interrupted send has no automatic retry date. Provider lookup failures
   return `503 REMOTE_POST_UNVERIFIED`, leave the delivery uncertain and explain
@@ -405,8 +437,11 @@ concurrently.
   external reference, including when the server has been switched to mock mode.
 - **Confirmed absent:** only after checking provider history, an operator can
   attest that no post was created and record a non-sensitive reason. This changes
-  the job to blocked, revokes approval and permits new preparation/approval. An
-  incorrect human attestation can still cause a duplicate; it is audited.
+  the job to blocked, revokes approval and releases only that delivery's account
+  hold and obligation reservations. A newer blocked moderation decision can carry
+  `accountRecoveryRequired`; its reason/restriction survives the same explicit
+  absence review. Neither path grants N0, approval, a resend or a refund. An incorrect
+  human attestation can still cause a duplicate; it is audited.
 - **Pause:** stops future claims; an already submitted provider request cannot be
   recalled. Disabling the worker leaves persistent state available for inspection.
 - **Restart/database interruption:** the next worker reconciles expired claims
@@ -426,10 +461,35 @@ concurrently.
   and provider history before attesting absence or authorizing another attempt.
   A request submitted before lease expiration or revocation cannot be recalled.
 
+With migration 043, `check-visibility` records dated, immutable observations against
+the qualified fulfilment evidence. The command requires delivery ID/version,
+confirmation and a UUID request ID; an identical replay adds no second observation.
+It compares the historical proof's text/account, not an edited current draft.
+Verified content is `visible`; a provider mismatch is `changed`; inaccessible
+403/404, network failure and unsupported media verification remain `unknown`.
+None establishes deletion by assumption. These observations preserve payment,
+fulfilled obligations and original evidence. They authorize no replacement send
+or automatic compensation. Mock/historical deliveries without qualified evidence
+return `VISIBILITY_EVIDENCE_REQUIRED`.
+
+The [provider format qualification](../technical/publication-formats.md) separates
+one delivered JPEG from a multi-image collection. Every derived image remains a
+media investigation for reconciliation, even when it has no source-asset foreign
+key; a composite cannot be qualified through text-only verification.
+
 The cockpit provides the operational summary and exceptions; it does not send a
 new daily email or external chat notification. Existing operations monitoring
 remains separate. Settings changes affect future recurring slots, not dates already
 prepared. Cancel or reschedule existing slots explicitly when changing cadence.
+
+Historical `social_publication_jobs` are exposed by a read-only admin GET endpoint.
+The older `buildSocialPublicationText` summary generator and
+`publishSocialPublicationJob` sender have no caller in the mounted application
+composition; the job creator is exercised only by compatibility/persistence tests.
+Their legacy summaries do not feed the active dispatch. Current publication uses
+the complete shared recognition renderer and the separate
+`publication-automation/provider.ts` worker with exact source approval. An older
+job, truncated summary or displayed historical URL grants no new send authority.
 
 ## Validation and references
 
@@ -487,8 +547,14 @@ deduplicate posts, so unintended resends remain observable.
 The scenario checks missing credentials, an incorrect LinkedIn organization,
 expiry before dispatch, a provider `403`, and an independent OpenG20 destination.
 After credentials change and the API restarts, connection checks must be renewed;
-blocked deliveries remain blocked. A new draft binds the changed destination and
-requires fresh, versioned approval. The worker sends after the browser closes,
+blocked deliveries remain blocked. Saving the revised delivery as a draft binds
+the changed destination and requires fresh, versioned approval. A draft prepared
+before account configuration can be revised after configuration: it must still be
+an unapproved draft with zero attempts, no publication or provider result, and no
+account reservation or lease. This case releases no account state. An empty
+account with any such history still returns `CONNECTION_REQUIRED`; an existing
+or uncertain reservation must be reconciled rather than silently discarded.
+The worker sends after the browser closes,
 then restarts and refreshes stale connection checks without sending again.
 Assertions also cover reader/anonymous/origin refusals, worker confirmation,
 FR/EN mobile layout, accessibility, unchanged financial/email counts, attributed

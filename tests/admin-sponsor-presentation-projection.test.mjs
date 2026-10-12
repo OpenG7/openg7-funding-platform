@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { registerHooks } from 'node:module';
 import test from 'node:test';
+import { recordedSponsorshipCommitment } from './support/sponsorship-commitment-fixture.mjs';
 
 import { AdminSponsorHistoryProjection } from '../dist/apps/funding-web/src/app/features/funding/models/admin-sponsor-history.projection.js';
 
@@ -526,33 +527,73 @@ for (const locale of ['fr-CA', 'en']) {
       presentation.t('admin.messages.indetermine')
     );
     assert.equal(
-      projection.sponsorshipTierLabel({ ...record, amount: 50 }),
+      projection.sponsorshipTierLabel({
+        ...record,
+        amount: 50,
+        commitment: recordedSponsorshipCommitment(['website_mention'])
+      }),
       presentation.t('admin.messages.bronze')
     );
     assert.equal(
-      projection.sponsorshipTierLabel({ ...record, amount: 250 }),
+      projection.sponsorshipTierLabel({
+        ...record,
+        amount: 250,
+        commitment: recordedSponsorshipCommitment([
+          'website_mention',
+          'facebook_batch'
+        ])
+      }),
       presentation.t('admin.messages.argent')
     );
     assert.equal(
-      projection.sponsorshipTierLabel({ ...record, amount: 500 }),
+      projection.sponsorshipTierLabel({
+        ...record,
+        amount: 500,
+        commitment: recordedSponsorshipCommitment([
+          'website_mention',
+          'facebook_batch',
+          'linkedin_batch'
+        ])
+      }),
       'Or'
     );
     assert.equal(
-      projection.tierClass({ ...record, amount: 250 }),
-      locale === 'en' ? 'tier-badge tier-bronze' : 'tier-badge tier-silver'
+      projection.tierClass({
+        ...record,
+        amount: 250,
+        commitment: recordedSponsorshipCommitment([
+          'website_mention',
+          'facebook_batch'
+        ])
+      }),
+      'tier-badge tier-silver'
     );
     assert.equal(
-      projection.tierClass({ ...record, amount: 500 }),
+      projection.tierClass({
+        ...record,
+        amount: 500,
+        commitment: recordedSponsorshipCommitment([
+          'website_mention',
+          'facebook_batch',
+          'linkedin_batch'
+        ])
+      }),
       'tier-badge tier-gold'
     );
     assert.equal(
       projection.sponsorshipBenefitsLabel({ ...record, amount: 49 }),
-      presentation.t(
-        'admin.messages.aucun_avantage_montant_sous_le_minimum_de_commandite'
-      )
+      presentation.t('admin.dossier.publicationBridge.commitmentUnknown')
     );
     assert.equal(
-      projection.sponsorshipBenefitsLabel({ ...record, amount: 500 }),
+      projection.sponsorshipBenefitsLabel({
+        ...record,
+        amount: 500,
+        commitment: recordedSponsorshipCommitment([
+          'website_mention',
+          'facebook_batch',
+          'linkedin_batch'
+        ])
+      }),
       [
         presentation.t('admin.messages.mention_openg7_org'),
         presentation.t('admin.messages.lot_collectif_facebook'),

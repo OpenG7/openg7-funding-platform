@@ -1,7 +1,10 @@
 import { isDeepStrictEqual } from 'node:util';
 
 import type { Pool, PoolClient } from 'pg';
-import type { PublicationFeedId } from '@openg7/funding-core';
+import type {
+  PublicationFeedId,
+  SponsorshipPublicationFormat
+} from '@openg7/funding-core';
 
 import { selectPublicationRecognitionSources } from '../../../../packages/funding-core/src/index.js';
 
@@ -13,7 +16,8 @@ import {
   preparationModerationSql,
   preparationModerationSubjectSql,
   preparationCandidateSql,
-  PREPARATION_SCAN_LIMIT
+  PREPARATION_SCAN_LIMIT,
+  preparationFormatSql
 } from './preparation-sources.js';
 
 export { eligibleDestination } from './preparation-sources.js';
@@ -27,6 +31,7 @@ export interface Source {
   disclosure_text: string;
   feed_target: string;
   channel: string;
+  obligation_id?: string;
 }
 
 export const sourceEqual = (a: Source[], b: Source[]) =>
@@ -84,7 +89,11 @@ export async function sourceIssues(
 
 export async function repairSources(
   db: Db,
-  row: { batch_id: string | null; feed_id: PublicationFeedId }
+  row: {
+    batch_id: string | null;
+    feed_id: PublicationFeedId;
+    publication_format?: SponsorshipPublicationFormat;
+  }
 ): Promise<(Source & { name: string })[]> {
   const batch = (
     await db.query(
@@ -97,13 +106,15 @@ export async function repairSources(
   ).rows[0];
   if (!batch || !batch.preparation_moderation_allowed) return [];
   const [target, channel] = row.feed_id.split(':');
+  const format = row.publication_format ?? 'collective_text';
   const existing = (
     await db.query(
-      `SELECT d.id,d.contribution_id,d.title,d.body,d.disclosure_text,d.feed_target,d.channel,c.sponsor_company_name AS name,(${preparationModerationSql()}) AS preparation_moderation_allowed
+      `SELECT d.id,d.contribution_id,d.title,d.body,d.disclosure_text,d.feed_target,d.channel,d.obligation_id,c.sponsor_company_name AS name,(${preparationModerationSql()}) AS preparation_moderation_allowed
        FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id
        WHERE d.batch_id=$1 AND ${preparationEligibilitySql('d', 'c', '$2', '$3')}
+         AND ${preparationFormatSql()}=$4
        ORDER BY d.id`,
-      [row.batch_id, target, channel]
+      [row.batch_id, target, channel, format]
     )
   ).rows as (Source & {
     name: string;
@@ -111,19 +122,23 @@ export async function repairSources(
   })[];
   if (existing.some((source) => !source.preparation_moderation_allowed))
     return [];
-  const candidates = (
-    await db.query(
-      `SELECT d.id,d.contribution_id,d.title,d.body,d.disclosure_text,d.feed_target,d.channel,c.sponsor_company_name AS name
+  const candidates =
+    format === 'collective_text'
+      ? ((
+          await db.query(
+            `SELECT d.id,d.contribution_id,d.title,d.body,d.disclosure_text,d.feed_target,d.channel,d.obligation_id,c.sponsor_company_name AS name
        FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id
        WHERE ${preparationCandidateSql()}
+         AND ${preparationFormatSql()}=$4
        ORDER BY d.created_at,d.id LIMIT $3`,
-      [target, channel, PREPARATION_SCAN_LIMIT]
-    )
-  ).rows as (Source & { name: string })[];
+            [target, channel, PREPARATION_SCAN_LIMIT, format]
+          )
+        ).rows as (Source & { name: string })[])
+      : [];
   const selected = selectPublicationRecognitionSources({
     existingSources: existing.map(recognitionSource),
     candidates: candidates.map(recognitionSource),
-    capacity: batch.capacity
+    capacity: format === 'individual_portrait' ? 1 : batch.capacity
   });
   // A repair recipe must keep every eligible existing member intact. An invalid
   // retained base requires a source correction, not a proposal that cannot apply.
@@ -162,7 +177,7 @@ export async function sources(
   );
   const all = (
     await db.query(
-      `SELECT d.id,d.contribution_id,d.title,d.body,d.disclosure_text,d.feed_target,d.channel,d.status,c.sponsor_feed_status,c.public_display_consent,c.sponsor_review_status,c.status AS payment_status,(${eligibleDestination('c', 'd.feed_target', 'd.channel')}) AS destination_eligible FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id WHERE d.batch_id=$1 ORDER BY d.id${lock ? ' FOR UPDATE OF d,c' : ''}`,
+      `SELECT d.id,d.contribution_id,d.title,d.body,d.disclosure_text,d.feed_target,d.channel,d.obligation_id,d.status,c.sponsor_feed_status,c.public_display_consent,c.sponsor_review_status,c.status AS payment_status,(${eligibleDestination('c', 'd.feed_target', 'd.channel')}) AS destination_eligible FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id WHERE d.batch_id=$1 ORDER BY d.id${lock ? ' FOR UPDATE OF d,c' : ''}`,
       [batchId]
     )
   ).rows;
@@ -189,7 +204,8 @@ export async function sources(
       body,
       disclosure_text,
       feed_target,
-      channel
+      channel,
+      obligation_id
     }) => ({
       id,
       contribution_id,
@@ -197,7 +213,8 @@ export async function sources(
       body,
       disclosure_text,
       feed_target,
-      channel
+      channel,
+      ...(obligation_id ? { obligation_id } : {})
     })
   );
 }

@@ -1,4 +1,5 @@
 import type { SponsorshipCommitmentRecord } from './sponsorship-commitments.js';
+import type { SponsorshipFulfilmentEvidence } from './sponsorship-fulfilment.js';
 
 export type SponsorshipDossierTab =
   | 'overview'
@@ -51,6 +52,7 @@ export interface SponsorshipProgressPublication {
   readonly publishedAt: string | null;
 }
 export interface AdminSponsorshipProgress {
+  readonly fulfilmentEvidence?: readonly SponsorshipFulfilmentEvidence[];
   readonly commitment?: SponsorshipCommitmentRecord | null;
   /** Absent on older servers: never infer visibility from review or feed status. */
   readonly website?: {

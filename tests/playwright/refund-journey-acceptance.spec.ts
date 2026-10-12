@@ -17,8 +17,8 @@ import {
   buildSignedWebhookRequest,
   buildStripeEvent
 } from './support/stripe-webhook.js';
-import { acceptDisplayedSponsorshipOffer } from './support/sponsorship-checkout.js';
 import { test, expect } from './support/test.js';
+import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
 
 const refundUrl = '/api/admin/sponsorships/refund';
 const amountMinor = 50000;

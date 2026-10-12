@@ -5,6 +5,8 @@ import {
   type PublicationRecognitionSource
 } from '../../../packages/funding-core/src/index.js';
 
+import { publicationDraftFormatSql } from './fund-publication-draft-obligations.persistence.js';
+
 interface MembershipSource {
   readonly id: string;
   readonly contribution_id: string;
@@ -16,6 +18,8 @@ interface MembershipSource {
   readonly channel: string;
   readonly batch_id: string | null;
   readonly batch_capacity: number | null;
+  readonly publication_format: string;
+  readonly batch_format: string | null;
 }
 
 export interface PublicationMembershipChange {
@@ -49,7 +53,9 @@ export async function publicationMembershipFits(
     await db.query<MembershipSource>(
       `SELECT d.id::text,d.contribution_id::text,c.sponsor_company_name AS name,
         d.title,d.body,d.disclosure_text,d.feed_target,d.channel,
-        d.batch_id::text,b.capacity AS batch_capacity
+        d.batch_id::text,b.capacity AS batch_capacity,${publicationDraftFormatSql()} AS publication_format,
+        CASE WHEN $1::uuid IS NOT NULL THEN (SELECT target.publication_format FROM sponsor_publication_batches target WHERE target.id=$1::uuid)
+          ELSE b.publication_format END AS batch_format
        FROM sponsor_publication_drafts d
        JOIN fund_contributions c ON c.id=d.contribution_id
        LEFT JOIN sponsor_publication_batches b ON b.id=d.batch_id
@@ -83,6 +89,16 @@ export async function publicationMembershipFits(
   }
   for (const group of groups.values()) {
     const first = group[0]!;
+    const format = first.batch_format ?? first.publication_format;
+    if (
+      group.some(
+        (member) =>
+          member.publication_format !== format ||
+          (member.batch_format && member.batch_format !== format)
+      ) ||
+      (format === 'individual_portrait' && group.length !== 1)
+    )
+      return false;
     if (
       group.some(
         (member) =>

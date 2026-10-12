@@ -47,8 +47,17 @@ export const buildSponsorshipAssistantContext = (
   else if (record.reviewStatus === 'pending_review')
     nextStep = 'review_sponsorship';
   else if (!source.consent) nextStep = 'confirm_consent';
+  else if (record.commitment?.state !== 'active' || !record.commitment.offer)
+    nextStep = 'qualify_commitment';
   else if (missingChannels.length) nextStep = 'prepare_publication';
-  else if (dataset.drafts.some(isUnfinishedPublicationDraft))
+  else if (
+    dataset.drafts.some(isUnfinishedPublicationDraft) ||
+    record.commitment.obligations.some(
+      (o) =>
+        o.state !== 'adjusted' &&
+        !(o.state === 'fulfilled' && o.fulfilmentEvidenceId)
+    )
+  )
     nextStep = 'monitor_publication';
   else nextStep = 'complete';
   return {

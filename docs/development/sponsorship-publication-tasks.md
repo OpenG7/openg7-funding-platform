@@ -2,8 +2,10 @@
 
 Date : 11 octobre 2026. Référence de diagnostic : `8edb18ee6b3f`.
 
-Statut du chantier : **Construction active**. Cadrage et découpage disponibles;
-réalisation locale démarrée, 11 tâches en cours et 33 à faire.
+Statut des six priorités : **Réception locale terminée**. Les six priorités reprises
+sur `main` sont suivies dans le compteur ci-dessous. Les 44 fiches conservent
+le périmètre complet et leurs critères propres ; ce compteur ne déclare pas
+livrés les formats indisponibles ou les opérations réelles non autorisées.
 
 Le feu vert de l'utilisateur couvre la réalisation locale de tous les lots de
 l'[analyse](sponsorship-visibility-analysis.md). Ce plan les découpe en **44 tâches**
@@ -12,13 +14,461 @@ avec dépendances, critères d'acceptation et validations. Les
 livraison et vérification de leurs critères. Ce fichier devient la référence
 de suivi des tâches; l'analyse conserve le diagnostic et ses sources.
 
-L'[avancement courant](#avancement-courant) regroupe les acquis et le travail
-restant de SP01 à SP09, SP12 et SP20. Aucune tâche n'est déclarée terminée.
+L'[état initial des fondations](#avancement-courant) conserve les acquis et
+limites de SP07, SP08, SP09, SP12 et SP20 avant cette reprise. Les réceptions
+des six priorités ci-dessous décrivent les changements et vérifications actuels.
 L'approbation administrative de chaque publication reste
 distincte du développement. Les essais utilisent des dossiers synthétiques et
 des fournisseurs simulés; la mise en service réelle se prépare dans SP43.
 
+## Complément autorisé — cinq travaux
+
+Feu vert du 12 octobre 2026 sur la base `a7d9ea0`, avec conservation des
+changements locaux. La réception de ce complément est distincte des six
+priorités historiques ci-dessous. Son [registre de garanties](sponsorship-publication-guarantees.md#registre-de-réception-du-complément)
+relie chaque critère à ses suites propriétaires et à ses limites restantes.
+
+| Travail                            | Résultat attendu                                                                                                                                                      | Réception du complément                                                                |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| T1 — Paiements et reprise Checkout | Montant/devise autoritaires et journal validé avant activation ; UUID et formats conservés entre onglets/reprises ; progression et factures cohérentes.               | Reçu : faits financiers, 25 tests PG et 13 parcours Checkout/charte.                   |
+| T2 — Créneaux et heure d'envoi     | Déplacement atomique, ancienne approbation révoquée, réservations certaines libérées ; refus des opérations en vol/incertaines ; heure courante revalidée avant HTTP. | Reçu : concurrence, refus, autorisation et horloge courante ; course compose corrigée. |
+| T3 — Durées d'exposition           | Suivi website/openg7, échéance UTC, interruptions sans cumul, clôture owner après échéance avec preuve de continuité ; aucune réalisation au premier affichage.       | Reçu : 12 tests PG et cinq parcours owner, reprise explicite sans cumul.               |
+| T4 — Preuves individuelles         | Chaque passage réalisé mène à sa propre date/preuve ; passage restant et visibilité inconnue restent explicites, FR/EN et clavier/mobile.                             | Reçu : 12 parcours privés FR/EN, preuve exacte, clavier et jeton absent de l’URL.      |
+| T5 — Réception des garanties       | Dix-neuf lignes traçables par révision, scénario exécuté et limite ; fermeture locale séparée de la qualification externe.                                            | Reçu : registre de 19 critères, résultats datés et empreinte des sources.              |
+
+Aucun résultat historique n'est réattribué à cette révision. Une réception
+locale ne qualifie ni un compte social réel ni une surveillance HTTP continue.
+
+### Réception locale du complément
+
+Réception du 12 octobre 2026, Node 22.23.3 et Yarn 4.9.4. Le résultat combiné
+préserve les ajouts de `047de40e` sur la base `a7d9ea00`; les reçus de ce commit
+ci-dessous restent distincts. Empreinte SHA-256 des 157 fichiers modifiés de
+sources, scripts et tests, avant intégration (documentation exclue) :
+
+`a052510ab00ae34ed4a8cada34ff4fe13d6ae752e22224333018074a914632f6`.
+
+| Vérification exécutée                                                                                           | Résultat et portée                                                                                                                                                                                                                                                                                                          |
+| --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tsc -p tsconfig.build.json`, puis `node --test --test-concurrency=4 "tests/**/*.test.mjs"`                     | 6 217 réussites, zéro échec/annulation, huit omissions : six contrôles POSIX, un lien symbolique Windows indisponible et une recette de chiffrement conditionnelle. Les builds Angular et TypeScript sont exécutés successivement : le build Angular remplace son dossier de sortie, utilisé aussi par certains tests Node. |
+| Activation, engagements et sécurité du rôle API, trois fichiers PG                                              | 25 tests réussis ; faits confirmés, incohérences, journal prioritaire, rejeu et rôle restreint.                                                                                                                                                                                                                             |
+| Calendrier, capacité, file et passages, cinq fichiers PG                                                        | 62 tests réussis avant le dernier recontrôle des livraisons. Après recompilation, calendrier d’autorisation : 10 tests réussis, dont la course de première composition ; file rendue : 18 tests réussis, dont 401 dossiers, trois pages, compteurs, ancienneté, rejeu et correction.                                        |
+| `sponsorship-obligation-timing.integration.mjs`                                                                 | 12 tests réussis ; origine inconnue, durée minimale UTC, restrictions connues, N0, droits, reprise, passages distincts, idempotence et migration existante.                                                                                                                                                                 |
+| Termes Web, éléments requis, preuves, réconciliation, modération, visuels et audit historique, sept fichiers PG | 62 tests réussis, aucune omission. Sources et médias exacts, consentement, remboursements partiels, preuves immuables et instantanés historiques incomplets.                                                                                                                                                                |
+| Playwright `home-trust.config.ts`, filtres `sponsorship offer` et `moderation V1.*charter`                      | 10 + 3 parcours réussis ; offre, formats et UUID conservés après réponse perdue, refus concurrent, reprise et changement de charte.                                                                                                                                                                                         |
+| Playwright `playwright-admin-ui.config.mjs`, engagements/durées/liaison publication/visibilité                  | 24 parcours réussis ; owner/operator/reader, confirmations, FR/EN, clavier, mobile et Axe.                                                                                                                                                                                                                                  |
+| Playwright `playwright-followup-ui.config.mjs`, filtre `sponsorship offer`                                      | 12 parcours réussis ; preuves par passage, référence incohérente sans lien, dates, visibilité inconnue, focus et absence du jeton dans l’URL.                                                                                                                                                                               |
+| Build Angular production et TypeScript UI sans émission                                                         | 25 routes SSR ; avertissement de taille initiale à 858,03 kB pour un seuil de 800 kB conservé.                                                                                                                                                                                                                              |
+| Lint, format ciblé, standards, consignes/liens et `git diff --check`                                            | Réussis ; avertissement de lint préexistant de `smoke-public.mjs` conservé.                                                                                                                                                                                                                                                 |
+
+La revue indépendante a fait corriger la course de première composition, la
+réintroduction du jeton par une navigation de preuve, les dates françaises et
+le contraste/mobile des panneaux temporels. La validation stricte des réponses
+et les versions monotones du contrôleur temporel de `047de40e` sont conservées
+avec le nouvel état de reprise. Aucun P1/P2 établi ne reste ouvert
+dans ces corrections. Les liens privés utilisent le chemin courant nettoyé et
+une ancre locale, compatible avec le `base href` Angular.
+
+Les reçus de ce complément sont conservés hors Git dans le worktree de
+réception et le répertoire temporaire `funding-guarantees-5-*`. Les migrations
+additives 051–052 existantes sont conservées sans réécriture. Aucun déploiement,
+publication réelle, remboursement, envoi de courriel ni migration de production
+n’est effectué. La durée nécessite une attestation humaine documentée ; aucun
+monitoring continu ni garantie de vues n’est livré. Les collections d’images,
+délais commerciaux et qualifications de comptes externes gardent leurs limites
+dans le registre des 19 garanties.
+
+### Synchronisation avant publication de la PR
+
+Les correctifs CI `250aa14`, `7e39308` et `53f7ba5` sont conservés avant
+publication du complément. La résolution des trois conflits porte uniquement
+sur des recettes de tests; le code applicatif reste identique à celui de la
+réception ci-dessus. Après synchronisation : 25 tests Node de file administrative,
+25 tests PostgreSQL de file/contrats/calendrier et 26 parcours administratifs
+réussissent sans omission. Les builds Angular et TypeScript, les types UI,
+lint, format, standards/liens et `git diff --check` passent. Les nouveaux cas
+conservent les compteurs complets, la preuve qualifiée distincte d'une déclaration
+et le solde historique après masquage. Cette vérification locale ne préjuge pas
+du résultat de la nouvelle CI distante.
+
 ## Règles de réalisation
+
+### Progression des six chantiers autorisés
+
+Feu vert confirmé le 11 octobre 2026, après `main` au commit `3dbe67d`.
+Dernière réception locale : 12 octobre 2026, sur cette même base.
+**Progression : 100 / 100 %**, après réception des vingt critères locaux des
+notifications, engagements, calendrier, preuves, usages photo et gouvernance.
+Ce compteur porte sur la réalisation locale des six chantiers autorisés. Il
+compte vingt critères de réception, chacun valant cinq points. Un critère exige
+code, contrats, tests pertinents réussis et documentation ; du code en cours ou
+un test non exécuté ne rapporte aucun point. Il ne mesure pas le temps passé.
+
+<!-- prettier-ignore -->
+| Chantier | Poids | Critères de réception | Validé |
+| --- | --- | --- | --- |
+| Notifications admin et CI | 5 % | Actions accessibles avec notifications, clavier/mobile et recette Docker complète. | 5 / 5 |
+| Offre figée et engagements — SP01–SP06 | 25 % | Contrats immuables ; capture avant Checkout ; activation Stripe idempotente ; blocages/ajustements audités ; consommateurs de l'offre figée. | 25 / 25 |
+| Calendrier et capacité — SP07, SP12–SP17 | 20 % | Capacité/rendu communs ; réservation du compte effectif ; régulation réelle ; mutations et autorisation exacte. | 20 / 20 |
+| Preuves et suivi — SP19–SP22, SP27–SP30 | 20 % | Solde sur preuve qualifiée ; réconciliation et visibilité ; projection privée ; notifications sans doublon. | 20 / 20 |
+| Photos et formats — SP23–SP26, SP32–SP39 | 20 % | Usages/préférence ; aperçu du dérivé réel ; portraits ; montages et collections qualifiés par canal. | 20 / 20 |
+| Charte et adoption — SP40–SP44 | 10 % | Textes et procédure de validation préparés, aperçu historique ; réception transversale et guide de mise en service. | 10 / 10 |
+
+Les versions, commandes, résultats et limites figurent dans les réceptions de
+chaque lot. La validation éditoriale de la charte, son activation publique et les
+opérations réelles restent des décisions séparées ; leur préparation est incluse
+dans ce compteur. Aucun ancien dossier ne reçoit une offre ou une preuve inventée.
+
+Réception des notifications : build Angular de production réussi (25 routes),
+compilation TypeScript UI réussie, deux scénarios clavier/desktop FR et mobile EN
+réussis, puis `node scripts/admin-acceptance.mjs` : **255 scénarios réussis**,
+sans échec, omission ou reprise. Cette recette utilise un checkout isolé de
+`3dbe67d` avec les quatre fichiers du correctif ; elle ne valide pas encore les
+nouveaux contrats d'offres ni de réservations. La documentation propriétaire
+est [le suivi d'activité](../operations/contribution-activity.md). Aucun déploiement
+ni résultat de CI distante n'est déduit de cette recette locale.
+
+Réception des trois premiers critères des engagements : 44 tests Node des
+engagements, du Checkout, des factures et de la progression réussis ; 21
+validations PostgreSQL isolées réussies, sans omission. La migration additive
+041 conserve les anciens dossiers sans offre connue ; les offres acceptées
+et leur historique sont immuables. Les références propriétaires sont
+[Checkout](../technical/checkout.md), [API admin](../technical/admin-api.md),
+[règles commandites](sponsorship-rules.md) et
+[migrations](../operations/database-migrations.md). Une réception complémentaire
+valide les blocages, les ajustements audités et la révocation des publications :
+116 tests Node et 24 tests PostgreSQL isolés réussis, sans omission. Le
+raccordement Web passe 1 043 tests Node UI/transports et sept parcours navigateur
+FR/EN, desktop/mobile, de qualification, ajustement, droits et reprise exacte.
+
+Réception des réservations et de la régulation du compte : sept scénarios
+PostgreSQL (huit tests avec parent) réussis, puis 82 tests Node de commandes et
+worker réussis. La migration 042 utilise fournisseur, compte normalisé et mode ;
+l'espacement technique en mode réel vaut 60 secondes, sans promesse commerciale
+ni affirmation de quota fournisseur. Les tests couvrent comptes partagés,
+concurrence, bail, pause, attente et protection des résultats incertains.
+[Le runbook](../operations/publication-automation.md) décrit les limites et la
+reprise.
+
+La réception complémentaire du calendrier valide les passages successifs, le
+refus humain conservé, les formats figés et le rendu commun sur PostgreSQL
+jetable : dix tests réussis, complétés par le refus atomique d'une réparation
+qui dépasserait le créneau partagé. Les réparations conservent les obligations et
+photographies des participants retenus ; aucun portrait ou montage ne recrute
+automatiquement une photo de remplacement. Les contrôles Node des réparations
+et décisions d'annuaire passent 123 tests. La dernière suite Node globale
+compte 6 113 réussites, zéro échec et huit omissions liées aux conditions
+d'exécution. La recette Docker de l'ensemble est reçue ci-dessous.
+
+Réception des preuves et de la réconciliation : sept tests PostgreSQL de
+solde exact, annuaire, immutabilité et rôle API restreint réussis ; six tests
+de réconciliation/visibilité réussis. Les HTTP de vérification ne gardent aucune
+transaction ouverte et un changement concurrent d'autorité empêche le solde.
+Six tests du vrai pipeline PostgreSQL visuel qualifient également les hooks
+transactionnels de dates/solde : destinataire synthétique, événement, version
+et obligation exacts, sans SMTP. Deux parcours privés FR/EN vérifient la date,
+la provenance, la destination et les liens sûrs des preuves de dossiers distincts,
+sans contact, note ou clé privée. Une visibilité inconnue ne devient pas une
+présence ni une absence confirmée.
+Voir [les preuves](../technical/sponsorship-fulfilment.md).
+
+La garde physique de l'annuaire passe 169 tests Node/HTTP et six tests PostgreSQL
+de présence, corruption, stockage absent, version concurrente et réussite réelle
+sur fichiers synthétiques. Les suites existantes de preuves/exposition passent
+neuf tests avec de vrais WebP ; 63 tests supplémentaires de décisions d'annuaire,
+modération et automatisation passent après qualification des mêmes fixtures.
+L'absence de fichier ne devient ni une visibilité autorisée ni un engagement soldé.
+
+Réception des usages/préférences : huit tests PostgreSQL réussis, avec propriété,
+versions, refus motivé, révocation N0 et rollback atomique de l'audit. Les tests
+Node des médias, dérivés et consommateurs Web passent ; neuf tests PostgreSQL
+du vrai pipeline et seize parcours navigateur FR/EN passent également.
+Le montage à huit participants conserve tous les noms/crédits ; huit engagements
+individuels préparent huit portraits distincts dans cinq tests PostgreSQL des
+passages. Le JPEG envoyé correspond aux octets de l'aperçu authentifié ;
+corruption, retrait de droits et réponse perdue ne créent aucune preuve ou relance.
+Deux parcours supplémentaires de l'annuaire vérifient les crédits réellement
+visibles et l'affichage intégral des photos, sans recadrage implicite.
+
+Réception de la préparation de gouvernance : l'aperçu historique borné et privé
+fait partie des 24 tests PostgreSQL des engagements ; les contrôles owner de la
+charte et son aperçu en lecture seule passent les tests HTTP et PostgreSQL.
+La charte publique demeure inactive et son texte existant n'est pas remplacé
+par le projet de conditions. Voir [la procédure](../operations/sponsorship-moderation.md).
+
+Réception du pilotage global SP41 : 21 tests Node, dix tests PostgreSQL et deux
+parcours navigateur FR/EN réussis. Le calcul lit toutes les obligations et
+livraisons, indépendamment des filtres et pages affichées ; les scénarios
+comprennent 650 obligations et 225 livraisons. Les incidents, leurs épisodes et
+leurs projections privées restent distincts des autorisations de publication.
+Le [guide d'adoption](../operations/sponsorship-delivery-adoption.md) décrit la
+qualification historique explicite, les gardes et les opérations restantes.
+
+Réception transversale finale, le 12 octobre 2026, sur
+`feat/sponsorship-delivery-completion` depuis `3dbe67d` :
+
+- `yarn test` : 6 113 réussites, zéro échec, huit omissions liées aux conditions
+  de l'hôte et des outils optionnels, parmi 6 121 tests.
+- `node scripts/admin-acceptance.mjs` : **257 réussites**, zéro échec, omission
+  ou reprise, sur une pile neuve avec fournisseurs et SMTP simulés. Les quinze
+  échecs de la première recette ont tous un résultat réussi dans cette exécution
+  complète. Résultat JSON et journal concordent ; la pile jetable est nettoyée.
+- TypeScript sans émission, lint, format ciblé, build Angular de production
+  (25 routes SSR), standards documentaires, liens et `git diff --check` réussis.
+  Le lint conserve un avertissement préexistant dans `scripts/smoke-public.mjs`.
+  Le build conserve un avertissement de taille initiale : 834,07 kB pour un
+  seuil de 800 kB.
+
+Les migrations 041–050 ont été vérifiées sur PostgreSQL jetable, sans réécriture
+de migrations déjà appliquées. Les portraits et montages utilisent le JPEG
+qualifié de l'aperçu ; les collections de plusieurs images restent indisponibles
+dans les adaptateurs actuels. Les essais locaux ne qualifient aucun compte
+fournisseur réel, aucune cible de production ni l'activation de la charte.
+Cette réception clôt les six priorités locales, sans clôturer les 44 fiches ou
+les dix-neuf garanties dans tous leurs formats et toutes leurs cibles.
+
+Défragmentation structurelle du 12 octobre 2026 : les façades `planning.ts`,
+`changes.ts` et `evidence.ts` conservent leurs exports. Préparation, réparation,
+admissibilité, qualification, ajustements et écriture des preuves ont chacun une
+responsabilité propre. Le contrôleur Web délègue catalogue, choix des photos et
+aperçus privés à `publication-delivery-media-controller.ts` ; ses commandes,
+signaux publics et confirmations restent compatibles. Les requêtes, verrous,
+transactions, empreintes et traitements déplacés sont conservés.
+
+La validation après extraction passe 6 113 tests Node (zéro échec, huit omissions),
+64 tests PostgreSQL ciblés et dix parcours navigateur FR/EN (zéro échec ou omission).
+TypeScript sans émission, lint, build Angular et contrôles documentaires passent.
+Les avertissements déjà signalés ci-dessus sont inchangés. La recette Docker de
+257 scénarios ci-dessus appartient à la réception avant extraction ; les nouvelles
+validations sont celles décrites ici.
+
+À la réception de cette défragmentation, les cinq P2 de la revue restaient ouverts : solde avant la fin d'une durée promise,
+logo promis absent de la preuve Web, anciens brouillons après ajustement,
+commande de retrait des droits bloquée après conflit et visibilité refusée après
+remboursement partiel. Cette défragmentation préserve ces comportements ; elle
+ne constitue pas leur correctif.
+
+Réception locale des cinq P2 autorisés le 12 octobre 2026 :
+durées non vérifiables explicitement refusées à la qualification et jamais soldées
+au premier affichage ; logo promis vérifié dans la sélection Web attestée ;
+brouillons obsolètes retirés logiquement avec leurs amendements et leurs audits ;
+conflits certains des commandes média distingués des résultats incertains ;
+visibilité admissible après remboursement partiel séparée du solde commercial.
+Les essais portent sur les erreurs, le rejeu, la concurrence et la conservation
+des historiques et des réservations incertaines. La durée continue d'exposition
+reste indisponible ; aucun accord ou preuve historique n'est réécrit.
+
+Validation du correctif : 6 121 tests Node réussis (zéro échec, huit omissions),
+85 tests PostgreSQL jetables et 30 parcours navigateur FR/EN sur desktop/mobile
+réussis, sans omission ni reprise. TypeScript sans émission, lint, format et
+contrôles documentaires passent. La garde des lots incertains utilise un ensemble
+SQL non corrélé ; le scénario de 400 dossiers passe d'environ 122 à 15 secondes
+dans les essais avant/après optimisation. Le build Angular produit 25 routes SSR
+avec l'avertissement de taille initiale à 835,70 kB pour un seuil de 800 kB ;
+l'avertissement de lint préexistant est conservé. La recette Docker de 257
+scénarios reste la réception historique mentionnée avant extraction.
+
+<a id="sponsorship-followup-improvements"></a>
+
+### Réception complémentaire — cinq améliorations autorisées
+
+Le chantier du 12 octobre 2026 traite cinq suggestions distinctes avec quatre
+agents : audit des preuves historiques, délais et durées, incidents exploitables,
+performance sur grande file et mise à jour du guide d'adoption. Sa réception ne
+clôture pas les 44 fiches ou les qualifications fournisseur encore ouvertes.
+
+L'[audit historique](../technical/sponsorship-historical-audit.md) détecte les
+durées sans attestation et les éléments absents ou non vérifiables dans les
+snapshots conservés. Les conclusions humaines sont versionnées et append-only;
+elles ne remplacent aucune preuve, obligation, décision de visibilité ou écriture
+financière. L'inventaire est paginé, avec totaux globaux et examen individuel.
+
+Le [suivi temporel](../technical/sponsorship-obligation-timing.md) conserve les
+termes convenus. L'origine d'une échéance reste inconnue jusqu'à sa déclaration
+justifiée par le propriétaire. Pour Website/OpenG7, une observation exacte, la
+durée minimale écoulée, une confirmation humaine de continuité et sa référence
+de preuve sont nécessaires au solde. Les interruptions connues, changements de
+source et chevauchements entre passages empêchent le solde. Les autres canaux
+et le site OpenG20 restent indisponibles pour une durée promise. Aucun monitoring
+continu de la présence publique n'est livré par cette attestation.
+
+Les [incidents](../technical/publication-reliability.md) ont des raisons, étapes
+d'examen et liens vers les objets concernés. Les pages de 50, filtres et curseurs
+conservent les totaux complets; un jeu modifié exige une nouvelle lecture.
+Les retards documentés et origines manquantes rejoignent le détecteur existant,
+sans activation d'alerte externe. La [recette de performance](publication-performance.md)
+mesure 3 000 dossiers sur PostgreSQL jetable et conserve un rapport numérique
+ignoré par Git. Le [guide d'adoption](../operations/sponsorship-delivery-adoption.md)
+reflète ces contrats et les migrations additives 051–052.
+
+Réception locale : **100 / 100 % des cinq améliorations autorisées**, avec revue
+croisée puis intégration finale. La revue a corrigé les reprises de reçus anciens,
+les métadonnées historiques malformées, les reçus temporels incomplets et le
+retour à la première page avec un jeu d'incidents modifié. Les parcours navigateur
+ont aussi révélé et permis de corriger les accents, dates, contraste et débordements.
+
+La suite Node complète passe **6 174 tests**, avec huit omissions et aucun échec.
+Après les dernières corrections Web, **89 tests ciblés** passent, sans omission.
+La réception PostgreSQL couvre **92 tests fonctionnels** et **un benchmark**.
+Un premier passage du test de claims concurrents supposait le premier dossier
+forcément choisi; la reprise et la revue ont confirmé que `SKIP LOCKED` permet
+l'autre dossier du même compte. La recette vérifie désormais un seul claim par
+compte, le dossier restant intact et le cooldown, sans supposer une FIFO globale.
+Les autres intégrations du groupe sont conservées; les recettes concernées sont
+rejouées séparément après correction. Aucune migration appliquée n'est modifiée.
+
+**21 parcours navigateur** passent sans reprise : 17 administratifs et quatre de
+suivi privé, en FR/EN, desktop/mobile, avec clavier, accessibilité et accès privés.
+TypeScript sans émission, lint, format, standards/liens et `git diff --check`
+passent. Le build Angular produit 25 routes SSR; son avertissement de budget
+initial reste à **856,60 kB pour 800 kB**. L'avertissement de lint préexistant dans
+`smoke-public.mjs` demeure. La mesure sur 3 000 dossiers conserve 6 020 incidents;
+les agrégats passent d'environ 1,87 à 0,48 s et l'état complet de 25,88 à 11,79 s.
+Ce dernier reste lent et la recette synthétique ne qualifie pas la production.
+
+Les reçus ignorés par Git sont `suggestions-node-full-final.log`,
+`suggestions-node-corrected.log`, `suggestions-pg-final.log`,
+`suggestions-account-pg-receipt.log`, `suggestions-spacing-pg.log`,
+`suggestions-admin-ui-receipt.log`, `suggestions-followup-ui-receipt.log` et
+`publication-backlog-performance-receipt.log`; le rapport numérique est
+`publication-backlog-performance.json`. Les reçus des P2 ci-dessus appartiennent
+à leur propre révision. Cette réception reste locale, sans publication,
+activation, migration de production ou envoi externe.
+
+### Correction de la CI — 12 octobre 2026
+
+Le workflow de la PR 309 sur `047de40` a révélé des fixtures encore fondées sur
+le barème courant, des droits photo implicites et des schémas incomplets. Les
+recettes utilisent désormais des offres enregistrées, des usages média explicites
+et les migrations actuelles. Les dossiers historiques sans termes restent à
+qualifier ; une publication sans preuve qualifiée ne devient pas un engagement
+soldé. Le registre API inclut maintenant `sponsorship_needs_commitment`, pour
+que le filtre et ses compteurs globaux exposent réellement ces dossiers.
+
+Le nettoyage couvre séparément les anciens jeux sans accord et les fixtures
+actuelles avec historique commercial immuable. Nettoyage et réensemencement de
+ces dernières sont refusés atomiquement, sans perte d'historique. La recette
+Docker vérifie le refus répété des destinations non promises, puis la garde de
+composition sur un brouillon historique créé dans la seule base jetable.
+
+La réception locale de ce correctif passe **6 176 tests Node** (huit omissions,
+zéro échec), **83 tests d'intégration PostgreSQL/CLI**, **16 parcours navigateur**
+FR/EN, desktop/mobile et **quatre variantes Docker** des paliers 100/250 CAD avec
+et sans consentement. Les parcours navigateur et Docker passent sans reprise.
+Lint, TypeScript sans émission et build Angular de développement passent ; ce
+dernier correspond au build du job navigateur CI et génère 25 routes SSR.
+Les reçus locaux sont conservés dans `test-results/ci-*.log`, ignorés par Git.
+Ces contrôles ciblent les échecs observés ; la recette Docker complète et les
+autres suites restent à confirmer sur le nouveau commit par la CI distante.
+
+L'exécution distante sur `250aa14` confirme **6 179 tests Node** (cinq omissions),
+**580 intégrations** et **646 parcours administratifs** réussis. Les quatre suites
+UI complémentaires passent aussi localement : suivi privé 69, annuaire 40,
+offres figées 21 et droits média 28, soit **158 tests sans reprise**.
+Docker passe 256 scénarios sur 257 : les deux échecs initiaux sont corrigés ; la
+trace du seul nouvel échec montre une sélection de fichier sur un champ encore
+désactivé, sans aucun POST de téléversement. Le test attend désormais l'activation
+du champ et vérifie la réponse API avant de contrôler les médias persistés.
+Trois exécutions corrigées sur trois piles Docker neuves passent sans échec,
+omission ou reprise ; leurs conteneurs et réseaux sont nettoyés. Les gardes et
+délais existants sont conservés. TypeScript sans émission, ESLint et format
+ciblés, contrôles documentaires et `git diff --check` passent également.
+Les journaux sont `test-results/ci-information-docker-fixed-{1,2,3}.log`.
+
+La CI sur `7e39308` confirme également **257 scénarios Docker** réussis et les
+**646 parcours administratifs**. La lecture des étapes suivantes a repéré deux
+autres fixtures obsolètes : les commandites du parcours OIDC n'enregistraient
+aucun engagement, et les médias de récupération gardaient des droits inconnus.
+Le parcours d'identité déclare puis qualifie son accord explicite par la vraie
+API propriétaire ; son obligation reste bloquée avant modération. La récupération
+enregistre les usages Web synthétiques avant N0 et conserve public `200`, privé
+`404`, octets exacts et gardes d'échec. Le scénario OIDC complet et les deux
+recettes de sauvegarde/restauration (local et S3 simulé) passent sans reprise ni
+omission, sur piles jetables. TypeScript sans émission, format et diff passent.
+Les journaux sont `ci-editorial-identity-final.log` et
+`ci-recovery-media-rights.log`. La suite Node locale rejouée explicitement sous
+Node 22 garde **6 176 réussites**, zéro échec et huit omissions.
+
+L'exécution distante sur `53f7ba5` confirme **6 179 tests Node**, **580 intégrations**,
+**257 scénarios Docker** et **1 036 parcours navigateur** réussis. L'identité passe
+huit scénarios sur neuf ; le dernier révèle un défaut réel : la reprise d'un
+brouillon créé avant configuration verrouillait un compte vide avant de le
+rattacher au compte vérifié. La libération ne fait désormais aucune écriture pour
+un brouillon encore privé, sans autorisation, tentative, résultat, réservation ou
+bail. Toute association ou métadonnée incompatible conserve `CONNECTION_REQUIRED`.
+Les comptes existants gardent leurs verrous et leurs protections de concurrence.
+
+La réception du correctif passe **13 tests PostgreSQL de réservation**, dont les
+cas de reprise, annulation/refus, références incertaines et métadonnées historiques,
+puis la **suite d'identité complète de neuf tests** sur build Web de production,
+sans reprise. Le scénario social reprend son brouillon original et vérifie les
+publications exactes et l'absence de doublon. La suite Node sous Node 22 garde
+6 176 réussites et huit omissions ; lint et TypeScript sans émission passent.
+Les journaux sont `ci-account-reservations-regression.log`,
+`ci-identity-production-complete.log` et `ci-unconfigured-draft-node22.log`.
+Le [runbook propriétaire](../operations/publication-automation.md#local-connection-recovery-recipe)
+décrit la reprise sans réservation et ses refus conservateurs.
+
+Après intégration du contenu fusionné de la PR #309, la réception du 12 octobre
+2026 passe **6 218 tests Node sous Node 22** (huit omissions locales, zéro échec),
+**13 tests PostgreSQL**, les **neuf parcours d'identité** et les **deux restaurations
+applicatives** locales/S3 simulées. Chaque restauration reconstruit son image API
+depuis la base intégrée et nettoie ses ressources jetables. Build Angular de
+production (25 routes SSR), lint, TypeScript sans émission, format, standards
+documentaires et diff passent ; la revue indépendante ne relève aucun problème.
+Les journaux sont `ci-integrated-node22.log`, `ci-integrated-account-reservations.log`,
+`ci-integrated-identity-production.log` et `ci-integrated-recovery.log` dans
+`test-results/`. Ces reçus locaux restent distincts du résultat de la CI distante.
+
+La CI sur `0caa20f` confirme **6 221 tests Node** (cinq omissions) et **609
+intégrations**, sans échec. Docker réussit 255 scénarios sur 257 ; les deux échecs
+FR/EN lisaient encore le cache Checkout `sessionStorage` v1, remplacé par les
+enregistrements partagés `localStorage` v2. Les assertions vérifient désormais
+l'empreinte, l'UUID initial et l'expiration, puis le cache inchangé après
+rechargement et changement de langue, sans nouvelle requête. Une autre assertion
+de purge contrôle maintenant la présence réelle des deux caches avant la réponse
+perdue, puis leur suppression après succès, avec l'offre et le payload d'origine.
+Les deux échecs Docker sont reproduits avant correction ; les **deux cas Docker**
+et les **deux parcours de reprise d'offre FR/EN** passent ensuite sans reprise.
+TypeScript sans émission, ESLint, format et diff passent ; la revue indépendante
+ne relève aucun problème. Aucun code applicatif n'est modifié dans ce complément.
+Les journaux sont `ci-checkout-recovery-{baseline,corrected}.log` et
+`ci-offer-storage-recovery.log` dans `test-results/`.
+
+La CI sur `97bb42a` confirme les **257 scénarios Docker** corrigés et **6 221
+tests Node**, mais révèle un interblocage PostgreSQL lors de deux préparations
+concurrentes. La composition post-commit prenait le lot avant ses contributions,
+tandis que la seconde préparation détenait ces contributions en attendant le lot.
+Préparation et composition prennent maintenant un verrou advisory transactionnel
+dédié au feed avant leurs verrous métier, en conservant leurs transactions et
+audits distincts. La garantie vise ce cycle du même feed, sans annoncer une absence
+universelle d'interblocages. Le runbook décrit cette coordination et l'éligibilité
+fondée sur les obligations enregistrées.
+
+La régression déterministe reproduit `40P01` avant correction et passe ensuite ;
+un autre feed continue pendant le blocage volontaire. Les compositions répétées
+retournent le même identifiant, une seule livraison et un seul audit, sans
+approbation ni réservation. Les suites PostgreSQL passent **35 tests de publications**
+et **33 tests de capacité/réservations/calendrier** ; la régression enrichie passe
+également. Les mocks SQL reconnaissent uniquement la nouvelle requête précise et
+vérifient qu'elle précède les verrous métier. Leur réception ciblée passe **83 tests**,
+puis la suite Node complète sous Node 22 passe **6 218 tests** (huit omissions,
+zéro échec). Build, TypeScript sans émission, lint, format et diff passent ; la revue
+indépendante ne relève aucun problème. Les journaux sont
+`ci-preparation-deadlock-{before,after,automation-full,concurrency-full,compose-replay}.log`,
+`ci-planning-lock-unit-fixtures.log` et `ci-planning-lock-full-node22.log` dans
+`test-results/`.
+
+Sur `8e50df1`, la nouvelle régression passe en CI ; 608 des 610 intégrations
+réussissent. Le seul sous-test en échec et son groupe attendaient encore deux
+planificateurs sur le verrou de ligne du feed. L'observateur vérifie maintenant
+la chaîne réelle : session bloqueuse, premier planificateur en attente sur cette
+ligne, second en attente sur le verrou advisory exact du même feed. La concurrence
+et les contrôles de diagnostics, affectation et livraison uniques sont conservés.
+La baseline reproduit l'échec, puis la suite complète de file de préparation passe
+**18 tests** sans omission. ESLint, format et diff passent ; aucun code applicatif
+n'est modifié. Les journaux sont `ci-rendered-queue-planning-lock-{before,after}.log`
+dans `test-results/`.
 
 - P0 : conformité de la reconnaissance, conservation des engagements et reprise
   des résultats incertains. P1 : file, réservations, dates et suivi fiable.
@@ -67,22 +517,17 @@ reste distincte de l'activation des envois.
 
 <a id="avancement-courant"></a>
 
-## Avancement courant
+## État initial des fondations
 
-Les onze tâches ci-dessous restent **en cours**. Les critères détaillés demeurent
-dans leur fiche; les commandes et résultats appartiennent aux réceptions datées.
-Les limites du fonctionnement actuel sont décrites dans le
+Ce tableau conserve le diagnostic des cinq fondations à l'ouverture du chantier.
+Ses travaux restants sont repris par les réceptions actuelles des six priorités ;
+il ne mesure pas leur avancement. Les critères détaillés demeurent dans leurs
+fiches. Le fonctionnement actuel est décrit dans le
 [runbook](../operations/publication-automation.md).
 
 <!-- prettier-ignore -->
 | Tâche | Acquis locaux | Travail restant et limites | Réception |
 | --- | --- | --- | --- |
-| [SP01](#sp01) — Contrats | Offre versionnée calculée côté serveur, identifiants collectifs actuels, quantités, destination et éléments requis explicites. Délais et durées non définis restent `null`. | Réservations, preuves, marges et formats individuels restent à définir dans leurs lots. | [Contrat Checkout](../technical/checkout.md#accepted-sponsorship-offers-and-obligations) |
-| [SP02](#sp02) — Offre figée | Migration 041 additive : offre immuable liée à l'opération Checkout, engagement unique par contribution, obligations uniques par avantage et ordinal. Aucun second journal financier. | Faire adopter les obligations par tous les consommateurs et relier les preuves de livraison. | [Migration](../operations/database-migrations.md), [tests PostgreSQL](../../tests/integration/sponsorship-commitments.integration.mjs) |
-| [SP03](#sp03) — Acceptation | L'empreinte affichée est vérifiée avant Stripe; offre modifiée exige nouvelle acceptation. Reprise bornée après fermeture avec la même clé et la même offre, sans données de contact conservées. | Recette complète et adoption des clients existants; pas de reprise automatique au-delà de la fenêtre serveur. | [Contrat Checkout](../technical/checkout.md#accepted-sponsorship-offers-and-obligations), [tests UI](../../tests/playwright/sponsorship-offer-ui.spec.ts) |
-| [SP04](#sp04) — Activation | Session/PI vérifiés sur identifiants, montant et devise; reprise des paiements arrivés tôt via le journal existant. Offre historique inconnue explicitement à qualifier, sans avantages inventés. | Raccorder la file d'obligations et les preuves SP19; réception élargie des reprises. | [Tests de reprise](../../tests/stripe-webhook-recovery.test.mjs), [frontières PostgreSQL](../../tests/integration/contributions-write-boundaries.integration.mjs) |
-| [SP05](#sp05) — Blocages | État des obligations distinct des décisions éditoriales; qualification et ajustement réservés au propriétaire, versionnés et audités. Remboursement partiel sans recalcul de l'offre. | Interface propriétaire, raccordement des décisions et qualification des preuves. Aucun état `fulfilled` créé par ce lot. | [API admin](../technical/admin-api.md#commercial-sponsorship-commitments) |
-| [SP06](#sp06) — Consommateurs | Suivi privé, progression, courriel et nouvelle facture lisent l'offre acceptée; facture émise conservée. | Couverture, décisions, attention et planificateur utilisent encore leurs politiques existantes; convergence à réaliser avant clôture de G01/G02. | [Contrat public](../technical/public-api.md#displayed-sponsorship-offers), [factures PostgreSQL](../../tests/integration/sponsorship-invoice-benefits.integration.mjs) |
 | [SP07](#sp07) — Rendu final | Politique pure partagée : identité du dossier, blocs complets, budget UTF-16 et sélection des retenus/différés/à corriger. Composition, rafraîchissement, préparation et réparation préservent les blocs. | Faire converger le calcul de capacité de tous les chemins d'affectation, puis raccorder les offres figées et engagements durables. | [Lot 1](#lot-local-01), [lot 2](#lot-local-02) |
 | [SP08](#sp08) — Reconnaissance | Les livraisons automatiques contrôlent la source entière avant revue, autorisation, envoi et finalisation. Homonymes et mentions incidentes sont distingués; `SOURCE_CONTENT_MISSING` et liens de correction sont disponibles en FR/EN. | Relier les éléments promis des offres figées et les obligations SP19. Faire converger les jobs sociaux historiques et mutations manuelles de statut. | [Lot 1](#lot-local-01), [lot 2](#lot-local-02) |
 | [SP09](#sp09) — File | Les sources individuellement impossibles sont isolées; les suivantes avancent. Un diagnostic inchangé est exclu avant la limite de scan; une correction conserve l'ancienneté. Le cockpit expose les sources sans livraison, les raisons et les totaux complets. | Raccorder les obligations SP04. Plusieurs passes peuvent être nécessaires; le coût des totaux sur un très grand arriéré reste à mesurer. Les textes finaux protégés exigent leur propre correction et une nouvelle approbation. | [Lot 2](#lot-local-02) |
@@ -207,151 +652,13 @@ scan/pagination et les corrections protégées sont définis dans le
 [runbook](../operations/publication-automation.md#source-preparation-queue).
 Les 19 garanties complètes restent ouvertes; aucun envoi réel n'est qualifié.
 
-<a id="lot-local-03"></a>
-
-## Troisième lot local — Offres acceptées et obligations
-
-Branche `feat/sponsorship-offer-obligations`, 11 octobre 2026. Ce lot démarre
-SP01 à SP06 : offre serveur affichée et acceptée avant Stripe, snapshot privé
-immuable, engagements activés sur faits financiers exacts, qualification
-historique et ajustements propriétaires audités. Suivi, progression, courriel et
-facture lisent ces termes; la nouvelle offre ne remplace pas l'ancienne lors d'un
-rejeu. Le navigateur conserve une clé et l'offre publique, avec une limite de
-24 heures et sans coordonnées privées. Changer les détails, la langue ou la
-charte exige une vérification. Le cache ne confirme aucun paiement.
-
-Les affectations manuelles vérifient aussi le rendu complet sous verrou du parent,
-en plus du nombre de dossiers : une place numérique libre ne permet pas de
-tronquer une reconnaissance. Les réservations par compte, la convergence complète
-du planificateur/couverture/décisions/attention, l'interface propriétaire et les
-preuves SP19 restent à réaliser. Aucun état `fulfilled` ni publication réelle
-n'est créé. Les 19 garanties restent ouvertes.
-
-Réception locale sous Node 22.23.3 : compilation via `yarn test`, puis suite
-complète `node --test --test-concurrency=4 "tests/**/*.test.mjs"`, **6 058 réussites
-et 8 ignorés** selon leurs préconditions de plateforme. Le passage sans limite
-de concurrence avait rencontré une attente de compteur HTTPS sensible à la charge
-dans `production-identity.test.mjs`; ce fichier passe seul et dans le passage
-complet borné, sans modification de ses gardes.
-
-Treize suites PostgreSQL 16 sur bases jetables passent, **86 tests** :
-
-```sh
-node --test tests/integration/sponsorship-commitments.integration.mjs tests/integration/contributions-write-boundaries.integration.mjs tests/integration/sponsorship-invoice-benefits.integration.mjs tests/integration/publication-membership-rendering.integration.mjs tests/integration/sponsorship-progress.integration.mjs tests/integration/publication-batch-scheduling.integration.mjs tests/integration/publication-calendar-boundaries.integration.mjs tests/integration/publication-capacity-concurrency.integration.mjs tests/integration/sponsorship-benefit-policy.integration.mjs tests/integration/database-runtime-security.integration.mjs tests/integration/admin-work-queue.integration.mjs tests/integration/sponsorship-website.integration.mjs tests/integration/stripe-event-recovery.integration.mjs
-```
-
-Les suites ont été exécutées séparément ou en groupes; la commande énumère les
-fichiers. `database-runtime-security` utilise le vrai rôle API limité et vérifie capture,
-activation, qualification, ajustement, rejeu et interdiction de réécrire offres
-et audit. La migration 041 copiée est conservée sans modification.
-La fixture de panne facture utilise un vrai client transactionnel et vérifie
-rollback/libération. La visibilité Web historique reste testée séparément d'un
-engagement livré; elle ne crée ni offre qualifiée ni preuve SP19.
-La reprise Stripe attend la terminaison effective du backend PostgreSQL avant
-de recruter son successeur; fencing et unicité de l'effet restent vérifiés.
-
-Les 34 scénarios navigateur existants financement/reprise passent; dix nouveaux
-scénarios d'offre passent après correction d'une attente de libellé anglais,
-avec français desktop, anglais 390 px, clavier et Axe. La découverte vérifie
-qu'ils sont réservés à la suite dédiée, désormais incluse dans la CI, et exclus
-de Docker. TypeScript sans émission, lint, format, standards et contrôle
-documentaire passent; l'avertissement lint existant reste inchangé.
-Le build Angular production passe et prérend 25 routes. Son bundle initial
-atteint 800,17 kB, avec un avertissement de 173 octets au-dessus du seuil de
-800 kB; aucun budget n'est augmenté.
-Les recettes Docker ciblées passent, **20 scénarios** : Checkout entreprise, reprises,
-remboursements partiels/complets, panne courriel, revue/publication simulée,
-révisions, paliers, interruptions webhook, frais/versements rapprochés et refus
-avec revue indépendante. Builds, migrations 001–041, seed et
-readiness passent; le nettoyage vérifié ne laisse aucun conteneur ni réseau de
-cette pile jetable. Cette réception précède la correction de disposition des
-notifications détectée dans la suite Docker complète : trois notifications fixes
-pouvaient recouvrir le bouton de refus, même après centrage. La pile réserve
-désormais sa place dans le bandeau et reste utilisable au clavier; elle est
-masquée pendant les dialogues, puis restaurée sans supprimer les activités.
-Les clics de refus conservent leur centrage et n'utilisent aucun clic forcé.
-Les deux recettes UI de notifications passent : trois cartes, français desktop,
-1280 × 720, anglais mobile avec texte agrandi à 200 %, absence d'obstruction du refus, N4,
-défilement clavier, historique, actions de notification et retour du focus.
-Les deux scénarios Docker de refus passent à nouveau avec cette disposition,
-les assertions financières et la revue indépendante conservées.
-Le test clavier du guide admin attend l'hydratation avant d'envoyer Entrée au
-bouton focalisé; son cas français 390 px passe avec les contrôles Axe conservés.
-Ces synchronisations de fixtures ne modifient aucun droit ni comportement API.
-
-### Consolidation du troisième lot — 12 octobre 2026
-
-Référence : [PR #308](https://github.com/OpenG7/openg7-funding-platform/pull/308),
-toujours en construction active. La revue à quatre agents a reproduit cinq
-défauts prioritaires et des défauts de progression. Un événement de paiement
-échoué pouvait qualifier une offre; une confirmation contradictoire avec le
-journal pouvait activer ses obligations avant le rejet financier; deux onglets
-pouvaient perdre leur clé de reprise commune. La revue croisée a aussi reproduit
-l'effacement après un refus de préparation reçu pendant une autre requête en
-vol, et une activation par backfill basée sur le montant de session plutôt que
-sur celui reçu. Une obligation bloquée pouvait
-également apparaître en attente sans motif, et les motifs de qualification
-historique ne disposaient pas de traductions FR/EN. Le libellé de clôture
-assimilait également un engagement ajusté à une livraison.
-
-La qualification des PaymentIntent suit maintenant l'insertion ou le rejeu exact
-du journal. Le setter de statut ne qualifie plus les montants et les statuts non
-payés n'activent aucun engagement. Les trois producteurs Checkout réutilisent
-une preuve explicite de Session payée; le journal est prioritaire même sans
-marqueur de notification. Le backfill PI qualifie seulement après son journal.
-La reprise Checkout sépare l'intention, le
-stockage, le cache et la coordination des réservations; le verrou d'origine
-couvre la relecture et le nettoyage des deux caches, avec contrôle du propriétaire.
-L'appel réseau reste hors verrou. Un refus offre/charte conserve la clé déjà
-envoyée; il ne permet pas de remplacer les termes d'une opération potentiellement
-encore en vol. Une coordination indisponible empêche toute
-nouvelle opération partagée; un rejeu connu conserve sa clé. La purge couvre aussi
-les offres orphelines expirées, après persistance du bloc de vérification, et
-le franchissement du délai pendant un calcul d'empreinte. La projection pure
-des obligations conserve les blocages du repository, les quantités, ajustements
-et preuves existantes; les liens et motifs sont traduits dans les deux langues.
-Le [contrat Checkout](../technical/checkout.md) décrit la reprise et ses limites.
-
-La suite globale passe sous Node 22.23.3 après compilation :
-`node --test --test-concurrency=4 "tests/**/*.test.mjs"`, **6 083 réussites et
-8 ignorés** selon leurs préconditions de plateforme. Les recettes ciblées passent
-également : **47 tests paiement/consommateurs**, **36 tests de reprise**, **35 tests
-de transport** et **26 tests de progression**. Six suites
-PostgreSQL jetables passent, **44 tests**, dont les événements retardés, les
-confirmations contradictoires, les arrivées Checkout intercalées et les exigences
-logo/N0. Le cas de journal sans marqueur corrige uniquement sa fixture de frais
-à zéro selon le schéma existant; les contraintes restent intactes.
-Les **46 cas navigateur financement/offre/reprise** sont vérifiés : 44 passent
-dans la suite dédiée, puis les deux fixtures de charte sont adaptées à la
-conservation de clé et passent séparément. Deux nouveaux cas FR desktop/EN mobile
-utilisent les vrais verrous d'origine, avec refus de préparation concurrent,
-réponse perdue, fermeture des onglets et reprise de la même clé. Les cas de
-progression vérifient les traductions, le guide et les liens clavier sans aucune
-mutation. TypeScript sans émission, lint, format, standards, contrôle documentaire
-et `git diff --check` passent. Le lint conserve son avertissement existant de
-`scripts/smoke-public.mjs:165`. Le build Angular production passe, avec 25 routes
-prérendues; le bundle initial atteint 800,89 kB et dépasse le seuil d'avertissement
-de 889 octets, sans changement de budget.
-La migration 041 et le lockfile restent inchangés. Ces corrections
-conservent les droits administratifs et ne produisent aucune diffusion réelle;
-les 19 garanties complètes restent ouvertes.
-
-La CI de `98453f1` confirme **6 086 réussites Node et 5 ignorés**, **483/483 tests
-PostgreSQL** et **221/221 recettes Docker**. La suite admin passe 611 cas sur 612;
-son unique échec est le second sélecteur qui attend l'ancien libellé du lien média.
-La section de visibilité Web utilise elle aussi la traduction commune
-`publicationBridge.blocker.media`. Ce consommateur est corrigé en conservant le
-refus 503, la visibilité précédente, le bouton désactivé et le lien vers les
-médias. La nouvelle CI doit encore vérifier les suites navigateur qui avaient
-été ignorées après cet échec; les résultats de l'ancien commit restent datés.
-
 ## Cadrage
 
 <a id="sp01"></a>
 
 ### SP01 — Fixer les contrats, paramètres et responsabilités
 
-- [ ] En cours · P0 · Dépendances : aucune · Garanties : G01, G10 à G15, G19.
+- [ ] À faire · P0 · Dépendances : aucune · Garanties : G01, G10 à G15, G19.
 
 **Périmètre :** contrats partagés, configuration, API, décision d'architecture.
 Documenter offre, obligation, affectation, réservation, preuve et média dérivé,
@@ -372,7 +679,7 @@ présente, absente et invalide; ADR si l'évolution structurelle le nécessite.
 
 ### SP02 — Définir l'offre figée et les obligations
 
-- [ ] En cours · P0 · Dépendances : SP01 · Garanties : G01, G02, G15.
+- [ ] À faire · P0 · Dépendances : SP01 · Garanties : G01, G02, G15.
 
 **Périmètre :** exports publics de `funding-core`/`funding-models`, persistance API.
 Définir version d'offre, canal, destination logique, formule, quantité ou ordinal,
@@ -390,7 +697,7 @@ n'ajoutent aucun second journal comptable.
 
 ### SP03 — Enregistrer l'offre avant la soumission Checkout
 
-- [ ] En cours · P0 · Dépendances : SP02 · Garanties : G01.
+- [ ] À faire · P0 · Dépendances : SP02 · Garanties : G01.
 
 **Périmètre :** paiement public, opérations Checkout durables et contribution.
 Enregistrer le snapshot calculé côté serveur dans l'opération idempotente.
@@ -413,7 +720,7 @@ et changement de barème entre affichage et soumission.
 
 ### SP04 — Activer les avantages sur confirmation Stripe
 
-- [ ] En cours · P0 · Dépendances : SP02, SP03 · Garanties : G01, G02, G15.
+- [ ] À faire · P0 · Dépendances : SP02, SP03 · Garanties : G01, G02, G15.
 
 **Périmètre :** finalisation Stripe, contributions et obligations persistantes.
 Créer les obligations une seule fois à partir de l'offre acceptée.
@@ -435,7 +742,7 @@ session sans snapshot confirmée après mise à niveau, avec répétition de l'�
 
 ### SP05 — Préserver les obligations bloquées, refusées ou ajustées
 
-- [ ] En cours · P0 · Dépendances : SP04 · Garanties : G02, G14, G15.
+- [ ] À faire · P0 · Dépendances : SP04 · Garanties : G02, G14, G15.
 
 **Périmètre :** décisions commandite/publication, droits, versions et audit API.
 Distinguer à fournir, bloquée avec raison, livrée sur preuve et ajustée par décision.
@@ -453,7 +760,7 @@ Les règles Web et celles des nouveaux envois restent distinctes.
 
 ### SP06 — Faire utiliser l'offre figée par tous les consommateurs
 
-- [ ] En cours · P0 · Dépendances : SP04, SP05 · Garanties : G01, G02, G17, G18.
+- [ ] À faire · P0 · Dépendances : SP04, SP05 · Garanties : G01, G02, G17, G18.
 
 **Périmètre :** suivi privé, progression, couverture, attention, sources du
 planificateur, documents et consommateurs Web.

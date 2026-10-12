@@ -18,7 +18,7 @@ import {
   nowUnixSeconds
 } from './support/stripe-webhook.js';
 import { test, expect } from './support/test.js';
-import { acceptDisplayedSponsorshipOffer } from './support/sponsorship-checkout.js';
+import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
 
 const minor = (value: number) => Math.round(value * 100);
 const hook = (page: Page, name: string) => page.locator(`[data-og7="${name}"]`);

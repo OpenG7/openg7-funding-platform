@@ -173,6 +173,34 @@
       <h3 id="sponsorship-offer-title">
         {{ 'funding.offer.title' | translate }}
       </h3>
+      <p>{{ 'funding.offer.formatHelp' | translate }}</p>
+      @for (channel of formatChannels; track channel) {
+        <label
+          >{{
+            'funding.offer.formatChoice'
+              | translate
+                : { channel: ('funding.offer.channels.' + channel | translate) }
+          }}
+          <select
+            [value]="offerFormats()?.[channel] ?? ''"
+            (change)="selectFormat(channel, $event)"
+            [disabled]="loadingState() === 'loading' || offer.retained()"
+            [attr.data-og7-id]="'offer-format:' + channel"
+          >
+            <option value="">
+              {{ 'funding.offer.defaultFormat' | translate }}
+            </option>
+            @for (format of formats; track format) {
+              <option
+                [value]="format"
+                [disabled]="!formatAvailable(channel, format)"
+              >
+                {{ 'funding.offer.formats.' + format | translate }}
+              </option>
+            }
+          </select>
+        </label>
+      }
       @if (offer.state() === 'loading') {
         <p role="status">{{ 'funding.offer.loading' | translate }}</p>
       }
@@ -181,6 +209,11 @@
         <button type="button" (click)="reloadOffer()">
           {{ 'funding.followup.retry' | translate }}
         </button>
+        @if (offerFormats()) {
+          <button type="button" (click)="resetFormats()">
+            {{ 'funding.offer.resetFormats' | translate }}
+          </button>
+        }
       }
       @if (offer.state() === 'verification_required') {
         <p role="alert">
@@ -201,11 +234,10 @@
       @if (offer.quote(); as quoted) {
         @if (offer.retained()) {
           <p role="status">{{ 'funding.offer.retained' | translate }}</p>
-          @if (quoted.amountMinor !== effectiveAmountMinor()) {
-            <button
-              type="button"
-              (click)="setContributionAmount(quoted.amountMinor / 100)"
-            >
+          @if (
+            quoted.amountMinor !== effectiveAmountMinor() || !formatsMatch()
+          ) {
+            <button type="button" (click)="restoreRetainedOffer()">
               {{
                 'funding.offer.resumeAmount'
                   | translate: { amount: formatMoney(quoted.amountMinor / 100) }
@@ -213,54 +245,7 @@
             </button>
           }
         }
-        <p>
-          {{ 'funding.offer.version' | translate: { version: quoted.version } }}
-        </p>
-        <ul class="sponsorship-tier-achieved" role="list">
-          @for (benefit of quoted.benefits; track benefit.id) {
-            <li [attr.data-og7-id]="benefit.id">
-              <strong
-                >{{ benefit.quantity }} ×
-                {{
-                  'funding.offer.channels.' + benefit.channel | translate
-                }}</strong
-              >
-              <p>
-                {{
-                  'funding.offer.destination'
-                    | translate: { target: benefit.target.toUpperCase() }
-                }}
-              </p>
-              <p>
-                {{ 'funding.offer.required' | translate }}
-                @for (
-                  element of benefit.requiredElements;
-                  track element;
-                  let last = $last
-                ) {
-                  {{ requiredElementKeys[element] | translate
-                  }}{{ last ? '.' : ', ' }}
-                }
-              </p>
-              <p>
-                {{
-                  (benefit.deadlineDays === null
-                    ? 'funding.offer.noDeadline'
-                    : 'funding.offer.deadline'
-                  ) | translate: { days: benefit.deadlineDays }
-                }}
-              </p>
-              <p>
-                {{
-                  (benefit.durationDays === null
-                    ? 'funding.offer.noDuration'
-                    : 'funding.offer.duration'
-                  ) | translate: { days: benefit.durationDays }
-                }}
-              </p>
-            </li>
-          }
-        </ul>
+        <openg7-sponsorship-offer-summary [offer]="quoted" />
       }
     </section>
     <p
@@ -417,6 +402,13 @@
       ) | translate
     }}
   </p>
+  @if (
+    checkoutRequiresVerification() && offer.state() !== 'verification_required'
+  ) {
+    <a [routerLink]="supportPath()" fragment="contribution-help">{{
+      'funding.offer.support' | translate
+    }}</a>
+  }
   @if (
     checkoutRecoveryUnavailable() &&
     offer.state() !== 'recovery_unavailable' &&

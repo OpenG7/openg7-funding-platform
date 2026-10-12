@@ -2,12 +2,18 @@ import type { SponsorshipPricingConfig } from '@openg7/funding-models';
 
 import type { SponsorshipBenefitId } from './sponsorship-benefits.js';
 import { DEFAULT_SPONSORSHIP_PRICING_CONFIG } from './sponsorship-pricing.js';
+import {
+  publicationFormatCapability,
+  type SponsorshipPublicationFormat,
+  type SponsorshipOfferFormatOptions
+} from './sponsorship-publication-formats.js';
 
-export const SPONSORSHIP_OFFER_VERSION = 'sponsorship-v1';
+export const SPONSORSHIP_OFFER_VERSION = 'sponsorship-v2';
 export type SponsorshipObligationChannel = 'website' | 'facebook' | 'linkedin';
 export type SponsorshipObligationTarget = 'openg7' | 'openg20';
 export interface SponsorshipOfferedBenefit {
-  /** In sponsorship-v1 and historical-qualification-v1, *_batch means collective recognition. */
+  /** Absent on an immutable older offer: this is never an image promise. */
+  readonly format?: SponsorshipPublicationFormat;
   readonly id: SponsorshipBenefitId;
   readonly channel: SponsorshipObligationChannel;
   readonly target: SponsorshipObligationTarget;
@@ -37,7 +43,8 @@ export interface SponsorshipOfferAcceptance {
 export const createSponsorshipOfferSnapshot = (
   amountMinor: number,
   currency: string,
-  pricing: SponsorshipPricingConfig = DEFAULT_SPONSORSHIP_PRICING_CONFIG
+  pricing: SponsorshipPricingConfig = DEFAULT_SPONSORSHIP_PRICING_CONFIG,
+  formats?: SponsorshipOfferFormatOptions
 ): SponsorshipOfferSnapshot => {
   if (
     currency !== 'CAD' ||
@@ -78,6 +85,15 @@ export const createSponsorshipOfferSnapshot = (
       minor(pricing.benefits.linkedinBatch.minimumAmount)
     ]
   ];
+  for (const [channel, format] of Object.entries(formats ?? {})) {
+    if (
+      !publicationFormatCapability(channel, format).available ||
+      !definitions.some(
+        ([, c, threshold]) => c === channel && amountMinor >= threshold
+      )
+    )
+      throw new Error('Publication format is unavailable.');
+  }
   return {
     version: SPONSORSHIP_OFFER_VERSION,
     amountMinor,
@@ -91,12 +107,15 @@ export const createSponsorshipOfferSnapshot = (
         quantity: 1,
         requiredElements: ['company_name', 'approved_presentation'],
         deadlineDays: null,
-        durationDays: null
+        durationDays: null,
+        ...(channel === 'website'
+          ? {}
+          : { format: formats?.[channel] ?? 'collective_text' })
       }))
   };
 };
 
-/** Stable serialization also rejects unknown fields/terms in historical qualifications. */
+/** Reject unknown commercial terms; a quote's derived fingerprint is not part of the snapshot. */
 export const normalizeSponsorshipOfferSnapshot = (
   value: unknown
 ): SponsorshipOfferSnapshot => {
@@ -105,7 +124,14 @@ export const normalizeSponsorshipOfferSnapshot = (
   const input = value as Record<string, unknown>;
   if (
     Object.keys(input).some(
-      (key) => !['version', 'amountMinor', 'currency', 'benefits'].includes(key)
+      (key) =>
+        ![
+          'version',
+          'amountMinor',
+          'currency',
+          'benefits',
+          'fingerprint'
+        ].includes(key)
     ) ||
     typeof input.version !== 'string' ||
     !/^[a-z0-9][a-z0-9._-]{0,79}$/i.test(input.version) ||
@@ -137,7 +163,8 @@ export const normalizeSponsorshipOfferSnapshot = (
             'quantity',
             'requiredElements',
             'deadlineDays',
-            'durationDays'
+            'durationDays',
+            'format'
           ].includes(key)
       ) ||
       typeof b.id !== 'string' ||
@@ -170,6 +197,18 @@ export const normalizeSponsorshipOfferSnapshot = (
     )
       throw new Error('Invalid offered benefit.');
     seen.add(b.id);
+    if (
+      b.format !== undefined &&
+      (typeof b.format !== 'string' ||
+        b.channel === 'website' ||
+        ![
+          'collective_text',
+          'individual_portrait',
+          'collective_composite',
+          'image_collection'
+        ].includes(b.format))
+    )
+      throw new Error('Invalid offered format.');
     return {
       id: b.id as SponsorshipBenefitId,
       channel: channels[b.id]!,
@@ -179,7 +218,10 @@ export const normalizeSponsorshipOfferSnapshot = (
         ...(b.requiredElements as SponsorshipOfferedBenefit['requiredElements'])
       ],
       deadlineDays: b.deadlineDays as number | null,
-      durationDays: b.durationDays as number | null
+      durationDays: b.durationDays as number | null,
+      ...(b.format === undefined
+        ? {}
+        : { format: b.format as SponsorshipPublicationFormat })
     };
   });
   return {

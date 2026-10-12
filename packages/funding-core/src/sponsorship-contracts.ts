@@ -7,6 +7,7 @@ import type {
 } from './publication-contracts.js';
 import type { PublicSponsorMediaAsset } from './sponsor-media.js';
 import type { AdminSponsorshipCreditNoteRecord } from './sponsorship-documents.js';
+import type { SponsorshipCommitmentRecord } from './sponsorship-commitments.js';
 
 export interface PublicSponsorshipProfile {
   /** Stable public directory key, unrelated to access or payment references. */
@@ -52,6 +53,7 @@ export type AdminSponsorshipStripeRefundReason =
   'requested_by_customer' | 'duplicate' | 'fraudulent';
 
 export interface AdminSponsorshipRecord {
+  readonly commitment?: SponsorshipCommitmentRecord | null;
   readonly id: string;
   readonly version: string;
   readonly public_reference: string | null;

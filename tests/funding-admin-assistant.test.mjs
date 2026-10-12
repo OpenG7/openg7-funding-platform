@@ -8,6 +8,7 @@ import {
   detectLatePublicationItems,
   detectPublicationPreparationItems,
   detectSponsorshipInfoItems,
+  detectSponsorshipCommitmentItems,
   detectSponsorshipReviewItems
 } from '../dist/apps/funding-api/src/admin-assistant/attention.service.js';
 import {
@@ -26,6 +27,7 @@ import {
   createSponsorshipReviewReminderIdempotencyKey,
   loadAdminSponsorshipReviewReminderConfig
 } from '../dist/apps/funding-api/src/admin-reminder.service.js';
+import { recordedSponsorshipCommitment } from './support/sponsorship-commitment-fixture.mjs';
 
 const NOW = new Date('2026-07-24T00:00:00.000Z');
 
@@ -48,6 +50,10 @@ const sponsorship = (overrides = {}) => ({
   feedTarget: null,
   feedChannels: [],
   refundStatus: 'not_requested',
+  commitment: recordedSponsorshipCommitment([
+    'website_mention',
+    'facebook_batch'
+  ]),
   ...overrides
 });
 
@@ -461,7 +467,7 @@ test('review reminder links use the configured origin without credentials or inh
     );
 });
 
-test('detects a publication that must be prepared (Facebook >= 250)', () => {
+test('detects a publication that must be prepared from its recorded Facebook obligation', () => {
   const ds = dataset({
     sponsorships: [sponsorship({ reviewStatus: 'approved', amount: 300 })],
     drafts: []
@@ -474,9 +480,39 @@ test('detects a publication that must be prepared (Facebook >= 250)', () => {
 test('does not flag preparation when an active draft covers the channel', () => {
   const ds = dataset({
     sponsorships: [sponsorship({ reviewStatus: 'approved', amount: 300 })],
-    drafts: [{ contribution_id: 'c-1', channel: 'facebook', status: 'draft' }]
+    drafts: [
+      {
+        contribution_id: 'c-1',
+        channel: 'facebook',
+        feed_target: 'openg7',
+        status: 'draft'
+      }
+    ]
   });
   assert.equal(detectPublicationPreparationItems(ds).length, 0);
+});
+
+test('unknown historical terms produce read-only qualification attention without invented channels or private reasons', () => {
+  const unknown = sponsorship({ reviewStatus: 'approved', commitment: null });
+  const ds = dataset({ sponsorships: [unknown] });
+  const before = JSON.stringify(ds);
+  assert.deepEqual(detectPublicationPreparationItems(ds), []);
+  const items = detectSponsorshipCommitmentItems(ds);
+  assert.equal(items.length, 1);
+  assert.equal(items[0].type, 'sponsorship_needs_commitment');
+  assert.equal(items[0].suggestedActions[0].executionMode, 'navigate');
+  assert.equal(items[0].facts.commitmentState, 'needs_confirmation');
+  assert.doesNotMatch(
+    JSON.stringify(items),
+    /email|reason|token|qualificationReference/
+  );
+  assert.deepEqual(
+    detectSponsorshipCommitmentItems(
+      dataset({ sponsorships: [sponsorship()] })
+    ),
+    []
+  );
+  assert.equal(JSON.stringify(ds), before);
 });
 
 test('detects a late publication slot', () => {

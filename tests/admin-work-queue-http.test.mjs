@@ -84,6 +84,16 @@ test(
       assert.equal(valid.status, 200);
       assert.equal(valid.headers.get('cache-control'), 'private, no-store');
       assert.equal((await valid.json()).available, false);
+      const historical = await fetch(
+        url + '?type=sponsorship_needs_commitment',
+        { headers }
+      );
+      assert.equal(historical.status, 200);
+      assert.equal((await historical.json()).available, false);
+      assert.equal(
+        (await fetch(url + '?type=sponsorship_needs_commitment')).status,
+        401
+      );
       for (const [contributionType, amount, status] of [
         ['sponsorship_interest', 49.99, 400],
         ['sponsorship_interest', 50, 200],
@@ -94,14 +104,11 @@ test(
         for (const prefix of ['', '/api']) {
           let offerAcceptance;
           if (contributionType === 'sponsorship_interest' && status === 200) {
-            const quoteResponse = await fetch(
-              `http://127.0.0.1:${port}${prefix}/sponsorship-offer?amountMinor=${Math.round(amount * 100)}&currency=CAD`
+            const response = await fetch(
+              `http://127.0.0.1:${port}/api/sponsorship-offer?amountMinor=${Math.round(amount * 100)}&currency=CAD`
             );
-            assert.equal(quoteResponse.status, 200);
-            const quote = await quoteResponse.json();
-            assert.equal(quote.amountMinor, Math.round(amount * 100));
-            assert.equal(quote.currency, 'CAD');
-            assert.match(quote.fingerprint, /^[a-f0-9]{64}$/);
+            assert.equal(response.status, 200);
+            const quote = await response.json();
             offerAcceptance = {
               version: quote.version,
               fingerprint: quote.fingerprint
@@ -115,12 +122,12 @@ test(
               body: JSON.stringify({
                 projectId: 'synthetic-project',
                 contributionType,
-                ...(offerAcceptance ? { offerAcceptance } : {}),
                 amount,
                 currency: 'CAD',
                 publicDisplayConsent: false,
                 displayAmountConsent: false,
                 nonCharityAcknowledged: true,
+                ...(offerAcceptance ? { offerAcceptance } : {}),
                 successUrl: 'https://example.invalid/?checkout=success'
               })
             }

@@ -1,12 +1,9 @@
 import { signal } from '@angular/core';
-import {
-  DEFAULT_SPONSORSHIP_PRICING_CONFIG,
-  resolveSponsorshipBenefits
-} from '@openg7/funding-core';
+import { pendingSponsorshipSocialChannels } from '@openg7/funding-core';
 import type {
   AdminSponsorshipRecord,
   SponsorFeedChannel,
-  SponsorshipBenefitId
+  SponsorFeedTarget
 } from '@openg7/funding-core';
 
 import type {
@@ -17,13 +14,6 @@ import type {
 } from '../models/admin-sponsor-workflow.ports.js';
 
 import { AdminDashboardRequestError } from './funding-admin-session.js';
-
-const benefitFeedChannelMap: Partial<
-  Record<SponsorshipBenefitId, SponsorshipPublicationChannel>
-> = {
-  facebook_batch: 'facebook',
-  linkedin_batch: 'linkedin'
-};
 
 /** Local publication forms; the page owns selection, permissions and the shared lock. */
 export class AdminSponsorPublicationWorkflow {
@@ -124,9 +114,17 @@ export class AdminSponsorPublicationWorkflow {
       this.setWebsiteMessage(
         sponsorship.id,
         this.ports.t(
-          error instanceof AdminDashboardRequestError && error.status === 409
-            ? 'admin.dossier.conflict'
-            : 'admin.dossier.publicationBridge.site.failed'
+          error instanceof AdminDashboardRequestError &&
+            [
+              'MEDIA_STORAGE_UNAVAILABLE',
+              'MEDIA_UNAVAILABLE',
+              'MEDIA_CHANGED'
+            ].includes(error.code ?? '')
+            ? 'admin.dossier.publicationBridge.site.mediaErrors.' + error.code
+            : error instanceof AdminDashboardRequestError &&
+                error.status === 409
+              ? 'admin.dossier.conflict'
+              : 'admin.dossier.publicationBridge.site.failed'
         )
       );
     } finally {
@@ -289,16 +287,23 @@ export class AdminSponsorPublicationWorkflow {
   promisedFeedChannelsFor(
     sponsorship: AdminSponsorshipRecord
   ): readonly SponsorshipPublicationChannel[] {
-    const { achievedBenefits } = resolveSponsorshipBenefits(
-      sponsorship.amount,
-      DEFAULT_SPONSORSHIP_PRICING_CONFIG
+    return pendingSponsorshipSocialChannels(
+      sponsorship.commitment,
+      this.recordedFeedTarget(sponsorship)
     );
-    return achievedBenefits
-      .map((benefit) => benefitFeedChannelMap[benefit])
-      .filter(
-        (channel): channel is SponsorshipPublicationChannel =>
-          channel === 'facebook' || channel === 'linkedin'
-      );
+  }
+
+  private recordedFeedTarget(
+    sponsorship: AdminSponsorshipRecord
+  ): SponsorFeedTarget {
+    const targets = (['openg7', 'openg20'] as const).filter(
+      (target) =>
+        pendingSponsorshipSocialChannels(sponsorship.commitment, target)
+          .length > 0
+    );
+    return targets.length === 1
+      ? targets[0]!
+      : (sponsorship.sponsor_feed_target ?? 'openg7');
   }
 
   isPromisedFeedChannel(
@@ -414,7 +419,11 @@ export class AdminSponsorPublicationWorkflow {
     return {
       publicSlug: defaultSlug,
       publicSummary: sponsorship.sponsor_public_summary ?? '',
-      feedTarget: sponsorship.sponsor_feed_target ?? '',
+      feedTarget:
+        includePromisedChannels &&
+        this.promisedFeedChannelsFor(sponsorship).length
+          ? this.recordedFeedTarget(sponsorship)
+          : (sponsorship.sponsor_feed_target ?? ''),
       facebook: feedChannels.has('facebook'),
       linkedin: feedChannels.has('linkedin'),
       feedStatus: sponsorship.sponsor_feed_status,

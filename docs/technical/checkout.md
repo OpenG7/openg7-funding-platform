@@ -5,22 +5,13 @@
 Stripe Checkout is configured. Use a fresh UUID for a new contribution and keep
 the same key and payload when retrying an uncertain request. Missing or invalid
 keys return `400 CHECKOUT_IDEMPOTENCY_KEY_INVALID`. The Web keeps the pending
-key and a payload hash in bounded local storage and merges concurrent submissions.
-Older session-storage attempts require verification before a new key can be
-created. Contributor names, contacts and return URLs are not stored in this
-browser recovery record.
+key and a payload hash in local storage and merges concurrent submissions.
+Reservations and cleanup use an exclusive Web Lock shared by same-origin tabs;
+the provider call happens outside that lock. The original UUID survives a lost
+response or a refusal while another request is still in flight. Cleanup checks
+ownership before removing an entry. Without usable locks, a known exact attempt
+can retry read-only; a new sponsorship cannot call the provider.
 An accepted result ends that attempt; provider/network failures remain errors.
-
-Shared browser reservations and cleanup use an exclusive, origin-scoped
-[Web Lock](https://developer.mozilla.org/en-US/docs/Web/API/Web_Locks_API)
-in a secure context. Two tabs submitting the same intent retain the same UUID;
-cleanup checks ownership in both the attempt and offer records. Network requests
-run outside the lock. Without reliable coordination, no new operation is started
-against shared recovery storage; an exact known retry keeps its original key.
-Personal contributions without browser storage retain their in-memory recovery.
-An offer or charter refusal also retains the dispatched key: another tab can
-still have a request in flight with that key. Retrying the original intent keeps
-the key; replacing its terms requires reconciliation before any new operation.
 
 Apply [migration 031](../../apps/funding-api/migrations/031_create_checkout_operations.sql)
 before starting the updated API. Configured Checkout now requires PostgreSQL;
@@ -35,6 +26,63 @@ The acceptance and durable operation commit together before Stripe; retries
 retain the original evidence. Personal contributions remain outside this scope.
 The prepared V1 charter is inactive by default. See the
 [moderation contract and activation limits](../operations/sponsorship-moderation.md).
+
+Business Checkout also requires the displayed offer reference:
+`offerAcceptance: { version, fingerprint }`. Obtain it from
+`GET /api/sponsorship-offer?amountMinor=25000&currency=CAD`. The quote contains
+integer minor units, currency, benefit IDs, logical destination, quantity,
+required elements, and explicit nullable deadline/duration. Other currencies
+are refused; CAD thresholds are never applied to them. The current quantity is
+one website mention and, at their thresholds, one Facebook/LinkedIn recognition.
+`null` promises no fixed deadline or duration.
+
+Offer v2 records each social format. Optional `facebookFormat` / `linkedinFormat`
+query parameters select `collective_text` (default), `individual_portrait` or
+`collective_composite`; copy the chosen options into Checkout's `offerFormats`
+object (`facebook?`, `linkedin?`). The server recomputes the matching quote before
+preparation. `image_collection` returns `400 FORMAT_UNAVAILABLE`; it is not
+converted to a single image. The acceptance fingerprint covers the format.
+[Migration 045](../../apps/funding-api/migrations/045_sponsorship_publication_formats.sql)
+records it on obligations. Old snapshots without a format keep their canonical
+JSON/hash. An absent `offerFormats` stays absent on retries: adding defaults or
+changing a selected format changes the durable request fingerprint.
+
+[Migration 041](../../apps/funding-api/migrations/041_sponsorship_commitments.sql)
+stores the immutable server offer in the same transaction as the newly prepared
+Checkout operation and charter evidence, before Stripe. Missing or stale offer
+references return `400 SPONSORSHIP_OFFER_ACCEPTANCE_REQUIRED` or
+`409 SPONSORSHIP_OFFER_CHANGED` before that operation is inserted. A malformed
+reference returns `400 SPONSORSHIP_OFFER_INVALID`. Reconfirm the current quote
+for a new attempt; provider/network failures retain the original key, payload
+and offer. The public offer snapshot and its checksum can be cached for exact
+recovery without contributor details. The selected format options are retained
+and restored verbatim; historical absent options remain absent. Public recovery
+entries expire after 24 hours. Expiration first persists a verification marker,
+then removes the expired entries; it never grants permission for a fresh payment.
+Unreadable legacy session/local caches require verification. A new sponsorship
+requires both its UUID and public terms to be durably retained before any call.
+Unreadable storage and failed term writes display a specific French/English
+recovery message and retry action, without claiming that a payment was sent.
+Uncertain attempts instead display the verification message and link to support.
+Local mocked business Checkout also
+requires the displayed reference, but creates no payment, durable operation or
+obligation.
+
+Repeated durable operations skip offer preparation: their original terms remain
+unchanged after a price change, including an increased minimum. The Web restores
+the original amount and terms, and the API reconciles the existing operation
+before applying the current minimum to a new operation. Operations prepared
+before 041 without an offer
+can replay their original payload; confirmed dossiers remain explicitly
+`needs_confirmation` rather than receiving today's benefits. Stripe-confirmed
+payment activates one set of obligations from a matching operation/reference,
+amount and currency. Session activation requires an explicit server-confirmed
+paid amount and currency. PaymentIntent activation and backfill use the validated
+financial journal; a failed event, missing journal or contradictory amount cannot
+activate accepted terms from the local contribution amount. Payment, review,
+consent, visibility and publication stay
+independent. New invoices and confirmation messages describe the recorded offer;
+issued documents and queued messages keep their existing snapshots.
 
 The API persists the original parameters before contacting Stripe and uses the
 operation UUID as Stripe's idempotency key. A completed operation returns its
@@ -52,15 +100,13 @@ another session: Stripe can prune keys after 24 hours ([Stripe reference](https:
 An operator must reconcile the operation UUID/public reference against Stripe
 before deciding recovery; changing the key is not an uncertainty recovery.
 The Web displays a specific French/English verification message and retains
-both the pending key and a separate verification flag in browser storage.
-The flag blocks further Checkout requests, including
+both the pending key and a separate verification flag in local storage.
+The flag blocks further Checkout requests across same-origin tabs, including
 after reload, route changes, or changes to the amount, name and consent. Reload
 restores the verification message before submission without contacting Stripe.
 This flag contains no contributor data and is not cleared by editing the form;
 recovery still requires the operator's reconciliation. When browser storage is
-unavailable, an already retained attempt remains protected in memory. A new
-sponsorship cannot start without reliable recovery storage; the interface
-explains this availability failure without asserting that payment occurred.
+unavailable, the block lasts only for the current service instance.
 
 `checkout_operations` is private: its snapshots include the return URLs needed
 for exact retries (including sponsorship follow-up tokens), consent/name and
@@ -69,81 +115,6 @@ and Stripe metadata retain only the follow-up token hash. Protect these records
 and backups with the same controls as private contribution data. Creation and
 retries only record a pending contribution; payment still requires Stripe's
 authoritative confirmation and never authorizes publication.
-
-## Accepted sponsorship offers and obligations
-
-`GET /api/sponsorship-offer?amountMinor=<integer>&currency=CAD` returns the
-current server quote: version, amount in integer minor units, currency, benefits
-and SHA-256 fingerprint. Each benefit identifies its channel, logical target,
-quantity, required elements and any promised deadline/duration. A null deadline
-or duration means that none is promised. The existing `*_batch` IDs identify
-collective recognition; individual portraits are not offered by this version.
-
-Business Checkout requires `offerAcceptance: { version, fingerprint }`. This
-reference cannot supply commercial terms to the server. Missing acceptance
-returns `400 SPONSORSHIP_OFFER_ACCEPTANCE_REQUIRED`; a changed quote returns
-`409 SPONSORSHIP_OFFER_CHANGED` before contacting Stripe. The interface reloads
-the terms and clears acceptance, while retaining the dispatched attempt key.
-Replacing those terms requires verification because another tab can still be
-using the original attempt. Personal contributions cannot include
-this reference (`400 SPONSORSHIP_OFFER_NOT_APPLICABLE`).
-
-[Migration 041](../../apps/funding-api/migrations/041_sponsorship_commitments.sql)
-adds immutable commercial offer snapshots, commitments, obligations and audited
-changes. The offer commits with the new durable Checkout operation before
-Stripe. An uncertain retry retains that snapshot despite a later pricing change.
-The browser retains only the public quote, attempt UUID and payload fingerprint
-for up to 24 hours; this retention does not extend the server's 23-hour retry
-window and never confirms a payment. A different payload, expired or ambiguous
-cache requires verification instead of silently creating a replacement attempt.
-Expiry blocks submission immediately; pruning shared expired records waits for
-reliable coordination. If that coordination is unavailable, residual public
-recovery data stays blocked until it can be pruned safely.
-Resuming requires re-entering the same details, consent, language, return URLs
-and charter acceptance. A changed charter requires verification; the cache does
-not reconstruct private details or silently accept newer terms.
-
-Authoritative Stripe amount, currency and Session/PaymentIntent associations must
-match before activation. Repeated events create one commitment and one obligation
-per promised ordinal. Early payment confirmation is reconciled with the exact
-existing financial journal entry. If evidence is incomplete or inconsistent,
-the payment fact remains intact and the commitment needs confirmation; an active
-or explicitly qualified offer is not replaced by an incompatible replay.
-An unconfirmed failure event cannot activate an offer. PaymentIntent success
-qualifies obligations only after its financial journal write or exact replay
-succeeds; a conflicting journal leaves the commercial record unqualified.
-Checkout producers supply monetary evidence explicitly for a paid Session.
-Backfill does not infer that evidence from a paid projection, and existing
-journal facts remain authoritative even without a notification marker.
-
-Existing paid sponsorships have `historical_unverified` provenance and
-`needs_confirmation` state, with no inferred offer or invented obligations.
-Historical qualification requires an owner decision and an evidence reference.
-Current payment, consent, review and media guards can block an obligation without
-erasing it. Partial or failed refunds alone do not rewrite promised terms.
-Private progress retains these blocks, including a required logo that is absent
-or whose moderation is incomplete; apparent media approval cannot clear a
-repository block. Qualification and blocker messages are translated in FR/EN.
-Completion can include an approved adjustment; its label distinguishes that
-outcome from delivery backed by evidence.
-Fulfilment on provider evidence remains a separate publication task; this lot
-creates no `fulfilled` result. Invoice snapshots preserve the recorded terms and
-financial facts at issuance; a later qualification does not rewrite an invoice.
-
-### Commercial commitment administration
-
-`GET /api/admin/sponsorship-commitments?contributionId=<uuid>` requires existing
-server-side admin access and returns a private, non-cacheable commercial record.
-`POST /api/admin/sponsorship-commitments/qualify` records historical terms with
-an evidence reference; `POST /api/admin/sponsorship-commitments/adjust` records
-an explicit destination change or waiver. Mutations require owner rights in
-OIDC mode, or the authorized signed local token session, plus JSON, a request UUID,
-the expected version, a reason and confirmation equal to the selected target ID.
-They are idempotent and audited in the same transaction. An identical request,
-input and actor reuses the original logical receipt even after its version has
-advanced; a different input or a new request on a stale version returns a conflict.
-No mutation creates payment, provider proof, publication or a refund. Owner UI
-workflows and complete obligation-based scheduling remain later work.
 
 ## Local validation
 

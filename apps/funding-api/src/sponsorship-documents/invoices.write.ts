@@ -3,8 +3,8 @@ import { createHash } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 
 import { withPostgresTransaction } from '../postgres-transaction.js';
-import { formatRecordedSponsorshipBenefits } from '../sponsorship-commitments/offers.js';
-import { loadSponsorshipOfferForSession } from '../sponsorship-commitments/repository.js';
+import { formatRecordedSponsorshipBenefits } from '../sponsorship-benefits.js';
+import { loadSponsorshipOfferForSession } from '../sponsorship-commitments.repository.js';
 import { sponsorshipInvoiceConfig } from '../sponsorship-invoice-config.js';
 import {
   mapSponsorshipInvoiceRow,

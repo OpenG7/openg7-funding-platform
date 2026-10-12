@@ -10,6 +10,11 @@ import type {
 
 import { test, expect } from './support/test.js';
 import { moderationFixture, completeModeration } from './support/moderation.js';
+import {
+  registerPublicationImagePreviewTests,
+  syntheticPublicationJpeg
+} from './publication-image-preview.ui.js';
+import { registerPublicationReliabilityTests } from './publication-reliability.ui.js';
 
 const initialJob: PublicationDelivery = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -94,9 +99,11 @@ async function fixtures(
     mediaResponse?: (deliveryId: string | null) => Promise<void>;
     contentMissing?: boolean;
     queue?: PublicationPreparationQueue;
+    reliability?: PublicationAutomationState['reliability'];
     queuePages?: Record<number, PublicationPreparationQueue>;
     preparedQueue?: PublicationPreparationQueue;
     queueFailureOffset?: number;
+    privateBatchCompose?: boolean;
   } = {}
 ): Promise<PublicationAutomationCommand[]> {
   const commands: PublicationAutomationCommand[] = [];
@@ -104,6 +111,7 @@ async function fixtures(
     workerEnabled: options.workerEnabled ?? true,
     workerVersion: 1,
     ...(options.queue ? { queue: options.queue } : {}),
+    ...(options.reliability ? { reliability: options.reliability } : {}),
     summary: {
       awaitingApproval: 1,
       scheduled: 0,
@@ -131,10 +139,12 @@ async function fixtures(
       connection: 'ready',
       checkedAt: '2030-06-01T12:00:00Z'
     })),
-    deliveries: [
-      { ...initialJob, status, sponsors, ...overrides },
-      ...(options.extraDeliveries ?? [])
-    ]
+    deliveries: options.privateBatchCompose
+      ? []
+      : [
+          { ...initialJob, status, sponsors, ...overrides },
+          ...(options.extraDeliveries ?? [])
+        ]
   };
   await page.addInitScript((role) => {
     sessionStorage.setItem(
@@ -235,6 +245,23 @@ async function fixtures(
     }
     if (c.action === 'prepare' && options.preparedQueue)
       state.queue = options.preparedQueue;
+    if (c.action === 'compose' && options.privateBatchCompose) {
+      state.deliveries = [
+        {
+          ...initialJob,
+          sponsors,
+          ...overrides,
+          feedId: c.feedId,
+          kind: c.kind,
+          batchId: c.batchId ?? null,
+          publicationFormat: c.publicationFormat,
+          photoSelections: [],
+          mediaId: null,
+          mediaDerivedHash: undefined
+        }
+      ];
+      return route.fulfill({ json: { id: initialJob.id } });
+    }
     const job = state.deliveries[0]!;
     if (c.action === 'reconcile') {
       if (c.externalPostId === 'missing-post')
@@ -267,9 +294,21 @@ async function fixtures(
       job.version++;
     }
     if (c.action === 'edit') {
-      job.message = c.message;
-      job.status = 'draft';
-      job.version++;
+      state.deliveries[0] = {
+        ...job,
+        message: c.message,
+        status: 'draft',
+        version: job.version + 1,
+        ...(options.privateBatchCompose && c.photoSelections?.length
+          ? {
+              publicationFormat: c.publicationFormat,
+              photoSelections: c.photoSelections,
+              mediaId: job.id,
+              mediaDerivedHash: overrides.mediaDerivedHash,
+              mediaAlt: overrides.mediaAlt ?? null
+            }
+          : {})
+      };
     }
     if (c.action === 'settings') {
       Object.assign(
@@ -281,6 +320,18 @@ async function fixtures(
   });
   return commands;
 }
+
+registerPublicationImagePreviewTests({
+  setup: (page, job, media, privateBatchCompose = false) =>
+    fixtures(page, 'draft', false, job.sponsors ?? [], job, {
+      sponsorMedia: media,
+      privateBatchCompose
+    })
+});
+registerPublicationReliabilityTests({
+  setup: (page, reliability) =>
+    fixtures(page, 'draft', false, [], {}, { reliability })
+});
 
 for (const language of ['fr-CA', 'en'] as const) {
   for (const width of [390, 1280]) {
@@ -1892,26 +1943,35 @@ test('refusing a proposal requires a decision and moves it to history', async ({
   ).toContainText('Refusée');
 });
 
-test('private media uses the authenticated admin preview before acceptance', async ({
+test('private media uses the authenticated exact JPEG admin preview before acceptance', async ({
   page
 }) => {
   const mediaId = '33333333-3333-4333-8333-333333333333';
+  const { bytes, hash } = await syntheticPublicationJpeg();
   await fixtures(page, 'draft', false, [], {
     mediaId,
+    mediaDerivedHash: hash,
     mediaUrl: 'https://example.test/private.png',
     mediaAlt: 'Photo approuvée'
   });
   let previewRequests = 0;
   await page.route(
-    '**/api/admin/sponsorships/media/content/' + mediaId,
+    '**/api/admin/publication-automation/image-preview?**',
     async (route) => {
       previewRequests++;
+      const url = new URL(route.request().url());
+      expect(url.searchParams.get('deliveryId')).toBe(initialJob.id);
+      expect(url.searchParams.get('version')).toBe('1');
+      expect(route.request().headers()['authorization']).toBe(
+        'Bearer openg7-admin-session.ui-fixture'
+      );
       await route.fulfill({
-        contentType: 'image/png',
-        body: Buffer.from(
-          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=',
-          'base64'
-        )
+        contentType: 'image/jpeg',
+        headers: {
+          'X-Content-SHA256': hash,
+          'X-Publication-Delivery-Version': '1'
+        },
+        body: bytes
       });
     }
   );

@@ -31,6 +31,31 @@ import { errorMessageFromResponse } from './funding-admin-response.js';
 export class FundingAdminPublicationsClient {
   constructor(private readonly session: FundingAdminSession) {}
 
+  async publicationReliabilityIncidents(
+    filter: import('@openg7/funding-core').PublicationReliabilityIncidentFilter = {}
+  ): Promise<
+    import('@openg7/funding-core').PublicationReliabilityIncidentPage
+  > {
+    const query = new URLSearchParams();
+    if (filter.code !== undefined) query.set('code', filter.code);
+    if (filter.subjectType !== undefined)
+      query.set('subjectType', filter.subjectType);
+    if (filter.cursor !== undefined) query.set('cursor', filter.cursor);
+    const response = await this.session.requestAdminJson(
+      `/admin/publication-automation/incidents${query.size ? `?${query}` : ''}`,
+      { auth: 'saved', cache: 'no-store' }
+    );
+    if (!response.ok) {
+      const data = (await response.json().catch(() => ({}))) as {
+        code?: string;
+      };
+      throw new Error(data.code ?? 'RELIABILITY_UNAVAILABLE');
+    }
+    return response.json() as Promise<
+      import('@openg7/funding-core').PublicationReliabilityIncidentPage
+    >;
+  }
+
   async publicationAutomation(
     command?: PublicationAutomationCommand,
     filter: import('@openg7/funding-core').PublicationAutomationFilter = {}
@@ -65,7 +90,7 @@ export class FundingAdminPublicationsClient {
 
   async publicationMedia(
     deliveryId?: string
-  ): Promise<{ id: string; url: string; alt: string; company: string }[]> {
+  ): Promise<import('@openg7/funding-core').PublicationMediaOption[]> {
     const query = new URLSearchParams();
     if (deliveryId !== undefined) query.set('deliveryId', deliveryId);
     const response = await this.session.requestAdminJson(
@@ -74,8 +99,45 @@ export class FundingAdminPublicationsClient {
     );
     if (!response.ok) throw new Error('AUTOMATION_UNAVAILABLE');
     return response.json() as Promise<
-      { id: string; url: string; alt: string; company: string }[]
+      import('@openg7/funding-core').PublicationMediaOption[]
     >;
+  }
+
+  async publicationImagePreview(
+    deliveryId: string,
+    version: number,
+    expectedHash: string
+  ): Promise<Blob> {
+    const query = new URLSearchParams({ deliveryId, version: String(version) });
+    const response = await this.session.requestAdminJson(
+      `/admin/publication-automation/image-preview?${query}`,
+      {
+        auth: 'saved',
+        cache: 'no-store',
+        headers: { Accept: 'image/jpeg' }
+      }
+    );
+    if (!response.ok)
+      throw new Error(
+        (await response.json().catch(() => ({}))).code ?? 'MEDIA_UNAVAILABLE'
+      );
+    const blob = await response.blob();
+    const digest = await globalThis.crypto.subtle.digest(
+      'SHA-256',
+      await blob.arrayBuffer()
+    );
+    const hash = Array.from(new Uint8Array(digest), (byte) =>
+      byte.toString(16).padStart(2, '0')
+    ).join('');
+    if (
+      blob.type !== 'image/jpeg' ||
+      !/^[a-f0-9]{64}$/.test(expectedHash) ||
+      hash !== expectedHash ||
+      response.headers.get('X-Content-SHA256') !== hash ||
+      response.headers.get('X-Publication-Delivery-Version') !== String(version)
+    )
+      throw new Error('MEDIA_CHANGED');
+    return blob;
   }
 
   async getPublicationDrafts(

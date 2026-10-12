@@ -3,6 +3,7 @@ import type {
   CheckoutResult,
   SponsorshipOfferQuote
 } from '@openg7/funding-core';
+import { normalizeSponsorshipOfferFormats } from '@openg7/funding-core';
 
 import { parseContributionMinor } from '../models/funding-home.utils.js';
 
@@ -106,6 +107,10 @@ export class CheckoutAttempts {
     execute: (request: CheckoutRequest) => Promise<CheckoutResult>,
     offerQuote?: SponsorshipOfferQuote
   ): Promise<CheckoutResult> {
+    const formats = normalizeSponsorshipOfferFormats(intent.offerFormats);
+    const base = { ...intent };
+    delete base.offerFormats;
+    intent = { ...base, ...(formats ? { offerFormats: formats } : {}) };
     if (this.requiresVerification())
       return Promise.reject(new CheckoutReconciliationRequiredError());
     const payload = checkoutIntentPayload(intent);
@@ -230,7 +235,8 @@ export class CheckoutAttempts {
       const offerSaved = this.offers.capture(
         fingerprint,
         idempotencyKey,
-        offerQuote
+        offerQuote,
+        intent.offerFormats
       );
       if (isNewAttempt && (!attemptSaved || !offerSaved)) {
         this.completeOwned(fingerprint, idempotencyKey, true);

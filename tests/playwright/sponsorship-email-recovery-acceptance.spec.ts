@@ -18,8 +18,8 @@ import {
   acceptanceSql,
   restartAcceptanceApi
 } from './support/acceptance-database.js';
-import { acceptDisplayedSponsorshipOffer } from './support/sponsorship-checkout.js';
 import { expect, test } from './support/test.js';
+import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
 
 const queueUrl = '/api/admin/email-queue';
 const followupUrl = '/fonds-des-batisseurs/suivi-commandite';

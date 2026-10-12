@@ -6,6 +6,8 @@ import type {
 } from '@openg7/funding-core';
 
 export interface SponsorMediaAssetRow {
+  readonly usage_rights?: import('@openg7/funding-core').SponsorMediaUsageRights;
+  readonly usage_restrictions_reviewed?: boolean;
   readonly id: string;
   readonly contribution_id: string;
   readonly kind: SponsorMediaKind;
@@ -38,6 +40,7 @@ export interface SponsorMediaStorageRecord extends SponsorMediaAsset {
 }
 
 export interface CreateSponsorMediaAssetInput {
+  readonly usage?: import('@openg7/funding-core').SponsorMediaUsageRights;
   readonly id: string;
   readonly contributionId: string;
   readonly kind: SponsorMediaKind;

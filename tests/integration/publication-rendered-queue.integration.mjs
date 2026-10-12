@@ -15,6 +15,7 @@ import { repairSources } from '../../dist/apps/funding-api/src/publication-autom
 import { recordModerationDecision } from '../../dist/apps/funding-api/src/moderation/repository.js';
 import { withPostgresTransaction } from '../../dist/apps/funding-api/src/postgres-transaction.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
+import { recordFixtureSponsorshipAgreement } from './support/sponsorship-agreement-fixture.mjs';
 import {
   approveFixtureSubject,
   fixtureModerationActor,
@@ -93,6 +94,10 @@ test(
        FROM jsonb_to_recordset($1::jsonb) AS input(id uuid,name text)`,
         [JSON.stringify(records)]
       );
+      for (const record of records)
+        await recordFixtureSponsorshipAgreement(pool, record.id, {
+          channel: 'facebook'
+        });
       await pool.query(
         `INSERT INTO sponsor_publication_drafts(id,contribution_id,feed_target,channel,title,body,disclosure_text,created_at)
        SELECT "draftId",id,'openg7','facebook',title,body,"disclosureText","createdAt"
@@ -753,6 +758,9 @@ test(
         const observer = await pool.connect();
         let pending;
         try {
+          const blockerPid = (
+            await blocker.query('SELECT pg_backend_pid() AS pid')
+          ).rows[0].pid;
           await blocker.query('BEGIN');
           await blocker.query(
             'SELECT id FROM publication_feeds WHERE id=$1 FOR UPDATE',
@@ -766,13 +774,39 @@ test(
           for (;;) {
             const waiting = (
               await observer.query(
-                "SELECT count(*)::int AS count FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE 'SELECT id FROM publication_feeds WHERE id=%'"
+                `SELECT activity.pid,activity.query,pg_blocking_pids(activity.pid) AS blockers,
+                  EXISTS(SELECT 1 FROM pg_locks waiting_lock
+                    WHERE waiting_lock.pid=activity.pid AND waiting_lock.locktype='advisory'
+                      AND NOT waiting_lock.granted AND waiting_lock.objsubid=1
+                      AND waiting_lock.classid=((hashtextextended($1,0)>>32)&4294967295)::oid
+                      AND waiting_lock.objid=(hashtextextended($1,0)&4294967295)::oid) AS waiting_for_planning_gate
+                FROM pg_stat_activity activity
+                WHERE activity.datname=current_database() AND activity.wait_event_type='Lock'`,
+                [`publication-planning:${feedId}`]
               )
-            ).rows[0].count;
-            if (waiting >= 2) break;
+            ).rows;
+            const feedWaiter = waiting.find(
+              (activity) =>
+                activity.query ===
+                  'SELECT id FROM publication_feeds WHERE id=$1 FOR NO KEY UPDATE' &&
+                activity.blockers.includes(blockerPid)
+            );
+            const gateWaiter =
+              feedWaiter &&
+              waiting.find(
+                (activity) =>
+                  activity.pid !== feedWaiter.pid &&
+                  activity.query ===
+                    'SELECT pg_advisory_xact_lock(hashtextextended($1,0))' &&
+                  activity.waiting_for_planning_gate &&
+                  activity.blockers.includes(feedWaiter.pid)
+              );
+            // One planner owns the feed's gate and waits on our row lock; the
+            // other waits on that exact gate, transitively blocked by our session.
+            if (feedWaiter && gateWaiter) break;
             assert.ok(
               Date.now() < deadline,
-              'Both real PostgreSQL planners must wait on the feed lock'
+              'The planners must form the blocker → feed row → same-feed planning gate wait chain'
             );
             await delay(20);
           }

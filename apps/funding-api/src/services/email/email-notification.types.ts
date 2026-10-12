@@ -10,6 +10,7 @@ import type {
 import type { ContributionReferenceRecoveryRecord } from '../../fund-contributions.repository.js';
 
 export type EmailTemplateKey =
+  | 'sponsorship_obligation'
   | 'admin_contribution_received'
   | 'sponsorship_access_recovery'
   | 'contribution_reference_recovery'

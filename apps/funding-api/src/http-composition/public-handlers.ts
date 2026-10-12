@@ -70,6 +70,8 @@ import {
   submitSponsorshipDraft
 } from '../sponsorship-access.service.js';
 import { createSponsorshipFollowupMediaHttpHandler } from '../sponsorship-followup-media.http.js';
+import { createSponsorMediaUsageHttpHandler } from '../sponsor-media-usage.http.js';
+import { getSponsorMediaPreference } from '../sponsor-media-usage.repository.js';
 import { createSponsorshipFollowupHttpHandler } from '../sponsorship-followup.http.js';
 import { createStripeWebhookHttpHandler } from '../stripe-webhook.http.js';
 import { processStripeWebhook } from '../stripe-webhook.service.js';
@@ -157,40 +159,55 @@ export const createPublicHttpHandlers = ({
     }
   );
 
-  const handleSponsorshipFollowupMediaRequest =
-    createSponsorshipFollowupMediaHttpHandler({
-      publicBaseOrigin,
-      databaseAvailable: () => hasDatabase,
-      sponsorMediaMaxBytes,
-      sponsorMediaMaxSupportingImages,
-      SPONSOR_MEDIA_ALT_TEXT_MAX_LENGTH,
-      followupEditablePaymentStatuses,
-      readBody,
-      readBodyBuffer,
-      writeJson,
-      writeBinary,
-      isValidFollowupToken,
-      isValidUuid,
-      isValidAdminExpectedVersion,
-      hasOnlyKeys,
-      routeAssetId,
-      getFreshSponsorshipFollowupByToken,
-      listSponsorMediaAssets: (id) => listSponsorMediaAssets(dbPool, id),
-      getSponsorMediaStorageRecord: (id) =>
-        getSponsorMediaStorageRecord(dbPool, id),
-      checkSponsorMediaUpload: (id, kind, maxSupportingImages) =>
-        checkSponsorMediaUpload(dbPool, id, kind, maxSupportingImages),
-      createSponsorMediaAsset: (input) =>
-        createSponsorMediaAsset(dbPool, input),
-      deleteSponsorMediaAsset: (input) =>
-        deleteSponsorMediaAsset(dbPool, input),
-      processSponsorImage,
-      sponsorMediaStorage,
-      deleteSponsorMediaObjects,
-      writeSponsorMediaMutationFailure,
-      insertAdminAuditLog: (input) => insertAdminAuditLog(dbPool, input),
-      reportFailure: (message, error) => console.error(message, error)
-    });
+  const handleMediaUsage = createSponsorMediaUsageHttpHandler({
+    mode: 'private',
+    pool: dbPool,
+    publicBaseOrigin,
+    readBody,
+    writeJson,
+    isValidFollowupToken,
+    getFreshSponsorshipFollowupByToken,
+    reportFailure: (message, error) => console.error(message, error)
+  });
+  const handleSponsorshipMedia = createSponsorshipFollowupMediaHttpHandler({
+    publicBaseOrigin,
+    databaseAvailable: () => hasDatabase,
+    sponsorMediaMaxBytes,
+    sponsorMediaMaxSupportingImages,
+    SPONSOR_MEDIA_ALT_TEXT_MAX_LENGTH,
+    followupEditablePaymentStatuses,
+    readBody,
+    readBodyBuffer,
+    writeJson,
+    writeBinary,
+    isValidFollowupToken,
+    isValidUuid,
+    isValidAdminExpectedVersion,
+    hasOnlyKeys,
+    routeAssetId,
+    getFreshSponsorshipFollowupByToken,
+    getSponsorMediaPreference: (id) => getSponsorMediaPreference(dbPool, id),
+    listSponsorMediaAssets: (id) => listSponsorMediaAssets(dbPool, id),
+    getSponsorMediaStorageRecord: (id) =>
+      getSponsorMediaStorageRecord(dbPool, id),
+    checkSponsorMediaUpload: (id, kind, maxSupportingImages) =>
+      checkSponsorMediaUpload(dbPool, id, kind, maxSupportingImages),
+    createSponsorMediaAsset: (input) => createSponsorMediaAsset(dbPool, input),
+    deleteSponsorMediaAsset: (input) => deleteSponsorMediaAsset(dbPool, input),
+    processSponsorImage,
+    sponsorMediaStorage,
+    deleteSponsorMediaObjects,
+    writeSponsorMediaMutationFailure,
+    insertAdminAuditLog: (input) => insertAdminAuditLog(dbPool, input),
+    reportFailure: (message, error) => console.error(message, error)
+  });
+
+  const handleSponsorshipFollowupMediaRequest = async (
+    request: Parameters<typeof handleMediaUsage>[0],
+    response: Parameters<typeof handleMediaUsage>[1]
+  ) =>
+    (await handleMediaUsage(request, response)) ||
+    (await handleSponsorshipMedia(request, response));
 
   const handlePublicSponsorMediaRequest = createPublicSponsorMediaHttpHandler({
     databaseAvailable: () => hasDatabase,

@@ -5,7 +5,7 @@ import type {
 
 import { moderationCaseState } from '../../../../packages/funding-core/src/index.js';
 
-import type { ModerationDb } from './content.js';
+import { mediaDeliveryScopeSql, type ModerationDb } from './content.js';
 import { recordRemoteRemovalRequirement } from './governance.js';
 
 /** Restriction never erases financial facts, remote results or recognition obligations. */
@@ -66,7 +66,7 @@ async function revokeDependencies(
     subject.type === 'publication_delivery'
       ? 'p.id=$1'
       : subject.type === 'media'
-        ? 'p.media_id=$1'
+        ? mediaDeliveryScopeSql
         : subject.type === 'publication_draft'
           ? 'p.batch_id IN (SELECT batch_id FROM sponsor_publication_drafts WHERE id=$1)'
           : 'p.batch_id IN (SELECT batch_id FROM sponsor_publication_drafts WHERE contribution_id=$1)';

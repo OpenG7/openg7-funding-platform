@@ -18,12 +18,19 @@ import type {
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import { completeModeration } from './support/moderation.js';
-import { acceptDisplayedSponsorshipOffer } from './support/sponsorship-checkout.js';
 import { test, expect } from './support/test.js';
+import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
+import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';
+import { adjustAcceptanceObligationDestination } from './support/acceptance-agreement.js';
 
 const automation = '/api/admin/publication-automation';
 const cockpit = '/admin/fundraiser/publications/automation';
-const feeds: PublicationFeedId[] = ['openg7:facebook', 'openg7:linkedin'];
+const foundFeeds: PublicationFeedId[] = ['openg7:facebook', 'openg7:linkedin'];
+const controlFeeds: PublicationFeedId[] = [
+  'openg20:facebook',
+  'openg20:linkedin'
+];
+const feeds = [...foundFeeds, ...controlFeeds];
 type Scenario = 'found' | 'absent' | 'control';
 interface Company {
   scenario: Scenario;
@@ -214,6 +221,9 @@ test('lost social responses survive restart and recover through verified reconci
         await page
           .locator('#followup-websiteUrl')
           .fill('https://simulation.example.test');
+        await confirmAcceptanceMediaUsage(page, {
+          targets: scenario === 'control' ? ['openg7', 'openg20'] : ['openg7']
+        });
         for (const [label, filename] of [
           ['Ajouter le logo', 'logo.png'],
           ['Ajouter des photos', 'photo.png']
@@ -266,6 +276,14 @@ test('lost social responses survive restart and recover through verified reconci
     await signInAsAdmin(page);
     await test.step('Review media and prepare six text publications', async () => {
       for (const company of companies) {
+        if (company.scenario === 'control')
+          for (const channel of ['facebook', 'linkedin'] as const)
+            await adjustAcceptanceObligationDestination(
+              request,
+              company.record.id,
+              channel,
+              'openg20'
+            );
         await page.goto(
           '/admin/fundraiser/sponsors?sponsorshipId=' +
             company.record.id +
@@ -313,17 +331,24 @@ test('lost social responses survive restart and recover through verified reconci
     // Start the future schedule after the media reviews and preparation finish.
     const due = nextMinute();
     const controlDue = new Date(due.getTime() + 60000);
+    const absentDue = new Date(due.getTime() + 120000);
     await test.step('Explicitly schedule six text publications and configure one-shot lost responses', async () => {
       for (const company of companies) {
         company.jobs = (await state()).deliveries.filter((j) =>
           j.sponsors.some((s) => s.id === company.record.id)
         );
-        expect(company.jobs.map((j) => j.feedId).sort()).toEqual(feeds);
+        expect(company.jobs.map((j) => j.feedId).sort()).toEqual(
+          company.scenario === 'control' ? controlFeeds : foundFeeds
+        );
         for (const job of company.jobs) {
           expect(job.sponsors).toHaveLength(1);
           await approve(
             job,
-            company.scenario === 'control' ? controlDue : due,
+            company.scenario === 'control'
+              ? controlDue
+              : company.scenario === 'absent'
+                ? absentDue
+                : due,
             `${job.message}\n\nMerci à ${company.name}. Commandite rémunérée, recette simulée.`
           );
           if (company.scenario !== 'control') {
@@ -356,10 +381,11 @@ test('lost social responses survive restart and recover through verified reconci
         page.locator('[data-og7="publication-worker-toggle"]')
       ).toHaveAttribute('aria-checked', 'true');
     });
-    const uncertain = companies.filter((c) => c.scenario !== 'control');
+    const uncertain = companies.filter((c) => c.scenario === 'found');
     const control = companies.find((c) => c.scenario === 'control')!;
+    const absent = companies.find((c) => c.scenario === 'absent')!;
     const versions = new Map<string, number>();
-    await test.step('Lost responses quarantine all four jobs while the receiver retains the true outcomes', async () => {
+    await test.step('Lost responses quarantine the first jobs and hold the later approvals on their shared accounts', async () => {
       await expect
         .poll(
           async () => {
@@ -426,6 +452,14 @@ test('lost social responses survive restart and recover through verified reconci
             )
           });
         }
+      for (const job of absent.jobs) {
+        expect(await delivery(job.id)).toMatchObject({
+          status: 'approved',
+          attempts: 0,
+          publishedAt: null
+        });
+        expect(await receipt(job.id)).toEqual({ requests: [], posts: [] });
+      }
     });
     await test.step('Restart only the disposable API; working controls prove the resumed worker never retries uncertain jobs', async () => {
       const project = process.env.COMPOSE_PROJECT_NAME!;
@@ -486,6 +520,13 @@ test('lost social responses survive restart and recover through verified reconci
           });
           expect((await receipt(job.id)).requests).toHaveLength(1);
         }
+      for (const job of absent.jobs) {
+        expect(await delivery(job.id)).toMatchObject({
+          status: 'approved',
+          attempts: 0
+        });
+        expect(await receipt(job.id)).toEqual({ requests: [], posts: [] });
+      }
     });
     await test.step('Inspect the simulated provider and reconcile existing posts without another send', async () => {
       const found = companies.find((c) => c.scenario === 'found')!;
@@ -516,9 +557,12 @@ test('lost social responses survive restart and recover through verified reconci
         });
         expect(invalidConfirmation.status()).toBe(400);
         const dialog = await openDelivery(job.id);
-        const wrongId = (
-          await receipt(control.jobs.find((c) => c.feedId === job.feedId)!.id)
-        ).posts[0]!.id;
+        const foreignControl = control.jobs.find(
+          (c) => c.feedId.split(':')[1] === job.feedId.split(':')[1]
+        );
+        expect(foreignControl).toBeDefined();
+        expect(foreignControl!.feedId).not.toBe(job.feedId);
+        const wrongId = (await receipt(foreignControl!.id)).posts[0]!.id;
         await dialog
           .getByLabel(
             'Identifiant de la publication déjà visible sur le réseau'
@@ -560,7 +604,54 @@ test('lost social responses survive restart and recover through verified reconci
         ).toBeVisible();
       }
     });
-    const absent = companies.find((c) => c.scenario === 'absent')!;
+    await test.step('Reconciled account holds let the following approved jobs advance exactly once before their own lost responses require review', async () => {
+      await tick(new Date(absentDue.getTime() + 1000));
+      await expect
+        .poll(
+          async () => {
+            const current = await state();
+            return absent.jobs.every(
+              (job) =>
+                current.deliveries.find((item) => item.id === job.id)
+                  ?.status === 'uncertain'
+            );
+          },
+          { timeout: 35000, intervals: [1000, 3000] }
+        )
+        .toBe(true);
+      for (const job of absent.jobs) {
+        const quarantined = await delivery(job.id);
+        expect(quarantined).toMatchObject({
+          status: 'uncertain',
+          attempts: 1,
+          nextAttemptAt: null,
+          publishedAt: null,
+          externalPostId: null,
+          errorCode: 'PROVIDER_UNREACHABLE'
+        });
+        versions.set(job.id, quarantined.version);
+        const remote = await receipt(job.id);
+        expect(remote.requests).toHaveLength(1);
+        expect(remote.posts).toHaveLength(0);
+        for (const action of ['approve', 'cancel'] as const) {
+          const current = await delivery(job.id);
+          const response = await request.post(automation, {
+            headers: await adminSessionHeaders(request),
+            data: {
+              action,
+              id: job.id,
+              version: current.version,
+              confirmation: job.id
+            }
+          });
+          expect(response.status()).toBe(409);
+          expect(await response.json()).toMatchObject({
+            code:
+              action === 'approve' ? 'APPROVAL_UNAVAILABLE' : 'DELIVERY_LOCKED'
+          });
+        }
+      }
+    });
     await test.step('Confirm absence with an explicit audit reason, then require new draft approval', async () => {
       const retryDue = nextMinute();
       for (const job of absent.jobs) {
@@ -630,6 +721,7 @@ test('lost social responses survive restart and recover through verified reconci
         });
         expect((await receipt(job.id)).requests).toHaveLength(1);
         const blocked = await delivery(job.id);
+        expect(Number.isSafeInteger(versions.get(job.id))).toBe(true);
         const replay = await request.post(automation, {
           headers: await adminSessionHeaders(request),
           data: {
@@ -665,12 +757,14 @@ test('lost social responses survive restart and recover through verified reconci
       await page.close();
       // The restart and control delivery above use the API's real timer. Only
       // these freshly authorized retries advance the disposable worker clock.
-      const due = new Date((await delivery(absent.jobs[0]!.id)).scheduledAt);
-      await tick(new Date(due.getTime() - 1));
+      const retryDue = new Date(
+        (await delivery(absent.jobs[0]!.id)).scheduledAt
+      );
+      await tick(new Date(retryDue.getTime() - 1));
       for (const job of absent.jobs) {
         expect(await delivery(job.id)).toMatchObject({
           status: 'approved',
-          scheduledAt: due.toISOString(),
+          scheduledAt: retryDue.toISOString(),
           attempts: 1,
           publishedAt: null
         });
@@ -681,7 +775,7 @@ test('lost social responses survive restart and recover through verified reconci
       await expect
         .poll(
           async () => {
-            await runAcceptancePublicationWorker(due);
+            await runAcceptancePublicationWorker(retryDue);
             const current = await state();
             return absent.jobs.every(
               (j) =>
@@ -695,7 +789,7 @@ test('lost social responses survive restart and recover through verified reconci
       const published = await Promise.all(
         absent.jobs.map((job) => delivery(job.id))
       );
-      await tick(due);
+      await tick(retryDue);
       expect(
         await Promise.all(absent.jobs.map((job) => delivery(job.id)))
       ).toEqual(published);
@@ -755,8 +849,10 @@ test('lost social responses survive restart and recover through verified reconci
             providers: 'simulated',
             apiRestarted: true,
             newApprovalWorkerClock: 'controlled at the approved schedule',
-            due,
+            foundDue: due,
+            retryDue,
             controlDue,
+            absentDue,
             evidence
           },
           null,

@@ -40,7 +40,7 @@ import {
   recordEmailConfigurationTestQueuedAudit
 } from './email-queue.repository.js';
 import { withPostgresTransaction } from './postgres-transaction.js';
-import { loadSponsorshipOfferForSession } from './sponsorship-commitments/repository.js';
+import { loadSponsorshipOfferForSession } from './sponsorship-commitments.repository.js';
 import {
   enqueueEmailMessage,
   processQueuedEmailMessages,

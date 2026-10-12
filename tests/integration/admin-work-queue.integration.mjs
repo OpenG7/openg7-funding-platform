@@ -92,11 +92,38 @@ test(
       assert.equal(queue.available, true);
       assert.equal(queue.typeCounts.invoice_missing, 2005);
       assert.equal(queue.typeCounts.sponsorship_needs_info, 2005);
+      assert.equal(queue.typeCounts.sponsorship_needs_commitment, 2005);
+      assert.equal(queue.actionCounts.sponsorship_needs_commitment, 2005);
       assert.equal(queue.typeCounts.email_delivery_failed, 160);
       assert.equal(queue.typeCounts.publication_late, 220);
       assert.equal(queue.typeCounts.publication_ready, 110);
       assert.equal(queue.typeCounts.stripe_event_failed, 1);
-      assert.equal(queue.total, 4501);
+      assert.equal(queue.total, 6506);
+      const qualification = await getAdminWorkQueue(pool, {
+        type: 'sponsorship_needs_commitment',
+        pageSize: 100
+      });
+      assert.equal(qualification.filteredTotal, 2005);
+      assert.equal(
+        qualification.actionCounts.sponsorship_needs_commitment,
+        2005
+      );
+      assert.equal(qualification.items.length, 100);
+      assert.ok(
+        qualification.items.every(
+          (item) => item.type === 'sponsorship_needs_commitment'
+        )
+      );
+      const historicalQueue = await getAdminWorkQueue(pool, {
+        type: 'sponsorship_needs_commitment'
+      });
+      assert.equal(historicalQueue.filteredTotal, 2005);
+      assert.equal(historicalQueue.items.length, 25);
+      assert.ok(
+        historicalQueue.items.every(
+          (item) => item.type === 'sponsorship_needs_commitment'
+        )
+      );
       assert.doesNotMatch(JSON.stringify(queue), /demo@example|not exposed/);
       const oldEmail = (
         await pool.query(

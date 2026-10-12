@@ -2,9 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash, randomUUID } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
+import { setTimeout as delay } from 'node:timers/promises';
 import sharp from 'sharp';
 import { composePublicationRecognition } from '../../dist/packages/funding-core/src/index.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
+import { recordFixtureSponsorshipAgreement } from './support/sponsorship-agreement-fixture.mjs';
+import { waitForFixtureAccountCooldown } from './support/publication-account-cooldown-fixture.mjs';
 import {
   approveFixtureSubject,
   fixtureModerationDecision
@@ -32,8 +35,255 @@ import {
 } from '../../dist/apps/funding-api/src/sponsorship-access.service.js';
 
 test(
+  'concurrent preparation serializes post-commit composition without blocking an independent feed',
+  { timeout: 90000 },
+  async (t) => {
+    const database = await startDisposablePostgres();
+    t.after(database.stop);
+    const pool = database.pool;
+    const feedId = 'openg20:facebook';
+    const independentFeedId = 'openg7:linkedin';
+    const now = new Date('2030-06-03T12:00:00Z');
+    await pool.query(
+      'UPDATE publication_feeds SET capacity=2,horizon_days=1,weekdays=ARRAY[0,1,2,3,4,5,6] WHERE id=$1',
+      [feedId]
+    );
+    const contributionIds = [randomUUID(), randomUUID()];
+    for (const [index, id] of contributionIds.entries()) {
+      await pool.query(
+        `INSERT INTO fund_contributions(id,contribution_type,amount_cents,currency,status,public_display_consent,sponsor_review_status,sponsor_company_name,sponsor_public_summary)
+         VALUES($1,'sponsorship_interest',25000,'CAD','paid',TRUE,'pending_review',$2,'Complete synthetic recognition source.')`,
+        [id, `Synthetic preparation sponsor ${index + 1}`]
+      );
+      await recordFixtureSponsorshipAgreement(pool, id, {
+        channel: 'facebook',
+        target: 'openg20'
+      });
+    }
+    let compositionPid;
+    let secondPreparationPid;
+    let markBatchHeld;
+    const batchHeld = new Promise((resolve) => {
+      markBatchHeld = resolve;
+    });
+    let resumeComposition;
+    const compositionGate = new Promise((resolve) => {
+      resumeComposition = resolve;
+    });
+    let markSecondStarted;
+    const secondStarted = new Promise((resolve) => {
+      markSecondStarted = resolve;
+    });
+    const controlledPool = (party) => ({
+      query: (...args) => pool.query(...args),
+      connect: async () => {
+        const client = await pool.connect();
+        const pid = (await client.query('SELECT pg_backend_pid() AS pid'))
+          .rows[0].pid;
+        return {
+          release: () => client.release(),
+          query: async (...args) => {
+            const result = await client.query(...args);
+            const sql = typeof args[0] === 'string' ? args[0] : args[0].text;
+            if (
+              party === 'second' &&
+              sql === 'BEGIN' &&
+              !secondPreparationPid
+            ) {
+              secondPreparationPid = pid;
+              markSecondStarted();
+            }
+            if (
+              party === 'first' &&
+              !compositionPid &&
+              sql ===
+                'SELECT id FROM sponsor_publication_batches WHERE id=$1 FOR UPDATE'
+            ) {
+              compositionPid = pid;
+              markBatchHeld();
+              await compositionGate;
+            }
+            return result;
+          }
+        };
+      }
+    });
+    const env = {
+      SOCIAL_PUBLICATION_MODE: 'mock',
+      SOCIAL_PUBLICATION_WORKER_ENABLED: 'false'
+    };
+    const firstService = new PublicationAutomationService(
+      controlledPool('first'),
+      {},
+      env
+    );
+    const secondService = new PublicationAutomationService(
+      controlledPool('second'),
+      {},
+      env
+    );
+    const independentService = new PublicationAutomationService(pool, {}, env);
+    let first;
+    let second;
+    let independent;
+    const withinDeadline = (promise, label) =>
+      Promise.race([
+        promise,
+        delay(10000, undefined, { ref: false }).then(() => {
+          throw new Error(label);
+        })
+      ]);
+    try {
+      first = firstService.prepare(feedId, 'first-planner', now);
+      // Catch early errors without making the deliberately pending operation unhandled.
+      void first.catch(() => {});
+      await withinDeadline(
+        Promise.race([
+          batchHeld,
+          first.then(() => {
+            throw new Error('The first preparation did not reach composition.');
+          })
+        ]),
+        'The first composition did not acquire its batch lock.'
+      );
+      second = secondService.prepare(feedId, 'second-planner', now);
+      void second.catch(() => {});
+      await withinDeadline(
+        secondStarted,
+        'The second preparation did not start its transaction.'
+      );
+      await withinDeadline(
+        (async () => {
+          while (true) {
+            const { rows } = await pool.query(
+              'SELECT pg_blocking_pids($1) AS blockers',
+              [secondPreparationPid]
+            );
+            if (rows[0].blockers.includes(compositionPid)) return;
+            await delay(10);
+          }
+        })(),
+        'The second preparation did not overlap the held composition.'
+      );
+      independent = independentService.command(
+        {
+          action: 'compose',
+          feedId: independentFeedId,
+          kind: 'news',
+          message: 'An independent private publication remains available.',
+          scheduledAt: '2030-06-03T20:00:00Z'
+        },
+        'independent-planner'
+      );
+      await withinDeadline(
+        independent,
+        'An unrelated feed was blocked by the preparation gate.'
+      );
+      // Before the fix, the second transaction owns the contributions while
+      // waiting for this batch; resuming now forms the actual PostgreSQL cycle.
+      resumeComposition();
+      await Promise.all([first, second]);
+      const jobs = (
+        await pool.query(
+          'SELECT * FROM publication_deliveries WHERE feed_id=$1',
+          [feedId]
+        )
+      ).rows;
+      assert.equal(jobs.length, 1);
+      const replayInput = {
+        action: 'compose',
+        feedId,
+        kind: 'sponsorship',
+        batchId: jobs[0].batch_id
+      };
+      const replays = await Promise.all([
+        firstService.command(replayInput, 'first-planner'),
+        secondService.command(replayInput, 'second-planner')
+      ]);
+      assert.deepEqual(
+        replays.map(({ id }) => id),
+        [jobs[0].id, jobs[0].id]
+      );
+      assert.equal(
+        (
+          await pool.query(
+            'SELECT count(*)::int AS n FROM publication_deliveries WHERE feed_id=$1',
+            [feedId]
+          )
+        ).rows[0].n,
+        1
+      );
+      assert.equal(jobs[0].status, 'draft');
+      assert.equal(jobs[0].approved_at, null);
+      assert.equal(jobs[0].attempts, 0);
+      assert.deepEqual(
+        jobs[0].source_snapshot
+          .map(({ contribution_id }) => contribution_id)
+          .sort(),
+        contributionIds.sort()
+      );
+      assert.equal(
+        (
+          await pool.query(
+            'SELECT count(*)::int AS n FROM publication_recurrences WHERE feed_id=$1',
+            [feedId]
+          )
+        ).rows[0].n,
+        1
+      );
+      assert.equal(
+        (
+          await pool.query(
+            'SELECT count(*)::int AS n FROM sponsor_publication_drafts'
+          )
+        ).rows[0].n,
+        2
+      );
+      assert.equal(
+        (
+          await pool.query(
+            "SELECT count(*)::int AS n FROM admin_audit_log WHERE action='publication_automation.compose' AND entity_id=$1",
+            [jobs[0].id]
+          )
+        ).rows[0].n,
+        1
+      );
+      assert.equal(
+        (
+          await pool.query(
+            "SELECT count(*)::int AS n FROM admin_audit_log WHERE action='publication_automation.prepare' AND entity_id=$1",
+            [feedId]
+          )
+        ).rows[0].n,
+        2
+      );
+      assert.equal(
+        (
+          await pool.query(
+            'SELECT count(*)::int AS n FROM moderation_decisions'
+          )
+        ).rows[0].n,
+        0,
+        'preparation creates no N0 or publication approval'
+      );
+      assert.equal(
+        (
+          await pool.query(
+            'SELECT count(*)::int AS n FROM publication_account_reservations'
+          )
+        ).rows[0].n,
+        0
+      );
+    } finally {
+      resumeComposition();
+      await Promise.allSettled([first, second, independent].filter(Boolean));
+    }
+  }
+);
+
+test(
   'publication automation with disposable PostgreSQL',
-  { timeout: 180000 },
+  { timeout: 240000 },
   async (t) => {
     const database = await startDisposablePostgres();
     t.after(database.stop);
@@ -116,27 +366,41 @@ test(
         .filter(Boolean)
         .join('\n\n');
     }
-    async function sponsor({ reviewed = true } = {}) {
+    async function sponsor({ reviewed = true, agreement = true } = {}) {
       const id = randomUUID();
       await pool.query(
         `INSERT INTO fund_contributions(id,contribution_type,amount_cents,status,public_display_consent,sponsor_review_status,sponsor_company_name,sponsor_public_summary,sponsor_feed_target,sponsor_feed_channels) VALUES($1,'sponsorship_interest',25000,'paid',TRUE,'approved','Fixture sponsor','Approved public summary','openg20','["facebook"]')`,
         [id]
       );
+      if (agreement)
+        await recordFixtureSponsorshipAgreement(pool, id, {
+          channel: 'facebook',
+          target: 'openg20'
+        });
       if (reviewed)
         await approveFixtureSubject(pool, { type: 'sponsorship', id });
       return id;
     }
     async function presentation(contributionId) {
       const id = randomUUID();
+      const bytes =
+        imageBytes ??
+        (await sharp({
+          create: { width: 2, height: 2, channels: 3, background: '#ffffff' }
+        })
+          .webp()
+          .toBuffer());
       await pool.query(
-        `INSERT INTO sponsor_media_assets(id,contribution_id,kind,review_status,original_filename,original_mime_type,original_size_bytes,original_storage_key,processed_size_bytes,processed_storage_key,public_storage_key,public_url,checksum_sha256,width,height,alt_text) VALUES($1,$2,'supporting_image','approved','fixture.png','image/png',1,$3,1,$4,$5,'https://example.test/image.webp',$6,2,2,'Approved image')`,
+        `INSERT INTO sponsor_media_assets(id,contribution_id,kind,review_status,original_filename,original_mime_type,original_size_bytes,original_storage_key,processed_size_bytes,processed_storage_key,public_storage_key,public_url,checksum_sha256,width,height,alt_text,usage_rights) VALUES($1,$2,'supporting_image','approved','fixture.webp','image/webp',$7,$3,$7,$4,$5,'https://example.test/image.webp',$6,2,2,'Approved image',
+        '{"state":"confirmed","channels":["website","facebook","linkedin"],"targets":["openg7","openg20"],"transformations":["technical"],"credit":null,"restrictions":null}')`,
         [
           id,
           contributionId,
           `${id}/original`,
           `${id}/processed`,
           `${id}/public`,
-          '0'.repeat(64)
+          createHash('sha256').update(bytes).digest('hex'),
+          bytes.length
         ]
       );
       await approveFixtureSubject(pool, { type: 'media', id });
@@ -177,7 +441,7 @@ test(
       };
     }
     await t.test(
-      'CAD tier boundaries and consent restrict preparation; explicit routing remains an admin override',
+      'explicit recorded agreements and consent restrict preparation independently of legacy routing fields',
       async () => {
         await reset();
         const cases = [
@@ -207,6 +471,10 @@ test(
                 JSON.stringify(example.explicit ?? [])
               ]
             );
+            if (example.currency !== 'usd')
+              await recordFixtureSponsorshipAgreement(pool, id, {
+                channels: ['website', ...example.channels]
+              });
             sponsors.push({ id, channels: example.channels });
           }
           for (const channel of ['facebook', 'linkedin']) {
@@ -541,7 +809,7 @@ test(
       }
     });
     await t.test(
-      'private preparation works while paused and disconnected, derives promised destinations and excludes ineligible orders',
+      'private preparation works while paused and disconnected, uses recorded promised destinations and excludes ineligible orders',
       async () => {
         await reset();
         env.SOCIAL_PUBLICATION_MODE = 'disabled';
@@ -549,8 +817,11 @@ test(
         const noConsent = await sponsor({ reviewed: false });
         const unpaid = await sponsor({ reviewed: false });
         const rejected = await sponsor({ reviewed: false });
-        const lowerTier = await sponsor({ reviewed: false });
-        const foreignCurrency = await sponsor({ reviewed: false });
+        const lowerTier = await sponsor({ reviewed: false, agreement: false });
+        const foreignCurrency = await sponsor({
+          reviewed: false,
+          agreement: false
+        });
         await pool.query(
           "UPDATE fund_contributions SET sponsor_feed_target=NULL,sponsor_feed_channels='[]',sponsor_public_summary=NULL,sponsor_review_status='pending_review'"
         );
@@ -575,7 +846,8 @@ test(
           [foreignCurrency]
         );
         await pool.query(
-          "UPDATE publication_feeds SET auto_prepare=TRUE WHERE id='openg7:facebook'"
+          'UPDATE publication_feeds SET auto_prepare=TRUE WHERE id=$1',
+          [feedId]
         );
         assert.equal(
           (
@@ -595,7 +867,7 @@ test(
         assert.equal(job.autoManaged, true);
         assert.equal(job.sponsors[0].id, valid);
         assert.equal(job.sponsors[0].reviewStatus, 'pending_review');
-        assert.equal(job.feedId, 'openg7:facebook');
+        assert.equal(job.feedId, feedId);
         assert.ok(job.message.includes('Merci'));
         await service.tick();
         assert.equal((await service.state()).deliveries.length, 1);
@@ -738,6 +1010,20 @@ test(
         );
         assert.equal((await listPublicBuilders(pool)).builders.length, 0);
         assert.equal(await getApprovedPublicSponsorMedia(pool, mediaId), null);
+        const websiteBytes = await sharp({
+          create: { width: 2, height: 2, channels: 3, background: '#345678' }
+        })
+          .webp()
+          .toBuffer();
+        await pool.query(
+          'UPDATE sponsor_media_assets SET processed_size_bytes=$2,checksum_sha256=$3,width=2,height=2,updated_at=clock_timestamp() WHERE id=$1',
+          [
+            mediaId,
+            websiteBytes.length,
+            createHash('sha256').update(websiteBytes).digest('hex')
+          ]
+        );
+        await approveFixtureSubject(pool, { type: 'media', id: mediaId });
         await approveFixtureSubject(pool, {
           type: 'sponsorship',
           id: contributionId
@@ -751,7 +1037,11 @@ test(
               visible: true,
               confirmed: true
             },
-            'reviewer'
+            'reviewer',
+            {
+              readPrivateObject: async (key) =>
+                key === `${mediaId}/processed` ? websiteBytes : null
+            }
           ),
           'updated'
         );
@@ -1242,8 +1532,20 @@ test(
           { code: 'REMOTE_POST_UNVERIFIED', status: 503 }
         );
         assert.deepEqual(await record(first), uncertain);
+        await service.command(
+          {
+            action: 'confirm-absent',
+            id: first,
+            version: uncertain.version,
+            confirmation: first,
+            reason:
+              'Synthetic operator reviewed the complete fixture-provider history and confirmed no first post exists.'
+          },
+          'tester'
+        );
         const second = await compose();
         await approve(second);
+        await waitForFixtureAccountCooldown(pool, second);
         outcome = 'limit';
         await service.tick(due);
         assert.equal((await record(second)).status, 'approved');
@@ -1253,6 +1555,14 @@ test(
           'UPDATE publication_deliveries SET next_attempt_at=NOW() WHERE id=$1',
           [second]
         );
+        await service.tick(due);
+        assert.equal((await record(second)).status, 'approved');
+        assert.equal(
+          requests.length,
+          2,
+          'An injected future worker date cannot bypass the real account cooldown.'
+        );
+        await waitForFixtureAccountCooldown(pool, second);
         await service.tick(due);
         assert.equal((await record(second)).status, 'published');
         assert.deepEqual(requests, [
@@ -1423,14 +1733,16 @@ test(
           .toBuffer();
         const mediaId = randomUUID();
         await pool.query(
-          `INSERT INTO sponsor_media_assets(id,contribution_id,kind,review_status,original_filename,original_mime_type,original_size_bytes,original_storage_key,processed_size_bytes,processed_storage_key,public_storage_key,public_url,checksum_sha256,width,height,alt_text) VALUES($1,$2,'supporting_image','approved','fixture.png','image/png',1,$3,1,$4,$5,'https://example.test/image.webp',$6,2,2,'Approved image')`,
+          `INSERT INTO sponsor_media_assets(id,contribution_id,kind,review_status,original_filename,original_mime_type,original_size_bytes,original_storage_key,processed_size_bytes,processed_storage_key,public_storage_key,public_url,checksum_sha256,width,height,alt_text,usage_rights) VALUES($1,$2,'supporting_image','approved','fixture.webp','image/webp',$7,$3,$7,$4,$5,'https://example.test/image.webp',$6,2,2,'Approved image',
+          '{"state":"confirmed","channels":["website","facebook","linkedin"],"targets":["openg7","openg20"],"transformations":["technical"],"credit":null,"restrictions":null}')`,
           [
             mediaId,
             contributionId,
             `${mediaId}/original`,
             `${mediaId}/processed`,
             `${mediaId}/public`,
-            '0'.repeat(64)
+            createHash('sha256').update(imageBytes).digest('hex'),
+            imageBytes.length
           ]
         );
         await approveFixtureSubject(pool, { type: 'media', id: mediaId });

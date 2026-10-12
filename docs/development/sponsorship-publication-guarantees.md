@@ -12,6 +12,11 @@ mais les cases restent ouvertes jusqu'à vérification du critère dans tous les
 parcours concernés. Ce cadrage ne constitue ni une livraison, ni une activation
 des envois, ni une modification des engagements existants.
 
+La reprise locale sur `main` est reçue séparément dans le
+[compteur des six priorités](sponsorship-publication-tasks.md#progression-des-six-chantiers-autorisés).
+Ses preuves techniques ne clôturent pas automatiquement les dix-neuf garanties
+dans tous les formats, toutes les cibles historiques ou sur un compte externe.
+
 Les [règles de commandite](sponsorship-rules.md) et le
 [runbook de publication](../operations/publication-automation.md) restent les
 références du fonctionnement actuel. Les garanties portent sur une reconnaissance
@@ -25,6 +30,52 @@ le modèle cible, les étapes de réalisation et les critères de réception.
 Le [plan de tâches de réalisation](sponsorship-publication-tasks.md) consigne
 le feu vert pour les travaux locaux, leur découpage, les dépendances et les
 conditions de clôture. Les cases ci-dessous restent ouvertes jusqu'aux preuves.
+
+## Registre de réception du complément
+
+Le complément autorisé le 12 octobre 2026 porte sur cinq travaux : report des
+correctifs financiers et Checkout, changements de créneau, durées d'exposition,
+liens vers les preuves individuelles et réception des garanties. Sa base est
+`a7d9ea0`, avec les changements locaux préservés. Les résultats de cette révision
+figurent dans le [plan de réception](sponsorship-publication-tasks.md#réception-locale-du-complément).
+Les anciennes recettes ne sont pas réattribuées à ce complément.
+
+La table indique les suites propriétaires et ce qui reste à qualifier. Les
+commandes effectivement exécutées et leurs résultats figurent dans le reçu
+daté du plan; une référence à une suite ne prétend pas qu'elle a été exécutée
+dans ce complément. Une
+case globale reste ouverte si son critère dépasse la portée reçue. Les formats
+pris en charge sont texte collectif, portrait individuel et montage JPEG ; la
+collection de plusieurs images reste indisponible. Les fournisseurs sont simulés
+dans cette réception. Une activation ou une qualification réelle est distincte.
+
+<!-- prettier-ignore -->
+| Garantie | Preuve locale propriétaire | Condition restante avant clôture globale |
+| --- | --- | --- |
+| G01 | [Offres et engagements](../../tests/integration/sponsorship-commitments.integration.mjs), [activation financière](../../tests/integration/sponsorship-payment-activation.integration.mjs) : montant/devise confirmés, rejeu, changement d'offre et historique inconnu. | Qualifier chaque accord historique ; aucun avantage dérivé du barème actuel. |
+| G02 | [Passages successifs](../../tests/integration/publication-draft-passages.integration.mjs) et [calendrier](../../tests/integration/publication-calendar-boundaries.integration.mjs) : obligation conservée, déplacement et refus humain. | Recevoir chaque chemin de report et d'annulation avec les nouveaux raccords. |
+| G03 | [Reconnaissance finale](../../tests/publication-recognition.test.mjs), [éléments Web requis](../../tests/integration/sponsorship-website-required-elements.integration.mjs) et [pipeline visuel](../../tests/integration/publication-visual-pipeline.integration.mjs). | Qualifier le contenu effectivement reçu par chaque adaptateur réel. |
+| G04 | [File rendue](../../tests/integration/publication-rendered-queue.integration.mjs) : surplus conservé et aucune troncature des bénéficiaires. | Recette transversale des huit dossiers sur chaque format pris en charge. |
+| G05 | [Composition](../../tests/publication-composite.test.mjs), [reconnaissance](../../tests/publication-recognition.test.mjs) et [file rendue](../../tests/integration/publication-rendered-queue.integration.mjs) : texte complet et caractères multioctets. | Qualifier la limite du compte réel ; 2 900 caractères reste une limite applicative du parcours. |
+| G06 | [Concurrence de capacité](../../tests/integration/publication-capacity-concurrency.integration.mjs) et [composition des membres](../../tests/integration/publication-membership-rendering.integration.mjs). | Recevoir toute mutation de membres, lot et créneau sous concurrence. |
+| G07 | [File rendue](../../tests/integration/publication-rendered-queue.integration.mjs) : première source trop longue, autres sources admises, correction et nouvelle revue. | Vérifier le maintien de l'ancienneté dans une file représentative. |
+| G08 | [Préparation](../../tests/publication-automation-planning.test.mjs) et [file rendue](../../tests/integration/publication-rendered-queue.integration.mjs). | L'ordre local et le scan de 400 ne prouvent pas une absence de famine sous concurrence ; mesurer et recevoir ce critère. |
+| G09 | [Fiabilité globale](../../tests/integration/publication-reliability.integration.mjs) et [calendrier](../../tests/integration/publication-calendar-boundaries.integration.mjs). | Recevoir une date proposée ou une cause exploitable au-delà de l'horizon, pour chaque dossier admissible. |
+| G10 | [Fiabilité](../../tests/publication-reliability.test.mjs), [détecteurs](../../tests/admin-attention-publication-detectors.test.mjs) : âge, saturation, incidents et alertes. | Fixer et recevoir le délai commercial, son départ et les périodes suspendues ; aucun délai n'est inventé. |
+| G11 | [Réservations du compte](../../tests/integration/publication-account-reservations.integration.mjs) et [calendrier](../../tests/integration/publication-calendar-boundaries.integration.mjs). | Qualifier les comptes effectifs et leurs limites ; l'espacement technique ne vaut pas quota fournisseur. |
+| G12 | [Baux du worker](../../tests/integration/publication-worker-claims.integration.mjs) et [réservations](../../tests/integration/publication-account-reservations.integration.mjs) : pause, reprise et compte partagé. | Mesurer l'espacement sur une cible qualifiée, sans transformer une reprise en nouvelle autorisation. |
+| G13 | [Dates et fuseaux](../../tests/publication-date-time.test.mjs), [worker](../../tests/publication-automation-delivery-worker.test.mjs) et [baux](../../tests/integration/publication-worker-claims.integration.mjs). | Recevoir le franchissement d'échéance pendant la préparation et la marge commerciale choisie. |
+| G14 | [Calendrier](../../tests/integration/publication-calendar-boundaries.integration.mjs) et [gardes de modération](../../tests/integration/moderation-publication-guards.integration.mjs) : ancienne approbation révoquée, nouvelle date à approuver. | Aucun résultat en vol ou incertain ne peut être déplacé ou libéré. |
+| G15 | [Gardes de modération](../../tests/integration/moderation-publication-guards.integration.mjs), [droits média](../../tests/integration/sponsor-media-usage.integration.mjs) et [termes Web](../../tests/integration/sponsorship-website-terms.integration.mjs). | Recevoir consentement, paiement, remboursement partiel, média et refus sur chaque chemin d'envoi. |
+| G16 | [Baux](../../tests/integration/publication-worker-claims.integration.mjs), [réconciliation](../../tests/integration/publication-reconciliation-visibility.integration.mjs) et [Checkout](../../tests/checkout-attempts.test.mjs). | Qualifier la lecture distante et l'identité exacte des images ; l'inconnu conserve son hold. |
+| G17 | [Preuves](../../tests/integration/sponsorship-fulfilment.integration.mjs), [durées](../../tests/integration/sponsorship-obligation-timing.integration.mjs), [preuves Web](../../tests/integration/sponsorship-website-required-elements.integration.mjs) et [suivi privé](../../tests/playwright/sponsorship-offer.ui.ts). | Durées limitées au site OpenG7 avec clôture justifiée ; aucune observation ponctuelle ne prouve seule une continuité. |
+| G18 | [Progression](../../tests/integration/sponsorship-progress.integration.mjs), [fiabilité globale](../../tests/integration/publication-reliability.integration.mjs) et [suivi privé](../../tests/playwright/sponsorship-offer.ui.ts). | Recevoir lisibilité FR/EN, navigation clavier/mobile et coût des lectures sur une file représentative. |
+| G19 | [Matrice de validation](validation.md) et [réception datée](sponsorship-publication-tasks.md). | Consigner les commandes réellement exécutées, résultats, omissions et qualification externe séparée. |
+
+Pour clôturer un périmètre local, enregistrer la révision exacte ou l'empreinte
+du patch, la commande, la date, le nombre de réussites/échecs/omissions et le
+scénario du critère. Un résultat de compilation, un compteur de tests global ou
+la présence d'un test ne suffit pas à solder les lignes de ce registre.
 
 ## Garanties et critères de traitement
 
@@ -190,13 +241,12 @@ Chaque lot reçoit son approbation; l'espacement convenu reste applicable.
 
 ## Photos des commanditaires
 
-Le parcours actuel accepte une image approuvée par publication, choisie par
-l'administrateur parmi les médias admissibles. Dans un lot collectif, cette image
-est commune à tous les participants. Chaque participant peut fournir ses propres
-photos dans son dossier, mais le lot ne diffuse pas automatiquement une photo
-distincte par participant. Le [runbook](../operations/publication-automation.md)
-décrit cette limite; les publications à plusieurs images et la génération
-automatique de visuels collectifs restent des évolutions distinctes.
+Le parcours texte accepte une image approuvée commune au lot. Les formats
+portrait et montage JPEG utilisent désormais une photo qualifiée propre à
+chaque dossier concerné, avec droits de transformation et crédit exacts.
+L'aperçu est le fichier final de l'envoi ; aucune photo absente n'est remplacée
+silencieusement. Le [contrat des formats](../technical/publication-formats.md)
+décrit ces capacités et la collection de plusieurs images encore indisponible.
 
 Une offre avec photo propre à chaque commanditaire doit préciser sa formule :
 publication individuelle avec sa photo, ou évolution vers un format collectif

@@ -1,26 +1,30 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
 import test from 'node:test';
 
 import {
   createSponsorshipOfferSnapshot,
-  normalizeSponsorshipOfferSnapshot
+  normalizeSponsorshipOfferSnapshot,
+  normalizeSponsorshipOfferFormats,
+  publicationFormatCapability,
+  publicSponsorshipObligations
 } from '../dist/packages/funding-core/src/index.js';
 import {
   quoteSponsorshipOffer,
   sponsorshipOfferFingerprint,
   validateSponsorshipOfferAcceptance
 } from '../dist/apps/funding-api/src/sponsorship-commitments/offers.js';
-import {
-  activateSponsorshipCommitments,
-  loadSponsorshipCommitment
-} from '../dist/apps/funding-api/src/sponsorship-commitments/repository.js';
+import { loadSponsorshipCommitment } from '../dist/apps/funding-api/src/sponsorship-commitments/repository.js';
 import { createSponsorshipCommitmentsHttpHandler } from '../dist/apps/funding-api/src/sponsorship-commitments/admin-http.js';
 import { createPublicPaymentsHttpHandler } from '../dist/apps/funding-api/src/public-payments.http.js';
+import { previewSponsorshipCommitmentAdoption } from '../dist/apps/funding-api/src/sponsorship-commitments/adoption.js';
 import {
-  qualifySponsorshipCommitment,
-  adjustSponsorshipObligation
+  adjustSponsorshipObligation,
+  qualifySponsorshipCommitment
 } from '../dist/apps/funding-api/src/sponsorship-commitments/changes.js';
+import { validateCommand } from '../dist/apps/funding-api/src/sponsorship-commitments/change-support.js';
+import { createSponsorshipFollowupHttpHandler } from '../dist/apps/funding-api/src/sponsorship-followup.http.js';
 
 test('offered benefits use safe integer minor units, an explicit CAD currency and exact boundaries', () => {
   for (const [amount, ids] of [
@@ -86,9 +90,86 @@ test('a previously quoted snapshot retains terms when the current pricing change
   assert.equal(sponsorshipOfferFingerprint(unordered), original.fingerprint);
 });
 
+test('old offer canonical JSON and fingerprint stay unchanged while new image formats are explicit', () => {
+  const canonical =
+    '{"version":"sponsorship-v1","amountMinor":25000,"currency":"CAD","benefits":[{"id":"facebook_batch","channel":"facebook","target":"openg7","quantity":1,"requiredElements":["company_name","approved_presentation"],"deadlineDays":null,"durationDays":null}]}';
+  const old = JSON.parse(canonical);
+  assert.equal(
+    JSON.stringify(normalizeSponsorshipOfferSnapshot(old)),
+    canonical
+  );
+  assert.equal(
+    sponsorshipOfferFingerprint(old),
+    createHash('sha256').update(canonical).digest('hex')
+  );
+  assert.equal(
+    Object.hasOwn(normalizeSponsorshipOfferSnapshot(old).benefits[0], 'format'),
+    false
+  );
+  const text = quoteSponsorshipOffer(50000, 'CAD');
+  const portrait = quoteSponsorshipOffer(50000, 'CAD', undefined, {
+    facebook: 'individual_portrait'
+  });
+  const composite = quoteSponsorshipOffer(50000, 'CAD', undefined, {
+    facebook: 'collective_composite'
+  });
+  assert.equal(text.version, 'sponsorship-v2');
+  assert.equal(Object.hasOwn(text.benefits[0], 'format'), false);
+  assert.equal(text.benefits[1].format, 'collective_text');
+  assert.equal(portrait.benefits[1].format, 'individual_portrait');
+  assert.equal(portrait.benefits[2].format, 'collective_text');
+  assert.equal(
+    new Set([text.fingerprint, portrait.fingerprint, composite.fingerprint])
+      .size,
+    3
+  );
+  for (const [channel, format] of [
+    ['facebook', 'image_collection'],
+    ['linkedin', 'image_collection'],
+    ['website', 'individual_portrait'],
+    ['unknown', 'collective_text']
+  ])
+    assert.equal(publicationFormatCapability(channel, format).available, false);
+  assert.equal(
+    publicationFormatCapability('facebook', 'individual_portrait')
+      .requiresSingleSponsor,
+    true
+  );
+  assert.throws(
+    () =>
+      quoteSponsorshipOffer(50000, 'CAD', undefined, {
+        facebook: 'image_collection'
+      }),
+    { code: 'FORMAT_UNAVAILABLE' }
+  );
+  assert.throws(
+    () =>
+      quoteSponsorshipOffer(5000, 'CAD', undefined, {
+        facebook: 'individual_portrait'
+      }),
+    { code: 'SPONSORSHIP_OFFER_INVALID' }
+  );
+  for (const bad of [
+    null,
+    [],
+    { twitter: 'collective_text' },
+    { facebook: ['collective_text'] },
+    { facebook: 'photo' }
+  ])
+    assert.throws(() => normalizeSponsorshipOfferFormats(bad));
+  assert.equal(normalizeSponsorshipOfferFormats(undefined), undefined);
+  assert.equal(normalizeSponsorshipOfferFormats({}), undefined);
+  assert.deepEqual(
+    normalizeSponsorshipOfferFormats({
+      linkedin: 'collective_composite',
+      facebook: 'individual_portrait'
+    }),
+    { facebook: 'individual_portrait', linkedin: 'collective_composite' }
+  );
+});
+
 test('offer acceptance is a strict reference and historical terms reject foreign channels or unsafe quantities', () => {
   const quote = quoteSponsorshipOffer(50000, 'CAD');
-  const { fingerprint: _fingerprint, ...snapshot } = quote;
   assert.deepEqual(
     validateSponsorshipOfferAcceptance({
       version: quote.version,
@@ -113,38 +194,63 @@ test('offer acceptance is a strict reference and historical terms reject foreign
   ])
     assert.throws(() =>
       normalizeSponsorshipOfferSnapshot({
-        ...snapshot,
+        ...quote,
         benefits: [{ ...quote.benefits[0], ...change }]
       })
     );
 });
 
-test('normalization rejects unrecognized promises and isolates every recorded requirement array', () => {
+test('normalization rejects unrecognized commercial promises before hashing or qualification', () => {
   const snapshot = createSponsorshipOfferSnapshot(50000, 'CAD');
   for (const unknown of [
     { ...snapshot, guaranteedReach: 1000 },
-    { ...snapshot, fingerprint: 'a'.repeat(64) },
     {
       ...snapshot,
       benefits: [{ ...snapshot.benefits[0], individualPhoto: true }]
+    },
+    {
+      ...snapshot,
+      benefits: [{ ...snapshot.benefits[0], deadlineHours: 24 }]
     }
-  ])
+  ]) {
     assert.throws(() => normalizeSponsorshipOfferSnapshot(unknown));
-  assert.throws(() =>
-    sponsorshipOfferFingerprint({ ...snapshot, guaranteedReach: 1000 })
-  );
+    assert.throws(() => sponsorshipOfferFingerprint(unknown));
+  }
+});
+
+test('normalization isolates every recorded requirement array from later source mutation', () => {
+  const snapshot = createSponsorshipOfferSnapshot(50000, 'CAD', undefined, {
+    facebook: 'individual_portrait'
+  });
   const normalized = normalizeSponsorshipOfferSnapshot(snapshot);
   const hash = sponsorshipOfferFingerprint(normalized);
   snapshot.benefits[0].requiredElements.push('approved_logo');
   snapshot.benefits[0].quantity = 2;
+  snapshot.benefits[1].requiredElements.splice(0, 1);
   snapshot.benefits.push({ ...snapshot.benefits[0] });
   assert.equal(normalized.benefits.length, 3);
   assert.equal(normalized.benefits[0].quantity, 1);
-  assert.deepEqual(normalized.benefits[0].requiredElements, [
-    'company_name',
-    'approved_presentation'
-  ]);
+  assert.equal(normalized.benefits[1].format, 'individual_portrait');
+  for (const benefit of normalized.benefits)
+    assert.deepEqual(benefit.requiredElements, [
+      'company_name',
+      'approved_presentation'
+    ]);
   assert.equal(sponsorshipOfferFingerprint(normalized), hash);
+});
+
+test('normalization accepts quote metadata but recomputes the fingerprint from current commercial terms', () => {
+  const quote = quoteSponsorshipOffer(50000, 'CAD', undefined, {
+    facebook: 'individual_portrait'
+  });
+  const { fingerprint, ...snapshot } = quote;
+  assert.deepEqual(normalizeSponsorshipOfferSnapshot(quote), snapshot);
+  assert.equal(sponsorshipOfferFingerprint(quote), fingerprint);
+  const foreignDigest = { ...quote, fingerprint: '0'.repeat(64) };
+  assert.deepEqual(normalizeSponsorshipOfferSnapshot(foreignDigest), snapshot);
+  assert.equal(sponsorshipOfferFingerprint(foreignDigest), fingerprint);
+  assert.notEqual(fingerprint, foreignDigest.fingerprint);
+  assert.equal(Object.hasOwn(snapshot, 'fingerprint'), false);
 });
 
 test('unknown administrative terms are refused before database access', async () => {
@@ -156,93 +262,176 @@ test('unknown administrative terms are refused before database access', async ()
     confirmation: id,
     reason: 'Synthetic explicit agreement'
   };
-  await assert.rejects(
-    qualifySponsorshipCommitment(
-      db,
-      {
-        ...common,
-        contributionId: id,
-        evidenceReference: 'synthetic://agreement',
-        offer: createSponsorshipOfferSnapshot(50000, 'CAD'),
-        guarantee: 'reach'
-      },
-      `admin:${id}`
-    ),
-    { code: 'COMMITMENT_INVALID' }
+  const qualification = {
+    ...common,
+    contributionId: id,
+    evidenceReference: 'synthetic://agreement',
+    offer: {
+      ...createSponsorshipOfferSnapshot(50000, 'CAD'),
+      version: 'historical-qualification-v1'
+    }
+  };
+  for (const extra of [
+    { guarantee: 'reach' },
+    { kind: 'waiver' },
+    { format: 'individual_portrait' }
+  ])
+    await assert.rejects(
+      qualifySponsorshipCommitment(
+        db,
+        { ...qualification, ...extra },
+        `admin:${id}`
+      ),
+      { code: 'COMMITMENT_INVALID' }
+    );
+  for (const extra of [
+    { payment: 'refunded' },
+    { offer: qualification.offer },
+    { evidenceReference: 'synthetic://foreign' }
+  ])
+    await assert.rejects(
+      adjustSponsorshipObligation(
+        db,
+        { ...common, obligationId: id, kind: 'waiver', ...extra },
+        `admin:${id}`
+      ),
+      { code: 'COMMITMENT_INVALID' }
+    );
+  assert.deepEqual(
+    validateCommand(qualification, 'contributionId'),
+    qualification
   );
-  await assert.rejects(
-    adjustSponsorshipObligation(
-      db,
-      { ...common, obligationId: id, kind: 'waiver', payment: 'refunded' },
-      `admin:${id}`
-    ),
-    { code: 'COMMITMENT_INVALID' }
-  );
+  for (const terms of [
+    { kind: 'destination', target: 'openg20' },
+    { kind: 'waiver' },
+    { kind: 'format', format: 'individual_portrait' }
+  ]) {
+    const adjustment = { ...common, obligationId: id, ...terms };
+    assert.deepEqual(validateCommand(adjustment, 'obligationId'), adjustment);
+  }
 });
 
-test('only exact authoritative payment facts can correlate an accepted offer', async () => {
-  const sessionId = 'cs_synthetic';
-  const paymentIntentId = 'pi_synthetic';
-  const operationId = '00000000-0000-4000-8000-000000000041';
-  const offer = createSponsorshipOfferSnapshot(50000, 'CAD');
-  for (const facts of [
-    undefined,
-    { amountCents: 49999, currency: 'CAD' },
-    { amountCents: 50000.5, currency: 'CAD' },
-    { amountCents: Number.MAX_SAFE_INTEGER + 1, currency: 'CAD' },
-    { amountCents: 50000, currency: 'USD' },
-    { amountCents: 50000, currency: null },
-    { amountCents: 50000, currency: 'CAD', publicReference: 'SYNTHETIC-OTHER' },
-    { amountCents: 50000, currency: 'cad', publicReference: 'SYNTHETIC' }
-  ]) {
-    const accepts = facts?.publicReference === 'SYNTHETIC';
-    let insert;
-    let createdObligations = 0;
-    const db = {
-      query: async (sql, values) => {
-        if (sql.includes('FROM fund_contributions c LEFT JOIN'))
-          return {
-            rows: [
-              {
-                id: 'contribution',
-                public_reference: 'SYNTHETIC',
-                amount_cents: '50000',
-                currency: 'cad',
-                stripe_session_id: sessionId,
-                stripe_payment_intent_id: paymentIntentId,
-                metadata: { openg7CheckoutOperationId: operationId }
-              }
-            ]
-          };
-        if (sql.includes('SELECT id,snapshot FROM sponsorship_offers')) {
-          assert.ok(accepts, 'uncorrelated payment must not select an offer');
-          return { rows: [{ id: 'offer', snapshot: offer }] };
-        }
-        if (sql.includes('INSERT INTO sponsorship_commitments')) {
-          insert = values;
-          return {
-            rows: [{ id: 'commitment', offer_id: accepts ? 'offer' : null }]
-          };
-        }
-        if (sql.includes('INSERT INTO sponsorship_obligations')) {
-          createdObligations++;
-          return { rows: [] };
-        }
-        assert.fail('unexpected query');
-      }
-    };
-    await activateSponsorshipCommitments(db, {
-      stripeSessionId: sessionId,
-      stripePaymentIntentId: paymentIntentId,
-      trustedPaymentFacts: facts
-    });
-    assert.equal(
-      insert[2],
-      accepts ? 'accepted_offer' : 'historical_unverified'
+test('malformed format adjustments reject before reading or writing a dossier', async () => {
+  let reads = 0;
+  const db = {
+    query: async () => {
+      reads++;
+      throw new Error('No database access expected');
+    }
+  };
+  const id = '00000000-0000-4000-8000-000000000045';
+  const command = {
+    requestId: id,
+    obligationId: id,
+    expectedVersion: 1,
+    confirmation: id,
+    reason: 'Synthetic format agreement',
+    kind: 'format',
+    format: 'individual_portrait'
+  };
+  for (const change of [
+    { format: ['individual_portrait'] },
+    { format: 'photo' },
+    { format: undefined },
+    { target: 'openg20' },
+    { kind: 'waiver', format: 'collective_text' }
+  ])
+    await assert.rejects(
+      adjustSponsorshipObligation(
+        db,
+        { ...command, ...change },
+        'admin:00000000-0000-4000-8000-000000000041'
+      ),
+      { code: 'COMMITMENT_INVALID', status: 400 }
     );
-    assert.equal(insert[3], accepts ? 'active' : 'needs_confirmation');
-    assert.equal(createdObligations, accepts ? 3 : 0);
-  }
+  assert.equal(reads, 0);
+});
+
+test('private follow-up exposes current obligations separately from accepted terms and excludes internal reasons', async () => {
+  const offer = quoteSponsorshipOffer(50000, 'CAD');
+  const obligations = [
+    {
+      id: 'synthetic-obligation',
+      contributionId: 'private-owner',
+      commitmentId: 'private-commitment',
+      benefitId: 'facebook_batch',
+      channel: 'facebook',
+      target: 'openg20',
+      ordinal: 1,
+      state: 'blocked',
+      format: 'individual_portrait',
+      version: 3,
+      fulfilmentEvidenceId: null,
+      blockedReason: 'payment_refunded',
+      internalReason: 'Synthetic private note'
+    },
+    {
+      id: 'synthetic-other',
+      channel: 'linkedin',
+      target: 'openg7',
+      ordinal: 1,
+      state: 'blocked',
+      format: null,
+      version: 1,
+      fulfilmentEvidenceId: null,
+      blockedReason: 'Synthetic sensitive explanation'
+    }
+  ];
+  const projected = publicSponsorshipObligations(obligations);
+  assert.equal(projected[0].format, 'individual_portrait');
+  assert.equal(projected[0].blockedReason, 'payment_refunded');
+  assert.equal(projected[1].blockedReason, null);
+  assert.doesNotMatch(
+    JSON.stringify(projected),
+    /private-owner|private-commitment|Synthetic|benefitId|internalReason/
+  );
+  let lookups = 0;
+  const token = 'synthetic-private-followup';
+  const handler = createSponsorshipFollowupHttpHandler({
+    publicBaseOrigin: 'https://example.invalid',
+    hasDatabase: true,
+    isValidFollowupToken: (value) => value === token,
+    writeJson: (_request, response, status, payload) =>
+      Object.assign(response, { status, payload }),
+    getFreshSponsorshipFollowupByToken: async (value) => {
+      assert.equal(value, token);
+      lookups++;
+      return {
+        found: true,
+        paymentStatus: 'refunded',
+        commitment: {
+          provenance: 'accepted_offer',
+          state: 'active',
+          offer,
+          obligations,
+          qualificationReason: 'Synthetic private agreement'
+        },
+        fulfilmentEvidence: []
+      };
+    },
+    reportFailure: () => assert.fail('No failure expected')
+  });
+  const response = {};
+  await handler(
+    { method: 'GET', url: `/api/sponsorship-followup?token=${token}` },
+    response
+  );
+  assert.equal(response.status, 200);
+  assert.equal(lookups, 1);
+  assert.deepEqual(response.payload.commitment.offer, offer);
+  assert.deepEqual(response.payload.commitment.obligations, projected);
+  assert.equal(response.payload.commitment.offer.benefits[1].target, 'openg7');
+  assert.doesNotMatch(
+    JSON.stringify(response.payload.commitment),
+    /private-owner|private-commitment|Synthetic|qualificationReason|internalReason/
+  );
+  const invalid = {};
+  await handler(
+    { method: 'GET', url: '/api/sponsorship-followup?token=foreign' },
+    invalid
+  );
+  assert.equal(invalid.status, 400);
+  assert.equal(lookups, 1);
 });
 
 test('public quote exposes no private data and rejects non-CAD or fractional minor units', async () => {
@@ -256,7 +445,14 @@ test('public quote exposes no private data and rejects non-CAD or fractional min
     ['amountMinor=25000&currency=CAD', 200],
     ['amountMinor=25000&currency=USD', 400],
     ['amountMinor=25000.5&currency=CAD', 400],
-    ['amountMinor=25000&amountMinor=50000&currency=CAD', 400]
+    ['amountMinor=25000&amountMinor=50000&currency=CAD', 400],
+    ['amountMinor=25000&currency=CAD&facebookFormat=individual_portrait', 200],
+    ['amountMinor=25000&currency=CAD&facebookFormat=image_collection', 400],
+    ['amountMinor=25000&currency=CAD&facebookFormat=photo', 400],
+    [
+      'amountMinor=25000&currency=CAD&facebookFormat=collective_text&facebookFormat=individual_portrait',
+      400
+    ]
   ]) {
     const response = {};
     assert.equal(
@@ -347,4 +543,83 @@ test('qualification and adjustment require server owner rights before body or da
     assert.equal(response.status, 403);
     assert.equal(response.payload.code, 'COMMITMENT_OWNER_REQUIRED');
   }
+});
+
+test('adoption inventory is bounded, classifies unknown declarations conservatively and performs no mutation', async () => {
+  const ids = Array.from(
+    { length: 26 },
+    (_, i) => `00000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`
+  );
+  const calls = [];
+  const db = {
+    query: async (sql, values) => {
+      calls.push({ sql, values });
+      return {
+        rows: ids.map((contributionId, i) => ({
+          contributionId,
+          reference: 'Synthetic',
+          paymentStatus: 'paid',
+          amountMinor: 50000,
+          currency: 'CAD',
+          commitmentId: null,
+          provenance:
+            i === 0
+              ? 'accepted_offer'
+              : i === 1
+                ? 'qualified_historical'
+                : null,
+          offerVersion: i < 2 ? 'synthetic-version' : null,
+          obligationCount: i < 2 ? 3 : 0,
+          fulfilledWithEvidenceCount: 0,
+          historicalDeclarationCount: i === 2 ? 2 : 0
+        }))
+      };
+    }
+  };
+  const result = await previewSponsorshipCommitmentAdoption(db);
+  assert.equal(result.items.length, 25);
+  assert.equal(result.nextCursor, ids[24]);
+  assert.deepEqual(
+    result.items.slice(0, 4).map((r) => r.classification),
+    [
+      'accepted_snapshot',
+      'qualified_historical',
+      'legacy_declarations',
+      'unqualified'
+    ]
+  );
+  assert.deepEqual(calls[0].values, [null, 26]);
+  assert.doesNotMatch(calls[0].sql, /INSERT|UPDATE|DELETE/);
+  for (const pageSize of [1, 26, 101, NaN])
+    await assert.rejects(
+      previewSponsorshipCommitmentAdoption(db, { pageSize }),
+      { code: 'COMMITMENT_INVALID' }
+    );
+  await assert.rejects(
+    previewSponsorshipCommitmentAdoption(db, { cursor: 'foreign-not-an-id' }),
+    { code: 'COMMITMENT_INVALID' }
+  );
+  assert.equal(calls.length, 1);
+});
+
+test('owner adoption preview refuses an operator or reader before any database access', async () => {
+  const handler = createSponsorshipCommitmentsHttpHandler({
+    publicBaseOrigin: 'https://funding.example.test',
+    pool: { connect: () => assert.fail('no database access') },
+    ensureAdminAccess: () => true,
+    canOwn: () => false,
+    writeJson: (_r, response, status, payload) =>
+      Object.assign(response, { status, payload })
+  });
+  const response = { setHeader() {} };
+  await handler(
+    {
+      method: 'GET',
+      url: '/api/admin/sponsorship-commitments/adoption-preview',
+      headers: {}
+    },
+    response
+  );
+  assert.equal(response.status, 403);
+  assert.equal(response.payload.code, 'COMMITMENT_OWNER_REQUIRED');
 });

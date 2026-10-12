@@ -1,0 +1,125 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+.commitments {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: 1.25rem;
+  border: 1px solid var(--admin-border, #cbd5e1);
+  border-radius: 1rem;
+  background: var(--admin-panel, #142338);
+  color: var(--admin-text, #0f172a);
+}
+header {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+header p {
+  flex-basis: 100%;
+}
+h3,
+h4,
+legend {
+  font-weight: 700;
+}
+p {
+  margin: 0.65rem 0;
+  line-height: 1.5;
+}
+ul {
+  padding-left: 1.25rem;
+}
+li {
+  margin: 0.7rem 0;
+}
+li span {
+  display: block;
+  margin-top: 0.25rem;
+}
+form,
+details {
+  margin-top: 1rem;
+  border-top: 1px solid var(--admin-border, #cbd5e1);
+  padding-top: 1rem;
+}
+fieldset {
+  min-width: 0;
+  display: grid;
+  gap: 0.75rem;
+  border: 0;
+  padding: 0.5rem 0;
+}
+.benefit-editor {
+  border: 1px solid var(--admin-border, #cbd5e1);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+label {
+  min-width: 0;
+  display: grid;
+  gap: 0.35rem;
+  font-weight: 600;
+}
+.checks {
+  display: grid;
+  gap: 0.5rem;
+}
+.checks label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+input,
+textarea,
+select {
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+input[type='checkbox'] {
+  width: auto;
+}
+textarea {
+  min-height: 5rem;
+}
+code {
+  overflow-wrap: anywhere;
+  font-size: 0.85rem;
+}
+button {
+  max-width: 100%;
+  white-space: normal;
+  width: fit-content;
+}
+aside {
+  padding: 1rem;
+  background: var(--admin-warning-surface, #fffbeb);
+  border-radius: 0.75rem;
+}
+summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+[role='alert'] {
+  color: var(--admin-danger, #b91c1c);
+}
+:focus-visible {
+  outline: 3px solid var(--admin-accent, #2563eb);
+  outline-offset: 3px;
+}
+@media (max-width: 640px) {
+  .benefit-editor {
+    grid-template-columns: 1fr;
+  }
+  .commitments {
+    padding: 0.9rem;
+  }
+  header button {
+    width: 100%;
+  }
+}

@@ -52,7 +52,7 @@ test(
           contribution_type, amount_cents, currency, status, stripe_session_id,
           sponsor_company_name
         ) VALUES ('sponsorship_interest', 10000, 'cad', 'paid', $1,
-                  'Synthetic calendar sponsor')
+                  'Synthetic calendar sponsor ' || $1)
         RETURNING id::text AS id`,
         [`cs_test_calendar_${sequence}`]
       );

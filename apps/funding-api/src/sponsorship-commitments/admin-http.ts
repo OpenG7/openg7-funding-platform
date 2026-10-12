@@ -13,6 +13,11 @@ import {
   SponsorshipCommitmentError
 } from './changes.js';
 import { loadSponsorshipCommitment } from './repository.js';
+import { previewSponsorshipCommitmentAdoption } from './adoption.js';
+import {
+  previewSponsorshipHistoricalAudit,
+  reviewSponsorshipHistoricalEvidence
+} from './historical-audit.js';
 
 export interface SponsorshipCommitmentHttpDependencies {
   readonly publicBaseOrigin: string;
@@ -38,13 +43,21 @@ export const createSponsorshipCommitmentsHttpHandler =
       ![
         '/admin/sponsorship-commitments',
         '/admin/sponsorship-commitments/qualify',
+        '/admin/sponsorship-commitments/adoption-preview',
+        '/admin/sponsorship-commitments/historical-audit',
+        '/admin/sponsorship-commitments/historical-audit/review',
         '/admin/sponsorship-commitments/adjust'
       ].includes(path)
     )
       return false;
     response.setHeader('Cache-Control', 'no-store');
     if (!deps.ensureAdminAccess(request, response)) return true;
-    if (request.method !== 'GET' && !deps.canOwn(request)) {
+    if (
+      (request.method !== 'GET' ||
+        path.endsWith('/adoption-preview') ||
+        path.includes('/historical-audit')) &&
+      !deps.canOwn(request)
+    ) {
       deps.writeJson(request, response, 403, {
         code: 'COMMITMENT_OWNER_REQUIRED',
         error: 'The account owner is required.'
@@ -59,6 +72,53 @@ export const createSponsorshipCommitmentsHttpHandler =
       return true;
     }
     try {
+      if (path.endsWith('/historical-audit') && request.method === 'GET') {
+        const rawSize = url.searchParams.get('pageSize');
+        if (
+          (rawSize !== null && !/^(25|50|100)$/.test(rawSize)) ||
+          ['pageSize', 'cursor', 'finding', 'contributionId'].some(
+            (key) => url.searchParams.getAll(key).length > 1
+          ) ||
+          [...url.searchParams.keys()].some(
+            (key) =>
+              !['pageSize', 'cursor', 'finding', 'contributionId'].includes(key)
+          )
+        )
+          throw new SponsorshipCommitmentError('HISTORICAL_AUDIT_INVALID', 400);
+        const preview = await withPostgresTransaction(
+          deps.pool,
+          (db) =>
+            previewSponsorshipHistoricalAudit(db, {
+              pageSize: rawSize === null ? 25 : Number(rawSize),
+              cursor: url.searchParams.get('cursor'),
+              finding: url.searchParams.get('finding'),
+              contributionId: url.searchParams.get('contributionId')
+            }),
+          { readOnlySnapshot: true }
+        );
+        deps.writeJson(request, response, 200, preview);
+        return true;
+      }
+      if (path.endsWith('/adoption-preview') && request.method === 'GET') {
+        const rawSize = url.searchParams.get('pageSize');
+        if (
+          (rawSize !== null && !/^(25|50|100)$/.test(rawSize)) ||
+          url.searchParams.getAll('pageSize').length > 1 ||
+          url.searchParams.getAll('cursor').length > 1
+        )
+          throw new SponsorshipCommitmentError('COMMITMENT_INVALID', 400);
+        const preview = await withPostgresTransaction(
+          deps.pool,
+          (db) =>
+            previewSponsorshipCommitmentAdoption(db, {
+              pageSize: rawSize === null ? 25 : Number(rawSize),
+              cursor: url.searchParams.get('cursor')
+            }),
+          { readOnlySnapshot: true }
+        );
+        deps.writeJson(request, response, 200, preview);
+        return true;
+      }
       if (
         path === '/admin/sponsorship-commitments' &&
         request.method === 'GET'
@@ -79,7 +139,9 @@ export const createSponsorshipCommitmentsHttpHandler =
       }
       if (
         request.method !== 'POST' ||
-        path === '/admin/sponsorship-commitments'
+        path === '/admin/sponsorship-commitments' ||
+        path.endsWith('/adoption-preview') ||
+        path.endsWith('/historical-audit')
       ) {
         deps.writeJson(request, response, 405, {
           error: 'Method not allowed.'
@@ -100,6 +162,13 @@ export const createSponsorshipCommitmentsHttpHandler =
         throw new SponsorshipCommitmentError('COMMITMENT_INVALID', 400);
       }
       const actor = deps.getAdminAuditActor(request);
+      if (path.endsWith('/historical-audit/review')) {
+        const receipt = await withPostgresTransaction(deps.pool, (db) =>
+          reviewSponsorshipHistoricalEvidence(db, input, actor)
+        );
+        deps.writeJson(request, response, 200, receipt);
+        return true;
+      }
       const commitment = await withPostgresTransaction(deps.pool, (db) =>
         path.endsWith('/qualify')
           ? qualifySponsorshipCommitment(db, input, actor)

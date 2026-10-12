@@ -11,6 +11,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { isSafeSponsorshipText } from '../../../packages/funding-core/src/index.js';
+import { normalizeSponsorMediaUsage } from '../../../packages/funding-core/src/index.js';
 
 import type { AdminAuditLogInput } from './fund-admin.repository.js';
 import type { SponsorshipFollowupLookup } from './fund-contributions.repository.js';
@@ -57,6 +58,9 @@ const sponsorMediaPrivateBaseKey = (
 
 /** Follow-up media ports retain payment refresh, persistence and storage in composition. */
 export interface SponsorshipFollowupMediaHttpDependencies {
+  readonly getSponsorMediaPreference?: (
+    contributionId: string
+  ) => Promise<import('@openg7/funding-core').SponsorMediaPreference>;
   readonly publicBaseOrigin: string;
   readonly databaseAvailable: () => boolean;
   readonly sponsorMediaMaxBytes: number;
@@ -139,6 +143,7 @@ export const createSponsorshipFollowupMediaHttpHandler = ({
   hasOnlyKeys,
   routeAssetId,
   getFreshSponsorshipFollowupByToken,
+  getSponsorMediaPreference,
   listSponsorMediaAssets,
   getSponsorMediaStorageRecord,
   checkSponsorMediaUpload,
@@ -190,6 +195,13 @@ export const createSponsorshipFollowupMediaHttpHandler = ({
           return true;
         }
         const result: SponsorshipMediaResponse = {
+          ...(getSponsorMediaPreference
+            ? {
+                preference: await getSponsorMediaPreference(
+                  followup.contributionId
+                )
+              }
+            : {}),
           assets: await listSponsorMediaAssets(followup.contributionId),
           limits: {
             maxUploadBytes: sponsorMediaMaxBytes,
@@ -307,6 +319,23 @@ export const createSponsorshipFollowupMediaHttpHandler = ({
       const kind = parseSponsorMediaKind(textPart('kind'));
       const altText = textPart('altText') || null;
       const file = parts.find((part) => part.name === 'media');
+      let usage: import('@openg7/funding-core').SponsorMediaUsageRights;
+      try {
+        usage = normalizeSponsorMediaUsage(
+          textPart('usage') ? JSON.parse(textPart('usage')) : null
+        );
+        if (
+          textPart('usage') &&
+          (usage.state !== 'confirmed' || textPart('usageConfirmed') !== 'true')
+        )
+          throw new Error('Explicit usage confirmation is required.');
+      } catch {
+        writeJson(request, response, 400, {
+          code: 'INVALID_MEDIA_USAGE_REQUEST',
+          error: 'Confirm the image usage permissions before uploading.'
+        });
+        return true;
+      }
       if (file && file.data.byteLength > sponsorMediaMaxBytes) {
         writeJson(request, response, 413, {
           code: 'SPONSOR_MEDIA_TOO_LARGE',
@@ -316,7 +345,15 @@ export const createSponsorshipFollowupMediaHttpHandler = ({
       }
       if (
         parts.some(
-          (part) => !['token', 'kind', 'altText', 'media'].includes(part.name)
+          (part) =>
+            ![
+              'token',
+              'kind',
+              'altText',
+              'media',
+              'usage',
+              'usageConfirmed'
+            ].includes(part.name)
         ) ||
         new Set(parts.map((part) => part.name)).size !== parts.length ||
         !isValidFollowupToken(token) ||
@@ -426,7 +463,8 @@ export const createSponsorshipFollowupMediaHttpHandler = ({
           width: image.width,
           height: image.height,
           altText,
-          maxSupportingImages: sponsorMediaMaxSupportingImages
+          maxSupportingImages: sponsorMediaMaxSupportingImages,
+          usage
         });
         if (created.status !== 'created') {
           await Promise.allSettled([

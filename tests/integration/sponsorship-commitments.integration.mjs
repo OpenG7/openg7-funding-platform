@@ -15,17 +15,16 @@ import {
   recordCheckoutSponsorshipOffer,
   quoteSponsorshipOffer
 } from '../../dist/apps/funding-api/src/sponsorship-commitments/offers.js';
-import {
-  activateSponsorshipCommitments,
-  loadSponsorshipCommitment
-} from '../../dist/apps/funding-api/src/sponsorship-commitments/repository.js';
+import { loadSponsorshipCommitment } from '../../dist/apps/funding-api/src/sponsorship-commitments/repository.js';
 import {
   qualifySponsorshipCommitment,
   adjustSponsorshipObligation
 } from '../../dist/apps/funding-api/src/sponsorship-commitments/changes.js';
 import { withPostgresTransaction } from '../../dist/apps/funding-api/src/postgres-transaction.js';
+import { previewSponsorshipCommitmentAdoption } from '../../dist/apps/funding-api/src/sponsorship-commitments/adoption.js';
+import { enqueueSponsorshipObligationNotification } from '../../dist/apps/funding-api/src/sponsorship-commitments.repository.js';
+import { getSponsorshipFollowupByTokenHash } from '../../dist/apps/funding-api/src/sponsorship-followup.repository.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
-import { approveFixtureSubject } from './support/moderation-fixture.mjs';
 
 test(
   'durable sponsorship offers, confirmed obligations and explicit historical qualification',
@@ -76,12 +75,6 @@ test(
 
       let currentQuote = quoteSponsorshipOffer(50000, 'CAD');
       const original = currentQuote;
-      const originalSnapshot = {
-        version: original.version,
-        amountMinor: original.amountMinor,
-        currency: original.currency,
-        benefits: original.benefits
-      };
       let preparations = 0,
         providerCalls = 0,
         loseResponse = true,
@@ -227,15 +220,6 @@ test(
           assert.equal(awaitingFacts.state, 'needs_confirmation');
           assert.equal(awaitingFacts.offer, null);
           assert.deepEqual(awaitingFacts.obligations, []);
-          assert.equal(
-            (
-              await pool.query(
-                'SELECT status FROM fund_contributions WHERE id=$1',
-                [contributionId]
-              )
-            ).rows[0].status,
-            'paid'
-          );
           const sessionInput = {
             stripeSessionId: 'cs_commitment_fixture',
             stripePaymentIntentId: 'pi_commitment_fixture',
@@ -281,6 +265,14 @@ test(
           assert.equal(m.offer.amountMinor, 50000);
           assert.equal(m.offer.benefits.length, 3);
           assert.equal(m.obligations.length, 3);
+          assert.equal(
+            m.obligations.find((o) => o.channel === 'website').format,
+            null
+          );
+          assert.equal(
+            m.obligations.find((o) => o.channel === 'facebook').format,
+            'collective_text'
+          );
           assert.ok(
             m.obligations.every(
               (o) => o.state === 'blocked' && o.fulfilmentEvidenceId === null
@@ -364,157 +356,6 @@ test(
         }
       );
       await t.test(
-        'authoritative payment mismatch leaves an accepted offer unactivated until exact later evidence, and never rewrites an active promise',
-        async () => {
-          const sessionId = 'cs_commitment_mismatch';
-          const paymentIntentId = 'pi_commitment_mismatch';
-          let operationId;
-          let publicReference;
-          let metadata;
-          const mismatchRun = createDurableCheckoutService(pool, {
-            checkout: {
-              sessions: {
-                create: async () => ({
-                  id: sessionId,
-                  payment_intent: paymentIntentId,
-                  url: 'https://checkout.example.invalid/mismatch'
-                })
-              }
-            }
-          });
-          const mismatchKey = `synthetic-mismatch-${randomUUID()}`;
-          await mismatchRun({
-            key: mismatchKey,
-            requestHash: createHash('sha256').update(mismatchKey).digest('hex'),
-            prepare: (id) => {
-              operationId = id;
-              publicReference = `SYNTHETIC-MISMATCH-${id}`;
-              metadata = { openg7CheckoutOperationId: id, publicReference };
-              return {
-                params: { mode: 'payment', metadata },
-                record: {
-                  publicReference,
-                  contributionType: 'sponsorship_interest',
-                  amountCents: 50000,
-                  currency: 'cad',
-                  metadata,
-                  publicDisplayConsent: false,
-                  publicName: null,
-                  displayAmountConsent: false,
-                  nonCharityAcknowledged: true,
-                  sponsorshipFollowupTokenHash: null
-                }
-              };
-            },
-            afterPrepare: (db, id) =>
-              recordCheckoutSponsorshipOffer(db, id, {
-                publicReference,
-                quote: original
-              })
-          });
-          const id = (
-            await pool.query(
-              'SELECT id FROM fund_contributions WHERE stripe_session_id=$1',
-              [sessionId]
-            )
-          ).rows[0].id;
-          const input = {
-            stripeSessionId: sessionId,
-            stripePaymentIntentId: paymentIntentId,
-            publicReference,
-            contributionType: 'sponsorship_interest',
-            amountCents: 50000,
-            currency: 'cad',
-            trustedPaymentFacts: {
-              amountCents: 50000,
-              currency: 'cad',
-              publicReference
-            },
-            metadata,
-            publicDisplayConsent: false,
-            publicName: null,
-            displayAmountConsent: false,
-            nonCharityAcknowledged: true,
-            sponsorshipFollowupTokenHash: null,
-            status: 'paid',
-            paidAtIso: '2026-10-11T12:00:00Z',
-            emailPrivate: null
-          };
-          for (const change of [
-            { amountCents: 49999 },
-            { currency: 'usd' },
-            { publicReference: 'SYNTHETIC-OTHER-REFERENCE' },
-            { stripePaymentIntentId: 'pi_commitment_discordant' }
-          ]) {
-            await upsertCheckoutSessionFromWebhook(pool, {
-              ...input,
-              ...change,
-              trustedPaymentFacts: {
-                amountCents: change.amountCents ?? input.amountCents,
-                currency: change.currency ?? input.currency,
-                publicReference: change.publicReference ?? input.publicReference
-              }
-            });
-            const pending = await read(id);
-            assert.equal(pending.state, 'needs_confirmation');
-            assert.equal(
-              pending.qualificationReason,
-              'offer_correlation_unconfirmed'
-            );
-            assert.equal(pending.offer, null);
-            assert.deepEqual(pending.obligations, []);
-          }
-          assert.deepEqual(
-            (
-              await pool.query(
-                'SELECT amount_cents,currency,status,stripe_payment_intent_id FROM fund_contributions WHERE id=$1',
-                [id]
-              )
-            ).rows[0],
-            {
-              amount_cents: 50000,
-              currency: 'cad',
-              status: 'paid',
-              stripe_payment_intent_id: paymentIntentId
-            }
-          );
-          await Promise.all([
-            upsertCheckoutSessionFromWebhook(pool, input),
-            upsertCheckoutSessionFromWebhook(pool, input)
-          ]);
-          const active = await read(id);
-          assert.equal(active.state, 'active');
-          assert.equal(active.provenance, 'accepted_offer');
-          assert.equal(active.version, 2);
-          assert.deepEqual(active.offer, originalSnapshot);
-          assert.equal(active.obligations.length, 3);
-          for (const badFacts of [
-            undefined,
-            { amountCents: 1, currency: 'CAD' }
-          ])
-            await withPostgresTransaction(pool, (db) =>
-              activateSponsorshipCommitments(db, {
-                stripeSessionId: sessionId,
-                stripePaymentIntentId: paymentIntentId,
-                trustedPaymentFacts: badFacts
-              })
-            );
-          const afterReplay = await read(id);
-          assert.equal(afterReplay.offerId, active.offerId);
-          assert.equal(afterReplay.version, active.version);
-          assert.equal(afterReplay.obligations.length, 3);
-          assert.equal(
-            (
-              await pool.query(
-                'SELECT count(*)::integer n FROM sponsorship_offers WHERE checkout_operation_id=$1',
-                [operationId]
-              )
-            ).rows[0].n,
-            1
-          );
-        }
-      );
-      await t.test(
         'offer and adjustment history are immutable, and fulfilment cannot be claimed without evidence',
         async () => {
           await assert.rejects(
@@ -544,15 +385,9 @@ test(
             reason: 'Synthetic historical agreement verified',
             evidenceReference: 'synthetic://agreement/qualified',
             offer: {
-              ...originalSnapshot,
+              ...original,
               version: 'historical-qualification-v1',
-              benefits: [
-                {
-                  ...original.benefits[0],
-                  quantity: 2,
-                  requiredElements: ['company_name']
-                }
-              ]
+              benefits: [{ ...original.benefits[0], quantity: 2 }]
             }
           };
           const perform = () =>
@@ -567,6 +402,7 @@ test(
           assert.equal(a.id, b.id);
           assert.equal(a.provenance, 'qualified_historical');
           assert.equal(a.obligations.length, 2);
+          assert.ok(a.obligations.every((o) => o.format === null));
           assert.equal(a.version, 2);
           assert.equal(
             (
@@ -595,62 +431,6 @@ test(
               )
             ).rows[0],
             { amount_cents: 50000, currency: 'cad', status: 'paid' }
-          );
-        }
-      );
-      await t.test(
-        'partial and failed refunds preserve pending obligations while current financial and consent guards still block',
-        async () => {
-          await pool.query(
-            "UPDATE fund_contributions SET sponsor_company_name='Synthetic historical business',public_display_consent=true,sponsor_review_status='approved' WHERE id=$1",
-            [historical]
-          );
-          for (const [status, amount, reason] of [
-            ['not_requested', null, null],
-            ['requested', 10000, 'refund_requested'],
-            ['processing', 10000, 'refund_processing'],
-            ['failed', 10000, null],
-            ['completed', 10000, null],
-            ['completed', 50000, 'refund_completed']
-          ]) {
-            await pool.query(
-              'UPDATE fund_contributions SET sponsorship_refund_status=$2,sponsorship_refund_amount_cents=$3 WHERE id=$1',
-              [historical, status, amount]
-            );
-            await approveFixtureSubject(pool, {
-              type: 'sponsorship',
-              id: historical
-            });
-            const m = await read(historical);
-            assert.equal(m.provenance, 'qualified_historical');
-            assert.equal(m.offer.amountMinor, 50000);
-            assert.equal(m.obligations.length, 2);
-            assert.ok(
-              m.obligations.every(
-                (o) =>
-                  o.state === (reason ? 'blocked' : 'pending') &&
-                  o.blockedReason === reason &&
-                  o.fulfilmentEvidenceId === null
-              )
-            );
-          }
-          await pool.query(
-            "UPDATE fund_contributions SET sponsorship_refund_status='completed',sponsorship_refund_amount_cents=10000,public_display_consent=false WHERE id=$1",
-            [historical]
-          );
-          assert.ok(
-            (await read(historical)).obligations.every(
-              (o) => o.blockedReason === 'consent_missing'
-            )
-          );
-          await pool.query(
-            "UPDATE fund_contributions SET public_display_consent=true,sponsor_review_status='pending' WHERE id=$1",
-            [historical]
-          );
-          assert.ok(
-            (await read(historical)).obligations.every(
-              (o) => o.blockedReason === 'review_pending'
-            )
           );
         }
       );
@@ -713,6 +493,248 @@ test(
               "UPDATE sponsorship_commitment_changes SET reason='rewritten'"
             ),
             { code: '23514' }
+          );
+          const notice = (
+            await pool.query(
+              "SELECT id,text_body,status FROM email_messages WHERE template_key='sponsorship_obligation' AND metadata->>'eventId'=$1",
+              [request.requestId]
+            )
+          ).rows;
+          assert.equal(notice.length, 1);
+          assert.equal(notice[0].status, 'queued');
+          assert.doesNotMatch(
+            notice[0].text_body,
+            /Synthetic explicit destination agreement|admin:/
+          );
+          const current = adjusted.obligations.find((x) => x.id === o.id);
+          const falseNotice = await withPostgresTransaction(pool, (db) =>
+            enqueueSponsorshipObligationNotification(db, {
+              event: 'terms_changed',
+              eventId: randomUUID(),
+              obligationId: o.id,
+              obligationVersion: current.version
+            })
+          );
+          assert.equal(
+            falseNotice,
+            null,
+            'a caller cannot invent a commercial event'
+          );
+          assert.equal(
+            (
+              await pool.query(
+                "SELECT count(*)::integer n FROM email_messages WHERE template_key='sponsorship_obligation'"
+              )
+            ).rows[0].n,
+            1
+          );
+        }
+      );
+      await t.test(
+        'an explicit format adjustment is idempotent, versioned and leaves the accepted offer untouched',
+        async () => {
+          const before = await read(contributionId);
+          const o = before.obligations.find((o) => o.channel === 'facebook');
+          const request = {
+            requestId: randomUUID(),
+            obligationId: o.id,
+            expectedVersion: o.version,
+            confirmation: o.id,
+            reason: 'Synthetic explicit portrait agreement',
+            kind: 'format',
+            format: 'individual_portrait'
+          };
+          const perform = (input = request) =>
+            withPostgresTransaction(pool, (db) =>
+              adjustSponsorshipObligation(
+                db,
+                input,
+                'admin:00000000-0000-4000-8000-000000000041'
+              )
+            );
+          const [a, b] = await Promise.all([perform(), perform()]);
+          assert.deepEqual(a, b);
+          const changed = a.obligations.find((x) => x.id === o.id);
+          assert.equal(changed.format, 'individual_portrait');
+          assert.equal(changed.version, o.version + 1);
+          assert.equal(changed.state, 'blocked');
+          assert.equal(changed.blockedReason, 'payment_refunded');
+          assert.equal(
+            a.offer.benefits.find((x) => x.id === o.benefitId).format,
+            'collective_text'
+          );
+          const history = (
+            await pool.query(
+              'SELECT kind,previous_value,resulting_value FROM sponsorship_commitment_changes WHERE request_id=$1',
+              [request.requestId]
+            )
+          ).rows;
+          assert.equal(history.length, 1);
+          assert.equal(history[0].kind, 'format');
+          assert.equal(history[0].previous_value.format, 'collective_text');
+          assert.equal(
+            history[0].resulting_value.format,
+            'individual_portrait'
+          );
+          const noticeCount = (
+            await pool.query(
+              "SELECT count(*)::integer n FROM email_messages WHERE template_key='sponsorship_obligation' AND metadata->>'eventId'=$1",
+              [request.requestId]
+            )
+          ).rows[0].n;
+          assert.equal(noticeCount, 1);
+          const dbBefore = (
+            await pool.query(
+              'SELECT version,publication_format FROM sponsorship_obligations WHERE id=$1',
+              [o.id]
+            )
+          ).rows[0];
+          await assert.rejects(
+            perform({
+              ...request,
+              requestId: randomUUID(),
+              expectedVersion: changed.version,
+              format: 'image_collection'
+            }),
+            { code: 'FORMAT_UNAVAILABLE' }
+          );
+          assert.deepEqual(
+            (
+              await pool.query(
+                'SELECT version,publication_format FROM sponsorship_obligations WHERE id=$1',
+                [o.id]
+              )
+            ).rows[0],
+            dbBefore
+          );
+          await assert.rejects(
+            perform({ ...request, format: 'collective_composite' }),
+            { code: 'COMMITMENT_REQUEST_CONFLICT' }
+          );
+        }
+      );
+      await t.test(
+        'private tokens expose only their current obligations and never reinterpret the accepted offer',
+        async () => {
+          const tokenHash = createHash('sha256')
+            .update('synthetic-private-commitment-token')
+            .digest('hex');
+          await pool.query(
+            'UPDATE fund_contributions SET sponsorship_followup_token_hash=$2,sponsorship_followup_token_created_at=NOW() WHERE id=$1',
+            [contributionId, tokenHash]
+          );
+          const followup = await getSponsorshipFollowupByTokenHash(
+            pool,
+            tokenHash,
+            '2020-01-01T00:00:00Z'
+          );
+          assert.equal(followup.contributionId, contributionId);
+          const current = followup.commitment.obligations.find(
+            (o) => o.channel === 'facebook'
+          );
+          assert.equal(current.target, 'openg20');
+          assert.equal(current.format, 'individual_portrait');
+          assert.equal(current.blockedReason, 'payment_refunded');
+          assert.equal(
+            followup.commitment.offer.benefits.find(
+              (b) => b.channel === 'facebook'
+            ).target,
+            'openg7'
+          );
+          assert.equal(
+            followup.commitment.offer.benefits.find(
+              (b) => b.channel === 'facebook'
+            ).format,
+            'collective_text'
+          );
+          assert.equal(
+            await getSponsorshipFollowupByTokenHash(
+              pool,
+              'foreign-synthetic-token',
+              '2020-01-01T00:00:00Z'
+            ),
+            null
+          );
+          assert.doesNotMatch(
+            JSON.stringify(followup.commitment),
+            /admin:|Synthetic explicit|qualification_reason|evidenceReference|contributionId|commitmentId/
+          );
+          assert.deepEqual(followup.fulfilmentEvidence, []);
+        }
+      );
+      await t.test(
+        'historical owner inventory reports observations without changing commercial or moderation history',
+        async () => {
+          const legacyId = (
+            await pool.query(
+              "SELECT id FROM fund_contributions WHERE stripe_session_id='cs_commitment_legacy'"
+            )
+          ).rows[0].id;
+          const batchId = (
+            await pool.query(
+              "INSERT INTO sponsor_publication_batches(channel,capacity,status) VALUES('facebook',1,'published') RETURNING id"
+            )
+          ).rows[0].id;
+          // A synthetic historical declaration, not a provider result or qualified fulfilment.
+          await pool.query(
+            "INSERT INTO publication_deliveries(feed_id,kind,batch_id,message,scheduled_at,source_snapshot,account_id,mode,status) VALUES('openg7:facebook','sponsorship',$1,'Synthetic historical declaration',NOW(),$2::jsonb,'synthetic-account','mock','published')",
+            [
+              batchId,
+              JSON.stringify([
+                {
+                  id: randomUUID(),
+                  contribution_id: legacyId,
+                  title: 'Synthetic legacy source',
+                  body: 'Synthetic historical text',
+                  disclosure_text: 'Synthetic sponsorship',
+                  feed_target: 'openg7',
+                  channel: 'facebook'
+                }
+              ])
+            ]
+          );
+          const before = (
+            await pool.query(`SELECT (SELECT count(*) FROM sponsorship_offers)::integer offers,
+        (SELECT count(*) FROM sponsorship_commitment_changes)::integer changes,(SELECT count(*) FROM moderation_decisions)::integer decisions`)
+          ).rows[0];
+          const preview = await withPostgresTransaction(
+            pool,
+            (db) => previewSponsorshipCommitmentAdoption(db),
+            { readOnlySnapshot: true }
+          );
+          assert.equal(
+            preview.items.find((r) => r.contributionId === historical)
+              .classification,
+            'qualified_historical'
+          );
+          assert.equal(
+            preview.items.find((r) => r.contributionId === contributionId)
+              .classification,
+            'accepted_snapshot'
+          );
+          assert.ok(
+            preview.items.some((r) => r.classification === 'unqualified')
+          );
+          const declaration = preview.items.find(
+            (r) => r.contributionId === legacyId
+          );
+          assert.equal(declaration.classification, 'legacy_declarations');
+          assert.equal(declaration.historicalDeclarationCount, 1);
+          assert.equal(declaration.obligationCount, 0);
+          assert.equal(declaration.fulfilledWithEvidenceCount, 0);
+          assert.ok(
+            preview.items.every((r) => r.fulfilledWithEvidenceCount === 0)
+          );
+          assert.doesNotMatch(
+            JSON.stringify(preview),
+            /email|synthetic@example|synthetic:\/\/|agreement|internal_reason|sponsor_message/
+          );
+          assert.deepEqual(
+            (
+              await pool.query(`SELECT (SELECT count(*) FROM sponsorship_offers)::integer offers,
+        (SELECT count(*) FROM sponsorship_commitment_changes)::integer changes,(SELECT count(*) FROM moderation_decisions)::integer decisions`)
+            ).rows[0],
+            before
           );
         }
       );

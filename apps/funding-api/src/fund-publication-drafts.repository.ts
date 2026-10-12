@@ -22,6 +22,12 @@ import {
   type PublicationDraftRow
 } from './fund-publication.mapping.js';
 import { getAdminBackofficePresence } from './fund-admin.persistence.js';
+import { nextPublicationDraftObligation } from './fund-publication-draft-obligations.persistence.js';
+import {
+  publicationSourceUncertainSql,
+  retireObsoletePublicationDraftsOnConnection
+} from './fund-publication-draft-retirement.persistence.js';
+import { revokeCommitmentDeliveries } from './sponsorship-fulfilment.repository.js';
 import {
   createDefaultDraftText,
   type SponsorDraftSourceRow
@@ -170,7 +176,8 @@ export const listAdminPublicationDrafts = async (
 
 export const createAdminPublicationDraft = async (
   pool: Pool | null,
-  input: AdminPublicationDraftCreateRequest
+  input: AdminPublicationDraftCreateRequest,
+  actor = ''
 ): Promise<AdminPublicationDraftMutationResult> => {
   if (!pool) {
     return { updated: false, draft: null };
@@ -181,8 +188,7 @@ export const createAdminPublicationDraft = async (
     return { updated: false, draft: null };
   }
 
-  const sponsorQuery = await pool.query<SponsorDraftSourceRow>(
-    `
+  const sponsorSql = `
       SELECT
         id::text AS id,
         sponsor_company_name,
@@ -199,22 +205,80 @@ export const createAdminPublicationDraft = async (
         AND sponsor_company_name IS NOT NULL
         AND btrim(sponsor_company_name) <> ''
       LIMIT 1
-    `,
-    [input.contributionId]
-  );
+    `;
+  const sponsorQuery = await pool.query<SponsorDraftSourceRow>(sponsorSql, [
+    input.contributionId
+  ]);
   const sponsor = sponsorQuery.rows[0];
   if (!sponsor) {
     return { updated: false, draft: null };
   }
+  return withPostgresTransaction(
+    pool,
+    async (db) => {
+      await lockModerationDependencies(db, {
+        type: 'sponsorship',
+        id: input.contributionId
+      });
+      await db.query(
+        'SELECT id FROM fund_contributions WHERE id=$1::uuid FOR UPDATE',
+        [input.contributionId]
+      );
+      const sponsor = (
+        await db.query<SponsorDraftSourceRow>(sponsorSql, [
+          input.contributionId
+        ])
+      ).rows[0];
+      if (!sponsor) return { updated: false, draft: null };
+      await retireObsoletePublicationDraftsOnConnection(
+        db,
+        {
+          contributionId: input.contributionId,
+          target: input.feedTarget,
+          channel: input.channel
+        },
+        [input.contributionId],
+        actor,
+        revokeCommitmentDeliveries
+      );
+      const held = await db.query(
+        `SELECT 1 WHERE ${publicationSourceUncertainSql('$1::uuid', '$2')}`,
+        [input.contributionId, input.channel]
+      );
+      if (held.rows.length) return { updated: false, draft: null };
 
-  const draftText = createDefaultDraftText(
-    sponsor,
-    input.feedTarget,
-    input.channel
-  );
+      const draftText = createDefaultDraftText(
+        sponsor,
+        input.feedTarget,
+        input.channel
+      );
+      const obligationId = await nextPublicationDraftObligation(
+        db,
+        input.contributionId,
+        input.feedTarget,
+        input.channel
+      );
+      if (!obligationId) {
+        const active = await db.query(
+          `SELECT 1 FROM sponsorship_commitments WHERE contribution_id=$1::uuid AND state='active'`,
+          [input.contributionId]
+        );
+        if (active.rows.length) return { updated: false, draft: null };
+      }
+      const existing = await db.query<{ id: string }>(
+        `SELECT id FROM sponsor_publication_drafts
+    WHERE contribution_id=$1::uuid AND feed_target=$2 AND channel=$3 AND status NOT IN ('published','cancelled','rejected')
+      AND (obligation_id=$4::uuid OR obligation_id IS NULL) ORDER BY created_at,id LIMIT 1`,
+        [input.contributionId, input.feedTarget, input.channel, obligationId]
+      );
+      if (existing.rows[0])
+        return {
+          updated: true,
+          draft: await getPublicationDraftById(db, existing.rows[0].id)
+        };
 
-  const insertResult = await pool.query<{ readonly id: string }>(
-    `
+      const insertResult = await db.query<{ readonly id: string }>(
+        `
       INSERT INTO sponsor_publication_drafts (
         contribution_id,
         feed_target,
@@ -222,28 +286,39 @@ export const createAdminPublicationDraft = async (
         title,
         body,
         disclosure_text,
-        status
+        status,
+        obligation_id
       )
-      VALUES ($1::uuid, $2, $3, $4, $5, $6, 'draft')
-      ON CONFLICT (contribution_id, feed_target, channel)
+      VALUES ($1::uuid, $2, $3, $4, $5, $6, 'draft', $7::uuid)
+      ON CONFLICT ${
+        obligationId
+          ? "(obligation_id) WHERE obligation_id IS NOT NULL AND status NOT IN ('published','cancelled','rejected')"
+          : '(contribution_id, feed_target, channel) WHERE obligation_id IS NULL'
+      }
       DO UPDATE SET updated_at = sponsor_publication_drafts.updated_at
+      WHERE sponsor_publication_drafts.feed_target=EXCLUDED.feed_target
+        AND sponsor_publication_drafts.channel=EXCLUDED.channel
       RETURNING id::text AS id
     `,
-    [
-      input.contributionId,
-      input.feedTarget,
-      input.channel,
-      draftText.title,
-      draftText.body,
-      draftText.disclosureText
-    ]
-  );
+        [
+          input.contributionId,
+          input.feedTarget,
+          input.channel,
+          draftText.title,
+          draftText.body,
+          draftText.disclosureText,
+          obligationId
+        ]
+      );
 
-  const draftId = insertResult.rows[0]?.id;
-  return {
-    updated: Boolean(draftId),
-    draft: draftId ? await getPublicationDraftById(pool, draftId) : null
-  };
+      const draftId = insertResult.rows[0]?.id;
+      return {
+        updated: Boolean(draftId),
+        draft: draftId ? await getPublicationDraftById(db, draftId) : null
+      };
+    },
+    { shouldCommit: (result) => result.updated }
+  );
 };
 
 export const updateAdminPublicationDraft = async (

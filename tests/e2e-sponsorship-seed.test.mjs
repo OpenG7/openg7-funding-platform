@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import test from 'node:test';
 
 import { buildSponsorshipSeedFragments } from '../scripts/lib/e2e-seed/sponsorship.mjs';
+import { syntheticSponsorshipAgreement } from '../scripts/lib/e2e-seed/agreements.mjs';
 import { SPONSORSHIP_FIXTURES } from './playwright/fixtures/e2e-fixtures.mjs';
 
 const hash = (value) => createHash('sha256').update(value).digest('hex');
@@ -381,7 +382,15 @@ test('each sponsor receives approved presentation media with stable keys, bytes,
       height: 1,
       alt_text: 'Photo de presentation ' + fixture.companyName,
       reviewed_at: 'NOW()',
-      reviewed_by: 'e2e-seed'
+      reviewed_by: 'e2e-seed',
+      usage_rights: {
+        state: 'confirmed',
+        channels: ['website', 'facebook', 'linkedin'],
+        targets: ['openg7', 'openg20'],
+        transformations: ['technical', 'crop', 'composite', 'portrait'],
+        credit: null,
+        restrictions: null
+      }
     });
     assert.ok(
       plan.sponsorMediaInsertStatements.includes(
@@ -397,10 +406,12 @@ test('empty selections produce no sponsor writes and repeated builds are determi
     'publicationCleanup',
     'deleteStatements',
     'insertStatements',
+    'agreementInsertStatements',
     'sponsorMediaInsertStatements'
   ]);
   assert.equal(empty.deleteStatements, '');
   assert.equal(empty.insertStatements, '');
+  assert.equal(empty.agreementInsertStatements, '');
   assert.equal(empty.sponsorMediaInsertStatements, '');
   assert.match(
     empty.publicationCleanup,
@@ -416,4 +427,38 @@ test('empty selections produce no sponsor writes and repeated builds are determi
     assert.equal(typeof fragment, 'string');
     assert.doesNotMatch(fragment, /\b(?:BEGIN|COMMIT|ROLLBACK);/);
   }
+});
+
+test('synthetic commercial terms require declared channels and preserve them independently of amount and routing UI', () => {
+  const unspecified = syntheticFixture({ amountCents: 100000 });
+  assert.equal(syntheticSponsorshipAgreement(unspecified), null);
+  assert.match(
+    planFor([unspecified]).agreementInsertStatements,
+    /historical_unverified','needs_confirmation','synthetic_offer_not_recorded'/
+  );
+  const declared = syntheticFixture({
+    amountCents: 5000,
+    agreedChannels: ['linkedin'],
+    feedChannels: ['facebook']
+  });
+  const snapshot = syntheticSponsorshipAgreement(declared);
+  assert.equal(snapshot.amountMinor, 5000);
+  assert.deepEqual(
+    snapshot.benefits.map(({ channel, format }) => ({ channel, format })),
+    [{ channel: 'linkedin', format: 'collective_text' }]
+  );
+  assert.equal(snapshot.version, 'historical-qualification-v1');
+  const sql = planFor([declared]).agreementInsertStatements;
+  assert.ok(sql.includes(hash(JSON.stringify(snapshot))));
+  assert.match(sql, /historical_qualification/);
+  assert.match(sql, /qualified_historical','active'/);
+  assert.match(sql, /synthetic:\/\/acceptance-agreement/);
+  assert.doesNotMatch(
+    sql,
+    /checkout_operation_id|INSERT INTO publication_deliveries|fulfilled/
+  );
+  assert.match(
+    planFor([declared]).publicationCleanup,
+    /preserve commercial and image-use history; start a fresh disposable acceptance stack/
+  );
 });

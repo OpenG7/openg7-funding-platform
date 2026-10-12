@@ -21,7 +21,7 @@ import {
 import { stripeSessionBelongsToProject } from '../stripe-project-scope.js';
 import { syncStripeChargeRefunds } from '../stripe-refunds.service.js';
 import { withPostgresTransaction } from '../postgres-transaction.js';
-import { activateSponsorshipCommitments } from '../sponsorship-commitments/repository.js';
+import { activateSponsorshipCommitments } from '../sponsorship-commitments.repository.js';
 
 import type {
   StripeBackfillOptions,

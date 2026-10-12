@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 import { approveFixtureSubject } from './support/moderation-fixture.mjs';
+import { recordFixtureSponsorshipAgreement } from './support/sponsorship-agreement-fixture.mjs';
 import { PublicationAutomationService } from '../../dist/apps/funding-api/src/publication-automation/service.js';
 import { AdminPilotageService } from '../../dist/apps/funding-api/src/admin-pilotage.service.js';
 
@@ -77,6 +78,9 @@ test(
         `INSERT INTO fund_contributions(id,contribution_type,amount_cents,status,public_display_consent,sponsor_review_status,sponsor_company_name,sponsor_public_summary,sponsor_feed_target,sponsor_feed_channels) VALUES($1,'sponsorship_interest',25000,'paid',TRUE,'approved',$2,'Le projet avance. Ensemble, nous avançons.','openg7','["facebook"]')`,
         [id, name]
       );
+      await recordFixtureSponsorshipAgreement(pool, id, {
+        channels: ['facebook']
+      });
       await approveFixtureSubject(pool, { type: 'sponsorship', id });
       return id;
     }

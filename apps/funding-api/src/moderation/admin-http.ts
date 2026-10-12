@@ -13,6 +13,7 @@ import type { createHttpTransport, readBody } from '../http-transport.js';
 import { withPostgresTransaction } from '../postgres-transaction.js';
 
 import { getModerationContent } from './content.js';
+import { getSponsorshipCharterReviewPreview } from './charter.js';
 import { assignModerationCase } from './assignment.js';
 import { assistModerationContent } from './assistance.js';
 import {
@@ -72,7 +73,8 @@ export function createAdminModerationHttpHandler(
         '/admin/moderation/metrics',
         '/admin/moderation/adoption-preview',
         '/admin/moderation/retention-preview',
-        '/admin/moderation/remote-removals'
+        '/admin/moderation/remote-removals',
+        '/admin/moderation/charter-preview'
       ].includes(path)
     )
       return false;
@@ -89,7 +91,8 @@ export function createAdminModerationHttpHandler(
       [
         '/admin/moderation/adoption-preview',
         '/admin/moderation/retention-preview',
-        '/admin/moderation/assignment'
+        '/admin/moderation/assignment',
+        '/admin/moderation/charter-preview'
       ].includes(path) &&
       !deps.canOwn(request)
     ) {
@@ -107,6 +110,22 @@ export function createAdminModerationHttpHandler(
       return true;
     }
     try {
+      if (
+        path === '/admin/moderation/charter-preview' &&
+        request.method === 'GET'
+      ) {
+        deps.writeJson(
+          request,
+          response,
+          200,
+          await withPostgresTransaction(
+            deps.pool,
+            (db) => getSponsorshipCharterReviewPreview(db),
+            { readOnlySnapshot: true }
+          )
+        );
+        return true;
+      }
       if (
         request.method === 'GET' &&
         [

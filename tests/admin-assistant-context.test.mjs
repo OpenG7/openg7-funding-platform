@@ -7,6 +7,7 @@ import {
 } from '../dist/apps/funding-api/src/admin-assistant/context.service.js';
 import { validateInformationRequest } from '../dist/apps/funding-api/src/sponsorship-information.service.js';
 import { getSponsorshipProgress } from '../dist/apps/funding-api/src/sponsorship-progress.service.js';
+import { recordedSponsorshipCommitment } from './support/sponsorship-commitment-fixture.mjs';
 
 const source = (record = {}, rest = {}) => ({
   record: {
@@ -22,6 +23,11 @@ const source = (record = {}, rest = {}) => ({
     hasCompanyName: true,
     hasContactEmail: true,
     hasSupportingImage: true,
+    commitment: recordedSponsorshipCommitment([
+      'website_mention',
+      'facebook_batch',
+      'linkedin_batch'
+    ]),
     ...record
   },
   dataset: { drafts: [] },
@@ -64,6 +70,7 @@ test('deterministic next step respects independent payment, refund, media, revie
             drafts: ['facebook', 'linkedin'].map((channel) => ({
               contribution_id: '10000000-0000-4000-8000-000000000001',
               channel,
+              feed_target: 'openg7',
               status: 'scheduled'
             }))
           }
@@ -71,9 +78,53 @@ test('deterministic next step respects independent payment, refund, media, revie
       ),
       'monitor_publication'
     ],
-    [source({ reviewStatus: 'approved', amount: 10 }), 'complete']
+    [
+      source({ reviewStatus: 'approved', commitment: null }),
+      'qualify_commitment'
+    ],
+    [
+      source({
+        reviewStatus: 'approved',
+        commitment: {
+          ...recordedSponsorshipCommitment(['website_mention']),
+          obligations: recordedSponsorshipCommitment([
+            'website_mention'
+          ]).obligations.map((o) => ({
+            ...o,
+            state: 'fulfilled',
+            fulfilmentEvidenceId: 'synthetic-qualified-proof'
+          }))
+        }
+      }),
+      'complete'
+    ]
   ])
     assert.equal(buildSponsorshipAssistantContext(input).nextStep, nextStep);
+});
+
+test('legacy published drafts and an absent proof never mark recorded obligations complete', () => {
+  const active = source(
+    { reviewStatus: 'approved' },
+    {
+      dataset: {
+        drafts: ['facebook', 'linkedin'].map((channel) => ({
+          contribution_id: '10000000-0000-4000-8000-000000000001',
+          channel,
+          feed_target: 'openg7',
+          status: 'published'
+        }))
+      }
+    }
+  );
+  assert.equal(
+    buildSponsorshipAssistantContext(active).nextStep,
+    'monitor_publication'
+  );
+  const unknown = { ...active, record: { ...active.record, commitment: null } };
+  assert.equal(
+    buildSponsorshipAssistantContext(unknown).nextStep,
+    'qualify_commitment'
+  );
 });
 
 test('public context omits recipients and request eligibility requires a usable recipient', async () => {

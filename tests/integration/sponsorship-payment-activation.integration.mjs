@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import test from 'node:test';
+import pg from 'pg';
 import Stripe from 'stripe';
 
 import { createDurableCheckoutService } from '../../dist/apps/funding-api/src/checkout-operations.service.js';
@@ -12,6 +13,8 @@ import {
   recordCheckoutSponsorshipOffer
 } from '../../dist/apps/funding-api/src/sponsorship-commitments/offers.js';
 import { processStripeWebhook } from '../../dist/apps/funding-api/src/stripe-webhook.service.js';
+import { assertProductionDatabasePrivileges } from '../../dist/apps/funding-api/src/database-runtime-security.js';
+import { buildRuntimeRoleSql } from '../../scripts/lib/database-runtime-role.mjs';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 
 const secret = 'whsec_disposable_activation_test';
@@ -466,6 +469,68 @@ test(
         assert.deepEqual(await fixture.facts(), [
           { amount: '50000', currency: 'cad', status: 'succeeded' }
         ]);
+      }
+    );
+
+    await t.test(
+      'the restricted API role reads authoritative journals and qualifies one exact paid offer without broader privileges',
+      async () => {
+        const role = 'og7_payment_activation_runtime';
+        const password = randomBytes(32).toString('hex');
+        const database = (await pool.query('SELECT current_database() AS name'))
+          .rows[0].name;
+        await pool.query(
+          buildRuntimeRoleSql({ role, database, password }, { create: true })
+        );
+        const runtime = new pg.Pool({ ...pool.options, user: role, password });
+        try {
+          await assertProductionDatabasePrivileges(runtime, true);
+          const mismatched = checkoutFixture(runtime, 'runtime_mismatch');
+          await mismatched.start();
+          assert.equal(
+            (await mismatched.backfill(40000)).paymentIntents
+              .insertedTransactions,
+            1
+          );
+          const unknown = await mismatched.stored();
+          assertUnknown(unknown);
+          assert.equal(
+            (
+              await mismatched.deliver(
+                mismatched.completed('contradictory_session')
+              )
+            ).statusCode,
+            200
+          );
+          assert.deepEqual(await mismatched.stored(), unknown);
+
+          const matching = checkoutFixture(runtime, 'runtime_match');
+          await matching.start();
+          assert.equal(
+            (await matching.deliver(matching.success('paid'))).statusCode,
+            200
+          );
+          const active = await matching.stored();
+          assertActive(active);
+          assert.equal(
+            (await matching.deliver(matching.success('replayed'))).statusCode,
+            200
+          );
+          assert.deepEqual(await matching.stored(), active);
+          assert.deepEqual(await matching.facts(), [
+            { amount: '50000', currency: 'cad', status: 'succeeded' }
+          ]);
+          await assert.rejects(
+            runtime.query('DELETE FROM sponsorship_offers'),
+            { code: '42501' }
+          );
+          await assert.rejects(runtime.query('DELETE FROM fund_transactions'), {
+            code: '42501'
+          });
+          await assertProductionDatabasePrivileges(runtime, true);
+        } finally {
+          await runtime.end();
+        }
       }
     );
 

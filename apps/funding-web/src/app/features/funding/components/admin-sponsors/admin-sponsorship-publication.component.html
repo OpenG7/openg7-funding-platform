@@ -6,12 +6,18 @@
     <h3>{{ 'admin.dossier.publicationBridge.title' | translate }}</h3>
     <p>{{ 'admin.dossier.publicationBridge.intro' | translate }}</p>
   </header>
+  <openg7-admin-sponsorship-commitments
+    [dossier]="dossier()"
+    (changed)="commitmentChanged.emit()"
+  />
   <section class="benefits" aria-labelledby="publication-benefits">
     <h4 id="publication-benefits">
       {{ 'admin.dossier.publicationBridge.benefits' | translate }}
     </h4>
     @if (!benefitsKnown()) {
-      <p>{{ 'admin.dossier.publicationBridge.currencyUnknown' | translate }}</p>
+      <p>
+        {{ 'admin.dossier.publicationBridge.commitmentUnknown' | translate }}
+      </p>
     }
     <ul>
       @for (benefit of benefits(); track benefit) {
@@ -65,7 +71,7 @@
         }
       </div>
     }
-    @if (blockers().length && completed() < cards().length) {
+    @if (blockers().length && !publicationComplete()) {
       <section class="blockers" data-og7="publication-blockers">
         <h4>{{ 'admin.dossier.publicationBridge.blockers' | translate }}</h4>
         <ul>

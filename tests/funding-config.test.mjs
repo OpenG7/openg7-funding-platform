@@ -886,6 +886,7 @@ test('Contribution form uses sponsorship pricing and the personal server allowli
   assert.ok(config.includes('facebookBatch: { minimumAmount: 250 },'));
   assert.ok(config.includes('linkedinBatch: { minimumAmount: 500 }'));
 
+  assert.ok(source.includes('SponsorshipOfferController'));
   assert.ok(source.includes('isValidSponsorshipAmount'));
   assert.ok(
     source.includes(
@@ -898,8 +899,9 @@ test('Contribution form uses sponsorship pricing and the personal server allowli
   assert.ok(
     source.includes('isValidSponsorshipAmount(amount, this.config.sponsorship)')
   );
-  assert.ok(source.includes('data-og7="sponsorship-offer"'));
-  assert.ok(source.includes('data-og7="offer-acceptance"'));
+  assert.ok(source.includes('getSponsorshipOffer'));
+  assert.ok(source.includes('openg7-sponsorship-offer-summary'));
+  assert.ok(source.includes('offer.accepted()'));
   assert.ok(
     source.includes('funding.home.contribution.sponsorship.minimumAmountError')
   );
@@ -927,19 +929,26 @@ test('Checkout API validates sponsorship custom amounts against the real minimum
   assert.ok(
     source.includes('const isAmountAllowed = isSponsorshipContribution')
   );
-  assert.ok(source.includes(': isValidSponsorshipAmount(amount)'));
   assert.ok(source.includes(': allowedContributionAmounts.has(amount);'));
   assert.ok(source.includes('allowedContributionAmounts.has(amount)'));
 });
 
-test('Sponsorship follow-up benefits read the accepted server offer, never client details or the current pricing', () => {
+test('Sponsorship follow-up benefits come from the immutable server offer, never current pricing or client details', () => {
   const repository = readFundingPersistenceSource('contributions');
   const api = readFundingApiSource();
   const core = readFundingCoreSource('sponsorship-followup');
 
-  assert.equal(repository.includes('resolveSponsorshipBenefits'), false);
-  assert.ok(repository.includes('row.offer_snapshot?.benefits'));
-  assert.ok(repository.includes("'needs_confirmation'"));
+  assert.ok(
+    repository.includes('row.offer_snapshot?.benefits.map((b) => b.id) ?? []')
+  );
+  assert.ok(repository.includes('loadSponsorshipCommitment'));
+  assert.equal(
+    repository.includes('resolveSponsorshipBenefits(amount)'),
+    false
+  );
+  assert.ok(repository.includes('amount: number'));
+  assert.ok(repository.includes('sponsorshipTier: tier,'));
+  assert.ok(repository.includes('sponsorshipBenefits,'));
   assert.ok(api.includes('sponsorshipTier: followup.sponsorshipTier,'));
   assert.ok(api.includes('sponsorshipBenefits: followup.sponsorshipBenefits,'));
 
@@ -1940,7 +1949,7 @@ test('Social publication provider is explicit, configurable, audited, and visibl
   }
 });
 
-test('Admin sponsors page derives the sponsorship tier from the paid amount instead of showing nothing', () => {
+test('Admin sponsors page presents the recorded tier and leaves unknown historical commitments to qualification', () => {
   const page = readAdminSponsorsSource();
   const overviewComponent = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-overview.component.ts',
@@ -1948,9 +1957,12 @@ test('Admin sponsors page derives the sponsorship tier from the paid amount inst
   );
 
   assert.ok(
-    translatedUiSource(page).includes('DEFAULT_SPONSORSHIP_PRICING_CONFIG')
+    translatedUiSource(page).includes('sponsorship.commitment.offer?.benefits')
   );
-  assert.ok(translatedUiSource(page).includes('resolveSponsorshipBenefits'));
+  assert.equal(
+    translatedUiSource(page).includes('resolveSponsorshipBenefits'),
+    false
+  );
   assert.ok(
     translatedUiSource(page).includes(
       'sponsorshipTierLabel(sponsorship: AdminSponsorshipRecord): string {'
@@ -1972,17 +1984,15 @@ test('Admin sponsors page derives the sponsorship tier from the paid amount inst
     )
   );
   assert.match(overviewComponent, /\{\{\s*overview\(\)\.benefitsLabel\s*\}\}/);
-  // Derived from the record's own amount, never a value the client could send.
-  assert.ok(translatedUiSource(page).includes('resolveSponsorshipBenefits('));
-  assert.ok(translatedUiSource(page).includes('sponsorship.amount,'));
+  assert.ok(page.includes('admin.dossier.publicationBridge.commitmentUnknown'));
 });
 
-test('Admin sponsors publication channels are preselected from amount-based benefits', () => {
+test('Admin sponsors publication channels are preselected from open recorded obligations', () => {
   const page = readAdminSponsorsSource();
 
-  assert.ok(translatedUiSource(page).includes('benefitFeedChannelMap'));
-  assert.ok(translatedUiSource(page).includes("facebook_batch: 'facebook'"));
-  assert.ok(translatedUiSource(page).includes("linkedin_batch: 'linkedin'"));
+  assert.ok(
+    translatedUiSource(page).includes('pendingSponsorshipSocialChannels')
+  );
   assert.ok(translatedUiSource(page).includes('promisedFeedChannelsFor('));
   assert.ok(translatedUiSource(page).includes('isPromisedFeedChannel('));
   assert.match(
@@ -3125,8 +3135,8 @@ test('Admin sponsorship publication endpoint validates feed placement fields', (
   assert.ok(api.includes('parseSponsorFeedChannelsFromRequest'));
   assert.ok(api.includes('isAllowedSponsorFeedStatus'));
   assert.ok(api.includes('publicationUpdate.feedChannels'));
-  assert.ok(repository.includes('mergePromisedSponsorFeedChannels'));
-  assert.ok(repository.includes('resolveSponsorshipSocialChannels(amount)'));
+  assert.ok(repository.includes('loadSponsorshipCommitment'));
+  assert.ok(repository.includes('pendingSponsorshipSocialChannels'));
   assert.ok(benefits.includes("facebook_batch: 'facebook'"));
   assert.ok(benefits.includes("linkedin_batch: 'linkedin'"));
   assert.ok(service.includes('/admin/sponsorships/publication'));

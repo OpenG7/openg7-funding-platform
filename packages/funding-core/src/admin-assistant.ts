@@ -12,6 +12,7 @@ import type { AdminAssistantMode } from './admin-assistant-context.js';
 export type AdminAttentionItemType =
   | 'sponsorship_needs_info'
   | 'sponsorship_needs_review'
+  | 'sponsorship_needs_commitment'
   | 'publication_needs_preparation'
   | 'publication_late'
   | 'email_delivery_failed'

@@ -116,6 +116,8 @@ import { FundingAdminActivityClient } from './funding-admin-activity.client.js';
 import { FundingAdminPilotageClient } from './funding-admin-pilotage.client.js';
 import { FundingAdminAssistantClient } from './funding-admin-assistant.client.js';
 import { FundingAdminModerationClient } from './funding-admin-moderation.client.js';
+import { FundingAdminCommitmentsClient } from './funding-admin-commitments.client.js';
+import { FundingAdminHistoricalAuditClient } from './funding-admin-historical-audit.client.js';
 export type { AdminSponsorshipListQuery } from './funding-admin-sponsorships.client.js';
 export { AdminDashboardRequestError } from './funding-admin-session.js';
 export type {
@@ -167,6 +169,45 @@ export class FundingAdminService {
   );
   readonly sessionGeneration = this.session.sessionGeneration;
   readonly identity = this.session.identity;
+  private readonly commitmentsClient = new FundingAdminCommitmentsClient(
+    this.session
+  );
+  private readonly historicalAuditClient =
+    new FundingAdminHistoricalAuditClient(this.session);
+  historicalSponsorshipAudit(
+    query: Parameters<FundingAdminHistoricalAuditClient['preview']>[0]
+  ) {
+    return this.historicalAuditClient.preview(query);
+  }
+  reviewHistoricalSponsorshipEvidence(
+    request: import('@openg7/funding-core').SponsorshipHistoricalAuditReviewRequest
+  ) {
+    return this.historicalAuditClient.review(request);
+  }
+  sponsorshipTimingCommand(
+    request: import('@openg7/funding-core').SponsorshipTimingCommandRequest
+  ) {
+    return this.commitmentsClient.timing(request);
+  }
+  getSponsorshipCommitment(contributionId: string) {
+    return this.commitmentsClient.get(contributionId);
+  }
+  qualifySponsorshipCommitment(
+    payload: import('@openg7/funding-core').SponsorshipCommitmentQualificationRequest
+  ) {
+    return this.commitmentsClient.qualify(payload);
+  }
+  adjustSponsorshipObligation(
+    payload: import('@openg7/funding-core').SponsorshipObligationAdjustmentRequest
+  ) {
+    return this.commitmentsClient.adjust(payload);
+  }
+  sponsorshipCommitmentAdoptionPreview(
+    pageSize: 25 | 50 = 25,
+    cursor?: string
+  ) {
+    return this.commitmentsClient.adoptionPreview(pageSize, cursor);
+  }
   private readonly moderationClient = new FundingAdminModerationClient(
     this.session
   );
@@ -278,6 +319,14 @@ export class FundingAdminService {
   ): Promise<PilotReceipt> {
     return this.pilotageClient.acknowledgePilotReceipt(requestId, reason);
   }
+  publicationReliabilityIncidents(
+    filter: import('@openg7/funding-core').PublicationReliabilityIncidentFilter = {}
+  ): Promise<
+    import('@openg7/funding-core').PublicationReliabilityIncidentPage
+  > {
+    return this.publicationsClient.publicationReliabilityIncidents(filter);
+  }
+
   publicationAutomation(
     command?: PublicationAutomationCommand,
     filter: import('@openg7/funding-core').PublicationAutomationFilter = {}
@@ -288,6 +337,17 @@ export class FundingAdminService {
     deliveryId?: string
   ): Promise<{ id: string; url: string; alt: string; company: string }[]> {
     return this.publicationsClient.publicationMedia(deliveryId);
+  }
+  publicationImagePreview(
+    deliveryId: string,
+    version: number,
+    expectedHash: string
+  ): Promise<Blob> {
+    return this.publicationsClient.publicationImagePreview(
+      deliveryId,
+      version,
+      expectedHash
+    );
   }
   authMode(): Promise<'oidc' | 'token'> {
     return this.session.authMode();
@@ -804,6 +864,16 @@ export class FundingAdminService {
     payload: import('@openg7/funding-core').AdminSponsorMediaMetadataRequest
   ) {
     return this.sponsorshipsClient.updateSponsorMediaMetadata(token, payload);
+  }
+  updateSponsorMediaUsage(
+    payload: import('@openg7/funding-core').AdminSponsorMediaUsageRequest
+  ) {
+    return this.sponsorshipsClient.updateSponsorMediaUsage(payload);
+  }
+  decideSponsorMediaPreference(
+    payload: import('@openg7/funding-core').AdminSponsorMediaPreferenceDecisionRequest
+  ) {
+    return this.sponsorshipsClient.decideSponsorMediaPreference(payload);
   }
 
   deleteSponsorMedia(

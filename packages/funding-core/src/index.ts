@@ -311,3 +311,17 @@ export type {
 } from './admin-assistant.js';
 export * from './sponsorship-offers.js';
 export * from './sponsorship-commitments.js';
+export * from './sponsorship-historical-audit.js';
+export * from './sponsorship-obligation-timing.js';
+export * from './publication-reliability.js';
+export * from './sponsorship-publication-formats.js';
+export * from './sponsor-media-usage.js';
+export type {
+  PublicationObligationSnapshot,
+  SponsorshipFulfilmentEvidence
+} from './sponsorship-fulfilment.js';
+export {
+  SPONSORSHIP_RECOGNITION_TERMS_VERSION,
+  SPONSORSHIP_RECOGNITION_TERMS_TEXT
+} from './sponsorship-recognition-terms.js';
+export type { SponsorshipCharterReviewPreview } from './sponsorship-recognition-terms.js';

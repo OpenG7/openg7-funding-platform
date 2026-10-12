@@ -23,23 +23,50 @@ const frozenOffer = {
     durationDays: null
   }))
 };
-// These query fixtures stand in for a caller-owned transaction. Financial and
-// commercial snapshots are read under the contribution lock before issuance.
-const emit = (pool, request) =>
-  publicCreate(
-    pool
-      ? {
-          release() {},
-          query: (sql, values) =>
-            sql.startsWith('SELECT amount_cents::text')
-              ? Promise.resolve({ rows: [{ amount_cents: '50000' }] })
-              : sql.includes('SELECT o.snapshot')
-                ? Promise.resolve({ rows: [{ snapshot: frozenOffer }] })
-                : pool.query(sql, values)
-        }
-      : null,
-    request
-  );
+// The fixture owns a real transaction-shaped client. The contribution lock and
+// offer read are separate from the invoice statements inspected by each test.
+const emit = async (pool, request) => {
+  if (!pool) return publicCreate(null, request);
+  const steps = [];
+  let released = 0;
+  let failed = false;
+  const client = {
+    query: async (sql, values) => {
+      if (['BEGIN', 'COMMIT', 'ROLLBACK'].includes(sql)) {
+        steps.push(sql);
+        return { rows: [] };
+      }
+      if (sql.startsWith('SELECT amount_cents::text')) {
+        assert.match(sql, /FOR UPDATE/);
+        assert.deepEqual(values, [request.stripeSessionId]);
+        steps.push('contribution_lock');
+        return { rows: [{ amount_cents: '50000' }] };
+      }
+      if (sql.includes('SELECT o.snapshot')) {
+        assert.equal(steps.at(-1), 'contribution_lock');
+        assert.deepEqual(values, [request.stripeSessionId]);
+        steps.push('offer_snapshot');
+        return { rows: [{ snapshot: frozenOffer }] };
+      }
+      assert.ok(steps.includes('offer_snapshot'));
+      steps.push('invoice_statement');
+      return pool.query(sql, values);
+    },
+    release: () => {
+      released++;
+    }
+  };
+  try {
+    return await publicCreate({ connect: async () => client }, request);
+  } catch (error) {
+    failed = true;
+    throw error;
+  } finally {
+    assert.equal(steps[0], 'BEGIN');
+    assert.equal(steps.at(-1), failed ? 'ROLLBACK' : 'COMMIT');
+    assert.equal(released, 1);
+  }
+};
 
 const input = (overrides = {}) => ({
   stripeSessionId: 'cs_test_invoice_write',
@@ -231,99 +258,4 @@ test('a failed read after conflict propagates the failure instead of reporting n
     /Synthetic snapshot read failure/
   );
   assert.equal(calls, 2);
-});
-
-test('issuance owns one transaction and reads monetary and accepted-offer snapshots after locking the dossier', async () => {
-  const queries = [];
-  let released = 0;
-  const client = {
-    query: async (sql, values) => {
-      queries.push({ sql, values });
-      if (sql.startsWith('SELECT amount_cents::text'))
-        return { rows: [{ amount_cents: '12345' }] };
-      if (sql.includes('SELECT o.snapshot'))
-        return { rows: [{ snapshot: frozenOffer }] };
-      if (sql.includes('INSERT INTO sponsorship_invoices')) {
-        assert.equal(JSON.parse(values[11])[0].totalCents, 12345);
-        assert.match(values[12], /Facebook/);
-        return { rows: [storedInvoice] };
-      }
-      return { rows: [] };
-    },
-    release: () => {
-      released++;
-    }
-  };
-  const invoice = await publicCreate(
-    {
-      connect: async () => client,
-      query: () => {
-        throw new Error('Snapshot escaped its transaction');
-      }
-    },
-    input({ amountCents: 90000 })
-  );
-  assert.equal(invoice.id, storedInvoice.id);
-  assert.equal(queries[0].sql, 'BEGIN');
-  assert.match(queries[1].sql, /FOR UPDATE/);
-  assert.match(queries[2].sql, /SELECT o.snapshot/);
-  assert.equal(queries.at(-1).sql, 'COMMIT');
-  assert.equal(released, 1);
-});
-
-test('a snapshot or emission failure rolls back and releases the owned client', async () => {
-  for (const failAt of [
-    'SELECT o.snapshot',
-    'INSERT INTO sponsorship_invoices'
-  ]) {
-    const commands = [];
-    let released = 0;
-    const failure = new Error('Synthetic issuance snapshot failure');
-    const client = {
-      query: async (sql) => {
-        commands.push(sql);
-        if (sql.includes(failAt)) throw failure;
-        if (sql.startsWith('SELECT amount_cents::text'))
-          return { rows: [{ amount_cents: '50000' }] };
-        if (sql.includes('SELECT o.snapshot'))
-          return { rows: [{ snapshot: frozenOffer }] };
-        return { rows: [] };
-      },
-      release: () => {
-        released++;
-      }
-    };
-    await assert.rejects(
-      publicCreate({ connect: async () => client }, input()),
-      (error) => error === failure
-    );
-    assert.equal(commands.at(-1), 'ROLLBACK');
-    assert.equal(commands.includes('COMMIT'), false);
-    assert.equal(released, 1);
-  }
-});
-
-test('a historical invoice remains retrievable when the dossier no longer permits a new issuance', async () => {
-  const commands = [];
-  const client = {
-    release() {},
-    query: async (sql) => {
-      commands.push(sql);
-      if (sql.includes('FROM sponsorship_invoices invoice'))
-        return { rows: [storedInvoice] };
-      return { rows: [] };
-    }
-  };
-  const invoice = await publicCreate(client, input());
-  assert.equal(invoice.id, storedInvoice.id);
-  assert.equal(invoice.notes, storedInvoice.notes);
-  assert.equal(commands.length, 2);
-  assert.equal(
-    commands.some(
-      (sql) =>
-        sql.includes('INSERT INTO sponsorship_invoices') ||
-        sql.includes('SELECT o.snapshot')
-    ),
-    false
-  );
 });

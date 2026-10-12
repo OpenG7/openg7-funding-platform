@@ -296,6 +296,9 @@ export class AdminSponsorMediaWorkflow {
       reviewStatus: event.reviewStatus,
       altText: altText || undefined,
       moderationDecision,
+      ...(event.usageRestrictionsConfirmed
+        ? { usageRestrictionsConfirmed: true as const }
+        : {}),
       confirmation: event.assetId
     });
     return true;

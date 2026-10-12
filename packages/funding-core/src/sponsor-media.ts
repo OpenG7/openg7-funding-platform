@@ -6,6 +6,8 @@ export type SponsorMediaReviewStatus =
 export type SponsorMediaUploader = 'sponsor' | 'admin';
 
 export interface SponsorMediaAsset {
+  readonly usage?: import('./sponsor-media-usage.js').SponsorMediaUsageRights;
+  readonly usageRestrictionsReviewed?: boolean;
   readonly id: string;
   readonly contributionId: string;
   readonly kind: SponsorMediaKind;
@@ -27,6 +29,7 @@ export interface SponsorMediaAsset {
 }
 
 export interface PublicSponsorMediaAsset {
+  readonly credit?: string | null;
   readonly id: string;
   readonly kind: SponsorMediaKind;
   readonly url: string;
@@ -45,6 +48,7 @@ export interface SponsorMediaLimits {
 }
 
 export interface SponsorshipMediaResponse {
+  readonly preference?: import('./sponsor-media-usage.js').SponsorMediaPreference;
   readonly assets: readonly SponsorMediaAsset[];
   readonly limits: SponsorMediaLimits;
 }
@@ -67,6 +71,7 @@ export interface SponsorMediaDeleteResult {
 }
 
 export interface AdminSponsorMediaReviewRequest {
+  readonly usageRestrictionsConfirmed?: true;
   readonly assetId: string;
   readonly expectedVersion: string;
   readonly reviewStatus: SponsorMediaReviewStatus;

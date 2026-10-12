@@ -105,3 +105,41 @@ export const detectSponsorshipReviewItems = (
       ]
     } satisfies AdminAttentionItem;
   });
+
+/** Unknown historical terms require human qualification; an absent offer is never completion. */
+export const detectSponsorshipCommitmentItems = (
+  dataset: AttentionDataset
+): AdminAttentionItem[] =>
+  dataset.sponsorships
+    .filter(
+      (record) =>
+        record.paymentStatus === 'paid' &&
+        record.refundStatus === 'not_requested' &&
+        (record.commitment?.state !== 'active' || !record.commitment.offer)
+    )
+    .map(
+      (record) =>
+        ({
+          id: `sponsorship_needs_commitment:${record.contributionId}`,
+          type: 'sponsorship_needs_commitment',
+          severity: 'this_week',
+          title: `Engagements à qualifier (${sponsorshipRef(record)})`,
+          explanation:
+            'Aucune offre qualifiée n’est enregistrée. Vérifier l’accord et ses preuves sans appliquer le barème actuel.',
+          sponsorshipId: record.contributionId,
+          contributionId: record.contributionId,
+          detectedAt: dataset.now.toISOString(),
+          adminUrl: sponsorshipAdminUrl(record.contributionId),
+          facts: {
+            reference: sponsorshipRef(record),
+            commitmentState: record.commitment?.state ?? 'needs_confirmation'
+          },
+          suggestedActions: [
+            {
+              actionType: 'qualify_commitment',
+              label: 'Examiner les engagements',
+              executionMode: 'navigate'
+            }
+          ]
+        }) satisfies AdminAttentionItem
+    );
