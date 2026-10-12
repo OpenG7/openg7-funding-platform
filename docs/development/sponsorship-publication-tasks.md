@@ -136,6 +136,29 @@ Les types UI, lint et format ciblés passent. La revue indépendante ne relève
 aucun écart ; aucun runtime, skip, timeout ou configuration CI n'est modifié.
 Ces résultats ciblés sont distincts de la prochaine réception CI complète.
 
+### Correctif CI — confirmation de révocation sur mobile
+
+Le [run CI 257](https://github.com/OpenG7/openg7-funding-platform/actions/runs/38319459479),
+sur `ff6eb34b`, reçoit les 257 parcours Docker et les contrôles Node/PostgreSQL.
+La suite d'accessibilité reçoit 35 parcours et échoue sur la révocation de
+session mobile WebKit : le défilement change de 40 pixels pendant le clic de
+confirmation, sans POST. Le focus automatique lance un défilement animé.
+
+La confirmation conserve le focus clavier avec défilement immédiat au plus
+près. La régression capture sa géométrie au premier rendu, sans attendre la fin
+d'une animation : elle échoue avant correction (bouton 66 pixels sous l'écran).
+Le clic normal, l'absence de mutation avant confirmation, le POST unique et son
+payload exact restent exigés. Aucun skip, retry, timeout ou contrôle de droits
+n'est modifié. Les preuves locales ci-dessous restent distinctes de la CI finale.
+
+Réception locale du 12 octobre 2026 sous Node 22 : 27 parcours d'accessibilité
+Chromium/WebKit/mobile WebKit sous Windows, 18 Firefox/mobile WebKit sous Linux
+jetable, 32 parcours d'accès FR/EN desktop/mobile et 26 tests du contrôleur
+passent. Firefox Windows bloque avant la création du contexte ; sa qualification
+est reçue sous Linux. Le build Angular production (25 routes), les types, lint,
+format, standards, budgets/liens et `git diff --check` passent. La revue croisée
+ne relève aucun P1/P2. La prochaine réception CI complète reste à confirmer.
+
 ## Complément autorisé — cinq travaux
 
 Feu vert du 12 octobre 2026 sur la base `a7d9ea0`, avec conservation des
