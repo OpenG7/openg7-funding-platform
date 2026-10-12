@@ -1,4 +1,30 @@
 /** Private commercial scheduling. A clock never proves continuous exposure. */
+export type SponsorshipPublicObservationStatus =
+  'visible' | 'changed' | 'not_visible' | 'unknown';
+
+export type SponsorshipPublicObservationReason =
+  | 'MATCH'
+  | 'PUBLIC_CONTENT_CHANGED'
+  | 'PUBLIC_MEDIA_CHANGED'
+  | 'PUBLIC_MEDIA_MISSING'
+  | 'PROFILE_NOT_OBSERVED'
+  | 'HTTP_ERROR'
+  | 'HTTP_REDIRECT'
+  | 'HTTP_TIMEOUT'
+  | 'HTTP_TOO_LARGE'
+  | 'HTTP_INVALID'
+  | 'DNS_UNSAFE'
+  | 'CHECK_BUDGET_EXHAUSTED'
+  | 'SOURCE_CHANGED';
+
+/** A sample of the controlled public API and media; never a continuity attestation. */
+export interface SponsorshipPublicObservation {
+  readonly checkedAt: string;
+  readonly status: SponsorshipPublicObservationStatus;
+  readonly reason: SponsorshipPublicObservationReason;
+  readonly httpStatus: number | null;
+}
+
 export interface SponsorshipObligationTiming {
   readonly version: number;
   readonly deadlineDays: number | null;
@@ -19,6 +45,7 @@ export interface SponsorshipObligationTiming {
     readonly observedAt: string;
     readonly earliestCompletionAt: string;
   } | null;
+  readonly latestPublicObservation?: SponsorshipPublicObservation | null;
 }
 
 export interface SponsorshipTimingCommandRequest {

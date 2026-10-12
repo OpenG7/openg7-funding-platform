@@ -78,7 +78,7 @@
         "collective_text": "Texte collectif",
         "individual_portrait": "Portrait individuel",
         "collective_composite": "Image collective",
-        "image_collection": "Collection d’images — indisponible"
+        "image_collection": "Collection d’images — LinkedIn"
       },
       "requirements": {
         "company_name": "Nom de l’entreprise",
@@ -2549,6 +2549,42 @@
         "editDraft": "Modifier le brouillon de {{name}}",
         "openDossier": "Consulter le dossier de {{name}}",
         "openDelivery": "Consulter la publication de {{name}}",
+        "opportunity": {
+          "hypothesis": "Possibilité privée selon le calendrier actuel. Aucun créneau ni rang dans la file n’est réservé ; la publication exige encore une approbation.",
+          "date": "Date possible : {{date}}",
+          "searchUntil": "Calendrier vérifié jusqu’au {{date}}.",
+          "reasons": {
+            "EXISTING_PROPOSAL": "Cette proposition conserve sa date compatible actuelle.",
+            "EXISTING_DATE_OUTSIDE_SEARCH": "La date existante est conservée après la période examinée. Sa compatibilité n’a pas été vérifiée ici.",
+            "AVAILABLE_IN_HORIZON": "Une récurrence pourrait accueillir ce bloc complet dans l’horizon de préparation.",
+            "AVAILABLE_AFTER_HORIZON": "Une récurrence compatible existe après l’horizon de préparation.",
+            "SOURCE_CORRECTION_REQUIRED": "La source doit être corrigée avant d’envisager une date.",
+            "MODERATION_REVIEW_REQUIRED": "Une restriction de modération exige une revue avant d’envisager une date.",
+            "MANUAL_RESERVATION": "La réservation manuelle est conservée. Aucune date de remplacement n’est suggérée.",
+            "PROPOSAL_REPAIR_REQUIRED": "Vérifiez la proposition existante avant d’attribuer une autre date.",
+            "ACCOUNT_CONNECTION_REQUIRED": "Le compte de publication doit être configuré ou sa connexion vérifiée.",
+            "ACCOUNT_RECONCILIATION_REQUIRED": "Une livraison de ce compte exige une réconciliation avant d’envisager une autre date.",
+            "FEED_PAUSED": "Ce fil est en pause. Aucune nouvelle date n’est suggérée.",
+            "FORMAT_UNAVAILABLE": "Le format engagé n’est pas disponible sur ce canal.",
+            "GROUP_PARTICIPANTS_REQUIRED": "Une collection exige un autre commanditaire compatible et au moins deux sources complètes.",
+            "CAPACITY_INSUFFICIENT": "La capacité de ce fil ne permet pas le nombre minimal de participants du format.",
+            "NO_COMPATIBLE_RECURRENCE": "Aucune récurrence compatible n’a été trouvée dans la période examinée."
+          },
+          "actions": {
+            "REVIEW_PROPOSAL": "Ouvrez la publication, vérifiez son texte complet et ses médias, puis approuvez explicitement.",
+            "PREPARE_FEED": "Préparez ce fil, puis vérifiez la proposition obtenue.",
+            "REVIEW_HORIZON": "Vérifiez les réglages de récurrence et d’horizon, ou préparez à nouveau quand cette date entre dans l’horizon.",
+            "CORRECT_SOURCE": "Ouvrez et corrigez le brouillon source avant de préparer à nouveau.",
+            "REVIEW_MODERATION": "Ouvrez le dossier ou le brouillon et vérifiez sa décision actuelle de modération.",
+            "REPAIR_PROPOSAL": "Ouvrez la publication et vérifiez son erreur, sa composition et sa date.",
+            "CONFIGURE_ACCOUNT": "Vérifiez le compte et les réglages de connexion de ce fil.",
+            "RECONCILE_ACCOUNT": "Vérifiez la livraison incertaine de ce compte avant une nouvelle préparation ou un nouvel envoi.",
+            "REVIEW_FEED": "Vérifiez la pause avant de demander une préparation.",
+            "REVIEW_FORMAT": "Vérifiez le format engagé et les capacités du canal.",
+            "WAIT_FOR_GROUP": "Préparez à nouveau quand un groupe compatible peut être composé ; n’approuvez pas une collection d’une seule source.",
+            "REVIEW_CALENDAR": "Vérifiez le calendrier, l’occupation du compte et la capacité des lots."
+          }
+        },
         "reasons": {
           "AWAITING_PREPARATION": "En attente de préparation pour cette destination.",
           "MODERATION_REVIEW_REQUIRED": "Une revue de modération à jour est requise avant la préparation. Le brouillon est conservé. Consultez le dossier ou le brouillon source pour examiner la restriction.",
@@ -2586,6 +2622,7 @@
       "noImage": "Sans image",
       "save": "Enregistrer le brouillon",
       "approvalHelp": "Toute modification annule l’autorisation précédente. Vérifiez le compte, le texte, l’image et l’heure ci-dessus.",
+      "collectionHelp": "Collection LinkedIn : vérifiez chaque JPEG dans l’ordre affiché. Une photo par commanditaire, de 2 à 10 participants. Chaque photo conserve ses droits et son crédit dans le texte.",
       "approval": "J’approuve ce contenu exact et son envoi à cette destination, à cette heure.",
       "approve": "Accepter et programmer",
       "cancel": "Annuler cet envoi",
@@ -2682,6 +2719,7 @@
         "POST_MISMATCH": "La publication indiquée ne correspond pas au contenu et au compte approuvés.",
         "REMOTE_POST_UNVERIFIED": "Impossible de vérifier cette publication. Vérifiez l’identifiant et l’accès au compte avant de conclure à son absence.",
         "MEDIA_RECONCILIATION_REQUIRED": "Une vérification de l’image sur le réseau social est nécessaire. Cet envoi reste bloqué pour éviter un doublon.",
+        "COLLECTION_REQUIRES_MULTIPLE_SPONSORS": "Une collection LinkedIn exige de 2 à 10 commanditaires, avec une photo autorisée par commanditaire.",
         "SPONSOR_APPROVAL_REQUIRED": "Vérifiez les commanditaires en attente et confirmez leur approbation avec cette publication.",
         "SPONSOR_MEDIA_REQUIRED": "Une photo de présentation approuvée est requise pour chaque nouveau commanditaire."
       },
@@ -3470,6 +3508,7 @@
       },
       "errors": {
         "invalid": "Vérifiez la date, la preuve, la justification et la confirmation exacte.",
+        "sampling": "Un contrôle HTTP de cette période est en cours. Attendez son résultat puis relisez le suivi avant d’attester la continuité.",
         "conflict": "Les faits ou la version ne permettent pas cette décision. Relisez les engagements et leurs autorisations.",
         "tooEarly": "La durée minimale n’est pas encore écoulée. La prestation reste ouverte.",
         "sourceChanged": "Les sources ou leurs autorisations ont changé. Vérifiez la visibilité puis constatez un nouveau début.",
@@ -3480,7 +3519,32 @@
         "periodOverlap": "Cette période a commencé avant la clôture de la précédente. Constatez un nouveau début distinct.",
         "notFound": "Cette prestation est indisponible. Relisez le dossier avant une nouvelle décision."
       },
-      "restartHelp": "Une restriction ou modification connue a rendu l’ancienne observation inutilisable. Elle reste historique. Vérifiez l’affichage et observez un nouveau début ; aucune période n’est cumulée."
+      "restartHelp": "Une restriction ou modification connue a rendu l’ancienne observation inutilisable. Elle reste historique. Vérifiez l’affichage et observez un nouveau début ; aucune période n’est cumulée.",
+      "publicObservation": {
+        "title": "Dernier contrôle HTTP public :",
+        "empty": "Aucun contrôle HTTP enregistré pour ce début. Le suivi périodique exige une activation serveur explicite.",
+        "help": "Ce contrôle ponctuel concerne l’API publique OpenG7 et ses images, pas toutes les pages ni chaque instant. Il ne prouve pas une durée continue. La clôture exige toujours votre attestation et ses pièces.",
+        "states": {
+          "visible": "Contenu et images attendus observés",
+          "changed": "Contenu ou image différent",
+          "not_visible": "Image publique introuvable",
+          "unknown": "Visibilité non confirmée"
+        },
+        "reasons": {
+          "PUBLIC_CONTENT_CHANGED": "Le contenu reçu diffère du début enregistré. Vérifiez puis constatez un nouveau début ; les périodes ne se cumulent pas.",
+          "PUBLIC_MEDIA_CHANGED": "Les octets d’une image reçue diffèrent. Vérifiez puis constatez un nouveau début.",
+          "PUBLIC_MEDIA_MISSING": "L’URL contrôlée d’une image a répondu 404. Vérifiez l’affichage avant un nouveau début.",
+          "PROFILE_NOT_OBSERVED": "Le dossier n’a pas été trouvé dans les pages contrôlées. La recherche reprendra sur les pages suivantes ; aucune suppression n’est déduite.",
+          "HTTP_ERROR": "Le contrôle HTTP n’a pas abouti. Examinez la disponibilité avant d’attester une continuité.",
+          "HTTP_REDIRECT": "Le serveur a redirigé le contrôle ; aucune redirection n’est suivie. Vérifiez l’origine configurée.",
+          "HTTP_TIMEOUT": "Le contrôle a atteint sa limite de temps. La visibilité reste inconnue.",
+          "HTTP_TOO_LARGE": "La réponse dépasse la taille autorisée. Vérifiez la surface publique et la configuration.",
+          "HTTP_INVALID": "La réponse publique ne correspond pas au format attendu. Vérifiez la surface et la révision déployée.",
+          "DNS_UNSAFE": "La résolution de l’origine ne satisfait pas les protections réseau. Vérifiez la configuration serveur.",
+          "CHECK_BUDGET_EXHAUSTED": "Le budget du passage est épuisé. Le prochain contrôle reprendra la recherche.",
+          "SOURCE_CHANGED": "Les sources ou le début ont changé pendant le contrôle. Relisez le suivi et vérifiez l’observation de début."
+        }
+      }
     }
   },
   "funding": {
@@ -3539,12 +3603,12 @@
         "duration_unsupported": "La durée d’exposition convenue reste à vérifier; un premier affichage ne solde pas cette obligation."
       },
       "formatChoice": "Format souhaité pour {{channel}}",
-      "formatHelp": "Ces choix s’appliquent aux canaux compris dans l’offre affichée. Les formats avec image nécessitent une photo autorisée et revue ; la collection d’images reste indisponible.",
+      "formatHelp": "Ces choix s’appliquent aux canaux compris dans l’offre affichée. Les formats avec image nécessitent une photo autorisée et revue. Sur LinkedIn, la collection regroupe de 2 à 10 commanditaires, chacun avec sa photo ; sa programmation peut attendre une seconde participation.",
       "formats": {
         "collective_text": "Texte collectif",
         "individual_portrait": "Portrait individuel",
         "collective_composite": "Montage collectif",
-        "image_collection": "Collection d’images (indisponible)"
+        "image_collection": "Collection d’images — LinkedIn"
       },
       "version": "Offre {{version}}",
       "amount": "Montant de commandite : {{amount}}",

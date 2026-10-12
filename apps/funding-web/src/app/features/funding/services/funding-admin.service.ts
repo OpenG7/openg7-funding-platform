@@ -341,12 +341,14 @@ export class FundingAdminService {
   publicationImagePreview(
     deliveryId: string,
     version: number,
-    expectedHash: string
+    expectedHash: string,
+    imageIndex?: number
   ): Promise<Blob> {
     return this.publicationsClient.publicationImagePreview(
       deliveryId,
       version,
-      expectedHash
+      expectedHash,
+      imageIndex
     );
   }
   authMode(): Promise<'oidc' | 'token'> {

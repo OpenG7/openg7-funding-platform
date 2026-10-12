@@ -2,6 +2,7 @@ import type { Pool, PoolClient } from 'pg';
 import type { SponsorshipFulfilmentEvidence } from '@openg7/funding-core';
 
 import { canonicalPublicationAccount } from '../publication-automation/account-reservations.js';
+import { linkedinPublicationImageIds } from '../../../../packages/funding-core/src/index.js';
 import type { DeliveryRow } from '../publication-automation/context.js';
 
 import {
@@ -44,6 +45,7 @@ export async function recordSocialFulfilment(
       message: row.message,
       sources: row.source_snapshot,
       media: row.media_snapshot,
+      providerMediaIds: linkedinPublicationImageIds(row.provider_media_id),
       actor
     });
   }

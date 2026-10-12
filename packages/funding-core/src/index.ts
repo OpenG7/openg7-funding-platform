@@ -107,6 +107,7 @@ export type {
 } from './admin-cockpit.js';
 
 export * from './publication-automation.js';
+export * from './publication-provider-media.js';
 
 export * from './publication-recognition.js';
 

@@ -139,6 +139,7 @@ test('a definite refusal releases the failed request while ambiguous receipt con
   for (const [code, release, notice] of [
     ['TIMING_VERSION_CONFLICT', true, 'conflict'],
     ['DURATION_NOT_ELAPSED', true, 'tooEarly'],
+    ['DURATION_OBSERVATION_IN_PROGRESS', true, 'sampling'],
     ['DURATION_SOURCE_CHANGED', true, 'sourceChanged'],
     ['COMMITMENT_REQUEST_CONFLICT', false, 'uncertain'],
     ['UNRECOGNIZED', false, 'uncertain']
@@ -315,4 +316,70 @@ test('a confirmed restart-required receipt retains the pending benefit and requi
   assert.equal(f.c.error(), 'sourceChanged');
   assert.equal(f.sent.length, 1);
   assert.equal(f.state.requests, 1);
+});
+
+test('a visible HTTP sample is accepted as dated information while the benefit remains pending', async () => {
+  const f = fixture();
+  f.fill();
+  f.state.result = {
+    obligationId: id,
+    timing: {
+      ...f.obligation.timing,
+      version: 2,
+      latestPublicObservation: {
+        checkedAt: '2026-10-12T00:00:00.000Z',
+        status: 'visible',
+        reason: 'MATCH',
+        httpStatus: 200
+      }
+    }
+  };
+  await f.c.submit('observe');
+  assert.equal(f.c.saved(), true);
+  assert.equal(f.c.obligation().state, 'pending');
+  assert.equal(f.c.obligation().fulfilmentEvidenceId, null);
+});
+
+test('an invalid HTTP sample receipt preserves the exact captured timing command for reconciliation', async () => {
+  for (const invalid of [
+    {
+      checkedAt: 'not-a-date',
+      status: 'visible',
+      reason: 'MATCH',
+      httpStatus: 200
+    },
+    {
+      checkedAt: '2026-10-12T00:00:00.000Z',
+      status: 'fulfilled',
+      reason: 'MATCH',
+      httpStatus: 200
+    },
+    {
+      checkedAt: '2026-10-12T00:00:00.000Z',
+      status: 'unknown',
+      reason: 'arbitrary-private-detail',
+      httpStatus: 200
+    },
+    {
+      checkedAt: '2026-10-12T00:00:00.000Z',
+      status: 'unknown',
+      reason: 'HTTP_ERROR',
+      httpStatus: 0
+    }
+  ]) {
+    const f = fixture();
+    f.fill();
+    f.state.result = {
+      obligationId: id,
+      timing: {
+        ...f.obligation.timing,
+        version: 2,
+        latestPublicObservation: invalid
+      }
+    };
+    await f.c.submit('observe');
+    assert.equal(f.c.saved(), false);
+    assert.equal(f.c.obligation().state, 'pending');
+    assert.deepEqual(f.c.pending(), f.sent[0]);
+  }
 });

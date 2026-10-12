@@ -117,6 +117,16 @@ export const publicDelivery = (r: DeliveryRow): PublicationDelivery => ({
   mediaAlt: r.media_snapshot?.alt ?? null,
   mediaDerivedHash: r.media_snapshot?.derivedHash ?? null,
   mediaTransform: r.media_snapshot?.transform ?? null,
+  ...(r.media_snapshot?.kind === 'derived' && r.media_snapshot.images
+    ? {
+        mediaImages: r.media_snapshot.images.map((image) => ({
+          alt: image.alt,
+          sha256: image.derivedHash,
+          width: image.width,
+          height: image.height
+        }))
+      }
+    : {}),
   accountId: r.account_id,
   mode: r.mode,
   autoManaged: r.auto_managed,

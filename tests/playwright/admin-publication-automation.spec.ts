@@ -746,6 +746,107 @@ test('source preparation queue keeps its confirmed page when another page fails'
   expect(commands).toHaveLength(0);
 });
 
+for (const language of ['fr-CA', 'en'] as const) {
+  test(`source queue labels a future opportunity as private and preserves required actions in ${language}`, async ({
+    page
+  }) => {
+    await page.setViewportSize({ width: 390, height: 1000 });
+    await page.addInitScript(
+      (locale) => localStorage.setItem('openg7.language', locale),
+      language
+    );
+    const projected = sourceEntry(1, {
+      reason: 'NO_SLOT_IN_HORIZON',
+      nextOpportunity: {
+        reason: 'AVAILABLE_AFTER_HORIZON',
+        action: 'REVIEW_HORIZON',
+        proposedAt: '2030-07-15T10:00:00Z',
+        withinHorizon: false,
+        evaluatedAt: '2030-06-01T12:00:00Z',
+        searchUntil: '2031-06-02T12:00:00Z'
+      }
+    });
+    const uncertainAccount = sourceEntry(2, {
+      nextOpportunity: {
+        ...projected.nextOpportunity!,
+        reason: 'ACCOUNT_RECONCILIATION_REQUIRED',
+        action: 'RECONCILE_ACCOUNT',
+        proposedAt: null
+      }
+    });
+    const legacy = sourceEntry(3);
+    const commands = await fixtures(
+      page,
+      'draft',
+      false,
+      [],
+      {},
+      { queue: sourceQueue([projected, uncertainAccount, legacy]) }
+    );
+    await page.goto('/admin/fundraiser/publications/automation');
+    const english = language === 'en';
+    const queue = page.locator('[data-og7="publication-source-queue"]');
+    const row = queue.locator(`[data-og7-id="${projected.draftId}"]`);
+    const opportunity = row.locator(
+      '[data-og7="publication-source-opportunity"]'
+    );
+    await expect(opportunity).toContainText(
+      english
+        ? 'No slot is reserved'
+        : 'Aucun créneau ni rang dans la file n’est réservé'
+    );
+    await expect(opportunity).toContainText(
+      english
+        ? 'beyond the preparation horizon'
+        : 'après l’horizon de préparation'
+    );
+    await expect(opportunity).toContainText(
+      english ? 'Possible date:' : 'Date possible :'
+    );
+    await expect(opportunity).toContainText(
+      english
+        ? 'Review the recurrence and horizon settings'
+        : 'Vérifiez les réglages de récurrence et d’horizon'
+    );
+    await expect(row).toContainText(
+      english ? 'No date assigned' : 'Aucune date attribuée'
+    );
+    const blocked = queue.locator(
+      `[data-og7-id="${uncertainAccount.draftId}"] [data-og7="publication-source-opportunity"]`
+    );
+    await expect(blocked).toContainText(
+      english ? 'requires reconciliation' : 'exige une réconciliation'
+    );
+    await expect(blocked).not.toContainText(
+      english ? 'Possible date:' : 'Date possible :'
+    );
+    await expect(blocked).toContainText(
+      english
+        ? 'Investigate the uncertain delivery'
+        : 'Vérifiez la livraison incertaine'
+    );
+    await expect(
+      queue.locator(
+        `[data-og7-id="${legacy.draftId}"] [data-og7="publication-source-opportunity"]`
+      )
+    ).toHaveCount(0);
+    await expect(opportunity.getByRole('button')).toHaveCount(0);
+    expect(commands).toHaveLength(0);
+    expect(
+      await queue.evaluate(
+        (element) => element.scrollWidth <= element.clientWidth
+      )
+    ).toBe(true);
+    expect(
+      (
+        await new AxeBuilder({ page })
+          .include('[data-og7="publication-source-queue"]')
+          .analyze()
+      ).violations
+    ).toEqual([]);
+  });
+}
+
 for (const [language, width] of [
   ['fr-CA', 1280],
   ['en', 390]

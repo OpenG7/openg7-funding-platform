@@ -54,6 +54,7 @@ import {
 import { createPublicTransparencyCache } from './public-transparency-cache.js';
 import { privateDataEncryptionKey } from './private-data-protection.js';
 import { PublicationAutomationService } from './publication-automation/service.js';
+import { SponsorshipPublicVisibilityWorker } from './sponsorship-timing/visibility-worker.js';
 import { getTransactionalEmailConfigStatus } from './services/email/index.js';
 import { configuredSocialPublicationChannels } from './social-publication.service.js';
 import {
@@ -99,7 +100,8 @@ const {
   adminSponsorshipReviewReminderConfig,
   adminAssistantConfig,
   sponsorLogoMaxBytes,
-  sponsorMediaStorageConfig
+  sponsorMediaStorageConfig,
+  sponsorshipVisibilityConfig
 } = startupConfig;
 const adminAuthMode = loadApiRuntimeAdminAuthMode();
 const { adminTokenMatches, createAdminSession, verifyAdminSession } =
@@ -337,7 +339,15 @@ const backgroundWorkers = createApiBackgroundWorkers({
   queueDueSponsorshipReviewReminder,
   buildSponsorshipReviewReminderAdminUrl,
   contributionActivity,
-  publicationAutomation
+  publicationAutomation,
+  sponsorshipVisibility:
+    dbPool && sponsorshipVisibilityConfig.enabled
+      ? new SponsorshipPublicVisibilityWorker(
+          dbPool,
+          sponsorshipVisibilityConfig
+        )
+      : null,
+  sponsorshipVisibilityIntervalMs: sponsorshipVisibilityConfig.intervalMs
 });
 
 const publicHandlers = createPublicHttpHandlers({

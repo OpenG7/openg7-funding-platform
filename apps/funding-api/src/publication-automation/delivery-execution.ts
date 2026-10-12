@@ -63,6 +63,7 @@ export async function executeDelivery(
           [row.id, id, row.version]
         );
         if (!saved.rowCount) throw new PublicationClaimLost();
+        row.provider_media_id = id;
       },
       () => assertDispatchClaim(context, row)
     );

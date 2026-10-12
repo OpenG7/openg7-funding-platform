@@ -31,6 +31,39 @@ Le [plan de tâches de réalisation](sponsorship-publication-tasks.md) consigne
 le feu vert pour les travaux locaux, leur découpage, les dépendances et les
 conditions de clôture. Les cases ci-dessous restent ouvertes jusqu'aux preuves.
 
+## Complément de calendrier et visibilité
+
+Le [complément de sept travaux](sponsorship-publication-tasks.md#calendar-visibility-reception)
+part de la PR #309 fusionnée. Les preuves de ce complément sont consignées
+séparément des réceptions antérieures : une suite présente dans le dépôt ne
+prouve pas son exécution sur la nouvelle révision.
+
+- G04/G05/G16/G17 : la [réception des huit commandites](../../tests/integration/eight-sponsorship-reception.integration.mjs)
+  suit 5+3 et 3+3+2 jusqu'aux huit preuves individuelles, avec pause, rejeu et
+  réponse perdue puis vérification distante. Les horloges de recette et le
+  fournisseur sont synthétiques ; aucune exposition réelle n'est attestée.
+- G08/G09/G11 : les nouveaux critères portent sur les propositions des comptes
+  partagés, une possibilité hors horizon ou une action explicite, et la progression
+  des anciens dossiers sous arrivées répétées. Une possibilité privée ne réserve
+  aucun créneau et ne promet pas un délai commercial.
+- G03/G14/G16/G17 : une collection LinkedIn conserve chaque JPEG et son URN dans
+  l'ordre approuvé. La réconciliation qualifie les références distantes, sans
+  prétendre recalculer le hash des octets transformés par le réseau. Facebook et
+  les preuves anciennes sans identité média gardent leurs limites dans les
+  [contrats de formats](../technical/publication-formats.md).
+- G10/G17/G18 : les observations HTTP datées assistent la revue des durées du
+  site OpenG7. Elles ne remplacent pas une attestation humaine de continuité et ne
+  soldent aucune prestation par le seul écoulement du temps. Les droits et la
+  configuration d'une observation restent distincts d'une publication.
+- G19 : les [mesures d'arriéré](publication-performance.md) gardent les volumes,
+  compteurs et réservations incertaines. Les résultats finaux, échecs et limites
+  sont datés dans le plan de tâches.
+
+Les accords historiques non démontrés, les délais des nouvelles offres et la
+qualification des comptes réels restent des décisions opérationnelles à
+documenter selon le [guide d'adoption](../operations/sponsorship-delivery-adoption.md).
+Ce complément ne clôture pas les 19 garanties au-delà des scénarios reçus.
+
 ## Registre de réception du complément
 
 Le complément autorisé le 12 octobre 2026 porte sur cinq travaux : report des
@@ -45,9 +78,11 @@ commandes effectivement exécutées et leurs résultats figurent dans le reçu
 daté du plan; une référence à une suite ne prétend pas qu'elle a été exécutée
 dans ce complément. Une
 case globale reste ouverte si son critère dépasse la portée reçue. Les formats
-pris en charge sont texte collectif, portrait individuel et montage JPEG ; la
-collection de plusieurs images reste indisponible. Les fournisseurs sont simulés
-dans cette réception. Une activation ou une qualification réelle est distincte.
+pris en charge dans cette réception antérieure étaient texte collectif, portrait
+individuel et montage JPEG ; la collection de plusieurs images y restait
+indisponible. Le complément de sept travaux reçoit depuis la collection LinkedIn
+localement. Les fournisseurs sont simulés dans ces réceptions. Une activation ou
+une qualification réelle est distincte.
 
 <!-- prettier-ignore -->
 | Garantie | Preuve locale propriétaire | Condition restante avant clôture globale |
@@ -245,8 +280,10 @@ Le parcours texte accepte une image approuvée commune au lot. Les formats
 portrait et montage JPEG utilisent désormais une photo qualifiée propre à
 chaque dossier concerné, avec droits de transformation et crédit exacts.
 L'aperçu est le fichier final de l'envoi ; aucune photo absente n'est remplacée
-silencieusement. Le [contrat des formats](../technical/publication-formats.md)
-décrit ces capacités et la collection de plusieurs images encore indisponible.
+silencieusement. Une collection LinkedIn peut conserver de deux à dix photos,
+une par commanditaire, dans l'ordre exact approuvé. Les collections Facebook
+restent indisponibles. Le [contrat des formats](../technical/publication-formats.md)
+décrit les capacités, les reprises et les qualifications externes restantes.
 
 Une offre avec photo propre à chaque commanditaire doit préciser sa formule :
 publication individuelle avec sa photo, ou évolution vers un format collectif

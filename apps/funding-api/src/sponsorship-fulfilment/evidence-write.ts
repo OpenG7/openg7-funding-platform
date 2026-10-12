@@ -5,6 +5,7 @@ import type { Pool, PoolClient } from 'pg';
 import { enqueueSponsorshipObligationNotification } from '../sponsorship-commitments.repository.js';
 import { insertAdminAuditLog } from '../fund-admin-audit.repository.js';
 import { assert } from '../publication-automation/policy.js';
+import { linkedinPublicationImageIds } from '../../../../packages/funding-core/src/index.js';
 
 type Db = Pool | PoolClient;
 const hash = (value: unknown) =>
@@ -25,14 +26,23 @@ export interface EvidenceInput {
   message: string;
   sources: unknown;
   media: unknown;
+  providerMediaIds?: readonly string[];
   actor: string;
 }
 export async function fulfil(db: Db, input: EvidenceInput): Promise<void> {
+  const mediaIds = input.providerMediaIds ?? [];
+  assert(
+    mediaIds.length === 0 ||
+      (input.channel === 'linkedin' &&
+        linkedinPublicationImageIds(JSON.stringify(mediaIds)).length ===
+          mediaIds.length),
+    'MEDIA_REFERENCE_INVALID'
+  );
   const result = await db.query<{ id: string }>(
     `INSERT INTO sponsorship_fulfilment_evidence(obligation_id,contribution_id,obligation_version,channel,target,
       delivery_id,delivery_version,mode,account_id,provenance,external_post_id,external_post_url,message,source_snapshot,
-      media_snapshot,content_fingerprint,delivered_at,actor)
-     VALUES($1::uuid,$2::uuid,$3,$4,$5,$6::uuid,$7,'live',$8,$9,$10,$11,$12,$13::jsonb,$14::jsonb,$15,clock_timestamp(),$16)
+      media_snapshot,content_fingerprint,delivered_at,actor,provider_media_ids)
+     VALUES($1::uuid,$2::uuid,$3,$4,$5,$6::uuid,$7,'live',$8,$9,$10,$11,$12,$13::jsonb,$14::jsonb,$15,clock_timestamp(),$16,$17::jsonb)
      ON CONFLICT(obligation_id) DO NOTHING RETURNING id`,
     [
       input.obligationId,
@@ -54,7 +64,8 @@ export async function fulfil(db: Db, input: EvidenceInput): Promise<void> {
         sources: input.sources,
         media: input.media
       }),
-      input.actor
+      input.actor,
+      JSON.stringify(mediaIds)
     ]
   );
   if (!result.rows[0]) {

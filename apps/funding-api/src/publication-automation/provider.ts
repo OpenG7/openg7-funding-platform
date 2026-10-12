@@ -1,5 +1,6 @@
 import type { PublicationDelivery } from '@openg7/funding-core';
 
+import { linkedinPublicationImageIds } from '../../../../packages/funding-core/src/index.js';
 import type {
   SocialPublicationConfig,
   SocialPublicationProviderResult
@@ -26,6 +27,15 @@ const headers = (c: SocialPublicationConfig) => ({
 });
 const author = (id: string) =>
   id.startsWith('urn:li:organization:') ? id : `urn:li:organization:${id}`;
+
+export type PublicationDispatchMedia =
+  | Buffer
+  | readonly {
+      readonly bytes: Buffer;
+      readonly alt: string;
+      readonly sha256: string;
+    }[]
+  | null;
 
 async function call(
   url: string,
@@ -106,12 +116,33 @@ export async function checkConnection(
 export async function sendDelivery(
   c: SocialPublicationConfig,
   job: PublicationDelivery,
-  media: Buffer | null,
+  media: PublicationDispatchMedia,
   cachedImage: string | null = null,
   persistImage: (id: string) => Promise<void> = async () => {},
   assertActive: () => Promise<void> = async () => {}
 ): Promise<SocialPublicationProviderResult> {
   assert(c.mode !== 'disabled' && c.mode === job.mode, 'MODE_CHANGED');
+  const collection = media !== null && !Buffer.isBuffer(media);
+  assert(
+    job.publicationFormat !== 'image_collection' ||
+      (collection && job.feedId.endsWith(':linkedin')),
+    'FORMAT_UNAVAILABLE'
+  );
+  if (collection) {
+    assert(
+      job.publicationFormat === 'image_collection' &&
+        media.length >= 2 &&
+        media.length <= 10 &&
+        job.mediaImages?.length === media.length &&
+        media.every(
+          (image, index) =>
+            image.sha256 === digest(image.bytes) &&
+            image.sha256 === job.mediaImages?.[index]?.sha256 &&
+            image.alt === job.mediaImages?.[index]?.alt
+        ),
+      'MEDIA_CHANGED'
+    );
+  }
   const ownedCall = async (...args: Parameters<typeof call>) => {
     await assertActive();
     return call(...args);
@@ -129,7 +160,15 @@ export async function sendDelivery(
             accountId: job.accountId,
             message: job.message,
             mediaId: job.mediaId,
-            mediaSha256: media ? digest(media) : null
+            mediaSha256: media && !collection ? digest(media) : null,
+            ...(collection
+              ? {
+                  mediaImages: media.map((image) => ({
+                    sha256: image.sha256,
+                    alt: image.alt
+                  }))
+                }
+              : {})
           })
         },
         true
@@ -143,6 +182,7 @@ export async function sendDelivery(
     };
   }
   if (job.feedId.endsWith(':facebook')) {
+    assert(!collection, 'FORMAT_UNAVAILABLE');
     let body: URLSearchParams | FormData;
     if (media) {
       body = new FormData();
@@ -170,8 +210,15 @@ export async function sendDelivery(
       externalPostUrl: `https://www.facebook.com/${encodeURIComponent(id)}`
     };
   }
-  let imageId: string | null = cachedImage;
-  if (media && !imageId) {
+  const images = collection
+    ? media
+    : media
+      ? [{ bytes: media, alt: job.mediaAlt || '', sha256: digest(media) }]
+      : [];
+  const imageIds = linkedinPublicationImageIds(cachedImage);
+  assert(!cachedImage || imageIds.length > 0, 'MEDIA_REFERENCE_INVALID');
+  assert(imageIds.length <= images.length, 'MEDIA_REFERENCE_INVALID');
+  for (let index = imageIds.length; index < images.length; index++) {
     const { data } = await ownedCall(
       `${c.linkedin.apiBaseUrl}/images?action=initializeUpload`,
       {
@@ -183,13 +230,23 @@ export async function sendDelivery(
       }
     );
     const value = object(data.value);
-    imageId = string(value.image);
-    const upload = new URL(string(value.uploadUrl));
+    const imageId = string(value.image);
+    let upload: URL;
+    try {
+      upload = new URL(string(value.uploadUrl));
+    } catch {
+      throw new DeliveryFailure('INVALID_UPLOAD', 'rejected');
+    }
     assert(
       upload.protocol === 'https:' &&
         upload.hostname === 'www.linkedin.com' &&
+        (!upload.port || upload.port === '443') &&
         upload.pathname.startsWith('/dms-uploads/') &&
-        imageId.startsWith('urn:li:image:'),
+        !upload.username &&
+        !upload.password &&
+        !upload.hash &&
+        /^urn:li:image:[A-Za-z0-9_-]+$/.test(imageId) &&
+        !imageIds.includes(imageId),
       'INVALID_UPLOAD'
     );
     await ownedCall(upload.href, {
@@ -198,11 +255,12 @@ export async function sendDelivery(
         Authorization: `Bearer ${c.linkedin.accessToken}`,
         'Content-Type': 'image/jpeg'
       },
-      body: new Uint8Array(media)
+      body: new Uint8Array(images[index]!.bytes)
     });
-    await persistImage(imageId);
+    imageIds.push(imageId);
+    await persistImage(collection ? JSON.stringify(imageIds) : imageId);
   }
-  if (imageId) {
+  for (const imageId of imageIds) {
     // No public post exists at this point. A not-yet-available upload is safe to retry.
     const { data: image } = await ownedCall(
       `${c.linkedin.apiBaseUrl}/images/${encodeURIComponent(imageId)}`,
@@ -229,8 +287,19 @@ export async function sendDelivery(
           thirdPartyDistributionChannels: []
         },
         lifecycleState: 'PUBLISHED',
-        ...(imageId
-          ? { content: { media: { id: imageId, altText: job.mediaAlt || '' } } }
+        ...(imageIds.length
+          ? {
+              content: collection
+                ? {
+                    multiImage: {
+                      images: imageIds.map((id, index) => ({
+                        id,
+                        altText: images[index]!.alt
+                      }))
+                    }
+                  }
+                : { media: { id: imageIds[0], altText: job.mediaAlt || '' } }
+            }
           : {})
       })
     },
@@ -247,7 +316,8 @@ export async function sendDelivery(
 export async function verifyRemote(
   c: SocialPublicationConfig,
   job: PublicationDelivery,
-  id: string
+  id: string,
+  expectedMediaIds: readonly string[] = []
 ): Promise<SocialPublicationProviderResult> {
   assert(c.mode === job.mode, 'MODE_CHANGED');
   if (c.mode === 'mock') {
@@ -273,16 +343,17 @@ export async function verifyRemote(
       externalPostUrl: `https://social.openg7.local/${job.feedId}/${job.id}`
     };
   }
-  // Text, author and publication state must match. Media reconciliation requires a manual provider investigation.
-  assert(!job.mediaId, 'MEDIA_RECONCILIATION_REQUIRED');
   if (job.feedId.endsWith(':facebook')) {
+    // Without a qualified immutable photo identity, a matching caption is insufficient.
+    assert(!job.mediaId, 'MEDIA_RECONCILIATION_REQUIRED');
     assert(/^\d+_\d+$/.test(id), 'INVALID_POST_ID', 400);
     const { data } = await call(
       `${c.facebook.graphBaseUrl}/${encodeURIComponent(id)}?fields=id,from,message,is_published`,
       { headers: { Authorization: `Bearer ${c.facebook.pageAccessToken}` } }
     );
     assert(
-      object(data.from).id === job.accountId &&
+      data.id === id &&
+        object(data.from).id === job.accountId &&
         data.message === job.message &&
         data.is_published === true,
       'POST_MISMATCH'
@@ -293,16 +364,79 @@ export async function verifyRemote(
     };
   }
   assert(/^urn:li:(share|ugcPost):\d+$/.test(id), 'INVALID_POST_ID', 400);
+  if (job.mediaId)
+    assert(
+      expectedMediaIds.length > 0 &&
+        expectedMediaIds.length <= 10 &&
+        expectedMediaIds.every((mediaId) =>
+          /^urn:li:image:[A-Za-z0-9_-]+$/.test(mediaId)
+        ) &&
+        new Set(expectedMediaIds).size === expectedMediaIds.length &&
+        (job.publicationFormat === 'image_collection'
+          ? expectedMediaIds.length === job.mediaImages?.length &&
+            expectedMediaIds.length >= 2
+          : expectedMediaIds.length === 1),
+      'MEDIA_RECONCILIATION_REQUIRED'
+    );
+  else assert(expectedMediaIds.length === 0, 'MEDIA_REFERENCE_INVALID');
   const { data } = await call(
     `${c.linkedin.apiBaseUrl}/posts/${encodeURIComponent(id)}`,
     { headers: headers(c) }
   );
   assert(
-    data.author === author(job.accountId) &&
+    data.id === id &&
+      data.author === author(job.accountId) &&
       data.commentary === job.message &&
-      data.lifecycleState === 'PUBLISHED',
+      data.lifecycleState === 'PUBLISHED' &&
+      data.visibility === 'PUBLIC',
     'POST_MISMATCH'
   );
+  const content = object(data.content);
+  const remoteMedia =
+    job.publicationFormat === 'image_collection'
+      ? object(content.multiImage).images
+      : undefined;
+  const actualIds = Array.isArray(remoteMedia)
+    ? remoteMedia.map((image) => string(object(image).id))
+    : content.media
+      ? [string(object(content.media).id)]
+      : [];
+  assert(
+    actualIds.length === expectedMediaIds.length &&
+      actualIds.every(
+        (mediaId, index) => mediaId === expectedMediaIds[index]
+      ) &&
+      (Array.isArray(remoteMedia)
+        ? remoteMedia.every(
+            (image, index) =>
+              !('altText' in object(image)) ||
+              object(image).altText === job.mediaImages?.[index]?.alt
+          )
+        : !('altText' in object(content.media)) ||
+          object(content.media).altText === job.mediaAlt) &&
+      !(content.multiImage && job.publicationFormat !== 'image_collection') &&
+      !(content.media && job.publicationFormat === 'image_collection') &&
+      Object.keys(content).every((key) =>
+        ['media', 'multiImage'].includes(key)
+      ),
+    'POST_MISMATCH'
+  );
+  for (const imageId of expectedMediaIds) {
+    const { data: image } = await call(
+      `${c.linkedin.apiBaseUrl}/images/${encodeURIComponent(imageId)}`,
+      { headers: headers(c) }
+    );
+    assert(
+      typeof image.id === 'string' && typeof image.owner === 'string',
+      'MEDIA_RECONCILIATION_REQUIRED'
+    );
+    assert(
+      image.id === imageId && image.owner === author(job.accountId),
+      'POST_MISMATCH'
+    );
+    if (image.status !== 'AVAILABLE')
+      throw new DeliveryFailure('MEDIA_REMOTE_UNAVAILABLE', 'retry');
+  }
   return {
     externalPostId: id,
     externalPostUrl: `https://www.linkedin.com/feed/update/${id}/`

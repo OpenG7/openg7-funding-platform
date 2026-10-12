@@ -92,8 +92,13 @@ const fixture = (t) => {
         return [];
       },
       getSavedAdminToken: () => 'synthetic-session',
-      publicationImagePreview: async (id, version, hash) => {
-        calls.previews.push({ id, version, hash });
+      publicationImagePreview: async (id, version, hash, imageIndex) => {
+        calls.previews.push({
+          id,
+          version,
+          hash,
+          ...(imageIndex !== undefined ? { imageIndex } : {})
+        });
         return new Blob(['exact JPEG'], { type: 'image/jpeg' });
       },
       getSponsorMediaPreview: async (token, id) => {
@@ -199,7 +204,9 @@ test('composite photo choices use the scoped owner/version and clear the old exa
     }
   ]);
   f.controller.changeFormat('image_collection');
-  assert.equal(f.controller.edit.publicationFormat, 'collective_composite');
+  assert.equal(f.controller.edit.publicationFormat, 'image_collection');
+  assert.deepEqual(f.controller.edit.photoSelections, []);
+  assert.equal(f.controller.mediaSelectionValid(), false);
 });
 test('a source preview alone never authorizes sending an unprepared image', async (t) => {
   const f = fixture(t);
@@ -211,6 +218,100 @@ test('a source preview alone never authorizes sending an unprepared image', asyn
   assert.equal(f.controller.previewExact(), false);
   await f.controller.approve();
   assert.equal(f.calls.commands.length, 0);
+});
+
+test('collection approval requires every exact preview and closing releases all private URLs', async (t) => {
+  const f = fixture(t);
+  const images = [
+    {
+      alt: 'First authorized photo',
+      sha256: 'a'.repeat(64),
+      width: 12,
+      height: 8
+    },
+    {
+      alt: 'Second authorized photo',
+      sha256: 'b'.repeat(64),
+      width: 12,
+      height: 8
+    }
+  ];
+  const selected = delivery({
+    publicationFormat: 'image_collection',
+    mediaId: 'synthetic-delivery',
+    mediaDerivedHash: 'c'.repeat(64),
+    mediaImages: images,
+    sponsors: [
+      sponsor({ reviewStatus: 'approved' }),
+      sponsor({ id: 'second-sponsor', reviewStatus: 'approved' })
+    ]
+  });
+  f.controller.open(selected);
+  await f.controller.loadPreview(selected.mediaId);
+  assert.equal(f.controller.previewExact(), true);
+  assert.equal(f.controller.collectionPreviews().length, 2);
+  assert.deepEqual(
+    f.controller.collectionPreviews().map((image) => image.alt),
+    images.map((image) => image.alt)
+  );
+  assert.deepEqual(
+    f.calls.previews
+      .slice(-2)
+      .map((call) => ({ hash: call.hash, imageIndex: call.imageIndex })),
+    images.map((image, imageIndex) => ({ hash: image.sha256, imageIndex }))
+  );
+  f.controller.approved = true;
+  await f.controller.approve();
+  assert.equal(f.calls.commands.length, 1);
+  f.controller.close();
+  assert.equal(f.controller.collectionPreviews().length, 0);
+  assert.equal(f.controller.previewExact(), false);
+  assert.deepEqual(
+    f.revoked.slice().sort(),
+    f.created.map((created) => created.url).sort()
+  );
+});
+
+test('a failed or stale collection preview grants no approval and never leaks an old private URL', async (t) => {
+  for (const scenario of ['failure', 'closed'])
+    await t.test(scenario, async (t) => {
+      const f = fixture(t),
+        pending = deferred();
+      f.ports.admin.publicationImagePreview = async (
+        _id,
+        _version,
+        _hash,
+        imageIndex
+      ) => {
+        if (imageIndex === 1) return pending.promise;
+        return new Blob(['synthetic first JPEG'], { type: 'image/jpeg' });
+      };
+      const selected = delivery({
+        publicationFormat: 'image_collection',
+        mediaId: 'synthetic-delivery',
+        mediaDerivedHash: 'c'.repeat(64),
+        mediaImages: [
+          { alt: 'First', sha256: 'a'.repeat(64) },
+          { alt: 'Second', sha256: 'b'.repeat(64) }
+        ]
+      });
+      f.controller.open(selected);
+      await Promise.resolve();
+      f.controller.approved = true;
+      await f.controller.approve();
+      assert.equal(f.calls.commands.length, 0);
+      if (scenario === 'closed') f.controller.close();
+      if (scenario === 'failure')
+        pending.reject(new Error('Synthetic digest mismatch'));
+      else pending.resolve(new Blob(['late private image']));
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.equal(f.controller.previewExact(), false);
+      assert.equal(f.controller.collectionPreviews().length, 0);
+      assert.deepEqual(
+        f.revoked.slice().sort(),
+        f.created.map((created) => created.url).sort()
+      );
+    });
 });
 
 test('an incomplete derived draft never authorizes approval or substitutes an available photo', async (t) => {

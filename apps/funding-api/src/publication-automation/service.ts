@@ -146,9 +146,11 @@ export class PublicationAutomationService {
       'INVALID_FILTER',
       400
     );
-    if (db === this.pool)
+    // Every Pool, including a caller-supplied read port, must borrow one client.
+    // Transaction cursors cannot span the separate connections of Pool.query.
+    if (db === this.pool || !('release' in db))
       return withPostgresTransaction(
-        this.pool,
+        db as Pool,
         (client) => this.state(client, filter),
         { readOnlySnapshot: true }
       );
@@ -225,10 +227,16 @@ export class PublicationAutomationService {
   /** Private preparation can be reviewed before a combined sponsor approval; it authorizes no send. */
   async imagePreview(
     id: string,
-    version: number
+    version: number,
+    imageIndex = 0
   ): Promise<Awaited<ReturnType<typeof preparePublicationImage>>> {
     assert(
-      validId(id) && Number.isSafeInteger(version) && version > 0,
+      validId(id) &&
+        Number.isSafeInteger(version) &&
+        version > 0 &&
+        Number.isSafeInteger(imageIndex) &&
+        imageIndex >= 0 &&
+        imageIndex < 10,
       'INVALID_FILTER',
       400
     );
@@ -253,6 +261,12 @@ export class PublicationAutomationService {
         isDeepStrictEqual(visual.snapshot, row.media_snapshot),
         'MEDIA_CHANGED'
       );
+      if ('kind' in visual.prepared) {
+        const image = visual.prepared.images[imageIndex];
+        assert(image, 'MEDIA_NOT_FOUND', 404);
+        return image;
+      }
+      assert(imageIndex === 0, 'MEDIA_NOT_FOUND', 404);
       return visual.prepared;
     });
   }

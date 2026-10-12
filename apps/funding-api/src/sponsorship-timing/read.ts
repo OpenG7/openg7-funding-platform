@@ -21,7 +21,11 @@ function durationRestartRequiredSql(alias: string): string {
   ) => `(SELECT exposure_media.id::text FROM sponsor_media_assets exposure_media WHERE ${eligibleMedia} AND exposure_media.kind='${kind}'
     ORDER BY exposure_media.sort_order,exposure_media.created_at,exposure_media.id LIMIT 1)`;
   const mediaSnapshot = `CASE WHEN jsonb_typeof(v.media_snapshot)='array' THEN v.media_snapshot ELSE '[]'::jsonb END`;
-  return `(v.obligation_version IS DISTINCT FROM ${alias}.version OR
+  return `(EXISTS(SELECT 1 FROM sponsorship_public_visibility_observations public_check
+      JOIN sponsorship_website_exposure_observations public_anchor ON public_anchor.id=public_check.start_observation_id
+      WHERE public_check.obligation_id=${alias}.id AND (public_anchor.observed_at,public_anchor.id)>=(v.observed_at,v.id)
+        AND public_check.status IN ('changed','not_visible')) OR
+    v.obligation_version IS DISTINCT FROM ${alias}.version OR
     EXISTS(SELECT 1 FROM fund_contributions WHERE id=${alias}.contribution_id AND (
       NOT ((${SPONSOR_WEBSITE_ELIGIBLE_SQL}) AND (${SPONSOR_WEBSITE_VISIBLE_SQL})) OR status<>'paid' OR sponsorship_refund_status<>'not_requested'
       OR updated_at IS DISTINCT FROM (v.source_snapshot->0->>'version')::timestamptz
@@ -55,10 +59,15 @@ export function sponsorshipObligationTimingProjectionSql(
       WHEN v.id IS NOT NULL AND ${durationRestartRequiredSql(alias)} THEN 'restart_required'
       WHEN v.id IS NOT NULL THEN 'awaiting_review' ELSE 'awaiting_observation' END,
     'startObservation',CASE WHEN t.duration_days IS NOT NULL AND v.id IS NOT NULL THEN jsonb_build_object('id',v.id,'observedAt',${iso('v.observed_at')},
-      'earliestCompletionAt',${iso("v.observed_at+t.duration_days*INTERVAL '24 hours'")}) ELSE NULL END)
+      'earliestCompletionAt',${iso("v.observed_at+t.duration_days*INTERVAL '24 hours'")}) ELSE NULL END,
+    'latestPublicObservation',CASE WHEN public_check.id IS NOT NULL THEN jsonb_build_object(
+      'checkedAt',${iso('public_check.checked_at')},'status',public_check.status,
+      'reason',public_check.reason,'httpStatus',public_check.http_status) ELSE NULL END)
     FROM sponsorship_obligation_timing t LEFT JOIN LATERAL (SELECT id,observed_at,obligation_version,source_snapshot,media_snapshot FROM sponsorship_website_exposure_observations
       WHERE obligation_id=${alias}.id AND ${alias}.state IN ('pending','blocked')
       AND ${alias}.channel='website' AND ${alias}.target='openg7' ORDER BY observed_at DESC,id DESC LIMIT 1) v ON TRUE
+    LEFT JOIN LATERAL (SELECT id,checked_at,status,reason,http_status FROM sponsorship_public_visibility_observations
+      WHERE obligation_id=${alias}.id AND start_observation_id=v.id ORDER BY checked_at DESC,id DESC LIMIT 1) public_check ON TRUE
     WHERE t.obligation_id=${alias}.id)`;
 }
 

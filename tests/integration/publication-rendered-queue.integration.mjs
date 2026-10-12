@@ -750,7 +750,7 @@ test(
     );
 
     await t.test(
-      'two planners serialize actual feed locks without duplicate diagnostics or deliveries',
+      'two planners serialize account admission before actual feed locks without duplicate diagnostics or deliveries',
       async () => {
         await reset(1);
         await seed([{ body: 'x'.repeat(3000) }, {}]);
@@ -771,13 +771,15 @@ test(
           for (;;) {
             const waiting = (
               await observer.query(
-                "SELECT count(*)::int AS count FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE 'SELECT id FROM publication_feeds WHERE id=%'"
+                `SELECT count(*) FILTER(WHERE query LIKE 'SELECT id FROM publication_feeds WHERE id=%')::int AS feed,
+                  count(*) FILTER(WHERE query LIKE '%preparation_account_mutex%' AND wait_event='advisory')::int AS account
+                 FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock'`
               )
-            ).rows[0].count;
-            if (waiting >= 2) break;
+            ).rows[0];
+            if (waiting.feed >= 1 && waiting.account >= 1) break;
             assert.ok(
               Date.now() < deadline,
-              'Both real PostgreSQL planners must wait on the feed lock'
+              'One real PostgreSQL planner must wait on the feed lock and the other on account admission'
             );
             await delay(20);
           }
@@ -859,6 +861,15 @@ test(
         assert.equal(state.queue.entries[0].status, 'deferred');
         assert.equal(state.queue.entries[0].reason, 'PREPARATION_FAILED');
         assert.equal(state.queue.entries[0].deliveryId, null);
+        const alternatePool = {
+          query: (...args) => pool.query(...args),
+          connect: () => pool.connect()
+        };
+        assert.equal(
+          (await service.state(alternatePool)).queue.total,
+          1,
+          'an explicitly supplied pool also gets a transaction-owned cursor'
+        );
         assert.equal(
           (
             await pool.query(

@@ -52,6 +52,38 @@
           </div>
         }
       </dl>
+      @if (
+        o.channel === 'website' &&
+        o.target === 'openg7' &&
+        t.durationDays !== null
+      ) {
+        @if (t.latestPublicObservation; as observation) {
+          <div data-og7="timing-public-observation" [attr.data-og7-id]="o.id">
+            <p>
+              {{ 'admin.timing.publicObservation.title' | translate }}
+              {{ formatDate(observation.checkedAt) }}
+              —
+              {{
+                'admin.timing.publicObservation.states.' + observation.status
+                  | translate
+              }}
+            </p>
+            @if (observation.status !== 'visible') {
+              <p role="status" data-og7="timing-public-incident">
+                {{
+                  'admin.timing.publicObservation.reasons.' + observation.reason
+                    | translate
+                }}
+              </p>
+            }
+            <p>{{ 'admin.timing.publicObservation.help' | translate }}</p>
+          </div>
+        } @else {
+          <p data-og7="timing-public-observation-empty">
+            {{ 'admin.timing.publicObservation.empty' | translate }}
+          </p>
+        }
+      }
       @if (t.durationState === 'restart_required') {
         <p role="status" data-og7="timing-restart-required">
           {{ 'admin.timing.restartHelp' | translate }}

@@ -29,6 +29,15 @@ export interface DerivedPublicationMedia {
   readonly transform: string;
   readonly version: string;
   readonly format: SponsorshipPublicationFormat;
+  readonly images?: readonly {
+    readonly contributionId: string;
+    readonly assetId: string;
+    readonly alt: string;
+    readonly derivedHash: string;
+    readonly transform: string;
+    readonly width: number;
+    readonly height: number;
+  }[];
   readonly sources: readonly {
     readonly contributionId: string;
     readonly name: string;
@@ -127,6 +136,10 @@ export async function resolvePublicationVisual(
     assert(bytes && digest(bytes) === media.hash, 'MEDIA_CHANGED');
     const prepared = await preparePublicationImage(bytes);
     assert(
+      channel !== 'linkedin' || prepared.width * prepared.height < 36_152_320,
+      'MEDIA_DIMENSIONS_INVALID'
+    );
+    assert(
       prepared.sha256 === media.derivedHash &&
         prepared.transform === media.transform,
       'MEDIA_CHANGED'
@@ -146,6 +159,10 @@ export async function resolvePublicationVisual(
   // Approval, authenticated JPEG preview and dispatch never enable this option.
   if (allowIncompletePreparation && !photos.length)
     return { snapshot: null, prepared: null };
+  assert(
+    format !== 'image_collection' || (ids.length >= 2 && ids.length <= 10),
+    'COLLECTION_REQUIRES_MULTIPLE_SPONSORS'
+  );
   assert(
     photos.length === ids.length &&
       isDeepStrictEqual(
@@ -188,10 +205,13 @@ export async function resolvePublicationVisual(
         feedId: row.feed_id,
         message: row.message,
         allowPendingSponsors,
-        transformations: [
-          'technical',
-          format === 'individual_portrait' ? 'portrait' : 'composite'
-        ]
+        transformations:
+          format === 'image_collection'
+            ? ['technical']
+            : [
+                'technical',
+                format === 'individual_portrait' ? 'portrait' : 'composite'
+              ]
       }
     );
     assert(media && media.version === photo.assetVersion, 'MEDIA_CHANGED');
@@ -217,6 +237,54 @@ export async function resolvePublicationVisual(
       name: owner.name,
       media
     });
+  }
+  if (format === 'image_collection') {
+    const images = [];
+    for (const [index, input] of inputs.entries()) {
+      const image = await preparePublicationImage(input.bytes);
+      // LinkedIn's documented pixel ceiling is strict; reject before uploading.
+      assert(
+        image.width * image.height < 36_152_320,
+        'MEDIA_DIMENSIONS_INVALID'
+      );
+      images.push({
+        ...image,
+        contributionId: input.contributionId,
+        assetId: photos[index]!.assetId,
+        alt: snapshots[index]!.media.alt
+      });
+    }
+    const descriptors = images.map((image) => ({
+      contributionId: image.contributionId,
+      assetId: image.assetId,
+      alt: image.alt,
+      derivedHash: image.sha256,
+      transform: image.transform,
+      width: image.width,
+      height: image.height
+    }));
+    const fingerprint = digest(
+      JSON.stringify({
+        format,
+        photos,
+        sources: snapshots,
+        images: descriptors
+      })
+    );
+    const snapshot: DerivedPublicationMedia = {
+      kind: 'derived',
+      id: row.id,
+      url: `/api/admin/publication-automation/image-preview?deliveryId=${row.id}`,
+      alt: images.map((image) => image.alt).join('; '),
+      hash: digest(JSON.stringify(snapshots)),
+      derivedHash: fingerprint,
+      transform: 'ordered-jpeg-collection-v1',
+      version: fingerprint,
+      format,
+      sources: snapshots,
+      images: descriptors
+    };
+    return { snapshot, prepared: { kind: 'collection' as const, images } };
   }
   const prepared =
     format === 'individual_portrait'

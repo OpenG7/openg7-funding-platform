@@ -106,9 +106,11 @@ export class FundingAdminPublicationsClient {
   async publicationImagePreview(
     deliveryId: string,
     version: number,
-    expectedHash: string
+    expectedHash: string,
+    imageIndex?: number
   ): Promise<Blob> {
     const query = new URLSearchParams({ deliveryId, version: String(version) });
+    if (imageIndex !== undefined) query.set('imageIndex', String(imageIndex));
     const response = await this.session.requestAdminJson(
       `/admin/publication-automation/image-preview?${query}`,
       {

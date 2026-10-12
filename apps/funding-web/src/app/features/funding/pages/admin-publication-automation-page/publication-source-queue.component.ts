@@ -11,7 +11,7 @@ import type {
   PublicationPreparationQueue
 } from '@openg7/funding-core';
 
-/** Funding organism: confirmed source allocation facts, without mutation or prediction. */
+/** Funding organism: allocation facts and labelled server possibilities, without mutation. */
 @Component({
   selector: 'openg7-publication-source-queue',
   standalone: true,

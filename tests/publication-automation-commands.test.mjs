@@ -1182,6 +1182,7 @@ test('verified reconciliation has no open transaction during HTTP and preserves 
             'release'
           ]);
           return Response.json({
+            id: '20_99',
             from: { id: '20' },
             message: row.message,
             is_published: true

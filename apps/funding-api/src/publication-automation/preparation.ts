@@ -3,7 +3,10 @@ import type {
   SponsorshipPublicationFormat
 } from '@openg7/funding-core';
 
-import { selectPublicationRecognitionSources } from '../../../../packages/funding-core/src/index.js';
+import {
+  publicationFormatCapability,
+  selectPublicationRecognitionSources
+} from '../../../../packages/funding-core/src/index.js';
 import { withPostgresTransaction } from '../postgres-transaction.js';
 import { lockPublicationBatchCapacity } from '../fund-publication-capacity.persistence.js';
 import { publicationMembershipFits } from '../fund-publication-rendering.persistence.js';
@@ -14,6 +17,10 @@ import {
 import { revokeCommitmentDeliveries } from '../sponsorship-fulfilment.repository.js';
 
 import { canonicalPublicationAccount } from './account-reservations.js';
+import {
+  lockPreparationAccount,
+  preparationCalendar
+} from './preparation-calendar.js';
 import {
   audit,
   type DeliveryRow,
@@ -77,11 +84,18 @@ export async function prepare(
   );
   await withPostgresTransaction(context.pool, async (db) => {
     let pendingCandidates: PreparationSource[] | null = null;
+    // Read routing without a row lock, then serialize preparations of the same
+    // canonical account before acquiring any feed/delivery/source authority.
+    const initialFeeds = await context.feeds(db);
+    const initialFeed = initialFeeds.find((f) => f.id === feedId);
+    assert(initialFeed, 'INVALID_FEED', 400);
+    await lockPreparationAccount(db, initialFeed!);
     await db.query(
       `SELECT id FROM publication_feeds WHERE id=$1 FOR NO KEY UPDATE`,
       [feedId]
     );
-    const feed = (await context.feeds(db)).find((f) => f.id === feedId)!;
+    const feeds = await context.feeds(db);
+    const feed = feeds.find((f) => f.id === feedId)!;
     assert(feed, 'INVALID_FEED', 400);
     const candidateScope = `c.contribution_type='sponsorship_interest' AND c.status='paid'
       AND c.public_display_consent IS TRUE AND c.sponsor_review_status IN ('pending_review','approved')
@@ -142,6 +156,12 @@ export async function prepare(
       );
       await audit(db, actor, 'reschedule_proposal', job.id);
     }
+    const calendar = await preparationCalendar(
+      db,
+      feeds,
+      now,
+      new Date(now.getTime() + 30 * 86400000)
+    );
     for (const date of recurrenceTimes(feed, now)) {
       let batch = (
         await db.query(
@@ -149,6 +169,9 @@ export async function prepare(
           [feedId, date]
         )
       ).rows[0];
+      // Includes uncomposed batches committed by another feed's preparation.
+      // Existing proposals stay at their date; an incompatible date admits nobody.
+      if (!calendar.compatible(feed, date, batch?.id ?? null)) continue;
       if (!batch) {
         const slot = (
           await db.query(
@@ -217,18 +240,59 @@ export async function prepare(
       const members: (Source & { name: string | null })[] = memberFacts;
       // Scan once per preparation. Deferred valid sources keep their FIFO order
       // in memory for the following recurrence; they do not consume a second scan.
-      pendingCandidates ??= await preparationCandidates(
-        db,
-        target!,
-        channel!,
-        PREPARATION_SCAN_LIMIT
-      );
+      if (pendingCandidates === null) {
+        pendingCandidates = [];
+        for (const candidate of await preparationCandidates(
+          db,
+          target!,
+          channel!,
+          PREPARATION_SCAN_LIMIT
+        )) {
+          const individual = selectPublicationRecognitionSources({
+            existingSources: [],
+            candidates: [recognitionSource(candidate)],
+            capacity: 1
+          });
+          const issue = individual.needsCorrection[0];
+          if (issue)
+            await recordBlockedSource(
+              db,
+              actor,
+              candidate,
+              issue.codeUnits,
+              issue.reason
+            );
+          else pendingCandidates.push(candidate);
+        }
+      }
       const format: SponsorshipPublicationFormat =
         job?.publication_format ??
         batch.publication_format ??
         memberFacts[0]?.publication_format ??
-        pendingCandidates[0]?.publication_format ??
+        pendingCandidates.find((candidate) => {
+          const capability = publicationFormatCapability(
+            channel!,
+            candidate.publication_format
+          );
+          return (
+            capability.available &&
+            (!capability.multiImage ||
+              (batch.capacity >= 2 &&
+                selectPublicationRecognitionSources({
+                  existingSources: [],
+                  candidates: pendingCandidates!
+                    .filter(
+                      (s) =>
+                        s.publication_format === candidate.publication_format
+                    )
+                    .map(recognitionSource),
+                  capacity: batch.capacity
+                }).retained.length >= 2))
+          );
+        })?.publication_format ??
         'collective_text';
+      const capability = publicationFormatCapability(channel!, format);
+      if (!capability.available) continue;
       if (memberFacts.some((member) => member.publication_format !== format))
         continue;
       const participantIds = new Set(
@@ -256,6 +320,15 @@ export async function prepare(
           correction.reason
         );
       }
+      const invalidIds = new Set(
+        selection.needsCorrection.map((correction) => correction.source.id)
+      );
+      pendingCandidates = pendingCandidates.filter(
+        (source) => !invalidIds.has(source.id)
+      );
+      // A collection cannot consume a singleton and strand the other formats.
+      // Existing membership is preserved until enough compatible sources exist.
+      if (capability.multiImage && selection.retained.length < 2) continue;
       const existingIds = new Set(members.map((member) => member.id));
       const consumed = new Set<string>();
       for (const retained of selection.retained) {
@@ -281,13 +354,11 @@ export async function prepare(
         members.push(candidate);
         consumed.add(candidate.id);
       }
-      const invalidIds = new Set(
-        selection.needsCorrection.map((correction) => correction.source.id)
-      );
       pendingCandidates = pendingCandidates.filter(
         (source) => !consumed.has(source.id) && !invalidIds.has(source.id)
       );
       if (!members.length) continue;
+      calendar.admit(feed, date, batch.id);
       await db.query(
         'UPDATE sponsor_publication_batches SET publication_format=$2 WHERE id=$1',
         [batch.id, format]
@@ -332,17 +403,28 @@ export async function prepare(
   });
   for (const proposal of proposals) {
     try {
-      await context.command(
-        {
-          action: 'compose',
-          feedId,
-          kind: 'sponsorship',
-          batchId: proposal.id,
-          publicationFormat: proposal.format
-        },
-        actor,
-        true
-      );
+      await withPostgresTransaction(context.pool, async (db) => {
+        const feed = (await context.feeds(db)).find(
+          (candidate) => candidate.id === feedId
+        );
+        assert(feed, 'INVALID_FEED', 400);
+        // Compose locks batch before sources. Reacquire preparation's separate
+        // mutex first, so a parallel prepare cannot hold contributions while
+        // waiting for this batch. Membership was committed before this phase.
+        await lockPreparationAccount(db, feed!);
+        await context.command(
+          {
+            action: 'compose',
+            feedId,
+            kind: 'sponsorship',
+            batchId: proposal.id,
+            publicationFormat: proposal.format
+          },
+          actor,
+          true,
+          db
+        );
+      });
     } catch (error) {
       if (!(error instanceof PublicationAutomationError)) throw error;
       await audit(context.pool, actor, 'preparation_blocked', proposal.id, {

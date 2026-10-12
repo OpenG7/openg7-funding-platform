@@ -27,7 +27,10 @@ export const publicationFormatCapability = (
     'image_collection'
   ].includes(format);
   return {
-    available: supportedChannel && known && format !== 'image_collection',
+    available:
+      supportedChannel &&
+      known &&
+      (format !== 'image_collection' || channel === 'linkedin'),
     requiresImage: format !== 'collective_text',
     requiresSingleSponsor: format === 'individual_portrait',
     multiImage: format === 'image_collection'

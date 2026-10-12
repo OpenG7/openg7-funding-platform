@@ -21,6 +21,99 @@ L'approbation administrative de chaque publication reste
 distincte du développement. Les essais utilisent des dossiers synthétiques et
 des fournisseurs simulés; la mise en service réelle se prépare dans SP43.
 
+<a id="calendar-visibility-reception"></a>
+
+## Complément autorisé — sept travaux de calendrier et visibilité
+
+Feu vert du 12 octobre 2026, base `3d3d5a41` (PR #309 fusionnée). Quatre
+intervenants ont réalisé ce complément : intégration/performance/réception,
+calendrier/équité, médias/reprise et observations publiques. Chaque livraison
+conserve ses critères et preuves ; aucune qualification de compte réel n'est
+déduite des fournisseurs synthétiques.
+
+<!-- prettier-ignore -->
+| Travail | Critère de réception | Suite propriétaire |
+| --- | --- | --- |
+| T6 — Performance administrative | Une seule évaluation SQL du périmètre éligible, chunks et affichage de 200, compteurs complets, réservations incertaines conservées, comparaison sur la même fixture. | [Arriéré synthétique](../../tests/integration/publication-backlog-performance.integration.mjs). |
+| T7 — Propositions par compte effectif | Deux fils partageant le compte obtiennent des dates compatibles ou une cause ; aucune autorisation humaine ni opération incertaine déplacée. | Réceptions de calendrier et réservations de compte. |
+| T8 — Suite hors horizon | Possibilité privée calculée au-delà des 28 jours, ou cause/action explicite ; aucune réservation ni approbation implicite. | File de préparation et calendrier. |
+| T9 — Réconciliation visuelle | Vérification de l'identité média distante, du compte et du contenu lorsque le provider la permet ; accès inconnu conservé, aucun renvoi aveugle. | Réconciliation et pipeline visuel. |
+| T10 — Équité et huit dossiers | Progrès des anciens admissibles avec arrivées continues/concurrence ; 5+3, 3+3+2 et formats visuels reçus avec huit preuves individuelles. | [Réception des huit commandites](../../tests/integration/eight-sponsorship-reception.integration.mjs), file et pipeline visuel. |
+| T11 — Observations publiques | Job désactivé par défaut, HTTP borné sur les surfaces contrôlées, observations datées et incidents ; attestation humaine de durée maintenue. | Contrats temporels et observation publique. |
+| T12 — Albums | Chaque image approuvée, upload/récupération reprenables, exactitude de l'aperçu et de la preuve ; seuls les canaux documentés sont disponibles. | Fournisseurs, composition visuelle et aperçus admin. |
+
+La campagne d'adoption historique, les choix de délais des nouvelles offres et
+les comptes réels suivent le [guide d'adoption](../operations/sponsorship-delivery-adoption.md).
+Une préparation ne choisit pas les conditions commerciales et ne qualifie pas
+un accord dépourvu de preuve. Les résultats exécutés de ce complément sont
+consignés ci-dessous, distinctement des réceptions antérieures.
+
+### Réception des sept travaux
+
+Réception locale terminée le 12 octobre 2026 sur
+`feat/sponsorship-calendar-media-observability`, base `3d3d5a41`, sur les
+changements locaux avant leur commit. Node 22.23.3, Yarn 4.9.4, PostgreSQL 16.14
+jetable. Empreinte SHA-256 des
+70 fichiers modifiés ou nouveaux hors `docs/`, chemins triés et concaténés avec
+leurs octets bruts, séparés par NUL :
+
+`dd158a65c9658d7a85c403c1a271739e40bae6a9aafbd3c82940e2077dd33e9c`.
+
+<!-- prettier-ignore -->
+| Travail | Résultat reçu | Limite |
+| --- | --- | --- |
+| T6 | Curseur transactionnel, un parcours du périmètre, chunks de 200 et compteurs complets. Sur la même base, état complet en 1,18–1,27 s contre 11,00–11,64 s ; 2 250 sources et 20 réservations incertaines conservées. | Mesure locale avec JIT actif ; aucun SLA VPS. Voir [mesures et méthode](publication-performance.md#parcours-unique-de-la-file). |
+| T7 | Mutex de préparation par fournisseur/compte canonique/mode, compatible entre fils alias ; propositions privées, lots non composés et réservations manuelles pris en compte. Courses de composition et de lecture corrigées. | Approbation et préflight revalident toujours le compte et l'heure ; le mutex de préparation ne remplace pas la réservation d'envoi. |
+| T8 | Possibilité privée cherchée jusqu'à 366 jours, avec cause et action ; l'horizon de préparation reste inchangé. Une date déjà attribuée hors recherche reste visible mais n'est pas annoncée comme nouvelle possibilité. | Calcul indépendant par dossier, sans attribution FIFO fictive ni délai commercial promis. Une collection isolée attend un groupe compatible. |
+| T9 | Réconciliation des images LinkedIn par post, auteur, message, état public, URNs ordonnés et identité/propriétaire/disponibilité de chaque image. Une visibilité ultérieure utilise la preuve immuable. | Anciennes preuves sans URN et photos Facebook : investigation requise. Aucun hash distant d'octets transformés n'est prétendu. |
+| T10 | Huit dossiers reçus en 5+3 et 3+3+2, pause, rejeu, réponse perdue, réconciliation et huit preuves individuelles ; huit portraits, composite et collection de huit reçus. Les anciens admissibles progressent avec arrivées et préparations concurrentes. | Horloges et fournisseur synthétiques ; scénarios finis, sans preuve de débit maximal ou de toutes les interleavings. |
+| T11 | Observateur HTTP opt-in, désactivé par défaut, budgets globaux, DNS public épinglé, surfaces API/média contrôlées et historique append-only. Reprise équitable, fencing entre workers et attestation humaine conservés. | Échantillons datés, sans surveillance HTML, mesure de vues ni preuve de continuité. Un incident connu exige un nouveau début documenté. |
+| T12 | Collections LinkedIn de 2 à 10, une photo propriétaire chacun, JPEGs exacts, galerie privée vérifiée avant approbation, uploads partiels reprenables et résultat public incertain retenu. | Albums Facebook indisponibles ; comptes et permissions réels à qualifier. Rendu de dix grandes images non mesuré en performance. |
+
+<!-- prettier-ignore -->
+| Vérification exécutée | Résultat et portée |
+| --- | --- |
+| `tsc -p tsconfig.build.json`, puis `node --test "tests/**/*.test.mjs"` | 6 250 réussites, zéro échec/annulation, huit omissions préexistantes : six POSIX, lien symbolique Windows et recette de chiffrement conditionnelle. La compilation finale après réglage du plan PostgreSQL passe aussi ; ses comportements SQL sont reçus par les recettes suivantes. |
+| `publication-preparation-calendar.integration.mjs` et `eight-sponsorship-reception.integration.mjs`, séquentiels sur le build final | 17 tests TAP réussis : 12 cas de calendrier et trois de huit dossiers, avec leurs deux parents. Rôle API réel, connexions concurrentes, alias de compte, réservations privées, progression, rollback et reprise sans doublon. |
+| `publication-rendered-queue.integration.mjs` | 18 tests TAP réussis ; 401 dossiers, pages, totaux, priorité, corrections, snapshot et Pool alternatif. |
+| `sponsorship-obligation-timing.integration.mjs` et `database-runtime-security.integration.mjs` | 19 + 2 tests TAP réussis ; vraies surfaces publiques et octets WebP, budgets, reprise, incidents, ancrage temporel, concurrence et droits. Aucun solde automatique par le seul écoulement du temps. |
+| `publication-visual-pipeline.integration.mjs` et `publication-reconciliation-visibility.integration.mjs` | 16 + 6 tests TAP réussis ; portraits/composite/collections, uploads incomplets, disponibilité, incertitude et visibilité historique. |
+| `publication-observability-upgrade.integration.mjs` | 4 tests TAP réussis : base 001–052 remplie, puis 053–054 ; toutes les anciennes lignes et ACL conservées, montants 50 000/net 48 500 en unités mineures CAD inchangés, anciens URNs non inférés, nouvelles contraintes et grants vérifiés. Les autres recettes utilisent des bases propres jusqu'à 054. |
+| `publication-backlog-performance.integration.mjs` | Réussi, zéro omission ; 3 000 dossiers/6 000 obligations/2 000 livraisons, compteurs et plans complets, état final à 1,18 s, scénario applicatif à 11,31 s. La comparaison A/B séparée conserve la même base entre les quatre passages. |
+| Playwright admin, filtres timing/file/opportunity/LinkedIn collection/exact JPEG, un worker | 25 parcours réussis ; FR/EN, desktop/mobile, clavier, Axe, digest invalide, consentement et états de reprise. |
+| Build Angular production et `tsc -p tests/tsconfig.admin-ui.json` | Réussis, 25 routes SSR ; bundle initial 869,14 kB, avertissement 800 kB conservé, seuil d'erreur 900 kB respecté. |
+| ESLint global, Prettier ciblé, Compose avec `.env.example`, standards, budgets/liens et `git diff --check` | Réussis ; un avertissement de lint préexistant dans `scripts/smoke-public.mjs` conservé. |
+
+La revue croisée des quatre intervenants a corrigé les P1 de composition
+concurrente, lecture d'un job apparu entre deux statements, perte d'approbation
+pendant le traitement d'un upload, contournement d'incident par un ancien début
+de durée, clôture concurrente à l'observation et blocage de progression par budget épuisé.
+Les P2 de Pool alternatif et de date attribuée au-delà de 366 jours sont aussi
+corrigés. Aucun P1/P2 concret identifié par cette revue ne reste ouvert.
+
+Un premier essai du composite de huit a produit un état incertain sous charge,
+sans diagnostic suffisant pour attribuer sa cause. Le diagnostic de statut,
+code d'erreur, posts et transactions est maintenant conservé ; le rejeu et trois
+essais supplémentaires passent 16/16, dont deux en parallèle de tests Node ou
+navigateur. Aucune garde ni limite n'a été desserrée. Ces essais bornés ne
+constituent pas une qualification de débit.
+
+Les reçus sont ignorés par Git dans `test-results/`, notamment
+`calendar-media-node-reception9.log`, `calendar-media-admin-browser-final.log`,
+`calendar-eight-reception-final10.log`, `publication-observability-upgrade-final.log`,
+`media-recovery-albums-pg-stress3.log`,
+`public-observations-timing-checkpoint-final.log`,
+`calendar-media-performance-ab.json` et `publication-backlog-performance.json`.
+Ils correspondent à ce complément ; les preuves historiques ci-dessous restent
+attachées à leur propre révision.
+
+Les migrations additives 053–054 sont préparées et reçues localement. Aucun
+déploiement, migration réelle, activation de l'observateur, publication,
+qualification de compte externe ou envoi de courriel n'a été effectué.
+L'adoption historique, les délais commerciaux et les qualifications réelles
+gardent leurs conditions dans le guide d'adoption ; ce reçu ne clôture pas les
+19 garanties dans tous les comptes et formats.
+
 ## Complément autorisé — cinq travaux
 
 Feu vert du 12 octobre 2026 sur la base `a7d9ea0`, avec conservation des
