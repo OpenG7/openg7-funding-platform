@@ -11,6 +11,7 @@ import {
 } from '../../dist/apps/funding-api/src/publication-automation/claims.js';
 import {
   finishAccountClaim,
+  releaseAccountReservation,
   LIVE_ACCOUNT_INTERVAL_MS
 } from '../../dist/apps/funding-api/src/publication-automation/account-reservations.js';
 import { withPostgresTransaction } from '../../dist/apps/funding-api/src/postgres-transaction.js';
@@ -62,6 +63,15 @@ test(
       SOCIAL_PUBLICATION_OPENG20_LINKEDIN_ACCESS_TOKEN: 'synthetic'
     };
     const service = new PublicationAutomationService(pool, {}, env);
+    const unconfiguredService = new PublicationAutomationService(
+      pool,
+      {},
+      {
+        ...env,
+        SOCIAL_PUBLICATION_OPENG7_FACEBOOK_ACCOUNT_ID: '',
+        SOCIAL_PUBLICATION_OPENG7_FACEBOOK_ACCESS_TOKEN: ''
+      }
+    );
     const context = {
       pool,
       workerSettings: async (db = pool, lock = '') =>
@@ -129,6 +139,23 @@ test(
         'reservation-tester'
       );
     }
+    const accountSnapshot = async () => ({
+      deliveries: (
+        await pool.query('SELECT * FROM publication_deliveries ORDER BY id')
+      ).rows,
+      reservations: (
+        await pool.query(
+          'SELECT * FROM publication_account_reservations ORDER BY delivery_id'
+        )
+      ).rows,
+      leases: (
+        await pool.query(
+          'SELECT * FROM publication_account_leases ORDER BY provider,account_id,mode'
+        )
+      ).rows,
+      audits: (await pool.query('SELECT * FROM admin_audit_log ORDER BY id'))
+        .rows
+    });
     for (const feed of [
       'openg7:facebook',
       'openg20:facebook',
@@ -136,6 +163,247 @@ test(
       'openg20:linkedin'
     ])
       await activate(feed);
+
+    await t.test(
+      'a pristine draft composed before account configuration can be rebound but requires fresh review and approval',
+      async () => {
+        await reset();
+        const at = future();
+        await unconfiguredService.command(
+          { action: 'check', feedId: 'openg7:facebook' },
+          'reservation-tester'
+        );
+        const id = await compose('openg7:facebook', at, unconfiguredService);
+        const initial = await row(id);
+        assert.equal(initial.account_id, '');
+        assert.equal(initial.status, 'draft');
+        assert.equal(initial.attempts, 0);
+        const beforeConnection = await accountSnapshot();
+        await assert.rejects(approve(id, unconfiguredService), {
+          code: 'CONNECTION_REQUIRED'
+        });
+        assert.deepEqual(await accountSnapshot(), beforeConnection);
+
+        await activate('openg7:facebook');
+        assert.equal(
+          (await row(id)).account_id,
+          '',
+          'checking the new account does not silently rewrite a draft'
+        );
+        await service.command(
+          {
+            action: 'edit',
+            id,
+            version: initial.version,
+            message:
+              'Synthetic draft explicitly rebound after account configuration',
+            scheduledAt: at,
+            mediaId: null
+          },
+          'reservation-tester'
+        );
+        const edited = await row(id);
+        assert.equal(edited.account_id, '20');
+        assert.equal(edited.version, initial.version + 1);
+        assert.equal(edited.status, 'draft');
+        assert.equal(edited.approved_at, null);
+        assert.equal(edited.attempts, 0);
+        assert.equal(edited.external_post_id, null);
+        assert.equal(edited.provider_media_id, null);
+        assert.deepEqual((await accountSnapshot()).reservations, []);
+        assert.deepEqual((await accountSnapshot()).leases, []);
+        await assert.rejects(approve(id), { code: 'MODERATION_RESTRICTED' });
+        assert.deepEqual(await row(id), edited);
+
+        await approveFixtureSubject(pool, { type: 'publication_delivery', id });
+        await approve(id);
+        const approved = await row(id);
+        assert.equal(approved.status, 'approved');
+        assert.ok(approved.approved_at);
+        assert.equal(approved.attempts, 0);
+        assert.deepEqual(
+          (
+            await pool.query(
+              'SELECT delivery_id,provider,account_id,mode,status,approval_version FROM publication_account_reservations'
+            )
+          ).rows,
+          [
+            {
+              delivery_id: id,
+              provider: 'facebook',
+              account_id: '20',
+              mode: 'live',
+              status: 'reserved',
+              approval_version: approved.version
+            }
+          ]
+        );
+        assert.deepEqual(
+          (
+            await pool.query(
+              'SELECT provider,account_id,mode,delivery_id,fence,uncertain FROM publication_account_leases'
+            )
+          ).rows,
+          [
+            {
+              provider: 'facebook',
+              account_id: '20',
+              mode: 'live',
+              delivery_id: null,
+              fence: 0,
+              uncertain: false
+            }
+          ]
+        );
+      }
+    );
+
+    await t.test(
+      'cancel and explicit rejection of pristine unconfigured drafts create no account records',
+      async () => {
+        await reset();
+        for (const action of ['cancel', 'reject']) {
+          const id = await compose(
+            'openg7:facebook',
+            future(),
+            unconfiguredService
+          );
+          const delivery = await row(id);
+          assert.equal(delivery.account_id, '');
+          await unconfiguredService.command(
+            {
+              action,
+              id,
+              version: delivery.version,
+              confirmation: id,
+              ...(action === 'reject'
+                ? {
+                    reason:
+                      'Synthetic unconfigured draft declined after explicit review',
+                    moderationDecision: await fixtureModerationDecision(
+                      pool,
+                      { type: 'publication_delivery', id },
+                      'N3'
+                    )
+                  }
+                : {})
+            },
+            'reservation-tester'
+          );
+          const terminal = await row(id);
+          assert.equal(
+            terminal.status,
+            action === 'cancel' ? 'cancelled' : 'rejected'
+          );
+          assert.equal(terminal.account_id, '');
+          assert.equal(terminal.approved_at, null);
+          assert.equal(terminal.attempts, 0);
+          assert.deepEqual((await accountSnapshot()).reservations, []);
+          assert.deepEqual((await accountSnapshot()).leases, []);
+        }
+      }
+    );
+
+    await t.test(
+      'a missing account cannot bypass a recorded reservation or uncertain lease even after an absence request',
+      async () => {
+        for (const association of ['reservation', 'uncertain_lease']) {
+          await reset();
+          const id = await compose(
+            'openg7:facebook',
+            future(),
+            unconfiguredService
+          );
+          const delivery = await row(id);
+          if (association === 'reservation') {
+            await pool.query(
+              "INSERT INTO publication_account_leases(provider,account_id,mode) VALUES('facebook','20','live')"
+            );
+            await pool.query(
+              "INSERT INTO publication_account_reservations(delivery_id,provider,account_id,mode,scheduled_at,approval_version,status) VALUES($1,'facebook','20','live',$2,1,'reserved')",
+              [id, delivery.scheduled_at]
+            );
+          } else {
+            await pool.query(
+              "INSERT INTO publication_account_leases(provider,account_id,mode,delivery_id,delivery_version,lease_until,uncertain,fence) VALUES('facebook','20','live',$1,1,clock_timestamp()+INTERVAL '5 minutes',TRUE,7)",
+              [id]
+            );
+          }
+          const before = await accountSnapshot();
+          for (const confirmedAbsent of [false, true]) {
+            await assert.rejects(
+              withPostgresTransaction(pool, (db) =>
+                releaseAccountReservation(db, delivery, confirmedAbsent)
+              ),
+              { code: 'CONNECTION_REQUIRED' },
+              `${association}, confirmedAbsent=${confirmedAbsent}`
+            );
+            assert.deepEqual(await accountSnapshot(), before);
+          }
+          await assert.rejects(
+            service.command(
+              {
+                action: 'edit',
+                id,
+                version: delivery.version,
+                message: 'Synthetic unsafe account rebind must be refused',
+                scheduledAt: delivery.scheduled_at.toISOString(),
+                mediaId: null
+              },
+              'reservation-tester'
+            ),
+            { code: 'CONNECTION_REQUIRED' }
+          );
+          assert.deepEqual(await accountSnapshot(), before);
+        }
+      }
+    );
+
+    await t.test(
+      'missing accounts with prior authorization, attempt or provider-result metadata remain protected',
+      async () => {
+        for (const [label, metadata] of [
+          ['attempt', 'attempts=1'],
+          ['approval timestamp', 'approved_at=clock_timestamp()'],
+          ['approval actor', "approved_by='synthetic-owner'"],
+          ['provider post', "external_post_id='20_99'"],
+          ['provider URL', "external_post_url='https://example.invalid/post'"],
+          ['provider upload', "provider_media_id='synthetic-upload'"],
+          ['publication timestamp', 'published_at=clock_timestamp()'],
+          [
+            'retry date',
+            "next_attempt_at=clock_timestamp()+INTERVAL '1 minute'"
+          ],
+          ['unresolved error', "error_code='SYNTHETIC_UNCERTAIN_RESULT'"],
+          ['blocked delivery', "status='blocked'"],
+          ['uncertain delivery', "status='uncertain'"]
+        ]) {
+          await reset();
+          const id = await compose(
+            'openg7:facebook',
+            future(),
+            unconfiguredService
+          );
+          // Model a retained incomplete historical record, never provider output.
+          await pool.query(
+            `UPDATE publication_deliveries SET ${metadata} WHERE id=$1`,
+            [id]
+          );
+          const delivery = await row(id);
+          const before = await accountSnapshot();
+          for (const confirmedAbsent of [false, true]) {
+            await assert.rejects(
+              withPostgresTransaction(pool, (db) =>
+                releaseAccountReservation(db, delivery, confirmedAbsent)
+              ),
+              { code: 'CONNECTION_REQUIRED' },
+              `${label}, confirmedAbsent=${confirmedAbsent}`
+            );
+            assert.deepEqual(await accountSnapshot(), before, label);
+          }
+        }
+      }
+    );
 
     await t.test(
       'simultaneous approvals across two feeds reserve a shared account once',

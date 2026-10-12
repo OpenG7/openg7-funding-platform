@@ -4,12 +4,13 @@ The calendar is at `/admin/fundraiser/publications/calendar`. The delivery cockp
 is at `/admin/fundraiser/publications/automation`, with its own calendar including
 editorial posts. The three existing publication workspaces remain separate.
 
-Manual slot date/time fields use the slot's selected IANA timezone; draft scheduling
-uses `America/Toronto`, matching the calendar. Text-only edits retain the exact
-stored instant, including seconds and the selected occurrence during a clock change.
-New or edited dates that do not exist or occur twice during a clock change are
-rejected: choose a unique local time before saving. Changing a slot's timezone
-interprets its entered local date/time in the new timezone.
+Manual slot date/time fields use the slot's selected IANA timezone. Text-only slot
+edits retain the exact stored instant, including seconds and the selected occurrence
+during a clock change. New or edited slot dates that do not exist or occur twice
+during a clock change are rejected: choose a unique local time before saving.
+Changing a slot's timezone interprets its entered local date/time in the new timezone.
+The delivery drawer uses the browser's local timezone and minute precision; saving
+a delivery serialises that displayed time.
 
 Moving a slot with linked deliveries is transactional: the server locks the
 deliveries before calendar membership, revokes obsolete approval, releases
@@ -80,6 +81,11 @@ its reasons and local notification rehearsal. It does not publish website profil
 
 The worker is deterministic. There is no autonomous AI publishing decision, no
 publication based on payment alone, and no automatic approval of generated text.
+Preparation and composition acquire the same transaction-scoped advisory lock for
+their feed before business row locks. Composition remains a separate transaction
+after the planning commit. This coordination prevents the observed same-feed
+preparation/composition cycle between batch and contribution locks; it is not a
+global planner lock or a guarantee against every possible database deadlock.
 The recurring planner uses public summaries (or a neutral thank-you when absent)
 and distinct Facebook/LinkedIn titles;
 it does not fetch external news or generate images. Existing approved sponsor
@@ -161,9 +167,10 @@ and approve the exact final proposal separately. Human-edited and blocked final
 drafts keep their text: open the delivery, restore the corrected source blocks
 and save the final message separately. Preparation does not overwrite these
 decisions. Creation dates remain unchanged.
-This uses current drafts, not frozen offers or durable benefit obligations;
-those, manual-path convergence and effective-account scheduling remain open in
-the [construction tasks](../development/sponsorship-publication-tasks.md#sp09).
+Destination eligibility requires an active recorded commitment with a matching
+pending or blocked benefit obligation. Private preparation neither approves nor
+completes that obligation; see the
+[construction tasks](../development/sponsorship-publication-tasks.md#sp09).
 
 ## Configuration and activation
 
@@ -200,11 +207,10 @@ per five minutes, with a horizon of 1–28 days and capacity of 1–10 sponsors.
 The provider's text limit may result in smaller batches. Empty calendar slots
 are reserved; only nonempty batches produce review proposals.
 
-Explicit sponsor destinations/channels take precedence. When unset, confirmed
-CAD orders use the existing promised benefit thresholds (Facebook from 25,000
-minor units, LinkedIn from 50,000) on OpenG7. Other currencies need explicit
-routing. No private sponsor message, contact details or payment amount enters
-generated copy. Rejected, hidden, unpaid or nonconsenting sponsors are excluded.
+Only recorded obligations qualify the promised destination and channel. A payment
+amount or a routing preference cannot create a commercial promise. No private
+sponsor message, contact details or payment amount enters generated copy.
+Rejected, hidden, unpaid or nonconsenting sponsors are excluded.
 
 Untouched automatic proposals can fill as new payments arrive; their version
 changes and any stale review fails. Overdue untouched proposals are repacked at
@@ -541,8 +547,14 @@ deduplicate posts, so unintended resends remain observable.
 The scenario checks missing credentials, an incorrect LinkedIn organization,
 expiry before dispatch, a provider `403`, and an independent OpenG20 destination.
 After credentials change and the API restarts, connection checks must be renewed;
-blocked deliveries remain blocked. A new draft binds the changed destination and
-requires fresh, versioned approval. The worker sends after the browser closes,
+blocked deliveries remain blocked. Saving the revised delivery as a draft binds
+the changed destination and requires fresh, versioned approval. A draft prepared
+before account configuration can be revised after configuration: it must still be
+an unapproved draft with zero attempts, no publication or provider result, and no
+account reservation or lease. This case releases no account state. An empty
+account with any such history still returns `CONNECTION_REQUIRED`; an existing
+or uncertain reservation must be reconciled rather than silently discarded.
+The worker sends after the browser closes,
 then restarts and refreshes stale connection checks without sending again.
 Assertions also cover reader/anonymous/origin refusals, worker confirmation,
 FR/EN mobile layout, accessibility, unchanged financial/email counts, attributed

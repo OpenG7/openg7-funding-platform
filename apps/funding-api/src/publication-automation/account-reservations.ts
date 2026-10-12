@@ -147,8 +147,39 @@ export async function releaseAccountReservation(
   row: DeliveryRow,
   confirmedAbsent = false
 ): Promise<void> {
-  await lockAccount(db, row);
   const account = canonicalPublicationAccount(row);
+  if (!account.accountId) {
+    // A private draft can predate connection setup. The caller already locks
+    // its delivery; skip account writes only when there is no authority to free.
+    assert(
+      row.status === 'draft' &&
+        row.attempts === 0 &&
+        row.approved_at === null &&
+        row.published_at === null &&
+        row.external_post_id === null &&
+        row.external_post_url === null &&
+        row.provider_media_id === null &&
+        row.next_attempt_at === null &&
+        row.error_code === null &&
+        !row.account_recovery_required,
+      'CONNECTION_REQUIRED'
+    );
+    const authority = (
+      await db.query<{ unattributed: boolean; associated: boolean }>(
+        `SELECT approved_by IS NULL AS unattributed,
+          EXISTS(SELECT 1 FROM publication_account_reservations WHERE delivery_id=$1)
+          OR EXISTS(SELECT 1 FROM publication_account_leases WHERE delivery_id=$1) AS associated
+         FROM publication_deliveries WHERE id=$1`,
+        [row.id]
+      )
+    ).rows[0];
+    assert(
+      authority?.unattributed === true && authority.associated === false,
+      'CONNECTION_REQUIRED'
+    );
+    return;
+  }
+  await lockAccount(db, row);
   if (confirmedAbsent) {
     await db.query(
       `UPDATE publication_account_leases SET delivery_id=NULL,delivery_version=NULL,lease_until=NULL,uncertain=FALSE,updated_at=NOW()

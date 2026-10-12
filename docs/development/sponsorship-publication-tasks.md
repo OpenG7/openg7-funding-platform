@@ -389,6 +389,87 @@ Les journaux sont `ci-editorial-identity-final.log` et
 `ci-recovery-media-rights.log`. La suite Node locale rejouée explicitement sous
 Node 22 garde **6 176 réussites**, zéro échec et huit omissions.
 
+L'exécution distante sur `53f7ba5` confirme **6 179 tests Node**, **580 intégrations**,
+**257 scénarios Docker** et **1 036 parcours navigateur** réussis. L'identité passe
+huit scénarios sur neuf ; le dernier révèle un défaut réel : la reprise d'un
+brouillon créé avant configuration verrouillait un compte vide avant de le
+rattacher au compte vérifié. La libération ne fait désormais aucune écriture pour
+un brouillon encore privé, sans autorisation, tentative, résultat, réservation ou
+bail. Toute association ou métadonnée incompatible conserve `CONNECTION_REQUIRED`.
+Les comptes existants gardent leurs verrous et leurs protections de concurrence.
+
+La réception du correctif passe **13 tests PostgreSQL de réservation**, dont les
+cas de reprise, annulation/refus, références incertaines et métadonnées historiques,
+puis la **suite d'identité complète de neuf tests** sur build Web de production,
+sans reprise. Le scénario social reprend son brouillon original et vérifie les
+publications exactes et l'absence de doublon. La suite Node sous Node 22 garde
+6 176 réussites et huit omissions ; lint et TypeScript sans émission passent.
+Les journaux sont `ci-account-reservations-regression.log`,
+`ci-identity-production-complete.log` et `ci-unconfigured-draft-node22.log`.
+Le [runbook propriétaire](../operations/publication-automation.md#local-connection-recovery-recipe)
+décrit la reprise sans réservation et ses refus conservateurs.
+
+Après intégration du contenu fusionné de la PR #309, la réception du 12 octobre
+2026 passe **6 218 tests Node sous Node 22** (huit omissions locales, zéro échec),
+**13 tests PostgreSQL**, les **neuf parcours d'identité** et les **deux restaurations
+applicatives** locales/S3 simulées. Chaque restauration reconstruit son image API
+depuis la base intégrée et nettoie ses ressources jetables. Build Angular de
+production (25 routes SSR), lint, TypeScript sans émission, format, standards
+documentaires et diff passent ; la revue indépendante ne relève aucun problème.
+Les journaux sont `ci-integrated-node22.log`, `ci-integrated-account-reservations.log`,
+`ci-integrated-identity-production.log` et `ci-integrated-recovery.log` dans
+`test-results/`. Ces reçus locaux restent distincts du résultat de la CI distante.
+
+La CI sur `0caa20f` confirme **6 221 tests Node** (cinq omissions) et **609
+intégrations**, sans échec. Docker réussit 255 scénarios sur 257 ; les deux échecs
+FR/EN lisaient encore le cache Checkout `sessionStorage` v1, remplacé par les
+enregistrements partagés `localStorage` v2. Les assertions vérifient désormais
+l'empreinte, l'UUID initial et l'expiration, puis le cache inchangé après
+rechargement et changement de langue, sans nouvelle requête. Une autre assertion
+de purge contrôle maintenant la présence réelle des deux caches avant la réponse
+perdue, puis leur suppression après succès, avec l'offre et le payload d'origine.
+Les deux échecs Docker sont reproduits avant correction ; les **deux cas Docker**
+et les **deux parcours de reprise d'offre FR/EN** passent ensuite sans reprise.
+TypeScript sans émission, ESLint, format et diff passent ; la revue indépendante
+ne relève aucun problème. Aucun code applicatif n'est modifié dans ce complément.
+Les journaux sont `ci-checkout-recovery-{baseline,corrected}.log` et
+`ci-offer-storage-recovery.log` dans `test-results/`.
+
+La CI sur `97bb42a` confirme les **257 scénarios Docker** corrigés et **6 221
+tests Node**, mais révèle un interblocage PostgreSQL lors de deux préparations
+concurrentes. La composition post-commit prenait le lot avant ses contributions,
+tandis que la seconde préparation détenait ces contributions en attendant le lot.
+Préparation et composition prennent maintenant un verrou advisory transactionnel
+dédié au feed avant leurs verrous métier, en conservant leurs transactions et
+audits distincts. La garantie vise ce cycle du même feed, sans annoncer une absence
+universelle d'interblocages. Le runbook décrit cette coordination et l'éligibilité
+fondée sur les obligations enregistrées.
+
+La régression déterministe reproduit `40P01` avant correction et passe ensuite ;
+un autre feed continue pendant le blocage volontaire. Les compositions répétées
+retournent le même identifiant, une seule livraison et un seul audit, sans
+approbation ni réservation. Les suites PostgreSQL passent **35 tests de publications**
+et **33 tests de capacité/réservations/calendrier** ; la régression enrichie passe
+également. Les mocks SQL reconnaissent uniquement la nouvelle requête précise et
+vérifient qu'elle précède les verrous métier. Leur réception ciblée passe **83 tests**,
+puis la suite Node complète sous Node 22 passe **6 218 tests** (huit omissions,
+zéro échec). Build, TypeScript sans émission, lint, format et diff passent ; la revue
+indépendante ne relève aucun problème. Les journaux sont
+`ci-preparation-deadlock-{before,after,automation-full,concurrency-full,compose-replay}.log`,
+`ci-planning-lock-unit-fixtures.log` et `ci-planning-lock-full-node22.log` dans
+`test-results/`.
+
+Sur `8e50df1`, la nouvelle régression passe en CI ; 608 des 610 intégrations
+réussissent. Le seul sous-test en échec et son groupe attendaient encore deux
+planificateurs sur le verrou de ligne du feed. L'observateur vérifie maintenant
+la chaîne réelle : session bloqueuse, premier planificateur en attente sur cette
+ligne, second en attente sur le verrou advisory exact du même feed. La concurrence
+et les contrôles de diagnostics, affectation et livraison uniques sont conservés.
+La baseline reproduit l'échec, puis la suite complète de file de préparation passe
+**18 tests** sans omission. ESLint, format et diff passent ; aucun code applicatif
+n'est modifié. Les journaux sont `ci-rendered-queue-planning-lock-{before,after}.log`
+dans `test-results/`.
+
 - P0 : conformité de la reconnaissance, conservation des engagements et reprise
   des résultats incertains. P1 : file, réservations, dates et suivi fiable.
   P2 : personnalisation et nouveaux formats. La priorité ne remplace pas une dépendance.

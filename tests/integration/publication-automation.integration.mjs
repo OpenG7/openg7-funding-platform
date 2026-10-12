@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash, randomUUID } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
+import { setTimeout as delay } from 'node:timers/promises';
 import sharp from 'sharp';
 import { composePublicationRecognition } from '../../dist/packages/funding-core/src/index.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
@@ -32,6 +33,253 @@ import {
   saveSponsorshipDraft,
   submitSponsorshipDraft
 } from '../../dist/apps/funding-api/src/sponsorship-access.service.js';
+
+test(
+  'concurrent preparation serializes post-commit composition without blocking an independent feed',
+  { timeout: 90000 },
+  async (t) => {
+    const database = await startDisposablePostgres();
+    t.after(database.stop);
+    const pool = database.pool;
+    const feedId = 'openg20:facebook';
+    const independentFeedId = 'openg7:linkedin';
+    const now = new Date('2030-06-03T12:00:00Z');
+    await pool.query(
+      'UPDATE publication_feeds SET capacity=2,horizon_days=1,weekdays=ARRAY[0,1,2,3,4,5,6] WHERE id=$1',
+      [feedId]
+    );
+    const contributionIds = [randomUUID(), randomUUID()];
+    for (const [index, id] of contributionIds.entries()) {
+      await pool.query(
+        `INSERT INTO fund_contributions(id,contribution_type,amount_cents,currency,status,public_display_consent,sponsor_review_status,sponsor_company_name,sponsor_public_summary)
+         VALUES($1,'sponsorship_interest',25000,'CAD','paid',TRUE,'pending_review',$2,'Complete synthetic recognition source.')`,
+        [id, `Synthetic preparation sponsor ${index + 1}`]
+      );
+      await recordFixtureSponsorshipAgreement(pool, id, {
+        channel: 'facebook',
+        target: 'openg20'
+      });
+    }
+    let compositionPid;
+    let secondPreparationPid;
+    let markBatchHeld;
+    const batchHeld = new Promise((resolve) => {
+      markBatchHeld = resolve;
+    });
+    let resumeComposition;
+    const compositionGate = new Promise((resolve) => {
+      resumeComposition = resolve;
+    });
+    let markSecondStarted;
+    const secondStarted = new Promise((resolve) => {
+      markSecondStarted = resolve;
+    });
+    const controlledPool = (party) => ({
+      query: (...args) => pool.query(...args),
+      connect: async () => {
+        const client = await pool.connect();
+        const pid = (await client.query('SELECT pg_backend_pid() AS pid'))
+          .rows[0].pid;
+        return {
+          release: () => client.release(),
+          query: async (...args) => {
+            const result = await client.query(...args);
+            const sql = typeof args[0] === 'string' ? args[0] : args[0].text;
+            if (
+              party === 'second' &&
+              sql === 'BEGIN' &&
+              !secondPreparationPid
+            ) {
+              secondPreparationPid = pid;
+              markSecondStarted();
+            }
+            if (
+              party === 'first' &&
+              !compositionPid &&
+              sql ===
+                'SELECT id FROM sponsor_publication_batches WHERE id=$1 FOR UPDATE'
+            ) {
+              compositionPid = pid;
+              markBatchHeld();
+              await compositionGate;
+            }
+            return result;
+          }
+        };
+      }
+    });
+    const env = {
+      SOCIAL_PUBLICATION_MODE: 'mock',
+      SOCIAL_PUBLICATION_WORKER_ENABLED: 'false'
+    };
+    const firstService = new PublicationAutomationService(
+      controlledPool('first'),
+      {},
+      env
+    );
+    const secondService = new PublicationAutomationService(
+      controlledPool('second'),
+      {},
+      env
+    );
+    const independentService = new PublicationAutomationService(pool, {}, env);
+    let first;
+    let second;
+    let independent;
+    const withinDeadline = (promise, label) =>
+      Promise.race([
+        promise,
+        delay(10000, undefined, { ref: false }).then(() => {
+          throw new Error(label);
+        })
+      ]);
+    try {
+      first = firstService.prepare(feedId, 'first-planner', now);
+      // Catch early errors without making the deliberately pending operation unhandled.
+      void first.catch(() => {});
+      await withinDeadline(
+        Promise.race([
+          batchHeld,
+          first.then(() => {
+            throw new Error('The first preparation did not reach composition.');
+          })
+        ]),
+        'The first composition did not acquire its batch lock.'
+      );
+      second = secondService.prepare(feedId, 'second-planner', now);
+      void second.catch(() => {});
+      await withinDeadline(
+        secondStarted,
+        'The second preparation did not start its transaction.'
+      );
+      await withinDeadline(
+        (async () => {
+          while (true) {
+            const { rows } = await pool.query(
+              'SELECT pg_blocking_pids($1) AS blockers',
+              [secondPreparationPid]
+            );
+            if (rows[0].blockers.includes(compositionPid)) return;
+            await delay(10);
+          }
+        })(),
+        'The second preparation did not overlap the held composition.'
+      );
+      independent = independentService.command(
+        {
+          action: 'compose',
+          feedId: independentFeedId,
+          kind: 'news',
+          message: 'An independent private publication remains available.',
+          scheduledAt: '2030-06-03T20:00:00Z'
+        },
+        'independent-planner'
+      );
+      await withinDeadline(
+        independent,
+        'An unrelated feed was blocked by the preparation gate.'
+      );
+      // Before the fix, the second transaction owns the contributions while
+      // waiting for this batch; resuming now forms the actual PostgreSQL cycle.
+      resumeComposition();
+      await Promise.all([first, second]);
+      const jobs = (
+        await pool.query(
+          'SELECT * FROM publication_deliveries WHERE feed_id=$1',
+          [feedId]
+        )
+      ).rows;
+      assert.equal(jobs.length, 1);
+      const replayInput = {
+        action: 'compose',
+        feedId,
+        kind: 'sponsorship',
+        batchId: jobs[0].batch_id
+      };
+      const replays = await Promise.all([
+        firstService.command(replayInput, 'first-planner'),
+        secondService.command(replayInput, 'second-planner')
+      ]);
+      assert.deepEqual(
+        replays.map(({ id }) => id),
+        [jobs[0].id, jobs[0].id]
+      );
+      assert.equal(
+        (
+          await pool.query(
+            'SELECT count(*)::int AS n FROM publication_deliveries WHERE feed_id=$1',
+            [feedId]
+          )
+        ).rows[0].n,
+        1
+      );
+      assert.equal(jobs[0].status, 'draft');
+      assert.equal(jobs[0].approved_at, null);
+      assert.equal(jobs[0].attempts, 0);
+      assert.deepEqual(
+        jobs[0].source_snapshot
+          .map(({ contribution_id }) => contribution_id)
+          .sort(),
+        contributionIds.sort()
+      );
+      assert.equal(
+        (
+          await pool.query(
+            'SELECT count(*)::int AS n FROM publication_recurrences WHERE feed_id=$1',
+            [feedId]
+          )
+        ).rows[0].n,
+        1
+      );
+      assert.equal(
+        (
+          await pool.query(
+            'SELECT count(*)::int AS n FROM sponsor_publication_drafts'
+          )
+        ).rows[0].n,
+        2
+      );
+      assert.equal(
+        (
+          await pool.query(
+            "SELECT count(*)::int AS n FROM admin_audit_log WHERE action='publication_automation.compose' AND entity_id=$1",
+            [jobs[0].id]
+          )
+        ).rows[0].n,
+        1
+      );
+      assert.equal(
+        (
+          await pool.query(
+            "SELECT count(*)::int AS n FROM admin_audit_log WHERE action='publication_automation.prepare' AND entity_id=$1",
+            [feedId]
+          )
+        ).rows[0].n,
+        2
+      );
+      assert.equal(
+        (
+          await pool.query(
+            'SELECT count(*)::int AS n FROM moderation_decisions'
+          )
+        ).rows[0].n,
+        0,
+        'preparation creates no N0 or publication approval'
+      );
+      assert.equal(
+        (
+          await pool.query(
+            'SELECT count(*)::int AS n FROM publication_account_reservations'
+          )
+        ).rows[0].n,
+        0
+      );
+    } finally {
+      resumeComposition();
+      await Promise.allSettled([first, second, independent].filter(Boolean));
+    }
+  }
+);
 
 test(
   'publication automation with disposable PostgreSQL',
