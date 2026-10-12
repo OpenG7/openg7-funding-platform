@@ -4,12 +4,13 @@ The calendar is at `/admin/fundraiser/publications/calendar`. The delivery cockp
 is at `/admin/fundraiser/publications/automation`, with its own calendar including
 editorial posts. The three existing publication workspaces remain separate.
 
-Manual slot date/time fields use the slot's selected IANA timezone; draft scheduling
-uses `America/Toronto`, matching the calendar. Text-only edits retain the exact
-stored instant, including seconds and the selected occurrence during a clock change.
-New or edited dates that do not exist or occur twice during a clock change are
-rejected: choose a unique local time before saving. Changing a slot's timezone
-interprets its entered local date/time in the new timezone.
+Manual slot date/time fields use the slot's selected IANA timezone. Text-only slot
+edits retain the exact stored instant, including seconds and the selected occurrence
+during a clock change. New or edited slot dates that do not exist or occur twice
+during a clock change are rejected: choose a unique local time before saving.
+Changing a slot's timezone interprets its entered local date/time in the new timezone.
+The delivery drawer uses the browser's local timezone and minute precision; saving
+a delivery serialises that displayed time.
 
 Moving a slot with linked deliveries is transactional: the server locks the
 deliveries before calendar membership, revokes obsolete approval, releases
@@ -541,8 +542,14 @@ deduplicate posts, so unintended resends remain observable.
 The scenario checks missing credentials, an incorrect LinkedIn organization,
 expiry before dispatch, a provider `403`, and an independent OpenG20 destination.
 After credentials change and the API restarts, connection checks must be renewed;
-blocked deliveries remain blocked. A new draft binds the changed destination and
-requires fresh, versioned approval. The worker sends after the browser closes,
+blocked deliveries remain blocked. Saving the revised delivery as a draft binds
+the changed destination and requires fresh, versioned approval. A draft prepared
+before account configuration can be revised after configuration: it must still be
+an unapproved draft with zero attempts, no publication or provider result, and no
+account reservation or lease. This case releases no account state. An empty
+account with any such history still returns `CONNECTION_REQUIRED`; an existing
+or uncertain reservation must be reconciled rather than silently discarded.
+The worker sends after the browser closes,
 then restarts and refreshes stale connection checks without sending again.
 Assertions also cover reader/anonymous/origin refusals, worker confirmation,
 FR/EN mobile layout, accessibility, unchanged financial/email counts, attributed

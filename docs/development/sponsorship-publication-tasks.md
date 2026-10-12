@@ -389,6 +389,37 @@ Les journaux sont `ci-editorial-identity-final.log` et
 `ci-recovery-media-rights.log`. La suite Node locale rejouée explicitement sous
 Node 22 garde **6 176 réussites**, zéro échec et huit omissions.
 
+L'exécution distante sur `53f7ba5` confirme **6 179 tests Node**, **580 intégrations**,
+**257 scénarios Docker** et **1 036 parcours navigateur** réussis. L'identité passe
+huit scénarios sur neuf ; le dernier révèle un défaut réel : la reprise d'un
+brouillon créé avant configuration verrouillait un compte vide avant de le
+rattacher au compte vérifié. La libération ne fait désormais aucune écriture pour
+un brouillon encore privé, sans autorisation, tentative, résultat, réservation ou
+bail. Toute association ou métadonnée incompatible conserve `CONNECTION_REQUIRED`.
+Les comptes existants gardent leurs verrous et leurs protections de concurrence.
+
+La réception du correctif passe **13 tests PostgreSQL de réservation**, dont les
+cas de reprise, annulation/refus, références incertaines et métadonnées historiques,
+puis la **suite d'identité complète de neuf tests** sur build Web de production,
+sans reprise. Le scénario social reprend son brouillon original et vérifie les
+publications exactes et l'absence de doublon. La suite Node sous Node 22 garde
+6 176 réussites et huit omissions ; lint et TypeScript sans émission passent.
+Les journaux sont `ci-account-reservations-regression.log`,
+`ci-identity-production-complete.log` et `ci-unconfigured-draft-node22.log`.
+Le [runbook propriétaire](../operations/publication-automation.md#local-connection-recovery-recipe)
+décrit la reprise sans réservation et ses refus conservateurs.
+
+Après intégration du contenu fusionné de la PR #309, la réception du 12 octobre
+2026 passe **6 218 tests Node sous Node 22** (huit omissions locales, zéro échec),
+**13 tests PostgreSQL**, les **neuf parcours d'identité** et les **deux restaurations
+applicatives** locales/S3 simulées. Chaque restauration reconstruit son image API
+depuis la base intégrée et nettoie ses ressources jetables. Build Angular de
+production (25 routes SSR), lint, TypeScript sans émission, format, standards
+documentaires et diff passent ; la revue indépendante ne relève aucun problème.
+Les journaux sont `ci-integrated-node22.log`, `ci-integrated-account-reservations.log`,
+`ci-integrated-identity-production.log` et `ci-integrated-recovery.log` dans
+`test-results/`. Ces reçus locaux restent distincts du résultat de la CI distante.
+
 - P0 : conformité de la reconnaissance, conservation des engagements et reprise
   des résultats incertains. P1 : file, réservations, dates et suivi fiable.
   P2 : personnalisation et nouveaux formats. La priorité ne remplace pas une dépendance.
