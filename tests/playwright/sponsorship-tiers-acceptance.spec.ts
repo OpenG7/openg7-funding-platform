@@ -24,6 +24,8 @@ import {
 } from './support/acceptance-moderation.js';
 import { completeModeration } from './support/moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
+import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
+import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import { expect, test } from './support/test.js';
 
@@ -233,6 +235,7 @@ for (const amount of [100, 250]) {
             await form.locator('#public-display-name').fill(name);
           await form.getByRole('checkbox').nth(1).setChecked(amountConsent);
           await form.getByRole('checkbox').nth(2).check();
+          await acceptDisplayedSponsorshipOffer(form);
           const checkout = company.waitForResponse(
             (r) =>
               r.url().endsWith('/checkout-sessions') &&
@@ -312,6 +315,7 @@ for (const amount of [100, 250]) {
           })
             .png()
             .toBuffer();
+          await confirmAcceptanceMediaUsage(company);
           for (const [label, filename] of [
             ['Ajouter le logo', 'logo.png'],
             ['Ajouter des photos', 'photo.png']
@@ -656,23 +660,39 @@ for (const amount of [100, 250]) {
                 .slice(0, 16);
             }, date.toISOString());
             await dialog.locator('input[name="date"]').fill(localDate);
+            const savedDraft = admin.waitForResponse(
+              (response) =>
+                response.url().endsWith(automation) &&
+                response.request().method() === 'POST' &&
+                response.request().postDataJSON()?.action === 'edit'
+            );
             await dialog
               .getByRole('button', { name: 'Enregistrer le brouillon' })
               .click();
+            expect((await savedDraft).ok()).toBe(true);
             await expect(
               dialog.getByRole('button', { name: 'Accepter et programmer' })
             ).toBeDisabled();
             const draft = (await jobs())[0]!;
+            expect(draft.id).toBe(job.id);
+            expect(draft.version).toBe(job.version + 1);
             expect(draft).toMatchObject({
               status: 'draft',
               approvedAt: null,
-              attempts: 0
+              attempts: 0,
+              message,
+              mediaId: photo.id,
+              scheduledAt: date.toISOString()
             });
             const missingConfirmation = await request.post(automation, {
               headers: await adminSessionHeaders(request),
               data: { action: 'approve', id: job.id, version: draft.version }
             });
             expect(missingConfirmation.status()).toBe(400);
+            expect(await missingConfirmation.json()).toMatchObject({
+              code: 'CONFIRMATION_REQUIRED'
+            });
+            expect((await jobs())[0]).toEqual(draft);
             await dialog.getByRole('checkbox', { name: /J’approuve/ }).check();
             await dialog
               .getByRole('button', { name: 'Accepter et programmer' })
@@ -759,9 +779,54 @@ for (const amount of [100, 250]) {
           });
 
         await test.step('Payment and preparation replays preserve one invoice, notification set and delivery', async () => {
+          const companyEmailCount = 2 + (publicConsent ? 1 : 0);
           await expect
             .poll(async () => (await companyMails()).length, { timeout: 15000 })
-            .toBe(2);
+            .toBe(companyEmailCount);
+          const companyQueue = (
+            await get<AdminEmailQueueResponse>('/api/admin/email-queue')
+          ).messages.filter((m) => m.recipient_email === email);
+          expect(companyQueue.map((m) => m.template_key).sort()).toEqual(
+            [
+              'sponsorship_invoice',
+              'sponsorship_followup',
+              ...Array(companyEmailCount - 2).fill('sponsorship_obligation')
+            ].sort()
+          );
+          const updates = companyQueue.filter(
+            (m) => m.template_key === 'sponsorship_obligation'
+          );
+          const obligations = (await sponsor()).commitment!.obligations;
+          const website = obligations.find((o) => o.channel === 'website')!;
+          const fulfilled = updates.filter(
+            (m) => m.metadata['event'] === 'fulfilled'
+          );
+          expect(fulfilled).toHaveLength(publicConsent ? 1 : 0);
+          if (publicConsent) {
+            expect(website).toMatchObject({
+              state: 'fulfilled',
+              fulfilmentEvidenceId: expect.any(String)
+            });
+            expect(fulfilled[0]!.metadata).toMatchObject({
+              contributionId,
+              event: 'fulfilled',
+              eventId: website.fulfilmentEvidenceId,
+              obligationId: website.id,
+              obligationVersion: website.version
+            });
+          } else {
+            expect(website.fulfilmentEvidenceId).toBeNull();
+          }
+          const approvedDates = updates.filter(
+            (m) => m.metadata['event'] === 'date_approved'
+          );
+          // Mock publication cannot create a promised live date or fulfilment.
+          expect(approvedDates).toHaveLength(0);
+          if (publicConsent && amount === 250) {
+            const facebook = obligations.find((o) => o.channel === 'facebook')!;
+            expect(facebook.fulfilmentEvidenceId).toBeNull();
+          }
+          expect(updates).toHaveLength(companyEmailCount - 2);
           const invoiceIds = (await invoices()).map((i) => i.id);
           const companyMailIds = (await companyMails()).map((m) => m.ID).sort();
           const emailIds = await queuedEmails();
@@ -830,7 +895,7 @@ for (const amount of [100, 250]) {
                 ),
                 adminEmails: 1,
                 sms: 1,
-                companyEmails: 2,
+                companyEmails: companyEmailCount,
                 totals: await totals()
               },
               null,

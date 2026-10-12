@@ -22,6 +22,47 @@ retain the original evidence. Personal contributions remain outside this scope.
 The prepared V1 charter is inactive by default. See the
 [moderation contract and activation limits](../operations/sponsorship-moderation.md).
 
+Business Checkout also requires the displayed offer reference:
+`offerAcceptance: { version, fingerprint }`. Obtain it from
+`GET /api/sponsorship-offer?amountMinor=25000&currency=CAD`. The quote contains
+integer minor units, currency, benefit IDs, logical destination, quantity,
+required elements, and explicit nullable deadline/duration. Other currencies
+are refused; CAD thresholds are never applied to them. The current quantity is
+one website mention and, at their thresholds, one Facebook/LinkedIn recognition.
+`null` promises no fixed deadline or duration.
+
+Offer v2 records each social format. Optional `facebookFormat` / `linkedinFormat`
+query parameters select `collective_text` (default), `individual_portrait` or
+`collective_composite`; copy the chosen options into Checkout's `offerFormats`
+object (`facebook?`, `linkedin?`). The server recomputes the matching quote before
+preparation. `image_collection` returns `400 FORMAT_UNAVAILABLE`; it is not
+converted to a single image. The acceptance fingerprint covers the format.
+[Migration 045](../../apps/funding-api/migrations/045_sponsorship_publication_formats.sql)
+records it on obligations. Old snapshots without a format keep their canonical
+JSON/hash. An absent `offerFormats` stays absent on retries: adding defaults or
+changing a selected format changes the durable request fingerprint.
+
+[Migration 041](../../apps/funding-api/migrations/041_sponsorship_commitments.sql)
+stores the immutable server offer in the same transaction as the newly prepared
+Checkout operation and charter evidence, before Stripe. Missing or stale offer
+references return `400 SPONSORSHIP_OFFER_ACCEPTANCE_REQUIRED` or
+`409 SPONSORSHIP_OFFER_CHANGED` before that operation is inserted. A malformed
+reference returns `400 SPONSORSHIP_OFFER_INVALID`. Reconfirm the current quote
+for a new attempt; provider/network failures retain the original key, payload
+and offer. The public offer snapshot and its checksum can be cached for exact
+recovery without contributor details. Local mocked business Checkout also
+requires the displayed reference, but creates no payment, durable operation or
+obligation.
+
+Repeated durable operations skip offer preparation: their original terms remain
+unchanged after a price change. Operations prepared before 041 without an offer
+can replay their original payload; confirmed dossiers remain explicitly
+`needs_confirmation` rather than receiving today's benefits. Stripe-confirmed
+payment activates one set of obligations from a matching operation/reference,
+amount and currency. Payment, review, consent, visibility and publication stay
+independent. New invoices and confirmation messages describe the recorded offer;
+issued documents and queued messages keep their existing snapshots.
+
 The API persists the original parameters before contacting Stripe and uses the
 operation UUID as Stripe's idempotency key. A completed operation returns its
 original redirect without another provider call. A changed amount, consent,

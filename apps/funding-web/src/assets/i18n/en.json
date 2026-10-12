@@ -1,5 +1,110 @@
 {
   "admin": {
+    "commitments": {
+      "pendingRequest": "Preserved exact request",
+      "kinds": {
+        "destination": "Destination",
+        "format": "Format",
+        "waiver": "Waiver"
+      },
+      "title": "Recorded commitments",
+      "separation": "Payment, moderation and delivery authorization remain separate. Qualifying or adjusting an agreement authorizes no sending.",
+      "refresh": "Reload commitments",
+      "loading": "Loading commitments…",
+      "saved": "Change recorded. Affected delivery authorizations need another review.",
+      "ownerOnly": "Qualification and adjustments require the owner.",
+      "version": "Version",
+      "recordedOffer": "Recorded agreement — preserved",
+      "currentObligations": "Current obligations",
+      "currentHelp": "Current work can change through an audited adjustment; the recorded agreement stays unchanged.",
+      "passage": "passage(s)",
+      "evidenceId": "Fulfilment evidence",
+      "qualify": "Qualify the historical agreement",
+      "historicalHelp": "Enter only terms established by the agreement and its evidence. This form derives no benefits from the amount and creates no past acceptance.",
+      "financialFact": "Confirmed amount, read only",
+      "agreedTerms": "Verified terms",
+      "benefit": "Benefit",
+      "channel": "Channel",
+      "target": "Destination",
+      "quantity": "Agreed quantity",
+      "choose": "Choose explicitly",
+      "format": "Agreed format",
+      "requiredHelp": "Select the elements required by the agreement. At least one is required; they do not replace current publication rules.",
+      "deadline": "Agreed deadline",
+      "duration": "Agreed duration",
+      "deadlineDays": "Deadline in days — optional",
+      "durationDays": "Duration in days — optional",
+      "periodHelp": "An empty field means this agreement establishes no fixed deadline or duration.",
+      "unspecified": "Not fixed",
+      "days": "{{value}} day(s)",
+      "removeBenefit": "Remove this benefit",
+      "addBenefit": "Add a verified benefit",
+      "evidenceReference": "Internal reference to agreement evidence",
+      "reason": "Internal justification",
+      "confirmation": "Type this UUID to confirm:",
+      "adjust": "Adjust an obligation",
+      "adjustHelp": "A change preserves the original agreement, increments the version and revokes affected delivery authorizations. Fulfilled or waived obligations are protected.",
+      "changeTerms": "Explicit adjustment",
+      "changeKind": "Change type",
+      "destinationChange": "Change destination",
+      "formatChange": "Change format",
+      "waiver": "Waive this obligation",
+      "waiverHelp": "I confirm this explicit waiver. Rejection or refund does not automatically settle an obligation.",
+      "saveAdjustment": "Record adjustment",
+      "unavailable": "No commitment is available. Reload the dossier before qualification.",
+      "unsupportedCurrency": "Qualification is unavailable for this currency. No CAD benefits are applied.",
+      "retryHelp": "The result is uncertain. Fields are locked; retry only the exact request with its original UUID and version.",
+      "retry": "Retry the exact request",
+      "adoptionTitle": "Historical adoption preview",
+      "adoptionHelp": "Read only, one bounded page at a time. Old declarations are not qualified evidence. No bulk adoption or approval occurs.",
+      "pageSize": "Dossiers per page",
+      "loadPreview": "Load first page",
+      "inventoryCounts": "Obligations: {{obligations}} · Evidence: {{evidence}} · Old declarations: {{declarations}}",
+      "emptyPreview": "No dossiers on this page.",
+      "nextPage": "Next page",
+      "provenance": {
+        "accepted_offer": "Offer captured and accepted at Checkout",
+        "qualified_historical": "Explicitly qualified historical agreement",
+        "historical_unverified": "Historical agreement to qualify"
+      },
+      "channels": {
+        "website": "Website",
+        "facebook": "Facebook",
+        "linkedin": "LinkedIn"
+      },
+      "formats": {
+        "unknown": "Format not established — text only",
+        "collective_text": "Collective text",
+        "individual_portrait": "Individual portrait",
+        "collective_composite": "Collective image",
+        "image_collection": "Image collection — unavailable"
+      },
+      "requirements": {
+        "company_name": "Company name",
+        "approved_presentation": "Approved presentation",
+        "approved_logo": "Approved logo"
+      },
+      "states": {
+        "pending": "Outstanding",
+        "blocked": "Blocked",
+        "fulfilled": "Fulfilled with evidence",
+        "adjusted": "Explicitly waived"
+      },
+      "classifications": {
+        "accepted_snapshot": "Captured offer",
+        "qualified_historical": "Qualified history",
+        "legacy_declarations": "Old declarations to verify",
+        "unqualified": "Agreement to qualify"
+      },
+      "errors": {
+        "invalid": "Check the terms, evidence, justification and exact confirmation. No change is confirmed.",
+        "loadError": "Commitments are unavailable. Retry the read.",
+        "uncertain": "The result is unconfirmed. Keep and retry the exact request; do not create a new adjustment.",
+        "conflict": "Incompatible version or request. Reload commitments and check history before confirming again.",
+        "ownerOnly": "The owner is required. No change is confirmed.",
+        "unauthorized": "The session expired. Sign in before continuing."
+      }
+    },
     "moderation": {
       "title": "Moderation decision",
       "context": "Review the content in context. Disagreement, controversy or a quotation condemning hatred alone does not justify rejection.",
@@ -446,6 +551,7 @@
       "templates": {
         "sponsorship_invoice": "Sponsorship invoice",
         "sponsorship_followup": "Sponsorship follow-up",
+        "sponsorship_obligation": "Sponsorship commitment update",
         "sponsorship_rejection": "Sponsorship rejection",
         "sponsorship_approval": "Sponsorship approval",
         "sponsorship_information_request": "Information request",
@@ -965,6 +1071,7 @@
       },
       "reasons": {
         "invoice_not_required": "No Stripe invoice expected for this source.",
+        "commitment_needs_confirmation": "The original agreement needs qualification before its expected services can be confirmed.",
         "payment_disputed": "Payment disputed: check the dispute before proceeding.",
         "payment_recorded": "Payment recorded by the server.",
         "payment_unconfirmed": "Check payment: confirmation is missing or payment was interrupted.",
@@ -1033,7 +1140,8 @@
           "payment": "Check payment eligibility",
           "refund": "Review the pending or full refund",
           "hidden": "Review the sponsor’s hidden status",
-          "identity": "Complete the company name"
+          "identity": "Complete the company name",
+          "commitment_needs_confirmation": "Qualify commitments using the original agreement"
         },
         "status": {
           "waiting": "Awaiting preparation",
@@ -1042,6 +1150,7 @@
           "publishing": "Sending",
           "published": "Published",
           "simulated": "Simulation completed",
+          "unverified": "Declared publication, evidence needs qualification",
           "blocked": "Delivery blocked",
           "uncertain": "Outcome needs checking",
           "failed": "Delivery failed",
@@ -1062,12 +1171,12 @@
           "open": "Open in engine"
         },
         "viewPost": "View publication",
-        "noSocial": "No social publication is included at this amount and none is linked to this dossier.",
+        "noSocial": "No social publication is recorded in this dossier’s offer.",
         "preparation": "View preparation",
         "engine": "Follow this dossier in the engine",
         "authorization": "Preparation does not publish anything. Each delivery requires approval of the content and destination. A simulation does not complete this step.",
         "advanced": "Advanced settings · visibility and manual tracking",
-        "promisedChannel": "Channel included in the contribution tier",
+        "promisedChannel": "Channel included in a recorded commitment",
         "filtered": "Publications linked to this dossier",
         "collective": "A collective publication may include several sponsors. Your approval covers all displayed content.",
         "back": "Back to step 6",
@@ -1075,6 +1184,7 @@
         "notFound": "This publication could not be found in the requested context. Return to the dossier to refresh its progress.",
         "globalSettings": "Counts, the worker and destination settings apply to all dossiers. The list below is filtered.",
         "currencyUnknown": "Benefits and destinations need confirmation for this currency.",
+        "commitmentUnknown": "This dossier’s commitments need qualification using its original agreement.",
         "site": {
           "title": "Website",
           "audit": {
@@ -1102,7 +1212,12 @@
           "confirmHide": "Hide this profile from the public directory? Social posts already sent will remain recorded.",
           "saving": "Updating visibility…",
           "saved": "Profile visibility has been updated.",
-          "failed": "Visibility could not be changed. Refresh the dossier before trying again."
+          "failed": "Visibility could not be changed. Refresh the dossier before trying again.",
+          "mediaErrors": {
+            "MEDIA_STORAGE_UNAVAILABLE": "Presentation files cannot be verified at the moment. The profile was not published; try again when storage is available.",
+            "MEDIA_UNAVAILABLE": "A presentation file is missing. Repair the dossier’s media before publishing the profile.",
+            "MEDIA_CHANGED": "A presentation file or its version has changed. Review the media and their approval before publishing the profile."
+          }
         }
       }
     },
@@ -1167,6 +1282,7 @@
       },
       "steps": {
         "check_payment": "Check the payment before proceeding.",
+        "qualify_commitment": "Qualify historical commitments from the documented agreement before preparing a publication.",
         "check_refund": "Check the refund or dispute before proceeding.",
         "review_rejection": "Read the rejection reason and record history.",
         "complete_information": "Complete the missing information and media.",
@@ -1268,6 +1384,7 @@
       },
       "types": {
         "sponsorship_needs_info": "Sponsor profile incomplete",
+        "sponsorship_needs_commitment": "Historical commitment requires qualification",
         "sponsorship_needs_review": "Sponsorship awaiting review",
         "publication_needs_preparation": "Publication to prepare",
         "publication_late": "Overdue publication",
@@ -1281,6 +1398,7 @@
       },
       "reasons": {
         "sponsorship_needs_info": "Payment is confirmed; required information or a presentation image is missing.",
+        "sponsorship_needs_commitment": "No accepted offer is known. An owner must qualify the documented agreement without inferring benefits from the amount paid.",
         "sponsorship_needs_review": "The completed record is waiting for an administrative decision.",
         "publication_needs_preparation": "A publication commitment is not yet covered by an active draft.",
         "publication_late": "The scheduled time has passed without publication confirmation.",
@@ -2036,7 +2154,7 @@
       "lot_collectif_linkedin": "Collective LinkedIn batch",
       "lot_collectif_facebook": "Collective Facebook batch",
       "mention_openg7_org": "OpenG7.org recognition",
-      "aucun_avantage_montant_sous_le_minimum_de_commandite": "No benefits (amount below the sponsorship minimum)",
+      "aucun_avantage_montant_sous_le_minimum_de_commandite": "No service recorded in this agreement",
       "indetermine": "Unknown",
       "bronze": "Bronze",
       "argent": "Silver",
@@ -2270,6 +2388,45 @@
         "cancelled": "Cancelled"
       }
     },
+    "publicationReliability": {
+      "title": "Reliability and internal discrepancies",
+      "scope": "Global scope: these counts cover the entire queue, even when the displayed dossier or page is filtered.",
+      "evaluated": "State observed at",
+      "limits": "Recorded states do not establish current eligibility. A reservation, simulation or historical visibility does not fulfil a benefit. Uncertain results still require investigation.",
+      "incidents": "Correlations displayed: {{shown}} of {{total}} (internal identifiers only)",
+      "noIncident": "No discrepancy detected by these internal checks.",
+      "metrics": {
+        "open": "Open obligations",
+        "undated": "Social passages without an authorized live date",
+        "fulfilled": "Fulfilled obligations with consistent evidence",
+        "waived": "Explicitly waived obligations",
+        "unqualified": "Agreements requiring qualification",
+        "batches": "Batches at effective capacity",
+        "slots": "Slots at capacity",
+        "conflicts": "Conflicting account reservation pairs",
+        "publishing": "Deliveries in progress",
+        "uncertain": "Deliveries with an uncertain result",
+        "uncertainAccounts": "Accounts held for investigation",
+        "overdue": "Authorized deliveries with a past date",
+        "proofMismatch": "Obligation and evidence discrepancies",
+        "obligationMismatch": "Obligation reservation discrepancies",
+        "accountMismatch": "Account reservation or lease discrepancies",
+        "oldestOpenHours": "Oldest open obligation (hours)",
+        "oldestUndatedHours": "Oldest undated passage (hours)",
+        "oldestUncertainHours": "Oldest uncertain account state (hours)"
+      },
+      "codes": {
+        "FULFILMENT_EVIDENCE_MISMATCH": "Evidence inconsistent with the fulfilled obligation",
+        "ORPHAN_FULFILMENT_EVIDENCE": "Evidence without a matching fulfilment",
+        "OBLIGATION_RESERVATION_MISMATCH": "Obligation reservation to reconcile",
+        "ACCOUNT_RESERVATION_MISMATCH": "Account reservation to reconcile",
+        "ACCOUNT_LEASE_MISMATCH": "Account lease to reconcile",
+        "ACCOUNT_RESULT_UNCERTAIN": "Provider result still uncertain",
+        "ACCOUNT_SCHEDULE_CONFLICT": "Incompatible account schedule",
+        "BATCH_CAPACITY_EXCEEDED": "Effective batch capacity exceeded",
+        "SLOT_CAPACITY_EXCEEDED": "Shared slot capacity exceeded"
+      }
+    },
     "publicationAutomation": {
       "title": "Feed management",
       "intro": "The system prepares copy, batches and dates from payments and consent. You accept, edit or reject before sending.",
@@ -2380,6 +2537,8 @@
       "cancelConfirm": "Cancel this scheduled publication?",
       "externalId": "ID of the post already visible on the network",
       "reconcile": "Verify and confirm publication",
+      "checkVisibility": "Check current visibility",
+      "checkVisibilityConfirm": "Check the remote publication? This read preserves historical evidence and does not authorize another delivery.",
       "seePost": "View publication",
       "connectionHelp": "Account credentials are configured on the server. This check verifies account access without publishing.",
       "check": "Check connection",
@@ -2442,6 +2601,19 @@
         "VERSION_CONFLICT": "This publication changed. Close it and refresh before continuing.",
         "WORKER_VERSION_CONFLICT": "Automatic processing changed since you last viewed it. Refresh before continuing.",
         "SOURCE_CHANGED": "A source draft changed. Save and review the final content again.",
+        "SOURCE_COMMITMENT_CHANGED": "A commitment changed after approval. Review its terms and prepare a fresh authorization. An uncertain remote outcome requires investigation first.",
+        "SPONSORSHIP_COMMITMENT_REQUIRED": "The sponsor’s original offer needs qualification before a delivery can be authorized.",
+        "SPONSORSHIP_OBLIGATION_UNAVAILABLE": "No eligible passage is available for this destination. Review the commitments and their blockers.",
+        "SPONSORSHIP_OBLIGATION_RESERVED": "Another publication already reserves this passage. Check its schedule or outcome.",
+        "ACCOUNT_SLOT_RESERVED": "Another publication reserves this window on the same account. Choose another time and review again.",
+        "FORMAT_UNAVAILABLE": "This format is unavailable for this channel. Review the recorded commitment with the sponsor before changing it.",
+        "FORMAT_COMMITMENT_MISMATCH": "The prepared format does not match the recorded commitment. Review the dossier before requesting a new approval.",
+        "PORTRAIT_REQUIRES_ONE_SPONSOR": "An individual portrait requires exactly one sponsor.",
+        "COMPOSITE_PHOTOS_REQUIRED": "Select one qualified photo belonging to each participant. No photo will be substituted automatically.",
+        "COMPOSITE_PARTICIPANTS_INVALID": "Check the participants, ownership and selected photo versions.",
+        "COMPOSITE_LABEL_TOO_LONG": "A name or credit exceeds the image’s readable area. Review the layout without shortening the sponsor’s identity.",
+        "ACCOUNT_RECONCILIATION_REQUIRED": "An uncertain outcome protects this account. Verify it before granting another authorization.",
+        "VISIBILITY_EVIDENCE_REQUIRED": "This publication has no qualified evidence available for this check yet.",
         "SOURCE_CONTENT_MISSING": "The final text does not contain a complete block for every sponsor, including their name, draft content and sponsorship disclosure. Restore the missing blocks. To change their content, edit the source drafts, then recompose the final text, save it and approve this publication again.",
         "MEDIA_CHANGED": "The image changed. Select an approved image and approve again.",
         "SOURCE_NOT_ELIGIBLE": "A sponsor in this batch no longer meets publication requirements.",
@@ -3160,6 +3332,87 @@
     }
   },
   "funding": {
+    "offer": {
+      "title": "Confirm the sponsorship offer",
+      "loading": "Loading the applicable offer…",
+      "unavailable": "The offer could not be loaded. Try again before starting payment.",
+      "changed": "The offer changed before payment started. Review the benefits and confirm the new offer.",
+      "retained": "You are resuming a submitted attempt with the offer accepted at that time. Its terms are retained.",
+      "resumeAmount": "Resume the {{amount}} sponsorship",
+      "format": "Format:",
+      "defaultFormat": "As stated in the displayed offer",
+      "resetFormats": "Clear format choices and reread the offer",
+      "currentObligations": "Current benefit status",
+      "currentObligationsSeparate": "These statuses reflect the benefits and adjustments recorded today. They do not change the accepted offer above. Preparation or simulation does not count as delivery.",
+      "fulfilmentRecorded": "Delivery evidence has been recorded for this benefit.",
+      "evidenceTitle": "Publications recorded for your sponsorship",
+      "evidenceSeparate": "These facts concern your sponsorship. Visibility can change after delivery; unverified visibility proves neither presence nor absence.",
+      "evidenceProvenance": {
+        "provider_acknowledged": "Delivery acknowledged by the provider",
+        "provider_verified": "Publication verified with the provider",
+        "website_verified": "Publication recorded in the OpenG7 directory"
+      },
+      "evidenceVisibility": {
+        "visible": "Visibility verified",
+        "missing": "Publication reported absent at verification",
+        "changed": "Publication changed at verification",
+        "unknown": "Visibility unverified"
+      },
+      "openPublication": "View the recorded publication",
+      "obligationStates": {
+        "pending": "Awaiting delivery",
+        "blocked": "Blocked — review required",
+        "fulfilled": "Delivery recorded",
+        "adjusted": "Adjusted by a documented decision"
+      },
+      "obligationBlocking": {
+        "payment_pending": "Payment needs confirmation.",
+        "payment_refunded": "Payment refunded: benefit needs review.",
+        "payment_disputed": "Payment disputed: benefit needs review.",
+        "payment_cancelled": "Payment cancelled.",
+        "payment_expired": "Payment attempt expired.",
+        "payment_failed": "Payment failed.",
+        "refund_requested": "Refund requested.",
+        "refund_processing": "Refund in progress.",
+        "refund_completed": "Refund confirmed: benefit needs review.",
+        "refund_failed": "Refund needs review.",
+        "consent_missing": "Visibility consent required.",
+        "review_pending_review": "Record review required.",
+        "review_rejected": "Record declined: consult the explanation and reconsideration process.",
+        "moderation_review_required": "Editorial review required.",
+        "required_elements_missing": "Required elements need completion."
+      },
+      "formatChoice": "Requested format for {{channel}}",
+      "formatHelp": "These choices apply to the channels included in the displayed offer. Image formats require an authorized and reviewed photo; image collections remain unavailable.",
+      "formats": {
+        "collective_text": "Collective text",
+        "individual_portrait": "Individual portrait",
+        "collective_composite": "Collective composite",
+        "image_collection": "Image collection (unavailable)"
+      },
+      "version": "Offer {{version}}",
+      "amount": "Sponsorship amount: {{amount}}",
+      "savedTitle": "Terms retained for your sponsorship",
+      "needsConfirmation": "The original terms for this historical sponsorship need to be confirmed. This does not mean that no benefit was agreed. Contact the OpenG7 team with your reference to clarify these commitments.",
+      "qualifiedHistorical": "The terms of this historical sponsorship have been clarified and recorded by the OpenG7 team.",
+      "destination": "Destination: {{target}}",
+      "required": "Required elements:",
+      "noDeadline": "This offer promises no fixed publication deadline.",
+      "noDuration": "This offer promises no fixed exposure duration.",
+      "deadline": "Delivery deadline: {{days}} days.",
+      "duration": "Exposure duration: {{days}} days.",
+      "acceptance": "I confirm the benefits and terms displayed for my {{amount}} sponsorship.",
+      "channels": {
+        "website": "website mention",
+        "facebook": "grouped Facebook publication",
+        "linkedin": "grouped LinkedIn publication"
+      },
+      "elements": {
+        "company_name": "company name",
+        "approved_logo": "approved logo",
+        "approved_presentation": "approved presentation image"
+      }
+    },
     "charter": {
       "changed": "The sponsorship terms changed. Read and confirm the applicable version before trying again.",
       "title": "Editorial Integrity and Sponsorship Charter",
@@ -4809,7 +5062,7 @@
       },
       "media": {
         "title": "Logo and presentation photos",
-        "privacy": "Files are saved as soon as they are uploaded, separately from your information, and remain private until approved. A photo is needed to prepare publication.",
+        "privacy": "Files are saved as soon as they are uploaded, separately from your information, and remain private until approved. A photo is needed for a format with an image.",
         "limits": "JPEG, PNG or WebP · Maximum {{size}} MB per file · 1 logo and up to {{count}} photos.",
         "photoCount": "{{count}} / {{max}} photos saved (logo counted separately).",
         "disabled": "Uploading is available when this record allows editing.",
@@ -4824,6 +5077,59 @@
         "preview": "Preview of {{name}}",
         "remove": "Remove {{name}}",
         "previewUnavailable": "Preview unavailable",
+        "exactJpeg": "Exact JPEG prepared for this delivery",
+        "sourcePreview": "Source file preview. Save to verify the final JPEG before approving.",
+        "requiredCredit": "Credit to retain in the final text or image",
+        "usage": {
+          "title": "Image usage permissions",
+          "separate": "These permissions apply to the selected image. They do not confirm payment, editorial review or publication.",
+          "historical": "Permissions for this historical file still need confirmation. No usage is presumed.",
+          "withdrawn": "This image’s permissions have been withdrawn. Future deliveries are blocked; existing publications need separate review.",
+          "channels": "Permitted channels",
+          "targets": "Permitted destinations",
+          "transformations": "Permitted transformations",
+          "transforms": {
+            "technical": "Technical JPEG conversion and colour management",
+            "crop": "Cropping",
+            "composite": "Composite with other sponsors",
+            "portrait": "Individual portrait with name and credit"
+          },
+          "credit": "Credit to display (optional)",
+          "restrictions": "Usage restrictions (optional, reviewed by a person)",
+          "evidence": "Private reference for the permission obtained, without secrets (10 to 1,000 characters)",
+          "confirmation": "I confirm I hold the necessary rights for the selected channels, destinations and transformations.",
+          "validation": "Choose at least one channel, one destination and technical conversion; check the text entered.",
+          "save": "Save these permissions for a new review",
+          "saved": "Permissions saved. A new review is required before publication.",
+          "withdraw": "Withdraw this image’s permissions",
+          "withdrawConfirm": "Withdraw this image’s permissions and block future deliveries? Existing publications will not be deleted automatically.",
+          "restrictionsConfirmation": "I have reviewed the restrictions and confirmed their compatibility with the intended usage before editorial review.",
+          "preferenceTitle": "Photo preference and correction",
+          "chooseOwnPhoto": "Explicitly choose an authorized photo for each sponsor. A pending preference must first be reviewed. Save to prepare the exact JPEG; final review is still required.",
+          "choosePhoto": "Choose a photo from this record",
+          "noQualifiedPhoto": "No eligible photo is available for this usage. Review the record, image permissions and preference before preparing delivery.",
+          "reviewOwnPhoto": "Review photos for {{name}}’s record",
+          "preferenceSeparate": "A preference or correction is sent to the team for review. It does not automatically replace an image or authorize publication.",
+          "preferenceStates": {
+            "pending": "Request under review",
+            "accepted": "Preference accepted by the team",
+            "rejected": "Preference declined by the team"
+          },
+          "preferenceUnavailable": "The requested photo is no longer available. The team must review the choice; no other photo was selected automatically.",
+          "correction": "Requested correction (10 to 1,000 characters)",
+          "requestCorrection": "Send this correction request",
+          "propose": "Propose this photo as my preference",
+          "preferred": "Photo requested for this record",
+          "preferenceSent": "Request recorded for review.",
+          "externalExplanation": "Explanation shared with the sponsor (10 to 1,000 characters)",
+          "preferenceConfirmation": "I confirm this decision for the request shown. It does not publish the image or grant additional rights.",
+          "acceptPreference": "Accept this preference",
+          "rejectPreference": "Decline this preference",
+          "preferenceReviewed": "Decision recorded. Preparation and publication review remain necessary.",
+          "mutationUnavailable": "The result could not be confirmed. Retry the same request before making another change.",
+          "verificationRequired": "A previous request must be verified before changing these details.",
+          "retry": "Verify and resume the same request"
+        },
         "logo": "Logo",
         "supporting_image": "Presentation photo",
         "review": {

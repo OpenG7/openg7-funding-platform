@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import type { PoolClient } from 'pg';
 import type {
   PublicationAutomationCommand,
@@ -5,6 +7,11 @@ import type {
 } from '@openg7/funding-core';
 
 import { withPostgresTransaction } from '../postgres-transaction.js';
+import { enqueueSponsorshipObligationNotification } from '../sponsorship-commitments.repository.js';
+import {
+  capturePublicationObligations,
+  releasePublicationObligations
+} from '../sponsorship-fulfilment.repository.js';
 import {
   approveModeratedSubject,
   recordAdverseModeration
@@ -16,7 +23,6 @@ import {
 
 import {
   audit,
-  publicDelivery,
   type DeliveryRow,
   type PublicationCommandsContext
 } from './context.js';
@@ -25,7 +31,13 @@ import {
   composeSponsorshipContent
 } from './content.js';
 import { editorialMessage } from './editorial-profiles.js';
-import { assertMediaScope, resolveMedia } from './media.js';
+import { assertMediaScope } from './media.js';
+import {
+  resolvePublicationVisual,
+  normalisePublicationPhotos,
+  capturePublicationPhotoDependencies,
+  assertPublicationPhotoScope
+} from './visuals.js';
 import {
   assert,
   feedConfig,
@@ -36,8 +48,16 @@ import {
   validId
 } from './policy.js';
 import { ready } from './preflight.js';
-import { checkConnection, DeliveryFailure, verifyRemote } from './provider.js';
+import { checkConnection } from './provider.js';
+import {
+  reconcileDelivery,
+  checkDeliveryVisibility
+} from './reconciliation.js';
 import { sourceEqual, sources as loadSources } from './sources.js';
+import {
+  releaseAccountReservation,
+  reserveAccountSchedule
+} from './account-reservations.js';
 
 async function executeCommand(
   context: PublicationCommandsContext,
@@ -213,11 +233,26 @@ async function executeCommand(
         new Date(Date.now() + 86400000).toISOString();
       validateContent(message, date);
       const c = feedConfig(input.feedId, context.env);
-      const media = await resolveMedia(
+      const visualRow = {
+        id: randomUUID(),
+        feed_id: input.feedId,
+        batch_id: input.batchId ?? null,
+        message,
+        source_snapshot: sources,
+        media_id: input.mediaId ?? null,
+        publication_format:
+          input.publicationFormat ?? ('collective_text' as const),
+        photo_selections: normalisePublicationPhotos(
+          input.photoSelections ?? []
+        )
+      };
+      const { snapshot: media } = await resolvePublicationVisual(
         db,
         context.storage,
-        input.mediaId ?? null,
-        input.batchId ?? null
+        visualRow,
+        true,
+        true,
+        true
       );
       if (existing) {
         await db.query(
@@ -227,7 +262,7 @@ async function executeCommand(
         await audit(db, actor, 'archive_simulation', existing.id);
       }
       const r = await db.query(
-        `INSERT INTO publication_deliveries(feed_id,kind,batch_id,message,scheduled_at,source_snapshot,media_id,media_snapshot,account_id,mode,auto_managed) VALUES($1,$2,$3,$4,$5,$6::jsonb,$7,$8::jsonb,$9,$10,$11) RETURNING id`,
+        `INSERT INTO publication_deliveries(feed_id,kind,batch_id,message,scheduled_at,source_snapshot,media_id,media_snapshot,account_id,mode,auto_managed,id,publication_format,photo_selections) VALUES($1,$2,$3,$4,$5,$6::jsonb,$7,$8::jsonb,$9,$10,$11,$12::uuid,$13,$14::jsonb) RETURNING id`,
         [
           input.feedId,
           input.kind,
@@ -235,13 +270,18 @@ async function executeCommand(
           message,
           date,
           JSON.stringify(sources),
-          media?.id ?? null,
+          visualRow.media_id,
           media ? JSON.stringify(media) : null,
           c.accountId,
           c.config.mode,
-          automatic
+          automatic,
+          visualRow.id,
+          visualRow.publication_format,
+          JSON.stringify(visualRow.photo_selections)
         ]
       );
+      if (visualRow.photo_selections.length)
+        await capturePublicationPhotoDependencies(db, visualRow);
       await audit(db, actor, 'compose', r.rows[0].id, {
         feedId: input.feedId,
         kind: input.kind
@@ -280,26 +320,50 @@ async function executeCommand(
       const sources = row.batch_id
         ? await loadSources(db, row.batch_id, row.feed_id, true)
         : [];
-      const media = await resolveMedia(
+      const visualRow = {
+        ...row,
+        message: input.message,
+        source_snapshot: sources,
+        media_id: input.mediaId,
+        publication_format:
+          input.publicationFormat ??
+          row.publication_format ??
+          ('collective_text' as const),
+        photo_selections: normalisePublicationPhotos(
+          input.photoSelections ?? row.photo_selections ?? []
+        )
+      };
+      const { snapshot: media } = await resolvePublicationVisual(
         db,
         context.storage,
-        input.mediaId,
-        row.batch_id
+        visualRow,
+        true,
+        true,
+        true
       );
       const c = feedConfig(row.feed_id, context.env);
+      await releaseAccountReservation(db, row);
+      await releasePublicationObligations(db, row.id);
       await db.query(
-        `UPDATE publication_deliveries SET message=$2,scheduled_at=$3,media_id=$4,media_snapshot=$5::jsonb,source_snapshot=$6::jsonb,account_id=$7,mode=$8,status='draft',auto_managed=FALSE,approved_at=NULL,approved_by=NULL,error_code=NULL,next_attempt_at=NULL,provider_media_id=NULL,version=version+1,updated_at=NOW() WHERE id=$1`,
+        `UPDATE publication_deliveries SET message=$2,scheduled_at=$3,media_id=$4,media_snapshot=$5::jsonb,source_snapshot=$6::jsonb,account_id=$7,mode=$8,publication_format=$9,photo_selections=$10::jsonb,status='draft',auto_managed=FALSE,approved_at=NULL,approved_by=NULL,error_code=NULL,next_attempt_at=NULL,provider_media_id=NULL,version=version+1,updated_at=NOW() WHERE id=$1`,
         [
           row.id,
           input.message,
           input.scheduledAt,
-          media?.id ?? null,
+          visualRow.media_id,
           media ? JSON.stringify(media) : null,
           JSON.stringify(sources),
           c.accountId,
-          c.config.mode
+          c.config.mode,
+          visualRow.publication_format,
+          JSON.stringify(visualRow.photo_selections)
         ]
       );
+      if (
+        visualRow.photo_selections.length ||
+        (row.photo_selections?.length ?? 0) > 0
+      )
+        await capturePublicationPhotoDependencies(db, visualRow);
     } else {
       assert(input.confirmation === row.id, 'CONFIRMATION_REQUIRED', 400);
       if (input.action === 'approve') {
@@ -319,6 +383,7 @@ async function executeCommand(
           );
           assert(sourceEqual(sources, row.source_snapshot), 'SOURCE_CHANGED');
           await assertMediaScope(db, row.media_id, row.batch_id);
+          await assertPublicationPhotoScope(db, row);
           const pending = (
             await db.query<{
               id: string;
@@ -392,10 +457,20 @@ async function executeCommand(
           input.moderationDecision
         );
         await ready(db, row, context.storage, context.feeds);
+        const obligations = await capturePublicationObligations(db, row);
+        await reserveAccountSchedule(db, row);
         await db.query(
-          `UPDATE publication_deliveries SET status='approved',approved_at=NOW(),approved_by=$2,version=version+1,updated_at=NOW() WHERE id=$1`,
-          [row.id, actor]
+          `UPDATE publication_deliveries SET status='approved',approved_at=NOW(),approved_by=$2,obligation_snapshot=$3::jsonb,version=version+1,updated_at=NOW() WHERE id=$1`,
+          [row.id, actor, JSON.stringify(obligations)]
         );
+        for (const obligation of obligations)
+          await enqueueSponsorshipObligationNotification(db, {
+            event: 'date_approved',
+            eventId: `${row.id}:${row.version + 1}`,
+            obligationId: obligation.id,
+            obligationVersion: obligation.version,
+            scheduledAt: row.scheduled_at.toISOString()
+          });
         if (row.batch_id) {
           await db.query(
             `UPDATE sponsor_publication_batches SET status='scheduled',scheduled_at=$2,updated_at=NOW() WHERE id=$1`,
@@ -419,13 +494,25 @@ async function executeCommand(
             input.moderationDecision,
             ['N3']
           );
+        await releaseAccountReservation(db, row);
+        await releasePublicationObligations(db, row.id);
         await db.query(
           `UPDATE publication_deliveries SET status=$2,auto_managed=FALSE,approved_at=NULL,approved_by=NULL,version=version+1,updated_at=NOW() WHERE id=$1`,
           [row.id, input.action === 'reject' ? 'rejected' : 'cancelled']
         );
       } else if (input.action === 'confirm-absent') {
+        const heldAccount =
+          row.status === 'blocked' &&
+          Boolean(
+            (
+              await db.query(
+                'SELECT 1 FROM publication_account_leases WHERE delivery_id=$1 AND uncertain=TRUE',
+                [row.id]
+              )
+            ).rowCount
+          );
         assert(
-          row.status === 'uncertain' &&
+          (row.status === 'uncertain' || heldAccount) &&
             typeof input.reason === 'string' &&
             input.reason.trim().length >= 20 &&
             input.reason.length <= 500,
@@ -433,36 +520,14 @@ async function executeCommand(
           400
         );
         await db.query(
-          "UPDATE publication_deliveries SET status='blocked',approved_at=NULL,approved_by=NULL,error_code='ABSENCE_CONFIRMED',version=version+1,updated_at=NOW() WHERE id=$1",
+          "UPDATE publication_deliveries SET status='blocked',approved_at=NULL,approved_by=NULL,error_code=CASE WHEN status='blocked' THEN error_code ELSE 'ABSENCE_CONFIRMED' END,version=version+1,updated_at=NOW() WHERE id=$1",
           [row.id]
         );
         await audit(db, actor, 'absence_review', row.id, {
           reason: input.reason
         });
-      } else if (input.action === 'reconcile') {
-        assert(
-          row.status === 'uncertain' &&
-            typeof input.externalPostId === 'string',
-          'RECONCILIATION_UNAVAILABLE'
-        );
-        const c = feedConfig(row.feed_id, context.env);
-        assert(c.accountId === row.account_id, 'DESTINATION_CHANGED');
-        const result = await verifyRemote(
-          c.config,
-          publicDelivery(row),
-          input.externalPostId
-        ).catch((error: unknown) => {
-          if (error instanceof DeliveryFailure)
-            throw new PublicationAutomationError('REMOTE_POST_UNVERIFIED', 503);
-          throw error;
-        });
-        await context.complete(
-          db,
-          row,
-          result.externalPostId,
-          result.externalPostUrl,
-          actor
-        );
+        await releaseAccountReservation(db, row, true);
+        await releasePublicationObligations(db, row.id);
       }
     }
     await audit(db, actor, input.action, row.id, {
@@ -482,6 +547,16 @@ export async function command(
   client?: PoolClient
 ): Promise<{ id?: string }> {
   try {
+    if (
+      input &&
+      typeof input === 'object' &&
+      (input.action === 'reconcile' || input.action === 'check-visibility')
+    ) {
+      assert(!client, 'RECONCILIATION_TRANSACTION_UNAVAILABLE');
+      return input.action === 'reconcile'
+        ? await reconcileDelivery(context, input, actor)
+        : await checkDeliveryVisibility(context, input, actor);
+    }
     return await executeCommand(context, input, actor, automatic, client);
   } catch (error) {
     if (error instanceof ModerationError)

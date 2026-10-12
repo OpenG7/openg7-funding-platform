@@ -9,7 +9,6 @@ import {
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import {
-  resolveSponsorshipBenefits,
   type AdminSponsorshipProgress,
   type SponsorshipProgressPublication
 } from '@openg7/funding-core';
@@ -18,11 +17,18 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { ContributionActivityService } from '../../services/contribution-activity.service.js';
 import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
 
+import { AdminSponsorshipCommitmentsComponent } from './admin-sponsorship-commitments.component.js';
+
 /** Funding organism: persisted recognition facts and explicit visibility requests. */
 @Component({
   selector: 'openg7-admin-sponsorship-publication',
   standalone: true,
-  imports: [RouterLink, TranslatePipe, AdminIconComponent],
+  imports: [
+    RouterLink,
+    TranslatePipe,
+    AdminIconComponent,
+    AdminSponsorshipCommitmentsComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-sponsorship-publication.component.html',
   styleUrls: [
@@ -37,6 +43,7 @@ export class AdminSponsorshipPublicationComponent {
   readonly websiteMessage = input('');
   readonly changeWebsiteVisibility = output<boolean>();
   readonly editWebsite = output<void>();
+  readonly commitmentChanged = output<void>();
   readonly websiteState = computed(() => {
     const site = this.dossier().website;
     return !site
@@ -50,12 +57,13 @@ export class AdminSponsorshipPublicationComponent {
   readonly activity = inject(ContributionActivityService);
   private readonly i18n = inject(FundingI18nService);
   readonly benefitsKnown = computed(
-    () => this.dossier().currency.toUpperCase() === 'CAD'
+    () =>
+      this.dossier().commitment?.state === 'active' &&
+      Boolean(this.dossier().commitment?.offer)
   );
   readonly benefits = computed(() =>
     this.benefitsKnown()
-      ? resolveSponsorshipBenefits(this.dossier().amountMinor / 100)
-          .achievedBenefits
+      ? this.dossier().commitment!.offer!.benefits.map((b) => b.id)
       : []
   );
   readonly cards = computed(() => {
@@ -80,18 +88,35 @@ export class AdminSponsorshipPublicationComponent {
   });
   readonly blockers = computed(() => this.dossier().publicationBlockers ?? []);
   readonly completed = computed(
-    () =>
-      this.cards().filter((c) => this.status(c.publication) === 'published')
-        .length
+    () => this.dossier().publicationCompletion?.done ?? 0
   );
+  readonly publicationComplete = computed(() => {
+    const completion = this.dossier().publicationCompletion;
+    return (
+      this.benefitsKnown() &&
+      Boolean(
+        completion &&
+        completion.total > 0 &&
+        completion.done === completion.total
+      )
+    );
+  });
   readonly automationPath = '/admin/fundraiser/publications/automation';
 
   status(p: SponsorshipProgressPublication | null): string {
     if (!p) return 'waiting';
-    if (p.status === 'published' && p.deliveryMode !== 'mock')
-      return 'published';
-    if (p.deliveryStatus === 'published')
-      return p.deliveryMode === 'live' ? 'published' : 'simulated';
+    if (p.status === 'published' || p.deliveryStatus === 'published') {
+      if (p.deliveryMode === 'mock') return 'simulated';
+      return this.dossier().fulfilmentEvidence?.some(
+        (e) =>
+          e.deliveryId === p.deliveryId &&
+          e.deliveryId !== null &&
+          e.channel === p.channel &&
+          e.target === p.target
+      )
+        ? 'published'
+        : 'unverified';
+    }
     if (
       ['uncertain', 'failed', 'blocked', 'rejected', 'cancelled'].includes(
         p.deliveryStatus ?? ''

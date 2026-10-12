@@ -5,6 +5,8 @@ import { readdir, readFile } from 'node:fs/promises';
 import sharp from 'sharp';
 import { composePublicationRecognition } from '../../dist/packages/funding-core/src/index.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
+import { recordFixtureSponsorshipAgreement } from './support/sponsorship-agreement-fixture.mjs';
+import { waitForFixtureAccountCooldown } from './support/publication-account-cooldown-fixture.mjs';
 import {
   approveFixtureSubject,
   fixtureModerationDecision
@@ -33,7 +35,7 @@ import {
 
 test(
   'publication automation with disposable PostgreSQL',
-  { timeout: 180000 },
+  { timeout: 240000 },
   async (t) => {
     const database = await startDisposablePostgres();
     t.after(database.stop);
@@ -116,27 +118,41 @@ test(
         .filter(Boolean)
         .join('\n\n');
     }
-    async function sponsor({ reviewed = true } = {}) {
+    async function sponsor({ reviewed = true, agreement = true } = {}) {
       const id = randomUUID();
       await pool.query(
         `INSERT INTO fund_contributions(id,contribution_type,amount_cents,status,public_display_consent,sponsor_review_status,sponsor_company_name,sponsor_public_summary,sponsor_feed_target,sponsor_feed_channels) VALUES($1,'sponsorship_interest',25000,'paid',TRUE,'approved','Fixture sponsor','Approved public summary','openg20','["facebook"]')`,
         [id]
       );
+      if (agreement)
+        await recordFixtureSponsorshipAgreement(pool, id, {
+          channel: 'facebook',
+          target: 'openg20'
+        });
       if (reviewed)
         await approveFixtureSubject(pool, { type: 'sponsorship', id });
       return id;
     }
     async function presentation(contributionId) {
       const id = randomUUID();
+      const bytes =
+        imageBytes ??
+        (await sharp({
+          create: { width: 2, height: 2, channels: 3, background: '#ffffff' }
+        })
+          .webp()
+          .toBuffer());
       await pool.query(
-        `INSERT INTO sponsor_media_assets(id,contribution_id,kind,review_status,original_filename,original_mime_type,original_size_bytes,original_storage_key,processed_size_bytes,processed_storage_key,public_storage_key,public_url,checksum_sha256,width,height,alt_text) VALUES($1,$2,'supporting_image','approved','fixture.png','image/png',1,$3,1,$4,$5,'https://example.test/image.webp',$6,2,2,'Approved image')`,
+        `INSERT INTO sponsor_media_assets(id,contribution_id,kind,review_status,original_filename,original_mime_type,original_size_bytes,original_storage_key,processed_size_bytes,processed_storage_key,public_storage_key,public_url,checksum_sha256,width,height,alt_text,usage_rights) VALUES($1,$2,'supporting_image','approved','fixture.webp','image/webp',$7,$3,$7,$4,$5,'https://example.test/image.webp',$6,2,2,'Approved image',
+        '{"state":"confirmed","channels":["website","facebook","linkedin"],"targets":["openg7","openg20"],"transformations":["technical"],"credit":null,"restrictions":null}')`,
         [
           id,
           contributionId,
           `${id}/original`,
           `${id}/processed`,
           `${id}/public`,
-          '0'.repeat(64)
+          createHash('sha256').update(bytes).digest('hex'),
+          bytes.length
         ]
       );
       await approveFixtureSubject(pool, { type: 'media', id });
@@ -177,7 +193,7 @@ test(
       };
     }
     await t.test(
-      'CAD tier boundaries and consent restrict preparation; explicit routing remains an admin override',
+      'explicit recorded agreements and consent restrict preparation independently of legacy routing fields',
       async () => {
         await reset();
         const cases = [
@@ -207,6 +223,10 @@ test(
                 JSON.stringify(example.explicit ?? [])
               ]
             );
+            if (example.currency !== 'usd')
+              await recordFixtureSponsorshipAgreement(pool, id, {
+                channels: ['website', ...example.channels]
+              });
             sponsors.push({ id, channels: example.channels });
           }
           for (const channel of ['facebook', 'linkedin']) {
@@ -541,7 +561,7 @@ test(
       }
     });
     await t.test(
-      'private preparation works while paused and disconnected, derives promised destinations and excludes ineligible orders',
+      'private preparation works while paused and disconnected, uses recorded promised destinations and excludes ineligible orders',
       async () => {
         await reset();
         env.SOCIAL_PUBLICATION_MODE = 'disabled';
@@ -549,8 +569,11 @@ test(
         const noConsent = await sponsor({ reviewed: false });
         const unpaid = await sponsor({ reviewed: false });
         const rejected = await sponsor({ reviewed: false });
-        const lowerTier = await sponsor({ reviewed: false });
-        const foreignCurrency = await sponsor({ reviewed: false });
+        const lowerTier = await sponsor({ reviewed: false, agreement: false });
+        const foreignCurrency = await sponsor({
+          reviewed: false,
+          agreement: false
+        });
         await pool.query(
           "UPDATE fund_contributions SET sponsor_feed_target=NULL,sponsor_feed_channels='[]',sponsor_public_summary=NULL,sponsor_review_status='pending_review'"
         );
@@ -575,7 +598,8 @@ test(
           [foreignCurrency]
         );
         await pool.query(
-          "UPDATE publication_feeds SET auto_prepare=TRUE WHERE id='openg7:facebook'"
+          'UPDATE publication_feeds SET auto_prepare=TRUE WHERE id=$1',
+          [feedId]
         );
         assert.equal(
           (
@@ -595,7 +619,7 @@ test(
         assert.equal(job.autoManaged, true);
         assert.equal(job.sponsors[0].id, valid);
         assert.equal(job.sponsors[0].reviewStatus, 'pending_review');
-        assert.equal(job.feedId, 'openg7:facebook');
+        assert.equal(job.feedId, feedId);
         assert.ok(job.message.includes('Merci'));
         await service.tick();
         assert.equal((await service.state()).deliveries.length, 1);
@@ -738,6 +762,20 @@ test(
         );
         assert.equal((await listPublicBuilders(pool)).builders.length, 0);
         assert.equal(await getApprovedPublicSponsorMedia(pool, mediaId), null);
+        const websiteBytes = await sharp({
+          create: { width: 2, height: 2, channels: 3, background: '#345678' }
+        })
+          .webp()
+          .toBuffer();
+        await pool.query(
+          'UPDATE sponsor_media_assets SET processed_size_bytes=$2,checksum_sha256=$3,width=2,height=2,updated_at=clock_timestamp() WHERE id=$1',
+          [
+            mediaId,
+            websiteBytes.length,
+            createHash('sha256').update(websiteBytes).digest('hex')
+          ]
+        );
+        await approveFixtureSubject(pool, { type: 'media', id: mediaId });
         await approveFixtureSubject(pool, {
           type: 'sponsorship',
           id: contributionId
@@ -751,7 +789,11 @@ test(
               visible: true,
               confirmed: true
             },
-            'reviewer'
+            'reviewer',
+            {
+              readPrivateObject: async (key) =>
+                key === `${mediaId}/processed` ? websiteBytes : null
+            }
           ),
           'updated'
         );
@@ -1242,8 +1284,20 @@ test(
           { code: 'REMOTE_POST_UNVERIFIED', status: 503 }
         );
         assert.deepEqual(await record(first), uncertain);
+        await service.command(
+          {
+            action: 'confirm-absent',
+            id: first,
+            version: uncertain.version,
+            confirmation: first,
+            reason:
+              'Synthetic operator reviewed the complete fixture-provider history and confirmed no first post exists.'
+          },
+          'tester'
+        );
         const second = await compose();
         await approve(second);
+        await waitForFixtureAccountCooldown(pool, second);
         outcome = 'limit';
         await service.tick(due);
         assert.equal((await record(second)).status, 'approved');
@@ -1253,6 +1307,14 @@ test(
           'UPDATE publication_deliveries SET next_attempt_at=NOW() WHERE id=$1',
           [second]
         );
+        await service.tick(due);
+        assert.equal((await record(second)).status, 'approved');
+        assert.equal(
+          requests.length,
+          2,
+          'An injected future worker date cannot bypass the real account cooldown.'
+        );
+        await waitForFixtureAccountCooldown(pool, second);
         await service.tick(due);
         assert.equal((await record(second)).status, 'published');
         assert.deepEqual(requests, [
@@ -1423,14 +1485,16 @@ test(
           .toBuffer();
         const mediaId = randomUUID();
         await pool.query(
-          `INSERT INTO sponsor_media_assets(id,contribution_id,kind,review_status,original_filename,original_mime_type,original_size_bytes,original_storage_key,processed_size_bytes,processed_storage_key,public_storage_key,public_url,checksum_sha256,width,height,alt_text) VALUES($1,$2,'supporting_image','approved','fixture.png','image/png',1,$3,1,$4,$5,'https://example.test/image.webp',$6,2,2,'Approved image')`,
+          `INSERT INTO sponsor_media_assets(id,contribution_id,kind,review_status,original_filename,original_mime_type,original_size_bytes,original_storage_key,processed_size_bytes,processed_storage_key,public_storage_key,public_url,checksum_sha256,width,height,alt_text,usage_rights) VALUES($1,$2,'supporting_image','approved','fixture.webp','image/webp',$7,$3,$7,$4,$5,'https://example.test/image.webp',$6,2,2,'Approved image',
+          '{"state":"confirmed","channels":["website","facebook","linkedin"],"targets":["openg7","openg20"],"transformations":["technical"],"credit":null,"restrictions":null}')`,
           [
             mediaId,
             contributionId,
             `${mediaId}/original`,
             `${mediaId}/processed`,
             `${mediaId}/public`,
-            '0'.repeat(64)
+            createHash('sha256').update(imageBytes).digest('hex'),
+            imageBytes.length
           ]
         );
         await approveFixtureSubject(pool, { type: 'media', id: mediaId });

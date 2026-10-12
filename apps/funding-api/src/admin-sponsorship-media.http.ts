@@ -52,6 +52,9 @@ type LegacyPublicCopyCleanup =
 
 /** Bound admin media ports keep follow-up and public routes separate. */
 export interface AdminSponsorshipMediaHttpDependencies {
+  readonly getSponsorMediaPreference?: (
+    contributionId: string
+  ) => Promise<import('@openg7/funding-core').SponsorMediaPreference>;
   readonly publicBaseOrigin: string;
   readonly sponsorMediaMaxBytes: number;
   readonly sponsorMediaMaxSupportingImages: number;
@@ -144,6 +147,7 @@ export const createAdminSponsorshipMediaHttpHandler = ({
   SPONSOR_MEDIA_ALT_TEXT_MAX_LENGTH,
   ensureAdminAccess,
   getAdminAuditActor,
+  getSponsorMediaPreference,
   readBody,
   readBodyBuffer,
   writeJson,
@@ -217,6 +221,9 @@ export const createAdminSponsorshipMediaHttpHandler = ({
       }
       try {
         const result: SponsorshipMediaResponse = {
+          ...(getSponsorMediaPreference
+            ? { preference: await getSponsorMediaPreference(contributionId) }
+            : {}),
           assets: await listSponsorMediaAssets(contributionId),
           limits: {
             maxUploadBytes: sponsorMediaMaxBytes,
@@ -365,7 +372,9 @@ export const createAdminSponsorshipMediaHttpHandler = ({
         !isValidUuid(parsed.assetId) ||
         !isValidAdminExpectedVersion(parsed.expectedVersion) ||
         !reviewStatus ||
-        (altText?.length ?? 0) > SPONSOR_MEDIA_ALT_TEXT_MAX_LENGTH
+        (altText?.length ?? 0) > SPONSOR_MEDIA_ALT_TEXT_MAX_LENGTH ||
+        (parsed.usageRestrictionsConfirmed !== undefined &&
+          parsed.usageRestrictionsConfirmed !== true)
       ) {
         writeJson(request, response, 400, {
           error: 'Asset id, version, and review decision are required.'
@@ -395,7 +404,10 @@ export const createAdminSponsorshipMediaHttpHandler = ({
               : null,
           reviewedBy: getAdminAuditActor(request),
           confirmation: parsed.confirmation,
-          moderationDecision: parsed.moderationDecision
+          moderationDecision: parsed.moderationDecision,
+          ...(parsed.usageRestrictionsConfirmed === true
+            ? { usageRestrictionsConfirmed: true as const }
+            : {})
         });
 
         if (reviewed.status !== 'updated' || !reviewed.asset) {

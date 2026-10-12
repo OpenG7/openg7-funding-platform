@@ -46,6 +46,16 @@ const media = {
   url: '/api/public/sponsor-media/approved-photo',
   alt: 'Photo approuvée',
   key: 'private/approved-photo',
+  hash: 'approved-hash',
+  usage: {
+    state: 'confirmed',
+    channels: ['website', 'facebook', 'linkedin'],
+    targets: ['openg7', 'openg20'],
+    transformations: ['technical'],
+    credit: null,
+    restrictions: null
+  },
+  restrictionsReviewed: false,
   version: '2099-01-01 08:00:00.123456+00'
 };
 const delivery = {
@@ -64,7 +74,7 @@ const delivery = {
   approved_at: null,
   approved_by: null,
   account_id: '',
-  mode: 'simulate'
+  mode: 'mock'
 };
 
 function database(resolve) {
@@ -151,6 +161,35 @@ function preparationDb({
 } = {}) {
   const assigned = new Set();
   return database((sql, parameters) => {
+    if (
+      sql.startsWith(
+        'SELECT slot_id::text AS slot_id FROM sponsor_publication_batches'
+      )
+    )
+      return [{ slot_id: null }];
+    if (sql.startsWith('SELECT id FROM sponsor_publication_batches'))
+      return [{ id: 'batch' }];
+    if (sql.startsWith('SELECT capacity FROM sponsor_publication_batches'))
+      return [{ capacity: feed.capacity }];
+    if (
+      sql.startsWith(
+        'SELECT d.id::text,d.contribution_id::text,c.sponsor_company_name AS name,'
+      )
+    )
+      return [
+        ...members,
+        ...candidates.filter(
+          (candidate) =>
+            assigned.has(candidate.id) || parameters[2].includes(candidate.id)
+        )
+      ].map((member) => ({
+        ...member,
+        name: member.name ?? facts.sponsor_company_name,
+        batch_id: 'batch',
+        batch_capacity: feed.capacity,
+        publication_format: 'collective_text',
+        batch_format: null
+      }));
     if (sql.startsWith('SELECT id FROM publication_feeds'))
       return [{ id: feed.id }];
     if (sql.startsWith('INSERT INTO sponsor_publication_drafts')) return [];
@@ -167,12 +206,14 @@ function preparationDb({
     )
       return members.map((member) => ({
         preparation_moderation_allowed: true,
+        publication_format: 'collective_text',
         ...member,
         name: facts.sponsor_company_name
       }));
     if (sql.startsWith('SELECT d.*,c.sponsor_company_name AS name,'))
       return candidates.map((candidate) => ({
         ...candidate,
+        publication_format: 'collective_text',
         name: candidate.name ?? facts.sponsor_company_name,
         source_fingerprint_material: JSON.stringify(candidate)
       }));
@@ -225,7 +266,8 @@ test('private preparation accepts pending review on paused unconfigured feeds an
         action: 'compose',
         feedId: feed.id,
         kind: 'sponsorship',
-        batchId: 'batch'
+        batchId: 'batch',
+        publicationFormat: 'collective_text'
       },
       'planner',
       true
@@ -469,6 +511,7 @@ function repairDb({
   keepMedia = true,
   existing = [],
   capacity = 3,
+  slotCapacity = null,
   finalModerationAllowed = true
 } = {}) {
   const replacement = {
@@ -486,6 +529,43 @@ function repairDb({
       return [{ id: feed.id }];
     if (sql.startsWith('SELECT id FROM sponsor_publication_batches'))
       return [{ id: row.batch_id }];
+    if (sql.startsWith('SELECT slot_id::text AS slot_id'))
+      return [{ slot_id: slotCapacity === null ? null : 'shared-slot' }];
+    if (sql.startsWith('SELECT id::text AS id FROM publication_slots'))
+      return [{ id: 'shared-slot' }];
+    if (sql.startsWith('SELECT capacity FROM'))
+      return [
+        {
+          capacity: sql.includes('publication_slots') ? slotCapacity : capacity
+        }
+      ];
+    if (sql.startsWith('SELECT d.id::text,d.contribution_id::text')) {
+      const retained =
+        row.publication_format && row.publication_format !== 'collective_text'
+          ? existing
+          : [...existing, replacement];
+      const members = retained.map((member) => ({
+        ...member,
+        batch_id: row.batch_id,
+        batch_capacity: capacity,
+        publication_format: row.publication_format ?? 'collective_text',
+        batch_format: row.publication_format ?? null
+      }));
+      return parameters[1]
+        ? [
+            ...members,
+            {
+              ...source,
+              id: 'other-slot-draft',
+              name: 'Other slot member',
+              batch_id: null,
+              batch_capacity: null,
+              publication_format: 'collective_text',
+              batch_format: null
+            }
+          ]
+        : members;
+    }
     if (sql.startsWith('SELECT c.id FROM fund_contributions')) return [];
     if (sql.startsWith('SELECT 1 FROM social_publication_jobs'))
       return legacy ? [{}] : [];
@@ -626,6 +706,79 @@ test('repair delegates edit in the original client, retains only approved eligib
   }
 });
 
+test('derived repair retains the promised format, obligation and chosen photographs without recruiting substitutes', async () => {
+  const retained = {
+    ...source,
+    name: 'Exemple',
+    obligation_id: 'obligation-retained'
+  };
+  const keptPhoto = {
+    contributionId: source.contribution_id,
+    assetId: 'photo-retained',
+    assetVersion: 'version-retained'
+  };
+  const removedPhoto = {
+    contributionId: 'sponsor-excluded',
+    assetId: 'photo-excluded',
+    assetVersion: 'version-excluded'
+  };
+  const row = {
+    ...delivery,
+    status: 'blocked',
+    publication_format: 'collective_composite',
+    media_id: null,
+    photo_selections: [keptPhoto, removedPhoto],
+    message: `${delivery.message}\n\nPhoto : Exemple`,
+    media_snapshot: {
+      kind: 'derived',
+      sources: [
+        {
+          contributionId: source.contribution_id,
+          media: { usage: { credit: 'Photo : Exemple' } }
+        },
+        {
+          contributionId: 'sponsor-excluded',
+          media: { usage: { credit: 'Photo : Exclu' } }
+        }
+      ]
+    }
+  };
+  const { db } = repairDb({ row, existing: [retained] });
+  const edits = [];
+  const ctx = context(db, async (input) => {
+    edits.push(input);
+    return { id: row.id };
+  });
+  const proposal = await repairPreview(ctx, row.id);
+  assert.deepEqual(proposal.added, []);
+  assert.deepEqual(proposal.sponsors, [
+    { id: source.contribution_id, name: 'Exemple' }
+  ]);
+  assert.match(proposal.message, /Photo : Exemple/);
+  assert.equal(proposal.message.includes('Photo : Exclu'), false);
+  assert.equal(
+    db.calls.some(({ sql }) =>
+      sql.includes('ORDER BY d.created_at,d.id LIMIT')
+    ),
+    false
+  );
+  const retainedQueries = db.calls.filter(({ sql }) =>
+    sql.startsWith('SELECT d.id,d.contribution_id')
+  );
+  assert.equal(
+    retainedQueries.every(
+      ({ sql, parameters }) =>
+        sql.includes('d.obligation_id') &&
+        parameters[3] === 'collective_composite'
+    ),
+    true
+  );
+  await repair(ctx, row.id, proposal.version, 'reviewer');
+  assert.equal(edits[0].publicationFormat, 'collective_composite');
+  assert.deepEqual(edits[0].photoSelections, [keptPhoto]);
+  assert.equal(db.calls.at(-1).sql, 'COMMIT');
+});
+
 test('repair rolls back delegated edit failure and stale versions without a repair audit', async (t) => {
   for (const stale of [false, true]) {
     await t.test(`stale=${stale}`, async () => {
@@ -658,6 +811,21 @@ test('repair rolls back delegated edit failure and stale versions without a repa
         );
     });
   }
+});
+
+test('repair rolls back every membership change when the shared slot cannot contain the replacement', async () => {
+  const { db, row } = repairDb({ slotCapacity: 1 });
+  let edits = 0;
+  const ctx = context(db, async () => {
+    edits++;
+  });
+  const proposal = await repairPreview(ctx, row.id);
+  await assert.rejects(repair(ctx, row.id, proposal.version, 'reviewer'), {
+    code: 'SLOT_CAPACITY_EXCEEDED'
+  });
+  assert.equal(edits, 0);
+  assert.equal(db.calls.at(-1).sql, 'ROLLBACK');
+  assert.deepEqual(db.audits(), []);
 });
 
 test('eligibility invalidates review, combined source and media failures while retaining valid authorizations', async () => {

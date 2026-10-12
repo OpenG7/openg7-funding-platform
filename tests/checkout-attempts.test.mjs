@@ -1,8 +1,31 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createHash } from 'node:crypto';
+import { registerHooks } from 'node:module';
 
-import { CheckoutAttempts } from '../dist/apps/funding-web/src/app/features/funding/services/checkout-attempts.js';
-import { CheckoutReconciliationRequiredError } from '../dist/apps/funding-web/src/app/features/funding/services/checkout-error.js';
+import {
+  CheckoutReconciliationRequiredError,
+  CheckoutOfferChangedError,
+  CheckoutCharterChangedError
+} from '../dist/apps/funding-web/src/app/features/funding/services/checkout-error.js';
+
+// The root build emits public workspaces under dist/, without package-local builds.
+const workspaceHook = registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier === '@openg7/funding-core')
+      return {
+        url: new URL(
+          '../dist/packages/funding-core/src/index.js',
+          import.meta.url
+        ).href,
+        shortCircuit: true
+      };
+    return nextResolve(specifier, context);
+  }
+});
+const { CheckoutAttempts } =
+  await import('../dist/apps/funding-web/src/app/features/funding/services/checkout-attempts.js');
+workspaceHook.deregister();
 
 const intent = {
   amount: 25,
@@ -21,6 +44,361 @@ const result = {
   checkoutId: 'cs_synthetic',
   redirectUrl: 'https://checkout.example.test/session'
 };
+
+const sponsorshipOffer = (version = 'sponsorship-v1') => {
+  const snapshot = {
+    version,
+    amountMinor: 25000,
+    currency: 'CAD',
+    benefits: [
+      {
+        id: 'website_mention',
+        channel: 'website',
+        target: 'openg7',
+        quantity: 1,
+        requiredElements: ['company_name', 'approved_logo'],
+        deadlineDays: null,
+        durationDays: null
+      }
+    ]
+  };
+  return {
+    ...snapshot,
+    fingerprint: createHash('sha256')
+      .update(JSON.stringify(snapshot))
+      .digest('hex')
+  };
+};
+const sponsorshipIntent = (offer) => ({
+  ...intent,
+  amount: 250,
+  contributionType: 'sponsorship_interest',
+  offerAcceptance: { version: offer.version, fingerprint: offer.fingerprint }
+});
+
+test('a formatted uncertain checkout restores exact options and payload, while old offers never acquire defaults', async () => {
+  const storage = memoryStorage();
+  const quote = sponsorshipOffer('sponsorship-v2');
+  const payload = {
+    ...sponsorshipIntent(quote),
+    offerFormats: {
+      linkedin: 'individual_portrait',
+      facebook: 'collective_composite'
+    }
+  };
+  const first = new CheckoutAttempts(() => storage);
+  let captured;
+  await assert.rejects(
+    first.start(
+      payload,
+      async (request) => {
+        captured = request;
+        throw new Error('Synthetic uncertain provider result');
+      },
+      quote
+    )
+  );
+  const reloaded = new CheckoutAttempts(() => storage),
+    resume = await reloaded.retainedSponsorshipOffer(5000, 'CAD');
+  assert.deepEqual(resume.formats, {
+    facebook: 'collective_composite',
+    linkedin: 'individual_portrait'
+  });
+  await reloaded.start(
+    { ...payload, offerFormats: resume.formats },
+    async (request) => {
+      assert.deepEqual(request, captured);
+      return result;
+    },
+    resume.quote
+  );
+  const oldStorage = memoryStorage(),
+    old = new CheckoutAttempts(() => oldStorage);
+  let original;
+  await assert.rejects(
+    old.start(
+      sponsorshipIntent(quote),
+      async (request) => {
+        original = request;
+        throw new Error('Synthetic uncertain old attempt');
+      },
+      quote
+    )
+  );
+  const oldReloaded = new CheckoutAttempts(() => oldStorage),
+    oldResume = await oldReloaded.retainedSponsorshipOffer(25000, 'CAD');
+  assert.equal(Object.hasOwn(oldResume, 'formats'), false);
+  await oldReloaded.start(
+    sponsorshipIntent(oldResume.quote),
+    async (request) => {
+      assert.deepEqual(request, original);
+      assert.equal(Object.hasOwn(request, 'offerFormats'), false);
+      return result;
+    },
+    oldResume.quote
+  );
+});
+
+test('uncertain sponsorship resumes the exact retained offer and UUID after reload without storing private intent fields', async () => {
+  const storage = memoryStorage();
+  const first = new CheckoutAttempts(() => storage);
+  const offer = sponsorshipOffer();
+  const submission = sponsorshipIntent(offer);
+  let original;
+  await assert.rejects(
+    first.start(
+      submission,
+      async (request) => {
+        original = structuredClone(request);
+        throw new Error('Synthetic lost response after submission');
+      },
+      offer
+    )
+  );
+  const reloaded = new CheckoutAttempts(() => storage);
+  const resume = await reloaded.retainedSponsorshipOffer(25000, 'CAD');
+  assert.equal(resume.state, 'retained');
+  assert.deepEqual(resume.quote, offer);
+  assert.deepEqual(
+    (await reloaded.retainedSponsorshipOffer(5000, 'CAD')).quote,
+    offer
+  );
+  const changedTariff = sponsorshipOffer('sponsorship-v2');
+  assert.notEqual(resume.quote.fingerprint, changedTariff.fingerprint);
+  const serialized = JSON.stringify([...storage.entries]);
+  for (const value of [
+    intent.publicDisplayName,
+    intent.successUrl,
+    intent.cancelUrl
+  ])
+    assert.equal(serialized.includes(value), false);
+  await reloaded.start(
+    sponsorshipIntent(resume.quote),
+    async (request) => {
+      assert.deepEqual(request, original);
+      return result;
+    },
+    resume.quote
+  );
+  assert.equal(
+    (await reloaded.retainedSponsorshipOffer(25000, 'CAD')).state,
+    'none'
+  );
+  assert.equal(storage.entries.size, 0);
+});
+
+test('altering the resumed payment intent cannot replace the submitted sponsorship key', async () => {
+  const storage = memoryStorage();
+  const offer = sponsorshipOffer();
+  const attempts = new CheckoutAttempts(() => storage);
+  await assert.rejects(
+    attempts.start(
+      sponsorshipIntent(offer),
+      async () => {
+        throw new Error('Synthetic uncertain request');
+      },
+      offer
+    )
+  );
+  const before = storage.getItem('openg7.checkout-attempts.v1');
+  await assert.rejects(
+    attempts.start(
+      {
+        ...sponsorshipIntent(offer),
+        publicDisplayName: 'Changed private name'
+      },
+      async () => {
+        assert.fail(
+          'A changed uncertain intent must not create a new operation.'
+        );
+      },
+      offer
+    ),
+    CheckoutReconciliationRequiredError
+  );
+  assert.equal(storage.getItem('openg7.checkout-attempts.v1'), before);
+});
+
+test('switching an uncertain sponsorship to personal support cannot create a different payment', async () => {
+  const storage = memoryStorage();
+  const offer = sponsorshipOffer();
+  const attempts = new CheckoutAttempts(() => storage);
+  await assert.rejects(
+    attempts.start(
+      sponsorshipIntent(offer),
+      async () => {
+        throw new Error('Synthetic lost response');
+      },
+      offer
+    )
+  );
+  const before = storage.getItem('openg7.checkout-attempts.v1');
+  await assert.rejects(
+    attempts.start(intent, async () => {
+      assert.fail(
+        'Changing contribution type must not abandon an uncertain payment.'
+      );
+    }),
+    CheckoutReconciliationRequiredError
+  );
+  assert.equal(storage.getItem('openg7.checkout-attempts.v1'), before);
+});
+
+test('schema-invalid replies cannot discard a previously submitted UUID but new-input validation can', async () => {
+  for (const ErrorType of [
+    CheckoutOfferChangedError,
+    CheckoutCharterChangedError
+  ]) {
+    const code =
+      ErrorType === CheckoutOfferChangedError
+        ? 'SPONSORSHIP_OFFER_INVALID'
+        : 'CHARTER_ACCEPTANCE_INVALID';
+    const storage = memoryStorage();
+    const offer = sponsorshipOffer();
+    const first = new CheckoutAttempts(() => storage);
+    await assert.rejects(
+      first.start(
+        sponsorshipIntent(offer),
+        async () => {
+          throw new Error('Synthetic lost response');
+        },
+        offer
+      )
+    );
+    const before = storage.getItem('openg7.checkout-attempts.v1');
+    const retained = new CheckoutAttempts(() => storage);
+    await assert.rejects(
+      retained.start(
+        sponsorshipIntent(offer),
+        async () => {
+          throw new ErrorType(code);
+        },
+        offer
+      ),
+      CheckoutReconciliationRequiredError
+    );
+    assert.equal(retained.requiresVerification(), true);
+    assert.equal(storage.getItem('openg7.checkout-attempts.v1'), before);
+    const freshStorage = memoryStorage();
+    const fresh = new CheckoutAttempts(() => freshStorage);
+    await assert.rejects(
+      fresh.start(
+        sponsorshipIntent(offer),
+        async () => {
+          throw new ErrorType(code);
+        },
+        offer
+      ),
+      ErrorType
+    );
+    assert.equal(freshStorage.entries.size, 0);
+  }
+});
+
+test('a proven offer refusal forgets only the unprepared attempt and permits explicit current-offer acceptance', async () => {
+  const storage = memoryStorage();
+  const attempts = new CheckoutAttempts(() => storage);
+  const old = sponsorshipOffer();
+  await assert.rejects(
+    attempts.start(
+      sponsorshipIntent(old),
+      async () => {
+        throw new CheckoutOfferChangedError();
+      },
+      old
+    ),
+    CheckoutOfferChangedError
+  );
+  assert.equal(storage.entries.size, 0);
+  assert.equal(
+    (await attempts.retainedSponsorshipOffer(25000, 'CAD')).state,
+    'none'
+  );
+  const current = sponsorshipOffer('sponsorship-v2');
+  await attempts.start(
+    sponsorshipIntent(current),
+    async (request) => {
+      assert.deepEqual(request.offerAcceptance, {
+        version: current.version,
+        fingerprint: current.fingerprint
+      });
+      return result;
+    },
+    current
+  );
+});
+
+test('missing, corrupted, expired or mismatched retained offer blocks payment instead of blindly rotating a pending key', async () => {
+  for (const corrupt of [
+    (storage) => storage.removeItem('openg7.checkout-offer-recovery.v1'),
+    (storage) =>
+      storage.setItem('openg7.checkout-offer-recovery.v1', '{invalid'),
+    (storage) => {
+      const cache = JSON.parse(
+        storage.getItem('openg7.checkout-offer-recovery.v1')
+      );
+      Object.values(cache)[0].expiresAt = Date.now() - 1;
+      storage.setItem(
+        'openg7.checkout-offer-recovery.v1',
+        JSON.stringify(cache)
+      );
+    },
+    (storage) => {
+      const cache = JSON.parse(
+        storage.getItem('openg7.checkout-offer-recovery.v1')
+      );
+      Object.values(cache)[0].quote.benefits[0].quantity = 2;
+      storage.setItem(
+        'openg7.checkout-offer-recovery.v1',
+        JSON.stringify(cache)
+      );
+    },
+    (storage) => {
+      const cache = JSON.parse(
+        storage.getItem('openg7.checkout-offer-recovery.v1')
+      );
+      Object.values(cache)[0].idempotencyKey =
+        '00000000-0000-4000-8000-000000000001';
+      storage.setItem(
+        'openg7.checkout-offer-recovery.v1',
+        JSON.stringify(cache)
+      );
+    }
+  ]) {
+    const storage = memoryStorage();
+    const offer = sponsorshipOffer();
+    const first = new CheckoutAttempts(() => storage);
+    await assert.rejects(
+      first.start(
+        sponsorshipIntent(offer),
+        async () => {
+          throw new Error('Synthetic uncertain request');
+        },
+        offer
+      )
+    );
+    const before = storage.getItem('openg7.checkout-attempts.v1');
+    corrupt(storage);
+    const reloaded = new CheckoutAttempts(() => storage);
+    assert.equal(
+      (await reloaded.retainedSponsorshipOffer(25000, 'CAD')).state,
+      'verification_required'
+    );
+    assert.equal(reloaded.requiresVerification(), true);
+    await assert.rejects(
+      reloaded.start(
+        sponsorshipIntent(offer),
+        async () => {
+          assert.fail('An unresolved attempt must not contact Checkout again.');
+        },
+        offer
+      ),
+      CheckoutReconciliationRequiredError
+    );
+    assert.equal(storage.getItem('openg7.checkout-attempts.v1'), before);
+  }
+});
+
 const uuidPattern =
   /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 
@@ -39,7 +417,7 @@ test('a changed charter fingerprint requires a fresh Checkout attempt while iden
   };
   const sponsorship = {
     ...intent,
-    contributionType: 'business_sponsorship',
+    contributionType: 'sponsorship_interest',
     charterAcceptance: evidence
   };
   await assert.rejects(attempts.start(sponsorship, execute));
@@ -190,14 +568,18 @@ test('restricted or corrupted storage does not block Checkout or replace an unce
       throw new DOMException('Synthetic denied storage', 'SecurityError');
     },
     () => ({
-      getItem: () => '{invalid',
+      getItem: (key) =>
+        key === 'openg7.checkout-attempts.v1' ? '{invalid' : null,
       setItem: () => {
         throw new DOMException('Synthetic full storage', 'QuotaExceededError');
       },
       removeItem: () => {}
     }),
     () => ({
-      getItem: () => JSON.stringify({ privateName: 'invalid-key' }),
+      getItem: (key) =>
+        key === 'openg7.checkout-attempts.v1'
+          ? JSON.stringify({ privateName: 'invalid-key' })
+          : null,
       setItem: () => {},
       removeItem: () => {}
     })

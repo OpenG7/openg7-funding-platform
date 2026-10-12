@@ -608,6 +608,23 @@ test('media approval keeps private storage and records the controlled API URL fo
   }
 });
 
+test('restriction confirmation reaches the exact review request only when explicitly true', async () => {
+  const f = fixture();
+  const result = await f.run('/admin/sponsorships/media/review', {
+    method: 'POST',
+    body: JSON.stringify({ ...reviewInput, usageRestrictionsConfirmed: true })
+  });
+  assert.equal(result.status, 200);
+  assert.equal(f.values('review')[0].usageRestrictionsConfirmed, true);
+  const invalid = fixture();
+  const rejected = await invalid.run('/admin/sponsorships/media/review', {
+    method: 'POST',
+    body: JSON.stringify({ ...reviewInput, usageRestrictionsConfirmed: 'true' })
+  });
+  assert.equal(rejected.status, 400);
+  assert.deepEqual(invalid.values('review'), []);
+});
+
 test('legacy public object references are retained for separate remediation and never reused as exposure URLs', async () => {
   const assetPatch = {
     publicStorageKey: 'existing/public.webp',

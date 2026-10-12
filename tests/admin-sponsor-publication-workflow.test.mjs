@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { registerHooks } from 'node:module';
 import test from 'node:test';
+import { recordedSponsorshipCommitment } from './support/sponsorship-commitment-fixture.mjs';
 
 import { AdminDashboardRequestError } from '../dist/apps/funding-web/src/app/features/funding/services/funding-admin-session.js';
 
@@ -639,6 +640,34 @@ test('website 401/409 errors retain central handling and existing conflict-speci
   }
 });
 
+test('website publication reports unverifiable, missing and changed files without a successful transition', async (t) => {
+  for (const [code, status] of [
+    ['MEDIA_STORAGE_UNAVAILABLE', 503],
+    ['MEDIA_UNAVAILABLE', 409],
+    ['MEDIA_CHANGED', 409]
+  ]) {
+    await t.test(code, async () => {
+      const f = fixture();
+      const error = new AdminDashboardRequestError(
+        status,
+        'Synthetic media preflight failure',
+        code
+      );
+      f.ports.admin.setSponsorshipWebsiteVisibility = async () => {
+        throw error;
+      };
+      await f.workflow.changeWebsiteVisibility(f.state.records[0], true);
+      assert.equal(
+        f.workflow.websiteMessages()['synthetic-sponsor'],
+        'admin.dossier.publicationBridge.site.mediaErrors.' + code
+      );
+      assert.deepEqual(f.reloads, []);
+      assert.deepEqual(f.errors, [{ error, fallback: '' }]);
+      assert.equal(f.state.action, null);
+    });
+  }
+});
+
 test('late website responses and errors stay isolated after leaving and returning', async (t) => {
   for (const change of ['leave', 'return', 'dispose']) {
     for (const result of ['success', 'error']) {
@@ -761,7 +790,8 @@ test('reconciliation compares generated slug and promised channel defaults as fo
   const before = sponsor({
     sponsor_public_slug: null,
     public_name: 'Équipe synthétique',
-    amount: 250
+    amount: 250,
+    commitment: recordedSponsorshipCommitment(['facebook_batch'])
   });
   const f = fixture(before);
   assert.equal(
@@ -787,7 +817,11 @@ test('reconciliation compares generated slug and promised channel defaults as fo
   });
   const refreshed = sponsor({
     sponsor_public_slug: 'synthetic-server-slug',
-    amount: 500
+    amount: 500,
+    commitment: recordedSponsorshipCommitment([
+      'facebook_batch',
+      'linkedin_batch'
+    ])
   });
   f.workflow.reconcile([next], [refreshed], true);
   assert.equal(
@@ -840,13 +874,17 @@ test('draft fallback, nullable events and sponsor-isolated edits preserve the ex
   );
 });
 
-test('promised channels use existing benefit thresholds and cannot be unchecked', () => {
-  for (const [amount, channels] of [
-    [100, []],
-    [250, ['facebook']],
-    [500, ['facebook', 'linkedin']]
+test('promised channels use recorded open obligations and never infer a promise from an amount', () => {
+  for (const [amount, channels, commitment] of [
+    [500, [], null],
+    [100, ['facebook'], recordedSponsorshipCommitment(['facebook_batch'])],
+    [
+      49,
+      ['facebook', 'linkedin'],
+      recordedSponsorshipCommitment(['facebook_batch', 'linkedin_batch'])
+    ]
   ]) {
-    const f = fixture(sponsor({ amount }));
+    const f = fixture(sponsor({ amount, commitment }));
     assert.deepEqual(
       f.workflow.promisedFeedChannelsFor(f.state.records[0]),
       channels
@@ -896,7 +934,16 @@ test('publication state labels retain message, payment, slug, dirty and saved pr
 
 for (const locale of ['fr-CA', 'en']) {
   test(`publication, visibility and channel messages resolve existing translations in ${locale}`, async () => {
-    const f = fixture(sponsor({ amount: 500 }), locale);
+    const f = fixture(
+      sponsor({
+        amount: 500,
+        commitment: recordedSponsorshipCommitment([
+          'facebook_batch',
+          'linkedin_batch'
+        ])
+      }),
+      locale
+    );
     assert.match(
       f.workflow.draftChannelsLabel(f.state.selected),
       /Facebook \/ LinkedIn/

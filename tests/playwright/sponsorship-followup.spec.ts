@@ -1,7 +1,9 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
 
+import { registerSponsorshipCommitmentTests } from './sponsorship-offer.ui.js';
 import { expect, test } from './support/test.js';
+import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';
 import {
   fixture,
   json,
@@ -10,6 +12,8 @@ import {
   token,
   visit
 } from './support/sponsorship-followup.js';
+
+registerSponsorshipCommitmentTests();
 
 const save = (page: Page) =>
   page.getByRole('button', {
@@ -1006,6 +1010,8 @@ test('media uses server limits, preserves uploads after refresh failure and conf
   });
   await visit(page);
   const input = page.getByLabel('Ajouter des photos', { exact: true });
+  await expect(input).toBeDisabled();
+  await confirmAcceptanceMediaUsage(page);
   await expect(input).toBeEnabled();
   await input.setInputFiles([
     { name: 'invalid.gif', mimeType: 'image/gif', buffer: png },
@@ -1102,6 +1108,8 @@ for (const english of [false, true]) {
       english ? 'Add photos' : 'Ajouter des photos',
       { exact: true }
     );
+    await expect(input).toBeDisabled();
+    await confirmAcceptanceMediaUsage(page);
     await expect(input).toBeEnabled();
     const files = [1, 2, 3, 4].map((number) => ({
       name: `photo-${number}.png`,

@@ -44,6 +44,16 @@ interface MediaScope {
 
 /** One follow-up's media state; API responses remain authoritative. */
 export class SponsorshipFollowupMediaController {
+  readonly preference = signal<
+    import('@openg7/funding-core').SponsorMediaPreference
+  >({
+    revision: 0,
+    preferredAssetId: null,
+    correction: null,
+    state: 'none',
+    sponsorExplanation: null,
+    available: true
+  });
   readonly assets = signal<readonly SponsorMediaAsset[]>([]);
   readonly attempts = signal<readonly SponsorshipMediaUploadAttempt[]>([]);
   readonly previews = signal<Record<string, string>>({});
@@ -107,7 +117,8 @@ export class SponsorshipFollowupMediaController {
 
   async uploadMedia(
     kind: SponsorMediaKind,
-    files: readonly File[]
+    files: readonly File[],
+    usage?: import('@openg7/funding-core').SponsorMediaUsageRights
   ): Promise<void> {
     if (this.disposed) return;
     const scope = this.scope();
@@ -175,7 +186,8 @@ export class SponsorshipFollowupMediaController {
             scope.token,
             kind,
             file,
-            this.altText()
+            this.altText(),
+            usage
           );
           if (!this.isCurrent(scope)) return;
           accepted++;
@@ -272,6 +284,16 @@ export class SponsorshipFollowupMediaController {
       if (!this.isCurrent(scope) || sequence !== this.readSequence)
         return false;
       this.assets.set(response.assets);
+      this.preference.set(
+        response.preference ?? {
+          revision: 0,
+          preferredAssetId: null,
+          correction: null,
+          state: 'none',
+          sponsorExplanation: null,
+          available: true
+        }
+      );
       this.limits.set(response.limits);
       this.loaded.set(true);
       this.removeAttempts(
@@ -390,6 +412,14 @@ export class SponsorshipFollowupMediaController {
       this.readSequence++;
       this.releaseResources();
       this.assets.set([]);
+      this.preference.set({
+        revision: 0,
+        preferredAssetId: null,
+        correction: null,
+        state: 'none',
+        sponsorExplanation: null,
+        available: true
+      });
       this.attempts.set([]);
       this.previews.set({});
       this.loaded.set(false);

@@ -9,6 +9,7 @@ import { approveAcceptanceFixture } from './support/acceptance-moderation.js';
 import { expect, test } from './support/test.js';
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { adminSessionHeaders } from './support/admin-auth.js';
+import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
 
 // Covers the public, sponsor-facing side of the business sponsorship journey
 // (the admin review side is covered by admin-sponsorship-review.spec.ts):
@@ -52,14 +53,17 @@ test.describe('Docker corporate sponsor navigation', () => {
 
     await page.getByRole('button', { name: '500 $', exact: true }).click();
     await expect(
-      page
-        .locator('.sponsorship-tier-achieved li')
-        .filter({ hasText: /LinkedIn/i })
+      page.locator(
+        '[data-og7="sponsorship-offer"] [data-og7-id="linkedin_batch"]'
+      )
     ).toBeVisible();
 
     await page
       .getByLabel(/OpenG7 est un projet ind.pendant en d.veloppement/i)
       .check();
+    await acceptDisplayedSponsorshipOffer(
+      page.locator('[data-og7="contribution-form"]')
+    );
     await expect(submitButton).toBeEnabled();
 
     await submitButton.click();

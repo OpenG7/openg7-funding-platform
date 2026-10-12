@@ -26,6 +26,7 @@ import {
   lockPublicationSlotMembers
 } from './fund-publication-capacity.persistence.js';
 import { withPostgresTransaction } from './postgres-transaction.js';
+import { publicationMembershipFits } from './fund-publication-rendering.persistence.js';
 
 export const allowedPublicationSlotStatuses = new Set<PublicationSlotStatus>([
   'open',
@@ -403,6 +404,13 @@ export const assignBatchToPublicationSlot = async (
       'SELECT id FROM sponsor_publication_drafts WHERE batch_id=$1::uuid ORDER BY id FOR UPDATE',
       [input.batchId]
     );
+    if (
+      !(await publicationMembershipFits(client, {
+        slotId: input.slotId,
+        incomingBatchId: input.batchId
+      }))
+    )
+      return false;
     const result = await client.query<{ readonly id: string }>(
       `
       WITH target_slot AS (
@@ -510,6 +518,13 @@ export const assignDraftToPublicationSlot = async (
       'SELECT id FROM sponsor_publication_drafts WHERE id=$1::uuid FOR UPDATE',
       [input.draftId]
     );
+    if (
+      !(await publicationMembershipFits(client, {
+        slotId: input.slotId,
+        draftIds: [input.draftId]
+      }))
+    )
+      return false;
     const result = await client.query<{ readonly id: string }>(
       `
       WITH target_slot AS (

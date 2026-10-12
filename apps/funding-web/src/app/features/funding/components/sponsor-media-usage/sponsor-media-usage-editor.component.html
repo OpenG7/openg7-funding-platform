@@ -1,0 +1,112 @@
+<fieldset [disabled]="disabled()" data-og7="media-usage-editor">
+  <legend>{{ 'funding.followup.media.usage.title' | translate }}</legend>
+  <p>{{ 'funding.followup.media.usage.separate' | translate }}</p>
+  @if (value()?.state === 'needs_confirmation') {
+    <p role="status">
+      {{ 'funding.followup.media.usage.historical' | translate }}
+    </p>
+  }
+  @if (value()?.state === 'withdrawn') {
+    <p role="status">
+      {{ 'funding.followup.media.usage.withdrawn' | translate }}
+    </p>
+  }
+  <fieldset>
+    <legend>{{ 'funding.followup.media.usage.channels' | translate }}</legend>
+    @for (channel of channels; track channel) {
+      <label
+        ><input
+          type="checkbox"
+          [checked]="selectedChannels().includes(channel)"
+          (change)="toggle('channel', channel, $event)"
+          [attr.data-og7-id]="'channel:' + channel"
+        />{{ 'funding.offer.channels.' + channel | translate }}</label
+      >
+    }
+  </fieldset>
+  <fieldset>
+    <legend>{{ 'funding.followup.media.usage.targets' | translate }}</legend>
+    @for (target of targets; track target) {
+      <label
+        ><input
+          type="checkbox"
+          [checked]="selectedTargets().includes(target)"
+          (change)="toggle('target', target, $event)"
+          [attr.data-og7-id]="'target:' + target"
+        />{{ target.toUpperCase() }}</label
+      >
+    }
+  </fieldset>
+  <fieldset>
+    <legend>
+      {{ 'funding.followup.media.usage.transformations' | translate }}
+    </legend>
+    @for (transform of transformations; track transform) {
+      <label
+        ><input
+          type="checkbox"
+          [checked]="selectedTransforms().includes(transform)"
+          (change)="toggle('transform', transform, $event)"
+          [attr.data-og7-id]="'transform:' + transform"
+        />{{
+          'funding.followup.media.usage.transforms.' + transform | translate
+        }}</label
+      >
+    }
+  </fieldset>
+  <label
+    >{{ 'funding.followup.media.usage.credit' | translate
+    }}<input
+      type="text"
+      maxlength="200"
+      [value]="credit()"
+      (input)="changeText('credit', $event)"
+      data-og7="media-usage-credit"
+  /></label>
+  <label
+    >{{ 'funding.followup.media.usage.restrictions' | translate
+    }}<textarea
+      maxlength="1000"
+      rows="3"
+      [value]="restrictions()"
+      (input)="changeText('restrictions', $event)"
+      data-og7="media-usage-restrictions"
+    ></textarea>
+  </label>
+  @if (requireEvidence()) {
+    <label
+      >{{ 'funding.followup.media.usage.evidence' | translate
+      }}<textarea
+        rows="2"
+        minlength="10"
+        maxlength="1000"
+        [value]="evidence()"
+        (input)="changeText('evidence', $event)"
+        data-og7="media-usage-evidence"
+      ></textarea>
+    </label>
+  }
+  <label
+    ><input
+      type="checkbox"
+      [checked]="confirmed()"
+      (change)="confirm($event)"
+      data-og7="media-usage-confirmation"
+    />{{ 'funding.followup.media.usage.confirmation' | translate }}</label
+  >
+  @if (confirmed() && !normalized()) {
+    <p role="alert">
+      {{ 'funding.followup.media.usage.validation' | translate }}
+    </p>
+  }
+  @if (saveButton()) {
+    <button
+      type="button"
+      [disabled]="!canSave()"
+      (click)="submit()"
+      data-og7="media-usage-save"
+    >
+      {{ 'funding.followup.media.usage.save' | translate }}
+    </button>
+  }
+</fieldset>

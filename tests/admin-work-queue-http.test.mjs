@@ -92,6 +92,18 @@ test(
         ['personal_support', 75.25, 400]
       ]) {
         for (const prefix of ['', '/api']) {
+          let offerAcceptance;
+          if (contributionType === 'sponsorship_interest' && status === 200) {
+            const response = await fetch(
+              `http://127.0.0.1:${port}/api/sponsorship-offer?amountMinor=${Math.round(amount * 100)}&currency=CAD`
+            );
+            assert.equal(response.status, 200);
+            const quote = await response.json();
+            offerAcceptance = {
+              version: quote.version,
+              fingerprint: quote.fingerprint
+            };
+          }
           const checkout = await fetch(
             `http://127.0.0.1:${port}${prefix}/checkout-sessions`,
             {
@@ -105,6 +117,7 @@ test(
                 publicDisplayConsent: false,
                 displayAmountConsent: false,
                 nonCharityAcknowledged: true,
+                ...(offerAcceptance ? { offerAcceptance } : {}),
                 successUrl: 'https://example.invalid/?checkout=success'
               })
             }

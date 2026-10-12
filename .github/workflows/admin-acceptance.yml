@@ -77,6 +77,10 @@ jobs:
         run: yarn exec playwright test --config tests/playwright-followup-ui.config.mjs
       - name: Public sponsor directory UI
         run: yarn exec playwright test --config tests/playwright-sponsors-ui.config.mjs
+      - name: Frozen offer and media rights UI
+        run: |
+          yarn exec playwright test --config tests/playwright-sponsorship-offer.config.mjs
+          yarn exec playwright test --config tests/playwright-sponsor-media-usage.config.mjs
       - name: Public journeys across browsers and accessibility
         run: yarn exec playwright test --config tests/playwright-public-journeys.config.mjs
       - name: Build shared production Web fixtures

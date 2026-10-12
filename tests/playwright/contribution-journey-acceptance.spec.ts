@@ -9,6 +9,11 @@ import type { ContributionActivityResponse } from '@openg7/funding-core';
 
 import { test, expect } from './support/test.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
+import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';
+import {
+  acceptDisplayedSponsorshipOffer,
+  acceptedSponsorshipOffer
+} from './support/acceptance-offer.js';
 
 test('offline admin receives captured messages, catches up once across tabs, and clears activity on expiry', async ({
   page,
@@ -33,6 +38,7 @@ test('offline admin receives captured messages, catches up once across tabs, and
       publicDisplayName: 'Atelier hors ligne',
       displayAmountConsent: false,
       nonCharityAcknowledged: true,
+      offerAcceptance: await acceptedSponsorshipOffer(request, 5000),
       successUrl: baseURL + '/fonds-des-batisseurs?checkout=success',
       cancelUrl: baseURL + '/fonds-des-batisseurs'
     }
@@ -137,6 +143,7 @@ test('company pays 50 CAD: signed confirmation, admin toast, captured email/SMS 
     await form.getByRole('checkbox').nth(0).check();
     await form.locator('#public-display-name').fill('Atelier Démo E2E');
     await form.getByRole('checkbox').nth(2).check();
+    await acceptDisplayedSponsorshipOffer(form);
     const checkoutResponse = company.waitForResponse(
       (r) =>
         r.url().endsWith('/checkout-sessions') &&
@@ -211,6 +218,7 @@ test('company pays 50 CAD: signed confirmation, admin toast, captured email/SMS 
     })
       .png()
       .toBuffer();
+    await confirmAcceptanceMediaUsage(company);
     await company.getByLabel('Ajouter des photos').setInputFiles({
       name: 'atelier-demo.png',
       mimeType: 'image/png',

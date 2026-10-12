@@ -15,6 +15,7 @@ import type {
   AdminSponsorMediaDeleteEvent,
   AdminSponsorMediaReviewEvent
 } from '../../models/admin-sponsors-ui.models.js';
+import { AdminSponsorMediaPreferenceComponent } from '../sponsor-media-usage/admin-sponsor-media-preference.component.js';
 
 import { AdminSponsorLogoPanelComponent } from './detail-media/admin-sponsor-logo-panel.component.js';
 import { AdminSponsorMediaCardComponent } from './detail-media/admin-sponsor-media-card.component.js';
@@ -26,7 +27,8 @@ import { AdminSponsorMediaCardComponent } from './detail-media/admin-sponsor-med
     CommonModule,
     TranslatePipe,
     AdminSponsorLogoPanelComponent,
-    AdminSponsorMediaCardComponent
+    AdminSponsorMediaCardComponent,
+    AdminSponsorMediaPreferenceComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -41,6 +43,14 @@ import { AdminSponsorMediaCardComponent } from './detail-media/admin-sponsor-med
         (uploadLogo)="uploadLogo.emit($event)"
         (deleteLogo)="deleteLogo.emit()"
       />
+      @if (identity().contributionId; as contributionId) {
+        <openg7-admin-sponsor-media-preference
+          [contributionId]="contributionId"
+          [disabled]="busy()"
+          (busyChange)="preferenceBusy.set($event)"
+          (changed)="moderationChanged.emit()"
+        />
+      }
 
       <section class="media-review-panel" aria-labelledby="media-review-title">
         <header>
@@ -63,7 +73,9 @@ import { AdminSponsorMediaCardComponent } from './detail-media/admin-sponsor-med
               type="button"
               class="approve-all-action"
               [disabled]="
-                identity().mediaBusy || identity().approvableMediaCount === 0
+                busy() ||
+                identity().approvableMediaCount === 0 ||
+                !allUsageReady()
               "
               (click)="approveAllMedia.emit(pendingReviews())"
             >
@@ -84,7 +96,9 @@ import { AdminSponsorMediaCardComponent } from './detail-media/admin-sponsor-med
             *ngFor="let asset of identity().mediaAssets; trackBy: trackAsset"
             [asset]="asset"
             [altText]="altTextFor(asset)"
-            [mediaBusy]="identity().mediaBusy"
+            [mediaBusy]="busy()"
+            (busyChange)="setUsageBusy(asset, $event)"
+            (restrictionsChange)="setRestrictions(asset, $event)"
             (altTextChange)="setAltText(asset, $event)"
             (previewMedia)="previewMedia.emit($event)"
             (reviewMedia)="reviewMedia.emit($event)"
@@ -218,6 +232,26 @@ export class AdminSponsorDetailMediaComponent {
   readonly reviewMedia = output<AdminSponsorMediaReviewEvent>();
   readonly approveAllMedia = output<readonly AdminSponsorMediaReviewEvent[]>();
   readonly deleteMedia = output<AdminSponsorMediaDeleteEvent>();
+  private readonly usageBusy = signal<Record<string, boolean>>({});
+  readonly preferenceBusy = signal(false);
+  private readonly restrictions = signal<Record<string, string>>({});
+  readonly busy = computed(
+    () =>
+      this.identity().mediaBusy ||
+      this.preferenceBusy() ||
+      this.identity().mediaAssets.some((asset) => this.usageBusy()[asset.id])
+  );
+  readonly allUsageReady = computed(() =>
+    this.identity()
+      .mediaAssets.filter((asset) => asset.reviewStatus !== 'approved')
+      .every(
+        (asset) =>
+          asset.usage?.state === 'confirmed' &&
+          (!asset.usage.restrictions ||
+            asset.usageRestrictionsReviewed ||
+            this.restrictions()[asset.id] === asset.version)
+      )
+  );
   private readonly altDrafts = signal<
     Record<string, { version: string; text: string }>
   >({});
@@ -229,9 +263,21 @@ export class AdminSponsorDetailMediaComponent {
           assetId: asset.id,
           expectedVersion: asset.version,
           reviewStatus: 'approved',
-          altText: this.altTextFor(asset)
+          altText: this.altTextFor(asset),
+          ...(this.restrictions()[asset.id] === asset.version
+            ? { usageRestrictionsConfirmed: true as const }
+            : {})
         }))
   );
+  setUsageBusy(asset: AdminSponsorMediaAssetView, value: boolean): void {
+    this.usageBusy.update((state) => ({ ...state, [asset.id]: value }));
+  }
+  setRestrictions(asset: AdminSponsorMediaAssetView, value: boolean): void {
+    this.restrictions.update((state) => ({
+      ...state,
+      [asset.id]: value ? asset.version : ''
+    }));
+  }
 
   altTextFor(asset: AdminSponsorMediaAssetView): string {
     const draft = this.altDrafts()[asset.id];

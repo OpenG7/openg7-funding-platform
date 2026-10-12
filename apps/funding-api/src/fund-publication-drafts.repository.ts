@@ -22,6 +22,7 @@ import {
   type PublicationDraftRow
 } from './fund-publication.mapping.js';
 import { getAdminBackofficePresence } from './fund-admin.persistence.js';
+import { nextPublicationDraftObligation } from './fund-publication-draft-obligations.persistence.js';
 import {
   createDefaultDraftText,
   type SponsorDraftSourceRow
@@ -212,6 +213,23 @@ export const createAdminPublicationDraft = async (
     input.feedTarget,
     input.channel
   );
+  const obligationId = await nextPublicationDraftObligation(
+    pool,
+    input.contributionId,
+    input.feedTarget,
+    input.channel
+  );
+  const existing = await pool.query<{ id: string }>(
+    `SELECT id FROM sponsor_publication_drafts
+    WHERE contribution_id=$1::uuid AND feed_target=$2 AND channel=$3 AND status NOT IN ('published','cancelled','rejected')
+      AND (obligation_id=$4::uuid OR obligation_id IS NULL) ORDER BY created_at,id LIMIT 1`,
+    [input.contributionId, input.feedTarget, input.channel, obligationId]
+  );
+  if (existing.rows[0])
+    return {
+      updated: true,
+      draft: await getPublicationDraftById(pool, existing.rows[0].id)
+    };
 
   const insertResult = await pool.query<{ readonly id: string }>(
     `
@@ -222,10 +240,15 @@ export const createAdminPublicationDraft = async (
         title,
         body,
         disclosure_text,
-        status
+        status,
+        obligation_id
       )
-      VALUES ($1::uuid, $2, $3, $4, $5, $6, 'draft')
-      ON CONFLICT (contribution_id, feed_target, channel)
+      VALUES ($1::uuid, $2, $3, $4, $5, $6, 'draft', $7::uuid)
+      ON CONFLICT ${
+        obligationId
+          ? "(obligation_id) WHERE obligation_id IS NOT NULL AND status NOT IN ('published','cancelled','rejected')"
+          : '(contribution_id, feed_target, channel) WHERE obligation_id IS NULL'
+      }
       DO UPDATE SET updated_at = sponsor_publication_drafts.updated_at
       RETURNING id::text AS id
     `,
@@ -235,7 +258,8 @@ export const createAdminPublicationDraft = async (
       input.channel,
       draftText.title,
       draftText.body,
-      draftText.disclosureText
+      draftText.disclosureText,
+      obligationId
     ]
   );
 

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
 import test from 'node:test';
 
@@ -304,6 +305,7 @@ test('Shared media runtime keeps approved public reads separate from token-owned
     id: assetId,
     contribution_id: contributionId,
     review_status: 'approved',
+    checksum_sha256: createHash('sha256').update(privateBytes).digest('hex'),
     processed_storage_key: 'synthetic/private.webp',
     public_storage_key: 'synthetic/public.webp'
   };

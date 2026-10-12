@@ -2,6 +2,8 @@ import { createHmac, randomUUID } from 'node:crypto';
 
 import type { Pool, PoolClient } from 'pg';
 
+import { detectPublicationReliabilityIncidents } from './publication-reliability.repository.js';
+
 export interface OperationsIncident {
   key: string;
   type: string;
@@ -57,7 +59,10 @@ export const detectOperationsIncidents = async (
     FROM stripe_events WHERE processing_status='failed' OR
       (processing_status='processing' AND received_at<now()-interval '15 minutes')
     UNION ALL SELECT 'email:' || id::text AS key,'email_delivery_failed' AS type FROM email_messages WHERE status='failed'`);
-  return result.rows;
+  return [
+    ...result.rows,
+    ...(await detectPublicationReliabilityIncidents(pool))
+  ];
 };
 export const syncOperationsIncidents = async (pool: Pool): Promise<void> => {
   const db = await pool.connect();

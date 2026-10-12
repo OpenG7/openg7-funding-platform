@@ -106,6 +106,9 @@ export type PublicationSlotStatus =
 export interface AdminPublicationBatchRecord {
   readonly id: string;
   readonly channel: SponsorFeedChannel;
+  readonly publicationFormat?:
+    | import('./sponsorship-publication-formats.js').SponsorshipPublicationFormat
+    | null;
   readonly capacity: number;
   readonly status: PublicationBatchStatus;
   readonly slotId: string | null;

@@ -4,6 +4,7 @@ import type { Pool, PoolClient } from 'pg';
 import { projectStoredCheckoutMetadata } from './stripe-event-projection.js';
 import { allowedPreviousPaymentStatuses } from './contribution-payment-state.js';
 import { recordContributionActivity } from './contribution-activity.repository.js';
+import { activateSponsorshipCommitments } from './sponsorship-commitments.repository.js';
 
 export interface CheckoutSessionRecordInput {
   readonly stripeSessionId: string;
@@ -267,6 +268,10 @@ export const upsertCheckoutSessionFromWebhook = async (
       ]
     );
 
+    await activateSponsorshipCommitments(client, {
+      stripeSessionId: input.stripeSessionId,
+      stripePaymentIntentId: input.stripePaymentIntentId
+    });
     await recordContributionActivity(
       client,
       input.stripeSessionId,
@@ -367,6 +372,9 @@ export const updateContributionStatusByPaymentIntent = async (
       ]
     );
 
+    await activateSponsorshipCommitments(client, {
+      stripePaymentIntentId: input.stripePaymentIntentId
+    });
     if (input.status === 'paid') {
       await recordContributionActivity(
         client,

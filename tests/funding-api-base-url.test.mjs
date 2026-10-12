@@ -1,11 +1,30 @@
 import assert from 'node:assert/strict';
+import { registerHooks } from 'node:module';
 import test from 'node:test';
 
 import { resolveFundingApiBaseUrl } from '../dist/apps/funding-web/src/app/features/funding/services/funding-api-base-url.js';
 import { FundingAdminSession } from '../dist/apps/funding-web/src/app/features/funding/services/funding-admin-session.js';
-import { FundTransparencyService } from '../dist/apps/funding-web/src/app/features/funding/services/fund-transparency.service.js';
-import { SponsorshipsService } from '../dist/apps/funding-web/src/app/features/funding/services/sponsorships.service.js';
 import { StripeSetupDevService } from '../dist/apps/funding-web/src/app/features/funding/services/stripe-setup-dev.service.js';
+
+const workspaceHook = registerHooks({
+  resolve(specifier, context, nextResolve) {
+    return specifier === '@openg7/funding-core'
+      ? {
+          url: new URL(
+            '../dist/packages/funding-core/src/index.js',
+            import.meta.url
+          ).href,
+          shortCircuit: true
+        }
+      : nextResolve(specifier, context);
+  }
+});
+const [{ FundTransparencyService }, { SponsorshipsService }] =
+  await Promise.all([
+    import('../dist/apps/funding-web/src/app/features/funding/services/fund-transparency.service.js'),
+    import('../dist/apps/funding-web/src/app/features/funding/services/sponsorships.service.js')
+  ]);
+workspaceHook.deregister();
 
 const configKey = '__OPENG7_FUNDING_API_BASE_URL__';
 const payload = { mode: 'token', synthetic: true };

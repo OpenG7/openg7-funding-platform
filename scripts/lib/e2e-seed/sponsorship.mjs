@@ -1,4 +1,5 @@
 import { sha256Hex, sqlLiteral } from './sql.mjs';
+import { buildSyntheticAgreementSql } from './agreements.mjs';
 
 // Cleanup runs before contribution and media cascades. Its publication guards
 // also protect authorized batches belonging to unrelated local records.
@@ -20,6 +21,10 @@ BEGIN
          .map((fixture) => sqlLiteral(fixture.contactEmail))
          .join(', ')}]::text[]))
     INTO contribution_ids;
+  IF EXISTS(SELECT 1 FROM sponsorship_commitments WHERE contribution_id=ANY(contribution_ids))
+    OR EXISTS(SELECT 1 FROM sponsor_media_usage_history WHERE contribution_id=ANY(contribution_ids)) THEN
+    RAISE EXCEPTION 'Acceptance fixtures now preserve commercial and image-use history; start a fresh disposable acceptance stack instead of reseeding these records';
+  END IF;
   SELECT ARRAY(SELECT DISTINCT batch_id FROM sponsor_publication_drafts
     WHERE contribution_id = ANY(contribution_ids) AND batch_id IS NOT NULL)
     INTO batch_ids;
@@ -124,7 +129,7 @@ INSERT INTO sponsor_media_assets (
   contribution_id, kind, review_status, uploaded_by, original_filename,
   original_mime_type, original_size_bytes, original_storage_key,
   processed_size_bytes, processed_storage_key, public_storage_key, public_url,
-  checksum_sha256, width, height, alt_text, reviewed_at, reviewed_by
+  checksum_sha256, width, height, alt_text, reviewed_at, reviewed_by, usage_rights
 )
 SELECT
   id, 'supporting_image', 'approved', 'admin', 'presentation.png',
@@ -134,7 +139,8 @@ SELECT
   'data:image/webp;base64,UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEAAUAmJaQAA3AA/v89WAAAAA==',
   ${sqlLiteral(sha256Hex(`${fixture.publicReference}:presentation`))},
   1, 1, ${sqlLiteral(`Photo de presentation ${fixture.companyName}`)}, NOW(),
-  'e2e-seed'
+  'e2e-seed',
+  '{"state":"confirmed","channels":["website","facebook","linkedin"],"targets":["openg7","openg20"],"transformations":["technical","crop","composite","portrait"],"credit":null,"restrictions":null}'::jsonb
 FROM fund_contributions
 WHERE public_reference = ${sqlLiteral(fixture.publicReference)};`;
     })
@@ -144,6 +150,7 @@ WHERE public_reference = ${sqlLiteral(fixture.publicReference)};`;
     publicationCleanup,
     deleteStatements,
     insertStatements,
+    agreementInsertStatements: buildSyntheticAgreementSql(fixtures),
     sponsorMediaInsertStatements
   };
 }

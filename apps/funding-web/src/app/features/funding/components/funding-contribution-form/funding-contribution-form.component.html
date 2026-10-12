@@ -165,23 +165,78 @@
       !hasInvalidCustomContribution()
     "
   >
-    <p class="sponsorship-tier-summary-title">
-      {{ 'funding.home.contribution.sponsorship.summary.title' | translate }}
-    </p>
-    <ul class="sponsorship-tier-achieved" role="list">
-      <li *ngFor="let benefitId of sponsorshipBenefits().achievedBenefits">
-        {{ sponsorshipBenefitLabelKeys[benefitId] | translate }}
-      </li>
-    </ul>
-    <p
-      class="sponsorship-tier-upcoming"
-      *ngFor="let upcoming of sponsorshipBenefits().upcomingBenefits"
+    <section
+      data-og7="sponsorship-offer"
+      [attr.aria-busy]="offer.state() === 'loading'"
+      aria-labelledby="sponsorship-offer-title"
     >
-      {{
-        sponsorshipUpcomingLabelKeys[upcoming.id]
-          | translate: { amount: formatMoney(upcoming.minimumAmount) }
-      }}
-    </p>
+      <h3 id="sponsorship-offer-title">
+        {{ 'funding.offer.title' | translate }}
+      </h3>
+      <p>{{ 'funding.offer.formatHelp' | translate }}</p>
+      @for (channel of formatChannels; track channel) {
+        <label
+          >{{
+            'funding.offer.formatChoice'
+              | translate
+                : { channel: ('funding.offer.channels.' + channel | translate) }
+          }}
+          <select
+            [value]="offerFormats()?.[channel] ?? ''"
+            (change)="selectFormat(channel, $event)"
+            [disabled]="loadingState() === 'loading' || offer.retained()"
+            [attr.data-og7-id]="'offer-format:' + channel"
+          >
+            <option value="">
+              {{ 'funding.offer.defaultFormat' | translate }}
+            </option>
+            @for (format of formats; track format) {
+              <option
+                [value]="format"
+                [disabled]="!formatAvailable(channel, format)"
+              >
+                {{ 'funding.offer.formats.' + format | translate }}
+              </option>
+            }
+          </select>
+        </label>
+      }
+      @if (offer.state() === 'loading') {
+        <p role="status">{{ 'funding.offer.loading' | translate }}</p>
+      }
+      @if (offer.state() === 'error') {
+        <p role="alert">{{ 'funding.offer.unavailable' | translate }}</p>
+        <button type="button" (click)="reloadOffer()">
+          {{ 'funding.followup.retry' | translate }}
+        </button>
+        @if (offerFormats()) {
+          <button type="button" (click)="resetFormats()">
+            {{ 'funding.offer.resetFormats' | translate }}
+          </button>
+        }
+      }
+      @if (offer.state() === 'verification_required') {
+        <p role="alert">
+          {{ 'funding.home.contribution.verificationRequired' | translate }}
+        </p>
+      }
+      @if (offer.quote(); as quoted) {
+        @if (offer.retained()) {
+          <p role="status">{{ 'funding.offer.retained' | translate }}</p>
+          @if (
+            quoted.amountMinor !== effectiveAmountMinor() || !formatsMatch()
+          ) {
+            <button type="button" (click)="restoreRetainedOffer()">
+              {{
+                'funding.offer.resumeAmount'
+                  | translate: { amount: formatMoney(quoted.amountMinor / 100) }
+              }}
+            </button>
+          }
+        }
+        <openg7-sponsorship-offer-summary [offer]="quoted" />
+      }
+    </section>
     <p
       class="sponsorship-tier-availability"
       *ngFor="let entry of sponsorshipAvailabilityEntries()"
@@ -281,6 +336,21 @@
         >
       </section>
     }
+    @if (offer.quote(); as quoted) {
+      <label class="consent-option required">
+        <input
+          type="checkbox"
+          [checked]="offer.accepted()"
+          (change)="acceptOffer($event)"
+          data-og7="offer-acceptance"
+          aria-describedby="sponsorship-offer-title"
+        />
+        <span>{{
+          'funding.offer.acceptance'
+            | translate: { amount: formatMoney(quoted.amountMinor / 100) }
+        }}</span>
+      </label>
+    }
   }
   <button type="submit" class="gold-cta" [disabled]="!canStartCheckout()">
     {{ 'funding.nav.supportCta' | translate }}
@@ -313,7 +383,9 @@
         ? 'funding.home.contribution.verificationRequired'
         : checkoutCharterChanged()
           ? 'funding.charter.changed'
-          : 'funding.home.contribution.error'
+          : checkoutOfferChanged()
+            ? 'funding.offer.changed'
+            : 'funding.home.contribution.error'
       ) | translate
     }}
   </p>

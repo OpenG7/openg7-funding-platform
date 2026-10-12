@@ -12,6 +12,11 @@ mais les cases restent ouvertes jusqu'à vérification du critère dans tous les
 parcours concernés. Ce cadrage ne constitue ni une livraison, ni une activation
 des envois, ni une modification des engagements existants.
 
+La reprise locale sur `main` est reçue séparément dans le
+[compteur des six priorités](sponsorship-publication-tasks.md#progression-des-six-chantiers-autorisés).
+Ses preuves techniques ne clôturent pas automatiquement les dix-neuf garanties
+dans tous les formats, toutes les cibles historiques ou sur un compte externe.
+
 Les [règles de commandite](sponsorship-rules.md) et le
 [runbook de publication](../operations/publication-automation.md) restent les
 références du fonctionnement actuel. Les garanties portent sur une reconnaissance

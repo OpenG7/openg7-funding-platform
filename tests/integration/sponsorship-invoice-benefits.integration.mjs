@@ -6,7 +6,12 @@ import { setTimeout } from 'node:timers/promises';
 import { promisify } from 'node:util';
 import { inflateSync } from 'node:zlib';
 
-import { DEFAULT_SPONSORSHIP_PRICING_CONFIG } from '../../dist/packages/funding-core/src/index.js';
+import {
+  DEFAULT_SPONSORSHIP_PRICING_CONFIG,
+  createSponsorshipOfferSnapshot
+} from '../../dist/packages/funding-core/src/index.js';
+import { qualifySponsorshipCommitment } from '../../dist/apps/funding-api/src/sponsorship-commitments/changes.js';
+import { withPostgresTransaction } from '../../dist/apps/funding-api/src/postgres-transaction.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 import { createSponsorshipInvoiceForStripeSession } from '../../dist/apps/funding-api/src/sponsorship-invoices.repository.js';
 import {
@@ -37,12 +42,41 @@ test(
     t.after(stop);
     const seed = async (amountCents, status = 'paid') => {
       const stripeSessionId = 'cs_invoice_benefits_' + randomUUID();
-      await pool.query(
-        `INSERT INTO fund_contributions
+      const contribution = (
+        await pool.query(
+          `INSERT INTO fund_contributions
         (contribution_type, amount_cents, currency, status, paid_at, stripe_session_id)
-       VALUES ('sponsorship_interest', $1, 'cad', $2, NOW(), $3)`,
-        [amountCents, status, stripeSessionId]
+       VALUES ('sponsorship_interest', $1, 'cad', $2, NOW(), $3) RETURNING id`,
+          [amountCents, status, stripeSessionId]
+        )
+      ).rows[0];
+      await pool.query(
+        `INSERT INTO sponsorship_commitments(contribution_id,provenance,state,qualification_reason)
+        VALUES($1,'historical_unverified','needs_confirmation','synthetic historical fixture')`,
+        [contribution.id]
       );
+      if (
+        amountCents >= 5000 &&
+        ['paid', 'refunded', 'disputed'].includes(status)
+      )
+        await withPostgresTransaction(pool, (db) =>
+          qualifySponsorshipCommitment(
+            db,
+            {
+              requestId: randomUUID(),
+              contributionId: contribution.id,
+              expectedVersion: 1,
+              confirmation: contribution.id,
+              reason: 'Synthetic agreement supplies explicit recorded benefits',
+              evidenceReference: 'synthetic://invoice-benefits-agreement',
+              offer: {
+                ...createSponsorshipOfferSnapshot(amountCents, 'CAD'),
+                version: 'historical-qualification-v1'
+              }
+            },
+            'admin:00000000-0000-4000-8000-000000000041'
+          )
+        );
       return {
         stripeSessionId,
         stripePaymentIntentId: null,
@@ -427,9 +461,10 @@ test(
           const result = await pending;
           assert.ifError(result.error);
           assert.deepEqual(result.invoice, winningInvoice);
-          assert.equal(loserQueries.length, 2);
+          assert.equal(loserQueries.length, 3);
+          assert.match(loserQueries[0], /SELECT o.snapshot/);
           assert.match(
-            loserQueries[1],
+            loserQueries[2],
             /SELECT[\s\S]*FROM sponsorship_invoices invoice/
           );
           assert.deepEqual(await snapshot(winningInvoice.id), stored);

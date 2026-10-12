@@ -14,6 +14,7 @@ import {
   buildSignedWebhookRequest
 } from './support/stripe-webhook.js';
 import { expect, test } from './support/test.js';
+import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
 
 test('confirmed invoice and credit-note resends recover from SMTP failure and lost responses without changing financial documents', async ({
   page,
@@ -59,6 +60,7 @@ test('confirmed invoice and credit-note resends recover from SMTP failure and lo
     await form.getByRole('checkbox').nth(0).uncheck();
     await form.getByRole('checkbox').nth(1).uncheck();
     await form.getByRole('checkbox').nth(2).check();
+    await acceptDisplayedSponsorshipOffer(form);
     await form.locator('button[type="submit"]').click();
     await expect(page).toHaveURL(/\/checkout\/cs_test_/);
     const session = await get<{

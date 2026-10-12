@@ -88,6 +88,10 @@
           {{ 'admin.dossier.publicationBridge.globalSettings' | translate }}
         </p>
       }
+      <openg7-publication-reliability-panel
+        [reliability]="s.reliability"
+        [dateLabel]="queueDateLabel"
+      />
       <openg7-publication-source-queue
         [queue]="s.queue"
         [busy]="busy()"

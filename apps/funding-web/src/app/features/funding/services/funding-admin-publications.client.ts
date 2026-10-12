@@ -65,7 +65,7 @@ export class FundingAdminPublicationsClient {
 
   async publicationMedia(
     deliveryId?: string
-  ): Promise<{ id: string; url: string; alt: string; company: string }[]> {
+  ): Promise<import('@openg7/funding-core').PublicationMediaOption[]> {
     const query = new URLSearchParams();
     if (deliveryId !== undefined) query.set('deliveryId', deliveryId);
     const response = await this.session.requestAdminJson(
@@ -74,8 +74,45 @@ export class FundingAdminPublicationsClient {
     );
     if (!response.ok) throw new Error('AUTOMATION_UNAVAILABLE');
     return response.json() as Promise<
-      { id: string; url: string; alt: string; company: string }[]
+      import('@openg7/funding-core').PublicationMediaOption[]
     >;
+  }
+
+  async publicationImagePreview(
+    deliveryId: string,
+    version: number,
+    expectedHash: string
+  ): Promise<Blob> {
+    const query = new URLSearchParams({ deliveryId, version: String(version) });
+    const response = await this.session.requestAdminJson(
+      `/admin/publication-automation/image-preview?${query}`,
+      {
+        auth: 'saved',
+        cache: 'no-store',
+        headers: { Accept: 'image/jpeg' }
+      }
+    );
+    if (!response.ok)
+      throw new Error(
+        (await response.json().catch(() => ({}))).code ?? 'MEDIA_UNAVAILABLE'
+      );
+    const blob = await response.blob();
+    const digest = await globalThis.crypto.subtle.digest(
+      'SHA-256',
+      await blob.arrayBuffer()
+    );
+    const hash = Array.from(new Uint8Array(digest), (byte) =>
+      byte.toString(16).padStart(2, '0')
+    ).join('');
+    if (
+      blob.type !== 'image/jpeg' ||
+      !/^[a-f0-9]{64}$/.test(expectedHash) ||
+      hash !== expectedHash ||
+      response.headers.get('X-Content-SHA256') !== hash ||
+      response.headers.get('X-Publication-Delivery-Version') !== String(version)
+    )
+      throw new Error('MEDIA_CHANGED');
+    return blob;
   }
 
   async getPublicationDrafts(

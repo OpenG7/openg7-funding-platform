@@ -4,6 +4,36 @@ import {
   buildSponsorshipProgress,
   getSponsorshipProgress
 } from '../dist/apps/funding-api/src/sponsorship-progress.service.js';
+import { createSponsorshipOfferSnapshot } from '../dist/packages/funding-core/src/index.js';
+
+const committed = (amountMinor = 50000, fulfilled = []) => {
+  const offer = createSponsorshipOfferSnapshot(amountMinor, 'CAD');
+  return {
+    id: 'synthetic-commitment',
+    contributionId: '10000000-0000-4000-8000-000000000401',
+    offerId: 'synthetic-offer',
+    provenance: 'accepted_offer',
+    state: 'active',
+    version: 1,
+    qualificationReason: null,
+    offer,
+    obligations: offer.benefits.map((b) => ({
+      id: `synthetic-${b.id}`,
+      commitmentId: 'synthetic-commitment',
+      contributionId: '10000000-0000-4000-8000-000000000401',
+      benefitId: b.id,
+      channel: b.channel,
+      target: b.target,
+      ordinal: 1,
+      state: fulfilled.includes(b.channel) ? 'fulfilled' : 'pending',
+      blockedReason: null,
+      version: 1,
+      fulfilmentEvidenceId: fulfilled.includes(b.channel)
+        ? `synthetic-proof-${b.channel}`
+        : null
+    }))
+  };
+};
 
 const source = (record = {}, rest = {}) => ({
   record: {
@@ -34,6 +64,7 @@ const invoice = {
   issuedAt: '2026-09-01'
 };
 const facts = (rest = {}) => ({
+  commitment: committed(rest.amountMinor ?? 50000),
   websiteVisible: false,
   websiteHeld: true,
   websiteVersion: 'v1',
@@ -389,10 +420,11 @@ test('recognition is blocked by an ongoing or full refund, while partial and fai
   }
 });
 
-test('non-CAD dossiers follow their explicit social publications rather than CAD thresholds', () => {
+test('non-CAD dossiers remain unqualified and a live publication never invents CAD obligations', () => {
   const result = buildSponsorshipProgress(
     source({ currency: 'USD', reviewStatus: 'approved' }),
     facts({
+      commitment: null,
       publications: [
         publication('facebook', {
           deliveryStatus: 'published',
@@ -401,7 +433,34 @@ test('non-CAD dossiers follow their explicit social publications rather than CAD
       ]
     })
   );
-  assert.equal(step(result, 'publication').state, 'complete');
+  assert.equal(step(result, 'publication').state, 'blocked');
+  assert.equal(
+    step(result, 'publication').reason,
+    'commitment_needs_confirmation'
+  );
+  assert.deepEqual(result.publicationCompletion, { done: 0, total: 0 });
+});
+
+test('historical live publications and current website visibility are observations, without an accepted offer they fulfil no promise', () => {
+  const result = buildSponsorshipProgress(
+    source({ reviewStatus: 'approved' }),
+    facts({
+      commitment: null,
+      websiteVisible: true,
+      publications: ['facebook', 'linkedin'].map((channel) =>
+        publication(channel, {
+          status: 'published',
+          deliveryStatus: 'published',
+          deliveryMode: 'live'
+        })
+      )
+    })
+  );
+  assert.equal(
+    step(result, 'publication').reason,
+    'commitment_needs_confirmation'
+  );
+  assert.deepEqual(result.publicationCompletion, { done: 0, total: 0 });
 });
 
 test('email and Stripe failures remain actionable independently of completed milestones', () => {
@@ -444,7 +503,7 @@ test('unconfirmed payments and currency inconsistencies never get silently confi
   assert.equal((await getSponsorshipProgress(null)).status, 'unavailable');
 });
 
-test('all CAD tiers require actual website visibility and every promised live channel', () => {
+test('each recorded CAD tier counts only its qualified proofs, independently of publication status', () => {
   for (const amount of [50, 100, 249.99, 250, 333.33, 499.99, 500, 750]) {
     const channels =
       amount >= 500
@@ -460,6 +519,10 @@ test('all CAD tiers require actual website visibility and every promised live ch
           feedStatus: websiteVisible ? 'planned' : 'published'
         }),
         facts({
+          commitment: committed(Math.round(amount * 100), [
+            ...channels,
+            ...(websiteVisible ? ['website'] : [])
+          ]),
           amountMinor: Math.round(amount * 100),
           websiteVisible,
           websiteHeld: !websiteVisible,
@@ -496,13 +559,18 @@ test('visible website is partial until both live social promises are met; duplic
   ];
   const partial = buildSponsorshipProgress(
     source({ reviewStatus: 'approved' }),
-    facts({ websiteVisible: true, publications: rows })
+    facts({
+      websiteVisible: true,
+      publications: rows,
+      commitment: committed(50000, ['website', 'facebook'])
+    })
   );
   assert.deepEqual(partial.publicationCompletion, { done: 2, total: 3 });
   assert.notEqual(step(partial, 'publication').state, 'complete');
   const complete = buildSponsorshipProgress(
     source({ reviewStatus: 'approved' }),
     facts({
+      commitment: committed(50000, ['website', 'facebook', 'linkedin']),
       websiteVisible: true,
       publications: [
         ...rows,

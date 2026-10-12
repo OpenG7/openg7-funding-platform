@@ -16,6 +16,11 @@ const tables = {
   publication_delivery: 'publication_deliveries'
 } as const;
 
+/** Derived visuals retain their individually owned, active source dependencies. */
+export const mediaDeliveryScopeSql = `(p.media_id=$1 OR EXISTS(
+  SELECT 1 FROM publication_delivery_photos photo
+  WHERE photo.delivery_id=p.id AND photo.asset_id=$1 AND photo.active))`;
+
 /** Match the engine's delivery-before-source lock order for revocations. */
 export async function lockModerationDependencies(
   db: ModerationDb,
@@ -27,7 +32,7 @@ export async function lockModerationDependencies(
     subject.type === 'publication_delivery'
       ? 'p.id=$1'
       : subject.type === 'media'
-        ? 'p.media_id=$1'
+        ? mediaDeliveryScopeSql
         : subject.type === 'publication_draft'
           ? 'p.batch_id IN (SELECT batch_id FROM sponsor_publication_drafts WHERE id=$1)'
           : 'p.batch_id IN (SELECT batch_id FROM sponsor_publication_drafts WHERE contribution_id=$1)';

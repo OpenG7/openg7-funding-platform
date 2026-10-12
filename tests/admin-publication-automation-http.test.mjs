@@ -258,8 +258,15 @@ test('real media listing derives its batch from the delivery and keeps editorial
       {
         async query(sql, parameters) {
           queries.push({ sql, parameters });
-          if (sql.startsWith('SELECT batch_id FROM publication_deliveries'))
-            return { rows: [{ batch_id: batch }], rowCount: 1 };
+          if (
+            sql.startsWith(
+              'SELECT batch_id,feed_id FROM publication_deliveries'
+            )
+          )
+            return {
+              rows: [{ batch_id: batch, feed_id: 'openg7:facebook' }],
+              rowCount: 1
+            };
           assert.match(
             sql,
             /s\.batch_id=\$1::uuid AND s\.contribution_id=m\.contribution_id.*ORDER BY.*LIMIT 200/
@@ -286,7 +293,7 @@ test('real media listing rejects invalid or missing deliveries before querying a
         queries.push({ sql, parameters });
         assert.equal(
           sql,
-          'SELECT batch_id FROM publication_deliveries WHERE id=$1'
+          'SELECT batch_id,feed_id FROM publication_deliveries WHERE id=$1'
         );
         return { rows: [], rowCount: 0 };
       }

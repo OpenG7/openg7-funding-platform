@@ -8,7 +8,9 @@ test('follow-up fixtures run once in isolation while persisted journeys remain i
   const fixtures = new Set([
     'sponsorship-followup.spec.ts',
     'sponsorship-moderation-followup.spec.ts',
-    'sponsor-media-upload-feedback.spec.ts'
+    'sponsor-media-upload-feedback.spec.ts',
+    'sponsor-media-usage.ui.ts',
+    'sponsorship-offer.ui.ts'
   ]);
   const followup = discover('tests/playwright-followup-ui.config.mjs');
   assert.deepEqual(new Set(followup.specs.map((spec) => spec.file)), fixtures);
@@ -22,7 +24,15 @@ test('follow-up fixtures run once in isolation while persisted journeys remain i
   for (const isolated of [false, true]) {
     const docker = discover('playwright.config.ts', isolated);
     assert.equal(
-      docker.specs.some((spec) => fixtures.has(spec.file)),
+      docker.specs.some((spec) =>
+        spec.titlePath.some((parent) =>
+          [
+            'sponsorship-followup.spec.ts',
+            'sponsorship-moderation-followup.spec.ts',
+            'sponsor-media-upload-feedback.spec.ts'
+          ].includes(parent)
+        )
+      ),
       false
     );
     for (const file of [

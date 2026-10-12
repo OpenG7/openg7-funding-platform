@@ -2,6 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { FundingHomeController } from '../dist/apps/funding-web/src/app/features/funding/services/funding-home-controller.js';
+import {
+  CheckoutOfferChangedError,
+  CheckoutReconciliationRequiredError
+} from '../dist/apps/funding-web/src/app/features/funding/services/checkout-error.js';
 
 const report = (overrides = {}) => ({
   data_source: 'database',
@@ -473,6 +477,47 @@ test('checkout rejection reports failure and permits a later submission without 
   assert.equal(f.controller.hasTransparencySnapshot(), false);
   await f.controller.supportProject(submission);
   assert.equal(calls, 2);
+});
+
+test('the page forwards the exact offer snapshot and separates changed terms from payment verification', async (t) => {
+  const f = fixture(t);
+  const offer = {
+    version: 'synthetic-offer-v1',
+    fingerprint: 'a'.repeat(64),
+    amountMinor: 5000,
+    currency: 'CAD',
+    benefits: []
+  };
+  const business = {
+    amount: 50,
+    consent: {
+      ...submission.consent,
+      contributionType: 'sponsorship_interest',
+      offerAcceptance: {
+        version: offer.version,
+        fingerprint: offer.fingerprint
+      }
+    },
+    offerQuote: offer
+  };
+  f.ports.funding.startCheckout = async (amount, consent, snapshot) => {
+    assert.equal(amount, business.amount);
+    assert.equal(consent, business.consent);
+    assert.equal(snapshot, offer);
+    throw new CheckoutOfferChangedError();
+  };
+  await f.controller.supportProject(business);
+  assert.equal(f.controller.checkoutOfferChanged(), true);
+  assert.equal(f.controller.checkoutRequiresVerification(), false);
+  assert.equal(f.controller.loadingState(), 'error');
+  assert.deepEqual(f.navigations, []);
+  assert.equal(f.controller.hasTransparencySnapshot(), false);
+  f.ports.funding.startCheckout = async () => {
+    throw new CheckoutReconciliationRequiredError();
+  };
+  await f.controller.supportProject(business);
+  assert.equal(f.controller.checkoutOfferChanged(), false);
+  assert.equal(f.controller.checkoutRequiresVerification(), true);
 });
 
 test('instances keep snapshots, submission feedback and configuration isolated', async (t) => {

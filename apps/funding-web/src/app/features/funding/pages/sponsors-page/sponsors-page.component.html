@@ -141,6 +141,11 @@
                 decoding="async"
                 (error)="imageFailed(photo.url)"
               />
+              @if (photo.credit) {
+                <figcaption data-og7="sponsor-photo-credit">
+                  {{ photo.credit }}
+                </figcaption>
+              }
             </figure>
           }
           <div class="sponsor-logo">
@@ -161,6 +166,9 @@
             }
           </div>
           <div class="sponsor-body">
+            @if (logoCredit(sponsor); as credit) {
+              <p data-og7="sponsor-logo-credit">{{ credit }}</p>
+            }
             <h3>{{ sponsor.company_name }}</h3>
             <small>{{ amountLabel(sponsor) }}</small>
             <p *ngIf="sponsor.public_summary">

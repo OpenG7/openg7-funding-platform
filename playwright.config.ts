@@ -12,6 +12,8 @@ const baseURL =
 // Session creation is allowed. Real business mutations run once on desktop
 // Chromium; replaying them on a second browser would reuse modified fixtures.
 const MOBILE_TAG = /@mobile/;
+// Intercepted offer fixtures run in their own CI suite on the built Web.
+const OFFER_UI_TAG = /@offer-ui/;
 
 export default defineConfig({
   testDir: './tests/playwright',
@@ -60,7 +62,7 @@ export default defineConfig({
       // database-mutating specs are not needlessly duplicated.
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
-      grepInvert: MOBILE_TAG
+      grepInvert: [MOBILE_TAG, OFFER_UI_TAG]
     },
     {
       // Public/admin reads or isolated fixtures on an emulated
@@ -69,7 +71,8 @@ export default defineConfig({
       // download and no change to the install script.
       name: 'mobile-chrome',
       use: { ...devices['Pixel 5'] },
-      grep: MOBILE_TAG
+      grep: MOBILE_TAG,
+      grepInvert: OFFER_UI_TAG
     }
   ]
 });

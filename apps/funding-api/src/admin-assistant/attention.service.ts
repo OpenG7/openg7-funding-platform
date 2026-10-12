@@ -12,7 +12,7 @@
 import type { AdminAssistantSummary } from '@openg7/funding-core';
 import type { Pool } from 'pg';
 
-import { resolveSponsorshipSocialChannels } from '../sponsorship-benefits.js';
+import { pendingSponsorshipSocialChannels } from '../../../../packages/funding-core/src/index.js';
 
 import type { BuildAdminAssistantSummaryOptions } from './attention/contracts.js';
 import { loadAttentionDataset } from './attention/dataset.js';
@@ -28,6 +28,7 @@ export { DEFAULT_MAX_ATTENTION_ITEMS } from './attention/shared.js';
 export { buildAttentionItems } from './attention/compose.js';
 export {
   detectSponsorshipInfoItems,
+  detectSponsorshipCommitmentItems,
   detectSponsorshipReviewItems
 } from './attention/sponsorship.detectors.js';
 export {
@@ -55,7 +56,7 @@ export {
 
 export { activeDraftChannels } from '../sponsorship-publication-coverage.js';
 
-export const promisedSocialChannels = resolveSponsorshipSocialChannels;
+export const promisedSocialChannels = pendingSponsorshipSocialChannels;
 
 export const buildAdminAssistantSummary = async (
   pool: Pool | null,

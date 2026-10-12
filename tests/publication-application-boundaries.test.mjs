@@ -19,7 +19,12 @@ import {
 } from '../dist/apps/funding-api/src/publication-automation/media.js';
 import { ready } from '../dist/apps/funding-api/src/publication-automation/preflight.js';
 import { digest } from '../dist/apps/funding-api/src/publication-automation/policy.js';
+import { preparePublicationImage } from '../dist/apps/funding-api/src/publication-image.service.js';
 import { moderationQueryFixture } from './support/moderation-query-fixture.mjs';
+import {
+  qualifyCommercialFixture,
+  fulfilmentQueryFixture
+} from './support/publication-fulfilment-query-fixture.mjs';
 
 const source = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -48,19 +53,40 @@ const currentFacts = {
   destination_eligible: true,
   review_changed: false
 };
+const imageBytes = await sharp({
+  create: { width: 2, height: 2, channels: 3, background: '#345678' }
+})
+  .png()
+  .toBuffer();
+const prepared = await preparePublicationImage(imageBytes);
 const media = {
   id: '33333333-3333-4333-8333-333333333333',
   url: '/api/public/sponsor-media/33333333-3333-4333-8333-333333333333',
   alt: 'Présentation approuvée',
   key: 'private/approved-image',
-  version: '2030-01-01 12:00:00.123456+00'
+  version: '2030-01-01 12:00:00.123456+00',
+  hash: digest(imageBytes),
+  usage: {
+    state: 'confirmed',
+    channels: ['website', 'facebook', 'linkedin'],
+    targets: ['openg7', 'openg20'],
+    transformations: ['technical'],
+    credit: null,
+    restrictions: null
+  },
+  restrictionsReviewed: false
+};
+const mediaSnapshot = {
+  ...media,
+  derivedHash: prepared.sha256,
+  transform: prepared.transform
 };
 const feed = {
   id: 'openg7:facebook',
   configured: true,
   connection: 'ready',
   accountId: 'synthetic-account',
-  mode: 'simulate'
+  mode: 'mock'
 };
 const delivery = {
   id: '44444444-4444-4444-8444-444444444444',
@@ -75,15 +101,25 @@ const delivery = {
   media_id: null,
   media_snapshot: null
 };
+const approvedCommercial = { rows: [{ ...delivery, status: 'approved' }] };
+qualifyCommercialFixture(approvedCommercial);
+delivery.obligation_snapshot = approvedCommercial.rows[0].obligation_snapshot;
 
 function sequenceDb(...results) {
   const calls = [];
+  const commercial = structuredClone(approvedCommercial);
   return {
     calls,
     async query(sql, parameters) {
       const moderation = moderationQueryFixture(sql, [source.contribution_id]);
       if (moderation) return moderation;
       calls.push({ sql, parameters });
+      const fulfilment = fulfilmentQueryFixture(
+        commercial,
+        sql.replace(/\s+/g, ' ').trim(),
+        parameters
+      );
+      if (fulfilment) return fulfilment;
       assert.ok(results.length, 'Unexpected extra database query');
       const rows = results.shift();
       return { rows, rowCount: rows.length };
@@ -290,7 +326,7 @@ test('media selection retains its public projection and database timestamp text'
     await mediaRecord(sequenceDb([media]), media.id),
     controlled
   );
-  const bytes = Buffer.from('Synthetic image bytes');
+  const bytes = imageBytes;
   const storage = {
     async readPrivateObject(key) {
       assert.equal(key, media.key);
@@ -299,15 +335,15 @@ test('media selection retains its public projection and database timestamp text'
   };
   assert.deepEqual(await resolveMedia(sequenceDb([media]), storage, media.id), {
     ...controlled,
-    hash: digest(bytes)
+    derivedHash: prepared.sha256,
+    transform: prepared.transform
   });
 });
 
 test('normalizing a legacy media URL requires a fresh publication review and does not alter its snapshot', async () => {
   const snapshot = {
     ...media,
-    url: 'https://cdn.example.test/legacy.webp',
-    hash: digest('original')
+    url: 'https://cdn.example.test/legacy.webp'
   };
   const record = await mediaRecord(
     sequenceDb([{ ...media, url: snapshot.url }]),
@@ -370,7 +406,7 @@ test('batch media scope is applied in database selection and rejects foreign ass
     /s\.batch_id=\$2::uuid AND s\.contribution_id=m\.contribution_id/
   );
   const ownDb = sequenceDb([media]);
-  const bytes = Buffer.from('Approved batch image');
+  const bytes = imageBytes;
   assert.deepEqual(
     await resolveMedia(
       ownDb,
@@ -378,7 +414,7 @@ test('batch media scope is applied in database selection and rejects foreign ass
       media.id,
       delivery.batch_id
     ),
-    { ...media, hash: digest(bytes) }
+    mediaSnapshot
   );
   assert.deepEqual(ownDb.calls[0].parameters, [media.id, delivery.batch_id]);
 });
@@ -399,7 +435,7 @@ test('scope-only approval check allows pending dossiers and skips editorial or a
 });
 
 test('media metadata comparison is exact, including submillisecond timestamp versions', () => {
-  const snapshot = { ...media, hash: digest('original') };
+  const snapshot = mediaSnapshot;
   assert.equal(mediaSnapshotIssue(media.id, snapshot, { ...media }), null);
   assert.equal(mediaSnapshotIssue(null, null, undefined), null);
   assert.equal(
@@ -412,7 +448,9 @@ test('media metadata comparison is exact, including submillisecond timestamp ver
     { alt: `${media.alt} ` },
     { url: '/media/replacement' },
     { key: 'private/replacement' },
-    { hash: snapshot.hash }
+    { hash: digest('replacement') },
+    { usage: { ...media.usage, state: 'withdrawn' } },
+    { restrictionsReviewed: true }
   ])
     assert.equal(
       mediaSnapshotIssue(media.id, snapshot, { ...media, ...change }),
@@ -519,15 +557,11 @@ test('preflight refuses a complete source snapshot whose final message lost its 
 });
 
 test('preflight blocks a previously authorized foreign image before reading bytes and permits an image from its batch', async () => {
-  const bytes = await sharp({
-    create: { width: 2, height: 2, channels: 3, background: '#345678' }
-  })
-    .png()
-    .toBuffer();
+  const bytes = imageBytes;
   const withImage = {
     ...delivery,
     media_id: media.id,
-    media_snapshot: { ...media, hash: digest(bytes) }
+    media_snapshot: mediaSnapshot
   };
   const foreignDb = authorizedDb({ mediaRows: [] });
   await assert.rejects(
@@ -561,12 +595,8 @@ test('preflight blocks a previously authorized foreign image before reading byte
 });
 
 test('preflight detects changed media bytes on either storage read before converting the approved image', async () => {
-  const bytes = await sharp({
-    create: { width: 2, height: 2, channels: 3, background: '#345678' }
-  })
-    .png()
-    .toBuffer();
-  const snapshot = { ...media, hash: digest(bytes) };
+  const bytes = imageBytes;
+  const snapshot = mediaSnapshot;
   const editorial = {
     ...delivery,
     batch_id: null,

@@ -16,7 +16,8 @@ import {
   SponsorshipDetailsResult,
   SponsorshipFollowupDetailsRequest,
   SponsorshipFollowupResponse,
-  SponsorshipMediaResponse
+  SponsorshipMediaResponse,
+  SponsorshipOfferQuote
 } from '@openg7/funding-core';
 import { FundingProjectConfig } from '@openg7/funding-models';
 
@@ -26,7 +27,8 @@ import { OPENG7_FUNDING_CONFIG } from '../config/openg7-funding.config.js';
 import { CheckoutAttempts } from './checkout-attempts.js';
 import {
   CheckoutReconciliationRequiredError,
-  CheckoutCharterChangedError
+  CheckoutCharterChangedError,
+  CheckoutOfferChangedError
 } from './checkout-error.js';
 import { resolveFundingApiBaseUrl } from './funding-api-base-url.js';
 import { FundingPublicClient } from './funding-public.client.js';
@@ -54,7 +56,8 @@ export class FundingService {
    */
   async startCheckout(
     amount: number,
-    consent: CheckoutConsentPayload
+    consent: CheckoutConsentPayload,
+    offerQuote?: SponsorshipOfferQuote
   ): Promise<CheckoutResult> {
     const request = {
       amount,
@@ -69,26 +72,39 @@ export class FundingService {
       nonCharityAcknowledged: consent.nonCharityAcknowledged,
       ...(consent.charterAcceptance
         ? { charterAcceptance: consent.charterAcceptance }
+        : {}),
+      ...(consent.contributionType === 'sponsorship_interest' &&
+      consent.offerAcceptance
+        ? { offerAcceptance: consent.offerAcceptance }
+        : {}),
+      ...(consent.contributionType === 'sponsorship_interest' &&
+      consent.offerFormats
+        ? { offerFormats: consent.offerFormats }
         : {})
     };
 
     try {
-      return await this.checkoutAttempts.start(request, async (attempt) => {
-        const result = await this.publicClient.startCheckout(attempt);
-        if (
-          result.status === 'mocked' &&
-          !this.canUseDevelopmentCheckoutFallback()
-        ) {
-          throw new Error(
-            'Mock checkout is disabled outside local development.'
-          );
-        }
-        return result;
-      });
+      return await this.checkoutAttempts.start(
+        request,
+        async (attempt) => {
+          const result = await this.publicClient.startCheckout(attempt);
+          if (
+            result.status === 'mocked' &&
+            !this.canUseDevelopmentCheckoutFallback()
+          ) {
+            throw new Error(
+              'Mock checkout is disabled outside local development.'
+            );
+          }
+          return result;
+        },
+        offerQuote
+      );
     } catch (error) {
       if (
         error instanceof CheckoutReconciliationRequiredError ||
-        error instanceof CheckoutCharterChangedError
+        error instanceof CheckoutCharterChangedError ||
+        error instanceof CheckoutOfferChangedError
       )
         throw error;
       throw new Error('Checkout could not be started.');
@@ -100,6 +116,25 @@ export class FundingService {
   }
   getSponsorshipCharter() {
     return this.publicClient.sponsorshipCharter();
+  }
+  getSponsorshipOffer(
+    amountMinor: number,
+    currency: string,
+    signal?: AbortSignal,
+    formats?: import('@openg7/funding-core').SponsorshipOfferFormatOptions
+  ) {
+    return this.publicClient.sponsorshipOffer(
+      amountMinor,
+      currency,
+      signal,
+      formats
+    );
+  }
+  getRetainedSponsorshipOffer(amountMinor: number, currency: string) {
+    return this.checkoutAttempts.retainedSponsorshipOffer(
+      amountMinor,
+      currency
+    );
   }
   getSponsorshipModeration(token: string) {
     return this.followupClient.moderation(token);
@@ -212,13 +247,15 @@ export class FundingService {
     token: string,
     kind: SponsorMediaKind,
     file: File,
-    altText?: string
+    altText?: string,
+    usage?: import('@openg7/funding-core').SponsorMediaUsageRights
   ): Promise<SponsorMediaUploadResult> {
     return this.followupClient.uploadSponsorshipMedia(
       token,
       kind,
       file,
-      altText
+      altText,
+      usage
     );
   }
 
@@ -226,6 +263,16 @@ export class FundingService {
     payload: SponsorMediaDeleteRequest
   ): Promise<SponsorMediaDeleteResult> {
     return this.followupClient.deleteSponsorshipMedia(payload);
+  }
+  updateSponsorshipMediaUsage(
+    payload: import('@openg7/funding-core').SponsorMediaUsageRequest
+  ) {
+    return this.followupClient.updateSponsorshipMediaUsage(payload);
+  }
+  requestSponsorshipMediaPreference(
+    payload: import('@openg7/funding-core').SponsorMediaPreferenceRequest
+  ) {
+    return this.followupClient.requestSponsorshipMediaPreference(payload);
   }
 
   private canUseDevelopmentCheckoutFallback(): boolean {

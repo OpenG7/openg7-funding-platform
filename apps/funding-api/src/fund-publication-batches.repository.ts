@@ -20,6 +20,8 @@ import { getAdminBackofficePresence } from './fund-admin.persistence.js';
 import { getPublicationDraftById } from './fund-publication-drafts.repository.js';
 import { schedulePublicationBatch } from './fund-publication-batch-scheduling.persistence.js';
 import { lockPublicationBatchCapacity } from './fund-publication-capacity.persistence.js';
+import { publicationMembershipFits } from './fund-publication-rendering.persistence.js';
+import { publicationDraftFormatSql } from './fund-publication-draft-obligations.persistence.js';
 import { withPostgresTransaction } from './postgres-transaction.js';
 import { ModerationError } from './moderation/policy.js';
 import { assertModerationApproved } from './moderation/repository.js';
@@ -35,6 +37,7 @@ const publicationBatchSelect = `
   SELECT
     batch.id::text AS id,
     batch.channel,
+    batch.publication_format,
     batch.capacity::text AS capacity,
     batch.status,
     batch.slot_id::text AS slot_id,
@@ -182,6 +185,13 @@ export const assignDraftToPublicationBatch = async (
       'SELECT id FROM sponsor_publication_drafts WHERE id=$1::uuid FOR UPDATE',
       [input.draftId]
     );
+    if (
+      !(await publicationMembershipFits(client, {
+        batchId: input.batchId,
+        draftIds: [input.draftId]
+      }))
+    )
+      return false;
     const result = await client.query(
       `
       WITH target_batch AS (
@@ -249,7 +259,13 @@ export const assignDraftToPublicationBatch = async (
     `,
       [input.draftId, input.batchId]
     );
-    return (result.rowCount ?? 0) > 0;
+    if (!result.rowCount) return false;
+    await client.query(
+      `UPDATE sponsor_publication_batches SET publication_format=COALESCE(publication_format,
+      (SELECT ${publicationDraftFormatSql()} FROM sponsor_publication_drafts d WHERE d.id=$1::uuid AND d.batch_id=$2::uuid)) WHERE id=$2::uuid`,
+      [input.draftId, input.batchId]
+    );
+    return true;
   });
 
   return {

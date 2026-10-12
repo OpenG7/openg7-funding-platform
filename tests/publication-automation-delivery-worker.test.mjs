@@ -11,6 +11,14 @@ import {
 } from '../dist/apps/funding-api/src/publication-automation/delivery-outcomes.js';
 import { PublicationAutomationError } from '../dist/apps/funding-api/src/publication-automation/policy.js';
 import { moderationQueryFixture } from './support/moderation-query-fixture.mjs';
+import {
+  accountQueryFixture,
+  ownsAccountFixture
+} from './support/publication-account-query-fixture.mjs';
+import {
+  qualifyCommercialFixture,
+  fulfilmentQueryFixture
+} from './support/publication-fulfilment-query-fixture.mjs';
 
 const now = new Date('2030-10-03T12:00:00Z');
 const delivery = (id = 'synthetic-delivery', overrides = {}) => ({
@@ -45,6 +53,7 @@ function fixture(options = {}) {
     audits: [],
     projections: []
   };
+  qualifyCommercialFixture(state);
   const feed = {
     id: 'openg7:facebook',
     paused: false,
@@ -71,6 +80,21 @@ function fixture(options = {}) {
     const text = sql.replace(/\s+/g, ' ').trim();
     events.push({ type: 'query', text, values, transactional });
     const result = (rows = []) => ({ rows, rowCount: rows.length });
+    const account = accountQueryFixture(target, text, values, clock);
+    if (account) return account;
+    const fulfilment = fulfilmentQueryFixture(target, text, values);
+    if (fulfilment) return fulfilment;
+    if (text.startsWith('SELECT to_regclass('))
+      return result([
+        {
+          has_publication_drafts: true,
+          has_publication_batches: true,
+          has_publication_slots: true,
+          has_social_publication_jobs: true,
+          has_audit_log: true,
+          has_fund_allocations: true
+        }
+      ]);
     const moderation = moderationQueryFixture(text);
     if (moderation) return moderation;
     if (text.startsWith('UPDATE moderation_remote_removals')) return result();
@@ -92,12 +116,12 @@ function fixture(options = {}) {
       target.audits.push({
         actor: values[0],
         action: values[1],
-        id: values[2],
-        metadata: JSON.parse(values[3])
+        id: values.length === 6 ? values[3] : values[2],
+        metadata: JSON.parse(values.length === 6 ? values[5] : values[3])
       });
       if (values[1] === 'publication_automation.claim')
         await options.onClaim?.(controls);
-      return result();
+      return values.length === 6 ? { rows: [], rowCount: 1 } : result();
     }
     if (text.startsWith('SELECT metadata FROM admin_audit_log'))
       return result(
@@ -123,6 +147,26 @@ function fixture(options = {}) {
     }
     if (text.startsWith('SELECT paused FROM publication_feeds'))
       return result([{ paused: feed.paused }]);
+    if (text.startsWith('SELECT * FROM sponsor_publication_batches'))
+      return result([
+        { id: values[0], slot_id: null, status: 'scheduled', capacity: 10 }
+      ]);
+    if (text.startsWith('SELECT 1 FROM social_publication_jobs'))
+      return result();
+    if (text.startsWith('SELECT d.id,d.contribution_id'))
+      return result(
+        target.rows
+          .find((row) => row.batch_id === values[0])
+          ?.source_snapshot.map((source) => ({
+            ...source,
+            status: 'scheduled',
+            sponsor_feed_status: 'planned',
+            public_display_consent: true,
+            sponsor_review_status: 'approved',
+            payment_status: 'paid',
+            destination_eligible: true
+          })) ?? []
+      );
     if (
       text.startsWith(
         'SELECT slot_id::text AS slot_id FROM sponsor_publication_batches'
@@ -159,7 +203,8 @@ function fixture(options = {}) {
               row.status === 'publishing' &&
               row.version === values[1] &&
               row.approved_at &&
-              row.lease_until > clock
+              row.lease_until > clock &&
+              ownsAccountFixture(target, row, clock)
           )
         )
       );
@@ -169,6 +214,7 @@ function fixture(options = {}) {
         .filter(
           (row) =>
             row.status === 'approved' &&
+            !values[1]?.includes(row.id) &&
             !feed.paused &&
             row.scheduled_at <= values[0] &&
             (!row.next_attempt_at || row.next_attempt_at <= values[0])
@@ -187,7 +233,7 @@ function fixture(options = {}) {
         row.error_code = 'LEASE_EXPIRED';
         row.version++;
       }
-      return result(stale.map(({ id }) => ({ id })));
+      return result(structuredClone(stale));
     }
     if (text.startsWith('UPDATE publication_deliveries')) {
       const row = target.rows.find((row) => row.id === values[0]);
@@ -196,7 +242,8 @@ function fixture(options = {}) {
         row.status === 'publishing' &&
         row.version === version &&
         row.approved_at &&
-        row.lease_until > clock;
+        row.lease_until > clock &&
+        ownsAccountFixture(target, row, clock);
       if (text.includes("SET status='publishing'")) {
         row.status = 'publishing';
         row.attempts++;
@@ -760,8 +807,11 @@ test('completion updates sponsorship projections only for live deliveries', asyn
       'synthetic-reviewer'
     );
     assert.equal(f.state.rows[0].status, 'published');
-    assert.equal(f.state.audits[0].actor, 'synthetic-reviewer');
-    assert.equal(f.state.audits[0].metadata.mode, mode);
+    const publishedAudit = f.state.audits.find(
+      (audit) => audit.action === 'publication_automation.published'
+    );
+    assert.equal(publishedAudit.actor, 'synthetic-reviewer');
+    assert.equal(publishedAudit.metadata.mode, mode);
     assert.deepEqual(
       f.state.projections.map(({ table }) => table),
       mode === 'live'

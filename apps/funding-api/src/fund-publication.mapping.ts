@@ -44,6 +44,7 @@ interface PublicationCapacityRow {
 export interface PublicationBatchRow extends PublicationCapacityRow {
   readonly id: string;
   readonly channel: SponsorFeedChannel;
+  readonly publication_format?: AdminPublicationBatchRecord['publicationFormat'];
   readonly status: PublicationBatchStatus;
   readonly slot_id: string | null;
   readonly scheduled_at: string | null;
@@ -143,6 +144,9 @@ export const mapPublicationBatchRow = (
   return {
     id: row.id,
     channel: row.channel,
+    ...(row.publication_format
+      ? { publicationFormat: row.publication_format }
+      : {}),
     capacity,
     status: row.status,
     slotId: row.slot_id,

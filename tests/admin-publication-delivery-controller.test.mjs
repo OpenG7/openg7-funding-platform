@@ -1,10 +1,26 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
+import { registerHooks } from 'node:module';
 import { signal } from '@angular/core';
 import { moderationDecision } from './support/moderation-ui-fixture.mjs';
 
-import { PublicationDeliveryController } from '../dist/apps/funding-web/src/app/features/funding/pages/admin-publication-automation-page/publication-delivery-controller.js';
+const workspaceHook = registerHooks({
+  resolve(specifier, context, nextResolve) {
+    return specifier === '@openg7/funding-core'
+      ? {
+          url: new URL(
+            '../dist/packages/funding-core/src/index.js',
+            import.meta.url
+          ).href,
+          shortCircuit: true
+        }
+      : nextResolve(specifier, context);
+  }
+});
+const { PublicationDeliveryController } =
+  await import('../dist/apps/funding-web/src/app/features/funding/pages/admin-publication-automation-page/publication-delivery-controller.js');
+workspaceHook.deregister();
 
 const deferred = () => {
   let resolve;
@@ -76,6 +92,10 @@ const fixture = (t) => {
         return [];
       },
       getSavedAdminToken: () => 'synthetic-session',
+      publicationImagePreview: async (id, version, hash) => {
+        calls.previews.push({ id, version, hash });
+        return new Blob(['exact JPEG'], { type: 'image/jpeg' });
+      },
       getSponsorMediaPreview: async (token, id) => {
         calls.previews.push({ token, id });
         return new Blob(['synthetic private image']);
@@ -93,6 +113,169 @@ const fixture = (t) => {
   t.after(() => controller.dispose());
   return { controller, ports, calls, created, revoked };
 };
+
+test('derived portraits preserve their exact photos and format while the source mediaId remains null', async (t) => {
+  const f = fixture(t),
+    photos = [
+      {
+        contributionId: 'synthetic-sponsor',
+        assetId: 'own-photo',
+        assetVersion: 'photo-v1'
+      }
+    ];
+  f.controller.open(
+    delivery({
+      mediaId: 'synthetic-delivery',
+      mediaDerivedHash: 'a'.repeat(64),
+      publicationFormat: 'individual_portrait',
+      photoSelections: photos,
+      sponsors: [sponsor()]
+    })
+  );
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(f.controller.edit.mediaId, '');
+  assert.equal(f.controller.previewExact(), true);
+  assert.equal(f.controller.dirty(), false);
+  f.controller.edit.message = 'Edited portrait caption';
+  await f.controller.save();
+  assert.equal(f.calls.commands[0].command.mediaId, null);
+  assert.equal(
+    f.calls.commands[0].command.publicationFormat,
+    'individual_portrait'
+  );
+  assert.deepEqual(f.calls.commands[0].command.photoSelections, photos);
+});
+test('composite photo choices use the scoped owner/version and clear the old exact preview before a new save', async (t) => {
+  const f = fixture(t);
+  f.controller.open(
+    delivery({
+      kind: 'sponsorship',
+      sponsors: [sponsor(), sponsor({ id: 'second-sponsor' })]
+    })
+  );
+  await Promise.resolve();
+  f.controller.media.set([
+    {
+      id: 'first-photo',
+      contributionId: 'synthetic-sponsor',
+      version: 'photo-v1',
+      kind: 'supporting_image',
+      transformations: ['technical', 'composite'],
+      url: '',
+      alt: 'First',
+      company: 'First'
+    },
+    {
+      id: 'second-photo',
+      contributionId: 'second-sponsor',
+      version: 'photo-v2',
+      kind: 'supporting_image',
+      transformations: ['technical', 'composite'],
+      url: '',
+      alt: 'Second',
+      company: 'Second'
+    }
+  ]);
+  f.controller.changeFormat('collective_composite');
+  f.controller.selectPhoto('synthetic-sponsor', 'second-photo');
+  assert.equal(f.controller.mediaSelectionValid(), false);
+  assert.deepEqual(f.controller.edit.photoSelections, []);
+  f.controller.selectPhoto('synthetic-sponsor', 'first-photo');
+  f.controller.selectPhoto('second-sponsor', 'second-photo');
+  assert.equal(f.controller.mediaSelectionValid(), true);
+  assert.equal(f.controller.previewExact(), false);
+  await f.controller.save();
+  assert.deepEqual(f.calls.commands[0].command.photoSelections, [
+    {
+      contributionId: 'second-sponsor',
+      assetId: 'second-photo',
+      assetVersion: 'photo-v2'
+    },
+    {
+      contributionId: 'synthetic-sponsor',
+      assetId: 'first-photo',
+      assetVersion: 'photo-v1'
+    }
+  ]);
+  f.controller.changeFormat('image_collection');
+  assert.equal(f.controller.edit.publicationFormat, 'collective_composite');
+});
+test('a source preview alone never authorizes sending an unprepared image', async (t) => {
+  const f = fixture(t);
+  f.controller.open(delivery({ mediaId: 'source-image' }));
+  await Promise.resolve();
+  await Promise.resolve();
+  f.controller.approved = true;
+  assert.ok(f.controller.previewUrl());
+  assert.equal(f.controller.previewExact(), false);
+  await f.controller.approve();
+  assert.equal(f.calls.commands.length, 0);
+});
+
+test('an incomplete derived draft never authorizes approval or substitutes an available photo', async (t) => {
+  const f = fixture(t);
+  f.ports.admin.publicationMedia = async () => [
+    {
+      id: 'own-photo',
+      contributionId: 'synthetic-sponsor',
+      version: 'photo-v1',
+      kind: 'supporting_image',
+      transformations: ['technical', 'portrait'],
+      company: 'Synthetic company',
+      alt: 'Available owned photo',
+      url: '/api/public/sponsor-media/own-photo'
+    }
+  ];
+  f.controller.open(
+    delivery({
+      publicationFormat: 'individual_portrait',
+      photoSelections: [],
+      sponsors: [sponsor({ reviewStatus: 'approved' })]
+    })
+  );
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(f.controller.media().length, 1);
+  assert.deepEqual(f.controller.edit.photoSelections, []);
+  assert.equal(f.controller.previewExact(), false);
+  assert.equal(f.controller.previewUrl(), '');
+  f.controller.approved = true;
+  await f.controller.approve();
+  assert.equal(f.calls.commands.length, 0);
+  assert.deepEqual(f.calls.previews, []);
+});
+
+test('a retained uncertain account can be reviewed without discarding its moderation block', async (t) => {
+  const f = fixture(t);
+  f.controller.open(
+    delivery({
+      status: 'blocked',
+      accountRecoveryRequired: true,
+      errorCode: 'MODERATION_RESTRICTED'
+    })
+  );
+  f.controller.absenceChecked = true;
+  f.controller.absenceReason = 'Synthetic account history verified as absent';
+  f.controller.confirmAbsent();
+  assert.equal(f.calls.commands.at(-1).command.action, 'confirm-absent');
+  assert.equal(f.controller.selected().errorCode, 'MODERATION_RESTRICTED');
+});
+
+test('visibility reads require confirmation for the exact live published delivery', async (t) => {
+  const f = fixture(t);
+  f.controller.open(delivery({ status: 'published', mode: 'mock' }));
+  await f.controller.checkVisibility();
+  assert.equal(f.calls.commands.length, 0);
+  f.controller.open(delivery({ status: 'published', mode: 'live' }));
+  await f.controller.checkVisibility();
+  const command = f.calls.commands.at(-1).command;
+  assert.equal(command.action, 'check-visibility');
+  assert.equal(command.id, 'synthetic-delivery');
+  assert.equal(command.version, 7);
+  assert.equal(command.confirmation, command.id);
+  assert.match(command.requestId, /^[a-f0-9-]{36}$/);
+});
 
 test('approval binds the displayed delivery version and pending sponsor dossier versions', async (t) => {
   const f = fixture(t);
@@ -193,16 +376,23 @@ test('unchecked, dirty, locked, incomplete sponsor and non-draft deliveries cann
   }
 });
 
-test('private media must finish the authenticated preview before the exact draft can be approved', async (t) => {
+test('private media must finish the verified exact JPEG preview before the exact draft can be approved', async (t) => {
   const f = fixture(t);
   const image = deferred();
-  f.ports.admin.getSponsorMediaPreview = (token, id) => {
-    f.calls.previews.push({ token, id });
+  let preview;
+  const loadPreview = f.controller.loadPreview.bind(f.controller);
+  f.controller.loadPreview = (id) => {
+    preview = loadPreview(id);
+    return preview;
+  };
+  f.ports.admin.publicationImagePreview = (id, version, hash) => {
+    f.calls.previews.push({ id, version, hash });
     return image.promise;
   };
   f.controller.open(
     delivery({
       mediaId: 'synthetic-private',
+      mediaDerivedHash: 'a'.repeat(64),
       mediaUrl: 'https://example.test/private.png',
       mediaAlt: 'Private reviewed photo'
     })
@@ -211,10 +401,11 @@ test('private media must finish the authenticated preview before the exact draft
   await f.controller.approve();
   assert.equal(f.calls.commands.length, 0);
   assert.deepEqual(f.calls.previews, [
-    { token: 'synthetic-session', id: 'synthetic-private' }
+    { id: 'synthetic-delivery', version: 7, hash: 'a'.repeat(64) }
   ]);
   image.resolve(new Blob(['private']));
-  await image.promise;
+  await preview;
+  assert.equal(f.controller.previewExact(), true);
   await f.controller.approve();
   assert.equal(f.calls.commands.length, 1);
   assert.deepEqual(f.controller.mediaPreview(), {
@@ -306,7 +497,11 @@ test('late media catalog responses and errors are ignored after navigation and d
 test('assigned images omitted from the catalog do not block exact approval of a complete pending sponsor', async (t) => {
   const f = fixture(t);
   f.controller.open(
-    delivery({ mediaId: 'assigned-private-image', sponsors: [sponsor()] })
+    delivery({
+      mediaId: 'assigned-private-image',
+      mediaDerivedHash: 'a'.repeat(64),
+      sponsors: [sponsor()]
+    })
   );
   await Promise.resolve();
   await Promise.resolve();

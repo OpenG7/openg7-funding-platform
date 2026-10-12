@@ -25,7 +25,7 @@
           }}</span
         >
       </p>
-      @if (job.status === 'uncertain') {
+      @if (job.status === 'uncertain' || job.accountRecoveryRequired) {
         <p class="alert">
           {{ 'admin.publicationAutomation.uncertain' | translate }}
         </p>
@@ -128,6 +128,14 @@
         <p>{{ c.dateLabel(job.scheduledAt) }}</p>
         @if (c.mediaPreview(); as image) {
           <img class="preview-image" [src]="image.url" [alt]="image.alt" />
+          <p data-og7="publication-image-preparation">
+            {{
+              (c.previewExact()
+                ? 'funding.followup.media.exactJpeg'
+                : 'funding.followup.media.sourcePreview'
+              ) | translate
+            }}
+          </p>
         }
         @if (c.editable()) {
           <button
@@ -187,26 +195,126 @@
               [ngModel]="c.edit.scheduledAt"
               (ngModelChange)="c.changeEdit('scheduledAt', $event)"
           /></label>
-          <label
-            >{{ 'admin.publicationAutomation.image' | translate
-            }}<select
-              name="media"
-              [ngModel]="c.edit.mediaId"
-              (ngModelChange)="c.changeEdit('mediaId', $event)"
-            >
-              <option value="">
-                {{ 'admin.publicationAutomation.noImage' | translate }}
-              </option>
-              @for (item of c.media(); track item.id) {
-                <option [value]="item.id">
-                  {{ item.company }} · {{ item.alt }}
-                </option>
+          @if (c.selected()?.kind === 'sponsorship') {
+            <label
+              >{{ 'funding.offer.format' | translate }}
+              <select
+                name="publicationFormat"
+                [ngModel]="c.edit.publicationFormat"
+                (ngModelChange)="c.changeFormat($event)"
+                data-og7="publication-format"
+              >
+                @for (format of c.formats; track format) {
+                  <option
+                    [value]="format"
+                    [disabled]="!c.formatAvailable(format)"
+                  >
+                    {{ 'funding.offer.formats.' + format | translate }}
+                  </option>
+                }
+              </select>
+            </label>
+          }
+          @if (c.derived(c.edit.publicationFormat)) {
+            <p>
+              {{ 'funding.followup.media.usage.chooseOwnPhoto' | translate }}
+            </p>
+            @for (sponsor of c.selected()?.sponsors ?? []; track sponsor.id) {
+              <label
+                >{{ sponsor.name }}
+                <select
+                  [name]="'photo-' + sponsor.id"
+                  [ngModel]="c.photoSelection(sponsor.id)"
+                  (ngModelChange)="c.selectPhoto(sponsor.id, $event)"
+                  [attr.data-og7-id]="'publication-photo:' + sponsor.id"
+                >
+                  <option value="">
+                    {{ 'funding.followup.media.usage.choosePhoto' | translate }}
+                  </option>
+                  @for (item of c.photoOptions(sponsor.id); track item.id) {
+                    <option [value]="item.id">
+                      {{ item.alt }}{{ item.credit ? ' · ' + item.credit : '' }}
+                    </option>
+                  }
+                </select>
+                @for (item of c.photoOptions(sponsor.id); track item.id) {
+                  @if (
+                    item.id === c.photoSelection(sponsor.id) && item.credit
+                  ) {
+                    <p data-og7="publication-required-credit">
+                      {{ 'funding.followup.media.requiredCredit' | translate }}
+                      : {{ item.credit }}
+                    </p>
+                  }
+                }
+              </label>
+              @if (!c.photoOptions(sponsor.id).length) {
+                <p role="status">
+                  {{
+                    'funding.followup.media.usage.noQualifiedPhoto' | translate
+                  }}
+                </p>
               }
-            </select></label
-          >
+              <a
+                routerLink="/admin/fundraiser/sponsors"
+                [queryParams]="{ sponsorshipId: sponsor.id, tab: 'media' }"
+                >{{
+                  'funding.followup.media.usage.reviewOwnPhoto'
+                    | translate: { name: sponsor.name }
+                }}</a
+              >
+            }
+          } @else {
+            <label
+              >{{ 'admin.publicationAutomation.image' | translate
+              }}<select
+                name="media"
+                [ngModel]="c.edit.mediaId"
+                (ngModelChange)="c.changeEdit('mediaId', $event)"
+              >
+                <option value="">
+                  {{ 'admin.publicationAutomation.noImage' | translate }}
+                </option>
+                @for (item of c.media(); track item.id) {
+                  <option [value]="item.id">
+                    {{ item.company }} · {{ item.alt }}
+                  </option>
+                }
+              </select></label
+            >
+          }
           @if (c.edit.mediaId) {
+            @for (item of c.media(); track item.id) {
+              @if (item.id === c.edit.mediaId && item.credit) {
+                <p data-og7="publication-required-credit">
+                  {{ 'funding.followup.media.requiredCredit' | translate }} :
+                  {{ item.credit }}
+                </p>
+              }
+            }
             @if (c.mediaPreview(); as image) {
               <img class="preview-image" [src]="image.url" [alt]="image.alt" />
+              <p data-og7="publication-image-preparation">
+                {{
+                  (c.previewExact()
+                    ? 'funding.followup.media.exactJpeg'
+                    : 'funding.followup.media.sourcePreview'
+                  ) | translate
+                }}
+              </p>
+            }
+          }
+          @if (c.derived(c.edit.publicationFormat)) {
+            @if (c.mediaPreview(); as image) {
+              <img class="preview-image" [src]="image.url" [alt]="image.alt" />
+              <p data-og7="publication-image-preparation">
+                {{
+                  (c.previewExact()
+                    ? 'funding.followup.media.exactJpeg'
+                    : 'funding.followup.media.sourcePreview'
+                  ) | translate
+                }}
+              </p>
             }
           }
           @if (c.editable()) {
@@ -277,7 +385,8 @@
               !c.approved ||
               c.dirty() ||
               c.missingPresentation() ||
-              (job.mediaId && !c.previewUrl())
+              ((job.mediaId || c.derived(job.publicationFormat)) &&
+                (!c.previewUrl() || !c.previewExact()))
             "
             (click)="c.approve()"
           >
@@ -307,7 +416,7 @@
           {{ 'admin.publicationAutomation.reconcile' | translate }}
         </button>
       }
-      @if (job.status === 'uncertain') {
+      @if (job.status === 'uncertain' || job.accountRecoveryRequired) {
         <details>
           <summary>
             {{ 'admin.publicationAutomation.absenceTitle' | translate }}
@@ -344,6 +453,15 @@
           rel="noopener noreferrer"
           >{{ 'admin.publicationAutomation.seePost' | translate }}</a
         >
+      }
+      @if (job.status === 'published' && job.mode === 'live') {
+        <button
+          class="admin-button"
+          [disabled]="c.busy()"
+          (click)="c.checkVisibility()"
+        >
+          {{ 'admin.publicationAutomation.checkVisibility' | translate }}
+        </button>
       }
     }
   }

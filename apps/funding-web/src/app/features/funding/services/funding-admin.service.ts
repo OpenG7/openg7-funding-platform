@@ -116,6 +116,7 @@ import { FundingAdminActivityClient } from './funding-admin-activity.client.js';
 import { FundingAdminPilotageClient } from './funding-admin-pilotage.client.js';
 import { FundingAdminAssistantClient } from './funding-admin-assistant.client.js';
 import { FundingAdminModerationClient } from './funding-admin-moderation.client.js';
+import { FundingAdminCommitmentsClient } from './funding-admin-commitments.client.js';
 export type { AdminSponsorshipListQuery } from './funding-admin-sponsorships.client.js';
 export { AdminDashboardRequestError } from './funding-admin-session.js';
 export type {
@@ -167,6 +168,28 @@ export class FundingAdminService {
   );
   readonly sessionGeneration = this.session.sessionGeneration;
   readonly identity = this.session.identity;
+  private readonly commitmentsClient = new FundingAdminCommitmentsClient(
+    this.session
+  );
+  getSponsorshipCommitment(contributionId: string) {
+    return this.commitmentsClient.get(contributionId);
+  }
+  qualifySponsorshipCommitment(
+    payload: import('@openg7/funding-core').SponsorshipCommitmentQualificationRequest
+  ) {
+    return this.commitmentsClient.qualify(payload);
+  }
+  adjustSponsorshipObligation(
+    payload: import('@openg7/funding-core').SponsorshipObligationAdjustmentRequest
+  ) {
+    return this.commitmentsClient.adjust(payload);
+  }
+  sponsorshipCommitmentAdoptionPreview(
+    pageSize: 25 | 50 = 25,
+    cursor?: string
+  ) {
+    return this.commitmentsClient.adoptionPreview(pageSize, cursor);
+  }
   private readonly moderationClient = new FundingAdminModerationClient(
     this.session
   );
@@ -288,6 +311,17 @@ export class FundingAdminService {
     deliveryId?: string
   ): Promise<{ id: string; url: string; alt: string; company: string }[]> {
     return this.publicationsClient.publicationMedia(deliveryId);
+  }
+  publicationImagePreview(
+    deliveryId: string,
+    version: number,
+    expectedHash: string
+  ): Promise<Blob> {
+    return this.publicationsClient.publicationImagePreview(
+      deliveryId,
+      version,
+      expectedHash
+    );
   }
   authMode(): Promise<'oidc' | 'token'> {
     return this.session.authMode();
@@ -804,6 +838,16 @@ export class FundingAdminService {
     payload: import('@openg7/funding-core').AdminSponsorMediaMetadataRequest
   ) {
     return this.sponsorshipsClient.updateSponsorMediaMetadata(token, payload);
+  }
+  updateSponsorMediaUsage(
+    payload: import('@openg7/funding-core').AdminSponsorMediaUsageRequest
+  ) {
+    return this.sponsorshipsClient.updateSponsorMediaUsage(payload);
+  }
+  decideSponsorMediaPreference(
+    payload: import('@openg7/funding-core').AdminSponsorMediaPreferenceDecisionRequest
+  ) {
+    return this.sponsorshipsClient.decideSponsorMediaPreference(payload);
   }
 
   deleteSponsorMedia(

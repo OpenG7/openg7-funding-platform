@@ -19,6 +19,7 @@ import {
   restartAcceptanceApi
 } from './support/acceptance-database.js';
 import { expect, test } from './support/test.js';
+import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
 
 const queueUrl = '/api/admin/email-queue';
 const followupUrl = '/fonds-des-batisseurs/suivi-commandite';
@@ -145,6 +146,7 @@ test('paid company recovers its saved dossier from a captured email after SMTP f
       await form.locator('#public-display-name').fill(companyName);
       await form.getByRole('checkbox').nth(1).uncheck();
       await form.getByRole('checkbox').nth(2).check();
+      await acceptDisplayedSponsorshipOffer(form);
       await form.locator('button[type="submit"]').click();
       await expect(company.page).toHaveURL(/\/checkout\/cs_test_/);
       const sessionId = new URL(company.page.url()).pathname.split('/').at(-1)!;

@@ -2,6 +2,7 @@ import { withPostgresTransaction } from '../postgres-transaction.js';
 import { recordRemoteRemovalProviderResult } from '../moderation/governance.js';
 import { lockPublicationBatchCapacity } from '../fund-publication-capacity.persistence.js';
 import type { SocialPublicationProviderResult } from '../social-publication.service.js';
+import { recordSocialFulfilment } from '../sponsorship-fulfilment.repository.js';
 
 import {
   abandonClaim,
@@ -15,9 +16,12 @@ import {
   type PublicationDeliveryWorkerContext
 } from './context.js';
 import { assertSponsorshipContent } from './content.js';
+import { assertDeliveryModeration } from './moderation.js';
+import { sourceEqual, sources as loadSources } from './sources.js';
 import { assert, PublicationAutomationError } from './policy.js';
 import { DeliveryFailure, safeCode } from './provider.js';
 import type { Db } from './sources.js';
+import { finishAccountClaim } from './account-reservations.js';
 
 const observedResultMetadata = (
   row: DeliveryRow,
@@ -82,7 +86,9 @@ export async function complete(
   postId: string,
   url: string | null,
   actor: string,
-  claimVersion?: number
+  claimVersion?: number,
+  provenance:
+    'provider_acknowledged' | 'provider_verified' = 'provider_acknowledged'
 ): Promise<void> {
   if (row.batch_id && row.mode === 'live') {
     // Keep delivery -> slot -> batch -> drafts ordering. Reconciliation already
@@ -96,6 +102,18 @@ export async function complete(
     );
   }
   await assertSponsorshipContent(db, row);
+  await assertDeliveryModeration(db, row);
+  if (row.batch_id) {
+    const currentSources = await loadSources(
+      db,
+      row.batch_id,
+      row.feed_id,
+      false,
+      false
+    );
+    assert(sourceEqual(currentSources, row.source_snapshot), 'SOURCE_CHANGED');
+  }
+  await recordSocialFulfilment(db, row, postId, url, actor, provenance);
   const result = await db.query(
     `UPDATE publication_deliveries SET status='published',external_post_id=$2,external_post_url=$3,published_at=NOW(),lease_until=NULL,error_code=NULL,version=version+1,updated_at=NOW() WHERE id=$1${claimVersion === undefined ? '' : ` AND ${activeClaimSql('$4')}`} RETURNING id`,
     claimVersion === undefined
@@ -122,6 +140,14 @@ export async function complete(
     feedId: row.feed_id,
     externalPostId: postId
   });
+  await finishAccountClaim(
+    db,
+    {
+      ...row,
+      version: claimVersion ?? row.version
+    },
+    'published'
+  );
 }
 
 export async function handleDeliveryFailure(
@@ -149,6 +175,7 @@ export async function handleDeliveryFailure(
       await audit(db, 'publication-worker', 'deferred', row.id, {
         code: 'WORKER_DISABLED'
       });
+      await finishAccountClaim(db, row, 'deferred', { dispatched: false });
       return true;
     });
     if (!deferred) await abandonClaim(context, row, result);
@@ -170,8 +197,8 @@ export async function handleDeliveryFailure(
   const changed = await withPostgresTransaction(context.pool, async (db) => {
     const failed = await db.query(
       `UPDATE publication_deliveries SET status=$2,error_code=$3,next_attempt_at=CASE WHEN $2='approved' THEN NOW()+($4 * INTERVAL '1 minute') ELSE NULL END,lease_until=NULL,
-       approved_at=CASE WHEN $3 LIKE 'MODERATION_%' OR $3 IN ('SPONSOR_REVIEW_REQUIRED','MEDIA_CHANGED','MEDIA_NOT_APPROVED','MEDIA_UNAVAILABLE','SOURCE_CONTENT_MISSING','INVALID_MESSAGE') THEN NULL ELSE approved_at END,
-       approved_by=CASE WHEN $3 LIKE 'MODERATION_%' OR $3 IN ('SPONSOR_REVIEW_REQUIRED','MEDIA_CHANGED','MEDIA_NOT_APPROVED','MEDIA_UNAVAILABLE','SOURCE_CONTENT_MISSING','INVALID_MESSAGE') THEN NULL ELSE approved_by END,
+       approved_at=CASE WHEN $3 LIKE 'MODERATION_%' OR $3 LIKE 'MEDIA_%' OR $3 IN ('SPONSOR_REVIEW_REQUIRED','SOURCE_CONTENT_MISSING','INVALID_MESSAGE') THEN NULL ELSE approved_at END,
+       approved_by=CASE WHEN $3 LIKE 'MODERATION_%' OR $3 LIKE 'MEDIA_%' OR $3 IN ('SPONSOR_REVIEW_REQUIRED','SOURCE_CONTENT_MISSING','INVALID_MESSAGE') THEN NULL ELSE approved_by END,
        version=version+1,updated_at=NOW() WHERE id=$1 AND ${activeClaimSql('$5')} RETURNING id`,
       [
         row.id,
@@ -192,6 +219,16 @@ export async function handleDeliveryFailure(
       code: safeCode(error),
       ...(result ? observedResultMetadata(row, result) : {})
     });
+    await finishAccountClaim(
+      db,
+      row,
+      status === 'approved'
+        ? 'retry'
+        : status === 'blocked'
+          ? 'blocked'
+          : 'uncertain',
+      { dispatched: sending }
+    );
     return true;
   });
   if (!changed) await abandonClaim(context, row, result);

@@ -59,8 +59,8 @@ URL filters and exact record links. `GET /api/admin/assistant/context` accepts
 optional `sponsorshipId`; information requests require an editable preview and
 confirmation at `POST /api/admin/sponsorships/request-information`. Queue and audit
 are atomic; duplicate requests reuse the original email.
-`GET /api/admin/sponsorships/progress` is a read-only projection, optionally filtered
-by `sponsorshipId`; tab links use `/admin/fundraiser/sponsors?sponsorshipId=<uuid>&tab=billing`.
+`GET /api/admin/sponsorships/progress?sponsorshipId=<uuid>` reads one dossier.
+Recorded offers, obligations and owner actions: [commitment API](sponsorship-commitments.md).
 Protected cockpit reads use `/api/admin/cockpit/metrics`, `/activity` and `/systems`.
 Amounts are integer minor units per currency; missing fees keep net receipts
 unavailable. System checks provide dated evidence with expiry, without sending

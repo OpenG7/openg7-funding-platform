@@ -16,6 +16,7 @@ export type AdminAssistantNextStep =
   | 'review_media'
   | 'review_sponsorship'
   | 'confirm_consent'
+  | 'qualify_commitment'
   | 'prepare_publication'
   | 'monitor_publication'
   | 'complete';

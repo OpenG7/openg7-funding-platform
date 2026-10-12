@@ -209,7 +209,11 @@ export const createRequestRateLimit = (
         '/sponsorship-followup/media',
         '/api/sponsorship-followup/media',
         '/sponsorship-followup/media/delete',
-        '/api/sponsorship-followup/media/delete'
+        '/api/sponsorship-followup/media/delete',
+        '/sponsorship-followup/media/usage',
+        '/api/sponsorship-followup/media/usage',
+        '/sponsorship-followup/media/preference',
+        '/api/sponsorship-followup/media/preference'
       ) ||
       routeStartsWith(
         request.url,

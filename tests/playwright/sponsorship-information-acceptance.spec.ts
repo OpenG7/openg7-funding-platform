@@ -20,6 +20,8 @@ import { completeModeration } from './support/moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptanceReviewReminder } from './support/acceptance-review-reminder.js';
 import { test, expect } from './support/test.js';
+import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
+import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';
 
 const requestUrl = '/api/admin/sponsorships/request-information';
 const detailsUrl = '/api/admin/sponsorships/details';
@@ -232,6 +234,7 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
       await form.getByRole('checkbox').nth(0).check();
       await form.locator('#public-display-name').fill(name);
       await form.getByRole('checkbox').nth(2).check();
+      await acceptDisplayedSponsorshipOffer(form);
       await form.locator('button[type="submit"]').click();
       await expect(company).toHaveURL(/\/checkout\/cs_test_/);
       sessionId = new URL(company.url()).pathname.split('/').at(-1)!;
@@ -455,6 +458,7 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
       await company
         .getByLabel('Description des images à téléverser')
         .fill('Présentation synthétique du dossier.');
+      await confirmAcceptanceMediaUsage(company);
       await company.getByLabel('Ajouter des photos').setInputFiles({
         name: 'presentation.png',
         mimeType: 'image/png',

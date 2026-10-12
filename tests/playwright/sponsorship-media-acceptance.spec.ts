@@ -21,6 +21,8 @@ import { completeModeration } from './support/moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import { test, expect } from './support/test.js';
+import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
+import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';
 
 const automation = '/api/admin/publication-automation';
 const cockpit = '/admin/fundraiser/publications/automation';
@@ -209,6 +211,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
       await form.locator('#public-display-name').fill(name);
       await form.getByRole('checkbox').nth(1).uncheck();
       await form.getByRole('checkbox').nth(2).check();
+      await acceptDisplayedSponsorshipOffer(form);
       await form.locator('button[type="submit"]').click();
       await expect(company).toHaveURL(/\/checkout\/cs_test_/);
       const sessionId = new URL(company.url()).pathname.split('/').at(-1)!;
@@ -251,6 +254,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
       })
         .png()
         .toBuffer();
+      await confirmAcceptanceMediaUsage(company);
       for (const [label, filename] of [
         ['Ajouter le logo', 'logo.png'],
         ['Ajouter des photos', 'photo.png'],
@@ -534,6 +538,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         await company
           .getByRole('button', { name: 'Modifier mes informations' })
           .click();
+        await confirmAcceptanceMediaUsage(company);
         await company
           .getByLabel('Description des images à téléverser')
           .fill('Nouveau logo synthétique');

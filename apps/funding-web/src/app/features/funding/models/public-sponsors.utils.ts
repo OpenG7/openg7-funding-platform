@@ -77,6 +77,9 @@ export function isPublicSponsorshipsResponse(
             ['logo', 'supporting_image'].includes(String(a['kind'])) &&
             typeof a['url'] === 'string' &&
             typeof a['alt_text'] === 'string' &&
+            (a['credit'] === undefined ||
+              a['credit'] === null ||
+              typeof a['credit'] === 'string') &&
             Number.isSafeInteger(a['width']) &&
             Number(a['width']) > 0 &&
             Number.isSafeInteger(a['height']) &&

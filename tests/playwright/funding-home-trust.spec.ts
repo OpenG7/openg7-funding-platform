@@ -1,5 +1,9 @@
 import type { Page } from '@playwright/test';
 
+import {
+  registerSponsorshipOfferTests,
+  sponsorshipOfferQuote
+} from './sponsorship-offer.ui.js';
 import { expect, test } from './support/test.js';
 
 const emptyReport = {
@@ -312,6 +316,13 @@ test('failed runtime configuration keeps a requested sponsorship disabled withou
 });
 
 async function enableSponsorship(page: Page, amounts = [5, 10, 25, 50]) {
+  await page.route('**/api/sponsorship-offer?**', (route) =>
+    route.fulfill({
+      json: sponsorshipOfferQuote(
+        Number(new URL(route.request().url()).searchParams.get('amountMinor'))
+      )
+    })
+  );
   await page.route('**/api/public/funding-config', (route) =>
     route.fulfill({
       json: {
@@ -333,6 +344,8 @@ const checkoutButton = (page: Page) =>
   contributionForm(page).getByRole('button', { name: /Soutenir OpenG7/i });
 const acknowledge = (page: Page) =>
   page.getByLabel(/OpenG7 est un projet ind.pendant en d.veloppement/i).check();
+
+registerSponsorshipOfferTests(enableSponsorship);
 
 test('switching the default personal amount to sponsorship submits a valid 50 CAD amount only once', async ({
   page
@@ -365,6 +378,7 @@ test('switching the default personal amount to sponsorship submits a valid 50 CA
     contributionForm(page).getByRole('button', { name: /^50\s*\$$/ })
   ).toHaveAttribute('aria-pressed', 'true');
   await acknowledge(page);
+  await page.locator('[data-og7="offer-acceptance"]').check();
   await checkoutButton(page).click();
   await expect(checkoutButton(page)).toBeDisabled();
   // A second form submission must not start another checkout.
@@ -441,6 +455,7 @@ for (const english of [false, true]) {
       exact: true
     });
     const acceptance = form.locator('[data-og7="charter-acceptance"]');
+    await form.locator('[data-og7="offer-acceptance"]').check();
     await expect(
       form.locator('[data-og7="sponsorship-charter"]')
     ).toContainText(
@@ -488,6 +503,7 @@ test('moderation V1 proposed charter remains inactive and imposes no fabricated 
   await acknowledge(page);
   await expect(page.locator('[data-og7="charter-acceptance"]')).toHaveCount(0);
   await expect(page.locator('[data-og7="sponsorship-charter"]')).toHaveCount(0);
+  await page.locator('[data-og7="offer-acceptance"]').check();
   await expect(checkoutButton(page)).toBeEnabled();
 });
 
@@ -621,6 +637,7 @@ test('invalid sponsorship input is preserved and blocked instead of silently cha
   }
   await amount.fill('50,25');
   await expect(amount).toHaveAttribute('aria-invalid', 'false');
+  await page.locator('[data-og7="offer-acceptance"]').check();
   await expect(checkoutButton(page)).toBeEnabled();
   await page.getByRole('button', { name: /Contribution personnelle/i }).click();
   await expect(checkoutButton(page)).toBeDisabled();

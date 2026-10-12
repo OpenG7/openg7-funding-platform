@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { AxeBuilder } from '@axe-core/playwright';
 
 import {
   sponsorProfile,
@@ -49,6 +50,82 @@ test.beforeEach(async ({ page }) => {
 });
 
 for (const prefix of ['', '/en']) {
+  test(`image usage public directory preserves the exact qualified photo and logo credits ${prefix ? 'EN mobile' : 'FR desktop'}`, async ({
+    page
+  }) => {
+    await page.setViewportSize(
+      prefix ? { width: 390, height: 844 } : { width: 1280, height: 900 }
+    );
+    const photoCredit = 'Photo : Élise Tremblay — CC BY 4.0';
+    const logoCredit = 'Logo : Atelier Boréal';
+    const logoUrl = '/api/public/sponsor-media/qualified-logo';
+    const qualified = sponsorProfile(0, {
+      logo_url: logoUrl,
+      media: [
+        { ...profiles[0]!.media[0], credit: photoCredit },
+        {
+          id: 'qualified-logo',
+          kind: 'logo',
+          url: '/api/public/sponsor-media/qualified-logo',
+          alt_text: 'Logo qualifié',
+          width: 64,
+          height: 64,
+          sort_order: 0,
+          credit: logoCredit
+        }
+      ]
+    });
+    await page.route(endpoint, (route) =>
+      route.fulfill({ json: sponsorsResponse([qualified]) })
+    );
+    await page.goto(`${prefix}/commanditaires`);
+    const card = hook(page, 'sponsor-card');
+    await expect(card).toHaveCount(1);
+    await expect(card.locator('[data-og7="sponsor-photo-credit"]')).toHaveText(
+      photoCredit
+    );
+    await expect
+      .poll(() =>
+        card
+          .locator('[data-og7="sponsor-photo-credit"]')
+          .evaluate((caption) => {
+            const figure = caption.closest('figure')!,
+              image = figure.querySelector('img')!,
+              captionBounds = caption.getBoundingClientRect(),
+              imageBounds = image.getBoundingClientRect(),
+              figureBounds = figure.getBoundingClientRect();
+            return {
+              belowImage: captionBounds.top >= imageBounds.bottom - 1,
+              withinFigure: captionBounds.bottom <= figureBounds.bottom + 1
+            };
+          })
+      )
+      .toEqual({ belowImage: true, withinFigure: true });
+    await expect(card.locator('[data-og7="sponsor-logo-credit"]')).toHaveText(
+      logoCredit
+    );
+    await expect(
+      card.getByRole('img', { name: qualified.media[0]!.alt_text, exact: true })
+    ).toHaveAttribute('src', qualified.media[0]!.url);
+    await expect(
+      card.getByRole('img', { name: qualified.media[0]!.alt_text, exact: true })
+    ).toHaveCSS('object-fit', 'contain');
+    await expect(
+      card.getByRole('img', { name: qualified.company_name, exact: true })
+    ).toHaveAttribute('src', logoUrl);
+    expect(
+      (
+        await new AxeBuilder({ page })
+          .include('[data-og7="sponsor-card"]')
+          .analyze()
+      ).violations
+    ).toEqual([]);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1
+      )
+    ).toBe(true);
+  });
   test(`public cards, localized links and responsive layout ${prefix || 'fr'}`, async ({
     page
   }, testInfo) => {

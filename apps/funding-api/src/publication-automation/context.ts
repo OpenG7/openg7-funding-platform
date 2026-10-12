@@ -5,10 +5,16 @@ import type {
   PublicationFeed,
   PublicationFeedId
 } from '@openg7/funding-core';
+import type {
+  PublicationObligationSnapshot,
+  PublicationPhotoSelection,
+  SponsorshipPublicationFormat
+} from '@openg7/funding-core';
 
 import type { SponsorMediaStorage } from '../sponsor-media-storage.js';
 
 import type { Media } from './media.js';
+import type { DerivedPublicationMedia } from './visuals.js';
 import type { Db, Source } from './sources.js';
 
 export interface DeliveryRow {
@@ -19,13 +25,19 @@ export interface DeliveryRow {
   message: string;
   scheduled_at: Date;
   media_id: string | null;
-  media_snapshot: Media | null;
+  media_snapshot: Media | DerivedPublicationMedia | null;
   source_snapshot: Source[];
+  obligation_snapshot?: PublicationObligationSnapshot[];
+  publication_format?: SponsorshipPublicationFormat;
+  photo_selections?: PublicationPhotoSelection[];
   account_id: string;
   mode: PublicationDelivery['mode'];
   auto_managed: boolean;
   sponsors?: PublicationDelivery['sponsors'];
   version: number;
+  /** Internal monotonically increasing provider-account fence; never a public approval. */
+  accountClaimVersion?: number;
+  account_recovery_required?: boolean;
   status: PublicationDelivery['status'];
   attempts: number;
   next_attempt_at: Date | null;
@@ -68,7 +80,8 @@ export type PublicationComplete = (
   row: DeliveryRow,
   postId: string,
   url: string | null,
-  actor: string
+  actor: string,
+  provenance?: 'provider_acknowledged' | 'provider_verified'
 ) => Promise<void>;
 
 export interface PublicationCommandsContext
@@ -97,9 +110,13 @@ export const publicDelivery = (r: DeliveryRow): PublicationDelivery => ({
   batchId: r.batch_id,
   message: r.message,
   scheduledAt: r.scheduled_at.toISOString(),
-  mediaId: r.media_id,
+  mediaId: r.media_id ?? (r.media_snapshot?.kind === 'derived' ? r.id : null),
+  publicationFormat: r.publication_format ?? 'collective_text',
+  photoSelections: r.photo_selections ?? [],
   mediaUrl: r.media_snapshot?.url ?? null,
   mediaAlt: r.media_snapshot?.alt ?? null,
+  mediaDerivedHash: r.media_snapshot?.derivedHash ?? null,
+  mediaTransform: r.media_snapshot?.transform ?? null,
   accountId: r.account_id,
   mode: r.mode,
   autoManaged: r.auto_managed,
@@ -111,6 +128,7 @@ export const publicDelivery = (r: DeliveryRow): PublicationDelivery => ({
   externalPostId: r.external_post_id,
   externalPostUrl: r.external_post_url,
   errorCode: r.error_code,
+  accountRecoveryRequired: r.account_recovery_required ?? false,
   approvedAt: r.approved_at?.toISOString() ?? null,
   publishedAt: r.published_at?.toISOString() ?? null
 });

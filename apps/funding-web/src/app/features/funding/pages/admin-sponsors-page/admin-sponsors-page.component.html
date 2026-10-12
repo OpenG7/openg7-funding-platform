@@ -334,6 +334,7 @@
                 publicationWorkflow.changeWebsiteVisibility(selected, $event)
               "
               (editWebsite)="openWebsiteSettings()"
+              (commitmentChanged)="loadSponsorships(true)"
             />
           }
           @if (activeTab() === 'billing' || activeTab() === 'refund') {

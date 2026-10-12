@@ -75,6 +75,7 @@ import { AdminSponsorshipPublicationComponent } from './admin-sponsorship-public
             [websiteMessage]="websiteMessage()"
             (changeWebsiteVisibility)="changeWebsiteVisibility.emit($event)"
             (editWebsite)="editWebsite.emit()"
+            (commitmentChanged)="commitmentChanged.emit()"
           />
         }
         @if (view() === 'refund') {
@@ -170,6 +171,7 @@ export class AdminSponsorshipFactsComponent {
   readonly websiteMessage = input('');
   readonly changeWebsiteVisibility = output<boolean>();
   readonly editWebsite = output<void>();
+  readonly commitmentChanged = output<void>();
   private readonly i18n = inject(FundingI18nService);
   readonly dossier = input<AdminSponsorshipProgress | null>(null);
   readonly view = input.required<

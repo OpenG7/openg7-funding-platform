@@ -5,6 +5,38 @@ import { createSponsorshipInvoiceForStripeSession as publicCreate } from '../dis
 import { createSponsorshipInvoiceForStripeSession } from '../dist/apps/funding-api/src/sponsorship-documents/invoices.write.js';
 import { sponsorshipInvoiceConfig } from '../dist/apps/funding-api/src/sponsorship-invoice-config.js';
 
+const frozenOffer = {
+  version: 'sponsorship-v1',
+  amountMinor: 50000,
+  currency: 'CAD',
+  benefits: [
+    ['website_mention', 'website'],
+    ['facebook_batch', 'facebook'],
+    ['linkedin_batch', 'linkedin']
+  ].map(([id, channel]) => ({
+    id,
+    channel,
+    target: 'openg7',
+    quantity: 1,
+    requiredElements: ['company_name', 'approved_presentation'],
+    deadlineDays: null,
+    durationDays: null
+  }))
+};
+// Financial query fixtures receive recorded commercial terms independently.
+const emit = (pool, request) =>
+  publicCreate(
+    pool
+      ? {
+          query: (sql, values) =>
+            sql.includes('SELECT o.snapshot')
+              ? Promise.resolve({ rows: [{ snapshot: frozenOffer }] })
+              : pool.query(sql, values)
+        }
+      : null,
+    request
+  );
+
 const input = (overrides = {}) => ({
   stripeSessionId: 'cs_test_invoice_write',
   stripePaymentIntentId: null,
@@ -51,7 +83,7 @@ const storedInvoice = {
 
 test('invoice creation remains the public owning function and returns null without a database', async () => {
   assert.equal(publicCreate, createSponsorshipInvoiceForStripeSession);
-  assert.equal(await publicCreate(null, input()), null);
+  assert.equal(await emit(null, input()), null);
 });
 
 test('invoice numbering preserves public-reference suffixes and uses the payment UTC year', async () => {
@@ -62,7 +94,7 @@ test('invoice numbering preserves public-reference suffixes and uses the payment
       return { rows: [] };
     }
   };
-  assert.equal(await publicCreate(pool, input()), null);
+  assert.equal(await emit(pool, input()), null);
   assert.equal(
     calls[0].values[1],
     `${sponsorshipInvoiceConfig.invoicePrefix}-2027-ABCDEFGH`
@@ -100,11 +132,8 @@ test('missing public reference uses the same session hash through a failed emiss
     }
   };
   const request = input({ publicReference: null });
-  await assert.rejects(
-    publicCreate(pool, request),
-    /Synthetic database failure/
-  );
-  const invoice = await publicCreate(pool, request);
+  await assert.rejects(emit(pool, request), /Synthetic database failure/);
+  const invoice = await emit(pool, request);
   assert.deepEqual(numbers, [
     `${sponsorshipInvoiceConfig.invoicePrefix}-2027-7E6310F5`,
     `${sponsorshipInvoiceConfig.invoicePrefix}-2027-7E6310F5`
@@ -120,7 +149,7 @@ test('creation returns the persisted historical snapshot after a replay with dif
       return { rows: calls.length === 1 ? [] : [storedInvoice] };
     }
   };
-  const invoice = await publicCreate(
+  const invoice = await emit(
     pool,
     input({ amountCents: 90000, publicReference: 'OG7-2026-REPLAY' })
   );
@@ -140,7 +169,7 @@ test('creation returns the persisted historical snapshot after a replay with dif
 
 test('a successful first emission returns its stored snapshot without another read', async () => {
   const calls = [];
-  const invoice = await publicCreate(
+  const invoice = await emit(
     {
       query: async (sql, values) => {
         calls.push({ sql, values });
@@ -162,7 +191,7 @@ test('replay keeps missing values and the issued placeholder even if the new inp
     sponsor_name: 'Commanditaire a confirmer'
   };
   let calls = 0;
-  const invoice = await publicCreate(
+  const invoice = await emit(
     {
       query: async () => ({ rows: ++calls === 1 ? [] : [incompleteSnapshot] })
     },
@@ -186,7 +215,7 @@ test('replay keeps missing values and the issued placeholder even if the new inp
 test('a failed read after conflict propagates the failure instead of reporting no invoice', async () => {
   let calls = 0;
   await assert.rejects(
-    publicCreate(
+    emit(
       {
         query: async () => {
           if (++calls === 1) return { rows: [] };

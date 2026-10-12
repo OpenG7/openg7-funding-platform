@@ -3,11 +3,18 @@ import { assertModerationApproved } from '../moderation/repository.js';
 
 import { PublicationAutomationError } from './policy.js';
 import type { Db } from './sources.js';
+import type { DerivedPublicationMedia } from './visuals.js';
+import type { Media } from './media.js';
 
 /** Revalidate the final rendering and its current moderation dependencies. */
 export async function assertDeliveryModeration(
   db: Db,
-  row: { id: string; batch_id: string | null; media_id: string | null }
+  row: {
+    id: string;
+    batch_id: string | null;
+    media_id: string | null;
+    media_snapshot?: Media | DerivedPublicationMedia | null;
+  }
 ): Promise<void> {
   try {
     await assertModerationApproved(db, {
@@ -42,6 +49,12 @@ export async function assertDeliveryModeration(
     }
     if (row.media_id)
       await assertModerationApproved(db, { type: 'media', id: row.media_id });
+    if (row.media_snapshot?.kind === 'derived')
+      for (const source of row.media_snapshot.sources)
+        await assertModerationApproved(db, {
+          type: 'media',
+          id: source.media.id
+        });
   } catch (error) {
     if (error instanceof ModerationError)
       throw new PublicationAutomationError(error.code, error.status);

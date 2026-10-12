@@ -178,6 +178,35 @@ test('failed source queue pagination preserves the confirmed page, offset and or
   assert.deepEqual(f.calls.errors, [failure]);
 });
 
+test('a filtered source queue page preserves global reliability from the server without recalculating page counts', async () => {
+  const f = fixture();
+  f.controller.beginContext(filter);
+  const reliability = {
+    scope: 'global',
+    obligations: { open: 651 },
+    incidents: [],
+    incidentTotal: 76,
+    correlationLimit: 50
+  };
+  const confirmed = serverState({
+    reliability,
+    queue: {
+      entries: [],
+      total: 650,
+      offset: 400,
+      limit: 200,
+      hasMore: true,
+      summary: { retained: 650, deferred: 0, needsCorrection: 0 }
+    }
+  });
+  f.ports.api.read = async () => confirmed;
+  await f.controller.loadQueuePage(400);
+  assert.equal(f.controller.state().reliability, reliability);
+  assert.equal(f.controller.state().reliability.obligations.open, 651);
+  assert.equal(f.controller.state().reliability.incidentTotal, 76);
+  assert.equal(f.controller.state().queue.entries.length, 0);
+});
+
 test('preparation commands reload the first queue page and invalidate a pending older page', async () => {
   const f = fixture();
   f.controller.beginContext(filter);

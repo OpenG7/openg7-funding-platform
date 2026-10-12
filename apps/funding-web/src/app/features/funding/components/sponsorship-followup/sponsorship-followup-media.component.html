@@ -48,6 +48,11 @@
     <small>{{ 'funding.followup.media.descriptionHelp' | translate }}</small>
   </label>
   <div class="toolbar">
+    <openg7-sponsor-media-usage-editor
+      [disabled]="busy() || !canUploadMedia()"
+      [saveButton]="false"
+      (valueChange)="uploadUsage.set($event)"
+    />
     <label class="media-upload-control"
       >{{
         (hasActiveLogo()
@@ -63,7 +68,8 @@
           busy() ||
           !loaded() ||
           loadError() ||
-          hasApprovedLogo()
+          hasApprovedLogo() ||
+          !uploadUsage()
         "
         (change)="uploadMedia('logo', $event)"
       />
@@ -79,7 +85,8 @@
           busy() ||
           !loaded() ||
           loadError() ||
-          !canAddSupportingImage()
+          !canAddSupportingImage() ||
+          !uploadUsage()
         "
         (change)="uploadMedia('supporting_image', $event)"
       />
@@ -96,6 +103,62 @@
   <p *ngIf="loaded() && !photoCount()">
     {{ 'funding.followup.media.missingPhoto' | translate }}
   </p>
+  <section data-og7="media-preference" aria-labelledby="media-preference-title">
+    <h4 id="media-preference-title">
+      {{ 'funding.followup.media.usage.preferenceTitle' | translate }}
+    </h4>
+    <p>{{ 'funding.followup.media.usage.preferenceSeparate' | translate }}</p>
+    @if (preference().state !== 'none') {
+      <p role="status">
+        {{
+          'funding.followup.media.usage.preferenceStates.' + preference().state
+            | translate
+        }}
+      </p>
+    }
+    @if (!preference().available) {
+      <p role="status">
+        {{ 'funding.followup.media.usage.preferenceUnavailable' | translate }}
+      </p>
+    }
+    @if (preference().sponsorExplanation) {
+      <p>{{ preference().sponsorExplanation }}</p>
+    }
+    <label
+      >{{ 'funding.followup.media.usage.correction' | translate
+      }}<textarea
+        rows="3"
+        maxlength="1000"
+        [value]="usageController.correction()"
+        (input)="usageController.correction.set($any($event.target).value)"
+        [disabled]="busy()"
+      ></textarea>
+    </label>
+    <button
+      type="button"
+      [disabled]="busy() || usageController.correction().trim().length < 10"
+      (click)="usageController.propose(null)"
+    >
+      {{ 'funding.followup.media.usage.requestCorrection' | translate }}
+    </button>
+    @if (usageController.notice()) {
+      <p role="status">
+        {{
+          'funding.followup.media.usage.' + usageController.notice() | translate
+        }}
+      </p>
+    }
+    @if (usageController.pending()) {
+      <button
+        type="button"
+        [disabled]="busy()"
+        (click)="usageController.retry()"
+        data-og7="media-usage-retry"
+      >
+        {{ 'funding.followup.media.usage.retry' | translate }}
+      </button>
+    }
+  </section>
   <div class="media-list">
     <article
       *ngFor="let attempt of attempts()"
@@ -176,6 +239,32 @@
           }}
         </p>
         <small>{{ asset.width }} × {{ asset.height }} px</small>
+        <openg7-sponsor-media-usage-editor
+          [value]="asset.usage ?? null"
+          [disabled]="busy()"
+          (saved)="usageController.updateUsage(asset, $event.usage)"
+        />
+        <button
+          type="button"
+          [disabled]="busy()"
+          (click)="usageController.withdraw(asset)"
+          data-og7="media-usage-withdraw"
+        >
+          {{ 'funding.followup.media.usage.withdraw' | translate }}
+        </button>
+        @if (asset.kind === 'supporting_image') {
+          <button
+            type="button"
+            [disabled]="busy() || asset.usage?.state === 'withdrawn'"
+            (click)="usageController.propose(asset)"
+            data-og7="media-preference-propose"
+          >
+            {{ 'funding.followup.media.usage.propose' | translate }}
+          </button>
+          @if (preference().preferredAssetId === asset.id) {
+            <p>{{ 'funding.followup.media.usage.preferred' | translate }}</p>
+          }
+        }
       </div>
     </article>
   </div>

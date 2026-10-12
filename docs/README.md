@@ -45,6 +45,13 @@ la mention Web, 250 CAD pour Facebook et 500 CAD pour LinkedIn. Les sources
 sont `packages/funding-core/src/index.ts` et la configuration Funding du Web.
 Le paiement, le consentement, la revue et la publication restent distincts.
 
+Les [engagements durables](technical/sponsorship-commitments.md) décrivent l'offre
+acceptée avant Checkout et les dossiers historiques à qualifier.
+Les [preuves de reconnaissance](technical/sponsorship-fulfilment.md) distinguent
+livraisons attestées, simulations et visibilité actuelle.
+Les [formats de publication](technical/publication-formats.md) indiquent les
+capacités vérifiées des adaptateurs et les formats encore indisponibles.
+
 Les pages `/ecosystem`, `/music` et `/boutique` sont des surfaces éditoriales
 avec liens externes, disponibles également sous `/en`. La politique publique
 se trouve sous `/politique-utilisation-remboursement`. Les routes effectives

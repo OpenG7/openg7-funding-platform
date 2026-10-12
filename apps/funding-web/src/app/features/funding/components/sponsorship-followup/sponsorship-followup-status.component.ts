@@ -10,16 +10,28 @@ import { TranslatePipe } from '@ngx-translate/core';
 import type { SponsorshipFollowupResponse } from '@openg7/funding-core';
 
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { publicHttpsUrl } from '../../models/public-sponsors.utils.js';
+import { SponsorshipOfferSummaryComponent } from '../sponsorship-offer-summary/sponsorship-offer-summary.component.js';
 
 @Component({
   selector: 'openg7-sponsorship-followup-status',
   standalone: true,
-  imports: [CommonModule, TranslatePipe],
+  imports: [CommonModule, TranslatePipe, SponsorshipOfferSummaryComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './sponsorship-followup-status.component.html',
   styleUrls: ['./sponsorship-followup.css']
 })
 export class SponsorshipFollowupStatusComponent {
+  readonly evidenceUrl = publicHttpsUrl;
+  dateLabel(value: string): string {
+    const date = new Date(value);
+    return Number.isFinite(date.getTime())
+      ? new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
+          dateStyle: 'medium',
+          timeStyle: 'short'
+        }).format(date)
+      : this.i18n.t('funding.followup.status.unavailable');
+  }
   readonly followup = input.required<SponsorshipFollowupResponse>();
   readonly i18n = inject(FundingI18nService);
   readonly paymentKey = computed(() => {

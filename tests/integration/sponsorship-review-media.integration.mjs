@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
+import sharp from 'sharp';
 
 import {
   listPublicSponsorships,
@@ -18,6 +20,16 @@ test(
   async (t) => {
     const { pool, stop } = await startDisposablePostgres();
     t.after(stop);
+    const bytes = await sharp({
+      create: { width: 100, height: 100, channels: 3, background: '#345678' }
+    })
+      .webp()
+      .toBuffer();
+    const checksum = createHash('sha256').update(bytes).digest('hex');
+    const objects = new Map();
+    const storage = {
+      readPrivateObject: async (key) => objects.get(key) ?? null
+    };
     const seed = async (name, media) => {
       const {
         rows: [row]
@@ -35,14 +47,23 @@ test(
             (contribution_id, kind, review_status, original_filename, original_mime_type,
              original_size_bytes, original_storage_key, processed_size_bytes,
              processed_storage_key, public_storage_key, public_url, checksum_sha256,
-             width, height, deleted_at)
-           VALUES ($1, $2, $3, 'fixture.png', 'image/png', 100, 'original/' || $1::uuid::text,
-             80, 'processed/' || $1::uuid::text,
+             width, height, deleted_at, usage_rights)
+           VALUES ($1, $2, $3, 'fixture.webp', 'image/webp', $5, 'original/' || $1::uuid::text,
+             $5, 'processed/' || $1::uuid::text,
              CASE WHEN $3 = 'approved' THEN 'public/' || $1::uuid::text END,
              CASE WHEN $3 = 'approved' THEN 'https://example.invalid/photo.webp' END,
-             repeat('a', 64), 100, 100, CASE WHEN $4 THEN NOW() END) RETURNING id`,
-          [row.id, media.kind, media.status, media.deleted ?? false]
+             $6, 100, 100, CASE WHEN $4 THEN NOW() END,
+             '{"state":"confirmed","channels":["website"],"targets":["openg7"],"transformations":["technical"],"credit":null,"restrictions":null}') RETURNING id`,
+          [
+            row.id,
+            media.kind,
+            media.status,
+            media.deleted ?? false,
+            bytes.length,
+            checksum
+          ]
         );
+        objects.set(`processed/${row.id}`, bytes);
         if (media.status === 'approved' && !media.deleted)
           await approveFixtureSubject(pool, {
             type: 'media',
@@ -106,7 +127,8 @@ test(
                 visible: true,
                 confirmed: true
               },
-              'fixture-admin'
+              'fixture-admin',
+              storage
             ),
             'updated'
           );

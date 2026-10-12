@@ -14,6 +14,9 @@ import { moderationFixture, completeModeration } from './support/moderation.js';
 import { registerSponsorHistoryPanelTests } from './admin-sponsor-history-panels.ui.js';
 import { registerSponsorFiltersTests } from './admin-sponsors-filters.ui.js';
 import { registerSponsorResultsTests } from './admin-sponsors-results.ui.js';
+import { registerContributionActivityOverlayTests } from './contribution-activity-overlays.ui.js';
+import { registerSponsorshipCommitmentTests } from './admin-sponsorship-commitments.ui.js';
+import { registerAdminMediaUsageTests } from './sponsor-media-usage.ui.js';
 
 const id = '10000000-0000-4000-8000-000000000401';
 const secondId = '10000000-0000-4000-8000-000000000402';
@@ -539,8 +542,17 @@ const progress = (page: Page) =>
 const tabs = (page: Page) => page.locator('[data-og7="dossier-tabs"]');
 
 registerSponsorHistoryPanelTests({ fixtures, path, tabs });
+registerAdminMediaUsageTests({ fixtures, path, asset: () => mediaAsset() });
+registerSponsorshipCommitmentTests({ fixtures, path });
 registerSponsorFiltersTests({ fixtures, path });
 registerSponsorResultsTests({ fixtures });
+registerContributionActivityOverlayTests({
+  setup: async (page) => {
+    const { options } = await fixtures(page, 'operator');
+    options.reviewStatus = 200;
+  },
+  sponsorshipId: id
+});
 
 const editForm = (page: Page) => page.locator('[data-og7="edit-dossier-form"]');
 const guide = (page: Page) => page.locator('[data-og7="dossier-guide"]');
@@ -1061,6 +1073,16 @@ for (const width of [1920, 1280, 390]) {
 }
 
 const mediaAsset = (assetId = secondId): SponsorMediaAsset => ({
+  // This synthetic fixture explicitly owns these technical-use permissions.
+  usage: {
+    state: 'confirmed',
+    channels: ['website', 'facebook', 'linkedin'],
+    targets: ['openg7'],
+    transformations: ['technical'],
+    credit: null,
+    restrictions: null
+  },
+  usageRestrictionsReviewed: false,
   id: assetId,
   contributionId: id,
   kind: 'supporting_image',

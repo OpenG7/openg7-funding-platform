@@ -117,6 +117,8 @@ test('backfill continues after null results and errors while preserving all coun
   const reads = [];
   const pool = {
     query: async (sql, values) => {
+      if (sql.includes('SELECT o.snapshot FROM fund_contributions c'))
+        return { rows: [] }; // Explicitly unknown historical agreement; no price-derived benefits.
       if (sql.includes('COUNT(contribution.id)')) {
         return { rows: [{ eligible_count: '10', missing_count: '8' }] };
       }
@@ -195,6 +197,8 @@ test('count, candidate and administrative read failures remain visible to the ca
   for (const failure of ['count', 'candidate', 'read']) {
     const pool = {
       query: async (sql) => {
+        if (sql.includes('SELECT o.snapshot FROM fund_contributions c'))
+          return { rows: [] };
         if (sql.includes('COUNT(contribution.id)')) {
           if (failure === 'count') throw new Error('Synthetic count failure');
           return { rows: [{ eligible_count: '1', missing_count: '1' }] };

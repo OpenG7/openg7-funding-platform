@@ -1,9 +1,24 @@
-import type { CheckoutRequest, CheckoutResult } from '@openg7/funding-core';
+import type {
+  CheckoutRequest,
+  CheckoutResult,
+  SponsorshipOfferQuote
+} from '@openg7/funding-core';
+import { normalizeSponsorshipOfferFormats } from '@openg7/funding-core';
 
-import { CheckoutReconciliationRequiredError } from './checkout-error.js';
+import { parseContributionMinor } from '../models/funding-home.utils.js';
+
+import {
+  CheckoutReconciliationRequiredError,
+  CheckoutOfferChangedError,
+  CheckoutCharterChangedError
+} from './checkout-error.js';
+import {
+  CheckoutOfferRecovery,
+  type CheckoutAttemptStorage,
+  type CheckoutOfferResume
+} from './checkout-offer-recovery.js';
 
 type CheckoutIntent = Omit<CheckoutRequest, 'idempotencyKey'>;
-type AttemptStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 
 const storageKey = 'openg7.checkout-attempts.v1';
 const verificationStorageKey = 'openg7.checkout-verification-required.v1';
@@ -16,10 +31,26 @@ export class CheckoutAttempts {
   private readonly pending = new Map<string, Promise<CheckoutResult>>();
   private readonly keys = new Map<string, string>();
   private verificationRequired = false;
+  private readonly offers: CheckoutOfferRecovery;
 
   constructor(
-    private readonly getStorage: () => AttemptStorage | null = () => null
-  ) {}
+    private readonly getStorage: () => CheckoutAttemptStorage | null = () =>
+      null
+  ) {
+    this.offers = new CheckoutOfferRecovery(getStorage);
+  }
+
+  async retainedSponsorshipOffer(
+    amountMinor: number,
+    currency: string
+  ): Promise<CheckoutOfferResume> {
+    const resume = await this.offers.resume(amountMinor, currency, {
+      ...this.readStoredAttempts(),
+      ...Object.fromEntries(this.keys)
+    });
+    if (resume.state === 'verification_required') this.requireVerification();
+    return resume;
+  }
 
   requiresVerification(): boolean {
     if (this.verificationRequired) return true;
@@ -32,8 +63,13 @@ export class CheckoutAttempts {
 
   start(
     intent: CheckoutIntent,
-    execute: (request: CheckoutRequest) => Promise<CheckoutResult>
+    execute: (request: CheckoutRequest) => Promise<CheckoutResult>,
+    offerQuote?: SponsorshipOfferQuote
   ): Promise<CheckoutResult> {
+    const formats = normalizeSponsorshipOfferFormats(intent.offerFormats);
+    const base = { ...intent };
+    delete base.offerFormats;
+    intent = { ...base, ...(formats ? { offerFormats: formats } : {}) };
     if (this.requiresVerification())
       return Promise.reject(new CheckoutReconciliationRequiredError());
     const payload = JSON.stringify([
@@ -54,14 +90,20 @@ export class CheckoutAttempts {
             intent.charterAcceptance.locale,
             intent.charterAcceptance.accepted
           ]
-        : [])
+        : []),
+      ...(intent.offerAcceptance
+        ? [intent.offerAcceptance.version, intent.offerAcceptance.fingerprint]
+        : []),
+      ...(intent.offerFormats ? [intent.offerFormats] : [])
     ]);
     const existing = this.pending.get(payload);
     if (existing) return existing;
 
-    const pending = this.execute(intent, payload, execute).finally(() => {
-      this.pending.delete(payload);
-    });
+    const pending = this.execute(intent, payload, execute, offerQuote).finally(
+      () => {
+        this.pending.delete(payload);
+      }
+    );
     this.pending.set(payload, pending);
     return pending;
   }
@@ -69,8 +111,21 @@ export class CheckoutAttempts {
   private async execute(
     intent: CheckoutIntent,
     payload: string,
-    execute: (request: CheckoutRequest) => Promise<CheckoutResult>
+    execute: (request: CheckoutRequest) => Promise<CheckoutResult>,
+    offerQuote?: SponsorshipOfferQuote
   ): Promise<CheckoutResult> {
+    if (
+      offerQuote &&
+      intent.contributionType === 'sponsorship_interest' &&
+      (offerQuote.amountMinor !==
+        parseContributionMinor(String(intent.amount)) ||
+        offerQuote.currency !== intent.currency ||
+        offerQuote.version !== intent.offerAcceptance?.version ||
+        offerQuote.fingerprint !== intent.offerAcceptance?.fingerprint)
+    ) {
+      this.requireVerification();
+      throw new CheckoutReconciliationRequiredError();
+    }
     const digest = await globalThis.crypto.subtle.digest(
       'SHA-256',
       new TextEncoder().encode(payload)
@@ -79,12 +134,30 @@ export class CheckoutAttempts {
       byte.toString(16).padStart(2, '0')
     ).join('');
     const remembered = this.readStoredAttempts();
+    if (
+      !(await this.offers.acceptsIntent(fingerprint, intent.offerAcceptance, {
+        ...remembered,
+        ...Object.fromEntries(this.keys)
+      }))
+    ) {
+      this.requireVerification();
+      throw new CheckoutReconciliationRequiredError();
+    }
     const idempotencyKey =
       remembered[fingerprint] ??
       this.keys.get(fingerprint) ??
       globalThis.crypto.randomUUID();
+    const isNewAttempt =
+      !remembered[fingerprint] && !this.keys.has(fingerprint);
     this.keys.set(fingerprint, idempotencyKey);
     this.writeStoredAttempts({ ...remembered, [fingerprint]: idempotencyKey });
+    if (offerQuote && intent.contributionType === 'sponsorship_interest')
+      this.offers.capture(
+        fingerprint,
+        idempotencyKey,
+        offerQuote,
+        intent.offerFormats
+      );
 
     // A failed or undecodable response leaves the key available for a safe retry.
     let result: CheckoutResult;
@@ -92,22 +165,41 @@ export class CheckoutAttempts {
       result = await execute({ ...intent, idempotencyKey });
     } catch (error) {
       if (error instanceof CheckoutReconciliationRequiredError) {
-        this.verificationRequired = true;
-        try {
-          this.getStorage()?.setItem(verificationStorageKey, 'true');
-        } catch {
-          // Retain the block in memory when browser storage is restricted.
+        this.requireVerification();
+      } else if (
+        error instanceof CheckoutOfferChangedError ||
+        error instanceof CheckoutCharterChangedError
+      ) {
+        if (error.code.endsWith('INVALID') && !isNewAttempt) {
+          this.requireVerification();
+          throw new CheckoutReconciliationRequiredError();
         }
+        // New-input validation and prepare failures occur before creating an operation or calling Stripe.
+        this.complete(fingerprint, idempotencyKey);
       }
       throw error;
     }
+    this.complete(fingerprint, idempotencyKey);
+    return result;
+  }
+
+  private complete(fingerprint: string, idempotencyKey: string): void {
     this.keys.delete(fingerprint);
     const completed = this.readStoredAttempts();
     if (completed[fingerprint] === idempotencyKey) {
       delete completed[fingerprint];
       this.writeStoredAttempts(completed);
     }
-    return result;
+    this.offers.forget(fingerprint);
+  }
+
+  private requireVerification(): void {
+    this.verificationRequired = true;
+    try {
+      this.getStorage()?.setItem(verificationStorageKey, 'true');
+    } catch {
+      // Retain the block in memory when browser storage is restricted.
+    }
   }
 
   private readStoredAttempts(): Record<string, string> {

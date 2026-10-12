@@ -8,12 +8,10 @@ import type {
 } from '@openg7/funding-core';
 import type { Pool, PoolClient } from 'pg';
 
-import {
-  centsToAmount,
-  parseDbInt,
-  normalizeSponsorFeedStatus
-} from './contributions-persistence-helpers.js';
-import { resolveSponsorshipSocialChannels } from './sponsorship-benefits.js';
+import { pendingSponsorshipSocialChannels } from '../../../packages/funding-core/src/index.js';
+
+import { normalizeSponsorFeedStatus } from './contributions-persistence-helpers.js';
+import { loadSponsorshipCommitment } from './sponsorship-commitments.repository.js';
 import { SPONSOR_APPROVED_PRESENTATION_SQL } from './sponsorship-media-eligibility.js';
 import {
   normalizeSponsorFeedTarget,
@@ -84,15 +82,6 @@ export interface SponsorshipLogoDeleteInput {
   readonly contributionId: string;
   readonly expectedVersion: string;
 }
-
-const mergePromisedSponsorFeedChannels = (
-  channels: readonly SponsorFeedChannel[],
-  amount: number
-): readonly SponsorFeedChannel[] => {
-  const promisedChannels = resolveSponsorshipSocialChannels(amount);
-
-  return [...new Set([...channels, ...promisedChannels])];
-};
 
 const normalizedNullableText = (
   value: string | null | undefined
@@ -383,10 +372,15 @@ export const updateSponsorshipPublication = async (
       );
       const feedChannels =
         targetRow.status === 'paid'
-          ? mergePromisedSponsorFeedChannels(
-              requestedFeedChannels,
-              centsToAmount(parseDbInt(targetRow.amount_cents))
-            )
+          ? [
+              ...new Set([
+                ...requestedFeedChannels,
+                ...pendingSponsorshipSocialChannels(
+                  await loadSponsorshipCommitment(db, input.contributionId),
+                  input.feedTarget ?? undefined
+                )
+              ])
+            ]
           : requestedFeedChannels;
       const visibilityMetadataChanged =
         normalizedNullableText(input.publicSlug) !==

@@ -2,10 +2,10 @@ import { createHash } from 'node:crypto';
 
 import type { Pool } from 'pg';
 
-import { formatSponsorshipBenefitList } from '../sponsorship-benefits.js';
+import { formatRecordedSponsorshipBenefits } from '../sponsorship-benefits.js';
+import { loadSponsorshipOfferForSession } from '../sponsorship-commitments.repository.js';
 import { sponsorshipInvoiceConfig } from '../sponsorship-invoice-config.js';
 import {
-  centsToAmount,
   mapSponsorshipInvoiceRow,
   type SponsorshipInvoiceLineItem,
   type SponsorshipInvoiceRecord,
@@ -69,12 +69,15 @@ export const createSponsorshipInvoiceForStripeSession = async (
   const invoiceNumber = createInvoiceNumber(input);
   // Persist the benefits with the issued document: resends and PDF downloads
   // must not resolve them again against a future pricing configuration.
+  const offer = await loadSponsorshipOfferForSession(
+    pool,
+    input.stripeSessionId
+  );
   const notes = [
     'Avantages de votre commandite :',
-    ...formatSponsorshipBenefitList(
-      centsToAmount(input.amountCents),
-      input.currency
-    ).map((benefit) => `- ${benefit}`),
+    ...formatRecordedSponsorshipBenefits(offer).map(
+      (benefit) => `- ${benefit}`
+    ),
     '',
     'Ces présences nécessitent votre consentement et une validation administrative. Aucune publication n’est automatique au paiement.',
     '',

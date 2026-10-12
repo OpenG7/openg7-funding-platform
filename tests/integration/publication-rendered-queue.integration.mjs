@@ -15,6 +15,7 @@ import { repairSources } from '../../dist/apps/funding-api/src/publication-autom
 import { recordModerationDecision } from '../../dist/apps/funding-api/src/moderation/repository.js';
 import { withPostgresTransaction } from '../../dist/apps/funding-api/src/postgres-transaction.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
+import { recordFixtureSponsorshipAgreement } from './support/sponsorship-agreement-fixture.mjs';
 import {
   approveFixtureSubject,
   fixtureModerationActor,
@@ -93,6 +94,10 @@ test(
        FROM jsonb_to_recordset($1::jsonb) AS input(id uuid,name text)`,
         [JSON.stringify(records)]
       );
+      for (const record of records)
+        await recordFixtureSponsorshipAgreement(pool, record.id, {
+          channel: 'facebook'
+        });
       await pool.query(
         `INSERT INTO sponsor_publication_drafts(id,contribution_id,feed_target,channel,title,body,disclosure_text,created_at)
        SELECT "draftId",id,'openg7','facebook',title,body,"disclosureText","createdAt"

@@ -20,6 +20,8 @@ import type {
 
 import { completePublicationModeration } from './support/acceptance-moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
+import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
+import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';
 import { acceptanceSql } from './support/acceptance-database.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import { completeModeration } from './support/moderation.js';
@@ -213,6 +215,7 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
       await form.locator('#public-display-name').fill(companyName);
       await form.getByRole('checkbox').nth(1).uncheck();
       await form.getByRole('checkbox').nth(2).check();
+      await acceptDisplayedSponsorshipOffer(form);
       const checkout = company.waitForRequest(
         (r) => r.url().endsWith('/checkout-sessions') && r.method() === 'POST'
       );
@@ -259,6 +262,7 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
       })
         .png()
         .toBuffer();
+      await confirmAcceptanceMediaUsage(company);
       for (const [label, filename] of [
         ['Ajouter le logo', 'logo-demo.png'],
         ['Ajouter des photos', 'photo-demo.png']

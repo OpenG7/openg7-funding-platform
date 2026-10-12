@@ -4,6 +4,7 @@ import type { AttentionDataset } from './contracts.js';
 import { SEVERITY_RANK } from './shared.js';
 import {
   detectSponsorshipInfoItems,
+  detectSponsorshipCommitmentItems,
   detectSponsorshipReviewItems
 } from './sponsorship.detectors.js';
 import {
@@ -33,6 +34,7 @@ export const buildAttentionItems = (
   sortAttentionItems([
     ...detectSponsorshipInfoItems(dataset),
     ...detectSponsorshipReviewItems(dataset),
+    ...detectSponsorshipCommitmentItems(dataset),
     ...detectPublicationPreparationItems(dataset),
     ...detectLatePublicationItems(dataset),
     ...detectFailedEmailItems(dataset),

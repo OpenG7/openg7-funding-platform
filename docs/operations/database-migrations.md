@@ -93,6 +93,33 @@ mis à jour lors de l'adoption, sans transférer la propriété des tables.
 déjà restreint; elle maintient l'interdiction de modifier son contenu ou son lot
 tant qu'une livraison est autorisée, en cours ou incertaine.
 
+La migration [041](../../apps/funding-api/migrations/041_sponsorship_commitments.sql)
+ajoute les offres commerciales immuables, engagements, obligations et changements
+administratifs traçables. L'appliquer avant l'API et le Web correspondants. Elle
+classe les dossiers payés, remboursés ou contestés existants sans offre enregistrée
+en `historical_unverified` / `needs_confirmation`, sans recalculer le barème ni créer
+de prestations rétroactives. Une qualification explicite du propriétaire exige
+une référence de preuve et conserve la provenance historique. Aucun paiement,
+remboursement, revue, visibilité ou envoi n'est déclenché par cette migration.
+Les obligations `fulfilled` exigent une référence de preuve ; un simple ancien
+statut publié ne remplit pas cette condition. Voir le
+[contrat Checkout](../technical/checkout.md) et les
+[routes d'engagements](../technical/admin-api.md).
+
+La migration [045](../../apps/funding-api/migrations/045_sponsorship_publication_formats.sql)
+ajoute le format nullable aux obligations sociales et l'ajustement audité `format`.
+Elle ne modifie aucun snapshot d'offre ni empreinte historique. `NULL` conserve
+l'absence de promesse d'image; aucune prestation, approbation ou diffusion n'est
+créée. Appliquer avant les contrats de formats de l'API/Web correspondants.
+
+Les migrations 042 à 050 complètent ce chantier : compte effectif, preuves de
+livraison, droits et préférences des médias, libération des réservations sans
+DELETE, dérivés visuels, passages successifs et projection de modération sans
+clés privées. L'ordre, les effets sur les anciennes photos et la reprise sont
+détaillés dans le [guide d'adoption](sponsorship-delivery-adoption.md).
+Les nouvelles N0 exigées par un changement de contenu restent humaines ; ces
+migrations ne qualifient aucun ancien accord et ne déclenchent aucun envoi.
+
 La migration [029](../../apps/funding-api/migrations/029_create_sponsorship_refund_operations.sql)
 ajoute les demandes de remboursement durables et leur exclusion mutuelle.
 Elle ne modifie aucun fait financier existant. L'appliquer avant l'API mise à

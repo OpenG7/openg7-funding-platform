@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
+import sharp from 'sharp';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
+import { recordFixtureSponsorshipAgreement } from './support/sponsorship-agreement-fixture.mjs';
 import {
   approveFixtureSubject,
   fixtureModerationActor
@@ -14,11 +17,21 @@ import {
 } from '../../dist/apps/funding-api/src/fund-contributions.repository.js';
 
 test(
-  'website decisions and real public visibility agree for every tier, preserve social state, and audit atomically',
+  'website decisions and real public visibility agree with explicit recorded agreements, preserve social state, and audit atomically',
   { timeout: 90000 },
   async () => {
     const { pool, stop } = await startDisposablePostgres();
     try {
+      const bytes = await sharp({
+        create: { width: 100, height: 100, channels: 3, background: '#345678' }
+      })
+        .webp()
+        .toBuffer();
+      const checksum = createHash('sha256').update(bytes).digest('hex');
+      const objects = new Map();
+      const storage = {
+        readPrivateObject: async (key) => objects.get(key) ?? null
+      };
       const personal = (
         await pool.query(
           "INSERT INTO fund_contributions (contribution_type, amount_cents, currency, status) VALUES ('personal_support', 5000, 'cad', 'paid') RETURNING *"
@@ -57,7 +70,14 @@ test(
         ).rows[0],
         personal
       );
-      for (const amount of [5000, 10000, 24999, 25000, 33333, 50000]) {
+      for (const [amount, channels] of [
+        [5000, ['website']],
+        [10000, ['website']],
+        [24999, ['website']],
+        [25000, ['website', 'facebook']],
+        [33333, ['website', 'facebook']],
+        [50000, ['website', 'facebook', 'linkedin']]
+      ]) {
         const {
           rows: [{ id }]
         } = await pool.query(
@@ -72,10 +92,13 @@ test(
           );
         }
         const media = await pool.query(
-          `INSERT INTO sponsor_media_assets (contribution_id,kind,review_status,original_filename,original_mime_type,original_size_bytes,original_storage_key,processed_size_bytes,processed_storage_key,public_storage_key,public_url,checksum_sha256,width,height)
-        VALUES($1,'supporting_image','approved','fixture.png','image/png',100,'private-original-' || $1::uuid::text,100,'private-processed-' || $1::uuid::text,'public-fixture-' || $1::uuid::text,'https://example.invalid/fixture.webp',repeat('a',64),100,100) RETURNING id`,
-          [id]
+          `INSERT INTO sponsor_media_assets (contribution_id,kind,review_status,original_filename,original_mime_type,original_size_bytes,original_storage_key,processed_size_bytes,processed_storage_key,public_storage_key,public_url,checksum_sha256,width,height,usage_rights)
+        VALUES($1,'supporting_image','approved','fixture.webp','image/webp',$2,'private-original-' || $1::uuid::text,$2,'private-processed-' || $1::uuid::text,'public-fixture-' || $1::uuid::text,'https://example.invalid/fixture.webp',$3,100,100,
+          '{"state":"confirmed","channels":["website"],"targets":["openg7"],"transformations":["technical"],"credit":null,"restrictions":null}') RETURNING id`,
+          [id, bytes.length, checksum]
         );
+        objects.set(`private-processed-${id}`, bytes);
+        await recordFixtureSponsorshipAgreement(pool, id, { channels });
         await approveFixtureSubject(pool, {
           type: 'media',
           id: media.rows[0].id
@@ -143,15 +166,26 @@ test(
           await setSponsorshipWebsiteVisibility(
             pool,
             { ...input, expectedVersion: 'stale' },
-            'fixture-admin'
+            'fixture-admin',
+            storage
           ),
           'conflict'
         );
         assert.deepEqual(
           (
             await Promise.all([
-              setSponsorshipWebsiteVisibility(pool, input, 'fixture-admin'),
-              setSponsorshipWebsiteVisibility(pool, input, 'fixture-admin')
+              setSponsorshipWebsiteVisibility(
+                pool,
+                input,
+                'fixture-admin',
+                storage
+              ),
+              setSponsorshipWebsiteVisibility(
+                pool,
+                input,
+                'fixture-admin',
+                storage
+              )
             ])
           ).sort(),
           ['unchanged', 'updated'],
@@ -164,8 +198,11 @@ test(
         assert.equal(visible.publications.length, 0);
         assert.equal(
           visible.milestones.find((s) => s.id === 'publication').state,
-          amount < 25000 ? 'complete' : 'partial'
+          channels.length === 1 ? 'complete' : 'partial'
         );
+        const evidence = visible.fulfilmentEvidence;
+        assert.equal(evidence.length, 1);
+        assert.equal(evidence[0].provenance, 'website_verified');
         const count = async () =>
           Number(
             (
@@ -177,7 +214,12 @@ test(
           );
         const audited = await count();
         assert.equal(
-          await setSponsorshipWebsiteVisibility(pool, input, 'fixture-admin'),
+          await setSponsorshipWebsiteVisibility(
+            pool,
+            input,
+            'fixture-admin',
+            storage
+          ),
           'unchanged',
           'repeated publish has no new effect'
         );
@@ -193,10 +235,27 @@ test(
         );
         assert.equal((await load()).website.visible, false);
         assert.equal(await directoryHas(), false);
-        assert.notEqual(
-          (await load()).milestones.find((s) => s.id === 'publication').state,
-          'complete'
+        const hidden = await load();
+        assert.equal(
+          hidden.fulfilmentEvidence[0].id,
+          evidence[0].id,
+          'hiding preserves the qualified historical delivery proof'
         );
+        assert.equal(
+          hidden.commitment.obligations.find((o) => o.channel === 'website')
+            .state,
+          'fulfilled'
+        );
+        if (channels.length === 1)
+          assert.equal(
+            hidden.milestones.find((s) => s.id === 'publication').state,
+            'complete'
+          );
+        else
+          assert.notEqual(
+            hidden.milestones.find((s) => s.id === 'publication').state,
+            'complete'
+          );
         for (const [change, restore] of [
           ['public_display_consent=FALSE', 'public_display_consent=TRUE'],
           [
@@ -262,6 +321,10 @@ test(
           "UPDATE sponsor_media_assets SET review_status='approved', public_storage_key='public-fixture-' || $1::uuid::text, public_url='https://example.invalid/fixture.webp' WHERE contribution_id=$1",
           [id]
         );
+        await approveFixtureSubject(pool, {
+          type: 'media',
+          id: media.rows[0].id
+        });
         // Simulate persistence failure: the visibility change must roll back with its audit.
         await pool.query(
           "ALTER TABLE admin_audit_log ADD CONSTRAINT fixture_reject_website_audit CHECK (action <> 'sponsorship_website.visibility') NOT VALID"
@@ -270,7 +333,8 @@ test(
           setSponsorshipWebsiteVisibility(
             pool,
             { ...input, expectedVersion: await version() },
-            'fixture-admin'
+            'fixture-admin',
+            storage
           )
         );
         assert.equal((await load()).website.visible, false);

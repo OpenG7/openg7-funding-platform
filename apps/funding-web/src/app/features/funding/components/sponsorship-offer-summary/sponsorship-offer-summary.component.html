@@ -1,0 +1,51 @@
+<p>{{ 'funding.offer.version' | translate: { version: offer().version } }}</p>
+<p>{{ 'funding.offer.amount' | translate: { amount: amount() } }}</p>
+<ul role="list">
+  @for (benefit of offer().benefits; track benefit.id) {
+    <li [attr.data-og7-id]="benefit.id">
+      <strong
+        >{{ benefit.quantity }} ×
+        {{ 'funding.offer.channels.' + benefit.channel | translate }}</strong
+      >
+      <p>
+        {{
+          'funding.offer.destination'
+            | translate: { target: benefit.target.toUpperCase() }
+        }}
+      </p>
+      @if (benefit.format) {
+        <p data-og7="offer-benefit-format">
+          {{ 'funding.offer.format' | translate }}
+          {{ 'funding.offer.formats.' + benefit.format | translate }}
+        </p>
+      }
+      <p>
+        {{ 'funding.offer.required' | translate }}
+        @for (
+          element of benefit.requiredElements;
+          track element;
+          let last = $last
+        ) {
+          {{ 'funding.offer.elements.' + element | translate
+          }}{{ last ? '.' : ', ' }}
+        }
+      </p>
+      <p>
+        {{
+          (benefit.deadlineDays === null
+            ? 'funding.offer.noDeadline'
+            : 'funding.offer.deadline'
+          ) | translate: { days: benefit.deadlineDays }
+        }}
+      </p>
+      <p>
+        {{
+          (benefit.durationDays === null
+            ? 'funding.offer.noDuration'
+            : 'funding.offer.duration'
+          ) | translate: { days: benefit.durationDays }
+        }}
+      </p>
+    </li>
+  }
+</ul>
