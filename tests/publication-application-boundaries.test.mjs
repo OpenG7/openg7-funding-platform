@@ -228,26 +228,47 @@ test('source loading blocks missing, empty, over-capacity and legacy batches', a
 test('repair candidates keep their ordered prefix and exact UTF-16 text limit', async () => {
   const exact = {
     ...source,
-    title: '',
+    title: 'Exemple',
     disclosure_text: '',
-    body: '😀'.repeat(1450),
+    body: '😀'.repeat(1445) + 'x',
     name: 'Exemple'
   };
   const tooLarge = { ...exact, id: 'too-large', body: `${exact.body}x` };
   const smaller = { ...exact, id: 'smaller', body: 'Petit texte' };
   assert.deepEqual(
     await repairSources(
-      sequenceDb([{ capacity: 3 }], [exact, smaller]),
+      sequenceDb(
+        [{ capacity: 3, preparation_moderation_allowed: true }],
+        [],
+        [exact, smaller]
+      ),
       delivery
     ),
     [exact]
   );
+  const guarded = sequenceDb(
+    [{ capacity: 3, preparation_moderation_allowed: true }],
+    [],
+    [smaller]
+  );
+  await repairSources(guarded, delivery);
+  assert.ok(
+    guarded.calls[2].sql.includes("AND d.status IN ('draft','approved')")
+  );
+  assert.ok(
+    guarded.calls[2].sql.indexOf('preparation_review') <
+      guarded.calls[2].sql.indexOf('LIMIT $3')
+  );
   assert.deepEqual(
     await repairSources(
-      sequenceDb([{ capacity: 3 }], [tooLarge, smaller]),
+      sequenceDb(
+        [{ capacity: 3, preparation_moderation_allowed: true }],
+        [],
+        [tooLarge, smaller]
+      ),
       delivery
     ),
-    []
+    [smaller]
   );
   const missing = sequenceDb([]);
   assert.deepEqual(await repairSources(missing, delivery), []);

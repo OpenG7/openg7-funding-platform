@@ -1,5 +1,7 @@
 import { AxeBuilder } from '@axe-core/playwright';
 
+import { USAGE_REFUND_POLICY_REVISION } from '../../apps/funding-web/src/app/features/funding/pages/usage-refund-policy-page/usage-refund-policy-page.metadata.js';
+
 import { expect, test } from './support/test.js';
 
 const locales = [
@@ -18,6 +20,15 @@ const locales = [
     subject: 'Refund request — Builders Fund'
   }
 ] as const;
+
+const revisionText = (language: 'fr-CA' | 'en') =>
+  (language === 'en' ? 'Updated: ' : 'Mise à jour : ') +
+  new Intl.DateTimeFormat(language, {
+    dateStyle: 'long',
+    timeZone: 'UTC'
+  }).format(new Date(`${USAGE_REFUND_POLICY_REVISION}T00:00:00.000Z`));
+
+test.use({ timezoneId: 'America/Toronto' });
 
 test.beforeEach(async ({ page }) => {
   // Static policy and isolated support links: no payment or email is sent.
@@ -88,10 +99,10 @@ for (const locale of locales) {
     );
     await expect(page.locator('time')).toHaveAttribute(
       'datetime',
-      '2026-10-11'
+      USAGE_REFUND_POLICY_REVISION
     );
     await expect(page.locator('time')).toHaveText(
-      english ? 'Updated: October 11, 2026' : 'Mise à jour : 11 octobre 2026'
+      revisionText(locale.language)
     );
     await expect(page.locator('[data-og7="refund-policy"]')).not.toContainText(
       /funding\.policyPage\.|webhook|idempotence|idempotency|\bMVP\b/
@@ -274,6 +285,13 @@ test.describe('refund policy prerender without JavaScript', () => {
       await expect(page.locator('html')).toHaveAttribute(
         'lang',
         locale.language
+      );
+      await expect(page.locator('time')).toHaveAttribute(
+        'datetime',
+        USAGE_REFUND_POLICY_REVISION
+      );
+      await expect(page.locator('time')).toHaveText(
+        revisionText(locale.language)
       );
       await expect(page.locator('[data-og7="print-policy"]')).toHaveCount(0);
       await expect(

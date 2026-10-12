@@ -139,14 +139,15 @@ const families = [
     read: (service) =>
       service.publicationAutomation(undefined, {
         sponsorshipId: 'sponsor /',
-        deliveryId: 'delivery /'
+        deliveryId: 'delivery /',
+        queueOffset: 200
       }),
     readPath:
-      '/admin/publication-automation?sponsorshipId=sponsor+%2F&deliveryId=delivery+%2F',
+      '/admin/publication-automation?sponsorshipId=sponsor+%2F&deliveryId=delivery+%2F&queueOffset=200',
     write: (service) =>
       service.publicationAutomation(
         { action: 'check', feedId: 'openg7:facebook' },
-        { sponsorshipId: 'ignored-on-command' }
+        { sponsorshipId: 'ignored-on-command', queueOffset: 200 }
       ),
     writePath: '/admin/publication-automation',
     body: { action: 'check', feedId: 'openg7:facebook' },

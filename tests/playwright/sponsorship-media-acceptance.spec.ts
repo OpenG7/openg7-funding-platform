@@ -15,7 +15,6 @@ import type {
 
 import {
   approveAcceptanceSubject,
-  approveAllAcceptanceMedia,
   completePublicationModeration
 } from './support/acceptance-moderation.js';
 import { completeModeration } from './support/moderation.js';
@@ -149,10 +148,23 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
     ) => {
       const dialog = await editDelivery(job, message, due);
       await dialog.getByRole('checkbox', { name: /J’approuve/ }).check();
+      const approved = admin.waitForResponse(
+        (response) =>
+          response.url().endsWith(automation) &&
+          response.request().method() === 'POST'
+      );
       await dialog
         .getByRole('button', { name: 'Accepter et programmer' })
         .click();
       await completePublicationModeration(admin);
+      const response = await approved;
+      expect(response.ok(), await response.text()).toBe(true);
+      expect(response.request().postDataJSON()).toMatchObject({
+        action: 'approve',
+        id: job.id,
+        confirmation: job.id,
+        moderationDecision: { level: 'N0' }
+      });
       await expect(dialog).toContainText('Autorisée');
       return delivery(job.id);
     };
@@ -278,7 +290,33 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
       await admin.goto(
         '/admin/fundraiser/sponsors?sponsorshipId=' + id + '&tab=media'
       );
-      await approveAllAcceptanceMedia(admin);
+      const pendingMedia = (
+        await get<SponsorshipMediaResponse>(
+          '/api/admin/sponsorships/media?contributionId=' + id
+        )
+      ).assets.filter((asset) => asset.reviewStatus !== 'approved');
+      expect(pendingMedia).toHaveLength(3);
+      const pendingIds = new Set(pendingMedia.map((asset) => asset.id));
+      await admin
+        .getByRole('button', { name: 'Tout approuver', exact: true })
+        .click();
+      for (let index = 0; index < pendingMedia.length; index++) {
+        const reviewed = admin.waitForResponse(
+          (response) =>
+            response.url().endsWith('/api/admin/sponsorships/media/review') &&
+            response.request().method() === 'POST'
+        );
+        await completeModeration(admin);
+        const response = await reviewed;
+        expect(response.ok(), await response.text()).toBe(true);
+        const reviewedAsset = response.request().postDataJSON();
+        expect(pendingIds.delete(reviewedAsset.assetId)).toBe(true);
+        expect(reviewedAsset).toMatchObject({
+          reviewStatus: 'approved',
+          moderationDecision: { level: 'N0' }
+        });
+      }
+      expect(pendingIds.size).toBe(0);
       await expect
         .poll(async () =>
           (
@@ -350,9 +388,26 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
             await request.get('/api/public/sponsor-media/' + originalAsset.id)
           ).status()
         ).toBe(404);
-        await approveAcceptanceSubject(request, {
-          type: 'sponsorship',
-          id: id
+        // Saving the public summary changes the dossier's editorial revision.
+        const moderation = admin.locator('[data-og7="moderation-actions"]');
+        await moderation.getByRole('combobox').first().selectOption('N0');
+        const moderated = admin.waitForResponse(
+          (response) =>
+            response.url().endsWith('/api/admin/moderation/decisions') &&
+            response.request().method() === 'POST'
+        );
+        await moderation.locator('[data-og7="moderation-open"]').click();
+        await completeModeration(admin);
+        const moderationResponse = await moderated;
+        expect(moderationResponse.ok(), await moderationResponse.text()).toBe(
+          true
+        );
+        expect(await moderationResponse.json()).toMatchObject({
+          decision: {
+            subject: { type: 'sponsorship', id },
+            level: 'N0',
+            state: 'active'
+          }
         });
         await admin.locator('[data-og7="website-visibility"]').click();
         await admin.locator('[data-og7="confirm-action"]').click();

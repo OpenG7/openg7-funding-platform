@@ -11,8 +11,10 @@ import type {
   PublicationAutomationState
 } from '@openg7/funding-core';
 
-import { acceptanceModerationDecision } from '../playwright/support/acceptance-moderation.js';
-import { completeModeration } from '../playwright/support/moderation.js';
+import {
+  completeModeration,
+  currentModerationApproval
+} from '../playwright/support/moderation.js';
 
 import { startIdentityStack } from './stack.mjs';
 
@@ -120,7 +122,7 @@ test('weekly programme: preview, discard, stale plan, lost response, renewed app
       id: ids[0],
       version: 1,
       confirmation: ids[0],
-      moderationDecision: await acceptanceModerationDecision(
+      moderationDecision: await currentModerationApproval(
         owner.request,
         { type: 'publication_delivery', id: ids[0] },
         headers
@@ -294,7 +296,7 @@ test('weekly programme: preview, discard, stale plan, lost response, renewed app
         id: a.id,
         version: a.version,
         confirmation: a.id,
-        moderationDecision: await acceptanceModerationDecision(
+        moderationDecision: await currentModerationApproval(
           owner.request,
           { type: 'publication_delivery', id: a.id },
           headers

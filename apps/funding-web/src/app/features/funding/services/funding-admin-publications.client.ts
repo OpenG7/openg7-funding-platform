@@ -40,6 +40,8 @@ export class FundingAdminPublicationsClient {
       query.set('sponsorshipId', filter.sponsorshipId);
     if (!command && filter.deliveryId)
       query.set('deliveryId', filter.deliveryId);
+    if (!command && filter.queueOffset !== undefined)
+      query.set('queueOffset', String(filter.queueOffset));
     const response = await this.session.requestAdminJson(
       `/admin/publication-automation${query.size ? `?${query}` : ''}`,
       {

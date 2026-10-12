@@ -16,6 +16,8 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { FundingSeoService } from '../../services/funding-seo.service.js';
 import { SponsorshipCharterService } from '../../services/sponsorship-charter.service.js';
 
+import { USAGE_REFUND_POLICY_REVISION } from './usage-refund-policy-page.metadata.js';
+
 interface PolicySection {
   readonly id: string;
   readonly titleKey: string;
@@ -39,7 +41,13 @@ export class UsageRefundPolicyPageComponent {
   private readonly seo = inject(FundingSeoService);
 
   // Editorial revision, not a new financial eligibility rule.
-  readonly revision = '2026-10-11';
+  readonly revision = USAGE_REFUND_POLICY_REVISION;
+  readonly revisionDate = computed(() =>
+    new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
+      dateStyle: 'long',
+      timeZone: 'UTC'
+    }).format(new Date(`${this.revision}T00:00:00.000Z`))
+  );
   readonly contactEmail = 'contact@openg7.org';
   readonly canPrint = signal(false);
   readonly summaryItems = ['nature', 'refunds', 'visibility'] as const;

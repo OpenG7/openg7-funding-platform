@@ -136,6 +136,105 @@ test('navigation clears the prior snapshot and missing flag and invalidates comm
   });
 });
 
+test('source queue pagination preserves route filters and accepts only the server page and complete counters', async () => {
+  const f = fixture();
+  f.controller.beginContext(filter);
+  await f.controller.load();
+  const confirmed = serverState({
+    queue: {
+      entries: [{ draftId: 'source-last-page' }],
+      summary: { retained: 202, deferred: 4, needsCorrection: 1 },
+      total: 207,
+      offset: 200,
+      limit: 200,
+      hasMore: false
+    }
+  });
+  f.ports.api.read = async (value) => {
+    f.calls.reads.push(value);
+    return confirmed;
+  };
+  assert.equal(await f.controller.loadQueuePage(200), true);
+  assert.deepEqual(f.calls.reads.at(-1), { ...filter, queueOffset: 200 });
+  assert.equal(f.controller.state(), confirmed);
+  assert.equal(f.controller.queueOffset(), 200);
+  assert.equal(f.controller.state().queue.summary.retained, 202);
+  assert.equal(f.controller.state().queue.entries.length, 1);
+});
+
+test('failed source queue pagination preserves the confirmed page, offset and original error', async () => {
+  const f = fixture();
+  f.controller.beginContext(filter);
+  await f.controller.loadQueuePage(200);
+  const confirmed = f.controller.state();
+  const failure = new Error('QUEUE_UNAVAILABLE');
+  f.ports.api.read = async () => {
+    throw failure;
+  };
+  assert.equal(await f.controller.loadQueuePage(400), false);
+  assert.equal(f.controller.state(), confirmed);
+  assert.equal(f.controller.queueOffset(), 200);
+  assert.equal(f.error(), 'QUEUE_UNAVAILABLE');
+  assert.deepEqual(f.calls.errors, [failure]);
+});
+
+test('preparation commands reload the first queue page and invalidate a pending older page', async () => {
+  const f = fixture();
+  f.controller.beginContext(filter);
+  await f.controller.loadQueuePage(200);
+  const latePage = deferred();
+  let count = 0;
+  f.ports.api.read = async (value) => {
+    f.calls.reads.push(value);
+    return ++count === 1 ? latePage.promise : f.next;
+  };
+  const pending = f.controller.loadQueuePage(400);
+  const w = workflow(f);
+  await w.workflow.run({ action: 'prepare', feedId: 'openg7:facebook' });
+  assert.deepEqual(f.calls.reads.at(-1), filter);
+  assert.equal(f.controller.queueOffset(), 0);
+  latePage.resolve(serverState({ workerVersion: 99 }));
+  assert.equal(await pending, false);
+  assert.equal(f.controller.state(), f.next);
+  assert.equal(f.controller.queueOffset(), 0);
+});
+
+test('source queue pages cannot carry offsets or late failures into another dossier', async () => {
+  const f = fixture();
+  f.controller.beginContext(filter);
+  await f.controller.loadQueuePage(200);
+  const latePage = deferred();
+  f.ports.api.read = async () => latePage.promise;
+  const pending = f.controller.loadQueuePage(400);
+  const current = f.controller.beginContext({
+    sponsorshipId: 'another-sponsor'
+  });
+  latePage.reject(new Error('OLD_QUEUE_FAILURE'));
+  assert.equal(await pending, false);
+  assert.equal(f.controller.queueOffset(), 0);
+  assert.equal(f.controller.state(), null);
+  assert.equal(f.controller.isCurrent(current), true);
+  assert.deepEqual(f.calls.errors, []);
+});
+
+test('invalid queue offsets do not read and an explicit refresh can retain confirmed state on failure', async () => {
+  const f = fixture();
+  for (const offset of [-1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1])
+    assert.equal(await f.controller.loadQueuePage(offset), false);
+  assert.deepEqual(f.calls.reads, []);
+  await f.controller.loadQueuePage(200);
+  const confirmed = f.controller.state();
+  f.controller.resetQueueOffset();
+  f.ports.api.read = async (value) => {
+    f.calls.reads.push(value);
+    throw new Error('REFRESH_UNAVAILABLE');
+  };
+  assert.equal(await f.controller.load(true), false);
+  assert.equal(f.controller.state(), confirmed);
+  assert.equal(f.calls.reads.at(-1).queueOffset, undefined);
+  assert.equal(f.error(), 'REFRESH_UNAVAILABLE');
+});
+
 test('the newest read wins over either a late successful or failed older read without stale feedback', async () => {
   for (const outcome of ['resolve', 'reject']) {
     const f = fixture();

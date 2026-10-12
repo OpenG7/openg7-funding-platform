@@ -67,6 +67,8 @@ export interface PublicationAutomationState {
   workerVersion: number;
   feeds: PublicationFeed[];
   deliveries: PublicationDelivery[];
+  /** Private preparation facts; absent on older API responses. Never authorizes sending. */
+  queue?: PublicationPreparationQueue;
   summary: {
     awaitingApproval: number;
     scheduled: number;
@@ -74,9 +76,48 @@ export interface PublicationAutomationState {
     publishedToday: number;
   };
 }
+export type PublicationPreparationReason =
+  | 'AWAITING_PREPARATION'
+  | 'NO_SLOT_IN_HORIZON'
+  | 'INDIVIDUAL_TEXT_TOO_LONG'
+  | 'INVALID_SOURCE_CONTENT'
+  | 'EXISTING_BATCH_INVALID'
+  | 'MANUAL_RESERVATION'
+  | 'PREPARATION_FAILED'
+  | 'MODERATION_REVIEW_REQUIRED'
+  | 'AWAITING_APPROVAL';
+export interface PublicationPreparationEntry {
+  draftId: string;
+  sponsorshipId: string;
+  name: string;
+  feedId: PublicationFeedId;
+  status: 'retained' | 'deferred' | 'needs_correction';
+  reason: PublicationPreparationReason;
+  /** Length of the complete individual recognition block, in UTF-16 code units. */
+  renderedLength: number;
+  budget: number;
+  createdAt: string;
+  scheduledAt: string | null;
+  batchId: string | null;
+  deliveryId: string | null;
+  deliveryStatus: PublicationDeliveryStatus | null;
+}
+export interface PublicationPreparationQueue {
+  entries: PublicationPreparationEntry[];
+  /** Counts cover the entire confirmed scope, independently of this page. */
+  summary: { retained: number; deferred: number; needsCorrection: number };
+  total: number;
+  offset: number;
+  limit: number;
+  hasMore: boolean;
+  scope: 'global' | 'filtered';
+  evaluatedAt: string;
+}
 export interface PublicationAutomationFilter {
   readonly sponsorshipId?: string;
   readonly deliveryId?: string;
+  /** Offset for the preparation queue only; pages are current facts, not a frozen snapshot. */
+  readonly queueOffset?: number;
 }
 export type PublicationAutomationCommand =
   | {

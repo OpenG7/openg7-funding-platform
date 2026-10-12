@@ -3,7 +3,7 @@
 Date : 11 octobre 2026. Référence de diagnostic : `8edb18ee6b3f`.
 
 Statut du chantier : **Construction active**. Cadrage et découpage disponibles;
-réalisation locale démarrée, 4 tâches en cours et 40 à faire.
+réalisation locale démarrée, 5 tâches en cours et 39 à faire.
 
 Le feu vert de l'utilisateur couvre la réalisation locale de tous les lots de
 l'[analyse](sponsorship-visibility-analysis.md). Ce plan les découpe en **44 tâches**
@@ -12,8 +12,8 @@ avec dépendances, critères d'acceptation et validations. Les
 livraison et vérification de leurs critères. Ce fichier devient la référence
 de suivi des tâches; l'analyse conserve le diagnostic et ses sources.
 
-SP07, SP08, SP12 et SP20 sont **en cours** dans le premier lot local. Leurs avances
-et limites figurent ci-dessous; aucune des 44 tâches n'est déclarée terminée.
+L'[avancement courant](#avancement-courant) regroupe les acquis et le travail
+restant de SP07, SP08, SP09, SP12 et SP20. Aucune tâche n'est déclarée terminée.
 L'approbation administrative de chaque publication reste
 distincte du développement. Les essais utilisent des dossiers synthétiques et
 des fournisseurs simulés; la mise en service réelle se prépare dans SP43.
@@ -65,9 +65,30 @@ leur livraison. E exploite les projections privées; F ajoute les capacités
 visuelles. L'adoption historique commence par un aperçu de rapprochement et
 reste distincte de l'activation des envois.
 
+<a id="avancement-courant"></a>
+
+## Avancement courant
+
+Les cinq tâches ci-dessous restent **en cours**. Les critères détaillés demeurent
+dans leur fiche; les commandes et résultats appartiennent aux réceptions datées.
+Les limites du fonctionnement actuel sont décrites dans le
+[runbook](../operations/publication-automation.md).
+
+<!-- prettier-ignore -->
+| Tâche | Acquis locaux | Travail restant et limites | Réception |
+| --- | --- | --- | --- |
+| [SP07](#sp07) — Rendu final | Politique pure partagée : identité du dossier, blocs complets, budget UTF-16 et sélection des retenus/différés/à corriger. Composition, rafraîchissement, préparation et réparation préservent les blocs. | Faire converger le calcul de capacité de tous les chemins d'affectation, puis raccorder les offres figées et engagements durables. | [Lot 1](#lot-local-01), [lot 2](#lot-local-02) |
+| [SP08](#sp08) — Reconnaissance | Les livraisons automatiques contrôlent la source entière avant revue, autorisation, envoi et finalisation. Homonymes et mentions incidentes sont distingués; `SOURCE_CONTENT_MISSING` et liens de correction sont disponibles en FR/EN. | Relier les éléments promis des offres figées et les obligations SP19. Faire converger les jobs sociaux historiques et mutations manuelles de statut. | [Lot 1](#lot-local-01), [lot 2](#lot-local-02) |
+| [SP09](#sp09) — File | Les sources individuellement impossibles sont isolées; les suivantes avancent. Un diagnostic inchangé est exclu avant la limite de scan; une correction conserve l'ancienneté. Le cockpit expose les sources sans livraison, les raisons et les totaux complets. | Raccorder les obligations SP04. Plusieurs passes peuvent être nécessaires; le coût des totaux sur un très grand arriéré reste à mesurer. Les textes finaux protégés exigent leur propre correction et une nouvelle approbation. | [Lot 2](#lot-local-02) |
+| [SP12](#sp12) — Dernière place | Cinq courses reproduites sur PostgreSQL 16. Les trois affectations manuelles et la modification de créneau verrouillent le parent avant recompte; cascades transactionnelles et heure relue après attente. L'interblocage avec la modification de créneau est corrigé dans la finalisation automatique live, avec l'ordre livraison, créneau, lot, brouillons. | Raccorder planificateur automatique, rendu final et autres mutations historiques à la même protection. | [Lot 1](#lot-local-01), [concurrence](../../tests/integration/publication-capacity-concurrency.integration.mjs) |
+| [SP20](#sp20) — Acquittement | Audit `provider_result_observed` commis avant la finalisation et indépendant de celle-ci, lié au claim et dédupliqué sous verrou. Échec ultérieur conservé comme incertain, sans projection publiée ni renvoi; références aussi retenues dans l'audit d'incertitude si l'observation initiale échoue. | Relier preuves des obligations SP19 et projection admin. Une identité modifiée après envoi peut empêcher la réconciliation actuelle : conserver les preuves et traiter dans SP19/SP21, sans attester l'absence d'un post existant. | [Lot 1](#lot-local-01) |
+
+<a id="lot-local-01"></a>
+
 ## Premier lot local — 11 octobre 2026
 
-Branche : `feat/sponsorship-publication-foundations`. Le premier lot implémente
+Référence : [PR #302](https://github.com/OpenG7/openg7-funding-platform/pull/302),
+branche `feat/sponsorship-publication-foundations`. Le premier lot implémente
 les blocs de reconnaissance, leur contrôle avant approbation/envoi/finalisation,
 les réservations manuelles atomiques et l'observation indépendante des résultats
 fournisseur. [Décision et limites](../decisions/2026-10-11-sponsorship-recognition-blocks.md);
@@ -108,6 +129,77 @@ niveaux de commandite). Elle vérifie aussi le refus `SOURCE_CONTENT_MISSING`
 sans autorisation ni envoi. Compilation TypeScript complète sans émission,
 lint, format, contrôles documentaires et diff passent. Ces correctifs ne changent
 aucun garde-fou applicatif; la CI complète reste une validation distincte.
+
+<a id="lot-local-02"></a>
+
+## Deuxième lot local — 11 octobre 2026
+
+Référence : [PR #305](https://github.com/OpenG7/openg7-funding-platform/pull/305),
+code vérifié au commit `504b229`. Branche : `feat/sponsorship-rendered-queue`.
+SP07 et SP09 avancent avec la
+sélection des blocs complets dans le budget rendu, la progression au-delà des
+sources individuellement trop longues et leur diagnostic dans le cockpit.
+Le cache des sources inchangées réutilise l'audit existant; aucune migration
+n'est ajoutée. Une correction conserve l'identifiant et l'ancienneté de la
+source, sans approbation ni diffusion automatique.
+[Fonctionnement et limites](../operations/publication-automation.md#source-preparation-queue).
+
+Réception locale sous Node 22.23.3 et Yarn 4.9.4 : après raccordement de la
+modération fusionnée dans `main`, les tests globaux passent, **6 004 tests
+réussis et 8 ignorés** par leurs préconditions de plateforme. Les cinq suites
+PostgreSQL suivantes passent séparément sur bases jetables : **85 tests**.
+
+```sh
+node --test tests/integration/publication-rendered-queue.integration.mjs tests/integration/publication-source-render-cache.integration.mjs tests/integration/publication-automation.integration.mjs tests/integration/editorial-programme.integration.mjs tests/integration/moderation-publication-guards.integration.mjs
+```
+
+La recette UI ciblée passe : **19 cas**, dont neuf nouveaux cas de file,
+en français et en anglais, sur mobile et bureau. Les cas existants de contenu
+manquant et de résultat incertain restent verts. La recette avec API/Web réels,
+PostgreSQL jetable et fournisseurs simulés passe : **deux scénarios**, via
+`node scripts/admin-acceptance.mjs tests/playwright/sponsorship-rendered-queue-acceptance.spec.ts tests/playwright/sponsorship-publication-acceptance.spec.ts --project chromium`.
+Elle vérifie la source trop longue, sa visibilité après rechargement, la
+correction sans changement d'ancienneté, la préparation privée et l'absence
+d'approbation ou d'envoi; le parcours de paiement/publication existant passe aussi.
+
+Le raccord de modération couvre N1/N2, les N0 obsolètes et les restrictions du
+rendu final : les sources privées restent visibles, sans affectation nouvelle.
+Une correction ou une affectation ne fabrique aucune revue favorable. Le retrait
+de consentement continue de bloquer la livraison avant l'arrêt pour modération.
+Une N0 courante ne suffit pas à approuver une reconnaissance incomplète : le
+test PostgreSQL refuse `SOURCE_CONTENT_MISSING` sans modifier les sources ni
+la livraison, ni appeler un fournisseur.
+
+Le build Angular production passe avec 25 routes prérendues. Compilation
+TypeScript sans émission, lint, format ciblé, standards OpenG7, contrôle
+documentaire et `git diff --check` passent. Le lint conserve l'avertissement
+préexistant de `scripts/smoke-public.mjs:165`. La CI distante reste une
+validation distincte de cette réception locale.
+
+Consolidation du même lot après `504b229` : préparation et réparation réutilisent
+un prédicat de candidats commun; la file réutilise l'éligibilité financière
+existante et conserve les restrictions de modération comme diagnostics.
+Le suivi courant est regroupé ci-dessus. Les dates des scénarios PostgreSQL sont
+réinitialisées ensemble à chaque scénario, avec les marges existantes, après
+reproduction de leur expiration pendant une suite longue.
+
+Réception de cette consolidation : `yarn build`, puis
+`node --test tests/*.test.mjs`, **6 004 réussites et 8 ignorés**; trois suites
+PostgreSQL séparées passent, **62 tests**, sans échec ni omission :
+
+```sh
+node --test tests/integration/publication-rendered-queue.integration.mjs tests/integration/publication-source-render-cache.integration.mjs tests/integration/publication-automation.integration.mjs
+```
+
+TypeScript sans émission, lint, format, standards, contrôle documentaire et diff
+passent, avec le même avertissement lint préexistant. Les preuves UI et Docker
+ci-dessus restent attachées à `504b229`.
+
+Cette réception ne clôture pas SP07 ni SP09; leur travail restant figure dans
+l'[avancement courant](#avancement-courant). Le périmètre privé, les limites de
+scan/pagination et les corrections protégées sont définis dans le
+[runbook](../operations/publication-automation.md#source-preparation-queue).
+Les 19 garanties complètes restent ouvertes; aucun envoi réel n'est qualifié.
 
 ## Cadrage
 
@@ -238,11 +330,7 @@ déjà émise conserve ses données.
 
 - [ ] En cours · P0 · Dépendances : SP01 · Garanties : G03 à G07.
 
-**Avancée du premier lot :** politique pure exportée, blocs complets avec identité
-du dossier et budget UTF-16 partagé; composition, rafraîchissement et réparation
-préservent les blocs malgré les préférences éditoriales. Reste la sélection
-structurée des retenus/différés/à corriger et le calcul commun de capacité sur
-tous les chemins d'affectation.
+**Avancement :** voir le [suivi courant](#avancement-courant).
 
 **Périmètre :** politique pure partagée, composition et transformations éditoriales.
 Produire rendu final, blocs de reconnaissance, bénéficiaires retenus, différés,
@@ -263,13 +351,7 @@ et ajouter les tests de la politique pure.
 
 - [ ] En cours · P0 · Dépendances : SP07 · Garanties : G03 à G05, G14, G17.
 
-**Avancée du premier lot :** message final des livraisons automatiques contrôlé avant décisions de revue,
-autorisation, envoi et finalisation; source entière exigée, homonymes et mentions
-incidentes distingués. Erreur `SOURCE_CONTENT_MISSING` expliquée en FR/EN avec
-accès aux brouillons sources. Reste le raccordement aux éléments promis des
-offres figées et aux obligations SP19; le bloc source complet est protégé en attendant.
-Les jobs sociaux historiques et mutations manuelles de statut ne passent pas
-encore par ce contrôle et restent à faire converger.
+**Avancement :** voir le [suivi courant](#avancement-courant).
 
 **Périmètre :** commandes, préflight et contrat du contenu approuvé.
 Lier chaque dossier à ses éléments de reconnaissance et à l'empreinte du rendu.
@@ -287,7 +369,9 @@ frontières; tester suppression, mauvais lien et deux noms identiques.
 
 ### SP09 — Isoler les textes trop longs et poursuivre la file
 
-- [ ] À faire · P1 · Dépendances : SP04, SP07 · Garanties : G02, G04, G07 à G09.
+- [ ] En cours · P1 · Dépendances : SP04, SP07 · Garanties : G02, G04, G07 à G09.
+
+**Avancement :** voir le [suivi courant](#avancement-courant).
 
 **Périmètre :** préparation et réparation des sources, raisons de blocage.
 Traiter individuellement un dossier qui ne tient même pas seul.
@@ -346,16 +430,7 @@ lot sans livraison; étendre progression et détecteurs de publication.
 
 - [ ] En cours · P0 · Dépendances : aucune pour reproduction; SP01 pour correction et ordre des verrous; SP07 pour contrôle du rendu · Garanties : G06, G14.
 
-**Avancée du premier lot :** cinq scénarios ont reproduit une surréservation ou
-une réduction concurrente invalide avant correction sur PostgreSQL 16. Les trois
-affectations manuelles et la modification de créneau verrouillent maintenant le
-parent avant recompte; les cascades sont transactionnelles et l'heure est relue
-après attente. Reste le raccordement du planificateur automatique, du rendu final
-et des autres mutations historiques. Voir la
-[recette de concurrence](../../tests/integration/publication-capacity-concurrency.integration.mjs).
-La revue a aussi reproduit un interblocage PostgreSQL entre finalisation et
-modification de créneau. La finalisation automatique live verrouille maintenant
-livraison, créneau, lot puis brouillons; la même recette passe après correction.
+**Avancement :** voir le [suivi courant](#avancement-courant).
 
 **Périmètre :** repositories de lots et créneaux, transaction d'affectation commune.
 Reproduire le risque avec deux connexions PostgreSQL, puis verrouiller le parent
@@ -502,14 +577,7 @@ passages et simulation; étendre
 
 - [ ] En cours · P0 · Dépendances : aucune pour correction existante; SP19 pour raccordement des preuves · Garanties : G16, G17.
 
-**Avancée du premier lot :** audit `provider_result_observed` commis avant
-finalisation, lié au claim et dédupliqué sous verrou; échec suivant conservé comme
-incertain sans projection publiée ni renvoi automatique. Références également
-retenues dans l'audit d'incertitude si l'observation initiale échoue. Reste le
-raccordement à la preuve des obligations SP19 et leur projection administrative.
-Si l'identité du dossier a changé après envoi, le contrôle peut conserver une
-incertitude que la réconciliation actuelle ne peut clore; conserver les preuves
-et traiter dans SP19/SP21, sans attestation d'absence si le post existe.
+**Avancement :** voir le [suivi courant](#avancement-courant).
 
 **Périmètre :** exécution, résultats, claims et observation persistante de tentative.
 Conserver les références reçues indépendamment de la projection finale.
@@ -993,8 +1061,9 @@ de configuration, contrat, média et UI qui y contribuent.
 
 ## Commandes de validation
 
-Les suites citées servent de points de départ et n'ont pas été exécutées pour
-ce découpage documentaire. Étendre les tests avec les comportements, puis
+Cette matrice guide les validations à venir; les exécutions déjà réalisées sont
+consignées dans les réceptions datées des [lots 1](#lot-local-01) et [2](#lot-local-02).
+Étendre les tests avec les comportements, puis
 appliquer la [matrice du dépôt](validation.md) selon chaque changement.
 
 | Changement              | Contrôles à choisir selon le périmètre                                                                                          |

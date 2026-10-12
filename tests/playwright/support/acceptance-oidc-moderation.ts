@@ -14,7 +14,22 @@ import {
 import { expect } from './test.js';
 
 type RefundHandling = 'none' | 'manual_completed';
-type ReadDossier = () => Promise<AdminSponsorshipsResponse['items'][number]>;
+type Dossier = AdminSponsorshipsResponse['items'][number];
+type ReadDossier = () => Promise<Dossier>;
+const financialState = (record: Dossier) => ({
+  amount: record.amount,
+  currency: record.currency,
+  paymentStatus: record.payment_status,
+  refundStatus: record.sponsorship_refund_status,
+  refundRequestedAt: record.sponsorship_refund_requested_at,
+  refundProcessedAt: record.sponsorship_refund_processed_at,
+  refundId: record.sponsorship_refund_id,
+  refundAmount: record.sponsorship_refund_amount,
+  refundReason: record.sponsorship_refund_reason,
+  refundNote: record.sponsorship_refund_note,
+  refundError: record.sponsorship_refund_error,
+  refundCompletedAt: record.sponsorship_refund_completed_at
+});
 
 /** Real OIDC people share only the disposable recipe's DB; token sessions stay separate. */
 export async function rejectAcceptanceSponsorship(
@@ -32,14 +47,25 @@ export async function rejectAcceptanceSponsorship(
       internalReason,
       refundHandling
     );
-    expect((await dossier()).sponsor_review_status).not.toBe('rejected');
-    expect((await dossier()).sponsorship_refund_status).toBe(
-      initial.sponsorship_refund_status
-    );
+    const pending = await dossier();
+    expect(pending.sponsor_review_status).toBe(initial.sponsor_review_status);
+    expect(pending.sponsor_review_status).not.toBe('rejected');
+    expect(financialState(pending)).toEqual(financialState(initial));
+    expect(input).toMatchObject({
+      contributionId: initial.id,
+      reviewStatus: 'rejected',
+      moderationDecision: {
+        level: 'N4',
+        confirmation: initial.id,
+        contentVersion: expect.any(Number),
+        contentFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/)
+      }
+    });
     await confirmIndependentReview(identity, initial.id);
     await expect
       .poll(async () => (await dossier()).sponsor_review_status)
       .toBe('rejected');
+    expect(financialState(await dossier())).toEqual(financialState(initial));
     if (refundHandling !== 'none')
       await finalizeManualRefund(identity, input, dossier);
   });

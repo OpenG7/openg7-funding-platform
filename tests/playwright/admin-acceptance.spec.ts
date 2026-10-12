@@ -1,12 +1,13 @@
 import type {
   AdminSponsorshipsResponse,
-  AdminWorkQueueResponse
+  AdminWorkQueueResponse,
+  SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
 import { approveAcceptanceFixture } from './support/acceptance-moderation.js';
-import { completeModeration } from './support/moderation.js';
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
+import { completeModeration } from './support/moderation.js';
 import { expect, test } from './support/test.js';
 
 // Real API + PostgreSQL journeys. No route interception or shared mutation fixture.
@@ -17,6 +18,23 @@ test('a confirmed review removes its task, preserves queue filters and leaves pu
   const fixture = SPONSORSHIP_FIXTURES.acceptanceReview;
   await approveAcceptanceFixture(request, fixture.publicReference, false);
   const headers = await adminSessionHeaders(request);
+  const fixtureResponse = await request.get(
+    '/api/admin/sponsorships?search=' + fixture.publicReference,
+    { headers }
+  );
+  expect(fixtureResponse.ok()).toBe(true);
+  const seeded = (await fixtureResponse.json()) as AdminSponsorshipsResponse;
+  expect(seeded.items).toHaveLength(1);
+  const mediaResponse = await request.get(
+    '/api/admin/sponsorships/media?contributionId=' + seeded.items[0]!.id,
+    { headers }
+  );
+  expect(mediaResponse.ok()).toBe(true);
+  const presentation = (
+    (await mediaResponse.json()) as SponsorshipMediaResponse
+  ).assets.filter((asset) => asset.kind === 'supporting_image');
+  expect(presentation).toHaveLength(1);
+  expect(presentation[0]!.reviewStatus).toBe('approved');
   const queueUrl =
     '/api/admin/attention?type=sponsorship_needs_review&pageSize=100';
   const beforeResponse = await request.get(queueUrl, { headers });

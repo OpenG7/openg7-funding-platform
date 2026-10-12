@@ -203,7 +203,7 @@ records feed placement metadata:
 
 The legacy publication-batch social endpoint now returns HTTP 409
 `FINAL_APPROVAL_REQUIRED`. Prepare and approve the exact content in the
-[publication automation workspace](../operations/publication-automation.md);
+[publication automation workspace](../operations/publication-automation.md#source-preparation-queue);
 the authorized worker owns delivery and recovery. Payment alone never authorizes sending.
 
 When an admin refuses a sponsorship from `/admin/fundraiser/sponsors`, the

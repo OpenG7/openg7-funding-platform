@@ -9,8 +9,10 @@ import type {
   PublicationFeedId
 } from '@openg7/funding-core';
 
-import { acceptanceModerationDecision } from '../playwright/support/acceptance-moderation.js';
-import { completeModeration } from '../playwright/support/moderation.js';
+import {
+  completeModeration,
+  currentModerationApproval
+} from '../playwright/support/moderation.js';
 
 import { startIdentityStack } from './stack.mjs';
 import {
@@ -206,7 +208,7 @@ test('social connections: missing access, wrong account, expiry and provider den
               id: current.id,
               version: current.version,
               confirmation: current.id,
-              moderationDecision: await acceptanceModerationDecision(
+              moderationDecision: await currentModerationApproval(
                 owner.request,
                 { type: 'publication_delivery', id: current.id },
                 headers

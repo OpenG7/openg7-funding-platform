@@ -15,12 +15,9 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
-import {
-  approveAllAcceptanceMedia,
-  completePublicationModeration
-} from './support/acceptance-moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
+import { completeModeration } from './support/moderation.js';
 import { test, expect } from './support/test.js';
 
 const automation = '/api/admin/publication-automation';
@@ -138,11 +135,16 @@ test('lost social responses survive restart and recover through verified reconci
       .getByRole('button', { name: 'Enregistrer le brouillon' })
       .click();
     expect((await saved).ok()).toBe(true);
+    const pendingSponsors = (await delivery(job.id)).sponsors.filter(
+      (sponsor) => sponsor.reviewStatus === 'pending_review'
+    );
     await dialog.getByRole('checkbox', { name: /J’approuve/ }).check();
     await dialog
       .getByRole('button', { name: 'Accepter et programmer' })
       .click();
-    await completePublicationModeration(page);
+    for (let index = 0; index < pendingSponsors.length; index++)
+      await completeModeration(page);
+    await completeModeration(page);
     await expect(dialog).toContainText('Autorisée');
     Object.assign(job, await delivery(job.id));
     expect(job.status).toBe('approved');
@@ -260,16 +262,39 @@ test('lost social responses survive restart and recover through verified reconci
       }
     });
     await signInAsAdmin(page);
-    const due = nextMinute();
-    const controlDue = new Date(due.getTime() + 60000);
-    await test.step('Review media and explicitly schedule six text publications; configure one-shot lost responses', async () => {
+    await test.step('Review media and prepare six text publications', async () => {
       for (const company of companies) {
         await page.goto(
           '/admin/fundraiser/sponsors?sponsorshipId=' +
             company.record.id +
             '&tab=media'
         );
-        await approveAllAcceptanceMedia(page);
+        const pendingMedia = (
+          await get<SponsorshipMediaResponse>(
+            '/api/admin/sponsorships/media?contributionId=' + company.record.id
+          )
+        ).assets.filter((asset) => asset.reviewStatus !== 'approved');
+        const pendingIds = new Set(pendingMedia.map((asset) => asset.id));
+        await page
+          .getByRole('button', { name: 'Tout approuver', exact: true })
+          .click();
+        for (let index = 0; index < pendingMedia.length; index++) {
+          const reviewed = page.waitForResponse(
+            (response) =>
+              response.url().endsWith('/api/admin/sponsorships/media/review') &&
+              response.request().method() === 'POST'
+          );
+          await completeModeration(page);
+          const response = await reviewed;
+          expect(response.ok(), await response.text()).toBe(true);
+          const input = response.request().postDataJSON();
+          expect(pendingIds.delete(input.assetId)).toBe(true);
+          expect(input).toMatchObject({
+            reviewStatus: 'approved',
+            moderationDecision: { level: 'N0' }
+          });
+        }
+        expect(pendingIds.size).toBe(0);
         await expect
           .poll(async () =>
             (
@@ -282,6 +307,11 @@ test('lost social responses survive restart and recover through verified reconci
           .toBe(true);
       }
       for (const feedId of feeds) await command({ action: 'prepare', feedId });
+    });
+    // Start the future schedule after the media reviews and preparation finish.
+    const due = nextMinute();
+    const controlDue = new Date(due.getTime() + 60000);
+    await test.step('Explicitly schedule six text publications and configure one-shot lost responses', async () => {
       for (const company of companies) {
         company.jobs = (await state()).deliveries.filter((j) =>
           j.sponsors.some((s) => s.id === company.record.id)

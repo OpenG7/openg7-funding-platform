@@ -17,10 +17,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { completeModeration } from './support/moderation.js';
-import {
-  approveAllAcceptanceMedia,
-  completePublicationModeration
-} from './support/acceptance-moderation.js';
+import { completePublicationModeration } from './support/acceptance-moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import { test, expect } from './support/test.js';
@@ -141,6 +138,12 @@ for (const review of ['pending', 'reapproved'] as const) {
       due: Date
     ) => {
       const dialog = await editDelivery(job, message, due);
+      const pendingSponsors = (await delivery(job.id)).sponsors.filter(
+        (sponsor) => sponsor.reviewStatus === 'pending_review'
+      );
+      await expect(
+        dialog.locator('[data-og7="publication-sponsor-review"] li a')
+      ).toHaveCount(pendingSponsors.length);
       await dialog.getByRole('checkbox', { name: /J’approuve/ }).check();
       await dialog
         .getByRole('button', { name: 'Accepter et programmer' })
@@ -264,7 +267,32 @@ for (const review of ['pending', 'reapproved'] as const) {
       await admin.goto(
         '/admin/fundraiser/sponsors?sponsorshipId=' + id + '&tab=media'
       );
-      await approveAllAcceptanceMedia(admin);
+      const pendingMedia = (
+        await get<SponsorshipMediaResponse>(
+          '/api/admin/sponsorships/media?contributionId=' + id
+        )
+      ).assets.filter((asset) => asset.reviewStatus !== 'approved');
+      const pendingIds = new Set(pendingMedia.map((asset) => asset.id));
+      await admin
+        .getByRole('button', { name: 'Tout approuver', exact: true })
+        .click();
+      for (let index = 0; index < pendingMedia.length; index++) {
+        const reviewed = admin.waitForResponse(
+          (response) =>
+            response.url().endsWith('/api/admin/sponsorships/media/review') &&
+            response.request().method() === 'POST'
+        );
+        await completeModeration(admin);
+        const response = await reviewed;
+        expect(response.ok(), await response.text()).toBe(true);
+        const input = response.request().postDataJSON();
+        expect(pendingIds.delete(input.assetId)).toBe(true);
+        expect(input).toMatchObject({
+          reviewStatus: 'approved',
+          moderationDecision: { level: 'N0' }
+        });
+      }
+      expect(pendingIds.size).toBe(0);
       await expect
         .poll(async () =>
           (

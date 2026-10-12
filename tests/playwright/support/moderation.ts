@@ -1,6 +1,72 @@
-import type { Page, Route } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
+
+import {
+  MODERATION_POLICY_VERSION,
+  type ModerationContent,
+  type ModerationDecisionInput,
+  type ModerationDecisionRecord,
+  type ModerationSubject
+} from '@openg7/funding-core';
+import type { APIRequestContext, Page, Route } from '@playwright/test';
 
 import { expect } from './test.js';
+import { adminSessionHeaders } from './admin-auth.js';
+
+/** Explicit approval of the current synthetic subject, through the real admin API. */
+export async function currentModerationApproval(
+  request: APIRequestContext,
+  subject: ModerationSubject,
+  headers?: Record<string, string>
+): Promise<ModerationDecisionInput> {
+  const query = new URLSearchParams({
+    subjectType: subject.type,
+    subjectId: subject.id
+  });
+  const response = await request.get('/api/admin/moderation/content?' + query, {
+    headers: headers ?? (await adminSessionHeaders(request))
+  });
+  expect(response.ok()).toBe(true);
+  const content = (await response.json()) as ModerationContent;
+  expect(content.subject).toEqual(subject);
+  return {
+    requestId: randomUUID(),
+    policyVersion: MODERATION_POLICY_VERSION,
+    contentVersion: content.contentVersion,
+    contentFingerprint: content.fingerprint,
+    expectedDecisionId: content.currentDecisionId,
+    confirmation: subject.id,
+    level: 'N0'
+  };
+}
+
+export async function approveCurrentModeration(
+  request: APIRequestContext,
+  subject: ModerationSubject,
+  headers?: Record<string, string>
+): Promise<ModerationDecisionRecord> {
+  const requestHeaders = headers ?? (await adminSessionHeaders(request));
+  const decision = await currentModerationApproval(
+    request,
+    subject,
+    requestHeaders
+  );
+  const response = await request.post('/api/admin/moderation/decisions', {
+    headers: requestHeaders,
+    data: { subject, decision }
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+  const result = (await response.json()) as {
+    decision: ModerationDecisionRecord;
+  };
+  expect(result.decision).toMatchObject({
+    subject,
+    level: 'N0',
+    state: 'active',
+    contentVersion: decision.contentVersion,
+    contentFingerprint: decision.contentFingerprint
+  });
+  return result.decision;
+}
 
 /** Subject-bound synthetic content for existing administrative journey fixtures. */
 export async function moderationFixture(route: Route): Promise<boolean> {
@@ -50,17 +116,32 @@ export async function completeModeration(
 ): Promise<void> {
   const panel = page.locator('[data-og7="moderation-decision"]');
   await expect(panel).toBeVisible();
-  if (adverse) {
-    await panel
-      .locator('[data-og7="moderation-primary-reason"]')
-      .selectOption('MISLEADING_CLAIM');
-    await panel
-      .locator('[data-og7="moderation-internal-reason"]')
-      .fill('Synthetic private rationale');
-    await panel
-      .locator('[data-og7="moderation-explanation"]')
-      .fill('Synthetic external explanation');
+  const confirmation = panel.locator('[data-og7="moderation-confirmation"]');
+  // The control exists only once the exact subject's content has loaded.
+  await expect(confirmation).toBeVisible();
+  await expect(confirmation).not.toBeChecked();
+  const loadedConfirmation = await confirmation.elementHandle();
+  expect(loadedConfirmation).not.toBeNull();
+  try {
+    if (adverse) {
+      await panel
+        .locator('[data-og7="moderation-primary-reason"]')
+        .selectOption('MISLEADING_CLAIM');
+      await panel
+        .locator('[data-og7="moderation-internal-reason"]')
+        .fill('Synthetic private rationale');
+      await panel
+        .locator('[data-og7="moderation-explanation"]')
+        .fill('Synthetic external explanation');
+    }
+    await confirmation.check();
+    const submit = panel.locator('[data-og7="moderation-submit"]');
+    await expect(submit).toBeEnabled();
+    await submit.click();
+    // Sequential subjects reuse the panel. Wait for this content's old node,
+    // rather than resolving the next subject's newly rendered checkbox.
+    await loadedConfirmation!.waitForElementState('hidden');
+  } finally {
+    await loadedConfirmation?.dispose();
   }
-  await panel.locator('[data-og7="moderation-confirmation"]').check();
-  await panel.locator('[data-og7="moderation-submit"]').click();
 }

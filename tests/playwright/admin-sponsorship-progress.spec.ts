@@ -3115,6 +3115,14 @@ test('return to filtered queue survives tab navigation and badge counts refresh 
   await expect(
     page.locator('[data-og7="nav-count"][data-og7-id="sponsors"]')
   ).toHaveCount(0);
+  const reviews = postsTo(calls, '/review');
+  expect(reviews).toHaveLength(1);
+  expect(reviews[0]!.body).toMatchObject({
+    contributionId: id,
+    reviewStatus: 'approved',
+    confirmation: id,
+    moderationDecision: { level: 'N0' }
+  });
   await page.locator('[data-og7="return-to-attention"]').click();
   await expect(page).toHaveURL(destination);
 });

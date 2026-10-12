@@ -1,14 +1,16 @@
 import type { Page } from '@playwright/test';
 
-import { completeModeration } from './support/moderation.js';
 import {
   approveAcceptanceFixture,
-  approveAcceptanceSubject,
   completePublicationModeration
 } from './support/acceptance-moderation.js';
 import { expect, test } from './support/test.js';
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { signInAsAdmin } from './support/admin-auth.js';
+import {
+  approveCurrentModeration,
+  completeModeration
+} from './support/moderation.js';
 
 // Exercises the real admin API through final content approval. Sending/recovery
 // is covered separately with disposable PostgreSQL and synthetic provider responses.
@@ -48,7 +50,6 @@ test.describe('Docker admin publication batches', () => {
     await signInAsAdmin(page);
 
     const fixture = SPONSORSHIP_FIXTURES.publicationBatch;
-    await approveAcceptanceFixture(request, fixture.publicReference);
     await page.goto('/admin/fundraiser/publications/drafts');
     await page
       .getByRole('button', { name: 'Préparer une publication', exact: true })
@@ -61,6 +62,9 @@ test.describe('Docker admin publication batches', () => {
       }
     );
     await expect(eligibleCard).toBeVisible();
+    const sponsorshipId = await eligibleCard.getAttribute('data-og7-id');
+    if (!sponsorshipId) throw new Error('Eligible sponsorship id is missing.');
+    await approveAcceptanceFixture(request, fixture.publicReference);
     await eligibleCard
       .getByRole('button', { name: 'Facebook', exact: true })
       .click();
@@ -81,7 +85,8 @@ test.describe('Docker admin publication batches', () => {
     await draftCard
       .getByLabel('Divulgation')
       .fill('Commandite payante divulguee pour un test automatise.');
-    const savedDraft = page.waitForResponse(
+    // Moderation reviews persisted content, so save the edits before approval.
+    const draftSaved = page.waitForResponse(
       (response) =>
         new URL(response.url()).pathname ===
           '/api/admin/publication-drafts/update' &&
@@ -90,8 +95,7 @@ test.describe('Docker admin publication batches', () => {
     await draftCard
       .getByRole('button', { name: 'Enregistrer', exact: true })
       .click();
-    const saved = await savedDraft;
-    expect(saved.ok(), await saved.text()).toBe(true);
+    expect((await draftSaved).ok()).toBe(true);
     const approveDraft = draftCard.getByRole('button', {
       name: 'Approuver',
       exact: true,
@@ -102,7 +106,7 @@ test.describe('Docker admin publication batches', () => {
       await approveDraft.click();
       await completeModeration(page);
     } else {
-      await approveAcceptanceSubject(request, {
+      await approveCurrentModeration(request, {
         type: 'publication_draft',
         id: draftId
       });
@@ -221,9 +225,8 @@ test.describe('Docker admin publication batches', () => {
     await page.getByLabel('Choisir un mois').fill(slotStartsAt.slice(0, 7));
     await openBatch(page, batchId);
     await expect(batchCard).toContainText('Planifie');
-
-    // Batch assignment invalidates the previous review even if the text is unchanged.
-    await approveAcceptanceSubject(request, {
+    // Assigning the lot and its date creates a new source revision to review.
+    await approveCurrentModeration(request, {
       type: 'publication_draft',
       id: draftId
     });

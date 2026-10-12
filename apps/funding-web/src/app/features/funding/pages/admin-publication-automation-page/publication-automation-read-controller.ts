@@ -36,6 +36,7 @@ export class PublicationAutomationReadController {
   readonly state = signal<PublicationAutomationState | null>(null);
   readonly sponsorshipId = signal<string | null>(null);
   readonly deliveryId = signal<string | null>(null);
+  readonly queueOffset = signal(0);
   readonly requestedDeliveryMissing = signal(false);
   private loadGeneration = 0;
   private contextRevision = 0;
@@ -65,12 +66,14 @@ export class PublicationAutomationReadController {
     this.requestedDeliveryMissing.set(false);
     this.sponsorshipId.set(filter.sponsorshipId ?? null);
     this.deliveryId.set(filter.deliveryId ?? null);
+    this.resetQueueOffset();
     return { revision: this.contextRevision, filter: this.currentFilter() };
   }
 
   captureCommandContext(): PublicationAutomationCommandContext {
     // The command owns the next confirmed snapshot, even if an older GET is pending.
     this.loadGeneration++;
+    this.resetQueueOffset();
     return { revision: this.contextRevision, filter: this.currentFilter() };
   }
 
@@ -85,7 +88,30 @@ export class PublicationAutomationReadController {
     this.applyState(next);
   }
 
-  async load(): Promise<boolean> {
+  resetQueueOffset(): void {
+    this.queueOffset.set(0);
+  }
+
+  async loadQueuePage(offset: number): Promise<boolean> {
+    if (this.destroyed || !Number.isSafeInteger(offset) || offset < 0)
+      return false;
+    const previousOffset = this.queueOffset();
+    const revision = ++this.contextRevision;
+    this.queueOffset.set(offset);
+    const pending = this.load(true);
+    const generation = this.loadGeneration;
+    const loaded = await pending;
+    if (
+      !loaded &&
+      !this.destroyed &&
+      revision === this.contextRevision &&
+      generation === this.loadGeneration
+    )
+      this.queueOffset.set(previousOffset);
+    return loaded;
+  }
+
+  async load(preserveStateOnFailure = false): Promise<boolean> {
     if (this.destroyed) return false;
     const generation = ++this.loadGeneration;
     const filter = this.currentFilter();
@@ -97,7 +123,7 @@ export class PublicationAutomationReadController {
       return true;
     } catch (error) {
       if (this.destroyed || generation !== this.loadGeneration) return false;
-      this.state.set(null);
+      if (!preserveStateOnFailure) this.state.set(null);
       this.ports.showError(error);
       return false;
     }
@@ -131,7 +157,8 @@ export class PublicationAutomationReadController {
   private currentFilter(): PublicationAutomationFilter {
     return {
       sponsorshipId: this.sponsorshipId() ?? undefined,
-      deliveryId: this.deliveryId() ?? undefined
+      deliveryId: this.deliveryId() ?? undefined,
+      ...(this.queueOffset() ? { queueOffset: this.queueOffset() } : {})
     };
   }
 

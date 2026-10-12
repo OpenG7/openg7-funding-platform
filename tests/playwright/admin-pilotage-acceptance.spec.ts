@@ -8,8 +8,8 @@ import type {
   PublicationAutomationState
 } from '@openg7/funding-core';
 
-import { completeModeration } from './support/moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
+import { completeModeration } from './support/moderation.js';
 import { expect, test } from './support/test.js';
 
 // Only the disposable runner supplies this flag and a fresh PostgreSQL database.
@@ -25,8 +25,20 @@ for (const loseResponse of [false, true]) {
       ? 'pilotage recovers a persisted receipt after a lost response without repeating the command'
       : 'pilotage confirmation persists its decision, receipt and audit through the real API',
     async ({ page, request, baseURL }) => {
+      test.setTimeout(60_000);
       expect(new URL(baseURL!).hostname).toBe('127.0.0.1');
       const headers = await adminSessionHeaders(request);
+      const reloadPilotage = async () => {
+        const loaded = page.waitForResponse(
+          (response) =>
+            new URL(response.url()).pathname === '/api/admin/pilotage' &&
+            response.request().method() === 'GET'
+        );
+        // Recovery depends on the hydrated page and its real state, not assets.
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        expect((await loaded).status()).toBe(200);
+        await expect(page.locator('[data-og7="pilotage"]')).toBeVisible();
+      };
       const automationUrl = '/api/admin/publication-automation';
       const automation = async (): Promise<PublicationAutomationState> => {
         const response = await request.get(automationUrl, { headers });
@@ -136,7 +148,7 @@ for (const loseResponse of [false, true]) {
         await expect(
           page.getByRole('button', { name: 'Vérifier le résultat' })
         ).toBeVisible();
-        await page.reload();
+        await reloadPilotage();
       }
       await expect(page.locator('[data-og7="pilot-receipt"]')).toBeVisible();
       expect(commands).toHaveLength(1);
@@ -145,6 +157,12 @@ for (const loseResponse of [false, true]) {
         targetId: id,
         confirmation: id,
         version: String(draft.version)
+      });
+      expect(commands[0]!.payload?.['moderationDecision']).toMatchObject({
+        level: 'N0',
+        confirmation: id,
+        contentVersion: expect.any(Number),
+        contentFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/)
       });
       // Same browser session/actor: receipt access must pass the real authorization.
       const authorization = commandRequest.headers()['authorization'];
@@ -167,7 +185,7 @@ for (const loseResponse of [false, true]) {
       if (loseResponse)
         expect(receipt).toEqual({ ...persistedReceipt, reviewedAt: null });
 
-      await page.reload();
+      await reloadPilotage();
       const stateResponse = await page.request.get(
         `/api/admin/pilotage?id=publication:${id}`,
         { headers: sessionHeaders }

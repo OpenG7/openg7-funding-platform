@@ -97,6 +97,7 @@ INSERT INTO fund_contributions (
   public_display_consent, display_amount_consent, non_charity_acknowledged,
   sponsor_company_name, sponsor_contact_name, sponsor_contact_email,
   sponsor_website_url, sponsor_details_submitted_at, sponsor_review_status,
+  sponsor_review_note,
   sponsor_reviewed_at, sponsorship_followup_token_hash,
   sponsorship_followup_token_created_at, public_reference,
   stripe_payment_intent_id, stripe_session_id,
@@ -107,6 +108,7 @@ INSERT INTO fund_contributions (
   ${sqlLiteral(fixture.companyName)}, ${sqlLiteral(fixture.contactName)},
   ${sqlLiteral(fixture.contactEmail)}, ${sqlLiteral(fixture.websiteUrl)},
   NOW(), ${sqlLiteral(reviewStatus)},
+  ${fixture.reviewNote ? sqlLiteral(fixture.reviewNote) : 'NULL'},
   ${reviewedAt}, ${sqlLiteral(sha256Hex(fixture.followupToken))}, NOW(),
   ${sqlLiteral(fixture.publicReference)}, ${stripePaymentIntentId},
   ${stripeSessionId}, ${feedTarget}, ${feedChannels}, ${fixture.paymentEmail ? sqlLiteral(fixture.paymentEmail) : 'NULL'}

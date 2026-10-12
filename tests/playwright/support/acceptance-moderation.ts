@@ -1,42 +1,16 @@
-import { randomUUID } from 'node:crypto';
-
 import type { APIRequestContext, Page } from '@playwright/test';
-import {
-  MODERATION_POLICY_VERSION,
-  type AdminSponsorshipsResponse,
-  type ModerationContent,
-  type ModerationDecisionInput,
-  type ModerationSubject,
-  type SponsorshipMediaResponse
+import type {
+  AdminSponsorshipsResponse,
+  ModerationSubject,
+  SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
 import { adminSessionHeaders } from './admin-auth.js';
-import { completeModeration } from './moderation.js';
+import { approveCurrentModeration, completeModeration } from './moderation.js';
 import { expect } from './test.js';
 
-/** Read the exact persisted synthetic content; never fabricate an approval snapshot. */
-export async function acceptanceModerationDecision(
-  request: APIRequestContext,
-  subject: ModerationSubject,
-  headers?: Record<string, string>
-): Promise<ModerationDecisionInput> {
-  const response = await request.get('/api/admin/moderation/content', {
-    headers: headers ?? (await adminSessionHeaders(request)),
-    params: { subjectType: subject.type, subjectId: subject.id }
-  });
-  expect(response.ok(), await response.text()).toBe(true);
-  const content = (await response.json()) as ModerationContent;
-  expect(content.subject).toEqual(subject);
-  return {
-    requestId: randomUUID(),
-    policyVersion: MODERATION_POLICY_VERSION,
-    contentVersion: content.contentVersion,
-    contentFingerprint: content.fingerprint,
-    expectedDecisionId: content.currentDecisionId,
-    confirmation: subject.id,
-    level: 'N0'
-  };
-}
+// Preserve recipe imports while sharing main's fresh-content approval contract.
+export { currentModerationApproval as acceptanceModerationDecision } from './moderation.js';
 
 /** Explicit editorial review of one already business-approved, disposable fixture. */
 export async function approveAcceptanceFixture(
@@ -77,17 +51,7 @@ export async function approveAcceptanceSubject(
   request: APIRequestContext,
   subject: ModerationSubject
 ): Promise<void> {
-  const decision = await acceptanceModerationDecision(request, subject);
-  const approved = await request.post('/api/admin/moderation/decisions', {
-    headers: await adminSessionHeaders(request),
-    data: { subject, decision }
-  });
-  expect(approved.ok(), await approved.text()).toBe(true);
-  expect((await approved.json()).decision).toMatchObject({
-    subject,
-    level: 'N0',
-    state: 'active'
-  });
+  await approveCurrentModeration(request, subject);
 }
 
 async function completeSequence(page: Page, count: number): Promise<void> {

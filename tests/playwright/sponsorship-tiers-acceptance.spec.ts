@@ -20,7 +20,6 @@ import type {
 import {
   acceptanceModerationDecision,
   approveAcceptanceSubject,
-  approveAllAcceptanceMedia,
   completePublicationModeration
 } from './support/acceptance-moderation.js';
 import { completeModeration } from './support/moderation.js';
@@ -435,7 +434,36 @@ for (const amount of [100, 250]) {
               contributionId +
               '&tab=media'
           );
-          await approveAllAcceptanceMedia(admin);
+          const pendingMedia = (await media()).filter(
+            (asset) => asset.reviewStatus !== 'approved'
+          );
+          expect(pendingMedia).toHaveLength(2);
+          const pendingIds = new Set(pendingMedia.map((asset) => asset.id));
+          await admin
+            .getByRole('button', { name: 'Tout approuver', exact: true })
+            .click();
+          for (let index = 0; index < pendingMedia.length; index++) {
+            const reviewed = admin.waitForResponse(
+              (response) =>
+                response
+                  .url()
+                  .endsWith('/api/admin/sponsorships/media/review') &&
+                response.request().method() === 'POST'
+            );
+            await completeModeration(admin);
+            const response = await reviewed;
+            expect(response.ok(), await response.text()).toBe(true);
+            const reviewedAsset = response.request().postDataJSON();
+            expect(pendingIds.delete(reviewedAsset.assetId)).toBe(true);
+            expect(reviewedAsset).toMatchObject({
+              reviewStatus: 'approved',
+              moderationDecision: {
+                level: 'N0',
+                confirmation: reviewedAsset.assetId
+              }
+            });
+          }
+          expect(pendingIds.size).toBe(0);
           await expect
             .poll(async () =>
               (await media()).every((m) => m.reviewStatus === 'approved')
@@ -483,10 +511,13 @@ for (const amount of [100, 250]) {
               admin.getByText('Publication enregistree.', { exact: true })
             ).toBeVisible();
             await assertPrivate();
+            // The summary and slug belong to a new editorial revision. Review
+            // it before the separate, consent-controlled visibility decision.
             await approveAcceptanceSubject(request, {
               type: 'sponsorship',
               id: contributionId
             });
+            await admin.reload();
             await admin.locator('[data-og7="website-visibility"]').click();
             await admin.locator('[data-og7="confirm-action"]').click();
             await expect
