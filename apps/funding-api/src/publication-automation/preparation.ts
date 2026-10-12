@@ -20,6 +20,7 @@ import {
   type PublicationPlanningContext
 } from './context.js';
 import { composeSponsorshipContent } from './content.js';
+import { lockPublicationPlanningFeed } from './planning-lock.js';
 import {
   PREPARATION_SCAN_LIMIT,
   eligibleDestination,
@@ -76,6 +77,7 @@ export async function prepare(
     revokeCommitmentDeliveries
   );
   await withPostgresTransaction(context.pool, async (db) => {
+    await lockPublicationPlanningFeed(db, feedId);
     let pendingCandidates: PreparationSource[] | null = null;
     await db.query(
       `SELECT id FROM publication_feeds WHERE id=$1 FOR NO KEY UPDATE`,

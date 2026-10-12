@@ -22,6 +22,7 @@ const feed = {
   horizonDays: 1
 };
 const now = new Date('2099-01-01T09:00:00Z');
+const planningLockSql = 'SELECT pg_advisory_xact_lock(hashtextextended($1,0))';
 const source = {
   id: 'draft-retained',
   contribution_id: 'sponsor-retained',
@@ -93,6 +94,13 @@ function database(resolve) {
       assert.equal(active, true);
       active = false;
       return { rows: [], rowCount: 0 };
+    }
+    if (sql === planningLockSql) {
+      assert.equal(owner, 'client');
+      assert.equal(active, true);
+      assert.equal(calls.at(-2).sql, 'BEGIN');
+      assert.deepEqual(parameters, [`publication-planning:${feed.id}`]);
+      return { rows: [], rowCount: 1 };
     }
     if (sql.startsWith('INSERT INTO admin_audit_log'))
       return { rows: [], rowCount: 1 };

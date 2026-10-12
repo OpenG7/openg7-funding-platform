@@ -32,6 +32,7 @@ import {
 } from './content.js';
 import { editorialMessage } from './editorial-profiles.js';
 import { assertMediaScope } from './media.js';
+import { lockPublicationPlanningFeed } from './planning-lock.js';
 import {
   resolvePublicationVisual,
   normalisePublicationPhotos,
@@ -178,6 +179,7 @@ async function executeCommand(
       400
     );
     return run(async (db) => {
+      await lockPublicationPlanningFeed(db, input.feedId);
       // Serialize reservations for a batch, including simultaneous compose requests.
       if (input.batchId) {
         assert(validId(input.batchId), 'INVALID_BATCH', 400);

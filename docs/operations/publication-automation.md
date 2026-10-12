@@ -81,6 +81,11 @@ its reasons and local notification rehearsal. It does not publish website profil
 
 The worker is deterministic. There is no autonomous AI publishing decision, no
 publication based on payment alone, and no automatic approval of generated text.
+Preparation and composition acquire the same transaction-scoped advisory lock for
+their feed before business row locks. Composition remains a separate transaction
+after the planning commit. This coordination prevents the observed same-feed
+preparation/composition cycle between batch and contribution locks; it is not a
+global planner lock or a guarantee against every possible database deadlock.
 The recurring planner uses public summaries (or a neutral thank-you when absent)
 and distinct Facebook/LinkedIn titles;
 it does not fetch external news or generate images. Existing approved sponsor
@@ -162,9 +167,10 @@ and approve the exact final proposal separately. Human-edited and blocked final
 drafts keep their text: open the delivery, restore the corrected source blocks
 and save the final message separately. Preparation does not overwrite these
 decisions. Creation dates remain unchanged.
-This uses current drafts, not frozen offers or durable benefit obligations;
-those, manual-path convergence and effective-account scheduling remain open in
-the [construction tasks](../development/sponsorship-publication-tasks.md#sp09).
+Destination eligibility requires an active recorded commitment with a matching
+pending or blocked benefit obligation. Private preparation neither approves nor
+completes that obligation; see the
+[construction tasks](../development/sponsorship-publication-tasks.md#sp09).
 
 ## Configuration and activation
 
@@ -201,11 +207,10 @@ per five minutes, with a horizon of 1–28 days and capacity of 1–10 sponsors.
 The provider's text limit may result in smaller batches. Empty calendar slots
 are reserved; only nonempty batches produce review proposals.
 
-Explicit sponsor destinations/channels take precedence. When unset, confirmed
-CAD orders use the existing promised benefit thresholds (Facebook from 25,000
-minor units, LinkedIn from 50,000) on OpenG7. Other currencies need explicit
-routing. No private sponsor message, contact details or payment amount enters
-generated copy. Rejected, hidden, unpaid or nonconsenting sponsors are excluded.
+Only recorded obligations qualify the promised destination and channel. A payment
+amount or a routing preference cannot create a commercial promise. No private
+sponsor message, contact details or payment amount enters generated copy.
+Rejected, hidden, unpaid or nonconsenting sponsors are excluded.
 
 Untouched automatic proposals can fill as new payments arrive; their version
 changes and any stale review fails. Overdue untouched proposals are repacked at

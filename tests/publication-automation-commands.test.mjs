@@ -17,6 +17,7 @@ const id = '11111111-1111-4111-8111-111111111111';
 const batchId = '22222222-2222-4222-8222-222222222222';
 const sponsorId = '33333333-3333-4333-8333-333333333333';
 const feedId = 'openg20:facebook';
+const planningLockSql = 'SELECT pg_advisory_xact_lock(hashtextextended($1,0))';
 const sponsorMessage =
   'Synthetic sponsor\n\nApproved public synthetic summary\n\nCommandite rémunérée.';
 const env = {
@@ -69,6 +70,10 @@ const fixture = ({
   const client = {
     async query(sql, parameters = []) {
       calls.push({ kind: 'query', sql, parameters });
+      if (sql === planningLockSql) {
+        assert.deepEqual(parameters, [`publication-planning:${feedId}`]);
+        return { rows: [], rowCount: 1 };
+      }
       const moderation = moderationQueryFixture(sql, [sponsorId]);
       if (moderation) return moderation;
       if (sql.startsWith('INSERT INTO admin_audit_log')) {
@@ -189,6 +194,13 @@ test('composition keeps exact content and automatic ownership in its supplied or
         f.lifecycle(),
         supplied ? [] : ['connect', 'BEGIN', 'COMMIT', 'release']
       );
+      assert.deepEqual(
+        f
+          .queries()
+          .slice(0, supplied ? 1 : 2)
+          .map(({ sql }) => sql),
+        supplied ? [planningLockSql] : ['BEGIN', planningLockSql]
+      );
       const inserted = f
         .queries()
         .find((call) =>
@@ -243,6 +255,13 @@ test('failed composition audit rejects and rolls back only an owned transaction'
           f.lifecycle(),
           supplied ? [] : ['connect', 'BEGIN', 'ROLLBACK', 'release']
         );
+        assert.deepEqual(
+          f
+            .queries()
+            .slice(0, supplied ? 1 : 2)
+            .map(({ sql }) => sql),
+          supplied ? [planningLockSql] : ['BEGIN', planningLockSql]
+        );
         assert.ok(
           f
             .queries()
@@ -271,6 +290,11 @@ test('composition returns an existing batch delivery without creating another dr
   const input = { ...composition, kind: 'sponsorship', batchId };
   assert.deepEqual(await command(f.context, input, 'fixture-reviewer'), { id });
   assert.deepEqual(await command(f.context, input, 'fixture-reviewer'), { id });
+  const queries = f.queries();
+  for (const [index, call] of queries.entries()) {
+    if (call.sql === 'BEGIN')
+      assert.equal(queries[index + 1].sql, planningLockSql);
+  }
   assert.equal(f.audits.length, 0);
   assert.ok(!f.queries().some((call) => /^(INSERT|UPDATE)/.test(call.sql)));
   assert.equal(

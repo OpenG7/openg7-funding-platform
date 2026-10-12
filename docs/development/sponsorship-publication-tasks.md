@@ -435,6 +435,30 @@ ne relève aucun problème. Aucun code applicatif n'est modifié dans ce complé
 Les journaux sont `ci-checkout-recovery-{baseline,corrected}.log` et
 `ci-offer-storage-recovery.log` dans `test-results/`.
 
+La CI sur `97bb42a` confirme les **257 scénarios Docker** corrigés et **6 221
+tests Node**, mais révèle un interblocage PostgreSQL lors de deux préparations
+concurrentes. La composition post-commit prenait le lot avant ses contributions,
+tandis que la seconde préparation détenait ces contributions en attendant le lot.
+Préparation et composition prennent maintenant un verrou advisory transactionnel
+dédié au feed avant leurs verrous métier, en conservant leurs transactions et
+audits distincts. La garantie vise ce cycle du même feed, sans annoncer une absence
+universelle d'interblocages. Le runbook décrit cette coordination et l'éligibilité
+fondée sur les obligations enregistrées.
+
+La régression déterministe reproduit `40P01` avant correction et passe ensuite ;
+un autre feed continue pendant le blocage volontaire. Les compositions répétées
+retournent le même identifiant, une seule livraison et un seul audit, sans
+approbation ni réservation. Les suites PostgreSQL passent **35 tests de publications**
+et **33 tests de capacité/réservations/calendrier** ; la régression enrichie passe
+également. Les mocks SQL reconnaissent uniquement la nouvelle requête précise et
+vérifient qu'elle précède les verrous métier. Leur réception ciblée passe **83 tests**,
+puis la suite Node complète sous Node 22 passe **6 218 tests** (huit omissions,
+zéro échec). Build, TypeScript sans émission, lint, format et diff passent ; la revue
+indépendante ne relève aucun problème. Les journaux sont
+`ci-preparation-deadlock-{before,after,automation-full,concurrency-full,compose-replay}.log`,
+`ci-planning-lock-unit-fixtures.log` et `ci-planning-lock-full-node22.log` dans
+`test-results/`.
+
 - P0 : conformité de la reconnaissance, conservation des engagements et reprise
   des résultats incertains. P1 : file, réservations, dates et suivi fiable.
   P2 : personnalisation et nouveaux formats. La priorité ne remplace pas une dépendance.
