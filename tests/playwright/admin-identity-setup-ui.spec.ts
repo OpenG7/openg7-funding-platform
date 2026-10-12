@@ -81,8 +81,16 @@ for (const language of ['fr-CA', 'en']) {
       await expect(
         page.locator('[data-og7="identity-step-previous"]')
       ).toBeDisabled();
-      await page.locator('[data-og7="identity-step-next"]').focus();
-      await page.keyboard.press('Enter');
+      // The public guide is prerendered. Wait for Angular to attach its
+      // handlers before exercising the focused button with Enter.
+      const setup = page.locator('openg7-admin-identity-setup');
+      await expect(setup).toBeVisible();
+      await expect(setup).not.toHaveAttribute('ngh');
+      const next = page.locator('[data-og7="identity-step-next"]');
+      await expect(next).toBeEnabled();
+      await next.focus();
+      await expect(next).toBeFocused();
+      await next.press('Enter');
       await expect(current(page)).toHaveAttribute('data-og7-id', 'client');
       await expect(
         page.locator('[data-og7="identity-step-heading"]')

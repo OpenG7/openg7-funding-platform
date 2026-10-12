@@ -259,14 +259,19 @@ documentaire passent; l'avertissement lint existant reste inchangé.
 Le build Angular production passe et prérend 25 routes. Son bundle initial
 atteint 800,17 kB, avec un avertissement de 173 octets au-dessus du seuil de
 800 kB; aucun budget n'est augmenté.
-Les recettes Docker ciblées passent, **18 scénarios** : Checkout entreprise, reprises,
+Les recettes Docker ciblées passent, **20 scénarios** : Checkout entreprise, reprises,
 remboursements partiels/complets, panne courriel, revue/publication simulée,
-révisions, paliers, interruptions webhook et frais/versements rapprochés. Builds, migrations 001–041, seed et
+révisions, paliers, interruptions webhook, frais/versements rapprochés et refus
+avec revue indépendante. Builds, migrations 001–041, seed et
 readiness passent; le nettoyage vérifié ne laisse aucun conteneur ni réseau de
 cette pile jetable. Cette réception précède le commit et décrit les sources
 applicatives figées; aucune source runtime n'est modifiée par les corrections
 ultérieures des fixtures PostgreSQL et de l'acceptation Checkout dans le parcours
 de versements.
+Les clics de refus sont centrés pour éviter l'en-tête superposé, sans clic forcé.
+Le test clavier du guide admin attend l'hydratation avant d'envoyer Entrée au
+bouton focalisé; son cas français 390 px passe avec les contrôles Axe conservés.
+Ces synchronisations de fixtures ne modifient aucun droit ni comportement API.
 
 ## Cadrage
 

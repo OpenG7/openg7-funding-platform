@@ -93,14 +93,28 @@ async function submitRejection(
   await author.goto(
     '/admin/fundraiser/sponsors?sponsorshipId=' + contributionId
   );
-  await author.getByRole('button', { name: 'Refuser', exact: true }).click();
+  const reject = author.getByRole('button', { name: 'Refuser', exact: true });
+  await expect(reject).toBeVisible();
+  await expect(reject).toBeEnabled();
+  await reject.evaluate((button) =>
+    button.scrollIntoView({ block: 'center', inline: 'nearest' })
+  );
+  await reject.click();
   const rejection = author.locator('openg7-admin-sponsor-rejection-panel');
   await expect(rejection).toBeVisible();
   // The legacy draft stays separate from the structured decision's rationale.
   await rejection.getByLabel(/Justification interne/i).fill(internalReason);
   if (refundHandling !== 'none')
     await rejection.getByLabel(/^Remboursement/i).selectOption(refundHandling);
-  await rejection.getByRole('button', { name: /Confirmer le refus/i }).click();
+  const confirmRejection = rejection.getByRole('button', {
+    name: /Confirmer le refus/i
+  });
+  await expect(confirmRejection).toBeVisible();
+  await expect(confirmRejection).toBeEnabled();
+  await confirmRejection.evaluate((button) =>
+    button.scrollIntoView({ block: 'center', inline: 'nearest' })
+  );
+  await confirmRejection.click();
   const panel = author.locator('[data-og7="moderation-decision"]');
   await expect(panel).toBeVisible();
   await panel
