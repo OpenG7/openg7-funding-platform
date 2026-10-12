@@ -234,16 +234,19 @@ de concurrence avait rencontré une attente de compteur HTTPS sensible à la cha
 dans `production-identity.test.mjs`; ce fichier passe seul et dans le passage
 complet borné, sans modification de ses gardes.
 
-Dix suites PostgreSQL 16 sur bases jetables passent, **73 tests** :
+Douze suites PostgreSQL 16 sur bases jetables passent, **75 tests** :
 
 ```sh
-node --test tests/integration/sponsorship-commitments.integration.mjs tests/integration/contributions-write-boundaries.integration.mjs tests/integration/sponsorship-invoice-benefits.integration.mjs tests/integration/publication-membership-rendering.integration.mjs tests/integration/sponsorship-progress.integration.mjs tests/integration/publication-batch-scheduling.integration.mjs tests/integration/publication-calendar-boundaries.integration.mjs tests/integration/publication-capacity-concurrency.integration.mjs tests/integration/sponsorship-benefit-policy.integration.mjs tests/integration/database-runtime-security.integration.mjs
+node --test tests/integration/sponsorship-commitments.integration.mjs tests/integration/contributions-write-boundaries.integration.mjs tests/integration/sponsorship-invoice-benefits.integration.mjs tests/integration/publication-membership-rendering.integration.mjs tests/integration/sponsorship-progress.integration.mjs tests/integration/publication-batch-scheduling.integration.mjs tests/integration/publication-calendar-boundaries.integration.mjs tests/integration/publication-capacity-concurrency.integration.mjs tests/integration/sponsorship-benefit-policy.integration.mjs tests/integration/database-runtime-security.integration.mjs tests/integration/admin-work-queue.integration.mjs tests/integration/sponsorship-website.integration.mjs
 ```
 
 Les suites ont été exécutées séparément ou en groupes; la commande énumère les
-fichiers. Le dernier test utilise le vrai rôle API limité et vérifie capture,
+fichiers. `database-runtime-security` utilise le vrai rôle API limité et vérifie capture,
 activation, qualification, ajustement, rejeu et interdiction de réécrire offres
 et audit. La migration 041 copiée est conservée sans modification.
+La fixture de panne facture utilise un vrai client transactionnel et vérifie
+rollback/libération. La visibilité Web historique reste testée séparément d'un
+engagement livré; elle ne crée ni offre qualifiée ni preuve SP19.
 
 Les 34 scénarios navigateur existants financement/reprise passent; dix nouveaux
 scénarios d'offre passent après correction d'une attente de libellé anglais,
@@ -254,6 +257,13 @@ documentaire passent; l'avertissement lint existant reste inchangé.
 Le build Angular production passe et prérend 25 routes. Son bundle initial
 atteint 800,17 kB, avec un avertissement de 173 octets au-dessus du seuil de
 800 kB; aucun budget n'est augmenté.
+La recette Docker ciblée passe, **17 scénarios** : Checkout entreprise, reprises,
+remboursements partiels/complets, panne courriel, revue/publication simulée,
+révisions, paliers et interruptions webhook. Builds, migrations 001–041, seed et
+readiness passent; le nettoyage vérifié ne laisse aucun conteneur ni réseau de
+cette pile jetable. Cette réception précède le commit et décrit les sources
+applicatives figées; aucune source runtime n'est modifiée par les corrections
+ultérieures des deux fixtures PostgreSQL.
 
 ## Cadrage
 

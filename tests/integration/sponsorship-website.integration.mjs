@@ -162,10 +162,20 @@ test(
         assert.equal(await directoryHas(), true);
         assert.equal(visible.feedStatus, 'planned');
         assert.equal(visible.publications.length, 0);
-        assert.equal(
-          visible.milestones.find((s) => s.id === 'publication').state,
-          amount < 25000 ? 'complete' : 'partial'
+        assert.equal(visible.commitment, null);
+        const publication = visible.milestones.find(
+          (s) => s.id === 'publication'
         );
+        assert.equal(
+          publication.state,
+          'blocked',
+          'real website visibility cannot invent the historical commercial offer'
+        );
+        assert.equal(publication.reason, 'commitment_needs_confirmation');
+        assert.ok(
+          visible.publicationBlockers.includes('commitment_needs_confirmation')
+        );
+        assert.deepEqual(visible.publicationCompletion, { done: 0, total: 0 });
         const count = async () =>
           Number(
             (
@@ -193,9 +203,9 @@ test(
         );
         assert.equal((await load()).website.visible, false);
         assert.equal(await directoryHas(), false);
-        assert.notEqual(
+        assert.equal(
           (await load()).milestones.find((s) => s.id === 'publication').state,
-          'complete'
+          'blocked'
         );
         for (const [change, restore] of [
           ['public_display_consent=FALSE', 'public_display_consent=TRUE'],

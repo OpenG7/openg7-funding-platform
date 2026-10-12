@@ -127,12 +127,28 @@ test(
       const beforeMail = (
         await pool.query('SELECT COUNT(*)::int AS count FROM email_messages')
       ).rows[0].count;
+      const transactionCommands = [];
+      let releasedClients = 0;
+      let failedInvoiceWrites = 0;
       const unavailableWritePool = {
-        query: (sql, values) => {
-          if (sql.includes('INSERT INTO sponsorship_invoices')) {
-            throw new Error('Synthetic transient invoice write failure');
-          }
-          return pool.query(sql, values);
+        query: (sql, values) => pool.query(sql, values),
+        connect: async () => {
+          const client = await pool.connect();
+          return {
+            query: (sql, values) => {
+              if (['BEGIN', 'COMMIT', 'ROLLBACK'].includes(sql))
+                transactionCommands.push(sql);
+              if (sql.includes('INSERT INTO sponsorship_invoices')) {
+                failedInvoiceWrites++;
+                throw new Error('Synthetic transient invoice write failure');
+              }
+              return client.query(sql, values);
+            },
+            release: () => {
+              releasedClients++;
+              client.release();
+            }
+          };
         }
       };
       const failed = await backfillMissingSponsorshipInvoices(
@@ -150,6 +166,9 @@ test(
         failed.errors[0].error,
         'Synthetic transient invoice write failure'
       );
+      assert.equal(failedInvoiceWrites, 1);
+      assert.deepEqual(transactionCommands, ['BEGIN', 'ROLLBACK']);
+      assert.equal(releasedClients, 1);
       assert.equal(
         (
           await getAdminWorkQueue(pool, {
