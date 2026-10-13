@@ -4,8 +4,9 @@ import ts from 'typescript';
 
 const slash = (path) => path.split(sep).join('/');
 
-function staticCommands(line) {
+function staticCommands(line, resolveShards) {
   const commands = [];
+  let matrixSelection = null;
   let words = [],
     word = '',
     started = false,
@@ -18,6 +19,10 @@ function staticCommands(line) {
   for (let index = 0; index < line.length; index += 1) {
     const char = line[index];
     if (quote === "'") {
+      if (line.startsWith('${{', index))
+        throw new Error(
+          'E2E discovery requires explicit, static CLI arguments.'
+        );
       if (char === quote) quote = null;
       else word += char;
       continue;
@@ -29,12 +34,34 @@ function staticCommands(line) {
       quote = char;
       started = true;
     } else if (char === '\\') {
+      if (line.startsWith('${{', index + 1))
+        throw new Error(
+          'E2E discovery requires explicit, static CLI arguments.'
+        );
       if (index + 1 === line.length)
         throw new Error('Unsupported E2E shell escape.');
       if (!quote || ['$', '`', '"', '\\'].includes(line[index + 1]))
         word += line[++index];
       else word += char;
       started = true;
+    } else if (char === '$' && !quote && word === '--shard=' && resolveShards) {
+      const expression =
+        /^\$\{\{\s*matrix\.shard\s*\}\}\/([1-9]\d*)(?=\s|$)/.exec(
+          line.slice(index)
+        );
+      if (!expression)
+        throw new Error(
+          'E2E discovery requires explicit, static CLI arguments.'
+        );
+      if (matrixSelection)
+        throw new Error('E2E discovery requires a single matrix shard option.');
+      matrixSelection = {
+        argument: '--shard=' + expression[0],
+        total: Number(expression[1]),
+        values: resolveShards(Number(expression[1]))
+      };
+      word += expression[0];
+      index += expression[0].length - 1;
     } else if (
       char === '`' ||
       (char === '$' && /[\w{(]/.test(line[index + 1] ?? ''))
@@ -74,7 +101,100 @@ function staticCommands(line) {
       continue;
     throw new Error('Unsupported E2E preparation command.');
   }
-  return commands;
+  return commands.flatMap((command) => {
+    if (!matrixSelection || !command.includes(matrixSelection.argument))
+      return [command];
+    if (command.filter((arg) => /^--shard(?:=|$)/.test(arg)).length !== 1)
+      throw new Error('E2E discovery requires a single matrix shard option.');
+    return matrixSelection.values.map((value) =>
+      command.map((arg) =>
+        arg === matrixSelection.argument
+          ? `--shard=${value}/${matrixSelection.total}`
+          : arg
+      )
+    );
+  });
+}
+
+// Support only the literal shard axis in the command's enclosing workflow job.
+// Dynamic matrices and include/exclude can silently omit or duplicate tests.
+function workflowShardResolvers(source) {
+  const lines = source.split(/\r?\n/);
+  const meaningful = (line) => line.trim() && !line.trim().startsWith('#');
+  const indentation = (line) => /^\s*/.exec(line)[0].length;
+  const blockEnd = (start) => {
+    let end = start + 1;
+    while (
+      end < lines.length &&
+      (!meaningful(lines[end]) ||
+        indentation(lines[end]) > indentation(lines[start]))
+    )
+      end += 1;
+    return end;
+  };
+  const child = (start, key) => {
+    const children = [];
+    const end = blockEnd(start);
+    for (let index = start + 1; index < end; index += 1) {
+      if (
+        indentation(lines[index]) === indentation(lines[start]) + 2 &&
+        new RegExp(`^${key}:`).test(lines[index].trim())
+      )
+        children.push(index);
+    }
+    if (
+      children.length !== 1 ||
+      !new RegExp(`^${key}:\\s*(?:#.*)?$`).test(lines[children[0]].trim())
+    )
+      throw new Error('E2E matrix sharding requires a literal shard matrix.');
+    return children[0];
+  };
+  return (lineIndex) => (total) => {
+    const parents = [];
+    let indent = indentation(lines[lineIndex]);
+    for (let index = lineIndex - 1; index >= 0; index -= 1) {
+      if (meaningful(lines[index]) && indentation(lines[index]) < indent) {
+        parents.unshift(index);
+        indent = indentation(lines[index]);
+      }
+    }
+    const jobs = parents.findIndex((index) => /^jobs:\s*$/.test(lines[index]));
+    const job = parents[jobs + 1];
+    if (
+      jobs < 0 ||
+      job === undefined ||
+      !/^  [\w-]+:\s*(?:#.*)?$/.test(lines[job])
+    )
+      throw new Error(
+        'E2E matrix sharding requires an enclosing workflow job.'
+      );
+    const matrix = child(child(job, 'strategy'), 'matrix');
+    const entries = lines
+      .slice(matrix + 1, blockEnd(matrix))
+      .filter(meaningful);
+    const list =
+      entries.length === 1 &&
+      indentation(entries[0]) === indentation(lines[matrix]) + 2 &&
+      /^shard:\s*\[([\d,\s]*)\]\s*(?:#.*)?$/.exec(entries[0].trim());
+    if (!list)
+      throw new Error('E2E matrix sharding requires a literal shard matrix.');
+    const values = list[1].split(',').map((value) => {
+      if (!/^\d+$/.test(value.trim())) return NaN;
+      return Number(value.trim());
+    });
+    if (
+      !Number.isSafeInteger(total) ||
+      values.length !== total ||
+      new Set(values).size !== total ||
+      values.some(
+        (value) => !Number.isSafeInteger(value) || value < 1 || value > total
+      )
+    )
+      throw new Error(
+        'E2E shard matrix must contain each shard from 1 to its total exactly once.'
+      );
+    return values;
+  };
 }
 
 // Scope an if key to its enclosing indentation block (job or list step).
@@ -113,7 +233,7 @@ function assertUnconditionalE2e(source, related) {
   }
 }
 
-function assertLinearE2eBlocks(source, related) {
+function assertLinearE2eBlocks(source, related, shardResolvers) {
   const lines = source.split(/\r?\n/);
   const meaningful = (line) => line.trim() && !line.trim().startsWith('#');
   const indentation = (line) => /^\s*/.exec(line)[0].length;
@@ -142,7 +262,8 @@ function assertLinearE2eBlocks(source, related) {
       );
     const content = body.filter(meaningful);
     const contentIndent = content.length ? indentation(content[0]) : 0;
-    for (const line of content) {
+    for (const [offset, line] of body.entries()) {
+      if (!meaningful(line)) continue;
       const command = line.trim();
       if (
         indentation(line) !== contentIndent ||
@@ -155,7 +276,7 @@ function assertLinearE2eBlocks(source, related) {
         throw new Error(
           'Multiline E2E shell control flow or argument continuation is unsupported.'
         );
-      staticCommands(command);
+      staticCommands(command, shardResolvers?.(index + offset + 1));
     }
   }
 }
@@ -229,8 +350,11 @@ export function workflowSelections(source, scripts = {}) {
     selections.set(JSON.stringify(args), { config, args });
   };
   const inspect = (commands, forwarded = [], stack = []) => {
+    const shardResolvers = stack.length
+      ? undefined
+      : workflowShardResolvers(commands);
     assertUnconditionalE2e(commands, related);
-    assertLinearE2eBlocks(commands, related);
+    assertLinearE2eBlocks(commands, related, shardResolvers);
     if (
       stack.length &&
       commands.split(/\r?\n/).filter((line) => line.trim()).length > 1
@@ -238,10 +362,10 @@ export function workflowSelections(source, scripts = {}) {
       throw new Error(
         'Multiline E2E Yarn scripts are unsupported; use explicit workflow commands.'
       );
-    const segments = commands.split(/\r?\n/).flatMap((line) => {
+    const segments = commands.split(/\r?\n/).flatMap((line, index) => {
       const trimmed = commandLine(line);
       if (!related(trimmed)) return [];
-      return staticCommands(trimmed);
+      return staticCommands(trimmed, shardResolvers?.(index));
     });
     if (forwarded.length && !segments.length)
       throw new Error(

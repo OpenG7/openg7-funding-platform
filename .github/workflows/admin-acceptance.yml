@@ -111,9 +111,15 @@ jobs:
           retention-days: 7
 
   docker_acceptance:
-    name: Docker acceptance
+    name: Docker acceptance (${{ matrix.shard }}/4)
     runs-on: ubuntu-24.04
     timeout-minutes: 90
+    strategy:
+      # Each runner owns its disposable stack; keep evidence from every shard
+      # even when another shard fails. Tests stay sequential within each stack.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
       - name: Enable Corepack
@@ -125,12 +131,12 @@ jobs:
       - run: yarn install --immutable
       - run: yarn exec playwright install --with-deps chromium
       - name: Docker acceptance with disposable fixtures
-        run: yarn test:e2e:acceptance
+        run: yarn test:e2e:acceptance --shard=${{ matrix.shard }}/4
       - name: Preserve acceptance evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: admin-acceptance-results
+          name: admin-acceptance-results-${{ matrix.shard }}
           path: test-results/
           retention-days: 7
 

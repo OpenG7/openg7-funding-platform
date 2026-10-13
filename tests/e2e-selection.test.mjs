@@ -110,6 +110,155 @@ test('each Yarn invocation retains forwarded filters, including nested aliases a
   );
 });
 
+const shardedWorkflow = (
+  matrix = ['shard: [1, 2, 3]'],
+  command = 'yarn acceptance --shard=${{ matrix.shard }}/3',
+  run = [command]
+) =>
+  [
+    'jobs:',
+    '  docker:',
+    '    strategy:',
+    '      fail-fast: false',
+    '      matrix:',
+    ...matrix.map((line) => '        ' + line),
+    '    steps:',
+    '      - name: Acceptance',
+    ...(run.length === 1
+      ? ['        run: ' + run[0]]
+      : ['        run: |', ...run.map((line) => '          ' + line)])
+  ].join('\n');
+const acceptanceScripts = { acceptance: 'node scripts/admin-acceptance.mjs' };
+
+test('literal workflow shard matrices list every shard while preserving forwarded arguments', () => {
+  for (const total of [3, 4]) {
+    const values = Array.from({ length: total }, (_, index) => index + 1);
+    assert.deepEqual(
+      workflowSelections(
+        shardedWorkflow(
+          [`shard: [${values.join(', ')}]`],
+          `yarn acceptance --shard=\${{ matrix.shard }}/${total}`
+        ),
+        acceptanceScripts
+      ),
+      values.map((value) => ({
+        config: 'playwright.config.ts',
+        args: [`--shard=${value}/${total}`]
+      }))
+    );
+  }
+  assert.deepEqual(
+    workflowSelections(
+      shardedWorkflow(['shard: [3, 1, 2]'], '', [
+        'yarn build',
+        'yarn nested --shard=${{ matrix.shard }}/3 --project chromium'
+      ]),
+      {
+        nested: 'yarn browser',
+        browser: 'playwright test --config tests/ui.config.mjs'
+      }
+    ).map(({ args }) => args),
+    [3, 1, 2].map((value) => [
+      '--config',
+      'tests/ui.config.mjs',
+      `--shard=${value}/3`,
+      '--project',
+      'chromium'
+    ])
+  );
+});
+
+test('matrix discovery uses only the enclosing job and refuses incomplete or dynamic shard matrices', () => {
+  const invalidMatrices = [
+    ['shard: [1, 2]'],
+    ['shard: [1, 1, 3]'],
+    ['shard: [0, 2, 3]'],
+    ['shard: [1, 2, 4]'],
+    ['shard: [1, 2, 3, 4]'],
+    ['shard: [1, 2.5, 3]'],
+    ['shard: [1, "2", 3]'],
+    ['shard: [1, 2,]'],
+    ['shard: ${{ fromJSON(inputs.shards) }}'],
+    ['shard: [1, 2, 3]', 'include: [{ shard: 1 }]'],
+    ['shard: [1, 2, 3]', 'exclude: [{ shard: 2 }]'],
+    ['shard: [1, 2, 3]', 'project: [chromium, webkit]'],
+    ['shard: [1, 2, 3]', 'shard: [1, 2, 3]']
+  ];
+  for (const matrix of invalidMatrices)
+    assert.throws(
+      () => workflowSelections(shardedWorkflow(matrix), acceptanceScripts),
+      /shard matrix/
+    );
+  const otherJob = [
+    '  unrelated:',
+    '    strategy:',
+    '      matrix:',
+    '        shard: [1, 2, 3]',
+    '    steps:',
+    '      - run: yarn build'
+  ].join('\n');
+  assert.throws(
+    () =>
+      workflowSelections(
+        shardedWorkflow(['shard: [1, 2]']) + '\n' + otherJob,
+        acceptanceScripts
+      ),
+    /shard matrix/
+  );
+  for (const workflow of [
+    'run: yarn acceptance --shard=${{ matrix.shard }}/3',
+    shardedWorkflow().replace(
+      'matrix:',
+      'matrix: ${{ fromJSON(inputs.matrix) }}'
+    ),
+    shardedWorkflow().replace(
+      'strategy:',
+      'strategy: ${{ fromJSON(inputs.strategy) }}'
+    )
+  ])
+    assert.throws(
+      () => workflowSelections(workflow, acceptanceScripts),
+      /shard matrix|enclosing workflow job/
+    );
+});
+
+test('matrix expressions cannot become filters, arbitrary arguments or shell control flow', () => {
+  for (const command of [
+    'yarn acceptance --grep ${{ matrix.shard }}',
+    'yarn acceptance --grep "${{ matrix.shard }}"',
+    "yarn acceptance --grep '${{ matrix.shard }}'",
+    'yarn acceptance --grep \\${{ matrix.shard }}',
+    "yarn acceptance --grep 'x --shard=${{ matrix.shard }}/3 y'",
+    'yarn acceptance --shard=${{ matrix.other }}/3',
+    'yarn acceptance --shard=${{ matrix.shard + 1 }}/3',
+    'yarn acceptance --shard=${{ matrix.shard }}/${{ matrix.total }}',
+    'yarn acceptance --shard=${{ matrix.shard }}/3suffix',
+    'yarn acceptance --shard=${{ matrix.shard }}/3 --shard=1/3',
+    'yarn acceptance --shard=${{ matrix.shard }}/3 || true',
+    'if false; then yarn acceptance --shard=${{ matrix.shard }}/3; fi'
+  ])
+    assert.throws(
+      () =>
+        workflowSelections(
+          shardedWorkflow(undefined, command),
+          acceptanceScripts
+        ),
+      /static CLI arguments|single matrix shard|shell control flow/
+    );
+  for (const placement of ['job', 'step']) {
+    const workflow = shardedWorkflow().replace(
+      placement === 'job' ? '    strategy:' : '        run:',
+      placement === 'job'
+        ? '    if: false\n    strategy:'
+        : '        if: false\n        run:'
+    );
+    assert.throws(
+      () => workflowSelections(workflow, acceptanceScripts),
+      /Conditional E2E/
+    );
+  }
+});
+
 test('masked failures and shell conditionals never manufacture a successful selection', () => {
   const scripts = { browsers: 'playwright test --config tests/ui.config.mjs' };
   for (const command of [
