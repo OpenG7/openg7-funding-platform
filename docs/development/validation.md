@@ -41,7 +41,9 @@ documentaire n'exige pas de lancer les suites applicatives.
 | `yarn workspace @openg7/funding-web build --configuration production` | Build Angular et rendu initial/SSR configuré |
 | `yarn test:sponsorship` | Suite Node de couverture commandite; aucun navigateur |
 | `yarn test:e2e:acceptance` | API/DB/navigateur en pile Docker jetable, fournisseurs simulés; lanceur hôte Node.js `>=22`, images et CI sous Node 22 |
+| `yarn test:e2e:selection` | Découverte des suites CI et specs Playwright; aucun navigateur ou service lancé |
 | `yarn test:e2e:identity` | API réelle, Web compilé, PostgreSQL jetable et fournisseur OIDC signé local; rôles et révocation |
+| `node --test tests/identity/keycloak-identity.integration.mjs` | Keycloak réel, OTP, droits et sessions API/DB jetables; image locale requise |
 | `node --test tests/identity/keycloak-local-https.integration.mjs` | HTTPS local opt-in : provisionnement/répétition, OTP, API/Web et deux DB jetables ; images préconstruites et CA approuvée requises |
 | `node --test tests/identity/keycloak-initial-user.integration.mjs` | Avec `FUNDING_KEYCLOAK_INITIAL_USER_TEST=1`, import initial réel et conservation après redémarrage sur Keycloak/PostgreSQL jetables ; HTTPS/CA synthétiques, images locales et OpenSSL requis, sans port publié |
 | `yarn test:e2e:playwright` | Démarrage/réutilisation Docker local, migrations et seed, puis Playwright; modifie l'état local |
@@ -56,7 +58,7 @@ documentaire n'exige pas de lancer les suites applicatives.
 La recette Docker impose un worker, même avec `--workers` : base, réglages et
 redémarrages API sont partagés. Le workflow
 [Admin acceptance](../../.github/workflows/admin-acceptance.yml) sépare les
-contrôles/intégrations, l'UI/identité/récupération et Docker sur trois runners;
+contrôles/intégrations, l'UI/identité/récupération, Docker et Keycloak sur quatre runners;
 le contrôle final exige leur réussite.
 
 En recette Docker, N0 porte sur le contenu persisté avant publication. Le refus
@@ -65,21 +67,17 @@ confirmer. L'API OIDC partage base et médias jetables avec l'API token, sans
 worker supplémentaire. Web et fournisseur ont des ports loopback distincts;
 aucun fournisseur externe ni `.env` n'est utilisé.
 
-Certaines recettes de publication utilisent un
-[passage à heure contrôlée](../../tests/playwright/support/acceptance-publication-worker.ts)
-du vrai service dans le conteneur API jetable. Elles vérifient les frontières
-avant/à échéance et le rejeu sans attendre le calendrier. La recette de résultat
-incertain conserve un contrôle au vrai timer après redémarrage. La récupération
-par courriel vérifie les backoffs persistants, puis avance uniquement l'éligibilité
-de son message synthétique avant sa reprise par le worker API. Ces contrôles
-de temps ne changent pas les cadences de production.
+Le [passage à heure contrôlée](../../tests/playwright/support/acceptance-publication-worker.ts)
+du service API jetable vérifie échéance et rejeu. Le résultat incertain est aussi
+vérifié au vrai timer après redémarrage. La recette courriel conserve les backoffs,
+puis avance l'éligibilité de son seul message synthétique. Les cadences de
+production sont inchangées.
 
-`keycloak:check` exige Docker Compose lorsqu'il lit un fichier d'environnement,
-sans contacter le daemon ou le fournisseur. Le [runbook Keycloak](../operations/keycloak-vps.md)
-décrit les vérifications DNS/HTTPS et OIDC/MFA distinctes.
-Le [guide Windows/Docker](../operations/keycloak-local.md) décrit le profil HTTPS
-local persistant ; les préparatifs et tests de configuration ne prouvent pas
-une connexion réelle avec OTP ni une qualification de production.
+`keycloak:check` exige Compose pour un fichier d'environnement, sans contacter daemon ou fournisseur.
+Les [vérifications DNS/HTTPS et OIDC/MFA](../operations/keycloak-vps.md) restent
+distinctes. La CI couvre identité et import initial sur Keycloak jetable; la
+[recette HTTPS locale](../operations/keycloak-local.md#recette-https-jetable-reproductible)
+exige une CA déjà approuvée et reste séparée. Aucun test local ne qualifie la production.
 
 Prérequis et preuves datées : [état de la plateforme](../platform-status.md),
 [recette fournisseurs](../operations/integration-rehearsal.md),

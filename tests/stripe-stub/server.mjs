@@ -7,9 +7,9 @@
 // control channel Playwright specs use to seed fixture data before
 // triggering a real HTTP call into the api container.
 //
-// Not a general Stripe mock: no auth checks, no idempotency-key dedup, no
-// resources beyond what funding-api touches. `/v1/refunds` is the one
-// endpoint with real business logic -- it tracks cumulative refunds per
+// Not a general Stripe mock: no auth checks or resources beyond what the API
+// touches. Checkout/refund receipts survive retries and targeted response faults.
+// `/v1/refunds` tracks cumulative refunds per
 // charge and rejects an over-refund the same way real Stripe does, which is
 // what lets the admin refund flow be tested end-to-end without reimplementing
 // that guard in application code.
@@ -19,10 +19,15 @@ import { randomBytes, createHmac } from 'node:crypto';
 import { socialSimulator } from './social.mjs';
 import { createSmtpGate } from './smtp-gate.mjs';
 import { listCapturedMail } from './mail.mjs';
+import {
+  createPaymentOperations,
+  PaymentOperationConflict
+} from './payment-operations.mjs';
 
 const port = Number(process.env.PORT ?? 4242);
 const smsReceipts = new Map();
 const social = socialSimulator();
+const paymentOperations = createPaymentOperations();
 const smtpGate = process.env.STUB_MAILPIT_URL ? createSmtpGate() : null;
 smtpGate?.server.listen(1025, '0.0.0.0');
 
@@ -50,6 +55,7 @@ const resetState = () => {
   state.disputes.clear();
   state.disputeOrder.length = 0;
   state.refunds.clear();
+  paymentOperations.reset();
 };
 
 const nowSeconds = () => Math.floor(Date.now() / 1000);
@@ -370,80 +376,113 @@ const handleListDisputes = (response, query) => {
 const handleCreateRefund = async (request, response) => {
   const raw = await readBody(request);
   const body = parseFormBody(raw);
-  const paymentIntentId = body.payment_intent;
-  const chargeIdParam = body.charge;
+  const result = paymentOperations.execute(
+    'refund',
+    request.headers['idempotency-key'],
+    raw,
+    ({ refundStatus }) => {
+      const paymentIntentId = body.payment_intent;
+      const chargeIdParam = body.charge;
 
-  const paymentIntent = paymentIntentId
-    ? state.paymentIntents.get(paymentIntentId)
-    : null;
-  const chargeId = chargeIdParam ?? paymentIntent?.chargeId;
-  const charge = chargeId ? state.charges.get(chargeId) : null;
+      const paymentIntent = paymentIntentId
+        ? state.paymentIntents.get(paymentIntentId)
+        : null;
+      const chargeId = chargeIdParam ?? paymentIntent?.chargeId;
+      const charge = chargeId ? state.charges.get(chargeId) : null;
 
-  if (!charge) {
-    sendStripeError(
-      response,
-      400,
-      `No such payment_intent: '${paymentIntentId ?? ''}'`,
-      'resource_missing'
-    );
-    return;
+      if (!charge) {
+        sendStripeError(
+          response,
+          400,
+          `No such payment_intent: '${paymentIntentId ?? ''}'`,
+          'resource_missing'
+        );
+        return;
+      }
+
+      const reserved = charge.refundIds.reduce((total, id) => {
+        const refund = state.refunds.get(id);
+        return (
+          total +
+          (['pending', 'succeeded'].includes(refund.status) ? refund.amount : 0)
+        );
+      }, 0);
+      const remaining = charge.amount - reserved;
+      const requestedAmount =
+        body.amount !== undefined ? Number(body.amount) : remaining;
+
+      if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
+        sendStripeError(
+          response,
+          400,
+          'Invalid refund amount.',
+          'parameter_invalid_integer'
+        );
+        return;
+      }
+
+      if (requestedAmount > remaining) {
+        // Mirrors real Stripe's own guard: a charge can never be refunded past
+        // its original amount, regardless of how many partial refunds already
+        // happened. This is the invariant the admin refund route itself does
+        // not independently enforce (see apps/funding-api/src/main.ts) -- money
+        // safety here comes from Stripe being the source of truth, exactly as
+        // it does in production.
+        sendStripeError(
+          response,
+          400,
+          'This refund would exceed the amount available to refund on this charge.',
+          'amount_too_large'
+        );
+        return;
+      }
+
+      const refund = {
+        id: randomId('re'),
+        amount: requestedAmount,
+        currency: charge.currency,
+        status: 'pending',
+        paymentIntentId: charge.paymentIntentId,
+        chargeId: charge.id,
+        reason: body.reason ?? null,
+        metadata: Object.fromEntries(
+          Object.entries(body)
+            .filter(([key]) => /^metadata\[[^\]]+\]$/.test(key))
+            .map(([key, value]) => [key.slice(9, -1), value])
+        ),
+        balanceTransactionId: null,
+        created: nowSeconds()
+      };
+      state.refunds.set(refund.id, refund);
+      charge.refundIds.push(refund.id);
+      if (refundStatus === 'succeeded') settleStubRefund(refund, 'succeeded');
+      return refundObject(refund);
+    }
+  );
+  if (result?.lost) response.destroy();
+  else if (result) sendJson(response, 200, result.body);
+};
+
+const settleStubRefund = (refund, status) => {
+  if (refund.status === status) return;
+  if (refund.status !== 'pending')
+    throw new Error('A terminal refund cannot change its financial outcome.');
+  refund.status = status;
+  if (status === 'succeeded') {
+    const charge = state.charges.get(refund.chargeId);
+    refund.balanceTransactionId = randomId('txn_refund');
+    state.balanceTransactions.set(refund.balanceTransactionId, {
+      id: refund.balanceTransactionId,
+      amount: -refund.amount,
+      fee: 0,
+      net: -refund.amount,
+      currency: refund.currency,
+      status: 'available',
+      created: refund.created,
+      type: 'refund'
+    });
+    charge.amountRefunded += refund.amount;
   }
-
-  const remaining = charge.amount - charge.amountRefunded;
-  const requestedAmount = body.amount !== undefined ? Number(body.amount) : remaining;
-
-  if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
-    sendStripeError(response, 400, 'Invalid refund amount.', 'parameter_invalid_integer');
-    return;
-  }
-
-  if (requestedAmount > remaining) {
-    // Mirrors real Stripe's own guard: a charge can never be refunded past
-    // its original amount, regardless of how many partial refunds already
-    // happened. This is the invariant the admin refund route itself does
-    // not independently enforce (see apps/funding-api/src/main.ts) -- money
-    // safety here comes from Stripe being the source of truth, exactly as
-    // it does in production.
-    sendStripeError(
-      response,
-      400,
-      'This refund would exceed the amount available to refund on this charge.',
-      'amount_too_large'
-    );
-    return;
-  }
-
-  const refund = {
-    id: randomId('re'),
-    amount: requestedAmount,
-    currency: charge.currency,
-    status: 'succeeded',
-    paymentIntentId: charge.paymentIntentId,
-    chargeId: charge.id,
-    reason: body.reason ?? null,
-    metadata: Object.fromEntries(
-      Object.entries(body)
-        .filter(([key]) => /^metadata\[[^\]]+\]$/.test(key))
-        .map(([key, value]) => [key.slice(9, -1), value])
-    ),
-    balanceTransactionId: randomId('txn_refund'),
-    created: nowSeconds()
-  };
-  state.refunds.set(refund.id, refund);
-  state.balanceTransactions.set(refund.balanceTransactionId, {
-    id: refund.balanceTransactionId,
-    amount: -requestedAmount,
-    fee: 0,
-    net: -requestedAmount,
-    currency: charge.currency,
-    status: 'available',
-    created: refund.created,
-    type: 'refund'
-  });
-  charge.amountRefunded += requestedAmount;
-  charge.refundIds.push(refund.id);
-
-  sendJson(response, 200, refundObject(refund));
 };
 
 // --- `/__test__/...` control channel -------------------------------------
@@ -617,47 +656,57 @@ const handleCreateCheckout = async (request, response) => {
     );
     return;
   }
-  const form = parseFormBody(await readBody(request));
-  const amount = Number(form['line_items[0][price_data][unit_amount]']);
-  if (!Number.isSafeInteger(amount) || amount <= 0) {
-    sendStripeError(response, 400, 'Invalid amount.');
-    return;
-  }
-  const metadata = Object.fromEntries(
-    Object.entries(form)
-      .filter(([key]) => /^metadata\[[^\]]+\]$/.test(key))
-      .map(([key, value]) => [key.slice(9, -1), value])
+  const raw = await readBody(request);
+  const form = parseFormBody(raw);
+  const result = paymentOperations.execute(
+    'checkout',
+    request.headers['idempotency-key'],
+    raw,
+    () => {
+      const amount = Number(form['line_items[0][price_data][unit_amount]']);
+      if (!Number.isSafeInteger(amount) || amount <= 0) {
+        sendStripeError(response, 400, 'Invalid amount.');
+        return;
+      }
+      const metadata = Object.fromEntries(
+        Object.entries(form)
+          .filter(([key]) => /^metadata\[[^\]]+\]$/.test(key))
+          .map(([key, value]) => [key.slice(9, -1), value])
+      );
+      const id = randomId('cs_test'),
+        paymentIntentId = randomId('pi_test');
+      const record = {
+        id,
+        paymentIntentId,
+        amountTotal: amount,
+        currency: form['line_items[0][price_data][currency]'],
+        metadata,
+        customerEmail: 'company@simulation.example.test',
+        paymentStatus: 'unpaid',
+        created: nowSeconds(),
+        clientReferenceId: form.client_reference_id,
+        successUrl: form.success_url,
+        cancelUrl: form.cancel_url,
+        checkoutUrl: process.env.STUB_PUBLIC_BASE_URL + '/checkout/' + id
+      };
+      state.checkoutSessions.set(id, record);
+      state.checkoutSessionOrder.push(id);
+      state.paymentIntents.set(paymentIntentId, {
+        id: paymentIntentId,
+        amount,
+        amountReceived: 0,
+        currency: record.currency,
+        status: 'requires_payment_method',
+        created: record.created,
+        metadata,
+        latestChargeId: null
+      });
+      // Stripe can defer creating the PaymentIntent until Checkout is visited.
+      return { ...checkoutSessionObject(record), payment_intent: null };
+    }
   );
-  const id = randomId('cs_test'),
-    paymentIntentId = randomId('pi_test');
-  const record = {
-    id,
-    paymentIntentId,
-    amountTotal: amount,
-    currency: form['line_items[0][price_data][currency]'],
-    metadata,
-    customerEmail: 'company@simulation.example.test',
-    paymentStatus: 'unpaid',
-    created: nowSeconds(),
-    clientReferenceId: form.client_reference_id,
-    successUrl: form.success_url,
-    cancelUrl: form.cancel_url,
-    checkoutUrl: process.env.STUB_PUBLIC_BASE_URL + '/checkout/' + id
-  };
-  state.checkoutSessions.set(id, record);
-  state.checkoutSessionOrder.push(id);
-  state.paymentIntents.set(paymentIntentId, {
-    id: paymentIntentId,
-    amount,
-    amountReceived: 0,
-    currency: record.currency,
-    status: 'requires_payment_method',
-    created: record.created,
-    metadata,
-    latestChargeId: null
-  });
-  // Stripe can defer creating the PaymentIntent until Checkout is visited.
-  sendJson(response, 200, { ...checkoutSessionObject(record), payment_intent: null });
+  if (result?.lost) response.destroy();
+  else if (result) sendJson(response, 200, result.body);
 };
 const handleCheckoutPage = async (request, response, id) => {
   const record = state.checkoutSessions.get(id);
@@ -807,6 +856,52 @@ const server = createServer(async (request, response) => {
 
   try {
     if (await social(request, response, url)) return;
+    if (pathname === '/__test__/payment-operations') {
+      if (request.method === 'POST') {
+        try {
+          paymentOperations.configure(JSON.parse(await readBody(request)));
+          sendJson(response, 200, { configured: true });
+        } catch {
+          sendJson(response, 400, { error: 'Invalid targeted payment fault.' });
+        }
+      } else if (request.method === 'GET') {
+        const receipt = paymentOperations.inspect(
+          searchParams.get('kind'),
+          searchParams.get('operationId')
+        );
+        sendJson(
+          response,
+          receipt ? 200 : 404,
+          receipt ?? { error: 'Operation not received.' }
+        );
+      } else sendJson(response, 405, { error: 'Method not allowed.' });
+      return;
+    }
+    if (
+      request.method === 'PATCH' &&
+      pathname.startsWith('/__test__/refunds/')
+    ) {
+      const refund = state.refunds.get(
+        decodeURIComponent(pathname.slice('/__test__/refunds/'.length))
+      );
+      const body = JSON.parse(await readBody(request));
+      if (!refund) sendJson(response, 404, { error: 'Unknown refund.' });
+      else if (
+        !body ||
+        !['succeeded', 'failed'].includes(body.status) ||
+        Object.keys(body).some((key) => key !== 'status')
+      )
+        sendJson(response, 400, {
+          error: 'A terminal refund status is required.'
+        });
+      else if (refund.status !== 'pending' && refund.status !== body.status)
+        sendJson(response, 409, { error: 'A terminal refund cannot change.' });
+      else {
+        settleStubRefund(refund, body.status);
+        sendJson(response, 200, refundObject(refund));
+      }
+      return;
+    }
     if (request.method === 'POST' && pathname === '/__test__/checkout-delivery') {
       await handleCheckoutDelivery(request, response);
       return;
@@ -997,9 +1092,35 @@ const server = createServer(async (request, response) => {
       await handleCreateRefund(request, response);
       return;
     }
+    if (request.method === 'GET' && pathname.startsWith('/v1/refunds/')) {
+      const refund = state.refunds.get(
+        decodeURIComponent(pathname.slice('/v1/refunds/'.length))
+      );
+      if (refund) sendJson(response, 200, refundObject(refund));
+      else
+        sendStripeError(response, 404, 'Unknown refund.', 'resource_missing');
+      return;
+    }
+    if (request.method === 'GET' && pathname === '/v1/refunds') {
+      const refunds = [...state.refunds.values()]
+        .reverse()
+        .filter((refund) => refund.chargeId === searchParams.get('charge'));
+      const { page, hasMore } = paginate(refunds, searchParams);
+      sendJson(response, 200, {
+        object: 'list',
+        data: page.map(refundObject),
+        has_more: hasMore,
+        url: '/v1/refunds'
+      });
+      return;
+    }
 
     sendStripeError(response, 404, `Unrecognized request URL: ${pathname}`, null);
   } catch (error) {
+    if (error instanceof PaymentOperationConflict) {
+      sendStripeError(response, 400, error.message, 'idempotency_error');
+      return;
+    }
     console.error('stripe-stub request failed', error);
     sendStripeError(response, 500, 'Internal stripe-stub error.', null);
   }
