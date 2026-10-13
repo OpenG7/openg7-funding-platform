@@ -3,11 +3,12 @@ import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { request as httpRequest } from 'node:http';
 import { dirname, join, resolve } from 'node:path';
 import { setTimeout } from 'node:timers/promises';
 import { promisify } from 'node:util';
 import test from 'node:test';
+
+import { probeHttpWithContinue } from '../support/http-continue-probe.mjs';
 
 const exec = promisify(execFile);
 const root = new URL('../../', import.meta.url);
@@ -225,42 +226,18 @@ createServer(async (req,res)=>{
       authenticated = true,
       host = 'localhost'
     ) =>
-      new Promise((resolveResponse, reject) => {
-        const request = httpRequest(
-          base + path,
-          {
-            method: 'POST',
-            agent: false,
-            headers: {
-              Host: host,
-              ...(authenticated
-                ? { Authorization: 'Bearer synthetic-proxy-test' }
-                : {}),
-              'Content-Length': Buffer.byteLength(body),
-              'Content-Type':
-                typeof body === 'string'
-                  ? 'application/json'
-                  : 'multipart/form-data; boundary=synthetic-boundary'
-            }
-          },
-          (response) => {
-            const chunks = [];
-            response.on('data', (chunk) => chunks.push(chunk));
-            response.on('error', reject);
-            response.on('end', () =>
-              resolveResponse({
-                status: response.statusCode,
-                json: async () =>
-                  JSON.parse(Buffer.concat(chunks).toString('utf8'))
-              })
-            );
-          }
-        );
-        request.on('error', reject);
-        request.setTimeout(5000, () =>
-          request.destroy(new Error('Fixture request timeout'))
-        );
-        request.end(body);
+      probeHttpWithContinue(base + path, {
+        body,
+        headers: {
+          Host: host,
+          ...(authenticated
+            ? { Authorization: 'Bearer synthetic-proxy-test' }
+            : {}),
+          'Content-Type':
+            typeof body === 'string'
+              ? 'application/json'
+              : 'multipart/form-data; boundary=synthetic-boundary'
+        }
       });
     for (const base of [nginx, traefik]) {
       const readyBy = Date.now() + 25000;
