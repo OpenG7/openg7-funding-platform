@@ -1,6 +1,7 @@
 import type { PublicationAutomationCommand } from '@openg7/funding-core';
 
 import { withPostgresTransaction } from '../postgres-transaction.js';
+import { linkedinPublicationImageIds } from '../../../../packages/funding-core/src/index.js';
 
 import {
   audit,
@@ -37,6 +38,7 @@ interface EvidenceRow {
   external_post_id: string;
   message: string;
   media_snapshot: DeliveryRow['media_snapshot'];
+  provider_media_ids?: string[];
 }
 
 async function readDelivery(
@@ -116,7 +118,8 @@ export async function reconcileDelivery(
         : snapshot.media_id,
       accountId: canonicalPublicationAccount(snapshot).accountId
     },
-    input.externalPostId
+    input.externalPostId,
+    linkedinPublicationImageIds(snapshot.provider_media_id)
   ).catch((error: unknown) => {
     if (error instanceof DeliveryFailure)
       throw new PublicationAutomationError('REMOTE_POST_UNVERIFIED', 503);
@@ -185,7 +188,7 @@ export async function checkDeliveryVisibility(
     validateTarget(input, row);
     const evidence = (
       await db.query<EvidenceRow>(
-        `SELECT id,delivery_id,channel,target,account_id,external_post_id,message,media_snapshot FROM sponsorship_fulfilment_evidence WHERE delivery_id=$1 AND mode='live' ORDER BY id`,
+        `SELECT id,delivery_id,channel,target,account_id,external_post_id,message,media_snapshot,provider_media_ids FROM sponsorship_fulfilment_evidence WHERE delivery_id=$1 AND mode='live' ORDER BY id`,
         [row.id]
       )
     ).rows;
@@ -216,6 +219,20 @@ export async function checkDeliveryVisibility(
     accountId: historicalAccount.accountId,
     mode: 'live' as const,
     message: original.message,
+    mediaAlt: original.media_snapshot?.alt ?? null,
+    publicationFormat:
+      original.media_snapshot?.kind === 'derived'
+        ? original.media_snapshot.format
+        : ('collective_text' as const),
+    mediaImages:
+      original.media_snapshot?.kind === 'derived'
+        ? original.media_snapshot.images?.map((image) => ({
+            alt: image.alt,
+            sha256: image.derivedHash,
+            width: image.width,
+            height: image.height
+          }))
+        : undefined,
     mediaId: original.media_snapshot
       ? ('id' in original.media_snapshot &&
           typeof original.media_snapshot.id === 'string' &&
@@ -240,7 +257,8 @@ export async function checkDeliveryVisibility(
     await verifyRemote(
       configured.config,
       comparison,
-      original.external_post_id
+      original.external_post_id,
+      original.provider_media_ids ?? []
     );
   } catch (error) {
     reason = safeCode(error);

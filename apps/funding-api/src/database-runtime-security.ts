@@ -62,7 +62,8 @@ export const assertProductionDatabasePrivileges = async (
           SELECT 1 FROM application_relations a
           WHERE a.nspname = 'public' AND (
             (a.relname IN ('admin_audit_log','sponsorship_website_exposure_observations',
-                'sponsorship_obligation_duration_attestations','sponsorship_historical_evidence_reviews')
+                'sponsorship_obligation_duration_attestations','sponsorship_historical_evidence_reviews',
+                'sponsorship_public_visibility_observations')
               AND has_any_column_privilege(current_user, a.oid, 'UPDATE'))
             OR (a.relname = 'openg7_schema_migrations'
               AND has_any_column_privilege(current_user, a.oid, 'INSERT,UPDATE'))

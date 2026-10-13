@@ -199,10 +199,51 @@ test('identity sign-in and owner access are accessible and session revocation ne
         .analyze()
     ).violations
   ).toEqual([]);
+  // Capture the first rendered frame after focus, before a smooth scroll can
+  // eventually make a confirmation visible and conceal a moving click target.
+  const confirmationFocus = await page.evaluateHandle(() => {
+    const state = {
+      bounds: null as { top: number; bottom: number; viewport: number } | null
+    };
+    const captureFocus = (event: FocusEvent) => {
+      const target = event.target;
+      if (
+        !(target instanceof HTMLButtonElement) ||
+        !target.closest('[role="group"]')
+      )
+        return;
+      document.removeEventListener('focusin', captureFocus);
+      requestAnimationFrame(() => {
+        const bounds = target.getBoundingClientRect();
+        state.bounds = {
+          top: bounds.top,
+          bottom: bounds.bottom,
+          viewport: innerHeight
+        };
+      });
+    };
+    document.addEventListener('focusin', captureFocus);
+    return state;
+  });
   await page
     .getByRole('button', { name: 'Révoquer la session', exact: true })
     .click();
   expect(mutations).toHaveLength(0);
+  await expect
+    .poll(() => confirmationFocus.evaluate((state) => state.bounds))
+    .not.toBeNull();
+  const focusedBounds = await confirmationFocus.evaluate(
+    (state) => state.bounds!
+  );
+  // Scroll offsets may round to whole pixels while DOM bounds are fractional.
+  expect(focusedBounds.top).toBeGreaterThanOrEqual(-1);
+  expect(focusedBounds.bottom).toBeLessThanOrEqual(focusedBounds.viewport + 1);
+  await confirmationFocus.dispose();
+  await expect(
+    page
+      .getByRole('group', { name: 'Révoquer la session' })
+      .getByRole('button', { name: 'Révoquer la session' })
+  ).toBeFocused();
   await page
     .getByRole('group', { name: 'Révoquer la session' })
     .getByRole('button', { name: 'Révoquer la session' })

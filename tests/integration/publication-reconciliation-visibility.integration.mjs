@@ -45,9 +45,11 @@ test(
         'https://reconciliation.test/linkedin/posts/urn%3Ali%3AugcPost%3A99'
       )
         return Response.json({
+          id: 'urn:li:ugcPost:99',
           author: 'urn:li:organization:20',
           commentary: 'Qualified LinkedIn history',
-          lifecycleState: 'PUBLISHED'
+          lifecycleState: 'PUBLISHED',
+          visibility: 'PUBLIC'
         });
       if (
         path ===

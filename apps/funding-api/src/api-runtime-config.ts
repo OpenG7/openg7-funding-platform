@@ -21,6 +21,10 @@ import { loadEmailQueueWorkerEnabled } from './services/email/index.js';
 import { loadSponsorMediaLimits } from './sponsor-media-limits.js';
 import type { SponsorLogoStorageConfig } from './sponsor-media-storage.js';
 import { simulatedCheckoutEnabled } from './stripe-checkout-config.js';
+import {
+  loadSponsorshipVisibilityConfig,
+  type SponsorshipVisibilityConfig
+} from './sponsorship-timing/visibility-config.js';
 
 // Keep these loaders separate so composition can retain its startup order.
 // SMTP deliberately uses its strict parsers, rather than the optional-setting
@@ -54,6 +58,7 @@ export interface ApiRuntimeStartupConfig {
   readonly adminAssistantConfig: AdminAssistantConfig;
   readonly sponsorLogoMaxBytes: number;
   readonly sponsorMediaStorageConfig: SponsorLogoStorageConfig;
+  readonly sponsorshipVisibilityConfig: SponsorshipVisibilityConfig;
 }
 
 export interface ApiRuntimeHttpConfig {
@@ -205,7 +210,8 @@ export const loadApiRuntimeConfig = (
     adminSponsorshipReviewReminderConfig,
     adminAssistantConfig,
     sponsorLogoMaxBytes,
-    sponsorMediaStorageConfig
+    sponsorMediaStorageConfig,
+    sponsorshipVisibilityConfig: loadSponsorshipVisibilityConfig(env)
   };
 };
 

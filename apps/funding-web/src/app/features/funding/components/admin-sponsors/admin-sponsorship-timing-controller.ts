@@ -53,6 +53,42 @@ function confirmedTiming(
     ].includes(t.durationState as string)
   )
     return false;
+  if (
+    t.latestPublicObservation !== undefined &&
+    t.latestPublicObservation !== null
+  ) {
+    const raw = t.latestPublicObservation;
+    if (typeof raw !== 'object' || Array.isArray(raw)) return false;
+    const observation = raw as Record<string, unknown>;
+    if (
+      !date(observation.checkedAt) ||
+      !['visible', 'changed', 'not_visible', 'unknown'].includes(
+        String(observation.status)
+      ) ||
+      ![
+        'MATCH',
+        'PUBLIC_CONTENT_CHANGED',
+        'PUBLIC_MEDIA_CHANGED',
+        'PUBLIC_MEDIA_MISSING',
+        'PROFILE_NOT_OBSERVED',
+        'HTTP_ERROR',
+        'HTTP_REDIRECT',
+        'HTTP_TIMEOUT',
+        'HTTP_TOO_LARGE',
+        'HTTP_INVALID',
+        'DNS_UNSAFE',
+        'CHECK_BUDGET_EXHAUSTED',
+        'SOURCE_CHANGED'
+      ].includes(String(observation.reason)) ||
+      !(
+        observation.httpStatus === null ||
+        (Number.isSafeInteger(observation.httpStatus) &&
+          (observation.httpStatus as number) >= 100 &&
+          (observation.httpStatus as number) <= 599)
+      )
+    )
+      return false;
+  }
   if (t.startObservation === null) return true;
   if (
     !t.startObservation ||
@@ -246,6 +282,7 @@ export class AdminSponsorshipTimingController {
             'TIMING_ORIGIN_ALREADY_RECORDED',
             'TIMING_DEADLINE_NOT_REQUIRED',
             'DURATION_NOT_ELAPSED',
+            'DURATION_OBSERVATION_IN_PROGRESS',
             'DURATION_SOURCE_CHANGED',
             'DURATION_OBSERVATION_NOT_FOUND',
             'DURATION_PREVIOUS_PASSAGE_OPEN',
@@ -266,29 +303,31 @@ export class AdminSponsorshipTimingController {
         this.pending.set(null);
       }
       this.error.set(
-        code === 'DURATION_PREVIOUS_PASSAGE_OPEN'
-          ? 'previousPassageOpen'
-          : code === 'DURATION_PERIOD_OVERLAP'
-            ? 'periodOverlap'
-            : code === 'DURATION_NOT_ELAPSED'
-              ? 'tooEarly'
-              : [
-                    'DURATION_SOURCE_CHANGED',
-                    'DURATION_OBSERVATION_NOT_FOUND',
-                    'MEDIA_CHANGED'
-                  ].includes(code ?? '')
-                ? 'sourceChanged'
-                : status === 409 && definite
-                  ? 'conflict'
-                  : status === 400
-                    ? 'invalid'
-                    : status === 403
-                      ? 'ownerOnly'
-                      : status === 404
-                        ? 'notFound'
-                        : status === 401
-                          ? 'unauthorized'
-                          : 'uncertain'
+        code === 'DURATION_OBSERVATION_IN_PROGRESS'
+          ? 'sampling'
+          : code === 'DURATION_PREVIOUS_PASSAGE_OPEN'
+            ? 'previousPassageOpen'
+            : code === 'DURATION_PERIOD_OVERLAP'
+              ? 'periodOverlap'
+              : code === 'DURATION_NOT_ELAPSED'
+                ? 'tooEarly'
+                : [
+                      'DURATION_SOURCE_CHANGED',
+                      'DURATION_OBSERVATION_NOT_FOUND',
+                      'MEDIA_CHANGED'
+                    ].includes(code ?? '')
+                  ? 'sourceChanged'
+                  : status === 409 && definite
+                    ? 'conflict'
+                    : status === 400
+                      ? 'invalid'
+                      : status === 403
+                        ? 'ownerOnly'
+                        : status === 404
+                          ? 'notFound'
+                          : status === 401
+                            ? 'unauthorized'
+                            : 'uncertain'
       );
     } finally {
       if (current()) this.busy.set(false);

@@ -19,6 +19,12 @@ import {
   initializeSponsorshipObligationTiming
 } from '../../dist/apps/funding-api/src/sponsorship-obligation-timing.js';
 import { setSponsorshipWebsiteVisibility } from '../../dist/apps/funding-api/src/sponsorship-website.service.js';
+import { SponsorshipPublicVisibilityWorker } from '../../dist/apps/funding-api/src/sponsorship-timing/visibility-worker.js';
+import { PublicObservationHttpError } from '../../dist/apps/funding-api/src/sponsorship-timing/visibility-http.js';
+import { listPublicSponsorships } from '../../dist/apps/funding-api/src/public-sponsorships.repository.js';
+import { getApprovedPublicSponsorMedia } from '../../dist/apps/funding-api/src/sponsor-media.repository.js';
+import { createPublicFundingHttpHandler } from '../../dist/apps/funding-api/src/public-funding.http.js';
+import { createPublicSponsorMediaHttpHandler } from '../../dist/apps/funding-api/src/public-sponsor-media.http.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 import {
   approveFixtureSubject,
@@ -182,6 +188,572 @@ test(
         evidenceReference: 'synthetic://continuous-exposure-review',
         continuityConfirmed: true
       });
+
+    // Real public HTTP handlers and PostgreSQL readers, with only transport/storage supplied locally.
+    // No listener, DNS lookup or external HTTP request is started by this fixture.
+    const publicGet =
+      (mediaStorage = storage) =>
+      async (path) => {
+        let reply;
+        const writeJson = (_request, _response, status, payload) => {
+          reply = {
+            status,
+            contentType: 'application/json',
+            body: Buffer.from(JSON.stringify(payload))
+          };
+        };
+        const request = { method: 'GET', url: path };
+        const response = {};
+        const funding = createPublicFundingHttpHandler({
+          publicBaseOrigin: 'https://controlled.example.invalid',
+          writeJson,
+          listPublicSponsorships: (pagination) =>
+            listPublicSponsorships(pool, pagination),
+          reportFailure: () => assert.fail('Public directory handler failed')
+        });
+        if (await funding(request, response)) return reply;
+        const media = createPublicSponsorMediaHttpHandler({
+          writeJson,
+          writeBinary: (_request, _response, status, body, contentType) => {
+            reply = { status, body, contentType };
+          },
+          routeAssetId: (url) =>
+            /^\/api\/public\/sponsor-media\/([0-9a-f-]{36})$/i.exec(url)?.[1] ??
+            null,
+          getApprovedPublicSponsorMedia: (assetId) =>
+            getApprovedPublicSponsorMedia(pool, assetId),
+          sponsorMediaStorage: mediaStorage,
+          getSponsorLogoFilenameFromUrl: () => null,
+          reportFailure: () => assert.fail('Public media handler failed')
+        });
+        assert.equal(await media(request, response), true);
+        return reply;
+      };
+    const observerConfig = {
+      enabled: true,
+      origin: 'https://controlled.example.invalid',
+      intervalMs: 900000,
+      batchSize: 5
+    };
+    await t.test(
+      'periodic samples use the actual public directory/media handlers, stay open, and are immutable without duplicating a due check',
+      async () => {
+        const { id, ob } = await seed();
+        await visibility(id);
+        const worker = new SponsorshipPublicVisibilityWorker(
+          pool,
+          observerConfig,
+          publicGet()
+        );
+        assert.deepEqual(await worker.tick(), { checked: 1, incidents: 0 });
+        const current = await timing(ob.id);
+        assert.equal(current.durationState, 'awaiting_review');
+        assert.equal(current.latestPublicObservation.status, 'visible');
+        assert.equal(current.latestPublicObservation.reason, 'MATCH');
+        assert.equal(
+          (await loadSponsorshipCommitment(pool, id)).obligations[0].state,
+          'pending'
+        );
+        assert.equal(
+          (
+            await pool.query(
+              'SELECT count(*)::int AS n FROM sponsorship_obligation_duration_attestations'
+            )
+          ).rows[0].n,
+          0
+        );
+        assert.deepEqual(await worker.tick(), { checked: 0, incidents: 0 });
+        const row = (
+          await pool.query(
+            'SELECT * FROM sponsorship_public_visibility_observations WHERE obligation_id=$1',
+            [ob.id]
+          )
+        ).rows[0];
+        assert.equal(row.request_count, 2);
+        await assert.rejects(
+          pool.query(
+            'UPDATE sponsorship_public_visibility_observations SET status=$2 WHERE id=$1',
+            [row.id, 'unknown']
+          ),
+          { code: '23514' }
+        );
+        await assert.rejects(
+          pool.query(
+            'DELETE FROM sponsorship_public_visibility_observations WHERE id=$1',
+            [row.id]
+          ),
+          { code: '23514' }
+        );
+        assert.equal(Object.keys(current.latestPublicObservation).length, 4);
+      }
+    );
+    await t.test(
+      'a real controlled media 404 prevents duration completion even after elapsed time and a later healthy sample',
+      async () => {
+        const { id, ob } = await seed();
+        await visibility(id);
+        const startId = await backdatedObservation(ob.id);
+        let release, started;
+        const waiting = new Promise((resolve) => {
+          release = resolve;
+        });
+        const ready = new Promise((resolve) => {
+          started = resolve;
+        });
+        let first = true;
+        const get = publicGet({ readPrivateObject: async () => null });
+        const worker = new SponsorshipPublicVisibilityWorker(
+          pool,
+          observerConfig,
+          async (...args) => {
+            if (first) {
+              first = false;
+              started();
+              await waiting;
+            }
+            return get(...args);
+          }
+        );
+        const running = worker.tick();
+        await ready;
+        await assert.rejects(
+          executeSponsorshipTimingCommand(
+            pool,
+            await durationCommand(ob.id, startId),
+            actor,
+            storage
+          ),
+          { code: 'DURATION_OBSERVATION_IN_PROGRESS' }
+        );
+        // Origin changes only the timing version; it must not erase the HTTP result for this same start.
+        await executeSponsorshipTimingCommand(
+          pool,
+          await command(ob.id, 'origin', {
+            originAt: new Date(Date.now() - 86400000).toISOString(),
+            evidenceReference: 'synthetic://contract-origin'
+          }),
+          actor,
+          storage
+        );
+        release();
+        assert.deepEqual(await running, { checked: 1, incidents: 1 });
+        assert.equal(
+          (await timing(ob.id)).latestPublicObservation.status,
+          'not_visible'
+        );
+        assert.equal((await timing(ob.id)).durationState, 'restart_required');
+        await assert.rejects(
+          executeSponsorshipTimingCommand(
+            pool,
+            await durationCommand(ob.id, startId),
+            actor,
+            storage
+          ),
+          { code: 'DURATION_SOURCE_CHANGED' }
+        );
+        // Explicit immutable synthetic later sample; it must not erase the earlier interruption.
+        await pool.query(
+          `INSERT INTO sponsorship_public_visibility_observations(request_id,obligation_id,contribution_id,start_observation_id,
+        obligation_version,content_fingerprint,started_at,checked_at,status,reason,http_status,request_count,next_directory_page)
+        SELECT $2::uuid,obligation_id,contribution_id,start_observation_id,obligation_version,content_fingerprint,
+          clock_timestamp(),clock_timestamp(),'visible','MATCH',200,2,1
+        FROM sponsorship_public_visibility_observations WHERE obligation_id=$1 ORDER BY checked_at DESC,id DESC LIMIT 1`,
+          [ob.id, randomUUID()]
+        );
+        assert.equal(
+          (await timing(ob.id)).latestPublicObservation.status,
+          'visible'
+        );
+        assert.equal((await timing(ob.id)).durationState, 'restart_required');
+        await assert.rejects(
+          executeSponsorshipTimingCommand(
+            pool,
+            await durationCommand(ob.id, startId),
+            actor,
+            storage
+          ),
+          { code: 'DURATION_SOURCE_CHANGED' }
+        );
+        assert.equal(
+          (await loadSponsorshipCommitment(pool, id)).obligations[0].state,
+          'pending'
+        );
+        const restarted = await executeSponsorshipTimingCommand(
+          pool,
+          await command(ob.id, 'observe'),
+          actor,
+          storage
+        );
+        assert.notEqual(restarted.timing.startObservation.id, startId);
+        assert.equal(restarted.timing.durationState, 'awaiting_review');
+        assert.equal(restarted.timing.latestPublicObservation, null);
+        // Explicit skew fixture: a late timestamp belongs to the old start, never the replacement period.
+        await pool.query(
+          `INSERT INTO sponsorship_public_visibility_observations(request_id,obligation_id,contribution_id,start_observation_id,
+          obligation_version,content_fingerprint,started_at,checked_at,status,reason,http_status,request_count,next_directory_page)
+          SELECT $2::uuid,obligation_id,contribution_id,start_observation_id,obligation_version,content_fingerprint,
+            clock_timestamp()+INTERVAL '1 minute',clock_timestamp()+INTERVAL '1 minute','not_visible','PUBLIC_MEDIA_MISSING',404,2,1
+          FROM sponsorship_public_visibility_observations WHERE obligation_id=$1 AND start_observation_id=$3 ORDER BY checked_at DESC,id DESC LIMIT 1`,
+          [ob.id, randomUUID(), startId]
+        );
+        assert.equal((await timing(ob.id)).durationState, 'awaiting_review');
+        assert.equal((await timing(ob.id)).latestPublicObservation, null);
+        await assert.rejects(
+          executeSponsorshipTimingCommand(
+            pool,
+            await durationCommand(ob.id, restarted.timing.startObservation.id),
+            actor,
+            storage
+          ),
+          { code: 'DURATION_NOT_ELAPSED' }
+        );
+      }
+    );
+    await t.test(
+      'cross-process sampling is fenced and a concurrent human start supersedes HTTP without an open transaction or false visible result',
+      async () => {
+        const { id, ob } = await seed();
+        await visibility(id);
+        let release, started;
+        const waiting = new Promise((resolve) => {
+          release = resolve;
+        });
+        const ready = new Promise((resolve) => {
+          started = resolve;
+        });
+        let first = true;
+        const get = publicGet();
+        const worker = new SponsorshipPublicVisibilityWorker(
+          pool,
+          observerConfig,
+          async (path, ...args) => {
+            if (first) {
+              first = false;
+              started();
+              await waiting;
+            }
+            return get(path, ...args);
+          }
+        );
+        const old = (await timing(ob.id)).startObservation.id;
+        const running = worker.tick();
+        await ready;
+        assert.equal(
+          (
+            await pool.query(
+              "SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname=current_database() AND state='idle in transaction'"
+            )
+          ).rows[0].n,
+          0
+        );
+        assert.deepEqual(
+          await new SponsorshipPublicVisibilityWorker(
+            pool,
+            observerConfig,
+            () => assert.fail('Second worker may not perform HTTP')
+          ).tick(),
+          { checked: 0, incidents: 0 }
+        );
+        await executeSponsorshipTimingCommand(
+          pool,
+          await command(ob.id, 'observe'),
+          actor,
+          storage
+        );
+        release();
+        await running;
+        const row = (
+          await pool.query(
+            'SELECT status,reason FROM sponsorship_public_visibility_observations WHERE obligation_id=$1 AND start_observation_id=$2',
+            [ob.id, old]
+          )
+        ).rows[0];
+        assert.deepEqual(row, { status: 'unknown', reason: 'SOURCE_CHANGED' });
+        assert.equal((await timing(ob.id)).latestPublicObservation, null);
+        assert.equal(
+          (await loadSponsorshipCommitment(pool, id)).obligations[0].state,
+          'pending'
+        );
+      }
+    );
+    await t.test(
+      'an audit failure rolls back the observation but persists scheduler advancement so the next dossier progresses',
+      async () => {
+        for (let index = 0; index < 2; index++) {
+          const { id } = await seed();
+          await visibility(id);
+        }
+        const failing = {
+          connect: async () => {
+            const client = await pool.connect();
+            return {
+              query: (sql, params) => {
+                if (/INSERT INTO admin_audit_log/.test(sql))
+                  throw new Error('Synthetic audit outage');
+                return client.query(sql, params);
+              },
+              release: (discard) => client.release(discard)
+            };
+          }
+        };
+        const before = (
+          await pool.query(
+            'SELECT count(*)::int AS n FROM sponsorship_public_visibility_observations'
+          )
+        ).rows[0].n;
+        await assert.rejects(
+          new SponsorshipPublicVisibilityWorker(
+            failing,
+            { ...observerConfig, batchSize: 1 },
+            publicGet()
+          ).tick(),
+          /Synthetic audit outage/
+        );
+        assert.equal(
+          (
+            await pool.query(
+              'SELECT count(*)::int AS n FROM sponsorship_public_visibility_observations'
+            )
+          ).rows[0].n,
+          before
+        );
+        const failedCursor = (
+          await pool.query(
+            'SELECT cursor_obligation_id FROM sponsorship_public_visibility_worker'
+          )
+        ).rows[0].cursor_obligation_id;
+        assert.equal(
+          (
+            await new SponsorshipPublicVisibilityWorker(
+              pool,
+              { ...observerConfig, batchSize: 1 },
+              publicGet()
+            ).tick()
+          ).checked,
+          1
+        );
+        assert.notEqual(
+          (
+            await pool.query(
+              'SELECT cursor_obligation_id FROM sponsorship_public_visibility_worker'
+            )
+          ).rows[0].cursor_obligation_id,
+          failedCursor
+        );
+        assert.equal(
+          (
+            await pool.query(
+              'SELECT count(*)::int AS n FROM sponsorship_obligation_duration_attestations'
+            )
+          ).rows[0].n,
+          0
+        );
+      }
+    );
+
+    await t.test(
+      'a byte-exhausted run leaves followers unobserved and starts different dossiers on its next persistent cursor',
+      async () => {
+        for (let index = 0; index < 5; index++) {
+          const { id } = await seed();
+          await visibility(id);
+        }
+        const known = new Set(
+          (
+            await pool.query(
+              'SELECT id FROM sponsorship_public_visibility_observations'
+            )
+          ).rows.map((row) => row.id)
+        );
+        const get = publicGet();
+        let imageAttempts = 0,
+          allowances = 0,
+          directoryBytes = 0;
+        const worker = new SponsorshipPublicVisibilityWorker(
+          pool,
+          observerConfig,
+          async (path, maxBytes, ...args) => {
+            if (path.includes('sponsor-media')) {
+              imageAttempts++;
+              allowances += maxBytes;
+              throw new PublicObservationHttpError('HTTP_TOO_LARGE');
+            }
+            const result = await get(path, maxBytes, ...args);
+            directoryBytes += result.body.byteLength;
+            return result;
+          }
+        );
+        assert.deepEqual(await worker.tick(), { checked: 2, incidents: 2 });
+        const first = (
+          await pool.query(
+            'SELECT id,obligation_id,request_count FROM sponsorship_public_visibility_observations'
+          )
+        ).rows.filter((row) => !known.has(row.id));
+        assert.equal(first.length, 2);
+        assert.equal(imageAttempts, 2);
+        assert.ok(allowances + directoryBytes <= 16 * 1024 * 1024);
+        assert.ok(first.every((row) => row.request_count > 0));
+        imageAttempts = allowances = directoryBytes = 0;
+        assert.deepEqual(await worker.tick(), { checked: 2, incidents: 2 });
+        const all = (
+          await pool.query(
+            'SELECT id,obligation_id,request_count FROM sponsorship_public_visibility_observations'
+          )
+        ).rows.filter((row) => !known.has(row.id));
+        assert.equal(all.length, 4);
+        assert.equal(new Set(all.map((row) => row.obligation_id)).size, 4);
+        assert.ok(all.every((row) => row.request_count > 0));
+        assert.equal(imageAttempts, 2);
+        assert.ok(allowances + directoryBytes <= 16 * 1024 * 1024);
+      }
+    );
+    await t.test(
+      'a deadline-exhausted run does not stamp unstarted followers and the next run continues to another dossier',
+      async (subtest) => {
+        for (let index = 0; index < 5; index++) {
+          const { id } = await seed();
+          await visibility(id);
+        }
+        const known = new Set(
+          (
+            await pool.query(
+              'SELECT id FROM sponsorship_public_visibility_observations'
+            )
+          ).rows.map((row) => row.id)
+        );
+        let logicalNow = Date.now();
+        const clock = subtest.mock.method(Date, 'now', () => logicalNow);
+        const get = publicGet();
+        let exhaust = true;
+        const worker = new SponsorshipPublicVisibilityWorker(
+          pool,
+          observerConfig,
+          async (...args) => {
+            if (exhaust) {
+              exhaust = false;
+              logicalNow += 45001;
+              throw new PublicObservationHttpError('HTTP_TIMEOUT');
+            }
+            return get(...args);
+          }
+        );
+        try {
+          assert.deepEqual(await worker.tick(), { checked: 1, incidents: 1 });
+          const first = (
+            await pool.query(
+              'SELECT id,obligation_id,request_count FROM sponsorship_public_visibility_observations'
+            )
+          ).rows.filter((row) => !known.has(row.id));
+          assert.equal(first.length, 1);
+          assert.equal(first[0].request_count, 1);
+          const second = await worker.tick();
+          assert.ok(second.checked >= 1);
+          const following = (
+            await pool.query(
+              'SELECT id,obligation_id,request_count FROM sponsorship_public_visibility_observations'
+            )
+          ).rows.filter((row) => !known.has(row.id) && row.id !== first[0].id);
+          assert.ok(following.length >= 1);
+          assert.ok(
+            following.every(
+              (row) =>
+                row.obligation_id !== first[0].obligation_id &&
+                row.request_count > 0
+            )
+          );
+        } finally {
+          clock.mock.restore();
+        }
+      }
+    );
+
+    await t.test(
+      'a checkpoint that exhausts the deadline creates no HTTP observation and keeps the unstarted dossier first',
+      async (subtest) => {
+        for (let index = 0; index < 2; index++) {
+          const { id } = await seed();
+          await visibility(id);
+        }
+        const before = (
+          await pool.query(
+            'SELECT cursor_obligation_id FROM sponsorship_public_visibility_worker'
+          )
+        ).rows[0].cursor_obligation_id;
+        const known = new Set(
+          (
+            await pool.query(
+              'SELECT id FROM sponsorship_public_visibility_observations'
+            )
+          ).rows.map((row) => row.id)
+        );
+        let logicalNow = Date.now(),
+          firstId;
+        const clock = subtest.mock.method(Date, 'now', () => logicalNow);
+        const slowCheckpoint = {
+          connect: async () => {
+            const client = await pool.connect();
+            return {
+              release: (discard) => client.release(discard),
+              query: async (sql, params) => {
+                const result = await client.query(sql, params);
+                if (sql.includes('SELECT ob.id,ob.contribution_id,ob.version'))
+                  firstId = result.rows[0].id;
+                if (/UPDATE sponsorship_public_visibility_worker/.test(sql))
+                  logicalNow += 45001;
+                return result;
+              }
+            };
+          }
+        };
+        try {
+          assert.deepEqual(
+            await new SponsorshipPublicVisibilityWorker(
+              slowCheckpoint,
+              { ...observerConfig, batchSize: 1 },
+              () =>
+                assert.fail(
+                  'No HTTP attempt may start after the checkpoint deadline'
+                )
+            ).tick(),
+            { checked: 0, incidents: 0 }
+          );
+          assert.equal(
+            (
+              await pool.query(
+                'SELECT count(*)::int AS n FROM sponsorship_public_visibility_observations'
+              )
+            ).rows[0].n,
+            known.size
+          );
+          assert.equal(
+            (
+              await pool.query(
+                'SELECT cursor_obligation_id FROM sponsorship_public_visibility_worker'
+              )
+            ).rows[0].cursor_obligation_id,
+            before
+          );
+        } finally {
+          clock.mock.restore();
+        }
+        assert.deepEqual(
+          await new SponsorshipPublicVisibilityWorker(
+            pool,
+            { ...observerConfig, batchSize: 1 },
+            publicGet()
+          ).tick(),
+          { checked: 1, incidents: 0 }
+        );
+        const stored = (
+          await pool.query(
+            'SELECT id,obligation_id,request_count FROM sponsorship_public_visibility_observations'
+          )
+        ).rows.filter((row) => !known.has(row.id));
+        assert.equal(stored.length, 1);
+        assert.equal(stored[0].obligation_id, firstId);
+        assert.ok(stored[0].request_count > 0);
+      }
+    );
 
     await t.test(
       'new qualification keeps its contractual anchor unknown until the owner documents it; replay never rebases',

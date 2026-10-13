@@ -78,7 +78,7 @@
         "collective_text": "Collective text",
         "individual_portrait": "Individual portrait",
         "collective_composite": "Collective image",
-        "image_collection": "Image collection — unavailable"
+        "image_collection": "Image collection — LinkedIn"
       },
       "requirements": {
         "company_name": "Company name",
@@ -2553,6 +2553,42 @@
         "editDraft": "Edit the draft for {{name}}",
         "openDossier": "View the dossier for {{name}}",
         "openDelivery": "View the publication for {{name}}",
+        "opportunity": {
+          "hypothesis": "Private possibility based on the current calendar. No slot is reserved, no queue position is promised, and publication still requires approval.",
+          "date": "Possible date: {{date}}",
+          "searchUntil": "Calendar checked through {{date}}.",
+          "reasons": {
+            "EXISTING_PROPOSAL": "This proposal retains its existing compatible date.",
+            "EXISTING_DATE_OUTSIDE_SEARCH": "The existing date is retained beyond the calendar search. Its compatibility has not been checked here.",
+            "AVAILABLE_IN_HORIZON": "A recurrence could accept this complete source block within the preparation horizon.",
+            "AVAILABLE_AFTER_HORIZON": "A compatible recurrence exists beyond the preparation horizon.",
+            "SOURCE_CORRECTION_REQUIRED": "The source must be corrected before a date can be considered.",
+            "MODERATION_REVIEW_REQUIRED": "A moderation restriction requires review before considering a date.",
+            "MANUAL_RESERVATION": "The manual reservation is retained. No replacement date is suggested.",
+            "PROPOSAL_REPAIR_REQUIRED": "Review the existing proposal before assigning another date.",
+            "ACCOUNT_CONNECTION_REQUIRED": "The publication account must be configured or its connection reviewed.",
+            "ACCOUNT_RECONCILIATION_REQUIRED": "A delivery on this account requires reconciliation before another date can be considered.",
+            "FEED_PAUSED": "This feed is paused. No new date is suggested.",
+            "FORMAT_UNAVAILABLE": "The recorded format is unavailable on this channel.",
+            "GROUP_PARTICIPANTS_REQUIRED": "A collection needs another compatible sponsor and at least two complete sources.",
+            "CAPACITY_INSUFFICIENT": "This feed's capacity cannot accommodate the format's minimum group size.",
+            "NO_COMPATIBLE_RECURRENCE": "No compatible recurrence was found within the calendar search."
+          },
+          "actions": {
+            "REVIEW_PROPOSAL": "Open the publication, review its complete text and media, then approve explicitly.",
+            "PREPARE_FEED": "Prepare this feed, then review the resulting proposal.",
+            "REVIEW_HORIZON": "Review the recurrence and horizon settings, or prepare again when this date enters the horizon.",
+            "CORRECT_SOURCE": "Open and correct the source draft before preparing again.",
+            "REVIEW_MODERATION": "Open the dossier or draft and review its current moderation decision.",
+            "REPAIR_PROPOSAL": "Open the publication and review its error, composition and date.",
+            "CONFIGURE_ACCOUNT": "Review this feed's account and connection settings.",
+            "RECONCILE_ACCOUNT": "Investigate the uncertain delivery on this account before preparing or sending again.",
+            "REVIEW_FEED": "Review the pause setting before requesting preparation.",
+            "REVIEW_FORMAT": "Review the recorded format and the channel's capabilities.",
+            "WAIT_FOR_GROUP": "Prepare again when a compatible group can be composed; do not approve a singleton collection.",
+            "REVIEW_CALENDAR": "Review the calendar, account occupation and batch capacity."
+          }
+        },
         "reasons": {
           "AWAITING_PREPARATION": "Awaiting preparation for this destination.",
           "MODERATION_REVIEW_REQUIRED": "A current moderation review is required before preparation. The draft is retained. Open the dossier or source draft to review the restriction.",
@@ -2590,6 +2626,7 @@
       "noImage": "No image",
       "save": "Save draft",
       "approvalHelp": "Any change revokes the previous authorization. Check the account, text, image and time above.",
+      "collectionHelp": "LinkedIn collection: review every JPEG in the displayed order. One photo per sponsor, with 2 to 10 participants. Each photo retains its rights and its credit in the text.",
       "approval": "I approve this exact content and its delivery to this destination at this time.",
       "approve": "Accept and schedule",
       "cancel": "Cancel delivery",
@@ -2686,6 +2723,7 @@
         "POST_MISMATCH": "This post does not match the approved content and account.",
         "REMOTE_POST_UNVERIFIED": "This publication could not be verified. Check its identifier and account access before concluding that it is absent.",
         "MEDIA_RECONCILIATION_REQUIRED": "The image needs verification on the social network. Delivery remains blocked to prevent a duplicate.",
+        "COLLECTION_REQUIRES_MULTIPLE_SPONSORS": "A LinkedIn collection requires 2 to 10 sponsors, each with an authorized photo.",
         "SPONSOR_APPROVAL_REQUIRED": "Review the pending sponsors and confirm their approval with this publication.",
         "SPONSOR_MEDIA_REQUIRED": "Each new sponsor requires an approved presentation photo."
       },
@@ -3474,6 +3512,7 @@
       },
       "errors": {
         "invalid": "Check the date, evidence, justification and exact confirmation.",
+        "sampling": "An HTTP check of this period is in progress. Wait for its result and reload timing before attesting continuity.",
         "conflict": "Current facts or version do not allow this decision. Reload commitments and their authorizations.",
         "tooEarly": "The minimum duration has not elapsed. The benefit remains outstanding.",
         "sourceChanged": "Sources or their authorizations changed. Verify visibility and record a new start.",
@@ -3484,7 +3523,32 @@
         "periodOverlap": "This period began before the previous one closed. Record a distinct new start.",
         "notFound": "This benefit is unavailable. Reload the dossier before a new decision."
       },
-      "restartHelp": "A known restriction or change invalidated the previous observation. It remains historical. Check the display and observe a new start; periods are never added together."
+      "restartHelp": "A known restriction or change invalidated the previous observation. It remains historical. Check the display and observe a new start; periods are never added together.",
+      "publicObservation": {
+        "title": "Latest public HTTP check:",
+        "empty": "No HTTP check is recorded for this start. Periodic sampling requires explicit server activation.",
+        "help": "This sample covers the OpenG7 public API and its images, not every page or moment. It does not prove continuous exposure. Completion still requires your attestation and supporting evidence.",
+        "states": {
+          "visible": "Expected content and images observed",
+          "changed": "Content or image differs",
+          "not_visible": "Public image not found",
+          "unknown": "Visibility unconfirmed"
+        },
+        "reasons": {
+          "PUBLIC_CONTENT_CHANGED": "Received content differs from the recorded start. Verify it and record a new start; periods are never added together.",
+          "PUBLIC_MEDIA_CHANGED": "Received image bytes differ. Verify the display and record a new start.",
+          "PUBLIC_MEDIA_MISSING": "The controlled image URL returned 404. Verify the display before recording a new start.",
+          "PROFILE_NOT_OBSERVED": "The dossier was not found on the checked pages. Search resumes on later pages; deletion is never inferred.",
+          "HTTP_ERROR": "The HTTP check did not succeed. Review availability before attesting continuity.",
+          "HTTP_REDIRECT": "The server redirected the check; redirects are never followed. Verify the configured origin.",
+          "HTTP_TIMEOUT": "The check reached its time limit. Visibility remains unknown.",
+          "HTTP_TOO_LARGE": "The response exceeds the allowed size. Review the public surface and configuration.",
+          "HTTP_INVALID": "The public response does not match the expected format. Review the surface and deployed revision.",
+          "DNS_UNSAFE": "Origin resolution does not meet network protections. Review the server configuration.",
+          "CHECK_BUDGET_EXHAUSTED": "This run exhausted its budget. The next check will resume the search.",
+          "SOURCE_CHANGED": "Sources or the start changed during the check. Reload timing and verify its start observation."
+        }
+      }
     }
   },
   "funding": {
@@ -3543,12 +3607,12 @@
         "duration_unsupported": "The agreed exposure duration still needs verification; an initial placement does not fulfil this obligation."
       },
       "formatChoice": "Requested format for {{channel}}",
-      "formatHelp": "These choices apply to the channels included in the displayed offer. Image formats require an authorized and reviewed photo; image collections remain unavailable.",
+      "formatHelp": "These choices apply to the channels included in the displayed offer. Image formats require an authorized and reviewed photo. On LinkedIn, a collection groups 2 to 10 sponsors, each with their own photo; scheduling may wait for a second participant.",
       "formats": {
         "collective_text": "Collective text",
         "individual_portrait": "Individual portrait",
         "collective_composite": "Collective composite",
-        "image_collection": "Image collection (unavailable)"
+        "image_collection": "Image collection — LinkedIn"
       },
       "version": "Offer {{version}}",
       "amount": "Sponsorship amount: {{amount}}",

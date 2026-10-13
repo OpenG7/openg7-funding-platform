@@ -54,6 +54,7 @@ export class PublicationDeliveryController {
   private readonly mediaController: PublicationDeliveryMediaController;
   readonly previewUrl: Signal<string>;
   readonly previewExact: WritableSignal<boolean>;
+  readonly collectionPreviews: Signal<readonly { url: string; alt: string }[]>;
   readonly pendingSponsors = computed(() =>
     (this.selected()?.sponsors ?? []).filter(
       (sponsor) => sponsor.reviewStatus === 'pending_review'
@@ -113,6 +114,7 @@ export class PublicationDeliveryController {
     this.media = this.mediaController.media;
     this.previewUrl = this.mediaController.previewUrl;
     this.previewExact = this.mediaController.previewExact;
+    this.collectionPreviews = this.mediaController.collectionPreviews;
     this.formats = this.mediaController.formats;
   }
 
@@ -294,7 +296,11 @@ export class PublicationDeliveryController {
       !this.dirty() &&
       !this.missingPresentation() &&
       ((!selected.mediaId && !this.derived(selected.publicationFormat)) ||
-        (this.previewUrl() && this.previewExact()))
+        ((selected.publicationFormat === 'image_collection'
+          ? this.collectionPreviews().length === selected.mediaImages?.length &&
+            this.collectionPreviews().length >= 2
+          : !!this.previewUrl()) &&
+          this.previewExact()))
     ) {
       const approveSponsors: {
         id: string;

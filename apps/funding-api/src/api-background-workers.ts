@@ -8,6 +8,7 @@ import type {
 import type { ContributionActivityService } from './contribution-activity.service.js';
 import type { processQueuedEmailMessages } from './email-notification.service.js';
 import type { PublicationAutomationService } from './publication-automation/service.js';
+import type { SponsorshipPublicVisibilityWorker } from './sponsorship-timing/visibility-worker.js';
 
 export interface ApiBackgroundWorkerTimer {
   unref(): unknown;
@@ -32,6 +33,11 @@ export interface ApiBackgroundWorkersDependencies {
     PublicationAutomationService,
     'tick'
   > | null;
+  readonly sponsorshipVisibility?: Pick<
+    SponsorshipPublicVisibilityWorker,
+    'tick'
+  > | null;
+  readonly sponsorshipVisibilityIntervalMs?: number;
   readonly logger?: Pick<Console, 'info' | 'warn' | 'error'>;
   readonly setInterval?: (
     callback: () => void,
@@ -139,8 +145,26 @@ export const createApiBackgroundWorkers = (
     }
   };
 
+  const runSponsorshipVisibilityWorker = async (): Promise<void> => {
+    try {
+      await dependencies.sponsorshipVisibility?.tick();
+    } catch {
+      logger.error(
+        'Public visibility observation interrupted; inspect timing incidents and database availability.'
+      );
+    }
+  };
+
   const start = (): void => {
     if (!hasDatabase) return;
+
+    if (dependencies.sponsorshipVisibility) {
+      void runSponsorshipVisibilityWorker();
+      scheduleInterval(
+        () => void runSponsorshipVisibilityWorker(),
+        dependencies.sponsorshipVisibilityIntervalMs ?? 900000
+      ).unref();
+    }
 
     void runEmailQueueWorker();
     void runContributionActivity();
@@ -173,6 +197,7 @@ export const createApiBackgroundWorkers = (
     runAdminSponsorshipReviewReminderWorker,
     runContributionActivity,
     runPublicationWorker,
+    runSponsorshipVisibilityWorker,
     start
   };
 };

@@ -121,11 +121,22 @@ test('old offer canonical JSON and fingerprint stay unchanged while new image fo
   );
   for (const [channel, format] of [
     ['facebook', 'image_collection'],
-    ['linkedin', 'image_collection'],
     ['website', 'individual_portrait'],
     ['unknown', 'collective_text']
   ])
     assert.equal(publicationFormatCapability(channel, format).available, false);
+  assert.equal(
+    publicationFormatCapability('linkedin', 'image_collection').available,
+    true
+  );
+  const album = quoteSponsorshipOffer(50000, 'CAD', undefined, {
+    linkedin: 'image_collection'
+  });
+  assert.equal(
+    album.benefits.find((benefit) => benefit.channel === 'linkedin').format,
+    'image_collection'
+  );
+  assert.notEqual(album.fingerprint, text.fingerprint);
   assert.equal(
     publicationFormatCapability('facebook', 'individual_portrait')
       .requiresSingleSponsor,
@@ -333,6 +344,7 @@ test('public quote exposes no private data and rejects non-CAD or fractional min
     ['amountMinor=25000&amountMinor=50000&currency=CAD', 400],
     ['amountMinor=25000&currency=CAD&facebookFormat=individual_portrait', 200],
     ['amountMinor=25000&currency=CAD&facebookFormat=image_collection', 400],
+    ['amountMinor=50000&currency=CAD&linkedinFormat=image_collection', 200],
     ['amountMinor=25000&currency=CAD&facebookFormat=photo', 400],
     [
       'amountMinor=25000&currency=CAD&facebookFormat=collective_text&facebookFormat=individual_portrait',

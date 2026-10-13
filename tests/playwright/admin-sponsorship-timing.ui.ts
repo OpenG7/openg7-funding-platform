@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import type {
   SponsorshipCommitmentRecord,
+  SponsorshipPublicObservation,
   SponsorshipTimingCommandRequest
 } from '@openg7/funding-core';
 import { AxeBuilder } from '@axe-core/playwright';
@@ -22,7 +23,14 @@ async function fixtures(page: Page, context: Context) {
     lost: boolean;
     early: boolean;
     restart: boolean;
-  } = { commands: [], lost: false, early: false, restart: false };
+    publicObservation: SponsorshipPublicObservation | null;
+  } = {
+    commands: [],
+    lost: false,
+    early: false,
+    restart: false,
+    publicObservation: null
+  };
   let m: SponsorshipCommitmentRecord = {
     id: '10000000-0000-4000-8000-000000000900',
     contributionId: id,
@@ -84,6 +92,16 @@ async function fixtures(page: Page, context: Context) {
       url.pathname.endsWith('/sponsorship-commitments') &&
       route.request().method() === 'GET'
     ) {
+      m = {
+        ...m,
+        obligations: m.obligations.map((o) => ({
+          ...o,
+          timing: {
+            ...o.timing!,
+            latestPublicObservation: state.publicObservation
+          }
+        }))
+      };
       if (state.restart)
         m = {
           ...m,
@@ -169,11 +187,74 @@ export function registerSponsorshipTimingTests(context: Context): void {
     ['fr-CA', 1280],
     ['en', 390]
   ] as const) {
+    test(`sponsorship timing public HTTP samples remain dated information requiring human continuity in ${locale} at ${width}px`, async ({
+      page
+    }) => {
+      const state = await fixtures(page, context);
+      state.publicObservation = {
+        checkedAt: '2026-10-12T00:00:00.000Z',
+        status: locale === 'en' ? 'unknown' : 'visible',
+        reason: locale === 'en' ? 'HTTP_TIMEOUT' : 'MATCH',
+        httpStatus: locale === 'en' ? null : 200
+      };
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(context.path('publication'));
+      if (locale === 'en')
+        await page
+          .getByRole('button', {
+            name: 'Switch administration language to English'
+          })
+          .click();
+      const panel = await openTimingDetails(page);
+      await expect(
+        panel.locator('[data-og7="timing-public-observation"]')
+      ).toContainText(locale === 'en' ? 'Oct 12, 2026' : '12 oct. 2026');
+      await expect(
+        panel.locator('[data-og7="timing-public-observation"]')
+      ).toContainText(
+        locale === 'en'
+          ? 'Completion still requires your attestation'
+          : 'La clôture exige toujours votre attestation'
+      );
+      if (locale === 'en')
+        await expect(
+          panel.locator('[data-og7="timing-public-incident"]')
+        ).toContainText('time limit');
+      else
+        await expect(
+          panel.locator('[data-og7="timing-public-incident"]')
+        ).toHaveCount(0);
+      expect(state.commands).toHaveLength(0);
+      await expect(
+        panel.locator('[data-og7="timing-attest-duration"]')
+      ).toBeVisible();
+      await expect(
+        panel.locator('[data-og7="timing-continuity"]')
+      ).not.toBeChecked();
+      expect(
+        (
+          await new AxeBuilder({ page })
+            .include('[data-og7="sponsorship-timing"]')
+            .analyze()
+        ).violations
+      ).toEqual([]);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+    });
     test(`sponsorship timing known interruption requires a fresh owner observation in ${locale} at ${width}px`, async ({
       page
     }) => {
       const state = await fixtures(page, context);
       state.restart = true;
+      state.publicObservation = {
+        checkedAt: '2026-10-12T00:00:00.000Z',
+        status: 'not_visible',
+        reason: 'PUBLIC_MEDIA_MISSING',
+        httpStatus: 404
+      };
       await page.setViewportSize({ width, height: 900 });
       await page.goto(context.path('publication'));
       if (locale === 'en')

@@ -116,6 +116,42 @@
               }}
             </p>
           }
+          @if (entry.nextOpportunity; as opportunity) {
+            <div data-og7="publication-source-opportunity">
+              <p class="detail">
+                {{
+                  'admin.publicationAutomation.sourceQueue.opportunity.hypothesis'
+                    | translate
+                }}
+              </p>
+              <p>
+                {{
+                  'admin.publicationAutomation.sourceQueue.opportunity.reasons.' +
+                    opportunity.reason | translate
+                }}
+              </p>
+              @if (opportunity.proposedAt; as date) {
+                <p>
+                  {{
+                    'admin.publicationAutomation.sourceQueue.opportunity.date'
+                      | translate: { date: dateLabel()(date) }
+                  }}
+                </p>
+              }
+              <p>
+                {{
+                  'admin.publicationAutomation.sourceQueue.opportunity.actions.' +
+                    opportunity.action | translate
+                }}
+              </p>
+              <p class="detail">
+                {{
+                  'admin.publicationAutomation.sourceQueue.opportunity.searchUntil'
+                    | translate: { date: dateLabel()(opportunity.searchUntil) }
+                }}
+              </p>
+            </div>
+          }
           <div class="source-links">
             @if (sourceEditable(entry)) {
               <a

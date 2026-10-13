@@ -101,6 +101,48 @@ const fixture = (overrides = {}) => {
   };
 };
 
+test('public visibility startup remains absent by default and explicit opt-in adds only its bounded service timer', async () => {
+  const disabled = fixture();
+  disabled.workers.start();
+  await setImmediate();
+  assert.equal(disabled.timers.length, 4);
+  let checks = 0;
+  const enabled = fixture({
+    sponsorshipVisibility: {
+      tick: async () => {
+        checks++;
+        if (checks === 1) throw new Error('Synthetic private transport detail');
+        return { checked: 1, incidents: 0 };
+      }
+    },
+    sponsorshipVisibilityIntervalMs: 900000
+  });
+  enabled.workers.start();
+  await setImmediate();
+  assert.equal(checks, 1);
+  assert.equal(enabled.timers.length, 5);
+  const timer = enabled.timers.find((entry) => entry.intervalMs === 900000);
+  assert.equal(timer.unrefCalls, 1);
+  assert.deepEqual(enabled.logs, [
+    [
+      'error',
+      'Public visibility observation interrupted; inspect timing incidents and database availability.'
+    ]
+  ]);
+  timer.callback();
+  await setImmediate();
+  assert.equal(checks, 2);
+  const noDatabase = fixture({
+    hasDatabase: false,
+    sponsorshipVisibility: {
+      tick: () => assert.fail('No database means no sample')
+    }
+  });
+  noDatabase.workers.start();
+  await setImmediate();
+  assert.equal(noDatabase.timers.length, 0);
+});
+
 test('startup is gated by hasDatabase even when injected services are present', async () => {
   const { workers, calls, timers, logs } = fixture({ hasDatabase: false });
   workers.start();

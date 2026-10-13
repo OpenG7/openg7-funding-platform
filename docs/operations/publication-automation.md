@@ -4,10 +4,11 @@ The calendar is at `/admin/fundraiser/publications/calendar`. The delivery cockp
 is at `/admin/fundraiser/publications/automation`, with its own calendar including
 editorial posts. The three existing publication workspaces remain separate.
 
-Manual slot date/time fields use the slot's selected IANA timezone. Text-only slot
-edits retain the exact stored instant, including seconds and the selected occurrence
-during a clock change. New or edited slot dates that do not exist or occur twice
-during a clock change are rejected: choose a unique local time before saving.
+Manual slot date/time fields use the slot's selected IANA timezone; source draft
+scheduling uses `America/Toronto`, matching the calendar. Text-only edits of those
+slots and drafts retain the exact stored instant, including seconds and the selected
+occurrence during a clock change. New or edited dates that do not exist or occur
+twice during a clock change are rejected: choose a unique local time before saving.
 Changing a slot's timezone interprets its entered local date/time in the new timezone.
 The delivery drawer uses the browser's local timezone and minute precision; saving
 a delivery serialises that displayed time.
@@ -167,6 +168,47 @@ and approve the exact final proposal separately. Human-edited and blocked final
 drafts keep their text: open the delivery, restore the corrected source blocks
 and save the final message separately. Preparation does not overwrite these
 decisions. Creation dates remain unchanged.
+
+Private preparation serializes admission by the canonical provider/account/mode
+before locking a feed. This mutex is separate from dispatch leases: approval and
+workers retain their delivery-to-account lock order. Both planning and its
+post-commit composition acquire the feed planning gate before this account mutex
+and before business row locks, so parallel preparations cannot invert the gates.
+Two feeds using the same
+account do not propose simultaneous dates or dates inside the existing live
+technical interval. The occupation includes human drafts, authorized reservations,
+uncertain/in-flight accounts, manually reserved sources and batches whose members
+are committed while their final composition is still pending. Existing future
+proposals keep their members and dates; a conflicting recurrence receives no new
+members. The existing repacking of untouched overdue private drafts is unchanged.
+Manual edits after preparation still require the final approval reservation guard.
+
+Each source may expose optional `nextOpportunity`: a private possibility checked
+through 366 days, without extending the feed's configured 1–28-day preparation
+horizon. `proposedAt` is nullable; `withinHorizon`, stable reason/action and
+evaluation/search dates describe the hypothesis. The full account calendar is
+loaded independently of source filters and pagination. Complete text, capacity,
+recorded format, account occupation, pauses, manual reservations, corrections and
+moderation restrictions govern the result. An account requiring reconciliation
+gets an investigation action, never an invented future date. A LinkedIn collection
+requires at least two compatible complete sources; capacity one exposes
+`CAPACITY_INSUFFICIENT`. A singleton remains unassigned while other viable formats
+can advance. This forecast does not form a new group, choose media, promise a queue
+rank, reserve capacity, approve or send. Several sources may see the same possible
+date. An existing date beyond the search remains visible as the source's recorded
+date with `EXISTING_DATE_OUTSIDE_SEARCH`; no unchecked compatibility is claimed.
+Review the settings or prepare again when a later date enters the horizon.
+
+`tests/integration/publication-preparation-calendar.integration.mjs` exercises two
+PostgreSQL connections, the post-commit composition window, shared account aliases,
+human/authorized/uncertain occupation, read-only forecasts, audit rollback and the
+dedicated runtime role. Its continuous-arrival scenario exposes one additional
+future recurrence per pass and checks that old eligible sources precede later
+arrivals despite concurrent planners, without inventing fulfillment. This proves
+ordering for the available opportunities in that fixture; it does not promise a
+maximum delay under permanent account uncertainty, incompatible format groups,
+limited capacity or an arrival rate exceeding the available calendar.
+
 Destination eligibility requires an active recorded commitment with a matching
 pending or blocked benefit obligation. Private preparation neither approves nor
 completes that obligation; see the
@@ -503,9 +545,12 @@ reproduced a deadlock with the earlier batch-before-slot completion order and
 passes with this order; a changed association cannot produce published projections.
 `tests/integration/publication-capacity-concurrency.integration.mjs` reproduces
 last-place races and checks the corrected paths with disposable PostgreSQL 16.
-This does not yet provide a common effective-account reservation, final text
-capacity checks on every assignment path, or cross-feed collision prevention;
-those remain tracked in [SP07/SP12–SP17](../development/sponsorship-publication-tasks.md#sp12).
+These parent-lock tests cover membership capacity. They do not by themselves
+qualify text fitting or account scheduling on every manual assignment path.
+Shared account reservations protect approval and dispatch, and private
+preparation coordinates feeds as described above. Qualify the remaining manual
+paths against [SP07/SP12–SP17](../development/sponsorship-publication-tasks.md#sp12)
+before claiming complete path coverage.
 
 `tests/publication-automation.test.mjs` exercises provider payloads, destination
 isolation, time zones/DST, error classification, upload resumption and remote checks.

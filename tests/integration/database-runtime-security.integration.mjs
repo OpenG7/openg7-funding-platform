@@ -67,6 +67,8 @@ test(
       "UPDATE sponsorship_website_exposure_observations SET actor='modified'",
       "UPDATE sponsorship_obligation_duration_attestations SET actor='modified'",
       "UPDATE sponsorship_historical_evidence_reviews SET actor='modified'",
+      "UPDATE sponsorship_public_visibility_observations SET reason='HTTP_ERROR'",
+      'DELETE FROM sponsorship_public_visibility_observations',
       'DELETE FROM admin_audit_log'
     ]) {
       await assert.rejects(runtime.query(sql), { code: '42501' });
@@ -91,7 +93,8 @@ test(
     for (const table of [
       'sponsorship_website_exposure_observations',
       'sponsorship_obligation_duration_attestations',
-      'sponsorship_historical_evidence_reviews'
+      'sponsorship_historical_evidence_reviews',
+      'sponsorship_public_visibility_observations'
     ]) {
       await database.pool.query(`GRANT UPDATE ON ${table} TO ${role}`);
       await assert.rejects(assertProductionDatabasePrivileges(runtime, true), {

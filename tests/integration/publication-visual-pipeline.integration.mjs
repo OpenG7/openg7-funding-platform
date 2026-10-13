@@ -24,7 +24,7 @@ test(
     t.after(database.stop);
     const { pool } = database;
     const objects = new Map();
-    const feedId = 'openg20:facebook';
+    let feedId = 'openg20:facebook';
     const providerBase = 'https://publication-visual.test/facebook';
     const env = {
       SOCIAL_PUBLICATION_MODE: 'live',
@@ -32,7 +32,12 @@ test(
       SOCIAL_PUBLICATION_FACEBOOK_GRAPH_BASE_URL: providerBase,
       SOCIAL_PUBLICATION_OPENG20_FACEBOOK_ACCOUNT_ID: '20',
       SOCIAL_PUBLICATION_OPENG20_FACEBOOK_ACCESS_TOKEN:
-        'synthetic-visual-credential'
+        'synthetic-visual-credential',
+      SOCIAL_PUBLICATION_LINKEDIN_API_BASE_URL:
+        'https://publication-visual.test/linkedin',
+      SOCIAL_PUBLICATION_OPENG20_LINKEDIN_ACCOUNT_ID: '20',
+      SOCIAL_PUBLICATION_OPENG20_LINKEDIN_ACCESS_TOKEN:
+        'synthetic-linkedin-credential'
     };
     const service = new PublicationAutomationService(
       pool,
@@ -49,7 +54,68 @@ test(
     const unexpected = [];
     let outcome = 'acknowledged';
     let afterPost;
+    const uploaded = new Map();
+    let remoteFailure;
+    let imageStatus = 'AVAILABLE';
+    let openTransactionsAtSend = null;
     t.mock.method(globalThis, 'fetch', async (url, init = {}) => {
+      const linkedInBase = 'https://publication-visual.test/linkedin';
+      if (
+        String(url).startsWith(linkedInBase) ||
+        String(url).startsWith('https://www.linkedin.com/dms-uploads/')
+      ) {
+        if (String(url).includes('organizationAcls'))
+          return Response.json({
+            elements: [
+              { organization: 'urn:li:organization:20', role: 'ADMINISTRATOR' }
+            ]
+          });
+        if (String(url).includes('initializeUpload')) {
+          const key = `synthetic${uploaded.size + 1}`;
+          uploaded.set(`urn:li:image:${key}`, null);
+          return Response.json({
+            value: {
+              image: `urn:li:image:${key}`,
+              uploadUrl: `https://www.linkedin.com/dms-uploads/${key}`
+            }
+          });
+        }
+        if (String(url).includes('dms-uploads')) {
+          uploaded.set(
+            `urn:li:image:${String(url).split('/').at(-1)}`,
+            Buffer.from(init.body)
+          );
+          return new Response('', { status: 201 });
+        }
+        if (String(url).includes('/images/'))
+          return Response.json({
+            id: decodeURIComponent(String(url).split('/').at(-1)),
+            owner: 'urn:li:organization:20',
+            status: imageStatus
+          });
+        if ((init.method ?? 'GET') === 'GET') {
+          if (remoteFailure)
+            return new Response('{}', { status: remoteFailure });
+          const post = posts.find(
+            (post) =>
+              post.acknowledgement ===
+              decodeURIComponent(String(url).split('/').at(-1))
+          );
+          return post
+            ? Response.json({ ...post.payload, id: post.acknowledgement })
+            : new Response('{}', { status: 404 });
+        }
+        assert(String(url).endsWith('/posts'));
+        const payload = JSON.parse(init.body);
+        const acknowledgement = `urn:li:share:${100 + posts.length}`;
+        posts.push({ payload, acknowledgement });
+        if (outcome === 'lost')
+          throw new Error('Synthetic LinkedIn post response lost.');
+        return new Response('', {
+          status: 201,
+          headers: { 'x-restli-id': acknowledgement }
+        });
+      }
       if (String(url) === `${providerBase}/me?fields=id`)
         return Response.json({ id: '20' });
       if (
@@ -59,12 +125,13 @@ test(
         unexpected.push(String(url));
         throw new Error('Unexpected synthetic visual provider request.');
       }
+      openTransactionsAtSend = (
+        await pool.query(
+          "SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid() AND xact_start IS NOT NULL AND state<>'idle'"
+        )
+      ).rows[0].n;
       assert.equal(
-        (
-          await pool.query(
-            "SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid() AND xact_start IS NOT NULL AND state<>'idle'"
-          )
-        ).rows[0].n,
+        openTransactionsAtSend,
         0,
         'Provider HTTP must not retain a database transaction.'
       );
@@ -92,40 +159,56 @@ test(
     async function fixture(
       format,
       count,
-      { beforeCompose, deferPhotoSelection = false, sourceMedia = false } = {}
+      {
+        beforeCompose,
+        deferPhotoSelection = false,
+        sourceMedia = false,
+        reset = true,
+        indexOffset = 0,
+        channel = 'facebook'
+      } = {}
     ) {
-      await pool.query(
-        'TRUNCATE fund_contributions,publication_deliveries,sponsor_publication_drafts,sponsor_publication_batches,publication_slots,admin_audit_log CASCADE'
-      );
-      await pool.query(
-        "UPDATE publication_feeds SET paused=TRUE,auto_prepare=FALSE,connection='unchecked',account_fingerprint=NULL,last_prepared_at=NULL"
-      );
-      await pool.query(
-        'UPDATE publication_worker_settings SET enabled=TRUE,version=1'
-      );
-      objects.clear();
-      posts.length = 0;
-      outcome = 'acknowledged';
-      afterPost = undefined;
+      feedId = `openg20:${channel}`;
+      if (reset) {
+        await pool.query(
+          'TRUNCATE fund_contributions,publication_deliveries,sponsor_publication_drafts,sponsor_publication_batches,publication_slots,admin_audit_log CASCADE'
+        );
+        await pool.query(
+          "UPDATE publication_feeds SET paused=TRUE,auto_prepare=FALSE,connection='unchecked',account_fingerprint=NULL,last_prepared_at=NULL"
+        );
+        await pool.query(
+          'UPDATE publication_worker_settings SET enabled=TRUE,version=1'
+        );
+        objects.clear();
+        posts.length = 0;
+        outcome = 'acknowledged';
+        afterPost = undefined;
+        uploaded.clear();
+        remoteFailure = undefined;
+        imageStatus = 'AVAILABLE';
+        openTransactionsAtSend = null;
+      }
       await service.command({ action: 'check', feedId }, actor);
       const feed = (await service.feeds()).find((item) => item.id === feedId);
       await service.command(
         { action: 'settings', settings: { ...feed, paused: false } },
         actor
       );
-      const scheduledAt = new Date(Date.now() + 120000).toISOString();
+      const scheduledAt = new Date(
+        Date.now() + 120000 + indexOffset * 120000
+      ).toISOString();
       const batchId = randomUUID();
       await pool.query(
-        "INSERT INTO sponsor_publication_batches(id,channel,capacity,status,scheduled_at,publication_format) VALUES($1,'facebook',$2,'scheduled',$3,$4)",
-        [batchId, count, scheduledAt, format]
+        "INSERT INTO sponsor_publication_batches(id,channel,capacity,status,scheduled_at,publication_format) VALUES($1,$5,$2,'scheduled',$3,$4)",
+        [batchId, count, scheduledAt, format, channel]
       );
       const people = [];
       for (let index = 0; index < count; index++) {
         const contributionId = randomUUID();
         const assetId = randomUUID();
         const draftId = randomUUID();
-        const name = `Synthetic workshop ${index + 1}`;
-        const credit = `Synthetic photograph credit ${index + 1}`;
+        const name = `Synthetic workshop ${index + indexOffset + 1}`;
+        const credit = `Synthetic photograph credit ${index + indexOffset + 1}`;
         const bytes = await sharp({
           create: {
             width: 12,
@@ -149,12 +232,15 @@ test(
         );
         const usage = {
           state: 'confirmed',
-          channels: ['facebook'],
+          channels: [channel],
           targets: ['openg20'],
-          transformations: [
-            'technical',
-            format === 'individual_portrait' ? 'portrait' : 'composite'
-          ],
+          transformations:
+            format === 'image_collection'
+              ? ['technical']
+              : [
+                  'technical',
+                  format === 'individual_portrait' ? 'portrait' : 'composite'
+                ],
           credit,
           restrictions: null
         };
@@ -174,24 +260,23 @@ test(
           pool,
           contributionId,
           {
-            benefits: [
-              { channel: 'facebook', target: 'openg20', quantity: 1, format }
-            ]
+            benefits: [{ channel, target: 'openg20', quantity: 1, format }]
           }
         );
         const obligation = agreement.obligations.find(
-          (item) => item.channel === 'facebook'
+          (item) => item.channel === channel
         );
         await pool.query(
           `INSERT INTO sponsor_publication_drafts(id,contribution_id,feed_target,channel,title,body,disclosure_text,batch_id,status,scheduled_at,obligation_id)
-        VALUES($1,$2,'openg20','facebook',$3,'Complete synthetic source text.','Paid sponsorship.',$4,'scheduled',$5,$6)`,
+        VALUES($1,$2,'openg20',$7,$3,'Complete synthetic source text.','Paid sponsorship.',$4,'scheduled',$5,$6)`,
           [
             draftId,
             contributionId,
             `Full title for ${name}`,
             batchId,
             scheduledAt,
-            obligation.id
+            obligation.id,
+            channel
           ]
         );
         await approveFixtureSubject(pool, {
@@ -274,7 +359,12 @@ test(
         assert.equal(draft.media_snapshot.sources.length, count);
       }
       const preview = await service.imagePreview(id, draft.version);
-      assert.equal(preview.sha256, draft.media_snapshot.derivedHash);
+      assert.equal(
+        preview.sha256,
+        format === 'image_collection'
+          ? draft.media_snapshot.images[0].derivedHash
+          : draft.media_snapshot.derivedHash
+      );
       assert.equal(preview.mimeType, 'image/jpeg');
       const metadata = await sharp(preview.bytes).metadata();
       assert.equal(metadata.format, 'jpeg');
@@ -319,6 +409,354 @@ test(
       };
     }
 
+    await t.test(
+      'eight distinct portraits create eight jobs and eight exact individual proofs',
+      async () => {
+        const fixtures = [];
+        for (let index = 0; index < 8; index++)
+          fixtures.push(
+            await fixture('individual_portrait', 1, {
+              reset: index === 0,
+              indexOffset: index
+            })
+          );
+        assert.equal(
+          (
+            await pool.query(
+              'SELECT count(*)::int AS n FROM publication_deliveries'
+            )
+          ).rows[0].n,
+          8
+        );
+        assert.equal(posts.length, 0);
+        for (const f of fixtures) {
+          // Only this disposable fixture advances the account's real-clock cooldown.
+          await pool.query(
+            "UPDATE publication_account_leases SET next_dispatch_at=clock_timestamp()-INTERVAL '1 second' WHERE delivery_id IS NULL"
+          );
+          await service.tick(f.due);
+          const delivered = await row(f.id);
+          assert.equal(
+            delivered.status,
+            'published',
+            JSON.stringify({
+              errorCode: delivered.error_code,
+              posts: posts.length,
+              openTransactionsAtSend
+            })
+          );
+          assert.deepEqual(posts.at(-1).bytes, f.preview.bytes);
+        }
+        const evidence = (
+          await pool.query(
+            'SELECT * FROM sponsorship_fulfilment_evidence ORDER BY contribution_id'
+          )
+        ).rows;
+        assert.equal(posts.length, 8);
+        assert.equal(evidence.length, 8);
+        assert.equal(
+          new Set(evidence.map((proof) => proof.obligation_id)).size,
+          8
+        );
+        for (const f of fixtures) {
+          const proof = evidence.find(
+            (proof) => proof.obligation_id === f.people[0].obligationId
+          );
+          assert(proof);
+          assert.equal(proof.delivery_id, f.id);
+          assert.equal(
+            proof.media_snapshot.sources[0].media.id,
+            f.people[0].assetId
+          );
+          assert.equal(proof.media_snapshot.derivedHash, f.preview.sha256);
+        }
+        await service.tick(fixtures.at(-1).due);
+        assert.equal(posts.length, 8);
+      }
+    );
+
+    for (const count of [2, 8])
+      await t.test(
+        `LinkedIn collection (${count}) previews/uploads every exact JPEG and recovers a lost response by immutable URNs`,
+        async () => {
+          const f = await fixture('image_collection', count, {
+            channel: 'linkedin'
+          });
+          const previewVersion = (await row(f.id)).version;
+          const previews = [];
+          for (let index = 0; index < count; index++) {
+            const image = await service.imagePreview(
+              f.id,
+              previewVersion,
+              index
+            );
+            assert.equal(
+              image.sha256,
+              f.draft.media_snapshot.images[index].derivedHash
+            );
+            previews.push(image);
+          }
+          await assert.rejects(
+            service.imagePreview(f.id, previewVersion, count),
+            { code: 'MEDIA_NOT_FOUND' }
+          );
+          outcome = 'lost';
+          await service.tick(f.due);
+          const uncertain = await row(f.id);
+          assert.equal(uncertain.status, 'uncertain');
+          assert.equal(posts.length, 1);
+          assert.equal(
+            (await pool.query('SELECT * FROM sponsorship_fulfilment_evidence'))
+              .rowCount,
+            0
+          );
+          const ids = JSON.parse(uncertain.provider_media_id);
+          assert.equal(ids.length, count);
+          assert.deepEqual(
+            posts[0].payload.content.multiImage.images.map((image) => image.id),
+            ids
+          );
+          for (let index = 0; index < count; index++)
+            assert.deepEqual(uploaded.get(ids[index]), previews[index].bytes);
+          await service.tick(f.due);
+          assert.equal(posts.length, 1);
+          const command = {
+            action: 'reconcile',
+            id: f.id,
+            version: uncertain.version,
+            confirmation: f.id,
+            externalPostId: posts[0].acknowledgement
+          };
+          for (const status of [403, 404, 503]) {
+            remoteFailure = status;
+            await assert.rejects(service.command(command, actor), {
+              code: 'REMOTE_POST_UNVERIFIED'
+            });
+            assert.equal((await row(f.id)).status, 'uncertain');
+            assert.equal(posts.length, 1);
+          }
+          remoteFailure = undefined;
+          await service.command(command, actor);
+          const delivered = await row(f.id);
+          assert.equal(delivered.status, 'published');
+          const evidence = (
+            await pool.query('SELECT * FROM sponsorship_fulfilment_evidence')
+          ).rows;
+          assert.equal(evidence.length, count);
+          assert.equal(
+            new Set(evidence.map((proof) => proof.obligation_id)).size,
+            count
+          );
+          assert(
+            evidence.every((proof) => proof.provenance === 'provider_verified')
+          );
+          for (const proof of evidence) {
+            assert.deepEqual(proof.provider_media_ids, ids);
+            assert.deepEqual(proof.media_snapshot, delivered.media_snapshot);
+          }
+          await service.command(
+            {
+              action: 'check-visibility',
+              id: f.id,
+              version: delivered.version,
+              confirmation: f.id,
+              requestId: randomUUID()
+            },
+            actor
+          );
+          assert.equal(
+            (
+              await pool.query(
+                "SELECT * FROM sponsorship_fulfilment_visibility WHERE state='visible'"
+              )
+            ).rowCount,
+            count
+          );
+          remoteFailure = 404;
+          await service.command(
+            {
+              action: 'check-visibility',
+              id: f.id,
+              version: delivered.version,
+              confirmation: f.id,
+              requestId: randomUUID()
+            },
+            actor
+          );
+          assert.equal(
+            (
+              await pool.query(
+                "SELECT * FROM sponsorship_fulfilment_visibility WHERE state='unknown'"
+              )
+            ).rowCount,
+            count
+          );
+          assert.equal(
+            (
+              await pool.query(
+                "SELECT * FROM sponsorship_obligations WHERE state='fulfilled'"
+              )
+            ).rowCount,
+            count
+          );
+          assert.equal(posts.length, 1);
+        }
+      );
+
+    await t.test(
+      'collection schema rejects incomplete JPEG manifests and the preview detects a reordered manifest before approval',
+      async () => {
+        const f = await fixture('image_collection', 2, {
+          channel: 'linkedin',
+          deferPhotoSelection: true
+        });
+        await service.command(
+          {
+            action: 'edit',
+            id: f.id,
+            version: f.draft.version,
+            message: f.draft.message,
+            scheduledAt: f.draft.scheduled_at.toISOString(),
+            mediaId: null,
+            publicationFormat: 'image_collection',
+            photoSelections: f.people.map((person) => ({
+              contributionId: person.contributionId,
+              assetId: person.assetId,
+              assetVersion: person.assetVersion
+            }))
+          },
+          actor
+        );
+        const current = await row(f.id),
+          original = current.media_snapshot;
+        for (const images of [
+          [],
+          original.images.slice(0, 1),
+          [
+            { ...original.images[0], derivedHash: 'invalid' },
+            original.images[1]
+          ],
+          [{}, original.images[1]]
+        ])
+          await assert.rejects(
+            withPostgresTransaction(pool, (db) =>
+              db.query(
+                'UPDATE publication_deliveries SET media_snapshot=$2::jsonb WHERE id=$1',
+                [f.id, JSON.stringify({ ...original, images })]
+              )
+            ),
+            { code: '23514' }
+          );
+        await assert.rejects(
+          withPostgresTransaction(pool, (db) =>
+            db.query(
+              "UPDATE publication_deliveries SET feed_id='openg20:facebook' WHERE id=$1",
+              [f.id]
+            )
+          ),
+          { code: '23514' }
+        );
+        assert.deepEqual((await row(f.id)).media_snapshot, original);
+        await pool.query(
+          'UPDATE publication_deliveries SET media_snapshot=$2::jsonb WHERE id=$1',
+          [
+            f.id,
+            JSON.stringify({
+              ...original,
+              images: [...original.images].reverse()
+            })
+          ]
+        );
+        await assert.rejects(service.imagePreview(f.id, current.version), {
+          code: 'MEDIA_CHANGED'
+        });
+        assert.equal(posts.length, 0);
+        assert.equal((await row(f.id)).approved_at, null);
+      }
+    );
+
+    await t.test(
+      'processing collection retains its original approval and resumes cached uploads when all images become available',
+      async () => {
+        const f = await fixture('image_collection', 2, { channel: 'linkedin' });
+        imageStatus = 'PROCESSING';
+        await service.tick(f.due);
+        const waiting = await row(f.id);
+        assert.equal(waiting.status, 'approved');
+        assert.equal(waiting.error_code, 'MEDIA_PROCESSING');
+        assert(waiting.approved_at);
+        assert.equal(uploaded.size, 2);
+        assert.equal(posts.length, 0);
+        assert.equal(
+          (await pool.query('SELECT * FROM sponsorship_fulfilment_evidence'))
+            .rowCount,
+          0
+        );
+        imageStatus = 'AVAILABLE';
+        await pool.query(
+          "UPDATE publication_account_leases SET next_dispatch_at=clock_timestamp()-INTERVAL '1 second' WHERE delivery_id IS NULL"
+        );
+        await service.tick(new Date(f.due.getTime() + 300000));
+        assert.equal((await row(f.id)).status, 'published');
+        assert.equal(uploaded.size, 2);
+        assert.equal(posts.length, 1);
+        assert.equal(
+          (await pool.query('SELECT * FROM sponsorship_fulfilment_evidence'))
+            .rowCount,
+          2
+        );
+      }
+    );
+
+    for (const format of ['collective_text', 'individual_portrait'])
+      await t.test(
+        `LinkedIn ${format} acknowledges one exact image and keeps its immutable URN for visibility`,
+        async () => {
+          const f = await fixture(format, 1, {
+            channel: 'linkedin',
+            sourceMedia: format === 'collective_text'
+          });
+          await service.tick(f.due);
+          const delivered = await row(f.id);
+          assert.equal(delivered.status, 'published');
+          assert.equal(posts.length, 1);
+          assert.deepEqual(
+            uploaded.get(delivered.provider_media_id),
+            f.preview.bytes
+          );
+          const proof = (
+            await pool.query(
+              'SELECT * FROM sponsorship_fulfilment_evidence WHERE delivery_id=$1',
+              [f.id]
+            )
+          ).rows[0];
+          assert.equal(proof.provenance, 'provider_acknowledged');
+          assert.deepEqual(proof.provider_media_ids, [
+            delivered.provider_media_id
+          ]);
+          await service.command(
+            {
+              action: 'check-visibility',
+              id: f.id,
+              version: delivered.version,
+              confirmation: f.id,
+              requestId: randomUUID()
+            },
+            actor
+          );
+          assert.equal(
+            (
+              await pool.query(
+                'SELECT state FROM sponsorship_fulfilment_visibility WHERE evidence_id=$1',
+                [proof.id]
+              )
+            ).rows[0].state,
+            'visible'
+          );
+          assert.equal(posts.length, 1);
+        }
+      );
+
     for (const [format, count] of [
       ['individual_portrait', 1],
       ['collective_composite', 2],
@@ -330,7 +768,15 @@ test(
           const f = await fixture(format, count);
           await service.tick(f.due);
           const delivered = await row(f.id);
-          assert.equal(delivered.status, 'published');
+          assert.equal(
+            delivered.status,
+            'published',
+            JSON.stringify({
+              errorCode: delivered.error_code,
+              posts: posts.length,
+              openTransactionsAtSend
+            })
+          );
           assert.equal(posts.length, 1);
           assert.deepEqual(posts[0].bytes, f.preview.bytes);
           assert.equal(posts[0].hash, delivered.media_snapshot.derivedHash);

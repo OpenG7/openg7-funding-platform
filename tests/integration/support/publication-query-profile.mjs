@@ -9,6 +9,7 @@ export function profilePublicationPool(pool) {
   let phase = null;
   const wrap = (connection) => {
     let transactionStarted = null;
+    const cursorReads = new Map();
     return {
       async query(...args) {
         const text = typeof args[0] === 'string' ? args[0] : args[0].text;
@@ -22,6 +23,25 @@ export function profilePublicationPool(pool) {
             phase.queryCount++;
             phase.queryTimeMs += elapsedMs;
             phase.maxQueryMs = Math.max(phase.maxQueryMs, elapsedMs);
+            const declaration =
+              /^DECLARE ([a-z0-9_]+) NO SCROLL CURSOR FOR\s+/i.exec(text);
+            if (declaration) {
+              const captured = {
+                phase: phase.name,
+                text: text.slice(declaration[0].length),
+                values,
+                rowCount: 0,
+                elapsedMs
+              };
+              cursorReads.set(declaration[1], captured);
+              queries.push(captured);
+            }
+            const fetch = /^FETCH FORWARD \d+ FROM ([a-z0-9_]+)$/i.exec(text);
+            const cursorRead = fetch && cursorReads.get(fetch[1]);
+            if (cursorRead) {
+              cursorRead.rowCount += result.rowCount;
+              cursorRead.elapsedMs += elapsedMs;
+            }
             if (/^\s*(WITH|SELECT)\b/i.test(text))
               queries.push({
                 phase: phase.name,

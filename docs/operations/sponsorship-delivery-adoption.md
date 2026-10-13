@@ -18,20 +18,22 @@ Les migrations appliquées ne sont ni modifiées ni rejouées.
 L'inventaire ci-dessous couvre les ajouts relus; vérifier le répertoire des
 migrations et la réception datée pour tout ajout ultérieur du chantier.
 
-| Ajout                                                                                    | Rôle dans l'adoption                                                                                                                                                           |
-| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [041](../../apps/funding-api/migrations/041_sponsorship_commitments.sql)                 | Offres capturées, provenance, obligations et changements immuables; anciens accords inconnus conservés à qualifier.                                                            |
-| [042](../../apps/funding-api/migrations/042_publication_account_reservations.sql)        | Bail et réservations du compte effectif, séparation mock/live et quarantaine.                                                                                                  |
-| [043](../../apps/funding-api/migrations/043_sponsorship_fulfilment_evidence.sql)         | Passage exact réservé, preuve qualifiée et observations de visibilité distinctes.                                                                                              |
-| [044](../../apps/funding-api/migrations/044_sponsor_media_usage.sql)                     | Usages/préférences et preuves d'utilisation des médias.                                                                                                                        |
-| [045](../../apps/funding-api/migrations/045_sponsorship_publication_formats.sql)         | Format social enregistré; absence historique conservée.                                                                                                                        |
-| [046](../../apps/funding-api/migrations/046_obligation_reservation_release.sql)          | Libération par UPDATE, sans élargir les droits DELETE du rôle API.                                                                                                             |
-| [047](../../apps/funding-api/migrations/047_publication_visual_sources.sql)              | Formats visuels et sélection versionnée de leurs sources.                                                                                                                      |
-| [048](../../apps/funding-api/migrations/048_qualified_derived_media_snapshot.sql)        | Snapshot qualifié d'un dérivé unique, sans détourner le couplage d'un média source.                                                                                            |
-| [049](../../apps/funding-api/migrations/049_publication_draft_passages.sql)              | Préparation locale du passage suivant sans écraser un brouillon/lot publié; nouveau rattachement inclus dans la revue éditoriale.                                              |
-| [050](../../apps/funding-api/migrations/050_private_visual_moderation_projection.sql)    | Projection actuelle des faits visuels sans clés d'objets privées; anciens snapshots immuables, nouvelle revue si leur empreinte est devenue obsolète.                          |
-| [051](../../apps/funding-api/migrations/051_sponsorship_obligation_timing.sql)           | Termes temporels par obligation, origine documentaire explicite, observations du site OpenG7 et attestations humaines de durée; aucune date historique ou continuité inventée. |
-| [052](../../apps/funding-api/migrations/052_sponsorship_historical_evidence_reviews.sql) | Examens historiques immuables, versionnés et audités; aucune modification des preuves ni du solde commercial existant.                                                         |
+| Ajout                                                                                       | Rôle dans l'adoption                                                                                                                                                           |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [041](../../apps/funding-api/migrations/041_sponsorship_commitments.sql)                    | Offres capturées, provenance, obligations et changements immuables; anciens accords inconnus conservés à qualifier.                                                            |
+| [042](../../apps/funding-api/migrations/042_publication_account_reservations.sql)           | Bail et réservations du compte effectif, séparation mock/live et quarantaine.                                                                                                  |
+| [043](../../apps/funding-api/migrations/043_sponsorship_fulfilment_evidence.sql)            | Passage exact réservé, preuve qualifiée et observations de visibilité distinctes.                                                                                              |
+| [044](../../apps/funding-api/migrations/044_sponsor_media_usage.sql)                        | Usages/préférences et preuves d'utilisation des médias.                                                                                                                        |
+| [045](../../apps/funding-api/migrations/045_sponsorship_publication_formats.sql)            | Format social enregistré; absence historique conservée.                                                                                                                        |
+| [046](../../apps/funding-api/migrations/046_obligation_reservation_release.sql)             | Libération par UPDATE, sans élargir les droits DELETE du rôle API.                                                                                                             |
+| [047](../../apps/funding-api/migrations/047_publication_visual_sources.sql)                 | Formats visuels et sélection versionnée de leurs sources.                                                                                                                      |
+| [048](../../apps/funding-api/migrations/048_qualified_derived_media_snapshot.sql)           | Snapshot qualifié d'un dérivé unique, sans détourner le couplage d'un média source.                                                                                            |
+| [049](../../apps/funding-api/migrations/049_publication_draft_passages.sql)                 | Préparation locale du passage suivant sans écraser un brouillon/lot publié; nouveau rattachement inclus dans la revue éditoriale.                                              |
+| [050](../../apps/funding-api/migrations/050_private_visual_moderation_projection.sql)       | Projection actuelle des faits visuels sans clés d'objets privées; anciens snapshots immuables, nouvelle revue si leur empreinte est devenue obsolète.                          |
+| [051](../../apps/funding-api/migrations/051_sponsorship_obligation_timing.sql)              | Termes temporels par obligation, origine documentaire explicite, observations du site OpenG7 et attestations humaines de durée; aucune date historique ou continuité inventée. |
+| [052](../../apps/funding-api/migrations/052_sponsorship_historical_evidence_reviews.sql)    | Examens historiques immuables, versionnés et audités; aucune modification des preuves ni du solde commercial existant.                                                         |
+| [053](../../apps/funding-api/migrations/053_publication_provider_media_evidence.sql)        | Identités média LinkedIn immuables et collections qualifiées localement ; anciennes preuves conservées sans URN inféré.                                                        |
+| [054](../../apps/funding-api/migrations/054_sponsorship_public_visibility_observations.sql) | Observations publiques append-only et curseur opérationnel ; aucune période commencée ou réalisée par la migration.                                                            |
 
 Déployer des versions compatibles des contrats, API et Web seulement après la
 réception correspondante. Les migrations de modération 034–040 restent des
@@ -318,6 +320,26 @@ ne constituent ni quota fournisseur ni délai commercial promis. Réconcilier le
 résultat exact avant une reprise; les comptes sans résultat certain restent
 dans le parcours d'investigation.
 
+## Préparer les décisions opérationnelles
+
+La livraison du code ne remplit pas les pièces d'un accord historique et ne
+choisit pas un délai commercial. Préparer un dossier de décision distinct pour
+chaque campagne ; ne pas modifier les snapshots d'offres déjà acceptées.
+
+<!-- prettier-ignore -->
+| Décision | Entrées à réunir | Résultat attendu avant exécution |
+| --- | --- | --- |
+| Adoption historique | Périmètre de dossiers, pagination terminée, référence des pièces, termes réellement convenus, responsable et sauvegarde vérifiée. | Inventaire classé : accord démontré, déclaration à confirmer, exception. Chaque qualification conserve son UUID, version, confirmation et preuve ; les ambiguïtés restent `needs_confirmation`. |
+| Délai des nouvelles offres | Canal, quantité, point de départ documenté, délai choisi, pauses applicables, formats disponibles et texte présenté avant Checkout. | Nouvelle version d'offre à recevoir séparément ; une valeur vide reste `null`. Aucun départ ou délai supplémentaire n'est déduit du paiement ou de l'ordinal. |
+| Qualification des comptes | Compte effectif, organisation/page et rôle, droits de lecture et écriture, expiration, version fournisseur, limites et format demandé. | Reçu daté distinguant documentation, appels synthétiques et qualification réelle ; un accès de lecture absent conserve la réconciliation inconnue. |
+| Activation | Révision et migrations exactes, cible, comptes qualifiés, petit lot autorisé, pauses, autorisations finales sélectionnées, file SMTP, responsable et critères d'arrêt. | Plan borné avec audit, idempotence, reprise et retour aux pauses. La décision d'activer reste distincte de la préparation. |
+
+Les droits et secrets sont vérifiés sans les copier dans le dossier, Git ou les
+sorties. Le registre peut conserver une référence privée autorisée, jamais les
+pièces personnelles inutiles. En cas de résultat incertain, relire le serveur et
+réconcilier avant de reprendre la même opération ; un nouvel UUID n'est pas une
+solution à une incertitude.
+
 ## Réception avant mise en service
 
 Répéter sur base neuve puis sur copie synthétique existante : paiement confirmé
@@ -337,9 +359,14 @@ approbation et résultat fournisseur sont observés séparément. Les guides
 [publication](publication-automation.md), [preuves](../technical/sponsorship-fulfilment.md)
 et [formats](../technical/publication-formats.md) portent leurs contrats.
 
-Les collections d'images restent indisponibles; un JPEG composite ne les remplace
-pas. La réconciliation des images reste une investigation si l'identité exacte
-des octets distants n'est pas vérifiable. Accès refusé, 404 ou timeout donnent
+Les collections LinkedIn acceptent de 2 à 10 photos ; les recettes intégrées ont
+reçu des collections de deux et huit petites images synthétiques. Le rendu et le
+chargement de dix grandes images restent à mesurer avant de fixer leurs limites
+opérationnelles ; voir le contrat des formats. Les collections Facebook restent
+indisponibles faute de qualification. Un JPEG composite ne remplace pas un album. LinkedIn compare
+les URNs des images remis au fournisseur, avec le compte et le contenu exacts.
+Les anciennes preuves sans URN et les photos Facebook sans identité distante
+qualifiée restent dans l'investigation. Accès refusé, 404 ou timeout donnent
 `unknown` et ne prouvent pas une suppression ni le droit de renvoyer. L'empreinte
 de l'aperçu local ne qualifie pas les permissions d'un compte fournisseur réel.
 

@@ -58,6 +58,13 @@ export interface PublicationDelivery {
   mediaAlt: string | null;
   readonly mediaDerivedHash?: string | null;
   readonly mediaTransform?: string | null;
+  /** Exact private JPEG previews, in the approved collection order. */
+  readonly mediaImages?: readonly {
+    readonly alt: string;
+    readonly sha256: string;
+    readonly width: number;
+    readonly height: number;
+  }[];
   accountId: string;
   mode: 'disabled' | 'mock' | 'live';
   autoManaged: boolean;
@@ -135,6 +142,47 @@ export interface PublicationPreparationEntry {
   batchId: string | null;
   deliveryId: string | null;
   deliveryStatus: PublicationDeliveryStatus | null;
+  readonly publicationFormat?: SponsorshipPublicationFormat;
+  /** Private possibility evaluated from a snapshot, never an allocation or authorization. */
+  readonly nextOpportunity?: PublicationPreparationOpportunity;
+}
+export type PublicationOpportunityReason =
+  | 'EXISTING_PROPOSAL'
+  | 'EXISTING_DATE_OUTSIDE_SEARCH'
+  | 'AVAILABLE_IN_HORIZON'
+  | 'AVAILABLE_AFTER_HORIZON'
+  | 'SOURCE_CORRECTION_REQUIRED'
+  | 'MODERATION_REVIEW_REQUIRED'
+  | 'MANUAL_RESERVATION'
+  | 'PROPOSAL_REPAIR_REQUIRED'
+  | 'ACCOUNT_CONNECTION_REQUIRED'
+  | 'ACCOUNT_RECONCILIATION_REQUIRED'
+  | 'FEED_PAUSED'
+  | 'FORMAT_UNAVAILABLE'
+  | 'GROUP_PARTICIPANTS_REQUIRED'
+  | 'CAPACITY_INSUFFICIENT'
+  | 'NO_COMPATIBLE_RECURRENCE';
+export type PublicationOpportunityAction =
+  | 'REVIEW_PROPOSAL'
+  | 'PREPARE_FEED'
+  | 'REVIEW_HORIZON'
+  | 'CORRECT_SOURCE'
+  | 'REVIEW_MODERATION'
+  | 'REPAIR_PROPOSAL'
+  | 'CONFIGURE_ACCOUNT'
+  | 'RECONCILE_ACCOUNT'
+  | 'REVIEW_FEED'
+  | 'REVIEW_FORMAT'
+  | 'WAIT_FOR_GROUP'
+  | 'REVIEW_CALENDAR';
+export interface PublicationPreparationOpportunity {
+  readonly proposedAt: string | null;
+  readonly withinHorizon: boolean;
+  readonly reason: PublicationOpportunityReason;
+  readonly action: PublicationOpportunityAction;
+  readonly evaluatedAt: string;
+  /** Search is bounded and does not alter the configured preparation horizon. */
+  readonly searchUntil: string;
 }
 export interface PublicationPreparationQueue {
   entries: PublicationPreparationEntry[];

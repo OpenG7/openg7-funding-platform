@@ -126,6 +126,20 @@
       @if (c.selected(); as job) {
         <p class="publication-copy">{{ job.message }}</p>
         <p>{{ c.dateLabel(job.scheduledAt) }}</p>
+        @if (job.publicationFormat === 'image_collection') {
+          <p>{{ 'admin.publicationAutomation.collectionHelp' | translate }}</p>
+          <ol data-og7="publication-collection-preview">
+            @for (image of c.collectionPreviews(); track image.url) {
+              <li>
+                <img
+                  class="preview-image"
+                  [src]="image.url"
+                  [alt]="image.alt"
+                />
+              </li>
+            }
+          </ol>
+        }
         @if (c.mediaPreview(); as image) {
           <img class="preview-image" [src]="image.url" [alt]="image.alt" />
           <p data-og7="publication-image-preparation">
@@ -216,6 +230,22 @@
             </label>
           }
           @if (c.derived(c.edit.publicationFormat)) {
+            @if (c.edit.publicationFormat === 'image_collection') {
+              <p>
+                {{ 'admin.publicationAutomation.collectionHelp' | translate }}
+              </p>
+              <ol data-og7="publication-collection-preview">
+                @for (image of c.collectionPreviews(); track image.url) {
+                  <li>
+                    <img
+                      class="preview-image"
+                      [src]="image.url"
+                      [alt]="image.alt"
+                    />
+                  </li>
+                }
+              </ol>
+            }
             <p>
               {{ 'funding.followup.media.usage.chooseOwnPhoto' | translate }}
             </p>
@@ -386,7 +416,11 @@
               c.dirty() ||
               c.missingPresentation() ||
               ((job.mediaId || c.derived(job.publicationFormat)) &&
-                (!c.previewUrl() || !c.previewExact()))
+                (!c.previewExact() ||
+                  (job.publicationFormat === 'image_collection'
+                    ? c.collectionPreviews().length < 2 ||
+                      c.collectionPreviews().length !== job.mediaImages?.length
+                    : !c.previewUrl())))
             "
             (click)="c.approve()"
           >

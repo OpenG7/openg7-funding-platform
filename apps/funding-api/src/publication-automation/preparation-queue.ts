@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import type {
   PublicationAutomationFilter,
   PublicationDeliveryStatus,
@@ -17,8 +19,10 @@ import {
 } from '../../../../packages/funding-core/src/index.js';
 
 import { recurrenceTimes } from './policy.js';
+import { createPreparationOpportunityPlanner } from './preparation-opportunity.js';
 import {
   preparationEligibilitySql,
+  preparationFormatSql,
   preparationModerationSql,
   preparationModerationSubjectSql,
   recognitionSource
@@ -28,6 +32,7 @@ import type { Db, Source } from './sources.js';
 export const PREPARATION_QUEUE_PAGE_SIZE = 200;
 
 interface QueueRow extends Source {
+  publication_format: import('@openg7/funding-core').SponsorshipPublicationFormat;
   name: string;
   created_at: Date;
   created_at_key: string;
@@ -138,12 +143,13 @@ function queueEntry(
     scheduledAt: row.scheduled_at?.toISOString() ?? null,
     batchId: row.batch_id,
     deliveryId: row.delivery_id,
-    deliveryStatus: row.delivery_status
+    deliveryStatus: row.delivery_status,
+    publicationFormat: row.publication_format
   };
 }
 
 /**
- * Scan the confirmed scope in bounded chunks to count pure rendering outcomes.
+ * Stream the confirmed scope once, in bounded chunks, to count rendering outcomes.
  * Only the requested page is retained in memory. The caller supplies one read-only
  * repeatable-read transaction; separate page requests are current, unfrozen facts.
  */
@@ -171,6 +177,11 @@ export async function preparationQueue(
   ).rows.filter((batch) =>
     dates.get(batch.feed_id)?.has(batch.starts_at.toISOString())
   );
+  const opportunityPlanner = await createPreparationOpportunityPlanner(
+    db,
+    feeds,
+    now
+  );
   const offset = filter.queueOffset ?? 0;
   const result: PublicationPreparationQueue = {
     entries: [],
@@ -182,11 +193,17 @@ export async function preparationQueue(
     scope: filter.sponsorshipId || filter.deliveryId ? 'filtered' : 'global',
     evaluatedAt: now.toISOString()
   };
-  let cursor: { createdAt: string; id: string } | null = null;
-  for (;;) {
-    const rows: QueueRow[] = (
-      await db.query<QueueRow>(
-        `SELECT d.id,d.contribution_id,d.title,d.body,d.disclosure_text,d.feed_target,d.channel,
+  // A transaction-scoped cursor preserves the bounded Node memory contract without
+  // planning and rescanning the same eligible scope for every 200-source chunk.
+  // The identifier is generated internally and never contains request input.
+  // Every row is consumed for the counters: prefer the complete-read plan,
+  // instead of PostgreSQL's default fast-start plan for partially read cursors.
+  await db.query('SET LOCAL cursor_tuple_fraction=1');
+  const cursorName = `publication_queue_${randomUUID().replaceAll('-', '')}`;
+  await db.query(
+    `DECLARE ${cursorName} NO SCROLL CURSOR FOR
+        SELECT d.id,d.contribution_id,d.title,d.body,d.disclosure_text,d.feed_target,d.channel,
+           ${preparationFormatSql()} AS publication_format,
            COALESCE(c.sponsor_company_name,'') AS name,d.created_at,d.created_at::text AS created_at_key,d.scheduled_at,d.batch_id,d.slot_id,d.status,
            delivery.id AS delivery_id,delivery.status AS delivery_status,delivery.message AS delivery_message,
            b.capacity AS batch_capacity,${batchSourcesSql('d.batch_id')} AS batch_sources,
@@ -205,19 +222,24 @@ export async function preparationQueue(
            AND (delivery.id IS NULL OR delivery.status IN ('draft','blocked'))
            AND ($1::uuid IS NULL OR d.contribution_id=$1)
            AND ($2::uuid IS NULL OR delivery.id=$2)
-           AND ($3::timestamptz IS NULL OR (d.created_at,d.id)>($3::timestamptz,$4::uuid))
-         ORDER BY d.created_at,d.id LIMIT $5`,
-        [
-          filter.sponsorshipId ?? null,
-          filter.deliveryId ?? null,
-          cursor?.createdAt ?? null,
-          cursor?.id ?? null,
-          PREPARATION_QUEUE_PAGE_SIZE
-        ]
+         ORDER BY d.created_at,d.id`,
+    [filter.sponsorshipId ?? null, filter.deliveryId ?? null]
+  );
+  for (;;) {
+    const rows: QueueRow[] = (
+      await db.query<QueueRow>(
+        `FETCH FORWARD ${PREPARATION_QUEUE_PAGE_SIZE} FROM ${cursorName}`
       )
     ).rows;
     for (const row of rows) {
-      const entry = queueEntry(row, available);
+      const current = queueEntry(row, available);
+      const entry = {
+        ...current,
+        nextOpportunity: opportunityPlanner.project(
+          current,
+          recognitionSource(row)
+        )
+      };
       if (entry.status === 'needs_correction') result.summary.needsCorrection++;
       else result.summary[entry.status]++;
       if (
@@ -228,9 +250,10 @@ export async function preparationQueue(
       result.total++;
     }
     if (rows.length < PREPARATION_QUEUE_PAGE_SIZE) break;
-    const last = rows.at(-1)!;
-    cursor = { createdAt: last.created_at_key, id: last.id };
   }
+  // On an error the owning transaction rolls back and closes its cursor. Avoid
+  // a CLOSE in that aborted transaction, which would conceal the original error.
+  await db.query(`CLOSE ${cursorName}`);
   result.hasMore = offset + result.entries.length < result.total;
   return result;
 }

@@ -73,6 +73,69 @@ sur une attestation humaine motivée et ses pièces privées, avec des bornes
 techniques vérifiées. Le serveur ne prétend pas avoir observé chaque requête de la
 page publique ni garantir la disponibilité permanente du site.
 
+## Observations HTTP périodiques, désactivées par défaut
+
+La migration additive [054](../../apps/funding-api/migrations/054_sponsorship_public_visibility_observations.sql)
+ajoute des échantillons immuables liés à l'obligation et à son observation de début.
+Elle ne crée aucune nouvelle période, preuve de réalisation ou attestation. Les
+lectures du dossier exposent seulement date UTC, état, motif stable et statut HTTP;
+aucune URL, image, justificatif ou corps reçu n'est conservé dans ce DTO.
+
+Le [worker](../../apps/funding-api/src/sponsorship-timing/visibility-worker.ts) est
+activé uniquement par `FUNDING_SPONSORSHIP_VISIBILITY_ENABLED=true`, avec une origine
+serveur `FUNDING_SPONSORSHIP_VISIBILITY_ORIGIN` HTTPS explicite. Ces paramètres sont
+propagés au conteneur API par Compose. L'origine appartient à l'application;
+aucune adresse de commanditaire ni URL fournie par le navigateur n'est consultée.
+Les seuls chemins lus sont l'annuaire `/api/public/sponsorships` et les médias
+`/api/public/sponsor-media/<UUID>` attendus. Il ne vérifie pas le rendu du navigateur,
+les pages HTML, les réseaux sociaux, OpenG20 ou la disponibilité de chaque instant.
+
+Intervalle : 900 secondes par défaut, configurable de 60 à 86 400 secondes.
+Lot : cinq obligations par défaut, configurable de une à vingt. Chaque passage
+partage des plafonds HTTP de 45 secondes, 48 requêtes et 16 Mio reçus. Chaque requête
+dispose d'au plus trois secondes, résolution DNS comprise; une page JSON est
+limitée à 256 Kio et une image à 8 Mio. Un contrôle recherche au plus deux pages.
+Le curseur de page du dossier est conservé pour le prochain contrôle. Le curseur
+durable des obligations avance juste avant le contrôle de chaque candidat,
+même si l'enregistrement échoue. Un budget épuisé arrête le passage; les dossiers
+non commencés ne reçoivent aucune observation ni date de contrôle et passent
+devant ceux déjà essayés au prochain passage. Le bail advisory PostgreSQL empêche deux
+processus de contrôler simultanément le même ensemble. Aucune transaction n'est
+maintenue pendant HTTP; le résultat est enregistré après revalidation des versions,
+du début et des autorisations courantes. Les observations et leur audit sont
+atomiques; un échec d'enregistrement ne devient pas un contrôle réussi. Chaque
+statement de cette connexion est borné à cinq secondes; sa configuration initiale
+est restaurée avant de rendre la connexion au pool.
+
+Un verrou de session par obligation couvre la requête et l'enregistrement. Une
+attestation de durée concurrente est refusée sans attendre avec
+`DURATION_OBSERVATION_IN_PROGRESS`; relire le résultat avant une nouvelle décision.
+Une modification de l'origine contractuelle seule n'efface pas un résultat HTTP
+du même début. Une nouvelle observation de début, version éditoriale ou source
+différente rend le résultat ancien `unknown`. Les échecs de transport consomment
+leur plafond réservé d'octets; ils ne réinitialisent pas le budget du passage.
+
+Le DNS est résolu puis épinglé pour chaque connexion TLS. Toutes les adresses
+doivent être publiques; loopback, réseaux privés, adresses de documentation et
+transitions IPv6 sont refusés. Redirections, corps compressés, taille excessive et
+formats inattendus ne sont pas acceptés. Ni cookie ni secret d'administration
+n'est envoyé. Les tests injectent un transport et des surfaces synthétiques;
+l'activation réelle exige une cible et une instruction distinctes.
+
+`visible` signifie identité, texte, crédits et octets attendus observés à cet
+instant. Un contenu/octet différent produit `changed`; un média contrôlé répondant
+404 produit `not_visible`, sans prétendre connaître sa suppression ou sa cause.
+Ils imposent `restart_required` pour le début affecté et bloquent une attestation
+de cette période, même si un échantillon ultérieur est sain. Les périodes déjà
+invalidées ne sont plus échantillonnées avant une nouvelle observation humaine.
+Une recherche de dossier incomplète, un problème réseau, une réponse inaccessible
+ou un changement concurrent restent `unknown`. Des pages lues à des instants
+différents ne prouvent jamais l'absence globale d'un dossier. Ces incidents sont
+datés dans le panneau temporel et l'audit, sans compensation ou republication.
+L'inconnu demande un examen des pièces de continuité; il n'est pas une preuve
+d'interruption ni de disponibilité. Aucun temps écoulé ni succession d'échantillons
+ne solde une obligation; l'attestation humaine motivée reste obligatoire.
+
 ## Contrats et validation
 
 Les commandes `origin`, `observe` et `duration` partagent la version du calendrier,

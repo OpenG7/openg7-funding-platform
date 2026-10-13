@@ -141,6 +141,23 @@ démarrage vérifient que ce rôle ne peut réécrire ni supprimer ces observati
 attestations et examens. Les parcours de fiabilité restent des lectures;
 une migration ne résout aucun incident ou résultat fournisseur incertain.
 
+La migration [053](../../apps/funding-api/migrations/053_publication_provider_media_evidence.sql)
+ajoute les références LinkedIn ordonnées à la preuve immuable de chaque prestation.
+Les anciennes preuves gardent une liste vide, sans inférer les images d’un ancien
+post ni modifier les snapshots, empreintes ou états commerciaux. L’appliquer
+avant l’API correspondante ; elle n’active aucun envoi ni réconciliation.
+Les nouvelles collections conservent le cache d’upload privé existant et exigent
+une approbation du message et de chaque JPEG exact. Voir les
+[formats et limites de reprise](../technical/publication-formats.md).
+
+La migration [054](../../apps/funding-api/migrations/054_sponsorship_public_visibility_observations.sql)
+ajoute les observations HTTP immuables liées aux débuts du calendrier existant,
+et un curseur opérationnel durable. Elle ne crée ni période, attestation,
+réalisation ni requête réseau. L’appliquer avant l’API correspondante et rafraîchir
+les grants avec le runner à jour : lecture/insertion des observations, sans
+réécriture ni suppression. Le worker reste désactivé par défaut ; voir les
+[observations et limites temporelles](../technical/sponsorship-obligation-timing.md#observations-http-périodiques-désactivées-par-défaut).
+
 La migration [029](../../apps/funding-api/migrations/029_create_sponsorship_refund_operations.sql)
 ajoute les demandes de remboursement durables et leur exclusion mutuelle.
 Elle ne modifie aucun fait financier existant. L'appliquer avant l'API mise à

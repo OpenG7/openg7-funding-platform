@@ -337,7 +337,8 @@ export class AdminPublicationAutomationPageComponent {
       'INVALID_MESSAGE',
       'POST_MISMATCH',
       'REMOTE_POST_UNVERIFIED',
-      'MEDIA_RECONCILIATION_REQUIRED'
+      'MEDIA_RECONCILIATION_REQUIRED',
+      'COLLECTION_REQUIRES_MULTIPLE_SPONSORS'
     ].includes(code)
       ? code
       : 'generic';

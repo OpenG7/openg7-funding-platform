@@ -750,7 +750,7 @@ test(
     );
 
     await t.test(
-      'two planners serialize actual feed locks without duplicate diagnostics or deliveries',
+      'two planners serialize planning and account admission before feed locks without duplicate diagnostics or deliveries',
       async () => {
         await reset(1);
         await seed([{ body: 'x'.repeat(3000) }, {}]);
@@ -779,16 +779,30 @@ test(
                     WHERE waiting_lock.pid=activity.pid AND waiting_lock.locktype='advisory'
                       AND NOT waiting_lock.granted AND waiting_lock.objsubid=1
                       AND waiting_lock.classid=((hashtextextended($1,0)>>32)&4294967295)::oid
-                      AND waiting_lock.objid=(hashtextextended($1,0)&4294967295)::oid) AS waiting_for_planning_gate
+                      AND waiting_lock.objid=(hashtextextended($1,0)&4294967295)::oid) AS waiting_for_planning_gate,
+                  EXISTS(SELECT 1 FROM pg_locks account_lock
+                    WHERE account_lock.pid=activity.pid AND account_lock.locktype='advisory'
+                      AND account_lock.granted AND account_lock.objsubid=1
+                      AND account_lock.classid=((hashtextextended($2,0)>>32)&4294967295)::oid
+                      AND account_lock.objid=(hashtextextended($2,0)&4294967295)::oid) AS owns_account_admission
                 FROM pg_stat_activity activity
                 WHERE activity.datname=current_database() AND activity.wait_event_type='Lock'`,
-                [`publication-planning:${feedId}`]
+                [
+                  `publication-planning:${feedId}`,
+                  JSON.stringify([
+                    'publication-private-preparation-v1',
+                    'facebook',
+                    `mock-${feedId}`,
+                    'mock'
+                  ])
+                ]
               )
             ).rows;
             const feedWaiter = waiting.find(
               (activity) =>
                 activity.query ===
                   'SELECT id FROM publication_feeds WHERE id=$1 FOR NO KEY UPDATE' &&
+                activity.owns_account_admission &&
                 activity.blockers.includes(blockerPid)
             );
             const gateWaiter =
@@ -801,12 +815,13 @@ test(
                   activity.waiting_for_planning_gate &&
                   activity.blockers.includes(feedWaiter.pid)
               );
-            // One planner owns the feed's gate and waits on our row lock; the
-            // other waits on that exact gate, transitively blocked by our session.
+            // One planner owns the feed gate and exact account mutex before
+            // waiting on our row lock. The other waits on that same feed gate,
+            // transitively blocked by our session.
             if (feedWaiter && gateWaiter) break;
             assert.ok(
               Date.now() < deadline,
-              'The planners must form the blocker → feed row → same-feed planning gate wait chain'
+              'The planners must own account admission and form the blocker → feed row → same-feed planning gate wait chain'
             );
             await delay(20);
           }
@@ -888,6 +903,15 @@ test(
         assert.equal(state.queue.entries[0].status, 'deferred');
         assert.equal(state.queue.entries[0].reason, 'PREPARATION_FAILED');
         assert.equal(state.queue.entries[0].deliveryId, null);
+        const alternatePool = {
+          query: (...args) => pool.query(...args),
+          connect: () => pool.connect()
+        };
+        assert.equal(
+          (await service.state(alternatePool)).queue.total,
+          1,
+          'an explicitly supplied pool also gets a transaction-owned cursor'
+        );
         assert.equal(
           (
             await pool.query(

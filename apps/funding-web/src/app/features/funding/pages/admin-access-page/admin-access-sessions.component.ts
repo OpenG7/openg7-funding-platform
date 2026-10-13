@@ -40,7 +40,16 @@ export class AdminAccessSessionsComponent {
   @ViewChild('revokeConfirmButton') set revokeConfirmButton(
     button: ElementRef<HTMLButtonElement> | undefined
   ) {
-    if (this.browser) button?.nativeElement.focus();
+    if (!this.browser || !button) return;
+    // Keep the focused confirmation visible without a smooth scroll moving it
+    // while the user activates it, especially on mobile WebKit.
+    const element = button.nativeElement;
+    element.focus({ preventScroll: true });
+    element.scrollIntoView({
+      behavior: 'instant',
+      block: 'nearest',
+      inline: 'nearest'
+    });
   }
 
   nameFor(id: string): string {

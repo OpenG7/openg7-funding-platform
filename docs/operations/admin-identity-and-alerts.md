@@ -62,6 +62,11 @@ ne peut être rétrogradé ou désactivé. Le propriétaire doit confirmer les
 changements et les révocations dans l'interface. La déconnexion termine la
 session OpenG7; elle ne ferme pas la session globale chez le fournisseur.
 
+À l'ouverture de la confirmation de révocation, le bouton reçoit le focus et
+devient visible par un défilement immédiat. Le défilement animé de la page ne
+doit pas déplacer cette cible pendant son activation, notamment sur mobile.
+Échap annule la confirmation et rend le focus au déclencheur.
+
 Une panne OIDC refuse la connexion : aucun retour automatique au secret
 racine. Le mode `token` est réservé aux environnements explicitement
 `development` ou `test`; la production le refuse au démarrage, même avec des

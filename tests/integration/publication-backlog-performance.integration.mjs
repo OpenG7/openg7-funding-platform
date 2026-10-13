@@ -91,6 +91,23 @@ test(
     assert.equal(state.reliability.incidentTotal, facts.incidentTotal);
     assert.equal(state.deliveries.length, 200);
     assert.equal(state.queue.entries.length, 200);
+    assert.equal(state.queue.total, counts.dossiers - counts.members);
+    assert.equal(
+      state.queue.summary.retained +
+        state.queue.summary.deferred +
+        state.queue.summary.needsCorrection,
+      state.queue.total
+    );
+    const queueReads = profile.queries.filter(
+      (query) =>
+        query.phase === 'state_full' && query.text.includes('AS batch_sources')
+    );
+    assert.equal(
+      queueReads.length,
+      1,
+      'the complete eligible queue is scanned once'
+    );
+    assert.equal(queueReads[0].rowCount, state.queue.total);
     assert.equal(
       Number(
         (await pool.query('SELECT count(*) n FROM admin_audit_log')).rows[0].n

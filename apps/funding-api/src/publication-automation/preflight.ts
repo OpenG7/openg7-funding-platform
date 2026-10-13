@@ -20,6 +20,7 @@ import { canonicalPublicationAccount } from './account-reservations.js';
 import { assertSponsorshipContent } from './content.js';
 import { assert, validateContent } from './policy.js';
 import { assertDeliveryModeration } from './moderation.js';
+import type { PublicationDispatchMedia } from './provider.js';
 import {
   sourceEqual,
   sourceIssues,
@@ -49,7 +50,7 @@ export async function ready(
   storage: SponsorMediaStorage,
   feeds: (db: Db) => Promise<PublicationFeed[]>,
   lockSources = true
-): Promise<Buffer | null> {
+): Promise<PublicationDispatchMedia> {
   validateContent(row.message, row.scheduled_at.toISOString());
   await assertDeliveryModeration(db, row);
   const feed = (await feeds(db)).find((f) => f.id === row.feed_id)!;
@@ -102,5 +103,7 @@ export async function ready(
     isDeepStrictEqual(visual.snapshot, row.media_snapshot),
     'MEDIA_CHANGED'
   );
-  return visual.prepared?.bytes ?? null;
+  return visual.prepared && 'kind' in visual.prepared
+    ? visual.prepared.images
+    : (visual.prepared?.bytes ?? null);
 }

@@ -169,6 +169,7 @@ function preparationDb({
 } = {}) {
   const assigned = new Set();
   return database((sql, parameters) => {
+    if (sql.includes('/* preparation_')) return [];
     if (sql.startsWith('SELECT DISTINCT draft.contribution_id')) return [];
     if (sql.startsWith('SELECT delivery.id FROM publication_deliveries'))
       return [];
@@ -260,12 +261,12 @@ function preparationDb({
   });
 }
 
-test('private preparation accepts pending review on paused unconfigured feeds and composes after commit', async () => {
+test('private preparation accepts pending review on paused unconfigured feeds and composes in a new coordinated transaction after membership commit', async () => {
   const db = preparationDb();
   const commands = [];
   await prepare(
     context(db, async (...args) => {
-      assert.equal(db.active, false);
+      assert.equal(db.active, true);
       assert.equal(db.releases, 1);
       commands.push(args);
       return {};
@@ -285,7 +286,8 @@ test('private preparation accepts pending review on paused unconfigured feeds an
         publicationFormat: 'collective_text'
       },
       'planner',
-      true
+      true,
+      db.client
     ]
   ]);
   assert.deepEqual(db.audits().at(-1), {
@@ -303,7 +305,7 @@ test('private preparation accepts pending review on paused unconfigured feeds an
     'batch',
     '2099-01-01T10:00:00.000Z'
   ]);
-  assert.equal(db.connections, 1);
+  assert.equal(db.connections, 2);
   assert.equal(
     db.calls.some((c) => c.sql.includes('UPDATE fund_contributions')),
     false
@@ -450,7 +452,7 @@ test('only untouched overdue proposals are released before packing the next recu
   );
 });
 
-test('preparation records blocked composition after commit and preserves unexpected failures', async (t) => {
+test('preparation rolls back coordinated composition after membership commit, records known blocks and preserves unexpected failures', async (t) => {
   for (const known of [true, false]) {
     await t.test('known=' + known, async () => {
       const db = preparationDb();
@@ -459,7 +461,7 @@ test('preparation records blocked composition after commit and preserves unexpec
         : new Error('composition failed');
       const operation = prepare(
         context(db, async () => {
-          assert.equal(db.active, false);
+          assert.equal(db.active, true);
           assert.equal(db.releases, 1);
           throw error;
         }),
@@ -484,10 +486,9 @@ test('preparation records blocked composition after commit and preserves unexpec
         );
       }
       assert.equal(db.calls.filter((c) => c.sql === 'COMMIT').length, 1);
-      assert.equal(
-        db.calls.some((c) => c.sql === 'ROLLBACK'),
-        false
-      );
+      assert.equal(db.calls.filter((c) => c.sql === 'ROLLBACK').length, 1);
+      assert.equal(db.active, false);
+      assert.equal(db.releases, 2);
     });
   }
 });

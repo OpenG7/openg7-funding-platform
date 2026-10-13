@@ -41,6 +41,10 @@ export class PublicationDeliveryMediaController {
   private readonly previewResource = new BlobPreviewResource();
   readonly previewUrl = this.previewResource.url;
   readonly previewExact = signal(false);
+  readonly collectionPreviews = signal<readonly { url: string; alt: string }[]>(
+    []
+  );
+  private readonly collectionResources: BlobPreviewResource[] = [];
   readonly formats: readonly SponsorshipPublicationFormat[] = [
     'collective_text',
     'individual_portrait',
@@ -69,12 +73,20 @@ export class PublicationDeliveryMediaController {
     this.mediaGeneration++;
     this.media.set([]);
     this.previewResource.dispose();
+    this.clearCollectionPreviews();
   }
 
   clearPreview(): void {
     this.previewGeneration++;
     this.previewExact.set(false);
     this.previewResource.clear();
+    this.clearCollectionPreviews();
+  }
+
+  private clearCollectionPreviews(): void {
+    for (const resource of this.collectionResources) resource.dispose();
+    this.collectionResources.length = 0;
+    this.collectionPreviews.set([]);
   }
 
   mediaBlocked(job: PublicationDelivery): boolean {
@@ -112,6 +124,56 @@ export class PublicationDeliveryMediaController {
     const generation = ++this.previewGeneration;
     this.previewExact.set(false);
     const selected = this.selected();
+    if (selected?.publicationFormat === 'image_collection') {
+      this.previewResource.clear();
+      this.clearCollectionPreviews();
+      const images = selected.mediaImages ?? [];
+      if (id !== selected.mediaId || images.length < 2 || images.length > 10)
+        return;
+      const resources = images.map(() => new BlobPreviewResource());
+      this.collectionResources.push(...resources);
+      let failed = false;
+      await Promise.all(
+        resources.map((resource, index) =>
+          resource.load(
+            () =>
+              this.ports.admin.publicationImagePreview(
+                selected.id,
+                selected.version,
+                images[index]!.sha256,
+                index
+              ),
+            (error) => {
+              failed = true;
+              if (
+                this.previewGeneration === generation &&
+                !this.ports.isDisposed()
+              )
+                this.ports.showError(error);
+            }
+          )
+        )
+      );
+      if (
+        this.previewGeneration !== generation ||
+        this.ports.isDisposed() ||
+        this.selected() !== selected
+      )
+        return;
+      if (failed || resources.some((resource) => !resource.url())) {
+        this.clearCollectionPreviews();
+        return;
+      }
+      this.collectionPreviews.set(
+        resources.map((resource, index) => ({
+          url: resource.url(),
+          alt: images[index]!.alt
+        }))
+      );
+      this.previewExact.set(true);
+      return;
+    }
+    this.clearCollectionPreviews();
     const exact =
       !!selected && id === selected.mediaId && !!selected.mediaDerivedHash;
     await this.previewResource.load(
@@ -160,6 +222,8 @@ export class PublicationDeliveryMediaController {
       return (
         this.edit.mediaId === '' &&
         sponsors.length > 0 &&
+        (this.edit.publicationFormat !== 'image_collection' ||
+          (sponsors.length >= 2 && sponsors.length <= 10)) &&
         this.edit.photoSelections.length === sponsors.length &&
         (this.edit.publicationFormat !== 'individual_portrait' ||
           sponsors.length === 1) &&
@@ -222,9 +286,11 @@ export class PublicationDeliveryMediaController {
         media.contributionId === contributionId &&
         media.kind === 'supporting_image' &&
         media.transformations?.includes(
-          this.edit.publicationFormat === 'individual_portrait'
-            ? 'portrait'
-            : 'composite'
+          this.edit.publicationFormat === 'image_collection'
+            ? 'technical'
+            : this.edit.publicationFormat === 'individual_portrait'
+              ? 'portrait'
+              : 'composite'
         )
     );
   }

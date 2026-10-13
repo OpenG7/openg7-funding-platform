@@ -177,13 +177,23 @@ export async function completeWebsiteExposureDuration(
     400
   );
   await assertWebsiteExposurePassageNext(db, input.obligationId);
+  const observationLock = await db.query<{ locked: boolean }>(
+    "SELECT pg_try_advisory_xact_lock(hashtextextended('sponsorship-public-observation:'||$1::text,0)) AS locked",
+    [input.obligationId]
+  );
+  assert(observationLock.rows[0]?.locked, 'DURATION_OBSERVATION_IN_PROGRESS');
   const start = await db.query<{
     content_fingerprint: string;
     elapsed: boolean;
     sequential: boolean;
+    uninterrupted: boolean;
   }>(
     `SELECT v.content_fingerprint,
     v.observed_at+t.duration_days*INTERVAL '24 hours' <= clock_timestamp() AS elapsed,
+    NOT EXISTS(SELECT 1 FROM sponsorship_public_visibility_observations public_check
+      JOIN sponsorship_website_exposure_observations public_anchor ON public_anchor.id=public_check.start_observation_id
+      WHERE public_check.obligation_id=ob.id AND (public_anchor.observed_at,public_anchor.id)>=(v.observed_at,v.id)
+        AND public_check.status IN ('changed','not_visible')) AS uninterrupted,
     NOT EXISTS(SELECT 1 FROM sponsorship_obligations prior
       LEFT JOIN sponsorship_fulfilment_evidence e ON e.id=prior.fulfilment_evidence_id AND e.obligation_id=prior.id
       WHERE prior.commitment_id=ob.commitment_id AND prior.benefit_id=ob.benefit_id AND prior.ordinal<ob.ordinal
@@ -202,6 +212,7 @@ export async function completeWebsiteExposureDuration(
     ]
   );
   assert(start.rows[0], 'DURATION_OBSERVATION_NOT_FOUND');
+  assert(start.rows[0].uninterrupted, 'DURATION_SOURCE_CHANGED');
   assert(start.rows[0].sequential, 'DURATION_PERIOD_OVERLAP');
   assert(
     start.rows[0].content_fingerprint === input.snapshot.fingerprint,

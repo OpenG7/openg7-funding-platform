@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { PublicationClaimLost } from '../dist/apps/funding-api/src/publication-automation/claims.js';
 import {
@@ -259,4 +260,226 @@ test('LinkedIn rechecks ownership before every request and propagates a lost cla
     assert.equal(persisted, stopAt >= 3 ? 'urn:li:image:synthetic' : null);
     t.mock.restoreAll();
   }
+});
+
+const albumFixture = () => {
+  const images = ['First', 'Second'].map((alt) => {
+    const bytes = Buffer.from(alt);
+    return {
+      bytes,
+      alt,
+      sha256: createHash('sha256').update(bytes).digest('hex')
+    };
+  });
+  return {
+    images,
+    job: {
+      ...job,
+      feedId: 'openg20:linkedin',
+      mediaId: 'approved-album',
+      publicationFormat: 'image_collection',
+      mediaImages: images.map(({ alt, sha256 }) => ({
+        alt,
+        sha256,
+        width: 10,
+        height: 10
+      }))
+    }
+  };
+};
+
+test('LinkedIn collection persists each upload and resumes an interrupted second upload without a public post', async (t) => {
+  const f = albumFixture(),
+    config = feedConfig(f.job.feedId, env).config;
+  const calls = [],
+    saved = [];
+  let initialized = 0;
+  t.mock.method(globalThis, 'fetch', async (url, init) => {
+    calls.push({ url, init });
+    if (url.includes('initializeUpload')) {
+      initialized++;
+      return Response.json({
+        value: {
+          image: `urn:li:image:synthetic${initialized}`,
+          uploadUrl: `https://www.linkedin.com/dms-uploads/synthetic${initialized}`
+        }
+      });
+    }
+    if (url.endsWith('/synthetic2'))
+      throw new Error('Synthetic second-upload timeout');
+    if (url.includes('dms-uploads')) return new Response('', { status: 201 });
+    assert.fail('No public post before the collection uploads are durable.');
+  });
+  await assert.rejects(
+    sendDelivery(config, f.job, f.images, null, async (id) => saved.push(id)),
+    { outcome: 'retry' }
+  );
+  assert.deepEqual(JSON.parse(saved[0]), ['urn:li:image:synthetic1']);
+  assert.equal(saved.length, 1);
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url, init });
+    if (url.includes('initializeUpload'))
+      return Response.json({
+        value: {
+          image: 'urn:li:image:synthetic3',
+          uploadUrl: 'https://www.linkedin.com/dms-uploads/synthetic3'
+        }
+      });
+    if (url.includes('dms-uploads')) {
+      assert.deepEqual(Buffer.from(init.body), f.images[1].bytes);
+      return new Response('', { status: 201 });
+    }
+    if (url.includes('/images/')) return Response.json({ status: 'AVAILABLE' });
+    const content = JSON.parse(init.body).content;
+    assert.deepEqual(content, {
+      multiImage: {
+        images: [
+          { id: 'urn:li:image:synthetic1', altText: 'First' },
+          { id: 'urn:li:image:synthetic3', altText: 'Second' }
+        ]
+      }
+    });
+    return new Response('', {
+      status: 201,
+      headers: { 'x-restli-id': 'urn:li:share:123' }
+    });
+  };
+  assert.equal(
+    (
+      await sendDelivery(config, f.job, f.images, saved[0], async (id) =>
+        saved.push(id)
+      )
+    ).externalPostId,
+    'urn:li:share:123'
+  );
+  assert.deepEqual(JSON.parse(saved[1]), [
+    'urn:li:image:synthetic1',
+    'urn:li:image:synthetic3'
+  ]);
+  assert.equal(calls.filter((call) => call.url.includes('/posts')).length, 1);
+});
+
+test('LinkedIn media reconciliation compares immutable URNs and public account/content, preserving inaccessible reads', async (t) => {
+  const f = albumFixture(),
+    config = feedConfig(f.job.feedId, env).config;
+  const id = 'urn:li:share:123',
+    ids = ['urn:li:image:one', 'urn:li:image:two'];
+  const remote = {
+    id,
+    author: 'urn:li:organization:20',
+    commentary: f.job.message,
+    lifecycleState: 'PUBLISHED',
+    visibility: 'PUBLIC',
+    content: { multiImage: { images: ids.map((id) => ({ id })) } }
+  };
+  const imageResponse = (url) =>
+    Response.json({
+      id: decodeURIComponent(url.split('/').at(-1)),
+      owner: 'urn:li:organization:20',
+      status: 'AVAILABLE'
+    });
+  t.mock.method(globalThis, 'fetch', async (url) =>
+    url.includes('/images/') ? imageResponse(url) : Response.json(remote)
+  );
+  assert.equal((await verifyRemote(config, f.job, id, ids)).externalPostId, id);
+  await assert.rejects(verifyRemote(config, f.job, id), {
+    code: 'MEDIA_RECONCILIATION_REQUIRED'
+  });
+  for (const change of [
+    { author: 'urn:li:organization:7' },
+    { id: 'urn:li:share:456' },
+    { visibility: 'CONNECTIONS' },
+    { commentary: 'Edited recognition' },
+    { lifecycleState: 'DRAFT' },
+    {
+      content: {
+        multiImage: { images: [...ids].reverse().map((id) => ({ id })) }
+      }
+    },
+    { content: { multiImage: { images: [{ id: ids[0] }] } } },
+    { content: { media: { id: ids[0] } } }
+  ]) {
+    globalThis.fetch = async (url) =>
+      url.includes('/images/')
+        ? imageResponse(url)
+        : Response.json({ ...remote, ...change });
+    await assert.rejects(verifyRemote(config, f.job, id, ids), {
+      code: 'POST_MISMATCH'
+    });
+  }
+  const single = {
+    ...f.job,
+    publicationFormat: 'collective_text',
+    mediaImages: undefined
+  };
+  globalThis.fetch = async (url) =>
+    url.includes('/images/')
+      ? imageResponse(url)
+      : Response.json({ ...remote, content: { media: { id: ids[0] } } });
+  assert.equal(
+    (await verifyRemote(config, single, id, ids.slice(0, 1))).externalPostId,
+    id
+  );
+  globalThis.fetch = async (url) =>
+    url.includes('/images/')
+      ? Response.json({
+          id: ids[0],
+          owner: 'urn:li:organization:7',
+          status: 'AVAILABLE'
+        })
+      : Response.json({ ...remote, content: { media: { id: ids[0] } } });
+  await assert.rejects(verifyRemote(config, single, id, ids.slice(0, 1)), {
+    code: 'POST_MISMATCH'
+  });
+  globalThis.fetch = async (url) =>
+    url.includes('/images/')
+      ? Response.json({
+          id: ids[0],
+          owner: 'urn:li:organization:20',
+          status: 'PROCESSING'
+        })
+      : Response.json({ ...remote, content: { media: { id: ids[0] } } });
+  await assert.rejects(verifyRemote(config, single, id, ids.slice(0, 1)), {
+    code: 'MEDIA_REMOTE_UNAVAILABLE'
+  });
+  for (const status of [403, 404, 503]) {
+    globalThis.fetch = async (url) =>
+      url.includes('/images/')
+        ? new Response('{}', { status })
+        : Response.json({ ...remote, content: { media: { id: ids[0] } } });
+    await assert.rejects(verifyRemote(config, single, id, ids.slice(0, 1)), {
+      code: `PROVIDER_HTTP_${status}`
+    });
+  }
+  globalThis.fetch = async () => {
+    throw new Error('Synthetic timeout');
+  };
+  await assert.rejects(verifyRemote(config, single, id, ids.slice(0, 1)), {
+    code: 'PROVIDER_UNREACHABLE'
+  });
+});
+
+test('collections reject altered bytes, invalid counts and Facebook before any provider request', async (t) => {
+  const f = albumFixture();
+  t.mock.method(globalThis, 'fetch', async () =>
+    assert.fail('Rejected media cannot reach a provider.')
+  );
+  for (const images of [
+    [],
+    f.images.slice(0, 1),
+    [...f.images, ...f.images],
+    [{ ...f.images[0], bytes: Buffer.from('altered') }, f.images[1]]
+  ]) {
+    await assert.rejects(
+      sendDelivery(feedConfig(f.job.feedId, env).config, f.job, images)
+    );
+  }
+  await assert.rejects(
+    sendDelivery(
+      feedConfig(job.feedId, env).config,
+      { ...f.job, feedId: job.feedId },
+      f.images
+    ),
+    { code: 'FORMAT_UNAVAILABLE' }
+  );
 });

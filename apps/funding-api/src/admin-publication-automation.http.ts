@@ -119,14 +119,24 @@ export const createAdminPublicationAutomationHttpHandler = ({
         const query = new URL(request.url ?? '/', publicBaseOrigin)
           .searchParams;
         const version = query.get('version');
+        const imageIndex = query.get('imageIndex');
         if (!version || !/^\d+$/.test(version))
+          throw new PublicationAutomationError('INVALID_FILTER', 400);
+        if (imageIndex !== null && !/^[0-9]$/.test(imageIndex))
           throw new PublicationAutomationError('INVALID_FILTER', 400);
         if (!writeBinary || !publicationAutomation.imagePreview)
           throw new PublicationAutomationError('AUTOMATION_UNAVAILABLE', 503);
-        const image = await publicationAutomation.imagePreview(
-          query.get('deliveryId') ?? '',
-          Number(version)
-        );
+        const image =
+          imageIndex === null
+            ? await publicationAutomation.imagePreview(
+                query.get('deliveryId') ?? '',
+                Number(version)
+              )
+            : await publicationAutomation.imagePreview(
+                query.get('deliveryId') ?? '',
+                Number(version),
+                Number(imageIndex)
+              );
         writeBinary(request, response, 200, image.bytes, image.mimeType, {
           'Cache-Control': 'private, no-store',
           'X-Content-SHA256': image.sha256,
