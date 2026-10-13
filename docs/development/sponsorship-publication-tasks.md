@@ -21,6 +21,102 @@ L'approbation administrative de chaque publication reste
 distincte du développement. Les essais utilisent des dossiers synthétiques et
 des fournisseurs simulés; la mise en service réelle se prépare dans SP43.
 
+<a id="visual-load-reception"></a>
+
+## Complément autorisé — dix grandes photos
+
+Feu vert du 12 octobre 2026, base `123966b1` (PR #308 fusionnée), branche
+`feat/sponsorship-visual-load-reception`. Quatre intervenants ont réalisé
+le rendu, la mesure indépendante, la reprise et les contrôles navigateur.
+Le périmètre est local ; aucun compte fournisseur réel n'est utilisé.
+
+<!-- prettier-ignore -->
+| Travail | Critère de réception | État |
+| --- | --- | --- |
+| T13 — Charge visuelle et reprise | Dix originaux réalistes passent par l'ingestion, le rendu et les aperçus concurrents ; JPEG, propriétaires et droits exacts conservés. Une interruption d'upload reprend à dix sans double publication ni perte d'approbation. | Réception locale terminée : mesures API, reprise à dix et affichage navigateur FR/EN reçus ; méthode dans [performance](publication-performance.md#dix-grandes-photos). |
+| T14 — Qualification des collections Facebook | Permissions, limites, uploads privés, ordre observable et réconciliation vérifiés sur des sources officielles, puis reçus localement avant toute activation autorisée. | Audit documentaire partiel : briques de transport confirmées dans le SDK Meta 25.0.0 ; références Pages inaccessibles et comptes réels non qualifiés. Capacité indisponible conservée ; voir [formats](../technical/publication-formats.md#qualification-des-api-officielles). |
+
+Le correctif T13 utilise une seule lecture et une seule conversion technique
+par photo, conserve le JPEG préparé et revalide toujours toutes les dépendances.
+Les dix aperçus API passent de 200 à 100 lectures et conversions sur les mêmes
+photos. Le composite conserve ses octets et ses onze conversions nécessaires.
+La recette de reprise conserve quatre uploads acquittés après l'échec du
+cinquième, attend les dix images disponibles, puis produit un seul post simulé
+et dix preuves individuelles. Le P2 de nettoyage d'un enfant après échec IPC
+est corrigé et possède une régression avec un vrai processus.
+
+### Réception du complément visuel
+
+Réception locale du 12 octobre 2026, avant commit, sur la branche et la base
+ci-dessus. Empreinte SHA-256 des onze fichiers modifiés ou nouveaux hors
+`docs/`, chemins triés et concaténés avec leurs octets bruts, séparés par NUL :
+
+`73f0485160fd64772fd427e13264852236dfe13e4c5aa4bf589b812e23cfc4ba`.
+
+<!-- prettier-ignore -->
+| Contrôle exécuté sous Node 22.23.3 | Résultat reçu |
+| --- | --- |
+| `tsc -p tsconfig.build.json`, puis `node --test --test-concurrency=4 "tests/**/*.test.mjs"` | 6 268 réussites, aucun échec/annulation ; huit omissions préexistantes : six POSIX, lien symbolique Windows et recette de chiffrement conditionnelle. Les tests ciblés de source/préflight/commandes passent aussi, 84/84. |
+| `publication-media-scope.integration.mjs`, `publication-reconciliation-visibility.integration.mjs` et `publication-visual-pipeline.integration.mjs` | 9 + 6 + 17 tests TAP réussis ; bases PostgreSQL 16 jetables, droits, N0, portraits, composite, collections 2/8/10, uploads partiels, attente AVAILABLE, réconciliation et absence de doublon. |
+| `publication-visual-load.integration.mjs` | Référence initiale 1/1 ; réception finale 2/2, zéro omission : dix originaux de 24 MP via ingestion réelle, collections et composite privés, dix aperçus concurrents et régression IPC. A/B conserve les dix sources, les dix JPEG et le composite ; aucune approbation, preuve ou réservation d'envoi créée. |
+| Build Angular production, puis compilation API et `tsc -p tests/tsconfig.admin-ui.json` | Réussis ; 25 routes SSR. Bundle initial 869,71 kB, avertissement 800 kB conservé, seuil d'erreur 900 kB respecté. |
+| Playwright admin, filtre `ten normalized collection JPEGs\|LinkedIn collection\|exact JPEG`, un worker Chromium | 9 parcours réussis, sans reprise : dix JPEG 2 000 × 1 333 décodés et affichés, propriétaires, ordre, SHA-256 navigateur, FR ordinateur/EN viewport mobile, attente de la dernière réponse, clavier et approbation N0 unique. Les cas négatifs à deux photos et portraits restent reçus. API et identité interceptées. |
+| ESLint global, Prettier ciblé, standards OpenG7, budgets/liens et `git diff --check` | Réussis ; avertissement de lint préexistant dans `scripts/smoke-public.mjs` conservé. |
+
+Les premiers passages ont détecté des attentes de test liées aux deux anciennes
+lectures, un index 10 attendu comme absent alors qu'il est invalide, et la
+version 2 d'aperçu après approbation encore traitée comme version 1 dans la
+fixture navigateur. Les tests corrigés conservent les refus de droits et de
+corruption, la borne 0–9 et l'approbation N0 exacte ; leurs réceptions finales
+passent sans assouplir le runtime. La revue croisée a reçu le correctif du P2
+IPC ; aucun P1/P2 concret identifié dans ce complément ne reste ouvert.
+
+Reçus locaux ignorés dans `test-results/` : `visual-load-node-final.log`,
+`visual-load-node-targeted.log`, `visual-load-postgres-reception.log`,
+`visual-load-visual-pipeline-final.log`, `visual-load-final.log`,
+`visual-load-browser-final.log` et rapports JSON décrits dans le guide de
+performance. Les conteneurs PostgreSQL détenus sont supprimés ; aucun résultat
+de CI distante ou déploiement n'est déduit de ces contrôles.
+
+### Défragmentation du complément visuel
+
+À la demande de l'utilisateur, la défragmentation du 12 octobre 2026 conserve
+les contrats et les assertions de la réception précédente. L'API nomme son
+résultat transitoire et centralise la validation d'une photo et le plafond de
+pixels LinkedIn. Le registre navigateur conserve ses exports, puis délègue les
+deux parcours à dix photos à un module dédié ; le contexte et les générateurs
+JPEG sont partagés. Le générateur haute résolution est isolé des fixtures SQL
+et utilisé directement par les deux recettes. La déclaration devenue inutile
+est retirée. Aucun cycle de modules n'est introduit.
+
+Empreinte des quatorze fichiers hors `docs/`, selon la méthode ci-dessus :
+
+`c6cde29ac1997daf2131abf4a3e54ea1405b5423f7431b969e60ebba0f4e8c63`.
+
+Compilation API et TypeScript admin réussies. La suite Node complète reçoit
+**6 268 réussites**, zéro échec/annulation et les huit omissions déjà documentées.
+Les trois intégrations PostgreSQL passent **32/32**, la recette de charge et
+d'erreur IPC **2/2**, et les parcours Chromium FR ordinateur/EN viewport mobile
+**9/9**, sans reprise. La comparaison avant/après conserve les dix originaux,
+les WebP, les JPEG, le composite, les compteurs et les vingt obligations privées.
+ESLint global, format ciblé, standards, liens/budgets et `git diff --check`
+passent ; l'avertissement de lint préexistant reste documenté. La revue croisée
+ne relève aucun P1/P2 concret ouvert.
+
+Les preuves sont dans `test-results/visual-defrag-build.log`,
+`visual-defrag-admin-types.log`, `visual-defrag-node.log`,
+`visual-defrag-postgres.log`, `visual-defrag-load.log` et
+`visual-defrag-browser.log`. Le rapport antérieur est archivé dans
+`publication-visual-load-before-defrag.json` ; le rapport courant conserve le
+nouveau passage. Le build Angular antérieur est réutilisé : aucune source du
+produit Web n'a changé. Aucune nouvelle qualification fournisseur ou mesure
+de production n'est déduite de cette réorganisation.
+
+La mesure serveur ne qualifie ni le stockage distant, ni les permissions d'un
+compte réel, ni un SLA de production. Les anciennes réceptions ci-dessous
+conservent leurs limites et résultats datés ; ce complément ne ferme pas
+automatiquement les 44 fiches ou les 19 garanties.
+
 <a id="calendar-visibility-reception"></a>
 
 ## Complément autorisé — sept travaux de calendrier et visibilité

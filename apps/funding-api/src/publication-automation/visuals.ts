@@ -9,14 +9,15 @@ import type {
 import { publicationFormatCapability } from '../../../../packages/funding-core/src/index.js';
 import type { SponsorMediaStorage } from '../sponsor-media-storage.js';
 import { getSponsorMediaPreference } from '../sponsor-media-usage.repository.js';
-import {
-  preparePublicationImage,
-  preparePortraitImage
-} from '../publication-image.service.js';
+import { preparePortraitImage } from '../publication-image.service.js';
 import { preparePublicationComposite } from '../publication-composite.service.js';
 
 import { assert, digest, validId } from './policy.js';
-import { resolveMedia, type Media } from './media.js';
+import {
+  resolvePreparedMedia,
+  type Media,
+  type ResolvedPublicationMedia
+} from './media.js';
 import type { Db, Source } from './sources.js';
 
 export interface DerivedPublicationMedia {
@@ -98,6 +99,70 @@ export const normalisePublicationPhotos = (
   );
 };
 
+interface ResolvedPublicationPhoto extends ResolvedPublicationMedia {
+  readonly name: string;
+}
+
+function assertLinkedInImageDimensions(
+  image: ResolvedPublicationMedia['prepared']
+): void {
+  // LinkedIn's documented pixel ceiling is strict; reject before uploading.
+  assert(image.width * image.height < 36_152_320, 'MEDIA_DIMENSIONS_INVALID');
+}
+
+async function resolvePublicationPhoto(
+  db: Db,
+  storage: SponsorMediaStorage,
+  row: VisualDelivery,
+  photo: PublicationPhotoSelection,
+  format: Exclude<SponsorshipPublicationFormat, 'collective_text'>,
+  lock: boolean,
+  allowPendingSponsors: boolean
+): Promise<ResolvedPublicationPhoto> {
+  const owner = (
+    await db.query<{ name: string; kind: string }>(
+      `SELECT c.sponsor_company_name AS name,m.kind FROM sponsor_media_assets m
+      JOIN fund_contributions c ON c.id=m.contribution_id WHERE m.id=$1::uuid AND c.id=$2::uuid AND m.deleted_at IS NULL`,
+      [photo.assetId, photo.contributionId]
+    )
+  ).rows[0];
+  assert(
+    owner?.kind === 'supporting_image' && owner.name?.trim(),
+    'COMPOSITE_PHOTOS_REQUIRED'
+  );
+  const preference = await getSponsorMediaPreference(db, photo.contributionId);
+  assert(preference.state !== 'pending', 'MEDIA_PREFERENCE_REVIEW_REQUIRED');
+  if (preference.state === 'accepted')
+    assert(
+      preference.available && preference.preferredAssetId === photo.assetId,
+      'MEDIA_PREFERENCE_MISMATCH'
+    );
+  const resolved = await resolvePreparedMedia(
+    db,
+    storage,
+    photo.assetId,
+    row.batch_id,
+    lock,
+    {
+      feedId: row.feed_id,
+      message: row.message,
+      allowPendingSponsors,
+      transformations:
+        format === 'image_collection'
+          ? ['technical']
+          : [
+              'technical',
+              format === 'individual_portrait' ? 'portrait' : 'composite'
+            ]
+    }
+  );
+  assert(
+    resolved && resolved.media.version === photo.assetVersion,
+    'MEDIA_CHANGED'
+  );
+  return { ...resolved, name: owner.name };
+}
+
 /** A private preparation can precede sponsor acceptance; dispatch passes false and rechecks every dependency. */
 export async function resolvePublicationVisual(
   db: Db,
@@ -123,7 +188,7 @@ export async function resolvePublicationVisual(
       'FORMAT_COMMITMENT_MISMATCH',
       400
     );
-    const media = await resolveMedia(
+    const resolved = await resolvePreparedMedia(
       db,
       storage,
       row.media_id,
@@ -131,14 +196,9 @@ export async function resolvePublicationVisual(
       lock,
       { feedId: row.feed_id, message: row.message, allowPendingSponsors }
     );
-    if (!media) return { snapshot: null, prepared: null };
-    const bytes = await storage.readPrivateObject(media.key);
-    assert(bytes && digest(bytes) === media.hash, 'MEDIA_CHANGED');
-    const prepared = await preparePublicationImage(bytes);
-    assert(
-      channel !== 'linkedin' || prepared.width * prepared.height < 36_152_320,
-      'MEDIA_DIMENSIONS_INVALID'
-    );
+    if (!resolved) return { snapshot: null, prepared: null };
+    const { media, prepared } = resolved;
+    if (channel === 'linkedin') assertLinkedInImageDimensions(prepared);
     assert(
       prepared.sha256 === media.derivedHash &&
         prepared.transform === media.transform,
@@ -173,55 +233,43 @@ export async function resolvePublicationVisual(
   );
   const inputs = [];
   const snapshots = [];
+  const images = [];
   for (const photo of photos) {
-    const owner = (
-      await db.query<{ name: string; kind: string }>(
-        `SELECT c.sponsor_company_name AS name,m.kind FROM sponsor_media_assets m
-      JOIN fund_contributions c ON c.id=m.contribution_id WHERE m.id=$1::uuid AND c.id=$2::uuid AND m.deleted_at IS NULL`,
-        [photo.assetId, photo.contributionId]
-      )
-    ).rows[0];
-    assert(
-      owner?.kind === 'supporting_image' && owner.name?.trim(),
-      'COMPOSITE_PHOTOS_REQUIRED'
-    );
-    const preference = await getSponsorMediaPreference(
-      db,
-      photo.contributionId
-    );
-    assert(preference.state !== 'pending', 'MEDIA_PREFERENCE_REVIEW_REQUIRED');
-    if (preference.state === 'accepted')
-      assert(
-        preference.available && preference.preferredAssetId === photo.assetId,
-        'MEDIA_PREFERENCE_MISMATCH'
-      );
-    const media = await resolveMedia(
+    const {
+      media,
+      sourceBytes,
+      prepared: image,
+      name
+    } = await resolvePublicationPhoto(
       db,
       storage,
-      photo.assetId,
-      row.batch_id,
+      row,
+      photo,
+      format,
       lock,
-      {
-        feedId: row.feed_id,
-        message: row.message,
-        allowPendingSponsors,
-        transformations:
-          format === 'image_collection'
-            ? ['technical']
-            : [
-                'technical',
-                format === 'individual_portrait' ? 'portrait' : 'composite'
-              ]
-      }
+      allowPendingSponsors
     );
-    assert(media && media.version === photo.assetVersion, 'MEDIA_CHANGED');
-    const bytes = await storage.readPrivateObject(media.key);
-    assert(bytes && digest(bytes) === media.hash, 'MEDIA_CHANGED');
+    snapshots.push({
+      contributionId: photo.contributionId,
+      name,
+      media
+    });
+    if (format === 'image_collection') {
+      assertLinkedInImageDimensions(image);
+      // Retain the JPEG, never all source buffers, while resolving the collection.
+      images.push({
+        ...image,
+        contributionId: photo.contributionId,
+        assetId: photo.assetId,
+        alt: media.alt
+      });
+      continue;
+    }
     inputs.push({
       contributionId: photo.contributionId,
-      name: owner.name,
+      name,
       credit: media.usage.credit,
-      bytes,
+      bytes: sourceBytes,
       media: {
         contributionId: photo.contributionId,
         kind: 'supporting_image' as const,
@@ -232,28 +280,8 @@ export async function resolvePublicationVisual(
       channel,
       target
     });
-    snapshots.push({
-      contributionId: photo.contributionId,
-      name: owner.name,
-      media
-    });
   }
   if (format === 'image_collection') {
-    const images = [];
-    for (const [index, input] of inputs.entries()) {
-      const image = await preparePublicationImage(input.bytes);
-      // LinkedIn's documented pixel ceiling is strict; reject before uploading.
-      assert(
-        image.width * image.height < 36_152_320,
-        'MEDIA_DIMENSIONS_INVALID'
-      );
-      images.push({
-        ...image,
-        contributionId: input.contributionId,
-        assetId: photos[index]!.assetId,
-        alt: snapshots[index]!.media.alt
-      });
-    }
     const descriptors = images.map((image) => ({
       contributionId: image.contributionId,
       assetId: image.assetId,

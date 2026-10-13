@@ -34,6 +34,12 @@ export interface Media {
   version: string;
 }
 
+export interface ResolvedPublicationMedia {
+  readonly media: Media;
+  readonly sourceBytes: Buffer;
+  readonly prepared: Awaited<ReturnType<typeof preparePublicationImage>>;
+}
+
 const belongsToBatchSql = (parameter: '$1' | '$2') =>
   `EXISTS(SELECT 1 FROM sponsor_publication_drafts s WHERE s.batch_id=${parameter}::uuid AND s.contribution_id=m.contribution_id)`;
 
@@ -92,7 +98,8 @@ export async function mediaRecord(
     : undefined;
 }
 
-export async function resolveMedia(
+/** Transient bytes stay outside the immutable media snapshot. */
+export async function resolvePreparedMedia(
   db: Db,
   storage: SponsorMediaStorage,
   id: string | null,
@@ -104,7 +111,7 @@ export async function resolveMedia(
     readonly transformations?: readonly SponsorMediaTransformation[];
     readonly allowPendingSponsors?: boolean;
   }
-): Promise<Media | null> {
+): Promise<ResolvedPublicationMedia | null> {
   if (!id) return null;
   assert(validId(id), 'INVALID_MEDIA', 400);
   const r = await mediaRecord(
@@ -143,11 +150,22 @@ export async function resolveMedia(
   );
   const prepared = await preparePublicationImage(bytes);
   return {
-    ...r,
-    hash: digest(bytes),
-    derivedHash: prepared.sha256,
-    transform: prepared.transform
+    media: {
+      ...r,
+      hash: digest(bytes),
+      derivedHash: prepared.sha256,
+      transform: prepared.transform
+    },
+    sourceBytes: bytes,
+    prepared
   };
+}
+
+/** Snapshot-only compatibility path; callers never persist the transient bytes. */
+export async function resolveMedia(
+  ...args: Parameters<typeof resolvePreparedMedia>
+): Promise<Media | null> {
+  return (await resolvePreparedMedia(...args))?.media ?? null;
 }
 
 /** Check ownership before a combined approval changes pending sponsor reviews. */

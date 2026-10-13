@@ -56,6 +56,19 @@ implémentation future devra qualifier ses permissions, formats, limites et
 reprises à partir de ces références, puis tester les payloads sur un serveur
 synthétique isolé avant toute opération externe autorisée.
 
+Une lecture complémentaire du [SDK officiel Meta 25.0.0](https://github.com/facebook/facebook-python-business-sdk/blob/25.0.0/facebook_business/adobjects/page.py)
+confirme les briques de transport : création de photos avec `published` et
+`temporary`, puis publication dans le feed avec `attached_media`. Le
+[modèle Photo de cette version](https://github.com/facebook/facebook-python-business-sdk/blob/25.0.0/facebook_business/adobjects/photo.py)
+expose notamment l'identifiant de photo, son auteur et `page_story_id`.
+Ces signatures ne qualifient pas les permissions, le plafond multiimage, la durée
+des uploads privés, l'ordre observable ni la réconciliation d'une collection.
+Les références Pages restent inaccessibles lors de la lecture du 12 octobre.
+La présence de `client_mutation_id` ne démontre aucune déduplication du fournisseur.
+La capacité Facebook reste indisponible ; un résultat public ambigu conserve sa
+quarantaine, sans renvoi automatique. Les anciennes preuves ne sont pas enrichies
+avec des identifiants supposés.
+
 ## Sélection, aperçu et reprise d’une collection
 
 Chaque sélection conserve propriétaire, version, autorisation N0, droits de
@@ -72,10 +85,16 @@ collection échoue. L’interface vérifie chaque empreinte et ne permet l’app
 qu’après chargement réussi de toute la galerie. Fermer ou changer la sélection
 révoque les URLs locales et le consentement d’approbation.
 
-Chaque requête d'aperçu revalide et rend actuellement toute la collection avant
-de retourner le JPEG demandé. Les recettes fonctionnelles utilisent deux ou huit
-petites images synthétiques ; le temps de rendu, la mémoire et le chargement
-d'une galerie de dix grandes images n'ont pas été mesurés.
+Chaque requête d'aperçu revalide toute la collection avant de retourner le JPEG
+demandé. Chaque source est lue et convertie une fois ; le JPEG préparé est réutilisé
+et les octets sources ne sont pas accumulés pour une collection. Aucun cache entre
+requêtes ne remplace la vérification des propriétaires, droits, préférences,
+versions et empreintes de toutes les photos.
+
+La [réception locale de dix grandes photos](../development/publication-performance.md#dix-grandes-photos)
+mesure l'ingestion réelle, la composition et les dix appels d'aperçu concurrents
+côté API, avec conservation des JPEG exacts. Elle ne mesure pas le décodage
+navigateur, le stockage distant ou la latence d'un compte fournisseur réel.
 
 Chaque upload acquitté est conservé dans le cache privé `provider_media_id` :
 URN simple historique ou tableau JSON ordonné. Une reprise complète seulement les

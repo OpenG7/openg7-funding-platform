@@ -55,6 +55,7 @@ test(
     let outcome = 'acknowledged';
     let afterPost;
     const uploaded = new Map();
+    let failedInitializationAt;
     let remoteFailure;
     let imageStatus = 'AVAILABLE';
     let openTransactionsAtSend = null;
@@ -71,6 +72,10 @@ test(
             ]
           });
         if (String(url).includes('initializeUpload')) {
+          if (uploaded.size + 1 === failedInitializationAt) {
+            failedInitializationAt = undefined;
+            return new Response('{}', { status: 503 });
+          }
           const key = `synthetic${uploaded.size + 1}`;
           uploaded.set(`urn:li:image:${key}`, null);
           return Response.json({
@@ -184,6 +189,7 @@ test(
         outcome = 'acknowledged';
         afterPost = undefined;
         uploaded.clear();
+        failedInitializationAt = undefined;
         remoteFailure = undefined;
         imageStatus = 'AVAILABLE';
         openTransactionsAtSend = null;
@@ -475,7 +481,7 @@ test(
       }
     );
 
-    for (const count of [2, 8])
+    for (const count of [2, 8, 10])
       await t.test(
         `LinkedIn collection (${count}) previews/uploads every exact JPEG and recovers a lost response by immutable URNs`,
         async () => {
@@ -483,6 +489,31 @@ test(
             channel: 'linkedin'
           });
           const previewVersion = (await row(f.id)).version;
+          const orderedPeople = [...f.people].sort((left, right) =>
+            left.contributionId.localeCompare(right.contributionId)
+          );
+          assert.deepEqual(
+            f.draft.media_snapshot.images.map((image) => ({
+              contributionId: image.contributionId,
+              assetId: image.assetId
+            })),
+            orderedPeople.map(({ contributionId, assetId }) => ({
+              contributionId,
+              assetId
+            }))
+          );
+          assert.deepEqual(
+            f.draft.media_snapshot.sources.map((source) => ({
+              contributionId: source.contributionId,
+              assetId: source.media.id,
+              sourceHash: source.media.hash
+            })),
+            orderedPeople.map(({ contributionId, assetId, sourceHash }) => ({
+              contributionId,
+              assetId,
+              sourceHash
+            }))
+          );
           const previews = [];
           for (let index = 0; index < count; index++) {
             const image = await service.imagePreview(
@@ -494,11 +525,21 @@ test(
               image.sha256,
               f.draft.media_snapshot.images[index].derivedHash
             );
+            assert.equal(image.mimeType, 'image/jpeg');
+            assert.equal(sha256(image.bytes), image.sha256);
+            const metadata = await sharp(image.bytes).metadata();
+            assert.equal(metadata.format, 'jpeg');
+            assert.equal(metadata.width, image.width);
+            assert.equal(metadata.height, image.height);
             previews.push(image);
           }
+          assert.equal(
+            new Set(previews.map((image) => image.sha256)).size,
+            count
+          );
           await assert.rejects(
             service.imagePreview(f.id, previewVersion, count),
-            { code: 'MEDIA_NOT_FOUND' }
+            { code: count === 10 ? 'INVALID_FILTER' : 'MEDIA_NOT_FOUND' }
           );
           outcome = 'lost';
           await service.tick(f.due);
@@ -676,16 +717,70 @@ test(
     );
 
     await t.test(
-      'processing collection retains its original approval and resumes cached uploads when all images become available',
+      'ten-photo collection retains its approval through partial uploads and processing, then publishes once with every cached JPEG',
       async () => {
-        const f = await fixture('image_collection', 2, { channel: 'linkedin' });
+        const f = await fixture('image_collection', 10, {
+          channel: 'linkedin'
+        });
+        const approved = await row(f.id);
+        const previews = await Promise.all(
+          Array.from({ length: 10 }, (_, index) =>
+            service.imagePreview(f.id, approved.version, index)
+          )
+        );
+        assert.equal(new Set(previews.map((image) => image.sha256)).size, 10);
+        failedInitializationAt = 5;
         imageStatus = 'PROCESSING';
         await service.tick(f.due);
+        const partial = await row(f.id);
+        assert.equal(partial.status, 'approved');
+        assert.equal(partial.error_code, 'PROVIDER_HTTP_503');
+        const prefixIds = JSON.parse(partial.provider_media_id);
+        assert.equal(prefixIds.length, 4);
+        assert.equal(uploaded.size, 4);
+        for (const [index, id] of prefixIds.entries())
+          assert.deepEqual(uploaded.get(id), previews[index].bytes);
+        assert.equal(posts.length, 0);
+        assert.equal(
+          (await pool.query('SELECT * FROM sponsorship_fulfilment_evidence'))
+            .rowCount,
+          0
+        );
+        await pool.query(
+          "UPDATE publication_account_leases SET next_dispatch_at=clock_timestamp()-INTERVAL '1 second' WHERE delivery_id IS NULL"
+        );
+        await service.tick(new Date(f.due.getTime() + 300000));
         const waiting = await row(f.id);
         assert.equal(waiting.status, 'approved');
         assert.equal(waiting.error_code, 'MEDIA_PROCESSING');
         assert(waiting.approved_at);
-        assert.equal(uploaded.size, 2);
+        for (const current of [partial, waiting])
+          for (const field of [
+            'approved_at',
+            'approved_by',
+            'source_snapshot',
+            'obligation_snapshot',
+            'media_snapshot',
+            'photo_selections',
+            'message',
+            'scheduled_at',
+            'account_id',
+            'mode',
+            'publication_format'
+          ]) {
+            assert.notEqual(approved[field], undefined);
+            assert.deepEqual(current[field], approved[field]);
+          }
+        const ids = JSON.parse(waiting.provider_media_id);
+        assert.equal(ids.length, 10);
+        assert.deepEqual(ids.slice(0, 4), prefixIds);
+        assert.equal(uploaded.size, 10);
+        for (const [index, id] of ids.entries()) {
+          const bytes = uploaded.get(id);
+          assert.deepEqual(bytes, previews[index].bytes);
+          assert.equal(sha256(bytes), previews[index].sha256);
+          assert.equal((await sharp(bytes).metadata()).format, 'jpeg');
+        }
         assert.equal(posts.length, 0);
         assert.equal(
           (await pool.query('SELECT * FROM sponsorship_fulfilment_evidence'))
@@ -696,14 +791,41 @@ test(
         await pool.query(
           "UPDATE publication_account_leases SET next_dispatch_at=clock_timestamp()-INTERVAL '1 second' WHERE delivery_id IS NULL"
         );
-        await service.tick(new Date(f.due.getTime() + 300000));
-        assert.equal((await row(f.id)).status, 'published');
-        assert.equal(uploaded.size, 2);
+        await service.tick(new Date(f.due.getTime() + 600000));
+        const delivered = await row(f.id);
+        assert.equal(delivered.status, 'published');
+        assert.deepEqual(JSON.parse(delivered.provider_media_id), ids);
+        assert.equal(uploaded.size, 10);
+        assert.equal(posts.length, 1);
+        assert.deepEqual(
+          posts[0].payload.content.multiImage.images.map((image) => image.id),
+          ids
+        );
+        assert.deepEqual(
+          posts[0].payload.content.multiImage.images.map(
+            (image) => image.altText
+          ),
+          approved.media_snapshot.images.map((image) => image.alt)
+        );
+        const evidence = (
+          await pool.query('SELECT * FROM sponsorship_fulfilment_evidence')
+        ).rows;
+        assert.equal(evidence.length, 10);
+        assert.equal(
+          new Set(evidence.map((proof) => proof.obligation_id)).size,
+          10
+        );
+        for (const proof of evidence) {
+          assert.deepEqual(proof.provider_media_ids, ids);
+          assert.deepEqual(proof.media_snapshot, approved.media_snapshot);
+        }
+        await service.tick(new Date(f.due.getTime() + 900000));
+        assert.equal(uploaded.size, 10);
         assert.equal(posts.length, 1);
         assert.equal(
           (await pool.query('SELECT * FROM sponsorship_fulfilment_evidence'))
             .rowCount,
-          2
+          10
         );
       }
     );
