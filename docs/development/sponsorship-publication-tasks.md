@@ -112,6 +112,25 @@ nouveau passage. Le build Angular antérieur est réutilisé : aucune source du
 produit Web n'a changé. Aucune nouvelle qualification fournisseur ou mesure
 de production n'est déduite de cette réorganisation.
 
+### Correction de la CI de la PR #312
+
+Sur `2443f1f`, le [run 261](https://github.com/OpenG7/openg7-funding-platform/actions/runs/38338217195)
+échoue au contrôle TypeScript avant compilation : la fixture navigateur importe
+deux services depuis `dist`, absent d'un checkout neuf. Les réceptions locales
+après build avaient masqué cette dépendance. Le correctif importe les mêmes
+fonctions depuis les sources API ; options, transformations, droits et assertions
+des neuf parcours sont conservés.
+
+La cause est reproduite sur un worktree sans `dist` avec
+`tsc --noEmit -p tsconfig.json` : les deux erreurs TS2307 correspondent à la CI.
+Après correction, le même contrôle passe sans produire d'artefact. Les neuf
+parcours Chromium passent également sans build API, en réutilisant uniquement
+le Web compilé dont les sources sont inchangées. Format, ESLint ciblé,
+standards, liens/budgets et `git diff --check` passent. Les logs ignorés
+`pr312-cold-types-before.log`, `pr312-cold-types-after.log` et
+`pr312-source-preview-browser.log` conservent ces preuves ; elles ne remplacent
+pas la réception de la nouvelle CI distante.
+
 La mesure serveur ne qualifie ni le stockage distant, ni les permissions d'un
 compte réel, ni un SLA de production. Les anciennes réceptions ci-dessous
 conservent leurs limites et résultats datés ; ce complément ne ferme pas

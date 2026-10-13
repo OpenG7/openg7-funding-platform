@@ -9,8 +9,8 @@ import type {
 import sharp from 'sharp';
 
 import { syntheticHighResolutionPhoto } from '../../integration/support/publication-visual-load-images.mjs';
-import { processSponsorImage } from '../../../dist/apps/funding-api/src/sponsor-image.service.js';
-import { preparePublicationImage } from '../../../dist/apps/funding-api/src/publication-image.service.js';
+import { processSponsorImage } from '../../../apps/funding-api/src/sponsor-image.service.js';
+import { preparePublicationImage } from '../../../apps/funding-api/src/publication-image.service.js';
 
 import { expect } from './test.js';
 
