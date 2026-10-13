@@ -4,10 +4,11 @@ The calendar is at `/admin/fundraiser/publications/calendar`. The delivery cockp
 is at `/admin/fundraiser/publications/automation`, with its own calendar including
 editorial posts. The three existing publication workspaces remain separate.
 
-Manual slot date/time fields use the slot's selected IANA timezone. Text-only slot
-edits retain the exact stored instant, including seconds and the selected occurrence
-during a clock change. New or edited slot dates that do not exist or occur twice
-during a clock change are rejected: choose a unique local time before saving.
+Manual slot date/time fields use the slot's selected IANA timezone; source draft
+scheduling uses `America/Toronto`, matching the calendar. Text-only edits of those
+slots and drafts retain the exact stored instant, including seconds and the selected
+occurrence during a clock change. New or edited dates that do not exist or occur
+twice during a clock change are rejected: choose a unique local time before saving.
 Changing a slot's timezone interprets its entered local date/time in the new timezone.
 The delivery drawer uses the browser's local timezone and minute precision; saving
 a delivery serialises that displayed time.
