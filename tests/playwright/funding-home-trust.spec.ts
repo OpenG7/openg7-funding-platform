@@ -569,8 +569,15 @@ for (const language of ['fr-CA', 'en'] as const) {
       localStorage.getItem('openg7.checkout-attempts.v2')
     );
     expect(savedAttempts).not.toBeNull();
-    expect(Object.values(JSON.parse(savedAttempts!))).toEqual([
-      expect.objectContaining({ idempotencyKey: requests[0].idempotencyKey })
+    const storedAttempts = JSON.parse(savedAttempts!);
+    expect(Object.keys(storedAttempts)).toEqual([
+      expect.stringMatching(/^[a-f0-9]{64}$/)
+    ]);
+    expect(Object.values(storedAttempts)).toEqual([
+      {
+        idempotencyKey: requests[0].idempotencyKey,
+        expiresAt: expect.any(Number)
+      }
     ]);
     await form.dispatchEvent('submit');
     expect(requests).toHaveLength(1);

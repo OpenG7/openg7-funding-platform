@@ -750,7 +750,7 @@ test(
     );
 
     await t.test(
-      'two planners serialize account admission before actual feed locks without duplicate diagnostics or deliveries',
+      'two planners serialize planning and account admission before feed locks without duplicate diagnostics or deliveries',
       async () => {
         await reset(1);
         await seed([{ body: 'x'.repeat(3000) }, {}]);
@@ -758,6 +758,9 @@ test(
         const observer = await pool.connect();
         let pending;
         try {
+          const blockerPid = (
+            await blocker.query('SELECT pg_backend_pid() AS pid')
+          ).rows[0].pid;
           await blocker.query('BEGIN');
           await blocker.query(
             'SELECT id FROM publication_feeds WHERE id=$1 FOR UPDATE',
@@ -771,15 +774,54 @@ test(
           for (;;) {
             const waiting = (
               await observer.query(
-                `SELECT count(*) FILTER(WHERE query LIKE 'SELECT id FROM publication_feeds WHERE id=%')::int AS feed,
-                  count(*) FILTER(WHERE query LIKE '%preparation_account_mutex%' AND wait_event='advisory')::int AS account
-                 FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock'`
+                `SELECT activity.pid,activity.query,pg_blocking_pids(activity.pid) AS blockers,
+                  EXISTS(SELECT 1 FROM pg_locks waiting_lock
+                    WHERE waiting_lock.pid=activity.pid AND waiting_lock.locktype='advisory'
+                      AND NOT waiting_lock.granted AND waiting_lock.objsubid=1
+                      AND waiting_lock.classid=((hashtextextended($1,0)>>32)&4294967295)::oid
+                      AND waiting_lock.objid=(hashtextextended($1,0)&4294967295)::oid) AS waiting_for_planning_gate,
+                  EXISTS(SELECT 1 FROM pg_locks account_lock
+                    WHERE account_lock.pid=activity.pid AND account_lock.locktype='advisory'
+                      AND account_lock.granted AND account_lock.objsubid=1
+                      AND account_lock.classid=((hashtextextended($2,0)>>32)&4294967295)::oid
+                      AND account_lock.objid=(hashtextextended($2,0)&4294967295)::oid) AS owns_account_admission
+                FROM pg_stat_activity activity
+                WHERE activity.datname=current_database() AND activity.wait_event_type='Lock'`,
+                [
+                  `publication-planning:${feedId}`,
+                  JSON.stringify([
+                    'publication-private-preparation-v1',
+                    'facebook',
+                    `mock-${feedId}`,
+                    'mock'
+                  ])
+                ]
               )
-            ).rows[0];
-            if (waiting.feed >= 1 && waiting.account >= 1) break;
+            ).rows;
+            const feedWaiter = waiting.find(
+              (activity) =>
+                activity.query ===
+                  'SELECT id FROM publication_feeds WHERE id=$1 FOR NO KEY UPDATE' &&
+                activity.owns_account_admission &&
+                activity.blockers.includes(blockerPid)
+            );
+            const gateWaiter =
+              feedWaiter &&
+              waiting.find(
+                (activity) =>
+                  activity.pid !== feedWaiter.pid &&
+                  activity.query ===
+                    'SELECT pg_advisory_xact_lock(hashtextextended($1,0))' &&
+                  activity.waiting_for_planning_gate &&
+                  activity.blockers.includes(feedWaiter.pid)
+              );
+            // One planner owns the feed gate and exact account mutex before
+            // waiting on our row lock. The other waits on that same feed gate,
+            // transitively blocked by our session.
+            if (feedWaiter && gateWaiter) break;
             assert.ok(
               Date.now() < deadline,
-              'One real PostgreSQL planner must wait on the feed lock and the other on account admission'
+              'The planners must own account admission and form the blocker → feed row → same-feed planning gate wait chain'
             );
             await delay(20);
           }

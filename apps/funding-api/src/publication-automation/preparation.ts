@@ -27,6 +27,7 @@ import {
   type PublicationPlanningContext
 } from './context.js';
 import { composeSponsorshipContent } from './content.js';
+import { lockPublicationPlanningFeed } from './planning-lock.js';
 import {
   PREPARATION_SCAN_LIMIT,
   eligibleDestination,
@@ -83,6 +84,7 @@ export async function prepare(
     revokeCommitmentDeliveries
   );
   await withPostgresTransaction(context.pool, async (db) => {
+    await lockPublicationPlanningFeed(db, feedId);
     let pendingCandidates: PreparationSource[] | null = null;
     // Read routing without a row lock, then serialize preparations of the same
     // canonical account before acquiring any feed/delivery/source authority.
@@ -404,13 +406,14 @@ export async function prepare(
   for (const proposal of proposals) {
     try {
       await withPostgresTransaction(context.pool, async (db) => {
+        await lockPublicationPlanningFeed(db, feedId);
         const feed = (await context.feeds(db)).find(
           (candidate) => candidate.id === feedId
         );
         assert(feed, 'INVALID_FEED', 400);
-        // Compose locks batch before sources. Reacquire preparation's separate
-        // mutex first, so a parallel prepare cannot hold contributions while
-        // waiting for this batch. Membership was committed before this phase.
+        // Match planning -> account ordering in both preparation phases.
+        // Compose locks batch before sources, so reacquire account authority
+        // before it. Membership was committed before this phase.
         await lockPreparationAccount(db, feed!);
         await context.command(
           {

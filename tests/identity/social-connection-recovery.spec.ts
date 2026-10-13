@@ -134,7 +134,8 @@ test('social connections: missing access, wrong account, expiry and provider den
     await drawer
       .getByRole('button', { name: 'Enregistrer le brouillon' })
       .click();
-    expect((await response).status()).toBe(200);
+    const answer = await response;
+    expect(answer.status(), await answer.text()).toBe(200);
     return drawer;
   };
   const approve = async (page: Page, id: string) => {
@@ -165,6 +166,15 @@ test('social connections: missing access, wrong account, expiry and provider den
       (await owner.request.get(endpoint)).json();
     const job = async (id: string) =>
       (await state()).deliveries.find((d) => d.id === id)!;
+    const accountAssociations = async (id: string) =>
+      (
+        await stack.pool.query(
+          `SELECT
+           (SELECT count(*)::int FROM publication_account_reservations WHERE delivery_id=$1) AS reservations,
+           (SELECT count(*)::int FROM publication_account_leases WHERE delivery_id=$1) AS leases`,
+          [id]
+        )
+      ).rows[0];
     const effects = async () =>
       (
         await stack.pool.query(`SELECT
@@ -192,6 +202,17 @@ test('social connections: missing access, wrong account, expiry and provider den
       ).id;
     }
     const beforeFailures = await state();
+    expect(await job(ids[facebook]!)).toMatchObject({
+      accountId: '',
+      status: 'draft',
+      attempts: 0,
+      approvedAt: null,
+      publishedAt: null
+    });
+    expect(await accountAssociations(ids[facebook]!)).toEqual({
+      reservations: 0,
+      leases: 0
+    });
     await test.step('missing configuration and a mismatched organization fail without publishing or changing drafts', async () => {
       expect((await anonymous.get(endpoint)).status()).toBe(401);
       await check(owner, facebook, 'Connexion en erreur');
@@ -273,9 +294,27 @@ test('social connections: missing access, wrong account, expiry and provider den
         });
       }
       const date = nextDate();
-      for (const feedId of [facebook, linkedin, witness]) {
+      for (const feedId of [facebook, linkedin, witness] as const) {
+        const before = await job(ids[feedId]!);
         await edit(owner, ids[feedId]!, date);
+        expect(await job(ids[feedId]!)).toMatchObject({
+          id: before.id,
+          accountId: credentials[feedId]!.accountId,
+          message: before.message,
+          status: 'draft',
+          version: before.version + 1,
+          approvedAt: null,
+          publishedAt: null
+        });
+        expect(await accountAssociations(ids[feedId]!)).toEqual({
+          reservations: 0,
+          leases: 0
+        });
         await approve(owner, ids[feedId]!);
+        expect(await accountAssociations(ids[feedId]!)).toEqual({
+          reservations: 1,
+          leases: 0
+        });
       }
       expect(provider.posts).toHaveLength(0);
     });

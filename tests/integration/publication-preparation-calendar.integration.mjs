@@ -242,6 +242,129 @@ test(
     );
 
     await t.test(
+      'post-commit composition and same-feed preparation acquire advisory authority without a deadlock',
+      async (t) => {
+        await reset();
+        const [sponsor] = await seed();
+        const held = gate(),
+          release = gate();
+        let connections = 0,
+          backend;
+        const first = prepare(
+          {
+            ...context,
+            pool: {
+              query: pool.query.bind(pool),
+              async connect() {
+                const client = await pool.connect();
+                const phase = ++connections;
+                if (phase === 2)
+                  backend = (
+                    await client.query('SELECT pg_backend_pid() AS id')
+                  ).rows[0].id;
+                let paused = false;
+                return {
+                  release: () => client.release(),
+                  async query(sql, params) {
+                    const result = await client.query(sql, params);
+                    // Pause after the first real advisory lock of composition.
+                    // Both implementations reach this barrier; the competing
+                    // planner must wait without forming a reverse dependency.
+                    if (
+                      phase === 2 &&
+                      !paused &&
+                      sql.includes('pg_advisory_xact_lock')
+                    ) {
+                      paused = true;
+                      held.resolve();
+                      await release.promise;
+                    }
+                    return result;
+                  }
+                };
+              }
+            }
+          },
+          'openg7:facebook',
+          'post-commit-composer',
+          now
+        );
+        const firstOutcome = first.then(
+          () => ({ status: 'fulfilled' }),
+          (reason) => ({ status: 'rejected', reason })
+        );
+        t.after(async () => {
+          release.resolve();
+          await firstOutcome;
+        });
+        await Promise.race([
+          held.promise,
+          firstOutcome.then((outcome) =>
+            assert.fail(
+              `Composition ended before the advisory barrier: ${outcome.reason?.code ?? outcome.status}`
+            )
+          )
+        ]);
+        const committedDrafts = await drafts();
+        assert.equal(committedDrafts.length, 1);
+        assert.equal(committedDrafts[0].id, sponsor.draftId);
+        assert.ok(committedDrafts[0].batch_id);
+        assert.equal((await jobs()).length, 0);
+        const second = prepare(
+          context,
+          'openg7:facebook',
+          'concurrent-same-feed-planner',
+          now
+        );
+        const outcomes = Promise.all([
+          firstOutcome,
+          second.then(
+            () => ({ status: 'fulfilled' }),
+            (reason) => ({ status: 'rejected', reason })
+          )
+        ]);
+        try {
+          await waitFor(async () =>
+            Boolean(
+              (
+                await pool.query(
+                  `SELECT 1 FROM pg_stat_activity
+                   WHERE pid<>$1 AND wait_event='advisory'
+                     AND $1::integer=ANY(pg_blocking_pids(pid))`,
+                  [backend]
+                )
+              ).rowCount
+            )
+          );
+        } finally {
+          release.resolve();
+          await outcomes;
+        }
+        for (const outcome of await outcomes)
+          assert.equal(
+            outcome.status,
+            'fulfilled',
+            `Both preparations must finish without a lock cycle: ${outcome.reason?.code ?? ''}`
+          );
+        assert.deepEqual(await drafts(), committedDrafts);
+        const deliveries = await jobs();
+        assert.equal(deliveries.length, 1);
+        assert.equal(deliveries[0].batch_id, committedDrafts[0].batch_id);
+        assert.equal(deliveries[0].status, 'draft');
+        assert.equal(deliveries[0].approved_at, null);
+        assert.equal(deliveries[0].scheduled_at.toISOString(), at());
+        assert.equal(
+          (
+            await pool.query(
+              'SELECT count(*)::int AS count FROM sponsorship_fulfilment_evidence'
+            )
+          ).rows[0].count,
+          0
+        );
+      }
+    );
+
+    await t.test(
       'a committed batch occupies its account before post-commit composition finishes',
       async () => {
         await reset();
