@@ -6,6 +6,8 @@ import type {
   CheckoutRequest,
   CheckoutResult,
   ContributionType,
+  SponsorshipOfferAcceptance,
+  SponsorshipOfferFormatOptions,
   SponsorshipOfferQuote
 } from '@openg7/funding-core';
 import type { PoolClient } from 'pg';
@@ -210,8 +212,12 @@ export const createPublicPaymentsHttpHandler = ({
           : NaN;
       const isSponsorshipContribution =
         parsed.contributionType === 'sponsorship_interest';
+      const durableCheckoutConfigured =
+        stripe !== null && (!stripeApiHost || navigableSimulatedCheckout);
       const isAmountAllowed = isSponsorshipContribution
-        ? isValidSponsorshipAmount(amount)
+        ? durableCheckoutConfigured
+          ? Math.round(amount * 100) > 0
+          : isValidSponsorshipAmount(amount)
         : allowedContributionAmounts.has(amount);
 
       if (
@@ -284,32 +290,51 @@ export const createPublicPaymentsHttpHandler = ({
         return true;
       }
 
+      let offerAcceptance: SponsorshipOfferAcceptance | undefined;
+      let offerFormats: SponsorshipOfferFormatOptions | undefined;
+      try {
+        offerAcceptance = validateSponsorshipOfferAcceptance(
+          parsed.offerAcceptance
+        );
+        offerFormats = validateSponsorshipOfferFormats(parsed.offerFormats);
+        if ((offerAcceptance || offerFormats) && !isSponsorshipContribution)
+          throw new CheckoutOperationError(
+            'SPONSORSHIP_OFFER_NOT_APPLICABLE',
+            400
+          );
+      } catch (error) {
+        const failure =
+          error instanceof CheckoutOperationError
+            ? error
+            : new CheckoutOperationError('SPONSORSHIP_OFFER_INVALID', 400);
+        writeJson(request, response, failure.status, {
+          code: failure.code,
+          error:
+            'The sponsorship offer reference is invalid for this contribution.'
+        });
+        return true;
+      }
+
       // Legacy local fallback remains available. Acceptance opts into a local,
       // navigable Checkout and still confirms payment through the signed webhook.
       if (!stripe || (stripeApiHost && !navigableSimulatedCheckout)) {
         if (!isProduction) {
           if (isSponsorshipContribution) {
             try {
-              const acceptance = validateSponsorshipOfferAcceptance(
-                parsed.offerAcceptance
-              );
-              const formats = validateSponsorshipOfferFormats(
-                parsed.offerFormats
-              );
               const quote = quoteSponsorshipOffer(
                 Math.round(amount * 100),
                 'CAD',
                 undefined,
-                formats
+                offerFormats
               );
-              if (!acceptance)
+              if (!offerAcceptance)
                 throw new CheckoutOperationError(
                   'SPONSORSHIP_OFFER_ACCEPTANCE_REQUIRED',
                   400
                 );
               if (
-                quote.version !== acceptance.version ||
-                quote.fingerprint !== acceptance.fingerprint
+                quote.version !== offerAcceptance.version ||
+                quote.fingerprint !== offerAcceptance.fingerprint
               )
                 throw new CheckoutOperationError(
                   'SPONSORSHIP_OFFER_CHANGED',
@@ -357,22 +382,6 @@ export const createPublicPaymentsHttpHandler = ({
       }
 
       try {
-        const offerAcceptance = validateSponsorshipOfferAcceptance(
-          parsed.offerAcceptance
-        );
-        const offerFormats = validateSponsorshipOfferFormats(
-          parsed.offerFormats
-        );
-        if (offerFormats && !isSponsorshipContribution)
-          throw new CheckoutOperationError(
-            'SPONSORSHIP_OFFER_NOT_APPLICABLE',
-            400
-          );
-        if (offerAcceptance && !isSponsorshipContribution)
-          throw new CheckoutOperationError(
-            'SPONSORSHIP_OFFER_NOT_APPLICABLE',
-            400
-          );
         const charterAcceptance = validateCharterAcceptance(
           parsed.charterAcceptance
         );

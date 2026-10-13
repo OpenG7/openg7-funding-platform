@@ -115,7 +115,7 @@ export const createSponsorshipOfferSnapshot = (
   };
 };
 
-/** Stable serialization also rejects unknown fields/terms in historical qualifications. */
+/** Reject unknown commercial terms; a quote's derived fingerprint is not part of the snapshot. */
 export const normalizeSponsorshipOfferSnapshot = (
   value: unknown
 ): SponsorshipOfferSnapshot => {
@@ -123,6 +123,16 @@ export const normalizeSponsorshipOfferSnapshot = (
     throw new Error('Invalid sponsorship offer.');
   const input = value as Record<string, unknown>;
   if (
+    Object.keys(input).some(
+      (key) =>
+        ![
+          'version',
+          'amountMinor',
+          'currency',
+          'benefits',
+          'fingerprint'
+        ].includes(key)
+    ) ||
     typeof input.version !== 'string' ||
     !/^[a-z0-9][a-z0-9._-]{0,79}$/i.test(input.version) ||
     !Number.isSafeInteger(input.amountMinor) ||
@@ -144,6 +154,19 @@ export const normalizeSponsorshipOfferSnapshot = (
       throw new Error('Invalid offered benefit.');
     const b = value as Record<string, unknown>;
     if (
+      Object.keys(b).some(
+        (key) =>
+          ![
+            'id',
+            'channel',
+            'target',
+            'quantity',
+            'requiredElements',
+            'deadlineDays',
+            'durationDays',
+            'format'
+          ].includes(key)
+      ) ||
       typeof b.id !== 'string' ||
       !Object.hasOwn(channels, b.id) ||
       seen.has(b.id) ||
@@ -191,8 +214,9 @@ export const normalizeSponsorshipOfferSnapshot = (
       channel: channels[b.id]!,
       target: b.target as SponsorshipObligationTarget,
       quantity: b.quantity as number,
-      requiredElements:
-        b.requiredElements as SponsorshipOfferedBenefit['requiredElements'],
+      requiredElements: [
+        ...(b.requiredElements as SponsorshipOfferedBenefit['requiredElements'])
+      ],
       deadlineDays: b.deadlineDays as number | null,
       durationDays: b.durationDays as number | null,
       ...(b.format === undefined

@@ -16,6 +16,7 @@ import {
 import type { CheckoutStatusMonitor } from './checkout-status-monitor.service.js';
 import {
   CheckoutReconciliationRequiredError,
+  CheckoutRecoveryUnavailableError,
   CheckoutCharterChangedError,
   CheckoutOfferChangedError
 } from './checkout-error.js';
@@ -77,6 +78,7 @@ export class FundingHomeController {
   readonly checkoutRequiresVerification = signal(false);
   readonly checkoutCharterChanged = signal(false);
   readonly checkoutOfferChanged = signal(false);
+  readonly checkoutRecoveryUnavailable = signal(false);
   readonly pendingSponsorFollowupToken = signal<string | null>(null);
   readonly currentMonthContributions = computed(() =>
     monthlyContributions(
@@ -273,6 +275,7 @@ export class FundingHomeController {
     this.checkoutResultMode.set(null);
     this.checkoutCharterChanged.set(false);
     this.checkoutOfferChanged.set(false);
+    this.checkoutRecoveryUnavailable.set(false);
     this.loadingState.set('loading');
     try {
       const result = await this.ports.funding.startCheckout(
@@ -295,6 +298,9 @@ export class FundingHomeController {
         );
         this.checkoutOfferChanged.set(
           error instanceof CheckoutOfferChangedError
+        );
+        this.checkoutRecoveryUnavailable.set(
+          error instanceof CheckoutRecoveryUnavailableError
         );
         this.checkoutRequiresVerification.set(
           error instanceof CheckoutReconciliationRequiredError

@@ -160,6 +160,59 @@ test('corrupted recovery blocks new quotes, and failed current reads cannot be a
   assert.equal(controller.ready(), false);
 });
 
+test('unavailable recovery blocks quoting until storage is readable again', async () => {
+  let recovery = { state: 'unavailable' };
+  let requests = 0;
+  const controller = new SponsorshipOfferController({
+    resume: async () => recovery,
+    quote: async (amountMinor) => {
+      requests++;
+      return quote(amountMinor);
+    }
+  });
+  await controller.load(25000, 'CAD');
+  assert.equal(controller.state(), 'recovery_unavailable');
+  assert.equal(controller.quote(), null);
+  controller.accept(true);
+  assert.equal(controller.ready(), false);
+  assert.equal(requests, 0);
+  recovery = { state: 'none' };
+  await controller.load(25000, 'CAD');
+  assert.equal(controller.state(), 'ready');
+  assert.equal(controller.ready(), false);
+  assert.equal(requests, 1);
+});
+
+test('a new minimum prevents fresh quoting while an exact historical attempt can still be restored', async () => {
+  let recovery = { state: 'none' };
+  let requests = 0;
+  const controller = new SponsorshipOfferController({
+    resume: async () => recovery,
+    quote: async (amountMinor) => {
+      requests++;
+      return quote(amountMinor);
+    }
+  });
+  await controller.load(4500, 'CAD', false, undefined, false);
+  assert.equal(controller.state(), 'idle');
+  assert.equal(controller.quote(), null);
+  assert.equal(controller.ready(), false);
+  assert.equal(requests, 0);
+  recovery = { state: 'retained', quote: quote(4500) };
+  await controller.load(4500, 'CAD', false, undefined, false);
+  assert.equal(controller.state(), 'ready');
+  assert.equal(controller.quote().amountMinor, 4500);
+  assert.equal(controller.retained(), true);
+  controller.accept(true);
+  assert.equal(controller.ready(), true);
+  assert.equal(requests, 0);
+  await controller.load(4500, 'CAD', true, undefined, false);
+  assert.equal(controller.state(), 'idle');
+  assert.equal(controller.quote(), null);
+  assert.equal(controller.retained(), false);
+  assert.equal(requests, 0);
+});
+
 test('dispose and stale errors do not restore or clear another offer context', async () => {
   const first = deferred();
   const controller = new SponsorshipOfferController({

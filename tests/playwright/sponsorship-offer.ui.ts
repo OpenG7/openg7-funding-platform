@@ -5,8 +5,11 @@ import type { Page } from '@playwright/test';
 import {
   createSponsorshipOfferSnapshot,
   normalizeSponsorshipOfferSnapshot,
+  type CheckoutRequest,
   type SponsorshipOfferFormatOptions
 } from '@openg7/funding-core';
+
+import { checkoutIntentPayload } from '../../apps/funding-web/src/app/features/funding/services/checkout-intent.js';
 
 import { expect, test } from './support/test.js';
 import {
@@ -41,6 +44,12 @@ export function sponsorshipOfferQuote(
       .update(JSON.stringify(snapshot))
       .digest('hex')
   };
+}
+
+interface CheckoutLockFixture {
+  held: boolean;
+  release?: () => void;
+  task: Promise<void>;
 }
 
 export function registerSponsorshipCommitmentTests() {
@@ -691,28 +700,30 @@ export function registerSponsorshipOfferTests(
     }) => {
       const other = await context.newPage();
       // The parent suite intercepts only its first page; isolate the second too.
-      await other.route('**/api/**', (route) => {
-        const pathname = new URL(route.request().url()).pathname;
-        return pathname === '/api/sponsorship-charter'
-          ? route.fulfill({
-              json: {
-                active: false,
-                policyVersion: '1.0',
-                fingerprint: null,
-                text: null
-              }
-            })
-          : route.fulfill({ status: 503, json: {} });
-      });
+      const isolate = (tab: Page) =>
+        tab.route('**/api/**', (route) => {
+          const pathname = new URL(route.request().url()).pathname;
+          return pathname === '/api/sponsorship-charter'
+            ? route.fulfill({
+                json: {
+                  active: false,
+                  policyVersion: '1.0',
+                  fingerprint: null,
+                  text: null
+                }
+              })
+            : route.fulfill({ status: 503, json: {} });
+        });
+      await isolate(other);
       const pages = [page, other];
+      let reopened: Page | undefined;
       const requests: Record<string, unknown>[] = [];
       let release!: () => void;
       const held = new Promise<void>((resolve) => {
         release = resolve;
       });
-      for (const tab of pages) {
-        await setup(tab);
-        await tab.route('**/api/checkout-sessions', async (route) => {
+      const checkout = (tab: Page) =>
+        tab.route('**/api/checkout-sessions', async (route) => {
           requests.push(route.request().postDataJSON());
           const index = requests.length;
           if (index <= 2) {
@@ -732,7 +743,11 @@ export function registerSponsorshipOfferTests(
             }
           });
         });
+      for (const tab of pages) {
+        await setup(tab);
+        await checkout(tab);
       }
+      const lockName = 'openg7.checkout-attempts.v2';
       try {
         const forms = [];
         for (const tab of pages) {
@@ -741,23 +756,456 @@ export function registerSponsorshipOfferTests(
           await expect(form.submit).toBeEnabled();
           forms.push(form);
         }
+        await page.evaluate((name) => {
+          const state = { held: false } as CheckoutLockFixture;
+          (
+            window as unknown as { checkoutLockFixture: CheckoutLockFixture }
+          ).checkoutLockFixture = state;
+          state.task = navigator.locks
+            .request(name, async () => {
+              state.held = true;
+              await new Promise<void>((resolve) => {
+                state.release = resolve;
+              });
+              state.held = false;
+            })
+            .then(() => undefined);
+        }, lockName);
+        await expect
+          .poll(() =>
+            page.evaluate(
+              () =>
+                (
+                  window as unknown as {
+                    checkoutLockFixture: CheckoutLockFixture;
+                  }
+                ).checkoutLockFixture.held
+            )
+          )
+          .toBe(true);
         await Promise.all(forms.map((form) => form.submit.click()));
+        await expect
+          .poll(() =>
+            page.evaluate(async (name) => {
+              const snapshot = await navigator.locks.query();
+              return (
+                snapshot.pending?.filter((lock) => lock.name === name).length ??
+                0
+              );
+            }, lockName)
+          )
+          .toBeGreaterThanOrEqual(2);
+        expect(requests).toHaveLength(0);
+        await page.evaluate(async () => {
+          const state = (
+            window as unknown as { checkoutLockFixture: CheckoutLockFixture }
+          ).checkoutLockFixture;
+          state.release?.();
+          await state.task;
+        });
+        // Cache coordination releases the lock before either API response arrives.
         await expect.poll(() => requests.length).toBe(2);
         expect(requests[1]).toEqual(requests[0]);
         release();
+        for (const form of forms)
+          await expect(form.form.getByRole('alert')).toBeVisible();
         await expect(forms[0].submit).toBeEnabled();
-        const retained = await page.evaluate(() =>
-          localStorage.getItem('openg7.checkout-attempts.v2')
+        const retained = await page.evaluate(() => ({
+          attempts: localStorage.getItem('openg7.checkout-attempts.v2'),
+          offer: localStorage.getItem('openg7.checkout-offer-recovery.v1')
+        }));
+        for (const serialized of [retained.attempts, retained.offer]) {
+          expect(serialized).not.toBeNull();
+          expect(Object.values(JSON.parse(serialized!))).toEqual([
+            expect.objectContaining({
+              idempotencyKey: requests[0].idempotencyKey,
+              expiresAt: expect.any(Number)
+            })
+          ]);
+        }
+        await Promise.all(pages.map((tab) => tab.close()));
+        reopened = await context.newPage();
+        await isolate(reopened);
+        await setup(reopened);
+        await checkout(reopened);
+        const resumed = await open(reopened);
+        await expect(resumed.offer).toContainText('sponsorship-v1');
+        await expect(resumed.offer).toContainText(
+          english
+            ? 'resuming a submitted attempt'
+            : 'reprenez une tentative déjà soumise'
         );
-        expect(retained).toContain(String(requests[0].idempotencyKey));
-        await forms[0].submit.click();
+        await expect(resumed.acceptance).not.toBeChecked();
+        await expect(resumed.submit).toBeDisabled();
+        await resumed.form.locator('#custom-contribution').fill('250');
+        await resumed.offer
+          .getByRole('button', {
+            name: english ? /Resume the/ : /Reprendre la/
+          })
+          .click();
+        await resumed.form
+          .getByLabel(
+            english
+              ? /OpenG7 is an independent project/
+              : /OpenG7 est un projet indépendant/
+          )
+          .check();
+        await resumed.acceptance.check();
+        await resumed.submit.click();
         await expect.poll(() => requests.length).toBe(3);
         expect(requests[2]).toEqual(requests[0]);
+        await expect
+          .poll(() =>
+            reopened!.evaluate(() => ({
+              attempts: localStorage.getItem('openg7.checkout-attempts.v2'),
+              offer: localStorage.getItem('openg7.checkout-offer-recovery.v1')
+            }))
+          )
+          .toEqual({ attempts: null, offer: null });
       } finally {
         release();
+        if (!page.isClosed())
+          await page.evaluate(async () => {
+            const state = (
+              window as unknown as {
+                checkoutLockFixture?: CheckoutLockFixture;
+              }
+            ).checkoutLockFixture;
+            state?.release?.();
+            await state?.task;
+          });
         await other.close();
+        await reopened?.close();
       }
     });
+    test(
+      `sponsorship offer cannot replace an uncertain operation after changing its consent ${suffix}`,
+      { tag: '@offer-ui' },
+      async ({ page }) => {
+        await setup(page);
+        const requests: Record<string, unknown>[] = [];
+        await page.route('**/api/checkout-sessions', (route) => {
+          requests.push(route.request().postDataJSON());
+          return route.abort('failed');
+        });
+        const { form, acceptance, submit } = await open(page);
+        await acceptance.check();
+        await submit.click();
+        await expect(form.getByRole('alert')).toBeVisible();
+        expect(requests).toHaveLength(1);
+        expect(requests[0].displayAmountConsent).toBe(false);
+        const retained = await page.evaluate(() => ({
+          attempts: localStorage.getItem('openg7.checkout-attempts.v2'),
+          offer: localStorage.getItem('openg7.checkout-offer-recovery.v1')
+        }));
+        for (const serialized of [retained.attempts, retained.offer])
+          expect(Object.values(JSON.parse(serialized!))).toEqual([
+            expect.objectContaining({
+              idempotencyKey: requests[0].idempotencyKey
+            })
+          ]);
+        await form
+          .getByLabel(
+            english
+              ? /individual amount to be displayed/i
+              : /affichage du montant/i
+          )
+          .check();
+        await submit.click();
+        await expect(form.getByRole('alert')).toContainText(
+          english ? 'requires verification' : 'nécessite une vérification'
+        );
+        await expect(submit).toBeDisabled();
+        await form.dispatchEvent('submit');
+        expect(requests).toHaveLength(1);
+        expect(
+          await page.evaluate(() => ({
+            attempts: localStorage.getItem('openg7.checkout-attempts.v2'),
+            offer: localStorage.getItem('openg7.checkout-offer-recovery.v1')
+          }))
+        ).toEqual(retained);
+      }
+    );
+
+    test(
+      `sponsorship offer reports unavailable recovery without claiming payment uncertainty ${suffix}`,
+      { tag: '@offer-ui' },
+      async ({ page, context }) => {
+        await setup(page);
+        await context.addInitScript(() => {
+          const original = Storage.prototype.getItem;
+          (
+            window as unknown as { restoreCheckoutStorage: () => void }
+          ).restoreCheckoutStorage = () => {
+            Storage.prototype.getItem = original;
+          };
+          Storage.prototype.getItem = function (key) {
+            if (key.startsWith('openg7.checkout'))
+              throw new DOMException(
+                'Synthetic denied storage',
+                'SecurityError'
+              );
+            return original.call(this, key);
+          };
+        });
+        let reads = 0;
+        let calls = 0;
+        await page.route('**/api/sponsorship-offer?**', (route) => {
+          reads++;
+          return route.fulfill({
+            json: sponsorshipOfferQuote(
+              Number(
+                new URL(route.request().url()).searchParams.get('amountMinor')
+              )
+            )
+          });
+        });
+        await page.route('**/api/checkout-sessions', (route) => {
+          calls++;
+          return route.fulfill({
+            json: {
+              status: 'mocked',
+              checkoutId: 'synthetic-storage-retry',
+              redirectUrl: 'https://example.test/unused'
+            }
+          });
+        });
+        const { form, offer, acceptance, submit } = await open(page);
+        await expect(offer.getByRole('alert')).toContainText(
+          english
+            ? 'Recovery cannot be read or retained'
+            : 'La reprise ne peut pas être lue ou conservée'
+        );
+        await expect(offer.getByRole('alert')).not.toContainText(
+          english ? 'requires verification' : 'nécessite une vérification'
+        );
+        await expect(submit).toBeDisabled();
+        expect(reads).toBe(0);
+        expect(calls).toBe(0);
+        await page.evaluate(() =>
+          (
+            window as unknown as { restoreCheckoutStorage: () => void }
+          ).restoreCheckoutStorage()
+        );
+        await offer
+          .getByRole('button', {
+            name: english ? 'Try again' : 'Réessayer',
+            exact: true
+          })
+          .click();
+        await expect(offer).toHaveAttribute('aria-busy', 'false');
+        await expect(acceptance).toBeVisible();
+        await expect(acceptance).not.toBeChecked();
+        await expect(submit).toBeDisabled();
+        expect(reads).toBe(1);
+        expect(calls).toBe(0);
+        await acceptance.check();
+        await submit.click();
+        await expect.poll(() => calls).toBe(1);
+        await expect(
+          form
+            .getByRole('status')
+            .filter({ hasText: english ? /Local mode/ : /Mode local/ })
+        ).toBeVisible();
+      }
+    );
+
+    test(
+      `sponsorship offer prevents the first Checkout call when storing its public terms fails ${suffix}`,
+      { tag: '@offer-ui' },
+      async ({ page, context }) => {
+        await setup(page);
+        await context.addInitScript(() => {
+          const original = Storage.prototype.setItem;
+          Storage.prototype.setItem = function (key, value) {
+            if (key === 'openg7.checkout-offer-recovery.v1')
+              throw new DOMException('Synthetic quota', 'QuotaExceededError');
+            return original.call(this, key, value);
+          };
+        });
+        let calls = 0;
+        await page.route('**/api/checkout-sessions', (route) => {
+          calls++;
+          return route.fulfill({
+            json: {
+              status: 'mocked',
+              checkoutId: 'synthetic-storage-failure',
+              redirectUrl: 'https://example.test/unused'
+            }
+          });
+        });
+        const { form, acceptance, submit } = await open(page);
+        await acceptance.check();
+        await submit.click();
+        await expect(form.getByRole('alert')).toContainText(
+          english
+            ? 'Recovery cannot be read or retained'
+            : 'La reprise ne peut pas être lue ou conservée'
+        );
+        expect(calls).toBe(0);
+        expect(
+          await page.evaluate(() => ({
+            attempts: localStorage.getItem('openg7.checkout-attempts.v2'),
+            offer: localStorage.getItem('openg7.checkout-offer-recovery.v1'),
+            verification: localStorage.getItem(
+              'openg7.checkout-verification-required.v1'
+            )
+          }))
+        ).toEqual({ attempts: null, offer: null, verification: null });
+      }
+    );
+
+    test(
+      `sponsorship offer resumes historical 45 CAD terms below the current minimum and blocks a new payment after cleanup ${suffix}`,
+      { tag: '@offer-ui' },
+      async ({ page }) => {
+        await setup(page);
+        const terms = normalizeSponsorshipOfferSnapshot({
+          ...sponsorshipOfferQuote(5000),
+          amountMinor: 4500,
+          version: 'synthetic-retained-v0'
+        });
+        const historical = {
+          ...terms,
+          fingerprint: createHash('sha256')
+            .update(JSON.stringify(terms))
+            .digest('hex')
+        };
+        let quoteReads = 0;
+        const requests: CheckoutRequest[] = [];
+        await page.route('**/api/sponsorship-offer?**', (route) => {
+          quoteReads++;
+          const amountMinor = Number(
+            new URL(route.request().url()).searchParams.get('amountMinor')
+          );
+          if (amountMinor === 4500)
+            return route.fulfill({
+              status: 400,
+              json: { code: 'INVALID_SPONSORSHIP_AMOUNT' }
+            });
+          return route.fulfill({
+            json: sponsorshipOfferQuote(amountMinor, 'synthetic-current-v2')
+          });
+        });
+        await page.route('**/api/checkout-sessions', (route) => {
+          requests.push(route.request().postDataJSON());
+          return requests.length === 1
+            ? route.abort('failed')
+            : route.fulfill({
+                json: {
+                  status: 'mocked',
+                  checkoutId: 'synthetic-historical-retry',
+                  redirectUrl: 'https://example.test/unused'
+                }
+              });
+        });
+        const { form, offer, acceptance, submit } = await open(page);
+        await expect(offer).toContainText('synthetic-current-v2');
+        await acceptance.check();
+        await expect(submit).toBeEnabled();
+        await submit.click();
+        await expect(form.getByRole('alert')).toBeVisible();
+        expect(requests).toHaveLength(1);
+        expect(requests[0].amount).toBe(50);
+        const retained = await page.evaluate(() => ({
+          attempts: localStorage.getItem('openg7.checkout-attempts.v2'),
+          offer: localStorage.getItem('openg7.checkout-offer-recovery.v1')
+        }));
+        for (const serialized of [retained.attempts, retained.offer])
+          expect(Object.values(JSON.parse(serialized!))).toEqual([
+            expect.objectContaining({
+              idempotencyKey: requests[0].idempotencyKey,
+              expiresAt: expect.any(Number)
+            })
+          ]);
+        // A past server offer can be below today's compiled minimum. Preserve
+        // the actual reservation's UUID and expiries while rebuilding its exact
+        // historical intent digest with the same production normalization.
+        const { idempotencyKey, ...capturedIntent } = requests[0];
+        const historicalIntent = {
+          ...capturedIntent,
+          amount: 45,
+          offerAcceptance: {
+            version: historical.version,
+            fingerprint: historical.fingerprint
+          }
+        };
+        const historicalRequest = { ...historicalIntent, idempotencyKey };
+        const historicalDigest = createHash('sha256')
+          .update(checkoutIntentPayload(historicalIntent))
+          .digest('hex');
+        const attemptRecord = Object.values(JSON.parse(retained.attempts!))[0];
+        const offerRecord = Object.values(JSON.parse(retained.offer!))[0];
+        await page.evaluate(
+          ({ digest, attempt, retainedOffer, quote }) => {
+            localStorage.setItem(
+              'openg7.checkout-attempts.v2',
+              JSON.stringify({ [digest]: attempt })
+            );
+            localStorage.setItem(
+              'openg7.checkout-offer-recovery.v1',
+              JSON.stringify({ [digest]: { ...retainedOffer, quote } })
+            );
+          },
+          {
+            digest: historicalDigest,
+            attempt: attemptRecord,
+            retainedOffer: offerRecord as Record<string, unknown>,
+            quote: historical
+          }
+        );
+        const readsBeforeReload = quoteReads;
+        await page.reload();
+        await expect(offer).toContainText('synthetic-retained-v0');
+        await expect(offer).not.toContainText('synthetic-current-v2');
+        expect(quoteReads).toBe(readsBeforeReload);
+        await expect(acceptance).not.toBeChecked();
+        await expect(submit).toBeDisabled();
+        await offer
+          .getByRole('button', {
+            name: english ? /Resume the/ : /Reprendre la/
+          })
+          .click();
+        await form
+          .getByLabel(
+            english
+              ? /OpenG7 is an independent project/
+              : /OpenG7 est un projet indépendant/
+          )
+          .check();
+        await acceptance.check();
+        await expect(submit).toBeEnabled();
+        await submit.click();
+        await expect.poll(() => requests.length).toBe(2);
+        expect(requests[1]).toEqual(historicalRequest);
+        expect(quoteReads).toBe(readsBeforeReload);
+        await expect
+          .poll(() =>
+            page.evaluate(() => ({
+              attempts: localStorage.getItem('openg7.checkout-attempts.v2'),
+              offer: localStorage.getItem('openg7.checkout-offer-recovery.v1')
+            }))
+          )
+          .toEqual({ attempts: null, offer: null });
+        await page.reload();
+        await expect(offer).toContainText('synthetic-current-v2');
+        await form.locator('#custom-contribution').fill('45');
+        await expect(form.locator('#custom-contribution')).toHaveAttribute(
+          'aria-invalid',
+          'true'
+        );
+        await expect(submit).toBeDisabled();
+        await form.dispatchEvent('submit');
+        expect(requests).toHaveLength(2);
+        expect(
+          await page.evaluate(() => ({
+            attempts: localStorage.getItem('openg7.checkout-attempts.v2'),
+            offer: localStorage.getItem('openg7.checkout-offer-recovery.v1')
+          }))
+        ).toEqual({ attempts: null, offer: null });
+      }
+    );
+
     test(
       `sponsorship offer changing format requires fresh exact terms and keeps an uncertain retry ${suffix}`,
       { tag: '@offer-ui' },

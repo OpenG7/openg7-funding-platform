@@ -21,11 +21,25 @@ export const fingerprint = (value: unknown) =>
   createHash('sha256').update(JSON.stringify(value)).digest('hex');
 export const validateCommand = (
   input: unknown,
-  idKey: string
+  idKey: 'contributionId' | 'obligationId',
+  schema?: {
+    readonly fields: readonly string[];
+    readonly unknownFieldCode?: string;
+  }
 ): Record<string, unknown> => {
   if (!input || typeof input !== 'object' || Array.isArray(input))
     throw new SponsorshipCommitmentError('COMMITMENT_INVALID', 400);
   const value = input as Record<string, unknown>;
+  const fields = schema?.fields ?? [
+    'requestId',
+    idKey,
+    'expectedVersion',
+    'confirmation',
+    'reason',
+    ...(idKey === 'contributionId'
+      ? ['evidenceReference', 'offer']
+      : ['kind', 'target', 'format'])
+  ];
   if (
     !isValidUuid(value.requestId) ||
     !isValidUuid(value[idKey]) ||
@@ -35,6 +49,11 @@ export const validateCommand = (
     !text(value.reason)
   )
     throw new SponsorshipCommitmentError('COMMITMENT_INVALID', 400);
+  if (Object.keys(value).some((key) => !fields.includes(key)))
+    throw new SponsorshipCommitmentError(
+      schema?.unknownFieldCode ?? 'COMMITMENT_INVALID',
+      400
+    );
   return value;
 };
 export const prior = async (

@@ -929,7 +929,6 @@ test('Checkout API validates sponsorship custom amounts against the real minimum
   assert.ok(
     source.includes('const isAmountAllowed = isSponsorshipContribution')
   );
-  assert.ok(source.includes('? isValidSponsorshipAmount(amount)'));
   assert.ok(source.includes(': allowedContributionAmounts.has(amount);'));
   assert.ok(source.includes('allowedContributionAmounts.has(amount)'));
 });

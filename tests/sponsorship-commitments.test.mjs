@@ -19,7 +19,11 @@ import { loadSponsorshipCommitment } from '../dist/apps/funding-api/src/sponsors
 import { createSponsorshipCommitmentsHttpHandler } from '../dist/apps/funding-api/src/sponsorship-commitments/admin-http.js';
 import { createPublicPaymentsHttpHandler } from '../dist/apps/funding-api/src/public-payments.http.js';
 import { previewSponsorshipCommitmentAdoption } from '../dist/apps/funding-api/src/sponsorship-commitments/adoption.js';
-import { adjustSponsorshipObligation } from '../dist/apps/funding-api/src/sponsorship-commitments/changes.js';
+import {
+  adjustSponsorshipObligation,
+  qualifySponsorshipCommitment
+} from '../dist/apps/funding-api/src/sponsorship-commitments/changes.js';
+import { validateCommand } from '../dist/apps/funding-api/src/sponsorship-commitments/change-support.js';
 import { createSponsorshipFollowupHttpHandler } from '../dist/apps/funding-api/src/sponsorship-followup.http.js';
 
 test('offered benefits use safe integer minor units, an explicit CAD currency and exact boundaries', () => {
@@ -205,6 +209,117 @@ test('offer acceptance is a strict reference and historical terms reject foreign
         benefits: [{ ...quote.benefits[0], ...change }]
       })
     );
+});
+
+test('normalization rejects unrecognized commercial promises before hashing or qualification', () => {
+  const snapshot = createSponsorshipOfferSnapshot(50000, 'CAD');
+  for (const unknown of [
+    { ...snapshot, guaranteedReach: 1000 },
+    {
+      ...snapshot,
+      benefits: [{ ...snapshot.benefits[0], individualPhoto: true }]
+    },
+    {
+      ...snapshot,
+      benefits: [{ ...snapshot.benefits[0], deadlineHours: 24 }]
+    }
+  ]) {
+    assert.throws(() => normalizeSponsorshipOfferSnapshot(unknown));
+    assert.throws(() => sponsorshipOfferFingerprint(unknown));
+  }
+});
+
+test('normalization isolates every recorded requirement array from later source mutation', () => {
+  const snapshot = createSponsorshipOfferSnapshot(50000, 'CAD', undefined, {
+    facebook: 'individual_portrait'
+  });
+  const normalized = normalizeSponsorshipOfferSnapshot(snapshot);
+  const hash = sponsorshipOfferFingerprint(normalized);
+  snapshot.benefits[0].requiredElements.push('approved_logo');
+  snapshot.benefits[0].quantity = 2;
+  snapshot.benefits[1].requiredElements.splice(0, 1);
+  snapshot.benefits.push({ ...snapshot.benefits[0] });
+  assert.equal(normalized.benefits.length, 3);
+  assert.equal(normalized.benefits[0].quantity, 1);
+  assert.equal(normalized.benefits[1].format, 'individual_portrait');
+  for (const benefit of normalized.benefits)
+    assert.deepEqual(benefit.requiredElements, [
+      'company_name',
+      'approved_presentation'
+    ]);
+  assert.equal(sponsorshipOfferFingerprint(normalized), hash);
+});
+
+test('normalization accepts quote metadata but recomputes the fingerprint from current commercial terms', () => {
+  const quote = quoteSponsorshipOffer(50000, 'CAD', undefined, {
+    facebook: 'individual_portrait'
+  });
+  const { fingerprint, ...snapshot } = quote;
+  assert.deepEqual(normalizeSponsorshipOfferSnapshot(quote), snapshot);
+  assert.equal(sponsorshipOfferFingerprint(quote), fingerprint);
+  const foreignDigest = { ...quote, fingerprint: '0'.repeat(64) };
+  assert.deepEqual(normalizeSponsorshipOfferSnapshot(foreignDigest), snapshot);
+  assert.equal(sponsorshipOfferFingerprint(foreignDigest), fingerprint);
+  assert.notEqual(fingerprint, foreignDigest.fingerprint);
+  assert.equal(Object.hasOwn(snapshot, 'fingerprint'), false);
+});
+
+test('unknown administrative terms are refused before database access', async () => {
+  const id = '00000000-0000-4000-8000-000000000041';
+  const db = { query: () => assert.fail('no database access') };
+  const common = {
+    requestId: id,
+    expectedVersion: 1,
+    confirmation: id,
+    reason: 'Synthetic explicit agreement'
+  };
+  const qualification = {
+    ...common,
+    contributionId: id,
+    evidenceReference: 'synthetic://agreement',
+    offer: {
+      ...createSponsorshipOfferSnapshot(50000, 'CAD'),
+      version: 'historical-qualification-v1'
+    }
+  };
+  for (const extra of [
+    { guarantee: 'reach' },
+    { kind: 'waiver' },
+    { format: 'individual_portrait' }
+  ])
+    await assert.rejects(
+      qualifySponsorshipCommitment(
+        db,
+        { ...qualification, ...extra },
+        `admin:${id}`
+      ),
+      { code: 'COMMITMENT_INVALID' }
+    );
+  for (const extra of [
+    { payment: 'refunded' },
+    { offer: qualification.offer },
+    { evidenceReference: 'synthetic://foreign' }
+  ])
+    await assert.rejects(
+      adjustSponsorshipObligation(
+        db,
+        { ...common, obligationId: id, kind: 'waiver', ...extra },
+        `admin:${id}`
+      ),
+      { code: 'COMMITMENT_INVALID' }
+    );
+  assert.deepEqual(
+    validateCommand(qualification, 'contributionId'),
+    qualification
+  );
+  for (const terms of [
+    { kind: 'destination', target: 'openg20' },
+    { kind: 'waiver' },
+    { kind: 'format', format: 'individual_portrait' }
+  ]) {
+    const adjustment = { ...common, obligationId: id, ...terms };
+    assert.deepEqual(validateCommand(adjustment, 'obligationId'), adjustment);
+  }
 });
 
 test('malformed format adjustments reject before reading or writing a dossier', async () => {

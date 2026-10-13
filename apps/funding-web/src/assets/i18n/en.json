@@ -3558,6 +3558,8 @@
       "unavailable": "The offer could not be loaded. Try again before starting payment.",
       "changed": "The offer changed before payment started. Review the benefits and confirm the new offer.",
       "retained": "You are resuming a submitted attempt with the offer accepted at that time. Its terms are retained.",
+      "recoveryUnavailable": "Recovery cannot be read or retained in this browser. A new sponsorship payment cannot start until it is available. Check the browser storage settings, then try again.",
+      "support": "Contact the team to verify this attempt",
       "resumeAmount": "Resume the {{amount}} sponsorship",
       "format": "Format:",
       "defaultFormat": "As stated in the displayed offer",

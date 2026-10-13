@@ -30,7 +30,6 @@ import {
 import { loadSponsorshipObligationTimings } from './read.js';
 
 function validateTimingCommand(raw: unknown): SponsorshipTimingCommandRequest {
-  const value = validateCommand(raw, 'obligationId');
   const allowed = [
     'requestId',
     'obligationId',
@@ -43,8 +42,11 @@ function validateTimingCommand(raw: unknown): SponsorshipTimingCommandRequest {
     'startObservationId',
     'continuityConfirmed'
   ];
+  const value = validateCommand(raw, 'obligationId', {
+    fields: allowed,
+    unknownFieldCode: 'TIMING_INVALID'
+  });
   if (
-    Object.keys(value).some((key) => !allowed.includes(key)) ||
     typeof value.kind !== 'string' ||
     !['origin', 'observe', 'duration'].includes(String(value.kind))
   )

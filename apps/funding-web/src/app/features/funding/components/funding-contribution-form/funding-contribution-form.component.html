@@ -219,6 +219,17 @@
         <p role="alert">
           {{ 'funding.home.contribution.verificationRequired' | translate }}
         </p>
+        <a [routerLink]="supportPath()" fragment="contribution-help">{{
+          'funding.offer.support' | translate
+        }}</a>
+      }
+      @if (offer.state() === 'recovery_unavailable') {
+        <p role="alert">
+          {{ 'funding.offer.recoveryUnavailable' | translate }}
+        </p>
+        <button type="button" (click)="reloadOffer()">
+          {{ 'funding.followup.retry' | translate }}
+        </button>
       }
       @if (offer.quote(); as quoted) {
         @if (offer.retained()) {
@@ -383,10 +394,28 @@
         ? 'funding.home.contribution.verificationRequired'
         : checkoutCharterChanged()
           ? 'funding.charter.changed'
-          : checkoutOfferChanged()
-            ? 'funding.offer.changed'
-            : 'funding.home.contribution.error'
+          : checkoutRecoveryUnavailable()
+            ? 'funding.offer.recoveryUnavailable'
+            : checkoutOfferChanged()
+              ? 'funding.offer.changed'
+              : 'funding.home.contribution.error'
       ) | translate
     }}
   </p>
+  @if (
+    checkoutRequiresVerification() && offer.state() !== 'verification_required'
+  ) {
+    <a [routerLink]="supportPath()" fragment="contribution-help">{{
+      'funding.offer.support' | translate
+    }}</a>
+  }
+  @if (
+    checkoutRecoveryUnavailable() &&
+    offer.state() !== 'recovery_unavailable' &&
+    offer.state() !== 'error'
+  ) {
+    <button type="button" (click)="reloadOffer()">
+      {{ 'funding.followup.retry' | translate }}
+    </button>
+  }
 </form>

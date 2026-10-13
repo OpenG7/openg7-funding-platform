@@ -3554,6 +3554,8 @@
       "unavailable": "L’offre ne peut pas être chargée. Réessayez avant de commencer le paiement.",
       "changed": "L’offre a changé avant le début du paiement. Relisez les avantages et confirmez la nouvelle offre.",
       "retained": "Vous reprenez une tentative déjà soumise avec l’offre acceptée à ce moment-là. Ses conditions sont conservées.",
+      "recoveryUnavailable": "La reprise ne peut pas être lue ou conservée dans ce navigateur. Une nouvelle commandite ne peut pas démarrer tant qu’elle n’est pas disponible. Vérifiez les paramètres de stockage du navigateur, puis réessayez.",
+      "support": "Contacter l’équipe pour vérifier cette tentative",
       "resumeAmount": "Reprendre la commandite de {{amount}}",
       "format": "Format :",
       "defaultFormat": "Selon l’offre affichée",

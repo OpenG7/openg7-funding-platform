@@ -61,12 +61,18 @@ entries expire after 24 hours. Expiration first persists a verification marker,
 then removes the expired entries; it never grants permission for a fresh payment.
 Unreadable legacy session/local caches require verification. A new sponsorship
 requires both its UUID and public terms to be durably retained before any call.
+Unreadable storage and failed term writes display a specific French/English
+recovery message and retry action, without claiming that a payment was sent.
+Uncertain attempts instead display the verification message and link to support.
 Local mocked business Checkout also
 requires the displayed reference, but creates no payment, durable operation or
 obligation.
 
 Repeated durable operations skip offer preparation: their original terms remain
-unchanged after a price change. Operations prepared before 041 without an offer
+unchanged after a price change, including an increased minimum. The Web restores
+the original amount and terms, and the API reconciles the existing operation
+before applying the current minimum to a new operation. Operations prepared
+before 041 without an offer
 can replay their original payload; confirmed dossiers remain explicitly
 `needs_confirmation` rather than receiving today's benefits. Stripe-confirmed
 payment activates one set of obligations from a matching operation/reference,

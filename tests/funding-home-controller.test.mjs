@@ -4,6 +4,7 @@ import test from 'node:test';
 import { FundingHomeController } from '../dist/apps/funding-web/src/app/features/funding/services/funding-home-controller.js';
 import {
   CheckoutOfferChangedError,
+  CheckoutRecoveryUnavailableError,
   CheckoutReconciliationRequiredError
 } from '../dist/apps/funding-web/src/app/features/funding/services/checkout-error.js';
 
@@ -518,6 +519,22 @@ test('the page forwards the exact offer snapshot and separates changed terms fro
   await f.controller.supportProject(business);
   assert.equal(f.controller.checkoutOfferChanged(), false);
   assert.equal(f.controller.checkoutRequiresVerification(), true);
+});
+
+test('unavailable Checkout storage has distinct feedback and clears on a successful retry', async (t) => {
+  const f = fixture(t);
+  f.ports.funding.startCheckout = async () => {
+    throw new CheckoutRecoveryUnavailableError();
+  };
+  await f.controller.supportProject(submission);
+  assert.equal(f.controller.checkoutRecoveryUnavailable(), true);
+  assert.equal(f.controller.checkoutRequiresVerification(), false);
+  assert.equal(f.controller.loadingState(), 'error');
+  assert.deepEqual(f.navigations, []);
+  f.ports.funding.startCheckout = async () => ({ status: 'mocked' });
+  await f.controller.supportProject(submission);
+  assert.equal(f.controller.checkoutRecoveryUnavailable(), false);
+  assert.equal(f.controller.loadingState(), 'success');
 });
 
 test('instances keep snapshots, submission feedback and configuration isolated', async (t) => {

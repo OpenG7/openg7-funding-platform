@@ -6,6 +6,7 @@ import { createPublicPaymentsHttpHandler } from '../dist/apps/funding-api/src/pu
 import { readBody } from '../dist/apps/funding-api/src/http-transport.js';
 import { CheckoutOperationError } from '../dist/apps/funding-api/src/checkout-operations.service.js';
 import { quoteSponsorshipOffer } from '../dist/apps/funding-api/src/sponsorship-commitments/offers.js';
+import { DEFAULT_SPONSORSHIP_PRICING_CONFIG } from '../dist/packages/funding-core/src/index.js';
 
 const origin = 'https://funding.example.test';
 const reference = 'OG7-2026-ABCDEF';
@@ -236,11 +237,6 @@ test('Checkout preserves validation statuses and blocks provider/persistence on 
       { ...payload, publicDisplayName: 'x'.repeat(101) },
       400,
       'Public display name is too long.'
-    ],
-    [
-      { ...payload, amount: 49, contributionType: 'sponsorship_interest' },
-      400,
-      'Checkout amount is not allowed.'
     ]
   ];
   for (const [input, status, error] of cases) {
@@ -255,6 +251,30 @@ test('Checkout preserves validation statuses and blocks provider/persistence on 
       ['body', 'response']
     );
   }
+  const belowMinimum = {
+    ...payload,
+    amount: 49,
+    contributionType: 'sponsorship_interest'
+  };
+  const durable = fixture();
+  const refused = await durable.invoke(belowMinimum);
+  assert.equal(refused.status, 400);
+  assert.equal(refused.payload.code, 'SPONSORSHIP_OFFER_INVALID');
+  assert.ok(
+    !durable.calls.some(({ name }) =>
+      ['offer', 'provider', 'persist'].includes(name)
+    )
+  );
+  const local = fixture({ stripeEnabled: false, isProduction: false });
+  assert.deepEqual(await local.invoke(belowMinimum), {
+    handled: true,
+    status: 400,
+    payload: { error: 'Checkout amount is not allowed.' }
+  });
+  assert.deepEqual(
+    local.calls.map(({ name }) => name),
+    ['body', 'response']
+  );
   const disabled = fixture({ businessSponsorshipEnabled: false });
   assert.deepEqual(
     await disabled.invoke({
@@ -490,6 +510,105 @@ test('Checkout binds the accepted formats before provider access and preserves r
       ['provider', 'persist', 'offer'].includes(name)
     )
   );
+});
+
+test('a durable accepted offer replays below a changed minimum while new and mocked Checkouts keep current pricing', async (t) => {
+  const pricing = DEFAULT_SPONSORSHIP_PRICING_CONFIG;
+  const originalMinimum = pricing.minimumAmount;
+  t.after(() => {
+    pricing.minimumAmount = originalMinimum;
+  });
+  const quote = quoteSponsorshipOffer(5000, 'CAD');
+  const request = {
+    ...payload,
+    amount: 50,
+    contributionType: 'sponsorship_interest',
+    offerAcceptance: { version: quote.version, fingerprint: quote.fingerprint }
+  };
+  let operation;
+  let preparationCount = 0;
+  const f = fixture({
+    runCheckout: async (input) => {
+      if (operation) {
+        assert.equal(input.key, operation.key);
+        assert.equal(input.requestHash, operation.requestHash);
+        return operation.result;
+      }
+      preparationCount++;
+      input.prepare('00000000-0000-4000-8000-000000000001');
+      await input.afterPrepare({}, '00000000-0000-4000-8000-000000000001');
+      operation = {
+        key: input.key,
+        requestHash: input.requestHash,
+        result: {
+          checkoutId: session.id,
+          redirectUrl: session.url,
+          status: 'redirected'
+        }
+      };
+      return operation.result;
+    }
+  });
+  const initial = await f.invoke(request);
+  assert.equal(initial.status, 200);
+  assert.equal(
+    f.calls.find(({ name }) => name === 'offer').value.quote.amountMinor,
+    5000
+  );
+  pricing.minimumAmount = 100;
+  assert.deepEqual(await f.invoke(request), initial);
+  assert.equal(preparationCount, 1);
+  assert.equal(f.calls.filter(({ name }) => name === 'offer').length, 1);
+
+  const fresh = fixture();
+  const refused = await fresh.invoke({
+    ...request,
+    idempotencyKey: 'synthetic-new-below-minimum'
+  });
+  assert.equal(refused.status, 400);
+  assert.equal(refused.payload.code, 'SPONSORSHIP_OFFER_INVALID');
+  assert.ok(
+    !fresh.calls.some(({ name }) =>
+      ['offer', 'provider', 'persist'].includes(name)
+    )
+  );
+
+  const mocked = fixture({ stripeEnabled: false, isProduction: false });
+  assert.equal((await mocked.invoke(request)).status, 400);
+  assert.ok(
+    !mocked.calls.some(({ name }) =>
+      ['offer', 'operation', 'provider', 'persist'].includes(name)
+    )
+  );
+});
+
+test('a personal contribution refuses sponsorship acceptance and formats before durable or local mocked Checkout', async () => {
+  const quote = quoteSponsorshipOffer(5000, 'CAD');
+  const offerAcceptance = {
+    version: quote.version,
+    fingerprint: quote.fingerprint
+  };
+  const offerFormats = { facebook: 'individual_portrait' };
+  for (const options of [
+    { stripeEnabled: false, isProduction: false },
+    { stripeApiHost: '127.0.0.1', isProduction: false },
+    {}
+  ]) {
+    for (const terms of [
+      { offerAcceptance },
+      { offerFormats },
+      { offerAcceptance, offerFormats }
+    ]) {
+      const f = fixture(options);
+      const result = await f.invoke({ ...payload, ...terms });
+      assert.equal(result.status, 400);
+      assert.equal(result.payload.code, 'SPONSORSHIP_OFFER_NOT_APPLICABLE');
+      assert.deepEqual(
+        f.calls.map(({ name }) => name),
+        ['body', 'response']
+      );
+    }
+  }
 });
 
 test('Stripe absence and simulated-host Checkout preserve production refusal and local fallback', async () => {

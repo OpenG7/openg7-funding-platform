@@ -83,11 +83,13 @@ export class FundingContributionFormComponent implements OnChanges {
       if (this.checkoutCharterChanged()) void this.charter.load();
     });
     effect(() => {
+      const parsedAmount = this.effectiveAmountMinor();
       const amountMinor =
         this.contributionType() === 'sponsorship_interest' &&
         this.sponsorshipSelectionEnabled() &&
-        !this.hasInvalidCustomContribution()
-          ? this.effectiveAmountMinor()
+        parsedAmount !== null &&
+        parsedAmount > 0
+          ? parsedAmount
           : null;
       const formats = this.offerFormats();
       untracked(() => {
@@ -96,7 +98,8 @@ export class FundingContributionFormComponent implements OnChanges {
             amountMinor,
             this.config.currency,
             false,
-            formats
+            formats,
+            this.isFreshOfferAmountAllowed(amountMinor)
           );
       });
     });
@@ -109,7 +112,8 @@ export class FundingContributionFormComponent implements OnChanges {
               amountMinor,
               this.config.currency,
               true,
-              this.offerFormats()
+              this.offerFormats(),
+              this.isFreshOfferAmountAllowed(amountMinor)
             );
         });
       }
@@ -140,10 +144,12 @@ export class FundingContributionFormComponent implements OnChanges {
   readonly checkoutRequiresVerification = input(false);
   readonly checkoutCharterChanged = input(false);
   readonly checkoutOfferChanged = input(false);
+  readonly checkoutRecoveryUnavailable = input(false);
   readonly contributionSubmitted = output<FundingContributionSubmission>();
   readonly policyPath = computed(() =>
     this.i18n.localizedPath('/politique-utilisation-remboursement')
   );
+  readonly supportPath = computed(() => this.i18n.localizedPath('/support'));
   readonly activeAmountPresets = computed<readonly number[]>(() =>
     this.contributionType() === 'sponsorship_interest'
       ? this.config.sponsorship.presetAmounts
@@ -288,8 +294,19 @@ export class FundingContributionFormComponent implements OnChanges {
     if (amount === null || parseContributionMinor(String(amount)) === null)
       return false;
     return this.contributionType() === 'sponsorship_interest'
-      ? isValidSponsorshipAmount(amount, this.config.sponsorship)
+      ? (this.offer.retained() &&
+          this.offer.state() === 'ready' &&
+          this.offer.quote()?.amountMinor ===
+            parseContributionMinor(String(amount)) &&
+          this.offer.quote()?.currency === this.config.currency) ||
+          isValidSponsorshipAmount(amount, this.config.sponsorship)
       : this.allowedAmounts().includes(amount);
+  }
+  private isFreshOfferAmountAllowed(amountMinor: number | null): boolean {
+    return (
+      amountMinor !== null &&
+      isValidSponsorshipAmount(amountMinor / 100, this.config.sponsorship)
+    );
   }
   private reconcilePreset(): void {
     if (
@@ -416,7 +433,8 @@ export class FundingContributionFormComponent implements OnChanges {
         this.effectiveAmountMinor(),
         this.config.currency,
         false,
-        this.offerFormats()
+        this.offerFormats(),
+        this.isFreshOfferAmountAllowed(this.effectiveAmountMinor())
       );
   }
 

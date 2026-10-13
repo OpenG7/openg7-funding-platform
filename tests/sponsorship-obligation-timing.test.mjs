@@ -81,6 +81,74 @@ test('timing commands reject array and object kinds before any database access',
     );
 });
 
+test('each legitimate timing command passes its own field contract before dossier lookup', async () => {
+  const obligationId = '10000000-0000-4000-8000-000000000001';
+  for (const fields of [
+    {
+      kind: 'origin',
+      originAt: '2001-01-01T00:00:00.000Z',
+      evidenceReference: 'synthetic://contract-anchor'
+    },
+    { kind: 'observe' },
+    {
+      kind: 'duration',
+      startObservationId: '30000000-0000-4000-8000-000000000001',
+      continuityConfirmed: true,
+      evidenceReference: 'synthetic://duration-proof'
+    }
+  ]) {
+    let reads = 0;
+    await assert.rejects(
+      executeSponsorshipTimingCommand(
+        {
+          query: async (sql, values) => {
+            reads++;
+            assert.match(sql, /SELECT ob\.contribution_id/);
+            assert.deepEqual(values, [obligationId]);
+            return { rows: [] };
+          }
+        },
+        {
+          requestId: '20000000-0000-4000-8000-000000000001',
+          obligationId,
+          expectedVersion: 1,
+          confirmation: obligationId,
+          reason: 'Synthetic documented timing command',
+          ...fields
+        },
+        'synthetic-owner'
+      ),
+      { code: 'COMMITMENT_NOT_FOUND', status: 404 }
+    );
+    assert.equal(reads, 1);
+  }
+});
+
+test('timing commands reject foreign administrative or commercial fields before database access', async () => {
+  const obligationId = '10000000-0000-4000-8000-000000000001';
+  for (const foreign of [
+    { payment: 'refunded' },
+    { target: 'openg20' },
+    { format: 'individual_portrait' }
+  ])
+    await assert.rejects(
+      executeSponsorshipTimingCommand(
+        { query: () => assert.fail('Database must not be touched.') },
+        {
+          requestId: '20000000-0000-4000-8000-000000000001',
+          obligationId,
+          expectedVersion: 1,
+          confirmation: obligationId,
+          reason: 'Synthetic timing review',
+          kind: 'observe',
+          ...foreign
+        },
+        'synthetic-owner'
+      ),
+      { code: 'TIMING_INVALID', status: 400 }
+    );
+});
+
 test('contract deadlines use UTC 24-hour days across daylight saving and leap days', () => {
   assert.equal(
     sponsorshipDeadlineAt('2026-03-08T04:00:00.000Z', 1),

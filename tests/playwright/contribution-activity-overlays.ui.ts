@@ -9,12 +9,12 @@ export function registerContributionActivityOverlayTests(ports: {
   sponsorshipId: string;
 }): void {
   for (const english of [false, true]) {
-    test(`contribution notifications preserve N4 decisions and keyboard history ${english ? 'EN mobile' : 'FR desktop'}`, async ({
+    test(`contribution notifications preserve N4 decisions and keyboard history ${english ? 'EN mobile enlarged text' : 'FR desktop'}`, async ({
       page
     }) => {
       await ports.setup(page);
       await page.setViewportSize(
-        english ? { width: 390, height: 844 } : { width: 1280, height: 900 }
+        english ? { width: 390, height: 844 } : { width: 1280, height: 720 }
       );
       const activity: ContributionActivityItem[] = [7403, 7402, 7401].map(
         (id) => ({
@@ -85,6 +85,8 @@ export function registerContributionActivityOverlayTests(ports: {
             name: 'Switch administration language to English'
           })
           .click();
+      if (english)
+        await page.addStyleTag({ content: 'html { font-size: 200%; }' });
       const notifications = page.locator(
         '[data-og7="contribution-notifications"]'
       );
@@ -107,6 +109,16 @@ export function registerContributionActivityOverlayTests(ports: {
           toastBox!.y < actionBox!.y + actionBox!.height &&
           toastBox!.y + toastBox!.height > actionBox!.y
       ).toBe(false);
+      expect(
+        await reject.evaluate((button) => {
+          const bounds = button.getBoundingClientRect();
+          const hit = document.elementFromPoint(
+            bounds.x + bounds.width / 2,
+            bounds.y + bounds.height / 2
+          );
+          return hit === button || (hit !== null && button.contains(hit));
+        })
+      ).toBe(true);
       await reject.click();
       const refusal = page.locator('[data-og7="dossier-rejection-form"]');
       await refusal
@@ -206,6 +218,33 @@ export function registerContributionActivityOverlayTests(ports: {
       await expect(history).toBeHidden();
       await expect(openHistory).toBeFocused();
       await expect(notifications).toBeVisible();
+      expect(claims).toHaveLength(1);
+      await notifications.scrollIntoViewIfNeeded();
+      await notifications.focus();
+      await page.keyboard.press('End');
+      await expect
+        .poll(() => notifications.evaluate((element) => element.scrollTop))
+        .toBeGreaterThan(0);
+      const newestToast = toasts.filter({ hasText: '7403' });
+      const view = newestToast.getByRole('button', {
+        name: english ? 'View preparation' : 'Voir la préparation',
+        exact: true
+      });
+      await view.click();
+      await expect(history).toBeVisible();
+      await expect(history).toContainText('DEMO-NOTIFICATION-7403');
+      await expect(notifications).toBeHidden();
+      await page.keyboard.press('Escape');
+      await expect(history).toBeHidden();
+      await expect(view).toBeFocused();
+      await expect(notifications).toBeVisible();
+      await newestToast
+        .getByRole('button', {
+          name: english ? 'Close' : 'Fermer',
+          exact: true
+        })
+        .click();
+      await expect(toasts).toHaveCount(2);
       expect(claims).toHaveLength(1);
     });
   }

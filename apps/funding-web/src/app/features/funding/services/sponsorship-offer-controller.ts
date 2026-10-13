@@ -20,7 +20,12 @@ export interface SponsorshipOfferPorts {
 export class SponsorshipOfferController {
   readonly quote = signal<SponsorshipOfferQuote | null>(null);
   readonly state = signal<
-    'idle' | 'loading' | 'ready' | 'error' | 'verification_required'
+    | 'idle'
+    | 'loading'
+    | 'ready'
+    | 'error'
+    | 'recovery_unavailable'
+    | 'verification_required'
   >('idle');
   readonly accepted = signal(false);
   readonly retained = signal(false);
@@ -40,7 +45,8 @@ export class SponsorshipOfferController {
     amountMinor: number | null,
     currency: string,
     forceFresh = false,
-    formats?: SponsorshipOfferFormatOptions
+    formats?: SponsorshipOfferFormatOptions,
+    allowNewQuote = true
   ): Promise<void> {
     const generation = ++this.generation;
     this.abort?.abort();
@@ -63,7 +69,7 @@ export class SponsorshipOfferController {
           return;
         }
         if (resume.state === 'unavailable') {
-          this.state.set('error');
+          this.state.set('recovery_unavailable');
           return;
         }
         if (resume.state === 'retained') {
@@ -73,6 +79,10 @@ export class SponsorshipOfferController {
           this.state.set('ready');
           return;
         }
+      }
+      if (!allowNewQuote) {
+        this.state.set('idle');
+        return;
       }
       const quote = await this.ports.quote(
         amountMinor,
