@@ -62,6 +62,10 @@ financial writes use the existing idempotent CLI/webhook engine. No payout impor
 new charge, refund request, historical email, invoice generation or publication
 is triggered. Existing refund/dispute facts are reconciled. Sessions without
 matching project metadata are excluded; legacy consent is not assumed.
+Confirmed refunds also issue missing credit notes from existing sponsorship
+invoices, with an idempotent audit and no email. A missing invoice leaves recovery
+failed with the confirmed ledger intact; recover the invoice and create a new
+bounded preview to resume.
 
 Refunds are reconciled individually by Stripe refund ID. Partial refunds keep
 the payment `paid`; only a complete confirmed total marks it `refunded`.
@@ -69,6 +73,16 @@ The same facts delivered later by webhook are counted once. Migration `029`
 also allows matching refunds to settle an uncertain admin request. See
 [refund integrity and recovery](stripe-refund-integrity.md) for historical data
 and unresolved requests. Refund pagination uses the same per-list cap.
+Disputes use current Stripe facts rather than marking every historical dispute
+active. A won dispute preserves an already paid contribution or resolves its
+disputed state only after a complete, bounded check of the payment's disputes.
+Website visibility and existing publication authorizations are not restored.
+A first reconciliation also holds existing visibility/approvals when the first
+received event already says `won`. Its transactional audit marker prevents later
+redeliveries or backfills from revoking a newer explicit human authorization.
+An event arriving before its contribution attaches to the PaymentIntent remains
+failed/retryable (`STRIPE_DISPUTE_CONTRIBUTION_REQUIRED`); after Checkout recovery,
+redelivery reconciles current Stripe facts without losing the earlier dispute.
 
 Statuses are `preview`, `running`, `completed`, `failed`, `interrupted`. A lost
 HTTP response requires a receipt read, never an automatic mutation retry. An

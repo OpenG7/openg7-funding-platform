@@ -26,6 +26,8 @@ const allowedEvents = new Set([
   'refund.updated',
   'refund.failed',
   'charge.dispute.created',
+  'charge.dispute.updated',
+  'charge.dispute.closed',
   'payout.paid',
   'payout.failed'
 ]);
@@ -124,6 +126,8 @@ export const processStripeWebhook = async (
         error instanceof Error &&
         [
           'REFUND_FINANCIAL_CORRECTION_REQUIRED',
+          'REFUND_CONTRIBUTION_REQUIRED',
+          'STRIPE_DISPUTE_CONTRIBUTION_REQUIRED',
           'REFUND_INVOICE_REQUIRED'
         ].includes(error.message)
           ? error.message

@@ -41,6 +41,7 @@ export async function stripeEventBelongsToProject(
     id: string;
     metadata?: Stripe.Metadata | null;
     payment_intent?: string | Stripe.PaymentIntent | null;
+    charge?: string | Stripe.Charge | null;
   };
   const tagged = stripeMetadataProject(value.metadata, projectId);
   if (tagged === false) return false;
@@ -49,9 +50,16 @@ export async function stripeEventBelongsToProject(
   const sessionId = event.type.startsWith('checkout.session.')
     ? value.id
     : null;
-  const intent = event.type.startsWith('payment_intent.')
+  let intent = event.type.startsWith('payment_intent.')
     ? (event.data.object as Stripe.PaymentIntent)
     : value.payment_intent;
+  if (!intent && event.type.startsWith('charge.dispute.') && value.charge) {
+    const charge =
+      typeof value.charge === 'string'
+        ? await stripe.charges.retrieve(value.charge)
+        : value.charge;
+    intent = charge.payment_intent;
+  }
   const intentId = typeof intent === 'string' ? intent : intent?.id;
   const intentProject =
     typeof intent === 'object' && intent

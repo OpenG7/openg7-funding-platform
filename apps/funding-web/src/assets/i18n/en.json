@@ -2616,7 +2616,8 @@
       "mediaBlocker": "The selected image changed, was removed or is no longer approved. Review the dossier’s media, then edit and save this publication with an approved image or without an image. Each destination requires a new authorization.",
       "paymentBlocked": {
         "refunded": "The payment was refunded. This publication is blocked.",
-        "disputed": "The payment is disputed. This publication is blocked."
+        "disputed": "The payment is disputed. This publication is blocked.",
+        "reviewRequired": "This publication needs a new administrative review, even if the payment is now confirmed. Review the dossiers, then edit and save the publication before approving it again."
       },
       "retryAt": "Next attempt at",
       "kind": "Content type",

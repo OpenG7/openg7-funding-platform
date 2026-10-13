@@ -1,7 +1,6 @@
 import type { Pool } from 'pg';
 import type Stripe from 'stripe';
 
-import { createSponsorshipCreditNoteForRefund } from '../sponsorship-invoices.repository.js';
 import { resolvePaymentIntentId } from '../stripe-object-normalization.js';
 import { stripeEventBelongsToProject } from '../stripe-project-scope.js';
 import { syncStripeChargeRefunds } from '../stripe-refunds.service.js';
@@ -111,23 +110,11 @@ async function reconcileStripeRefundEvent(
     authoritativeRefund: refund,
     refundOperationId: operations.rows[0]?.id
   });
-  let creditNoteAvailable = false;
-  if (refund.status === 'succeeded') {
-    for (const operation of operations.rows) {
-      const creditNote = await createSponsorshipCreditNoteForRefund(pool, {
-        contributionId: operation.contribution_id,
-        stripeRefundId: refund.id,
-        refundAmountCents: refund.amount
-      });
-      if (!creditNote) throw new Error('REFUND_INVOICE_REQUIRED');
-      creditNoteAvailable = true;
-    }
-  }
   return {
     received: true,
     inserted: result.inserted > 0,
     statusUpdated: result.statusUpdated,
-    creditNoteAvailable
+    creditNoteAvailable: result.creditNoteAvailable
   };
 }
 

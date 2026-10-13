@@ -5,7 +5,8 @@ import { createHash } from 'node:crypto';
 import { registerHooks } from 'node:module';
 import {
   CHECKOUT_ATTEMPT_LOCK_NAME,
-  createCheckoutAttemptCoordinator
+  createCheckoutAttemptCoordinator,
+  coordinateCheckoutRecovery
 } from '../dist/apps/funding-web/src/app/features/funding/services/checkout-attempt-coordination.js';
 import {
   CheckoutReconciliationRequiredError,
@@ -328,6 +329,451 @@ function memoryStorage() {
     removeItem: (key) => entries.delete(key)
   };
 }
+
+function canonicalRecoveryFixture() {
+  let snapshot = null;
+  let pending = Promise.resolve();
+  const locks = {
+    run(operation) {
+      const result = pending.then(() => operation(true));
+      pending = result.catch(() => undefined);
+      return result;
+    }
+  };
+  const store = {
+    read: async () => structuredClone(snapshot),
+    write: async (value) => {
+      snapshot = structuredClone(value);
+    }
+  };
+  return {
+    store,
+    locks,
+    snapshot: () => structuredClone(snapshot),
+    attempts: (mirror = memoryStorage()) =>
+      new CheckoutAttempts(
+        () => mirror,
+        undefined,
+        coordinateCheckoutRecovery(() => mirror, store, locks)
+      )
+  };
+}
+
+test(
+  'committed recovery shares one UUID across stale localStorage views before any API response and after cold reopen',
+  { timeout: 5000 },
+  async () => {
+    const canonical = canonicalRecoveryFixture();
+    // Each tab sees only its own synchronous storage writes; the second view
+    // stays empty after the first reservation despite the shared exclusive lock.
+    const mirrors = [memoryStorage(), memoryStorage()];
+    const offer = sponsorshipOffer();
+    const submission = sponsorshipIntent(offer);
+    const requests = [];
+    const settlements = [];
+    let bothDispatched;
+    const dispatched = new Promise((resolve) => {
+      bothDispatched = resolve;
+    });
+    const attempts = mirrors.map((mirror) => canonical.attempts(mirror));
+    const submitted = attempts.map((tab) =>
+      tab.start(
+        submission,
+        (request) => {
+          requests.push(structuredClone(request));
+          if (requests.length === 2) bothDispatched();
+          return new Promise((_, reject) => settlements.push(reject));
+        },
+        offer
+      )
+    );
+    const rejected = submitted.map((pending) => assert.rejects(pending));
+    try {
+      await dispatched;
+      assert.deepEqual(requests[1], requests[0]);
+      const committed = canonical.snapshot();
+      for (const key of [
+        'openg7.checkout-attempts.v2',
+        'openg7.checkout-offer-recovery.v1'
+      ])
+        assert.equal(
+          Object.values(JSON.parse(committed[key]))[0].idempotencyKey,
+          requests[0].idempotencyKey
+        );
+      for (const privateValue of [
+        intent.publicDisplayName,
+        intent.successUrl,
+        intent.cancelUrl,
+        intent.projectId
+      ])
+        assert.equal(JSON.stringify(committed).includes(privateValue), false);
+      settlements[0](new TypeError('Synthetic response lost'));
+      settlements[1](new CheckoutOfferChangedError());
+      await Promise.all(rejected);
+      const reopened = canonical.attempts(memoryStorage());
+      assert.deepEqual(await reopened.retainedSponsorshipOffer(25000, 'CAD'), {
+        state: 'retained',
+        quote: offer
+      });
+      await reopened.start(
+        submission,
+        async (request) => {
+          assert.deepEqual(request, requests[0]);
+          assert.deepEqual(
+            canonical.snapshot(),
+            committed,
+            'Retries preserve the original expiry and exact public terms.'
+          );
+          return result;
+        },
+        offer
+      );
+      assert.deepEqual(
+        canonical.snapshot(),
+        {},
+        'One accepted result clears its owned UUID and terms atomically.'
+      );
+      assert.equal(
+        (
+          await canonical
+            .attempts(mirrors[0])
+            .retainedSponsorshipOffer(25000, 'CAD')
+        ).state,
+        'none',
+        'A stale non-empty mirror cannot resurrect completed terms.'
+      );
+    } finally {
+      for (const settle of settlements) settle(new Error('Synthetic cleanup'));
+      await Promise.all(rejected);
+    }
+  }
+);
+
+test(
+  'canonical commit must finish before dispatch, and an aborted commit cannot become a read-only new payment',
+  { timeout: 5000 },
+  async () => {
+    const canonical = canonicalRecoveryFixture();
+    const offer = sponsorshipOffer();
+    const attempts = canonical.attempts();
+    const commit = canonical.store.write;
+    const read = canonical.store.read;
+    const coordinated = canonical.locks.run;
+    let entered;
+    let abort;
+    const committing = new Promise((resolve) => {
+      entered = resolve;
+    });
+    canonical.store.write = () => {
+      entered();
+      return new Promise((_, reject) => {
+        abort = reject;
+      });
+    };
+    let calls = 0;
+    const starting = attempts.start(
+      sponsorshipIntent(offer),
+      async () => {
+        calls++;
+        return result;
+      },
+      offer
+    );
+    const rejected = assert.rejects(starting, CheckoutRecoveryUnavailableError);
+    await committing;
+    assert.equal(calls, 0);
+    abort(new DOMException('Synthetic aborted commit', 'AbortError'));
+    await rejected;
+    assert.equal(calls, 0);
+    assert.equal(canonical.snapshot(), null);
+    canonical.locks.run = (operation) => operation(false);
+    canonical.store.read = async () => {
+      throw new DOMException(
+        'Synthetic denied read after abort',
+        'SecurityError'
+      );
+    };
+    await assert.rejects(
+      attempts.start(
+        sponsorshipIntent(offer),
+        async () => {
+          calls++;
+          return result;
+        },
+        offer
+      ),
+      CheckoutRecoveryUnavailableError
+    );
+    assert.equal(calls, 0);
+    assert.equal(
+      (await canonical.attempts().retainedSponsorshipOffer(25000, 'CAD')).state,
+      'unavailable'
+    );
+    canonical.store.write = commit;
+    canonical.store.read = read;
+    canonical.locks.run = coordinated;
+    assert.equal(
+      (await attempts.retainedSponsorshipOffer(25000, 'CAD')).state,
+      'none',
+      'An uncommitted reservation never claims an already submitted attempt.'
+    );
+    assert.deepEqual(
+      await attempts.start(
+        sponsorshipIntent(offer),
+        async () => {
+          calls++;
+          return result;
+        },
+        offer
+      ),
+      result
+    );
+    assert.equal(
+      calls,
+      1,
+      'Restored canonical storage can safely retain a first actual dispatch.'
+    );
+    assert.deepEqual(canonical.snapshot(), {});
+  }
+);
+
+test(
+  'denied canonical reads block new personal attempts while a previously committed exact UUID can retry in memory',
+  { timeout: 5000 },
+  async () => {
+    const canonical = canonicalRecoveryFixture();
+    let original;
+    const attempts = canonical.attempts();
+    await assert.rejects(
+      attempts.start(intent, async (request) => {
+        original = request;
+        throw new Error('Synthetic uncertain response');
+      })
+    );
+    canonical.store.read = async () => {
+      throw new DOMException(
+        'Synthetic denied canonical storage',
+        'SecurityError'
+      );
+    };
+    canonical.store.write = async () =>
+      assert.fail('Denied reads cannot authorize a write.');
+    await attempts.start(intent, async (request) => {
+      assert.deepEqual(request, original);
+      return result;
+    });
+    await assert.rejects(
+      canonical
+        .attempts()
+        .start(intent, async () =>
+          assert.fail(
+            'Unknown personal intent cannot mint a UUID without canonical storage.'
+          )
+        ),
+      CheckoutRecoveryUnavailableError
+    );
+  }
+);
+
+test(
+  'an aborted cleanup preserves the accepted API result and the original durable UUID for an exact retry',
+  { timeout: 5000 },
+  async () => {
+    const canonical = canonicalRecoveryFixture();
+    const commit = canonical.store.write;
+    const offer = sponsorshipOffer();
+    let original;
+    const attempts = canonical.attempts();
+    assert.deepEqual(
+      await attempts.start(
+        sponsorshipIntent(offer),
+        async (request) => {
+          original = request;
+          canonical.store.write = async () => {
+            throw new DOMException('Synthetic cleanup abort', 'AbortError');
+          };
+          return result;
+        },
+        offer
+      ),
+      result
+    );
+    const saved = canonical.snapshot();
+    assert.equal(
+      Object.values(JSON.parse(saved['openg7.checkout-attempts.v2']))[0]
+        .idempotencyKey,
+      original.idempotencyKey
+    );
+    canonical.store.write = commit;
+    const reloaded = canonical.attempts(memoryStorage());
+    assert.equal(
+      (await reloaded.retainedSponsorshipOffer(25000, 'CAD')).state,
+      'retained'
+    );
+    await reloaded.start(
+      sponsorshipIntent(offer),
+      async (request) => {
+        assert.deepEqual(request, original);
+        assert.deepEqual(canonical.snapshot(), saved);
+        return result;
+      },
+      offer
+    );
+    assert.deepEqual(canonical.snapshot(), {});
+  }
+);
+
+test(
+  'canonical expiry commits a monotone verification marker and removes UUID plus public terms together',
+  { timeout: 5000 },
+  async (t) => {
+    let now = Date.UTC(2026, 9, 11, 12);
+    t.mock.method(Date, 'now', () => now);
+    const canonical = canonicalRecoveryFixture();
+    const offer = sponsorshipOffer();
+    await assert.rejects(
+      canonical.attempts().start(
+        sponsorshipIntent(offer),
+        async () => {
+          throw new Error('Synthetic lost response');
+        },
+        offer
+      )
+    );
+    const saved = canonical.snapshot();
+    const expiry = Object.values(
+      JSON.parse(saved['openg7.checkout-attempts.v2'])
+    )[0].expiresAt;
+    now = expiry;
+    const expired = canonical.attempts(memoryStorage());
+    assert.equal(
+      (await expired.retainedSponsorshipOffer(25000, 'CAD')).state,
+      'verification_required'
+    );
+    assert.deepEqual(canonical.snapshot(), {
+      'openg7.checkout-verification-required.v1': 'true'
+    });
+    const cold = canonical.attempts(memoryStorage());
+    assert.equal(await cold.restoreVerification(), true);
+    await assert.rejects(
+      cold.start(intent, async () =>
+        assert.fail('Expiry cannot create a fresh UUID or dispatch.')
+      ),
+      CheckoutReconciliationRequiredError
+    );
+  }
+);
+
+test(
+  'a valid legacy UUID may retry read-only without locks, while private legacy intents import only a block',
+  { timeout: 5000 },
+  async () => {
+    const mirror = memoryStorage();
+    const offer = sponsorshipOffer();
+    let original;
+    await assert.rejects(
+      new CheckoutAttempts(() => mirror).start(
+        sponsorshipIntent(offer),
+        async (request) => {
+          original = request;
+          throw new Error('Synthetic legacy uncertainty');
+        },
+        offer
+      )
+    );
+    const canonical = canonicalRecoveryFixture();
+    canonical.locks.run = (operation) => operation(false);
+    await canonical.attempts(mirror).start(
+      sponsorshipIntent(offer),
+      async (request) => {
+        assert.deepEqual(request, original);
+        return result;
+      },
+      offer
+    );
+    assert.equal(
+      canonical.snapshot(),
+      null,
+      'No import or cleanup writes without a lock.'
+    );
+    const legacy = memoryStorage();
+    legacy.setItem(
+      'openg7.checkout-attempts.v1',
+      JSON.stringify({ [JSON.stringify(intent)]: crypto.randomUUID() })
+    );
+    const migrated = canonicalRecoveryFixture();
+    assert.equal(await migrated.attempts(legacy).restoreVerification(), true);
+    assert.deepEqual(migrated.snapshot(), {
+      'openg7.checkout-verification-required.v1': 'true'
+    });
+    assert.equal(
+      JSON.stringify(migrated.snapshot()).includes(intent.publicDisplayName),
+      false
+    );
+  }
+);
+
+test(
+  'legacy recovery is imported once with original UUID, terms, expiry and verification marker',
+  { timeout: 5000 },
+  async () => {
+    const mirror = memoryStorage();
+    const offer = sponsorshipOffer();
+    let original;
+    await assert.rejects(
+      new CheckoutAttempts(() => mirror).start(
+        sponsorshipIntent(offer),
+        async (request) => {
+          original = request;
+          throw new Error('Synthetic legacy uncertainty');
+        },
+        offer
+      )
+    );
+    const imported = Object.fromEntries(mirror.entries);
+    const canonical = canonicalRecoveryFixture();
+    const migrated = canonical.attempts(mirror);
+    assert.equal(
+      (await migrated.retainedSponsorshipOffer(25000, 'CAD')).state,
+      'retained'
+    );
+    assert.deepEqual(canonical.snapshot(), imported);
+    const emptyMirror = memoryStorage();
+    await canonical
+      .attempts(emptyMirror)
+      .start(
+        sponsorshipIntent(offer),
+        async (request) => {
+          assert.deepEqual(request, original);
+          assert.deepEqual(canonical.snapshot(), imported);
+          throw new CheckoutReconciliationRequiredError();
+        },
+        offer
+      )
+      .catch((error) =>
+        assert.ok(error instanceof CheckoutReconciliationRequiredError)
+      );
+    assert.equal(
+      canonical.snapshot()['openg7.checkout-verification-required.v1'],
+      'true'
+    );
+    const blocked = canonical.attempts(memoryStorage());
+    assert.equal(
+      (await blocked.retainedSponsorshipOffer(25000, 'CAD')).state,
+      'verification_required'
+    );
+    await assert.rejects(
+      blocked.start({ ...intent, amount: 50 }, async () =>
+        assert.fail('A canonical marker survives empty mirrors.')
+      ),
+      CheckoutReconciliationRequiredError
+    );
+    assert.equal(
+      canonical.snapshot()['openg7.checkout-attempts.v2'],
+      imported['openg7.checkout-attempts.v2']
+    );
+  }
+);
 
 test('identical concurrent attempts share one provider call and keep their key after an uncertain response', async () => {
   const attempts = new CheckoutAttempts();

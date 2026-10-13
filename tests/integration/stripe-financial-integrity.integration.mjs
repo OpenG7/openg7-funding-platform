@@ -17,6 +17,7 @@ import {
 import { beginSponsorshipRefundOperation } from '../../dist/apps/funding-api/src/sponsorship-refund-operations.js';
 import { getCockpitMetrics } from '../../dist/apps/funding-api/src/admin-cockpit/metrics.js';
 import { getSponsorshipProgress } from '../../dist/apps/funding-api/src/sponsorship-progress.service.js';
+import { createSponsorshipInvoiceForStripeSession } from '../../dist/apps/funding-api/src/sponsorship-invoices.repository.js';
 
 const signer = new Stripe('sk_test_synthetic_integrity', {
   host: '127.0.0.1',
@@ -169,6 +170,15 @@ async function seed(pool, f) {
     paidAtIso: new Date().toISOString(),
     emailPrivate: null
   });
+  await createSponsorshipInvoiceForStripeSession(pool, {
+    stripeSessionId: f.session.id,
+    stripePaymentIntentId: f.intent.id,
+    publicReference: null,
+    amountCents: 10000,
+    currency: 'cad',
+    paidAtIso: new Date().toISOString(),
+    customerEmail: null
+  });
   return (
     await pool.query(
       'SELECT id FROM fund_contributions WHERE stripe_session_id=$1',
@@ -319,6 +329,7 @@ test(
       'partial backfill keeps payment eligibility; only the complete confirmed total marks refunded',
       async () => {
         const f = fixture();
+        await seed(pool, f);
         await runStripeBackfill(f.stripe, pool, options);
         const id = (await pool.query('SELECT id FROM fund_contributions'))
           .rows[0].id;
@@ -470,6 +481,7 @@ test(
             .rows[0].n,
           0
         );
+        await seed(pool, f);
         await runStripeBackfill(f.stripe, pool, options);
         assert.equal(
           (await pool.query('SELECT status FROM fund_contributions')).rows[0]

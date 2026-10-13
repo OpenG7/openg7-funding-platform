@@ -31,7 +31,8 @@ export interface FundingHomePorts {
     | 'getSponsorshipBatchAvailability'
     | 'startCheckout'
     | 'requiresCheckoutVerification'
-  >;
+  > &
+    Partial<Pick<FundingService, 'restoreCheckoutVerification'>>;
   transparency: Pick<FundTransparencyService, 'getPublicTransparency'>;
   checkout: Pick<CheckoutStatusMonitor, 'start' | 'cancel' | 'dismiss'>;
   config: Pick<
@@ -144,6 +145,11 @@ export class FundingHomeController {
       this.checkoutRequiresVerification.set(true);
       this.loadingState.set('error');
     }
+    void this.ports.funding.restoreCheckoutVerification?.().then((required) => {
+      if (!required || this.disposed) return;
+      this.checkoutRequiresVerification.set(true);
+      this.loadingState.set('error');
+    });
     const checkout = params.get('checkout');
     if (checkout === 'cancel') {
       this.ports.checkout.cancel(params.get('reference'));

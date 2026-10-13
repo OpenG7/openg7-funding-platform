@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -13,6 +14,7 @@ import type { PublicationDeliveryController } from './publication-delivery-contr
   selector: 'openg7-publication-delivery-drawer',
   standalone: true,
   imports: [
+    NgTemplateOutlet,
     FormsModule,
     RouterLink,
     TranslatePipe,

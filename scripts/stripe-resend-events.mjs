@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { spawnSync } from 'node:child_process';
 import { exit } from 'node:process';
+import { resendStripeEvents } from './lib/stripe-cli.mjs';
 
 const eventIdPattern = /^evt_[A-Za-z0-9]+$/;
 
@@ -113,42 +113,16 @@ if (eventIds.length === 0 || invalidEventIds.length > 0) {
   exit(1);
 }
 
-for (const eventId of eventIds) {
-  const args = ['events', 'resend', eventId];
-
-  if (confirm) {
-    args.push('--confirm');
-  }
-
-  if (live) {
-    args.push('--live');
-  }
-
-  if (webhookEndpoint) {
-    args.push('--webhook-endpoint', webhookEndpoint);
-  }
-
-  if (apiKey) {
-    args.push('--api-key', apiKey);
-  }
-
-  if (dryRun) {
-    console.log(`stripe ${args.join(' ')}`);
-    continue;
-  }
-
-  console.log(`Resending ${eventId}${live ? ' in live mode' : ''}...`);
-  const result = spawnSync('stripe', args, {
-    stdio: 'inherit',
-    shell: false
+try {
+  resendStripeEvents({
+    eventIds,
+    live,
+    webhookEndpoint,
+    apiKey,
+    dryRun,
+    confirm
   });
-
-  if (result.error) {
-    console.error(result.error.message);
-    exit(1);
-  }
-
-  if (result.status !== 0) {
-    exit(result.status ?? 1);
-  }
+} catch (error) {
+  console.error(error.message);
+  exit(error.exitCode ?? 1);
 }

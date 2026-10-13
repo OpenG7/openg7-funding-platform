@@ -154,6 +154,11 @@ L'enveloppe multipart est limitée au plafond du fichier augmenté de 128 Kio.
 Son dépassement est refusé sans attendre la fin de l'envoi; le lecteur conserve
 la connexion pour transmettre le refus et évacue le reste sans le mémoriser.
 Les formulaires multipart contenant des champs inconnus ou répétés sont refusés.
+Le téléversement historique de logo administratif
+`POST /api/admin/sponsorships/logo` conserve son plafond de 512 Kio par défaut.
+Nginx et Traefik autorisent 576 Kio sur cette route pour inclure les 64 Kio
+d'enveloppe multipart de l'API, tout en conservant les limites générales des
+autres routes. Les contrôles d'accès restent appliqués par l'API.
 Les [tests HTTP du lecteur](../../tests/http-transport.test.mjs) couvrent le refus
 avant la fin de l'envoi et la réutilisation de la connexion après évacuation;
 le [test d'upload](../../tests/sponsorship-upload-http.test.mjs) vérifie les limites

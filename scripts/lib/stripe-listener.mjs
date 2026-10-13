@@ -1,9 +1,9 @@
-import { spawn, spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
+import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import * as tls from 'node:tls';
+import { redactStripeOutput, resolveStripeExecutable } from './stripe-cli.mjs';
+
+export { redactStripeOutput };
 
 export function stripeListenerEnvironment(env) {
   if (!/^(sk|rk)_test_[A-Za-z0-9]+$/.test(env.STRIPE_SECRET_KEY ?? ''))
@@ -39,12 +39,6 @@ export function stripeSnapshotListenerArgs(help) {
     'https://localhost/api/stripe/webhook'
   ];
 }
-
-export const redactStripeOutput = (line) =>
-  line.replace(
-    /(?:[sr]k_(?:test|live)_|whsec_)[A-Za-z0-9_]+/g,
-    '[secret masque]'
-  );
 
 export function verifyLocalStripeTls({ connect = tls.connect } = {}) {
   return new Promise((resolveCheck, reject) => {
@@ -83,51 +77,9 @@ export function verifyLocalStripeTls({ connect = tls.connect } = {}) {
   });
 }
 
-function stripeExecutable(env) {
-  if (process.platform !== 'win32') return 'stripe';
-  const where = (name) => {
-    const result = spawnSync('where.exe', [name], {
-      env,
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: 5000
-    });
-    return result.status === 0 ? result.stdout.trim().split(/\r?\n/) : [];
-  };
-  const native = where('stripe.exe').find(existsSync);
-  if (native) return native;
-  // npm installs a .cmd launcher on Windows. Resolve its native executable so
-  // cancellation terminates the listener itself, without a shell or orphan shim.
-  for (const launcher of where('stripe.cmd')) {
-    const packagePath = join(
-      dirname(launcher),
-      'node_modules',
-      '@stripe',
-      'cli',
-      'package.json'
-    );
-    if (!existsSync(packagePath)) continue;
-    try {
-      const require = createRequire(packagePath);
-      const nativePackage = require.resolve(
-        `@stripe/cli-win32-${process.arch}/package.json`
-      );
-      const binary = join(dirname(nativePackage), 'bin', 'stripe.exe');
-      if (existsSync(binary)) return binary;
-    } catch {
-      /* The npm installer can fall back to its vendor directory. */
-    }
-    const vendor = join(dirname(packagePath), 'vendor', 'bin', 'stripe.exe');
-    if (existsSync(vendor)) return vendor;
-  }
-  throw new Error(
-    'Stripe CLI introuvable. Installer avec yarn stripe:cli:install.'
-  );
-}
-
 export function runStripeListener(
   args,
-  { env, capture = false, executable = stripeExecutable(env) }
+  { env, capture = false, executable = resolveStripeExecutable(env) }
 ) {
   return new Promise((resolveRun, reject) => {
     const child = spawn(executable, args, {

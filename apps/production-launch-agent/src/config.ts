@@ -16,6 +16,22 @@ const toNumber = (value: string | undefined, fallback: number): number => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
+const commandTimeout = (value: string | undefined): number => {
+  if (value === undefined) return 30 * 60 * 1000;
+  const parsed = Number(value);
+  if (
+    !/^\d+$/.test(value) ||
+    !Number.isSafeInteger(parsed) ||
+    parsed < 1 ||
+    parsed > 86400000
+  ) {
+    throw new Error(
+      'PLA_SSH_COMMAND_TIMEOUT_MS must be an integer between 1 and 86400000.'
+    );
+  }
+  return parsed;
+};
+
 const requiredString = (value: string | undefined, message: string): string => {
   if (!value || value.trim().length === 0) {
     throw new Error(message);
@@ -38,43 +54,45 @@ const runsFromWorkspace = (): boolean =>
 const defaultPath = (workspacePath: string, repositoryPath: string): string =>
   runsFromWorkspace() ? workspacePath : repositoryPath;
 
-export const loadConfig = (): AgentConfig => {
-  const privateKeyPath = process.env.PLA_PRIVATE_KEY_PATH;
+export const loadConfig = (
+  env: NodeJS.ProcessEnv = process.env
+): AgentConfig => {
+  const privateKeyPath = env.PLA_PRIVATE_KEY_PATH;
 
   return {
-    appDir: process.env.PLA_APP_DIR ?? '/opt/openg7-funding-platform',
+    appDir: env.PLA_APP_DIR ?? '/opt/openg7-funding-platform',
     databasePath:
-      process.env.PLA_DATABASE_PATH ??
+      env.PLA_DATABASE_PATH ??
       defaultPath(
         'database/production-launch-agent.sqlite',
         'apps/production-launch-agent/database/production-launch-agent.sqlite'
       ),
     defaultChecklistPath:
-      process.env.PLA_CHECKLIST ??
+      env.PLA_CHECKLIST ??
       defaultPath(
         'checklists/production-launch-checklist.yaml',
         'apps/production-launch-agent/checklists/production-launch-checklist.yaml'
       ),
-    domain: process.env.PLA_DOMAIN ?? 'openg7.org',
-    healthPath: process.env.PLA_HEALTH_PATH ?? '/health',
-    openAiApiKey: process.env.OPENAI_API_KEY,
+    domain: env.PLA_DOMAIN ?? 'openg7.org',
+    healthPath: env.PLA_HEALTH_PATH ?? '/health',
+    openAiApiKey: env.OPENAI_API_KEY,
     reportDir:
-      process.env.PLA_REPORT_DIR ??
+      env.PLA_REPORT_DIR ??
       defaultPath('logs/reports', 'apps/production-launch-agent/logs/reports'),
-    role: toRole(process.env.PLA_ROLE),
+    role: toRole(env.PLA_ROLE),
     ssh: {
-      hostFingerprint: process.env.PLA_SSH_HOST_FINGERPRINT,
+      hostFingerprint: env.PLA_SSH_HOST_FINGERPRINT,
       host: requiredString(
-        process.env.PLA_SSH_HOST || process.env.VPS_HOST,
+        env.PLA_SSH_HOST || env.VPS_HOST,
         'PLA_SSH_HOST or VPS_HOST is required.'
       ),
-      username: process.env.PLA_SSH_USER ?? 'ubuntu',
-      privateKey:
-        process.env.PLA_PRIVATE_KEY ?? readOptionalFile(privateKeyPath),
+      username: env.PLA_SSH_USER ?? 'ubuntu',
+      privateKey: env.PLA_PRIVATE_KEY ?? readOptionalFile(privateKeyPath),
       privateKeyPath,
-      port: toNumber(process.env.PLA_SSH_PORT, 22),
-      readyTimeoutMs: toNumber(process.env.PLA_SSH_TIMEOUT_MS, 20000),
-      retries: toNumber(process.env.PLA_SSH_RETRIES, 2)
+      port: toNumber(env.PLA_SSH_PORT, 22),
+      readyTimeoutMs: toNumber(env.PLA_SSH_TIMEOUT_MS, 20000),
+      commandTimeoutMs: commandTimeout(env.PLA_SSH_COMMAND_TIMEOUT_MS),
+      retries: toNumber(env.PLA_SSH_RETRIES, 2)
     }
   };
 };

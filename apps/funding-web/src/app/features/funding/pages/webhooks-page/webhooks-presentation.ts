@@ -45,8 +45,23 @@ export const WEBHOOK_EVENTS: readonly WebhookEvent[] = [
   {
     name: 'charge.dispute.created',
     category: 'Litige',
-    impact: 'Marque la contribution comme contestee pour suivi manuel.',
+    impact:
+      'Verifie l’etat Stripe courant du litige et bloque la publication pendant sa resolution.',
     tone: 'red'
+  },
+  {
+    name: 'charge.dispute.updated',
+    category: 'Litige',
+    impact:
+      'Reconcile l’etat Stripe courant, meme si l’evenement est ancien. Une nouvelle approbation de publication reste necessaire.',
+    tone: 'gold'
+  },
+  {
+    name: 'charge.dispute.closed',
+    category: 'Litige',
+    impact:
+      'Un litige gagne peut retablir le paiement apres verification Stripe. La publication exige une nouvelle approbation administrative.',
+    tone: 'green'
   },
   {
     name: 'payout.paid',

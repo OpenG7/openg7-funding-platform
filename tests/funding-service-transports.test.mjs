@@ -29,6 +29,10 @@ const workspaceHook = registerHooks({
 });
 const { FundingService } =
   await import('../dist/apps/funding-web/src/app/features/funding/services/funding.service.js');
+const { CheckoutAttempts } =
+  await import('../dist/apps/funding-web/src/app/features/funding/services/checkout-attempts.js');
+const { coordinateCheckoutRecovery } =
+  await import('../dist/apps/funding-web/src/app/features/funding/services/checkout-attempt-coordination.js');
 workspaceHook.deregister();
 const { FUNDING_PROJECT_CONFIG } =
   await import('../dist/apps/funding-web/src/app/features/funding/config/funding-project-config.token.js');
@@ -49,6 +53,7 @@ const apiBase = 'https://funding.example.test/custom-api';
 
 function fixture(t, href, config) {
   const original = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  let browser;
   if (href) {
     const entries = new Map();
     Object.defineProperty(globalThis, 'window', {
@@ -67,6 +72,7 @@ function fixture(t, href, config) {
         __OPENG7_FUNDING_API_BASE_URL__: apiBase + '/'
       }
     });
+    browser = window;
   } else {
     delete globalThis.window;
   }
@@ -79,7 +85,35 @@ function fixture(t, href, config) {
     Injector.NULL
   );
   t.after(() => injector.destroy());
-  return runInInjectionContext(injector, () => new FundingService());
+  const service = runInInjectionContext(injector, () => new FundingService());
+  if (browser) {
+    // This suite exercises Angular/HTTP transport, not the native IDB adapter.
+    // Inject an isolated committed snapshot; browser suites cover real IDB aborts.
+    let snapshot = null;
+    let pending = Promise.resolve();
+    const coordinator = coordinateCheckoutRecovery(
+      () => browser.localStorage,
+      {
+        read: async () => structuredClone(snapshot),
+        write: async (value) => {
+          snapshot = structuredClone(value);
+        }
+      },
+      {
+        run(operation) {
+          const result = pending.then(() => operation(true));
+          pending = result.catch(() => undefined);
+          return result;
+        }
+      }
+    );
+    service.checkoutAttempts = new CheckoutAttempts(
+      () => browser.localStorage,
+      undefined,
+      coordinator
+    );
+  }
+  return service;
 }
 
 test('Angular checkout preserves configuration, consent and localized return URLs without private return parameters', async (t) => {

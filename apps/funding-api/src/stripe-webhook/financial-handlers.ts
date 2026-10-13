@@ -16,6 +16,7 @@ import {
 import { syncStripeChargeRefunds } from '../stripe-refunds.service.js';
 import { withPostgresTransaction } from '../postgres-transaction.js';
 import { activateSponsorshipCommitments } from '../sponsorship-commitments.repository.js';
+import { reconcileStripeDispute } from '../stripe-disputes.service.js';
 
 import { toIsoFromUnix } from './event-time.js';
 import { handleStripeRefundEvent } from './refund-handlers.js';
@@ -210,15 +211,12 @@ export const handleStripeFinancialEvent = async (
     };
   }
 
-  if (event.type === 'charge.dispute.created') {
+  if (event.type.startsWith('charge.dispute.')) {
     const dispute = event.data.object as Stripe.Dispute;
-    const paymentIntentId = resolvePaymentIntentId(dispute.payment_intent);
-    const updated = paymentIntentId
-      ? await updateContributionStatusByPaymentIntent(pool, {
-          stripePaymentIntentId: paymentIntentId,
-          status: 'disputed'
-        })
-      : false;
+    const updated = await reconcileStripeDispute(stripe, pool, dispute, {
+      projectId: dependencies.projectId,
+      source: 'stripe'
+    });
 
     return {
       received: true,

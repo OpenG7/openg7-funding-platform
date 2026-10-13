@@ -10,6 +10,7 @@ import {
 } from '@openg7/funding-core';
 
 import { checkoutIntentPayload } from '../../apps/funding-web/src/app/features/funding/services/checkout-intent.js';
+import { CHECKOUT_RECOVERY_DATABASE } from '../../apps/funding-web/src/app/features/funding/services/checkout-recovery-store.js';
 
 import { expect, test } from './support/test.js';
 import {
@@ -50,6 +51,39 @@ interface CheckoutLockFixture {
   held: boolean;
   release?: () => void;
   task: Promise<void>;
+}
+
+async function canonicalRecovery(
+  page: Page,
+  snapshot?: Record<string, string>
+) {
+  return page.evaluate(
+    async ({ name, snapshot }) => {
+      const database = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open(name, 1);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      try {
+        return await new Promise<Record<string, string>>((resolve, reject) => {
+          const transaction = database.transaction(
+            'recovery',
+            snapshot ? 'readwrite' : 'readonly'
+          );
+          const records = transaction.objectStore('recovery');
+          const request = snapshot
+            ? records.put(snapshot, 'snapshot')
+            : records.get('snapshot');
+          transaction.oncomplete = () => resolve(snapshot ?? request.result);
+          transaction.onabort = () => reject(transaction.error);
+          transaction.onerror = () => reject(transaction.error);
+        });
+      } finally {
+        database.close();
+      }
+    },
+    { name: CHECKOUT_RECOVERY_DATABASE, snapshot }
+  );
 }
 
 export function registerSponsorshipCommitmentTests() {
@@ -924,6 +958,24 @@ export function registerSponsorshipOfferTests(
             offer: localStorage.getItem('openg7.checkout-offer-recovery.v1')
           }))
         ).toEqual(retained);
+        // The canonical block restores the message even when a process sees
+        // an empty compatibility mirror after navigation.
+        await page.evaluate(() => {
+          for (const key of [
+            'openg7.checkout-attempts.v2',
+            'openg7.checkout-offer-recovery.v1',
+            'openg7.checkout-verification-required.v1'
+          ])
+            localStorage.removeItem(key);
+        });
+        await page.reload();
+        const restoredVerification = form.locator(':scope > [role="alert"]');
+        await expect(restoredVerification).toBeVisible();
+        await expect(restoredVerification).toContainText(
+          english ? 'requires verification' : 'nécessite une vérification'
+        );
+        await expect(submit).toBeDisabled();
+        expect(requests).toHaveLength(1);
       }
     );
 
@@ -933,19 +985,21 @@ export function registerSponsorshipOfferTests(
       async ({ page, context }) => {
         await setup(page);
         await context.addInitScript(() => {
-          const original = Storage.prototype.getItem;
+          const original = IDBFactory.prototype.open;
           (
             window as unknown as { restoreCheckoutStorage: () => void }
           ).restoreCheckoutStorage = () => {
-            Storage.prototype.getItem = original;
+            IDBFactory.prototype.open = original;
           };
-          Storage.prototype.getItem = function (key) {
-            if (key.startsWith('openg7.checkout'))
+          IDBFactory.prototype.open = function (name, version) {
+            if (name.startsWith('openg7.checkout'))
               throw new DOMException(
                 'Synthetic denied storage',
                 'SecurityError'
               );
-            return original.call(this, key);
+            return version === undefined
+              ? original.call(this, name)
+              : original.call(this, name, version);
           };
         });
         let reads = 0;
@@ -1016,11 +1070,20 @@ export function registerSponsorshipOfferTests(
       async ({ page, context }) => {
         await setup(page);
         await context.addInitScript(() => {
-          const original = Storage.prototype.setItem;
-          Storage.prototype.setItem = function (key, value) {
-            if (key === 'openg7.checkout-offer-recovery.v1')
-              throw new DOMException('Synthetic quota', 'QuotaExceededError');
-            return original.call(this, key, value);
+          const original = IDBObjectStore.prototype.put;
+          IDBObjectStore.prototype.put = function (value, key) {
+            const request =
+              key === undefined
+                ? original.call(this, value)
+                : original.call(this, value, key);
+            if (
+              this.name === 'recovery' &&
+              value?.['openg7.checkout-offer-recovery.v1']
+            )
+              request.addEventListener('success', () =>
+                this.transaction.abort()
+              );
+            return request;
           };
         });
         let calls = 0;
@@ -1052,6 +1115,7 @@ export function registerSponsorshipOfferTests(
             )
           }))
         ).toEqual({ attempts: null, offer: null, verification: null });
+        expect(await canonicalRecovery(page)).toEqual({});
       }
     );
 
@@ -1136,24 +1200,17 @@ export function registerSponsorshipOfferTests(
           .digest('hex');
         const attemptRecord = Object.values(JSON.parse(retained.attempts!))[0];
         const offerRecord = Object.values(JSON.parse(retained.offer!))[0];
-        await page.evaluate(
-          ({ digest, attempt, retainedOffer, quote }) => {
-            localStorage.setItem(
-              'openg7.checkout-attempts.v2',
-              JSON.stringify({ [digest]: attempt })
-            );
-            localStorage.setItem(
-              'openg7.checkout-offer-recovery.v1',
-              JSON.stringify({ [digest]: { ...retainedOffer, quote } })
-            );
-          },
-          {
-            digest: historicalDigest,
-            attempt: attemptRecord,
-            retainedOffer: offerRecord as Record<string, unknown>,
-            quote: historical
-          }
-        );
+        await canonicalRecovery(page, {
+          'openg7.checkout-attempts.v2': JSON.stringify({
+            [historicalDigest]: attemptRecord
+          }),
+          'openg7.checkout-offer-recovery.v1': JSON.stringify({
+            [historicalDigest]: {
+              ...(offerRecord as Record<string, unknown>),
+              quote: historical
+            }
+          })
+        });
         const readsBeforeReload = quoteReads;
         await page.reload();
         await expect(offer).toContainText('synthetic-retained-v0');

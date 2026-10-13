@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import type { AdminSponsorshipCreditNoteRecord } from '@openg7/funding-core';
 
 import { sponsorshipInvoiceConfig } from '../sponsorship-invoice-config.js';
@@ -50,7 +50,7 @@ const latestCreditNoteEmailJoin = `
 `;
 
 export const createSponsorshipCreditNoteForRefund = async (
-  pool: Pool | null,
+  pool: Pool | PoolClient | null,
   input: CreateSponsorshipCreditNoteInput
 ): Promise<SponsorshipCreditNoteRecord | null> => {
   if (!pool) {

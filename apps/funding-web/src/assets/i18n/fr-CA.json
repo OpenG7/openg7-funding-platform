@@ -2612,7 +2612,8 @@
       "mediaBlocker": "Le visuel sélectionné a changé, a été retiré ou n’est plus approuvé. Vérifiez les médias du dossier, puis modifiez et enregistrez cette publication avec un visuel approuvé ou sans image. Une nouvelle autorisation est nécessaire pour chaque destination.",
       "paymentBlocked": {
         "refunded": "Le paiement a été remboursé. Cette publication est bloquée.",
-        "disputed": "Le paiement fait l’objet d’une contestation. Cette publication est bloquée."
+        "disputed": "Le paiement fait l’objet d’une contestation. Cette publication est bloquée.",
+        "reviewRequired": "Cette publication nécessite une nouvelle validation administrative, même si le paiement est maintenant confirmé. Vérifiez les dossiers, puis modifiez et enregistrez la publication avant de l’approuver à nouveau."
       },
       "retryAt": "Nouvelle tentative à",
       "kind": "Type de contenu",

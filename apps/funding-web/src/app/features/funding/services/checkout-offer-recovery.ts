@@ -8,6 +8,7 @@ import {
 import { CheckoutRecoveryUnavailableError } from './checkout-error.js';
 import {
   CHECKOUT_RECOVERY_RETENTION_MS,
+  CHECKOUT_OFFER_STORAGE_KEY,
   checkoutAttemptKeyPattern as attemptKeyPattern,
   checkoutFingerprintPattern as fingerprintPattern,
   type CheckoutAttemptStorage
@@ -32,7 +33,7 @@ interface RetainedOffer {
   readonly quote: SponsorshipOfferQuote;
   readonly formats?: SponsorshipOfferFormatOptions;
 }
-const storageKey = 'openg7.checkout-offer-recovery.v1';
+const storageKey = CHECKOUT_OFFER_STORAGE_KEY;
 // A client recovery window, not an expiry or a delivery deadline in the contract.
 const retentionMs = CHECKOUT_RECOVERY_RETENTION_MS;
 class RecoveryStorageUnavailable extends Error {}

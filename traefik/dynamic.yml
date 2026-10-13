@@ -13,7 +13,7 @@ tls:
 http:
   routers:
     openg7-stripe-webhook:
-      rule: "(Host(`openg7.org`) || Host(`www.openg7.org`)) && Path(`/api/stripe/webhook`) && Method(`POST`)"
+      rule: '(Host(`openg7.org`) || Host(`www.openg7.org`)) && Path(`/api/stripe/webhook`) && Method(`POST`)'
       entryPoints:
         - websecure
       service: openg7-api
@@ -27,7 +27,7 @@ http:
         certResolver: letsencrypt
 
     openg7-stripe-webhook-local:
-      rule: "Host(`localhost`) && Path(`/api/stripe/webhook`) && Method(`POST`)"
+      rule: 'Host(`localhost`) && Path(`/api/stripe/webhook`) && Method(`POST`)'
       entryPoints:
         - websecure
       service: openg7-api
@@ -40,7 +40,7 @@ http:
       tls: {}
 
     openg7-checkout:
-      rule: "(Host(`openg7.org`) || Host(`www.openg7.org`)) && Path(`/api/checkout-sessions`) && Method(`POST`)"
+      rule: '(Host(`openg7.org`) || Host(`www.openg7.org`)) && Path(`/api/checkout-sessions`) && Method(`POST`)'
       entryPoints:
         - websecure
       service: openg7-api
@@ -55,7 +55,7 @@ http:
         certResolver: letsencrypt
 
     openg7-checkout-local:
-      rule: "Host(`localhost`) && Path(`/api/checkout-sessions`) && Method(`POST`)"
+      rule: 'Host(`localhost`) && Path(`/api/checkout-sessions`) && Method(`POST`)'
       entryPoints:
         - websecure
       service: openg7-api
@@ -69,7 +69,7 @@ http:
       tls: {}
 
     openg7-sponsor-media-upload:
-      rule: "(Host(`openg7.org`) || Host(`www.openg7.org`)) && Path(`/api/sponsorship-followup/media`) && Method(`POST`)"
+      rule: '(Host(`openg7.org`) || Host(`www.openg7.org`)) && Path(`/api/sponsorship-followup/media`) && Method(`POST`)'
       entryPoints:
         - websecure
       service: openg7-api
@@ -84,7 +84,7 @@ http:
         certResolver: letsencrypt
 
     openg7-sponsor-media-upload-local:
-      rule: "Host(`localhost`) && Path(`/api/sponsorship-followup/media`) && Method(`POST`)"
+      rule: 'Host(`localhost`) && Path(`/api/sponsorship-followup/media`) && Method(`POST`)'
       entryPoints:
         - websecure
       service: openg7-api
@@ -97,8 +97,37 @@ http:
         - compress
       tls: {}
 
+    openg7-sponsor-logo-upload:
+      rule: '(Host(`openg7.org`) || Host(`www.openg7.org`)) && Path(`/api/admin/sponsorships/logo`) && Method(`POST`)'
+      entryPoints:
+        - websecure
+      service: openg7-api
+      priority: 275
+      middlewares:
+        - secure-headers
+        - sponsor-logo-body-limit
+        - api-in-flight
+        - api-rate-limit
+        - compress
+      tls:
+        certResolver: letsencrypt
+
+    openg7-sponsor-logo-upload-local:
+      rule: 'Host(`localhost`) && Path(`/api/admin/sponsorships/logo`) && Method(`POST`)'
+      entryPoints:
+        - websecure
+      service: openg7-api
+      priority: 275
+      middlewares:
+        - secure-headers
+        - sponsor-logo-body-limit
+        - api-in-flight
+        - api-rate-limit
+        - compress
+      tls: {}
+
     openg7-api:
-      rule: "(Host(`openg7.org`) || Host(`www.openg7.org`)) && PathPrefix(`/api`)"
+      rule: '(Host(`openg7.org`) || Host(`www.openg7.org`)) && PathPrefix(`/api`)'
       entryPoints:
         - websecure
       service: openg7-api
@@ -113,7 +142,7 @@ http:
         certResolver: letsencrypt
 
     openg7-api-local:
-      rule: "Host(`localhost`) && PathPrefix(`/api`)"
+      rule: 'Host(`localhost`) && PathPrefix(`/api`)'
       entryPoints:
         - websecure
       service: openg7-api
@@ -127,7 +156,7 @@ http:
       tls: {}
 
     openg7-web:
-      rule: "Host(`openg7.org`) || Host(`www.openg7.org`)"
+      rule: 'Host(`openg7.org`) || Host(`www.openg7.org`)'
       entryPoints:
         - websecure
       service: openg7-web
@@ -141,7 +170,7 @@ http:
         certResolver: letsencrypt
 
     openg7-web-local:
-      rule: "Host(`localhost`)"
+      rule: 'Host(`localhost`)'
       entryPoints:
         - websecure
       service: openg7-web
@@ -157,12 +186,12 @@ http:
     openg7-api:
       loadBalancer:
         servers:
-          - url: "http://api:3333"
+          - url: 'http://api:3333'
 
     openg7-web:
       loadBalancer:
         servers:
-          - url: "http://web:8080"
+          - url: 'http://web:8080'
 
   middlewares:
     secure-headers:
@@ -175,11 +204,11 @@ http:
         stsIncludeSubdomains: true
         stsPreload: true
         stsSeconds: 31536000
-        permissionsPolicy: "camera=(), microphone=(), geolocation=(), payment=()"
+        permissionsPolicy: 'camera=(), microphone=(), geolocation=(), payment=()'
         contentSecurityPolicy: "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: blob: https:; media-src 'self'; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https://api.stripe.com https://checkout.stripe.com; frame-src https://js.stripe.com https://checkout.stripe.com; form-action 'self' https://checkout.stripe.com; upgrade-insecure-requests"
         customResponseHeaders:
-          X-Robots-Tag: "index, follow"
-          Server: ""
+          X-Robots-Tag: 'index, follow'
+          Server: ''
 
     web-rate-limit:
       rateLimit:
@@ -224,6 +253,12 @@ http:
       buffering:
         maxRequestBodyBytes: 9437184
         memRequestBodyBytes: 1048576
+
+    # Keep the admin logo route bounded to 512 KiB plus 64 KiB multipart.
+    sponsor-logo-body-limit:
+      buffering:
+        maxRequestBodyBytes: 589824
+        memRequestBodyBytes: 262144
 
     compress:
       compress:

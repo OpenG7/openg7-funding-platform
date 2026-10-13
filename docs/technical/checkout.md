@@ -5,12 +5,25 @@
 Stripe Checkout is configured. Use a fresh UUID for a new contribution and keep
 the same key and payload when retrying an uncertain request. Missing or invalid
 keys return `400 CHECKOUT_IDEMPOTENCY_KEY_INVALID`. The Web keeps the pending
-key and a payload hash in local storage and merges concurrent submissions.
-Reservations and cleanup use an exclusive Web Lock shared by same-origin tabs;
-the provider call happens outside that lock. The original UUID survives a lost
+key, payload hash, public offer terms and verification marker in one IndexedDB
+snapshot and merges concurrent submissions. Reservations and cleanup use an
+exclusive Web Lock shared by same-origin tabs: read the committed snapshot,
+validate on a synchronous memory adapter, then commit the complete record before
+dispatch. Checksums run outside IDB transactions; a successful `put` request alone
+does not authorize dispatch, which waits for transaction completion. Local storage
+is a compatibility mirror, whose stale process-local view cannot mint another UUID.
+The provider call happens outside that lock. The original UUID survives a lost
 response or a refusal while another request is still in flight. Cleanup checks
-ownership before removing an entry. Without usable locks, a known exact attempt
-can retry read-only; a new sponsorship cannot call the provider.
+ownership before removing an entry. Existing readable recovery caches import once,
+preserving UUIDs, terms and expiry; private legacy intents import only a verification
+block. An initialized snapshot, including an empty one, is never replaced by the
+mirror. Already open tabs running an older client must reload to use this protocol;
+transactional coordination does not extend to those older writers.
+Without usable locks or canonical storage, a known exact durable attempt can retry
+read-only; a new browser attempt cannot call the provider. Synthetic/SSR instances
+without browser storage retain the existing personal-support memory fallback.
+An aborted reservation commit creates no API request or retained-submission claim;
+an aborted cleanup keeps the accepted API result and its durable key for exact retry.
 An accepted result ends that attempt; provider/network failures remain errors.
 
 Apply [migration 031](../../apps/funding-api/migrations/031_create_checkout_operations.sql)
@@ -100,10 +113,12 @@ another session: Stripe can prune keys after 24 hours ([Stripe reference](https:
 An operator must reconcile the operation UUID/public reference against Stripe
 before deciding recovery; changing the key is not an uncertainty recovery.
 The Web displays a specific French/English verification message and retains
-both the pending key and a separate verification flag in local storage.
+both the pending key and a verification flag in the canonical snapshot.
 The flag blocks further Checkout requests across same-origin tabs, including
 after reload, route changes, or changes to the amount, name and consent. Reload
 restores the verification message before submission without contacting Stripe.
+The page restores the canonical block asynchronously even with an empty mirror;
+a positive mirror flag also remains a conservative synchronous block.
 This flag contains no contributor data and is not cleared by editing the form;
 recovery still requires the operator's reconciliation. When browser storage is
 unavailable, the block lasts only for the current service instance.

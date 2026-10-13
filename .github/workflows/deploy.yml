@@ -55,6 +55,11 @@ jobs:
           docker pull postgres:16-alpine
           docker pull axllent/mailpit:v1.27.4
           docker pull adobe/s3mock:5.1.0
+      - name: Prepare isolated admin logo proxy images
+        run: |
+          docker pull node:22-bookworm-slim
+          docker pull nginxinc/nginx-unprivileged:1.27-alpine
+          docker pull traefik:v3.7.13
       - name: PostgreSQL, identity, alerts and provider rehearsal
         run: node --test tests/integration/*.integration.mjs
 

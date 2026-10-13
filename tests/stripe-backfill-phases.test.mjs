@@ -59,6 +59,19 @@ function simulatedPool({
   async function query(sql, values = []) {
     queries.push({ sql: sql.replace(/\s+/g, ' ').trim(), values });
     if (sql.includes('to_regclass')) return { rows: [schemaRow], rowCount: 1 };
+    if (sql.includes('AS unlocked'))
+      return { rows: [{ unlocked: true }], rowCount: 1 };
+    if (sql.startsWith('SELECT id,amount_cents,currency'))
+      return {
+        rows: [
+          {
+            id: '11111111-1111-4111-8111-111111111111',
+            amount_cents: 1500,
+            currency: 'cad'
+          }
+        ],
+        rowCount: 1
+      };
     if (readOnly) assert.match(sql.trim(), /^SELECT\b/);
     if (/SELECT 1\s+FROM fund_transactions/.test(sql)) {
       const id = sql.includes("type='charge.refunded'") ? values[0] : values[1];
@@ -97,7 +110,10 @@ function simulatedStripe({ sessions = [], payouts = [], disputes = [] } = {}) {
     calls,
     checkout: { sessions: { list: list('checkout', sessions) } },
     payouts: { list: list('payouts', payouts) },
-    disputes: { list: list('disputes', disputes) },
+    disputes: {
+      list: list('disputes', disputes),
+      retrieve: async (id) => disputes.find((d) => d.id === id)
+    },
     paymentIntents: { retrieve: unexpected },
     charges: { retrieve: unexpected },
     balanceTransactions: { retrieve: unexpected },
@@ -314,7 +330,16 @@ test('writing phases retain metadata, references, consent and provenance in thei
         balance_transaction: null
       }
     ],
-    disputes: [{ id: 'dp_backfill', charge: { payment_intent: intent } }]
+    disputes: [
+      {
+        id: 'dp_backfill',
+        status: 'needs_response',
+        amount: 1500,
+        currency: 'cad',
+        payment_intent: intent.id,
+        charge: { payment_intent: intent }
+      }
+    ]
   });
   const retrievals = [];
   stripe.paymentIntents.retrieve = async (...args) => {
@@ -353,7 +378,8 @@ test('writing phases retain metadata, references, consent and provenance in thei
       'ch_retrieved',
       { expand: ['balance_transaction', 'payment_intent'] }
     ],
-    ['balance', 'txn_backfill']
+    ['balance', 'txn_backfill'],
+    ['payment', 'pi_retrieved']
   ]);
   const upsert = pool.queries.find(({ sql }) =>
     sql.startsWith('INSERT INTO stripe_checkout_sessions')
