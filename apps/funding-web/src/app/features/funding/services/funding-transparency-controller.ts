@@ -4,7 +4,8 @@ import type { FundingProjectConfig } from '@openg7/funding-models';
 
 import {
   currentFundingMonth,
-  monthlyContributions
+  monthlyContributions,
+  monthlyGoalProgress
 } from '../models/funding-home.utils.js';
 import {
   isTransparencyReport,
@@ -126,26 +127,18 @@ export class FundingTransparencyController {
       this.ports.config.currency
     );
   });
-  readonly monthlyProgress = computed(() => {
+  private readonly monthlyGoal = computed(() => {
     const received = this.currentMonthReceived();
     return received === null
       ? null
-      : this.ports.config.monthlyGoal <= 0
-        ? 0
-        : Math.min(
-            100,
-            Math.max(
-              0,
-              Math.round((received / this.ports.config.monthlyGoal) * 100)
-            )
-          );
+      : monthlyGoalProgress(received, this.ports.config.monthlyGoal);
   });
-  readonly remainingForGoal = computed(() => {
-    const received = this.currentMonthReceived();
-    return received === null
-      ? null
-      : Math.max(0, this.ports.config.monthlyGoal - received);
-  });
+  readonly monthlyProgress = computed(
+    () => this.monthlyGoal()?.progress ?? null
+  );
+  readonly remainingForGoal = computed(
+    () => this.monthlyGoal()?.remaining ?? null
+  );
   readonly publicAllocations = computed(() =>
     this.hasSnapshot() ? (this.data()?.latest_public_allocations ?? []) : []
   );

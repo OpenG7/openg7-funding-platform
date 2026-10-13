@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { markdownAnchors, markdownProse } from './lib/markdown-document.mjs';
 
 export const START = '<!-- openg7:common:start -->';
 export const END = '<!-- openg7:common:end -->';
@@ -36,40 +37,6 @@ export function commonRange(text) {
     );
   }
   return { start, end: end + END.length, content: text.slice(start + START.length, end).trim() };
-}
-
-function prose(text) {
-  let fence = null;
-  return text
-    .split(/\r?\n/)
-    .map((line) => {
-      const marker = line.match(/^\s{0,3}(`{3,}|~{3,})/);
-      if (marker) {
-        if (!fence) fence = marker[1];
-        else if (marker[1][0] === fence[0] && marker[1].length >= fence.length) fence = null;
-        return '';
-      }
-      return fence ? '' : line;
-    })
-    .join('\n');
-}
-
-function anchors(text) {
-  const clean = prose(text);
-  const found = new Set([...clean.matchAll(/<a\s+(?:id|name)=["']([^"']+)["']/g)].map((m) => m[1]));
-  const counts = new Map();
-  for (const match of clean.matchAll(/^#{1,6}\s+(.+?)\s*#*$/gm)) {
-    const base = match[1]
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-      .replace(/<[^>]+>/g, '')
-      .toLowerCase()
-      .replace(/[^\p{L}\p{N}\p{M}_\-\s]/gu, '')
-      .replace(/\s/g, '-');
-    const count = counts.get(base) ?? 0;
-    found.add(count ? `${base}-${count}` : base);
-    counts.set(base, count + 1);
-  }
-  return found;
 }
 
 export function checkProject(repoRoot) {
@@ -133,7 +100,7 @@ export function checkProject(repoRoot) {
       'Validation',
       'Maintenance',
     ]) {
-      if (!prose(text).split('\n').includes(`## ${heading}`))
+      if (!markdownProse(text).split('\n').includes(`## ${heading}`))
         errors.push(`AGENTS.md: section absente: ${heading}`);
     }
   } catch (error) {
@@ -176,7 +143,7 @@ export function checkProject(repoRoot) {
     }
     if ((isTool || isAgent) && /\blignes?\s+\d+/i.test(text))
       errors.push(`${file}: remplacer les numéros de ligne par liens/ancres stables.`);
-    for (const match of prose(text).matchAll(/!?\[[^\]]*\]\(([^\s)]+)(?:\s+"[^"]*")?\)/g)) {
+    for (const match of markdownProse(text).matchAll(/!?\[[^\]]*\]\(([^\s)]+)(?:\s+"[^"]*")?\)/g)) {
       const href = match[1];
       if (/^(?:[a-z][\w+.-]*:|\/\/)/i.test(href)) continue;
       const [raw, anchor] = href.split('#');
@@ -198,7 +165,7 @@ export function checkProject(repoRoot) {
       if (!fs.existsSync(target)) errors.push(`${file}: cible absente: ${href}`);
       else if (anchor && target.endsWith('.md')) {
         try {
-          if (!anchors(load(rel)).has(decodeURIComponent(anchor)))
+          if (!markdownAnchors(load(rel)).has(decodeURIComponent(anchor)))
             errors.push(`${file}: ancre absente: ${href}`);
         } catch {
           errors.push(`${file}: ancre invalide: ${href}`);

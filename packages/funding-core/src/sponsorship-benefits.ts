@@ -5,6 +5,29 @@ import { DEFAULT_SPONSORSHIP_PRICING_CONFIG } from './sponsorship-pricing.js';
 export type SponsorshipBenefitId =
   'website_mention' | 'facebook_batch' | 'linkedin_batch';
 
+/** Internal catalog shared by amount projections and immutable offer snapshots. */
+export const SPONSORSHIP_BENEFIT_DEFINITIONS = [
+  {
+    id: 'website_mention',
+    channel: 'website',
+    pricingKey: 'websiteMention'
+  },
+  {
+    id: 'facebook_batch',
+    channel: 'facebook',
+    pricingKey: 'facebookBatch'
+  },
+  {
+    id: 'linkedin_batch',
+    channel: 'linkedin',
+    pricingKey: 'linkedinBatch'
+  }
+] as const satisfies readonly {
+  readonly id: SponsorshipBenefitId;
+  readonly channel: 'website' | 'facebook' | 'linkedin';
+  readonly pricingKey: keyof SponsorshipPricingConfig['benefits'];
+}[];
+
 export type SponsorshipTierId =
   'website_only' | 'website_facebook' | 'website_facebook_linkedin';
 
@@ -41,20 +64,11 @@ export const resolveSponsorshipBenefits = (
   amount: number,
   pricing: SponsorshipPricingConfig = DEFAULT_SPONSORSHIP_PRICING_CONFIG
 ): SponsorshipBenefitsResult => {
-  const benefitThresholds: readonly SponsorshipBenefitStatus[] = [
-    {
-      id: 'website_mention',
-      minimumAmount: pricing.benefits.websiteMention.minimumAmount
-    },
-    {
-      id: 'facebook_batch',
-      minimumAmount: pricing.benefits.facebookBatch.minimumAmount
-    },
-    {
-      id: 'linkedin_batch',
-      minimumAmount: pricing.benefits.linkedinBatch.minimumAmount
-    }
-  ];
+  const benefitThresholds: readonly SponsorshipBenefitStatus[] =
+    SPONSORSHIP_BENEFIT_DEFINITIONS.map(({ id, pricingKey }) => ({
+      id,
+      minimumAmount: pricing.benefits[pricingKey].minimumAmount
+    }));
 
   const achievedBenefits = benefitThresholds
     .filter((benefit) => amount >= benefit.minimumAmount)

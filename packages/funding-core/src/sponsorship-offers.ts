@@ -1,6 +1,9 @@
 import type { SponsorshipPricingConfig } from '@openg7/funding-models';
 
-import type { SponsorshipBenefitId } from './sponsorship-benefits.js';
+import {
+  SPONSORSHIP_BENEFIT_DEFINITIONS,
+  type SponsorshipBenefitId
+} from './sponsorship-benefits.js';
 import { DEFAULT_SPONSORSHIP_PRICING_CONFIG } from './sponsorship-pricing.js';
 import {
   publicationFormatCapability,
@@ -64,27 +67,10 @@ export const createSponsorshipOfferSnapshot = (
   };
   if (amountMinor < minor(pricing.minimumAmount))
     throw new Error('Sponsorship amount is below the minimum.');
-  const definitions: readonly [
-    SponsorshipBenefitId,
-    SponsorshipObligationChannel,
-    number
-  ][] = [
-    [
-      'website_mention',
-      'website',
-      minor(pricing.benefits.websiteMention.minimumAmount)
-    ],
-    [
-      'facebook_batch',
-      'facebook',
-      minor(pricing.benefits.facebookBatch.minimumAmount)
-    ],
-    [
-      'linkedin_batch',
-      'linkedin',
-      minor(pricing.benefits.linkedinBatch.minimumAmount)
-    ]
-  ];
+  const definitions = SPONSORSHIP_BENEFIT_DEFINITIONS.map(
+    ({ id, channel, pricingKey }) =>
+      [id, channel, minor(pricing.benefits[pricingKey].minimumAmount)] as const
+  );
   for (const [channel, format] of Object.entries(formats ?? {})) {
     if (
       !publicationFormatCapability(channel, format).available ||
@@ -143,11 +129,10 @@ export const normalizeSponsorshipOfferSnapshot = (
     input.benefits.length > 3
   )
     throw new Error('Invalid sponsorship offer.');
-  const channels: Record<string, SponsorshipObligationChannel> = {
-    website_mention: 'website',
-    facebook_batch: 'facebook',
-    linkedin_batch: 'linkedin'
-  };
+  const channels: Record<string, SponsorshipObligationChannel> =
+    Object.fromEntries(
+      SPONSORSHIP_BENEFIT_DEFINITIONS.map(({ id, channel }) => [id, channel])
+    );
   const seen = new Set<string>();
   const benefits = input.benefits.map((value): SponsorshipOfferedBenefit => {
     if (!value || typeof value !== 'object' || Array.isArray(value))

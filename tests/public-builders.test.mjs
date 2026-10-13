@@ -45,3 +45,51 @@ test('directory parameters and public builder responses reject misleading data',
   ])
     assert.equal(isPublicBuildersResponse({ ...valid, ...patch }), false);
 });
+
+test('builder pages preserve full, partial and past-end boundaries without accepting malformed totals', () => {
+  const builders = Array.from({ length: 53 }, (_, index) => ({
+    public_id: `synthetic-builder-${index}`,
+    display_name: `Builder ${index}`,
+    contribution_type: 'personal_support',
+    amount: null,
+    currency: 'CAD',
+    paid_at: null
+  }));
+  const response = (page) => ({
+    data_source: 'database',
+    builders: builders.slice((page - 1) * 50, page * 50),
+    last_updated_at: '2026-09-19T00:00:00Z',
+    pagination: { page, page_size: 50, total_count: builders.length }
+  });
+  for (const page of [1, 2, 3, 100_000])
+    assert.equal(isPublicBuildersResponse(response(page)), true);
+  const partial = response(2);
+  for (const patch of [
+    { page: 0 },
+    { page: 100_001 },
+    { page: '2' },
+    { page_size: 51 },
+    { page_size: 1.5 },
+    { total_count: -1 },
+    { total_count: Infinity },
+    { total_count: '53' }
+  ])
+    assert.equal(
+      isPublicBuildersResponse({
+        ...partial,
+        pagination: { ...partial.pagination, ...patch }
+      }),
+      false
+    );
+  assert.equal(
+    isPublicBuildersResponse({
+      ...partial,
+      builders: partial.builders.slice(1)
+    }),
+    false
+  );
+  assert.equal(
+    isPublicBuildersResponse({ ...partial, pagination: undefined }),
+    false
+  );
+});
