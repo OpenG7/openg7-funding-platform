@@ -359,10 +359,13 @@ approbation et résultat fournisseur sont observés séparément. Les guides
 [publication](publication-automation.md), [preuves](../technical/sponsorship-fulfilment.md)
 et [formats](../technical/publication-formats.md) portent leurs contrats.
 
-Les collections LinkedIn acceptent de 2 à 10 photos ; les recettes intégrées ont
-reçu des collections de deux et huit petites images synthétiques. Le rendu et le
-chargement de dix grandes images restent à mesurer avant de fixer leurs limites
-opérationnelles ; voir le contrat des formats. Les collections Facebook restent
+Les collections LinkedIn acceptent de 2 à 10 photos. La
+[réception de dix grandes photos](../development/publication-performance.md#dix-grandes-photos)
+mesure l'ingestion, le rendu et les appels d'aperçu concurrents côté API sur
+stockage local. Un contrôle navigateur distinct vérifie le décodage et l'affichage
+des dix JPEG en français sur ordinateur et en anglais sur mobile. Qualifier
+séparément les performances navigateur, le stockage distant et les comptes réels
+avant de fixer leurs limites opérationnelles. Les collections Facebook restent
 indisponibles faute de qualification. Un JPEG composite ne remplace pas un album. LinkedIn compare
 les URNs des images remis au fournisseur, avec le compte et le contenu exacts.
 Les anciennes preuves sans URN et les photos Facebook sans identité distante

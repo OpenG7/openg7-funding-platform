@@ -164,3 +164,91 @@ conservent les étapes et le profil applicatif final. La comparaison A/B est
 un diagnostic local daté, et non un seuil de CI ou une qualification du VPS.
 Le test d'intégration versionné protège le parcours unique, les compteurs et
 les réservations ; ses assertions restent indépendantes de ces millisecondes.
+
+<a id="dix-grandes-photos"></a>
+
+## Ingestion et aperçu de dix grandes photos
+
+La [recette visuelle](../../tests/integration/publication-visual-load.integration.mjs)
+utilise dix originaux JPEG distincts, texturés et déterministes de 6 000 × 4 000
+pixels. Chaque original pèse 6,45–6,54 Mio, sous les plafonds applicatifs de 8 Mio
+et 40 millions de pixels. Le vrai service d'ingestion produit les WebP de
+2 000 × 1 333 pixels, de 0,70–0,71 Mio, ensuite lus par le vrai stockage privé
+local. Le rendu utilise ces images normalisées, comme le parcours applicatif.
+
+Les phases sont isolées dans des processus Node frais : ingestion, composition,
+résolution complète, aperçu du premier index et dix aperçus concurrents par
+`Promise.all`. Deux préparations privées utilisent les mêmes dix photos, pour
+une collection LinkedIn et un composite. La base PostgreSQL est jetable ; aucun
+envoi HTTP, approbation de livraison, réservation d'envoi ou preuve d'exécution
+n'est créé. Les vingt obligations restent à réaliser.
+
+La réception du 12 octobre 2026 compare la base `123966b1` et le correctif local
+sur `feat/sponsorship-visual-load-reception`, avec Node 22.23.3. Les empreintes
+des dix originaux, des WebP et des JPEG finaux sont identiques entre passages ;
+le composite conserve aussi ses octets exacts. Les propriétaires, versions et
+hashes sources sont comparés à la fixture indépendante, avec dix JPEG distincts
+dans la galerie.
+
+Le tableau reprend le premier passage comparatif archivé. Après la correction
+du nettoyage IPC, le contrôle final retrouve les mêmes empreintes et compteurs ;
+les dix aperçus prennent 4,05 s, avec 19,69 s de CPU et 318,8 Mio de pic RSS.
+L'écart entre les deux passages confirme que les durées restent informatives.
+
+| Phase API                    | Durée avant → après | CPU avant → après | Lectures / JPEG avant → après | Pic RSS avant → après |
+| ---------------------------- | ------------------- | ----------------- | ----------------------------- | --------------------- |
+| Composition de la collection | 2,05 → 1,16 s       | 2,74 → 1,66 s     | 20 / 20 → 10 / 10             | 145,2 → 131,2 Mio     |
+| Résolution de la collection  | 2,01 → 1,07 s       | 3,41 → 1,44 s     | 20 / 20 → 10 / 10             | 145,8 → 128,0 Mio     |
+| Aperçu du premier JPEG       | 2,01 → 1,09 s       | 3,03 → 1,33 s     | 20 / 20 → 10 / 10             | 147,0 → 127,3 Mio     |
+| Dix aperçus concurrents      | 6,54 → 3,31 s       | 31,86 → 16,66 s   | 200 / 200 → 100 / 100         | 346,6 → 330,7 Mio     |
+| Résolution du composite      | 1,65 → 1,67 s       | 2,34 → 2,38 s     | 20 / 11 → 10 / 11             | 142,9 → 133,2 Mio     |
+
+Le correctif supprime la seconde lecture privée et réutilise le JPEG déjà
+préparé pour une image source ou une collection. La collection conserve les
+JPEG nécessaires, sans retenir toutes les sources brutes. Un composite exige
+toujours les sources pour son montage et son JPEG final ; sa durée n'a pas
+diminué dans cette mesure. Les dix aperçus revalident chacun leurs dix
+dépendances, d'où les cent lectures restantes. Aucun cache entre requêtes,
+allègement des droits ou rendu du seul index demandé n'est introduit.
+
+Les compteurs structurels sont protégés en CI : une lecture par source,
+dix JPEG par collection, cent pour dix aperçus, onze pour un composite et zéro
+requête externe. Les durées et la mémoire sont informatives, sans seuil lié
+au matériel. Le RSS est échantillonné toutes les 10 ms ; le rapport conserve
+aussi le maximum du processus complet. L'ingestion globale inclut la génération
+synthétique et les IO ; chaque durée individuelle de normalisation est mesurée
+séparément. Le cache du système de fichiers n'est pas forcé à froid.
+
+Les rapports ignorés `test-results/publication-visual-load-baseline.json` et
+`test-results/publication-visual-load-current-comparison.json` conservent le
+passage comparatif du tableau. `test-results/publication-visual-load-current.json`
+conserve le dernier contrôle. Le contrôle final avant défragmentation est archivé
+dans `test-results/publication-visual-load-before-defrag.json`. Ces rapports contiennent réglages runtime,
+volumes, empreintes et mesures agrégées. Pour reproduire après compilation :
+`node --test --test-concurrency=1 tests/integration/publication-visual-load.integration.mjs`.
+Le label de test `FUNDING_VISUAL_LOAD_REPORT=baseline` conserve une mesure de
+référence sans exiger les compteurs optimisés ; la réception courante utilise
+le label par défaut et exige ces compteurs.
+
+Cette recette mesure les services API et le stockage local, sans transport HTTP,
+décodage ou mémoire navigateur, stockage S3 ni upload fournisseur réel. Elle
+ne qualifie pas un SLA de production. Les albums Facebook restent soumis à la
+[qualification du connecteur](../technical/publication-formats.md#qualification-des-api-officielles).
+
+Un [contrôle navigateur distinct](../../tests/playwright/publication-collection-preview.ui.ts)
+utilise les mêmes originaux texturés et la même normalisation : dix vrais JPEG
+de 2 000 × 1 333 pixels, avec API interceptée, sur ordinateur en français et
+mobile en anglais. Une dernière réponse bloquée interdit l'approbation malgré
+la confirmation cochée. Après réception des dix Blobs vérifiés, le test contrôle
+leurs digests dans l'ordre, leur décodage, leurs dimensions et leur affichage,
+puis une unique approbation N0. Le produit attend les Blobs vérifiés ; le test
+observe le décodage avant le clic, sans ajouter une nouvelle condition au bouton.
+Ce contrôle fonctionnel ne chronomètre pas le navigateur ni sa mémoire.
+
+Le [générateur d'images partagé](../../tests/integration/support/publication-visual-load-images.mjs)
+ne dépend que de Sharp et des primitives Node. Les recettes Node et
+navigateur l'utilisent directement ; le navigateur ne charge plus la fixture
+SQL ou ses helpers de modération. Le registre de tests existant délègue les
+deux parcours à dix photos au module dédié, avec le même contexte et les mêmes
+assertions. Cette séparation ne modifie pas la normalisation, les octets JPEG
+ni les compteurs de la recette.

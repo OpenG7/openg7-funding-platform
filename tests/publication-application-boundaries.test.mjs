@@ -594,7 +594,7 @@ test('preflight blocks a previously authorized foreign image before reading byte
   ]);
 });
 
-test('preflight detects changed media bytes on either storage read before converting the approved image', async () => {
+test('preflight validates its single source read before rendering and never converts different follow-up bytes', async (t) => {
   const bytes = imageBytes;
   const snapshot = mediaSnapshot;
   const editorial = {
@@ -603,37 +603,65 @@ test('preflight detects changed media bytes on either storage read before conver
     media_id: media.id,
     media_snapshot: snapshot
   };
-  for (const storageReads of [
-    [Buffer.from('replaced')],
-    [bytes, Buffer.from('replaced')],
-    [bytes, null]
-  ])
+  const replacement = await sharp({
+    create: { width: 2, height: 2, channels: 3, background: '#00ff22' }
+  })
+    .png()
+    .toBuffer();
+  const replacementPrepared = await preparePublicationImage(replacement);
+  let conversions = 0;
+  const originalJpeg = sharp.prototype.jpeg;
+  t.mock.method(sharp.prototype, 'jpeg', function (...args) {
+    conversions++;
+    return originalJpeg.apply(this, args);
+  });
+  for (const [sourceBytes, code] of [
+    [Buffer.from('replaced'), 'MEDIA_CHANGED'],
+    [null, 'MEDIA_UNAVAILABLE']
+  ]) {
+    let reads = 0;
     await assert.rejects(
       ready(
         sequenceDb([media]),
         editorial,
         {
-          async readPrivateObject() {
-            return storageReads.shift();
+          async readPrivateObject(key) {
+            assert.equal(key, media.key);
+            reads++;
+            return sourceBytes;
           }
         },
         async () => [feed]
       ),
-      { code: 'MEDIA_CHANGED' }
+      { code }
     );
-  let reads = 0;
-  const jpeg = await ready(
-    sequenceDb([media]),
-    editorial,
-    {
-      async readPrivateObject(key) {
-        assert.equal(key, media.key);
-        reads++;
-        return bytes;
-      }
-    },
-    async () => [feed]
-  );
-  assert.equal(reads, 2);
-  assert.equal((await sharp(jpeg).metadata()).format, 'jpeg');
+    assert.equal(reads, 1);
+    assert.equal(conversions, 0);
+  }
+  for (const unreadFollowUp of [replacement, null]) {
+    const storageReads = [bytes, unreadFollowUp];
+    let reads = 0;
+    const previousConversions = conversions;
+    const jpeg = await ready(
+      sequenceDb([media]),
+      editorial,
+      {
+        async readPrivateObject(key) {
+          assert.equal(key, media.key);
+          assert.equal(reads, 0, 'The checked source must not be read again');
+          reads++;
+          return storageReads.shift();
+        }
+      },
+      async () => [feed]
+    );
+    assert.equal(reads, 1);
+    assert.equal(conversions - previousConversions, 1);
+    assert.equal(storageReads.length, 1);
+    assert.strictEqual(storageReads[0], unreadFollowUp);
+    assert.deepEqual(jpeg, prepared.bytes);
+    assert.equal(digest(jpeg), snapshot.derivedHash);
+    assert.notEqual(digest(jpeg), replacementPrepared.sha256);
+    assert.equal((await sharp(jpeg).metadata()).format, 'jpeg');
+  }
 });

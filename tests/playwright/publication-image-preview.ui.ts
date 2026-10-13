@@ -1,33 +1,20 @@
 import { createHash } from 'node:crypto';
 
-import type { Page } from '@playwright/test';
-import type {
-  PublicationAutomationCommand,
-  PublicationDelivery,
-  PublicationMediaOption
-} from '@openg7/funding-core';
 import { AxeBuilder } from '@axe-core/playwright';
 import sharp from 'sharp';
 
 import { expect, test } from './support/test.js';
 import { completeModeration } from './support/moderation.js';
-interface Context {
-  setup(
-    page: Page,
-    job: Partial<PublicationDelivery>,
-    media: Record<string, PublicationMediaOption[]>,
-    privateBatchCompose?: boolean
-  ): Promise<PublicationAutomationCommand[]>;
-}
-export async function syntheticPublicationJpeg() {
-  const bytes = await sharp({
-    create: { width: 12, height: 20, channels: 3, background: '#dd7700' }
-  })
-    .jpeg({ quality: 90 })
-    .toBuffer();
-  return { bytes, hash: createHash('sha256').update(bytes).digest('hex') };
-}
+import {
+  syntheticPublicationJpeg,
+  type PublicationImagePreviewContext as Context
+} from './support/publication-image-preview.fixture.js';
+import { registerNormalizedPublicationCollectionTests } from './publication-collection-preview.ui.js';
+
+export { syntheticPublicationJpeg };
+
 export function registerPublicationImagePreviewTests(context: Context): void {
+  registerNormalizedPublicationCollectionTests(context);
   for (const english of [false, true])
     test(`LinkedIn collection requires every exact private JPEG before approval ${english ? 'EN mobile' : 'FR desktop'}`, async ({
       page

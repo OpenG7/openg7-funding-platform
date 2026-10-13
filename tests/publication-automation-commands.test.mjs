@@ -717,7 +717,7 @@ test('composition and edit restrict sponsorship images to either source of a col
           assert.deepEqual(await command(f.context, input, 'reviewer'), {
             id
           });
-          assert.equal(reads, 2);
+          assert.equal(reads, 1);
           assert.equal(
             f
               .queries()
@@ -790,7 +790,7 @@ test('editorial composition and edit keep shared images without a batch scope', 
             mediaId: foreignImageId
           };
     assert.deepEqual(await command(f.context, input, 'reviewer'), { id });
-    assert.equal(reads, 2);
+    assert.equal(reads, 1);
   }
 });
 
@@ -890,7 +890,7 @@ test('combined approval checks media ownership before approving its pending spon
     ),
     { id }
   );
-  assert.equal(reads, 2);
+  assert.equal(reads, 1);
   assert.deepEqual(f.lifecycle(), ['connect', 'BEGIN', 'COMMIT', 'release']);
 });
 
