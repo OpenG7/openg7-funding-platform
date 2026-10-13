@@ -53,6 +53,10 @@ export class FundingService {
     return this.checkoutAttempts.requiresVerification();
   }
 
+  restoreCheckoutVerification(): Promise<boolean> {
+    return this.checkoutAttempts.restoreVerification();
+  }
+
   /**
    * Creates a checkout via the API, retaining the same key after an uncertain response.
    */

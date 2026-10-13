@@ -52,33 +52,45 @@ export class CheckoutAttempts {
   constructor(
     getStorage: () => CheckoutAttemptStorage | null = () => null,
     getLegacyStorage?: () => CheckoutAttemptStorage | null,
-    private readonly coordinator: CheckoutAttemptCoordinator = createCheckoutAttemptCoordinator()
+    private readonly coordinator: CheckoutAttemptCoordinator = createCheckoutAttemptCoordinator(
+      getStorage
+    )
   ) {
-    this.cache = new CheckoutAttemptCache(getStorage, getLegacyStorage);
-    this.offers = new CheckoutOfferRecovery(getStorage);
+    const coordinatedStorage = coordinator.getStorage
+      ? () => coordinator.getStorage!()
+      : getStorage;
+    this.cache = new CheckoutAttemptCache(coordinatedStorage, getLegacyStorage);
+    this.offers = new CheckoutOfferRecovery(coordinatedStorage);
   }
 
   async retainedSponsorshipOffer(
     amountMinor: number,
     currency: string
   ): Promise<CheckoutOfferResume> {
-    return this.coordinator.run(async (writable) => {
-      this.pruneExpired(writable);
-      const remembered = this.readStoredAttempts();
-      if (this.cache.requiresVerification())
-        return { state: 'verification_required' };
-      const resume = await this.offers.resume(amountMinor, currency, {
-        ...remembered,
-        ...Object.fromEntries(this.keys)
+    return this.coordinator
+      .run(async (writable): Promise<CheckoutOfferResume> => {
+        this.pruneExpired(writable);
+        const remembered = this.readStoredAttempts();
+        if (this.cache.requiresVerification())
+          return { state: 'verification_required' };
+        const resume = await this.offers.resume(amountMinor, currency, {
+          ...remembered,
+          ...Object.fromEntries(this.keys)
+        });
+        this.pruneExpired(writable);
+        if (resume.state === 'verification_required')
+          this.cache.requireVerification();
+        if (this.cache.requiresVerification())
+          return { state: 'verification_required' };
+        if (!writable && resume.state === 'none')
+          return { state: 'unavailable' };
+        return resume;
+      })
+      .catch((error: unknown) => {
+        if (error instanceof CheckoutRecoveryUnavailableError)
+          return { state: 'unavailable' } as const;
+        throw error;
       });
-      this.pruneExpired(writable);
-      if (resume.state === 'verification_required')
-        this.cache.requireVerification();
-      if (this.cache.requiresVerification())
-        return { state: 'verification_required' };
-      if (!writable && resume.state === 'none') return { state: 'unavailable' };
-      return resume;
-    });
   }
 
   requiresVerification(): boolean {
@@ -100,6 +112,19 @@ export class CheckoutAttempts {
         });
     }
     return required || this.cache.requiresVerification();
+  }
+
+  async restoreVerification(): Promise<boolean> {
+    try {
+      return await this.coordinator.run((writable) => {
+        this.pruneExpired(writable);
+        return this.cache.requiresVerification();
+      });
+    } catch (error) {
+      if (error instanceof CheckoutRecoveryUnavailableError)
+        return this.cache.requiresVerification();
+      throw error;
+    }
   }
 
   start(
@@ -142,13 +167,30 @@ export class CheckoutAttempts {
         offerQuote.version !== intent.offerAcceptance?.version ||
         offerQuote.fingerprint !== intent.offerAcceptance?.fingerprint)
     ) {
-      this.cache.requireVerification();
+      await this.requireVerification();
       throw new CheckoutReconciliationRequiredError();
     }
     const fingerprint = await checkoutIntentFingerprint(payload);
-    const reservation = await this.coordinator.run((writable) =>
-      this.reserve(intent, fingerprint, offerQuote, writable)
-    );
+    const priorKey = this.keys.get(fingerprint);
+    const priorExpiry = this.expiresAt.get(fingerprint);
+    let reservation: AttemptReservation;
+    try {
+      reservation = await this.coordinator.run((writable) =>
+        this.reserve(intent, fingerprint, offerQuote, writable)
+      );
+    } catch (error) {
+      if (error instanceof CheckoutRecoveryUnavailableError) {
+        const key = this.keys.get(fingerprint);
+        if (key && key !== priorKey)
+          this.offers.forget(fingerprint, key, false);
+        if (priorKey) this.keys.set(fingerprint, priorKey);
+        else this.keys.delete(fingerprint);
+        if (priorExpiry !== undefined)
+          this.expiresAt.set(fingerprint, priorExpiry);
+        else this.expiresAt.delete(fingerprint);
+      }
+      throw error;
+    }
     let result: CheckoutResult;
     // The API owns server idempotence. No network wait holds a browser lock.
     try {
@@ -158,13 +200,13 @@ export class CheckoutAttempts {
       });
     } catch (error) {
       if (error instanceof CheckoutReconciliationRequiredError)
-        this.cache.requireVerification();
+        await this.requireVerification();
       else if (
         error instanceof CheckoutOfferChangedError ||
         error instanceof CheckoutCharterChangedError
       ) {
         if (error.code.endsWith('INVALID') && !reservation.isNewAttempt) {
-          this.cache.requireVerification();
+          await this.requireVerification();
           throw new CheckoutReconciliationRequiredError();
         }
         // A refusal does not settle another request sharing this UUID. Retain the
@@ -172,7 +214,13 @@ export class CheckoutAttempts {
       }
       throw error;
     }
-    await this.complete(fingerprint, reservation.idempotencyKey);
+    try {
+      await this.complete(fingerprint, reservation.idempotencyKey);
+    } catch (error) {
+      // Cleanup failure cannot turn a known API result into a pre-dispatch error.
+      // The unchanged durable snapshot permits an exact retry of this UUID.
+      if (!(error instanceof CheckoutRecoveryUnavailableError)) throw error;
+    }
     return result;
   }
 
@@ -210,7 +258,20 @@ export class CheckoutAttempts {
       this.cache.requireVerification();
       throw new CheckoutReconciliationRequiredError();
     }
-    const knownKey = latest[fingerprint] ?? this.keys.get(fingerprint);
+    const memoryKey = this.keys.get(fingerprint);
+    const knownKey =
+      latest[fingerprint] ??
+      (writable ||
+      !memoryKey ||
+      this.coordinator.hasDurableAttempt?.(fingerprint, memoryKey) !== false
+        ? memoryKey
+        : undefined);
+    if (
+      !writable &&
+      knownKey &&
+      this.coordinator.hasDurableAttempt?.(fingerprint, knownKey) === false
+    )
+      throw new CheckoutRecoveryUnavailableError();
     if (
       !writable &&
       !knownKey &&
@@ -250,6 +311,11 @@ export class CheckoutAttempts {
     return this.coordinator.run((writable) =>
       this.completeOwned(fingerprint, idempotencyKey, writable)
     );
+  }
+
+  private requireVerification(): Promise<void> {
+    this.cache.requireVerification();
+    return this.coordinator.run(() => this.cache.requireVerification());
   }
 
   private completeOwned(
