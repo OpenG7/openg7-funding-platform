@@ -37,8 +37,9 @@ provider evidence.
 Do not mark the request failed merely because no HTTP response arrived, delete
 the operation, or change its idempotency key to retry. No automatic expiry releases
 the lock. A manual correction requires a separately authorized, audited action.
-Historical reconciliation does not send sponsor emails or create missing credit
-notes; inspect these separately before using their existing recovery actions.
+Historical reconciliation does not send sponsor emails. It creates missing
+credit notes for confirmed refunds when the local sponsorship invoice is present;
+recover a missing invoice first, then resume the bounded recovery.
 
 ## Asynchronous refund updates
 
@@ -53,19 +54,26 @@ pending/success event cannot override a newer terminal provider state. The curre
 replaces its older snapshot in the charge's bounded refund list; confirmed
 individual facts still deduplicate by refund ID.
 
-An administrative operation that succeeds completes the existing credit note
-from its invoice, or creates the missing note with its existing refund-based
-identity. Repeats retain number, amount, issue date and document snapshot. No new
+Every confirmed sponsorship refund, including one created outside OpenG7,
+completes its existing credit note or issues one from its local invoice. This
+shared path handles `charge.refunded`, asynchronous refund updates and backfill,
+including all confirmed refunds returned for the charge. Issuance and its audit
+commit together, once per refund ID. Repeats retain number, amount, issue date
+and document snapshot. No new
 sponsor email is queued: the operation does not store the original notification
 recipient/message/consent. Previously queued messages remain unchanged; use the
 existing confirmed email action if a further notification is appropriate.
-Historical backfill retains its separate behavior described above.
+Historical backfill retains the same document rule and stays silent.
 
 A missing invoice leaves the financial refund confirmed but the event failed
 (`REFUND_INVOICE_REQUIRED` in the correlated safe log). Recover the invoice with
 the existing administrative action, then replay that event to finish the credit
 note without another refund or ledger entry. Provider/database failure likewise
 leaves a retryable event rather than a false success.
+If the refund arrives before the Checkout contribution is attached to its
+PaymentIntent, `REFUND_CONTRIBUTION_REQUIRED` likewise leaves its event retryable.
+Payment confirmation/invoice recovery followed by redelivery attaches the existing
+refund and completes its credit note; no financial fact or invoice is invented.
 
 An authoritative failure/return after a succeeded refund is a financial
 correction, not a pending-operation failure. `REFUND_FINANCIAL_CORRECTION_REQUIRED`
@@ -112,6 +120,9 @@ foreign projects and a lost provider response across a real API restart.
 success/failure, stale snapshots, concurrent repeats, project and monetary
 contradictions, provider failure, missing invoice recovery and quarantine after
 a confirmed refund. All provider responses and recipients are synthetic.
+`stripe-reconciliation-regressions.integration.mjs` covers refunds created outside
+OpenG7, several refunds delivered through one update, invoice recovery, audit
+rollback and current dispute resolution without restoring publication authority.
 `database-migrations.integration.mjs` checks clean and existing disposable databases.
 The admin dossier browser suite covers the uncertain-result message and disabled
 resubmission. Providers and credentials are synthetic; these are not live refunds.

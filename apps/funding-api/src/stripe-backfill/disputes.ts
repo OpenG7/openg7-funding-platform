@@ -1,7 +1,7 @@
 import type { Pool } from 'pg';
 import type Stripe from 'stripe';
 
-import { updateContributionStatusByPaymentIntent } from '../fund-contributions.repository.js';
+import { reconcileStripeDispute } from '../stripe-disputes.service.js';
 import {
   resolveCharge,
   resolvePaymentIntent
@@ -78,9 +78,10 @@ export const backfillDisputes = async (
       continue;
     }
 
-    const updated = await updateContributionStatusByPaymentIntent(pool, {
-      stripePaymentIntentId: paymentIntent.id,
-      status: 'disputed'
+    const updated = await reconcileStripeDispute(stripe, pool, dispute, {
+      projectId: options.projectId,
+      source: 'stripe_backfill',
+      allowUnmatched: options.includeUnmatched
     });
 
     if (updated) {

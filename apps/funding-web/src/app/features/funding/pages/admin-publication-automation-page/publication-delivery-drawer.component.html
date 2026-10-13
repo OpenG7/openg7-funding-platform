@@ -1,4 +1,11 @@
 @let c = controller();
+<ng-template #sponsorDossierLink let-sponsor let-tab="tab">
+  <a
+    routerLink="/admin/fundraiser/sponsors"
+    [queryParams]="{ sponsorshipId: sponsor.id, tab }"
+    >{{ sponsor.name }}</a
+  >
+</ng-template>
 <openg7-admin-drawer
   [opened]="!!c.selected() || c.composing()"
   [title]="'admin.publicationAutomation.preview' | translate"
@@ -49,11 +56,12 @@
               {{ 'admin.publicationAutomation.mediaBlocker' | translate }}
             </p>
             @for (sponsor of job.sponsors; track sponsor.id) {
-              <a
-                routerLink="/admin/fundraiser/sponsors"
-                [queryParams]="{ sponsorshipId: sponsor.id, tab: 'media' }"
-                >{{ sponsor.name }}</a
-              >
+              <ng-container
+                *ngTemplateOutlet="
+                  sponsorDossierLink;
+                  context: { $implicit: sponsor, tab: 'media' }
+                "
+              />
             }
           </section>
         }
@@ -66,11 +74,12 @@
               }}
             </p>
             @for (sponsor of job.sponsors; track sponsor.id) {
-              <a
-                routerLink="/admin/fundraiser/sponsors"
-                [queryParams]="{ sponsorshipId: sponsor.id }"
-                >{{ sponsor.name }}</a
-              >
+              <ng-container
+                *ngTemplateOutlet="
+                  sponsorDossierLink;
+                  context: { $implicit: sponsor }
+                "
+              />
             }
           </section>
         }
@@ -87,24 +96,28 @@
             </a>
           </section>
         }
-        @if (job.errorCode === 'SOURCE_NOT_ELIGIBLE') {
+        @if (
+          job.errorCode === 'SOURCE_NOT_ELIGIBLE' ||
+          job.errorCode === 'PAYMENT_REVIEW_REQUIRED'
+        ) {
           @for (sponsor of job.sponsors; track sponsor.id) {
             @if (
               sponsor.paymentStatus === 'refunded' ||
               sponsor.paymentStatus === 'disputed'
             ) {
               <p data-og7="publication-payment-blocker" role="status">
-                <a
-                  routerLink="/admin/fundraiser/sponsors"
-                  [queryParams]="{
-                    sponsorshipId: sponsor.id,
-                    tab:
-                      sponsor.paymentStatus === 'refunded'
-                        ? 'refund'
-                        : 'overview'
-                  }"
-                  >{{ sponsor.name }}</a
-                >
+                <ng-container
+                  *ngTemplateOutlet="
+                    sponsorDossierLink;
+                    context: {
+                      $implicit: sponsor,
+                      tab:
+                        sponsor.paymentStatus === 'refunded'
+                          ? 'refund'
+                          : 'overview'
+                    }
+                  "
+                />
                 —
                 {{
                   'admin.publicationAutomation.paymentBlocked.' +
@@ -113,6 +126,28 @@
               </p>
             }
           }
+        }
+        @if (job.errorCode === 'PAYMENT_REVIEW_REQUIRED') {
+          <section data-og7="publication-payment-review" role="status">
+            <p>
+              {{
+                'admin.publicationAutomation.paymentBlocked.reviewRequired'
+                  | translate
+              }}
+            </p>
+            <ul>
+              @for (sponsor of job.sponsors; track sponsor.id) {
+                <li>
+                  <ng-container
+                    *ngTemplateOutlet="
+                      sponsorDossierLink;
+                      context: { $implicit: sponsor, tab: 'overview' }
+                    "
+                  />
+                </li>
+              }
+            </ul>
+          </section>
         }
       }
       @if (job.nextAttemptAt && job.status === 'approved') {

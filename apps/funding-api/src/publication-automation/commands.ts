@@ -462,7 +462,7 @@ async function executeCommand(
         const obligations = await capturePublicationObligations(db, row);
         await reserveAccountSchedule(db, row);
         await db.query(
-          `UPDATE publication_deliveries SET status='approved',approved_at=NOW(),approved_by=$2,obligation_snapshot=$3::jsonb,version=version+1,updated_at=NOW() WHERE id=$1`,
+          `UPDATE publication_deliveries SET status='approved',approved_at=NOW(),approved_by=$2,obligation_snapshot=$3::jsonb,error_code=NULL,version=version+1,updated_at=NOW() WHERE id=$1`,
           [row.id, actor, JSON.stringify(obligations)]
         );
         for (const obligation of obligations)

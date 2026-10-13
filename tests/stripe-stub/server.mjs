@@ -59,7 +59,8 @@ const resetState = () => {
 };
 
 const nowSeconds = () => Math.floor(Date.now() / 1000);
-const randomId = (prefix) => `${prefix}_stub_${randomBytes(12).toString('hex')}`;
+const randomId = (prefix) =>
+  `${prefix}_stub_${randomBytes(12).toString('hex')}`;
 
 const sendJson = (response, statusCode, body) => {
   const payload = JSON.stringify(body);
@@ -74,7 +75,8 @@ const sendStripeError = (response, statusCode, message, code) => {
   sendJson(response, statusCode, {
     error: {
       message,
-      type: statusCode === 404 ? 'invalid_request_error' : 'invalid_request_error',
+      type:
+        statusCode === 404 ? 'invalid_request_error' : 'invalid_request_error',
       code: code ?? null
     }
   });
@@ -111,7 +113,10 @@ const balanceTransactionObject = (record) => ({
   type: record.type
 });
 
-const chargeObject = (record, { expandBalanceTransaction, expandPaymentIntent } = {}) => ({
+const chargeObject = (
+  record,
+  { expandBalanceTransaction, expandPaymentIntent } = {}
+) => ({
   id: record.id,
   object: 'charge',
   amount: record.amount,
@@ -126,8 +131,11 @@ const chargeObject = (record, { expandBalanceTransaction, expandPaymentIntent } 
   metadata: record.metadata ?? {},
   payment_intent: record.paymentIntentId,
   balance_transaction:
-    expandBalanceTransaction && state.balanceTransactions.has(record.balanceTransactionId)
-      ? balanceTransactionObject(state.balanceTransactions.get(record.balanceTransactionId))
+    expandBalanceTransaction &&
+    state.balanceTransactions.has(record.balanceTransactionId)
+      ? balanceTransactionObject(
+          state.balanceTransactions.get(record.balanceTransactionId)
+        )
       : record.balanceTransactionId,
   refunds: {
     object: 'list',
@@ -142,7 +150,10 @@ const chargeObject = (record, { expandBalanceTransaction, expandPaymentIntent } 
     : {})
 });
 
-const paymentIntentObject = (record, { expandLatestCharge, expandBalanceTransaction } = {}) => ({
+const paymentIntentObject = (
+  record,
+  { expandLatestCharge, expandBalanceTransaction } = {}
+) => ({
   id: record.id,
   object: 'payment_intent',
   amount: record.amount,
@@ -176,7 +187,9 @@ const checkoutSessionObject = (record, { expandPaymentIntent } = {}) => ({
   id: record.id,
   object: 'checkout.session',
   mode: 'payment',
-  status: record.sessionStatus ?? (record.paymentStatus === 'paid' ? 'complete' : 'open'),
+  status:
+    record.sessionStatus ??
+    (record.paymentStatus === 'paid' ? 'complete' : 'open'),
   client_reference_id: record.clientReferenceId ?? null,
   success_url: record.successUrl ?? null,
   cancel_url: record.cancelUrl ?? null,
@@ -186,9 +199,13 @@ const checkoutSessionObject = (record, { expandPaymentIntent } = {}) => ({
   currency: record.currency,
   created: record.created,
   metadata: record.metadata,
-  customer_details: record.customerEmail ? { email: record.customerEmail } : null,
+  customer_details: record.customerEmail
+    ? { email: record.customerEmail }
+    : null,
   payment_intent:
-    expandPaymentIntent && record.paymentIntentId && state.paymentIntents.has(record.paymentIntentId)
+    expandPaymentIntent &&
+    record.paymentIntentId &&
+    state.paymentIntents.has(record.paymentIntentId)
       ? paymentIntentObject(state.paymentIntents.get(record.paymentIntentId))
       : record.paymentIntentId
 });
@@ -202,10 +219,16 @@ const payoutObject = (record, { expandBalanceTransaction } = {}) => ({
   created: record.created,
   arrival_date: record.created,
   balance_transaction:
-    expandBalanceTransaction && state.balanceTransactions.has(record.balanceTransactionId)
-      ? balanceTransactionObject(state.balanceTransactions.get(record.balanceTransactionId))
+    expandBalanceTransaction &&
+    state.balanceTransactions.has(record.balanceTransactionId)
+      ? balanceTransactionObject(
+          state.balanceTransactions.get(record.balanceTransactionId)
+        )
       : record.balanceTransactionId
 });
+
+const disputePaymentIntentId = (record) =>
+  state.charges.get(record.chargeId)?.paymentIntentId ?? null;
 
 const disputeObject = (record, { expandCharge } = {}) => ({
   id: record.id,
@@ -215,6 +238,7 @@ const disputeObject = (record, { expandCharge } = {}) => ({
   status: record.status,
   reason: record.reason,
   created: record.created,
+  payment_intent: disputePaymentIntentId(record),
   charge:
     expandCharge && state.charges.has(record.chargeId)
       ? chargeObject(state.charges.get(record.chargeId))
@@ -255,7 +279,12 @@ const paginate = (records, query) => {
 const handleGetCharge = (response, id, query) => {
   const record = state.charges.get(id);
   if (!record) {
-    sendStripeError(response, 404, `No such charge: '${id}'`, 'resource_missing');
+    sendStripeError(
+      response,
+      404,
+      `No such charge: '${id}'`,
+      'resource_missing'
+    );
     return;
   }
   const expand = query.getAll('expand[]');
@@ -286,7 +315,12 @@ const handleGetBalanceTransaction = (response, id) => {
 const handleGetPaymentIntent = (response, id, query) => {
   const record = state.paymentIntents.get(id);
   if (!record) {
-    sendStripeError(response, 404, `No such payment_intent: '${id}'`, 'resource_missing');
+    sendStripeError(
+      response,
+      404,
+      `No such payment_intent: '${id}'`,
+      'resource_missing'
+    );
     return;
   }
   const expand = query.getAll('expand[]');
@@ -295,7 +329,9 @@ const handleGetPaymentIntent = (response, id, query) => {
     200,
     paymentIntentObject(record, {
       expandLatestCharge: expand.includes('latest_charge.balance_transaction'),
-      expandBalanceTransaction: expand.includes('latest_charge.balance_transaction')
+      expandBalanceTransaction: expand.includes(
+        'latest_charge.balance_transaction'
+      )
     })
   );
 };
@@ -305,7 +341,12 @@ const handleGetPaymentIntent = (response, id, query) => {
 const handleUpdatePaymentIntent = async (request, response, id) => {
   const record = state.paymentIntents.get(id);
   if (!record) {
-    sendStripeError(response, 404, 'Unknown payment intent.', 'resource_missing');
+    sendStripeError(
+      response,
+      404,
+      'Unknown payment intent.',
+      'resource_missing'
+    );
     return;
   }
   const form = parseFormBody(await readBody(request));
@@ -314,7 +355,12 @@ const handleUpdatePaymentIntent = async (request, response, id) => {
     value
   ]);
   if (updates.some(([key]) => !key)) {
-    sendStripeError(response, 400, 'Only metadata updates are supported.', null);
+    sendStripeError(
+      response,
+      400,
+      'Only metadata updates are supported.',
+      null
+    );
     return;
   }
   record.metadata = { ...record.metadata, ...Object.fromEntries(updates) };
@@ -326,7 +372,9 @@ const handleUpdatePaymentIntent = async (request, response, id) => {
 
 const handleListCheckoutSessions = (response, query) => {
   const expand = query.getAll('expand[]');
-  const all = state.checkoutSessionOrder.map((id) => state.checkoutSessions.get(id));
+  const all = state.checkoutSessionOrder.map((id) =>
+    state.checkoutSessions.get(id)
+  );
   const filtered = filterByCreated(all, query);
   const { page, hasMore } = paginate(filtered, query);
   sendJson(response, 200, {
@@ -358,9 +406,34 @@ const handleListPayouts = (response, query) => {
   });
 };
 
+const handleGetDispute = (response, id, query) => {
+  const record = state.disputes.get(id);
+  if (!record) {
+    sendStripeError(
+      response,
+      404,
+      `No such dispute: '${id}'`,
+      'resource_missing'
+    );
+    return;
+  }
+  sendJson(
+    response,
+    200,
+    disputeObject(record, {
+      expandCharge: query.getAll('expand[]').includes('charge')
+    })
+  );
+};
+
 const handleListDisputes = (response, query) => {
   const expand = query.getAll('expand[]');
-  const all = state.disputeOrder.map((id) => state.disputes.get(id));
+  const intentId = query.get('payment_intent');
+  const all = state.disputeOrder
+    .map((id) => state.disputes.get(id))
+    .filter(
+      (record) => !intentId || disputePaymentIntentId(record) === intentId
+    );
   const filtered = filterByCreated(all, query);
   const { page, hasMore } = paginate(filtered, query);
   sendJson(response, 200, {
@@ -557,7 +630,8 @@ const handleTestUpdateBalanceTransaction = async (request, response, id) => {
     return;
   }
 
-  const amount = body.amount !== undefined ? Number(body.amount) : existing.amount;
+  const amount =
+    body.amount !== undefined ? Number(body.amount) : existing.amount;
   const fee = body.fee !== undefined ? Number(body.fee) : (existing?.fee ?? 0);
   const net = body.net !== undefined ? Number(body.net) : amount - fee;
 
@@ -753,16 +827,31 @@ const handleCheckoutPage = async (request, response, id) => {
   record.customerEmail = email;
   if (['decline', 'expire'].includes(checkoutForm.action)) {
     if (record.paymentStatus === 'paid') {
-      sendStripeError(response, 409, 'A confirmed payment cannot fail or expire.');
+      sendStripeError(
+        response,
+        409,
+        'A confirmed payment cannot fail or expire.'
+      );
       return;
     }
     const expired = checkoutForm.action === 'expire';
     record.declined = !expired;
     if (expired) record.sessionStatus = 'expired';
     record.negativeEvent ??= {
-      id: randomId('evt'), object: 'event', livemode: false, created: nowSeconds(),
-      type: expired ? 'checkout.session.expired' : 'payment_intent.payment_failed',
-      data: { object: expired ? checkoutSessionObject(record) : paymentIntentObject(state.paymentIntents.get(record.paymentIntentId)) }
+      id: randomId('evt'),
+      object: 'event',
+      livemode: false,
+      created: nowSeconds(),
+      type: expired
+        ? 'checkout.session.expired'
+        : 'payment_intent.payment_failed',
+      data: {
+        object: expired
+          ? checkoutSessionObject(record)
+          : paymentIntentObject(
+              state.paymentIntents.get(record.paymentIntentId)
+            )
+      }
     };
     if (!(await deliverSimulatedEvent(record.negativeEvent))) {
       sendStripeError(response, 502, 'Negative webhook delivery failed.');
@@ -824,11 +913,16 @@ const deliverSimulatedEvent = async (event) => {
 // This control exists only in the local simulator, never in the application API.
 const handleCheckoutDelivery = async (request, response) => {
   if (!process.env.STUB_PUBLIC_BASE_URL || !process.env.STUB_WEBHOOK_URL) {
-    sendJson(response, 503, { error: 'Acceptance Checkout is not configured.' });
+    sendJson(response, 503, {
+      error: 'Acceptance Checkout is not configured.'
+    });
     return;
   }
   const { sessionId, action } = JSON.parse(await readBody(request));
-  if (typeof sessionId !== 'string' || !['defer', 'deliver', 'replay-negative'].includes(action)) {
+  if (
+    typeof sessionId !== 'string' ||
+    !['defer', 'deliver', 'replay-negative'].includes(action)
+  ) {
     sendJson(response, 400, { error: 'Invalid delivery control.' });
     return;
   }
@@ -847,7 +941,9 @@ const handleCheckoutDelivery = async (request, response) => {
     const delivered = await deliverCheckoutWebhook(record);
     sendJson(response, delivered ? 200 : 502, { delivered });
   } else {
-    sendJson(response, 409, { error: 'Checkout is not in the required state.' });
+    sendJson(response, 409, {
+      error: 'Checkout is not in the required state.'
+    });
   }
 };
 const server = createServer(async (request, response) => {
@@ -902,7 +998,10 @@ const server = createServer(async (request, response) => {
       }
       return;
     }
-    if (request.method === 'POST' && pathname === '/__test__/checkout-delivery') {
+    if (
+      request.method === 'POST' &&
+      pathname === '/__test__/checkout-delivery'
+    ) {
       await handleCheckoutDelivery(request, response);
       return;
     }
@@ -922,7 +1021,10 @@ const server = createServer(async (request, response) => {
       );
       return;
     }
-    if (request.method === 'GET' && pathname.startsWith('/v1/checkout/sessions/')) {
+    if (
+      request.method === 'GET' &&
+      pathname.startsWith('/v1/checkout/sessions/')
+    ) {
       const record = state.checkoutSessions.get(
         decodeURIComponent(pathname.slice('/v1/checkout/sessions/'.length))
       );
@@ -1028,11 +1130,16 @@ const server = createServer(async (request, response) => {
       await handleTestUpdateBalanceTransaction(
         request,
         response,
-        decodeURIComponent(pathname.slice('/__test__/balance-transactions/'.length))
+        decodeURIComponent(
+          pathname.slice('/__test__/balance-transactions/'.length)
+        )
       );
       return;
     }
-    if (request.method === 'POST' && pathname === '/__test__/checkout-sessions') {
+    if (
+      request.method === 'POST' &&
+      pathname === '/__test__/checkout-sessions'
+    ) {
       await handleTestRegisterCheckoutSession(request, response);
       return;
     }
@@ -1053,7 +1160,10 @@ const server = createServer(async (request, response) => {
       );
       return;
     }
-    if (request.method === 'GET' && pathname.startsWith('/v1/balance_transactions/')) {
+    if (
+      request.method === 'GET' &&
+      pathname.startsWith('/v1/balance_transactions/')
+    ) {
       handleGetBalanceTransaction(
         response,
         decodeURIComponent(pathname.slice('/v1/balance_transactions/'.length))
@@ -1064,7 +1174,10 @@ const server = createServer(async (request, response) => {
       handleListCheckoutSessions(response, searchParams);
       return;
     }
-    if (request.method === 'POST' && pathname.startsWith('/v1/payment_intents/')) {
+    if (
+      request.method === 'POST' &&
+      pathname.startsWith('/v1/payment_intents/')
+    ) {
       await handleUpdatePaymentIntent(
         request,
         response,
@@ -1072,7 +1185,10 @@ const server = createServer(async (request, response) => {
       );
       return;
     }
-    if (request.method === 'GET' && pathname.startsWith('/v1/payment_intents/')) {
+    if (
+      request.method === 'GET' &&
+      pathname.startsWith('/v1/payment_intents/')
+    ) {
       handleGetPaymentIntent(
         response,
         decodeURIComponent(pathname.slice('/v1/payment_intents/'.length)),
@@ -1086,6 +1202,14 @@ const server = createServer(async (request, response) => {
     }
     if (request.method === 'GET' && pathname === '/v1/disputes') {
       handleListDisputes(response, searchParams);
+      return;
+    }
+    if (request.method === 'GET' && pathname.startsWith('/v1/disputes/')) {
+      handleGetDispute(
+        response,
+        decodeURIComponent(pathname.slice('/v1/disputes/'.length)),
+        searchParams
+      );
       return;
     }
     if (request.method === 'POST' && pathname === '/v1/refunds') {
@@ -1115,7 +1239,12 @@ const server = createServer(async (request, response) => {
       return;
     }
 
-    sendStripeError(response, 404, `Unrecognized request URL: ${pathname}`, null);
+    sendStripeError(
+      response,
+      404,
+      `Unrecognized request URL: ${pathname}`,
+      null
+    );
   } catch (error) {
     if (error instanceof PaymentOperationConflict) {
       sendStripeError(response, 400, error.message, 'idempotency_error');

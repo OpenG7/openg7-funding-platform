@@ -29,6 +29,9 @@ Current platform features and validation evidence are indexed in
 - SSH retries apply only to connection failures before a command starts. An
   interrupted command is not replayed: reconcile its remote outcome before a
   manual retry. A missing exit status or termination signal is a failure.
+- Command execution has its own deadline, independent of connection readiness.
+  Exceeding it closes the SSH connection and reports an uncertain outcome. The
+  remote operation may continue; reconcile it before any manual retry.
 - Any failed checklist step stops subsequent steps and produces a failed report.
 - Deployment uses `scripts/deploy.sh --revision <full SHA>`, including database
   migrations, the operations watcher overlay and canonical health checks.
@@ -51,6 +54,8 @@ VPS_HOST=your-vps-host.example.com
 PLA_SSH_USER=ubuntu
 PLA_SSH_PORT=22
 PLA_SSH_RETRIES=2
+PLA_SSH_TIMEOUT_MS=20000
+PLA_SSH_COMMAND_TIMEOUT_MS=1800000
 PLA_SSH_HOST_FINGERPRINT=
 PLA_PRIVATE_KEY_PATH=/path/to/private/key
 PLA_DATABASE_PATH=apps/production-launch-agent/database/production-launch-agent.sqlite
@@ -61,6 +66,11 @@ OPENAI_API_KEY=
 `PLA_HEALTH_PATH` must start with `/` and contain only ASCII letters, digits,
 slashes, dots, underscores or hyphens. Shell syntax, whitespace, query strings
 and fragments are rejected when the command registry is constructed.
+
+`PLA_SSH_TIMEOUT_MS` bounds SSH connection readiness (20 seconds by default).
+`PLA_SSH_COMMAND_TIMEOUT_MS` is non-secret server configuration for each remote
+command (30 minutes by default, allowing deployment builds). Its value must be
+an integer from 1 to 86400000 milliseconds; invalid values prevent startup.
 
 `PLA_SSH_HOST_FINGERPRINT` is a public server identity pin in OpenSSH format
 (`SHA256:` followed by 43 base64 characters, without padding). Obtain it through

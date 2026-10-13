@@ -14,7 +14,7 @@ Local URL:
 
 - `POST http://localhost:3333/api/stripe/webhook`
 
-Handled events:
+Subscribe the endpoint to these handled events:
 
 - `checkout.session.completed`
 - `checkout.session.async_payment_succeeded`
@@ -27,6 +27,8 @@ Handled events:
 - `refund.updated`
 - `refund.failed`
 - `charge.dispute.created`
+- `charge.dispute.updated`
+- `charge.dispute.closed`
 - `payout.paid`
 - `payout.failed`
 
@@ -40,6 +42,8 @@ Behavior:
 - Refund events reconcile current provider facts under a per-refund lock.
   Missing invoices or financial contradictions keep the event failed; no sponsor
   email is inferred. See [refund recovery](../operations/stripe-refund-integrity.md).
+- Disputes reconcile current Stripe facts without restoring publication authority:
+  [bounded recovery and remaining holds](../operations/admin-stripe-backfill.md).
 - Confirmed sponsorship payments finalize invoices and emails idempotently,
   including delayed or reversed events. Unpaid Checkout never finalizes invoices.
 - `balance_transaction` retrieval to compute fee/net fields
@@ -124,6 +128,10 @@ an already processed event does not resend a logical email. Recover failed
 processing through the idempotent webhook flow; use the confirmed admin resend
 or email retry action when a new delivery is required.
 
+Prefer private `STRIPE_API_KEY`, which takes precedence over `--api-key`
+(visible in shell history). Keys never appear in dry-run output or Stripe child
+argv. Windows uses npm's native Stripe executable without a shell.
+
 ## Stripe historical backfill to PostgreSQL
 
 [Admin recovery](../operations/admin-stripe-backfill.md) is available in Contributions after migration 028.
@@ -177,23 +185,17 @@ Useful options:
 - `--no-assume-non-charity-acknowledged` keeps newly imported legacy sessions
   without that metadata out of contribution totals; existing local choices remain unchanged.
 
-Checkout rows deduplicate by session ID; payments/payouts by object and outcome;
-refunds by refund ID. See [refund integrity and project filtering](../operations/stripe-refund-integrity.md)
-for migration 029, partial refunds and uncertain-result recovery.
+Refunds deduplicate by ID; see [partial refunds and recovery](../operations/stripe-refund-integrity.md).
 
 ### Historical payment recovery recipe
 
-Use project, date and volume limits together, preview with `--dry-run`, then inspect
-the import counters. Imported payments mark their administrative notification as
-already handled without creating an activity, email or SMS. A later Checkout
-webhook keeps such payments silent and does not automatically generate or email
-their invoice. A new live confirmation still creates its normal activity and messages.
+Bound project, dates and volume, preview with `--dry-run`, then inspect counters.
+Imported payments and their later Checkout events stay silent: no activity,
+email, SMS or automatic invoice. New confirmations retain their normal workflow.
 
-Backfill and webhook replays initialize consent/name from Stripe only when inserting
-a contribution. Existing local consent, public name and non-charity acknowledgment
-remain unchanged. One successful PaymentIntent contributes one ledger movement;
-conflicting amount/currency on a repeated insertion fails for investigation.
-Existing payment rows are preserved; fee updates still use `charge.updated`.
+Backfill/replays initialize consent/name only on insertion, preserving local
+choices. One successful PaymentIntent yields one immutable ledger movement;
+conflicting amount/currency fails. `charge.updated` still enriches fees.
 
 From **À traiter**, open the specific missing invoice, confirm its generation and
 download its PDF. This operation requires owner access and scope confirmation at

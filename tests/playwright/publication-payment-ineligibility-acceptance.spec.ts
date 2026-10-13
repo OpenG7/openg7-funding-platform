@@ -24,6 +24,7 @@ import {
 import { test, expect } from './support/test.js';
 import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
 import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';
+import { registerStripeDispute } from './support/stripe-stub-client.mjs';
 
 const automation = '/api/admin/publication-automation';
 const cockpit = '/admin/fundraiser/publications/automation';
@@ -422,28 +423,35 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
       await deliverEvent(event);
 
       const disputed = companies.find((c) => c.scenario === 'disputed')!;
+      const disputeObject = {
+        id: 'dp_simulated_' + randomUUID(),
+        object: 'dispute',
+        charge: disputed.chargeId,
+        payment_intent: disputed.paymentIntentId,
+        amount: 50000,
+        currency: 'cad',
+        status: 'needs_response',
+        reason: 'fraudulent'
+      };
       const dispute = buildStripeEvent(
         'evt_scheduled_dispute_' + randomUUID(),
         'charge.dispute.created',
-        {
-          id: 'dp_simulated_' + randomUUID(),
-          object: 'dispute',
-          charge: disputed.chargeId,
-          payment_intent: disputed.paymentIntentId,
-          amount: 50000,
-          currency: 'cad',
-          status: 'needs_response',
-          reason: 'fraudulent'
-        }
+        disputeObject
       );
       events.push(dispute);
+      await registerStripeDispute({
+        ...disputeObject,
+        chargeId: disputed.chargeId
+      });
       await deliverEvent(dispute);
       for (const company of companies) {
         expect(
           (await sponsor(company.record.public_reference!)).payment_status
         ).toBe(company.scenario);
         for (const job of company.jobs)
-          expect((await delivery(job.id)).status).toBe('approved');
+          expect((await delivery(job.id)).status).toBe(
+            company.scenario === 'disputed' ? 'blocked' : 'approved'
+          );
       }
       expect(Date.now()).toBeLessThan(due.getTime());
     });
@@ -486,7 +494,10 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
         for (const job of company.jobs) {
           expect(await delivery(job.id)).toMatchObject({
             status: 'blocked',
-            errorCode: 'SOURCE_NOT_ELIGIBLE',
+            errorCode:
+              company.scenario === 'disputed'
+                ? 'PAYMENT_REVIEW_REQUIRED'
+                : 'SOURCE_NOT_ELIGIBLE',
             approvedAt: null,
             attempts: 0,
             publishedAt: null,
@@ -643,13 +654,23 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
             (e) => e.action === 'publication_automation.source_invalidated'
           );
           expect(invalidations).toHaveLength(1);
-          expect(invalidations[0]).toMatchObject({
-            actor: 'publication-worker',
-            metadata: {
-              codes: ['PAYMENT_REQUIRED'],
-              affected: [company.record.id]
-            }
-          });
+          expect(invalidations[0]).toMatchObject(
+            company.scenario === 'disputed'
+              ? {
+                  actor: 'stripe-webhook',
+                  metadata: {
+                    paymentIntentId: company.paymentIntentId,
+                    code: 'PAYMENT_REVIEW_REQUIRED'
+                  }
+                }
+              : {
+                  actor: 'publication-worker',
+                  metadata: {
+                    codes: ['PAYMENT_REQUIRED'],
+                    affected: [company.record.id]
+                  }
+                }
+          );
           expect(
             entries.some((e) =>
               [

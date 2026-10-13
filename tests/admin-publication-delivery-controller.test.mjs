@@ -954,7 +954,7 @@ test('drawer preserves dossier hooks, content/media/destination, translations an
     'publication-sponsor-review'
   ])
     assert.ok(html.includes(`data-og7="${hook}"`));
-  assert.match(html, /sponsorshipId: sponsor\.id, tab: 'media'/);
+  assert.match(html, /sponsorshipId: sponsor\.id/);
   const keys = [...html.matchAll(/'(admin\.[^']+)'/g)]
     .map((match) => match[1])
     .filter((key) => !key.endsWith('.'));

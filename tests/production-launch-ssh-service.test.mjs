@@ -9,6 +9,7 @@ const config = Object.freeze({
   username: 'synthetic-user',
   port: 22,
   readyTimeoutMs: 500,
+  commandTimeoutMs: 1000,
   retries: 2
 });
 const command = 'printf synthetic-command';
@@ -87,7 +88,7 @@ test('SSH retries connection failures and executes once after connecting', async
     operation: 'execute',
     index: 1,
     command,
-    options: { execOptions: { timeout: config.readyTimeoutMs } }
+    options: undefined
   });
 });
 
@@ -257,4 +258,80 @@ test('SSH rejection after invoking the command requires reconciliation and never
       }
     );
   }
+});
+
+test('SSH execution deadline closes once, reports uncertainty and ignores late success without retry', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let complete,
+    executions = 0,
+    disposals = 0;
+  const service = new SshService({ ...config, commandTimeoutMs: 25 }, () => ({
+    connect: async () => {},
+    execCommand: () => {
+      executions++;
+      return new Promise((resolve) => {
+        complete = resolve;
+      });
+    },
+    dispose: () => {
+      disposals++;
+    }
+  }));
+  const pending = service.run(command);
+  await Promise.resolve();
+  t.mock.timers.tick(25);
+  const output = await pending;
+  assert.equal(output.code, 255);
+  assert.match(output.stderr, /uncertain.*reconcile/);
+  assert.equal(output.stdout, '');
+  assert.equal(executions, 1);
+  assert.equal(disposals, 1);
+  complete(successfulResponse);
+  await Promise.resolve();
+  t.mock.timers.tick(1000);
+  assert.equal(output.code, 255);
+  assert.equal(executions, 1);
+  assert.equal(disposals, 1);
+});
+
+test('command deadline starts after connection and is cleared following normal completion', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const schedule = globalThis.setTimeout;
+  let deadlineCallbacks = 0;
+  t.mock.method(globalThis, 'setTimeout', (callback, delay) =>
+    schedule(() => {
+      deadlineCallbacks++;
+      callback();
+    }, delay)
+  );
+  let connected,
+    complete,
+    disposals = 0;
+  const service = new SshService({ ...config, commandTimeoutMs: 25 }, () => ({
+    connect: () =>
+      new Promise((resolve) => {
+        connected = resolve;
+      }),
+    execCommand: () =>
+      new Promise((resolve) => {
+        complete = resolve;
+      }),
+    dispose: () => {
+      disposals++;
+    }
+  }));
+  const pending = service.run(command);
+  t.mock.timers.tick(1000);
+  assert.equal(disposals, 0);
+  connected();
+  await Promise.resolve();
+  t.mock.timers.tick(10);
+  complete(successfulResponse);
+  const output = await pending;
+  assert.equal(output.code, 0);
+  assert.equal(disposals, 1);
+  t.mock.timers.tick(1000);
+  assert.equal(output.code, 0);
+  assert.equal(disposals, 1);
+  assert.equal(deadlineCallbacks, 0);
 });

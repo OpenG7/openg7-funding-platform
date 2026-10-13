@@ -134,6 +134,24 @@ for (const prefix of ['', '/en']) {
         name: prefix ? /Business sponsorship/ : /Commandite d'entreprise/
       })
     ).toHaveAttribute('aria-pressed', 'true');
+    await page
+      .getByRole('button', {
+        name: prefix
+          ? 'Changer la langue du site vers le français'
+          : 'Switch site language to English'
+      })
+      .click();
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === `${prefix ? '' : '/en'}/fonds-des-batisseurs` &&
+        url.search === '?intent=sponsorship' &&
+        url.hash === '#support'
+    );
+    await expect(
+      page.getByRole('button', {
+        name: prefix ? /Commandite d'entreprise/ : /Business sponsorship/
+      })
+    ).toHaveAttribute('aria-pressed', 'true');
     expect(checkouts).toBe(0);
     await page.goto(`${prefix}/fonds-des-batisseurs?checkout=success`);
     await expect(
@@ -141,6 +159,139 @@ for (const prefix of ['', '/en']) {
         exact: true
       })
     ).toHaveCount(0);
+  });
+  test(`language switches preserve a pending sponsorship checkout ${prefix || 'fr'}`, async ({
+    page
+  }) => {
+    const reference = 'OG7-SYNTHETIC-LANGUAGE';
+    const token = 'SyntheticLanguageFollowupToken0000001';
+    const context = {
+      checkout: 'success',
+      intent: 'sponsorship',
+      contributionType: 'sponsorship_interest',
+      reference,
+      session_id: 'cs_test_synthetic_language',
+      followup_token: token
+    };
+    const lookups: string[] = [];
+    let checkouts = 0;
+    await page.route('**/reference-lookup', (route) => {
+      lookups.push(route.request().postDataJSON().reference);
+      return route.fulfill({
+        json: {
+          found: true,
+          paymentStatus: 'pending',
+          contributionType: 'sponsorship_interest'
+        }
+      });
+    });
+    await page.route('**/checkout-sessions', (route) => {
+      checkouts++;
+      return route.fulfill({ status: 500, json: {} });
+    });
+    await page.goto(
+      `${prefix}/fonds-des-batisseurs?${new URLSearchParams({
+        ...context,
+        token: 'unrelated-private-token',
+        email: 'synthetic@example.invalid'
+      })}#support`
+    );
+    await expect(page.locator('#checkout-sponsor-title')).toBeVisible();
+    await expect.poll(() => lookups.length).toBeGreaterThanOrEqual(1);
+
+    for (const targetPrefix of [prefix ? '' : '/en', prefix]) {
+      await page
+        .getByRole('button', {
+          name: targetPrefix
+            ? 'Switch site language to English'
+            : 'Changer la langue du site vers le français'
+        })
+        .click();
+      await expect(page).toHaveURL(
+        (url) =>
+          url.pathname === `${targetPrefix}/fonds-des-batisseurs` &&
+          url.hash === '#support' &&
+          Object.entries(context).every(
+            ([key, value]) => url.searchParams.get(key) === value
+          ) &&
+          !url.searchParams.has('token') &&
+          !url.searchParams.has('email')
+      );
+      await expect(page.locator('#checkout-sponsor-title')).toHaveText(
+        targetPrefix
+          ? 'Your payment is being confirmed.'
+          : 'Votre paiement est en cours de confirmation.'
+      );
+      await expect(
+        page.getByRole('link', {
+          name: targetPrefix
+            ? 'Complete sponsorship follow-up'
+            : 'Compléter le suivi commanditaire'
+        })
+      ).toHaveAttribute(
+        'href',
+        `${targetPrefix}/fonds-des-batisseurs/suivi-commandite?token=${token}`
+      );
+      await expect(
+        page.getByRole('button', {
+          name: targetPrefix
+            ? /Business sponsorship/
+            : /Commandite d'entreprise/
+        })
+      ).toHaveAttribute('aria-pressed', 'true');
+      await expect(
+        page.getByText(targetPrefix ? 'Payment received' : 'Paiement reçu', {
+          exact: true
+        })
+      ).toHaveCount(0);
+    }
+    await expect.poll(() => lookups.length).toBeGreaterThanOrEqual(3);
+    expect(lookups.every((value) => value === reference)).toBe(true);
+    await page
+      .getByRole('button', {
+        name: prefix
+          ? 'Close payment confirmation'
+          : 'Fermer la confirmation de paiement'
+      })
+      .click();
+    await expect(page).toHaveURL(
+      (url) => url.search === '?intent=sponsorship' && url.hash === '#support'
+    );
+    await page
+      .getByRole('button', {
+        name: prefix
+          ? 'Changer la langue du site vers le français'
+          : 'Switch site language to English'
+      })
+      .click();
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === `${prefix ? '' : '/en'}/fonds-des-batisseurs` &&
+        url.search === '?intent=sponsorship' &&
+        url.hash === '#support'
+    );
+    await expect(page.locator('#checkout-sponsor-title')).toHaveCount(0);
+    expect(checkouts).toBe(0);
+  });
+  test(`language switches keep anchors without forwarding private context ${prefix || 'fr'}`, async ({
+    page
+  }) => {
+    await page.goto(
+      `${prefix}/support?checkout=success&reference=OG7-SYNTHETIC&followup_token=unrelated-checkout-token&token=unrelated-private-token#technical-participation`
+    );
+    await page
+      .getByRole('button', {
+        name: prefix
+          ? 'Changer la langue du site vers le français'
+          : 'Switch site language to English'
+      })
+      .click();
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === `${prefix ? '' : '/en'}/support` &&
+        url.search === '' &&
+        url.hash === '#technical-participation'
+    );
   });
   for (const route of ['/batisseurs', '/support']) {
     test(`accessible names, contrast and reflow ${prefix}${route}`, async ({

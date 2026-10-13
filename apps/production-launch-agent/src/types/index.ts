@@ -37,6 +37,7 @@ export interface SshConfig {
   readonly privateKeyPath?: string;
   readonly port: number;
   readonly readyTimeoutMs: number;
+  readonly commandTimeoutMs: number;
   readonly retries: number;
 }
 

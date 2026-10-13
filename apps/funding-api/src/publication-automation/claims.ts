@@ -21,6 +21,7 @@ import {
 /** A claim's monotonically increasing delivery version fences every worker write. */
 export const activeClaimSql = (version: '$2' | '$3' | '$4' | '$5') =>
   `status='publishing' AND version=${version} AND approved_at IS NOT NULL AND lease_until>clock_timestamp()
+   AND error_code IS DISTINCT FROM 'PAYMENT_REVIEW_REQUIRED'
    AND EXISTS(SELECT 1 FROM publication_account_leases a WHERE a.delivery_id=publication_deliveries.id
      AND a.delivery_version=publication_deliveries.version AND a.lease_until>clock_timestamp() AND NOT a.uncertain)`;
 

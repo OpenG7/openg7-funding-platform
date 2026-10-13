@@ -31,6 +31,7 @@ export class SshService {
     for (let attempt = 0; attempt <= this.config.retries; attempt += 1) {
       const ssh = this.createClient();
       let executionStarted = false;
+      let executionTimer: ReturnType<typeof setTimeout> | undefined;
 
       try {
         await ssh.connect({
@@ -48,11 +49,13 @@ export class SshService {
         });
 
         executionStarted = true;
-        const result = await ssh.execCommand(command, {
-          execOptions: {
-            timeout: this.config.readyTimeoutMs
-          }
+        const deadline = new Promise<never>((_resolve, reject) => {
+          executionTimer = setTimeout(
+            () => reject(new Error('SSH command deadline exceeded.')),
+            this.config.commandTimeoutMs
+          );
         });
+        const result = await Promise.race([ssh.execCommand(command), deadline]);
 
         return {
           command,
@@ -72,6 +75,7 @@ export class SshService {
         }
         lastError = error;
       } finally {
+        clearTimeout(executionTimer);
         ssh.dispose();
       }
     }

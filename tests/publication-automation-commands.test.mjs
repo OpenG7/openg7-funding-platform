@@ -476,7 +476,9 @@ test('approval uses the caller client for preflight and sending authorization wi
   t.mock.method(globalThis, 'fetch', async () =>
     assert.fail('Approval must not send')
   );
-  const f = fixture();
+  const f = fixture({
+    row: delivery({ error_code: 'PAYMENT_REVIEW_REQUIRED' })
+  });
   assert.deepEqual(
     await command(
       f.context,
@@ -493,7 +495,7 @@ test('approval uses the caller client for preflight and sending authorization wi
     .find((call) => call.sql.startsWith('UPDATE publication_deliveries'));
   assert.match(
     update.sql,
-    /status='approved',approved_at=NOW\(\),approved_by=\$2,obligation_snapshot=\$3::jsonb,version=version\+1/
+    /status='approved',approved_at=NOW\(\),approved_by=\$2,obligation_snapshot=\$3::jsonb,error_code=NULL,version=version\+1/
   );
   assert.deepEqual(update.parameters, [id, 'fixture-reviewer', '[]']);
   assert.deepEqual(f.lifecycle(), []);
