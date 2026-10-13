@@ -969,7 +969,9 @@ export function registerSponsorshipOfferTests(
             localStorage.removeItem(key);
         });
         await page.reload();
-        await expect(form.getByRole('alert')).toContainText(
+        const restoredVerification = form.locator(':scope > [role="alert"]');
+        await expect(restoredVerification).toBeVisible();
+        await expect(restoredVerification).toContainText(
           english ? 'requires verification' : 'nécessite une vérification'
         );
         await expect(submit).toBeDisabled();
