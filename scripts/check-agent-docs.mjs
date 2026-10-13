@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { markdownAnchors, markdownProse } from './lib/markdown-document.mjs';
 
 // UTF-8 byte budgets, not token estimates. No dependencies, network or mutations.
 const budgets = {
@@ -66,49 +67,6 @@ function read(relative) {
   return documents.get(relative);
 }
 
-function withoutCode(text) {
-  let fence = null;
-  return text
-    .split(/\r?\n/)
-    .map((line) => {
-      const marker = line.match(/^\s{0,3}(`{3,}|~{3,})/);
-      if (marker) {
-        if (!fence) fence = marker[1];
-        else if (
-          marker[1][0] === fence[0] &&
-          marker[1].length >= fence.length
-        ) {
-          fence = null;
-        }
-        return '';
-      }
-      return fence ? '' : line;
-    })
-    .join('\n');
-}
-
-function anchors(text) {
-  const result = new Set();
-  const counts = new Map();
-  for (const match of withoutCode(text).matchAll(
-    /<a\s+(?:id|name)=["']([^"']+)["']/g
-  )) {
-    result.add(match[1]);
-  }
-  for (const match of withoutCode(text).matchAll(/^#{1,6}\s+(.+?)\s*#*$/gm)) {
-    const base = match[1]
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-      .replace(/<[^>]+>/g, '')
-      .toLowerCase()
-      .replace(/[^\p{L}\p{N}\p{M}_\-\s]/gu, '')
-      .replace(/\s/g, '-');
-    const count = counts.get(base) ?? 0;
-    result.add(count ? `${base}-${count}` : base);
-    counts.set(base, count + 1);
-  }
-  return result;
-}
-
 let checkedLinks = 0;
 const sizes = {};
 const manifests = new Map();
@@ -119,7 +77,7 @@ for (const [file, maxBytes] of Object.entries(budgets)) {
     sizes[file] = { bytes, maxBytes };
     if (bytes > maxBytes)
       errors.push(`${file}: ${bytes} bytes exceeds ${maxBytes}`);
-    const prose = withoutCode(text);
+    const prose = markdownProse(text);
     for (const match of prose.matchAll(
       /!?\[[^\]]*\]\(([^\s)]+)(?:\s+"[^"]*")?\)/g
     )) {
@@ -142,7 +100,9 @@ for (const [file, maxBytes] of Object.entries(budgets)) {
       if (!fs.existsSync(target))
         errors.push(`${file}: missing target ${href}`);
       else if (rawAnchor && target.endsWith('.md')) {
-        if (!anchors(read(relative)).has(decodeURIComponent(rawAnchor))) {
+        if (
+          !markdownAnchors(read(relative)).has(decodeURIComponent(rawAnchor))
+        ) {
           errors.push(`${file}: missing anchor ${href}`);
         }
       }

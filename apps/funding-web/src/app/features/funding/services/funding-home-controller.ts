@@ -10,7 +10,8 @@ import type { FundingProjectConfig } from '@openg7/funding-models';
 import type { FundingContributionSubmission } from '../components/funding-contribution-form/funding-contribution-form.component.js';
 import {
   currentFundingMonth,
-  monthlyContributions
+  monthlyContributions,
+  monthlyGoalProgress
 } from '../models/funding-home.utils.js';
 
 import type { CheckoutStatusMonitor } from './checkout-status-monitor.service.js';
@@ -87,23 +88,15 @@ export class FundingHomeController {
       this.currency()
     )
   );
-  readonly campaignProgress = computed(() => {
-    const goal = this.ports.config.monthlyGoal;
-    return goal <= 0
-      ? 0
-      : Math.min(
-          100,
-          Math.max(
-            0,
-            Math.round((this.currentMonthContributions() / goal) * 100)
-          )
-        );
-  });
-  readonly remainingForMonthlyGoal = computed(() =>
-    Math.max(
-      0,
-      this.ports.config.monthlyGoal - this.currentMonthContributions()
+  private readonly monthlyGoal = computed(() =>
+    monthlyGoalProgress(
+      this.currentMonthContributions(),
+      this.ports.config.monthlyGoal
     )
+  );
+  readonly campaignProgress = computed(() => this.monthlyGoal().progress);
+  readonly remainingForMonthlyGoal = computed(
+    () => this.monthlyGoal().remaining
   );
   readonly allocationTotal = computed(() =>
     this.snapshot().allocation.reduce((sum, item) => sum + item.amount, 0)

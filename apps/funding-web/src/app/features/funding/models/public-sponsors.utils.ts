@@ -1,5 +1,7 @@
 import type { PublicSponsorshipsResponse } from '@openg7/funding-core';
 
+import { isPublicDirectoryPage } from './public-directory-pagination.js';
+
 export function publicHttpsUrl(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   try {
@@ -99,24 +101,9 @@ export function isPublicSponsorshipsResponse(
   if (!pagination || typeof pagination !== 'object') return false;
   const p = pagination as Record<string, unknown>;
   return (
-    ['page', 'page_size', 'total_count', 'published_count'].every((k) =>
-      Number.isSafeInteger(p[k])
-    ) &&
-    Number(p['page']) >= 1 &&
-    Number(p['page']) <= 100_000 &&
-    Number(p['page_size']) >= 1 &&
-    Number(p['page_size']) <= 50 &&
-    Number(p['total_count']) >= 0 &&
+    isPublicDirectoryPage(p, data['sponsorships'].length) &&
+    Number.isSafeInteger(p['published_count']) &&
     Number(p['published_count']) >= 0 &&
-    Number(p['published_count']) <= Number(p['total_count']) &&
-    data['sponsorships'].length ===
-      Math.max(
-        0,
-        Math.min(
-          Number(p['page_size']),
-          Number(p['total_count']) -
-            (Number(p['page']) - 1) * Number(p['page_size'])
-        )
-      )
+    Number(p['published_count']) <= Number(p['total_count'])
   );
 }

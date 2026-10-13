@@ -82,6 +82,46 @@ test('response validation accepts legacy data without inventing totals and rejec
   assert.equal(isPublicSponsorshipsResponse(sponsorsResponse([], 9)), true);
 });
 
+test('sponsor pages retain complete boundary pages and their distinct publication count', () => {
+  const profiles = Array.from({ length: 53 }, (_, index) =>
+    sponsorProfile(index)
+  );
+  for (const page of [1, 2, 3, 100_000])
+    assert.equal(
+      isPublicSponsorshipsResponse(sponsorsResponse(profiles, page, 50)),
+      true
+    );
+  const partial = sponsorsResponse(profiles, 2, 50);
+  for (const patch of [
+    { page: 100_001 },
+    { page: '2' },
+    { page_size: 51 },
+    { page_size: 1.5 },
+    { total_count: -1 },
+    { total_count: Infinity },
+    { total_count: '53' },
+    { published_count: -1 },
+    { published_count: 54 },
+    { published_count: 1.5 },
+    { published_count: '1' },
+    { published_count: undefined }
+  ])
+    assert.equal(
+      isPublicSponsorshipsResponse({
+        ...partial,
+        pagination: { ...partial.pagination, ...patch }
+      }),
+      false
+    );
+  assert.equal(
+    isPublicSponsorshipsResponse({
+      ...partial,
+      sponsorships: partial.sponsorships.slice(1)
+    }),
+    false
+  );
+});
+
 test('public links use HTTPS or the public media endpoints, never executable schemes or credentials', () => {
   for (const url of [
     'javascript:alert(1)',

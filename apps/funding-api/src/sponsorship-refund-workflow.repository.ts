@@ -23,8 +23,7 @@ export interface SponsorshipRefundTarget {
   readonly sponsorName: string;
 }
 
-export interface SponsorshipRefundWorkflowUpdateInput {
-  readonly contributionId: string;
+interface SponsorshipRefundWorkflowFields {
   readonly refundStatus: AdminSponsorshipRefundWorkflowStatus;
   readonly refundId?: string | null;
   readonly refundAmountCents?: number | null;
@@ -33,14 +32,12 @@ export interface SponsorshipRefundWorkflowUpdateInput {
   readonly refundError?: string | null;
 }
 
-export interface SponsorshipRefundWorkflowUpdateByPaymentIntentInput {
+export interface SponsorshipRefundWorkflowUpdateInput extends SponsorshipRefundWorkflowFields {
+  readonly contributionId: string;
+}
+
+export interface SponsorshipRefundWorkflowUpdateByPaymentIntentInput extends SponsorshipRefundWorkflowFields {
   readonly stripePaymentIntentId: string;
-  readonly refundStatus: AdminSponsorshipRefundWorkflowStatus;
-  readonly refundId?: string | null;
-  readonly refundAmountCents?: number | null;
-  readonly refundReason?: AdminSponsorshipStripeRefundReason | null;
-  readonly refundNote?: string | null;
-  readonly refundError?: string | null;
 }
 
 export const getSponsorshipRefundTarget = async (
@@ -113,14 +110,16 @@ export const getSponsorshipRefundTarget = async (
   };
 };
 
-export const updateSponsorshipRefundWorkflowStatus = async (
-  pool: Pool | PoolClient | null,
-  input: SponsorshipRefundWorkflowUpdateInput
+// Both entry points own the same workflow facts. Only their target differs;
+// callers retain ownership of any open transaction and confirmed payment state.
+const updateRefundWorkflow = async (
+  pool: Pool | PoolClient,
+  target: {
+    readonly id: string;
+    readonly predicate: 'id = $1::uuid' | 'stripe_payment_intent_id = $1';
+  },
+  input: SponsorshipRefundWorkflowFields
 ): Promise<boolean> => {
-  if (!pool) {
-    return false;
-  }
-
   const result = await pool.query(
     `
       UPDATE fund_contributions
@@ -152,11 +151,11 @@ export const updateSponsorshipRefundWorkflowStatus = async (
           ELSE NULL
         END,
         updated_at = NOW()
-      WHERE id = $1::uuid
+      WHERE ${target.predicate}
         AND contribution_type = 'sponsorship_interest'
     `,
     [
-      input.contributionId,
+      target.id,
       input.refundStatus,
       input.refundId ?? null,
       input.refundNote ?? null,
@@ -169,6 +168,21 @@ export const updateSponsorshipRefundWorkflowStatus = async (
   return (result.rowCount ?? 0) > 0;
 };
 
+export const updateSponsorshipRefundWorkflowStatus = async (
+  pool: Pool | PoolClient | null,
+  input: SponsorshipRefundWorkflowUpdateInput
+): Promise<boolean> => {
+  if (!pool) {
+    return false;
+  }
+
+  return updateRefundWorkflow(
+    pool,
+    { id: input.contributionId, predicate: 'id = $1::uuid' },
+    input
+  );
+};
+
 export const updateSponsorshipRefundWorkflowStatusByPaymentIntent = async (
   pool: Pool | null,
   input: SponsorshipRefundWorkflowUpdateByPaymentIntentInput
@@ -177,50 +191,12 @@ export const updateSponsorshipRefundWorkflowStatusByPaymentIntent = async (
     return false;
   }
 
-  const result = await pool.query(
-    `
-      UPDATE fund_contributions
-      SET
-        sponsorship_refund_status = $2,
-        sponsorship_refund_requested_at = CASE
-          WHEN $2 IN ('requested', 'processing') THEN NOW()
-          WHEN $2 IN ('completed', 'failed')
-          THEN COALESCE(sponsorship_refund_requested_at, NOW())
-          ELSE sponsorship_refund_requested_at
-        END,
-        sponsorship_refund_processed_at = CASE
-          WHEN $2 = 'processing' THEN NOW()
-          WHEN $2 IN ('completed', 'failed')
-          THEN COALESCE(sponsorship_refund_processed_at, NOW())
-          ELSE sponsorship_refund_processed_at
-        END,
-        sponsorship_refund_completed_at = CASE
-          WHEN $2 = 'completed' THEN NOW()
-          WHEN $2 IN ('requested', 'processing', 'failed') THEN NULL
-          ELSE sponsorship_refund_completed_at
-        END,
-        sponsorship_refund_id = COALESCE($3, sponsorship_refund_id),
-        sponsorship_refund_amount_cents = COALESCE($6, sponsorship_refund_amount_cents),
-        sponsorship_refund_reason = COALESCE($7, sponsorship_refund_reason),
-        sponsorship_refund_note = COALESCE(NULLIF($4, ''), sponsorship_refund_note),
-        sponsorship_refund_error = CASE
-          WHEN $2 = 'failed' THEN $5
-          ELSE NULL
-        END,
-        updated_at = NOW()
-      WHERE stripe_payment_intent_id = $1
-        AND contribution_type = 'sponsorship_interest'
-    `,
-    [
-      input.stripePaymentIntentId,
-      input.refundStatus,
-      input.refundId ?? null,
-      input.refundNote ?? null,
-      input.refundError ?? null,
-      input.refundAmountCents ?? null,
-      input.refundReason ?? null
-    ]
+  return updateRefundWorkflow(
+    pool,
+    {
+      id: input.stripePaymentIntentId,
+      predicate: 'stripe_payment_intent_id = $1'
+    },
+    input
   );
-
-  return (result.rowCount ?? 0) > 0;
 };

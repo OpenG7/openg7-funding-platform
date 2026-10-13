@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   currentFundingMonth,
   monthlyContributions,
+  monthlyGoalProgress,
   parseContributionMinor
 } from '../dist/apps/funding-web/src/app/features/funding/models/funding-home.utils.js';
 
@@ -50,4 +51,21 @@ test('Monthly progress selects the UTC month and matching currency, including an
   assert.equal(monthlyContributions(summary, '2026-09', 'CAD'), 135);
   assert.equal(monthlyContributions(summary, '2026-10', 'CAD'), 0);
   assert.equal(monthlyContributions([], '2026-09', 'CAD'), 0);
+});
+
+test('Monthly target presentation rounds progress, caps completion and retains the outstanding amount', () => {
+  for (const [received, goal, progress, remaining] of [
+    [0, 270, 0, 270],
+    [135, 270, 50, 135],
+    [2, 3, 67, 1],
+    [270, 270, 100, 0],
+    [350, 270, 100, 0],
+    [-10, 270, 0, 280],
+    [10, 0, 0, 0],
+    [10, -1, 0, 0]
+  ])
+    assert.deepEqual(monthlyGoalProgress(received, goal), {
+      progress,
+      remaining
+    });
 });

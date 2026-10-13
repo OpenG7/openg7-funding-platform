@@ -25,3 +25,17 @@ export function monthlyContributions(
     )?.total_received ?? 0
   );
 }
+
+/** Shared presentation of a monthly target; the caller retains unavailable states. */
+export function monthlyGoalProgress(
+  received: number,
+  goal: number
+): { progress: number; remaining: number } {
+  return {
+    progress:
+      goal <= 0
+        ? 0
+        : Math.min(100, Math.max(0, Math.round((received / goal) * 100))),
+    remaining: Math.max(0, goal - received)
+  };
+}
