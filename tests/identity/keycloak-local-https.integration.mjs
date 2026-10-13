@@ -30,6 +30,7 @@ test(
     let context;
     let page;
     let applicationStatus;
+    let consoleResourceDiagnostics;
     let stage = 'new owner provisioning and preparation replay';
     try {
       assert.ok(stack.provisioned?.created);
@@ -63,6 +64,7 @@ test(
       const consolePage = await stack.exchange('/admin/master/console/', {
         provider: true
       });
+      consoleResourceDiagnostics = { consoleStatus: consolePage.status };
       assert.equal(consolePage.status, 200);
       const resource = Array.from(
         consolePage.body.matchAll(/<script\b[^>]*\ssrc=(["'])(.*?)\1/gi),
@@ -70,23 +72,65 @@ test(
       ).find(
         (path) => path.startsWith('/resources/') && /\.js(?:\?|$)/.test(path)
       );
+      consoleResourceDiagnostics.resourceFound = Boolean(resource);
       assert.ok(resource, 'The console must reference a public script.');
       // A cold console loads more modules than an authentication burst allows.
       // Eight workers keep the burst below the independent in-flight bound.
+      const resourceResponses = [];
       const workers = await Promise.allSettled(
         Array.from({ length: 8 }, async () => {
           const responses = [];
           for (let index = 0; index < 6; index++) {
             const response = await stack.exchange(resource, { provider: true });
-            responses.push({
+            const facts = {
               status: response.status,
               contentType: response.headers['content-type'],
               noSniff: response.headers['x-content-type-options']
-            });
+            };
+            responses.push(facts);
+            resourceResponses.push(facts);
           }
           return responses;
         })
       );
+      const responses = resourceResponses;
+      consoleResourceDiagnostics = {
+        ...consoleResourceDiagnostics,
+        fulfilledWorkers: workers.filter(
+          (worker) => worker.status === 'fulfilled'
+        ).length,
+        rejectedWorkers: workers.filter(
+          (worker) => worker.status === 'rejected'
+        ).length,
+        rejectionKinds: workers.reduce((counts, worker) => {
+          if (worker.status !== 'rejected') return counts;
+          const kind =
+            worker.reason?.message === 'Local HTTPS request timed out.'
+              ? 'timeout'
+              : worker.reason?.message ===
+                  'Local HTTPS response was interrupted.'
+                ? 'interrupted'
+                : worker.reason?.message ===
+                    'Trusted local HTTPS request failed.'
+                  ? 'request_failed'
+                  : 'withheld';
+          counts[kind] = (counts[kind] ?? 0) + 1;
+          return counts;
+        }, {}),
+        responseCount: responses.length,
+        statusCounts: responses.reduce((counts, response) => {
+          counts[response.status] = (counts[response.status] ?? 0) + 1;
+          return counts;
+        }, {}),
+        javascriptCount: responses.filter((response) =>
+          /^(?:application|text)\/javascript(?:;|$)/i.test(
+            response.contentType || ''
+          )
+        ).length,
+        noSniffCount: responses.filter(
+          (response) => response.noSniff === 'nosniff'
+        ).length
+      };
       for (const worker of workers) {
         assert.equal(worker.status, 'fulfilled');
         for (const response of worker.value) {
@@ -409,7 +453,7 @@ test(
         0,
         'The real browser must not report application errors.'
       );
-    } catch {
+    } catch (error) {
       // Playwright errors may include authentication URLs or filled credentials.
       // Only status/count metadata is included; never provider URLs or inputs.
       const configStatus = await stack
@@ -437,7 +481,7 @@ test(
             .catch(() => 'unavailable')
         : 'unavailable';
       throw new Error(
-        `Local HTTPS Keycloak failed at ${stage} (page status ${applicationStatus ?? 'unavailable'}, auth config status ${configStatus}, sign-in count ${signInCount}, personal profile ${personalProfilePresent}, access page ${accessPagePresent}); sensitive browser details are withheld.`
+        `Local HTTPS Keycloak failed at ${stage} (page status ${applicationStatus ?? 'unavailable'}, auth config status ${configStatus}, sign-in count ${signInCount}, personal profile ${personalProfilePresent}, access page ${accessPagePresent}, assertion ${error?.code === 'ERR_ASSERTION' ? 'ERR_ASSERTION' : 'withheld'}, console resources ${JSON.stringify(consoleResourceDiagnostics ?? null)}); sensitive browser details are withheld.`
       );
     } finally {
       try {

@@ -31,6 +31,10 @@ function assertBrowserMatrix(specs, projects) {
 test('isolated public page suites keep their own coverage and desktop/mobile matrix', () => {
   const outputs = new Set();
   for (const [name, files] of publicPages) {
+    const projects =
+      name === 'transparency'
+        ? ['chromium', 'firefox', 'webkit', 'mobile-webkit']
+        : ['chromium', 'mobile-chrome'];
     const report = discoverPlaywright(`tests/playwright-${name}-ui.config.mjs`);
     assert.deepEqual(
       new Set(report.specs.map((spec) => spec.file)),
@@ -38,9 +42,9 @@ test('isolated public page suites keep their own coverage and desktop/mobile mat
     );
     assert.deepEqual(
       report.projects.map((project) => project.name),
-      ['chromium', 'mobile-chrome']
+      projects
     );
-    assertBrowserMatrix(report.specs, ['chromium', 'mobile-chrome']);
+    assertBrowserMatrix(report.specs, projects);
     const output = report.projects[0].outputDir;
     assert.equal(
       outputs.has(output),

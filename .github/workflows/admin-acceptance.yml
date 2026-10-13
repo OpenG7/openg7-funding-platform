@@ -30,6 +30,8 @@ jobs:
       - run: yarn lint
       - run: yarn exec tsc --noEmit -p tsconfig.json
       - run: yarn test
+      - name: Verify every E2E spec is selected without focused or unfinished tests
+        run: node scripts/check-e2e-selection.mjs
       - run: docker pull postgres:16-alpine
       - run: docker pull axllent/mailpit:v1.27.4
       - run: docker pull adobe/s3mock:5.1.0
@@ -83,8 +85,12 @@ jobs:
           yarn exec playwright test --config tests/playwright-sponsor-media-usage.config.mjs
       - name: Public journeys across browsers and accessibility
         run: yarn exec playwright test --config tests/playwright-public-journeys.config.mjs
+      - name: Moderation UI including mobile WebKit
+        run: yarn exec playwright test --config tests/playwright-moderation-ui.config.mjs
       - name: Build shared production Web fixtures
         run: yarn workspace @openg7/funding-web build --configuration production
+      - name: Public transparency across browsers
+        run: yarn exec playwright test --config tests/playwright-transparency-ui.config.mjs
       - name: Admin accessibility and HTTP 404 across browsers
         run: yarn exec playwright test --config tests/playwright-platform-accessibility.config.mjs
       - name: Identity acceptance with disposable PostgreSQL and signed OIDC
@@ -123,9 +129,36 @@ jobs:
           path: test-results/
           retention-days: 7
 
+  keycloak:
+    name: Disposable Keycloak identity and initial import
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable Corepack
+        run: corepack enable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+      - run: yarn install --immutable
+      - run: yarn build
+      - name: Prepare disposable identity images
+        run: |
+          docker pull postgres:16-alpine
+          docker build -f docker/keycloak/Dockerfile -t openg7-keycloak:26.8.0-local -t openg7-keycloak:26.8.0 .
+      - name: Real Keycloak password, OTP and application identity
+        run: node --test tests/identity/keycloak-identity.integration.mjs
+      - name: Initial import preserves literal passwords and existing users
+        env:
+          FUNDING_KEYCLOAK_INITIAL_USER_TEST: '1'
+        run: node --test tests/identity/keycloak-initial-user.integration.mjs
+      # The full HTTPS/browser rehearsal requires an already trusted mkcert CA.
+      # Keep it separate; this job never installs host trust or changes hosts.
+
   # Keep the existing check successful only when every suite passes.
   acceptance:
-    needs: [validation, browser, docker_acceptance]
+    needs: [validation, browser, docker_acceptance, keycloak]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -135,6 +168,7 @@ jobs:
           VALIDATION_RESULT: ${{ needs.validation.result }}
           BROWSER_RESULT: ${{ needs.browser.result }}
           DOCKER_RESULT: ${{ needs.docker_acceptance.result }}
+          KEYCLOAK_RESULT: ${{ needs.keycloak.result }}
         run: |
-          printf 'validation=%s browser=%s docker=%s\n' "$VALIDATION_RESULT" "$BROWSER_RESULT" "$DOCKER_RESULT"
-          test "$VALIDATION_RESULT" = success && test "$BROWSER_RESULT" = success && test "$DOCKER_RESULT" = success
+          printf 'validation=%s browser=%s docker=%s keycloak=%s\n' "$VALIDATION_RESULT" "$BROWSER_RESULT" "$DOCKER_RESULT" "$KEYCLOAK_RESULT"
+          test "$VALIDATION_RESULT" = success && test "$BROWSER_RESULT" = success && test "$DOCKER_RESULT" = success && test "$KEYCLOAK_RESULT" = success

@@ -231,6 +231,33 @@ nécessitent une réconciliation distincte. La reprise sur la même page Checkou
 les moyens de paiement asynchrones, les frais et la publication après revue ne
 sont pas qualifiés par ces trois variantes.
 
+## Recette de réponse fournisseur perdue et de remboursement différé
+
+```sh
+node scripts/admin-acceptance.mjs checkout-response-recovery-acceptance.spec.ts refund-status-recovery-acceptance.spec.ts --project=chromium
+```
+
+[Checkout](../tests/playwright/checkout-response-recovery-acceptance.spec.ts)
+perd la réponse après création chez le fournisseur simulé, y compris lors des
+retries du SDK. Après redémarrage de l'API et rechargement du navigateur, le
+rejeu conserve la clé, l'opération et la session. Avant confirmation Stripe,
+aucun revenu n'est ajouté; les confirmations répétées produisent ensuite une
+seule contribution payée et une seule écriture.
+
+[Remboursement](../tests/playwright/refund-status-recovery-acceptance.spec.ts)
+exerce le formulaire admin avec un résultat `pending` reçu ou une réponse
+perdue. Le blocage d'une nouvelle demande et l'état persistent après redémarrage.
+Un webhook signé portant un ancien snapshot est confronté au remboursement
+actuel du fournisseur : `refund.updated` confirme le succès, `refund.failed`
+autorise une nouvelle action explicitement confirmée. Les rejeux et l'échec
+tardif de l'ancienne opération ne doublent ni journal ni avoir et ne modifient
+pas la facture originale. La reprise par webhook ne resoumet pas le remboursement.
+
+Les requêtes métier traversent réellement Web, API et PostgreSQL. Le gate SQL
+Checkout et les fautes fournisseur ciblent une seule opération dans la pile
+jetable; ils sont nettoyés après l'essai. Stripe reste simulé, sans paiement ni
+remboursement réel. Ces cas ne qualifient pas les fournisseurs de production.
+
 ## Recette de reprise après interruption du webhook
 
 Le scénario 62 de l'[inventaire](development/end-to-end-scenarios-inventory.md)

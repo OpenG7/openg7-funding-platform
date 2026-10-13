@@ -2,6 +2,153 @@ import { AxeBuilder } from '@axe-core/playwright';
 
 import { expect, test } from './support/test.js';
 import { cockpitFixtures } from './support/cockpit-fixtures.js';
+import { installPublicFinancialAccessibilityFixtures } from './support/public-financial-accessibility.js';
+
+async function auditPublicFinancialAccessibility(
+  page: import('@playwright/test').Page,
+  selector: string,
+  state: string
+) {
+  const scan = await new AxeBuilder({ page })
+    .include(selector)
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+    .analyze();
+  await test.info().attach(`financial-accessibility-${state}`, {
+    body: JSON.stringify(scan),
+    contentType: 'application/json'
+  });
+  expect(scan.violations).toEqual([]);
+}
+
+for (const locale of [
+  {
+    prefix: '',
+    language: 'fr-CA',
+    personal: /Contribution personnelle/i,
+    sponsorship: /Commandite d'entreprise/i,
+    displayName: /Afficher mon nom publiquement/i,
+    acknowledgment: /OpenG7 est un projet indépendant en développement/i,
+    transparencyError: 'Impossible de charger la transparence publique.'
+  },
+  {
+    prefix: '/en',
+    language: 'en',
+    personal: /Personal contribution/i,
+    sponsorship: /Business sponsorship/i,
+    displayName: /Display my name publicly/i,
+    acknowledgment: /OpenG7 is an independent project in development/i,
+    transparencyError: 'Unable to load public transparency.'
+  }
+]) {
+  for (const contribution of ['personal', 'sponsorship'] as const) {
+    test(`financial accessibility: ${contribution} form, validation and checkout error (${locale.language})`, async ({
+      page
+    }) => {
+      const state = await installPublicFinancialAccessibilityFixtures(page);
+      await page.goto(`${locale.prefix}/fonds-des-batisseurs`);
+      await expect(page.locator('html')).toHaveAttribute(
+        'lang',
+        locale.language
+      );
+      const form = page.locator('[data-og7="contribution-form"]');
+      const type = form.getByRole('button', { name: locale[contribution] });
+      await expect(type).toBeEnabled();
+      await type.click();
+      await expect(type).toHaveAttribute('aria-pressed', 'true');
+      const amount = form.locator('#custom-contribution');
+      await amount.fill(contribution === 'sponsorship' ? '50' : '25');
+      await form.getByRole('checkbox', { name: locale.displayName }).check();
+      const name = form.locator('#public-display-name');
+      await name.fill('Synthetic public contributor');
+      await form.getByRole('checkbox', { name: locale.acknowledgment }).check();
+      if (contribution === 'sponsorship')
+        await form.locator('[data-og7="offer-acceptance"]').check();
+      const submit = form.locator('button[type="submit"]');
+      await expect(submit).toBeEnabled();
+      await form.scrollIntoViewIfNeeded();
+      await auditPublicFinancialAccessibility(
+        page,
+        '[data-og7="contribution-form"]',
+        'valid'
+      );
+
+      await amount.fill('-50');
+      await name.fill('');
+      await expect(amount).toHaveAttribute('aria-invalid', 'true');
+      await expect(amount).toHaveAttribute(
+        'aria-describedby',
+        'custom-contribution-help'
+      );
+      await expect(name).toHaveAttribute('aria-invalid', 'true');
+      await expect(name).toHaveAttribute(
+        'aria-describedby',
+        'public-display-name-help'
+      );
+      await expect(form.locator('#custom-contribution-help')).toBeVisible();
+      await expect(form.locator('#public-display-name-help')).toBeVisible();
+      await expect(submit).toBeDisabled();
+      expect(state.checkouts).toBe(0);
+      await auditPublicFinancialAccessibility(
+        page,
+        '[data-og7="contribution-form"]',
+        'invalid'
+      );
+
+      await amount.fill(contribution === 'sponsorship' ? '50' : '25');
+      await name.fill('Synthetic public contributor');
+      if (contribution === 'sponsorship')
+        await form.locator('[data-og7="offer-acceptance"]').check();
+      await expect(submit).toBeEnabled();
+      await submit.click();
+      await expect.poll(() => state.checkouts).toBe(1);
+      await expect(form.getByRole('alert')).toBeVisible();
+      await auditPublicFinancialAccessibility(
+        page,
+        '[data-og7="contribution-form"]',
+        'checkout-error'
+      );
+    });
+  }
+
+  for (const response of ['data', 'error'] as const) {
+    test(`financial accessibility: public transparency ${response} (${locale.language})`, async ({
+      page
+    }) => {
+      const state = await installPublicFinancialAccessibilityFixtures(page);
+      state.transparencyUnavailable = response === 'error';
+      await page.goto(`${locale.prefix}/fonds-des-batisseurs/transparence`);
+      await expect(page.locator('html')).toHaveAttribute(
+        'lang',
+        locale.language
+      );
+      const main = page.locator('main');
+      const exportButton = main.locator('[data-og7="transparency-json"]');
+      if (response === 'data') {
+        await expect(exportButton).toBeEnabled();
+        await expect(main.getByRole('progressbar')).toHaveAttribute(
+          'aria-valuenow',
+          '50'
+        );
+        await expect(
+          main.locator('[data-og7="published-allocations"]')
+        ).toContainText('Synthetic public project');
+      } else {
+        await expect(
+          main.locator('[data-og7="transparency-status"]')
+        ).toHaveText(locale.transparencyError);
+        await expect(exportButton).toBeDisabled();
+        await expect(
+          main.locator('[data-og7="transparency-totals"] strong')
+        ).toHaveText(['—', '—', '—', '—']);
+        await expect(
+          main.locator('[data-og7="transparency-refresh"]')
+        ).toBeEnabled();
+      }
+      await auditPublicFinancialAccessibility(page, 'main', response);
+      expect(state.checkouts).toBe(0);
+    });
+  }
+}
 
 test('a secondary public route avoids the home page code, then navigates to the localized home', async ({
   page
