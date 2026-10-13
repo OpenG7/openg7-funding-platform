@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { once } from 'node:events';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
@@ -238,9 +238,14 @@ test(
     t.after(() => new Promise((resolve) => server.close(resolve)));
     const origin = `http://127.0.0.1:${server.address().port}`;
     const callback = `${origin}/api/admin/auth/callback`;
+    // Keep the temporary root private, but let the image's UID 1000 read its
+    // dedicated import mount when the host runner owns the files on Linux.
+    const importDirectory = join(directory, 'import');
+    await mkdir(importDirectory, { mode: 0o755 });
     await writeFile(
-      join(directory, 'openg7-realm.json'),
-      JSON.stringify(realm)
+      join(importDirectory, 'openg7-realm.json'),
+      JSON.stringify(realm),
+      { mode: 0o644 }
     );
 
     databaseId = await docker(
@@ -311,7 +316,7 @@ test(
         '--health-start-period',
         '120s',
         '--mount',
-        `type=bind,source=${directory},destination=/opt/keycloak/data/import,readonly`,
+        `type=bind,source=${importDirectory},destination=/opt/keycloak/data/import,readonly`,
         '--env',
         'KC_DB_URL=jdbc:postgresql://identity-db:5432/keycloak',
         '--env',
@@ -368,9 +373,24 @@ test(
     };
     const issuer = `http://127.0.0.1:${await binding(8080)}/realms/openg7`;
     const management = `http://127.0.0.1:${await binding(9000)}`;
-    await eventually(async () =>
-      assert.equal((await fetch(`${management}/health/ready`)).status, 200)
-    );
+    try {
+      await eventually(async () =>
+        assert.equal((await fetch(`${management}/health/ready`)).status, 200)
+      );
+    } catch {
+      const state = await docker([
+        'inspect',
+        keycloakId,
+        '--format',
+        '{{.State.Status}}|{{.State.ExitCode}}|{{.State.OOMKilled}}'
+      ]).catch(() => 'unavailable');
+      const safeState = /^[a-z]+\|\d+\|(?:true|false)$/.test(state)
+        ? state
+        : 'unavailable';
+      throw new Error(
+        `Disposable Keycloak did not become ready (state|exitCode|oomKilled: ${safeState}); sensitive provider details are withheld.`
+      );
+    }
     const client = await oidc.discovery(
       new URL(issuer),
       clientId,
