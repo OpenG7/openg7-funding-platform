@@ -41,6 +41,8 @@ interface ContributionTotalsRow {
 interface AdjustmentTotalsRow {
   readonly currency?: string;
   readonly currency_count?: string;
+  readonly refund_currency?: string | null;
+  readonly refund_currency_count?: string;
   readonly total_fees: string;
   readonly total_refunded: string;
   readonly total_payouts: string;
@@ -272,6 +274,8 @@ export const getAdjustmentTotals = async (
       COALESCE(SUM(CASE WHEN type = 'payout.paid' THEN amount ELSE 0 END), 0)::text AS total_payouts,
       COALESCE(MAX(currency), 'cad') AS currency,
       COUNT(DISTINCT currency)::text AS currency_count,
+      MAX(UPPER(currency)) FILTER (WHERE type = 'charge.refunded') AS refund_currency,
+      COUNT(DISTINCT UPPER(currency)) FILTER (WHERE type = 'charge.refunded')::text AS refund_currency_count,
       GREATEST(MAX(inserted_at),
         (SELECT MAX(inserted_at) FROM fund_transactions WHERE type = 'payout.failed')
       )::text AS last_updated_at

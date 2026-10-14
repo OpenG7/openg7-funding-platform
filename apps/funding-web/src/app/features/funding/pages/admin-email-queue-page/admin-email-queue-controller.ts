@@ -5,6 +5,7 @@ import type {
 } from '@openg7/funding-core';
 
 import type { FundingAdminService } from '../../services/funding-admin.service.js';
+import { AdminDashboardRequestError } from '../../services/funding-admin-session.js';
 
 import { filterEmailQueueMessages } from './admin-email-queue-presentation.js';
 import type {
@@ -21,6 +22,8 @@ export interface AdminEmailQueuePorts {
   token(): string;
   t(key: string, params?: Record<string, unknown>): string;
   confirm(message: string, detail: string): Promise<boolean>;
+  onAccessDenied?(status: 401 | 403): void;
+  accessRevision?(): number;
 }
 
 /** Queue consultation and confirmed recovery; navigation and inspection belong to the page. */
@@ -46,8 +49,11 @@ export class AdminEmailQueueController {
   private disposed = false;
   private readonly activeRetries = new Set<string>();
   private readonly uncertainRetries = new Set<string>();
+  private readonly retryRequestIds = new Map<string, string>();
+  private readonly accessRevision: number | undefined;
 
   constructor(private readonly ports: AdminEmailQueuePorts) {
+    this.accessRevision = ports.accessRevision?.();
     this.errorMessage = signal(
       ports.t('admin.messages.impossible_de_charger_la_file_courriel')
     );
@@ -72,6 +78,13 @@ export class AdminEmailQueueController {
     this.requestGeneration++;
   }
 
+  notifyAccessChanged(): void {
+    this.setTarget(undefined);
+    this.activeRetries.clear();
+    this.uncertainRetries.clear();
+    this.retryRequestIds.clear();
+  }
+
   async loadEmailQueue(): Promise<void> {
     if (this.disposed) return;
     const generation = ++this.requestGeneration;
@@ -87,6 +100,7 @@ export class AdminEmailQueueController {
       this.errorMessage.set('');
     } catch (error) {
       if (!this.currentRequest(generation)) return;
+      if (this.handleAccessError(error)) return;
       this.state.set('error');
       this.errorMessage.set(this.messageFromError(error));
     }
@@ -165,12 +179,16 @@ export class AdminEmailQueueController {
       this.setRetryState(message.id, 'sending');
       this.setRetryMessage(message.id, '');
       this.uncertainRetries.add(message.id);
+      const requestId =
+        this.retryRequestIds.get(message.id) ?? globalThis.crypto.randomUUID();
+      this.retryRequestIds.set(message.id, requestId);
       const result = await this.ports.admin.retryEmailQueueMessage(
         this.ports.token(),
-        { messageId: message.id }
+        { messageId: message.id, requestId }
       );
       if (!this.currentScope(scope)) return;
       this.uncertainRetries.delete(message.id);
+      this.retryRequestIds.delete(message.id);
 
       // A consultation begun before the accepted operation cannot replace its result.
       this.requestGeneration++;
@@ -197,6 +215,7 @@ export class AdminEmailQueueController {
       await this.loadEmailQueue();
     } catch (error) {
       if (!this.currentScope(scope)) return;
+      if (this.handleAccessError(error)) return;
       this.setRetryState(message.id, 'error');
       this.setRetryMessage(message.id, this.messageFromError(error));
     } finally {
@@ -266,6 +285,7 @@ export class AdminEmailQueueController {
       await this.loadEmailQueue();
     } catch (error) {
       if (!this.currentScope(scope)) return;
+      if (this.handleAccessError(error)) return;
       this.setRetryState(message.id, 'error');
       this.setRetryMessage(message.id, this.messageFromError(error));
       // A lost mutation response requires a fresh read, never automatic resubmission.
@@ -311,6 +331,7 @@ export class AdminEmailQueueController {
       return message;
     } catch (error) {
       if (this.currentRequest(generation)) {
+        if (this.handleAccessError(error)) return null;
         this.state.set('error');
         this.errorMessage.set(this.messageFromError(error));
       }
@@ -344,11 +365,38 @@ export class AdminEmailQueueController {
       : this.ports.t('admin.messages.operation_admin_impossible');
   }
 
+  private handleAccessError(error: unknown): boolean {
+    if (
+      !(error instanceof AdminDashboardRequestError) ||
+      (error.status !== 401 && error.status !== 403)
+    )
+      return false;
+    this.notifyAccessChanged();
+    this.state.set('error');
+    this.errorMessage.set(
+      this.ports.t(
+        error.status === 401
+          ? 'admin.access.sessionExpired'
+          : 'admin.privacy.forbidden'
+      )
+    );
+    this.ports.onAccessDenied?.(error.status);
+    return true;
+  }
+
   private currentScope(scope: number): boolean {
-    return !this.disposed && scope === this.scope;
+    return !this.disposed && scope === this.scope && this.sameAccess();
   }
 
   private currentRequest(generation: number): boolean {
-    return !this.disposed && generation === this.requestGeneration;
+    return (
+      !this.disposed &&
+      generation === this.requestGeneration &&
+      this.sameAccess()
+    );
+  }
+
+  private sameAccess(): boolean {
+    return this.accessRevision === this.ports.accessRevision?.();
   }
 }

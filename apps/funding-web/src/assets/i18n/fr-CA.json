@@ -1,5 +1,12 @@
 {
   "admin": {
+    "privacy": {
+      "forbidden": "Votre compte ne permet plus de consulter ces données. Vérifiez vos accès avant de recharger.",
+      "stale": "Dernier état connu : ces données n’ont pas pu être actualisées. Vérifiez leur état avant toute action."
+    },
+    "financial": {
+      "currencyConflict": "Ces données contiennent plusieurs devises. Le total ne peut pas être calculé sans les séparer par devise."
+    },
     "commitments": {
       "pendingRequest": "Requête exacte conservée",
       "kinds": {
@@ -112,6 +119,9 @@
       "context": "Examinez le contenu dans son contexte. Un désaccord, une controverse ou une citation dénonçant la haine ne suffit pas à justifier un refus.",
       "loading": "Chargement du contenu à examiner…",
       "unavailable": "Le contenu ne peut pas être chargé. Fermez le panneau et rechargez le dossier avant de décider.",
+      "forbidden": "Vous n’avez pas les droits nécessaires pour examiner ce contenu. Fermez le panneau et vérifiez vos accès.",
+      "notFound": "Ce contenu n’existe plus ou n’est pas un sujet de modération. Fermez le panneau et rechargez le dossier.",
+      "changed": "Le contenu a changé. Rechargez sa version actuelle avant de décider.",
       "contentVersion": "Version du contenu",
       "exactContent": "Voir le contenu exact",
       "primaryReason": "Motif principal *",

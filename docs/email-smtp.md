@@ -104,12 +104,30 @@ safe error code. Automatic retries wait one minute after the first failure,
 then use exponential backoff, capped at one hour and the message's attempt limit.
 Restarting the API preserves this schedule.
 
-An administrator can confirm an individual retry from the email queue. The retry
-claims the message atomically before calling SMTP, including when overriding the
-automatic attempt limit. An active send cannot be reclaimed by a second admin or
-the worker. Concurrent requests return zero attempts with the current message;
-the UI identifies an ongoing delivery and offers refresh. Already sent messages
-cannot be retried. Requests retain the existing authorization and audit trail.
+An administrator can confirm an individual retry from the email queue. The API
+commits the `email_queue.retry` intent and the existing queue claim in one
+transaction before calling SMTP outside that transaction, including when
+overriding the automatic attempt limit. An audit outage before this commit causes
+no SMTP call. The intent contains actor, message, request and attempt identifiers;
+it contains no recipient, message body or SMTP credential.
+
+`POST /api/admin/email-queue/retry` accepts `{ messageId, requestId }`.
+The browser keeps the UUID for an unresolved request; a new confirmed attempt
+uses a new UUID. Repeating that identifier returns the recorded result or the
+existing attempt's current state without sending. Reusing it for another actor
+or message returns `409 EMAIL_RETRY_REQUEST_CONFLICT`. For older clients,
+`requestId` remains optional and the response supplies the generated identifier.
+An active send cannot be reclaimed by another request or the worker. A different
+request during an active claim reports zero attempts. Already sent messages
+accept only a replay of an existing request, never a new delivery.
+
+`email_queue.retry.result` records the outcome separately. If finalization fails
+after SMTP may have accepted the message, the intent remains and the existing
+claim is quarantined as `uncertain` when storage is reachable. Otherwise its
+expired lease is quarantined on recovery. `503 EMAIL_RETRY_RESULT_UNAVAILABLE`
+requires reading the message or replaying the same request UUID; it never
+authorizes a blind resend. A failed result-audit write does not discard an
+already confirmed queue state.
 
 After a retry, the page reloads the current message scope and the global server
 counts, ignoring older list responses. If that read fails, the confirmed retry
@@ -138,6 +156,15 @@ at its automatic attempt limit: only a separately confirmed individual retry can
 resume it. If evidence remains ambiguous, leave it `uncertain`. After a lost HTTP
 response, refresh the current state before submitting another decision. Ordinary
 retry of an uncertain message returns `409 EMAIL_DELIVERY_RECONCILIATION_REQUIRED`.
+
+The disposable PostgreSQL/Mailpit test
+[`admin-email-retry-audit.integration.mjs`](../tests/integration/admin-email-retry-audit.integration.mjs)
+injects failures before intent, after SMTP acceptance and during result auditing.
+The OIDC browser recipe
+[`email-uncertain-reconciliation-journey.spec.ts`](../tests/identity/email-uncertain-reconciliation-journey.spec.ts)
+joins the real UI/API to that quarantine, stale-version refusal, evidence-backed
+`sent`/`not_sent` reconciliation and separately confirmed retry. These fixtures
+make no external SMTP call and do not prove inbox delivery.
 
 SMTP cannot provide an exactly-once guarantee. The
 [recovery recipe](sponsorship-access-and-drafts.md#recette-complete-courriel-en-echec-et-reprise-du-dossier)

@@ -16,6 +16,7 @@ import {
 } from '../../../packages/funding-core/src/index.js';
 
 import type { AdminExpenseAuditInput } from './fund-admin.repository.js';
+import { AdminFinancialCurrencyConflictError } from './admin-financial-currency.js';
 import { createRouteMatcher } from './http-routing.js';
 import type { createHttpTransport } from './http-transport.js';
 
@@ -144,6 +145,13 @@ export const createAdminAccountingHttpHandler = ({
         const result = await listAdminExpenses(expenseId ?? undefined);
         writeJson(request, response, 200, result);
       } catch (error) {
+        if (error instanceof AdminFinancialCurrencyConflictError) {
+          writeJson(request, response, error.status, {
+            code: error.code,
+            error: error.message
+          });
+          return true;
+        }
         reportFailure('Failed to load admin expenses.', error);
         writeJson(request, response, 502, {
           error: 'Admin expenses could not be loaded.'
@@ -517,6 +525,13 @@ export const createAdminAccountingHttpHandler = ({
         };
         writeJson(request, response, 200, result);
       } catch (error) {
+        if (error instanceof AdminFinancialCurrencyConflictError) {
+          writeJson(request, response, error.status, {
+            code: error.code,
+            error: error.message
+          });
+          return true;
+        }
         reportFailure('Failed to load admin transparency.', error);
         writeJson(request, response, 502, {
           error: 'Admin transparency could not be loaded.'

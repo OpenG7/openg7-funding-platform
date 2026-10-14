@@ -5,7 +5,10 @@ import type {
   ModerationDecisionRecord
 } from '@openg7/funding-core';
 
-import type { FundingAdminSession } from './funding-admin-session.js';
+import {
+  AdminDashboardRequestError,
+  type FundingAdminSession
+} from './funding-admin-session.js';
 
 export type { ModerationContent } from '@openg7/funding-core';
 
@@ -110,7 +113,11 @@ export class FundingAdminModerationClient {
       const data = (await response.json().catch(() => ({}))) as {
         code?: string;
       };
-      throw new Error(data.code ?? 'MODERATION_UNAVAILABLE');
+      throw new AdminDashboardRequestError(
+        response.status,
+        data.code ?? 'MODERATION_UNAVAILABLE',
+        data.code
+      );
     }
     return response.json() as Promise<T>;
   }

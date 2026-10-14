@@ -53,6 +53,7 @@ export const readFundingApiSource = () => {
     'admin-publication-batches.http.ts',
     'admin-publication-http.shared.ts',
     'admin-email.http.ts',
+    'admin-email-retry.service.ts',
     'admin-insights.http.ts',
     'http-routing.ts',
     'http-rate-limit.ts',

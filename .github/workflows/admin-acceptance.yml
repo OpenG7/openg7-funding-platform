@@ -188,6 +188,8 @@ jobs:
       - run: yarn install --immutable
       - name: Build runtime for identity fixtures
         run: yarn build
+      - name: Install encrypted backup tooling for the admin request journey
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends age
       - name: Prepare isolated identity providers
         run: |
           docker pull postgres:16-alpine

@@ -5,6 +5,7 @@ import test from 'node:test';
 import { signal } from '@angular/core';
 
 import { adminDocumentDeliveryBrowser } from '../dist/apps/funding-web/src/app/features/funding/services/admin-document-delivery-browser.js';
+import { AdminDashboardRequestError } from '../dist/apps/funding-web/src/app/features/funding/services/funding-admin-session.js';
 
 // The root TypeScript build emits the workspace under dist/.
 const workspaceHook = registerHooks({
@@ -156,6 +157,31 @@ test('SSR actions do not touch browser resources, requests or confirmations', as
   assert.equal(f.controller.resendState(), 'idle');
   assert.equal(f.controller.invoicePdfState(), 'idle');
 });
+
+for (const status of [401, 403]) {
+  test(`a document refusal ${status} clears recipient drafts and invalidates pending private downloads`, async (t) => {
+    const f = fixture(t);
+    const held = deferred();
+    const denied = [];
+    f.ports.onAccessDenied = (code) => denied.push(code);
+    f.controller.setResendEmail({
+      id: f.a.id,
+      email: 'private-draft@example.test'
+    });
+    f.ports.admin.getSponsorshipInvoicePdf = () => held.promise;
+    const pending = f.controller.downloadInvoicePdf(f.a);
+    f.ports.admin.resendSponsorshipInvoice = async () => {
+      throw new AdminDashboardRequestError(status);
+    };
+    await f.controller.resendInvoice(f.a);
+    assert.deepEqual(denied, [status]);
+    assert.equal(f.controller.resendEmail(), f.a.sponsor_contact_email);
+    held.resolve(new Blob(['private PDF']));
+    await pending;
+    assert.deepEqual(f.downloads, []);
+    assert.deepEqual(f.controller.resendMessageIds(), {});
+  });
+}
 
 test('mutations require permission and session, and recheck both after confirmation', async (t) => {
   const f = fixture(t);

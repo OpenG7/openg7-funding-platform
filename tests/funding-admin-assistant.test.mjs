@@ -994,3 +994,66 @@ test('preparation reports not_found for an unknown or missing reference', () => 
     'not_found'
   );
 });
+
+test('slot proposals localize all copy and absence errors without modifying the dataset', () => {
+  const ds = dataset({
+    slots: [
+      {
+        id: 'slot-localized',
+        channel: 'facebook',
+        feedTarget: 'openg7',
+        startsAt: '2026-07-01T00:00:00.000Z',
+        status: 'scheduled',
+        capacity: 5,
+        capacityUsed: 2
+      }
+    ]
+  });
+  const before = structuredClone(ds);
+  for (const language of ['fr-CA', 'en']) {
+    const result = prepareDraftFromDataset(ds, {
+      type: 'slot_proposal',
+      reference: 'slot-localized',
+      language
+    });
+    assert.equal(result.status, 'ok');
+    assert.equal(result.draft.reference, 'slot-localized');
+    assert.equal(result.draft.persisted, false);
+    assert.equal(result.draft.published, false);
+    assert.equal(result.draft.sent, false);
+    const english = language === 'en';
+    assert.match(
+      result.draft.title,
+      english ? /^Slot proposal/ : /^Proposition/
+    );
+    assert.deepEqual(
+      result.draft.fields.map((field) => field.label),
+      english
+        ? ['Channel', 'Destination', 'Proposed date']
+        : ['Canal', 'Cible', 'Date proposée']
+    );
+    assert.match(
+      result.draft.bodyLines[0],
+      english ? /is overdue/ : /est dépassé/
+    );
+    assert.match(
+      result.draft.notice,
+      english ? /has not created/ : /aucun créneau/
+    );
+    assert.match(
+      result.draft.limitations[0],
+      english ? /editorial calendar/ : /calendrier éditorial/
+    );
+    const missing = prepareDraftFromDataset(ds, {
+      type: 'slot_proposal',
+      reference: 'missing',
+      language
+    });
+    assert.equal(missing.status, 'not_applicable');
+    assert.match(
+      missing.message,
+      english ? /No overdue slot/ : /Aucun créneau/
+    );
+  }
+  assert.deepEqual(ds, before);
+});

@@ -14,6 +14,7 @@ import type {
 } from '../pages/admin-invoices-page/admin-invoice.models.js';
 
 import type { FundingAdminService } from './funding-admin.service.js';
+import { AdminDashboardRequestError } from './funding-admin-session.js';
 import type { AdminDocumentDeliveryBrowser } from './admin-document-delivery-browser.js';
 
 export interface AdminDocumentDeliveryPorts {
@@ -34,6 +35,8 @@ export interface AdminDocumentDeliveryPorts {
   confirm(message: string, detail?: string): Promise<boolean>;
   t(key: string, params?: Record<string, string | number>): string;
   browser(): AdminDocumentDeliveryBrowser | null;
+  onAccessDenied?(status: 401 | 403): void;
+  accessRevision?(): number;
 }
 
 type BackfillState = 'idle' | 'sending' | 'done' | 'error';
@@ -99,8 +102,11 @@ export class AdminDocumentDeliveryController {
   private scope = 0;
   private disposed = false;
   private backfillPending = false;
+  private readonly accessRevision: number | undefined;
 
-  constructor(private readonly ports: AdminDocumentDeliveryPorts) {}
+  constructor(private readonly ports: AdminDocumentDeliveryPorts) {
+    this.accessRevision = ports.accessRevision?.();
+  }
 
   resetScope(): void {
     if (this.disposed) return;
@@ -219,11 +225,13 @@ export class AdminDocumentDeliveryController {
       browser.saveBlob(blob, this.pdfFilename(document.number));
       this.setPdfDownload(key, { state: 'idle', message: '' });
     } catch (error) {
-      if (this.isActive(scope))
+      if (this.isActive(scope)) {
+        if (this.handleAccessError(error)) return;
         this.setPdfDownload(key, {
           state: 'error',
           message: this.messageFromError(error)
         });
+      }
     }
   }
 
@@ -351,6 +359,7 @@ export class AdminDocumentDeliveryController {
       );
     } catch (error) {
       if (!this.isActive(scope)) return;
+      if (this.handleAccessError(error)) return;
       view.setState('error');
       view.setMessage(this.messageFromError(error));
     } finally {
@@ -392,6 +401,7 @@ export class AdminDocumentDeliveryController {
       await this.ports.refreshInvoices();
     } catch (error) {
       if (!this.isActive(scope)) return;
+      if (this.handleAccessError(error)) return;
       this.backfillState.set('error');
       this.backfillMessage.set(this.messageFromError(error));
     } finally {
@@ -520,8 +530,23 @@ export class AdminDocumentDeliveryController {
       : this.ports.t('admin.messages.operation_admin_impossible');
   }
 
+  private handleAccessError(error: unknown): boolean {
+    if (
+      !(error instanceof AdminDashboardRequestError) ||
+      (error.status !== 401 && error.status !== 403)
+    )
+      return false;
+    this.resetScope();
+    this.ports.onAccessDenied?.(error.status);
+    return true;
+  }
+
   private isActive(scope: number): boolean {
-    return !this.disposed && scope === this.scope;
+    return (
+      !this.disposed &&
+      scope === this.scope &&
+      this.accessRevision === this.ports.accessRevision?.()
+    );
   }
 
   private canMutate(scope: number): boolean {

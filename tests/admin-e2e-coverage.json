@@ -1,0 +1,401 @@
+{
+  "version": 1,
+  "routes": [
+    "/admin/fundraiser",
+    "/admin/fundraiser/access",
+    "/admin/fundraiser/assistant",
+    "/admin/fundraiser/attention",
+    "/admin/fundraiser/audit",
+    "/admin/fundraiser/contributions",
+    "/admin/fundraiser/email-queue",
+    "/admin/fundraiser/expenses",
+    "/admin/fundraiser/invoices",
+    "/admin/fundraiser/pilotage",
+    "/admin/fundraiser/publications",
+    "/admin/fundraiser/publications/automation",
+    "/admin/fundraiser/publications/batches",
+    "/admin/fundraiser/publications/calendar",
+    "/admin/fundraiser/publications/drafts",
+    "/admin/fundraiser/setup",
+    "/admin/fundraiser/sponsors",
+    "/admin/fundraiser/transparency",
+    "/admin/login",
+    "/admin/oidc-setup"
+  ],
+  "guarantees": [
+    {
+      "id": "A01",
+      "routes": [
+        "/admin/fundraiser",
+        "/admin/fundraiser/contributions",
+        "/admin/fundraiser/invoices",
+        "/admin/fundraiser/expenses",
+        "/admin/fundraiser/transparency"
+      ],
+      "roles": ["owner"],
+      "states": [
+        "confirmed CAD and USD",
+        "summary conflict",
+        "minor units preserved"
+      ],
+      "evidence": [
+        {
+          "level": "e2e",
+          "file": "tests/identity/cockpit-financial-values.spec.ts",
+          "title": "cockpit displays confirmed amounts, late fees and a real partial refund separately per currency"
+        }
+      ]
+    },
+    {
+      "id": "A02",
+      "routes": [
+        "/admin/login",
+        "/admin/fundraiser/invoices",
+        "/admin/fundraiser/email-queue",
+        "/admin/fundraiser/expenses"
+      ],
+      "roles": ["owner", "operator"],
+      "states": [
+        "revoked session",
+        "forbidden refresh",
+        "late private response"
+      ],
+      "evidence": [
+        {
+          "level": "e2e",
+          "file": "tests/identity/financial-access-revocation.spec.ts",
+          "title": "private invoice and email pages erase their snapshot and pending inspection after real OIDC revocation"
+        },
+        {
+          "level": "e2e",
+          "file": "tests/identity/financial-access-revocation.spec.ts",
+          "title": "a forbidden private refresh purges drafts and a late successful read cannot restore the revoked session"
+        }
+      ]
+    },
+    {
+      "id": "A03",
+      "routes": ["/admin/fundraiser/email-queue", "/admin/fundraiser/audit"],
+      "roles": ["owner"],
+      "states": ["durable retry intent", "SMTP result", "same request replay"],
+      "evidence": [
+        {
+          "level": "e2e",
+          "file": "tests/identity/email-uncertain-reconciliation-journey.spec.ts",
+          "title": "email uncertain reconciliation: accepted SMTP is never resent; not-sent evidence requires a fresh version and a separate retry"
+        }
+      ]
+    },
+    {
+      "id": "A04",
+      "routes": ["/admin/fundraiser/pilotage", "/admin/fundraiser/attention"],
+      "roles": ["owner"],
+      "states": [
+        "overdue slot without delivery",
+        "real publication subject",
+        "cancel without decision"
+      ],
+      "evidence": [
+        {
+          "level": "e2e",
+          "file": "tests/identity/pilotage-moderation-journey.spec.ts",
+          "title": "pilotage real subjects distinguish overdue slots from moderatable deliveries without creating a decision"
+        }
+      ]
+    },
+    {
+      "id": "A05",
+      "routes": [
+        "/admin/fundraiser/pilotage",
+        "/admin/fundraiser/publications/automation"
+      ],
+      "roles": ["owner"],
+      "states": [
+        "two pending sponsors",
+        "cancel second confirmation",
+        "atomic success",
+        "concurrent version conflict"
+      ],
+      "evidence": [
+        {
+          "level": "e2e",
+          "file": "tests/identity/pilotage-moderation-journey.spec.ts",
+          "title": "pilotage combined approval is atomic across two sponsors and delivery after cancelling and reopening confirmation"
+        },
+        {
+          "level": "e2e",
+          "file": "tests/identity/pilotage-moderation-journey.spec.ts",
+          "title": "pilotage combined approval is atomic across two sponsors and delivery after a concurrent change"
+        }
+      ]
+    },
+    {
+      "id": "A06",
+      "routes": ["/admin/fundraiser/pilotage", "/admin/fundraiser/sponsors"],
+      "roles": ["owner"],
+      "states": [
+        "401",
+        "403",
+        "404",
+        "409",
+        "503",
+        "late response",
+        "reload current content"
+      ],
+      "evidence": [
+        {
+          "level": "e2e",
+          "file": "tests/identity/financial-access-revocation.spec.ts",
+          "title": "moderation content refusals stay distinct, retries use real content and obsolete or revoked decisions never persist"
+        }
+      ]
+    },
+    {
+      "id": "A07",
+      "routes": ["/admin/fundraiser/sponsors", "/admin/fundraiser/email-queue"],
+      "roles": ["owner", "operator"],
+      "states": [
+        "correction requested",
+        "new revision",
+        "adverse decision",
+        "appeal",
+        "assigned resolution",
+        "private explanations"
+      ],
+      "evidence": [
+        {
+          "level": "e2e",
+          "file": "tests/identity/moderation-correction-reconsideration.spec.ts",
+          "title": "moderation correction and reconsideration preserve private explanations, actors and publication boundaries through real OIDC and SMTP"
+        }
+      ]
+    },
+    {
+      "id": "A08",
+      "routes": [
+        "/admin/fundraiser/publications",
+        "/admin/fundraiser/publications/drafts",
+        "/admin/fundraiser/publications/batches",
+        "/admin/fundraiser/publications/calendar"
+      ],
+      "roles": ["owner"],
+      "states": [
+        "shared slot",
+        "Toronto DST overlap",
+        "persisted replanning",
+        "confirmed cancellation"
+      ],
+      "evidence": [
+        {
+          "level": "e2e",
+          "file": "tests/identity/manual-publication-calendar-journey.spec.ts",
+          "title": "manual publication calendar persists Toronto replanning across all shared batches, rejects ambiguous times and confirms cancellation"
+        },
+        {
+          "level": "e2e",
+          "file": "tests/playwright/admin-publication-batches.spec.ts",
+          "title": "creates a draft, assigns a calendar slot and authorizes its final content"
+        }
+      ]
+    },
+    {
+      "id": "A09",
+      "routes": ["/admin/fundraiser/sponsors"],
+      "roles": ["owner", "operator", "reader"],
+      "states": [
+        "historical qualification",
+        "lost response",
+        "amendment conflict",
+        "duration attestation",
+        "immutable terms"
+      ],
+      "evidence": [
+        {
+          "level": "e2e",
+          "file": "tests/identity/owner-obligation-journey.spec.ts",
+          "title": "owner records historical terms, amends one obligation and attests a documented duration with persistent rights and replay guards"
+        }
+      ]
+    },
+    {
+      "id": "A10",
+      "routes": ["/admin/fundraiser/contributions"],
+      "roles": ["owner"],
+      "states": [
+        "bounded preview",
+        "cancel",
+        "expired scope",
+        "changed Stripe account",
+        "lost execution response"
+      ],
+      "evidence": [
+        {
+          "level": "e2e",
+          "file": "tests/identity/admin-stripe-backfill-journey.spec.ts",
+          "title": "admin Stripe backfill: bounded preview, cancellation, stale scope, account change and lost response preserve one financial import"
+        }
+      ]
+    },
+    {
+      "id": "A11",
+      "routes": ["/admin/fundraiser/email-queue"],
+      "roles": ["owner"],
+      "states": [
+        "SMTP accepted",
+        "uncertain",
+        "not sent evidence",
+        "version conflict",
+        "separate retry"
+      ],
+      "evidence": [
+        {
+          "level": "e2e",
+          "file": "tests/identity/email-uncertain-reconciliation-journey.spec.ts",
+          "title": "email uncertain reconciliation: accepted SMTP is never resent; not-sent evidence requires a fresh version and a separate retry"
+        }
+      ]
+    },
+    {
+      "id": "A12",
+      "routes": [
+        "/admin/fundraiser/access",
+        "/admin/fundraiser/contributions",
+        "/admin/fundraiser/expenses",
+        "/admin/fundraiser/invoices",
+        "/admin/fundraiser/email-queue"
+      ],
+      "roles": ["owner", "operator", "reader"],
+      "states": [
+        "pending refund",
+        "recipient correction",
+        "allocation publication",
+        "real revocation"
+      ],
+      "evidence": [
+        {
+          "level": "e2e",
+          "file": "tests/identity/financial-access-revocation.spec.ts",
+          "title": "real revocation blocks pending recipient correction, allocation publication and Stripe refund without business effects"
+        }
+      ]
+    },
+    {
+      "id": "A13",
+      "routes": ["/admin/fundraiser/setup"],
+      "roles": ["owner", "operator", "reader"],
+      "states": [
+        "confirmation",
+        "lost response",
+        "encrypted dump",
+        "verified private local object",
+        "revoked session"
+      ],
+      "evidence": [
+        {
+          "level": "e2e",
+          "file": "tests/identity/admin-backup-request-journey.spec.ts",
+          "title": "admin backup request: OIDC confirmation, lost response, one real encrypted dump and verified local object, roles and revocation"
+        }
+      ]
+    },
+    {
+      "id": "A14",
+      "routes": [
+        "/admin/fundraiser",
+        "/admin/fundraiser/contributions",
+        "/admin/fundraiser/transparency"
+      ],
+      "roles": ["owner"],
+      "states": [
+        "confirmed payment",
+        "late fees",
+        "partial refund",
+        "currency separated"
+      ],
+      "evidence": [
+        {
+          "level": "e2e",
+          "file": "tests/identity/cockpit-financial-values.spec.ts",
+          "title": "cockpit displays confirmed amounts, late fees and a real partial refund separately per currency"
+        }
+      ]
+    },
+    {
+      "id": "A15",
+      "routes": ["/admin/fundraiser/assistant", "/admin/fundraiser/attention"],
+      "roles": ["owner"],
+      "states": [
+        "overdue slot",
+        "French preparation",
+        "English preparation",
+        "no persisted proposal"
+      ],
+      "evidence": [
+        {
+          "level": "e2e",
+          "file": "tests/identity/admin-assistant-contract-journey.spec.ts",
+          "title": "assistant overdue slot preparation is localized through real HTTP and creates no slot"
+        }
+      ]
+    },
+    {
+      "id": "A16",
+      "routes": ["/admin/fundraiser/assistant"],
+      "roles": ["owner"],
+      "states": [
+        "enabled mock provider",
+        "tool budget",
+        "private scope",
+        "disabled assistant",
+        "revoked identity"
+      ],
+      "evidence": [
+        {
+          "level": "e2e",
+          "file": "tests/identity/admin-assistant-contract-journey.spec.ts",
+          "title": "assistant real HTTP preserves scope, tool budget, disabled mode and revoked identity"
+        }
+      ]
+    },
+    {
+      "id": "A17",
+      "routes": [
+        "/admin/fundraiser",
+        "/admin/fundraiser/access",
+        "/admin/fundraiser/assistant",
+        "/admin/fundraiser/attention",
+        "/admin/fundraiser/audit",
+        "/admin/fundraiser/contributions",
+        "/admin/fundraiser/email-queue",
+        "/admin/fundraiser/expenses",
+        "/admin/fundraiser/invoices",
+        "/admin/fundraiser/pilotage",
+        "/admin/fundraiser/publications",
+        "/admin/fundraiser/publications/automation",
+        "/admin/fundraiser/publications/batches",
+        "/admin/fundraiser/publications/calendar",
+        "/admin/fundraiser/publications/drafts",
+        "/admin/fundraiser/setup",
+        "/admin/fundraiser/sponsors",
+        "/admin/fundraiser/transparency",
+        "/admin/login",
+        "/admin/oidc-setup"
+      ],
+      "roles": ["owner", "operator", "reader", "anonymous"],
+      "states": [
+        "new route",
+        "missing guarantee",
+        "skipped evidence",
+        "unselected scenario",
+        "UI-only suite"
+      ],
+      "evidence": [
+        {
+          "level": "unit",
+          "file": "tests/admin-e2e-coverage.test.mjs",
+          "title": "admin coverage rejects missing routes, guarantees, skipped evidence and simulated suites"
+        }
+      ]
+    }
+  ]
+}

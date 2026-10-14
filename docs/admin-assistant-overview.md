@@ -31,6 +31,10 @@ un compteur nul interprété comme une absence de travail.
 - La préparation indique que le brouillon n'est ni envoyé, ni publié, ni
   enregistré. Les lecteurs n'ont pas de bouton de préparation. Les actions réelles
   restent dans les parcours métier avec leurs validations et confirmations.
+- Un créneau dépassé conserve l'action `propose_slot` dans la file et son détail.
+  La proposition utilise l'identifiant du créneau, même lorsqu'un commanditaire
+  lui est associé. Titre, champs, texte et absence de créneau sont localisés en
+  français ou en anglais ; cette préparation ne crée aucun créneau.
 - **Poser une question** et **Résumé financier prudent** sont repliés et chargés
   à l'ouverture. Le premier vérifie le mode conversationnel, indique sa désactivation
   ou sa simulation, et n'envoie pas de question automatiquement. Le second affiche
@@ -118,3 +122,9 @@ et l'absence de données privées supplémentaires. La recette UI
 focus, préparation seule, erreurs, session expirée, source indisponible, alerte
 résolue, chargement des volets à la demande, FR/EN et accessibilité mobile.
 Elle utilise des données synthétiques, sans API réelle, envoi ni publication.
+
+La [recette HTTP réelle](../tests/identity/admin-assistant-contract-journey.spec.ts)
+traverse le navigateur, OIDC, l'API et PostgreSQL jetables. Elle vérifie proposition
+FR/EN, référence exacte, absence de mutation, question et lien de dossier, budget
+d'outils, confidentialité, mode désactivé et révocation. Le fournisseur de modèle
+est `mock` local ; cette preuve ne qualifie aucun modèle externe.

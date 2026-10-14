@@ -1,6 +1,6 @@
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslatePipe } from '@ngx-translate/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import {
   DestroyRef,
@@ -8,8 +8,10 @@ import {
   Component,
   OnInit,
   computed,
+  effect,
   inject,
-  signal
+  signal,
+  untracked
 } from '@angular/core';
 import type {
   AdminEmailQueueMessageRecord,
@@ -75,6 +77,9 @@ import { AdminEmailQueueSummaryComponent } from './admin-email-queue-summary.com
         >
           {{ errorMessage() }}
         </p>
+        @if (state() === 'error' && queue()) {
+          <p role="status">{{ 'admin.privacy.stale' | translate }}</p>
+        }
 
         <ng-container *ngIf="queue() as response">
           <openg7-admin-email-queue-summary
@@ -120,6 +125,8 @@ export class AdminEmailQueuePageComponent implements OnInit {
   readonly inspection = inject(AdminInspectionService);
   private readonly admin = inject(FundingAdminService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private sessionExpired = false;
   get targetId(): string | undefined {
     return this.controller.targetId();
   }
@@ -128,8 +135,14 @@ export class AdminEmailQueuePageComponent implements OnInit {
   readonly controller = new AdminEmailQueueController({
     admin: this.admin,
     token: () => this.adminToken(),
+    accessRevision: () => this.admin.sessionGeneration(),
     t: (key, params) => this.i18n.t(key, params),
-    confirm: (message, detail) => this.confirmation.confirm(message, detail)
+    confirm: (message, detail) => this.confirmation.confirm(message, detail),
+    onAccessDenied: (status) => {
+      this.confirmation.answer(false);
+      this.inspection.close();
+      if (status === 401) this.expireSession(true);
+    }
   });
   readonly state = this.controller.state;
   readonly errorMessage = this.controller.errorMessage;
@@ -148,6 +161,29 @@ export class AdminEmailQueuePageComponent implements OnInit {
       retryMessage: this.controller.retryMessageFor(message.id)
     }))
   );
+
+  constructor() {
+    let generation = this.admin.sessionGeneration();
+    effect(() => {
+      const next = this.admin.sessionGeneration();
+      if (generation === next) return;
+      generation = next;
+      untracked(() => this.expireSession());
+    });
+  }
+
+  private expireSession(clearSession = false): void {
+    this.controller.notifyAccessChanged();
+    this.adminToken.set('');
+    this.confirmation.answer(false);
+    this.inspection.close();
+    if (this.sessionExpired) return;
+    this.sessionExpired = true;
+    if (clearSession) this.admin.clearAdminSession();
+    void this.router.navigate(['/admin/login'], {
+      queryParams: { returnUrl: this.router.url, sessionExpired: '1' }
+    });
+  }
 
   ngOnInit(): void {
     this.adminToken.set(this.admin.getSavedAdminToken());

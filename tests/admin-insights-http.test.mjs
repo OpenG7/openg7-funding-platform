@@ -3,14 +3,19 @@ import { Readable } from 'node:stream';
 import test from 'node:test';
 
 import { createAdminInsightsHttpHandler } from '../dist/apps/funding-api/src/admin-insights.http.js';
+import { AdminFinancialCurrencyConflictError } from '../dist/apps/funding-api/src/admin-financial-currency.js';
 import { parseAdminSearch } from '../dist/apps/funding-api/src/admin-search.service.js';
 import { validStripeEventId } from '../dist/apps/funding-api/src/admin-stripe-event.service.js';
 import { parseWorkQueueQuery } from '../dist/apps/funding-api/src/admin-work-queue.service.js';
 import { readBody } from '../dist/apps/funding-api/src/http-transport.js';
 
-const fixture = ({ denied, accessDenied, failing } = {}) => {
+const fixture = ({
+  denied,
+  accessDenied,
+  failing,
+  failure = new Error('synthetic private database failure')
+} = {}) => {
   const calls = [];
-  const failure = new Error('synthetic private database failure');
   const writeJson = (_request, response, status, payload, headers = {}) => {
     response.status = status;
     response.payload = payload;
@@ -79,6 +84,17 @@ const fixture = ({ denied, accessDenied, failing } = {}) => {
     }
   };
 };
+
+test('the legacy dashboard rejects mixed currencies while separate cockpit routes remain usable', async () => {
+  const f = fixture({
+    failing: 'dashboard',
+    failure: new AdminFinancialCurrencyConflictError()
+  });
+  const result = await f.run('/api/admin/dashboard');
+  assert.equal(result.status, 409);
+  assert.equal(result.payload.code, 'ADMIN_FINANCIAL_CURRENCY_CONFLICT');
+  assert.equal((await f.run('/api/admin/cockpit/metrics')).status, 200);
+});
 
 const routes = [
   ['stripe-event?eventId=evt_synthetic', 'event'],

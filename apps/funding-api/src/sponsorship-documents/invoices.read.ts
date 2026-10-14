@@ -14,6 +14,7 @@ import {
   type SponsorshipInvoiceRecord,
   type SponsorshipInvoiceRow
 } from '../sponsorship-invoice.mapping.js';
+import { assertAdminFinancialCurrency } from '../admin-financial-currency.js';
 
 import { listAdminSponsorshipCreditNotesForInvoices } from './credit-notes.repository.js';
 import { latestEmailSelect, sponsorshipInvoiceSelect } from './queries.js';
@@ -25,6 +26,9 @@ interface AdminSponsorshipInvoiceSummaryRow {
   readonly total_credited: string;
   readonly failed_email_count: string;
   readonly currency: string;
+  readonly currency_count?: string;
+  readonly credit_note_currency?: string | null;
+  readonly credit_note_currency_count?: string;
   readonly last_updated_at: string;
 }
 
@@ -151,7 +155,8 @@ export const listAdminSponsorshipInvoices = async (
               SUM(CASE WHEN latest_email.status = 'failed' THEN 1 ELSE 0 END),
               0
             )::int AS failed_invoice_email_count,
-            COALESCE(MAX(invoice.currency), 'cad') AS currency,
+            COALESCE(MAX(UPPER(invoice.currency)), 'CAD') AS currency,
+            COUNT(DISTINCT UPPER(invoice.currency))::text AS currency_count,
             COALESCE(MAX(invoice.updated_at), NOW()) AS invoice_last_updated_at
           FROM sponsorship_invoices invoice
           LEFT JOIN latest_email ON latest_email.invoice_id = invoice.id::text
@@ -160,6 +165,8 @@ export const listAdminSponsorshipInvoices = async (
           SELECT
             COUNT(credit_note.id)::text AS credit_note_count,
             COALESCE(SUM(credit_note.total_cents), 0)::text AS total_credited,
+            MAX(UPPER(credit_note.currency)) AS credit_note_currency,
+            COUNT(DISTINCT UPPER(credit_note.currency))::text AS credit_note_currency_count,
             COALESCE(
               SUM(
                 CASE
@@ -184,6 +191,9 @@ export const listAdminSponsorshipInvoices = async (
             credit_note_totals.failed_credit_note_email_count
           )::text AS failed_email_count,
           invoice_totals.currency,
+          invoice_totals.currency_count,
+          credit_note_totals.credit_note_currency,
+          credit_note_totals.credit_note_currency_count,
           GREATEST(
             invoice_totals.invoice_last_updated_at,
             COALESCE(
@@ -197,6 +207,16 @@ export const listAdminSponsorshipInvoices = async (
     )
   ]);
   const summaryRow = summaryResult.rows[0];
+  if (summaryRow) {
+    assertAdminFinancialCurrency(summaryRow);
+    assertAdminFinancialCurrency(
+      {
+        currency: summaryRow.credit_note_currency,
+        currency_count: summaryRow.credit_note_currency_count
+      },
+      summaryRow.currency
+    );
+  }
   const creditNotesByInvoice = await listAdminSponsorshipCreditNotesForInvoices(
     pool,
     invoiceResult.rows.map((row) => row.id)

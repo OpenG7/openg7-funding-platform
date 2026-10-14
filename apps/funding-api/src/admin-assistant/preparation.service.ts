@@ -209,8 +209,10 @@ const prepareNote = (
 
 const prepareSlotProposal = (
   dataset: AttentionDataset,
-  reference: string | undefined
+  reference: string | undefined,
+  language: AdminAssistantPrepareRequest['language']
 ): AdminAssistantPrepareResponse => {
+  const english = language === 'en';
   const lateSlots = dataset.slots
     .filter(
       (slot) =>
@@ -225,7 +227,9 @@ const prepareSlotProposal = (
 
   if (!slot) {
     return notApplicable(
-      'Aucun créneau dépassé ne correspond à cette demande.'
+      english
+        ? 'No overdue slot matches this request.'
+        : 'Aucun créneau dépassé ne correspond à cette demande.'
     );
   }
 
@@ -235,20 +239,34 @@ const prepareSlotProposal = (
 
   return ok({
     ...baseDraft('slot_proposal', dataset.now, slot.id),
-    title: `Proposition de créneau — ${slot.channel} / ${slot.feedTarget}`,
+    title: english
+      ? `Slot proposal — ${slot.channel} / ${slot.feedTarget}`
+      : `Proposition de créneau — ${slot.channel} / ${slot.feedTarget}`,
     fields: [
-      { label: 'Canal', value: slot.channel },
-      { label: 'Cible', value: slot.feedTarget },
-      { label: 'Date proposée', value: proposedAt }
+      { label: english ? 'Channel' : 'Canal', value: slot.channel },
+      { label: english ? 'Destination' : 'Cible', value: slot.feedTarget },
+      { label: english ? 'Proposed date' : 'Date proposée', value: proposedAt }
     ],
-    bodyLines: [
-      `Le créneau ${slot.channel}/${slot.feedTarget} prévu le ${slot.startsAt} est dépassé.`,
-      `Créneau de remplacement suggéré : ${proposedAt} (${SLOT_PROPOSAL_LEAD_DAYS} jours).`,
-      `Capacité actuelle : ${slot.capacityUsed}/${slot.capacity}.`
-    ],
+    bodyLines: english
+      ? [
+          `The ${slot.channel}/${slot.feedTarget} slot scheduled for ${slot.startsAt} is overdue.`,
+          `Suggested replacement slot: ${proposedAt} (${SLOT_PROPOSAL_LEAD_DAYS} days).`,
+          `Current capacity: ${slot.capacityUsed}/${slot.capacity}.`
+        ]
+      : [
+          `Le créneau ${slot.channel}/${slot.feedTarget} prévu le ${slot.startsAt} est dépassé.`,
+          `Créneau de remplacement suggéré : ${proposedAt} (${SLOT_PROPOSAL_LEAD_DAYS} jours).`,
+          `Capacité actuelle : ${slot.capacityUsed}/${slot.capacity}.`
+        ],
     adminUrl: ADMIN_URLS.publications,
-    notice: NOT_CREATED_NOTICE,
-    limitations: ['Date indicative : ajustez-la selon le calendrier éditorial.']
+    notice: english
+      ? 'This proposal has not created a slot. Review the date, then create the slot in Publications.'
+      : NOT_CREATED_NOTICE,
+    limitations: [
+      english
+        ? 'Suggested date: adjust it to your editorial calendar.'
+        : 'Date indicative : ajustez-la selon le calendrier éditorial.'
+    ]
   });
 };
 
@@ -257,7 +275,7 @@ export const prepareDraftFromDataset = (
   request: AdminAssistantPrepareRequest
 ): AdminAssistantPrepareResponse => {
   if (request.type === 'slot_proposal') {
-    return prepareSlotProposal(dataset, request.reference);
+    return prepareSlotProposal(dataset, request.reference, request.language);
   }
 
   const reference = request.reference?.trim();

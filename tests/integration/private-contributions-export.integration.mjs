@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test from 'node:test';
 import { exportAdminContributions } from '../../dist/apps/funding-api/src/admin-contributions-export.service.js';
-import { listAdminContributions } from '../../dist/apps/funding-api/src/fund-contributions.repository.js';
+import { listRecentAdminContributions } from '../../dist/apps/funding-api/src/contributions-read.repository.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 
 const seed = async (pool) => {
@@ -31,7 +31,7 @@ test(
       .query(`INSERT INTO fund_contributions (contribution_type,amount_cents,currency,status)
     SELECT 'personal_support',100,'cad','paid' FROM generate_series(1,260)`);
     assert.equal(
-      (await listAdminContributions(db.pool)).contributions.length,
+      (await listRecentAdminContributions(db.pool, 250)).length,
       250
     );
     const before = (
@@ -107,7 +107,7 @@ test(
       ),
       (error) => error.status === 409
     );
-    const fresh = (await listAdminContributions(db.pool)).contributions.find(
+    const fresh = (await listRecentAdminContributions(db.pool, 250)).find(
       (row) => row.id === input.contributions[0].id
     );
     input.contributions[0].expectedVersion = fresh.updated_at;

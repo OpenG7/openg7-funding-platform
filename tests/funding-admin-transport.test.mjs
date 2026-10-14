@@ -775,6 +775,89 @@ test('standard admin status errors preserve malformed error bodies without decod
   }
 });
 
+test('financial read errors preserve each endpoint message and currency-code policy', async (t) => {
+  const currencyCode = 'ADMIN_FINANCIAL_CURRENCY_CONFLICT';
+  for (const [name, fallback, acceptsAnyCode] of [
+    ['getDashboard', 'Admin dashboard could not be loaded.'],
+    ['getContributions', 'Admin contributions could not be loaded.'],
+    ['getExpenses', 'Admin expenses could not be loaded.'],
+    ['getTransparency', 'Admin transparency could not be loaded.'],
+    ['getSponsorshipInvoices', 'Synthetic server message', true]
+  ]) {
+    for (const code of [currencyCode, 'SYNTHETIC_CODE']) {
+      await t.test(`${name}: ${code}`, async (t) => {
+        const { service, sessionStorage } = serviceFixture(t);
+        const fetchMock = t.mock.method(globalThis, 'fetch', async () =>
+          Response.json(
+            {
+              code,
+              message: 'Synthetic server message',
+              error: 'Secondary server message'
+            },
+            { status: 409 }
+          )
+        );
+        const expectedCode =
+          acceptsAnyCode || code === currencyCode ? code : undefined;
+        await assert.rejects(service[name](explicitToken), (error) => {
+          const typedError = name !== 'getTransparency' || !!expectedCode;
+          assert.equal(error instanceof AdminDashboardRequestError, typedError);
+          assert.equal(error.status, typedError ? 409 : undefined);
+          assert.equal(error.message, fallback);
+          assert.equal(error.code, expectedCode);
+          return true;
+        });
+        assert.equal(fetchMock.mock.callCount(), 1);
+        assert.equal(sessionStorage.getItem(sessionKey), explicitToken);
+        assert.equal(service.sessionGeneration(), 0);
+      });
+    }
+  }
+});
+
+test('invoice errors discard non-string codes and retain messages or the fallback for invalid bodies', async (t) => {
+  for (const [name, response, expected] of [
+    [
+      'numeric code',
+      () =>
+        Response.json(
+          { code: 409, message: 'Synthetic message' },
+          { status: 503 }
+        ),
+      'Synthetic message'
+    ],
+    [
+      'object code',
+      () =>
+        Response.json(
+          { code: { private: true }, error: 'Synthetic error' },
+          { status: 503 }
+        ),
+      'Synthetic error'
+    ],
+    ['null body', () => Response.json(null, { status: 503 })],
+    ['malformed JSON', () => new Response('not JSON', { status: 503 })]
+  ]) {
+    await t.test(name, async (t) => {
+      const { service } = serviceFixture(t);
+      t.mock.method(globalThis, 'fetch', async () => response());
+      await assert.rejects(
+        service.getSponsorshipInvoices(explicitToken),
+        (error) => {
+          assert.ok(error instanceof AdminDashboardRequestError);
+          assert.equal(error.status, 503);
+          assert.equal(error.code, undefined);
+          assert.equal(
+            error.message,
+            expected ?? 'Admin sponsorship invoices could not be loaded.'
+          );
+          return true;
+        }
+      );
+    });
+  }
+});
+
 test('assistant summary retains error/message priority and malformed-response fallback', async (t) => {
   for (const [name, response, expected] of [
     [
@@ -1276,6 +1359,7 @@ const operationalRequests = [
   },
   {
     name: 'email queue',
+    errorKind: 'status',
     invoke: (service, token) => service.getEmailQueue(token, 'message /'),
     path: '/admin/email-queue?messageId=message%20%2F',
     method: 'GET',
@@ -1283,6 +1367,7 @@ const operationalRequests = [
   },
   {
     name: 'email retry',
+    errorKind: 'status',
     invoke: (service, token) =>
       service.retryEmailQueueMessage(token, emailRetryRequest),
     path: '/admin/email-queue/retry',
@@ -1292,6 +1377,7 @@ const operationalRequests = [
   },
   {
     name: 'invoices',
+    exposesCode: true,
     invoke: (service, token) =>
       service.getSponsorshipInvoices(token, 'sponsor /'),
     path: '/admin/sponsorship-invoices?contributionId=sponsor%20%2F',
@@ -1301,6 +1387,7 @@ const operationalRequests = [
   },
   {
     name: 'invoice backfill',
+    errorKind: 'status',
     invoke: (service, token) =>
       service.backfillSponsorshipInvoices(token, invoiceBackfillRequest),
     path: '/admin/sponsorship-invoices/backfill',
@@ -1310,6 +1397,7 @@ const operationalRequests = [
   },
   {
     name: 'invoice resend',
+    errorKind: 'status',
     invoke: (service, token) =>
       service.resendSponsorshipInvoice(token, invoiceResendRequest),
     path: '/admin/sponsorship-invoices/resend',
@@ -1329,6 +1417,7 @@ const operationalRequests = [
   },
   {
     name: 'credit-note resend',
+    errorKind: 'status',
     invoke: (service, token) =>
       service.resendSponsorshipCreditNote(token, creditNoteResendRequest),
     path: '/admin/sponsorship-credit-notes/resend',
@@ -1338,6 +1427,7 @@ const operationalRequests = [
   },
   {
     name: 'credit-note PDF',
+    errorKind: 'status',
     invoke: (service, token) =>
       service.getSponsorshipCreditNotePdf(token, 'credit /'),
     path: '/admin/sponsorship-credit-notes/pdf?creditNoteId=credit+%2F',
@@ -1445,7 +1535,9 @@ test('operational HTTP failures retain their error body, type and 401 invalidati
             );
             assert.equal(
               error.code,
-              request.errorKind === 'backup' ? 'SYNTHETIC_CODE' : undefined
+              request.errorKind === 'backup' || request.exposesCode
+                ? 'SYNTHETIC_CODE'
+                : undefined
             );
             return true;
           }
@@ -1605,7 +1697,7 @@ const remainingReadRequests = [
     'getExpenses',
     '/expenses?expenseId=target%20%2F',
     'Admin expenses could not be loaded.',
-    { cache: 'no-store' }
+    { cache: 'no-store', errorKind: 'status-fixed' }
   ],
   [
     'getTransparency',
@@ -1670,12 +1762,17 @@ const remainingReadRequests = [
   ...policy
 }));
 const remainingMutationRequests = [
-  ['createExpense', '/expenses', 'Admin expense could not be created.'],
+  [
+    'createExpense',
+    '/expenses',
+    'Admin expense could not be created.',
+    { errorKind: 'status-fixed' }
+  ],
   [
     'updateExpense',
     '/expenses/update',
     'Admin expense could not be updated.',
-    { versionConflict: true }
+    { versionConflict: true, errorKind: 'status-fixed' }
   ],
   [
     'createPublicationDraft',

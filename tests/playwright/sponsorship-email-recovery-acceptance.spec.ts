@@ -524,7 +524,20 @@ test('paid company recovers its saved dossier from a captured email after SMTP f
       const retries = audit.filter(
         (e) => e.entity_id === message.id && e.action === 'email_queue.retry'
       );
-      expect(retries.filter((e) => e.metadata['sent'] === 1)).toHaveLength(1);
+      expect(retries.length).toBeGreaterThan(0);
+      const retryResults = audit.filter(
+        (e) =>
+          e.entity_id === message.id && e.action === 'email_queue.retry.result'
+      );
+      expect(
+        retryResults.filter(
+          (e) =>
+            (e.metadata['result'] as { sent?: number } | undefined)?.sent === 1
+        )
+      ).toHaveLength(1);
+      expect(retries.every((e) => !('recipientEmail' in e.metadata))).toBe(
+        true
+      );
       expect(JSON.stringify(audit)).not.toContain(
         new URL(link).searchParams.get('token')!
       );
@@ -546,7 +559,8 @@ test('paid company recovers its saved dossier from a captured email after SMTP f
               review: record.sponsor_review_status,
               accessAudit,
               submissionAudit,
-              retries
+              retries,
+              retryResults
             },
             null,
             2

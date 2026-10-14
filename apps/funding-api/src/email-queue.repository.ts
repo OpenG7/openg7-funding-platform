@@ -281,8 +281,9 @@ export const markEmailUncertain = async (
 
 /** Explicit retries may override exhausted attempts; active leases remain owned. */
 export const claimAdminEmailQueueRetry = async (
-  pool: Pool,
-  messageId: string
+  pool: Pick<Pool, 'query'>,
+  messageId: string,
+  deliveryAttemptId?: string
 ): Promise<readonly ClaimedEmailMessage[]> => {
   if (!(await hasEmailMessagesTable(pool))) return [];
 
@@ -300,7 +301,7 @@ export const claimAdminEmailQueueRetry = async (
       UPDATE email_messages
       SET
         status = 'sending',
-        delivery_attempt_id = gen_random_uuid(),
+        delivery_attempt_id = ${deliveryAttemptId ? '$2::uuid' : 'gen_random_uuid()'},
         attempts = CASE
           WHEN attempts >= max_attempts THEN max_attempts
           ELSE attempts + 1
@@ -314,7 +315,7 @@ export const claimAdminEmailQueueRetry = async (
       RETURNING id, recipient_email, from_email, reply_to_email,
         subject, text_body, html_body, attempts, max_attempts, delivery_attempt_id::text
     `,
-    [messageId]
+    deliveryAttemptId ? [messageId, deliveryAttemptId] : [messageId]
   );
 
   return claimed.rows.map(projectClaimedEmailMessage);

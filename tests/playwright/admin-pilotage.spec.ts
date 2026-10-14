@@ -34,6 +34,49 @@ const adminPalettes = {
   graphite: { background: 'rgb(25, 27, 31)', sidebar: 'rgb(30, 33, 38)' }
 };
 
+test('moderation fixtures reject undeclared subjects and unsupported methods without granting a decision', async ({
+  page
+}) => {
+  const subject = {
+    type: 'sponsorship' as const,
+    id: '10000000-0000-4000-8000-000000000001'
+  };
+  await page.route('**/api/admin/moderation/**', async (route) => {
+    expect(await moderationFixture(route, [subject])).toBe(true);
+  });
+  await page.goto('/admin/login');
+  const responses = await page.evaluate(async (known) => {
+    const query = new URLSearchParams({
+      subjectType: known.type,
+      subjectId: known.id
+    });
+    const content = '/api/admin/moderation/content?' + query;
+    const requests = [
+      fetch(content),
+      fetch(content.replace(known.id, '10000000-0000-4000-8000-000000000002')),
+      fetch(content.replace('subjectType=sponsorship', 'subjectType=media')),
+      fetch(content, { method: 'DELETE' }),
+      fetch(content, { method: 'HEAD' }),
+      fetch('/api/admin/moderation/unexpected?' + query),
+      fetch('/api/admin/moderation/decisions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{'
+      }),
+      fetch('/api/admin/moderation/decisions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subject: { ...known, type: 'media' },
+          decision: { level: 'N0' }
+        })
+      })
+    ];
+    return Promise.all(requests.map(async (request) => (await request).status));
+  }, subject);
+  expect(responses).toEqual([200, 404, 404, 405, 405, 405, 400, 404]);
+});
+
 async function expectAdminPalette(
   page: Page,
   theme: keyof typeof adminPalettes
@@ -651,6 +694,117 @@ for (const language of ['fr-CA', 'en']) {
       expect(commands).toEqual([]);
     });
   }
+}
+
+for (const scenario of [
+  { language: 'fr-CA', width: 1440, kind: 'publication_ready' },
+  { language: 'en', width: 390, kind: 'publication_late' }
+]) {
+  test(`publication attention cards preserve dossier navigation without offering delivery moderation in ${scenario.language} at ${scenario.width}px`, async ({
+    page
+  }) => {
+    const { state, commands } = await fixtures(page, 1);
+    const delivery = state.decisions[0]!;
+    const contributionId = '33333333-3333-4333-8333-333333333333';
+    const draftId = '44444444-4444-4444-8444-444444444444';
+    const attention: PilotDecision = {
+      id: `${scenario.kind}:draft:${draftId}`,
+      targetId: contributionId,
+      version: '1',
+      domain: 'publications',
+      kind: scenario.kind,
+      title: 'Dossier de publication synthétique',
+      severity: 'today',
+      dueAt: null,
+      detailsUrl: `/admin/fundraiser/publications?draftId=${draftId}`,
+      facts: [{ label: 'kind', value: 'draft' }],
+      actions: [],
+      sponsor: {
+        id: contributionId,
+        name: 'Commanditaire synthétique',
+        status: 'approved',
+        presentationId: null,
+        presentationApproved: false
+      }
+    };
+    state.decisions = [attention, delivery];
+    state.total = 2;
+    state.domains.publications = 2;
+    const moderationRequests: {
+      method: string;
+      path: string;
+      subjectType: string | null;
+      subjectId: string | null;
+    }[] = [];
+    await page.route('**/api/admin/moderation/**', async (route) => {
+      const url = new URL(route.request().url());
+      const request = {
+        method: route.request().method(),
+        path: url.pathname,
+        subjectType: url.searchParams.get('subjectType'),
+        subjectId: url.searchParams.get('subjectId')
+      };
+      moderationRequests.push(request);
+      // Only the real delivery in this fixture owns this moderation subject.
+      // A contribution, slot, batch or draft UUID must not match it by accident.
+      if (
+        request.method !== 'GET' ||
+        request.path !== '/api/admin/moderation/content' ||
+        request.subjectType !== 'publication_delivery' ||
+        request.subjectId !== delivery.targetId
+      )
+        return route.fulfill({
+          status: 404,
+          json: { code: 'MODERATION_SUBJECT_NOT_FOUND' }
+        });
+      await moderationFixture(route, [
+        { type: 'publication_delivery', id: delivery.targetId }
+      ]);
+    });
+    await page.addInitScript(
+      (language) => localStorage.setItem('openg7.language', language),
+      scenario.language
+    );
+    await page.setViewportSize({ width: scenario.width, height: 900 });
+    await page.goto('/admin/fundraiser/pilotage');
+    const card = page.locator('[data-og7="pilot-decision"]');
+    await expect(card).toHaveAttribute('data-og7-id', attention.id);
+    await expect(page.locator('[data-og7="moderation-open"]')).toHaveCount(0);
+    expect(moderationRequests).toEqual([]);
+    await page.locator('[data-og7="pilot-details"]').click();
+    const footer = page.locator('[data-og7="pilot-details-footer"]');
+    await expect(footer.getByRole('link')).toBeVisible();
+    await expect(footer.getByRole('link')).toHaveAttribute(
+      'href',
+      attention.detailsUrl
+    );
+    await page.keyboard.press('Escape');
+    await page
+      .locator('[data-og7="pilot-queue"]')
+      .getByRole('button', { name: new RegExp(delivery.title) })
+      .click();
+    await expect(card).toHaveAttribute('data-og7-id', delivery.id);
+    await page.locator('[data-og7="moderation-open"]').click();
+    const panel = page.locator('[data-og7="moderation-decision"]');
+    await expect(
+      panel.locator('[data-og7="moderation-confirmation"]')
+    ).toBeVisible();
+    await expect(panel.getByRole('alert')).toHaveCount(0);
+    await expect(
+      panel.locator('[data-og7="moderation-submit"]')
+    ).toBeDisabled();
+    await page.keyboard.press('Escape');
+    await expect(panel).toBeHidden();
+    expect(moderationRequests).toEqual([
+      {
+        method: 'GET',
+        path: '/api/admin/moderation/content',
+        subjectType: 'publication_delivery',
+        subjectId: delivery.targetId
+      }
+    ]);
+    expect(commands).toEqual([]);
+  });
 }
 
 async function emailDetailFixtures(page: Page) {
@@ -1587,7 +1741,26 @@ async function fixtures(page: Page, count = 4) {
   let commandGate: Promise<void> | undefined;
   let status: 'completed' | 'failed' | 'uncertain' = 'completed';
   await page.route('**/api/**', async (route) => {
-    if (await moderationFixture(route)) return;
+    if (
+      await moderationFixture(
+        route,
+        state.decisions.flatMap((d) => [
+          ...(d.sponsor
+            ? [{ type: 'sponsorship' as const, id: d.sponsor.id }]
+            : []),
+          ...(d.publication
+            ? [
+                { type: 'publication_delivery' as const, id: d.publication.id },
+                ...d.publication.sponsors.map((s) => ({
+                  type: 'sponsorship' as const,
+                  id: s.id
+                }))
+              ]
+            : [])
+        ])
+      )
+    )
+      return;
     const url = new URL(route.request().url());
     if (url.pathname.includes('/media/content/'))
       return route.fulfill({ contentType: 'image/webp', body: photo });

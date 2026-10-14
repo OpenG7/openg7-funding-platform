@@ -97,5 +97,11 @@ or subsequent webhook delivery.
 
 Validation uses `tests/integration/admin-stripe-backfill.integration.mjs` with
 disposable PostgreSQL and synthetic Stripe, plus the focused
-`admin-stripe-backfill-ui.spec.ts` in the admin UI suite. These tests do not import
-real Stripe payments. API, Web and migration must be delivered together.
+`admin-stripe-backfill-ui.spec.ts` in the admin UI suite. The
+[OIDC browser recipe](../../tests/identity/admin-stripe-backfill-journey.spec.ts)
+connects the real panel, HTTP API and disposable database to the existing local
+Stripe simulator. It covers a bounded preview without financial writes,
+cancellation, expired preview, changed provider account, lost execution response,
+receipt recovery, one import and owner-only access. Historical invoices and email
+remain absent. These tests do not import real Stripe payments. API, Web and
+migration must be delivered together.

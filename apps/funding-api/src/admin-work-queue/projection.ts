@@ -85,7 +85,19 @@ export const buildWorkQueueItems = (
       ...(sponsorshipId
         ? { sponsorshipId, contributionId: sponsorshipId }
         : {}),
+      ...(type === 'publication_late' && facts['kind'] === 'slot'
+        ? { publicationId: String(facts['reference']) }
+        : {}),
       suggestedActions: [
+        ...(type === 'publication_late' && facts['kind'] === 'slot'
+          ? [
+              {
+                actionType: 'propose_slot',
+                label: 'Proposer un créneau',
+                executionMode: 'prepare' as const
+              }
+            ]
+          : []),
         { actionType: 'open', label: 'Ouvrir', executionMode: 'navigate' }
       ]
     });

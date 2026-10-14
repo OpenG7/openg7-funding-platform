@@ -1,5 +1,5 @@
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { TranslatePipe } from '@ngx-translate/core';
 import {
@@ -8,8 +8,10 @@ import {
   Component,
   OnInit,
   computed,
+  effect,
   inject,
-  signal
+  signal,
+  untracked
 } from '@angular/core';
 import type {
   AdminExpenseRecord,
@@ -64,7 +66,8 @@ import type {
         </p>
         <p class="state state-error" *ngIf="state() === 'error'">
           {{
-            'admin.legacy.impossible_de_charger_ou_modifier_les_depenses'
+            readError() ||
+              'admin.legacy.impossible_de_charger_ou_modifier_les_depenses'
               | translate
           }}
         </p>
@@ -267,12 +270,16 @@ export class AdminExpensesPageComponent implements OnInit {
   readonly i18n = inject(FundingI18nService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private sessionExpired = false;
   readonly inspection = inject(AdminInspectionService);
   private readonly admin = inject(FundingAdminService);
   readonly adminToken = signal<string>('');
   private readonly read = new AdminExpensesReadController({
     admin: this.admin,
-    token: () => this.adminToken()
+    token: () => this.adminToken(),
+    accessRevision: () => this.admin.sessionGeneration(),
+    onAccessDenied: (status) => this.accessDenied(status)
   });
   private readonly mutation = new AdminExpensesMutationWorkflow({
     admin: this.admin,
@@ -282,13 +289,15 @@ export class AdminExpensesPageComponent implements OnInit {
     draft: () => this.newExpenseDraft(),
     resetDraftIfUnchanged: (draft) => this.resetDraftIfUnchanged(draft),
     t: (key) => this.i18n.t(key),
-    formatMoney: (amount, currency) => this.formatMoney(amount, currency)
+    formatMoney: (amount, currency) => this.formatMoney(amount, currency),
+    onAccessDenied: (status) => this.accessDenied(status)
   });
   readonly conflict = this.read.conflict;
   readonly mutationBusy = this.mutation.busy;
   readonly response = this.read.response;
   readonly expenseEdits = this.read.expenseEdits;
   readonly state = this.read.state;
+  readonly readError = this.read.readError;
   readonly search = signal<string>('');
   readonly statusFilter = signal<'all' | AdminExpenseStatus>('all');
   readonly newProjectName = signal<string>('');
@@ -325,6 +334,44 @@ export class AdminExpensesPageComponent implements OnInit {
       );
     });
   });
+
+  constructor() {
+    let generation = this.admin.sessionGeneration();
+    effect(() => {
+      const next = this.admin.sessionGeneration();
+      if (generation === next) return;
+      generation = next;
+      untracked(() => this.expireSession());
+    });
+  }
+
+  private clearPrivate(): void {
+    this.read.setScope(undefined);
+    this.resetDraftIfUnchanged(this.newExpenseDraft());
+    this.search.set('');
+    this.confirmation.answer(false);
+    this.inspection.close();
+  }
+
+  private accessDenied(status: 401 | 403): void {
+    this.clearPrivate();
+    this.read.state.set('error');
+    this.read.readError.set(
+      status === 401 ? 'admin.access.sessionExpired' : 'admin.privacy.forbidden'
+    );
+    if (status === 401) this.expireSession(true);
+  }
+
+  private expireSession(clearSession = false): void {
+    this.clearPrivate();
+    this.adminToken.set('');
+    if (this.sessionExpired) return;
+    this.sessionExpired = true;
+    if (clearSession) this.admin.clearAdminSession();
+    void this.router.navigate(['/admin/login'], {
+      queryParams: { returnUrl: this.router.url, sessionExpired: '1' }
+    });
+  }
 
   ngOnInit(): void {
     this.adminToken.set(this.admin.getSavedAdminToken());

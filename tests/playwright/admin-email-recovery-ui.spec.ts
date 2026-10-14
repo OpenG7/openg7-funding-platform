@@ -339,7 +339,15 @@ for (const language of ['fr-CA', 'en']) {
         await search.fill(' COMPANY@EXAMPLE.TEST ');
         await expectSentQueue(page, english);
         await search.fill('');
-        expect(retries).toEqual([{ messageId: failedMessage.id }]);
+        const expectedRetries = [
+          {
+            messageId: failedMessage.id,
+            requestId: expect.stringMatching(
+              /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i
+            )
+          }
+        ];
+        expect(retries).toEqual(expectedRetries);
         const error = page.getByText(readFailure, { exact: true });
         if (scenario === 'stale refresh') {
           await expect.poll(() => scopes.length).toBe(3);
@@ -366,7 +374,7 @@ for (const language of ['fr-CA', 'en']) {
           failedMessage.id,
           failedMessage.id
         ]);
-        expect(retries).toEqual([{ messageId: failedMessage.id }]);
+        expect(retries).toEqual(expectedRetries);
         expect(new URL(page.url()).searchParams.get('messageId')).toBe(
           failedMessage.id
         );

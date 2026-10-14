@@ -29,7 +29,8 @@
     </p>
     <p class="state state-error" role="alert" *ngIf="state() === 'error'">
       {{
-        'admin.legacy.impossible_de_charger_la_transparence_admin' | translate
+        readError() ||
+          'admin.legacy.impossible_de_charger_la_transparence_admin' | translate
       }}
     </p>
 

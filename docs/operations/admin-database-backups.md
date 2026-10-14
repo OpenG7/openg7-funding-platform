@@ -165,6 +165,7 @@ yarn test
 node --test tests/integration/database-backup.integration.mjs
 node --test tests/integration/database-backup-capture.integration.mjs
 yarn exec playwright test --config tests/playwright-admin-ui.config.mjs admin-backups-ui.spec.ts
+yarn exec playwright test --config tests/playwright-identity.config.mjs admin-backup-request-journey.spec.ts
 ```
 
 La recette de capture construit l'image spécialisée et vérifie `pg_dump`, age,
@@ -175,6 +176,20 @@ Elle ne contacte aucun stockage distant.
 Elle exerce aussi le worker quotidien complet avec transfert simulé, puis coupe
 ses seules connexions PostgreSQL : la sortie en échec permet son redémarrage par
 Docker. Les demandes terminées ne sont pas rejouées.
+
+La [recette navigateur OIDC](../../tests/identity/admin-backup-request-journey.spec.ts)
+relie le bouton au vrai POST, à PostgreSQL jetable, au claim et à l'exécution du
+worker. Elle utilise un dump PostgreSQL 16 Docker et le vrai chiffrement age,
+puis le SDK `BackupStorage` contre un fournisseur HTTP local écrivant des
+fichiers privés. Les objets sont versionnés, non remplaçables par cette API et
+relus pour vérifier empreinte et contenu; les capacités de bucket restent
+synthétiques. La recette couvre annulation, réponse perdue, relecture du même
+identifiant, opération unique, audits, rôles et révocation avant confirmation.
+L'adaptateur de capture dédié à cette recette remplace seulement le lancement
+local de `pg_dump`; le test d'image ci-dessus vérifie l'adaptateur de production.
+`age` et `age-keygen` doivent être disponibles; `FUNDING_BACKUP_AGE_BINARY` peut
+désigner le binaire local. Cette recette ne qualifie ni le stockage d'un
+fournisseur externe, ni IAM, ni sa rétention, et ne restaure aucune base.
 
 Les autres intégrations utilisent PostgreSQL jetable et un transport simulé; les tests
 UI utilisent des réponses interceptées. Ils ne qualifient pas IAM, la confidentialité

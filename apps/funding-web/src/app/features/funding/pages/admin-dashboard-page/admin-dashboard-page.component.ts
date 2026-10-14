@@ -65,6 +65,7 @@ export class AdminDashboardPageComponent implements OnInit {
   readonly attentionRefresh = signal(0);
   readonly currentSponsorshipId = signal<string | undefined>(undefined);
   readonly dashboard = signal<AdminDashboardResponse | null>(null);
+  readonly readError = signal('');
   readonly state = signal<
     'idle' | 'loading' | 'ready' | 'error' | 'forbidden' | 'unavailable'
   >('idle');
@@ -85,6 +86,7 @@ export class AdminDashboardPageComponent implements OnInit {
     }
     this.attentionRefresh.update((value) => value + 1);
     this.state.set('loading');
+    this.readError.set('');
     try {
       const dashboard = await this.admin.getDashboard(token);
       if (dashboard.data_available === false) {
@@ -95,6 +97,15 @@ export class AdminDashboardPageComponent implements OnInit {
       this.dashboard.set(dashboard);
       this.state.set('ready');
     } catch (error) {
+      if (
+        error instanceof AdminDashboardRequestError &&
+        error.code === 'ADMIN_FINANCIAL_CURRENCY_CONFLICT'
+      ) {
+        this.dashboard.set(null);
+        this.readError.set('admin.financial.currencyConflict');
+        this.state.set('error');
+        return;
+      }
       if (error instanceof AdminDashboardRequestError && error.status === 401) {
         await this.returnToLogin();
       } else if (

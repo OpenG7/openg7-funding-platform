@@ -14,6 +14,7 @@ import type { AdminTransparencyResponse } from '@openg7/funding-core';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
+import { AdminDashboardRequestError } from '../../services/funding-admin-session.js';
 
 import { AdminTransparencySummaryComponent } from './admin-transparency-summary.component.js';
 import { AdminTransparencySnapshotComponent } from './admin-transparency-snapshot.component.js';
@@ -51,6 +52,7 @@ export class AdminTransparencyPageComponent implements OnInit {
 
   readonly adminToken = signal<string>('');
   readonly transparency = signal<AdminTransparencyResponse | null>(null);
+  readonly readError = signal('');
   readonly state = signal<'idle' | 'loading' | 'ready' | 'error'>('idle');
   readonly publishedExpenses = computed(
     () =>
@@ -70,6 +72,7 @@ export class AdminTransparencyPageComponent implements OnInit {
     const generation = ++this.loadGeneration;
     const token = this.adminToken();
     this.state.set('loading');
+    this.readError.set('');
 
     try {
       const response = await this.admin.getTransparency(token);
@@ -77,8 +80,15 @@ export class AdminTransparencyPageComponent implements OnInit {
       this.transparency.set(response);
       this.state.set('ready');
       this.admin.saveAdminToken(token);
-    } catch {
+    } catch (error) {
       if (generation !== this.loadGeneration) return;
+      if (
+        error instanceof AdminDashboardRequestError &&
+        error.code === 'ADMIN_FINANCIAL_CURRENCY_CONFLICT'
+      ) {
+        this.transparency.set(null);
+        this.readError.set('admin.financial.currencyConflict');
+      }
       this.state.set('error');
     }
   }

@@ -3,6 +3,7 @@ import { Readable } from 'node:stream';
 import test from 'node:test';
 
 import { createAdminContributionsHttpHandler } from '../dist/apps/funding-api/src/admin-contributions.http.js';
+import { AdminFinancialCurrencyConflictError } from '../dist/apps/funding-api/src/admin-financial-currency.js';
 import {
   ContributionExportError,
   parseContributionExport
@@ -98,6 +99,17 @@ const fixture = ({ denied, listError, exportError } = {}) => {
     }
   };
 };
+
+test('mixed financial currencies return an explicit conflict instead of a scalar summary', async () => {
+  const f = fixture({ listError: new AdminFinancialCurrencyConflictError() });
+  const result = await f.run('/api/admin/contributions');
+  assert.equal(result.status, 409);
+  assert.deepEqual(result.payload, {
+    code: 'ADMIN_FINANCIAL_CURRENCY_CONFLICT',
+    error: 'Amounts in different currencies cannot be combined.'
+  });
+  assert.deepEqual(f.names(), ['access', 'list', 'json']);
+});
 
 test('contribution reads retain both aliases and optional scoped identifiers', async (t) => {
   for (const prefix of ['/admin/', '/api/admin/']) {

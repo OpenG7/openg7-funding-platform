@@ -343,6 +343,21 @@ for (const [actionType, type, changes, reference] of [
     'synthetic-publication'
   ],
   ['prepare_note', 'admin_note', { sponsorshipId: undefined }, 'SYNTHETIC-301'],
+  [
+    'propose_slot',
+    'slot_proposal',
+    { sponsorshipId: 'sponsor-on-slot', publicationId: 'slot-with-sponsor' },
+    'slot-with-sponsor'
+  ],
+  [
+    'propose_slot',
+    'slot_proposal',
+    {
+      sponsorshipId: 'sponsor-on-slot',
+      facts: { reference: 'slot-reference' }
+    },
+    'slot-reference'
+  ],
   ['propose_slot', 'slot_proposal', { sponsorshipId: undefined, facts: {} }, '']
 ]) {
   test(`${actionType} preserves its existing preparation payload without any send or publication port`, async (t) => {

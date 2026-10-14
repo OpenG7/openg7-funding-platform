@@ -13,16 +13,27 @@ import {
   AdminDashboardRequestError,
   type FundingAdminSession
 } from './funding-admin-session.js';
+import { errorDetailsFromResponse } from './funding-admin-response.js';
 
 /** Funding admin dashboard, cockpit and protected inspection endpoints. Authentication belongs to the shared session. */
 export class FundingAdminDiagnosticsClient {
   constructor(private readonly session: FundingAdminSession) {}
 
   async getDashboard(token: string): Promise<AdminDashboardResponse> {
-    return this.session.requestAdminData('/admin/dashboard', {
+    const response = await this.session.requestAdminJson('/admin/dashboard', {
       auth: { token },
       method: 'GET'
     });
+    if (!response.ok) {
+      const { code } =
+        response.status === 409 ? await errorDetailsFromResponse(response) : {};
+      throw new AdminDashboardRequestError(
+        response.status,
+        undefined,
+        code === 'ADMIN_FINANCIAL_CURRENCY_CONFLICT' ? code : undefined
+      );
+    }
+    return response.json();
   }
 
   async getCockpit<T extends 'metrics' | 'activity' | 'systems'>(

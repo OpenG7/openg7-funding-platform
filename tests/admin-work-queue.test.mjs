@@ -356,6 +356,14 @@ test('slot, batch and draft yield one late alert for a shared placement', () => 
   const items = buildWorkQueueItems(ds);
   assert.equal(items.length, 1);
   assert.equal(items[0].id, 'publication_late:slot:slot-1');
+  assert.equal(items[0].publicationId, 'slot-1');
+  assert.ok(
+    items[0].suggestedActions.some(
+      (action) =>
+        action.actionType === 'propose_slot' &&
+        action.executionMode === 'prepare'
+    )
+  );
   assert.equal(
     items[0].adminUrl,
     '/admin/fundraiser/publications?slotId=slot-1'

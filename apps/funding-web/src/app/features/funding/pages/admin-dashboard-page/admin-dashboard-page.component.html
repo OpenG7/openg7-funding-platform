@@ -28,7 +28,9 @@
       <div class="notice notice-error" role="alert">
         <openg7-admin-icon name="warning" />
         <div>
-          <strong>{{ 'admin.dashboard.error' | translate }}</strong>
+          <strong>{{
+            readError() || 'admin.dashboard.error' | translate
+          }}</strong>
           <p>
             {{
               (dashboard() ? 'admin.dashboard.stale' : 'admin.dashboard.retry')

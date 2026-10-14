@@ -157,7 +157,19 @@ async function fixtures(
     );
   }, options.role);
   await page.route('**/api/**', async (route) => {
-    if (await moderationFixture(route)) return;
+    if (
+      await moderationFixture(
+        route,
+        state.deliveries.flatMap((delivery) => [
+          { type: 'publication_delivery' as const, id: delivery.id },
+          ...delivery.sponsors.map((sponsor) => ({
+            type: 'sponsorship' as const,
+            id: sponsor.id
+          }))
+        ])
+      )
+    )
+      return;
     const path = new URL(route.request().url()).pathname;
     if (path.endsWith('/auth/current'))
       return route.fulfill({

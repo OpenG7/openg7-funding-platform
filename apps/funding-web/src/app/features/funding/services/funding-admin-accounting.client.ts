@@ -12,6 +12,7 @@ import {
   AdminDashboardRequestError,
   type FundingAdminSession
 } from './funding-admin-session.js';
+import { errorDetailsFromResponse } from './funding-admin-response.js';
 
 /** Funding admin contributions, expenses and transparency endpoints. Authentication belongs to the shared session. */
 export class FundingAdminAccountingClient {
@@ -30,9 +31,11 @@ export class FundingAdminAccountingClient {
     );
 
     if (!response.ok) {
+      const { code } = await errorDetailsFromResponse(response);
       throw new AdminDashboardRequestError(
         response.status,
-        'Admin contributions could not be loaded.'
+        'Admin contributions could not be loaded.',
+        code === 'ADMIN_FINANCIAL_CURRENCY_CONFLICT' ? code : undefined
       );
     }
 
@@ -71,7 +74,12 @@ export class FundingAdminAccountingClient {
     );
 
     if (!response.ok) {
-      throw new Error('Admin expenses could not be loaded.');
+      const { code } = await errorDetailsFromResponse(response);
+      throw new AdminDashboardRequestError(
+        response.status,
+        'Admin expenses could not be loaded.',
+        code === 'ADMIN_FINANCIAL_CURRENCY_CONFLICT' ? code : undefined
+      );
     }
 
     return (await response.json()) as AdminExpensesResponse;
@@ -89,7 +97,10 @@ export class FundingAdminAccountingClient {
     });
 
     if (!response.ok) {
-      throw new Error('Admin expense could not be created.');
+      throw new AdminDashboardRequestError(
+        response.status,
+        'Admin expense could not be created.'
+      );
     }
 
     return (await response.json()) as AdminExpenseMutationResult;
@@ -110,8 +121,15 @@ export class FundingAdminAccountingClient {
     );
 
     if (!response.ok) {
-      if (response.status === 409) throw new Error('version_conflict');
-      throw new Error('Admin expense could not be updated.');
+      if (response.status === 409)
+        throw new AdminDashboardRequestError(
+          response.status,
+          'version_conflict'
+        );
+      throw new AdminDashboardRequestError(
+        response.status,
+        'Admin expense could not be updated.'
+      );
     }
 
     return (await response.json()) as AdminExpenseMutationResult;
@@ -124,6 +142,13 @@ export class FundingAdminAccountingClient {
     );
 
     if (!response.ok) {
+      const { code } = await errorDetailsFromResponse(response);
+      if (code === 'ADMIN_FINANCIAL_CURRENCY_CONFLICT')
+        throw new AdminDashboardRequestError(
+          response.status,
+          'Admin transparency could not be loaded.',
+          code
+        );
       throw new Error('Admin transparency could not be loaded.');
     }
 
