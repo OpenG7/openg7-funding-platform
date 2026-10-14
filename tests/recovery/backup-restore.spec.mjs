@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import { test, expect } from '@playwright/test';
 import sharp from 'sharp';
 import { createRecoveryFixture, token } from './fixture.mjs';
-import { navigateRecoveryPublicPage } from './public-navigation.mjs';
+import { navigatePublicPageAfterNetworkChange } from '../support/public-navigation.mjs';
 import { approveCurrentModeration } from '../playwright/support/moderation.js';
 
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
@@ -872,7 +872,7 @@ async function recoveryScenario(mediaDriver, { playwright }, info) {
       await mobile.page.evaluate(() =>
         localStorage.setItem('openg7.language', 'en')
       );
-      await navigateRecoveryPublicPage(
+      await navigatePublicPageAfterNetworkChange(
         mobile.page,
         target.origin + '/en/fonds-des-batisseurs/transparence',
         () => expect(mobile.page.locator('main')).toContainText('550')

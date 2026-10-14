@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 
 import type { FundTransparencyPublicResponse } from '@openg7/funding-core';
 
+import { navigatePublicPageAfterNetworkChange } from '../support/public-navigation.mjs';
+
 import { test, expect } from './support/test.js';
 import { adminSessionHeaders } from './support/admin-auth.js';
 import { prepareCheckoutGate } from './support/acceptance-checkout-gate.js';
@@ -39,12 +41,15 @@ test('accepted Checkout survives lost provider responses, API restart and browse
     'Disposable acceptance stack only.'
   );
   test.setTimeout(180000);
+  page.setDefaultTimeout(15000);
+  page.setDefaultNavigationTimeout(30000);
   const stub = process.env.STRIPE_STUB_BASE_URL!;
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   const posts: { idempotencyKey: string }[] = [];
   let gate: Awaited<ReturnType<typeof prepareCheckoutGate>> | undefined;
   let operationId: string | undefined;
+  let bodyFailed = false;
   const get = async <T>(url: string): Promise<T> => {
     const response = await request.get(url);
     expect(response.ok(), url).toBe(true);
@@ -74,7 +79,8 @@ test('accepted Checkout survives lost provider responses, API restart and browse
     const firstResponse = page.waitForResponse(
       (r) =>
         new URL(r.url()).pathname === '/api/checkout-sessions' &&
-        r.request().method() === 'POST'
+        r.request().method() === 'POST',
+      { timeout: 30000 }
     );
     await form.locator('button[type="submit"]').click();
     await expect.poll(() => Boolean(gate)).toBe(true);
@@ -149,7 +155,21 @@ test('accepted Checkout survives lost provider responses, API restart and browse
     expect(await operations()).toEqual([
       { id: operationId, state: 'uncertain', has_result: false }
     ]);
-    await page.reload();
+    await navigatePublicPageAfterNetworkChange(
+      page,
+      page.url(),
+      async () => {
+        // The form is prerendered: visible HTML alone does not prove that
+        // its lazy JavaScript loaded and Angular attached the handlers.
+        const component = page.locator('openg7-funding-contribution-form');
+        await expect(component).toBeVisible({ timeout: 10000 });
+        await expect(component).not.toHaveAttribute('ngh', { timeout: 10000 });
+        await expect(
+          form.getByRole('button', { name: /Contribution personnelle/i })
+        ).toBeVisible({ timeout: 10000 });
+      },
+      { navigation: 'reload' }
+    );
     expect(
       await page.evaluate(() =>
         localStorage.getItem('openg7.checkout-attempts.v2')
@@ -248,11 +268,25 @@ test('accepted Checkout survives lost provider responses, API restart and browse
       })
     });
     expect(errors).toEqual([]);
+  } catch (error) {
+    bodyFailed = true;
+    throw error;
   } finally {
-    if (operationId)
-      await request.post(stub + '/__test__/payment-operations', {
-        data: { kind: 'checkout', operationId, response: 'acknowledged' }
-      });
-    await gate?.close();
+    const cleanup = await Promise.allSettled([
+      operationId
+        ? request
+            .post(stub + '/__test__/payment-operations', {
+              data: { kind: 'checkout', operationId, response: 'acknowledged' },
+              timeout: 5000
+            })
+            .then((response) => expect(response.ok()).toBe(true))
+        : Promise.resolve(),
+      gate?.close()
+    ]);
+    const failures = cleanup
+      .filter((result) => result.status === 'rejected')
+      .map((result) => result.reason);
+    if (!bodyFailed && failures.length)
+      throw new AggregateError(failures, 'Checkout fixture cleanup failed.');
   }
 });
