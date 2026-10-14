@@ -79,7 +79,7 @@ Cette commande couvre les suites de paiement, admin et fournisseurs. Les bases t
 
 ### CI de pull request
 
-`.github/workflows/admin-acceptance.yml` lance le lint, le contrôle TypeScript complet, les tests Node, les intégrations PostgreSQL, le build Angular/SSR, les tests UI et la recette Docker. Les preuves sont conservées pendant sept jours dans l’artefact `admin-acceptance-results`.
+`.github/workflows/admin-acceptance.yml` lance le lint, le contrôle TypeScript complet, les tests Node, les intégrations PostgreSQL, le build Angular/SSR, les tests UI et la recette Docker. Les preuves sont conservées sept jours : Docker dans `admin-acceptance-results-1` à `admin-acceptance-results-4`, UI admin dans `admin-acceptance-browser-admin-1` à `admin-acceptance-browser-admin-4`, autres suites dans `admin-acceptance-browser-{sponsorship,public,platform,identity,recovery}`.
 
 Ce workflow est limité aux validations. La première exécution sur GitHub a réussi pour la PR #116 ; les révisions et preuves sont consignées dans la section « Résultats CI » ci-dessous. Chaque changement ultérieur doit être validé sur sa propre révision.
 
@@ -87,7 +87,7 @@ Ce workflow est limité aux validations. La première exécution sur GitHub a r�
 
 1. Ouvrir l’exécution **Admin acceptance** associée au dernier commit de la PR et relever son URL et le SHA testé. Une fusion de PR ne constitue pas à elle seule une preuve de réussite.
 2. Vérifier la conclusion du job et de chaque étape : lint, TypeScript, tests Node, intégrations PostgreSQL, UI/SSR et Docker. Une étape ignorée, annulée ou encore en cours n’est pas validée.
-3. Télécharger l’artefact `admin-acceptance-results` avant son expiration. Le rapport Docker est `acceptance/results.json` ; `acceptance/run.json` identifie la révision, le projet temporaire et la date. Les captures UI se trouvent sous `admin-layout/`.
+3. Télécharger les quatre artefacts Docker et tous les artefacts `admin-acceptance-browser-*` avant leur expiration. Chaque rapport Docker est `acceptance/results.json` ; `acceptance/run.json` identifie la révision, le projet temporaire et la date. Les captures UI admin sont sous `admin-layout/` dans les quatre artefacts `admin-acceptance-browser-admin-*`.
 4. Comparer les compteurs du rapport avec les logs. Consigner les échecs, tests ignorés ou instables et vérifier le nettoyage Docker. Ne pas appliquer les résultats d’une ancienne exécution à un nouveau commit.
 5. En cas d’échec, examiner les traces et erreurs, corriger puis relancer la recette entière sur une base neuve. Les sorties ignorées par Git restent dans l’artefact ; le bilan versionné conserve les liens, les révisions et les conclusions.
 
