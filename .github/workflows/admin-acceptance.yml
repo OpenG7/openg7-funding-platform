@@ -50,8 +50,41 @@ jobs:
           path: test-results/
           retention-days: 7
 
-  browser:
-    name: Browser, identity and recovery
+  admin_ui:
+    name: Admin UI (${{ matrix.shard }}/4)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      # Keep one worker per runner and preserve file-level test ordering.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable Corepack
+        run: corepack enable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+      - run: yarn install --immutable
+      - run: yarn exec playwright install --with-deps chromium
+      - name: Build development Web fixtures and typecheck admin UI
+        run: |
+          yarn workspace @openg7/funding-web build --configuration development
+          yarn exec tsc --noEmit -p tests/tsconfig.admin-ui.json
+      - name: Angular SSR and isolated UI fixtures
+        run: yarn exec playwright test --config tests/playwright-admin-ui.config.mjs --shard=${{ matrix.shard }}/4
+      - name: Preserve admin UI evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-acceptance-browser-admin-${{ matrix.shard }}
+          path: test-results/
+          retention-days: 7
+
+  sponsorship_ui:
+    name: Sponsorship follow-up, offer and media UI
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -63,52 +96,178 @@ jobs:
           node-version: 22
           cache: yarn
       - run: yarn install --immutable
-      - name: Build runtime for identity and recovery fixtures
-        run: yarn build
-      - name: Install encrypted backup tooling
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends age
-      - name: Prepare isolated integration providers
-        run: |
-          docker pull postgres:16-alpine
-          docker pull axllent/mailpit:v1.27.4
-          docker pull adobe/s3mock:5.1.0
-      - run: yarn exec playwright install --with-deps chromium firefox webkit
-      - name: Build shared development Web fixtures and typecheck UI suites
+      - run: yarn exec playwright install --with-deps chromium webkit
+      - name: Build development Web fixtures and typecheck follow-up UI
         run: |
           yarn workspace @openg7/funding-web build --configuration development
-          yarn exec tsc --noEmit -p tests/tsconfig.admin-ui.json
           yarn exec tsc --noEmit -p tests/tsconfig.followup-ui.json
-      - name: Angular SSR and isolated UI fixtures
-        run: yarn exec playwright test --config tests/playwright-admin-ui.config.mjs
       - name: Isolated sponsorship follow-up UI
         run: yarn exec playwright test --config tests/playwright-followup-ui.config.mjs
-      - name: Public sponsor directory UI
-        run: yarn exec playwright test --config tests/playwright-sponsors-ui.config.mjs
       - name: Frozen offer and media rights UI
         run: |
           yarn exec playwright test --config tests/playwright-sponsorship-offer.config.mjs
           yarn exec playwright test --config tests/playwright-sponsor-media-usage.config.mjs
+      - name: Preserve sponsorship UI evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-acceptance-browser-sponsorship
+          path: test-results/
+          retention-days: 7
+
+  public_journeys:
+    name: Public journeys, sponsors and moderation UI
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable Corepack
+        run: corepack enable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+      - run: yarn install --immutable
+      - run: yarn exec playwright install --with-deps chromium firefox webkit
+      - name: Build development Web fixtures
+        run: yarn workspace @openg7/funding-web build --configuration development
       - name: Public journeys across browsers and accessibility
         run: yarn exec playwright test --config tests/playwright-public-journeys.config.mjs
+      - name: Public sponsor directory UI
+        run: yarn exec playwright test --config tests/playwright-sponsors-ui.config.mjs
       - name: Moderation UI including mobile WebKit
         run: yarn exec playwright test --config tests/playwright-moderation-ui.config.mjs
-      - name: Build shared production Web fixtures
+      - name: Preserve public journey evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-acceptance-browser-public
+          path: test-results/
+          retention-days: 7
+
+  public_production:
+    name: Production transparency and platform accessibility
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable Corepack
+        run: corepack enable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+      - run: yarn install --immutable
+      - run: yarn exec playwright install --with-deps chromium firefox webkit
+      - name: Build production Web fixtures
         run: yarn workspace @openg7/funding-web build --configuration production
       - name: Public transparency across browsers
         run: yarn exec playwright test --config tests/playwright-transparency-ui.config.mjs
       - name: Admin accessibility and HTTP 404 across browsers
         run: yarn exec playwright test --config tests/playwright-platform-accessibility.config.mjs
-      - name: Identity acceptance with disposable PostgreSQL and signed OIDC
-        run: yarn exec playwright test --config tests/playwright-identity.config.mjs
-      - name: Backup and application recovery on disposable targets
-        run: yarn exec playwright test --config tests/playwright-recovery.config.mjs
-      - name: Preserve browser evidence
+      - name: Preserve production Web evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: admin-acceptance-browser-results
+          name: admin-acceptance-browser-platform
           path: test-results/
           retention-days: 7
+
+  identity:
+    name: Identity on disposable PostgreSQL and signed OIDC
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable Corepack
+        run: corepack enable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+      - run: yarn install --immutable
+      - name: Build runtime for identity fixtures
+        run: yarn build
+      - name: Prepare isolated identity providers
+        run: |
+          docker pull postgres:16-alpine
+          docker pull axllent/mailpit:v1.27.4
+      - run: yarn exec playwright install --with-deps chromium
+      - name: Build production Web fixtures
+        run: yarn workspace @openg7/funding-web build --configuration production
+      - name: Identity acceptance with disposable PostgreSQL and signed OIDC
+        run: yarn exec playwright test --config tests/playwright-identity.config.mjs
+      - name: Preserve identity evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-acceptance-browser-identity
+          path: test-results/
+          retention-days: 7
+
+  recovery:
+    name: Backup and application recovery on disposable targets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable Corepack
+        run: corepack enable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+      - run: yarn install --immutable
+      - name: Build runtime for recovery fixtures
+        run: yarn build
+      - name: Install encrypted backup tooling
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends age
+      - name: Prepare isolated recovery providers
+        run: |
+          docker pull postgres:16-alpine
+          docker pull adobe/s3mock:5.1.0
+      - run: yarn exec playwright install --with-deps chromium
+      - name: Build production Web fixtures
+        run: yarn workspace @openg7/funding-web build --configuration production
+      - name: Backup and application recovery on disposable targets
+        run: yarn exec playwright test --config tests/playwright-recovery.config.mjs
+      - name: Preserve recovery evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-acceptance-browser-recovery
+          path: test-results/
+          retention-days: 7
+
+  # Preserve the existing browser check while requiring every isolated group.
+  browser:
+    name: Browser, identity and recovery
+    needs:
+      [
+        admin_ui,
+        sponsorship_ui,
+        public_journeys,
+        public_production,
+        identity,
+        recovery
+      ]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every browser, identity and recovery group to pass
+        env:
+          ADMIN_UI_RESULT: ${{ needs.admin_ui.result }}
+          SPONSORSHIP_UI_RESULT: ${{ needs.sponsorship_ui.result }}
+          PUBLIC_JOURNEYS_RESULT: ${{ needs.public_journeys.result }}
+          PUBLIC_PRODUCTION_RESULT: ${{ needs.public_production.result }}
+          IDENTITY_RESULT: ${{ needs.identity.result }}
+          RECOVERY_RESULT: ${{ needs.recovery.result }}
+        run: |
+          printf 'admin=%s sponsorship=%s public=%s platform=%s identity=%s recovery=%s\n' "$ADMIN_UI_RESULT" "$SPONSORSHIP_UI_RESULT" "$PUBLIC_JOURNEYS_RESULT" "$PUBLIC_PRODUCTION_RESULT" "$IDENTITY_RESULT" "$RECOVERY_RESULT"
+          for result in "$ADMIN_UI_RESULT" "$SPONSORSHIP_UI_RESULT" "$PUBLIC_JOURNEYS_RESULT" "$PUBLIC_PRODUCTION_RESULT" "$IDENTITY_RESULT" "$RECOVERY_RESULT"; do
+            test "$result" = success || exit 1
+          done
 
   docker_acceptance:
     name: Docker acceptance (${{ matrix.shard }}/4)
