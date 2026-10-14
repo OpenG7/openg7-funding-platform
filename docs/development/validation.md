@@ -55,11 +55,11 @@ documentaire n'exige pas de lancer les suites applicatives.
 | `yarn test:automation` | Tests Node, build Angular production, alertes/S3 jetables, restauration applicative et parcours navigateur publics/accessibilité; aucun secret réel |
 | `yarn exec playwright test --config tests/playwright-recovery.config.mjs` | Scripts de sauvegarde/restauration et récupération applicative sur cibles jetables |
 
-La recette Docker impose un worker, même avec `--workers` : base, réglages et
-redémarrages API sont partagés. Le workflow
-[Admin acceptance](../../.github/workflows/admin-acceptance.yml) sépare les
-contrôles/intégrations, l'UI/identité/récupération, Docker et Keycloak sur quatre runners;
-le contrôle final exige leur réussite.
+[Admin acceptance](../../.github/workflows/admin-acceptance.yml) répartit Docker
+et l'UI admin en quatre groupes chacun; commandites, public, accessibilité,
+identité et récupération ont leurs runners isolés. Docker garde un worker et
+un seed complet par pile. Artefacts distincts; tous les groupes, intégrations
+et Keycloak doivent réussir.
 
 En recette Docker, N0 porte sur le contenu persisté avant publication. Le refus
 N4 attend une seconde identité OIDC signée locale; l'auteur ne peut pas le
