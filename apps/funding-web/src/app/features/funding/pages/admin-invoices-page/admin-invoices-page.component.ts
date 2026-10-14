@@ -1,4 +1,4 @@
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslatePipe } from '@ngx-translate/core';
 import { CommonModule } from '@angular/common';
@@ -8,8 +8,10 @@ import {
   DestroyRef,
   OnInit,
   computed,
+  effect,
   inject,
-  signal
+  signal,
+  untracked
 } from '@angular/core';
 import type {
   AdminSponsorshipCreditNoteRecord,
@@ -22,6 +24,7 @@ import { AdminConfirmationService } from '../../services/admin-confirmation.serv
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
+import { AdminDashboardRequestError } from '../../services/funding-admin-session.js';
 import { AdminDocumentDeliveryController } from '../../services/admin-document-delivery-controller.js';
 import { adminDocumentDeliveryBrowser } from '../../services/admin-document-delivery-browser.js';
 
@@ -99,11 +102,14 @@ type LoadState = 'idle' | 'loading' | 'ready' | 'error';
           aria-live="polite"
         >
           {{
-            'admin.legacy.impossible_de_charger_les_factures_verifiez_database_url_et_la_mi'
-              | translate
+            loadErrorMessage() ||
+              ('admin.legacy.impossible_de_charger_les_factures_verifiez_database_url_et_la_mi'
+                | translate)
           }}
-          {{ loadErrorMessage() }}
         </p>
+        @if (state() === 'error' && data()) {
+          <p role="status">{{ 'admin.privacy.stale' | translate }}</p>
+        }
         <p
           class="state"
           [class.state-error]="backfillState() === 'error'"
@@ -205,8 +211,10 @@ export class AdminInvoicesPageComponent implements OnInit {
   private readonly admin = inject(FundingAdminService);
 
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly destroy = inject(DestroyRef);
   private loadGeneration = 0;
+  private sessionExpired = false;
   contributionId: string | undefined;
 
   readonly adminToken = signal('');
@@ -239,7 +247,9 @@ export class AdminInvoicesPageComponent implements OnInit {
     refreshInvoices: () => this.loadInvoices(),
     confirm: (message, detail) => this.confirmation.confirm(message, detail),
     t: (key, params) => this.i18n.t(key, params),
-    browser: adminDocumentDeliveryBrowser
+    browser: adminDocumentDeliveryBrowser,
+    accessRevision: () => this.admin.sessionGeneration(),
+    onAccessDenied: (status) => this.accessDenied(status)
   });
   readonly backfillState = this.delivery.backfillState;
   readonly backfillMessage = this.delivery.backfillMessage;
@@ -309,6 +319,49 @@ export class AdminInvoicesPageComponent implements OnInit {
     };
   });
 
+  constructor() {
+    let generation = this.admin.sessionGeneration();
+    effect(() => {
+      const next = this.admin.sessionGeneration();
+      if (generation === next) return;
+      generation = next;
+      untracked(() => this.expireSession());
+    });
+  }
+
+  private clearPrivate(): void {
+    this.loadGeneration++;
+    this.data.set(null);
+    this.selectedInvoiceId.set('');
+    this.delivery.resetScope();
+    this.confirmation.answer(false);
+    this.inspection.close();
+  }
+
+  private expireSession(clearSession = false): void {
+    this.clearPrivate();
+    this.adminToken.set('');
+    if (this.sessionExpired) return;
+    this.sessionExpired = true;
+    if (clearSession) this.admin.clearAdminSession();
+    void this.router.navigate(['/admin/login'], {
+      queryParams: { returnUrl: this.router.url, sessionExpired: '1' }
+    });
+  }
+
+  private accessDenied(status: 401 | 403): void {
+    this.clearPrivate();
+    this.state.set('error');
+    this.loadErrorMessage.set(
+      this.i18n.t(
+        status === 401
+          ? 'admin.access.sessionExpired'
+          : 'admin.privacy.forbidden'
+      )
+    );
+    if (status === 401) this.expireSession(true);
+  }
+
   ngOnInit(): void {
     this.adminToken.set(this.admin.getSavedAdminToken());
     this.destroy.onDestroy(() => {
@@ -328,6 +381,7 @@ export class AdminInvoicesPageComponent implements OnInit {
 
   async loadInvoices(): Promise<void> {
     const generation = ++this.loadGeneration;
+    const accessRevision = this.admin.sessionGeneration();
     const token = this.adminToken() || this.admin.getSavedAdminToken();
     this.adminToken.set(token);
     this.state.set('loading');
@@ -338,7 +392,11 @@ export class AdminInvoicesPageComponent implements OnInit {
         token,
         this.contributionId
       );
-      if (generation !== this.loadGeneration) return;
+      if (
+        generation !== this.loadGeneration ||
+        accessRevision !== this.admin.sessionGeneration()
+      )
+        return;
       this.data.set(response);
       const selectedStillExists = response.invoices.some(
         (invoice) => invoice.id === this.selectedInvoiceId()
@@ -352,7 +410,29 @@ export class AdminInvoicesPageComponent implements OnInit {
       }
       this.state.set('ready');
     } catch (error) {
-      if (generation !== this.loadGeneration) return;
+      if (
+        generation !== this.loadGeneration ||
+        accessRevision !== this.admin.sessionGeneration()
+      )
+        return;
+      if (
+        error instanceof AdminDashboardRequestError &&
+        (error.status === 401 || error.status === 403)
+      ) {
+        this.accessDenied(error.status);
+        return;
+      }
+      if (
+        error instanceof AdminDashboardRequestError &&
+        error.code === 'ADMIN_FINANCIAL_CURRENCY_CONFLICT'
+      ) {
+        this.clearPrivate();
+        this.state.set('error');
+        this.loadErrorMessage.set(
+          this.i18n.t('admin.financial.currencyConflict')
+        );
+        return;
+      }
       this.state.set('error');
       this.loadErrorMessage.set(this.messageFromError(error));
     }

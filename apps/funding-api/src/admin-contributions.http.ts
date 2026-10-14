@@ -3,6 +3,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { AdminContributionsResponse } from '@openg7/funding-core';
 
 import { createRouteMatcher, isJsonContentType } from './http-routing.js';
+import { AdminFinancialCurrencyConflictError } from './admin-financial-currency.js';
 import type { createHttpTransport } from './http-transport.js';
 
 type ApiRequest = IncomingMessage;
@@ -83,6 +84,13 @@ export const createAdminContributionsHttpHandler = ({
         const result = await listAdminContributions(contributionId);
         writeJson(request, response, 200, result);
       } catch (error) {
+        if (error instanceof AdminFinancialCurrencyConflictError) {
+          writeJson(request, response, error.status, {
+            code: error.code,
+            error: error.message
+          });
+          return true;
+        }
         reportFailure('Failed to load admin contributions.', error);
         writeJson(request, response, 502, {
           error: 'Admin contributions could not be loaded.'

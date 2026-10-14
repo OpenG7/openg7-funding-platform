@@ -141,3 +141,11 @@ changement d’année, les filtres, les jours chargés, les drawers, les erreurs
 les petits écrans. Les tests Node de `publication-calendar.test.mjs` vérifient
 les années bissextiles, le tri et les dates Toronto près de minuit et des changements
 d’heure. Elle n’envoie aucune publication réelle.
+
+La [recette OIDC du calendrier manuel](../tests/identity/manual-publication-calendar-journey.spec.ts)
+vérifie sur PostgreSQL le rechargement, la conservation de l'instant exact lors
+d'une modification de notes, le refus d'une heure répétée à Toronto, la cascade
+de replanification vers deux lots et leurs brouillons, puis l'annulation confirmée.
+La [chaîne Docker existante](../tests/playwright/admin-publication-batches.spec.ts)
+couvre création et édition du brouillon, affectations, autorisation finale et
+annulation de l'envoi. Ces recettes utilisent des fournisseurs de test.

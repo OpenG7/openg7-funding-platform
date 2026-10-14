@@ -5,8 +5,6 @@ Payment notifications and private website preparation use protected
 `POST /api/admin/contribution-activity/present`. Pagination, states,
 permissions and simulation: [contribution activity](../operations/contribution-activity.md).
 
-Contracts: feature guides and code; [documentation index](../README.md).
-
 Versioned moderation decisions, independent review, private reconsideration,
 assistance and owner-only governance previews:
 [moderation contracts](../operations/sponsorship-moderation.md). These reads require
@@ -19,16 +17,13 @@ operator/owner rights; reader sessions cannot inspect the underlying evidence.
 
 [Stripe recovery](../operations/admin-stripe-backfill.md).
 
-`POST /api/admin/sponsorships/media/delete` requires the current `assetId`,
-`expectedVersion`, and `confirmation` equal to the selected asset ID. Missing or
-different confirmation returns `400 CONFIRMATION_REQUIRED` before any storage
-mutation; a stale version returns `409`. The UI supplies confirmation only after
-its explicit confirmation dialog. API and Web must be deployed together: older
-clients without this field must refresh before deleting media. Existing admin
-authorization checks and the sponsor-side lock on approved assets remain active.
-The controlled public media endpoint uses `Cache-Control: no-store` so subsequent
-requests recheck admissibility after removal. This cannot revoke copies already
-downloaded or previously cached under older headers. See the
+`POST /api/admin/sponsorships/media/delete` requires `assetId`, current
+`expectedVersion` and `confirmation=assetId` after the UI dialog. A missing or
+different confirmation returns `400 CONFIRMATION_REQUIRED` before storage mutation;
+a stale version returns `409`. Deploy API/Web together; old clients must refresh.
+Admin rights and the sponsor-side lock on approved assets remain enforced.
+Controlled public media uses `Cache-Control: no-store` to recheck admissibility;
+this cannot revoke downloaded copies or older caches. See the
 [media recipe](../sponsorship-e2e-coverage.md#recette-navigateur--retrait-et-remplacement-de-médias-approuvés).
 
 Admin dashboard: `/admin/fundraiser`.
@@ -50,7 +45,6 @@ OIDC owners manage roles, disable accounts and revoke sessions. Account changes
 revoke sessions and protect the last owner; confirmation is required. Token mode
 has no named accounts. Alerts remain opt-in (`yarn operations:watch` or Compose).
 
-UI guides are in the [documentation index](../README.md).
 `yarn test:ui:admin` uses synthetic APIs without DB.
 `GET /api/admin/attention` serves `/admin/fundraiser/attention` with pagination,
 URL filters and exact record links. `GET /api/admin/assistant/context` accepts
@@ -76,7 +70,7 @@ invoice/publication pages reload on target changes. Drawers protect private
 previews and require confirmations; Stripe inspection excludes raw webhooks.
 Dashboard `data_available=false` means no PostgreSQL. Recipes are in the linked guides.
 
-Additional endpoint contracts: [documentation index](../README.md).
+Other contracts: [documentation index](../README.md).
 
 ```text
 GET /api/admin/dashboard
@@ -126,6 +120,11 @@ POST /api/admin/sponsorship-credit-notes/resend
 The dashboard summarizes received funds, estimated availability, pending
 sponsorship reviews, feed state, Stripe event errors and recent contributions.
 Contributions support local type/payment/public-display-consent filters and search.
+Scalar totals for contributions, invoices/credit notes, expenses and the legacy
+dashboard reject mixed currencies: `409 ADMIN_FINANCIAL_CURRENCY_CONFLICT`, without
+conversion. Pending contributions and archived allocations do not select these
+totals' currency. Cockpit metrics remain separate per currency; private CSV rows
+retain their individual amounts/currencies.
 The [private CSV export](../operations/private-contributions-export.md) requires
 owner access and a confirmed, versioned selection. Expenses manage `fund_allocations`;
 see the [confirmation, version and amount contract](../funding-transparency.md#allocations-publiées-et-réalisations).
@@ -142,6 +141,12 @@ identity stays unknown; bootstrap=false allows existing owners. See [guided setu
 `/admin/fundraiser/email-queue` lists queued, sending, sent, failed and `uncertain`
 messages. Uncertain delivery blocks automatic sends and ordinary retry
 (`409 EMAIL_DELIVERY_RECONCILIATION_REQUIRED`). Migration 033 is required.
+Manual retry accepts `{messageId, requestId?}`; new clients reuse their UUID after
+an unresolved response. The response includes `requestId` and `replayed`.
+Intent and claim commit before SMTP; a replay never sends again. Request reuse
+for a different actor/target returns `409 EMAIL_RETRY_REQUEST_CONFLICT`;
+unavailable finalization returns `503 EMAIL_RETRY_RESULT_UNAVAILABLE` with the
+intent retained for recovery. See [SMTP retry and evidence](../email-smtp.md).
 Operators/owners reconcile evidence through `POST /api/admin/email-queue/reconcile`
 (also `/admin`): JSON `messageId` (UUID), `expectedUpdatedAt` (exact GET version),
 `confirmation=messageId`, `outcome=sent|not_sent` and non-secret `evidenceReference`
@@ -227,20 +232,16 @@ exists, the refund also creates an app-generated credit note in
 `sponsorship_credit_notes`, tied to the Stripe refund; the credit note is visible
 and resendable from `/admin/fundraiser/invoices`,
 with its own downloadable PDF.
-New credit-note numbers include a deterministic suffix derived from the invoice
-and Stripe refund identifiers, so several refunds of one invoice receive distinct
-numbers. Retrying an already issued refund keeps its original number and snapshot,
-including numbers issued before this change; no historical renumbering is needed.
-Each new credit note describes its own refund amount: a refund smaller than the
-original invoice is labelled partial, including the last instalment of a
-cumulative full refund. The default note states that it reduces the invoice by
-the indicated amount. Existing invoice and credit-note snapshots are preserved.
-`FUNDING_SPONSORSHIP_CREDIT_NOTE_LEGAL_NOTE` still overrides this default; an
-installation retaining the former full-cancellation wording must update its
-configured text separately. The cumulative `charge.refunded` confirmation marks
-the payment fully refunded when the sum reaches the original payment. The form
-still defaults to the original amount; Stripe enforces the remaining refundable
-amount. See the [isolated refund recipe](../payment-trust-validation.md#recette-des-remboursements-et-avoirs)
+New credit-note numbers have a deterministic invoice/refund suffix. Replays retain
+the original number/snapshot, including historical numbers; no renumbering occurs.
+Each note describes its own amount: less than the invoice means partial, including
+the last instalment of a cumulative full refund. The default text reduces the
+invoice by that amount; `FUNDING_SPONSORSHIP_CREDIT_NOTE_LEGAL_NOTE` overrides it.
+Installations retaining former full-cancellation wording must update that setting
+separately. Existing snapshots remain unchanged. Cumulative `charge.refunded`
+marks full refund only at the original amount. The form defaults to that amount;
+Stripe enforces the refundable remainder. See the
+[isolated refund recipe](../payment-trust-validation.md#recette-des-remboursements-et-avoirs)
 for the tested cases and limitations.
 The sponsor detail panel also includes an "Historique & audit" tab that merges
 the sponsorship timeline with recent `admin_audit_log` entries for that
@@ -248,17 +249,12 @@ specific sponsorship, including the recorded admin actor. A dedicated
 "Remboursements" tab summarizes the current refund workflow, dated milestones,
 Stripe refund id, notes/errors, and refund-related admin audit entries.
 
-Sponsor logos can be uploaded by admins through
-`POST /api/admin/sponsorships/logo`. The API accepts PNG, JPEG, and WebP files
-only, validates MIME type and file signature, stores the file outside the web
-bundle in either the local private storage directory or the OVH private bucket,
-records the controlled `/api/public/sponsor-logos/...` URL on the sponsorship,
-and audits the upload. Admins can preview controlled logos through
-`GET /api/admin/sponsorships/logo`, replace a logo with cleanup of the previous
-controlled file, or remove the logo with `POST /api/admin/sponsorships/logo/delete`.
-Removal requires JSON `contributionId`, current `expectedVersion`, and
-`confirmation=contributionId` supplied after the UI dialog. Missing/mismatched
-confirmation returns `400 CONFIRMATION_REQUIRED` before mutation; stale versions
-return `409`. Deploy API/Web together; older clients must refresh.
-Uploaded logos are served publicly only when an approved, consented sponsorship
-references that exact URL.
+`POST /api/admin/sponsorships/logo` accepts PNG/JPEG/WebP after MIME/signature
+validation, stores files outside the bundle in local or OVH private storage,
+records a controlled `/api/public/sponsor-logos/...` URL and audits the upload.
+`GET /api/admin/sponsorships/logo` previews it; replacement cleans up the previous
+controlled file. Removal at `POST /api/admin/sponsorships/logo/delete` requires JSON
+`contributionId`, current `expectedVersion`, `confirmation=contributionId` after
+the UI dialog. Missing/mismatched confirmation gives `400 CONFIRMATION_REQUIRED`
+before mutation; stale version gives `409`. Deploy API/Web together; old clients
+must refresh. Public serving requires approved consent and the exact URL reference.

@@ -144,7 +144,8 @@ export class FundingAdminOperationsClient {
     );
 
     if (!response.ok) {
-      throw new Error(
+      throw new AdminDashboardRequestError(
+        response.status,
         await errorMessageFromResponse(
           response,
           'Admin email queue could not be loaded.'
@@ -170,7 +171,8 @@ export class FundingAdminOperationsClient {
     );
 
     if (!response.ok) {
-      throw new Error(
+      throw new AdminDashboardRequestError(
+        response.status,
         await errorMessageFromResponse(
           response,
           'Email queue message could not be retried.'

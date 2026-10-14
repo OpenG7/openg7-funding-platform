@@ -1,5 +1,12 @@
 {
   "admin": {
+    "privacy": {
+      "forbidden": "Your account can no longer view this data. Check your access before reloading.",
+      "stale": "Last known state: this data could not be refreshed. Verify its current state before taking action."
+    },
+    "financial": {
+      "currencyConflict": "This data contains several currencies. Its total cannot be calculated until amounts are separated by currency."
+    },
     "commitments": {
       "pendingRequest": "Preserved exact request",
       "kinds": {
@@ -112,6 +119,9 @@
       "context": "Review the content in context. Disagreement, controversy or a quotation condemning hatred alone does not justify rejection.",
       "loading": "Loading the content to review…",
       "unavailable": "The content could not be loaded. Close this panel and reload the record before deciding.",
+      "forbidden": "You do not have permission to review this content. Close the panel and check your access.",
+      "notFound": "This content no longer exists or is not a moderation subject. Close the panel and reload the record.",
+      "changed": "The content has changed. Load its current version before deciding.",
       "contentVersion": "Content version",
       "exactContent": "View the exact content",
       "primaryReason": "Primary reason *",

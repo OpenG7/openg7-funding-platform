@@ -105,6 +105,10 @@ La [vue d'ensemble de l'Assistant](admin-assistant-overview.md) propose une
 synthèse, des catégories filtrables, des groupes de courriels et un détail avec
 retour au contexte, à partir de la file complète et paginée de **À traiter**.
 
+L'[audit et la réception des corrections admin](development/admin-e2e-correction-plan.md)
+relient les 20 URL, les 17 garanties et les recettes exécutées avec API et
+PostgreSQL réels. Le registre vérifié en CI conserve les scénarios exacts.
+
 ## Travaux envisagés
 
 - [Analyse de mise en œuvre de la modération des commandites](development/sponsorship-moderation-implementation-analysis.md) :

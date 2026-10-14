@@ -4,6 +4,8 @@ import type {
   AdminExpensesResponse
 } from '@openg7/funding-core';
 
+import { AdminDashboardRequestError } from '../../services/funding-admin-session.js';
+
 import type {
   ExpenseEdit,
   ExpenseEditFieldChange
@@ -16,6 +18,7 @@ import type {
 /** Owns server reads, draft versions and the lifetime of one allocation scope. */
 export class AdminExpensesReadController {
   readonly state = signal<ExpensesReadState>('idle');
+  readonly readError = signal('');
   readonly conflict = signal(false);
   readonly response = signal<AdminExpensesResponse | null>(null);
   readonly expenseEdits = signal<Record<string, ExpenseEdit>>({});
@@ -24,8 +27,11 @@ export class AdminExpensesReadController {
   private revision = 0;
   private generation = 0;
   private disposed = false;
+  private readonly accessRevision: number | undefined;
 
-  constructor(private readonly ports: AdminExpensesReadPorts) {}
+  constructor(private readonly ports: AdminExpensesReadPorts) {
+    this.accessRevision = ports.accessRevision?.();
+  }
 
   setScope(expenseId: string | undefined): void {
     if (this.disposed) return;
@@ -45,7 +51,11 @@ export class AdminExpensesReadController {
   }
 
   isCurrentScope(revision: number): boolean {
-    return !this.disposed && revision === this.revision;
+    return (
+      !this.disposed &&
+      revision === this.revision &&
+      this.accessRevision === this.ports.accessRevision?.()
+    );
   }
 
   async load(preserveEdits = false): Promise<void> {
@@ -54,6 +64,7 @@ export class AdminExpensesReadController {
     const revision = this.revision;
     const token = this.ports.token();
     this.state.set('loading');
+    this.readError.set('');
 
     try {
       const response = await this.ports.admin.getExpenses(token, this.exactId);
@@ -81,8 +92,31 @@ export class AdminExpensesReadController {
       if (!preserveEdits) this.conflict.set(false);
       else if (staleDraft) this.conflict.set(true);
       this.ports.admin.saveAdminToken(token);
-    } catch {
+    } catch (error) {
       if (!this.currentRead(generation, revision)) return;
+      if (
+        error instanceof AdminDashboardRequestError &&
+        (error.status === 401 || error.status === 403)
+      ) {
+        this.setScope(undefined);
+        this.state.set('error');
+        this.readError.set(
+          error.status === 401
+            ? 'admin.access.sessionExpired'
+            : 'admin.privacy.forbidden'
+        );
+        this.ports.onAccessDenied?.(error.status);
+        return;
+      }
+      if (
+        error instanceof AdminDashboardRequestError &&
+        error.code === 'ADMIN_FINANCIAL_CURRENCY_CONFLICT'
+      ) {
+        this.response.set(null);
+        this.expenseEdits.set({});
+        this.editBases.clear();
+        this.readError.set('admin.financial.currencyConflict');
+      }
       this.state.set('error');
     }
   }

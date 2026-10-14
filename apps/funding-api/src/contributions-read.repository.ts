@@ -8,6 +8,7 @@ import type {
 import type { Pool, PoolClient } from 'pg';
 
 import { getAdjustmentTotals } from './fund-transparency.repository.js';
+import { assertAdminFinancialCurrency } from './admin-financial-currency.js';
 import { resolveRefundedAmountMinor } from './fund-refunds.js';
 import {
   centsToAmount,
@@ -31,6 +32,7 @@ interface AdminContributionsSummaryRow {
   readonly total_refunded: string;
   readonly total_disputed: string;
   readonly currency: string;
+  readonly currency_count?: string;
   readonly last_updated_at: string;
 }
 
@@ -71,7 +73,8 @@ export const getAdminContributionsSummary = async (
       COALESCE(SUM(CASE WHEN status IN ('paid', 'refunded', 'disputed') THEN amount_cents ELSE 0 END), 0)::text AS total_received,
       COALESCE(SUM(CASE WHEN status = 'refunded' THEN amount_cents ELSE 0 END), 0)::text AS total_refunded,
       COALESCE(SUM(CASE WHEN status = 'disputed' THEN amount_cents ELSE 0 END), 0)::text AS total_disputed,
-      COALESCE(MAX(currency), 'cad') AS currency,
+      COALESCE(MAX(UPPER(currency)) FILTER (WHERE status IN ('paid', 'refunded', 'disputed')), 'CAD') AS currency,
+      COUNT(DISTINCT UPPER(currency)) FILTER (WHERE status IN ('paid', 'refunded', 'disputed'))::text AS currency_count,
       COALESCE(MAX(updated_at), NOW())::text AS last_updated_at
     FROM fund_contributions
   `);
@@ -84,7 +87,18 @@ export const getAdminContributionsSummary = async (
     };
   }
 
+  assertAdminFinancialCurrency(row);
   const adjustments = await getAdjustmentTotals(pool, true);
+  const refundCurrency = {
+    currency: adjustments.refund_currency,
+    currency_count: adjustments.refund_currency_count
+  };
+  assertAdminFinancialCurrency(refundCurrency);
+  const currency =
+    Number(row.currency_count ?? row.paid_count) > 0
+      ? row.currency
+      : (adjustments.refund_currency ?? row.currency);
+  assertAdminFinancialCurrency(refundCurrency, currency);
   const refundedAmountMinor = resolveRefundedAmountMinor(
     parseDbInt(adjustments.total_refunded),
     parseDbInt(row.total_refunded)
@@ -105,7 +119,7 @@ export const getAdminContributionsSummary = async (
       total_received: centsToAmount(parseDbInt(row.total_received)),
       total_refunded: centsToAmount(refundedAmountMinor),
       total_disputed: centsToAmount(parseDbInt(row.total_disputed)),
-      currency: row.currency.toUpperCase()
+      currency: currency.toUpperCase()
     },
     lastUpdatedAt
   };

@@ -12,6 +12,7 @@ import type {
   AdminWorkQueueResponse
 } from '@openg7/funding-core';
 
+import { AdminFinancialCurrencyConflictError } from './admin-financial-currency.js';
 import { createRouteMatcher, isJsonContentType } from './http-routing.js';
 import type { createHttpTransport } from './http-transport.js';
 
@@ -239,6 +240,13 @@ export const createAdminInsightsHttpHandler = ({
         const result = await getAdminDashboard();
         writeJson(request, response, 200, result);
       } catch (error) {
+        if (error instanceof AdminFinancialCurrencyConflictError) {
+          writeJson(request, response, error.status, {
+            code: error.code,
+            error: error.message
+          });
+          return true;
+        }
         reportFailure('Failed to load admin dashboard.', error);
         writeJson(request, response, 502, {
           error: 'Admin dashboard could not be loaded.'

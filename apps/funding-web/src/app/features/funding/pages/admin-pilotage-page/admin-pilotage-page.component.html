@@ -289,7 +289,10 @@
           >
         </section>
       } @else if (selected(); as d) {
-        @if (d.domain === 'sponsors' || d.domain === 'publications') {
+        @if (
+          d.domain === 'sponsors' ||
+          (d.domain === 'publications' && d.publication)
+        ) {
           <openg7-funding-moderation-actions
             [subject]="{
               type:

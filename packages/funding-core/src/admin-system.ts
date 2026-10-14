@@ -124,6 +124,8 @@ export interface AdminEmailQueueResponse {
 
 export interface AdminEmailQueueRetryRequest {
   readonly messageId: string;
+  /** Reuse the same identifier after a lost response; a new attempt needs a new one. */
+  readonly requestId?: string;
 }
 
 export interface AdminEmailDeliveryReconcileRequest {
@@ -136,6 +138,8 @@ export interface AdminEmailDeliveryReconcileRequest {
 }
 
 export interface AdminEmailQueueRetryResult {
+  readonly requestId?: string;
+  readonly replayed?: boolean;
   readonly attempted: number;
   readonly sent: number;
   readonly failed: number;

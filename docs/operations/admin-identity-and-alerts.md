@@ -170,13 +170,23 @@ API et Web doivent être mis à jour ensemble : les anciens clients sans
 confirmation doivent actualiser la page. Aucune migration supplémentaire.
 Après un refus `401` pendant une revue ou un changement d'accès, le formulaire
 privé est fermé et la connexion explique que la session a expiré ou été révoquée.
-La page Contributions applique aussi cette règle aux lectures et exports privés,
-ainsi qu'à une invalidation de session détectée par une autre requête. Elle efface
-les données et la sélection; une réponse commencée sous l'ancienne session ne
-peut ni les réafficher ni réenregistrer son jeton. Un refus de lecture `403` retire
-aussi les données affichées, sans annoncer une expiration de session.
+Les pages Contributions, Factures, File courriel et Dépenses appliquent aussi cette
+règle aux lectures et actions privées, ainsi qu'à une invalidation de session
+détectée par une autre requête. Elles effacent les données, sélections et brouillons
+privés, ferment les confirmations et les aperçus ; une réponse commencée sous
+l'ancienne session ne peut ni les réafficher, ni déclencher un téléchargement, ni
+réenregistrer son jeton. Un refus de lecture `403` retire aussi les données
+affichées, sans annoncer une expiration de session. Sur Factures et File courriel,
+un échec technique peut conserver un dernier état connu explicitement signalé
+comme non actualisé.
 Une révocation prend effet aux vérifications d'autorisation suivantes; elle
 n'annule pas rétroactivement une opération déjà autorisée par le serveur.
+
+Le panneau de modération distingue session expirée (`401`), droits insuffisants
+(`403`), sujet absent (`404`), contenu modifié (`409`) et indisponibilité technique.
+Une erreur laisse la décision désactivée ; Réessayer recharge le contenu exact et
+exige une nouvelle confirmation. Une session refusée ferme le panneau et conduit
+à la reconnexion. La validation API de la version et de l'empreinte reste obligatoire.
 
 ## Recette des accès administrateurs
 
@@ -212,6 +222,18 @@ le rapport sont sous `test-results/identity/`; la base et les processus posséd�
 par la recette sont arrêtés en fin d'exécution. Des tests UI séparés vérifient
 FR/EN à 390 et 1280 px, la confirmation au clavier, le dernier propriétaire et
 la fermeture du formulaire après expiration.
+
+Les [parcours de révocation financière](../../tests/identity/financial-access-revocation.spec.ts)
+relient aussi l'OIDC réel de test aux lectures Factures/File courriel et aux
+confirmations de renvoi à une adresse corrigée, publication d'allocation et
+remboursement. Ils vérifient le refus avant tout effet métier, la purge et les
+réponses tardives ; seuls les refus `403`, `404` et `503` ciblés sont injectés dans
+le scénario de diagnostic. La [boucle de correction et recours](../../tests/identity/moderation-correction-reconsideration.spec.ts)
+exerce N1, correction privée, N2, recours, affectation propriétaire et résolution
+expliquée N0 avec deux acteurs, PostgreSQL et SMTP local. Elle vérifie les audits,
+la confidentialité et l'absence d'approbation commerciale ou de publication
+implicite. Ces fichiers décrivent les garanties testées ; leurs résultats doivent
+être rattachés à la révision exécutée.
 
 Validation locale du 24 septembre 2026 sur `fc2a9f6` avec les changements locaux :
 2 parcours Chromium réussis en 25,5 secondes, 15 tests PostgreSQL ciblés

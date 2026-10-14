@@ -173,9 +173,11 @@ export class AdminAssistantController {
         {
           type,
           reference:
-            item.sponsorshipId ??
-            item.publicationId ??
-            String(item.facts['reference'] ?? ''),
+            type === 'slot_proposal'
+              ? (item.publicationId ?? String(item.facts['reference'] ?? ''))
+              : (item.sponsorshipId ??
+                item.publicationId ??
+                String(item.facts['reference'] ?? '')),
           language: this.ports.language()
         }
       );

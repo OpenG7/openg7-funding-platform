@@ -14,6 +14,8 @@ export type ExpensesReadState = 'idle' | 'loading' | 'ready' | 'error';
 export interface AdminExpensesReadPorts {
   readonly admin: Pick<FundingAdminService, 'getExpenses' | 'saveAdminToken'>;
   token(): string;
+  onAccessDenied?(status: 401 | 403): void;
+  accessRevision?(): number;
 }
 
 /** The mutation workflow can reconcile drafts without depending on the page. */
@@ -37,4 +39,5 @@ export interface AdminExpensesMutationPorts {
   resetDraftIfUnchanged(submitted: NewExpenseDraft): void;
   t(key: string): string;
   formatMoney(amount: number, currency: string): string;
+  onAccessDenied?(status: 401 | 403): void;
 }

@@ -3,6 +3,7 @@ import { Readable } from 'node:stream';
 import test from 'node:test';
 
 import { createAdminAccountingHttpHandler } from '../dist/apps/funding-api/src/admin-accounting.http.js';
+import { AdminFinancialCurrencyConflictError } from '../dist/apps/funding-api/src/admin-financial-currency.js';
 import { adminRoleAllows } from '../dist/apps/funding-api/src/admin-identity.js';
 import {
   AdminExpenseValidationError,
@@ -191,6 +192,18 @@ const fixture = ({
     }
   };
 };
+
+test('mixed allocation currencies do not produce expense or transparency scalar totals', async () => {
+  for (const route of ['expenses', 'transparency']) {
+    const f = fixture({ listError: new AdminFinancialCurrencyConflictError() });
+    const result = await f.run('/api/admin/' + route);
+    assert.equal(result.status, 409);
+    assert.deepEqual(result.payload, {
+      code: 'ADMIN_FINANCIAL_CURRENCY_CONFLICT',
+      error: 'Amounts in different currencies cannot be combined.'
+    });
+  }
+});
 
 test('accounting reads preserve route aliases, exact bigint scope and no-store', async (t) => {
   for (const prefix of ['/admin/', '/api/admin/']) {

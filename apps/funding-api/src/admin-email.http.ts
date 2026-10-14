@@ -10,7 +10,7 @@ import type {
   AdminEmailTestResult
 } from '@openg7/funding-core';
 
-import type { AdminAuditLogInput } from './fund-admin.repository.js';
+import { AdminEmailRetryError } from './admin-email-retry.service.js';
 import { createRouteMatcher, isJsonContentType } from './http-routing.js';
 import type { createHttpTransport } from './http-transport.js';
 
@@ -60,13 +60,14 @@ export interface AdminEmailHttpDependencies {
     messageId: string
   ) => Promise<AdminEmailQueueMessageRecord | null>;
   readonly retryAdminEmailQueueMessage: (
-    messageId: string
+    messageId: string,
+    actor: string,
+    requestId?: string
   ) => Promise<Omit<AdminEmailQueueRetryResult, 'message'>>;
   readonly reconcileEmailDelivery: (
     input: AdminEmailDeliveryReconcileRequest,
     actor: string
   ) => Promise<boolean>;
-  readonly insertAdminAuditLog: (input: AdminAuditLogInput) => Promise<unknown>;
   readonly reportFailure: (message: string, error: unknown) => void;
 }
 
@@ -91,7 +92,6 @@ export const createAdminEmailHttpHandler = ({
   getAdminEmailQueueMessageById,
   retryAdminEmailQueueMessage,
   reconcileEmailDelivery,
-  insertAdminAuditLog,
   reportFailure
 }: AdminEmailHttpDependencies) => {
   const { routeMatches } = createRouteMatcher(publicBaseOrigin);
@@ -273,8 +273,14 @@ export const createAdminEmailHttpHandler = ({
         const raw = JSON.parse(
           body
         ) as Partial<AdminEmailQueueRetryRequest> | null;
+        if (
+          raw?.requestId !== undefined &&
+          !isEmailTestRequestId(raw.requestId)
+        )
+          throw new Error('INVALID_EMAIL_RETRY_REQUEST');
         parsed = {
-          messageId: typeof raw?.messageId === 'string' ? raw.messageId : ''
+          messageId: typeof raw?.messageId === 'string' ? raw.messageId : '',
+          ...(raw?.requestId ? { requestId: raw.requestId } : {})
         };
       } catch {
         writeJson(request, response, 400, {
@@ -299,14 +305,14 @@ export const createAdminEmailHttpHandler = ({
           return true;
         }
 
-        if (existing.status === 'sent') {
+        if (existing.status === 'sent' && !parsed.requestId) {
           writeJson(request, response, 409, {
             error: 'Sent email messages cannot be retried.'
           });
           return true;
         }
 
-        if (existing.status === 'uncertain') {
+        if (existing.status === 'uncertain' && !parsed.requestId) {
           writeJson(request, response, 409, {
             code: 'EMAIL_DELIVERY_RECONCILIATION_REQUIRED',
             error: 'Reconcile the unknown SMTP outcome before retrying.'
@@ -314,22 +320,12 @@ export const createAdminEmailHttpHandler = ({
           return true;
         }
 
-        const retry = await retryAdminEmailQueueMessage(parsed.messageId);
+        const retry = await retryAdminEmailQueueMessage(
+          parsed.messageId,
+          getAdminAuditActor(request),
+          parsed.requestId
+        );
         const message = await getAdminEmailQueueMessageById(parsed.messageId);
-        await insertAdminAuditLog({
-          actor: getAdminAuditActor(request),
-          action: 'email_queue.retry',
-          entityType: 'email_message',
-          entityId: parsed.messageId,
-          summary: `Email queue message ${parsed.messageId} retried manually.`,
-          metadata: {
-            templateKey: existing.template_key,
-            recipientEmail: existing.recipient_email,
-            attempted: retry.attempted,
-            sent: retry.sent,
-            failed: retry.failed
-          }
-        });
 
         const payload: AdminEmailQueueRetryResult = {
           attempted: retry.attempted,
@@ -338,14 +334,30 @@ export const createAdminEmailHttpHandler = ({
           messageIds: retry.messageIds,
           sentMessageIds: retry.sentMessageIds,
           failedMessageIds: retry.failedMessageIds,
+          ...(retry.requestId
+            ? { requestId: retry.requestId, replayed: retry.replayed }
+            : {}),
           message
         };
         writeJson(request, response, 200, payload);
       } catch (error) {
-        reportFailure('Failed to retry email queue message.', error);
-        writeJson(request, response, 502, {
-          error: 'Email queue message could not be retried.'
+        reportFailure('Failed to retry email queue message.', {
+          code:
+            error instanceof AdminEmailRetryError
+              ? error.code
+              : 'EMAIL_RETRY_UNAVAILABLE'
         });
+        writeJson(
+          request,
+          response,
+          error instanceof AdminEmailRetryError ? error.status : 502,
+          {
+            error: 'Email queue message could not be retried.',
+            ...(error instanceof AdminEmailRetryError
+              ? { code: error.code }
+              : {})
+          }
+        );
       }
       return true;
     }

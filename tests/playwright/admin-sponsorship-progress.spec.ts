@@ -196,7 +196,17 @@ async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
     progressOverrides: {} as Partial<AdminSponsorshipProgress>
   };
   await page.route('**/api/**', async (route) => {
-    if (await moderationFixture(route)) return;
+    if (
+      await moderationFixture(route, [
+        { type: 'sponsorship', id },
+        { type: 'sponsorship', id: secondId },
+        ...options.media.map((asset) => ({
+          type: 'media' as const,
+          id: asset.id
+        }))
+      ])
+    )
+      return;
     const req = route.request(),
       url = new URL(req.url());
     calls.push({

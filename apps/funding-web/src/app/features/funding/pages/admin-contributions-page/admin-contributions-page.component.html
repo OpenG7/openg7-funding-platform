@@ -39,7 +39,8 @@
     </p>
     <p class="state state-error" *ngIf="state() === 'error'">
       {{
-        'admin.legacy.impossible_de_charger_ou_exporter_les_contributions_verifiez_le_j'
+        readError() ||
+          'admin.legacy.impossible_de_charger_ou_exporter_les_contributions_verifiez_le_j'
           | translate
       }}
     </p>

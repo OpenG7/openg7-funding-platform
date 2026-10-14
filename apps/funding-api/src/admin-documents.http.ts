@@ -12,6 +12,7 @@ import type {
 import { SPONSORSHIP_INVOICE_BACKFILL_CONFIRMATION } from '../../../packages/funding-core/src/index.js';
 
 import type { queueAdminDocumentResend } from './admin-document-resend.service.js';
+import { AdminFinancialCurrencyConflictError } from './admin-financial-currency.js';
 import type { AdminAuditLogInput } from './fund-admin.repository.js';
 import { createRouteMatcher } from './http-routing.js';
 import type { createHttpTransport } from './http-transport.js';
@@ -136,6 +137,13 @@ export const createAdminDocumentsHttpHandler = ({
         );
         writeJson(request, response, 200, result);
       } catch (error) {
+        if (error instanceof AdminFinancialCurrencyConflictError) {
+          writeJson(request, response, error.status, {
+            code: error.code,
+            error: error.message
+          });
+          return true;
+        }
         reportFailure('Failed to load admin sponsorship invoices.', error);
         writeJson(request, response, 502, {
           error:

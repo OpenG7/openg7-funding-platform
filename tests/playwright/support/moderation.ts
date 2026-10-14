@@ -69,14 +69,57 @@ export async function approveCurrentModeration(
 }
 
 /** Subject-bound synthetic content for existing administrative journey fixtures. */
-export async function moderationFixture(route: Route): Promise<boolean> {
+export async function moderationFixture(
+  route: Route,
+  subjects: readonly ModerationSubject[]
+): Promise<boolean> {
   const url = new URL(route.request().url());
   if (!url.pathname.startsWith('/api/admin/moderation/')) return false;
+  const method = route.request().method();
+  const read = method === 'GET';
+  const resource = url.pathname.slice('/api/admin/moderation/'.length);
+  if (
+    (read &&
+      !['content', 'cases', 'decisions', 'reconsiderations'].includes(
+        resource
+      )) ||
+    (!read &&
+      (method !== 'POST' ||
+        !['decisions', 'assignment', 'reconsiderations/resolve'].includes(
+          resource
+        )))
+  ) {
+    await route.fulfill({ status: 405, json: { code: 'METHOD_NOT_ALLOWED' } });
+    return true;
+  }
+  let payload;
+  try {
+    payload = read ? undefined : route.request().postDataJSON();
+  } catch {
+    await route.fulfill({
+      status: 400,
+      json: { code: 'INVALID_MODERATION_SUBJECT' }
+    });
+    return true;
+  }
+  const subject = read
+    ? {
+        type: url.searchParams.get('subjectType'),
+        id: url.searchParams.get('subjectId')
+      }
+    : payload?.subject;
+  if (
+    !subjects.some(
+      (item) => item.type === subject?.type && item.id === subject?.id
+    )
+  ) {
+    await route.fulfill({
+      status: 404,
+      json: { code: 'MODERATION_SUBJECT_NOT_FOUND' }
+    });
+    return true;
+  }
   if (url.pathname.endsWith('/content')) {
-    const subject = {
-      type: url.searchParams.get('subjectType'),
-      id: url.searchParams.get('subjectId')
-    };
     await route.fulfill({
       json: {
         subject,
@@ -91,7 +134,6 @@ export async function moderationFixture(route: Route): Promise<boolean> {
   } else if (route.request().method() === 'GET')
     await route.fulfill({ json: { items: [] } });
   else {
-    const payload = route.request().postDataJSON();
     await route.fulfill({
       json: {
         decision: {

@@ -18,6 +18,7 @@ import {
 } from '../../../packages/funding-core/src/index.js';
 
 import { insertAdminAuditLog } from './fund-admin-audit.repository.js';
+import { assertAdminFinancialCurrency } from './admin-financial-currency.js';
 import { getAdminBackofficePresence } from './fund-admin.persistence.js';
 
 export const allowedAdminExpenseStatuses = new Set<AdminExpenseStatus>([
@@ -54,6 +55,7 @@ interface AdminExpensesSummaryRow {
   readonly total_allocated: string;
   readonly published_allocated: string;
   readonly currency: string;
+  readonly currency_count?: string;
   readonly last_updated_at: string;
 }
 
@@ -172,7 +174,8 @@ const getAdminExpensesSummary = async (
       COALESCE(SUM(CASE WHEN status = 'archived' THEN 1 ELSE 0 END), 0)::text AS archived_count,
       COALESCE(SUM(CASE WHEN status <> 'archived' THEN amount_allocated ELSE 0 END), 0)::text AS total_allocated,
       COALESCE(SUM(CASE WHEN status IN ('published', 'active') THEN amount_allocated ELSE 0 END), 0)::text AS published_allocated,
-      COALESCE(MAX(currency), 'cad') AS currency,
+      COALESCE(MAX(UPPER(currency)) FILTER (WHERE status <> 'archived'), 'CAD') AS currency,
+      COUNT(DISTINCT UPPER(currency)) FILTER (WHERE status <> 'archived')::text AS currency_count,
       COALESCE(MAX(updated_at), NOW())::text AS last_updated_at
     FROM fund_allocations
   `);
@@ -185,6 +188,7 @@ const getAdminExpensesSummary = async (
     };
   }
 
+  assertAdminFinancialCurrency(row);
   return {
     summary: {
       total_count: parseDbInt(row.total_count),

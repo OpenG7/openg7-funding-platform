@@ -3,6 +3,7 @@ import { Readable } from 'node:stream';
 import test from 'node:test';
 
 import { createAdminEmailHttpHandler } from '../dist/apps/funding-api/src/admin-email.http.js';
+import { AdminEmailRetryError } from '../dist/apps/funding-api/src/admin-email-retry.service.js';
 import { readBody } from '../dist/apps/funding-api/src/http-transport.js';
 
 const requestId = '10000000-0000-4000-8000-000000000001';
@@ -147,8 +148,16 @@ const fixture = ({
       fail(name);
       return name === 'existingMessage' ? existingMessage : updatedMessage;
     },
-    retryAdminEmailQueueMessage: async (id) => {
-      record('retry', id);
+    retryAdminEmailQueueMessage: async (
+      id,
+      requestingActor,
+      retryRequestId
+    ) => {
+      record('retry', {
+        messageId: id,
+        actor: requestingActor,
+        requestId: retryRequestId
+      });
       fail('retry');
       return retryResult;
     },
@@ -557,11 +566,11 @@ for (const [existingMessage, status, error] of [
   });
 }
 
-test('email queue retry retains read, attempt, refreshed read, audit, response ordering', async () => {
+test('email queue retry passes identity to the audited service before refreshing its message', async () => {
   const h = fixture();
   const { response } = await h.run({
     url: '/api/admin/email-queue/retry',
-    body: JSON.stringify({ messageId, legacyIgnoredField: true }),
+    body: JSON.stringify({ messageId, requestId, legacyIgnoredField: true }),
     contentType: 'text/plain'
   });
   assert.equal(response.status, 200);
@@ -574,31 +583,16 @@ test('email queue retry retains read, attempt, refreshed read, audit, response o
     failedMessageIds: [],
     message: message('sent')
   });
-  assert.deepEqual(h.values('audit'), [
-    {
-      actor,
-      action: 'email_queue.retry',
-      entityType: 'email_message',
-      entityId: messageId,
-      summary: `Email queue message ${messageId} retried manually.`,
-      metadata: {
-        templateKey: 'admin_email_test',
-        recipientEmail: recipient,
-        attempted: 1,
-        sent: 1,
-        failed: 0
-      }
-    }
-  ]);
+  assert.deepEqual(h.values('retry'), [{ messageId, actor, requestId }]);
+  assert.deepEqual(h.values('audit'), []);
   assert.deepEqual(h.names(), [
     'access',
     'database',
     'readBody',
     'existingMessage',
+    'actor',
     'retry',
     'updatedMessage',
-    'actor',
-    'audit',
     'respond'
   ]);
   assert.deepEqual(h.values('readBody'), [16 * 1024]);
@@ -627,16 +621,13 @@ test('email queue retry exposes a concurrent claim without creating a second att
     ...retryResult,
     message: message('sending')
   });
-  assert.deepEqual(h.values('retry'), [messageId]);
-  assert.equal(h.values('audit')[0].metadata.attempted, 0);
+  assert.deepEqual(h.values('retry'), [
+    { messageId, actor, requestId: undefined }
+  ]);
+  assert.deepEqual(h.values('audit'), []);
 });
 
-for (const failureAt of [
-  'existingMessage',
-  'retry',
-  'updatedMessage',
-  'audit'
-]) {
+for (const failureAt of ['existingMessage', 'retry', 'updatedMessage']) {
   test(`email queue retry reports ${failureAt} failure without another attempt or false success`, async () => {
     const h = fixture({ failureAt });
     const { response } = await h.run({
@@ -656,16 +647,38 @@ for (const failureAt of [
       h.values('report')[0].summary,
       'Failed to retry email queue message.'
     );
-    if (failureAt === 'audit') {
-      assert.deepEqual(h.names().slice(-4), [
-        'actor',
-        'audit',
-        'report',
-        'respond'
-      ]);
-    }
   });
 }
+
+test('email retry preserves durable-service conflicts and finalization uncertainty', async () => {
+  for (const [status, code] of [
+    [409, 'EMAIL_RETRY_REQUEST_CONFLICT'],
+    [503, 'EMAIL_RETRY_RESULT_UNAVAILABLE']
+  ]) {
+    const h = fixture({
+      failureAt: 'retry',
+      failure: new AdminEmailRetryError(status, code)
+    });
+    const { response } = await h.run({
+      url: '/api/admin/email-queue/retry',
+      body: JSON.stringify({ messageId, requestId })
+    });
+    assert.equal(response.status, status);
+    assert.equal(response.payload.code, code);
+    assert.equal(h.values('retry').length, 1);
+    assert.equal(h.values('updatedMessage').length, 0);
+  }
+});
+
+test('email retry rejects an invalid request identifier before invoking the service', async () => {
+  const h = fixture();
+  const { response } = await h.run({
+    url: '/api/admin/email-queue/retry',
+    body: JSON.stringify({ messageId, requestId: 'invalid' })
+  });
+  assert.equal(response.status, 400);
+  assert.equal(h.values('retry').length, 0);
+});
 
 test('an uncertain SMTP message cannot use ordinary retry', async () => {
   const f = fixture({ existingMessage: message('uncertain') });

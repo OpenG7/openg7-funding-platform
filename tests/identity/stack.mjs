@@ -1,13 +1,21 @@
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { request as proxyRequest } from 'node:http';
+import { tmpdir } from 'node:os';
+import { join, resolve, sep } from 'node:path';
 import { startDisposablePostgres } from '../integration/support/disposable-postgres.mjs';
 import { createBuiltWebServer } from '../ui/serve-built-web.mjs';
 import { startIdentityProvider } from './oidc-provider.mjs';
 import { socialFixtureEnvironment } from './social-provider.mjs';
 
 // Real API and built Angular app; no .env, existing DB or external credentials.
-export async function startIdentityStack({ smtpPort, social } = {}) {
+export async function startIdentityStack({
+  smtpPort,
+  social,
+  assistant,
+  stripe
+} = {}) {
   if (Number(process.versions.node.split('.')[0]) !== 22)
     throw new Error('Identity acceptance requires Node 22.');
   if (
@@ -16,7 +24,49 @@ export async function startIdentityStack({ smtpPort, social } = {}) {
   )
     throw new Error('Invalid local SMTP fixture port.');
   const socialEnv = social ? socialFixtureEnvironment(social) : {};
+  let stripeEnv = {};
+  if (stripe) {
+    const url = new URL(stripe.origin);
+    if (
+      url.protocol !== 'http:' ||
+      url.hostname !== '127.0.0.1' ||
+      !url.port ||
+      url.username ||
+      url.password ||
+      url.pathname !== '/' ||
+      url.search ||
+      url.hash
+    )
+      throw new Error(
+        'The Stripe simulator must be an explicit loopback origin.'
+      );
+    stripeEnv = {
+      STRIPE_SECRET_KEY: 'sk_test_identity_fixture',
+      STRIPE_WEBHOOK_SECRET: 'whsec_identity_stripe_fixture',
+      STRIPE_API_HOST: url.hostname,
+      STRIPE_API_PORT: url.port,
+      STRIPE_API_PROTOCOL: 'http'
+    };
+  }
+  const assistantEnvironment = (settings) => {
+    if (
+      settings !== undefined &&
+      (typeof settings?.enabled !== 'boolean' ||
+        (settings.maxToolCalls !== undefined &&
+          (!Number.isInteger(settings.maxToolCalls) ||
+            settings.maxToolCalls < 1 ||
+            settings.maxToolCalls > 20)))
+    )
+      throw new Error('Invalid local assistant fixture configuration.');
+    return {
+      ADMIN_AI_ASSISTANT_ENABLED: settings?.enabled ? 'true' : 'false',
+      ADMIN_AI_PROVIDER: 'mock',
+      ADMIN_AI_MAX_TOOL_CALLS: String(settings?.maxToolCalls ?? 6)
+    };
+  };
+  let assistantEnv = assistantEnvironment(assistant);
   const db = await startDisposablePostgres();
+  const mediaDirectory = await mkdtemp(join(tmpdir(), 'og7-identity-media-'));
   let provider, child, apiPort;
   const web = createBuiltWebServer((req, res) => {
     const upstream = proxyRequest(
@@ -52,7 +102,15 @@ export async function startIdentityStack({ smtpPort, social } = {}) {
         });
       await provider?.stop();
     } finally {
-      await db.stop();
+      try {
+        await db.stop();
+      } finally {
+        if (!resolve(mediaDirectory).startsWith(resolve(tmpdir()) + sep))
+          throw new Error(
+            'Identity media cleanup must stay inside its temporary directory.'
+          );
+        await rm(mediaDirectory, { recursive: true, force: true });
+      }
     }
   };
   try {
@@ -102,7 +160,11 @@ export async function startIdentityStack({ smtpPort, social } = {}) {
             SOCIAL_PUBLICATION_MODE: 'mock',
             FUNDING_CONTRIBUTION_EMAIL_ENABLED: 'false',
             FUNDING_CONTRIBUTION_SMS_MODE: 'disabled',
+            FUNDING_SPONSOR_LOGO_STORAGE_DIR: mediaDirectory,
+            SPONSOR_MEDIA_STORAGE_DRIVER: 'local',
             ...currentSocialEnv,
+            ...assistantEnv,
+            ...stripeEnv,
             ...(smtpPort === undefined
               ? {}
               : {
@@ -152,6 +214,8 @@ export async function startIdentityStack({ smtpPort, social } = {}) {
         return `http://127.0.0.1:${apiPort}`;
       },
       pool: db.pool,
+      mediaDirectory,
+      dumpDatabase: db.dumpDatabase,
       provider,
       async restartSocial(accounts) {
         if (!social) throw new Error('No local social fixture configured.');
@@ -161,6 +225,12 @@ export async function startIdentityStack({ smtpPort, social } = {}) {
         });
         await stopApi();
         currentSocialEnv = next;
+        await startApi();
+      },
+      async restartAssistant(settings) {
+        const next = assistantEnvironment(settings);
+        await stopApi();
+        assistantEnv = next;
         await startApi();
       },
       stop

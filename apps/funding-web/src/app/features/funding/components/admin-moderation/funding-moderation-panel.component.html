@@ -16,6 +16,9 @@
       }
       @if (error()) {
         <p role="alert">{{ error() | translate }}</p>
+        <button type="button" class="admin-button" (click)="retry()">
+          {{ 'admin.moderation.retry' | translate }}
+        </button>
       }
       @if (content(); as current) {
         <p>

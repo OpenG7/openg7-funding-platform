@@ -11,6 +11,11 @@ import {
   selectedE2eFiles,
   workflowSelections
 } from './lib/e2e-selection.mjs';
+import {
+  activeAdminScenarios,
+  declaredAdminRoutes,
+  validateAdminCoverage
+} from './lib/admin-e2e-coverage.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const args = process.argv.slice(2);
@@ -48,6 +53,7 @@ try {
     )
   );
   const selected = new Set();
+  const scenarios = [];
   for (const suite of suites) {
     const configPath = relative(root, resolve(root, suite.config));
     if (configPath.startsWith('..') || isAbsolute(configPath))
@@ -86,6 +92,7 @@ try {
       throw new Error(`Cannot discover E2E selection: ${suite.config}`);
     }
     const discovery = selectedE2eFiles(report, root);
+    scenarios.push(...activeAdminScenarios(report, root, suite.config));
     for (const file of discovery.files) selected.add(file);
     console.log(
       `${suite.config}: ${discovery.active} active test declarations discovered`
@@ -96,6 +103,22 @@ try {
     throw new Error(
       `E2E files not selected by ${workflow}:\n${missing.join('\n')}`
     );
+  const coverage = validateAdminCoverage(
+    JSON.parse(
+      readFileSync(resolve(root, 'tests/admin-e2e-coverage.json'), 'utf8')
+    ),
+    declaredAdminRoutes(
+      readFileSync(
+        resolve(root, 'apps/funding-web/src/app/admin.routes.ts'),
+        'utf8'
+      )
+    ),
+    scenarios,
+    root
+  );
+  console.log(
+    `${coverage.routes} admin routes and ${coverage.guarantees} guarantees linked to selected evidence.`
+  );
   console.log(
     `${sources.files.length} E2E files selected; no only/fixme declarations. Discovery does not certify test execution.`
   );

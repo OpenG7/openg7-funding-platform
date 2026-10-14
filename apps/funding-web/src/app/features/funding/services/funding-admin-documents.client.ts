@@ -12,7 +12,10 @@ import {
   AdminDashboardRequestError,
   type FundingAdminSession
 } from './funding-admin-session.js';
-import { errorMessageFromResponse } from './funding-admin-response.js';
+import {
+  errorDetailsFromResponse,
+  errorMessageFromResponse
+} from './funding-admin-response.js';
 
 /** Funding admin invoice and credit-note endpoints. Authentication belongs to the shared session. */
 export class FundingAdminDocumentsClient {
@@ -31,12 +34,11 @@ export class FundingAdminDocumentsClient {
     );
 
     if (!response.ok) {
+      const error = await errorDetailsFromResponse(response);
       throw new AdminDashboardRequestError(
         response.status,
-        await errorMessageFromResponse(
-          response,
-          'Admin sponsorship invoices could not be loaded.'
-        )
+        error.message ?? 'Admin sponsorship invoices could not be loaded.',
+        error.code
       );
     }
 
@@ -58,7 +60,8 @@ export class FundingAdminDocumentsClient {
     );
 
     if (!response.ok) {
-      throw new Error(
+      throw new AdminDashboardRequestError(
+        response.status,
         await errorMessageFromResponse(
           response,
           'Sponsorship invoices could not be backfilled.'
@@ -84,7 +87,8 @@ export class FundingAdminDocumentsClient {
     );
 
     if (!response.ok) {
-      throw new Error(
+      throw new AdminDashboardRequestError(
+        response.status,
         await errorMessageFromResponse(
           response,
           'Sponsorship invoice could not be resent.'
@@ -137,7 +141,8 @@ export class FundingAdminDocumentsClient {
     );
 
     if (!response.ok) {
-      throw new Error(
+      throw new AdminDashboardRequestError(
+        response.status,
         await errorMessageFromResponse(
           response,
           'Sponsorship credit note could not be resent.'
@@ -163,7 +168,8 @@ export class FundingAdminDocumentsClient {
     );
 
     if (!response.ok) {
-      throw new Error(
+      throw new AdminDashboardRequestError(
+        response.status,
         await errorMessageFromResponse(
           response,
           'Sponsorship credit note PDF could not be downloaded.'

@@ -10,6 +10,8 @@ import {
   PUBLIC_ALLOCATION_CREATE_CONFIRMATION
 } from '@openg7/funding-core';
 
+import { AdminDashboardRequestError } from '../../services/funding-admin-session.js';
+
 import { updatedExpenseDateTime } from './admin-expenses-read-controller.js';
 import type { AdminExpensesMutationPorts } from './admin-expenses.contracts.js';
 
@@ -68,8 +70,9 @@ export class AdminExpensesMutationWorkflow {
       if (!this.current(revision)) return;
       this.ports.resetDraftIfUnchanged(draft);
       await this.ports.read.load(true);
-    } catch {
+    } catch (error) {
       if (!this.current(revision)) return;
+      if (this.handleAccessError(error)) return;
       this.ports.read.state.set('error');
     } finally {
       if (!this.disposed) this.busy.set(false);
@@ -137,6 +140,7 @@ export class AdminExpensesMutationWorkflow {
       await this.ports.read.load(true);
     } catch (error) {
       if (!this.current(revision)) return;
+      if (this.handleAccessError(error)) return;
       if (error instanceof Error && error.message === 'version_conflict') {
         this.ports.read.conflict.set(true);
         return;
@@ -150,6 +154,16 @@ export class AdminExpensesMutationWorkflow {
   dispose(): void {
     this.disposed = true;
     this.busy.set(false);
+  }
+
+  private handleAccessError(error: unknown): boolean {
+    if (
+      !(error instanceof AdminDashboardRequestError) ||
+      (error.status !== 401 && error.status !== 403)
+    )
+      return false;
+    this.ports.onAccessDenied?.(error.status);
+    return true;
   }
 
   private current(revision: number): boolean {

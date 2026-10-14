@@ -3,6 +3,7 @@ import { Readable } from 'node:stream';
 import test from 'node:test';
 
 import { createAdminDocumentsHttpHandler } from '../dist/apps/funding-api/src/admin-documents.http.js';
+import { AdminFinancialCurrencyConflictError } from '../dist/apps/funding-api/src/admin-financial-currency.js';
 import { readBody } from '../dist/apps/funding-api/src/http-transport.js';
 
 const contributionId = '00000000-0000-4000-8000-00000000000a';
@@ -185,6 +186,18 @@ const resendInput = ({ idKey }, overrides = {}) => ({
   confirmation: documentId,
   to: recipient,
   ...overrides
+});
+
+test('mixed invoice or credit-note currencies return the stable financial conflict', async () => {
+  const f = fixture({
+    errors: { list: new AdminFinancialCurrencyConflictError() }
+  });
+  const result = await f.run('/api/admin/sponsorship-invoices');
+  assert.equal(result.status, 409);
+  assert.deepEqual(result.payload, {
+    code: 'ADMIN_FINANCIAL_CURRENCY_CONFLICT',
+    error: 'Amounts in different currencies cannot be combined.'
+  });
 });
 
 test('document aliases deny absent, expired and forbidden access before any parsing or data read', async (t) => {

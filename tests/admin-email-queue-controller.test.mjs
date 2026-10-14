@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { AdminEmailQueueController } from '../dist/apps/funding-web/src/app/features/funding/pages/admin-email-queue-page/admin-email-queue-controller.js';
+import { AdminDashboardRequestError } from '../dist/apps/funding-web/src/app/features/funding/services/funding-admin-session.js';
 
 const deferred = () => {
   let resolve;
@@ -84,6 +85,55 @@ const fixture = (t) => {
   t.after(() => controller.dispose());
   return { controller, ports, calls };
 };
+
+for (const status of [401, 403]) {
+  test(`HTTP ${status} erases private queue, filters and pending confirmations without late restoration`, async (t) => {
+    const { controller: c, ports, calls } = fixture(t);
+    const denials = [];
+    ports.onAccessDenied = (code) => denials.push(code);
+    await c.loadEmailQueue();
+    c.search.set('private query');
+    const confirmation = deferred();
+    ports.confirm = () => confirmation.promise;
+    const retry = c.retryMessage(message());
+    ports.admin.getEmailQueue = async () => {
+      throw new AdminDashboardRequestError(status);
+    };
+    await c.loadEmailQueue();
+    assert.equal(c.queue(), null);
+    assert.equal(c.search(), '');
+    assert.deepEqual(c.retryStates(), {});
+    assert.deepEqual(denials, [status]);
+    confirmation.resolve(true);
+    await retry;
+    assert.equal(calls.retries.length, 0);
+    assert.equal(c.queue(), null);
+  });
+}
+
+test('retry UUID survives a lost response and changes only after a confirmed result', async (t) => {
+  const { controller: c, ports, calls } = fixture(t);
+  await c.loadEmailQueue();
+  let failure = true;
+  ports.admin.retryEmailQueueMessage = async (token, payload) => {
+    calls.retries.push({ token, payload });
+    if (failure) throw new TypeError('Synthetic response lost');
+    return retryResult(message({ status: 'failed' }), { sent: 0 });
+  };
+  await c.retryMessage(message());
+  failure = false;
+  await c.retryMessage(message());
+  await c.retryMessage(message());
+  assert.match(calls.retries[0].payload.requestId, /^[a-f0-9-]{36}$/);
+  assert.equal(
+    calls.retries[1].payload.requestId,
+    calls.retries[0].payload.requestId
+  );
+  assert.notEqual(
+    calls.retries[2].payload.requestId,
+    calls.retries[1].payload.requestId
+  );
+});
 
 test('target consultation resets local filters and only the newest response owns the snapshot', async (t) => {
   const { controller: c, ports, calls } = fixture(t);
@@ -329,7 +379,13 @@ test('accepted recovery refreshes authoritative totals and retains messageId, fi
     { token: 'synthetic-session', target: message().id }
   ]);
   assert.deepEqual(calls.retries, [
-    { token: 'synthetic-session', payload: { messageId: message().id } }
+    {
+      token: 'synthetic-session',
+      payload: {
+        messageId: message().id,
+        requestId: calls.retries[0].payload.requestId
+      }
+    }
   ]);
 });
 

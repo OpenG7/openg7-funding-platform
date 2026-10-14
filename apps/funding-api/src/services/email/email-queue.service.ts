@@ -1,4 +1,5 @@
 import type { Pool, PoolClient } from 'pg';
+import type { AdminEmailQueueRetryResult } from '@openg7/funding-core';
 
 import {
   claimAdminEmailQueueRetry,
@@ -46,14 +47,19 @@ interface EmailQueueProcessOptions {
   readonly emailDependencies?: EmailServiceDependencies;
 }
 
-export interface EmailQueueProcessResult {
-  readonly attempted: number;
-  readonly sent: number;
-  readonly failed: number;
-  readonly messageIds: readonly string[];
-  readonly sentMessageIds: readonly string[];
-  readonly failedMessageIds: readonly string[];
-}
+export type EmailQueueProcessResult = Omit<
+  AdminEmailQueueRetryResult,
+  'message' | 'requestId' | 'replayed'
+>;
+
+const emptyEmailQueueProcessResult = (): EmailQueueProcessResult => ({
+  attempted: 0,
+  sent: 0,
+  failed: 0,
+  messageIds: [],
+  sentMessageIds: [],
+  failedMessageIds: []
+});
 
 const defaultMaxAttempts = 5;
 
@@ -162,14 +168,7 @@ export const processQueuedEmailMessages = async (
   options: EmailQueueProcessOptions = {}
 ): Promise<EmailQueueProcessResult> => {
   if (!pool) {
-    return {
-      attempted: 0,
-      sent: 0,
-      failed: 0,
-      messageIds: [],
-      sentMessageIds: [],
-      failedMessageIds: []
-    };
+    return emptyEmailQueueProcessResult();
   }
 
   const dependencies = snapshotEmailDependencies(options.emailDependencies);
@@ -180,7 +179,7 @@ export const processQueuedEmailMessages = async (
   return deliverClaimedEmailMessages(pool, rows, dependencies);
 };
 
-const deliverClaimedEmailMessages = async (
+export const deliverClaimedEmailMessages = async (
   pool: Pool,
   rows: readonly ClaimedEmailMessage[],
   dependencies: EmailServiceDependencies = {}
@@ -235,14 +234,7 @@ export const retryAdminEmailQueueMessage = async (
   emailDependencies: EmailServiceDependencies = {}
 ): Promise<EmailQueueProcessResult> => {
   if (!pool) {
-    return {
-      attempted: 0,
-      sent: 0,
-      failed: 0,
-      messageIds: [],
-      sentMessageIds: [],
-      failedMessageIds: []
-    };
+    return emptyEmailQueueProcessResult();
   }
 
   const rows = await claimAdminEmailQueueRetry(pool, messageId);

@@ -68,9 +68,9 @@ import {
   queuePublicationBatchFullNotification,
   queueSponsorshipCreditNoteEmail,
   queueSponsorshipRefundEmail,
-  queueSponsorshipRejectionEmail,
-  retryAdminEmailQueueMessage
+  queueSponsorshipRejectionEmail
 } from '../email-notification.service.js';
+import { retryAdminEmailWithAudit } from '../admin-email-retry.service.js';
 import {
   AdminExpenseValidationError,
   allowedAdminExpenseStatuses,
@@ -351,11 +351,10 @@ export const createAdminHttpHandlers = ({
     listAdminEmailQueue: (scope) => listAdminEmailQueue(dbPool, scope),
     getAdminEmailQueueMessageById: (messageId) =>
       getAdminEmailQueueMessageById(dbPool, messageId),
-    retryAdminEmailQueueMessage: (messageId) =>
-      retryAdminEmailQueueMessage(dbPool, messageId),
+    retryAdminEmailQueueMessage: (messageId, actor, requestId) =>
+      retryAdminEmailWithAudit(dbPool!, { messageId, requestId }, actor),
     reconcileEmailDelivery: (input, actor) =>
       reconcileEmailDelivery(dbPool, input, actor),
-    insertAdminAuditLog: (input) => insertAdminAuditLog(dbPool, input),
     reportFailure: (message, error) => console.error(message, error)
   });
 

@@ -9,6 +9,10 @@ le parcours spécialisé. Les raccourcis du pilotage sont neutralisés lorsque
 le focus est dans la navigation globale ou la recherche; le retour aux décisions
 exige de relâcher la manette.
 
+Un rappel de créneau, lot ou brouillon sans livraison renvoie à son dossier ;
+il ne propose pas une décision de modération pour `publication_delivery`.
+Une livraison réelle conserve son panneau lié à son identifiant exact.
+
 La carte d'état du traitement automatique est un lien **Ouvrir les réglages**
 vers `/admin/fundraiser/publications/automation?settings=feeds`, avec la section
 des connexions et cadences dépliée. Ce raccourci ne change aucun réglage.
@@ -220,6 +224,12 @@ panneau, comme son titre, restent côté client.
 Ils exigent le runner isolé, le worker désactivé et une destination suspendue en
 mode `mock`. Le fournisseur social reste simulé; l'approbation ne prouve pas un
 envoi externe. Le workflow `Admin acceptance` découvre ces tests automatiquement.
+
+La [recette OIDC du pilotage](../../tests/identity/pilotage-moderation-journey.spec.ts)
+vérifie la file mixte et l'approbation de deux commanditaires puis de leur livraison.
+L'annulation du second panneau n'enregistre aucune décision. Un conflit concurrent
+annule toute l'opération ; le succès et le rejeu conservent trois décisions et une
+seule autorisation, sans publication sur le site ni envoi social.
 
 Commandes de recette :
 

@@ -16,6 +16,7 @@ import type {
 export class AdminContributionsController {
   readonly data = signal<AdminContributionsResponse | null>(null);
   readonly state = signal<ContributionsReadState>('idle');
+  readonly readError = signal('');
   readonly search = signal('');
   readonly selectedContributionId = signal<string | null>(null);
   readonly typeFilter = signal<ContributionTypeFilter>('all');
@@ -91,6 +92,7 @@ export class AdminContributionsController {
     this.invalidateExportScope();
     const token = this.ports.token();
     this.state.set('loading');
+    this.readError.set('');
     try {
       const response = await this.ports.admin.getContributions(
         token,
@@ -105,6 +107,14 @@ export class AdminContributionsController {
       this.ports.admin.saveAdminToken(token);
     } catch (error) {
       if (!this.currentAccess(generation, accessRevision)) return;
+      if (
+        error instanceof AdminDashboardRequestError &&
+        error.code === 'ADMIN_FINANCIAL_CURRENCY_CONFLICT'
+      ) {
+        this.data.set(null);
+        this.selectedContributionId.set(null);
+        this.readError.set('admin.financial.currencyConflict');
+      }
       if (
         error instanceof AdminDashboardRequestError &&
         (error.status === 401 || error.status === 403)

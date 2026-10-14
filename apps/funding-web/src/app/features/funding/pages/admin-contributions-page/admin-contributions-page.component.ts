@@ -92,6 +92,7 @@ export class AdminContributionsPageComponent implements OnInit {
   });
   readonly data = this.controller.data;
   readonly state = this.controller.state;
+  readonly readError = this.controller.readError;
   readonly search = this.controller.search;
   readonly selectedContributionId = this.controller.selectedContributionId;
   readonly typeFilter = this.controller.typeFilter;
