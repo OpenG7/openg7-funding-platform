@@ -7,8 +7,8 @@ import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import type { SponsorshipCommitmentRecord } from '@openg7/funding-core';
 import sharp from 'sharp';
 
-import { captureWebsiteEvidenceSnapshot } from '../../dist/apps/funding-api/src/sponsorship-fulfilment.repository.js';
-import { attestWebsiteMedia } from '../../dist/apps/funding-api/src/sponsorship-website-media.js';
+import { captureWebsiteEvidenceSnapshot } from '../../apps/funding-api/src/sponsorship-fulfilment.repository.js';
+import { attestWebsiteMedia } from '../../apps/funding-api/src/sponsorship-website-media.js';
 import { approveCurrentModeration } from '../playwright/support/moderation.js';
 
 import { startIdentityStack } from './stack.mjs';

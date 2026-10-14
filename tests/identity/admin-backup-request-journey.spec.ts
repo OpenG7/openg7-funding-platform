@@ -62,6 +62,10 @@ test('admin backup request: OIDC confirmation, lost response, one real encrypted
     const headers = { Origin: stack.origin };
     const panel = page.locator('[data-og7="setup-backups"]');
     const request = panel.locator('[data-og7="backup-request"]');
+    const confirmation = page.getByRole('dialog', {
+      name: 'Confirmer l’action',
+      exact: true
+    });
     const jobs = async () =>
       (
         await stack.pool.query(
@@ -70,7 +74,13 @@ test('admin backup request: OIDC confirmation, lost response, one real encrypted
       ).rows;
     await expect(request).toBeEnabled();
     await request.click();
+    await expect(confirmation).toBeVisible();
+    await expect(
+      confirmation.getByRole('button', { name: 'Annuler', exact: true }).first()
+    ).toBeFocused();
     await page.keyboard.press('Escape');
+    await expect(confirmation).not.toBeVisible();
+    await expect(request).toBeFocused();
     expect(await jobs()).toEqual([]);
     const requests: { requestId: string; confirmation: string }[] = [];
     page.on('request', (r) => {

@@ -197,8 +197,19 @@ test('moderation correction and reconsideration preserve private explanations, a
     await actions
       .locator('[data-og7="moderation-assigned-member"]')
       .selectOption('admin:' + member.id);
-    await actions.locator('[data-og7="moderation-assign"]').click();
+    const assign = actions.locator('[data-og7="moderation-assign"]');
+    const confirmation = owner.getByRole('dialog', {
+      name: 'Confirmer l’action',
+      exact: true
+    });
+    await assign.click();
+    await expect(confirmation).toBeVisible();
+    await expect(
+      confirmation.getByRole('button', { name: 'Annuler', exact: true }).first()
+    ).toBeFocused();
     await owner.keyboard.press('Escape');
+    await expect(confirmation).not.toBeVisible();
+    await expect(assign).toBeFocused();
     expect(
       (
         await pool.query(
@@ -207,7 +218,7 @@ test('moderation correction and reconsideration preserve private explanations, a
         )
       ).rows[0]!.assigned_to
     ).toBeNull();
-    await actions.locator('[data-og7="moderation-assign"]').click();
+    await assign.click();
     const assigned = owner.waitForResponse(
       (response) =>
         response.url().endsWith('/api/admin/moderation/assignment') &&
