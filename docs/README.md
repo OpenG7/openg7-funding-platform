@@ -123,6 +123,9 @@ PostgreSQL réels. Le registre vérifié en CI conserve les scénarios exacts.
   diagnostic, photos individuelles et collectives, suivi privé et plan de réalisation.
 - [Plan de travail — OpenG7 Admin pour Windows](funding-windows-plan-de-travail.md) :
   application de gestion des contributions et commandites, à réaliser ultérieurement.
+- [Plan de travail pour le pilotage OpenG7 sur Xbox One](funding-xbox-plan-de-travail.md) :
+  maquettes TV, parcours après paiement, architecture proposée, estimation et lots
+  à reprendre ultérieurement.
 
 ## Exploitation et validation
 
