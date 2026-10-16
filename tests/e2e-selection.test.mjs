@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import {
   assertDiscoveryArgs,
@@ -153,6 +156,44 @@ test('sandbox verification discovery follows the dedicated runner contract witho
       ),
     /Conditional E2E/
   );
+});
+
+test('actual Playwright discovery reserves the sandbox recipe for its dedicated stack', () => {
+  const root = fileURLToPath(new URL('../', import.meta.url));
+  const cli = createRequire(import.meta.url).resolve('@playwright/test/cli');
+  const sandboxFile = 'tests/playwright/admin-sandbox-acceptance.spec.ts';
+  for (const [config, isolated] of [
+    ['playwright.config.ts', '0'],
+    ['playwright.config.ts', '1'],
+    ['tests/playwright-sandbox.config.mjs', '1']
+  ]) {
+    const report = JSON.parse(
+      execFileSync(
+        process.execPath,
+        [cli, 'test', '--config', config, '--list', '--reporter=json'],
+        {
+          cwd: root,
+          env: { ...process.env, OPENG7_E2E_ISOLATED: isolated },
+          encoding: 'utf8',
+          maxBuffer: 16 * 1024 * 1024,
+          timeout: 30000,
+          windowsHide: true,
+          stdio: ['ignore', 'pipe', 'pipe']
+        }
+      )
+    );
+    const { files } = selectedE2eFiles(report, root);
+    if (config === 'playwright.config.ts') {
+      assert.ok(files.has('tests/playwright/admin-contributions.spec.ts'));
+      assert.equal(
+        files.has(sandboxFile),
+        false,
+        `ordinary stack: ${isolated}`
+      );
+    } else {
+      assert.deepEqual([...files], [sandboxFile]);
+    }
+  }
 });
 
 const shardedWorkflow = (

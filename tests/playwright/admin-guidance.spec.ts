@@ -607,20 +607,73 @@ async function expectStep(page: Page, id: 'read' | 'choose' | 'verify') {
 
 async function expectGoldenZone(zone: Locator) {
   await expect(zone).toHaveAttribute('data-og7-guidance-highlight', '');
-  expect(
-    await zone.evaluate((element) => {
-      const style = getComputedStyle(element);
-      const [red, green, blue] = (style.outlineColor.match(/[\d.]+/g) ?? [])
-        .slice(0, 3)
-        .map(Number);
-      return {
-        outlined: parseFloat(style.outlineWidth) >= 2,
-        golden: red >= 170 && green >= 110 && red > green && green > blue,
-        halo: style.boxShadow !== 'none'
-      };
-    })
-  ).toEqual({ outlined: true, golden: true, halo: true });
+  await expect
+    .poll(() => zone.evaluate(readGuidanceDecoration))
+    .toMatchObject({ outlined: true, golden: true, halo: true });
 }
+
+function readGuidanceDecoration(element: Element) {
+  const style = getComputedStyle(element);
+  const canvas = element.ownerDocument.createElement('canvas');
+  canvas.width = canvas.height = 1;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Cannot inspect the guidance outline colour');
+  // CSSOM may serialize colours as rgb() or normalized color(srgb ...).
+  // Let the browser convert the actual computed colour to 8-bit sRGB first.
+  context.fillStyle = style.outlineColor;
+  context.fillRect(0, 0, 1, 1);
+  const [red, green, blue, alpha] = context.getImageData(0, 0, 1, 1).data;
+  return {
+    outlineColor: style.outlineColor,
+    outlineRgba: [red, green, blue, alpha],
+    outlined:
+      style.outlineStyle !== 'none' && parseFloat(style.outlineWidth) >= 2,
+    golden:
+      alpha === 255 &&
+      red >= 170 &&
+      green >= 110 &&
+      red > green &&
+      green > blue,
+    halo: style.boxShadow !== 'none'
+  };
+}
+
+test('the golden halo assertion handles CSS colour formats and rejects other colours', async ({
+  page
+}) => {
+  await page.setContent(`
+    <div data-og7-guidance-highlight style="outline: 3px solid;
+      box-shadow: 0 0 6px #f4c957">Landmark</div>
+  `);
+  const zone = page.locator(highlighted);
+  for (const colour of [
+    'rgb(244, 201, 87)',
+    'color(srgb 0.9568627451 0.7882352941 0.3411764706)'
+  ]) {
+    await zone.evaluate((element, value) => {
+      (element as HTMLElement).style.outlineColor = value;
+    }, colour);
+    await expectGoldenZone(zone);
+    expect((await zone.evaluate(readGuidanceDecoration)).outlineRgba).toEqual([
+      244, 201, 87, 255
+    ]);
+  }
+  for (const colour of [
+    'color(srgb 0 0 1)',
+    'color(srgb 0 1 1)',
+    'color(srgb 0.8 0.8 0.8)',
+    'rgb(244 201 87 / 0)'
+  ]) {
+    await zone.evaluate((element, value) => {
+      (element as HTMLElement).style.outlineColor = value;
+    }, colour);
+    expect(await zone.evaluate(readGuidanceDecoration)).toMatchObject({
+      outlined: true,
+      golden: false,
+      halo: true
+    });
+  }
+});
 
 async function stored(page: Page, accountId = 'guidance-owner-a') {
   return page.evaluate((key) => {

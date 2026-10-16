@@ -3,6 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 import adminUiConfig from './tests/playwright-admin-ui.config.mjs';
 import followupUiConfig from './tests/playwright-followup-ui.config.mjs';
 import publicJourneysConfig from './tests/playwright-public-journeys.config.mjs';
+import sandboxConfig from './tests/playwright-sandbox.config.mjs';
 
 const baseURL =
   process.env.PLAYWRIGHT_BASE_URL?.replace(/\/$/, '') ??
@@ -22,6 +23,9 @@ export default defineConfig({
   // Reuse each suite's testMatch so no fixture is replayed against Docker there.
   testIgnore: [
     'platform-accessibility.spec.ts',
+    // The sandbox recipe requires its own proxy, manifest and empty database.
+    // Its dedicated launcher owns that stack, independently of ordinary Docker.
+    sandboxConfig.testMatch ?? [],
     followupUiConfig.testMatch ?? [],
     publicJourneysConfig.testMatch ?? [],
     process.env.OPENG7_E2E_ISOLATED === '1'

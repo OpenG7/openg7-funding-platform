@@ -302,7 +302,8 @@ for (const locale of ['fr', 'en']) {
     const execute = page.locator('[data-og7="stripe-backfill-execute"]');
     await expect(execute).toBeEnabled();
     await page.locator('[data-og7="stripe-backfill-toggle"]').click();
-    await page.clock.runFor(600001);
+    // Cross the expiry without replaying ten minutes of controller animation frames.
+    await page.clock.fastForward(600001);
     await expect(execute).toBeDisabled();
     const result = page.locator('[data-og7="stripe-backfill-result"]');
     await expect(result).toContainText(
@@ -364,7 +365,8 @@ test('Stripe recovery does not execute a preview that expired while confirmation
   await page.locator('[data-og7="stripe-backfill-preview"]').click();
   await page.locator('[data-og7="stripe-backfill-execute"]').click();
   await expect(page.locator('dialog[open]')).toBeVisible();
-  await page.clock.runFor(600001);
+  // Due expiry timers still run; unrelated animation frames need no full replay.
+  await page.clock.fastForward(600001);
   await page.locator('[data-og7="confirm-action"]').click();
   await expect(page.locator('dialog[open]')).toHaveCount(0);
   await expect(
