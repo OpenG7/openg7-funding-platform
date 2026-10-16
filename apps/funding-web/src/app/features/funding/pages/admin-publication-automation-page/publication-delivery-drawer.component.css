@@ -1,5 +1,6 @@
+@reference '../../../../../styles/tailwind.css';
 :host {
-  display: block;
+  @apply tw:block;
   color: var(--admin-text, #e5edf7);
 }
 p {
@@ -9,7 +10,7 @@ a {
   color: var(--og7-admin-accent, #9ecfff);
 }
 details > summary {
-  cursor: pointer;
+  @apply tw:cursor-pointer;
   padding: 1rem 0;
   font-weight: var(--admin-control-weight);
 }
@@ -20,14 +21,13 @@ a:focus-visible {
   outline-offset: 3px;
 }
 .alert {
-  padding: 1rem;
+  @apply tw:p-4;
   background: var(--og7-admin-warning-bg, #392e19);
-  color: var(--admin-warning);
+  @apply tw:text-admin-warning;
   border-radius: 0.7rem;
 }
 label {
-  display: flex;
-  flex-direction: column;
+  @apply tw:flex tw:flex-col;
   gap: 0.4rem;
   margin: 1rem 0;
 }
@@ -36,11 +36,10 @@ textarea,
 select {
   border: 1px solid var(--admin-border);
   background: var(--admin-panel-raised);
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
   border-radius: 0.4rem;
   padding: 0.65rem;
-  width: 100%;
-  box-sizing: border-box;
+  @apply tw:w-full tw:box-border;
   font: inherit;
   font-weight: 400;
 }
@@ -49,14 +48,13 @@ textarea {
 }
 fieldset {
   border: 0;
-  padding: 0;
-  min-width: 0;
+  @apply tw:p-0 tw:min-w-0;
 }
 fieldset:disabled {
   opacity: 0.8;
 }
 .check {
-  flex-direction: row;
+  @apply tw:flex-row;
   align-items: flex-start;
 }
 input[type='checkbox'] {
@@ -64,28 +62,23 @@ input[type='checkbox'] {
   margin-top: 0.2rem;
 }
 .preview-image {
-  display: block;
-  width: 100%;
+  @apply tw:block tw:w-full;
   max-height: 320px;
   object-fit: contain;
   margin: 1rem 0;
 }
 .destination {
-  display: flex;
-  flex-direction: column;
-  overflow-wrap: anywhere;
-  gap: 0.5rem;
+  @apply tw:flex tw:flex-col tw:wrap-anywhere tw:gap-2;
 }
 .approval {
   border: 1px solid var(--admin-success);
   border-radius: 0.7rem;
-  padding: 1rem;
+  @apply tw:p-4;
   margin: 1rem 0;
 }
 .publication-copy {
   white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  padding: 1rem;
+  @apply tw:wrap-anywhere tw:p-4;
   background: var(--admin-panel-raised);
   border-radius: 0.7rem;
 }

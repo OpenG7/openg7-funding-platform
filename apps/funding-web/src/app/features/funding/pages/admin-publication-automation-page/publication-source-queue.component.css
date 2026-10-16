@@ -1,5 +1,6 @@
+@reference '../../../../../styles/tailwind.css';
 :host {
-  display: block;
+  @apply tw:block;
   margin: 1.5rem 0;
 }
 section {
@@ -7,37 +8,31 @@ section {
   border: 1px solid var(--admin-border);
   border-radius: 1rem;
   background: var(--admin-panel);
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }
 header,
 .source-links,
 .source-pages {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+  @apply tw:flex tw:items-center tw:justify-between tw:flex-wrap tw:gap-3;
 }
 h2,
 h3,
 dd {
-  margin: 0;
+  @apply tw:m-0;
 }
 h3 {
   font-size: 1rem;
   flex: 1 1 15rem;
-  min-width: 0;
+  @apply tw:min-w-0;
 }
 p {
   line-height: 1.6;
 }
 .detail {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
 }
 .source-summary {
-  display: flex;
-  flex-wrap: wrap;
+  @apply tw:flex tw:flex-wrap;
   gap: 1rem 2rem;
 }
 dd {
@@ -46,19 +41,16 @@ dd {
 }
 .source-list {
   list-style: none;
-  padding: 0;
-  display: grid;
-  gap: 1rem;
+  @apply tw:p-0 tw:grid tw:gap-4;
 }
 .source-list > li {
-  min-width: 0;
-  padding: 1rem;
+  @apply tw:min-w-0 tw:p-4;
   background: var(--admin-subtle);
   border: 1px solid var(--admin-border);
   border-radius: 0.7rem;
 }
 .source-status {
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
   font-weight: 600;
 }
 .source-links {
@@ -66,7 +58,7 @@ dd {
   gap: 0.75rem 1.5rem;
 }
 a {
-  color: var(--admin-accent);
+  @apply tw:text-admin-accent;
 }
 button:focus-visible,
 a:focus-visible,
@@ -83,6 +75,6 @@ h2:focus {
   }
   .source-links {
     align-items: flex-start;
-    flex-direction: column;
+    @apply tw:flex-col;
   }
 }

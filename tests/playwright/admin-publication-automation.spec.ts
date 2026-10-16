@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { AxeBuilder } from '@axe-core/playwright';
 import type {
   PublicationAutomationCommand,
@@ -343,6 +343,290 @@ registerPublicationImagePreviewTests({
 registerPublicationReliabilityTests({
   setup: (page, reliability) =>
     fixtures(page, 'draft', false, [], {}, { reliability })
+});
+
+const publicationPalettes = {
+  mineral: {
+    panel: 'rgb(255, 255, 255)',
+    raised: 'rgb(240, 244, 238)',
+    subtle: 'rgb(247, 245, 240)',
+    border: 'rgb(202, 213, 201)',
+    text: 'rgb(41, 51, 46)'
+  },
+  night: {
+    panel: 'rgb(20, 35, 56)',
+    raised: 'rgb(27, 45, 68)',
+    subtle: 'rgb(16, 32, 51)',
+    border: 'rgb(64, 86, 111)',
+    text: 'rgb(241, 245, 252)'
+  },
+  graphite: {
+    panel: 'rgb(37, 41, 47)',
+    raised: 'rgb(50, 56, 65)',
+    subtle: 'rgb(32, 36, 41)',
+    border: 'rgb(86, 97, 110)',
+    text: 'rgb(243, 244, 246)'
+  }
+} as const;
+
+async function publicationStyleFixtures(page: Page) {
+  const reliability: NonNullable<PublicationAutomationState['reliability']> = {
+    scope: 'global',
+    evaluatedAt: '2030-06-01T12:00:00Z',
+    obligations: {
+      open: 1,
+      undatedSocial: 0,
+      oldestOpenAt: '2030-06-01T12:00:00Z',
+      oldestUndatedAt: null,
+      fulfilledWithEvidence: 0,
+      waived: 0,
+      unqualifiedDossiers: 0
+    },
+    capacity: { saturatedBatches: 0, saturatedSlots: 0, accountConflicts: 0 },
+    deliveries: {
+      publishing: 0,
+      uncertain: 0,
+      uncertainAccounts: 0,
+      oldestUncertainAccountAt: null,
+      overdueApproved: 0
+    },
+    discrepancies: {
+      proof: 0,
+      orphanProof: 0,
+      obligationReservation: 0,
+      accountReservation: 0,
+      accountLease: 0,
+      batchCapacity: 0,
+      slotCapacity: 0
+    },
+    incidents: [],
+    incidentTotal: 0,
+    correlationLimit: 50
+  };
+  return fixtures(
+    page,
+    'draft',
+    false,
+    [],
+    {},
+    {
+      workerEnabled: false,
+      queue: sourceQueue([sourceEntry(1)]),
+      reliability,
+      extraDeliveries: [2, 3].map((index) => ({
+        ...initialJob,
+        id: `11111111-1111-4111-8111-11111111111${index}`,
+        message: `Synthetic editorial draft ${index}`
+      }))
+    }
+  );
+}
+
+async function publicationGridColumns(element: Locator): Promise<number> {
+  return element.evaluate(
+    (node) => getComputedStyle(node).gridTemplateColumns.split(' ').length
+  );
+}
+
+for (const theme of ['mineral', 'night', 'graphite'] as const) {
+  test(`publication automation CSS preserves ${theme} panels and read-only drawers on French mobile and English desktop`, async ({
+    page
+  }) => {
+    await page.addInitScript((theme) => {
+      localStorage.setItem('openg7.language', 'fr-CA');
+      localStorage.setItem(
+        'openg7.pilotage.appearance.v1',
+        JSON.stringify({ theme, system: false, density: 'comfortable' })
+      );
+    }, theme);
+    await page.setViewportSize({ width: 390, height: 1000 });
+    const commands = await publicationStyleFixtures(page);
+    await page.goto('/admin/fundraiser/publications/automation?settings=feeds');
+    const root = page.locator('[data-og7="publication-automation"]');
+    const worker = root.locator('[data-og7="publication-worker"]');
+    const queue = root.locator('[data-og7="publication-source-queue"]');
+    const reliability = root.locator('[data-og7="publication-reliability"]');
+    const job = root.locator(`[data-og7-id="${initialJob.id}"]`);
+    const palette = publicationPalettes[theme];
+    for (const language of ['fr-CA', 'en']) {
+      await test.step(
+        language === 'fr-CA' ? '390px French' : '1600px English',
+        async () => {
+          if (language === 'en') {
+            await page.setViewportSize({ width: 1600, height: 1000 });
+            await page
+              .getByRole('button', {
+                name: 'Switch administration language to English'
+              })
+              .click();
+          }
+          await expect(page.locator('html')).toHaveAttribute('lang', language);
+          await expect(page.locator('html')).toHaveAttribute(
+            'data-og7-pilot-theme',
+            theme
+          );
+          for (const panel of [worker, queue, job]) {
+            await expect(panel).toHaveCSS('background-color', palette.panel);
+            await expect(panel).toHaveCSS('border-top-color', palette.border);
+            await expect(panel).toHaveCSS('border-radius', '16px');
+            await expect(panel).toHaveCSS('padding', '18.4px');
+          }
+          await expect(root).toHaveCSS(
+            'padding',
+            language === 'fr-CA' ? '16px' : '40px'
+          );
+          await expect(root.getByRole('switch')).toHaveCSS(
+            'background-color',
+            palette.raised
+          );
+          const entry = queue.locator('[data-og7="publication-source-entry"]');
+          await expect(entry).toHaveCSS('background-color', palette.subtle);
+          await expect(entry).toHaveCSS('padding', '16px');
+          await reliability.locator('summary').focus();
+          await page.keyboard.press('Enter');
+          await expect(reliability).toHaveCSS('padding', '16px');
+          await expect(reliability).toHaveCSS('border-radius', '12px');
+          await expect(reliability.locator('summary')).toHaveCSS(
+            'font-weight',
+            '650'
+          );
+          await expect(reliability.locator('dl')).toHaveCSS('display', 'grid');
+          await expect(reliability.locator('dl')).toHaveCSS('gap', '12px');
+          await expect(reliability.locator('dd').first()).toHaveCSS(
+            'font-weight',
+            '650'
+          );
+          await page.keyboard.press('Space');
+          const opener = root
+            .getByRole('button', {
+              name: language === 'en' ? 'Settings' : 'Réglages',
+              exact: true
+            })
+            .first();
+          await opener.focus();
+          await page.keyboard.press('Enter');
+          const settings = page.getByRole('dialog');
+          const capacity = settings.locator('input[name="capacity"]');
+          await expect(capacity).toHaveCSS('background-color', palette.raised);
+          await expect(capacity).toHaveCSS('color', palette.text);
+          await expect(capacity).toHaveCSS('padding', '10.4px');
+          const actions = settings
+            .getByRole('button', {
+              name:
+                language === 'en'
+                  ? 'Save settings'
+                  : 'Enregistrer les réglages',
+              exact: true
+            })
+            .locator('..');
+          await expect(actions).toHaveCSS('position', 'sticky');
+          await expect(actions).toHaveCSS('bottom', '0px');
+          await page.keyboard.press('Escape');
+          await expect(opener).toBeFocused();
+          await job.focus();
+          await page.keyboard.press('Enter');
+          const delivery = page.getByRole('dialog');
+          const preview = delivery.getByText(initialJob.message, {
+            exact: true
+          });
+          await expect(preview).toHaveCSS('background-color', palette.raised);
+          await expect(preview).toHaveCSS('padding', '16px');
+          await expect(preview).toHaveCSS('white-space', 'pre-wrap');
+          await delivery
+            .getByRole('button', {
+              name: language === 'en' ? 'Edit' : 'Modifier',
+              exact: true
+            })
+            .focus();
+          await page.keyboard.press('Enter');
+          await expect(delivery.locator('textarea')).toHaveCSS(
+            'background-color',
+            palette.raised
+          );
+          await expect(delivery.locator('textarea')).toHaveCSS(
+            'padding',
+            '10.4px'
+          );
+          await expect(delivery.locator('textarea')).toHaveCSS(
+            'resize',
+            'vertical'
+          );
+          await page.keyboard.press('Escape');
+          await expect(job).toBeFocused();
+          expect(commands).toEqual([]);
+          expect(
+            await page.evaluate(
+              () => document.documentElement.scrollWidth <= innerWidth + 1
+            )
+          ).toBe(true);
+        }
+      );
+    }
+  });
+}
+
+test('publication automation CSS preserves the 520px, 650px and 1100px boundaries', async ({
+  page
+}) => {
+  const commands = await publicationStyleFixtures(page);
+  await page.goto('/admin/fundraiser/publications/automation?settings=feeds');
+  const root = page.locator('[data-og7="publication-automation"]');
+  const job = root.locator(`[data-og7-id="${initialJob.id}"]`);
+  const feeds = root.getByRole('region', { name: 'Destinations', exact: true });
+  const sourceLinks = root
+    .locator('[data-og7="publication-source-entry"]')
+    .getByRole('link')
+    .first()
+    .locator('..');
+  for (const width of [650, 651, 1100, 1101]) {
+    await test.step(`${width}px page`, async () => {
+      await page.setViewportSize({ width, height: 1000 });
+      await expect
+        .poll(() => publicationGridColumns(job.locator('..')))
+        .toBe(width <= 650 ? 1 : width <= 1100 ? 2 : 3);
+      await expect
+        .poll(() => publicationGridColumns(feeds))
+        .toBe(width <= 650 ? 1 : width <= 1100 ? 2 : 4);
+      await expect(sourceLinks).toHaveCSS(
+        'flex-direction',
+        width <= 650 ? 'column' : 'row'
+      );
+    });
+  }
+  await root
+    .getByRole('button', { name: 'Réglages', exact: true })
+    .first()
+    .click();
+  const settings = page.getByRole('dialog');
+  const days = settings
+    .getByRole('checkbox')
+    .first()
+    .locator('..')
+    .locator('..');
+  const fields = settings
+    .locator('input[name="capacity"]')
+    .locator('..')
+    .locator('..');
+  const actions = settings
+    .getByRole('button', { name: 'Enregistrer les réglages', exact: true })
+    .locator('..');
+  for (const width of [520, 521]) {
+    await test.step(`${width}px settings`, async () => {
+      await page.setViewportSize({ width, height: 1000 });
+      await expect
+        .poll(() => publicationGridColumns(days))
+        .toBe(width <= 520 ? 4 : 7);
+      await expect
+        .poll(() => publicationGridColumns(fields))
+        .toBe(width <= 520 ? 1 : 2);
+      await expect(actions).toHaveCSS(
+        'display',
+        width <= 520 ? 'grid' : 'flex'
+      );
+    });
+  }
+  await page.keyboard.press('Escape');
+  expect(commands).toEqual([]);
 });
 
 for (const language of ['fr-CA', 'en'] as const) {

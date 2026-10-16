@@ -154,6 +154,19 @@ dimensions calculées, son seuil de 480 px et ses mécanismes de focus. Les rece
 [recherche](../../tests/playwright/admin-global-search.spec.ts) vérifient leur
 présentation et leurs interactions avec les API interceptées.
 
+Les lots Publications, Automatisation, Accès et Guide d'identité utilisent aussi
+les utilitaires locaux. Les publications conservent les seuils de 600, 700 et
+900 px, le calendrier et le défilement de la file; l'automatisation garde ceux
+de 520, 650 et 1100 px. Les styles inline du panneau de fiabilité et de la page
+d'accès sont extraits dans leurs feuilles respectives. Les variables publiques
+et les fallbacks du guide d'identité restent distincts des alias admin; son
+seuil de 700 px est conservé. Les recettes
+[publications](../../tests/playwright/admin-publication-queue.spec.ts),
+[automatisation](../../tests/playwright/admin-publication-automation.spec.ts),
+[accès](../../tests/playwright/admin-access-ui.spec.ts) et
+[identité](../../tests/playwright/admin-identity-setup-ui.spec.ts) couvrent les
+palettes, le responsive, le focus et les confirmations avec les API simulées.
+
 Étendre seulement là où les utilitaires rendent la source plus claire. Conserver
 du CSS explicite pour les interactions de sélecteurs, les dégradés, graphiques,
 positions calculées, animations produit et règles d'impression complexes.

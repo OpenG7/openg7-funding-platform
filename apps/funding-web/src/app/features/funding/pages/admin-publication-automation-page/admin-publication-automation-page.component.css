@@ -1,5 +1,6 @@
+@reference '../../../../../styles/tailwind.css';
 :host {
-  display: block;
+  @apply tw:block;
   color: var(--admin-text, #e5edf7);
 }
 .automation {
@@ -11,20 +12,16 @@ header,
 .actions,
 .summary,
 .tabs {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+  @apply tw:flex tw:items-center tw:gap-3 tw:flex-wrap;
 }
 header {
-  justify-content: space-between;
-  margin-bottom: 1rem;
+  @apply tw:justify-between tw:mb-4;
 }
 h1 {
   margin: 0.75rem 0;
 }
 h2 {
-  margin: 0;
+  @apply tw:m-0;
 }
 p {
   line-height: 1.6;
@@ -39,16 +36,10 @@ a {
   background: var(--admin-panel);
 }
 .detail {
-  font-size: var(--admin-caption-size, 0.875rem);
-  color: var(--admin-muted);
-  overflow-wrap: anywhere;
+  @apply tw:text-admin-caption tw:text-admin-muted tw:wrap-anywhere;
 }
 .worker-control {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 1rem;
+  @apply tw:flex tw:items-center tw:justify-between tw:flex-wrap tw:gap-4;
   padding: 1.15rem;
   border: 1px solid var(--admin-border);
   border-radius: 1rem;
@@ -56,13 +47,13 @@ a {
 }
 .worker-control > div {
   flex: 1 1 22rem;
-  min-width: 0;
+  @apply tw:min-w-0;
 }
 .worker-control p {
   margin: 0.5rem 0 0;
 }
 .badge {
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
   padding: 0.2rem 0.5rem;
   border: 1px solid var(--admin-border);
   border-radius: 1rem;
@@ -80,18 +71,12 @@ a {
   border-color: var(--og7-admin-accent, #9bcafa);
 }
 .jobs {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem;
+  @apply tw:grid tw:grid-cols-3 tw:gap-4;
 }
 .job {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  @apply tw:flex tw:flex-col tw:gap-3;
   color: inherit;
-  text-align: left;
-  cursor: pointer;
-  overflow-wrap: anywhere;
+  @apply tw:text-left tw:cursor-pointer tw:wrap-anywhere;
 }
 .job strong {
   white-space: pre-wrap;
@@ -112,14 +97,13 @@ a:focus-visible {
   border-radius: 1rem;
 }
 .alert {
-  padding: 1rem;
+  @apply tw:p-4;
   background: var(--og7-admin-warning-bg, #392e19);
-  color: var(--admin-warning);
+  @apply tw:text-admin-warning;
   border-radius: 0.7rem;
 }
 label {
-  display: flex;
-  flex-direction: column;
+  @apply tw:flex tw:flex-col;
   gap: 0.4rem;
   margin: 1rem 0;
 }
@@ -129,17 +113,16 @@ label {
 select {
   border: 1px solid var(--admin-border);
   background: var(--admin-panel-raised);
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
   border-radius: 0.4rem;
   padding: 0.65rem;
-  width: 100%;
-  box-sizing: border-box;
+  @apply tw:w-full tw:box-border;
   font: inherit;
   font-weight: 400;
 }
 @media (max-width: 1100px) {
   .jobs {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    @apply tw:grid-cols-2;
   }
 }
 @media (max-width: 650px) {
@@ -150,6 +133,6 @@ select {
     align-items: flex-start;
   }
   .actions {
-    width: 100%;
+    @apply tw:w-full;
   }
 }
