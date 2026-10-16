@@ -1,34 +1,27 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
 }
 .admin-content {
-  display: grid;
-  gap: 1rem;
-  min-width: 0;
+  @apply tw:grid tw:gap-4 tw:min-w-0;
 }
 .admin-topbar,
 .state {
-  margin: 0 auto;
+  @apply tw:my-0 tw:mx-auto tw:w-full;
   max-width: 78rem;
-  width: 100%;
 }
 .admin-topbar,
 .admin-topbar nav {
-  align-items: center;
-  display: flex;
-  gap: 0.75rem;
-  justify-content: space-between;
+  @apply tw:flex tw:items-center tw:gap-3 tw:justify-between;
 }
 .admin-topbar span {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption tw:uppercase;
   font-weight: var(--admin-label-weight);
   letter-spacing: 0;
-  text-transform: uppercase;
 }
 .admin-topbar h1 {
-  margin: 0;
+  @apply tw:m-0;
 }
 button {
   border-radius: 0.35rem;
@@ -37,24 +30,22 @@ button {
   line-height: inherit;
   background: var(--admin-panel-raised);
   border: 0;
-  color: var(--admin-text);
-  cursor: pointer;
+  @apply tw:text-admin-text tw:cursor-pointer;
   font-weight: var(--admin-control-weight);
   min-height: 2.7rem;
   padding: 0 0.9rem;
 }
 button:disabled {
-  cursor: wait;
-  opacity: 0.62;
+  @apply tw:cursor-wait tw:opacity-62;
 }
 .state-error {
-  color: var(--admin-danger);
+  @apply tw:text-admin-danger;
   font-weight: 500;
 }
 @media (max-width: 860px) {
   .admin-topbar,
   .admin-topbar nav {
     align-items: start;
-    flex-direction: column;
+    @apply tw:flex-col;
   }
 }

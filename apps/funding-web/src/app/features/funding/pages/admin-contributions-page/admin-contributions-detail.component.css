@@ -1,13 +1,14 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
 }
 
 .detail-panel {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
   border-radius: 0.45rem;
-  padding: 1rem;
+  @apply tw:p-4;
 }
 
 .detail-panel h3 {
@@ -15,26 +16,21 @@
 }
 
 .detail-panel dl {
-  display: grid;
+  @apply tw:grid tw:m-0;
   gap: 0.65rem;
-  margin: 0;
 }
 
 .detail-panel div {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
+  @apply tw:flex tw:justify-between tw:gap-4;
 }
 
 .detail-panel dt {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption tw:uppercase;
   font-weight: var(--admin-label-weight);
   letter-spacing: 0;
-  text-transform: uppercase;
 }
 
 .detail-panel dd {
-  margin: 0;
+  @apply tw:m-0;
   font-weight: 500;
 }

@@ -1,25 +1,22 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
 }
 
 .filters {
+  @apply tw:grid tw:gap-3 tw:p-4 tw:w-full;
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
   border-radius: 0.45rem;
-  display: grid;
-  gap: 0.75rem;
   grid-template-columns: minmax(14rem, 2fr) repeat(3, minmax(10rem, 1fr));
   margin: 0 auto;
   max-width: 78rem;
-  padding: 1rem;
-  width: 100%;
 }
 
 .filters label {
-  display: grid;
+  @apply tw:grid tw:text-admin-caption;
   gap: 0.35rem;
-  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
 }
 
@@ -35,7 +32,7 @@ select {
 
 @media (max-width: 1020px) {
   .filters {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    @apply tw:grid-cols-2;
   }
 }
 

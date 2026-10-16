@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import type {
   AdminContributionRecord,
   AdminContributionsExportRequest,
@@ -115,6 +115,207 @@ async function fixtures(page: Page, language: string) {
   });
   return { options, exports };
 }
+
+const contributionPalettes = {
+  mineral: {
+    panel: 'rgb(255, 255, 255)',
+    raised: 'rgb(240, 244, 238)',
+    text: 'rgb(41, 51, 46)',
+    muted: 'rgb(83, 99, 90)',
+    border: 'rgb(202, 213, 201)',
+    focus: 'rgb(47, 107, 80)'
+  },
+  night: {
+    panel: 'rgb(20, 35, 56)',
+    raised: 'rgb(27, 45, 68)',
+    text: 'rgb(241, 245, 252)',
+    muted: 'rgb(189, 203, 224)',
+    border: 'rgb(64, 86, 111)',
+    focus: 'rgb(158, 218, 255)'
+  },
+  graphite: {
+    panel: 'rgb(37, 41, 47)',
+    raised: 'rgb(50, 56, 65)',
+    text: 'rgb(243, 244, 246)',
+    muted: 'rgb(196, 203, 213)',
+    border: 'rgb(86, 97, 110)',
+    focus: 'rgb(194, 227, 255)'
+  }
+} as const;
+
+function contributionRegions(page: Page, english: boolean) {
+  return {
+    summary: page.getByRole('region', {
+      name: english ? 'Contribution summary' : 'Resume contributions',
+      exact: true
+    }),
+    filters: page.getByRole('region', {
+      name: english ? 'Contribution filters' : 'Filtres contributions',
+      exact: true
+    }),
+    list: page.locator('[data-og7="contributions-list"]')
+  };
+}
+
+async function expectGridColumns(element: Locator, count: number) {
+  await expect(element).toHaveCSS('display', 'grid');
+  await expect
+    .poll(() =>
+      element.evaluate(
+        (node) => getComputedStyle(node).gridTemplateColumns.split(' ').length
+      )
+    )
+    .toBe(count);
+}
+
+for (const theme of ['mineral', 'night', 'graphite'] as const) {
+  for (const { language, width } of [
+    { language: 'fr-CA', width: 390 },
+    { language: 'en', width: 1440 }
+  ] as const) {
+    test(`contribution CSS preserves ${theme} surfaces, local table scrolling and keyboard selection in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      const english = language === 'en';
+      const palette = contributionPalettes[theme];
+      await page.setViewportSize({ width, height: 950 });
+      await page.addInitScript((theme) => {
+        localStorage.setItem(
+          'openg7.pilotage.appearance.v1',
+          JSON.stringify({ theme, system: false, density: 'comfortable' })
+        );
+      }, theme);
+      const { exports } = await fixtures(page, language);
+      await page.goto('/admin/fundraiser/contributions');
+      const { summary, filters, list } = contributionRegions(page, english);
+      await expect(summary.getByRole('article')).toHaveCount(4);
+      await expect(page.locator('html')).toHaveAttribute('lang', language);
+      await expect(page.locator('html')).toHaveAttribute(
+        'data-og7-pilot-theme',
+        theme
+      );
+      for (const grid of [summary, filters]) {
+        await expectGridColumns(grid, width <= 860 ? 1 : 4);
+        await expect(grid).toHaveCSS('gap', '12px');
+        await expect(grid).toHaveCSS('max-width', '1248px');
+      }
+      for (const panel of [
+        summary.getByRole('article').first(),
+        filters,
+        list
+      ]) {
+        await expect(panel).toHaveCSS('background-color', palette.panel);
+        await expect(panel).toHaveCSS('border-top-width', '1px');
+        await expect(panel).toHaveCSS('border-top-style', 'solid');
+        await expect(panel).toHaveCSS('border-top-color', palette.border);
+        await expect(panel).toHaveCSS('border-radius', '7.2px');
+        await expect(panel).toHaveCSS('padding-top', '16px');
+      }
+      await expect(summary.locator('strong').first()).toHaveCSS(
+        'font-size',
+        '26.4px'
+      );
+      const search = filters.getByRole('searchbox');
+      await expect(search).toHaveCSS('background-color', palette.panel);
+      await expect(search).toHaveCSS('color', palette.text);
+      await expect(search).toHaveCSS('padding', '10.4px 12px');
+      await expect(search).toHaveCSS('border-radius', '5.6px');
+      await expect(filters.locator('label').first()).toHaveCSS('gap', '5.6px');
+      await expect(
+        page.locator('[data-og7="contribution-export-scope"]')
+      ).toHaveCSS('max-width', '1248px');
+
+      const table = list.getByRole('table');
+      await expect(table).toHaveCSS('min-width', '1184px');
+      await expect(table).toHaveCSS('border-collapse', 'collapse');
+      await expect(table.getByRole('columnheader').first()).toHaveCSS(
+        'color',
+        palette.muted
+      );
+      const scrolling = table.locator('..');
+      await expect(scrolling).toHaveCSS('overflow-x', 'auto');
+      expect(
+        await scrolling.evaluate((node) => node.scrollWidth > node.clientWidth)
+      ).toBe(true);
+      await scrolling.evaluate((node) => {
+        node.scrollLeft = node.scrollWidth;
+      });
+      await expect
+        .poll(() => scrolling.evaluate((node) => node.scrollLeft))
+        .toBeGreaterThan(0);
+      expect(await page.evaluate(() => window.scrollX)).toBe(0);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+
+      const sponsorRow = page.locator(
+        `[data-og7="contribution-row"][data-og7-id="${sponsor.id}"]`
+      );
+      await sponsorRow.focus();
+      await page.keyboard.press('Space');
+      const detail = page.locator('[data-og7="contribution-detail"]');
+      await expect(detail).toContainText(sponsor.sponsor_company_name!);
+      await expect(detail).toHaveCSS('background-color', palette.panel);
+      await expect(detail).toHaveCSS('padding', '16px');
+      await expect(detail.locator('dl')).toHaveCSS('gap', '10.4px');
+      await expect(sponsorRow).toBeFocused();
+      await expect(sponsorRow).toHaveCSS('background-color', palette.raised);
+      await expect(sponsorRow).toHaveCSS('outline-width', '3px');
+      await expect(sponsorRow).toHaveCSS('outline-color', palette.focus);
+      const personalRow = page.locator(
+        `[data-og7="contribution-row"][data-og7-id="${personal.id}"]`
+      );
+      await personalRow.focus();
+      await page.keyboard.press('Enter');
+      await expect(detail).toContainText(personal.public_name!);
+      await expect(personalRow).toBeFocused();
+
+      await search.fill('No matching synthetic contribution');
+      const empty = list.getByRole('article');
+      await expect(empty).toBeVisible();
+      await expect(empty).toHaveCSS('background-color', palette.raised);
+      await expect(empty).toHaveCSS('border-top-style', 'dashed');
+      await expect(empty).toHaveCSS('padding', '16px');
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+      expect(exports).toEqual([]);
+    });
+  }
+}
+
+test('contribution grids preserve the inclusive 860px and 1020px breakpoints', async ({
+  page
+}) => {
+  await fixtures(page, 'fr-CA');
+  await page.goto('/admin/fundraiser/contributions');
+  const { summary, filters, list } = contributionRegions(page, false);
+  await expect(summary.getByRole('article')).toHaveCount(4);
+  const topbar = page.getByRole('main').locator('header').first();
+  for (const width of [851, 860, 861, 1020, 1021]) {
+    await test.step(`${width}px`, async () => {
+      await page.setViewportSize({ width, height: 950 });
+      const columns = width <= 860 ? 1 : width <= 1020 ? 2 : 4;
+      await expectGridColumns(summary, columns);
+      await expectGridColumns(filters, columns);
+      const direction = width <= 860 ? 'column' : 'row';
+      await expect(topbar).toHaveCSS('flex-direction', direction);
+      await expect(topbar.locator('nav')).toHaveCSS(
+        'flex-direction',
+        direction
+      );
+      await expect(list.locator('header')).toHaveCSS(
+        'flex-direction',
+        direction
+      );
+      await expect(list.getByRole('table')).toHaveCSS('min-width', '1184px');
+    });
+  }
+});
 
 // These fixtures exercise rendered Angular UI with synthetic intercepted API
 // responses. Docker accounting and signed OIDC identity tests stay separate.

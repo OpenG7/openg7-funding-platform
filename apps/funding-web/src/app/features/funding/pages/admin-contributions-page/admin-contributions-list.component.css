@@ -1,74 +1,62 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
 }
 
 .admin-table-panel {
+  @apply tw:grid tw:min-w-0 tw:p-4 tw:w-full;
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
   border-radius: 0.45rem;
-  display: grid;
   gap: 0.85rem;
   margin: 0 auto;
   max-width: 78rem;
-  min-width: 0;
-  padding: 1rem;
-  width: 100%;
 }
 
 .admin-table-panel header {
-  align-items: center;
-  display: flex;
-  gap: 0.75rem;
-  justify-content: space-between;
+  @apply tw:flex tw:items-center tw:gap-3 tw:justify-between;
 }
 
 .admin-table-panel span {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption tw:uppercase;
   font-weight: var(--admin-label-weight);
   letter-spacing: 0;
-  text-transform: uppercase;
 }
 
 .admin-table-panel h2,
 .empty-state h3 {
-  margin: 0;
+  @apply tw:m-0;
 }
 
 .admin-table-panel small,
 .empty-state p {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   margin: 0.35rem 0 0;
 }
 
 .table-scroll {
-  min-width: 0;
-  overflow-x: auto;
+  @apply tw:min-w-0 tw:overflow-x-auto;
 }
 
 table {
-  border-collapse: collapse;
+  @apply tw:border-collapse tw:w-full;
   min-width: 74rem;
-  width: 100%;
 }
 
 th,
 td {
+  @apply tw:text-left tw:align-top;
   border-bottom: 1px solid var(--admin-border);
   padding: 0.7rem 0.5rem;
-  text-align: left;
-  vertical-align: top;
 }
 
 th {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
-  text-transform: uppercase;
+  @apply tw:text-admin-muted tw:text-admin-caption tw:uppercase;
 }
 
 td {
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }
 
 .reference-cell {
@@ -83,15 +71,15 @@ td {
 }
 
 .empty-state {
+  @apply tw:p-4;
   background: var(--admin-panel-raised);
   border: 1px dashed var(--admin-border);
   border-radius: 0.45rem;
-  padding: 1rem;
 }
 
 @media (max-width: 860px) {
   .admin-table-panel header {
+    @apply tw:flex-col;
     align-items: start;
-    flex-direction: column;
   }
 }

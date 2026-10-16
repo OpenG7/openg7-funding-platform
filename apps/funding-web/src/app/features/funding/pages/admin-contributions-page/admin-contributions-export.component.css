@@ -1,14 +1,15 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: contents;
+  @apply tw:contents;
 }
 
 .state {
-  margin: 0 auto;
+  @apply tw:my-0 tw:mx-auto tw:w-full;
   max-width: 78rem;
-  width: 100%;
 }
 
 .state-error {
-  color: var(--admin-danger);
+  @apply tw:text-admin-danger;
   font-weight: 500;
 }

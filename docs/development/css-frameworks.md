@@ -1,7 +1,7 @@
 # CSS, Tailwind et composants Angular
 
-Cette référence décrit le CSS Web, son inventaire et l'usage progressif de
-Tailwind. Les [règles Web](../../apps/funding-web/AGENTS.md) restent propriétaires
+Tailwind est le framework CSS retenu pour le Web. Cette référence décrit les
+styles, leur inventaire et la migration progressive. Les [règles Web](../../apps/funding-web/AGENTS.md) restent propriétaires
 des contrats de composants, de l'accessibilité et du rendu SSR.
 
 ## Inventaire reproductible
@@ -99,6 +99,15 @@ dans leurs feuilles locales, ainsi que sur les déclarations génériques de
 `admin-controls.css` et `admin-forms.css`. Sélecteurs, inputs/outputs, tokens,
 états et comportements restent les contrats à préserver. Le runtime du dialogue
 et le contrôleur virtuel ne font pas partie de cette conversion.
+
+Le lot Contributions étend cette approche aux six feuilles locales de la page :
+résumé, filtres, liste, détail, export et cadre de page. Les grilles de résumé
+conservent leurs quatre, deux puis une colonnes aux seuils de 1020 et 860 px;
+le tableau conserve sa largeur minimale de 74 rem et son défilement local.
+Les dimensions spécifiques, raccourcis `background`, sélecteurs et comportements
+de sélection et d'export restent explicites. La [recette Contributions](../../tests/playwright/admin-contributions-ui.spec.ts)
+couvre les thèmes, ces frontières responsive, les filtres et la sélection clavier,
+avec des réponses API synthétiques.
 
 Étendre seulement là où les utilitaires rendent la source plus claire. Conserver
 du CSS explicite pour les interactions de sélecteurs, les dégradés, graphiques,
