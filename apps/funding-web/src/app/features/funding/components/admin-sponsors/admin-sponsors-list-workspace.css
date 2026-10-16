@@ -1,31 +1,27 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
 }
 
 .sponsors-list-panel {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.5rem;
-  min-width: 0;
-  overflow: hidden;
+  @apply tw:rounded-lg tw:min-w-0 tw:overflow-hidden;
 }
 
 :host .sponsors-list-panel {
-  border-radius: 1rem;
+  @apply tw:rounded-2xl;
 }
 
 .list-caption {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  @apply tw:flex tw:justify-between tw:items-center;
   padding: 1.1rem 1rem 0;
   font-size: 0.9rem;
 }
 
 .list-caption span {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
   background: var(--admin-panel-raised);
   border-radius: 999px;
   padding: 0.15rem 0.55rem;

@@ -1,22 +1,21 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host [hidden] {
   display: none !important;
 }
 :host .admin-workspace {
   max-width: 112rem;
-  margin-inline: auto;
+  @apply tw:mx-auto;
 }
 :host .sponsors-board {
   grid-template-columns: minmax(0, 1fr);
-  gap: 1.5rem;
+  @apply tw:gap-6;
 }
 :host .sponsors-board.has-selection {
   grid-template-columns: 18rem minmax(0, 1fr);
 }
 :host .sponsor-detail-panel {
-  position: relative;
-  top: auto;
-  max-height: none;
-  overflow: visible;
+  @apply tw:relative tw:top-auto tw:max-h-none tw:overflow-visible;
   border-radius: 1.25rem;
   background: var(--admin-panel);
   box-shadow: 0 18px 60px #0000001a;
@@ -24,51 +23,44 @@
   scroll-padding-bottom: 10rem;
 }
 :host .sponsor-detail-panel.is-empty {
-  display: none;
+  @apply tw:hidden;
 }
 :host .has-selection > openg7-admin-sponsors-list-panel {
-  position: sticky;
+  @apply tw:sticky;
   top: 1rem;
   max-height: calc(100dvh - 2rem);
-  overflow-y: auto;
+  @apply tw:overflow-y-auto;
   scrollbar-width: thin;
-  border-radius: 1rem;
+  @apply tw:rounded-2xl;
 }
 .dossier-toolbar,
 .dossier-neighbours {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
+  @apply tw:flex tw:items-center tw:justify-between tw:gap-3;
 }
 .dossier-toolbar {
   padding: 0.85rem 1.5rem;
   border-bottom: 1px solid var(--admin-border);
 }
 .dossier-toolbar button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  @apply tw:inline-flex tw:items-center tw:justify-center;
   gap: 0.65rem;
-  min-height: 2.75rem;
-  min-width: 2.75rem;
+  @apply tw:min-h-11 tw:min-w-11;
   border: 1px solid transparent;
   border-radius: 0.65rem;
   background: transparent;
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
   font-family: inherit;
   line-height: inherit;
   font-weight: var(--admin-control-weight);
-  font-size: var(--admin-caption-size, 0.875rem);
-  cursor: pointer;
+  @apply tw:text-admin-caption tw:cursor-pointer;
 }
 .dossier-toolbar button:hover:not(:disabled) {
   background: var(--admin-panel-raised);
-  border-color: var(--admin-border);
+  @apply tw:border-admin-border;
 }
 .dossier-toolbar button:disabled {
   opacity: 0.4;
-  cursor: default;
+  @apply tw:cursor-default;
 }
 .dossier-toolbar button:focus-visible,
 .dossier-access > summary:focus-visible {
@@ -76,23 +68,21 @@
   outline-offset: 2px;
 }
 .dossier-neighbours span {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
 }
 .dossier-utilities {
-  display: flex;
-  flex-wrap: wrap;
+  @apply tw:flex tw:flex-wrap;
   align-items: start;
   gap: 0.5rem 1rem;
   padding: 0.75rem 1.5rem;
   border-bottom: 1px solid var(--admin-border);
 }
 .dossier-utilities > openg7-admin-sponsor-edit {
-  padding: 0;
+  @apply tw:p-0;
   margin-right: auto;
 }
 .dossier-utilities > openg7-admin-sponsorship-guide {
-  margin: 0;
+  @apply tw:m-0;
 }
 .dossier-utilities > openg7-admin-sponsorship-guide:has(details[open]),
 .dossier-access[open] {
@@ -100,27 +90,24 @@
   order: 2;
 }
 .dossier-access {
-  min-width: 0;
+  @apply tw:min-w-0;
 }
 .dossier-access > summary {
   padding: 0.7rem 0.3rem;
-  cursor: pointer;
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:cursor-pointer tw:text-admin-muted tw:text-admin-caption;
 }
 :host .detail-body {
-  padding: 1.5rem;
-  gap: 1.5rem;
+  @apply tw:p-6 tw:gap-6;
 }
 :host .has-dossier .admin-page-header {
-  display: none;
+  @apply tw:hidden;
 }
 @media (max-width: 1439px) {
   :host .sponsors-board.has-selection {
     grid-template-columns: minmax(0, 1fr);
   }
   :host .has-selection > openg7-admin-sponsors-list-panel {
-    display: none;
+    @apply tw:hidden;
   }
 }
 @media (max-width: 600px) {
@@ -128,14 +115,14 @@
     padding-inline: 0;
   }
   :host .sponsor-detail-panel {
-    border-radius: 1rem;
+    @apply tw:rounded-2xl;
   }
   .dossier-toolbar,
   .dossier-utilities {
     padding-inline: 0.85rem;
   }
   .dossier-neighbours span {
-    display: none;
+    @apply tw:hidden;
   }
   .dossier-neighbours {
     gap: 0.15rem;
@@ -144,6 +131,6 @@
     gap: 0.25rem 0.7rem;
   }
   :host .detail-body {
-    padding: 1rem;
+    @apply tw:p-4;
   }
 }

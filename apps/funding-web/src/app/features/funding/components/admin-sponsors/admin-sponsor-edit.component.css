@@ -1,0 +1,28 @@
+@reference '../../../../../styles/tailwind.css';
+
+:host {
+  @apply tw:block;
+  padding: 0 1rem 1rem;
+}
+form,
+label {
+  @apply tw:grid tw:gap-2;
+}
+form {
+  @apply tw:gap-4;
+}
+input,
+select {
+  @apply tw:w-full tw:min-w-0 tw:box-border;
+}
+.actions {
+  @apply tw:flex tw:flex-wrap tw:gap-3;
+}
+.error {
+  @apply tw:text-admin-danger;
+}
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 2px;
+}

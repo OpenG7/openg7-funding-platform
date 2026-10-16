@@ -1,5 +1,7 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host .detail-tabs {
-  gap: 0.25rem;
+  @apply tw:gap-1;
   padding: 0.5rem 1.5rem 0;
   border-top: 0;
 }
@@ -9,16 +11,15 @@
   font-size: 0.9rem;
   font-weight: var(--admin-control-weight);
   padding: 0.85rem 1rem;
-  min-height: 2.75rem;
+  @apply tw:min-h-11;
 }
 :host .detail-tabs button:hover {
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
   background: var(--admin-panel-raised);
 }
 :host .detail-tabs button.active {
   background: var(--admin-warning-bg);
-  border-color: var(--admin-gold);
-  color: var(--admin-gold);
+  @apply tw:border-admin-gold tw:text-admin-gold;
 }
 :host .detail-tabs button:focus-visible {
   outline: 3px solid var(--admin-focus);
@@ -30,7 +31,40 @@
     gap: 0.1rem;
   }
   :host .detail-tabs button {
-    font-size: var(--admin-caption-size, 0.875rem);
+    @apply tw:text-admin-caption;
     padding: 0.7rem 0.55rem;
   }
+}
+
+:host {
+  @apply tw:block;
+}
+
+.detail-tabs {
+  border-bottom: 1px solid var(--admin-border);
+  border-top: 1px solid var(--admin-border);
+  @apply tw:flex tw:flex-wrap tw:gap-1;
+  padding: 0 1rem;
+}
+
+.detail-tabs button {
+  background: transparent;
+  border: 0;
+  border-bottom: 0.18rem solid transparent;
+  @apply tw:text-admin-muted tw:cursor-pointer;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: var(--admin-control-weight);
+  padding: 0.9rem 0.65rem 0.72rem;
+  @apply tw:whitespace-nowrap;
+}
+
+.detail-tabs button:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 2px;
+}
+
+.detail-tabs button.active {
+  @apply tw:border-admin-border tw:text-admin-muted;
 }

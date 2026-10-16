@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { AxeBuilder } from '@axe-core/playwright';
 import type {
   AdminSponsorshipProgress,
@@ -584,6 +584,176 @@ registerContributionActivityOverlayTests({
 
 const editForm = (page: Page) => page.locator('[data-og7="edit-dossier-form"]');
 const guide = (page: Page) => page.locator('[data-og7="dossier-guide"]');
+
+const sponsorStylePalettes = {
+  mineral: { panel: 'rgb(255, 255, 255)', text: 'rgb(41, 51, 46)' },
+  night: { panel: 'rgb(20, 35, 56)', text: 'rgb(241, 245, 252)' },
+  graphite: { panel: 'rgb(37, 41, 47)', text: 'rgb(243, 244, 246)' }
+} as const;
+
+async function expectSponsorColorMix(
+  element: Locator,
+  properties: Record<string, string>
+) {
+  const colors = await element.evaluate((element, properties) => {
+    const reference = document.createElement('span');
+    reference.style.position = 'absolute';
+    reference.style.visibility = 'hidden';
+    for (const [property, value] of Object.entries(properties))
+      reference.style.setProperty(property, value);
+    element.append(reference);
+    try {
+      return Object.keys(properties).map((property) => ({
+        property,
+        actual: getComputedStyle(element).getPropertyValue(property),
+        expected: getComputedStyle(reference).getPropertyValue(property)
+      }));
+    } finally {
+      reference.remove();
+    }
+  }, properties);
+  for (const color of colors)
+    expect(color.actual, color.property).toBe(color.expected);
+}
+
+for (const theme of ['mineral', 'night', 'graphite'] as const)
+  for (const { language, width } of [
+    { language: 'fr-CA', width: 390 },
+    { language: 'en', width: 1440 }
+  ]) {
+    test(`sponsor list and dossier remain readable with ${theme} in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      const { calls } = await fixtures(page, 'operator');
+      await page.addInitScript(
+        ({ theme, language }) => {
+          localStorage.setItem('openg7.language', language);
+          localStorage.setItem(
+            'openg7.pilotage.appearance.v1',
+            JSON.stringify({ theme, system: false })
+          );
+        },
+        { theme, language }
+      );
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.setViewportSize({ width, height: 1000 });
+      await page.goto('/admin/fundraiser/sponsors');
+      const palette = sponsorStylePalettes[theme];
+      const list = page.locator('[data-og7="sponsors-list"]');
+      await expect(list).toHaveCSS('background-color', palette.panel);
+      const selected = list.locator(
+        `[data-og7="sponsor-row"][data-og7-id="${id}"]`
+      );
+      await expect(selected).toContainText('Atelier Boréal');
+      await expectSponsorColorMix(selected, {
+        'background-color':
+          'color-mix(in srgb, var(--admin-panel) 96%, var(--sponsor-row-accent))'
+      });
+      await selected.focus();
+      await page.keyboard.press('Enter');
+      const frame = page.locator('[data-og7="sponsorship-dossier"]');
+      await expect(frame).toHaveCSS('background-color', palette.panel);
+      await expect(frame).toHaveCSS('color', palette.text);
+      await expect(
+        frame.getByRole('heading', { name: 'Atelier Boréal', exact: true })
+      ).toBeVisible();
+      await expect(tabs(page).getByRole('button')).toHaveCount(5);
+      const review = frame
+        .locator('openg7-admin-sponsor-detail-header')
+        .getByRole('group', {
+          name: language === 'en' ? 'Review' : 'Revue',
+          exact: true
+        });
+      await expect(review).toHaveAttribute(
+        'data-review-state',
+        'pending_review'
+      );
+      expect(
+        await page.evaluate(() =>
+          CSS.supports('color', 'color-mix(in lab, red, red)')
+        )
+      ).toBe(true);
+      await expectSponsorColorMix(review, {
+        'background-image':
+          'linear-gradient(135deg, color-mix(in srgb, var(--admin-panel-raised) 88%, var(--review-accent)), var(--admin-panel))',
+        'border-top-color':
+          'color-mix(in srgb, var(--review-accent) 38%, transparent)'
+      });
+
+      const profile = tabs(page).getByRole('button', {
+        name: language === 'en' ? 'Profile & media' : 'Fiche et médias',
+        exact: true
+      });
+      await profile.focus();
+      await page.keyboard.press('Enter');
+      await expect(profile).toHaveAttribute('aria-current', 'page');
+      await expect(page.locator('[data-og7="dossier-identity"]')).toContainText(
+        'demo@example.invalid'
+      );
+      const opener = page.getByRole('button', {
+        name: language === 'en' ? 'Edit dossier' : 'Modifier le dossier',
+        exact: true
+      });
+      await opener.click();
+      const dialog = page.getByRole('dialog').filter({ has: editForm(page) });
+      await expect(dialog).toBeVisible();
+      const company = editForm(page).getByRole('textbox').first();
+      await expect(company).toHaveValue('Atelier Boréal');
+      await company.fill('Brouillon synthétique non enregistré');
+      await page.keyboard.press('Escape');
+      await expect(dialog).not.toBeVisible();
+      await expect(opener).toBeFocused();
+      await expect(
+        frame.getByRole('heading', { name: 'Atelier Boréal', exact: true })
+      ).toBeVisible();
+      expect(calls.every((call) => call.method === 'GET')).toBe(true);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+    });
+  }
+
+test('selected sponsor keeps a usable compact queue on the 1439/1440px boundary and mobile dossier padding', async ({
+  page
+}) => {
+  const { calls } = await fixtures(page, 'operator');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(path());
+  const frame = page.locator('[data-og7="sponsorship-dossier"]');
+  const list = page.locator('[data-og7="sponsors-list"]');
+  await expect(
+    frame.getByRole('heading', { name: 'Atelier Boréal', exact: true })
+  ).toBeVisible();
+  for (const width of [1439, 1440, 1500, 1501]) {
+    await page.setViewportSize({ width, height: 1000 });
+    if (width < 1440) await expect(list).toBeHidden();
+    else await expect(list).toBeVisible();
+    await expect(frame).toBeVisible();
+    await expect(
+      tabs(page).getByRole('button', { name: 'Aperçu', exact: true })
+    ).toHaveAttribute('aria-current', 'page');
+  }
+  for (const width of [
+    419, 420, 421, 599, 600, 601, 699, 700, 701, 719, 720, 721, 759, 760, 761,
+    859, 860, 861
+  ]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await expect(frame).toHaveCSS(
+      'border-radius',
+      width <= 600 ? '16px' : '20px'
+    );
+    await expect(tabs(page).getByRole('button')).toHaveCount(5);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1
+      )
+    ).toBe(true);
+  }
+  expect(calls.every((call) => call.method === 'GET')).toBe(true);
+});
 
 for (const width of [1280, 390]) {
   test(`dossier guide explains all milestones without validating them at ${width}px`, async ({

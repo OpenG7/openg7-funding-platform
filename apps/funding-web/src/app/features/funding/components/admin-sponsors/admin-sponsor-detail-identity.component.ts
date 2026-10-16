@@ -139,49 +139,8 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
   styleUrls: [
     '../admin-ui/admin-theme.css',
     '../admin-ui/admin-controls.css',
-    '../admin-ui/admin-forms.css'
-  ],
-  styles: [
-    `
-      section {
-        padding: 1rem;
-      }
-      dl {
-        display: grid;
-        gap: 1rem;
-      }
-      dt {
-        color: var(--admin-muted);
-      }
-      dd {
-        margin: 0.3rem 0 0;
-        overflow-wrap: anywhere;
-        font-weight: 500;
-      }
-      .identity-explanation {
-        padding: 1rem;
-        border: 1px solid var(--admin-border);
-        border-radius: 0.75rem;
-        background: var(--admin-panel);
-      }
-      .identity-explanation h4 {
-        margin: 0 0 0.75rem;
-      }
-      .identity-explanation dl {
-        margin: 0;
-      }
-      .identity-explanation dt {
-        font-weight: var(--admin-label-weight);
-        color: var(--admin-text);
-      }
-      .identity-explanation dd {
-        font-weight: 400;
-      }
-      .submission-required {
-        border-inline-start: 3px solid var(--admin-focus);
-        padding-inline-start: 0.75rem;
-      }
-    `
+    '../admin-ui/admin-forms.css',
+    './admin-sponsor-detail-identity.component.css'
   ]
 })
 export class AdminSponsorDetailIdentityComponent {

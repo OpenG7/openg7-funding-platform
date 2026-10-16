@@ -1,0 +1,39 @@
+@reference '../../../../../styles/tailwind.css';
+
+section {
+  @apply tw:p-4;
+}
+dl {
+  @apply tw:grid tw:gap-4;
+}
+dt {
+  @apply tw:text-admin-muted;
+}
+dd {
+  margin: 0.3rem 0 0;
+  @apply tw:wrap-anywhere;
+  font-weight: 500;
+}
+.identity-explanation {
+  @apply tw:p-4;
+  border: 1px solid var(--admin-border);
+  @apply tw:rounded-xl;
+  background: var(--admin-panel);
+}
+.identity-explanation h4 {
+  margin: 0 0 0.75rem;
+}
+.identity-explanation dl {
+  @apply tw:m-0;
+}
+.identity-explanation dt {
+  font-weight: var(--admin-label-weight);
+  @apply tw:text-admin-text;
+}
+.identity-explanation dd {
+  font-weight: 400;
+}
+.submission-required {
+  border-inline-start: 3px solid var(--admin-focus);
+  padding-inline-start: 0.75rem;
+}

@@ -1,21 +1,17 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
-  position: sticky;
+  @apply tw:block tw:min-w-0 tw:sticky;
   bottom: max(0.75rem, env(safe-area-inset-bottom));
   z-index: 5;
 }
 button {
-  align-items: center;
-  border-radius: 0.4rem;
-  cursor: pointer;
-  display: inline-flex;
+  @apply tw:items-center tw:rounded-admin-sm tw:cursor-pointer tw:inline-flex;
   font-family: inherit;
   font-size: inherit;
   line-height: inherit;
   font-weight: var(--admin-control-weight);
-  justify-content: center;
-  min-height: 2.5rem;
+  @apply tw:justify-center tw:min-h-10;
   padding: 0 0.85rem;
   text-decoration: none;
 }
@@ -24,11 +20,11 @@ button:focus-visible {
   outline-offset: 2px;
 }
 button:disabled {
-  cursor: not-allowed;
+  @apply tw:cursor-not-allowed;
   opacity: 0.55;
 }
 .detail-actions {
-  align-items: center;
+  @apply tw:items-center;
   background: linear-gradient(
     110deg,
     var(--admin-panel-raised, #193348f5),
@@ -38,59 +34,53 @@ button:disabled {
   border: 1px solid var(--admin-border, #426077);
   border-radius: 0.9rem;
   box-shadow: 0 12px 36px #00000040;
-  display: flex;
-  flex-wrap: wrap;
+  @apply tw:flex tw:flex-wrap;
   gap: 0.7rem;
   margin: 1.5rem 1rem 1rem;
-  padding: 1rem;
+  @apply tw:p-4;
 }
 .detail-actions-context {
-  display: grid;
+  @apply tw:grid;
   flex: 1 1 12rem;
-  min-width: 0;
-  overflow-wrap: anywhere;
+  @apply tw:min-w-0 tw:wrap-anywhere;
 }
 .detail-actions-context strong {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
 }
 .detail-actions-context span {
   font-size: 0.9rem;
   font-weight: var(--admin-control-weight);
 }
 .detail-actions-context small {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
 }
 .detail-actions-buttons {
-  display: flex;
+  @apply tw:flex;
   flex: 1 1 auto;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  justify-content: flex-end;
+  @apply tw:flex-wrap tw:gap-2 tw:justify-end;
 }
 .detail-actions-buttons button {
-  min-height: 2.75rem;
+  @apply tw:min-h-11;
 }
 .review-button.neutral {
   background: var(--admin-panel-raised);
   border: 1px solid var(--admin-border);
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
 }
 .review-button.reject {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  color: var(--admin-danger);
+  @apply tw:text-admin-danger;
 }
 .review-button.approve {
   background: var(--og7-admin-success-bg, #193d32);
   border: 1px solid var(--admin-border);
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
 }
 .review-button.refund {
   background: var(--admin-panel-raised);
   border: 1px solid var(--admin-border);
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
 }
 .review-toast {
   animation: review-toast-in 0.22s ease both;
@@ -98,14 +88,12 @@ button:disabled {
   border: 1px solid var(--admin-border);
   border-radius: 0.45rem;
   box-shadow: 0 16px 34px rgb(15 23 42 / 24%);
-  color: var(--admin-text);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-text tw:text-admin-caption;
   font-weight: 500;
-  margin: 0;
+  @apply tw:m-0;
   max-width: min(24rem, calc(100% - 2rem));
   padding: 0.75rem 0.9rem;
-  pointer-events: none;
-  position: absolute;
+  @apply tw:pointer-events-none tw:absolute;
   bottom: calc(100% + 0.75rem);
   right: 1rem;
   z-index: 4;
@@ -128,15 +116,13 @@ button:disabled {
   .detail-actions {
     gap: 0.6rem;
     margin-inline: 0.5rem;
-    padding: 0.75rem;
+    @apply tw:p-3;
   }
   .detail-actions-context {
     flex-basis: 100%;
   }
   .detail-actions-buttons {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    width: 100%;
+    @apply tw:grid tw:grid-cols-2 tw:w-full;
   }
   .detail-actions-buttons button {
     padding-inline: 0.5rem;
@@ -144,16 +130,15 @@ button:disabled {
 }
 @media (max-width: 600px) {
   .detail-actions-context {
-    display: none;
+    @apply tw:hidden;
   }
   .detail-actions-buttons {
-    display: flex;
-    flex-wrap: wrap;
+    @apply tw:flex tw:flex-wrap;
     gap: 0.4rem;
   }
   .detail-actions-buttons button {
     flex: 1 1 auto;
-    font-size: var(--admin-caption-size, 0.875rem);
+    @apply tw:text-admin-caption;
   }
 }
 @media (prefers-reduced-motion: reduce) {

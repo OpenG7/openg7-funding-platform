@@ -1,0 +1,163 @@
+@reference '../../../../../styles/tailwind.css';
+
+:host {
+  @apply tw:block;
+}
+
+.detail-body:focus {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: -3px;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+button:focus-visible,
+a:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 2px;
+}
+
+.secondary-action,
+.mini-action {
+  @apply tw:items-center;
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  @apply tw:rounded-admin-sm tw:text-admin-text tw:cursor-pointer tw:inline-flex;
+  font-weight: var(--admin-control-weight);
+  @apply tw:justify-center tw:min-h-10;
+  padding: 0 0.85rem;
+  text-decoration: none;
+}
+
+.secondary-action:disabled,
+.mini-action:disabled {
+  @apply tw:cursor-not-allowed;
+  opacity: 0.55;
+}
+
+textarea {
+  border: 1px solid var(--admin-border);
+  border-radius: 0.35rem;
+  padding: 0.65rem 0.75rem;
+  @apply tw:resize-y;
+}
+
+.detail-body {
+  @apply tw:grid;
+  gap: 0.9rem;
+  @apply tw:overflow-auto tw:p-4;
+}
+
+.detail-card {
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  @apply tw:rounded-lg tw:grid;
+  gap: 0.85rem;
+  @apply tw:p-4;
+}
+
+.detail-card h3 {
+  @apply tw:m-0;
+}
+
+.detail-card-grid {
+  @apply tw:grid;
+  gap: 0.9rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+}
+
+.detail-notes > .detail-card {
+  align-content: start;
+  @apply tw:min-w-0;
+}
+
+.detail-notes > .detail-card > p {
+  @apply tw:m-0 tw:wrap-anywhere tw:whitespace-pre-wrap;
+}
+
+.detail-card dl {
+  @apply tw:grid tw:gap-3 tw:m-0;
+}
+
+dt {
+  @apply tw:text-admin-muted tw:text-admin-caption;
+  font-weight: var(--admin-label-weight);
+  letter-spacing: 0;
+  @apply tw:uppercase;
+}
+
+dd {
+  margin: 0.15rem 0 0;
+  @apply tw:wrap-anywhere;
+}
+
+.copy-line {
+  @apply tw:items-center tw:flex tw:flex-wrap tw:gap-3;
+}
+
+.inline-status {
+  @apply tw:text-admin-muted;
+}
+
+.tier-badge,
+.payment-badge,
+.refund-badge {
+  border-radius: 999px;
+  @apply tw:inline-flex tw:text-admin-caption;
+  font-weight: var(--admin-label-weight);
+  padding: 0.25rem 0.55rem;
+  @apply tw:w-max;
+}
+
+.payment-pending,
+.refund-requested,
+.tier-gold {
+  background: var(--og7-admin-warning-bg, #3c3221);
+  @apply tw:text-admin-warning;
+}
+
+.payment-paid,
+.refund-completed {
+  background: var(--og7-admin-success-bg, #193d32);
+  @apply tw:text-admin-success;
+}
+
+.payment-failed,
+.refund-failed {
+  background: var(--og7-admin-danger-bg, #422532);
+  @apply tw:text-admin-danger;
+}
+
+.refund-not-requested {
+  background: var(--admin-panel-raised);
+  @apply tw:text-admin-muted;
+}
+
+.refund-processing {
+  background: var(--admin-panel-raised);
+  @apply tw:text-admin-muted;
+}
+
+.tier-silver {
+  background: var(--admin-panel-raised);
+  @apply tw:text-admin-muted;
+}
+
+.tier-bronze {
+  background: var(--og7-admin-warning-bg, #3c3221);
+  @apply tw:text-admin-warning;
+}
+
+@media (max-width: 860px) {
+  .detail-card-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,6 +1,7 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
 }
 
 button {
@@ -15,46 +16,38 @@ button:focus-visible {
 }
 
 .detail-body {
-  display: grid;
-  gap: 1.5rem;
-  overflow: auto;
-  padding: 1.5rem;
+  @apply tw:grid tw:gap-6 tw:overflow-auto tw:p-6;
 }
 
 .detail-card {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
   border-radius: 0.9rem;
-  display: grid;
+  @apply tw:grid;
   gap: 0.85rem;
-  min-width: 0;
-  padding: 1rem;
+  @apply tw:min-w-0 tw:p-4;
 }
 
 .detail-card h3 {
-  margin: 0;
+  @apply tw:m-0;
 }
 
 .muted-copy {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   margin: 0.35rem 0 0;
 }
 
 .audit-list {
-  display: grid;
-  gap: 0.75rem;
-  margin: 0;
+  @apply tw:grid tw:gap-3 tw:m-0;
   padding-left: 1.2rem;
 }
 
 .audit-list li {
-  min-width: 0;
-  overflow-wrap: anywhere;
+  @apply tw:min-w-0 tw:wrap-anywhere;
 }
 
 .audit-list time {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
   font-weight: 500;
 }
 
@@ -64,6 +57,6 @@ button:focus-visible {
 
 @media (max-width: 600px) {
   .detail-body {
-    padding: 1rem;
+    @apply tw:p-4;
   }
 }

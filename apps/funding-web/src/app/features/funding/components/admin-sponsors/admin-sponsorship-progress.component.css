@@ -1,6 +1,7 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
   container-type: inline-size;
 }
 .progress-panel {
@@ -12,11 +13,7 @@
 }
 header,
 .next-step {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
+  @apply tw:flex tw:items-center tw:justify-between tw:gap-4 tw:flex-wrap;
 }
 h2,
 h3,
@@ -27,10 +24,9 @@ h3 {
   margin-top: 0.8rem;
 }
 .independent-states {
-  display: flex;
-  flex-wrap: wrap;
+  @apply tw:flex tw:flex-wrap;
   gap: 0.6rem 1.4rem;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 dt {
   color: var(--admin-muted, #b8c8e0);
@@ -41,32 +37,27 @@ dd {
 }
 .milestones {
   list-style: none;
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  @apply tw:grid tw:grid-cols-6;
   gap: 0.6rem;
   margin: 1.2rem 0;
-  padding: 0;
+  @apply tw:p-0;
 }
 .milestones a {
-  display: flex;
-  flex-direction: column;
+  @apply tw:flex tw:flex-col;
   gap: 0.3rem;
   color: inherit;
   text-decoration: none;
-  font-size: var(--admin-caption-size, 0.875rem);
-  overflow-wrap: anywhere;
-  height: 100%;
+  @apply tw:text-admin-caption tw:wrap-anywhere tw:h-full;
   border-top: 2px solid var(--admin-border);
-  padding-top: 0.5rem;
+  @apply tw:pt-2;
 }
 @container (max-width: 600px) {
   .milestones {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    @apply tw:grid-cols-3;
   }
 }
 .step-marker {
-  display: grid;
-  place-items: center;
+  @apply tw:grid tw:place-items-center;
   border: 1px solid var(--admin-border);
   border-radius: 50%;
   width: 1.6rem;
@@ -74,26 +65,25 @@ dd {
 }
 [data-state='complete'] .step-marker {
   background: var(--admin-success-bg);
-  color: var(--admin-success);
-  border-color: var(--admin-success-border);
+  @apply tw:text-admin-success tw:border-admin-success-border;
 }
 [data-state='error'] .step-marker,
 [data-state='blocked'] .step-marker {
-  border-color: var(--admin-danger-border);
+  @apply tw:border-admin-danger-border;
 }
 small,
 .help {
   color: var(--admin-muted, #bccbe0);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 .next-step {
-  padding: 1rem;
+  @apply tw:p-4;
   border-radius: 8px;
   background: var(--admin-panel-raised, #21314a);
 }
 .next-step p {
   margin: 0.3rem 0 0;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 .help {
   margin: 0.8rem 0 0;
@@ -105,12 +95,12 @@ button:focus-visible {
 }
 @media (max-width: 760px) {
   .milestones {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    @apply tw:grid-cols-3;
   }
 }
 @media (max-width: 420px) {
   .milestones {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    @apply tw:grid-cols-2;
   }
 }
 .streamlined {
@@ -120,30 +110,28 @@ button:focus-visible {
   padding: 0.5rem 1.5rem 1rem;
 }
 .streamlined h2 {
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
-  color: var(--admin-muted);
-  margin: 0;
+  @apply tw:text-admin-muted tw:m-0;
 }
 .progress-count {
-  margin-left: 0.5rem;
-  color: var(--admin-gold);
+  @apply tw:ml-2 tw:text-admin-gold;
   font-variant-numeric: tabular-nums;
 }
 .streamlined header button {
   padding: 0.35rem 0.65rem;
   background: transparent;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 .streamlined .milestones {
-  gap: 0.5rem;
+  @apply tw:gap-2;
   margin: 0.65rem 0 1rem;
 }
 .streamlined .milestones a {
   border-top-color: var(--admin-border);
   padding: 0.5rem 0.35rem;
   border-radius: 0 0 0.5rem 0.5rem;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
   gap: 0.3rem;
 }
 .streamlined .milestones a[aria-current='step'] {
@@ -155,46 +143,43 @@ button:focus-visible {
 }
 .streamlined [data-state='complete'] .step-marker {
   background: var(--admin-success-bg);
-  color: var(--admin-success);
-  border-color: var(--admin-success-border);
+  @apply tw:text-admin-success tw:border-admin-success-border;
 }
 .streamlined .step-marker {
   width: 1.45rem;
   height: 1.45rem;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 .streamlined .step-status {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
 }
 .streamlined .next-step {
   background: var(--admin-subtle);
   border: 1px solid var(--admin-border);
-  border-radius: 0.75rem;
+  @apply tw:rounded-xl;
   padding: 0.8rem 1rem;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 .streamlined .next-step p {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
 }
 @media (max-width: 600px) {
   .streamlined {
     padding: 0.25rem 1rem 0.75rem;
   }
   .streamlined .milestones {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    @apply tw:grid-cols-3;
     gap: 0.45rem;
   }
   .streamlined .milestones a {
-    display: grid;
+    @apply tw:grid;
     grid-template-columns: auto minmax(0, 1fr);
-    align-items: center;
+    @apply tw:items-center;
   }
   .streamlined .step-status {
-    grid-column: 1 / -1;
+    @apply tw:col-span-full;
   }
   .streamlined .next-step .admin-button {
-    width: 100%;
+    @apply tw:w-full;
   }
 }

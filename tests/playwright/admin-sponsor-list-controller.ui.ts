@@ -209,6 +209,25 @@ for (const { locale, width, lateStatus } of [
       ).toBe(true);
       await search.focus();
       await expect(search).toBeFocused();
+      for (const viewportWidth of [859, 860, 861, 1119, 1120, 1121]) {
+        await page.setViewportSize({ width: viewportWidth, height: 950 });
+        await expect
+          .poll(() =>
+            current.evaluate(
+              (element) =>
+                getComputedStyle(element).gridTemplateColumns.split(' ').length
+            )
+          )
+          .toBe(viewportWidth <= 860 ? 1 : viewportWidth <= 1120 ? 2 : 7);
+        await expect(search).toHaveValue('Synthetic delayed');
+        await expect(list.getByRole('combobox').first()).toHaveValue(
+          'approved'
+        );
+      }
+      await page.keyboard.press('Tab');
+      await search.focus();
+      await expect(search).toHaveCSS('outline-style', 'solid');
+      await expect(search).toHaveCSS('outline-width', '3px');
     } finally {
       releaseOld?.();
     }

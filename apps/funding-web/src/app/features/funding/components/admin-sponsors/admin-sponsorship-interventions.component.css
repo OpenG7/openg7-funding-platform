@@ -1,18 +1,15 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
 }
 .interventions {
-  padding: 1rem;
+  @apply tw:p-4;
   border: 1px solid var(--admin-border, #536073);
-  border-radius: 1rem;
+  @apply tw:rounded-2xl;
 }
 header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
+  @apply tw:flex tw:flex-wrap tw:items-center tw:justify-between tw:gap-3;
 }
 h3,
 h4,
@@ -23,42 +20,39 @@ p {
   color: var(--admin-warning, #fcd34d);
 }
 fieldset {
-  display: grid;
+  @apply tw:grid;
   gap: 0.6rem;
-  min-width: 0;
-  padding: 0.75rem;
+  @apply tw:min-w-0 tw:p-3;
   margin: 1rem 0;
   border: 1px solid var(--admin-border, #536073);
-  border-radius: 0.75rem;
+  @apply tw:rounded-xl;
 }
 input,
 select,
 textarea {
-  width: 100%;
-  box-sizing: border-box;
-  min-width: 0;
+  @apply tw:w-full tw:box-border tw:min-w-0;
   font-family: inherit;
   font-size: inherit;
   line-height: inherit;
   color: inherit;
   background: var(--admin-bg, #111827);
   border: 1px solid var(--admin-border);
-  border-radius: 0.5rem;
+  @apply tw:rounded-lg;
   padding: 0.65rem;
 }
 textarea {
-  resize: vertical;
+  @apply tw:resize-y;
 }
 .journal {
-  padding-left: 1.5rem;
+  @apply tw:pl-6;
 }
 .journal li {
   padding: 0.6rem 0;
   border-bottom: 1px solid var(--admin-border, #536073);
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }
 .note {
-  white-space: pre-wrap;
+  @apply tw:whitespace-pre-wrap;
 }
 [hidden] {
   display: none !important;

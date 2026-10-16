@@ -1,30 +1,26 @@
+@reference '../../../../../styles/tailwind.css';
+
 .admin-workspace {
-  display: grid;
-  gap: 1rem;
-  min-width: 0;
+  @apply tw:grid tw:gap-4 tw:min-w-0;
 }
 
 .admin-page-header,
 .sponsors-board {
-  width: 100%;
+  @apply tw:w-full;
 }
 
 .admin-page-header {
-  display: grid;
-  gap: 1rem;
+  @apply tw:grid tw:gap-4;
 }
 
 .admin-breadcrumb,
 .admin-title-row,
 .admin-actions {
-  align-items: center;
-  display: flex;
-  gap: 0.75rem;
+  @apply tw:items-center tw:flex tw:gap-3;
 }
 
 .admin-breadcrumb {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
 }
 
 .admin-breadcrumb a,
@@ -36,27 +32,26 @@
 
 .admin-title-row {
   align-items: end;
-  justify-content: space-between;
+  @apply tw:justify-between;
 }
 
 .admin-title-row h1,
 .empty-detail-state h2 {
-  margin: 0;
+  @apply tw:m-0;
 }
 
 .admin-title-row p,
 .muted-copy,
 .empty-detail-state p {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   margin: 0.35rem 0 0;
 }
 
 .admin-kicker {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
   letter-spacing: 0;
-  text-transform: uppercase;
+  @apply tw:uppercase;
 }
 
 button,
@@ -83,13 +78,9 @@ textarea:focus-visible {
 .secondary-danger-action,
 .mini-action,
 .icon-action {
-  align-items: center;
-  border-radius: 0.4rem;
-  cursor: pointer;
-  display: inline-flex;
+  @apply tw:items-center tw:rounded-admin-sm tw:cursor-pointer tw:inline-flex;
   font-weight: var(--admin-control-weight);
-  justify-content: center;
-  min-height: 2.5rem;
+  @apply tw:justify-center tw:min-h-10;
   padding: 0 0.85rem;
   text-decoration: none;
 }
@@ -97,7 +88,7 @@ textarea:focus-visible {
 .primary-action {
   background: var(--og7-admin-warning-bg, #3c3221);
   border: 1px solid var(--admin-border);
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
 }
 
 .secondary-action,
@@ -106,7 +97,7 @@ textarea:focus-visible {
 .icon-action {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
 }
 
 .tertiary-action:disabled,
@@ -114,19 +105,19 @@ textarea:focus-visible {
 .secondary-danger-action:disabled,
 .mini-action:disabled,
 .icon-action:disabled {
-  cursor: not-allowed;
+  @apply tw:cursor-not-allowed;
   opacity: 0.55;
 }
 
 .secondary-danger-action {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  color: var(--admin-danger);
+  @apply tw:text-admin-danger;
 }
 
 .icon-action {
   min-height: 2.2rem;
-  padding: 0;
+  @apply tw:p-0;
   width: 2.2rem;
 }
 
@@ -134,19 +125,17 @@ textarea:focus-visible {
 .empty-detail-state {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.5rem;
+  @apply tw:rounded-lg;
 }
 
 .sponsors-board {
   align-items: start;
-  display: grid;
-  gap: 1rem;
+  @apply tw:grid tw:gap-4;
   grid-template-columns: minmax(52rem, 1fr) minmax(22rem, 32rem);
 }
 
 .sponsor-detail-panel {
-  min-width: 0;
-  overflow: hidden;
+  @apply tw:min-w-0 tw:overflow-hidden;
 }
 
 input,
@@ -158,22 +147,21 @@ textarea {
 }
 
 textarea {
-  resize: vertical;
+  @apply tw:resize-y;
 }
 
 .empty-detail-state {
-  display: grid;
+  @apply tw:grid;
   gap: 0.7rem;
-  padding: 1rem;
+  @apply tw:p-4;
 }
 
 .sponsor-detail-panel {
-  display: grid;
+  @apply tw:grid;
   grid-template-columns: minmax(0, 1fr);
   grid-auto-rows: max-content;
   max-height: calc(100vh - 2.5rem);
-  overflow-y: auto;
-  position: sticky;
+  @apply tw:overflow-y-auto tw:sticky;
   top: 1.25rem;
   scroll-padding-bottom: 12rem;
 }
@@ -186,18 +174,17 @@ textarea {
   background: var(--og7-admin-danger-bg, #3c3221);
   border: 1px solid var(--admin-border);
   border-radius: 0.45rem;
-  color: var(--admin-danger);
+  @apply tw:text-admin-danger;
   font-weight: 500;
-  grid-column: 1 / -1;
+  @apply tw:col-span-full;
   margin: 0 1rem 1rem;
   padding: 0.75rem 0.9rem;
 }
 
 .detail-body {
-  display: grid;
+  @apply tw:grid;
   gap: 0.9rem;
-  overflow: auto;
-  padding: 1rem;
+  @apply tw:overflow-auto tw:p-4;
 }
 
 @keyframes selected-box-fade-in {
@@ -228,9 +215,7 @@ textarea {
     grid-template-columns: 1fr;
   }
   .sponsor-detail-panel {
-    max-height: none;
-    overflow: visible;
-    position: static;
+    @apply tw:max-h-none tw:overflow-visible tw:static;
   }
 }
 
@@ -241,8 +226,7 @@ textarea {
 
   .admin-title-row,
   .admin-actions {
-    align-items: stretch;
-    flex-direction: column;
+    @apply tw:items-stretch tw:flex-col;
   }
 }
 

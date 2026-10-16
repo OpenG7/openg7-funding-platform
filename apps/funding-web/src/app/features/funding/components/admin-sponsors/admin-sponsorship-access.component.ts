@@ -24,32 +24,9 @@ import { AdminSponsorshipAccessController } from './admin-sponsorship-access-con
   standalone: true,
   imports: [TranslatePipe, AdminAutomaticPreparationDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  styleUrls: ['../admin-ui/admin-controls.css'],
-  styles: [
-    `
-      :host {
-        display: block;
-        margin: 1rem 0;
-        padding: 1rem;
-        border: 1px solid var(--admin-border);
-        border-radius: 1rem;
-      }
-      button {
-        padding: 0.7rem 1rem;
-        border: 1px solid var(--admin-border);
-        border-radius: 0.7rem;
-      }
-      button:focus-visible {
-        outline: 2px solid var(--admin-focus);
-        outline-offset: 3px;
-      }
-      button:disabled {
-        opacity: 0.6;
-      }
-      p {
-        margin: 0.6rem 0;
-      }
-    `
+  styleUrls: [
+    '../admin-ui/admin-controls.css',
+    './admin-sponsorship-access.component.css'
   ],
   template: `@if (allowed()) {
     <section
