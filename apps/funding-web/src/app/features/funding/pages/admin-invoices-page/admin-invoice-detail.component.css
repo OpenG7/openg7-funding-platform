@@ -1,33 +1,32 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
 }
 
 .detail-header span,
 .line-items header span,
 .credit-notes-panel header span,
 .email-panel header span {
-  color: var(--admin-warning);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-warning tw:text-admin-caption tw:uppercase;
   font-weight: var(--admin-label-weight);
   letter-spacing: 0;
-  text-transform: uppercase;
 }
 
 .email-panel header openg7-admin-document-email-status {
   letter-spacing: 0;
-  text-transform: uppercase;
+  @apply tw:uppercase;
 }
 
 h2,
 h3,
 p {
-  margin: 0;
+  @apply tw:m-0;
 }
 
 button {
   border: 0;
-  cursor: pointer;
+  @apply tw:cursor-pointer;
   font-family: inherit;
   font-size: inherit;
   line-height: inherit;
@@ -36,28 +35,25 @@ button {
 .secondary-action {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.4rem;
-  color: var(--admin-text);
+  @apply tw:rounded-admin-sm tw:text-admin-text;
   font-weight: var(--admin-label-weight);
   min-height: 2.35rem;
   padding: 0 0.85rem;
 }
 
 .secondary-action:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
+  @apply tw:cursor-not-allowed tw:opacity-55;
 }
 
 .invoice-detail-panel {
   background: var(--admin-panel-raised);
   border: 1px solid var(--admin-border);
-  border-radius: 0.5rem;
+  @apply tw:rounded-lg;
   box-shadow: 0 0.8rem 1.8rem rgba(23, 32, 51, 0.06);
 }
 
 .invoice-detail-panel {
-  min-width: 0;
-  padding: 1rem;
+  @apply tw:min-w-0 tw:p-4;
 }
 
 .detail-header,
@@ -65,76 +61,65 @@ button {
 .credit-notes-panel header,
 .email-panel header {
   align-items: start;
-  display: flex;
-  gap: 0.75rem;
-  justify-content: space-between;
+  @apply tw:flex tw:gap-3 tw:justify-between;
 }
 
 .invoice-detail-panel {
-  display: grid;
-  gap: 1rem;
+  @apply tw:grid tw:gap-4;
 }
 
 .detail-header {
   border-bottom: 1px solid var(--admin-border);
-  padding-bottom: 1rem;
+  @apply tw:pb-4;
 }
 
 .detail-header p {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   font-weight: 500;
   margin-top: 0.2rem;
 }
 
 .detail-actions {
   align-items: end;
-  display: grid;
+  @apply tw:grid tw:justify-items-end;
   gap: 0.45rem;
-  justify-items: end;
 }
 
 .detail-actions > strong {
   font-size: 1.4rem;
-  white-space: nowrap;
+  @apply tw:whitespace-nowrap;
 }
 
 .detail-grid {
-  display: grid;
-  gap: 0.75rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  @apply tw:grid tw:gap-3 tw:grid-cols-2;
 }
 
 dl,
 .line-items,
 .credit-notes-panel,
 .email-panel {
-  display: grid;
+  @apply tw:grid tw:m-0;
   gap: 0.65rem;
-  margin: 0;
 }
 
 dl div,
 .line-item {
   align-items: start;
   border-bottom: 1px solid rgba(23, 32, 51, 0.08);
-  display: grid;
+  @apply tw:grid;
   gap: 0.35rem;
   grid-template-columns: minmax(8rem, 0.75fr) minmax(0, 1fr);
   padding-bottom: 0.65rem;
 }
 
 dt {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption tw:uppercase;
   font-weight: var(--admin-label-weight);
-  text-transform: uppercase;
 }
 
 dd {
   font-weight: 400;
-  margin: 0;
-  min-width: 0;
-  overflow-wrap: anywhere;
+  @apply tw:m-0 tw:min-w-0 tw:wrap-anywhere;
 }
 
 .line-items,
@@ -147,33 +132,28 @@ dd {
 }
 
 .credit-notes-panel {
-  border-color: var(--admin-border);
+  @apply tw:border-admin-border;
 }
 
 .credit-note-card {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.4rem;
-  display: grid;
+  @apply tw:rounded-admin-sm tw:grid tw:p-3;
   gap: 0.7rem;
-  padding: 0.75rem;
 }
 
 .credit-note-title {
   align-items: start;
-  display: flex;
-  gap: 0.75rem;
-  justify-content: space-between;
+  @apply tw:flex tw:gap-3 tw:justify-between;
 }
 
 .credit-note-title div {
-  display: grid;
+  @apply tw:grid;
   gap: 0.2rem;
 }
 
 .credit-note-title span {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
   font-weight: 400;
 }
 
@@ -188,9 +168,8 @@ dd {
 }
 
 .line-item small {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted tw:whitespace-nowrap;
   font-weight: 400;
-  white-space: nowrap;
 }
 
 .totals {
@@ -203,7 +182,7 @@ dd {
 
 .totals div:last-child dt,
 .totals div:last-child dd {
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
   font-size: 1rem;
   font-weight: var(--admin-emphasis-weight);
 }
@@ -212,48 +191,42 @@ dd {
   font-family:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
     'Courier New', monospace;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 
 .email-meta {
   background: var(--admin-panel-raised);
-  border-radius: 0.4rem;
-  padding: 0.75rem;
+  @apply tw:rounded-admin-sm tw:p-3;
 }
 
 .document-actions {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
+  @apply tw:items-center tw:flex tw:flex-wrap;
   gap: 0.65rem;
 }
 
 .download-message {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   font-weight: 500;
 }
 
 .download-message.error {
-  color: var(--admin-danger);
+  @apply tw:text-admin-danger;
 }
 
 .invoice-note,
 .empty-detail {
   background: var(--admin-panel-raised);
-  border-radius: 0.4rem;
-  color: var(--admin-muted);
-  display: grid;
-  gap: 0.25rem;
+  @apply tw:rounded-admin-sm tw:text-admin-muted tw:grid tw:gap-1;
   padding: 0.85rem;
 }
 
 .empty-detail strong {
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
 }
 
 @media (max-width: 1080px) {
   .detail-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    @apply tw:grid-cols-2;
   }
 
   .detail-grid {
@@ -268,8 +241,7 @@ dd {
   .credit-notes-panel header,
   .credit-note-title,
   .email-panel header {
-    align-items: stretch;
-    flex-direction: column;
+    @apply tw:items-stretch tw:flex-col;
   }
 
   dl div,
@@ -278,12 +250,11 @@ dd {
   }
 
   .detail-actions {
-    align-items: stretch;
-    justify-items: stretch;
+    @apply tw:items-stretch tw:justify-items-stretch;
   }
 
   .detail-actions > strong,
   .line-item small {
-    white-space: normal;
+    @apply tw:whitespace-normal;
   }
 }

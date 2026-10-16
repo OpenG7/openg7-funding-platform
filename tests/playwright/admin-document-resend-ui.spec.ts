@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 
-import type { Download } from '@playwright/test';
+import type { Download, Locator, Page } from '@playwright/test';
 import type { AdminSponsorshipInvoiceRecord } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
@@ -113,6 +113,206 @@ function seedSession(language: string): void {
     '2099-01-01T00:00:00Z'
   );
 }
+
+async function documentStyleFixtures(
+  page: Page,
+  language: string,
+  theme: string
+) {
+  await page.addInitScript(seedSession, language);
+  await page.addInitScript((theme) => {
+    localStorage.setItem(
+      'openg7.pilotage.appearance.v1',
+      JSON.stringify({ theme, system: false, density: 'comfortable' })
+    );
+  }, theme);
+  const writes: string[] = [];
+  await page.route('**/api/**', async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (request.method() !== 'GET') {
+      writes.push(path);
+      return route.fulfill({ status: 503, json: {} });
+    }
+    if (path.endsWith('/sponsorship-invoices'))
+      return route.fulfill({
+        json: {
+          ...twoInvoiceListing,
+          summary: { ...twoInvoiceListing.summary, failed_email_count: 1 },
+          invoices: [
+            {
+              ...invoice,
+              credit_notes: invoice.credit_notes.map((credit) => ({
+                ...credit,
+                last_email_status: 'queued'
+              }))
+            },
+            { ...secondInvoice, last_email_status: 'failed' }
+          ]
+        }
+      });
+    return route.fulfill({ status: 503, json: {} });
+  });
+  return writes;
+}
+
+async function expectDocumentColumns(grid: Locator, columns: number) {
+  await expect
+    .poll(() =>
+      grid.evaluate(
+        (element) =>
+          getComputedStyle(element).gridTemplateColumns.split(' ').length
+      )
+    )
+    .toBe(columns);
+}
+
+const documentPalettes = {
+  mineral: {
+    panel: 'rgb(255, 255, 255)',
+    raised: 'rgb(240, 244, 238)',
+    text: 'rgb(41, 51, 46)',
+    success: 'rgb(34, 99, 66)',
+    warning: 'rgb(128, 84, 17)',
+    danger: 'rgb(165, 45, 62)'
+  },
+  night: {
+    panel: 'rgb(20, 35, 56)',
+    raised: 'rgb(27, 45, 68)',
+    text: 'rgb(241, 245, 252)',
+    success: 'rgb(161, 231, 177)',
+    warning: 'rgb(255, 218, 133)',
+    danger: 'rgb(255, 181, 188)'
+  },
+  graphite: {
+    panel: 'rgb(37, 41, 47)',
+    raised: 'rgb(50, 56, 65)',
+    text: 'rgb(243, 244, 246)',
+    success: 'rgb(167, 223, 188)',
+    warning: 'rgb(245, 212, 148)',
+    danger: 'rgb(255, 188, 201)'
+  }
+} as const;
+
+for (const theme of ['mineral', 'night', 'graphite'] as const) {
+  for (const { language, width } of [
+    { language: 'fr-CA', width: 390 },
+    { language: 'en', width: 1280 }
+  ]) {
+    test(`invoice and credit-note surfaces keep delivery states readable with ${theme} in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      const palette = documentPalettes[theme];
+      const english = language === 'en';
+      await page.setViewportSize({ width, height: 950 });
+      const writes = await documentStyleFixtures(page, language, theme);
+      await page.goto('/admin/fundraiser/invoices');
+      const summary = page.getByRole('region', {
+        name: english ? 'Invoice summary' : 'Resume factures',
+        exact: true
+      });
+      const detail = page.getByRole('region', {
+        name: english ? 'Invoice details' : 'Detail facture',
+        exact: true
+      });
+      const selections = page.locator('[data-og7="invoice-selection"]');
+      await expect(selections).toHaveCount(2);
+      await expect(summary.getByRole('article')).toHaveCount(5);
+      await expect(detail).toHaveCSS('background-color', palette.raised);
+      await expect(summary.getByRole('article').first()).toHaveCSS(
+        'background-color',
+        palette.raised
+      );
+      await expect(selections.first()).toHaveCSS(
+        'background-color',
+        palette.panel
+      );
+      await expect(selections.first()).toHaveCSS('color', palette.text);
+      await expect(
+        selections.first().locator('openg7-admin-document-email-status span')
+      ).toHaveCSS('color', palette.success);
+      await expect(
+        selections.last().locator('openg7-admin-document-email-status span')
+      ).toHaveCSS('color', palette.danger);
+      await expect(
+        page
+          .locator('[data-og7="credit-note"]')
+          .locator('openg7-admin-document-email-status span')
+      ).toHaveCSS('color', palette.warning);
+
+      const recipient = page.getByLabel(
+        english ? 'Recipient' : 'Destinataire',
+        {
+          exact: true
+        }
+      );
+      await expect(recipient).toHaveValue('original@example.test');
+      await expect(recipient).toHaveCSS('background-color', palette.panel);
+      await expect(recipient).toHaveCSS('color', palette.text);
+      const bounds = await recipient.boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds!.x).toBeGreaterThanOrEqual(0);
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+
+      const resend = detail.getByRole('button', {
+        name: english ? 'Resend' : 'Renvoyer',
+        exact: true
+      });
+      await resend.focus();
+      await page.keyboard.press('Enter');
+      const dialog = page.getByRole('dialog');
+      await expect(dialog).toContainText('INV-SYNTHETIC');
+      await dialog
+        .getByRole('button', {
+          name: english ? 'Cancel' : 'Annuler',
+          exact: true
+        })
+        .last()
+        .click();
+      await expect(resend).toBeFocused();
+      expect(writes).toEqual([]);
+    });
+  }
+}
+
+test('invoice identities, summaries and delivery controls retain their responsive boundaries', async ({
+  page
+}) => {
+  await documentStyleFixtures(page, 'fr-CA', 'mineral');
+  await page.goto('/admin/fundraiser/invoices');
+  const summary = page.getByRole('region', {
+    name: 'Resume factures',
+    exact: true
+  });
+  const board = page.getByRole('region', {
+    name: 'Factures admin',
+    exact: true
+  });
+  const identity = page.getByRole('region', {
+    name: 'Identite facture',
+    exact: true
+  });
+  const selected = page.locator('[data-og7="invoice-selection"]').first();
+  await expect(selected).toHaveAttribute('aria-pressed', 'true');
+  for (const width of [619, 620, 621, 859, 860, 861, 1079, 1080, 1081]) {
+    await page.setViewportSize({ width, height: 950 });
+    await expectDocumentColumns(
+      summary,
+      width <= 620 ? 1 : width <= 1080 ? 2 : 5
+    );
+    await expectDocumentColumns(board, width <= 1080 ? 1 : 2);
+    await expectDocumentColumns(identity, width <= 1080 ? 1 : 2);
+    await expectDocumentColumns(selected, width <= 620 ? 1 : 2);
+    await expect(
+      selected.locator('openg7-admin-document-email-status span')
+    ).toHaveCSS('white-space', width <= 620 ? 'normal' : 'nowrap');
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1
+      )
+    ).toBe(true);
+  }
+});
 
 for (const language of ['fr-CA', 'en'])
   for (const width of [390, 1280]) {

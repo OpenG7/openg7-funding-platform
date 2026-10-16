@@ -1,23 +1,22 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
 }
 
 .invoice-list-panel header span {
-  color: var(--admin-warning);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-warning tw:text-admin-caption tw:uppercase;
   font-weight: var(--admin-label-weight);
   letter-spacing: 0;
-  text-transform: uppercase;
 }
 
 h2 {
-  margin: 0;
+  @apply tw:m-0;
 }
 
 button {
   border: 0;
-  cursor: pointer;
+  @apply tw:cursor-pointer;
   font-family: inherit;
   font-size: inherit;
   line-height: inherit;
@@ -26,56 +25,49 @@ button {
 .invoice-list-panel {
   background: var(--admin-panel-raised);
   border: 1px solid var(--admin-border);
-  border-radius: 0.5rem;
+  @apply tw:rounded-lg;
   box-shadow: 0 0.8rem 1.8rem rgba(23, 32, 51, 0.06);
 }
 
 .invoice-list-panel {
-  min-width: 0;
-  padding: 1rem;
+  @apply tw:min-w-0 tw:p-4;
 }
 
 .invoice-list-panel {
-  display: grid;
+  @apply tw:grid;
   gap: 0.85rem;
 }
 
 .invoice-list-panel header {
   align-items: start;
-  display: flex;
-  gap: 0.75rem;
-  justify-content: space-between;
+  @apply tw:flex tw:gap-3 tw:justify-between;
 }
 
 .invoice-list {
-  display: grid;
-  gap: 0.5rem;
+  @apply tw:grid tw:gap-2;
 }
 
 .invoice-list button {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
   border-radius: 0.45rem;
-  color: var(--admin-text);
-  display: grid;
+  @apply tw:text-admin-text tw:grid tw:text-left;
   gap: 0.25rem 0.75rem;
   grid-template-columns: minmax(0, 1fr) auto;
   min-height: 5.4rem;
   padding: 0.8rem;
-  text-align: left;
 }
 
 .invoice-list button:hover,
 .invoice-list button.selected {
-  border-color: var(--admin-warning-border);
+  @apply tw:border-admin-warning-border;
   box-shadow: inset 0.25rem 0 0 #b98224;
 }
 
 .invoice-number,
 .invoice-name,
 .invoice-meta {
-  min-width: 0;
-  overflow-wrap: anywhere;
+  @apply tw:min-w-0 tw:wrap-anywhere;
 }
 
 .invoice-number {
@@ -83,42 +75,33 @@ button {
 }
 
 .invoice-name {
-  color: var(--admin-muted);
-  grid-column: 1 / -1;
+  @apply tw:text-admin-muted tw:col-span-full;
   font-weight: 500;
 }
 
 .invoice-meta {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   font-size: 0.88rem;
   font-weight: 400;
 }
 
 .credit-status {
-  align-items: center;
+  @apply tw:items-center tw:text-admin-muted tw:inline-flex tw:text-admin-caption tw:justify-center tw:whitespace-nowrap;
   background: var(--admin-panel-raised);
   border-radius: 999px;
-  color: var(--admin-muted);
-  display: inline-flex;
-  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
-  justify-content: center;
   min-height: 1.65rem;
   padding: 0 0.6rem;
-  white-space: nowrap;
 }
 
 .empty-state {
   background: var(--admin-panel-raised);
-  border-radius: 0.4rem;
-  color: var(--admin-muted);
-  display: grid;
-  gap: 0.25rem;
+  @apply tw:rounded-admin-sm tw:text-admin-muted tw:grid tw:gap-1;
   padding: 0.85rem;
 }
 
 .empty-state strong {
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
 }
 
 @media (max-width: 620px) {
@@ -127,6 +110,6 @@ button {
   }
 
   .credit-status {
-    white-space: normal;
+    @apply tw:whitespace-normal;
   }
 }
