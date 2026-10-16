@@ -47,7 +47,7 @@ export class AdminEmailQueueMessagesComponent {
   }
 
   contributionIdFor(message: AdminEmailQueueMessageRecord): string | null {
-    const id = message.metadata['contributionId'];
+    const id = message.metadata?.['contributionId'];
     return typeof id === 'string' ? id : null;
   }
 }
