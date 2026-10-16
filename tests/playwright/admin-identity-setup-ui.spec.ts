@@ -53,6 +53,194 @@ async function installOwnerFixtures(page: Page) {
   return data;
 }
 
+const identityPalettes = {
+  mineral: {
+    panel: 'rgb(255, 255, 255)',
+    border: 'rgb(202, 213, 201)',
+    text: 'rgb(41, 51, 46)',
+    muted: 'rgb(83, 99, 90)',
+    raised: 'rgb(240, 244, 238)',
+    selected: 'rgb(220, 233, 218)',
+    focus: 'rgb(47, 107, 80)'
+  },
+  night: {
+    panel: 'rgb(20, 35, 56)',
+    border: 'rgb(64, 86, 111)',
+    text: 'rgb(241, 245, 252)',
+    muted: 'rgb(189, 203, 224)',
+    raised: 'rgb(27, 45, 68)',
+    selected: 'rgb(36, 61, 83)',
+    focus: 'rgb(158, 218, 255)'
+  },
+  graphite: {
+    panel: 'rgb(37, 41, 47)',
+    border: 'rgb(86, 97, 110)',
+    text: 'rgb(243, 244, 246)',
+    muted: 'rgb(196, 203, 213)',
+    raised: 'rgb(50, 56, 65)',
+    selected: 'rgb(56, 67, 79)',
+    focus: 'rgb(194, 227, 255)'
+  }
+} as const;
+
+for (const theme of ['mineral', 'night', 'graphite'] as const) {
+  for (const { language, width } of [
+    { language: 'fr-CA', width: 390 },
+    { language: 'en', width: 1280 }
+  ]) {
+    test(`identity guide owner styles retain ${theme} palettes in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.addInitScript(
+        ({ language, theme }) => {
+          localStorage.setItem('openg7.language', language);
+          localStorage.setItem(
+            'openg7.pilotage.appearance.v1',
+            JSON.stringify({ theme, system: false, density: 'comfortable' })
+          );
+        },
+        { language, theme }
+      );
+      const data = await installOwnerFixtures(page);
+      await page.goto('/admin/fundraiser/setup?section=identity');
+      await expect(page.locator('html')).toHaveAttribute('lang', language);
+      await expect(page.locator('html')).toHaveAttribute(
+        'data-og7-pilot-theme',
+        theme
+      );
+      const panel = guide(page);
+      const palette = identityPalettes[theme];
+      await expect(panel).toBeVisible();
+      await expect(panel).toHaveCSS('background-color', palette.panel);
+      await expect(panel).toHaveCSS('background-image', 'none');
+      await expect(panel).toHaveCSS('border-top-color', palette.border);
+      await expect(panel).toHaveCSS('border-top-width', '1px');
+      await expect(panel).toHaveCSS('border-radius', '12px');
+      await expect(panel).toHaveCSS('padding', '17.6px');
+      const configuration = panel.locator(
+        '[data-og7="identity-configuration"]'
+      );
+      const steps = panel.getByRole('navigation').getByRole('list');
+      for (const grid of [configuration, steps]) {
+        await expect(grid).toHaveCSS('display', 'grid');
+        await expect
+          .poll(() =>
+            grid.evaluate(
+              (element) =>
+                getComputedStyle(element).gridTemplateColumns.split(/\s+/)
+                  .length
+            )
+          )
+          .toBe(width <= 700 ? 1 : 2);
+      }
+      await expect(configuration).toHaveCSS('gap', '12.8px');
+      await expect(steps).toHaveCSS('gap', '7.2px');
+      await expect(configuration.locator('dt').first()).toHaveCSS(
+        'color',
+        palette.muted
+      );
+      await expect(configuration.locator('dt').first()).toHaveCSS(
+        'font-size',
+        '14px'
+      );
+      const observation = panel.locator(
+        '[data-og7="identity-configuration-state"]'
+      );
+      await expect(observation).toHaveAttribute('data-state', 'configured');
+      await expect(observation).toHaveCSS('background-color', palette.raised);
+      await expect(observation).toHaveCSS('font-size', '14px');
+      const provider = panel.locator(
+        '[data-og7="identity-step-link"][data-og7-id="provider"]'
+      );
+      const client = panel.locator(
+        '[data-og7="identity-step-link"][data-og7-id="client"]'
+      );
+      await expect(provider).toHaveAttribute('aria-current', 'step');
+      await expect(provider).toHaveCSS('background-color', palette.selected);
+      await expect(provider).toHaveCSS('border-top-color', palette.focus);
+      await expect(client).toHaveCSS('background-color', palette.raised);
+      await expect(client).toHaveCSS('color', palette.text);
+      await expect(client).toHaveCSS('min-height', '44px');
+      await expect(client).toHaveCSS('padding', '10.4px');
+      await expect(client).toHaveCSS('border-radius', '6.4px');
+      await client.focus();
+      await page.keyboard.press('Enter');
+      await expect(current(page)).toHaveAttribute('data-og7-id', 'client');
+      const heading = panel.locator('[data-og7="identity-step-heading"]');
+      await expect(heading).toBeFocused();
+      await expect(heading).toHaveCSS('outline-width', '3px');
+      await expect(heading).toHaveCSS('outline-color', palette.focus);
+      await expect(current(page).locator('code')).toHaveCSS('display', 'block');
+      await expect(current(page).locator('code')).toHaveCSS(
+        'overflow-wrap',
+        'anywhere'
+      );
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+      expect(data.writes).toBe(0);
+    });
+  }
+}
+
+test('public identity guide preserves its 700px boundary without authentication or API reads', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 701, height: 1000 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.addInitScript(() => {
+    localStorage.setItem('openg7.language', 'en');
+  });
+  const requests: string[] = [];
+  await page.route('**/api/**', (route) => {
+    requests.push(
+      `${route.request().method()} ${new URL(route.request().url()).pathname}`
+    );
+    return route.fulfill({ status: 503, json: {} });
+  });
+  await page.goto('/admin/oidc-setup');
+  const root = page.locator('[data-og7="identity-setup-page"]');
+  await expect(root).toHaveCSS('min-height', '1000px');
+  await expect(root.locator(':scope > div')).toHaveCSS('max-width', '1024px');
+  const steps = guide(page).getByRole('navigation').getByRole('list');
+  for (const width of [701, 700, 699]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await expect
+      .poll(() =>
+        steps.evaluate(
+          (element) =>
+            getComputedStyle(element).gridTemplateColumns.split(/\s+/).length
+        )
+      )
+      .toBe(width <= 700 ? 1 : 2);
+    await expect(guide(page)).toHaveCSS('padding', '17.6px');
+    await expect(guide(page)).toHaveCSS('border-radius', '12px');
+    expect(
+      await root.evaluate(
+        (element) => element.scrollWidth <= element.clientWidth + 1
+      )
+    ).toBe(true);
+  }
+  await expect(page.locator('[data-og7="identity-configuration"]')).toHaveCount(
+    0
+  );
+  const next = page.locator('[data-og7="identity-step-next"]');
+  await next.focus();
+  await page.keyboard.press('Enter');
+  await expect(current(page)).toHaveAttribute('data-og7-id', 'client');
+  await expect(current(page)).toContainText(
+    'https://<site>/api/admin/auth/callback'
+  );
+  const signIn = root.locator('[data-og7="identity-setup-sign-in"]');
+  await expect(signIn).toHaveCSS('text-decoration-line', 'underline');
+  await expect(signIn).toHaveCSS('text-underline-offset', '3.2px');
+  expect(requests).toEqual([]);
+});
+
 for (const language of ['fr-CA', 'en']) {
   for (const width of [390, 1600]) {
     test(`public OIDC guide works before sign-in with the API unavailable in ${language} at ${width}px`, async ({

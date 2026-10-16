@@ -1,44 +1,38 @@
+@reference '../../../../../styles/tailwind.css';
+
 .identity-setup-shell {
-  min-height: 100vh;
+  @apply tw:min-h-screen;
   padding: clamp(1rem, 4vw, 3rem);
   background: var(--admin-bg);
 }
 .identity-setup-content {
-  display: grid;
-  gap: 1.5rem;
-  max-width: 64rem;
+  @apply tw:grid tw:gap-6 tw:max-w-5xl tw:min-w-0;
   margin: 0 auto;
-  min-width: 0;
 }
 header,
 footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 1rem;
+  @apply tw:flex tw:items-center tw:justify-between tw:flex-wrap tw:gap-4;
 }
 header > div {
   flex: 1 1 20rem;
-  min-width: 0;
+  @apply tw:min-w-0;
 }
 header span,
 header p,
 .guide-limit {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
 }
 h1 {
   font-size: clamp(1.5rem, 4vw, 2rem);
   margin-block: 0.5rem;
 }
 .guide-limit {
-  padding: 1rem;
+  @apply tw:p-4 tw:rounded-lg;
   border: 1px solid var(--admin-border);
-  border-radius: 0.5rem;
   background: var(--admin-panel);
 }
 a {
-  color: var(--admin-accent);
+  @apply tw:text-admin-accent;
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }
