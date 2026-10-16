@@ -1,4 +1,9 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  input
+} from '@angular/core';
 
 import {
   computeGlowIntensity,
@@ -56,8 +61,8 @@ import {
         animation: breathe-blue 7.2s ease-in-out infinite;
         background: radial-gradient(
           circle,
-          rgb(53 171 255 / calc(var(--guardian-blue-intensity) * 60%)) 0%,
-          rgb(19 77 145 / 0) 72%
+          rgb(114 145 116 / calc(var(--guardian-blue-intensity) * 40%)) 0%,
+          rgb(114 145 116 / 0) 72%
         );
         bottom: 4%;
         filter: blur(0.2rem);
@@ -82,16 +87,40 @@ import {
 
       .guardian-image {
         -webkit-mask-image:
-          linear-gradient(to bottom, transparent 0%, black 7%, black 89%, transparent 100%),
-          linear-gradient(to right, transparent 0%, black 9%, black 91%, transparent 100%);
+          linear-gradient(
+            to bottom,
+            transparent 0%,
+            black 7%,
+            black 89%,
+            transparent 100%
+          ),
+          linear-gradient(
+            to right,
+            transparent 0%,
+            black 9%,
+            black 91%,
+            transparent 100%
+          );
         -webkit-mask-composite: source-in;
         display: block;
-        filter: drop-shadow(0 16px 36px rgb(0 0 0 / 62%));
+        filter: drop-shadow(0 8px 20px rgb(41 51 46 / 18%));
         margin: 0 auto;
         mask-composite: intersect;
         mask-image:
-          linear-gradient(to bottom, transparent 0%, black 7%, black 89%, transparent 100%),
-          linear-gradient(to right, transparent 0%, black 9%, black 91%, transparent 100%);
+          linear-gradient(
+            to bottom,
+            transparent 0%,
+            black 7%,
+            black 89%,
+            transparent 100%
+          ),
+          linear-gradient(
+            to right,
+            transparent 0%,
+            black 9%,
+            black 91%,
+            transparent 100%
+          );
         max-height: min(72vh, 720px);
         max-width: min(520px, 100%);
         object-fit: contain;
@@ -146,7 +175,7 @@ export class FundGuardianComponent {
   readonly goldSpread = computed<number>(() =>
     computeGlowSpread(this.normalizedProgress())
   );
-  readonly blueIntensity = computed<number>(() =>
-    0.25 + (this.normalizedProgress() / 100) * 0.38
+  readonly blueIntensity = computed<number>(
+    () => 0.25 + (this.normalizedProgress() / 100) * 0.38
   );
 }

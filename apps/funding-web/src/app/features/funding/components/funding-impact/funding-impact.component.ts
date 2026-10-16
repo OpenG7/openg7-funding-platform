@@ -30,7 +30,7 @@ export interface FundingImpactItem {
       }
 
       .impact-card h2 {
-        color: #eff8ff;
+        color: var(--text-main);
         margin: 0 0 0.8rem;
       }
 
@@ -43,7 +43,7 @@ export interface FundingImpactItem {
       }
 
       .impact-card li {
-        color: #c1d9ee;
+        color: var(--text-soft);
         display: grid;
         gap: 0.15rem;
         padding-left: 1.4rem;
@@ -51,16 +51,16 @@ export interface FundingImpactItem {
       }
 
       .impact-card strong {
-        color: #eaf6ff;
+        color: var(--text-main);
       }
 
       .impact-card span {
-        color: #8db2d0;
-        font-size: 0.86rem;
+        color: var(--text-soft);
+        font-size: 0.875rem;
       }
 
       .impact-card li::before {
-        background: radial-gradient(circle, #17b7ff, #1a6bff);
+        background: var(--color-primary);
         border-radius: 999px;
         content: '';
         height: 0.62rem;
@@ -71,8 +71,8 @@ export interface FundingImpactItem {
       }
 
       .impact-card p {
-        border-top: 1px solid #285277;
-        color: #95b8d6;
+        border-top: 1px solid var(--border-color);
+        color: var(--text-soft);
         margin: 0.85rem 0 0;
         padding-top: 0.8rem;
       }

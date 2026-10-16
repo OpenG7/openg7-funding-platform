@@ -13,9 +13,10 @@ ul {
 }
 
 li {
-  border: 1px solid rgb(122 223 255 / 24%);
+  border: 1px solid var(--border-color);
+  background: var(--surface-raised);
   border-radius: 0.5rem;
-  padding: 0.6rem;
+  padding: 1rem;
 }
 
 p {

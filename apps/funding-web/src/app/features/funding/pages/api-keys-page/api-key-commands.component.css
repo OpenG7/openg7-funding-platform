@@ -4,10 +4,10 @@
 }
 
 .command-panel code {
-  background: rgb(11 11 12 / 92%);
-  border: 1px solid rgb(255 255 255 / 10%);
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-color);
   border-radius: 0.42rem;
-  color: #d7c7ae;
+  color: var(--text-soft);
   display: block;
   margin: 0.45rem 0;
   overflow: auto;
@@ -28,8 +28,8 @@
 }
 
 .command-panel span {
-  color: #d9c49d;
-  font-size: 0.78rem;
+  color: var(--text-main);
+  font-size: 0.875rem;
 }
 
 @media (max-width: 900px) {

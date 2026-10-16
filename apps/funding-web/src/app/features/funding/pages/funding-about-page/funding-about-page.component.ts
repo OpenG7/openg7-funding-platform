@@ -246,11 +246,9 @@ interface AboutFoundation {
       }
 
       .about-page {
-        background: #020815;
-        border: 1px solid rgb(237 190 86 / 30%);
-        box-shadow:
-          0 0 0 1px rgb(31 157 240 / 12%),
-          0 30px 90px rgb(0 0 0 / 55%);
+        background: var(--surface-page);
+        border: 1px solid var(--border-color);
+        box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
         margin: 0 auto;
         max-width: 1530px;
         min-height: 100dvh;
@@ -261,9 +259,9 @@ interface AboutFoundation {
       .about-hero {
         align-items: center;
         display: flex;
-        min-height: 38rem;
+        min-height: 28rem;
         overflow: hidden;
-        padding: 4rem clamp(1rem, 4vw, 3.5rem);
+        padding: 3rem clamp(1rem, 4vw, 3.5rem);
         position: relative;
       }
 
@@ -280,17 +278,12 @@ interface AboutFoundation {
         background:
           linear-gradient(
             90deg,
-            rgb(2 8 18 / 98%) 0%,
-            rgb(2 8 18 / 80%) 30%,
-            rgb(2 8 18 / 12%) 58%,
-            rgb(2 8 18 / 6%) 100%
+            var(--surface-page) 0%,
+            color-mix(in srgb, var(--surface-page) 97%, transparent) 38%,
+            color-mix(in srgb, var(--surface-page) 90%, transparent) 68%,
+            color-mix(in srgb, var(--surface-page) 25%, transparent)
           ),
-          linear-gradient(
-            180deg,
-            rgb(2 8 18 / 10%) 0%,
-            rgb(2 8 18 / 0%) 62%,
-            rgb(2 8 18 / 38%) 100%
-          );
+          linear-gradient(180deg, transparent 60%, var(--surface-page));
         inset: 0;
         position: absolute;
       }
@@ -306,16 +299,16 @@ interface AboutFoundation {
       }
 
       .about-kicker {
-        color: var(--gold-400);
+        color: var(--color-gold);
         font:
-          900 0.85rem 'Trebuchet MS',
+          900 0.875rem 'Segoe UI',
           sans-serif;
         text-transform: uppercase;
       }
 
       .about-section h2 {
         font-size: clamp(1.6rem, 3vw, 2rem);
-        line-height: 1.2;
+        line-height: 1.25;
         margin: 0.5rem 0 1rem;
       }
 
@@ -328,7 +321,7 @@ interface AboutFoundation {
       .about-section li {
         color: var(--text-soft);
         font:
-          1rem/1.65 'Trebuchet MS',
+          1rem/1.65 'Segoe UI',
           sans-serif;
         max-width: 70ch;
       }
@@ -349,10 +342,10 @@ interface AboutFoundation {
       }
 
       .about-text-link {
-        color: var(--gold-400);
+        color: var(--color-gold);
         display: inline-block;
         font:
-          700 0.95rem/1.5 'Trebuchet MS',
+          700 0.95rem/1.5 'Segoe UI',
           sans-serif;
         padding: 0.75rem 0;
         text-underline-offset: 0.25rem;
@@ -363,8 +356,8 @@ interface AboutFoundation {
       }
 
       .about-next {
-        background: var(--ink-800);
-        border-block: 1px solid var(--panel-border);
+        background: var(--surface-subtle);
+        border-block: 1px solid var(--border-color);
       }
 
       .about-next .about-actions {
@@ -387,24 +380,24 @@ interface AboutFoundation {
       }
 
       .about-footer a {
-        color: var(--text-soft);
+        color: var(--color-primary);
         font:
-          0.95rem/1.5 'Trebuchet MS',
+          0.95rem/1.5 'Segoe UI',
           sans-serif;
         padding: 0.65rem 0;
         text-underline-offset: 0.25rem;
       }
 
       .about-emblem {
-        border: 2px solid rgb(244 201 87 / 72%);
+        border: 2px solid var(--border-color);
         border-radius: 999px;
         display: grid;
-        height: 4.8rem;
-        margin-bottom: 2.5rem;
+        height: 3.5rem;
+        margin-bottom: 1.5rem;
         place-items: center;
         position: relative;
         text-decoration: none;
-        width: 4.8rem;
+        width: 3.5rem;
       }
 
       .about-emblem::before {
@@ -431,7 +424,7 @@ interface AboutFoundation {
       }
 
       .about-emblem span {
-        border-bottom: 1.1rem solid rgb(244 201 87 / 88%);
+        border-bottom: 1.1rem solid var(--border-color);
         border-left: 0.68rem solid transparent;
         border-right: 0.68rem solid transparent;
         height: 0;
@@ -441,7 +434,7 @@ interface AboutFoundation {
 
       .about-emblem span::before,
       .about-emblem span::after {
-        background: rgb(244 201 87 / 76%);
+        background: var(--surface-subtle);
         bottom: -1.3rem;
         content: '';
         height: 2.4rem;
@@ -460,26 +453,21 @@ interface AboutFoundation {
       }
 
       .about-copy h1 {
-        color: #fff8e8;
-        font-size: 4.4rem;
-        line-height: 0.95;
+        color: var(--text-main);
+        font-size: clamp(2rem, 4vw, 2.75rem);
+        line-height: 1.15;
         margin: 0;
-        text-shadow: 0 5px 24px rgb(0 0 0 / 76%);
+        text-shadow: none;
       }
 
       .about-copy h1 strong,
       .about-statement strong,
       .about-foundations header span {
-        color: var(--gold-400);
+        color: var(--color-gold);
       }
 
       .about-rule {
-        background: linear-gradient(
-          90deg,
-          rgb(244 201 87 / 72%),
-          rgb(244 201 87 / 20%),
-          transparent
-        );
+        background: var(--surface-subtle);
         height: 1px;
         margin: 1.3rem 0 1.35rem;
         max-width: 37rem;
@@ -487,9 +475,9 @@ interface AboutFoundation {
       }
 
       .about-rule span {
-        background: #fff1a8;
+        background: var(--color-gold);
         border-radius: 999px;
-        box-shadow: 0 0 16px rgb(244 201 87 / 95%);
+        box-shadow: none;
         display: block;
         height: 0.42rem;
         left: 18rem;
@@ -500,19 +488,19 @@ interface AboutFoundation {
       }
 
       .about-statement {
-        color: #fff4e2;
-        font-family: 'Trebuchet MS', sans-serif;
+        color: var(--text-soft);
+        font-family: 'Segoe UI', Arial, sans-serif;
         font-size: 1.5rem;
         font-weight: 900;
-        line-height: 1.22;
+        line-height: 1.25;
         margin: 0;
         max-width: 44rem;
         text-transform: uppercase;
       }
 
       .about-description {
-        color: #f4ead7;
-        font-family: 'Trebuchet MS', sans-serif;
+        color: var(--text-soft);
+        font-family: 'Segoe UI', Arial, sans-serif;
         font-size: 1.05rem;
         line-height: 1.55;
         margin: 1.25rem 0 0;
@@ -528,25 +516,25 @@ interface AboutFoundation {
 
       .about-actions a {
         align-items: center;
-        background: rgb(3 18 36 / 54%);
-        border: 1px solid rgb(244 201 87 / 62%);
+        background: var(--surface-panel);
+        border: 1px solid var(--border-color);
         border-radius: 0.35rem;
-        color: #fff3df;
+        color: var(--color-primary);
         display: inline-flex;
-        font-family: 'Trebuchet MS', sans-serif;
+        font-family: 'Segoe UI', Arial, sans-serif;
         font-size: 0.95rem;
         font-weight: 900;
         gap: 0.62rem;
-        min-height: 3.15rem;
+        min-height: 2.75rem;
         padding: 0 0.95rem;
         text-decoration: none;
-        text-transform: uppercase;
+        text-transform: none;
       }
 
       .about-actions a.primary {
-        background: linear-gradient(180deg, #ffe08a 0%, #d99b2e 100%);
-        border-color: #ffe69a;
-        color: #09111c;
+        background: var(--color-primary);
+        border-color: var(--color-primary);
+        color: var(--on-primary);
       }
 
       .about-actions span {
@@ -555,18 +543,14 @@ interface AboutFoundation {
         display: grid;
         font-size: 1.1rem;
         height: 1.55rem;
-        line-height: 1;
+        line-height: 1.25;
         place-items: center;
         width: 1.55rem;
       }
 
       .about-foundations {
-        background: linear-gradient(
-          180deg,
-          rgb(3 13 28 / 98%),
-          rgb(2 8 18 / 100%)
-        );
-        border-top: 1px solid rgb(221 169 59 / 32%);
+        background: var(--surface-page);
+        border-top: 1px solid var(--border-color);
         display: grid;
         gap: 1rem;
         padding: 2.5rem clamp(1rem, 4vw, 3.5rem);
@@ -574,30 +558,28 @@ interface AboutFoundation {
 
       .about-foundations header h2 {
         font-size: 1.7rem;
-        line-height: 1;
+        line-height: 1.25;
         margin: 0.25rem 0 0;
       }
 
       .about-foundations header span {
-        font-family: 'Trebuchet MS', sans-serif;
-        font-size: 0.78rem;
+        font-family: 'Segoe UI', Arial, sans-serif;
+        font-size: 0.875rem;
         font-weight: 900;
         text-transform: uppercase;
       }
 
       .about-foundations > div {
         display: grid;
-        gap: 0.75rem;
+        gap: 1.5rem;
         grid-template-columns: repeat(3, minmax(0, 1fr));
       }
 
       .about-foundations article {
-        background: rgb(3 19 38 / 78%);
-        border: 1px solid rgb(102 177 232 / 26%);
+        background: var(--surface-page);
+        border: 1px solid var(--border-color);
         border-radius: 0.62rem;
-        box-shadow:
-          inset 0 1px 0 rgb(255 255 255 / 8%),
-          0 12px 30px rgb(0 0 0 / 22%);
+        box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
         display: flex;
         flex-direction: column;
         padding: 1.25rem;
@@ -608,14 +590,14 @@ interface AboutFoundation {
       }
 
       .about-foundations h3 {
-        color: #fff2d7;
+        color: var(--text-main);
         font-size: 1rem;
         margin: 0;
       }
 
       .about-foundations p {
-        color: #cfdceb;
-        font-family: 'Trebuchet MS', sans-serif;
+        color: var(--text-soft);
+        font-family: 'Segoe UI', Arial, sans-serif;
         font-size: 0.95rem;
         line-height: 1.6;
         margin: 0.6rem 0 0.5rem;
@@ -644,14 +626,10 @@ interface AboutFoundation {
         }
 
         .about-hero-vignette {
-          background:
-            linear-gradient(
-              90deg,
-              rgb(2 8 18 / 94%) 0%,
-              rgb(2 8 18 / 66%) 58%,
-              rgb(2 8 18 / 34%) 100%
-            ),
-            linear-gradient(180deg, rgb(2 8 18 / 16%) 0%, rgb(2 8 18 / 84%) 82%);
+          background: linear-gradient(
+            color-mix(in srgb, var(--surface-page) 94%, transparent),
+            color-mix(in srgb, var(--surface-page) 98%, transparent)
+          );
         }
 
         .about-emblem {
@@ -661,7 +639,7 @@ interface AboutFoundation {
         }
 
         .about-copy h1 {
-          font-size: 3rem;
+          font-size: 2.75rem;
         }
 
         .about-statement {
@@ -735,8 +713,8 @@ interface AboutFoundation {
         }
 
         .about-actions a {
-          font-size: 0.82rem;
-          min-height: 2.45rem;
+          font-size: 0.875rem;
+          min-height: 2.75rem;
           padding: 0 0.7rem;
         }
 

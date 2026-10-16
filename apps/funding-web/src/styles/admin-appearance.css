@@ -1,6 +1,38 @@
-/* Admin layouts and pilotage panels inherit the same local palette. */
+/* The warm mineral palette is also the SSR and storage-unavailable default. */
 openg7-admin-layout,
-openg7-admin-pilotage-page {
+openg7-admin-pilotage-page,
+openg7-admin-login-page {
+  --og7-admin-bg: #f7f5f0;
+  --og7-admin-sidebar: #e8efe7;
+  --og7-admin-panel: #ffffff;
+  --og7-admin-raised: #f0f4ee;
+  --og7-admin-subtle: #f7f5f0;
+  --og7-admin-border: #cad5c9;
+  --og7-admin-text: #29332e;
+  --og7-admin-muted: #53635a;
+  --og7-admin-gold: #8e5c10;
+  --og7-admin-primary: #2f6b50;
+  --og7-admin-on-primary: #ffffff;
+  --og7-admin-accent: #356b52;
+  --og7-admin-focus: #2f6b50;
+  --og7-admin-selected: #dce9da;
+  --og7-admin-success: #226342;
+  --og7-admin-success-bg: #e8f3e9;
+  --og7-admin-warning: #805411;
+  --og7-admin-warning-bg: #fff3d9;
+  --og7-admin-danger: #a52d3e;
+  --og7-admin-danger-bg: #fcecef;
+  --og7-admin-purple: #68419d;
+  --og7-admin-orange: #914b16;
+  --og7-admin-color-scheme: light;
+  color-scheme: var(--og7-admin-color-scheme);
+}
+html[data-og7-pilot-theme='night']
+  :is(
+    openg7-admin-layout,
+    openg7-admin-pilotage-page,
+    openg7-admin-login-page
+  ) {
   --og7-admin-bg: #0b1727;
   --og7-admin-sidebar: #0d1b2c;
   --og7-admin-panel: #142338;
@@ -26,35 +58,12 @@ openg7-admin-pilotage-page {
   --og7-admin-color-scheme: dark;
   color-scheme: var(--og7-admin-color-scheme);
 }
-html[data-og7-pilot-theme='mineral']
-  :is(openg7-admin-layout, openg7-admin-pilotage-page) {
-  --og7-admin-bg: #f3f2ee;
-  --og7-admin-sidebar: #e9e8e2;
-  --og7-admin-panel: #ffffff;
-  --og7-admin-raised: #e7ecef;
-  --og7-admin-subtle: #f5f6f7;
-  --og7-admin-border: #a2adb6;
-  --og7-admin-text: #202c38;
-  --og7-admin-muted: #4b5e6d;
-  --og7-admin-gold: #815410;
-  --og7-admin-primary: #80520c;
-  --og7-admin-on-primary: #ffffff;
-  --og7-admin-accent: #075b80;
-  --og7-admin-focus: #005b8c;
-  --og7-admin-selected: #dcebf2;
-  --og7-admin-success: #17623e;
-  --og7-admin-success-bg: #e7f3eb;
-  --og7-admin-warning: #774807;
-  --og7-admin-warning-bg: #fff1d6;
-  --og7-admin-danger: #9f243e;
-  --og7-admin-danger-bg: #fce8ed;
-  --og7-admin-purple: #68419d;
-  --og7-admin-orange: #914b16;
-  --og7-admin-color-scheme: light;
-  color-scheme: var(--og7-admin-color-scheme);
-}
 html[data-og7-pilot-theme='graphite']
-  :is(openg7-admin-layout, openg7-admin-pilotage-page) {
+  :is(
+    openg7-admin-layout,
+    openg7-admin-pilotage-page,
+    openg7-admin-login-page
+  ) {
   --og7-admin-bg: #191b1f;
   --og7-admin-sidebar: #1e2126;
   --og7-admin-panel: #25292f;

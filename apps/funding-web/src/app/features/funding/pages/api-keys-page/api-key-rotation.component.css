@@ -23,9 +23,9 @@
 }
 
 .rotation-panel li > span {
-  border: 1px solid rgb(104 236 162 / 44%);
+  border: 1px solid var(--border-color);
   border-radius: 999px;
-  color: #68eca2;
+  color: var(--color-primary);
   display: grid;
   height: 1.8rem;
   place-items: center;
@@ -33,11 +33,11 @@
 }
 
 .rotation-panel strong {
-  color: #f4eadb;
+  color: var(--text-main);
 }
 
 .rotation-panel p {
-  color: #b9ad9e;
-  font-size: 0.75rem;
+  color: var(--text-soft);
+  font-size: 0.875rem;
   line-height: 1.35;
 }

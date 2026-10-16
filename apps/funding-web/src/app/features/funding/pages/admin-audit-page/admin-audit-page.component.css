@@ -50,7 +50,7 @@ p {
 .entry-date,
 .entry-entity {
   color: var(--admin-muted);
-  font-size: 0.8rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 
 .search-field {
@@ -90,7 +90,7 @@ td {
 
 th {
   color: var(--admin-muted);
-  font-size: 0.75rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: 500;
   padding-block: 0.5rem;
 }
@@ -184,7 +184,7 @@ tbody tr:focus-within {
 
 .pagination .admin-button {
   background: transparent;
-  font-size: 0.8rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   padding-inline: 0.75rem;
 }
 
@@ -261,7 +261,7 @@ tbody tr:focus-within {
   }
 
   .entry-context {
-    font-size: 0.8rem;
+    font-size: var(--admin-caption-size, 0.875rem);
   }
 
   .entry-entity {

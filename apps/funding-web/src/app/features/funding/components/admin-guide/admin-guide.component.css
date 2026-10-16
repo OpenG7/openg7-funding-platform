@@ -85,7 +85,7 @@ dialog::backdrop {
 }
 .quit {
   padding: 0.5rem 0.7rem;
-  font-size: 13px;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 h2 {
   margin: 8px 0 14px;
@@ -100,7 +100,7 @@ p {
   font-weight: var(--admin-label-weight);
 }
 .hint {
-  font-size: 12px;
+  font-size: var(--admin-caption-size, 0.875rem);
   color: var(--og7-admin-muted, #b9d3e8);
 }
 .notice {

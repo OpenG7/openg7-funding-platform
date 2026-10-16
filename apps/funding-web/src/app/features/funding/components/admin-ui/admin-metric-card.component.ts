@@ -12,7 +12,11 @@ import {
   imports: [AdminIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <article [attr.aria-label]="label()" [class.embedded]="embedded()">
+    <article
+      data-og7="admin-metric"
+      [attr.aria-label]="label()"
+      [class.embedded]="embedded()"
+    >
       <span class="icon" [attr.data-tone]="tone()"
         ><openg7-admin-icon [name]="icon()"
       /></span>
@@ -23,81 +27,7 @@ import {
       </div>
     </article>
   `,
-  styleUrls: ['./admin-theme.css'],
-  styles: [
-    `
-      :host {
-        display: block;
-        min-width: 0;
-      }
-      article {
-        align-items: start;
-        background: linear-gradient(
-          140deg,
-          var(--admin-panel-raised, #192a40),
-          var(--admin-panel)
-        );
-        border: 1px solid var(--admin-border);
-        border-radius: 0.8rem;
-        display: flex;
-        gap: 1rem;
-        height: 100%;
-        padding: 1.2rem;
-      }
-      div {
-        min-width: 0;
-      }
-      article.embedded {
-        background: transparent;
-        border: 0;
-        border-radius: 0;
-        padding-bottom: 1rem;
-      }
-      .embedded strong {
-        font-size: clamp(1.9rem, 2.3vw, 2.5rem);
-        letter-spacing: -0.04em;
-      }
-      h2 {
-        color: var(--admin-text);
-        font-size: 0.9rem;
-        font-weight: 500;
-        margin: 0;
-      }
-      strong {
-        display: block;
-        font-size: clamp(1.45rem, 1.7vw, 1.9rem);
-        line-height: 1.3;
-        margin: 0.3rem 0;
-        font-variant-numeric: tabular-nums;
-        overflow-wrap: anywhere;
-      }
-      p {
-        color: var(--admin-muted);
-        font-size: 0.78rem;
-        margin: 0;
-      }
-      .icon {
-        align-items: center;
-        background: var(--admin-selected);
-        border-radius: 0.8rem;
-        color: var(--admin-accent);
-        display: inline-flex;
-        flex: 0 0 auto;
-        font-size: 1.6rem;
-        height: 3rem;
-        justify-content: center;
-        width: 3rem;
-      }
-      [data-tone='gold'] {
-        color: var(--admin-warning);
-        background: var(--admin-warning-bg);
-      }
-      [data-tone='green'] {
-        color: var(--admin-success);
-        background: var(--admin-success-bg);
-      }
-    `
-  ]
+  styleUrls: ['./admin-theme.css', './admin-metric-card.component.css']
 })
 export class AdminMetricCardComponent {
   readonly label = input.required<string>();

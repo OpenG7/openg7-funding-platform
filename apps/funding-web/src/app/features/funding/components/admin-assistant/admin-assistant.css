@@ -58,7 +58,7 @@ summary:focus-visible {
 dt,
 .muted {
   color: var(--admin-muted);
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 dd {
   margin: 0.2rem 0 0;

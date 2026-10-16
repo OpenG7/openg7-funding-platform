@@ -165,7 +165,7 @@ import { AdminSponsorMediaCardComponent } from './detail-media/admin-sponsor-med
 
       .media-review-panel header span {
         color: var(--admin-muted);
-        font-size: 0.72rem;
+        font-size: var(--admin-caption-size, 0.875rem);
         font-weight: var(--admin-label-weight);
         text-transform: uppercase;
       }
@@ -181,7 +181,7 @@ import { AdminSponsorMediaCardComponent } from './detail-media/admin-sponsor-med
 
       .media-review-panel header p {
         color: var(--admin-muted);
-        font-size: 0.82rem;
+        font-size: var(--admin-caption-size, 0.875rem);
       }
 
       .media-review-summary {

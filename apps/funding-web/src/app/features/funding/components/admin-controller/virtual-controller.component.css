@@ -45,7 +45,7 @@ footer {
 .status,
 .hint {
   margin: 0.4rem 0;
-  font-size: 0.78rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   line-height: 1.4;
 }
 .status {
@@ -69,7 +69,7 @@ button {
   color: inherit;
   background: var(--admin-bg, #0b1726);
   font: inherit;
-  font-size: 0.82rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   cursor: pointer;
 }
 button:hover {
@@ -118,7 +118,7 @@ button.pressed {
   flex-direction: column;
   gap: 0.35rem;
   min-width: 0;
-  font-size: 0.8rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .stick {
   position: relative;

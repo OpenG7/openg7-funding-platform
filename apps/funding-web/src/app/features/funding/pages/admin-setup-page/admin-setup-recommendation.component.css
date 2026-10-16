@@ -78,7 +78,7 @@
 }
 .recommendation-copy > p:last-child {
   color: var(--admin-muted);
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   line-height: 1.55;
 }
 .primary-action {
@@ -87,7 +87,7 @@
   color: var(--og7-admin-on-primary, #f1f5fc);
   text-decoration: none;
   flex-shrink: 0;
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 button.primary-action:hover:not(:disabled),
 .primary-action:hover {

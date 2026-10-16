@@ -10,10 +10,10 @@
   gap: 0.9rem;
 }
 .setup-panel p {
-  font-size: 0.83rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .setup-panel a {
-  font-size: 0.83rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .setup-panel details {
   border-top: 1px solid var(--admin-border);
@@ -30,13 +30,13 @@ dl div {
 }
 dt {
   color: var(--admin-muted);
-  font-size: 0.75rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 dd {
   color: var(--admin-text);
   margin: 0;
   overflow-wrap: anywhere;
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .test-email {
   display: grid;
@@ -46,7 +46,7 @@ label {
   display: grid;
   gap: 0.4rem;
   color: var(--admin-muted);
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 input {
   border: 1px solid var(--admin-border);
@@ -80,7 +80,7 @@ input {
   border-radius: 0.4rem;
 }
 .queue-metrics span {
-  font-size: 0.7rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   color: var(--admin-muted);
 }
 .queue-metrics strong {

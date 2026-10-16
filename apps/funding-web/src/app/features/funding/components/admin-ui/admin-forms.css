@@ -1,38 +1,45 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  color: var(--admin-text);
+  @apply tw:block tw:text-admin-text;
 }
 *,
 *::before,
 *::after {
-  box-sizing: border-box;
+  @apply tw:box-border;
 }
 input,
 select,
 textarea {
+  @apply tw:text-admin-text tw:rounded-admin-sm;
+  @apply tw:min-w-0 tw:max-w-full;
   background: var(--admin-panel);
-  color: var(--admin-text);
   border: 1px solid var(--admin-border);
-  border-radius: 0.4rem;
-  min-width: 0;
-  max-width: 100%;
   font: inherit;
   font-weight: 400;
 }
+:where(
+  input:not([type='checkbox'], [type='radio'], [type='range'], [type='hidden']),
+  select
+) {
+  @apply tw:min-h-admin-control tw:py-2.5 tw:px-3;
+  line-height: 1.375;
+}
+textarea {
+  @apply tw:p-3;
+  line-height: var(--admin-body-leading, 1.5);
+}
 input::placeholder,
 textarea::placeholder {
-  color: var(--admin-muted);
-  opacity: 0.85;
+  @apply tw:text-admin-muted tw:opacity-85;
 }
 button {
-  min-height: 2.75rem;
-  border-radius: 0.6rem;
+  @apply tw:min-h-admin-control tw:rounded-admin-control;
   font: inherit;
   font-weight: var(--admin-control-weight);
 }
 button:disabled {
-  cursor: not-allowed;
-  opacity: 0.65;
+  @apply tw:cursor-not-allowed tw:opacity-65;
 }
 button:not(:disabled):hover {
   outline: 1px solid var(--admin-gold);
@@ -42,20 +49,18 @@ button:not(:disabled):hover {
   outline-offset: 3px;
 }
 a {
-  color: var(--admin-gold);
+  @apply tw:text-admin-gold;
 }
 table {
-  width: 100%;
-  border-collapse: collapse;
+  @apply tw:w-full tw:border-collapse;
 }
 td,
 dd,
 p {
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }
 .table-scroll {
-  max-width: 100%;
-  overflow-x: auto;
+  @apply tw:max-w-full tw:overflow-x-auto;
 }
 :host .primary-action,
 :host button[type='submit'] {
@@ -72,21 +77,20 @@ p {
 }
 .state-error,
 [role='alert'] {
-  color: var(--admin-danger);
+  @apply tw:text-admin-danger;
 }
 [role='status'],
 .inline-status {
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }
 @media (max-width: 600px) {
   .admin-content {
-    min-width: 0;
+    @apply tw:min-w-0;
   }
   .admin-topbar {
-    flex-wrap: wrap;
-    gap: 0.75rem;
+    @apply tw:flex-wrap tw:gap-3;
   }
   .admin-topbar nav {
-    flex-wrap: wrap;
+    @apply tw:flex-wrap;
   }
 }

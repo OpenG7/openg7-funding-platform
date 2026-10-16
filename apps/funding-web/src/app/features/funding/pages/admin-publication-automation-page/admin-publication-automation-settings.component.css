@@ -45,7 +45,7 @@ article {
   background: var(--admin-panel);
 }
 .detail {
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   color: var(--admin-muted);
   overflow-wrap: anywhere;
 }
@@ -116,7 +116,7 @@ article {
   transform: translateX(1rem);
 }
 .badge {
-  font-size: 0.75rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   padding: 0.2rem 0.5rem;
   border: 1px solid var(--admin-border);
   border-radius: 1rem;
@@ -205,7 +205,7 @@ input[type='checkbox'] {
   display: block;
   margin-bottom: 0.3rem;
   color: var(--admin-muted);
-  font-size: 0.65rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -219,7 +219,7 @@ input[type='checkbox'] {
   display: block;
   margin-top: 0.3rem;
   color: var(--admin-muted);
-  font-size: 0.8rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 
 .settings-mode {
@@ -228,7 +228,7 @@ input[type='checkbox'] {
   border-radius: 999px;
   background: var(--admin-warning-bg);
   color: var(--admin-gold);
-  font-size: 0.75rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 
 .settings-connection {
@@ -238,7 +238,7 @@ input[type='checkbox'] {
 .feed-settings .settings-connection-state {
   margin-top: 0.3rem;
   color: var(--admin-muted);
-  font-size: 0.8rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 
 .feed-settings .settings-connection-state[data-state='ready'] {
@@ -253,7 +253,7 @@ input[type='checkbox'] {
 .settings-connection-help summary {
   padding: 0.65rem 0;
   color: var(--admin-muted);
-  font-size: 0.8rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-control-weight);
 }
 
@@ -275,7 +275,7 @@ input[type='checkbox'] {
 .settings-help,
 .settings-field-grid small {
   color: var(--admin-muted);
-  font-size: 0.78rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: 400;
 }
 
@@ -328,7 +328,7 @@ input[type='checkbox'] {
 
 .settings-days legend {
   margin-bottom: 0.65rem;
-  font-size: 0.8rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   color: var(--admin-muted);
 }
 
@@ -361,7 +361,7 @@ input[type='checkbox'] {
   border: 1px solid var(--admin-border);
   border-radius: 0.55rem;
   background: var(--admin-bg);
-  font-size: 0.8rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 
 .settings-day input:checked + span {
@@ -385,7 +385,7 @@ input[type='checkbox'] {
 
 .feed-settings .settings-field-grid label {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
 }
 
@@ -413,7 +413,7 @@ input[type='checkbox'] {
 .feed-settings .settings-unsaved,
 .settings-feedback {
   color: var(--admin-warning);
-  font-size: 0.8rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 
 .settings-feedback:empty {
@@ -423,7 +423,7 @@ input[type='checkbox'] {
 .feed-settings .settings-validation,
 .settings-error {
   color: var(--admin-danger);
-  font-size: 0.8rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 
 .feed-settings .settings-validation {

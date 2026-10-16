@@ -31,7 +31,7 @@
 label {
   display: grid;
   gap: 0.35rem;
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
 }
 

@@ -29,7 +29,7 @@ button {
 label {
   color: var(--admin-muted);
   display: grid;
-  font-size: 0.8rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
   gap: 0.35rem;
   text-transform: uppercase;

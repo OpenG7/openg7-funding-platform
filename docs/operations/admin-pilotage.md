@@ -33,8 +33,9 @@ le [runbook éditorial](editorial-programme.md).
 
 ## Apparence et concentration
 
-**Apparence** propose Nuit OpenG7, Clair minéral et Graphite, ainsi que les
-densités Confort et Compact. La palette couvre le cadre de navigation et le
+**Apparence** propose Clair minéral (ivoire, sauge et vert, par défaut), Nuit OpenG7
+et Graphite, ainsi que les densités Confort et Compact. Les choix enregistrés sont
+conservés. La palette couvre le cadre de navigation et le
 contenu de toutes les pages utilisant le layout admin partagé. Elle est conservée
 après un changement de page ou un rechargement. La densité reste propre au pilotage.
 **Suivre le thème du système** alterne entre Clair minéral et Nuit OpenG7 selon

@@ -5,7 +5,7 @@
 
 .invoice-list-panel header span {
   color: var(--admin-warning);
-  font-size: 0.73rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
   letter-spacing: 0;
   text-transform: uppercase;
@@ -100,7 +100,7 @@ button {
   border-radius: 999px;
   color: var(--admin-muted);
   display: inline-flex;
-  font-size: 0.72rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
   justify-content: center;
   min-height: 1.65rem;

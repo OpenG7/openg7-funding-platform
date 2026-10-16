@@ -4,19 +4,19 @@
   overflow-wrap: anywhere;
 }
 .policy-page {
-  background: linear-gradient(180deg, #020a17, #03172d 48%, #020a17);
-  color: #f7fbff;
-  font-family: 'Trebuchet MS', Arial, sans-serif;
+  background: var(--surface-page);
+  color: var(--text-main);
+  font-family: 'Segoe UI', Arial, sans-serif;
   padding-bottom: 4rem;
   overflow-wrap: anywhere;
 }
 .policy-page :is(h1, h2, h3) {
-  color: #f7fbff;
+  color: var(--text-main);
   line-height: 1.25;
 }
 h1 {
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: clamp(2rem, 4vw, 3.25rem);
+  font-family: 'Segoe UI', Arial, sans-serif;
+  font-size: clamp(2rem, 4vw, 2.75rem);
   margin: 0.65rem 0 1rem;
   max-width: 22ch;
 }
@@ -30,19 +30,19 @@ h3 {
 }
 p,
 li {
-  color: #d3e6f2;
+  color: var(--text-soft);
   line-height: 1.65;
 }
 p {
   margin: 0.75rem 0;
 }
 a {
-  color: #a6e4ff;
+  color: var(--color-primary);
   text-underline-offset: 0.2em;
 }
 .policy-page :is(a, button):focus-visible,
 .policy-page [tabindex='-1']:focus {
-  outline: 3px solid #ffd77b;
+  outline: 3px solid var(--color-primary);
   outline-offset: 4px;
 }
 [id] {
@@ -50,8 +50,8 @@ a {
 }
 .eyebrow {
   display: block;
-  color: #ffd77b;
-  font-size: 0.8rem;
+  color: var(--color-gold);
+  font-size: 0.875rem;
   font-weight: 700;
   text-transform: uppercase;
   margin-bottom: 0.65rem;
@@ -73,7 +73,15 @@ a {
   object-position: center 42%;
 }
 .policy-hero-overlay {
-  background: linear-gradient(90deg, #020a17f5, #020a17e0 48%, #020a179c);
+  background:
+    linear-gradient(
+      90deg,
+      var(--surface-page) 0%,
+      color-mix(in srgb, var(--surface-page) 97%, transparent) 38%,
+      color-mix(in srgb, var(--surface-page) 90%, transparent) 68%,
+      color-mix(in srgb, var(--surface-page) 25%, transparent)
+    ),
+    linear-gradient(180deg, transparent 60%, var(--surface-page));
 }
 .policy-hero-copy {
   position: relative;
@@ -101,18 +109,18 @@ a {
   justify-content: center;
   padding: 0.75rem 1rem;
   min-height: 44px;
-  border: 1px solid #67869e;
+  border: 1px solid var(--border-color);
   border-radius: 0.6rem;
-  background: #092139;
-  color: #f7fbff;
+  background: var(--surface-panel);
+  color: var(--color-primary);
   font-weight: 700;
   text-align: center;
   text-decoration: none;
 }
 .primary {
-  background: linear-gradient(180deg, #ffdf89, #e5ac28);
-  color: #161b24;
-  border-color: #ffdf89;
+  background: var(--color-primary);
+  color: var(--on-primary);
+  border-color: var(--color-primary);
 }
 .policy-layout {
   display: grid;
@@ -133,7 +141,7 @@ a {
   padding: 1rem 0;
 }
 .policy-summary {
-  border-bottom: 1px solid #43647d;
+  border-bottom: 1px solid var(--border-color);
   padding-top: 0;
 }
 .policy-sidebar h2 {
@@ -165,12 +173,12 @@ a {
 .panel {
   min-width: 0;
   padding: clamp(1.1rem, 2.5vw, 1.75rem);
-  background: #092139;
-  border: 1px solid #43647d;
+  background: var(--surface-panel);
+  border: 1px solid var(--border-color);
   border-radius: 1rem;
 }
 .refund-request {
-  border-color: #b28b3f;
+  border-color: var(--border-color);
 }
 .request-steps {
   padding-left: 1.5rem;
@@ -181,14 +189,14 @@ a {
   margin-block: 1.25rem;
 }
 .request-steps > li::marker {
-  color: #ffd77b;
+  color: var(--color-gold);
   font-weight: 700;
 }
 .request-steps p {
   margin: 0;
 }
 .privacy-note {
-  border-left: 3px solid #ffd77b;
+  border-left: 3px solid var(--border-color);
   padding-left: 1rem;
 }
 .email-alternative,
@@ -210,8 +218,8 @@ a {
   flex-shrink: 0;
   width: 1.8rem;
   height: 1.8rem;
-  color: #ffd77b;
-  background: #18364f;
+  color: var(--color-gold);
+  background: var(--surface-panel);
   border-radius: 50%;
   font-size: 0.9rem;
   font-weight: 700;
@@ -224,7 +232,7 @@ a {
   margin-top: 0.65rem;
 }
 .policy-section li::marker {
-  color: #83d8fa;
+  color: var(--color-gold);
 }
 address {
   font-style: normal;
@@ -257,6 +265,15 @@ address {
   .policy-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+}
+
+@media (max-width: 860px) {
+  .policy-hero-overlay {
+    background: linear-gradient(
+      color-mix(in srgb, var(--surface-page) 94%, transparent),
+      color-mix(in srgb, var(--surface-page) 98%, transparent)
+    );
   }
 }
 @media print {

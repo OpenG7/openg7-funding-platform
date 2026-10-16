@@ -39,7 +39,7 @@ a {
   background: var(--admin-panel);
 }
 .detail {
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   color: var(--admin-muted);
   overflow-wrap: anywhere;
 }
@@ -62,7 +62,7 @@ a {
   margin: 0.5rem 0 0;
 }
 .badge {
-  font-size: 0.75rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   padding: 0.2rem 0.5rem;
   border: 1px solid var(--admin-border);
   border-radius: 1rem;

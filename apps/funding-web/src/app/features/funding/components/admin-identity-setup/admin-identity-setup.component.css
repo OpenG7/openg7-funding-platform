@@ -28,7 +28,7 @@ p {
 .eyebrow,
 .step-position {
   color: var(--admin-muted);
-  font-size: 0.78rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   margin-bottom: 0.4rem;
 }
 .scope,
@@ -36,7 +36,7 @@ p {
   color: var(--admin-muted);
   line-height: 1.6;
   margin-top: 0.8rem;
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .notice {
   border-left: 3px solid var(--admin-focus);
@@ -50,7 +50,7 @@ p {
 }
 .identity-summary dt {
   color: var(--admin-muted);
-  font-size: 0.8rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .identity-summary dd {
   margin: 0.3rem 0 0;
@@ -62,7 +62,7 @@ p {
   color: var(--admin-muted);
   border-radius: 0.35rem;
   padding: 0.35rem 0.55rem;
-  font-size: 0.75rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .observation[data-state='missing'],
 .observation[data-state='incomplete'] {
@@ -136,7 +136,7 @@ button {
 }
 code {
   overflow-wrap: anywhere;
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .guide-links {
   display: flex;

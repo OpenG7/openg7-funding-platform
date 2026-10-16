@@ -2,7 +2,7 @@
   display: block;
   min-width: 0;
   color: var(--admin-muted);
-  font-size: 0.78rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   padding: 0 1.2rem 0.6rem;
 }
 .chart-panel {
@@ -11,7 +11,7 @@
 }
 .chart-title {
   margin: 0 0 0.65rem;
-  font-size: 0.72rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
   letter-spacing: 0.04em;
 }
@@ -50,7 +50,7 @@ svg {
   display: flex;
   justify-content: space-between;
   gap: 0.5rem;
-  font-size: 0.7rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   margin: 0.25rem 0 0.9rem;
 }
 .chart-empty {
@@ -76,7 +76,7 @@ svg {
   padding-left: 0.75rem;
 }
 dt {
-  font-size: 0.7rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 dd {
   color: var(--admin-text);
@@ -96,7 +96,7 @@ dd {
   flex-wrap: wrap;
   gap: 0.5rem;
   margin: 0;
-  font-size: 0.72rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .change {
   display: inline-flex;
@@ -107,7 +107,7 @@ dd {
   background: var(--admin-panel-raised, #22344a);
   color: var(--admin-text);
   padding: 0.2rem 0.55rem;
-  font-size: 0.73rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-variant-numeric: tabular-nums;
 }
 .change[data-direction='up'] {
@@ -121,7 +121,7 @@ dd {
   background: var(--admin-warning-bg);
 }
 .comparison-hint {
-  font-size: 0.72rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   line-height: 1.6;
   margin: 0.5rem 0 0;
 }
@@ -178,13 +178,13 @@ table {
   border-collapse: separate;
   border-spacing: 0;
   text-align: left;
-  font-size: 0.72rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-variant-numeric: tabular-nums;
 }
 caption {
   padding: 0.6rem;
   text-align: left;
-  font-size: 0.67rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   line-height: 1.5;
 }
 th,

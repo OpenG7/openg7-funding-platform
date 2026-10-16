@@ -1,0 +1,28 @@
+@reference '../../../../../styles/tailwind.css';
+
+:host {
+  @apply tw:inline-flex;
+}
+
+span {
+  @apply tw:text-admin-text tw:rounded-admin-sm;
+  @apply tw:text-admin-caption tw:py-1 tw:px-admin-badge-x;
+  background: var(--admin-panel-raised);
+  border: 1px solid var(--admin-border);
+  font-weight: 600;
+}
+
+[data-tone='success'] {
+  @apply tw:border-admin-success-border tw:text-admin-success;
+  background: var(--admin-success-bg);
+}
+
+[data-tone='warning'] {
+  @apply tw:border-admin-warning-border tw:text-admin-warning;
+  background: var(--admin-warning-bg);
+}
+
+[data-tone='danger'] {
+  @apply tw:border-admin-danger-border tw:text-admin-danger;
+  background: var(--admin-danger-bg);
+}

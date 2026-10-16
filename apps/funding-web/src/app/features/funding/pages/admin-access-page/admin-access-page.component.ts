@@ -85,8 +85,8 @@ import { AdminAccessSessionsComponent } from './admin-access-sessions.component.
       :host {
         display: block;
         min-height: 100vh;
-        background: #101827;
-        color: #f8fafc;
+        background: var(--surface-page);
+        color: var(--text-main);
       }
       .access-content {
         max-width: 65rem;

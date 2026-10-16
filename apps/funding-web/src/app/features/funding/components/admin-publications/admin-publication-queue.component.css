@@ -35,7 +35,7 @@ p {
 .eyebrow,
 .card-order {
   color: var(--admin-gold);
-  font-size: 0.78rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
 }
 
@@ -50,7 +50,7 @@ small,
 .card-target,
 .queue-count {
   color: var(--admin-muted);
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 
 .help {
@@ -170,7 +170,7 @@ time,
 }
 
 .keyboard-help {
-  font-size: 0.78rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 
 @media (max-width: 600px) {

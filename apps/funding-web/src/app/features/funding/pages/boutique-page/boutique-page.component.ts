@@ -288,15 +288,9 @@ interface BoutiqueCollection {
       }
 
       .boutique-page {
-        background:
-          radial-gradient(
-            circle at 12% 8%,
-            rgb(244 201 87 / 12%),
-            transparent 22rem
-          ),
-          linear-gradient(180deg, #070809 0%, #101114 42%, #050506 100%);
+        background: var(--surface-page);
         color: var(--text-main);
-        font-family: Georgia, 'Times New Roman', serif;
+        font-family: 'Segoe UI', Arial, sans-serif;
         min-height: 100dvh;
         overflow: hidden;
       }
@@ -304,7 +298,7 @@ interface BoutiqueCollection {
       .boutique-hero {
         align-items: center;
         display: grid;
-        min-height: 32rem;
+        min-height: 27rem;
         overflow: hidden;
         padding: clamp(2rem, 4vw, 3.5rem) clamp(1rem, 7vw, 7rem);
         position: relative;
@@ -326,29 +320,18 @@ interface BoutiqueCollection {
 
       .boutique-veil {
         background:
-          radial-gradient(
-            circle at 50% 40%,
-            rgb(0 0 0 / 88%) 0 19rem,
-            rgb(0 0 0 / 62%) 34rem,
-            transparent 62rem
-          ),
           linear-gradient(
             90deg,
-            rgb(0 0 0 / 18%) 0%,
-            rgb(0 0 0 / 72%) 28%,
-            rgb(0 0 0 / 84%) 53%,
-            rgb(0 0 0 / 22%) 100%
+            var(--surface-page) 0%,
+            color-mix(in srgb, var(--surface-page) 97%, transparent) 38%,
+            color-mix(in srgb, var(--surface-page) 90%, transparent) 68%,
+            color-mix(in srgb, var(--surface-page) 25%, transparent)
           ),
-          linear-gradient(
-            180deg,
-            rgb(0 0 0 / 34%) 0%,
-            rgb(0 0 0 / 10%) 48%,
-            #070809 100%
-          );
+          linear-gradient(180deg, transparent 60%, var(--surface-page));
       }
 
       .boutique-hero::after {
-        border: 1px solid rgb(244 201 87 / 24%);
+        border: 1px solid var(--border-color);
         content: '';
         inset: clamp(0.75rem, 2vw, 1.5rem);
         pointer-events: none;
@@ -356,13 +339,9 @@ interface BoutiqueCollection {
       }
 
       .boutique-hero-inner {
-        background:
-          linear-gradient(180deg, rgb(12 13 15 / 74%), rgb(5 5 6 / 66%)),
-          rgb(13 15 18 / 76%);
-        border: 1px solid rgb(244 201 87 / 38%);
-        box-shadow:
-          inset 0 1px 0 rgb(255 235 168 / 11%),
-          0 28px 80px rgb(0 0 0 / 42%);
+        background: var(--surface-panel);
+        border: 1px solid var(--border-color);
+        box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
         max-width: 48rem;
         padding: clamp(1.35rem, 4vw, 3rem);
         position: relative;
@@ -370,9 +349,9 @@ interface BoutiqueCollection {
       }
 
       .eyebrow {
-        color: #e4bf6b;
-        font-family: 'Trebuchet MS', sans-serif;
-        font-size: 0.78rem;
+        color: var(--color-gold);
+        font-family: 'Segoe UI', Arial, sans-serif;
+        font-size: 0.875rem;
         font-weight: 900;
         letter-spacing: 0;
         margin: 0;
@@ -388,25 +367,23 @@ interface BoutiqueCollection {
       }
 
       h1 {
-        color: #fff4d4;
-        font-size: clamp(2.8rem, 6vw, 5rem);
-        line-height: 0.9;
+        color: var(--text-main);
+        font-size: clamp(2.75rem, 6vw, 2.75rem);
+        line-height: 1.25;
         margin-top: 0.6rem;
-        text-shadow:
-          0 0 34px rgb(244 201 87 / 18%),
-          0 10px 36px rgb(0 0 0 / 74%);
+        text-shadow: none;
       }
 
       .coming-badge {
         align-items: center;
-        background: rgb(91 63 15 / 34%);
-        border: 1px solid rgb(244 201 87 / 68%);
+        background: var(--surface-subtle);
+        border: 1px solid var(--border-color);
         border-radius: 999px;
-        box-shadow: 0 0 24px rgb(244 201 87 / 14%);
-        color: #ffe8a6;
+        box-shadow: none;
+        color: var(--color-gold);
         display: inline-flex;
-        font-family: 'Trebuchet MS', sans-serif;
-        font-size: 0.86rem;
+        font-family: 'Segoe UI', Arial, sans-serif;
+        font-size: 0.875rem;
         font-weight: 900;
         gap: 0.4rem;
         margin-top: 0.9rem;
@@ -415,7 +392,7 @@ interface BoutiqueCollection {
       }
 
       .hero-subtitle {
-        color: #f7f2e8;
+        color: var(--text-soft);
         font-size: clamp(1.12rem, 2.2vw, 1.55rem);
         line-height: 1.35;
         margin-top: 1rem;
@@ -427,8 +404,8 @@ interface BoutiqueCollection {
       .ecosystem-link p,
       .boutique-cta p,
       .boutique-footer p {
-        color: #d8cfbe;
-        font-family: 'Trebuchet MS', sans-serif;
+        color: var(--text-soft);
+        font-family: 'Segoe UI', Arial, sans-serif;
         line-height: 1.55;
       }
 
@@ -453,7 +430,7 @@ interface BoutiqueCollection {
         align-items: center;
         border-radius: 0.5rem;
         display: inline-flex;
-        font-family: 'Trebuchet MS', sans-serif;
+        font-family: 'Segoe UI', Arial, sans-serif;
         font-weight: 900;
         gap: 0.35rem;
         justify-content: center;
@@ -463,17 +440,17 @@ interface BoutiqueCollection {
       }
 
       .primary-action {
-        background: linear-gradient(180deg, #ffe08a 0%, #d99b2e 100%);
-        border: 1px solid #ffe69a;
-        color: #09111c;
+        background: var(--color-primary);
+        border: 1px solid var(--color-primary);
+        color: var(--on-primary);
       }
 
       .secondary-action,
       .collection-grid a,
       .brand-story a {
-        background: rgb(10 11 13 / 62%);
-        border: 1px solid rgb(244 201 87 / 42%);
-        color: #fff1c8;
+        background: var(--surface-panel);
+        border: 1px solid var(--border-color);
+        color: var(--color-primary);
       }
 
       .benefits-band,
@@ -489,8 +466,8 @@ interface BoutiqueCollection {
 
       .benefits-band {
         display: grid;
-        gap: 0.75rem;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 1.5rem;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         margin-top: clamp(1rem, 3vw, 1.6rem);
       }
 
@@ -500,13 +477,9 @@ interface BoutiqueCollection {
       .ecosystem-link,
       .boutique-cta,
       .boutique-footer {
-        background:
-          linear-gradient(180deg, rgb(18 20 24 / 82%), rgb(7 8 9 / 74%)),
-          rgb(13 15 18 / 82%);
-        border: 1px solid rgb(201 154 61 / 34%);
-        box-shadow:
-          inset 0 1px 0 rgb(255 235 168 / 10%),
-          0 18px 48px rgb(0 0 0 / 26%);
+        background: var(--surface-subtle);
+        border: 1px solid var(--border-color);
+        box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
       }
 
       .benefits-band article {
@@ -519,14 +492,10 @@ interface BoutiqueCollection {
 
       .benefits-band article > span {
         align-items: center;
-        background: radial-gradient(
-          circle,
-          rgb(244 201 87 / 20%),
-          rgb(8 8 8 / 72%)
-        );
-        border: 1px solid rgb(244 201 87 / 38%);
+        background: var(--surface-panel);
+        border: 1px solid var(--border-color);
         border-radius: 0.55rem;
-        color: #ffe3a0;
+        color: var(--color-gold);
         display: inline-flex;
         font-size: 1.2rem;
         height: 2.8rem;
@@ -536,16 +505,16 @@ interface BoutiqueCollection {
 
       .benefits-band h2,
       .collection-grid h3 {
-        color: #fff2d2;
+        color: var(--text-main);
         font-size: 1.02rem;
-        line-height: 1.1;
+        line-height: 1.25;
       }
 
       .benefits-band p,
       .collection-grid p {
-        color: #cfc5b2;
-        font-family: 'Trebuchet MS', sans-serif;
-        font-size: 0.86rem;
+        color: var(--text-soft);
+        font-family: 'Segoe UI', Arial, sans-serif;
+        font-size: 0.875rem;
         line-height: 1.45;
         margin-top: 0.35rem;
       }
@@ -568,9 +537,9 @@ interface BoutiqueCollection {
       .brand-story h2,
       .ecosystem-link h2,
       .boutique-cta h2 {
-        color: #fff2d2;
+        color: var(--text-main);
         font-size: clamp(1.75rem, 4vw, 3.1rem);
-        line-height: 1;
+        line-height: 1.25;
         margin-top: 0.35rem;
       }
 
@@ -586,6 +555,7 @@ interface BoutiqueCollection {
 
       .collection-grid {
         grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 1.5rem;
       }
 
       .collection-grid article {
@@ -596,45 +566,21 @@ interface BoutiqueCollection {
       }
 
       .collection-grid article > span {
-        background:
-          radial-gradient(
-            circle at 34% 34%,
-            rgb(255 232 166 / 30%),
-            transparent 3.4rem
-          ),
-          linear-gradient(135deg, #090909, #2c210f);
-        border: 1px solid rgb(244 201 87 / 24%);
+        background: var(--surface-panel);
+        border: 1px solid var(--border-color);
         min-height: 6.4rem;
       }
 
       .collection-grid .ember > span {
-        background:
-          radial-gradient(
-            circle at 68% 24%,
-            rgb(228 119 48 / 28%),
-            transparent 3.2rem
-          ),
-          linear-gradient(135deg, #080808, #2d1307);
+        background: var(--surface-panel);
       }
 
       .collection-grid .stone > span {
-        background:
-          radial-gradient(
-            circle at 28% 30%,
-            rgb(244 201 87 / 18%),
-            transparent 3rem
-          ),
-          linear-gradient(135deg, #060606, #1f2022);
+        background: var(--surface-panel);
       }
 
       .collection-grid .royal > span {
-        background:
-          radial-gradient(
-            circle at 62% 32%,
-            rgb(244 201 87 / 24%),
-            transparent 3.1rem
-          ),
-          linear-gradient(135deg, #090908, #33250e);
+        background: var(--surface-panel);
       }
 
       .collection-grid a {
@@ -644,6 +590,7 @@ interface BoutiqueCollection {
 
       .featured-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1.5rem;
       }
 
       .universe-filters {
@@ -654,26 +601,26 @@ interface BoutiqueCollection {
       }
 
       .universe-filters button {
-        background: #151619;
-        border: 1px solid rgb(244 201 87 / 42%);
+        background: var(--surface-panel);
+        border: 1px solid var(--border-color);
         border-radius: 999px;
-        color: #fff1c8;
+        color: var(--color-primary);
         cursor: pointer;
-        font-family: 'Trebuchet MS', sans-serif;
+        font-family: 'Segoe UI', Arial, sans-serif;
         font-weight: 700;
         min-height: 2.75rem;
         padding: 0.6rem 1.1rem;
       }
 
       .universe-filters button[aria-pressed='true'] {
-        background: #ffe08a;
-        color: #101114;
+        background: var(--surface-subtle);
+        color: var(--color-primary);
       }
 
       .selection-count {
-        color: #d8cfbe;
-        font-family: 'Trebuchet MS', sans-serif;
-        font-size: 0.85rem;
+        color: var(--text-main);
+        font-family: 'Segoe UI', Arial, sans-serif;
+        font-size: 0.875rem;
         margin: 0.85rem 0;
         text-align: center;
       }
@@ -685,14 +632,14 @@ interface BoutiqueCollection {
       a:focus-visible,
       .universe-filters button:focus-visible,
       .featured-section:focus-visible {
-        outline: 3px solid #ffe08a;
+        outline: 3px solid var(--color-primary);
         outline-offset: 4px;
       }
 
       .featured-note,
       .selection-empty {
-        color: #d8cfbe;
-        font-family: 'Trebuchet MS', sans-serif;
+        color: var(--text-main);
+        font-family: 'Segoe UI', Arial, sans-serif;
         font-size: 0.9rem;
         line-height: 1.5;
         margin-top: 1rem;
@@ -720,12 +667,12 @@ interface BoutiqueCollection {
       }
 
       .brand-story blockquote {
-        border-left: 2px solid rgb(244 201 87 / 66%);
-        color: #ffe6a6;
+        border-left: 2px solid var(--border-color);
+        color: var(--color-gold);
         font-size: clamp(1.55rem, 4vw, 2.9rem);
-        line-height: 1.05;
+        line-height: 1.25;
         padding-left: 1rem;
-        text-shadow: 0 0 24px rgb(244 201 87 / 14%);
+        text-shadow: none;
       }
 
       .ecosystem-link,
@@ -763,12 +710,12 @@ interface BoutiqueCollection {
       }
 
       .boutique-footer > span {
-        color: var(--gold-400);
+        color: var(--color-gold);
         font-size: 1.6rem;
       }
 
       .boutique-footer strong {
-        color: #fff2d2;
+        color: var(--text-main);
       }
 
       @media (max-width: 1160px) {
@@ -795,18 +742,10 @@ interface BoutiqueCollection {
         }
 
         .boutique-veil {
-          background:
-            radial-gradient(
-              circle at 50% 28%,
-              rgb(0 0 0 / 92%) 0 13rem,
-              rgb(0 0 0 / 72%) 29rem
-            ),
-            linear-gradient(
-              180deg,
-              rgb(0 0 0 / 56%) 0%,
-              rgb(0 0 0 / 16%) 42%,
-              #070809 100%
-            );
+          background: linear-gradient(
+            color-mix(in srgb, var(--surface-page) 94%, transparent),
+            color-mix(in srgb, var(--surface-page) 98%, transparent)
+          );
         }
 
         .boutique-hero-inner {

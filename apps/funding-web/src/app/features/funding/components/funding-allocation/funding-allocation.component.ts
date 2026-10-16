@@ -1,5 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  input
+} from '@angular/core';
 import { FundingAllocation } from '@openg7/funding-models';
 
 @Component({
@@ -30,7 +35,7 @@ import { FundingAllocation } from '@openg7/funding-models';
       }
 
       .allocation-card h2 {
-        color: #eff8ff;
+        color: var(--text-main);
         margin: 0 0 0.8rem;
       }
 
@@ -49,7 +54,7 @@ import { FundingAllocation } from '@openg7/funding-models';
       }
 
       .donut::after {
-        background: #082640;
+        background: var(--surface-panel);
         border-radius: 999px;
         content: '';
         inset: 0.95rem;
@@ -66,28 +71,28 @@ import { FundingAllocation } from '@openg7/funding-models';
 
       .allocation-card li {
         align-items: center;
-        color: #c1d9ee;
+        color: var(--text-soft);
         display: flex;
         gap: 0.5rem;
       }
 
       .allocation-card em {
-        color: #7fc0e8;
+        color: var(--text-soft);
         font-size: 0.9rem;
         font-style: normal;
         margin-left: auto;
       }
 
       .allocation-card strong {
-        color: #9ddfff;
+        color: var(--color-primary);
         font-weight: 600;
         white-space: nowrap;
       }
 
       .foot-note {
-        border-top: 1px solid #285277;
-        color: #8fb7d5;
-        font-size: 0.86rem;
+        border-top: 1px solid var(--border-color);
+        color: var(--text-soft);
+        font-size: 0.875rem;
         margin: 0.8rem 0 0;
         padding-top: 0.65rem;
       }
@@ -109,7 +114,12 @@ export class FundingAllocationComponent {
   );
 
   readonly donutGradient = computed<string>(() => {
-    const colors = ['#32c2ff', '#43d8b4', '#ffc94b', '#6ca3ff'];
+    const colors = [
+      'var(--color-primary)',
+      'var(--color-gold)',
+      '#729174',
+      '#7A5E49'
+    ];
     const items = this.allocation();
     const total = this.total();
     let cursor = 0;

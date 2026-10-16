@@ -45,9 +45,10 @@ import { AdminDrawerComponent } from './admin-drawer.component.js';
       }
     </openg7-admin-drawer>
   `,
-  styleUrls: ['./admin-theme.css', './admin-controls.css'],
-  styles: [
-    'footer { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1.5rem; } .target { overflow-wrap: anywhere; color: var(--admin-muted); }'
+  styleUrls: [
+    './admin-theme.css',
+    './admin-controls.css',
+    './admin-confirmation.component.css'
   ]
 })
 export class AdminConfirmationComponent {

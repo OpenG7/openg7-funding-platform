@@ -161,16 +161,11 @@ test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 1672, height: 941 });
 });
 
-test('shared admin mineral palette keeps dashboard readable', async ({
+test('default warm mineral palette keeps dashboard readable at 125% display scaling', async ({
   page
 }, testInfo) => {
   await fixtures(page);
-  await page.addInitScript(() => {
-    localStorage.setItem(
-      'openg7.pilotage.appearance.v1',
-      JSON.stringify({ theme: 'mineral', system: false })
-    );
-  });
+  await page.setViewportSize({ width: 1536, height: 760 });
   await page.goto('/admin/fundraiser');
   await expect(
     page.getByRole('article', { name: 'Commandites', exact: true })
@@ -182,11 +177,11 @@ test('shared admin mineral palette keeps dashboard readable', async ({
   );
   await expect(page.locator('openg7-admin-layout')).toHaveCSS(
     'background-color',
-    'rgb(243, 242, 238)'
+    'rgb(247, 245, 240)'
   );
   await expect(
     page.getByRole('heading', { name: 'Centre de pilotage' })
-  ).toHaveCSS('color', 'rgb(32, 44, 56)');
+  ).toHaveCSS('color', 'rgb(41, 51, 46)');
   await page.screenshot({
     path: testInfo.outputPath('mineral-dashboard.png'),
     fullPage: true

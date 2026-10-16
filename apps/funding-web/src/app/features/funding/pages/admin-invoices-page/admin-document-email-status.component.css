@@ -8,7 +8,7 @@
   border-radius: 999px;
   color: var(--admin-muted);
   display: inline-flex;
-  font-size: 0.72rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
   justify-content: center;
   min-height: 1.65rem;

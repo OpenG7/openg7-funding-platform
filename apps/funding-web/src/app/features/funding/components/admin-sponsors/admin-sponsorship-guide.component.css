@@ -21,7 +21,7 @@ details:not([open]) {
 }
 details:not([open]) summary {
   padding: 0.7rem 0.3rem;
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-control-weight);
   color: var(--admin-muted);
 }
@@ -54,7 +54,7 @@ p {
 }
 .help {
   color: var(--admin-muted, #bccbe0);
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 [data-og7='guide-reason'] {
   margin-block: 0.75rem;

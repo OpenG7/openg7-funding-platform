@@ -111,7 +111,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 
       .admin-summary-grid article span:not(.metric-mark) {
         color: var(--admin-muted);
-        font-size: 0.76rem;
+        font-size: var(--admin-caption-size, 0.875rem);
         font-weight: var(--admin-label-weight);
         letter-spacing: 0;
         text-transform: uppercase;

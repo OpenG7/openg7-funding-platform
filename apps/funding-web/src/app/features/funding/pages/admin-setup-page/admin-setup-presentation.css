@@ -65,14 +65,14 @@ a {
 }
 .scope {
   color: var(--admin-muted);
-  font-size: 0.75rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   line-height: 1.5;
   margin-top: 0.9rem;
 }
 .eyebrow {
   display: block;
   color: var(--og7-admin-accent, #9bd5ed);
-  font-size: 0.75rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -88,7 +88,7 @@ a {
 .setup-panel header > div > span,
 .setup-table-panel header > div > span {
   display: block;
-  font-size: 0.7rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   letter-spacing: 0.07em;
   color: var(--admin-muted);
   text-transform: uppercase;
@@ -97,11 +97,11 @@ a {
 summary {
   color: var(--og7-admin-accent, #b8dfff);
   cursor: pointer;
-  font-size: 0.83rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   padding: 0.3rem 0;
 }
 code {
-  font-size: 0.8rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   overflow-wrap: anywhere;
 }
 .status-pill {
@@ -109,7 +109,7 @@ code {
   align-items: center;
   padding: 0.25rem 0.5rem;
   border-radius: 0.3rem;
-  font-size: 0.7rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
   background: var(--admin-panel-raised);
 }

@@ -30,7 +30,7 @@ function overviewCount(page: Page, label: string) {
 
 const adminPalettes = {
   night: { background: 'rgb(11, 23, 39)', sidebar: 'rgb(13, 27, 44)' },
-  mineral: { background: 'rgb(243, 242, 238)', sidebar: 'rgb(233, 232, 226)' },
+  mineral: { background: 'rgb(247, 245, 240)', sidebar: 'rgb(232, 239, 231)' },
   graphite: { background: 'rgb(25, 27, 31)', sidebar: 'rgb(30, 33, 38)' }
 };
 
@@ -169,12 +169,15 @@ test('shared admin appearance follows system changes outside pilotage', async ({
 
 for (const theme of ['night', 'mineral', 'graphite']) {
   for (const language of ['fr-CA', 'en']) {
-    for (const width of [390, 1440]) {
+    for (const width of [390, 1536]) {
       test(`appearance ${theme} stays readable in ${language} at ${width}px`, async ({
         page
       }, testInfo) => {
         const { state, commands } = await fixtures(page);
-        await page.setViewportSize({ width, height: 900 });
+        await page.setViewportSize({
+          width,
+          height: width === 1536 ? 760 : 900
+        });
         await page.emulateMedia({ reducedMotion: 'reduce' });
         await page.goto('/admin/fundraiser/pilotage');
         if (language === 'en')
@@ -313,9 +316,10 @@ test('appearance handles invalid and blocked storage without blocking decisions'
   await page.goto('/admin/fundraiser/pilotage');
   await expect(page.locator('html')).toHaveAttribute(
     'data-og7-pilot-theme',
-    'night'
+    'mineral'
   );
   await page.locator('[data-og7="pilot-appearance"]').click();
+  await page.locator('[data-og7="pilot-theme-graphite"]').check();
   await page.locator('[data-og7="pilot-theme-mineral"]').check();
   await expect(page.getByRole('dialog')).toContainText(
     'Le navigateur ne permet pas'
@@ -329,24 +333,46 @@ test('appearance handles invalid and blocked storage without blocking decisions'
   expect(commands).toEqual([]);
 });
 
-test('saved appearance is applied before Angular starts', async ({ page }) => {
-  await page.addInitScript(() =>
-    localStorage.setItem(
-      'openg7.pilotage.appearance.v1',
-      JSON.stringify({ theme: 'graphite', density: 'compact' })
-    )
-  );
-  await page.route('**/main-*.js', (route) => route.abort());
-  await page.goto('/admin/fundraiser/pilotage');
-  await expect(page.locator('html')).toHaveAttribute(
-    'data-og7-pilot-theme',
-    'graphite'
-  );
-  await expect(page.locator('html')).toHaveAttribute(
-    'data-og7-pilot-density',
-    'compact'
-  );
-});
+for (const appearance of [
+  {
+    name: 'fresh browser',
+    stored: null,
+    theme: 'mineral',
+    density: 'comfortable'
+  },
+  {
+    name: 'invalid storage',
+    stored: '{invalid',
+    theme: 'mineral',
+    density: 'comfortable'
+  },
+  {
+    name: 'saved choice',
+    stored: JSON.stringify({ theme: 'graphite', density: 'compact' }),
+    theme: 'graphite',
+    density: 'compact'
+  }
+]) {
+  test(`appearance is applied before Angular starts: ${appearance.name}`, async ({
+    page
+  }) => {
+    await page.addInitScript((stored) => {
+      if (stored === null)
+        localStorage.removeItem('openg7.pilotage.appearance.v1');
+      else localStorage.setItem('openg7.pilotage.appearance.v1', stored);
+    }, appearance.stored);
+    await page.route('**/main-*.js', (route) => route.abort());
+    await page.goto('/admin/fundraiser/pilotage');
+    await expect(page.locator('html')).toHaveAttribute(
+      'data-og7-pilot-theme',
+      appearance.theme
+    );
+    await expect(page.locator('html')).toHaveAttribute(
+      'data-og7-pilot-density',
+      appearance.density
+    );
+  });
+}
 
 test('short screens and enlarged text keep appearance and decisions reachable', async ({
   page

@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "start": "ng serve funding-web",
-    "build": "ng build funding-web"
+    "build": "ng build funding-web",
+    "css:inventory": "node tools/css-inventory.mjs",
+    "test:css-inventory": "node --test tools/css-inventory.test.mjs"
   },
   "dependencies": {
     "@angular/common": "^21.2.25",

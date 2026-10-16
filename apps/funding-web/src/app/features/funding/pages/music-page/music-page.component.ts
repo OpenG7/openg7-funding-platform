@@ -136,9 +136,9 @@ interface NewsPreview {
       }
 
       .music-page {
-        background: #050505;
+        background: var(--surface-page);
         color: var(--text-main);
-        font-family: Georgia, 'Times New Roman', serif;
+        font-family: 'Segoe UI', Arial, sans-serif;
         min-height: 100dvh;
         overflow: hidden;
       }
@@ -166,25 +166,14 @@ interface NewsPreview {
 
       .music-veils {
         background:
-          radial-gradient(
-            circle at 50% 34%,
-            rgb(0 0 0 / 88%) 0 18rem,
-            rgb(0 0 0 / 48%) 33rem,
-            transparent 58rem
-          ),
           linear-gradient(
             90deg,
-            rgb(0 0 0 / 22%) 0%,
-            rgb(0 0 0 / 76%) 32%,
-            rgb(0 0 0 / 82%) 54%,
-            rgb(0 0 0 / 28%) 100%
+            var(--surface-page) 0%,
+            color-mix(in srgb, var(--surface-page) 97%, transparent) 38%,
+            color-mix(in srgb, var(--surface-page) 90%, transparent) 68%,
+            color-mix(in srgb, var(--surface-page) 25%, transparent)
           ),
-          linear-gradient(
-            180deg,
-            rgb(0 0 0 / 44%) 0%,
-            rgb(0 0 0 / 8%) 42%,
-            rgb(0 0 0 / 86%) 100%
-          );
+          linear-gradient(180deg, transparent 60%, var(--surface-page));
         z-index: -2;
       }
 
@@ -197,11 +186,7 @@ interface NewsPreview {
       }
 
       .music-stage::before {
-        background: radial-gradient(
-          circle,
-          rgb(244 201 87 / 20%),
-          transparent 23rem
-        );
+        background: var(--surface-subtle);
         height: 34rem;
         left: 50%;
         top: 5rem;
@@ -210,17 +195,17 @@ interface NewsPreview {
       }
 
       .music-stage::after {
-        border: 1px solid rgb(244 201 87 / 22%);
+        border: 1px solid var(--border-color);
         inset: clamp(0.7rem, 2vw, 1.5rem);
       }
 
       .music-shell {
         display: grid;
-        gap: clamp(1rem, 2.5vw, 1.6rem);
+        gap: 1.5rem;
         margin: 0 auto;
         max-width: 1180px;
         min-height: inherit;
-        padding: clamp(2.1rem, 5vw, 4.6rem) clamp(1rem, 4vw, 3.5rem) 2.4rem;
+        padding: 2.5rem clamp(1rem, 4vw, 3rem);
         position: relative;
       }
 
@@ -228,14 +213,10 @@ interface NewsPreview {
       .album-card,
       .kingdom-news,
       .music-cta {
-        backdrop-filter: blur(14px);
-        background:
-          linear-gradient(180deg, rgb(12 11 9 / 78%), rgb(4 4 4 / 66%)),
-          rgb(8 8 8 / 70%);
-        border: 1px solid rgb(244 201 87 / 38%);
-        box-shadow:
-          inset 0 1px 0 rgb(255 235 168 / 11%),
-          0 24px 70px rgb(0 0 0 / 36%);
+        backdrop-filter: none;
+        background: var(--surface-panel);
+        border: 1px solid var(--border-color);
+        box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
       }
 
       .music-hero-panel {
@@ -247,9 +228,9 @@ interface NewsPreview {
 
       .music-kicker,
       .card-eyebrow {
-        color: #f7d987;
-        font-family: 'Trebuchet MS', sans-serif;
-        font-size: 0.78rem;
+        color: var(--color-gold);
+        font-family: 'Segoe UI', Arial, sans-serif;
+        font-size: 0.875rem;
         font-weight: 900;
         letter-spacing: 0;
         margin: 0;
@@ -264,18 +245,16 @@ interface NewsPreview {
       }
 
       h1 {
-        color: #fff4d0;
-        font-size: clamp(2.7rem, 7vw, 6.1rem);
-        line-height: 0.9;
+        color: var(--text-main);
+        font-size: clamp(2.7rem, 7vw, 2.75rem);
+        line-height: 1.25;
         margin-top: 0.6rem;
-        text-shadow:
-          0 0 34px rgb(244 201 87 / 16%),
-          0 8px 34px rgb(0 0 0 / 72%);
+        text-shadow: none;
       }
 
       .music-lead {
-        color: #f2e6c8;
-        font-family: 'Trebuchet MS', sans-serif;
+        color: var(--text-soft);
+        font-family: 'Segoe UI', Arial, sans-serif;
         font-size: clamp(1rem, 2vw, 1.18rem);
         line-height: 1.55;
         margin: 1.1rem auto 0;
@@ -284,13 +263,13 @@ interface NewsPreview {
 
       .coming-badge {
         align-items: center;
-        background: rgb(91 63 15 / 38%);
-        border: 1px solid rgb(244 201 87 / 74%);
+        background: var(--surface-subtle);
+        border: 1px solid var(--border-color);
         border-radius: 999px;
-        box-shadow: 0 0 26px rgb(244 201 87 / 16%);
-        color: #ffe8a6;
+        box-shadow: none;
+        color: var(--color-gold);
         display: inline-flex;
-        font-family: 'Trebuchet MS', sans-serif;
+        font-family: 'Segoe UI', Arial, sans-serif;
         font-size: 0.95rem;
         font-weight: 900;
         gap: 0.45rem;
@@ -301,8 +280,8 @@ interface NewsPreview {
 
       .music-preview-grid {
         display: grid;
-        gap: clamp(1rem, 2vw, 1.35rem);
-        grid-template-columns: minmax(18rem, 0.85fr) minmax(26rem, 1.15fr);
+        gap: 1.5rem;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       }
 
       .album-card,
@@ -314,7 +293,7 @@ interface NewsPreview {
       .album-card {
         display: grid;
         gap: 1rem;
-        grid-template-columns: minmax(9rem, 0.82fr) minmax(12rem, 1fr);
+        grid-template-columns: minmax(0, 0.82fr) minmax(0, 1fr);
       }
 
       .album-cover {
@@ -334,10 +313,8 @@ interface NewsPreview {
             #050505,
             #090806
           );
-        border: 1px solid rgb(244 201 87 / 52%);
-        box-shadow:
-          inset 0 0 0 1px rgb(255 239 187 / 12%),
-          0 18px 44px rgb(0 0 0 / 32%);
+        border: 1px solid var(--border-color);
+        box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
         display: grid;
         min-width: 0;
         place-items: center;
@@ -346,9 +323,9 @@ interface NewsPreview {
       .album-cover span {
         align-items: center;
         background: rgb(0 0 0 / 56%);
-        border: 1px solid rgb(244 201 87 / 42%);
+        border: 1px solid var(--border-color);
         border-radius: 999px;
-        color: #ffe6a3;
+        color: #fff4d4;
         display: inline-flex;
         font-size: clamp(2.3rem, 5vw, 3.6rem);
         height: 48%;
@@ -363,16 +340,16 @@ interface NewsPreview {
       .album-copy h2,
       .kingdom-news h2,
       .music-cta h2 {
-        color: #fff2c8;
+        color: var(--text-main);
         font-size: clamp(1.35rem, 3vw, 2.05rem);
-        line-height: 1.05;
+        line-height: 1.25;
         margin-top: 0.35rem;
       }
 
       .album-copy strong {
-        color: #d9c18c;
+        color: var(--text-main);
         display: inline-block;
-        font-family: 'Trebuchet MS', sans-serif;
+        font-family: 'Segoe UI', Arial, sans-serif;
         font-size: 0.88rem;
         margin-top: 0.55rem;
       }
@@ -393,18 +370,14 @@ interface NewsPreview {
       }
 
       .track-lines span {
-        color: #b99a50;
-        font-family: 'Trebuchet MS', sans-serif;
-        font-size: 0.75rem;
+        color: var(--text-main);
+        font-family: 'Segoe UI', Arial, sans-serif;
+        font-size: 0.875rem;
         font-weight: 900;
       }
 
       .track-lines i {
-        background: linear-gradient(
-          90deg,
-          rgb(244 201 87 / 48%),
-          rgb(244 201 87 / 10%)
-        );
+        background: var(--color-primary);
         border-radius: 999px;
         display: block;
         height: 0.52rem;
@@ -423,12 +396,12 @@ interface NewsPreview {
       }
 
       .album-copy button {
-        background: rgb(68 54 26 / 58%);
-        border: 1px solid rgb(244 201 87 / 34%);
+        background: var(--surface-subtle);
+        border: 1px solid var(--border-color);
         border-radius: 0.55rem;
-        color: rgb(255 232 166 / 68%);
+        color: var(--text-soft);
         cursor: not-allowed;
-        font-family: 'Trebuchet MS', sans-serif;
+        font-family: 'Segoe UI', Arial, sans-serif;
         font-weight: 900;
         min-height: 2.75rem;
         padding: 0 1rem;
@@ -438,8 +411,8 @@ interface NewsPreview {
       .kingdom-news header > p:last-child,
       .music-cta p,
       .news-preview-list p {
-        color: #d8ceb9;
-        font-family: 'Trebuchet MS', sans-serif;
+        color: var(--text-soft);
+        font-family: 'Segoe UI', Arial, sans-serif;
         line-height: 1.5;
       }
 
@@ -449,77 +422,64 @@ interface NewsPreview {
 
       .news-preview-list {
         display: grid;
-        gap: 0.75rem;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1rem;
+        grid-template-columns: 1fr;
         margin-top: 1rem;
       }
 
       .news-preview-list article {
-        background: rgb(3 3 3 / 54%);
-        border: 1px solid rgb(244 201 87 / 24%);
+        background: var(--surface-panel);
+        border: 1px solid var(--border-color);
         display: grid;
         gap: 0.5rem;
-        min-height: 13.4rem;
-        padding: 0.7rem;
+        min-height: auto;
+        padding: 1rem;
+        grid-template-columns: 5rem minmax(0, 1fr);
       }
 
       .news-visual {
-        background: linear-gradient(135deg, #080705, #1a1308 48%, #4f3510);
-        border: 1px solid rgb(244 201 87 / 22%);
+        background: var(--surface-subtle);
+        border: 1px solid var(--border-color);
         min-height: 4.8rem;
+        grid-row: 1 / span 3;
       }
 
       .news-visual.ember {
-        background:
-          radial-gradient(
-            circle at 72% 28%,
-            rgb(244 201 87 / 34%),
-            transparent 3rem
-          ),
-          linear-gradient(135deg, #080705, #311406);
+        background: var(--surface-subtle);
       }
 
       .news-visual.gold {
-        background:
-          radial-gradient(
-            circle at 24% 30%,
-            rgb(255 232 166 / 24%),
-            transparent 3.2rem
-          ),
-          linear-gradient(135deg, #0b0905, #4a350e);
+        background: var(--surface-subtle);
       }
 
       .news-visual.charcoal {
-        background:
-          radial-gradient(
-            circle at 62% 38%,
-            rgb(244 201 87 / 18%),
-            transparent 3.4rem
-          ),
-          linear-gradient(135deg, #050505, #171717);
+        background: var(--surface-subtle);
       }
 
       .news-preview-list article > span {
         align-self: start;
-        border: 1px solid rgb(244 201 87 / 42%);
+        border: 1px solid var(--border-color);
         border-radius: 999px;
-        color: #ffe7a7;
-        font-family: 'Trebuchet MS', sans-serif;
-        font-size: 0.68rem;
+        color: var(--color-gold);
+        font-family: 'Segoe UI', Arial, sans-serif;
+        font-size: 0.875rem;
         font-weight: 900;
         justify-self: start;
         padding: 0.22rem 0.5rem;
         text-transform: uppercase;
+        grid-column: 2;
       }
 
       .news-preview-list h3 {
-        color: #fff2cf;
+        color: var(--text-main);
         font-size: 1rem;
-        line-height: 1.15;
+        line-height: 1.25;
+        grid-column: 2;
       }
 
       .news-preview-list p {
-        font-size: 0.82rem;
+        font-size: 0.875rem;
+        grid-column: 2;
       }
 
       .music-cta {
@@ -542,11 +502,11 @@ interface NewsPreview {
 
       .music-cta a {
         align-items: center;
-        border: 1px solid rgb(244 201 87 / 48%);
+        border: 1px solid var(--border-color);
         border-radius: 0.5rem;
-        color: #fff0c4;
+        color: var(--color-primary);
         display: inline-flex;
-        font-family: 'Trebuchet MS', sans-serif;
+        font-family: 'Segoe UI', Arial, sans-serif;
         font-weight: 900;
         justify-content: center;
         min-height: 2.7rem;
@@ -555,9 +515,9 @@ interface NewsPreview {
       }
 
       .music-cta a:first-child {
-        background: linear-gradient(180deg, #ffe08a 0%, #d99b2e 100%);
-        border-color: #ffe69a;
-        color: #09111c;
+        background: var(--color-primary);
+        border-color: var(--color-primary);
+        color: var(--on-primary);
       }
 
       @media (max-width: 940px) {
@@ -579,18 +539,10 @@ interface NewsPreview {
         }
 
         .music-veils {
-          background:
-            radial-gradient(
-              circle at 50% 26%,
-              rgb(0 0 0 / 92%) 0 14rem,
-              rgb(0 0 0 / 72%) 30rem
-            ),
-            linear-gradient(
-              180deg,
-              rgb(0 0 0 / 58%) 0%,
-              rgb(0 0 0 / 22%) 45%,
-              rgb(0 0 0 / 90%) 100%
-            );
+          background: linear-gradient(
+            color-mix(in srgb, var(--surface-page) 94%, transparent),
+            color-mix(in srgb, var(--surface-page) 98%, transparent)
+          );
         }
 
         .music-stage::after {

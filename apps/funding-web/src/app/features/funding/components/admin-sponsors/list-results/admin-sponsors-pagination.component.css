@@ -71,7 +71,7 @@ select {
   flex-direction: column;
   align-items: center;
   gap: 0.65rem;
-  font-size: 0.75rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 
 @media (max-width: 860px) {
