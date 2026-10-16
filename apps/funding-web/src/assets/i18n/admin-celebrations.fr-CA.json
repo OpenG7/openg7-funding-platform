@@ -1,0 +1,13 @@
+{
+  "title": "Les petites victoires",
+  "help": "À chaque actualisation, les recettes confirmées font leur entrée.",
+  "received": "Recettes confirmées en hausse !",
+  "animations": "Animations",
+  "on": "Activées",
+  "off": "Désactivées",
+  "health": {
+    "operational": "Services et réception des webhooks au vert selon les derniers contrôles",
+    "attention": "Certains services demandent votre attention",
+    "unknown": "La bonne santé des services reste à vérifier"
+  }
+}

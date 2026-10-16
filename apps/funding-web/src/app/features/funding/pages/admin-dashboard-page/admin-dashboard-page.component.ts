@@ -16,6 +16,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { AdminAssistantContextComponent } from '../../components/admin-assistant/admin-assistant-context.component.js';
+import { AdminCelebrationsComponent } from '../../components/admin-celebrations/admin-celebrations.component.js';
 import { AdminSponsorshipProgressComponent } from '../../components/admin-sponsors/admin-sponsorship-progress.component.js';
 import { AdminAttentionPanelComponent } from '../../components/admin-attention/admin-attention-panel.component.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
@@ -38,6 +39,7 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
   standalone: true,
   imports: [
     AdminAssistantContextComponent,
+    AdminCelebrationsComponent,
     AdminSponsorshipProgressComponent,
     RouterLink,
     TranslatePipe,

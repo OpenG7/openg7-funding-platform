@@ -1,6 +1,8 @@
 import type { Page } from '@playwright/test';
 import { AxeBuilder } from '@axe-core/playwright';
 import type {
+  AdminCockpitMetrics,
+  AdminCockpitSystems,
   AdminContributionRecord,
   AdminDashboardResponse
 } from '@openg7/funding-core';
@@ -697,4 +699,381 @@ test('desktop, tablet and mobile views fit their viewport with translated long c
     fullPage: true
   });
   expect(errors).toEqual([]);
+});
+
+type CelebrationFixture = ReturnType<typeof cockpitFixtures> & {
+  metricsStatus: number;
+  systemsStatus: number;
+};
+
+async function celebrationFixtures(page: Page): Promise<CelebrationFixture> {
+  await fixtures(page);
+  const data = {
+    ...cockpitFixtures(),
+    metricsStatus: 200,
+    systemsStatus: 200
+  };
+  data.systems = {
+    ...data.systems,
+    systems: data.systems.systems.map((system) => ({
+      ...system,
+      state: 'operational',
+      evidence: system.id === 'stripe' ? 'recent_webhook' : system.evidence,
+      observedAt: data.systems.generatedAt,
+      ...(system.id === 'stripe'
+        ? {
+            connection: {
+              ...system.connection!,
+              observedAt: data.systems.generatedAt
+            }
+          }
+        : {})
+    }))
+  } satisfies AdminCockpitSystems;
+  await page.route('**/api/admin/cockpit/metrics', (route) =>
+    route.fulfill({ status: data.metricsStatus, json: data.metrics })
+  );
+  await page.route('**/api/admin/cockpit/systems', (route) =>
+    route.fulfill({ status: data.systemsStatus, json: data.systems })
+  );
+  return data;
+}
+
+function nextCelebrationMetrics(
+  data: CelebrationFixture,
+  changes: Partial<AdminCockpitMetrics>
+): void {
+  data.metrics = {
+    ...data.metrics,
+    generatedAt: new Date(
+      Date.parse(data.metrics.generatedAt) + 1
+    ).toISOString(),
+    ...changes
+  };
+}
+
+async function refreshCelebrationBlock(
+  page: Page,
+  block: 'metrics' | 'systems'
+): Promise<void> {
+  const button = page
+    .locator(`[data-og7="cockpit-${block}"]`)
+    .getByRole('button', { name: 'Actualiser', exact: true });
+  await Promise.all([
+    page.waitForResponse((response) =>
+      new URL(response.url()).pathname.endsWith('/cockpit/' + block)
+    ),
+    button.click()
+  ]);
+  await expect(button).toBeEnabled();
+}
+
+test('dashboard celebrations use a confirmed baseline and keep gains in their own currencies', async ({
+  page
+}) => {
+  await page.clock.install();
+  const data = await celebrationFixtures(page);
+  await page.goto('/admin/fundraiser');
+  const celebrations = page.locator('[data-og7="admin-celebrations"]');
+  const gains = celebrations.locator('[data-og7="celebration-gains"]');
+  await expect(celebrations).toBeVisible();
+  await expect(
+    page.locator('[data-og7="cockpit-metrics"]').getByRole('article')
+  ).toHaveCount(4);
+  await expect(gains).toBeHidden();
+
+  nextCelebrationMetrics(data, {
+    currencies: data.metrics.currencies.map((currency) => ({
+      ...currency,
+      confirmedFeesMinor: currency.confirmedFeesMinor + 100,
+      netReceivedMinor:
+        currency.netReceivedMinor === null
+          ? null
+          : currency.netReceivedMinor - 100,
+      refundedMinor: currency.refundedMinor + 500,
+      netAfterRefundsMinor:
+        currency.netAfterRefundsMinor === null
+          ? null
+          : currency.netAfterRefundsMinor - 600,
+      grossTrend: { ...currency.grossTrend, current: 999999 }
+    }))
+  });
+  await refreshCelebrationBlock(page, 'metrics');
+  await expect(gains).toBeHidden();
+
+  nextCelebrationMetrics(data, {
+    warnings: ['unlinked_transactions'],
+    currencies: data.metrics.currencies.map((currency) => ({
+      ...currency,
+      grossMinor: currency.grossMinor + 10000
+    }))
+  });
+  await refreshCelebrationBlock(page, 'metrics');
+  await expect(gains).toBeHidden();
+  nextCelebrationMetrics(data, { warnings: [] });
+  await refreshCelebrationBlock(page, 'metrics');
+  await expect(gains).toBeHidden();
+
+  nextCelebrationMetrics(data, {
+    currencies: data.metrics.currencies.map((currency) => ({
+      ...currency,
+      grossMinor:
+        currency.grossMinor + (currency.currency === 'CAD' ? 2500 : 1234)
+    }))
+  });
+  await refreshCelebrationBlock(page, 'metrics');
+  await expect(gains).toBeVisible();
+  await expect(gains).toContainText(/25,00\s*CAD/);
+  await expect(gains).toContainText(/12,34\s*USD/);
+  await expect(gains).not.toContainText(/37,34/);
+  await expect(
+    celebrations.locator('[data-og7="celebration-coins"]')
+  ).toHaveAttribute('aria-hidden', 'true');
+  await page.clock.fastForward(5_100);
+  await expect(gains).toBeHidden();
+  await refreshCelebrationBlock(page, 'metrics');
+  await expect(gains).toBeHidden();
+});
+
+test('dashboard celebrations never replay a decrease and rebound or a failed or stale snapshot', async ({
+  page
+}) => {
+  await page.clock.install();
+  const data = await celebrationFixtures(page);
+  const baseline = data.metrics;
+  data.metricsStatus = 503;
+  await page.goto('/admin/fundraiser');
+  const gains = page.locator('[data-og7="celebration-gains"]');
+  await expect(
+    page.locator('[data-og7="cockpit-metrics"]').getByRole('alert')
+  ).toBeVisible();
+  await expect(gains).toBeHidden();
+  data.metricsStatus = 200;
+  await refreshCelebrationBlock(page, 'metrics');
+  await expect(gains).toBeHidden();
+
+  nextCelebrationMetrics(data, {
+    currencies: baseline.currencies.map((currency) => ({
+      ...currency,
+      grossMinor: currency.grossMinor - 1000
+    }))
+  });
+  await refreshCelebrationBlock(page, 'metrics');
+  await expect(gains).toBeHidden();
+  nextCelebrationMetrics(data, { currencies: baseline.currencies });
+  await refreshCelebrationBlock(page, 'metrics');
+  await expect(gains).toBeHidden();
+
+  data.metricsStatus = 503;
+  nextCelebrationMetrics(data, {
+    currencies: baseline.currencies.map((currency) => ({
+      ...currency,
+      grossMinor: currency.grossMinor + 100000
+    }))
+  });
+  await refreshCelebrationBlock(page, 'metrics');
+  await expect(gains).toBeHidden();
+  data.metricsStatus = 200;
+  nextCelebrationMetrics(data, {
+    generatedAt: new Date(Date.parse(baseline.generatedAt) - 1000).toISOString()
+  });
+  await refreshCelebrationBlock(page, 'metrics');
+  await expect(gains).toBeHidden();
+
+  nextCelebrationMetrics(data, {
+    generatedAt: new Date(Date.parse(baseline.generatedAt) + 10).toISOString(),
+    currencies: baseline.currencies.map((currency) => ({
+      ...currency,
+      grossMinor: currency.grossMinor + 500
+    }))
+  });
+  await refreshCelebrationBlock(page, 'metrics');
+  await expect(gains).toContainText(/5,00\s*CAD/);
+  await page.clock.fastForward(5_100);
+  await refreshCelebrationBlock(page, 'metrics');
+  await expect(gains).toBeHidden();
+});
+
+test('dashboard celebrations can be disabled with the keyboard and retain that choice after reload', async ({
+  page
+}) => {
+  const data = await celebrationFixtures(page);
+  await page.goto('/admin/fundraiser');
+  const section = page.locator('[data-og7="admin-celebrations"]');
+  const toggle = section.locator('[data-og7="celebrations-toggle"]');
+  const gains = section.locator('[data-og7="celebration-gains"]');
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  await expect(
+    page.locator('[data-og7="cockpit-metrics"]').getByRole('article')
+  ).toHaveCount(4);
+  nextCelebrationMetrics(data, {
+    currencies: data.metrics.currencies.map((currency) => ({
+      ...currency,
+      grossMinor: currency.grossMinor + 100
+    }))
+  });
+  await refreshCelebrationBlock(page, 'metrics');
+  await expect(gains).toBeVisible();
+  await toggle.focus();
+  await page.keyboard.press('Space');
+  await expect(toggle).toBeFocused();
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  await expect(gains).toBeHidden();
+  expect(
+    await page.evaluate(() =>
+      localStorage.getItem('openg7.admin.celebrations.v1')
+    )
+  ).toBe('off');
+  expect(
+    await section.evaluate(
+      (element) => element.getAnimations({ subtree: true }).length
+    )
+  ).toBe(0);
+  await page.reload();
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  await expect(
+    page.locator('[data-og7="cockpit-metrics"]').getByRole('article')
+  ).toHaveCount(4);
+  nextCelebrationMetrics(data, {
+    currencies: data.metrics.currencies.map((currency) => ({
+      ...currency,
+      grossMinor: currency.grossMinor + 100
+    }))
+  });
+  await refreshCelebrationBlock(page, 'metrics');
+  await expect(gains).toBeHidden();
+  await toggle.focus();
+  await page.keyboard.press('Enter');
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  await expect(gains).toBeHidden();
+});
+
+test('dashboard health requires fresh observations from every system and both Stripe checks', async ({
+  page
+}) => {
+  const data = await celebrationFixtures(page);
+  const healthy = data.systems;
+  await page.goto('/admin/fundraiser');
+  const health = page.locator('[data-og7="celebration-health"]');
+  await expect(health).toHaveAttribute('data-state', 'operational');
+  expect(
+    await health.evaluate((element) =>
+      element
+        .getAnimations({ subtree: true })
+        .every(
+          (animation) =>
+            Number(animation.effect?.getComputedTiming().endTime ?? 0) < 5000
+        )
+    )
+  ).toBe(true);
+
+  data.systems = {
+    ...healthy,
+    systems: healthy.systems.map((system) =>
+      system.id === 'stripe'
+        ? {
+            ...system,
+            connection: { ...system.connection!, state: 'unavailable' }
+          }
+        : system
+    )
+  };
+  await refreshCelebrationBlock(page, 'systems');
+  await expect(health).toHaveAttribute('data-state', 'attention');
+  data.systems = {
+    ...healthy,
+    systems: healthy.systems.map((system) =>
+      system.id === 'stripe'
+        ? { ...system, state: 'unknown', evidence: 'no_recent_observation' }
+        : system
+    )
+  };
+  await refreshCelebrationBlock(page, 'systems');
+  await expect(health).toHaveAttribute('data-state', 'unknown');
+  data.systems = {
+    ...healthy,
+    systems: healthy.systems.filter((system) => system.id !== 'identity')
+  };
+  await refreshCelebrationBlock(page, 'systems');
+  await expect(health).toHaveAttribute('data-state', 'unknown');
+  data.systems = healthy;
+  await refreshCelebrationBlock(page, 'systems');
+  await expect(health).toHaveAttribute('data-state', 'operational');
+  data.systemsStatus = 503;
+  await refreshCelebrationBlock(page, 'systems');
+  await expect(health).toHaveAttribute('data-state', 'unknown');
+});
+
+test('dashboard health stops indicating success when observations expire without a reload', async ({
+  page
+}) => {
+  await page.clock.install();
+  await celebrationFixtures(page);
+  await page.goto('/admin/fundraiser');
+  const health = page.locator('[data-og7="celebration-health"]');
+  await expect(health).toHaveAttribute('data-state', 'operational');
+  await page.clock.fastForward(90_000);
+  await expect(health).toHaveAttribute('data-state', 'unknown');
+});
+
+test('dashboard celebrations respect reduced motion and remain accessible on mobile in French and English', async ({
+  page
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 320, height: 844 });
+  const data = await celebrationFixtures(page);
+  await page.goto('/admin/fundraiser');
+  const section = page.locator('[data-og7="admin-celebrations"]');
+  await expect(
+    page.locator('[data-og7="cockpit-metrics"]').getByRole('article')
+  ).toHaveCount(4);
+  nextCelebrationMetrics(data, {
+    currencies: data.metrics.currencies.map((currency) => ({
+      ...currency,
+      grossMinor: currency.grossMinor + 2500
+    }))
+  });
+  await refreshCelebrationBlock(page, 'metrics');
+  await expect(section.locator('[data-og7="celebration-gains"]')).toBeVisible();
+  for (const language of ['fr-CA', 'en']) {
+    if (language === 'en')
+      await page
+        .getByRole('button', {
+          name: 'Switch administration language to English'
+        })
+        .click();
+    await expect(
+      page.getByRole('heading', {
+        level: 1,
+        name: language === 'en' ? 'Control centre' : 'Centre de pilotage',
+        exact: true
+      })
+    ).toBeVisible();
+    await expect(
+      section.getByRole('heading', {
+        name: language === 'en' ? 'The little wins' : 'Les petites victoires',
+        exact: true
+      })
+    ).toBeVisible();
+    await expect(
+      section.locator('[data-og7="celebrations-toggle"]')
+    ).toHaveAccessibleName(
+      language === 'en' ? 'Animations On' : 'Animations Activées'
+    );
+    expect(
+      await section.evaluate(
+        (element) => element.getAnimations({ subtree: true }).length
+      )
+    ).toBe(0);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth
+      )
+    ).toBe(true);
+    const audit = await new AxeBuilder({ page })
+      .include('[data-og7="admin-celebrations"]')
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+      .analyze();
+    expect(audit.violations).toEqual([]);
+  }
 });

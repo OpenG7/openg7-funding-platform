@@ -69,7 +69,23 @@
       </section>
     }
 
-    <openg7-admin-cockpit-metrics [refreshKey]="attentionRefresh()" />
+    <openg7-admin-celebrations
+      [metrics]="cockpitMetrics.block.data()"
+      [metricsFresh]="
+        cockpitMetrics.block.state() === 'ready' &&
+        !cockpitMetrics.block.stale()
+      "
+      [systems]="cockpitSystems.block.data()"
+      [systemsFresh]="
+        cockpitSystems.block.state() === 'ready' &&
+        !cockpitSystems.block.stale()
+      "
+      [now]="cockpitSystems.block.clock()"
+    />
+    <openg7-admin-cockpit-metrics
+      #cockpitMetrics
+      [refreshKey]="attentionRefresh()"
+    />
     <div class="workflow-grid">
       <openg7-admin-attention-panel
         [compact]="true"
@@ -88,7 +104,10 @@
         [refreshKey]="attentionRefresh()"
       />
       <openg7-admin-cockpit-activity [refreshKey]="attentionRefresh()" />
-      <openg7-admin-cockpit-systems [refreshKey]="attentionRefresh()" />
+      <openg7-admin-cockpit-systems
+        #cockpitSystems
+        [refreshKey]="attentionRefresh()"
+      />
     </div>
     @if (dashboard(); as data) {
       <div class="snapshot">

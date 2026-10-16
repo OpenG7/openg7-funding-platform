@@ -1,0 +1,13 @@
+{
+  "title": "The little wins",
+  "help": "With each refresh, confirmed receipts make an entrance.",
+  "received": "Confirmed receipts are up!",
+  "animations": "Animations",
+  "on": "On",
+  "off": "Off",
+  "health": {
+    "operational": "Services and webhook reception are healthy according to the latest checks",
+    "attention": "Some services need your attention",
+    "unknown": "Service health still needs to be verified"
+  }
+}
