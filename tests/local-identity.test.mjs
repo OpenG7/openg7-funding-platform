@@ -6,6 +6,8 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  statSync,
+  utimesSync,
   writeFileSync
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -214,6 +216,53 @@ test('preparation derives only ACME changes and preserves canonical middleware, 
       ),
     /canonical/
   );
+});
+
+test('MFA profile changes leave unchanged watched routes untouched while real routing changes are written', (t) => {
+  const root = fixture(t);
+  createLocalTlsFixture(root);
+  const files = prepareLocalIdentity({ root, env: configuration });
+  const contents = files.map((file) => readFileSync(file, 'utf8'));
+  const timestamp = new Date('2000-01-01T00:00:00Z');
+  for (const file of files) utimesSync(file, timestamp, timestamp);
+  const modified = files.map((file) => statSync(file).mtimeMs);
+
+  for (const passwordOnly of ['true', 'false']) {
+    assert.deepEqual(
+      prepareLocalIdentity({
+        root,
+        env: {
+          ...configuration,
+          FUNDING_ADMIN_OIDC_LOCAL_PASSWORD_ONLY: passwordOnly
+        }
+      }),
+      files
+    );
+    assert.deepEqual(
+      files.map((file) => statSync(file).mtimeMs),
+      modified
+    );
+    assert.deepEqual(
+      files.map((file) => readFileSync(file, 'utf8')),
+      contents
+    );
+  }
+
+  const canonicalRoute = join(root, 'traefik', 'dynamic.yml');
+  writeFileSync(
+    canonicalRoute,
+    readFileSync(canonicalRoute, 'utf8') + '\n# Synthetic routing update\n'
+  );
+  prepareLocalIdentity({ root, env: configuration });
+  assert.equal(
+    readFileSync(files[1], 'utf8'),
+    contents[1] + '\n# Synthetic routing update\n'
+  );
+  assert.notEqual(statSync(files[1]).mtimeMs, modified[1]);
+  for (const index of [0, 2]) {
+    assert.equal(statSync(files[index]).mtimeMs, modified[index]);
+    assert.equal(readFileSync(files[index], 'utf8'), contents[index]);
+  }
 });
 
 test('preparation refuses absent, wrong-domain, mismatched and private CA files before generating anything', (t) => {

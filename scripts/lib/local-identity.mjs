@@ -124,6 +124,16 @@ export function prepareLocalIdentity({ root, env }) {
     )
   }));
   mkdirSync(join(root, 'traefik', 'local'), { recursive: true });
-  for (const file of files) writeFileSync(file.path, file.content);
+  for (const file of files) {
+    let existing;
+    try {
+      existing = readFileSync(file.path, 'utf8');
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+    // Traefik watches these mounted files. Replaying an unchanged preparation
+    // must not truncate them or trigger a routing reload during authentication.
+    if (existing !== file.content) writeFileSync(file.path, file.content);
+  }
   return files.map((file) => file.path);
 }
