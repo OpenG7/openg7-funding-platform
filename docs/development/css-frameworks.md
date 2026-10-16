@@ -46,9 +46,10 @@ sont des options à évaluer, pas des composants déjà livrés.
 
 La [référence Tailwind](../../apps/funding-web/src/styles/tailwind.css) expose le
 thème et les utilitaires avec le préfixe `tw` et `source(none)`. Elle est chargée
-par `@reference` dans les feuilles locales; elle n'est pas importée par
-`src/styles.css`. Aucun Preflight ni feuille globale d'utilitaires n'est émis.
-Cela conserve les sélecteurs existants et le chargement différé des styles admin.
+par `@reference` dans les feuilles locales et dans `src/styles.css` pour les
+sélecteurs globaux existants. Aucun Preflight ni feuille globale de classes
+utilitaires n'est émis. Cela conserve les sélecteurs existants et le chargement
+différé des styles admin.
 
 Exemple depuis `components/admin-ui/admin-confirmation.component.css` :
 
@@ -169,6 +170,32 @@ palettes, le responsive, le focus et les confirmations avec les API simulées.
 Le guide public utilise les alias `--admin-selected` et `--admin-accent` pour
 son étape active et ses liens, afin de garder un contraste lisible sans le
 layout admin; les thèmes administratifs continuent de fournir leurs couleurs.
+
+La revue des surfaces restantes couvre les dossiers commanditaires, les outils
+Stripe et développeur, les dépenses, la connexion, les sauvegardes, le pilotage,
+les guides, les contrôleurs et les pages publiques. Les styles inline extraits
+gardent leur position après les feuilles déjà référencées par le composant.
+Les petits hosts de Checkout et de Contribution sont ajoutés à la fin de leurs
+feuilles existantes. Les tokens publics restent distincts des alias admin.
+Les recettes [commanditaires](../../tests/playwright/admin-sponsorship-progress.spec.ts),
+[plateforme](../../tests/playwright/admin-platform-tailwind.spec.ts),
+[pilotage](../../tests/playwright/admin-pilotage.spec.ts) et
+[surfaces publiques](../../tests/playwright/funding-tailwind.spec.ts) complètent
+les parcours existants avec des contrôles de palettes, responsive et focus.
+
+Tailwind peut ajouter une déclaration de secours et une branche `@supports`
+autour d'un `color-mix()` existant. L'audit distingue ces ajouts de compatibilité
+de l'équivalence des règles dans la branche moderne; les tests comparent les
+couleurs calculées à une sonde utilisant les expressions originales. Ces ajouts
+ne justifient aucun changement des couleurs sources ou des budgets Angular.
+
+Les quatre fondations `admin-theme.css`, `admin-appearance.css`,
+`admin-typography.css` et `styles/tailwind.css` gardent leurs responsabilités de
+tokens, thèmes et typographie. Deux sources restent volontairement sans
+utilitaires : `admin-icon.component.ts` conserve les six déclarations
+intrinsèques de son SVG; `admin-celebrations.component.css` conserve son rendu
+d'animation et son mélange de couleurs natif. Leur maintien est une décision de
+revue, distincte d'une surface encore à migrer.
 
 Étendre seulement là où les utilitaires rendent la source plus claire. Conserver
 du CSS explicite pour les interactions de sélecteurs, les dégradés, graphiques,
