@@ -109,6 +109,14 @@ de sélection et d'export restent explicites. La [recette Contributions](../../t
 couvre les thèmes, ces frontières responsive, les filtres et la sélection clavier,
 avec des réponses API synthétiques.
 
+Le lot Cockpit couvre le tableau de bord, les indicateurs, les cartes système,
+les états Stripe et les tendances. Les requêtes de conteneur nommées
+`admin-dashboard` et `admin-cockpit`, leur ordre et leurs seuils restent en CSS
+explicite. Les tracés SVG, transformations, transitions et préférences de
+mouvement réduit conservent leurs règles spécifiques. Les [recettes Cockpit](../../tests/playwright/admin-cockpit.spec.ts)
+et [tableau de bord](../../tests/playwright/admin-dashboard-layout.spec.ts)
+vérifient les grilles, palettes, états et interactions sur des API interceptées.
+
 Étendre seulement là où les utilitaires rendent la source plus claire. Conserver
 du CSS explicite pour les interactions de sélecteurs, les dégradés, graphiques,
 positions calculées, animations produit et règles d'impression complexes.

@@ -1,38 +1,29 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
-  width: 100%;
+  @apply tw:block tw:min-w-0 tw:w-full;
 }
 .check {
-  display: flex;
-  flex-direction: column;
+  @apply tw:flex tw:flex-col tw:text-admin-muted tw:text-admin-caption tw:wrap-anywhere;
   gap: 0.4rem;
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
   line-height: 1.5;
-  overflow-wrap: anywhere;
 }
 .check + .check {
+  @apply tw:mt-3 tw:pt-3;
   border-top: 1px solid var(--admin-border);
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
 }
 .heading {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
+  @apply tw:flex tw:items-center tw:flex-wrap;
   gap: 0.4rem 0.6rem;
 }
 strong {
-  color: var(--admin-text);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-text tw:text-admin-caption;
 }
 .status {
-  border-radius: 0.4rem;
+  @apply tw:rounded-admin-sm tw:text-admin-caption;
   padding: 0.15rem 0.4rem;
   font-weight: 600;
-  font-size: var(--admin-caption-size, 0.875rem);
 }
 .date {
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }

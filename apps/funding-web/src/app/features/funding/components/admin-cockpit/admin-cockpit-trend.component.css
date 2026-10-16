@@ -1,8 +1,7 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:block tw:min-w-0 tw:text-admin-muted tw:text-admin-caption;
   padding: 0 1.2rem 0.6rem;
 }
 .chart-panel {
@@ -11,15 +10,14 @@
 }
 .chart-title {
   margin: 0 0 0.65rem;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
   letter-spacing: 0.04em;
 }
 svg {
-  display: block;
-  width: 100%;
+  @apply tw:block tw:w-full;
   height: 88px;
-  overflow: visible;
+  @apply tw:overflow-visible;
   color: var(--admin-gold, #f4c66a);
 }
 .grid,
@@ -47,81 +45,69 @@ svg {
   fill-opacity: 0.1;
 }
 .chart-range {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.5rem;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:flex tw:justify-between tw:gap-2 tw:text-admin-caption;
   margin: 0.25rem 0 0.9rem;
 }
 .chart-empty {
-  display: grid;
-  align-items: center;
+  @apply tw:grid tw:items-center;
   min-height: 88px;
   margin: 0 0 0.9rem;
 }
 .periods {
-  display: grid;
+  @apply tw:grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-  margin: 0;
+  @apply tw:gap-3 tw:m-0;
   padding: 0.85rem 0;
   border-top: 1px solid var(--admin-border);
   border-bottom: 1px solid var(--admin-border);
 }
 .periods > div {
-  min-width: 0;
+  @apply tw:min-w-0;
 }
 .periods > div + div {
   border-left: 1px solid var(--admin-border);
-  padding-left: 0.75rem;
+  @apply tw:pl-3;
 }
 dt {
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 dd {
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
   font-size: 1.08rem;
   font-weight: var(--admin-emphasis-weight);
   font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
   margin: 0.25rem 0 0;
 }
 .comparison {
   padding: 0.8rem 0;
 }
 .comparison-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin: 0;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:flex tw:items-center tw:justify-between tw:flex-wrap tw:gap-2 tw:m-0 tw:text-admin-caption;
 }
 .change {
-  display: inline-flex;
-  align-items: center;
+  @apply tw:inline-flex tw:items-center;
   gap: 0.3rem;
   border: 1px solid var(--admin-border);
   border-radius: 2rem;
   background: var(--admin-panel-raised, #22344a);
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
   padding: 0.2rem 0.55rem;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
   font-variant-numeric: tabular-nums;
 }
 .change[data-direction='up'] {
-  color: var(--admin-success);
+  @apply tw:text-admin-success;
   border-color: var(--admin-success-border);
   background: var(--admin-success-bg);
 }
 .change[data-direction='down'] {
-  color: var(--admin-warning);
+  @apply tw:text-admin-warning;
   border-color: var(--admin-warning-border);
   background: var(--admin-warning-bg);
 }
 .comparison-hint {
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
   line-height: 1.6;
   margin: 0.5rem 0 0;
 }
@@ -129,22 +115,20 @@ details {
   border-top: 1px solid var(--admin-border);
 }
 summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  @apply tw:flex tw:items-center tw:justify-between;
   gap: 0.6rem;
   min-height: 44px;
   cursor: pointer;
   list-style: none;
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
   font-weight: 550;
   border-radius: 0.35rem;
 }
 summary::-webkit-details-marker {
-  display: none;
+  @apply tw:hidden;
 }
 summary:hover {
-  color: var(--admin-gold);
+  @apply tw:text-admin-gold;
 }
 .disclosure-icon {
   flex: 0 0 auto;
@@ -164,8 +148,7 @@ summary:focus-visible,
   outline-offset: 3px;
 }
 .table-scroll {
-  max-height: 12rem;
-  overflow: auto;
+  @apply tw:max-h-48 tw:overflow-auto;
   scrollbar-gutter: stable;
   scrollbar-width: thin;
   scrollbar-color: var(--admin-border) transparent;
@@ -174,17 +157,15 @@ summary:focus-visible,
   border-radius: 0.45rem;
 }
 table {
-  width: 100%;
+  @apply tw:w-full;
   border-collapse: separate;
   border-spacing: 0;
-  text-align: left;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-left tw:text-admin-caption;
   font-variant-numeric: tabular-nums;
 }
 caption {
   padding: 0.6rem;
-  text-align: left;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-left tw:text-admin-caption;
   line-height: 1.5;
 }
 th,
@@ -193,10 +174,9 @@ td {
   border-bottom: 1px solid var(--admin-border);
 }
 thead th {
-  position: sticky;
-  top: 0;
+  @apply tw:sticky tw:top-0;
   background: var(--admin-panel);
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
 }
 tbody th {
   font-weight: 400;
@@ -206,6 +186,5 @@ tbody tr:nth-child(odd) {
 }
 th:last-child,
 td {
-  text-align: right;
-  overflow-wrap: anywhere;
+  @apply tw:text-right tw:wrap-anywhere;
 }

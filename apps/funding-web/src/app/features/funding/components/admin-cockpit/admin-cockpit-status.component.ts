@@ -32,9 +32,9 @@ import type { CockpitBlockState } from './cockpit-block.js';
       {{ 'admin.dashboard.refresh' | translate }}
     </button>
   `,
-  styleUrls: ['../admin-ui/admin-controls.css'],
-  styles: [
-    ':host { display: block; color: var(--admin-muted); font-size: .8rem; } p { margin: .5rem 0; }'
+  styleUrls: [
+    '../admin-ui/admin-controls.css',
+    './admin-cockpit-status.component.css'
   ]
 })
 export class AdminCockpitStatusComponent {
