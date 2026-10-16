@@ -702,21 +702,42 @@ function readGuidanceDecoration(element: Element) {
   const context = canvas.getContext('2d');
   if (!context) throw new Error('Cannot inspect the guidance outline colour');
   // CSSOM may serialize colours as rgb() or normalized color(srgb ...).
-  // Let the browser convert the actual computed colour to 8-bit sRGB first.
-  context.fillStyle = style.outlineColor;
-  context.fillRect(0, 0, 1, 1);
-  const [red, green, blue, alpha] = context.getImageData(0, 0, 1, 1).data;
+  // Compare both colours in 8-bit sRGB, including the darker mineral gold.
+  const rgba = (colour: string) => {
+    if (
+      !CSS.supports('color', colour) ||
+      /^(currentcolor|inherit|initial|unset|revert(?:-layer)?)$/i.test(colour)
+    )
+      return null;
+    // Canvas ignores unsupported assignments. Two sentinels prevent an invalid
+    // token from accidentally reusing the previous colour.
+    context.fillStyle = '#000000';
+    context.fillStyle = colour;
+    const parsed = context.fillStyle;
+    context.fillStyle = '#ffffff';
+    context.fillStyle = colour;
+    if (context.fillStyle !== parsed) return null;
+    context.clearRect(0, 0, 1, 1);
+    context.fillRect(0, 0, 1, 1);
+    return Array.from(context.getImageData(0, 0, 1, 1).data);
+  };
+  const gold = style.getPropertyValue('--admin-gold').trim() || '#f4c957';
+  const expected = rgba(gold);
+  const actual = rgba(style.outlineColor);
   return {
     outlineColor: style.outlineColor,
-    outlineRgba: [red, green, blue, alpha],
+    outlineRgba: actual,
+    gold,
+    goldRgba: expected,
     outlined:
       style.outlineStyle !== 'none' && parseFloat(style.outlineWidth) >= 2,
     golden:
-      alpha === 255 &&
-      red >= 170 &&
-      green >= 110 &&
-      red > green &&
-      green > blue,
+      !!expected &&
+      !!actual &&
+      expected[3] === 255 &&
+      expected[0] > expected[1] &&
+      expected[1] > expected[2] &&
+      actual.every((channel, index) => channel === expected[index]),
     halo: style.boxShadow !== 'none'
   };
 }
@@ -729,17 +750,45 @@ test('the golden halo assertion handles CSS colour formats and rejects other col
       box-shadow: 0 0 6px #f4c957">Landmark</div>
   `);
   const zone = page.locator(highlighted);
-  for (const colour of [
-    'rgb(244, 201, 87)',
-    'color(srgb 0.9568627451 0.7882352941 0.3411764706)'
+  for (const palette of [
+    {
+      token: '',
+      rgba: [244, 201, 87, 255],
+      colours: [
+        'rgb(244, 201, 87)',
+        'color(srgb 0.9568627451 0.7882352941 0.3411764706)'
+      ]
+    },
+    {
+      token: '#8e5c10',
+      rgba: [142, 92, 16, 255],
+      colours: [
+        'rgb(142, 92, 16)',
+        'color(srgb 0.5568627451 0.3607843137 0.0627450980)'
+      ]
+    },
+    {
+      token: '#f1ce80',
+      rgba: [241, 206, 128, 255],
+      colours: [
+        'rgb(241, 206, 128)',
+        'color(srgb 0.9450980392 0.8078431373 0.5019607843)'
+      ]
+    }
   ]) {
-    await zone.evaluate((element, value) => {
-      (element as HTMLElement).style.outlineColor = value;
-    }, colour);
-    await expectGoldenZone(zone);
-    expect((await zone.evaluate(readGuidanceDecoration)).outlineRgba).toEqual([
-      244, 201, 87, 255
-    ]);
+    await zone.evaluate((element, token) => {
+      (element as HTMLElement).style.setProperty('--admin-gold', token);
+    }, palette.token);
+    for (const colour of palette.colours) {
+      await zone.evaluate((element, value) => {
+        (element as HTMLElement).style.outlineColor = value;
+      }, colour);
+      await expectGoldenZone(zone);
+      expect(await zone.evaluate(readGuidanceDecoration)).toMatchObject({
+        outlineRgba: palette.rgba,
+        goldRgba: palette.rgba
+      });
+    }
   }
   for (const colour of [
     'color(srgb 0 0 1)',
@@ -750,6 +799,27 @@ test('the golden halo assertion handles CSS colour formats and rejects other col
     await zone.evaluate((element, value) => {
       (element as HTMLElement).style.outlineColor = value;
     }, colour);
+    expect(await zone.evaluate(readGuidanceDecoration)).toMatchObject({
+      outlined: true,
+      golden: false,
+      halo: true
+    });
+  }
+  for (const { token, outline } of [
+    { token: '#8e5c10', outline: 'rgb(244, 201, 87)' },
+    { token: 'not-a-colour', outline: 'rgb(244, 201, 87)' },
+    { token: 'blue', outline: 'blue' },
+    { token: 'transparent', outline: 'transparent' },
+    { token: 'rgb(244 201 87 / 0.5)', outline: 'rgb(244 201 87 / 0.5)' }
+  ]) {
+    await zone.evaluate(
+      (element, { token, outline }) => {
+        const style = (element as HTMLElement).style;
+        style.setProperty('--admin-gold', token);
+        style.outlineColor = outline;
+      },
+      { token, outline }
+    );
     expect(await zone.evaluate(readGuidanceDecoration)).toMatchObject({
       outlined: true,
       golden: false,

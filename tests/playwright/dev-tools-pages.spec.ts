@@ -36,7 +36,7 @@ const pages = [
     ready: 'Compte Stripe connecte',
     absent: 'Connexion Stripe a verifier',
     refresh: /Verifier la configuration/,
-    columns: 4
+    columns: 2
   },
   {
     path: '/dev/webhooks',
