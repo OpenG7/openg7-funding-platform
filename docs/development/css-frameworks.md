@@ -127,6 +127,20 @@ vérifient les palettes, frontières responsive et commandes clavier; les recett
 [contrôleur virtuel](../../tests/playwright/admin-virtual-controller.spec.ts)
 couvrent leurs dispositions particulières avec des réponses synthétiques.
 
+Les lots Audit, Factures, Transparence et File de courriels utilisent les mêmes
+utilitaires dans leurs feuilles locales. Le
+tableau d'audit garde sa présentation mobile à 700 px; les factures conservent
+leurs panneaux et seuils de 1080, 860 et 620 px. La transparence garde son seuil
+de 900 px et son tableau de 58 rem; la file courriel conserve ses seuils de
+1080, 860 et 620 px et son tableau de 78 rem. Les recettes
+[Audit](../../tests/playwright/admin-audit-ui.spec.ts),
+[Factures](../../tests/playwright/admin-document-resend-ui.spec.ts),
+[Transparence](../../tests/playwright/admin-transparency-ui.spec.ts) et
+[Courriels](../../tests/playwright/admin-email-recovery-ui.spec.ts) utilisent les
+API interceptées pour vérifier palettes, responsive et interactions. Ces lots
+changent la présentation; les calculs, permissions, confirmations et opérations
+de paiement, publication ou livraison restent dans leurs contrats existants.
+
 Étendre seulement là où les utilitaires rendent la source plus claire. Conserver
 du CSS explicite pour les interactions de sélecteurs, les dégradés, graphiques,
 positions calculées, animations produit et règles d'impression complexes.

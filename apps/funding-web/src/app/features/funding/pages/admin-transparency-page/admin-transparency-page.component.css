@@ -1,7 +1,7 @@
+@reference '../../../../../styles/tailwind.css';
+
 .admin-content {
-  display: grid;
-  gap: 1rem;
-  min-width: 0;
+  @apply tw:grid tw:gap-4 tw:min-w-0;
 }
 
 .admin-topbar,
@@ -9,42 +9,35 @@
 .state {
   margin: 0 auto;
   max-width: 78rem;
-  width: 100%;
+  @apply tw:w-full;
 }
 
 .admin-topbar {
-  align-items: center;
-  display: flex;
-  gap: 1rem;
-  justify-content: space-between;
+  @apply tw:items-center tw:flex tw:gap-4 tw:justify-between;
 }
 
 .admin-topbar span {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption tw:uppercase;
   font-weight: var(--admin-label-weight);
   letter-spacing: 0;
-  text-transform: uppercase;
 }
 
 .admin-topbar h1,
 .admin-auth-panel h2 {
-  margin: 0;
+  @apply tw:m-0;
 }
 
 .admin-auth-panel {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
   border-radius: 0.45rem;
-  padding: 1rem;
+  @apply tw:p-4 tw:grid tw:gap-4;
   align-items: end;
-  display: grid;
-  gap: 1rem;
   grid-template-columns: minmax(0, 1fr) minmax(16rem, 24rem);
 }
 
 .admin-auth-panel p {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   line-height: 1.55;
   margin: 0.35rem 0 0;
 }
@@ -53,8 +46,7 @@ button {
   background: var(--admin-panel-raised);
   border: 0;
   border-radius: 0.35rem;
-  color: var(--admin-text);
-  cursor: pointer;
+  @apply tw:text-admin-text tw:cursor-pointer;
   font-family: inherit;
   font-size: inherit;
   line-height: inherit;
@@ -64,7 +56,7 @@ button {
 }
 
 .state-error {
-  color: var(--admin-danger);
+  @apply tw:text-admin-danger;
   font-weight: var(--admin-label-weight);
 }
 
@@ -75,6 +67,6 @@ button {
 
   .admin-topbar {
     align-items: start;
-    flex-direction: column;
+    @apply tw:flex-col;
   }
 }

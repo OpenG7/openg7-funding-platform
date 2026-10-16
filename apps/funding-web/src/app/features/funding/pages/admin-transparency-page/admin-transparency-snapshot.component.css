@@ -1,22 +1,19 @@
+@reference '../../../../../styles/tailwind.css';
+
 .admin-panel small {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   line-height: 1.55;
   margin: 0.35rem 0 0;
 }
 
 dl {
-  display: grid;
-  gap: 0.75rem;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin: 0;
+  @apply tw:grid tw:gap-3 tw:grid-cols-4 tw:m-0;
 }
 
 dt {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption tw:uppercase;
   font-weight: var(--admin-label-weight);
   letter-spacing: 0;
-  text-transform: uppercase;
 }
 
 dd {

@@ -39,6 +39,27 @@ const snapshot = (count: number, date: string): AdminTransparencyResponse => ({
 });
 const older = snapshot(10, '2026-09-23T12:00:00Z');
 const newer = snapshot(20, '2026-09-24T12:00:00Z');
+const palettes = {
+  mineral: {
+    panel: 'rgb(255, 255, 255)',
+    border: 'rgb(202, 213, 201)',
+    text: 'rgb(41, 51, 46)',
+    muted: 'rgb(83, 99, 90)'
+  },
+  night: {
+    panel: 'rgb(20, 35, 56)',
+    border: 'rgb(64, 86, 111)',
+    text: 'rgb(241, 245, 252)',
+    muted: 'rgb(189, 203, 224)'
+  },
+  graphite: {
+    panel: 'rgb(37, 41, 47)',
+    border: 'rgb(86, 97, 110)',
+    text: 'rgb(243, 244, 246)',
+    muted: 'rgb(196, 203, 213)'
+  }
+} as const;
+type Theme = keyof typeof palettes;
 
 function withAllocations(
   data: AdminTransparencyResponse
@@ -91,7 +112,12 @@ function withAllocations(
   };
 }
 
-async function prepare(page: Page, language: string, width: number) {
+async function prepare(
+  page: Page,
+  language: string,
+  width: number,
+  theme?: Theme
+) {
   await page.setViewportSize({ width, height: 950 });
   await page.addInitScript((locale) => {
     localStorage.setItem('openg7.language', locale);
@@ -104,9 +130,22 @@ async function prepare(page: Page, language: string, width: number) {
       '2099-01-01T00:00:00Z'
     );
   }, language);
+  if (theme)
+    await page.addInitScript((theme) => {
+      localStorage.setItem(
+        'openg7.pilotage.appearance.v1',
+        JSON.stringify({ theme, system: false, density: 'comfortable' })
+      );
+    }, theme);
   const requests: Route[] = [];
+  const mutations: string[] = [];
   await page.route('**/api/**', async (route) => {
-    const path = new URL(route.request().url()).pathname;
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (request.method() !== 'GET') {
+      mutations.push(`${request.method()} ${path}`);
+      return route.fulfill({ status: 405, json: {} });
+    }
     if (path.endsWith('/auth/config')) {
       return route.fulfill({ json: { mode: 'oidc' } });
     }
@@ -132,6 +171,7 @@ async function prepare(page: Page, language: string, width: number) {
   const view = page.locator('[data-og7="admin-transparency"]');
   return {
     requests,
+    mutations,
     view,
     refresh: view.getByRole('button', {
       name: language === 'en' ? 'Refresh' : 'Actualiser',
@@ -161,6 +201,178 @@ async function complete(
       })
   );
 }
+
+for (const theme of ['mineral', 'night', 'graphite'] as const) {
+  for (const { language, width } of [
+    { language: 'fr-CA', width: 390 },
+    { language: 'en', width: 1280 }
+  ]) {
+    test(`transparency styles preserve ${theme} palettes and dimensions in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      const { requests, mutations, view, current, refresh } = await prepare(
+        page,
+        language,
+        width,
+        theme
+      );
+      await complete(page, requests[0], 200, withAllocations(newer));
+      await expect(page.locator('html')).toHaveAttribute('lang', language);
+      await expect(page.locator('html')).toHaveAttribute(
+        'data-og7-pilot-theme',
+        theme
+      );
+      const palette = palettes[theme];
+      const summary = view.locator('[data-og7="transparency-summary"]');
+      const statuses = view.locator('[data-og7="transparency-statuses"]');
+      for (const grid of [summary, statuses]) {
+        await expect(grid).toHaveCSS('display', 'grid');
+        await expect(grid).toHaveCSS('gap', '12px');
+        await expect
+          .poll(() =>
+            grid.evaluate(
+              (element) =>
+                getComputedStyle(element).gridTemplateColumns.split(/\s+/)
+                  .length
+            )
+          )
+          .toBe(width <= 900 ? 1 : 4);
+        const cards = grid.getByRole('article');
+        await expect(cards).toHaveCount(4);
+        for (const card of await cards.all()) {
+          await expect(card).toHaveCSS('background-color', palette.panel);
+          await expect(card).toHaveCSS('background-image', 'none');
+          await expect(card).toHaveCSS('border-top-color', palette.border);
+          await expect(card).toHaveCSS('border-top-width', '1px');
+          await expect(card).toHaveCSS('border-radius', '7.2px');
+          await expect(card).toHaveCSS('padding', '16px');
+          await expect(card.locator('span')).toHaveCSS('color', palette.muted);
+          await expect(card.locator('span')).toHaveCSS('font-size', '14px');
+          await expect(card.locator('span')).toHaveCSS('font-weight', '600');
+          await expect
+            .poll(() =>
+              card.locator('span').evaluate((element) => {
+                const spacing = getComputedStyle(element).letterSpacing;
+                return spacing === 'normal' ? 0 : Number.parseFloat(spacing);
+              })
+            )
+            .toBe(0);
+          await expect(card.locator('strong')).toHaveCSS('color', palette.text);
+          await expect(card.locator('strong')).toHaveCSS('font-size', '24.8px');
+          await expect(card.locator('strong')).toHaveCSS('margin-top', '3.2px');
+        }
+      }
+      await expect(current).toHaveCSS('background-color', palette.panel);
+      await expect(current).toHaveCSS('padding', '16px');
+      await expect(current.locator('dd').first()).toHaveCSS(
+        'font-size',
+        '19.2px'
+      );
+      await expect(current.locator('dd').first()).toHaveCSS(
+        'font-weight',
+        '700'
+      );
+      const allocations = view.locator('[data-og7="transparency-allocations"]');
+      await expect(allocations.getByRole('table')).toHaveCSS(
+        'min-width',
+        '928px'
+      );
+      await expect(allocations.getByRole('table')).toHaveCSS(
+        'border-collapse',
+        'collapse'
+      );
+      await expect(allocations.getByRole('columnheader').first()).toHaveCSS(
+        'padding',
+        '11.2px 8px'
+      );
+      await expect(allocations.getByRole('columnheader').first()).toHaveCSS(
+        'text-align',
+        'left'
+      );
+      const scroll = view.locator(
+        '[data-og7="transparency-allocation-scroll"]'
+      );
+      await expect(scroll).toHaveCSS('overflow-x', 'auto');
+      if (width === 390)
+        expect(
+          await scroll.evaluate(
+            (element) => element.scrollWidth > element.clientWidth
+          )
+        ).toBe(true);
+      await expect(refresh).toHaveCSS('min-height', '43.2px');
+      await expect(refresh).toHaveCSS('border-radius', '5.6px');
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+      expect(mutations).toEqual([]);
+    });
+  }
+}
+
+test('transparency keeps the 900px grid boundary, panel alignment and empty presentation', async ({
+  page
+}) => {
+  const { requests, mutations, view, current, refresh } = await prepare(
+    page,
+    'en',
+    901,
+    'mineral'
+  );
+  await complete(page, requests[0], 200, withAllocations(newer));
+  const summary = view.locator('[data-og7="transparency-summary"]');
+  for (const width of [901, 900, 899]) {
+    await page.setViewportSize({ width, height: 950 });
+    for (const grid of [
+      summary,
+      view.locator('[data-og7="transparency-statuses"]'),
+      current.locator('dl')
+    ]) {
+      await expect
+        .poll(() =>
+          grid.evaluate(
+            (element) =>
+              getComputedStyle(element).gridTemplateColumns.split(/\s+/).length
+          )
+        )
+        .toBe(width <= 900 ? 1 : 4);
+    }
+    for (const header of [
+      view.locator('header').first(),
+      current.locator('header')
+    ]) {
+      await expect(header).toHaveCSS(
+        'flex-direction',
+        width <= 900 ? 'column' : 'row'
+      );
+      await expect(header).toHaveCSS(
+        'align-items',
+        width <= 900 ? 'start' : 'center'
+      );
+    }
+    await expect(summary.locator('..')).toHaveCSS('max-width', '1248px');
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1
+      )
+    ).toBe(true);
+  }
+  await refresh.click();
+  await expect.poll(() => requests.length).toBe(2);
+  await complete(page, requests[1], 200, snapshot(0, newer.last_updated_at));
+  const empty = view
+    .locator('[data-og7="transparency-allocations"]')
+    .getByRole('article');
+  await expect(empty).toBeVisible();
+  await expect(empty).toHaveCSS('background-color', palettes.mineral.panel);
+  await expect(empty).toHaveCSS('border-radius', '7.2px');
+  await expect(empty).toHaveCSS('padding', '16px');
+  await expect(
+    view.locator('[data-og7="transparency-allocation-scroll"]')
+  ).toHaveCount(0);
+  expect(mutations).toEqual([]);
+});
 
 for (const language of ['fr-CA', 'en']) {
   for (const width of [390, 1280]) {

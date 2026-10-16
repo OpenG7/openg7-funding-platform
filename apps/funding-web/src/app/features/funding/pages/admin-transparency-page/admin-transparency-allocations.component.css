@@ -1,41 +1,39 @@
+@reference '../../../../../styles/tailwind.css';
+
 .table-scroll {
-  overflow-x: auto;
+  @apply tw:overflow-x-auto;
 }
 
 table {
-  border-collapse: collapse;
+  @apply tw:border-collapse tw:w-full;
   min-width: 58rem;
-  width: 100%;
 }
 
 th,
 td {
   border-bottom: 1px solid var(--admin-border);
   padding: 0.7rem 0.5rem;
-  text-align: left;
-  vertical-align: top;
+  @apply tw:text-left tw:align-top;
 }
 
 th {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption tw:uppercase;
   font-weight: var(--admin-label-weight);
-  text-transform: uppercase;
 }
 
 .empty-state {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
   border-radius: 0.45rem;
-  padding: 1rem;
+  @apply tw:p-4;
 }
 
 .empty-state h3 {
-  margin: 0;
+  @apply tw:m-0;
 }
 
 .empty-state p {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   line-height: 1.55;
   margin: 0.35rem 0 0;
 }

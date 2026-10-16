@@ -1,17 +1,14 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: grid;
-  gap: 1rem;
-  min-width: 0;
+  @apply tw:grid tw:gap-4 tw:min-w-0 tw:w-full;
   margin: 0 auto;
   max-width: 78rem;
-  width: 100%;
 }
 
 .summary-grid,
 .status-grid {
-  display: grid;
-  gap: 0.75rem;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  @apply tw:grid tw:gap-3 tw:grid-cols-4;
 }
 
 .summary-grid article,
@@ -19,21 +16,19 @@
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
   border-radius: 0.45rem;
-  padding: 1rem;
+  @apply tw:p-4;
 }
 
 .summary-grid span,
 .status-grid span {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption tw:uppercase;
   font-weight: var(--admin-label-weight);
   letter-spacing: 0;
-  text-transform: uppercase;
 }
 
 .summary-grid strong,
 .status-grid strong {
-  display: block;
+  @apply tw:block;
   font-size: 1.55rem;
   margin-top: 0.2rem;
 }
