@@ -80,32 +80,7 @@ import { AdminAccessSessionsComponent } from './admin-access-sessions.component.
         }</section
     ></openg7-admin-layout>
   `,
-  styles: [
-    `
-      :host {
-        display: block;
-        min-height: 100vh;
-        background: var(--surface-page);
-        color: var(--text-main);
-      }
-      .access-content {
-        max-width: 65rem;
-        margin: auto;
-        padding: clamp(0.25rem, 2vw, 2rem);
-        overflow-wrap: anywhere;
-      }
-      h1 {
-        margin: 1rem 0;
-      }
-      a {
-        color: var(--og7-admin-accent, #a5d8ff);
-      }
-      :focus-visible {
-        outline: 3px solid var(--admin-focus, #facc15);
-        outline-offset: 3px;
-      }
-    `
-  ]
+  styleUrl: './admin-access-page.component.css'
 })
 export class AdminAccessPageComponent implements OnInit, OnDestroy {
   private readonly admin = inject(FundingAdminService);

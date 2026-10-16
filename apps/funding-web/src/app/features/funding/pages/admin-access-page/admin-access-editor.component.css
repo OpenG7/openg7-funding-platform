@@ -1,15 +1,15 @@
+@reference '../../../../../styles/tailwind.css';
+
 form,
 label {
-  display: grid;
-  gap: 0.5rem;
+  @apply tw:grid tw:gap-2;
 }
 form {
   max-width: 35rem;
-  gap: 1rem;
-  padding: 1rem;
+  @apply tw:gap-4 tw:p-4;
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.5rem;
+  @apply tw:rounded-lg;
 }
 button[type='submit'] {
   background: var(--og7-admin-primary, #facc15);

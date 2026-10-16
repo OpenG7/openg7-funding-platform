@@ -1,0 +1,27 @@
+@reference '../../../../../styles/tailwind.css';
+
+:host {
+  @apply tw:block tw:min-h-screen;
+  background: var(--surface-page);
+  color: var(--text-main);
+}
+
+.access-content {
+  max-width: 65rem;
+  margin: auto;
+  padding: clamp(0.25rem, 2vw, 2rem);
+  @apply tw:wrap-anywhere;
+}
+
+h1 {
+  margin: 1rem 0;
+}
+
+a {
+  color: var(--og7-admin-accent, #a5d8ff);
+}
+
+:focus-visible {
+  outline: 3px solid var(--admin-focus, #facc15);
+  outline-offset: 3px;
+}

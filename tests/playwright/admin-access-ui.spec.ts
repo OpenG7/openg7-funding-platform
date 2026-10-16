@@ -92,6 +92,131 @@ async function openAccess(page: Page, language: 'fr' | 'en') {
       .click();
 }
 
+const accessPalettes = {
+  mineral: {
+    panel: 'rgb(255, 255, 255)',
+    raised: 'rgb(240, 244, 238)',
+    text: 'rgb(41, 51, 46)',
+    border: 'rgb(202, 213, 201)',
+    focus: 'rgb(47, 107, 80)'
+  },
+  night: {
+    panel: 'rgb(20, 35, 56)',
+    raised: 'rgb(27, 45, 68)',
+    text: 'rgb(241, 245, 252)',
+    border: 'rgb(64, 86, 111)',
+    focus: 'rgb(158, 218, 255)'
+  },
+  graphite: {
+    panel: 'rgb(37, 41, 47)',
+    raised: 'rgb(50, 56, 65)',
+    text: 'rgb(243, 244, 246)',
+    border: 'rgb(86, 97, 110)',
+    focus: 'rgb(194, 227, 255)'
+  }
+} as const;
+
+for (const theme of ['mineral', 'night', 'graphite'] as const) {
+  for (const { language, width } of [
+    { language: 'fr', width: 390 },
+    { language: 'en', width: 1280 }
+  ] as const) {
+    test(`access retains ${theme} editor surfaces and cancelled revocation in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      const state = await accessFixture(page);
+      await page.addInitScript((theme) => {
+        localStorage.setItem(
+          'openg7.pilotage.appearance.v1',
+          JSON.stringify({ theme, system: false, density: 'comfortable' })
+        );
+      }, theme);
+      await page.setViewportSize({ width, height: 1000 });
+      await openAccess(page, language);
+      const palette = accessPalettes[theme];
+      const operator = page.locator(
+        '[data-og7="admin-account"][data-og7-id="operator"]'
+      );
+      await operator.getByRole('button').click();
+      const form = page.locator('openg7-admin-access-editor form');
+      const name = form.locator('input[name="name"]');
+      await expect(name).toHaveValue('Operator fixture');
+      await expect(form).toHaveCSS('background-color', palette.panel);
+      await expect(form).toHaveCSS('border-color', palette.border);
+      await expect(form).toHaveCSS('border-radius', '8px');
+      await expect(form).toHaveCSS('gap', '16px');
+      await expect(form).toHaveCSS('padding', '16px');
+      for (const field of [name, form.getByRole('combobox')]) {
+        await expect(field).toHaveCSS('background-color', palette.panel);
+        await expect(field).toHaveCSS('color', palette.text);
+        await expect(field).toHaveCSS('padding', '10.4px');
+        await expect(field).toHaveCSS('border-radius', '4.8px');
+      }
+      await name.focus();
+      await expect(name).toHaveCSS('outline-width', '3px');
+      await expect(name).toHaveCSS('outline-color', palette.focus);
+      await name.fill('Synthetic unsaved access draft');
+      const confirmation = form.locator('input[name="confirmed"]');
+      const save = form.getByRole('button', {
+        name: language === 'fr' ? 'Enregistrer les accès' : 'Save access'
+      });
+      await expect(confirmation).not.toBeChecked();
+      await expect(save).toBeDisabled();
+      await confirmation.check();
+      await expect(save).toBeEnabled();
+      await confirmation.uncheck();
+      const revoke = page.locator(
+        '[data-og7="admin-session"][data-og7-id="operator-session"] button'
+      );
+      await expect(revoke).toHaveCSS('background-color', palette.raised);
+      await expect(revoke).toHaveCSS('color', palette.text);
+      await expect(revoke).toHaveCSS('min-height', '44px');
+      await revoke.focus();
+      await page.keyboard.press('Enter');
+      const group = page.getByRole('group', {
+        name: language === 'fr' ? 'Révoquer la session' : 'Revoke session'
+      });
+      await expect(group).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(group).toHaveCount(0);
+      await expect(revoke).toBeFocused();
+      await expect(name).toHaveValue('Synthetic unsaved access draft');
+      await expect(page.locator('[data-og7="admin-session"]')).toHaveCount(2);
+      expect(state.changes).toEqual([]);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+    });
+  }
+}
+
+test('access retains viewport padding and its content width limit', async ({
+  page
+}) => {
+  await accessFixture(page);
+  await openAccess(page, 'fr');
+  const content = page.locator('[data-og7="admin-access"]');
+  for (const width of [390, 1599, 1600, 1601]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await expect(content).toHaveCSS('max-width', '1040px');
+    await expect(content).toHaveCSS('overflow-wrap', 'anywhere');
+    await expect
+      .poll(() =>
+        content.evaluate((node) =>
+          Number.parseFloat(getComputedStyle(node).paddingTop)
+        )
+      )
+      .toBeCloseTo(Math.min(width * 0.02, 32), 2);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1
+      )
+    ).toBe(true);
+  }
+});
+
 for (const language of ['fr', 'en'] as const) {
   test(`failed access changes retain the draft and return revocation focus in ${language}`, async ({
     page

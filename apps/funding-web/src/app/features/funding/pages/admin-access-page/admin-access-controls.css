@@ -1,5 +1,7 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
+  @apply tw:block;
 }
 h2 {
   margin: 1.25rem 0 0.5rem;
@@ -13,18 +15,17 @@ button {
   border-radius: 0.3rem;
   color: var(--admin-text, #0f172a);
   background: var(--admin-panel, #fff);
-  min-width: 0;
-  max-width: 100%;
+  @apply tw:min-w-0 tw:max-w-full;
 }
 button {
   font-weight: var(--admin-control-weight);
   background: var(--admin-panel-raised, #fff);
   min-height: 44px;
   margin: 0.3rem;
-  cursor: pointer;
+  @apply tw:cursor-pointer;
 }
 li {
-  padding: 0.5rem;
+  @apply tw:p-2;
 }
 :focus-visible {
   outline: 3px solid var(--admin-focus, #facc15);
