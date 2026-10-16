@@ -1,0 +1,218 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+.victories {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 1.1rem 1.3rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 0.8rem;
+  background: linear-gradient(
+    115deg,
+    var(--admin-panel-raised),
+    var(--admin-panel)
+  );
+  isolation: isolate;
+}
+.copy {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+h2 {
+  color: var(--admin-text);
+  font-size: 1rem;
+  margin: 0;
+}
+p {
+  color: var(--admin-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  margin: 0.3rem 0 0.6rem;
+}
+.coin-scene {
+  position: relative;
+  width: 4.5rem;
+  height: 4.5rem;
+  flex: 0 0 auto;
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--admin-gold) 10%, transparent);
+}
+.coin {
+  position: absolute;
+  display: block;
+  width: 1.55rem;
+  height: 1.75rem;
+  border: 3px solid #e7a52a;
+  border-radius: 38%;
+  background: #ffdc72;
+  box-shadow:
+    inset 3px 0 #fff0ae,
+    3px 3px #98621d;
+}
+.coin::after {
+  content: '';
+  position: absolute;
+  inset: 0.28rem 0.4rem;
+  border-left: 3px solid #b47c22;
+}
+.coin-back {
+  top: 0.75rem;
+  left: 0.8rem;
+  transform: rotate(-15deg);
+}
+.coin-front {
+  top: 1.65rem;
+  left: 2rem;
+  transform: rotate(12deg);
+}
+.spark {
+  position: absolute;
+  color: var(--admin-gold);
+  font-size: 0.85rem;
+}
+.spark-one {
+  top: 0.3rem;
+  right: 0.5rem;
+}
+.spark-two {
+  bottom: 0.35rem;
+  left: 0.5rem;
+  font-size: 0.6rem;
+}
+.health {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--admin-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.health-light,
+.toggle-light {
+  flex: 0 0 auto;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+.health[data-state='operational'] {
+  color: var(--admin-success);
+}
+.health[data-state='attention'] {
+  color: var(--admin-warning);
+}
+.motion-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  max-width: 100%;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 0.6rem;
+  background: var(--admin-panel);
+  color: var(--admin-text);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.motion-toggle small {
+  color: var(--admin-muted);
+}
+.motion-toggle[aria-pressed='true'] .toggle-light {
+  color: var(--admin-success);
+}
+.motion-toggle:focus-visible {
+  outline: 2px solid var(--admin-gold);
+  outline-offset: 3px;
+}
+.gain-announcement {
+  position: absolute;
+}
+.gain-announcement.has-gains {
+  position: static;
+  flex: 1 1 100%;
+  min-width: 0;
+}
+.gains {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--admin-success-border);
+  border-radius: 0.5rem;
+  background: var(--admin-success-bg);
+  color: var(--admin-success);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+.coin-burst {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  border-radius: inherit;
+}
+.coin-burst .coin {
+  left: calc(12% + var(--i) * 12%);
+  bottom: -2rem;
+  opacity: 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .motion-enabled .coin-burst .coin {
+    animation: coin-rise 1.6s calc(var(--i) * 70ms) ease-out both;
+  }
+  .motion-enabled .health[data-state='operational'] .health-light {
+    animation: health-glow 1.4s ease-out 2;
+  }
+  .motion-enabled .gains {
+    animation: gain-arrive 250ms ease-out;
+  }
+}
+@keyframes coin-rise {
+  15% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-9rem) rotate(210deg);
+    opacity: 0;
+  }
+}
+@keyframes health-glow {
+  50% {
+    box-shadow: 0 0 0 0.35rem
+      color-mix(in srgb, var(--admin-success) 15%, transparent);
+  }
+}
+@keyframes gain-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(0.3rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (max-width: 620px) {
+  .victories {
+    padding: 1rem;
+    gap: 0.75rem;
+  }
+  .coin-scene {
+    display: none;
+  }
+  .motion-toggle {
+    flex: 1 1 100%;
+  }
+}

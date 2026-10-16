@@ -1,0 +1,64 @@
+<section
+  class="victories"
+  data-og7="admin-celebrations"
+  [class.motion-enabled]="enabled() && browserReady()"
+  aria-labelledby="admin-victories-title"
+>
+  <div class="coin-scene" aria-hidden="true">
+    <span class="coin coin-back"></span>
+    <span class="coin coin-front"></span>
+    <span class="spark spark-one">✦</span>
+    <span class="spark spark-two">✦</span>
+  </div>
+  <div class="copy">
+    <h2 id="admin-victories-title">
+      {{ 'admin.celebrations.title' | translate }}
+    </h2>
+    <p>{{ 'admin.celebrations.help' | translate }}</p>
+    <div
+      class="health"
+      data-og7="celebration-health"
+      [attr.data-state]="health()"
+    >
+      <span class="health-light" aria-hidden="true"></span>
+      {{ 'admin.celebrations.health.' + health() | translate }}
+    </div>
+  </div>
+  <button
+    class="motion-toggle"
+    type="button"
+    data-og7="celebrations-toggle"
+    [attr.aria-pressed]="enabled()"
+    (click)="toggle()"
+  >
+    <span class="toggle-light" aria-hidden="true"></span>
+    {{ 'admin.celebrations.animations' | translate }}
+    <small>{{
+      (enabled() ? 'admin.celebrations.on' : 'admin.celebrations.off')
+        | translate
+    }}</small>
+  </button>
+  <div
+    class="gain-announcement"
+    [class.has-gains]="gains().length > 0"
+    role="status"
+    aria-live="polite"
+    aria-atomic="true"
+  >
+    @if (gains().length) {
+      <div class="gains" data-og7="celebration-gains">
+        <strong>{{ 'admin.celebrations.received' | translate }}</strong>
+        @for (gain of gains(); track gain.currency) {
+          <span>+{{ money(gain.minor, gain.currency) }}</span>
+        }
+      </div>
+      @for (burst of [burstId()]; track burst) {
+        <div class="coin-burst" data-og7="celebration-coins" aria-hidden="true">
+          @for (coin of coins; track coin) {
+            <span class="coin" [style.--i]="coin"></span>
+          }
+        </div>
+      }
+    }
+  </div>
+</section>
