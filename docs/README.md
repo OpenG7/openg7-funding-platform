@@ -71,6 +71,10 @@ le [guide des produits vedettes](boutique-products.md).
 
 ## Administration
 
+La [sandbox locale et sa manette virtuelle](operations/admin-sandbox.md) permet
+de créer des paiements synthétiques et de parcourir leurs actions administratives
+avec des boutons Xbox cliquables, dans une installation jetable séparée.
+
 La [modération des commandites](operations/sponsorship-moderation.md) décrit les
 décisions versionnées, les corrections et réexamens privés, la charte préparée,
 les droits et les conditions de mise en service.

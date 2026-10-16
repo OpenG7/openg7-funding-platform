@@ -56,6 +56,7 @@ const noDocker = async (plan, dependencies, onDocker) => {
   await prepareDockerLocalIdentity(plan, dependencies);
   await startDockerStack(plan, {
     runDocker: onDocker,
+    configureLocalMfa: dependencies.configureLocalMfa,
     checkStripe: () => assert.fail('Stripe must be disabled'),
     listenStripe: () => assert.fail('Stripe must be disabled')
   });
@@ -95,6 +96,12 @@ test('valid local certificates are retained and identity preparation is awaited 
         actions.push('prepare-start');
         await Promise.resolve();
         actions.push('prepare-finished');
+      },
+      configureLocalMfa: async (env) => {
+        assert.equal(env, plan.commandEnv);
+        actions.push('reconcile-start');
+        await Promise.resolve();
+        actions.push('reconcile-finished');
       }
     },
     async () => actions.push('docker')
@@ -105,6 +112,9 @@ test('valid local certificates are retained and identity preparation is awaited 
     'prepare-finished',
     'docker',
     'docker',
+    'docker',
+    'reconcile-start',
+    'reconcile-finished',
     'docker'
   ]);
 });
@@ -130,6 +140,10 @@ test('absent or invalid certificates receive one setup and a successful recheck 
         prepareIdentity: async (env) => {
           assert.equal(env, plan.commandEnv);
           actions.push('prepare');
+        },
+        configureLocalMfa: async (env) => {
+          assert.equal(env, plan.commandEnv);
+          actions.push('reconcile');
         }
       },
       async () => actions.push('docker')
@@ -141,6 +155,8 @@ test('absent or invalid certificates receive one setup and a successful recheck 
       'prepare',
       'docker',
       'docker',
+      'docker',
+      'reconcile',
       'docker'
     ]);
   }
@@ -315,6 +331,10 @@ const cliFixture = (t) => {
     'scripts/lib/docker-config.mjs',
     'scripts/lib/docker-environment.mjs',
     'scripts/lib/keycloak-config.mjs',
+    'scripts/lib/keycloak-local-mfa.mjs',
+    'scripts/lib/keycloak-password-reset.mjs',
+    'scripts/lib/keycloak-provision-user.mjs',
+    'scripts/lib/local-password-policy.mjs',
     'scripts/lib/production-identity.mjs',
     'scripts/lib/local-identity.mjs',
     'scripts/lib/keycloak-initial-user.mjs',
@@ -459,10 +479,10 @@ for (const scenario of ['valid', 'missing', 'invalid', 'sameCA'])
       assert.deepEqual(
         actions.map(({ action }) => action),
         scenario === 'valid'
-          ? ['docker', 'docker', 'docker']
+          ? ['docker', 'docker', 'docker', 'docker']
           : scenario === 'sameCA'
-            ? ['setup', 'docker', 'docker', 'docker']
-            : ['setup', 'docker', 'docker', 'docker', 'docker']
+            ? ['setup', 'docker', 'docker', 'docker', 'docker']
+            : ['setup', 'docker', 'docker', 'docker', 'docker', 'docker']
       );
       const commands = actions
         .filter(({ action }) => action === 'docker')
@@ -475,11 +495,13 @@ for (const scenario of ['valid', 'missing', 'invalid', 'sameCA'])
               ? 'build'
               : args.includes('stop')
                 ? 'stop'
-                : 'up'
+                : args.includes('identity-postgres')
+                  ? 'identity'
+                  : 'up'
         ),
         scenario === 'valid' || scenario === 'sameCA'
-          ? ['config', 'build', 'up']
-          : ['config', 'build', 'stop', 'up']
+          ? ['config', 'build', 'identity', 'up']
+          : ['config', 'build', 'identity', 'stop', 'up']
       );
       const prefix = commands[0].slice(0, commands[0].indexOf('config'));
       for (const args of commands) {

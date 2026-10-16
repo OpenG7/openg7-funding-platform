@@ -190,6 +190,7 @@ const fixture = (
     'scripts/lib/docker-config.mjs',
     'scripts/lib/docker-environment.mjs',
     'scripts/lib/keycloak-config.mjs',
+    'scripts/lib/local-password-policy.mjs',
     'scripts/lib/local-identity.mjs'
   ]) {
     mkdirSync(dirname(join(root, file)), { recursive: true });

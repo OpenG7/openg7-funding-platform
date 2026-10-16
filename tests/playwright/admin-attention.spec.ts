@@ -579,3 +579,60 @@ test('initial login redirect retains queue filters and pagination', async ({
     '/admin/fundraiser/attention?type=invoice_missing&page=3'
   );
 });
+
+for (const type of ['stripe_event_failed', 'stripe_event_stalled'] as const) {
+  test(`a targeted ${type} keeps its exact Stripe inspector accessible`, async ({
+    page
+  }) => {
+    await fixtures(page);
+    const eventId = 'evt_guidance_targeted_701';
+    const item: AdminAttentionItem = {
+      ...items[2]!,
+      id: `${type}:${eventId}`,
+      type,
+      facts: { reference: eventId },
+      adminUrl: `/admin/fundraiser/attention?itemId=${encodeURIComponent(`${type}:${eventId}`)}`
+    };
+    const reads: string[] = [];
+    const mutations: string[] = [];
+    page.on('request', (request) => {
+      const url = new URL(request.url());
+      if (
+        url.pathname.startsWith('/api/') &&
+        !['GET', 'HEAD', 'OPTIONS'].includes(request.method())
+      )
+        mutations.push(request.method() + ' ' + url.pathname);
+    });
+    await page.route('**/api/admin/attention**', (route) =>
+      route.fulfill({ json: response(new URL(route.request().url()), [item]) })
+    );
+    await page.route('**/api/admin/stripe-event?**', (route) => {
+      reads.push(
+        new URL(route.request().url()).searchParams.get('eventId') ?? ''
+      );
+      return route.fulfill({
+        json: {
+          available: true,
+          event: {
+            id: eventId,
+            type: 'payment_intent.succeeded',
+            status: type === 'stripe_event_failed' ? 'failed' : 'processing',
+            receivedAt: '2026-10-15T12:00:00Z',
+            processedAt: null,
+            error: type === 'stripe_event_failed' ? 'processing_failed' : null
+          }
+        }
+      });
+    });
+    await page.goto(item.adminUrl!);
+    const inspector = page.locator('[data-og7="attention-stripe-inspect"]');
+    await expect(inspector).toBeVisible();
+    await inspector.focus();
+    await page.keyboard.press('Enter');
+    const drawer = page.getByRole('dialog');
+    await expect(drawer).toContainText(eventId);
+    await expect(drawer).toContainText('payment_intent.succeeded');
+    expect(reads).toEqual([eventId]);
+    expect(mutations).toEqual([]);
+  });
+}

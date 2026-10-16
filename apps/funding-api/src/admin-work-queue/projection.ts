@@ -24,7 +24,8 @@ import {
 export const buildWorkQueueItems = (
   dataset: AttentionDataset,
   invoices: readonly QueueInvoiceCandidate[] = [],
-  events: readonly QueueStripeEvent[] = []
+  events: readonly QueueStripeEvent[] = [],
+  followups: readonly AdminAttentionItem[] = []
 ): AdminAttentionItem[] => {
   const now = dataset.now.getTime();
   const detectedAt = dataset.now.toISOString();
@@ -222,7 +223,7 @@ export const buildWorkQueueItems = (
       }
     );
   }
-  return [...new Map(items.map((item) => [item.id, item])).values()].sort(
-    compareAdminWorkQueueItems
-  );
+  return [
+    ...new Map([...items, ...followups].map((item) => [item.id, item])).values()
+  ].sort(compareAdminWorkQueueItems);
 };

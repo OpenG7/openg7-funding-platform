@@ -88,6 +88,15 @@ export class FundingI18nService {
     this.setLanguage(this.currentLanguage() === 'fr-CA' ? 'en' : 'fr-CA');
   }
 
+  /** Merge a lazy feature's locale without loading its copy on public pages. */
+  mergeTranslations(
+    language: FundingLanguage,
+    translations: Parameters<TranslateService['setTranslation']>[1]
+  ): void {
+    this.translate.setTranslation(language, translations, true);
+    this.translationVersion.update((value) => value + 1);
+  }
+
   localizedPath(
     path: FundingCanonicalPath,
     language: FundingLanguage = this.currentLanguage()

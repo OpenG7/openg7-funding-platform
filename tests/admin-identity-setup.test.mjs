@@ -173,6 +173,28 @@ test('token diagnostics have no provider configuration and retain the validated 
   }
 });
 
+test('localhost password-only diagnostics explicitly report the absence of MFA', () => {
+  const identity = createIdentity(
+    environment({
+      FUNDING_PLATFORM_ENV: 'development',
+      FUNDING_ADMIN_AUTH_MODE: 'oidc',
+      FUNDING_KEYCLOAK_ENABLED: 'true',
+      FUNDING_KEYCLOAK_HOSTNAME: 'auth.openg7.test',
+      FUNDING_PUBLIC_BASE_URL: 'https://localhost',
+      FUNDING_ADMIN_OIDC_ISSUER: 'https://auth.openg7.test/realms/openg7',
+      FUNDING_ADMIN_OIDC_MFA_ACR: '',
+      FUNDING_ADMIN_OIDC_LOCAL_PASSWORD_ONLY: 'true'
+    })
+  );
+  const status = identity.setupStatus(false);
+  assert.equal(status.mfa_policy, 'local-password');
+  assert.equal(
+    status.callback_url,
+    'https://localhost/api/admin/auth/callback'
+  );
+  assert.equal('mfa_verified' in status, false);
+});
+
 test('OIDC diagnostics expose only safe configuration indicators without provider or database calls', (t) => {
   const fetch = t.mock.method(globalThis, 'fetch', () => {
     assert.fail('Setup identity diagnostics must not contact the provider.');

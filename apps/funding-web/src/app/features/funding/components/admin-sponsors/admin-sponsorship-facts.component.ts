@@ -62,7 +62,12 @@ import { AdminSponsorshipPublicationComponent } from './admin-sponsorship-public
                 routerLink="/admin/fundraiser/email-queue"
                 [queryParams]="{ messageId: email.id }"
                 queryParamsHandling="merge"
-                >{{ 'admin.dossier.reasons.email_failed' | translate }}</a
+                >{{
+                  (email.status === 'uncertain'
+                    ? 'admin.dossier.reasons.email_uncertain'
+                    : 'admin.dossier.reasons.email_failed'
+                  ) | translate
+                }}</a
               >
             </p>
           }

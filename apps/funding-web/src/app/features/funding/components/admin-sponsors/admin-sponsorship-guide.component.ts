@@ -89,7 +89,7 @@ export class AdminSponsorshipGuideComponent {
           ? 'refund'
           : d.next.reason === 'stripe_failed'
             ? 'stripe'
-            : d.next.reason === 'email_failed'
+            : ['email_failed', 'email_uncertain'].includes(d.next.reason)
               ? 'email'
               : 'incident';
       steps.unshift({

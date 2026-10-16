@@ -44,7 +44,7 @@ documentaire n'exige pas de lancer les suites applicatives.
 | `yarn test:e2e:selection` | Découverte CI ; routes admin et 17 garanties liées aux scénarios actifs |
 | `yarn test:e2e:identity` | API réelle, Web compilé, PostgreSQL jetable et fournisseur OIDC signé local; rôles et révocation |
 | `node --test tests/identity/keycloak-identity.integration.mjs` | Keycloak réel, OTP, droits et sessions API/DB jetables; image locale requise |
-| `node --test tests/identity/keycloak-local-https.integration.mjs` | HTTPS local opt-in : provisionnement/répétition, OTP, API/Web et deux DB jetables ; images préconstruites et CA approuvée requises |
+| [Keycloak HTTPS](../operations/keycloak-local.md#recette-https-jetable-reproductible) | MFA, exception locale et retour OTP, sessions API/Web ; images, CA approuvée et deux DB jetables |
 | `node --test tests/identity/keycloak-initial-user.integration.mjs` | Avec `FUNDING_KEYCLOAK_INITIAL_USER_TEST=1`, import initial réel et conservation après redémarrage sur Keycloak/PostgreSQL jetables ; HTTPS/CA synthétiques, images locales et OpenSSL requis, sans port publié |
 | `yarn test:e2e:playwright` | Démarrage/réutilisation Docker local, migrations et seed, puis Playwright; modifie l'état local |
 | `yarn test:ui:admin` | UI admin sur build Angular avec fixtures/interceptions |

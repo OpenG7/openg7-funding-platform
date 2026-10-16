@@ -16,6 +16,7 @@ import { join, resolve } from 'node:path';
 
 import { validateKeycloakProvisionUserConfig } from './keycloak-config.mjs';
 import { validateLocalIdentityCertificates } from './local-identity.mjs';
+import { validateLocalPasswordOnly } from './local-password-policy.mjs';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const stateError = () =>
@@ -441,7 +442,9 @@ export async function provisionKeycloakUser({
         body: JSON.stringify({
           username,
           enabled: true,
-          requiredActions: ['UPDATE_PASSWORD', 'CONFIGURE_TOTP'],
+          requiredActions: validateLocalPasswordOnly(env)
+            ? ['UPDATE_PASSWORD']
+            : ['UPDATE_PASSWORD', 'CONFIGURE_TOTP'],
           credentials: [
             {
               type: 'password',

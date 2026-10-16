@@ -1,0 +1,56 @@
+:host {
+  display: block;
+}
+h2,
+h3 {
+  color: var(--admin-text);
+  font-size: 1.1rem;
+  margin: 0.45rem 0;
+}
+p {
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.reference {
+  font-weight: 700;
+}
+.next-step {
+  border-inline-start: 3px solid var(--admin-gold);
+  padding-inline-start: 0.9rem;
+  margin-block: 1rem;
+}
+.admin-button {
+  min-height: 2.75rem;
+  white-space: normal;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-block: 0.8rem;
+}
+.steps summary {
+  cursor: pointer;
+  line-height: 1.6;
+}
+.steps ol {
+  padding-inline-start: 1.5rem;
+}
+.steps li {
+  margin-block: 0.8rem;
+}
+.steps span {
+  display: block;
+}
+.steps p {
+  margin-block: 0.3rem;
+}
+.quiet,
+.steps span {
+  color: var(--admin-muted);
+  font-size: 0.85rem;
+}
+summary:focus-visible {
+  outline: 2px solid var(--admin-focus);
+  outline-offset: 3px;
+}

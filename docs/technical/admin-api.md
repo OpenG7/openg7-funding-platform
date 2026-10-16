@@ -54,6 +54,9 @@ are atomic; duplicate requests reuse the original email.
 `GET /api/admin/sponsorships/progress?sponsorshipId=<uuid>` reads one dossier.
 Recorded offers, obligations and owner actions: [commitment API](sponsorship-commitments.md).
 
+[Payment journeys](../operations/admin-pilotage.md#mode-guidé-dans-ladministration)
+are private, read-only projections.
+
 `POST /api/admin/sponsorship-commitments/timing`: owner-only commands with UUID,
 current timing version, reason and exact obligation confirmation. Duration
 closure also requires its start observation and confirmed continuity evidence.
@@ -78,6 +81,7 @@ POST /api/admin/search
 GET /api/admin/stripe-event?eventId=evt_...
 POST /api/admin/session
 GET /api/admin/contributions
+GET /api/admin/payment-journey?contributionId=<uuid>
 POST /api/admin/contributions.csv
 GET /api/admin/expenses
 POST /api/admin/expenses

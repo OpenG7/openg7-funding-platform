@@ -194,11 +194,13 @@ export function dockerUpPlan(options, { env, localTls }) {
     commandEnv.FUNDING_ADMIN_AUTH_MODE = 'oidc';
     commandEnv.FUNDING_KEYCLOAK_ENABLED = 'false';
   } else if (authentication === 'keycloak' && local) {
+    const publicBaseUrl = 'https://localhost';
     Object.assign(commandEnv, {
       FUNDING_ADMIN_AUTH_MODE: 'oidc',
       FUNDING_KEYCLOAK_ENABLED: 'true',
       FUNDING_KEYCLOAK_HOSTNAME: localIdentityHostname,
-      FUNDING_PUBLIC_BASE_URL: 'https://localhost',
+      FUNDING_PUBLIC_BASE_URL: publicBaseUrl,
+      FUNDING_PLATFORM_API_BASE_URL: `${publicBaseUrl}/api`,
       FUNDING_ADMIN_OIDC_ISSUER: `https://${localIdentityHostname}/realms/openg7`,
       FUNDING_ADMIN_OIDC_MFA_ACR: '',
       FUNDING_ADMIN_OIDC_CLIENT_ID: env.FUNDING_ADMIN_OIDC_CLIENT_ID?.trim()
@@ -265,6 +267,9 @@ export function dockerUpPlan(options, { env, localTls }) {
     environment === 'production' &&
     commandEnv.FUNDING_KEYCLOAK_ENABLED === 'true';
   const provisionUser = commandEnv.FUNDING_KEYCLOAK_PROVISION_USER === 'true';
+  // Always reconcile: removing the option must restore the previous MFA flow.
+  // Without a saved profile this is a read-only no-op.
+  const localMfaConfigured = localIdentity;
   if (productionIdentity) {
     validateProductionAuthentication(commandEnv);
     validateProductionTlsSettings(commandEnv);
@@ -293,7 +298,7 @@ export function dockerUpPlan(options, { env, localTls }) {
   }
   if (options.identityOnly) build.push('keycloak');
   const identityUp =
-    productionIdentity || (localIdentity && provisionUser)
+    productionIdentity || (localIdentity && provisionUser) || localMfaConfigured
       ? [
           ...compose,
           'up',
@@ -311,6 +316,7 @@ export function dockerUpPlan(options, { env, localTls }) {
     localIdentity,
     productionIdentity,
     provisionUser,
+    localMfaConfigured,
     identityOnly: Boolean(options.identityOnly),
     identityUp,
     authentication:
@@ -352,7 +358,8 @@ export async function startDockerStack(
     listenStripe,
     prepareProductionTls,
     checkProductionIdentity,
-    prepareKeycloakUser
+    prepareKeycloakUser,
+    configureLocalMfa
   }
 ) {
   if (
@@ -363,6 +370,10 @@ export async function startDockerStack(
     throw new Error('Production Keycloak requires ACME and HTTPS checks.');
   if (plan.provisionUser && typeof prepareKeycloakUser !== 'function')
     throw new Error('Keycloak user provisioning requires a preparation hook.');
+  if (plan.localMfaConfigured && typeof configureLocalMfa !== 'function')
+    throw new Error(
+      'Local Keycloak MFA configuration requires a preparation hook.'
+    );
   if (plan.stripeWebhook) await checkStripe();
   for (const args of plan.commands) {
     if (args === plan.identityUp && plan.productionIdentity)
@@ -372,6 +383,7 @@ export async function startDockerStack(
       if (plan.productionIdentity)
         await checkProductionIdentity(plan.commandEnv);
       if (plan.provisionUser) await prepareKeycloakUser(plan.commandEnv);
+      if (plan.localMfaConfigured) await configureLocalMfa(plan.commandEnv);
     }
   }
   if (plan.stripeWebhook) await listenStripe();

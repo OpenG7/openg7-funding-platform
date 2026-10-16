@@ -168,6 +168,7 @@ export class FundingAdminService {
     this.session
   );
   readonly sessionGeneration = this.session.sessionGeneration;
+  readonly dataRevision = this.session.dataRevision.asReadonly();
   readonly identity = this.session.identity;
   private readonly commitmentsClient = new FundingAdminCommitmentsClient(
     this.session
@@ -401,6 +402,15 @@ export class FundingAdminService {
     sponsorshipId?: string
   ): Promise<AdminSponsorshipProgressResponse> {
     return this.sponsorshipsClient.getSponsorshipProgress(token, sponsorshipId);
+  }
+
+  getPaymentJourney(
+    contributionId: string
+  ): Promise<import('@openg7/funding-core').AdminPaymentJourneyResponse> {
+    return this.session.requestAdminData(
+      `/admin/payment-journey?${new URLSearchParams({ contributionId })}`,
+      { auth: 'saved', method: 'GET', cache: 'no-store' }
+    );
   }
 
   getSavedAdminToken(): string {

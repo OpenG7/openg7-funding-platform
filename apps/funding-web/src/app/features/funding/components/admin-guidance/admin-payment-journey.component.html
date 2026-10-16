@@ -1,0 +1,128 @@
+<section
+  data-og7="payment-journey"
+  [attr.aria-label]="t('title')"
+  [attr.aria-busy]="journey.state() === 'loading'"
+>
+  <h2>{{ t('title') }}</h2>
+  @if (guidance.paymentContext(); as id) {
+    @if (id !== journey.contributionId()) {
+      <button
+        type="button"
+        class="admin-button"
+        data-og7="payment-journey-current"
+        (click)="guidance.followPayment(id)"
+      >
+        {{ t('followCurrent') }}
+      </button>
+    }
+  }
+  @if (journey.paused()) {
+    <p role="status" data-og7="payment-journey-paused">{{ t('paused') }}</p>
+    <button
+      type="button"
+      class="admin-button admin-button--primary"
+      data-og7="payment-journey-resume"
+      (click)="guidance.resumePayment()"
+    >
+      {{ t('resume') }}
+    </button>
+  } @else {
+    <div
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+      data-og7="payment-journey-state"
+      [attr.data-og7-id]="journey.state()"
+    >
+      @if (!journey.contributionId()) {
+        <p>{{ t('choose') }}</p>
+      } @else if (journey.state() !== 'ready') {
+        <p>{{ t('states.' + journey.state()) }}</p>
+      }
+    </div>
+    @if (journey.state() === 'ready') {
+      @if (journey.data(); as d) {
+        <p class="reference" data-og7="payment-journey-reference">
+          {{ d.reference }}
+        </p>
+        <p>{{ t('progress', { completed: d.completed, total: d.total }) }}</p>
+        @if (journey.changed()) {
+          <p role="status" data-og7="payment-journey-changed">
+            {{ t('changed') }}
+          </p>
+        }
+        @if (d.state === 'complete') {
+          <div
+            class="next-step"
+            role="status"
+            data-og7="payment-journey-complete"
+          >
+            <h3>{{ t('complete') }}</h3>
+            <p>{{ t('completeHelp') }}</p>
+          </div>
+        } @else {
+          <div class="next-step" data-og7="payment-journey-next-step">
+            <h3>{{ t('next') }}</h3>
+            <p>{{ t('situations.' + d.state) }}</p>
+            @if (d.next; as next) {
+              <p>{{ reason(next.reason) }}</p>
+              @if (journey.nextUrl(); as nextUrl) {
+                <a
+                  class="admin-button admin-button--primary"
+                  data-og7="payment-journey-next"
+                  [attr.href]="nextUrl"
+                  (click)="journey.openNext($event)"
+                  >{{ t('openNext') }}</a
+                >
+              }
+              @if (journey.canShow() && next.target; as target) {
+                <button
+                  type="button"
+                  class="admin-button"
+                  data-og7="payment-journey-show"
+                  (click)="show.emit(target)"
+                >
+                  {{ t('show') }}
+                </button>
+              }
+            }
+          </div>
+        }
+        <details class="steps">
+          <summary>{{ t('allSteps') }}</summary>
+          <ol data-og7="payment-journey-milestones">
+            @for (step of d.steps; track step.id) {
+              <li [attr.data-og7-id]="step.id" [attr.data-state]="step.state">
+                <strong>{{ stepTitle(step) }}</strong>
+                <span>{{ i18n.t('admin.dossier.states.' + step.state) }}</span>
+                <p>{{ reason(step.reason) }}</p>
+              </li>
+            }
+          </ol>
+        </details>
+      }
+    }
+    @if (journey.contributionId()) {
+      <div class="actions">
+        <button
+          type="button"
+          class="admin-button"
+          data-og7="payment-journey-refresh"
+          [disabled]="journey.state() === 'loading'"
+          (click)="journey.refresh()"
+        >
+          {{ t('refresh') }}
+        </button>
+        <button
+          type="button"
+          class="admin-button"
+          data-og7="payment-journey-pause"
+          (click)="guidance.pausePayment()"
+        >
+          {{ t('pause') }}
+        </button>
+      </div>
+    }
+  }
+  <p class="quiet">{{ t('serverTruth') }}</p>
+</section>

@@ -666,7 +666,9 @@ export class FundingTransparencyPageComponent implements OnInit {
       this.router.navigate([], {
         relativeTo: this.route,
         queryParams,
-        fragment: 'public-registry'
+        fragment: 'public-registry',
+        // Keep the controls still while changing the shareable registry view.
+        scroll: 'manual'
       }),
     publicLink: (queryParams) =>
       this.router.serializeUrl(

@@ -224,6 +224,7 @@ test('configuration CLI loads an isolated env, respects shell overrides and neve
   for (const name of [
     'keycloak-config.mjs',
     'lib/keycloak-config.mjs',
+    'lib/local-password-policy.mjs',
     'lib/docker-environment.mjs'
   ]) {
     writeFileSync(
@@ -292,6 +293,7 @@ test('update CLI loads identity activation from its isolated .env before selecti
     'lib/docker-update.mjs',
     'lib/docker-config.mjs',
     'lib/keycloak-config.mjs',
+    'lib/local-password-policy.mjs',
     'lib/local-identity.mjs',
     'lib/keycloak-initial-user.mjs',
     'lib/docker-environment.mjs'
@@ -393,6 +395,14 @@ test(
       'true'
     );
     assert.equal(
+      model.services.api.environment.FUNDING_KEYCLOAK_HOSTNAME,
+      configured.FUNDING_KEYCLOAK_HOSTNAME
+    );
+    assert.equal(
+      model.services.api.environment.FUNDING_ADMIN_OIDC_LOCAL_PASSWORD_ONLY,
+      'false'
+    );
+    assert.equal(
       model.services.api.environment.FUNDING_KEYCLOAK_HEALTH_URL,
       'http://keycloak:9000/health/ready'
     );
@@ -446,6 +456,28 @@ test(
           volume.read_only
       )
     );
+    const localRendered = spawnSync(
+      'docker',
+      [...args, 'config', '--format', 'json'],
+      {
+        encoding: 'utf8',
+        env: {
+          ...env,
+          FUNDING_PLATFORM_ENV: 'development',
+          FUNDING_KEYCLOAK_HOSTNAME: 'auth.openg7.test',
+          FUNDING_PUBLIC_BASE_URL: 'https://localhost',
+          FUNDING_ADMIN_OIDC_ISSUER: 'https://auth.openg7.test/realms/openg7',
+          FUNDING_ADMIN_OIDC_LOCAL_PASSWORD_ONLY: 'true'
+        },
+        windowsHide: true
+      }
+    );
+    assert.equal(localRendered.status, 0, localRendered.stderr);
+    const localApi = JSON.parse(localRendered.stdout).services.api.environment;
+    assert.equal(localApi.FUNDING_PLATFORM_ENV, 'development');
+    assert.equal(localApi.FUNDING_KEYCLOAK_HOSTNAME, 'auth.openg7.test');
+    assert.equal(localApi.FUNDING_PUBLIC_BASE_URL, 'https://localhost');
+    assert.equal(localApi.FUNDING_ADMIN_OIDC_LOCAL_PASSWORD_ONLY, 'true');
     const absent = spawnSync('docker', [...args, 'config', '--quiet'], {
       encoding: 'utf8',
       env: { ...env, FUNDING_KEYCLOAK_DB_PASSWORD: '' },

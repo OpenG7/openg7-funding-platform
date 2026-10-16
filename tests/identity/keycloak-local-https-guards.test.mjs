@@ -4,7 +4,11 @@ import { tmpdir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
 import test from 'node:test';
 
-import { assertExistingMkcertCa } from './keycloak-local-https-stack.mjs';
+import {
+  assertExistingMkcertCa,
+  localKeycloakFailureKind,
+  localKeycloakProfileStage
+} from './keycloak-local-https-stack.mjs';
 
 const fixture = async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'og7-keycloak-ca-guard-'));
@@ -17,6 +21,66 @@ const fixture = async (t) => {
   });
   return root;
 };
+
+test('HTTPS rehearsal diagnostics classify failures without forwarding private errors', () => {
+  const privateValue = 'SYNTHETIC_PRIVATE_CREDENTIAL_AND_HASH';
+  for (const [error, expected] of [
+    [
+      Object.assign(new Error(privateValue), { code: 'ERR_ASSERTION' }),
+      'assertion'
+    ],
+    [
+      Object.assign(new Error(privateValue), { name: 'TimeoutError' }),
+      'browser-timeout'
+    ],
+    [new SyntaxError(privateValue), 'invalid-json'],
+    [new Error(privateValue), 'operation'],
+    [
+      { code: privateValue, name: privateValue, actual: privateValue },
+      'operation'
+    ],
+    [undefined, 'operation']
+  ]) {
+    assert.equal(localKeycloakFailureKind(error), expected);
+  }
+});
+
+test('HTTPS profile stages expose only fixed operations and valid HTTP status', () => {
+  const privateInput = {
+    url: 'https://private.example.test/realms/private/protocol/openid-connect/token?code=SYNTHETIC_PRIVATE_CODE',
+    method: 'POST',
+    headers: { Authorization: 'Bearer SYNTHETIC_PRIVATE_TOKEN' },
+    body: 'password=SYNTHETIC_PRIVATE_PASSWORD'
+  };
+  assert.equal(
+    localKeycloakProfileStage(privateInput, 401),
+    'authenticate profile administrator (HTTP 401)'
+  );
+  assert.equal(
+    localKeycloakProfileStage(
+      { ...privateInput, url: 'invalid-private-url' },
+      204
+    ),
+    'write Keycloak profile (HTTP 204)'
+  );
+  assert.equal(
+    localKeycloakProfileStage({ method: 'GET' }, 200),
+    'read Keycloak profile (HTTP 200)'
+  );
+  for (const status of [
+    undefined,
+    'private-status',
+    '200',
+    99,
+    600,
+    NaN,
+    200.5
+  ])
+    assert.equal(
+      localKeycloakProfileStage(privateInput, status),
+      'authenticate profile administrator'
+    );
+});
 
 test('the HTTPS rehearsal refuses an absent CA without creating one', async (t) => {
   const root = await fixture(t);

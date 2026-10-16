@@ -301,6 +301,30 @@ jobs:
           path: test-results/
           retention-days: 7
 
+  sandbox:
+    name: Interactive sandbox, virtual Xbox and confirmed payment
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable Corepack
+        run: corepack enable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+      - run: yarn install --immutable
+      - run: yarn exec playwright install --with-deps chromium
+      - name: Real API and private DB sandbox without financial fixture seed
+        run: yarn test:e2e:sandbox
+      - name: Preserve sandbox evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-acceptance-sandbox-results
+          path: test-results/
+          retention-days: 7
+
   keycloak:
     name: Disposable Keycloak identity and initial import
     runs-on: ubuntu-24.04
@@ -325,12 +349,75 @@ jobs:
         env:
           FUNDING_KEYCLOAK_INITIAL_USER_TEST: '1'
         run: node --test tests/identity/keycloak-initial-user.integration.mjs
-      # The full HTTPS/browser rehearsal requires an already trusted mkcert CA.
-      # Keep it separate; this job never installs host trust or changes hosts.
+
+  keycloak_https:
+    name: Disposable HTTPS local password sign-in and MFA restoration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable Corepack
+        run: corepack enable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+      - run: yarn install --immutable
+      - name: Install disposable HTTPS trust tooling
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends mkcert libnss3-tools
+      - run: yarn exec playwright install --with-deps chromium
+      - name: Prepare isolated runner CA and localhost certificates
+        shell: bash
+        env:
+          # This CA belongs exclusively to this disposable GitHub-hosted runner.
+          # Never use or upload a developer CA or private environment configuration.
+          CAROOT: ${{ runner.temp }}/openg7-keycloak-ci-ca
+          OPENG7_TEST_TLS_DIRECTORY: ${{ runner.temp }}/openg7-keycloak-ci-tls
+        run: |
+          printf 'CAROOT=%s\nOPENG7_TEST_TLS_DIRECTORY=%s\n' "$CAROOT" "$OPENG7_TEST_TLS_DIRECTORY" >> "$GITHUB_ENV"
+          install -d -m 700 "$CAROOT" "$OPENG7_TEST_TLS_DIRECTORY" "$HOME/.pki/nssdb"
+          if [ ! -f "$HOME/.pki/nssdb/cert9.db" ]; then
+            certutil -N --empty-password -d "sql:$HOME/.pki/nssdb"
+          fi
+          mkcert -install
+          mkcert -cert-file "$OPENG7_TEST_TLS_DIRECTORY/localhost.pem" -key-file "$OPENG7_TEST_TLS_DIRECTORY/localhost-key.pem" localhost 127.0.0.1 ::1 auth.openg7.test
+          install -m 644 "$CAROOT/rootCA.pem" "$OPENG7_TEST_TLS_DIRECTORY/rootCA.pem"
+      - name: Prepare disposable HTTPS application and identity images
+        run: |
+          docker pull postgres:16-alpine
+          docker pull traefik:v3.7.13
+          docker build -f docker/keycloak/Dockerfile -t openg7-keycloak:26.8.0-local .
+          docker build -f apps/funding-api/Dockerfile -t openg7-keycloak-local-validation-api:test .
+          docker build -f apps/funding-web/Dockerfile -t openg7-keycloak-local-validation-web:test .
+      - name: Real HTTPS local password sign-in and restoration of mandatory OTP
+        env:
+          NODE_EXTRA_CA_CERTS: ${{ runner.temp }}/openg7-keycloak-ci-tls/rootCA.pem
+        run: node --test tests/identity/keycloak-local-password.integration.mjs
+      - name: Preserve HTTPS identity evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-acceptance-keycloak-https
+          path: test-results/
+          retention-days: 7
+      - name: Remove disposable runner CA trust
+        if: always()
+        run: |
+          if command -v mkcert >/dev/null && test -f "$CAROOT/rootCA.pem"; then
+            mkcert -uninstall
+          fi
 
   # Keep the existing check successful only when every suite passes.
   acceptance:
-    needs: [validation, browser, docker_acceptance, keycloak]
+    needs:
+      [
+        validation,
+        browser,
+        docker_acceptance,
+        keycloak,
+        keycloak_https,
+        sandbox
+      ]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -341,6 +428,8 @@ jobs:
           BROWSER_RESULT: ${{ needs.browser.result }}
           DOCKER_RESULT: ${{ needs.docker_acceptance.result }}
           KEYCLOAK_RESULT: ${{ needs.keycloak.result }}
+          KEYCLOAK_HTTPS_RESULT: ${{ needs.keycloak_https.result }}
+          SANDBOX_RESULT: ${{ needs.sandbox.result }}
         run: |
-          printf 'validation=%s browser=%s docker=%s keycloak=%s\n' "$VALIDATION_RESULT" "$BROWSER_RESULT" "$DOCKER_RESULT" "$KEYCLOAK_RESULT"
-          test "$VALIDATION_RESULT" = success && test "$BROWSER_RESULT" = success && test "$DOCKER_RESULT" = success && test "$KEYCLOAK_RESULT" = success
+          printf 'validation=%s browser=%s docker=%s keycloak=%s keycloak_https=%s sandbox=%s\n' "$VALIDATION_RESULT" "$BROWSER_RESULT" "$DOCKER_RESULT" "$KEYCLOAK_RESULT" "$KEYCLOAK_HTTPS_RESULT" "$SANDBOX_RESULT"
+          test "$VALIDATION_RESULT" = success && test "$BROWSER_RESULT" = success && test "$DOCKER_RESULT" = success && test "$KEYCLOAK_RESULT" = success && test "$KEYCLOAK_HTTPS_RESULT" = success && test "$SANDBOX_RESULT" = success

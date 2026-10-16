@@ -35,6 +35,23 @@ dialog.fixed-footer[open] {
   outline: 2px solid var(--admin-gold);
   outline-offset: -4px;
 }
+dialog[data-og7-virtual-controller-host][open] {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+dialog[data-og7-virtual-controller-host] > header {
+  position: static;
+  flex: 0 0 auto;
+}
+dialog[data-og7-virtual-controller-host] > .body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+dialog[data-og7-virtual-controller-host] > footer {
+  flex: 0 0 auto;
+}
 header {
   position: sticky;
   top: 0;

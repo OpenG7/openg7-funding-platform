@@ -1108,6 +1108,7 @@
         "refund_check": "Vérifier le remboursement et son résultat Stripe.",
         "stripe_failed": "Un événement Stripe lié au dossier est en échec.",
         "email_failed": "Consulter le courriel en échec.",
+        "email_uncertain": "L’issue de cet envoi est incertaine. Vérifiez les preuves de livraison avant toute nouvelle tentative.",
         "complete": "Aucune prochaine action détectée. Consulter le résumé."
       },
       "documents": "Documents émis",
@@ -1407,7 +1408,12 @@
         "stripe_event_failed": "Événement Stripe en échec",
         "stripe_event_stalled": "Événement Stripe bloqué",
         "publication_ready": "Publication prête",
-        "publication_slot_upcoming": "Créneau de publication proche"
+        "publication_slot_upcoming": "Créneau de publication proche",
+        "sponsorship_needs_fulfilment": "Engagement de commandite à réaliser",
+        "sponsorship_refund_followup": "Remboursement à suivre",
+        "sponsorship_credit_missing": "Avoir manquant",
+        "sponsorship_timing_review": "Échéance de commandite à examiner",
+        "publication_reliability_incident": "Résultat de publication à vérifier"
       },
       "reasons": {
         "sponsorship_needs_info": "Le paiement est confirmé; des informations ou une image de présentation manquent au dossier.",
@@ -1421,7 +1427,12 @@
         "stripe_event_failed": "Le traitement de cet événement reçu a échoué. Sa réception ne confirme pas à elle seule la mise à jour du dossier.",
         "stripe_event_stalled": "Le traitement de cet événement n’est pas terminé après au moins 15 minutes. Vérifiez son état avant toute reprise.",
         "publication_ready": "Le contenu approuvé est prêt pour la prochaine étape de publication, à confirmer dans son dossier.",
-        "publication_slot_upcoming": "Ce créneau est prévu dans les sept prochains jours. Vérifiez les placements et leur préparation."
+        "publication_slot_upcoming": "Ce créneau est prévu dans les sept prochains jours. Vérifiez les placements et leur préparation.",
+        "sponsorship_needs_fulfilment": "Une contrepartie promise par cette commandite reste à réaliser ou à justifier.",
+        "sponsorship_refund_followup": "Le traitement du remboursement exige une vérification administrative.",
+        "sponsorship_credit_missing": "Un remboursement confirmé doit être rapproché de son avoir.",
+        "sponsorship_timing_review": "Une échéance ou une prolongation du dossier nécessite une décision.",
+        "publication_reliability_incident": "La livraison de publication demande une réconciliation avant toute nouvelle tentative."
       }
     },
     "nav": {
@@ -1450,6 +1461,340 @@
       "public": "Retour au fonds",
       "motto": "Bâtir aujourd’hui un impact durable demain.",
       "pilotage": "Poste de pilotage"
+    },
+    "guidance": {
+      "toggle": "Mode guidé",
+      "close": "Réduire le guide",
+      "where": "Vous êtes ici",
+      "next": "Un pas à la fois",
+      "step": "Étape {{current}} sur {{total}}",
+      "previous": "Étape précédente",
+      "advance": "Étape suivante",
+      "restart": "Revenir à la première étape",
+      "show": "Me montrer dans la page",
+      "moveTop": "Placer en haut",
+      "moveBottom": "Placer en bas",
+      "pause": "Faire une pause",
+      "paused": "Votre repère est gardé. Reprenez quand vous le souhaitez.",
+      "resume": "Reprendre mon repère",
+      "resumeHere": "Continuer ici",
+      "saved": "Repère : {{page}} · étape {{step}}.",
+      "reading": "Ces étapes aident à se repérer. Elles ne confirment aucune opération.",
+      "storageUnavailable": "Ce navigateur ne peut pas mémoriser ce repère. Il reste disponible pendant cette visite.",
+      "clearUnavailable": "L’effacement du repère enregistré n’a pas pu être confirmé. Il est masqué pour cette visite, mais peut réapparaître au rechargement.",
+      "tokenShared": "Avec une connexion par jeton, ce repère est partagé entre les utilisateurs de ce navigateur.",
+      "missing": "Ce repère n’est pas visible pour le moment. Vous pouvez continuer à lire le guide.",
+      "privacy": "Le guide conserve la rubrique, l’étape et, si vous suivez un paiement, son identifiant et votre pause, par compte dans ce navigateur. Aucun contenu de dossier, saisie ni résultat d’action n’est conservé. La reprise relit les faits du serveur.",
+      "forget": "Effacer mon repère",
+      "pages": {
+        "dashboard": {
+          "read": {
+            "title": "Lire la vue d’ensemble",
+            "body": "Repérez les montants, leurs devises et la date de mise à jour. Une erreur de chargement ne signifie pas zéro."
+          },
+          "choose": {
+            "title": "Choisir un point à examiner",
+            "body": "Ouvrez la rubrique qui demande votre attention. Vous pouvez consulter sans modifier."
+          },
+          "verify": {
+            "title": "Revenir aux faits",
+            "body": "Après une intervention, consultez le dossier concerné et son état à jour. Le guide ne confirme pas son résultat."
+          }
+        },
+        "pilotage": {
+          "read": {
+            "title": "Lire la situation",
+            "body": "Lisez la situation, la proposition et sa conséquence pour le dossier sélectionné."
+          },
+          "choose": {
+            "title": "Examiner avant de décider",
+            "body": "Ouvrez Détails pour lire le contenu. Si vous décidez d’agir, utilisez les commandes du dossier et leur confirmation."
+          },
+          "verify": {
+            "title": "Lire le résultat",
+            "body": "Consultez le reçu affiché. Si le résultat est incertain, examinez l’incident avant toute nouvelle tentative."
+          }
+        },
+        "access": {
+          "read": {
+            "title": "Repérer le compte",
+            "body": "Cette rubrique est réservée aux propriétaires. Vérifiez le compte, son rôle et ses sessions."
+          },
+          "choose": {
+            "title": "Relire le changement",
+            "body": "Avant de modifier un accès, relisez le compte ciblé et la confirmation. Conservez au moins un propriétaire actif."
+          },
+          "verify": {
+            "title": "Vérifier les accès",
+            "body": "Après votre demande, relisez l’état du compte et des sessions. Une étape du guide ne change aucun accès."
+          }
+        },
+        "attention": {
+          "read": {
+            "title": "Lire ce qui demande attention",
+            "body": "Repérez le motif, la priorité et l’échéance. Ces éléments vous aident à choisir un dossier."
+          },
+          "choose": {
+            "title": "Ouvrir un dossier",
+            "body": "Choisissez un seul élément et ouvrez son dossier pour lire les informations complètes."
+          },
+          "verify": {
+            "title": "Vérifier puis revenir",
+            "body": "Après une action manuelle, vérifiez le résultat dans le dossier. Revenez ensuite à cette liste et actualisez-la."
+          }
+        },
+        "assistant": {
+          "read": {
+            "title": "Lire le résumé",
+            "body": "L’assistant explique les points à examiner. Ses recommandations restent consultatives."
+          },
+          "choose": {
+            "title": "Vérifier une recommandation",
+            "body": "Ouvrez le dossier lié pour vérifier les faits. L’assistant ne réalise pas les opérations à votre place."
+          },
+          "verify": {
+            "title": "Consulter l’état réel",
+            "body": "Si vous avez agi dans un dossier, vérifiez son résultat avant de revenir au résumé actualisé."
+          }
+        },
+        "contributions": {
+          "read": {
+            "title": "Lire les faits financiers",
+            "body": "Repérez la contribution, son montant, sa devise et son statut. Stripe confirme le paiement."
+          },
+          "choose": {
+            "title": "Examiner une contribution",
+            "body": "Ouvrez la ligne concernée. Vérifiez les références et les documents avant toute opération disponible."
+          },
+          "verify": {
+            "title": "Vérifier le résultat serveur",
+            "body": "Après une demande, relisez l’état confirmé. Un clic ou une étape du guide ne confirme pas un paiement ou un remboursement."
+          }
+        },
+        "sponsors": {
+          "read": {
+            "title": "Choisir la commandite",
+            "body": "Repérez le dossier voulu. Paiement, revue et visibilité ont des états distincts."
+          },
+          "choose": {
+            "title": "Lire le dossier",
+            "body": "Ouvrez la fiche et examinez les informations, les médias et les engagements avant de décider."
+          },
+          "verify": {
+            "title": "Relire les états",
+            "body": "Après votre action et sa confirmation, vérifiez les états concernés. Une approbation seule ne confirme pas une publication."
+          }
+        },
+        "invoices": {
+          "read": {
+            "title": "Repérer le document",
+            "body": "Choisissez la contribution et le document concernés. Vérifiez numéro, montant et devise."
+          },
+          "choose": {
+            "title": "Examiner avant une demande",
+            "body": "Lisez le document et son destinataire avant un renvoi ou une autre opération proposée."
+          },
+          "verify": {
+            "title": "Distinguer document et courriel",
+            "body": "Vérifiez séparément l’existence du document et l’état de son courriel. Un échec d’envoi n’annule pas la facture."
+          }
+        },
+        "publications": {
+          "read": {
+            "title": "Repérer les trois espaces",
+            "body": "La rédaction prépare les textes, les lots les regroupent et le calendrier organise les dates."
+          },
+          "choose": {
+            "title": "Ouvrir l’espace utile",
+            "body": "Choisissez l’espace lié à votre besoin. Préparer ou planifier ne vaut pas autorisation de publication."
+          },
+          "verify": {
+            "title": "Vérifier dans le dossier",
+            "body": "Après une action dans un espace, relisez le dossier et son état. Le guide ne publie aucun contenu."
+          }
+        },
+        "drafts": {
+          "read": {
+            "title": "Lire le brouillon",
+            "body": "Choisissez le texte à examiner. Vérifiez les commanditaires, le contenu et la destination."
+          },
+          "choose": {
+            "title": "Préparer ou modifier",
+            "body": "Utilisez les commandes du brouillon si vous souhaitez agir. Une sauvegarde ne donne pas l’autorisation de publier."
+          },
+          "verify": {
+            "title": "Relire la version enregistrée",
+            "body": "Vérifiez le texte, la date et l’état affichés après votre demande. Une modification peut exiger une nouvelle revue."
+          }
+        },
+        "batches": {
+          "read": {
+            "title": "Lire le lot",
+            "body": "Repérez les publications réunies, le canal et leur état avant de préparer un envoi."
+          },
+          "choose": {
+            "title": "Examiner les autorisations",
+            "body": "Ouvrez le lot et vérifiez son contenu exact. Toute opération sensible utilise sa confirmation habituelle."
+          },
+          "verify": {
+            "title": "Vérifier les livraisons",
+            "body": "Consultez les résultats des livraisons. Si un résultat est incertain, examinez-le avant toute relance."
+          }
+        },
+        "calendar": {
+          "read": {
+            "title": "Lire les dates",
+            "body": "Repérez le créneau, sa date et son fuseau horaire. Vérifiez les publications qui lui sont liées."
+          },
+          "choose": {
+            "title": "Choisir un créneau",
+            "body": "Ouvrez le créneau pour examiner ou modifier sa proposition. Une date prévue ne confirme pas un envoi."
+          },
+          "verify": {
+            "title": "Relire le calendrier",
+            "body": "Après enregistrement, vérifiez la date et les liens affichés. Consultez le dossier pour connaître le résultat d’un envoi."
+          }
+        },
+        "automation": {
+          "read": {
+            "title": "Lire l’état du moteur",
+            "body": "Repérez si le moteur est actif et quelles destinations sont en pause ou connectées."
+          },
+          "choose": {
+            "title": "Examiner un réglage",
+            "body": "Ouvrez les réglages utiles et relisez leur effet avant de les changer. L’activation du moteur reste une action séparée."
+          },
+          "verify": {
+            "title": "Vérifier l’état enregistré",
+            "body": "Relisez l’état du moteur et de la destination après votre demande. Un envoi déjà lancé peut se terminer malgré une pause."
+          }
+        },
+        "expenses": {
+          "read": {
+            "title": "Lire les dépenses",
+            "body": "Choisissez le périmètre et vérifiez montant, devise, visibilité et avancement."
+          },
+          "choose": {
+            "title": "Examiner une fiche",
+            "body": "Ouvrez la dépense et ses preuves. Si votre rôle permet une modification, relisez sa portée avant confirmation."
+          },
+          "verify": {
+            "title": "Vérifier les états distincts",
+            "body": "Après enregistrement, vérifiez séparément les faits financiers, l’avancement et la visibilité publique."
+          }
+        },
+        "transparency": {
+          "read": {
+            "title": "Lire la synthèse privée",
+            "body": "Vérifiez les montants et leur devise. Cette page explique les données qui alimentent la transparence."
+          },
+          "choose": {
+            "title": "Examiner les éléments publiés",
+            "body": "Consultez les réalisations et les preuves affichées. Une donnée privée n’est pas automatiquement publique."
+          },
+          "verify": {
+            "title": "Vérifier la fraîcheur",
+            "body": "Consultez la date de mise à jour et actualisez si nécessaire. Une erreur de chargement ne remplace pas un montant par zéro."
+          }
+        },
+        "audit": {
+          "read": {
+            "title": "Lire le journal",
+            "body": "Ce journal aide à retrouver les actions, leurs cibles et leurs résultats."
+          },
+          "choose": {
+            "title": "Rechercher une action",
+            "body": "Utilisez la recherche et ouvrez les informations de l’entrée concernée pour vérifier son contexte."
+          },
+          "verify": {
+            "title": "Comparer les faits",
+            "body": "Comparez l’entrée au dossier actuel si nécessaire. Un événement enregistré n’est pas toujours la confirmation d’un effet externe."
+          }
+        },
+        "email": {
+          "read": {
+            "title": "Lire l’état des courriels",
+            "body": "Repérez le message, son destinataire et son état. Distinguez échec connu et résultat incertain."
+          },
+          "choose": {
+            "title": "Examiner avant de relancer",
+            "body": "Ouvrez le message et vérifiez sa destination. Un résultat incertain doit être examiné avant une nouvelle tentative."
+          },
+          "verify": {
+            "title": "Lire le résultat de livraison",
+            "body": "Après une demande confirmée, consultez son résultat. Une acceptation SMTP ne prouve pas la lecture du courriel."
+          }
+        },
+        "setup": {
+          "read": {
+            "title": "Lire les services",
+            "body": "Repérez le service concerné et son état. Les diagnostics indiquent ce qui reste à configurer."
+          },
+          "choose": {
+            "title": "Choisir une vérification",
+            "body": "Ouvrez la section utile et lisez les prérequis avant un test ou un changement. Ne placez aucun secret dans le guide."
+          },
+          "verify": {
+            "title": "Vérifier le diagnostic",
+            "body": "Après votre demande, lisez le résultat et actualisez le diagnostic. Un test réussi ne qualifie que ce qu’il a vérifié."
+          }
+        }
+      },
+      "modeLabel": "Type de guide",
+      "discoveryMode": "Découvrir les rubriques",
+      "paymentJourney": {
+        "title": "Parcours du paiement",
+        "followCurrent": "Suivre ce paiement",
+        "choose": "Ouvrez une contribution ou un dossier, puis choisissez « Suivre ce paiement ». Votre parcours reste disponible en changeant de rubrique.",
+        "paused": "Votre parcours est en pause. La reprise vérifiera à nouveau ce paiement et les actions restantes.",
+        "resume": "Reprendre ce paiement",
+        "progress": "Étapes réglées : {{completed}} / {{total}}",
+        "changed": "Le dossier a changé. La prochaine étape ci-dessous tient compte des faits actualisés.",
+        "complete": "Parcours à jour",
+        "completeHelp": "Le serveur ne signale plus d’action administrative à effectuer pour ce paiement. Une nouvelle information peut rouvrir une étape.",
+        "next": "Votre prochaine étape",
+        "openNext": "Ouvrir la prochaine étape",
+        "show": "Me montrer dans la page",
+        "allSteps": "Voir tout le parcours",
+        "refresh": "Vérifier les faits",
+        "pause": "Faire une pause",
+        "serverTruth": "Le paiement et les actions terminées viennent du serveur. Ouvrir une étape ne réalise aucune opération ; les confirmations restent dans les écrans habituels.",
+        "reasonUnavailable": "Examinez le dossier à jour pour connaître la suite.",
+        "step": "Étape du dossier",
+        "states": {
+          "idle": "Prêt à vérifier le paiement.",
+          "loading": "Vérification du paiement et des actions restantes…",
+          "error": "La vérification a échoué. Aucune ancienne étape n’est présentée comme actuelle. Réessayez.",
+          "forbidden": "Votre compte ne peut pas consulter ce parcours.",
+          "not_found": "Ce paiement est introuvable ou ne fait plus partie des dossiers accessibles.",
+          "unavailable": "Le parcours ne peut pas être vérifié pour le moment."
+        },
+        "situations": {
+          "action_required": "Une action administrative reste à examiner.",
+          "waiting": "Cette étape attend une confirmation ou un traitement. Vérifiez son état avant de relancer.",
+          "blocked": "Un point doit être résolu avant de poursuivre."
+        },
+        "steps": {
+          "communications": "Courriels et communications",
+          "payment": "Paiement confirmé",
+          "stripe": "Événements de paiement",
+          "incident": "Point à vérifier"
+        },
+        "reasons": {
+          "personal_complete": "Ce soutien personnel est confirmé. Il ne crée aucune contrepartie de commandite à traiter.",
+          "personal_refunded": "Le remboursement de ce soutien personnel est confirmé. Aucune revue de commandite n’est nécessaire.",
+          "payment_pending": "La confirmation du paiement est encore attendue.",
+          "payment_disputed": "Le paiement est contesté. Examinez son état et les faits confirmés avant toute décision.",
+          "payment_blocked": "Le paiement ne permet pas de poursuivre. Examinez les faits financiers confirmés.",
+          "email_pending": "Une communication est en file ou en cours d’envoi. Attendez sa confirmation avant toute relance.",
+          "email_complete": "Les communications liées à ce paiement ont été traitées. Une acceptation du serveur de courriel ne prouve pas leur lecture.",
+          "sponsorship_needs_fulfilment": "Une contrepartie promise par cette commandite reste à réaliser ou à justifier.",
+          "sponsorship_refund_followup": "Le traitement du remboursement exige une vérification administrative.",
+          "sponsorship_credit_missing": "Un remboursement confirmé doit être rapproché de son avoir.",
+          "sponsorship_timing_review": "Une échéance ou une prolongation du dossier nécessite une décision.",
+          "publication_reliability_incident": "La livraison de publication demande une réconciliation avant toute nouvelle tentative."
+        }
+      }
     },
     "shell": {
       "skip": "Aller au contenu principal",
@@ -3372,7 +3717,8 @@
       "mfaPolicy": "Politique de claim MFA",
       "policies": {
         "amr": "AMR : mfa requis dans le jeton signé",
-        "acr": "ACR : valeur MFA garantie par le fournisseur requise"
+        "acr": "ACR : valeur MFA garantie par le fournisseur requise",
+        "local-password": "Développement localhost : mot de passe vérifié, sans double facteur"
       },
       "ownerBootstrap": "Amorçage du premier propriétaire",
       "ownerPresent": "Subjects initiaux renseignés ; première connexion MFA à vérifier.",

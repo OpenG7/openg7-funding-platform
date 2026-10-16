@@ -63,7 +63,8 @@ for (const prefix of ['', '/en']) {
   test(`support prioritizes contributor help and preserves recovery ${prefix || 'fr'}`, async ({
     page
   }) => {
-    await page.goto(`${prefix}/support`);
+    await page.goto(`${prefix}/support`, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('#followup-recovery-email')).toBeEditable();
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(e.message));
     const heroLink = page.getByRole('link', {
@@ -276,8 +277,17 @@ for (const prefix of ['', '/en']) {
   test(`language switches keep anchors without forwarding private context ${prefix || 'fr'}`, async ({
     page
   }) => {
+    // Background audio can keep WebKit's load event pending after the page is
+    // hydrated. This journey waits for its support UI and language interaction.
     await page.goto(
-      `${prefix}/support?checkout=success&reference=OG7-SYNTHETIC&followup_token=unrelated-checkout-token&token=unrelated-private-token#technical-participation`
+      `${prefix}/support?checkout=success&reference=OG7-SYNTHETIC&followup_token=unrelated-checkout-token&token=unrelated-private-token#technical-participation`,
+      { waitUntil: 'domcontentloaded' }
+    );
+    await expect(page.locator('#followup-recovery-email')).toBeEditable();
+    await expect(page.locator('#support-title')).toHaveText(
+      prefix
+        ? 'Help with your contribution'
+        : 'De l’aide pour votre contribution'
     );
     await page
       .getByRole('button', {
@@ -292,15 +302,26 @@ for (const prefix of ['', '/en']) {
         url.search === '' &&
         url.hash === '#technical-participation'
     );
+    await expect(page.locator('#support-title')).toHaveText(
+      prefix
+        ? 'De l’aide pour votre contribution'
+        : 'Help with your contribution'
+    );
+    await expect(page.locator('#technical-participation')).toBeVisible();
   });
   for (const route of ['/batisseurs', '/support']) {
     test(`accessible names, contrast and reflow ${prefix}${route}`, async ({
       page
     }, info) => {
-      await page.goto(`${prefix}${route}`);
+      await page.goto(`${prefix}${route}`, {
+        waitUntil: route === '/support' ? 'domcontentloaded' : 'load'
+      });
       if (route === '/batisseurs')
         await expect(page.locator('[data-og7="builders-empty"]')).toBeVisible();
-      else await expect(page.locator('#reference-lookup-input')).toBeVisible();
+      else {
+        await expect(page.locator('#followup-recovery-email')).toBeEditable();
+        await expect(page.locator('#reference-lookup-input')).toBeVisible();
+      }
       await page
         .locator(
           route === '/support'

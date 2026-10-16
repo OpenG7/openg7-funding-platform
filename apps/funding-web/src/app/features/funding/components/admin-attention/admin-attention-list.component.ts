@@ -63,19 +63,20 @@ import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
               >
             }
           </div>
+          @if (
+            item.type === 'stripe_event_failed' ||
+            item.type === 'stripe_event_stalled'
+          ) {
+            <button
+              class="admin-button"
+              type="button"
+              data-og7="attention-stripe-inspect"
+              (click)="inspectStripe(item)"
+            >
+              {{ 'admin.inspector.kinds.stripe' | translate }}
+            </button>
+          }
           @if (showLink()) {
-            @if (
-              item.type === 'stripe_event_failed' ||
-              item.type === 'stripe_event_stalled'
-            ) {
-              <button
-                class="admin-button"
-                type="button"
-                (click)="inspectStripe(item)"
-              >
-                {{ 'admin.inspector.kinds.stripe' | translate }}
-              </button>
-            }
             <a
               class="admin-button admin-button--primary"
               [routerLink]="destination(item)"

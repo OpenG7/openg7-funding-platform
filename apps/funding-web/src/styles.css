@@ -1,6 +1,12 @@
 @import './styles/admin-appearance.css';
 @import './styles/admin-typography.css';
 
+[data-og7-controller-focus='true'] {
+  outline: 3px solid var(--admin-gold, #f4c957) !important;
+  outline-offset: 4px;
+  scroll-margin-block: 6rem;
+}
+
 :root {
   --ink-950: #020815;
   --ink-900: #041225;

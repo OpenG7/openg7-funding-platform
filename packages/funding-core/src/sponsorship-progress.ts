@@ -97,6 +97,8 @@ export interface AdminSponsorshipProgress {
   readonly failedEmails: readonly {
     readonly id: string;
     readonly template: string;
+    /** Delivery incidents include uncertain results. Absent on older servers means failed. */
+    readonly status?: 'failed' | 'uncertain';
   }[];
   readonly failedStripeEvents: readonly {
     readonly id: string;

@@ -47,7 +47,7 @@ export class AdminSponsorshipProgressComponent implements OnInit, OnChanges {
   readonly completedSteps = computed(
     () =>
       this.data()?.dossier?.milestones.filter(
-        (step) => step.state === 'complete'
+        (step) => step.state === 'complete' || step.state === 'not_required'
       ).length ?? 0
   );
   readonly activeStep = computed(() => {

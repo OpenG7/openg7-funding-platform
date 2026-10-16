@@ -9,11 +9,13 @@ import {
   type AdminOidcPersistence
 } from './contracts.js';
 import { cookie, redirect, setCookie } from './http.js';
+import { loadLocalPasswordOnly } from './local-password-policy.js';
 import { safeAdminReturnPath, satisfiesMfa } from './policy.js';
 
 export const loadAdminIdentityConfig = (
   env: NodeJS.ProcessEnv
 ): AdminIdentityConfig => {
+  const localPasswordOnly = loadLocalPasswordOnly(env);
   const invalidConfigMessage =
     'OIDC requires a secure origin, issuer, client ID and client secret.';
   let issuer: URL;
@@ -47,6 +49,7 @@ export const loadAdminIdentityConfig = (
     issuer,
     origin: base.origin,
     secure,
+    localPasswordOnly,
     cookieName: secure ? '__Host-og7-admin' : 'og7-admin',
     // These values were read when discovery, start or callback ran, rather
     // than captured by the service constructor.
@@ -57,7 +60,7 @@ export const loadAdminIdentityConfig = (
       return env.FUNDING_ADMIN_OIDC_CLIENT_SECRET!;
     },
     get mfaAcr() {
-      return env.FUNDING_ADMIN_OIDC_MFA_ACR ?? '';
+      return localPasswordOnly ? '' : (env.FUNDING_ADMIN_OIDC_MFA_ACR ?? '');
     },
     get ownerSubjects() {
       return (env.FUNDING_ADMIN_OIDC_OWNER_SUBJECTS ?? '')
@@ -156,15 +159,17 @@ export const createAdminOidcHandler = (
         const claims = tokens.claims();
         if (
           !claims ||
-          !satisfiesMfa(
-            claims,
-            config.mfaAcr
-              .split(',')
-              .map((value) => value.trim())
-              .filter(Boolean)
-          )
+          !(config.localPasswordOnly
+            ? Array.isArray(claims.amr) && claims.amr.includes('pwd')
+            : satisfiesMfa(
+                claims,
+                config.mfaAcr
+                  .split(',')
+                  .map((value) => value.trim())
+                  .filter(Boolean)
+              ))
         )
-          throw new Error('MFA required');
+          throw new Error('Required authentication assurance missing');
         const token = randomIdentityToken();
         await persistence.issueSession({
           subject: claims.sub,

@@ -16,6 +16,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import type { AdminContributionRecord } from '@openg7/funding-core';
 
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { AdminGuidanceService } from '../../services/admin-guidance.service.js';
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import { AdminStripeBackfillComponent } from '../../components/admin-stripe-backfill/admin-stripe-backfill.component.js';
@@ -59,6 +60,7 @@ import type {
   ]
 })
 export class AdminContributionsPageComponent implements OnInit {
+  readonly guidance = inject(AdminGuidanceService);
   private readonly confirmation = inject(AdminConfirmationService);
   readonly i18n = inject(FundingI18nService);
   private readonly admin = inject(FundingAdminService);

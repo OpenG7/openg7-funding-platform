@@ -59,6 +59,14 @@ test(
       );
       await pool.query(`INSERT INTO fund_contributions (contribution_type, amount_cents, currency, status, sponsor_review_status, sponsorship_refund_status)
       SELECT 'sponsorship_interest', 50000, 'cad', 'refunded', 'rejected', 'completed' FROM generate_series(1, 2005)`);
+      // Historical refunds are financially closed, so the target review remains
+      // the first action beyond the old acquisition cap. Missing credits are now work.
+      await pool.query(`INSERT INTO sponsorship_invoices(contribution_id,invoice_number,stripe_session_id,currency,subtotal_cents,total_cents,issuer_name,sponsor_name)
+        SELECT id,'SYNTHETIC-CLOSED-'||id,'cs_test_closed_'||id,'cad',50000,50000,'Synthetic issuer','Synthetic closed history'
+        FROM fund_contributions WHERE status='refunded'`);
+      await pool.query(`INSERT INTO sponsorship_credit_notes(invoice_id,contribution_id,credit_note_number,invoice_number,stripe_refund_id,currency,subtotal_cents,total_cents,issuer_name,sponsor_name)
+        SELECT id,contribution_id,'SYNTHETIC-CLOSED-CREDIT-'||id,invoice_number,'re_test_closed_'||id,'cad',50000,50000,'Synthetic issuer','Synthetic closed history'
+        FROM sponsorship_invoices`);
       await pool.query(`INSERT INTO email_messages
         (template_key,recipient_email,from_email,subject,text_body,html_body,status,attempts,max_attempts)
         SELECT 'selection_fixture','synthetic@example.invalid','fixture@example.invalid',

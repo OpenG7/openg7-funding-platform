@@ -221,16 +221,24 @@ export class AdminNavComponent implements OnInit {
       return (
         (counts.sponsorship_needs_info ?? 0) +
         (counts.sponsorship_needs_commitment ?? 0) +
-        (counts.sponsorship_needs_review ?? 0)
+        (counts.sponsorship_needs_review ?? 0) +
+        (counts.sponsorship_needs_fulfilment ?? 0) +
+        (counts.sponsorship_refund_followup ?? 0) +
+        (counts.sponsorship_credit_missing ?? 0) +
+        (counts.sponsorship_timing_review ?? 0)
       );
     if (key === 'email') return counts.email_delivery_failed ?? 0;
-    if (key === 'invoices') return counts.invoice_missing ?? 0;
+    if (key === 'invoices')
+      return (
+        (counts.invoice_missing ?? 0) + (counts.sponsorship_credit_missing ?? 0)
+      );
     if (key === 'publications')
       return (
         (counts.publication_needs_preparation ?? 0) +
         (counts.publication_late ?? 0) +
         (counts.publication_ready ?? 0) +
-        (counts.publication_slot_upcoming ?? 0)
+        (counts.publication_slot_upcoming ?? 0) +
+        (counts.publication_reliability_incident ?? 0)
       );
     return 0;
   }

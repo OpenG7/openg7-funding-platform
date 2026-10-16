@@ -257,7 +257,9 @@ export class FundingTransparencyController {
     if (this.disposed || !this.ports.isBrowser()) return;
     const element = document.getElementById('public-registry');
     element?.focus({ preventScroll: true });
-    element?.scrollIntoView({ block: 'start', behavior: 'auto' });
+    // Finish the focus transfer before a pointer can activate a registry filter.
+    // `auto` inherits the page's smooth scrolling and can move it during a click.
+    element?.scrollIntoView({ block: 'start', behavior: 'instant' });
   }
 
   handleReportAction(intent: 'csv' | 'json' | 'copy'): void {

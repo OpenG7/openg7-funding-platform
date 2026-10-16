@@ -1,3 +1,5 @@
+import { validateLocalPasswordOnly } from './local-password-policy.mjs';
+
 // This optional provider has its own credentials; it never shares the funding DB.
 export function keycloakEnabled(env) {
   const value = env.FUNDING_KEYCLOAK_ENABLED ?? 'false';
@@ -127,6 +129,7 @@ function validateProvisioningTarget(env) {
 }
 
 export function validateKeycloakConfig(env) {
+  validateLocalPasswordOnly(env);
   if (keycloakProvisionUserEnabled(env) && !keycloakEnabled(env))
     throw new Error(
       'User provisioning requires FUNDING_KEYCLOAK_ENABLED=true.'

@@ -1,3 +1,5 @@
+import { validateLocalPasswordOnly } from './local-password-policy.mjs';
+
 export function checkAdminIdentity(context, env) {
   const {
     readValue,
@@ -10,6 +12,19 @@ export function checkAdminIdentity(context, env) {
     requiredCredentialFreeHttpsUrl,
     record
   } = context;
+
+  let localPasswordOnly;
+  try {
+    localPasswordOnly = validateLocalPasswordOnly(env);
+  } catch (error) {
+    record(
+      'missing',
+      'Admin',
+      'FUNDING_ADMIN_OIDC_LOCAL_PASSWORD_ONLY',
+      error.message
+    );
+    return;
+  }
 
   const mode = env.FUNDING_ADMIN_AUTH_MODE ?? 'token';
   if (!['token', 'oidc'].includes(mode)) {
@@ -125,7 +140,14 @@ export function checkAdminIdentity(context, env) {
   }
 
   const acr = 'FUNDING_ADMIN_OIDC_MFA_ACR';
-  if (readValue(acr)) {
+  if (localPasswordOnly) {
+    record(
+      'warn',
+      'Admin',
+      'FUNDING_ADMIN_OIDC_LOCAL_PASSWORD_ONLY',
+      'explicit localhost development exception: signed pwd required; MFA is disabled for the local application client'
+    );
+  } else if (readValue(acr)) {
     requiredPattern('Admin', acr, /[^,\s]/, 'set at least one MFA ACR value');
     record(
       'warn',
@@ -145,7 +167,9 @@ export function checkAdminIdentity(context, env) {
     'warn',
     'Admin',
     'OIDC readiness',
-    'configuration only; verify migration 020, same-origin Web/API callback, MFA and session revocation'
+    localPasswordOnly
+      ? 'configuration only; verify local password sign-in, roles and session revocation; no MFA assurance'
+      : 'configuration only; verify migration 020, same-origin Web/API callback, MFA and session revocation'
   );
 }
 

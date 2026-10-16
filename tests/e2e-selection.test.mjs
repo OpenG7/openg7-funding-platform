@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import {
   assertDiscoveryArgs,
@@ -108,6 +111,89 @@ test('each Yarn invocation retains forwarded filters, including nested aliases a
       }),
     /Multiline E2E Yarn scripts/
   );
+});
+
+test('sandbox verification discovery follows the dedicated runner contract without starting its stack', () => {
+  const scripts = {
+    'test:e2e:sandbox': 'node scripts/admin-sandbox.mjs --verify',
+    'sandbox:admin': 'node scripts/admin-sandbox.mjs',
+    nested: 'yarn test:e2e:sandbox'
+  };
+  const expected = [
+    {
+      config: 'tests/playwright-sandbox.config.mjs',
+      args: ['--config', 'tests/playwright-sandbox.config.mjs', '--workers=1']
+    }
+  ];
+  for (const command of [
+    'yarn test:e2e:sandbox',
+    'yarn nested',
+    'yarn sandbox:admin --verify',
+    'node scripts/admin-sandbox.mjs --verify'
+  ])
+    assert.deepEqual(workflowSelections('run: ' + command, scripts), expected);
+  for (const command of [
+    'yarn sandbox:admin',
+    'yarn test:e2e:sandbox --grep changed',
+    'node scripts/admin-sandbox.mjs --verify --config other.config.mjs',
+    'node scripts/admin-sandbox.mjs --verify --verify'
+  ])
+    assert.throws(
+      () => workflowSelections('run: ' + command, scripts),
+      /exactly --verify/
+    );
+  assert.throws(
+    () =>
+      workflowSelections(
+        [
+          'jobs:',
+          '  sandbox:',
+          '    if: false',
+          '    steps:',
+          '      - run: yarn test:e2e:sandbox'
+        ].join('\n'),
+        scripts
+      ),
+    /Conditional E2E/
+  );
+});
+
+test('actual Playwright discovery reserves the sandbox recipe for its dedicated stack', () => {
+  const root = fileURLToPath(new URL('../', import.meta.url));
+  const cli = createRequire(import.meta.url).resolve('@playwright/test/cli');
+  const sandboxFile = 'tests/playwright/admin-sandbox-acceptance.spec.ts';
+  for (const [config, isolated] of [
+    ['playwright.config.ts', '0'],
+    ['playwright.config.ts', '1'],
+    ['tests/playwright-sandbox.config.mjs', '1']
+  ]) {
+    const report = JSON.parse(
+      execFileSync(
+        process.execPath,
+        [cli, 'test', '--config', config, '--list', '--reporter=json'],
+        {
+          cwd: root,
+          env: { ...process.env, OPENG7_E2E_ISOLATED: isolated },
+          encoding: 'utf8',
+          maxBuffer: 16 * 1024 * 1024,
+          timeout: 30000,
+          windowsHide: true,
+          stdio: ['ignore', 'pipe', 'pipe']
+        }
+      )
+    );
+    const { files } = selectedE2eFiles(report, root);
+    if (config === 'playwright.config.ts') {
+      assert.ok(files.has('tests/playwright/admin-contributions.spec.ts'));
+      assert.equal(
+        files.has(sandboxFile),
+        false,
+        `ordinary stack: ${isolated}`
+      );
+    } else {
+      assert.deepEqual([...files], [sandboxFile]);
+    }
+  }
 });
 
 const shardedWorkflow = (

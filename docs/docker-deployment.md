@@ -351,7 +351,7 @@ yarn docker:up:dev --auth keycloak --no-stripe-webhook --dry-run
 Token utilise les secrets locaux existants et exclut la surcharge identite.
 Des conteneurs Keycloak deja presents peuvent rester actifs ; ce choix ne les
 arrete pas et ne supprime ni leur DB ni leurs volumes. Keycloak active OIDC avec
-`auth.openg7.test`, `https://localhost`, l'issuer
+`auth.openg7.test`, `https://localhost`, l'URL API derivee `https://localhost/api`, l'issuer
 `https://auth.openg7.test/realms/openg7` et `FUNDING_ADMIN_OIDC_MFA_ACR` vide.
 Il reutilise les secrets, le client et le compte bootstrap configures ; les
 valeurs par defaut des deux noms sont `openg7-funding-admin` et

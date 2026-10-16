@@ -1,0 +1,132 @@
+<dialog
+  #dialog
+  data-og7="controller-editor"
+  aria-labelledby="controller-editor-title"
+  (cancel)="cancel($event)"
+  (keydown)="keydown($event)"
+>
+  <header>
+    <h2 id="controller-editor-title">{{ t('title') }}</h2>
+    <p>{{ label() }}</p>
+  </header>
+  <div class="body">
+    @if (format(); as formatHelp) {
+      <p class="format">{{ t('format', { format: formatHelp }) }}</p>
+    }
+    <output data-og7="editor-preview" aria-live="polite" class="preview"
+      ><span>{{ before() }}</span
+      ><span class="caret" aria-hidden="true">|</span
+      ><span>{{ after() }}</span></output
+    >
+    @if (error()) {
+      <p role="alert" data-og7="editor-error">{{ error() }}</p>
+    }
+    <div class="keys" data-og7="editor-keys">
+      @for (key of keys; track key) {
+        <button
+          type="button"
+          class="admin-button"
+          data-og7="editor-key"
+          [attr.data-og7-id]="upper() ? key.toUpperCase() : key"
+          (click)="insert(upper() ? key.toUpperCase() : key)"
+        >
+          {{ upper() ? key.toUpperCase() : key }}
+        </button>
+      }
+    </div>
+    <div class="tools">
+      <button
+        type="button"
+        class="admin-button"
+        data-og7="editor-shift"
+        [attr.aria-pressed]="upper()"
+        (click)="upper.set(!upper())"
+      >
+        {{ t('shift') }}
+      </button>
+      <button
+        type="button"
+        class="admin-button"
+        data-og7="editor-space"
+        (click)="insert(' ')"
+      >
+        {{ t('space') }}
+      </button>
+      @if (multiline()) {
+        <button
+          type="button"
+          class="admin-button"
+          data-og7="editor-newline"
+          (click)="insert('\n')"
+        >
+          {{ t('newline') }}
+        </button>
+      }
+      <button
+        type="button"
+        class="admin-button"
+        data-og7="editor-backspace"
+        (click)="backspace()"
+      >
+        {{ t('backspace') }}
+      </button>
+      <button
+        type="button"
+        class="admin-button"
+        data-og7="editor-clear"
+        (click)="clear()"
+      >
+        {{ t('clear') }}
+      </button>
+      <button
+        type="button"
+        class="admin-button"
+        data-og7="editor-left"
+        (click)="move(-1)"
+      >
+        {{ t('left') }}
+      </button>
+      <button
+        type="button"
+        class="admin-button"
+        data-og7="editor-right"
+        (click)="move(1)"
+      >
+        {{ t('right') }}
+      </button>
+      <button
+        type="button"
+        class="admin-button"
+        data-og7="editor-home"
+        (click)="cursor.set(0)"
+      >
+        {{ t('home') }}
+      </button>
+      <button
+        type="button"
+        class="admin-button"
+        data-og7="editor-end"
+        (click)="cursor.set(draft().length)"
+      >
+        {{ t('end') }}
+      </button>
+    </div>
+  </div>
+  <footer>
+    <button
+      type="button"
+      class="admin-button"
+      data-og7="editor-cancel"
+      (click)="cancel()"
+    >
+      {{ t('cancel') }}</button
+    ><button
+      type="button"
+      class="admin-button admin-button--primary"
+      data-og7="editor-apply"
+      (click)="apply()"
+    >
+      {{ t('apply') }}
+    </button>
+  </footer>
+</dialog>

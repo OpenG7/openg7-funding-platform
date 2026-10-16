@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { withPostgresTransaction } from '../dist/apps/funding-api/src/postgres-transaction.js';
+import { observePostgresTransactions } from './integration/support/disposable-postgres.mjs';
 
 const fixture = (failures = {}) => {
   const calls = [];
@@ -40,6 +41,83 @@ const deferred = () => {
   });
   return { promise, resolve };
 };
+
+test('the transaction observer attributes only its caller clients and forwards queries unchanged', async () => {
+  const f = fixture();
+  const queryResult = { rows: [{ source: 'synthetic unrelated activity' }] };
+  f.pool.query = async (...args) => {
+    f.calls.push(args);
+    return queryResult;
+  };
+  const observed = observePostgresTransactions(f.pool);
+  const parameters = ['synthetic'];
+  assert.equal(
+    await observed.pool.query('SELECT $1::text', parameters),
+    queryResult
+  );
+  assert.deepEqual(f.calls.at(-1), ['SELECT $1::text', parameters]);
+
+  // Background work and fixture setup never use the service's wrapped clients.
+  await f.client.query('BEGIN');
+  assert.equal(observed.openTransactions, 0);
+  await f.client.query('ROLLBACK');
+  const client = await observed.pool.connect();
+  await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+  assert.equal(observed.openTransactions, 1);
+  await client.query('ROLLBACK');
+  assert.equal(observed.openTransactions, 0);
+  client.release();
+  assert.equal(f.calls.at(-1), 'release');
+});
+
+test('the transaction observer retains an open transaction until commit or rollback is acknowledged', async (t) => {
+  for (const command of ['COMMIT', 'ROLLBACK']) {
+    await t.test(command, async () => {
+      const f = fixture();
+      const observed = observePostgresTransactions(f.pool);
+      const started = deferred();
+      const acknowledged = deferred();
+      const query = f.client.query.bind(f.client);
+      f.client.query = async (sql) => {
+        const result = await query(sql);
+        if (sql === command) {
+          started.resolve();
+          await acknowledged.promise;
+        }
+        return result;
+      };
+      const completion = withPostgresTransaction(
+        observed.pool,
+        async () => {
+          assert.equal(observed.openTransactions, 1);
+        },
+        { shouldCommit: () => command === 'COMMIT' }
+      );
+      await started.promise;
+      assert.equal(observed.openTransactions, 1);
+      acknowledged.resolve();
+      await completion;
+      assert.equal(observed.openTransactions, 0);
+    });
+  }
+});
+
+test('a failed transaction close and client release never clear the observer prematurely', async (t) => {
+  for (const command of ['COMMIT', 'ROLLBACK']) {
+    await t.test(command, async () => {
+      const f = fixture({
+        [command]: new Error('Synthetic unacknowledged close')
+      });
+      const observed = observePostgresTransactions(f.pool);
+      const client = await observed.pool.connect();
+      await client.query('BEGIN');
+      await assert.rejects(client.query(command));
+      assert.equal(observed.openTransactions, 1);
+      client.release();
+      assert.equal(observed.openTransactions, 1);
+    });
+  }
+});
 
 test('a successful transaction returns the unchanged result after committing and releasing once', async () => {
   const { calls, pool, operation, result } = fixture();

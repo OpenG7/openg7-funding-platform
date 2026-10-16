@@ -40,6 +40,8 @@ export interface PublicSponsorshipBatchAvailabilityResponse {
 export interface AdminPublicationDraftRecord {
   readonly id: string;
   readonly contribution_id: string;
+  /** Older records may be unbound; a published unbound draft proves no remaining passage. */
+  readonly obligation_id?: string | null;
   readonly sponsor_company_name: string;
   readonly sponsor_website_url: string | null;
   readonly sponsor_logo_url: string | null;

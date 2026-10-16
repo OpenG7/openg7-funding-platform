@@ -63,6 +63,14 @@ for (const environment of ['development', 'production']) {
         env.FUNDING_ADMIN_OIDC_OWNER_SUBJECTS = subject;
         stages.push('provision-complete');
       },
+      configureLocalMfa: async (env) => {
+        assert.equal(environment, 'development');
+        assert.equal(env, plan.commandEnv);
+        assert.equal(env.FUNDING_ADMIN_OIDC_OWNER_SUBJECTS, subject);
+        stages.push('reconcile-start');
+        await Promise.resolve();
+        stages.push('reconcile-complete');
+      },
       runDocker: async (args, env) => {
         if (args === plan.identityUp) {
           assert.deepEqual(args.slice(-8), [
@@ -90,6 +98,9 @@ for (const environment of ['development', 'production']) {
       ...(environment === 'production' ? ['https'] : []),
       'provision-start',
       'provision-complete',
+      ...(environment === 'development'
+        ? ['reconcile-start', 'reconcile-complete']
+        : []),
       'application'
     ]);
   });
@@ -118,6 +129,8 @@ for (const environment of ['development', 'production']) {
         prepareKeycloakUser: async () => {
           throw failure;
         },
+        configureLocalMfa: () =>
+          assert.fail('Failed provisioning must prevent MFA reconciliation'),
         runDocker: async (args) => commands.push(args)
       }),
       (error) => error === failure
@@ -127,18 +140,39 @@ for (const environment of ['development', 'production']) {
   });
 }
 
-test('disabled provisioning preserves local startup without starting identity separately', async () => {
+test('disabled provisioning still reconciles local MFA after identity readiness and before application startup', async () => {
   const plan = planFor('development', 'false');
-  assert.equal(plan.identityUp, null);
-  let calls = 0;
+  assert.equal(plan.localMfaConfigured, true);
+  assert.ok(plan.identityUp.includes('keycloak'));
+  const stages = [];
   await startDockerStack(plan, {
-    runDocker: async () => calls++,
+    runDocker: async (args) => {
+      stages.push(
+        args === plan.identityUp
+          ? 'identity'
+          : args.includes('up')
+            ? 'application'
+            : args.includes('config')
+              ? 'config'
+              : 'build'
+      );
+    },
+    configureLocalMfa: async (env) => {
+      assert.equal(env, plan.commandEnv);
+      stages.push('reconcile');
+    },
     prepareProductionTls: () =>
       assert.fail('Local startup cannot prepare ACME'),
     checkProductionIdentity: () => assert.fail('No public HTTPS check locally'),
     prepareKeycloakUser: () => assert.fail('Provisioning is opt-in')
   });
-  assert.equal(calls, 3);
+  assert.deepEqual(stages, [
+    'config',
+    'build',
+    'identity',
+    'reconcile',
+    'application'
+  ]);
 });
 
 test('identity-only production can prepare the owner without launching the application', async () => {
@@ -197,6 +231,7 @@ const fixture = (t) => {
     'scripts/lib/docker-config.mjs',
     'scripts/lib/docker-environment.mjs',
     'scripts/lib/keycloak-config.mjs',
+    'scripts/lib/local-password-policy.mjs',
     'scripts/lib/services-check-context.mjs',
     'scripts/lib/services-check-identity.mjs',
     'scripts/lib/production-identity.mjs'
@@ -218,6 +253,16 @@ export const prepareLocalIdentity = () => {};
     join(root, 'scripts/lib/keycloak-initial-user.mjs'),
     `
 export const prepareLocalInitialUser = () => null;
+`
+  );
+  writeFileSync(
+    join(root, 'scripts/lib/keycloak-local-mfa.mjs'),
+    `
+export async function configureLocalKeycloakMfa({ root, env }) {
+  globalThis.launcherCalls.push({ stage: 'mfa', root, owner: env.FUNDING_ADMIN_OIDC_OWNER_SUBJECTS });
+  await Promise.resolve();
+  return null;
+}
 `
   );
   writeFileSync(
@@ -333,6 +378,14 @@ for (const [script, args] of launchers) {
     assert.ok(applicationUp);
     assert.ok(result.calls.indexOf(applicationUp) > provisionIndex);
     assert.equal(applicationUp.owner, subject);
+    const reconciliationIndex = result.calls.findIndex(
+      (call) => call.stage === 'mfa'
+    );
+    if (script === 'docker-up.mjs') {
+      assert.ok(reconciliationIndex > provisionIndex);
+      assert.ok(reconciliationIndex < result.calls.indexOf(applicationUp));
+      assert.equal(result.calls[reconciliationIndex].owner, subject);
+    } else assert.equal(reconciliationIndex, -1);
     if (script !== 'docker-up.mjs') {
       const commandText = applicationUp.args.join(' ');
       assert.match(commandText, /--no-deps/);
@@ -366,6 +419,10 @@ for (const [script, args] of launchers) {
     });
     assert.equal(result.status, 0, result.stderr);
     assert.ok(result.calls.every((call) => call.stage !== 'provision'));
+    assert.equal(
+      result.calls.filter((call) => call.stage === 'mfa').length,
+      script === 'docker-up.mjs' ? 1 : 0
+    );
   });
 }
 
