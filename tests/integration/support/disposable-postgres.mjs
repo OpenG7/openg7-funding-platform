@@ -13,6 +13,35 @@ const migrationsDirectory = new URL(
   import.meta.url
 );
 
+/** Observe this caller's explicit transactions, independently of server workers. */
+export function observePostgresTransactions(pool) {
+  const open = new Set();
+  return {
+    get openTransactions() {
+      return open.size;
+    },
+    pool: {
+      query: (...args) => pool.query(...args),
+      async connect() {
+        const client = await pool.connect();
+        return {
+          async query(sql, ...args) {
+            const result = await client.query(sql, ...args);
+            const text = typeof sql === 'string' ? sql : sql.text;
+            // Completion is observed only after PostgreSQL acknowledges it.
+            // Releasing a client alone does not prove a transaction was closed.
+            if (/^\s*BEGIN\b/i.test(text)) open.add(client);
+            if (/^\s*(?:COMMIT|ROLLBACK)\s*;?\s*$/i.test(text))
+              open.delete(client);
+            return result;
+          },
+          release: (...args) => client.release(...args)
+        };
+      }
+    }
+  };
+}
+
 // This helper never consumes DATABASE_URL or .env. Every invocation owns a
 // fresh container and an in-memory data directory, with only a loopback port.
 export const startDisposablePostgres = async ({ migrate = true } = {}) => {

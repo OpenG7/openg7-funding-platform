@@ -1,6 +1,6 @@
 import type { Download, Page } from '@playwright/test';
 
-import { expect, test } from './support/test.js';
+import { expect, sampledFrames, test } from './support/test.js';
 
 const report = {
   data_source: 'database',
@@ -335,11 +335,35 @@ test('one public load feeds all panels and partial allocations keep zero, eviden
   await expect(allocations.getByRole('link')).toHaveCount(2);
   await expect(allocations).not.toContainText(/private|Invalid Date|null/);
   await expect(hook(page, 'transparency-method')).toContainText(/Stripe/);
-  await hook(page, 'transparency-period').selectOption('2026-08');
-  await page
+  const period = hook(page, 'transparency-period');
+  await period.scrollIntoViewIfNeeded();
+  const originalY = await period.evaluate(
+    (element) => element.getBoundingClientRect().y
+  );
+  await period.selectOption('2026-08');
+  await expect(page).toHaveURL(/\?period=2026-08#public-registry$/);
+  await sampledFrames(page);
+  expect(
+    await period.evaluate(
+      (element, before) => Math.abs(element.getBoundingClientRect().y - before),
+      originalY
+    )
+  ).toBeLessThanOrEqual(1);
+  const refunds = page
     .locator('#public-registry')
-    .getByRole('button', { name: 'Remboursements', exact: true })
-    .click();
+    .getByRole('button', { name: 'Remboursements', exact: true });
+  await refunds.click();
+  await expect(refunds).toHaveAttribute('aria-pressed', 'true');
+  await expect(page).toHaveURL(
+    /\?period=2026-08&type=refunds#public-registry$/
+  );
+  await sampledFrames(page);
+  expect(
+    await period.evaluate(
+      (element, before) => Math.abs(element.getBoundingClientRect().y - before),
+      originalY
+    )
+  ).toBeLessThanOrEqual(1);
   await expect(page.locator('tbody')).toContainText('Aucun');
   await expect(hook(page, 'transparency-reports')).toContainText('2026-08');
   await expect(allocations).toContainText('Allocation prévue sans dépense');
@@ -623,7 +647,9 @@ test('shared period and type survive loading, changes, history and copying in th
   await expect(refunds).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('tbody tr')).toHaveCount(1);
   await expect(page.locator('tbody')).toContainText('10.00');
-  await hook(page, 'transparency-period').selectOption('2026-08');
+  const period = hook(page, 'transparency-period');
+  await period.scrollIntoViewIfNeeded();
+  await period.selectOption('2026-08');
   await expect(page).toHaveURL(/period=2026-08&type=refunds/);
   await expect(registry).toBeInViewport();
   await page.goBack();
