@@ -1,36 +1,33 @@
+@reference '../../../../../styles/tailwind.css';
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
 }
 fieldset {
   border: 1px solid var(--admin-border, var(--border-color));
-  border-radius: 0.5rem;
+  @apply tw:rounded-lg;
   padding: 0.8rem;
-  min-width: 0;
+  @apply tw:min-w-0;
   margin: 0.6rem 0;
 }
 label {
-  display: flex;
+  @apply tw:flex;
   align-items: start;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  @apply tw:flex-wrap tw:gap-2;
   margin: 0.5rem 0;
 }
 input[type='text'],
 textarea {
   flex: 1 1 100%;
-  max-width: 100%;
-  box-sizing: border-box;
+  @apply tw:max-w-full tw:box-border;
   font: inherit;
   color: inherit;
   background: transparent;
   border: 1px solid var(--admin-border, var(--border-color));
-  border-radius: 0.25rem;
-  padding: 0.5rem;
+  @apply tw:rounded-sm tw:p-2;
 }
 button {
   font: inherit;
-  min-height: 2.75rem;
+  @apply tw:min-h-11;
 }
 input:focus-visible,
 textarea:focus-visible,

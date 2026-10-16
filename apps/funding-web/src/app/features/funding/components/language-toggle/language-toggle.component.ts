@@ -23,32 +23,7 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
       {{ label() }}
     </button>
   `,
-  styles: [
-    `
-      .language-toggle {
-        background: var(--surface-panel);
-        border: 1px solid var(--border-color);
-        border-radius: 999px;
-        color: var(--text-main);
-        cursor: pointer;
-        font-family: 'Trebuchet MS', sans-serif;
-        font-size: 0.9375rem;
-        font-weight: 600;
-        min-height: 2.75rem;
-        padding: 0 0.75rem;
-        text-transform: uppercase;
-      }
-
-      .language-toggle:hover {
-        background: var(--surface-subtle);
-      }
-
-      .language-toggle:focus-visible {
-        outline: 3px solid var(--color-primary);
-        outline-offset: 3px;
-      }
-    `
-  ]
+  styleUrl: './language-toggle.component.css'
 })
 export class LanguageToggleComponent {
   private readonly i18n = inject(FundingI18nService);

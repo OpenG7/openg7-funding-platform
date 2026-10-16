@@ -1,0 +1,808 @@
+@reference '../../../../../styles/tailwind.css';
+
+:host {
+  @apply tw:block;
+}
+
+.ecosystem-page {
+  background: var(--surface-page);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
+  color: var(--text-main);
+  font-family: 'Segoe UI', Arial, sans-serif;
+  margin: 0 auto;
+  max-width: 1530px;
+  @apply tw:min-h-dvh tw:overflow-hidden;
+}
+
+.ecosystem-brand {
+  @apply tw:items-center;
+  color: var(--text-main);
+  @apply tw:inline-flex;
+  gap: 0.55rem;
+  text-decoration: none;
+}
+
+.ecosystem-brand span {
+  color: var(--color-gold);
+  @apply tw:grid;
+  font-size: 1.8rem;
+  @apply tw:place-items-center;
+  text-shadow: none;
+}
+
+.ecosystem-brand strong {
+  font-size: 1.35rem;
+}
+
+.ecosystem-footer nav a {
+  color: var(--color-primary);
+  font-size: 0.875rem;
+  font-weight: 700;
+  padding: 1.6rem 0 1.45rem;
+  @apply tw:relative;
+  text-decoration: none;
+}
+
+.ecosystem-hero {
+  @apply tw:min-h-94 tw:overflow-hidden;
+  padding: 3.1rem clamp(1rem, 3vw, 3.25rem) 1.3rem;
+  @apply tw:relative;
+}
+
+.ecosystem-hero-image {
+  filter: saturate(1.14) contrast(1.08);
+  @apply tw:h-full tw:inset-0 tw:object-cover;
+  object-position: center 42%;
+  opacity: 0.9;
+  @apply tw:absolute tw:w-full;
+}
+
+.ecosystem-hero-overlay {
+  background:
+    linear-gradient(
+      90deg,
+      var(--surface-page) 0%,
+      color-mix(in srgb, var(--surface-page) 97%, transparent) 38%,
+      color-mix(in srgb, var(--surface-page) 90%, transparent) 68%,
+      color-mix(in srgb, var(--surface-page) 25%, transparent)
+    ),
+    linear-gradient(180deg, transparent 60%, var(--surface-page));
+  @apply tw:inset-0 tw:absolute;
+}
+
+.ecosystem-hero-copy,
+.ecosystem-stats {
+  @apply tw:relative;
+  z-index: 1;
+}
+
+.ecosystem-hero-copy {
+  max-width: 35rem;
+}
+
+h1,
+h2,
+h3,
+p,
+dl {
+  @apply tw:m-0;
+}
+
+.ecosystem-hero h1 {
+  color: var(--text-main);
+  font-family: 'Segoe UI', Arial, sans-serif;
+  font-size: clamp(2.6rem, 5vw, 2.75rem);
+  line-height: 1.25;
+  text-shadow: none;
+}
+
+.ecosystem-hero h1 strong,
+.ecosystem-cta p,
+.platform-card em,
+.connections-panel li span {
+  color: var(--text-main);
+}
+
+.ecosystem-lead {
+  color: var(--text-soft);
+  font-size: 1.05rem;
+  line-height: 1.45;
+  @apply tw:mt-4;
+  max-width: 34rem;
+}
+
+.ecosystem-actions {
+  @apply tw:flex tw:flex-wrap tw:gap-3;
+  margin-top: 1.35rem;
+}
+
+.ecosystem-actions a,
+.map-intro a,
+.platform-card a {
+  @apply tw:items-center;
+  background: var(--surface-panel);
+  border: 1px solid var(--border-color);
+  border-radius: 0.35rem;
+  color: var(--color-primary);
+  @apply tw:inline-flex;
+  font-weight: 900;
+  gap: 0.45rem;
+  @apply tw:min-h-11;
+  padding: 0 0.95rem;
+  text-decoration: none;
+}
+
+.ecosystem-actions a.primary {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--on-primary);
+}
+
+.ecosystem-actions a.gold {
+  border-color: var(--border-color);
+  color: var(--color-gold);
+}
+
+.ecosystem-stats {
+  @apply tw:grid tw:gap-3;
+  grid-template-columns: repeat(4, minmax(8rem, 1fr));
+  margin-top: 2.4rem;
+  max-width: 39rem;
+}
+
+.ecosystem-stats div,
+.ecosystem-map-panel,
+.platform-section,
+.architecture-panel,
+.connections-panel,
+.journey-panel,
+.development-panel,
+.summary-panel {
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
+}
+
+.ecosystem-stats div {
+  @apply tw:rounded-lg tw:grid;
+  gap: 0.2rem;
+  min-height: 4.6rem;
+  padding: 0.75rem 0.9rem;
+}
+
+.ecosystem-stats dt {
+  color: var(--text-soft);
+  font-size: 1.5rem;
+  font-weight: 900;
+}
+
+.ecosystem-stats dd {
+  color: var(--text-main);
+  font-size: 0.875rem;
+  @apply tw:m-0;
+}
+
+.ecosystem-map-panel,
+.platform-section,
+.architecture-grid,
+.journey-panel,
+.progress-summary,
+.ecosystem-cta {
+  margin-left: clamp(1rem, 3vw, 3.25rem);
+  margin-right: clamp(1rem, 3vw, 3.25rem);
+}
+
+.ecosystem-map-panel {
+  border-radius: 0.8rem;
+  @apply tw:grid tw:gap-6;
+  grid-template-columns: minmax(0, 1fr);
+  margin-top: 0.9rem;
+  padding: 1.15rem;
+}
+
+.map-intro h2,
+.platform-section h2,
+.architecture-panel h2,
+.connections-panel h2,
+.journey-panel h2,
+.development-panel h2,
+.ecosystem-cta h2 {
+  color: var(--text-main);
+  font-family: 'Segoe UI', Arial, sans-serif;
+  font-size: 1.45rem;
+}
+
+.map-intro p,
+.architecture-panel p,
+.connections-panel p,
+.journey-panel p {
+  color: var(--text-soft);
+  font-size: 0.875rem;
+  line-height: 1.45;
+  margin-top: 0.85rem;
+}
+
+.map-intro a {
+  margin-top: 1.2rem;
+}
+
+.network-board {
+  @apply tw:items-center tw:grid tw:gap-4;
+  grid-template-columns: minmax(0, 1fr) 8rem 10rem 8rem minmax(0, 1fr);
+  @apply tw:min-h-90 tw:overflow-hidden tw:relative;
+}
+
+.network-board::before,
+.network-board::after {
+  background: var(--surface-subtle);
+  content: '';
+  @apply tw:h-84;
+  left: 50%;
+  @apply tw:absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 36rem;
+}
+
+.network-board::after {
+  background: var(--surface-subtle);
+  @apply tw:h-72;
+  width: 30rem;
+}
+
+.network-list,
+.family-column,
+.network-core {
+  @apply tw:relative;
+  z-index: 1;
+}
+
+.network-list {
+  @apply tw:grid;
+  gap: 0.55rem;
+}
+
+.network-node {
+  @apply tw:items-center;
+  background: var(--surface-panel);
+  border: 1px solid var(--border-color);
+  @apply tw:rounded-lg tw:grid tw:gap-2;
+  grid-template-columns: 2.35rem minmax(0, 1fr);
+  min-height: 3.1rem;
+  padding: 0.35rem;
+}
+
+.network-list.right .network-node {
+  border-color: var(--border-color);
+}
+
+.network-node img {
+  border-radius: 0.35rem;
+  height: 2.35rem;
+  @apply tw:object-cover;
+  width: 2.35rem;
+}
+
+.network-node span {
+  color: var(--text-main);
+  @apply tw:block;
+  font-size: 0.875rem;
+}
+
+.network-node strong {
+  color: var(--text-main);
+  @apply tw:block;
+  font-size: 0.875rem;
+  line-height: 1.25;
+  @apply tw:wrap-anywhere;
+}
+
+.family-column {
+  @apply tw:grid tw:gap-5 tw:justify-items-center;
+}
+
+.family-orb,
+.network-core {
+  @apply tw:items-center;
+  border-radius: 999px;
+  @apply tw:grid tw:justify-items-center tw:text-center;
+}
+
+.family-orb {
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
+  @apply tw:h-32;
+  padding: 0.9rem;
+  @apply tw:w-32;
+}
+
+.family-orb.gold,
+.family-orb.orange,
+.family-orb.violet {
+  border-color: var(--border-color);
+  box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
+}
+
+.family-orb span {
+  color: var(--text-main);
+  font-size: 1.5rem;
+}
+
+.family-orb.gold span,
+.family-orb.orange span,
+.family-orb.violet span {
+  color: var(--color-gold);
+}
+
+.family-orb strong {
+  color: var(--text-main);
+  font-size: 0.875rem;
+  line-height: 1.25;
+}
+
+.network-core {
+  background: var(--surface-subtle);
+  border: 2px solid var(--border-color);
+  box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
+  @apply tw:h-40 tw:justify-self-center tw:w-40;
+}
+
+.network-core span {
+  color: var(--color-gold);
+  font-size: 2.4rem;
+}
+
+.network-core strong {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  font-size: 2rem;
+}
+
+.platform-section {
+  border-radius: 0.8rem;
+  margin-top: 0.9rem;
+  @apply tw:p-4;
+}
+
+.platform-grid {
+  @apply tw:grid tw:gap-6 tw:grid-cols-3;
+  margin-top: 0.9rem;
+}
+
+.platform-card {
+  background: var(--surface-panel);
+  border: 1px solid var(--border-color);
+  border-radius: 0.6rem;
+  @apply tw:min-h-56 tw:overflow-hidden tw:relative tw:p-6;
+}
+
+.platform-card img {
+  @apply tw:h-24 tw:object-cover tw:w-full;
+}
+
+.platform-card > div {
+  padding: 0.55rem 0.65rem 0.7rem;
+}
+
+.platform-card span {
+  color: var(--text-main);
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.platform-card h3 {
+  color: var(--text-main);
+  font-size: 0.95rem;
+  line-height: 1.25;
+  margin-top: 0.2rem;
+}
+
+.platform-card em {
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  @apply tw:inline-flex;
+  font-size: 0.875rem;
+  @apply tw:not-italic;
+  margin-top: 0.35rem;
+  padding: 0.12rem 0.38rem;
+}
+
+.platform-card p {
+  color: var(--text-soft);
+  font-size: 0.875rem;
+  line-height: 1.35;
+  margin-top: 0.4rem;
+}
+
+.platform-card a {
+  border: 0;
+  color: var(--color-primary);
+  font-size: 0.875rem;
+  margin-top: 0.45rem;
+  @apply tw:min-h-auto tw:p-0;
+}
+
+.architecture-grid,
+.progress-summary {
+  @apply tw:grid tw:gap-6;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  margin-top: 0.9rem;
+}
+
+.architecture-panel,
+.connections-panel,
+.journey-panel,
+.development-panel,
+.summary-panel {
+  border-radius: 0.8rem;
+  @apply tw:p-4;
+}
+
+.architecture-panel {
+  @apply tw:min-w-0 tw:wrap-anywhere;
+}
+
+.architecture-items {
+  @apply tw:grid tw:gap-4 tw:grid-cols-3 tw:mt-4;
+}
+
+.architecture-items article {
+  background: var(--surface-panel);
+  border: 1px solid var(--border-color);
+  @apply tw:rounded-lg tw:grid;
+  gap: 0.45rem;
+  min-height: 5.2rem;
+  @apply tw:min-w-0;
+  padding: 0.65rem 0.45rem;
+  @apply tw:place-items-center tw:text-center;
+}
+
+.architecture-items span {
+  color: var(--text-main);
+  font-size: 1.55rem;
+}
+
+.architecture-items strong {
+  color: var(--text-main);
+  font-size: 0.875rem;
+  line-height: 1.25;
+}
+
+.platform-dots {
+  @apply tw:items-center;
+  border-top: 1px solid var(--border-color);
+  @apply tw:flex tw:flex-wrap tw:gap-2 tw:justify-center;
+  margin-top: 1.2rem;
+  @apply tw:min-w-0 tw:pt-4;
+}
+
+.platform-dots span {
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  color: var(--text-main);
+  @apply tw:grid;
+  flex: 0 0 auto;
+  font-size: 0.875rem;
+  height: 2.5em;
+  @apply tw:place-items-center;
+  width: 2.5em;
+}
+
+.connections-panel ul {
+  @apply tw:grid;
+  gap: 0.72rem;
+  list-style: none;
+  margin: 0.9rem 0 0;
+  @apply tw:p-0;
+}
+
+.connections-panel li {
+  align-items: start;
+  @apply tw:grid;
+  gap: 0.6rem;
+  grid-template-columns: auto 1fr;
+  @apply tw:relative;
+}
+
+.connections-panel li::after {
+  background: linear-gradient(90deg, currentColor, transparent);
+  border-radius: 999px;
+  content: '';
+  height: 2px;
+  left: 2.2rem;
+  opacity: 0.55;
+  @apply tw:absolute tw:right-0 tw:top-4;
+}
+
+.connections-panel li.cyan,
+.connections-panel li.blue {
+  color: var(--color-primary);
+}
+
+.connections-panel li.green {
+  color: var(--color-success);
+}
+
+.connections-panel li.violet {
+  color: var(--color-primary);
+}
+
+.connections-panel li.orange,
+.connections-panel li.gold {
+  color: var(--color-gold);
+}
+
+.connections-panel span {
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  @apply tw:grid;
+  height: 1.7rem;
+  @apply tw:place-items-center;
+  width: 1.7rem;
+}
+
+.connections-panel strong {
+  color: var(--text-main);
+  @apply tw:block;
+  font-size: 0.95rem;
+}
+
+.journey-panel {
+  margin-top: 0.9rem;
+}
+
+.journey-track {
+  align-items: start;
+  @apply tw:grid tw:gap-6 tw:grid-cols-4 tw:mt-4;
+}
+
+.journey-track article {
+  @apply tw:grid;
+  gap: 0.35rem;
+  @apply tw:justify-items-center tw:min-w-0 tw:relative tw:text-center;
+}
+
+.journey-track article > span {
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  color: var(--text-main);
+  @apply tw:grid;
+  font-size: 1.6rem;
+  height: 4.2rem;
+  @apply tw:place-items-center;
+  width: 4.2rem;
+}
+
+.journey-track strong {
+  color: var(--text-main);
+  font-size: 0.875rem;
+  line-height: 1.25;
+}
+
+.journey-track p {
+  font-size: 0.875rem;
+  @apply tw:m-0;
+}
+
+.journey-track i {
+  color: var(--text-main);
+  @apply tw:not-italic tw:absolute;
+  right: -0.75rem;
+  top: 1.6rem;
+}
+
+.development-row {
+  @apply tw:items-center tw:grid;
+  gap: 0.7rem;
+  grid-template-columns: minmax(9rem, 0.65fr) minmax(9rem, 1fr) auto auto;
+  @apply tw:mt-3;
+}
+
+.development-row span,
+.development-row strong,
+.development-row em {
+  color: var(--text-main);
+  font-size: 0.875rem;
+  @apply tw:not-italic;
+}
+
+.development-row div {
+  background: var(--surface-panel);
+  border-radius: 999px;
+  height: 0.42rem;
+  @apply tw:overflow-hidden;
+}
+
+.development-row i {
+  background: var(--color-primary);
+  @apply tw:block tw:h-full;
+}
+
+.summary-panel dl {
+  @apply tw:grid tw:gap-3 tw:grid-cols-4;
+}
+
+.summary-panel dl div {
+  border: 1px solid var(--border-color);
+  @apply tw:rounded-lg;
+  padding: 0.75rem 0.5rem;
+  @apply tw:text-center;
+}
+
+.summary-panel dt {
+  color: var(--color-primary);
+  font-size: 1.9rem;
+  font-weight: 900;
+}
+
+.summary-panel dd {
+  color: var(--text-main);
+  font-size: 0.875rem;
+  @apply tw:m-0;
+}
+
+.summary-panel ul {
+  @apply tw:grid tw:gap-2 tw:grid-cols-4;
+  list-style: none;
+  margin: 0.8rem 0 0;
+  @apply tw:p-0;
+}
+
+.summary-panel li {
+  color: var(--color-primary);
+  font-size: 0.875rem;
+}
+
+.summary-panel li span {
+  color: var(--color-primary);
+  @apply tw:block;
+  font-size: 0.875rem;
+}
+
+.ecosystem-cta {
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--surface-panel) 97%, transparent),
+      color-mix(in srgb, var(--surface-panel) 90%, transparent)
+    ),
+    url('/assets/fonds-des-batisseurs-feuille-erable-lumineuse.png');
+  background-position: center 56%;
+  background-size: cover;
+  border-top: 1px solid var(--border-color);
+  @apply tw:mt-4;
+  padding: 2.2rem 1rem 1.6rem;
+  @apply tw:text-center;
+}
+
+.ecosystem-cta h2 {
+  font-size: 1.85rem;
+}
+
+.ecosystem-cta p {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  font-size: 2rem;
+  font-weight: 900;
+  @apply tw:mt-1;
+}
+
+.ecosystem-cta .ecosystem-actions {
+  @apply tw:justify-center;
+}
+
+.ecosystem-footer {
+  @apply tw:items-center;
+  background: var(--surface-subtle);
+  border-top: 1px solid var(--border-color);
+  @apply tw:grid tw:gap-4;
+  grid-template-columns: minmax(12rem, 0.8fr) minmax(20rem, 1.3fr) auto;
+  padding: 0.8rem clamp(1rem, 3vw, 3.25rem);
+}
+
+.ecosystem-footer nav {
+  @apply tw:flex tw:gap-8 tw:justify-center;
+}
+
+.ecosystem-footer small {
+  color: var(--text-soft);
+}
+
+@media (max-width: 1280px) {
+  .ecosystem-map-panel,
+  .architecture-grid,
+  .progress-summary,
+  .ecosystem-footer {
+    grid-template-columns: 1fr;
+  }
+
+  .ecosystem-footer nav {
+    @apply tw:justify-start tw:overflow-x-auto;
+  }
+
+  .network-board {
+    grid-template-columns: 1fr;
+  }
+
+  .network-board::before,
+  .network-board::after {
+    @apply tw:hidden;
+  }
+
+  .network-list,
+  .family-column {
+    @apply tw:grid-cols-3;
+  }
+
+  .family-column,
+  .network-list {
+    @apply tw:grid;
+  }
+
+  .network-core {
+    order: -1;
+  }
+
+  .platform-grid {
+    @apply tw:grid-cols-3;
+  }
+
+  .architecture-items,
+  .journey-track {
+    @apply tw:grid-cols-4;
+  }
+}
+
+@media (max-width: 760px) {
+  .ecosystem-actions,
+  .ecosystem-stats,
+  .network-list,
+  .family-column,
+  .platform-grid,
+  .architecture-items,
+  .journey-track,
+  .summary-panel dl,
+  .summary-panel ul {
+    grid-template-columns: 1fr;
+  }
+
+  .ecosystem-actions {
+    @apply tw:grid;
+  }
+
+  .ecosystem-actions a {
+    @apply tw:justify-center tw:w-full;
+  }
+
+  .ecosystem-hero {
+    min-height: 26rem;
+    padding: 1.45rem 1rem 1rem;
+  }
+
+  .ecosystem-hero-image {
+    object-position: 62% center;
+  }
+
+  .ecosystem-map-panel,
+  .platform-section,
+  .architecture-grid,
+  .journey-panel,
+  .progress-summary,
+  .ecosystem-cta {
+    @apply tw:ml-3 tw:mr-3;
+  }
+
+  .development-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 860px) {
+  .ecosystem-hero-overlay {
+    background: linear-gradient(
+      color-mix(in srgb, var(--surface-page) 94%, transparent),
+      color-mix(in srgb, var(--surface-page) 98%, transparent)
+    );
+  }
+}

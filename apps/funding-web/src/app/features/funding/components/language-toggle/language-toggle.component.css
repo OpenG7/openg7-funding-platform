@@ -1,0 +1,24 @@
+@reference '../../../../../styles/tailwind.css';
+
+.language-toggle {
+  background: var(--surface-panel);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  color: var(--text-main);
+  @apply tw:cursor-pointer;
+  font-family: 'Trebuchet MS', sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  @apply tw:min-h-11;
+  padding: 0 0.75rem;
+  @apply tw:uppercase;
+}
+
+.language-toggle:hover {
+  background: var(--surface-subtle);
+}
+
+.language-toggle:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 3px;
+}

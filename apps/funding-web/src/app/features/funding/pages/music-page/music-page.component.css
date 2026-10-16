@@ -1,0 +1,432 @@
+@reference '../../../../../styles/tailwind.css';
+
+:host {
+  @apply tw:block;
+}
+
+.music-page {
+  background: var(--surface-page);
+  color: var(--text-main);
+  font-family: 'Segoe UI', Arial, sans-serif;
+  @apply tw:min-h-dvh tw:overflow-hidden;
+}
+
+.music-stage {
+  @apply tw:isolate;
+  min-height: calc(100dvh - 4.15rem);
+  @apply tw:overflow-hidden tw:relative;
+}
+
+.music-background,
+.music-veils {
+  @apply tw:inset-0 tw:absolute;
+}
+
+.music-background {
+  @apply tw:h-full tw:object-cover;
+  object-position: center center;
+  @apply tw:w-full;
+  z-index: -3;
+}
+
+.music-veils {
+  background:
+    linear-gradient(
+      90deg,
+      var(--surface-page) 0%,
+      color-mix(in srgb, var(--surface-page) 97%, transparent) 38%,
+      color-mix(in srgb, var(--surface-page) 90%, transparent) 68%,
+      color-mix(in srgb, var(--surface-page) 25%, transparent)
+    ),
+    linear-gradient(180deg, transparent 60%, var(--surface-page));
+  z-index: -2;
+}
+
+.music-stage::before,
+.music-stage::after {
+  content: '';
+  @apply tw:pointer-events-none tw:absolute;
+  z-index: -1;
+}
+
+.music-stage::before {
+  background: var(--surface-subtle);
+  height: 34rem;
+  left: 50%;
+  @apply tw:top-20;
+  transform: translateX(-50%);
+  width: 44rem;
+}
+
+.music-stage::after {
+  border: 1px solid var(--border-color);
+  inset: clamp(0.7rem, 2vw, 1.5rem);
+}
+
+.music-shell {
+  @apply tw:grid tw:gap-6;
+  margin: 0 auto;
+  max-width: 1180px;
+  min-height: inherit;
+  padding: 2.5rem clamp(1rem, 4vw, 3rem);
+  @apply tw:relative;
+}
+
+.music-hero-panel,
+.album-card,
+.kingdom-news,
+.music-cta {
+  backdrop-filter: none;
+  background: var(--surface-panel);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
+}
+
+.music-hero-panel {
+  @apply tw:justify-self-center;
+  max-width: 48rem;
+  padding: clamp(1.45rem, 4vw, 2.7rem);
+  @apply tw:text-center;
+}
+
+.music-kicker,
+.card-eyebrow {
+  color: var(--color-gold);
+  font-family: 'Segoe UI', Arial, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  @apply tw:m-0 tw:uppercase;
+}
+
+h1,
+h2,
+h3,
+p {
+  @apply tw:m-0;
+}
+
+h1 {
+  color: var(--text-main);
+  font-size: clamp(2.7rem, 7vw, 2.75rem);
+  line-height: 1.25;
+  margin-top: 0.6rem;
+  text-shadow: none;
+}
+
+.music-lead {
+  color: var(--text-soft);
+  font-family: 'Segoe UI', Arial, sans-serif;
+  font-size: clamp(1rem, 2vw, 1.18rem);
+  line-height: 1.55;
+  margin: 1.1rem auto 0;
+  max-width: 41rem;
+}
+
+.coming-badge {
+  @apply tw:items-center;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  box-shadow: none;
+  color: var(--color-gold);
+  @apply tw:inline-flex;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 900;
+  gap: 0.45rem;
+  @apply tw:mt-5;
+  padding: 0.55rem 0.95rem;
+  @apply tw:uppercase;
+}
+
+.music-preview-grid {
+  @apply tw:grid tw:gap-6;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.album-card,
+.kingdom-news {
+  border-radius: 0.8rem;
+  padding: clamp(1rem, 2.4vw, 1.35rem);
+}
+
+.album-card {
+  @apply tw:grid tw:gap-4;
+  grid-template-columns: minmax(0, 0.82fr) minmax(0, 1fr);
+}
+
+.album-cover {
+  aspect-ratio: 1;
+  background:
+    radial-gradient(
+      circle at 52% 46%,
+      rgb(255 225 140 / 18%),
+      transparent 3.4rem
+    ),
+    conic-gradient(
+      from 24deg,
+      #090806,
+      #1f1609,
+      #d6a74d,
+      #17100a,
+      #050505,
+      #090806
+    );
+  border: 1px solid var(--border-color);
+  box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
+  @apply tw:grid tw:min-w-0 tw:place-items-center;
+}
+
+.album-cover span {
+  @apply tw:items-center;
+  background: rgb(0 0 0 / 56%);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  color: #fff4d4;
+  @apply tw:inline-flex;
+  font-size: clamp(2.3rem, 5vw, 3.6rem);
+  height: 48%;
+  @apply tw:justify-center;
+  width: 48%;
+}
+
+.album-copy {
+  @apply tw:min-w-0;
+}
+
+.album-copy h2,
+.kingdom-news h2,
+.music-cta h2 {
+  color: var(--text-main);
+  font-size: clamp(1.35rem, 3vw, 2.05rem);
+  line-height: 1.25;
+  margin-top: 0.35rem;
+}
+
+.album-copy strong {
+  color: var(--text-main);
+  @apply tw:inline-block;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  font-size: 0.88rem;
+  margin-top: 0.55rem;
+}
+
+.track-lines {
+  @apply tw:grid;
+  gap: 0.55rem;
+  list-style: none;
+  margin: 1rem 0 1.05rem;
+  @apply tw:p-0;
+}
+
+.track-lines li {
+  @apply tw:items-center tw:grid;
+  gap: 0.55rem;
+  grid-template-columns: auto 1fr;
+}
+
+.track-lines span {
+  color: var(--text-main);
+  font-family: 'Segoe UI', Arial, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 900;
+}
+
+.track-lines i {
+  background: var(--color-primary);
+  border-radius: 999px;
+  @apply tw:block;
+  height: 0.52rem;
+}
+
+.track-lines li:nth-child(2) i {
+  width: 76%;
+}
+
+.track-lines li:nth-child(3) i {
+  width: 88%;
+}
+
+.track-lines li:nth-child(4) i {
+  width: 64%;
+}
+
+.album-copy button {
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: 0.55rem;
+  color: var(--text-soft);
+  @apply tw:cursor-not-allowed;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  font-weight: 900;
+  @apply tw:min-h-11;
+  padding: 0 1rem;
+  @apply tw:w-full;
+}
+
+.kingdom-news header > p:last-child,
+.music-cta p,
+.news-preview-list p {
+  color: var(--text-soft);
+  font-family: 'Segoe UI', Arial, sans-serif;
+  line-height: 1.5;
+}
+
+.kingdom-news header > p:last-child {
+  margin-top: 0.55rem;
+}
+
+.news-preview-list {
+  @apply tw:grid tw:gap-4;
+  grid-template-columns: 1fr;
+  @apply tw:mt-4;
+}
+
+.news-preview-list article {
+  background: var(--surface-panel);
+  border: 1px solid var(--border-color);
+  @apply tw:grid tw:gap-2 tw:min-h-auto tw:p-4;
+  grid-template-columns: 5rem minmax(0, 1fr);
+}
+
+.news-visual {
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-color);
+  min-height: 4.8rem;
+  grid-row: 1 / span 3;
+}
+
+.news-visual.ember {
+  background: var(--surface-subtle);
+}
+
+.news-visual.gold {
+  background: var(--surface-subtle);
+}
+
+.news-visual.charcoal {
+  background: var(--surface-subtle);
+}
+
+.news-preview-list article > span {
+  align-self: start;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  color: var(--color-gold);
+  font-family: 'Segoe UI', Arial, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 900;
+  justify-self: start;
+  padding: 0.22rem 0.5rem;
+  @apply tw:uppercase;
+  grid-column: 2;
+}
+
+.news-preview-list h3 {
+  color: var(--text-main);
+  font-size: 1rem;
+  line-height: 1.25;
+  grid-column: 2;
+}
+
+.news-preview-list p {
+  font-size: 0.875rem;
+  grid-column: 2;
+}
+
+.music-cta {
+  @apply tw:items-center;
+  border-radius: 0.8rem;
+  @apply tw:grid tw:gap-3 tw:justify-items-center;
+  padding: clamp(1.2rem, 3vw, 1.8rem);
+  @apply tw:text-center;
+}
+
+.music-cta div {
+  @apply tw:flex tw:flex-wrap;
+  gap: 0.7rem;
+  @apply tw:justify-center;
+  margin-top: 0.2rem;
+}
+
+.music-cta a {
+  @apply tw:items-center;
+  border: 1px solid var(--border-color);
+  @apply tw:rounded-lg;
+  color: var(--color-primary);
+  @apply tw:inline-flex;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  font-weight: 900;
+  @apply tw:justify-center;
+  min-height: 2.7rem;
+  padding: 0 1.1rem;
+  text-decoration: none;
+}
+
+.music-cta a:first-child {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--on-primary);
+}
+
+@media (max-width: 940px) {
+  .music-preview-grid,
+  .album-card {
+    grid-template-columns: 1fr;
+  }
+
+  .album-cover {
+    @apply tw:max-w-68 tw:w-full;
+  }
+}
+
+@media (max-width: 720px) {
+  .music-background {
+    object-position: 64% center;
+    opacity: 0.72;
+  }
+
+  .music-veils {
+    background: linear-gradient(
+      color-mix(in srgb, var(--surface-page) 94%, transparent),
+      color-mix(in srgb, var(--surface-page) 98%, transparent)
+    );
+  }
+
+  .music-stage::after {
+    inset: 0.55rem;
+  }
+
+  .news-preview-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .music-shell {
+    padding: 1.4rem 0.85rem 1.8rem;
+  }
+
+  .music-hero-panel,
+  .album-card,
+  .kingdom-news,
+  .music-cta {
+    border-radius: 0.62rem;
+  }
+
+  .music-cta a {
+    @apply tw:w-full;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

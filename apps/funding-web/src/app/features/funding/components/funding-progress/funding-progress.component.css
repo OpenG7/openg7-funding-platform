@@ -1,0 +1,67 @@
+@reference '../../../../../styles/tailwind.css';
+
+.progress-card {
+  @apply tw:mt-4;
+}
+
+.progress-head {
+  @apply tw:flex tw:justify-between tw:gap-3;
+  margin-bottom: 0.45rem;
+}
+
+.objective-label {
+  color: var(--text-soft);
+  @apply tw:m-0;
+}
+
+.objective-amount {
+  color: var(--color-gold);
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0.1rem 0 0.45rem;
+}
+
+.progress-head p {
+  color: var(--text-main);
+  @apply tw:m-0;
+}
+
+.progress-head strong {
+  color: var(--color-primary);
+  @apply tw:whitespace-nowrap;
+}
+
+.progress-card progress {
+  @apply tw:w-full;
+  height: 0.65rem;
+  accent-color: var(--color-primary);
+}
+
+.progress-card progress::-webkit-progress-bar {
+  background: var(--surface-raised);
+  border-radius: 999px;
+}
+
+.progress-card progress::-webkit-progress-value {
+  background: var(--color-primary);
+  border-radius: 999px;
+}
+
+.progress-card progress::-moz-progress-bar {
+  background: var(--color-primary);
+  border-radius: 999px;
+}
+
+.progress-meta {
+  color: var(--text-soft);
+  @apply tw:flex;
+  font-size: 0.875rem;
+  @apply tw:justify-between;
+  margin-top: 0.45rem;
+}
+
+.caption {
+  color: var(--text-soft);
+  font-size: 0.88rem;
+  margin: 0.5rem 0 0;
+}

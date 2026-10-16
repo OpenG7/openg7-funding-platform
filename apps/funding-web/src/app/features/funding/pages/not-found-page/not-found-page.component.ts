@@ -34,54 +34,7 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
       </nav>
     </main>
   `,
-  styles: [
-    `
-      :host {
-        display: block;
-        min-height: 100vh;
-        background: var(--surface-page);
-        color: var(--text-main);
-      }
-      main {
-        max-width: 48rem;
-        margin: 0 auto;
-        padding: clamp(2rem, 8vw, 6rem) 1.5rem;
-      }
-      .code {
-        font-size: clamp(3rem, 10vw, 6rem);
-        color: var(--text-soft);
-        font-weight: 800;
-        margin: 0;
-      }
-      h1 {
-        font-size: clamp(1.75rem, 5vw, 2.5rem);
-        line-height: 1.25;
-      }
-      p {
-        line-height: 1.6;
-      }
-      nav {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 1rem;
-        margin-top: 2rem;
-      }
-      a {
-        display: inline-flex;
-        align-items: center;
-        min-height: 44px;
-        padding: 0.75rem 1rem;
-        color: var(--color-primary);
-        background: var(--surface-panel);
-        border-radius: 0.5rem;
-        font-weight: 700;
-      }
-      a:focus-visible {
-        outline: 3px solid var(--color-primary);
-        outline-offset: 4px;
-      }
-    `
-  ]
+  styleUrl: './not-found-page.component.css'
 })
 export class NotFoundPageComponent {
   readonly i18n = inject(FundingI18nService);

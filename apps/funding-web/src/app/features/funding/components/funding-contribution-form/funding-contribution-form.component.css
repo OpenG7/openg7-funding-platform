@@ -1,15 +1,16 @@
+@reference '../../../../../styles/tailwind.css';
+
 .gold-cta {
-  align-items: center;
+  @apply tw:items-center;
   background: var(--color-primary);
   border: 1px solid var(--color-primary);
   border-radius: 0.45rem;
   box-shadow: 0 2px 4px rgb(41 51 46 / 8%);
   color: var(--on-primary);
-  display: inline-flex;
+  @apply tw:inline-flex;
   font-family: inherit;
   font-weight: 600;
-  justify-content: center;
-  min-height: 2.75rem;
+  @apply tw:justify-center tw:min-h-11;
   padding: 0 1.35rem;
   text-decoration: none;
   font-size: 0.9375rem;
@@ -21,8 +22,7 @@
   box-shadow: 0 4px 16px rgb(41 51 46 / 5%);
   color: var(--text-main);
   border-radius: 0.62rem;
-  min-width: 0;
-  padding: 1.5rem;
+  @apply tw:min-w-0 tw:p-6;
   font-family: inherit;
 }
 
@@ -34,9 +34,9 @@
 }
 
 .contribution-type-grid {
-  display: grid;
+  @apply tw:grid;
   gap: 1.35rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  @apply tw:grid-cols-2;
   margin: 0 0 1.2rem;
 }
 
@@ -45,15 +45,13 @@
   align-content: start;
   background: var(--surface-panel);
   border: 1px solid var(--border-color);
-  border-radius: 0.5rem;
+  @apply tw:rounded-lg;
   color: inherit;
-  cursor: pointer;
-  display: grid;
+  @apply tw:cursor-pointer tw:grid;
   gap: 0.72rem;
-  min-height: 0;
+  @apply tw:min-h-0;
   padding: 1.12rem 1rem 1rem;
-  position: relative;
-  text-align: left;
+  @apply tw:relative tw:text-left;
   transition:
     background 180ms ease,
     border-color 180ms ease,
@@ -67,12 +65,12 @@
   border-radius: 999px;
   box-shadow: none;
   content: '';
-  height: 1rem;
+  @apply tw:h-4;
   opacity: 0.74;
-  position: absolute;
+  @apply tw:absolute;
   right: 0.82rem;
   top: 0.82rem;
-  width: 1rem;
+  @apply tw:w-4;
 }
 
 .contribution-type-card:hover {
@@ -124,7 +122,7 @@
 }
 
 .contribution-type-card:disabled {
-  cursor: not-allowed;
+  @apply tw:cursor-not-allowed;
   filter: grayscale(0.16);
   opacity: 0.84;
 }
@@ -140,7 +138,7 @@
   font-size: 0.875rem;
   font-weight: 700;
   letter-spacing: 0;
-  text-transform: uppercase;
+  @apply tw:uppercase;
 }
 
 .contribution-type-card.review > .contribution-type-kicker {
@@ -148,8 +146,7 @@
 }
 
 .contribution-card-heading {
-  align-items: center;
-  display: grid;
+  @apply tw:items-center tw:grid;
   gap: 0.82rem;
   grid-template-columns: 2.55rem minmax(0, 1fr);
   margin-top: 0.52rem;
@@ -160,10 +157,10 @@
   border: 1px solid currentColor;
   border-radius: 999px;
   color: var(--color-primary);
-  display: block;
+  @apply tw:block;
   height: 2.35rem;
   opacity: 0.95;
-  position: relative;
+  @apply tw:relative;
   width: 2.35rem;
 }
 
@@ -173,7 +170,7 @@
   content: '';
   height: 0.62rem;
   left: 0.78rem;
-  position: absolute;
+  @apply tw:absolute;
   top: 0.52rem;
   width: 0.62rem;
 }
@@ -184,8 +181,7 @@
   border-radius: 999px 999px 0 0;
   content: '';
   height: 0.62rem;
-  left: 0.5rem;
-  position: absolute;
+  @apply tw:left-2 tw:absolute;
   top: 1.36rem;
   width: 1.18rem;
 }
@@ -211,19 +207,18 @@
   content: '';
   inset: 0.55rem 0.72rem 0.48rem;
   opacity: 0.9;
-  position: absolute;
+  @apply tw:absolute;
 }
 
 .contribution-type-card strong {
   color: var(--text-main);
   font-size: 1.1rem;
   line-height: 1.08;
-  margin: 0;
-  max-width: 11rem;
+  @apply tw:m-0 tw:max-w-44;
 }
 
 .contribution-type-card:not(.review) strong {
-  margin-top: 0;
+  @apply tw:mt-0;
 }
 
 .contribution-type-card.review strong {
@@ -235,24 +230,24 @@
   color: var(--text-soft);
   font-size: 1rem;
   line-height: 1.45;
-  margin: 0;
+  @apply tw:m-0;
 }
 
 .contribution-type-card:not(.review) p {
-  max-width: 14.5rem;
+  @apply tw:max-w-58;
 }
 
 .default-mention-badge {
-  align-items: center;
+  @apply tw:items-center;
   border-top: 1px solid var(--border-color);
   color: var(--color-primary);
-  display: inline-grid;
+  @apply tw:inline-grid;
   font-size: 0.875rem;
   font-weight: 700;
   gap: 0.42rem;
   grid-template-columns: auto minmax(0, 1fr);
   line-height: 1.2;
-  margin-top: auto;
+  @apply tw:mt-auto;
   padding-top: 0.78rem;
 }
 
@@ -260,7 +255,7 @@
   border: 1px solid currentColor;
   border-radius: 0.12rem 0.12rem 0.32rem 0.32rem;
   height: 0.82rem;
-  position: relative;
+  @apply tw:relative;
   width: 0.72rem;
 }
 
@@ -270,7 +265,7 @@
   content: '';
   height: 0.18rem;
   left: 0.17rem;
-  position: absolute;
+  @apply tw:absolute;
   top: 0.28rem;
   transform: rotate(-45deg);
   width: 0.35rem;
@@ -286,34 +281,32 @@
 
 .contribution-type-card .sponsorship-benefits {
   color: var(--text-soft);
-  display: grid;
+  @apply tw:grid;
   gap: 0.42rem;
   font-size: 0.875rem;
   font-weight: 700;
   letter-spacing: 0;
   line-height: 1.28;
   margin-top: -0.24rem;
-  text-transform: none;
+  @apply tw:normal-case;
 }
 
 .contribution-type-card .sponsorship-benefits span {
   align-items: start;
   color: inherit;
-  display: grid;
+  @apply tw:grid;
   font-size: inherit;
   font-weight: inherit;
   gap: 0.42rem;
   grid-template-columns: 0.9rem minmax(0, 1fr);
   letter-spacing: 0;
   line-height: inherit;
-  position: relative;
-  text-transform: none;
+  @apply tw:relative tw:normal-case;
 }
 
 .contribution-type-card .sponsorship-benefits span::before {
   content: '';
-  height: 0;
-  margin-top: 0;
+  @apply tw:h-0 tw:mt-0;
   width: 0.9rem;
 }
 
@@ -323,7 +316,7 @@
   content: '';
   height: 0.24rem;
   left: 0.18rem;
-  position: absolute;
+  @apply tw:absolute;
   top: 0.28rem;
   transform: rotate(-45deg);
   width: 0.46rem;
@@ -334,7 +327,7 @@
   font-size: 0.875rem;
   font-weight: 700;
   margin-top: 0.28rem;
-  max-width: 16rem;
+  @apply tw:max-w-64;
 }
 
 .contribution-type-card small {
@@ -344,16 +337,15 @@
 }
 
 .contribution-type-card .unavailable-badge {
-  align-items: center;
+  @apply tw:items-center;
   background: var(--surface-subtle);
   border: 1px solid var(--border-color);
-  border-radius: 0.5rem;
-  display: inline-grid;
+  @apply tw:rounded-lg tw:inline-grid;
   font-size: 0.875rem;
   gap: 0.55rem;
   grid-template-columns: auto minmax(0, 1fr);
   justify-self: start;
-  margin-top: auto;
+  @apply tw:mt-auto;
   padding: 0.56rem 0.82rem;
   width: min(100%, 14.2rem);
 }
@@ -372,27 +364,27 @@
   border: 2px solid var(--text-soft);
   border-radius: 999px;
   content: '';
-  height: 1rem;
+  @apply tw:h-4;
   opacity: 0.86;
-  width: 1rem;
+  @apply tw:w-4;
 }
 
 .amount-grid {
-  display: grid;
+  @apply tw:grid;
   gap: 0.68rem;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  @apply tw:grid-cols-4;
   margin-top: 0.2rem;
 }
 
 .sponsorship-selection-note {
   background: var(--surface-page);
   border: 1px solid var(--border-color);
-  border-radius: 0.5rem;
+  @apply tw:rounded-lg;
   color: var(--color-gold);
   font-size: 0.875rem;
   line-height: 1.42;
   margin: -0.2rem 0 1rem;
-  padding: 1rem;
+  @apply tw:p-4;
 }
 
 .amount-grid button {
@@ -414,9 +406,9 @@
 .sponsorship-tier-summary {
   background: var(--surface-raised);
   border: 1px solid var(--border-color);
-  border-radius: 0.5rem;
+  @apply tw:rounded-lg;
   margin: 0.4rem 0 1rem;
-  padding: 1rem;
+  @apply tw:p-4;
 }
 
 .sponsorship-tier-summary-title {
@@ -427,13 +419,12 @@
 }
 
 .sponsorship-tier-achieved {
-  display: grid;
+  @apply tw:grid;
   gap: 0.3rem;
   font-size: 0.875rem;
   font-weight: 700;
   list-style: none;
-  margin: 0;
-  padding: 0;
+  @apply tw:m-0 tw:p-0;
 }
 
 .sponsorship-tier-achieved li {
@@ -463,7 +454,7 @@
 
 .contribution-panel label {
   color: var(--text-soft);
-  display: block;
+  @apply tw:block;
   font-size: 0.9375rem;
   margin: 0.65rem 0 0.25rem;
 }
@@ -474,11 +465,10 @@
   border: 1px solid var(--border-color);
   border-radius: 0.38rem;
   color: var(--text-main);
-  min-height: 2.75rem;
+  @apply tw:min-h-11;
   font: inherit;
   padding: 0 0.65rem;
-  text-align: right;
-  width: 100%;
+  @apply tw:text-right tw:w-full;
 }
 
 .contribution-panel .custom-amount-input[aria-invalid='true'] {
@@ -490,7 +480,7 @@
   color: var(--text-soft);
   font-size: 0.875rem;
   margin: 0.3rem 0 0;
-  text-align: left;
+  @apply tw:text-left;
 }
 
 .input-help.input-error {
@@ -500,7 +490,7 @@
 .consent-options {
   border: 0;
   border-top: 1px solid var(--border-color);
-  display: grid;
+  @apply tw:grid;
   gap: 0.62rem;
   margin: 0.98rem 0 0;
   padding: 0.85rem 0 0;
@@ -514,15 +504,13 @@
 }
 
 .contribution-panel .consent-option {
-  align-items: flex-start;
+  @apply tw:items-start;
   background: var(--surface-raised);
   border: 1px solid var(--border-color);
-  border-radius: 0.5rem;
-  display: flex;
+  @apply tw:rounded-lg tw:flex;
   gap: 0.48rem;
   line-height: 1.35;
-  margin: 0;
-  padding: 0.75rem;
+  @apply tw:m-0 tw:p-3;
 }
 
 .contribution-panel .consent-option.required {
@@ -542,11 +530,11 @@
 
 .gold-cta {
   margin-top: 0.85rem;
-  width: 100%;
+  @apply tw:w-full;
 }
 
 .gold-cta:disabled {
-  cursor: not-allowed;
+  @apply tw:cursor-not-allowed;
   filter: grayscale(0.35);
   opacity: 0.55;
 }
@@ -555,13 +543,13 @@
   color: var(--text-soft);
   font-size: 0.875rem;
   margin: 0.62rem 0 0;
-  text-align: center;
+  @apply tw:text-center;
 }
 
 .payment-note a {
   color: var(--color-gold);
   font-weight: 700;
-  margin-left: 0.25rem;
+  @apply tw:ml-1;
 }
 
 .sponsorship-payment-note {
@@ -580,20 +568,24 @@
   }
 
   .contribution-type-card {
-    min-height: auto;
+    @apply tw:min-h-auto;
   }
 }
 
 @media (max-width: 560px) {
   .contribution-panel {
-    padding: 1rem;
+    @apply tw:p-4;
   }
 
   .amount-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    @apply tw:grid-cols-2;
   }
 
   .contribution-type-grid {
     grid-template-columns: 1fr;
   }
+}
+
+:host {
+  @apply tw:block tw:min-w-0;
 }

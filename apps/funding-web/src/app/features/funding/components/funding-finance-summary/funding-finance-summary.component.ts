@@ -18,7 +18,7 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
   imports: [CommonModule, RouterLink, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './funding-finance-summary.component.html',
-  styles: [':host { display: block; min-width: 0; }']
+  styleUrl: './funding-finance-summary.component.css'
 })
 export class FundingFinanceSummaryComponent {
   private readonly i18n = inject(FundingI18nService);

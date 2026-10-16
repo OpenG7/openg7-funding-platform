@@ -1,36 +1,32 @@
+@reference '../../../../../styles/tailwind.css';
+
 .builders-directory-shell {
   background: var(--surface-page);
   color: var(--text-main);
-  min-height: 100vh;
+  @apply tw:min-h-screen;
 }
 
 .builders-directory-hero {
-  display: grid;
+  @apply tw:grid;
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   min-height: clamp(24rem, 32vw, 26rem);
-  overflow: hidden;
-  position: relative;
+  @apply tw:overflow-hidden tw:relative;
 }
 
 .builders-directory-hero img,
 .hero-overlay,
 .builders-directory-hero article {
   grid-area: 1 / 1;
-  min-height: 0;
-  min-width: 0;
+  @apply tw:min-h-0 tw:min-w-0;
 }
 
 .builders-directory-hero img {
-  position: absolute;
-  inset: 0;
-  height: 100%;
-  object-fit: cover;
-  width: 100%;
+  @apply tw:absolute tw:inset-0 tw:h-full tw:object-cover tw:w-full;
 }
 
 .hero-overlay {
-  position: relative;
+  @apply tw:relative;
   background:
     linear-gradient(
       90deg,
@@ -46,7 +42,7 @@
   align-self: end;
   max-width: 47rem;
   padding: clamp(4rem, 9vw, 7rem) clamp(1rem, 5vw, 4rem) 2.4rem;
-  position: relative;
+  @apply tw:relative;
   z-index: 1;
 }
 
@@ -58,7 +54,7 @@
   font-size: 0.875rem;
   font-weight: 800;
   letter-spacing: 0;
-  text-transform: uppercase;
+  @apply tw:uppercase;
 }
 
 .builders-directory-hero h1 {
@@ -75,26 +71,24 @@
   color: var(--text-soft);
   font-family: 'Segoe UI', Arial, sans-serif;
   line-height: 1.55;
-  margin: 0;
+  @apply tw:m-0;
 }
 
 .hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+  @apply tw:flex tw:flex-wrap tw:gap-3;
   margin-top: 1.35rem;
 }
 
 .hero-actions a,
 .empty-builders a {
-  align-items: center;
+  @apply tw:items-center;
   border: 1px solid var(--border-color);
   border-radius: 0.45rem;
   color: var(--color-primary);
-  display: inline-flex;
+  @apply tw:inline-flex;
   font-family: 'Segoe UI', Arial, sans-serif;
   font-weight: 800;
-  min-height: 2.75rem;
+  @apply tw:min-h-11;
   padding: 0 0.9rem;
   text-decoration: none;
 }
@@ -105,15 +99,13 @@
 }
 
 .builders-directory-content {
-  display: grid;
-  gap: 1.5rem;
+  @apply tw:grid tw:gap-6;
   grid-template-columns: minmax(0, 1fr) 19rem;
   padding: 1.5rem clamp(1rem, 4vw, 3rem);
 }
 
 .builders-sidebar {
-  display: grid;
-  gap: 1rem;
+  @apply tw:grid tw:gap-4;
   align-self: start;
 }
 
@@ -129,11 +121,11 @@
 
 .builders-summary {
   align-self: start;
-  padding: 1.5rem;
+  @apply tw:p-6;
 }
 
 .builders-pathway {
-  padding: 1.5rem;
+  @apply tw:p-6;
 }
 
 .builders-pathway h2 {
@@ -146,20 +138,15 @@
 
 .builders-pathway ol {
   counter-reset: builder-step;
-  display: grid;
-  gap: 0.75rem;
+  @apply tw:grid tw:gap-3;
   list-style: none;
-  margin: 0;
-  padding: 0;
+  @apply tw:m-0 tw:p-0;
 }
 
 .builders-pathway li {
   border-top: 1px solid var(--border-color);
   counter-increment: builder-step;
-  display: grid;
-  gap: 0.25rem;
-  padding-top: 0.75rem;
-  position: relative;
+  @apply tw:grid tw:gap-1 tw:pt-3 tw:relative;
 }
 
 .builders-pathway li::before {
@@ -181,14 +168,14 @@
 }
 
 .builders-summary dl {
-  display: grid;
+  @apply tw:grid;
   gap: 0.8rem;
-  margin: 0;
+  @apply tw:m-0;
 }
 
 .builders-summary dt,
 .builders-summary dd {
-  margin: 0;
+  @apply tw:m-0;
 }
 
 .builders-summary dt {
@@ -206,8 +193,7 @@
 }
 
 .public-builders-panel {
-  display: grid;
-  gap: 1rem;
+  @apply tw:grid tw:gap-4;
   padding: clamp(1rem, 3vw, 1.5rem);
 }
 
@@ -218,42 +204,37 @@
 }
 
 .builders-list {
-  display: grid;
-  gap: 1rem;
+  @apply tw:grid tw:gap-4;
   list-style: none;
-  margin: 0;
-  padding: 0;
+  @apply tw:m-0 tw:p-0;
 }
 
 .builders-list li {
-  align-items: center;
+  @apply tw:items-center;
   background: var(--surface-subtle);
   border: 1px solid var(--border-color);
   border-radius: 0.55rem;
-  display: grid;
-  gap: 0.75rem;
+  @apply tw:grid tw:gap-3;
   grid-template-columns: auto minmax(0, 1fr) auto;
   min-height: 4.2rem;
   padding: 0.68rem;
 }
 
 .builder-avatar {
-  align-items: center;
+  @apply tw:items-center;
   background: var(--color-primary);
   border-radius: 999px;
   color: var(--on-primary);
-  display: inline-flex;
+  @apply tw:inline-flex;
   font-family: 'Segoe UI', Arial, sans-serif;
   font-size: 0.875rem;
   font-weight: 900;
-  height: 2.25rem;
-  justify-content: center;
-  width: 2.25rem;
+  @apply tw:h-9 tw:justify-center tw:w-9;
 }
 
 .builders-list strong,
 .builders-list small {
-  display: block;
+  @apply tw:block;
   font-family: 'Segoe UI', Arial, sans-serif;
 }
 
@@ -273,10 +254,10 @@
   border-radius: 999px;
   color: var(--color-gold);
   font-family: 'Segoe UI', Arial, sans-serif;
-  font-style: normal;
+  @apply tw:not-italic;
   font-weight: 900;
   padding: 0.32rem 0.58rem;
-  white-space: nowrap;
+  @apply tw:whitespace-nowrap;
 }
 
 .empty-builders {
@@ -292,8 +273,7 @@
 }
 
 .empty-actions {
-  display: flex;
-  flex-wrap: wrap;
+  @apply tw:flex tw:flex-wrap;
   gap: 0.65rem;
   margin-top: 0.8rem;
 }
@@ -334,13 +314,10 @@
 
 .directory-actions,
 .directory-pagination {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  align-items: center;
+  @apply tw:flex tw:flex-wrap tw:gap-4 tw:items-center;
 }
 .directory-pagination {
-  margin-top: 1.5rem;
+  @apply tw:mt-6;
 }
 button,
 .directory-actions a {
@@ -353,7 +330,7 @@ button,
 }
 button:disabled {
   opacity: 0.6;
-  cursor: default;
+  @apply tw:cursor-default;
 }
 a:focus-visible,
 button:focus-visible,
@@ -369,25 +346,23 @@ h2:focus {
   color: var(--text-main);
 }
 .builders-summary nav {
-  display: grid;
-  gap: 1rem;
+  @apply tw:grid tw:gap-4;
 }
 .builders-summary dd {
   font-size: 2rem;
   margin: 0.5rem 0;
 }
 .builders-list strong {
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }
 .builders-list em {
-  white-space: normal;
+  @apply tw:whitespace-normal;
 }
 .public-builders-panel {
-  min-width: 0;
+  @apply tw:min-w-0;
 }
 noscript {
-  display: block;
-  padding: 1rem;
+  @apply tw:block tw:p-4;
   color: var(--color-gold);
 }
 @media (max-width: 860px) {

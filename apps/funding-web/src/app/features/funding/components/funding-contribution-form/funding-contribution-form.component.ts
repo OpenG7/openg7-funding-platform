@@ -59,8 +59,7 @@ export interface FundingContributionSubmission {
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './funding-contribution-form.component.html',
-  styleUrl: './funding-contribution-form.component.css',
-  styles: [':host { display: block; min-width: 0; }']
+  styleUrl: './funding-contribution-form.component.css'
 })
 export class FundingContributionFormComponent implements OnChanges {
   readonly charter = inject(SponsorshipCharterService);

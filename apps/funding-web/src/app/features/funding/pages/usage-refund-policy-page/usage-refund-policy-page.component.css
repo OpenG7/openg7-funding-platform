@@ -1,14 +1,12 @@
+@reference '../../../../../styles/tailwind.css';
 :host {
-  display: block;
-  min-width: 0;
-  overflow-wrap: anywhere;
+  @apply tw:block tw:min-w-0 tw:wrap-anywhere;
 }
 .policy-page {
   background: var(--surface-page);
   color: var(--text-main);
   font-family: 'Segoe UI', Arial, sans-serif;
-  padding-bottom: 4rem;
-  overflow-wrap: anywhere;
+  @apply tw:pb-16 tw:wrap-anywhere;
 }
 .policy-page :is(h1, h2, h3) {
   color: var(--text-main);
@@ -49,27 +47,24 @@ a {
   scroll-margin-top: 1.5rem;
 }
 .eyebrow {
-  display: block;
+  @apply tw:block;
   color: var(--color-gold);
   font-size: 0.875rem;
   font-weight: 700;
-  text-transform: uppercase;
+  @apply tw:uppercase;
   margin-bottom: 0.65rem;
 }
 .policy-hero {
-  position: relative;
+  @apply tw:relative;
   padding: 2.5rem max(1.25rem, calc((100vw - 1152px) / 2));
-  overflow: hidden;
+  @apply tw:overflow-hidden;
 }
 .policy-hero img,
 .policy-hero-overlay {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  @apply tw:absolute tw:inset-0 tw:w-full tw:h-full;
 }
 .policy-hero img {
-  object-fit: cover;
+  @apply tw:object-cover;
   object-position: center 42%;
 }
 .policy-hero-overlay {
@@ -84,29 +79,24 @@ a {
     linear-gradient(180deg, transparent 60%, var(--surface-page));
 }
 .policy-hero-copy {
-  position: relative;
+  @apply tw:relative;
   max-width: 54rem;
 }
 .policy-hero-copy > p {
   max-width: 65ch;
 }
 .policy-version {
-  display: flex;
-  flex-wrap: wrap;
+  @apply tw:flex tw:flex-wrap;
   gap: 0.25rem 1.5rem;
   font-size: 0.9rem;
 }
 .policy-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  @apply tw:flex tw:flex-wrap tw:items-center;
   gap: 0.75rem 1rem;
-  margin-top: 1.25rem;
+  @apply tw:mt-5;
 }
 .button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  @apply tw:inline-flex tw:items-center tw:justify-center;
   padding: 0.75rem 1rem;
   min-height: 44px;
   border: 1px solid var(--border-color);
@@ -114,7 +104,7 @@ a {
   background: var(--surface-panel);
   color: var(--color-primary);
   font-weight: 700;
-  text-align: center;
+  @apply tw:text-center;
   text-decoration: none;
 }
 .primary {
@@ -123,18 +113,16 @@ a {
   border-color: var(--color-primary);
 }
 .policy-layout {
-  display: grid;
+  @apply tw:grid;
   grid-template-columns: minmax(14rem, 0.36fr) minmax(0, 1fr);
-  gap: 1.5rem;
+  @apply tw:gap-6;
   max-width: 1200px;
   margin: 2rem auto 0;
   padding: 0 1.5rem;
   align-items: start;
 }
 .policy-sidebar {
-  position: sticky;
-  top: 1.5rem;
-  min-width: 0;
+  @apply tw:sticky tw:top-6 tw:min-w-0;
 }
 .policy-summary,
 .policy-toc {
@@ -142,7 +130,7 @@ a {
 }
 .policy-summary {
   border-bottom: 1px solid var(--border-color);
-  padding-top: 0;
+  @apply tw:pt-0;
 }
 .policy-sidebar h2 {
   font-size: 1.15rem;
@@ -155,33 +143,30 @@ a {
 }
 .policy-toc ol {
   list-style: none;
-  padding: 0;
-  margin: 0;
+  @apply tw:p-0 tw:m-0;
 }
 .policy-toc li {
-  margin: 0;
+  @apply tw:m-0;
 }
 .policy-toc a {
-  display: block;
+  @apply tw:block;
   padding: 0.5rem 0;
 }
 .policy-content {
-  display: grid;
-  gap: 1rem;
-  min-width: 0;
+  @apply tw:grid tw:gap-4 tw:min-w-0;
 }
 .panel {
-  min-width: 0;
+  @apply tw:min-w-0;
   padding: clamp(1.1rem, 2.5vw, 1.75rem);
   background: var(--surface-panel);
   border: 1px solid var(--border-color);
-  border-radius: 1rem;
+  @apply tw:rounded-2xl;
 }
 .refund-request {
   border-color: var(--border-color);
 }
 .request-steps {
-  padding-left: 1.5rem;
+  @apply tw:pl-6;
   margin: 1.5rem 0;
 }
 .request-steps > li {
@@ -193,29 +178,24 @@ a {
   font-weight: 700;
 }
 .request-steps p {
-  margin: 0;
+  @apply tw:m-0;
 }
 .privacy-note {
   border-left: 3px solid var(--border-color);
-  padding-left: 1rem;
+  @apply tw:pl-4;
 }
 .email-alternative,
 .source-link {
   font-size: 0.9rem;
 }
 .section-heading {
-  display: flex;
-  gap: 0.75rem;
-  align-items: baseline;
+  @apply tw:flex tw:gap-3 tw:items-baseline;
 }
 .section-heading h2 {
-  min-width: 0;
+  @apply tw:min-w-0;
 }
 .section-number {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+  @apply tw:inline-flex tw:items-center tw:justify-center tw:shrink-0;
   width: 1.8rem;
   height: 1.8rem;
   color: var(--color-gold);
@@ -226,7 +206,7 @@ a {
 }
 .policy-section ul {
   padding-left: 1.2rem;
-  margin-bottom: 0;
+  @apply tw:mb-0;
 }
 .policy-section li {
   margin-top: 0.65rem;
@@ -235,11 +215,11 @@ a {
   color: var(--color-gold);
 }
 address {
-  font-style: normal;
+  @apply tw:not-italic;
 }
 @media (max-width: 860px), (max-height: 740px) {
   .policy-sidebar {
-    position: static;
+    @apply tw:static;
   }
 }
 @media (max-width: 860px) {
@@ -247,8 +227,7 @@ address {
     grid-template-columns: minmax(0, 1fr);
   }
   .policy-toc ol {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    @apply tw:grid tw:grid-cols-2;
     gap: 0 1rem;
   }
 }
@@ -263,8 +242,7 @@ address {
     padding: 2rem 1rem;
   }
   .policy-actions {
-    align-items: stretch;
-    flex-direction: column;
+    @apply tw:items-stretch tw:flex-col;
   }
 }
 
@@ -282,12 +260,12 @@ address {
   .policy-hero-overlay,
   .policy-actions,
   .policy-sidebar {
-    display: none !important;
+    @apply tw:hidden!;
   }
   .policy-page {
     background: white;
     color: black;
-    padding: 0;
+    @apply tw:p-0;
     font-size: 10pt;
   }
   .policy-page :is(h1, h2, h3, p, li, a, span, time) {
@@ -298,7 +276,7 @@ address {
   }
   h1 {
     font-size: 22pt;
-    max-width: none;
+    @apply tw:max-w-none;
   }
   h2 {
     font-size: 14pt;
@@ -308,16 +286,13 @@ address {
   }
   .policy-layout,
   .policy-content {
-    display: block;
-    padding: 0;
-    margin: 0;
-    max-width: none;
+    @apply tw:block tw:p-0 tw:m-0 tw:max-w-none;
   }
   .panel {
     background: white;
     border: 0;
     border-top: 1px solid #999;
-    border-radius: 0;
+    @apply tw:rounded-none;
     padding: 1rem 0;
   }
   .section-number {

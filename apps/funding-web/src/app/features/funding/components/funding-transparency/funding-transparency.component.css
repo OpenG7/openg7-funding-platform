@@ -1,0 +1,67 @@
+@reference '../../../../../styles/tailwind.css';
+
+.stat-card {
+  @apply tw:min-h-full;
+}
+
+.head {
+  @apply tw:items-center tw:flex tw:justify-between;
+  margin-bottom: 0.8rem;
+}
+
+.stat-card h2 {
+  color: var(--text-main);
+  @apply tw:m-0;
+}
+
+.stat-card button {
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: 0.65rem;
+  color: var(--text-main);
+  @apply tw:cursor-pointer tw:min-h-11;
+  padding: 0 0.7rem;
+}
+
+.stat-card button:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 3px;
+}
+
+.stat-card p {
+  @apply tw:items-center;
+  color: var(--text-soft);
+  @apply tw:flex tw:justify-between;
+  margin: 0.4rem 0;
+}
+
+.stat-card strong {
+  color: var(--text-main);
+}
+
+.available {
+  border-top: 1px solid var(--border-color);
+  color: var(--color-success);
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-top: 0.85rem;
+  @apply tw:pt-3;
+}
+
+.available strong {
+  color: var(--color-success);
+}
+
+.live {
+  color: var(--color-success);
+  font-size: 0.875rem;
+  @apply tw:justify-start;
+  margin-top: 0.6rem;
+}
+
+.live::before {
+  background: var(--color-success);
+  border-radius: 999px;
+  content: '';
+  @apply tw:inline-block tw:h-2 tw:mr-2 tw:w-2;
+}

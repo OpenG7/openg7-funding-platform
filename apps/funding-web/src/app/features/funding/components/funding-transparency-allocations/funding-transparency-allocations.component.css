@@ -1,16 +1,17 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: grid;
-  min-width: 0;
+  @apply tw:grid tw:min-w-0;
 }
 
 * {
-  box-sizing: border-box;
+  @apply tw:box-border;
 }
 
 h2,
 h3,
 p {
-  margin-top: 0;
+  @apply tw:mt-0;
 }
 
 h2 {
@@ -42,9 +43,7 @@ a:focus-visible {
 .panel {
   background: var(--surface-panel);
   border: 1px solid var(--border-color);
-  border-radius: 0.75rem;
-  padding: 1.5rem;
-  min-width: 0;
+  @apply tw:rounded-xl tw:p-6 tw:min-w-0;
 }
 
 .allocation {
@@ -53,7 +52,7 @@ a:focus-visible {
 }
 
 .allocation h3 {
-  margin-bottom: 0.5rem;
+  @apply tw:mb-2;
 }
 
 .allocation p {
@@ -67,6 +66,6 @@ a:focus-visible {
 
 @media (max-width: 540px) {
   .panel {
-    padding: 1rem;
+    @apply tw:p-4;
   }
 }

@@ -21,8 +21,7 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './funding-checkout-notice.component.html',
   styleUrl: './funding-checkout-notice.component.css',
-  host: { '[attr.aria-busy]': 'checking()' },
-  styles: [':host { display: block; }']
+  host: { '[attr.aria-busy]': 'checking()' }
 })
 export class FundingCheckoutNoticeComponent {
   private readonly i18n = inject(FundingI18nService);

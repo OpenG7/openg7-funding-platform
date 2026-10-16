@@ -1,43 +1,38 @@
+@reference '../../../../../styles/tailwind.css';
+
 .builders-shell {
   background: var(--surface-page);
   border: 1px solid var(--border-color);
   box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
   margin: 0 auto;
   max-width: 1530px;
-  min-height: 100dvh;
-  overflow: hidden;
+  @apply tw:min-h-dvh tw:overflow-hidden;
 }
 
 .hero-progress-card button {
-  align-items: center;
+  @apply tw:items-center;
   background: var(--color-primary);
   border: 1px solid var(--color-primary);
   border-radius: 0.45rem;
   box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
   color: var(--on-primary);
-  display: inline-flex;
+  @apply tw:inline-flex;
   font-family: 'Segoe UI', Arial, sans-serif;
   font-weight: 600;
-  justify-content: center;
-  min-height: 2.75rem;
+  @apply tw:justify-center tw:min-h-11;
   padding: 0 1.35rem;
   text-decoration: none;
 }
 
 .poster-hero {
   min-height: 26rem;
-  overflow: hidden;
-  position: relative;
+  @apply tw:overflow-hidden tw:relative;
 }
 
 .hero-backdrop,
 .purpose-city,
 .purpose-dragon {
-  height: 100%;
-  inset: 0;
-  object-fit: cover;
-  position: absolute;
-  width: 100%;
+  @apply tw:h-full tw:inset-0 tw:object-cover tw:absolute tw:w-full;
 }
 
 .hero-backdrop {
@@ -54,12 +49,11 @@
       color-mix(in srgb, var(--surface-page) 25%, transparent)
     ),
     linear-gradient(180deg, transparent 60%, var(--surface-page));
-  inset: 0;
-  position: absolute;
+  @apply tw:inset-0 tw:absolute;
 }
 
 .hero-copy h1 span {
-  display: block;
+  @apply tw:block;
 }
 
 .section-title strong,
@@ -74,19 +68,16 @@
   border: 1px solid var(--border-color);
   border-radius: 0.8rem;
   box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
-  display: grid;
-  gap: 0.75rem;
-  margin-top: 0.25rem;
-  padding: 1.25rem;
+  @apply tw:grid tw:gap-3 tw:mt-1 tw:p-5;
 }
 
 .hero-progress-card div:first-child {
-  align-items: center;
+  @apply tw:items-center;
   color: var(--text-main);
-  display: flex;
+  @apply tw:flex;
   font-family: 'Segoe UI', Arial, sans-serif;
   font-weight: 800;
-  justify-content: space-between;
+  @apply tw:justify-between;
 }
 
 .hero-progress-card strong {
@@ -105,61 +96,52 @@
   border: 1px solid var(--border-color);
   border-radius: 999px;
   height: 0.62rem;
-  overflow: hidden;
+  @apply tw:overflow-hidden;
 }
 
 .progress-track span {
   background: var(--color-primary);
   border-radius: inherit;
   box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
-  display: block;
-  height: 100%;
+  @apply tw:block tw:h-full;
 }
 
 .hero-progress-card button {
-  align-items: center;
-  display: flex;
+  @apply tw:items-center tw:flex;
   font-size: 1rem;
-  justify-content: center;
-  min-height: 2.75rem;
-  width: 100%;
+  @apply tw:justify-center tw:min-h-11 tw:w-full;
 }
 
 .hero-progress-card button span {
   border: 1px solid currentColor;
   border-radius: 999px;
-  display: grid;
-  height: 1.25rem;
+  @apply tw:grid tw:h-5;
   margin-left: 0.7rem;
-  place-items: center;
-  width: 1.25rem;
+  @apply tw:place-items-center tw:w-5;
 }
 
 .ecosystem-section {
   background: var(--surface-page);
   border-top: 1px solid var(--border-color);
   padding: 2rem clamp(1rem, 4vw, 3rem);
-  position: relative;
+  @apply tw:relative;
 }
 
 .section-title {
   margin: 0 0 1.5rem;
-  max-width: none;
-  position: relative;
-  text-align: left;
+  @apply tw:max-w-none tw:relative tw:text-left;
   z-index: 2;
 }
 
 .section-title h2 {
   background: transparent;
   border: 0;
-  border-radius: 0;
+  @apply tw:rounded-none;
   box-shadow: none;
-  display: inline-block;
+  @apply tw:inline-block;
   font-size: 1.75rem;
   line-height: 1.25;
-  margin: 0;
-  padding: 0;
+  @apply tw:m-0 tw:p-0;
 }
 
 .section-title p,
@@ -171,9 +153,7 @@
 }
 
 .tool-grid {
-  display: grid;
-  gap: 1.5rem;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  @apply tw:grid tw:gap-6 tw:grid-cols-4;
 }
 
 .tool-card {
@@ -182,8 +162,7 @@
   border: 1px solid var(--border-color);
   border-radius: 0.55rem;
   box-shadow: 0 4px 12px rgb(41 51 46 / 8%);
-  overflow: hidden;
-  position: relative;
+  @apply tw:overflow-hidden tw:relative;
 }
 
 .tool-card:nth-child(n + 8) {
@@ -192,11 +171,9 @@
 
 .tool-card img {
   filter: saturate(1.08) contrast(1.08);
-  height: 100%;
-  object-fit: cover;
+  @apply tw:h-full tw:object-cover;
   object-position: center 18%;
-  position: absolute;
-  width: 100%;
+  @apply tw:absolute tw:w-full;
 }
 
 .tool-card::after {
@@ -209,19 +186,14 @@
     ),
     linear-gradient(90deg, rgb(0 0 0 / 15%), transparent 50%);
   content: '';
-  inset: 0;
-  position: absolute;
+  @apply tw:inset-0 tw:absolute;
 }
 
 .tool-card-copy {
   align-items: start;
-  bottom: 0;
-  display: grid;
-  gap: 0.75rem;
+  @apply tw:bottom-0 tw:grid tw:gap-3;
   grid-template-columns: auto 1fr;
-  padding: 1rem;
-  position: absolute;
-  width: 100%;
+  @apply tw:p-4 tw:absolute tw:w-full;
   z-index: 1;
 }
 
@@ -230,12 +202,12 @@
   border: 1px solid var(--border-color);
   border-radius: 999px;
   color: #ffffff;
-  display: grid;
+  @apply tw:grid;
   font-family: 'Segoe UI', Arial, sans-serif;
   font-size: 0.875rem;
   font-weight: 900;
   height: 1.45rem;
-  place-items: center;
+  @apply tw:place-items-center;
   width: 1.45rem;
 }
 
@@ -243,7 +215,7 @@
   color: #ffffff;
   font-size: 1rem;
   line-height: 1.3;
-  margin: 0;
+  @apply tw:m-0;
   text-shadow: 0 2px 8px rgb(0 0 0 / 72%);
 }
 
@@ -258,20 +230,19 @@
 .solid-foundations {
   border-top: 1px solid var(--border-color);
   font-size: 1rem;
-  margin-top: 0.75rem;
+  @apply tw:mt-3;
   padding-top: 0.45rem;
-  text-align: center;
+  @apply tw:text-center;
 }
 
 .funding-purpose-board {
   background: var(--surface-page);
   border-top: 1px solid var(--border-color);
-  display: grid;
-  gap: 1.5rem;
+  @apply tw:grid tw:gap-6;
   grid-template-columns: minmax(20rem, 0.82fr) minmax(18rem, 1fr);
-  overflow: hidden;
+  @apply tw:overflow-hidden;
   padding: 2.5rem clamp(1rem, 4vw, 3rem);
-  position: relative;
+  @apply tw:relative;
 }
 
 .purpose-city {
@@ -280,7 +251,7 @@
 }
 
 .purpose-dragon {
-  left: auto;
+  @apply tw:left-auto;
   opacity: 0.48;
   object-position: right center;
   right: -4%;
@@ -297,8 +268,7 @@
       color-mix(in srgb, var(--surface-page) 25%, transparent)
     ),
     linear-gradient(180deg, transparent 60%, var(--surface-page));
-  inset: 0;
-  position: absolute;
+  @apply tw:inset-0 tw:absolute;
 }
 
 .purpose-intro,
@@ -306,21 +276,20 @@
 .purpose-kpi-grid,
 .purpose-campaign-card,
 .purpose-dashboard-grid {
-  position: relative;
+  @apply tw:relative;
   z-index: 1;
 }
 
 .purpose-intro {
   align-content: start;
-  display: grid;
-  gap: 0.75rem;
+  @apply tw:grid tw:gap-3;
   max-width: 37rem;
 }
 
 .purpose-intro h2 {
   font-size: clamp(1.75rem, 3vw, 2.25rem);
   line-height: 1.2;
-  margin: 0;
+  @apply tw:m-0;
   text-shadow: none;
 }
 
@@ -328,30 +297,28 @@
   color: var(--text-soft);
   font-family: 'Segoe UI', Arial, sans-serif;
   line-height: 1.55;
-  margin: 0;
+  @apply tw:m-0;
   max-width: 33rem;
   font-size: 1rem;
 }
 
 .purpose-actions {
-  display: flex;
-  flex-wrap: wrap;
+  @apply tw:flex tw:flex-wrap;
   gap: 0.6rem;
 }
 
 .purpose-actions button,
 .purpose-actions a {
-  align-items: center;
+  @apply tw:items-center;
   border-radius: 0.42rem;
-  display: inline-flex;
+  @apply tw:inline-flex;
   font-family: 'Segoe UI', Arial, sans-serif;
   font-size: 0.9375rem;
   font-weight: 900;
-  justify-content: center;
-  min-height: 2.75rem;
+  @apply tw:justify-center tw:min-h-11;
   padding: 0 0.9rem;
   text-decoration: none;
-  text-transform: uppercase;
+  @apply tw:uppercase;
 }
 
 .purpose-actions button {
@@ -370,14 +337,11 @@
 .purpose-kpi-grid,
 .purpose-campaign-card,
 .purpose-dashboard-grid {
-  grid-column: 1 / -1;
+  @apply tw:col-span-full;
 }
 
 .purpose-proof-strip {
-  display: grid;
-  gap: 1.5rem;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin: 0;
+  @apply tw:grid tw:gap-6 tw:grid-cols-4 tw:m-0;
 }
 
 .purpose-proof-strip div,
@@ -391,12 +355,12 @@
 
 .purpose-proof-strip div {
   border-radius: 0.62rem;
-  padding: 1.25rem;
+  @apply tw:p-5;
 }
 
 .purpose-proof-strip dt,
 .purpose-proof-strip dd {
-  margin: 0;
+  @apply tw:m-0;
 }
 
 .purpose-proof-strip dt {
@@ -414,29 +378,26 @@
 }
 
 .purpose-kpi-grid {
-  display: grid;
-  gap: 1.5rem;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  @apply tw:grid tw:gap-6 tw:grid-cols-4;
 }
 
 .purpose-kpi {
-  align-items: center;
+  @apply tw:items-center;
   border-radius: 0.62rem;
-  display: grid;
+  @apply tw:grid;
   gap: 0.72rem;
   grid-template-columns: auto 1fr;
-  min-height: 7.5rem;
-  padding: 1.25rem;
+  @apply tw:min-h-30 tw:p-5;
 }
 
 .purpose-kpi > span {
   border-radius: 999px;
-  display: grid;
+  @apply tw:grid;
   font-family: 'Segoe UI', Arial, sans-serif;
   font-size: 1.35rem;
   font-weight: 900;
   height: 2.8rem;
-  place-items: center;
+  @apply tw:place-items-center;
   width: 2.8rem;
 }
 
@@ -465,12 +426,12 @@
   font-family: 'Segoe UI', Arial, sans-serif;
   font-size: 0.9375rem;
   font-weight: 600;
-  margin: 0;
+  @apply tw:m-0;
 }
 
 .purpose-kpi strong {
   color: var(--text-main);
-  display: block;
+  @apply tw:block;
   font-family: 'Segoe UI', Arial, sans-serif;
   font-size: 2rem;
   margin-top: 0.3rem;
@@ -509,15 +470,14 @@
     right 48%;
   background-size: cover;
   border-radius: 0.62rem;
-  padding: 1.5rem;
+  @apply tw:p-6;
 }
 
 .purpose-campaign-card header {
   align-items: end;
-  display: flex;
+  @apply tw:flex;
   font-family: 'Segoe UI', Arial, sans-serif;
-  justify-content: space-between;
-  text-transform: uppercase;
+  @apply tw:justify-between tw:uppercase;
 }
 
 .purpose-campaign-card header span {
@@ -537,14 +497,13 @@
   border-radius: 999px;
   height: 1.35rem;
   margin-top: 0.62rem;
-  overflow: hidden;
+  @apply tw:overflow-hidden;
 }
 
 .purpose-track span {
   background: var(--color-primary);
   box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
-  display: block;
-  height: 100%;
+  @apply tw:block tw:h-full;
 }
 
 .purpose-campaign-card p {
@@ -555,8 +514,7 @@
 }
 
 .purpose-dashboard-grid {
-  display: grid;
-  gap: 1.5rem;
+  @apply tw:grid tw:gap-6;
   grid-template-columns: minmax(15rem, 0.72fr) minmax(36rem, 1.85fr);
 }
 
@@ -567,15 +525,14 @@
 
 .purpose-panel {
   border-radius: 0.62rem;
-  min-width: 0;
-  padding: 1.25rem;
+  @apply tw:min-w-0 tw:p-5;
 }
 
 .purpose-panel {
   background: var(--surface-panel);
   border-color: var(--border-color);
   box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
-  padding: 1.25rem;
+  @apply tw:p-5;
 }
 
 .purpose-panel h3 {
@@ -583,7 +540,7 @@
   font-size: 1.125rem;
   line-height: 1.4;
   margin: 0 0 0.78rem;
-  text-transform: uppercase;
+  @apply tw:uppercase;
 }
 
 .purpose-panel h3 {
@@ -594,15 +551,14 @@
 }
 
 .purpose-flow ol {
-  display: grid;
+  @apply tw:grid;
   gap: 0.52rem;
   list-style: none;
-  margin: 0;
-  padding: 0;
+  @apply tw:m-0 tw:p-0;
 }
 
 .purpose-flow li {
-  display: grid;
+  @apply tw:grid;
   gap: 0.52rem;
   grid-template-columns: auto 1fr;
 }
@@ -611,11 +567,11 @@
   border: 1px solid var(--border-color);
   border-radius: 999px;
   color: var(--color-primary);
-  display: grid;
+  @apply tw:grid;
   font-family: 'Segoe UI', Arial, sans-serif;
   font-size: 0.875rem;
   height: 1.55rem;
-  place-items: center;
+  @apply tw:place-items-center;
   width: 1.55rem;
 }
 
@@ -635,19 +591,19 @@
 
 .purpose-allocation {
   align-content: start;
-  display: grid;
+  @apply tw:grid;
   grid-column: 1;
   grid-row: 2;
   gap: 0.2rem;
-  padding: 1.25rem;
+  @apply tw:p-5;
 }
 
 .purpose-donut {
   border-radius: 999px;
   height: 6.4rem;
-  justify-self: center;
+  @apply tw:justify-self-center;
   margin: 0 auto 0.72rem;
-  position: relative;
+  @apply tw:relative;
   width: 6.4rem;
 }
 
@@ -656,20 +612,18 @@
   border-radius: inherit;
   content: '';
   inset: 1.45rem;
-  position: absolute;
+  @apply tw:absolute;
 }
 
 .purpose-allocation ul {
-  display: grid;
+  @apply tw:grid;
   gap: 0.36rem;
   list-style: none;
-  margin: 0;
-  padding: 0;
+  @apply tw:m-0 tw:p-0;
 }
 
 .purpose-allocation li {
-  align-items: center;
-  display: grid;
+  @apply tw:items-center tw:grid;
   gap: 0.45rem;
   grid-template-columns: auto auto 1fr;
 }
@@ -689,7 +643,7 @@
   color: var(--text-soft);
   font-family: 'Segoe UI', Arial, sans-serif;
   font-size: 0.875rem;
-  margin: 0;
+  @apply tw:m-0;
 }
 
 .purpose-empty-state {
@@ -697,23 +651,21 @@
   font-family: 'Segoe UI', Arial, sans-serif;
   font-size: 0.875rem;
   margin: 0.55rem 0 0;
-  text-align: center;
+  @apply tw:text-center;
 }
 
 .purpose-support-panel {
-  display: grid;
-  gap: 1rem;
+  @apply tw:grid tw:gap-4;
   grid-column: 2;
   grid-row: 1 / span 2;
-  min-width: 0;
+  @apply tw:min-w-0;
 }
 
 .builders-footer {
-  align-items: center;
+  @apply tw:items-center;
   background: var(--surface-subtle);
   border-top: 1px solid var(--border-color);
-  display: grid;
-  gap: 1.5rem;
+  @apply tw:grid tw:gap-6;
   grid-template-columns: minmax(20rem, 1fr) minmax(28rem, 1.1fr);
   padding: 2rem clamp(1rem, 4vw, 3rem);
 }
@@ -722,21 +674,19 @@
   color: var(--text-soft);
   font-size: 1.25rem;
   line-height: 1.25;
-  margin: 0;
-  text-align: center;
+  @apply tw:m-0 tw:text-center;
 }
 
 .builders-footer p strong {
-  display: block;
+  @apply tw:block;
 }
 
 .builders-footer ul {
-  display: grid;
+  @apply tw:grid;
   gap: 0.65rem;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  @apply tw:grid-cols-4;
   list-style: none;
-  margin: 0;
-  padding: 0;
+  @apply tw:m-0 tw:p-0;
 }
 
 .builders-footer li {
@@ -748,13 +698,13 @@
 }
 
 .builders-footer li strong {
-  display: block;
+  @apply tw:block;
   font-size: 0.9rem;
-  text-transform: uppercase;
+  @apply tw:uppercase;
 }
 
 .builders-footer li span {
-  display: block;
+  @apply tw:block;
   font-size: 0.875rem;
   line-height: 1.25;
   margin-top: 0.15rem;
@@ -766,7 +716,7 @@
   }
 
   .tool-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    @apply tw:grid-cols-4;
   }
 
   .tool-card:nth-child(n + 8) {
@@ -797,7 +747,7 @@
 
 @media (max-width: 860px) {
   .tool-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    @apply tw:grid-cols-2;
   }
 
   .purpose-proof-strip,
@@ -816,7 +766,7 @@
 
   .purpose-dragon {
     opacity: 0.28;
-    width: 100%;
+    @apply tw:w-full;
   }
 }
 

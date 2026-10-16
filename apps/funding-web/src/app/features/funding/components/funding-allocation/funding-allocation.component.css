@@ -1,0 +1,70 @@
+@reference '../../../../../styles/tailwind.css';
+
+.allocation-card {
+  @apply tw:min-h-full;
+}
+
+.allocation-card h2 {
+  color: var(--text-main);
+  margin: 0 0 0.8rem;
+}
+
+.chart-layout {
+  align-items: start;
+  @apply tw:grid;
+  gap: 0.85rem;
+  grid-template-columns: auto 1fr;
+}
+
+.donut {
+  border-radius: 999px;
+  height: 5.7rem;
+  @apply tw:relative;
+  width: 5.7rem;
+}
+
+.donut::after {
+  background: var(--surface-panel);
+  border-radius: 999px;
+  content: '';
+  inset: 0.95rem;
+  @apply tw:absolute;
+}
+
+.allocation-card ul {
+  @apply tw:grid tw:gap-2;
+  list-style: none;
+  @apply tw:m-0 tw:p-0;
+}
+
+.allocation-card li {
+  @apply tw:items-center;
+  color: var(--text-soft);
+  @apply tw:flex tw:gap-2;
+}
+
+.allocation-card em {
+  color: var(--text-soft);
+  font-size: 0.9rem;
+  @apply tw:not-italic tw:ml-auto;
+}
+
+.allocation-card strong {
+  color: var(--color-primary);
+  font-weight: 600;
+  @apply tw:whitespace-nowrap;
+}
+
+.foot-note {
+  border-top: 1px solid var(--border-color);
+  color: var(--text-soft);
+  font-size: 0.875rem;
+  margin: 0.8rem 0 0;
+  padding-top: 0.65rem;
+}
+
+@media (max-width: 1100px) {
+  .chart-layout {
+    grid-template-columns: 1fr;
+  }
+}
