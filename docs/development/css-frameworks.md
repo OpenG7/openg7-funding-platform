@@ -166,6 +166,9 @@ seuil de 700 px est conservé. Les recettes
 [accès](../../tests/playwright/admin-access-ui.spec.ts) et
 [identité](../../tests/playwright/admin-identity-setup-ui.spec.ts) couvrent les
 palettes, le responsive, le focus et les confirmations avec les API simulées.
+Le guide public utilise les alias `--admin-selected` et `--admin-accent` pour
+son étape active et ses liens, afin de garder un contraste lisible sans le
+layout admin; les thèmes administratifs continuent de fournir leurs couleurs.
 
 Étendre seulement là où les utilitaires rendent la source plus claire. Conserver
 du CSS explicite pour les interactions de sélecteurs, les dégradés, graphiques,

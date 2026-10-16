@@ -82,7 +82,7 @@ button {
 }
 .steps button[aria-current='step'] {
   border-color: var(--admin-focus);
-  background: var(--og7-admin-selected, #12354c);
+  background: var(--admin-selected);
 }
 .step-detail {
   border-top: 1px solid var(--admin-border);
@@ -106,7 +106,7 @@ button {
   border-top: 1px solid var(--admin-border);
 }
 .all-steps summary {
-  color: var(--og7-admin-accent, #9edaff);
+  color: var(--admin-accent);
   @apply tw:cursor-pointer;
 }
 .all-steps ol {
@@ -128,7 +128,7 @@ code {
   border-top: 1px solid var(--admin-border);
 }
 .guide-links a {
-  color: var(--og7-admin-accent, #9edaff);
+  color: var(--admin-accent);
   text-underline-offset: 0.2em;
 }
 button:focus-visible,

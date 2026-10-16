@@ -207,6 +207,19 @@ test('public identity guide preserves its 700px boundary without authentication 
   await expect(root).toHaveCSS('min-height', '1000px');
   await expect(root.locator(':scope > div')).toHaveCSS('max-width', '1024px');
   const steps = guide(page).getByRole('navigation').getByRole('list');
+  const selected = guide(page).locator(
+    '[data-og7="identity-step-link"][aria-current="step"]'
+  );
+  await expect(guide(page)).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await expect(selected).toHaveCSS('background-color', 'rgb(220, 233, 218)');
+  await expect(selected).toHaveCSS('color', 'rgb(41, 51, 46)');
+  await expect(
+    guide(page).locator('[data-og7="identity-all-steps"] summary')
+  ).toHaveCSS('color', 'rgb(53, 107, 82)');
+  const guideLinks = guide(page).locator('footer').getByRole('link');
+  await expect(guideLinks).toHaveCount(3);
+  for (const link of await guideLinks.all())
+    await expect(link).toHaveCSS('color', 'rgb(53, 107, 82)');
   for (const width of [701, 700, 699]) {
     await page.setViewportSize({ width, height: 1000 });
     await expect
@@ -235,6 +248,8 @@ test('public identity guide preserves its 700px boundary without authentication 
   await expect(current(page)).toContainText(
     'https://<site>/api/admin/auth/callback'
   );
+  await expect(selected).toHaveAttribute('data-og7-id', 'client');
+  await expect(selected).toHaveCSS('background-color', 'rgb(220, 233, 218)');
   const signIn = root.locator('[data-og7="identity-setup-sign-in"]');
   await expect(signIn).toHaveCSS('text-decoration-line', 'underline');
   await expect(signIn).toHaveCSS('text-underline-offset', '3.2px');
