@@ -85,7 +85,19 @@ test(
             const facts = {
               status: response.status,
               contentType: response.headers['content-type'],
-              noSniff: response.headers['x-content-type-options']
+              noSniff: response.headers['x-content-type-options'],
+              ...(response.status === 200
+                ? {}
+                : {
+                    failureKind:
+                      response.body.trim() === '404 page not found'
+                        ? 'proxy_plain_404'
+                        : /<html|<!doctype/i.test(response.body)
+                          ? 'html'
+                          : response.body.trim().startsWith('{')
+                            ? 'json'
+                            : 'other'
+                  })
             };
             responses.push(facts);
             resourceResponses.push(facts);
@@ -129,7 +141,14 @@ test(
         ).length,
         noSniffCount: responses.filter(
           (response) => response.noSniff === 'nosniff'
-        ).length
+        ).length,
+        failedResponses: responses
+          .filter((response) => response.status !== 200)
+          .map(({ status, contentType, failureKind }) => ({
+            status,
+            contentType,
+            failureKind
+          }))
       };
       for (const worker of workers) {
         assert.equal(worker.status, 'fulfilled');

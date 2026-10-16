@@ -151,6 +151,18 @@ test('draft projection preserves the exact reviewed content, dates and private r
   );
 });
 
+test('draft projection preserves exact obligation binding while keeping older rows compatible', () => {
+  for (const obligation_id of [null, '10000000-0000-4000-8000-000000000401'])
+    assert.deepEqual(mapPublicationDraftRow({ ...draftRow, obligation_id }), {
+      ...draftRow,
+      obligation_id
+    });
+  assert.equal(
+    Object.hasOwn(mapPublicationDraftRow(draftRow), 'obligation_id'),
+    false
+  );
+});
+
 test('batch and slot projections preserve association order and their distinct contracts', () => {
   const before = structuredClone([batchRow, slotRow]);
   assert.deepEqual(mapPublicationBatchRow(batchRow), batch);

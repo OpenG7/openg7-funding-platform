@@ -1,0 +1,135 @@
+<div #home class="virtual-home"></div>
+<section
+  #panel
+  data-og7="virtual-controller"
+  class="virtual-panel"
+  [hidden]="!enabled()"
+  [class.virtual-modal]="inModal()"
+  [attr.data-og7-virtual-source]="
+    controller.virtualEnabled() ? 'active' : 'inactive'
+  "
+  [attr.data-og7-ready]="controller.virtualReady()"
+  [attr.data-og7-buttons]="buttonValues()"
+  [attr.data-og7-axes]="axisValues()"
+  [attr.aria-label]="t('title')"
+  (pointerdown)="preserve($event)"
+>
+  <header>
+    <strong>{{ t('title') }}</strong>
+    <button
+      type="button"
+      tabindex="-1"
+      data-og7="virtual-close"
+      (click)="close()"
+    >
+      {{ t('close') }}
+    </button>
+  </header>
+  <p class="status" aria-live="polite">
+    {{ t(controller.virtualReady() ? 'ready' : 'neutral') }}
+  </p>
+  <div class="buttons">
+    @for (button of buttons; track button.index) {
+      <button
+        type="button"
+        tabindex="-1"
+        data-og7="virtual-button"
+        [attr.data-og7-id]="button.index"
+        [class.pressed]="pressed(button.index)"
+        [attr.aria-pressed]="pressed(button.index)"
+        [attr.aria-label]="
+          button.index >= 12 && button.index <= 15
+            ? t('dpad') + ' ' + button.label
+            : button.label
+        "
+        (pointerdown)="press($event, button.index)"
+      >
+        {{ button.label }}
+      </button>
+    }
+  </div>
+  <div class="triggers">
+    @for (index of [6, 7]; track index) {
+      <div
+        class="trigger"
+        role="slider"
+        tabindex="-1"
+        data-og7="virtual-trigger"
+        [attr.data-og7-id]="index"
+        [attr.aria-label]="index === 6 ? 'LT' : 'RT'"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        [attr.aria-valuenow]="value(index)"
+        (pointerdown)="trigger($event, index)"
+        (pointermove)="move($event)"
+      >
+        <span class="trigger-value" [style.width.%]="value(index)"></span>
+        <span>{{ index === 6 ? 'LT' : 'RT' }} {{ value(index) }}%</span>
+      </div>
+    }
+  </div>
+  <div class="sticks">
+    @for (name of sticks; track name) {
+      <div class="stick-group">
+        <span>{{ t(name === 'left' ? 'leftStick' : 'rightStick') }}</span>
+        <div
+          class="stick"
+          data-og7="virtual-stick"
+          [attr.data-og7-id]="name"
+          [attr.aria-label]="t(name === 'left' ? 'leftStick' : 'rightStick')"
+          (pointerdown)="stick($event, name)"
+          (pointermove)="move($event)"
+        >
+          <span
+            class="knob"
+            [style.left.%]="50 + axis(name, 0) * 34"
+            [style.top.%]="50 + axis(name, 1) * 34"
+          ></span>
+        </div>
+        <div class="directions">
+          @for (direction of directions; track direction.id) {
+            <button
+              type="button"
+              tabindex="-1"
+              data-og7="virtual-stick-direction"
+              [attr.data-og7-id]="name + '-' + direction.id"
+              [attr.aria-label]="
+                t(name === 'left' ? 'leftStick' : 'rightStick') +
+                ' ' +
+                direction.label
+              "
+              (pointerdown)="
+                pressDirection($event, name, direction.x, direction.y)
+              "
+            >
+              {{ direction.label }}
+            </button>
+          }
+        </div>
+      </div>
+    }
+  </div>
+  <footer>
+    <button
+      type="button"
+      tabindex="-1"
+      data-og7="virtual-lock-lt"
+      [attr.aria-pressed]="ltLocked()"
+      [class.pressed]="ltLocked()"
+      (click)="lockLT()"
+    >
+      {{ t(ltLocked() ? 'unlockLT' : 'lockLT') }}
+    </button>
+    <button
+      type="button"
+      tabindex="-1"
+      data-og7="virtual-release"
+      (click)="neutral()"
+    >
+      {{ t('release') }}
+    </button>
+  </footer>
+  <p class="hint">{{ t('hint') }}</p>
+  <p class="hint">{{ t('diagnostic') }}</p>
+  <div data-og7="virtual-scenarios" [hidden]="inModal()"><ng-content /></div>
+</section>

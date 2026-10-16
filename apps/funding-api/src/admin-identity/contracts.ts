@@ -18,6 +18,7 @@ export interface AdminIdentityConfig {
   readonly clientId: string;
   readonly clientSecret: string;
   readonly mfaAcr: string;
+  readonly localPasswordOnly: boolean;
   readonly ownerSubjects: readonly string[];
 }
 

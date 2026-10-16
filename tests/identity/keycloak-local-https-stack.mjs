@@ -22,6 +22,8 @@ import {
 } from '../../scripts/lib/database-migrations.mjs';
 import { buildRuntimeRoleSql } from '../../scripts/lib/database-runtime-role.mjs';
 import { provisionKeycloakUser } from '../../scripts/lib/keycloak-provision-user.mjs';
+import { configureLocalKeycloakMfa } from '../../scripts/lib/keycloak-local-mfa.mjs';
+import { inspectKeycloakPasswordResetTarget } from '../../scripts/lib/keycloak-password-reset.mjs';
 import { prepareLocalIdentity } from '../../scripts/lib/local-identity.mjs';
 import { createLocalHttpsExchange } from './local-https-exchange.mjs';
 
@@ -76,7 +78,8 @@ export const eventually = async (operation, description, timeout = 120_000) => {
 // All Docker calls name this fixture's project; inherited application credentials
 // and the checkout's .env are never consulted. Command errors omit sensitive output.
 export async function startLocalKeycloakHttpsStack({
-  provisionUser = false
+  provisionUser = false,
+  passwordOnly = false
 } = {}) {
   if (Number(process.versions.node.split('.')[0]) < 22)
     throw new Error(
@@ -139,6 +142,7 @@ export async function startLocalKeycloakHttpsStack({
   let ownerSubject = provisionUser ? '' : randomUUID();
   const password = randomBytes(24).toString('hex');
   const initialPassword = randomBytes(24).toString('hex');
+  const otpSecret = randomBytes(20).toString('hex');
   const runtime = {
     role: 'fixture_runtime',
     database: 'fixture_funding',
@@ -156,6 +160,7 @@ export async function startLocalKeycloakHttpsStack({
     FUNDING_PUBLIC_BASE_URL: 'https://localhost',
     FUNDING_ALLOWED_ORIGINS: 'https://localhost',
     FUNDING_ADMIN_AUTH_MODE: 'oidc',
+    FUNDING_ADMIN_OIDC_LOCAL_PASSWORD_ONLY: String(passwordOnly),
     FUNDING_ADMIN_OIDC_ISSUER: `https://${hostname}/realms/openg7`,
     FUNDING_ADMIN_OIDC_CLIENT_ID: 'synthetic-local-funding',
     FUNDING_ADMIN_OIDC_CLIENT_SECRET: randomBytes(32).toString('hex'),
@@ -188,26 +193,22 @@ export async function startLocalKeycloakHttpsStack({
     OPENG7_DATA_NETWORK_NAME: project + '-data'
   };
   const envFile = join(root, 'fixture.env');
-  const compose = (args, options) =>
-    docker(
-      [
-        'compose',
-        '--project-directory',
-        root,
-        '--env-file',
-        envFile,
-        '-p',
-        project,
-        ...[...composeFiles, 'docker-compose.rehearsal.yml'].flatMap((file) => [
-          '-f',
-          join(root, file)
-        ]),
-        '--profile',
-        'database',
-        ...args
-      ],
-      options
-    );
+  const composeArgs = [
+    'compose',
+    '--project-directory',
+    root,
+    '--env-file',
+    envFile,
+    '-p',
+    project,
+    ...[...composeFiles, 'docker-compose.rehearsal.yml'].flatMap((file) => [
+      '-f',
+      join(root, file)
+    ]),
+    '--profile',
+    'database'
+  ];
+  const compose = (args, options) => docker([...composeArgs, ...args], options);
   let initialized = false;
   const stop = async () => {
     if (initialized)
@@ -286,7 +287,22 @@ export async function startLocalKeycloakHttpsStack({
             firstName: 'Synthetic',
             lastName: 'Administrator',
             credentials: [
-              { type: 'password', value: password, temporary: false }
+              { type: 'password', value: password, temporary: false },
+              ...(passwordOnly
+                ? [
+                    {
+                      type: 'otp',
+                      secretData: JSON.stringify({ value: otpSecret }),
+                      credentialData: JSON.stringify({
+                        digits: 6,
+                        counter: 0,
+                        period: 30,
+                        algorithm: 'HmacSHA1',
+                        subType: 'totp'
+                      })
+                    }
+                  ]
+                : [])
             ]
           }
         ];
@@ -404,19 +420,48 @@ export async function startLocalKeycloakHttpsStack({
     const start = (services) =>
       compose(['up', '-d', '--no-build', '--pull', 'never', ...services]);
     const healthy = async (services) => {
-      for (const service of services)
-        await eventually(async () => {
-          const id = await compose(['ps', '-q', service]);
-          assert.equal(
-            await docker([
-              'inspect',
-              id,
-              '--format',
-              '{{.State.Health.Status}}'
-            ]),
-            'healthy'
+      for (const service of services) {
+        try {
+          await eventually(
+            async () => {
+              const id = await compose(['ps', '-q', service]);
+              assert.equal(
+                await docker([
+                  'inspect',
+                  id,
+                  '--format',
+                  '{{.State.Health.Status}}'
+                ]),
+                'healthy'
+              );
+            },
+            `Disposable ${service} did not become healthy.`,
+            // Keycloak 26.8 initializes its new identity schema asynchronously
+            // after opening HTTP. A cold disposable DB can exceed two minutes.
+            service === 'keycloak' ? 300_000 : 120_000
           );
-        }, `Disposable ${service} did not become healthy.`);
+        } catch {
+          let management = 'unavailable';
+          if (service === 'keycloak') {
+            const id = await compose(['ps', '-q', service]);
+            management = await docker([
+              'exec',
+              id,
+              '/bin/bash',
+              '-c',
+              "exec 3<>/dev/tcp/127.0.0.1/9000; printf 'GET /health/ready HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' >&3; IFS= read -r -t 5 status <&3; printf '%s' \"$status\""
+            ])
+              .then(
+                (status) =>
+                  /^HTTP\/1\.[01] (\d{3})/.exec(status)?.[1] || 'invalid'
+              )
+              .catch(() => 'unavailable');
+          }
+          throw new Error(
+            `Disposable ${service} did not become healthy (management status ${management}).`
+          );
+        }
+      }
     };
     // A real account is provisioned only after Keycloak is ready and before the
     // API receives the newly discovered owner subject in its environment.
@@ -443,6 +488,18 @@ export async function startLocalKeycloakHttpsStack({
         body
       });
     };
+    const configureMfa = () =>
+      configureLocalKeycloakMfa({
+        root,
+        env,
+        request,
+        inspectTarget: (input) =>
+          inspectKeycloakPasswordResetTarget({
+            ...input,
+            env: { ...clean, ...env, DOCKER_CONTEXT: context },
+            plan: { ...input.plan, composeArgs }
+          })
+      });
     const identitySql = async (statement) =>
       compose(
         [
@@ -504,6 +561,7 @@ export async function startLocalKeycloakHttpsStack({
       );
       await configure();
     }
+    const authenticationProfile = await configureMfa();
     await start(['api', 'web']);
     await healthy(['api', 'web']);
     for (const service of ['postgres', 'identity-postgres']) {
@@ -558,11 +616,51 @@ export async function startLocalKeycloakHttpsStack({
       port,
       password,
       initialPassword,
+      otpSecret,
       ownerSubject,
       provisioned,
+      authenticationProfile,
       sql,
       exchange,
       snapshotUser,
+      async providerClientRequest(target, options) {
+        assert.equal(target.origin, `https://${hostname}`);
+        const body = options.body ? new URLSearchParams(options.body) : null;
+        // Keep the fixture's confidential client secret inside the stack owner.
+        if (
+          target.pathname.endsWith('/protocol/openid-connect/token') &&
+          body
+        ) {
+          body.set('client_id', env.FUNDING_ADMIN_OIDC_CLIENT_ID);
+          body.set('client_secret', env.FUNDING_ADMIN_OIDC_CLIENT_SECRET);
+        }
+        return exchange(target.pathname + target.search, {
+          provider: true,
+          method: options.method || 'GET',
+          headers: Object.fromEntries(new Headers(options.headers)),
+          ...(body ? { body: body.toString() } : {})
+        });
+      },
+      async reconcilePasswordOnly(enabled) {
+        env.FUNDING_ADMIN_OIDC_LOCAL_PASSWORD_ONLY = String(enabled);
+        await configure();
+        const result = await configureMfa();
+        await compose([
+          'up',
+          '-d',
+          '--no-build',
+          '--pull',
+          'never',
+          '--no-deps',
+          '--force-recreate',
+          'api'
+        ]);
+        await healthy(['api']);
+        return result;
+      },
+      async replayAuthenticationProfile() {
+        return configureMfa();
+      },
       async prepareProvisioningClient() {
         const tokenResponse = await request({
           url: `https://${hostname}/realms/master/protocol/openid-connect/token`,

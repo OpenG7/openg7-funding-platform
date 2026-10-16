@@ -232,7 +232,7 @@ for (const [environment, authentication] of [
   ['local', 'keycloak'],
   ['local', 'token']
 ])
-  test(`${environment} ${authentication} keeps the existing Docker flow without production TLS effects`, async () => {
+  test(`${environment} ${authentication} starts without production TLS effects and reconciles only local Keycloak MFA`, async () => {
     const plan = dockerUpPlan(
       parseDockerUpArgs([
         `--env=${environment}`,
@@ -243,10 +243,19 @@ for (const [environment, authentication] of [
     );
     assert.equal(plan.productionIdentity, false);
     const calls = [];
+    let reconciliations = 0;
     await startDockerStack(plan, {
       runDocker: async (args, env) => {
         assert.equal(env, plan.commandEnv);
         calls.push([...args]);
+      },
+      configureLocalMfa: async (env) => {
+        assert.equal(environment, 'local');
+        assert.equal(authentication, 'keycloak');
+        assert.equal(env, plan.commandEnv);
+        assert.deepEqual(calls.at(-1), plan.identityUp);
+        assert.equal(calls.length, 3);
+        reconciliations++;
       },
       prepareProductionTls: () =>
         assert.fail('This plan must not prepare production TLS'),
@@ -256,7 +265,10 @@ for (const [environment, authentication] of [
       listenStripe: () => assert.fail('Stripe was explicitly disabled')
     });
     assert.deepEqual(calls, plan.commands);
-    assert.equal(calls.length, 3);
+    const localIdentity =
+      environment === 'local' && authentication === 'keycloak';
+    assert.equal(calls.length, localIdentity ? 4 : 3);
+    assert.equal(reconciliations, localIdentity ? 1 : 0);
   });
 
 test('identity-only is refused outside production managed Keycloak', () => {

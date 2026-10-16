@@ -11,12 +11,15 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { PilotAppearanceService } from '../../services/pilot-appearance.service.js';
 import { AdminNavComponent } from '../admin-nav/admin-nav.component.js';
+import { AdminGuidanceComponent } from '../admin-guidance/admin-guidance.component.js';
 import { AdminGlobalSearchComponent } from '../admin-search/admin-global-search.component.js';
 import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
 import { AdminInspectorComponent } from '../admin-inspector/admin-inspector.component.js';
 import { AdminConfirmationComponent } from '../admin-ui/admin-confirmation.component.js';
 import { ContributionActivityComponent } from '../contribution-activity/contribution-activity.component.js';
 import { FundingModerationPanelComponent } from '../admin-moderation/funding-moderation-panel.component.js';
+import { AdminControllerComponent } from '../admin-controller/admin-controller.component.js';
+import { AdminSandboxService } from '../../services/admin-sandbox.service.js';
 
 /** Admin page template: placement and navigation, no business data loading. */
 @Component({
@@ -26,11 +29,13 @@ import { FundingModerationPanelComponent } from '../admin-moderation/funding-mod
     RouterLink,
     TranslatePipe,
     AdminNavComponent,
+    AdminGuidanceComponent,
     AdminIconComponent,
     AdminGlobalSearchComponent,
     AdminInspectorComponent,
     AdminConfirmationComponent,
     FundingModerationPanelComponent,
+    AdminControllerComponent,
     ContributionActivityComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -47,6 +52,9 @@ import { FundingModerationPanelComponent } from '../admin-moderation/funding-mod
       [class.navigation-collapsed]="navigationCollapsed()"
       [class.pilotage-layout]="pilotage()"
       [class.concentrated]="concentrated()"
+      [class.sandbox-controller-open]="
+        sandbox.available() && sandbox.virtualOpen()
+      "
       data-og7="admin-layout"
     >
       <openg7-admin-nav id="admin-sidebar" [collapsible]="true" />
@@ -104,11 +112,22 @@ import { FundingModerationPanelComponent } from '../admin-moderation/funding-mod
             >
           </div>
         </header>
+        <div class="guidance-tools" data-og7="admin-guidance-tools">
+          <openg7-admin-guidance />
+          <openg7-admin-controller />
+        </div>
         <main id="admin-main" #main tabindex="-1"><ng-content /></main>
         <openg7-admin-inspector />
         <openg7-admin-confirmation />
         <openg7-funding-moderation-panel />
       </div>
+      @if (sandbox.available() && sandbox.virtualOpen()) {
+        <aside
+          class="sandbox-controller-dock"
+          data-og7="sandbox-controller-dock"
+          [attr.aria-label]="'admin.controller.simulator.open' | translate"
+        ></aside>
+      }
     </div>
   `,
   styleUrls: [
@@ -124,4 +143,5 @@ export class AdminLayoutComponent {
   readonly i18n = inject(FundingI18nService);
   readonly appearance = inject(PilotAppearanceService);
   readonly navigationCollapsed = signal(false);
+  readonly sandbox = inject(AdminSandboxService);
 }

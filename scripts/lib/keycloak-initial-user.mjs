@@ -14,6 +14,7 @@ import { join, resolve } from 'node:path';
 import { dockerComposeFileArgs } from './docker-config.mjs';
 import { validateKeycloakInitialUserConfig } from './keycloak-config.mjs';
 import { validateLocalIdentityConfig } from './local-identity.mjs';
+import { validateLocalPasswordOnly } from './local-password-policy.mjs';
 
 const uuid =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -308,7 +309,9 @@ export function prepareLocalInitialUser({
       id: state.subject,
       username: state.username,
       enabled: true,
-      requiredActions: ['UPDATE_PASSWORD', 'CONFIGURE_TOTP'],
+      requiredActions: validateLocalPasswordOnly(env)
+        ? ['UPDATE_PASSWORD']
+        : ['UPDATE_PASSWORD', 'CONFIGURE_TOTP'],
       credentials: [
         {
           type: 'password',

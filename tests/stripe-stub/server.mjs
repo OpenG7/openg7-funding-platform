@@ -789,6 +789,24 @@ const handleCheckoutPage = async (request, response, id) => {
     return;
   }
   if (request.method === 'GET') {
+    if (record.paymentStatus === 'paid') {
+      const destination = record.successUrl
+        .replace('{CHECKOUT_SESSION_ID}', record.id)
+        .replaceAll('&', '&amp;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;');
+      response.writeHead(200, {
+        'content-type': 'text/html; charset=utf-8',
+        'cache-control': 'private, no-store',
+        'referrer-policy': 'no-referrer'
+      });
+      response.end(
+        `<!doctype html><html lang="fr"><meta name="viewport" content="width=device-width"><title>Checkout simulé</title><body><main><h1>Paiement simulé déjà confirmé</h1><p>Aucun paiement réel. Ce Checkout conserve son paiement et son dossier existants.</p><a href="${destination}">Continuer vers OpenG7</a></main></body></html>`
+      );
+      return;
+    }
     response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
     response.end(
       `<!doctype html><html lang="fr"><meta name="viewport" content="width=device-width"><title>Checkout simulé</title><body><main><h1>Checkout simulé</h1><p>Aucun paiement réel. Contribution : ${(record.amountTotal / 100).toFixed(2)} CAD.</p>${record.declined ? '<p role="alert">Paiement simulé refusé. Essayez un autre moyen de paiement.</p>' : ''}${record.sessionStatus === 'expired' ? '<p role="alert">Session simulée expirée.</p>' : '<form method="post"><label>Courriel simulé <input type="email" name="email" required value="' + record.customerEmail + '"></label><button type="submit">Confirmer le paiement simulé</button><button name="action" value="decline">Simuler un refus</button><button name="action" value="expire">Simuler une expiration</button></form>'}<a href="${record.cancelUrl.replaceAll('&', '&amp;').replaceAll('"', '&quot;')}">Retourner à OpenG7</a></main></body></html>`

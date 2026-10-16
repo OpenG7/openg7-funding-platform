@@ -2,7 +2,11 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import ts from 'typescript';
 
+import { sandboxBrowserArgs } from './admin-sandbox.mjs';
+
 const slash = (path) => path.split(sep).join('/');
+const e2eCommand =
+  /\bplaywright\s+test\b|\bnode\s+scripts\/admin-(?:acceptance|sandbox)\.mjs\b/;
 
 function staticCommands(line, resolveShards) {
   const commands = [];
@@ -96,7 +100,10 @@ function staticCommands(line, resolveShards) {
       (tokens[0] === 'npx' &&
         tokens[1] === 'playwright' &&
         tokens[2] === 'test') ||
-      (tokens[0] === 'node' && tokens[1] === 'scripts/admin-acceptance.mjs')
+      (tokens[0] === 'node' &&
+        ['scripts/admin-acceptance.mjs', 'scripts/admin-sandbox.mjs'].includes(
+          tokens[1]
+        ))
     )
       continue;
     throw new Error('Unsupported E2E preparation command.');
@@ -314,12 +321,7 @@ export function workflowSelections(source, scripts = {}) {
   };
   const e2eAlias = (name, seen = new Set()) => {
     if (!scripts[name] || seen.has(name)) return false;
-    if (
-      /\bplaywright\s+test\b|\bnode\s+scripts\/admin-acceptance\.mjs\b/.test(
-        scripts[name]
-      )
-    )
-      return true;
+    if (e2eCommand.test(scripts[name])) return true;
     const visited = new Set([...seen, name]);
     return [...scripts[name].matchAll(/\byarn\s+([\w:-]+)/g)].some((match) =>
       e2eAlias(match[1], visited)
@@ -329,9 +331,7 @@ export function workflowSelections(source, scripts = {}) {
     commands.split(/\r?\n/).some((line) => {
       const command = commandLine(line);
       return (
-        /\bplaywright\s+test\b|\bnode\s+scripts\/admin-acceptance\.mjs\b/.test(
-          command
-        ) ||
+        e2eCommand.test(command) ||
         [...command.matchAll(/\byarn\s+([\w:-]+)/g)].some((match) =>
           e2eAlias(match[1])
         )
@@ -389,7 +389,14 @@ export function workflowSelections(source, scripts = {}) {
         tokens[1] === 'scripts/admin-acceptance.mjs'
       )
         select(tokens.slice(2));
-      else if (tokens[0] === 'yarn' && e2eAlias(tokens[1])) {
+      else if (
+        tokens[0] === 'node' &&
+        tokens[1] === 'scripts/admin-sandbox.mjs'
+      ) {
+        if (tokens.length !== 3 || tokens[2] !== '--verify')
+          throw new Error('Sandbox E2E discovery requires exactly --verify.');
+        select([...sandboxBrowserArgs]);
+      } else if (tokens[0] === 'yarn' && e2eAlias(tokens[1])) {
         const name = tokens[1];
         if (stack.includes(name)) throw new Error('Cyclic E2E Yarn alias.');
         inspect(scripts[name], tokens.slice(2), [...stack, name]);

@@ -39,6 +39,7 @@ const configuredEnvironment = () => ({
   FUNDING_KEYCLOAK_ENABLED: 'false',
   FUNDING_KEYCLOAK_HOSTNAME: 'auth.configured.example.test',
   FUNDING_PUBLIC_BASE_URL: 'https://fund.configured.example.test',
+  FUNDING_PLATFORM_API_BASE_URL: 'https://fund.configured.example.test/api',
   FUNDING_ADMIN_OIDC_ISSUER: 'https://login.example.test/realms/external',
   FUNDING_ADMIN_OIDC_MFA_ACR: 'urn:fixture:external-mfa',
   FUNDING_ADMIN_OIDC_CLIENT_ID: 'existing-fixture-client',
@@ -292,6 +293,10 @@ test('Keycloak selection overrides only its local routing and retains existing i
   assert.equal(plan.commandEnv.FUNDING_KEYCLOAK_HOSTNAME, 'auth.openg7.test');
   assert.equal(plan.commandEnv.FUNDING_PUBLIC_BASE_URL, 'https://localhost');
   assert.equal(
+    plan.commandEnv.FUNDING_PLATFORM_API_BASE_URL,
+    'https://localhost/api'
+  );
+  assert.equal(
     plan.commandEnv.FUNDING_ADMIN_OIDC_ISSUER,
     'https://auth.openg7.test/realms/openg7'
   );
@@ -534,6 +539,7 @@ test(
       'lib/docker-config.mjs',
       'lib/docker-environment.mjs',
       'lib/keycloak-config.mjs',
+      'lib/local-password-policy.mjs',
       'lib/production-identity.mjs',
       'lib/local-identity.mjs',
       'lib/keycloak-initial-user.mjs',

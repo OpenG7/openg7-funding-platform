@@ -86,9 +86,11 @@ export class AdminIdentityService {
       client_id_configured: Boolean(this.config.clientId),
       client_secret_configured: Boolean(this.config.clientSecret),
       owner_bootstrap_configured: this.config.ownerSubjects.some(Boolean),
-      mfa_policy: this.config.mfaAcr.split(',').some((value) => value.trim())
-        ? 'acr'
-        : 'amr',
+      mfa_policy: this.config.localPasswordOnly
+        ? 'local-password'
+        : this.config.mfaAcr.split(',').some((value) => value.trim())
+          ? 'acr'
+          : 'amr',
       private_data_encryption_configured: privateDataEncryptionConfigured
     };
   }

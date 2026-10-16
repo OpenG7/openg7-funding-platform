@@ -110,6 +110,51 @@ test('each Yarn invocation retains forwarded filters, including nested aliases a
   );
 });
 
+test('sandbox verification discovery follows the dedicated runner contract without starting its stack', () => {
+  const scripts = {
+    'test:e2e:sandbox': 'node scripts/admin-sandbox.mjs --verify',
+    'sandbox:admin': 'node scripts/admin-sandbox.mjs',
+    nested: 'yarn test:e2e:sandbox'
+  };
+  const expected = [
+    {
+      config: 'tests/playwright-sandbox.config.mjs',
+      args: ['--config', 'tests/playwright-sandbox.config.mjs', '--workers=1']
+    }
+  ];
+  for (const command of [
+    'yarn test:e2e:sandbox',
+    'yarn nested',
+    'yarn sandbox:admin --verify',
+    'node scripts/admin-sandbox.mjs --verify'
+  ])
+    assert.deepEqual(workflowSelections('run: ' + command, scripts), expected);
+  for (const command of [
+    'yarn sandbox:admin',
+    'yarn test:e2e:sandbox --grep changed',
+    'node scripts/admin-sandbox.mjs --verify --config other.config.mjs',
+    'node scripts/admin-sandbox.mjs --verify --verify'
+  ])
+    assert.throws(
+      () => workflowSelections('run: ' + command, scripts),
+      /exactly --verify/
+    );
+  assert.throws(
+    () =>
+      workflowSelections(
+        [
+          'jobs:',
+          '  sandbox:',
+          '    if: false',
+          '    steps:',
+          '      - run: yarn test:e2e:sandbox'
+        ].join('\n'),
+        scripts
+      ),
+    /Conditional E2E/
+  );
+});
+
 const shardedWorkflow = (
   matrix = ['shard: [1, 2, 3]'],
   command = 'yarn acceptance --shard=${{ matrix.shard }}/3',

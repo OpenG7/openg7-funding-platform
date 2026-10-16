@@ -19,8 +19,10 @@ export const detectPublicationPreparationItems = (
   dataset.sponsorships
     .filter(isApprovedActionableSponsorship)
     .flatMap((record) => {
-      const { promisedChannels: promised, missingChannels } =
-        resolveSponsorshipPublicationCoverage(record, dataset.drafts);
+      const {
+        promisedChannels: promised,
+        preparationChannels: missingChannels
+      } = resolveSponsorshipPublicationCoverage(record, dataset.drafts);
       if (missingChannels.length === 0) {
         return [];
       }

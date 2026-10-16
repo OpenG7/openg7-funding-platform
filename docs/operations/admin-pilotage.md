@@ -62,6 +62,100 @@ chaque choix; aucune préférence ne déclenche une commande métier.
 
 ## Guides interactifs
 
+### Mode guidé dans l'administration
+
+Le bouton **Mode guidé**, sous la barre commune, accompagne les 18 rubriques
+administratives authentifiées. **Découvrir les rubriques** affiche **Vous êtes ici**,
+une seule étape de lecture et **Me montrer dans la page** pour déplacer le focus vers le repère
+correspondant. Chaque zone visible correspondant à ce repère reçoit un contour
+et un halo dorés. Trois pulsations douces accompagnent le clic, puis l'or reste
+fixe jusqu'au changement d'étape, à la pause ou à la fermeture. La préférence
+de réduction des mouvements supprime la pulsation, même modifiée en cours de
+lecture. Les styles initiaux reviennent au retrait du repère ; aucun contrôle
+métier n'est activé. Le défilement tient compte des conteneurs imbriqués, de la
+barre de commandes du pilotage et de son introduction fixe en Concentration.
+Il expose la zone entière si elle tient dans l'espace disponible ; sinon,
+son début et son titre restent visibles. Ouvert, le guide flotte dans une carte ombrée.
+**Placer en haut / Placer en bas** déplace la carte pour dégager la lecture ;
+les panneaux de confirmation conservent leur priorité. Une brève animation
+d'entrée respecte la préférence de réduction des mouvements et ne se répète
+pas pendant la lecture. Les étapes suivantes restent volontaires. Ce repère
+reste accessible dans le mode Concentration du pilotage. Sur un écran étroit,
+réduire temporairement la carte dégage les contrôles recouverts ; la rouvrir
+retrouve la même étape.
+
+Dans ce guide de découverte, **Faire une pause** garde la rubrique et l'étape.
+**Reprendre mon repère** revient
+à cette rubrique, sans paramètres de recherche ou identifiants de dossier.
+**Continuer ici** permet de repartir dans une autre rubrique. Réduire le guide
+conserve le repère ; **Effacer mon repère**, dans les informations de mémorisation,
+le retire. Le guide ne confirme aucune opération ; le résultat d'une action se
+vérifie dans son écran habituel.
+
+**Parcours du paiement** suit le travail restant sur un paiement précis. Depuis
+**Contributions**, **Suivre ce paiement** ouvre ce mode dans la carte flottante.
+Un dossier ouvert propose aussi de le suivre. Changer de rubrique ou ouvrir un
+autre dossier ne remplace pas le paiement suivi ; ce remplacement est volontaire.
+La carte présente une seule prochaine action, son motif et, à la demande,
+l'ensemble des étapes. **Ouvrir la prochaine étape** relit les faits du serveur
+avant de rejoindre l'écran habituel. Si la recommandation a changé, la carte
+présente la nouvelle situation et laisse décider à nouveau. Aucune opération
+métier n'est réalisée par cette navigation.
+
+`GET /api/admin/payment-journey?contributionId=<uuid>` (alias `/admin`) exige
+la session administrative et un UUID explicite unique ; les autres paramètres
+sont refusés. La réponse privée `no-store` contient `status` (`ok`, `not_found`,
+`unavailable`), `generatedAt` et `journey`. Ce dernier est nul si la lecture
+ne peut pas aboutir ; sinon il expose les jalons, leur compte et `next`.
+Son état est `complete`, `action_required`, `waiting` ou `blocked` ; `next` est
+nul seulement si toutes les étapes requises sont réglées. Les faits sont lus
+dans une transaction cohérente en lecture seule. Les méthodes autres que GET
+renvoient 405 et n'exécutent aucune opération.
+
+Le soutien personnel ne crée aucune contrepartie de commandite : sa confirmation
+et les éventuels incidents ou communications constituent son suivi. Pour une
+commandite, les jalons portent sur paiement, identité, médias, revue, facturation
+et publication, selon l'offre acceptée et les faits du dossier. Les remboursements,
+avoirs, erreurs Stripe, échéances et incidents de publication peuvent demander
+une intervention avant la clôture. Un jalon non requis compte comme réglé.
+La réalisation d'une contrepartie exige la preuve qualifiée prévue par son contrat ;
+un statut historique « publié », un essai simulé ou une visibilité actuelle ne
+constitue pas cette preuve. Paiement, consentement, revue et publication restent
+distincts. Les confirmations et droits habituels s'appliquent dans leurs écrans.
+
+**Faire une pause** garde l'identifiant du paiement. **Reprendre ce paiement**
+relit les faits et les droits avant d'afficher la suite, y compris après un
+rechargement. **Vérifier les faits** permet une nouvelle lecture ; les mutations
+administratives confirmées et les changements de page actualisent aussi le
+parcours actif. Pendant une vérification ou après une erreur, les anciennes
+étapes et une ancienne fin ne sont pas présentées comme actuelles. Le message
+**Parcours à jour** vient des faits serveur ; une nouvelle information peut
+rouvrir une étape.
+
+Seuls l'activation, le mode choisi, le repère de découverte et, pour un parcours,
+l'UUID du paiement et sa pause sont mémorisés dans ce navigateur, par compte OIDC,
+dans la clé `og7-admin-guidance:v1:<compte>`. Aucun statut de paiement, référence,
+résultat d'action, contenu de dossier, saisie ou information de santé n'est conservé.
+Le mode token partage ces repères entre ses utilisateurs. Un stockage bloqué conserve le repère
+en mémoire pendant la visite et affiche sa limite ; un effacement refusé est
+signalé séparément. Les guides de découverte détaillés restent disponibles.
+
+La recette UI `admin-guidance.spec.ts`, avec réponses API interceptées, vérifie navigation et reprise, comptes,
+révocation, stockage indisponible ou corrompu, absence de commande métier,
+FR/EN, clavier, mobile, concentration et présence dans les 18 rubriques. Elle
+vérifie aussi reprise d'un paiement, erreurs, réponses tardives, remplacement
+volontaire du dossier et recommandation devenue obsolète. Cette recette UI ne
+prouve pas à elle seule le traitement financier ou la réalisation des engagements.
+Les recettes `personal-contribution-acceptance.spec.ts` et
+`sponsorship-tiers-acceptance.spec.ts` exercent Checkout, API et PostgreSQL jetables,
+avec fournisseur de paiement simulé. Elles couvrent le soutien personnel et,
+pour la commandite, une réalisation Web justifiée, ainsi que les parcours restant
+incomplets sans consentement ou avec publication sociale seulement simulée.
+Leur définition ne remplace pas le résultat d'une exécution et ne qualifie aucune
+publication ou paiement de production.
+
+### Découverte des commandes
+
 Le bouton **Guide pas à pas** du poste de pilotage présente dix repères :
 préparation automatique, espaces, dossier, situation/proposition/conséquence,
 détails, décisions, file, semaine, calendrier et manette. Dans **Ma semaine**,
@@ -112,6 +206,87 @@ Une couverture incomplète est signalée. Une actualisation ne remplace pas le
 dossier lu : sa nouvelle version doit être relue avant décision.
 
 ## Commandes et contextes
+
+### Manette dans toute l’administration
+
+Le contrôleur est partagé par les pages utilisant le cadre administratif. La
+connexion d’une manette reconnue active la navigation, sans ajouter de droit ni
+d’opération métier. Hors des raccourcis propres au Pilotage :
+
+- Croix ou stick gauche : rejoindre un contrôle ; LB/RB : précédent/suivant
+  dans l’ordre de lecture. Un cadre doré indique le focus.
+- A : activer le contrôle sélectionné. Sur un champ, ouvrir la saisie à l’écran ;
+  sur une liste, ouvrir le choix des valeurs. X ouvre aussi la saisie.
+- B : annuler le panneau supérieur ou revenir au contenu. Y rejoint le mode
+  guidé. Menu/View présentent les commandes. Le stick droit fait défiler.
+
+Le guide du paiement, ses liens, sa pause et sa reprise utilisent ces mêmes
+contrôles, y compris après changement de rubrique. Les coordonnées, motifs,
+preuves, dates et montants se saisissent dans un éditeur transitoire. La valeur
+d’origine reste intacte jusqu’à **Appliquer la saisie** ; **Annuler** ne la change
+pas. Les contraintes du champ restent vérifiées. Une liste conserve aussi son
+choix jusqu’à application. Si le champ ou ses choix changent pendant l’édition,
+il faut fermer et relire avant de reprendre. Aucun texte saisi n’est mémorisé.
+
+Cela permet de rejoindre et utiliser les écrans existants pour fiche, médias
+transmis, consentements, engagements et preuves, factures/avoirs/remboursements,
+courriels et réconciliation. Les boutons soumis à un rôle, à une preuve ou à une
+confirmation conservent ces conditions. Le contrôle Xbox ne remplace aucun
+écran métier et ne soumet pas un formulaire à la fermeture de la saisie.
+
+Dans Pilotage, les raccourcis de décision gardent la priorité lorsque le focus
+est dans le poste. Le guide flottant, la navigation commune et les éditeurs
+globaux reprennent la main lorsqu’ils sont sélectionnés. Le dialogue au-dessus
+des autres possède le focus ; B ferme seulement ce dialogue. A respecte le bouton
+sélectionné, y compris **Annuler**. Toute activation exige un relâchement ;
+changement de page, de contexte ou de périphérique impose le retour au neutre.
+
+Les tests de parcours manette sont définis dans
+`tests/playwright/admin-controller-journeys.spec.ts`. Les recettes personnelles
+et commandites utilisent aussi une manette simulée pour ouvrir, suspendre et
+reprendre le parcours sur l’API et PostgreSQL jetables. Le cas 100 CAD avec
+consentement public vérifie également la revue des médias transmis, l’acceptation
+du dossier, la préparation éditoriale, la nouvelle revue et la mise en visibilité
+à la manette jusqu’à la fin du parcours serveur. Les preuves UI, les
+effets métier et la qualification d’une Xbox physique restent distincts.
+Les dialogues du système d’exploitation, l’authentification externe et les
+contrôles d’un autre onglet ne font pas partie de la capture de cette page.
+En particulier, la sélection d’un nouveau fichier sur le disque utilise la fenêtre
+du navigateur. Le parcours administratif à la manette examine les médias transmis
+par le commanditaire depuis son formulaire privé ; le renvoi de ce lien conserve
+sa confirmation et les droits habituels.
+
+### Manette virtuelle et paiements de test
+
+Dans la [sandbox locale séparée](admin-sandbox.md), **Manette virtuelle · Essais**
+ouvre un panneau réservé à côté du contenu, ou en bas sur écran étroit. Les
+17 boutons Xbox, les deux sticks et les gâchettes sont actionnables à la souris.
+Les entrées empruntent le même parseur que la manette physique. Les boutons
+sans commande métier affichent seulement leur état ; ils ne créent aucune action.
+**Maintenir LT** permet les combinaisons ; **Tout relâcher** remet au neutre.
+
+Le panneau rejoint le dialogue natif actif pendant une confirmation ou une
+édition, puis revient dans son emplacement réservé. Le focus reste sur le
+contrôle métier. Relâcher A demeure nécessaire avant une nouvelle confirmation.
+Le guide conserve son espace et ne recouvre pas le panneau.
+
+La rubrique des paiements de test propose les types, montants et consentements
+du site. Checkout et son webhook signé simulé passent par l'API normale ; le
+parcours n'est proposé qu'après lecture du paiement confirmé côté serveur.
+Une reprise conserve le même Checkout. Un autre scénario garde le dossier
+précédent dans la base temporaire. Aucun état privé du parcours n'est conservé
+dans le stockage du navigateur.
+
+Après une commandite, **Jouer le commanditaire** ouvre son Checkout déjà confirmé
+dans un autre onglet. **Continuer vers OpenG7** rejoint la fiche privée où fournir
+des médias fictifs, avant de revenir les examiner dans l'administration.
+
+Le panneau exige un manifeste local versionné, fourni uniquement par le lanceur
+de sandbox ; un site habituel ne l'affiche pas. Cela ne confère aucun droit API.
+La recette navigateur et les limites de cette simulation sont dans le runbook
+de sandbox ; elle ne qualifie pas une manette USB/Bluetooth physique.
+
+### Raccourcis du poste de pilotage
 
 **Détails** présente le contenu à examiner, le statut, la destination et la date
 (America/Toronto), puis les informations du dossier. **Si vous acceptez** décrit

@@ -1,13 +1,19 @@
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  input,
+  output
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TranslatePipe } from '@ngx-translate/core';
+import { RouterLink } from '@angular/router';
 
 import type { ContributionRowView } from './admin-contributions-view.js';
 
 @Component({
   selector: 'openg7-admin-contributions-detail',
   standalone: true,
-  imports: [CommonModule, TranslatePipe],
+  imports: [CommonModule, TranslatePipe, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-contributions-detail.component.html',
   styleUrls: [
@@ -19,4 +25,5 @@ import type { ContributionRowView } from './admin-contributions-view.js';
 })
 export class AdminContributionsDetailComponent {
   readonly contribution = input.required<ContributionRowView>();
+  readonly followPayment = output<string>();
 }

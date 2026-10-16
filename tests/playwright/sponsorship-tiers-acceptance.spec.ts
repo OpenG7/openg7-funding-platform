@@ -5,8 +5,10 @@ import type {
   AdminAuditLogResponse,
   AdminEmailQueueResponse,
   AdminPublicationBatchMutationResult,
+  AdminPublicationDraftMutationResult,
   AdminPublicationDraftsResponse,
   AdminSponsorshipInvoicesResponse,
+  AdminSponsorshipProgressResponse,
   AdminSponsorshipsResponse,
   ContributionActivityResponse,
   FundTransparencyPublicResponse,
@@ -22,11 +24,21 @@ import {
   completePublicationModeration
 } from './support/acceptance-moderation.js';
 import { completeModeration } from './support/moderation.js';
+import {
+  adminController,
+  installAdminController
+} from './support/admin-controller.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
 import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';
 import { acceptanceSql } from './support/acceptance-database.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
+import {
+  expectCompletedPaymentJourney,
+  openPaymentJourney,
+  paymentAttentionItems,
+  readPaymentJourney
+} from './support/payment-journey.js';
 import { expect, test } from './support/test.js';
 
 const automation = '/api/admin/publication-automation';
@@ -58,6 +70,8 @@ for (const amount of [100, 250]) {
         'Disposable simulation only.'
       );
       test.setTimeout(240000);
+      const xbox =
+        publicConsent && amount === 100 ? adminController(admin) : undefined;
       context.setDefaultTimeout(15000);
       const stub = process.env.STRIPE_STUB_BASE_URL!;
       const name = `Palier ${amount} ${randomUUID().slice(0, 8)}`;
@@ -214,7 +228,37 @@ for (const amount of [100, 250]) {
               horizonDays: 28
             }
           });
+        const priorActivity = await get<ContributionActivityResponse>(
+          '/api/admin/contribution-activity'
+        );
+        const priorIds = new Set(priorActivity.items.map((item) => item.id));
+        const initialClaims = priorIds.size
+          ? admin.waitForResponse(
+              (response) =>
+                new URL(response.url()).pathname ===
+                  '/api/admin/contribution-activity/present' &&
+                response.request().method() === 'POST'
+            )
+          : null;
+        await admin.bringToFront();
         await signInAsAdmin(admin);
+        if (initialClaims) {
+          const claimed = await initialClaims;
+          expect(claimed.ok()).toBe(true);
+          const result = (await claimed.json()) as { ids: string[] };
+          // Earlier recipes may have received payments while the admin was offline.
+          // Acknowledge only that synthetic backlog before creating this payment.
+          for (const id of result.ids) {
+            expect(priorIds.has(id)).toBe(true);
+            await admin
+              .locator(`[data-og7="contribution-toast"][data-og7-id="${id}"]`)
+              .getByRole('button', { name: 'Fermer', exact: true })
+              .click();
+          }
+          await expect(
+            admin.locator('[data-og7="contribution-toast"]')
+          ).toHaveCount(0);
+        }
         await admin.goto(cockpit);
 
         await test.step('Pay the selected tier through the public form and signed local Checkout', async () => {
@@ -297,6 +341,14 @@ for (const amount of [100, 250]) {
               .locator('[data-og7="contribution-toast"]')
               .filter({ hasText: reference })
           ).toContainText('Paiement confirmé', { timeout: 15000 });
+          const journey = await readPaymentJourney(request, contributionId);
+          expect(journey.state).not.toBe('complete');
+          expect(journey.next).not.toBeNull();
+          expect(
+            (await paymentAttentionItems(request, contributionId)).some(
+              (item) => item.type === 'sponsorship_needs_info'
+            )
+          ).toBe(true);
         });
 
         await test.step('Submit the dossier and actual logo/photo uploads while recognition stays private', async () => {
@@ -434,22 +486,47 @@ for (const amount of [100, 250]) {
             'pending_review'
           );
           await assertPrivate();
+          if (publicConsent && amount === 100) {
+            // Inspect the received-payment toast before navigating to the dossier.
+            const journey = await readPaymentJourney(request, contributionId);
+            expect(journey.next).not.toBeNull();
+            await installAdminController(admin);
+            await openPaymentJourney(admin, contributionId, xbox);
+            const next = admin.locator('[data-og7="payment-journey-next"]');
+            await expect(next).toHaveAttribute('href', journey.next!.adminUrl);
+            await xbox!.activate(next);
+            await expect(admin).toHaveURL(
+              new URL(journey.next!.adminUrl, admin.url()).href
+            );
+            await xbox!.press('Y');
+            await xbox!.press('B');
+          }
         });
 
         await test.step('Review media and dossier; consent still controls website recognition', async () => {
-          await admin.goto(
-            '/admin/fundraiser/sponsors?sponsorshipId=' +
-              contributionId +
-              '&tab=media'
-          );
+          if (xbox)
+            await xbox.activate(
+              admin
+                .locator('[data-og7="dossier-tabs"]')
+                .getByRole('button', { name: 'Fiche et médias', exact: true })
+            );
+          else
+            await admin.goto(
+              '/admin/fundraiser/sponsors?sponsorshipId=' +
+                contributionId +
+                '&tab=media'
+            );
           const pendingMedia = (await media()).filter(
             (asset) => asset.reviewStatus !== 'approved'
           );
           expect(pendingMedia).toHaveLength(2);
           const pendingIds = new Set(pendingMedia.map((asset) => asset.id));
-          await admin
-            .getByRole('button', { name: 'Tout approuver', exact: true })
-            .click();
+          const approveAll = admin.getByRole('button', {
+            name: 'Tout approuver',
+            exact: true
+          });
+          if (xbox) await xbox.activate(approveAll);
+          else await approveAll.click();
           for (let index = 0; index < pendingMedia.length; index++) {
             const reviewed = admin.waitForResponse(
               (response) =>
@@ -458,7 +535,7 @@ for (const amount of [100, 250]) {
                   .endsWith('/api/admin/sponsorships/media/review') &&
                 response.request().method() === 'POST'
             );
-            await completeModeration(admin);
+            await completeModeration(admin, false, xbox);
             const response = await reviewed;
             expect(response.ok(), await response.text()).toBe(true);
             const reviewedAsset = response.request().postDataJSON();
@@ -484,50 +561,114 @@ for (const amount of [100, 250]) {
               ).status()
             ).toBe(404);
           await assertPrivate();
-          await admin
-            .getByRole('button', { name: 'Accepter', exact: true })
-            .click();
-          await completeModeration(admin);
+          const accept = admin.getByRole('button', {
+            name: 'Accepter',
+            exact: true
+          });
+          if (xbox) await xbox.activate(accept);
+          else await accept.click();
+          await completeModeration(admin, false, xbox);
           await expect
             .poll(async () => (await sponsor()).sponsor_review_status)
             .toBe('approved');
           // Review alone keeps the website profile private until its explicit visibility decision.
           await assertPrivate();
           if (publicConsent) {
-            await admin.goto(
-              '/admin/fundraiser/sponsors?sponsorshipId=' +
-                contributionId +
-                '&tab=publication'
-            );
-            await admin
-              .locator('[data-og7="publication-advanced"] > summary')
-              .click();
-            await admin
-              .getByLabel(/Slug public/i)
-              .fill('tier-' + contributionId);
-            await admin.getByLabel(/Destination feed/i).selectOption('openg7');
-            await admin
-              .getByRole('combobox', { name: 'Statut feed', exact: true })
-              .selectOption('planned');
-            await admin
-              .getByLabel(/Resume public/i)
-              .fill('Présentation publique synthétique du commanditaire.');
-            await admin
-              .getByRole('button', { name: 'Enregistrer', exact: true })
-              .click();
+            if (xbox) {
+              await xbox.activate(
+                admin
+                  .locator('[data-og7="dossier-tabs"]')
+                  .getByRole('button', { name: 'Publication', exact: true })
+              );
+              await xbox.activate(
+                admin.locator('[data-og7="publication-advanced"] > summary')
+              );
+              await xbox.text(
+                admin.getByLabel(/Slug public/i),
+                'tier-' + contributionId
+              );
+              await xbox.select(
+                admin.getByLabel(/Destination feed/i),
+                'openg7'
+              );
+              await xbox.select(
+                admin.getByRole('combobox', {
+                  name: 'Statut feed',
+                  exact: true
+                }),
+                'planned'
+              );
+              await xbox.text(
+                admin.getByLabel(/Resume public/i),
+                'Présentation publique synthétique du commanditaire.'
+              );
+              await xbox.activate(
+                admin.getByRole('button', { name: 'Enregistrer', exact: true })
+              );
+            } else {
+              await admin.goto(
+                '/admin/fundraiser/sponsors?sponsorshipId=' +
+                  contributionId +
+                  '&tab=publication'
+              );
+              await admin
+                .locator('[data-og7="publication-advanced"] > summary')
+                .click();
+              await admin
+                .getByLabel(/Slug public/i)
+                .fill('tier-' + contributionId);
+              await admin
+                .getByLabel(/Destination feed/i)
+                .selectOption('openg7');
+              await admin
+                .getByRole('combobox', { name: 'Statut feed', exact: true })
+                .selectOption('planned');
+              await admin
+                .getByLabel(/Resume public/i)
+                .fill('Présentation publique synthétique du commanditaire.');
+              await admin
+                .getByRole('button', { name: 'Enregistrer', exact: true })
+                .click();
+            }
             await expect(
               admin.getByText('Publication enregistree.', { exact: true })
             ).toBeVisible();
             await assertPrivate();
             // The summary and slug belong to a new editorial revision. Review
             // it before the separate, consent-controlled visibility decision.
-            await approveAcceptanceSubject(request, {
-              type: 'sponsorship',
-              id: contributionId
-            });
-            await admin.reload();
-            await admin.locator('[data-og7="website-visibility"]').click();
-            await admin.locator('[data-og7="confirm-action"]').click();
+            if (xbox) {
+              const editorial = admin
+                .locator('[data-og7="moderation-actions"]')
+                .first();
+              await xbox.select(editorial.locator('select').first(), 'N0');
+              await xbox.activate(
+                editorial.locator('[data-og7="moderation-open"]')
+              );
+              const reviewed = admin.waitForResponse(
+                (response) =>
+                  response.url().endsWith('/api/admin/moderation/decisions') &&
+                  response.request().method() === 'POST'
+              );
+              await completeModeration(admin, false, xbox);
+              const editorialReview = await reviewed;
+              expect(editorialReview.ok()).toBe(true);
+              expect(editorialReview.request().postDataJSON()).toMatchObject({
+                subject: { type: 'sponsorship', id: contributionId },
+                decision: { level: 'N0' }
+              });
+              await xbox.activate(
+                admin.locator('[data-og7="website-visibility"]')
+              );
+              await xbox.activate(admin.locator('[data-og7="confirm-action"]'));
+            } else {
+              await approveAcceptanceSubject(request, {
+                type: 'sponsorship',
+                id: contributionId
+              });
+              await admin.reload();
+              await admin.locator('[data-og7="website-visibility"]').click();
+              await admin.locator('[data-og7="confirm-action"]').click();
+            }
             await expect
               .poll(async () => JSON.stringify(await directory()))
               .toContain(name);
@@ -664,6 +805,33 @@ for (const amount of [100, 250]) {
                 code: 'SOURCE_NOT_ELIGIBLE'
               });
               expect(await drafts()).toEqual(beforeComposeDrafts);
+              expect(await jobs()).toEqual(beforeComposeJobs);
+              // This negative fixture is outside the accepted offer. Retain its
+              // history, then explicitly close both source and batch via the API.
+              const closedBatch =
+                await post<AdminPublicationBatchMutationResult>(
+                  '/api/admin/publication-batches/cancel',
+                  { batchId: batch.id, confirmation: batch.id }
+                );
+              expect(closedBatch).toMatchObject({
+                updated: true,
+                batch: { id: batch.id, status: 'cancelled' }
+              });
+              const closedDraft =
+                await post<AdminPublicationDraftMutationResult>(
+                  '/api/admin/publication-drafts/update',
+                  {
+                    draftId,
+                    status: 'cancelled',
+                    confirmation: draftId,
+                    reviewNote:
+                      'Synthetic legacy eligibility check completed; no publication authorized.'
+                  }
+                );
+              expect(closedDraft).toMatchObject({
+                updated: true,
+                draft: { id: draftId, status: 'cancelled', batch_id: null }
+              });
               expect(await jobs()).toEqual(beforeComposeJobs);
             }
             expect((await jobs()).map((j) => j.feedId)).toEqual(
@@ -905,6 +1073,32 @@ for (const amount of [100, 250]) {
             expect((await receipts(id)).posts).toHaveLength(1);
           }
           if (!publicConsent) await assertPrivate();
+          const journey = await readPaymentJourney(request, contributionId);
+          if (publicConsent && amount === 100) {
+            await expectCompletedPaymentJourney(
+              admin,
+              request,
+              contributionId,
+              'controller'
+            );
+            const progress = await get<AdminSponsorshipProgressResponse>(
+              '/api/admin/sponsorships/progress?sponsorshipId=' + contributionId
+            );
+            expect(progress.status).toBe('ok');
+            expect(progress.dossier?.contributionId).toBe(contributionId);
+            expect(progress.dossier?.next.reason).toBe('complete');
+            expect(progress.dossier?.publicationCompletion).toEqual({
+              done: 1,
+              total: 1
+            });
+            await admin.screenshot({
+              path: info.outputPath('website-only-admin-journey-complete.png')
+            });
+          } else {
+            // A simulated social receipt and a missing consent cannot close promises.
+            expect(journey.state).not.toBe('complete');
+            expect(journey.next).not.toBeNull();
+          }
           await info.attach('sponsorship-tier-evidence', {
             contentType: 'application/json',
             body: JSON.stringify(

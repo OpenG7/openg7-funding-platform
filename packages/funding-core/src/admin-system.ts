@@ -7,7 +7,7 @@ export interface AdminIdentitySetupStatus {
   readonly client_secret_configured: boolean;
   /** An existing owner can sign in even when bootstrap is no longer configured. */
   readonly owner_bootstrap_configured: boolean;
-  readonly mfa_policy: 'amr' | 'acr';
+  readonly mfa_policy: 'amr' | 'acr' | 'local-password';
   readonly private_data_encryption_configured: boolean;
 }
 

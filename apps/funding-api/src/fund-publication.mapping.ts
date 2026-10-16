@@ -15,6 +15,7 @@ import type {
 export interface PublicationDraftRow {
   readonly id: string;
   readonly contribution_id: string;
+  readonly obligation_id?: string | null;
   readonly sponsor_company_name: string;
   readonly sponsor_website_url: string | null;
   readonly sponsor_logo_url: string | null;
@@ -113,6 +114,9 @@ export const mapPublicationDraftRow = (
   row: PublicationDraftRow
 ): AdminPublicationDraftRecord => ({
   id: row.id,
+  ...(row.obligation_id !== undefined
+    ? { obligation_id: row.obligation_id }
+    : {}),
   contribution_id: row.contribution_id,
   sponsor_company_name: row.sponsor_company_name,
   sponsor_website_url: row.sponsor_website_url,

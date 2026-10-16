@@ -141,6 +141,10 @@ const fixture = (options = {}) => {
         return { rows: [{ has_email_messages: true }] };
       if (sql.includes('AS exists')) return { rows: [{ exists: true }] };
       if (sql.includes('AS contribution_id,')) return { rows: sponsors };
+      if (sql.includes('AS incident FROM correlated'))
+        return {
+          rows: (options.incidents ?? []).map((incident) => ({ incident }))
+        };
       if (sql.startsWith('SELECT c.id,c.sponsor_company_name')) {
         if (options.failSponsors) throw new Error('Synthetic sponsor failure');
         return {
@@ -176,6 +180,8 @@ const fixture = (options = {}) => {
       }
       if (sql.includes('FROM email_messages') && sql.includes('template_key,'))
         return { rows: emails };
+      if (sql.includes('FROM sponsor_publication_drafts'))
+        return { rows: options.drafts ?? [] };
       return { rows: [] };
     }
   };
@@ -203,6 +209,50 @@ test('independent failed sources retain available decisions and unavailable rece
   const absent = await fixture({ receiptsPresent: false }).load();
   assert.deepEqual(absent.missingSources, ['commands']);
   assert.equal(absent.writable, false);
+});
+
+test('pilotage retains publication preparation when no delivery represents the recorded promise', async () => {
+  const s = sponsor('preparation', { sponsor_review_status: 'approved' });
+  s.commitment.obligations.push({
+    ...s.commitment.obligations[0],
+    id: 'facebook-promise',
+    channel: 'facebook',
+    benefitId: 'facebook_batch'
+  });
+  const state = await fixture({ sponsors: [s] }).load();
+  assert.equal(state.coverage, 'complete');
+  assert.ok(
+    state.decisions.some((d) => d.kind === 'publication_needs_preparation')
+  );
+  assert.ok(
+    state.decisions.some((d) => d.kind === 'sponsorship_needs_fulfilment')
+  );
+});
+
+test('a represented delivery does not suppress the payment’s reliability incident', async () => {
+  const state = await fixture({
+    sponsors: [sponsor('represented')],
+    deliveries: [
+      delivery('represented-delivery', { sponsors: [{ id: 'represented' }] })
+    ],
+    incidents: [
+      {
+        code: 'FULFILMENT_EVIDENCE_MISMATCH',
+        subjectType: 'obligation',
+        subjectId: 'synthetic-obligation',
+        sponsorshipId: 'represented'
+      }
+    ]
+  }).load();
+  const incident = state.decisions.find(
+    (d) => d.kind === 'publication_reliability_incident'
+  );
+  assert.ok(incident);
+  assert.equal(
+    incident.detailsUrl,
+    '/admin/fundraiser/sponsors?sponsorshipId=represented&tab=publication'
+  );
+  assert.deepEqual(incident.actions, []);
 });
 
 test('partial attention and the publication window report their exact missing sources', async () => {

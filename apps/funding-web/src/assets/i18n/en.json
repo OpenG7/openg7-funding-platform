@@ -1108,6 +1108,7 @@
         "refund_check": "Check the refund and its Stripe result.",
         "stripe_failed": "A Stripe event linked to this dossier failed.",
         "email_failed": "View the failed email.",
+        "email_uncertain": "The delivery outcome is uncertain. Check delivery evidence before trying again.",
         "complete": "No next action detected. View the summary."
       },
       "documents": "Issued documents",
@@ -1407,7 +1408,12 @@
         "stripe_event_failed": "Failed Stripe event",
         "stripe_event_stalled": "Stalled Stripe event",
         "publication_ready": "Publication ready",
-        "publication_slot_upcoming": "Upcoming publication slot"
+        "publication_slot_upcoming": "Upcoming publication slot",
+        "sponsorship_needs_fulfilment": "Sponsorship commitment to fulfil",
+        "sponsorship_refund_followup": "Refund follow-up",
+        "sponsorship_credit_missing": "Missing credit note",
+        "sponsorship_timing_review": "Sponsorship timing review",
+        "publication_reliability_incident": "Publication outcome to verify"
       },
       "reasons": {
         "sponsorship_needs_info": "Payment is confirmed; required information or a presentation image is missing.",
@@ -1421,7 +1427,12 @@
         "stripe_event_failed": "Processing of this received event failed. Receipt alone does not confirm the record was updated.",
         "stripe_event_stalled": "Processing has not completed after at least 15 minutes. Check its state before recovery.",
         "publication_ready": "Approved content is ready for its next publication step, to be confirmed in its record.",
-        "publication_slot_upcoming": "This slot is scheduled within seven days. Check its placements and preparation."
+        "publication_slot_upcoming": "This slot is scheduled within seven days. Check its placements and preparation.",
+        "sponsorship_needs_fulfilment": "A benefit promised by this sponsorship still needs delivery or evidence.",
+        "sponsorship_refund_followup": "The refund workflow requires an administrative check.",
+        "sponsorship_credit_missing": "A confirmed refund must be matched to its credit note.",
+        "sponsorship_timing_review": "A dossier deadline or extension requires a decision.",
+        "publication_reliability_incident": "Publication delivery needs reconciliation before another attempt."
       }
     },
     "nav": {
@@ -1450,6 +1461,340 @@
       "public": "Back to the fund",
       "motto": "Build a lasting impact, starting today.",
       "pilotage": "Control desk"
+    },
+    "guidance": {
+      "toggle": "Guided mode",
+      "close": "Collapse the guide",
+      "where": "You are here",
+      "next": "One step at a time",
+      "step": "Step {{current}} of {{total}}",
+      "previous": "Previous step",
+      "advance": "Next step",
+      "restart": "Return to the first step",
+      "show": "Show me on this page",
+      "moveTop": "Place at the top",
+      "moveBottom": "Place at the bottom",
+      "pause": "Take a break",
+      "paused": "Your place is kept. Resume whenever you wish.",
+      "resume": "Resume my place",
+      "resumeHere": "Continue here",
+      "saved": "Your place: {{page}} · step {{step}}.",
+      "reading": "These steps help you find your way. They do not confirm any operation.",
+      "storageUnavailable": "This browser cannot save your place. It remains available during this visit.",
+      "clearUnavailable": "Removal of the saved place could not be confirmed. It is hidden for this visit, but may return after reloading.",
+      "tokenShared": "With a token sign-in, this place is shared by people using this browser.",
+      "missing": "This area is not visible right now. You can keep reading the guide.",
+      "privacy": "The guide keeps the section, step and, when following a payment, its identifier and pause, per account in this browser. It saves no dossier content, form input or action result. Resuming reads fresh server facts.",
+      "forget": "Forget my place",
+      "pages": {
+        "dashboard": {
+          "read": {
+            "title": "Read the overview",
+            "body": "Check the amounts, their currencies and the update time. A loading error does not mean zero."
+          },
+          "choose": {
+            "title": "Choose one item to review",
+            "body": "Open the section that needs your attention. You can read without making changes."
+          },
+          "verify": {
+            "title": "Return to the facts",
+            "body": "After an action, check the relevant dossier and its latest status. The guide does not confirm the result."
+          }
+        },
+        "pilotage": {
+          "read": {
+            "title": "Read the situation",
+            "body": "Read the situation, proposal and consequence for the selected dossier."
+          },
+          "choose": {
+            "title": "Review before deciding",
+            "body": "Open Details to read the content. If you choose to act, use the dossier controls and their confirmation."
+          },
+          "verify": {
+            "title": "Read the result",
+            "body": "Read the displayed receipt. If the result is uncertain, review the incident before trying again."
+          }
+        },
+        "access": {
+          "read": {
+            "title": "Find the account",
+            "body": "This section is for owners. Check the account, its role and sessions."
+          },
+          "choose": {
+            "title": "Review the change",
+            "body": "Before changing access, review the target account and confirmation. Keep at least one active owner."
+          },
+          "verify": {
+            "title": "Check access",
+            "body": "After your request, review the account and session status. A guide step changes no access."
+          }
+        },
+        "attention": {
+          "read": {
+            "title": "Read what needs attention",
+            "body": "Check the reason, priority and due date. These help you choose a dossier."
+          },
+          "choose": {
+            "title": "Open a dossier",
+            "body": "Choose one item and open its dossier to read the full information."
+          },
+          "verify": {
+            "title": "Check, then return",
+            "body": "After a manual action, check the result in the dossier. Then return to this list and refresh it."
+          }
+        },
+        "assistant": {
+          "read": {
+            "title": "Read the summary",
+            "body": "The assistant explains what needs review. Its recommendations are advisory."
+          },
+          "choose": {
+            "title": "Check a recommendation",
+            "body": "Open the linked dossier to verify the facts. The assistant does not perform operations for you."
+          },
+          "verify": {
+            "title": "Check the actual status",
+            "body": "If you acted in a dossier, check the result before returning to the refreshed summary."
+          }
+        },
+        "contributions": {
+          "read": {
+            "title": "Read the financial facts",
+            "body": "Check the contribution, amount, currency and status. Stripe confirms payment."
+          },
+          "choose": {
+            "title": "Review a contribution",
+            "body": "Open the relevant row. Check references and documents before any available operation."
+          },
+          "verify": {
+            "title": "Check the server result",
+            "body": "After a request, review the confirmed status. A click or guide step does not confirm payment or a refund."
+          }
+        },
+        "sponsors": {
+          "read": {
+            "title": "Choose the sponsorship",
+            "body": "Find the dossier you need. Payment, review and visibility have separate statuses."
+          },
+          "choose": {
+            "title": "Read the dossier",
+            "body": "Open the record and review its information, media and commitments before deciding."
+          },
+          "verify": {
+            "title": "Review the statuses",
+            "body": "After your action and confirmation, check the relevant statuses. Approval alone does not confirm publication."
+          }
+        },
+        "invoices": {
+          "read": {
+            "title": "Find the document",
+            "body": "Choose the relevant contribution and document. Check the number, amount and currency."
+          },
+          "choose": {
+            "title": "Review before a request",
+            "body": "Read the document and recipient before requesting a resend or another available operation."
+          },
+          "verify": {
+            "title": "Separate document and email",
+            "body": "Check the document and its email status separately. A delivery failure does not cancel the invoice."
+          }
+        },
+        "publications": {
+          "read": {
+            "title": "Find the three spaces",
+            "body": "Drafting prepares the text, batches group it and the calendar organizes dates."
+          },
+          "choose": {
+            "title": "Open the space you need",
+            "body": "Choose the space for your task. Preparing or scheduling does not authorize publication."
+          },
+          "verify": {
+            "title": "Check the dossier",
+            "body": "After an action in a space, review the dossier and its status. The guide publishes no content."
+          }
+        },
+        "drafts": {
+          "read": {
+            "title": "Read the draft",
+            "body": "Choose the text to review. Check the sponsors, content and destination."
+          },
+          "choose": {
+            "title": "Prepare or edit",
+            "body": "Use the draft controls if you choose to act. Saving does not authorize publication."
+          },
+          "verify": {
+            "title": "Review the saved version",
+            "body": "Check the text, date and status after your request. A change may require a new review."
+          }
+        },
+        "batches": {
+          "read": {
+            "title": "Read the batch",
+            "body": "Check the grouped publications, channel and status before preparing a delivery."
+          },
+          "choose": {
+            "title": "Review authorizations",
+            "body": "Open the batch and check its exact content. Each sensitive operation uses its usual confirmation."
+          },
+          "verify": {
+            "title": "Check deliveries",
+            "body": "Read the delivery results. If a result is uncertain, review it before retrying."
+          }
+        },
+        "calendar": {
+          "read": {
+            "title": "Read the dates",
+            "body": "Check the slot, date and time zone. Review its linked publications."
+          },
+          "choose": {
+            "title": "Choose a slot",
+            "body": "Open the slot to review or edit the proposal. A scheduled date does not confirm delivery."
+          },
+          "verify": {
+            "title": "Review the calendar",
+            "body": "After saving, check the displayed date and links. Open the dossier to learn the delivery result."
+          }
+        },
+        "automation": {
+          "read": {
+            "title": "Read the engine status",
+            "body": "Check whether the engine is active and which destinations are paused or connected."
+          },
+          "choose": {
+            "title": "Review a setting",
+            "body": "Open the settings you need and read their effect before changing them. Engine activation remains a separate action."
+          },
+          "verify": {
+            "title": "Check the saved status",
+            "body": "Review the engine and destination status after your request. A delivery already started may finish despite a pause."
+          }
+        },
+        "expenses": {
+          "read": {
+            "title": "Read the expenses",
+            "body": "Choose the scope and check the amount, currency, visibility and progress."
+          },
+          "choose": {
+            "title": "Review a record",
+            "body": "Open the expense and its evidence. If your role allows a change, review its scope before confirming."
+          },
+          "verify": {
+            "title": "Check the separate statuses",
+            "body": "After saving, check the financial facts, progress and public visibility separately."
+          }
+        },
+        "transparency": {
+          "read": {
+            "title": "Read the private summary",
+            "body": "Check the amounts and their currency. This page explains the data behind transparency."
+          },
+          "choose": {
+            "title": "Review published items",
+            "body": "Read the displayed achievements and evidence. Private data is not automatically public."
+          },
+          "verify": {
+            "title": "Check freshness",
+            "body": "Check the update time and refresh if needed. A loading error does not turn an amount into zero."
+          }
+        },
+        "audit": {
+          "read": {
+            "title": "Read the log",
+            "body": "This log helps you find actions, their targets and their results."
+          },
+          "choose": {
+            "title": "Find an action",
+            "body": "Use search and review the relevant entry to check its context."
+          },
+          "verify": {
+            "title": "Compare the facts",
+            "body": "Compare the entry with the current dossier if needed. A recorded event does not always confirm an external effect."
+          }
+        },
+        "email": {
+          "read": {
+            "title": "Read email status",
+            "body": "Find the message, recipient and status. Distinguish a known failure from an uncertain result."
+          },
+          "choose": {
+            "title": "Review before retrying",
+            "body": "Open the message and check its destination. Review an uncertain result before another attempt."
+          },
+          "verify": {
+            "title": "Read the delivery result",
+            "body": "After a confirmed request, read its result. SMTP acceptance does not prove that the email was read."
+          }
+        },
+        "setup": {
+          "read": {
+            "title": "Read service status",
+            "body": "Find the relevant service and its status. Diagnostics show what still needs configuration."
+          },
+          "choose": {
+            "title": "Choose a check",
+            "body": "Open the section you need and read the prerequisites before a test or change. Keep secrets out of the guide."
+          },
+          "verify": {
+            "title": "Check the diagnosis",
+            "body": "After your request, read the result and refresh diagnostics. A successful test confirms only what it checked."
+          }
+        }
+      },
+      "modeLabel": "Guide type",
+      "discoveryMode": "Explore the sections",
+      "paymentJourney": {
+        "title": "Payment journey",
+        "followCurrent": "Follow this payment",
+        "choose": "Open a contribution or dossier, then choose “Follow this payment”. Your journey remains available as you move between sections.",
+        "paused": "Your journey is paused. Resuming will check this payment and the remaining actions again.",
+        "resume": "Resume this payment",
+        "progress": "{{completed}} of {{total}} steps settled",
+        "changed": "The dossier has changed. The next step below reflects the updated facts.",
+        "complete": "Journey up to date",
+        "completeHelp": "The server reports no remaining administrative action for this payment. New information may reopen a step.",
+        "next": "Your next step",
+        "openNext": "Open the next step",
+        "show": "Show me on the page",
+        "allSteps": "View the whole journey",
+        "refresh": "Check the facts",
+        "pause": "Take a break",
+        "serverTruth": "Payment and completed actions come from the server. Opening a step performs no operation; confirmations remain in their usual screens.",
+        "reasonUnavailable": "Review the current dossier to find the next step.",
+        "step": "Dossier step",
+        "states": {
+          "idle": "Ready to check the payment.",
+          "loading": "Checking the payment and remaining actions…",
+          "error": "The check failed. Earlier steps are not presented as current. Try again.",
+          "forbidden": "Your account cannot view this journey.",
+          "not_found": "This payment could not be found or is no longer accessible.",
+          "unavailable": "The journey cannot be checked right now."
+        },
+        "situations": {
+          "action_required": "An administrative action remains to be reviewed.",
+          "waiting": "This step awaits confirmation or processing. Check its status before retrying.",
+          "blocked": "An issue must be resolved before continuing."
+        },
+        "steps": {
+          "communications": "Emails and communications",
+          "payment": "Confirmed payment",
+          "stripe": "Payment events",
+          "incident": "Issue to review"
+        },
+        "reasons": {
+          "personal_complete": "This personal support payment is confirmed. It creates no sponsorship benefits to fulfil.",
+          "personal_refunded": "The refund for this personal support payment is confirmed. No sponsorship review is required.",
+          "payment_pending": "Payment confirmation is still awaited.",
+          "payment_disputed": "The payment is disputed. Review its status and confirmed facts before deciding.",
+          "payment_blocked": "The payment prevents further processing. Review the confirmed financial facts.",
+          "email_pending": "A communication is queued or being sent. Wait for confirmation before retrying.",
+          "email_complete": "Communications for this payment have been processed. Mail server acceptance does not prove they were read.",
+          "sponsorship_needs_fulfilment": "A benefit promised by this sponsorship still needs delivery or evidence.",
+          "sponsorship_refund_followup": "The refund workflow requires an administrative check.",
+          "sponsorship_credit_missing": "A confirmed refund must be matched to its credit note.",
+          "sponsorship_timing_review": "A dossier deadline or extension requires a decision.",
+          "publication_reliability_incident": "Publication delivery needs reconciliation before another attempt."
+        }
+      }
     },
     "shell": {
       "skip": "Skip to main content",
@@ -3376,7 +3721,8 @@
       "mfaPolicy": "MFA claim policy",
       "policies": {
         "amr": "AMR: mfa required in the signed token",
-        "acr": "ACR: provider-guaranteed MFA value required"
+        "acr": "ACR: provider-guaranteed MFA value required",
+        "local-password": "Localhost development: verified password, without a second factor"
       },
       "ownerBootstrap": "First owner bootstrap",
       "ownerPresent": "Initial subjects present; first MFA sign-in remains to be checked.",

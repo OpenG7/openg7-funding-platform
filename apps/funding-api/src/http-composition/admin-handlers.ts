@@ -154,6 +154,7 @@ import {
   listAdminSponsorshipInvoices
 } from '../sponsorship-invoices.repository.js';
 import { getSponsorshipProgress } from '../sponsorship-progress.service.js';
+import { getPaymentJourney } from '../admin-payment-journey.service.js';
 import {
   beginSponsorshipRefundOperation,
   failSponsorshipRefundOperation,
@@ -262,6 +263,8 @@ export const createAdminHttpHandlers = ({
     writeCsv,
     listAdminContributions: (contributionId) =>
       listAdminContributions(dbPool, contributionId),
+    getPaymentJourney: (contributionId) =>
+      getPaymentJourney(dbPool, contributionId),
     exportAdminContributions: (input, actor) =>
       exportAdminContributions(dbPool!, input, actor),
     ContributionExportError,

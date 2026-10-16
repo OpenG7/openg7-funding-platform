@@ -65,6 +65,7 @@ interface AdminRawRequestOptions extends AdminRequestOptions {
 /** Browser admin session and authenticated transport for the Funding feature. */
 export class FundingAdminSession {
   readonly sessionGeneration = signal(0);
+  readonly dataRevision = signal(0);
   readonly identity = signal<AdminIdentityProfile | null>(null);
   readonly apiBaseUrl = resolveFundingApiBaseUrl();
   private usesCookieSession = false;
@@ -300,7 +301,7 @@ export class FundingAdminSession {
       auth === 'saved' ? this.getSavedAdminToken() : auth.token
     );
     if (abortBeforeFetch) request.signal?.throwIfAborted();
-    return fetch(`${this.apiBaseUrl}${path}`, {
+    const response = await fetch(`${this.apiBaseUrl}${path}`, {
       ...request,
       headers: {
         ...authenticationHeaders,
@@ -308,6 +309,13 @@ export class FundingAdminSession {
       },
       ...(body === undefined ? {} : { body: body() })
     });
+    if (
+      response.ok &&
+      !['GET', 'HEAD', 'OPTIONS'].includes(request.method ?? 'GET')
+    ) {
+      this.dataRevision.update((value) => value + 1);
+    }
+    return response;
   }
 
   /** Decode JSON endpoints that use the standard status error without invalidation. */
@@ -365,13 +373,20 @@ export class FundingAdminSession {
       return;
     }
 
-    this.selectSponsorship(null);
-    this.onSave();
+    const changed =
+      window.sessionStorage.getItem(sessionTokenStorageKey) !==
+        session.sessionToken ||
+      window.sessionStorage.getItem(sessionExpiresAtStorageKey) !==
+        session.expiresAt;
     window.sessionStorage.setItem(sessionTokenStorageKey, session.sessionToken);
     window.sessionStorage.setItem(
       sessionExpiresAtStorageKey,
       session.expiresAt
     );
+    this.selectSponsorship(null);
+    this.onSave();
+    // Token sessions have no identity object: invalidate reads from the replaced session.
+    if (changed) this.sessionGeneration.update((value) => value + 1);
   }
 
   private isAdminSessionToken(token: string): boolean {

@@ -154,13 +154,9 @@ export async function loadAdminPilotageState(
       const isPublication = item.type.startsWith('publication_');
       if (
         isPublication &&
+        item.type !== 'publication_reliability_incident' &&
         (representedSponsors.has(item.sponsorshipId ?? '') ||
-          representedBatches.has(String(item.facts['reference'] ?? '')) ||
-          (publicationState &&
-            [
-              'publication_needs_preparation',
-              'publication_slot_upcoming'
-            ].includes(item.type)))
+          representedBatches.has(String(item.facts['reference'] ?? '')))
       )
         continue;
       if (

@@ -125,10 +125,12 @@ export const loadSponsorshipProgressFacts = async (
     GROUP BY r.stripe_object_id,r.currency`,
     [id]
   );
-  const failedEmails = await client.query<{ id: string; template: string }>(
-    `SELECT id, template_key AS template FROM email_messages
-    WHERE status = 'failed' AND (metadata->>'contributionId' = $1 OR metadata->>'invoiceId' IN (SELECT id::text FROM sponsorship_invoices WHERE contribution_id = $1::uuid)
-    OR metadata->>'creditNoteId' IN (SELECT id::text FROM sponsorship_credit_notes WHERE contribution_id = $1::uuid)) ORDER BY created_at DESC`,
+  const failedEmails = await client.query<
+    AdminSponsorshipProgress['failedEmails'][number]
+  >(
+    `SELECT id, template_key AS template, status FROM email_messages
+    WHERE status IN ('failed','uncertain') AND (metadata->>'contributionId' = $1 OR metadata->>'invoiceId' IN (SELECT id::text FROM sponsorship_invoices WHERE contribution_id = $1::uuid)
+    OR metadata->>'creditNoteId' IN (SELECT id::text FROM sponsorship_credit_notes WHERE contribution_id = $1::uuid)) ORDER BY (status='failed') DESC, created_at DESC, id`,
     [id]
   );
   const failedStripeEvents = await client.query<{ id: string; type: string }>(

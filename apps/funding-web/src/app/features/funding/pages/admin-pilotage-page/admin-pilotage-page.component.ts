@@ -84,7 +84,6 @@ type Panel =
     EditorialProgrammeComponent,
     AdminGuideComponent
   ],
-  providers: [ControllerService],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-pilotage-page.component.html',
   styleUrls: [
@@ -122,6 +121,8 @@ export class AdminPilotagePageComponent {
   private readonly guide = viewChild(AdminGuideComponent);
   private readonly programme = viewChild(EditorialProgrammeComponent);
   private readonly document = inject(DOCUMENT);
+  private releaseController: (() => void) | undefined;
+  private confirmationFocusFrame = 0;
   readonly panel = signal<Panel>('');
   readonly busy = signal(false);
   readonly error = signal('');
@@ -263,7 +264,11 @@ export class AdminPilotagePageComponent {
     const destroy = inject(DestroyRef);
     destroy.onDestroy(() => {
       this.reads.dispose();
-      this.controller.stop();
+      this.releaseController?.();
+      if (this.confirmationFocusFrame)
+        this.document.defaultView?.cancelAnimationFrame(
+          this.confirmationFocusFrame
+        );
     });
     afterNextRender(() => {
       try {
@@ -286,7 +291,10 @@ export class AdminPilotagePageComponent {
       } catch {
         void this.load(true);
       }
-      this.controller.start((intent) => this.intent(intent));
+      this.releaseController = this.controller.attach(
+        (intent) => this.claimController(intent),
+        { priority: 100, keyboard: true }
+      );
       let globalNavigation = this.globalNavigationActive();
       const focusChanged = () => {
         const next = this.globalNavigationActive();
@@ -469,6 +477,28 @@ export class AdminPilotagePageComponent {
     this.panel.set(panel);
     this.keyboard.set(false);
     this.controller.reset();
+    const view = this.document.defaultView;
+    if (this.confirmationFocusFrame)
+      view?.cancelAnimationFrame(this.confirmationFocusFrame);
+    this.confirmationFocusFrame =
+      panel === 'confirm' && view
+        ? view.requestAnimationFrame(() => {
+            this.confirmationFocusFrame = 0;
+            if (this.panel() !== 'confirm') return;
+            const confirm = this.document.querySelector<HTMLButtonElement>(
+              '[data-og7="pilot-confirm"]'
+            );
+            const target =
+              confirm && !confirm.disabled
+                ? confirm
+                : this.document.querySelector<HTMLElement>(
+                    '[data-og7="pilot-panel-confirm"] textarea:not([disabled])'
+                  );
+            if (target?.closest('dialog[open]'))
+              target.focus({ preventScroll: true });
+            this.controller.reset();
+          })
+        : 0;
   }
   close(): void {
     if (!this.busy()) {
@@ -704,6 +734,41 @@ export class AdminPilotagePageComponent {
     this.controller.save(this.profile);
     this.error.set('');
   }
+  private claimController(intent: ControllerIntent): boolean {
+    const active = this.document.activeElement as HTMLElement | null;
+    const top =
+      active?.closest('dialog[open]') ??
+      Array.from(this.document.querySelectorAll('dialog[open]')).at(-1);
+    if (
+      top?.closest(
+        '[data-og7-controller-global], openg7-admin-controller, openg7-admin-controller-editor'
+      )
+    )
+      return false;
+    if (
+      (intent === 'primary' || intent === 'edit') &&
+      active?.matches('input,textarea,select')
+    )
+      return false;
+    if (this.guideActive() || this.programme()?.guide()?.active()) {
+      this.intent(intent);
+      return true;
+    }
+    if (top && (intent === 'previous' || intent === 'next')) return false;
+    if (this.moderation.pending()) {
+      if (
+        ['up', 'down', 'left', 'right', 'scrollUp', 'scrollDown'].includes(
+          intent
+        )
+      )
+        return false;
+      this.intent(intent);
+      return true;
+    }
+    if (this.globalNavigationActive()) return false;
+    this.intent(intent);
+    return true;
+  }
   intent(intent: ControllerIntent): void {
     if (this.moderation.pending()) {
       if (intent === 'secondary') {
@@ -767,7 +832,17 @@ export class AdminPilotagePageComponent {
       }
       if (intent === 'primary') {
         if (this.panel() === 'confirm') {
-          this.confirm();
+          const active = this.document.activeElement as HTMLElement | null;
+          if (
+            active
+              ?.closest('dialog[open]')
+              ?.querySelector('[data-og7="pilot-panel-confirm"]') &&
+            active.matches(
+              'button:not([disabled]),a[href],input[type="checkbox"]:not([disabled])'
+            )
+          )
+            active.click();
+          this.controller.reset();
           return;
         }
         const active = this.document.activeElement as HTMLElement | null;

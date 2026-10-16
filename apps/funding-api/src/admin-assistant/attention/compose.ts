@@ -13,6 +13,7 @@ import {
 } from './publication.detectors.js';
 import { detectFailedEmailItems } from './email.detectors.js';
 import { detectFinancialWarningItems } from './financial.detectors.js';
+import { detectSponsorshipObligationItems } from './obligation.detectors.js';
 
 const sortAttentionItems = (
   items: readonly AdminAttentionItem[]
@@ -35,6 +36,7 @@ export const buildAttentionItems = (
     ...detectSponsorshipInfoItems(dataset),
     ...detectSponsorshipReviewItems(dataset),
     ...detectSponsorshipCommitmentItems(dataset),
+    ...detectSponsorshipObligationItems(dataset),
     ...detectPublicationPreparationItems(dataset),
     ...detectLatePublicationItems(dataset),
     ...detectFailedEmailItems(dataset),

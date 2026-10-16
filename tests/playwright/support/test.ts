@@ -46,3 +46,18 @@ const windowsTest = base.extend<{
 export const test = process.platform === 'win32' ? windowsTest : base;
 
 export { expect };
+
+/** Let the browser poll held and neutral input through its real animation frames. */
+export async function sampledFrames(page: Page, count = 3): Promise<void> {
+  await page.evaluate(
+    (remaining) =>
+      new Promise<void>((resolve) => {
+        const frame = () => {
+          if (--remaining <= 0) resolve();
+          else requestAnimationFrame(frame);
+        };
+        requestAnimationFrame(frame);
+      }),
+    count
+  );
+}

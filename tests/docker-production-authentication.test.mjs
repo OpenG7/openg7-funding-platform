@@ -539,6 +539,7 @@ test(
       'lib/docker-config.mjs',
       'lib/docker-environment.mjs',
       'lib/keycloak-config.mjs',
+      'lib/local-password-policy.mjs',
       'lib/production-identity.mjs',
       'lib/local-identity.mjs',
       'lib/keycloak-initial-user.mjs',

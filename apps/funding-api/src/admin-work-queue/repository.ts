@@ -9,6 +9,8 @@ import {
   type QueueStripeEvent
 } from './contracts.js';
 import { buildWorkQueueItems } from './projection.js';
+import { loadRefundFollowupItems } from './refund-followup.js';
+import { loadReliabilityFollowupItems } from './reliability-followup.js';
 
 /** Shared deterministic projection; callers paginate after cross-domain deduplication. */
 export const loadAdminWorkQueue = async (
@@ -24,7 +26,22 @@ export const loadAdminWorkQueue = async (
     'sponsor_publication_drafts',
     'sponsor_publication_batches',
     'publication_slots',
-    'email_messages'
+    'email_messages',
+    'fund_transactions',
+    'sponsorship_credit_notes',
+    'admin_audit_log',
+    'sponsorship_commitments',
+    'sponsorship_offers',
+    'sponsorship_obligations',
+    'sponsorship_obligation_timing',
+    'sponsorship_fulfilment_evidence',
+    'sponsorship_obligation_reservations',
+    'publication_deliveries',
+    'publication_account_reservations',
+    'publication_account_leases',
+    'sponsorship_obligation_duration_attestations',
+    'sponsorship_website_exposure_observations',
+    'sponsorship_public_visibility_observations'
   ];
   const presence = await pool.query<{ name: string; present: boolean }>(
     "SELECT name, to_regclass('public.' || name) IS NOT NULL AS present FROM unnest($1::text[]) AS name",
@@ -34,7 +51,7 @@ export const loadAdminWorkQueue = async (
     (name) => !presence.rows.some((row) => row.name === name && row.present)
   );
   if (missing.length) return { items: [], missingSources: missing };
-  const [dataset, invoices, events] = await Promise.all([
+  const [dataset, invoices, events, refunds, reliability] = await Promise.all([
     loadAttentionDataset(pool, now, true),
     pool.query<QueueInvoiceCandidate>(`SELECT c.id::text AS id, c.public_reference AS reference, c.paid_at::text AS paid_at
       FROM fund_contributions c LEFT JOIN sponsorship_invoices i ON i.contribution_id = c.id
@@ -44,10 +61,15 @@ export const loadAdminWorkQueue = async (
       `SELECT stripe_event_id AS id, event_type, processing_status AS status, received_at::text AS received_at
       FROM stripe_events WHERE processing_status = 'failed' OR (processing_status = 'processing' AND received_at <= $1::timestamptz)`,
       [new Date(now.getTime() - STRIPE_STALLED_AFTER_MS).toISOString()]
-    )
+    ),
+    loadRefundFollowupItems(pool, now),
+    loadReliabilityFollowupItems(pool, now)
   ]);
   return {
-    items: buildWorkQueueItems(dataset, invoices.rows, events.rows),
+    items: buildWorkQueueItems(dataset, invoices.rows, events.rows, [
+      ...refunds,
+      ...reliability
+    ]),
     missingSources: []
   };
 };

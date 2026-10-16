@@ -42,7 +42,22 @@ test(
         'sponsor_publication_drafts',
         'sponsor_publication_batches',
         'publication_slots',
-        'email_messages'
+        'email_messages',
+        'fund_transactions',
+        'sponsorship_credit_notes',
+        'admin_audit_log',
+        'sponsorship_commitments',
+        'sponsorship_offers',
+        'sponsorship_obligations',
+        'sponsorship_obligation_timing',
+        'sponsorship_fulfilment_evidence',
+        'sponsorship_obligation_reservations',
+        'publication_deliveries',
+        'publication_account_reservations',
+        'publication_account_leases',
+        'sponsorship_obligation_duration_attestations',
+        'sponsorship_website_exposure_observations',
+        'sponsorship_public_visibility_observations'
       ]);
       for (const file of (await readdir('apps/funding-api/migrations'))
         .filter((file) => file.endsWith('.sql'))

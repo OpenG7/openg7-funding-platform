@@ -18,6 +18,45 @@ const loadApiRuntimeConfig = (env) => ({
   ...loadApiRuntimeHttpConfig(env)
 });
 
+test('authentication startup rejects password-only flags outside the complete localhost OIDC development profile', () => {
+  for (const value of ['true', '', 'yes', 'TRUE'])
+    for (const mode of ['token', 'oidc'])
+      assert.throws(() =>
+        loadApiRuntimeAdminAuthMode({
+          FUNDING_PLATFORM_ENV: 'development',
+          FUNDING_ADMIN_AUTH_MODE: mode,
+          FUNDING_ADMIN_OIDC_LOCAL_PASSWORD_ONLY: value
+        })
+      );
+  const valid = {
+    NODE_ENV: 'production',
+    FUNDING_PLATFORM_ENV: 'development',
+    FUNDING_ADMIN_AUTH_MODE: 'oidc',
+    FUNDING_KEYCLOAK_ENABLED: 'true',
+    FUNDING_KEYCLOAK_HOSTNAME: 'auth.openg7.test',
+    FUNDING_PUBLIC_BASE_URL: 'https://localhost',
+    FUNDING_ADMIN_OIDC_ISSUER: 'https://auth.openg7.test/realms/openg7',
+    FUNDING_ADMIN_OIDC_LOCAL_PASSWORD_ONLY: 'true'
+  };
+  assert.equal(loadApiRuntimeAdminAuthMode(valid), 'oidc');
+  for (const env of [
+    { ...valid, FUNDING_PLATFORM_ENV: 'production' },
+    { ...valid, FUNDING_PLATFORM_ENV: 'test' },
+    { ...valid, FUNDING_PLATFORM_ENV: undefined },
+    { ...valid, FUNDING_ADMIN_AUTH_MODE: 'token' },
+    { ...valid, FUNDING_PUBLIC_BASE_URL: 'https://funding.example.test' }
+  ])
+    assert.throws(() => loadApiRuntimeAdminAuthMode(env));
+  for (const mode of ['token', 'oidc'])
+    assert.equal(
+      loadApiRuntimeAdminAuthMode({
+        FUNDING_ADMIN_AUTH_MODE: mode,
+        FUNDING_ADMIN_OIDC_LOCAL_PASSWORD_ONLY: 'false'
+      }),
+      mode
+    );
+});
+
 test('startup phases leave media and URL validation until after storage construction', () => {
   const env = {
     FUNDING_SPONSOR_MEDIA_MAX_BYTES: 'invalid',

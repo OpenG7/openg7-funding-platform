@@ -1,0 +1,219 @@
+@if (guidance.available()) {
+  @if (guidance.page(); as page) {
+    <section
+      #card
+      class="guidance"
+      [class.open]="guidance.enabled()"
+      [class.at-bottom]="placement() === 'bottom'"
+      [attr.data-og7-placement]="placement()"
+      data-og7="admin-guidance"
+      [attr.aria-label]="t('toggle')"
+    >
+      <div class="guidance-bar">
+        <button
+          #toggle
+          type="button"
+          class="admin-button mode-toggle"
+          data-og7="admin-guidance-toggle"
+          (click)="guidance.toggle()"
+          [attr.aria-expanded]="guidance.enabled()"
+          [attr.aria-controls]="
+            guidance.enabled() ? 'admin-guidance-panel' : null
+          "
+        >
+          <openg7-admin-icon name="assistant" />
+          {{ t(guidance.enabled() ? 'close' : 'toggle') }}
+        </button>
+        @if (guidance.enabled()) {
+          <button
+            type="button"
+            class="admin-button"
+            data-og7="admin-guidance-move"
+            (click)="moveCard()"
+          >
+            {{ t(placement() === 'top' ? 'moveBottom' : 'moveTop') }}
+          </button>
+          <p class="location">
+            <span>{{ t('where') }}</span
+            ><strong data-og7="admin-guidance-page">{{
+              i18n.t(page.titleKey)
+            }}</strong>
+          </p>
+        }
+      </div>
+      @if (guidance.forgetFailed()) {
+        <p role="status" class="storage-warning clear-warning">
+          {{ t('clearUnavailable') }}
+        </p>
+      }
+      @if (guidance.enabled()) {
+        <div
+          id="admin-guidance-panel"
+          class="guidance-body"
+          data-og7="admin-guidance-panel"
+        >
+          <nav class="mode-choice" [attr.aria-label]="t('modeLabel')">
+            <button
+              type="button"
+              class="admin-button"
+              data-og7="admin-guidance-discovery-mode"
+              [attr.aria-pressed]="guidance.mode() === 'discovery'"
+              (click)="guidance.setMode('discovery')"
+            >
+              {{ t('discoveryMode') }}
+            </button>
+            <button
+              type="button"
+              class="admin-button"
+              data-og7="admin-guidance-payment-mode"
+              [attr.aria-pressed]="guidance.mode() === 'payment'"
+              (click)="guidance.setMode('payment')"
+            >
+              {{ t('paymentJourney.title') }}
+            </button>
+          </nav>
+          @if (guidance.mode() === 'payment') {
+            <openg7-admin-payment-journey (show)="show($event)" />
+          } @else {
+            @if (guidance.bookmarkPage(); as savedPage) {
+              @if (
+                guidance.snapshot().bookmark?.paused || savedPage.id !== page.id
+              ) {
+                <div class="saved-cue">
+                  @if (guidance.snapshot().bookmark?.paused) {
+                    <p data-og7="admin-guidance-paused">{{ t('paused') }}</p>
+                  }
+                  <p>
+                    {{
+                      t('saved', {
+                        page: i18n.t(savedPage.titleKey),
+                        step: (guidance.snapshot().bookmark?.step ?? 0) + 1
+                      })
+                    }}
+                  </p>
+                  <div class="cue-actions">
+                    <a
+                      #resume
+                      class="admin-button admin-button--primary"
+                      data-og7="admin-guidance-resume"
+                      [routerLink]="savedPage.path"
+                      (click)="guidance.resume()"
+                      >{{ t('resume') }}</a
+                    >
+                    @if (savedPage.id !== page.id) {
+                      <button
+                        type="button"
+                        class="admin-button"
+                        data-og7="admin-guidance-resume-here"
+                        (click)="guidance.resumeHere()"
+                      >
+                        {{ t('resumeHere') }}
+                      </button>
+                    }
+                  </div>
+                </div>
+              }
+            }
+            @if (!guidance.snapshot().bookmark?.paused) {
+              @if (guidance.step(); as step) {
+                <div class="step-copy" aria-live="polite" aria-atomic="true">
+                  <div class="step-position">
+                    <span>{{ t('next') }}</span
+                    ><span>{{
+                      t('step', {
+                        current: guidance.index() + 1,
+                        total: page.steps.length
+                      })
+                    }}</span>
+                  </div>
+                  <h2
+                    #stepHeading
+                    tabindex="-1"
+                    data-og7="admin-guidance-step"
+                    [attr.data-og7-id]="step.id"
+                  >
+                    {{ i18n.t(step.titleKey) }}
+                  </h2>
+                  <p>{{ i18n.t(step.bodyKey) }}</p>
+                </div>
+                <div class="cue-actions">
+                  <button
+                    type="button"
+                    class="admin-button"
+                    data-og7="admin-guidance-show"
+                    (click)="show()"
+                  >
+                    <openg7-admin-icon name="search" />{{ t('show') }}
+                  </button>
+                  <button
+                    type="button"
+                    class="admin-button"
+                    data-og7="admin-guidance-previous"
+                    [disabled]="guidance.index() === 0"
+                    (click)="move(-1)"
+                  >
+                    {{ t('previous') }}
+                  </button>
+                  @if (guidance.index() < page.steps.length - 1) {
+                    <button
+                      type="button"
+                      class="admin-button admin-button--primary"
+                      data-og7="admin-guidance-next"
+                      (click)="move(1)"
+                    >
+                      {{ t('advance') }}<openg7-admin-icon name="arrow" />
+                    </button>
+                  } @else {
+                    <button
+                      type="button"
+                      class="admin-button"
+                      data-og7="admin-guidance-restart"
+                      (click)="restart()"
+                    >
+                      {{ t('restart') }}
+                    </button>
+                  }
+                  <button
+                    type="button"
+                    class="admin-button pause"
+                    data-og7="admin-guidance-pause"
+                    (click)="pause()"
+                  >
+                    <openg7-admin-icon name="clock" />{{ t('pause') }}
+                  </button>
+                </div>
+                <p class="quiet">{{ t('reading') }}</p>
+              }
+            }
+          }
+          @if (missing()) {
+            <p role="status" class="quiet">{{ t('missing') }}</p>
+          }
+          @if (!guidance.storageAvailable()) {
+            <p
+              role="status"
+              class="storage-warning"
+              data-og7="admin-guidance-storage-warning"
+            >
+              {{ t('storageUnavailable') }}
+            </p>
+          }
+          <details class="privacy">
+            <summary>{{ t('privacy') }}</summary>
+            @if (guidance.tokenShared()) {
+              <p>{{ t('tokenShared') }}</p>
+            }
+            <button
+              type="button"
+              class="admin-button"
+              data-og7="admin-guidance-forget"
+              (click)="forget()"
+            >
+              {{ t('forget') }}
+            </button>
+          </details>
+        </div>
+      }
+    </section>
+  }
+}

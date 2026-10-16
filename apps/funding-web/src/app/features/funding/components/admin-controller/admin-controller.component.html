@@ -1,0 +1,119 @@
+@if (controller.connected() && languageReady()) {
+  <button
+    type="button"
+    class="controller-cue admin-button"
+    data-og7="controller-menu-open"
+    (click)="showMenu()"
+    [attr.aria-label]="'admin.controller.open' | translate"
+  >
+    {{ 'admin.controller.connected' | translate }}
+  </button>
+}
+@if (sandbox.available() && languageReady()) {
+  <button
+    type="button"
+    class="admin-button"
+    data-og7="sandbox-controller-open"
+    [attr.aria-expanded]="sandbox.virtualOpen()"
+    (click)="sandbox.virtualOpen.set(!sandbox.virtualOpen())"
+  >
+    {{ 'admin.controller.simulator.open' | translate }}
+  </button>
+  <openg7-virtual-controller
+    [enabled]="sandbox.virtualOpen()"
+    (closed)="sandbox.virtualOpen.set(false)"
+  >
+    <openg7-admin-sandbox-scenarios />
+  </openg7-virtual-controller>
+}
+<openg7-admin-drawer
+  [opened]="menu()"
+  [title]="'admin.controller.title' | translate"
+  [closeLabel]="'admin.controller.close' | translate"
+  (closed)="menu.set(false); controller.reset()"
+>
+  <div data-og7="controller-menu">
+    <p>{{ 'admin.controller.intro' | translate }}</p>
+    <dl class="controller-help">
+      <dt>A</dt>
+      <dd>{{ 'admin.controller.primary' | translate }}</dd>
+      <dt>B</dt>
+      <dd>{{ 'admin.controller.secondary' | translate }}</dd>
+      <dt>X</dt>
+      <dd>{{ 'admin.controller.edit' | translate }}</dd>
+      <dt>Y</dt>
+      <dd>{{ 'admin.controller.guide' | translate }}</dd>
+      <dt>LB / RB</dt>
+      <dd>{{ 'admin.controller.order' | translate }}</dd>
+      <dt>✚</dt>
+      <dd>{{ 'admin.controller.direction' | translate }}</dd>
+      <dt>{{ 'admin.controller.rightStick' | translate }}</dt>
+      <dd>{{ 'admin.controller.scroll' | translate }}</dd>
+    </dl>
+    <p>{{ 'admin.controller.safety' | translate }}</p>
+    <button
+      type="button"
+      class="admin-button"
+      data-og7="controller-open-guide"
+      (click)="showGuide()"
+    >
+      {{ 'admin.controller.guide' | translate }}
+    </button>
+    <button
+      type="button"
+      class="admin-button"
+      data-og7="controller-menu-close"
+      (click)="menu.set(false); controller.reset()"
+    >
+      {{ 'admin.controller.close' | translate }}
+    </button>
+  </div>
+</openg7-admin-drawer>
+<openg7-admin-drawer
+  [opened]="!!selecting()"
+  [title]="'admin.controller.selectTitle' | translate"
+  [closeLabel]="'admin.controller.editor.cancel' | translate"
+  (closed)="closeSelection()"
+>
+  @if (selecting()) {
+    <div data-og7="controller-select" class="controller-options">
+      @if (selectionError()) {
+        <p role="alert" data-og7="controller-select-error">
+          {{ selectionError() }}
+        </p>
+      }
+      @for (option of options(); track option.index) {
+        <button
+          type="button"
+          class="admin-button"
+          [disabled]="option.disabled"
+          [attr.aria-pressed]="selected().includes(option.index)"
+          data-og7="controller-select-option"
+          [attr.data-og7-id]="option.index"
+          (click)="choose(option.index)"
+        >
+          {{ option.label || ('admin.controller.editor.empty' | translate) }}
+        </button>
+      }
+      <footer>
+        <button
+          type="button"
+          class="admin-button"
+          data-og7="controller-select-cancel"
+          (click)="closeSelection()"
+        >
+          {{ 'admin.controller.editor.cancel' | translate }}
+        </button>
+        <button
+          type="button"
+          class="admin-button admin-button--primary"
+          data-og7="controller-select-apply"
+          (click)="applySelection()"
+        >
+          {{ 'admin.controller.editor.apply' | translate }}
+        </button>
+      </footer>
+    </div>
+  }
+</openg7-admin-drawer>
+<openg7-admin-controller-editor [target]="editing()" (closed)="closeEditor()" />

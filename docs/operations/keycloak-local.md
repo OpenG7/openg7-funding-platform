@@ -3,13 +3,64 @@
 Ce guide démarre le fournisseur Keycloak réel, son PostgreSQL privé et OpenG7
 sur une machine Windows avec Docker Desktop. L'application utilise
 `https://localhost` et l'identité `https://auth.openg7.test`. HTTPS, MFA, PKCE,
-contrôle des rôles et révocation des sessions restent actifs.
+contrôle des rôles et révocation des sessions restent actifs par défaut. Une
+[exception facultative](#connexion-locale-sans-double-facteur) permet le mot de
+passe seul pour le client de l'application sur localhost.
 
 Pour un VPS, suivre [Keycloak en production](keycloak-vps.md), avec DNS public,
 Let's Encrypt et qualification de la cible. Les certificats mkcert et la
 surcharge locale décrits ici appartiennent uniquement au développement.
 Les [tests d'identité](admin-identity-and-alerts.md#recette-des-accès-administrateurs)
 avec un fournisseur OIDC simulé ne remplacent pas ce démarrage Keycloak.
+
+## Connexion locale sans double facteur
+
+Pour conserver les comptes personnels Keycloak avec seulement le nom
+d'utilisateur et le mot de passe, ajouter dans la configuration locale privée :
+
+```env
+FUNDING_ADMIN_OIDC_LOCAL_PASSWORD_ONLY=true
+```
+
+Puis appliquer le profil avec le lanceur local :
+
+```powershell
+yarn docker:up:dev:keycloak --no-stripe-webhook
+```
+
+Cette option serveur non secrète exige explicitement
+`FUNDING_PLATFORM_ENV=development`, l'origine HTTPS exacte `https://localhost`,
+Keycloak géré sur `auth.openg7.test`, son issuer `openg7` et aucun override ACR.
+Les ports explicites de l'origine restent possibles si la pile correspond.
+Une valeur autre que `true` ou `false`, une cible publique, un fournisseur
+externe, un Compose personnalisé ou la production sont refusés. Le choix ne
+dépend jamais du header `Host` du navigateur.
+
+Le lanceur attend Keycloak, réconcilie un flow dédié au client local et vérifie
+le résultat avant de démarrer l'application. Il fonctionne aussi sur une base
+identité existante : l'import du realm seul ne suffirait pas. Le realm canonique
+garde son flow OTP. Les authentificateurs OTP déjà enrôlés sont conservés ; les
+nouveaux comptes locaux gardent le changement obligatoire du mot de passe, sans
+enrôlement OTP obligatoire pour ce profil.
+Une action `CONFIGURE_TOTP` déjà en attente est retirée uniquement pour les
+subjects propriétaires configurés, avec une limite de 16 ; les autres actions
+sont conservées. L'état de reprise et l'audit restent privés dans
+`var/keycloak-local-auth/`, liés au projet, au daemon Docker et au client.
+
+L'API exige toujours un jeton signé, le facteur `pwd` réellement exécuté, PKCE,
+state et nonce, puis les autorisations OpenG7 et une session révocable. Le statut
+de configuration annonce explicitement le mot de passe seul local, sans garantie
+MFA. Les comptes et leurs rôles restent les mêmes.
+
+Pour rétablir le double facteur, définir
+`FUNDING_ADMIN_OIDC_LOCAL_PASSWORD_ONLY=false`, puis relancer la même commande.
+Retirer cette variable puis relancer produit le même résultat.
+Le binding du client est restauré et l'API exige de nouveau une preuve MFA.
+Appliquer les changements de cette option avec `docker:up:dev:keycloak` avant
+d'utiliser les autres commandes de mise à jour. Une configuration API et Keycloak
+incohérente refuse la connexion. La réconciliation ne révoque pas les sessions
+déjà ouvertes : fermer sa session OpenG7 et vérifier une nouvelle connexion pour
+qualifier la politique choisie.
 
 ## 1. Préparer la machine et la cible locale
 
@@ -133,7 +184,8 @@ Le choix `oidc` conserve la configuration du fournisseur externe existant et
 désactive la surcharge Keycloak pour cette invocation.
 
 Le choix Keycloak fixe l'hôte `auth.openg7.test`, l'origine `https://localhost`,
-l'issuer HTTPS de ce guide et `FUNDING_ADMIN_OIDC_MFA_ACR` vide. Il garde les
+l'URL API dérivée `https://localhost/api`, l'issuer HTTPS de ce guide et
+`FUNDING_ADMIN_OIDC_MFA_ACR` vide. Il garde les
 secrets existants et les noms de client/bootstrap configurés, avec les valeurs
 par défaut `openg7-funding-admin` et `keycloak-local-bootstrap` si ces noms sont
 absents. Le sélecteur ne génère aucun secret et ne crée pas de compte OpenG7.
@@ -608,6 +660,7 @@ Installer Chromium correspondant au Playwright du lockfile, puis lancer la recet
 ```powershell
 yarn exec playwright install chromium
 node --test tests/identity/keycloak-local-https.integration.mjs
+node --test tests/identity/keycloak-local-password.integration.mjs
 ```
 
 Ces images sont les valeurs par défaut du [helper de pile](../../tests/identity/keycloak-local-https-stack.mjs).
@@ -623,6 +676,21 @@ La pile crée des noms de projet et de ressources uniques, des identités et
 secrets synthétiques, et deux DB en tmpfs sans port publié. Le nettoyage retire
 uniquement cette pile et son répertoire temporaire, jamais les volumes de
 développement. Aucun paiement ni livraison externe n'est exécuté.
+
+La [recette mot de passe seul](../../tests/identity/keycloak-local-password.integration.mjs)
+utilise un compte synthétique possédant déjà un OTP. Elle vérifie le claim `pwd`
+signé, la connexion navigateur/API propriétaire sans OTP, la déconnexion et le
+refus de la session révoquée, le rejeu sans mutation, puis le retour obligatoire
+à OTP avec les mêmes credentials.
+La [CI administrative](../../.github/workflows/admin-acceptance.yml) exige la
+recette mot de passe seul et retour OTP dans le job `keycloak_https`. Ce runner
+jetable crée sa propre CA et sa confiance Chromium/Node ; cette préparation ne
+s'applique pas à la machine de développement et n'exporte aucun certificat privé.
+La recette HTTPS générale reste disponible séparément. Son contrôle de rafale
+des ressources de console a signalé un `404` unique sur 48 requêtes, absent au
+passage suivant ; les assertions restent strictes et conservent le type de réponse
+pour le diagnostic. Ce constat ne prouve pas sa cause et aucun retry automatique
+ne masque cet échec.
 
 Le scénario prépare le compte par HTTPS sur la DB identité déjà démarrée,
 vérifie la répétition sans changement de credential et le refus du contrôle

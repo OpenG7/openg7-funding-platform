@@ -56,14 +56,15 @@ const json = (body) => ({
   body: JSON.stringify(body)
 });
 
-function fixture(t, { existing, intercept } = {}) {
+function fixture(t, { existing, intercept, overrides = {} } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'og7-keycloak-provision-'));
   t.after(() => {
     assert.equal(dirname(resolve(root)), resolve(tmpdir()));
     assert.ok(basename(root).startsWith('og7-keycloak-provision-'));
     rmSync(root, { recursive: true, force: true });
   });
-  const env = { ...configured };
+  const env = { ...configured, ...overrides };
+  const realmIssuer = env.FUNDING_ADMIN_OIDC_ISSUER;
   const calls = [];
   let user = existing ?? null;
   const realm = {
@@ -80,8 +81,8 @@ function fixture(t, { existing, intercept } = {}) {
     const url = new URL(options.url);
     if (url.pathname.endsWith('/.well-known/openid-configuration'))
       return json({
-        issuer,
-        token_endpoint: issuer + '/protocol/openid-connect/token'
+        issuer: realmIssuer,
+        token_endpoint: realmIssuer + '/protocol/openid-connect/token'
       });
     if (url.pathname.endsWith('/protocol/openid-connect/token'))
       return json({ access_token: 'synthetic-provisioning-access-token' });
@@ -113,7 +114,9 @@ function fixture(t, { existing, intercept } = {}) {
         status: 201,
         headers: {
           location:
-            'https://auth.example.org/admin/realms/openg7/users/' + subject
+            new URL(realmIssuer).origin +
+            '/admin/realms/openg7/users/' +
+            subject
         },
         body: ''
       };
@@ -127,7 +130,7 @@ function fixture(t, { existing, intercept } = {}) {
     'var',
     'keycloak-provisioning',
     createHash('sha256')
-      .update(issuer + '\n' + env.FUNDING_KEYCLOAK_INITIAL_USER_USERNAME)
+      .update(realmIssuer + '\n' + env.FUNDING_KEYCLOAK_INITIAL_USER_USERNAME)
       .digest('hex')
   );
   const run = () => provisionKeycloakUser({ root, env, request });
@@ -361,6 +364,45 @@ test('new user receives literal temporary credentials and personal actions once;
   if (process.platform !== 'win32') {
     assert.equal(statSync(f.directory).mode & 0o777, 0o700);
     assert.equal(statSync(join(f.directory, 'user.json')).mode & 0o777, 0o600);
+  }
+});
+
+test('local provisioning omits OTP enrollment only when the localhost exception is explicitly enabled', async (t) => {
+  for (const flag of [undefined, 'false', 'true']) {
+    await t.test(flag ?? 'default', async (t) => {
+      const overrides = {
+        FUNDING_PLATFORM_ENV: 'development',
+        FUNDING_KEYCLOAK_HOSTNAME: 'auth.openg7.test',
+        FUNDING_PUBLIC_BASE_URL: 'https://localhost',
+        FUNDING_ADMIN_OIDC_ISSUER: 'https://auth.openg7.test/realms/openg7'
+      };
+      if (flag !== undefined)
+        overrides.FUNDING_ADMIN_OIDC_LOCAL_PASSWORD_ONLY = flag;
+      const f = fixture(t, { overrides });
+      createLocalTlsFixture(f.root);
+      assert.deepEqual(await f.run(), { subject, created: true });
+      const creation = JSON.parse(f.creations()[0].body);
+      assert.deepEqual(
+        creation.requiredActions,
+        flag === 'true'
+          ? ['UPDATE_PASSWORD']
+          : ['UPDATE_PASSWORD', 'CONFIGURE_TOTP']
+      );
+      assert.deepEqual(creation.credentials, [
+        {
+          type: 'password',
+          value: configured.FUNDING_KEYCLOAK_INITIAL_USER_PASSWORD,
+          temporary: true
+        }
+      ]);
+      assert.equal(f.env.FUNDING_ADMIN_OIDC_OWNER_SUBJECTS, subject);
+      assert.ok(f.calls.every(({ ca }) => Buffer.isBuffer(ca)));
+      assert.deepEqual(await f.run(), { subject, created: false });
+      assert.equal(f.creations().length, 1);
+      assert.ok(
+        f.calls.every(({ method }) => ['GET', 'POST'].includes(method))
+      );
+    });
   }
 });
 

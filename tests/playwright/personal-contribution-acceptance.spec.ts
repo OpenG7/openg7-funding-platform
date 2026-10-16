@@ -8,7 +8,11 @@ import type {
   PublicBuildersResponse
 } from '@openg7/funding-core';
 
-import { adminSessionHeaders } from './support/admin-auth.js';
+import { adminSessionHeaders, signInAsAdmin } from './support/admin-auth.js';
+import {
+  expectCompletedPaymentJourney,
+  readPaymentJourney
+} from './support/payment-journey.js';
 import { test, expect } from './support/test.js';
 import {
   buildPaymentIntentSucceededEvent,
@@ -403,6 +407,32 @@ for (const variant of variants) {
       ),
       contentType: 'application/json'
     });
+    const journey = await readPaymentJourney(request, item.contributionId);
+    expect(journey).toMatchObject({
+      contributionType: 'personal_support',
+      paymentStatus: 'paid',
+      state: 'complete',
+      next: null
+    });
+    expect(
+      journey.steps.some((step) =>
+        ['identity', 'media', 'review', 'billing', 'publication'].includes(
+          step.id
+        )
+      )
+    ).toBe(false);
+    if (variant.name && variant.amount) {
+      await signInAsAdmin(page);
+      await expectCompletedPaymentJourney(
+        page,
+        request,
+        item.contributionId,
+        'controller'
+      );
+      await page.screenshot({
+        path: info.outputPath('personal-admin-journey-complete.png')
+      });
+    }
     expect(errors).toEqual([]);
   });
 }

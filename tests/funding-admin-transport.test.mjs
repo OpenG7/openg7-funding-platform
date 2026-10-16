@@ -1020,11 +1020,86 @@ test('token sign-in preserves its exchange and clears private data only after a 
           assert.equal(service.workQueue(), syntheticQueue);
         }
         assert.equal(service.identity(), null);
-        assert.equal(service.sessionGeneration(), 0);
+        assert.equal(service.sessionGeneration(), success ? 1 : 0);
         assert.equal(fetchMock.mock.callCount(), 1);
       }
     );
   }
+});
+
+test('a replacement token session distinguishes a pending old read and survives its late refusal', async (t) => {
+  const { service, sessionStorage } = serviceFixture(t);
+  const started = Promise.withResolvers();
+  const oldResponse = Promise.withResolvers();
+  const originalGeneration = service.sessionGeneration();
+  const originalIdentity = service.identity();
+  const session = {
+    sessionToken: explicitToken,
+    expiresAt: new Date(Date.now() + 120000).toISOString(),
+    ttlSeconds: 120
+  };
+  const fetchMock = t.mock.method(globalThis, 'fetch', async (url, options) => {
+    if (url === baseUrl + '/admin/session') return Response.json(session);
+    if (url === baseUrl + '/admin/payment-journey?contributionId=old-payment') {
+      assert.equal(options.headers.Authorization, `Bearer ${syntheticToken}`);
+      started.resolve();
+      return oldResponse.promise;
+    }
+    assert.equal(
+      url,
+      baseUrl + '/admin/payment-journey?contributionId=new-payment'
+    );
+    assert.equal(options.headers.Authorization, `Bearer ${explicitToken}`);
+    return Response.json({ status: 'not_found' });
+  });
+
+  const pending = service.getPaymentJourney('old-payment');
+  await started.promise;
+  assert.deepEqual(await service.signIn('synthetic-root-token'), session);
+  assert.equal(originalIdentity, null);
+  assert.equal(service.identity(), null);
+  assert.equal(service.sessionGeneration(), originalGeneration + 1);
+  assert.equal(sessionStorage.getItem(sessionKey), explicitToken);
+  assert.equal(sessionStorage.getItem(expiryKey), session.expiresAt);
+  assert.equal(sessionStorage.getItem(selectionKey), null);
+
+  oldResponse.resolve(Response.json({}, { status: 401 }));
+  await assert.rejects(pending, (error) => {
+    assert.ok(error instanceof AdminDashboardRequestError);
+    assert.equal(error.status, 401);
+    return true;
+  });
+  assert.equal(service.sessionGeneration(), originalGeneration + 1);
+  assert.equal(sessionStorage.getItem(sessionKey), explicitToken);
+  assert.deepEqual(await service.getPaymentJourney('new-payment'), {
+    status: 'not_found'
+  });
+  assert.equal(service.sessionGeneration(), originalGeneration + 1);
+  assert.equal(fetchMock.mock.callCount(), 3);
+});
+
+test('saving an unchanged token session or refusing its replacement does not announce a new session', async (t) => {
+  const { service, sessionStorage } = serviceFixture(t);
+  const session = {
+    sessionToken: syntheticToken,
+    expiresAt: sessionStorage.getItem(expiryKey),
+    ttlSeconds: 60
+  };
+  let refused = false;
+  t.mock.method(globalThis, 'fetch', async () =>
+    Response.json(session, { status: refused ? 401 : 200 })
+  );
+  await service.signIn('synthetic-root-token');
+  assert.equal(service.sessionGeneration(), 0);
+  sessionStorage.setItem(selectionKey, 'new-selection');
+  refused = true;
+  await assert.rejects(service.signIn('synthetic-root-token'), {
+    message: 'Admin session could not be created.'
+  });
+  assert.equal(service.sessionGeneration(), 0);
+  assert.equal(sessionStorage.getItem(sessionKey), syntheticToken);
+  assert.equal(sessionStorage.getItem(expiryKey), session.expiresAt);
+  assert.equal(sessionStorage.getItem(selectionKey), 'new-selection');
 });
 
 test('root-token requests reuse a valid saved session and exchange expired sessions once', async (t) => {
@@ -1071,7 +1146,7 @@ test('root-token requests reuse a valid saved session and exchange expired sessi
         '/admin/dashboard',
         '/admin/dashboard'
       ]);
-      assert.equal(service.sessionGeneration(), expired ? 1 : 0);
+      assert.equal(service.sessionGeneration(), expired ? 2 : 0);
       assert.equal(window.sessionStorage.getItem('openg7-admin-token'), null);
       assert.equal(window.localStorage.getItem('openg7-admin-token'), null);
     });
@@ -2400,14 +2475,14 @@ test('sponsorship and publication requests share session expiry, cache invalidat
     return Response.json({ synthetic: true });
   });
   await service.getSponsorships('synthetic-root-token');
-  assert.equal(service.sessionGeneration(), 1);
+  assert.equal(service.sessionGeneration(), 2);
   assert.equal(service.identity(), null);
   assert.equal(service.workQueue(), null);
   assert.equal(sessionStorage.getItem(sessionKey), explicitToken);
   await service.publicationAutomation();
-  assert.equal(service.sessionGeneration(), 1);
-  await service.signOut();
   assert.equal(service.sessionGeneration(), 2);
+  await service.signOut();
+  assert.equal(service.sessionGeneration(), 3);
   assert.equal(sessionStorage.getItem(sessionKey), null);
   await service.publicationMedia();
   assert.deepEqual(paths, [
