@@ -289,6 +289,43 @@ test('repeat preparation retains the identity and tolerates an existing volume w
   assert.equal(readFileSync(first.importFile, 'utf8'), previousImport);
 });
 
+test('explicit local password-only preparation keeps the temporary password change without OTP enrollment', async (t) => {
+  const root = fixture(t);
+  const env = {
+    ...configuration(),
+    FUNDING_ADMIN_OIDC_LOCAL_PASSWORD_ONLY: 'true'
+  };
+  const docker = dockerFixture();
+  const canonicalPath = join(root, 'docker', 'keycloak', 'openg7-realm.json');
+  const canonicalText = readFileSync(canonicalPath, 'utf8');
+  const prepared = await prepareLocalInitialUser({ root, env, ...docker });
+  const realm = JSON.parse(readFileSync(prepared.importFile, 'utf8'));
+  assert.deepEqual(realm.users[0].requiredActions, ['UPDATE_PASSWORD']);
+  assert.deepEqual(realm.users[0].credentials, [
+    {
+      type: 'password',
+      value: '${FUNDING_KEYCLOAK_INITIAL_USER_PASSWORD_JSON}',
+      temporary: true
+    }
+  ]);
+  assert.equal(env.FUNDING_ADMIN_OIDC_OWNER_SUBJECTS, prepared.subject);
+  delete realm.users;
+  assert.deepEqual(realm, JSON.parse(canonicalText));
+  assert.equal(readFileSync(canonicalPath, 'utf8'), canonicalText);
+  const repeated = await prepareLocalInitialUser({
+    root,
+    env,
+    ...dockerFixture({ existingVolumes: [docker.volume] }),
+    allowCreate: false
+  });
+  assert.equal(repeated.subject, prepared.subject);
+  assert.deepEqual(
+    JSON.parse(readFileSync(repeated.importFile, 'utf8')).users[0]
+      .requiredActions,
+    ['UPDATE_PASSWORD']
+  );
+});
+
 test('an explicit owner list remains authoritative and unchanged', async (t) => {
   const root = fixture(t);
   const owners = `${randomUUID()},${randomUUID()}`;

@@ -9,7 +9,10 @@ import { PublicationAutomationService } from '../../dist/apps/funding-api/src/pu
 import { updateSponsorMediaUsage } from '../../dist/apps/funding-api/src/sponsor-media-usage.repository.js';
 import { getModerationContent } from '../../dist/apps/funding-api/src/moderation/repository.js';
 import { withPostgresTransaction } from '../../dist/apps/funding-api/src/postgres-transaction.js';
-import { startDisposablePostgres } from './support/disposable-postgres.mjs';
+import {
+  observePostgresTransactions,
+  startDisposablePostgres
+} from './support/disposable-postgres.mjs';
 import { approveFixtureSubject } from './support/moderation-fixture.mjs';
 import { recordFixtureSponsorshipAgreement } from './support/sponsorship-agreement-fixture.mjs';
 
@@ -23,6 +26,7 @@ test(
     const database = await startDisposablePostgres();
     t.after(database.stop);
     const { pool } = database;
+    const transactions = observePostgresTransactions(pool);
     const objects = new Map();
     let feedId = 'openg20:facebook';
     const providerBase = 'https://publication-visual.test/facebook';
@@ -40,7 +44,7 @@ test(
         'synthetic-linkedin-credential'
     };
     const service = new PublicationAutomationService(
-      pool,
+      transactions.pool,
       { readPrivateObject: async (key) => objects.get(key) ?? null },
       env
     );
@@ -130,11 +134,7 @@ test(
         unexpected.push(String(url));
         throw new Error('Unexpected synthetic visual provider request.');
       }
-      openTransactionsAtSend = (
-        await pool.query(
-          "SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid() AND xact_start IS NOT NULL AND state<>'idle'"
-        )
-      ).rows[0].n;
+      openTransactionsAtSend = transactions.openTransactions;
       assert.equal(
         openTransactionsAtSend,
         0,

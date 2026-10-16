@@ -80,6 +80,39 @@ export function assertLocalDockerEndpoint(endpoint) {
   throw new Error('Acceptance requires a local Docker daemon.');
 }
 
+/** Prepare only this recipe's private services; interactive callers can omit test fixtures. */
+export async function prepareAcceptanceStack({
+  run,
+  node,
+  seed = true,
+  services = []
+}) {
+  await run('docker', ['compose', 'config', '--quiet']);
+  await run('docker', ['compose', 'build']);
+  await run('docker', [
+    'compose',
+    'up',
+    '-d',
+    '--wait',
+    'postgres',
+    'stripe-stub'
+  ]);
+  await run(node, ['scripts/db-migrate.mjs']);
+  if (seed) await run(node, ['scripts/e2e-seed.mjs']);
+  await run('docker', ['compose', 'up', '-d', '--wait', ...services]);
+  // A separate OIDC API process exercises decisions requiring two stable
+  // identities. It shares the disposable database and local media only.
+  await run('docker', [
+    'compose',
+    'exec',
+    '-d',
+    'api',
+    'node',
+    '/app/tests/identity/docker-moderation-server.mjs'
+  ]);
+  await run(node, ['scripts/lib/admin-acceptance-readiness.mjs']);
+}
+
 // Each stage must succeed. Diagnostics and teardown run on startup, migration,
 // seed or browser failures too; cleanup failure also makes the command fail.
 export async function acceptanceStages({
@@ -90,30 +123,7 @@ export async function acceptanceStages({
   args = []
 }) {
   try {
-    await run('docker', ['compose', 'config', '--quiet']);
-    await run('docker', ['compose', 'build']);
-    await run('docker', [
-      'compose',
-      'up',
-      '-d',
-      '--wait',
-      'postgres',
-      'stripe-stub'
-    ]);
-    await run(node, ['scripts/db-migrate.mjs']);
-    await run(node, ['scripts/e2e-seed.mjs']);
-    await run('docker', ['compose', 'up', '-d', '--wait']);
-    // A separate OIDC API process exercises decisions requiring two stable
-    // identities. It shares the disposable database and local media only.
-    await run('docker', [
-      'compose',
-      'exec',
-      '-d',
-      'api',
-      'node',
-      '/app/tests/identity/docker-moderation-server.mjs'
-    ]);
-    await run(node, ['scripts/lib/admin-acceptance-readiness.mjs']);
+    await prepareAcceptanceStack({ run, node });
     // Scenarios share the database, global settings and API restarts. Keep the
     // stack sequential. The override must precede the CLI option terminator.
     const browserArgs = [...args];

@@ -47,7 +47,10 @@
 
     <ng-container *ngIf="data() as response">
       @if (selectedContributionView(); as selected) {
-        <openg7-admin-contributions-detail [contribution]="selected" />
+        <openg7-admin-contributions-detail
+          [contribution]="selected"
+          (followPayment)="guidance.followPayment($event)"
+        />
       }
       <openg7-admin-contributions-summary
         [summary]="response.summary"

@@ -108,6 +108,7 @@ export class AdminDrawerComponent {
       (element) =>
         element.tabIndex >= 0 &&
         !element.matches(':disabled') &&
+        !element.closest('[data-og7="virtual-controller"]') &&
         element.getClientRects().length > 0
     );
     const first = controls[0],

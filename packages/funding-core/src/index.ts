@@ -326,3 +326,8 @@ export {
   SPONSORSHIP_RECOGNITION_TERMS_TEXT
 } from './sponsorship-recognition-terms.js';
 export type { SponsorshipCharterReviewPreview } from './sponsorship-recognition-terms.js';
+export type {
+  AdminPaymentJourney,
+  AdminPaymentJourneyStep,
+  AdminPaymentJourneyResponse
+} from './admin-payment-journey.js';

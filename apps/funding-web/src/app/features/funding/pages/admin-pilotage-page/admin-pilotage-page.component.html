@@ -7,7 +7,7 @@
     [class.controller-active]="controller.connected() && controller.enabled()"
   >
     <div class="pilot-scroll" data-og7="pilot-scroll">
-      <section class="intro">
+      <section class="intro" data-og7="pilot-intro">
         <div class="intro-copy">
           <p class="eyebrow">
             <span class="eyebrow-mark" aria-hidden="true"></span>
@@ -486,7 +486,11 @@
         </section>
       }
     </div>
-    <footer class="controls" [attr.aria-label]="t('controls')">
+    <footer
+      class="controls"
+      data-og7="pilot-controls"
+      [attr.aria-label]="t('controls')"
+    >
       <div class="face-buttons" data-og7="pilot-actions">
         <button
           type="button"

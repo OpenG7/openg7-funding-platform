@@ -52,6 +52,7 @@ export const getPublicationDraftById = async (
       SELECT
         draft.id::text AS id,
         draft.contribution_id::text AS contribution_id,
+        draft.obligation_id::text AS obligation_id,
         contribution.sponsor_company_name,
         contribution.sponsor_website_url,
         contribution.sponsor_logo_url,
@@ -115,6 +116,7 @@ export const listAdminPublicationDrafts = async (
     SELECT
       draft.id::text AS id,
       draft.contribution_id::text AS contribution_id,
+      draft.obligation_id::text AS obligation_id,
       contribution.sponsor_company_name,
       contribution.sponsor_website_url,
       contribution.sponsor_logo_url,

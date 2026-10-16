@@ -21,6 +21,7 @@ const contribution: PublicReferenceLookupFoundResponse = {
 
 test.beforeEach(async ({ page }) => {
   // Every API call is intercepted: no real records, messages or payments.
+  // Support navigation waits for its hydrated forms; background audio need not finish loading.
   await page.route('**/api/**', (route) =>
     route.fulfill({ status: 503, json: {} })
   );
@@ -49,7 +50,10 @@ for (const prefix of ['', '/en']) {
           : { found: false, publicReference: reference }
       });
     });
-    await page.goto(`${prefix}/support?checkout=success`);
+    await page.goto(`${prefix}/support?checkout=success`, {
+      waitUntil: 'domcontentloaded'
+    });
+    await expect(page.locator('#followup-recovery-email')).toBeEditable();
     const input = page.locator('#reference-lookup-input');
     const status = page.locator('#reference-lookup-status');
     await expect(status).toBeEmpty();
@@ -95,7 +99,8 @@ for (const prefix of ['', '/en']) {
       if (calls === 3) return route.fulfill({ status: 503, json: {} });
       return route.fulfill({ json: contribution });
     });
-    await page.goto(`${prefix}/support`);
+    await page.goto(`${prefix}/support`, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('#followup-recovery-email')).toBeEditable();
     const input = page.locator('#reference-lookup-input');
     const status = page.locator('#reference-lookup-status');
     await input.fill(reference);
@@ -125,7 +130,8 @@ for (const prefix of ['', '/en']) {
       if (calls === 2) return route.fulfill({ json: { accepted: false } });
       return route.fulfill({ status: 202, json: { accepted: true } });
     });
-    await page.goto(`${prefix}/support`);
+    await page.goto(`${prefix}/support`, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('#followup-recovery-email')).toBeEditable();
     const panel = page.locator('[data-og7="reference-recovery"]');
     await panel.locator('summary').focus();
     await panel.locator('summary').press('Enter');
@@ -185,7 +191,8 @@ for (const prefix of ['', '/en']) {
           json: kind === 'lookup' ? contribution : { accepted: true }
         });
       });
-      await page.goto(`${prefix}/support`);
+      await page.goto(`${prefix}/support`, { waitUntil: 'domcontentloaded' });
+      await expect(page.locator('#followup-recovery-email')).toBeEditable();
       if (kind === 'reference')
         await page.locator('[data-og7="reference-recovery"] summary').click();
       const input = page.locator(`#${inputId}`);
@@ -235,10 +242,8 @@ for (const prefix of ['', '/en']) {
       const input = page.locator(`#${inputId}`);
       try {
         await page.goto(`${prefix}/support`, {
-          waitUntil: kind === 'sponsorship' ? 'commit' : 'load'
+          waitUntil: kind === 'sponsorship' ? 'commit' : 'domcontentloaded'
         });
-        if (kind === 'reference')
-          await page.locator('[data-og7="reference-recovery"] summary').click();
         if (kind === 'sponsorship') {
           await expect(input).toHaveJSProperty('readOnly', true);
           await expect(
@@ -248,6 +253,9 @@ for (const prefix of ['', '/en']) {
       } finally {
         resumeBootstrap?.();
       }
+      await expect(page.locator('#followup-recovery-email')).toBeEditable();
+      if (kind === 'reference')
+        await page.locator('[data-og7="reference-recovery"] summary').click();
       await input.fill(
         kind === 'lookup' ? reference : 'fixture@example.invalid'
       );
@@ -278,7 +286,8 @@ for (const prefix of ['', '/en']) {
     // can keep scrolling between pointer down/up, missing the button entirely.
     // Exercise the controls with the supported reduced-motion preference.
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.goto(`${prefix}/support`);
+    await page.goto(`${prefix}/support`, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('#followup-recovery-email')).toBeEditable();
     const faq = page.locator('[data-og7="support-faq"]');
     await expect(faq.locator('summary')).toHaveCount(4);
     const emailQuestion = faq.locator('summary').nth(1);
@@ -329,7 +338,8 @@ for (const prefix of ['', '/en']) {
   test(`support expanded forms and errors remain accessible at narrow widths ${locale}`, async ({
     page
   }, info) => {
-    await page.goto(`${prefix}/support`);
+    await page.goto(`${prefix}/support`, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('#followup-recovery-email')).toBeEditable();
     await page.locator('[data-og7="reference-recovery"] summary').click();
     for (const id of [
       'reference-lookup-input',

@@ -18,11 +18,11 @@ import {
 import { resolveSponsorshipSelection } from './admin-work-queue.service.js';
 import { withPostgresTransaction } from './postgres-transaction.js';
 import { projectSponsorshipObligationProgress } from './sponsorship-progress-obligations.js';
+import { projectSponsorshipRefundProgress } from './sponsorship-refund-progress.js';
 import {
   findSponsorshipPreparationActivityId,
   loadSponsorshipProgressFacts,
-  type SponsorshipProgressFacts,
-  type SponsorshipRefundFact
+  type SponsorshipProgressFacts
 } from './sponsorship-progress.repository.js';
 
 export type { SponsorshipProgressFacts } from './sponsorship-progress.repository.js';
@@ -34,72 +34,13 @@ export const buildSponsorshipProgress = (
 ): AdminSponsorshipProgress => {
   const { record, consent } = source;
   const currency = record.currency.toUpperCase();
-  const sumDistinct = (rows: readonly SponsorshipRefundFact[]): number => {
-    const amounts = new Map<string, number>();
-    for (const row of rows) {
-      if (
-        row.currency.toUpperCase() !== currency ||
-        !Number.isSafeInteger(row.amount) ||
-        row.amount < 0
-      )
-        throw new Error('Inconsistent refund facts.');
-      amounts.set(row.id, Math.max(amounts.get(row.id) ?? 0, row.amount));
-    }
-    const total = [...amounts.values()].reduce((a, b) => a + b, 0);
-    if (!Number.isSafeInteger(total)) throw new Error('Invalid refund total.');
-    return total;
-  };
-  const refunds = [...facts.refunds];
-  if (
-    record.refundStatus === 'completed' &&
-    facts.refundId &&
-    facts.refundAmountMinor !== null
-  )
-    refunds.push({
-      id: facts.refundId,
-      amount: facts.refundAmountMinor,
-      currency
-    });
-  // Charge totals are cumulative snapshots, not additional refunds.
-  const confirmedAmountMinor = Math.max(
-    sumDistinct(refunds),
-    sumDistinct(facts.charges),
-    record.paymentStatus === 'refunded' ? facts.amountMinor : 0
-  );
-  const credits = facts.documents.filter(
-    (d) => d.kind === 'credit_note' && d.currency.toUpperCase() === currency
-  );
-  const credited = credits.reduce((sum, d) => sum + d.amountMinor, 0);
-  const creditMissing =
-    confirmedAmountMinor > credited ||
-    refunds.some(
-      (r) =>
-        (credits.find((d) => d.refundId === r.id)?.amountMinor ?? 0) < r.amount
-    );
-  const refundError =
-    facts.refundError ||
-    record.refundStatus === 'failed' ||
-    confirmedAmountMinor > facts.amountMinor;
+  const refund = projectSponsorshipRefundProgress(record, facts);
+  const { confirmedAmountMinor, creditMissing, hasError: refundError } = refund;
   const refundInProgress = ['requested', 'processing'].includes(
     record.refundStatus
   );
   const refundBlocksPublication =
     confirmedAmountMinor >= facts.amountMinor || refundInProgress;
-  const refund: AdminSponsorshipProgress['refund'] = {
-    workflow: record.refundStatus,
-    state: refundError
-      ? 'error'
-      : refundInProgress
-        ? 'pending'
-        : confirmedAmountMinor > 0
-          ? confirmedAmountMinor < facts.amountMinor
-            ? 'partial'
-            : 'complete'
-          : 'not_required',
-    confirmedAmountMinor,
-    creditMissing,
-    hasError: refundError
-  };
   const coordinatesComplete = record.hasCompanyName && record.hasContactEmail;
   const identityComplete = Boolean(
     record.detailsSubmittedAt && coordinatesComplete
@@ -277,6 +218,9 @@ export const buildSponsorshipProgress = (
   const outstanding = milestones.find(
     (m) => m.state !== 'complete' && m.state !== 'not_required'
   );
+  const emailIncident =
+    facts.failedEmails.find((email) => email.status !== 'uncertain') ??
+    facts.failedEmails[0];
   const next =
     refundError || refundInProgress
       ? { reason: 'refund_check', tab: 'refund' as const }
@@ -284,8 +228,14 @@ export const buildSponsorshipProgress = (
         ? { reason: 'credit_missing', tab: 'billing' as const }
         : facts.failedStripeEvents.length
           ? { reason: 'stripe_failed', tab: 'overview' as const }
-          : facts.failedEmails.length
-            ? { reason: 'email_failed', tab: 'billing' as const }
+          : emailIncident
+            ? {
+                reason:
+                  emailIncident.status === 'uncertain'
+                    ? 'email_uncertain'
+                    : 'email_failed',
+                tab: 'billing' as const
+              }
             : record.reviewStatus === 'rejected'
               ? { reason: 'review_rejected', tab: 'overview' as const }
               : outstanding

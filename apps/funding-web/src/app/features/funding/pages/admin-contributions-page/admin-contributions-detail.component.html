@@ -1,5 +1,6 @@
 <section
   class="detail-panel"
+  data-og7="contribution-detail"
   aria-live="polite"
   aria-labelledby="selected-contribution-title"
 >
@@ -38,4 +39,15 @@
       </dd>
     </div>
   </dl>
+  <a
+    class="admin-button admin-button--primary"
+    data-og7="contribution-journey"
+    (click)="followPayment.emit(contribution().id)"
+    routerLink="/admin/fundraiser/contributions"
+    [queryParams]="{
+      contributionId: contribution().id,
+      paymentJourney: contribution().id
+    }"
+    >{{ 'admin.guidance.paymentJourney.followCurrent' | translate }}</a
+  >
 </section>

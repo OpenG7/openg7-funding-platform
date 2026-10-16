@@ -81,6 +81,7 @@ const tlsCliFixture = (t, { identity = true, hosts } = {}) => {
     'scripts/lib/docker-config.mjs',
     'scripts/lib/docker-environment.mjs',
     'scripts/lib/keycloak-config.mjs',
+    'scripts/lib/local-password-policy.mjs',
     'scripts/lib/local-identity.mjs',
     'traefik/traefik.yml',
     'traefik/dynamic.yml',

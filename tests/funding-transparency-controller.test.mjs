@@ -510,7 +510,7 @@ test('registry activation focuses before scrolling and disposed actions cannot t
   f.controller.scrollToRegistry();
   assert.deepEqual(b.focus, [
     { focus: { preventScroll: true } },
-    { scroll: { block: 'start', behavior: 'auto' } }
+    { scroll: { block: 'start', behavior: 'instant' } }
   ]);
   f.controller.dispose();
   f.controller.scrollToRegistry();

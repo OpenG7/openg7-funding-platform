@@ -1,6 +1,9 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
-import type { AdminContributionsResponse } from '@openg7/funding-core';
+import type {
+  AdminContributionsResponse,
+  AdminPaymentJourneyResponse
+} from '@openg7/funding-core';
 
 import { createRouteMatcher, isJsonContentType } from './http-routing.js';
 import { AdminFinancialCurrencyConflictError } from './admin-financial-currency.js';
@@ -23,6 +26,9 @@ export interface AdminContributionsHttpDependencies {
   readonly listAdminContributions: (
     contributionId?: string
   ) => Promise<AdminContributionsResponse>;
+  readonly getPaymentJourney: (
+    contributionId: string
+  ) => Promise<AdminPaymentJourneyResponse>;
   readonly exportAdminContributions: (
     input: unknown,
     actor: string
@@ -43,6 +49,7 @@ export const createAdminContributionsHttpHandler = ({
   writeJson,
   writeCsv,
   listAdminContributions,
+  getPaymentJourney,
   exportAdminContributions,
   ContributionExportError,
   reportFailure
@@ -53,6 +60,55 @@ export const createAdminContributionsHttpHandler = ({
     request: ApiRequest,
     response: ApiResponse
   ): Promise<boolean> => {
+    if (
+      routeMatches(
+        request.url,
+        '/admin/payment-journey',
+        '/api/admin/payment-journey'
+      )
+    ) {
+      response.setHeader('Cache-Control', 'private, no-store');
+      if (!ensureAdminAccess(request, response)) return true;
+      if (request.method !== 'GET') {
+        response.setHeader('Allow', 'GET');
+        writeJson(request, response, 405, {
+          code: 'METHOD_NOT_ALLOWED',
+          error: 'A read-only GET is required.'
+        });
+        return true;
+      }
+      const params = new URL(request.url!, publicBaseOrigin).searchParams;
+      const id = params.get('contributionId');
+      if (
+        !id ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          id
+        ) ||
+        params.getAll('contributionId').length !== 1 ||
+        Array.from(params.keys()).some((key) => key !== 'contributionId')
+      ) {
+        writeJson(request, response, 400, {
+          code: 'INVALID_CONTRIBUTION_ID',
+          error: 'A valid contribution identifier is required.'
+        });
+        return true;
+      }
+      try {
+        writeJson(
+          request,
+          response,
+          200,
+          await getPaymentJourney(id.toLowerCase())
+        );
+      } catch {
+        reportFailure('Failed to load payment journey.');
+        writeJson(request, response, 503, {
+          code: 'PAYMENT_JOURNEY_UNAVAILABLE',
+          error: 'Payment journey could not be loaded.'
+        });
+      }
+      return true;
+    }
     if (
       request.method === 'GET' &&
       routeMatches(

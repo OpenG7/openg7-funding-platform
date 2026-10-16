@@ -147,10 +147,8 @@ const preparePublication = (
     );
   }
 
-  const { missingChannels } = resolveSponsorshipPublicationCoverage(
-    record,
-    dataset.drafts
-  );
+  const { preparationChannels: missingChannels } =
+    resolveSponsorshipPublicationCoverage(record, dataset.drafts);
   if (missingChannels.length === 0) {
     return notApplicable(
       'Les publications prévues sont déjà couvertes par un brouillon actif.'

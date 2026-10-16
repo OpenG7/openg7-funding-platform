@@ -7,6 +7,7 @@ import {
   loadAdminAssistantConfig,
   type AdminAssistantConfig
 } from './admin-assistant/config.js';
+import { loadLocalPasswordOnly } from './admin-identity/local-password-policy.js';
 import {
   loadAdminSponsorshipReviewReminderConfig,
   type AdminSponsorshipReviewReminderConfig
@@ -307,6 +308,7 @@ export const loadApiRuntimeAdminAuthMode = (
   const mode = env.FUNDING_ADMIN_AUTH_MODE ?? 'token';
   if (mode !== 'token' && mode !== 'oidc')
     throw new Error('Invalid admin auth mode.');
+  loadLocalPasswordOnly(env);
   if (runtimeEnvironment(env) === 'production' && mode !== 'oidc')
     throw new Error('FUNDING_ADMIN_AUTH_MODE must be oidc in production.');
   return mode;

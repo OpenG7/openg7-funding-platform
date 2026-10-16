@@ -66,6 +66,8 @@ Sans opt-in de provisionnement, l'import exige une nouvelle base identite; un vo
 FUNDING_KEYCLOAK_PROVISION_USER=true prepare le compte par HTTPS sur une base neuve ou existante, avant l'API.
 Avec FUNDING_KEYCLOAK_PROVISION_USER=true, le compte et ses subjects sont prepares apres le demarrage de Keycloak, sur une base neuve ou existante.
 Mot de passe et OTP restent a changer/configurer personnellement.
+Exception locale facultative : FUNDING_ADMIN_OIDC_LOCAL_PASSWORD_ONLY=true conserve Keycloak sans OTP sur HTTPS localhost seulement.
+Remettre false puis relancer pour restaurer le MFA. La production refuse cette exception.
 Production OIDC/Keycloak : suivre docs/operations/keycloak-vps.md et admin-identity-and-alerts.md.
 Keycloak production prepare ACME sans ecraser le stockage, puis verifie HTTPS et OIDC avant l'application.
 La preparation exige un hote POSIX, un email Let's Encrypt et DNS/ports 80/443 publics prets.
@@ -174,6 +176,10 @@ try {
           console.log(
             'Preparation du compte Keycloak et des subjects proprietaires avant l\u2019application (aucun compte modifie ni contact reseau en dry-run).'
           );
+        if (args === plan.identityUp && plan.localMfaConfigured)
+          console.log(
+            'Reconciliation du profil MFA Keycloak local avant l\u2019API (aucun changement en dry-run).'
+          );
       }
       console.log(
         plan.stripeWebhook
@@ -214,7 +220,9 @@ try {
             );
           if (prepareLocalInitialUser({ root, env }))
             console.log(
-              'Import du premier utilisateur local prepare; changement de mot de passe et OTP requis a la connexion.'
+              env.FUNDING_ADMIN_OIDC_LOCAL_PASSWORD_ONLY === 'true'
+                ? 'Import du premier utilisateur local prepare; changement de mot de passe requis, sans OTP pour le client local.'
+                : 'Import du premier utilisateur local prepare; changement de mot de passe et OTP requis a la connexion.'
             );
         }
       });
@@ -232,6 +240,17 @@ try {
         );
       }
       await startDockerStack(plan, {
+        configureLocalMfa: async (env) => {
+          const { configureLocalKeycloakMfa } =
+            await import('./lib/keycloak-local-mfa.mjs');
+          const result = await configureLocalKeycloakMfa({ root, env });
+          if (result)
+            console.log(
+              result.passwordOnly
+                ? 'Connexion locale Keycloak avec mot de passe seul configuree; OTP conserve.'
+                : 'MFA Keycloak local restaure.'
+            );
+        },
         prepareKeycloakUser: async (env) => {
           const { provisionKeycloakUser } =
             await import('./lib/keycloak-provision-user.mjs');

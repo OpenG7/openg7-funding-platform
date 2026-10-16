@@ -133,12 +133,14 @@ test('approved counts include sponsors whose recorded social promise is absent o
     ),
     dataset(covered, [
       Object.freeze({
+        id: 'synthetic-review-facebook',
         contribution_id: covered.contributionId,
         channel: 'facebook',
         feed_target: 'openg7',
         status: 'approved'
       }),
       Object.freeze({
+        id: 'synthetic-review-linkedin',
         contribution_id: covered.contributionId,
         channel: 'linkedin',
         feed_target: 'openg7',

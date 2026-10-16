@@ -1963,6 +1963,40 @@ test('controller approval is contextual, requires release and processes twenty d
   ).toBe(true);
   await expect(page).toHaveURL(/\/pilotage$/);
 });
+
+for (const control of ['cancel', 'close'] as const) {
+  test(`controller A activates the focused ${control} control without confirming a Pilotage decision`, async ({
+    page
+  }) => {
+    await controllerClock(page);
+    const { commands } = await fixtures(page);
+    await page.goto('/admin/fundraiser/pilotage');
+    await expect(page.locator('[data-og7="pilot-decision"]')).toBeVisible();
+    await tap(page, 0);
+    const panel = page.locator('[data-og7="pilot-panel-confirm"]');
+    await expect(panel).toBeVisible();
+    await expect(page.locator('[data-og7="pilot-confirm"]')).toBeFocused();
+    const target =
+      control === 'cancel'
+        ? panel.getByRole('button', { name: /Annuler/ })
+        : page.getByRole('dialog').getByRole('button').first();
+    for (let move = 0; move < 8; move++) {
+      if (
+        await target.evaluate((element) => element === document.activeElement)
+      )
+        break;
+      await tap(page, 4);
+    }
+    await expect(target).toBeFocused();
+    await tap(page, 0);
+    await expect(panel).toHaveCount(0);
+    await expect(page.locator('[data-og7="moderation-decision"]')).toHaveCount(
+      0
+    );
+    expect(commands).toEqual([]);
+  });
+}
+
 test('details, edit, rejection, calendar chord and return preserve decision context', async ({
   page
 }) => {
@@ -2241,7 +2275,7 @@ for (const width of [390, 1512]) {
   });
 }
 
-test('shared navigation and search suppress pilotage shortcuts until controller release', async ({
+test('shared navigation and search own Xbox input and suppress pilotage decisions until controller release', async ({
   page
 }) => {
   await controllerClock(page);
@@ -2256,19 +2290,38 @@ test('shared navigation and search suppress pilotage shortcuts until controller 
     .getByRole('link', { name: 'Contributions', exact: true })
     .focus();
   await page.keyboard.press('a');
+  await expect(page).toHaveURL(/\/pilotage$/);
+  await expect(page.getByRole('dialog')).not.toBeVisible();
   await tap(page, 0);
   await expect(page.getByRole('dialog')).not.toBeVisible();
-  await expect(page).toHaveURL(/\/pilotage$/);
+  await expect(page).toHaveURL(/\/contributions$/);
+  expect(commands).toEqual([]);
+  await page.goto('/admin/fundraiser/pilotage');
+  await expect(decision).toBeVisible();
   await page.keyboard.press('Control+k');
   const search = page.locator('[data-og7="admin-search"]');
   await expect(search).toBeVisible();
-  for (const button of [0, 1, 2, 3, 5, 9]) await tap(page, button);
+  await tap(page, 0);
+  const editor = page.locator('[data-og7="controller-editor"]');
+  await expect(editor).toBeVisible();
+  await expect(
+    page.locator('[data-og7="pilot-panel-confirm"]')
+  ).not.toBeVisible();
+  await tap(page, 1);
+  await expect(editor).not.toBeVisible();
   await expect(search).toBeVisible();
+  await tap(page, 1);
+  await expect(search).not.toBeVisible();
+  await page.keyboard.press('Control+k');
+  await expect(search).toBeVisible();
+  for (const button of [3, 9]) await tap(page, button);
+  await tap(page, 5);
+  await expect(search.locator('header button')).toBeFocused();
   await expect(
     page.locator('[data-og7="pilot-panel-confirm"]')
   ).not.toBeVisible();
   await buttons(page, [0]);
-  await page.keyboard.press('Escape');
+  await expect(search).not.toBeVisible();
   await page.locator('#admin-main').focus();
   await page.clock.runFor(350);
   await expect(page.getByRole('dialog')).not.toBeVisible();

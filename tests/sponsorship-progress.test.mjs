@@ -623,6 +623,38 @@ test('email and Stripe failures remain actionable independently of completed mil
   assert.equal(step(email, 'billing').state, 'complete');
 });
 
+test('uncertain email delivery remains a distinct dossier action and failed messages keep priority', () => {
+  const incident = {
+    id: 'uncertain',
+    template: 'sponsorship_invoice',
+    status: 'uncertain'
+  };
+  const uncertain = buildSponsorshipProgress(
+    source(),
+    facts({ failedEmails: [incident] })
+  );
+  assert.equal(uncertain.next.reason, 'email_uncertain');
+  assert.equal(uncertain.next.tab, 'billing');
+  assert.equal(uncertain.failedEmails[0].status, 'uncertain');
+  assert.equal(step(uncertain, 'billing').state, 'complete');
+  for (const status of [undefined, 'failed']) {
+    const result = buildSponsorshipProgress(
+      source(),
+      facts({
+        failedEmails: [
+          incident,
+          {
+            id: 'failed',
+            template: 'sponsorship_invoice',
+            ...(status ? { status } : {})
+          }
+        ]
+      })
+    );
+    assert.equal(result.next.reason, 'email_failed');
+  }
+});
+
 test('unconfirmed payments and currency inconsistencies never get silently confirmed', async () => {
   const result = buildSponsorshipProgress(
     source({ paymentStatus: 'pending' }),

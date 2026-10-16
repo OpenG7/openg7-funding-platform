@@ -1,0 +1,36 @@
+:host {
+  display: block;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.controller-cue {
+  padding: 0.4rem 0.7rem;
+  font-size: 0.8rem;
+  max-width: 100%;
+  white-space: normal;
+}
+.controller-help {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.7rem 1rem;
+}
+.controller-help dt {
+  font-weight: 700;
+}
+.controller-help dd {
+  margin: 0;
+}
+.controller-options {
+  display: grid;
+  gap: 0.5rem;
+}
+.controller-options button[aria-pressed='true'] {
+  outline: 2px solid var(--admin-focus, #f5c542);
+  outline-offset: 2px;
+}
+footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}

@@ -45,6 +45,8 @@ const recorded = (amount) => {
 
 const draft = (channel, status, id = contributionId) =>
   Object.freeze({
+    id: `synthetic-${id}-${channel}-${status}`,
+    obligation_id: channel === 'facebook' ? 'facebook_batch' : 'linkedin_batch',
     contribution_id: id,
     channel,
     feed_target: 'openg7',
@@ -101,7 +103,10 @@ test('coverage deduplicates active channels in insertion order and preserves cha
     {
       promisedChannels: ['facebook', 'linkedin'],
       coveredChannels: ['linkedin', 'facebook'],
-      missingChannels: []
+      preparedChannels: ['facebook', 'linkedin'],
+      missingChannels: [],
+      preparationChannels: [],
+      reviewChannels: []
     }
   );
   assert.deepEqual(
@@ -112,7 +117,10 @@ test('coverage deduplicates active channels in insertion order and preserves cha
     {
       promisedChannels: ['facebook'],
       coveredChannels: ['linkedin'],
-      missingChannels: ['facebook']
+      preparedChannels: [],
+      missingChannels: ['facebook'],
+      preparationChannels: ['facebook'],
+      reviewChannels: []
     }
   );
 });
@@ -135,7 +143,10 @@ test('promised and missing channels follow the recorded synthetic agreements, wi
       {
         promisedChannels: expected,
         coveredChannels: [],
-        missingChannels: expected
+        preparedChannels: [],
+        missingChannels: expected,
+        preparationChannels: expected,
+        reviewChannels: []
       },
       `paid amount ${amount}`
     );
@@ -175,7 +186,14 @@ test('unknown historical amounts never promise channels and an old destination d
       { contributionId, commitment: null },
       []
     ),
-    { promisedChannels: [], coveredChannels: [], missingChannels: [] }
+    {
+      promisedChannels: [],
+      coveredChannels: [],
+      preparedChannels: [],
+      missingChannels: [],
+      preparationChannels: [],
+      reviewChannels: []
+    }
   );
   const agreement = recorded(500);
   const adjusted = {
@@ -191,7 +209,10 @@ test('unknown historical amounts never promise channels and an old destination d
   assert.deepEqual(coverage, {
     promisedChannels: ['facebook', 'linkedin'],
     coveredChannels: ['linkedin'],
-    missingChannels: ['facebook']
+    preparedChannels: ['linkedin'],
+    missingChannels: ['facebook'],
+    preparationChannels: ['facebook'],
+    reviewChannels: []
   });
   const settled = {
     ...agreement,

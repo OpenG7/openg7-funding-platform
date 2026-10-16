@@ -10,7 +10,12 @@ import type { SponsorshipAttentionRecord } from './fund-contributions.repository
 export interface SponsorshipPublicationCoverage {
   readonly promisedChannels: readonly SponsorFeedChannel[];
   readonly coveredChannels: readonly SponsorFeedChannel[];
+  /** Exact current passage bindings/preparations, separate from historical channel observations. */
+  readonly preparedChannels: readonly SponsorFeedChannel[];
   readonly missingChannels: readonly SponsorFeedChannel[];
+  /** A legacy published observation must be reconciled before another passage is prepared. */
+  readonly preparationChannels: readonly SponsorFeedChannel[];
+  readonly reviewChannels: readonly SponsorFeedChannel[];
 }
 
 /** Published drafts retain informational coverage of the promised channel. */
@@ -49,19 +54,76 @@ export const resolveSponsorshipPublicationCoverage = (
     record.commitment?.obligations.filter((o) =>
       ['pending', 'blocked'].includes(o.state)
     ) ?? [];
-  const covered = activeDraftChannels(
-    drafts.filter(
-      (d) =>
-        !promisedChannels.includes(d.channel) ||
+  const prepared = new Set<string>();
+  const uniqueDrafts = [...new Map(drafts.map((d) => [d.id, d])).values()].sort(
+    (a, b) =>
+      Number(Boolean(b.obligation_id)) - Number(Boolean(a.obligation_id)) ||
+      a.id.localeCompare(b.id)
+  );
+  for (const draft of uniqueDrafts) {
+    if (
+      draft.contribution_id !== record.contributionId ||
+      !isActivePublicationDraft(draft)
+    )
+      continue;
+    // A bound historical publication covers only its exact recorded passage.
+    // Without a binding, a published observation cannot cover new obligations.
+    if (!draft.obligation_id && draft.status === 'published') continue;
+    const obligation = outstanding.find(
+      (o) =>
+        o.channel === draft.channel &&
+        o.target === draft.feed_target &&
+        (draft.obligation_id
+          ? o.id === draft.obligation_id
+          : !prepared.has(o.id))
+    );
+    if (obligation) prepared.add(obligation.id);
+  }
+  const covered = new Set(
+    promisedChannels.filter((channel) => {
+      return outstanding
+        .filter((o) => o.channel === channel)
+        .every((o) => prepared.has(o.id));
+    })
+  );
+  const missingChannels = promisedChannels.filter(
+    (channel) => !covered.has(channel)
+  );
+  const reviewChannels = missingChannels.filter((channel) =>
+    uniqueDrafts.some(
+      (draft) =>
+        draft.contribution_id === record.contributionId &&
+        draft.channel === channel &&
+        draft.status === 'published' &&
+        !draft.obligation_id &&
         outstanding.some(
-          (o) => o.channel === d.channel && o.target === d.feed_target
+          (obligation) =>
+            obligation.channel === channel &&
+            obligation.target === draft.feed_target
         )
-    ),
-    record.contributionId
+    )
   );
   return {
     promisedChannels,
-    coveredChannels: [...covered],
-    missingChannels: promisedChannels.filter((channel) => !covered.has(channel))
+    coveredChannels: [
+      ...activeDraftChannels(
+        drafts.filter(
+          (draft) =>
+            !promisedChannels.includes(draft.channel) ||
+            outstanding.some(
+              (obligation) =>
+                obligation.channel === draft.channel &&
+                obligation.target === draft.feed_target
+            )
+        ),
+        record.contributionId
+      )
+    ],
+    preparedChannels: [...covered],
+    missingChannels,
+    preparationChannels: missingChannels.filter(
+      (channel) => !reviewChannels.includes(channel)
+    ),
+    reviewChannels
   };
 };

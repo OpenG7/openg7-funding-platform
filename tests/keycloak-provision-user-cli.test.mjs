@@ -56,6 +56,7 @@ const fixture = (t, { dotenv = false, changes = {} } = {}) => {
     'scripts/keycloak-provision-user.mjs',
     'scripts/lib/keycloak-provision-user.mjs',
     'scripts/lib/keycloak-config.mjs',
+    'scripts/lib/local-password-policy.mjs',
     'scripts/lib/local-identity.mjs',
     'scripts/lib/docker-environment.mjs',
     'docker-compose.yml',

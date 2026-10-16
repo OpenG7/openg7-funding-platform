@@ -33,7 +33,7 @@ export const buildSponsorshipAssistantContext = (
 ): AdminAssistantContext => {
   const { record, dataset } = source;
   const missingFields = missingFicheFields(record);
-  const { promisedChannels, coveredChannels, missingChannels } =
+  const { promisedChannels, coveredChannels, preparationChannels } =
     resolveSponsorshipPublicationCoverage(record, dataset.drafts);
   const { hasApprovedPresentation, ...media } = summarizeSponsorshipMedia(
     source.media
@@ -49,7 +49,7 @@ export const buildSponsorshipAssistantContext = (
   else if (!source.consent) nextStep = 'confirm_consent';
   else if (record.commitment?.state !== 'active' || !record.commitment.offer)
     nextStep = 'qualify_commitment';
-  else if (missingChannels.length) nextStep = 'prepare_publication';
+  else if (preparationChannels.length) nextStep = 'prepare_publication';
   else if (
     dataset.drafts.some(isUnfinishedPublicationDraft) ||
     record.commitment.obligations.some(

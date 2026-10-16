@@ -1,5 +1,7 @@
 import { DOCUMENT } from '@angular/common';
-import { Injectable, NgZone, inject, signal } from '@angular/core';
+import { DestroyRef, Injectable, NgZone, inject, signal } from '@angular/core';
+
+import { VirtualControllerState } from '../admin-controller/virtual-controller-state.js';
 
 import {
   ControllerInput,
@@ -10,12 +12,24 @@ import {
   type ControllerProfile
 } from './controller-input.js';
 
-/** Browser adapter, scoped to the cockpit. It never sends a business command. */
-@Injectable()
+export interface ControllerAttachmentOptions {
+  readonly priority?: number;
+  /** Letter shortcuts belong to the cockpit; ordinary form typing remains untouched. */
+  readonly keyboard?: boolean;
+}
+
+/** One browser adapter shared by active administrative surfaces; never sends a command. */
+@Injectable({ providedIn: 'root' })
 export class ControllerService {
   private readonly document = inject(DOCUMENT);
   private readonly zone = inject(NgZone);
   private readonly input = new ControllerInput();
+  private readonly virtual = new VirtualControllerState();
+  private readonly virtualActive = signal(false);
+  readonly virtualEnabled = this.virtualActive.asReadonly();
+  readonly virtualSample = signal(this.virtual.snapshot());
+  readonly virtualReady = signal(false);
+  readonly virtualReleaseRevision = signal(0);
   readonly supported = signal(true);
   readonly connected = signal(false);
   readonly ready = signal(false);
@@ -32,10 +46,53 @@ export class ControllerService {
   private previousDevice = '';
   private diagnosticAt = 0;
   private stopListening: (() => void) | null = null;
+  private readonly listeners = new Map<
+    number,
+    {
+      listener: (intent: ControllerIntent) => boolean;
+      priority: number;
+      keyboard: boolean;
+    }
+  >();
+  private sequence = 0;
+  private pollGeneration = 0;
 
-  start(emit: (intent: ControllerIntent) => void): void {
+  constructor() {
+    inject(DestroyRef).onDestroy(() => this.stop());
+  }
+
+  attach(
+    listener: (intent: ControllerIntent) => boolean,
+    options: ControllerAttachmentOptions = {}
+  ): () => void {
+    const id = ++this.sequence;
+    this.listeners.set(id, {
+      listener,
+      priority: options.priority ?? 0,
+      keyboard: options.keyboard ?? false
+    });
+    this.reset();
+    if (this.listeners.size === 1) this.start();
+    return () => {
+      if (!this.listeners.delete(id)) return;
+      this.reset();
+      if (this.listeners.size === 0) this.stop();
+    };
+  }
+
+  private dispatch(intent: ControllerIntent, keyboard = false): boolean {
+    for (const entry of [...this.listeners.values()].sort(
+      (a, b) => b.priority - a.priority
+    )) {
+      if ((!keyboard || entry.keyboard) && entry.listener(intent)) return true;
+    }
+    return false;
+  }
+
+  private start(): void {
     const win = this.document.defaultView;
-    if (!win) return;
+    if (!win || this.stopListening) return;
+    const pollGeneration = ++this.pollGeneration;
     this.supported.set(typeof win.navigator.getGamepads === 'function');
     try {
       const saved: unknown = JSON.parse(
@@ -45,7 +102,9 @@ export class ControllerService {
     } catch {
       /* Storage is optional. */
     }
-    const reset = () => this.reset();
+    const reset = () => {
+      this.releaseVirtual();
+    };
     const keydown = (event: KeyboardEvent) => {
       if (event.repeat || event.ctrlKey || event.metaKey || event.altKey)
         return;
@@ -64,9 +123,8 @@ export class ControllerService {
         '?': 'help'
       };
       const intent = keys[event.key.toLowerCase()];
-      if (intent) {
+      if (intent && this.dispatch(intent, true)) {
         event.preventDefault();
-        emit(intent);
       }
     };
     this.document.addEventListener('visibilitychange', reset);
@@ -81,29 +139,43 @@ export class ControllerService {
     };
     this.zone.runOutsideAngular(() => {
       const tick = (now: number) => {
+        if (pollGeneration !== this.pollGeneration || this.listeners.size === 0)
+          return;
         let pad: Gamepad | null = null;
         try {
-          pad =
-            Array.from(win.navigator.getGamepads?.() ?? []).find(
-              (p) => p?.connected
-            ) ?? null;
+          pad = this.virtualEnabled()
+            ? null
+            : (Array.from(win.navigator.getGamepads?.() ?? []).find(
+                (p) => p?.connected
+              ) ?? null);
         } catch {
           /* Browser permission or API unavailable. */
         }
         this.pad = pad;
-        const device = pad ? `${pad.index}:${pad.id}` : '';
+        const virtual = this.virtualEnabled();
+        const device = virtual
+          ? 'openg7-virtual-xbox'
+          : pad
+            ? `${pad.index}:${pad.id}`
+            : '';
         if (this.previousDevice !== device) {
           this.reset();
           this.previousDevice = device;
         }
-        this.zone.run(() => {
-          this.connected.set(!!pad);
-          this.standard.set(pad?.mapping === 'standard');
-        });
+        const virtualSample = virtual ? this.virtual.nextFrame() : null;
         const buttons =
+          virtualSample?.buttons ??
           pad?.buttons.map((b) => (Number.isFinite(b.value) ? b.value : 0)) ??
           [];
-        const axes = pad?.axes.map((a) => (Number.isFinite(a) ? a : 0)) ?? [];
+        const axes =
+          virtualSample?.axes ??
+          pad?.axes.map((a) => (Number.isFinite(a) ? a : 0)) ??
+          [];
+        this.zone.run(() => {
+          this.connected.set(virtual || !!pad);
+          this.standard.set(virtual || pad?.mapping === 'standard');
+          if (virtualSample) this.virtualSample.set(virtualSample);
+        });
         if (now - this.diagnosticAt > 120) {
           this.diagnosticAt = now;
           this.zone.run(() =>
@@ -113,13 +185,20 @@ export class ControllerService {
             })
           );
         }
-        const normalized = pad
-          ? normalizeControllerSample(
-              { connected: pad.connected, mapping: pad.mapping, buttons, axes },
-              this.profile(),
-              pad.id
-            )
-          : null;
+        const normalized = virtualSample
+          ? normalizeControllerSample(virtualSample, this.profile(), device)
+          : pad
+            ? normalizeControllerSample(
+                {
+                  connected: pad.connected,
+                  mapping: pad.mapping,
+                  buttons,
+                  axes
+                },
+                this.profile(),
+                pad.id
+              )
+            : null;
         this.zone.run(() => this.ready.set(!!normalized));
         if (
           !this.enabled() ||
@@ -127,16 +206,59 @@ export class ControllerService {
           !this.document.hasFocus()
         )
           this.reset();
-        else
+        else {
+          if (
+            virtual &&
+            buttons.every((value) => value <= 0.6) &&
+            axes.every((value) => Math.abs(value) <= this.profile().deadzone)
+          )
+            this.zone.run(() => this.virtualReady.set(true));
           for (const intent of this.input.read(normalized, now, this.profile()))
-            this.zone.run(() => emit(intent));
-        this.frame = win.requestAnimationFrame(tick);
+            this.zone.run(() => this.dispatch(intent));
+        }
+        if (pollGeneration === this.pollGeneration && this.listeners.size)
+          this.frame = win.requestAnimationFrame(tick);
       };
       this.frame = win.requestAnimationFrame(tick);
     });
   }
   reset(): void {
     this.input.reset();
+    this.virtualReady.set(false);
+  }
+  setVirtualEnabled(enabled: boolean): void {
+    if (this.virtualEnabled() === enabled) return;
+    this.virtualActive.set(enabled);
+    this.virtual.enable(enabled);
+    this.virtualSample.set(this.virtual.snapshot());
+    this.virtualReleaseRevision.update((value) => value + 1);
+    this.reset();
+  }
+  pressVirtualButton(index: number, value = 1): void {
+    if (!this.virtualEnabled() || !this.enabled()) return;
+    this.virtual.button(index, value);
+    this.virtualSample.set(this.virtual.snapshot());
+  }
+  releaseVirtualButton(index: number): void {
+    this.virtual.releaseButton(index);
+  }
+  setVirtualAxes(stick: 'left' | 'right', x: number, y: number): void {
+    if (!this.virtualEnabled() || !this.enabled()) return;
+    const offset = stick === 'left' ? 0 : 2;
+    this.virtual.axis(offset, x);
+    this.virtual.axis(offset + 1, y);
+    this.virtualSample.set(this.virtual.snapshot());
+  }
+  releaseVirtualAxes(stick: 'left' | 'right'): void {
+    const offset = stick === 'left' ? 0 : 2;
+    this.virtual.releaseAxis(offset);
+    this.virtual.releaseAxis(offset + 1);
+  }
+  releaseVirtual(): void {
+    this.virtual.releaseAll();
+    this.virtualSample.set(this.virtual.snapshot());
+    this.virtualReleaseRevision.update((value) => value + 1);
+    this.reset();
   }
   toggle(): void {
     this.enabled.update((v) => !v);
@@ -163,7 +285,7 @@ export class ControllerService {
     return true;
   }
   feedback(): void {
-    if (!this.vibrate()) return;
+    if (!this.vibrate() || this.virtualEnabled()) return;
     const actuator = this.pad?.vibrationActuator;
     if (typeof actuator?.playEffect !== 'function') return;
     try {
@@ -178,9 +300,14 @@ export class ControllerService {
       /* Optional hardware feedback never changes a business receipt. */
     }
   }
-  stop(): void {
+  private stop(): void {
+    ++this.pollGeneration;
     this.document.defaultView?.cancelAnimationFrame(this.frame);
     this.stopListening?.();
+    this.stopListening = null;
+    this.frame = 0;
+    this.previousDevice = '';
+    this.setVirtualEnabled(false);
     this.reset();
     this.pad = null;
   }

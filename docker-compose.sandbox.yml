@@ -1,0 +1,38 @@
+# Interactive override of the isolated acceptance stack; never used by local/prod Compose.
+services:
+  postgres:
+    labels: &sandbox-labels
+      org.openg7.admin-sandbox: 'true'
+
+  stripe-stub:
+    labels: *sandbox-labels
+    environment:
+      STUB_PUBLIC_BASE_URL: '${SANDBOX_PUBLIC_BASE_URL:?}/__sandbox/stripe'
+
+  mailpit:
+    labels: *sandbox-labels
+
+  api:
+    labels: *sandbox-labels
+    environment:
+      FUNDING_PUBLIC_BASE_URL: '${SANDBOX_PUBLIC_BASE_URL:?}'
+      FUNDING_ALLOWED_ORIGINS: '${SANDBOX_PUBLIC_BASE_URL:?}'
+      FUNDING_ADMIN_SESSION_SECRET: '${FUNDING_ADMIN_SESSION_SECRET:?}'
+      SOCIAL_PUBLICATION_WORKER_ENABLED: 'false'
+
+  web:
+    labels: *sandbox-labels
+    volumes:
+      - '${SANDBOX_NGINX_FILE:?}:/etc/nginx/conf.d/default.conf:ro'
+      - '${SANDBOX_MANIFEST_FILE:?}:/usr/share/nginx/html/openg7-sandbox.json:ro'
+
+  web-oidc:
+    labels: *sandbox-labels
+    volumes:
+      - '${SANDBOX_MANIFEST_FILE:?}:/usr/share/nginx/html/openg7-sandbox.json:ro'
+
+networks:
+  edge:
+    labels: *sandbox-labels
+  data:
+    labels: *sandbox-labels

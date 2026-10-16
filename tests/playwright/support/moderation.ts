@@ -11,6 +11,7 @@ import type { APIRequestContext, Page, Route } from '@playwright/test';
 
 import { expect } from './test.js';
 import { adminSessionHeaders } from './admin-auth.js';
+import type { AdminController } from './admin-controller.js';
 
 /** Explicit approval of the current synthetic subject, through the real admin API. */
 export async function currentModerationApproval(
@@ -154,7 +155,8 @@ export async function moderationFixture(
 /** These journey tests explicitly complete the shared confirmation before the business action. */
 export async function completeModeration(
   page: Page,
-  adverse = false
+  adverse = false,
+  controller?: AdminController
 ): Promise<void> {
   const panel = page.locator('[data-og7="moderation-decision"]');
   await expect(panel).toBeVisible();
@@ -166,20 +168,25 @@ export async function completeModeration(
   expect(loadedConfirmation).not.toBeNull();
   try {
     if (adverse) {
-      await panel
-        .locator('[data-og7="moderation-primary-reason"]')
-        .selectOption('MISLEADING_CLAIM');
-      await panel
-        .locator('[data-og7="moderation-internal-reason"]')
-        .fill('Synthetic private rationale');
-      await panel
-        .locator('[data-og7="moderation-explanation"]')
-        .fill('Synthetic external explanation');
+      const reason = panel.locator('[data-og7="moderation-primary-reason"]');
+      const internal = panel.locator('[data-og7="moderation-internal-reason"]');
+      const explanation = panel.locator('[data-og7="moderation-explanation"]');
+      if (controller) {
+        await controller.select(reason, 'MISLEADING_CLAIM');
+        await controller.text(internal, 'Synthetic private rationale');
+        await controller.text(explanation, 'Synthetic external explanation');
+      } else {
+        await reason.selectOption('MISLEADING_CLAIM');
+        await internal.fill('Synthetic private rationale');
+        await explanation.fill('Synthetic external explanation');
+      }
     }
-    await confirmation.check();
+    if (controller) await controller.activate(confirmation);
+    else await confirmation.check();
     const submit = panel.locator('[data-og7="moderation-submit"]');
     await expect(submit).toBeEnabled();
-    await submit.click();
+    if (controller) await controller.activate(submit);
+    else await submit.click();
     // Sequential subjects reuse the panel. Wait for this content's old node,
     // rather than resolving the next subject's newly rendered checkbox.
     await loadedConfirmation!.waitForElementState('hidden');

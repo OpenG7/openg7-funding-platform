@@ -68,6 +68,7 @@ test('deterministic next step respects independent payment, refund, media, revie
         {
           dataset: {
             drafts: ['facebook', 'linkedin'].map((channel) => ({
+              id: `synthetic-${channel}`,
               contribution_id: '10000000-0000-4000-8000-000000000001',
               channel,
               feed_target: 'openg7',
@@ -108,6 +109,7 @@ test('legacy published drafts and an absent proof never mark recorded obligation
     {
       dataset: {
         drafts: ['facebook', 'linkedin'].map((channel) => ({
+          id: `synthetic-${channel}`,
           contribution_id: '10000000-0000-4000-8000-000000000001',
           channel,
           feed_target: 'openg7',

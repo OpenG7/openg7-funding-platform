@@ -3,6 +3,75 @@
   min-height: 100vh;
   background: var(--admin-bg);
 }
+.layout.sandbox-controller-open {
+  --admin-guidance-inline-end: calc(24rem + 1.25rem);
+  --admin-guidance-reserved-width: 24rem;
+  height: 100dvh;
+  grid-template-columns: 16.5rem minmax(0, 1fr) 24rem;
+  overflow: hidden;
+}
+.layout.sandbox-controller-open.navigation-collapsed,
+.layout.sandbox-controller-open.concentrated {
+  grid-template-columns: minmax(0, 1fr) 24rem;
+}
+.sandbox-controller-open > .workspace {
+  min-height: 0;
+  overflow: auto;
+}
+.sandbox-controller-open > openg7-admin-nav {
+  max-height: 100dvh;
+  overflow: auto;
+}
+.sandbox-controller-open .topbar {
+  flex-wrap: wrap;
+}
+.sandbox-controller-open .topbar openg7-admin-global-search {
+  flex: 1 1 18rem;
+  min-width: min(18rem, 100%);
+}
+.sandbox-controller-open .tools {
+  max-width: 100%;
+}
+.sandbox-controller-dock {
+  grid-column: 3;
+  grid-row: 1;
+  min-height: 0;
+  overflow: auto;
+  border-left: 1px solid var(--admin-border);
+  background: var(--admin-panel, var(--admin-bg));
+}
+.navigation-collapsed .sandbox-controller-dock,
+.concentrated .sandbox-controller-dock {
+  grid-column: 2;
+}
+@media (max-width: 860px) {
+  .layout.sandbox-controller-open,
+  .layout.sandbox-controller-open.navigation-collapsed,
+  .layout.sandbox-controller-open.concentrated {
+    --admin-guidance-inline-end: 0.75rem;
+    --admin-guidance-reserved-width: 0px;
+    --admin-guidance-bottom: calc(34dvh + 0.75rem);
+    --admin-guidance-max-height: min(45dvh, calc(66dvh - 1.5rem));
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+  .sandbox-controller-open > openg7-admin-nav {
+    max-height: 20dvh;
+  }
+  .layout.sandbox-controller-open.concentrated {
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  .layout.sandbox-controller-open > .sandbox-controller-dock {
+    grid-column: 1;
+    grid-row: 3;
+    height: 34dvh;
+    border-left: 0;
+    border-top: 1px solid var(--admin-border);
+  }
+  .layout.sandbox-controller-open.concentrated > .sandbox-controller-dock {
+    grid-row: 2;
+  }
+}
 .layout {
   display: grid;
   grid-template-columns: 16.5rem minmax(0, 1fr);
@@ -10,6 +79,19 @@
 }
 .workspace {
   min-width: 0;
+}
+.guidance-tools {
+  --admin-guidance-margin: 0;
+  --admin-guidance-inline-margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.75rem 1.75rem 0;
+}
+.guidance-tools openg7-admin-guidance {
+  flex: 0 1 auto;
 }
 .topbar {
   align-items: center;
@@ -77,6 +159,9 @@ main:focus {
   }
 }
 @media (max-width: 860px) {
+  .guidance-tools {
+    padding-inline: 1rem;
+  }
   .layout {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -120,7 +205,7 @@ main:focus {
 .pilotage-layout .workspace {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   min-height: 0;
 }
 .pilotage-layout main {
@@ -138,7 +223,7 @@ main:focus {
   display: none;
 }
 .pilotage-layout.concentrated .workspace {
-  grid-template-rows: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
 }
 @media (max-width: 860px) {
   .pilotage-layout {
