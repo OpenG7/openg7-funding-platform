@@ -117,6 +117,16 @@ mouvement réduit conservent leurs règles spécifiques. Les [recettes Cockpit](
 et [tableau de bord](../../tests/playwright/admin-dashboard-layout.spec.ts)
 vérifient les grilles, palettes, états et interactions sur des API interceptées.
 
+Le lot Cadre admin couvre `admin-layout` et `admin-nav` : barre supérieure,
+menu latéral, lien d'évitement et navigation mobile. Les seuils de 400, 480,
+860/861 et 1200 px restent explicites, ainsi que l'ordre des règles du menu
+replié, du mode Concentration et de l'espace réservé au contrôleur virtuel.
+Les [recettes du cadre](../../tests/playwright/admin-dashboard-layout.spec.ts)
+vérifient les palettes, frontières responsive et commandes clavier; les recettes
+[pilotage](../../tests/playwright/admin-pilotage.spec.ts) et
+[contrôleur virtuel](../../tests/playwright/admin-virtual-controller.spec.ts)
+couvrent leurs dispositions particulières avec des réponses synthétiques.
+
 Étendre seulement là où les utilitaires rendent la source plus claire. Conserver
 du CSS explicite pour les interactions de sélecteurs, les dégradés, graphiques,
 positions calculées, animations produit et règles d'impression complexes.

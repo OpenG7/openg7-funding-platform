@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { AxeBuilder } from '@axe-core/playwright';
 import type {
   AdminCockpitMetrics,
@@ -159,6 +159,211 @@ async function fixtures(page: Page, expired = false): Promise<void> {
 
 test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 1672, height: 941 });
+});
+
+const shellPalettes = {
+  mineral: {
+    background: 'rgb(247, 245, 240)',
+    sidebar: 'rgb(232, 239, 231)',
+    border: 'rgb(202, 213, 201)',
+    text: 'rgb(41, 51, 46)',
+    selected: 'rgb(220, 233, 218)',
+    gold: 'rgb(142, 92, 16)'
+  },
+  night: {
+    background: 'rgb(11, 23, 39)',
+    sidebar: 'rgb(13, 27, 44)',
+    border: 'rgb(64, 86, 111)',
+    text: 'rgb(241, 245, 252)',
+    selected: 'rgb(36, 61, 83)',
+    gold: 'rgb(244, 201, 87)'
+  },
+  graphite: {
+    background: 'rgb(25, 27, 31)',
+    sidebar: 'rgb(30, 33, 38)',
+    border: 'rgb(86, 97, 110)',
+    text: 'rgb(243, 244, 246)',
+    selected: 'rgb(56, 67, 79)',
+    gold: 'rgb(241, 206, 128)'
+  }
+} as const;
+
+async function shellColumns(element: Locator): Promise<number> {
+  return element.evaluate(
+    (node) => getComputedStyle(node).gridTemplateColumns.split(' ').length
+  );
+}
+
+for (const theme of ['mineral', 'night', 'graphite'] as const) {
+  test(`admin shell preserves ${theme} navigation surfaces on French mobile and English desktop`, async ({
+    page
+  }) => {
+    await fixtures(page);
+    await page.addInitScript((theme) => {
+      localStorage.setItem('openg7.language', 'fr-CA');
+      localStorage.setItem(
+        'openg7.pilotage.appearance.v1',
+        JSON.stringify({ theme, system: false, density: 'comfortable' })
+      );
+    }, theme);
+    await page.setViewportSize({ width: 390, height: 941 });
+    await page.goto('/admin/fundraiser');
+    const shell = page.locator('openg7-admin-layout');
+    const sidebar = page.locator('#admin-sidebar');
+    const aside = sidebar.getByRole('complementary');
+    const banner = page.getByRole('banner');
+    const nav = sidebar.locator('nav');
+    const mobileToggle = sidebar.getByRole('button', {
+      name: 'Ouvrir le menu'
+    });
+    const palette = shellPalettes[theme];
+    for (const language of ['fr-CA', 'en']) {
+      await test.step(
+        language === 'fr-CA' ? '390px mobile' : '1536px desktop',
+        async () => {
+          if (language === 'fr-CA') await mobileToggle.click();
+          else {
+            await page.setViewportSize({ width: 1536, height: 941 });
+            await banner
+              .getByRole('button', {
+                name: 'Switch administration language to English'
+              })
+              .click();
+          }
+          await expect(page.locator('html')).toHaveAttribute('lang', language);
+          await expect(shell).toHaveCSS('background-color', palette.background);
+          await expect(aside).toHaveCSS('background-color', palette.sidebar);
+          await expect(aside).toHaveCSS('padding', '16px 12px');
+          await expect(banner).toHaveCSS('border-bottom-color', palette.border);
+          const active = nav.getByRole('link', {
+            name: language === 'en' ? 'Dashboard' : 'Tableau de bord',
+            exact: true
+          });
+          await expect(active).toHaveAttribute('aria-current', 'page');
+          await expect(active).toHaveCSS('background-color', palette.selected);
+          await expect(active).toHaveCSS('color', palette.text);
+          await expect(active).toHaveCSS('font-size', '15px');
+          await expect(active).toHaveCSS('min-height', '44px');
+          await expect(active).toHaveCSS('padding', '10px 12px');
+          const shadow = await active.evaluate(
+            (node) => getComputedStyle(node).boxShadow
+          );
+          expect(shadow).toContain(palette.gold);
+          expect(shadow).toContain('3px 0px 0px 0px inset');
+          if (language === 'fr-CA') {
+            await active.focus();
+            await page.keyboard.press('Escape');
+            await expect(nav).toBeHidden();
+            await expect(mobileToggle).toBeFocused();
+          } else {
+            await expect(sidebar).toHaveCSS('width', '240px');
+            await expect(aside).toHaveCSS('position', 'sticky');
+            await expect(aside).toHaveCSS('max-height', '941px');
+          }
+          expect(
+            await page.evaluate(
+              () => document.documentElement.scrollWidth <= innerWidth + 1
+            )
+          ).toBe(true);
+        }
+      );
+    }
+  });
+}
+
+test('admin shell preserves inclusive navigation and chrome breakpoints through menu changes', async ({
+  page
+}) => {
+  await fixtures(page);
+  await page.goto('/admin/fundraiser');
+  const layout = page.locator('[data-og7="admin-layout"]');
+  const sidebar = page.locator('#admin-sidebar');
+  const aside = sidebar.getByRole('complementary');
+  const nav = sidebar.locator('nav');
+  const main = page.getByRole('main');
+  const banner = page.getByRole('banner');
+  const search = banner.locator('openg7-admin-global-search');
+  const tools = banner
+    .getByRole('button', {
+      name: 'Switch administration language to English'
+    })
+    .locator('..');
+  const identity = banner
+    .getByText('Administration', { exact: true })
+    .locator('..');
+  const desktopToggle = page.locator('[data-og7="admin-navigation-toggle"]');
+  const mobileToggle = sidebar.locator(
+    'button[aria-controls="admin-navigation-content"]'
+  );
+  const brandText = sidebar.getByText('Open G7', { exact: true }).locator('..');
+  for (const width of [400, 401, 480, 481, 860, 861, 1200, 1201]) {
+    await test.step(`${width}px`, async () => {
+      await page.setViewportSize({ width, height: 941 });
+      await expect(banner).toHaveCSS(
+        'padding',
+        width <= 860 ? '12.8px 16px' : '10px 24px'
+      );
+      await expect(main).toHaveCSS(
+        'padding',
+        width <= 860 ? '20px 16px 32px' : '24px 24px 32px'
+      );
+      await expect(search).toHaveCSS(
+        'flex-basis',
+        width <= 480 ? '100%' : '0%'
+      );
+      await expect(banner).toHaveCSS(
+        'flex-wrap',
+        width <= 480 ? 'wrap' : 'nowrap'
+      );
+      if (width <= 1200) await expect(identity).toBeHidden();
+      else await expect(identity).toBeVisible();
+      if (width <= 480) {
+        await expect(brandText).toBeHidden();
+        await expect(tools).toHaveCSS('justify-content', 'space-between');
+      } else await expect(brandText).toBeVisible();
+      if (width <= 860) {
+        await expect(desktopToggle).toBeHidden();
+        await expect(nav).toBeHidden();
+        await expect.poll(() => shellColumns(layout)).toBe(1);
+        await mobileToggle.focus();
+        await page.keyboard.press('Enter');
+        await expect(nav).toBeVisible();
+        await expect.poll(() => shellColumns(nav)).toBe(width <= 400 ? 1 : 2);
+        await expect(aside).toHaveCSS('border-right-width', '0px');
+        await expect(aside).toHaveCSS('border-bottom-width', '1px');
+        await page.keyboard.press('Escape');
+        await expect(nav).toBeHidden();
+        await expect(mobileToggle).toBeFocused();
+      } else {
+        await expect(mobileToggle).toBeHidden();
+        await expect(sidebar).toHaveCSS(
+          'width',
+          width <= 1200 ? '224px' : '240px'
+        );
+        await expect(aside).toHaveCSS('border-right-width', '1px');
+        await expect(aside).toHaveCSS('overflow-y', 'auto');
+        await expect.poll(() => shellColumns(layout)).toBe(2);
+        const expandedWidth = await main.evaluate(
+          (node) => node.getBoundingClientRect().width
+        );
+        await desktopToggle.focus();
+        await page.keyboard.press('Enter');
+        await expect(sidebar).toBeHidden();
+        await expect.poll(() => shellColumns(layout)).toBe(1);
+        expect(
+          await main.evaluate((node) => node.getBoundingClientRect().width)
+        ).toBeGreaterThan(expandedWidth);
+        await page.keyboard.press('Space');
+        await expect(sidebar).toBeVisible();
+        await expect(desktopToggle).toBeFocused();
+      }
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+    });
+  }
 });
 
 test('default warm mineral palette keeps dashboard readable at 125% display scaling', async ({
