@@ -276,8 +276,16 @@ for (const prefix of ['', '/en']) {
   test(`language switches keep anchors without forwarding private context ${prefix || 'fr'}`, async ({
     page
   }) => {
+    // Background audio can keep WebKit's load event pending after the page is
+    // hydrated. This journey waits for its support UI and language interaction.
     await page.goto(
-      `${prefix}/support?checkout=success&reference=OG7-SYNTHETIC&followup_token=unrelated-checkout-token&token=unrelated-private-token#technical-participation`
+      `${prefix}/support?checkout=success&reference=OG7-SYNTHETIC&followup_token=unrelated-checkout-token&token=unrelated-private-token#technical-participation`,
+      { waitUntil: 'domcontentloaded' }
+    );
+    await expect(page.locator('#support-title')).toHaveText(
+      prefix
+        ? 'Help with your contribution'
+        : 'De l’aide pour votre contribution'
     );
     await page
       .getByRole('button', {
@@ -292,6 +300,12 @@ for (const prefix of ['', '/en']) {
         url.search === '' &&
         url.hash === '#technical-participation'
     );
+    await expect(page.locator('#support-title')).toHaveText(
+      prefix
+        ? 'De l’aide pour votre contribution'
+        : 'Help with your contribution'
+    );
+    await expect(page.locator('#technical-participation')).toBeVisible();
   });
   for (const route of ['/batisseurs', '/support']) {
     test(`accessible names, contrast and reflow ${prefix}${route}`, async ({

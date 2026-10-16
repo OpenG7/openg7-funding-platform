@@ -156,10 +156,20 @@ for (const locale of [
     }
     await expect(registry).toBeFocused();
     await page.keyboard.press('Enter');
-    await expect(page.locator('#public-registry')).toBeFocused();
-    const refunds = page
-      .locator('#public-registry')
-      .getByRole('button', { name: locale.refunds, exact: true });
+    const publicRegistry = page.locator('#public-registry');
+    await expect(publicRegistry).toBeFocused();
+    // The keyboard destination must have arrived before the following mouse click.
+    const arrival = await publicRegistry.evaluate((element) => {
+      const target = element.getBoundingClientRect().top + window.scrollY;
+      const maximum =
+        document.documentElement.scrollHeight - window.innerHeight;
+      return { actual: window.scrollY, expected: Math.min(target, maximum) };
+    });
+    expect(Math.abs(arrival.actual - arrival.expected)).toBeLessThanOrEqual(1);
+    const refunds = publicRegistry.getByRole('button', {
+      name: locale.refunds,
+      exact: true
+    });
     await refunds.click();
     await expect(refunds).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('tbody tr')).toHaveCount(1);
