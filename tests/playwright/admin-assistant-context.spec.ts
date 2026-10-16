@@ -189,6 +189,100 @@ async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
   return { calls, options };
 }
 
+for (const sample of [
+  {
+    theme: 'mineral',
+    language: 'fr-CA',
+    width: 390,
+    panel: 'rgb(255, 255, 255)',
+    raised: 'rgb(240, 244, 238)',
+    background: 'rgb(247, 245, 240)',
+    text: 'rgb(41, 51, 46)'
+  },
+  {
+    theme: 'night',
+    language: 'en',
+    width: 1280,
+    panel: 'rgb(20, 35, 56)',
+    raised: 'rgb(27, 45, 68)',
+    background: 'rgb(11, 23, 39)',
+    text: 'rgb(241, 245, 252)'
+  },
+  {
+    theme: 'graphite',
+    language: 'fr-CA',
+    width: 390,
+    panel: 'rgb(37, 41, 47)',
+    raised: 'rgb(50, 56, 65)',
+    background: 'rgb(25, 27, 31)',
+    text: 'rgb(243, 244, 246)'
+  }
+]) {
+  test(`context facts and cancelled delivery review remain readable with ${sample.theme} in ${sample.language}`, async ({
+    page
+  }) => {
+    const { calls } = await fixtures(page);
+    await page.addInitScript(({ language, theme }) => {
+      localStorage.setItem('openg7.language', language);
+      localStorage.setItem(
+        'openg7.pilotage.appearance.v1',
+        JSON.stringify({ theme, system: false })
+      );
+    }, sample);
+    await page.setViewportSize({ width: sample.width, height: 950 });
+    await page.goto(path());
+    const english = sample.language === 'en';
+    const context = page.locator('[data-og7="assistant-context"]');
+    const facts = context.locator('[data-og7="assistant-facts"]').first();
+    await expect(
+      context.locator('[data-og7="assistant-reference"]')
+    ).toHaveText('DEMO-301');
+    await expect(context).toHaveCSS('background-color', sample.panel);
+    await expect(context.locator('[data-og7="assistant-next-step"]')).toHaveCSS(
+      'background-color',
+      sample.raised
+    );
+    const confirmedFacts = await facts.innerText();
+    await page
+      .getByRole('button', {
+        name: english ? 'Request information' : 'Demander des informations',
+        exact: true
+      })
+      .click();
+    const recipient = page.getByLabel(english ? 'Recipient' : 'Destinataire', {
+      exact: true
+    });
+    await expect(recipient).toHaveValue('demo@example.invalid');
+    await expect(recipient).toHaveAttribute('readonly', '');
+    const message = page.getByLabel('Message', { exact: true });
+    await expect(message).toHaveCSS('background-color', sample.background);
+    await expect(message).toHaveCSS('color', sample.text);
+    await message.fill('Message synthétique pour une revue annulée.');
+    const review = page.getByRole('button', {
+      name: english ? 'Review delivery' : 'Vérifier l’envoi',
+      exact: true
+    });
+    await review.focus();
+    await page.keyboard.press('Enter');
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toHaveCSS('background-color', sample.panel);
+    await expect(dialog).toContainText('demo@example.invalid');
+    await page.keyboard.press('Escape');
+    await expect(dialog).not.toBeVisible();
+    await expect(review).toBeFocused();
+    expect(await facts.innerText()).toBe(confirmedFacts);
+    expect(
+      calls.filter((call) => call.path.endsWith('request-information'))
+    ).toEqual([]);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1
+      )
+    ).toBe(true);
+  });
+}
+
 test('deterministic dossier facts and recommendation work with conversation disabled', async ({
   page
 }) => {

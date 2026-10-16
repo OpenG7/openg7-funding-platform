@@ -1,36 +1,33 @@
+@reference '../../../../../styles/tailwind.css';
+
 .question-form {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
+  @apply tw:flex tw:items-center tw:justify-between tw:gap-4 tw:flex-wrap;
 }
 .question-form label {
-  display: grid;
+  @apply tw:grid;
   gap: 0.35rem;
 }
 .question-form input {
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.4rem;
-  min-height: 2.75rem;
+  @apply tw:rounded-admin-sm tw:min-h-11;
   padding: 0.5rem 0.75rem;
   font: inherit;
   font-weight: 400;
-  max-width: 100%;
+  @apply tw:max-w-full;
 }
 .disclosure {
   border-bottom: 1px solid var(--admin-border);
   padding: 0.35rem 0;
 }
 summary {
-  cursor: pointer;
+  @apply tw:cursor-pointer;
   font-weight: var(--admin-control-weight);
   padding: 0.3rem 0;
 }
 .disclosure[open] > :not(summary) {
-  margin-top: 1rem;
+  @apply tw:mt-4;
 }
 .question-form {
   align-items: end;

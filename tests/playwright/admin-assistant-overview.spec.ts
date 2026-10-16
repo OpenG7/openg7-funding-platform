@@ -299,6 +299,137 @@ async function fixtures(page: Page) {
   return { options, calls };
 }
 
+const overviewPalettes = {
+  mineral: {
+    panel: 'rgb(255, 255, 255)',
+    raised: 'rgb(240, 244, 238)',
+    text: 'rgb(41, 51, 46)'
+  },
+  night: {
+    panel: 'rgb(20, 35, 56)',
+    raised: 'rgb(27, 45, 68)',
+    text: 'rgb(241, 245, 252)'
+  },
+  graphite: {
+    panel: 'rgb(37, 41, 47)',
+    raised: 'rgb(50, 56, 65)',
+    text: 'rgb(243, 244, 246)'
+  }
+} as const;
+
+for (const theme of ['mineral', 'night', 'graphite'] as const)
+  for (const { language, width } of [
+    { language: 'fr-CA', width: 390 },
+    { language: 'en', width: 1280 }
+  ]) {
+    test(`Assistant queue and optional panels remain readable with ${theme} in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      const { options, calls } = await fixtures(page);
+      options.mode = 'mock';
+      await page.addInitScript(
+        ({ language, theme }) => {
+          localStorage.setItem('openg7.language', language);
+          localStorage.setItem(
+            'openg7.pilotage.appearance.v1',
+            JSON.stringify({ theme, system: false })
+          );
+        },
+        { language, theme }
+      );
+      await page.setViewportSize({ width, height: 950 });
+      await page.goto(base);
+      const palette = overviewPalettes[theme];
+      const items = page.locator('[data-og7="assistant-items"]');
+      await expect(items.locator(':scope > li')).toHaveCount(15);
+      await expect(items.locator('..')).toHaveCSS(
+        'background-color',
+        palette.panel
+      );
+      const categories = page.locator('[data-og7="assistant-categories"]');
+      await expect(categories).toHaveCSS(
+        'flex-wrap',
+        width <= 640 ? 'nowrap' : 'wrap'
+      );
+      const category = categories.locator(
+        '[data-og7-id="email_delivery_failed"]'
+      );
+      await category.focus();
+      await page.keyboard.press('Enter');
+      await expect(category).toHaveAttribute('aria-pressed', 'true');
+      await expect(category).toHaveCSS('background-color', palette.raised);
+      await expect(category).toHaveCSS('color', palette.text);
+      const groups = page.locator('openg7-admin-assistant-filters details');
+      await expect(groups).toHaveAttribute('open', '');
+      await expect(groups.getByRole('button').first()).toHaveCSS(
+        'background-color',
+        palette.panel
+      );
+
+      const question = page.locator('[data-og7="assistant-question"]');
+      await question.locator('summary').click();
+      const input = question.getByRole('textbox');
+      await expect(input).toBeVisible();
+      await expect(input).toHaveCSS('background-color', palette.panel);
+      await expect(input).toHaveCSS('color', palette.text);
+      await input.fill('Question synthétique sans soumission');
+      await page.locator('[data-og7="assistant-summary"] summary').click();
+      const facts = page.locator('[data-og7="assistant-summary"] dl');
+      await expect(facts).toContainText('50 CAD');
+      await expect(facts.locator('div').first()).toHaveCSS(
+        'justify-content',
+        'space-between'
+      );
+
+      const examine = items.getByRole('button').first();
+      await examine.focus();
+      await page.keyboard.press('Enter');
+      await expect(page.getByRole('dialog')).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(examine).toBeFocused();
+      expect(calls.filter((call) => call.method === 'POST')).toEqual([]);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+    });
+  }
+
+test('Assistant category scrolling and queue columns preserve the 640px boundary', async ({
+  page
+}) => {
+  await fixtures(page);
+  await page.goto(base);
+  const categories = page.locator('[data-og7="assistant-categories"]');
+  const item = page.locator('[data-og7="assistant-items"] > li').first();
+  await expect(item).toBeVisible();
+  for (const width of [639, 640, 641]) {
+    await page.setViewportSize({ width, height: 950 });
+    await expect(categories).toHaveCSS(
+      'flex-wrap',
+      width <= 640 ? 'nowrap' : 'wrap'
+    );
+    await expect(categories).toHaveCSS(
+      'overflow-x',
+      width <= 640 ? 'auto' : 'visible'
+    );
+    await expect
+      .poll(() =>
+        item.evaluate(
+          (element) =>
+            getComputedStyle(element).gridTemplateColumns.split(' ').length
+        )
+      )
+      .toBe(width <= 640 ? 2 : 3);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1
+      )
+    ).toBe(true);
+  }
+});
+
 test('bounded overview, server pagination past 100, and email grouping survive reload', async ({
   page
 }) => {

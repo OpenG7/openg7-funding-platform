@@ -1,107 +1,93 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: grid;
-  gap: 1rem;
+  @apply tw:grid tw:gap-4;
 }
 .section-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
+  @apply tw:flex tw:items-center tw:justify-between tw:gap-4 tw:flex-wrap;
 }
 .next-panel,
 .queue-panel {
   border: 1px solid var(--admin-border);
   background: var(--admin-panel);
-  border-radius: 0.75rem;
+  @apply tw:rounded-xl;
   padding: clamp(0.8rem, 2vw, 1.25rem);
-  min-width: 0;
+  @apply tw:min-w-0;
 }
 .next-panel {
   border-left: 3px solid var(--admin-accent, #87c8ff);
 }
 .section-heading {
-  margin-bottom: 1rem;
+  @apply tw:mb-4;
 }
 .section-heading > .muted {
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 .recommendations,
 .item-list {
   list-style: none;
-  padding: 0;
-  margin: 0;
+  @apply tw:p-0 tw:m-0;
 }
 .recommendations {
   counter-reset: recommendation;
 }
 .recommendations li {
   counter-increment: recommendation;
-  display: grid;
+  @apply tw:grid;
   grid-template-columns: 1.8rem minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.75rem;
+  @apply tw:items-center tw:gap-3;
   padding: 0.7rem 0;
 }
 .recommendations li::before {
   content: counter(recommendation);
   width: 1.6rem;
   height: 1.6rem;
-  display: grid;
-  place-items: center;
+  @apply tw:grid tw:place-items-center;
   border-radius: 50%;
   background: var(--admin-panel-raised);
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
 }
 .recommendations p {
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
   margin-top: 0.2rem;
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }
 .result-count {
   padding: 0.75rem 0;
-  font-size: var(--admin-caption-size, 0.875rem);
-  color: var(--admin-muted);
+  @apply tw:text-admin-caption tw:text-admin-muted;
 }
 .item-list > li {
-  display: grid;
+  @apply tw:grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: 1rem;
-  align-items: center;
+  @apply tw:gap-4 tw:items-center;
   padding: 0.85rem 0;
   border-top: 1px solid var(--admin-border);
 }
 .item-content {
-  min-width: 0;
-  overflow-wrap: anywhere;
+  @apply tw:min-w-0 tw:wrap-anywhere;
 }
 .item-title {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+  @apply tw:flex tw:gap-3 tw:flex-wrap;
 }
 .item-content p {
   margin: 0.2rem 0;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 .item-content small {
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 .amount {
-  color: var(--admin-muted);
-  white-space: nowrap;
+  @apply tw:text-admin-muted tw:whitespace-nowrap;
 }
 .priority {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
-  white-space: nowrap;
+  @apply tw:text-admin-muted tw:text-admin-caption tw:whitespace-nowrap;
 }
 .priority.urgent {
-  color: var(--admin-danger);
+  @apply tw:text-admin-danger;
 }
 .empty {
   padding: 1rem 0;
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
 }
 @media (max-width: 640px) {
   :host {
@@ -112,7 +98,7 @@
     gap: 0.55rem;
   }
   .item-content {
-    grid-column: 1 / -1;
+    @apply tw:col-span-full;
   }
   .priority {
     justify-self: start;

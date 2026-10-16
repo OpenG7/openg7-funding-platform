@@ -1,24 +1,23 @@
+@reference '../../../../../styles/tailwind.css';
+
 .disclosure {
   border-bottom: 1px solid var(--admin-border);
   padding: 0.35rem 0;
 }
 summary {
-  cursor: pointer;
+  @apply tw:cursor-pointer;
   font-weight: var(--admin-control-weight);
   padding: 0.3rem 0;
 }
 .disclosure[open] > :not(summary) {
-  margin-top: 1rem;
+  @apply tw:mt-4;
 }
 .financial-facts {
-  display: grid;
-  gap: 0.75rem;
+  @apply tw:grid tw:gap-3;
 }
 .financial-facts > div {
-  display: flex;
-  gap: 1rem;
-  justify-content: space-between;
+  @apply tw:flex tw:gap-4 tw:justify-between;
 }
 .financial-facts dd {
-  margin: 0;
+  @apply tw:m-0;
 }

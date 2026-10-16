@@ -1,38 +1,30 @@
+@reference '../../../../../styles/tailwind.css';
+
 .filters {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
+  @apply tw:flex tw:items-center tw:justify-between tw:gap-4 tw:flex-wrap;
 }
 .email-groups ul {
   list-style: none;
-  padding: 0;
-  margin: 0;
+  @apply tw:p-0 tw:m-0;
 }
 .categories {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  @apply tw:flex tw:flex-wrap tw:gap-2;
 }
 .category {
-  display: inline-flex;
+  @apply tw:inline-flex;
   gap: 0.65rem;
-  align-items: center;
-  min-height: 2.75rem;
+  @apply tw:items-center tw:min-h-11;
   padding: 0.5rem 0.8rem;
   border: 1px solid var(--admin-border);
   border-radius: 0.45rem;
   background: transparent;
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
   font: inherit;
   font-weight: var(--admin-control-weight);
-  font-size: var(--admin-caption-size, 0.875rem);
-  text-align: left;
-  cursor: pointer;
+  @apply tw:text-admin-caption tw:text-left tw:cursor-pointer;
 }
 .category span {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   font-weight: var(--admin-emphasis-weight);
 }
 .category[aria-pressed='true'],
@@ -43,72 +35,58 @@
 }
 .filters {
   margin: 1rem 0;
-  justify-content: flex-start;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:justify-start tw:text-admin-caption;
 }
 .filters label {
-  display: grid;
+  @apply tw:grid;
   gap: 0.35rem;
 }
 .filters select {
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.4rem;
-  min-height: 2.75rem;
+  @apply tw:rounded-admin-sm tw:min-h-11;
   padding: 0.5rem 0.75rem;
   font: inherit;
   font-weight: 400;
-  max-width: 100%;
+  @apply tw:max-w-full;
 }
 summary {
-  cursor: pointer;
+  @apply tw:cursor-pointer;
   font-weight: var(--admin-control-weight);
   padding: 0.3rem 0;
 }
 .email-groups {
-  padding: 0.75rem;
+  @apply tw:p-3;
   background: var(--admin-panel-raised);
-  border-radius: 0.4rem;
+  @apply tw:rounded-admin-sm;
 }
 .email-groups p {
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
   margin: 0.4rem 0;
 }
 .email-groups ul {
-  display: grid;
+  @apply tw:grid;
   gap: 0.35rem;
   max-height: 18rem;
-  overflow: auto;
+  @apply tw:overflow-auto;
 }
 .group-button {
-  width: 100%;
-  display: flex;
-  gap: 1rem;
-  justify-content: space-between;
-  text-align: left;
-  color: var(--admin-text);
+  @apply tw:w-full tw:flex tw:gap-4 tw:justify-between tw:text-left tw:text-admin-text;
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
   border-radius: 0.3rem;
   padding: 0.65rem;
   font: inherit;
   font-weight: var(--admin-control-weight);
-  font-size: var(--admin-caption-size, 0.875rem);
-  cursor: pointer;
+  @apply tw:text-admin-caption tw:cursor-pointer;
 }
 .active-filter {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  margin-top: 0.75rem;
+  @apply tw:flex tw:items-center tw:gap-3 tw:flex-wrap tw:mt-3;
 }
 @media (max-width: 640px) {
   .categories {
-    flex-wrap: nowrap;
-    overflow: auto;
-    padding-bottom: 0.5rem;
+    @apply tw:flex-nowrap tw:overflow-auto tw:pb-2;
   }
   .category {
     flex: 0 0 auto;

@@ -1,16 +1,12 @@
+@reference '../../../../../styles/tailwind.css';
+
 .queue-footer,
 .pagination {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
+  @apply tw:flex tw:items-center tw:justify-between tw:gap-4 tw:flex-wrap;
 }
 .queue-footer {
   border-top: 1px solid var(--admin-border);
-  padding-top: 1rem;
-  margin-top: 0.25rem;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:pt-4 tw:mt-1 tw:text-admin-caption;
 }
 .pagination {
   gap: 0.6rem;
@@ -20,7 +16,6 @@
     align-items: start;
   }
   .pagination {
-    width: 100%;
-    justify-content: space-between;
+    @apply tw:w-full tw:justify-between;
   }
 }

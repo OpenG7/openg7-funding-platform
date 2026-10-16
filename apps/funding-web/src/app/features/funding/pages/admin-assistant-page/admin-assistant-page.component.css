@@ -1,43 +1,36 @@
+@reference '../../../../../styles/tailwind.css';
+
 .assistant-page {
   max-width: 78rem;
   margin: auto;
-  padding: 0.25rem;
-  display: grid;
-  gap: 1rem;
+  @apply tw:p-1 tw:grid tw:gap-4;
 }
 .page-heading,
 .detail-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
+  @apply tw:flex tw:items-center tw:justify-between tw:gap-4 tw:flex-wrap;
 }
 .page-heading > div {
-  display: grid;
+  @apply tw:grid;
   gap: 0.4rem;
 }
 .eyebrow {
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
   letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--admin-muted);
+  @apply tw:uppercase tw:text-admin-muted;
 }
 .detail-content {
-  display: grid;
-  gap: 1rem;
-  overflow-wrap: anywhere;
+  @apply tw:grid tw:gap-4 tw:wrap-anywhere;
 }
 .detail-content ul {
-  margin: 0;
+  @apply tw:m-0;
   padding-left: 1.3rem;
 }
 .detail-actions {
-  justify-content: flex-start;
+  @apply tw:justify-start;
 }
 .back-button {
-  margin-top: 1.5rem;
+  @apply tw:mt-6;
 }
 @media (max-width: 640px) {
   .assistant-page {

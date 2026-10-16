@@ -1,29 +1,30 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
 }
 h1,
 h2,
 h3,
 h4,
 p {
-  margin: 0;
+  @apply tw:m-0;
 }
 h3 {
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }
 .muted,
 small {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   line-height: 1.5;
 }
 .notice {
   padding: 0.8rem;
   background: var(--admin-panel-raised);
-  border-radius: 0.4rem;
+  @apply tw:rounded-admin-sm;
 }
 .error {
-  color: var(--admin-danger);
+  @apply tw:text-admin-danger;
 }
 button:focus-visible,
 summary:focus-visible,
