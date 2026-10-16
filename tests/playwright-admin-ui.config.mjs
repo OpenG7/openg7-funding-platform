@@ -20,6 +20,7 @@ export default defineBuiltWebSuite({
     'admin-document-resend-ui.spec.ts',
     'admin-dashboard-layout.spec.ts',
     'admin-typography.spec.ts',
+    'admin-style-primitives.spec.ts',
     'admin-cockpit.spec.ts',
     'admin-global-search.spec.ts',
     'admin-attention.spec.ts',

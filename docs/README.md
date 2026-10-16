@@ -15,6 +15,9 @@ se lit en français **ou** en [anglais](ARCHITECTURE.en.md).
 La [consolidation de l'application](development/application-consolidation.md)
 décrit les propriétaires des règles partagées et les vérifications de cette passe.
 
+La [référence CSS et frameworks](development/css-frameworks.md) présente l'inventaire
+reproductible, l'intégration Tailwind et les correspondances avec Material/CDK.
+
 Références techniques extraites du README : [configuration](technical/configuration.md),
 [API admin](technical/admin-api.md), [API publique](technical/public-api.md) et
 [Stripe/webhooks/backfill](technical/stripe.md). Lire la section utile seulement.

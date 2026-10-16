@@ -1,0 +1,9 @@
+@reference '../../../../../styles/tailwind.css';
+
+footer {
+  @apply tw:flex tw:flex-wrap tw:gap-3 tw:mt-6;
+}
+
+.target {
+  @apply tw:wrap-anywhere tw:text-admin-muted;
+}
