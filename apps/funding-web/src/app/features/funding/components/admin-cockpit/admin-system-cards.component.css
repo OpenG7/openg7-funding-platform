@@ -1,19 +1,16 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
 }
 .cards {
-  display: grid;
+  @apply tw:grid tw:gap-3;
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
-  gap: 0.75rem;
 }
 button {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
+  @apply tw:flex tw:flex-col tw:items-stretch tw:text-left tw:min-w-0;
+  @apply tw:text-admin-text tw:p-4 tw:cursor-pointer;
   gap: 0.65rem;
-  text-align: left;
-  min-width: 0;
   border: 1px solid var(--admin-border, #35516a);
   border-radius: 0.7rem;
   background: linear-gradient(
@@ -21,12 +18,9 @@ button {
     var(--admin-panel-raised, #122c42),
     var(--admin-panel, #0e2033)
   );
-  color: var(--admin-text);
-  padding: 1rem;
   font-family: inherit;
   font-size: inherit;
   line-height: inherit;
-  cursor: pointer;
   transition:
     border-color 0.15s,
     background 0.15s;
@@ -40,41 +34,37 @@ button:focus-visible {
   outline-offset: 4px;
 }
 .heading {
-  display: flex;
+  @apply tw:flex tw:items-center;
   gap: 0.65rem;
-  align-items: center;
 }
 .heading > openg7-admin-icon {
   font-size: 1.6rem;
   color: var(--og7-admin-accent, #85d5ff);
 }
 .heading .arrow {
+  @apply tw:ml-auto;
   font-size: 1rem;
-  margin-left: auto;
 }
 strong {
   font-size: 0.95rem;
 }
 small,
 .date {
-  display: block;
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:block tw:text-admin-muted tw:text-admin-caption;
 }
 .status {
-  display: flex;
-  align-items: center;
+  @apply tw:flex tw:items-center;
   gap: 0.45rem;
   font-weight: 700;
   color: var(--admin-muted, #c6d5e5);
   font-size: 0.88rem;
 }
 .dot {
+  @apply tw:shrink-0;
   width: 0.45rem;
   height: 0.45rem;
   border-radius: 50%;
   background: currentColor;
-  flex-shrink: 0;
 }
 [data-state='operational'] .status {
   color: var(--admin-success, #a1e7b1);
@@ -87,17 +77,16 @@ small,
   color: var(--admin-danger, #ffb5bc);
 }
 .evidence {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
   line-height: 1.5;
 }
 .date {
-  margin-top: auto;
+  @apply tw:mt-auto;
   padding-top: 0.35rem;
 }
 @media (max-width: 1250px) {
   .cards {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    @apply tw:grid-cols-2;
   }
 }
 @media (max-width: 540px) {

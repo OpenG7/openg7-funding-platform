@@ -1,7 +1,9 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { AxeBuilder } from '@axe-core/playwright';
+import type { AdminDashboardResponse } from '@openg7/funding-core';
 
 import { cockpitFixtures } from './support/cockpit-fixtures.js';
+import { setupFixture } from './support/setup-fixtures.js';
 import { expect, test } from './support/test.js';
 
 async function fixtures(page: Page) {
@@ -30,6 +32,261 @@ async function fixtures(page: Page) {
 const metrics = (page: Page) => page.locator('[data-og7="cockpit-metrics"]');
 const activity = (page: Page) => page.locator('[data-og7="cockpit-activity"]');
 const systems = (page: Page) => page.locator('[data-og7="cockpit-systems"]');
+
+async function renderedDashboardFixtures(page: Page) {
+  const data = await fixtures(page);
+  // Empty synthetic operations render the dashboard's own layout surfaces.
+  const dashboard: AdminDashboardResponse = {
+    data_source: 'database',
+    data_available: true,
+    totals: {
+      total_received: 0,
+      total_refunded: 0,
+      total_disputed: 0,
+      current_available_estimate: 0,
+      currency: 'CAD',
+      contributions_count: 0,
+      paid_contributions_count: 0
+    },
+    sponsorship_review: { total: 0, pending: 0, approved: 0, rejected: 0 },
+    feed_publication: { planned: 0, drafted: 0, published: 0, active: 0 },
+    stripe_events: { failed: 0, processing: 0, last_failed_at: null },
+    recent_contributions: [],
+    last_updated_at: data.metrics.generatedAt
+  };
+  await page.route('**/api/admin/dashboard', (route) =>
+    route.fulfill({ json: dashboard })
+  );
+  return data;
+}
+
+async function gridColumns(element: Locator): Promise<number> {
+  return element.evaluate(
+    (node) => getComputedStyle(node).gridTemplateColumns.split(' ').length
+  );
+}
+
+const cockpitPalettes = {
+  mineral: {
+    panel: 'rgb(255, 255, 255)',
+    border: 'rgb(202, 213, 201)',
+    gold: 'rgb(142, 92, 16)'
+  },
+  night: {
+    panel: 'rgb(20, 35, 56)',
+    border: 'rgb(64, 86, 111)',
+    gold: 'rgb(244, 201, 87)'
+  },
+  graphite: {
+    panel: 'rgb(37, 41, 47)',
+    border: 'rgb(86, 97, 110)',
+    gold: 'rgb(241, 206, 128)'
+  }
+} as const;
+
+for (const theme of ['mineral', 'night', 'graphite'] as const) {
+  for (const { language, width } of [
+    { language: 'fr-CA', width: 390 },
+    { language: 'en', width: 1536 }
+  ] as const) {
+    test(`cockpit CSS keeps ${theme} panels and rendered trends readable in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      await page.setViewportSize({ width, height: 950 });
+      await page.addInitScript(
+        ({ theme, language }) => {
+          localStorage.setItem('openg7.language', language);
+          localStorage.setItem(
+            'openg7.pilotage.appearance.v1',
+            JSON.stringify({ theme, system: false, density: 'comfortable' })
+          );
+        },
+        { theme, language }
+      );
+      await renderedDashboardFixtures(page);
+      await page.goto('/admin/fundraiser');
+      await expect(metrics(page).getByRole('article')).toHaveCount(4);
+      await expect(page.locator('html')).toHaveAttribute('lang', language);
+      await expect(page.locator('html')).toHaveAttribute(
+        'data-og7-pilot-theme',
+        theme
+      );
+      for (const panel of [activity(page), systems(page)]) {
+        await expect(panel).toHaveCSS(
+          'background-color',
+          cockpitPalettes[theme].panel
+        );
+        await expect(panel).toHaveCSS(
+          'border-top-color',
+          cockpitPalettes[theme].border
+        );
+        await expect(panel).toHaveCSS('border-top-width', '1px');
+        await expect(panel).toHaveCSS('border-radius', '12px');
+        await expect(panel).toHaveCSS('padding', '20px');
+      }
+      const summaryPanel = page
+        .getByRole('region', {
+          name:
+            language === 'en' ? 'Operations summary' : 'Synthèse des opérations'
+        })
+        .getByRole('article')
+        .first();
+      await expect(summaryPanel).toHaveCSS(
+        'background-color',
+        cockpitPalettes[theme].panel
+      );
+      await expect(summaryPanel).toHaveCSS('border-radius', '12px');
+      await expect(summaryPanel.locator('header')).toHaveCSS('padding', '20px');
+      const metricGrid = page
+        .locator('[data-og7="cockpit-metric"][data-og7-id="sponsorships"]')
+        .locator('..');
+      await expect
+        .poll(() => gridColumns(metricGrid))
+        .toBe(width === 390 ? 1 : 4);
+      await expect(metricGrid).toHaveCSS('gap', '20px');
+      const chart = metrics(page)
+        .locator('[data-og7="cockpit-trend-chart"]')
+        .first();
+      await expect(chart).toBeVisible();
+      await expect(chart).toHaveCSS('height', '88px');
+      await expect(chart).toHaveCSS('display', 'block');
+      await expect(chart).toHaveCSS('overflow', 'visible');
+      await expect(chart.locator('polyline').last()).toHaveCSS(
+        'stroke',
+        cockpitPalettes[theme].gold
+      );
+      const connection = systems(page).locator(
+        '[data-og7="stripe-check"][data-og7-id="connection"]'
+      );
+      await expect(connection).toHaveCSS('display', 'flex');
+      await expect(connection).toHaveCSS('flex-direction', 'column');
+      await expect(connection).toHaveCSS('gap', '6.4px');
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+    });
+  }
+}
+
+test('dashboard and cockpit queries follow the same resized container rather than the viewport', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 2000, height: 1000 });
+  await renderedDashboardFixtures(page);
+  await page.goto('/admin/fundraiser');
+  const dashboard = page.locator('[data-og7="admin-dashboard"]');
+  const recent = dashboard.locator(
+    'section[aria-labelledby="admin-recent-title"]'
+  );
+  await expect(recent).toBeVisible();
+  const summary = dashboard.getByRole('region', {
+    name: 'Synthèse des opérations'
+  });
+  const workflow = dashboard
+    .locator('openg7-admin-attention-panel')
+    .locator('..');
+  const secondary = activity(page).locator('..').locator('..');
+  const metricGrid = page
+    .locator('[data-og7="cockpit-metric"][data-og7-id="sponsorships"]')
+    .locator('..');
+  for (const width of [
+    607, 608, 609, 959, 960, 992, 993, 1023, 1024, 1343, 1344
+  ]) {
+    await test.step(`${width}px container in a 2000px viewport`, async () => {
+      await dashboard.evaluate((node, width) => {
+        node.style.width = `${width}px`;
+      }, width);
+      expect(
+        await dashboard.evaluate((node) => node.getBoundingClientRect().width)
+      ).toBe(width);
+      await expect.poll(() => gridColumns(summary)).toBe(width < 960 ? 1 : 2);
+      await expect
+        .poll(() => gridColumns(recent.locator('..')))
+        .toBe(width < 960 ? 1 : 2);
+      // At exactly 38rem both cockpit queries match; the later max query wins.
+      await expect
+        .poll(() => gridColumns(metricGrid))
+        .toBe(width <= 608 ? 1 : width < 1024 ? 2 : 4);
+      await expect.poll(() => gridColumns(workflow)).toBe(width < 1024 ? 1 : 2);
+      await expect
+        .poll(() => gridColumns(secondary))
+        .toBe(width < 1024 ? 1 : width < 1344 ? 2 : 3);
+      await expect(dashboard.locator(':scope > header')).toHaveCSS(
+        'flex-direction',
+        width <= 608 ? 'column' : 'row'
+      );
+      await expect(recent.locator('header')).toHaveCSS(
+        'flex-direction',
+        width <= 992 ? 'column' : 'row'
+      );
+      await expect(systems(page).locator('..')).toHaveCSS(
+        'grid-column',
+        width >= 1024 && width < 1344 ? '1 / -1' : 'auto'
+      );
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+    });
+  }
+});
+
+test('system cards retain viewport breakpoints, reduced motion and visible keyboard focus', async ({
+  page
+}) => {
+  await fixtures(page);
+  await page.route('**/api/admin/setup-status', (route) =>
+    route.fulfill({ json: setupFixture() })
+  );
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/admin/fundraiser/setup');
+  const cards = page.locator('[data-og7="setup-system"]');
+  await expect(cards).toHaveCount(5);
+  const grid = cards.first().locator('..');
+  for (const width of [540, 541, 1250, 1251]) {
+    await test.step(`${width}px viewport`, async () => {
+      await page.setViewportSize({ width, height: 1000 });
+      if (width <= 1250)
+        await expect.poll(() => gridColumns(grid)).toBe(width <= 540 ? 1 : 2);
+      else await expect.poll(() => gridColumns(grid)).toBeGreaterThan(2);
+      await expect(grid).toHaveCSS('gap', '12px');
+      // The global reduced-motion rule caps transitions at 0.01ms with !important.
+      const durationMs = await cards.first().evaluate((node) =>
+        Math.max(
+          ...getComputedStyle(node)
+            .transitionDuration.split(',')
+            .map(
+              (duration) =>
+                Number.parseFloat(duration) *
+                (duration.trim().endsWith('ms') ? 1 : 1000)
+            )
+        )
+      );
+      expect(durationMs).toBeLessThanOrEqual(0.01);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+    });
+  }
+  // Choose the real system card by its existing hook, without a style class.
+  const target = page.locator(
+    '[data-og7="setup-system"][data-og7-id="database"]'
+  );
+  await target.focus();
+  await expect(target).toHaveCSS('outline-width', '3px');
+  await expect(target).toHaveCSS('outline-style', 'solid');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#setup-database')).toBeFocused();
+  await expect(page.locator('#setup-database details')).toHaveAttribute(
+    'open',
+    ''
+  );
+});
 
 for (const language of ['fr-CA', 'en']) {
   for (const width of [390, 1280]) {
@@ -71,6 +328,7 @@ for (const language of ['fr-CA', 'en']) {
       await expect(card).not.toContainText('%');
       const chart = card.locator('[data-og7="cockpit-trend-chart"]');
       await expect(chart).toBeVisible();
+      await expect(chart).toHaveCSS('height', '88px');
       await expect(card.getByRole('table')).toBeHidden();
       await card.screenshot({
         path: testInfo.outputPath('sponsorship-card.png')
@@ -90,6 +348,11 @@ for (const language of ['fr-CA', 'en']) {
       await page.keyboard.press('Tab');
       const region = card.getByRole('region');
       await expect(region).toBeFocused();
+      await expect(region).toHaveCSS('max-height', '192px');
+      await expect(region).toHaveCSS('overflow', 'auto');
+      const header = region.getByRole('columnheader').first();
+      await expect(header).toHaveCSS('position', 'sticky');
+      await expect(header).toHaveCSS('top', '0px');
       await page.keyboard.press('End');
       await expect
         .poll(() => region.evaluate((element) => element.scrollTop))

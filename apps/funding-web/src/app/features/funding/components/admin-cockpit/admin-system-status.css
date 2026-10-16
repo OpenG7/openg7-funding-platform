@@ -1,11 +1,13 @@
+@reference '../../../../../styles/tailwind.css';
+
 /* Shared presentation for system readings and their Stripe checks. */
 .status {
   background: var(--admin-panel-raised);
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
 }
 :is(.status[data-state='operational'], [data-state='operational'] .status) {
   background: var(--admin-success-bg);
-  color: var(--admin-success);
+  @apply tw:text-admin-success;
 }
 :is(
   .status[data-state='degraded'],
@@ -14,9 +16,9 @@
   [data-state='not_configured'] .status
 ) {
   background: var(--admin-warning-bg);
-  color: var(--admin-warning);
+  @apply tw:text-admin-warning;
 }
 :is(.status[data-state='unavailable'], [data-state='unavailable'] .status) {
   background: var(--admin-danger-bg);
-  color: var(--admin-danger);
+  @apply tw:text-admin-danger;
 }

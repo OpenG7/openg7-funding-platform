@@ -1,123 +1,99 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
+  @apply tw:block;
 }
 .dashboard {
   container: admin-dashboard / inline-size;
-  display: grid;
-  gap: 1.5rem;
+  @apply tw:grid tw:gap-6;
 }
 .page-heading,
 .panel-heading {
-  align-items: center;
-  display: flex;
-  gap: 1rem;
-  justify-content: space-between;
+  @apply tw:items-center tw:flex tw:gap-4 tw:justify-between;
 }
 .eyebrow {
-  color: var(--admin-gold);
+  @apply tw:text-admin-gold;
   font-size: var(--admin-secondary-size, 0.875rem);
   font-weight: var(--admin-label-weight);
   letter-spacing: 0.08em;
   margin: 0 0 0.5rem;
-  text-transform: uppercase;
+  @apply tw:uppercase;
 }
 h1 {
-  color: var(--admin-text);
-  margin: 0;
+  @apply tw:text-admin-text tw:m-0;
 }
 .subtitle {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   font-size: 1rem;
   margin: 0.5rem 0 0;
 }
 .snapshot {
-  align-items: center;
-  color: var(--admin-muted);
-  display: flex;
-  flex-wrap: wrap;
+  @apply tw:items-center tw:text-admin-muted tw:flex tw:flex-wrap;
   font-size: var(--admin-secondary-size, 0.875rem);
   gap: 0.5rem 1rem;
-  justify-content: space-between;
+  @apply tw:justify-between;
 }
 .snapshot span:last-child {
-  align-items: center;
-  display: inline-flex;
-  flex-wrap: wrap;
+  @apply tw:items-center tw:inline-flex tw:flex-wrap;
   gap: 0.4rem;
 }
 .metrics {
-  display: grid;
-  gap: 1.25rem;
+  @apply tw:grid tw:gap-5;
   grid-template-columns: minmax(0, 1fr);
 }
 .summaries {
-  display: grid;
-  gap: 1.25rem;
+  @apply tw:grid tw:gap-5;
   grid-template-columns: minmax(0, 1fr);
 }
 .details {
-  display: grid;
-  gap: 1.25rem;
+  @apply tw:grid tw:gap-5;
   grid-template-columns: minmax(0, 1fr);
   align-items: start;
 }
 .panel {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.75rem;
-  min-width: 0;
-  overflow: hidden;
+  @apply tw:rounded-xl tw:min-w-0 tw:overflow-hidden;
 }
 .panel-heading {
   border-bottom: 1px solid var(--admin-border);
-  padding: 1.25rem;
+  @apply tw:p-5;
 }
 h2 {
-  color: var(--admin-text);
-  margin: 0;
+  @apply tw:text-admin-text tw:m-0;
 }
 .panel-heading h2 {
-  align-items: center;
-  display: flex;
-  gap: 0.75rem;
+  @apply tw:items-center tw:flex tw:gap-3;
 }
 .panel-heading h2 openg7-admin-icon {
-  color: var(--admin-gold);
+  @apply tw:text-admin-gold;
 }
 .panel-heading a {
-  align-items: center;
-  display: inline-flex;
+  @apply tw:items-center tw:inline-flex;
   flex: 0 0 auto;
   font-size: var(--admin-secondary-size, 0.875rem);
-  gap: 0.5rem;
-  min-height: 2rem;
+  @apply tw:gap-2 tw:min-h-8;
 }
 .status-list {
-  display: grid;
-  gap: 1rem;
-  margin: 0;
-  padding: 1.25rem;
+  @apply tw:grid tw:gap-4 tw:m-0 tw:p-5;
 }
 .status-list div {
-  align-items: center;
-  display: flex;
-  gap: 1rem;
-  justify-content: space-between;
+  @apply tw:items-center tw:flex tw:gap-4 tw:justify-between;
 }
 dt {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   font-size: 1rem;
 }
 dd {
   font-variant-numeric: tabular-nums;
   font-weight: var(--admin-label-weight);
-  margin: 0;
+  @apply tw:m-0;
 }
 .panel-note {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   font-size: var(--admin-secondary-size, 0.875rem);
   line-height: var(--admin-body-leading, 1.5);
-  margin: 0;
+  @apply tw:m-0;
   padding: 0 1.25rem 1.25rem;
 }
 .stripe > .admin-button {
@@ -125,19 +101,14 @@ dd {
 }
 .contributions {
   list-style: none;
-  margin: 0;
+  @apply tw:m-0;
   padding: 0 1.25rem;
 }
 .contributions li + li {
   border-top: 1px solid var(--admin-border);
 }
 .contributions a {
-  align-items: center;
-  border-radius: 0.4rem;
-  color: var(--admin-text);
-  display: flex;
-  gap: 0.75rem;
-  min-height: 4.5rem;
+  @apply tw:items-center tw:rounded-admin-sm tw:text-admin-text tw:flex tw:gap-3 tw:min-h-18;
   padding: 0.75rem 0.25rem;
   text-decoration: none;
 }
@@ -145,54 +116,42 @@ dd {
   background: var(--admin-panel-raised);
 }
 .contributor {
-  flex: 1;
-  min-width: 0;
+  @apply tw:flex-1 tw:min-w-0;
 }
 .contributor strong {
-  display: block;
+  @apply tw:block;
   font-size: 1rem;
   font-weight: var(--admin-label-weight);
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }
 .contributor small {
-  color: var(--admin-muted);
-  display: block;
+  @apply tw:text-admin-muted tw:block;
   font-size: var(--admin-secondary-size, 0.875rem);
-  margin-top: 0.25rem;
+  @apply tw:mt-1;
 }
 .contribution-icon {
-  align-items: center;
+  @apply tw:items-center;
   background: var(--admin-selected);
   border-radius: 0.55rem;
   color: var(--admin-accent);
-  display: flex;
+  @apply tw:flex;
   flex: 0 0 auto;
-  height: 2.5rem;
-  justify-content: center;
-  width: 2.5rem;
+  @apply tw:h-10 tw:justify-center tw:w-10;
 }
 .contribution-amount {
   align-items: end;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  text-align: right;
+  @apply tw:flex tw:flex-col tw:gap-1 tw:text-right;
 }
 .contribution-amount > strong {
   font-size: 1rem;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+  @apply tw:whitespace-nowrap;
 }
 .notice {
   align-items: start;
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.75rem;
-  color: var(--admin-muted);
-  display: flex;
-  gap: 0.75rem;
-  margin: 0;
-  padding: 1.25rem;
+  @apply tw:rounded-xl tw:text-admin-muted tw:flex tw:gap-3 tw:m-0 tw:p-5;
 }
 .notice p {
   font-size: var(--admin-secondary-size, 0.875rem);
@@ -201,18 +160,18 @@ dd {
 .notice-error {
   background: var(--og7-admin-danger-bg, #34222d);
   border-color: var(--admin-danger-border);
-  color: var(--admin-danger);
+  @apply tw:text-admin-danger;
 }
 .empty {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   padding: 2.5rem 1rem;
-  text-align: center;
+  @apply tw:text-center;
 }
 .empty > openg7-admin-icon {
   font-size: 2rem;
 }
 .empty h3 {
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
   font-size: 1rem;
   font-weight: 500;
 }
@@ -222,8 +181,7 @@ dd {
 @container admin-dashboard (max-width: 62rem) {
   .panel-heading {
     align-items: start;
-    flex-direction: column;
-    gap: 0.5rem;
+    @apply tw:flex-col tw:gap-2;
   }
 }
 @container admin-dashboard (min-width: 60rem) {
@@ -238,25 +196,25 @@ dd {
 @container admin-dashboard (max-width: 38rem) {
   .page-heading {
     align-items: start;
-    flex-direction: column;
+    @apply tw:flex-col;
   }
   .contributions {
     padding: 0 1rem;
   }
   .contribution-icon {
-    display: none;
+    @apply tw:hidden;
   }
 }
 .workflow-grid {
-  display: grid;
+  @apply tw:grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 1.25rem;
+  @apply tw:gap-5;
   align-items: start;
 }
 .cockpit-secondary {
-  display: grid;
+  @apply tw:grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 1.25rem;
+  @apply tw:gap-5;
   align-items: start;
 }
 @container admin-dashboard (min-width: 64rem) {
@@ -265,7 +223,7 @@ dd {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .cockpit-secondary > :last-child {
-    grid-column: 1 / -1;
+    @apply tw:col-span-full;
   }
 }
 @container admin-dashboard (min-width: 84rem) {

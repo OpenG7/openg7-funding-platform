@@ -1,0 +1,10 @@
+@reference '../../../../../styles/tailwind.css';
+
+:host {
+  @apply tw:block tw:text-admin-muted;
+  font-size: 0.8rem;
+}
+
+p {
+  margin: 0.5rem 0;
+}

@@ -1,133 +1,102 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
+  @apply tw:block tw:min-w-0 tw:text-admin-text;
   container: admin-cockpit / inline-size;
-  display: block;
-  min-width: 0;
-  color: var(--admin-text);
 }
 .panel {
+  @apply tw:rounded-xl tw:p-5 tw:h-full;
   border: 1px solid var(--admin-border);
   background: var(--admin-panel);
-  border-radius: 0.75rem;
-  padding: 1.25rem;
-  height: 100%;
 }
 .heading {
-  display: flex;
+  @apply tw:flex tw:justify-between tw:gap-4 tw:mb-3;
   align-items: start;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 0.75rem;
 }
 h2 {
-  margin: 0;
+  @apply tw:m-0;
 }
 .meta,
 .notice {
+  @apply tw:text-admin-muted tw:wrap-anywhere;
   font-size: var(--admin-secondary-size, 0.875rem);
-  color: var(--admin-muted);
   margin: 0.5rem 0;
-  overflow-wrap: anywhere;
 }
 .metrics {
-  display: grid;
+  @apply tw:grid tw:gap-5 tw:mt-4;
   align-items: start;
   grid-template-columns: minmax(0, 1fr);
-  gap: 1.25rem;
-  margin-top: 1rem;
 }
 .metric {
-  min-width: 0;
+  @apply tw:min-w-0 tw:rounded-xl;
   border: 1px solid var(--admin-border);
-  border-radius: 0.75rem;
   background: var(--admin-panel);
 }
 .metric > .notice {
-  padding: 0 1.25rem;
+  @apply tw:py-0 tw:px-5;
 }
 .method {
-  margin-top: 1rem;
-  color: var(--admin-muted);
+  @apply tw:mt-4 tw:text-admin-muted;
   font-size: var(--admin-secondary-size, 0.875rem);
 }
 summary {
-  cursor: pointer;
+  @apply tw:cursor-pointer;
 }
 .currency {
-  display: flex;
-  align-items: center;
+  @apply tw:flex tw:items-center;
   gap: 0.6rem;
 }
 select {
+  @apply tw:text-admin-text tw:min-h-admin-control tw:py-2.5 tw:px-3 tw:rounded-admin-sm;
   background: var(--admin-panel);
-  color: var(--admin-text);
   border: 1px solid var(--admin-border);
   font: inherit;
-  min-height: var(--admin-control-height, 2.75rem);
-  padding: 0.625rem 0.75rem;
-  border-radius: 0.4rem;
 }
 .facts {
-  display: grid;
-  gap: 0.5rem;
+  @apply tw:grid tw:gap-2;
 }
 .facts div {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
+  @apply tw:flex tw:justify-between tw:gap-4;
 }
 dd {
-  margin: 0;
+  @apply tw:m-0;
   font-variant-numeric: tabular-nums;
 }
 ul {
+  @apply tw:p-0;
   list-style: none;
   margin: 0.75rem 0 0;
-  padding: 0;
 }
 li {
   border-top: 1px solid var(--admin-border);
 }
 li a {
-  display: flex;
-  gap: 0.75rem;
-  justify-content: space-between;
-  padding: 0.75rem 0;
+  @apply tw:flex tw:gap-3 tw:justify-between tw:py-3 tw:px-0 tw:text-admin-text;
   text-decoration: none;
-  color: var(--admin-text);
 }
 li a:hover {
   color: var(--admin-gold, #f4c66a);
 }
 small {
-  display: block;
-  color: var(--admin-muted);
+  @apply tw:block tw:text-admin-muted tw:mt-1 tw:wrap-anywhere;
   font-size: var(--admin-secondary-size, 0.875rem);
-  margin-top: 0.25rem;
-  overflow-wrap: anywhere;
 }
 strong {
   font-size: 1rem;
 }
 .today {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.5rem;
+  @apply tw:grid tw:grid-cols-2 tw:gap-2;
   font-size: var(--admin-secondary-size, 0.875rem);
 }
 .today div {
-  min-width: 0;
-  display: flex;
-  gap: 0.5rem;
-  justify-content: space-between;
+  @apply tw:min-w-0 tw:flex tw:gap-2 tw:justify-between;
 }
 .today dt {
-  min-width: 0;
-  overflow-wrap: anywhere;
+  @apply tw:min-w-0 tw:wrap-anywhere;
 }
 .status {
-  border-radius: 0.4rem;
+  @apply tw:rounded-admin-sm tw:whitespace-nowrap;
   padding: 0.15rem 0.4rem;
-  white-space: nowrap;
   font-size: var(--admin-secondary-size, 0.875rem);
 }
 a:focus-visible,
@@ -138,12 +107,12 @@ select:focus-visible {
 }
 @container admin-cockpit (min-width: 38rem) {
   .metrics {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    @apply tw:grid-cols-2;
   }
 }
 @container admin-cockpit (min-width: 64rem) {
   .metrics {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    @apply tw:grid-cols-4;
   }
 }
 @container admin-cockpit (max-width: 38rem) {
@@ -151,7 +120,7 @@ select:focus-visible {
     grid-template-columns: minmax(0, 1fr);
   }
   .heading {
-    flex-wrap: wrap;
+    @apply tw:flex-wrap;
   }
   .today {
     grid-template-columns: minmax(0, 1fr);
