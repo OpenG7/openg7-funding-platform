@@ -1,11 +1,11 @@
+@reference '../../../../../styles/tailwind.css';
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
 }
 h1,
 h2,
 p {
-  margin: 0;
+  @apply tw:m-0;
 }
 button,
 input,
@@ -17,26 +17,23 @@ input {
 }
 button,
 .primary-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  @apply tw:inline-flex tw:items-center tw:justify-center;
   gap: 0.55rem;
   border: 1px solid var(--admin-border);
   border-radius: 0.45rem;
-  min-height: 2.75rem;
+  @apply tw:min-h-11;
   padding: 0.6rem 0.85rem;
   background: var(--admin-panel-raised);
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
   font-weight: var(--admin-control-weight);
-  cursor: pointer;
+  @apply tw:cursor-pointer;
 }
 button:hover:not(:disabled) {
   background: var(--og7-admin-selected, #234760);
   border-color: var(--og7-admin-accent, #86cfff);
 }
 button:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
+  @apply tw:cursor-not-allowed tw:opacity-55;
 }
 button:focus-visible,
 a:focus-visible,
@@ -61,64 +58,58 @@ a {
   border: 1px solid var(--admin-border);
   border-radius: 0.75rem;
   padding: 1.1rem;
-  min-width: 0;
+  @apply tw:min-w-0;
 }
 .scope {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
   line-height: 1.5;
   margin-top: 0.9rem;
 }
 .eyebrow {
-  display: block;
+  @apply tw:block;
   color: var(--og7-admin-accent, #9bd5ed);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  @apply tw:uppercase;
   margin-bottom: 0.35rem;
 }
 .setup-panel header,
 .setup-table-panel header {
-  display: flex;
+  @apply tw:flex;
   gap: 0.7rem;
-  justify-content: space-between;
+  @apply tw:justify-between;
   align-items: start;
 }
 .setup-panel header > div > span,
 .setup-table-panel header > div > span {
-  display: block;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:block tw:text-admin-caption;
   letter-spacing: 0.07em;
-  color: var(--admin-muted);
-  text-transform: uppercase;
+  @apply tw:text-admin-muted tw:uppercase;
   margin-bottom: 0.2rem;
 }
 summary {
   color: var(--og7-admin-accent, #b8dfff);
-  cursor: pointer;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:cursor-pointer tw:text-admin-caption;
   padding: 0.3rem 0;
 }
 code {
-  font-size: var(--admin-caption-size, 0.875rem);
-  overflow-wrap: anywhere;
+  @apply tw:text-admin-caption tw:wrap-anywhere;
 }
 .status-pill {
-  display: inline-flex;
-  align-items: center;
+  @apply tw:inline-flex tw:items-center;
   padding: 0.25rem 0.5rem;
   border-radius: 0.3rem;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
   background: var(--admin-panel-raised);
 }
 .status-ok {
-  color: var(--admin-accent);
+  @apply tw:text-admin-accent;
 }
 .status-warn {
   background: var(--admin-warning-bg);
-  color: var(--admin-warning);
+  @apply tw:text-admin-warning;
 }
 .tour-target {
   box-shadow: 0 0 0 3px var(--admin-focus);

@@ -141,6 +141,19 @@ API interceptées pour vérifier palettes, responsive et interactions. Ces lots
 changent la présentation; les calculs, permissions, confirmations et opérations
 de paiement, publication ou livraison restent dans leurs contrats existants.
 
+Les lots Assistant, À suivre, Configuration et Recherche globale étendent ces
+utilitaires aux files, cartes et panneaux de consultation. Les filtres de
+l'assistant conservent leur seuil de 640 px; À suivre garde celui de 600 px,
+avec les styles de sa page extraits dans une feuille locale. Configuration
+conserve ses grilles à 1350 et 700 px. Le dialogue de recherche garde ses
+dimensions calculées, son seuil de 480 px et ses mécanismes de focus. Les recettes
+[assistant](../../tests/playwright/admin-assistant-overview.spec.ts),
+[contexte](../../tests/playwright/admin-assistant-context.spec.ts),
+[À suivre](../../tests/playwright/admin-attention.spec.ts),
+[configuration](../../tests/playwright/admin-setup-layout.spec.ts) et
+[recherche](../../tests/playwright/admin-global-search.spec.ts) vérifient leur
+présentation et leurs interactions avec les API interceptées.
+
 Étendre seulement là où les utilitaires rendent la source plus claire. Conserver
 du CSS explicite pour les interactions de sélecteurs, les dégradés, graphiques,
 positions calculées, animations produit et règles d'impression complexes.

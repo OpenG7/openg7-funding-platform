@@ -1,78 +1,68 @@
+@reference '../../../../../styles/tailwind.css';
 .setup-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  @apply tw:grid tw:grid-cols-2;
   align-items: start;
-  gap: 1rem;
+  @apply tw:gap-4;
 }
 .setup-panel {
-  display: grid;
+  @apply tw:grid;
   align-content: start;
   gap: 0.9rem;
 }
 .setup-panel p {
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 .setup-panel a {
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 .setup-panel details {
   border-top: 1px solid var(--admin-border);
   padding-top: 0.65rem;
 }
 dl {
-  display: grid;
+  @apply tw:grid;
   gap: 0.65rem;
   margin: 0.8rem 0 0;
 }
 dl div {
-  display: grid;
-  gap: 0.25rem;
+  @apply tw:grid tw:gap-1;
 }
 dt {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
 }
 dd {
-  color: var(--admin-text);
-  margin: 0;
-  overflow-wrap: anywhere;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-text tw:m-0 tw:wrap-anywhere tw:text-admin-caption;
 }
 .test-email {
-  display: grid;
+  @apply tw:grid;
   gap: 0.65rem;
 }
 label {
-  display: grid;
+  @apply tw:grid;
   gap: 0.4rem;
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
 }
 input {
   border: 1px solid var(--admin-border);
   border-radius: 0.35rem;
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
   background: var(--admin-panel-raised);
-  min-height: 2.75rem;
+  @apply tw:min-h-11;
   padding: 0.5rem 0.7rem;
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
+  @apply tw:w-full tw:min-w-0 tw:box-border;
 }
 .panel-note {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   line-height: 1.5;
 }
 .panel-note.error {
-  color: var(--admin-danger);
+  @apply tw:text-admin-danger;
 }
 .queue-metrics {
-  display: grid;
-  gap: 0.5rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  @apply tw:grid tw:gap-2 tw:grid-cols-2;
 }
 .queue-metrics div {
-  display: grid;
+  @apply tw:grid;
   gap: 0.2rem;
   padding: 0.65rem;
   background: var(--admin-panel-raised);
@@ -80,8 +70,7 @@ input {
   border-radius: 0.4rem;
 }
 .queue-metrics span {
-  font-size: var(--admin-caption-size, 0.875rem);
-  color: var(--admin-muted);
+  @apply tw:text-admin-caption tw:text-admin-muted;
 }
 .queue-metrics strong {
   font-size: 1.15rem;
@@ -91,9 +80,9 @@ input {
   grid-column: 1 / -1;
 }
 .storage-panel h2 {
-  display: flex;
+  @apply tw:flex;
   gap: 0.65rem;
-  align-items: center;
+  @apply tw:items-center;
 }
 @media (max-width: 700px) {
   .setup-grid {

@@ -1,52 +1,43 @@
+@reference '../../../../../styles/tailwind.css';
 .admin-content {
-  display: grid;
+  @apply tw:grid;
   gap: 1.1rem;
-  min-width: 0;
+  @apply tw:min-w-0;
 }
 .admin-topbar {
-  display: flex;
-  justify-content: space-between;
-  gap: 1.5rem;
-  align-items: center;
+  @apply tw:flex tw:justify-between tw:gap-6 tw:items-center;
 }
 .admin-topbar > div:first-child {
   max-width: 52rem;
 }
 .admin-topbar span,
 .eyebrow {
-  display: block;
+  @apply tw:block;
   color: var(--og7-admin-accent, #9bd5ed);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  @apply tw:uppercase;
   margin-bottom: 0.35rem;
 }
 .subtitle {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   font-size: 0.9rem;
   margin-top: 0.55rem;
 }
 .topbar-actions {
-  display: flex;
-  gap: 0.5rem;
-  flex-shrink: 0;
+  @apply tw:flex tw:gap-2 tw:shrink-0;
 }
 .secondary-button {
   background: transparent;
 }
 .environment-bar {
-  display: flex;
+  @apply tw:flex;
   gap: 0.75rem 1.5rem;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  font-size: var(--admin-caption-size, 0.875rem);
-  color: var(--admin-muted);
+  @apply tw:justify-between tw:flex-wrap tw:text-admin-caption tw:text-admin-muted;
 }
 .environment-bar > span {
-  display: inline-flex;
-  align-items: center;
-  flex-wrap: wrap;
+  @apply tw:inline-flex tw:items-center tw:flex-wrap;
   gap: 0.45rem;
 }
 .environment {
@@ -56,8 +47,7 @@
   padding: 0.4rem 0.7rem;
 }
 .environment strong {
-  color: var(--admin-text);
-  text-transform: uppercase;
+  @apply tw:text-admin-text tw:uppercase;
 }
 .environment-dot {
   width: 0.45rem;
@@ -66,69 +56,60 @@
   background: var(--og7-admin-accent, #8dbddd);
 }
 .section-nav {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  @apply tw:flex tw:gap-2 tw:flex-wrap;
   padding: 0.45rem 0 0.85rem;
   border-bottom: 1px solid var(--admin-border);
 }
 .section-nav button {
   background: transparent;
   border-color: transparent;
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
 }
 .section-nav button[aria-current='location'] {
   background: var(--og7-admin-selected, #12354c);
   border-color: var(--og7-admin-accent, #3c6d89);
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
 }
 .workspace-grid {
-  display: grid;
+  @apply tw:grid;
   grid-template-columns: minmax(0, 2fr) minmax(17rem, 1fr);
   align-items: start;
-  gap: 1rem;
+  @apply tw:gap-4;
 }
 .setup-sidebar {
-  display: grid;
-  gap: 1rem;
-  min-width: 0;
+  @apply tw:grid tw:gap-4 tw:min-w-0;
 }
 .audit-link {
-  display: flex;
-  align-items: center;
+  @apply tw:flex tw:items-center;
   justify-content: end;
-  gap: 0.5rem;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:gap-2 tw:text-admin-caption;
   padding: 0.8rem 0.2rem;
 }
 .state {
   border: 1px solid var(--admin-border);
   border-radius: 0.6rem;
-  padding: 1rem;
+  @apply tw:p-4;
 }
 .tour-actions {
-  display: flex;
-  justify-content: space-between;
+  @apply tw:flex tw:justify-between;
   gap: 0.7rem;
-  padding: 1rem;
+  @apply tw:p-4;
   border-top: 1px solid var(--admin-border);
 }
 .state-error {
-  color: var(--admin-danger);
+  @apply tw:text-admin-danger;
 }
 @media (max-width: 1350px) {
   .workspace-grid {
     grid-template-columns: minmax(0, 1fr);
   }
   .setup-sidebar {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    @apply tw:grid-cols-2;
   }
 }
 @media (max-width: 700px) {
   .admin-topbar {
-    align-items: stretch;
-    flex-direction: column;
+    @apply tw:items-stretch tw:flex-col;
   }
   .topbar-actions {
     justify-content: start;
@@ -137,6 +118,6 @@
     grid-template-columns: minmax(0, 1fr);
   }
   .environment-bar {
-    font-size: var(--admin-caption-size, 0.875rem);
+    @apply tw:text-admin-caption;
   }
 }

@@ -1,39 +1,34 @@
+@reference '../../../../../styles/tailwind.css';
 .section-heading {
-  display: flex;
+  @apply tw:flex;
   align-items: start;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  @apply tw:justify-between tw:gap-4 tw:mb-4;
 }
 .section-heading h2 {
-  display: flex;
+  @apply tw:flex;
   gap: 0.65rem;
-  align-items: center;
+  @apply tw:items-center;
 }
 .section-heading h2 openg7-admin-icon {
   color: var(--og7-admin-accent, #9bd5ed);
   font-size: 1.2rem;
 }
 .section-heading p {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
   margin-top: 0.2rem;
 }
 .systems-tools {
-  display: flex;
-  align-items: center;
+  @apply tw:flex tw:items-center;
   gap: 0.8rem;
 }
 .count {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
 }
 @media (max-width: 700px) {
   .section-heading {
-    align-items: stretch;
-    flex-direction: column;
+    @apply tw:items-stretch tw:flex-col;
   }
   .systems-tools {
-    justify-content: space-between;
+    @apply tw:justify-between;
   }
 }
