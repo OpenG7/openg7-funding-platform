@@ -1,5 +1,5 @@
 import { AxeBuilder } from '@axe-core/playwright';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import type { AdminEmailQueueMessageRecord } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
@@ -58,6 +58,269 @@ async function preparePage(page: Page, language: string, width: number) {
     language
   );
 }
+
+const emailPalettes = {
+  mineral: {
+    panel: 'rgb(255, 255, 255)',
+    raised: 'rgb(240, 244, 238)',
+    text: 'rgb(41, 51, 46)',
+    muted: 'rgb(83, 99, 90)',
+    border: 'rgb(202, 213, 201)',
+    danger: 'rgb(165, 45, 62)',
+    dangerBackground: 'rgb(252, 236, 239)',
+    warning: 'rgb(128, 84, 17)',
+    warningBackground: 'rgb(255, 243, 217)',
+    success: 'rgb(34, 99, 66)'
+  },
+  night: {
+    panel: 'rgb(20, 35, 56)',
+    raised: 'rgb(27, 45, 68)',
+    text: 'rgb(241, 245, 252)',
+    muted: 'rgb(189, 203, 224)',
+    border: 'rgb(64, 86, 111)',
+    danger: 'rgb(255, 181, 188)',
+    dangerBackground: 'rgb(64, 38, 48)',
+    warning: 'rgb(255, 218, 133)',
+    warningBackground: 'rgb(59, 48, 32)',
+    success: 'rgb(161, 231, 177)'
+  },
+  graphite: {
+    panel: 'rgb(37, 41, 47)',
+    raised: 'rgb(50, 56, 65)',
+    text: 'rgb(243, 244, 246)',
+    muted: 'rgb(196, 203, 213)',
+    border: 'rgb(86, 97, 110)',
+    danger: 'rgb(255, 188, 201)',
+    dangerBackground: 'rgb(70, 44, 53)',
+    warning: 'rgb(245, 212, 148)',
+    warningBackground: 'rgb(65, 55, 37)',
+    success: 'rgb(167, 223, 188)'
+  }
+} as const;
+
+async function styleQueueFixture(page: Page) {
+  const messages: AdminEmailQueueMessageRecord[] = (
+    ['failed', 'sent', 'queued', 'sending'] as const
+  ).map((status, index) => ({
+    ...failedMessage,
+    id: `10000000-0000-4000-8000-00000000070${index + 1}`,
+    recipient_email: `style-${status}@example.test`,
+    status,
+    sent_at: status === 'sent' ? refreshedDate : null
+  }));
+  const options = { status: 200 };
+  const mutations: string[] = [];
+  await page.route('**/api/**', (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (request.method() !== 'GET') {
+      mutations.push(`${request.method()} ${path}`);
+      return route.fulfill({ status: 405, json: {} });
+    }
+    if (path.endsWith('/email-queue'))
+      return route.fulfill({
+        status: options.status,
+        json:
+          options.status === 200
+            ? { ...queueSnapshot(false), messages }
+            : { error: 'Synthetic queue style read failure' }
+      });
+    return route.fulfill({ status: 503, json: {} });
+  });
+  return { options, mutations };
+}
+
+async function emailGridColumns(element: Locator): Promise<number> {
+  return element.evaluate(
+    (node) => getComputedStyle(node).gridTemplateColumns.split(' ').length
+  );
+}
+
+for (const theme of ['mineral', 'night', 'graphite'] as const) {
+  for (const { language, width } of [
+    { language: 'fr-CA', width: 390 },
+    { language: 'en', width: 1536 }
+  ] as const) {
+    test(`email queue CSS preserves ${theme} surfaces, statuses and cancelled retry in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      const english = language === 'en';
+      const palette = emailPalettes[theme];
+      await preparePage(page, language, width);
+      await page.addInitScript((theme) => {
+        localStorage.setItem(
+          'openg7.pilotage.appearance.v1',
+          JSON.stringify({
+            theme,
+            system: false,
+            density: 'comfortable'
+          })
+        );
+      }, theme);
+      const { options, mutations } = await styleQueueFixture(page);
+      await page.goto('/admin/fundraiser/email-queue');
+      const summary = page.getByRole('region', {
+        name: english ? 'Email queue summary' : 'Resume file courriel',
+        exact: true
+      });
+      const filters = page.getByRole('region', {
+        name: english ? 'Email queue filters' : 'Filtres file courriel',
+        exact: true
+      });
+      const messages = page.getByRole('region', {
+        name: english ? 'Email messages' : 'Messages courriel',
+        exact: true
+      });
+      await expect(summary.getByRole('article')).toHaveCount(6);
+      await expect(page.locator('html')).toHaveAttribute('lang', language);
+      await expect(page.locator('html')).toHaveAttribute(
+        'data-og7-pilot-theme',
+        theme
+      );
+      await expect
+        .poll(() => emailGridColumns(summary))
+        .toBe(width === 390 ? 1 : 5);
+      await expect
+        .poll(() => emailGridColumns(filters))
+        .toBe(width === 390 ? 1 : 2);
+      for (const panel of [
+        summary.getByRole('article').first(),
+        filters,
+        messages
+      ]) {
+        await expect(panel).toHaveCSS('background-color', palette.panel);
+        await expect(panel).toHaveCSS('border-top-color', palette.border);
+        await expect(panel).toHaveCSS('border-top-width', '1px');
+        await expect(panel).toHaveCSS('border-radius', '7.2px');
+        await expect(panel).toHaveCSS('padding', '16px');
+      }
+      await expect(summary.getByRole('article').first()).toHaveCSS(
+        'min-height',
+        '100px'
+      );
+      await expect(summary.locator('strong').first()).toHaveCSS(
+        'font-size',
+        '24.8px'
+      );
+      const search = filters.getByRole('searchbox');
+      await expect(search).toHaveCSS('padding', '10.4px 12px');
+      await expect(search).toHaveCSS('color', palette.text);
+      const table = messages.getByRole('table');
+      await expect(table).toHaveCSS('min-width', '1248px');
+      await expect(table).toHaveCSS('border-collapse', 'collapse');
+      const scrolling = table.locator('..');
+      await expect(scrolling).toHaveCSS('overflow-x', 'auto');
+      expect(
+        await scrolling.evaluate((node) => node.scrollWidth > node.clientWidth)
+      ).toBe(true);
+      for (const [status, color, background] of [
+        ['failed', palette.danger, palette.dangerBackground],
+        ['sent', palette.success, palette.raised],
+        ['queued', palette.warning, palette.warningBackground],
+        ['sending', palette.muted, palette.raised]
+      ] as const) {
+        const row = messages
+          .getByRole('row')
+          .filter({ hasText: `style-${status}@example.test` });
+        const pill = row.getByRole('cell').nth(1).locator('span');
+        await expect(pill).toHaveCSS('color', color);
+        await expect(pill).toHaveCSS('background-color', background);
+        await expect(pill).toHaveCSS('min-height', '26.4px');
+        await expect(pill).toHaveCSS('padding', '0px 10.4px');
+        const retry = row.getByRole('button', {
+          name: english ? 'Retry' : 'Relancer',
+          exact: true
+        });
+        await expect(retry).toHaveCSS('min-height', '36px');
+        if (status === 'sent' || status === 'sending') {
+          await expect(retry).toBeDisabled();
+          await expect(retry).toHaveCSS('opacity', '0.55');
+        }
+      }
+      const retry = messages
+        .getByRole('row')
+        .filter({ hasText: 'style-failed@example.test' })
+        .getByRole('button', {
+          name: english ? 'Retry' : 'Relancer',
+          exact: true
+        });
+      await retry.focus();
+      await page.keyboard.press('Enter');
+      await expect(page.getByRole('dialog')).toContainText(
+        'style-failed@example.test'
+      );
+      await page.keyboard.press('Escape');
+      await expect(retry).toBeFocused();
+      await search.fill('synthetic-missing@example.test');
+      const empty = messages.getByRole('article');
+      await expect(empty).toHaveCSS('display', 'grid');
+      await expect(empty).toHaveCSS('gap', '4px');
+      await expect(empty).toHaveCSS('background-color', palette.panel);
+      options.status = 503;
+      await page
+        .getByRole('button', {
+          name: english ? 'Refresh' : 'Actualiser',
+          exact: true
+        })
+        .click();
+      const error = page.getByText('Synthetic queue style read failure', {
+        exact: true
+      });
+      await expect(error).toHaveCSS('color', palette.danger);
+      await expect(error).toHaveCSS('padding', '16px');
+      expect(mutations).toEqual([]);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+    });
+  }
+}
+
+test('email queue grids preserve the 620px, 860px and 1080px boundaries', async ({
+  page
+}) => {
+  await preparePage(page, 'fr-CA', 1280);
+  await styleQueueFixture(page);
+  await page.goto('/admin/fundraiser/email-queue');
+  const summary = page.getByRole('region', {
+    name: 'Resume file courriel',
+    exact: true
+  });
+  const filters = page.getByRole('region', {
+    name: 'Filtres file courriel',
+    exact: true
+  });
+  const messages = page.getByRole('region', {
+    name: 'Messages courriel',
+    exact: true
+  });
+  await expect(summary.getByRole('article')).toHaveCount(6);
+  for (const width of [620, 621, 860, 861, 1080, 1081]) {
+    await test.step(`${width}px`, async () => {
+      await page.setViewportSize({ width, height: 950 });
+      await expect
+        .poll(() => emailGridColumns(summary))
+        .toBe(width <= 620 ? 1 : width <= 1080 ? 2 : 5);
+      await expect
+        .poll(() => emailGridColumns(filters))
+        .toBe(width <= 860 ? 1 : 2);
+      for (const header of [
+        page.getByRole('main').locator('header').first(),
+        messages.locator('header')
+      ])
+        await expect(header).toHaveCSS(
+          'flex-direction',
+          width <= 860 ? 'column' : 'row'
+        );
+      await expect(messages.getByRole('table')).toHaveCSS(
+        'min-width',
+        '1248px'
+      );
+    });
+  }
+});
 
 async function expectSentQueue(page: Page, english: boolean) {
   const row = page
