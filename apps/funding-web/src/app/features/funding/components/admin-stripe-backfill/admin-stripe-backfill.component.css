@@ -1,13 +1,13 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
-  width: 100%;
+  @apply tw:block tw:min-w-0 tw:w-full;
   max-width: 78rem;
   margin: 0 auto;
 }
 
 section {
-  padding: 1.25rem;
+  @apply tw:p-5;
   border: 1px solid var(--admin-border);
   border-radius: 0.6rem;
   background: var(--admin-panel);
@@ -18,7 +18,7 @@ h3,
 p,
 dl,
 dd {
-  margin: 0;
+  @apply tw:m-0;
 }
 
 .panel-heading,
@@ -26,20 +26,17 @@ dd {
 .result-heading,
 .result-actions,
 .presets {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem;
+  @apply tw:flex tw:flex-wrap tw:items-center tw:gap-3;
 }
 
 .panel-heading,
 .scope-heading,
 .result-heading {
-  justify-content: space-between;
+  @apply tw:justify-between;
 }
 
 .panel-heading {
-  align-items: flex-start;
+  @apply tw:items-start;
 }
 
 .panel-heading > div {
@@ -54,8 +51,7 @@ dd {
 .description,
 .hint,
 dt {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
 }
 
 .scope-heading {
@@ -63,14 +59,13 @@ dt {
 }
 
 form[hidden] {
-  display: none;
+  @apply tw:hidden;
 }
 
 fieldset {
-  min-width: 0;
+  @apply tw:min-w-0;
   border: 0;
-  padding: 0;
-  margin: 0;
+  @apply tw:p-0 tw:m-0;
 }
 
 .presets {
@@ -78,22 +73,20 @@ fieldset {
 }
 
 .scope-fields {
-  display: grid;
+  @apply tw:grid;
   grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
   align-items: end;
-  gap: 0.75rem;
+  @apply tw:gap-3;
 }
 
 label {
-  display: grid;
+  @apply tw:grid;
   gap: 0.4rem;
-  min-width: 0;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:min-w-0 tw:text-admin-caption;
 }
 
 input {
-  width: 100%;
-  min-height: 2.75rem;
+  @apply tw:w-full tw:min-h-11;
   padding: 0.55rem 0.65rem;
   color-scheme: dark;
 }
@@ -103,13 +96,13 @@ input {
 }
 
 .validation {
-  margin-top: 0.5rem;
+  @apply tw:mt-2;
 }
 
 .result {
-  display: grid;
+  @apply tw:grid;
   gap: 0.65rem;
-  margin-top: 1.25rem;
+  @apply tw:mt-5;
   padding: 1rem 0.5rem 0.5rem;
   border-top: 1px solid var(--admin-border);
   border-radius: 0.2rem;
@@ -119,14 +112,13 @@ input {
   border: 1px solid var(--admin-border);
   border-radius: 0.4rem;
   padding: 0.25rem 0.6rem;
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
 }
 
 .mode-badge--live {
   border-color: var(--admin-warning);
-  color: var(--admin-warning);
+  @apply tw:text-admin-warning;
 }
 
 .notice {
@@ -134,21 +126,21 @@ input {
   border-left: 3px solid var(--admin-border);
   border-radius: 0.3rem;
   background: var(--admin-panel-raised);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 
 section > .notice {
-  margin-top: 0.75rem;
+  @apply tw:mt-3;
 }
 
 .notice--warning {
   border-color: var(--admin-warning);
-  color: var(--admin-warning);
+  @apply tw:text-admin-warning;
 }
 
 .notice--success {
   border-color: var(--admin-success);
-  color: var(--admin-success);
+  @apply tw:text-admin-success;
 }
 
 .notice[role='alert'] {
@@ -156,16 +148,11 @@ section > .notice {
 }
 
 .metrics {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0.5rem;
+  @apply tw:grid tw:grid-cols-5 tw:gap-2;
 }
 
 .metrics > div {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 0.75rem;
+  @apply tw:flex tw:flex-col tw:justify-between tw:p-3;
   border: 1px solid var(--admin-border);
   border-radius: 0.4rem;
 }
@@ -177,22 +164,22 @@ dd {
 }
 
 .admin-button:disabled {
-  cursor: not-allowed;
+  @apply tw:cursor-not-allowed;
 }
 
 @media (max-width: 1100px) {
   .scope-fields {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    @apply tw:grid-cols-2;
   }
 
   .metrics {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    @apply tw:grid-cols-3;
   }
 }
 
 @media (max-width: 540px) {
   section {
-    padding: 1rem;
+    @apply tw:p-4;
   }
 
   .scope-fields {
@@ -200,13 +187,13 @@ dd {
   }
 
   .metrics {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    @apply tw:grid-cols-2;
   }
 
   .refresh,
   .result-actions .admin-button,
   .scope-heading .admin-button {
-    width: 100%;
+    @apply tw:w-full;
   }
 
   .presets .admin-button {

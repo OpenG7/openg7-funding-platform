@@ -1,12 +1,12 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
 }
 
 .fields-grid,
 .filters {
-  display: grid;
-  gap: 0.75rem;
+  @apply tw:grid tw:gap-3;
 }
 
 .fields-grid {
@@ -21,7 +21,7 @@
   border: 1px solid var(--admin-border);
   border-radius: 0.45rem;
   grid-template-columns: minmax(14rem, 2fr) minmax(10rem, 1fr);
-  padding: 1rem;
+  @apply tw:p-4;
 }
 
 .span-3 {
@@ -29,9 +29,9 @@
 }
 
 label {
-  display: grid;
+  @apply tw:grid;
   gap: 0.35rem;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
 }
 

@@ -1,12 +1,9 @@
+@reference '../../../../../styles/tailwind.css';
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
 }
 .backup-panel {
-  position: relative;
-  display: grid;
-  gap: 1.5rem;
-  overflow: hidden;
+  @apply tw:relative tw:grid tw:gap-6 tw:overflow-hidden;
   padding: clamp(1.1rem, 2.5vw, 2rem);
   border: 1px solid var(--admin-border);
   border-radius: 1rem;
@@ -17,11 +14,11 @@
       transparent 45%
     ),
     var(--admin-panel);
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
 }
 .backup-panel::before {
   content: '';
-  position: absolute;
+  @apply tw:absolute;
   top: 0;
   left: 2rem;
   width: 4rem;
@@ -37,7 +34,7 @@ h2,
 h3,
 h4,
 p {
-  margin: 0;
+  @apply tw:m-0;
 }
 p {
   line-height: 1.6;
@@ -47,55 +44,48 @@ p {
 .actions,
 .history-heading,
 .footer-links {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+  @apply tw:flex tw:items-center tw:gap-4;
 }
 .backup-header,
 .history-heading {
-  justify-content: space-between;
-  flex-wrap: wrap;
+  @apply tw:justify-between tw:flex-wrap;
 }
 .heading-group {
-  align-items: flex-start;
+  @apply tw:items-start;
 }
 .hero-icon,
 .empty-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  @apply tw:inline-flex tw:items-center tw:justify-center;
   flex: 0 0 auto;
   width: 3rem;
   height: 3rem;
   border: 1px solid var(--admin-border);
   border-radius: 0.85rem;
   background: var(--admin-warning-bg);
-  color: var(--admin-gold);
+  @apply tw:text-admin-gold;
   font-size: 1.35rem;
 }
 .eyebrow {
-  color: var(--admin-gold);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-gold tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
   letter-spacing: 0.12em;
-  text-transform: uppercase;
+  @apply tw:uppercase;
   margin-bottom: 0.4rem;
 }
 .subtitle {
   margin-top: 0.45rem;
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   font-size: 0.9rem;
 }
 .status-badge {
-  display: inline-flex;
-  align-items: center;
+  @apply tw:inline-flex tw:items-center;
   gap: 0.45rem;
   border: 1px solid var(--admin-border);
   border-radius: 999px;
   padding: 0.3rem 0.7rem;
   background: var(--admin-panel-raised, #192f44);
   color: var(--admin-text, #c8e5f8);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
   line-height: 1.4;
   width: fit-content;
@@ -108,7 +98,7 @@ p {
 }
 [data-state='ready'],
 [data-state='succeeded'] {
-  color: var(--admin-success);
+  @apply tw:text-admin-success;
 }
 .status-badge[data-state='ready'],
 .status-badge[data-state='succeeded'] {
@@ -119,7 +109,7 @@ p {
 [data-state='not_configured'],
 [data-state='unavailable'],
 [data-state='stale'] {
-  color: var(--admin-warning);
+  @apply tw:text-admin-warning;
 }
 .status-badge[data-state='unknown'],
 .status-badge[data-state='not_configured'],
@@ -129,36 +119,29 @@ p {
   background: var(--og7-admin-warning-bg, #342f26);
 }
 [data-state='failed'] {
-  color: var(--admin-danger);
+  @apply tw:text-admin-danger;
 }
 .status-badge[data-state='failed'] {
   border-color: var(--admin-danger-border);
   background: var(--og7-admin-danger-bg, #3c2734);
 }
 .overview {
-  display: grid;
+  @apply tw:grid;
   grid-template-columns: 1.2fr 1fr 1fr;
   background: var(--admin-panel-raised, #0b192775);
   border: 1px solid var(--admin-border);
   border-radius: 0.8rem;
 }
 .metric {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  @apply tw:flex tw:flex-col tw:items-start;
   gap: 0.55rem;
-  padding: 1.25rem;
-  min-width: 0;
+  @apply tw:p-5 tw:min-w-0;
 }
 .metric + .metric {
   border-left: 1px solid var(--admin-border);
 }
 .metric-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:flex tw:items-center tw:gap-2 tw:text-admin-muted tw:text-admin-caption;
 }
 .metric-label openg7-admin-icon {
   color: var(--og7-admin-accent, #8bbcd4);
@@ -169,20 +152,16 @@ p {
   letter-spacing: -0.02em;
 }
 .metric time {
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 .metric-note,
 .muted,
 .checked {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
   line-height: 1.55;
 }
 .activation {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1.5rem;
+  @apply tw:flex tw:items-center tw:justify-between tw:gap-6;
   border: 1px solid var(--admin-warning-border);
   border-radius: 0.8rem;
   padding: 1.35rem;
@@ -193,47 +172,42 @@ p {
 }
 .activation p:not(.eyebrow) {
   margin-top: 0.45rem;
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   font-size: 0.9rem;
 }
 .activation > button {
   flex: 0 0 auto;
 }
 .activation-preview {
-  display: flex;
-  flex-wrap: wrap;
+  @apply tw:flex tw:flex-wrap;
   gap: 0.4rem 1.25rem;
-  margin-top: 1rem;
-  font-size: var(--admin-caption-size, 0.875rem);
-  color: var(--admin-warning);
+  @apply tw:mt-4 tw:text-admin-caption tw:text-admin-warning;
 }
 .command-bar {
-  display: grid;
+  @apply tw:grid;
   gap: 0.65rem;
 }
 .actions {
-  flex-wrap: wrap;
-  gap: 0.75rem;
+  @apply tw:flex-wrap tw:gap-3;
 }
 .admin-button {
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 .admin-button:disabled {
-  cursor: not-allowed;
+  @apply tw:cursor-not-allowed;
 }
 .refresh-button {
   background: transparent;
 }
 .notice,
 .operation {
-  display: flex;
-  align-items: flex-start;
+  @apply tw:flex tw:items-start;
   gap: 0.85rem;
   padding: 1rem 1.2rem;
   border: 1px solid var(--admin-warning-border);
   border-radius: 0.75rem;
   background: var(--admin-warning-bg);
-  color: var(--admin-warning);
+  @apply tw:text-admin-warning;
   font-size: 0.88rem;
 }
 .notice openg7-admin-icon,
@@ -241,7 +215,7 @@ p {
   margin-top: 0.15rem;
 }
 .notice .admin-button {
-  margin-top: 0.75rem;
+  @apply tw:mt-3;
 }
 .operation {
   border-color: var(--admin-border);
@@ -249,32 +223,28 @@ p {
   color: var(--admin-text, #c8e5f8);
 }
 .operation p {
-  color: var(--admin-muted);
-  margin-top: 0.25rem;
+  @apply tw:text-admin-muted tw:mt-1;
 }
 .operation[data-state='succeeded'] {
   border-color: var(--admin-success-border);
-  color: var(--admin-success);
+  @apply tw:text-admin-success;
   background: var(--og7-admin-success-bg, #17392f60);
 }
 .operation[data-state='unknown'] {
   border-color: var(--admin-warning-border);
-  color: var(--admin-warning);
+  @apply tw:text-admin-warning;
   background: var(--og7-admin-warning-bg, #112a3c);
 }
 .operation[data-state='failed'] {
   border-color: var(--admin-danger-border);
-  color: var(--admin-danger);
+  @apply tw:text-admin-danger;
   background: var(--og7-admin-danger-bg, #112a3c);
 }
 .history-heading {
-  align-items: flex-end;
-  gap: 0.75rem;
-  margin-top: 0.25rem;
+  @apply tw:items-end tw:gap-3 tw:mt-1;
 }
 .history-heading h3 {
-  display: flex;
-  align-items: center;
+  @apply tw:flex tw:items-center;
   gap: 0.6rem;
 }
 .history-heading p {
@@ -282,22 +252,20 @@ p {
 }
 .count {
   background: var(--admin-panel-raised, #24394d);
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   border-radius: 0.4rem;
   padding: 0.1rem 0.45rem;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
   font-variant-numeric: tabular-nums;
 }
 .checked {
   max-width: 19rem;
 }
 .empty-state {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+  @apply tw:flex tw:items-center tw:gap-4;
   border: 1px dashed var(--admin-border);
   border-radius: 0.8rem;
-  padding: 1.5rem;
+  @apply tw:p-6;
 }
 .empty-icon {
   color: var(--og7-admin-accent, #8bbcd4);
@@ -305,37 +273,33 @@ p {
   border-color: var(--admin-border);
 }
 .empty-state p {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   margin-top: 0.3rem;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 .history-list {
   list-style: none;
-  padding: 0;
+  @apply tw:p-0;
   margin: -0.5rem 0 0;
 }
 .history-list li {
-  display: grid;
+  @apply tw:grid;
   grid-template-columns: 2rem minmax(10rem, 1fr) minmax(10rem, 1fr) 5rem auto;
-  align-items: center;
+  @apply tw:items-center;
   gap: 0.85rem;
   padding: 0.85rem 0;
   border-bottom: 1px solid var(--admin-border);
 }
 .job-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
+  @apply tw:flex tw:items-center tw:justify-center tw:w-8 tw:h-8;
   background: var(--admin-panel-raised);
   border-radius: 50%;
   color: var(--admin-muted, #c8e5f8);
 }
 .job-date {
-  display: grid;
+  @apply tw:grid;
   gap: 0.2rem;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 .job-date time,
 .job-size,
@@ -343,9 +307,7 @@ p {
   font-variant-numeric: tabular-nums;
 }
 .job-size {
-  font-size: var(--admin-caption-size, 0.875rem);
-  color: var(--admin-muted);
-  text-align: right;
+  @apply tw:text-admin-caption tw:text-admin-muted tw:text-right;
 }
 .detail-button {
   background: transparent;
@@ -357,98 +319,86 @@ p {
   border: 0;
   background: transparent;
   color: var(--og7-admin-accent, #b9e2fa);
-  cursor: pointer;
+  @apply tw:cursor-pointer;
   font: inherit;
   font-weight: var(--admin-control-weight);
-  font-size: var(--admin-caption-size, 0.875rem);
-  min-height: 2.75rem;
+  @apply tw:text-admin-caption tw:min-h-11;
 }
 .history-toggle {
-  justify-self: center;
+  @apply tw:justify-self-center;
   padding: 0.5rem 1rem;
   margin-top: -0.8rem;
 }
 .history-toggle:hover,
 .footer-links button:hover {
-  color: var(--admin-gold);
+  @apply tw:text-admin-gold;
   text-decoration: underline;
   text-underline-offset: 0.25em;
 }
 .footer-links {
-  flex-wrap: wrap;
+  @apply tw:flex-wrap;
   gap: 0.25rem 1.5rem;
 }
 .footer-links button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
+  @apply tw:inline-flex tw:items-center tw:gap-2;
   padding: 0.3rem 0;
-  text-align: left;
+  @apply tw:text-left;
 }
 .footer-links button:disabled {
   opacity: 0.65;
-  cursor: not-allowed;
+  @apply tw:cursor-not-allowed;
 }
 .backup-footer {
-  display: grid;
+  @apply tw:grid;
   gap: 0.65rem;
   padding-top: 1.2rem;
   border-top: 1px solid var(--admin-border);
 }
 .backup-footer > p {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  font-size: var(--admin-caption-size, 0.875rem);
-  color: var(--admin-muted);
+  @apply tw:flex tw:items-start tw:gap-2 tw:text-admin-caption tw:text-admin-muted;
 }
 .backup-footer > p openg7-admin-icon {
   margin-top: 0.2rem;
 }
 .drawer-intro {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   margin: 1rem 0;
   font-size: 0.95rem;
 }
 .guide-steps {
   list-style: none;
-  padding: 0;
+  @apply tw:p-0;
   margin: 1.5rem 0;
 }
 .guide-steps li {
-  display: flex;
-  gap: 1rem;
+  @apply tw:flex tw:gap-4;
   padding-bottom: 1.75rem;
 }
 .step-number {
   flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  @apply tw:flex tw:items-center tw:justify-center;
   width: 2.3rem;
   height: 2.3rem;
   border-radius: 0.7rem;
-  color: var(--admin-gold);
+  @apply tw:text-admin-gold;
   border: 1px solid var(--admin-warning-border);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 .guide-steps h3 {
-  margin-top: 0.25rem;
+  @apply tw:mt-1;
 }
 .guide-steps p {
-  margin-top: 0.5rem;
-  color: var(--admin-muted);
+  @apply tw:mt-2 tw:text-admin-muted;
   font-size: 0.9rem;
 }
 .drawer-note {
-  display: flex;
+  @apply tw:flex;
   gap: 0.6rem;
-  padding: 1rem;
+  @apply tw:p-4;
   border-left: 2px solid var(--admin-gold);
   background: var(--admin-warning-bg);
   margin: 1rem 0;
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
 }
 .evidence-list {
   margin: 1rem 0;
@@ -458,43 +408,40 @@ p {
   border-bottom: 1px solid var(--admin-border);
 }
 .evidence-list dt {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
   margin-bottom: 0.4rem;
 }
 .evidence-list dd {
-  margin: 0;
+  @apply tw:m-0;
   font-size: 0.9rem;
 }
 code {
-  overflow-wrap: anywhere;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:wrap-anywhere tw:text-admin-caption;
   user-select: all;
 }
 @media (max-width: 1100px) {
   .activation {
-    align-items: flex-start;
-    flex-direction: column;
+    @apply tw:items-start tw:flex-col;
   }
   .history-list li {
     grid-template-columns: 2rem minmax(8rem, 1fr) minmax(9rem, 1fr) auto;
   }
   .job-size {
-    display: none;
+    @apply tw:hidden;
   }
 }
 @media (max-width: 700px) {
   .hero-icon {
-    display: none;
+    @apply tw:hidden;
   }
   .backup-panel {
-    gap: 1.25rem;
+    @apply tw:gap-5;
   }
   .overview {
     grid-template-columns: 1fr 1fr;
   }
   .metric {
-    padding: 1rem;
+    @apply tw:p-4;
   }
   .metric:first-child {
     grid-column: 1 / -1;
@@ -507,12 +454,11 @@ code {
     font-size: 1.15rem;
   }
   .activation {
-    padding: 1rem;
-    gap: 1rem;
+    @apply tw:p-4 tw:gap-4;
   }
   .activation > button,
   .actions > button {
-    width: 100%;
+    @apply tw:w-full;
   }
   .history-list li {
     grid-template-columns: 2rem minmax(0, 1fr) auto;
@@ -526,25 +472,22 @@ code {
     grid-column: 2;
     border: 0;
     background: transparent;
-    padding: 0;
-    font-size: var(--admin-caption-size, 0.875rem);
+    @apply tw:p-0 tw:text-admin-caption;
   }
   .detail-button {
     grid-column: 3;
     grid-row: 2;
     padding: 0.4rem;
-    font-size: var(--admin-caption-size, 0.875rem);
+    @apply tw:text-admin-caption;
   }
   .detail-button openg7-admin-icon {
-    display: none;
+    @apply tw:hidden;
   }
   .empty-state {
-    padding: 1rem;
-    align-items: flex-start;
+    @apply tw:p-4 tw:items-start;
   }
   .empty-icon {
-    width: 2.5rem;
-    height: 2.5rem;
+    @apply tw:w-10 tw:h-10;
   }
 }
 @media (prefers-reduced-motion: no-preference) {

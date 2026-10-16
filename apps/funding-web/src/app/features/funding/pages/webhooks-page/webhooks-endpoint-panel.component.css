@@ -1,24 +1,22 @@
+@reference '../../../../../styles/tailwind.css';
+
 .panel {
-  height: 100%;
-  padding: 1.25rem;
+  @apply tw:h-full tw:p-5;
 }
 
 .endpoint-panel {
-  display: grid;
+  @apply tw:grid;
   gap: 0.7rem;
 }
 
 .endpoint-panel label span {
-  display: grid;
-  gap: 0.5rem;
+  @apply tw:grid tw:gap-2;
   grid-template-columns: minmax(0, 1fr) auto;
   margin-top: 0.35rem;
 }
 
 .panel-actions {
-  display: grid;
-  gap: 0.5rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  @apply tw:grid tw:gap-2 tw:grid-cols-2;
 }
 
 @media (max-width: 900px) {

@@ -1,15 +1,17 @@
+@reference '../../../../../styles/tailwind.css';
+
 h1,
 h2,
 h3,
 p,
 ol,
 ul {
-  margin: 0;
+  @apply tw:m-0;
 }
 
 button {
   border: 0;
-  cursor: pointer;
+  @apply tw:cursor-pointer;
   font: inherit;
 }
 

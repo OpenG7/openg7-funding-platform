@@ -1,33 +1,35 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
   background: var(--surface-page);
   color: var(--text-main);
-  display: block;
+  @apply tw:block;
   font-family: 'Segoe UI', Arial, sans-serif;
   min-height: 100dvh;
 }
 
 h1 {
-  margin: 0;
+  @apply tw:m-0;
 }
 
 .api-keys-shell {
   background: var(--surface-page);
-  display: block;
+  @apply tw:block;
   min-height: 100dvh;
-  position: relative;
+  @apply tw:relative;
 }
 
 .admin-sidebar {
   background: var(--surface-panel);
   border: 1px solid var(--border-color);
   border-left-color: var(--border-color);
-  display: grid;
+  @apply tw:grid;
   grid-template-rows: auto auto auto 1fr auto;
   inset: 0 auto 0 0;
   min-height: 100dvh;
-  overflow-y: auto;
+  @apply tw:overflow-y-auto;
   padding: 1.35rem 0.9rem;
-  position: fixed;
+  @apply tw:fixed;
   width: 15rem;
   z-index: 10;
 }
@@ -35,10 +37,9 @@ h1 {
 .dragon-brand,
 .admin-sidebar a,
 .admin-sidebar footer {
-  align-items: center;
+  @apply tw:items-center;
   color: var(--color-primary);
-  display: flex;
-  gap: 0.75rem;
+  @apply tw:flex tw:gap-3;
   text-decoration: none;
 }
 
@@ -51,15 +52,15 @@ h1 {
   border: 1px solid var(--border-color);
   border-radius: 0.75rem;
   color: var(--text-main);
-  display: grid;
+  @apply tw:grid;
   font-size: 2.1rem;
   height: 3.2rem;
-  place-items: center;
+  @apply tw:place-items-center;
   width: 3.2rem;
 }
 
 .dragon-brand strong {
-  display: block;
+  @apply tw:block;
   font-family: 'Segoe UI', Arial, sans-serif;
   font-size: 1.55rem;
   line-height: 1.25;
@@ -69,8 +70,7 @@ h1 {
 .dragon-brand small,
 .admin-sidebar footer em {
   color: var(--text-soft);
-  display: block;
-  font-style: normal;
+  @apply tw:block tw:not-italic;
 }
 
 .dragon-brand small {
@@ -82,7 +82,7 @@ h1 {
 }
 
 .admin-sidebar nav {
-  display: grid;
+  @apply tw:grid;
   gap: 0.3rem;
 }
 
@@ -95,13 +95,13 @@ h1 {
   font-size: 0.875rem;
   letter-spacing: 0.06em;
   margin: 0 0 0.5rem 0.25rem;
-  text-transform: uppercase;
+  @apply tw:uppercase;
 }
 
 .admin-sidebar a {
   border: 1px solid transparent;
   border-radius: 0.45rem;
-  min-height: 2.75rem;
+  @apply tw:min-h-11;
   padding: 0 0.65rem;
 }
 
@@ -116,21 +116,20 @@ h1 {
   background: var(--surface-subtle);
   border: 1px solid var(--border-color);
   border-radius: 0.65rem;
-  margin-top: 2rem;
-  padding: 0.75rem;
+  @apply tw:mt-8 tw:p-3;
 }
 
 .admin-sidebar footer > span {
   border: 1px solid var(--border-color);
   border-radius: 999px;
-  display: grid;
+  @apply tw:grid;
   height: 2.4rem;
-  place-items: center;
+  @apply tw:place-items-center;
   width: 2.4rem;
 }
 
 .admin-sidebar footer strong {
-  display: block;
+  @apply tw:block;
   font-size: 0.875rem;
 }
 
@@ -138,23 +137,19 @@ h1 {
   background: var(--surface-page);
   margin-left: 16rem;
   min-height: 100dvh;
-  padding: 1.5rem;
-  position: relative;
+  @apply tw:p-6 tw:relative;
 }
 
 .admin-topbar {
-  align-items: center;
+  @apply tw:items-center;
   border-bottom: 1px solid var(--border-color);
-  display: flex;
-  justify-content: space-between;
+  @apply tw:flex tw:justify-between;
   min-height: 3rem;
 }
 
 .admin-topbar nav,
 .admin-topbar div {
-  align-items: center;
-  display: flex;
-  gap: 0.75rem;
+  @apply tw:items-center tw:flex tw:gap-3;
 }
 
 .admin-topbar span,
@@ -167,33 +162,31 @@ h1 {
 .admin-topbar button {
   background: transparent;
   color: var(--color-primary);
-  min-height: 2.75rem;
+  @apply tw:min-h-11;
 }
 
 .admin-user {
   color: var(--text-main);
   font-size: 0.875rem;
-  text-align: right;
+  @apply tw:text-right;
 }
 
 .admin-user small {
-  display: block;
+  @apply tw:block;
 }
 
 .api-hero {
   min-height: 12rem;
-  overflow: hidden;
-  position: relative;
+  @apply tw:overflow-hidden tw:relative;
 }
 
 .api-hero img {
   filter: saturate(1.08) contrast(1.08);
-  height: 100%;
+  @apply tw:h-full;
   inset: 0;
   object-fit: cover;
   object-position: center center;
-  position: absolute;
-  width: 100%;
+  @apply tw:absolute tw:w-full;
 }
 
 .api-hero::after {
@@ -208,15 +201,13 @@ h1 {
     linear-gradient(180deg, transparent 60%, var(--surface-page));
   content: '';
   inset: 0;
-  position: absolute;
+  @apply tw:absolute;
 }
 
 .hero-copy {
-  align-items: center;
-  display: flex;
-  gap: 1rem;
+  @apply tw:items-center tw:flex tw:gap-4;
   padding: 3.4rem clamp(1rem, 4vw, 4rem) 1rem;
-  position: relative;
+  @apply tw:relative;
   z-index: 1;
 }
 
@@ -242,10 +233,7 @@ h1 {
 }
 
 .api-grid {
-  display: grid;
-  gap: 1.5rem;
-  margin-top: 0.75rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  @apply tw:grid tw:gap-6 tw:mt-3 tw:grid-cols-2;
 }
 
 .audit-panel {
@@ -253,8 +241,7 @@ h1 {
   border: 1px solid var(--border-color);
   border-radius: 0.72rem;
   box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
-  min-width: 0;
-  padding: 1.25rem;
+  @apply tw:min-w-0 tw:p-5;
 }
 
 .audit-panel h2 {
@@ -262,7 +249,7 @@ h1 {
   font-size: 1.125rem;
   letter-spacing: 0.05em;
   margin-bottom: 0.45rem;
-  text-transform: uppercase;
+  @apply tw:uppercase;
 }
 
 .audit-panel button {
@@ -270,17 +257,16 @@ h1 {
   border: 1px solid var(--border-color);
   border-radius: 0.45rem;
   color: var(--color-primary);
-  min-height: 2.75rem;
+  @apply tw:min-h-11;
   padding: 0 0.7rem;
 }
 
 .api-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.5rem;
+  @apply tw:grid-cols-2 tw:gap-6;
 }
 
 .checklist-panel {
-  display: grid;
+  @apply tw:grid;
   gap: 0.7rem;
 }
 
@@ -301,32 +287,29 @@ h1 {
 }
 
 .checklist-panel ul {
-  display: grid;
+  @apply tw:grid;
   gap: 0.45rem;
-  padding-left: 1rem;
+  @apply tw:pl-4;
 }
 
 .audit-panel {
-  margin-top: 0.75rem;
-  padding: 1.25rem;
+  @apply tw:mt-3 tw:p-5;
 }
 
 .audit-panel header {
-  align-items: center;
-  display: flex;
-  justify-content: space-between;
+  @apply tw:items-center tw:flex tw:justify-between;
 }
 
 .audit-panel > div {
-  display: grid;
+  @apply tw:grid;
   gap: 0.45rem;
   margin-top: 0.65rem;
 }
 
 .audit-panel article {
-  align-items: center;
+  @apply tw:items-center;
   border-top: 1px solid var(--border-color);
-  display: grid;
+  @apply tw:grid;
   gap: 0.6rem;
   grid-template-columns: 6rem minmax(16rem, 1fr) minmax(9rem, auto) minmax(
       14rem,
@@ -336,7 +319,7 @@ h1 {
 }
 
 .audit-panel em {
-  font-style: normal;
+  @apply tw:not-italic;
 }
 
 .audit-panel article.ok em {
@@ -353,20 +336,18 @@ h1 {
 
 @media (max-width: 1500px) {
   .admin-sidebar {
-    align-items: center;
-    display: grid;
+    @apply tw:items-center tw:grid;
     gap: 0.55rem 1rem;
     grid-template-columns: auto minmax(0, 1fr);
     inset: auto;
     min-height: auto;
-    overflow: visible;
+    @apply tw:overflow-visible;
     padding: 0.7rem 1rem;
-    position: relative;
-    width: auto;
+    @apply tw:relative tw:w-auto;
   }
 
   .dragon-brand {
-    margin-bottom: 0;
+    @apply tw:mb-0;
   }
 
   .dragon-brand > span {
@@ -388,13 +369,12 @@ h1 {
   .admin-sidebar section:first-of-type,
   .admin-sidebar section:nth-of-type(2) {
     grid-column: 1 / -1;
-    margin-top: 0;
+    @apply tw:mt-0;
   }
 
   .admin-sidebar section:first-of-type nav,
   .admin-sidebar section:nth-of-type(2) nav {
-    display: flex;
-    flex-wrap: wrap;
+    @apply tw:flex tw:flex-wrap;
     gap: 0.35rem;
   }
 
@@ -405,7 +385,7 @@ h1 {
 
   .admin-sidebar section:nth-of-type(3),
   .admin-sidebar footer {
-    display: none;
+    @apply tw:hidden;
   }
 
   .admin-sidebar a {
@@ -414,13 +394,13 @@ h1 {
   }
 
   .api-workspace {
-    margin-left: 0;
+    @apply tw:ml-0;
   }
 }
 
 @media (max-width: 1200px) {
   .api-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    @apply tw:grid-cols-2;
   }
 
   .audit-panel article {
@@ -433,20 +413,17 @@ h1 {
   .admin-sidebar {
     inset: auto;
     min-height: auto;
-    position: relative;
-    width: auto;
+    @apply tw:relative tw:w-auto;
   }
 
   .api-workspace {
-    margin-left: 0;
-    padding: 0.75rem;
+    @apply tw:ml-0 tw:p-3;
   }
 
   .admin-topbar,
   .admin-topbar div,
   .hero-copy {
-    align-items: flex-start;
-    flex-direction: column;
+    @apply tw:items-start tw:flex-col;
   }
 
   .api-grid {
@@ -482,7 +459,7 @@ h1 {
 
   .admin-sidebar section:first-of-type,
   .admin-sidebar section:nth-of-type(3) {
-    display: none;
+    @apply tw:hidden;
   }
 
   .admin-sidebar section:nth-of-type(2) {
@@ -490,7 +467,7 @@ h1 {
   }
 
   .admin-sidebar section:nth-of-type(2) h2 {
-    display: none;
+    @apply tw:hidden;
   }
 
   .admin-sidebar section:nth-of-type(2) nav {
@@ -504,7 +481,7 @@ h1 {
   }
 
   .api-workspace {
-    padding: 0.5rem;
+    @apply tw:p-2;
   }
 
   .admin-topbar {
@@ -512,7 +489,7 @@ h1 {
   }
 
   .admin-topbar div {
-    display: none;
+    @apply tw:hidden;
   }
 
   .admin-topbar nav {
@@ -540,7 +517,7 @@ h1 {
   .hero-copy p {
     font-size: 0.875rem;
     line-height: 1.25;
-    margin-top: 0.25rem;
+    @apply tw:mt-1;
   }
 
   .api-grid {

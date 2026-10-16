@@ -1,0 +1,87 @@
+@reference '../../../../../styles/tailwind.css';
+
+.admin-content,
+.expense-list {
+  @apply tw:grid tw:gap-4 tw:min-w-0;
+}
+
+.admin-topbar,
+.summary-grid,
+.expense-list,
+.state,
+openg7-admin-expense-create,
+openg7-admin-expense-filters {
+  margin: 0 auto;
+  max-width: 78rem;
+  @apply tw:w-full;
+}
+
+.admin-topbar {
+  @apply tw:items-center tw:flex tw:gap-3 tw:justify-between;
+}
+
+.admin-topbar span,
+.summary-grid span {
+  @apply tw:text-admin-muted tw:text-admin-caption;
+  font-weight: var(--admin-label-weight);
+  letter-spacing: 0;
+  @apply tw:uppercase;
+}
+
+.admin-topbar h1,
+.empty-state h3 {
+  @apply tw:m-0;
+}
+
+.summary-grid article,
+.empty-state {
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.45rem;
+  @apply tw:p-4;
+}
+
+.empty-state p {
+  @apply tw:text-admin-muted;
+  line-height: 1.55;
+  margin: 0.35rem 0 0;
+}
+
+.summary-grid {
+  @apply tw:grid tw:gap-3 tw:grid-cols-4;
+}
+
+.summary-grid strong {
+  @apply tw:block;
+  font-size: 1.65rem;
+  margin-top: 0.2rem;
+}
+
+button {
+  background: var(--admin-panel-raised);
+  border: 0;
+  border-radius: 0.35rem;
+  @apply tw:text-admin-text tw:cursor-pointer;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: var(--admin-control-weight);
+  min-height: 2.55rem;
+  padding: 0 0.85rem;
+}
+
+.state-error {
+  @apply tw:text-admin-danger;
+  font-weight: var(--admin-label-weight);
+}
+
+@media (max-width: 900px) {
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-topbar {
+    align-items: start;
+    @apply tw:flex-col;
+  }
+}

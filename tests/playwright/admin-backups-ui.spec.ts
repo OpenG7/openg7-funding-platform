@@ -212,7 +212,7 @@ for (const phase of ['confirmation', 'response'] as const) {
   });
 }
 
-for (const theme of ['night', 'mineral', 'graphite']) {
+for (const theme of ['night', 'mineral', 'graphite'] as const) {
   for (const language of ['fr-CA', 'en']) {
     test(`backup states and opaque status contrast in ${theme} with ${language}`, async ({
       page
@@ -291,6 +291,23 @@ for (const theme of ['night', 'mineral', 'graphite']) {
       const panel = page.locator('[data-og7="setup-backups"]');
       const service = panel.locator('[data-og7="backup-service-state"]');
       const request = panel.locator('[data-og7="backup-request"]');
+      const overview = panel.locator('[data-og7="backup-overview"]');
+      await expect(panel).toHaveCSS('display', 'grid');
+      await expect(panel).toHaveCSS('gap', en ? '20px' : '24px');
+      await expect(panel).toHaveCSS('border-radius', '16px');
+      await expect(panel).toHaveCSS(
+        'color',
+        {
+          night: 'rgb(241, 245, 252)',
+          mineral: 'rgb(41, 51, 46)',
+          graphite: 'rgb(243, 244, 246)'
+        }[theme]!
+      );
+      await expect(overview).toHaveCSS('display', 'grid');
+      await expect(overview.locator(':scope > div').first()).toHaveCSS(
+        'padding',
+        en ? '16px' : '20px'
+      );
       const refresh = panel.getByRole('button', {
         name: en ? 'Check backups' : 'Vérifier les sauvegardes',
         exact: true
@@ -329,6 +346,52 @@ for (const theme of ['night', 'mineral', 'graphite']) {
           .analyze();
         expect(audit.violations).toEqual([]);
         expect(audit.incomplete).toEqual([]);
+      }
+      const details = rows
+        .filter({ has: page.locator('[data-state="succeeded"]') })
+        .getByRole('button');
+      await details.focus();
+      await page.keyboard.press('Enter');
+      const evidence = page.locator('[data-og7="backup-evidence"]');
+      await expect(evidence.locator('code').first()).toHaveCSS(
+        'overflow-wrap',
+        'anywhere'
+      );
+      await expect(evidence.locator('dd').first()).toHaveCSS(
+        'font-variant-numeric',
+        'tabular-nums'
+      );
+      await page.keyboard.press('Escape');
+      await expect(details).toBeFocused();
+      if (theme === 'mineral' && !en) {
+        for (const width of [700, 701, 1100, 1101]) {
+          await test.step(`backup CSS boundary ${width}px`, async () => {
+            await page.setViewportSize({ width, height: 1050 });
+            await expect
+              .poll(() =>
+                overview.evaluate(
+                  (node) =>
+                    getComputedStyle(node).gridTemplateColumns.split(' ').length
+                )
+              )
+              .toBe(width <= 700 ? 2 : 3);
+            await expect
+              .poll(() =>
+                rows
+                  .first()
+                  .evaluate(
+                    (node) =>
+                      getComputedStyle(node).gridTemplateColumns.split(' ')
+                        .length
+                  )
+              )
+              .toBe(width <= 700 ? 3 : width <= 1100 ? 4 : 5);
+            await expect(
+              rows.first().locator(':scope > span').last()
+            ).toHaveCSS('display', width <= 1100 ? 'none' : 'block');
+          });
+        }
+        await page.setViewportSize({ width: 1440, height: 1050 });
       }
       await expect(page.locator('body')).toHaveJSProperty(
         'scrollWidth',

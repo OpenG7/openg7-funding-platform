@@ -1,0 +1,92 @@
+@reference '../../../../../styles/tailwind.css';
+
+.admin-login-shell {
+  @apply tw:items-center;
+  background: var(--admin-bg);
+  @apply tw:text-admin-text tw:grid;
+  font-family: inherit;
+  @apply tw:min-h-screen tw:p-4;
+}
+
+.admin-login-panel {
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.5rem;
+  box-shadow: 0 1rem 2.5rem rgb(15 23 42 / 10%);
+  @apply tw:grid tw:gap-4;
+  margin: 0 auto;
+  max-width: 28rem;
+  padding: clamp(1.25rem, 4vw, 2rem);
+  @apply tw:w-full;
+}
+
+.admin-login-panel span {
+  @apply tw:text-admin-muted;
+  font-size: 0.875rem;
+  font-weight: var(--admin-label-weight);
+  letter-spacing: 0;
+  @apply tw:uppercase;
+}
+
+.admin-login-panel h1 {
+  margin: 0.35rem 0 0.65rem;
+}
+
+.admin-login-panel p {
+  @apply tw:text-admin-muted;
+  line-height: 1.55;
+  @apply tw:m-0;
+}
+
+.admin-login-panel form,
+.admin-login-panel label {
+  @apply tw:grid;
+  gap: 0.65rem;
+}
+
+.admin-login-panel label {
+  font-size: 0.9375rem;
+  font-weight: var(--admin-label-weight);
+}
+
+.admin-login-panel input,
+.admin-login-panel button {
+  border-radius: 0.35rem;
+  font: inherit;
+  min-height: 2.9rem;
+}
+
+.admin-login-panel input {
+  border: 1px solid var(--admin-border);
+  padding: 0.65rem 0.75rem;
+  font-weight: 400;
+}
+
+.admin-login-panel button {
+  background: var(--og7-admin-primary);
+  border: 0;
+  color: var(--og7-admin-on-primary);
+  @apply tw:cursor-pointer;
+  font-weight: var(--admin-control-weight);
+  padding: 0 1rem;
+}
+
+.admin-login-panel button:disabled {
+  @apply tw:cursor-wait;
+  opacity: 0.65;
+}
+
+.admin-login-panel a {
+  @apply tw:text-admin-muted;
+  font-weight: var(--admin-control-weight);
+  text-decoration: none;
+}
+
+.state-error {
+  background: var(--admin-panel-raised);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.35rem;
+  @apply tw:text-admin-danger;
+  font-weight: 500;
+  padding: 0.75rem 0.85rem;
+}

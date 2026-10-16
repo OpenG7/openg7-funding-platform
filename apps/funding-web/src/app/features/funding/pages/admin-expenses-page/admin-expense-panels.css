@@ -1,6 +1,7 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
 }
 
 .create-panel,
@@ -8,38 +9,30 @@
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
   border-radius: 0.45rem;
-  display: grid;
-  gap: 1rem;
-  min-width: 0;
-  padding: 1rem;
+  @apply tw:grid tw:gap-4 tw:min-w-0 tw:p-4;
 }
 
 header,
 footer {
-  align-items: center;
-  display: flex;
-  gap: 0.75rem;
-  justify-content: space-between;
+  @apply tw:items-center tw:flex tw:gap-3 tw:justify-between;
 }
 
 span {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
   letter-spacing: 0;
-  text-transform: uppercase;
+  @apply tw:uppercase;
 }
 
 h2 {
-  margin: 0;
+  @apply tw:m-0;
 }
 
 button {
   background: var(--admin-panel-raised);
   border: 0;
   border-radius: 0.35rem;
-  color: var(--admin-text);
-  cursor: pointer;
+  @apply tw:text-admin-text tw:cursor-pointer;
   font-family: inherit;
   font-size: inherit;
   line-height: inherit;
@@ -61,13 +54,12 @@ button.reject {
 }
 
 .expense-card footer {
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  @apply tw:flex-wrap tw:justify-end;
 }
 
 @media (max-width: 900px) {
   header {
     align-items: start;
-    flex-direction: column;
+    @apply tw:flex-col;
   }
 }

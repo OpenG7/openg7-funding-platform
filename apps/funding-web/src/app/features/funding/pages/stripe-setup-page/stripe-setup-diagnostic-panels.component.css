@@ -1,6 +1,7 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
 }
 
 .panel h2 {
@@ -8,14 +9,13 @@
 }
 
 .setup-grid {
-  display: grid;
+  @apply tw:grid;
   gap: 0.65rem;
   margin-top: 0.65rem;
 }
 
 .lower-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.5rem;
+  @apply tw:grid-cols-2 tw:gap-6;
 }
 
 .panel {
@@ -23,15 +23,14 @@
   border: 1px solid var(--border-color);
   border-radius: 0.72rem;
   box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
-  min-width: 0;
-  padding: 1.25rem;
+  @apply tw:min-w-0 tw:p-5;
 }
 
 .panel h2 {
   font-size: 1.125rem;
   letter-spacing: 0.05em;
   margin-bottom: 0.55rem;
-  text-transform: uppercase;
+  @apply tw:uppercase;
 }
 
 .panel p,
@@ -46,23 +45,23 @@
   border: 1px solid var(--border-color);
   border-radius: 0.45rem;
   color: var(--color-primary);
-  min-height: 2.75rem;
+  @apply tw:min-h-11;
   padding: 0 0.65rem;
 }
 
 .webhook-panel,
 .quick-panel {
-  display: grid;
+  @apply tw:grid;
   gap: 0.45rem;
 }
 
 .webhook-panel label {
-  display: grid;
+  @apply tw:grid;
   gap: 0.35rem;
 }
 
 .webhook-panel label span {
-  display: grid;
+  @apply tw:grid;
   gap: 0.55rem;
   grid-template-columns: minmax(0, 1fr) auto;
 }
@@ -72,15 +71,12 @@
   border: 1px solid var(--border-color);
   border-radius: 0.42rem;
   color: var(--text-soft);
-  overflow: auto;
-  padding: 0.5rem;
+  @apply tw:overflow-auto tw:p-2;
   white-space: nowrap;
 }
 
 .webhook-panel header {
-  align-items: center;
-  display: flex;
-  justify-content: space-between;
+  @apply tw:items-center tw:flex tw:justify-between;
 }
 
 .webhook-panel header span {
@@ -91,8 +87,7 @@
 }
 
 .event-chips {
-  display: flex;
-  flex-wrap: wrap;
+  @apply tw:flex tw:flex-wrap;
   gap: 0.32rem;
 }
 
@@ -106,21 +101,20 @@
 }
 
 .panel-actions {
-  display: grid;
+  @apply tw:grid;
   gap: 0.4rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  @apply tw:grid-cols-2;
 }
 
 .security-panel ul {
-  display: grid;
+  @apply tw:grid;
   gap: 0.36rem;
   list-style: none;
-  padding: 0;
+  @apply tw:p-0;
 }
 
 .security-panel li {
-  align-items: center;
-  display: grid;
+  @apply tw:items-center tw:grid;
   gap: 0.42rem;
   grid-template-columns: auto 1fr auto;
 }
@@ -142,20 +136,16 @@
 
 .security-panel li em {
   font-size: 0.875rem;
-  font-style: normal;
+  @apply tw:not-italic;
 }
 
 .guide {
   margin-top: 0.8rem;
-  width: 100%;
+  @apply tw:w-full;
 }
 
 .quick-panel button {
-  align-items: center;
-  display: flex;
-  justify-content: space-between;
-  min-height: 2.75rem;
-  text-align: left;
+  @apply tw:items-center tw:flex tw:justify-between tw:min-h-11 tw:text-left;
 }
 
 .quick-panel button.danger {
@@ -172,7 +162,7 @@
 
 .quick-panel small {
   color: var(--text-soft);
-  display: block;
+  @apply tw:block;
   font-size: 0.875rem;
 }
 

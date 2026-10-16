@@ -1,6 +1,7 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
 }
 
 .panel h2 {
@@ -8,14 +9,13 @@
 }
 
 .setup-grid {
-  display: grid;
+  @apply tw:grid;
   gap: 0.65rem;
   margin-top: 0.65rem;
 }
 
 .top-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.5rem;
+  @apply tw:grid-cols-2 tw:gap-6;
 }
 
 .panel {
@@ -23,15 +23,14 @@
   border: 1px solid var(--border-color);
   border-radius: 0.72rem;
   box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
-  min-width: 0;
-  padding: 1.25rem;
+  @apply tw:min-w-0 tw:p-5;
 }
 
 .panel h2 {
   font-size: 1.125rem;
   letter-spacing: 0.05em;
   margin-bottom: 0.55rem;
-  text-transform: uppercase;
+  @apply tw:uppercase;
 }
 
 .panel p,
@@ -46,13 +45,13 @@
   border: 1px solid var(--border-color);
   border-radius: 0.45rem;
   color: var(--color-primary);
-  min-height: 2.75rem;
+  @apply tw:min-h-11;
   padding: 0 0.65rem;
 }
 
 .account-panel {
   align-content: start;
-  display: grid;
+  @apply tw:grid;
   gap: 0.55rem;
   grid-template-columns: auto 1fr;
 }
@@ -66,24 +65,24 @@
   border: 3px solid var(--border-color);
   border-radius: 999px;
   color: var(--color-success);
-  display: grid;
+  @apply tw:grid;
   font-size: 1.45rem;
   height: 3.35rem;
-  place-items: center;
+  @apply tw:place-items-center;
   width: 3.35rem;
 }
 
 .account-panel strong,
 .payout-panel strong {
   color: var(--text-main);
-  display: block;
+  @apply tw:block;
   margin-bottom: 0.4rem;
 }
 
 .mode-toggle {
-  display: grid;
+  @apply tw:grid;
   gap: 0.55rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  @apply tw:grid-cols-2;
   margin: 0.65rem 0;
 }
 
@@ -99,23 +98,22 @@
   border: 1px solid var(--border-color);
   border-radius: 0.45rem;
   color: var(--color-gold);
-  display: grid;
-  gap: 0.25rem;
+  @apply tw:grid tw:gap-1;
   padding: 0.7rem;
 }
 
 .keys-panel {
-  display: grid;
+  @apply tw:grid;
   gap: 0.45rem;
 }
 
 .keys-panel label {
-  display: grid;
+  @apply tw:grid;
   gap: 0.35rem;
 }
 
 .keys-panel label span {
-  display: grid;
+  @apply tw:grid;
   gap: 0.55rem;
   grid-template-columns: minmax(0, 1fr) auto;
 }
@@ -125,8 +123,7 @@
   border: 1px solid var(--border-color);
   border-radius: 0.42rem;
   color: var(--text-soft);
-  overflow: auto;
-  padding: 0.5rem;
+  @apply tw:overflow-auto tw:p-2;
   white-space: nowrap;
 }
 
@@ -135,9 +132,9 @@
 }
 
 .payout-panel {
-  display: grid;
+  @apply tw:grid;
   justify-items: center;
-  text-align: center;
+  @apply tw:text-center;
 }
 
 .bank-icon {
