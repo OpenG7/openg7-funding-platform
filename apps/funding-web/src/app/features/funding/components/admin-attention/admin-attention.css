@@ -1,69 +1,57 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
 }
 .attention-panel {
   border: 1px solid var(--admin-border);
   border-radius: 12px;
   background: var(--admin-panel);
-  color: var(--admin-text);
-  overflow: hidden;
+  @apply tw:text-admin-text tw:overflow-hidden;
 }
 .attention-heading {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  flex-wrap: wrap;
-  padding: 1.25rem;
+  @apply tw:flex tw:items-center tw:gap-4 tw:flex-wrap tw:p-5;
   border-bottom: 1px solid var(--admin-border);
 }
 .attention-heading > div {
-  flex: 1;
+  @apply tw:flex-1;
   min-width: min(100%, 240px);
 }
 h2 {
-  display: flex;
-  align-items: center;
+  @apply tw:flex tw:items-center tw:m-0 tw:flex-wrap;
   gap: 0.7rem;
-  margin: 0;
-  flex-wrap: wrap;
 }
 h3 {
-  margin: 0;
+  @apply tw:m-0;
 }
 p {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   margin: 0.5rem 0 0;
 }
 .count {
   background: var(--admin-danger-bg);
-  color: var(--admin-danger);
+  @apply tw:text-admin-danger;
   border-radius: 999px;
   padding: 0.15rem 0.55rem;
   font-size: 0.9rem;
 }
 .filters {
-  padding: 1.25rem;
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
+  @apply tw:p-5 tw:flex tw:gap-4 tw:flex-wrap;
   align-items: end;
 }
 label {
-  display: grid;
+  @apply tw:grid tw:flex-1;
   gap: 0.45rem;
-  flex: 1;
   min-width: min(100%, 200px);
 }
 select {
   font: inherit;
   font-weight: 400;
   padding: 0.65rem;
-  width: 100%;
+  @apply tw:w-full tw:text-admin-text;
   border: 1px solid var(--admin-border);
   border-radius: 6px;
   background: var(--admin-panel, #102035);
-  color: var(--admin-text);
 }
 select:focus-visible {
   outline: 3px solid var(--admin-focus);
@@ -71,62 +59,42 @@ select:focus-visible {
 }
 .tasks {
   list-style: none;
-  padding: 0;
-  margin: 0;
+  @apply tw:p-0 tw:m-0;
 }
 .tasks li {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+  @apply tw:flex tw:items-center tw:gap-4;
   padding: 1.15rem 1.25rem;
   border-top: 1px solid var(--admin-border);
 }
 .task-main {
-  flex: 1;
-  min-width: 0;
-  overflow-wrap: anywhere;
+  @apply tw:flex-1 tw:min-w-0 tw:wrap-anywhere;
 }
 .task-title {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  @apply tw:flex tw:flex-wrap tw:items-center;
   gap: 0.6rem;
 }
 small {
-  display: block;
-  color: var(--admin-muted);
+  @apply tw:block tw:text-admin-muted tw:wrap-anywhere;
   margin-top: 0.4rem;
-  overflow-wrap: anywhere;
 }
 .notice {
-  padding: 1rem 1.25rem;
-  margin: 0;
+  @apply tw:py-4 tw:px-5 tw:m-0;
 }
 .error {
   color: var(--admin-danger, #ffc4ca);
 }
 footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 1rem;
-  padding: 1rem 1.25rem;
+  @apply tw:flex tw:justify-between tw:items-center tw:flex-wrap tw:gap-4 tw:py-4 tw:px-5;
 }
 .pagination {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem;
+  @apply tw:flex tw:flex-wrap tw:items-center tw:gap-3;
 }
 @media (max-width: 600px) {
   .tasks li {
-    flex-direction: column;
-    align-items: stretch;
+    @apply tw:flex-col tw:items-stretch;
   }
   .filters {
-    flex-direction: column;
-    align-items: stretch;
+    @apply tw:flex-col tw:items-stretch;
   }
   .attention-heading {
     align-items: start;

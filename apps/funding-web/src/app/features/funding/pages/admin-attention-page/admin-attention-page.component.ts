@@ -17,18 +17,8 @@ import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout
   styleUrls: [
     '../../components/admin-ui/admin-theme.css',
     '../../components/admin-ui/admin-controls.css',
-    '../../components/admin-ui/admin-forms.css'
-  ],
-  styles: [
-    `
-      .queue-page {
-        padding: clamp(1rem, 2vw, 2rem);
-      }
-      h1 {
-        color: var(--admin-text);
-        margin: 0 0 1.25rem;
-      }
-    `
+    '../../components/admin-ui/admin-forms.css',
+    './admin-attention-page.component.css'
   ]
 })
 export class AdminAttentionPageComponent {}

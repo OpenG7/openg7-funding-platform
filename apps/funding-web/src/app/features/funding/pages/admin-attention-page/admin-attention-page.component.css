@@ -1,0 +1,10 @@
+@reference '../../../../../styles/tailwind.css';
+
+.queue-page {
+  padding: clamp(1rem, 2vw, 2rem);
+}
+
+h1 {
+  @apply tw:text-admin-text;
+  margin: 0 0 1.25rem;
+}
