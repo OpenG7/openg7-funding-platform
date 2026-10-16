@@ -1,53 +1,43 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: grid;
-  gap: 1rem;
-  min-width: 0;
+  @apply tw:grid tw:gap-4 tw:min-w-0;
 }
 
 .visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
+  @apply tw:absolute tw:w-px tw:h-px tw:p-0 tw:-m-px tw:overflow-hidden;
   clip-path: inset(50%);
-  white-space: nowrap;
+  @apply tw:whitespace-nowrap;
 }
 
 .item-editor {
-  display: grid;
-  gap: 1rem;
-  min-width: 0;
+  @apply tw:grid tw:gap-4 tw:min-w-0;
 }
 
 .secondary-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  @apply tw:flex tw:flex-wrap tw:gap-2;
 }
 
 .item-editor {
   border: 0;
   border-top: 1px solid var(--admin-border);
-  margin: 0;
+  @apply tw:m-0;
   padding: 1rem 0 0;
 }
 
 .secondary-options {
   border: 1px solid var(--admin-border);
-  border-radius: 0.4rem;
-  padding: 0.75rem;
+  @apply tw:rounded-admin-sm tw:p-3;
 }
 
 .secondary-options summary {
-  cursor: pointer;
+  @apply tw:cursor-pointer;
   font-weight: var(--admin-control-weight);
-  min-height: 2rem;
+  @apply tw:min-h-8;
 }
 
 .secondary-options[open] > :not(summary) {
-  margin-top: 0.75rem;
+  @apply tw:mt-3;
 }
 
 .secondary-options summary:focus-visible {
@@ -56,14 +46,12 @@
 }
 
 .history-toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  @apply tw:flex tw:items-center tw:gap-2;
   font-weight: var(--admin-label-weight);
 }
 
 .dirty-note {
-  color: var(--admin-warning);
+  @apply tw:text-admin-warning;
 }
 
 .batch-card:focus {
@@ -77,32 +65,28 @@
 .state {
   margin: 0 auto;
   max-width: 78rem;
-  width: 100%;
+  @apply tw:w-full;
 }
 
 .admin-panel header,
 .draft-card header,
 .eligible-list article,
 .draft-card footer {
-  align-items: center;
-  display: flex;
-  gap: 0.75rem;
-  justify-content: space-between;
+  @apply tw:items-center tw:flex tw:gap-3 tw:justify-between;
 }
 
 .admin-panel span,
 .draft-card header span {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
   letter-spacing: 0;
-  text-transform: uppercase;
+  @apply tw:uppercase;
 }
 
 .admin-panel h2,
 .draft-card h2,
 .empty-state h3 {
-  margin: 0;
+  @apply tw:m-0;
 }
 
 .filters,
@@ -118,19 +102,18 @@
 .admin-panel,
 .draft-card,
 .empty-state {
-  padding: 1rem;
+  @apply tw:p-4;
 }
 
 .empty-state p,
 small {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   margin: 0.35rem 0 0;
 }
 
 .filters,
 .draft-grid {
-  display: grid;
-  gap: 0.75rem;
+  @apply tw:grid tw:gap-3;
 }
 
 .filters,
@@ -139,9 +122,9 @@ small {
 }
 
 label {
-  display: grid;
+  @apply tw:grid;
   gap: 0.35rem;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
 }
 
@@ -164,8 +147,7 @@ button {
   background: var(--admin-panel-raised);
   border: 0;
   border-radius: 0.35rem;
-  color: var(--admin-text);
-  cursor: pointer;
+  @apply tw:text-admin-text tw:cursor-pointer;
   font-family: inherit;
   font-size: inherit;
   line-height: inherit;
@@ -175,7 +157,7 @@ button {
 }
 
 button:disabled {
-  cursor: wait;
+  @apply tw:cursor-wait;
   opacity: 0.62;
 }
 
@@ -194,13 +176,12 @@ button.reject {
 .admin-panel,
 .draft-list,
 .draft-card {
-  display: grid;
+  @apply tw:grid;
   gap: 0.85rem;
 }
 
 .eligible-list {
-  display: grid;
-  gap: 0.75rem;
+  @apply tw:grid tw:gap-3;
 }
 
 .eligible-list article {
@@ -214,22 +195,19 @@ button.reject {
 .batch-card footer,
 .slot-card footer,
 .draft-card footer {
-  display: flex;
-  flex-wrap: wrap;
+  @apply tw:flex tw:flex-wrap;
   gap: 0.55rem;
 }
 
 .batch-create-form {
   align-items: end;
-  display: grid;
-  gap: 0.75rem;
+  @apply tw:grid tw:gap-3;
   grid-template-columns: minmax(8rem, 12rem) minmax(6rem, 8rem) auto;
 }
 
 .slot-create-form {
   align-items: end;
-  display: grid;
-  gap: 0.75rem;
+  @apply tw:grid tw:gap-3;
   grid-template-columns:
     minmax(7rem, 0.8fr) minmax(7rem, 0.8fr) minmax(12rem, 1.2fr)
     minmax(10rem, 1fr) minmax(6rem, 0.6fr) minmax(12rem, 1.5fr)
@@ -237,15 +215,14 @@ button.reject {
 }
 
 .slot-notes-field {
-  min-width: 0;
+  @apply tw:min-w-0;
 }
 
 .batch-card {
   background: var(--admin-panel-raised);
   border: 1px solid var(--admin-border);
   border-radius: 0.45rem;
-  display: grid;
-  gap: 0.75rem;
+  @apply tw:grid tw:gap-3;
   padding: 0.85rem;
 }
 
@@ -253,20 +230,16 @@ button.reject {
   background: var(--admin-panel-raised);
   border: 1px solid var(--admin-border);
   border-radius: 0.45rem;
-  display: grid;
-  gap: 0.75rem;
+  @apply tw:grid tw:gap-3;
   padding: 0.85rem;
 }
 
 .slot-capacity {
-  align-items: center;
+  @apply tw:items-center;
   background: var(--admin-panel-raised);
   border: 1px solid var(--admin-border);
   border-radius: 0.45rem;
-  display: flex;
-  gap: 0.75rem;
-  justify-content: space-between;
-  padding: 0.75rem;
+  @apply tw:flex tw:gap-3 tw:justify-between tw:p-3;
 }
 
 .slot-capacity strong {
@@ -274,14 +247,12 @@ button.reject {
 }
 
 .slot-capacity span {
-  color: var(--admin-success);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-success tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
 }
 
 .slot-edit-grid {
-  display: grid;
-  gap: 0.75rem;
+  @apply tw:grid tw:gap-3;
   grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
 }
 
@@ -290,37 +261,29 @@ button.reject {
   background: var(--admin-panel-raised);
   border: 1px solid var(--admin-border);
   border-radius: 0.45rem;
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   font-size: 0.9rem;
   font-weight: 500;
-  margin: 0;
-  padding: 0.75rem;
+  @apply tw:m-0 tw:p-3;
 }
 
 .social-job {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  justify-content: space-between;
+  @apply tw:items-center tw:flex tw:flex-wrap tw:gap-3 tw:justify-between;
 }
 
 .social-job a {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   font-weight: var(--admin-control-weight);
 }
 
 .batch-card header,
 .slot-card header {
-  align-items: center;
-  display: flex;
-  gap: 0.75rem;
-  justify-content: space-between;
+  @apply tw:items-center tw:flex tw:gap-3 tw:justify-between;
 }
 
 .batch-card h3,
 .slot-card h3 {
-  margin: 0;
+  @apply tw:m-0;
 }
 
 .draft-batch-row {
@@ -328,25 +291,21 @@ button.reject {
   background: var(--admin-panel-raised);
   border: 1px solid var(--admin-border);
   border-radius: 0.45rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  padding: 0.75rem;
+  @apply tw:flex tw:flex-wrap tw:gap-3 tw:p-3;
 }
 
 .draft-batch-row span {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
 }
 
 label.inline {
-  margin: 0;
+  @apply tw:m-0;
   min-width: min(14rem, 100%);
 }
 
 .state-error {
-  color: var(--admin-danger);
+  @apply tw:text-admin-danger;
   font-weight: 500;
 }
 
@@ -364,6 +323,6 @@ label.inline {
   .eligible-list article,
   .slot-card header {
     align-items: start;
-    flex-direction: column;
+    @apply tw:flex-col;
   }
 }

@@ -1,13 +1,14 @@
+@reference '../../../../../styles/tailwind.css';
+
 .admin-content,
 .publication-view {
-  display: grid;
+  @apply tw:grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 1rem;
-  min-width: 0;
+  @apply tw:gap-4 tw:min-w-0;
 }
 
 .publication-view[hidden] {
-  display: none;
+  @apply tw:hidden;
 }
 
 .admin-topbar,
@@ -15,41 +16,33 @@
 .publication-spaces,
 .action-notice,
 .state {
-  width: 100%;
+  @apply tw:w-full;
   max-width: 78rem;
   margin: 0 auto;
 }
 
 .admin-topbar,
 .header-actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+  @apply tw:flex tw:items-center tw:flex-wrap tw:gap-3;
 }
 
 .admin-topbar {
-  justify-content: space-between;
+  @apply tw:justify-between;
 }
 
 .admin-topbar span {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
-  text-transform: uppercase;
+  @apply tw:uppercase;
 }
 
 .admin-topbar h1,
 .publication-spaces h2 {
-  margin: 0;
+  @apply tw:m-0;
 }
 
 .publication-breadcrumb a {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-height: 2.75rem;
-  color: var(--admin-gold);
+  @apply tw:inline-flex tw:items-center tw:gap-2 tw:min-h-11 tw:text-admin-gold;
   text-decoration: none;
 }
 
@@ -58,31 +51,28 @@
 }
 
 .page-help {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   font-size: 0.9rem;
   margin: 0.5rem 0 0;
 }
 
 .publication-spaces {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem;
+  @apply tw:grid tw:grid-cols-3 tw:gap-3;
 }
 
 .publication-spaces a {
-  display: grid;
+  @apply tw:grid;
   grid-template-rows: auto 1fr auto;
-  gap: 1rem;
-  padding: 1.25rem;
+  @apply tw:gap-4 tw:p-5;
   border: 1px solid var(--admin-border);
-  border-radius: 0.75rem;
+  @apply tw:rounded-xl;
   background: var(--admin-panel);
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
   text-decoration: none;
 }
 
 .publication-spaces a:hover {
-  border-color: var(--admin-gold);
+  @apply tw:border-admin-gold;
 }
 
 .publication-spaces a:focus-visible,
@@ -93,32 +83,28 @@
 
 .publication-spaces p {
   margin: 0.5rem 0 0;
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
 }
 
 .space-number {
-  color: var(--admin-gold);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-gold tw:text-admin-caption;
 }
 
 .space-open {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.5rem;
-  color: var(--admin-gold);
+  @apply tw:flex tw:justify-between tw:gap-2 tw:text-admin-gold;
   font-weight: var(--admin-control-weight);
 }
 
 .action-notice {
-  color: var(--admin-success);
+  @apply tw:text-admin-success;
 }
 
 .action-notice:empty {
-  display: none;
+  @apply tw:hidden;
 }
 
 .state-error {
-  color: var(--admin-danger);
+  @apply tw:text-admin-danger;
   font-weight: 500;
 }
 
@@ -130,7 +116,7 @@
     grid-template-columns: auto minmax(0, 1fr);
     grid-template-rows: auto auto;
     gap: 0.65rem 1rem;
-    padding: 1rem;
+    @apply tw:p-4;
   }
   .space-open {
     grid-column: 2;
@@ -140,6 +126,6 @@
 @media (max-width: 900px) {
   .admin-topbar {
     align-items: start;
-    flex-direction: column;
+    @apply tw:flex-col;
   }
 }

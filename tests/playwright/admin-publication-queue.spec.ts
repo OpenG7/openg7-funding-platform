@@ -18,6 +18,151 @@ registerDraftPanelTests();
 registerSlotPanelTests();
 registerBatchPanelTests();
 
+const publicationPalettes = {
+  mineral: {
+    panel: 'rgb(255, 255, 255)',
+    raised: 'rgb(240, 244, 238)',
+    background: 'rgb(247, 245, 240)',
+    text: 'rgb(41, 51, 46)'
+  },
+  night: {
+    panel: 'rgb(20, 35, 56)',
+    raised: 'rgb(27, 45, 68)',
+    background: 'rgb(11, 23, 39)',
+    text: 'rgb(241, 245, 252)'
+  },
+  graphite: {
+    panel: 'rgb(37, 41, 47)',
+    raised: 'rgb(50, 56, 65)',
+    background: 'rgb(25, 27, 31)',
+    text: 'rgb(243, 244, 246)'
+  }
+} as const;
+
+for (const theme of ['mineral', 'night', 'graphite'] as const)
+  for (const { language, width } of [
+    { language: 'fr-CA', width: 390 },
+    { language: 'en', width: 1280 }
+  ]) {
+    test(`publication spaces, queue and calendar remain readable with ${theme} in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      await page.clock.setFixedTime(new Date('2030-06-01T12:00:00Z'));
+      const mutations = await fixtures(page);
+      await page.addInitScript(
+        ({ theme, language }) => {
+          localStorage.setItem('openg7.language', language);
+          localStorage.setItem(
+            'openg7.pilotage.appearance.v1',
+            JSON.stringify({ theme, system: false })
+          );
+        },
+        { theme, language }
+      );
+      await page.setViewportSize({ width, height: 1000 });
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.goto('/admin/fundraiser/publications');
+      const palette = publicationPalettes[theme];
+      const spaces = page.locator('[data-og7="publication-space"]');
+      await expect(spaces).toHaveCount(3);
+      await expect(spaces.first()).toHaveCSS('background-color', palette.panel);
+      await expect(spaces.first()).toHaveCSS('color', palette.text);
+      const queue = page.locator('[data-og7="publication-queue"]');
+      await expect(queue).toHaveCSS('background-color', palette.panel);
+      const cards = queue.locator('[data-og7="publication-queue-card"]');
+      await expect(cards).toHaveCount(6);
+      await expect(cards.nth(1)).toHaveCSS(
+        'background-color',
+        palette.background
+      );
+      const scrolling = page.locator('#publication-queue-viewport');
+      await expect(scrolling).toHaveCSS('overflow-x', 'auto');
+      await expect(scrolling).toHaveCSS('scroll-behavior', 'auto');
+      await scrolling.focus();
+      await page.keyboard.press('End');
+      await expect(cards.last()).toBeInViewport();
+
+      await openSpace(page, 'batches');
+      const calendar = page.locator('[data-og7="publication-calendar"]');
+      const day = calendar.locator('[data-og7-date="2030-06-03"]');
+      await expect(day).toHaveCSS('background-color', palette.background);
+      await expect(page.locator('#publication-day-2030-06-03')).toHaveCSS(
+        'color',
+        palette.text
+      );
+      await page.locator('#publication-day-2030-06-03').click();
+      const opener = page.locator(
+        '[data-og7="calendar-agenda-entry"][data-og7-id="first"]'
+      );
+      await opener.focus();
+      await page.keyboard.press('Enter');
+      const dialog = page.getByRole('dialog');
+      await expect(dialog).toBeVisible();
+      await expect(dialog.locator('[data-og7="publication-batch"]')).toHaveCSS(
+        'background-color',
+        palette.raised
+      );
+      await page.keyboard.press('Escape');
+      await expect(dialog).not.toBeVisible();
+      await expect(opener).toBeFocused();
+      expect(mutations).toEqual([]);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+    });
+  }
+
+test('publication navigation, horizontal queue and calendar retain the 600, 700 and 900px boundaries', async ({
+  page
+}) => {
+  await page.clock.setFixedTime(new Date('2030-06-01T12:00:00Z'));
+  const mutations = await fixtures(page);
+  await page.goto('/admin/fundraiser/publications');
+  const main = page.locator('[data-og7="publications-page"]');
+  const spaces = main
+    .locator('[data-og7="publication-space"]')
+    .first()
+    .locator('..');
+  const queue = main.locator('[data-og7="publication-queue"]');
+  for (const width of [599, 600, 601, 699, 700, 701, 899, 900, 901]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await expect(main.locator(':scope > header')).toHaveCSS(
+      'flex-direction',
+      width <= 900 ? 'column' : 'row'
+    );
+    await expect
+      .poll(() =>
+        spaces.evaluate(
+          (element) =>
+            getComputedStyle(element).gridTemplateColumns.split(' ').length
+        )
+      )
+      .toBe(width <= 700 ? 1 : 3);
+    await expect(queue).toHaveCSS(
+      'padding-top',
+      width <= 600 ? '14.4px' : '20px'
+    );
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1
+      )
+    ).toBe(true);
+  }
+  await openSpace(page, 'batches');
+  const calendar = page.locator('[data-og7="publication-calendar"]');
+  const day = calendar.locator('[data-og7-date="2030-06-03"]');
+  const entry = day.locator('[data-og7="calendar-entry"]').first();
+  for (const width of [699, 700, 701]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await expect(day).toHaveCSS('min-height', width <= 700 ? '60px' : '132px');
+    if (width <= 700) await expect(entry).toBeHidden();
+    else await expect(entry).toBeVisible();
+  }
+  expect(mutations).toEqual([]);
+});
+
 for (const browserTimezone of ['America/Toronto', 'Pacific/Honolulu']) {
   test.describe(`publication dates in browser ${browserTimezone}`, () => {
     test.use({ timezoneId: browserTimezone });

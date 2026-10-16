@@ -1,39 +1,34 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
 }
 .publication-calendar {
-  display: grid;
-  gap: 1rem;
+  @apply tw:grid tw:gap-4;
 }
 .calendar-toolbar,
 .calendar-toolbar nav,
 .calendar-filters,
 .calendar-filters > div {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
+  @apply tw:flex tw:flex-wrap tw:items-center tw:gap-2;
 }
 .calendar-toolbar,
 .calendar-filters {
-  justify-content: space-between;
-  gap: 1rem;
+  @apply tw:justify-between tw:gap-4;
 }
 h3,
 h4,
 p {
-  margin: 0;
+  @apply tw:m-0;
 }
 h3 {
-  text-transform: capitalize;
+  @apply tw:capitalize;
 }
 .calendar-toolbar p,
 .calendar-filters > span,
 .calendar-empty,
 .agenda-items p {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
 }
 .calendar-toolbar p {
   margin-top: 0.35rem;
@@ -41,18 +36,17 @@ h3 {
 input {
   color-scheme: var(--og7-admin-color-scheme, dark);
   max-width: 11rem;
-  min-height: 2.75rem;
-  padding: 0.5rem;
+  @apply tw:min-h-11 tw:p-2;
   border: 1px solid var(--admin-border);
-  border-radius: 0.6rem;
+  @apply tw:rounded-admin-control;
   background: var(--admin-bg);
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
   font-family: inherit;
   font-size: inherit;
   line-height: inherit;
 }
 .channel-filter {
-  cursor: pointer;
+  @apply tw:cursor-pointer;
   font-family: inherit;
   font-size: inherit;
   line-height: inherit;
@@ -61,18 +55,17 @@ input {
   border-radius: 2rem;
   padding: 0.5rem 0.8rem;
   background: transparent;
-  color: var(--admin-muted);
-  min-height: 2.75rem;
+  @apply tw:text-admin-muted tw:min-h-11;
 }
 .channel-filter[aria-pressed='true'] {
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
   background: var(--admin-panel-raised);
-  border-color: var(--admin-gold);
+  @apply tw:border-admin-gold;
 }
 .channel-filter[data-channel='facebook']::before,
 .channel-filter[data-channel='linkedin']::before {
   content: '';
-  display: inline-block;
+  @apply tw:inline-block;
   width: 0.5rem;
   height: 0.5rem;
   margin-right: 0.4rem;
@@ -83,24 +76,20 @@ input {
   background: var(--og7-admin-success, #79ded3);
 }
 .month-grid {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  @apply tw:grid tw:grid-cols-7;
   gap: 1px;
   background: var(--admin-border);
   border: 1px solid var(--admin-border);
   border-radius: 0.7rem;
-  overflow: clip;
+  @apply tw:overflow-clip;
 }
 .weekday {
   padding: 0.7rem 0.5rem;
   background: var(--admin-panel-raised);
-  color: var(--admin-muted);
-  text-align: center;
-  font-size: var(--admin-caption-size, 0.875rem);
-  text-transform: capitalize;
+  @apply tw:text-admin-muted tw:text-center tw:text-admin-caption tw:capitalize;
 }
 .calendar-day {
-  min-width: 0;
+  @apply tw:min-w-0;
   min-height: 8.25rem;
   background: var(--admin-bg);
   padding: 0.4rem;
@@ -109,7 +98,7 @@ input {
   background: var(--admin-panel);
 }
 .outside-month .day-number {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
 }
 .selected-day {
   box-shadow: inset 0 0 0 2px var(--admin-gold);
@@ -117,15 +106,13 @@ input {
 .day-number {
   border: 0;
   border-radius: 50%;
-  min-height: 2rem;
-  min-width: 2rem;
+  @apply tw:min-h-8 tw:min-w-8;
   font-family: inherit;
   line-height: inherit;
   font-weight: var(--admin-control-weight);
-  font-size: var(--admin-caption-size, 0.875rem);
-  cursor: pointer;
+  @apply tw:text-admin-caption tw:cursor-pointer;
   background: transparent;
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
 }
 .today .day-number {
   background: var(--admin-gold);
@@ -133,27 +120,23 @@ input {
   font-weight: var(--admin-control-weight);
 }
 .day-events {
-  display: grid;
+  @apply tw:grid;
   gap: 0.35rem;
   margin-top: 0.35rem;
 }
 .calendar-event {
-  display: grid;
+  @apply tw:grid;
   gap: 0.2rem;
-  min-width: 0;
-  width: 100%;
-  text-align: left;
-  cursor: pointer;
+  @apply tw:min-w-0 tw:w-full tw:text-left tw:cursor-pointer;
   font-family: inherit;
   line-height: inherit;
   font-weight: var(--admin-control-weight);
-  font-size: var(--admin-caption-size, 0.875rem);
-  padding: 0.5rem;
+  @apply tw:text-admin-caption tw:p-2;
   border: 1px solid var(--og7-admin-border, #8abbff44);
   border-left: 3px solid var(--og7-admin-accent, #8abbff);
   border-radius: 0.35rem;
   background: var(--og7-admin-selected, #8abbff12);
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
 }
 .calendar-event[data-channel='linkedin'] {
   border-color: var(--og7-admin-border, #79ded344);
@@ -162,7 +145,7 @@ input {
 }
 .calendar-event:hover {
   background: var(--admin-panel-raised);
-  border-color: var(--admin-gold);
+  @apply tw:border-admin-gold;
 }
 .calendar-event[data-status='cancelled'] strong {
   text-decoration: line-through;
@@ -170,106 +153,96 @@ input {
 .calendar-event strong,
 .calendar-event small,
 .event-top {
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }
 .calendar-event small {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
   font-weight: 400;
 }
 .event-top {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
+  @apply tw:flex tw:flex-wrap tw:justify-between;
   gap: 0.2rem;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 .more-events {
-  cursor: pointer;
-  color: var(--admin-gold);
+  @apply tw:cursor-pointer tw:text-admin-gold;
   background: transparent;
   border: 0;
-  min-height: 2rem;
+  @apply tw:min-h-8;
   font-family: inherit;
   line-height: inherit;
   font-weight: var(--admin-control-weight);
-  font-size: var(--admin-caption-size, 0.875rem);
-  text-align: left;
+  @apply tw:text-admin-caption tw:text-left;
 }
 .day-agenda,
 .undated {
-  display: grid;
-  gap: 0.75rem;
+  @apply tw:grid tw:gap-3;
 }
 .day-agenda {
   border-top: 1px solid var(--admin-border);
-  padding-top: 1rem;
+  @apply tw:pt-4;
 }
 .day-agenda h4 {
-  text-transform: capitalize;
+  @apply tw:capitalize;
 }
 .agenda-items {
-  display: grid;
+  @apply tw:grid;
   gap: 0.4rem;
 }
 .agenda-event {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  @apply tw:flex tw:flex-wrap tw:items-center;
   gap: 0.6rem;
   padding: 0.7rem;
 }
 .agenda-event strong {
-  flex: 1;
+  @apply tw:flex-1;
 }
 .undated-items {
-  display: grid;
+  @apply tw:grid;
   grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
   gap: 0.6rem;
 }
 .mobile-count {
-  display: none;
+  @apply tw:hidden;
 }
 @media (max-width: 700px) {
   .calendar-toolbar {
-    align-items: flex-start;
+    @apply tw:items-start;
   }
   .calendar-toolbar nav {
-    width: 100%;
+    @apply tw:w-full;
   }
   .calendar-toolbar input {
-    flex: 1;
+    @apply tw:flex-1;
     min-width: 8rem;
-    max-width: 100%;
+    @apply tw:max-w-full;
   }
   .calendar-day {
     min-height: 3.75rem;
     padding: 0.15rem;
   }
   .day-number {
-    width: 100%;
+    @apply tw:w-full;
     border-radius: 0.35rem;
-    min-width: 0;
+    @apply tw:min-w-0;
     min-height: 3.25rem;
-    display: grid;
-    place-content: center;
+    @apply tw:grid tw:place-content-center;
     gap: 0.2rem;
   }
   .day-events {
-    display: none;
+    @apply tw:hidden;
   }
   .mobile-count {
-    display: block;
-    font-size: var(--admin-caption-size, 0.875rem);
+    @apply tw:block tw:text-admin-caption;
   }
   .has-events {
     border-radius: 1rem;
     background: var(--admin-panel-raised);
-    color: var(--admin-gold);
+    @apply tw:text-admin-gold;
     padding: 0 0.3rem;
   }
   .weekday {
-    font-size: var(--admin-caption-size, 0.875rem);
+    @apply tw:text-admin-caption;
     padding: 0.5rem 0.1rem;
   }
 }
