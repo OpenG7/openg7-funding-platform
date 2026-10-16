@@ -6,7 +6,10 @@ import test from 'node:test';
 import { chromium, expect } from '@playwright/test';
 import * as oidc from 'openid-client';
 
-import { startLocalKeycloakHttpsStack } from './keycloak-local-https-stack.mjs';
+import {
+  localKeycloakFailureKind,
+  startLocalKeycloakHttpsStack
+} from './keycloak-local-https-stack.mjs';
 
 const totp = (secret) => {
   const counter = Buffer.alloc(8);
@@ -174,15 +177,32 @@ test(
       context = undefined;
 
       stage = 'restore mandatory MFA';
-      assert.deepEqual(await stack.reconcilePasswordOnly(false), {
+      const restoredProfile = await stack.reconcilePasswordOnly(
+        false,
+        (step) => {
+          stage = `restore mandatory MFA: ${step}`;
+        }
+      );
+      stage = 'restore mandatory MFA: verify profile changed';
+      assert.deepEqual(restoredProfile, {
         passwordOnly: false,
         changed: true
       });
-      assert.equal(
-        (await stack.snapshotUser()).fingerprint,
-        before.fingerprint
+      stage = 'restore mandatory MFA: read preserved account and credentials';
+      const restoredUser = await stack.snapshotUser();
+      stage = 'restore mandatory MFA: verify account and credentials unchanged';
+      assert.ok(
+        restoredUser.fingerprint === before.fingerprint,
+        'Restoring MFA must preserve the stored account and credentials.'
       );
-      assert.deepEqual(await stack.replayAuthenticationProfile(), {
+      stage = 'restore mandatory MFA: replay restored authentication profile';
+      const replayedProfile = await stack.replayAuthenticationProfile(
+        (step) => {
+          stage = `restore mandatory MFA replay: ${step}`;
+        }
+      );
+      stage = 'restore mandatory MFA: verify replay is unchanged';
+      assert.deepEqual(replayedProfile, {
         passwordOnly: false,
         changed: false
       });
@@ -219,10 +239,10 @@ test(
         (await stack.snapshotUser()).fingerprint,
         before.fingerprint
       );
-    } catch {
+    } catch (error) {
       // Browser/provider errors can include codes, credential fields and URLs.
       throw new Error(
-        `Local password-only rehearsal failed at ${stage}; private details withheld.`
+        `Local password-only rehearsal failed at ${stage} (${localKeycloakFailureKind(error)}); private details withheld.`
       );
     } finally {
       try {

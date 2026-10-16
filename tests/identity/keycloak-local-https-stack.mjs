@@ -48,6 +48,29 @@ const images = {
   traefik: 'traefik:v3.7.13'
 };
 
+/** Failure categories only: never serialize provider/browser error details. */
+export function localKeycloakFailureKind(error) {
+  if (error?.code === 'ERR_ASSERTION') return 'assertion';
+  if (error?.name === 'TimeoutError') return 'browser-timeout';
+  if (error instanceof SyntaxError) return 'invalid-json';
+  return 'operation';
+}
+
+/** Fixed operation labels and bounded HTTP status, without URL or response body. */
+export function localKeycloakProfileStage(input, status) {
+  const writing = ['POST', 'PUT', 'DELETE'].includes(input?.method);
+  let operation = writing ? 'write Keycloak profile' : 'read Keycloak profile';
+  try {
+    if (new URL(input.url).pathname.endsWith('/protocol/openid-connect/token'))
+      operation = 'authenticate profile administrator';
+  } catch {
+    // An invalid/private URL is never included in diagnostics.
+  }
+  return Number.isInteger(status) && status >= 100 && status <= 599
+    ? `${operation} (HTTP ${status})`
+    : operation;
+}
+
 /** Metadata only: mkcert must never create a new host CA for this rehearsal. */
 export async function assertExistingMkcertCa(caRoot) {
   try {
@@ -488,17 +511,24 @@ export async function startLocalKeycloakHttpsStack({
         body
       });
     };
-    const configureMfa = () =>
+    const configureMfa = (onStage = () => {}) =>
       configureLocalKeycloakMfa({
         root,
         env,
-        request,
-        inspectTarget: (input) =>
-          inspectKeycloakPasswordResetTarget({
+        request: async (input) => {
+          onStage(localKeycloakProfileStage(input));
+          const response = await request(input);
+          onStage(localKeycloakProfileStage(input, response.status));
+          return response;
+        },
+        inspectTarget: (input) => {
+          onStage('verify isolated Keycloak Docker target');
+          return inspectKeycloakPasswordResetTarget({
             ...input,
             env: { ...clean, ...env, DOCKER_CONTEXT: context },
             plan: { ...input.plan, composeArgs }
-          })
+          });
+        }
       });
     const identitySql = async (statement) =>
       compose(
@@ -641,10 +671,13 @@ export async function startLocalKeycloakHttpsStack({
           ...(body ? { body: body.toString() } : {})
         });
       },
-      async reconcilePasswordOnly(enabled) {
+      async reconcilePasswordOnly(enabled, onStage = () => {}) {
+        onStage('write fixture authentication configuration');
         env.FUNDING_ADMIN_OIDC_LOCAL_PASSWORD_ONLY = String(enabled);
         await configure();
-        const result = await configureMfa();
+        onStage('reconcile Keycloak client authentication profile');
+        const result = await configureMfa(onStage);
+        onStage('recreate fixture API');
         await compose([
           'up',
           '-d',
@@ -655,11 +688,12 @@ export async function startLocalKeycloakHttpsStack({
           '--force-recreate',
           'api'
         ]);
+        onStage('wait for fixture API health');
         await healthy(['api']);
         return result;
       },
-      async replayAuthenticationProfile() {
-        return configureMfa();
+      async replayAuthenticationProfile(onStage = () => {}) {
+        return configureMfa(onStage);
       },
       async prepareProvisioningClient() {
         const tokenResponse = await request({
