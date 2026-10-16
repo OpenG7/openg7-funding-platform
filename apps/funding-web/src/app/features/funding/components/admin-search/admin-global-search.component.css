@@ -1,48 +1,35 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
 }
 .search-trigger {
-  align-items: center;
-  display: flex;
+  @apply tw:items-center tw:flex;
   gap: 0.65rem;
-  width: 100%;
-  min-height: var(--admin-control-height, 2.75rem);
-  padding: 0.625rem 0.75rem;
+  @apply tw:w-full tw:min-h-admin-control tw:py-2.5 tw:px-3;
   border: 1px solid var(--admin-border);
-  border-radius: 0.6rem;
+  @apply tw:rounded-admin-control;
   background: var(--admin-panel-raised);
-  color: var(--admin-muted);
-  text-align: left;
-  cursor: pointer;
+  @apply tw:text-admin-muted tw:text-left tw:cursor-pointer;
   font-family: inherit;
-  font-size: var(--admin-navigation-size, 0.9375rem);
+  @apply tw:text-admin-navigation;
   line-height: 1.4;
 }
 .search-trigger span {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  @apply tw:flex-1 tw:min-w-0 tw:overflow-hidden tw:text-ellipsis tw:whitespace-nowrap;
 }
 kbd {
-  font-size: var(--admin-caption-size, 0.875rem);
-  white-space: nowrap;
+  @apply tw:text-admin-caption tw:whitespace-nowrap;
 }
 dialog {
-  position: fixed;
-  inset: 0;
-  margin: auto;
-  box-sizing: border-box;
+  @apply tw:fixed tw:inset-0 tw:m-auto tw:box-border;
   width: min(46rem, calc(100vw - 2rem));
   max-height: calc(100dvh - 2rem);
-  overflow: auto;
-  padding: 1.25rem;
+  @apply tw:overflow-auto tw:p-5;
   border: 1px solid var(--admin-border);
   border-radius: 0.85rem;
   background: var(--admin-bg);
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
   box-shadow: 0 1rem 4rem #0008;
 }
 dialog::backdrop {
@@ -50,59 +37,52 @@ dialog::backdrop {
 }
 header,
 .pagination {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
+  @apply tw:flex tw:items-center tw:justify-between tw:gap-3;
 }
 h2 {
-  margin: 0;
+  @apply tw:m-0;
 }
 header {
-  margin-bottom: 1rem;
+  @apply tw:mb-4;
 }
 input {
-  box-sizing: border-box;
-  width: 100%;
-  padding: 0.75rem;
+  @apply tw:box-border tw:w-full tw:p-3;
   margin-top: 0.35rem;
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.4rem;
+  @apply tw:rounded-admin-sm;
   font-family: inherit;
   font-size: inherit;
   line-height: inherit;
 }
 .muted {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   font-size: 0.9rem;
 }
 .warning {
-  color: var(--admin-warning);
+  @apply tw:text-admin-warning;
 }
 .results {
-  padding: 0;
+  @apply tw:p-0;
   list-style: none;
 }
 .results li {
   margin: 0.75rem 0;
-  padding: 1rem;
+  @apply tw:p-4;
   border: 1px solid var(--admin-border);
   background: var(--admin-panel);
-  border-radius: 0.6rem;
-  overflow-wrap: anywhere;
+  @apply tw:rounded-admin-control tw:wrap-anywhere;
 }
 h3 {
-  margin: 0;
+  @apply tw:m-0;
 }
 .links {
-  display: flex;
-  flex-wrap: wrap;
+  @apply tw:flex tw:flex-wrap;
   gap: 0.6rem 1rem;
 }
 .links a {
-  color: var(--admin-gold);
+  @apply tw:text-admin-gold;
   text-decoration: underline;
   text-underline-offset: 0.2em;
   padding: 0.3rem 0;
@@ -113,14 +93,14 @@ h3 {
 }
 @media (max-width: 480px) {
   dialog {
-    padding: 1rem;
+    @apply tw:p-4;
     width: calc(100vw - 1rem);
     max-height: calc(100dvh - 1rem);
   }
   kbd {
-    display: none;
+    @apply tw:hidden;
   }
   .pagination {
-    flex-wrap: wrap;
+    @apply tw:flex-wrap;
   }
 }
