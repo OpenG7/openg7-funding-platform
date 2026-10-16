@@ -413,6 +413,17 @@ export class FundingAdminService {
     );
   }
 
+  /** Authenticated transport; the optional automatic-run client stays lazy. */
+  automaticRunRequest(suffix: string, body?: object): Promise<Response> {
+    return this.session.requestAdminJson(`/admin/automatic-runs${suffix}`, {
+      auth: 'saved',
+      method: body ? 'POST' : 'GET',
+      cache: 'no-store',
+      headers: { 'Content-Type': 'application/json' },
+      body
+    });
+  }
+
   getSavedAdminToken(): string {
     return this.session.getSavedAdminToken();
   }

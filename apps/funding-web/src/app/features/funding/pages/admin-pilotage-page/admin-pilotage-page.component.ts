@@ -31,6 +31,7 @@ import {
   type ProgrammeCommand
 } from '../../components/admin-pilotage/editorial-programme.component.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
+import { AdminAutomaticPreparationDirective } from '../../components/admin-automatic/admin-automatic-preparation.directive.js';
 import { FundingModerationService } from '../../services/funding-moderation.service.js';
 import { FundingModerationActionsComponent } from '../../components/admin-moderation/funding-moderation-actions.component.js';
 import { AdminDrawerComponent } from '../../components/admin-ui/admin-drawer.component.js';
@@ -80,6 +81,7 @@ type Panel =
     PilotDecisionDetailsComponent,
     AdminPublicationCalendarComponent,
     AdminLayoutComponent,
+    AdminAutomaticPreparationDirective,
     FundingModerationActionsComponent,
     EditorialProgrammeComponent,
     AdminGuideComponent

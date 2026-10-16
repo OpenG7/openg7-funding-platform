@@ -14,6 +14,7 @@
   <div class="media-review-copy">
     <openg7-funding-moderation-actions
       [subject]="{ type: 'media', id: asset().id }"
+      [automaticFor]="asset().contributionId ?? null"
       [disabled]="busy()"
       (changed)="moderationChanged.emit()"
     />
@@ -64,6 +65,14 @@
       <button
         type="button"
         class="admin-button"
+        [openg7AutomaticPrepare]="'sponsor.media.preview:' + asset().id"
+        [automaticFor]="asset().contributionId ?? null"
+        (automaticPrepare)="
+          previewMedia.emit({
+            id: asset().id,
+            alt: asset().altText || asset().kindLabel
+          })
+        "
         (click)="
           previewMedia.emit({
             id: asset().id,

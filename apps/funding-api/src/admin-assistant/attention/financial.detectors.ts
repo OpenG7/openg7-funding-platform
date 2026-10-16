@@ -11,22 +11,43 @@ export const detectFinancialWarningItems = (
 ): AdminAttentionItem[] => {
   const items: AdminAttentionItem[] = [];
   const { financialTotals } = dataset;
-
-  if (financialTotals.disputed > 0) {
+  const disputes = dataset.disputedTotals
+    ? dataset.disputedTotals
+        .filter((total) => total.amountMinor > 0)
+        .map((total) => ({
+          disputed: total.amountMinor / 100,
+          currency: total.currency,
+          amountMinor: total.amountMinor
+        }))
+    : financialTotals && financialTotals.disputed > 0
+      ? [
+          {
+            disputed: financialTotals.disputed,
+            currency: financialTotals.currency,
+            amountMinor: undefined
+          }
+        ]
+      : [];
+  for (const dispute of disputes) {
     items.push({
-      id: 'financial_data_warning:disputed',
+      id:
+        'financial_data_warning:disputed' +
+        (disputes.length > 1 ? ':' + dispute.currency : ''),
       type: 'financial_data_warning',
       severity: 'today',
       title: 'Paiements en litige détectés',
       explanation:
-        `Des paiements totalisant ${financialTotals.disputed} ` +
-        `${financialTotals.currency} sont en litige (disputed). Le montant net ` +
+        `Des paiements totalisant ${dispute.disputed} ` +
+        `${dispute.currency} sont en litige (disputed). Le montant net ` +
         `réellement disponible pourrait être inférieur au montant brut affiché.`,
       detectedAt: dataset.now.toISOString(),
       adminUrl: ADMIN_URLS.transparency,
       facts: {
-        disputedAmount: financialTotals.disputed,
-        currency: financialTotals.currency
+        disputedAmount: dispute.disputed,
+        currency: dispute.currency,
+        ...(dispute.amountMinor !== undefined
+          ? { disputedAmountMinor: dispute.amountMinor }
+          : {})
       },
       suggestedActions: [
         {

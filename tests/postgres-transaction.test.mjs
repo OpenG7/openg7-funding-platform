@@ -131,6 +131,24 @@ test('a successful transaction returns the unchanged result after committing and
   ]);
 });
 
+test('a writable repeatable snapshot rolls back a serialization conflict without replaying the operation', async () => {
+  const conflict = Object.assign(new Error('Synthetic concurrent change'), {
+    code: '40001'
+  });
+  const f = fixture({ operation: conflict });
+  await assert.rejects(
+    withPostgresTransaction(f.pool, f.operation, { repeatableRead: true }),
+    conflict
+  );
+  assert.deepEqual(f.calls, [
+    'connect',
+    'BEGIN ISOLATION LEVEL REPEATABLE READ',
+    'operation',
+    'ROLLBACK',
+    'release'
+  ]);
+});
+
 test('rollback confirmation is reported only after acknowledgement, never after connection loss or commit success', async (t) => {
   for (const scenario of [
     { failures: {}, confirmed: false },

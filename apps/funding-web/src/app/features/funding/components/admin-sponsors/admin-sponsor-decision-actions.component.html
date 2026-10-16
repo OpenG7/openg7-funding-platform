@@ -57,6 +57,10 @@
       [disabled]="
         actionsDisabled() || sponsorship().sponsor_review_status === 'rejected'
       "
+      [openg7AutomaticPrepare]="'sponsor.review.reject'"
+      [automaticFor]="sponsorship().id"
+      automaticExecutionMode="confirmation_required"
+      (automaticPrepare)="openRejection.emit()"
       (click)="openRejection.emit()"
     >
       {{ 'admin.legacy.refuser' | translate }}
@@ -67,6 +71,10 @@
       #refundButton
       *ngIf="financeTab() && ownerActions()"
       [disabled]="actionsDisabled() || !canRefund()"
+      [openg7AutomaticPrepare]="'sponsor.refund.open'"
+      [automaticFor]="sponsorship().id"
+      automaticExecutionMode="confirmation_required"
+      (automaticPrepare)="openRefund.emit()"
       (click)="openRefund.emit()"
     >
       {{ 'admin.legacy.rembourser_stripe' | translate }}
@@ -80,6 +88,10 @@
       [attr.aria-busy]="approvalState() === 'pending'"
       *ngIf="!financeTab()"
       [disabled]="actionsDisabled() || !canApprove()"
+      [openg7AutomaticPrepare]="'sponsor.review.approve'"
+      [automaticFor]="sponsorship().id"
+      automaticExecutionMode="confirmation_required"
+      (automaticPrepare)="approve.emit()"
       (click)="approve.emit()"
     >
       <span class="approval-shine" aria-hidden="true"></span>

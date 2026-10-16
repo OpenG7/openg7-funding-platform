@@ -17,6 +17,7 @@ import type { CockpitSystem } from '@openg7/funding-core';
 
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
+import { AdminAutomaticPreparationDirective } from '../../components/admin-automatic/admin-automatic-preparation.directive.js';
 import { AdminBackupsComponent } from '../../components/admin-backups/admin-backups.component.js';
 import { AdminIconComponent } from '../../components/admin-ui/admin-icon.component.js';
 import { AdminDrawerComponent } from '../../components/admin-ui/admin-drawer.component.js';
@@ -54,6 +55,7 @@ interface SetupTourStep {
     TranslatePipe,
     CommonModule,
     AdminLayoutComponent,
+    AdminAutomaticPreparationDirective,
     AdminBackupsComponent,
     RouterLink,
     AdminIconComponent,

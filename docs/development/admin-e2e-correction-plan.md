@@ -227,7 +227,7 @@ Preuve : [Assistant HTTP réel](../../tests/identity/admin-assistant-contract-jo
 La découverte vérifiait déjà les fichiers sélectionnés, sans connaître les
 garanties administratives ni leur niveau de simulation.
 
-Le registre versionné relie 20 URL et 17 garanties aux rôles, états et titres
+Le registre versionné relie 20 URL et 18 garanties aux rôles, états et titres
 exacts. La garde refuse route sans rattachement, garantie absente, titre non
 sélectionné, test ignoré ou échec attendu et preuve uniquement UI.
 
@@ -236,6 +236,18 @@ Preuves : [contrôle de sélection](../../scripts/check-e2e-selection.mjs),
 [régressions](../../tests/admin-e2e-coverage.test.mjs).
 Le rattachement A17 reste un inventaire : il n'apporte pas une nouvelle preuve
 métier réelle pour chaque URL, notamment `/admin/oidc-setup` déjà couvert en UI.
+
+### A18 — Rapprochement des responsabilités et rapport durable
+
+Le mode automatique parcourt les paiements confirmés, conserve les devises
+séparées et distingue les prestations réalisées des dispenses et des faits
+inconnus. La recette utilise Web, API, PostgreSQL et OIDC locaux réels : rapport
+daté après rechargement sans rejeu, nouveau paiement hors passage et commandite
+historique qui reste ouverte. Elle part de paiements déjà confirmés ; les
+recettes Stripe restent responsables de la confirmation du paiement.
+
+Contrat : [passages automatiques](../technical/admin-automatic-runs.md).
+Recette : [rapprochement réel](../../tests/identity/admin-automatic-responsibilities.spec.ts).
 
 ## Recettes et limites
 

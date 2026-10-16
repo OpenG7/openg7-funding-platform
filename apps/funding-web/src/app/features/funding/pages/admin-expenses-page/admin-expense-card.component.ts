@@ -10,6 +10,8 @@ import type {
   AdminExpenseStatus
 } from '@openg7/funding-core';
 
+import { AdminAutomaticPreparationDirective } from '../../components/admin-automatic/admin-automatic-preparation.directive.js';
+
 import { AdminExpenseFormFieldsComponent } from './admin-expense-form-fields.component.js';
 import { expenseStatusTranslationKeys } from './admin-expense-presentation.types.js';
 import type {
@@ -21,7 +23,11 @@ import type {
 @Component({
   selector: 'openg7-admin-expense-card',
   standalone: true,
-  imports: [TranslatePipe, AdminExpenseFormFieldsComponent],
+  imports: [
+    TranslatePipe,
+    AdminExpenseFormFieldsComponent,
+    AdminAutomaticPreparationDirective
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <article
@@ -35,7 +41,12 @@ import type {
           <h2>{{ expense().project_name }}</h2>
         </div>
         <strong>{{ amountLabel() }}</strong>
-        <button type="button" (click)="proofRequested.emit()">
+        <button
+          type="button"
+          (click)="proofRequested.emit()"
+          [openg7AutomaticPrepare]="'allocation-proof:' + expense().id"
+          (automaticPrepare)="proofRequested.emit()"
+        >
           {{ 'admin.inspector.kinds.proof' | translate }}
         </button>
       </header>

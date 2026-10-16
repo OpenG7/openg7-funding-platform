@@ -24,6 +24,7 @@ import { AdminConfirmationService } from '../../services/admin-confirmation.serv
 import { FundingModerationService } from '../../services/funding-moderation.service.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import { AdminPublicationCalendarComponent } from '../../components/admin-publications/admin-publication-calendar.component.js';
+import { AdminAutomaticPreparationDirective } from '../../components/admin-automatic/admin-automatic-preparation.directive.js';
 import type { PublicationCalendarEntry } from '../../components/admin-publications/publication-calendar.js';
 
 import { PublicationAutomationSettingsController } from './publication-automation-settings.controller.js';
@@ -46,6 +47,7 @@ import type { PublicationAutomationCommandRunner } from './publication-automatio
     RouterLink,
     TranslatePipe,
     AdminLayoutComponent,
+    AdminAutomaticPreparationDirective,
     AdminPublicationCalendarComponent,
     AdminPublicationAutomationSettingsComponent,
     PublicationDeliveryDrawerComponent,

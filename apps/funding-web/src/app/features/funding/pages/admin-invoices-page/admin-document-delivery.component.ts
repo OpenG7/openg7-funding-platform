@@ -8,13 +8,20 @@ import {
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 
+import { AdminAutomaticPreparationDirective } from '../../components/admin-automatic/admin-automatic-preparation.directive.js';
+
 import type { AdminDocumentDeliveryView } from './admin-invoice.models.js';
 
 /** Admin molecule: recipient draft and resend feedback, without request state. */
 @Component({
   selector: 'openg7-admin-document-delivery',
   standalone: true,
-  imports: [CommonModule, TranslatePipe, RouterLink],
+  imports: [
+    CommonModule,
+    TranslatePipe,
+    RouterLink,
+    AdminAutomaticPreparationDirective
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <label>
@@ -36,6 +43,10 @@ import type { AdminDocumentDeliveryView } from './admin-invoice.models.js';
           !delivery().email.trim()
         "
         (click)="resend.emit()"
+        [openg7AutomaticPrepare]="'document-resend:' + delivery().id"
+        [automaticFor]="contributionId()"
+        [automaticExecutionMode]="'confirmation_required'"
+        (automaticPrepare)="resend.emit()"
       >
         {{
           (delivery().state === 'sending'
@@ -73,6 +84,7 @@ import type { AdminDocumentDeliveryView } from './admin-invoice.models.js';
 export class AdminDocumentDeliveryComponent {
   readonly canManage = input(true);
   readonly delivery = input.required<AdminDocumentDeliveryView>();
+  readonly contributionId = input<string | null>(null);
   readonly recipientLabelKey = input.required<string>();
   readonly resendLabelKey = input.required<string>();
   readonly emailChange = output<string>();

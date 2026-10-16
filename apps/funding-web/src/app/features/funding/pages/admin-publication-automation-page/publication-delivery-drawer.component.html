@@ -20,6 +20,7 @@
     @if (c.selected(); as job) {
       <openg7-funding-moderation-actions
         [subject]="{ type: 'publication_delivery', id: job.id }"
+        [automaticFor]="automaticTarget()"
         [disabled]="c.busy() || c.dirty()"
         (changed)="c.refreshModeration()"
       />
@@ -188,8 +189,14 @@
         }
         @if (c.editable()) {
           <button
+            type="button"
             class="admin-button"
             [disabled]="c.busy()"
+            [openg7AutomaticPrepare]="
+              c.editing() ? '' : 'publication.delivery.edit:' + job.id
+            "
+            [automaticFor]="automaticTarget()"
+            (automaticPrepare)="c.editing.set(true)"
             (click)="c.editing.set(true)"
           >
             {{ 'admin.publicationAutomation.modify' | translate }}
@@ -198,7 +205,7 @@
       }
     }
     @if (c.editing()) {
-      <form (ngSubmit)="c.save()">
+      <form (ngSubmit)="c.save()" data-og7-automatic-block="editing">
         <fieldset [disabled]="c.busy() || !c.editable()">
           @if (c.composing()) {
             <label
@@ -444,6 +451,7 @@
               ) | translate
             }}</label
           ><button
+            type="button"
             class="admin-button"
             [disabled]="
               c.busy() ||
@@ -457,6 +465,10 @@
                       c.collectionPreviews().length !== job.mediaImages?.length
                     : !c.previewUrl())))
             "
+            [openg7AutomaticPrepare]="'publication.delivery.approve:' + job.id"
+            [automaticFor]="automaticTarget()"
+            automaticExecutionMode="confirmation_required"
+            (automaticPrepare)="c.approve()"
             (click)="c.approve()"
           >
             {{ 'admin.publicationAutomation.approve' | translate }}
@@ -464,12 +476,30 @@
         </div>
       }
       @if (c.editable()) {
-        <button class="admin-button" [disabled]="c.busy()" (click)="c.reject()">
+        <button
+          type="button"
+          class="admin-button"
+          [disabled]="c.busy()"
+          [openg7AutomaticPrepare]="'publication.delivery.reject:' + job.id"
+          [automaticFor]="automaticTarget()"
+          automaticExecutionMode="confirmation_required"
+          (automaticPrepare)="c.reject()"
+          (click)="c.reject()"
+        >
           {{ 'admin.publicationAutomation.reject' | translate }}
         </button>
       }
       @if (job.status === 'approved') {
-        <button class="admin-button" [disabled]="c.busy()" (click)="c.cancel()">
+        <button
+          type="button"
+          class="admin-button"
+          [disabled]="c.busy()"
+          [openg7AutomaticPrepare]="'publication.delivery.cancel:' + job.id"
+          [automaticFor]="automaticTarget()"
+          automaticExecutionMode="confirmation_required"
+          (automaticPrepare)="c.cancel()"
+          (click)="c.cancel()"
+        >
           {{ 'admin.publicationAutomation.cancel' | translate }}
         </button>
       }

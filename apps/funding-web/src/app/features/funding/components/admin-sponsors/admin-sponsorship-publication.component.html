@@ -155,6 +155,9 @@
             <button
               type="button"
               class="admin-button profile-settings"
+              [openg7AutomaticPrepare]="'sponsor.website.edit'"
+              [automaticFor]="dossier().contributionId"
+              (automaticPrepare)="editWebsite.emit()"
               (click)="editWebsite.emit()"
             >
               <openg7-admin-icon name="settings" />
@@ -170,6 +173,10 @@
                 [disabled]="
                   websiteDisabled() || (!site.visible && !site.canPublish)
                 "
+                [openg7AutomaticPrepare]="'sponsor.website.visibility'"
+                [automaticFor]="dossier().contributionId"
+                automaticExecutionMode="confirmation_required"
+                (automaticPrepare)="changeWebsiteVisibility.emit(!site.visible)"
                 (click)="changeWebsiteVisibility.emit(!site.visible)"
               >
                 {{

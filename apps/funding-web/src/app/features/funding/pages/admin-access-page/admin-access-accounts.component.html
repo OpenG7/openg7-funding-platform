@@ -10,6 +10,8 @@
       <button
         type="button"
         (click)="editRequested.emit(account)"
+        [openg7AutomaticPrepare]="'access-edit:' + account.id"
+        (automaticPrepare)="editRequested.emit(account)"
         [disabled]="busy()"
       >
         {{ 'admin.access.edit' | translate }}

@@ -7,6 +7,8 @@ interface PostgresConnectionSource {
 interface PostgresTransactionOptions<T> {
   /** Read all projections from one stable snapshot and reject database writes. */
   readonly readOnlySnapshot?: boolean;
+  /** Keep related reads/writes on one stable snapshot; callers handle conflicts. */
+  readonly repeatableRead?: boolean;
   /** Roll back a declined result, including any writes made before the decision. */
   readonly shouldCommit?: (result: T) => boolean;
   /** Keep the operation failure if its rollback also fails. */
@@ -27,7 +29,9 @@ export const withPostgresTransaction = async <T>(
     await client.query(
       options.readOnlySnapshot
         ? 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY'
-        : 'BEGIN'
+        : options.repeatableRead
+          ? 'BEGIN ISOLATION LEVEL REPEATABLE READ'
+          : 'BEGIN'
     );
     const result = await operation(client);
     if (options.shouldCommit?.(result) === false) {

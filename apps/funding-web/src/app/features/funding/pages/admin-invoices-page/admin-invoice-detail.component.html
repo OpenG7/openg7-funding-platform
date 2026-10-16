@@ -28,6 +28,9 @@
           type="button"
           class="secondary-action"
           (click)="invoiceInspection.emit(invoice)"
+          [openg7AutomaticPrepare]="'invoice-preview:' + invoice.id"
+          [automaticFor]="invoice.contribution_id"
+          (automaticPrepare)="invoiceInspection.emit(invoice)"
         >
           {{ 'admin.inspector.previewInvoice' | translate }}
         </button>
@@ -204,6 +207,7 @@
         <openg7-admin-document-delivery
           [canManage]="canManage()"
           [delivery]="credit.delivery"
+          [contributionId]="invoice.contribution_id"
           recipientLabelKey="admin.legacy.destinataire_avoir"
           resendLabelKey="admin.legacy.renvoyer_avoir"
           (emailChange)="
@@ -277,6 +281,7 @@
       <openg7-admin-document-delivery
         [canManage]="canManage()"
         [delivery]="detail.delivery"
+        [contributionId]="invoice.contribution_id"
         recipientLabelKey="admin.legacy.destinataire"
         resendLabelKey="admin.legacy.renvoyer"
         (emailChange)="

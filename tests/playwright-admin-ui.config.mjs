@@ -24,6 +24,7 @@ export default defineBuiltWebSuite({
     'admin-global-search.spec.ts',
     'admin-attention.spec.ts',
     'admin-guidance.spec.ts',
+    'admin-automatic-portfolio.spec.ts',
     'admin-controller-journeys.spec.ts',
     'admin-virtual-controller.spec.ts',
     'admin-assistant-context.spec.ts',

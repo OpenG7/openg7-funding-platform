@@ -15,13 +15,14 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { AdminAutomaticPreparationDirective } from '../admin-automatic/admin-automatic-preparation.directive.js';
 
 import { AdminSponsorshipAccessController } from './admin-sponsorship-access-controller.js';
 
 @Component({
   selector: 'openg7-admin-sponsorship-access',
   standalone: true,
-  imports: [TranslatePipe],
+  imports: [TranslatePipe, AdminAutomaticPreparationDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ['../admin-ui/admin-controls.css'],
   styles: [
@@ -65,6 +66,10 @@ import { AdminSponsorshipAccessController } from './admin-sponsorship-access-con
       <button
         type="button"
         [disabled]="busy() || disabled()"
+        [openg7AutomaticPrepare]="'sponsor.access.resend'"
+        [automaticFor]="contributionId()"
+        automaticExecutionMode="confirmation_required"
+        (automaticPrepare)="resend()"
         (click)="resend()"
       >
         {{

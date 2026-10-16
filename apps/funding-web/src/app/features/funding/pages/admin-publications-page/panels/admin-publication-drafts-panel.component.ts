@@ -24,6 +24,7 @@ import type {
 import { AdminConfirmationService } from '../../../services/admin-confirmation.service.js';
 import { FundingModerationService } from '../../../services/funding-moderation.service.js';
 import { FundingModerationActionsComponent } from '../../../components/admin-moderation/funding-moderation-actions.component.js';
+import { AdminAutomaticPreparationDirective } from '../../../components/admin-automatic/admin-automatic-preparation.directive.js';
 import { FundingAdminService } from '../../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../../services/funding-i18n.service.js';
 import type { PublicationLoadState } from '../publication-panels.contracts.js';
@@ -51,7 +52,12 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
 @Component({
   selector: 'openg7-admin-publication-drafts-panel',
   standalone: true,
-  imports: [CommonModule, TranslatePipe, FundingModerationActionsComponent],
+  imports: [
+    CommonModule,
+    TranslatePipe,
+    FundingModerationActionsComponent,
+    AdminAutomaticPreparationDirective
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-publication-drafts-panel.component.html',
   styleUrls: [

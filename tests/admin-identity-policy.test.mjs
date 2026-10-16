@@ -58,6 +58,28 @@ test('email reconciliation shares retry permissions for both aliases and rejects
   }
 });
 
+test('automatic responsibility runs keep report reads private and restrict preparations to operators and owners', () => {
+  for (const prefix of ['', '/api']) {
+    for (const path of [
+      '/admin/automatic-runs',
+      '/admin/automatic-runs/report'
+    ]) {
+      for (const role of ['reader', 'operator', 'owner'])
+        assert.equal(adminRoleAllows(role, 'GET', prefix + path), true);
+    }
+    for (const path of [
+      '/admin/automatic-runs',
+      '/admin/automatic-runs/advance',
+      '/admin/automatic-runs/control'
+    ]) {
+      assert.equal(adminRoleAllows('reader', 'POST', prefix + path), false);
+      assert.equal(adminRoleAllows('operator', 'POST', prefix + path), true);
+      assert.equal(adminRoleAllows('owner', 'POST', prefix + path), true);
+      assert.equal(adminRoleAllows('operator', 'DELETE', prefix + path), false);
+    }
+  }
+});
+
 test('document and accounting routes preserve read, operator and owner permissions for both API aliases', () => {
   const roles = ['reader', 'operator', 'owner'];
   const routes = [

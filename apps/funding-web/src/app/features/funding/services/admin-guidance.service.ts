@@ -126,10 +126,10 @@ export class AdminGuidanceService {
       bookmark: current.bookmark ?? this.currentBookmark()
     });
   }
-  setMode(mode: 'discovery' | 'payment'): void {
+  setMode(mode: 'discovery' | 'payment' | 'automatic'): void {
     const current = { ...this.snapshot() };
     delete current.mode;
-    this.persist({ ...current, ...(mode === 'payment' ? { mode } : {}) });
+    this.persist({ ...current, ...(mode !== 'discovery' ? { mode } : {}) });
   }
   followPayment(contributionId: string, preservePause = false): void {
     const id = guidanceContributionId(contributionId);

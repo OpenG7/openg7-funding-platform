@@ -21,6 +21,7 @@ import { AdminConfirmationService } from '../../services/admin-confirmation.serv
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminDrawerComponent } from '../admin-ui/admin-drawer.component.js';
 import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
+import { AdminAutomaticPreparationDirective } from '../admin-automatic/admin-automatic-preparation.directive.js';
 
 import { createAdminBackupsBrowser } from './admin-backups-browser.js';
 import { AdminBackupsController } from './admin-backups-controller.js';
@@ -33,7 +34,8 @@ import { AdminBackupsController } from './admin-backups-controller.js';
     TranslatePipe,
     RouterLink,
     AdminDrawerComponent,
-    AdminIconComponent
+    AdminIconComponent,
+    AdminAutomaticPreparationDirective
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-backups.component.html',

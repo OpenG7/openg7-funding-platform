@@ -19,6 +19,7 @@ import { AdminConfirmationService } from '../../services/admin-confirmation.serv
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminDrawerComponent } from '../admin-ui/admin-drawer.component.js';
+import { AdminAutomaticPreparationDirective } from '../admin-automatic/admin-automatic-preparation.directive.js';
 
 import { AdminSponsorEditController } from './admin-sponsor-edit-controller.js';
 
@@ -26,7 +27,11 @@ import { AdminSponsorEditController } from './admin-sponsor-edit-controller.js';
 @Component({
   selector: 'openg7-admin-sponsor-edit',
   standalone: true,
-  imports: [TranslatePipe, AdminDrawerComponent],
+  imports: [
+    TranslatePipe,
+    AdminDrawerComponent,
+    AdminAutomaticPreparationDirective
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-sponsor-edit.component.html',
   styleUrls: [

@@ -23,7 +23,12 @@ export interface AttentionDataset {
   readonly batches: readonly AdminPublicationBatchRecord[];
   readonly slots: readonly AdminPublicationSlotRecord[];
   readonly emailMessages: readonly AdminEmailQueueMessageRecord[];
-  readonly financialTotals: FinancialTotalsInput;
+  /** Operational queues do not require a scalar monetary summary. */
+  readonly financialTotals: FinancialTotalsInput | null;
+  readonly disputedTotals?: readonly {
+    readonly amountMinor: number;
+    readonly currency: string;
+  }[];
 }
 
 export interface BuildAdminAssistantSummaryOptions {

@@ -109,6 +109,14 @@
             ) {
               <button
                 type="button"
+                [openg7AutomaticPrepare]="
+                  c.selectedObligation() === o.id
+                    ? ''
+                    : 'sponsor.obligation.adjust:' + o.id
+                "
+                [automaticFor]="dossier().contributionId"
+                automaticExecutionMode="confirmation_required"
+                (automaticPrepare)="c.chooseObligation(o.id)"
                 (click)="c.chooseObligation(o.id)"
                 [disabled]="locked()"
                 data-og7="commitments-adjust-open"
@@ -325,6 +333,7 @@
       <form
         (submit)="$event.preventDefault(); c.adjust()"
         data-og7="commitments-adjustment"
+        data-og7-automatic-block="editing"
         [attr.aria-describedby]="c.error() ? 'commitments-error' : null"
       >
         <h4>{{ 'admin.commitments.adjust' | translate }}</h4>

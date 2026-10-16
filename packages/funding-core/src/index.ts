@@ -331,3 +331,9 @@ export type {
   AdminPaymentJourneyStep,
   AdminPaymentJourneyResponse
 } from './admin-payment-journey.js';
+export type {
+  ResponsibilityBalance,
+  ResponsibilityBalanceObligation,
+  ResponsibilityBalanceEvidence
+} from './admin-responsibility-balance.js';
+export * from './admin-automatic-runs.js';

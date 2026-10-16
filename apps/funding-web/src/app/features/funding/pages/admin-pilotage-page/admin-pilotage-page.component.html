@@ -2,6 +2,7 @@
   <div
     class="pilot"
     data-og7="pilotage"
+    [attr.data-og7-automatic-block]="unresolved() ? 'receipt' : null"
     [class.concentrated]="concentrated()"
     [class.queue-visible]="queueVisible()"
     [class.controller-active]="controller.connected() && controller.enabled()"
@@ -496,6 +497,12 @@
           type="button"
           data-og7="pilot-accept"
           (click)="primary() && request(primary()!.id)"
+          [openg7AutomaticPrepare]="
+            'pilotage-primary:' + (selected()?.id ?? '')
+          "
+          [automaticFor]="selected()?.inspection?.contributionId ?? null"
+          [automaticExecutionMode]="'confirmation_required'"
+          (automaticPrepare)="primary() && request(primary()!.id)"
           [disabled]="blocked() || !primary() || !!primary()?.blocked"
         >
           <kbd
@@ -511,6 +518,10 @@
           type="button"
           data-og7="pilot-reject"
           (click)="reject() && request(reject()!.id)"
+          [openg7AutomaticPrepare]="'pilotage-reject:' + (selected()?.id ?? '')"
+          [automaticFor]="selected()?.inspection?.contributionId ?? null"
+          [automaticExecutionMode]="'confirmation_required'"
+          (automaticPrepare)="reject() && request(reject()!.id)"
           [disabled]="blocked() || !reject() || !!reject()?.blocked"
         >
           <kbd
@@ -526,6 +537,9 @@
           type="button"
           data-og7="pilot-edit"
           (click)="startEdit()"
+          [openg7AutomaticPrepare]="'pilotage-edit:' + (selected()?.id ?? '')"
+          [automaticFor]="selected()?.inspection?.contributionId ?? null"
+          (automaticPrepare)="startEdit()"
           [disabled]="blocked() || !editable() || !!editable()?.blocked"
         >
           <kbd
@@ -537,6 +551,11 @@
           type="button"
           data-og7="pilot-details"
           (click)="details()"
+          [openg7AutomaticPrepare]="
+            'pilotage-details:' + (selected()?.id ?? '')
+          "
+          [automaticFor]="selected()?.inspection?.contributionId ?? null"
+          (automaticPrepare)="details()"
           [disabled]="busy() || !selected()"
         >
           <kbd

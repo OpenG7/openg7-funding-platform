@@ -154,6 +154,97 @@ incomplets sans consentement ou avec publication sociale seulement simulée.
 Leur définition ne remplace pas le résultat d'une exécution et ne qualifie aucune
 publication ou paiement de production.
 
+### Mode automatique de rapprochement
+
+Dans **Mode guidé → Automatique**, **Équilibrer les responsabilités** lance un
+passage sur les paiements confirmés. Le serveur fige la liste des dossiers,
+leurs références, montants et devises ; chaque dossier est ensuite relu à partir
+du paiement, de l'offre enregistrée, des obligations et de leurs preuves.
+Les quantités et les passages promis doivent tous être présents. Les devises
+restent séparées. Le soutien personnel ne crée aucune contrepartie commerciale.
+
+Le mode explique le dossier contrôlé et sa raison, prépare les brouillons privés
+admissibles, puis inscrit le résultat dans un rapport durable avant de passer
+au suivant. Ces préparations réutilisent les services métier : elles ne publient
+ni n'envoient de message. Une publication, un refus, un remboursement, une facture
+à réparer ou un courriel à reprendre conserve sa confirmation et ses droits
+habituels. **Examiner ce dossier** permet de rejoindre sa prochaine étape.
+Un dossier qui attend une personne, une information ou une échéance reste ouvert
+dans le rapport pendant le contrôle des autres dossiers.
+
+Le bilan distingue avantages réalisés avec preuve qualifiée, dispenses humaines
+auditées, responsabilités restantes et faits inconnus. Une offre historique non
+qualifiée, une obligation manquante, une preuve étrangère ou simulée et une durée
+sans attestation ne permettent pas de solder une responsabilité. Les incidents
+de paiement, de document et de communication restent également visibles.
+
+Le rapport conserve, par dossier et passage, les faits avant/après, actions,
+raisons, acteur, date et références d'audit, de requête et de preuve. Il est
+accompagné du détail des avantages promis : quantité, format, éléments requis,
+échéance et durée. Les réalisations hors délai restent signalées pour le suivi
+humain. Le rapport est
+consultable par son acteur après rechargement, avec pagination. Le mode token
+partage le même acteur entre ses utilisateurs ; OIDC conserve les comptes
+nominatifs. Aucune donnée de rapport n'est enregistrée dans `localStorage`.
+**Passage terminé** indique la fin de la liste contrôlée. **Responsabilités
+équilibrées lors de ce passage** décrit les observations datées du rapport ;
+un fait ultérieur peut rouvrir une responsabilité.
+
+Les paiements confirmés après la capture apparaissent comme nouveaux dossiers à
+inclure dans un nouveau passage. **Revérifier** relit la même liste figée après
+les interventions humaines. La reprise est explicite : ouvrir le panneau ou
+recharger la page relit le rapport sans relancer les opérations. Pause, saisie,
+navigation manuelle, formulaire ou dialogue ouvert, onglet masqué et changement
+de session arrêtent l'avancement. Une requête déjà partie peut se terminer ;
+la pause empêche le dossier suivant. Un résultat incertain exige sa
+réconciliation et n'est jamais rejoué automatiquement.
+
+**Réconcilier le résultat** demande confirmation puis consulte les commandes
+durables. Le serveur récupère un résultat déjà enregistré ou prouve l'absence
+de préparation validée avant de laisser le passage en pause. **Reprendre** est
+un second geste volontaire ; une incohérence conserve le blocage.
+
+Le contrat privé et les droits des endpoints sont décrits dans
+[l'API administrative](../technical/admin-automatic-runs.md).
+La migration additive `055_admin_automatic_responsibility_runs.sql` conserve
+manifestes, commandes idempotentes et entrées de rapport immuables ; elle
+n'active aucun worker. Appliquer la procédure de
+[migration](database-migrations.md) avant d'utiliser le nouveau mode.
+
+### Préparation d'un dossier ou d'une rubrique
+
+Les outils de préparation du guide flottant proposent le paiement suivi ou l’une des
+18 rubriques administratives. **Démarrer la préparation** montre l’étape et sa
+raison, rejoint l’écran, met la zone utile en évidence et ouvre les préparations
+explicitement déclarées par les composants propriétaires. Lorsque plusieurs
+décisions sont possibles, l’administrateur choisit celle à préparer. Les
+formulaires déjà affichés attendent les informations et preuves manquantes.
+
+Les préparations ouvrent un aperçu, un formulaire ou la confirmation habituelle.
+Aucune validation finale n’est enregistrée dans ce registre. Paiement,
+consentement, revue, visibilité et publication restent des décisions distinctes ;
+aucun montant, consentement, motif ou justificatif n’est inventé. Les actions
+globales et les courriels sans lien explicite au paiement restent exclus d’un
+parcours ciblé. Les contrôles du mode sont accessibles à la manette commune.
+
+Le parcours d’un paiement relit les faits privés du serveur après une mutation,
+avant chaque préparation et toutes les dix secondes pendant l’attente, au plus
+trente fois avant pause. Il ne passe à la suite qu’après changement de la
+prochaine étape ; une visite ou un POST réussi ne solde aucune obligation.
+Un formulaire ouvert, un dialogue ou un reçu non résolu bloque la navigation et
+la fin du parcours. Un résultat incertain exige toujours sa réconciliation.
+
+**Pause immédiate**, saisie dans un dossier, navigation manuelle, onglet masqué
+et changement de session interrompent l’exécution. La reprise relit les faits.
+Après rechargement, seule la préférence du mode est conservée ; démarrage et
+confirmations restent volontaires. Le journal de repères est borné, en mémoire
+et purgé au changement de session. Il ne remplace pas l’audit du serveur.
+
+Les tests `admin-automatic-run.test.mjs`,
+`admin-automatic-preparation.test.mjs` et `admin-guidance.spec.ts` couvrent moteur,
+préparations explicites et interactions navigateur. Ils ne qualifient ni une
+manette physique ni les fournisseurs de production.
+
 ### Découverte des commandes
 
 Le bouton **Guide pas à pas** du poste de pilotage présente dix repères :

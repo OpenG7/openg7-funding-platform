@@ -66,6 +66,8 @@
           [attr.aria-current]="navSection() === 'readiness' ? 'location' : null"
           type="button"
           (click)="focusSection('readiness')"
+          [openg7AutomaticPrepare]="'setup-readiness'"
+          (automaticPrepare)="focusSection('readiness')"
         >
           <openg7-admin-icon name="dashboard" />{{
             'admin.setup.overview' | translate
@@ -75,6 +77,8 @@
           [attr.aria-current]="navSection() === 'identity' ? 'location' : null"
           type="button"
           (click)="focusSection('identity')"
+          [openg7AutomaticPrepare]="'setup-identity'"
+          (automaticPrepare)="focusSection('identity')"
           data-og7="setup-identity-nav"
         >
           <openg7-admin-icon name="settings" />{{
@@ -85,6 +89,8 @@
           [attr.aria-current]="navSection() === 'stripe' ? 'location' : null"
           type="button"
           (click)="focusSection('stripe')"
+          [openg7AutomaticPrepare]="'setup-stripe'"
+          (automaticPrepare)="focusSection('stripe')"
         >
           <openg7-admin-icon name="cloud" />{{
             'admin.setup.services' | translate
@@ -94,6 +100,8 @@
           [attr.aria-current]="navSection() === 'env' ? 'location' : null"
           type="button"
           (click)="focusSection('env')"
+          [openg7AutomaticPrepare]="'setup-environment'"
+          (automaticPrepare)="focusSection('env')"
         >
           <openg7-admin-icon name="settings" />{{
             'admin.legacy.configuration' | translate
@@ -102,6 +110,8 @@
         <button
           type="button"
           (click)="focusSection('backups')"
+          [openg7AutomaticPrepare]="'setup-backups'"
+          (automaticPrepare)="focusSection('backups')"
           data-og7="setup-backups-nav"
           [attr.aria-current]="navSection() === 'backups' ? 'location' : null"
         >
@@ -113,6 +123,8 @@
           [attr.aria-current]="navSection() === 'activity' ? 'location' : null"
           type="button"
           (click)="focusSection('activity')"
+          [openg7AutomaticPrepare]="'setup-activity'"
+          (automaticPrepare)="focusSection('activity')"
         >
           <openg7-admin-icon name="clock" />{{
             'admin.setup.activity' | translate

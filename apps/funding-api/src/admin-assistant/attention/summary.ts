@@ -14,6 +14,7 @@ export const buildFinancialSummary = (
   dataset: AttentionDataset
 ): AdminAssistantFinancialSummary => {
   const { financialTotals, sponsorshipsTruncated } = dataset;
+  if (!financialTotals) throw new Error('Financial summary unavailable.');
   const limitations = [
     'Les frais de traitement Stripe ne sont pas inclus dans ce résumé.',
     'Le montant net réel dépend des frais et des remboursements confirmés par Stripe.'

@@ -11,6 +11,7 @@ import {
 } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 
+import { AdminAutomaticPreparationDirective } from '../../components/admin-automatic/admin-automatic-preparation.directive.js';
 import type { AdminAccessAccount } from '../../services/funding-admin.service.js';
 
 import type {
@@ -23,7 +24,7 @@ import type {
   selector: 'openg7-admin-access-sessions',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe],
+  imports: [TranslatePipe, AdminAutomaticPreparationDirective],
   templateUrl: './admin-access-sessions.component.html',
   styleUrl: './admin-access-controls.css'
 })

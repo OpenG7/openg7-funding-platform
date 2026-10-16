@@ -29,6 +29,7 @@ import type {
 
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import { AdminPublicationQueueComponent } from '../../components/admin-publications/admin-publication-queue.component.js';
+import { AdminAutomaticPreparationDirective } from '../../components/admin-automatic/admin-automatic-preparation.directive.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 
 import { AdminPublicationDraftsPanelComponent } from './panels/admin-publication-drafts-panel.component.js';
@@ -48,6 +49,7 @@ type PublicationView = 'overview' | 'drafts' | 'batches' | 'calendar';
     CommonModule,
     AdminLayoutComponent,
     AdminPublicationQueueComponent,
+    AdminAutomaticPreparationDirective,
     AdminPublicationDraftsPanelComponent,
     AdminPublicationSlotsPanelComponent,
     AdminPublicationBatchesPanelComponent,

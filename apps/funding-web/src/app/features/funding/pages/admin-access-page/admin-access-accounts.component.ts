@@ -6,6 +6,7 @@ import {
 } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 
+import { AdminAutomaticPreparationDirective } from '../../components/admin-automatic/admin-automatic-preparation.directive.js';
 import type { AdminAccessAccount } from '../../services/funding-admin.service.js';
 
 /** Admin organism: account list; editing and permissions remain in the page. */
@@ -13,7 +14,7 @@ import type { AdminAccessAccount } from '../../services/funding-admin.service.js
   selector: 'openg7-admin-access-accounts',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe],
+  imports: [TranslatePipe, AdminAutomaticPreparationDirective],
   templateUrl: './admin-access-accounts.component.html',
   styleUrl: './admin-access-controls.css'
 })

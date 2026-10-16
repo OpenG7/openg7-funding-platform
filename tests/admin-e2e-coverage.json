@@ -396,6 +396,26 @@
           "title": "admin coverage rejects missing routes, guarantees, skipped evidence and simulated suites"
         }
       ]
+    },
+    {
+      "id": "A18",
+      "routes": ["/admin/fundraiser/attention"],
+      "roles": ["owner"],
+      "states": [
+        "confirmed payments",
+        "separate currencies",
+        "durable dated report",
+        "reload without replay",
+        "newly confirmed payment",
+        "unqualified promises remain unknown"
+      ],
+      "evidence": [
+        {
+          "level": "e2e",
+          "file": "tests/identity/admin-automatic-responsibilities.spec.ts",
+          "title": "automatic responsibilities traverse confirmed payments and retain a dated honest report through reload and a new payment"
+        }
+      ]
     }
   ]
 }

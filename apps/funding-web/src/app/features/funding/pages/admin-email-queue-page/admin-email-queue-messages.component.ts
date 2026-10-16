@@ -8,6 +8,8 @@ import {
 import { TranslatePipe } from '@ngx-translate/core';
 import type { AdminEmailQueueMessageRecord } from '@openg7/funding-core';
 
+import { AdminAutomaticPreparationDirective } from '../../components/admin-automatic/admin-automatic-preparation.directive.js';
+
 import type {
   EmailQueueLoadState,
   EmailQueueMessageView
@@ -17,7 +19,7 @@ import type {
 @Component({
   selector: 'openg7-admin-email-queue-messages',
   standalone: true,
-  imports: [CommonModule, TranslatePipe],
+  imports: [CommonModule, TranslatePipe, AdminAutomaticPreparationDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-email-queue-messages.component.html',
   styleUrls: [
@@ -42,5 +44,10 @@ export class AdminEmailQueueMessagesComponent {
 
   trackByMessage(_index: number, view: EmailQueueMessageView): string {
     return view.message.id;
+  }
+
+  contributionIdFor(message: AdminEmailQueueMessageRecord): string | null {
+    const id = message.metadata['contributionId'];
+    return typeof id === 'string' ? id : null;
   }
 }

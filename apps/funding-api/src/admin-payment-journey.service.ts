@@ -6,7 +6,7 @@ import type {
   AdminSponsorshipProgress,
   ContributionType
 } from '@openg7/funding-core';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 
 import { loadReliabilityFollowupItems } from './admin-work-queue/reliability-followup.js';
 import { loadSponsorshipAssistantDataset } from './admin-assistant/context.repository.js';
@@ -206,68 +206,76 @@ export async function getPaymentJourney(
   if (!pool) return { ...base, status: 'unavailable' };
   return withPostgresTransaction(
     pool,
-    async (client) => {
-      const result = await client.query<PaymentJourneySource>(
-        `SELECT id::text AS "contributionId", COALESCE(public_reference, '#' || LEFT(id::text, 8)) AS reference,
+    (client) => loadPaymentJourneyOnClient(client, contributionId, now),
+    { readOnlySnapshot: true }
+  );
+}
+
+/** Compose within the caller's stable snapshot; this port performs no mutation. */
+export async function loadPaymentJourneyOnClient(
+  client: PoolClient,
+  contributionId: string,
+  now = new Date()
+): Promise<AdminPaymentJourneyResponse> {
+  const base = { generatedAt: now.toISOString(), journey: null };
+  const result = await client.query<PaymentJourneySource>(
+    `SELECT id::text AS "contributionId", COALESCE(public_reference, '#' || LEFT(id::text, 8)) AS reference,
        contribution_type AS "contributionType", amount_cents AS "amountMinor", UPPER(currency) AS currency, status AS "paymentStatus"
        FROM fund_contributions WHERE id=$1::uuid`,
-        [contributionId]
-      );
-      const source = result.rows[0];
-      if (!source) return { ...base, status: 'not_found' };
-      const communications = await client.query<PaymentCommunication>(
-        `SELECT id::text, status FROM email_messages WHERE
+    [contributionId]
+  );
+  const source = result.rows[0];
+  if (!source) return { ...base, status: 'not_found' };
+  const communications = await client.query<PaymentCommunication>(
+    `SELECT id::text, status FROM email_messages WHERE
        metadata->>'contributionId'=$1 OR metadata->>'invoiceId' IN
          (SELECT id::text FROM sponsorship_invoices WHERE contribution_id=$1::uuid)
        OR metadata->>'creditNoteId' IN
          (SELECT id::text FROM sponsorship_credit_notes WHERE contribution_id=$1::uuid)
        ORDER BY created_at, id`,
-        [contributionId]
-      );
-      const errors = await client.query<{ id: string; status: string }>(
-        `SELECT e.stripe_event_id AS id, e.processing_status AS status FROM stripe_events e JOIN fund_contributions c ON c.id=$1::uuid
+    [contributionId]
+  );
+  const errors = await client.query<{ id: string; status: string }>(
+    `SELECT e.stripe_event_id AS id, e.processing_status AS status FROM stripe_events e JOIN fund_contributions c ON c.id=$1::uuid
        WHERE (e.processing_status='failed' OR (e.processing_status='processing' AND e.received_at<=$2::timestamptz))
        AND (e.payload->'data'->'object'->>'id' IN (c.stripe_payment_intent_id,c.stripe_session_id)
        OR COALESCE(e.payload->'data'->'object'->'payment_intent'->>'id',e.payload->'data'->'object'->>'payment_intent')=c.stripe_payment_intent_id)
        ORDER BY (e.processing_status='failed') DESC, e.received_at, e.stripe_event_id LIMIT 1`,
-        [contributionId, new Date(now.getTime() - 15 * 60 * 1000).toISOString()]
-      );
-      let dossier: AdminSponsorshipProgress | null = null;
-      if (
-        source.contributionType === 'sponsorship_interest' &&
-        ['paid', 'refunded', 'disputed'].includes(source.paymentStatus)
-      ) {
-        const context = await loadSponsorshipAssistantDataset(
-          client,
-          contributionId,
-          now
-        );
-        if (!context) return { ...base, status: 'unavailable' };
-        dossier = buildSponsorshipProgress(
-          context,
-          await loadSponsorshipProgressFacts(client, contributionId)
-        );
-      }
-      return {
-        status: 'ok',
-        generatedAt: base.generatedAt,
-        journey: buildPaymentJourney(
-          source,
-          dossier,
-          await loadReliabilityFollowupItems(client, now, contributionId),
-          communications.rows,
-          errors.rows[0]
-            ? {
-                id: errors.rows[0].id,
-                type:
-                  errors.rows[0].status === 'failed'
-                    ? 'stripe_event_failed'
-                    : 'stripe_event_stalled'
-              }
-            : false
-        )
-      };
-    },
-    { readOnlySnapshot: true }
+    [contributionId, new Date(now.getTime() - 15 * 60 * 1000).toISOString()]
   );
+  let dossier: AdminSponsorshipProgress | null = null;
+  if (
+    source.contributionType === 'sponsorship_interest' &&
+    ['paid', 'refunded', 'disputed'].includes(source.paymentStatus)
+  ) {
+    const context = await loadSponsorshipAssistantDataset(
+      client,
+      contributionId,
+      now
+    );
+    if (!context) return { ...base, status: 'unavailable' };
+    dossier = buildSponsorshipProgress(
+      context,
+      await loadSponsorshipProgressFacts(client, contributionId)
+    );
+  }
+  return {
+    status: 'ok',
+    generatedAt: base.generatedAt,
+    journey: buildPaymentJourney(
+      source,
+      dossier,
+      await loadReliabilityFollowupItems(client, now, contributionId),
+      communications.rows,
+      errors.rows[0]
+        ? {
+            id: errors.rows[0].id,
+            type:
+              errors.rows[0].status === 'failed'
+                ? 'stripe_event_failed'
+                : 'stripe_event_stalled'
+          }
+        : false
+    )
+  };
 }

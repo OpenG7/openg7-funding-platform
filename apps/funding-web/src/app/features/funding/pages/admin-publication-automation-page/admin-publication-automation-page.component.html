@@ -151,7 +151,18 @@
           <div class="jobs">
             @for (job of visible(); track job.id) {
               <button
+                type="button"
                 class="job"
+                [openg7AutomaticPrepare]="
+                  delivery.selected()?.id === job.id
+                    ? ''
+                    : 'publication.delivery.open:' + job.id
+                "
+                [automaticFor]="
+                  sponsorshipId() ??
+                  (job.sponsors.length === 1 ? job.sponsors[0].id : null)
+                "
+                (automaticPrepare)="delivery.open(job)"
                 (click)="delivery.open(job)"
                 [attr.data-og7-id]="job.id"
               >
@@ -188,5 +199,8 @@
       </p>
     }
   </div>
-  <openg7-publication-delivery-drawer [controller]="delivery" />
+  <openg7-publication-delivery-drawer
+    [controller]="delivery"
+    [automaticFor]="sponsorshipId()"
+  />
 </openg7-admin-layout>

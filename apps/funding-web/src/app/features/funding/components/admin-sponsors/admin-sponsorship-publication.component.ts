@@ -16,6 +16,7 @@ import {
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { ContributionActivityService } from '../../services/contribution-activity.service.js';
 import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
+import { AdminAutomaticPreparationDirective } from '../admin-automatic/admin-automatic-preparation.directive.js';
 
 import { AdminSponsorshipCommitmentsComponent } from './admin-sponsorship-commitments.component.js';
 
@@ -27,6 +28,7 @@ import { AdminSponsorshipCommitmentsComponent } from './admin-sponsorship-commit
     RouterLink,
     TranslatePipe,
     AdminIconComponent,
+    AdminAutomaticPreparationDirective,
     AdminSponsorshipCommitmentsComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,

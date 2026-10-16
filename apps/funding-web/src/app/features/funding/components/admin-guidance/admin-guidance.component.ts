@@ -4,6 +4,7 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  ViewContainerRef,
   afterRenderEffect,
   inject,
   signal,
@@ -42,16 +43,51 @@ export class AdminGuidanceComponent {
   readonly i18n = inject(FundingI18nService);
   readonly missing = signal(false);
   readonly placement = signal<'top' | 'bottom'>('top');
+  readonly automaticLoading = signal(false);
+  readonly automaticError = signal(false);
   private readonly document = inject(DOCUMENT);
   private readonly card = viewChild<ElementRef<HTMLElement>>('card');
   private readonly toggle = viewChild<ElementRef<HTMLButtonElement>>('toggle');
   private readonly resume = viewChild<ElementRef<HTMLAnchorElement>>('resume');
   private readonly heading = viewChild<ElementRef<HTMLElement>>('stepHeading');
+  private readonly automaticHost = viewChild('automaticHost', {
+    read: ViewContainerRef
+  });
   private focusResume = false;
   private releaseHighlight: (() => void) | undefined;
   private frame = 0;
 
   constructor() {
+    // The optional admin surface uses the existing router component runtime.
+    // A first deferred block would add its runtime to the public initial bundle.
+    afterRenderEffect((onCleanup) => {
+      const host = this.automaticHost();
+      if (!host) return;
+      let current = true;
+      let release: (() => void) | undefined;
+      onCleanup(() => {
+        current = false;
+        release?.();
+      });
+      this.automaticLoading.set(true);
+      this.automaticError.set(false);
+      void import('../admin-automatic/admin-automatic.component.js')
+        .then(({ AdminAutomaticComponent }) => {
+          if (!current) return;
+          const component = host.createComponent(AdminAutomaticComponent);
+          release = () => component.destroy();
+          component.instance.show.subscribe((target) => this.show(target));
+          this.automaticLoading.set(false);
+          component.changeDetectorRef.markForCheck();
+        })
+        .catch(() => {
+          if (!current) return;
+          release?.();
+          release = undefined;
+          this.automaticLoading.set(false);
+          this.automaticError.set(true);
+        });
+    });
     afterRenderEffect(() => {
       this.guidance.page();
       this.guidance.step();
