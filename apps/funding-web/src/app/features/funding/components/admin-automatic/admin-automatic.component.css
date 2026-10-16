@@ -1,10 +1,10 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
 }
 .balance-counts {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  @apply tw:grid tw:grid-cols-2;
   gap: 0.6rem;
 }
 .balance-counts div {
@@ -13,8 +13,7 @@
   padding: 0.6rem;
 }
 .balance-counts dt {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
 }
 .balance-counts dd {
   margin: 0.3rem 0 0;
@@ -25,14 +24,12 @@
   padding-block: 0.7rem;
 }
 code {
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }
 dialog {
   width: min(36rem, calc(100vw - 2rem));
   max-height: calc(100dvh - 2rem);
-  overflow: auto;
-  padding: 1rem;
-  color: var(--admin-text);
+  @apply tw:overflow-auto tw:p-4 tw:text-admin-text;
   background: var(--admin-panel);
   border: 1px solid var(--admin-gold);
   border-radius: 0.8rem;
@@ -42,7 +39,7 @@ dialog::backdrop {
 }
 h2,
 h3 {
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
   line-height: 1.4;
 }
 h2 {
@@ -55,52 +52,48 @@ h3 {
 }
 p {
   line-height: 1.55;
-  margin-block: 0.5rem;
-  overflow-wrap: anywhere;
+  @apply tw:my-2 tw:wrap-anywhere;
 }
 label {
-  display: block;
+  @apply tw:block;
   margin-block: 1rem 0.4rem;
 }
 select {
-  width: 100%;
-  max-width: 100%;
+  @apply tw:w-full tw:max-w-full;
   min-height: 2.75rem;
   padding: 0.55rem;
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
   border-radius: 0.5rem;
 }
 .actions {
-  display: flex;
+  @apply tw:flex;
   gap: 0.6rem;
-  flex-wrap: wrap;
+  @apply tw:flex-wrap;
   margin-block: 0.8rem;
 }
 .preparations {
-  display: grid;
-  gap: 0.5rem;
+  @apply tw:grid tw:gap-2;
 }
 .admin-button {
   min-height: 2.75rem;
-  white-space: normal;
-  text-align: start;
+  @apply tw:whitespace-normal tw:text-start;
 }
 .activity {
   border-inline-start: 3px solid var(--admin-gold);
   padding: 0.65rem 0.8rem;
-  margin-block: 1rem;
+  @apply tw:my-4;
   background: var(--admin-bg);
   border-radius: 0.35rem;
 }
 .quiet,
 li {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   font-size: 0.875rem;
 }
 summary {
-  cursor: pointer;
+  @apply tw:cursor-pointer;
   padding-block: 0.65rem;
 }
 li {

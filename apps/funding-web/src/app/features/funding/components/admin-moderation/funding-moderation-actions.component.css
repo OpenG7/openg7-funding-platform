@@ -1,17 +1,19 @@
+@reference '../../../../../styles/tailwind.css';
+
 .moderation-actions {
-  display: grid;
+  @apply tw:grid;
   gap: 0.6rem;
-  padding: 1rem;
+  @apply tw:p-4;
   border: 1px solid var(--admin-border);
   border-radius: 0.75rem;
 }
 
 label {
-  display: grid;
+  @apply tw:grid;
   gap: 0.4rem;
 }
 
 article {
   margin: 1rem 0;
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }

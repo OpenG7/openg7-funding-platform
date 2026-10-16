@@ -1,28 +1,26 @@
+@reference '../../../../../styles/tailwind.css';
+
 .reference {
-  color: var(--admin-muted);
-  overflow-wrap: anywhere;
+  @apply tw:text-admin-muted tw:wrap-anywhere;
 }
 dl {
-  display: grid;
-  gap: 0.75rem;
+  @apply tw:grid tw:gap-3;
 }
 dl div {
   padding: 0.7rem;
   border-bottom: 1px solid var(--admin-border);
 }
 dt {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
 }
 dd {
   margin: 0.25rem 0 0;
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }
 img {
-  display: block;
-  max-width: 100%;
+  @apply tw:block tw:max-w-full;
   max-height: 70vh;
-  object-fit: contain;
+  @apply tw:object-contain;
   margin: 1rem auto;
 }
 ol {
@@ -30,17 +28,14 @@ ol {
 }
 li {
   padding: 0.5rem 0;
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }
 
 time {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
 }
 footer {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+  @apply tw:flex tw:flex-wrap tw:gap-3;
   border-top: 1px solid var(--admin-border);
-  padding-top: 1rem;
-  margin-top: 1.5rem;
+  @apply tw:pt-4 tw:mt-6;
 }

@@ -1,0 +1,17 @@
+@reference '../../../../../styles/tailwind.css';
+
+.keys {
+  @apply tw:grid tw:grid-cols-10;
+  gap: 0.3rem;
+}
+.keys button {
+  min-height: 2.4rem;
+  background: var(--og7-admin-raised, #183550);
+  border: 1px solid var(--og7-admin-border, #52738f);
+  color: var(--og7-admin-text, #fff);
+  border-radius: 0.35rem;
+}
+.keys button:focus-visible {
+  outline: 3px solid var(--og7-admin-focus, #64dfff);
+  outline-offset: 2px;
+}

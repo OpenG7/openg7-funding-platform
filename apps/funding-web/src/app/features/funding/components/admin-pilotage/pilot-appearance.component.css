@@ -1,17 +1,18 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  color: var(--admin-text);
+  @apply tw:block tw:text-admin-text;
 }
 .intro {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   margin: 0 0 1.5rem;
   line-height: 1.6;
 }
 fieldset {
   border: 0;
-  padding: 0;
+  @apply tw:p-0;
   margin: 0 0 1.5rem;
-  min-width: 0;
+  @apply tw:min-w-0;
 }
 legend {
   font-size: 0.9375rem;
@@ -19,19 +20,17 @@ legend {
   margin-bottom: 0.8rem;
 }
 .themes {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  @apply tw:grid tw:grid-cols-3;
   gap: 0.65rem;
 }
 .theme-card {
-  display: grid;
+  @apply tw:grid;
   align-content: start;
   gap: 0.65rem;
   border: 1px solid var(--admin-border);
   border-radius: 0.75rem;
   padding: 0.7rem;
-  cursor: pointer;
-  min-width: 0;
+  @apply tw:cursor-pointer tw:min-w-0;
 }
 .selected {
   border-color: var(--admin-gold) !important;
@@ -44,7 +43,7 @@ legend {
 .choice,
 .system,
 .densities label {
-  display: flex;
+  @apply tw:flex;
   gap: 0.6rem;
   align-items: flex-start;
   font-size: 0.9375rem;
@@ -61,40 +60,38 @@ input:focus-visible {
   outline-offset: 3px;
 }
 small {
-  display: block;
-  color: var(--admin-muted);
+  @apply tw:block tw:text-admin-muted;
   font-size: 0.875rem;
   line-height: 1.5;
 }
 .system {
-  margin-top: 1.25rem;
-  cursor: pointer;
+  @apply tw:mt-5 tw:cursor-pointer;
 }
 .system small,
 .densities small {
   margin-top: 0.3rem;
 }
 .current {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   font-size: 0.875rem;
-  margin-top: 0.75rem;
+  @apply tw:mt-3;
 }
 .densities {
-  display: grid;
+  @apply tw:grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
+  @apply tw:gap-3;
 }
 .densities label {
   border: 1px solid var(--admin-border);
   border-radius: 0.7rem;
   padding: 0.9rem;
-  cursor: pointer;
+  @apply tw:cursor-pointer;
 }
 .note {
-  padding: 1rem;
+  @apply tw:p-4;
   border-left: 2px solid var(--admin-gold);
   background: var(--admin-panel);
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   font-size: 0.875rem;
   line-height: 1.6;
 }
@@ -103,12 +100,12 @@ small {
   --mini-panel: #1b2d44;
   --mini-line: #60788d;
   --mini-accent: #f4c957;
-  position: relative;
+  @apply tw:relative;
   height: 5rem;
   border: 1px solid var(--mini-line);
   border-radius: 0.4rem;
   background: var(--mini-bg);
-  overflow: hidden;
+  @apply tw:overflow-hidden;
 }
 .miniature[data-theme='mineral'] {
   --mini-bg: #f7f5f0;
@@ -123,14 +120,14 @@ small {
   --mini-accent: #f1ce80;
 }
 .mini-sidebar {
-  position: absolute;
+  @apply tw:absolute;
   inset: 0 auto 0 0;
   width: 16%;
   background: var(--mini-panel);
   border-right: 1px solid var(--mini-line);
 }
 .mini-header {
-  position: absolute;
+  @apply tw:absolute;
   top: 12%;
   left: 23%;
   width: 35%;
@@ -139,7 +136,7 @@ small {
   border-radius: 4px;
 }
 .mini-decision {
-  position: absolute;
+  @apply tw:absolute;
   left: 23%;
   top: 28%;
   width: 45%;
@@ -150,32 +147,32 @@ small {
   padding: 5px;
 }
 .mini-decision i {
-  display: block;
+  @apply tw:block;
   height: 35%;
   background: var(--mini-line);
   opacity: 0.4;
 }
 .mini-decision b {
-  display: block;
+  @apply tw:block;
   height: 2px;
   margin-top: 4px;
   background: var(--mini-line);
 }
 .mini-decision em {
-  display: block;
+  @apply tw:block;
   height: 5px;
   width: 60%;
   margin-top: 4px;
   background: var(--mini-accent);
 }
 .mini-queue {
-  position: absolute;
+  @apply tw:absolute;
   top: 28%;
   right: 7%;
   width: 18%;
 }
 .mini-queue i {
-  display: block;
+  @apply tw:block;
   height: 9px;
   background: var(--mini-panel);
   border: 1px solid var(--mini-line);
@@ -188,7 +185,7 @@ small {
   }
   .theme-card {
     grid-template-columns: 5rem 1fr;
-    column-gap: 1rem;
+    @apply tw:gap-x-4;
   }
   .miniature {
     grid-row: 1 / 3;

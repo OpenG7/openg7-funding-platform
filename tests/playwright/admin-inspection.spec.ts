@@ -637,6 +637,10 @@ test('Stripe drawer is translated and fills a 320px mobile viewport', async ({
   await expect(drawer(page)).toContainText('charge.updated');
   const size = await drawer(page).boundingBox();
   expect(size?.width).toBe(320);
+  await expect(drawer(page)).toHaveCSS('position', 'fixed');
+  await expect(drawer(page)).toHaveCSS('height', '760px');
+  await expect(drawer(page)).toHaveCSS('border-left-width', '0px');
+  await expect(drawer(page).locator('header')).toHaveCSS('padding', '16px');
   expect(
     await drawer(page).evaluate((el) => el.scrollWidth <= el.clientWidth)
   ).toBe(true);

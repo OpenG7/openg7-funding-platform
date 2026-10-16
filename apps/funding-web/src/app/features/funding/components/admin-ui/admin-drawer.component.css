@@ -1,16 +1,14 @@
+@reference '../../../../../styles/tailwind.css';
+
 dialog {
-  position: fixed;
+  @apply tw:fixed;
   inset: 0 0 0 auto;
-  margin: 0;
-  box-sizing: border-box;
+  @apply tw:m-0 tw:box-border;
   width: min(40rem, 92vw);
   height: 100dvh;
-  max-width: none;
-  max-height: none;
-  padding: 0;
-  overflow: auto;
+  @apply tw:max-w-none tw:max-h-none tw:p-0 tw:overflow-auto;
   background: var(--admin-bg);
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
   border: 0;
   border-left: 1px solid var(--admin-border);
   box-shadow: -1rem 0 4rem #0005;
@@ -22,13 +20,12 @@ dialog.wide {
   width: min(90rem, 98vw);
 }
 dialog.fixed-footer[open] {
-  display: grid;
+  @apply tw:grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  overflow: hidden;
+  @apply tw:overflow-hidden;
 }
 .fixed-footer .body {
-  overflow: auto;
-  min-height: 0;
+  @apply tw:overflow-auto tw:min-h-0;
   scroll-padding-block: 1rem;
 }
 .fixed-footer .body:focus-visible {
@@ -36,37 +33,30 @@ dialog.fixed-footer[open] {
   outline-offset: -4px;
 }
 dialog[data-og7-virtual-controller-host][open] {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  @apply tw:flex tw:flex-col tw:overflow-hidden;
 }
 dialog[data-og7-virtual-controller-host] > header {
-  position: static;
+  @apply tw:static;
   flex: 0 0 auto;
 }
 dialog[data-og7-virtual-controller-host] > .body {
   flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
+  @apply tw:min-h-0 tw:overflow-auto;
 }
 dialog[data-og7-virtual-controller-host] > footer {
   flex: 0 0 auto;
 }
 header {
-  position: sticky;
+  @apply tw:sticky;
   top: 0;
   z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+  @apply tw:flex tw:items-center tw:justify-between tw:gap-4;
   padding: 1.2rem;
   background: var(--admin-panel);
   border-bottom: 1px solid var(--admin-border);
 }
 h2 {
-  margin: 0;
-  overflow-wrap: anywhere;
+  @apply tw:m-0 tw:wrap-anywhere;
 }
 .body {
   padding: 1.2rem;
@@ -78,6 +68,6 @@ h2 {
   }
   header,
   .body {
-    padding: 1rem;
+    @apply tw:p-4;
   }
 }

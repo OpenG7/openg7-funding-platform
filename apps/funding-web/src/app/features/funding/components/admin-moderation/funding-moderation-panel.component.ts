@@ -38,10 +38,8 @@ import type { ModerationContent } from '../../services/funding-admin-moderation.
   styleUrls: [
     '../admin-ui/admin-theme.css',
     '../admin-ui/admin-controls.css',
-    '../admin-ui/admin-forms.css'
-  ],
-  styles: [
-    '.moderation-fields { display: grid; gap: 1rem; } label { display: grid; gap: .35rem; } pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 20rem; overflow: auto; } footer { display: flex; gap: .75rem; flex-wrap: wrap; }'
+    '../admin-ui/admin-forms.css',
+    './funding-moderation-panel.component.css'
   ]
 })
 export class FundingModerationPanelComponent {

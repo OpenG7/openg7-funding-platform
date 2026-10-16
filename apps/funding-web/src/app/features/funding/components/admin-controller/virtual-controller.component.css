@@ -1,14 +1,13 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
 }
 .virtual-home {
-  display: contents;
+  @apply tw:contents;
 }
 .virtual-panel {
-  box-sizing: border-box;
-  min-width: 0;
-  width: 100%;
+  @apply tw:box-border tw:min-w-0 tw:w-full;
   padding: 0.7rem;
   color: var(--admin-text, #f4f5f7);
   background: var(--admin-panel, #132236);
@@ -17,12 +16,12 @@
   touch-action: pan-y;
 }
 .virtual-panel[hidden] {
-  display: none;
+  @apply tw:hidden;
 }
 .virtual-modal {
   flex: 0 0 auto;
   max-height: min(20rem, 34dvh);
-  overflow: auto;
+  @apply tw:overflow-auto;
   overscroll-behavior: contain;
   border-radius: 0;
   border-width: 1px 0 0;
@@ -31,21 +30,20 @@ header,
 footer,
 .triggers,
 .directions {
-  display: flex;
-  align-items: center;
+  @apply tw:flex tw:items-center;
   gap: 0.4rem;
 }
 header {
-  justify-content: space-between;
+  @apply tw:justify-between;
 }
 footer {
-  flex-wrap: wrap;
+  @apply tw:flex-wrap;
   margin-top: 0.6rem;
 }
 .status,
 .hint {
   margin: 0.4rem 0;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
   line-height: 1.4;
 }
 .status {
@@ -69,8 +67,7 @@ button {
   color: inherit;
   background: var(--admin-bg, #0b1726);
   font: inherit;
-  font-size: var(--admin-caption-size, 0.875rem);
-  cursor: pointer;
+  @apply tw:text-admin-caption tw:cursor-pointer;
 }
 button:hover {
   border-color: var(--admin-gold, #f4cd66);
@@ -80,48 +77,41 @@ button.pressed {
   background: var(--admin-gold, #f4cd66);
 }
 .buttons {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  @apply tw:grid tw:grid-cols-6;
   gap: 0.35rem;
 }
 .triggers {
   margin-block: 0.6rem;
 }
 .trigger {
-  position: relative;
-  flex: 1;
+  @apply tw:relative tw:flex-1;
   padding: 0.45rem;
-  overflow: hidden;
+  @apply tw:overflow-hidden;
   border: 1px solid var(--admin-border, #435a73);
   border-radius: 0.4rem;
-  text-align: center;
+  @apply tw:text-center;
   cursor: ew-resize;
 }
 .trigger-value {
-  position: absolute;
+  @apply tw:absolute;
   inset: 0 auto 0 0;
   background: rgb(244 205 102 / 25%);
-  pointer-events: none;
+  @apply tw:pointer-events-none;
 }
 .trigger > span:last-child {
-  position: relative;
-  pointer-events: none;
+  @apply tw:relative tw:pointer-events-none;
 }
 .sticks {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  @apply tw:grid tw:grid-cols-2;
   gap: 0.7rem;
 }
 .stick-group {
-  display: flex;
-  align-items: center;
-  flex-direction: column;
+  @apply tw:flex tw:items-center tw:flex-col;
   gap: 0.35rem;
-  min-width: 0;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:min-w-0 tw:text-admin-caption;
 }
 .stick {
-  position: relative;
+  @apply tw:relative;
   width: 5rem;
   height: 5rem;
   border: 1px solid var(--admin-border, #435a73);
@@ -132,28 +122,28 @@ button.pressed {
 .stick::before,
 .stick::after {
   content: '';
-  position: absolute;
+  @apply tw:absolute;
   background: var(--admin-border, #435a73);
-  pointer-events: none;
+  @apply tw:pointer-events-none;
 }
 .stick::before {
   width: 1px;
-  height: 100%;
+  @apply tw:h-full;
   left: 50%;
 }
 .stick::after {
   height: 1px;
-  width: 100%;
+  @apply tw:w-full;
   top: 50%;
 }
 .knob {
-  position: absolute;
+  @apply tw:absolute;
   width: 1.3rem;
   height: 1.3rem;
   border-radius: 50%;
   background: var(--admin-gold, #f4cd66);
   transform: translate(-50%, -50%);
-  pointer-events: none;
+  @apply tw:pointer-events-none;
 }
 .directions {
   gap: 0.2rem;

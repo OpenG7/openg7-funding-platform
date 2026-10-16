@@ -167,7 +167,7 @@ test('shared admin appearance follows system changes outside pilotage', async ({
   expect(commands).toEqual([]);
 });
 
-for (const theme of ['night', 'mineral', 'graphite']) {
+for (const theme of ['night', 'mineral', 'graphite'] as const) {
   for (const language of ['fr-CA', 'en']) {
     for (const width of [390, 1536]) {
       test(`appearance ${theme} stays readable in ${language} at ${width}px`, async ({
@@ -201,6 +201,20 @@ for (const theme of ['night', 'mineral', 'graphite']) {
         await expect(page.getByRole('dialog')).not.toContainText(
           'admin.appearance.'
         );
+        await expect(page.getByRole('dialog')).toHaveCSS('position', 'fixed');
+        await expect(page.getByRole('dialog')).toHaveCSS(
+          'background-color',
+          adminPalettes[theme].background
+        );
+        const themeCard = page
+          .locator(`[data-og7="pilot-theme-${theme}"]`)
+          .locator('..')
+          .locator('..');
+        await expect(themeCard).toHaveCSS('padding', '11.2px');
+        await expect(themeCard).toHaveCSS('border-radius', '12px');
+        await expect(
+          page.locator('[data-og7="pilot-density-compact"]').locator('..')
+        ).toHaveCSS('padding', '14.4px');
         if (language === 'fr-CA') {
           const audit = await new AxeBuilder({ page })
             .include('dialog[open]')

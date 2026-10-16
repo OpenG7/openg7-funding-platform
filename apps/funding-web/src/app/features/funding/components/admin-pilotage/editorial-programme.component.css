@@ -1,23 +1,22 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
   color: var(--og7-admin-text, #e4edf8);
 }
 .programme {
-  display: grid;
-  gap: 1rem;
+  @apply tw:grid tw:gap-4;
 }
 .tabs,
 .toolbar,
 .scope {
-  display: flex;
+  @apply tw:flex;
   gap: 0.65rem;
-  flex-wrap: wrap;
-  align-items: center;
+  @apply tw:flex-wrap tw:items-center;
 }
 .tabs {
   border-bottom: 1px solid var(--og7-admin-border, #35536b);
-  padding-bottom: 0.75rem;
+  @apply tw:pb-3;
 }
 .tabs button[aria-current],
 .primary {
@@ -37,12 +36,11 @@
   padding: 0.6rem 0.8rem;
 }
 .programme button {
-  cursor: pointer;
-  text-align: left;
+  @apply tw:cursor-pointer tw:text-left;
 }
 .programme button:disabled {
   opacity: 0.55;
-  cursor: default;
+  @apply tw:cursor-default;
 }
 .programme :focus-visible {
   outline: 3px solid var(--og7-admin-focus, #70e3ff);
@@ -52,7 +50,7 @@
   color: var(--og7-admin-accent, #8ceaff);
 }
 .programme label {
-  display: grid;
+  @apply tw:grid;
   gap: 0.4rem;
 }
 .programme input[type='number'] {
@@ -64,30 +62,27 @@
   accent-color: var(--og7-admin-accent, #1bb9d6);
 }
 .programme .check {
-  display: flex;
-  align-items: center;
+  @apply tw:flex tw:items-center;
   gap: 0.6rem;
 }
 .programme h2,
 .programme h3,
 .programme h4,
 .programme p {
-  margin: 0;
+  @apply tw:m-0;
 }
 .programme p {
   line-height: 1.65;
 }
 .programme small {
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 .stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  @apply tw:grid tw:grid-cols-3;
   gap: 0.6rem;
 }
 .stats div {
-  display: grid;
-  padding: 1rem;
+  @apply tw:grid tw:p-4;
   border: 1px solid var(--og7-admin-border, #35536b);
   border-radius: 0.7rem;
 }
@@ -96,9 +91,7 @@
   color: var(--og7-admin-accent, #88eaff);
 }
 .priority {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
+  @apply tw:flex tw:justify-between tw:gap-4;
 }
 .priority small {
   color: var(--og7-admin-muted, #b5ccdf);
@@ -109,8 +102,7 @@
   background: var(--og7-admin-subtle, #172d42);
 }
 .week {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  @apply tw:grid tw:grid-cols-7;
   gap: 0.45rem;
   min-height: 18rem;
 }
@@ -118,52 +110,47 @@
   background: var(--og7-admin-subtle, #0b1e30);
   border: 1px solid var(--og7-admin-border, #345068);
   border-radius: 0.6rem;
-  padding: 0.5rem;
-  min-width: 0;
+  @apply tw:p-2 tw:min-w-0;
 }
 .day h3 {
   margin-bottom: 0.6rem;
   color: var(--og7-admin-accent, #b5e9f4);
 }
 .calendar-card {
-  display: grid;
+  @apply tw:grid;
   gap: 0.4rem;
-  width: 100%;
+  @apply tw:w-full;
   font-size: var(--admin-caption-size, 0.875rem) !important;
   margin-bottom: 0.6rem;
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }
 .calendar-card time,
 .calendar-card small {
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 .calendar-card.selected {
   outline: 2px solid var(--og7-admin-accent, #63def6);
 }
 .empty-day {
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
   color: var(--og7-admin-muted, #a6b9ca);
 }
 .selected-card,
 .rule,
 .incident {
-  display: grid;
-  gap: 0.75rem;
+  @apply tw:grid tw:gap-3;
   border: 1px solid var(--og7-admin-border, #426079);
   border-radius: 0.65rem;
-  padding: 1rem;
+  @apply tw:p-4;
 }
 .changes {
   list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.5rem;
+  @apply tw:m-0 tw:p-0 tw:grid tw:gap-2;
 }
 .changes li {
-  display: grid;
+  @apply tw:grid;
   gap: 0.35rem;
-  padding: 0.75rem;
+  @apply tw:p-3;
   background: var(--og7-admin-subtle, #142a3d);
 }
 .changes del {
@@ -176,54 +163,51 @@
 .screen {
   border: 1px solid var(--og7-admin-border, #548199);
   border-radius: 0.8rem;
-  overflow: hidden;
+  @apply tw:overflow-hidden;
   max-width: 650px;
   margin: auto;
-  width: 100%;
+  @apply tw:w-full;
 }
 .screen header,
 .screen footer {
-  padding: 1rem;
+  @apply tw:p-4;
   background: var(--og7-admin-raised, #17344b);
 }
 .screen footer {
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
   color: var(--og7-admin-muted, #bed0df);
 }
 .screen img {
-  width: 100%;
+  @apply tw:w-full;
   max-height: 350px;
-  object-fit: contain;
+  @apply tw:object-contain;
   background: var(--og7-admin-subtle, #071725);
 }
 .screen > .copy {
-  padding: 1.25rem;
+  @apply tw:p-5;
 }
 .copy {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+  @apply tw:whitespace-pre-wrap tw:wrap-anywhere;
 }
 .sequence {
-  display: grid;
-  gap: 0.5rem;
-  padding-left: 1.5rem;
+  @apply tw:grid tw:gap-2 tw:pl-6;
 }
 .sequence button {
-  width: 100%;
+  @apply tw:w-full;
 }
 .sequence [aria-current] {
   border-color: var(--og7-admin-accent, #71e0f7);
 }
 .comparison {
-  display: grid;
+  @apply tw:grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+  @apply tw:gap-4;
 }
 .comparison section {
-  display: grid;
+  @apply tw:grid;
   gap: 0.7rem;
   align-content: start;
-  min-width: 0;
+  @apply tw:min-w-0;
 }
 .comparison p {
   padding: 0.6rem;
@@ -240,23 +224,23 @@
   border: 2px solid var(--og7-admin-accent, #77dff7);
   padding: 1.2rem;
   border-radius: 0.8rem;
-  display: grid;
+  @apply tw:grid;
   gap: 0.8rem;
   background: var(--og7-admin-subtle, #10283c);
 }
 .programme details > button {
-  display: block;
+  @apply tw:block;
   margin-top: 0.6rem;
-  width: 100%;
+  @apply tw:w-full;
 }
 @media (max-width: 1100px) {
   .week {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    @apply tw:grid-cols-3;
   }
 }
 @media (max-width: 620px) {
   .week {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    @apply tw:grid-cols-2;
   }
   .stats {
     grid-template-columns: 1fr;
@@ -265,13 +249,13 @@
     grid-template-columns: 1fr;
   }
   .priority {
-    display: grid;
+    @apply tw:grid;
   }
   .scope select {
-    max-width: 100%;
+    @apply tw:max-w-full;
   }
   .toolbar {
-    align-items: stretch;
+    @apply tw:items-stretch;
   }
   .tabs button {
     flex: 1 1 40%;
