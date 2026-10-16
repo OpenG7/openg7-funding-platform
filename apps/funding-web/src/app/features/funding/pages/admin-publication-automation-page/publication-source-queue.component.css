@@ -33,7 +33,7 @@ p {
 }
 .detail {
   color: var(--admin-muted);
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .source-summary {
   display: flex;
@@ -58,7 +58,7 @@ dd {
   border-radius: 0.7rem;
 }
 .source-status {
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: 600;
 }
 .source-links {

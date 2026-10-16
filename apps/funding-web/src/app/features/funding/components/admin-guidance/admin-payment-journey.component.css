@@ -48,7 +48,7 @@ p {
 .quiet,
 .steps span {
   color: var(--admin-muted);
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 summary:focus-visible {
   outline: 2px solid var(--admin-focus);

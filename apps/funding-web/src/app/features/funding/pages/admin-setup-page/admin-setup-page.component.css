@@ -16,7 +16,7 @@
 .eyebrow {
   display: block;
   color: var(--og7-admin-accent, #9bd5ed);
-  font-size: 0.75rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -40,7 +40,7 @@
   gap: 0.75rem 1.5rem;
   justify-content: space-between;
   flex-wrap: wrap;
-  font-size: 0.78rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   color: var(--admin-muted);
 }
 .environment-bar > span {
@@ -76,7 +76,7 @@
   background: transparent;
   border-color: transparent;
   color: var(--admin-muted);
-  font-size: 0.82rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .section-nav button[aria-current='location'] {
   background: var(--og7-admin-selected, #12354c);
@@ -99,7 +99,7 @@
   align-items: center;
   justify-content: end;
   gap: 0.5rem;
-  font-size: 0.8rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   padding: 0.8rem 0.2rem;
 }
 .state {
@@ -137,6 +137,6 @@
     grid-template-columns: minmax(0, 1fr);
   }
   .environment-bar {
-    font-size: 0.75rem;
+    font-size: var(--admin-caption-size, 0.875rem);
   }
 }

@@ -24,7 +24,7 @@ header {
 
 header span {
   color: var(--admin-muted);
-  font-size: 0.78rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
   letter-spacing: 0;
   text-transform: uppercase;
@@ -81,7 +81,7 @@ td {
 
 th {
   color: var(--admin-muted);
-  font-size: 0.78rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   text-transform: uppercase;
 }
 
@@ -100,7 +100,7 @@ td small {
   border-radius: 999px;
   color: var(--admin-muted);
   display: inline-flex;
-  font-size: 0.75rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
   min-height: 1.65rem;
   padding: 0 0.65rem;

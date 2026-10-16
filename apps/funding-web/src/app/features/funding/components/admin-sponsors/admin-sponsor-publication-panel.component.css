@@ -21,7 +21,7 @@ dt,
 .publication-editor header span,
 .public-preview > span {
   color: var(--admin-muted);
-  font-size: 0.76rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
   letter-spacing: 0;
   text-transform: uppercase;
@@ -60,7 +60,7 @@ dt,
 .publication-grid label {
   display: grid;
   gap: 0.35rem;
-  font-size: 0.84rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
   min-width: 0;
 }

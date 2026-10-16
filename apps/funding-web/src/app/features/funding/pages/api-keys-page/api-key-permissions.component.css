@@ -5,7 +5,7 @@
 }
 
 .permission-table strong {
-  color: #f4eadb;
+  color: var(--text-main);
 }
 
 .permission-table {
@@ -15,27 +15,27 @@
 
 .permission-table article {
   align-items: center;
-  border-top: 1px solid rgb(255 255 255 / 8%);
+  border-top: 1px solid var(--border-color);
   display: grid;
   gap: 0.5rem;
-  grid-template-columns: minmax(10rem, 1fr) auto auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
   min-height: 2.7rem;
 }
 
 .permission-table span,
 .permission-table em {
-  border: 1px solid rgb(255 255 255 / 12%);
+  border: 1px solid var(--border-color);
   border-radius: 999px;
-  color: #968d80;
-  font-size: 0.68rem;
+  color: var(--text-main);
+  font-size: 0.875rem;
   font-style: normal;
   padding: 0.14rem 0.45rem;
 }
 
 .permission-table span.enabled,
 .permission-table em.required {
-  border-color: rgb(104 236 162 / 42%);
-  color: #68eca2;
+  border-color: var(--border-color);
+  color: var(--color-success);
 }
 
 @media (max-width: 1200px) {

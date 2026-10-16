@@ -9,22 +9,22 @@ p {
   margin-top: 0;
 }
 h2 {
-  color: #fff2d7;
-  font-size: 1.05rem;
+  color: var(--text-main);
+  font-size: 1.25rem;
   line-height: 1.4;
 }
 p {
-  color: #c5d4e5;
+  color: var(--text-soft);
   line-height: 1.6;
 }
 button {
   font: inherit;
-  border: 1px solid #587895;
+  border: 1px solid var(--border-color);
   border-radius: 0.5rem;
   padding: 0.65rem 0.9rem;
   min-height: 44px;
-  color: #e9f2ff;
-  background: #09223c;
+  color: var(--text-main);
+  background: var(--surface-panel);
   cursor: pointer;
 }
 button:disabled {
@@ -32,18 +32,18 @@ button:disabled {
   cursor: default;
 }
 button:focus-visible {
-  outline: 3px solid #ffdf76;
+  outline: 3px solid var(--color-primary);
   outline-offset: 4px;
 }
 .panel {
-  background: #06172a;
-  border: 1px solid #294862;
+  background: var(--surface-panel);
+  border: 1px solid var(--border-color);
   border-radius: 0.75rem;
-  padding: 1.3rem;
+  padding: 1.5rem;
   min-width: 0;
 }
 .formula {
-  color: #ffd879;
+  color: var(--color-gold);
   font-weight: 700;
 }
 .report-actions {

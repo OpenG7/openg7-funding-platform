@@ -19,13 +19,25 @@ textarea {
   font: inherit;
   font-weight: 400;
 }
+:where(
+  input:not([type='checkbox'], [type='radio'], [type='range'], [type='hidden']),
+  select
+) {
+  min-height: var(--admin-control-height, 2.75rem);
+  padding: 0.625rem 0.75rem;
+  line-height: 1.375;
+}
+textarea {
+  padding: 0.75rem;
+  line-height: var(--admin-body-leading, 1.5);
+}
 input::placeholder,
 textarea::placeholder {
   color: var(--admin-muted);
   opacity: 0.85;
 }
 button {
-  min-height: 2.75rem;
+  min-height: var(--admin-control-height, 2.75rem);
   border-radius: 0.6rem;
   font: inherit;
   font-weight: var(--admin-control-weight);

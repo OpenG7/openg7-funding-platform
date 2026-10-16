@@ -1,6 +1,6 @@
 .diagnostic-table span {
-  color: #6be2ff;
-  font-size: 0.66rem;
+  color: var(--text-main);
+  font-size: 0.875rem;
   text-transform: uppercase;
 }
 
@@ -22,7 +22,7 @@
 
 .diagnostic-table article {
   align-items: center;
-  border-top: 1px solid rgb(255 255 255 / 8%);
+  border-top: 1px solid var(--border-color);
   display: grid;
   gap: 0.6rem;
   grid-template-columns: 6rem minmax(16rem, 1fr) minmax(9rem, auto) minmax(
@@ -33,7 +33,7 @@
 }
 
 .diagnostic-table strong {
-  color: #f4eadb;
+  color: var(--text-main);
 }
 
 .diagnostic-table em {
@@ -41,15 +41,15 @@
 }
 
 .diagnostic-table article.ok em {
-  color: #62e97b;
+  color: var(--color-success);
 }
 
 .diagnostic-table article.warn em {
-  color: #f4c957;
+  color: var(--color-gold);
 }
 
 .diagnostic-table article.error em {
-  color: #ff6d8d;
+  color: var(--color-danger);
 }
 
 @media (max-width: 1200px) {

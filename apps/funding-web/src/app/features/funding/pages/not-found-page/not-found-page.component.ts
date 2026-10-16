@@ -39,8 +39,8 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
       :host {
         display: block;
         min-height: 100vh;
-        background: #06172b;
-        color: #eff7ff;
+        background: var(--surface-page);
+        color: var(--text-main);
       }
       main {
         max-width: 48rem;
@@ -49,13 +49,13 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
       }
       .code {
         font-size: clamp(3rem, 10vw, 6rem);
-        color: #ffd77b;
+        color: var(--text-soft);
         font-weight: 800;
         margin: 0;
       }
       h1 {
         font-size: clamp(1.75rem, 5vw, 2.5rem);
-        line-height: 1.2;
+        line-height: 1.25;
       }
       p {
         line-height: 1.6;
@@ -71,13 +71,13 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
         align-items: center;
         min-height: 44px;
         padding: 0.75rem 1rem;
-        color: #06172b;
-        background: #ffd77b;
+        color: var(--color-primary);
+        background: var(--surface-panel);
         border-radius: 0.5rem;
         font-weight: 700;
       }
       a:focus-visible {
-        outline: 3px solid #fff;
+        outline: 3px solid var(--color-primary);
         outline-offset: 4px;
       }
     `

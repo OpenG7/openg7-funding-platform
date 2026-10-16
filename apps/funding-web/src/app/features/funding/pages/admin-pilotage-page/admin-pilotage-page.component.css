@@ -17,7 +17,8 @@
 }
 .pilot-scroll {
   flex: 1;
-  min-height: 0;
+  /* Enlarged commands can grow the outer frame without consuming the reading surface. */
+  min-height: 8rem;
   overflow: auto;
   scrollbar-gutter: stable;
   padding: 0.25rem 0.6rem 1.25rem 0.25rem;
@@ -82,7 +83,7 @@ a:hover {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  font-size: 0.62rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -100,7 +101,7 @@ h1 {
 }
 .intro p:not(.eyebrow) {
   color: var(--admin-muted);
-  font-size: 0.8rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   margin: 0.45rem 0 0;
 }
 .intro-actions {
@@ -115,7 +116,7 @@ h1 {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.78rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .intro-actions button[aria-pressed='true'] {
   border-color: var(--admin-gold);
@@ -151,7 +152,7 @@ h1 {
   gap: 0.5rem;
   align-items: center;
   padding: 0.4rem 0.6rem;
-  font-size: 0.75rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   background: transparent;
 }
 .domain-filters button.active {
@@ -166,6 +167,7 @@ h1 {
   padding: 0.1rem 0.3rem;
   text-align: center;
   font-variant-numeric: tabular-nums;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .domain-filters openg7-admin-icon {
   color: var(--domain-color);
@@ -196,7 +198,7 @@ h1 {
   align-items: center;
   background: transparent;
   border-color: transparent;
-  font-size: 0.72rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   padding: 0.4rem;
 }
 .automation {
@@ -210,7 +212,7 @@ h1 {
   background: var(--admin-panel);
   color: var(--admin-text);
   max-width: 32rem;
-  font-size: 0.7rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .automation-icon {
   display: flex;
@@ -222,7 +224,7 @@ h1 {
 .automation p {
   color: var(--admin-muted);
   margin: 0.25rem 0 0;
-  font-size: 0.67rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .automation-shortcut {
   display: inline-flex;
@@ -269,7 +271,7 @@ h1 {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.7rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   color: var(--admin-muted);
 }
 .overview dt openg7-admin-icon {
@@ -288,7 +290,7 @@ h1 {
 .overview .stat-context {
   grid-column: 1;
   grid-row: 2;
-  font-size: 0.6rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   color: var(--admin-muted);
   font-weight: 400;
   line-height: 1.5;
@@ -322,7 +324,7 @@ h1 {
   align-items: center;
   gap: 0.5rem;
   color: var(--admin-gold);
-  font-size: 0.7rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-control-weight);
 }
 .decision-focus > span {
@@ -340,7 +342,7 @@ h1 {
   border: 1px solid var(--admin-border);
   border-radius: 2rem;
   padding: 0.25rem 0.6rem;
-  font-size: 0.66rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .preview {
   display: grid;
@@ -370,7 +372,7 @@ h1 {
   color: var(--admin-muted);
   text-align: center;
   padding: 1rem;
-  font-size: 0.8rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .no-image-icon {
   color: var(--domain-color);
@@ -382,7 +384,7 @@ h1 {
 }
 .destination,
 .date {
-  font-size: 0.74rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   color: var(--admin-muted);
   overflow-wrap: anywhere;
 }
@@ -399,7 +401,7 @@ h1 {
   align-items: center;
   gap: 0.5rem;
   width: 100%;
-  font-size: 0.75rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   text-align: left;
 }
 .sponsors span {
@@ -413,7 +415,7 @@ h1 {
   border-radius: 0 0.5rem 0.5rem 0;
   background: var(--og7-admin-subtle);
   color: var(--admin-text);
-  font-size: 0.8rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
@@ -434,7 +436,7 @@ h1 {
   margin: 0 0 0.5rem;
 }
 .decision-summary p {
-  font-size: 0.7rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   line-height: 1.6;
   color: var(--admin-muted);
   margin: 0;
@@ -472,7 +474,7 @@ h1 {
 }
 .queue-heading span {
   color: var(--admin-muted);
-  font-size: 0.7rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .queue-scroll {
   display: grid;
@@ -504,12 +506,12 @@ h1 {
   display: block;
 }
 .queue-card strong {
-  font-size: 0.73rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   margin-bottom: 0.4rem;
 }
 .queue-card span > span {
   color: var(--admin-muted);
-  font-size: 0.74rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   line-height: 1.45;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -518,7 +520,7 @@ h1 {
 }
 .queue-card small {
   margin-top: 0.45rem;
-  font-size: 0.64rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   color: var(--admin-muted);
 }
 .pagination {
@@ -527,7 +529,7 @@ h1 {
   justify-content: space-between;
   gap: 0.4rem;
   margin-top: 0.75rem;
-  font-size: 0.7rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .pagination button {
   padding: 0.4rem 0.6rem;
@@ -539,6 +541,7 @@ h1 {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 1rem;
   border: 1px solid var(--admin-border);
@@ -552,7 +555,8 @@ h1 {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.76rem;
+  font-size: var(--admin-caption-size, 0.875rem);
+  overflow-wrap: anywhere;
 }
 .face-buttons {
   display: flex;
@@ -599,11 +603,12 @@ h1 {
   flex-wrap: wrap;
   align-items: center;
   color: var(--admin-muted);
-  font-size: 0.65rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .shortcuts > div {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.3rem;
 }
 .shortcuts > div:first-child > span:last-child {
@@ -612,7 +617,7 @@ h1 {
 .shortcuts button {
   padding: 0.4rem;
   background: transparent;
-  font-size: 0.67rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .shortcuts kbd {
   font: inherit;
@@ -621,17 +626,18 @@ h1 {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 0.8rem;
   padding-top: 0.2rem;
   color: var(--admin-muted);
-  font-size: 0.65rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .session-hint button {
   min-height: 2rem;
   border: 0;
   background: none;
-  font-size: 0.7rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   padding: 0.25rem;
 }
 .alert,
@@ -639,7 +645,7 @@ h1 {
   padding: 0.8rem 1rem;
   border-radius: 0.6rem;
   margin: 0 0 0.85rem;
-  font-size: 0.8rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   line-height: 1.6;
   border: 1px solid var(--admin-border);
 }
@@ -654,7 +660,7 @@ h1 {
 .alert button,
 .success button {
   margin-left: 0.6rem;
-  font-size: 0.75rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .empty {
   display: grid;
@@ -842,7 +848,7 @@ h1 {
     gap: 0.4rem;
   }
   .intro-actions button {
-    font-size: 0.72rem;
+    font-size: var(--admin-caption-size, 0.875rem);
     padding: 0.4rem 0.55rem;
   }
   .intro p:not(.eyebrow) {
@@ -873,7 +879,7 @@ h1 {
     gap: 0.25rem;
   }
   .pilot-tools > button {
-    font-size: 0.65rem;
+    font-size: var(--admin-caption-size, 0.875rem);
   }
   .pilot-tools > button:not([data-og7]) {
     display: none;
@@ -886,7 +892,7 @@ h1 {
     grid-template-columns: 1fr;
   }
   .overview dt {
-    font-size: 0.63rem;
+    font-size: var(--admin-caption-size, 0.875rem);
   }
   .overview dt openg7-admin-icon {
     display: none;
@@ -924,7 +930,7 @@ h1 {
     flex-direction: column;
     gap: 0.3rem;
     padding: 0.4rem 0.1rem;
-    font-size: 0.64rem;
+    font-size: var(--admin-caption-size, 0.875rem);
   }
   .shortcuts {
     margin: 0;

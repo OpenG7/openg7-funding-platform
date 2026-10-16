@@ -28,7 +28,7 @@
 }
 .eyebrow {
   color: var(--admin-muted);
-  font-size: 0.72rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   margin: 0 0 0.3rem;
 }
 h3 {
@@ -78,7 +78,7 @@ h4 {
   background: var(--og7-admin-raised, #263a50);
   border-radius: 2rem;
   padding: 0.1rem 0.65rem;
-  font-size: 0.72rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .badge[data-mode='mock'] {
   background: var(--og7-admin-warning-bg, #3b3529);
@@ -97,15 +97,18 @@ h4 {
   margin: 0.85rem 0 0;
   padding-top: 0.8rem;
   color: var(--admin-muted);
-  font-size: 0.72rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .schedule strong,
 .schedule small {
   display: block;
 }
+.schedule small {
+  font-size: var(--admin-caption-size, 0.875rem);
+}
 .schedule strong {
   color: var(--admin-text);
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   margin-block: 0.1rem;
 }
 .preview {
@@ -137,7 +140,7 @@ img {
 figcaption {
   color: var(--admin-muted);
   margin-top: 0.4rem;
-  font-size: 0.7rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   text-align: center;
 }
 .image-placeholder {
@@ -147,7 +150,7 @@ figcaption {
   padding: 1.2rem;
   text-align: center;
   color: var(--admin-muted);
-  font-size: 0.8rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .image-placeholder openg7-admin-icon {
   font-size: 2rem;
@@ -179,7 +182,7 @@ dl > div + div {
 }
 dt {
   color: var(--admin-muted);
-  font-size: 0.78rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   overflow-wrap: anywhere;
 }
 dd {
@@ -235,7 +238,7 @@ li + li {
 .count,
 .review-status {
   color: var(--admin-muted);
-  font-size: 0.75rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .consequence {
   display: flex;
@@ -254,7 +257,7 @@ li + li {
 }
 .consequence p {
   color: var(--og7-admin-muted, #c4d6e6);
-  font-size: 0.8rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   margin: 0;
 }
 @media (min-width: 700px) {

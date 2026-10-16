@@ -75,7 +75,7 @@ p {
 }
 .eyebrow {
   color: var(--admin-gold);
-  font-size: 0.68rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -95,7 +95,7 @@ p {
   padding: 0.3rem 0.7rem;
   background: var(--admin-panel-raised, #192f44);
   color: var(--admin-text, #c8e5f8);
-  font-size: 0.76rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
   line-height: 1.4;
   width: fit-content;
@@ -158,7 +158,7 @@ p {
   align-items: center;
   gap: 0.5rem;
   color: var(--admin-muted);
-  font-size: 0.8rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .metric-label openg7-admin-icon {
   color: var(--og7-admin-accent, #8bbcd4);
@@ -169,13 +169,13 @@ p {
   letter-spacing: -0.02em;
 }
 .metric time {
-  font-size: 0.83rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .metric-note,
 .muted,
 .checked {
   color: var(--admin-muted);
-  font-size: 0.8rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   line-height: 1.55;
 }
 .activation {
@@ -204,7 +204,7 @@ p {
   flex-wrap: wrap;
   gap: 0.4rem 1.25rem;
   margin-top: 1rem;
-  font-size: 0.74rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   color: var(--admin-warning);
 }
 .command-bar {
@@ -216,7 +216,7 @@ p {
   gap: 0.75rem;
 }
 .admin-button {
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .admin-button:disabled {
   cursor: not-allowed;
@@ -285,7 +285,7 @@ p {
   color: var(--admin-muted);
   border-radius: 0.4rem;
   padding: 0.1rem 0.45rem;
-  font-size: 0.75rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-variant-numeric: tabular-nums;
 }
 .checked {
@@ -307,7 +307,7 @@ p {
 .empty-state p {
   color: var(--admin-muted);
   margin-top: 0.3rem;
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .history-list {
   list-style: none;
@@ -335,7 +335,7 @@ p {
 .job-date {
   display: grid;
   gap: 0.2rem;
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .job-date time,
 .job-size,
@@ -343,7 +343,7 @@ p {
   font-variant-numeric: tabular-nums;
 }
 .job-size {
-  font-size: 0.8rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   color: var(--admin-muted);
   text-align: right;
 }
@@ -360,7 +360,7 @@ p {
   cursor: pointer;
   font: inherit;
   font-weight: var(--admin-control-weight);
-  font-size: 0.83rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   min-height: 2.75rem;
 }
 .history-toggle {
@@ -399,7 +399,7 @@ p {
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
-  font-size: 0.78rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   color: var(--admin-muted);
 }
 .backup-footer > p openg7-admin-icon {
@@ -430,7 +430,7 @@ p {
   border-radius: 0.7rem;
   color: var(--admin-gold);
   border: 1px solid var(--admin-warning-border);
-  font-size: 0.8rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .guide-steps h3 {
   margin-top: 0.25rem;
@@ -448,7 +448,7 @@ p {
   background: var(--admin-warning-bg);
   margin: 1rem 0;
   color: var(--admin-muted);
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .evidence-list {
   margin: 1rem 0;
@@ -459,7 +459,7 @@ p {
 }
 .evidence-list dt {
   color: var(--admin-muted);
-  font-size: 0.8rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   margin-bottom: 0.4rem;
 }
 .evidence-list dd {
@@ -468,7 +468,7 @@ p {
 }
 code {
   overflow-wrap: anywhere;
-  font-size: 0.8rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   user-select: all;
 }
 @media (max-width: 1100px) {
@@ -527,13 +527,13 @@ code {
     border: 0;
     background: transparent;
     padding: 0;
-    font-size: 0.74rem;
+    font-size: var(--admin-caption-size, 0.875rem);
   }
   .detail-button {
     grid-column: 3;
     grid-row: 2;
     padding: 0.4rem;
-    font-size: 0.78rem;
+    font-size: var(--admin-caption-size, 0.875rem);
   }
   .detail-button openg7-admin-icon {
     display: none;

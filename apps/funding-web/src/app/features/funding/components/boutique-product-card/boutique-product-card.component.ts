@@ -105,22 +105,22 @@ import type { BoutiqueProduct } from '../../models/boutique-product.model.js';
       }
 
       article {
-        --universe-accent: #e4bf6b;
+        --universe-accent: var(--color-gold);
         --universe-glow: rgb(184 142 63 / 16%);
-        background: #111214;
-        border: 1px solid rgb(201 154 61 / 34%);
+        background: var(--surface-panel);
+        border: 1px solid var(--border-color);
         border-radius: 0.75rem;
         height: 100%;
         overflow: hidden;
       }
 
       article[data-universe='princesses'] {
-        --universe-accent: #edc7ed;
+        --universe-accent: #844478;
         --universe-glow: rgb(177 106 189 / 20%);
       }
 
       article[data-universe='unicorns'] {
-        --universe-accent: #bde5e2;
+        --universe-accent: #286b67;
         --universe-glow: rgb(91 170 176 / 20%);
       }
 
@@ -134,18 +134,18 @@ import type { BoutiqueProduct } from '../../models/boutique-product.model.js';
       }
 
       a:focus-visible {
-        outline: 3px solid #ffe08a;
+        outline: 3px solid var(--color-primary);
         outline-offset: -3px;
       }
 
       a:hover .product-action {
-        background: #ffe08a;
-        color: #101114;
+        background: var(--color-primary);
+        color: var(--on-primary);
       }
 
       .product-visual {
         aspect-ratio: 4 / 5;
-        background: #eeebe5;
+        background: var(--surface-page);
         overflow: hidden;
       }
 
@@ -163,8 +163,8 @@ import type { BoutiqueProduct } from '../../models/boutique-product.model.js';
             var(--universe-glow),
             transparent 70%
           ),
-          #18191c;
-        color: #d8cfbe;
+          var(--surface-raised);
+        color: var(--text-soft);
         display: flex;
         flex-direction: column;
         gap: 1.5rem;
@@ -175,7 +175,7 @@ import type { BoutiqueProduct } from '../../models/boutique-product.model.js';
       }
 
       .placeholder-mark {
-        border: 1px solid rgb(201 154 61 / 45%);
+        border: 1px solid var(--border-color);
         color: var(--universe-accent);
         font-family: Georgia, serif;
         font-size: 3rem;
@@ -189,25 +189,25 @@ import type { BoutiqueProduct } from '../../models/boutique-product.model.js';
         flex: 1;
         flex-direction: column;
         gap: 0.75rem;
-        padding: 1rem;
+        padding: 1.5rem;
       }
 
       .product-status {
-        color: #d8cfbe;
-        font-size: 0.75rem;
+        color: var(--text-soft);
+        font-size: 0.875rem;
         font-weight: 700;
       }
 
       .product-universe {
         color: var(--universe-accent);
-        font-size: 0.8rem;
+        font-size: 0.875rem;
         font-weight: 700;
         letter-spacing: 0.06em;
         text-transform: uppercase;
       }
 
       h3 {
-        color: #fff2d2;
+        color: var(--text-main);
         font-family: Georgia, serif;
         font-size: 1.2rem;
         line-height: 1.25;
@@ -221,34 +221,40 @@ import type { BoutiqueProduct } from '../../models/boutique-product.model.js';
       .product-status,
       .product-price,
       .product-action {
-        font-family: 'Trebuchet MS', sans-serif;
+        font-family: inherit;
       }
 
       p {
-        color: #d8cfbe;
-        font-size: 0.9rem;
+        color: var(--text-soft);
+        font-size: 1rem;
         line-height: 1.5;
         margin: 0;
       }
 
       .product-price {
-        color: #fff2d2;
+        color: var(--text-main);
         font-size: 1.1rem;
       }
 
       .product-action {
         align-items: center;
-        border: 1px solid rgb(244 201 87 / 42%);
+        border: 1px solid var(--color-primary);
         border-radius: 0.4rem;
-        color: #fff1c8;
+        color: var(--color-primary);
         display: flex;
-        font-size: 0.85rem;
+        font-size: 0.875rem;
         gap: 0.5rem;
         justify-content: space-between;
         margin-top: auto;
         min-height: 2.75rem;
         padding: 0.5rem 0.75rem;
         width: 100%;
+      }
+
+      @media (max-width: 560px) {
+        .product-details {
+          padding: 1rem;
+        }
       }
     `
   ]

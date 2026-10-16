@@ -45,23 +45,15 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
 
       .site-music-toggle {
         align-items: center;
-        background:
-          linear-gradient(180deg, rgb(5 18 35 / 86%), rgb(2 9 20 / 92%)),
-          radial-gradient(
-            circle at 50% 20%,
-            rgb(244 201 87 / 34%),
-            transparent 2.2rem
-          );
-        border: 1px solid rgb(244 201 87 / 56%);
+        background: var(--surface-panel);
+        border: 1px solid var(--border-color);
         border-radius: 999px;
-        box-shadow:
-          inset 0 1px 0 rgb(255 235 168 / 18%),
-          0 12px 34px rgb(0 0 0 / 34%);
-        color: #fff2d6;
+        box-shadow: 0 4px 16px rgb(41 51 46 / 12%);
+        color: var(--text-main);
         display: inline-flex;
         font-family: Georgia, 'Times New Roman', serif;
         font-size: 1.25rem;
-        font-weight: 900;
+        font-weight: 600;
         height: 2.9rem;
         justify-content: center;
         line-height: 1;
@@ -69,13 +61,14 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
       }
 
       .site-music-toggle.playing {
-        background: linear-gradient(180deg, #ffe08a 0%, #d99b2e 100%);
-        border-color: #ffe69a;
-        color: #09111c;
+        background: var(--color-primary);
+        border-color: var(--color-primary);
+        color: var(--on-primary);
       }
 
-      .site-music-toggle.playing span {
-        text-shadow: 0 0 12px rgb(9 17 28 / 34%);
+      .site-music-toggle:focus-visible {
+        outline: 3px solid var(--color-primary);
+        outline-offset: 3px;
       }
     `
   ]

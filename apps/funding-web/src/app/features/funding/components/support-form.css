@@ -7,7 +7,7 @@
 .support-form label {
   display: block;
   font-weight: 700;
-  color: #f7fbff;
+  color: var(--text-main);
 }
 .support-form .form-row {
   display: flex;
@@ -18,10 +18,11 @@
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
+  min-height: 2.75rem;
   padding: 0.8rem;
-  color: #f7fbff;
-  background: #031426;
-  border: 1px solid #67869e;
+  color: var(--text-main);
+  background: var(--surface-panel);
+  border: 1px solid var(--border-color);
   border-radius: 0.6rem;
   font: inherit;
 }
@@ -29,22 +30,22 @@
   flex: 1 1 12rem;
 }
 .support-form input::placeholder {
-  color: #adc4d4;
+  color: var(--text-soft);
 }
 .support-form input[aria-invalid='true'] {
-  border-color: #ffb7af;
+  border-color: var(--color-danger);
 }
 .support-form button {
   justify-self: start;
   max-width: 100%;
   min-height: 44px;
-  border: 1px solid #ffdf89;
+  border: 1px solid var(--color-primary);
   border-radius: 0.6rem;
-  background: linear-gradient(180deg, #ffdf89, #e5ac28);
-  color: #161b24;
+  background: var(--color-primary);
+  color: var(--on-primary);
   padding: 0.75rem 1rem;
   font: inherit;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
   overflow-wrap: anywhere;
 }
@@ -53,38 +54,38 @@
   cursor: wait;
 }
 .support-form :is(input, button):focus-visible {
-  outline: 3px solid #ffd77b;
+  outline: 3px solid var(--color-primary);
   outline-offset: 4px;
 }
 .support-form .field-hint {
-  color: #c2d7e6;
+  color: var(--text-soft);
   font-size: 0.9rem;
   line-height: 1.6;
 }
 .support-form .field-status {
-  color: #d3e6f2;
+  color: var(--text-soft);
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
 .support-form .field-status.error,
 .support-form .field-status.error p {
-  color: #ffb7af;
+  color: var(--color-danger);
   background: transparent;
 }
 .state-card.embedded {
-  color: #f7fbff;
+  color: var(--text-main);
   background: transparent;
   border: 0;
-  border-top: 1px solid #43647d;
+  border-top: 1px solid var(--border-color);
   border-radius: 0;
   padding: 1.25rem 0 0;
   margin-top: 1rem;
 }
 .state-card.embedded h3 {
   font: inherit;
-  font-weight: 700;
+  font-weight: 600;
   margin: 0 0 0.75rem;
 }
 .state-card.embedded p {
-  color: #d3e6f2;
+  color: var(--text-soft);
 }

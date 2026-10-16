@@ -20,7 +20,7 @@ footer {
 }
 .eyebrow {
   color: var(--admin-gold, #e6b65a);
-  font-size: 0.75rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
   text-transform: uppercase;
   letter-spacing: normal;
@@ -84,7 +84,7 @@ footer {
   display: block;
   margin-bottom: 0.25rem;
   color: var(--admin-muted);
-  font-size: 0.7rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
   letter-spacing: normal;
   text-transform: uppercase;
@@ -169,7 +169,7 @@ article[data-state='publishing'] {
 }
 .target,
 .simulation {
-  font-size: 0.8rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   color: var(--admin-gold, #e6b65a);
 }
 .publication-state {
@@ -183,7 +183,7 @@ article[data-state='publishing'] {
   border-radius: 0.75rem;
   background: var(--admin-bg);
   color: var(--channel-color);
-  font-size: 0.82rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
 }
 .publication-state::before {
@@ -258,7 +258,7 @@ article .actions {
   padding: 0.65rem 0.85rem;
   border-radius: 0.6rem;
   background: var(--admin-bg);
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .social-notice {
   display: flex;
@@ -283,7 +283,7 @@ article .actions {
 }
 footer p {
   flex-basis: 100%;
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .admin-button {
   white-space: normal;

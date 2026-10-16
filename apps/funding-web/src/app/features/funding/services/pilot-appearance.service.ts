@@ -22,7 +22,7 @@ export class PilotAppearanceService {
   private readonly destroy = inject(DestroyRef);
   private readonly storageKey = 'openg7.pilotage.appearance.v1';
   readonly settings = signal<PilotAppearance>({
-    theme: 'night',
+    theme: 'mineral',
     system: false,
     density: 'comfortable'
   });
@@ -83,13 +83,13 @@ export class PilotAppearanceService {
       this.settings.set({
         theme: ['night', 'mineral', 'graphite'].includes(value?.theme)
           ? value.theme
-          : 'night',
+          : 'mineral',
         system: value?.system === true,
         density: value?.density === 'compact' ? 'compact' : 'comfortable'
       });
     } catch {
       this.settings.set({
-        theme: 'night',
+        theme: 'mineral',
         system: false,
         density: 'comfortable'
       });

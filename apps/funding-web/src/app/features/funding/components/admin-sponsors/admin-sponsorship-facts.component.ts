@@ -154,7 +154,7 @@ import { AdminSponsorshipPublicationComponent } from './admin-sponsorship-public
         gap: 1rem;
       }
       dt {
-        font-size: 0.8rem;
+        font-size: var(--admin-caption-size, 0.875rem);
       }
       dd {
         margin: 0.2rem 0;

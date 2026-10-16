@@ -56,7 +56,7 @@ input:focus-visible {
 
 dt {
   color: var(--admin-muted);
-  font-size: 0.76rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
   letter-spacing: 0;
   text-transform: uppercase;
@@ -105,7 +105,7 @@ dd {
 
 .logo-upload-control {
   display: grid;
-  font-size: 0.84rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
   gap: 0.35rem;
 }

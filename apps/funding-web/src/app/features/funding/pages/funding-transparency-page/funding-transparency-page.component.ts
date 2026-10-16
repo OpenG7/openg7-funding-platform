@@ -335,9 +335,9 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
     :host {
       display: block;
       min-height: 100dvh;
-      background: #020914;
-      color: #e9f2ff;
-      font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+      background: var(--surface-page);
+      color: var(--text-main);
+      font-family: 'Segoe UI', Arial, sans-serif;
     }
     * {
       box-sizing: border-box;
@@ -348,16 +348,16 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
       margin-top: 0;
     }
     h2 {
-      color: #fff2d7;
+      color: var(--text-main);
       font-size: 1.05rem;
       line-height: 1.4;
     }
     p {
-      color: #c5d4e5;
+      color: var(--text-soft);
       line-height: 1.6;
     }
     a {
-      color: #8cdbff;
+      color: var(--color-primary);
       text-underline-offset: 0.2em;
     }
     button,
@@ -365,15 +365,15 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
     .hero-actions a,
     .support-cta {
       font: inherit;
-      border: 1px solid #587895;
+      border: 1px solid var(--color-primary);
       border-radius: 0.5rem;
       padding: 0.65rem 0.9rem;
       min-height: 44px;
     }
     button,
     select {
-      color: #e9f2ff;
-      background: #09223c;
+      color: var(--color-primary);
+      background: var(--surface-panel);
     }
     button {
       cursor: pointer;
@@ -383,7 +383,7 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
       cursor: default;
     }
     :is(a, button, select, [tabindex]):focus-visible {
-      outline: 3px solid #ffdf76;
+      outline: 3px solid var(--color-primary);
       outline-offset: 4px;
     }
     .hero-panel {
@@ -393,7 +393,7 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
       min-height: 24rem;
       display: flex;
       align-items: center;
-      border-bottom: 1px solid #294862;
+      border-bottom: 1px solid var(--border-color);
     }
     .hero-city,
     .hero-dragon {
@@ -418,25 +418,28 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
       position: absolute;
       inset: 0;
       z-index: -1;
-      background: linear-gradient(
-        90deg,
-        #020914 5%,
-        rgba(2, 9, 20, 0.7) 55%,
-        transparent
-      );
+      background:
+        linear-gradient(
+          90deg,
+          var(--surface-page) 0%,
+          color-mix(in srgb, var(--surface-page) 97%, transparent) 38%,
+          color-mix(in srgb, var(--surface-page) 90%, transparent) 68%,
+          color-mix(in srgb, var(--surface-page) 25%, transparent)
+        ),
+        linear-gradient(180deg, transparent 60%, var(--surface-page));
     }
     .hero-copy {
-      padding: 3rem clamp(1rem, 5vw, 5rem);
+      padding: 2.5rem clamp(1rem, 4vw, 3rem);
       max-width: 58rem;
     }
     h1 {
-      font-size: clamp(2rem, 4.5vw, 3.6rem);
-      line-height: 1.12;
+      font-size: clamp(2rem, 4.5vw, 2.75rem);
+      line-height: 1.25;
       margin-bottom: 1rem;
     }
     h1 strong {
       display: block;
-      color: #ffd879;
+      color: var(--color-gold);
     }
     .hero-copy p {
       max-width: 42rem;
@@ -455,25 +458,25 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
     }
     .hero-actions button:first-child,
     .support-cta {
-      background: #f6bf48;
-      border-color: #f6bf48;
-      color: #152034;
+      background: var(--color-primary);
+      border-color: var(--color-primary);
+      color: var(--on-primary);
       font-weight: 700;
     }
     .secondary {
-      background: #09223ce8;
-      color: #e9f2ff;
+      background: var(--surface-panel);
+      color: var(--text-main);
     }
     .page-content {
       max-width: 1440px;
       margin: auto;
-      padding: 1.25rem clamp(1rem, 4vw, 4rem) 0;
+      padding: 1.5rem clamp(1rem, 4vw, 3rem) 0;
     }
     .panel {
-      background: #06172a;
-      border: 1px solid #294862;
+      background: var(--surface-panel);
+      border: 1px solid var(--border-color);
       border-radius: 0.75rem;
-      padding: 1.3rem;
+      padding: 1.5rem;
       min-width: 0;
     }
     .status-panel {
@@ -486,7 +489,7 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
       margin: 0;
     }
     .error {
-      color: #ffb9ac;
+      color: var(--color-danger);
     }
     .sync-strip {
       grid-column: 1/-1;
@@ -496,8 +499,8 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
       margin: 0;
     }
     dt {
-      color: #aebfd3;
-      font-size: 0.8rem;
+      color: var(--text-soft);
+      font-size: 0.875rem;
     }
     dd {
       margin: 0.35rem 0 0;
@@ -507,8 +510,8 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
     .kpi-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 1rem;
-      margin-top: 1rem;
+      gap: 1.5rem;
+      margin-top: 1.5rem;
     }
     .kpi-card h2 {
       font-size: 0.95rem;
@@ -520,21 +523,21 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
       overflow-wrap: anywhere;
     }
     .kpi-card p {
-      font-size: 0.8rem;
+      font-size: 0.875rem;
       margin: 0.5rem 0 0;
     }
     .kpi-card.net strong {
-      color: #77e6ac;
+      color: var(--color-success);
     }
     .fee-quality {
-      border-top: 1px solid #294862;
+      border-top: 1px solid var(--border-color);
       padding-top: 0.5rem;
     }
     .fee-quality.provisional {
-      color: #ffdf76;
+      color: var(--color-gold);
     }
     .campaign-card {
-      margin: 1rem 0;
+      margin: 1.5rem 0;
     }
     .campaign-card header {
       display: flex;
@@ -547,17 +550,17 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
     }
     .campaign-card h2 span {
       display: block;
-      color: #c5d4e5;
-      font-size: 0.8rem;
+      color: var(--text-main);
+      font-size: 0.875rem;
       font-weight: 400;
     }
     .campaign-card header strong {
-      color: #ffd879;
+      color: var(--text-main);
       font-size: 1.5rem;
     }
     .campaign-track {
       height: 0.8rem;
-      background: #26374b;
+      background: var(--surface-subtle);
       border-radius: 1rem;
       overflow: hidden;
       margin: 1rem 0;
@@ -565,25 +568,25 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
     .campaign-track span {
       display: block;
       height: 100%;
-      background: linear-gradient(90deg, #f2a925, #ffdf76);
+      background: var(--color-primary);
     }
     .campaign-card p {
       margin-bottom: 0.35rem;
     }
     .fine-print {
-      font-size: 0.8rem;
+      font-size: 0.875rem;
     }
     .dashboard-grid {
       display: grid;
       grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
-      gap: 1rem;
+      gap: 1.5rem;
     }
     .support-strip {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 1rem;
-      margin-top: 1rem;
+      margin-top: 1.5rem;
     }
     .support-strip p {
       margin-bottom: 0;
@@ -605,7 +608,7 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
       gap: 1rem;
     }
     .page-footer small {
-      color: #aebfd3;
+      color: var(--text-soft);
     }
     @media (max-width: 900px) {
       .kpi-grid {
@@ -644,6 +647,15 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
       .support-strip {
         align-items: start;
         flex-direction: column;
+      }
+    }
+
+    @media (max-width: 860px) {
+      .hero-panel::after {
+        background: linear-gradient(
+          color-mix(in srgb, var(--surface-page) 94%, transparent),
+          color-mix(in srgb, var(--surface-page) 98%, transparent)
+        );
       }
     }
   `

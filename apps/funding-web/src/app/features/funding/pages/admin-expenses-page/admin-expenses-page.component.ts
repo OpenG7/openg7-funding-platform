@@ -196,7 +196,7 @@ import type {
       .admin-topbar span,
       .summary-grid span {
         color: var(--admin-muted);
-        font-size: 0.78rem;
+        font-size: var(--admin-caption-size, 0.875rem);
         font-weight: var(--admin-label-weight);
         letter-spacing: 0;
         text-transform: uppercase;

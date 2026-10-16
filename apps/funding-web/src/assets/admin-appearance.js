@@ -6,7 +6,7 @@
     );
     const theme = ['night', 'mineral', 'graphite'].includes(value?.theme)
       ? value.theme
-      : 'night';
+      : 'mineral';
     document.documentElement.dataset.og7PilotTheme =
       value?.system === true
         ? matchMedia('(prefers-color-scheme: dark)').matches
@@ -16,6 +16,8 @@
     document.documentElement.dataset.og7PilotDensity =
       value?.density === 'compact' ? 'compact' : 'comfortable';
   } catch {
-    /* Storage is optional; the default palette remains usable. */
+    /* A malformed or unavailable preference uses the same default as Angular. */
+    document.documentElement.dataset.og7PilotTheme = 'mineral';
+    document.documentElement.dataset.og7PilotDensity = 'comfortable';
   }
 })();

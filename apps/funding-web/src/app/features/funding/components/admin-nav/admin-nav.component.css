@@ -8,41 +8,41 @@ aside {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  padding: 1.1rem 0.9rem;
+  padding: 1rem 0.75rem;
 }
 .brand {
-  padding: 0.15rem 0.6rem 1.25rem;
+  padding: 0 0.5rem 1.25rem;
   border-bottom: 1px solid var(--admin-border);
 }
 .brand-link {
   align-items: center;
   color: var(--admin-text);
   display: flex;
-  gap: 0.8rem;
+  gap: 0.75rem;
   text-decoration: none;
 }
 .brand-mark {
   align-items: center;
-  background: linear-gradient(135deg, #dbaa42, #a97521);
-  border: 1px solid #dbaf51;
+  background: var(--og7-admin-primary, var(--admin-gold));
+  border: 1px solid var(--admin-border);
   border-radius: 50%;
-  color: #101827;
+  color: var(--og7-admin-on-primary, #101827);
   display: flex;
   flex: 0 0 auto;
   font-weight: var(--admin-emphasis-weight);
-  height: 3rem;
+  height: 2.5rem;
   justify-content: center;
-  width: 3rem;
+  width: 2.5rem;
 }
 strong {
   display: block;
-  font-size: 1.45rem;
+  font-size: 1.375rem;
   line-height: 1.2;
 }
 small {
   color: var(--admin-muted);
   display: block;
-  font-size: 0.7rem;
+  font-size: var(--admin-secondary-size, 0.875rem);
   margin-top: 0.3rem;
   text-transform: uppercase;
 }
@@ -55,15 +55,15 @@ nav {
   margin-top: 1rem;
 }
 section + section {
-  margin-top: 0.7rem;
+  margin-top: 1rem;
 }
 h2 {
   color: var(--og7-admin-muted, #9eafc5);
-  font-size: 0.65rem;
+  font-size: var(--admin-secondary-size, 0.875rem);
   font-weight: var(--admin-label-weight);
-  letter-spacing: 0.12em;
-  margin: 0 0 0.3rem;
-  padding: 0 0.9rem;
+  letter-spacing: 0.06em;
+  margin: 0 0 0.5rem;
+  padding: 0 0.75rem;
   text-transform: uppercase;
 }
 nav a,
@@ -74,11 +74,12 @@ footer button {
   border-radius: 0.5rem;
   color: var(--admin-text);
   display: flex;
-  gap: 0.85rem;
-  min-height: 2.75rem;
-  padding: 0.55rem 0.9rem;
+  gap: 0.625rem;
+  min-height: var(--admin-control-height, 2.75rem);
+  padding: 0.625rem 0.75rem;
   text-decoration: none;
-  font-size: 0.9rem;
+  font-size: var(--admin-navigation-size, 0.9375rem);
+  line-height: 1.4;
 }
 nav a:hover,
 footer a:hover,
@@ -92,7 +93,7 @@ nav a.active {
 }
 openg7-admin-icon {
   color: var(--admin-muted);
-  font-size: 1.15rem;
+  font-size: 1.25rem;
 }
 a.active openg7-admin-icon {
   color: var(--admin-gold);
@@ -110,8 +111,8 @@ footer button {
 }
 .signature {
   color: var(--admin-muted);
-  font-size: 0.75rem;
-  padding: 0.6rem 0.65rem;
+  font-size: var(--admin-secondary-size, 0.875rem);
+  padding: 0.75rem 0.5rem;
   text-align: center;
 }
 .signature openg7-admin-icon {
@@ -173,6 +174,11 @@ footer button {
     width: auto;
   }
 }
+@media (max-width: 480px) {
+  .collapsible .brand-link > span:last-child {
+    display: none;
+  }
+}
 @media (max-width: 400px) {
   nav {
     grid-template-columns: 1fr;
@@ -191,7 +197,7 @@ footer button {
   background: var(--admin-danger-bg);
   color: var(--admin-danger);
   padding: 0.1rem 0.45rem;
-  font-size: 0.75rem;
+  font-size: var(--admin-secondary-size, 0.875rem);
 }
 :host .count-description {
   position: absolute;

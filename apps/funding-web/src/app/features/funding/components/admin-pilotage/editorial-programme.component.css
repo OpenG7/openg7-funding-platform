@@ -77,6 +77,9 @@
 .programme p {
   line-height: 1.65;
 }
+.programme small {
+  font-size: var(--admin-caption-size, 0.875rem);
+}
 .stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -126,19 +129,19 @@
   display: grid;
   gap: 0.4rem;
   width: 100%;
-  font-size: 0.82rem !important;
+  font-size: var(--admin-caption-size, 0.875rem) !important;
   margin-bottom: 0.6rem;
   overflow-wrap: anywhere;
 }
 .calendar-card time,
 .calendar-card small {
-  font-size: 0.73rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .calendar-card.selected {
   outline: 2px solid var(--og7-admin-accent, #63def6);
 }
 .empty-day {
-  font-size: 0.8rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   color: var(--og7-admin-muted, #a6b9ca);
 }
 .selected-card,
@@ -184,7 +187,7 @@
   background: var(--og7-admin-raised, #17344b);
 }
 .screen footer {
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   color: var(--og7-admin-muted, #bed0df);
 }
 .screen img {

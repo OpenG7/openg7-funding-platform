@@ -8,7 +8,7 @@
 .credit-notes-panel header span,
 .email-panel header span {
   color: var(--admin-warning);
-  font-size: 0.73rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
   letter-spacing: 0;
   text-transform: uppercase;
@@ -125,7 +125,7 @@ dl div,
 
 dt {
   color: var(--admin-muted);
-  font-size: 0.78rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
   text-transform: uppercase;
 }
@@ -173,7 +173,7 @@ dd {
 
 .credit-note-title span {
   color: var(--admin-muted);
-  font-size: 0.86rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: 400;
 }
 
@@ -212,7 +212,7 @@ dd {
   font-family:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
     'Courier New', monospace;
-  font-size: 0.86rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 
 .email-meta {

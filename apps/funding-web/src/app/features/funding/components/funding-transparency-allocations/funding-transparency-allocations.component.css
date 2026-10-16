@@ -14,41 +14,41 @@ p {
 }
 
 h2 {
-  color: #fff2d7;
-  font-size: 1.05rem;
+  color: var(--text-main);
+  font-size: 1.25rem;
   line-height: 1.4;
 }
 
 h3 {
-  color: #fff2d7;
+  color: var(--text-main);
   font-size: 1rem;
 }
 
 p {
-  color: #c5d4e5;
+  color: var(--text-soft);
   line-height: 1.6;
 }
 
 a {
-  color: #8cdbff;
+  color: var(--color-primary);
   text-underline-offset: 0.2em;
 }
 
 a:focus-visible {
-  outline: 3px solid #ffdf76;
+  outline: 3px solid var(--color-primary);
   outline-offset: 4px;
 }
 
 .panel {
-  background: #06172a;
-  border: 1px solid #294862;
+  background: var(--surface-panel);
+  border: 1px solid var(--border-color);
   border-radius: 0.75rem;
-  padding: 1.3rem;
+  padding: 1.5rem;
   min-width: 0;
 }
 
 .allocation {
-  border-top: 1px solid #294862;
+  border-top: 1px solid var(--border-color);
   padding: 1rem 0;
 }
 
@@ -62,7 +62,7 @@ a:focus-visible {
 }
 
 .allocation-progress {
-  color: #ffd879;
+  color: var(--color-gold);
 }
 
 @media (max-width: 540px) {

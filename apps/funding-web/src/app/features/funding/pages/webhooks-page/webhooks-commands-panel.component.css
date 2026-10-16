@@ -1,5 +1,6 @@
 .panel {
   height: 100%;
+  padding: 1.25rem;
 }
 
 .command-panel {
@@ -15,8 +16,8 @@
 }
 
 .command-panel article span {
-  color: #d9c49d;
-  font-size: 0.78rem;
+  color: var(--text-main);
+  font-size: 0.875rem;
 }
 
 @media (max-width: 900px) {

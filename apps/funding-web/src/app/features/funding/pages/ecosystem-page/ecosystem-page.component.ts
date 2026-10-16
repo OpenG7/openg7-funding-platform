@@ -441,22 +441,11 @@ interface DevelopmentRow {
       }
 
       .ecosystem-page {
-        background:
-          radial-gradient(
-            circle at 76% 2%,
-            rgb(26 173 255 / 16%),
-            transparent 19rem
-          ),
-          radial-gradient(
-            circle at 18% 40%,
-            rgb(244 201 87 / 8%),
-            transparent 24rem
-          ),
-          linear-gradient(180deg, #020a17 0%, #031329 46%, #020a17 100%);
-        border: 1px solid rgb(63 161 229 / 22%);
-        box-shadow: 0 30px 90px rgb(0 0 0 / 52%);
-        color: #f6fbff;
-        font-family: 'Trebuchet MS', sans-serif;
+        background: var(--surface-page);
+        border: 1px solid var(--border-color);
+        box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
+        color: var(--text-main);
+        font-family: 'Segoe UI', Arial, sans-serif;
         margin: 0 auto;
         max-width: 1530px;
         min-height: 100dvh;
@@ -465,18 +454,18 @@ interface DevelopmentRow {
 
       .ecosystem-brand {
         align-items: center;
-        color: #f6fbff;
+        color: var(--text-main);
         display: inline-flex;
         gap: 0.55rem;
         text-decoration: none;
       }
 
       .ecosystem-brand span {
-        color: var(--gold-400);
+        color: var(--color-gold);
         display: grid;
         font-size: 1.8rem;
         place-items: center;
-        text-shadow: 0 0 20px rgb(244 201 87 / 70%);
+        text-shadow: none;
       }
 
       .ecosystem-brand strong {
@@ -484,8 +473,8 @@ interface DevelopmentRow {
       }
 
       .ecosystem-footer nav a {
-        color: #d6e7f8;
-        font-size: 0.78rem;
+        color: var(--color-primary);
+        font-size: 0.875rem;
         font-weight: 700;
         padding: 1.6rem 0 1.45rem;
         position: relative;
@@ -514,17 +503,12 @@ interface DevelopmentRow {
         background:
           linear-gradient(
             90deg,
-            rgb(2 10 23 / 96%) 0%,
-            rgb(2 10 23 / 78%) 28%,
-            rgb(2 10 23 / 28%) 58%,
-            rgb(2 10 23 / 58%) 100%
+            var(--surface-page) 0%,
+            color-mix(in srgb, var(--surface-page) 97%, transparent) 38%,
+            color-mix(in srgb, var(--surface-page) 90%, transparent) 68%,
+            color-mix(in srgb, var(--surface-page) 25%, transparent)
           ),
-          linear-gradient(
-            180deg,
-            rgb(2 10 23 / 10%) 0%,
-            rgb(2 10 23 / 12%) 55%,
-            rgb(2 10 23 / 92%) 100%
-          );
+          linear-gradient(180deg, transparent 60%, var(--surface-page));
         inset: 0;
         position: absolute;
       }
@@ -548,22 +532,22 @@ interface DevelopmentRow {
       }
 
       .ecosystem-hero h1 {
-        color: #fff8e8;
-        font-family: Georgia, 'Times New Roman', serif;
-        font-size: clamp(2.6rem, 5vw, 4.4rem);
-        line-height: 0.98;
-        text-shadow: 0 5px 24px rgb(0 0 0 / 76%);
+        color: var(--text-main);
+        font-family: 'Segoe UI', Arial, sans-serif;
+        font-size: clamp(2.6rem, 5vw, 2.75rem);
+        line-height: 1.25;
+        text-shadow: none;
       }
 
       .ecosystem-hero h1 strong,
       .ecosystem-cta p,
       .platform-card em,
       .connections-panel li span {
-        color: var(--gold-400);
+        color: var(--text-main);
       }
 
       .ecosystem-lead {
-        color: #dceaf7;
+        color: var(--text-soft);
         font-size: 1.05rem;
         line-height: 1.45;
         margin-top: 1rem;
@@ -581,27 +565,27 @@ interface DevelopmentRow {
       .map-intro a,
       .platform-card a {
         align-items: center;
-        background: rgb(3 20 40 / 74%);
-        border: 1px solid rgb(74 165 236 / 52%);
+        background: var(--surface-panel);
+        border: 1px solid var(--border-color);
         border-radius: 0.35rem;
-        color: #e8f6ff;
+        color: var(--color-primary);
         display: inline-flex;
         font-weight: 900;
         gap: 0.45rem;
-        min-height: 2.5rem;
+        min-height: 2.75rem;
         padding: 0 0.95rem;
         text-decoration: none;
       }
 
       .ecosystem-actions a.primary {
-        background: linear-gradient(180deg, #16a8ff, #0879d6);
-        border-color: #6ecbff;
-        color: #fff;
+        background: var(--color-primary);
+        border-color: var(--color-primary);
+        color: var(--on-primary);
       }
 
       .ecosystem-actions a.gold {
-        border-color: rgb(244 201 87 / 72%);
-        color: #fff2d6;
+        border-color: var(--border-color);
+        color: var(--color-gold);
       }
 
       .ecosystem-stats {
@@ -620,11 +604,9 @@ interface DevelopmentRow {
       .journey-panel,
       .development-panel,
       .summary-panel {
-        background: rgb(3 18 36 / 76%);
-        border: 1px solid rgb(71 162 229 / 28%);
-        box-shadow:
-          inset 0 1px 0 rgb(255 255 255 / 7%),
-          0 16px 38px rgb(0 0 0 / 25%);
+        background: var(--surface-subtle);
+        border: 1px solid var(--border-color);
+        box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
       }
 
       .ecosystem-stats div {
@@ -636,14 +618,14 @@ interface DevelopmentRow {
       }
 
       .ecosystem-stats dt {
-        color: #fff;
+        color: var(--text-soft);
         font-size: 1.5rem;
         font-weight: 900;
       }
 
       .ecosystem-stats dd {
-        color: #c6d9eb;
-        font-size: 0.78rem;
+        color: var(--text-main);
+        font-size: 0.875rem;
         margin: 0;
       }
 
@@ -660,8 +642,8 @@ interface DevelopmentRow {
       .ecosystem-map-panel {
         border-radius: 0.8rem;
         display: grid;
-        gap: 1.2rem;
-        grid-template-columns: minmax(15rem, 0.62fr) minmax(34rem, 1.7fr);
+        gap: 1.5rem;
+        grid-template-columns: minmax(0, 1fr);
         margin-top: 0.9rem;
         padding: 1.15rem;
       }
@@ -673,8 +655,8 @@ interface DevelopmentRow {
       .journey-panel h2,
       .development-panel h2,
       .ecosystem-cta h2 {
-        color: #fff8e8;
-        font-family: Georgia, 'Times New Roman', serif;
+        color: var(--text-main);
+        font-family: 'Segoe UI', Arial, sans-serif;
         font-size: 1.45rem;
       }
 
@@ -682,8 +664,8 @@ interface DevelopmentRow {
       .architecture-panel p,
       .connections-panel p,
       .journey-panel p {
-        color: #bed1e5;
-        font-size: 0.86rem;
+        color: var(--text-soft);
+        font-size: 0.875rem;
         line-height: 1.45;
         margin-top: 0.85rem;
       }
@@ -695,11 +677,8 @@ interface DevelopmentRow {
       .network-board {
         align-items: center;
         display: grid;
-        gap: 0.75rem;
-        grid-template-columns: minmax(10rem, 1fr) 8.2rem 10rem 8.2rem minmax(
-            10rem,
-            1fr
-          );
+        gap: 1rem;
+        grid-template-columns: minmax(0, 1fr) 8rem 10rem 8rem minmax(0, 1fr);
         min-height: 22.5rem;
         overflow: hidden;
         position: relative;
@@ -707,11 +686,7 @@ interface DevelopmentRow {
 
       .network-board::before,
       .network-board::after {
-        background: radial-gradient(
-          circle,
-          rgb(44 203 255 / 28%),
-          transparent 64%
-        );
+        background: var(--surface-subtle);
         content: '';
         height: 21rem;
         left: 50%;
@@ -722,21 +697,7 @@ interface DevelopmentRow {
       }
 
       .network-board::after {
-        background:
-          linear-gradient(
-            90deg,
-            transparent 0 11%,
-            rgb(47 203 255 / 34%) 11% 12%,
-            transparent 12% 88%,
-            rgb(244 201 87 / 34%) 88% 89%,
-            transparent 89%
-          ),
-          radial-gradient(
-            circle,
-            transparent 0 38%,
-            rgb(81 207 255 / 25%) 39% 40%,
-            transparent 41% 100%
-          );
+        background: var(--surface-subtle);
         height: 18rem;
         width: 30rem;
       }
@@ -755,18 +716,18 @@ interface DevelopmentRow {
 
       .network-node {
         align-items: center;
-        background: rgb(4 24 48 / 86%);
-        border: 1px solid rgb(52 179 255 / 38%);
+        background: var(--surface-panel);
+        border: 1px solid var(--border-color);
         border-radius: 0.5rem;
         display: grid;
         gap: 0.5rem;
-        grid-template-columns: 2.35rem 1fr;
+        grid-template-columns: 2.35rem minmax(0, 1fr);
         min-height: 3.1rem;
         padding: 0.35rem;
       }
 
       .network-list.right .network-node {
-        border-color: rgb(244 201 87 / 38%);
+        border-color: var(--border-color);
       }
 
       .network-node img {
@@ -777,16 +738,17 @@ interface DevelopmentRow {
       }
 
       .network-node span {
-        color: #94dfff;
+        color: var(--text-main);
         display: block;
-        font-size: 0.62rem;
+        font-size: 0.875rem;
       }
 
       .network-node strong {
-        color: #f7fbff;
+        color: var(--text-main);
         display: block;
-        font-size: 0.72rem;
-        line-height: 1.05;
+        font-size: 0.875rem;
+        line-height: 1.25;
+        overflow-wrap: anywhere;
       }
 
       .family-column {
@@ -805,64 +767,54 @@ interface DevelopmentRow {
       }
 
       .family-orb {
-        background: radial-gradient(
-          circle,
-          rgb(7 50 82 / 96%),
-          rgb(4 23 43 / 92%)
-        );
-        border: 1px solid rgb(82 205 255 / 58%);
-        box-shadow: 0 0 26px rgb(64 201 255 / 26%);
-        height: 7rem;
+        background: var(--surface-subtle);
+        border: 1px solid var(--border-color);
+        box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
+        height: 8rem;
         padding: 0.9rem;
-        width: 7rem;
+        width: 8rem;
       }
 
       .family-orb.gold,
       .family-orb.orange,
       .family-orb.violet {
-        border-color: rgb(244 201 87 / 62%);
-        box-shadow: 0 0 26px rgb(244 201 87 / 20%);
+        border-color: var(--border-color);
+        box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
       }
 
       .family-orb span {
-        color: #6fdcff;
+        color: var(--text-main);
         font-size: 1.5rem;
       }
 
       .family-orb.gold span,
       .family-orb.orange span,
       .family-orb.violet span {
-        color: var(--gold-400);
+        color: var(--color-gold);
       }
 
       .family-orb strong {
-        color: #eef9ff;
-        font-size: 0.82rem;
-        line-height: 1.1;
+        color: var(--text-main);
+        font-size: 0.875rem;
+        line-height: 1.25;
       }
 
       .network-core {
-        background: radial-gradient(
-          circle,
-          rgb(19 61 78 / 98%),
-          rgb(4 24 45 / 96%)
-        );
-        border: 2px solid rgb(244 201 87 / 55%);
-        box-shadow:
-          0 0 34px rgb(244 201 87 / 26%),
-          inset 0 0 34px rgb(42 197 255 / 22%);
+        background: var(--surface-subtle);
+        border: 2px solid var(--border-color);
+        box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
         height: 10rem;
         justify-self: center;
         width: 10rem;
       }
 
       .network-core span {
-        color: var(--gold-400);
+        color: var(--color-gold);
         font-size: 2.4rem;
       }
 
       .network-core strong {
-        font-family: Georgia, 'Times New Roman', serif;
+        font-family: 'Segoe UI', Arial, sans-serif;
         font-size: 2rem;
       }
 
@@ -874,18 +826,19 @@ interface DevelopmentRow {
 
       .platform-grid {
         display: grid;
-        gap: 0.8rem;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 1.5rem;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         margin-top: 0.9rem;
       }
 
       .platform-card {
-        background: rgb(4 20 39 / 82%);
-        border: 1px solid rgb(66 162 232 / 34%);
+        background: var(--surface-panel);
+        border: 1px solid var(--border-color);
         border-radius: 0.6rem;
         min-height: 14rem;
         overflow: hidden;
         position: relative;
+        padding: 1.5rem;
       }
 
       .platform-card img {
@@ -899,39 +852,39 @@ interface DevelopmentRow {
       }
 
       .platform-card span {
-        color: #fff;
+        color: var(--text-main);
         font-size: 0.9rem;
         font-weight: 900;
       }
 
       .platform-card h3 {
-        color: #fff8e8;
+        color: var(--text-main);
         font-size: 0.95rem;
-        line-height: 1.05;
+        line-height: 1.25;
         margin-top: 0.2rem;
       }
 
       .platform-card em {
-        border: 1px solid rgb(81 205 255 / 32%);
+        border: 1px solid var(--border-color);
         border-radius: 999px;
         display: inline-flex;
-        font-size: 0.62rem;
+        font-size: 0.875rem;
         font-style: normal;
         margin-top: 0.35rem;
         padding: 0.12rem 0.38rem;
       }
 
       .platform-card p {
-        color: #c9dbea;
-        font-size: 0.75rem;
+        color: var(--text-soft);
+        font-size: 0.875rem;
         line-height: 1.35;
         margin-top: 0.4rem;
       }
 
       .platform-card a {
         border: 0;
-        color: #52d6ff;
-        font-size: 0.74rem;
+        color: var(--color-primary);
+        font-size: 0.875rem;
         margin-top: 0.45rem;
         min-height: auto;
         padding: 0;
@@ -940,8 +893,8 @@ interface DevelopmentRow {
       .architecture-grid,
       .progress-summary {
         display: grid;
-        gap: 0.9rem;
-        grid-template-columns: minmax(30rem, 1.35fr) minmax(20rem, 0.9fr);
+        gap: 1.5rem;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         margin-top: 0.9rem;
       }
 
@@ -954,55 +907,64 @@ interface DevelopmentRow {
         padding: 1rem;
       }
 
+      .architecture-panel {
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+
       .architecture-items {
         display: grid;
-        gap: 0.7rem;
-        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 1rem;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         margin-top: 1rem;
       }
 
       .architecture-items article {
-        background: rgb(7 29 55 / 84%);
-        border: 1px solid rgb(72 163 230 / 30%);
+        background: var(--surface-panel);
+        border: 1px solid var(--border-color);
         border-radius: 0.5rem;
         display: grid;
         gap: 0.45rem;
         min-height: 5.2rem;
+        min-width: 0;
         padding: 0.65rem 0.45rem;
         place-items: center;
         text-align: center;
       }
 
       .architecture-items span {
-        color: #dff5ff;
+        color: var(--text-main);
         font-size: 1.55rem;
       }
 
       .architecture-items strong {
-        color: #dceeff;
-        font-size: 0.72rem;
-        line-height: 1.12;
+        color: var(--text-main);
+        font-size: 0.875rem;
+        line-height: 1.25;
       }
 
       .platform-dots {
         align-items: center;
-        border-top: 1px solid rgb(72 163 230 / 24%);
+        border-top: 1px solid var(--border-color);
         display: flex;
+        flex-wrap: wrap;
         gap: 0.5rem;
         justify-content: center;
         margin-top: 1.2rem;
+        min-width: 0;
         padding-top: 1rem;
       }
 
       .platform-dots span {
-        border: 1px solid rgb(83 213 255 / 40%);
+        border: 1px solid var(--border-color);
         border-radius: 999px;
-        color: #7adfff;
+        color: var(--text-main);
         display: grid;
-        font-size: 0.75rem;
-        height: 2rem;
+        flex: 0 0 auto;
+        font-size: 0.875rem;
+        height: 2.5em;
         place-items: center;
-        width: 2rem;
+        width: 2.5em;
       }
 
       .connections-panel ul {
@@ -1035,20 +997,20 @@ interface DevelopmentRow {
 
       .connections-panel li.cyan,
       .connections-panel li.blue {
-        color: #50d9ff;
+        color: var(--color-primary);
       }
 
       .connections-panel li.green {
-        color: #66f3a0;
+        color: var(--color-success);
       }
 
       .connections-panel li.violet {
-        color: #c69bff;
+        color: var(--color-primary);
       }
 
       .connections-panel li.orange,
       .connections-panel li.gold {
-        color: var(--gold-400);
+        color: var(--color-gold);
       }
 
       .connections-panel span {
@@ -1061,7 +1023,7 @@ interface DevelopmentRow {
       }
 
       .connections-panel strong {
-        color: #fff8e8;
+        color: var(--text-main);
         display: block;
         font-size: 0.95rem;
       }
@@ -1073,8 +1035,8 @@ interface DevelopmentRow {
       .journey-track {
         align-items: start;
         display: grid;
-        gap: 0.7rem;
-        grid-template-columns: repeat(8, minmax(0, 1fr));
+        gap: 1.5rem;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         margin-top: 1rem;
       }
 
@@ -1088,10 +1050,10 @@ interface DevelopmentRow {
       }
 
       .journey-track article > span {
-        background: radial-gradient(circle, rgb(11 62 92), rgb(4 21 42));
-        border: 1px solid rgb(80 213 255 / 44%);
+        background: var(--surface-subtle);
+        border: 1px solid var(--border-color);
         border-radius: 999px;
-        color: #7be2ff;
+        color: var(--text-main);
         display: grid;
         font-size: 1.6rem;
         height: 4.2rem;
@@ -1100,18 +1062,18 @@ interface DevelopmentRow {
       }
 
       .journey-track strong {
-        color: #fff8e8;
-        font-size: 0.8rem;
-        line-height: 1.1;
+        color: var(--text-main);
+        font-size: 0.875rem;
+        line-height: 1.25;
       }
 
       .journey-track p {
-        font-size: 0.68rem;
+        font-size: 0.875rem;
         margin: 0;
       }
 
       .journey-track i {
-        color: #fff;
+        color: var(--text-main);
         font-style: normal;
         position: absolute;
         right: -0.75rem;
@@ -1129,20 +1091,20 @@ interface DevelopmentRow {
       .development-row span,
       .development-row strong,
       .development-row em {
-        color: #dbefff;
-        font-size: 0.82rem;
+        color: var(--text-main);
+        font-size: 0.875rem;
         font-style: normal;
       }
 
       .development-row div {
-        background: rgb(255 255 255 / 10%);
+        background: var(--surface-panel);
         border-radius: 999px;
         height: 0.42rem;
         overflow: hidden;
       }
 
       .development-row i {
-        background: linear-gradient(90deg, #1aa9ff, #66f3ff);
+        background: var(--color-primary);
         display: block;
         height: 100%;
       }
@@ -1154,21 +1116,21 @@ interface DevelopmentRow {
       }
 
       .summary-panel dl div {
-        border: 1px solid rgb(74 165 236 / 34%);
+        border: 1px solid var(--border-color);
         border-radius: 0.5rem;
         padding: 0.75rem 0.5rem;
         text-align: center;
       }
 
       .summary-panel dt {
-        color: #fff;
+        color: var(--color-primary);
         font-size: 1.9rem;
         font-weight: 900;
       }
 
       .summary-panel dd {
-        color: #c8dcf0;
-        font-size: 0.76rem;
+        color: var(--text-main);
+        font-size: 0.875rem;
         margin: 0;
       }
 
@@ -1182,23 +1144,27 @@ interface DevelopmentRow {
       }
 
       .summary-panel li {
-        color: #fff8e8;
-        font-size: 0.78rem;
+        color: var(--color-primary);
+        font-size: 0.875rem;
       }
 
       .summary-panel li span {
-        color: #9eb5c8;
+        color: var(--color-primary);
         display: block;
-        font-size: 0.68rem;
+        font-size: 0.875rem;
       }
 
       .ecosystem-cta {
         background:
-          linear-gradient(180deg, rgb(2 10 23 / 14%), rgb(2 10 23 / 88%)),
+          linear-gradient(
+            90deg,
+            color-mix(in srgb, var(--surface-panel) 97%, transparent),
+            color-mix(in srgb, var(--surface-panel) 90%, transparent)
+          ),
           url('/assets/fonds-des-batisseurs-feuille-erable-lumineuse.png');
         background-position: center 56%;
         background-size: cover;
-        border-top: 1px solid rgb(244 201 87 / 26%);
+        border-top: 1px solid var(--border-color);
         margin-top: 1rem;
         padding: 2.2rem 1rem 1.6rem;
         text-align: center;
@@ -1209,7 +1175,7 @@ interface DevelopmentRow {
       }
 
       .ecosystem-cta p {
-        font-family: Georgia, 'Times New Roman', serif;
+        font-family: 'Segoe UI', Arial, sans-serif;
         font-size: 2rem;
         font-weight: 900;
         margin-top: 0.25rem;
@@ -1221,8 +1187,8 @@ interface DevelopmentRow {
 
       .ecosystem-footer {
         align-items: center;
-        background: rgb(2 10 23 / 94%);
-        border-top: 1px solid rgb(72 163 230 / 24%);
+        background: var(--surface-subtle);
+        border-top: 1px solid var(--border-color);
         display: grid;
         gap: 1rem;
         grid-template-columns: minmax(12rem, 0.8fr) minmax(20rem, 1.3fr) auto;
@@ -1236,7 +1202,7 @@ interface DevelopmentRow {
       }
 
       .ecosystem-footer small {
-        color: #9eb5c8;
+        color: var(--text-soft);
       }
 
       @media (max-width: 1280px) {
@@ -1328,6 +1294,15 @@ interface DevelopmentRow {
 
         .development-row {
           grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 860px) {
+        .ecosystem-hero-overlay {
+          background: linear-gradient(
+            color-mix(in srgb, var(--surface-page) 94%, transparent),
+            color-mix(in srgb, var(--surface-page) 98%, transparent)
+          );
         }
       }
     `

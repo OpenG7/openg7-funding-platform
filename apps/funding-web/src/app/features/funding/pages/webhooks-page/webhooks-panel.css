@@ -17,25 +17,23 @@ button {
 }
 
 code {
-  font-family: 'Cascadia Code', Consolas, monospace;
+  font-family: 'Segoe UI', Arial, sans-serif;
 }
 
 .panel,
 .diagnostic-panel {
-  background: linear-gradient(180deg, rgb(25 25 27 / 88%), rgb(12 12 13 / 92%));
-  border: 1px solid rgb(73 181 230 / 28%);
+  background: var(--surface-panel);
+  border: 1px solid var(--border-color);
   border-radius: 0.72rem;
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 5%),
-    0 18px 40px rgb(0 0 0 / 28%);
+  box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
   min-width: 0;
-  padding: 0.85rem;
+  padding: 1.25rem;
 }
 
 .panel h2,
 .diagnostic-panel h2 {
-  color: #f4eadb;
-  font-size: 0.82rem;
+  color: var(--text-main);
+  font-size: 1.125rem;
   letter-spacing: 0.05em;
   margin-bottom: 0.45rem;
   text-transform: uppercase;
@@ -44,16 +42,16 @@ code {
 .panel p,
 .panel label,
 .diagnostic-table p {
-  color: #b9ad9e;
-  font-size: 0.75rem;
+  color: var(--text-soft);
+  font-size: 0.9375rem;
   line-height: 1.35;
 }
 
 code {
-  background: rgb(11 11 12 / 92%);
-  border: 1px solid rgb(255 255 255 / 10%);
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-color);
   border-radius: 0.42rem;
-  color: #d7c7ae;
+  color: var(--text-soft);
   overflow: auto;
   padding: 0.6rem;
   white-space: nowrap;
@@ -61,15 +59,15 @@ code {
 
 .panel button,
 .diagnostic-panel button {
-  background: rgb(25 23 22 / 90%);
-  border: 1px solid rgb(73 181 230 / 34%);
+  background: var(--surface-panel);
+  border: 1px solid var(--border-color);
   border-radius: 0.45rem;
-  color: #c6efff;
-  min-height: 2.15rem;
+  color: var(--color-primary);
+  min-height: 2.75rem;
   padding: 0 0.7rem;
 }
 
 button:focus-visible {
-  outline: 2px solid #62ddff;
+  outline: 2px solid var(--color-primary);
   outline-offset: 3px;
 }

@@ -13,16 +13,16 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
   styles: [
     `
       .hero-copy h1 {
-        color: #f4fbff;
-        font-size: clamp(2rem, 4.6vw, 4rem);
-        line-height: 1.04;
+        color: var(--text-main);
+        font-size: clamp(1.75rem, 3vw, 2.5rem);
+        line-height: 1.2;
         margin: 0;
       }
 
       .hero-copy p {
-        color: #b1cbe3;
-        font-size: clamp(1rem, 1.8vw, 1.5rem);
-        line-height: 1.35;
+        color: var(--text-soft);
+        font-size: clamp(1rem, 1.4vw, 1.125rem);
+        line-height: 1.5;
         margin: 1rem 0 1.3rem;
         max-width: 28ch;
       }

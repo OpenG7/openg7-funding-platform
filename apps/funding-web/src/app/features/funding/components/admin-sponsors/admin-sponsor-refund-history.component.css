@@ -37,7 +37,7 @@
 
 dt {
   color: var(--admin-muted);
-  font-size: 0.76rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
   letter-spacing: 0;
   text-transform: uppercase;
@@ -74,7 +74,7 @@ dd {
 
 .refund-summary-grid > div > span {
   color: var(--admin-muted);
-  font-size: 0.78rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
   text-transform: uppercase;
 }
@@ -90,7 +90,7 @@ dd {
 .refund-badge {
   border-radius: 999px;
   display: inline-flex;
-  font-size: 0.72rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
   max-width: 100%;
   padding: 0.25rem 0.55rem;
@@ -161,7 +161,7 @@ dd {
 .audit-list time,
 .refund-history-list time {
   color: var(--admin-muted);
-  font-size: 0.82rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: 500;
 }
 

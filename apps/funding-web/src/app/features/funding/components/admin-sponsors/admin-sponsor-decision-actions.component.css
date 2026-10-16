@@ -52,7 +52,7 @@ button:disabled {
 }
 .detail-actions-context strong {
   color: var(--admin-muted);
-  font-size: 0.75rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .detail-actions-context span {
   font-size: 0.9rem;
@@ -60,7 +60,7 @@ button:disabled {
 }
 .detail-actions-context small {
   color: var(--admin-muted);
-  font-size: 0.75rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .detail-actions-buttons {
   display: flex;
@@ -99,7 +99,7 @@ button:disabled {
   border-radius: 0.45rem;
   box-shadow: 0 16px 34px rgb(15 23 42 / 24%);
   color: var(--admin-text);
-  font-size: 0.86rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: 500;
   margin: 0;
   max-width: min(24rem, calc(100% - 2rem));
@@ -153,7 +153,7 @@ button:disabled {
   }
   .detail-actions-buttons button {
     flex: 1 1 auto;
-    font-size: 0.8rem;
+    font-size: var(--admin-caption-size, 0.875rem);
   }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -16,7 +16,7 @@
   border-radius: 999px;
   background: var(--admin-warning-bg);
   color: var(--admin-warning);
-  font-size: 0.7rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 
 .note-preview {
@@ -31,7 +31,7 @@
 
 .note-empty {
   color: var(--admin-muted);
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 
 .note-editor {
@@ -61,7 +61,7 @@
 
 .note-eyebrow {
   color: var(--admin-muted);
-  font-size: 0.65rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
   letter-spacing: normal;
   text-transform: uppercase;
@@ -75,7 +75,7 @@
 
 .note-reference {
   color: var(--admin-muted);
-  font-size: 0.75rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   overflow-wrap: anywhere;
 }
 
@@ -89,7 +89,7 @@
   border-radius: 999px;
   background: var(--admin-warning-bg);
   color: var(--admin-gold);
-  font-size: 0.75rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: var(--admin-label-weight);
 }
 
@@ -106,7 +106,7 @@
 .note-privacy {
   margin: 0;
   color: var(--admin-muted);
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 
 .note-field {
@@ -147,7 +147,7 @@
 .note-counter {
   justify-self: end;
   color: var(--admin-muted);
-  font-size: 0.75rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-variant-numeric: tabular-nums;
 }
 
@@ -161,7 +161,7 @@
   padding-left: 0.85rem;
   border-left: 2px solid var(--admin-border);
   color: var(--admin-muted);
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 
 .note-feedback.is-dirty {
@@ -173,7 +173,7 @@
 }
 
 .note-feedback small {
-  font-size: 0.75rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 
 .note-actions {

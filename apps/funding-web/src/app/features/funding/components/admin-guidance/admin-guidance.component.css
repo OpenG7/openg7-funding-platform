@@ -52,7 +52,7 @@
 .open .guidance-bar .admin-button {
   min-width: 0;
   padding: 0.6rem 0.7rem;
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   line-height: 1.4;
   white-space: normal;
 }
@@ -139,7 +139,7 @@ p {
 .quiet,
 .privacy,
 .storage-warning {
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .quiet {
   margin-top: 0.9rem;

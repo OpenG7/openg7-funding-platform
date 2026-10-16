@@ -37,7 +37,7 @@ header p {
   overscroll-behavior: contain;
 }
 .format {
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   color: var(--admin-muted);
 }
 .preview {

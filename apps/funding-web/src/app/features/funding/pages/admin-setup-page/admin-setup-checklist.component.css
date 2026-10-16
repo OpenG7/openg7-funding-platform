@@ -7,7 +7,7 @@
   font-size: 1.6rem;
 }
 .checklist header p {
-  font-size: 0.8rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   color: var(--admin-muted);
   margin-top: 0.2rem;
 }
@@ -27,7 +27,7 @@
   border: 0;
   background: transparent;
   border-radius: 0.2rem;
-  font-size: 0.8rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   padding: 0.7rem 0.2rem;
 }
 .checklist li span {
@@ -35,7 +35,7 @@
 }
 .checklist li small {
   color: var(--admin-muted);
-  font-size: 0.7rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .checklist li openg7-admin-icon {
   color: var(--og7-admin-accent, #b8dfff);

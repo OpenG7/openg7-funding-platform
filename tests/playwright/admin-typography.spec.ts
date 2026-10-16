@@ -156,12 +156,15 @@ async function typography(heading: Locator) {
 }
 
 for (const language of ['fr-CA', 'en'] as const) {
-  for (const width of [390, 1280]) {
+  for (const width of [390, 1280, 1536]) {
     test(`all admin pages share dashboard typography in ${language} at ${width}px`, async ({
       page
     }) => {
       test.setTimeout(60000);
-      await page.setViewportSize({ width, height: 1000 });
+      await page.setViewportSize({
+        width,
+        height: width === 1536 ? 760 : 1000
+      });
       const fixture = await fixtures(page, language);
       let dashboard: Awaited<ReturnType<typeof typography>> | undefined;
       let controlsChecked = 0;
@@ -189,6 +192,14 @@ for (const language of ['fr-CA', 'en'] as const) {
           dashboard ??= actual;
           expect.soft(actual, `${path}: heading typography`).toEqual(dashboard);
           await expect.soft(main).toHaveCSS('font-family', dashboard.family);
+          expect
+            .soft(
+              await page.evaluate(
+                () => document.documentElement.scrollWidth <= innerWidth + 1
+              ),
+              `${path}: horizontal overflow`
+            )
+            .toBe(true);
 
           const buttons = await main
             .getByRole('button')

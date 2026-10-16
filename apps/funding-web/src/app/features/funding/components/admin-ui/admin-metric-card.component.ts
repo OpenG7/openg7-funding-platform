@@ -51,11 +51,30 @@ import {
         background: transparent;
         border: 0;
         border-radius: 0;
+        display: grid;
+        grid-template-columns: 2.5rem minmax(0, 1fr);
+        gap: 0.75rem;
         padding-bottom: 1rem;
+      }
+      .embedded div {
+        display: contents;
+      }
+      .embedded h2 {
+        align-self: center;
+      }
+      .embedded strong,
+      .embedded p {
+        grid-column: 1 / -1;
       }
       .embedded strong {
         font-size: clamp(1.9rem, 2.3vw, 2.5rem);
         letter-spacing: -0.04em;
+        margin: 0;
+      }
+      .embedded .icon {
+        font-size: 1.375rem;
+        height: 2.5rem;
+        width: 2.5rem;
       }
       h2 {
         color: var(--admin-text);
@@ -73,7 +92,7 @@ import {
       }
       p {
         color: var(--admin-muted);
-        font-size: 0.78rem;
+        font-size: var(--admin-caption-size, 0.875rem);
         margin: 0;
       }
       .icon {

@@ -7,11 +7,13 @@
   cursor: pointer;
   display: inline-flex;
   font: inherit;
+  font-size: var(--admin-navigation-size, 0.9375rem);
   font-weight: var(--admin-control-weight);
-  gap: 0.6rem;
+  gap: 0.5rem;
   justify-content: center;
-  min-height: 2.75rem;
-  padding: 0.55rem 0.95rem;
+  min-height: var(--admin-control-height, 2.75rem);
+  padding: 0.625rem 1rem;
+  line-height: 1.4;
   text-decoration: none;
 }
 .admin-focus-target {
@@ -41,7 +43,7 @@
   outline-offset: 4px;
 }
 .admin-link {
-  color: var(--admin-gold);
+  color: var(--admin-accent, var(--admin-gold));
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }

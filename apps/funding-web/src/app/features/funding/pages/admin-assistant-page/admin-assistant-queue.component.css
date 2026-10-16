@@ -24,7 +24,7 @@
   margin-bottom: 1rem;
 }
 .section-heading > .muted {
-  font-size: 0.8rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .recommendations,
 .item-list {
@@ -54,13 +54,13 @@
   color: var(--admin-muted);
 }
 .recommendations p {
-  font-size: 0.82rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   margin-top: 0.2rem;
   overflow-wrap: anywhere;
 }
 .result-count {
   padding: 0.75rem 0;
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   color: var(--admin-muted);
 }
 .item-list > li {
@@ -82,10 +82,10 @@
 }
 .item-content p {
   margin: 0.2rem 0;
-  font-size: 0.85rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .item-content small {
-  font-size: 0.78rem;
+  font-size: var(--admin-caption-size, 0.875rem);
 }
 .amount {
   color: var(--admin-muted);
@@ -93,7 +93,7 @@
 }
 .priority {
   color: var(--admin-muted);
-  font-size: 0.75rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   white-space: nowrap;
 }
 .priority.urgent {

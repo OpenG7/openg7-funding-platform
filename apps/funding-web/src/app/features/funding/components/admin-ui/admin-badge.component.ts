@@ -18,7 +18,7 @@ export type AdminBadgeTone = 'neutral' | 'success' | 'warning' | 'danger';
         border: 1px solid var(--admin-border);
         border-radius: 0.4rem;
         color: var(--admin-text);
-        font-size: 0.8rem;
+        font-size: var(--admin-caption-size, 0.875rem);
         font-weight: 600;
         padding: 0.25rem 0.6rem;
       }

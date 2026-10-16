@@ -39,35 +39,40 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       }
 
       .stat-card h2 {
-        color: #eff8ff;
+        color: var(--text-main);
         margin: 0;
       }
 
       .stat-card button {
-        background: rgb(18 52 84 / 45%);
-        border: 1px solid #245379;
+        background: var(--surface-subtle);
+        border: 1px solid var(--border-color);
         border-radius: 0.65rem;
-        color: #d1e7fb;
+        color: var(--text-main);
         cursor: pointer;
-        min-height: 2rem;
+        min-height: 2.75rem;
         padding: 0 0.7rem;
+      }
+
+      .stat-card button:focus-visible {
+        outline: 3px solid var(--color-primary);
+        outline-offset: 3px;
       }
 
       .stat-card p {
         align-items: center;
-        color: #c1d9ee;
+        color: var(--text-soft);
         display: flex;
         justify-content: space-between;
         margin: 0.4rem 0;
       }
 
       .stat-card strong {
-        color: #eff8ff;
+        color: var(--text-main);
       }
 
       .available {
-        border-top: 1px solid #285277;
-        color: #6be3b3;
+        border-top: 1px solid var(--border-color);
+        color: var(--color-success);
         font-size: 1.2rem;
         font-weight: 700;
         margin-top: 0.85rem;
@@ -75,18 +80,18 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       }
 
       .available strong {
-        color: #6be3b3;
+        color: var(--color-success);
       }
 
       .live {
-        color: #81cea8;
-        font-size: 0.87rem;
+        color: var(--color-success);
+        font-size: 0.875rem;
         justify-content: flex-start;
         margin-top: 0.6rem;
       }
 
       .live::before {
-        background: #33d181;
+        background: var(--color-success);
         border-radius: 999px;
         content: '';
         display: inline-block;

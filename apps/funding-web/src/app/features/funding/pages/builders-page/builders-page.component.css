@@ -1,12 +1,6 @@
 .builders-directory-shell {
-  background:
-    radial-gradient(
-      circle at 16% 28%,
-      rgb(47 159 229 / 12%),
-      transparent 28rem
-    ),
-    linear-gradient(180deg, #030811 0%, #06111f 54%, #02060d 100%);
-  color: #f7fbff;
+  background: var(--surface-page);
+  color: var(--text-main);
   min-height: 100vh;
 }
 
@@ -14,7 +8,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
-  height: clamp(24rem, 42vw, 28rem);
+  min-height: clamp(24rem, 32vw, 26rem);
   overflow: hidden;
   position: relative;
 }
@@ -28,20 +22,24 @@
 }
 
 .builders-directory-hero img {
+  position: absolute;
+  inset: 0;
   height: 100%;
   object-fit: cover;
   width: 100%;
 }
 
 .hero-overlay {
+  position: relative;
   background:
     linear-gradient(
       90deg,
-      rgb(2 8 18 / 94%),
-      rgb(2 8 18 / 56%),
-      rgb(2 8 18 / 86%)
+      var(--surface-page) 0%,
+      color-mix(in srgb, var(--surface-page) 97%, transparent) 38%,
+      color-mix(in srgb, var(--surface-page) 90%, transparent) 68%,
+      color-mix(in srgb, var(--surface-page) 25%, transparent)
     ),
-    linear-gradient(0deg, rgb(2 8 18 / 82%), transparent 44%);
+    linear-gradient(180deg, transparent 60%, var(--surface-page));
 }
 
 .builders-directory-hero article {
@@ -55,18 +53,18 @@
 .builders-directory-hero span,
 .builders-pathway > span,
 .public-builders-panel header span {
-  color: #f4c957;
-  font-family: 'Trebuchet MS', sans-serif;
-  font-size: 0.78rem;
+  color: var(--color-gold);
+  font-family: 'Segoe UI', Arial, sans-serif;
+  font-size: 0.875rem;
   font-weight: 800;
   letter-spacing: 0;
   text-transform: uppercase;
 }
 
 .builders-directory-hero h1 {
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: clamp(2.35rem, 5vw, 4.65rem);
-  line-height: 0.96;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  font-size: clamp(2.35rem, 5vw, 2.75rem);
+  line-height: 1.25;
   margin: 0.65rem 0 1rem;
 }
 
@@ -74,8 +72,8 @@
 .builders-pathway p,
 .public-builders-panel p,
 .empty-builders p {
-  color: #cfe0ef;
-  font-family: 'Trebuchet MS', sans-serif;
+  color: var(--text-soft);
+  font-family: 'Segoe UI', Arial, sans-serif;
   line-height: 1.55;
   margin: 0;
 }
@@ -90,27 +88,27 @@
 .hero-actions a,
 .empty-builders a {
   align-items: center;
-  border: 1px solid rgb(244 201 87 / 42%);
+  border: 1px solid var(--border-color);
   border-radius: 0.45rem;
-  color: #fff4d6;
+  color: var(--color-primary);
   display: inline-flex;
-  font-family: 'Trebuchet MS', sans-serif;
+  font-family: 'Segoe UI', Arial, sans-serif;
   font-weight: 800;
-  min-height: 2.65rem;
+  min-height: 2.75rem;
   padding: 0 0.9rem;
   text-decoration: none;
 }
 
 .hero-actions a:first-child {
-  background: linear-gradient(135deg, #f4b53c, #ffe39a);
-  color: #07101b;
+  background: var(--color-primary);
+  color: var(--on-primary);
 }
 
 .builders-directory-content {
   display: grid;
-  gap: clamp(1rem, 2vw, 1.35rem);
+  gap: 1.5rem;
   grid-template-columns: minmax(0, 1fr) 19rem;
-  padding: clamp(1rem, 4vw, 2.6rem);
+  padding: 1.5rem clamp(1rem, 4vw, 3rem);
 }
 
 .builders-sidebar {
@@ -123,28 +121,26 @@
 .builders-pathway,
 .public-builders-panel,
 .empty-builders {
-  background: linear-gradient(180deg, rgb(4 22 43 / 88%), rgb(3 13 28 / 88%));
-  border: 1px solid rgb(102 177 232 / 28%);
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-color);
   border-radius: 0.62rem;
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 8%),
-    0 12px 34px rgb(0 0 0 / 26%);
+  box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
 }
 
 .builders-summary {
   align-self: start;
-  padding: 1rem;
+  padding: 1.5rem;
 }
 
 .builders-pathway {
-  padding: 1rem;
+  padding: 1.5rem;
 }
 
 .builders-pathway h2 {
-  color: #fff2cf;
-  font-family: Georgia, 'Times New Roman', serif;
+  color: var(--text-main);
+  font-family: 'Segoe UI', Arial, sans-serif;
   font-size: 1.35rem;
-  line-height: 1;
+  line-height: 1.25;
   margin: 0.45rem 0 0.9rem;
 }
 
@@ -158,7 +154,7 @@
 }
 
 .builders-pathway li {
-  border-top: 1px solid rgb(244 201 87 / 18%);
+  border-top: 1px solid var(--border-color);
   counter-increment: builder-step;
   display: grid;
   gap: 0.25rem;
@@ -167,21 +163,21 @@
 }
 
 .builders-pathway li::before {
-  color: #f4c957;
+  color: var(--text-soft);
   content: counter(builder-step, decimal-leading-zero);
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: 'Segoe UI', Arial, sans-serif;
   font-size: 0.9rem;
   font-weight: 700;
 }
 
 .builders-pathway strong {
-  color: #f7fbff;
-  font-family: 'Trebuchet MS', sans-serif;
+  color: var(--text-main);
+  font-family: 'Segoe UI', Arial, sans-serif;
   font-size: 0.92rem;
 }
 
 .builders-pathway p {
-  font-size: 0.85rem;
+  font-size: 0.875rem;
 }
 
 .builders-summary dl {
@@ -196,14 +192,14 @@
 }
 
 .builders-summary dt {
-  color: #9fb7cb;
-  font-family: 'Trebuchet MS', sans-serif;
-  font-size: 0.75rem;
+  color: var(--color-primary);
+  font-family: 'Segoe UI', Arial, sans-serif;
+  font-size: 0.875rem;
 }
 
 .builders-summary dd {
-  color: #fff2cf;
-  font-family: 'Trebuchet MS', sans-serif;
+  color: var(--text-main);
+  font-family: 'Segoe UI', Arial, sans-serif;
   font-size: 1.15rem;
   font-weight: 900;
   margin-top: 0.1rem;
@@ -216,14 +212,14 @@
 }
 
 .public-builders-panel h2 {
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: 'Segoe UI', Arial, sans-serif;
   font-size: clamp(1.65rem, 3vw, 2.5rem);
   margin: 0.35rem 0 0.5rem;
 }
 
 .builders-list {
   display: grid;
-  gap: 0.62rem;
+  gap: 1rem;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -231,8 +227,8 @@
 
 .builders-list li {
   align-items: center;
-  background: linear-gradient(90deg, rgb(5 21 42 / 92%), rgb(6 30 55 / 78%));
-  border: 1px solid rgb(122 223 255 / 20%);
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-color);
   border-radius: 0.55rem;
   display: grid;
   gap: 0.75rem;
@@ -243,12 +239,12 @@
 
 .builder-avatar {
   align-items: center;
-  background: linear-gradient(160deg, #2f9fe5, #f4b53c);
+  background: var(--color-primary);
   border-radius: 999px;
-  color: #fff;
+  color: var(--on-primary);
   display: inline-flex;
-  font-family: 'Trebuchet MS', sans-serif;
-  font-size: 0.78rem;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  font-size: 0.875rem;
   font-weight: 900;
   height: 2.25rem;
   justify-content: center;
@@ -258,25 +254,25 @@
 .builders-list strong,
 .builders-list small {
   display: block;
-  font-family: 'Trebuchet MS', sans-serif;
+  font-family: 'Segoe UI', Arial, sans-serif;
 }
 
 .builders-list strong {
-  color: #f7fbff;
+  color: var(--text-main);
 }
 
 .builders-list small {
-  color: #9fb7cb;
-  font-size: 0.78rem;
+  color: var(--text-soft);
+  font-size: 0.875rem;
   margin-top: 0.1rem;
 }
 
 .builders-list em {
-  background: rgb(244 201 87 / 12%);
-  border: 1px solid rgb(244 201 87 / 26%);
+  background: var(--surface-panel);
+  border: 1px solid var(--border-color);
   border-radius: 999px;
-  color: #f4c957;
-  font-family: 'Trebuchet MS', sans-serif;
+  color: var(--color-gold);
+  font-family: 'Segoe UI', Arial, sans-serif;
   font-style: normal;
   font-weight: 900;
   padding: 0.32rem 0.58rem;
@@ -284,15 +280,13 @@
 }
 
 .empty-builders {
-  background:
-    linear-gradient(135deg, rgb(244 201 87 / 10%), transparent 42%),
-    rgb(5 21 42 / 56%);
+  background: var(--surface-panel);
   border-style: dashed;
   padding: clamp(1rem, 3vw, 1.35rem);
 }
 
 .empty-builders h3 {
-  color: #fff2cf;
+  color: var(--text-main);
   font-size: 1rem;
   margin: 0 0 0.45rem;
 }
@@ -305,17 +299,17 @@
 }
 
 .empty-actions a:first-child {
-  background: linear-gradient(135deg, #f4b53c, #ffe39a);
-  color: #07101b;
+  background: var(--color-primary);
+  color: var(--on-primary);
 }
 
 .state {
-  color: #cfe0ef;
-  font-family: 'Trebuchet MS', sans-serif;
+  color: var(--text-soft);
+  font-family: 'Segoe UI', Arial, sans-serif;
 }
 
 .state-error {
-  color: #ffb5a8;
+  color: var(--color-danger);
 }
 
 @media (max-width: 860px) {
@@ -324,7 +318,7 @@
   }
 
   .builders-directory-hero {
-    height: 26rem;
+    min-height: 26rem;
   }
 
   .builders-list li {
@@ -352,10 +346,10 @@ button,
 .directory-actions a {
   min-height: 44px;
   padding: 0.65rem 1rem;
-  border: 1px solid #69cbed;
+  border: 1px solid var(--border-color);
   border-radius: 0.6rem;
-  background: #102c40;
-  color: #fff;
+  background: var(--surface-panel);
+  color: var(--color-primary);
 }
 button:disabled {
   opacity: 0.6;
@@ -364,15 +358,15 @@ button:disabled {
 a:focus-visible,
 button:focus-visible,
 h2:focus {
-  outline: 3px solid #ffd77b;
+  outline: 3px solid var(--color-primary);
   outline-offset: 5px;
 }
 .builders-summary p,
 .builders-summary a {
-  color: #d8eaf4;
+  color: var(--color-primary);
 }
 .builders-summary h2 {
-  color: #fff;
+  color: var(--text-main);
 }
 .builders-summary nav {
   display: grid;
@@ -394,10 +388,19 @@ h2:focus {
 noscript {
   display: block;
   padding: 1rem;
-  color: #ffe3a0;
+  color: var(--color-gold);
 }
 @media (max-width: 860px) {
   .builders-directory-content {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 860px) {
+  .hero-overlay {
+    background: linear-gradient(
+      color-mix(in srgb, var(--surface-page) 94%, transparent),
+      color-mix(in srgb, var(--surface-page) 98%, transparent)
+    );
   }
 }

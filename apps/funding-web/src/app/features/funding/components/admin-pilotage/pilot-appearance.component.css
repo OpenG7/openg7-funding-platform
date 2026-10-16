@@ -14,7 +14,7 @@ fieldset {
   min-width: 0;
 }
 legend {
-  font-size: 0.85rem;
+  font-size: 0.9375rem;
   font-weight: var(--admin-label-weight);
   margin-bottom: 0.8rem;
 }
@@ -47,7 +47,7 @@ legend {
   display: flex;
   gap: 0.6rem;
   align-items: flex-start;
-  font-size: 0.82rem;
+  font-size: 0.9375rem;
 }
 input {
   accent-color: var(--admin-focus);
@@ -63,7 +63,7 @@ input:focus-visible {
 small {
   display: block;
   color: var(--admin-muted);
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   line-height: 1.5;
 }
 .system {
@@ -76,7 +76,7 @@ small {
 }
 .current {
   color: var(--admin-muted);
-  font-size: 0.78rem;
+  font-size: 0.875rem;
   margin-top: 0.75rem;
 }
 .densities {
@@ -95,7 +95,7 @@ small {
   border-left: 2px solid var(--admin-gold);
   background: var(--admin-panel);
   color: var(--admin-muted);
-  font-size: 0.82rem;
+  font-size: 0.875rem;
   line-height: 1.6;
 }
 .miniature {
@@ -111,10 +111,10 @@ small {
   overflow: hidden;
 }
 .miniature[data-theme='mineral'] {
-  --mini-bg: #f3f2ee;
+  --mini-bg: #f7f5f0;
   --mini-panel: #fff;
-  --mini-line: #a2adb6;
-  --mini-accent: #80520c;
+  --mini-line: #cad5c9;
+  --mini-accent: #2f6b50;
 }
 .miniature[data-theme='graphite'] {
   --mini-bg: #191b1f;

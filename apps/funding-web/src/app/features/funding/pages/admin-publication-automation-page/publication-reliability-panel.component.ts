@@ -275,7 +275,7 @@ import type { PublicationReliabilityController } from './publication-reliability
         min-width: 0;
       }
       dt {
-        font-size: 0.86rem;
+        font-size: var(--admin-caption-size, 0.875rem);
         color: var(--admin-muted);
       }
       dd {
@@ -293,7 +293,7 @@ import type { PublicationReliabilityController } from './publication-reliability
         overflow-wrap: anywhere;
       }
       p {
-        font-size: 0.86rem;
+        font-size: var(--admin-caption-size, 0.875rem);
         line-height: 1.5;
       }
       .incident-filters,

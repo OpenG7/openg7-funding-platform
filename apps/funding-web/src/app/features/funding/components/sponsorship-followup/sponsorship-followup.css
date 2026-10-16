@@ -1,15 +1,15 @@
 :host {
   display: block;
-  font-family: 'Trebuchet MS', Arial, sans-serif;
+  font-family: inherit;
 }
 [data-og7='followup-fulfilment-evidence'] li:focus-visible {
-  outline: 3px solid #155cbb;
+  outline: 3px solid var(--color-primary);
   outline-offset: 0.25rem;
   scroll-margin-block: 1rem;
 }
 .followup-shell {
-  background: #f3f6fa;
-  color: #121b2d;
+  background: var(--surface-page);
+  color: var(--text-main);
   min-height: 100vh;
 }
 .container {
@@ -19,25 +19,24 @@
   padding-inline: clamp(1rem, 5vw, 4rem);
 }
 .followup-hero {
-  background:
-    linear-gradient(135deg, #07111ef0, #1c3148e6),
-    url('/assets/openg7-funding-platform-dragon-coffre.png') center/cover;
-  color: white;
-  padding-block: 2.5rem 2rem;
+  background: var(--surface-subtle);
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding-block: 2rem;
 }
 .followup-hero h1 {
   font:
-    bold clamp(1.75rem, 4vw, 2.75rem)/1.15 Georgia,
+    bold clamp(1.5rem, 3vw, 1.875rem)/1.2 Georgia,
     serif;
   margin-block: 0.65rem;
 }
 .followup-hero p {
   max-width: 46rem;
-  color: #e3edf7;
+  color: var(--text-soft);
 }
 .eyebrow {
-  color: #f6ce68;
-  font-weight: 800;
+  color: var(--color-gold);
+  font-weight: 700;
   text-transform: uppercase;
 }
 .followup-content {
@@ -63,14 +62,14 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 1rem 2rem;
-  border-left: 4px solid #b47b19;
+  border-left: 4px solid var(--color-gold);
 }
 .next-step > div:first-child {
   flex: 1 1 24rem;
 }
 .next-step h2 {
   font: inherit;
-  font-weight: 800;
+  font-weight: 700;
   margin-bottom: 0.35rem;
 }
 .next-step p {
@@ -87,7 +86,7 @@
 }
 .draft-status {
   font-size: 0.875rem;
-  color: #435269;
+  color: var(--text-soft);
   margin-block: 0.75rem;
 }
 .draft-status p {
@@ -95,7 +94,7 @@
 }
 .draft-attention {
   padding: 0.75rem;
-  border-left: 3px solid #9c6a14;
+  border-left: 3px solid var(--color-gold);
   background: #fff8e8;
   color: #614309;
 }
@@ -104,7 +103,7 @@
 }
 .submission-help {
   font-size: 0.9rem;
-  color: #435269;
+  color: var(--text-soft);
   margin-block: 1rem;
 }
 p {
@@ -122,9 +121,9 @@ h3 {
   margin-top: 0;
 }
 .state-card {
-  background: #fff;
-  color: #121b2d;
-  border: 1px solid #d8e1ed;
+  background: var(--surface-panel);
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
   border-radius: 0.5rem;
   padding: 1.25rem;
 }
@@ -136,11 +135,11 @@ h3 {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 0.5rem;
   padding-block: 0.65rem;
-  border-bottom: 1px solid #d8e1ed;
+  border-bottom: 1px solid var(--border-color);
 }
 dt {
-  color: #435269;
-  font-size: 0.8rem;
+  color: var(--text-soft);
+  font-size: 0.875rem;
   font-weight: 700;
 }
 dd {
@@ -165,8 +164,8 @@ dd {
 }
 .step-label {
   display: block;
-  color: #435269;
-  font-size: 0.8rem;
+  color: var(--text-soft);
+  font-size: 0.875rem;
   margin-bottom: 0.25rem;
 }
 .review-path li {
@@ -174,11 +173,11 @@ dd {
   padding-left: 0.35rem;
 }
 .review-path li.done::marker {
-  color: #137047;
+  color: var(--color-success);
   font-weight: bold;
 }
 .review-path li[aria-current] {
-  border-left: 3px solid #9c6a14;
+  border-left: 3px solid var(--color-gold);
 }
 summary {
   cursor: pointer;
@@ -188,8 +187,8 @@ summary {
 .notice-panel,
 .form-error-summary {
   padding: 1rem;
-  background: #f4f8fc;
-  border: 1px solid #cbd8e6;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-color);
   border-radius: 0.35rem;
   margin-block: 1rem;
 }
@@ -198,11 +197,11 @@ summary {
 .failed {
   background: #fff7f8;
   border-color: #d69aa4;
-  color: #7d1728;
+  color: var(--color-danger);
 }
 .state-success {
   background: #e5f5ed;
-  color: #125f3d;
+  color: var(--color-success);
   padding: 1rem;
 }
 .toolbar {
@@ -213,9 +212,9 @@ summary {
 }
 button,
 .media-upload-control {
-  background: #132032;
-  color: #fff;
-  border: 1px solid #132032;
+  background: var(--color-primary);
+  color: var(--on-primary);
+  border: 1px solid var(--color-primary);
   border-radius: 0.35rem;
   min-height: 2.75rem;
   padding: 0.6rem 1rem;
@@ -229,8 +228,8 @@ button:disabled,
 }
 button.secondary-button {
   background: transparent;
-  color: #24384f;
-  border-color: #9facbe;
+  color: var(--text-main);
+  border-color: var(--border-color);
 }
 button:focus-visible,
 a:focus-visible,
@@ -238,11 +237,11 @@ summary:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 .media-upload-control:focus-within {
-  outline: 3px solid #1f5f99;
+  outline: 3px solid var(--color-primary);
   outline-offset: 3px;
 }
 a {
-  color: #254db8;
+  color: var(--color-primary);
   text-decoration: underline;
 }
 fieldset {
@@ -260,6 +259,7 @@ label {
   display: grid;
   gap: 0.4rem;
   font-weight: 700;
+  font-size: 0.9375rem;
 }
 .full {
   grid-column: 1 / -1;
@@ -269,33 +269,34 @@ textarea {
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
-  background: #fbfdff;
-  color: #121b2d;
-  border: 1px solid #9facbe;
+  min-height: 2.75rem;
+  background: var(--surface-panel);
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
   border-radius: 0.35rem;
   padding: 0.75rem;
   font: inherit;
 }
 input[aria-invalid='true'],
 textarea[aria-invalid='true'] {
-  border-color: #a32135;
+  border-color: var(--color-danger);
 }
 input:disabled,
 textarea:disabled {
-  color: #435269;
-  background: #f3f6fa;
+  color: var(--text-soft);
+  background: var(--surface-page);
 }
 small {
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   font-weight: normal;
 }
 .field-error {
-  color: #a32135;
+  color: var(--color-danger);
 }
 .media-manager {
   display: grid;
   gap: 0.8rem;
-  border-block: 1px solid #d8e1ed;
+  border-block: 1px solid var(--border-color);
   margin-block: 1.25rem;
   padding-block: 1.25rem;
 }
@@ -318,7 +319,7 @@ small {
   grid-template-columns: 6rem minmax(0, 1fr);
   gap: 0.85rem;
   padding: 0.5rem;
-  border: 1px solid #d8e1ed;
+  border: 1px solid var(--border-color);
   border-radius: 0.35rem;
 }
 .media-item strong,
@@ -327,13 +328,13 @@ small {
 }
 .media-preview {
   position: relative;
-  background: #edf1f6;
+  background: var(--surface-raised);
   display: flex;
   align-items: center;
   justify-content: center;
   aspect-ratio: 4 / 3;
   min-width: 0;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   text-align: center;
 }
 .media-preview img {
@@ -345,8 +346,8 @@ small {
   position: absolute;
   right: 0.15rem;
   top: 0.15rem;
-  width: 2rem;
-  min-height: 2rem;
+  width: 2.75rem;
+  min-height: 2.75rem;
   padding: 0;
   border-radius: 50%;
 }

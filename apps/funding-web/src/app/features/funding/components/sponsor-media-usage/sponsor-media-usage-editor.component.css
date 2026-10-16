@@ -3,7 +3,7 @@
   min-width: 0;
 }
 fieldset {
-  border: 1px solid var(--admin-border, #526879);
+  border: 1px solid var(--admin-border, var(--border-color));
   border-radius: 0.5rem;
   padding: 0.8rem;
   min-width: 0;
@@ -24,17 +24,17 @@ textarea {
   font: inherit;
   color: inherit;
   background: transparent;
-  border: 1px solid var(--admin-border, #526879);
+  border: 1px solid var(--admin-border, var(--border-color));
   border-radius: 0.25rem;
   padding: 0.5rem;
 }
 button {
   font: inherit;
-  min-height: 2.5rem;
+  min-height: 2.75rem;
 }
 input:focus-visible,
 textarea:focus-visible,
 button:focus-visible {
-  outline: 3px solid var(--admin-focus, #77b6ff);
+  outline: 3px solid var(--admin-focus, var(--color-primary));
   outline-offset: 3px;
 }

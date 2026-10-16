@@ -54,7 +54,7 @@ button:focus-visible {
 
 .audit-list time {
   color: var(--admin-muted);
-  font-size: 0.82rem;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: 500;
 }
 

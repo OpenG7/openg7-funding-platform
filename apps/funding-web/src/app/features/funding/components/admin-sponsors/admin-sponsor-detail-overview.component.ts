@@ -402,7 +402,7 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
 
       dt {
         color: var(--admin-muted);
-        font-size: 0.76rem;
+        font-size: var(--admin-caption-size, 0.875rem);
         font-weight: var(--admin-label-weight);
         letter-spacing: 0;
         text-transform: uppercase;
@@ -429,7 +429,7 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
       .refund-badge {
         border-radius: 999px;
         display: inline-flex;
-        font-size: 0.72rem;
+        font-size: var(--admin-caption-size, 0.875rem);
         font-weight: var(--admin-label-weight);
         padding: 0.25rem 0.55rem;
         width: max-content;
