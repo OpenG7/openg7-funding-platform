@@ -64,6 +64,124 @@ async function fixtures(page: Page, language = 'fr-CA') {
   return { options, queries };
 }
 
+const auditPalettes = {
+  mineral: {
+    panel: 'rgb(255, 255, 255)',
+    border: 'rgb(202, 213, 201)',
+    text: 'rgb(41, 51, 46)'
+  },
+  night: {
+    panel: 'rgb(20, 35, 56)',
+    border: 'rgb(64, 86, 111)',
+    text: 'rgb(241, 245, 252)'
+  },
+  graphite: {
+    panel: 'rgb(37, 41, 47)',
+    border: 'rgb(86, 97, 110)',
+    text: 'rgb(243, 244, 246)'
+  }
+} as const;
+
+for (const theme of ['mineral', 'night', 'graphite'] as const) {
+  test(`audit retains ${theme} surfaces and readable entries on French mobile and English desktop`, async ({
+    page
+  }) => {
+    await fixtures(page);
+    await page.addInitScript((theme) => {
+      localStorage.setItem(
+        'openg7.pilotage.appearance.v1',
+        JSON.stringify({ theme, system: false, density: 'comfortable' })
+      );
+    }, theme);
+    for (const { language, width } of [
+      { language: 'fr-CA', width: 320 },
+      { language: 'en', width: 1280 }
+    ]) {
+      await test.step(`${language} at ${width}px`, async () => {
+        await page.setViewportSize({ width, height: 1000 });
+        if (language === 'fr-CA') await page.goto('/admin/fundraiser/audit');
+        else
+          await page
+            .getByRole('banner')
+            .getByRole('button', {
+              name: 'Switch administration language to English'
+            })
+            .click();
+        const audit = page.locator('[data-og7="admin-audit"]');
+        const panel = audit.locator('section[aria-labelledby="audit-title"]');
+        const rows = audit.locator('[data-og7="audit-entry"]');
+        await expect(rows).toHaveCount(20);
+        await expect(page.locator('html')).toHaveAttribute('lang', language);
+        await expect(audit).toHaveCSS('gap', '16px');
+        await expect(panel).toHaveCSS(
+          'background-color',
+          auditPalettes[theme].panel
+        );
+        await expect(panel).toHaveCSS(
+          'border-top-color',
+          auditPalettes[theme].border
+        );
+        await expect(panel).toHaveCSS('border-radius', '10.4px');
+        await expect(panel.locator(':scope > header')).toHaveCSS(
+          'padding',
+          '16px'
+        );
+        const inspect = rows.first().getByRole('button');
+        await expect(inspect).toHaveCSS('color', auditPalettes[theme].text);
+        await expect(inspect).toHaveCSS('min-height', '44px');
+        await expect(audit.getByRole('searchbox')).toHaveCSS(
+          'min-height',
+          '44px'
+        );
+        await expect(rows.first()).toHaveCSS(
+          'display',
+          width <= 700 ? 'block' : 'table-row'
+        );
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth + 1
+          )
+        ).toBe(true);
+      });
+    }
+  });
+}
+
+test('audit retains its inclusive 700px table and search breakpoint', async ({
+  page
+}) => {
+  await fixtures(page);
+  await page.goto('/admin/fundraiser/audit');
+  const audit = page.locator('[data-og7="admin-audit"]');
+  const table = audit.getByRole('table');
+  const row = audit.locator('[data-og7="audit-entry"]').first();
+  await expect(row).toBeVisible();
+  for (const width of [700, 701]) {
+    await test.step(`${width}px`, async () => {
+      await page.setViewportSize({ width, height: 1000 });
+      await expect(table).toHaveCSS(
+        'display',
+        width === 700 ? 'block' : 'table'
+      );
+      await expect(row.getByRole('cell').first()).toHaveCSS(
+        'display',
+        width === 700 ? 'block' : 'table-cell'
+      );
+      await expect(audit.getByRole('searchbox').locator('..')).toHaveCSS(
+        'flex-basis',
+        width === 700 ? '100%' : '352px'
+      );
+      await expect(table.locator('thead')).toHaveCSS(
+        'position',
+        width === 700 ? 'absolute' : 'static'
+      );
+      expect(
+        await audit.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)
+      ).toBe(true);
+    });
+  }
+});
+
 for (const language of ['fr-CA', 'en']) {
   for (const width of [320, 1280]) {
     test(`audit pagination, search and keyboard inspection in ${language} at ${width}px`, async ({

@@ -1,9 +1,10 @@
+@reference '../../../../../styles/tailwind.css';
+
 .admin-content {
-  display: grid;
-  gap: 1rem;
+  @apply tw:grid tw:gap-4;
   margin: 0 auto;
   max-width: 78rem;
-  min-width: 0;
+  @apply tw:min-w-0;
 }
 
 .admin-topbar,
@@ -11,17 +12,14 @@
 .journal-heading,
 .journal-footer,
 .pagination {
-  align-items: center;
-  display: flex;
-  gap: 0.75rem;
-  justify-content: space-between;
+  @apply tw:items-center tw:flex tw:gap-3 tw:justify-between;
 }
 
 h1,
 h2,
 h3,
 p {
-  margin: 0;
+  @apply tw:m-0;
 }
 
 .refresh-button {
@@ -32,16 +30,15 @@ p {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
   border-radius: 0.65rem;
-  min-width: 0;
+  @apply tw:min-w-0;
 }
 
 .journal-toolbar {
-  flex-wrap: wrap;
-  padding: 1rem;
+  @apply tw:flex-wrap tw:p-4;
 }
 
 .journal-heading {
-  flex-wrap: wrap;
+  @apply tw:flex-wrap;
   justify-content: start;
 }
 
@@ -49,50 +46,42 @@ p {
 .journal-footer,
 .entry-date,
 .entry-entity {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
 }
 
 .search-field {
-  align-items: center;
-  display: flex;
+  @apply tw:items-center tw:flex;
   flex: 0 1 22rem;
-  position: relative;
-  min-width: 0;
+  @apply tw:relative tw:min-w-0;
 }
 
 .search-field > openg7-admin-icon {
-  color: var(--admin-muted);
-  left: 0.75rem;
-  pointer-events: none;
-  position: absolute;
+  @apply tw:text-admin-muted tw:left-3 tw:pointer-events-none tw:absolute;
 }
 
 .search-field input {
   background: var(--admin-bg);
-  min-height: 2.75rem;
+  @apply tw:min-h-11;
   padding: 0.6rem 0.75rem 0.6rem 2.5rem;
-  width: 100%;
+  @apply tw:w-full;
   font-size: 0.875rem;
 }
 
 table {
-  table-layout: fixed;
+  @apply tw:table-fixed;
 }
 
 th,
 td {
   border-top: 1px solid var(--admin-border);
   padding: 0.75rem 1rem;
-  text-align: left;
-  vertical-align: top;
+  @apply tw:text-left tw:align-top;
 }
 
 th {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
   font-weight: 500;
-  padding-block: 0.5rem;
+  @apply tw:py-2;
 }
 
 th:first-child {
@@ -113,26 +102,20 @@ tbody tr:focus-within {
 }
 
 .entry-link {
-  align-items: center;
+  @apply tw:items-center;
   background: none;
   border: 0;
   border-radius: 0.2rem;
-  color: var(--admin-text);
-  cursor: pointer;
-  display: inline-flex;
+  @apply tw:text-admin-text tw:cursor-pointer tw:inline-flex;
   font-size: inherit;
   font-weight: 600;
-  gap: 0.5rem;
-  min-height: 2.75rem;
-  max-width: 100%;
+  @apply tw:gap-2 tw:min-h-11 tw:max-w-full;
   margin-block: -0.5rem 0;
-  overflow-wrap: anywhere;
-  padding: 0;
-  text-align: left;
+  @apply tw:wrap-anywhere tw:p-0 tw:text-left;
 }
 
 .entry-link openg7-admin-icon {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   font-size: 0.75rem;
 }
 
@@ -144,24 +127,20 @@ tbody tr:focus-within {
 }
 
 .entry-summary {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  overflow: hidden;
+  @apply tw:overflow-hidden;
 }
 
 .entry-actor,
 .entry-entity {
-  display: block;
-  overflow-wrap: anywhere;
+  @apply tw:block tw:wrap-anywhere;
 }
 
 .entry-entity {
-  margin-top: 0.25rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  @apply tw:mt-1 tw:overflow-hidden tw:text-ellipsis tw:whitespace-nowrap;
 }
 
 .entry-date {
@@ -170,7 +149,7 @@ tbody tr:focus-within {
 
 .journal-footer {
   border-top: 1px solid var(--admin-border);
-  flex-wrap: wrap;
+  @apply tw:flex-wrap;
   padding: 0.75rem 1rem;
 }
 
@@ -179,31 +158,27 @@ tbody tr:focus-within {
 }
 
 .pagination {
-  flex-wrap: wrap;
+  @apply tw:flex-wrap;
 }
 
 .pagination .admin-button {
   background: transparent;
-  font-size: var(--admin-caption-size, 0.875rem);
-  padding-inline: 0.75rem;
+  @apply tw:text-admin-caption tw:px-3;
 }
 
 .state {
   border-top: 1px solid var(--admin-border);
-  padding: 1rem;
+  @apply tw:p-4;
 }
 
 .empty-state {
-  color: var(--admin-muted);
-  display: grid;
-  gap: 0.5rem;
-  justify-items: center;
+  @apply tw:text-admin-muted tw:grid tw:gap-2 tw:justify-items-center;
   padding: 3rem 1rem;
-  text-align: center;
+  @apply tw:text-center;
 }
 
 .empty-state h3 {
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
   font-size: 1rem;
   font-weight: 600;
 }
@@ -213,16 +188,12 @@ tbody tr:focus-within {
 }
 
 .empty-state button {
-  margin-top: 0.5rem;
+  @apply tw:mt-2;
 }
 
 .sr-only {
   clip-path: inset(50%);
-  height: 1px;
-  overflow: hidden;
-  position: absolute;
-  white-space: nowrap;
-  width: 1px;
+  @apply tw:h-px tw:overflow-hidden tw:absolute tw:whitespace-nowrap tw:w-px;
 }
 
 @media (max-width: 700px) {
@@ -234,15 +205,12 @@ tbody tr:focus-within {
   tbody,
   tr,
   td {
-    display: block;
+    @apply tw:block;
   }
 
   thead {
     clip-path: inset(50%);
-    height: 1px;
-    overflow: hidden;
-    position: absolute;
-    width: 1px;
+    @apply tw:h-px tw:overflow-hidden tw:absolute tw:w-px;
   }
 
   tbody tr {
@@ -252,24 +220,24 @@ tbody tr:focus-within {
 
   td {
     border: 0;
-    padding: 0;
+    @apply tw:p-0;
   }
 
   .entry-context,
   .entry-date {
-    margin-top: 0.5rem;
+    @apply tw:mt-2;
   }
 
   .entry-context {
-    font-size: var(--admin-caption-size, 0.875rem);
+    @apply tw:text-admin-caption;
   }
 
   .entry-entity {
-    white-space: normal;
+    @apply tw:whitespace-normal;
   }
 
   .journal-footer {
     align-items: start;
-    flex-direction: column;
+    @apply tw:flex-col;
   }
 }
