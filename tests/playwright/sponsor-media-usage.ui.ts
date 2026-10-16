@@ -364,6 +364,9 @@ export function registerAdminMediaUsageTests(context: AdminContext): void {
     test(`image usage admin lost response retains the UUID and exact qualification even after an attempted edit ${suffix}`, async ({
       page
     }) => {
+      // Mobile WebKit can keep smooth-scrolling between pointer down/up.
+      // Exercise the retry with the supported reduced-motion preference.
+      if (english) await page.emulateMedia({ reducedMotion: 'reduce' });
       const { options } = await context.fixtures(page, 'operator');
       options.media = [{ ...context.asset(), usage: unknown }];
       const commands: Record<string, unknown>[] = [];

@@ -120,6 +120,7 @@ p {
   color: var(--admin-text);
   font: inherit;
   font-size: 0.8rem;
+  font-weight: var(--admin-control-weight);
   cursor: pointer;
 }
 .motion-toggle small {

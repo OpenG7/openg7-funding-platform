@@ -684,11 +684,14 @@ test('company simulation submits the currently accepted offer and consent withou
   await virtualController(page).open();
   await hook(page, 'sandbox-payments-open').click();
   await hook(page, 'sandbox-payment-kind').selectOption('sponsorship_interest');
+  await expect(hook(page, 'sandbox-payment-amount')).toHaveValue('100');
   await expect(hook(page, 'sandbox-payment-state')).toHaveAttribute(
     'data-state',
     'ready'
   );
   await hook(page, 'sandbox-payment-accept').check();
+  // Wait for acceptance to be rendered before changing the accepted terms.
+  await expect(hook(page, 'sandbox-payment-create')).toBeEnabled();
   await hook(page, 'sandbox-payment-amount').selectOption('250');
   await expect(hook(page, 'sandbox-payment-accept')).not.toBeChecked();
   await expect(hook(page, 'sandbox-payment-state')).toHaveAttribute(
@@ -696,6 +699,7 @@ test('company simulation submits the currently accepted offer and consent withou
     'ready'
   );
   await hook(page, 'sandbox-payment-accept').check();
+  await expect(hook(page, 'sandbox-payment-create')).toBeEnabled();
   await hook(page, 'sandbox-payment-public-consent').uncheck();
   await expect(hook(page, 'sandbox-payment-accept')).not.toBeChecked();
   await expect(hook(page, 'sandbox-payment-create')).toBeDisabled();
