@@ -41,7 +41,7 @@ documentaire n'exige pas de lancer les suites applicatives.
 | `yarn workspace @openg7/funding-web build --configuration production` | Build Angular et rendu initial/SSR configuré |
 | `yarn test:sponsorship` | Suite Node de couverture commandite; aucun navigateur |
 | `yarn test:e2e:acceptance` | API/DB/navigateur en pile Docker jetable, fournisseurs simulés; lanceur hôte Node.js `>=22`, images et CI sous Node 22 |
-| `yarn test:e2e:selection` | Découverte CI ; routes admin et 17 garanties liées aux scénarios actifs |
+| `yarn test:e2e:selection` | Découverte CI ; routes admin et 18 garanties liées aux scénarios actifs |
 | `yarn test:e2e:identity` | API réelle, Web compilé, PostgreSQL jetable et fournisseur OIDC signé local; rôles et révocation |
 | `node --test tests/identity/keycloak-identity.integration.mjs` | Keycloak réel, OTP, droits et sessions API/DB jetables; image locale requise |
 | [Keycloak HTTPS](../operations/keycloak-local.md#recette-https-jetable-reproductible) | MFA, exception locale et retour OTP, sessions API/Web ; images, CA approuvée et deux DB jetables |

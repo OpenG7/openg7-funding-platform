@@ -13,6 +13,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 
 import { FundingModerationActionsComponent } from '../../admin-moderation/funding-moderation-actions.component.js';
 import { AdminSponsorMediaUsageComponent } from '../../sponsor-media-usage/admin-sponsor-media-usage.component.js';
+import { AdminAutomaticPreparationDirective } from '../../admin-automatic/admin-automatic-preparation.directive.js';
 import type {
   AdminSponsorMediaAssetView,
   AdminSponsorMediaDeleteEvent,
@@ -26,7 +27,8 @@ import type {
     CommonModule,
     TranslatePipe,
     FundingModerationActionsComponent,
-    AdminSponsorMediaUsageComponent
+    AdminSponsorMediaUsageComponent,
+    AdminAutomaticPreparationDirective
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-sponsor-media-card.component.html',

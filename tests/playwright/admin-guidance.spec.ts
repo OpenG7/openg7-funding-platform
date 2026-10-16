@@ -9,13 +9,37 @@ import type {
   PilotState
 } from '@openg7/funding-core';
 
-import { expect, test } from './support/test.js';
+import { expect, sampledFrames, test } from './support/test.js';
 import { cockpitFixtures } from './support/cockpit-fixtures.js';
+import {
+  adminController,
+  installAdminController
+} from './support/admin-controller.js';
 
 const storagePrefix = 'og7-admin-guidance:v1:';
 const highlighted = '[data-og7-guidance-highlight]';
 const dashboardPath = '/admin/fundraiser';
 const attentionPath = dashboardPath + '/attention';
+const automaticWorkspaces = [
+  ['dashboard', ''],
+  ['pilotage', '/pilotage'],
+  ['access', '/access'],
+  ['attention', '/attention'],
+  ['assistant', '/assistant'],
+  ['contributions', '/contributions'],
+  ['sponsors', '/sponsors'],
+  ['invoices', '/invoices'],
+  ['publications', '/publications'],
+  ['drafts', '/publications/drafts'],
+  ['batches', '/publications/batches'],
+  ['calendar', '/publications/calendar'],
+  ['automation', '/publications/automation'],
+  ['expenses', '/expenses'],
+  ['transparency', '/transparency'],
+  ['audit', '/audit'],
+  ['email', '/email-queue'],
+  ['setup', '/setup']
+] as const;
 const generatedAt = '2026-10-14T12:00:00Z';
 const paymentId = '10000000-0000-4000-8000-000000000701';
 const otherPaymentId = '10000000-0000-4000-8000-000000000702';
@@ -216,6 +240,65 @@ function hook(page: Page, name: string) {
 
 function paymentHook(page: Page, name: string) {
   return page.locator(`[data-og7="payment-journey-${name}"]`);
+}
+
+function automaticHook(page: Page, name: string) {
+  return page.locator(`[data-og7="automatic-${name}"]`);
+}
+
+async function openAutomatic(page: Page) {
+  await expect(hook(page, 'toggle')).toBeVisible();
+  if (new URL(page.url()).searchParams.has('paymentJourney'))
+    await expect(hook(page, 'panel')).toBeVisible();
+  else if (!(await hook(page, 'panel').isVisible()))
+    await hook(page, 'toggle').click();
+  await hook(page, 'automatic-mode').click();
+  await expect(automaticHook(page, 'scope')).toBeVisible();
+}
+
+function pendingAutomaticJourney(
+  reason: string,
+  adminUrl: string,
+  target?: string
+): AdminPaymentJourney {
+  const next = { reason, adminUrl, ...(target ? { target } : {}) };
+  return {
+    ...paymentJourney(),
+    contributionType: 'sponsorship_interest',
+    state: 'action_required',
+    completed: 1,
+    total: 2,
+    steps: [
+      ...paymentJourney().steps,
+      { id: 'obligation', state: 'error', ...next }
+    ],
+    next
+  };
+}
+
+async function automaticInvoiceFixture(page: Page, gate?: Promise<void>) {
+  await page.route(
+    (url) => url.pathname === '/api/admin/sponsorship-invoices',
+    async (route) => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      if (gate) await gate;
+      return route.fulfill({
+        json: {
+          data_source: 'database',
+          invoices: [],
+          summary: {
+            total_count: 0,
+            total_amount: 0,
+            credit_note_count: 0,
+            total_credited: 0,
+            failed_email_count: 0,
+            currency: 'CAD'
+          },
+          last_updated_at: generatedAt
+        }
+      });
+    }
+  );
 }
 
 test('a payment journey resumes from server facts and persists only its identifier and pause cue', async ({
@@ -1671,5 +1754,503 @@ test('all eighteen protected admin workspaces retain guidance, including unavail
     await expect(hook(page, 'page')).not.toBeEmpty();
     await expect(hook(page, 'panel')).not.toContainText('admin.guidance.');
   }
+  expect(fixture.mutations).toEqual([]);
+});
+
+for (const { language, width } of [
+  { language: 'fr-CA', width: 1440 },
+  { language: 'en', width: 320 }
+]) {
+  test(`automatic preparation explains its work, offers every admin workspace and stays accessible in ${language} at ${width}px`, async ({
+    page
+  }) => {
+    const fixture = await fixtures(page, language);
+    await page.setViewportSize({ width, height: 720 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto(dashboardPath);
+    await openAutomatic(page);
+    const panel = page.locator('[data-og7="admin-automatic"]');
+    await expect(automaticHook(page, 'state')).toHaveAttribute(
+      'data-og7-id',
+      'idle'
+    );
+    await expect(automaticHook(page, 'history')).toHaveCount(0);
+    await expect(automaticHook(page, 'scope').locator('option')).toHaveCount(
+      19
+    );
+    expect(
+      await automaticHook(page, 'scope')
+        .locator('option')
+        .evaluateAll((options) =>
+          options.map((option) => option.getAttribute('value'))
+        )
+    ).toEqual(['payment', ...automaticWorkspaces.map(([id]) => id)]);
+    await expect(
+      automaticHook(page, 'scope').locator('option[value="payment"]')
+    ).toBeDisabled();
+    expect(fixture.paymentRequests).toEqual([]);
+    await automaticHook(page, 'scope').selectOption('attention');
+    await automaticHook(page, 'start').focus();
+    await page.keyboard.press('Enter');
+    await expect(automaticHook(page, 'state')).toHaveAttribute(
+      'data-og7-id',
+      'awaiting_confirmation'
+    );
+    await expect(page).toHaveURL(attentionPath);
+    await expect(automaticHook(page, 'state')).toContainText(
+      language === 'en' ? 'Relevant screen:' : 'Écran concerné :'
+    );
+    await expect(automaticHook(page, 'state')).toContainText(
+      language === 'en' ? 'Why:' : 'Pourquoi :'
+    );
+    await expect(automaticHook(page, 'human-step')).toBeVisible();
+    await expect(panel).not.toContainText('admin.automatic.');
+    await expect(panel).not.toContainText('admin.guidance.');
+    await panel.locator('summary').click();
+    await expect(automaticHook(page, 'history')).toContainText(
+      language === 'en'
+        ? 'Opening the relevant screen'
+        : 'Je rejoins l’écran concerné'
+    );
+    await expect(automaticHook(page, 'history').locator('li')).toHaveCount(5);
+    const audit = await new AxeBuilder({ page })
+      .include('[data-og7="admin-guidance-panel"]')
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+      .analyze();
+    expect(audit.violations).toEqual([]);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1
+      )
+    ).toBe(true);
+    await automaticHook(page, 'pause').focus();
+    await page.keyboard.press('Enter');
+    await expect(automaticHook(page, 'state')).toHaveAttribute(
+      'data-og7-id',
+      'paused'
+    );
+    expect(fixture.mutations).toEqual([]);
+  });
+}
+
+for (const [workspaceId, suffix] of automaticWorkspaces) {
+  test(`automatic preparation runs in the ${workspaceId} admin workspace without a business write`, async ({
+    page
+  }) => {
+    const fixture = await fixtures(page);
+    const path = dashboardPath + suffix;
+    await page.goto(path);
+    await openAutomatic(page);
+    await automaticHook(page, 'scope').selectOption(workspaceId);
+    await automaticHook(page, 'start').click();
+    await expect(automaticHook(page, 'state')).toHaveAttribute(
+      'data-og7-id',
+      'awaiting_confirmation'
+    );
+    await expect(page).toHaveURL((url) => url.pathname === path);
+    await expect(hook(page, 'automatic-mode')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    await expect(automaticHook(page, 'human-step')).toBeVisible();
+    await expect(
+      page.locator('[data-og7="admin-automatic"]')
+    ).not.toContainText('admin.automatic.');
+    await automaticHook(page, 'pause').focus();
+    await expect(automaticHook(page, 'pause')).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(automaticHook(page, 'state')).toHaveAttribute(
+      'data-og7-id',
+      'paused'
+    );
+    expect(fixture.mutations).toEqual([]);
+  });
+}
+
+test('automatic payment preparation follows two current server steps and finishes only after a fresh complete journey', async ({
+  page
+}) => {
+  const fixture = await fixtures(page);
+  const firstUrl = `${attentionPath}?contributionId=${paymentId}`;
+  const secondUrl = `${dashboardPath}/email-queue?messageId=automatic-email-701`;
+  fixture.journeys.set(
+    paymentId,
+    pendingAutomaticJourney('stripe_failed', firstUrl, 'attention-panel')
+  );
+  await page.goto(`${dashboardPath}?paymentJourney=${paymentId}`);
+  await openAutomatic(page);
+  await automaticHook(page, 'scope').selectOption('payment');
+  await automaticHook(page, 'start').click();
+  await expect(page).toHaveURL(firstUrl);
+  await expect(automaticHook(page, 'state')).toHaveAttribute(
+    'data-og7-id',
+    'awaiting_confirmation'
+  );
+  await expect(automaticHook(page, 'complete')).toHaveCount(0);
+  await expect(automaticHook(page, 'state')).toContainText('événement Stripe');
+  const reads = fixture.paymentRequests.length;
+  fixture.journeys.set(
+    paymentId,
+    pendingAutomaticJourney('email_failed', secondUrl)
+  );
+  await automaticHook(page, 'verify').click();
+  await expect(page).toHaveURL(secondUrl);
+  await expect(automaticHook(page, 'state')).toHaveAttribute(
+    'data-og7-id',
+    'awaiting_confirmation'
+  );
+  await expect(automaticHook(page, 'state')).toContainText('courriel');
+  await expect(automaticHook(page, 'complete')).toHaveCount(0);
+  expect(fixture.paymentRequests.length).toBeGreaterThan(reads);
+  fixture.journeys.set(paymentId, paymentJourney());
+  await automaticHook(page, 'verify').click();
+  await expect(automaticHook(page, 'state')).toHaveAttribute(
+    'data-og7-id',
+    'complete'
+  );
+  await expect(automaticHook(page, 'complete')).toBeVisible();
+  await expect(automaticHook(page, 'prepare')).toHaveCount(0);
+  await expect(page).toHaveURL(secondUrl);
+  expect(new Set(fixture.paymentRequests)).toEqual(new Set([paymentId]));
+  expect(fixture.mutations).toEqual([]);
+});
+
+test('automatic preparation discards a late payment response after pause and never restarts from browser persistence', async ({
+  page
+}) => {
+  const fixture = await fixtures(page);
+  fixture.journeys.set(
+    paymentId,
+    pendingAutomaticJourney(
+      'stripe_failed',
+      `${attentionPath}?contributionId=${paymentId}`,
+      'attention-panel'
+    )
+  );
+  const originalUrl = `${dashboardPath}?paymentJourney=${paymentId}`;
+  await page.goto(originalUrl);
+  await openAutomatic(page);
+  await automaticHook(page, 'scope').selectOption('payment');
+  let release = () => {};
+  fixture.paymentGate = new Promise<void>((resolve) => (release = resolve));
+  const reads = fixture.paymentRequests.length;
+  await automaticHook(page, 'start').click();
+  await expect
+    .poll(() => fixture.paymentRequests.length)
+    .toBeGreaterThan(reads);
+  await expect(automaticHook(page, 'state')).toHaveAttribute(
+    'data-og7-id',
+    'reading'
+  );
+  await automaticHook(page, 'pause').click();
+  fixture.paymentGate = null;
+  await expect(automaticHook(page, 'state')).toHaveAttribute(
+    'data-og7-id',
+    'paused'
+  );
+  await expect(page).toHaveURL(originalUrl);
+  const destination = `${dashboardPath}/email-queue?messageId=automatic-email-701`;
+  fixture.journeys.set(
+    paymentId,
+    pendingAutomaticJourney('email_failed', destination)
+  );
+  await automaticHook(page, 'start').click();
+  await expect(page).toHaveURL(destination);
+  await expect(automaticHook(page, 'state')).toHaveAttribute(
+    'data-og7-id',
+    'awaiting_confirmation'
+  );
+  const lateResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === '/api/admin/payment-journey'
+  );
+  release();
+  await (await lateResponse).finished();
+  await sampledFrames(page);
+  await expect(page).toHaveURL(destination);
+  await expect(automaticHook(page, 'state')).toHaveAttribute(
+    'data-og7-id',
+    'awaiting_confirmation'
+  );
+  await expect(automaticHook(page, 'complete')).toHaveCount(0);
+  const retained = await stored(page);
+  expect(retained.mode).toBe('automatic');
+  expect(retained.payment.contributionId).toBe(paymentId);
+  expect(JSON.stringify(retained)).not.toContain('stripe_failed');
+  expect(JSON.stringify(retained)).not.toContain('DEMO-PAYMENT');
+  await page.reload();
+  await expect(automaticHook(page, 'state')).toHaveAttribute(
+    'data-og7-id',
+    'idle'
+  );
+  await expect(automaticHook(page, 'history')).toHaveCount(0);
+  await expect(page).toHaveURL(destination);
+  fixture.accountId = 'guidance-owner-b';
+  await page.reload();
+  await expect(hook(page, 'panel')).toHaveCount(0);
+  await openAutomatic(page);
+  await expect(automaticHook(page, 'state')).toHaveAttribute(
+    'data-og7-id',
+    'idle'
+  );
+  await expect(
+    automaticHook(page, 'scope').locator('option[value="payment"]')
+  ).toBeDisabled();
+  expect((await stored(page, fixture.accountId))?.payment).toBeUndefined();
+  expect(fixture.mutations).toEqual([]);
+});
+
+test('automatic preparation waiting for a late zone cannot reveal it after pause and a new run for the same account', async ({
+  page
+}) => {
+  const fixture = await fixtures(page);
+  await automaticInvoiceFixture(page);
+  fixture.journeys.set(
+    paymentId,
+    pendingAutomaticJourney(
+      'invoice_missing',
+      `${dashboardPath}/invoices?contributionId=${paymentId}`,
+      'automatic-late-invoice-zone'
+    )
+  );
+  await page.goto(`${dashboardPath}?paymentJourney=${paymentId}`);
+  await openAutomatic(page);
+  await automaticHook(page, 'scope').selectOption('payment');
+  await automaticHook(page, 'start').click();
+  await expect(page).toHaveURL(
+    `${dashboardPath}/invoices?contributionId=${paymentId}`
+  );
+  await expect(automaticHook(page, 'state')).toHaveAttribute(
+    'data-og7-id',
+    'preparing'
+  );
+  await automaticHook(page, 'pause').click();
+  await expect(automaticHook(page, 'state')).toHaveAttribute(
+    'data-og7-id',
+    'paused'
+  );
+  const destination = `${attentionPath}?contributionId=${paymentId}`;
+  fixture.journeys.set(
+    paymentId,
+    pendingAutomaticJourney('stripe_failed', destination, 'attention-panel')
+  );
+  await automaticHook(page, 'start').click();
+  await expect(page).toHaveURL(destination);
+  await expect(automaticHook(page, 'state')).toHaveAttribute(
+    'data-og7-id',
+    'awaiting_confirmation'
+  );
+  // A late fixture landmark awakens the old DOM observer after the new run.
+  // No application handler or state is invoked by the test.
+  await page.evaluate(() => {
+    const marker = document.createElement('section');
+    marker.setAttribute('data-og7', 'automatic-late-invoice-zone');
+    marker.textContent = 'Repère synthétique arrivé après la pause';
+    document.getElementById('admin-main')!.append(marker);
+  });
+  await sampledFrames(page, 6);
+  await expect(
+    page.locator('[data-og7="automatic-late-invoice-zone"]')
+  ).not.toHaveAttribute('data-og7-guidance-highlight', '');
+  await expect(
+    page.locator('openg7-admin-confirmation dialog[open]')
+  ).toHaveCount(0);
+  await expect(page).toHaveURL(destination);
+  await expect(automaticHook(page, 'state')).toHaveAttribute(
+    'data-og7-id',
+    'awaiting_confirmation'
+  );
+  expect(fixture.mutations).toEqual([]);
+});
+
+test('automatic preparation rechecks a selected invoice action and follows a changed recommendation without opening its stale confirmation', async ({
+  page
+}) => {
+  const fixture = await fixtures(page);
+  await automaticInvoiceFixture(page);
+  fixture.journeys.set(
+    paymentId,
+    pendingAutomaticJourney(
+      'invoice_missing',
+      `${dashboardPath}/sponsors?sponsorshipId=${paymentId}&tab=invoice`,
+      'sponsorship-dossier'
+    )
+  );
+  await page.goto(`${dashboardPath}?paymentJourney=${paymentId}`);
+  await openAutomatic(page);
+  await automaticHook(page, 'scope').selectOption('payment');
+  await automaticHook(page, 'start').click();
+  await expect(page).toHaveURL(
+    `${dashboardPath}/invoices?contributionId=${paymentId}`
+  );
+  const confirmation = page.locator('openg7-admin-confirmation dialog[open]');
+  await expect(confirmation).toBeVisible();
+  await confirmation
+    .getByRole('button', { name: 'Annuler', exact: true })
+    .last()
+    .click();
+  const invoicePreparation = page.locator(
+    '[data-og7="automatic-prepare"][data-og7-id="invoice-backfill"]'
+  );
+  await expect(invoicePreparation).toBeVisible();
+  const destination = `${dashboardPath}/email-queue?messageId=automatic-email-701`;
+  fixture.journeys.set(
+    paymentId,
+    pendingAutomaticJourney('email_failed', destination)
+  );
+  await invoicePreparation.click();
+  await expect(page).toHaveURL(destination);
+  await expect(automaticHook(page, 'state')).toHaveAttribute(
+    'data-og7-id',
+    'awaiting_confirmation'
+  );
+  await expect(confirmation).toHaveCount(0);
+  await expect(invoicePreparation).toHaveCount(0);
+  expect(fixture.mutations).toEqual([]);
+});
+
+test('automatic payment preparation stops on forbidden reads and shows no stale completion or business action', async ({
+  page
+}) => {
+  const fixture = await fixtures(page);
+  await page.goto(`${dashboardPath}?paymentJourney=${paymentId}`);
+  await openAutomatic(page);
+  await automaticHook(page, 'scope').selectOption('payment');
+  fixture.paymentStatus = 403;
+  await automaticHook(page, 'start').click();
+  await expect(automaticHook(page, 'state')).toHaveAttribute(
+    'data-og7-id',
+    'blocked'
+  );
+  await expect(automaticHook(page, 'state')).toContainText(
+    'Ton rôle ne permet pas cette lecture'
+  );
+  await expect(automaticHook(page, 'complete')).toHaveCount(0);
+  await expect(automaticHook(page, 'prepare')).toHaveCount(0);
+  await expect(page).toHaveURL(`${dashboardPath}?paymentJourney=${paymentId}`);
+  expect(fixture.mutations).toEqual([]);
+});
+
+test('automatic invoice generation opens the real confirmation and waits for a human before the scoped write', async ({
+  page
+}) => {
+  const fixture = await fixtures(page);
+  let releaseInvoices = () => {};
+  const invoiceGate = new Promise<void>(
+    (resolve) => (releaseInvoices = resolve)
+  );
+  await automaticInvoiceFixture(page, invoiceGate);
+  const payloads: unknown[] = [];
+  await page.route('**/api/admin/sponsorship-invoices/backfill', (route) => {
+    const request = route.request();
+    if (request.method() !== 'POST') return route.fallback();
+    fixture.mutations.push({
+      method: request.method(),
+      pathname: new URL(request.url()).pathname
+    });
+    payloads.push(request.postDataJSON());
+    return route.fulfill({
+      json: {
+        data_source: 'database',
+        eligible_count: 1,
+        missing_count: 1,
+        processed_count: 1,
+        created_count: 1,
+        skipped_count: 0,
+        remaining_count: 0,
+        failed_count: 0,
+        invoiceIds: [],
+        invoices: [],
+        errors: [],
+        last_updated_at: generatedAt
+      }
+    });
+  });
+  fixture.journeys.set(
+    paymentId,
+    pendingAutomaticJourney(
+      'invoice_missing',
+      `${dashboardPath}/sponsors?sponsorshipId=${paymentId}&tab=invoice`,
+      'sponsorship-dossier'
+    )
+  );
+  await page.goto(`${dashboardPath}?paymentJourney=${paymentId}`);
+  await openAutomatic(page);
+  await automaticHook(page, 'scope').selectOption('payment');
+  await automaticHook(page, 'start').click();
+  await expect(page).toHaveURL(
+    `${dashboardPath}/invoices?contributionId=${paymentId}`
+  );
+  await expect(automaticHook(page, 'state')).toHaveAttribute(
+    'data-og7-id',
+    'preparing'
+  );
+  const confirmation = page.locator('openg7-admin-confirmation dialog[open]');
+  await expect(
+    page.locator('[data-og7="invoice-workspace"] nav button').first()
+  ).toBeDisabled();
+  // The workspace exists before its GET finishes. Advancing real frames must
+  // keep preparation pending until the page-owned button becomes available.
+  await sampledFrames(page, 6);
+  await expect(automaticHook(page, 'state')).toHaveAttribute(
+    'data-og7-id',
+    'preparing'
+  );
+  await expect(confirmation).toHaveCount(0);
+  expect(payloads).toEqual([]);
+  expect(fixture.mutations).toEqual([]);
+  releaseInvoices();
+  await expect(confirmation).toBeVisible();
+  await expect(confirmation).toContainText(paymentId);
+  await expect(automaticHook(page, 'state')).toHaveAttribute(
+    'data-og7-id',
+    'awaiting_confirmation'
+  );
+  expect(payloads).toEqual([]);
+  expect(fixture.mutations).toEqual([]);
+  const reads = fixture.paymentRequests.length;
+  await confirmation.locator('[data-og7="confirm-action"]').click();
+  await expect.poll(() => payloads.length).toBe(1);
+  expect(payloads[0]).toEqual({
+    limit: 1,
+    contributionId: paymentId,
+    confirmation: paymentId
+  });
+  await expect(confirmation).toHaveCount(0);
+  await expect
+    .poll(() => fixture.paymentRequests.length)
+    .toBeGreaterThan(reads);
+  await expect(automaticHook(page, 'complete')).toHaveCount(0);
+  fixture.journeys.set(paymentId, paymentJourney());
+  await automaticHook(page, 'verify').click();
+  await expect(automaticHook(page, 'complete')).toBeVisible();
+  expect(fixture.mutations).toEqual([
+    { method: 'POST', pathname: '/api/admin/sponsorship-invoices/backfill' }
+  ]);
+});
+
+test('automatic preparation can start and pause through the shared simulated Xbox controls', async ({
+  page
+}) => {
+  const fixture = await fixtures(page);
+  await installAdminController(page);
+  await page.goto(dashboardPath);
+  const controller = adminController(page);
+  await controller.ready();
+  await controller.activate(hook(page, 'toggle'));
+  await controller.activate(hook(page, 'automatic-mode'));
+  await expect(automaticHook(page, 'scope')).toBeVisible();
+  await controller.select(automaticHook(page, 'scope'), 'attention');
+  await controller.activate(automaticHook(page, 'start'));
+  await expect(page).toHaveURL(attentionPath);
+  await expect(automaticHook(page, 'state')).toHaveAttribute(
+    'data-og7-id',
+    'awaiting_confirmation'
+  );
+  await controller.activate(automaticHook(page, 'pause'));
+  await expect(automaticHook(page, 'state')).toHaveAttribute(
+    'data-og7-id',
+    'paused'
+  );
   expect(fixture.mutations).toEqual([]);
 });

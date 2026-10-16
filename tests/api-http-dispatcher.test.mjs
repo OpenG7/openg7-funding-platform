@@ -14,6 +14,7 @@ const handlerNames = [
   'handlePublicModerationRequest',
   'handleAdminStripeBackfillRequest',
   'handleAdminPilotageRequest',
+  'handleAdminAutomaticRunsRequest',
   'handleAdminContributionActivityRequest',
   'handleAdminPublicationAutomationRequest',
   'handleAdminSponsorshipMediaRequest',

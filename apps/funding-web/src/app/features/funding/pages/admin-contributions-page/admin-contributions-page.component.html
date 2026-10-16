@@ -20,6 +20,9 @@
             filteredContributions().length === 0
           "
           (click)="exportCsv()"
+          [openg7AutomaticPrepare]="'contributions-export'"
+          [automaticExecutionMode]="'confirmation_required'"
+          (automaticPrepare)="exportCsv()"
         >
           {{ 'admin.legacy.export_csv' | translate }}
         </button>

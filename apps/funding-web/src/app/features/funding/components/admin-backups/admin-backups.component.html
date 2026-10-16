@@ -130,6 +130,8 @@
           type="button"
           class="admin-button admin-button--primary"
           (click)="drawer.set('activation')"
+          [openg7AutomaticPrepare]="'backup-activation'"
+          (automaticPrepare)="drawer.set('activation')"
           data-og7="backup-activation-open"
         >
           {{ 'admin.backups.activationAction' | translate
@@ -150,6 +152,9 @@
         [disabled]="!canRequest()"
         aria-describedby="backup-request-hint"
         (click)="request()"
+        [openg7AutomaticPrepare]="'backup-request'"
+        [automaticExecutionMode]="'confirmation_required'"
+        (automaticPrepare)="request()"
       >
         <openg7-admin-icon name="database" />{{
           'admin.backups.request' | translate
@@ -192,6 +197,9 @@
             class="admin-button"
             [disabled]="busy() || confirming()"
             (click)="request(true)"
+            [openg7AutomaticPrepare]="'backup-retry'"
+            [automaticExecutionMode]="'confirmation_required'"
+            (automaticPrepare)="request(true)"
             #retryButton
           >
             {{ 'admin.backups.retry' | translate }}
@@ -279,6 +287,8 @@
               type="button"
               class="admin-button detail-button"
               (click)="inspect(job)"
+              [openg7AutomaticPrepare]="'backup-proof:' + job.requestId"
+              (automaticPrepare)="inspect(job)"
               [attr.aria-label]="
                 ('admin.backups.details' | translate) +
                 ' · ' +
@@ -319,6 +329,8 @@
       <button
         type="button"
         (click)="drawer.set('activation')"
+        [openg7AutomaticPrepare]="'backup-activation-guide'"
+        (automaticPrepare)="drawer.set('activation')"
         [disabled]="accessDenied()"
       >
         {{ 'admin.backups.activationGuide' | translate }}
@@ -326,6 +338,8 @@
       <button
         type="button"
         (click)="drawer.set('recovery')"
+        [openg7AutomaticPrepare]="'backup-recovery-guide'"
+        (automaticPrepare)="drawer.set('recovery')"
         [disabled]="accessDenied()"
         data-og7="backup-recovery"
       >

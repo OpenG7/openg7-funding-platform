@@ -7,6 +7,7 @@ import {
 import { FormsModule } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 
+import { AdminAutomaticPreparationDirective } from '../../components/admin-automatic/admin-automatic-preparation.directive.js';
 import type { AdminAccessAccount } from '../../services/funding-admin.service.js';
 
 import type { AdminAccessFieldChange } from './admin-access-presentation.types.js';
@@ -16,7 +17,7 @@ import type { AdminAccessFieldChange } from './admin-access-presentation.types.j
   selector: 'openg7-admin-access-editor',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, TranslatePipe],
+  imports: [FormsModule, TranslatePipe, AdminAutomaticPreparationDirective],
   templateUrl: './admin-access-editor.component.html',
   styleUrls: [
     './admin-access-controls.css',

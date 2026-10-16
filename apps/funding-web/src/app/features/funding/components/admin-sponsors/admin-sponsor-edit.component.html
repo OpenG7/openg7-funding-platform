@@ -2,6 +2,9 @@
   type="button"
   class="admin-button"
   [disabled]="disabled() || busy() || readonlyAccess()"
+  [openg7AutomaticPrepare]="opened() ? '' : 'sponsor.identity.edit'"
+  [automaticFor]="sponsorship().id"
+  (automaticPrepare)="open()"
   (click)="open()"
   data-og7="edit-dossier"
 >
@@ -24,6 +27,7 @@
     <form
       (submit)="$event.preventDefault(); save()"
       data-og7="edit-dossier-form"
+      data-og7-automatic-block="editing"
       novalidate
     >
       <p>{{ 'admin.editDossier.help' | translate }}</p>

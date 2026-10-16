@@ -11,6 +11,8 @@ import type {
   AdminSponsorshipInvoiceRecord
 } from '@openg7/funding-core';
 
+import { AdminAutomaticPreparationDirective } from '../../components/admin-automatic/admin-automatic-preparation.directive.js';
+
 import { AdminDocumentDeliveryComponent } from './admin-document-delivery.component.js';
 import { AdminDocumentEmailStatusComponent } from './admin-document-email-status.component.js';
 import type {
@@ -26,6 +28,7 @@ import type {
   imports: [
     CommonModule,
     TranslatePipe,
+    AdminAutomaticPreparationDirective,
     AdminDocumentDeliveryComponent,
     AdminDocumentEmailStatusComponent
   ],

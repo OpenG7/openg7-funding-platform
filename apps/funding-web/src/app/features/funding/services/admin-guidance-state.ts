@@ -9,7 +9,7 @@ export interface AdminGuidanceBookmark {
 export interface AdminGuidanceSnapshot {
   enabled: boolean;
   bookmark: AdminGuidanceBookmark | null;
-  mode?: 'payment';
+  mode?: 'payment' | 'automatic';
   payment?: { contributionId: string; paused: boolean };
 }
 
@@ -59,10 +59,15 @@ function cleanSnapshot(value: unknown): AdminGuidanceSnapshot | null {
       return null;
     paymentBookmark = { contributionId, paused: candidate['paused'] };
   }
-  if (snapshot['mode'] !== undefined && snapshot['mode'] !== 'payment')
+  if (
+    snapshot['mode'] !== undefined &&
+    snapshot['mode'] !== 'payment' &&
+    snapshot['mode'] !== 'automatic'
+  )
     return null;
   const journey = {
     ...(snapshot['mode'] === 'payment' ? { mode: 'payment' as const } : {}),
+    ...(snapshot['mode'] === 'automatic' ? { mode: 'automatic' as const } : {}),
     ...(paymentBookmark ? { payment: paymentBookmark } : {})
   };
   const bookmark = snapshot['bookmark'];

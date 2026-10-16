@@ -23,6 +23,7 @@ import { AdminInspectionService } from '../../services/admin-inspection.service.
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
+import { AdminAutomaticPreparationDirective } from '../../components/admin-automatic/admin-automatic-preparation.directive.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { AdminDashboardRequestError } from '../../services/funding-admin-session.js';
 import { AdminDocumentDeliveryController } from '../../services/admin-document-delivery-controller.js';
@@ -44,6 +45,7 @@ type LoadState = 'idle' | 'loading' | 'ready' | 'error';
   imports: [
     CommonModule,
     AdminLayoutComponent,
+    AdminAutomaticPreparationDirective,
     TranslatePipe,
     AdminInvoiceListComponent,
     AdminInvoiceDetailComponent
@@ -51,7 +53,7 @@ type LoadState = 'idle' | 'loading' | 'ready' | 'error';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <openg7-admin-layout>
-      <section class="admin-content">
+      <section class="admin-content" data-og7="invoice-workspace">
         <header class="admin-topbar">
           <div>
             <span>{{ 'admin.legacy.administration' | translate }}</span>
@@ -61,6 +63,10 @@ type LoadState = 'idle' | 'loading' | 'ready' | 'error';
             <button
               type="button"
               (click)="backfillInvoices()"
+              [openg7AutomaticPrepare]="'invoice-backfill'"
+              [automaticFor]="contributionId ?? null"
+              [automaticExecutionMode]="'confirmation_required'"
+              (automaticPrepare)="backfillInvoices()"
               [disabled]="
                 !canManage() ||
                 state() === 'loading' ||

@@ -1,0 +1,148 @@
+@if (languageError()) {
+  <p role="alert">{{ i18n.t('admin.guidance.automaticUnavailable') }}</p>
+} @else if (languageReady()) {
+  <openg7-admin-automatic-portfolio (prepare)="preparePayment($event)" />
+  <section data-og7="admin-automatic" [attr.aria-label]="t('title')">
+    <h2>{{ t('preparationTitle') }}</h2>
+    <p>{{ t('help') }}</p>
+    <label for="admin-automatic-scope">{{ t('scope') }}</label>
+    <select
+      id="admin-automatic-scope"
+      data-og7="automatic-scope"
+      [value]="automatic.selection()"
+      [disabled]="automatic.busy()"
+      (change)="select($event)"
+    >
+      <option
+        value="payment"
+        [disabled]="!automatic.guidance.snapshot().payment"
+      >
+        {{ t('payment') }}
+      </option>
+      @for (page of pages; track page.id) {
+        <option [value]="page.id">{{ i18n.t(page.titleKey) }}</option>
+      }
+    </select>
+    @if (!automatic.guidance.snapshot().payment) {
+      <p class="quiet">{{ i18n.t('admin.guidance.paymentJourney.choose') }}</p>
+    }
+    <div class="actions">
+      <button
+        type="button"
+        class="admin-button admin-button--primary"
+        data-og7="automatic-start"
+        [disabled]="
+          automatic.busy() ||
+          (automatic.selection() === 'payment' &&
+            !automatic.guidance.snapshot().payment)
+        "
+        (click)="startPreparation()"
+      >
+        {{ t(automatic.snapshot().phase === 'paused' ? 'resume' : 'start') }}
+      </button>
+      <button
+        type="button"
+        class="admin-button"
+        data-og7="automatic-pause"
+        [disabled]="!automatic.active()"
+        (click)="automatic.pause()"
+      >
+        {{ t('pause') }}
+      </button>
+    </div>
+    @let state = automatic.snapshot();
+    <div
+      class="activity"
+      data-og7="automatic-state"
+      [attr.data-og7-id]="state.phase"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+    >
+      <strong>{{ t('phases.' + state.phase) }}</strong>
+      @if (automatic.lastPreparation(); as action) {
+        <p data-og7="automatic-last-preparation">
+          {{ t('lastPreparation', { action }) }}
+        </p>
+      }
+      @if (state.plan; as plan) {
+        <p>{{ t('where', { page: pageTitle(plan.pageId) }) }}</p>
+        <p>
+          <strong>{{ t('why') }}</strong> {{ reason(plan.reason) }}
+        </p>
+      }
+      @if (state.error) {
+        <p>{{ t('errors.' + state.error) }}</p>
+      }
+    </div>
+    @if (state.phase === 'awaiting_confirmation' || state.phase === 'waiting') {
+      <p data-og7="automatic-human-step">
+        {{ t(state.plan?.contributionId ? 'humanStep' : 'humanPageStep') }}
+      </p>
+      <div class="actions">
+        <button
+          type="button"
+          class="admin-button"
+          data-og7="automatic-verify"
+          (click)="automatic.verify()"
+        >
+          {{ t('verify') }}
+        </button>
+        @if (state.plan?.target; as target) {
+          <button
+            type="button"
+            class="admin-button"
+            data-og7="automatic-show"
+            (click)="show.emit(target)"
+          >
+            {{ t('show') }}
+          </button>
+        }
+      </div>
+      @if (automatic.choices().length) {
+        <h3>{{ t('preparations') }}</h3>
+        <p class="quiet">{{ t('choiceHelp') }}</p>
+        <div class="preparations" data-og7="automatic-preparations">
+          @for (entry of automatic.choices(); track entry) {
+            <button
+              type="button"
+              class="admin-button"
+              data-og7="automatic-prepare"
+              [attr.data-og7-id]="entry.id"
+              (click)="automatic.prepare(entry)"
+            >
+              {{
+                t('prepare', { action: automatic.preparations.label(entry) })
+              }}
+            </button>
+          }
+        </div>
+      }
+    }
+    @if (state.phase === 'complete') {
+      <p data-og7="automatic-complete">{{ t('completeHelp') }}</p>
+    }
+    @if (state.events.length) {
+      <details>
+        <summary>{{ t('history') }}</summary>
+        <ol data-og7="automatic-history">
+          @for (event of state.events; track $index) {
+            <li>
+              {{
+                t(
+                  event.phase === 'checked' && event.reason?.startsWith('page:')
+                    ? 'pageChecked'
+                    : 'phases.' + event.phase
+                )
+              }}
+              @if (event.pageId) {
+                <span> · {{ pageTitle(event.pageId) }}</span>
+              }
+            </li>
+          }
+        </ol>
+      </details>
+    }
+    <p class="quiet">{{ t('resumeHelp') }}</p>
+  </section>
+}

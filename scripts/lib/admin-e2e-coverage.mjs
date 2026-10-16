@@ -107,7 +107,7 @@ export function validateAdminCoverage(registry, routes, scenarios, root) {
     throw new Error('Admin coverage registry differs from declared routes.');
   const ids = new Set();
   for (const item of registry.guarantees) {
-    if (!/^A(?:0[1-9]|1[0-7])$/.test(item.id) || ids.has(item.id))
+    if (!/^A(?:0[1-9]|1[0-8])$/.test(item.id) || ids.has(item.id))
       throw new Error('Invalid or duplicate admin guarantee.');
     ids.add(item.id);
     if (
@@ -170,7 +170,7 @@ export function validateAdminCoverage(registry, routes, scenarios, root) {
     )
   )
     throw new Error('Admin route has no linked guarantee.');
-  if (ids.size !== 17)
-    throw new Error('Admin coverage must retain all 17 guarantees.');
+  if (ids.size !== 18)
+    throw new Error('Admin coverage must retain all 18 guarantees.');
   return { routes: routes.length, guarantees: ids.size };
 }

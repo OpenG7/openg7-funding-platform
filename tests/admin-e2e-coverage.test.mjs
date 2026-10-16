@@ -19,7 +19,7 @@ const selected = [
 const registry = () => ({
   version: 1,
   routes: [...routes],
-  guarantees: Array.from({ length: 17 }, (_, index) => ({
+  guarantees: Array.from({ length: 18 }, (_, index) => ({
     id: 'A' + String(index + 1).padStart(2, '0'),
     routes: [...routes],
     roles: ['owner'],
@@ -37,7 +37,7 @@ const registry = () => ({
 test('admin coverage rejects missing routes, guarantees, skipped evidence and simulated suites', () => {
   assert.deepEqual(validateAdminCoverage(registry(), routes, selected, '.'), {
     routes: 1,
-    guarantees: 17
+    guarantees: 18
   });
   for (const change of [
     (item) => item.routes.push('/admin/unknown'),

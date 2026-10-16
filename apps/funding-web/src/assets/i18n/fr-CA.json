@@ -1742,6 +1742,8 @@
       },
       "modeLabel": "Type de guide",
       "discoveryMode": "Découvrir les rubriques",
+      "automaticMode": "Automatique",
+      "automaticUnavailable": "Le mode automatique ne peut pas être chargé. Rechargez la page pour réessayer.",
       "paymentJourney": {
         "title": "Parcours du paiement",
         "followCurrent": "Suivre ce paiement",

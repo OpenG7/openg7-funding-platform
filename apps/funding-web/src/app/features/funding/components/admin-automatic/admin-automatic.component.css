@@ -1,0 +1,128 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+.balance-counts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+.balance-counts div {
+  border: 1px solid var(--admin-border);
+  border-radius: 0.5rem;
+  padding: 0.6rem;
+}
+.balance-counts dt {
+  color: var(--admin-muted);
+  font-size: 0.85rem;
+}
+.balance-counts dd {
+  margin: 0.3rem 0 0;
+  font-weight: 700;
+}
+.report-entry {
+  border-block-end: 1px solid var(--admin-border);
+  padding-block: 0.7rem;
+}
+code {
+  overflow-wrap: anywhere;
+}
+dialog {
+  width: min(36rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+  padding: 1rem;
+  color: var(--admin-text);
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-gold);
+  border-radius: 0.8rem;
+}
+dialog::backdrop {
+  background: rgb(0 0 0 / 60%);
+}
+h2,
+h3 {
+  color: var(--admin-text);
+  line-height: 1.4;
+}
+h2 {
+  font-size: 1.1rem;
+  margin-block: 0.25rem 0.75rem;
+}
+h3 {
+  font-size: 1rem;
+  margin-block: 1rem 0.4rem;
+}
+p {
+  line-height: 1.55;
+  margin-block: 0.5rem;
+  overflow-wrap: anywhere;
+}
+label {
+  display: block;
+  margin-block: 1rem 0.4rem;
+}
+select {
+  width: 100%;
+  max-width: 100%;
+  min-height: 2.75rem;
+  padding: 0.55rem;
+  color: var(--admin-text);
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.5rem;
+}
+.actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-block: 0.8rem;
+}
+.preparations {
+  display: grid;
+  gap: 0.5rem;
+}
+.admin-button {
+  min-height: 2.75rem;
+  white-space: normal;
+  text-align: start;
+}
+.activity {
+  border-inline-start: 3px solid var(--admin-gold);
+  padding: 0.65rem 0.8rem;
+  margin-block: 1rem;
+  background: var(--admin-bg);
+  border-radius: 0.35rem;
+}
+.quiet,
+li {
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+}
+summary {
+  cursor: pointer;
+  padding-block: 0.65rem;
+}
+li {
+  margin-block: 0.4rem;
+}
+select:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--admin-focus);
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .activity {
+    animation: automatic-arrive 180ms ease-out;
+  }
+  @keyframes automatic-arrive {
+    from {
+      opacity: 0.75;
+      transform: translateY(3px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}

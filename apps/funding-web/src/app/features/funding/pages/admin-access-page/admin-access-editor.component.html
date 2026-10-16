@@ -1,6 +1,12 @@
 <form (ngSubmit)="saveRequested.emit()">
   <h2>{{ 'admin.access.edit' | translate }}</h2>
-  <button type="button" (click)="newRequested.emit()" [disabled]="busy()">
+  <button
+    type="button"
+    (click)="newRequested.emit()"
+    [openg7AutomaticPrepare]="'access-new'"
+    (automaticPrepare)="newRequested.emit()"
+    [disabled]="busy()"
+  >
     {{ 'admin.access.new' | translate }}
   </button>
   <label

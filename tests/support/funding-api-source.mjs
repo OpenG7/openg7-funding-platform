@@ -43,6 +43,7 @@ export const readFundingApiSource = () => {
     'admin-sponsorship-decisions.http.ts',
     'admin-sponsorship-media.http.ts',
     'admin-pilotage.http.ts',
+    'admin-automatic-runs.http.ts',
     'admin-publication-automation.http.ts',
     'public-funding.http.ts',
     'public-sponsor-media.http.ts',

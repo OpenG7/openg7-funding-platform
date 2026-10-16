@@ -18,6 +18,7 @@ import { SPONSORSHIP_FOLLOWUP_DAYS } from '@openg7/funding-core';
 
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { AdminAutomaticPreparationDirective } from '../admin-automatic/admin-automatic-preparation.directive.js';
 
 import { AdminSponsorshipInterventionsController } from './admin-sponsorship-interventions-controller.js';
 
@@ -25,7 +26,7 @@ import { AdminSponsorshipInterventionsController } from './admin-sponsorship-int
 @Component({
   selector: 'openg7-admin-sponsorship-interventions',
   standalone: true,
-  imports: [TranslatePipe],
+  imports: [TranslatePipe, AdminAutomaticPreparationDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-sponsorship-interventions.component.html',
   styleUrls: [

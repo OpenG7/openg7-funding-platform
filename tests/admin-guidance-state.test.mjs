@@ -378,6 +378,103 @@ test('payment mode can be selected without selecting or replacing a payment', ()
   assert.deepEqual(state.load(account), selected);
 });
 
+test('automatic mode remembers a preference without retaining a run or authorization', () => {
+  const storage = memoryStorage();
+  const state = new AdminGuidanceState(() => storage);
+  const expected = { ...snapshot(), mode: 'automatic' };
+  const supplied = {
+    ...expected,
+    run: {
+      phase: 'preparing',
+      step: 'sponsor.website.visibility',
+      events: ['Synthetic private action'],
+      approved: true
+    },
+    authorization: { confirmed: true, actor: account },
+    plan: {
+      target: 'Synthetic private dossier',
+      adminUrl: '/admin/fundraiser/sponsors?private=Synthetic'
+    }
+  };
+  assert.equal(state.save(account, supplied), true);
+  assert.deepEqual(JSON.parse(storage.getItem(key())), expected);
+  const reload = new AdminGuidanceState(() => storage);
+  assert.deepEqual(reload.load(account), expected);
+  assert.deepEqual(reload.load(otherAccount), empty());
+  storage.setItem(key(), JSON.stringify(supplied));
+  assert.deepEqual(
+    new AdminGuidanceState(() => storage).load(account),
+    expected
+  );
+});
+
+test('automatic payment preference retains only the payment bookmark and no server facts', () => {
+  const storage = memoryStorage();
+  const state = new AdminGuidanceState(() => storage);
+  const supplied = {
+    ...snapshot(),
+    mode: 'automatic',
+    payment: {
+      contributionId: 'ABCDEF00-1234-5678-9ABC-ABCDEF123456',
+      paused: true,
+      state: 'complete',
+      completed: 6,
+      amountMinor: 25000,
+      privateEmail: 'synthetic@example.test',
+      authorization: { confirmed: true },
+      next: { adminUrl: '/private' }
+    }
+  };
+  const expected = {
+    ...snapshot(),
+    mode: 'automatic',
+    payment: {
+      contributionId: 'abcdef00-1234-5678-9abc-abcdef123456',
+      paused: true
+    }
+  };
+  assert.equal(state.save(account, supplied), true);
+  assert.deepEqual(JSON.parse(storage.getItem(key())), expected);
+  const reload = new AdminGuidanceState(() => storage);
+  assert.deepEqual(reload.load(account), expected);
+  const copy = reload.load(account);
+  copy.payment.paused = false;
+  assert.deepEqual(reload.load(account), expected);
+  storage.setItem(key(), JSON.stringify(supplied));
+  assert.deepEqual(
+    new AdminGuidanceState(() => storage).load(account),
+    expected
+  );
+});
+
+for (const mode of [
+  'auto',
+  'AUTOMATIC',
+  'automatic ',
+  '',
+  true,
+  null,
+  {},
+  []
+]) {
+  test(`invalid automatic preference ${JSON.stringify(mode)} cannot replace a saved mode`, () => {
+    const storage = memoryStorage();
+    const state = new AdminGuidanceState(() => storage);
+    const expected = { ...snapshot(), mode: 'automatic' };
+    assert.equal(state.save(account, expected), true);
+    const before = storage.getItem(key());
+    const invalid = { ...expected, mode };
+    assert.equal(state.save(account, invalid), false);
+    assert.equal(storage.getItem(key()), before);
+    assert.deepEqual(state.load(account), expected);
+    storage.setItem(key(), JSON.stringify(invalid));
+    assert.deepEqual(
+      new AdminGuidanceState(() => storage).load(account),
+      empty()
+    );
+  });
+}
+
 test('current payment follows the workspace meaning and rejects ambiguous foreign queries', () => {
   const a = 'abcdef00-1234-5678-9abc-abcdef123456';
   const b = 'abcdef00-1234-5678-9abc-abcdef123457';

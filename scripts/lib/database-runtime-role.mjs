@@ -80,7 +80,7 @@ BEGIN
       EXECUTE format('GRANT INSERT ON TABLE public.%I TO %I', item.relname, runtime_name);
       IF item.relname NOT IN ('admin_audit_log', 'sponsorship_website_exposure_observations',
         'sponsorship_obligation_duration_attestations', 'sponsorship_historical_evidence_reviews',
-        'sponsorship_public_visibility_observations') THEN
+        'sponsorship_public_visibility_observations', 'admin_automatic_run_entries') THEN
         EXECUTE format('GRANT UPDATE ON TABLE public.%I TO %I', item.relname, runtime_name);
       END IF;
     END IF;

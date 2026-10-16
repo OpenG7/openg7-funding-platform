@@ -4,9 +4,18 @@
     <li data-og7="admin-session" [attr.data-og7-id]="session.id">
       {{ nameFor(session.accountId) }} — {{ session.createdAt }}
       <button
+        #sessionTrigger
         type="button"
         [disabled]="busy()"
         (click)="selectSession(session.id, $event)"
+        [openg7AutomaticPrepare]="'access-revoke:' + session.id"
+        [automaticExecutionMode]="'confirmation_required'"
+        (automaticPrepare)="
+          sessionSelected.emit({
+            sessionId: session.id,
+            trigger: sessionTrigger
+          })
+        "
       >
         {{ 'admin.access.revoke' | translate }}
       </button>

@@ -110,7 +110,7 @@ synthèse, des catégories filtrables, des groupes de courriels et un détail av
 retour au contexte, à partir de la file complète et paginée de **À traiter**.
 
 L'[audit et la réception des corrections admin](development/admin-e2e-correction-plan.md)
-relient les 20 URL, les 17 garanties et les recettes exécutées avec API et
+relient les 20 URL, les 18 garanties et les recettes avec API et
 PostgreSQL réels. Le registre vérifié en CI conserve les scénarios exacts.
 
 ## Travaux envisagés

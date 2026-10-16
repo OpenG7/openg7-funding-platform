@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import type { AdminEmailQueueMessageRecord } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
 
@@ -6,6 +7,23 @@ const id = '10000000-0000-4000-8000-000000000701';
 const nextId = '10000000-0000-4000-8000-000000000702';
 const date = '2026-09-17T12:00:00Z';
 const drawer = (page: Page) => page.locator('dialog[open]');
+const emailFixture: AdminEmailQueueMessageRecord = {
+  id,
+  recipient_email: 'fixture@example.invalid',
+  from_email: 'funding@example.invalid',
+  reply_to_email: null,
+  subject: 'Facture FAC-701',
+  status: 'failed',
+  template_key: 'invoice',
+  attempts: 1,
+  max_attempts: 3,
+  next_attempt_at: date,
+  sent_at: null,
+  last_error: 'Delivery unavailable',
+  metadata: {},
+  created_at: date,
+  updated_at: date
+};
 const invoiceFixture = {
   id,
   contribution_id: id,
@@ -72,6 +90,7 @@ async function fixtures(page: Page, language = 'fr-CA') {
     pdfType: 'application/pdf',
     pdfGate: null as Promise<void> | null,
     includeSecondInvoice: false,
+    emailMetadata: {} as Record<string, unknown> | null | undefined,
     proofUrl: 'https://example.invalid/proof'
   };
   await page.route('**/api/**', async (route) => {
@@ -157,16 +176,8 @@ async function fixtures(page: Page, language = 'fr-CA') {
           last_updated_at: date,
           messages: [
             {
-              id,
-              recipient_email: 'fixture@example.invalid',
-              subject: 'Facture FAC-701',
-              status: 'failed',
-              template_key: 'invoice',
-              attempts: 1,
-              max_attempts: 3,
-              next_attempt_at: date,
-              last_error: 'Delivery unavailable',
-              updated_at: date
+              ...emailFixture,
+              metadata: options.emailMetadata
             }
           ]
         }
@@ -537,6 +548,55 @@ test('email inspection preserves filters and retry requires a cancellable explic
     page.getByText('Relance tentee, le message reste en echec.')
   ).toBeVisible();
 });
+
+for (const metadata of [
+  { label: 'missing', value: undefined },
+  { label: 'null', value: null }
+] as const) {
+  test(`email inspection and language switching remain usable with ${metadata.label} metadata`, async ({
+    page
+  }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    page.on('console', (message) => {
+      if (message.type() === 'error' && message.text().startsWith('ERROR'))
+        errors.push(message.text());
+    });
+    const { options, requests } = await fixtures(page);
+    options.emailMetadata = metadata.value;
+    await page.goto('/admin/fundraiser/email-queue');
+    const opener = page.getByRole('button', {
+      name: emailFixture.recipient_email,
+      exact: true
+    });
+    await expect(opener).toBeVisible();
+    await page
+      .getByRole('button', {
+        name: 'Switch administration language to English'
+      })
+      .click();
+    const toFrench = page.getByRole('button', {
+      name: 'Passer l’administration en français'
+    });
+    await expect(toFrench).toBeVisible();
+    await expect(page.locator('h1')).toHaveText('Email queue');
+    await opener.click();
+    await expect(drawer(page)).toContainText('Delivery unavailable');
+    await page.keyboard.press('Escape');
+    await expect(opener).toBeFocused();
+    await toFrench.click();
+    await expect(page.locator('h1')).toHaveText('File courriel');
+    await expect(
+      page.getByRole('button', {
+        name: 'Switch administration language to English'
+      })
+    ).toBeVisible();
+    expect(
+      requests.filter((request) => request.method === 'POST')
+    ).toHaveLength(0);
+    expect(errors).toEqual([]);
+  });
+}
 
 test('audit and proof drawers open exact records on the same page', async ({
   page

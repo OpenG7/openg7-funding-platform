@@ -1,9 +1,9 @@
 # Administration API
 
-Payment notifications and private website preparation use protected
+Private payment activity uses
 `GET /api/admin/contribution-activity` and per-actor
-`POST /api/admin/contribution-activity/present`. Pagination, states,
-permissions and simulation: [contribution activity](../operations/contribution-activity.md).
+`POST /api/admin/contribution-activity/present`;
+[states, permissions and simulation](../operations/contribution-activity.md).
 
 Versioned moderation decisions, independent review, private reconsideration,
 assistance and owner-only governance previews:
@@ -57,6 +57,8 @@ Recorded offers, obligations and owner actions: [commitment API](sponsorship-com
 [Payment journeys](../operations/admin-pilotage.md#mode-guidé-dans-ladministration)
 are private, read-only projections.
 
+[Automatic responsibility runs](admin-automatic-runs.md).
+
 `POST /api/admin/sponsorship-commitments/timing`: owner-only commands with UUID,
 current timing version, reason and exact obligation confirmation. Duration
 closure also requires its start observation and confirmed continuity evidence.
@@ -72,8 +74,6 @@ terms stay out of URLs/storage. Exact IDs precede list limits;
 invoice/publication pages reload on target changes. Drawers protect private
 previews and require confirmations; Stripe inspection excludes raw webhooks.
 Dashboard `data_available=false` means no PostgreSQL. Recipes are in the linked guides.
-
-Other contracts: [documentation index](../README.md).
 
 ```text
 GET /api/admin/dashboard

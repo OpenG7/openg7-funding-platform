@@ -20,12 +20,13 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { FundingModerationService } from '../../services/funding-moderation.service.js';
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { AdminAutomaticPreparationDirective } from '../admin-automatic/admin-automatic-preparation.directive.js';
 
 /** Subject-scoped contextual decisions and independent review, separate from sending/visibility. */
 @Component({
   selector: 'openg7-funding-moderation-actions',
   standalone: true,
-  imports: [TranslatePipe],
+  imports: [TranslatePipe, AdminAutomaticPreparationDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './funding-moderation-actions.component.html',
   styleUrls: [
@@ -36,6 +37,7 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
 })
 export class FundingModerationActionsComponent {
   readonly subject = input.required<ModerationSubject>();
+  readonly automaticFor = input<string | null>(null);
   readonly headingLevel = input<2 | 3>(3);
   readonly disabled = input(false);
   readonly changed = output<void>();

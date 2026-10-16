@@ -11,12 +11,13 @@ import { TranslatePipe } from '@ngx-translate/core';
 import type { AdminSponsorshipRecord } from '@openg7/funding-core';
 
 import type { AdminSponsorApprovalState } from '../../models/admin-sponsor-dossier-panels.js';
+import { AdminAutomaticPreparationDirective } from '../admin-automatic/admin-automatic-preparation.directive.js';
 
 /** Funding organism: permitted dossier action intentions and server-backed feedback. */
 @Component({
   selector: 'openg7-admin-sponsor-decision-actions',
   standalone: true,
-  imports: [NgIf, TranslatePipe],
+  imports: [NgIf, TranslatePipe, AdminAutomaticPreparationDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-sponsor-decision-actions.component.html',
   styleUrls: [

@@ -1,6 +1,6 @@
 /** Inspect delivery-time snapshots exclusively. Current media rights or visibility
  * cannot invalidate what was recorded earlier. Incomplete metadata is unknown. */
-export const historicalAuditProjectionSql = `
+const projectionSql = (scope: string): string => `
 WITH evidence AS MATERIALIZED (
   SELECT e.*,ob.benefit_id,benefit.value AS benefit,
     duration.fulfilment_evidence_id IS NOT NULL AS duration_verified,
@@ -16,7 +16,7 @@ WITH evidence AS MATERIALIZED (
       THEN offer.snapshot->'benefits' ELSE '[]'::jsonb END) value WHERE value->>'id'=ob.benefit_id LIMIT 1
   ) benefit ON TRUE
   LEFT JOIN sponsorship_obligation_duration_attestations duration ON duration.obligation_id=ob.id AND duration.fulfilment_evidence_id=e.id
-  WHERE e.recorded_at<=$1::timestamptz
+  WHERE e.recorded_at<=$1::timestamptz ${scope}
 ), sources AS (
   SELECT evidence.*,
     CASE WHEN jsonb_array_length(COALESCE(own_sources,'[]'::jsonb))=1 THEN own_sources->0 ELSE NULL END AS own_source,
@@ -73,3 +73,10 @@ WITH evidence AS MATERIALIZED (
   FROM requirements
 )
 `;
+
+export const historicalAuditProjectionSql = projectionSql('');
+
+/** The fixed API-owned scope is applied before materializing immutable proof snapshots. */
+export const dossierFulfilmentQualificationSql = projectionSql(
+  'AND e.contribution_id=$2::uuid'
+);

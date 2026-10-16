@@ -52,7 +52,8 @@ export const loadAdminWorkQueue = async (
   );
   if (missing.length) return { items: [], missingSources: missing };
   const [dataset, invoices, events, refunds, reliability] = await Promise.all([
-    loadAttentionDataset(pool, now, true),
+    // A list of responsibilities never requires adding distinct currencies.
+    loadAttentionDataset(pool, now, true, false),
     pool.query<QueueInvoiceCandidate>(`SELECT c.id::text AS id, c.public_reference AS reference, c.paid_at::text AS paid_at
       FROM fund_contributions c LEFT JOIN sponsorship_invoices i ON i.contribution_id = c.id
       WHERE c.contribution_type = 'sponsorship_interest' AND c.status IN ('paid', 'refunded', 'disputed')

@@ -19,6 +19,7 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminGuidanceService } from '../../services/admin-guidance.service.js';
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
+import { AdminAutomaticPreparationDirective } from '../../components/admin-automatic/admin-automatic-preparation.directive.js';
 import { AdminStripeBackfillComponent } from '../../components/admin-stripe-backfill/admin-stripe-backfill.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 
@@ -43,6 +44,7 @@ import type {
     TranslatePipe,
     CommonModule,
     AdminLayoutComponent,
+    AdminAutomaticPreparationDirective,
     AdminStripeBackfillComponent,
     AdminContributionsSummaryComponent,
     AdminContributionsFiltersComponent,

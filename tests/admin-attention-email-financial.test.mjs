@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import { detectFailedEmailItems } from '../dist/apps/funding-api/src/admin-assistant/attention/email.detectors.js';
 import { detectFinancialWarningItems } from '../dist/apps/funding-api/src/admin-assistant/attention/financial.detectors.js';
+import { buildFinancialSummary } from '../dist/apps/funding-api/src/admin-assistant/attention/summary.js';
 
 const NOW = new Date('2026-11-01T01:15:00-04:00');
 const dataset = (overrides = {}) => ({
@@ -138,4 +139,48 @@ test('disputed totals and source truncation create independent read-only warning
     })
   );
   assert.deepEqual(combined, [...disputed, ...truncated]);
+});
+
+test('operational disputed warnings keep currencies separate and preserve the existing single-currency identifier', () => {
+  const totals = [
+    { amountMinor: 1501, currency: 'CAD' },
+    { amountMinor: 2502, currency: 'USD' }
+  ];
+  const warnings = detectFinancialWarningItems(
+    dataset({ financialTotals: null, disputedTotals: totals })
+  );
+  assert.deepEqual(
+    warnings.map((warning) => [
+      warning.id,
+      warning.facts.currency,
+      warning.facts.disputedAmountMinor
+    ]),
+    [
+      ['financial_data_warning:disputed:CAD', 'CAD', 1501],
+      ['financial_data_warning:disputed:USD', 'USD', 2502]
+    ]
+  );
+  assert.deepEqual(
+    warnings.map((warning) => warning.facts.disputedAmount),
+    [15.01, 25.02]
+  );
+  assert.equal(
+    detectFinancialWarningItems(
+      dataset({ financialTotals: null, disputedTotals: [totals[0]] })
+    )[0].id,
+    'financial_data_warning:disputed'
+  );
+  assert.deepEqual(
+    detectFinancialWarningItems(
+      dataset({ financialTotals: null, disputedTotals: [] })
+    ),
+    []
+  );
+  assert.throws(
+    () =>
+      buildFinancialSummary(
+        dataset({ financialTotals: null, disputedTotals: totals })
+      ),
+    { message: 'Financial summary unavailable.' }
+  );
 });

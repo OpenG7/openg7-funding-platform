@@ -17,6 +17,7 @@ import type { AdminSponsorshipProgress } from '@openg7/funding-core';
 
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { AdminAutomaticPreparationDirective } from '../admin-automatic/admin-automatic-preparation.directive.js';
 
 import { AdminSponsorshipCommitmentsController } from './admin-sponsorship-commitments-controller.js';
 import { AdminSponsorshipTimingComponent } from './admin-sponsorship-timing.component.js';
@@ -29,6 +30,7 @@ import { AdminSponsorshipHistoricalAuditComponent } from './admin-sponsorship-hi
   imports: [
     TranslatePipe,
     RouterLink,
+    AdminAutomaticPreparationDirective,
     AdminSponsorshipTimingComponent,
     AdminSponsorshipHistoricalAuditComponent
   ],

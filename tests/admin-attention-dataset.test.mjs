@@ -205,3 +205,78 @@ test('repository errors from a present pool still reject the public loader', asy
     (error) => error === failure
   );
 });
+
+test('operational acquisition skips scalar money and retains each disputed currency in integer minor units', async () => {
+  const results = emptyResults();
+  const readers = Object.fromEntries(
+    Object.entries(results).map(([name, result]) => [
+      name,
+      async () => {
+        assert.notEqual(
+          name,
+          'getAdminDashboard',
+          'operational work cannot depend on a scalar monetary summary'
+        );
+        return result;
+      }
+    ])
+  );
+  let queries = 0;
+  const pool = {
+    async query(sql) {
+      queries++;
+      assert.match(sql, /GROUP BY upper\(currency\)/);
+      return {
+        rows: [
+          { currency: 'CAD', amount_minor: '1501' },
+          { currency: 'USD', amount_minor: '2502' }
+        ]
+      };
+    }
+  };
+  const loaded = await createAttentionDatasetLoader(readers)(
+    pool,
+    NOW,
+    true,
+    false
+  );
+  assert.equal(queries, 1);
+  assert.equal(loaded.financialTotals, null);
+  assert.deepEqual(loaded.disputedTotals, [
+    { currency: 'CAD', amountMinor: 1501 },
+    { currency: 'USD', amountMinor: 2502 }
+  ]);
+});
+
+test('operational dispute read failures and unsafe financial facts propagate without an empty success', async () => {
+  const readers = Object.fromEntries(
+    Object.entries(emptyResults()).map(([name, result]) => [
+      name,
+      async () => result
+    ])
+  );
+  const load = createAttentionDatasetLoader(readers);
+  const failure = new Error('Synthetic dispute query failure');
+  await assert.rejects(
+    load(
+      {
+        query() {
+          throw failure;
+        }
+      },
+      NOW,
+      true,
+      false
+    ),
+    (error) => error === failure
+  );
+  for (const row of [
+    { currency: 'CAD', amount_minor: '9007199254740992' },
+    { currency: 'CAD', amount_minor: '-1' },
+    { currency: 'invalid', amount_minor: '1' }
+  ])
+    await assert.rejects(
+      load({ query: async () => ({ rows: [row] }) }, NOW, true, false),
+      { message: 'Invalid disputed payment facts.' }
+    );
+});

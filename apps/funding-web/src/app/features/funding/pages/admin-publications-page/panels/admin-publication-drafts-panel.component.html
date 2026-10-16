@@ -125,6 +125,17 @@
           class="neutral"
           [attr.aria-expanded]="selectedDraftId() === draft.id"
           [attr.aria-controls]="'draft-editor-' + draft.id"
+          [openg7AutomaticPrepare]="
+            selectedDraftId() === draft.id
+              ? ''
+              : 'publication.draft.open:' + draft.id
+          "
+          [automaticFor]="draft.contribution_id"
+          (automaticPrepare)="
+            selectedDraftId.set(
+              selectedDraftId() === draft.id ? null : draft.id
+            )
+          "
           (click)="
             selectedDraftId.set(
               selectedDraftId() === draft.id ? null : draft.id
@@ -142,11 +153,13 @@
       @if (selectedDraftId() === draft.id) {
         <openg7-funding-moderation-actions
           [subject]="{ type: 'publication_draft', id: draft.id }"
+          [automaticFor]="draft.contribution_id"
           [disabled]="!!actionState() || dirtyDraftIds().has(draft.id)"
           (changed)="reload()()"
         />
         <fieldset
           class="item-editor"
+          data-og7-automatic-block="editing"
           [disabled]="!!actionState()"
           [attr.id]="'draft-editor-' + draft.id"
         >
@@ -285,6 +298,12 @@
               <button
                 type="button"
                 class="approve"
+                [openg7AutomaticPrepare]="
+                  'publication.draft.approve:' + draft.id
+                "
+                [automaticFor]="draft.contribution_id"
+                automaticExecutionMode="confirmation_required"
+                (automaticPrepare)="saveDraft(draft, 'approved')"
                 (click)="saveDraft(draft, 'approved')"
               >
                 {{ 'admin.legacy.approuver' | translate }}

@@ -31,6 +31,8 @@ import { createAdminDocumentsHttpHandler } from '../admin-documents.http.js';
 import { createAdminEmailHttpHandler } from '../admin-email.http.js';
 import { createAdminInsightsHttpHandler } from '../admin-insights.http.js';
 import { createAdminPilotageHttpHandler } from '../admin-pilotage.http.js';
+import { createAdminAutomaticRunsHttpHandler } from '../admin-automatic-runs.http.js';
+import { AdminAutomaticRunsService } from '../admin-automatic-runs.service.js';
 import { PilotError } from '../admin-pilotage.service.js';
 import { createAdminPublicationAutomationHttpHandler } from '../admin-publication-automation.http.js';
 import { createAdminPublicationBatchesHttpHandler } from '../admin-publication-batches.http.js';
@@ -663,6 +665,15 @@ export const createAdminHttpHandlers = ({
     PublicationAutomationError
   });
 
+  const handleAdminAutomaticRunsRequest = createAdminAutomaticRunsHttpHandler({
+    publicBaseOrigin,
+    ensureAdminAccess,
+    getAdminAuditActor,
+    readBody,
+    writeJson,
+    automaticRuns: dbPool ? new AdminAutomaticRunsService(dbPool) : null
+  });
+
   const handleAdminPublicationAutomationRequest =
     createAdminPublicationAutomationHttpHandler({
       publicBaseOrigin,
@@ -817,6 +828,7 @@ export const createAdminHttpHandlers = ({
     handleAdminPublicationSlotsRequest,
     handleAdminPublicationBatchesRequest,
     handleAdminPilotageRequest,
+    handleAdminAutomaticRunsRequest,
     handleAdminPublicationAutomationRequest,
     handleAdminSponsorshipRefundRequest,
     handleAdminStripeBackfillRequest,

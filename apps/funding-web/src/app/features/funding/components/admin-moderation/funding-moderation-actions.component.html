@@ -32,6 +32,12 @@
       type="button"
       class="admin-button"
       [disabled]="busy() || disabled()"
+      [openg7AutomaticPrepare]="
+        'moderation.open:' + subject().type + ':' + subject().id
+      "
+      [automaticFor]="automaticFor()"
+      automaticExecutionMode="confirmation_required"
+      (automaticPrepare)="decide()"
       (click)="decide()"
       data-og7="moderation-open"
     >

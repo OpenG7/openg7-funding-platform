@@ -21,6 +21,9 @@
       class="admin-button secondary"
       [attr.aria-expanded]="expanded()"
       aria-controls="interventions-journal"
+      [openg7AutomaticPrepare]="expanded() ? '' : 'sponsor.interventions.open'"
+      [automaticFor]="contributionId()"
+      (automaticPrepare)="expanded.set(!expanded())"
       (click)="expanded.set(!expanded())"
       data-og7="interventions-toggle"
     >
@@ -92,6 +95,9 @@
         <button
           type="button"
           class="admin-button secondary"
+          [openg7AutomaticPrepare]="'sponsor.access.open'"
+          [automaticFor]="contributionId()"
+          (automaticPrepare)="accessRequested.emit()"
           (click)="accessRequested.emit()"
           [disabled]="disabled() || saving()"
           data-og7="interventions-access"

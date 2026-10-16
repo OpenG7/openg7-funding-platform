@@ -32,6 +32,7 @@ export {
   allowedPublicationDraftStatuses,
   listAdminPublicationDrafts,
   createAdminPublicationDraft,
+  createAdminPublicationDraftOnConnection,
   updateAdminPublicationDraft
 } from './fund-publication-drafts.repository.js';
 
