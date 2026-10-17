@@ -11,6 +11,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { AdminAutomaticPreparationDirective } from '../../components/admin-automatic/admin-automatic-preparation.directive.js';
+import { AdminIconComponent } from '../../components/admin-ui/admin-icon.component.js';
 
 import { AdminExpenseFormFieldsComponent } from './admin-expense-form-fields.component.js';
 import { expenseStatusTranslationKeys } from './admin-expense-presentation.types.js';
@@ -25,6 +26,7 @@ import type {
   standalone: true,
   imports: [
     TranslatePipe,
+    AdminIconComponent,
     AdminExpenseFormFieldsComponent,
     AdminAutomaticPreparationDirective
   ],
@@ -36,17 +38,21 @@ import type {
       [attr.data-og7-id]="expense().id"
     >
       <header>
-        <div>
-          <span>{{ statusKeys[expense().status] | translate }}</span>
+        <div class="expense-heading">
+          <span class="expense-status">{{
+            statusKeys[expense().status] | translate
+          }}</span>
           <h2>{{ expense().project_name }}</h2>
         </div>
-        <strong>{{ amountLabel() }}</strong>
+        <strong class="expense-amount">{{ amountLabel() }}</strong>
         <button
           type="button"
+          class="admin-button proof-action"
           (click)="proofRequested.emit()"
           [openg7AutomaticPrepare]="'allocation-proof:' + expense().id"
           (automaticPrepare)="proofRequested.emit()"
         >
+          <openg7-admin-icon name="audit" />
           {{ 'admin.inspector.kinds.proof' | translate }}
         </button>
       </header>
@@ -60,6 +66,7 @@ import type {
       <footer>
         <button
           type="button"
+          class="admin-button admin-button--primary"
           [disabled]="busy()"
           (click)="saveRequested.emit(undefined)"
         >
@@ -67,7 +74,7 @@ import type {
         </button>
         <button
           type="button"
-          class="approve"
+          class="admin-button approve"
           [disabled]="busy()"
           (click)="saveRequested.emit('published')"
         >
@@ -75,7 +82,7 @@ import type {
         </button>
         <button
           type="button"
-          class="neutral"
+          class="admin-button neutral"
           [disabled]="busy()"
           (click)="saveRequested.emit('private')"
         >
@@ -83,7 +90,7 @@ import type {
         </button>
         <button
           type="button"
-          class="reject"
+          class="admin-button reject"
           [disabled]="busy()"
           (click)="saveRequested.emit('archived')"
         >

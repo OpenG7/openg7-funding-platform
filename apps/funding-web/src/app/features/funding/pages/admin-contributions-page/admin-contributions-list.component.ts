@@ -7,12 +7,14 @@ import {
 import { CommonModule } from '@angular/common';
 import { TranslatePipe } from '@ngx-translate/core';
 
+import { AdminBadgeComponent } from '../../components/admin-ui/admin-badge.component.js';
+
 import type { ContributionRowView } from './admin-contributions-view.js';
 
 @Component({
   selector: 'openg7-admin-contributions-list',
   standalone: true,
-  imports: [CommonModule, TranslatePipe],
+  imports: [CommonModule, TranslatePipe, AdminBadgeComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-contributions-list.component.html',
   styleUrls: [

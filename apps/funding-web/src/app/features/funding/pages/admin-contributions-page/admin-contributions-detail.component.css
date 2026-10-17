@@ -2,35 +2,74 @@
 
 :host {
   @apply tw:block tw:min-w-0;
+  container: contribution-detail / inline-size;
 }
 
 .detail-panel {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.45rem;
-  @apply tw:p-4;
+  @apply tw:p-admin-card tw:rounded-admin-card;
+}
+
+.detail-panel header {
+  @apply tw:flex tw:flex-wrap tw:items-center tw:justify-between tw:gap-3;
+  margin-bottom: 1.25rem;
 }
 
 .detail-panel h3 {
-  margin: 0 0 0.75rem;
+  @apply tw:m-0 tw:min-w-0 tw:wrap-anywhere;
+  font-size: 1.0625rem;
+  font-weight: var(--admin-label-weight);
+  line-height: 1.4;
+}
+
+.detail-panel a {
+  @apply tw:max-w-full;
+  white-space: normal;
+  text-align: center;
 }
 
 .detail-panel dl {
   @apply tw:grid tw:m-0;
-  gap: 0.65rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem 1.5rem;
 }
 
-.detail-panel div {
-  @apply tw:flex tw:justify-between tw:gap-4;
+.detail-panel dl > div {
+  @apply tw:grid tw:min-w-0;
+  align-content: start;
+  gap: 0.35rem;
 }
 
 .detail-panel dt {
-  @apply tw:text-admin-muted tw:text-admin-caption tw:uppercase;
+  @apply tw:text-admin-muted tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
   letter-spacing: 0;
 }
 
 .detail-panel dd {
-  @apply tw:m-0;
+  @apply tw:m-0 tw:min-w-0 tw:wrap-anywhere;
   font-weight: 500;
+  line-height: 1.5;
+}
+
+.amount-value {
+  font-size: 1.125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.date-value {
+  font-variant-numeric: tabular-nums;
+}
+
+@container contribution-detail (min-width: 28rem) {
+  .detail-panel dl {
+    @apply tw:grid-cols-2;
+  }
+}
+
+@container contribution-detail (min-width: 48rem) {
+  .detail-panel dl {
+    @apply tw:grid-cols-3;
+  }
 }

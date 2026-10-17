@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 
-import type { Locator, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import type {
   AdminContributionRecord,
   AdminContributionsExportRequest,
@@ -8,6 +8,12 @@ import type {
 } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
+import {
+  blockAdminReviewWrites,
+  captureAdminDesign,
+  expectAdminPageFits,
+  prepareAdminDesignReview
+} from './support/admin-design-review.js';
 
 const date = '2026-09-23T12:00:00Z';
 const personal: AdminContributionRecord = {
@@ -120,6 +126,7 @@ const contributionPalettes = {
   mineral: {
     panel: 'rgb(255, 255, 255)',
     raised: 'rgb(240, 244, 249)',
+    selected: 'rgb(237, 243, 250)',
     text: 'rgb(23, 43, 80)',
     muted: 'rgb(82, 98, 123)',
     border: 'rgb(216, 224, 236)',
@@ -128,6 +135,7 @@ const contributionPalettes = {
   night: {
     panel: 'rgb(20, 35, 56)',
     raised: 'rgb(27, 45, 68)',
+    selected: 'rgb(36, 61, 83)',
     text: 'rgb(241, 245, 252)',
     muted: 'rgb(189, 203, 224)',
     border: 'rgb(64, 86, 111)',
@@ -136,6 +144,7 @@ const contributionPalettes = {
   graphite: {
     panel: 'rgb(37, 41, 47)',
     raised: 'rgb(50, 56, 65)',
+    selected: 'rgb(56, 67, 79)',
     text: 'rgb(243, 244, 246)',
     muted: 'rgb(196, 203, 213)',
     border: 'rgb(86, 97, 110)',
@@ -157,16 +166,68 @@ function contributionRegions(page: Page, english: boolean) {
   };
 }
 
-async function expectGridColumns(element: Locator, count: number) {
-  await expect(element).toHaveCSS('display', 'grid');
-  await expect
-    .poll(() =>
-      element.evaluate(
-        (node) => getComputedStyle(node).gridTemplateColumns.split(' ').length
-      )
-    )
-    .toBe(count);
-}
+for (const language of ['fr-CA', 'en'] as const)
+  for (const width of [390, 1536]) {
+    test(`contribution composition keeps the summary and register accessible in ${language} at ${width}px`, async ({
+      page
+    }, testInfo) => {
+      await prepareAdminDesignReview(page);
+      await fixtures(page, language);
+      const writes = await blockAdminReviewWrites(page);
+      await page.setViewportSize({
+        width,
+        height: width === 1536 ? 864 : 1000
+      });
+      await page.goto('/admin/fundraiser/contributions');
+      const { summary, filters, list } = contributionRegions(
+        page,
+        language === 'en'
+      );
+      await expect(summary.getByRole('article')).toHaveCount(4);
+      await expect(list.locator('[data-og7="contribution-row"]')).toHaveCount(
+        2
+      );
+      await expect(summary).toContainText('525');
+      await expect(summary).toContainText('CAD');
+      await captureAdminDesign(page, testInfo, `contributions-${width}`);
+      if (width === 1536) {
+        for (const metric of await summary.getByRole('article').all())
+          await expect(metric).toBeInViewport({ ratio: 1 });
+        await expect(filters).toBeInViewport({ ratio: 1 });
+        await expect(list.getByRole('heading', { level: 2 })).toBeInViewport({
+          ratio: 1
+        });
+      }
+      const row = list.locator('[data-og7="contribution-row"]').first();
+      await row.focus();
+      await page.keyboard.press('Enter');
+      await expect(
+        page.locator('[data-og7="contribution-detail"]')
+      ).toContainText(personal.public_reference!);
+      await expect(row).toBeFocused();
+      if (width === 1536)
+        await captureAdminDesign(
+          page,
+          testInfo,
+          'contributions-detail-1536',
+          true
+        );
+      if (language === 'en') {
+        await page.evaluate(() => {
+          document.documentElement.style.fontSize = '200%';
+        });
+        await expectAdminPageFits(page);
+        const search = filters.getByRole('searchbox');
+        await search.fill('no synthetic match');
+        await expect(list.getByRole('article')).toBeVisible();
+        await search.clear();
+        await expect(list.locator('[data-og7="contribution-row"]')).toHaveCount(
+          2
+        );
+      }
+      expect(writes).toEqual([]);
+    });
+  }
 
 for (const theme of ['mineral', 'night', 'graphite'] as const) {
   for (const { language, width } of [
@@ -194,36 +255,17 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
         'data-og7-pilot-theme',
         theme
       );
-      for (const grid of [summary, filters]) {
-        await expectGridColumns(grid, width <= 860 ? 1 : 4);
-        await expect(grid).toHaveCSS('gap', '12px');
-        await expect(grid).toHaveCSS('max-width', '1248px');
-      }
       for (const panel of [
         summary.getByRole('article').first(),
         filters,
         list
       ]) {
         await expect(panel).toHaveCSS('background-color', palette.panel);
-        await expect(panel).toHaveCSS('border-top-width', '1px');
-        await expect(panel).toHaveCSS('border-top-style', 'solid');
-        await expect(panel).toHaveCSS('border-top-color', palette.border);
-        await expect(panel).toHaveCSS('border-radius', '7.2px');
-        await expect(panel).toHaveCSS('padding-top', '16px');
       }
-      await expect(summary.locator('strong').first()).toHaveCSS(
-        'font-size',
-        '26.4px'
-      );
       const search = filters.getByRole('searchbox');
       await expect(search).toHaveCSS('background-color', palette.panel);
       await expect(search).toHaveCSS('color', palette.text);
-      await expect(search).toHaveCSS('padding', '10.4px 12px');
-      await expect(search).toHaveCSS('border-radius', '5.6px');
-      await expect(filters.locator('label').first()).toHaveCSS('gap', '5.6px');
-      await expect(
-        page.locator('[data-og7="contribution-export-scope"]')
-      ).toHaveCSS('max-width', '1248px');
+      expect((await search.boundingBox())!.height).toBeGreaterThanOrEqual(44);
 
       const table = list.getByRole('table');
       await expect(table).toHaveCSS('min-width', '1184px');
@@ -258,10 +300,8 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
       const detail = page.locator('[data-og7="contribution-detail"]');
       await expect(detail).toContainText(sponsor.sponsor_company_name!);
       await expect(detail).toHaveCSS('background-color', palette.panel);
-      await expect(detail).toHaveCSS('padding', '16px');
-      await expect(detail.locator('dl')).toHaveCSS('gap', '10.4px');
       await expect(sponsorRow).toBeFocused();
-      await expect(sponsorRow).toHaveCSS('background-color', palette.raised);
+      await expect(sponsorRow).toHaveCSS('background-color', palette.selected);
       await expect(sponsorRow).toHaveCSS('outline-width', '3px');
       await expect(sponsorRow).toHaveCSS('outline-color', palette.focus);
       const personalRow = page.locator(
@@ -277,7 +317,6 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
       await expect(empty).toBeVisible();
       await expect(empty).toHaveCSS('background-color', palette.raised);
       await expect(empty).toHaveCSS('border-top-style', 'dashed');
-      await expect(empty).toHaveCSS('padding', '16px');
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= innerWidth + 1
@@ -288,30 +327,30 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
   }
 }
 
-test('contribution grids preserve the inclusive 860px and 1020px breakpoints', async ({
+test('contribution metrics, filters and local register fit resized viewports without losing filter input', async ({
   page
 }) => {
   await fixtures(page, 'fr-CA');
   await page.goto('/admin/fundraiser/contributions');
   const { summary, filters, list } = contributionRegions(page, false);
   await expect(summary.getByRole('article')).toHaveCount(4);
-  const topbar = page.getByRole('main').locator('header').first();
-  for (const width of [851, 860, 861, 1020, 1021]) {
+  const search = filters.getByRole('searchbox');
+  await search.fill('Entreprise');
+  for (const width of [390, 851, 860, 861, 1020, 1021, 1536]) {
     await test.step(`${width}px`, async () => {
       await page.setViewportSize({ width, height: 950 });
-      const columns = width <= 860 ? 1 : width <= 1020 ? 2 : 4;
-      await expectGridColumns(summary, columns);
-      await expectGridColumns(filters, columns);
-      const direction = width <= 860 ? 'column' : 'row';
-      await expect(topbar).toHaveCSS('flex-direction', direction);
-      await expect(topbar.locator('nav')).toHaveCSS(
-        'flex-direction',
-        direction
+      await expect(summary.getByRole('article')).toHaveCount(4);
+      await expect(search).toHaveValue('Entreprise');
+      await expect(list.locator('[data-og7="contribution-row"]')).toHaveCount(
+        1
       );
-      await expect(list.locator('header')).toHaveCSS(
-        'flex-direction',
-        direction
-      );
+      for (const control of await filters.locator('input, select').all()) {
+        const bounds = (await control.boundingBox())!;
+        expect(bounds.x).toBeGreaterThanOrEqual(-1);
+        expect(bounds.x + bounds.width).toBeLessThanOrEqual(width + 1);
+        expect(bounds.height).toBeGreaterThanOrEqual(44);
+      }
+      await expectAdminPageFits(page);
       await expect(list.getByRole('table')).toHaveCSS('min-width', '1184px');
     });
   }

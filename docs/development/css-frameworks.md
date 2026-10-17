@@ -128,6 +128,15 @@ des priorités et le dossier courant. Les tendances restent consultables avec
 leurs périodes et séries; les calculs et précisions financières sont conservés.
 Les célébrations, l'activité et la supervision viennent après ce travail courant.
 
+Contributions, Factures et Dépenses commencent par une synthèse compacte, puis le
+registre courant et ses contrôles. Les montants gardent leur devise et leur format.
+Le rapprochement Stripe suit le registre des contributions; la création d'une
+dépense occupe un rail à partir de 66 rem disponibles, puis suit la liste sur les
+écrans plus étroits. Factures conserve sa sélection et son détail côte à côte à
+partir de 60 rem. Les formulaires se replient selon leur propre largeur; aucune
+harmonisation visuelle ne change les confirmations, les versions ou les faits
+comptables.
+
 La vue Publications présente d'abord les prochains lots. Les accès à la rédaction,
 aux lots et au calendrier occupent un rail à droite dès 60 rem de contenu disponible,
 puis suivent la file en dessous. Entre 44 et 60 rem, ils occupent trois colonnes;

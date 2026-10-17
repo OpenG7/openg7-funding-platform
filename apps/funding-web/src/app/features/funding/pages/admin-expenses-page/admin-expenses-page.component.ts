@@ -22,6 +22,7 @@ import { AdminInspectionService } from '../../services/admin-inspection.service.
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
+import { AdminIconComponent } from '../../components/admin-ui/admin-icon.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 
 import { AdminExpensesReadController } from './admin-expenses-read-controller.js';
@@ -42,6 +43,7 @@ import type {
   imports: [
     CommonModule,
     AdminLayoutComponent,
+    AdminIconComponent,
     TranslatePipe,
     AdminExpenseCreateComponent,
     AdminExpenseFiltersComponent,
@@ -52,11 +54,11 @@ import type {
     <openg7-admin-layout>
       <section class="admin-content">
         <header class="admin-topbar">
-          <div>
-            <span>{{ 'admin.legacy.administration' | translate }}</span>
+          <div class="heading-copy">
             <h1>{{ 'admin.legacy.depenses_et_allocations' | translate }}</h1>
           </div>
-          <button type="button" (click)="loadExpenses()">
+          <button type="button" class="admin-button" (click)="loadExpenses()">
+            <openg7-admin-icon name="refresh" />
             {{ 'admin.legacy.actualiser' | translate }}
           </button>
         </header>
@@ -110,53 +112,62 @@ import type {
             </article>
           </section>
 
-          <openg7-admin-expense-create
-            [draft]="newExpenseDraft()"
-            [busy]="mutationBusy()"
-            (draftChange)="setNewField($event)"
-            (createRequested)="createExpense()"
-          />
+          <div class="expense-workspace">
+            <div class="expense-register">
+              <header class="register-heading">
+                <h2>{{ 'admin.legacy.liste_des_depenses' | translate }}</h2>
+              </header>
+              <openg7-admin-expense-filters
+                [search]="search()"
+                [status]="statusFilter()"
+                (searchChange)="search.set($event)"
+                (statusChange)="statusFilter.set($event)"
+              />
+              <section
+                class="expense-list"
+                [attr.aria-label]="
+                  'admin.legacy.liste_des_depenses' | translate
+                "
+              >
+                <openg7-admin-expense-card
+                  *ngFor="
+                    let expense of filteredExpenses();
+                    trackBy: trackByExpense
+                  "
+                  [expense]="expense"
+                  [edit]="editFor(expense.id)"
+                  [busy]="mutationBusy()"
+                  [amountLabel]="
+                    formatMoney(expense.amount_allocated, expense.currency)
+                  "
+                  (editChange)="setEditField(expense.id, $event)"
+                  (saveRequested)="saveExpense(expense, $event)"
+                  (proofRequested)="inspection.proof(expense)"
+                />
 
-          <openg7-admin-expense-filters
-            [search]="search()"
-            [status]="statusFilter()"
-            (searchChange)="search.set($event)"
-            (statusChange)="statusFilter.set($event)"
-          />
-
-          <section
-            class="expense-list"
-            [attr.aria-label]="'admin.legacy.liste_des_depenses' | translate"
-          >
-            <openg7-admin-expense-card
-              *ngFor="
-                let expense of filteredExpenses();
-                trackBy: trackByExpense
-              "
-              [expense]="expense"
-              [edit]="editFor(expense.id)"
+                <article
+                  class="empty-state"
+                  *ngIf="state() === 'ready' && filteredExpenses().length === 0"
+                >
+                  <h3>
+                    {{ 'admin.legacy.aucune_entree_trouvee' | translate }}
+                  </h3>
+                  <p>
+                    {{
+                      'admin.legacy.ajoutez_une_depense_ou_modifiez_les_filtres'
+                        | translate
+                    }}
+                  </p>
+                </article>
+              </section>
+            </div>
+            <openg7-admin-expense-create
+              [draft]="newExpenseDraft()"
               [busy]="mutationBusy()"
-              [amountLabel]="
-                formatMoney(expense.amount_allocated, expense.currency)
-              "
-              (editChange)="setEditField(expense.id, $event)"
-              (saveRequested)="saveExpense(expense, $event)"
-              (proofRequested)="inspection.proof(expense)"
+              (draftChange)="setNewField($event)"
+              (createRequested)="createExpense()"
             />
-
-            <article
-              class="empty-state"
-              *ngIf="state() === 'ready' && filteredExpenses().length === 0"
-            >
-              <h3>{{ 'admin.legacy.aucune_entree_trouvee' | translate }}</h3>
-              <p>
-                {{
-                  'admin.legacy.ajoutez_une_depense_ou_modifiez_les_filtres'
-                    | translate
-                }}
-              </p>
-            </article>
-          </section>
+          </div>
         </ng-container>
       </section>
     </openg7-admin-layout>

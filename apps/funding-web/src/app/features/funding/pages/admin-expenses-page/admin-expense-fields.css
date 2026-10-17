@@ -2,26 +2,24 @@
 
 :host {
   @apply tw:block tw:min-w-0;
+  container: expense-fields / inline-size;
 }
 
 .fields-grid,
 .filters {
-  @apply tw:grid tw:gap-3;
+  @apply tw:grid tw:min-w-0;
+  gap: var(--admin-card-gap);
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .fields-grid {
-  grid-template-columns: minmax(14rem, 2fr) minmax(8rem, 0.8fr) minmax(
-      9rem,
-      1fr
-    );
+  align-items: start;
 }
 
 .filters {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.45rem;
-  grid-template-columns: minmax(14rem, 2fr) minmax(10rem, 1fr);
-  @apply tw:p-4;
+  @apply tw:rounded-admin-card tw:p-admin-card;
 }
 
 .span-3 {
@@ -29,31 +27,36 @@
 }
 
 label {
-  @apply tw:grid;
-  gap: 0.35rem;
-  @apply tw:text-admin-caption;
+  @apply tw:grid tw:min-w-0 tw:gap-2 tw:text-admin-caption tw:wrap-anywhere;
   font-weight: var(--admin-label-weight);
 }
 
 input,
 select,
 textarea {
-  border: 1px solid var(--admin-border);
-  border-radius: 0.35rem;
+  @apply tw:w-full tw:min-w-0 tw:rounded-admin-control;
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-control-border);
   font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
+  font-size: var(--admin-body-size, 1rem);
+  line-height: var(--admin-body-leading, 1.55);
   font-weight: 400;
-  padding: 0.65rem 0.75rem;
+  min-height: var(--admin-control-height, 2.75rem);
+  padding: 0.625rem 0.75rem;
 }
 
 textarea {
   resize: vertical;
 }
 
-@media (max-width: 900px) {
-  .fields-grid,
+@container expense-fields (min-width: 30rem) {
   .filters {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  }
+}
+
+@container expense-fields (min-width: 44rem) {
+  .fields-grid {
+    grid-template-columns: minmax(0, 1.5fr) repeat(2, minmax(0, 1fr));
   }
 }

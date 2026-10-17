@@ -1,5 +1,6 @@
 <section
   class="admin-summary-grid"
+  data-og7="contributions-summary"
   [attr.aria-label]="'admin.legacy.resume_contributions' | translate"
 >
   <article>
@@ -16,6 +17,7 @@
   </article>
   <article>
     <span>{{ 'admin.legacy.total_recu' | translate }}</span>
+    <small class="currency">{{ summary().currency }}</small>
     <strong>
       {{ totalReceivedLabel() }}
     </strong>

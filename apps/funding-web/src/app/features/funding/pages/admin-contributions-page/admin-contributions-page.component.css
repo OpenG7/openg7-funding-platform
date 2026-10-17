@@ -4,7 +4,9 @@
   @apply tw:block tw:min-w-0;
 }
 .admin-content {
-  @apply tw:grid tw:gap-4 tw:min-w-0;
+  @apply tw:grid tw:gap-admin-card-gap tw:min-w-0 tw:w-full tw:mx-auto;
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 78rem;
 }
 .admin-topbar,
 .state {
@@ -13,39 +15,35 @@
 }
 .admin-topbar,
 .admin-topbar nav {
-  @apply tw:flex tw:items-center tw:gap-3 tw:justify-between;
+  @apply tw:flex tw:flex-wrap tw:items-center tw:gap-3 tw:justify-between;
 }
-.admin-topbar span {
-  @apply tw:text-admin-muted tw:text-admin-caption tw:uppercase;
-  font-weight: var(--admin-label-weight);
-  letter-spacing: 0;
+.admin-topbar {
+  gap: 1rem 1.5rem;
+}
+.admin-topbar > div {
+  @apply tw:min-w-0 tw:max-w-full;
+}
+.admin-topbar nav {
+  @apply tw:max-w-full;
 }
 .admin-topbar h1 {
-  @apply tw:m-0;
+  @apply tw:m-0 tw:min-w-0 tw:wrap-anywhere;
 }
-button {
-  border-radius: 0.35rem;
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-  background: var(--admin-panel-raised);
-  border: 0;
-  @apply tw:text-admin-text tw:cursor-pointer;
-  font-weight: var(--admin-control-weight);
-  min-height: 2.7rem;
-  padding: 0 0.9rem;
+.admin-topbar button {
+  @apply tw:max-w-full;
+  white-space: normal;
+  text-align: center;
 }
-button:disabled {
-  @apply tw:cursor-wait tw:opacity-62;
+openg7-admin-stripe-backfill {
+  @apply tw:min-w-0;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--admin-border);
+}
+.state {
+  @apply tw:text-admin-muted;
+  line-height: 1.5;
 }
 .state-error {
   @apply tw:text-admin-danger;
   font-weight: 500;
-}
-@media (max-width: 860px) {
-  .admin-topbar,
-  .admin-topbar nav {
-    align-items: start;
-    @apply tw:flex-col;
-  }
 }

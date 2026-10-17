@@ -2,42 +2,37 @@
 
 :host {
   @apply tw:block tw:min-w-0;
+  container: contribution-filters / inline-size;
 }
 
 .filters {
-  @apply tw:grid tw:gap-3 tw:p-4 tw:w-full;
+  @apply tw:grid tw:gap-4 tw:p-admin-card tw:w-full tw:rounded-admin-card;
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.45rem;
-  grid-template-columns: minmax(14rem, 2fr) repeat(3, minmax(10rem, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   margin: 0 auto;
   max-width: 78rem;
 }
 
 .filters label {
-  @apply tw:grid tw:text-admin-caption;
-  gap: 0.35rem;
+  @apply tw:grid tw:min-w-0 tw:text-admin-caption;
+  gap: 0.5rem;
   font-weight: var(--admin-label-weight);
 }
 
 input,
 select {
-  border: 1px solid var(--admin-border);
-  border-radius: 0.35rem;
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-  padding: 0.65rem 0.75rem;
+  @apply tw:w-full tw:min-h-admin-control;
 }
 
-@media (max-width: 1020px) {
+@container contribution-filters (min-width: 36rem) {
   .filters {
     @apply tw:grid-cols-2;
   }
 }
 
-@media (max-width: 860px) {
+@container contribution-filters (min-width: 64rem) {
   .filters {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(16rem, 2fr) repeat(3, minmax(0, 1fr));
   }
 }

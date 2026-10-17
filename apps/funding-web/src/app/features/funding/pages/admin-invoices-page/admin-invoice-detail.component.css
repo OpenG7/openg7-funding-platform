@@ -2,20 +2,13 @@
 
 :host {
   @apply tw:block tw:min-w-0;
+  container: admin-invoice-detail / inline-size;
 }
 
-.detail-header span,
-.line-items header span,
-.credit-notes-panel header span,
-.email-panel header span {
-  @apply tw:text-admin-warning tw:text-admin-caption tw:uppercase;
-  font-weight: var(--admin-label-weight);
-  letter-spacing: 0;
-}
-
-.email-panel header openg7-admin-document-email-status {
-  letter-spacing: 0;
-  @apply tw:uppercase;
+.invoice-detail-panel {
+  @apply tw:grid tw:min-w-0 tw:gap-6 tw:rounded-admin-card tw:p-admin-card;
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
 }
 
 h2,
@@ -24,160 +17,143 @@ p {
   @apply tw:m-0;
 }
 
-button {
-  border: 0;
-  @apply tw:cursor-pointer;
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-}
-
-.secondary-action {
-  background: var(--admin-panel);
-  border: 1px solid var(--admin-border);
-  @apply tw:rounded-admin-sm tw:text-admin-text;
-  font-weight: var(--admin-label-weight);
-  min-height: 2.35rem;
-  padding: 0 0.85rem;
-}
-
-.secondary-action:disabled {
-  @apply tw:cursor-not-allowed tw:opacity-55;
-}
-
-.invoice-detail-panel {
-  background: var(--admin-panel-raised);
-  border: 1px solid var(--admin-border);
-  @apply tw:rounded-lg;
-  box-shadow: 0 0.8rem 1.8rem rgba(23, 32, 51, 0.06);
-}
-
-.invoice-detail-panel {
-  @apply tw:min-w-0 tw:p-4;
-}
-
-.detail-header,
-.line-items header,
-.credit-notes-panel header,
-.email-panel header {
-  align-items: start;
-  @apply tw:flex tw:gap-3 tw:justify-between;
-}
-
-.invoice-detail-panel {
-  @apply tw:grid tw:gap-4;
-}
-
 .detail-header {
-  border-bottom: 1px solid var(--admin-border);
-  @apply tw:pb-4;
+  @apply tw:grid tw:min-w-0 tw:gap-4;
+  align-items: start;
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto);
 }
 
-.detail-header p {
+.detail-heading {
+  @apply tw:grid tw:min-w-0 tw:gap-1;
+}
+
+.detail-heading > span,
+.line-items > header > span,
+.credit-notes-panel > header > div > span,
+.email-panel > header > div > span {
+  @apply tw:text-admin-muted tw:text-admin-caption;
+}
+
+.detail-heading h2,
+.detail-total,
+.credit-note-title strong {
+  @apply tw:min-w-0 tw:wrap-anywhere;
+}
+
+.detail-heading p {
   @apply tw:text-admin-muted;
-  font-weight: 500;
-  margin-top: 0.2rem;
+}
+
+.detail-total {
+  font-size: 1.625rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: end;
+}
+
+.detail-actions,
+.document-actions {
+  @apply tw:flex tw:min-w-0 tw:flex-wrap tw:items-center tw:gap-2;
 }
 
 .detail-actions {
-  align-items: end;
-  @apply tw:grid tw:justify-items-end;
-  gap: 0.45rem;
+  @apply tw:col-span-full;
 }
 
-.detail-actions > strong {
-  font-size: 1.4rem;
-  @apply tw:whitespace-nowrap;
+.detail-actions .download-message {
+  flex-basis: 100%;
 }
 
 .detail-grid {
-  @apply tw:grid tw:gap-3 tw:grid-cols-2;
+  @apply tw:grid tw:min-w-0 tw:gap-6;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
 }
 
 dl,
 .line-items,
 .credit-notes-panel,
 .email-panel {
-  @apply tw:grid tw:m-0;
-  gap: 0.65rem;
+  @apply tw:grid tw:min-w-0 tw:m-0 tw:gap-4;
 }
 
-dl div,
-.line-item {
-  align-items: start;
-  border-bottom: 1px solid rgba(23, 32, 51, 0.08);
-  @apply tw:grid;
-  gap: 0.35rem;
-  grid-template-columns: minmax(8rem, 0.75fr) minmax(0, 1fr);
-  padding-bottom: 0.65rem;
+dl div {
+  @apply tw:grid tw:min-w-0 tw:gap-1;
 }
 
 dt {
-  @apply tw:text-admin-muted tw:text-admin-caption tw:uppercase;
-  font-weight: var(--admin-label-weight);
-}
-
-dd {
-  font-weight: 400;
-  @apply tw:m-0 tw:min-w-0 tw:wrap-anywhere;
-}
-
-.line-items,
-.credit-notes-panel,
-.email-panel {
-  background: var(--admin-panel);
-  border: 1px solid var(--admin-border);
-  border-radius: 0.45rem;
-  padding: 0.85rem;
-}
-
-.credit-notes-panel {
-  @apply tw:border-admin-border;
-}
-
-.credit-note-card {
-  background: var(--admin-panel);
-  border: 1px solid var(--admin-border);
-  @apply tw:rounded-admin-sm tw:grid tw:p-3;
-  gap: 0.7rem;
-}
-
-.credit-note-title {
-  align-items: start;
-  @apply tw:flex tw:gap-3 tw:justify-between;
-}
-
-.credit-note-title div {
-  @apply tw:grid;
-  gap: 0.2rem;
-}
-
-.credit-note-title span {
   @apply tw:text-admin-muted tw:text-admin-caption;
   font-weight: 400;
 }
 
-.credit-note-meta {
-  background: var(--admin-panel);
-  border-radius: 0.35rem;
-  padding: 0.7rem;
-}
-
-.line-item {
-  grid-template-columns: minmax(0, 1fr) auto auto;
-}
-
-.line-item small {
-  @apply tw:text-admin-muted tw:whitespace-nowrap;
+dd {
+  @apply tw:m-0 tw:min-w-0 tw:wrap-anywhere;
   font-weight: 400;
 }
 
-.totals {
-  margin-top: 0.2rem;
+.line-items,
+.credit-notes-panel,
+.email-panel,
+.stripe-grid {
+  @apply tw:min-w-0 tw:pt-6;
+  border-top: 1px solid var(--admin-border);
+}
+
+.line-items > header,
+.credit-notes-panel > header,
+.email-panel > header,
+.credit-note-title {
+  @apply tw:flex tw:min-w-0 tw:flex-wrap tw:items-start tw:justify-between tw:gap-3;
+}
+
+.line-items > header > strong,
+.credit-notes-panel > header > strong,
+.credit-note-title > strong {
+  @apply tw:min-w-0 tw:wrap-anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.line-item {
+  @apply tw:grid tw:min-w-0 tw:gap-x-4 tw:gap-y-1 tw:pb-4;
+  border-bottom: 1px solid var(--admin-border);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.65fr);
+}
+
+.line-item span,
+.line-item small,
+.line-item strong {
+  @apply tw:min-w-0 tw:wrap-anywhere;
+}
+
+.line-item small {
+  @apply tw:text-admin-muted;
+  font-weight: 400;
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.line-item strong {
+  align-self: center;
+  font-variant-numeric: tabular-nums;
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  text-align: end;
+}
+
+.totals div {
+  @apply tw:gap-x-4;
+  align-items: baseline;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr);
+}
+
+.totals dd {
+  font-variant-numeric: tabular-nums;
+  text-align: end;
 }
 
 .totals div:last-child {
-  border-bottom: 0;
+  @apply tw:pt-4;
+  border-top: 1px solid var(--admin-border);
 }
 
 .totals div:last-child dt,
@@ -187,74 +163,56 @@ dd {
   font-weight: var(--admin-emphasis-weight);
 }
 
+.credit-note-card {
+  @apply tw:grid tw:min-w-0 tw:gap-4 tw:rounded-admin-card tw:p-4;
+  background: var(--admin-panel-raised);
+  border: 1px solid var(--admin-border);
+}
+
+.credit-note-title > div {
+  @apply tw:grid tw:min-w-0 tw:gap-1;
+}
+
+.credit-note-title span {
+  @apply tw:text-admin-muted tw:text-admin-caption;
+}
+
+.credit-note-meta,
+.email-meta,
+.stripe-grid dl {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+}
+
 .stripe-grid dd {
+  @apply tw:text-admin-caption;
   font-family:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
     'Courier New', monospace;
-  @apply tw:text-admin-caption;
-}
-
-.email-meta {
-  background: var(--admin-panel-raised);
-  @apply tw:rounded-admin-sm tw:p-3;
-}
-
-.document-actions {
-  @apply tw:items-center tw:flex tw:flex-wrap;
-  gap: 0.65rem;
 }
 
 .download-message {
-  @apply tw:text-admin-muted;
-  font-weight: 500;
+  @apply tw:text-admin-muted tw:wrap-anywhere;
 }
 
 .download-message.error {
   @apply tw:text-admin-danger;
 }
 
-.invoice-note,
-.empty-detail {
+.invoice-note {
+  @apply tw:rounded-admin-control tw:text-admin-muted tw:p-4;
   background: var(--admin-panel-raised);
-  @apply tw:rounded-admin-sm tw:text-admin-muted tw:grid tw:gap-1;
-  padding: 0.85rem;
 }
 
 .empty-detail strong {
-  @apply tw:text-admin-text;
+  font-weight: var(--admin-label-weight);
 }
 
-@media (max-width: 1080px) {
-  .detail-grid {
-    @apply tw:grid-cols-2;
+@container admin-invoice-detail (max-width: 32rem) {
+  .detail-header {
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .detail-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 620px) {
-  .detail-header,
-  .detail-actions,
-  .line-items header,
-  .credit-notes-panel header,
-  .credit-note-title,
-  .email-panel header {
-    @apply tw:items-stretch tw:flex-col;
-  }
-
-  dl div,
-  .line-item {
-    grid-template-columns: 1fr;
-  }
-
-  .detail-actions {
-    @apply tw:items-stretch tw:justify-items-stretch;
-  }
-
-  .detail-actions > strong,
-  .line-item small {
-    @apply tw:whitespace-normal;
+  .detail-total {
+    text-align: start;
   }
 }

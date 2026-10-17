@@ -135,11 +135,13 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
           'background-color',
           palettes[theme].panel
         );
-        await expect(panel).toHaveCSS('padding', '16px');
-        await expect(panel).toHaveCSS('border-radius', '7.2px');
+        const bounds = (await panel.boundingBox())!;
+        expect(bounds.x).toBeGreaterThanOrEqual(-1);
+        expect(bounds.x + bounds.width).toBeLessThanOrEqual(
+          english ? 1441 : 391
+        );
       }
-      await expect(summary).toHaveCSS('gap', '12px');
-      await expect.poll(() => columns(summary)).toBe(english ? 4 : 1);
+      await expect(summary.getByRole('article')).toHaveCount(4);
       await expect(card.getByRole('textbox').first()).toHaveCSS(
         'color',
         palettes[theme].text
@@ -161,13 +163,16 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
         for (const width of [900, 901]) {
           await test.step(`expense CSS boundary ${width}px`, async () => {
             await page.setViewportSize({ width, height: 1000 });
-            for (const [grid, count] of [
-              [summary, width <= 900 ? 1 : 4],
-              [filters, width <= 900 ? 1 : 2],
-              [fields, width <= 900 ? 1 : 3]
-            ] as const) {
-              await expect.poll(() => columns(grid)).toBe(count);
+            for (const control of await fields
+              .locator('input, select, textarea')
+              .all()) {
+              const bounds = (await control.boundingBox())!;
+              expect(bounds.x).toBeGreaterThanOrEqual(-1);
+              expect(bounds.x + bounds.width).toBeLessThanOrEqual(width + 1);
+              expect(bounds.height).toBeGreaterThanOrEqual(44);
             }
+            await expect(summary.getByRole('article')).toHaveCount(4);
+            await expect(search).toHaveValue('Synthetic style');
           });
         }
         await page.setViewportSize({ width: 390, height: 1000 });

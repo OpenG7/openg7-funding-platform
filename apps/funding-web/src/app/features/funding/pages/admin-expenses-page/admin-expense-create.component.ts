@@ -27,7 +27,6 @@ import type {
     >
       <header>
         <div>
-          <span>{{ 'admin.legacy.nouvelle_entree' | translate }}</span>
           <h2 id="create-title">
             {{ 'admin.legacy.ajouter_une_depense_ou_allocation' | translate }}
           </h2>
@@ -42,6 +41,7 @@ import type {
       <footer>
         <button
           type="button"
+          class="admin-button admin-button--primary"
           [disabled]="busy()"
           (click)="createRequested.emit()"
         >

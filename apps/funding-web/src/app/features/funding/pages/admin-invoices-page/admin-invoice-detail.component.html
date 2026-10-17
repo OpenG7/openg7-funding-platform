@@ -5,16 +5,16 @@
     [attr.aria-label]="'admin.legacy.detail_facture' | translate"
   >
     <header class="detail-header">
-      <div>
+      <div class="detail-heading">
         <span>{{ 'admin.legacy.facture' | translate }}</span>
         <h2>{{ invoice.invoice_number }}</h2>
         <p>{{ invoice.sponsor_name }}</p>
       </div>
+      <strong class="detail-total">{{ detail.totalLabel }}</strong>
       <div class="detail-actions">
-        <strong>{{ detail.totalLabel }}</strong>
         <button
           type="button"
-          class="secondary-action"
+          class="admin-button secondary-action"
           [disabled]="detail.download.state === 'loading'"
           (click)="invoiceDownload.emit(invoice)"
         >
@@ -26,7 +26,7 @@
         </button>
         <button
           type="button"
-          class="secondary-action"
+          class="admin-button secondary-action"
           (click)="invoiceInspection.emit(invoice)"
           [openg7AutomaticPrepare]="'invoice-preview:' + invoice.id"
           [automaticFor]="invoice.contribution_id"
@@ -189,7 +189,7 @@
         <div class="document-actions">
           <button
             type="button"
-            class="secondary-action"
+            class="admin-button secondary-action"
             [disabled]="credit.download.state === 'loading'"
             (click)="creditNoteDownload.emit(credit.record)"
           >

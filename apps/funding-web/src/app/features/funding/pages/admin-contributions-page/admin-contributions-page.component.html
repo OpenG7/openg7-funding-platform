@@ -1,17 +1,20 @@
 <openg7-admin-layout>
-  <section class="admin-content">
+  <section class="admin-content" data-og7="contributions-page">
     <header class="admin-topbar">
       <div>
-        <span>{{ 'admin.legacy.administration' | translate }}</span>
         <h1>{{ 'admin.legacy.contributions' | translate }}</h1>
       </div>
-      <nav>
-        <button type="button" (click)="loadContributions()">
+      <nav [attr.aria-label]="'admin.legacy.contributions' | translate">
+        <button
+          type="button"
+          class="admin-button"
+          (click)="loadContributions()"
+        >
           {{ 'admin.legacy.actualiser' | translate }}
         </button>
         <button
           type="button"
-          class="secondary"
+          class="admin-button secondary"
           data-og7="contribution-export"
           [disabled]="
             state() !== 'ready' ||
@@ -29,14 +32,6 @@
       </nav>
     </header>
 
-    <openg7-admin-stripe-backfill (completed)="loadContributions()" />
-
-    <openg7-admin-contributions-export
-      [count]="filteredContributions().length"
-      [canExport]="canExport()"
-      [errorKey]="exportError()"
-    />
-
     <p class="state" *ngIf="state() === 'loading'">
       {{ 'admin.legacy.chargement_des_contributions' | translate }}
     </p>
@@ -49,12 +44,6 @@
     </p>
 
     <ng-container *ngIf="data() as response">
-      @if (selectedContributionView(); as selected) {
-        <openg7-admin-contributions-detail
-          [contribution]="selected"
-          (followPayment)="guidance.followPayment($event)"
-        />
-      }
       <openg7-admin-contributions-summary
         [summary]="response.summary"
         [totalReceivedLabel]="
@@ -74,6 +63,21 @@
         (statusChanged)="setStatusFilter($event)"
         (publicChanged)="setPublicFilter($event)"
       />
+    </ng-container>
+
+    <openg7-admin-contributions-export
+      [count]="filteredContributions().length"
+      [canExport]="canExport()"
+      [errorKey]="exportError()"
+    />
+
+    <ng-container *ngIf="data() as response">
+      @if (selectedContributionView(); as selected) {
+        <openg7-admin-contributions-detail
+          [contribution]="selected"
+          (followPayment)="guidance.followPayment($event)"
+        />
+      }
       <openg7-admin-contributions-list
         [rows]="contributionRows()"
         [selectedId]="selectedContributionId()"
@@ -81,5 +85,7 @@
         (selected)="selectContribution($event)"
       />
     </ng-container>
+
+    <openg7-admin-stripe-backfill (completed)="loadContributions()" />
   </section>
 </openg7-admin-layout>

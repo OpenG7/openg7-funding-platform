@@ -1,55 +1,30 @@
 @reference '../../../../../styles/tailwind.css';
 
 :host {
-  @apply tw:grid tw:min-w-0;
-  gap: 0.7rem;
-}
-
-button {
-  border: 0;
-  @apply tw:cursor-pointer;
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-}
-
-.primary-action {
-  background: var(--admin-panel-raised);
-  @apply tw:rounded-admin-sm tw:text-admin-text;
-  font-weight: var(--admin-control-weight);
-  min-height: 2.45rem;
-  padding: 0 0.95rem;
-}
-
-.primary-action:disabled {
-  @apply tw:cursor-not-allowed tw:opacity-55;
+  @apply tw:grid tw:min-w-0 tw:gap-4;
 }
 
 label {
-  @apply tw:text-admin-muted tw:grid tw:text-admin-caption tw:uppercase;
+  @apply tw:grid tw:min-w-0 tw:gap-2 tw:text-admin-muted tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
-  gap: 0.35rem;
 }
 
 input {
-  background: var(--admin-panel);
-  border: 1px solid var(--admin-border);
-  border-radius: 0.35rem;
-  @apply tw:text-admin-text tw:min-h-10 tw:normal-case;
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-  font-weight: 400;
-  padding: 0 0.75rem;
+  @apply tw:w-full;
+  font-size: var(--admin-body-size, 1rem);
+}
+
+.primary-action {
+  @apply tw:cursor-pointer tw:py-2.5 tw:px-4;
+  line-height: 1.4;
 }
 
 .resend-actions {
-  @apply tw:items-center tw:flex tw:flex-wrap tw:gap-3;
+  @apply tw:flex tw:min-w-0 tw:flex-wrap tw:items-center tw:gap-3;
 }
 
 .resend-message {
-  @apply tw:text-admin-muted;
-  font-weight: 500;
+  @apply tw:min-w-0 tw:text-admin-muted tw:wrap-anywhere;
 }
 
 .resend-message.success {
@@ -58,4 +33,9 @@ input {
 
 .resend-message.error {
   @apply tw:text-admin-danger;
+}
+
+.resend-actions a {
+  @apply tw:inline-flex tw:min-h-admin-control tw:max-w-full tw:items-center tw:py-2 tw:wrap-anywhere;
+  text-underline-offset: 0.2em;
 }

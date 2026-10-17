@@ -1,35 +1,27 @@
 @reference '../../../../../styles/tailwind.css';
 
 :host {
-  @apply tw:inline-flex;
+  @apply tw:inline-flex tw:min-w-0 tw:max-w-full;
 }
 
 .email-status {
-  @apply tw:items-center tw:text-admin-muted tw:inline-flex tw:text-admin-caption tw:justify-center tw:whitespace-nowrap;
+  @apply tw:inline-flex tw:max-w-full tw:items-center tw:rounded-full tw:text-admin-muted tw:text-admin-caption tw:wrap-anywhere;
   background: var(--admin-panel-raised);
-  border-radius: 999px;
   font-weight: var(--admin-label-weight);
-  min-height: 1.65rem;
-  padding: 0 0.6rem;
+  padding: 0.125rem 0.625rem;
 }
 
 .status-sent {
-  background: var(--admin-panel-raised);
   @apply tw:text-admin-success;
+  background: var(--admin-success-bg);
 }
 
 .status-failed {
-  background: var(--og7-admin-danger-bg, #422532);
   @apply tw:text-admin-danger;
+  background: var(--admin-danger-bg);
 }
 
 .status-queued {
-  background: var(--og7-admin-warning-bg, #3c3221);
   @apply tw:text-admin-warning;
-}
-
-@media (max-width: 620px) {
-  .email-status {
-    @apply tw:whitespace-normal;
-  }
+  background: var(--admin-warning-bg);
 }

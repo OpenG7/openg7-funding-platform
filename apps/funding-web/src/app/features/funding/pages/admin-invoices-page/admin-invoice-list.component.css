@@ -4,43 +4,18 @@
   @apply tw:block tw:min-w-0;
 }
 
+.invoice-list-panel {
+  @apply tw:grid tw:min-w-0 tw:gap-4 tw:rounded-admin-card tw:p-admin-card;
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+}
+
 .invoice-list-panel header span {
-  @apply tw:text-admin-warning tw:text-admin-caption tw:uppercase;
-  font-weight: var(--admin-label-weight);
-  letter-spacing: 0;
+  @apply tw:text-admin-muted tw:text-admin-caption;
 }
 
 h2 {
   @apply tw:m-0;
-}
-
-button {
-  border: 0;
-  @apply tw:cursor-pointer;
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-}
-
-.invoice-list-panel {
-  background: var(--admin-panel-raised);
-  border: 1px solid var(--admin-border);
-  @apply tw:rounded-lg;
-  box-shadow: 0 0.8rem 1.8rem rgba(23, 32, 51, 0.06);
-}
-
-.invoice-list-panel {
-  @apply tw:min-w-0 tw:p-4;
-}
-
-.invoice-list-panel {
-  @apply tw:grid;
-  gap: 0.85rem;
-}
-
-.invoice-list-panel header {
-  align-items: start;
-  @apply tw:flex tw:gap-3 tw:justify-between;
 }
 
 .invoice-list {
@@ -48,68 +23,62 @@ button {
 }
 
 .invoice-list button {
+  @apply tw:grid tw:min-w-0 tw:cursor-pointer tw:gap-2 tw:p-4 tw:text-left;
   background: var(--admin-panel);
-  border: 1px solid var(--admin-border);
-  border-radius: 0.45rem;
-  @apply tw:text-admin-text tw:grid tw:text-left;
-  gap: 0.25rem 0.75rem;
-  grid-template-columns: minmax(0, 1fr) auto;
-  min-height: 5.4rem;
-  padding: 0.8rem;
+  border-color: var(--admin-border);
 }
 
-.invoice-list button:hover,
+.invoice-list button:not(:disabled):hover {
+  background: var(--admin-hover);
+  border-color: var(--admin-accent);
+  box-shadow: none;
+}
+
 .invoice-list button.selected {
-  @apply tw:border-admin-warning-border;
-  box-shadow: inset 0.25rem 0 0 #b98224;
+  background: var(--admin-selected);
+  border-color: var(--admin-border);
+  box-shadow: inset 3px 0 0 var(--admin-accent);
+}
+
+.invoice-row-heading {
+  @apply tw:flex tw:min-w-0 tw:flex-wrap tw:items-start tw:justify-between tw:gap-x-3 tw:gap-y-1;
 }
 
 .invoice-number,
-.invoice-name,
-.invoice-meta {
+.invoice-row-heading strong {
   @apply tw:min-w-0 tw:wrap-anywhere;
-}
-
-.invoice-number {
   font-weight: var(--admin-label-weight);
 }
 
+.invoice-row-heading strong {
+  font-variant-numeric: tabular-nums;
+}
+
 .invoice-name {
-  @apply tw:text-admin-muted tw:col-span-full;
-  font-weight: 500;
+  @apply tw:min-w-0 tw:wrap-anywhere;
+  font-weight: 400;
+}
+
+.invoice-row-meta {
+  @apply tw:flex tw:min-w-0 tw:flex-wrap tw:items-center tw:gap-x-3 tw:gap-y-2;
 }
 
 .invoice-meta {
-  @apply tw:text-admin-muted;
-  font-size: 0.88rem;
+  @apply tw:text-admin-muted tw:text-admin-caption tw:wrap-anywhere;
   font-weight: 400;
 }
 
 .credit-status {
-  @apply tw:items-center tw:text-admin-muted tw:inline-flex tw:text-admin-caption tw:justify-center tw:whitespace-nowrap;
+  @apply tw:inline-flex tw:max-w-full tw:items-center tw:rounded-full tw:text-admin-muted tw:text-admin-caption;
   background: var(--admin-panel-raised);
-  border-radius: 999px;
   font-weight: var(--admin-label-weight);
-  min-height: 1.65rem;
-  padding: 0 0.6rem;
+  padding: 0.125rem 0.625rem;
 }
 
 .empty-state {
-  background: var(--admin-panel-raised);
-  @apply tw:rounded-admin-sm tw:text-admin-muted tw:grid tw:gap-1;
-  padding: 0.85rem;
+  @apply tw:grid tw:gap-2 tw:text-admin-muted;
 }
 
 .empty-state strong {
   @apply tw:text-admin-text;
-}
-
-@media (max-width: 620px) {
-  .invoice-list button {
-    grid-template-columns: 1fr;
-  }
-
-  .credit-status {
-    @apply tw:whitespace-normal;
-  }
 }

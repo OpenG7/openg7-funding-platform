@@ -1,34 +1,29 @@
 @reference '../../../../../styles/tailwind.css';
 
 :host {
-  @apply tw:block;
+  @apply tw:block tw:min-w-0;
 }
 
 .admin-content {
-  @apply tw:grid tw:gap-4 tw:min-w-0;
+  @apply tw:grid tw:min-w-0 tw:gap-6;
+  container: admin-invoices / inline-size;
 }
 
 .admin-topbar {
-  @apply tw:items-center tw:rounded-lg tw:flex tw:gap-4 tw:justify-between tw:p-4;
-  background: var(--admin-panel-raised);
-  border: 1px solid var(--admin-border);
+  @apply tw:flex tw:flex-wrap tw:items-start tw:justify-between tw:gap-4;
 }
 
-.admin-topbar div {
-  @apply tw:grid;
-  gap: 0.2rem;
+.admin-topbar > div {
+  @apply tw:grid tw:min-w-0 tw:gap-1;
 }
 
 .admin-topbar nav {
-  @apply tw:flex tw:flex-wrap tw:justify-end;
-  gap: 0.65rem;
+  @apply tw:flex tw:flex-wrap tw:gap-2;
 }
 
 .admin-topbar span,
 .admin-summary-grid span {
-  @apply tw:text-admin-warning tw:text-admin-caption tw:uppercase;
-  font-weight: var(--admin-label-weight);
-  letter-spacing: 0;
+  @apply tw:text-admin-muted tw:text-admin-caption;
 }
 
 h1,
@@ -36,59 +31,41 @@ p {
   @apply tw:m-0;
 }
 
-button {
-  border: 0;
-  @apply tw:cursor-pointer;
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-}
-
 .admin-topbar button {
-  background: var(--admin-panel-raised);
-  @apply tw:rounded-admin-sm tw:text-admin-text;
-  font-weight: var(--admin-control-weight);
-  min-height: 2.45rem;
-  padding: 0 0.95rem;
-}
-
-.admin-topbar button:disabled {
-  @apply tw:cursor-not-allowed tw:opacity-55;
+  @apply tw:cursor-pointer tw:py-2.5 tw:px-4;
+  line-height: 1.4;
 }
 
 .state {
-  background: var(--admin-panel-raised);
+  @apply tw:rounded-admin-control tw:text-admin-muted tw:p-4;
+  background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.45rem;
-  @apply tw:text-admin-muted;
-  font-weight: 500;
-  padding: 0.85rem 1rem;
 }
 
 .state-error {
-  background: var(--admin-panel-raised);
   @apply tw:border-admin-danger-border tw:text-admin-danger;
+  background: var(--admin-danger-bg);
 }
 
 .admin-summary-grid {
-  @apply tw:grid tw:gap-3 tw:grid-cols-5;
-}
-
-.admin-summary-grid article {
-  background: var(--admin-panel-raised);
+  @apply tw:grid tw:gap-y-4 tw:rounded-admin-card tw:p-admin-card;
+  background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  @apply tw:rounded-lg;
-  box-shadow: 0 0.8rem 1.8rem rgba(23, 32, 51, 0.06);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr));
 }
 
 .admin-summary-grid article {
-  @apply tw:grid tw:gap-1 tw:p-4;
-  min-height: 6.6rem;
+  @apply tw:grid tw:min-w-0 tw:gap-1 tw:px-4;
+  align-content: start;
+  border-inline-start: 2px solid var(--admin-border);
 }
 
 .admin-summary-grid strong {
-  font-size: 1.55rem;
-  line-height: 1.1;
+  @apply tw:wrap-anywhere;
+  font-size: 1.375rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--admin-heading-weight, 600);
+  line-height: 1.35;
 }
 
 .admin-summary-grid small {
@@ -97,34 +74,13 @@ button {
 }
 
 .invoices-board {
+  @apply tw:grid tw:min-w-0 tw:gap-admin-card-gap;
   align-items: start;
-  @apply tw:grid tw:gap-4;
-  grid-template-columns: minmax(18rem, 0.95fr) minmax(0, 1.45fr);
+  grid-template-columns: minmax(0, 1fr);
 }
 
-@media (max-width: 1080px) {
-  .admin-summary-grid,
+@container admin-invoices (min-width: 60rem) {
   .invoices-board {
-    @apply tw:grid-cols-2;
-  }
-
-  .invoices-board {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 860px) {
-  .admin-summary-grid {
-    @apply tw:grid-cols-2;
-  }
-}
-
-@media (max-width: 620px) {
-  .admin-topbar {
-    @apply tw:items-stretch tw:flex-col;
-  }
-
-  .admin-summary-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(17rem, 0.75fr) minmax(0, 1.5fr);
   }
 }
