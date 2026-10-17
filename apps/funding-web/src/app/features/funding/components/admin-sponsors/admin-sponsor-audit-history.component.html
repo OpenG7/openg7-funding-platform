@@ -12,13 +12,30 @@
           {{ 'admin.legacy.historique_disponible' | translate }}
         </h3>
         @if (view().entries.length > 0) {
-          <p class="history-summary" data-og7="dossier-audit-summary">
-            <span class="history-count">{{
-              (view().entries.length === 1
-                ? 'admin.history.singleEvent'
-                : 'admin.history.eventCount'
-              ) | translate: { count: view().entries.length }
-            }}</span>
+          <p
+            class="history-summary"
+            data-og7="dossier-audit-summary"
+            role="status"
+          >
+            <span class="history-count">
+              @if (domainFilter() === 'all') {
+                {{
+                  (view().entries.length === 1
+                    ? 'admin.history.singleEvent'
+                    : 'admin.history.eventCount'
+                  ) | translate: { count: view().entries.length }
+                }}
+              } @else {
+                {{
+                  'admin.history.filters.resultCount'
+                    | translate
+                      : {
+                          count: visibleEntries().length,
+                          total: view().entries.length
+                        }
+                }}
+              }
+            </span>
             <span>{{ 'admin.history.newestFirst' | translate }}</span>
           </p>
         }
@@ -28,13 +45,35 @@
       </button>
     </header>
     @if (view().entries.length > 0) {
+      <div class="history-filters">
+        <label for="dossier-audit-domain">{{
+          'admin.history.filters.domain' | translate
+        }}</label>
+        <select
+          id="dossier-audit-domain"
+          data-og7="dossier-audit-domain"
+          [value]="domainFilter()"
+          (change)="setDomainFilter($any($event.target).value)"
+        >
+          <option value="all">
+            {{ 'admin.history.filters.all' | translate }}
+          </option>
+          @for (domain of domains; track domain) {
+            <option [value]="domain">
+              {{ 'admin.history.domains.' + domain | translate }}
+            </option>
+          }
+        </select>
+      </div>
+    }
+    @if (visibleEntries().length > 0) {
       <ol
         class="admin-history"
         role="list"
         aria-labelledby="dossier-audit-title"
         data-og7="dossier-audit-events"
       >
-        @for (entry of view().entries; track entry.id) {
+        @for (entry of visibleEntries(); track entry.id) {
           <li [attr.data-og7-id]="entry.id">
             <time [attr.datetime]="entry.dateTime">{{
               entry.dateTimeLabel
@@ -60,6 +99,10 @@
           </li>
         }
       </ol>
+    } @else if (view().entries.length > 0) {
+      <p class="muted-copy" data-og7="dossier-audit-filter-empty">
+        {{ 'admin.history.filters.empty' | translate }}
+      </p>
     } @else {
       <p class="muted-copy">
         {{

@@ -41,7 +41,8 @@ function fixture() {
     manage: true,
     disabled: false,
     destroyed: false,
-    token: 'synthetic-token'
+    token: 'synthetic-token',
+    sessionGeneration: 0
   };
   const reads = [],
     writes = [],
@@ -53,6 +54,7 @@ function fixture() {
     disabled: () => state.disabled,
     isDestroyed: () => state.destroyed,
     token: () => state.token,
+    sessionGeneration: () => state.sessionGeneration,
     newRequestId: () => `synthetic-request-${++requests}`,
     async getSponsorshipInterventions(token, id, before) {
       reads.push({ token, id, before });
@@ -68,6 +70,202 @@ function fixture() {
   const controller = new AdminSponsorshipInterventionsController(ports);
   return { controller, ports, state, reads, writes, effects };
 }
+
+test('follow-up loads on first opening and defers closed refreshes until reopening', async () => {
+  const f = fixture();
+  assert.equal(f.controller.expanded(), false);
+  await f.controller.refreshIfOpen();
+  assert.deepEqual(f.reads, []);
+  await f.controller.open();
+  assert.equal(f.controller.expanded(), true);
+  assert.equal(f.reads.length, 1);
+  f.controller.note.set('Synthetic unsaved follow-up');
+  f.controller.close();
+  await f.controller.open();
+  assert.equal(f.reads.length, 1);
+  f.controller.close();
+  await f.controller.refreshIfOpen();
+  assert.equal(f.reads.length, 1);
+  await f.controller.open();
+  assert.equal(f.reads.length, 2);
+  assert.equal(f.controller.note(), 'Synthetic unsaved follow-up');
+  assert.deepEqual(f.writes, []);
+});
+
+test('closing a pending initial read preserves its result and a failed initial read can reopen and retry', async () => {
+  const f = fixture();
+  const reading = deferred();
+  f.ports.getSponsorshipInterventions = () => reading.promise;
+  const opening = f.controller.open();
+  f.controller.close();
+  reading.resolve(response([entry('synthetic-first-opening')]));
+  await opening;
+  assert.equal(f.controller.expanded(), false);
+  assert.equal(f.controller.data().entries[0].id, 'synthetic-first-opening');
+  f.controller.resetDossier();
+  f.ports.getSponsorshipInterventions = async () => {
+    throw new Error('Synthetic initial read unavailable');
+  };
+  await f.controller.open();
+  assert.equal(f.controller.error(), 'loadError');
+  f.controller.close();
+  f.ports.getSponsorshipInterventions = async () => response();
+  await f.controller.open();
+  assert.equal(f.controller.error(), '');
+  assert.notEqual(f.controller.data(), null);
+});
+
+test('closing and refreshing follow-up preserves an uncertain intervention payload and its request ID', async () => {
+  const f = fixture();
+  await f.controller.open();
+  f.controller.note.set('Synthetic follow-up extension');
+  f.controller.setKind('extension');
+  f.controller.nextReviewOn.set('2099-01-01');
+  f.ports.recordSponsorshipIntervention = async (token, payload) => {
+    f.writes.push({ token, payload });
+    throw new Error('Synthetic uncertain save');
+  };
+  await f.controller.save();
+  f.controller.close();
+  await f.controller.refreshIfOpen();
+  await f.controller.open();
+  await f.controller.load();
+  assert.equal(f.controller.note(), 'Synthetic follow-up extension');
+  assert.equal(f.controller.kind(), 'extension');
+  assert.equal(f.controller.nextReviewOn(), '2099-01-01');
+  await f.controller.save();
+  assert.equal(f.writes.length, 2);
+  assert.strictEqual(f.writes[1].payload, f.writes[0].payload);
+  assert.deepEqual(f.effects, []);
+});
+
+test('follow-up cannot close during a save and a dossier reset closes and clears the previous private context', async () => {
+  const f = fixture();
+  await f.controller.open();
+  f.controller.note.set('Synthetic saving note');
+  const writing = deferred();
+  f.ports.recordSponsorshipIntervention = () => writing.promise;
+  const saving = f.controller.save();
+  f.controller.close();
+  assert.equal(f.controller.expanded(), true);
+  f.controller.resetDossier();
+  assert.equal(f.controller.expanded(), false);
+  assert.equal(f.controller.data(), null);
+  assert.equal(f.controller.note(), '');
+  assert.equal(f.controller.loading(), false);
+  writing.resolve(entry('synthetic-old-save'));
+  await saving;
+  assert.equal(f.controller.data(), null);
+  assert.deepEqual(f.effects, []);
+});
+
+test('a changed session clears a closed journal and its pending request before reopening', async () => {
+  const f = fixture();
+  await f.controller.open();
+  f.controller.note.set('Synthetic first-session private draft');
+  f.controller.setKind('extension');
+  f.controller.nextReviewOn.set('2099-01-01');
+  f.ports.recordSponsorshipIntervention = async (token, payload) => {
+    f.writes.push({ token, payload });
+    throw new Error('Synthetic uncertain response');
+  };
+  await f.controller.save();
+  f.controller.close();
+  f.state.sessionGeneration++;
+  f.state.token = 'synthetic-replacement-token';
+  await f.controller.open();
+  assert.equal(f.reads.length, 2);
+  assert.equal(f.reads[1].token, 'synthetic-replacement-token');
+  assert.equal(f.controller.note(), '');
+  assert.equal(f.controller.kind(), 'internal');
+  assert.equal(f.controller.nextReviewOn(), '');
+  assert.equal(f.controller.success(), false);
+  f.controller.note.set('Synthetic first-session private draft');
+  f.controller.setKind('extension');
+  f.controller.nextReviewOn.set('2099-01-01');
+  await f.controller.save();
+  assert.notEqual(f.writes[1].payload.requestId, f.writes[0].payload.requestId);
+});
+
+test('an expired token cannot reopen cached private data or issue an intervention request', async () => {
+  const f = fixture();
+  await f.controller.open();
+  f.controller.note.set('Synthetic expiring private draft');
+  f.controller.close();
+  f.state.token = '';
+  await f.controller.open();
+  assert.deepEqual(f.effects, ['unauthorized']);
+  await f.controller.save();
+  await f.controller.load();
+  assert.equal(f.controller.expanded(), false);
+  assert.equal(f.controller.data(), null);
+  assert.equal(f.controller.note(), '');
+  assert.equal(f.reads.length, 1);
+  assert.deepEqual(f.writes, []);
+});
+
+for (const operation of ['read', 'save']) {
+  for (const lateFailure of [false, true]) {
+    test(`session replacement suppresses a late ${operation} ${lateFailure ? '401 failure' : 'response'} and clears the old private context`, async () => {
+      const f = fixture();
+      await f.controller.open();
+      f.controller.note.set('Synthetic previous-session private draft');
+      const late = deferred();
+      if (operation === 'read')
+        f.ports.getSponsorshipInterventions = () => late.promise;
+      else f.ports.recordSponsorshipIntervention = () => late.promise;
+      const pending =
+        operation === 'read' ? f.controller.load() : f.controller.save();
+      f.state.sessionGeneration++;
+      f.state.token = 'synthetic-replacement-token';
+      if (lateFailure) late.reject(new AdminDashboardRequestError(401));
+      else
+        late.resolve(
+          operation === 'read'
+            ? response([entry('synthetic-old-session')])
+            : entry('synthetic-old-session')
+        );
+      await pending;
+      assert.equal(f.controller.expanded(), false);
+      assert.equal(f.controller.data(), null);
+      assert.equal(f.controller.note(), '');
+      assert.equal(f.controller.saving(), false);
+      assert.equal(f.controller.loading(), false);
+      assert.equal(f.controller.success(), false);
+      assert.deepEqual(f.effects, []);
+    });
+  }
+}
+
+test('session replacement during the confirmed save reread suppresses saved emission', async () => {
+  const f = fixture();
+  await f.controller.open();
+  f.controller.note.set('Synthetic confirmed old-session note');
+  const reading = deferred();
+  f.ports.getSponsorshipInterventions = () => reading.promise;
+  const pending = f.controller.save();
+  await flush();
+  f.state.sessionGeneration++;
+  reading.resolve(response([entry('synthetic-old-session')]));
+  await pending;
+  assert.equal(f.controller.data(), null);
+  assert.equal(f.controller.expanded(), false);
+  assert.deepEqual(f.effects, []);
+});
+
+test('a replaced token suppresses its previous response without signing out the new session', async () => {
+  const f = fixture();
+  await f.controller.open();
+  const reading = deferred();
+  f.ports.getSponsorshipInterventions = () => reading.promise;
+  const pending = f.controller.load();
+  f.state.token = 'synthetic-new-token-same-generation';
+  reading.resolve(response([entry('synthetic-old-token-note')]));
+  await pending;
+  assert.equal(f.controller.data(), null);
+  assert.equal(f.controller.expanded(), false);
+  assert.deepEqual(f.effects, []);
+});
 
 test('cursor pagination preserves older entries, removes overlaps and keeps history after a failed page', async () => {
   const f = fixture();

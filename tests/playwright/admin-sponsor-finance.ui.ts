@@ -212,6 +212,10 @@ export function registerSponsorFinanceTests({
       );
       await expect(history).not.toContainText('Stripe');
       await expect(
+        history.locator('[data-og7="dossier-refund-summary"]')
+      ).toHaveCount(0);
+      await expect(history.locator('dl')).toHaveCount(0);
+      await expect(
         history.locator('[data-og7="dossier-refund-timeline"]')
       ).toHaveCount(0);
       await expectResponsiveFinance(page);

@@ -47,9 +47,13 @@ Aucune nouvelle migration ni opération sur les données existantes n’est néc
 
 ## Suivi des dossiers incomplets et interventions
 
-Le panneau **Suivi et interventions** apparaît dans le dossier, après les onglets.
-Son journal s’ouvre automatiquement dans **Remboursements** et **Historique**.
-Il conserve les démarches effectuées, leur résultat, l’acteur authentifié et la
+La commande **Suivi et interventions** reste accessible au-dessus des onglets du
+dossier. Elle ouvre le même panneau depuis chaque onglet; sa première lecture
+est différée jusqu’à cette ouverture. Fermer le panneau ou changer d’onglet
+conserve le brouillon et l’identifiant d’une tentative à reprendre dans le même
+dossier. Changer de dossier ou de session, ou perdre l’accès, efface le contexte
+privé; une réponse de l’ancienne session ne peut pas le rétablir.
+Le journal conserve les démarches effectuées, leur résultat, l’acteur authentifié et la
 date serveur d’enregistrement. Une intervention antérieure peut préciser sa date
 dans la note. En mode token partagé, l’acteur reste commun : seule une session
 nominative permet d’attribuer la note à une personne distincte.
@@ -106,6 +110,39 @@ aucune modification des faits financiers, du dossier, des consentements ou de
 la publication. Aucun effet externe n’est déclenché. Pas de nouvelle migration :
 les tables d’audit, courriels et accès commanditaires existantes sont réutilisées.
 Livrer l’API avec le Web ; une API indisponible affiche une erreur de journal.
+
+## Lecture des finances et de l’activité
+
+Les cinq onglets conservent leurs responsabilités. Le bloc commun **À traiter**
+présente la prochaine étape choisie par le serveur, le responsable de la publication
+et les prérequis encore ouverts. Les liens ciblent la section concernée, y compris
+au clavier sur mobile. Les indicateurs des onglets reprennent les états disponibles;
+une lecture indisponible ne conserve pas les indicateurs du dossier précédent.
+La préparation, la revue, le paiement et l’autorisation de publication restent
+distincts. Le guide conserve les explications détaillées à la demande.
+
+**Aperçu** conserve la référence et les avantages enregistrés, avec des raccourcis
+vers la fiche et les finances. **Note interne** ouvre l’éditeur de la note de revue
+depuis chaque onglet; cette note reste distincte des interventions successives.
+
+**Finances** conserve les montants confirmés et les documents du dossier. Lorsqu’aucun
+remboursement n’est demandé, le suivi affiche une indication compacte, sans répéter
+le montant ni la référence de la commandite. Un processus existant conserve ses
+montants, références Stripe, jalons, notes, erreurs et actions administratives.
+Une demande reste distincte du montant effectivement remboursé et confirmé.
+Le numéro d’une facture ouvre son inspection dans le dossier; l’accès au registre
+complet reste disponible. Les entrées directes `billing` et `refund` partagent les
+mêmes sections et la même commande de suivi.
+
+Dans **Historique**, **Filtrer l’activité** sélectionne les événements de la fiche
+et des médias, de la revue, de la publication, des finances ou du suivi. Les actions
+inconnues restent consultables sous **Autres actions**. Le compteur indique le nombre
+d’événements affichés parmi les événements disponibles; un résultat vide ne signifie
+pas que le dossier est sans historique. **Tous les domaines** rétablit la liste.
+Ces filtres locaux conservent l’ordre chronologique et ne modifient aucun fait.
+**Consulter le journal** ouvre toujours les actions administratives disponibles,
+indépendamment du filtre choisi; le journal d’interventions paginé garde son périmètre
+distinct.
 
 ## Vérification locale
 

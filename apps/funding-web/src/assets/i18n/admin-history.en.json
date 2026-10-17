@@ -1,4 +1,18 @@
 {
+  "filters": {
+    "domain": "Filter activity",
+    "all": "All areas",
+    "empty": "No events in this area.",
+    "resultCount": "{{count}} of {{total}} events"
+  },
+  "domains": {
+    "profile": "Profile and media",
+    "review": "Review",
+    "publication": "Publication",
+    "finances": "Finances",
+    "followup": "Follow-up",
+    "other": "Other actions"
+  },
   "inspect": "View audit log",
   "newestFirst": "Newest first",
   "availableScope": "Dossier milestones and latest available administrative actions.",

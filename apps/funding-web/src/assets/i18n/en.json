@@ -342,6 +342,8 @@
       "page": "{{page}} / {{total}}"
     },
     "interventions": {
+      "open": "Follow-up and interventions",
+      "close": "Close follow-up",
       "title": "Follow-up and interventions",
       "refresh": "Refresh journal",
       "latest": "Latest recorded intervention:",

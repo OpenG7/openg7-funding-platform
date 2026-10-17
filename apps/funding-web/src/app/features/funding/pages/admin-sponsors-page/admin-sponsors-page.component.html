@@ -121,6 +121,29 @@
               <span aria-hidden="true">←</span>
               {{ 'admin.dossier.workspace.back' | translate }}
             </button>
+            <button
+              type="button"
+              data-og7="dossier-note"
+              (click)="openReviewNote()"
+            >
+              {{ 'admin.legacy.note_interne' | translate }}
+            </button>
+            <button
+              type="button"
+              data-og7="dossier-activity"
+              (click)="openDossierSection('audit')"
+            >
+              {{ 'admin.dossier.actions.activity' | translate }}
+            </button>
+            <openg7-admin-sponsorship-interventions
+              [contributionId]="selected.id"
+              [refreshKey]="assistantRefresh()"
+              [canManage]="canManage()"
+              [canResendAccess]="canUseOwnerActions()"
+              [disabled]="actionsDisabled()"
+              (accessRequested)="openFollowupAccess()"
+              (saved)="loadSponsorships()"
+            />
             <div class="dossier-neighbours">
               <button
                 type="button"
@@ -186,8 +209,23 @@
           }
           <openg7-admin-sponsor-detail-tabs
             [activeTab]="activeTab()"
+            [dossier]="
+              progress()?.contributionId === selected.id ? progress() : null
+            "
             (activeTabChange)="setActiveTab($event)"
           />
+          @if (progress(); as dossier) {
+            @if (dossier.contributionId === selected.id) {
+              <div class="dossier-worklist" data-og7="dossier-worklist">
+                <openg7-admin-sponsorship-next-step
+                  [dossier]="dossier"
+                  [workspace]="true"
+                  [embedded]="true"
+                  [compact]="true"
+                />
+              </div>
+            }
+          }
           <div class="dossier-content-grid">
             <div class="dossier-main" data-og7="dossier-main">
               <h2 id="dossier-section-title" class="dossier-section-title">
@@ -212,17 +250,6 @@
                 (loaded)="progress.set($event)"
                 (refreshed)="focusRefreshedFacts($event)"
               />
-              <openg7-admin-sponsorship-interventions
-                [hidden]="activeTab() !== 'audit' && activeTab() !== 'refund'"
-                [contributionId]="selected.id"
-                [refreshKey]="assistantRefresh()"
-                [canManage]="canManage()"
-                [canResendAccess]="canUseOwnerActions()"
-                [disabled]="actionsDisabled()"
-                [autoOpen]="activeTab() === 'audit'"
-                (accessRequested)="openFollowupAccess()"
-                (saved)="loadSponsorships()"
-              />
               @if (!canManage()) {
                 <p role="status">{{ 'admin.dossier.readOnly' | translate }}</p>
               }
@@ -244,6 +271,7 @@
                   *ngIf="selectedSponsorDetailOverview() as overview"
                   [overview]="overview"
                   [disabled]="actionsDisabled()"
+                  (sectionRequested)="openDossierSection($event)"
                   (copyReference)="copyReference(selected)"
                   (reviewNoteChange)="
                     reviewWorkflow.setReviewNoteValue(selected.id, $event)
@@ -509,11 +537,6 @@
                 <span class="context-marker" aria-hidden="true">G7</span>
                 <h2>{{ 'admin.dossier.workspace.context' | translate }}</h2>
               </header>
-              @if (progress(); as dossier) {
-                @if (dossier.contributionId === selected.id) {
-                  <openg7-admin-sponsorship-next-step [dossier]="dossier" />
-                }
-              }
               <openg7-funding-moderation-actions
                 class="dossier-moderation"
                 [subject]="{ type: 'sponsorship', id: selected.id }"

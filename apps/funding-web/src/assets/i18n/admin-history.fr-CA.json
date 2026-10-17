@@ -1,4 +1,18 @@
 {
+  "filters": {
+    "domain": "Filtrer l’activité",
+    "all": "Tous les domaines",
+    "empty": "Aucun événement dans ce domaine.",
+    "resultCount": "{{count}} sur {{total}} événements"
+  },
+  "domains": {
+    "profile": "Fiche et médias",
+    "review": "Revue",
+    "publication": "Publication",
+    "finances": "Finances",
+    "followup": "Suivi",
+    "other": "Autres actions"
+  },
   "inspect": "Consulter le journal",
   "newestFirst": "Du plus récent au plus ancien",
   "availableScope": "Jalons du dossier et dernières actions administratives disponibles.",

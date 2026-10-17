@@ -1,4 +1,13 @@
 {
+  "actions": {
+    "title": "À traiter",
+    "activity": "Consulter l’activité"
+  },
+  "overview": {
+    "openProfile": "Consulter la fiche et les médias",
+    "openFinances": "Consulter les finances",
+    "financeHint": "Paiement, factures et remboursements sont regroupés dans Finances."
+  },
   "identityHelp": {
     "completeLabel": "Complètes",
     "missingLabel": "À compléter",

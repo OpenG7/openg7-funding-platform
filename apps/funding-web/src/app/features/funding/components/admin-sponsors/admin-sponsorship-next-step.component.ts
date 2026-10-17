@@ -10,6 +10,11 @@ import { TranslatePipe } from '@ngx-translate/core';
 import type { AdminSponsorshipProgress } from '@openg7/funding-core';
 
 import { nextDossierSection } from '../../models/admin-sponsorship-navigation.js';
+import {
+  isDossierPublicationComplete,
+  publicationBlockerSection,
+  publicationBlockerTab
+} from '../../models/admin-sponsorship-workspace.js';
 import { ContributionActivityService } from '../../services/contribution-activity.service.js';
 
 /** Funding molecule: present the server's next step and navigate to existing actions. */
@@ -29,6 +34,12 @@ export class AdminSponsorshipNextStepComponent {
   readonly dossier = input.required<AdminSponsorshipProgress>();
   readonly embedded = input(false);
   readonly compact = input(false);
+  readonly workspace = input(false);
+  readonly blockerTab = publicationBlockerTab;
+  readonly blockerSection = publicationBlockerSection;
+  readonly publicationComplete = computed(() =>
+    isDossierPublicationComplete(this.dossier())
+  );
   readonly activity = inject(ContributionActivityService);
   readonly nextSection = computed(() =>
     nextDossierSection(this.dossier().next)

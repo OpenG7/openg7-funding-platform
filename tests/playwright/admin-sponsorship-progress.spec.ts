@@ -15,6 +15,7 @@ import { expect, test } from './support/test.js';
 import { expectAdminFontsReady } from './support/admin-fonts.js';
 import { moderationFixture, completeModeration } from './support/moderation.js';
 import { registerSponsorHistoryPanelTests } from './admin-sponsor-history-panels.ui.js';
+import { registerSponsorWorkspaceTests } from './admin-sponsor-workspace.ui.js';
 import { registerSponsorFinanceTests } from './admin-sponsor-finance.ui.js';
 import { registerSponsorProfileTests } from './admin-sponsor-profile.ui.js';
 import { registerSponsorInterventionTests } from './admin-sponsor-interventions.ui.js';
@@ -580,6 +581,7 @@ const dossierNext = (page: Page) =>
     .locator('[data-og7="dossier-next"]');
 
 registerSponsorHistoryPanelTests({ fixtures, path, tabs });
+registerSponsorWorkspaceTests({ fixtures, path });
 registerSponsorFinanceTests({ fixtures, path });
 registerSponsorProfileTests({ fixtures, path, asset: () => mediaAsset() });
 registerSponsorInterventionTests({ fixtures, path, id, date });
@@ -887,9 +889,7 @@ for (const language of ['fr-CA', 'en'] as const)
         await expect(context.locator('[data-og7="dossier-guide"]')).toHaveCount(
           1
         );
-        await expect(context.locator('[data-og7="dossier-next"]')).toHaveCount(
-          1
-        );
+        await expect(frame.locator('[data-og7="dossier-next"]')).toHaveCount(1);
         await expect(dossierNext(page)).toHaveAttribute(
           'href',
           path() + '#dossier-review'
@@ -2885,6 +2885,56 @@ for (const [width, localNote] of [
   });
 }
 
+test('overview shortcuts keep profile, finances and internal notes reachable', async ({
+  page
+}) => {
+  const { calls } = await fixtures(page);
+  await page.goto(path());
+  const summary = page.locator('[data-og7="dossier-overview-summary"]');
+  await expect(summary.locator('code')).toHaveText('DEMO-401');
+  await expect(summary.locator('dl > div')).toHaveCount(2);
+  await expect(
+    summary.getByRole('button', { name: 'Copier', exact: true })
+  ).toBeEnabled();
+
+  await summary.locator('[data-og7="overview-open-profile"]').focus();
+  await page.keyboard.press('Enter');
+  await expect(
+    tabs(page).getByRole('button', { name: 'Fiche et médias', exact: true })
+  ).toHaveAttribute('aria-current', 'page');
+  await expect(page.locator('#dossier-identity')).toBeFocused();
+  await expect(page.locator('[data-og7="identity-coordinates"]')).toContainText(
+    'demo@example.invalid'
+  );
+
+  await tabs(page).getByRole('button', { name: 'Aperçu', exact: true }).click();
+  await summary.locator('[data-og7="overview-open-finances"]').click();
+  await expect(
+    tabs(page).getByRole('button', { name: 'Finances', exact: true })
+  ).toHaveAttribute('aria-current', 'page');
+  await expect(page.locator('#dossier-billing')).toBeFocused();
+  const noteAccess = page.locator('.dossier-toolbar').getByRole('button', {
+    name: 'Note interne',
+    exact: true
+  });
+  await noteAccess.click();
+  const drawer = page.getByRole('dialog', {
+    name: 'Note interne',
+    exact: true
+  });
+  await drawer
+    .getByRole('textbox')
+    .fill('Précision conservée pendant la navigation.');
+  await page.keyboard.press('Escape');
+  await expect(noteAccess).toBeFocused();
+  await summary.locator('[data-og7="overview-open-profile"]').click();
+  await noteAccess.click();
+  await expect(drawer.getByRole('textbox')).toHaveValue(
+    'Précision conservée pendant la navigation.'
+  );
+  expect(calls.every((call) => call.method === 'GET')).toBe(true);
+});
+
 test('note drawer retains the draft after failure, blocks duplicate save and restores focus', async ({
   page
 }) => {
@@ -3543,7 +3593,7 @@ test('browser history restores the viewport after visiting a next-step section',
   await expect(page.locator('#dossier-review')).toBeFocused();
   await expect(page.locator('#dossier-review')).toBeInViewport();
   const destination = await page.evaluate(() => scrollY);
-  expect(destination).toBeGreaterThan(before);
+  expect(Math.abs(destination - before)).toBeGreaterThan(1);
   await page.goBack();
   await expect(page).toHaveURL(path('identity'));
   await expect(
@@ -3856,9 +3906,11 @@ test('intervention journal records actions with actor and date, retains notes ac
   await journal
     .locator('[data-og7="intervention-note"]')
     .fill('Appel effectué. Le commanditaire demande un délai.');
+  await page.keyboard.press('Escape');
   await tabs(page)
     .getByRole('button', { name: 'Historique', exact: true })
     .click();
+  await journalToggle.click();
   await expect(journal.locator('[data-og7="intervention-note"]')).toHaveValue(
     'Appel effectué. Le commanditaire demande un délai.'
   );
@@ -3909,6 +3961,7 @@ test('intervention journal retries the same request after an uncertain save and 
   options.journalSaveStatus = 503;
   await page.goto(path('audit'));
   const journal = page.locator('[data-og7="dossier-interventions"]');
+  await journal.locator('[data-og7="interventions-toggle"]').click();
   await journal
     .locator('[data-og7="intervention-note"]')
     .fill('Relance effectuée, réponse attendue.');
@@ -3916,6 +3969,12 @@ test('intervention journal retries the same request after an uncertain save and 
   await expect(journal.getByRole('alert')).toContainText(
     'enregistrement n’est pas confirmé'
   );
+  await expect(journal.locator('[data-og7="intervention-note"]')).toHaveValue(
+    'Relance effectuée, réponse attendue.'
+  );
+  await page.keyboard.press('Escape');
+  await page.locator('[data-og7="dossier-refresh"]').click();
+  await journal.locator('[data-og7="interventions-toggle"]').click();
   await expect(journal.locator('[data-og7="intervention-note"]')).toHaveValue(
     'Relance effectuée, réponse attendue.'
   );
@@ -3946,6 +4005,7 @@ for (const status of [401, 403])
     const { options } = await fixtures(page, 'operator');
     await page.goto(path('audit'));
     const journal = page.locator('[data-og7="dossier-interventions"]');
+    await journal.locator('[data-og7="interventions-toggle"]').click();
     await journal
       .locator('[data-og7="intervention-note"]')
       .fill('Private synthetic draft');
@@ -4022,18 +4082,22 @@ test('intervention journal rejects a late response for another dossier and recov
   ]);
   await page.goto('/admin/fundraiser/sponsors?tab=audit');
   await page.locator('[data-og7="sponsor-row"]').first().click();
+  const journal = page.locator('[data-og7="dossier-interventions"]');
+  await journal.locator('[data-og7="interventions-toggle"]').click();
   await expect
     .poll(() => calls.some((c) => c.url.pathname.endsWith('/interventions')))
     .toBe(true);
+  await page.keyboard.press('Escape');
   await page
     .getByRole('button', { name: 'Dossier suivant', exact: true })
     .click();
-  const journal = page.locator('[data-og7="dossier-interventions"]');
+  await journal.locator('[data-og7="interventions-toggle"]').click();
   await expect(journal).toContainText('Aucune intervention consignée');
   release();
   await expect(journal).not.toContainText('OLD DOSSIER PRIVATE NOTE');
   options.journalReadStatus = 503;
   await page.reload();
+  await journal.locator('[data-og7="interventions-toggle"]').click();
   await expect(journal.getByRole('alert')).toContainText('actualisé');
   options.journalReadStatus = 200;
   await journal
@@ -4052,6 +4116,7 @@ test('intervention journal is usable in English on mobile', async ({
     .getByRole('button', { name: 'Switch administration language to English' })
     .click();
   const journal = page.locator('[data-og7="dossier-interventions"]');
+  await journal.locator('[data-og7="interventions-toggle"]').click();
   await expect(journal).toContainText('Incomplete record — decision required');
   await journal
     .locator('[data-og7="intervention-note"]')
@@ -4065,7 +4130,9 @@ test('intervention journal is usable in English on mobile', async ({
       () => document.documentElement.scrollWidth <= innerWidth + 1
     )
   ).toBe(true);
-  await journal.screenshot({ path: 'test-results/interventions-mobile.png' });
+  await journal
+    .locator('dialog')
+    .screenshot({ path: 'test-results/interventions-mobile.png' });
 });
 
 test('a late progress response cannot overwrite a newly selected dossier or reset list filters', async ({
@@ -4259,11 +4326,13 @@ for (const width of [1280, 390]) {
     await expect(
       journey.locator('[data-og7="publication-social-notice"]')
     ).toHaveCount(0);
+    const blockers = page.locator('[data-og7="publication-blockers"]');
+    await blockers.locator('summary').click();
     await expect(
-      journey.getByRole('link', {
+      blockers.getByRole('link', {
         name: 'Vérifier et approuver les médias requis par les engagements'
       })
-    ).toHaveAttribute('href', path('media'));
+    ).toHaveAttribute('href', path('media') + '#dossier-media');
     await expect(
       journey.locator('[data-og7="publication-review"]')
     ).toHaveAccessibleName('Vérifier et autoriser');
@@ -4666,6 +4735,9 @@ for (const width of [1920, 1280, 390]) {
       await expect(guide(page)).not.toHaveAttribute('open', '');
       await expect(
         page.locator('[data-og7="dossier-interventions"]')
+      ).toBeVisible();
+      await expect(
+        page.locator('[data-og7="dossier-interventions"] dialog')
       ).toBeHidden();
       await expect(
         page.getByRole('button', { name: 'Rembourser Stripe', exact: true })

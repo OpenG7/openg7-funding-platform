@@ -4,6 +4,8 @@ import type {
   SponsorshipReviewStatus
 } from '@openg7/funding-core';
 
+import type { SponsorHistoryDomain } from './admin-sponsor-workflow.ports.js';
+
 export type AdminSponsorsListState = 'idle' | 'loading' | 'ready' | 'error';
 export type SponsorshipReviewFilter = 'all' | SponsorshipReviewStatus;
 export type SponsorFeedStatusFilter = 'all' | SponsorFeedStatus;
@@ -25,6 +27,7 @@ export interface AdminSponsorFeedStatusOption {
 
 export interface AdminSponsorHistoryEntryView {
   readonly id: string;
+  readonly domain?: SponsorHistoryDomain;
   readonly dateTime?: string;
   readonly dateTimeLabel: string;
   readonly label: string;

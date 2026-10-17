@@ -23,7 +23,6 @@ import {
 import enSchedule from '../../../../../assets/i18n/admin-publication-schedule.en.json' with { type: 'json' };
 import frSchedule from '../../../../../assets/i18n/admin-publication-schedule.fr-CA.json' with { type: 'json' };
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
-import { ContributionActivityService } from '../../services/contribution-activity.service.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { FundingModerationService } from '../../services/funding-moderation.service.js';
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
@@ -31,6 +30,11 @@ import { AdminSponsorSchedulingController } from '../../services/admin-sponsor-s
 import { PublicationDeliveryDrawerComponent } from '../admin-publications/publication-delivery-drawer.component.js';
 import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
 import { AdminAutomaticPreparationDirective } from '../admin-automatic/admin-automatic-preparation.directive.js';
+import {
+  isDossierPublicationComplete,
+  publicationBlockerTab,
+  qualifiedPublicationEvidence
+} from '../../models/admin-sponsorship-workspace.js';
 
 import { AdminSponsorshipCommitmentsComponent } from './admin-sponsorship-commitments.component.js';
 import { AdminSponsorshipPreparationComponent } from './admin-sponsorship-preparation.component.js';
@@ -63,6 +67,7 @@ export class AdminSponsorshipPublicationComponent {
   readonly changeWebsiteVisibility = output<boolean>();
   readonly editWebsite = output<void>();
   readonly commitmentChanged = output<void>();
+  readonly blockerTab = publicationBlockerTab;
   readonly websiteState = computed(() => {
     const site = this.dossier().website;
     return !site
@@ -73,7 +78,6 @@ export class AdminSponsorshipPublicationComponent {
           ? 'hidden'
           : 'blocked';
   });
-  readonly activity = inject(ContributionActivityService);
   private readonly i18n = inject(FundingI18nService);
   private readonly admin = inject(FundingAdminService);
   private readonly moderation = inject(FundingModerationService);
@@ -210,7 +214,6 @@ export class AdminSponsorshipPublicationComponent {
     }
     return rows;
   });
-  readonly blockers = computed(() => this.dossier().publicationBlockers ?? []);
   readonly publicationCompletion = computed(() => {
     const completion = this.dossier().publicationCompletion;
     if (!completion) return null;
@@ -221,36 +224,13 @@ export class AdminSponsorshipPublicationComponent {
     return { ...completion, done: Math.min(completion.done, qualified) };
   });
   readonly completed = computed(() => this.publicationCompletion()?.done ?? 0);
-  readonly publicationComplete = computed(() => {
-    if (this.dossier().publicationWorkflow)
-      return this.dossier().publicationWorkflow?.state === 'complete';
-    const obligations = this.dossier().commitment?.obligations ?? [];
-    return (
-      this.benefitsKnown() &&
-      obligations.length > 0 &&
-      obligations.every(
-        (obligation) =>
-          obligation.state === 'adjusted' ||
-          Boolean(this.evidence(obligation.id))
-      )
-    );
-  });
+  readonly publicationComplete = computed(() =>
+    isDossierPublicationComplete(this.dossier())
+  );
   readonly automationPath = '/admin/fundraiser/publications/automation';
 
   evidence(obligationId: string) {
-    const dossier = this.dossier();
-    const obligation = dossier.commitment?.obligations.find(
-      (item) => item.id === obligationId
-    );
-    if (obligation?.state !== 'fulfilled') return undefined;
-    return dossier.fulfilmentEvidence?.find(
-      (evidence) =>
-        evidence.obligationId === obligationId &&
-        evidence.id === obligation.fulfilmentEvidenceId &&
-        evidence.channel === obligation.channel &&
-        evidence.target === obligation.target &&
-        dossier.qualifiedFulfilmentEvidenceIds?.includes(evidence.id) === true
-    );
+    return qualifiedPublicationEvidence(this.dossier(), obligationId);
   }
 
   evidenceUrl(obligationId: string): string | null {
@@ -346,17 +326,6 @@ export class AdminSponsorshipPublicationComponent {
       sponsorshipId: this.dossier().contributionId,
       ...(p?.deliveryId ? { deliveryId: p.deliveryId } : {})
     };
-  }
-  blockerTab(reason: string): string {
-    return reason === 'media'
-      ? 'media'
-      : reason === 'identity'
-        ? 'identity'
-        : reason === 'hidden'
-          ? 'publication'
-          : reason === 'refund'
-            ? 'refund'
-            : 'overview';
   }
   date(value: string): string {
     const date = new Date(value);

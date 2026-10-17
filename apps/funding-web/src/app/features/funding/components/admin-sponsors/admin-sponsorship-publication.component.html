@@ -87,29 +87,6 @@
         }
       </div>
     }
-    @if (blockers().length && !publicationComplete()) {
-      <section class="blockers" data-og7="publication-blockers">
-        <h3>{{ 'admin.dossier.publicationBridge.blockers' | translate }}</h3>
-        <ul>
-          @for (reason of blockers(); track reason) {
-            <li>
-              <a
-                routerLink="/admin/fundraiser/sponsors"
-                [queryParams]="{
-                  sponsorshipId: dossier().contributionId,
-                  tab: blockerTab(reason)
-                }"
-              >
-                {{
-                  'admin.dossier.publicationBridge.blocker.' + reason
-                    | translate
-                }}
-              </a>
-            </li>
-          }
-        </ul>
-      </section>
-    }
     @if (dossier().publicationWorkflow; as workflow) {
       <section
         class="obligation-console"
@@ -125,16 +102,6 @@
         <p>
           {{
             'admin.dossier.publicationBridge.schedule.workflow.help' | translate
-          }}
-        </p>
-        <p data-og7="publication-next-responsibility" role="status">
-          {{
-            'admin.dossier.publicationBridge.schedule.workflow.responsibility.' +
-              workflow.responsibility | translate
-          }}
-          {{
-            'admin.dossier.publicationBridge.schedule.workflow.reason.' +
-              workflow.reason | translate
           }}
         </p>
         <ul class="obligation-list">
@@ -520,15 +487,6 @@
     (changed)="commitmentChanged.emit()"
   />
   <footer>
-    @if (dossier().preparationActivityId; as activityId) {
-      <button
-        type="button"
-        class="admin-button"
-        (click)="activity.openPreparation(activityId)"
-      >
-        {{ 'admin.dossier.publicationBridge.preparation' | translate }}
-      </button>
-    }
     <a
       class="admin-button"
       [routerLink]="automationPath"

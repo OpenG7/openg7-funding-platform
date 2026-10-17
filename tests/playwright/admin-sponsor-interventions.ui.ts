@@ -41,6 +41,7 @@ export function registerSponsorInterventionTests({
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto(path('audit'));
     const journal = page.locator('[data-og7="dossier-interventions"]');
+    await journal.locator('[data-og7="interventions-toggle"]').click();
     await expect(
       journal.locator('[data-og7="interventions-state"]')
     ).toHaveText('Informations reçues — traitement administratif à poursuivre');
@@ -107,6 +108,7 @@ export function registerSponsorInterventionTests({
           .click();
 
       const journal = page.locator('[data-og7="dossier-interventions"]');
+      await journal.locator('[data-og7="interventions-toggle"]').click();
       const history = journal.getByRole('list', {
         name: english ? 'Intervention journal' : 'Journal des interventions',
         exact: true
@@ -182,8 +184,9 @@ export function registerSponsorInterventionTests({
       await expect(form).toBeFocused();
       await expect(note).toHaveValue(draft);
       const toggle = journal.locator('[data-og7="interventions-toggle"]');
-      await toggle.click();
+      await page.keyboard.press('Escape');
       await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      await expect(toggle).toBeFocused();
       await expect(history).toBeHidden();
       await expect(form).toBeHidden();
       await toggle.press('Enter');
@@ -191,22 +194,26 @@ export function registerSponsorInterventionTests({
       await expect(note).toHaveValue(draft);
       await expect(history).toBeVisible();
 
-      const presentation = await journal.evaluate((element) => {
-        const facts = element.querySelector('[data-og7="interventions-facts"]');
-        const field = element.querySelector('textarea');
-        const help = element.querySelector('#intervention-note-help');
-        const fontSize = (target: Element | null) =>
-          target ? Number.parseFloat(getComputedStyle(target).fontSize) : NaN;
-        return {
-          factsSize: fontSize(facts),
-          fieldSize: fontSize(field),
-          helpSize: fontSize(help),
-          fits: element.scrollWidth <= element.clientWidth + 1,
-          controlsFit: Array.from(
-            element.querySelectorAll('button, select, textarea, input')
-          ).every((control) => control.scrollWidth <= control.clientWidth + 1)
-        };
-      });
+      const presentation = await journal
+        .locator('dialog')
+        .evaluate((element) => {
+          const facts = element.querySelector(
+            '[data-og7="interventions-facts"]'
+          );
+          const field = element.querySelector('textarea');
+          const help = element.querySelector('#intervention-note-help');
+          const fontSize = (target: Element | null) =>
+            target ? Number.parseFloat(getComputedStyle(target).fontSize) : NaN;
+          return {
+            factsSize: fontSize(facts),
+            fieldSize: fontSize(field),
+            helpSize: fontSize(help),
+            fits: element.scrollWidth <= element.clientWidth + 1,
+            controlsFit: Array.from(
+              element.querySelectorAll('button, select, textarea, input')
+            ).every((control) => control.scrollWidth <= control.clientWidth + 1)
+          };
+        });
       expect(presentation.factsSize).toBeLessThanOrEqual(18);
       expect(presentation.fieldSize).toBeLessThanOrEqual(18);
       expect(presentation.helpSize).toBeLessThanOrEqual(presentation.fieldSize);
@@ -224,7 +231,7 @@ export function registerSponsorInterventionTests({
             .analyze()
         ).violations
       ).toEqual([]);
-      await journal.screenshot({
+      await journal.locator('dialog').screenshot({
         path: `test-results/admin-intervention-history-${locale}-${width}.png`
       });
       expect(calls.filter((call) => call.method === 'POST')).toHaveLength(0);
@@ -253,6 +260,7 @@ export function registerSponsorInterventionTests({
           })
           .click();
       const journal = page.locator('[data-og7="dossier-interventions"]');
+      await journal.locator('[data-og7="interventions-toggle"]').click();
       await expect(
         journal.getByRole('list', {
           name: english ? 'Intervention journal' : 'Journal des interventions',
@@ -282,4 +290,43 @@ export function registerSponsorInterventionTests({
       expect(calls.filter((call) => call.method === 'POST')).toHaveLength(0);
     });
   }
+
+  test('follow-up opens from every dossier tab, loads once and restores its unsaved draft and focus', async ({
+    page
+  }) => {
+    const { calls } = await fixtures(page, 'operator');
+    await page.goto(path());
+    const journal = page.locator('[data-og7="dossier-interventions"]');
+    const command = journal.locator('[data-og7="interventions-toggle"]');
+    await expect(command).toBeVisible();
+    expect(
+      calls.filter((call) => call.url.pathname.endsWith('/interventions'))
+    ).toHaveLength(0);
+    const draft = 'Synthetic follow-up retained across the dossier';
+    for (const label of [
+      'Aperçu',
+      'Fiche et médias',
+      'Publication',
+      'Finances',
+      'Historique'
+    ]) {
+      await page
+        .locator('[data-og7="dossier-tabs"]')
+        .getByRole('button', { name: label, exact: true })
+        .click();
+      await command.focus();
+      await command.press('Enter');
+      await expect(journal.locator('dialog')).toBeVisible();
+      const note = journal.locator('[data-og7="intervention-note"]');
+      if (label === 'Aperçu') await note.fill(draft);
+      await expect(note).toHaveValue(draft);
+      await page.keyboard.press('Escape');
+      await expect(journal.locator('dialog')).toBeHidden();
+      await expect(command).toBeFocused();
+    }
+    expect(
+      calls.filter((call) => call.url.pathname.endsWith('/interventions'))
+    ).toHaveLength(1);
+    expect(calls.filter((call) => call.method === 'POST')).toHaveLength(0);
+  });
 }

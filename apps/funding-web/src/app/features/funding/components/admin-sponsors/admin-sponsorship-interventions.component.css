@@ -5,20 +5,21 @@
   font-size: var(--admin-body-size);
 }
 .interventions {
-  @apply tw:grid tw:min-w-0 tw:p-admin-card tw:gap-admin-card-gap tw:rounded-admin-card;
-  background: var(--admin-panel);
-  border: 1px solid var(--admin-border);
+  @apply tw:min-w-0;
   overflow-wrap: anywhere;
 }
-.interventions-header,
-.header-actions {
-  @apply tw:flex tw:flex-wrap tw:items-start tw:gap-3;
+.interventions-panel {
+  @apply tw:grid tw:min-w-0 tw:gap-admin-card-gap;
 }
 .interventions-header {
+  @apply tw:flex tw:flex-wrap tw:items-start tw:gap-3;
   @apply tw:justify-between;
 }
-.interventions-header > div {
-  @apply tw:min-w-0;
+.followup-command {
+  @apply tw:flex tw:flex-wrap tw:items-center tw:gap-2;
+}
+.command-deadline {
+  @apply tw:text-admin-caption tw:text-admin-muted;
 }
 h3,
 h4,
@@ -158,11 +159,6 @@ textarea {
   display: none !important;
 }
 @media (max-width: 600px) {
-  .interventions {
-    @apply tw:p-4;
-  }
-  .header-actions,
-  .header-actions .admin-button,
   .form-actions .admin-button {
     @apply tw:w-full;
   }
