@@ -15,6 +15,7 @@ import { expect, test } from './support/test.js';
 import { expectAdminFontsReady } from './support/admin-fonts.js';
 import { moderationFixture, completeModeration } from './support/moderation.js';
 import { registerSponsorHistoryPanelTests } from './admin-sponsor-history-panels.ui.js';
+import { registerSponsorFinanceTests } from './admin-sponsor-finance.ui.js';
 import { registerSponsorFiltersTests } from './admin-sponsors-filters.ui.js';
 import { registerSponsorResultsTests } from './admin-sponsors-results.ui.js';
 import { registerContributionActivityOverlayTests } from './contribution-activity-overlays.ui.js';
@@ -577,6 +578,7 @@ const dossierNext = (page: Page) =>
     .locator('[data-og7="dossier-next"]');
 
 registerSponsorHistoryPanelTests({ fixtures, path, tabs });
+registerSponsorFinanceTests({ fixtures, path });
 registerAdminMediaUsageTests({ fixtures, path, asset: () => mediaAsset() });
 registerSponsorshipCommitmentTests({ fixtures, path });
 registerSponsorshipHistoricalAuditTests({ fixtures, path });
@@ -3733,9 +3735,7 @@ test('denied progress clears facts and expired session returns to login', async 
   await page.locator('[data-og7="dossier-refresh"]').click();
   await expect(progress(page).getByRole('alert')).toBeVisible();
   await expect(progress(page).getByRole('alert')).toContainText('pas accès');
-  await expect(page.locator('#dossier-billing')).not.toContainText(
-    'FAC-DEMO-401'
-  );
+  await expect(page.locator('#dossier-billing')).toHaveCount(0);
   options.status = 401;
   await page.locator('[data-og7="dossier-refresh"]').click();
   await expect(page).toHaveURL(/\/admin\/login/);
@@ -3758,9 +3758,7 @@ test('refreshing progress clears invoice facts until the server responds', async
     await expect(progress(page).getByRole('status')).toContainText(
       'Chargement du dossier'
     );
-    await expect(page.locator('#dossier-billing')).not.toContainText(
-      'FAC-DEMO-401'
-    );
+    await expect(page.locator('#dossier-billing')).toHaveCount(0);
     expect(calls.filter((call) => call.method === 'POST')).toHaveLength(0);
   } finally {
     release();

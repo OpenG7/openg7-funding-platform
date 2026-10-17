@@ -1,0 +1,11 @@
+{
+  "confirmedRefunds": "Remboursements confirmés",
+  "confirmedHelp": "Ce total provient des remboursements confirmés par Stripe. Une demande ou un traitement en cours ne confirme aucun remboursement.",
+  "workflowStatus": "Traitement de la demande",
+  "operationAmount": "Montant du dernier traitement",
+  "emailIssues": "Suivi des courriels",
+  "invalidAmount": "montant invalide",
+  "organizationFallback": "votre organisation",
+  "refundWorkflowSummary": " Traitement : {{status}}.",
+  "refundNotificationFailedWithError": "Courriel de remboursement/avoir non envoyé : {{error}}"
+}

@@ -203,13 +203,14 @@
                 }}
               </h2>
               <openg7-admin-sponsorship-progress
-                [hidden]="activeTab() !== 'overview' && !!progress()"
                 [sponsorshipId]="selected.id"
                 [streamlined]="true"
+                [showSummary]="activeTab() === 'overview'"
                 [showNextStep]="false"
                 [refreshKey]="assistantRefresh()"
                 [disabled]="actionState() !== null || state() === 'loading'"
                 (loaded)="progress.set($event)"
+                (refreshed)="focusRefreshedFacts($event)"
               />
               <openg7-admin-sponsorship-interventions
                 [hidden]="activeTab() !== 'audit' && activeTab() !== 'refund'"
@@ -235,6 +236,7 @@
                   (dossierOpen)="sponsorOverview()?.focusDetails()"
                 />
                 <openg7-admin-sponsorship-facts
+                  *ngIf="progress()"
                   view="overview"
                   [dossier]="progress()"
                 />
@@ -292,14 +294,9 @@
                 />
               </ng-container>
 
-              @if (activeTab() === 'billing' || activeTab() === 'refund') {
-                <openg7-admin-sponsorship-facts
-                  view="billing"
-                  [dossier]="progress()"
-                />
-              }
               @if (activeTab() === 'publication') {
                 <openg7-admin-sponsorship-facts
+                  *ngIf="progress()"
                   view="publication"
                   [dossier]="progress()"
                   [canManageWebsite]="canManage()"
@@ -315,12 +312,6 @@
                   "
                   (editWebsite)="openWebsiteSettings()"
                   (commitmentChanged)="loadSponsorships(true)"
-                />
-              }
-              @if (activeTab() === 'billing' || activeTab() === 'refund') {
-                <openg7-admin-sponsorship-facts
-                  view="refund"
-                  [dossier]="progress()"
                 />
               }
 
@@ -389,9 +380,30 @@
               </section>
 
               @if (isFinanceTab()) {
-                @if (selectedSponsorRefundHistory(); as history) {
-                  <openg7-admin-sponsor-refund-history [view]="history" />
-                }
+                <div
+                  class="dossier-finances"
+                  data-og7="dossier-finances"
+                  role="region"
+                  [attr.aria-label]="
+                    'admin.dossier.workspace.finances' | translate
+                  "
+                >
+                  @if (progress(); as dossier) {
+                    <div class="finance-facts-grid">
+                      <openg7-admin-sponsorship-facts
+                        view="refund"
+                        [dossier]="dossier"
+                      />
+                      <openg7-admin-sponsorship-facts
+                        view="billing"
+                        [dossier]="dossier"
+                      />
+                    </div>
+                  }
+                  @if (selectedSponsorRefundHistory(); as history) {
+                    <openg7-admin-sponsor-refund-history [view]="history" />
+                  }
+                </div>
               }
               @if (activeTab() === 'audit') {
                 @if (selectedSponsorAuditHistory(); as history) {

@@ -104,7 +104,8 @@ small,
   margin: 0.8rem 0 0;
 }
 a:focus-visible,
-button:focus-visible {
+button:focus-visible,
+.progress-panel:focus-visible {
   outline: 3px solid var(--admin-focus, #efc36b);
   outline-offset: 3px;
 }
@@ -123,6 +124,22 @@ button:focus-visible {
   border-radius: 0;
   background: transparent;
   padding: 0 1.25rem;
+}
+.streamlined .progress-feedback {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 1rem;
+  margin-block-end: 1rem;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-card);
+  background: var(--admin-subtle);
+}
+.streamlined .progress-feedback p {
+  flex: 1 1 15rem;
+  margin: 0;
 }
 .streamlined summary {
   min-height: 2.75rem;

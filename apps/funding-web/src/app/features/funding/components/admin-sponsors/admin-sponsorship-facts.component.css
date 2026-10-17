@@ -1,29 +1,115 @@
 @reference '../../../../../styles/tailwind.css';
 
 :host {
-  @apply tw:block;
+  @apply tw:block tw:min-w-0;
 }
 section {
   @apply tw:p-4 tw:text-admin-text;
 }
-article {
-  padding: 0.8rem 0;
-  border-bottom: 1px solid var(--admin-border);
+.finance-card {
+  min-width: 0;
+  height: 100%;
+  box-sizing: border-box;
+  padding: var(--admin-card-padding);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-card);
+  background: var(--admin-panel);
 }
-dl {
-  @apply tw:flex tw:flex-wrap tw:gap-4;
+.finance-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
 }
-dt {
-  @apply tw:text-admin-caption;
+h3,
+h4,
+p {
+  margin: 0;
 }
-dd {
-  margin: 0.2rem 0;
+h3 {
+  font-family: var(--admin-heading-font-family);
+  font-size: var(--admin-section-size);
+  font-weight: var(--admin-section-weight);
+}
+h4 {
+  font-size: inherit;
+  font-weight: var(--admin-label-weight);
+}
+.document-list {
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.document-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  padding-block: 0.75rem;
+  border-top: 1px solid var(--admin-border);
+}
+.document-list li > div {
+  min-width: 0;
+}
+.document-kind,
+.document-number {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.document-kind,
+dt,
+.finance-help,
+.finance-empty {
+  color: var(--admin-muted);
+  font-size: var(--admin-caption-size);
+}
+.document-amount,
+.confirmed-refund dd {
+  font-variant-numeric: tabular-nums;
+}
+.confirmed-refund {
+  margin: 1rem 0 0.5rem;
+}
+.confirmed-refund dd {
+  margin: 0.25rem 0 0;
+  font-size: 1.5rem;
+  font-weight: var(--admin-emphasis-weight);
+}
+.finance-empty,
+.finance-notice {
+  margin-top: 1rem;
+}
+.finance-notice {
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--admin-warning-border);
+  border-radius: var(--admin-radius-control);
+  background: var(--admin-warning-bg);
+  color: var(--admin-warning);
+  overflow-wrap: anywhere;
+}
+.finance-notice ul {
+  margin: 0.5rem 0 0;
+  padding-inline-start: 1.25rem;
+}
+.finance-notice li + li {
+  margin-top: 0.5rem;
+}
+.finance-notice-danger {
+  background: var(--admin-danger-bg);
+  border-color: var(--admin-danger-border);
+  color: var(--admin-danger);
 }
 a {
-  @apply tw:text-admin-muted;
-  font-weight: var(--admin-control-weight);
+  color: var(--admin-accent);
+  text-underline-offset: 0.2em;
 }
-a:focus-visible {
-  outline: 3px solid var(--admin-focus);
-  outline-offset: 3px;
+.finance-notice a {
+  color: inherit;
+}
+@media (max-width: 600px) {
+  .finance-card {
+    padding: 1rem;
+  }
 }

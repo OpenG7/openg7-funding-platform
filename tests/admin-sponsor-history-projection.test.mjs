@@ -294,7 +294,7 @@ test('refund audit filters review metadata by existing types and sorts newest fi
   assert.equal(source[0].id, 'full');
   assert.equal(
     entries[1].detail,
-    'Acteur: synthetic-owner - Suivi: Remboursement demande'
+    'Acteur: synthetic-owner - Suivi: Remboursement demandé'
   );
   assert.ok(
     entries[2].detail.includes('Traitement: remboursement manuel demande')
@@ -529,11 +529,11 @@ for (const locale of ['fr-CA', 'en']) {
             'No refund requested'
           ]
         : [
-            'Remboursement demande',
+            'Remboursement demandé',
             'Remboursement en cours',
-            'Remboursement complete',
-            'Remboursement en echec',
-            'Aucun remboursement demande'
+            'Remboursement terminé',
+            'Remboursement en échec',
+            'Aucun remboursement demandé'
           ];
     assert.deepEqual(
       statuses.map((status) => projector.refundWorkflowStatusLabel(status)),
