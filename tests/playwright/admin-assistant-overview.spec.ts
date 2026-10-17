@@ -6,6 +6,12 @@ import type {
 } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
+import {
+  blockAdminReviewWrites,
+  captureAdminDesign,
+  expectAdminPageFits,
+  prepareAdminDesignReview
+} from './support/admin-design-review.js';
 
 const base = '/admin/fundraiser/assistant';
 const at = '2026-09-21T14:00:00Z';
@@ -299,20 +305,93 @@ async function fixtures(page: Page) {
   return { options, calls };
 }
 
+for (const language of ['fr-CA', 'en'] as const)
+  for (const width of [390, 1536]) {
+    test(`Assistant composition keeps its queue and optional question accessible in ${language} at ${width}px`, async ({
+      page
+    }, testInfo) => {
+      await prepareAdminDesignReview(page);
+      const { options } = await fixtures(page);
+      options.mode = 'mock';
+      const writes = await blockAdminReviewWrites(page);
+      await page.addInitScript((locale) => {
+        localStorage.setItem('openg7.language', locale);
+      }, language);
+      await page.setViewportSize({
+        width,
+        height: width === 1536 ? 864 : 1000
+      });
+      await page.goto(base);
+      const queue = page.locator('[data-og7="assistant-items"]');
+      const categories = page.locator('[data-og7="assistant-categories"]');
+      const emailCategory = categories.locator(
+        '[data-og7-id="email_delivery_failed"]'
+      );
+      await expect(queue.locator(':scope > li')).toHaveCount(15);
+      await expect(
+        page.locator('[data-og7="assistant-recommendations"] > li')
+      ).toHaveCount(3);
+      const dueDate = new Intl.DateTimeFormat(language, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+        timeZone: 'America/Toronto'
+      }).format(new Date(publication.dueAt!));
+      await expect(queue).toContainText(dueDate);
+      await expect(
+        page.locator('[data-og7="assistant-recommendations"]')
+      ).toContainText(dueDate);
+      await captureAdminDesign(page, testInfo, `assistant-${width}`);
+      if (width === 1536) {
+        await expect(emailCategory).toBeInViewport({ ratio: 1 });
+        await expect(queue.locator(':scope > li').first()).toBeInViewport({
+          ratio: 1
+        });
+      }
+      await emailCategory.focus();
+      await page.keyboard.press('Enter');
+      await expect(emailCategory).toHaveAttribute('aria-pressed', 'true');
+      await expect(page.locator('[data-og7="assistant-count"]')).toContainText(
+        '127'
+      );
+      const examine = queue.getByRole('button').first();
+      await examine.focus();
+      await page.keyboard.press('Enter');
+      await expect(page.getByRole('dialog')).toContainText(
+        emails[0]!.emailQueueId!
+      );
+      await page.keyboard.press('Escape');
+      await expect(examine).toBeFocused();
+      if (language === 'en') {
+        await page.evaluate(() => {
+          document.documentElement.style.fontSize = '200%';
+        });
+        await expectAdminPageFits(page);
+        const question = page.locator('[data-og7="assistant-question"]');
+        await question.locator('summary').click();
+        await expect(question.getByRole('textbox')).toBeVisible();
+        await question
+          .getByRole('textbox')
+          .fill('A synthetic question without submission');
+        await expectAdminPageFits(page);
+      }
+      expect(writes).toEqual([]);
+    });
+  }
+
 const overviewPalettes = {
   mineral: {
     panel: 'rgb(255, 255, 255)',
-    raised: 'rgb(240, 244, 249)',
+    selected: 'rgb(237, 243, 250)',
     text: 'rgb(23, 43, 80)'
   },
   night: {
     panel: 'rgb(20, 35, 56)',
-    raised: 'rgb(27, 45, 68)',
+    selected: 'rgb(36, 61, 83)',
     text: 'rgb(241, 245, 252)'
   },
   graphite: {
     panel: 'rgb(37, 41, 47)',
-    raised: 'rgb(50, 56, 65)',
+    selected: 'rgb(56, 67, 79)',
     text: 'rgb(243, 244, 246)'
   }
 } as const;
@@ -357,7 +436,7 @@ for (const theme of ['mineral', 'night', 'graphite'] as const)
       await category.focus();
       await page.keyboard.press('Enter');
       await expect(category).toHaveAttribute('aria-pressed', 'true');
-      await expect(category).toHaveCSS('background-color', palette.raised);
+      await expect(category).toHaveCSS('background-color', palette.selected);
       await expect(category).toHaveCSS('color', palette.text);
       const groups = page.locator('openg7-admin-assistant-filters details');
       await expect(groups).toHaveAttribute('open', '');
@@ -376,10 +455,7 @@ for (const theme of ['mineral', 'night', 'graphite'] as const)
       await page.locator('[data-og7="assistant-summary"] summary').click();
       const facts = page.locator('[data-og7="assistant-summary"] dl');
       await expect(facts).toContainText('50 CAD');
-      await expect(facts.locator('div').first()).toHaveCSS(
-        'justify-content',
-        'space-between'
-      );
+      await expect(facts.getByText('50 CAD', { exact: true })).toBeVisible();
 
       const examine = items.getByRole('button').first();
       await examine.focus();
@@ -396,7 +472,7 @@ for (const theme of ['mineral', 'night', 'graphite'] as const)
     });
   }
 
-test('Assistant category scrolling and queue columns preserve the 640px boundary', async ({
+test('Assistant categories and queue actions fit their available space', async ({
   page
 }) => {
   await fixtures(page);
@@ -404,7 +480,7 @@ test('Assistant category scrolling and queue columns preserve the 640px boundary
   const categories = page.locator('[data-og7="assistant-categories"]');
   const item = page.locator('[data-og7="assistant-items"] > li').first();
   await expect(item).toBeVisible();
-  for (const width of [639, 640, 641]) {
+  for (const width of [390, 639, 640, 641, 1000, 1536]) {
     await page.setViewportSize({ width, height: 950 });
     await expect(categories).toHaveCSS(
       'flex-wrap',
@@ -414,14 +490,14 @@ test('Assistant category scrolling and queue columns preserve the 640px boundary
       'overflow-x',
       width <= 640 ? 'auto' : 'visible'
     );
-    await expect
-      .poll(() =>
-        item.evaluate(
-          (element) =>
-            getComputedStyle(element).gridTemplateColumns.split(' ').length
-        )
-      )
-      .toBe(width <= 640 ? 2 : 3);
+    const lastCategory = categories.getByRole('button').last();
+    await lastCategory.focus();
+    await expect(lastCategory).toBeInViewport({ ratio: 1 });
+    expect((await lastCategory.boundingBox())!.height).toBeGreaterThanOrEqual(
+      44
+    );
+    const inspect = item.getByRole('button');
+    expect((await inspect.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth + 1

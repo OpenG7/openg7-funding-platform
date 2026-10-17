@@ -237,7 +237,7 @@ test('dashboard and cockpit queries follow the same resized container rather tha
   }
 });
 
-test('system cards retain viewport breakpoints, reduced motion and visible keyboard focus', async ({
+test('system cards keep readable widths, reduced motion and visible keyboard focus', async ({
   page
 }) => {
   await fixtures(page);
@@ -249,13 +249,15 @@ test('system cards retain viewport breakpoints, reduced motion and visible keybo
   const cards = page.locator('[data-og7="setup-system"]');
   await expect(cards).toHaveCount(5);
   const grid = cards.first().locator('..');
-  for (const width of [540, 541, 1250, 1251]) {
+  for (const width of [390, 540, 541, 1250, 1251, 1536]) {
     await test.step(`${width}px viewport`, async () => {
       await page.setViewportSize({ width, height: 1000 });
-      if (width <= 1250)
-        await expect.poll(() => gridColumns(grid)).toBe(width <= 540 ? 1 : 2);
-      else await expect.poll(() => gridColumns(grid)).toBeGreaterThan(2);
-      await expect(grid).toHaveCSS('gap', '12px');
+      const available = (await grid.boundingBox())!.width;
+      for (const card of await cards.all()) {
+        const box = (await card.boundingBox())!;
+        expect(box.width).toBeGreaterThanOrEqual(Math.min(320, available) - 1);
+        expect(box.x + box.width).toBeLessThanOrEqual(width + 1);
+      }
       // The global reduced-motion rule caps transitions at 0.01ms with !important.
       const durationMs = await cards.first().evaluate((node) =>
         Math.max(

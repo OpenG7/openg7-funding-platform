@@ -1,9 +1,15 @@
-import type { Locator, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { AxeBuilder } from '@axe-core/playwright';
 import type { CockpitSystem } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
 import { cockpitFixtures } from './support/cockpit-fixtures.js';
+import {
+  blockAdminReviewWrites,
+  captureAdminDesign,
+  expectAdminPageFits,
+  prepareAdminDesignReview
+} from './support/admin-design-review.js';
 import {
   installAdminTokenSession,
   setupFixture
@@ -98,11 +104,77 @@ const setupPalettes = {
   }
 } as const;
 
-async function setupGridColumns(element: Locator): Promise<number> {
-  return element.evaluate(
-    (node) => getComputedStyle(node).gridTemplateColumns.split(' ').length
-  );
-}
+for (const language of ['fr-CA', 'en'] as const)
+  for (const width of [390, 1536]) {
+    test(`setup composition keeps observations and configuration distinct in ${language} at ${width}px`, async ({
+      page
+    }, testInfo) => {
+      await prepareAdminDesignReview(page);
+      const data = await installFixtures(page, language);
+      const writes = await blockAdminReviewWrites(page);
+      await page.setViewportSize({
+        width,
+        height: width === 1536 ? 864 : 1000
+      });
+      await page.goto('/admin/fundraiser/setup');
+      await expect(page.locator('[data-og7="setup-system"]')).toHaveCount(5);
+      await expect(card(page, 'database')).toHaveAttribute(
+        'data-state',
+        'operational'
+      );
+      await expect(page.locator('#setup-readiness')).toContainText(
+        language === 'en'
+          ? 'OIDC checks validate neither client sign-in nor MFA'
+          : 'Les contrôles OIDC ne valident ni la connexion du client ni le MFA'
+      );
+      await captureAdminDesign(page, testInfo, `configuration-${width}`);
+      if (width === 1536) {
+        await expect(page.locator('#setup-readiness > header')).toBeInViewport({
+          ratio: 1
+        });
+        await expect(
+          page.locator('[data-og7="setup-system"]').first()
+        ).toBeInViewport({ ratio: 1 });
+        await captureAdminDesign(
+          page,
+          testInfo,
+          `configuration-complete-${width}`,
+          true
+        );
+      }
+      const guide = root(page).getByRole('button', {
+        name: 'Guide',
+        exact: true
+      });
+      await guide.focus();
+      await page.keyboard.press('Enter');
+      await expect(page.getByRole('dialog')).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(guide).toBeFocused();
+      if (language === 'en') {
+        await page.evaluate(() => {
+          document.documentElement.style.fontSize = '200%';
+        });
+        await expectAdminPageFits(page);
+      }
+      await root(page)
+        .getByRole('navigation', {
+          name:
+            language === 'en'
+              ? 'Configuration sections'
+              : 'Sections de configuration'
+        })
+        .getByRole('button', { name: 'Configuration', exact: true })
+        .click();
+      await expect(page.locator('#setup-env')).toBeFocused();
+      await expect(
+        page.locator('[data-og7="setup-configuration-table"]')
+      ).toBeVisible();
+      await expectAdminPageFits(page);
+      expect(writes).toEqual([]);
+      expect(data.writes).toBe(0);
+    });
+  }
 
 for (const theme of ['mineral', 'night', 'graphite'] as const) {
   test(`setup CSS preserves ${theme} panels and keyboard configuration disclosure on French mobile and English desktop`, async ({
@@ -148,40 +220,24 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
           for (const panel of [readiness, checklist, environment, email]) {
             await expect(panel).toHaveCSS('background-color', palette.panel);
             await expect(panel).toHaveCSS('border-top-color', palette.border);
-            await expect(panel).toHaveCSS('border-radius', '12px');
-            await expect(panel).toHaveCSS('padding', '17.6px');
           }
           const next = recommendation(page);
-          await expect(next).toHaveCSS('min-height', '160px');
-          await expect(next).toHaveCSS(
-            'padding',
-            language === 'fr-CA' ? '17.6px' : '25.6px'
-          );
-          await expect(next).toHaveCSS('background-image', /linear-gradient/);
-          const mountain = await next.evaluate((node) => {
-            const style = getComputedStyle(node, '::after');
-            return {
-              image: style.backgroundImage,
-              color: style.backgroundColor
-            };
-          });
-          expect(mountain).toEqual({ image: 'none', color: palette.panel });
+          await expect(next).toBeVisible();
+          expect(
+            (await next.locator(':scope > a, :scope > button').boundingBox())!
+              .height
+          ).toBeGreaterThanOrEqual(44);
           const input = email.getByRole('textbox');
-          await expect(input).toHaveCSS('background-color', palette.raised);
           await expect(input).toHaveCSS('color', palette.text);
-          await expect(input).toHaveCSS('min-height', '44px');
-          await expect(input).toHaveCSS('padding', '8px 11.2px');
+          expect((await input.boundingBox())!.height).toBeGreaterThanOrEqual(
+            44
+          );
           await expect(
             root(page).locator('#setup-queue strong').first()
           ).toHaveCSS('font-variant-numeric', 'tabular-nums');
-          await expect(checklist.locator('li button').first()).toHaveCSS(
-            'font-size',
-            '14px'
-          );
-          await expect(checklist.locator('li button').first()).toHaveCSS(
-            'justify-content',
-            'start'
-          );
+          expect(
+            (await checklist.locator('li button').first().boundingBox())!.height
+          ).toBeGreaterThanOrEqual(44);
           const disclosure = environment.locator('summary');
           await disclosure.focus();
           await page.keyboard.press('Enter');
@@ -190,10 +246,6 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
           );
           await expect(scrolling).toBeVisible();
           await expect(scrolling).toHaveCSS('overflow-x', 'auto');
-          await expect(scrolling.getByRole('table')).toHaveCSS(
-            'min-width',
-            '672px'
-          );
           await scrolling.focus();
           if (language === 'fr-CA') {
             await page.keyboard.press('ArrowRight');
@@ -216,7 +268,7 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
   });
 }
 
-test('setup CSS keeps the inclusive 700px and 1350px grid boundaries', async ({
+test('setup keeps diagnostics and controls within resized content', async ({
   page
 }) => {
   const data = await installFixtures(page);
@@ -224,39 +276,28 @@ test('setup CSS keeps the inclusive 700px and 1350px grid boundaries', async ({
   await expect(card(page, 'database')).toBeVisible();
   const services = root(page).locator('openg7-admin-setup-services');
   const workspace = services.locator('..');
-  const serviceGrid = services.locator(':scope > section');
   const sidebar = root(page).locator('aside');
-  const readinessHeader = root(page).locator('#setup-readiness > header');
   const action = recommendation(page).locator(':scope > a, :scope > button');
-  for (const width of [700, 701, 1350, 1351]) {
+  for (const width of [390, 700, 1000, 1350, 1536]) {
     await test.step(`${width}px`, async () => {
       await page.setViewportSize({ width, height: 1000 });
-      await expect
-        .poll(() => setupGridColumns(workspace))
-        .toBe(width <= 1350 ? 1 : 2);
-      await expect
-        .poll(() => setupGridColumns(serviceGrid))
-        .toBe(width <= 700 ? 1 : 2);
-      await expect
-        .poll(() => setupGridColumns(sidebar))
-        .toBe(width > 700 && width <= 1350 ? 2 : 1);
-      for (const header of [
-        root(page).locator('#setup-overview'),
-        readinessHeader,
-        root(page).locator('#setup-env > header')
-      ])
-        await expect(header).toHaveCSS(
-          'flex-direction',
-          width <= 700 ? 'column' : 'row'
+      const bounds = (await workspace.boundingBox())!;
+      for (const surface of [services, sidebar]) {
+        const box = (await surface.boundingBox())!;
+        expect(box.x).toBeGreaterThanOrEqual(bounds.x);
+        expect(box.x + box.width).toBeLessThanOrEqual(
+          bounds.x + bounds.width + 1
         );
-      await expect(recommendation(page)).toHaveCSS(
-        'flex-wrap',
-        width <= 1350 ? 'wrap' : 'nowrap'
-      );
-      await expect(action).toHaveCSS(
-        'margin-left',
-        width <= 700 || width > 1350 ? '0px' : '81.6px'
-      );
+      }
+      for (const control of [
+        action,
+        root(page).locator('#setup-email').getByRole('textbox')
+      ]) {
+        expect((await control.boundingBox())!.height).toBeGreaterThanOrEqual(
+          44
+        );
+      }
+      await expectAdminPageFits(page);
       expect(data.writes).toBe(0);
     });
   }

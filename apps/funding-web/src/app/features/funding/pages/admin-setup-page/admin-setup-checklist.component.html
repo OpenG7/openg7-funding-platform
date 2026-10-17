@@ -20,7 +20,11 @@
   <ul>
     @for (item of items(); track item.id) {
       <li>
-        <button type="button" (click)="inspect.emit(item.id)">
+        <button
+          type="button"
+          class="admin-button"
+          (click)="inspect.emit(item.id)"
+        >
           <openg7-admin-icon
             [name]="item.ready ? 'check' : 'warning'"
           /><span>{{
@@ -46,7 +50,11 @@
     }
   </ul>
   <p class="scope">{{ 'admin.setup.checklistScope' | translate }}</p>
-  <button type="button" class="checklist-action" (click)="inspect.emit('env')">
+  <button
+    type="button"
+    class="admin-button checklist-action"
+    (click)="inspect.emit('env')"
+  >
     {{ 'admin.setup.viewConfiguration' | translate
     }}<openg7-admin-icon name="arrow" />
   </button>

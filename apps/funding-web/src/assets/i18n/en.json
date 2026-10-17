@@ -551,7 +551,7 @@
       "waiting": "Waiting for {{days}} day(s)",
       "exhausted": "Delivery stopped after {{count}} attempts",
       "attempts": "{{count}} / {{max}} attempts",
-      "due": "Due: {{date}",
+      "due": "Due: {{date}}",
       "optionalError": "This section is unavailable. Close and reopen it to try again.",
       "questionError": "Your question could not be processed. You can try again.",
       "prepare": {

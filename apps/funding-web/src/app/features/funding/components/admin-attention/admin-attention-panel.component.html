@@ -6,7 +6,8 @@
   <header class="attention-heading">
     <div>
       <h2>
-        <openg7-admin-icon name="audit" />{{
+        <span class="heading-symbol"><openg7-admin-icon name="audit" /></span
+        >{{
           (compact() ? 'admin.attention.todayTitle' : 'admin.attention.title')
             | translate
         }}
@@ -45,6 +46,16 @@
     </button>
   </header>
   @if (!compact()) {
+    @if (data(); as response) {
+      <dl class="attention-summary" data-og7="attention-summary">
+        @for (priority of priorities; track priority) {
+          <div [attr.data-priority]="priority">
+            <dt>{{ 'admin.attention.priority.' + priority | translate }}</dt>
+            <dd>{{ response.counts[priority] }}</dd>
+          </div>
+        }
+      </dl>
+    }
     <div class="filters">
       <label
         >{{ 'admin.attention.type' | translate
@@ -149,6 +160,7 @@
   </div>
   @if (data(); as response) {
     <openg7-admin-attention-list
+      [class.compact-list]="compact()"
       [items]="response.items"
       [showLink]="!query().itemId"
       [returnTo]="returnTo()"

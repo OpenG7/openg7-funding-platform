@@ -127,7 +127,7 @@ p {
 }
 .overview {
   @apply tw:grid;
-  grid-template-columns: 1.2fr 1fr 1fr;
+  grid-template-columns: minmax(0, 1.2fr) repeat(2, minmax(0, 1fr));
   background: var(--admin-panel-raised, #0b192775);
   border: 1px solid var(--admin-border);
   border-radius: 0.8rem;
@@ -135,15 +135,17 @@ p {
 .metric {
   @apply tw:flex tw:flex-col tw:items-start;
   gap: 0.55rem;
-  @apply tw:p-5 tw:min-w-0;
+  @apply tw:p-5 tw:min-w-0 tw:wrap-anywhere;
 }
 .metric + .metric {
   border-left: 1px solid var(--admin-border);
 }
 .metric-label {
-  @apply tw:flex tw:items-center tw:gap-2 tw:text-admin-muted tw:text-admin-caption;
+  @apply tw:flex tw:flex-wrap tw:min-w-0 tw:max-w-full tw:wrap-anywhere;
+  @apply tw:items-center tw:gap-2 tw:text-admin-muted tw:text-admin-caption;
 }
 .metric-label openg7-admin-icon {
+  @apply tw:shrink-0;
   color: var(--og7-admin-accent, #8bbcd4);
 }
 .metric strong {
@@ -438,7 +440,7 @@ code {
     @apply tw:gap-5;
   }
   .overview {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .metric {
     @apply tw:p-4;

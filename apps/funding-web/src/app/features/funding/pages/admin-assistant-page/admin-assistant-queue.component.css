@@ -1,101 +1,135 @@
 @reference '../../../../../styles/tailwind.css';
 
 :host {
-  @apply tw:grid tw:gap-4;
+  @apply tw:grid tw:gap-6 tw:min-w-0;
+  container: assistant-queue / inline-size;
+}
+.work-board {
+  @apply tw:grid tw:min-w-0 tw:gap-6;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
 }
 .section-heading {
-  @apply tw:flex tw:items-center tw:justify-between tw:gap-4 tw:flex-wrap;
+  @apply tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap;
 }
 .next-panel,
 .queue-panel {
+  @apply tw:rounded-admin-card tw:min-w-0;
   border: 1px solid var(--admin-border);
   background: var(--admin-panel);
-  @apply tw:rounded-xl;
-  padding: clamp(0.8rem, 2vw, 1.25rem);
-  @apply tw:min-w-0;
+  box-shadow: var(--admin-shadow);
 }
 .next-panel {
-  border-left: 3px solid var(--admin-accent, #87c8ff);
+  @apply tw:p-admin-card;
+  border-inline-start: 3px solid var(--admin-accent);
 }
-.section-heading {
-  @apply tw:mb-4;
+.next-panel > .section-heading {
+  @apply tw:mb-3;
+}
+.queue-panel > .section-heading {
+  padding: 1rem 1.25rem;
+}
+.queue-panel > openg7-admin-assistant-filters {
+  display: block;
+  padding-inline: 1.25rem;
 }
 .section-heading > .muted {
   @apply tw:text-admin-caption;
 }
 .recommendations,
 .item-list {
-  list-style: none;
   @apply tw:p-0 tw:m-0;
+  list-style: none;
 }
 .recommendations {
   counter-reset: recommendation;
 }
 .recommendations li {
+  @apply tw:grid tw:items-start tw:gap-x-3 tw:gap-y-2;
   counter-increment: recommendation;
-  @apply tw:grid;
-  grid-template-columns: 1.8rem minmax(0, 1fr) auto;
-  @apply tw:items-center tw:gap-3;
-  padding: 0.7rem 0;
+  grid-template-columns: 1.75rem minmax(0, 1fr);
+  padding-block: 1rem;
+}
+.recommendations li + li {
+  border-top: 1px solid var(--admin-border);
+}
+.recommendations li:last-child {
+  padding-bottom: 0;
 }
 .recommendations li::before {
+  @apply tw:grid tw:place-items-center tw:rounded-full tw:text-admin-accent;
   content: counter(recommendation);
-  width: 1.6rem;
-  height: 1.6rem;
-  @apply tw:grid tw:place-items-center;
-  border-radius: 50%;
-  background: var(--admin-panel-raised);
-  @apply tw:text-admin-muted;
+  width: 1.75rem;
+  height: 1.75rem;
+  background: var(--admin-selected);
+  font-size: 0.875rem;
+  font-weight: var(--admin-label-weight);
+  font-variant-numeric: tabular-nums;
 }
 .recommendations p {
-  @apply tw:text-admin-caption;
-  margin-top: 0.2rem;
-  @apply tw:wrap-anywhere;
+  @apply tw:text-admin-caption tw:wrap-anywhere;
+  margin-top: 0.375rem;
+}
+.recommendations button {
+  grid-column: 2;
+  justify-self: start;
 }
 .result-count {
-  padding: 0.75rem 0;
   @apply tw:text-admin-caption tw:text-admin-muted;
+  padding: 0 1.25rem 0.75rem;
 }
 .item-list > li {
-  @apply tw:grid;
+  @apply tw:grid tw:gap-3 tw:items-center;
   grid-template-columns: minmax(0, 1fr) auto auto;
-  @apply tw:gap-4 tw:items-center;
-  padding: 0.85rem 0;
+  padding: 1rem 1.25rem;
   border-top: 1px solid var(--admin-border);
+}
+.item-list > li:focus-within {
+  background: var(--admin-selected);
 }
 .item-content {
   @apply tw:min-w-0 tw:wrap-anywhere;
 }
 .item-title {
-  @apply tw:flex tw:gap-3 tw:flex-wrap;
+  @apply tw:flex tw:gap-x-3 tw:gap-y-1 tw:flex-wrap;
+}
+.item-title strong {
+  font-weight: var(--admin-label-weight);
 }
 .item-content p {
-  margin: 0.2rem 0;
   @apply tw:text-admin-caption;
+  margin: 0.375rem 0 0.25rem;
 }
 .item-content small {
   @apply tw:text-admin-caption;
 }
 .amount {
-  @apply tw:text-admin-muted tw:whitespace-nowrap;
+  @apply tw:text-admin-muted tw:wrap-anywhere;
+  font-variant-numeric: tabular-nums;
 }
 .priority {
-  @apply tw:text-admin-muted tw:text-admin-caption tw:whitespace-nowrap;
+  @apply tw:text-admin-muted tw:text-admin-caption tw:rounded-full tw:py-1 tw:px-2.5;
+  background: var(--admin-subtle);
+  font-weight: var(--admin-label-weight);
 }
 .priority.urgent {
   @apply tw:text-admin-danger;
+  background: var(--admin-danger-bg);
 }
 .empty {
-  padding: 1rem 0;
-  @apply tw:text-admin-muted;
+  @apply tw:text-admin-muted tw:rounded-admin-control tw:p-4;
+  background: var(--admin-subtle);
+  border: 1px dashed var(--admin-border);
+  margin: 0 1.25rem 1.25rem;
 }
-@media (max-width: 640px) {
-  :host {
-    gap: 0.8rem;
+@container assistant-queue (min-width: 64rem) {
+  .work-board:has(> .next-panel) {
+    grid-template-columns: minmax(0, 0.47fr) minmax(0, 1fr);
   }
+}
+@container assistant-queue (max-width: 42rem) {
   .item-list > li {
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0.55rem;
   }
   .item-content {
     @apply tw:col-span-full;
@@ -103,11 +137,7 @@
   .priority {
     justify-self: start;
   }
-  .recommendations li {
-    grid-template-columns: 1.6rem minmax(0, 1fr);
-  }
-  .recommendations button {
-    grid-column: 2;
-    justify-self: start;
+  .item-list > li > .admin-button {
+    justify-self: end;
   }
 }

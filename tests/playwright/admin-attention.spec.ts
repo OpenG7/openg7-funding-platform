@@ -6,6 +6,11 @@ import type {
 
 import { expect, test } from './support/test.js';
 import { dismissContributionToasts } from './support/contribution-toasts.js';
+import {
+  captureAdminDesign,
+  expectAdminPageFits,
+  prepareAdminDesignReview
+} from './support/admin-design-review.js';
 
 const emailId = '10000000-0000-4000-8000-000000000151';
 const contributionId = '10000000-0000-4000-8000-000000000251';
@@ -151,8 +156,8 @@ const attentionPalettes = {
     border: 'rgb(216, 224, 236)',
     text: 'rgb(23, 43, 80)',
     muted: 'rgb(82, 98, 123)',
-    danger: 'rgb(165, 45, 62)',
-    dangerBackground: 'rgb(252, 236, 239)',
+    selected: 'rgb(237, 243, 250)',
+    accent: 'rgb(54, 93, 136)',
     focus: 'rgb(53, 106, 159)'
   },
   night: {
@@ -160,8 +165,8 @@ const attentionPalettes = {
     border: 'rgb(64, 86, 111)',
     text: 'rgb(241, 245, 252)',
     muted: 'rgb(189, 203, 224)',
-    danger: 'rgb(255, 181, 188)',
-    dangerBackground: 'rgb(64, 38, 48)',
+    selected: 'rgb(36, 61, 83)',
+    accent: 'rgb(158, 218, 255)',
     focus: 'rgb(158, 218, 255)'
   },
   graphite: {
@@ -169,8 +174,8 @@ const attentionPalettes = {
     border: 'rgb(86, 97, 110)',
     text: 'rgb(243, 244, 246)',
     muted: 'rgb(196, 203, 213)',
-    danger: 'rgb(255, 188, 201)',
-    dangerBackground: 'rgb(70, 44, 53)',
+    selected: 'rgb(56, 67, 79)',
+    accent: 'rgb(176, 210, 235)',
     focus: 'rgb(194, 227, 255)'
   }
 } as const;
@@ -207,6 +212,63 @@ async function styleFixtures(
   return { panel, mutations };
 }
 
+for (const language of ['fr-CA', 'en'] as const)
+  for (const width of [390, 1536]) {
+    test(`attention composition keeps filters and the current queue accessible in ${language} at ${width}px`, async ({
+      page
+    }, testInfo) => {
+      await prepareAdminDesignReview(page);
+      const { panel, mutations } = await styleFixtures(
+        page,
+        language,
+        width,
+        'mineral'
+      );
+      await page.setViewportSize({
+        width,
+        height: width === 1536 ? 864 : 1000
+      });
+      const task = panel.locator('[data-og7-id="task-0"]');
+      const type = panel.locator('[data-og7="attention-type"]');
+      const priority = panel.locator('[data-og7="attention-priority"]');
+      const summary = panel.locator('[data-og7="attention-summary"]');
+      await expect(summary.locator(':scope > div')).toHaveCount(4);
+      await expect(summary.locator('[data-priority="urgent"] dd')).toHaveText(
+        '25'
+      );
+      await expect(summary.locator('[data-priority="today"] dd')).toHaveText(
+        '101'
+      );
+      await expect(panel.locator('[data-og7="attention-count"]')).toContainText(
+        '126'
+      );
+      await captureAdminDesign(page, testInfo, `attention-${width}`);
+      if (width === 1536) {
+        await expect(type).toBeInViewport({ ratio: 1 });
+        await expect(task).toBeInViewport({ ratio: 1 });
+      }
+      await type.focus();
+      await page.keyboard.press('Tab');
+      await expect(priority).toBeFocused();
+      await type.selectOption('invoice_missing');
+      await expect(panel.locator('[data-og7-id="task-1"]')).toBeVisible();
+      await expect(task).toHaveCount(0);
+      await expect(page).toHaveURL(/type=invoice_missing/);
+      await page.reload();
+      await expect(type).toHaveValue('invoice_missing');
+      if (language === 'en') {
+        await page.evaluate(() => {
+          document.documentElement.style.fontSize = '200%';
+        });
+        await expectAdminPageFits(page);
+        await type.selectOption('');
+        await expect(task).toBeVisible();
+        await expectAdminPageFits(page);
+      }
+      expect(mutations).toEqual([]);
+    });
+  }
+
 for (const theme of ['mineral', 'night', 'graphite'] as const) {
   for (const { language, width } of [
     { language: 'fr-CA', width: 390 },
@@ -232,33 +294,13 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
       await expect(panel).toHaveCSS('color', palette.text);
       await expect(panel).toHaveCSS('border-top-color', palette.border);
       await expect(panel).toHaveCSS('border-top-width', '1px');
-      await expect(panel).toHaveCSS('border-radius', '12px');
-      await expect(panel).toHaveCSS('overflow', 'hidden');
       const heading = panel.locator('header');
-      await expect(heading).toHaveCSS('padding', '20px');
-      await expect(heading).toHaveCSS('gap', '16px');
-      await expect(heading).toHaveCSS(
-        'align-items',
-        width <= 600 ? 'start' : 'center'
-      );
       const count = heading
         .getByRole('heading', { level: 2 })
         .getByText('126', { exact: true });
-      await expect(count).toHaveCSS(
-        'background-color',
-        palette.dangerBackground
-      );
-      await expect(count).toHaveCSS('color', palette.danger);
-      await expect(count).toHaveCSS('border-radius', '999px');
-      await expect(count).toHaveCSS('font-size', '14.4px');
-      await expect(count).toHaveCSS('padding', '2.4px 8.8px');
+      await expect(count).toHaveCSS('background-color', palette.selected);
+      await expect(count).toHaveCSS('color', palette.accent);
       const task = panel.locator('[data-og7-id="task-0"]');
-      await expect(task).toHaveCSS('padding', '18.4px 20px');
-      await expect(task).toHaveCSS('gap', '16px');
-      await expect(task).toHaveCSS(
-        'flex-direction',
-        width <= 600 ? 'column' : 'row'
-      );
       await expect(task.locator('p')).toHaveCSS('color', palette.muted);
       await expect(task.locator('small').first()).toHaveCSS(
         'color',
@@ -276,9 +318,7 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
       ]) {
         await expect(select).toHaveCSS('background-color', palette.panel);
         await expect(select).toHaveCSS('color', palette.text);
-        await expect(select).toHaveCSS('font-weight', '400');
-        await expect(select).toHaveCSS('border-radius', '6px');
-        await expect(select).toHaveCSS('padding', '10.4px');
+        expect((await select.boundingBox())!.height).toBeGreaterThanOrEqual(44);
       }
       await type.focus();
       await expect(type).toHaveCSS('outline-style', 'solid');
@@ -290,11 +330,6 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
       ).toBeFocused();
       const title = page.getByRole('main').getByRole('heading', { level: 1 });
       await expect(title).toHaveCSS('color', palette.text);
-      await expect(title).toHaveCSS('margin-bottom', '20px');
-      await expect(title.locator('..')).toHaveCSS(
-        'padding',
-        width === 390 ? '16px' : '25.6px'
-      );
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= innerWidth + 1
@@ -305,36 +340,28 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
   }
 }
 
-test('attention keeps the exact 600px task and filter boundary', async ({
+test('attention keeps its filters and task actions within resized content', async ({
   page
 }) => {
   const { panel, mutations } = await styleFixtures(page, 'en', 601, 'mineral');
   const task = panel.locator('[data-og7-id="task-0"]');
-  const filters = panel
-    .locator('[data-og7="attention-type"]')
-    .locator('..')
-    .locator('..');
-  for (const width of [601, 600, 599]) {
+  for (const width of [1536, 1100, 700, 601, 600, 390, 320]) {
     await page.setViewportSize({ width, height: 941 });
-    for (const element of [task, filters]) {
-      await expect(element).toHaveCSS(
-        'flex-direction',
-        width <= 600 ? 'column' : 'row'
-      );
-      await expect(element).toHaveCSS(
-        'align-items',
-        width <= 600 ? 'stretch' : element === task ? 'center' : 'end'
+    const bounds = (await panel.boundingBox())!;
+    for (const control of [
+      panel.locator('[data-og7="attention-type"]'),
+      panel.locator('[data-og7="attention-priority"]'),
+      panel.locator('[data-og7="attention-due"]'),
+      task.getByRole('link')
+    ]) {
+      const box = (await control.boundingBox())!;
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.x).toBeGreaterThanOrEqual(bounds.x);
+      expect(box.x + box.width).toBeLessThanOrEqual(
+        bounds.x + bounds.width + 1
       );
     }
-    await expect(panel.locator('header')).toHaveCSS(
-      'align-items',
-      width <= 600 ? 'start' : 'center'
-    );
-    expect(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth <= innerWidth + 1
-      )
-    ).toBe(true);
+    await expectAdminPageFits(page);
   }
   expect(mutations).toEqual([]);
 });

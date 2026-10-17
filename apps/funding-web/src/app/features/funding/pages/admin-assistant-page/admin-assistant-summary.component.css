@@ -1,23 +1,45 @@
 @reference '../../../../../styles/tailwind.css';
 
 .disclosure {
-  border-bottom: 1px solid var(--admin-border);
-  padding: 0.35rem 0;
+  @apply tw:rounded-admin-card;
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
 }
 summary {
-  @apply tw:cursor-pointer;
+  @apply tw:cursor-pointer tw:min-h-11 tw:wrap-anywhere;
+  padding: 0.875rem 1.25rem;
   font-weight: var(--admin-control-weight);
-  padding: 0.3rem 0;
+}
+summary::marker {
+  color: var(--admin-accent);
+}
+.disclosure[open] summary {
+  border-bottom: 1px solid var(--admin-border);
 }
 .disclosure[open] > :not(summary) {
-  @apply tw:mt-4;
+  margin: 1.25rem;
 }
 .financial-facts {
-  @apply tw:grid tw:gap-3;
+  @apply tw:grid tw:min-w-0 tw:gap-4;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
 }
 .financial-facts > div {
-  @apply tw:flex tw:gap-4 tw:justify-between;
+  @apply tw:grid tw:min-w-0 tw:gap-1;
+  align-content: start;
+}
+.financial-facts dt {
+  @apply tw:text-admin-muted tw:text-admin-caption tw:wrap-anywhere;
 }
 .financial-facts dd {
-  @apply tw:m-0;
+  @apply tw:m-0 tw:wrap-anywhere;
+  font-size: 1.125rem;
+  font-weight: var(--admin-label-weight);
+  font-variant-numeric: tabular-nums;
+}
+.disclosure > .muted,
+.disclosure > small {
+  @apply tw:text-admin-caption;
+}
+.disclosure > small {
+  @apply tw:block;
 }

@@ -2,14 +2,21 @@
 
 .queue-footer,
 .pagination {
-  @apply tw:flex tw:items-center tw:justify-between tw:gap-4 tw:flex-wrap;
+  @apply tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap tw:min-w-0;
 }
 .queue-footer {
+  @apply tw:text-admin-caption;
   border-top: 1px solid var(--admin-border);
-  @apply tw:pt-4 tw:mt-1 tw:text-admin-caption;
+  padding: 1rem 1.25rem;
+}
+.queue-footer > small {
+  @apply tw:wrap-anywhere;
 }
 .pagination {
-  gap: 0.6rem;
+  @apply tw:max-w-full;
+}
+.pagination > span {
+  font-variant-numeric: tabular-nums;
 }
 @media (max-width: 640px) {
   .queue-footer {

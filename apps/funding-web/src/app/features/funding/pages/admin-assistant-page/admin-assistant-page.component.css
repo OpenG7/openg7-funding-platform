@@ -1,40 +1,40 @@
 @reference '../../../../../styles/tailwind.css';
 
 .assistant-page {
+  @apply tw:grid tw:min-w-0 tw:w-full tw:gap-6;
   max-width: 78rem;
   margin: auto;
-  @apply tw:p-1 tw:grid tw:gap-4;
+  grid-template-columns: minmax(0, 1fr);
 }
 .page-heading,
 .detail-actions {
-  @apply tw:flex tw:items-center tw:justify-between tw:gap-4 tw:flex-wrap;
+  @apply tw:flex tw:items-start tw:justify-between tw:gap-4 tw:flex-wrap;
 }
 .page-heading > div {
-  @apply tw:grid;
-  gap: 0.4rem;
+  @apply tw:grid tw:min-w-0 tw:gap-2;
+  flex: 1 1 24rem;
+}
+.page-heading p {
+  @apply tw:text-admin-navigation;
+  max-width: 54rem;
+}
+.assistant-page > [data-og7='assistant-state']:empty {
+  display: none;
 }
 .eyebrow {
-  @apply tw:text-admin-caption;
+  @apply tw:text-admin-caption tw:text-admin-muted;
   font-weight: var(--admin-label-weight);
-  letter-spacing: 0.06em;
-  @apply tw:uppercase tw:text-admin-muted;
 }
 .detail-content {
-  @apply tw:grid tw:gap-4 tw:wrap-anywhere;
+  @apply tw:grid tw:min-w-0 tw:gap-4 tw:wrap-anywhere;
 }
 .detail-content ul {
   @apply tw:m-0;
   padding-left: 1.3rem;
 }
 .detail-actions {
-  @apply tw:justify-start;
+  @apply tw:items-center tw:justify-start;
 }
 .back-button {
   @apply tw:mt-6;
-}
-@media (max-width: 640px) {
-  .assistant-page {
-    padding: 0.65rem;
-    gap: 0.8rem;
-  }
 }

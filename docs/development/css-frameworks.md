@@ -144,6 +144,17 @@ compteurs; sa date et l'explication des envois incertains restent visibles en pi
 de synthèse. Le registre garde ses détails, confirmations et rapprochements,
 avec un défilement horizontal local accessible au clavier.
 
+L'Assistant garde sa question facultative repliable, puis réunit recommandations
+et file côte à côte dès 64 rem disponibles. Les filtres rendent la file à toute
+la largeur. À traiter distingue les quatre compteurs de priorité fournis par
+l'API de son total neutre; sa variante courte reste intégrée au cockpit.
+Configuration sépare environnement, fraîcheur de configuration et observations
+des services. Sa recommandation reste compacte, ses diagnostics se replient selon
+leur conteneur et ses guides conservent leurs repères de focus. Le composant de
+cartes système accepte `--admin-system-cards-columns`; Configuration l'utilise
+pour élargir ses diagnostics, tandis que les autres consommateurs gardent leur
+grille par défaut.
+
 La vue Publications présente d'abord les prochains lots. Les accès à la rédaction,
 aux lots et au calendrier occupent un rail à droite dès 60 rem de contenu disponible,
 puis suivent la file en dessous. Entre 44 et 60 rem, ils occupent trois colonnes;

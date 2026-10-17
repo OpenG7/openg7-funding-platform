@@ -1,123 +1,107 @@
 @reference '../../../../../styles/tailwind.css';
 .admin-content {
-  @apply tw:grid;
-  gap: 1.1rem;
-  @apply tw:min-w-0;
+  @apply tw:grid tw:min-w-0 tw:w-full tw:mx-auto;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+  max-width: 88rem;
+  container: setup-page / inline-size;
 }
 .admin-topbar {
-  @apply tw:flex tw:justify-between tw:gap-6 tw:items-center;
+  @apply tw:flex tw:flex-wrap tw:justify-between tw:gap-4 tw:items-center;
 }
 .admin-topbar > div:first-child {
+  @apply tw:min-w-0;
+  flex: 1 1 28rem;
   max-width: 52rem;
-}
-.admin-topbar span,
-.eyebrow {
-  @apply tw:block;
-  color: var(--og7-admin-accent, #9bd5ed);
-  @apply tw:text-admin-caption;
-  font-weight: var(--admin-label-weight);
-  letter-spacing: 0.08em;
-  @apply tw:uppercase;
-  margin-bottom: 0.35rem;
 }
 .subtitle {
   @apply tw:text-admin-muted;
-  font-size: 0.9rem;
+  font-size: 1rem;
+  line-height: var(--admin-body-leading, 1.55);
   margin-top: 0.55rem;
 }
 .topbar-actions {
-  @apply tw:flex tw:gap-2 tw:shrink-0;
-}
-.secondary-button {
-  background: transparent;
+  @apply tw:flex tw:flex-wrap tw:gap-2 tw:max-w-full;
 }
 .environment-bar {
-  @apply tw:flex;
+  @apply tw:flex tw:items-center;
   gap: 0.75rem 1.5rem;
   @apply tw:justify-between tw:flex-wrap tw:text-admin-caption tw:text-admin-muted;
 }
 .environment-bar > span {
-  @apply tw:inline-flex tw:items-center tw:flex-wrap;
-  gap: 0.45rem;
+  @apply tw:inline-flex tw:items-center tw:flex-wrap tw:min-w-0 tw:max-w-full tw:wrap-anywhere;
+  gap: 0.5rem;
+}
+.environment-bar time {
+  font-variant-numeric: tabular-nums;
 }
 .environment {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.4rem;
-  padding: 0.4rem 0.7rem;
+  @apply tw:rounded-admin-control;
+  padding: 0.5rem 0.75rem;
 }
 .environment strong {
   @apply tw:text-admin-text tw:uppercase;
 }
 .environment-dot {
+  @apply tw:shrink-0;
   width: 0.45rem;
   height: 0.45rem;
   border-radius: 50%;
-  background: var(--og7-admin-accent, #8dbddd);
+  background: var(--admin-accent);
 }
 .section-nav {
   @apply tw:flex tw:gap-2 tw:flex-wrap;
-  padding: 0.45rem 0 0.85rem;
+  padding-bottom: 1rem;
   border-bottom: 1px solid var(--admin-border);
 }
 .section-nav button {
   background: transparent;
   border-color: transparent;
-  @apply tw:text-admin-muted tw:text-admin-caption;
+  @apply tw:text-admin-muted tw:justify-start;
 }
 .section-nav button[aria-current='location'] {
-  background: var(--og7-admin-selected, #12354c);
-  border-color: var(--og7-admin-accent, #3c6d89);
-  @apply tw:text-admin-text;
+  background: var(--admin-selected);
+  border-color: var(--admin-accent);
+  @apply tw:text-admin-accent;
 }
 .workspace-grid {
-  @apply tw:grid;
-  grid-template-columns: minmax(0, 2fr) minmax(17rem, 1fr);
+  @apply tw:grid tw:min-w-0;
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
-  @apply tw:gap-4;
+  gap: 1.5rem;
 }
 .setup-sidebar {
-  @apply tw:grid tw:gap-4 tw:min-w-0;
+  @apply tw:grid tw:min-w-0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
 }
 .audit-link {
-  @apply tw:flex tw:items-center;
-  justify-content: end;
-  @apply tw:gap-2 tw:text-admin-caption;
-  padding: 0.8rem 0.2rem;
+  margin-top: 0.75rem;
 }
 .state {
+  background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.6rem;
-  @apply tw:p-4;
+  @apply tw:p-admin-card tw:rounded-admin-card;
 }
 .tour-actions {
-  @apply tw:flex tw:justify-between;
-  gap: 0.7rem;
-  @apply tw:p-4;
+  @apply tw:flex tw:flex-wrap tw:justify-between tw:gap-3 tw:p-admin-card;
   border-top: 1px solid var(--admin-border);
 }
 .state-error {
   @apply tw:text-admin-danger;
 }
-@media (max-width: 1350px) {
-  .workspace-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
+@container setup-page (min-width: 50rem) {
   .setup-sidebar {
     @apply tw:grid-cols-2;
   }
 }
-@media (max-width: 700px) {
-  .admin-topbar {
-    @apply tw:items-stretch tw:flex-col;
-  }
-  .topbar-actions {
-    justify-content: start;
+@container setup-page (min-width: 68rem) {
+  .workspace-grid {
+    grid-template-columns: minmax(0, 2fr) minmax(17rem, 1fr);
   }
   .setup-sidebar {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .environment-bar {
-    @apply tw:text-admin-caption;
   }
 }
