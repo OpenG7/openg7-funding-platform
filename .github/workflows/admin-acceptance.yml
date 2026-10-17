@@ -69,6 +69,9 @@ jobs:
           cache: yarn
       - run: yarn install --immutable
       - run: yarn exec playwright install --with-deps chromium
+      - uses: ./.github/actions/cache-angular
+        with:
+          configuration: development
       - name: Build development Web fixtures and typecheck admin UI
         run: |
           yarn workspace @openg7/funding-web build --configuration development
@@ -97,6 +100,9 @@ jobs:
           cache: yarn
       - run: yarn install --immutable
       - run: yarn exec playwright install --with-deps chromium webkit
+      - uses: ./.github/actions/cache-angular
+        with:
+          configuration: development
       - name: Build development Web fixtures and typecheck follow-up UI
         run: |
           yarn workspace @openg7/funding-web build --configuration development
@@ -129,6 +135,9 @@ jobs:
           cache: yarn
       - run: yarn install --immutable
       - run: yarn exec playwright install --with-deps chromium firefox webkit
+      - uses: ./.github/actions/cache-angular
+        with:
+          configuration: development
       - name: Build development Web fixtures
         run: yarn workspace @openg7/funding-web build --configuration development
       - name: Public journeys across browsers and accessibility
@@ -159,6 +168,9 @@ jobs:
           cache: yarn
       - run: yarn install --immutable
       - run: yarn exec playwright install --with-deps chromium firefox webkit
+      - uses: ./.github/actions/cache-angular
+        with:
+          configuration: production
       - name: Build production Web fixtures
         run: yarn workspace @openg7/funding-web build --configuration production
       - name: Public transparency across browsers
@@ -195,6 +207,9 @@ jobs:
           docker pull postgres:16-alpine
           docker pull axllent/mailpit:v1.27.4
       - run: yarn exec playwright install --with-deps chromium
+      - uses: ./.github/actions/cache-angular
+        with:
+          configuration: production
       - name: Build production Web fixtures
         run: yarn workspace @openg7/funding-web build --configuration production
       - name: Identity acceptance with disposable PostgreSQL and signed OIDC
@@ -229,6 +244,9 @@ jobs:
           docker pull postgres:16-alpine
           docker pull adobe/s3mock:5.1.0
       - run: yarn exec playwright install --with-deps chromium
+      - uses: ./.github/actions/cache-angular
+        with:
+          configuration: production
       - name: Build production Web fixtures
         run: yarn workspace @openg7/funding-web build --configuration production
       - name: Backup and application recovery on disposable targets
@@ -339,10 +357,21 @@ jobs:
           cache: yarn
       - run: yarn install --immutable
       - run: yarn build
+      - uses: docker/setup-buildx-action@v3
       - name: Prepare disposable identity images
-        run: |
-          docker pull postgres:16-alpine
-          docker build -f docker/keycloak/Dockerfile -t openg7-keycloak:26.8.0-local -t openg7-keycloak:26.8.0 .
+        run: docker pull postgres:16-alpine
+      - name: Build cached disposable Keycloak image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/keycloak/Dockerfile
+          load: true
+          pull: true
+          tags: |
+            openg7-keycloak:26.8.0-local
+            openg7-keycloak:26.8.0
+          cache-from: type=gha,scope=acceptance-keycloak
+          cache-to: type=gha,mode=max,scope=acceptance-keycloak,ignore-error=true
       - name: Real Keycloak password, OTP and application identity
         run: node --test tests/identity/keycloak-identity.integration.mjs
       - name: Initial import preserves literal passwords and existing users
@@ -386,9 +415,37 @@ jobs:
         run: |
           docker pull postgres:16-alpine
           docker pull traefik:v3.7.13
-          docker build -f docker/keycloak/Dockerfile -t openg7-keycloak:26.8.0-local .
-          docker build -f apps/funding-api/Dockerfile -t openg7-keycloak-local-validation-api:test .
-          docker build -f apps/funding-web/Dockerfile -t openg7-keycloak-local-validation-web:test .
+      - uses: docker/setup-buildx-action@v3
+      - name: Build cached disposable HTTPS Keycloak image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/keycloak/Dockerfile
+          load: true
+          pull: true
+          tags: openg7-keycloak:26.8.0-local
+          cache-from: type=gha,scope=acceptance-keycloak
+          cache-to: type=gha,mode=max,scope=acceptance-keycloak,ignore-error=true
+      - name: Build cached disposable HTTPS API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/funding-api/Dockerfile
+          load: true
+          pull: true
+          tags: openg7-keycloak-local-validation-api:test
+          cache-from: type=gha,scope=acceptance-api
+          cache-to: type=gha,mode=max,scope=acceptance-api,ignore-error=true
+      - name: Build cached disposable HTTPS Web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/funding-web/Dockerfile
+          load: true
+          pull: true
+          tags: openg7-keycloak-local-validation-web:test
+          cache-from: type=gha,scope=acceptance-web
+          cache-to: type=gha,mode=max,scope=acceptance-web,ignore-error=true
       - name: Real HTTPS local password sign-in and restoration of mandatory OTP
         env:
           NODE_EXTRA_CA_CERTS: ${{ runner.temp }}/openg7-keycloak-ci-tls/rootCA.pem
