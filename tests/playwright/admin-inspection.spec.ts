@@ -605,6 +605,21 @@ test('audit and proof drawers open exact records on the same page', async ({
   await page.goto('/admin/fundraiser/audit');
   await page.getByRole('button', { name: 'note.saved' }).click();
   await expect(drawer(page)).toContainText('Note synthétique');
+  const auditHistory = drawer(page).getByRole('list', {
+    name: 'Entrée d’audit',
+    exact: true
+  });
+  await expect(auditHistory).toHaveAttribute('data-og7', 'inspection-history');
+  await expect(auditHistory).toHaveAttribute('role', 'list');
+  const auditEvent = auditHistory.locator('li');
+  await expect(auditEvent).toHaveCount(1);
+  await expect(auditEvent).toHaveAttribute('data-og7-id', id);
+  await expect(auditEvent.locator('time')).toHaveAttribute('datetime', date);
+  await expect(auditEvent.locator('time')).not.toHaveText(date);
+  await expect(auditEvent.locator('time')).toContainText('sept.');
+  await expect(auditEvent.locator('code')).toHaveText('note.saved');
+  await expect(auditEvent).toContainText('Note synthétique');
+  await expect(auditEvent).toContainText('Acteur : Fixture');
   await drawer(page)
     .getByRole('link', { name: 'Ouvrir la page complète' })
     .click();

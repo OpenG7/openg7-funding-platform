@@ -16,6 +16,7 @@ import { expectAdminFontsReady } from './support/admin-fonts.js';
 import { moderationFixture, completeModeration } from './support/moderation.js';
 import { registerSponsorHistoryPanelTests } from './admin-sponsor-history-panels.ui.js';
 import { registerSponsorProfileTests } from './admin-sponsor-profile.ui.js';
+import { registerSponsorInterventionTests } from './admin-sponsor-interventions.ui.js';
 import { registerSponsorFiltersTests } from './admin-sponsors-filters.ui.js';
 import { registerSponsorResultsTests } from './admin-sponsors-results.ui.js';
 import { registerContributionActivityOverlayTests } from './contribution-activity-overlays.ui.js';
@@ -579,6 +580,7 @@ const dossierNext = (page: Page) =>
 
 registerSponsorHistoryPanelTests({ fixtures, path, tabs });
 registerSponsorProfileTests({ fixtures, path, asset: () => mediaAsset() });
+registerSponsorInterventionTests({ fixtures, path, id, date });
 registerAdminMediaUsageTests({ fixtures, path, asset: () => mediaAsset() });
 registerSponsorshipCommitmentTests({ fixtures, path });
 registerSponsorshipHistoricalAuditTests({ fixtures, path });
@@ -3086,7 +3088,10 @@ test('media and history inspections stay inside the selected dossier', async ({
   );
   await page.keyboard.press('Escape');
   await tabs(page).getByRole('button', { name: 'Historique' }).click();
-  await page.getByRole('button', { name: 'Historique du dossier' }).click();
+  await page
+    .locator('[data-og7="dossier-audit-history"]')
+    .getByRole('button', { name: 'Consulter le journal', exact: true })
+    .click();
   await expect(page.locator('dialog[open]')).toContainText(
     'Aucune entrée d’audit disponible'
   );
@@ -3822,6 +3827,11 @@ test('intervention journal records actions with actor and date, retains notes ac
   const { calls } = await fixtures(page, 'operator');
   await page.goto(path('refund'));
   const journal = page.locator('[data-og7="dossier-interventions"]');
+  const journalToggle = journal.locator('[data-og7="interventions-toggle"]');
+  await expect(journalToggle).toHaveAttribute('aria-expanded', 'false');
+  await journalToggle.focus();
+  await journalToggle.press('Enter');
+  await expect(journalToggle).toHaveAttribute('aria-expanded', 'true');
   await expect(journal).toContainText('Dossier incomplet — décision requise');
   await expect(journal.locator('[data-og7="intervention-kind"]')).toHaveValue(
     'internal'
@@ -3954,6 +3964,11 @@ test('intervention journal keeps older notes readable for a reader and renders n
   );
   await page.goto(path('refund'));
   const journal = page.locator('[data-og7="dossier-interventions"]');
+  const journalToggle = journal.locator('[data-og7="interventions-toggle"]');
+  await expect(journalToggle).toHaveAttribute('aria-expanded', 'false');
+  await journalToggle.focus();
+  await journalToggle.press('Enter');
+  await expect(journalToggle).toHaveAttribute('aria-expanded', 'true');
   await expect(journal.locator('[data-og7="intervention-form"]')).toHaveCount(
     0
   );
