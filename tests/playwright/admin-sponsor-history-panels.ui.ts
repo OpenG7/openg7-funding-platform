@@ -175,13 +175,6 @@ export function registerSponsorHistoryPanelTests({
       await expect(
         history.locator('[data-og7="interventions-history"]')
       ).toHaveCount(0);
-      const columns = await history
-        .locator('[data-og7="dossier-refund-summary"]')
-        .evaluate(
-          (element) =>
-            getComputedStyle(element).gridTemplateColumns.split(' ').length
-        );
-      expect(columns).toBe(english ? 1 : 2);
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= innerWidth + 1

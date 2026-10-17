@@ -2,87 +2,91 @@
 
 :host {
   @apply tw:block tw:min-w-0;
-}
-
-button,
-input {
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-}
-
-button:focus-visible,
-a:focus-visible,
-input:focus-visible {
-  outline: 3px solid var(--admin-focus);
-  outline-offset: 2px;
-}
-
-.secondary-danger-action {
-  @apply tw:items-center;
-  background: var(--admin-panel);
-  border: 1px solid var(--admin-border);
-  @apply tw:rounded-admin-sm tw:text-admin-danger tw:cursor-pointer tw:inline-flex;
-  font-weight: var(--admin-control-weight);
-  @apply tw:justify-center tw:min-h-10;
-  padding: 0 0.85rem;
-  text-decoration: none;
-}
-
-.secondary-danger-action:disabled {
-  @apply tw:cursor-not-allowed;
-  opacity: 0.55;
+  container: admin-sponsor-media-card / inline-size;
 }
 
 .media-review-item {
-  align-items: start;
-  @apply tw:grid tw:gap-4;
-  grid-template-columns: 11rem minmax(0, 1fr);
+  @apply tw:grid tw:items-start tw:min-w-0 tw:gap-admin-card-gap;
+  border-top: 1px solid var(--admin-border);
+  padding-top: var(--admin-card-gap);
 }
 
 .media-preview {
-  @apply tw:items-center;
+  @apply tw:flex tw:items-center tw:justify-center tw:rounded-admin-control;
   aspect-ratio: 4 / 3;
-  background: var(--admin-panel-raised);
+  width: min(100%, 16rem);
+  overflow: hidden;
+  background: var(--admin-subtle);
   border: 1px solid var(--admin-border);
-  @apply tw:flex tw:justify-center tw:overflow-hidden;
 }
 
 .media-preview img {
-  @apply tw:h-full tw:object-contain tw:w-full;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.media-preview span {
+  @apply tw:text-admin-muted tw:text-admin-caption;
+  padding: 1rem;
+  text-align: center;
 }
 
 .media-review-copy {
-  @apply tw:grid;
-  gap: 0.65rem;
-  @apply tw:min-w-0;
+  @apply tw:grid tw:min-w-0 tw:gap-3;
 }
 
 .media-review-heading {
-  @apply tw:items-center tw:flex tw:flex-wrap tw:gap-2 tw:justify-between;
+  @apply tw:flex tw:items-center tw:flex-wrap tw:gap-2 tw:justify-between;
 }
 
-.media-review-copy small {
-  @apply tw:text-admin-muted;
+h4 {
+  margin: 0;
+  font-size: var(--admin-body-size, 1rem);
+  font-weight: var(--admin-section-weight, 600);
+  line-height: var(--admin-section-leading, 1.4);
 }
 
-.media-review-copy label {
-  @apply tw:grid tw:text-admin-caption;
+.media-metadata {
+  @apply tw:text-admin-muted tw:text-admin-caption;
+  margin: -0.4rem 0 0;
+}
+
+.usage-restrictions {
+  @apply tw:rounded-admin-control tw:text-admin-caption;
+  margin: 0;
+  padding: 0.75rem;
+  background: var(--admin-warning-bg);
+  color: var(--admin-warning);
+  border: 1px solid var(--admin-warning-border);
+}
+
+.restrictions-confirmation {
+  @apply tw:flex tw:items-start tw:gap-3 tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
-  gap: 0.35rem;
 }
 
-.media-review-copy label span {
-  @apply tw:text-admin-muted;
+.restrictions-confirmation input {
+  flex: 0 0 auto;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin-top: 0.15rem;
+  accent-color: var(--admin-accent);
+}
+
+.alt-text-field {
+  @apply tw:grid tw:min-w-0 tw:gap-2 tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
 }
 
-.media-review-copy input {
-  border: 1px solid var(--admin-border);
-  border-radius: 0.35rem;
-  @apply tw:min-h-10;
-  padding: 0.55rem 0.65rem;
-  @apply tw:w-full;
+.alt-text-field span {
+  @apply tw:text-admin-muted;
+  font-weight: 400;
+}
+
+.alt-text-field input {
+  width: 100%;
 }
 
 .media-status {
@@ -91,54 +95,60 @@ input:focus-visible {
 }
 
 .media-status.approved {
-  @apply tw:text-admin-success;
+  color: var(--admin-success);
 }
 
 .media-status.pending_review {
-  @apply tw:text-admin-warning;
+  color: var(--admin-warning);
 }
 
 .media-status.rejected {
-  @apply tw:text-admin-danger;
+  color: var(--admin-danger);
 }
 
 .media-review-actions {
-  @apply tw:flex tw:flex-wrap;
-  gap: 0.55rem;
+  @apply tw:flex tw:flex-wrap tw:gap-3;
+  border-top: 1px solid var(--admin-border);
+  padding-top: 0.85rem;
 }
 
-.approve-action,
-.reject-action {
-  @apply tw:rounded-admin-sm tw:cursor-pointer;
-  font-weight: var(--admin-control-weight);
-  @apply tw:min-h-10;
-  padding: 0 0.85rem;
+.media-review-actions .admin-button {
+  max-width: 100%;
+  white-space: normal;
 }
 
-.approve-action {
-  background: var(--og7-admin-success-bg, #193d32);
-  border: 1px solid var(--admin-border);
-  @apply tw:text-admin-text;
+.approve-action:not(:disabled) {
+  color: var(--admin-success);
+  background: var(--admin-success-bg);
+  border-color: var(--admin-success-border);
 }
 
-.reject-action {
-  background: var(--admin-panel);
-  border: 1px solid var(--admin-border);
-  @apply tw:text-admin-danger;
+.approve-action:not(:disabled):hover {
+  background: var(--admin-success-bg);
+  border-color: var(--admin-success);
 }
 
-.approve-action:disabled,
-.reject-action:disabled {
-  @apply tw:cursor-not-allowed;
-  opacity: 0.55;
+.reject-action:not(:disabled),
+.secondary-danger-action:not(:disabled) {
+  color: var(--admin-danger);
+  border-color: var(--admin-danger-border);
 }
 
-@media (max-width: 720px) {
+.reject-action:not(:disabled):hover,
+.secondary-danger-action:not(:disabled):hover {
+  color: var(--admin-danger);
+  background: var(--admin-danger-bg);
+  border-color: var(--admin-danger);
+}
+
+@container admin-sponsor-media-card (min-width: 44rem) {
   .media-review-item {
-    grid-template-columns: 1fr;
+    grid-template-columns: 11rem minmax(0, 1fr);
   }
+}
 
-  .media-preview {
-    max-width: 16rem;
+@container admin-sponsor-media-card (max-width: 24rem) {
+  .media-review-actions .admin-button {
+    flex: 1 1 100%;
   }
 }

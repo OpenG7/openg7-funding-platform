@@ -1,93 +1,75 @@
 @reference '../../../../../styles/tailwind.css';
 
 :host {
-  @apply tw:block;
-}
-
-button,
-input {
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-}
-
-button:focus-visible,
-a:focus-visible,
-input:focus-visible {
-  outline: 3px solid var(--admin-focus);
-  outline-offset: 2px;
+  @apply tw:block tw:min-w-0;
+  container: admin-sponsor-media / inline-size;
 }
 
 .detail-body {
-  @apply tw:grid;
-  gap: 0.9rem;
-  @apply tw:overflow-auto tw:p-4;
-}
-
-.muted-copy {
-  @apply tw:text-admin-muted;
-  margin: 0.35rem 0 0;
+  @apply tw:grid tw:min-w-0 tw:gap-admin-card-gap tw:p-admin-card;
 }
 
 .media-review-panel {
-  border-top: 1px solid var(--admin-border);
-  @apply tw:grid tw:gap-4 tw:pt-4;
+  @apply tw:grid tw:min-w-0 tw:gap-admin-card-gap tw:rounded-admin-card tw:p-admin-card;
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
 }
 
 .media-review-panel > header {
-  @apply tw:grid tw:gap-2;
-  grid-template-columns: minmax(0, 1fr) minmax(12rem, 0.8fr);
-}
-
-.media-review-panel header span {
-  @apply tw:text-admin-muted tw:text-admin-caption;
-  font-weight: var(--admin-label-weight);
-  @apply tw:uppercase;
-}
-
-.media-review-panel h3,
-.media-review-panel header p {
-  @apply tw:m-0;
+  @apply tw:grid tw:items-start tw:gap-3;
 }
 
 .media-review-panel h3 {
-  margin-top: 0.2rem;
+  margin: 0;
+  font-size: var(--admin-section-size, 1.1875rem);
+  font-weight: var(--admin-section-weight, 600);
+  line-height: var(--admin-section-leading, 1.4);
 }
 
-.media-review-panel header p {
+.muted-copy,
+.inline-status {
   @apply tw:text-admin-muted tw:text-admin-caption;
+  margin: 0;
 }
 
-.media-review-summary {
-  @apply tw:grid;
-  gap: 0.65rem;
-  @apply tw:justify-items-start;
+header .muted-copy {
+  margin-top: 0.5rem;
 }
 
 .approve-all-action {
-  background: var(--og7-admin-success-bg, #193d32);
-  border: 1px solid var(--admin-border);
-  @apply tw:rounded-admin-sm tw:text-admin-text tw:cursor-pointer;
-  font-weight: var(--admin-control-weight);
-  @apply tw:min-h-10;
-  padding: 0 0.85rem;
+  justify-self: start;
+  max-width: 100%;
+  white-space: normal;
 }
 
-.approve-all-action:disabled {
-  @apply tw:cursor-not-allowed;
-  opacity: 0.55;
+.approve-all-action:not(:disabled) {
+  color: var(--admin-success);
+  background: var(--admin-success-bg);
+  border-color: var(--admin-success-border);
+}
+
+.approve-all-action:not(:disabled):hover {
+  background: var(--admin-success-bg);
+  border-color: var(--admin-success);
+}
+
+.empty-state {
+  @apply tw:grid tw:gap-2 tw:rounded-admin-control;
+  padding: 1rem;
+  background: var(--admin-subtle);
+  border: 1px dashed var(--admin-border);
+}
+
+.empty-state p {
+  margin: 0;
 }
 
 .media-review-list {
-  @apply tw:grid tw:gap-4;
+  @apply tw:grid tw:min-w-0 tw:gap-admin-card-gap;
 }
 
-.inline-status {
-  @apply tw:text-admin-muted;
-}
-
-@media (max-width: 720px) {
+@container admin-sponsor-media (min-width: 44rem) {
   .media-review-panel > header {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 }

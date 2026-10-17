@@ -188,6 +188,8 @@ for (const locale of ['fr-CA', 'en']) {
     ]) {
       assert.ok(root.textContent.includes(copy[key]), key);
     }
+    assert.ok(root.querySelector('#dossier-refund-timeline-title'));
+    assert.ok(root.querySelector('#dossier-refund-audit-title'));
     assert.equal(root.querySelectorAll('button, input, textarea').length, 0);
     assert.equal(
       root.querySelector('section').getAttribute('data-og7'),

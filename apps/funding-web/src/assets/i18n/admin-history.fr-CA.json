@@ -5,6 +5,16 @@
   "singleEvent": "1 événement",
   "eventCount": "{{count}} événements",
   "actionCode": "Action : {{action}}",
+  "interventions": {
+    "privateScope": "Journal interne des démarches et du suivi du dossier.",
+    "payment": "Paiement",
+    "guidanceTitle": "Repères et règles du suivi",
+    "guidance": "Repères de suivi depuis le paiement : première relance à {{first}} jours, deuxième à {{second}} jours, décision à examiner à {{decision}} jours. Vous pouvez consigner une prolongation avec une nouvelle échéance.",
+    "scope": "Ces repères signalent les dossiers incomplets, pas une absence de lecture du courriel. Une note de relance décrit une démarche déjà effectuée ; elle n’envoie aucun message. La décision de remboursement reste au cas par cas, dans l’onglet Finances.",
+    "noteScope": "Consignez une démarche déjà effectuée. Enregistrer une note n’envoie aucun courriel et ne déclenche aucun remboursement.",
+    "singleEntry": "1 intervention affichée",
+    "entryCount": "{{count}} interventions affichées"
+  },
   "actors": {
     "sponsor": "Commanditaire",
     "adminSession": "Session administrative",
