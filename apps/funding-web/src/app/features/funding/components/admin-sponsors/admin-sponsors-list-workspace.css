@@ -8,7 +8,6 @@
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
   @apply tw:rounded-admin-card tw:min-w-0 tw:overflow-hidden;
-  box-shadow: var(--admin-shadow);
 }
 
 :host .sponsors-list-panel {
@@ -16,15 +15,37 @@
 }
 
 .list-caption {
-  @apply tw:flex tw:justify-between tw:items-center;
-  @apply tw:gap-2;
-  padding: 1rem 0.875rem 0;
-  font-size: 1rem;
+  @apply tw:flex tw:justify-between tw:items-start tw:gap-3 tw:p-admin-card;
+  border-bottom: 1px solid var(--admin-border);
 }
 
-.list-caption span {
+.list-caption h2 {
+  @apply tw:m-0;
+  font-size: 1rem;
+  font-weight: var(--admin-emphasis-weight);
+}
+
+.list-caption p {
+  @apply tw:text-admin-muted tw:text-admin-caption;
+  margin: 0.25rem 0 0;
+}
+
+.results-count {
   @apply tw:text-admin-muted tw:text-admin-caption;
   background: var(--admin-panel-raised);
   border-radius: 999px;
-  padding: 0.15rem 0.55rem;
+  padding: 0.2rem 0.65rem;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.compact .list-caption {
+  @apply tw:flex-wrap tw:gap-2;
+  padding: 1rem 0.875rem;
+}
+
+@media (max-width: 480px) {
+  .list-caption {
+    @apply tw:flex-wrap;
+  }
 }

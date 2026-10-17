@@ -53,6 +53,9 @@ export const openFixtureSponsorship = async (
   ) {
     await back.click();
   }
-  await page.getByLabel('Recherche', { exact: true }).fill(companyName);
+  await page
+    .locator('[data-og7="sponsors-list"]')
+    .getByRole('searchbox')
+    .fill(companyName);
   await page.getByRole('button', { name: new RegExp(companyName) }).click();
 };

@@ -1,6 +1,7 @@
 <div
   class="state state-loading"
   *ngIf="state() === 'loading'"
+  role="status"
   aria-live="polite"
 >
   <span>{{ 'admin.legacy.chargement_des_commandites' | translate }}</span>
@@ -9,7 +10,7 @@
   </div>
 </div>
 
-<div class="state state-error" *ngIf="state() === 'error'">
+<div class="state state-error" *ngIf="state() === 'error'" role="alert">
   <strong>{{
     'admin.legacy.impossible_de_charger_les_commandites' | translate
   }}</strong>
@@ -29,7 +30,6 @@
       ><span>{{ 'admin.legacy.revue' | translate }}</span
       ><span>{{ 'admin.legacy.publication' | translate }}</span
       ><span>{{ 'admin.legacy.paiement' | translate }}</span
-      ><span>{{ 'admin.legacy.soumission' | translate }}</span
       ><span></span>
     </div>
 
@@ -50,25 +50,48 @@
         <span class="sponsor-avatar" aria-hidden="true">{{
           row.initials
         }}</span>
-        <span>
+        <span class="sponsor-identity">
           <strong>{{ row.companyName }}</strong>
-          <small>{{ row.contactEmail }}</small>
+          <span class="sponsor-metadata">
+            <small>{{ row.contactEmail }}</small>
+            <small
+              class="submission-date"
+              [attr.title]="'admin.legacy.soumission' | translate"
+              ><span class="visually-hidden"
+                >{{ 'admin.legacy.soumission' | translate }} : </span
+              >{{ row.submittedAtLabel }}</small
+            >
+          </span>
         </span>
       </span>
       <span class="row-cell amount-cell">
+        <span class="cell-label">{{
+          'admin.legacy.commandite' | translate
+        }}</span>
         <strong>{{ row.amountLabel }}</strong>
         <small [class]="row.tierClass">{{ row.tierLabel }}</small>
       </span>
-      <span class="row-cell stacked-cell">
+      <span class="row-cell stacked-cell review-cell">
+        <span class="cell-label">{{ 'admin.legacy.revue' | translate }}</span>
         <span [class]="row.reviewStatusClass">{{ row.reviewStatusLabel }}</span>
         <span [class]="row.visibilityClass">{{ row.visibilityLabel }}</span>
       </span>
-      <span class="row-cell stacked-cell">
+      <span
+        class="row-cell stacked-cell publication-cell"
+        [attr.title]="row.feedTargetLabel + ' · ' + row.feedChannelsLabel"
+      >
+        <span class="cell-label">{{
+          'admin.legacy.publication' | translate
+        }}</span>
         <span [class]="row.feedStatusClass">{{ row.feedStatusLabel }}</span>
-        <small>{{ row.feedTargetLabel }}</small>
-        <small>{{ row.feedChannelsLabel }}</small>
+        <span class="visually-hidden"
+          >{{ row.feedTargetLabel }} · {{ row.feedChannelsLabel }}</span
+        >
       </span>
-      <span class="row-cell stacked-cell">
+      <span class="row-cell stacked-cell payment-cell">
+        <span class="cell-label">{{
+          'admin.legacy.paiement' | translate
+        }}</span>
         <span [class]="row.paymentStatusClass">{{
           row.paymentStatusLabel
         }}</span>
@@ -77,11 +100,15 @@
           [class]="row.refundWorkflowStatusClass"
           >{{ row.refundWorkflowStatusLabel }}</span
         >
-        <small>{{ row.paidAtLabel }}</small>
-      </span>
-      <span class="row-cell stacked-cell">
-        <small>{{ 'admin.legacy.soumis_le' | translate }}</small>
-        <span>{{ row.submittedAtLabel }}</span>
+        <small
+          *ngIf="
+            row.paidAtLabel !== ('admin.dashboard.notAvailable' | translate)
+          "
+          [attr.title]="'admin.legacy.date_de_paiement' | translate"
+          ><span class="visually-hidden"
+            >{{ 'admin.legacy.date_de_paiement' | translate }} : </span
+          >{{ row.paidAtLabel }}</small
+        >
       </span>
       <span class="row-cell row-open" aria-hidden="true">&rsaquo;</span>
     </button>
@@ -94,13 +121,10 @@
     "
   >
     <h2>
-      {{ 'admin.legacy.toutes_les_commandites_ont_ete_revisees' | translate }}
+      {{ 'admin.sponsors.emptyTitle' | translate }}
     </h2>
     <p>
-      {{
-        'admin.legacy.il_n_y_a_actuellement_aucune_nouvelle_commandite_a_traiter'
-          | translate
-      }}
+      {{ 'admin.sponsors.emptyHelp' | translate }}
     </p>
   </article>
 

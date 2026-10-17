@@ -1,6 +1,7 @@
 <openg7-admin-layout>
   <section
     class="admin-workspace"
+    data-og7="sponsors-workspace"
     [class.has-dossier]="!!selectedSponsorship()"
   >
     <header class="admin-page-header" [hidden]="!!selectedSponsorship()">
@@ -8,10 +9,6 @@
         class="admin-breadcrumb"
         [attr.aria-label]="'admin.legacy.fil_d_ariane_admin' | translate"
       >
-        <a routerLink="/admin/fundraiser">{{
-          'admin.legacy.accueil' | translate
-        }}</a>
-        <span aria-hidden="true">/</span>
         <a routerLink="/admin/fundraiser">{{
           'admin.legacy.fundraiser' | translate
         }}</a>
@@ -21,44 +18,39 @@
 
       <div class="admin-title-row">
         <div>
-          <span class="admin-kicker">{{
-            'admin.legacy.administration' | translate
-          }}</span>
           <h1>
-            {{ 'admin.legacy.commanditaires_partenaires' | translate }}
+            {{ 'admin.sponsors.title' | translate }}
           </h1>
           <p>
-            {{
-              'admin.legacy.gestion_des_organisations_commanditaires_statut_de_revue_et_visib'
-                | translate
-            }}
+            {{ 'admin.sponsors.subtitle' | translate }}
           </p>
         </div>
 
         <div class="admin-actions">
           <button
             type="button"
-            class="secondary-action"
+            class="admin-button"
+            data-og7="sponsors-refresh"
             (click)="loadSponsorships()"
             [disabled]="state() === 'loading'"
           >
+            <openg7-admin-icon name="refresh" />
             {{ 'admin.legacy.actualiser' | translate }}
           </button>
-          <a class="primary-action" routerLink="/fonds-des-batisseurs">{{
-            'admin.legacy.retour_public' | translate
-          }}</a>
+          <a class="public-link" routerLink="/fonds-des-batisseurs">
+            {{ 'admin.sponsors.publicSite' | translate }}
+            <openg7-admin-icon name="arrow" />
+          </a>
         </div>
       </div>
     </header>
 
     <openg7-admin-sponsors-summary
       [hidden]="!!selectedSponsorship()"
-      [totalSponsorships]="pagination().totalItems"
+      [state]="state()"
+      [pendingReviewCount]="pendingReviewCount()"
       [visibleCount]="visibleCount()"
       [activeCount]="activeCount()"
-      [totalContributionLabel]="
-        presentationProjection.formatSummaryMoney(totalContribution())
-      "
     />
 
     <section
