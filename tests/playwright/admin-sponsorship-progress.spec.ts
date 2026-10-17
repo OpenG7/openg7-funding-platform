@@ -904,20 +904,22 @@ for (const language of ['fr-CA', 'en'] as const)
           // No scrolling or focus on the identity content precedes these checks.
           expect(await page.evaluate(() => scrollY)).toBe(0);
           await expect(
-            identity.getByRole('heading', { level: 3 })
+            identity.locator('#dossier-identity-title')
           ).toBeInViewport({
             ratio: 1
           });
           const identityBox = (await identity.boundingBox())!;
           expect(identityBox.y).toBeLessThan(viewport.height - 120);
-          await expect(identity.locator(':scope > dl')).toBeInViewport({
+          await expect(
+            identity.locator('[data-og7="identity-coordinates"]')
+          ).toBeInViewport({
             ratio: 1
           });
           await expect(
             identity.locator('[data-og7="identity-edit"]')
           ).toBeInViewport({ ratio: 1 });
           const coordinatesBox = (await identity
-            .locator(':scope > dl')
+            .locator('[data-og7="identity-coordinates"]')
             .boundingBox())!;
           const dock = frame.locator('[data-og7="dossier-actions"]');
           await expect(dock).toBeInViewport({ ratio: 1 });
