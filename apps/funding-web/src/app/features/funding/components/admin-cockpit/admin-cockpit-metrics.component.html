@@ -3,38 +3,75 @@
     <h2 id="cockpit-metrics-title">
       {{ 'admin.dashboard.metrics' | translate }}
     </h2>
-    <openg7-admin-cockpit-status
-      [state]="block.state()"
-      [stale]="block.stale()"
-      (refresh)="block.load()"
-    />
+    <div class="heading-tools">
+      @if (block.data(); as data) {
+        @if (data.currencies.length > 1) {
+          <label class="currency"
+            >{{ 'admin.cockpit.currency' | translate }}
+            <select
+              [value]="selected()?.currency"
+              (change)="currency.set($any($event.target).value)"
+            >
+              @for (item of data.currencies; track item.currency) {
+                <option [value]="item.currency">{{ item.currency }}</option>
+              }
+            </select></label
+          >
+        } @else if (selected(); as values) {
+          <span class="currency-code"
+            >{{ 'admin.cockpit.currency' | translate }} &middot;
+            {{ values.currency }}</span
+          >
+        }
+        <details class="method">
+          <summary>{{ 'admin.cockpit.method' | translate }}</summary>
+          <p class="meta">
+            {{ 'admin.cockpit.periods' | translate }} :
+            {{ data.period.start }} &mdash; {{ data.period.end }} /
+            {{ data.previousPeriod.start }} &mdash;
+            {{ data.previousPeriod.end }} &middot; America/Toronto
+          </p>
+          @if (selected(); as values) {
+            <dl class="facts">
+              <div>
+                <dt>{{ 'admin.cockpit.fees' | translate }}</dt>
+                <dd>{{ money(values.confirmedFeesMinor) }}</dd>
+              </div>
+              <div>
+                <dt>{{ 'admin.cockpit.refunds' | translate }}</dt>
+                <dd>{{ money(values.refundedMinor) }}</dd>
+              </div>
+              <div>
+                <dt>{{ 'admin.cockpit.disputes' | translate }}</dt>
+                <dd>{{ money(values.disputedMinor) }}</dd>
+              </div>
+              <div>
+                <dt>{{ 'admin.cockpit.afterRefunds' | translate }}</dt>
+                <dd>{{ money(values.netAfterRefundsMinor) }}</dd>
+              </div>
+            </dl>
+            <p>{{ 'admin.cockpit.availableHelp' | translate }}</p>
+            <p>{{ 'admin.cockpit.feeTiming' | translate }}</p>
+          }
+        </details>
+      }
+      <openg7-admin-cockpit-status
+        [state]="block.state()"
+        [stale]="block.stale()"
+        (refresh)="block.load()"
+      />
+    </div>
   </header>
   @if (block.data(); as data) {
-    <p class="meta">
-      {{ 'admin.cockpit.source' | translate }} ·
-      {{ 'admin.cockpit.asOf' | translate }}
-      <time [attr.datetime]="data.generatedAt">{{
-        date(data.generatedAt)
-      }}</time>
-    </p>
-    <p class="meta">
-      {{ 'admin.cockpit.periods' | translate }} : {{ data.period.start }} —
-      {{ data.period.end }} / {{ data.previousPeriod.start }} —
-      {{ data.previousPeriod.end }} · America/Toronto
-    </p>
-    @if (data.currencies.length > 1) {
-      <label class="currency"
-        >{{ 'admin.cockpit.currency' | translate }}
-        <select
-          [value]="selected()?.currency"
-          (change)="currency.set($any($event.target).value)"
-        >
-          @for (item of data.currencies; track item.currency) {
-            <option [value]="item.currency">{{ item.currency }}</option>
-          }
-        </select></label
-      >
-    }
+    <div class="metrics-context">
+      <p class="meta">
+        {{ 'admin.cockpit.source' | translate }} &middot;
+        {{ 'admin.cockpit.asOf' | translate }}
+        <time [attr.datetime]="data.generatedAt">{{
+          date(data.generatedAt)
+        }}</time>
+      </p>
+    </div>
     @for (warning of data.warnings; track warning) {
       <p class="notice" role="status">
         {{ 'admin.cockpit.warning.' + warning | translate }}
@@ -48,6 +85,7 @@
         <div class="metric">
           <openg7-admin-metric-card
             [embedded]="true"
+            [compact]="true"
             icon="contributions"
             tone="green"
             [label]="'admin.dashboard.received' | translate"
@@ -55,6 +93,7 @@
             [detail]="'admin.cockpit.grossHelp' | translate"
           />
           <openg7-admin-cockpit-trend
+            [compact]="true"
             [trend]="values.grossTrend"
             [currency]="values.currency"
           />
@@ -62,6 +101,7 @@
         <div class="metric">
           <openg7-admin-metric-card
             [embedded]="true"
+            [compact]="true"
             icon="expenses"
             tone="gold"
             [label]="'admin.cockpit.net' | translate"
@@ -77,6 +117,7 @@
             </p>
           }
           <openg7-admin-cockpit-trend
+            [compact]="true"
             [trend]="values.netTrend"
             [currency]="values.currency"
           />
@@ -85,50 +126,33 @@
       <div class="metric" data-og7="cockpit-metric" data-og7-id="sponsorships">
         <openg7-admin-metric-card
           [embedded]="true"
+          [compact]="true"
           icon="sponsors"
           [label]="'admin.nav.sponsors' | translate"
           [value]="count(data.sponsorshipCount)"
           [detail]="'admin.cockpit.sponsorsHelp' | translate"
         />
-        <openg7-admin-cockpit-trend [trend]="data.sponsorshipTrend" />
+        <openg7-admin-cockpit-trend
+          [compact]="true"
+          [trend]="data.sponsorshipTrend"
+        />
       </div>
       <div class="metric">
         <openg7-admin-metric-card
           [embedded]="true"
+          [compact]="true"
           icon="publications"
           [label]="'admin.cockpit.planned' | translate"
           [value]="count(data.plannedPublicationCount)"
           [detail]="'admin.cockpit.publicationsHelp' | translate"
         />
-        <p class="notice">
-          {{ 'admin.cockpit.noPublicationHistory' | translate }}
-        </p>
+        <details class="metric-context">
+          <summary>{{ 'admin.cockpit.noComparison' | translate }}</summary>
+          <p class="notice">
+            {{ 'admin.cockpit.noPublicationHistory' | translate }}
+          </p>
+        </details>
       </div>
     </div>
-    @if (selected(); as values) {
-      <details class="method">
-        <summary>{{ 'admin.cockpit.method' | translate }}</summary>
-        <dl class="facts">
-          <div>
-            <dt>{{ 'admin.cockpit.fees' | translate }}</dt>
-            <dd>{{ money(values.confirmedFeesMinor) }}</dd>
-          </div>
-          <div>
-            <dt>{{ 'admin.cockpit.refunds' | translate }}</dt>
-            <dd>{{ money(values.refundedMinor) }}</dd>
-          </div>
-          <div>
-            <dt>{{ 'admin.cockpit.disputes' | translate }}</dt>
-            <dd>{{ money(values.disputedMinor) }}</dd>
-          </div>
-          <div>
-            <dt>{{ 'admin.cockpit.afterRefunds' | translate }}</dt>
-            <dd>{{ money(values.netAfterRefundsMinor) }}</dd>
-          </div>
-        </dl>
-        <p>{{ 'admin.cockpit.availableHelp' | translate }}</p>
-        <p>{{ 'admin.cockpit.feeTiming' | translate }}</p>
-      </details>
-    }
   }
 </section>

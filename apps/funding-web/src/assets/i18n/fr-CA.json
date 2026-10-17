@@ -743,7 +743,7 @@
         "unavailable": "Les données nécessaires à ce bloc sont indisponibles."
       },
       "stale": "Dernière lecture conservée : ces données peuvent être périmées.",
-      "source": "Contributions confirmées enregistrées en PostgreSQL",
+      "source": "Contributions confirmées · Registre du fonds",
       "asOf": "Lecture du",
       "periods": "Comparaison des 30 derniers jours complets avec les 30 précédents",
       "currency": "Devise des montants",
@@ -1355,7 +1355,7 @@
       "title": "À traiter",
       "todayTitle": "À traiter aujourd’hui",
       "help": "Les interventions sont classées selon leur priorité. Une tâche disparaît lorsque sa condition est résolue.",
-      "todayHelp": "Urgences, priorités du jour et échéances arrivées à terme, selon l’heure de Toronto.",
+      "todayHelp": "Priorités et échéances · Heure de Toronto.",
       "viewAll": "Voir toutes les tâches du jour",
       "refresh": "Actualiser les tâches",
       "open": "Ouvrir",

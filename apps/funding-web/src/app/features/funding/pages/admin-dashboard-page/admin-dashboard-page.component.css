@@ -5,19 +5,15 @@
 }
 .dashboard {
   container: admin-dashboard / inline-size;
-  @apply tw:grid tw:gap-admin-section;
+  @apply tw:grid tw:gap-6;
+}
+.page-actions {
+  @apply tw:flex tw:items-center tw:flex-wrap tw:gap-3;
+  flex: 0 0 auto;
 }
 .page-heading,
 .panel-heading {
   @apply tw:items-center tw:flex tw:gap-4 tw:justify-between;
-}
-.eyebrow {
-  @apply tw:text-admin-gold;
-  font-size: var(--admin-secondary-size, 0.875rem);
-  font-weight: var(--admin-label-weight);
-  letter-spacing: 0.08em;
-  margin: 0 0 0.5rem;
-  @apply tw:uppercase;
 }
 h1 {
   @apply tw:text-admin-text tw:m-0;
@@ -213,6 +209,13 @@ dd {
   @apply tw:gap-admin-card-gap;
   align-items: start;
 }
+.workflow-grid > openg7-admin-attention-panel {
+  border-top: 3px solid var(--admin-accent);
+  border-radius: var(--admin-radius-card);
+}
+.cockpit-supervision {
+  @apply tw:min-w-0;
+}
 .cockpit-secondary {
   @apply tw:grid;
   grid-template-columns: minmax(0, 1fr);
@@ -220,21 +223,14 @@ dd {
   align-items: start;
 }
 @container admin-dashboard (min-width: 64rem) {
-  .workflow-grid,
+  .workflow-grid {
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  }
   .cockpit-secondary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .cockpit-secondary > :last-child {
-    @apply tw:col-span-full;
-  }
 }
 @container admin-dashboard (min-width: 84rem) {
-  .cockpit-secondary {
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(0, 1fr);
-  }
-  .cockpit-secondary > :last-child {
-    grid-column: auto;
-  }
   .metrics {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }

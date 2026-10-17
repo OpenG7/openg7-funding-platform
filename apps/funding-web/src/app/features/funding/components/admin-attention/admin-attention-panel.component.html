@@ -38,9 +38,10 @@
       [disabled]="state() === 'loading'"
       [attr.aria-label]="'admin.attention.refresh' | translate"
     >
-      <openg7-admin-icon name="refresh" />{{
-        'admin.attention.refresh' | translate
-      }}
+      <openg7-admin-icon name="refresh" />
+      @if (!compact()) {
+        {{ 'admin.attention.refresh' | translate }}
+      }
     </button>
   </header>
   @if (!compact()) {

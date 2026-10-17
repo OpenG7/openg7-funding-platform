@@ -2,21 +2,30 @@
   <div class="dashboard" data-og7="admin-dashboard">
     <header class="page-heading">
       <div>
-        <p class="eyebrow">{{ 'admin.nav.steering' | translate }}</p>
         <h1>{{ 'admin.dashboard.title' | translate }}</h1>
         <p class="subtitle">{{ 'admin.dashboard.subtitle' | translate }}</p>
       </div>
-      <button
-        class="admin-button"
-        data-og7="dashboard-refresh"
-        type="button"
-        (click)="loadDashboard()"
-        [disabled]="state() === 'loading'"
-      >
-        <openg7-admin-icon name="refresh" />{{
-          'admin.dashboard.refresh' | translate
-        }}
-      </button>
+      <div class="page-actions">
+        <button
+          class="admin-button"
+          data-og7="dashboard-refresh"
+          type="button"
+          (click)="loadDashboard()"
+          [disabled]="state() === 'loading'"
+        >
+          <openg7-admin-icon name="refresh" />{{
+            'admin.dashboard.refresh' | translate
+          }}
+        </button>
+        <a
+          class="admin-button admin-button--primary"
+          routerLink="/admin/fundraiser/pilotage"
+          data-og7="dashboard-pilotage"
+        >
+          {{ 'admin.nav.pilotage' | translate
+          }}<openg7-admin-icon name="arrow" />
+        </a>
+      </div>
     </header>
 
     @if (state() === 'loading') {
@@ -69,44 +78,21 @@
       </section>
     }
 
-    <openg7-admin-celebrations
-      [metrics]="cockpitMetrics.block.data()"
-      [metricsFresh]="
-        cockpitMetrics.block.state() === 'ready' &&
-        !cockpitMetrics.block.stale()
-      "
-      [systems]="cockpitSystems.block.data()"
-      [systemsFresh]="
-        cockpitSystems.block.state() === 'ready' &&
-        !cockpitSystems.block.stale()
-      "
-      [now]="cockpitSystems.block.clock()"
-    />
     <openg7-admin-cockpit-metrics
       #cockpitMetrics
       [refreshKey]="attentionRefresh()"
     />
-    <div class="workflow-grid">
+    <div class="workflow-grid" data-og7="dashboard-workflow">
       <openg7-admin-attention-panel
+        class="dashboard-attention"
         [compact]="true"
         [refreshKey]="attentionRefresh()"
       />
       <openg7-admin-sponsorship-progress
+        class="dashboard-dossier"
         [compact]="true"
         [refreshKey]="attentionRefresh()"
         (loaded)="currentSponsorshipId.set($event?.contributionId)"
-      />
-    </div>
-    <div class="cockpit-secondary">
-      <openg7-admin-assistant-context
-        [compact]="true"
-        [sponsorshipId]="currentSponsorshipId()"
-        [refreshKey]="attentionRefresh()"
-      />
-      <openg7-admin-cockpit-activity [refreshKey]="attentionRefresh()" />
-      <openg7-admin-cockpit-systems
-        #cockpitSystems
-        [refreshKey]="attentionRefresh()"
       />
     </div>
     @if (dashboard(); as data) {
@@ -307,5 +293,33 @@
         </section>
       </div>
     }
+    <openg7-admin-celebrations
+      class="dashboard-celebrations"
+      [metrics]="cockpitMetrics.block.data()"
+      [metricsFresh]="
+        cockpitMetrics.block.state() === 'ready' &&
+        !cockpitMetrics.block.stale()
+      "
+      [systems]="cockpitSystems.block.data()"
+      [systemsFresh]="
+        cockpitSystems.block.state() === 'ready' &&
+        !cockpitSystems.block.stale()
+      "
+      [now]="cockpitSystems.block.clock()"
+    />
+    <div class="cockpit-secondary" data-og7="dashboard-secondary">
+      <openg7-admin-assistant-context
+        [compact]="true"
+        [sponsorshipId]="currentSponsorshipId()"
+        [refreshKey]="attentionRefresh()"
+      />
+      <openg7-admin-cockpit-activity [refreshKey]="attentionRefresh()" />
+    </div>
+    <div class="cockpit-supervision" data-og7="dashboard-supervision">
+      <openg7-admin-cockpit-systems
+        #cockpitSystems
+        [refreshKey]="attentionRefresh()"
+      />
+    </div>
   </div>
 </openg7-admin-layout>

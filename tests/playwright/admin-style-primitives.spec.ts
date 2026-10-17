@@ -181,7 +181,7 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
         await expect(badge).toHaveCSS('border-radius', '10px');
       }
 
-      // All current metric consumers use embedded=true; cover their real grid.
+      // Dashboard metrics use the compact embedded presentation on real components.
       const metrics = dashboard.locator('[data-og7="admin-metric"]');
       await expect(metrics).toHaveCount(4);
       const sponsorships = dashboard.getByRole('article', {
@@ -191,13 +191,13 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
       await expect(sponsorships).toContainText('48');
       for (const metric of await metrics.all()) {
         await expect(metric).toHaveCSS('display', 'grid');
-        await expect(metric).toHaveCSS('gap', '12px');
+        await expect(metric).toHaveCSS('gap', '8px');
         await expect(metric).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
         await expect(metric).toHaveCSS('background-image', 'none');
         await expect(metric).toHaveCSS('border-top-width', '0px');
         await expect(metric).toHaveCSS('border-radius', '0px');
-        await expect(metric).toHaveCSS('padding-top', '20px');
-        await expect(metric).toHaveCSS('padding-bottom', '16px');
+        await expect(metric).toHaveCSS('padding-top', '16px');
+        await expect(metric).toHaveCSS('padding-bottom', '12px');
         const value = metric.locator('strong');
         await expect(value).toHaveCSS('font-variant-numeric', 'tabular-nums');
         await expect(value).toHaveCSS('grid-column', '1 / -1');
@@ -211,8 +211,8 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
         await expectPalette(icon, palette);
         // A direct grid item blockifies its authored inline-flex display.
         await expect(icon).toHaveCSS('display', 'flex');
-        await expect(icon).toHaveCSS('width', '40px');
-        await expect(icon).toHaveCSS('height', '40px');
+        await expect(icon).toHaveCSS('width', '28px');
+        await expect(icon).toHaveCSS('height', '28px');
       }
 
       // A different tab can change the inherited tokens after CSS compilation.

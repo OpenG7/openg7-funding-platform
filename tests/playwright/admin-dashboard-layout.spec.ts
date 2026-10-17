@@ -9,6 +9,8 @@ import type {
 
 import { expect, test } from './support/test.js';
 import { cockpitFixtures } from './support/cockpit-fixtures.js';
+import { premiumFixtures } from './support/admin-premium-fixtures.js';
+import { expectAdminFontsReady } from './support/admin-fonts.js';
 
 const record: AdminContributionRecord = {
   id: 'ui-sponsorship-1',
@@ -73,6 +75,36 @@ const dashboard: AdminDashboardResponse = {
   last_updated_at: '2026-09-15T14:00:00.000Z'
 };
 const sessionToken = 'openg7-admin-session.ui-fixture';
+const dashboardAttention = {
+  available: true,
+  coverage: 'complete',
+  missingSources: [],
+  generatedAt: dashboard.last_updated_at,
+  timezone: 'America/Toronto',
+  total: 4,
+  filteredTotal: 4,
+  todayTotal: 4,
+  page: 1,
+  pageSize: 4,
+  counts: { urgent: 1, today: 3, this_week: 0, informational: 0 },
+  typeCounts: {},
+  items: [
+    'stripe_event_failed',
+    'sponsorship_needs_review',
+    'email_delivery_failed',
+    'invoice_missing'
+  ].map((type, index) => ({
+    id: 'dashboard-task-' + index,
+    type,
+    severity: index === 0 ? 'urgent' : 'today',
+    title: type,
+    explanation: type,
+    detectedAt: dashboard.last_updated_at,
+    adminUrl: '/admin/fundraiser/attention',
+    facts: { reference: 'DEMO-2026-00' + index },
+    suggestedActions: []
+  }))
+};
 
 async function fixtures(page: Page, expired = false): Promise<void> {
   await page.addInitScript(
@@ -94,38 +126,7 @@ async function fixtures(page: Page, expired = false): Promise<void> {
         'metrics' | 'activity' | 'systems';
       await route.fulfill({ json: cockpitFixtures()[block] });
     } else if (pathname === '/api/admin/attention') {
-      await route.fulfill({
-        json: {
-          available: true,
-          coverage: 'complete',
-          missingSources: [],
-          generatedAt: dashboard.last_updated_at,
-          timezone: 'America/Toronto',
-          total: 4,
-          filteredTotal: 4,
-          todayTotal: 4,
-          page: 1,
-          pageSize: 4,
-          counts: { urgent: 1, today: 3, this_week: 0, informational: 0 },
-          typeCounts: {},
-          items: [
-            'stripe_event_failed',
-            'sponsorship_needs_review',
-            'email_delivery_failed',
-            'invoice_missing'
-          ].map((type, index) => ({
-            id: 'dashboard-task-' + index,
-            type,
-            severity: index === 0 ? 'urgent' : 'today',
-            title: type,
-            explanation: type,
-            detectedAt: dashboard.last_updated_at,
-            adminUrl: '/admin/fundraiser/attention',
-            facts: { reference: 'DEMO-2026-00' + index },
-            suggestedActions: []
-          }))
-        }
-      });
+      await route.fulfill({ json: dashboardAttention });
     } else if (pathname === '/api/admin/assistant/summary') {
       await route.fulfill({
         json: {
@@ -193,6 +194,201 @@ async function shellColumns(element: Locator): Promise<number> {
     (node) => getComputedStyle(node).gridTemplateColumns.split(' ').length
   );
 }
+
+for (const language of ['fr-CA', 'en'] as const)
+  for (const viewport of [
+    { width: 390, height: 1000 },
+    // 1920x1080 at 125% supplies 1536x864 CSS pixels.
+    { width: 1536, height: 864 }
+  ]) {
+    test(`dashboard composition prioritizes the work queue in ${language} at ${viewport.width}px`, async ({
+      page
+    }, testInfo) => {
+      const { state, writes } = await premiumFixtures(
+        page,
+        language,
+        dashboard
+      );
+      state.sponsor = {
+        ...state.sponsor,
+        sponsor_company_name: 'NordVale Énergie'
+      };
+      state.progress = { ...state.progress, companyName: 'NordVale Énergie' };
+      await page.route('**/api/admin/attention*', (route) =>
+        route.request().method() === 'GET'
+          ? route.fulfill({ json: dashboardAttention })
+          : route.fallback()
+      );
+      await page.setViewportSize(viewport);
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.goto('/admin/fundraiser');
+      const root = page.locator('[data-og7="admin-dashboard"]');
+      const heading = root.getByRole('heading', {
+        name: language === 'en' ? 'Control centre' : 'Centre de pilotage',
+        exact: true
+      });
+      const metrics = root.locator('[data-og7="cockpit-metrics"]');
+      const cards = metrics.getByRole('article');
+      const workflow = root.locator('[data-og7="dashboard-workflow"]');
+      const queue = workflow.locator('[data-og7="attention-panel"]');
+      const dossier = workflow.locator('[data-og7="sponsorship-progress"]');
+      const secondary = root.locator('[data-og7="dashboard-secondary"]');
+      const supervision = root.locator('[data-og7="dashboard-supervision"]');
+      const firstTask = queue
+        .locator('[data-og7="attention-items"]')
+        .getByRole('listitem')
+        .first();
+      await expect(heading).toBeVisible();
+      await expect(page.locator('html')).toHaveAttribute('lang', language);
+      await expect(
+        root.locator('[data-og7="dashboard-refresh"]')
+      ).toBeEnabled();
+      await expect(cards).toHaveCount(4);
+      await expect(dossier).toContainText('NordVale Énergie');
+      await expect(firstTask).toContainText('DEMO-2026-000');
+      await expectAdminFontsReady(page);
+
+      async function expectComposition(stacked: boolean) {
+        const cardBoxes = await cards.evaluateAll((elements) =>
+          elements.map((element) => {
+            const box = element.getBoundingClientRect();
+            return { x: box.x, y: box.y, width: box.width, height: box.height };
+          })
+        );
+        for (let index = 1; index < cardBoxes.length; index++) {
+          const previous = cardBoxes[index - 1]!;
+          const current = cardBoxes[index]!;
+          if (stacked) {
+            expect(current.x).toBeCloseTo(previous.x, 0);
+            expect(current.y).toBeGreaterThanOrEqual(
+              previous.y + previous.height - 1
+            );
+          } else {
+            expect(current.y).toBeCloseTo(previous.y, 0);
+            expect(current.x).toBeGreaterThanOrEqual(
+              previous.x + previous.width - 1
+            );
+          }
+        }
+        const queueBox = (await queue.boundingBox())!;
+        const dossierBox = (await dossier.boundingBox())!;
+        if (stacked) {
+          expect(dossierBox.x).toBeCloseTo(queueBox.x, 0);
+          expect(dossierBox.y).toBeGreaterThanOrEqual(
+            queueBox.y + queueBox.height - 1
+          );
+        } else {
+          // The queue's emphasis border sits above its inner section.
+          expect(Math.abs(dossierBox.y - queueBox.y)).toBeLessThanOrEqual(4);
+          expect(dossierBox.x).toBeGreaterThanOrEqual(
+            queueBox.x + queueBox.width - 1
+          );
+          expect(queueBox.width / dossierBox.width).toBeCloseTo(1.5, 1);
+        }
+        const metricsBox = (await metrics.boundingBox())!;
+        const workflowBox = (await workflow.boundingBox())!;
+        expect(workflowBox.y).toBeGreaterThanOrEqual(
+          metricsBox.y + metricsBox.height - 1
+        );
+        for (const element of [metrics, workflow, secondary, supervision]) {
+          const box = (await element.boundingBox())!;
+          expect(box.x).toBeGreaterThanOrEqual(-1);
+          expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
+        }
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth + 1
+          )
+        ).toBe(true);
+      }
+
+      await test.step('the first task is available before secondary information and celebrations', async () => {
+        await expectComposition(viewport.width === 390);
+        await expect(
+          secondary.locator('[data-og7="assistant-context"]')
+        ).toHaveCount(1);
+        await expect(
+          secondary.locator('[data-og7="cockpit-activity"]')
+        ).toHaveCount(1);
+        await expect(
+          supervision.locator('[data-og7="cockpit-systems"]')
+        ).toHaveCount(1);
+        const workflowBox = (await workflow.boundingBox())!;
+        const celebrationBox = (await root
+          .locator('[data-og7="admin-celebrations"]')
+          .boundingBox())!;
+        expect(celebrationBox.y).toBeGreaterThanOrEqual(
+          workflowBox.y + workflowBox.height - 1
+        );
+        const secondaryBox = (await secondary.boundingBox())!;
+        const supervisionBox = (await supervision.boundingBox())!;
+        expect(supervisionBox.y).toBeGreaterThanOrEqual(
+          secondaryBox.y + secondaryBox.height - 1
+        );
+        await page.screenshot({
+          path: testInfo.outputPath(
+            `dashboard-composition-${viewport.width}.png`
+          ),
+          animations: 'disabled'
+        });
+        if (language === 'fr-CA' && viewport.width === 1536)
+          await page.screenshot({
+            path: testInfo.outputPath('dashboard-composition-full.png'),
+            animations: 'disabled',
+            fullPage: true
+          });
+        if (viewport.width === 1536) {
+          // No earlier focus, click or scroll may reveal these first-screen targets.
+          expect(await page.evaluate(() => scrollY)).toBe(0);
+          for (const card of await cards.all())
+            await expect(card).toBeInViewport({ ratio: 1 });
+          await expect(queue.getByRole('heading', { level: 2 })).toBeInViewport(
+            { ratio: 1 }
+          );
+          await expect(firstTask).toBeInViewport({ ratio: 1 });
+        }
+      });
+
+      await test.step('the primary control-desk link and the exact attention destination remain keyboard accessible', async () => {
+        const primary = root.locator('[data-og7="dashboard-pilotage"]');
+        await expect(primary).toHaveAccessibleName(
+          language === 'en' ? 'Control desk' : 'Poste de pilotage'
+        );
+        await expect(primary).toHaveAttribute(
+          'href',
+          '/admin/fundraiser/pilotage'
+        );
+        await page.keyboard.press('Tab');
+        await primary.focus();
+        await expect(primary).toBeFocused();
+        await expect(primary).toHaveCSS('outline-style', 'solid');
+        await expect(queue.getByRole('link').first()).toHaveAttribute(
+          'href',
+          '/admin/fundraiser/attention?due=today'
+        );
+      });
+
+      if (language === 'en' && viewport.width === 390)
+        await test.step('200% mobile text keeps the queue usable without horizontal page scrolling', async () => {
+          await page.evaluate(() => {
+            document.documentElement.style.fontSize = '200%';
+          });
+          await expect(page.locator('html')).toHaveCSS('font-size', '32px');
+          await expectComposition(true);
+          const open = firstTask.getByRole('link');
+          await open.focus();
+          await expect(open).toBeFocused();
+          await expect(open).toBeInViewport({ ratio: 1 });
+          await page.screenshot({
+            path: testInfo.outputPath('dashboard-composition-390-text-200.png'),
+            animations: 'disabled',
+            fullPage: true
+          });
+        });
+      expect(writes).toEqual([]);
+      expect(state.commands).toEqual([]);
+    });
+  }
 
 for (const theme of ['mineral', 'night', 'graphite'] as const) {
   test(`admin shell preserves ${theme} navigation surfaces on French mobile and English desktop`, async ({

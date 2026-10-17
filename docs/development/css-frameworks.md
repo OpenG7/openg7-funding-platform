@@ -123,6 +123,11 @@ Leurs contenus, permissions, étapes et confirmations restent portés par leurs
 composants métier. Les autres compositions profitent de la palette commune;
 leur harmonisation détaillée reste progressive.
 
+Le tableau de bord commence par une synthèse financière compacte, puis la file
+des priorités et le dossier courant. Les tendances restent consultables avec
+leurs périodes et séries; les calculs et précisions financières sont conservés.
+Les célébrations, l'activité et la supervision viennent après ce travail courant.
+
 Dans un dossier commanditaire, l'identité et les onglets précèdent le travail
 actif. La modération, l'édition et le guide occupent un rail de suivi lorsque
 le dossier dispose d'au moins 54 rem; en dessous, ce rail suit le contenu dans

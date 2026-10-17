@@ -166,6 +166,53 @@ p {
   bottom: -2rem;
   opacity: 0;
 }
+:host(.dashboard-celebrations) .victories {
+  gap: 0.75rem;
+  min-height: 4.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--admin-radius-card);
+  background: var(--admin-panel-raised);
+}
+:host(.dashboard-celebrations) .coin-scene {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.625rem;
+}
+:host(.dashboard-celebrations) .coin-scene .coin {
+  scale: 0.65;
+}
+:host(.dashboard-celebrations) .coin-back {
+  top: 0.2rem;
+  left: 0.2rem;
+}
+:host(.dashboard-celebrations) .coin-front {
+  top: 0.95rem;
+  left: 1.05rem;
+}
+:host(.dashboard-celebrations) .copy {
+  display: flex;
+  align-items: baseline;
+  flex: 1 1 24rem;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.75rem;
+}
+:host(.dashboard-celebrations) h2 {
+  font-size: 0.9375rem;
+  font-weight: var(--admin-label-weight);
+}
+:host(.dashboard-celebrations) p {
+  margin: 0;
+}
+:host(.dashboard-celebrations) .health {
+  flex-basis: 100%;
+}
+:host(.dashboard-celebrations) .motion-toggle {
+  border-color: var(--admin-control-border);
+  border-radius: var(--admin-radius-control);
+}
+:host(.dashboard-celebrations) .motion-toggle:focus-visible {
+  outline: 3px solid var(--admin-focus);
+}
 @media (prefers-reduced-motion: no-preference) {
   .motion-enabled .coin-burst .coin {
     animation: coin-rise 1.6s calc(var(--i) * 70ms) ease-out both;

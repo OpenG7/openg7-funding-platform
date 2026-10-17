@@ -16,6 +16,7 @@ import {
       data-og7="admin-metric"
       [attr.aria-label]="label()"
       [class.embedded]="embedded()"
+      [class.compact]="compact()"
     >
       <span class="icon" [attr.data-tone]="tone()"
         ><openg7-admin-icon [name]="icon()"
@@ -36,4 +37,5 @@ export class AdminMetricCardComponent {
   readonly icon = input.required<AdminIconName>();
   readonly tone = input<'blue' | 'gold' | 'green'>('blue');
   readonly embedded = input(false);
+  readonly compact = input(false);
 }

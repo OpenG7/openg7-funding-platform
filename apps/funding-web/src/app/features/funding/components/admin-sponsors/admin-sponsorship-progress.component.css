@@ -11,6 +11,31 @@
   border-radius: 12px;
   padding: 1.2rem;
 }
+:host(.dashboard-dossier) .progress-panel {
+  padding: 1.25rem;
+  border-radius: var(--admin-radius-card);
+  background: var(--admin-panel);
+}
+:host(.dashboard-dossier) header h2 {
+  font-family: var(--admin-font-family);
+  font-size: 0.9375rem;
+  font-weight: var(--admin-label-weight);
+  color: var(--admin-muted);
+  margin: 0;
+}
+:host(.dashboard-dossier) header button {
+  width: 2.75rem;
+  padding: 0;
+}
+:host(.dashboard-dossier) h3 {
+  font-family: var(--admin-heading-font-family);
+  font-size: var(--admin-section-size);
+  font-weight: var(--admin-section-weight);
+  overflow-wrap: anywhere;
+}
+:host(.dashboard-dossier) .milestones {
+  gap: 0.75rem;
+}
 header {
   @apply tw:flex tw:items-center tw:justify-between tw:gap-4 tw:flex-wrap;
 }

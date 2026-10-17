@@ -743,7 +743,7 @@
         "unavailable": "The data required for this block is unavailable."
       },
       "stale": "Last successful snapshot retained: these data may be stale.",
-      "source": "Confirmed contributions recorded in PostgreSQL",
+      "source": "Confirmed contributions · Fund records",
       "asOf": "Read at",
       "periods": "Last 30 complete days compared with the preceding 30 days",
       "currency": "Amount currency",
@@ -1355,7 +1355,7 @@
       "title": "To do",
       "todayTitle": "To do today",
       "help": "Interventions are ordered by priority. A task disappears when its underlying condition is resolved.",
-      "todayHelp": "Urgent tasks, today’s priorities and due items, using Toronto time.",
+      "todayHelp": "Priorities and deadlines · Toronto time.",
       "viewAll": "View all of today’s tasks",
       "refresh": "Refresh tasks",
       "open": "Open",
