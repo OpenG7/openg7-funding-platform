@@ -41,6 +41,10 @@ jobs:
       - name: Lint
         run: yarn lint
 
+      - uses: ./.github/actions/cache-angular
+        with:
+          configuration: development
+
       - name: Build Angular
         run: yarn workspace @openg7/funding-web build
 
@@ -85,6 +89,10 @@ jobs:
 
       - name: Install Playwright browser
         run: yarn exec playwright install --with-deps chromium firefox webkit
+
+      - uses: ./.github/actions/cache-angular
+        with:
+          configuration: development-production
 
       - name: Build shared development Web fixtures and typecheck follow-up UI
         run: |
@@ -145,6 +153,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -176,8 +187,11 @@ jobs:
           context: .
           file: Dockerfile
           push: true
+          pull: true
           tags: ${{ steps.meta_web.outputs.tags }}
           labels: ${{ steps.meta_web.outputs.labels }}
+          cache-from: type=gha,scope=delivery-web
+          cache-to: type=gha,mode=max,scope=delivery-web,ignore-error=true
 
       - name: Build and push api
         uses: docker/build-push-action@v6
@@ -185,8 +199,11 @@ jobs:
           context: .
           file: apps/funding-api/Dockerfile
           push: true
+          pull: true
           tags: ${{ steps.meta_api.outputs.tags }}
           labels: ${{ steps.meta_api.outputs.labels }}
+          cache-from: type=gha,scope=delivery-api
+          cache-to: type=gha,mode=max,scope=delivery-api,ignore-error=true
 
       - name: Export image names
         id: images

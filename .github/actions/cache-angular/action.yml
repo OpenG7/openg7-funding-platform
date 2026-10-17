@@ -1,0 +1,24 @@
+name: Cache Angular compilation
+description: Reuse Angular's incremental compilation cache without skipping builds.
+
+inputs:
+  configuration:
+    description: Build configuration or configurations used by this job.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Identify Node runtime
+      id: runtime
+      shell: bash
+      run: echo "node=$(node --print process.versions.node)" >> "$GITHUB_OUTPUT"
+    - name: Restore Angular compilation cache
+      uses: actions/cache@v4
+      with:
+        path: .angular/cache
+        # Each revision can refresh the immutable cache; earlier revisions with
+        # the same dependencies/configuration provide an incremental starting point.
+        key: ${{ runner.os }}-${{ runner.arch }}-angular-v1-node${{ steps.runtime.outputs.node }}-${{ inputs.configuration }}-${{ hashFiles('yarn.lock', '.yarnrc.yml', 'package.json', 'apps/*/package.json', 'packages/*/package.json', 'angular.json', 'tsconfig*.json', 'apps/funding-web/tsconfig*.json', 'packages/*/tsconfig*.json', 'apps/funding-web/.postcssrc.json') }}-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-${{ runner.arch }}-angular-v1-node${{ steps.runtime.outputs.node }}-${{ inputs.configuration }}-${{ hashFiles('yarn.lock', '.yarnrc.yml', 'package.json', 'apps/*/package.json', 'packages/*/package.json', 'angular.json', 'tsconfig*.json', 'apps/funding-web/tsconfig*.json', 'packages/*/tsconfig*.json', 'apps/funding-web/.postcssrc.json') }}-
