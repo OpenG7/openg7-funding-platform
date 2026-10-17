@@ -338,20 +338,33 @@ for (const language of ['fr-CA', 'en']) {
         // At 200%, a heading may be taller than the reserved reading area.
         // Both ends must remain reachable without cropping the heading itself.
         for (const block of ['start', 'end'] as const) {
-          await title.evaluate(
-            (el, block) => el.scrollIntoView({ block, behavior: 'instant' }),
-            block
-          );
-          await expect(title).toBeInViewport();
-          const headingBounds = (await title.boundingBox())!;
-          const frameBounds = (await frame.boundingBox())!;
-          if (block === 'start') {
-            expect(headingBounds.y).toBeGreaterThanOrEqual(frameBounds.y - 1);
-          } else {
-            expect(headingBounds.y + headingBounds.height).toBeLessThanOrEqual(
-              frameBounds.y + frameBounds.height + 1
+          // Container queries can settle after the first scroll following text
+          // enlargement. Retry the native scroll against its resulting bounds.
+          await expect(async () => {
+            await title.evaluate(
+              (el, block) => el.scrollIntoView({ block, behavior: 'instant' }),
+              block
             );
-          }
+            const headingBounds = (await title.boundingBox())!;
+            const frameBounds = (await frame.boundingBox())!;
+            const top = Math.max(0, frameBounds.y);
+            const bottom = Math.min(
+              page.viewportSize()!.height,
+              frameBounds.y + frameBounds.height
+            );
+            expect(
+              Math.min(headingBounds.y + headingBounds.height, bottom) -
+                Math.max(headingBounds.y, top)
+            ).toBeGreaterThan(0);
+            if (block === 'start') {
+              expect(headingBounds.y).toBeGreaterThanOrEqual(frameBounds.y - 1);
+            } else {
+              expect(
+                headingBounds.y + headingBounds.height
+              ).toBeLessThanOrEqual(frameBounds.y + frameBounds.height + 1);
+            }
+          }).toPass({ timeout: 7000 });
+          await expect(title).toBeInViewport();
         }
         for (const action of await actions.all()) {
           await action.scrollIntoViewIfNeeded();

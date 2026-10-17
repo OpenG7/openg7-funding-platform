@@ -492,7 +492,28 @@ test('Assistant categories and queue actions fit their available space', async (
     );
     const lastCategory = categories.getByRole('button').last();
     await lastCategory.focus();
-    await expect(lastCategory).toBeInViewport({ ratio: 1 });
+    // Chromium rounds the intersection of a focused item with its horizontal
+    // scrollport. Allow a fractional edge while bounding every clipped side.
+    await expect(lastCategory).toBeInViewport({ ratio: 0.99 });
+    const clippedEdges = await lastCategory.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const parent = element.closest<HTMLElement>(
+        '[data-og7="assistant-categories"]'
+      )!;
+      const strip = parent.getBoundingClientRect();
+      const left = Math.max(0, strip.left + parent.clientLeft);
+      const right = Math.min(
+        innerWidth,
+        strip.left + parent.clientLeft + parent.clientWidth
+      );
+      return [
+        left - rect.left,
+        rect.right - right,
+        -rect.top,
+        rect.bottom - innerHeight
+      ];
+    });
+    expect(Math.max(...clippedEdges)).toBeLessThanOrEqual(1);
     expect((await lastCategory.boundingBox())!.height).toBeGreaterThanOrEqual(
       44
     );

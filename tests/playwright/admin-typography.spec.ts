@@ -13,10 +13,16 @@ type Language = 'fr-CA' | 'en';
 const adminPages: {
   path: string;
   title: Record<Language, string>;
+  compactSectionHeadings?: { selector: string; count: number };
 }[] = [
   {
     path: '/admin/fundraiser',
-    title: { 'fr-CA': 'Centre de pilotage', en: 'Control centre' }
+    title: { 'fr-CA': 'Centre de pilotage', en: 'Control centre' },
+    compactSectionHeadings: {
+      selector:
+        '[data-og7="dashboard-workflow"] [data-og7="sponsorship-progress"] > header > h2',
+      count: 1
+    }
   },
   {
     path: '/admin/fundraiser/attention',
@@ -77,7 +83,11 @@ const adminPages: {
   },
   {
     path: '/admin/fundraiser/publications',
-    title: { 'fr-CA': 'Publications', en: 'Publications' }
+    title: { 'fr-CA': 'Publications', en: 'Publications' },
+    compactSectionHeadings: {
+      selector: '[data-og7="publication-space"] h2',
+      count: 3
+    }
   },
   {
     path: '/admin/fundraiser/publications/drafts',
@@ -178,7 +188,7 @@ for (const language of ['fr-CA', 'en'] as const) {
       let controlsChecked = 0;
       let buttonsChecked = 0;
 
-      for (const { path, title } of adminPages) {
+      for (const { path, title, compactSectionHeadings } of adminPages) {
         await test.step(path, async () => {
           if (path === '/admin/login') fixture.showLogin();
           await page.goto(path);
@@ -221,21 +231,39 @@ for (const language of ['fr-CA', 'en'] as const) {
             'Segoe UI'
           ]);
           await expect.soft(main).toHaveCSS('font-family', bodyFamily);
-          for (const [selector, family] of [
-            ['h2', 'Sora'],
-            ['h3, h4, h5, h6', 'Inter']
-          ]) {
-            const families = await main
-              .locator(selector)
-              .evaluateAll((elements) =>
+          // Compact dossier labels and publication navigation titles explicitly
+          // use the body face. Other section headings retain the Sora contract.
+          const nestedHeadings = await main
+            .locator('h2, h3, h4, h5, h6')
+            .evaluateAll(
+              (elements, compactSelector) =>
                 elements
                   .filter((element) => element.getClientRects().length > 0)
-                  .map((element) => getComputedStyle(element).fontFamily)
-              );
-            for (const actualFamily of families)
-              expect
-                .soft(fontFamilies(actualFamily)[0], `${path}: ${selector}`)
-                .toBe(family);
+                  .map((element) => ({
+                    tag: element.tagName,
+                    text: (element.textContent ?? '').trim(),
+                    family: getComputedStyle(element).fontFamily,
+                    compact:
+                      compactSelector !== null &&
+                      element.matches(compactSelector)
+                  })),
+              compactSectionHeadings?.selector ?? null
+            );
+          expect(
+            nestedHeadings.filter((heading) => heading.compact).length,
+            `${path}: visible compact section headings`
+          ).toBe(compactSectionHeadings?.count ?? 0);
+          for (const nestedHeading of nestedHeadings) {
+            const expectedFamilies =
+              nestedHeading.tag === 'H2' && !nestedHeading.compact
+                ? ['Sora', 'Inter']
+                : ['Inter', 'Segoe UI'];
+            expect
+              .soft(
+                fontFamilies(nestedHeading.family).slice(0, 2),
+                `${path}: ${nestedHeading.tag} ${nestedHeading.text}`
+              )
+              .toEqual(expectedFamilies);
           }
           expect
             .soft(
