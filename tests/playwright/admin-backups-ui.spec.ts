@@ -303,6 +303,8 @@ for (const theme of ['night', 'mineral', 'graphite'] as const) {
     test(`backup states and opaque status contrast in ${theme} with ${language}`, async ({
       page
     }) => {
+      // Multiple Axe audits and service transitions share this test's budget.
+      test.setTimeout(60_000);
       const en = language === 'en';
       await page.setViewportSize({ width: en ? 390 : 1440, height: 1050 });
       await page.addInitScript(
