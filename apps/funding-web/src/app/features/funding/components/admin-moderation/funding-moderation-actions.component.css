@@ -5,6 +5,27 @@
   border: 1px solid var(--admin-border);
 }
 
+:host(.dossier-moderation) .moderation-actions {
+  @apply tw:p-0;
+  border: 0;
+  border-radius: 0;
+}
+
+:host(.dossier-moderation) h3 {
+  font-size: 0.9375rem;
+}
+
+:host(.dossier-moderation) label,
+:host(.dossier-moderation) summary {
+  @apply tw:text-admin-caption;
+}
+
+:host(.dossier-moderation) summary {
+  min-height: var(--admin-control-height);
+  align-content: center;
+  cursor: pointer;
+}
+
 h2,
 h3 {
   @apply tw:m-0;

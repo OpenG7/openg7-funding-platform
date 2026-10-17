@@ -20,10 +20,16 @@
     <button
       type="button"
       class="admin-button"
+      [attr.aria-label]="'admin.dossier.refresh' | translate"
+      [attr.title]="'admin.dossier.refresh' | translate"
       [disabled]="disabled() || state() === 'loading'"
       (click)="refresh()"
     >
-      {{ 'admin.dossier.refresh' | translate }}
+      @if (streamlined()) {
+        <openg7-admin-icon name="refresh" />
+      } @else {
+        {{ 'admin.dossier.refresh' | translate }}
+      }
     </button>
   </header>
   @if (state() === 'loading') {
@@ -90,36 +96,13 @@
         </li>
       }
     </ol>
-    <div class="next-step">
-      @if (d.preparationActivityId; as activityId) {
-        <button
-          type="button"
-          class="admin-button"
-          data-og7="dossier-preparation"
-          (click)="activity.openPreparation(activityId)"
-        >
-          {{ 'admin.contributionActivity.view' | translate }}
-        </button>
-      }
-      <div>
-        <strong>{{
-          (nextSection() ? 'admin.dossier.next' : 'admin.dossier.completed')
-            | translate
-        }}</strong>
-        <p>{{ 'admin.dossier.reasons.' + d.next.reason | translate }}</p>
-      </div>
-      @if (nextSection(); as section) {
-        <a
-          class="admin-button primary"
-          routerLink="/admin/fundraiser/sponsors"
-          [queryParams]="params(d.contributionId, d.next.tab)"
-          [fragment]="'dossier-' + section"
-          queryParamsHandling="merge"
-          data-og7="dossier-next"
-          >{{ 'admin.dossier.nextActions.' + section | translate }}</a
-        >
-      }
-    </div>
+    @if (showNextStep()) {
+      <openg7-admin-sponsorship-next-step
+        [dossier]="d"
+        [embedded]="true"
+        [compact]="streamlined()"
+      />
+    }
     @if (!compact() && !streamlined()) {
       <p class="help">{{ 'admin.dossier.independent' | translate }}</p>
     }

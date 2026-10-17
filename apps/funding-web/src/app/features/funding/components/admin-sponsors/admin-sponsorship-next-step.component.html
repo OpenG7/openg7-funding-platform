@@ -1,0 +1,35 @@
+@let d = dossier();
+<div
+  class="next-step"
+  [class.embedded]="embedded()"
+  [class.compact]="compact()"
+>
+  @if (d.preparationActivityId; as activityId) {
+    <button
+      type="button"
+      class="admin-button"
+      data-og7="dossier-preparation"
+      (click)="activity.openPreparation(activityId)"
+    >
+      {{ 'admin.contributionActivity.view' | translate }}
+    </button>
+  }
+  <div class="next-copy">
+    <strong>{{
+      (nextSection() ? 'admin.dossier.next' : 'admin.dossier.completed')
+        | translate
+    }}</strong>
+    <p>{{ 'admin.dossier.reasons.' + d.next.reason | translate }}</p>
+  </div>
+  @if (nextSection(); as section) {
+    <a
+      class="admin-button admin-button--primary"
+      routerLink="/admin/fundraiser/sponsors"
+      [queryParams]="params()"
+      [fragment]="'dossier-' + section"
+      queryParamsHandling="merge"
+      data-og7="dossier-next"
+      >{{ 'admin.dossier.nextActions.' + section | translate }}</a
+    >
+  }
+</div>

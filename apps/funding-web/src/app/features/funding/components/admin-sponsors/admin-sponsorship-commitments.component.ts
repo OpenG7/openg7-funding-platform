@@ -37,7 +37,9 @@ import { AdminSponsorshipHistoricalAuditComponent } from './admin-sponsorship-hi
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-sponsorship-commitments.component.html',
   styleUrls: [
+    '../admin-ui/admin-theme.css',
     '../admin-ui/admin-controls.css',
+    '../admin-ui/admin-forms.css',
     './admin-sponsorship-commitments.component.css'
   ]
 })

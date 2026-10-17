@@ -859,6 +859,7 @@
         "unsaved": "Unsaved changes"
       },
       "workspace": {
+        "context": "Dossier follow-up",
         "financeActions": "Financial actions",
         "navigation": "Dossier navigation",
         "back": "All sponsorships",

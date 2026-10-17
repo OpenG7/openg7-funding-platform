@@ -11,15 +11,23 @@
   color: var(--admin-text, #0f172a);
 }
 header {
-  @apply tw:flex tw:gap-3 tw:flex-wrap tw:items-center;
+  @apply tw:grid tw:gap-3 tw:items-center;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+header h3 {
+  @apply tw:m-0;
+}
+header button {
+  grid-column: 2;
+  grid-row: 1;
 }
 header p {
-  flex-basis: 100%;
+  @apply tw:col-span-full tw:m-0 tw:text-admin-caption tw:text-admin-muted;
 }
 h3,
 h4,
 legend {
-  font-weight: 700;
+  font-weight: var(--admin-label-weight);
 }
 p {
   margin: 0.65rem 0;
@@ -77,10 +85,15 @@ code {
 button {
   @apply tw:max-w-full tw:whitespace-normal;
   width: fit-content;
+  padding: 0.5rem 0.85rem;
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
 }
 aside {
   @apply tw:p-4;
-  background: var(--admin-warning-surface, #fffbeb);
+  background: var(--admin-warning-bg);
   @apply tw:rounded-xl;
 }
 summary {
@@ -91,7 +104,7 @@ summary {
   color: var(--admin-danger, #b91c1c);
 }
 :focus-visible {
-  outline: 3px solid var(--admin-accent, #2563eb);
+  outline: 3px solid var(--admin-focus);
   outline-offset: 3px;
 }
 @media (max-width: 640px) {
@@ -103,5 +116,10 @@ summary {
   }
   header button {
     @apply tw:w-full;
+    grid-column: 1;
+    grid-row: auto;
+  }
+  header {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

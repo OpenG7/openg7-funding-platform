@@ -19,17 +19,22 @@ import type {
 } from '@openg7/funding-core';
 
 import { FundingAdminService } from '../../services/funding-admin.service.js';
+import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
-import { ContributionActivityService } from '../../services/contribution-activity.service.js';
-import { nextDossierSection } from '../../models/admin-sponsorship-navigation.js';
 
+import { AdminSponsorshipNextStepComponent } from './admin-sponsorship-next-step.component.js';
 import { AdminSponsorshipProgressController } from './admin-sponsorship-progress-controller.js';
 
 /** Funding organism: read-only dossier projection and navigation to existing actions. */
 @Component({
   selector: 'openg7-admin-sponsorship-progress',
   standalone: true,
-  imports: [RouterLink, TranslatePipe],
+  imports: [
+    RouterLink,
+    TranslatePipe,
+    AdminIconComponent,
+    AdminSponsorshipNextStepComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-sponsorship-progress.component.html',
   styleUrls: [
@@ -39,10 +44,10 @@ import { AdminSponsorshipProgressController } from './admin-sponsorship-progress
   ]
 })
 export class AdminSponsorshipProgressComponent implements OnInit, OnChanges {
-  readonly activity = inject(ContributionActivityService);
   readonly sponsorshipId = input<string>();
   readonly compact = input(false);
   readonly streamlined = input(false);
+  readonly showNextStep = input(true);
   readonly activeTab = input<SponsorshipDossierTab>('overview');
   readonly completedSteps = computed(
     () =>
@@ -62,10 +67,6 @@ export class AdminSponsorshipProgressComponent implements OnInit, OnChanges {
   readonly disabled = input(false);
   readonly refreshRequested = output<void>();
   readonly loaded = output<AdminSponsorshipProgress | null>();
-  readonly nextSection = computed(() => {
-    const next = this.data()?.dossier?.next;
-    return next ? nextDossierSection(next) : null;
-  });
   readonly i18n = inject(FundingI18nService);
   readonly router = inject(Router);
   private readonly admin = inject(FundingAdminService);

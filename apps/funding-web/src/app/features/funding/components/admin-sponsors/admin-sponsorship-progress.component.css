@@ -11,8 +11,7 @@
   border-radius: 12px;
   padding: 1.2rem;
 }
-header,
-.next-step {
+header {
   @apply tw:flex tw:items-center tw:justify-between tw:gap-4 tw:flex-wrap;
 }
 h2,
@@ -76,15 +75,6 @@ small,
   color: var(--admin-muted, #bccbe0);
   @apply tw:text-admin-caption;
 }
-.next-step {
-  @apply tw:p-4;
-  border-radius: 8px;
-  background: var(--admin-panel-raised, #21314a);
-}
-.next-step p {
-  margin: 0.3rem 0 0;
-  @apply tw:text-admin-caption;
-}
 .help {
   margin: 0.8rem 0 0;
 }
@@ -104,82 +94,122 @@ button:focus-visible {
   }
 }
 .streamlined {
+  @apply tw:grid;
+  grid-template-columns: minmax(0, 1fr) 2.75rem;
+  column-gap: 0.75rem;
   border: 0;
   border-radius: 0;
   background: transparent;
-  padding: 0.5rem 1.5rem 1rem;
+  padding: 0.25rem 1.25rem 0;
+}
+.streamlined header {
+  display: contents;
 }
 .streamlined h2 {
-  @apply tw:text-admin-caption;
+  @apply tw:sr-only;
+  @apply tw:text-admin-caption tw:text-admin-muted tw:m-0;
+  font-family: var(--admin-font-family);
   font-weight: var(--admin-label-weight);
-  @apply tw:text-admin-muted tw:m-0;
 }
-.progress-count {
-  @apply tw:ml-2 tw:text-admin-gold;
+.streamlined .progress-count {
+  @apply tw:ml-2 tw:text-admin-accent;
   font-variant-numeric: tabular-nums;
 }
 .streamlined header button {
-  padding: 0.35rem 0.65rem;
+  grid-column: 2;
+  grid-row: 1;
+  align-self: start;
+  margin-top: 0.25rem;
+  padding: 0;
+  width: 2.75rem;
   background: transparent;
   @apply tw:text-admin-caption;
 }
 .streamlined .milestones {
-  @apply tw:gap-2;
-  margin: 0.65rem 0 1rem;
+  grid-column: 1;
+  grid-row: 1;
+  --milestone-gap: 0.5rem;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--milestone-gap);
+  margin: 0.25rem 0 0;
+}
+.streamlined > openg7-admin-sponsorship-next-step,
+.streamlined > p {
+  grid-column: 1 / -1;
+}
+.streamlined .milestones li {
+  @apply tw:relative tw:min-w-0;
+}
+.streamlined .milestones li:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 1.125rem;
+  left: calc(50% + 1.175rem);
+  width: calc(100% + var(--milestone-gap) - 2.35rem);
+  height: 1px;
+  background: var(--admin-border);
+  pointer-events: none;
+}
+.streamlined .milestones li:nth-child(6n)::after {
+  display: none;
 }
 .streamlined .milestones a {
-  border-top-color: var(--admin-border);
-  padding: 0.5rem 0.35rem;
-  border-radius: 0 0 0.5rem 0.5rem;
+  @apply tw:items-center tw:text-center tw:text-admin-caption;
+  min-height: 4.75rem;
+  border: 0;
+  border-radius: 0.35rem;
+  padding: 0.25rem 0;
+  gap: 0.25rem;
+}
+.streamlined .milestones strong {
+  font-weight: var(--admin-label-weight);
+  line-height: 1.4;
+}
+.streamlined .milestones a[aria-current='step'] strong,
+.streamlined .milestones a:hover strong {
+  color: var(--admin-accent);
+}
+.streamlined .step-marker {
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: 0 0 auto;
+  border-color: var(--admin-control-border);
+  background: var(--admin-panel);
   @apply tw:text-admin-caption;
-  gap: 0.3rem;
-}
-.streamlined .milestones a[aria-current='step'] {
-  background: var(--admin-warning-bg);
-  border-top-color: var(--admin-gold);
-}
-.streamlined .milestones a:hover {
-  background: var(--admin-panel-raised);
 }
 .streamlined [data-state='complete'] .step-marker {
   background: var(--admin-success-bg);
   @apply tw:text-admin-success tw:border-admin-success-border;
 }
-.streamlined .step-marker {
-  width: 1.45rem;
-  height: 1.45rem;
-  @apply tw:text-admin-caption;
+.streamlined .milestones a[aria-current='step'] .step-marker {
+  border-color: var(--admin-accent);
+  background: var(--admin-selected);
+  color: var(--admin-accent);
 }
 .streamlined .step-status {
   @apply tw:text-admin-muted tw:text-admin-caption;
+  line-height: 1.4;
 }
-.streamlined .next-step {
-  background: var(--admin-subtle);
-  border: 1px solid var(--admin-border);
-  @apply tw:rounded-xl;
-  padding: 0.8rem 1rem;
-  @apply tw:text-admin-caption;
+.streamlined [data-state='error'] .step-status,
+.streamlined [data-state='blocked'] .step-status {
+  color: var(--admin-danger);
 }
-.streamlined .next-step p {
-  @apply tw:text-admin-muted tw:text-admin-caption;
+@container (max-width: 560px) {
+  .streamlined .milestones {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .streamlined .milestones li:nth-child(3n)::after {
+    display: none;
+  }
 }
 @media (max-width: 600px) {
   .streamlined {
-    padding: 0.25rem 1rem 0.75rem;
+    padding-inline: 1rem;
   }
   .streamlined .milestones {
-    @apply tw:grid-cols-3;
-    gap: 0.45rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-  .streamlined .milestones a {
-    @apply tw:grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    @apply tw:items-center;
-  }
-  .streamlined .step-status {
-    @apply tw:col-span-full;
-  }
-  .streamlined .next-step .admin-button {
-    @apply tw:w-full;
+  .streamlined .milestones li:nth-child(3n)::after {
+    display: none;
   }
 }

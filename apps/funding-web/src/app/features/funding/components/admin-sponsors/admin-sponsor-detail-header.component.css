@@ -1,213 +1,128 @@
 @reference '../../../../../styles/tailwind.css';
 
-:host .detail-header {
-  padding: var(--admin-card-padding);
-  gap: var(--admin-card-gap);
+:host {
+  @apply tw:block tw:min-w-0;
+}
+.detail-header {
+  @apply tw:grid;
   grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem 1rem;
+  padding: 0.875rem var(--admin-card-padding);
   background: var(--admin-panel);
 }
-:host .detail-title {
-  @apply tw:col-span-full;
-}
-:host .detail-title h1 {
-  @apply tw:wrap-anywhere;
-}
-:host .sponsor-avatar.large {
-  height: 3.25rem;
-  width: 3.25rem;
-  background: var(--admin-selected);
-  border: 1px solid var(--admin-border);
-  @apply tw:text-admin-accent tw:rounded-admin-card;
-}
-:host .detail-badges {
-  grid-column: 1;
-  gap: 0.45rem;
-}
-:host .review-capsule {
-  --review-accent: var(--admin-warning);
-  @apply tw:flex;
-  flex: 0 0 auto;
-  @apply tw:items-center tw:flex-wrap;
+.detail-title {
+  @apply tw:col-span-full tw:grid tw:items-center tw:min-w-0;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 0.85rem;
-  @apply tw:box-border tw:w-max tw:max-w-full tw:rounded-admin-control;
-  padding: 0.65rem 0.85rem;
-  border: 1px solid var(--admin-border);
-  background: var(--admin-panel-raised);
-  box-shadow: var(--admin-shadow);
 }
-:host .review-capsule[data-review-state='approved'] {
+.detail-title h1 {
+  @apply tw:m-0 tw:wrap-anywhere;
+}
+.detail-title p {
+  @apply tw:text-admin-muted tw:text-admin-caption tw:wrap-anywhere;
+  margin: 0.2rem 0 0;
+  line-height: 1.5;
+}
+.sponsor-avatar {
+  @apply tw:inline-flex tw:items-center tw:justify-center tw:text-admin-text;
+  flex: 0 0 auto;
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 999px;
+  background: var(--admin-panel-raised);
+  font-weight: var(--admin-label-weight);
+}
+.sponsor-avatar.large {
+  @apply tw:text-admin-accent;
+  width: 3rem;
+  height: 3rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 0.75rem;
+  background: var(--admin-selected);
+  font-size: 1rem;
+}
+.detail-badges {
+  @apply tw:flex tw:flex-wrap tw:items-center tw:min-w-0;
+  grid-column: 1;
+  gap: 0.4rem;
+}
+.review-capsule {
+  --review-accent: var(--admin-warning);
+  @apply tw:inline-flex tw:flex-wrap tw:items-center tw:box-border tw:min-w-0 tw:max-w-full;
+  flex: 0 1 auto;
+  gap: 0.35rem;
+  padding: 0.25rem 0.5rem;
+  border: 0;
+  border-radius: 0.35rem;
+  background: transparent;
+  box-shadow: none;
+}
+.review-capsule[data-review-state='approved'] {
   --review-accent: var(--admin-success);
 }
-:host .review-capsule[data-review-state='rejected'] {
+.review-capsule[data-review-state='rejected'] {
   --review-accent: var(--admin-danger);
 }
-:host .review-capsule::before {
+.review-capsule::before {
   content: '';
-  flex: 0 0 0.45rem;
-  height: 0.45rem;
+  flex: 0 0 0.35rem;
+  height: 0.35rem;
   border-radius: 50%;
   background: var(--review-accent);
-  box-shadow: 0 0 0 4px
-    color-mix(in srgb, var(--review-accent) 12%, transparent);
 }
-:host .review-capsule .review-label {
-  @apply tw:shrink-0 tw:m-0;
-  padding-right: 0.85rem;
-  border-right: 1px solid
-    color-mix(in srgb, var(--review-accent) 25%, transparent);
-  @apply tw:text-admin-muted tw:text-admin-caption;
+.review-label,
+.review-state {
+  @apply tw:m-0 tw:text-admin-caption tw:wrap-anywhere;
+  line-height: 1.5;
   font-weight: var(--admin-label-weight);
-  letter-spacing: normal;
-  @apply tw:uppercase;
 }
-:host .review-capsule .review-state {
-  @apply tw:shrink-0 tw:m-0;
+.review-label {
+  @apply tw:text-admin-muted;
+}
+.review-state {
   color: var(--review-accent);
-  @apply tw:text-admin-caption;
-  font-weight: var(--admin-label-weight);
 }
 :host .review-capsule:focus {
   outline: 3px solid var(--admin-focus);
-  outline-offset: 5px;
+  outline-offset: -3px;
 }
-:host .header-details {
+.header-details {
+  @apply tw:min-w-0 tw:text-admin-caption tw:text-admin-muted;
   grid-column: 2;
   align-self: center;
-  @apply tw:text-admin-caption tw:text-admin-muted;
 }
-:host .header-details[open] {
+.header-details[open] {
   @apply tw:col-span-full;
 }
-:host .header-details summary {
-  @apply tw:min-h-11 tw:content-center tw:cursor-pointer;
+.header-details summary {
+  @apply tw:min-h-11 tw:content-center tw:cursor-pointer tw:wrap-anywhere;
 }
-:host .header-details summary:focus-visible {
+.header-details summary:focus-visible {
   outline: 3px solid var(--admin-focus);
   outline-offset: 3px;
 }
-:host .detail-meta {
+.detail-meta {
+  @apply tw:col-span-full tw:grid tw:gap-3 tw:grid-cols-3 tw:m-0;
   padding-block: 0.75rem;
 }
-:host .visibility-badge {
-  background: var(--admin-panel-raised);
-  @apply tw:text-admin-muted;
-}
-:host .visibility-visible {
-  @apply tw:text-admin-success;
-}
-@media (max-width: 700px) {
-  :host .detail-header {
-    padding: 1.1rem;
-  }
-  :host .header-details {
-    @apply tw:col-span-full;
-  }
-}
-
-:host {
-  @apply tw:block;
-}
-
-.detail-header {
-  @apply tw:grid;
-  gap: 0.9rem;
-  grid-template-columns: minmax(0, 1fr) auto;
-  @apply tw:p-4;
-}
-
-.detail-title {
-  @apply tw:items-center tw:grid;
-  gap: 0.8rem;
-  grid-template-columns: auto minmax(0, 1fr);
-}
-
-.detail-title h1 {
-  @apply tw:m-0;
-}
-
-.detail-title p {
-  @apply tw:text-admin-muted;
-  margin: 0.2rem 0 0;
-}
-
-.sponsor-avatar {
-  @apply tw:items-center;
-  background: var(--admin-panel-raised);
-  border-radius: 999px;
-  @apply tw:text-admin-text tw:inline-flex;
-  font-weight: var(--admin-emphasis-weight);
-  height: 2.35rem;
-  @apply tw:justify-center;
-  width: 2.35rem;
-}
-
-.sponsor-avatar.large {
-  font-size: 1.05rem;
-  @apply tw:h-14 tw:w-14;
-}
-
-.icon-action {
-  @apply tw:items-center;
-  background: var(--admin-panel);
-  border: 1px solid var(--admin-border);
-  @apply tw:rounded-admin-sm tw:text-admin-text tw:cursor-pointer tw:inline-flex;
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-  font-weight: var(--admin-control-weight);
-  @apply tw:justify-center;
-  min-height: 2.2rem;
-  @apply tw:p-0;
-  text-decoration: none;
-  width: 2.2rem;
-}
-
-.icon-action:focus-visible {
-  outline: 3px solid var(--admin-focus);
-  outline-offset: 2px;
-}
-
-.icon-action:disabled {
-  @apply tw:cursor-not-allowed;
-  opacity: 0.55;
-}
-
-.detail-badges,
-.detail-meta {
-  @apply tw:col-span-full;
-}
-
-.detail-badges {
-  @apply tw:items-center tw:flex tw:flex-wrap tw:gap-3;
-}
-
-.detail-meta {
-  @apply tw:grid tw:gap-3 tw:grid-cols-3 tw:m-0;
-}
-
 dt {
   @apply tw:text-admin-muted tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
-  letter-spacing: 0;
-  @apply tw:uppercase;
 }
-
 dd {
-  margin: 0.15rem 0 0;
   @apply tw:wrap-anywhere;
+  margin: 0.15rem 0 0;
 }
-
 .status-badge,
 .visibility-badge,
 .payment-badge,
 .refund-badge {
-  border-radius: 999px;
-  @apply tw:inline-flex tw:text-admin-caption;
+  @apply tw:inline-flex tw:text-admin-caption tw:max-w-full tw:wrap-anywhere;
+  border-radius: 0.35rem;
   font-weight: var(--admin-label-weight);
-  padding: 0.25rem 0.55rem;
-  @apply tw:w-max;
+  line-height: 1.5;
+  padding: 0.25rem 0.5rem;
 }
-
 .status-pending,
 .payment-pending,
 .refund-requested,
@@ -215,43 +130,74 @@ dd {
   background: var(--og7-admin-warning-bg, #3c3221);
   @apply tw:text-admin-warning;
 }
-
 .status-approved,
 .payment-paid,
-.refund-completed,
-.visibility-visible {
+.refund-completed {
   background: var(--og7-admin-success-bg, #193d32);
   @apply tw:text-admin-success;
 }
-
 .status-rejected,
 .payment-failed,
 .refund-failed {
   background: var(--og7-admin-danger-bg, #422532);
   @apply tw:text-admin-danger;
 }
-
+.visibility-badge,
 .visibility-hidden,
-.refund-not-requested {
-  background: var(--admin-panel-raised);
-  @apply tw:text-admin-muted;
-}
-
+.refund-not-requested,
 .refund-processing {
   background: var(--admin-panel-raised);
   @apply tw:text-admin-muted;
 }
-
-@media (max-width: 860px) {
-  .detail-header {
-    grid-template-columns: 1fr;
+.visibility-visible {
+  @apply tw:text-admin-success;
+}
+.icon-action {
+  @apply tw:inline-flex tw:items-center tw:justify-center tw:rounded-admin-sm tw:text-admin-text tw:cursor-pointer tw:p-0;
+  width: 2.75rem;
+  min-height: 2.75rem;
+  border: 1px solid var(--admin-control-border);
+  background: var(--admin-panel);
+  font: inherit;
+  font-weight: var(--admin-control-weight);
+  text-decoration: none;
+}
+.icon-action:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 2px;
+}
+.icon-action:disabled {
+  @apply tw:cursor-not-allowed;
+  opacity: 0.55;
+}
+@container sponsorship-dossier (min-width: 54rem) {
+  .detail-title {
+    grid-column: 1;
+    grid-row: 1 / 3;
   }
-
-  .icon-action {
+  .detail-badges {
+    grid-column: 2;
+    justify-content: end;
+  }
+  .header-details {
     justify-self: end;
   }
-
+  .header-details[open] {
+    grid-row: 3;
+    justify-self: stretch;
+  }
+}
+@media (max-width: 860px) {
   .detail-meta {
     grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 700px) {
+  .detail-header {
+    grid-template-columns: minmax(0, 1fr);
+    padding-inline: 1rem;
+  }
+  .header-details {
+    grid-column: 1;
   }
 }

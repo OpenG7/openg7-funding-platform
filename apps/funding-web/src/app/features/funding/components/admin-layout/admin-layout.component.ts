@@ -82,7 +82,7 @@ import { AdminSandboxService } from '../../services/admin-sandbox.service.js';
           <div class="tools">
             <openg7-contribution-activity />
             <a
-              class="admin-button admin-button--primary"
+              class="admin-button"
               routerLink="/admin/fundraiser/assistant"
               [queryParams]="
                 sponsorshipId() ? { sponsorshipId: sponsorshipId() } : {}

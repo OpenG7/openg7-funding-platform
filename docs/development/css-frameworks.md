@@ -123,6 +123,13 @@ Leurs contenus, permissions, étapes et confirmations restent portés par leurs
 composants métier. Les autres compositions profitent de la palette commune;
 leur harmonisation détaillée reste progressive.
 
+Dans un dossier commanditaire, l'identité et les onglets précèdent le travail
+actif. La modération, l'édition et le guide occupent un rail de suivi lorsque
+le dossier dispose d'au moins 54 rem; en dessous, ce rail suit le contenu dans
+l'ordre de lecture. La file reste visible à partir de 1440 px et les actions
+de décision conservent leur ancrage et leurs confirmations. Les coordonnées
+précèdent les explications détaillées sur la transmission du formulaire.
+
 La densité privilégie l'espace entre les grandes sections, tout en conservant
 des contrôles d'au moins 44 px dans les primitives communes. Le réglage Compact
 reste propre au pilotage et ne réduit pas la typographie. Les focus clavier et

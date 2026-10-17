@@ -24,32 +24,22 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
       tabindex="-1"
       aria-labelledby="dossier-identity-title"
     >
-      <h3 id="dossier-identity-title">
-        {{ 'admin.dossier.tabs.identity' | translate }}
-      </h3>
-      <aside
-        class="identity-explanation"
-        aria-labelledby="identity-explanation-title"
-      >
-        <h4 id="identity-explanation-title">
-          {{ 'admin.dossier.identityHelp.differenceTitle' | translate }}
-        </h4>
-        <dl>
-          <div>
-            <dt>{{ 'admin.dossier.identityHelp.adminEntry' | translate }}</dt>
-            <dd>
-              {{ 'admin.dossier.identityHelp.adminEntryMeaning' | translate }}
-            </dd>
-          </div>
-          <div>
-            <dt>{{ 'admin.dossier.identityHelp.sponsorEntry' | translate }}</dt>
-            <dd>
-              {{ 'admin.dossier.identityHelp.sponsorEntryMeaning' | translate }}
-            </dd>
-          </div>
-        </dl>
-      </aside>
-      <h4>{{ 'admin.dossier.identityHelp.coordinates' | translate }}</h4>
+      <header class="identity-heading">
+        <h3 id="dossier-identity-title">
+          {{ 'admin.dossier.identityHelp.coordinates' | translate }}
+        </h3>
+        @if (canEdit()) {
+          <button
+            type="button"
+            class="admin-button"
+            data-og7="identity-edit"
+            [disabled]="disabled()"
+            (click)="editRequested.emit()"
+          >
+            {{ 'admin.dossier.identityHelp.edit' | translate }}
+          </button>
+        }
+      </header>
       <p data-og7="identity-coordinates-status">
         {{
           'admin.dossier.identityHelp.' +
@@ -58,7 +48,7 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
               : 'coordinatesMissing') | translate
         }}
       </p>
-      <dl>
+      <dl class="identity-coordinates">
         <div>
           <dt>{{ 'admin.dossier.company' | translate }}</dt>
           <dd>
@@ -94,17 +84,7 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
           </dd>
         </div>
       </dl>
-      @if (canEdit()) {
-        <button
-          type="button"
-          class="admin-button"
-          data-og7="identity-edit"
-          [disabled]="disabled()"
-          (click)="editRequested.emit()"
-        >
-          {{ 'admin.dossier.identityHelp.edit' | translate }}
-        </button>
-      } @else {
+      @if (!canEdit()) {
         <p>{{ 'admin.dossier.identityHelp.readonly' | translate }}</p>
       }
       <h4>{{ 'admin.dossier.identityHelp.submission' | translate }}</h4>
@@ -134,6 +114,34 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
           <p>{{ 'admin.dossier.identityHelp.ownerHelp' | translate }}</p>
         }
       }
+      <aside
+        class="identity-explanation"
+        aria-labelledby="identity-explanation-title"
+      >
+        <details>
+          <summary id="identity-explanation-title">
+            {{ 'admin.dossier.identityHelp.differenceTitle' | translate }}
+          </summary>
+          <dl>
+            <div>
+              <dt>{{ 'admin.dossier.identityHelp.adminEntry' | translate }}</dt>
+              <dd>
+                {{ 'admin.dossier.identityHelp.adminEntryMeaning' | translate }}
+              </dd>
+            </div>
+            <div>
+              <dt>
+                {{ 'admin.dossier.identityHelp.sponsorEntry' | translate }}
+              </dt>
+              <dd>
+                {{
+                  'admin.dossier.identityHelp.sponsorEntryMeaning' | translate
+                }}
+              </dd>
+            </div>
+          </dl>
+        </details>
+      </aside>
     </section>
   `,
   styleUrls: [

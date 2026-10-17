@@ -859,6 +859,7 @@
         "unsaved": "Modifications non enregistrées"
       },
       "workspace": {
+        "context": "Suivi du dossier",
         "financeActions": "Actions financières",
         "navigation": "Navigation du dossier",
         "back": "Toutes les commandites",

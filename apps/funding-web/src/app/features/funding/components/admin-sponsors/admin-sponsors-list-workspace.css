@@ -17,7 +17,8 @@
 
 .list-caption {
   @apply tw:flex tw:justify-between tw:items-center;
-  padding: var(--admin-card-padding) var(--admin-card-padding) 0;
+  @apply tw:gap-2;
+  padding: 1rem 0.875rem 0;
   font-size: 1rem;
 }
 
