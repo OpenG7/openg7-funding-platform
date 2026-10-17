@@ -723,10 +723,7 @@ test('a delayed approval response cannot restore an approved stamp after the par
     }))
   });
   f.progressVersions.set(firstId, 'synthetic-dossier-v2');
-  await page
-    .locator('[data-og7="sponsorship-progress"]')
-    .getByRole('button', { name: 'Actualiser le dossier', exact: true })
-    .click();
+  await page.locator('[data-og7="dossier-refresh"]').click();
   await expect(card(page)).toContainText('À revoir');
   const delayedResponse = page.waitForResponse(
     (response) => new URL(response.url()).pathname === `${receiptPath}/approve`
