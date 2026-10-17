@@ -856,13 +856,26 @@ async function expectShownLandmarkUncovered(page: Page) {
       const guide = document.querySelector('[data-og7="admin-guidance"]');
       const target = document.activeElement;
       if (!guide || !(target instanceof HTMLElement)) return null;
+      const layout = guide.closest('[data-og7="admin-layout"]');
+      const content = Array.from(
+        layout?.querySelectorAll(
+          '#admin-main, [data-og7="controller-radial-slot"][data-og7-controller-owner], [data-og7="controller-deck-slot"][data-og7-controller-owner]'
+        ) ?? []
+      );
       const card = guide.getBoundingClientRect();
       const landmark = target.getBoundingClientRect();
       const x = landmark.left + landmark.width / 2;
       const y = landmark.top + Math.min(landmark.height / 2, 12);
       const foreground = document.elementFromPoint(x, y);
       return {
-        inMain: document.getElementById('admin-main')?.contains(target),
+        inContent:
+          layout !== null &&
+          target.closest('[data-og7="admin-layout"]') === layout &&
+          content.some(
+            (region) =>
+              region.closest('[data-og7="admin-layout"]') === layout &&
+              region.contains(target)
+          ),
         cardTop: card.top,
         cardBottom: card.bottom,
         pointX: x,
@@ -875,7 +888,7 @@ async function expectShownLandmarkUncovered(page: Page) {
       };
     });
     expect(placement).not.toBeNull();
-    expect(placement!.inMain).toBe(true);
+    expect(placement!.inContent).toBe(true);
     expect(placement!.cardTop).toBeGreaterThanOrEqual(-1);
     expect(placement!.cardBottom).toBeLessThanOrEqual(
       placement!.viewportHeight + 1
@@ -1629,6 +1642,8 @@ test('guidance remains available in Pilotage concentration on a short mobile scr
 });
 
 for (const { width, concentrated, placement } of [
+  { width: 1920, concentrated: false, placement: 'top' },
+  { width: 1920, concentrated: false, placement: 'bottom' },
   { width: 1440, concentrated: false, placement: 'top' },
   { width: 1440, concentrated: false, placement: 'bottom' },
   { width: 390, concentrated: false, placement: 'top' },
@@ -1702,6 +1717,34 @@ for (const { width, concentrated, placement } of [
       'data-og7-placement',
       placement
     );
+    if (width >= 1440) {
+      // Both command surfaces reserve space in the shared layout. The floating
+      // guide must respect those same reservations after the content is projected.
+      await expect
+        .poll(() =>
+          page.locator('[data-og7="admin-guidance"]').evaluate((element) => {
+            const guide = element.getBoundingClientRect();
+            return Array.from(
+              document.querySelectorAll(
+                '[data-og7="controller-radial-slot"], [data-og7="controller-deck-slot"]'
+              )
+            )
+              .filter((slot) => slot.getClientRects().length > 0)
+              .every((slot) => {
+                const rect = slot.getBoundingClientRect();
+                return (
+                  Math.min(guide.right, rect.right) -
+                    Math.max(guide.left, rect.left) <=
+                    1 ||
+                  Math.min(guide.bottom, rect.bottom) -
+                    Math.max(guide.top, rect.top) <=
+                    1
+                );
+              });
+          })
+        )
+        .toBe(true);
+    }
     const bookmark = await stored(page);
     await hook(page, 'show').click();
     await expectGoldenZone(summary);
@@ -1714,16 +1757,29 @@ for (const { width, concentrated, placement } of [
         const frame = element
           .closest('[data-og7="pilot-scroll"]')!
           .getBoundingClientRect();
-        const toolbar = document
-          .querySelector('[data-og7="pilot-controls"]')!
-          .getBoundingClientRect();
+        const commandSurfaces = Array.from(
+          document.querySelectorAll(
+            '[data-og7="controller-radial-slot"], [data-og7="controller-deck-slot"], [data-og7="pilot-controls"]'
+          )
+        )
+          .map((surface) => surface.getBoundingClientRect())
+          .filter((bounds) => bounds.width > 0 && bounds.height > 0);
         const card = document
           .querySelector('[data-og7="admin-guidance"]')!
           .getBoundingClientRect();
         const focused = document.activeElement as HTMLElement;
         const heading = focused.getBoundingClientRect();
         const top = Math.max(0, frame.top);
-        const bottom = Math.min(innerHeight, frame.bottom, toolbar.top);
+        const bottom = Math.min(
+          innerHeight,
+          frame.bottom,
+          ...commandSurfaces
+            .filter(
+              (surface) =>
+                rect.left < surface.right && rect.right > surface.left
+            )
+            .map((surface) => surface.top)
+        );
         const cardCrossesZone =
           rect.left < card.right && rect.right > card.left;
         // The reveal algorithm reserves 12px at each viewport edge and another

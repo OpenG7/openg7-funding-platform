@@ -1,10 +1,108 @@
-<openg7-admin-layout [pilotage]="true" [concentrated]="concentrated()">
+<ng-template #radialController>
+  <footer
+    class="controls"
+    data-og7="pilot-controls"
+    [attr.aria-label]="t('controls')"
+  >
+    <div data-og7="pilot-actions" class="context-controller-slot">
+      <openg7-context-controller
+        [context]="controllerContext()"
+        [expanded]="controllerExpanded()"
+        [title]="t('controls')"
+        [contextLabel]="selected()?.title ?? ''"
+        [collapseLabel]="t('collapseController')"
+        [expandLabel]="t('expandController')"
+        (expandedChange)="setControllerExpanded($event)"
+      >
+        @for (action of controllerActions(); track action.id) {
+          <button
+            openg7-context-controller-action
+            [attr.data-og7]="action.id"
+            [action]="action"
+            [context]="controllerContext()"
+            (actionRequested)="controllerAction($event)"
+            [openg7AutomaticPrepare]="
+              (action.id === 'pilot-accept'
+                ? 'pilotage-primary'
+                : action.id.replace('pilot-', 'pilotage-')) +
+              ':' +
+              (selected()?.id ?? '')
+            "
+            [automaticFor]="selected()?.inspection?.contributionId ?? null"
+            [automaticExecutionMode]="
+              action.requiresConfirmation ? 'confirmation_required' : 'prepare'
+            "
+            (automaticPrepare)="prepareControllerAction(action)"
+          ></button>
+        }
+      </openg7-context-controller>
+    </div>
+    <div class="shortcuts">
+      <div class="classic-decision-navigation">
+        <button
+          type="button"
+          (click)="next(-1)"
+          [attr.aria-label]="t('previous')"
+        >
+          <kbd>LB</kbd>
+        </button>
+        <span>/</span>
+        <button type="button" (click)="next()" [attr.aria-label]="t('next')">
+          <kbd>RB</kbd>
+        </button>
+        <span>{{ t('decisionNavigation') }}</span>
+      </div>
+      <div>
+        <button type="button" (click)="openCalendar()">
+          <kbd
+            >LT +
+            {{
+              ['A', 'B', 'X', 'Y'][controller.profile().bindings.details]
+            }}</kbd
+          >
+          {{ t('calendar') }}
+        </button>
+        <button type="button" (click)="open('menu')">
+          <openg7-admin-icon name="menu" /> {{ t('menu') }}
+        </button>
+      </div>
+    </div>
+  </footer>
+</ng-template>
+<ng-template #bottomController>
+  <openg7-bottom-command-deck [title]="t('deckTitle')">
+    @for (action of deckActions(); track action.id) {
+      <button
+        openg7-context-controller-action
+        [attr.data-og7]="
+          action.id === 'pilot-queue' ? 'pilot-deck-queue' : action.id
+        "
+        [action]="action"
+        [context]="
+          action.scope === 'workspace'
+            ? workspaceControllerContext
+            : controllerContext()
+        "
+        (actionRequested)="controllerAction($event)"
+      ></button>
+    }
+  </openg7-bottom-command-deck>
+</ng-template>
+<openg7-admin-layout
+  [pilotage]="true"
+  [concentrated]="concentrated()"
+  [controllerRadial]="radialController"
+  [controllerDeck]="bottomController"
+  [controllerExpanded]="controllerExpanded()"
+  (keydown)="controllerKeydown($event)"
+>
   <div
     class="pilot"
     data-og7="pilotage"
     [attr.data-og7-automatic-block]="unresolved() ? 'receipt' : null"
     [class.concentrated]="concentrated()"
     [class.queue-visible]="queueVisible()"
+    [class.context-controller-expanded]="controllerExpanded()"
     [class.controller-active]="controller.connected() && controller.enabled()"
   >
     <div
@@ -344,7 +442,13 @@
               />
             }
           </article>
-          <aside class="up-next" data-og7="pilot-queue" id="pilot-following">
+          <aside
+            class="up-next"
+            data-og7="pilot-queue"
+            id="pilot-following"
+            tabindex="-1"
+            [attr.aria-label]="t('following')"
+          >
             <div class="queue-heading">
               <h2>
                 <span class="queue-mark" aria-hidden="true"></span
@@ -491,115 +595,6 @@
         </button>
       </div>
     </div>
-    <footer
-      class="controls"
-      data-og7="pilot-controls"
-      [attr.aria-label]="t('controls')"
-    >
-      <div class="face-buttons" data-og7="pilot-actions">
-        <button
-          type="button"
-          data-og7="pilot-accept"
-          (click)="primary() && request(primary()!.id)"
-          [openg7AutomaticPrepare]="
-            'pilotage-primary:' + (selected()?.id ?? '')
-          "
-          [automaticFor]="selected()?.inspection?.contributionId ?? null"
-          [automaticExecutionMode]="'confirmation_required'"
-          (automaticPrepare)="primary() && request(primary()!.id)"
-          [disabled]="blocked() || !primary() || !!primary()?.blocked"
-        >
-          <kbd
-            [class]="
-              ['a', 'b', 'x', 'y'][controller.profile().bindings.primary]
-            "
-            >{{
-              ['A', 'B', 'X', 'Y'][controller.profile().bindings.primary]
-            }}</kbd
-          >{{ t('accept') }}
-        </button>
-        <button
-          type="button"
-          data-og7="pilot-reject"
-          (click)="reject() && request(reject()!.id)"
-          [openg7AutomaticPrepare]="'pilotage-reject:' + (selected()?.id ?? '')"
-          [automaticFor]="selected()?.inspection?.contributionId ?? null"
-          [automaticExecutionMode]="'confirmation_required'"
-          (automaticPrepare)="reject() && request(reject()!.id)"
-          [disabled]="blocked() || !reject() || !!reject()?.blocked"
-        >
-          <kbd
-            [class]="
-              ['a', 'b', 'x', 'y'][controller.profile().bindings.secondary]
-            "
-            >{{
-              ['A', 'B', 'X', 'Y'][controller.profile().bindings.secondary]
-            }}</kbd
-          >{{ t('reject') }}
-        </button>
-        <button
-          type="button"
-          data-og7="pilot-edit"
-          (click)="startEdit()"
-          [openg7AutomaticPrepare]="'pilotage-edit:' + (selected()?.id ?? '')"
-          [automaticFor]="selected()?.inspection?.contributionId ?? null"
-          (automaticPrepare)="startEdit()"
-          [disabled]="blocked() || !editable() || !!editable()?.blocked"
-        >
-          <kbd
-            [class]="['a', 'b', 'x', 'y'][controller.profile().bindings.edit]"
-            >{{ ['A', 'B', 'X', 'Y'][controller.profile().bindings.edit] }}</kbd
-          >{{ t('edit') }}
-        </button>
-        <button
-          type="button"
-          data-og7="pilot-details"
-          (click)="details()"
-          [openg7AutomaticPrepare]="
-            'pilotage-details:' + (selected()?.id ?? '')
-          "
-          [automaticFor]="selected()?.inspection?.contributionId ?? null"
-          (automaticPrepare)="details()"
-          [disabled]="busy() || !selected()"
-        >
-          <kbd
-            [class]="
-              ['a', 'b', 'x', 'y'][controller.profile().bindings.details]
-            "
-            >{{
-              ['A', 'B', 'X', 'Y'][controller.profile().bindings.details]
-            }}</kbd
-          >{{ t('details') }}
-        </button>
-      </div>
-      <div class="shortcuts">
-        <div>
-          <button
-            type="button"
-            (click)="next(-1)"
-            [attr.aria-label]="t('previous')"
-          >
-            <kbd>LB</kbd></button
-          ><span>/</span
-          ><button type="button" (click)="next()" [attr.aria-label]="t('next')">
-            <kbd>RB</kbd></button
-          ><span>{{ t('decisionNavigation') }}</span>
-        </div>
-        <div>
-          <button type="button" (click)="openCalendar()">
-            <kbd
-              >LT +
-              {{
-                ['A', 'B', 'X', 'Y'][controller.profile().bindings.details]
-              }}</kbd
-            >
-            {{ t('calendar') }}</button
-          ><button type="button" (click)="open('menu')">
-            <openg7-admin-icon name="menu" /> {{ t('menu') }}
-          </button>
-        </div>
-      </div>
-    </footer>
     <div class="session-hint">
       @if (concentrated() && selected()) {
         <button

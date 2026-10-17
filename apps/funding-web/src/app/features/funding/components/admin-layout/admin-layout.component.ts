@@ -1,11 +1,17 @@
 import {
+  afterRenderEffect,
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
+  ElementRef,
   inject,
   input,
-  signal
+  signal,
+  TemplateRef,
+  viewChild
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 
@@ -28,6 +34,7 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
   selector: 'openg7-admin-layout',
   standalone: true,
   imports: [
+    NgTemplateOutlet,
     RouterLink,
     TranslatePipe,
     AdminNavComponent,
@@ -54,6 +61,8 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
       [class.navigation-collapsed]="navigationCollapsed()"
       [class.pilotage-layout]="pilotage()"
       [class.concentrated]="concentrated()"
+      [class.controller-shell]="controllerRadial() && controllerDeck()"
+      [class.controller-shell-expanded]="controllerExpanded()"
       [class.sandbox-controller-open]="
         sandbox.available() && sandbox.virtualOpen()
       "
@@ -162,6 +171,27 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
         <openg7-admin-confirmation />
         <openg7-funding-moderation-panel />
       </div>
+      @if (controllerRadial() && controllerDeck()) {
+        <div class="controller-shell-surface" aria-hidden="true">
+          <span class="controller-shell-corner"></span>
+        </div>
+        <div
+          #controllerRadialSlot
+          class="controller-radial-slot"
+          data-og7="controller-radial-slot"
+          data-og7-controller-owner="pilotage"
+        >
+          <ng-container [ngTemplateOutlet]="controllerRadial()" />
+        </div>
+        <div
+          #controllerDeckSlot
+          class="controller-deck-slot"
+          data-og7="controller-deck-slot"
+          data-og7-controller-owner="pilotage"
+        >
+          <ng-container [ngTemplateOutlet]="controllerDeck()" />
+        </div>
+      }
       @if (sandbox.available() && sandbox.virtualOpen()) {
         <aside
           class="sandbox-controller-dock"
@@ -183,10 +213,20 @@ export class AdminLayoutComponent {
   readonly sponsorshipId = input<string>();
   readonly pilotage = input(false);
   readonly concentrated = input(false);
+  readonly controllerRadial = input<TemplateRef<unknown> | null>(null);
+  readonly controllerDeck = input<TemplateRef<unknown> | null>(null);
+  readonly controllerExpanded = input(true);
   readonly i18n = inject(FundingI18nService);
   readonly appearance = inject(PilotAppearanceService);
   readonly navigationCollapsed = signal(false);
   readonly sandbox = inject(AdminSandboxService);
+  private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly main = viewChild.required<ElementRef<HTMLElement>>('main');
+  private readonly radialSlot = viewChild<ElementRef<HTMLElement>>(
+    'controllerRadialSlot'
+  );
+  private readonly deckSlot =
+    viewChild<ElementRef<HTMLElement>>('controllerDeckSlot');
   private readonly admin = inject(FundingAdminService);
   readonly pendingDossierCount = computed(() => {
     const queue = this.admin.workQueue();
@@ -202,6 +242,65 @@ export class AdminLayoutComponent {
       return null;
     return count;
   });
+
+  constructor() {
+    let disconnect = (): void => {};
+    // Render effects run only in the browser and also follow dynamically supplied templates.
+    afterRenderEffect((onCleanup) => {
+      const radial = this.radialSlot()?.nativeElement;
+      const deck = this.deckSlot()?.nativeElement;
+      if (!radial || !deck || typeof ResizeObserver === 'undefined') return;
+      const root = this.element.nativeElement;
+      const document = root.ownerDocument;
+      const slots = [radial, deck];
+      let lastFocused: HTMLElement | null = null;
+      const rememberFocus = (event: FocusEvent): void => {
+        const target = event.target;
+        lastFocused =
+          target instanceof HTMLElement &&
+          slots.some((slot) => slot.contains(target))
+            ? target
+            : null;
+      };
+      const forgetFocus = (event: FocusEvent): void => {
+        if (event.target !== lastFocused) return;
+        // A CSS-hidden control may blur to body before ResizeObserver is notified.
+        // Remember only that case; intentional focus changes must never be reclaimed.
+        if (event.relatedTarget || lastFocused?.getClientRects().length)
+          lastFocused = null;
+      };
+      const restoreVisibleFocus = (): void => {
+        const active = document.activeElement;
+        const previous =
+          active instanceof HTMLElement &&
+          slots.some((slot) => slot.contains(active))
+            ? active
+            : active === document.body
+              ? lastFocused
+              : null;
+        if (!previous || previous.getClientRects().length) return;
+        lastFocused = null;
+        const fallback = Array.from(
+          radial.querySelectorAll<HTMLButtonElement>(
+            'button:not(:disabled):not([aria-disabled="true"])'
+          )
+        ).find((button) => button.getClientRects().length > 0);
+        if (fallback) fallback.focus();
+        else this.main().nativeElement.focus({ preventScroll: true });
+      };
+      root.addEventListener('focusin', rememberFocus);
+      root.addEventListener('focusout', forgetFocus);
+      const observer = new ResizeObserver(restoreVisibleFocus);
+      for (const slot of slots) observer.observe(slot);
+      disconnect = (): void => {
+        observer.disconnect();
+        root.removeEventListener('focusin', rememberFocus);
+        root.removeEventListener('focusout', forgetFocus);
+      };
+      onCleanup(disconnect);
+    });
+    inject(DestroyRef).onDestroy(() => disconnect());
+  }
 
   pendingDossierDescription(): string {
     const count = this.pendingDossierCount();

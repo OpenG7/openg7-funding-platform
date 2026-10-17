@@ -1,0 +1,6 @@
+<nav class="command-deck" [attr.aria-label]="title()">
+  @if (hint()) {
+    <span class="command-deck-hint">{{ hint() }}</span>
+  }
+  <div class="command-deck-actions"><ng-content /></div>
+</nav>

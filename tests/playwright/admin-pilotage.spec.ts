@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { AxeBuilder } from '@axe-core/playwright';
 import type {
   AdminContributionsResponse,
@@ -9,6 +9,8 @@ import type {
   PilotState,
   ProgrammeState
 } from '@openg7/funding-core';
+
+import { defaultControllerProfile } from '../../apps/funding-web/src/app/features/funding/components/admin-pilotage/controller-input.js';
 
 import { test, expect } from './support/test.js';
 import { moderationFixture, completeModeration } from './support/moderation.js';
@@ -32,6 +34,32 @@ function overviewCount(page: Page, label: string) {
     .filter({ has: page.getByRole('term').filter({ hasText: label }) })
     .getByRole('definition')
     .first();
+}
+
+const deckActions = [
+  'pilot-home',
+  'pilot-previous',
+  'pilot-next',
+  'pilot-open-record',
+  'pilot-deck-queue',
+  'pilot-diagnostics'
+] as const;
+
+async function expectControllerControlUncovered(control: Locator) {
+  await expect(control).toBeInViewport({ ratio: 1 });
+  await expect
+    .poll(() =>
+      control.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return element.contains(
+          document.elementFromPoint(
+            rect.x + rect.width / 2,
+            rect.y + rect.height / 2
+          )
+        );
+      })
+    )
+    .toBe(true);
 }
 
 const adminPalettes = {
@@ -295,7 +323,7 @@ for (const language of ['fr-CA', 'en']) {
         exact: true
       });
       const frame = page.locator('[data-og7="pilot-scroll"]');
-      const queue = page.locator('[data-og7="pilot-queue"]');
+      const queue = page.locator('aside[data-og7="pilot-queue"]');
       await expect(page.locator('html')).toHaveAttribute('lang', language);
       await expect(decision).toHaveAttribute(
         'data-og7-id',
@@ -307,7 +335,9 @@ for (const language of ['fr-CA', 'en']) {
       expect(
         await frame.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)
       ).toBe(true);
-      const actions = page.locator('[data-og7="pilot-actions"] button');
+      const actions = page.locator(
+        '[data-og7="context-controller-actions"] button'
+      );
       await expect(actions).toHaveCount(4);
       for (const action of await actions.all()) {
         expect((await action.boundingBox())!.height).toBeGreaterThanOrEqual(44);
@@ -367,7 +397,14 @@ for (const language of ['fr-CA', 'en']) {
           await expect(title).toBeInViewport();
         }
         for (const action of await actions.all()) {
-          await action.scrollIntoViewIfNeeded();
+          // Center the native scroll so fractional rem borders at 200% remain visible.
+          await action.evaluate((element) =>
+            element.scrollIntoView({
+              block: 'center',
+              inline: 'nearest',
+              behavior: 'instant'
+            })
+          );
           await expect(action).toBeInViewport({ ratio: 1 });
         }
         await captureAdminDesign(page, testInfo, `pilotage-text-200-${width}`);
@@ -950,7 +987,7 @@ for (const scenario of [
     );
     await page.keyboard.press('Escape');
     await page
-      .locator('[data-og7="pilot-queue"]')
+      .locator('aside[data-og7="pilot-queue"]')
       .getByRole('button', { name: new RegExp(delivery.title) })
       .click();
     await expect(card).toHaveAttribute('data-og7-id', delivery.id);
@@ -1411,15 +1448,78 @@ test('empty overview and unavailable actions remain clear in French and English'
   expect(commands).toEqual([]);
 });
 
-for (const width of [390, 1512]) {
-  test(`actions stay reachable while scrolling and preserve keyboard confirmation at ${width}px`, async ({
+for (const { width, height } of [
+  { width: 1920, height: 1080 },
+  { width: 1536, height: 760 },
+  { width: 1536, height: 600 },
+  { width: 1280, height: 720 },
+  { width: 1279, height: 720 },
+  { width: 1280, height: 649 },
+  { width: 390, height: 844 }
+]) {
+  test(`context controller actions stay reachable without covering the dossier at ${width}x${height}`, async ({
     page
-  }) => {
+  }, testInfo) => {
     const { commands, state } = await fixtures(page);
-    await page.setViewportSize({ width, height: 844 });
+    await page.setViewportSize({ width, height });
     await page.goto('/admin/fundraiser/pilotage');
     const card = page.locator('[data-og7="pilot-decision"]');
+    const controller = page.locator('[data-og7="context-controller"]');
+    const toggle = controller.locator('[data-og7="context-controller-toggle"]');
+    const deck = page.locator('[data-og7="bottom-command-deck"]');
     await expect(card).toHaveAttribute('data-og7-id', state.decisions[0]!.id);
+    await expect(controller).toBeVisible();
+    await captureAdminDesign(
+      page,
+      testInfo,
+      `context-controller-${width}x${height}`
+    );
+    if (width >= 1440 && height >= 700) await expect(toggle).toBeVisible();
+    else await expect(toggle).toBeHidden();
+    if (width >= 1280 && height >= 650) {
+      await expect(deck).toBeVisible();
+      await expect(deck).toHaveAttribute('data-controller-zone', 'bottom');
+      await expect(deck.getByRole('button')).toHaveCount(6);
+      for (const action of deckActions)
+        await expectControllerControlUncovered(
+          deck.locator(`[data-og7="${action}"]`)
+        );
+      // The deck reserves a row below both the reading surface and the sidebar.
+      // Test the rendered rectangles rather than any particular grid/CSS recipe.
+      const reserved = await deck.evaluate((element) => {
+        const deck = element.getBoundingClientRect();
+        const intersects = (other: Element) => {
+          const rect = other.getBoundingClientRect();
+          return (
+            Math.min(deck.right, rect.right) - Math.max(deck.left, rect.left) >
+              1 &&
+            Math.min(deck.bottom, rect.bottom) - Math.max(deck.top, rect.top) >
+              1
+          );
+        };
+        return {
+          insideSlot: !!element.closest('[data-og7="controller-deck-slot"]'),
+          overlapsReading: intersects(
+            document.querySelector('[data-og7="pilot-scroll"]')!
+          ),
+          overlapsSidebar: intersects(
+            document.querySelector('openg7-admin-nav aside')!
+          )
+        };
+      });
+      expect(reserved).toEqual({
+        insideSlot: true,
+        overlapsReading: false,
+        overlapsSidebar: false
+      });
+    } else await expect(deck).toBeHidden();
+    await expect(controller).toHaveAttribute('data-controller-zone', 'radial');
+    await expect(
+      page.locator(
+        '[data-og7="controller-radial-slot"] [data-og7="context-controller"]'
+      )
+    ).toHaveCount(1);
+    await expectAdminPageFits(page);
     for (const progress of [0, 0.5, 1]) {
       await page
         .locator('[data-og7="pilot-scroll"]')
@@ -1438,21 +1538,24 @@ for (const width of [390, 1512]) {
       );
       for (const action of ['accept', 'reject', 'edit', 'details']) {
         const button = page.locator(`[data-og7="pilot-${action}"]`);
-        await expect(button).toBeInViewport({ ratio: 1 });
-        // Visibility alone does not detect another sticky surface covering it.
-        await expect
-          .poll(() =>
-            button.evaluate((element) => {
-              const rect = element.getBoundingClientRect();
-              return element.contains(
-                document.elementFromPoint(
-                  rect.x + rect.width / 2,
-                  rect.y + rect.height / 2
-                )
-              );
-            })
-          )
-          .toBe(true);
+        await expectControllerControlUncovered(button);
+        const coversDossier = await button.evaluate((element) => {
+          const dossier = document
+            .querySelector('[data-og7="pilot-decision"]')!
+            .getBoundingClientRect();
+          const scroll = document
+            .querySelector('[data-og7="pilot-scroll"]')!
+            .getBoundingClientRect();
+          const control = element.getBoundingClientRect();
+          const overlapWidth =
+            Math.min(dossier.right, scroll.right, control.right) -
+            Math.max(dossier.left, scroll.left, control.left);
+          const overlapHeight =
+            Math.min(dossier.bottom, scroll.bottom, control.bottom) -
+            Math.max(dossier.top, scroll.top, control.top);
+          return overlapWidth > 1 && overlapHeight > 1;
+        });
+        expect(coversDossier).toBe(false);
       }
     }
     const accept = page.locator('[data-og7="pilot-accept"]');
@@ -1479,6 +1582,462 @@ for (const width of [390, 1512]) {
     await expect(card).toHaveAttribute('data-og7-id', state.decisions[0]!.id);
   });
 }
+
+test('context controller rejects a mouse gesture when the selected dossier changes before release', async ({
+  page
+}) => {
+  const { commands, state } = await fixtures(page);
+  await page.setViewportSize({ width: 1536, height: 760 });
+  await page.goto('/admin/fundraiser/pilotage');
+  const accept = page.locator('[data-og7="pilot-accept"]');
+  await expect(accept).toBeEnabled();
+  const bounds = (await accept.boundingBox())!;
+  await page.mouse.move(
+    bounds.x + bounds.width / 2,
+    bounds.y + bounds.height / 2
+  );
+  await page.mouse.down();
+  await page.keyboard.press(']');
+  await expect(page.locator('[data-og7="pilot-decision"]')).toHaveAttribute(
+    'data-og7-id',
+    state.decisions[1]!.id
+  );
+  await page.mouse.up();
+  await expect(page.getByRole('dialog')).not.toBeVisible();
+  expect(commands).toEqual([]);
+  await accept.click();
+  await expect(page.locator('[data-og7="pilot-panel-confirm"]')).toContainText(
+    state.decisions[1]!.title
+  );
+  await page.keyboard.press('Escape');
+  expect(commands).toEqual([]);
+});
+
+test('context controller reflects a remapped Xbox profile without changing decision safeguards', async ({
+  page
+}) => {
+  await controllerClock(page);
+  const { commands } = await fixtures(page);
+  const profile = defaultControllerProfile();
+  profile.bindings = { primary: 2, secondary: 0, edit: 1, details: 3 };
+  await page.addInitScript(
+    (profile) =>
+      localStorage.setItem('og7-controller-profile', JSON.stringify(profile)),
+    profile
+  );
+  await page.setViewportSize({ width: 1536, height: 760 });
+  await page.goto('/admin/fundraiser/pilotage');
+  await buttons(page);
+  await expect(page.locator('[data-og7="pilot-accept"] kbd')).toHaveText('X');
+  await expect(page.locator('[data-og7="pilot-reject"] kbd')).toHaveText('A');
+  await tap(page, 2);
+  await expect(page.locator('[data-og7="pilot-panel-confirm"]')).toBeVisible();
+  await page.clock.runFor(600);
+  expect(commands).toEqual([]);
+  await page.keyboard.press('Escape');
+  expect(commands).toEqual([]);
+});
+
+test('controller surfaces show configured shortcuts without a connected gamepad', async ({
+  page
+}) => {
+  const { commands, state } = await fixtures(page);
+  const profile = defaultControllerProfile();
+  profile.bindings = { primary: 2, secondary: 0, edit: 1, details: 3 };
+  await page.addInitScript((profile) => {
+    localStorage.setItem('og7-controller-profile', JSON.stringify(profile));
+    (
+      window as unknown as { fixturePad: { connected: boolean } }
+    ).fixturePad.connected = false;
+  }, profile);
+  await page.setViewportSize({ width: 1536, height: 760 });
+  await page.goto('/admin/fundraiser/pilotage');
+  for (const [action, shortcut] of [
+    ['accept', 'X'],
+    ['reject', 'A'],
+    ['edit', 'B'],
+    ['details', 'Y']
+  ])
+    await expect(page.locator(`[data-og7="pilot-${action}"] kbd`)).toHaveText(
+      shortcut!
+    );
+  await expect(page.locator('[data-og7="pilot-home"]')).toBeEnabled();
+  await expect(page.locator('[data-og7="pilot-diagnostics"]')).toBeEnabled();
+  await page.locator('[data-og7="pilot-diagnostics"]').click();
+  await expect(page.getByRole('dialog')).toContainText('Diagnostic');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-og7="pilot-diagnostics"]')).toBeFocused();
+  await expect(page.locator('[data-og7="pilot-decision"]')).toHaveAttribute(
+    'data-og7-id',
+    state.decisions[0]!.id
+  );
+  expect(commands).toEqual([]);
+});
+
+test('bottom deck arrows move native keyboard focus without changing the dossier', async ({
+  page
+}) => {
+  const { commands, state } = await fixtures(page);
+  await page.setViewportSize({ width: 1536, height: 760 });
+  await page.goto('/admin/fundraiser/pilotage');
+  const decision = page.locator('[data-og7="pilot-decision"]');
+  const previous = page.locator('[data-og7="pilot-previous"]');
+  const next = page.locator('[data-og7="pilot-next"]');
+  await previous.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(next).toBeFocused();
+  await expect(decision).toHaveAttribute('data-og7-id', state.decisions[0]!.id);
+  await page.keyboard.press('ArrowLeft');
+  await expect(previous).toBeFocused();
+  await page.keyboard.press('ArrowUp');
+  await expect(
+    page.locator('[data-controller-zone="radial"] :focus')
+  ).toHaveCount(1);
+  await page.keyboard.press('ArrowRight');
+  await expect(page.locator('[data-og7="pilot-home"]')).toBeFocused();
+  // Native tabbing remains available between the controls and out of the deck.
+  await next.focus();
+  await page.keyboard.press('Tab');
+  await expect(page.locator('[data-og7="pilot-open-record"]')).toBeFocused();
+  await next.focus();
+  await page.keyboard.press('Enter');
+  await expect(decision).toHaveAttribute('data-og7-id', state.decisions[1]!.id);
+  await previous.focus();
+  await page.keyboard.press('Enter');
+  await expect(decision).toHaveAttribute('data-og7-id', state.decisions[0]!.id);
+  await expect(page.getByRole('dialog')).not.toBeVisible();
+  expect(commands).toEqual([]);
+});
+
+test('bottom deck discards a pointer gesture captured for a different selected dossier', async ({
+  page
+}) => {
+  const { commands, state } = await fixtures(page);
+  await page.setViewportSize({ width: 1536, height: 760 });
+  await page.goto('/admin/fundraiser/pilotage');
+  const next = page.locator('[data-og7="pilot-next"]');
+  const bounds = (await next.boundingBox())!;
+  await page.mouse.move(
+    bounds.x + bounds.width / 2,
+    bounds.y + bounds.height / 2
+  );
+  await page.mouse.down();
+  await page.keyboard.press(']');
+  await expect(page.locator('[data-og7="pilot-decision"]')).toHaveAttribute(
+    'data-og7-id',
+    state.decisions[1]!.id
+  );
+  await page.mouse.up();
+  await expect(page.locator('[data-og7="pilot-decision"]')).toHaveAttribute(
+    'data-og7-id',
+    state.decisions[1]!.id
+  );
+  await expect(page.getByRole('dialog')).not.toBeVisible();
+  expect(commands).toEqual([]);
+});
+
+test('bottom deck owns Xbox focus, returns to radial with B and preserves bumper navigation', async ({
+  page
+}) => {
+  await controllerClock(page);
+  const { commands, state } = await fixtures(page);
+  await page.setViewportSize({ width: 1536, height: 760 });
+  await page.goto('/admin/fundraiser/pilotage');
+  const decision = page.locator('[data-og7="pilot-decision"]');
+  const previous = page.locator('[data-og7="pilot-previous"]');
+  const next = page.locator('[data-og7="pilot-next"]');
+  await previous.focus();
+  await tap(page, 15);
+  await expect(next).toBeFocused();
+  await expect(decision).toHaveAttribute('data-og7-id', state.decisions[0]!.id);
+  await tap(page, 0);
+  await expect(decision).toHaveAttribute('data-og7-id', state.decisions[1]!.id);
+  await next.focus();
+  await tap(page, 1);
+  await expect(
+    page.locator('[data-controller-zone="radial"] :focus')
+  ).toHaveCount(1);
+  await expect(page.getByRole('dialog')).not.toBeVisible();
+  await next.focus();
+  await tap(page, 4);
+  await expect(decision).toHaveAttribute('data-og7-id', state.decisions[0]!.id);
+  await tap(page, 5);
+  await expect(decision).toHaveAttribute('data-og7-id', state.decisions[1]!.id);
+  // A selected bottom control must never fall through to primary approval.
+  await page.locator('[data-og7="pilot-diagnostics"]').focus();
+  await tap(page, 0);
+  await expect(page.getByRole('dialog')).toContainText('Diagnostic');
+  await tap(page, 1);
+  await expect(page.getByRole('dialog')).not.toBeVisible();
+  expect(commands).toEqual([]);
+});
+
+test('a confirmation keeps input ownership over both controller surfaces', async ({
+  page
+}) => {
+  await controllerClock(page);
+  const { commands, state } = await fixtures(page);
+  await page.setViewportSize({ width: 1536, height: 760 });
+  await page.goto('/admin/fundraiser/pilotage');
+  await page.locator('[data-og7="pilot-accept"]').click();
+  const panel = page.locator('[data-og7="pilot-panel-confirm"]');
+  await expect(panel).toBeVisible();
+  for (const button of [5, 4, 9, 8, 3]) {
+    await tap(page, button);
+    await expect(panel).toBeVisible();
+    await expect(page.locator('[data-og7="pilot-decision"]')).toHaveAttribute(
+      'data-og7-id',
+      state.decisions[0]!.id
+    );
+  }
+  await panel.getByRole('button', { name: /Annuler/ }).focus();
+  await tap(page, 0);
+  await expect(page.getByRole('dialog')).not.toBeVisible();
+  await expect(page.locator('[data-og7="pilot-accept"]')).toBeFocused();
+  expect(commands).toEqual([]);
+});
+
+test('bottom deck opens the selected record and queue through existing navigation', async ({
+  page
+}) => {
+  const { commands, state } = await fixtures(page);
+  await page.setViewportSize({ width: 1536, height: 760 });
+  await page.goto('/admin/fundraiser/pilotage');
+  await page.locator('[data-og7="pilot-focus"]').click();
+  await expect(page.locator('aside[data-og7="pilot-queue"]')).toBeHidden();
+  await page
+    .locator('[data-og7="bottom-command-deck"] [data-og7="pilot-deck-queue"]')
+    .click();
+  await expect(page.locator('aside[data-og7="pilot-queue"]')).toBeVisible();
+  await expect(
+    page.locator('#pilot-following:focus, #pilot-following :focus')
+  ).toHaveCount(1);
+  await page.locator('[data-og7="pilot-open-record"]').click();
+  await expect(page).toHaveURL(state.decisions[0]!.detailsUrl);
+  expect(commands).toEqual([]);
+});
+
+test('empty controller keeps workspace commands available and dossier commands disabled', async ({
+  page
+}) => {
+  const { commands } = await fixtures(page, 0);
+  await page.setViewportSize({ width: 1536, height: 760 });
+  await page.goto('/admin/fundraiser/pilotage');
+  const deck = page.locator('[data-og7="bottom-command-deck"]');
+  for (const action of ['pilot-home', 'pilot-diagnostics'])
+    await expect(deck.locator(`[data-og7="${action}"]`)).toBeEnabled();
+  for (const action of [
+    'pilot-previous',
+    'pilot-next',
+    'pilot-open-record',
+    'pilot-deck-queue'
+  ])
+    await expect(deck.locator(`[data-og7="${action}"]`)).toBeDisabled();
+  await deck.locator('[data-og7="pilot-diagnostics"]').click();
+  await expect(page.getByRole('dialog')).toContainText('Diagnostic');
+  await page.keyboard.press('Escape');
+  await expect(deck.locator('[data-og7="pilot-diagnostics"]')).toBeFocused();
+  await deck.locator('[data-og7="pilot-home"]').click();
+  await expect(page).toHaveURL(/\/admin\/fundraiser$/);
+  expect(commands).toEqual([]);
+});
+
+test('sandbox simulation panel takes the controller space and restores it when closed', async ({
+  page
+}) => {
+  const { commands } = await fixtures(page);
+  await page.route('**/openg7-sandbox.json', (route) =>
+    route.fulfill({
+      json: { version: 1, enabled: true, stripeBasePath: '/__sandbox/stripe' }
+    })
+  );
+  await page.setViewportSize({ width: 1536, height: 760 });
+  await page.goto('/admin/fundraiser/pilotage');
+  const deck = page.locator('[data-og7="bottom-command-deck"]');
+  const open = page.locator('[data-og7="sandbox-controller-open"]');
+  await expect(deck).toBeVisible();
+  await open.click();
+  await expect(page.locator('[data-og7="virtual-controller"]')).toBeVisible();
+  await expect(deck).toBeHidden();
+  await open.click();
+  await expect(page.locator('[data-og7="virtual-controller"]')).toBeHidden();
+  await expect(deck).toBeVisible();
+  await expectControllerControlUncovered(
+    deck.locator('[data-og7="pilot-diagnostics"]')
+  );
+  expect(commands).toEqual([]);
+});
+
+test('narrowing the viewport restores focus from the hidden deck to a visible radial action', async ({
+  page
+}) => {
+  const { commands } = await fixtures(page);
+  await page.setViewportSize({ width: 1536, height: 760 });
+  await page.goto('/admin/fundraiser/pilotage');
+  const diagnostics = page.locator('[data-og7="pilot-diagnostics"]');
+  await diagnostics.focus();
+  await expect(diagnostics).toBeFocused();
+  await page.setViewportSize({ width: 1279, height: 720 });
+  await expect(page.locator('[data-og7="bottom-command-deck"]')).toBeHidden();
+  const focused = page.locator('[data-controller-zone="radial"] :focus');
+  await expect(focused).toHaveCount(1);
+  await expectControllerControlUncovered(focused);
+  await expect(page.getByRole('dialog')).not.toBeVisible();
+  expect(commands).toEqual([]);
+});
+
+test('opening the sandbox while the deck owns focus restores a visible native control', async ({
+  page
+}) => {
+  const { commands } = await fixtures(page);
+  await page.route('**/openg7-sandbox.json', (route) =>
+    route.fulfill({
+      json: { version: 1, enabled: true, stripeBasePath: '/__sandbox/stripe' }
+    })
+  );
+  await page.setViewportSize({ width: 1536, height: 760 });
+  await page.goto('/admin/fundraiser/pilotage');
+  const open = page.locator('[data-og7="sandbox-controller-open"]');
+  await expect(open).toBeVisible();
+  await page.locator('[data-og7="pilot-diagnostics"]').focus();
+  await expect(page.locator('[data-og7="pilot-diagnostics"]')).toBeFocused();
+  // Trigger the shipped toggle without moving focus to it first. This also
+  // covers layout changes caused by a controller command or other UI surface.
+  await open.dispatchEvent('click');
+  await expect(page.locator('[data-og7="virtual-controller"]')).toBeVisible();
+  await expect(page.locator('[data-og7="bottom-command-deck"]')).toBeHidden();
+  const focused = page.locator('[data-controller-zone="radial"] :focus');
+  await expect(focused).toHaveCount(1);
+  await expectControllerControlUncovered(focused);
+  await expect(page.getByRole('dialog')).not.toBeVisible();
+  expect(commands).toEqual([]);
+});
+
+test('context controller night presentation stays readable without continuous animation', async ({
+  page
+}, testInfo) => {
+  const { commands } = await fixtures(page);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      'openg7.pilotage.appearance.v1',
+      JSON.stringify({ theme: 'night', system: false })
+    )
+  );
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.goto('/admin/fundraiser/pilotage');
+  await expect(page.locator('[data-og7="pilot-accept"]')).toBeEnabled();
+  await captureAdminDesign(page, testInfo, 'context-controller-night');
+  const results = await new AxeBuilder({ page })
+    .include('[data-og7="context-controller"]')
+    .include('[data-og7="bottom-command-deck"]')
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+    .analyze();
+  expect(results.violations).toEqual([]);
+  expect(
+    await page
+      .locator(
+        '[data-og7="context-controller"], [data-og7="bottom-command-deck"]'
+      )
+      .evaluateAll(
+        (elements) =>
+          elements.flatMap((element) =>
+            element
+              .getAnimations({ subtree: true })
+              .filter((animation) => animation.playState === 'running')
+          ).length
+      )
+  ).toBe(0);
+  expect(commands).toEqual([]);
+});
+
+test('context controller collapses by keyboard, keeps focus and restores actions without a command', async ({
+  page
+}) => {
+  const { commands, state } = await fixtures(page);
+  await page.setViewportSize({ width: 1536, height: 760 });
+  await page.goto('/admin/fundraiser/pilotage');
+  const controller = page.locator('[data-og7="context-controller"]');
+  const toggle = controller.locator('[data-og7="context-controller-toggle"]');
+  const actions = controller.locator('[data-og7="context-controller-actions"]');
+  const decision = page.locator('[data-og7="pilot-decision"]');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await toggle.focus();
+  await page.keyboard.press('Enter');
+  await expect(toggle).toBeFocused();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(actions).toBeHidden();
+  await expect(controller.getByRole('button')).toHaveCount(1);
+  const deck = page.locator('[data-og7="bottom-command-deck"]');
+  await expect(deck).toBeVisible();
+  for (const action of deckActions)
+    await expectControllerControlUncovered(
+      deck.locator(`[data-og7="${action}"]`)
+    );
+  await page.keyboard.press('Tab');
+  expect(
+    await actions.evaluateAll((containers) =>
+      containers.some((element) => element.contains(document.activeElement))
+    )
+  ).toBe(false);
+  await toggle.focus();
+  await page.keyboard.press('Enter');
+  await expect(toggle).toBeFocused();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('[data-og7="pilot-details"]')).toBeVisible();
+  await page.locator('[data-og7="pilot-details"]').click();
+  await expect(page.locator('[data-og7="pilot-panel-details"]')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-og7="pilot-details"]')).toBeFocused();
+  await expect(decision).toHaveAttribute('data-og7-id', state.decisions[0]!.id);
+  expect(commands).toEqual([]);
+});
+
+test('context controller restores classical actions when a collapsed palette becomes narrow', async ({
+  page
+}) => {
+  const { commands } = await fixtures(page);
+  await page.setViewportSize({ width: 1536, height: 760 });
+  await page.goto('/admin/fundraiser/pilotage');
+  const toggle = page.locator('[data-og7="context-controller-toggle"]');
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await expect(toggle).toBeHidden();
+  for (const action of ['accept', 'reject', 'edit', 'details'])
+    await expect(page.locator(`[data-og7="pilot-${action}"]`)).toBeVisible();
+  const accept = page.locator('[data-og7="pilot-accept"]');
+  await expect(accept).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('[data-og7="pilot-panel-confirm"]')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(accept).toBeFocused();
+  expect(commands).toEqual([]);
+});
+
+test('context controller keeps reader decisions disabled and dossier details accessible', async ({
+  page
+}) => {
+  const { commands, state } = await fixtures(page);
+  state.writable = false;
+  for (const decision of state.decisions)
+    for (const action of decision.actions) action.blocked = 'READ_ONLY';
+  await page.setViewportSize({ width: 1536, height: 760 });
+  await page.goto('/admin/fundraiser/pilotage');
+  const controller = page.locator('[data-og7="context-controller"]');
+  for (const action of ['accept', 'reject', 'edit'])
+    await expect(
+      controller.locator(`[data-og7="pilot-${action}"]`)
+    ).toBeDisabled();
+  const details = controller.locator('[data-og7="pilot-details"]');
+  await expect(details).toBeEnabled();
+  await details.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('[data-og7="pilot-panel-details"]')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(details).toBeFocused();
+  expect(commands).toEqual([]);
+});
 
 test('reduced motion keeps the mobile overview, preview and actions accessible', async ({
   page
@@ -2097,6 +2656,7 @@ test('controller approval is contextual, requires release and processes twenty d
 }) => {
   await controllerClock(page);
   const { commands } = await fixtures(page, 20);
+  await page.setViewportSize({ width: 1536, height: 760 });
   await page.goto('/admin/fundraiser/pilotage');
   await expect(page.locator('[data-og7="pilot-decision"]')).toBeVisible();
   await buttons(page);

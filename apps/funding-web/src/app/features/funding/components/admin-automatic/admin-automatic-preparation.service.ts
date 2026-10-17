@@ -1,6 +1,8 @@
 import { Injectable, signal } from '@angular/core';
 import type { AdminAttentionActionExecutionMode } from '@openg7/funding-core';
 
+import { adminContentRegions } from '../admin-layout/admin-content-scope.js';
+
 export type AdminAutomaticPreparationMode = Exclude<
   AdminAttentionActionExecutionMode,
   'navigate'
@@ -70,14 +72,20 @@ export class AdminAutomaticPreparationService {
     const element = entry.element;
     const document = element.ownerDocument;
     const view = document.defaultView;
-    const main = document.getElementById('admin-main');
+    const layout = document
+      .getElementById('admin-main')
+      ?.closest<HTMLElement>('[data-og7="admin-layout"]');
     if (
       !entry.id.trim() ||
       !['prepare', 'confirmation_required'].includes(entry.executionMode) ||
       element.tagName !== 'BUTTON' ||
       element.type !== 'button' ||
       !element.isConnected ||
-      !main?.contains(element) ||
+      !layout ||
+      element.closest('[data-og7="admin-layout"]') !== layout ||
+      !adminContentRegions(layout).some((content) =>
+        content.contains(element)
+      ) ||
       !view ||
       element.matches(':disabled,[aria-disabled="true"]') ||
       element.getClientRects().length === 0 ||

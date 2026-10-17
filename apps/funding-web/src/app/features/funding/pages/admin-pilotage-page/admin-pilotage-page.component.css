@@ -474,34 +474,12 @@ h1 {
   box-shadow: var(--admin-shadow);
   margin-top: 0.75rem;
 }
-.controls button {
+.controls .shortcuts button {
   @apply tw:inline-flex tw:items-center tw:gap-2 tw:text-admin-caption tw:wrap-anywhere;
 }
-.face-buttons {
-  @apply tw:flex tw:flex-wrap tw:gap-2 tw:min-w-0 tw:max-w-full;
-}
-.face-buttons button:first-child {
-  background: var(--og7-admin-primary);
-  color: var(--og7-admin-on-primary);
-  border-color: var(--og7-admin-primary);
-  font-weight: var(--admin-control-weight);
-}
-.face-buttons button:nth-child(2) {
-  @apply tw:text-admin-danger;
-  background: var(--og7-admin-danger-bg);
-}
-.face-buttons kbd {
-  @apply tw:hidden;
-  width: 1.4rem;
-  height: 1.4rem;
-  place-items: center;
-  border-radius: 50%;
-  font: inherit;
-  font-weight: var(--admin-control-weight);
-  color: #07131a;
-}
-.controller-active .face-buttons kbd {
-  @apply tw:grid;
+.context-controller-slot {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .a {
   background: #73cc60;
@@ -809,16 +787,6 @@ h1 {
     gap: 0.35rem;
     @apply tw:p-2;
   }
-  .face-buttons {
-    @apply tw:grid tw:grid-cols-4;
-    gap: 0.3rem;
-  }
-  .face-buttons button {
-    @apply tw:flex-col;
-    gap: 0.3rem;
-    padding: 0.4rem 0.1rem;
-    @apply tw:text-admin-caption;
-  }
   .shortcuts {
     @apply tw:m-0 tw:justify-between;
   }
@@ -881,4 +849,51 @@ h1 {
   .preview {
     grid-template-columns: minmax(0, 0.75fr) minmax(0, 1.25fr);
   }
+}
+
+/* The shared layout reserves the rail and deck; this footer only arranges controls. */
+@media (min-width: 1440px) and (min-height: 700px) {
+  .controls {
+    flex-direction: var(--context-controller-footer-direction, column);
+    margin: 0;
+    padding: 0.25rem;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .context-controller-slot {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+  .shortcuts {
+    justify-content: center;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  .shortcuts > div {
+    justify-content: center;
+  }
+  :host(.context-controller-expanded) .shortcuts {
+    display: var(--context-controller-shortcuts-display, flex);
+  }
+  :host:not(.context-controller-expanded) .shortcuts {
+    display: var(--context-controller-collapsed-shortcuts-display, none);
+  }
+}
+@media (min-width: 1280px) and (min-height: 650px) {
+  .shortcuts > .classic-decision-navigation {
+    display: var(--context-controller-classic-navigation-display, none);
+  }
+}
+@media (max-width: 1279px), (max-height: 649px) {
+  .shortcuts > .classic-decision-navigation {
+    display: flex;
+  }
+}
+.pilot-scroll {
+  min-height: 0;
+}
+.up-next:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 3px;
 }

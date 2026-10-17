@@ -1,0 +1,157 @@
+@reference '../../../../../styles/tailwind.css';
+
+:host {
+  display: block;
+  min-width: 0;
+  --context-controller-icon-size: 1.8rem;
+}
+.controller {
+  position: relative;
+  min-width: 0;
+}
+.controller-heading {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+}
+.controller-copy {
+  display: grid;
+  min-width: 0;
+  gap: 0.25rem;
+  overflow-wrap: anywhere;
+}
+.controller-copy strong {
+  font-size: var(--admin-caption-size, 0.8125rem);
+  font-weight: var(--admin-label-weight, 600);
+}
+.controller-copy span {
+  color: var(--admin-muted);
+  font-size: var(--admin-caption-size, 0.8125rem);
+}
+.controller-toggle {
+  display: none;
+}
+.controller-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+@media (min-width: 1440px) and (min-height: 700px) {
+  .controller-heading {
+    display: var(--context-controller-heading-display, flex);
+  }
+  .controller {
+    padding: var(--context-controller-surface-padding, 1rem);
+    border: var(
+      --context-controller-surface-border,
+      1px solid var(--admin-border)
+    );
+    border-radius: var(
+      --context-controller-surface-radius,
+      var(--admin-radius-card)
+    );
+    background: var(
+      --context-controller-surface-background,
+      var(--admin-panel)
+    );
+    box-shadow: var(--context-controller-surface-shadow, var(--admin-shadow));
+  }
+  .controller-toggle {
+    display: var(--context-controller-toggle-display, inline-flex);
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 2.75rem;
+    min-height: 2.75rem;
+    padding: 0.5rem;
+    border: 1px solid var(--admin-control-border);
+    border-radius: var(--admin-radius-control);
+    background: var(--admin-panel-raised);
+    color: var(--admin-text);
+    cursor: pointer;
+  }
+  .controller-toggle:focus-visible {
+    outline: 3px solid var(--admin-focus);
+    outline-offset: 3px;
+  }
+  .controller-toggle:hover {
+    background: var(--admin-hover);
+  }
+  .controller-actions {
+    display: var(--context-controller-actions-display, grid);
+    grid-template-columns: minmax(0, 1fr);
+  }
+  :host(.is-collapsed) .controller-actions {
+    display: var(--context-controller-collapsed-actions-display, none);
+  }
+  :host(.is-collapsed) .controller-heading {
+    margin-bottom: 0;
+    justify-content: center;
+  }
+  :host(.is-collapsed) .controller {
+    padding: var(--context-controller-surface-padding, 0.4rem);
+    border-radius: var(
+      --context-controller-surface-radius,
+      var(--admin-radius-card)
+    );
+  }
+  :host(.is-collapsed) .controller-copy {
+    display: none;
+  }
+}
+
+@media (min-width: 1760px) and (min-height: 800px) {
+  :host {
+    --context-controller-icon-size: 2.4rem;
+    --context-controller-button-radius: 1.4rem;
+  }
+  .controller {
+    padding: var(
+      --context-controller-surface-padding,
+      1.5rem 0.85rem 1.5rem 1.5rem
+    );
+    border-radius: var(
+      --context-controller-surface-radius,
+      3.5rem 1rem 1rem 3.5rem
+    );
+    background: var(
+      --context-controller-surface-background,
+      radial-gradient(
+        ellipse at 120% 50%,
+        var(--admin-panel-raised) 5%,
+        var(--admin-panel) 75%
+      )
+    );
+    box-shadow: var(
+      --context-controller-surface-shadow,
+      inset 1px 0 0 color-mix(in srgb, var(--admin-text) 14%, transparent),
+      var(--admin-shadow-raised)
+    );
+  }
+  .controller::before {
+    content: '';
+    position: absolute;
+    inset: 0.6rem auto 0.6rem 0.25rem;
+    width: 0.35rem;
+    border-radius: 50%;
+    background: linear-gradient(
+      transparent,
+      color-mix(in srgb, var(--admin-gold) 65%, transparent),
+      transparent
+    );
+    pointer-events: none;
+    opacity: var(--context-controller-own-rim-opacity, 1);
+  }
+}
+
+@media (max-width: 600px) {
+  .controller-actions {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.4rem;
+  }
+}
