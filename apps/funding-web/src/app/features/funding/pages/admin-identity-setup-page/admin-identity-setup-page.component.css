@@ -48,17 +48,17 @@ h1 {
   margin-block: 0.5rem;
 }
 .guide-limit {
-  @apply tw:p-4 tw:rounded-lg;
+  @apply tw:p-admin-card tw:rounded-admin-card tw:wrap-anywhere;
   border: 1px solid var(--admin-border);
   background: var(--admin-panel);
 }
 a {
-  @apply tw:text-admin-accent;
+  @apply tw:text-admin-accent tw:inline-flex tw:items-center tw:min-h-admin-control tw:max-w-full tw:wrap-anywhere;
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }
 button:focus-visible,
 a:focus-visible {
-  outline: 2px solid var(--admin-focus);
-  outline-offset: 4px;
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 3px;
 }

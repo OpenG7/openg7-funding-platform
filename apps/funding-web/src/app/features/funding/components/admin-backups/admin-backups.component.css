@@ -3,28 +3,14 @@
   @apply tw:block tw:min-w-0;
 }
 .backup-panel {
-  @apply tw:relative tw:grid tw:gap-6 tw:overflow-hidden;
-  padding: clamp(1.1rem, 2.5vw, 2rem);
+  @apply tw:grid tw:gap-admin-card-gap tw:min-w-0;
+  padding: var(--admin-card-padding);
+  container: admin-backups / inline-size;
   border: 1px solid var(--admin-border);
-  border-radius: 1rem;
-  background:
-    radial-gradient(
-      ellipse at 95% 0,
-      var(--admin-panel-raised, #1b3a4d) 0,
-      transparent 45%
-    ),
-    var(--admin-panel);
+  border-radius: var(--admin-radius-card);
+  background: var(--admin-panel);
+  box-shadow: var(--admin-shadow);
   @apply tw:text-admin-text;
-}
-.backup-panel::before {
-  content: '';
-  @apply tw:absolute;
-  top: 0;
-  left: 2rem;
-  width: 4rem;
-  height: 3px;
-  background: var(--admin-gold);
-  border-radius: 0 0 4px 4px;
 }
 .backup-panel:focus-visible {
   outline: 3px solid var(--admin-focus);
@@ -34,7 +20,7 @@ h2,
 h3,
 h4,
 p {
-  @apply tw:m-0;
+  @apply tw:m-0 tw:min-w-0 tw:wrap-anywhere;
 }
 p {
   line-height: 1.6;
@@ -57,25 +43,24 @@ p {
 .empty-icon {
   @apply tw:inline-flex tw:items-center tw:justify-center;
   flex: 0 0 auto;
-  width: 3rem;
-  height: 3rem;
+  width: 2.75rem;
+  height: 2.75rem;
   border: 1px solid var(--admin-border);
-  border-radius: 0.85rem;
-  background: var(--admin-warning-bg);
-  @apply tw:text-admin-gold;
+  border-radius: var(--admin-radius-control);
+  background: var(--admin-selected);
+  @apply tw:text-admin-accent;
   font-size: 1.35rem;
 }
 .eyebrow {
-  @apply tw:text-admin-gold tw:text-admin-caption;
+  @apply tw:text-admin-muted tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
-  letter-spacing: 0.12em;
-  @apply tw:uppercase;
+  letter-spacing: 0;
   margin-bottom: 0.4rem;
 }
 .subtitle {
   margin-top: 0.45rem;
   @apply tw:text-admin-muted;
-  font-size: 0.9rem;
+  font-size: var(--admin-caption-size);
 }
 .status-badge {
   @apply tw:inline-flex tw:items-center;
@@ -128,9 +113,9 @@ p {
 .overview {
   @apply tw:grid;
   grid-template-columns: minmax(0, 1.2fr) repeat(2, minmax(0, 1fr));
-  background: var(--admin-panel-raised, #0b192775);
+  background: var(--admin-subtle);
   border: 1px solid var(--admin-border);
-  border-radius: 0.8rem;
+  border-radius: var(--admin-radius-control);
 }
 .metric {
   @apply tw:flex tw:flex-col tw:items-start;
@@ -146,10 +131,10 @@ p {
 }
 .metric-label openg7-admin-icon {
   @apply tw:shrink-0;
-  color: var(--og7-admin-accent, #8bbcd4);
+  color: var(--admin-accent);
 }
 .metric strong {
-  font-size: clamp(1.1rem, 1.6vw, 1.45rem);
+  font-size: 1.25rem;
   font-weight: var(--admin-emphasis-weight);
   letter-spacing: -0.02em;
 }
@@ -165,8 +150,8 @@ p {
 .activation {
   @apply tw:flex tw:items-center tw:justify-between tw:gap-6;
   border: 1px solid var(--admin-warning-border);
-  border-radius: 0.8rem;
-  padding: 1.35rem;
+  border-radius: var(--admin-radius-control);
+  padding: var(--admin-card-padding);
   background: var(--admin-warning-bg);
 }
 .activation > div {
@@ -175,7 +160,7 @@ p {
 .activation p:not(.eyebrow) {
   margin-top: 0.45rem;
   @apply tw:text-admin-muted;
-  font-size: 0.9rem;
+  font-size: var(--admin-caption-size);
 }
 .activation > button {
   flex: 0 0 auto;
@@ -207,10 +192,10 @@ p {
   gap: 0.85rem;
   padding: 1rem 1.2rem;
   border: 1px solid var(--admin-warning-border);
-  border-radius: 0.75rem;
+  border-radius: var(--admin-radius-control);
   background: var(--admin-warning-bg);
   @apply tw:text-admin-warning;
-  font-size: 0.88rem;
+  font-size: var(--admin-caption-size);
 }
 .notice openg7-admin-icon,
 .operation > openg7-admin-icon {
@@ -265,12 +250,12 @@ p {
 }
 .empty-state {
   @apply tw:flex tw:items-center tw:gap-4;
-  border: 1px dashed var(--admin-border);
-  border-radius: 0.8rem;
+  border-top: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-control);
   @apply tw:p-6;
 }
 .empty-icon {
-  color: var(--og7-admin-accent, #8bbcd4);
+  color: var(--admin-accent);
   background: var(--admin-panel-raised, #172d40);
   border-color: var(--admin-border);
 }
@@ -365,7 +350,7 @@ p {
 .drawer-intro {
   @apply tw:text-admin-muted;
   margin: 1rem 0;
-  font-size: 0.95rem;
+  font-size: var(--admin-body-size);
 }
 .guide-steps {
   list-style: none;
@@ -391,7 +376,7 @@ p {
 }
 .guide-steps p {
   @apply tw:mt-2 tw:text-admin-muted;
-  font-size: 0.9rem;
+  font-size: var(--admin-caption-size);
 }
 .drawer-note {
   @apply tw:flex;
@@ -414,36 +399,46 @@ p {
   margin-bottom: 0.4rem;
 }
 .evidence-list dd {
-  @apply tw:m-0;
-  font-size: 0.9rem;
+  @apply tw:m-0 tw:min-w-0 tw:wrap-anywhere;
+  font-size: var(--admin-caption-size);
 }
 code {
   @apply tw:wrap-anywhere tw:text-admin-caption;
   user-select: all;
 }
-@media (max-width: 1100px) {
+@container admin-backups (max-width: 44rem) {
   .activation {
     @apply tw:items-start tw:flex-col;
   }
   .history-list li {
-    grid-template-columns: 2rem minmax(8rem, 1fr) minmax(9rem, 1fr) auto;
+    grid-template-columns: 2rem minmax(0, 1fr) auto;
+  }
+  .job-date {
+    grid-column: 2 / -1;
+  }
+  .job-status {
+    grid-column: 2;
   }
   .job-size {
-    @apply tw:hidden;
+    @apply tw:block tw:text-left;
+    grid-column: 2;
+    grid-row: 3;
+  }
+  .detail-button {
+    grid-column: 3;
+    grid-row: 2 / span 2;
   }
 }
-@media (max-width: 700px) {
+@container admin-backups (max-width: 28rem) {
   .hero-icon {
-    @apply tw:hidden;
+    display: none;
   }
-  .backup-panel {
-    @apply tw:gap-5;
+  .heading-group,
+  .heading-group > div {
+    width: 100%;
   }
   .overview {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .metric {
-    @apply tw:p-4;
   }
   .metric:first-child {
     grid-column: 1 / -1;
@@ -478,7 +473,7 @@ code {
   }
   .detail-button {
     grid-column: 3;
-    grid-row: 2;
+    grid-row: 2 / span 2;
     padding: 0.4rem;
     @apply tw:text-admin-caption;
   }
@@ -492,10 +487,61 @@ code {
     @apply tw:w-10 tw:h-10;
   }
 }
-@media (prefers-reduced-motion: no-preference) {
-  .admin-button {
-    transition:
-      border-color 140ms ease,
-      background-color 140ms ease;
+
+.heading-group,
+.heading-group > div,
+.activation > div,
+.notice > div,
+.operation > div,
+.job-date,
+.history-heading > div {
+  min-width: 0;
+}
+.backup-header > *,
+.status-badge {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.overview {
+  border: 0;
+}
+.admin-button,
+.history-toggle,
+.footer-links button {
+  max-width: 100%;
+  white-space: normal;
+}
+.status-badge {
+  border-radius: var(--admin-radius-control);
+}
+.history-list li {
+  min-width: 0;
+}
+@container admin-backups (max-width: 18rem) {
+  .overview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .metric + .metric {
+    border-left: 0;
+    border-top: 1px solid var(--admin-border);
+  }
+  .metric:first-child {
+    border-bottom: 0;
+  }
+  .history-list li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .job-icon {
+    display: none;
+  }
+  .job-date,
+  .status-badge.job-status,
+  .job-size,
+  .detail-button {
+    grid-column: 1;
+    grid-row: auto;
+  }
+  .detail-button {
+    justify-self: start;
   }
 }

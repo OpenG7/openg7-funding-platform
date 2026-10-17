@@ -1,4 +1,4 @@
-import type { Locator, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { AxeBuilder } from '@axe-core/playwright';
 import type {
   PublicationAutomationCommand,
@@ -15,6 +15,12 @@ import {
   syntheticPublicationJpeg
 } from './publication-image-preview.ui.js';
 import { registerPublicationReliabilityTests } from './publication-reliability.ui.js';
+import {
+  blockAdminReviewWrites,
+  captureAdminDesign,
+  expectAdminPageFits,
+  prepareAdminDesignReview
+} from './support/admin-design-review.js';
 
 const initialJob: PublicationDelivery = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -422,10 +428,90 @@ async function publicationStyleFixtures(page: Page) {
   );
 }
 
-async function publicationGridColumns(element: Locator): Promise<number> {
-  return element.evaluate(
-    (node) => getComputedStyle(node).gridTemplateColumns.split(' ').length
-  );
+for (const language of ['fr-CA', 'en'] as const) {
+  for (const width of [390, 1536]) {
+    test(`automation composition remains accessible in ${language} at ${width}px`, async ({
+      page
+    }, testInfo) => {
+      await prepareAdminDesignReview(page);
+      await page.setViewportSize({
+        width,
+        height: width === 1536 ? 864 : 1000
+      });
+      await page.addInitScript(
+        (locale) => localStorage.setItem('openg7.language', locale),
+        language
+      );
+      const commands = await publicationStyleFixtures(page);
+      const writes = await blockAdminReviewWrites(page);
+      await page.goto('/admin/fundraiser/publications/automation');
+      const root = page.locator('[data-og7="publication-automation"]');
+      const job = root.locator(`[data-og7-id="${initialJob.id}"]`);
+      await expect(job).toBeVisible();
+      await expect(
+        root.locator('[data-og7="publication-automation-summary"] > span')
+      ).toHaveCount(4);
+      await expect(
+        root.locator('[data-og7="publication-source-entry"]')
+      ).toHaveCount(1);
+      if (width === 1536) {
+        const bounds = await job.boundingBox();
+        expect(bounds!.y).toBeGreaterThanOrEqual(0);
+        expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(864);
+      }
+      await captureAdminDesign(
+        page,
+        testInfo,
+        `publication-automation-${width}`
+      );
+      if (language === 'en') {
+        await page.evaluate(
+          () => (document.documentElement.style.fontSize = '200%')
+        );
+        await expectAdminPageFits(page);
+        await captureAdminDesign(
+          page,
+          testInfo,
+          `publication-automation-text-200-${width}`
+        );
+      }
+      await job.focus();
+      await page.keyboard.press('Enter');
+      const delivery = page.getByRole('dialog');
+      await expect(delivery).toContainText(initialJob.message);
+      await expectAdminPageFits(page);
+      await page.keyboard.press('Escape');
+      await expect(job).toBeFocused();
+      const settingsDisclosure = root.locator(
+        '[data-og7="publication-feed-settings"]'
+      );
+      await settingsDisclosure.locator('summary').click();
+      const settingsButton = settingsDisclosure
+        .getByRole('button', {
+          name: language === 'en' ? 'Settings' : 'Réglages',
+          exact: true
+        })
+        .first();
+      await settingsButton.focus();
+      await page.keyboard.press('Enter');
+      const settings = page.getByRole('dialog');
+      const capacity = settings.locator('input[name="capacity"]');
+      await expect(capacity).toBeVisible();
+      expect((await capacity.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      await expectAdminPageFits(page);
+      if (language === 'en') {
+        await captureAdminDesign(
+          page,
+          testInfo,
+          `publication-settings-text-200-${width}`
+        );
+      }
+      await page.keyboard.press('Escape');
+      await expect(settingsButton).toBeFocused();
+      expect(commands).toEqual([]);
+      expect(writes).toEqual([]);
+    });
+  }
 }
 
 for (const theme of ['mineral', 'night', 'graphite'] as const) {
@@ -465,37 +551,22 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
             'data-og7-pilot-theme',
             theme
           );
-          for (const panel of [worker, queue, job]) {
+          for (const panel of [worker, queue]) {
             await expect(panel).toHaveCSS('background-color', palette.panel);
             await expect(panel).toHaveCSS('border-top-color', palette.border);
-            await expect(panel).toHaveCSS('border-radius', '16px');
-            await expect(panel).toHaveCSS('padding', '18.4px');
           }
-          await expect(root).toHaveCSS(
-            'padding',
-            language === 'fr-CA' ? '16px' : '40px'
-          );
+          await expect(job).toHaveCSS('background-color', palette.subtle);
+          await expectAdminPageFits(page);
           await expect(root.getByRole('switch')).toHaveCSS(
             'background-color',
             palette.raised
           );
           const entry = queue.locator('[data-og7="publication-source-entry"]');
-          await expect(entry).toHaveCSS('background-color', palette.subtle);
-          await expect(entry).toHaveCSS('padding', '16px');
+          await expect(entry).toBeVisible();
           await reliability.locator('summary').focus();
           await page.keyboard.press('Enter');
-          await expect(reliability).toHaveCSS('padding', '16px');
-          await expect(reliability).toHaveCSS('border-radius', '12px');
-          await expect(reliability.locator('summary')).toHaveCSS(
-            'font-weight',
-            '650'
-          );
           await expect(reliability.locator('dl')).toHaveCSS('display', 'grid');
-          await expect(reliability.locator('dl')).toHaveCSS('gap', '12px');
-          await expect(reliability.locator('dd').first()).toHaveCSS(
-            'font-weight',
-            '650'
-          );
+          await expect(reliability.locator('dd').first()).toBeVisible();
           await page.keyboard.press('Space');
           const opener = root
             .getByRole('button', {
@@ -507,9 +578,11 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
           await page.keyboard.press('Enter');
           const settings = page.getByRole('dialog');
           const capacity = settings.locator('input[name="capacity"]');
-          await expect(capacity).toHaveCSS('background-color', palette.raised);
+          await expect(capacity).toHaveCSS('background-color', palette.panel);
           await expect(capacity).toHaveCSS('color', palette.text);
-          await expect(capacity).toHaveCSS('padding', '10.4px');
+          expect((await capacity.boundingBox())!.height).toBeGreaterThanOrEqual(
+            44
+          );
           const actions = settings
             .getByRole('button', {
               name:
@@ -541,11 +614,7 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
           await page.keyboard.press('Enter');
           await expect(delivery.locator('textarea')).toHaveCSS(
             'background-color',
-            palette.raised
-          );
-          await expect(delivery.locator('textarea')).toHaveCSS(
-            'padding',
-            '10.4px'
+            palette.panel
           );
           await expect(delivery.locator('textarea')).toHaveCSS(
             'resize',
@@ -565,7 +634,7 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
   });
 }
 
-test('publication automation CSS preserves the 520px, 650px and 1100px boundaries', async ({
+test('publication automation controls reflow within their available width', async ({
   page
 }) => {
   const commands = await publicationStyleFixtures(page);
@@ -573,24 +642,20 @@ test('publication automation CSS preserves the 520px, 650px and 1100px boundarie
   const root = page.locator('[data-og7="publication-automation"]');
   const job = root.locator(`[data-og7-id="${initialJob.id}"]`);
   const feeds = root.getByRole('region', { name: 'Destinations', exact: true });
-  const sourceLinks = root
-    .locator('[data-og7="publication-source-entry"]')
-    .getByRole('link')
-    .first()
-    .locator('..');
   for (const width of [650, 651, 1100, 1101]) {
     await test.step(`${width}px page`, async () => {
       await page.setViewportSize({ width, height: 1000 });
-      await expect
-        .poll(() => publicationGridColumns(job.locator('..')))
-        .toBe(width <= 650 ? 1 : width <= 1100 ? 2 : 3);
-      await expect
-        .poll(() => publicationGridColumns(feeds))
-        .toBe(width <= 650 ? 1 : width <= 1100 ? 2 : 4);
-      await expect(sourceLinks).toHaveCSS(
-        'flex-direction',
-        width <= 650 ? 'column' : 'row'
+      await expectAdminPageFits(page);
+      await expect(job.locator('..').getByRole('button')).toHaveCount(3);
+      await expect(feeds.getByRole('article')).toHaveCount(4);
+      const bounds = await root.boundingBox();
+      const card = await job.boundingBox();
+      expect(card!.x + card!.width).toBeLessThanOrEqual(
+        bounds!.x + bounds!.width + 1
       );
+      expect(
+        (await root.getByRole('switch').boundingBox())!.height
+      ).toBeGreaterThanOrEqual(44);
     });
   }
   await root
@@ -598,30 +663,20 @@ test('publication automation CSS preserves the 520px, 650px and 1100px boundarie
     .first()
     .click();
   const settings = page.getByRole('dialog');
-  const days = settings
-    .getByRole('checkbox')
-    .first()
-    .locator('..')
-    .locator('..');
-  const fields = settings
-    .locator('input[name="capacity"]')
-    .locator('..')
-    .locator('..');
   const actions = settings
     .getByRole('button', { name: 'Enregistrer les réglages', exact: true })
     .locator('..');
   for (const width of [520, 521]) {
     await test.step(`${width}px settings`, async () => {
       await page.setViewportSize({ width, height: 1000 });
-      await expect
-        .poll(() => publicationGridColumns(days))
-        .toBe(width <= 520 ? 4 : 7);
-      await expect
-        .poll(() => publicationGridColumns(fields))
-        .toBe(width <= 520 ? 1 : 2);
-      await expect(actions).toHaveCSS(
-        'display',
-        width <= 520 ? 'grid' : 'flex'
+      await expectAdminPageFits(page);
+      const field = settings.locator('input[name="capacity"]');
+      expect((await field.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      const dialog = await settings.boundingBox();
+      const control = await actions.getByRole('button').first().boundingBox();
+      expect(control!.height).toBeGreaterThanOrEqual(44);
+      expect(control!.x + control!.width).toBeLessThanOrEqual(
+        dialog!.x + dialog!.width + 1
       );
     });
   }

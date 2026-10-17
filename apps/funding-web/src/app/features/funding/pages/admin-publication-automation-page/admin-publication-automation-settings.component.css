@@ -1,11 +1,13 @@
 @reference '../../../../../styles/tailwind.css';
 :host {
-  @apply tw:block;
-  color: var(--admin-text, #e5edf7);
+  @apply tw:grid tw:min-w-0 tw:gap-admin-card-gap;
+  color: var(--admin-text);
 }
 details > summary {
   @apply tw:cursor-pointer;
-  padding: 1rem 0;
+  padding: 0;
+  min-height: var(--admin-control-height);
+  align-content: center;
   font-weight: var(--admin-control-weight);
 }
 details > summary:focus-visible {
@@ -23,7 +25,7 @@ h2 {
   @apply tw:m-0;
 }
 h2 span {
-  @apply tw:block;
+  @apply tw:block tw:min-w-0;
   margin-top: 0.3rem;
   font-weight: 400;
 }
@@ -31,12 +33,14 @@ p {
   line-height: 1.6;
 }
 .feeds {
-  @apply tw:grid tw:grid-cols-4 tw:gap-4;
+  @apply tw:grid tw:gap-4 tw:min-w-0;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  margin-top: 1rem;
 }
 article {
-  padding: 1.15rem;
+  padding: var(--admin-card-padding);
   border: 1px solid var(--admin-border);
-  border-radius: 1rem;
+  border-radius: var(--admin-radius-card);
   background: var(--admin-panel);
 }
 .detail {
@@ -44,9 +48,9 @@ article {
 }
 .worker-control {
   @apply tw:flex tw:items-center tw:justify-between tw:flex-wrap tw:gap-4;
-  padding: 1.15rem;
+  padding: var(--admin-card-padding);
   border: 1px solid var(--admin-border);
-  border-radius: 1rem;
+  border-radius: var(--admin-radius-card);
   background: var(--admin-panel);
 }
 .worker-control > div {
@@ -61,9 +65,9 @@ article {
   gap: 0.65rem;
   min-width: 6.5rem;
   min-height: 44px;
-  padding: 0.65rem;
+  padding: 0.65rem 0.75rem;
   border: 1px solid var(--admin-border);
-  border-radius: 0.6rem;
+  border-radius: var(--admin-radius-control);
   background: var(--admin-panel-raised);
   @apply tw:text-admin-text;
   font: inherit;
@@ -83,15 +87,15 @@ article {
   opacity: 0.65;
 }
 .worker-toggle__track {
-  @apply tw:block;
+  @apply tw:block tw:min-w-0;
   width: 2.25rem;
   height: 1.25rem;
   border: 1px solid currentColor;
-  border-radius: 1rem;
+  border-radius: var(--admin-radius-card);
 }
 .worker-toggle__track::before {
   content: '';
-  @apply tw:block;
+  @apply tw:block tw:min-w-0;
   width: 0.875rem;
   height: 0.875rem;
   margin: 2px;
@@ -105,7 +109,7 @@ article {
   @apply tw:text-admin-caption;
   padding: 0.2rem 0.5rem;
   border: 1px solid var(--admin-border);
-  border-radius: 1rem;
+  border-radius: var(--admin-radius-card);
 }
 button:focus-visible,
 a:focus-visible {
@@ -119,12 +123,12 @@ label {
 }
 input,
 select {
-  border: 1px solid var(--admin-border);
-  background: var(--admin-panel-raised);
+  border: 1px solid var(--admin-control-border);
+  background: var(--admin-panel);
   @apply tw:text-admin-text;
-  border-radius: 0.4rem;
-  padding: 0.65rem;
-  @apply tw:w-full tw:box-border;
+  border-radius: var(--admin-radius-control);
+  padding: 0.65rem 0.75rem;
+  @apply tw:w-full tw:box-border tw:min-w-0 tw:max-w-full tw:min-h-admin-control;
   font: inherit;
   font-weight: 400;
 }
@@ -139,15 +143,7 @@ input[type='checkbox'] {
   width: 1.1rem;
   margin-top: 0.2rem;
 }
-@media (max-width: 1100px) {
-  .feeds {
-    @apply tw:grid-cols-2;
-  }
-}
 @media (max-width: 650px) {
-  .feeds {
-    grid-template-columns: 1fr;
-  }
   header {
     align-items: flex-start;
   }
@@ -175,14 +171,12 @@ input[type='checkbox'] {
 .settings-destination {
   padding: 1.1rem;
   border: 1px solid var(--admin-border);
-  border-radius: 1rem;
-  background:
-    radial-gradient(ellipse at top right, #f4c95712, transparent 75%),
-    var(--admin-panel);
+  border-radius: var(--admin-radius-card);
+  background: var(--admin-subtle);
 }
 
 .settings-eyebrow {
-  @apply tw:block;
+  @apply tw:block tw:min-w-0;
   margin-bottom: 0.3rem;
   @apply tw:text-admin-muted tw:text-admin-caption;
   letter-spacing: 0.1em;
@@ -195,7 +189,7 @@ input[type='checkbox'] {
 }
 
 .settings-caption {
-  @apply tw:block;
+  @apply tw:block tw:min-w-0;
   margin-top: 0.3rem;
   @apply tw:text-admin-muted tw:text-admin-caption;
 }
@@ -242,9 +236,8 @@ input[type='checkbox'] {
 .settings-section {
   @apply tw:grid;
   gap: 0.9rem;
-  padding: 1.1rem;
-  border: 1px solid var(--admin-border);
-  border-radius: 0.9rem;
+  padding: 1.25rem 0 0;
+  border-top: 1px solid var(--admin-border);
   background: var(--admin-panel);
 }
 
@@ -275,7 +268,7 @@ input[type='checkbox'] {
 
 .settings-toggle input::before {
   content: '';
-  @apply tw:block;
+  @apply tw:block tw:min-w-0;
   height: 1.05rem;
   width: 1.05rem;
   border-radius: 50%;
@@ -302,7 +295,8 @@ input[type='checkbox'] {
 }
 
 .settings-day-grid {
-  @apply tw:grid tw:grid-cols-7;
+  @apply tw:grid;
+  grid-template-columns: repeat(auto-fit, minmax(2.75rem, 1fr));
   gap: 0.4rem;
 }
 
@@ -340,7 +334,8 @@ input[type='checkbox'] {
 }
 
 .settings-field-grid {
-  @apply tw:grid tw:grid-cols-2;
+  @apply tw:grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
   gap: 0.9rem;
 }
 
@@ -350,19 +345,18 @@ input[type='checkbox'] {
 }
 
 .settings-field-grid input {
-  color-scheme: dark;
+  color-scheme: var(--og7-admin-color-scheme, light);
   @apply tw:min-w-0 tw:min-h-11;
   font-size: 1rem;
-  border-radius: 0.6rem;
+  border-radius: var(--admin-radius-control);
 }
 
 .settings-manual {
   @apply tw:grid;
   justify-items: start;
   gap: 0.85rem;
-  padding: 1.1rem;
-  border: 1px dashed var(--admin-border);
-  border-radius: 0.9rem;
+  padding: 1.25rem 0 0;
+  border-top: 1px solid var(--admin-border);
 }
 
 .feed-settings .settings-manual h3 {
@@ -427,4 +421,37 @@ input[type='checkbox'] {
   .settings-manual .admin-button {
     @apply tw:w-full;
   }
+}
+
+:host > details {
+  padding: var(--admin-card-padding);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-card);
+  background: var(--admin-panel);
+}
+.worker-control {
+  box-shadow: var(--admin-shadow);
+}
+.worker-control p {
+  font-size: var(--admin-caption-size);
+}
+h2,
+h3,
+p,
+label,
+article {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.actions .admin-button,
+.settings-actions .admin-button {
+  max-width: 100%;
+  white-space: normal;
+}
+.badge {
+  width: fit-content;
+  max-width: 100%;
+}
+input[type='checkbox'] {
+  min-height: auto;
 }

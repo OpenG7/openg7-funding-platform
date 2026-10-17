@@ -1,27 +1,44 @@
 @reference '../../../../../styles/tailwind.css';
 
 :host {
-  @apply tw:block tw:min-h-screen;
-  background: var(--surface-page);
-  color: var(--text-main);
+  @apply tw:block tw:min-w-0;
 }
 
 .access-content {
-  max-width: 65rem;
+  @apply tw:grid tw:min-w-0 tw:w-full tw:wrap-anywhere;
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 78rem;
   margin: auto;
-  padding: clamp(0.25rem, 2vw, 2rem);
-  @apply tw:wrap-anywhere;
+  gap: 1.5rem;
+  container: access-page / inline-size;
 }
 
-h1 {
-  margin: 1rem 0;
+h1,
+p {
+  margin: 0;
 }
-
-a {
-  color: var(--og7-admin-accent, #a5d8ff);
+header {
+  @apply tw:grid tw:gap-2;
 }
-
-:focus-visible {
-  outline: 3px solid var(--admin-focus, #facc15);
-  outline-offset: 3px;
+header p {
+  @apply tw:text-admin-muted;
+}
+.back-link {
+  @apply tw:inline-flex tw:items-center tw:min-h-admin-control;
+  justify-self: start;
+}
+.access-workspace {
+  @apply tw:grid tw:min-w-0;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 1.5rem;
+}
+:host h1:focus {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: -3px;
+}
+@container access-page (min-width: 60rem) {
+  .access-workspace {
+    @apply tw:grid-cols-2;
+  }
 }

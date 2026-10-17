@@ -734,9 +734,17 @@ test('all admin routes share a single layout, translated headings and mobile wid
   await fixtures(page);
   await page.setViewportSize({ width: 390, height: 844 });
   for (const route of [
+    '',
+    'pilotage',
+    'access',
+    'attention',
     'contributions',
     'sponsors',
     'publications',
+    'publications/drafts',
+    'publications/batches',
+    'publications/calendar',
+    'publications/automation',
     'invoices',
     'expenses',
     'transparency',
@@ -763,7 +771,8 @@ test('all admin routes share a single layout, translated headings and mobile wid
       })
       .click();
     if (
-      !['audit', 'publications', 'contributions', 'assistant'].includes(route)
+      !['audit', 'contributions', 'assistant'].includes(route) &&
+      !route.startsWith('publications')
     )
       await expect(page.locator('h1')).not.toHaveText(french);
     await page

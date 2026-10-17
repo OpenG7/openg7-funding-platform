@@ -4,7 +4,7 @@
     data-og7="publication-automation"
     [attr.aria-busy]="busy()"
   >
-    <a routerLink="/admin/fundraiser/publications"
+    <a routerLink="/admin/fundraiser/publications" class="back-link"
       >← {{ 'admin.publications.title' | translate }}</a
     >
     <header>
@@ -60,13 +60,10 @@
         {{ 'admin.dossier.publicationBridge.notFound' | translate }}
       </p>
     }
-    <openg7-admin-publication-automation-settings
-      [controller]="settingsController"
-      [feedSettingsExpanded]="feedSettingsExpanded"
-    />
     @if (state(); as s) {
       <div
         class="summary"
+        data-og7="publication-automation-summary"
         [attr.aria-label]="'admin.publicationAutomation.summary' | translate"
       >
         <span
@@ -83,16 +80,122 @@
           {{ 'admin.publicationAutomation.last24h' | translate }}</span
         >
       </div>
+    }
+    @if (state(); as s) {
       @if (sponsorshipId() || deliveryId()) {
         <p class="detail">
           {{ 'admin.dossier.publicationBridge.globalSettings' | translate }}
         </p>
       }
-      <openg7-publication-reliability-panel
-        [reliability]="s.reliability"
-        [controller]="reliabilityController"
-        [dateLabel]="queueDateLabel"
+    }
+    <div class="automation-workflow">
+      @if (state(); as s) {
+        <section class="delivery-workspace" data-og7="publication-deliveries">
+          <header>
+            <div
+              class="tabs"
+              role="group"
+              [attr.aria-label]="
+                'admin.publicationAutomation.filter' | translate
+              "
+            >
+              @for (t of tabs(); track t) {
+                <button
+                  class="admin-button"
+                  [attr.aria-pressed]="tab() === t"
+                  (click)="tab.set(t)"
+                >
+                  {{ 'admin.publicationAutomation.tabs.' + t | translate }}
+                </button>
+              }
+            </div>
+          </header>
+          <div class="delivery-controls">
+            <label class="filter"
+              >{{ 'admin.publicationAutomation.feed' | translate
+              }}<select
+                [ngModel]="feedFilter()"
+                (ngModelChange)="feedFilter.set($event)"
+              >
+                <option value="">
+                  {{ 'admin.publicationAutomation.all' | translate }}
+                </option>
+                @for (feed of s.feeds; track feed.id) {
+                  <option [value]="feed.id">{{ feed.id }}</option>
+                }
+              </select></label
+            >
+            <button
+              class="admin-button"
+              (click)="delivery.create()"
+              [disabled]="busy()"
+            >
+              {{ 'admin.publicationAutomation.new' | translate }}
+            </button>
+          </div>
+          @if (tab() === 'calendar') {
+            <openg7-admin-publication-calendar
+              [entries]="calendarEntries()"
+              state="ready"
+              [selectedId]="delivery.selected()?.id ?? null"
+              (openEntry)="openCalendar($event)"
+              (retry)="load()"
+            />
+          } @else {
+            <div class="jobs">
+              @for (job of visible(); track job.id) {
+                <button
+                  type="button"
+                  class="job"
+                  [openg7AutomaticPrepare]="
+                    delivery.selected()?.id === job.id
+                      ? ''
+                      : 'publication.delivery.open:' + job.id
+                  "
+                  [automaticFor]="
+                    sponsorshipId() ??
+                    (job.sponsors.length === 1 ? job.sponsors[0].id : null)
+                  "
+                  (automaticPrepare)="delivery.open(job)"
+                  (click)="delivery.open(job)"
+                  [attr.data-og7-id]="job.id"
+                >
+                  <span class="detail"
+                    >{{ job.feedId }} ·
+                    {{
+                      'admin.publicationAutomation.kinds.' + job.kind
+                        | translate
+                    }}</span
+                  ><strong>{{ job.message.slice(0, 120) }}</strong
+                  ><span
+                    >{{ dateLabel(job.scheduledAt) }} ·
+                    {{
+                      'admin.publicationAutomation.status.' + job.status
+                        | translate
+                    }}</span
+                  >
+                  @if (job.mode === 'mock') {
+                    <span class="badge">{{
+                      'admin.publicationAutomation.modes.mock' | translate
+                    }}</span>
+                  }
+                </button>
+              } @empty {
+                <p class="empty">
+                  {{ 'admin.publicationAutomation.empty' | translate }}
+                </p>
+              }
+            </div>
+          }
+        </section>
+      }
+      <openg7-admin-publication-automation-settings
+        class="automation-settings"
+        [controller]="settingsController"
+        [feedSettingsExpanded]="feedSettingsExpanded"
       />
+    </div>
+    @if (state(); as s) {
       <openg7-publication-source-queue
         [queue]="s.queue"
         [busy]="busy()"
@@ -100,99 +203,11 @@
         (refresh)="load()"
         (page)="loadQueuePage($event)"
       />
-      <section>
-        <header>
-          <div
-            class="tabs"
-            role="group"
-            [attr.aria-label]="'admin.publicationAutomation.filter' | translate"
-          >
-            @for (t of tabs(); track t) {
-              <button
-                class="admin-button"
-                [attr.aria-pressed]="tab() === t"
-                (click)="tab.set(t)"
-              >
-                {{ 'admin.publicationAutomation.tabs.' + t | translate }}
-              </button>
-            }
-          </div>
-          <button
-            class="admin-button"
-            (click)="delivery.create()"
-            [disabled]="busy()"
-          >
-            {{ 'admin.publicationAutomation.new' | translate }}
-          </button>
-        </header>
-        <label class="filter"
-          >{{ 'admin.publicationAutomation.feed' | translate
-          }}<select
-            [ngModel]="feedFilter()"
-            (ngModelChange)="feedFilter.set($event)"
-          >
-            <option value="">
-              {{ 'admin.publicationAutomation.all' | translate }}
-            </option>
-            @for (feed of s.feeds; track feed.id) {
-              <option [value]="feed.id">{{ feed.id }}</option>
-            }
-          </select></label
-        >
-        @if (tab() === 'calendar') {
-          <openg7-admin-publication-calendar
-            [entries]="calendarEntries()"
-            state="ready"
-            [selectedId]="delivery.selected()?.id ?? null"
-            (openEntry)="openCalendar($event)"
-            (retry)="load()"
-          />
-        } @else {
-          <div class="jobs">
-            @for (job of visible(); track job.id) {
-              <button
-                type="button"
-                class="job"
-                [openg7AutomaticPrepare]="
-                  delivery.selected()?.id === job.id
-                    ? ''
-                    : 'publication.delivery.open:' + job.id
-                "
-                [automaticFor]="
-                  sponsorshipId() ??
-                  (job.sponsors.length === 1 ? job.sponsors[0].id : null)
-                "
-                (automaticPrepare)="delivery.open(job)"
-                (click)="delivery.open(job)"
-                [attr.data-og7-id]="job.id"
-              >
-                <span class="detail"
-                  >{{ job.feedId }} ·
-                  {{
-                    'admin.publicationAutomation.kinds.' + job.kind | translate
-                  }}</span
-                ><strong>{{ job.message.slice(0, 120) }}</strong
-                ><span
-                  >{{ dateLabel(job.scheduledAt) }} ·
-                  {{
-                    'admin.publicationAutomation.status.' + job.status
-                      | translate
-                  }}</span
-                >
-                @if (job.mode === 'mock') {
-                  <span class="badge">{{
-                    'admin.publicationAutomation.modes.mock' | translate
-                  }}</span>
-                }
-              </button>
-            } @empty {
-              <p class="empty">
-                {{ 'admin.publicationAutomation.empty' | translate }}
-              </p>
-            }
-          </div>
-        }
-      </section>
+      <openg7-publication-reliability-panel
+        [reliability]="s.reliability"
+        [controller]="reliabilityController"
+        [dateLabel]="queueDateLabel"
+      />
     } @else if (!error()) {
       <p role="status">
         {{ 'admin.publicationAutomation.loading' | translate }}

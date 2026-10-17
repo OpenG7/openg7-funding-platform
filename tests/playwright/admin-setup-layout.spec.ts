@@ -156,6 +156,13 @@ for (const language of ['fr-CA', 'en'] as const)
           document.documentElement.style.fontSize = '200%';
         });
         await expectAdminPageFits(page);
+        const databaseTitle = card(page, 'database').locator('strong').first();
+        const titleLines = await databaseTitle.evaluate(
+          (element) =>
+            element.getBoundingClientRect().height /
+            Number.parseFloat(getComputedStyle(element).lineHeight)
+        );
+        expect(titleLines).toBeLessThanOrEqual(2);
       }
       await root(page)
         .getByRole('navigation', {

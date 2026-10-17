@@ -1,53 +1,58 @@
 <form (ngSubmit)="saveRequested.emit()">
-  <h2>{{ 'admin.access.edit' | translate }}</h2>
-  <button
-    type="button"
-    (click)="newRequested.emit()"
-    [openg7AutomaticPrepare]="'access-new'"
-    (automaticPrepare)="newRequested.emit()"
-    [disabled]="busy()"
-  >
-    {{ 'admin.access.new' | translate }}
-  </button>
-  <label
-    >{{ 'admin.access.subject' | translate
-    }}<input
-      name="subject"
-      [ngModel]="draft().subject"
-      (ngModelChange)="fieldChanged.emit({ field: 'subject', value: $event })"
-      [disabled]="busy()"
-      [readonly]="!!draft().id"
-      required
-      maxlength="255"
-  /></label>
-  <label
-    >{{ 'admin.access.name' | translate
-    }}<input
-      name="name"
-      [ngModel]="draft().displayName"
-      (ngModelChange)="
-        fieldChanged.emit({ field: 'displayName', value: $event })
-      "
-      [disabled]="busy()"
-      required
-      maxlength="120"
-  /></label>
-  <label
-    >{{ 'admin.access.role' | translate
-    }}<select
-      name="role"
-      [ngModel]="draft().role"
-      (ngModelChange)="fieldChanged.emit({ field: 'role', value: $event })"
+  <header>
+    <h2>{{ 'admin.access.edit' | translate }}</h2>
+    <button
+      type="button"
+      class="admin-button"
+      (click)="newRequested.emit()"
+      [openg7AutomaticPrepare]="'access-new'"
+      (automaticPrepare)="newRequested.emit()"
       [disabled]="busy()"
     >
-      @for (role of roles; track role) {
-        <option [value]="role">
-          {{ 'admin.access.roles.' + role | translate }}
-        </option>
-      }
-    </select></label
-  >
-  <label
+      {{ 'admin.access.new' | translate }}
+    </button>
+  </header>
+  <div class="editor-fields">
+    <label
+      >{{ 'admin.access.subject' | translate
+      }}<input
+        name="subject"
+        [ngModel]="draft().subject"
+        (ngModelChange)="fieldChanged.emit({ field: 'subject', value: $event })"
+        [disabled]="busy()"
+        [readonly]="!!draft().id"
+        required
+        maxlength="255"
+    /></label>
+    <label
+      >{{ 'admin.access.name' | translate
+      }}<input
+        name="name"
+        [ngModel]="draft().displayName"
+        (ngModelChange)="
+          fieldChanged.emit({ field: 'displayName', value: $event })
+        "
+        [disabled]="busy()"
+        required
+        maxlength="120"
+    /></label>
+    <label
+      >{{ 'admin.access.role' | translate
+      }}<select
+        name="role"
+        [ngModel]="draft().role"
+        (ngModelChange)="fieldChanged.emit({ field: 'role', value: $event })"
+        [disabled]="busy()"
+      >
+        @for (role of roles; track role) {
+          <option [value]="role">
+            {{ 'admin.access.roles.' + role | translate }}
+          </option>
+        }
+      </select></label
+    >
+  </div>
+  <label class="checkbox-row"
     ><input
       type="checkbox"
       name="disabled"
@@ -56,7 +61,7 @@
       [disabled]="busy()"
     />{{ 'admin.access.disabled' | translate }}</label
   >
-  <label
+  <label class="checkbox-row"
     ><input
       type="checkbox"
       name="confirmed"
@@ -66,7 +71,11 @@
       required
     />{{ 'admin.access.confirm' | translate }}</label
   >
-  <button type="submit" [disabled]="busy() || !confirmed()">
+  <button
+    type="submit"
+    class="admin-button admin-button--primary"
+    [disabled]="busy() || !confirmed()"
+  >
     {{ 'admin.access.save' | translate }}
   </button>
 </form>

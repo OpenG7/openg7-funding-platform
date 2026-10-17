@@ -1,33 +1,51 @@
 @reference '../../../../../styles/tailwind.css';
 
 :host {
-  @apply tw:block;
+  @apply tw:block tw:min-w-0;
+}
+.access-panel {
+  @apply tw:grid tw:min-w-0 tw:p-admin-card tw:rounded-admin-card;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-panel);
+}
+h2,
+p {
+  margin: 0;
 }
 h2 {
-  margin: 1.25rem 0 0.5rem;
+  font-size: var(--admin-section-size, 1.1875rem);
+  font-weight: var(--admin-section-weight, 600);
+  line-height: var(--admin-section-leading, 1.4);
 }
-input,
-select,
-button {
-  font: inherit;
-  font-weight: 400;
-  padding: 0.65rem;
-  border-radius: 0.3rem;
-  color: var(--admin-text, #0f172a);
-  background: var(--admin-panel, #fff);
+.admin-button {
   @apply tw:min-w-0 tw:max-w-full;
+  white-space: normal;
 }
-button {
-  font-weight: var(--admin-control-weight);
-  background: var(--admin-panel-raised, #fff);
-  min-height: 44px;
-  margin: 0.3rem;
-  @apply tw:cursor-pointer;
+ul {
+  @apply tw:m-0 tw:p-0;
+  list-style: none;
 }
 li {
-  @apply tw:p-2;
+  @apply tw:flex tw:flex-wrap tw:items-center tw:justify-between tw:gap-3;
+  padding: 1rem 0;
 }
-:focus-visible {
-  outline: 3px solid var(--admin-focus, #facc15);
-  outline-offset: 3px;
+li + li {
+  border-top: 1px solid var(--admin-border);
+}
+.entry-copy {
+  @apply tw:grid tw:min-w-0 tw:gap-1 tw:wrap-anywhere;
+  flex: 1 1 15rem;
+}
+.entry-copy span {
+  @apply tw:text-admin-muted tw:text-admin-caption;
+}
+.revoke-confirmation {
+  @apply tw:flex tw:flex-wrap tw:gap-3 tw:p-4 tw:rounded-admin-control;
+  background: var(--admin-warning-bg);
+  border: 1px solid var(--admin-warning-border);
+}
+.revoke-confirmation p {
+  flex-basis: 100%;
 }

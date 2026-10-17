@@ -6,6 +6,12 @@ import type {
 } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
+import {
+  blockAdminReviewWrites,
+  captureAdminDesign,
+  expectAdminPageFits,
+  prepareAdminDesignReview
+} from './support/admin-design-review.js';
 
 const id = '10000000-0000-4000-8000-000000000301';
 const secondId = '10000000-0000-4000-8000-000000000302';
@@ -188,6 +194,57 @@ async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
   });
   return { calls, options };
 }
+
+for (const language of ['fr-CA', 'en'] as const)
+  for (const width of [390, 1536]) {
+    test(`context composition keeps confirmed facts and its next step readable in ${language} at ${width}px`, async ({
+      page
+    }, testInfo) => {
+      await prepareAdminDesignReview(page);
+      await fixtures(page, 'reader');
+      const writes = await blockAdminReviewWrites(page);
+      await page.addInitScript((locale) => {
+        localStorage.setItem('openg7.language', locale);
+      }, language);
+      await page.setViewportSize({
+        width,
+        height: width === 1536 ? 864 : 1000
+      });
+      await page.goto(path());
+      const context = page.locator('[data-og7="assistant-context"]');
+      const facts = context.locator('[data-og7="assistant-facts"]');
+      const next = context.locator('[data-og7="assistant-next-step"]');
+      await expect(
+        context.locator('[data-og7="assistant-reference"]')
+      ).toHaveText('DEMO-301');
+      await expect(facts).toContainText(language === 'en' ? 'Paid' : 'Payé');
+      await expect(facts).toContainText(
+        language === 'en' ? 'Not granted' : 'Non accordé'
+      );
+      await expect(next.getByRole('link')).toHaveAttribute(
+        'href',
+        `/admin/fundraiser/sponsors?sponsorshipId=${id}`
+      );
+      await captureAdminDesign(page, testInfo, `assistant-context-${width}`);
+      if (width === 1536) {
+        await expect(next.getByRole('heading')).toBeInViewport({ ratio: 1 });
+      }
+      const disclosure = facts.locator('..').locator('summary');
+      await disclosure.focus();
+      await page.keyboard.press('Enter');
+      await expect(facts).toBeHidden();
+      await page.keyboard.press('Enter');
+      await expect(facts).toBeVisible();
+      if (language === 'en') {
+        await page.evaluate(() => {
+          document.documentElement.style.fontSize = '200%';
+        });
+        await expectAdminPageFits(page);
+        await expect(next.getByRole('link')).toBeVisible();
+      }
+      expect(writes).toEqual([]);
+    });
+  }
 
 for (const sample of [
   {

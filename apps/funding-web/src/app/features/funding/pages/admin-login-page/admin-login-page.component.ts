@@ -21,19 +21,22 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
     <main class="admin-login-shell">
       <section class="admin-login-panel" aria-labelledby="admin-login-title">
         <header>
-          <span>OpenG7</span>
-          <button
-            type="button"
-            (click)="i18n.toggleLanguage()"
-            [attr.aria-label]="
-              (i18n.currentLanguage() === 'fr-CA'
-                ? 'admin.shell.toEnglish'
-                : 'admin.shell.toFrench'
-              ) | translate
-            "
-          >
-            {{ i18n.currentLanguage() === 'fr-CA' ? 'EN' : 'FR' }}
-          </button>
+          <div class="login-brand">
+            <span>OpenG7</span>
+            <button
+              type="button"
+              class="admin-button"
+              (click)="i18n.toggleLanguage()"
+              [attr.aria-label]="
+                (i18n.currentLanguage() === 'fr-CA'
+                  ? 'admin.shell.toEnglish'
+                  : 'admin.shell.toFrench'
+                ) | translate
+              "
+            >
+              {{ i18n.currentLanguage() === 'fr-CA' ? 'EN' : 'FR' }}
+            </button>
+          </div>
           <h1 id="admin-login-title">
             {{ 'admin.legacy.acces_admin' | translate }}
           </h1>
@@ -49,9 +52,12 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
 
         @if (mode() === 'oidc') {
           <p>{{ 'admin.access.signInHelp' | translate }}</p>
-          <a [href]="identityUrl()" data-og7="identity-sign-in">{{
-            'admin.access.signIn' | translate
-          }}</a>
+          <a
+            class="admin-button admin-button--primary"
+            [href]="identityUrl()"
+            data-og7="identity-sign-in"
+            >{{ 'admin.access.signIn' | translate }}</a
+          >
         }
         @if (mode() === 'token') {
           <form (submit)="$event.preventDefault(); signIn()">
@@ -66,7 +72,11 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
               />
             </label>
 
-            <button type="submit" [disabled]="state() === 'loading'">
+            <button
+              type="submit"
+              class="admin-button admin-button--primary"
+              [disabled]="state() === 'loading'"
+            >
               {{
                 state() === 'loading'
                   ? ('admin.legacy.connexion' | translate)
@@ -88,13 +98,18 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
           }}
         </p>
 
-        <a routerLink="/admin/oidc-setup" data-og7="identity-setup-link">{{
-          'admin.identitySetup.openGuide' | translate
-        }}</a>
+        <footer class="login-links">
+          <a
+            class="admin-link"
+            routerLink="/admin/oidc-setup"
+            data-og7="identity-setup-link"
+            >{{ 'admin.identitySetup.openGuide' | translate }}</a
+          >
 
-        <a routerLink="/fonds-des-batisseurs">{{
-          'admin.legacy.retour_au_fonds' | translate
-        }}</a>
+          <a class="admin-link" routerLink="/fonds-des-batisseurs">{{
+            'admin.legacy.retour_au_fonds' | translate
+          }}</a>
+        </footer>
       </section>
     </main>
   `,

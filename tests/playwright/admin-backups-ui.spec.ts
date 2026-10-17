@@ -8,6 +8,12 @@ import type { Page } from '@playwright/test';
 import { expect, test } from './support/test.js';
 import { setupFixture } from './support/setup-fixtures.js';
 import { cockpitFixtures } from './support/cockpit-fixtures.js';
+import {
+  blockAdminReviewWrites,
+  captureAdminDesign,
+  expectAdminPageFits,
+  prepareAdminDesignReview
+} from './support/admin-design-review.js';
 
 async function recoveryFixture(page: Page, language: 'fr-CA' | 'en') {
   await page.addInitScript((locale) => {
@@ -80,6 +86,86 @@ async function recoveryFixture(page: Page, language: 'fr-CA' | 'en') {
     });
   });
   return state;
+}
+
+for (const language of ['fr-CA', 'en'] as const) {
+  for (const width of [390, 1536]) {
+    test(`backups composition remains accessible in ${language} at ${width}px`, async ({
+      page
+    }, testInfo) => {
+      await prepareAdminDesignReview(page);
+      await page.setViewportSize({
+        width,
+        height: width === 1536 ? 864 : 1000
+      });
+      const state = await recoveryFixture(page, language);
+      state.job = {
+        requestId: '00000000-0000-4000-8000-000000000321',
+        source: 'daily',
+        status: 'succeeded',
+        createdAt: '2026-09-15T12:00:00Z',
+        startedAt: '2026-09-15T12:00:01Z',
+        finishedAt: '2026-09-15T12:00:04Z',
+        bytes: 4096,
+        sha256: 'c'.repeat(64),
+        retainUntil: '2026-10-15T12:00:04Z'
+      };
+      const writes = await blockAdminReviewWrites(page);
+      await page.goto('/admin/fundraiser/setup?section=backups');
+      const panel = page.locator('[data-og7="setup-backups"]');
+      const row = panel.locator('[data-og7="backup-history-row"]');
+      await expect(row).toHaveCount(1);
+      await expect(
+        panel.locator('[data-og7="backup-overview"] > div')
+      ).toHaveCount(3);
+      await expect(
+        panel.locator('[data-og7="backup-service-state"]')
+      ).toHaveAttribute('data-state', 'ready');
+      await panel.evaluate((node) => node.scrollIntoView({ block: 'start' }));
+      await captureAdminDesign(page, testInfo, `backups-${width}`);
+      if (language === 'en') {
+        await page.evaluate(
+          () => (document.documentElement.style.fontSize = '200%')
+        );
+        await panel.evaluate((node) => node.scrollIntoView({ block: 'start' }));
+        await expectAdminPageFits(page);
+        if (width === 390) {
+          const title = panel.getByRole('heading', { level: 2 });
+          const contentWidth = await panel.evaluate((node) => {
+            const style = getComputedStyle(node);
+            return (
+              node.clientWidth -
+              parseFloat(style.paddingLeft) -
+              parseFloat(style.paddingRight)
+            );
+          });
+          const titleBounds = await title.boundingBox();
+          expect(titleBounds!.width).toBeGreaterThanOrEqual(
+            contentWidth * 0.95
+          );
+          const lineCount = await title.evaluate(
+            (node) =>
+              node.getBoundingClientRect().height /
+              parseFloat(getComputedStyle(node).lineHeight)
+          );
+          expect(lineCount).toBeLessThanOrEqual(3.1);
+        }
+        await captureAdminDesign(page, testInfo, `backups-text-200-${width}`);
+      }
+      const details = row.getByRole('button');
+      expect((await details.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      await details.focus();
+      await page.keyboard.press('Enter');
+      await expect(page.locator('[data-og7="backup-evidence"]')).toContainText(
+        'c'.repeat(64)
+      );
+      await expectAdminPageFits(page);
+      await page.keyboard.press('Escape');
+      await expect(details).toBeFocused();
+      expect(state.posts).toEqual([]);
+      expect(writes).toEqual([]);
+    });
+  }
 }
 
 for (const language of ['fr-CA', 'en'] as const) {
@@ -293,8 +379,6 @@ for (const theme of ['night', 'mineral', 'graphite'] as const) {
       const request = panel.locator('[data-og7="backup-request"]');
       const overview = panel.locator('[data-og7="backup-overview"]');
       await expect(panel).toHaveCSS('display', 'grid');
-      await expect(panel).toHaveCSS('gap', en ? '20px' : '24px');
-      await expect(panel).toHaveCSS('border-radius', '16px');
       await expect(panel).toHaveCSS(
         'color',
         {
@@ -304,10 +388,7 @@ for (const theme of ['night', 'mineral', 'graphite'] as const) {
         }[theme]!
       );
       await expect(overview).toHaveCSS('display', 'grid');
-      await expect(overview.locator(':scope > div').first()).toHaveCSS(
-        'padding',
-        en ? '16px' : '20px'
-      );
+      await expect(overview.locator(':scope > div')).toHaveCount(3);
       const refresh = panel.getByRole('button', {
         name: en ? 'Check backups' : 'Vérifier les sauvegardes',
         exact: true
@@ -337,16 +418,12 @@ for (const theme of ['night', 'mineral', 'graphite'] as const) {
         );
         await expect(badges.nth(index)).toBeVisible();
       }
-      // Mobile history has transparent status text on a radial gradient, whose
-      // contrast Axe cannot determine. Only opaque surfaces are audited here.
-      if (!en) {
-        const audit = await new AxeBuilder({ page })
-          .include('[data-og7="backup-history-row"] > [data-state]')
-          .withRules(['color-contrast'])
-          .analyze();
-        expect(audit.violations).toEqual([]);
-        expect(audit.incomplete).toEqual([]);
-      }
+      const audit = await new AxeBuilder({ page })
+        .include('[data-og7="backup-history-row"] > [data-state]')
+        .withRules(['color-contrast'])
+        .analyze();
+      expect(audit.violations).toEqual([]);
+      expect(audit.incomplete).toEqual([]);
       const details = rows
         .filter({ has: page.locator('[data-state="succeeded"]') })
         .getByRole('button');
@@ -365,30 +442,22 @@ for (const theme of ['night', 'mineral', 'graphite'] as const) {
       await expect(details).toBeFocused();
       if (theme === 'mineral' && !en) {
         for (const width of [700, 701, 1100, 1101]) {
-          await test.step(`backup CSS boundary ${width}px`, async () => {
+          await test.step(`backup history reflows at ${width}px`, async () => {
             await page.setViewportSize({ width, height: 1050 });
-            await expect
-              .poll(() =>
-                overview.evaluate(
-                  (node) =>
-                    getComputedStyle(node).gridTemplateColumns.split(' ').length
-                )
-              )
-              .toBe(width <= 700 ? 2 : 3);
-            await expect
-              .poll(() =>
-                rows
-                  .first()
-                  .evaluate(
-                    (node) =>
-                      getComputedStyle(node).gridTemplateColumns.split(' ')
-                        .length
-                  )
-              )
-              .toBe(width <= 700 ? 3 : width <= 1100 ? 4 : 5);
+            await expectAdminPageFits(page);
             await expect(
               rows.first().locator(':scope > span').last()
-            ).toHaveCSS('display', width <= 1100 ? 'none' : 'block');
+            ).toBeVisible();
+            const row = await rows.first().boundingBox();
+            const control = await rows
+              .first()
+              .getByRole('button')
+              .boundingBox();
+            expect(control!.height).toBeGreaterThanOrEqual(44);
+            expect(control!.x).toBeGreaterThanOrEqual(row!.x - 1);
+            expect(control!.x + control!.width).toBeLessThanOrEqual(
+              row!.x + row!.width + 1
+            );
           });
         }
         await page.setViewportSize({ width: 1440, height: 1050 });

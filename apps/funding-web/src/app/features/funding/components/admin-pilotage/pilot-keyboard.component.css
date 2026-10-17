@@ -1,17 +1,25 @@
 @reference '../../../../../styles/tailwind.css';
 
+:host {
+  @apply tw:block tw:min-w-0;
+}
 .keys {
-  @apply tw:grid tw:grid-cols-10;
-  gap: 0.3rem;
+  @apply tw:grid tw:gap-2 tw:min-w-0;
+  grid-template-columns: repeat(auto-fit, minmax(2.75rem, 1fr));
 }
 .keys button {
-  min-height: 2.4rem;
-  background: var(--og7-admin-raised, #183550);
-  border: 1px solid var(--og7-admin-border, #52738f);
-  color: var(--og7-admin-text, #fff);
-  border-radius: 0.35rem;
+  @apply tw:text-admin-text tw:rounded-admin-control tw:cursor-pointer;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.25rem;
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-control-border);
+  font: inherit;
+}
+.keys button:hover {
+  background: var(--admin-selected);
+  border-color: var(--admin-accent);
 }
 .keys button:focus-visible {
-  outline: 3px solid var(--og7-admin-focus, #64dfff);
-  outline-offset: 2px;
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 3px;
 }

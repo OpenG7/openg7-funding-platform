@@ -249,7 +249,10 @@ import type { PublicationReliabilityController } from './publication-reliability
       }
     </details>
   }`,
-  styleUrl: './publication-reliability-panel.component.css'
+  styleUrls: [
+    '../../components/admin-ui/admin-controls.css',
+    './publication-reliability-panel.component.css'
+  ]
 })
 export class PublicationReliabilityPanelComponent {
   readonly reliability = input<PublicationReliability | undefined>();

@@ -11,6 +11,7 @@
   );
 }
 button {
+  container: admin-system-card / inline-size;
   @apply tw:flex tw:flex-col tw:items-stretch tw:text-left tw:min-w-0;
   @apply tw:text-admin-text tw:p-4 tw:cursor-pointer;
   gap: 0.65rem;
@@ -90,6 +91,21 @@ small,
 .date {
   @apply tw:mt-auto;
   padding-top: 0.35rem;
+}
+@container admin-system-card (max-width: 16rem) {
+  .heading {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+  .heading > span {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .heading .arrow {
+    grid-column: 2;
+    grid-row: 1;
+  }
 }
 @media (max-width: 1250px) {
   .cards {

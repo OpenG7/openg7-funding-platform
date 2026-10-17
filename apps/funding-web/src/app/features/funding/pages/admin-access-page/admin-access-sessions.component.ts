@@ -26,7 +26,11 @@ import type {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [TranslatePipe, AdminAutomaticPreparationDirective],
   templateUrl: './admin-access-sessions.component.html',
-  styleUrl: './admin-access-controls.css'
+  styleUrls: [
+    '../../components/admin-ui/admin-controls.css',
+    '../../components/admin-ui/admin-forms.css',
+    './admin-access-controls.css'
+  ]
 })
 export class AdminAccessSessionsComponent {
   private readonly browser = isPlatformBrowser(inject(PLATFORM_ID));

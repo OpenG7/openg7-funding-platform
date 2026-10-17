@@ -2,12 +2,12 @@
 
 :host {
   @apply tw:block tw:min-w-0;
+  container: identity-guide / inline-size;
 }
 .identity-panel {
   border: 1px solid var(--admin-border);
-  @apply tw:rounded-xl tw:min-w-0;
+  @apply tw:rounded-admin-card tw:min-w-0 tw:p-admin-card;
   background: var(--admin-panel);
-  padding: 1.1rem;
 }
 .identity-panel > header,
 .step-actions {
@@ -18,7 +18,15 @@
 h2,
 h3,
 p {
-  @apply tw:m-0;
+  @apply tw:m-0 tw:min-w-0 tw:wrap-anywhere;
+}
+h2 {
+  font-size: var(--admin-section-size, 1.1875rem);
+  font-weight: var(--admin-section-weight, 600);
+  line-height: var(--admin-section-leading, 1.4);
+}
+.identity-panel > header > div {
+  @apply tw:min-w-0 tw:max-w-full;
 }
 p {
   @apply tw:wrap-anywhere;
@@ -39,21 +47,25 @@ p {
   padding-left: 0.8rem;
 }
 .identity-summary {
-  @apply tw:grid tw:grid-cols-2;
-  gap: 0.8rem;
-  margin: 1rem 0;
+  @apply tw:grid tw:gap-4 tw:min-w-0;
+  grid-template-columns: minmax(0, 1fr);
+  margin: 1.5rem 0;
+}
+.identity-summary > div {
+  @apply tw:min-w-0;
 }
 .identity-summary dt {
-  @apply tw:text-admin-muted tw:text-admin-caption;
+  @apply tw:text-admin-muted tw:text-admin-caption tw:wrap-anywhere;
+  font-weight: var(--admin-label-weight);
 }
 .identity-summary dd {
   margin: 0.3rem 0 0;
   @apply tw:wrap-anywhere;
+  font-size: 1rem;
 }
 .observation {
-  @apply tw:inline-block tw:text-admin-muted tw:text-admin-caption;
+  @apply tw:inline-block tw:max-w-full tw:wrap-anywhere tw:text-admin-muted tw:text-admin-caption tw:rounded-admin-control;
   background: var(--admin-panel-raised);
-  border-radius: 0.35rem;
   padding: 0.35rem 0.55rem;
 }
 .observation[data-state='missing'],
@@ -62,8 +74,8 @@ p {
   background: var(--admin-warning-bg);
 }
 .steps {
-  @apply tw:grid tw:grid-cols-2 tw:p-0;
-  gap: 0.45rem;
+  @apply tw:grid tw:p-0 tw:gap-2;
+  grid-template-columns: minmax(0, 1fr);
   margin: 1rem 0;
   list-style: none;
 }
@@ -71,14 +83,22 @@ button {
   font: inherit;
   @apply tw:cursor-pointer;
 }
+.steps li {
+  @apply tw:min-w-0;
+}
 .steps button {
   @apply tw:w-full tw:text-start tw:h-full tw:min-h-11 tw:text-admin-text;
   justify-content: start;
-  padding: 0.65rem;
-  gap: 0.6rem;
-  border: 1px solid var(--admin-border);
-  border-radius: 0.4rem;
-  background: var(--admin-panel-raised);
+  @apply tw:min-w-0 tw:wrap-anywhere;
+  gap: 0.75rem;
+  background: var(--admin-panel);
+  white-space: normal;
+}
+.steps button > span {
+  flex: 0 0 auto;
+  @apply tw:grid tw:place-items-center tw:w-6 tw:h-6 tw:text-admin-muted tw:text-admin-caption;
+  border-radius: 50%;
+  background: var(--admin-subtle);
 }
 .steps button[aria-current='step'] {
   border-color: var(--admin-focus);
@@ -86,7 +106,7 @@ button {
 }
 .step-detail {
   border-top: 1px solid var(--admin-border);
-  @apply tw:pt-4;
+  @apply tw:pt-4 tw:min-w-0;
   line-height: 1.6;
 }
 .step-detail > .observation,
@@ -107,7 +127,7 @@ button {
 }
 .all-steps summary {
   color: var(--admin-accent);
-  @apply tw:cursor-pointer;
+  @apply tw:cursor-pointer tw:min-h-admin-control tw:py-2.5 tw:wrap-anywhere;
 }
 .all-steps ol {
   padding-left: 1.4rem;
@@ -130,20 +150,24 @@ code {
 .guide-links a {
   color: var(--admin-accent);
   text-underline-offset: 0.2em;
+  @apply tw:inline-flex tw:items-center tw:min-h-admin-control tw:max-w-full tw:wrap-anywhere;
 }
 button:focus-visible,
 a:focus-visible,
-summary:focus-visible,
+summary:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 3px;
+}
 [tabindex='-1']:focus {
   outline: 3px solid var(--admin-focus);
-  outline-offset: 4px;
+  outline-offset: -3px;
 }
 .tour-target {
   box-shadow: 0 0 0 3px var(--admin-focus);
 }
-@media (max-width: 700px) {
+@container identity-guide (min-width: 42rem) {
   .identity-summary,
   .steps {
-    grid-template-columns: minmax(0, 1fr);
+    @apply tw:grid-cols-2;
   }
 }

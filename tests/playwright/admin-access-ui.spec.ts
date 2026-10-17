@@ -3,6 +3,12 @@ import type { Page } from '@playwright/test';
 import type { AdminAccessResponse } from '../../apps/funding-web/src/app/features/funding/services/funding-admin.service.js';
 
 import { test, expect } from './support/test.js';
+import {
+  blockAdminReviewWrites,
+  captureAdminDesign,
+  expectAdminPageFits,
+  prepareAdminDesignReview
+} from './support/admin-design-review.js';
 
 async function accessFixture(page: Page) {
   const state = {
@@ -92,6 +98,75 @@ async function openAccess(page: Page, language: 'fr' | 'en') {
       .click();
 }
 
+for (const language of ['fr-CA', 'en'] as const) {
+  for (const width of [390, 1536]) {
+    test(`access composition keeps accounts, draft and revocation readable in ${language} at ${width}px`, async ({
+      page
+    }, testInfo) => {
+      await page.setViewportSize({ width, height: 864 });
+      await prepareAdminDesignReview(page);
+      await page.addInitScript(
+        (locale) => localStorage.setItem('openg7.language', locale),
+        language
+      );
+      const state = await accessFixture(page);
+      const writes = await blockAdminReviewWrites(page);
+      await page.goto('/admin/fundraiser/access');
+      const account = page.locator(
+        '[data-og7="admin-account"][data-og7-id="operator"]'
+      );
+      await account.getByRole('button').click();
+      const editor = page.locator('openg7-admin-access-editor');
+      const name = editor.locator('input[name="name"]');
+      await expect(name).toHaveValue('Operator fixture');
+      await expect(page.locator('[data-og7="admin-account"]')).toHaveCount(2);
+      await expect(page.locator('[data-og7="admin-session"]')).toHaveCount(2);
+      if (width === 1536) {
+        const accounts = (await page
+          .locator('openg7-admin-access-accounts')
+          .boundingBox())!;
+        const fields = (await editor.boundingBox())!;
+        expect(fields.x).toBeGreaterThan(accounts.x + accounts.width);
+      }
+      await page.evaluate(() =>
+        window.scrollTo({ top: 0, behavior: 'instant' })
+      );
+      await captureAdminDesign(page, testInfo, `access-${width}`);
+      await name.fill('Synthetic unsubmitted account draft');
+      const revoke = page.locator(
+        '[data-og7="admin-session"][data-og7-id="operator-session"] button'
+      );
+      await page.keyboard.press('Tab');
+      await revoke.focus();
+      await revoke.press('Enter');
+      const confirmation = page.getByRole('group', {
+        name: language === 'en' ? 'Revoke session' : 'Révoquer la session'
+      });
+      await expect(confirmation.getByRole('button').first()).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(confirmation).toHaveCount(0);
+      await expect(revoke).toBeFocused();
+      await expect(name).toHaveValue('Synthetic unsubmitted account draft');
+      await expect(editor.locator('button[type="submit"]')).toBeDisabled();
+      if (language === 'en')
+        await page.evaluate(
+          () => (document.documentElement.style.fontSize = '32px')
+        );
+      await expectAdminPageFits(page);
+      for (const control of await editor
+        .locator('input:not([type="checkbox"]), select, button')
+        .all()) {
+        const box = (await control.boundingBox())!;
+        expect(box.x).toBeGreaterThanOrEqual(0);
+        expect(box.x + box.width).toBeLessThanOrEqual(width + 1);
+        expect(box.height).toBeGreaterThanOrEqual(44);
+      }
+      expect(state.changes).toEqual([]);
+      expect(writes).toEqual([]);
+    });
+  }
+}
+
 const accessPalettes = {
   mineral: {
     panel: 'rgb(255, 255, 255)',
@@ -119,7 +194,7 @@ const accessPalettes = {
 for (const theme of ['mineral', 'night', 'graphite'] as const) {
   for (const { language, width } of [
     { language: 'fr', width: 390 },
-    { language: 'en', width: 1280 }
+    { language: 'en', width: 1536 }
   ] as const) {
     test(`access retains ${theme} editor surfaces and cancelled revocation in ${language} at ${width}px`, async ({
       page
@@ -143,14 +218,15 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
       await expect(name).toHaveValue('Operator fixture');
       await expect(form).toHaveCSS('background-color', palette.panel);
       await expect(form).toHaveCSS('border-color', palette.border);
-      await expect(form).toHaveCSS('border-radius', '8px');
+      await expect(form).toHaveCSS('border-radius', '14px');
       await expect(form).toHaveCSS('gap', '16px');
-      await expect(form).toHaveCSS('padding', '16px');
+      await expect(form).toHaveCSS('padding', '20px');
       for (const field of [name, form.getByRole('combobox')]) {
         await expect(field).toHaveCSS('background-color', palette.panel);
         await expect(field).toHaveCSS('color', palette.text);
-        await expect(field).toHaveCSS('padding', '10.4px');
-        await expect(field).toHaveCSS('border-radius', '4.8px');
+        await expect(field).toHaveCSS('padding', '10px 12px');
+        await expect(field).toHaveCSS('border-radius', '10px');
+        await expect(field).toHaveCSS('min-height', '44px');
       }
       await name.focus();
       await expect(name).toHaveCSS('outline-width', '3px');
@@ -168,7 +244,7 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
       const revoke = page.locator(
         '[data-og7="admin-session"][data-og7-id="operator-session"] button'
       );
-      await expect(revoke).toHaveCSS('background-color', palette.raised);
+      await expect(revoke).toHaveCSS('background-color', palette.panel);
       await expect(revoke).toHaveCSS('color', palette.text);
       await expect(revoke).toHaveCSS('min-height', '44px');
       await revoke.focus();
@@ -192,7 +268,7 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
   }
 }
 
-test('access retains viewport padding and its content width limit', async ({
+test('access fits its available content width and keeps its width limit', async ({
   page
 }) => {
   await accessFixture(page);
@@ -200,7 +276,7 @@ test('access retains viewport padding and its content width limit', async ({
   const content = page.locator('[data-og7="admin-access"]');
   for (const width of [390, 1599, 1600, 1601]) {
     await page.setViewportSize({ width, height: 1000 });
-    await expect(content).toHaveCSS('max-width', '1040px');
+    await expect(content).toHaveCSS('max-width', '1248px');
     await expect(content).toHaveCSS('overflow-wrap', 'anywhere');
     await expect
       .poll(() =>
@@ -208,7 +284,7 @@ test('access retains viewport padding and its content width limit', async ({
           Number.parseFloat(getComputedStyle(node).paddingTop)
         )
       )
-      .toBeCloseTo(Math.min(width * 0.02, 32), 2);
+      .toBe(0);
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth + 1

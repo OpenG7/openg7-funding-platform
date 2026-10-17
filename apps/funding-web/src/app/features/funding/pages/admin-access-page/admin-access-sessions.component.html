@@ -1,47 +1,60 @@
-<h2>{{ 'admin.access.sessions' | translate }}</h2>
-<ul>
-  @for (session of sessions(); track session.id) {
-    <li data-og7="admin-session" [attr.data-og7-id]="session.id">
-      {{ nameFor(session.accountId) }} — {{ session.createdAt }}
+<section class="access-panel" aria-labelledby="access-sessions-title">
+  <h2 id="access-sessions-title">{{ 'admin.access.sessions' | translate }}</h2>
+  <ul>
+    @for (session of sessions(); track session.id) {
+      <li data-og7="admin-session" [attr.data-og7-id]="session.id">
+        <div class="entry-copy">
+          <strong>{{ nameFor(session.accountId) }}</strong>
+          <span>{{ session.createdAt }}</span>
+        </div>
+        <button
+          #sessionTrigger
+          type="button"
+          class="admin-button"
+          [disabled]="busy()"
+          (click)="selectSession(session.id, $event)"
+          [openg7AutomaticPrepare]="'access-revoke:' + session.id"
+          [automaticExecutionMode]="'confirmation_required'"
+          (automaticPrepare)="
+            sessionSelected.emit({
+              sessionId: session.id,
+              trigger: sessionTrigger
+            })
+          "
+        >
+          {{ 'admin.access.revoke' | translate }}
+        </button>
+      </li>
+    }
+  </ul>
+  @if (pendingSession(); as id) {
+    <section
+      class="revoke-confirmation"
+      role="group"
+      [attr.aria-label]="'admin.access.revoke' | translate"
+      (keydown.escape)="cancelRequested.emit(); $event.stopPropagation()"
+    >
+      <p>
+        {{ 'admin.access.revokeConfirm' | translate }}
+        {{ sessionName(id) }}
+      </p>
       <button
-        #sessionTrigger
+        #revokeConfirmButton
         type="button"
+        class="admin-button"
         [disabled]="busy()"
-        (click)="selectSession(session.id, $event)"
-        [openg7AutomaticPrepare]="'access-revoke:' + session.id"
-        [automaticExecutionMode]="'confirmation_required'"
-        (automaticPrepare)="
-          sessionSelected.emit({
-            sessionId: session.id,
-            trigger: sessionTrigger
-          })
-        "
+        (click)="revokeRequested.emit(id)"
       >
         {{ 'admin.access.revoke' | translate }}
       </button>
-    </li>
+      <button
+        type="button"
+        class="admin-button"
+        [disabled]="busy()"
+        (click)="cancelRequested.emit()"
+      >
+        {{ 'admin.access.cancel' | translate }}
+      </button>
+    </section>
   }
-</ul>
-@if (pendingSession(); as id) {
-  <section
-    role="group"
-    [attr.aria-label]="'admin.access.revoke' | translate"
-    (keydown.escape)="cancelRequested.emit(); $event.stopPropagation()"
-  >
-    <p>
-      {{ 'admin.access.revokeConfirm' | translate }}
-      {{ sessionName(id) }}
-    </p>
-    <button
-      #revokeConfirmButton
-      type="button"
-      [disabled]="busy()"
-      (click)="revokeRequested.emit(id)"
-    >
-      {{ 'admin.access.revoke' | translate }}
-    </button>
-    <button type="button" [disabled]="busy()" (click)="cancelRequested.emit()">
-      {{ 'admin.access.cancel' | translate }}
-    </button>
-  </section>
-}
+</section>

@@ -120,8 +120,8 @@ Les primitives Angular existantes (boutons, formulaires, badges, cartes métriqu
 et confirmation) consomment ce contrat. Le cadre, le cockpit, les dossiers
 commanditaires et les espaces de publication utilisent ces compositions harmonisées.
 Leurs contenus, permissions, étapes et confirmations restent portés par leurs
-composants métier. Les autres compositions profitent de la palette commune;
-leur harmonisation détaillée reste progressive.
+composants métier. Les pages administratives et leurs panneaux secondaires
+partagent ces fondations; les pages publiques conservent leur direction propre.
 
 Le tableau de bord commence par une synthèse financière compacte, puis la file
 des priorités et le dossier courant. Les tendances restent consultables avec
@@ -154,6 +154,21 @@ leur conteneur et ses guides conservent leurs repères de focus. Le composant de
 cartes système accepte `--admin-system-cards-columns`; Configuration l'utilise
 pour élargir ses diagnostics, tandis que les autres consommateurs gardent leur
 grille par défaut.
+
+Le Pilotage privilégie le dossier et la décision courante; les outils de suivi
+viennent après son espace de travail. Les modes Concentration, détails, semaine
+et manette conservent leurs zones de défilement et leurs actions accessibles.
+L'Automatisation présente les livraisons courantes et un rail pour le moteur et
+ses réglages lorsque la largeur le permet; sources et diagnostics restent
+consultables ensuite. Préparation, autorisation et résultat d'envoi restent
+distincts dans ces deux écrans.
+
+Accès réunit les comptes et sessions avec leur éditeur, sans changer les
+confirmations de modification ou de révocation. Connexion et guide d'identité
+gardent leurs parcours OIDC et leurs états de configuration. Les sauvegardes
+présentent d'abord leur état et leurs reçus, puis leur historique et leurs
+guides. L'Assistant contextuel conserve ses faits confirmés et sa prochaine
+étape; ses formulaires reprennent les bordures, focus et dimensions communes.
 
 La vue Publications présente d'abord les prochains lots. Les accès à la rédaction,
 aux lots et au calendrier occupent un rail à droite dès 60 rem de contenu disponible,

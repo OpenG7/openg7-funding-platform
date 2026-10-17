@@ -8,11 +8,10 @@
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
   @apply tw:rounded-admin-card;
-  padding: 1.1rem;
-  @apply tw:wrap-anywhere;
+  @apply tw:p-admin-card tw:min-w-0 tw:wrap-anywhere;
 }
 .context-card {
-  @apply tw:grid tw:gap-4;
+  @apply tw:grid tw:gap-admin-section;
 }
 .heading,
 .actions,
@@ -23,7 +22,7 @@
   @apply tw:justify-between;
 }
 h2 {
-  @apply tw:flex tw:items-center;
+  @apply tw:flex tw:flex-wrap tw:items-center tw:min-w-0;
   gap: 0.65rem;
 }
 h2,
@@ -37,12 +36,13 @@ p {
   font-weight: var(--admin-label-weight);
 }
 .facts {
-  @apply tw:grid;
+  @apply tw:grid tw:min-w-0;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
   @apply tw:gap-4 tw:m-0;
 }
 summary {
-  @apply tw:cursor-pointer tw:text-admin-muted tw:mb-3;
+  @apply tw:cursor-pointer tw:text-admin-muted tw:min-h-admin-control tw:mb-3;
+  align-content: center;
 }
 summary:focus-visible {
   outline: 3px solid var(--admin-focus);
@@ -54,6 +54,11 @@ dt,
 }
 dd {
   margin: 0.2rem 0 0;
+}
+.facts > div,
+dt,
+dd {
+  @apply tw:min-w-0 tw:wrap-anywhere;
 }
 .recommendation {
   background: var(--admin-panel-raised);
@@ -73,16 +78,17 @@ label {
 input,
 textarea {
   background: var(--admin-bg);
-  border: 1px solid var(--admin-border);
-  @apply tw:rounded-admin-sm tw:text-admin-text;
-  padding: 0.7rem;
-  @apply tw:w-full tw:box-border;
+  border: 1px solid var(--admin-control-border);
+  @apply tw:rounded-admin-control tw:text-admin-text tw:min-h-admin-control;
+  padding: 0.625rem 0.75rem;
+  @apply tw:w-full tw:max-w-full tw:min-w-0 tw:box-border;
   font: inherit;
   font-weight: 400;
 }
 textarea {
   @apply tw:resize-y;
 }
+input:focus-visible,
 textarea:focus-visible {
   outline: 3px solid var(--admin-focus);
   outline-offset: 3px;
@@ -104,7 +110,7 @@ dialog {
   background: var(--admin-panel);
   @apply tw:text-admin-text;
   border: 1px solid var(--admin-gold);
-  @apply tw:rounded-admin-card tw:p-6;
+  @apply tw:rounded-admin-card tw:p-admin-card tw:wrap-anywhere;
   width: min(38rem, calc(100vw - 3rem));
   max-height: calc(100dvh - 3rem);
   @apply tw:box-border;

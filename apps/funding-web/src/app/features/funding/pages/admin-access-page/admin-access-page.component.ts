@@ -40,13 +40,15 @@ import { AdminAccessSessionsComponent } from './admin-access-sessions.component.
   template: `
     <openg7-admin-layout
       ><section class="access-content" data-og7="admin-access">
-        <a routerLink="/admin/fundraiser">{{
+        <a class="admin-link back-link" routerLink="/admin/fundraiser">{{
           'admin.access.back' | translate
         }}</a>
-        <h1 #accessTitle tabindex="-1">
-          {{ 'admin.access.title' | translate }}
-        </h1>
-        <p>{{ 'admin.access.help' | translate }}</p>
+        <header>
+          <h1 #accessTitle tabindex="-1">
+            {{ 'admin.access.title' | translate }}
+          </h1>
+          <p>{{ 'admin.access.help' | translate }}</p>
+        </header>
         @if (error()) {
           <p role="alert">{{ error() | translate }}</p>
         }
@@ -54,20 +56,22 @@ import { AdminAccessSessionsComponent } from './admin-access-sessions.component.
           <p role="status">{{ 'admin.access.loading' | translate }}</p>
         }
         @if (data(); as access) {
-          <openg7-admin-access-accounts
-            [accounts]="access.accounts"
-            [busy]="busy()"
-            (editRequested)="edit($event)"
-          />
-          <openg7-admin-access-editor
-            [draft]="draft()"
-            [busy]="busy()"
-            [confirmed]="confirmed()"
-            (fieldChanged)="changeField($event)"
-            (confirmationChanged)="confirmed.set($event)"
-            (newRequested)="newAccount()"
-            (saveRequested)="save()"
-          />
+          <div class="access-workspace">
+            <openg7-admin-access-accounts
+              [accounts]="access.accounts"
+              [busy]="busy()"
+              (editRequested)="edit($event)"
+            />
+            <openg7-admin-access-editor
+              [draft]="draft()"
+              [busy]="busy()"
+              [confirmed]="confirmed()"
+              (fieldChanged)="changeField($event)"
+              (confirmationChanged)="confirmed.set($event)"
+              (newRequested)="newAccount()"
+              (saveRequested)="save()"
+            />
+          </div>
           <openg7-admin-access-sessions
             [accounts]="access.accounts"
             [sessions]="access.sessions"
@@ -80,7 +84,12 @@ import { AdminAccessSessionsComponent } from './admin-access-sessions.component.
         }</section
     ></openg7-admin-layout>
   `,
-  styleUrl: './admin-access-page.component.css'
+  styleUrls: [
+    '../../components/admin-ui/admin-theme.css',
+    '../../components/admin-ui/admin-controls.css',
+    '../../components/admin-ui/admin-forms.css',
+    './admin-access-page.component.css'
+  ]
 })
 export class AdminAccessPageComponent implements OnInit, OnDestroy {
   private readonly admin = inject(FundingAdminService);

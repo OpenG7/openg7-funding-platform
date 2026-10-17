@@ -12,6 +12,12 @@ import type {
 
 import { test, expect } from './support/test.js';
 import { moderationFixture, completeModeration } from './support/moderation.js';
+import {
+  blockAdminReviewWrites,
+  captureAdminDesign,
+  expectAdminPageFits,
+  prepareAdminDesignReview
+} from './support/admin-design-review.js';
 
 function guide(page: Page, id = 'pilotage') {
   return page.locator(`[data-og7="admin-guide"][data-og7-id="${id}"]`);
@@ -210,11 +216,15 @@ for (const theme of ['night', 'mineral', 'graphite'] as const) {
           .locator(`[data-og7="pilot-theme-${theme}"]`)
           .locator('..')
           .locator('..');
-        await expect(themeCard).toHaveCSS('padding', '11.2px');
-        await expect(themeCard).toHaveCSS('border-radius', '12px');
-        await expect(
+        for (const choice of [
+          themeCard,
           page.locator('[data-og7="pilot-density-compact"]').locator('..')
-        ).toHaveCSS('padding', '14.4px');
+        ]) {
+          const bounds = (await choice.boundingBox())!;
+          expect(bounds.height).toBeGreaterThanOrEqual(44);
+          expect(bounds.x).toBeGreaterThanOrEqual(0);
+          expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+        }
         if (language === 'fr-CA') {
           const audit = await new AxeBuilder({ page })
             .include('dialog[open]')
@@ -263,6 +273,95 @@ for (const theme of ['night', 'mineral', 'graphite'] as const) {
         expect(commands).toEqual([]);
       });
     }
+  }
+}
+
+for (const language of ['fr-CA', 'en']) {
+  for (const width of [390, 1536]) {
+    test(`Pilotage composition keeps decisions, following queue and commands accessible in ${language} at ${width}px`, async ({
+      page
+    }, testInfo) => {
+      await prepareAdminDesignReview(page);
+      const { state, commands } = await fixtures(page);
+      const writes = await blockAdminReviewWrites(page);
+      await page.addInitScript((language) => {
+        localStorage.setItem('openg7.language', language);
+      }, language);
+      await page.setViewportSize({ width, height: 864 });
+      await page.goto('/admin/fundraiser/pilotage');
+      const decision = page.locator('[data-og7="pilot-decision"]');
+      const title = decision.getByRole('heading', {
+        name: state.decisions[0]!.title,
+        exact: true
+      });
+      const frame = page.locator('[data-og7="pilot-scroll"]');
+      const queue = page.locator('[data-og7="pilot-queue"]');
+      await expect(page.locator('html')).toHaveAttribute('lang', language);
+      await expect(decision).toHaveAttribute(
+        'data-og7-id',
+        state.decisions[0]!.id
+      );
+      await expect(queue.getByRole('button')).toHaveCount(3);
+      await expect(frame).toBeVisible();
+      await expectAdminPageFits(page);
+      expect(
+        await frame.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)
+      ).toBe(true);
+      const actions = page.locator('[data-og7="pilot-actions"] button');
+      await expect(actions).toHaveCount(4);
+      for (const action of await actions.all()) {
+        expect((await action.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+        await expect(action).toBeInViewport({ ratio: 1 });
+      }
+      if (width === 1536) {
+        await expect(title).toBeInViewport({ ratio: 1 });
+        await expect(queue.getByRole('button').first()).toBeInViewport({
+          ratio: 1
+        });
+      } else {
+        await title.scrollIntoViewIfNeeded();
+        await expect(title).toBeInViewport({ ratio: 1 });
+      }
+      await captureAdminDesign(
+        page,
+        testInfo,
+        `pilotage-composition-${language}-${width}`
+      );
+      if (language === 'en') {
+        await page.addStyleTag({
+          content: 'html { font-size: 200% !important; }'
+        });
+        await expectAdminPageFits(page);
+        expect(
+          await frame.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)
+        ).toBe(true);
+        // At 200%, a heading may be taller than the reserved reading area.
+        // Both ends must remain reachable without cropping the heading itself.
+        for (const block of ['start', 'end'] as const) {
+          await title.evaluate(
+            (el, block) => el.scrollIntoView({ block, behavior: 'instant' }),
+            block
+          );
+          await expect(title).toBeInViewport();
+          const headingBounds = (await title.boundingBox())!;
+          const frameBounds = (await frame.boundingBox())!;
+          if (block === 'start') {
+            expect(headingBounds.y).toBeGreaterThanOrEqual(frameBounds.y - 1);
+          } else {
+            expect(headingBounds.y + headingBounds.height).toBeLessThanOrEqual(
+              frameBounds.y + frameBounds.height + 1
+            );
+          }
+        }
+        for (const action of await actions.all()) {
+          await action.scrollIntoViewIfNeeded();
+          await expect(action).toBeInViewport({ ratio: 1 });
+        }
+        await captureAdminDesign(page, testInfo, `pilotage-text-200-${width}`);
+      }
+      expect(writes).toEqual([]);
+      expect(commands).toEqual([]);
+    });
   }
 }
 
@@ -484,6 +583,7 @@ for (const width of [390, 1440]) {
   test(`right stick reveals the end of a long decision without opening a panel at ${width}px`, async ({
     page
   }) => {
+    await controllerClock(page);
     const { state, commands } = await fixtures(page);
     const marker = 'Fin du contenu à examiner.';
     state.decisions[0]!.publication!.message =
@@ -506,34 +606,45 @@ for (const width of [390, 1440]) {
         window as unknown as { fixturePad: { axes: number[] } }
       ).fixturePad.axes[3] = 0.9;
     });
+    // Sample each controller repeat: the content end can pass through the
+    // reading area before the following review panel reaches the scroll end.
     await expect
-      .poll(() =>
-        page
-          .locator('[data-og7="pilot-decision"]')
-          .evaluate((element, ending) => {
-            const walker = document.createTreeWalker(
-              element,
-              NodeFilter.SHOW_TEXT
-            );
-            let node: Node | null;
-            while ((node = walker.nextNode())) {
-              const index = node.textContent?.indexOf(ending) ?? -1;
-              if (index < 0) continue;
-              const range = document.createRange();
-              range.setStart(node, index);
-              range.setEnd(node, index + ending.length);
-              const text = range.getBoundingClientRect();
-              const content = node.parentElement!.getBoundingClientRect();
-              const frame = element
-                .closest('[data-og7="pilot-scroll"]')!
-                .getBoundingClientRect();
-              return (
-                text.top >= Math.max(content.top, frame.top) &&
-                text.bottom <= Math.min(content.bottom, frame.bottom)
+      .poll(
+        async () => {
+          await page.clock.runFor(150);
+          return page
+            .locator('[data-og7="pilot-decision"]')
+            .evaluate((element, ending) => {
+              const walker = document.createTreeWalker(
+                element,
+                NodeFilter.SHOW_TEXT
               );
-            }
-            return false;
-          }, marker)
+              let node: Node | null;
+              while ((node = walker.nextNode())) {
+                const index = node.textContent?.indexOf(ending) ?? -1;
+                if (index < 0) continue;
+                const range = document.createRange();
+                range.setStart(node, index);
+                range.setEnd(node, index + ending.length);
+                const text = range.getBoundingClientRect();
+                const content = node.parentElement!.getBoundingClientRect();
+                const frame = element
+                  .closest('[data-og7="pilot-scroll"]')!
+                  .getBoundingClientRect();
+                const hit = document.elementFromPoint(
+                  text.left + text.width / 2,
+                  text.top + text.height / 2
+                );
+                return (
+                  text.top >= Math.max(content.top, frame.top) &&
+                  text.bottom <= Math.min(content.bottom, frame.bottom) &&
+                  node.parentElement!.contains(hit)
+                );
+              }
+              return false;
+            }, marker);
+        },
+        { intervals: [50] }
       )
       .toBe(true);
     await page.evaluate(() => {
@@ -542,8 +653,14 @@ for (const width of [390, 1440]) {
       ).fixturePad.axes[3] = -0.9;
     });
     await expect
-      .poll(() =>
-        page.locator('[data-og7="pilot-scroll"]').evaluate((el) => el.scrollTop)
+      .poll(
+        async () => {
+          await page.clock.runFor(150);
+          return page
+            .locator('[data-og7="pilot-scroll"]')
+            .evaluate((el) => el.scrollTop);
+        },
+        { intervals: [50] }
       )
       .toBe(0);
     await page.evaluate(() => {
