@@ -12,6 +12,7 @@ import { test, expect } from '@playwright/test';
 import sharp from 'sharp';
 import { createRecoveryFixture, token } from './fixture.mjs';
 import { navigatePublicPageAfterNetworkChange } from '../support/public-navigation.mjs';
+import { navigateRecoveryLoginAfterNetworkChange } from '../support/recovery-login-navigation.mjs';
 import { approveCurrentModeration } from '../playwright/support/moderation.js';
 
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
@@ -81,7 +82,11 @@ async function recoveryScenario(mediaDriver, { playwright }, info) {
     pages.push(page);
     page.setDefaultTimeout(15000);
     page.setDefaultNavigationTimeout(20000);
-    await page.goto(target.origin + '/admin/login');
+    await navigateRecoveryLoginAfterNetworkChange(
+      page,
+      target.origin + '/admin/login',
+      () => expect(page.locator('input[type=password]')).toBeVisible()
+    );
     await page.locator('input[type=password]').fill(token);
     await page.locator('button[type=submit]').click();
     await expect(page).toHaveURL(/\/admin\/fundraiser/);

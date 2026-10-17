@@ -6,7 +6,8 @@ import {
   effect,
   inject,
   output,
-  signal
+  signal,
+  viewChild
 } from '@angular/core';
 import type { AdminAutomaticRunEntry } from '@openg7/funding-core';
 
@@ -36,7 +37,10 @@ export class AdminAutomaticComponent {
   readonly pages = ADMIN_GUIDANCE_PAGES;
   readonly languageReady = signal(false);
   readonly languageError = signal(false);
+  readonly portfolioStarting = signal(false);
   readonly show = output<string>();
+  private readonly portfolioView = viewChild(AdminAutomaticPortfolioComponent);
+  private disposed = false;
   private shown = 0;
 
   constructor() {
@@ -46,8 +50,7 @@ export class AdminAutomaticComponent {
           ? 'payment'
           : (this.automatic.guidance.page()?.id ?? 'dashboard')
       );
-    let disposed = false;
-    inject(DestroyRef).onDestroy(() => (disposed = true));
+    inject(DestroyRef).onDestroy(() => (this.disposed = true));
     effect((onCleanup) => {
       const language = this.i18n.currentLanguage();
       let current = true;
@@ -60,14 +63,14 @@ export class AdminAutomaticComponent {
           : import('../../../../../assets/i18n/admin-automatic.fr-CA.json');
       void locale
         .then(({ default: translations }) => {
-          if (!current || disposed) return;
+          if (!current || this.disposed) return;
           this.i18n.mergeTranslations(language, {
             admin: { automatic: translations }
           });
           this.languageReady.set(true);
         })
         .catch(() => {
-          if (!current || disposed) return;
+          if (!current || this.disposed) return;
           this.automatic.pause();
           this.portfolio.pause();
           this.languageError.set(true);
@@ -113,6 +116,29 @@ export class AdminAutomaticComponent {
     this.portfolio.pause();
     this.automatic.pause();
     this.automatic.selection.set((event.target as HTMLSelectElement).value);
+  }
+
+  async startPortfolio(): Promise<void> {
+    if (this.portfolioStarting()) return;
+    this.portfolioStarting.set(true);
+    try {
+      await this.portfolio.load();
+      const view = this.portfolioView();
+      if (
+        this.disposed ||
+        !this.languageReady() ||
+        this.languageError() ||
+        !view
+      )
+        return;
+      view.focus();
+      const { state, error } = this.portfolio.snapshot();
+      if (!state || error || (state.run && state.run.status !== 'completed'))
+        return;
+      await this.portfolio.start();
+    } finally {
+      this.portfolioStarting.set(false);
+    }
   }
 
   startPreparation(): void {

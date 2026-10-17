@@ -10,6 +10,38 @@ const route = '/admin/fundraiser/attention';
 const hook = (page: Page, name: string) =>
   page.locator(`[data-og7="automatic-portfolio-${name}"]`);
 
+async function acknowledgeReading(
+  page: Page,
+  step: 'scope' | 'dossier' | 'result' | 'summary'
+) {
+  await expect(hook(page, 'state')).toHaveAttribute(
+    'data-og7-id',
+    'awaiting_approval'
+  );
+  await expect(hook(page, 'reading')).toHaveAttribute('data-og7-id', step);
+  const approval = hook(page, 'approve');
+  await expect(approval).toBeEnabled();
+  const readingId = await approval.getAttribute('data-og7-id');
+  expect(readingId).toMatch(/^\d+$/);
+  await approval.click();
+  await expect(
+    page.locator(
+      `[data-og7="automatic-portfolio-approve"][data-og7-id="${readingId}"]`
+    )
+  ).toHaveCount(0);
+}
+
+async function acknowledgePassage(page: Page, dossierCount: number) {
+  // Scope, one preview and one confirmed result per dossier, then the summary.
+  // These UI gestures acknowledge reading; they approve no business decision.
+  await acknowledgeReading(page, 'scope');
+  for (let index = 0; index < dossierCount; ++index) {
+    await acknowledgeReading(page, 'dossier');
+    await acknowledgeReading(page, 'result');
+  }
+  await acknowledgeReading(page, 'summary');
+}
+
 /** Real OIDC, API, PostgreSQL and built Web; no application response is intercepted. */
 test('automatic responsibilities traverse confirmed payments and retain a dated honest report through reload and a new payment', async ({
   playwright
@@ -77,6 +109,7 @@ test('automatic responsibilities traverse confirmed payments and retain a dated 
       );
       expect(commands).toEqual([]);
       await hook(page, 'start').click();
+      await acknowledgePassage(page, 2);
       await expect(hook(page, 'state')).toHaveAttribute(
         'data-og7-id',
         'completed'
@@ -186,6 +219,7 @@ test('automatic responsibilities traverse confirmed payments and retain a dated 
 
     await test.step('A voluntary new passage includes all three dossiers, parks unknown promises and writes a rereadable report', async () => {
       await hook(page, 'start').click();
+      await acknowledgePassage(page, 3);
       await expect(hook(page, 'state')).toHaveAttribute(
         'data-og7-id',
         'completed'

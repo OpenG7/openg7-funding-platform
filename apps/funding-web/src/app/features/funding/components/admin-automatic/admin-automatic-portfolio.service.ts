@@ -10,6 +10,10 @@ import {
   untracked
 } from '@angular/core';
 import { NavigationStart, Router } from '@angular/router';
+import type {
+  AdminPaymentJourney,
+  AdminAutomaticRunState
+} from '@openg7/funding-core';
 
 import { AdminGuidanceService } from '../../services/admin-guidance.service.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
@@ -17,6 +21,7 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { AdminAutomaticPortfolioClient } from './admin-automatic-portfolio.client.js';
 import {
   AdminAutomaticPortfolioRun,
+  type AutomaticPortfolioReviewStep,
   type AutomaticPortfolioSnapshot
 } from './admin-automatic-portfolio-run.js';
 import { AdminAutomaticService } from './admin-automatic.service.js';
@@ -35,16 +40,23 @@ export class AdminAutomaticPortfolioService {
     state: null,
     entries: [],
     nextCursor: null,
-    error: null
+    error: null,
+    review: null
   });
+  readonly reviewJourney = signal<AdminPaymentJourney | null>(null);
+  readonly reviewObservedAt = signal<string | null>(null);
   readonly active = computed(() =>
-    ['loading', 'explaining', 'advancing'].includes(this.snapshot().phase)
+    ['loading', 'explaining', 'awaiting_approval', 'advancing'].includes(
+      this.snapshot().phase
+    )
   );
   readonly busy = computed(() =>
     ['loading', 'advancing'].includes(this.snapshot().phase)
   );
   private identity = '';
+  private loading: Promise<void> | null = null;
   private previousIdentity: string | undefined;
+  private readingOperation = 0;
   private readonly run = new AdminAutomaticPortfolioRun({
     read: (runId) => this.client.read(runId),
     start: () => this.client.start(),
@@ -53,8 +65,15 @@ export class AdminAutomaticPortfolioService {
     report: (runId, after) => this.client.report(runId, after),
     current: () => this.current(),
     canContinue: () => this.canContinue(),
-    explain: () => new Promise((resolve) => setTimeout(resolve, 1100)),
-    changed: (snapshot) => this.snapshot.set(snapshot)
+    explain: (step, state) => this.prepareReading(step, state),
+    changed: (snapshot) => {
+      if (!['explaining', 'awaiting_approval'].includes(snapshot.phase)) {
+        ++this.readingOperation;
+        this.reviewJourney.set(null);
+        this.reviewObservedAt.set(null);
+      }
+      this.snapshot.set(snapshot);
+    }
   });
 
   constructor() {
@@ -69,9 +88,10 @@ export class AdminAutomaticPortfolioService {
         if (
           this.previousIdentity !== undefined &&
           this.previousIdentity !== identity
-        )
+        ) {
+          this.loading = null;
           this.run.clear();
-        else if (!enabled && this.run.active) this.run.pause();
+        } else if (!enabled && this.run.active) this.run.pause();
         this.previousIdentity = identity;
       });
     });
@@ -100,7 +120,23 @@ export class AdminAutomaticPortfolioService {
       this.document.addEventListener('input', edit, true);
       this.document.addEventListener('change', edit, true);
       this.document.defaultView?.addEventListener('pagehide', pause);
+      const observer = new MutationObserver(() => {
+        if (
+          this.run.active &&
+          this.document.querySelector(
+            'dialog[open], [data-og7-automatic-block]'
+          )
+        )
+          pause();
+      });
+      observer.observe(this.document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['open', 'data-og7-automatic-block']
+      });
       destroy.onDestroy(() => {
+        observer.disconnect();
         this.document.removeEventListener('visibilitychange', hide);
         this.document.removeEventListener('input', edit, true);
         this.document.removeEventListener('change', edit, true);
@@ -109,25 +145,67 @@ export class AdminAutomaticPortfolioService {
     });
   }
 
-  async load(): Promise<void> {
+  load(): Promise<void> {
+    if (this.loading) return this.loading;
     this.identity = this.identityKey();
-    await this.run.load();
+    const loading = this.run.load().finally(() => {
+      if (this.loading === loading) this.loading = null;
+    });
+    this.loading = loading;
+    return loading;
   }
 
   async start(): Promise<void> {
     this.preparation.pause();
-    this.identity = this.identityKey();
+    const identity = this.identityKey();
+    this.identity = identity;
     await this.run.start();
+    if (identity === this.identityKey()) void this.admin.refreshWorkQueue();
   }
 
   async resume(recheck = false): Promise<void> {
     this.preparation.pause();
-    this.identity = this.identityKey();
+    const identity = this.identityKey();
+    this.identity = identity;
     await this.run.resume(recheck);
+    if (identity === this.identityKey()) void this.admin.refreshWorkQueue();
   }
 
   pause(): void {
     this.run.pause();
+  }
+
+  approve(readingId: number): void {
+    this.run.approve(readingId);
+  }
+
+  private async prepareReading(
+    step: AutomaticPortfolioReviewStep,
+    state: AdminAutomaticRunState
+  ): Promise<void> {
+    const operation = ++this.readingOperation;
+    this.reviewJourney.set(null);
+    this.reviewObservedAt.set(null);
+    if (step !== 'dossier') return;
+    const contributionId = state.run?.nextContributionId;
+    try {
+      if (!contributionId) throw new Error('Missing reading dossier');
+      const response = await this.admin.getPaymentJourney(contributionId);
+      if (operation !== this.readingOperation || !this.current()) return;
+      if (
+        response.status !== 'ok' ||
+        response.journey?.contributionId !== contributionId
+      )
+        throw new Error('Reading dossier unavailable');
+      this.reviewJourney.set(response.journey);
+      this.reviewObservedAt.set(response.generatedAt);
+    } catch (error) {
+      if (operation !== this.readingOperation || !this.current()) return;
+      throw Object.assign(new Error('AUTOMATIC_READING_UNAVAILABLE'), {
+        status: (error as { status?: number } | null)?.status ?? 503,
+        code: 'RUN_READING_UNAVAILABLE'
+      });
+    }
   }
 
   async more(): Promise<void> {

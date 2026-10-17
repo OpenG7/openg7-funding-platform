@@ -83,7 +83,9 @@ test(
       const valid = await fetch(url, { headers });
       assert.equal(valid.status, 200);
       assert.equal(valid.headers.get('cache-control'), 'private, no-store');
-      assert.equal((await valid.json()).available, false);
+      const unavailableQueue = await valid.json();
+      assert.equal(unavailableQueue.available, false);
+      assert.equal(unavailableQueue.pendingDossierCount, null);
       const historical = await fetch(
         url + '?type=sponsorship_needs_commitment',
         { headers }

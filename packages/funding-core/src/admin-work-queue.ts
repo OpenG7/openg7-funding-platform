@@ -60,6 +60,8 @@ export interface AdminWorkQueueResponse {
   readonly total: number;
   readonly filteredTotal: number;
   readonly todayTotal: number;
+  /** Distinct dossiers with a required action before filters/pages; absent or null means unknown. */
+  readonly pendingDossierCount?: number | null;
   readonly counts: Readonly<Record<AdminAttentionSeverity, number>>;
   readonly typeCounts: Readonly<Record<AdminAttentionItemType, number>>;
   /** Counts of required actions only, excluding informational entries. */

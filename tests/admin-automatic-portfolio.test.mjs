@@ -81,7 +81,7 @@ function gate() {
   return { promise, resolve, reject };
 }
 
-function fixture() {
+function fixture(autoApprove = true) {
   const f = {
     state: state(),
     calls: [],
@@ -146,12 +146,14 @@ function fixture() {
     },
     current: () => f.current,
     canContinue: () => f.current && !f.barrier,
-    explain: async () => {
-      f.calls.push(['explain']);
+    explain: async (step, runState) => {
+      f.calls.push(['explain', step, runState.run.version]);
       if (f.explainGate) await f.explainGate.promise;
     },
     changed: (snapshot) => {
       f.snapshot = snapshot;
+      if (autoApprove && snapshot.review)
+        queueMicrotask(() => f.run.approve(snapshot.review.id));
     }
   };
   f.run = new AdminAutomaticPortfolioRun(ports);
@@ -160,12 +162,355 @@ function fixture() {
 }
 
 async function reached(f, operation) {
-  for (let i = 0; i < 20; ++i) {
+  for (let i = 0; i < 200; ++i) {
     if (f.calls.some(([name]) => name === operation)) return;
     await Promise.resolve();
   }
   assert.fail(`The ${operation} operation was not reached.`);
 }
+
+async function review(f, step, after = 0) {
+  for (let i = 0; i < 200; ++i) {
+    const current = f.snapshot?.review;
+    if (current?.step === step && current.id > after) return current;
+    await Promise.resolve();
+  }
+  assert.fail(`The ${step} reading was not reached.`);
+}
+
+async function summaryWithPages() {
+  const f = fixture(false);
+  const entries = Array.from({ length: 120 }, (_, index) => entry(index + 1));
+  f.state = state(120, 'completed', entries.at(-1));
+  f.entries = entries.slice(0, 50);
+  f.reportCursor = 50;
+  f.ports.report = async (id, after) => {
+    f.calls.push(['report', id, after]);
+    const page = entries.filter((item) => item.seq > (after ?? 0)).slice(0, 50);
+    return {
+      entries: page,
+      nextCursor: page.at(-1)?.seq < entries.length ? page.at(-1).seq : null
+    };
+  };
+  const pending = f.run.start();
+  f.run.approve((await review(f, 'scope')).id);
+  const summary = await review(f, 'summary');
+  return { f, summary, pending };
+}
+
+test('summary reading can load every report page, suppress duplicate page reads and refuse approval during the fetch', async () => {
+  const { f, summary, pending } = await summaryWithPages();
+  const read = gate();
+  const report = f.ports.report;
+  f.ports.report = async (id, after) => {
+    if (after === 50) await read.promise;
+    return report(id, after);
+  };
+  const loading = f.run.more();
+  assert.equal(f.snapshot.reportLoading, true);
+  f.run.approve(summary.id);
+  assert.equal(f.snapshot.review.id, summary.id);
+  await f.run.more();
+  read.resolve();
+  await loading;
+  assert.equal(f.snapshot.entries.length, 100);
+  assert.equal(f.snapshot.nextCursor, 100);
+  assert.equal(f.snapshot.reportLoading, false);
+  assert.equal(
+    f.calls.filter(([name, , cursor]) => name === 'report' && cursor === 50)
+      .length,
+    1
+  );
+  await f.run.more();
+  assert.equal(f.snapshot.entries.length, 120);
+  assert.equal(new Set(f.snapshot.entries.map((item) => item.seq)).size, 120);
+  assert.equal(f.snapshot.nextCursor, null);
+  assert.equal(f.snapshot.review.id, summary.id);
+  f.run.approve(summary.id);
+  await pending;
+  assert.equal(f.snapshot.phase, 'completed');
+  assert.equal(
+    f.calls.filter(([name]) => ['advance', 'control'].includes(name)).length,
+    0
+  );
+});
+
+test('a failed summary page stays available for explicit retry and blocks approval without becoming uncertain', async () => {
+  const { f, summary, pending } = await summaryWithPages();
+  const report = f.ports.report;
+  let unavailable = true;
+  f.ports.report = async (id, after) => {
+    if (unavailable && after === 50)
+      throw Object.assign(new Error('Synthetic report failure'), {
+        status: 503
+      });
+    return report(id, after);
+  };
+  await f.run.more();
+  assert.equal(f.snapshot.phase, 'awaiting_approval');
+  assert.equal(f.snapshot.error, 'unavailable');
+  assert.equal(f.snapshot.reportLoading, false);
+  assert.equal(f.snapshot.nextCursor, 50);
+  f.run.approve(summary.id);
+  assert.equal(f.snapshot.review.id, summary.id);
+  unavailable = false;
+  await f.run.more();
+  assert.equal(f.snapshot.error, null);
+  assert.equal(f.snapshot.entries.length, 100);
+  f.run.approve(summary.id);
+  await pending;
+  assert.equal(f.snapshot.phase, 'completed');
+  assert.equal(
+    f.calls.filter(([name]) => ['advance', 'control'].includes(name)).length,
+    0
+  );
+});
+
+for (const status of [401, 403]) {
+  test(`a ${status} summary page removes private contents and cancels the reading without mutations`, async () => {
+    const { f, summary, pending } = await summaryWithPages();
+    f.ports.report = async () => {
+      throw Object.assign(new Error('Synthetic report denied'), { status });
+    };
+    await f.run.more();
+    await pending;
+    assert.equal(f.snapshot.phase, 'error');
+    assert.equal(
+      f.snapshot.error,
+      status === 403 ? 'forbidden' : 'unavailable'
+    );
+    assert.equal(f.snapshot.state, null);
+    assert.deepEqual(f.snapshot.entries, []);
+    assert.equal(f.snapshot.nextCursor, null);
+    assert.equal(f.snapshot.review, null);
+    assert.equal(f.snapshot.reportLoading, false);
+    f.run.approve(summary.id);
+    assert.equal(
+      f.calls.filter(([name]) => ['advance', 'control'].includes(name)).length,
+      0
+    );
+  });
+}
+
+for (const cancellation of ['pause', 'clear', 'session']) {
+  test(`a late report page after ${cancellation} cannot restore its reading or block a new visit`, async () => {
+    const { f, summary, pending } = await summaryWithPages();
+    const read = gate();
+    const report = f.ports.report;
+    f.ports.report = async (id, after) => {
+      if (after === 50) await read.promise;
+      return report(id, after);
+    };
+    const loading = f.run.more();
+    assert.equal(f.snapshot.reportLoading, true);
+    if (cancellation === 'pause') f.run.pause();
+    else {
+      if (cancellation === 'session') f.current = false;
+      f.run.clear();
+    }
+    await pending;
+    assert.equal(f.snapshot.review, null);
+    assert.equal(f.snapshot.reportLoading, false);
+    f.current = true;
+    const resumed = cancellation === 'pause' ? f.run.resume() : f.run.start();
+    const scope = await review(f, 'scope', summary.id);
+    read.resolve();
+    await loading;
+    assert.equal(f.snapshot.review.id, scope.id);
+    assert.equal(f.snapshot.reportLoading, false);
+    assert.equal(f.snapshot.entries.length, 50);
+    f.run.pause();
+    await resumed;
+    assert.equal(
+      f.calls.filter(([name]) => ['advance', 'control'].includes(name)).length,
+      0
+    );
+  });
+}
+
+test('each scope, dossier, actual result and final summary requires its own explicit reading approval', async () => {
+  const f = fixture(false);
+  const pending = f.run.start();
+  const scope = await review(f, 'scope');
+  assert.equal(f.snapshot.phase, 'awaiting_approval');
+  assert.equal(f.run.active, true);
+  assert.equal(f.calls.filter(([name]) => name === 'advance').length, 0);
+  f.run.approve(scope.id);
+  let previous = scope.id;
+  for (let processed = 1; processed <= 3; processed++) {
+    const dossier = await review(f, 'dossier', previous);
+    assert.equal(
+      f.calls.filter(([name]) => name === 'advance').length,
+      processed - 1
+    );
+    f.run.approve(dossier.id);
+    const result = await review(f, 'result', dossier.id);
+    assert.equal(
+      f.calls.filter(([name]) => name === 'advance').length,
+      processed
+    );
+    assert.equal(f.snapshot.state.run.latestEntry.seq, processed);
+    assert.equal(f.snapshot.entries.length, processed);
+    assert.equal(f.snapshot.phase, 'awaiting_approval');
+    if (processed === 3) {
+      assert.equal(f.snapshot.state.run.status, 'completed');
+      assert.equal(f.run.active, true);
+    }
+    f.run.approve(result.id);
+    previous = result.id;
+  }
+  const summary = await review(f, 'summary', previous);
+  assert.equal(f.snapshot.phase, 'awaiting_approval');
+  f.run.approve(summary.id);
+  await pending;
+  assert.equal(f.snapshot.phase, 'completed');
+  assert.equal(f.snapshot.review, null);
+  assert.equal(f.run.active, false);
+  assert.deepEqual(
+    f.calls.filter(([name]) => name === 'explain').map(([, step]) => step),
+    [
+      'scope',
+      'dossier',
+      'result',
+      'dossier',
+      'result',
+      'dossier',
+      'result',
+      'summary'
+    ]
+  );
+});
+
+test('stale or repeated approval tokens cannot release another reading, and an editing barrier cancels approval', async () => {
+  const f = fixture(false);
+  const pending = f.run.start();
+  const scope = await review(f, 'scope');
+  f.run.approve(scope.id + 1);
+  assert.equal(f.snapshot.review.id, scope.id);
+  f.run.approve(scope.id);
+  f.run.approve(scope.id);
+  assert.equal(f.snapshot.review, null);
+  const dossier = await review(f, 'dossier', scope.id);
+  f.run.approve(scope.id);
+  assert.equal(f.snapshot.review.id, dossier.id);
+  assert.equal(f.calls.filter(([name]) => name === 'advance').length, 0);
+  f.barrier = true;
+  f.run.approve(dossier.id);
+  await pending;
+  assert.equal(f.snapshot.phase, 'paused');
+  assert.equal(f.snapshot.review, null);
+  assert.deepEqual(
+    f.calls.find(([name]) => name === 'control'),
+    ['control', 'pause', 1]
+  );
+});
+
+test('clearing a waiting review releases the old operation and never reuses its token', async () => {
+  const f = fixture(false);
+  const first = f.run.start();
+  const old = await review(f, 'scope');
+  f.run.clear();
+  await first;
+  assert.equal(f.snapshot.phase, 'idle');
+  assert.equal(f.snapshot.review, null);
+  const second = f.run.start();
+  const current = await review(f, 'scope', old.id);
+  assert.ok(current.id > old.id);
+  f.run.approve(old.id);
+  assert.equal(f.snapshot.review.id, current.id);
+  f.run.pause();
+  await second;
+  assert.equal(f.snapshot.phase, 'paused');
+  assert.equal(f.calls.filter(([name]) => name === 'advance').length, 0);
+});
+
+test(
+  'pause during a pending reading preparation releases busy and ignores the late preparation after resuming',
+  { timeout: 2000 },
+  async () => {
+    const f = fixture(false);
+    const preparation = gate();
+    f.explainGate = preparation;
+    const pending = f.run.start();
+    await reached(f, 'explain');
+    f.run.pause();
+    await pending;
+    assert.equal(f.snapshot.phase, 'paused');
+    assert.equal(f.snapshot.review, null);
+    f.explainGate = null;
+    const resumed = f.run.resume();
+    const scope = await review(f, 'scope');
+    preparation.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(f.snapshot.review.id, scope.id);
+    assert.equal(f.calls.filter(([name]) => name === 'advance').length, 0);
+    f.run.pause();
+    await resumed;
+  }
+);
+
+test('pausing the last result can resume its reading without replaying a completed server dossier', async () => {
+  const f = fixture(false);
+  f.state = state(2, 'running', entry(2));
+  const pending = f.run.start();
+  f.run.approve((await review(f, 'scope')).id);
+  f.run.approve((await review(f, 'dossier')).id);
+  await review(f, 'result');
+  assert.equal(f.snapshot.state.run.status, 'completed');
+  f.run.pause();
+  await pending;
+  assert.equal(f.snapshot.phase, 'paused');
+  const resumed = f.run.resume();
+  const scope = await review(f, 'scope');
+  f.run.approve(scope.id);
+  f.run.approve((await review(f, 'result', scope.id)).id);
+  f.run.approve((await review(f, 'summary')).id);
+  await resumed;
+  assert.equal(f.snapshot.phase, 'completed');
+  assert.equal(f.calls.filter(([name]) => name === 'advance').length, 1);
+  assert.equal(f.calls.filter(([name]) => name === 'control').length, 0);
+  assert.equal(f.calls.filter(([name]) => name === 'read').length, 1);
+});
+
+test('a read-only dossier preview failure is unavailable rather than an uncertain mutation and cannot advance or reconcile', async () => {
+  const f = fixture();
+  f.ports.explain = async (step) => {
+    f.calls.push(['explain', step]);
+    if (step === 'dossier')
+      throw Object.assign(new Error('Synthetic preview read failure'), {
+        status: 503,
+        code: 'RUN_READING_UNAVAILABLE'
+      });
+  };
+  await f.run.start();
+  assert.equal(f.snapshot.phase, 'error');
+  assert.equal(f.snapshot.error, 'unavailable');
+  assert.equal(f.snapshot.review, null);
+  assert.equal(f.run.active, false);
+  await f.run.reconcile();
+  assert.equal(f.calls.filter(([name]) => name === 'advance').length, 0);
+  assert.equal(f.calls.filter(([name]) => name === 'control').length, 0);
+});
+
+test('a returned uncertain dossier never opens a result or summary reading and cannot resume', async () => {
+  const f = fixture();
+  f.ports.advance = async () => {
+    f.calls.push(['advance']);
+    f.state = state(1, 'uncertain', entry(1));
+    return f.state;
+  };
+  await f.run.start();
+  assert.equal(f.snapshot.phase, 'uncertain');
+  assert.equal(f.snapshot.review, null);
+  const calls = f.calls.length;
+  await f.run.resume();
+  assert.equal(f.calls.length, calls);
+  assert.deepEqual(
+    f.calls.filter(([name]) => name === 'explain').map(([, step]) => step),
+    ['scope', 'dossier']
+  );
+});
 
 test('loading a durable running passage reads its report without resuming or preparing anything', async () => {
   const f = fixture();

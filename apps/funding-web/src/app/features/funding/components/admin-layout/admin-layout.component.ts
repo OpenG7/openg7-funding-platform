@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   inject,
   input,
   signal
@@ -20,6 +21,7 @@ import { ContributionActivityComponent } from '../contribution-activity/contribu
 import { FundingModerationPanelComponent } from '../admin-moderation/funding-moderation-panel.component.js';
 import { AdminControllerComponent } from '../admin-controller/admin-controller.component.js';
 import { AdminSandboxService } from '../../services/admin-sandbox.service.js';
+import { FundingAdminService } from '../../services/funding-admin.service.js';
 
 /** Admin page template: placement and navigation, no business data loading. */
 @Component({
@@ -80,6 +82,45 @@ import { AdminSandboxService } from '../../services/admin-sandbox.service.js';
           </button>
           <openg7-admin-global-search />
           <div class="tools">
+            @if (guidance.guidance.available()) {
+              @let count = pendingDossierCount();
+              @let hasDossiers = count !== null && count > 0;
+              <button
+                class="admin-button admin-button--primary new-passage"
+                type="button"
+                data-og7="admin-automatic-portfolio-start"
+                aria-describedby="admin-new-passage-count-description"
+                [title]="pendingDossierDescription()"
+                [disabled]="guidance.portfolioStartDisabled()"
+                (click)="guidance.startPortfolio()"
+              >
+                <span
+                  class="new-passage-bell"
+                  [class.active]="hasDossiers"
+                  data-og7="admin-automatic-portfolio-bell"
+                  [attr.data-og7-id]="hasDossiers ? 'active' : 'inactive'"
+                  aria-hidden="true"
+                  ><openg7-admin-icon
+                    [name]="hasDossiers ? 'bellActive' : 'bell'"
+                /></span>
+                <span>{{ 'admin.shell.startPass' | translate }}</span>
+                <span
+                  class="new-passage-count"
+                  [class.active]="hasDossiers"
+                  data-og7="admin-automatic-portfolio-count"
+                  aria-hidden="true"
+                  >{{ count ?? '—' }}</span
+                >
+              </button>
+              <span
+                class="visually-hidden"
+                id="admin-new-passage-count-description"
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+                >{{ pendingDossierDescription() }}</span
+              >
+            }
             <openg7-contribution-activity />
             <a
               class="admin-button"
@@ -113,7 +154,7 @@ import { AdminSandboxService } from '../../services/admin-sandbox.service.js';
           </div>
         </header>
         <div class="guidance-tools" data-og7="admin-guidance-tools">
-          <openg7-admin-guidance />
+          <openg7-admin-guidance #guidance />
           <openg7-admin-controller />
         </div>
         <main id="admin-main" #main tabindex="-1"><ng-content /></main>
@@ -146,4 +187,26 @@ export class AdminLayoutComponent {
   readonly appearance = inject(PilotAppearanceService);
   readonly navigationCollapsed = signal(false);
   readonly sandbox = inject(AdminSandboxService);
+  private readonly admin = inject(FundingAdminService);
+  readonly pendingDossierCount = computed(() => {
+    const queue = this.admin.workQueue();
+    const count = queue?.pendingDossierCount;
+    if (
+      !queue?.available ||
+      queue.coverage !== 'complete' ||
+      queue.missingSources.length ||
+      typeof count !== 'number' ||
+      !Number.isSafeInteger(count) ||
+      count < 0
+    )
+      return null;
+    return count;
+  });
+
+  pendingDossierDescription(): string {
+    const count = this.pendingDossierCount();
+    return count === null
+      ? this.i18n.t('admin.shell.startPassCountUnavailable')
+      : this.i18n.t('admin.shell.startPassDossierCount', { count });
+  }
 }
