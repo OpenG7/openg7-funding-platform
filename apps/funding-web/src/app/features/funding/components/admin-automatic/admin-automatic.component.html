@@ -2,7 +2,26 @@
   <p role="alert">{{ i18n.t('admin.guidance.automaticUnavailable') }}</p>
 } @else if (languageReady()) {
   <openg7-admin-automatic-portfolio (prepare)="preparePayment($event)" />
-  <section data-og7="admin-automatic" [attr.aria-label]="t('title')">
+  @if (hasPortfolio()) {
+    <button
+      type="button"
+      class="admin-button other-preparation-toggle"
+      data-og7="automatic-other-preparation"
+      aria-controls="admin-automatic-other-preparation"
+      [attr.aria-expanded]="preparationExpanded()"
+      [attr.aria-disabled]="preparationRequired() ? true : null"
+      (click)="togglePreparation()"
+    >
+      <span aria-hidden="true">{{ preparationExpanded() ? '▾' : '▸' }}</span>
+      {{ t('portfolio.receipt.compact.otherPreparation') }}
+    </button>
+  }
+  <section
+    id="admin-automatic-other-preparation"
+    data-og7="admin-automatic"
+    [hidden]="!preparationExpanded()"
+    [attr.aria-label]="t('title')"
+  >
     <h2>{{ t('preparationTitle') }}</h2>
     <p>{{ t('help') }}</p>
     <label for="admin-automatic-scope">{{ t('scope') }}</label>

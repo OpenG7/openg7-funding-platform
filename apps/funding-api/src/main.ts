@@ -26,6 +26,7 @@ import {
   buildAdminIdentitySetupStatus
 } from './admin-identity.js';
 import { AdminPilotageService } from './admin-pilotage.service.js';
+import { assertPreparationReadiness } from './admin-preparation-readiness.js';
 import {
   buildSponsorshipReviewReminderAdminUrl,
   queueDueSponsorshipReviewReminder
@@ -458,6 +459,7 @@ const handleRequest = createHttpDispatcher({
 
 try {
   await assertProductionDatabasePrivileges(dbPool, isProduction);
+  if (dbPool) await assertPreparationReadiness(dbPool, 'approve');
 } catch (error) {
   await dbPool?.end();
   throw error;

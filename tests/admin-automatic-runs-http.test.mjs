@@ -52,7 +52,9 @@ function fixture({ denied = false, unavailable = false, failure } = {}) {
           start: port('start', state),
           advance: port('advance', state),
           control: port('control', state),
-          report: port('report', { entries: [], nextCursor: null })
+          report: port('report', { entries: [], nextCursor: null }),
+          preparation: port('preparation', { position: 3 }),
+          approvePreparation: port('approvePreparation', { status: 'approved' })
         }
   });
   return {
@@ -84,7 +86,14 @@ function fixture({ denied = false, unavailable = false, failure } = {}) {
 
 test('automatic runs authorize every alias before body, actor, filters and service access', async () => {
   for (const prefix of ['/admin/automatic-runs', '/api/admin/automatic-runs'])
-    for (const suffix of ['', '/advance', '/control', '/report']) {
+    for (const suffix of [
+      '',
+      '/advance',
+      '/control',
+      '/report',
+      '/preparation',
+      '/preparation/approve'
+    ]) {
       const f = fixture({ denied: true });
       const result = await f.run(prefix + suffix + '?unknown=secret', {
         method: 'POST',
@@ -97,6 +106,59 @@ test('automatic runs authorize every alias before body, actor, filters and servi
         ['access']
       );
     }
+});
+
+test('preparation navigation is a scoped read and approval has a separate bounded command', async () => {
+  const f = fixture();
+  const read = await f.run(
+    '/api/admin/automatic-runs/preparation?runId=' + id + '&position=3'
+  );
+  assert.equal(read.status, 200);
+  assert.deepEqual(f.calls.find((call) => call.name === 'preparation').args, [
+    actor,
+    id,
+    3
+  ]);
+  assert.ok(
+    !f.calls.some((call) =>
+      ['advance', 'control', 'start', 'body'].includes(call.name)
+    )
+  );
+  const input = {
+    runId: id,
+    contributionId: id,
+    expectedVersion: 'a'.repeat(64),
+    requestId: id,
+    confirmed: true
+  };
+  const g = fixture();
+  const result = await g.run('/api/admin/automatic-runs/preparation/approve', {
+    method: 'POST',
+    input
+  });
+  assert.equal(result.status, 200);
+  assert.deepEqual(
+    g.calls.find((call) => call.name === 'approvePreparation').args,
+    [input, actor]
+  );
+  assert.equal(
+    (
+      await fixture().run('/api/admin/automatic-runs/preparation', {
+        method: 'POST'
+      })
+    ).status,
+    405
+  );
+  for (const suffix of [
+    '?runId=' + id,
+    '?runId=' + id + '&position=0',
+    '?runId=' + id + '&position=1&position=2'
+  ])
+    assert.equal(
+      (await fixture().run('/api/admin/automatic-runs/preparation' + suffix))
+        .status,
+      400
+    );
 });
 
 test('automatic runs leave unrelated paths untouched', async () => {

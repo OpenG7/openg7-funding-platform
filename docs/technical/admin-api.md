@@ -1,14 +1,12 @@
 # Administration API
 
-Private payment activity uses
 `GET /api/admin/contribution-activity` and per-actor
-`POST /api/admin/contribution-activity/present`;
-[states, permissions and simulation](../operations/contribution-activity.md).
+`POST /api/admin/contribution-activity/present`:
+[activity contract](../operations/contribution-activity.md).
 
-Versioned moderation decisions, independent review, private reconsideration,
-assistance and owner-only governance previews:
-[moderation contracts](../operations/sponsorship-moderation.md). These reads require
-operator/owner rights; reader sessions cannot inspect the underlying evidence.
+[Moderation contracts](../operations/sponsorship-moderation.md) cover versioned
+decisions, independent review, private reconsideration, assistance and owner-only
+governance. Evidence reads require operator/owner rights.
 
 ## Fundraiser admin
 
@@ -41,9 +39,9 @@ Stripe or PostgreSQL. Use `/api/sponsorship-followup/details` with the private
 token and draft revision, or `/api/sponsorship-followup/recover` for lost access.
 
 [Access and sessions](../operations/admin-identity-and-alerts.md), `/admin/fundraiser/access`:
-OIDC owners manage roles, disable accounts and revoke sessions. Account changes
-revoke sessions and protect the last owner; confirmation is required. Token mode
-has no named accounts. Alerts remain opt-in (`yarn operations:watch` or Compose).
+OIDC owners manage roles/accounts/sessions; confirmed account changes revoke
+sessions and protect the last owner. Token mode has no named accounts.
+Alerts remain opt-in (`yarn operations:watch` or Compose).
 
 `yarn test:ui:admin` uses synthetic APIs without DB.
 `GET /api/admin/attention` serves `/admin/fundraiser/attention` with pagination,
@@ -53,13 +51,12 @@ optional `sponsorshipId`; information requests require an editable preview and
 confirmation at `POST /api/admin/sponsorships/request-information`. Queue and audit
 are atomic; duplicate requests reuse the original email.
 
-`GET /api/admin/sponsorships/progress?sponsorshipId=<uuid>` reads one dossier.
-Recorded offers, obligations and owner actions: [commitment API](sponsorship-commitments.md).
+`GET /api/admin/sponsorships/progress?sponsorshipId=<uuid>`: dossier progress.
+[Commitments](sponsorship-commitments.md) define recorded offers and owner actions.
 
-[Payment journeys](../operations/admin-pilotage.md#mode-guidé-dans-ladministration)
-are private, read-only projections.
-
-[Automatic responsibility runs](admin-automatic-runs.md).
+[Private read-only journeys](../operations/admin-pilotage.md#mode-guidé-dans-ladministration);
+[automatic runs](admin-automatic-runs.md);
+[preparation receipts](admin-automatic-runs.md#versioned-preparation-receipts).
 
 `POST /api/admin/sponsorship-commitments/timing`: owner-only commands with UUID,
 current timing version, reason and exact obligation confirmation. Duration
@@ -192,6 +189,8 @@ Admin review: `/admin/fundraiser/sponsors`. Private sponsorship endpoints:
 
 ```text
 GET /api/admin/sponsorships
+GET /api/admin/sponsorships/preparation?sponsorshipId=<uuid>
+POST /api/admin/sponsorships/preparation/approve
 GET /api/admin/sponsorships/logo
 POST /api/admin/sponsorships/logo
 POST /api/admin/sponsorships/logo/delete

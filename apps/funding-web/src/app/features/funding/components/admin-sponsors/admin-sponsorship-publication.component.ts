@@ -33,6 +33,7 @@ import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
 import { AdminAutomaticPreparationDirective } from '../admin-automatic/admin-automatic-preparation.directive.js';
 
 import { AdminSponsorshipCommitmentsComponent } from './admin-sponsorship-commitments.component.js';
+import { AdminSponsorshipPreparationComponent } from './admin-sponsorship-preparation.component.js';
 
 /** Funding organism: persisted recognition facts and explicit visibility requests. */
 @Component({
@@ -44,7 +45,8 @@ import { AdminSponsorshipCommitmentsComponent } from './admin-sponsorship-commit
     AdminIconComponent,
     AdminAutomaticPreparationDirective,
     AdminSponsorshipCommitmentsComponent,
-    PublicationDeliveryDrawerComponent
+    PublicationDeliveryDrawerComponent,
+    AdminSponsorshipPreparationComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-sponsorship-publication.component.html',

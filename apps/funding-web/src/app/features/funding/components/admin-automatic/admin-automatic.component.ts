@@ -3,6 +3,7 @@ import {
   Component,
   DestroyRef,
   afterRenderEffect,
+  computed,
   effect,
   inject,
   output,
@@ -38,6 +39,21 @@ export class AdminAutomaticComponent {
   readonly languageReady = signal(false);
   readonly languageError = signal(false);
   readonly portfolioStarting = signal(false);
+  readonly hasPortfolio = computed(
+    () => !!this.portfolio.snapshot().state?.run
+  );
+  readonly otherPreparationOpen = signal(false);
+  readonly preparationRequired = computed(
+    () =>
+      this.automatic.active() ||
+      ['error', 'blocked'].includes(this.automatic.snapshot().phase)
+  );
+  readonly preparationExpanded = computed(
+    () =>
+      !this.hasPortfolio() ||
+      this.otherPreparationOpen() ||
+      this.preparationRequired()
+  );
   readonly show = output<string>();
   private readonly portfolioView = viewChild(AdminAutomaticPortfolioComponent);
   private disposed = false;
@@ -51,6 +67,9 @@ export class AdminAutomaticComponent {
           : (this.automatic.guidance.page()?.id ?? 'dashboard')
       );
     inject(DestroyRef).onDestroy(() => (this.disposed = true));
+    effect(() => {
+      if (this.preparationRequired()) this.otherPreparationOpen.set(true);
+    });
     effect((onCleanup) => {
       const language = this.i18n.currentLanguage();
       let current = true;
@@ -118,6 +137,11 @@ export class AdminAutomaticComponent {
     this.automatic.selection.set((event.target as HTMLSelectElement).value);
   }
 
+  togglePreparation(): void {
+    if (!this.preparationRequired())
+      this.otherPreparationOpen.update((open) => !open);
+  }
+
   async startPortfolio(): Promise<void> {
     if (this.portfolioStarting()) return;
     this.portfolioStarting.set(true);
@@ -142,11 +166,13 @@ export class AdminAutomaticComponent {
   }
 
   startPreparation(): void {
+    this.otherPreparationOpen.set(true);
     this.portfolio.pause();
     void this.automatic.start(this.automatic.selection());
   }
 
   preparePayment(entry: AdminAutomaticRunEntry): void {
+    this.otherPreparationOpen.set(true);
     this.portfolio.pause();
     this.automatic.guidance.followPayment(entry.contributionId);
     this.automatic.guidance.setMode('automatic');

@@ -1,0 +1,46 @@
+<section
+  data-og7="dossier-preparation"
+  [attr.aria-busy]="loading() || !languageReady()"
+>
+  @if (languageError()) {
+    <p role="alert">{{ i18n.t('admin.guidance.automaticUnavailable') }}</p>
+  } @else if (languageReady()) {
+    <div class="receipt-tools">
+      <button
+        type="button"
+        class="admin-button receipt-refresh"
+        data-og7="preparation-receipt-refresh"
+        [attr.aria-label]="t('refresh')"
+        [title]="t('refresh')"
+        [disabled]="loading() || approving()"
+        (click)="load()"
+      >
+        <openg7-admin-icon name="refresh" />
+      </button>
+    </div>
+    @if (error(); as error) {
+      <p
+        class="receipt-error"
+        role="alert"
+        data-og7="preparation-receipt-error"
+      >
+        {{ t('errors.' + error) }}
+      </p>
+    }
+    @if (loading()) {
+      <p role="status">{{ t('loading') }}</p>
+    }
+    @if (receipt(); as current) {
+      @for (item of [current]; track item.contributionId + ':' + item.version) {
+        <openg7-admin-preparation-receipt
+          [receipt]="item"
+          [idPrefix]="'dossier-preparation-' + contributionId()"
+          [readOnly]="admin.identity()?.role === 'reader'"
+          [canApprove]="canApprove()"
+          [approving]="approving()"
+          (approve)="approve(item)"
+        />
+      }
+    }
+  }
+</section>

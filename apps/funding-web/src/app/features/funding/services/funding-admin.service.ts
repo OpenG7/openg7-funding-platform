@@ -405,6 +405,18 @@ export class FundingAdminService {
     return this.sponsorshipsClient.getSponsorshipProgress(token, sponsorshipId);
   }
 
+  getSponsorshipPreparation(
+    contributionId: string
+  ): Promise<import('@openg7/funding-core').AdminDossierPreparationReceipt> {
+    return this.sponsorshipsClient.getSponsorshipPreparation(contributionId);
+  }
+
+  approveSponsorshipPreparation(
+    payload: import('@openg7/funding-core').AdminDossierPreparationApproveRequest
+  ): Promise<import('@openg7/funding-core').AdminDossierPreparationReceipt> {
+    return this.sponsorshipsClient.approveSponsorshipPreparation(payload);
+  }
+
   getPaymentJourney(
     contributionId: string
   ): Promise<import('@openg7/funding-core').AdminPaymentJourneyResponse> {
