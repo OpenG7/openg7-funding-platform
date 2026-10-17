@@ -4083,11 +4083,17 @@ test('intervention journal rejects a late response for another dossier and recov
   await page.goto('/admin/fundraiser/sponsors?tab=audit');
   await page.locator('[data-og7="sponsor-row"]').first().click();
   const journal = page.locator('[data-og7="dossier-interventions"]');
+  const drawer = journal.locator('[data-og7="admin-drawer"]');
   await journal.locator('[data-og7="interventions-toggle"]').click();
   await expect
     .poll(() => calls.some((c) => c.url.pathname.endsWith('/interventions')))
     .toBe(true);
+  // The GET starts before the drawer reaches the native modal top layer.
+  await expect(drawer).toHaveJSProperty('open', true);
+  await expect(drawer).toBeVisible();
   await page.keyboard.press('Escape');
+  await expect(drawer).toHaveJSProperty('open', false);
+  await expect(drawer).toBeHidden();
   await page
     .getByRole('button', { name: 'Dossier suivant', exact: true })
     .click();

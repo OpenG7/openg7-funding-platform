@@ -251,7 +251,18 @@ export class PreparationPilotComponent {
     )
       return false;
     if (['previous', 'next'].includes(intent)) {
-      this.list()?.move(intent === 'previous' ? -1 : 1);
+      const issueId =
+        active.getAttribute('data-og7') === 'preparation-issue'
+          ? active.getAttribute('data-og7-id')
+          : null;
+      const issues = this.projection().issues;
+      const index = issues.findIndex((issue) => issue.id === issueId);
+      const offset = intent === 'previous' ? -1 : 1;
+      // Bumpers select adjacent issues, then leave the list in DOM order.
+      // Other controls and list boundaries belong to the shared navigator.
+      if (index < 0 || index + offset < 0 || index + offset >= issues.length)
+        return false;
+      this.list()?.move(offset, issueId);
       return true;
     }
     if (intent === 'secondary' && this.mode() === 'open') {
@@ -272,20 +283,17 @@ export class PreparationPilotComponent {
       return true;
     }
     if (['up', 'down', 'left', 'right'].includes(intent)) {
-      if (this.mode() !== 'open')
-        this.list()?.move(['up', 'left'].includes(intent) ? -1 : 1);
-      else {
-        const buttons = this.actionButtons();
-        const index = buttons.indexOf(active as HTMLButtonElement);
-        const next =
-          buttons[
-            (Math.max(0, index) +
-              (['up', 'left'].includes(intent) ? -1 : 1) +
-              buttons.length) %
-              buttons.length
-          ];
-        if (next) revealControllerFocus(next);
-      }
+      if (this.mode() !== 'open') return false;
+      const buttons = this.actionButtons();
+      const index = buttons.indexOf(active as HTMLButtonElement);
+      const next =
+        buttons[
+          (Math.max(0, index) +
+            (['up', 'left'].includes(intent) ? -1 : 1) +
+            buttons.length) %
+            buttons.length
+        ];
+      if (next) revealControllerFocus(next);
       return true;
     }
     if (this.mode() === 'open' && ['edit', 'details'].includes(intent)) {

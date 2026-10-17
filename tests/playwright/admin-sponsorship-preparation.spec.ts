@@ -9,6 +9,10 @@ import type {
 } from '@openg7/funding-core';
 
 import { expect, sampledFrames, test } from './support/test.js';
+import {
+  adminController,
+  installAdminController
+} from './support/admin-controller.js';
 import { moderationFixture } from './support/moderation.js';
 import {
   actor,
@@ -1066,6 +1070,65 @@ for (const restriction of ['reader', 'server-disallowed'] as const) {
     ).toEqual([]);
   });
 }
+
+test('Gamepad bumpers leave the preparation issues for Actions and publication settings and return to global navigation without a write', async ({
+  page
+}) => {
+  // The round trip uses sampled hardware input through the whole dossier.
+  test.setTimeout(60000);
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await installAdminController(page);
+  const f = await fixture(page);
+  const current = f.receipts.get(firstId)!;
+  f.receipts.set(firstId, {
+    ...current,
+    status: 'incomplete',
+    canApprove: false,
+    authorizations: current.authorizations.map((check) =>
+      check.code === 'moderation_review'
+        ? { ...check, state: 'missing' }
+        : check
+    ),
+    blockers: [
+      { code: 'moderation_review_required', adminUrl: path('overview') }
+    ]
+  });
+  await page.goto(path('overview'));
+  const xbox = adminController(page);
+  const tabs = page.locator('[data-og7="dossier-tabs"]');
+  await xbox.activate(
+    tabs.getByRole('button', { name: 'Publication', exact: true })
+  );
+  await expectDossier(page);
+  const pilot = wrapper(page).locator('[data-og7="preparation-pilot"]');
+  const issues = pilot.locator('[data-og7="preparation-issue"]');
+  const actions = pilot.locator('[data-og7="preparation-pilot-actions"]');
+  const advanced = page.locator('[data-og7="publication-advanced"]');
+  await expect(issues).toHaveCount(6);
+
+  // reach uses real LB/RB samples. Neither entering nor leaving the issue list
+  // sets focus directly or replaces the application's navigation decisions.
+  await xbox.reach(issues.first());
+  await expect(issues.first()).toBeFocused();
+  await xbox.reach(actions);
+  await expect(actions).toBeFocused();
+  await expect(pilot).toHaveAttribute('data-og7-mode', 'peek');
+  await xbox.activate(advanced.locator(':scope > summary'));
+  await expect(advanced).toHaveJSProperty('open', true);
+  await expect(advanced.locator(':scope > summary')).toBeFocused();
+  expect(f.writes).toEqual([]);
+
+  await xbox.reach(actions);
+  await expect(actions).toBeFocused();
+  await xbox.reach(issues.first());
+  await expect(issues.first()).toBeFocused();
+  // The refresh control immediately precedes the list outside the pilot.
+  // One LB must cross that boundary instead of wrapping to the last issue.
+  await xbox.press('LB');
+  await expect(hook(page, 'refresh')).toBeFocused();
+  await expect(pilot).toHaveAttribute('data-og7-mode', 'peek');
+  expect(f.writes).toEqual([]);
+});
 
 test('the dossier pilot supports any number of server checks and updates only after its receipt is refreshed', async ({
   page
