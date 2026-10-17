@@ -637,6 +637,10 @@ test('Stripe drawer is translated and fills a 320px mobile viewport', async ({
   await expect(drawer(page)).toContainText('charge.updated');
   const size = await drawer(page).boundingBox();
   expect(size?.width).toBe(320);
+  await expect(drawer(page)).toHaveCSS('position', 'fixed');
+  await expect(drawer(page)).toHaveCSS('height', '760px');
+  await expect(drawer(page)).toHaveCSS('border-left-width', '0px');
+  await expect(drawer(page).locator('header')).toHaveCSS('padding', '16px');
   expect(
     await drawer(page).evaluate((el) => el.scrollWidth <= el.clientWidth)
   ).toBe(true);
@@ -727,12 +731,22 @@ test('private CSV export names its scope and requires explicit confirmation', as
 test('all admin routes share a single layout, translated headings and mobile width', async ({
   page
 }) => {
+  // Visit all 18 routes and switch languages twice on each page.
+  test.setTimeout(60_000);
   await fixtures(page);
   await page.setViewportSize({ width: 390, height: 844 });
   for (const route of [
+    '',
+    'pilotage',
+    'access',
+    'attention',
     'contributions',
     'sponsors',
     'publications',
+    'publications/drafts',
+    'publications/batches',
+    'publications/calendar',
+    'publications/automation',
     'invoices',
     'expenses',
     'transparency',
@@ -759,7 +773,8 @@ test('all admin routes share a single layout, translated headings and mobile wid
       })
       .click();
     if (
-      !['audit', 'publications', 'contributions', 'assistant'].includes(route)
+      !['audit', 'contributions', 'assistant'].includes(route) &&
+      !route.startsWith('publications')
     )
       await expect(page.locator('h1')).not.toHaveText(french);
     await page

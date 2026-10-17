@@ -1,121 +1,203 @@
-:host .detail-header {
-  padding: 1.5rem 1.75rem 1rem;
-  gap: 0.85rem;
+@reference '../../../../../styles/tailwind.css';
+
+:host {
+  @apply tw:block tw:min-w-0;
+}
+.detail-header {
+  @apply tw:grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  background: radial-gradient(ellipse at top right, #f4c95709, transparent 65%);
+  gap: 0.5rem 1rem;
+  padding: 0.875rem var(--admin-card-padding);
+  background: var(--admin-panel);
 }
-:host .detail-title {
-  grid-column: 1 / -1;
-}
-:host .detail-title h1 {
-  overflow-wrap: anywhere;
-}
-:host .sponsor-avatar.large {
-  height: 3.25rem;
-  width: 3.25rem;
-  background: var(--admin-warning-bg);
-  border: 1px solid var(--admin-warning-border);
-  color: var(--admin-gold);
-  border-radius: 1rem;
-}
-:host .detail-badges {
-  grid-column: 1;
-  gap: 0.45rem;
-}
-:host .review-capsule {
-  --review-accent: var(--admin-warning);
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
+.detail-title {
+  @apply tw:col-span-full tw:grid tw:items-center tw:min-w-0;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 0.85rem;
-  box-sizing: border-box;
-  width: max-content;
-  max-width: 100%;
-  white-space: nowrap;
-  padding: 0.85rem 1.15rem;
-  border: 1px solid color-mix(in srgb, var(--review-accent) 38%, transparent);
-  border-radius: 999px;
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--admin-panel-raised) 88%, var(--review-accent)),
-    var(--admin-panel)
-  );
-  box-shadow:
-    inset 0 1px 0 #ffffff18,
-    0 3px 0 #08131f,
-    0 9px 22px #00000038;
 }
-:host .review-capsule[data-review-state='approved'] {
+.detail-title h1 {
+  @apply tw:m-0 tw:wrap-anywhere;
+}
+.detail-title p {
+  @apply tw:text-admin-muted tw:text-admin-caption tw:wrap-anywhere;
+  margin: 0.2rem 0 0;
+  line-height: 1.5;
+}
+.sponsor-avatar {
+  @apply tw:inline-flex tw:items-center tw:justify-center tw:text-admin-text;
+  flex: 0 0 auto;
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 999px;
+  background: var(--admin-panel-raised);
+  font-weight: var(--admin-label-weight);
+}
+.sponsor-avatar.large {
+  @apply tw:text-admin-accent;
+  width: 3rem;
+  height: 3rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 0.75rem;
+  background: var(--admin-selected);
+  font-size: 1rem;
+}
+.detail-badges {
+  @apply tw:flex tw:flex-wrap tw:items-center tw:min-w-0;
+  grid-column: 1;
+  gap: 0.4rem;
+}
+.review-capsule {
+  --review-accent: var(--admin-warning);
+  @apply tw:inline-flex tw:flex-wrap tw:items-center tw:box-border tw:min-w-0 tw:max-w-full;
+  flex: 0 1 auto;
+  gap: 0.35rem;
+  padding: 0.25rem 0.5rem;
+  border: 0;
+  border-radius: 0.35rem;
+  background: transparent;
+  box-shadow: none;
+}
+.review-capsule[data-review-state='approved'] {
   --review-accent: var(--admin-success);
 }
-:host .review-capsule[data-review-state='rejected'] {
+.review-capsule[data-review-state='rejected'] {
   --review-accent: var(--admin-danger);
 }
-:host .review-capsule::before {
+.review-capsule::before {
   content: '';
-  flex: 0 0 0.45rem;
-  height: 0.45rem;
+  flex: 0 0 0.35rem;
+  height: 0.35rem;
   border-radius: 50%;
   background: var(--review-accent);
-  box-shadow: 0 0 0 4px
-    color-mix(in srgb, var(--review-accent) 12%, transparent);
 }
-:host .review-capsule .review-label {
-  flex-shrink: 0;
-  margin: 0;
-  padding-right: 0.85rem;
-  border-right: 1px solid
-    color-mix(in srgb, var(--review-accent) 25%, transparent);
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+.review-label,
+.review-state {
+  @apply tw:m-0 tw:text-admin-caption tw:wrap-anywhere;
+  line-height: 1.5;
   font-weight: var(--admin-label-weight);
-  letter-spacing: normal;
-  text-transform: uppercase;
 }
-:host .review-capsule .review-state {
-  flex-shrink: 0;
-  margin: 0;
+.review-label {
+  @apply tw:text-admin-muted;
+}
+.review-state {
   color: var(--review-accent);
-  font-size: var(--admin-caption-size, 0.875rem);
-  font-weight: var(--admin-label-weight);
 }
 :host .review-capsule:focus {
   outline: 3px solid var(--admin-focus);
-  outline-offset: 5px;
+  outline-offset: -3px;
 }
-:host .header-details {
+.header-details {
+  @apply tw:min-w-0 tw:text-admin-caption tw:text-admin-muted;
   grid-column: 2;
   align-self: center;
-  font-size: var(--admin-caption-size, 0.875rem);
-  color: var(--admin-muted);
 }
-:host .header-details[open] {
-  grid-column: 1 / -1;
+.header-details[open] {
+  @apply tw:col-span-full;
 }
-:host .header-details summary {
-  min-height: 2.75rem;
-  align-content: center;
-  cursor: pointer;
+.header-details summary {
+  @apply tw:min-h-11 tw:content-center tw:cursor-pointer tw:wrap-anywhere;
 }
-:host .header-details summary:focus-visible {
+.header-details summary:focus-visible {
   outline: 3px solid var(--admin-focus);
   outline-offset: 3px;
 }
-:host .detail-meta {
+.detail-meta {
+  @apply tw:col-span-full tw:grid tw:gap-3 tw:grid-cols-3 tw:m-0;
   padding-block: 0.75rem;
 }
-:host .visibility-badge {
-  background: var(--admin-panel-raised);
-  color: var(--admin-muted);
+dt {
+  @apply tw:text-admin-muted tw:text-admin-caption;
+  font-weight: var(--admin-label-weight);
 }
-:host .visibility-visible {
-  color: var(--admin-success);
+dd {
+  @apply tw:wrap-anywhere;
+  margin: 0.15rem 0 0;
+}
+.status-badge,
+.visibility-badge,
+.payment-badge,
+.refund-badge {
+  @apply tw:inline-flex tw:text-admin-caption tw:max-w-full tw:wrap-anywhere;
+  border-radius: 0.35rem;
+  font-weight: var(--admin-label-weight);
+  line-height: 1.5;
+  padding: 0.25rem 0.5rem;
+}
+.status-pending,
+.payment-pending,
+.refund-requested,
+.visibility-review {
+  background: var(--og7-admin-warning-bg, #3c3221);
+  @apply tw:text-admin-warning;
+}
+.status-approved,
+.payment-paid,
+.refund-completed {
+  background: var(--og7-admin-success-bg, #193d32);
+  @apply tw:text-admin-success;
+}
+.status-rejected,
+.payment-failed,
+.refund-failed {
+  background: var(--og7-admin-danger-bg, #422532);
+  @apply tw:text-admin-danger;
+}
+.visibility-badge,
+.visibility-hidden,
+.refund-not-requested,
+.refund-processing {
+  background: var(--admin-panel-raised);
+  @apply tw:text-admin-muted;
+}
+.visibility-visible {
+  @apply tw:text-admin-success;
+}
+.icon-action {
+  @apply tw:inline-flex tw:items-center tw:justify-center tw:rounded-admin-sm tw:text-admin-text tw:cursor-pointer tw:p-0;
+  width: 2.75rem;
+  min-height: 2.75rem;
+  border: 1px solid var(--admin-control-border);
+  background: var(--admin-panel);
+  font: inherit;
+  font-weight: var(--admin-control-weight);
+  text-decoration: none;
+}
+.icon-action:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 2px;
+}
+.icon-action:disabled {
+  @apply tw:cursor-not-allowed;
+  opacity: 0.55;
+}
+@container sponsorship-dossier (min-width: 54rem) {
+  .detail-title {
+    grid-column: 1;
+    grid-row: 1 / 3;
+  }
+  .detail-badges {
+    grid-column: 2;
+    justify-content: end;
+  }
+  .header-details {
+    justify-self: end;
+  }
+  .header-details[open] {
+    grid-row: 3;
+    justify-self: stretch;
+  }
+}
+@media (max-width: 860px) {
+  .detail-meta {
+    grid-template-columns: 1fr;
+  }
 }
 @media (max-width: 700px) {
-  :host .detail-header {
-    padding: 1.1rem;
+  .detail-header {
+    grid-template-columns: minmax(0, 1fr);
+    padding-inline: 1rem;
   }
-  :host .header-details {
-    grid-column: 1 / -1;
+  .header-details {
+    grid-column: 1;
   }
 }

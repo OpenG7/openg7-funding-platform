@@ -69,18 +69,18 @@ async function gridColumns(element: Locator): Promise<number> {
 const cockpitPalettes = {
   mineral: {
     panel: 'rgb(255, 255, 255)',
-    border: 'rgb(202, 213, 201)',
-    gold: 'rgb(142, 92, 16)'
+    border: 'rgb(216, 224, 236)',
+    accent: 'rgb(54, 93, 136)'
   },
   night: {
     panel: 'rgb(20, 35, 56)',
     border: 'rgb(64, 86, 111)',
-    gold: 'rgb(244, 201, 87)'
+    accent: 'rgb(158, 218, 255)'
   },
   graphite: {
     panel: 'rgb(37, 41, 47)',
     border: 'rgb(86, 97, 110)',
-    gold: 'rgb(241, 206, 128)'
+    accent: 'rgb(176, 210, 235)'
   }
 } as const;
 
@@ -121,7 +121,7 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
           cockpitPalettes[theme].border
         );
         await expect(panel).toHaveCSS('border-top-width', '1px');
-        await expect(panel).toHaveCSS('border-radius', '12px');
+        await expect(panel).toHaveCSS('border-radius', '14px');
         await expect(panel).toHaveCSS('padding', '20px');
       }
       const summaryPanel = page
@@ -135,7 +135,7 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
         'background-color',
         cockpitPalettes[theme].panel
       );
-      await expect(summaryPanel).toHaveCSS('border-radius', '12px');
+      await expect(summaryPanel).toHaveCSS('border-radius', '14px');
       await expect(summaryPanel.locator('header')).toHaveCSS('padding', '20px');
       const metricGrid = page
         .locator('[data-og7="cockpit-metric"][data-og7-id="sponsorships"]')
@@ -143,17 +143,17 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
       await expect
         .poll(() => gridColumns(metricGrid))
         .toBe(width === 390 ? 1 : 4);
-      await expect(metricGrid).toHaveCSS('gap', '20px');
+      await expect(metricGrid).toHaveCSS('gap', '0px');
       const chart = metrics(page)
         .locator('[data-og7="cockpit-trend-chart"]')
         .first();
       await expect(chart).toBeVisible();
-      await expect(chart).toHaveCSS('height', '88px');
+      await expect(chart).toHaveCSS('height', '40px');
       await expect(chart).toHaveCSS('display', 'block');
       await expect(chart).toHaveCSS('overflow', 'visible');
       await expect(chart.locator('polyline').last()).toHaveCSS(
         'stroke',
-        cockpitPalettes[theme].gold
+        cockpitPalettes[theme].accent
       );
       const connection = systems(page).locator(
         '[data-og7="stripe-check"][data-og7-id="connection"]'
@@ -184,10 +184,9 @@ test('dashboard and cockpit queries follow the same resized container rather tha
   const summary = dashboard.getByRole('region', {
     name: 'Synthèse des opérations'
   });
-  const workflow = dashboard
-    .locator('openg7-admin-attention-panel')
-    .locator('..');
-  const secondary = activity(page).locator('..').locator('..');
+  const workflow = dashboard.locator('[data-og7="dashboard-workflow"]');
+  const secondary = dashboard.locator('[data-og7="dashboard-secondary"]');
+  const supervision = dashboard.locator('[data-og7="dashboard-supervision"]');
   const metricGrid = page
     .locator('[data-og7="cockpit-metric"][data-og7-id="sponsorships"]')
     .locator('..');
@@ -212,7 +211,7 @@ test('dashboard and cockpit queries follow the same resized container rather tha
       await expect.poll(() => gridColumns(workflow)).toBe(width < 1024 ? 1 : 2);
       await expect
         .poll(() => gridColumns(secondary))
-        .toBe(width < 1024 ? 1 : width < 1344 ? 2 : 3);
+        .toBe(width < 1024 ? 1 : 2);
       await expect(dashboard.locator(':scope > header')).toHaveCSS(
         'flex-direction',
         width <= 608 ? 'column' : 'row'
@@ -221,9 +220,13 @@ test('dashboard and cockpit queries follow the same resized container rather tha
         'flex-direction',
         width <= 992 ? 'column' : 'row'
       );
-      await expect(systems(page).locator('..')).toHaveCSS(
-        'grid-column',
-        width >= 1024 && width < 1344 ? '1 / -1' : 'auto'
+      await expect(
+        supervision.locator('[data-og7="cockpit-systems"]')
+      ).toBeVisible();
+      const secondaryBox = (await secondary.boundingBox())!;
+      const supervisionBox = (await supervision.boundingBox())!;
+      expect(supervisionBox.y).toBeGreaterThanOrEqual(
+        secondaryBox.y + secondaryBox.height - 1
       );
       expect(
         await page.evaluate(
@@ -234,7 +237,7 @@ test('dashboard and cockpit queries follow the same resized container rather tha
   }
 });
 
-test('system cards retain viewport breakpoints, reduced motion and visible keyboard focus', async ({
+test('system cards keep readable widths, reduced motion and visible keyboard focus', async ({
   page
 }) => {
   await fixtures(page);
@@ -246,13 +249,15 @@ test('system cards retain viewport breakpoints, reduced motion and visible keybo
   const cards = page.locator('[data-og7="setup-system"]');
   await expect(cards).toHaveCount(5);
   const grid = cards.first().locator('..');
-  for (const width of [540, 541, 1250, 1251]) {
+  for (const width of [390, 540, 541, 1250, 1251, 1536]) {
     await test.step(`${width}px viewport`, async () => {
       await page.setViewportSize({ width, height: 1000 });
-      if (width <= 1250)
-        await expect.poll(() => gridColumns(grid)).toBe(width <= 540 ? 1 : 2);
-      else await expect.poll(() => gridColumns(grid)).toBeGreaterThan(2);
-      await expect(grid).toHaveCSS('gap', '12px');
+      const available = (await grid.boundingBox())!.width;
+      for (const card of await cards.all()) {
+        const box = (await card.boundingBox())!;
+        expect(box.width).toBeGreaterThanOrEqual(Math.min(320, available) - 1);
+        expect(box.x + box.width).toBeLessThanOrEqual(width + 1);
+      }
       // The global reduced-motion rule caps transitions at 0.01ms with !important.
       const durationMs = await cards.first().evaluate((node) =>
         Math.max(
@@ -319,24 +324,30 @@ for (const language of ['fr-CA', 'en']) {
       const card = page.locator(
         '[data-og7="cockpit-metric"][data-og7-id="sponsorships"]'
       );
-      await expect(card.getByRole('definition')).toHaveText(['3', '0']);
-      await expect(card).toContainText(
-        language === 'en'
-          ? 'The previous period is zero'
-          : 'La période précédente est à zéro'
-      );
+      await expect(card.getByRole('definition')).toHaveCount(0);
       await expect(card).not.toContainText('%');
       const chart = card.locator('[data-og7="cockpit-trend-chart"]');
       await expect(chart).toBeVisible();
-      await expect(chart).toHaveCSS('height', '88px');
+      await expect(chart).toHaveCSS('height', '40px');
       await expect(card.getByRole('table')).toBeHidden();
       await card.screenshot({
         path: testInfo.outputPath('sponsorship-card.png')
       });
 
       const disclosure = card.locator('summary');
+      await expect(disclosure).toHaveAccessibleName(
+        language === 'en' ? 'Daily breakdown' : 'Détail par jour'
+      );
       await disclosure.focus();
       await page.keyboard.press('Enter');
+      await expect(card.getByRole('definition')).toHaveText(['3', '0']);
+      await expect(
+        card.getByText(
+          language === 'en'
+            ? /The previous period is zero/
+            : /La période précédente est à zéro/
+        )
+      ).toBeVisible();
       await expect(card.getByRole('table')).toBeVisible();
       await expect(card.getByRole('row')).toHaveCount(31);
       await expect(
@@ -399,6 +410,7 @@ test('trend distinguishes empty periods, missing daily values and unavailable co
   const card = page.locator(
     '[data-og7="cockpit-metric"][data-og7-id="sponsorships"]'
   );
+  await card.locator('summary').click();
   await expect(card).toContainText(
     'Les deux périodes affichent un total de zéro.'
   );
@@ -421,7 +433,6 @@ test('trend distinguishes empty periods, missing daily values and unavailable co
     '0'
   ]);
   await expect(card.locator('[data-og7="cockpit-trend-chart"]')).toHaveCount(0);
-  await card.locator('summary').click();
   await expect(card.getByRole('row').nth(1).getByRole('cell')).toHaveText(
     'Non disponible'
   );
@@ -429,7 +440,12 @@ test('trend distinguishes empty periods, missing daily values and unavailable co
 
   trend = { ...trend, series: [] };
   await metrics(page).getByRole('button', { name: 'Actualiser' }).click();
-  await expect(card.locator('summary')).toHaveCount(0);
+  await expect(card.locator('summary')).toBeVisible();
+  await expect(card.getByRole('table')).toHaveCount(0);
+  await expect(card.getByRole('definition')).toHaveText([
+    'Non disponible',
+    '0'
+  ]);
   await expect(card).toContainText('ne permettent pas de tracer la courbe');
 });
 
@@ -458,13 +474,15 @@ test('trend shows server comparisons for increases, decreases and unchanged peri
   const card = page.locator(
     '[data-og7="cockpit-metric"][data-og7-id="sponsorships"]'
   );
-  await expect(card).toContainText(/\+100\s*%/);
+  await expect(card.getByText(/\+100\s*%/)).toBeVisible();
   percent = -50;
   await metrics(page).getByRole('button', { name: 'Actualiser' }).click();
-  await expect(card).toContainText(/-50\s*%/);
+  await expect(card.getByText(/-50\s*%/)).toBeVisible();
   percent = 0;
   await metrics(page).getByRole('button', { name: 'Actualiser' }).click();
-  await expect(card).toContainText(/0\s*%/);
+  await expect(card.locator('[data-direction="flat"]')).toHaveText(
+    /^\s*↔\s*\+?0\s*%\s*$/
+  );
   await expect(card).not.toContainText('Totaux à zéro');
 });
 
@@ -492,6 +510,12 @@ test('cockpit separates currencies, missing fees and net from available balance'
   await metrics(page)
     .getByText('Comprendre les montants et leur couverture')
     .click();
+  const periods = metrics(page).getByText(/2026-08-17/);
+  await expect(periods).toBeVisible();
+  await expect(periods).toContainText('2026-09-15');
+  await expect(periods).toContainText('2026-07-18');
+  await expect(periods).toContainText('2026-08-16');
+  await expect(periods).toContainText('America/Toronto');
   await expect(
     metrics(page).getByText(/Ce net n’est pas un solde disponible/)
   ).toBeVisible();

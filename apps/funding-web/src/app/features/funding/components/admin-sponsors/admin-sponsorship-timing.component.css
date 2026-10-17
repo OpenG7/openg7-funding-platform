@@ -1,48 +1,44 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  width: 100%;
+  @apply tw:block tw:w-full;
 }
 section {
-  padding: 0.75rem;
+  @apply tw:p-3;
   border: 1px solid var(--admin-border, #344860);
-  border-radius: 0.5rem;
+  @apply tw:rounded-lg;
   background: var(--admin-panel, #142338);
   color: var(--admin-text, #f1f5fc);
 }
 dl {
-  display: grid;
-  gap: 0.5rem;
+  @apply tw:grid tw:gap-2;
 }
 dl > div {
-  display: grid;
+  @apply tw:grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
-  gap: 0.5rem;
+  @apply tw:gap-2;
 }
 dt {
   font-weight: 600;
 }
 dd {
-  margin: 0;
-  overflow-wrap: anywhere;
+  @apply tw:m-0 tw:wrap-anywhere;
 }
 fieldset {
-  display: grid;
-  gap: 0.5rem;
-  min-width: 0;
+  @apply tw:grid tw:gap-2 tw:min-w-0;
 }
 input,
 textarea {
-  width: 100%;
-  min-width: 0;
+  @apply tw:w-full tw:min-w-0;
 }
 input[type='checkbox'] {
-  width: auto;
+  @apply tw:w-auto;
 }
 details {
-  margin-top: 0.75rem;
+  @apply tw:mt-3;
 }
 summary {
-  cursor: pointer;
+  @apply tw:cursor-pointer;
 }
 @media (max-width: 600px) {
   dl > div {

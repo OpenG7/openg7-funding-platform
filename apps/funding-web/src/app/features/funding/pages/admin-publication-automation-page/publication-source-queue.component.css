@@ -1,64 +1,63 @@
+@reference '../../../../../styles/tailwind.css';
 :host {
-  display: block;
-  margin: 1.5rem 0;
+  @apply tw:block tw:min-w-0;
 }
 section {
-  padding: 1.15rem;
+  padding: var(--admin-card-padding);
   border: 1px solid var(--admin-border);
-  border-radius: 1rem;
+  border-radius: var(--admin-radius-card);
   background: var(--admin-panel);
-  overflow-wrap: anywhere;
+  box-shadow: var(--admin-shadow);
+  @apply tw:wrap-anywhere tw:min-w-0;
 }
 header,
 .source-links,
 .source-pages {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+  @apply tw:flex tw:items-center tw:justify-between tw:flex-wrap tw:gap-3;
 }
 h2,
 h3,
 dd {
-  margin: 0;
+  @apply tw:m-0 tw:min-w-0;
 }
 h3 {
   font-size: 1rem;
   flex: 1 1 15rem;
-  min-width: 0;
+  @apply tw:min-w-0;
 }
 p {
   line-height: 1.6;
 }
 .detail {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
 }
 .source-summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem 2rem;
+  @apply tw:grid tw:min-w-0 tw:rounded-admin-control;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  background: var(--admin-subtle);
+}
+.source-summary > div {
+  @apply tw:p-4 tw:min-w-0;
+}
+.source-summary dt {
+  @apply tw:text-admin-caption tw:text-admin-muted;
 }
 dd {
-  font-size: 1.3rem;
-  font-weight: 700;
+  font-size: 1.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  margin-block-start: 0.5rem;
 }
 .source-list {
   list-style: none;
-  padding: 0;
-  display: grid;
-  gap: 1rem;
+  @apply tw:p-0 tw:grid tw:min-w-0 tw:m-0;
 }
 .source-list > li {
-  min-width: 0;
-  padding: 1rem;
-  background: var(--admin-subtle);
-  border: 1px solid var(--admin-border);
-  border-radius: 0.7rem;
+  @apply tw:min-w-0 tw:py-5;
+  border-top: 1px solid var(--admin-border);
 }
 .source-status {
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
   font-weight: 600;
 }
 .source-links {
@@ -66,7 +65,8 @@ dd {
   gap: 0.75rem 1.5rem;
 }
 a {
-  color: var(--admin-accent);
+  @apply tw:text-admin-accent tw:inline-flex tw:items-center tw:min-h-admin-control tw:wrap-anywhere tw:max-w-full;
+  font-size: var(--admin-caption-size);
 }
 button:focus-visible,
 a:focus-visible,
@@ -77,12 +77,21 @@ h2:focus {
 .source-pages {
   justify-content: flex-start;
 }
+.admin-button {
+  @apply tw:max-w-full;
+  white-space: normal;
+}
+[data-og7='publication-source-opportunity'] {
+  @apply tw:p-4 tw:my-4 tw:text-admin-muted;
+  border-inline-start: 2px solid var(--admin-accent);
+  background: var(--admin-subtle);
+}
 @media (max-width: 650px) {
   header {
     align-items: flex-start;
   }
   .source-links {
     align-items: flex-start;
-    flex-direction: column;
+    @apply tw:flex-col;
   }
 }

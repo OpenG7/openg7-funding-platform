@@ -1,0 +1,4 @@
+@reference '../../../../../styles/tailwind.css';
+:host {
+  @apply tw:block tw:min-w-0;
+}

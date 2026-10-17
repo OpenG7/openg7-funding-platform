@@ -1,0 +1,94 @@
+@reference '../../../../../styles/tailwind.css';
+
+.heading {
+  @apply tw:items-center tw:flex-wrap;
+  margin-bottom: 0.5rem;
+}
+.heading-tools {
+  @apply tw:flex tw:items-center tw:flex-wrap tw:gap-3 tw:min-w-0;
+}
+.currency,
+.currency-code {
+  @apply tw:text-admin-muted tw:text-admin-caption;
+}
+.currency {
+  @apply tw:flex-wrap;
+  gap: 0.4rem;
+}
+.currency select {
+  border-color: var(--admin-control-border);
+}
+.metrics-context {
+  @apply tw:flex tw:flex-wrap tw:items-center;
+  gap: 0.25rem 1rem;
+}
+.metrics-context > .meta {
+  flex: 1 1 28rem;
+  margin: 0;
+}
+.method {
+  flex: 0 1 auto;
+  margin: 0;
+}
+.method[open] {
+  flex-basis: 100%;
+}
+.method summary {
+  @apply tw:min-h-11 tw:content-center;
+}
+.metrics {
+  gap: 0;
+  align-items: stretch;
+  margin-top: 0.75rem;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-card);
+  background: var(--admin-panel);
+}
+.metric {
+  @apply tw:flex tw:flex-col;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.metric + .metric {
+  border-top: 1px solid var(--admin-border);
+}
+.metric > openg7-admin-cockpit-trend {
+  margin-top: auto;
+}
+.metric > .notice {
+  padding-inline: 1rem;
+  margin: 0.25rem 0 1rem;
+  line-height: 1.4;
+}
+.metric-context {
+  margin-top: auto;
+  padding: 0 1rem 0.5rem;
+  color: var(--admin-muted);
+  font-size: var(--admin-caption-size);
+}
+.metric-context summary {
+  min-height: var(--admin-control-height);
+  align-content: center;
+}
+.metric-context .notice {
+  margin: 0.5rem 0;
+}
+.metric-context summary:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 2px;
+}
+@container admin-cockpit (width > 38rem) {
+  .metric:nth-child(2n) {
+    border-left: 1px solid var(--admin-border);
+  }
+  .metric:nth-child(2) {
+    border-top: 0;
+  }
+}
+@container admin-cockpit (min-width: 64rem) {
+  .metric + .metric {
+    border-top: 0;
+    border-left: 1px solid var(--admin-border);
+  }
+}

@@ -1,6 +1,7 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: grid;
-  min-width: 0;
+  @apply tw:grid tw:min-w-0;
 }
 
 .command-panel code {
@@ -8,21 +9,20 @@
   border: 1px solid var(--border-color);
   border-radius: 0.42rem;
   color: var(--text-soft);
-  display: block;
+  @apply tw:block;
   margin: 0.45rem 0;
-  overflow: auto;
+  @apply tw:overflow-auto;
   padding: 0.58rem;
   white-space: nowrap;
 }
 
 .command-panel {
-  display: grid;
+  @apply tw:grid;
   gap: 0.7rem;
 }
 
 .command-panel article {
-  align-items: center;
-  display: grid;
+  @apply tw:items-center tw:grid;
   gap: 0.45rem;
   grid-template-columns: minmax(7rem, auto) minmax(0, 1fr) auto;
 }

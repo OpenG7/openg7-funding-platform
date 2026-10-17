@@ -1,5 +1,7 @@
+@reference '../../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
+  @apply tw:block;
 }
 
 button,
@@ -17,99 +19,83 @@ input:focus-visible {
 }
 
 .secondary-danger-action {
-  align-items: center;
+  @apply tw:items-center;
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.4rem;
-  color: var(--admin-danger);
-  cursor: pointer;
-  display: inline-flex;
+  @apply tw:rounded-admin-sm tw:text-admin-danger tw:cursor-pointer tw:inline-flex;
   font-weight: var(--admin-control-weight);
-  justify-content: center;
-  min-height: 2.5rem;
+  @apply tw:justify-center tw:min-h-10;
   padding: 0 0.85rem;
   text-decoration: none;
 }
 
 .secondary-danger-action:disabled {
-  cursor: not-allowed;
+  @apply tw:cursor-not-allowed;
   opacity: 0.55;
 }
 
 .detail-card {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.5rem;
-  display: grid;
+  @apply tw:rounded-lg tw:grid;
   gap: 0.85rem;
-  padding: 1rem;
+  @apply tw:p-4;
 }
 
 .detail-card h3 {
-  margin: 0;
+  @apply tw:m-0;
 }
 
 .muted-copy {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   margin: 0.35rem 0 0;
 }
 
 dt {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
   letter-spacing: 0;
-  text-transform: uppercase;
+  @apply tw:uppercase;
 }
 
 dd {
   margin: 0.15rem 0 0;
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }
 
 .compact-definition-list {
-  display: grid;
-  gap: 0.75rem;
-  margin: 0;
+  @apply tw:grid tw:gap-3 tw:m-0;
 }
 
 .logo-preview {
-  align-items: center;
+  @apply tw:items-center;
   background: var(--admin-panel-raised);
   border: 1px solid var(--admin-border);
   border-radius: 0.35rem;
-  display: flex;
+  @apply tw:flex;
   height: 4.5rem;
-  justify-content: center;
-  overflow: hidden;
-  width: 8rem;
+  @apply tw:justify-center tw:overflow-hidden tw:w-32;
 }
 
 .large-preview {
-  height: 8rem;
-  width: 12rem;
+  @apply tw:h-32 tw:w-48;
 }
 
 .logo-preview img {
   max-height: 100%;
-  max-width: 100%;
-  object-fit: contain;
+  @apply tw:max-w-full tw:object-contain;
 }
 
 .logo-actions {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+  @apply tw:items-center tw:flex tw:flex-wrap tw:gap-3;
 }
 
 .logo-upload-control {
-  display: grid;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:grid tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
   gap: 0.35rem;
 }
 
 .inline-status {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
 }

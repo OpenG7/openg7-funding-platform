@@ -1,74 +1,70 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host [hidden] {
   display: none !important;
 }
 :host .admin-workspace {
   max-width: 112rem;
-  margin-inline: auto;
+  @apply tw:mx-auto;
 }
 :host .sponsors-board {
   grid-template-columns: minmax(0, 1fr);
-  gap: 1.5rem;
+  @apply tw:gap-admin-card-gap;
 }
 :host .sponsors-board.has-selection {
-  grid-template-columns: 18rem minmax(0, 1fr);
+  grid-template-columns: 14rem minmax(0, 1fr);
 }
 :host .sponsor-detail-panel {
-  position: relative;
-  top: auto;
-  max-height: none;
-  overflow: visible;
-  border-radius: 1.25rem;
+  @apply tw:relative tw:top-auto tw:max-h-none tw:overflow-visible;
+  @apply tw:rounded-admin-card;
   background: var(--admin-panel);
-  box-shadow: 0 18px 60px #0000001a;
+  box-shadow: var(--admin-shadow);
+  container: sponsorship-dossier / inline-size;
   scroll-margin-top: 1rem;
   scroll-padding-bottom: 10rem;
 }
 :host .sponsor-detail-panel.is-empty {
-  display: none;
+  @apply tw:hidden;
 }
 :host .has-selection > openg7-admin-sponsors-list-panel {
-  position: sticky;
+  @apply tw:sticky;
   top: 1rem;
   max-height: calc(100dvh - 2rem);
-  overflow-y: auto;
+  @apply tw:overflow-y-auto;
   scrollbar-width: thin;
-  border-radius: 1rem;
+  @apply tw:rounded-admin-card;
 }
 .dossier-toolbar,
 .dossier-neighbours {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
+  @apply tw:flex tw:items-center tw:justify-between tw:gap-3;
 }
 .dossier-toolbar {
-  padding: 0.85rem 1.5rem;
+  padding: 0.35rem var(--admin-card-padding);
   border-bottom: 1px solid var(--admin-border);
 }
 .dossier-toolbar button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  @apply tw:inline-flex tw:items-center tw:justify-center;
   gap: 0.65rem;
-  min-height: 2.75rem;
-  min-width: 2.75rem;
+  @apply tw:min-h-11 tw:min-w-11;
   border: 1px solid transparent;
-  border-radius: 0.65rem;
+  @apply tw:rounded-admin-control;
   background: transparent;
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
   font-family: inherit;
   line-height: inherit;
   font-weight: var(--admin-control-weight);
-  font-size: var(--admin-caption-size, 0.875rem);
-  cursor: pointer;
+  @apply tw:text-admin-caption tw:cursor-pointer;
+  transition:
+    background-color var(--admin-motion-duration) var(--admin-motion-easing),
+    border-color var(--admin-motion-duration) var(--admin-motion-easing);
 }
 .dossier-toolbar button:hover:not(:disabled) {
-  background: var(--admin-panel-raised);
-  border-color: var(--admin-border);
+  background: var(--admin-hover);
+  @apply tw:border-admin-control-border;
 }
 .dossier-toolbar button:disabled {
   opacity: 0.4;
-  cursor: default;
+  @apply tw:cursor-default;
 }
 .dossier-toolbar button:focus-visible,
 .dossier-access > summary:focus-visible {
@@ -76,51 +72,87 @@
   outline-offset: 2px;
 }
 .dossier-neighbours span {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
 }
-.dossier-utilities {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: start;
-  gap: 0.5rem 1rem;
-  padding: 0.75rem 1.5rem;
+.dossier-content-grid {
+  @apply tw:grid tw:min-w-0;
+}
+.dossier-main {
+  @apply tw:min-w-0;
+  padding-block: 1rem 2rem;
+}
+.dossier-context {
+  @apply tw:min-w-0;
+  background: var(--admin-subtle);
+  border-top: 1px solid var(--admin-border);
+  padding: 1.25rem;
+}
+.context-heading {
+  @apply tw:flex tw:items-center tw:gap-3;
+  margin-bottom: 1.5rem;
+}
+.dossier-context > openg7-admin-sponsorship-next-step {
+  display: block;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
   border-bottom: 1px solid var(--admin-border);
 }
+.context-heading h2 {
+  font-family: var(--admin-font-family);
+  font-size: 0.9375rem;
+  font-weight: var(--admin-label-weight);
+  @apply tw:m-0;
+}
+.context-marker {
+  @apply tw:grid tw:place-items-center tw:text-admin-accent;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-panel);
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: var(--admin-emphasis-weight);
+}
+.dossier-utilities {
+  @apply tw:grid tw:gap-4;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--admin-border);
+}
 .dossier-utilities > openg7-admin-sponsor-edit {
-  padding: 0;
-  margin-right: auto;
+  @apply tw:p-0;
 }
 .dossier-utilities > openg7-admin-sponsorship-guide {
-  margin: 0;
-}
-.dossier-utilities > openg7-admin-sponsorship-guide:has(details[open]),
-.dossier-access[open] {
-  flex-basis: 100%;
-  order: 2;
+  @apply tw:m-0;
 }
 .dossier-access {
-  min-width: 0;
+  @apply tw:min-w-0;
 }
 .dossier-access > summary {
   padding: 0.7rem 0.3rem;
-  cursor: pointer;
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:cursor-pointer tw:text-admin-muted tw:text-admin-caption;
+}
+@container sponsorship-dossier (min-width: 54rem) {
+  .dossier-content-grid {
+    grid-template-columns: minmax(0, 1fr) 16.5rem;
+  }
+  .dossier-context {
+    border-top: 0;
+    border-inline-start: 1px solid var(--admin-border);
+  }
 }
 :host .detail-body {
-  padding: 1.5rem;
-  gap: 1.5rem;
+  @apply tw:p-admin-card tw:gap-admin-section;
 }
 :host .has-dossier .admin-page-header {
-  display: none;
+  @apply tw:hidden;
 }
 @media (max-width: 1439px) {
   :host .sponsors-board.has-selection {
     grid-template-columns: minmax(0, 1fr);
   }
   :host .has-selection > openg7-admin-sponsors-list-panel {
-    display: none;
+    @apply tw:hidden;
   }
 }
 @media (max-width: 600px) {
@@ -128,22 +160,19 @@
     padding-inline: 0;
   }
   :host .sponsor-detail-panel {
-    border-radius: 1rem;
+    @apply tw:rounded-admin-card;
   }
   .dossier-toolbar,
-  .dossier-utilities {
+  .dossier-context {
     padding-inline: 0.85rem;
   }
   .dossier-neighbours span {
-    display: none;
+    @apply tw:hidden;
   }
   .dossier-neighbours {
     gap: 0.15rem;
   }
-  .dossier-utilities {
-    gap: 0.25rem 0.7rem;
-  }
   :host .detail-body {
-    padding: 1rem;
+    @apply tw:p-4;
   }
 }

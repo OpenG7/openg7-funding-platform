@@ -223,8 +223,18 @@ test('registry retains translated keyboard controls, table semantics and respons
   assert.match(template, /<caption>/);
   assert.equal((template.match(/scope="col"/g) ?? []).length, 3);
   assert.match(template, /formatMoney\(\)\(row.amount, row.currency\)/);
-  assert.match(styles, /:host\s*\{[^}]*display: grid;[^}]*min-width: 0;/);
+  assert.match(
+    styles,
+    /:host\s*\{[^}]*(?:display:\s*grid\s*;|@apply\s+[^;}]*\btw:grid(?=\s|;))/
+  );
+  assert.match(
+    styles,
+    /:host\s*\{[^}]*(?:min-width:\s*0\s*;|@apply\s+[^;}]*\btw:min-w-0(?=\s|;))/
+  );
   assert.match(styles, /:focus-visible/);
-  assert.match(styles, /\.table-wrap\s*\{\s*overflow: auto;/);
+  assert.match(
+    styles,
+    /\.table-wrap\s*\{[^}]*(?:overflow:\s*auto\s*;|@apply\s+[^;}]*\btw:overflow-auto(?=\s|;))/
+  );
   assert.match(styles, /@media \(max-width: 540px\)/);
 });

@@ -20,13 +20,7 @@
       </nav>
     }
     <header class="admin-topbar">
-      <div>
-        <span>{{
-          (activeView() === 'overview'
-            ? 'admin.legacy.administration'
-            : 'admin.publications.title'
-          ) | translate
-        }}</span>
+      <div class="heading-copy">
         <h1 id="publication-heading" tabindex="-1">
           {{
             'admin.publications.spaces.' + activeView() + '.title' | translate
@@ -85,17 +79,17 @@
             {{ 'admin.publications.newSlot' | translate }}
           </button>
         }
-        <a
-          [routerLink]="publicationPath + '/automation'"
-          class="admin-button"
-          >{{ 'admin.publicationAutomation.title' | translate }}</a
-        >
+        <a [routerLink]="publicationPath + '/automation'" class="admin-button">
+          <openg7-admin-icon name="settings" />
+          {{ 'admin.publicationAutomation.title' | translate }}
+        </a>
         <button
           type="button"
           class="admin-button"
           (click)="load()"
           [disabled]="state() === 'loading'"
         >
+          <openg7-admin-icon name="refresh" />
           {{ 'admin.legacy.actualiser' | translate }}
         </button>
       </div>
@@ -121,26 +115,42 @@
 
     <p class="action-notice" role="status">{{ notice() | translate }}</p>
     <section
-      class="publication-view"
+      class="publication-view publication-overview"
       id="publication-panel-overview"
       aria-labelledby="publication-heading"
       [hidden]="activeView() !== 'overview'"
     >
       @if (activeView() === 'overview') {
+        <openg7-admin-publication-queue
+          [batches]="batches()"
+          [drafts]="drafts()"
+          [slots]="slots()"
+          [state]="state()"
+          (openBatch)="focusBatch($event)"
+          (retry)="load()"
+        />
         <nav
           class="publication-spaces"
           [attr.aria-label]="'admin.publications.navigation' | translate"
         >
-          @for (space of publicationSpaces; track space; let index = $index) {
+          @for (space of publicationSpaces; track space) {
             <a
               [routerLink]="[publicationPath, space]"
               [queryParams]="navigationParams()"
               data-og7="publication-space"
               [attr.data-og7-id]="space"
             >
-              <span class="space-number" aria-hidden="true"
-                >0{{ index + 1 }}</span
-              >
+              <span class="space-icon" aria-hidden="true">
+                <openg7-admin-icon
+                  [name]="
+                    space === 'drafts'
+                      ? 'publications'
+                      : space === 'batches'
+                        ? 'transparency'
+                        : 'clock'
+                  "
+                />
+              </span>
               <div>
                 <h2>
                   {{
@@ -162,14 +172,6 @@
             </a>
           }
         </nav>
-        <openg7-admin-publication-queue
-          [batches]="batches()"
-          [drafts]="drafts()"
-          [slots]="slots()"
-          [state]="state()"
-          (openBatch)="focusBatch($event)"
-          (retry)="load()"
-        />
       }
     </section>
 

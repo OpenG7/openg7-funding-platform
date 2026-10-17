@@ -1,28 +1,28 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  height: 100%;
-  min-height: 0;
-  --pilot-spacing: 1.1rem;
-  --pilot-preview-height: 15rem;
-  --pilot-queue-height: 6rem;
-  --domain-color: var(--og7-admin-accent);
+  @apply tw:block tw:h-full tw:min-h-0 tw:min-w-0;
+  --pilot-spacing: 1.25rem;
+  --pilot-preview-height: 11rem;
+  --pilot-queue-height: 5.5rem;
+  --domain-color: var(--admin-accent);
 }
 .pilot {
-  height: 100%;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  color: var(--admin-text);
+  @apply tw:h-full tw:min-h-0 tw:min-w-0 tw:flex tw:flex-col tw:text-admin-text;
   font-size: var(--admin-body-size);
 }
 .pilot-scroll {
-  flex: 1;
-  /* Enlarged commands can grow the outer frame without consuming the reading surface. */
+  @apply tw:flex-1 tw:min-w-0 tw:overflow-auto;
+  /* Commands keep a separate area while the full decision remains scrollable. */
   min-height: 8rem;
-  overflow: auto;
   scrollbar-gutter: stable;
   padding: 0.25rem 0.6rem 1.25rem 0.25rem;
-  scroll-padding: 1rem;
+  scroll-padding: 1.25rem;
+  container: pilot-surface / inline-size;
+}
+.pilot-scroll.guide-active {
+  /* The final guide target can move above the floating card without hitting the scroll end. */
+  padding-bottom: max(1.25rem, 65vh);
 }
 button,
 input,
@@ -40,14 +40,16 @@ a {
   -webkit-tap-highlight-color: transparent;
 }
 button {
+  @apply tw:cursor-pointer tw:text-admin-text tw:max-w-full tw:min-w-0;
   font-weight: var(--admin-control-weight);
-  cursor: pointer;
-  color: var(--admin-text);
-  background: var(--admin-panel-raised);
-  border: 1px solid var(--admin-border);
-  border-radius: 0.6rem;
-  padding: 0.55rem 0.8rem;
+  line-height: 1.4;
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-control-border);
+  border-radius: var(--admin-radius-control);
+  padding: 0.625rem 1rem;
   min-height: 2.75rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 button:hover:not(:disabled) {
   border-color: var(--admin-focus);
@@ -55,7 +57,7 @@ button:hover:not(:disabled) {
 }
 button:disabled {
   opacity: 0.5;
-  cursor: not-allowed;
+  @apply tw:cursor-not-allowed;
 }
 a {
   color: var(--og7-admin-accent);
@@ -70,24 +72,16 @@ a:hover {
   outline-offset: 3px;
 }
 .intro {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1.25rem;
+  @apply tw:flex tw:items-start tw:justify-between tw:gap-4 tw:flex-wrap tw:mb-6;
 }
 .intro-copy {
-  min-width: 0;
+  @apply tw:min-w-0;
+  flex: 1 1 22rem;
 }
 .eyebrow {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  font-size: var(--admin-caption-size, 0.875rem);
-  font-weight: var(--admin-label-weight);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--admin-gold);
+  @apply tw:flex tw:flex-wrap tw:items-center tw:text-admin-caption tw:text-admin-muted;
+  gap: 0.5rem;
+  font-weight: 500;
   margin: 0 0 0.5rem;
 }
 .eyebrow-mark {
@@ -97,26 +91,19 @@ a:hover {
   background: currentColor;
 }
 h1 {
-  margin: 0;
+  @apply tw:m-0 tw:min-w-0 tw:wrap-anywhere;
 }
 .intro p:not(.eyebrow) {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
   margin: 0.45rem 0 0;
 }
 .intro-actions {
-  display: flex;
-  align-items: center;
+  @apply tw:flex tw:items-center tw:flex-wrap tw:gap-2 tw:max-w-full;
   justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  max-width: 36rem;
+  flex: 0 1 36rem;
 }
 .intro-actions button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:inline-flex tw:items-center tw:gap-2 tw:text-admin-caption;
 }
 .intro-actions button[aria-pressed='true'] {
   border-color: var(--admin-gold);
@@ -131,29 +118,23 @@ h1 {
 .programme-button:hover:not(:disabled) {
   background: var(--og7-admin-primary);
   color: var(--og7-admin-on-primary);
-  filter: brightness(1.08);
+  box-shadow: var(--admin-shadow-raised);
 }
 .domain-picker {
-  margin-bottom: 0.75rem;
+  @apply tw:min-w-0 tw:mb-5;
 }
 .domain-picker h2 {
-  color: var(--admin-muted);
-  margin: 0 0 0.5rem;
+  @apply tw:sr-only;
 }
 .domain-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  padding: 0.25rem;
+  @apply tw:flex tw:flex-wrap tw:gap-2 tw:p-1 tw:min-w-0;
   margin: -0.25rem;
 }
 .domain-filters button {
-  display: inline-flex;
-  gap: 0.5rem;
-  align-items: center;
-  padding: 0.4rem 0.6rem;
-  font-size: var(--admin-caption-size, 0.875rem);
-  background: transparent;
+  @apply tw:inline-flex tw:gap-2 tw:items-center tw:text-admin-caption;
+  padding: 0.5rem 0.75rem;
+  border-color: var(--admin-border);
+  background: var(--admin-panel);
 }
 .domain-filters button.active {
   background: var(--og7-admin-selected);
@@ -161,13 +142,11 @@ h1 {
   box-shadow: inset 0 -2px var(--domain-color);
 }
 .domain-filters small {
-  background: var(--og7-admin-subtle);
-  border-radius: 0.3rem;
-  min-width: 1.3rem;
-  padding: 0.1rem 0.3rem;
-  text-align: center;
+  @apply tw:text-center tw:text-admin-caption tw:rounded-full;
+  min-width: 1.5rem;
+  padding: 0.125rem 0.35rem;
+  background: var(--admin-subtle);
   font-variant-numeric: tabular-nums;
-  font-size: var(--admin-caption-size, 0.875rem);
 }
 .domain-filters openg7-admin-icon {
   color: var(--domain-color);
@@ -186,55 +165,47 @@ h1 {
   --domain-color: var(--admin-gold);
 }
 .pilot-tools {
-  display: flex;
-  gap: 0.6rem;
-  align-items: center;
-  flex-wrap: wrap;
-  margin-bottom: 0.8rem;
+  @apply tw:flex tw:items-center tw:flex-wrap tw:min-w-0 tw:gap-3;
+  padding-block-start: 1.5rem;
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--admin-border);
 }
 .pilot-tools button {
-  display: inline-flex;
+  @apply tw:inline-flex;
   gap: 0.45rem;
-  align-items: center;
+  @apply tw:items-center;
   background: transparent;
   border-color: transparent;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
   padding: 0.4rem;
 }
 .automation {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
+  @apply tw:flex tw:items-center tw:min-w-0 tw:max-w-full tw:text-admin-text tw:text-admin-caption tw:rounded-admin-card;
+  gap: 0.875rem;
+  flex: 1 1 28rem;
   margin-right: auto;
-  padding: 0.45rem 0.7rem;
+  padding: 1rem 1.25rem;
   border: 1px solid var(--admin-border);
-  border-radius: 0.6rem;
   background: var(--admin-panel);
-  color: var(--admin-text);
-  max-width: 32rem;
-  font-size: var(--admin-caption-size, 0.875rem);
 }
 .automation-icon {
-  display: flex;
-  color: var(--admin-muted);
+  @apply tw:flex tw:text-admin-muted;
 }
 .automation strong {
   font-weight: var(--admin-label-weight);
 }
 .automation p {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   margin: 0.25rem 0 0;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 .automation-shortcut {
-  display: inline-flex;
-  gap: 0.5rem;
-  align-items: center;
+  @apply tw:inline-flex tw:gap-2 tw:items-center;
   color: var(--og7-admin-accent);
   margin-top: 0.3rem;
 }
 .dot {
-  display: inline-block;
+  @apply tw:inline-block;
   width: 0.4rem;
   height: 0.4rem;
   border-radius: 50%;
@@ -245,21 +216,18 @@ h1 {
   background: var(--admin-success);
 }
 .overview {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.6rem;
-  margin: 0 0 1rem;
+  @apply tw:grid tw:grid-cols-3 tw:min-w-0 tw:rounded-admin-card;
+  margin: 0 0 1.5rem;
+  gap: 0;
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
 }
 .overview-stat {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 0.3rem 0.6rem;
-  padding: 0.65rem 0.85rem;
-  border: 1px solid var(--admin-border);
-  border-radius: 0.7rem;
-  background: var(--admin-panel);
-  --stat-color: var(--og7-admin-accent);
+  @apply tw:grid tw:items-center tw:min-w-0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.25rem 0.75rem;
+  padding: 0.875rem 1rem;
+  --stat-color: var(--admin-accent);
 }
 .stat-done {
   --stat-color: var(--admin-success);
@@ -268,63 +236,50 @@ h1 {
   --stat-color: var(--og7-admin-purple);
 }
 .overview dt {
-  display: flex;
-  align-items: center;
+  @apply tw:flex tw:flex-wrap tw:items-center tw:text-admin-caption tw:text-admin-muted tw:min-w-0 tw:wrap-anywhere;
   gap: 0.4rem;
-  font-size: var(--admin-caption-size, 0.875rem);
-  color: var(--admin-muted);
 }
 .overview dt openg7-admin-icon {
   color: var(--stat-color);
 }
 .overview dd {
+  @apply tw:m-0 tw:wrap-anywhere;
   grid-column: 2;
-  grid-row: 1/3;
-  margin: 0;
+  grid-row: 1 / 3;
   font-size: 1.5rem;
-  line-height: 1;
-  font-weight: var(--admin-emphasis-weight);
-  color: var(--stat-color);
+  line-height: 1.2;
+  font-weight: 600;
+  color: var(--admin-text);
   font-variant-numeric: tabular-nums;
 }
 .overview .stat-context {
   grid-column: 1;
   grid-row: 2;
-  font-size: var(--admin-caption-size, 0.875rem);
-  color: var(--admin-muted);
+  @apply tw:text-admin-caption tw:text-admin-muted;
   font-weight: 400;
   line-height: 1.5;
 }
 .workspace {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(15rem, 1fr);
-  gap: 1rem;
+  @apply tw:grid tw:gap-6 tw:min-w-0;
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
 }
 .decision {
-  min-width: 0;
+  @apply tw:min-w-0 tw:rounded-admin-card;
   padding: var(--pilot-spacing);
   border: 1px solid var(--admin-border);
-  border-radius: 1rem;
   background: var(--admin-panel);
-  box-shadow: 0 0.6rem 1.8rem #0000000a;
+  box-shadow: var(--admin-shadow);
+  container: pilot-decision / inline-size;
 }
 .decision-topline {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.7rem;
-  padding-bottom: 0.8rem;
+  @apply tw:flex tw:items-center tw:justify-between tw:flex-wrap tw:gap-3;
+  padding-bottom: 0.875rem;
   margin-bottom: var(--pilot-spacing);
   border-bottom: 1px solid var(--admin-border);
 }
 .decision-focus {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--admin-gold);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:inline-flex tw:items-center tw:gap-2 tw:text-admin-gold tw:text-admin-caption;
   font-weight: var(--admin-control-weight);
 }
 .decision-focus > span {
@@ -334,45 +289,34 @@ h1 {
   background: currentColor;
 }
 .badge {
-  display: inline-flex;
+  @apply tw:inline-flex;
   gap: 0.4rem;
-  align-items: center;
+  @apply tw:items-center;
   color: var(--domain-color);
   background: var(--og7-admin-subtle);
   border: 1px solid var(--admin-border);
   border-radius: 2rem;
   padding: 0.25rem 0.6rem;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 .preview {
-  display: grid;
-  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  @apply tw:grid tw:min-w-0;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--pilot-spacing);
   align-items: start;
 }
 .visual {
   height: var(--pilot-preview-height);
-  overflow: hidden;
+  @apply tw:overflow-hidden;
   border: 1px solid var(--admin-border);
   border-radius: 0.7rem;
   background: var(--og7-admin-subtle);
 }
 .visual img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
+  @apply tw:w-full tw:h-full tw:object-contain;
 }
 .no-image {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  color: var(--admin-muted);
-  text-align: center;
-  padding: 1rem;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:h-full tw:flex tw:flex-col tw:items-center tw:justify-center tw:gap-4 tw:text-admin-muted tw:text-center tw:p-4 tw:text-admin-caption;
 }
 .no-image-icon {
   color: var(--domain-color);
@@ -380,91 +324,82 @@ h1 {
 }
 .decision h2 {
   margin: 0 0 0.8rem;
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }
 .destination,
 .date {
-  font-size: var(--admin-caption-size, 0.875rem);
-  color: var(--admin-muted);
-  overflow-wrap: anywhere;
+  @apply tw:text-admin-caption tw:text-admin-muted tw:wrap-anywhere;
 }
 .destination span {
   margin: 0 0.3rem;
 }
 .date {
-  display: flex;
-  align-items: center;
+  @apply tw:flex tw:items-center;
   gap: 0.4rem;
 }
 .sponsors {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-  font-size: var(--admin-caption-size, 0.875rem);
-  text-align: left;
+  @apply tw:flex tw:items-center tw:gap-2 tw:w-full tw:text-admin-caption tw:text-left;
 }
 .sponsors span {
   margin-left: auto;
 }
 .decision-copy {
-  white-space: pre-wrap;
+  @apply tw:whitespace-pre-wrap;
   margin: var(--pilot-spacing) 0;
   padding: 0.8rem;
   border-left: 2px solid var(--og7-admin-accent);
   border-radius: 0 0.5rem 0.5rem 0;
   background: var(--og7-admin-subtle);
-  color: var(--admin-text);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-text tw:text-admin-caption;
   line-height: 1.6;
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }
 .decision-summary {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.65rem;
+  @apply tw:grid tw:gap-3 tw:min-w-0;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
 }
 .decision-summary section {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.8rem;
+  @apply tw:flex tw:gap-2 tw:min-w-0 tw:rounded-admin-control;
+  padding: 0.875rem;
   border: 1px solid var(--admin-border);
-  border-radius: 0.65rem;
-  background: var(--og7-admin-subtle);
+  background: var(--admin-subtle);
 }
 .decision-summary h3 {
-  margin: 0 0 0.5rem;
+  @apply tw:wrap-anywhere;
+  font-size: var(--admin-caption-size);
+  font-weight: 600;
+  margin: 0 0 0.375rem;
 }
 .decision-summary p {
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
   line-height: 1.6;
-  color: var(--admin-muted);
-  margin: 0;
+  @apply tw:text-admin-muted tw:m-0;
 }
 .decision-summary openg7-admin-icon {
   color: var(--og7-admin-accent);
 }
 .decision-summary section:nth-child(2) openg7-admin-icon {
-  color: var(--admin-success);
+  @apply tw:text-admin-success;
 }
 .decision-summary section:last-child openg7-admin-icon {
-  color: var(--admin-gold);
+  @apply tw:text-admin-gold;
+}
+.decision > openg7-funding-moderation-actions {
+  display: block;
+  margin-top: var(--pilot-spacing);
 }
 .up-next {
-  min-width: 0;
+  @apply tw:min-w-0 tw:rounded-admin-card;
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  box-shadow: var(--admin-shadow);
 }
 .queue-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0.5rem 0 0.85rem;
+  @apply tw:flex tw:flex-wrap tw:justify-between tw:items-center tw:gap-2 tw:p-admin-card;
+  border-bottom: 1px solid var(--admin-border);
 }
 .queue-heading h2 {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0;
+  @apply tw:flex tw:items-center tw:gap-2 tw:m-0;
 }
 .queue-mark {
   width: 3px;
@@ -473,24 +408,21 @@ h1 {
   border-radius: 2px;
 }
 .queue-heading span {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
 }
 .queue-scroll {
-  display: grid;
-  gap: 0.6rem;
-  padding: 0.25rem;
+  @apply tw:grid tw:gap-2 tw:min-w-0 tw:p-3;
   max-height: 32rem;
   overflow: auto;
+  scrollbar-gutter: stable;
 }
 .queue-card {
-  display: grid;
-  grid-template-columns: 2rem minmax(0, 1fr) 0.5rem;
-  align-items: center;
-  gap: 0.7rem;
-  text-align: left;
+  @apply tw:grid tw:items-center tw:text-left tw:min-w-0;
+  grid-template-columns: 1.5rem minmax(0, 1fr) 0.5rem;
+  gap: 0.75rem;
   min-height: var(--pilot-queue-height);
-  padding: 0.8rem;
+  padding: 0.875rem;
+  border-color: var(--admin-border);
   background: var(--admin-panel);
 }
 .queue-icon {
@@ -503,64 +435,50 @@ h1 {
 .queue-card strong,
 .queue-card small,
 .queue-card span > span {
-  display: block;
+  @apply tw:block;
 }
 .queue-card strong {
-  font-size: var(--admin-caption-size, 0.875rem);
-  margin-bottom: 0.4rem;
+  @apply tw:text-admin-caption tw:wrap-anywhere;
+  font-weight: 600;
+  margin-bottom: 0.375rem;
 }
 .queue-card span > span {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
   line-height: 1.45;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-  overflow: hidden;
+  @apply tw:overflow-hidden;
 }
 .queue-card small {
   margin-top: 0.45rem;
-  font-size: var(--admin-caption-size, 0.875rem);
-  color: var(--admin-muted);
+  @apply tw:text-admin-caption tw:text-admin-muted;
 }
 .pagination {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.4rem;
-  margin-top: 0.75rem;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:flex tw:flex-wrap tw:items-center tw:justify-between tw:gap-2 tw:min-w-0 tw:p-3 tw:text-admin-caption;
+  border-top: 1px solid var(--admin-border);
 }
 .pagination button {
   padding: 0.4rem 0.6rem;
 }
 .quiet {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
 }
 .controls {
+  @apply tw:flex tw:items-center tw:flex-wrap tw:justify-between tw:gap-3 tw:rounded-admin-card;
   flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 1rem;
   border: 1px solid var(--admin-border);
   border-top: 2px solid var(--admin-gold);
-  border-radius: 0.8rem;
-  padding: 0.65rem;
+  padding: 0.75rem;
   background: var(--admin-panel);
-  margin-top: 0.6rem;
+  box-shadow: var(--admin-shadow);
+  margin-top: 0.75rem;
 }
 .controls button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: var(--admin-caption-size, 0.875rem);
-  overflow-wrap: anywhere;
+  @apply tw:inline-flex tw:items-center tw:gap-2 tw:text-admin-caption tw:wrap-anywhere;
 }
 .face-buttons {
-  display: flex;
-  gap: 0.5rem;
+  @apply tw:flex tw:flex-wrap tw:gap-2 tw:min-w-0 tw:max-w-full;
 }
 .face-buttons button:first-child {
   background: var(--og7-admin-primary);
@@ -569,11 +487,11 @@ h1 {
   font-weight: var(--admin-control-weight);
 }
 .face-buttons button:nth-child(2) {
-  color: var(--admin-danger);
+  @apply tw:text-admin-danger;
   background: var(--og7-admin-danger-bg);
 }
 .face-buttons kbd {
-  display: none;
+  @apply tw:hidden;
   width: 1.4rem;
   height: 1.4rem;
   place-items: center;
@@ -583,7 +501,7 @@ h1 {
   color: #07131a;
 }
 .controller-active .face-buttons kbd {
-  display: grid;
+  @apply tw:grid;
 }
 .a {
   background: #73cc60;
@@ -598,81 +516,66 @@ h1 {
   background: #ffc82d;
 }
 .shortcuts {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  align-items: center;
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:flex tw:gap-2 tw:flex-wrap tw:items-center tw:text-admin-muted tw:text-admin-caption;
 }
 .shortcuts > div {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
+  @apply tw:flex tw:items-center tw:flex-wrap;
   gap: 0.3rem;
 }
 .shortcuts > div:first-child > span:last-child {
-  display: none;
+  @apply tw:hidden;
 }
 .shortcuts button {
   padding: 0.4rem;
   background: transparent;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 .shortcuts kbd {
   font: inherit;
 }
 .session-hint {
   flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: space-between;
+  @apply tw:flex tw:items-center tw:flex-wrap tw:justify-between;
   gap: 0.8rem;
   padding-top: 0.2rem;
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
 }
 .session-hint button {
-  min-height: 2rem;
+  @apply tw:min-h-11 tw:max-w-full tw:text-admin-caption tw:p-1;
   border: 0;
   background: none;
-  font-size: var(--admin-caption-size, 0.875rem);
-  padding: 0.25rem;
 }
 .alert,
 .success {
   padding: 0.8rem 1rem;
   border-radius: 0.6rem;
   margin: 0 0 0.85rem;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
   line-height: 1.6;
   border: 1px solid var(--admin-border);
 }
 .alert {
-  color: var(--admin-warning);
+  @apply tw:text-admin-warning;
   background: var(--og7-admin-warning-bg);
 }
 .success {
-  color: var(--admin-success);
+  @apply tw:text-admin-success;
   background: var(--og7-admin-success-bg);
 }
 .alert button,
 .success button {
   margin-left: 0.6rem;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 .empty {
-  display: grid;
-  justify-items: center;
-  align-content: center;
+  @apply tw:grid tw:justify-items-center tw:content-center;
   min-height: 16rem;
-  text-align: center;
+  @apply tw:text-center;
   border: 1px solid var(--admin-border);
   border-radius: 1rem;
-  padding: 2rem;
+  @apply tw:p-8;
   background: var(--admin-panel);
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
 }
 .empty-icon {
   color: var(--og7-admin-accent);
@@ -683,9 +586,8 @@ h1 {
   line-height: 1.6;
 }
 .operations {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  @apply tw:grid tw:gap-6;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
 }
 .operations > h2,
 .operations > p,
@@ -693,47 +595,45 @@ h1 {
   grid-column: 1/-1;
 }
 .operations article {
+  @apply tw:min-w-0 tw:rounded-admin-card tw:p-admin-card;
   border: 1px solid var(--admin-border);
-  border-radius: 0.8rem;
-  padding: 1rem;
   background: var(--admin-panel);
 }
 .panel-content {
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
   font-size: var(--admin-body-size);
   line-height: 1.6;
 }
 .panel-content label {
-  display: grid;
-  gap: 0.5rem;
+  @apply tw:grid tw:gap-2 tw:min-w-0;
+  font-weight: var(--admin-label-weight);
   margin: 1.25rem 0;
 }
 .panel-content input,
 .panel-content select,
 .panel-content textarea {
-  width: 100%;
-  color: var(--admin-text);
-  background: var(--og7-admin-subtle);
-  border: 1px solid var(--admin-border);
-  border-radius: 0.5rem;
-  padding: 0.6rem;
-  box-sizing: border-box;
+  @apply tw:w-full tw:min-w-0 tw:text-admin-text tw:rounded-admin-control tw:box-border;
+  min-height: 2.75rem;
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-control-border);
+  padding: 0.625rem 0.75rem;
 }
 .panel-content input[type='range'] {
-  padding: 0;
+  @apply tw:p-0;
 }
 .panel-content .checkbox {
-  display: flex;
-  align-items: center;
+  @apply tw:flex tw:items-center tw:min-h-11;
 }
 .checkbox input {
-  width: auto;
+  @apply tw:w-auto;
+  min-height: 0;
+  accent-color: var(--admin-accent);
 }
 .panel-content textarea {
   resize: vertical;
 }
 .panel-content button {
-  margin: 0.3rem;
+  margin: 0;
 }
 .panel-content .primary {
   background: var(--og7-admin-primary);
@@ -741,55 +641,41 @@ h1 {
   border-color: var(--og7-admin-primary);
 }
 .panel-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  margin-top: 1.5rem;
+  @apply tw:flex tw:flex-wrap tw:justify-end tw:gap-3 tw:mt-6;
 }
 .full-copy {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  color: var(--admin-muted);
+  @apply tw:whitespace-pre-wrap tw:wrap-anywhere tw:text-admin-muted;
 }
 .consequence {
-  padding: 1rem;
+  @apply tw:p-4;
   border-left: 3px solid var(--og7-admin-accent);
   background: var(--og7-admin-selected);
 }
 .detail-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 1rem 1.2rem max(1rem, env(safe-area-inset-bottom));
+  @apply tw:flex tw:flex-wrap tw:items-center tw:justify-between tw:gap-3;
+  padding: 1rem 1.25rem max(1rem, env(safe-area-inset-bottom));
   border-top: 1px solid var(--admin-border);
   background: var(--admin-panel);
 }
 .detail-footer[hidden] {
-  display: none;
+  @apply tw:hidden;
 }
 .detail-footer a {
-  display: inline-flex;
-  justify-content: center;
-  align-items: center;
-  gap: 0.5rem;
+  @apply tw:inline-flex tw:justify-center tw:items-center tw:gap-2;
   min-height: 2.75rem;
   padding: 0.6rem;
   border: 1px solid var(--admin-border);
   border-radius: 0.5rem;
   background: var(--admin-panel-raised);
-  color: var(--admin-text);
-  text-align: center;
+  @apply tw:text-admin-text tw:text-center;
 }
 .panel-content dl > div {
-  display: grid;
-  grid-template-columns: 1fr 2fr;
-  gap: 1rem;
-  padding: 0.5rem 0;
+  @apply tw:grid tw:gap-4;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  padding: 0.75rem 0;
 }
 .panel-content dd {
-  margin: 0;
-  overflow-wrap: anywhere;
+  @apply tw:m-0 tw:wrap-anywhere;
 }
 .concentrated .domain-picker,
 .concentrated .pilot-tools,
@@ -798,7 +684,7 @@ h1 {
 .concentrated .programme-button,
 .concentrated openg7-admin-guide,
 .concentrated .up-next {
-  display: none;
+  @apply tw:hidden;
 }
 .concentrated .workspace {
   grid-template-columns: minmax(0, 1fr);
@@ -806,18 +692,18 @@ h1 {
   margin-inline: auto;
 }
 .concentrated .intro {
-  position: sticky;
+  @apply tw:sticky;
   top: -0.25rem;
   z-index: 2;
-  padding-block: 0.5rem;
+  @apply tw:py-2;
   background: var(--admin-bg);
 }
 .concentrated.queue-visible .up-next {
-  display: block;
+  @apply tw:block;
 }
 .concentrated.queue-visible .workspace {
-  grid-template-columns: minmax(0, 2fr) minmax(15rem, 1fr);
-  max-width: none;
+  grid-template-columns: minmax(0, 1fr);
+  @apply tw:max-w-none;
 }
 @media (max-width: 1150px) {
   .intro {
@@ -827,10 +713,10 @@ h1 {
     max-width: 24rem;
   }
   .decision-summary {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
   }
   .controls {
-    flex-wrap: wrap;
+    @apply tw:flex-wrap;
   }
   .shortcuts {
     margin-left: auto;
@@ -838,51 +724,53 @@ h1 {
 }
 @media (max-width: 700px) {
   .intro {
-    flex-direction: column;
+    @apply tw:flex-col;
     gap: 0.65rem;
     margin-bottom: 0.85rem;
   }
+  .intro-copy,
+  .intro-actions {
+    @apply tw:w-full;
+    flex: 0 1 auto;
+  }
   .intro-actions {
     justify-content: flex-start;
-    max-width: none;
+    @apply tw:max-w-none;
     gap: 0.4rem;
   }
   .intro-actions button {
-    font-size: var(--admin-caption-size, 0.875rem);
+    @apply tw:text-admin-caption;
     padding: 0.4rem 0.55rem;
   }
   .intro p:not(.eyebrow) {
-    display: none;
+    @apply tw:hidden;
   }
   .intro .eyebrow {
-    display: none;
+    @apply tw:hidden;
   }
   .domain-filters {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding-bottom: 0.5rem;
+    @apply tw:flex-nowrap tw:overflow-x-auto tw:pb-2;
   }
   .domain-filters button {
-    flex-shrink: 0;
+    @apply tw:shrink-0;
   }
   .automation {
-    max-width: none;
-    width: 100%;
+    @apply tw:max-w-none tw:w-full;
   }
   .automation p {
-    display: none;
+    @apply tw:hidden;
   }
   .automation strong {
-    display: block;
+    @apply tw:block;
   }
   .pilot-tools {
-    gap: 0.25rem;
+    @apply tw:gap-1;
   }
   .pilot-tools > button {
-    font-size: var(--admin-caption-size, 0.875rem);
+    @apply tw:text-admin-caption;
   }
   .pilot-tools > button:not([data-og7]) {
-    display: none;
+    @apply tw:hidden;
   }
   .overview {
     gap: 0.4rem;
@@ -892,10 +780,10 @@ h1 {
     grid-template-columns: 1fr;
   }
   .overview dt {
-    font-size: var(--admin-caption-size, 0.875rem);
+    @apply tw:text-admin-caption;
   }
   .overview dt openg7-admin-icon {
-    display: none;
+    @apply tw:hidden;
   }
   .overview dd {
     grid-row: 2;
@@ -916,51 +804,81 @@ h1 {
     height: 11rem;
   }
   .controls {
-    display: grid;
+    @apply tw:grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 0.35rem;
-    padding: 0.5rem;
+    @apply tw:p-2;
   }
   .face-buttons {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    @apply tw:grid tw:grid-cols-4;
     gap: 0.3rem;
   }
   .face-buttons button {
-    flex-direction: column;
+    @apply tw:flex-col;
     gap: 0.3rem;
     padding: 0.4rem 0.1rem;
-    font-size: var(--admin-caption-size, 0.875rem);
+    @apply tw:text-admin-caption;
   }
   .shortcuts {
-    margin: 0;
-    justify-content: space-between;
+    @apply tw:m-0 tw:justify-between;
   }
   .shortcuts button {
-    min-height: 2rem;
+    min-height: 2.75rem;
   }
   .shortcuts > div:nth-child(2) kbd {
-    display: none;
+    @apply tw:hidden;
   }
   .session-hint > span {
-    display: none;
+    @apply tw:hidden;
   }
   .session-hint {
     gap: 0.2rem;
-    flex-wrap: wrap;
+    @apply tw:flex-wrap;
   }
   .operations {
     grid-template-columns: 1fr;
   }
   .panel-content dl > div {
     grid-template-columns: 1fr;
-    gap: 0.25rem;
+    @apply tw:gap-1;
   }
 }
 @media (prefers-reduced-motion: no-preference) {
   button {
     transition:
-      background-color 120ms ease,
-      border-color 120ms ease;
+      background-color var(--admin-motion-duration) var(--admin-motion-easing),
+      border-color var(--admin-motion-duration) var(--admin-motion-easing);
+  }
+}
+
+.overview-stat + .overview-stat {
+  border-inline-start: 1px solid var(--admin-border);
+}
+.decision-heading,
+.decision-summary section > div,
+.automation > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.date-steps,
+.feed-row {
+  @apply tw:flex tw:flex-wrap tw:items-center tw:gap-2;
+}
+.feed-row {
+  @apply tw:justify-between tw:py-3;
+  border-bottom: 1px solid var(--admin-border);
+}
+@container pilot-surface (min-width: 54rem) {
+  .workspace,
+  .concentrated.queue-visible .workspace {
+    grid-template-columns: minmax(0, 2fr) minmax(16rem, 1fr);
+  }
+  .concentrated:not(.queue-visible) .workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@container pilot-decision (min-width: 30rem) {
+  .preview {
+    grid-template-columns: minmax(0, 0.75fr) minmax(0, 1.25fr);
   }
 }

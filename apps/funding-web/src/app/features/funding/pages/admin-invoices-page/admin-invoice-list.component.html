@@ -21,22 +21,20 @@
       [attr.data-og7-id]="row.invoice.id"
       (click)="selected.emit(row.invoice)"
     >
-      <span class="invoice-number">
-        {{ row.invoice.invoice_number }}
+      <span class="invoice-row-heading">
+        <span class="invoice-number">{{ row.invoice.invoice_number }}</span>
+        <strong>{{ row.totalLabel }}</strong>
       </span>
       <span class="invoice-name">{{ row.invoice.sponsor_name }}</span>
-      <span class="invoice-meta">
-        {{ row.dateLabel }}
+      <span class="invoice-row-meta">
+        <span class="invoice-meta">{{ row.dateLabel }}</span>
+        <openg7-admin-document-email-status
+          [status]="row.invoice.last_email_status"
+        />
+        <span class="credit-status" *ngIf="row.invoice.credit_notes.length > 0">
+          {{ 'admin.legacy.avoir' | translate }}
+        </span>
       </span>
-      <openg7-admin-document-email-status
-        [status]="row.invoice.last_email_status"
-      />
-      <span class="credit-status" *ngIf="row.invoice.credit_notes.length > 0">
-        {{ 'admin.legacy.avoir' | translate }}</span
-      >
-      <strong>
-        {{ row.totalLabel }}
-      </strong>
     </button>
   </div>
 

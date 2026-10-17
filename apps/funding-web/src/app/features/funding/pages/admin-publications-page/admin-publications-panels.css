@@ -1,53 +1,42 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: grid;
-  gap: 1rem;
-  min-width: 0;
+  @apply tw:grid tw:gap-6 tw:min-w-0;
 }
 
 .visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
+  @apply tw:absolute tw:w-px tw:h-px tw:p-0 tw:-m-px tw:overflow-hidden;
   clip-path: inset(50%);
-  white-space: nowrap;
+  @apply tw:whitespace-nowrap;
 }
 
 .item-editor {
-  display: grid;
-  gap: 1rem;
-  min-width: 0;
-}
-
-.secondary-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.item-editor {
+  @apply tw:grid tw:gap-4 tw:min-w-0;
+  min-inline-size: 0;
   border: 0;
   border-top: 1px solid var(--admin-border);
-  margin: 0;
+  @apply tw:m-0;
   padding: 1rem 0 0;
 }
 
+.secondary-actions {
+  @apply tw:flex tw:flex-wrap tw:gap-2;
+}
+
 .secondary-options {
-  border: 1px solid var(--admin-border);
-  border-radius: 0.4rem;
-  padding: 0.75rem;
+  border-top: 1px solid var(--admin-border);
+  padding-top: 0.25rem;
 }
 
 .secondary-options summary {
-  cursor: pointer;
+  @apply tw:cursor-pointer;
   font-weight: var(--admin-control-weight);
-  min-height: 2rem;
+  @apply tw:min-h-admin-control tw:text-admin-accent;
+  padding: 0.5rem 0;
 }
 
 .secondary-options[open] > :not(summary) {
-  margin-top: 0.75rem;
+  @apply tw:mt-3;
 }
 
 .secondary-options summary:focus-visible {
@@ -56,17 +45,17 @@
 }
 
 .history-toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-weight: var(--admin-label-weight);
+  @apply tw:flex tw:flex-wrap tw:items-center tw:gap-2 tw:min-h-admin-control;
+  font-weight: 500;
 }
 
 .dirty-note {
-  color: var(--admin-warning);
+  @apply tw:text-admin-warning;
 }
 
-.batch-card:focus {
+.batch-card:focus,
+.slot-card:focus,
+.draft-card:focus {
   outline: 3px solid var(--admin-focus);
   outline-offset: 4px;
 }
@@ -77,32 +66,52 @@
 .state {
   margin: 0 auto;
   max-width: 78rem;
-  width: 100%;
+  @apply tw:w-full;
 }
 
-.admin-panel header,
-.draft-card header,
+.admin-panel > header,
+.draft-card > header,
 .eligible-list article,
-.draft-card footer {
-  align-items: center;
-  display: flex;
-  gap: 0.75rem;
-  justify-content: space-between;
+.draft-card footer,
+.batch-card > header,
+.slot-card > header {
+  @apply tw:items-center tw:flex tw:flex-wrap tw:gap-4 tw:justify-between;
 }
 
-.admin-panel span,
-.draft-card header span {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
-  font-weight: var(--admin-label-weight);
-  letter-spacing: 0;
-  text-transform: uppercase;
+.admin-panel > header > div > span,
+.draft-card > header > div > span,
+.batch-card > header > div > span,
+.slot-card > header > div > span {
+  @apply tw:text-admin-muted tw:text-admin-caption;
+  font-weight: 500;
 }
 
 .admin-panel h2,
 .draft-card h2,
 .empty-state h3 {
+  @apply tw:m-0;
+}
+
+.admin-panel h2,
+.draft-card h2 {
+  font-size: var(--admin-section-size, 1.1875rem);
+  font-weight: var(--admin-section-weight, 600);
+}
+
+.batch-card h3,
+.slot-card h3,
+.empty-state h3 {
+  font-size: var(--admin-subheading-size, 1.0625rem);
+  font-weight: var(--admin-section-weight, 600);
+}
+
+p {
   margin: 0;
+}
+
+.help-text,
+small {
+  @apply tw:text-admin-caption;
 }
 
 .filters,
@@ -111,49 +120,41 @@
 .empty-state {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.45rem;
-}
-
-.filters,
-.admin-panel,
-.draft-card,
-.empty-state {
-  padding: 1rem;
+  @apply tw:rounded-admin-card tw:p-6 tw:min-w-0;
 }
 
 .empty-state p,
 small {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   margin: 0.35rem 0 0;
 }
 
 .filters,
 .draft-grid {
-  display: grid;
-  gap: 0.75rem;
+  @apply tw:grid tw:gap-4;
+  align-items: end;
 }
 
 .filters,
 .draft-grid {
-  grid-template-columns: minmax(14rem, 2fr) minmax(10rem, 1fr);
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+}
+
+.draft-grid .help-text {
+  @apply tw:col-span-full;
 }
 
 label {
-  display: grid;
-  gap: 0.35rem;
-  font-size: var(--admin-caption-size, 0.875rem);
-  font-weight: var(--admin-label-weight);
+  @apply tw:grid tw:min-w-0;
+  gap: 0.5rem;
+  @apply tw:text-admin-caption;
+  font-weight: 500;
 }
 
-input,
+input:not([type='checkbox'], [type='radio']),
 select,
 textarea {
-  border: 1px solid var(--admin-border);
-  border-radius: 0.35rem;
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-  padding: 0.65rem 0.75rem;
+  @apply tw:w-full;
 }
 
 textarea {
@@ -161,192 +162,140 @@ textarea {
 }
 
 button {
-  background: var(--admin-panel-raised);
-  border: 0;
-  border-radius: 0.35rem;
-  color: var(--admin-text);
-  cursor: pointer;
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-  font-weight: var(--admin-control-weight);
-  min-height: 2.55rem;
-  padding: 0 0.85rem;
+  @apply tw:cursor-pointer;
+  padding: 0.5rem 0.85rem;
 }
 
-button:disabled {
-  cursor: wait;
-  opacity: 0.62;
+button.neutral:hover:not(:disabled) {
+  background: var(--admin-hover);
 }
 
-button.neutral {
-  background: var(--admin-panel-raised);
+button.approve:not(:disabled) {
+  background: var(--admin-success-bg);
+  border-color: var(--admin-success-border);
+  @apply tw:text-admin-success;
 }
 
-button.approve {
-  background: var(--og7-admin-success-bg, #193d32);
-}
-
-button.reject {
-  background: var(--og7-admin-danger-bg, #422532);
+button.reject:not(:disabled) {
+  @apply tw:text-admin-danger;
 }
 
 .admin-panel,
 .draft-list,
 .draft-card {
-  display: grid;
-  gap: 0.85rem;
+  @apply tw:grid tw:gap-4;
 }
 
 .eligible-list {
-  display: grid;
-  gap: 0.75rem;
+  @apply tw:grid tw:gap-4;
 }
 
 .eligible-list article {
-  background: var(--admin-panel-raised);
-  border: 1px solid var(--admin-border);
-  border-radius: 0.45rem;
-  padding: 0.85rem;
+  border-bottom: 1px solid var(--admin-border);
+  padding: 1rem 0;
+}
+
+.eligible-list article:last-child {
+  border-bottom: 0;
 }
 
 .eligible-list nav,
 .batch-card footer,
 .slot-card footer,
 .draft-card footer {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
+  @apply tw:flex tw:flex-wrap;
+  gap: 0.75rem;
 }
 
 .batch-create-form {
   align-items: end;
-  display: grid;
-  gap: 0.75rem;
-  grid-template-columns: minmax(8rem, 12rem) minmax(6rem, 8rem) auto;
+  @apply tw:grid tw:gap-4;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
 }
 
 .slot-create-form {
   align-items: end;
-  display: grid;
-  gap: 0.75rem;
-  grid-template-columns:
-    minmax(7rem, 0.8fr) minmax(7rem, 0.8fr) minmax(12rem, 1.2fr)
-    minmax(10rem, 1fr) minmax(6rem, 0.6fr) minmax(12rem, 1.5fr)
-    auto;
+  @apply tw:grid tw:gap-4;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
 }
 
 .slot-notes-field {
-  min-width: 0;
+  @apply tw:min-w-0;
 }
 
-.batch-card {
-  background: var(--admin-panel-raised);
-  border: 1px solid var(--admin-border);
-  border-radius: 0.45rem;
-  display: grid;
-  gap: 0.75rem;
-  padding: 0.85rem;
-}
-
+.batch-card,
 .slot-card {
-  background: var(--admin-panel-raised);
+  background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.45rem;
-  display: grid;
-  gap: 0.75rem;
-  padding: 0.85rem;
+  @apply tw:rounded-admin-card tw:grid tw:gap-4 tw:p-4 tw:min-w-0;
 }
 
 .slot-capacity {
-  align-items: center;
+  @apply tw:items-center;
   background: var(--admin-panel-raised);
-  border: 1px solid var(--admin-border);
-  border-radius: 0.45rem;
-  display: flex;
-  gap: 0.75rem;
-  justify-content: space-between;
-  padding: 0.75rem;
+  @apply tw:rounded-admin-control;
+  @apply tw:flex tw:gap-3 tw:justify-between tw:p-3;
 }
 
 .slot-capacity strong {
   font-size: 1.35rem;
+  font-weight: var(--admin-label-weight);
+  font-variant-numeric: tabular-nums;
 }
 
 .slot-capacity span {
-  color: var(--admin-success);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-success tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
 }
 
 .slot-edit-grid {
-  display: grid;
-  gap: 0.75rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  @apply tw:grid tw:gap-4;
+  align-items: end;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
 }
 
 .social-runtime,
 .social-job {
   background: var(--admin-panel-raised);
-  border: 1px solid var(--admin-border);
-  border-radius: 0.45rem;
-  color: var(--admin-muted);
+  @apply tw:rounded-admin-control;
+  @apply tw:text-admin-muted;
   font-size: 0.9rem;
   font-weight: 500;
-  margin: 0;
-  padding: 0.75rem;
+  @apply tw:m-0 tw:p-3;
 }
 
 .social-job {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  justify-content: space-between;
+  @apply tw:items-center tw:flex tw:flex-wrap tw:gap-3 tw:justify-between;
 }
 
 .social-job a {
-  color: var(--admin-muted);
+  @apply tw:text-admin-accent tw:inline-flex tw:items-center tw:min-h-admin-control;
   font-weight: var(--admin-control-weight);
-}
-
-.batch-card header,
-.slot-card header {
-  align-items: center;
-  display: flex;
-  gap: 0.75rem;
-  justify-content: space-between;
 }
 
 .batch-card h3,
 .slot-card h3 {
-  margin: 0;
+  @apply tw:m-0;
 }
 
 .draft-batch-row {
   align-items: end;
   background: var(--admin-panel-raised);
-  border: 1px solid var(--admin-border);
-  border-radius: 0.45rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  padding: 0.75rem;
+  @apply tw:rounded-admin-control tw:flex tw:flex-wrap tw:gap-4 tw:p-4;
 }
 
 .draft-batch-row span {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
-  font-weight: var(--admin-label-weight);
+  @apply tw:text-admin-muted tw:text-admin-caption;
+  font-weight: 500;
 }
 
 label.inline {
-  margin: 0;
+  @apply tw:m-0;
   min-width: min(14rem, 100%);
 }
 
 .state-error {
-  color: var(--admin-danger);
+  @apply tw:text-admin-danger;
   font-weight: 500;
 }
 
@@ -359,11 +308,21 @@ label.inline {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .admin-panel header,
-  .draft-card header,
+  .admin-panel > header,
+  .draft-card > header,
   .eligible-list article,
-  .slot-card header {
+  .batch-card > header,
+  .slot-card > header {
     align-items: start;
-    flex-direction: column;
+    @apply tw:flex-col;
+  }
+}
+
+@media (max-width: 600px) {
+  .filters,
+  .admin-panel,
+  .draft-card,
+  .empty-state {
+    @apply tw:p-4;
   }
 }

@@ -1,0 +1,76 @@
+@reference '../../../../../styles/tailwind.css';
+:host {
+  @apply tw:block tw:min-w-0;
+}
+details {
+  @apply tw:p-admin-card tw:min-w-0 tw:rounded-admin-card tw:text-admin-text;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-panel);
+}
+summary {
+  @apply tw:cursor-pointer tw:min-h-admin-control tw:wrap-anywhere;
+  align-content: center;
+  font-weight: 600;
+}
+summary:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 3px;
+}
+dl {
+  @apply tw:grid tw:gap-4 tw:rounded-admin-control tw:p-4;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  background: var(--admin-subtle);
+}
+dl div,
+h3 {
+  @apply tw:min-w-0 tw:wrap-anywhere;
+}
+dt {
+  @apply tw:text-admin-caption tw:text-admin-muted;
+}
+dd {
+  @apply tw:m-0 tw:mt-2 tw:wrap-anywhere;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+ul {
+  @apply tw:p-0;
+  list-style: none;
+}
+li {
+  margin: 1rem 0;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--admin-border);
+  overflow-wrap: anywhere;
+}
+code {
+  @apply tw:block tw:wrap-anywhere;
+}
+p {
+  @apply tw:text-admin-caption tw:text-admin-muted tw:wrap-anywhere;
+  line-height: 1.6;
+}
+.incident-filters,
+.incident-links,
+.incident-pages {
+  @apply tw:flex tw:flex-wrap tw:gap-3 tw:items-center tw:min-w-0;
+}
+.incident-filters label {
+  @apply tw:grid tw:gap-2 tw:max-w-full tw:min-w-0 tw:text-admin-caption tw:text-admin-muted;
+  flex: 1 1 16rem;
+}
+select {
+  @apply tw:max-w-full tw:w-full tw:min-w-0 tw:min-h-admin-control tw:rounded-admin-control tw:text-admin-text;
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-control-border);
+  padding: 0.65rem 0.75rem;
+  font: inherit;
+}
+.admin-button {
+  @apply tw:max-w-full;
+  white-space: normal;
+}
+a {
+  @apply tw:text-admin-accent tw:wrap-anywhere tw:inline-flex tw:items-center tw:min-h-admin-control tw:max-w-full;
+  font-size: var(--admin-caption-size);
+}

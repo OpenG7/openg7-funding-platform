@@ -7,7 +7,11 @@
     [class.queue-visible]="queueVisible()"
     [class.controller-active]="controller.connected() && controller.enabled()"
   >
-    <div class="pilot-scroll" data-og7="pilot-scroll">
+    <div
+      class="pilot-scroll"
+      data-og7="pilot-scroll"
+      [class.guide-active]="guideActive()"
+    >
       <section class="intro" data-og7="pilot-intro">
         <div class="intro-copy">
           <p class="eyebrow">
@@ -94,80 +98,6 @@
           }
         </div>
       </section>
-      <div class="pilot-tools">
-        <a
-          class="automation"
-          data-og7="pilot-automation"
-          [class.is-active]="state()?.workerEnabled"
-          routerLink="/admin/fundraiser/publications/automation"
-          [queryParams]="{ settings: 'feeds' }"
-          (click)="portal()"
-        >
-          <span class="automation-icon" aria-hidden="true">
-            <openg7-admin-icon name="assistant" />
-          </span>
-          <div>
-            <strong
-              ><i class="dot" [class.online]="state()?.workerEnabled"></i
-              >{{
-                t(
-                  state()?.workerEnabled
-                    ? 'automationActive'
-                    : 'automationStopped'
-                )
-              }}</strong
-            >
-            <p>
-              {{
-                t(
-                  preparing()
-                    ? 'preparing'
-                    : state()?.workerEnabled
-                      ? 'preparationDisabled'
-                      : 'workerHelp'
-                )
-              }}
-            </p>
-            <span class="automation-shortcut">
-              {{ t('automationSettings') }}
-              <openg7-admin-icon name="arrow" />
-            </span>
-          </div>
-        </a>
-        <button
-          type="button"
-          data-og7="pilot-calendar"
-          (click)="openCalendar()"
-        >
-          <openg7-admin-icon name="clock" />{{ t('calendar') }}
-        </button>
-        <button type="button" (click)="open('settings')">
-          <openg7-admin-icon name="settings" />{{ t('settings') }}
-        </button>
-        <button
-          class="connection"
-          data-og7="pilot-controller"
-          type="button"
-          (click)="open('settings')"
-        >
-          <span aria-hidden="true">◉</span
-          >{{
-            t(
-              controller.connected()
-                ? controller.enabled()
-                  ? controller.ready()
-                    ? 'connected'
-                    : 'needsCalibration'
-                  : 'capturePaused'
-                : 'disconnected'
-            )
-          }}
-          <i
-            class="dot"
-            [class.online]="controller.ready() && controller.enabled()"
-          ></i>
-        </button>
-      </div>
       <dl
         class="overview"
         data-og7="pilot-overview"
@@ -290,22 +220,6 @@
           >
         </section>
       } @else if (selected(); as d) {
-        @if (
-          d.domain === 'sponsors' ||
-          (d.domain === 'publications' && d.publication)
-        ) {
-          <openg7-funding-moderation-actions
-            [subject]="{
-              type:
-                d.domain === 'sponsors'
-                  ? 'sponsorship'
-                  : 'publication_delivery',
-              id: d.targetId
-            }"
-            [disabled]="busy() || !state()?.writable || !!panel()"
-            (changed)="load(true)"
-          />
-        }
         <div class="workspace">
           <article
             class="decision"
@@ -413,6 +327,22 @@
                 </div>
               </section>
             </div>
+            @if (
+              d.domain === 'sponsors' ||
+              (d.domain === 'publications' && d.publication)
+            ) {
+              <openg7-funding-moderation-actions
+                [subject]="{
+                  type:
+                    d.domain === 'sponsors'
+                      ? 'sponsorship'
+                      : 'publication_delivery',
+                  id: d.targetId
+                }"
+                [disabled]="busy() || !state()?.writable || !!panel()"
+                (changed)="load(true)"
+              />
+            }
           </article>
           <aside class="up-next" data-og7="pilot-queue" id="pilot-following">
             <div class="queue-heading">
@@ -486,6 +416,80 @@
           <button type="button" (click)="load(true)">{{ t('refresh') }}</button>
         </section>
       }
+      <div class="pilot-tools">
+        <a
+          class="automation"
+          data-og7="pilot-automation"
+          [class.is-active]="state()?.workerEnabled"
+          routerLink="/admin/fundraiser/publications/automation"
+          [queryParams]="{ settings: 'feeds' }"
+          (click)="portal()"
+        >
+          <span class="automation-icon" aria-hidden="true">
+            <openg7-admin-icon name="assistant" />
+          </span>
+          <div>
+            <strong
+              ><i class="dot" [class.online]="state()?.workerEnabled"></i
+              >{{
+                t(
+                  state()?.workerEnabled
+                    ? 'automationActive'
+                    : 'automationStopped'
+                )
+              }}</strong
+            >
+            <p>
+              {{
+                t(
+                  preparing()
+                    ? 'preparing'
+                    : state()?.workerEnabled
+                      ? 'preparationDisabled'
+                      : 'workerHelp'
+                )
+              }}
+            </p>
+            <span class="automation-shortcut">
+              {{ t('automationSettings') }}
+              <openg7-admin-icon name="arrow" />
+            </span>
+          </div>
+        </a>
+        <button
+          type="button"
+          data-og7="pilot-calendar"
+          (click)="openCalendar()"
+        >
+          <openg7-admin-icon name="clock" />{{ t('calendar') }}
+        </button>
+        <button type="button" (click)="open('settings')">
+          <openg7-admin-icon name="settings" />{{ t('settings') }}
+        </button>
+        <button
+          class="connection"
+          data-og7="pilot-controller"
+          type="button"
+          (click)="open('settings')"
+        >
+          <span aria-hidden="true">◉</span
+          >{{
+            t(
+              controller.connected()
+                ? controller.enabled()
+                  ? controller.ready()
+                    ? 'connected'
+                    : 'needsCalibration'
+                  : 'capturePaused'
+                : 'disconnected'
+            )
+          }}
+          <i
+            class="dot"
+            [class.online]="controller.ready() && controller.enabled()"
+          ></i>
+        </button>
+      </div>
     </div>
     <footer
       class="controls"

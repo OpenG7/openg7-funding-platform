@@ -1,42 +1,28 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
 }
 section {
-  border-color: var(--admin-border);
-  color: var(--admin-text);
-  min-width: 0;
-  overflow-wrap: anywhere;
+  @apply tw:border-admin-border tw:text-admin-text tw:min-w-0 tw:wrap-anywhere;
 }
 li {
-  border-color: var(--admin-border);
+  @apply tw:border-admin-border;
 }
 .audit-filter {
-  display: grid;
-  gap: 0.5rem;
-  min-width: 0;
-  max-width: 100%;
+  @apply tw:grid tw:gap-2 tw:min-w-0 tw:max-w-full;
 }
 label {
-  min-width: 0;
-  max-width: 100%;
-  flex-wrap: wrap;
+  @apply tw:min-w-0 tw:max-w-full tw:flex-wrap;
 }
 select,
 textarea {
   background: var(--admin-panel-raised);
   border: 1px solid var(--admin-border);
-  border-radius: 0.5rem;
-  color: var(--admin-text);
-  display: block;
-  box-sizing: border-box;
+  @apply tw:rounded-lg tw:text-admin-text tw:block tw:box-border;
   font: inherit;
   margin-block-start: 0.5rem;
-  max-width: 100%;
-  min-width: 0;
-  min-height: 2.75rem;
-  padding: 0.5rem;
-  width: 100%;
+  @apply tw:max-w-full tw:min-w-0 tw:min-h-11 tw:p-2 tw:w-full;
 }
 textarea:focus-visible {
   outline: 3px solid var(--admin-focus, #9edaff);

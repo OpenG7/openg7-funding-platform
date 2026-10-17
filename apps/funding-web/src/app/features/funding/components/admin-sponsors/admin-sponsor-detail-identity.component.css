@@ -1,0 +1,99 @@
+@reference '../../../../../styles/tailwind.css';
+
+:host {
+  @apply tw:block tw:min-w-0;
+  container: admin-sponsor-identity / inline-size;
+}
+
+section {
+  @apply tw:p-admin-card;
+}
+h3 {
+  margin: 0;
+  font-size: var(--admin-section-size);
+  font-weight: var(--admin-section-weight);
+}
+.identity-heading {
+  @apply tw:flex tw:flex-wrap tw:items-center tw:justify-between tw:gap-3;
+  margin-bottom: 0.65rem;
+}
+.identity-heading button {
+  @apply tw:max-w-full tw:whitespace-normal;
+}
+
+h4 {
+  margin: 0 0 0.4rem;
+  font-size: 1rem;
+  font-weight: var(--admin-label-weight);
+}
+
+section > h4 {
+  margin-top: 1.75rem;
+}
+
+p {
+  margin: 0 0 0.9rem;
+}
+
+[data-og7='identity-coordinates-status'],
+[data-og7='identity-submission-status'] {
+  @apply tw:text-admin-muted tw:text-admin-caption;
+}
+
+dl {
+  @apply tw:grid tw:gap-4;
+  row-gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+
+.identity-coordinates > div {
+  @apply tw:min-w-0;
+}
+dt {
+  @apply tw:text-admin-muted tw:text-admin-caption;
+}
+dd {
+  margin: 0.25rem 0 0;
+  @apply tw:wrap-anywhere;
+  font-weight: 500;
+}
+.identity-explanation {
+  margin-top: 1.5rem;
+  padding-top: 0.25rem;
+  border-top: 1px solid var(--admin-border);
+}
+.identity-explanation summary {
+  @apply tw:cursor-pointer tw:text-admin-accent tw:text-admin-caption tw:min-h-admin-control;
+  padding: 0.65rem 0;
+  font-weight: var(--admin-control-weight);
+}
+.identity-explanation summary:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 3px;
+}
+.identity-explanation dl {
+  margin: 0.5rem 0 0;
+}
+.identity-explanation dt {
+  font-weight: var(--admin-label-weight);
+  @apply tw:text-admin-text;
+}
+.identity-explanation dd {
+  font-weight: 400;
+  @apply tw:text-admin-caption;
+}
+.submission-required {
+  border-inline-start: 3px solid var(--admin-focus);
+  padding-inline-start: 0.75rem;
+}
+
+@container admin-sponsor-identity (min-width: 30rem) {
+  .identity-coordinates {
+    @apply tw:grid-cols-2;
+    column-gap: 1.5rem;
+  }
+
+  .identity-coordinates > div:last-child {
+    @apply tw:col-span-full;
+  }
+}

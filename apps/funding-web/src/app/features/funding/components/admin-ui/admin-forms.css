@@ -11,12 +11,30 @@
 input,
 select,
 textarea {
-  @apply tw:text-admin-text tw:rounded-admin-sm;
+  @apply tw:text-admin-text tw:rounded-admin-control;
   @apply tw:min-w-0 tw:max-w-full;
   background: var(--admin-panel);
-  border: 1px solid var(--admin-border);
+  border: 1px solid var(--admin-control-border);
   font: inherit;
   font-weight: 400;
+  transition:
+    color var(--admin-motion-duration) var(--admin-motion-easing),
+    background-color var(--admin-motion-duration) var(--admin-motion-easing),
+    border-color var(--admin-motion-duration) var(--admin-motion-easing),
+    box-shadow var(--admin-motion-duration) var(--admin-motion-easing);
+}
+input:not(:disabled, [readonly]):hover,
+select:not(:disabled):hover,
+textarea:not(:disabled, [readonly]):hover {
+  border-color: var(--admin-accent);
+}
+input:disabled,
+select:disabled,
+textarea:disabled {
+  @apply tw:cursor-not-allowed;
+  background: var(--admin-panel-raised);
+  border-color: var(--admin-border);
+  color: var(--admin-muted);
 }
 :where(
   input:not([type='checkbox'], [type='radio'], [type='range'], [type='hidden']),
@@ -26,30 +44,43 @@ textarea {
   line-height: 1.375;
 }
 textarea {
-  @apply tw:p-3;
+  @apply tw:min-h-admin-control tw:p-3;
   line-height: var(--admin-body-leading, 1.5);
 }
 input::placeholder,
 textarea::placeholder {
-  @apply tw:text-admin-muted tw:opacity-85;
+  @apply tw:text-admin-muted tw:opacity-100;
 }
 button {
-  @apply tw:min-h-admin-control tw:rounded-admin-control;
+  @apply tw:min-h-admin-control tw:rounded-admin-control tw:text-admin-text;
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-control-border);
   font: inherit;
   font-weight: var(--admin-control-weight);
+  transition:
+    color var(--admin-motion-duration) var(--admin-motion-easing),
+    background-color var(--admin-motion-duration) var(--admin-motion-easing),
+    border-color var(--admin-motion-duration) var(--admin-motion-easing),
+    box-shadow var(--admin-motion-duration) var(--admin-motion-easing);
 }
-button:disabled {
+button:disabled,
+button[aria-disabled='true'] {
   @apply tw:cursor-not-allowed tw:opacity-65;
+  background: var(--admin-panel-raised);
+  border-color: var(--admin-border);
+  color: var(--admin-muted);
+  box-shadow: none;
 }
-button:not(:disabled):hover {
-  outline: 1px solid var(--admin-gold);
+button:not(:disabled, [aria-disabled='true']):hover {
+  border-color: var(--admin-accent);
+  box-shadow: var(--admin-shadow);
 }
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
   outline: 3px solid var(--admin-focus);
   outline-offset: 3px;
 }
 a {
-  @apply tw:text-admin-gold;
+  @apply tw:text-admin-accent;
 }
 table {
   @apply tw:w-full tw:border-collapse;
@@ -62,14 +93,16 @@ p {
 .table-scroll {
   @apply tw:max-w-full tw:overflow-x-auto;
 }
-:host .primary-action,
-:host button[type='submit'] {
-  background: var(
-    --og7-admin-primary,
-    linear-gradient(135deg, #f0c66c, var(--admin-gold))
-  );
-  color: var(--og7-admin-on-primary, #172033);
-  border: 1px solid var(--og7-admin-primary, var(--admin-gold));
+:host .primary-action:not(:disabled, [aria-disabled='true']),
+:host button[type='submit']:not(:disabled, [aria-disabled='true']) {
+  background: var(--og7-admin-primary, #edca72);
+  color: var(--og7-admin-on-primary, #25220f);
+  border: 1px solid var(--og7-admin-primary, #edca72);
+  box-shadow: var(--admin-shadow);
+}
+:host .primary-action:not(:disabled, [aria-disabled='true']):hover,
+:host button[type='submit']:not(:disabled, [aria-disabled='true']):hover {
+  box-shadow: var(--admin-shadow-raised);
 }
 :host :where(a, button, input, select, textarea, [tabindex]):focus-visible {
   outline: 3px solid var(--admin-focus);

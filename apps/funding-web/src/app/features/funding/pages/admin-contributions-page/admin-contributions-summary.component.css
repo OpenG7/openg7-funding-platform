@@ -2,41 +2,54 @@
 
 :host {
   @apply tw:block tw:min-w-0;
+  container: contribution-summary / inline-size;
 }
 
 .admin-summary-grid {
-  @apply tw:grid tw:gap-3 tw:grid-cols-4 tw:w-full;
+  @apply tw:grid tw:w-full tw:rounded-admin-card;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+  background: var(--admin-border);
+  border: 1px solid var(--admin-border);
+  overflow: clip;
   margin: 0 auto;
   max-width: 78rem;
 }
 
 .admin-summary-grid article {
-  @apply tw:p-4;
+  @apply tw:p-admin-card tw:min-w-0;
   background: var(--admin-panel);
-  border: 1px solid var(--admin-border);
-  border-radius: 0.45rem;
 }
 
 .admin-summary-grid span {
-  @apply tw:text-admin-muted tw:text-admin-caption tw:uppercase;
+  @apply tw:text-admin-muted tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
   letter-spacing: 0;
 }
 
 .admin-summary-grid strong {
-  @apply tw:block;
-  font-size: 1.65rem;
-  margin-top: 0.2rem;
+  @apply tw:block tw:wrap-anywhere;
+  font-size: 1.75rem;
+  font-weight: var(--admin-emphasis-weight);
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+  margin-top: 0.4rem;
 }
 
-@media (max-width: 1020px) {
+.currency {
+  @apply tw:text-admin-muted tw:text-admin-caption;
+  margin-left: 0.4rem;
+  font-weight: var(--admin-label-weight);
+}
+
+@container contribution-summary (min-width: 20rem) {
   .admin-summary-grid {
     @apply tw:grid-cols-2;
   }
 }
 
-@media (max-width: 860px) {
+@container contribution-summary (min-width: 48rem) {
   .admin-summary-grid {
-    grid-template-columns: 1fr;
+    @apply tw:grid-cols-4;
   }
 }

@@ -3,38 +3,53 @@
 .admin-button {
   @apply tw:inline-flex tw:items-center tw:justify-center tw:gap-2 tw:cursor-pointer;
   @apply tw:text-admin-text tw:rounded-admin-control;
-  background: var(--admin-panel-raised);
-  border: 1px solid var(--admin-border);
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-control-border);
   font: inherit;
   @apply tw:text-admin-navigation tw:min-h-admin-control tw:py-2.5 tw:px-4;
   font-weight: var(--admin-control-weight);
   line-height: 1.4;
   text-decoration: none;
+  transition:
+    color var(--admin-motion-duration) var(--admin-motion-easing),
+    background-color var(--admin-motion-duration) var(--admin-motion-easing),
+    border-color var(--admin-motion-duration) var(--admin-motion-easing),
+    box-shadow var(--admin-motion-duration) var(--admin-motion-easing);
 }
 .admin-focus-target {
   scroll-margin-block-start: 1.5rem;
 }
-.admin-focus-target:focus {
-  outline: 3px solid var(--admin-focus, #9edaff);
+:host .admin-focus-target:focus {
+  outline: 3px solid var(--admin-focus, #356a9f);
   outline-offset: -3px;
 }
-.admin-button:hover {
-  @apply tw:border-admin-gold;
+.admin-button:not(:disabled, [aria-disabled='true']):hover {
+  background: var(--admin-hover);
+  border-color: var(--admin-accent);
+  box-shadow: var(--admin-shadow);
 }
-.admin-button--primary {
-  background: var(
-    --og7-admin-primary,
-    linear-gradient(135deg, #f4c957, #dbaa42)
-  );
-  border-color: var(--og7-admin-primary, #f4c957);
-  color: var(--og7-admin-on-primary, #182033);
+.admin-button--primary:not(:disabled, [aria-disabled='true']) {
+  background: var(--og7-admin-primary, #edca72);
+  border-color: var(--og7-admin-primary, #edca72);
+  color: var(--og7-admin-on-primary, #25220f);
+  box-shadow: var(--admin-shadow);
 }
-.admin-button:disabled {
-  @apply tw:cursor-wait tw:opacity-65;
+.admin-button--primary:not(:disabled, [aria-disabled='true']):hover {
+  background: var(--og7-admin-primary, #edca72);
+  border-color: var(--og7-admin-primary, #edca72);
+  box-shadow: var(--admin-shadow-raised);
 }
-:where(a, button, input, select):focus-visible {
-  outline: 3px solid var(--admin-focus, #9edaff);
-  outline-offset: 4px;
+.admin-button:disabled,
+.admin-button[aria-disabled='true'] {
+  @apply tw:cursor-not-allowed tw:opacity-65;
+  background: var(--admin-panel-raised);
+  border-color: var(--admin-border);
+  color: var(--admin-muted);
+  box-shadow: none;
+}
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid var(--admin-focus, #356a9f);
+  outline-offset: 3px;
 }
 .admin-link {
   color: var(--admin-accent, var(--admin-gold));

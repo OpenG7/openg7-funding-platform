@@ -41,46 +41,6 @@ interface AdminSponsorDetailTabItem {
     '../admin-ui/admin-controls.css',
     '../admin-ui/admin-forms.css',
     './admin-sponsor-detail-tabs.component.css'
-  ],
-  styles: [
-    `
-      :host {
-        display: block;
-      }
-
-      .detail-tabs {
-        border-bottom: 1px solid var(--admin-border);
-        border-top: 1px solid var(--admin-border);
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.25rem;
-        padding: 0 1rem;
-      }
-
-      .detail-tabs button {
-        background: transparent;
-        border: 0;
-        border-bottom: 0.18rem solid transparent;
-        color: var(--admin-muted);
-        cursor: pointer;
-        font-family: inherit;
-        font-size: inherit;
-        line-height: inherit;
-        font-weight: var(--admin-control-weight);
-        padding: 0.9rem 0.65rem 0.72rem;
-        white-space: nowrap;
-      }
-
-      .detail-tabs button:focus-visible {
-        outline: 3px solid var(--admin-focus);
-        outline-offset: 2px;
-      }
-
-      .detail-tabs button.active {
-        border-color: var(--admin-border);
-        color: var(--admin-muted);
-      }
-    `
   ]
 })
 export class AdminSponsorDetailTabsComponent {

@@ -5,14 +5,11 @@
 }
 
 article {
-  @apply tw:flex tw:gap-4 tw:h-full tw:p-admin-card tw:rounded-admin-card;
+  @apply tw:flex tw:gap-admin-card-gap tw:h-full tw:p-admin-card tw:rounded-admin-card;
   align-items: start;
-  background: linear-gradient(
-    140deg,
-    var(--admin-panel-raised, #192a40),
-    var(--admin-panel)
-  );
+  background: var(--admin-panel);
   border: 1px solid var(--admin-border);
+  box-shadow: var(--admin-shadow);
 }
 
 div {
@@ -24,6 +21,7 @@ article.embedded {
   grid-template-columns: 2.5rem minmax(0, 1fr);
   background: transparent;
   border: 0;
+  box-shadow: none;
 }
 
 .embedded div {
@@ -48,6 +46,26 @@ article.embedded {
 .embedded .icon {
   @apply tw:size-10;
   font-size: 1.375rem;
+}
+
+article.embedded.compact {
+  grid-template-columns: 1.75rem minmax(0, 1fr);
+  gap: 0.5rem;
+  padding: 1rem 1rem 0.75rem;
+}
+.embedded.compact .icon {
+  @apply tw:size-7;
+  border-radius: 0.5rem;
+  font-size: 1.125rem;
+}
+.embedded.compact h2 {
+  font-family: var(--admin-font-family);
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+.embedded.compact strong {
+  font-size: clamp(1.75rem, 2.1vw, 2rem);
+  letter-spacing: -0.035em;
 }
 
 h2 {

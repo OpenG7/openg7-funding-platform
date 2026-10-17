@@ -5,16 +5,18 @@
   container: admin-cockpit / inline-size;
 }
 .panel {
-  @apply tw:rounded-xl tw:p-5 tw:h-full;
+  @apply tw:rounded-admin-card tw:p-admin-card;
   border: 1px solid var(--admin-border);
   background: var(--admin-panel);
 }
 .heading {
-  @apply tw:flex tw:justify-between tw:gap-4 tw:mb-3;
-  align-items: start;
+  @apply tw:flex tw:items-center tw:justify-between tw:gap-4 tw:mb-4;
 }
 h2 {
   @apply tw:m-0;
+  font-size: var(--admin-section-size, 1.1875rem);
+  font-weight: var(--admin-section-weight, 600);
+  line-height: var(--admin-section-leading, 1.4);
 }
 .meta,
 .notice {
@@ -67,15 +69,22 @@ ul {
   list-style: none;
   margin: 0.75rem 0 0;
 }
-li {
+li + li {
   border-top: 1px solid var(--admin-border);
 }
 li a {
-  @apply tw:flex tw:gap-3 tw:justify-between tw:py-3 tw:px-0 tw:text-admin-text;
+  @apply tw:flex tw:gap-3 tw:justify-between tw:min-h-admin-control tw:py-3 tw:px-0 tw:text-admin-text;
   text-decoration: none;
 }
+li a > :first-child {
+  @apply tw:min-w-0;
+}
 li a:hover {
-  color: var(--admin-gold, #f4c66a);
+  color: var(--admin-accent);
+}
+li a:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 3px;
 }
 small {
   @apply tw:block tw:text-admin-muted tw:mt-1 tw:wrap-anywhere;
@@ -83,6 +92,7 @@ small {
 }
 strong {
   font-size: 1rem;
+  font-weight: var(--admin-label-weight, 600);
 }
 .today {
   @apply tw:grid tw:grid-cols-2 tw:gap-2;

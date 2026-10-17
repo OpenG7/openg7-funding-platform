@@ -1,21 +1,44 @@
-form,
-label {
-  display: grid;
-  gap: 0.5rem;
+@reference '../../../../../styles/tailwind.css';
+
+:host {
+  container: access-editor / inline-size;
 }
 form {
-  max-width: 35rem;
-  gap: 1rem;
-  padding: 1rem;
+  @apply tw:grid tw:gap-4 tw:p-admin-card tw:min-w-0 tw:rounded-admin-card;
+  grid-template-columns: minmax(0, 1fr);
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.5rem;
 }
-button[type='submit'] {
-  background: var(--og7-admin-primary, #facc15);
-  color: var(--og7-admin-on-primary, #0f172a);
+header {
+  @apply tw:flex tw:flex-wrap tw:items-center tw:justify-between tw:gap-3;
+}
+.editor-fields {
+  @apply tw:grid tw:min-w-0 tw:gap-4;
+  grid-template-columns: minmax(0, 1fr);
+}
+label {
+  @apply tw:grid tw:min-w-0 tw:gap-2 tw:text-admin-caption;
+  font-weight: var(--admin-label-weight);
+}
+input:not([type='checkbox']),
+select {
+  @apply tw:w-full;
+}
+.checkbox-row {
+  @apply tw:flex tw:items-center tw:gap-3 tw:min-h-admin-control;
+  font-weight: 400;
 }
 input[type='checkbox'] {
+  flex: 0 0 auto;
   width: 1.3rem;
   height: 1.3rem;
+  accent-color: var(--admin-accent);
+}
+@container access-editor (min-width: 32rem) {
+  .editor-fields {
+    @apply tw:grid-cols-2;
+  }
+  .editor-fields label:first-child {
+    grid-column: 1 / -1;
+  }
 }

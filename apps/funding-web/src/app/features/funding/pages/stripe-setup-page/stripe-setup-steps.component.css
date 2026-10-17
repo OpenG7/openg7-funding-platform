@@ -1,6 +1,7 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
 }
 
 .developer-commands {
@@ -8,7 +9,7 @@
   border: 1px solid var(--border-color);
   border-radius: 0.72rem;
   box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
-  min-width: 0;
+  @apply tw:min-w-0;
   padding: 0.78rem;
 }
 
@@ -16,7 +17,7 @@
   font-size: 0.875rem;
   letter-spacing: 0.05em;
   margin-bottom: 0.55rem;
-  text-transform: uppercase;
+  @apply tw:uppercase;
 }
 
 .developer-commands p,
@@ -31,7 +32,7 @@
   border: 1px solid var(--border-color);
   border-radius: 0.45rem;
   color: var(--color-primary);
-  min-height: 2.75rem;
+  @apply tw:min-h-11;
   padding: 0 0.65rem;
 }
 
@@ -40,14 +41,13 @@
   border: 1px solid var(--border-color);
   border-radius: 0.42rem;
   color: var(--text-soft);
-  overflow: auto;
-  padding: 0.5rem;
+  @apply tw:overflow-auto tw:p-2;
   white-space: nowrap;
 }
 
 .developer-commands {
   margin-top: 0.95rem;
-  padding: 1rem;
+  @apply tw:p-4;
 }
 
 .developer-commands h2 {
@@ -56,16 +56,16 @@
 }
 
 .developer-commands ol {
-  display: grid;
+  @apply tw:grid;
   gap: 0.9rem;
   list-style: none;
-  padding: 0;
+  @apply tw:p-0;
 }
 
 .developer-commands li {
   border: 1px solid var(--border-color);
   border-radius: 0.6rem;
-  overflow: hidden;
+  @apply tw:overflow-hidden;
 }
 
 .developer-commands li.done {
@@ -77,21 +77,20 @@
 }
 
 .developer-commands li:not(:focus-within):not(:hover) .command-detail {
-  display: none;
+  @apply tw:hidden;
 }
 
 .developer-commands .command-step {
-  align-items: center;
+  @apply tw:items-center;
   background: var(--surface-subtle);
   border: 0;
   border-radius: 0;
-  display: grid;
+  @apply tw:grid;
   gap: 0.95rem;
   grid-template-columns: auto 1fr auto;
   min-height: 4.15rem;
   padding: 0 1rem;
-  text-align: left;
-  width: 100%;
+  @apply tw:text-left tw:w-full;
 }
 
 .developer-commands .command-step:focus-visible {
@@ -101,10 +100,10 @@
 .developer-commands .command-step span {
   border: 1px solid var(--border-color);
   border-radius: 999px;
-  display: grid;
+  @apply tw:grid;
   font-size: 1rem;
   height: 2.35rem;
-  place-items: center;
+  @apply tw:place-items-center;
   width: 2.35rem;
 }
 
@@ -116,13 +115,13 @@
 .developer-commands .command-step em {
   color: var(--color-gold);
   font-size: 0.88rem;
-  font-style: normal;
+  @apply tw:not-italic;
 }
 
 .command-detail {
-  display: grid;
+  @apply tw:grid;
   gap: 0.8rem;
-  padding: 1rem;
+  @apply tw:p-4;
 }
 
 .command-detail p,
@@ -135,8 +134,7 @@
 }
 
 .command-detail article {
-  align-items: center;
-  display: grid;
+  @apply tw:items-center tw:grid;
   gap: 0.65rem;
   grid-template-columns: minmax(8rem, 0.32fr) minmax(0, 1fr) auto auto;
 }
@@ -152,7 +150,7 @@
 }
 
 .command-detail button {
-  min-height: 2.75rem;
+  @apply tw:min-h-11;
 }
 
 @media (max-width: 760px) {

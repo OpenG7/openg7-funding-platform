@@ -1,168 +1,173 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
+  container: identity-guide / inline-size;
 }
 .identity-panel {
   border: 1px solid var(--admin-border);
-  border-radius: 0.75rem;
+  @apply tw:rounded-admin-card tw:min-w-0 tw:p-admin-card;
   background: var(--admin-panel);
-  padding: 1.1rem;
-  min-width: 0;
 }
 .identity-panel > header,
 .step-actions {
-  display: flex;
+  @apply tw:flex tw:justify-between tw:flex-wrap;
   align-items: start;
-  justify-content: space-between;
   gap: 0.8rem;
-  flex-wrap: wrap;
 }
 h2,
 h3,
 p {
-  margin: 0;
+  @apply tw:m-0 tw:min-w-0 tw:wrap-anywhere;
+}
+h2 {
+  font-size: var(--admin-section-size, 1.1875rem);
+  font-weight: var(--admin-section-weight, 600);
+  line-height: var(--admin-section-leading, 1.4);
+}
+.identity-panel > header > div {
+  @apply tw:min-w-0 tw:max-w-full;
 }
 p {
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }
 .eyebrow,
 .step-position {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
   margin-bottom: 0.4rem;
 }
 .scope,
 .notice {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted tw:text-admin-caption;
   line-height: 1.6;
   margin-top: 0.8rem;
-  font-size: var(--admin-caption-size, 0.875rem);
 }
 .notice {
   border-left: 3px solid var(--admin-focus);
   padding-left: 0.8rem;
 }
 .identity-summary {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.8rem;
-  margin: 1rem 0;
+  @apply tw:grid tw:gap-4 tw:min-w-0;
+  grid-template-columns: minmax(0, 1fr);
+  margin: 1.5rem 0;
+}
+.identity-summary > div {
+  @apply tw:min-w-0;
 }
 .identity-summary dt {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption tw:wrap-anywhere;
+  font-weight: var(--admin-label-weight);
 }
 .identity-summary dd {
   margin: 0.3rem 0 0;
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
+  font-size: 1rem;
 }
 .observation {
-  display: inline-block;
+  @apply tw:inline-block tw:max-w-full tw:wrap-anywhere tw:text-admin-muted tw:text-admin-caption tw:rounded-admin-control;
   background: var(--admin-panel-raised);
-  color: var(--admin-muted);
-  border-radius: 0.35rem;
   padding: 0.35rem 0.55rem;
-  font-size: var(--admin-caption-size, 0.875rem);
 }
 .observation[data-state='missing'],
 .observation[data-state='incomplete'] {
-  color: var(--admin-warning);
+  @apply tw:text-admin-warning;
   background: var(--admin-warning-bg);
 }
 .steps {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.45rem;
-  padding: 0;
+  @apply tw:grid tw:p-0 tw:gap-2;
+  grid-template-columns: minmax(0, 1fr);
   margin: 1rem 0;
   list-style: none;
 }
 button {
   font: inherit;
-  cursor: pointer;
+  @apply tw:cursor-pointer;
+}
+.steps li {
+  @apply tw:min-w-0;
 }
 .steps button {
-  width: 100%;
-  text-align: start;
+  @apply tw:w-full tw:text-start tw:h-full tw:min-h-11 tw:text-admin-text;
   justify-content: start;
-  height: 100%;
-  min-height: 2.75rem;
-  padding: 0.65rem;
-  gap: 0.6rem;
-  border: 1px solid var(--admin-border);
-  border-radius: 0.4rem;
-  background: var(--admin-panel-raised);
-  color: var(--admin-text);
+  @apply tw:min-w-0 tw:wrap-anywhere;
+  gap: 0.75rem;
+  background: var(--admin-panel);
+  white-space: normal;
+}
+.steps button > span {
+  flex: 0 0 auto;
+  @apply tw:grid tw:place-items-center tw:w-6 tw:h-6 tw:text-admin-muted tw:text-admin-caption;
+  border-radius: 50%;
+  background: var(--admin-subtle);
 }
 .steps button[aria-current='step'] {
   border-color: var(--admin-focus);
-  background: var(--og7-admin-selected, #12354c);
+  background: var(--admin-selected);
 }
 .step-detail {
   border-top: 1px solid var(--admin-border);
-  padding-top: 1rem;
+  @apply tw:pt-4 tw:min-w-0;
   line-height: 1.6;
 }
 .step-detail > .observation,
 .step-detail > p,
 .step-actions,
 .callback-example {
-  margin-top: 0.75rem;
+  @apply tw:mt-3;
 }
 .callback-example {
-  display: block;
+  @apply tw:block;
 }
 .variables {
-  padding-left: 1.25rem;
+  @apply tw:pl-5;
 }
 .all-steps {
-  margin-top: 1rem;
+  @apply tw:mt-4 tw:pt-4;
   border-top: 1px solid var(--admin-border);
-  padding-top: 1rem;
 }
 .all-steps summary {
-  color: var(--og7-admin-accent, #9edaff);
-  cursor: pointer;
+  color: var(--admin-accent);
+  @apply tw:cursor-pointer tw:min-h-admin-control tw:py-2.5 tw:wrap-anywhere;
 }
 .all-steps ol {
   padding-left: 1.4rem;
 }
 .all-steps li + li {
-  margin-top: 1rem;
+  @apply tw:mt-4;
 }
 .all-steps li > p {
   line-height: 1.6;
-  margin-top: 0.5rem;
+  @apply tw:mt-2;
 }
 code {
-  overflow-wrap: anywhere;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:wrap-anywhere tw:text-admin-caption;
 }
 .guide-links {
-  display: flex;
-  flex-wrap: wrap;
+  @apply tw:flex tw:flex-wrap tw:mt-4 tw:pt-4;
   gap: 0.65rem 1.3rem;
-  margin-top: 1rem;
-  padding-top: 1rem;
   border-top: 1px solid var(--admin-border);
 }
 .guide-links a {
-  color: var(--og7-admin-accent, #9edaff);
+  color: var(--admin-accent);
   text-underline-offset: 0.2em;
+  @apply tw:inline-flex tw:items-center tw:min-h-admin-control tw:max-w-full tw:wrap-anywhere;
 }
 button:focus-visible,
 a:focus-visible,
-summary:focus-visible,
+summary:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 3px;
+}
 [tabindex='-1']:focus {
   outline: 3px solid var(--admin-focus);
-  outline-offset: 4px;
+  outline-offset: -3px;
 }
 .tour-target {
   box-shadow: 0 0 0 3px var(--admin-focus);
 }
-@media (max-width: 700px) {
+@container identity-guide (min-width: 42rem) {
   .identity-summary,
   .steps {
-    grid-template-columns: minmax(0, 1fr);
+    @apply tw:grid-cols-2;
   }
 }

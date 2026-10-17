@@ -1,28 +1,24 @@
+@reference '../../../../../styles/tailwind.css';
 :host {
-  display: block;
+  @apply tw:block;
 }
 .sponsors-shell {
   background: var(--surface-page);
   color: var(--text-main);
-  min-height: 100vh;
+  @apply tw:min-h-screen;
   font-family: 'Segoe UI', Arial, sans-serif;
 }
 .sponsors-hero {
-  display: grid;
-  position: relative;
-  overflow: hidden;
+  @apply tw:grid tw:relative tw:overflow-hidden;
 }
 .sponsors-hero > img,
 .hero-overlay,
 .sponsors-hero > article {
   grid-area: 1 / 1;
-  min-width: 0;
+  @apply tw:min-w-0;
 }
 .sponsors-hero > img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  position: absolute;
+  @apply tw:w-full tw:h-full tw:object-cover tw:absolute;
 }
 .hero-overlay {
   background:
@@ -44,7 +40,7 @@
   color: var(--color-gold);
   font-size: 0.875rem;
   font-weight: 700;
-  text-transform: uppercase;
+  @apply tw:uppercase;
 }
 h1 {
   color: var(--text-main);
@@ -60,7 +56,7 @@ h2 {
 h3 {
   font-size: 1.15rem;
   margin: 0 0 0.35rem;
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }
 p,
 li {
@@ -78,9 +74,7 @@ a {
   text-underline-offset: 0.2em;
 }
 .button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  @apply tw:inline-flex tw:items-center tw:justify-center;
   min-height: 44px;
   padding: 0.55rem 0.85rem;
   border: 1px solid var(--border-color);
@@ -90,7 +84,7 @@ a {
   font: inherit;
   font-weight: 700;
   text-decoration: none;
-  cursor: pointer;
+  @apply tw:cursor-pointer;
 }
 .primary {
   background: var(--color-primary);
@@ -99,7 +93,7 @@ a {
 }
 button:disabled {
   opacity: 0.55;
-  cursor: default;
+  @apply tw:cursor-default;
 }
 a:focus-visible,
 button:focus-visible,
@@ -109,46 +103,41 @@ button:focus-visible,
 }
 .hero-actions,
 .pagination {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  @apply tw:flex tw:flex-wrap tw:items-center;
   gap: 0.7rem;
 }
 .sponsors-content {
   max-width: 1200px;
-  margin: auto;
+  @apply tw:m-auto;
   padding: 1.5rem 1rem 3rem;
-  display: grid;
+  @apply tw:grid;
   grid-template-columns: minmax(0, 1fr) minmax(16rem, 0.34fr);
   align-items: start;
-  gap: 1.5rem;
+  @apply tw:gap-6;
 }
 .sponsors-panel,
 .partner-visibility {
-  min-width: 0;
-  padding: 1.5rem;
+  @apply tw:min-w-0 tw:p-6;
   border: 1px solid var(--border-color);
   border-radius: 0.65rem;
   background: var(--surface-panel);
 }
 .directory-header {
-  display: flex;
+  @apply tw:flex;
   align-items: start;
-  gap: 1rem;
-  justify-content: space-between;
+  @apply tw:gap-4 tw:justify-between;
 }
 .directory-header > .button {
-  flex-shrink: 0;
+  @apply tw:shrink-0;
 }
 .sponsors-summary {
-  padding: 1rem;
+  @apply tw:p-4;
   background: var(--surface-subtle);
   border-radius: 0.45rem;
   margin: 1rem 0;
 }
 .sponsors-summary dl {
-  display: flex;
-  flex-wrap: wrap;
+  @apply tw:flex tw:flex-wrap;
   gap: 1rem 2rem;
   margin: 0 0 0.7rem;
 }
@@ -166,7 +155,7 @@ small {
 }
 .state,
 .empty-sponsors {
-  padding: 1rem;
+  @apply tw:p-4;
   border: 1px dashed var(--border-color);
   border-radius: 0.45rem;
 }
@@ -175,47 +164,38 @@ small {
   border-color: var(--color-danger);
 }
 .sponsors-list {
-  display: grid;
+  @apply tw:grid;
   list-style: none;
-  gap: 1rem;
-  padding: 0;
+  @apply tw:gap-4 tw:p-0;
   margin: 1rem 0;
 }
 .sponsors-list > li {
-  display: grid;
+  @apply tw:grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 0.85rem;
   align-items: start;
   border: 1px solid var(--border-color);
-  border-radius: 0.5rem;
-  padding: 1rem;
+  @apply tw:rounded-lg tw:p-4;
 }
 .sponsor-photo {
-  grid-column: 1 / -1;
-  margin: 0;
-  height: auto;
-  overflow: hidden;
+  @apply tw:col-span-full tw:m-0 tw:h-auto tw:overflow-hidden;
   background: var(--surface-panel);
   border-radius: 0.3rem;
 }
 .sponsor-photo img {
-  display: block;
-  width: 100%;
-  height: auto;
+  @apply tw:block tw:w-full tw:h-auto;
   aspect-ratio: 16 / 5;
-  object-fit: contain;
+  @apply tw:object-contain;
 }
 .sponsor-photo figcaption {
   padding: 0.5rem 0.75rem;
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }
 .sponsor-logo {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  @apply tw:flex tw:items-center tw:justify-center;
   width: 64px;
   height: 64px;
-  padding: 0.25rem;
+  @apply tw:p-1;
   border-radius: 0.4rem;
   background: var(--surface-panel);
   color: var(--text-main);
@@ -223,26 +203,21 @@ small {
   font-weight: 800;
 }
 .sponsor-logo img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
+  @apply tw:w-full tw:h-full tw:object-contain;
 }
 .sponsor-body {
-  min-width: 0;
+  @apply tw:min-w-0;
 }
 .sponsor-body p {
   margin-top: 0.6rem;
-  overflow-wrap: anywhere;
-  white-space: pre-line;
+  @apply tw:wrap-anywhere tw:whitespace-pre-line;
 }
 .sponsor-website {
   grid-column: 2;
   justify-self: start;
 }
 .feed-placement {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  @apply tw:flex tw:flex-wrap tw:items-center;
   gap: 0.4rem 0.7rem;
 }
 .feed-placement span {
@@ -250,37 +225,33 @@ small {
   color: var(--text-main);
 }
 .feed-placement a {
-  display: inline-flex;
-  align-items: center;
+  @apply tw:inline-flex tw:items-center;
   min-height: 44px;
 }
 .sponsors-sidebar {
-  display: grid;
-  gap: 1.5rem;
+  @apply tw:grid tw:gap-6;
 }
 .partner-visibility h2 {
-  margin-top: 0.5rem;
+  @apply tw:mt-2;
   font-size: 1.2rem;
 }
 .partner-visibility ul {
-  padding-left: 1rem;
+  @apply tw:pl-4;
   color: var(--text-main);
 }
 .partner-visibility li {
   margin-bottom: 0.7rem;
 }
 .partner-visibility nav {
-  display: grid;
+  @apply tw:grid;
   gap: 0.4rem;
 }
 .partner-visibility a {
-  display: inline-flex;
-  align-items: center;
+  @apply tw:inline-flex tw:items-center;
   min-height: 44px;
 }
 .pagination {
-  justify-content: space-between;
-  margin-top: 1rem;
+  @apply tw:justify-between tw:mt-4;
 }
 @media (max-width: 880px) {
   .sponsors-content {
@@ -293,20 +264,20 @@ small {
 @media (max-width: 540px) {
   .sponsors-panel,
   .partner-visibility {
-    padding: 1rem;
+    @apply tw:p-4;
   }
   .directory-header {
-    flex-direction: column;
+    @apply tw:flex-col;
   }
   .sponsors-list > li {
-    padding: 0.75rem;
+    @apply tw:p-3;
   }
   .sponsor-logo {
     width: 48px;
     height: 48px;
   }
   .sponsor-website {
-    grid-column: 1 / -1;
+    @apply tw:col-span-full;
   }
   .pagination {
     justify-content: start;

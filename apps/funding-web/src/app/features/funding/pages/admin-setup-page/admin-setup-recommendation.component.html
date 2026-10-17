@@ -24,7 +24,9 @@
     </p>
   </div>
   @if (recommendation().url; as url) {
-    <a class="primary-action" [routerLink]="router.parseUrl(url)"
+    <a
+      class="admin-button admin-button--primary primary-action"
+      [routerLink]="router.parseUrl(url)"
       >{{
         'admin.setup.' + (recommendation().urlAction ?? 'openQueue')
           | translate
@@ -33,7 +35,7 @@
   } @else {
     <button
       type="button"
-      class="primary-action"
+      class="admin-button admin-button--primary primary-action"
       (click)="inspect.emit(recommendation().section)"
     >
       {{ 'admin.setup.next.' + recommendation().key + '.action' | translate

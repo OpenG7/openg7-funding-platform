@@ -1,46 +1,61 @@
+@reference '../../../../../styles/tailwind.css';
+:host {
+  container: setup-checklist / inline-size;
+}
 .checklist header {
-  display: flex;
-  gap: 0.7rem;
+  @apply tw:flex tw:gap-3;
+}
+.checklist header > div {
+  @apply tw:min-w-0;
 }
 .checklist header > openg7-admin-icon {
-  color: var(--admin-success);
-  font-size: 1.6rem;
+  @apply tw:text-admin-accent;
+  font-size: 1.25rem;
 }
 .checklist header p {
-  font-size: var(--admin-caption-size, 0.875rem);
-  color: var(--admin-muted);
+  @apply tw:text-admin-caption tw:text-admin-muted;
   margin-top: 0.2rem;
 }
 .checklist ul {
   list-style: none;
-  padding: 0;
+  @apply tw:p-0;
   margin: 0.8rem 0;
 }
 .checklist li + li {
   border-top: 1px solid var(--admin-border);
 }
 .checklist li button {
-  display: flex;
-  justify-content: start;
-  text-align: left;
-  width: 100%;
+  @apply tw:grid tw:gap-2 tw:text-left tw:w-full;
+  grid-template-columns: 1.25rem minmax(0, 1fr);
+  justify-items: start;
+  align-items: center;
   border: 0;
   background: transparent;
-  border-radius: 0.2rem;
-  font-size: var(--admin-caption-size, 0.875rem);
-  padding: 0.7rem 0.2rem;
+  @apply tw:text-admin-caption;
+  padding: 0.75rem 0.5rem;
 }
 .checklist li span {
-  flex: 1;
+  @apply tw:min-w-0 tw:wrap-anywhere;
 }
 .checklist li small {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption tw:max-w-full tw:wrap-anywhere;
+  grid-column: 2;
+  font-weight: 400;
 }
 .checklist li openg7-admin-icon {
-  color: var(--og7-admin-accent, #b8dfff);
+  color: var(--admin-accent);
 }
 .checklist-action {
   margin-top: 0.8rem;
-  width: 100%;
+  @apply tw:w-full;
+}
+@container setup-checklist (min-width: 30rem) {
+  .checklist li button {
+    grid-template-columns: 1.25rem minmax(0, 1fr) minmax(0, 11rem);
+  }
+  .checklist li small {
+    grid-column: auto;
+    justify-self: end;
+    text-align: right;
+  }
 }

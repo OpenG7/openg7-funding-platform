@@ -1,18 +1,19 @@
+@reference '../../../../../styles/tailwind.css';
+
 .panel {
-  height: 100%;
-  padding: 1.25rem;
+  @apply tw:h-full tw:p-5;
 }
 
 .command-panel {
-  display: grid;
+  @apply tw:grid;
   gap: 0.7rem;
 }
 
 .command-panel article {
-  display: grid;
+  @apply tw:grid;
   gap: 0.45rem;
   grid-template-columns: minmax(7rem, auto) minmax(0, 1fr) auto;
-  align-items: center;
+  @apply tw:items-center;
 }
 
 .command-panel article span {

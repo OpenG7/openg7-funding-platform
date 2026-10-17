@@ -1,23 +1,24 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: grid;
-  min-width: 0;
+  @apply tw:grid tw:min-w-0;
 }
 
 .rotation-panel {
-  display: grid;
+  @apply tw:grid;
   gap: 0.7rem;
 }
 
 .rotation-panel ol {
-  display: grid;
+  @apply tw:grid;
   gap: 0.65rem;
   list-style: none;
-  padding: 0;
+  @apply tw:p-0;
 }
 
 .rotation-panel li {
   align-items: start;
-  display: grid;
+  @apply tw:grid;
   gap: 0.6rem;
   grid-template-columns: auto 1fr;
 }
@@ -26,9 +27,9 @@
   border: 1px solid var(--border-color);
   border-radius: 999px;
   color: var(--color-primary);
-  display: grid;
+  @apply tw:grid;
   height: 1.8rem;
-  place-items: center;
+  @apply tw:place-items-center;
   width: 1.8rem;
 }
 

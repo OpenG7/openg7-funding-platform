@@ -1,85 +1,78 @@
+@reference '../../../../../styles/tailwind.css';
 :host {
-  display: contents;
+  @apply tw:contents;
 }
 .toasts {
   /* Reserve space in the header: persistent notifications cannot cover a decision. */
   width: min(25rem, 100%);
   max-height: 30dvh;
-  overflow: auto;
-  display: grid;
-  gap: 0.75rem;
+  @apply tw:overflow-auto tw:grid tw:gap-3;
 }
 .toasts:empty {
-  display: none;
+  @apply tw:hidden;
 }
 /* Native drawers, search and confirmations keep notifications pending until closed. */
 :host-context(body:has(dialog[open])) .toasts {
-  display: none;
+  @apply tw:hidden;
 }
 .toast {
-  padding: 1rem;
+  @apply tw:p-4;
   border: 1px solid var(--og7-admin-border, var(--border-color));
-  border-radius: 1rem;
+  @apply tw:rounded-2xl;
   background: var(--og7-admin-panel, var(--surface-panel));
   color: var(--og7-admin-text, var(--text-main));
   box-shadow: 0 4px 16px rgb(41 51 46 / 8%);
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }
 .toast p {
   margin: 0.5rem 0;
 }
 .actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  @apply tw:flex tw:flex-wrap tw:gap-2;
   margin-top: 0.8rem;
 }
 summary {
-  cursor: pointer;
-  min-height: 2.75rem;
+  @apply tw:cursor-pointer tw:min-h-11;
   padding: 0.65rem 0;
 }
 ul,
 .history {
-  padding-left: 1.25rem;
+  @apply tw:pl-5;
 }
 li {
   margin: 0.4rem 0;
 }
 .cartouche {
   border: 1px solid var(--og7-admin-border, var(--border-color));
-  padding: 1.25rem;
-  border-radius: 1rem;
+  @apply tw:p-5 tw:rounded-2xl;
   margin: 1rem 0;
   background: var(--og7-admin-panel, var(--surface-panel));
   color: var(--og7-admin-text, var(--text-main));
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }
 .muted {
   color: var(--og7-admin-muted, var(--text-soft));
   font-size: 0.9rem;
 }
 .channels {
-  display: grid;
+  @apply tw:grid;
   grid-template-columns: auto 1fr;
   gap: 0.5rem 1rem;
 }
 dd {
-  margin: 0;
+  @apply tw:m-0;
 }
 .activity-row {
-  display: grid;
+  @apply tw:grid;
   gap: 0.35rem;
-  text-align: left;
-  width: 100%;
+  @apply tw:text-left tw:w-full;
   color: inherit;
   background: transparent;
   border: 1px solid var(--og7-admin-border, var(--border-color));
   border-radius: 0.6rem;
-  padding: 1rem;
+  @apply tw:p-4;
   margin: 0.6rem 0;
-  cursor: pointer;
-  overflow-wrap: anywhere;
+  @apply tw:cursor-pointer tw:wrap-anywhere;
 }
 button:focus-visible,
 summary:focus-visible,
@@ -90,7 +83,7 @@ a:focus-visible,
 }
 @media (max-width: 600px) {
   .toasts {
-    width: 100%;
+    @apply tw:w-full;
     max-height: 35dvh;
   }
 }

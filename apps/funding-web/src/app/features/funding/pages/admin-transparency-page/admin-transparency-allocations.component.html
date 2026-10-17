@@ -26,22 +26,25 @@
     <table>
       <thead>
         <tr>
-          <th>{{ 'admin.legacy.projet' | translate }}</th>
-          <th>{{ 'admin.legacy.description' | translate }}</th>
-          <th>{{ 'admin.legacy.montant' | translate }}</th>
-          <th>{{ 'admin.legacy.publication' | translate }}</th>
+          <th scope="col">{{ 'admin.legacy.projet' | translate }}</th>
+          <th scope="col">{{ 'admin.legacy.description' | translate }}</th>
+          <th scope="col" class="amount-cell">
+            {{ 'admin.legacy.montant' | translate }}
+          </th>
+          <th scope="col">{{ 'admin.legacy.publication' | translate }}</th>
         </tr>
       </thead>
       <tbody>
         <tr
           *ngFor="let expense of publishedExpenses(); trackBy: trackByExpense"
         >
-          <td>{{ expense.project_name }}</td>
-          <td>{{ expense.public_description }}</td>
-          <td>
+          <td class="project-cell">{{ expense.project_name }}</td>
+          <td class="description-cell">{{ expense.public_description }}</td>
+          <td class="amount-cell">
             {{ formatMoney()(expense.amount_allocated, expense.currency) }}
+            <small>{{ expense.currency }}</small>
           </td>
-          <td>{{ dateLabel()(expense.published_at) }}</td>
+          <td class="date-cell">{{ dateLabel()(expense.published_at) }}</td>
         </tr>
       </tbody>
     </table>

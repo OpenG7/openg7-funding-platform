@@ -20,6 +20,8 @@ import type { AdminAccessFieldChange } from './admin-access-presentation.types.j
   imports: [FormsModule, TranslatePipe, AdminAutomaticPreparationDirective],
   templateUrl: './admin-access-editor.component.html',
   styleUrls: [
+    '../../components/admin-ui/admin-controls.css',
+    '../../components/admin-ui/admin-forms.css',
     './admin-access-controls.css',
     './admin-access-editor.component.css'
   ]

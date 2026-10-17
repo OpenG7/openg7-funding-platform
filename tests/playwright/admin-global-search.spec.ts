@@ -173,6 +173,147 @@ async function fixtures(page: Page) {
   });
 }
 
+const searchPalettes = {
+  mineral: {
+    background: 'rgb(245, 247, 251)',
+    panel: 'rgb(255, 255, 255)',
+    raised: 'rgb(240, 244, 249)',
+    border: 'rgb(216, 224, 236)',
+    text: 'rgb(23, 43, 80)',
+    muted: 'rgb(82, 98, 123)',
+    gold: 'rgb(148, 101, 0)'
+  },
+  night: {
+    background: 'rgb(11, 23, 39)',
+    panel: 'rgb(20, 35, 56)',
+    raised: 'rgb(27, 45, 68)',
+    border: 'rgb(64, 86, 111)',
+    text: 'rgb(241, 245, 252)',
+    muted: 'rgb(189, 203, 224)',
+    gold: 'rgb(244, 201, 87)'
+  },
+  graphite: {
+    background: 'rgb(25, 27, 31)',
+    panel: 'rgb(37, 41, 47)',
+    raised: 'rgb(50, 56, 65)',
+    border: 'rgb(86, 97, 110)',
+    text: 'rgb(243, 244, 246)',
+    muted: 'rgb(196, 203, 213)',
+    gold: 'rgb(241, 206, 128)'
+  }
+} as const;
+
+for (const theme of ['mineral', 'night', 'graphite'] as const) {
+  for (const { language, width } of [
+    { language: 'fr-CA', width: 390 },
+    { language: 'en', width: 1280 }
+  ]) {
+    test(`search preserves ${theme} dialog surfaces and keyboard focus in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      await fixtures(page);
+      await page.setViewportSize({ width, height: 950 });
+      await page.addInitScript(
+        ({ theme, language }) => {
+          localStorage.setItem('openg7.language', language);
+          localStorage.setItem(
+            'openg7.pilotage.appearance.v1',
+            JSON.stringify({ theme, system: false, density: 'comfortable' })
+          );
+        },
+        { theme, language }
+      );
+      await page.goto('/admin/fundraiser');
+      const palette = searchPalettes[theme];
+      const trigger = page.locator('[data-og7="admin-search-open"]');
+      await expect(trigger).toHaveCSS('background-color', palette.raised);
+      await expect(trigger).toHaveCSS('color', palette.muted);
+      await expect(trigger).toHaveCSS('border-radius', '10px');
+      await expect(trigger).toHaveCSS('font-size', '15px');
+      await expect(trigger).toHaveCSS('min-height', '44px');
+      await trigger.focus();
+      await page.keyboard.press('Control+k');
+      await expect(input(page)).toBeFocused();
+      await expect(dialog(page)).toHaveCSS(
+        'background-color',
+        palette.background
+      );
+      await expect(dialog(page)).toHaveCSS('color', palette.text);
+      await expect(dialog(page)).toHaveCSS('border-color', palette.border);
+      await expect(dialog(page)).toHaveCSS('border-radius', '13.6px');
+      await expect(dialog(page)).toHaveCSS(
+        'padding',
+        width <= 480 ? '16px' : '20px'
+      );
+      await expect(input(page)).toHaveCSS('background-color', palette.panel);
+      await expect(input(page)).toHaveCSS('padding', '12px');
+      await expect(input(page)).toHaveCSS('outline-width', '2px');
+      await input(page).fill('FAC-601');
+      const result = dialog(page).getByRole('listitem');
+      await expect(result).toHaveCount(1);
+      await expect(result).toHaveCSS('background-color', palette.panel);
+      await expect(result).toHaveCSS('padding', '16px');
+      await expect(result).toHaveCSS('border-radius', '10px');
+      await expect(result.getByRole('link').first()).toHaveCSS(
+        'color',
+        palette.gold
+      );
+      await expect(page.locator('html')).toHaveAttribute('lang', language);
+      const bounds = await dialog(page).boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds!.x).toBeGreaterThanOrEqual(0);
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width + 1);
+      await page.keyboard.press('Escape');
+      await expect(dialog(page)).not.toBeVisible();
+      await expect(trigger).toBeFocused();
+    });
+  }
+}
+
+test('search retains the inclusive 480px dialog breakpoint in a short viewport', async ({
+  page
+}) => {
+  await fixtures(page);
+  await page.goto('/admin/fundraiser');
+  const trigger = page.locator('[data-og7="admin-search-open"]');
+  await trigger.click();
+  await input(page).fill('FAC-601');
+  await expect(dialog(page).getByRole('listitem')).toHaveCount(1);
+  for (const width of [479, 480, 481]) {
+    await test.step(`${width}px by 350px`, async () => {
+      await page.setViewportSize({ width, height: 350 });
+      await expect(dialog(page)).toHaveCSS('overflow', 'auto');
+      // The browser's dialog max-width can further constrain the authored width.
+      const renderedWidth = await dialog(page).evaluate((node) =>
+        Number.parseFloat(getComputedStyle(node).width)
+      );
+      expect(renderedWidth).toBeLessThanOrEqual(
+        width - (width <= 480 ? 16 : 32)
+      );
+      await expect(dialog(page)).toHaveCSS(
+        'padding',
+        width <= 480 ? '16px' : '20px'
+      );
+      await expect(dialog(page)).toHaveCSS(
+        'max-height',
+        width <= 480 ? '334px' : '318px'
+      );
+      await expect(trigger.locator('kbd')).toHaveCSS(
+        'display',
+        width <= 480 ? 'none' : 'block'
+      );
+      const bounds = await dialog(page).boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds!.x).toBeGreaterThanOrEqual(0);
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width + 1);
+      expect(bounds!.y).toBeGreaterThanOrEqual(0);
+      expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(351);
+    });
+  }
+  await page.keyboard.press('Escape');
+  await expect(trigger).toBeFocused();
+});
+
 test('keyboard opens search, traps focus, groups links and restores the opener', async ({
   page
 }) => {

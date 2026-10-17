@@ -32,46 +32,7 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
       <span aria-hidden="true">{{ isPlaying() ? '♪' : '♬' }}</span>
     </button>
   `,
-  styles: [
-    `
-      :host {
-        bottom: clamp(0.8rem, 2vw, 1.35rem);
-        display: block;
-        position: fixed;
-        right: clamp(0.8rem, 2vw, 1.35rem);
-        width: auto;
-        z-index: 40;
-      }
-
-      .site-music-toggle {
-        align-items: center;
-        background: var(--surface-panel);
-        border: 1px solid var(--border-color);
-        border-radius: 999px;
-        box-shadow: 0 4px 16px rgb(41 51 46 / 12%);
-        color: var(--text-main);
-        display: inline-flex;
-        font-family: Georgia, 'Times New Roman', serif;
-        font-size: 1.25rem;
-        font-weight: 600;
-        height: 2.9rem;
-        justify-content: center;
-        line-height: 1;
-        width: 2.9rem;
-      }
-
-      .site-music-toggle.playing {
-        background: var(--color-primary);
-        border-color: var(--color-primary);
-        color: var(--on-primary);
-      }
-
-      .site-music-toggle:focus-visible {
-        outline: 3px solid var(--color-primary);
-        outline-offset: 3px;
-      }
-    `
-  ]
+  styleUrl: './site-music.component.css'
 })
 export class SiteMusicComponent implements OnInit, OnDestroy {
   private readonly musicSource =

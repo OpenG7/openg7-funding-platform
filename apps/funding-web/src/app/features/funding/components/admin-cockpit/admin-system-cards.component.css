@@ -5,9 +5,13 @@
 }
 .cards {
   @apply tw:grid tw:gap-3;
-  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  grid-template-columns: var(
+    --admin-system-cards-columns,
+    repeat(auto-fit, minmax(12rem, 1fr))
+  );
 }
 button {
+  container: admin-system-card / inline-size;
   @apply tw:flex tw:flex-col tw:items-stretch tw:text-left tw:min-w-0;
   @apply tw:text-admin-text tw:p-4 tw:cursor-pointer;
   gap: 0.65rem;
@@ -34,10 +38,14 @@ button:focus-visible {
   outline-offset: 4px;
 }
 .heading {
-  @apply tw:flex tw:items-center;
+  @apply tw:flex tw:items-center tw:min-w-0;
   gap: 0.65rem;
 }
+.heading > span {
+  @apply tw:min-w-0 tw:wrap-anywhere;
+}
 .heading > openg7-admin-icon {
+  @apply tw:shrink-0;
   font-size: 1.6rem;
   color: var(--og7-admin-accent, #85d5ff);
 }
@@ -84,14 +92,32 @@ small,
   @apply tw:mt-auto;
   padding-top: 0.35rem;
 }
+@container admin-system-card (max-width: 16rem) {
+  .heading {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+  .heading > span {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .heading .arrow {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
 @media (max-width: 1250px) {
   .cards {
-    @apply tw:grid-cols-2;
+    grid-template-columns: var(
+      --admin-system-cards-columns,
+      repeat(2, minmax(0, 1fr))
+    );
   }
 }
 @media (max-width: 540px) {
   .cards {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: var(--admin-system-cards-columns, minmax(0, 1fr));
   }
 }
 @media (prefers-reduced-motion: reduce) {

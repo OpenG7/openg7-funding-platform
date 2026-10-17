@@ -6,6 +6,11 @@ import type {
 } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
+import {
+  captureAdminDesign,
+  expectAdminPageFits,
+  prepareAdminDesignReview
+} from './support/admin-design-review.js';
 
 const snapshot = (count: number, date: string): AdminTransparencyResponse => ({
   data_source: 'database',
@@ -39,6 +44,27 @@ const snapshot = (count: number, date: string): AdminTransparencyResponse => ({
 });
 const older = snapshot(10, '2026-09-23T12:00:00Z');
 const newer = snapshot(20, '2026-09-24T12:00:00Z');
+const palettes = {
+  mineral: {
+    panel: 'rgb(255, 255, 255)',
+    border: 'rgb(216, 224, 236)',
+    text: 'rgb(23, 43, 80)',
+    muted: 'rgb(82, 98, 123)'
+  },
+  night: {
+    panel: 'rgb(20, 35, 56)',
+    border: 'rgb(64, 86, 111)',
+    text: 'rgb(241, 245, 252)',
+    muted: 'rgb(189, 203, 224)'
+  },
+  graphite: {
+    panel: 'rgb(37, 41, 47)',
+    border: 'rgb(86, 97, 110)',
+    text: 'rgb(243, 244, 246)',
+    muted: 'rgb(196, 203, 213)'
+  }
+} as const;
+type Theme = keyof typeof palettes;
 
 function withAllocations(
   data: AdminTransparencyResponse
@@ -91,7 +117,12 @@ function withAllocations(
   };
 }
 
-async function prepare(page: Page, language: string, width: number) {
+async function prepare(
+  page: Page,
+  language: string,
+  width: number,
+  theme?: Theme
+) {
   await page.setViewportSize({ width, height: 950 });
   await page.addInitScript((locale) => {
     localStorage.setItem('openg7.language', locale);
@@ -104,9 +135,22 @@ async function prepare(page: Page, language: string, width: number) {
       '2099-01-01T00:00:00Z'
     );
   }, language);
+  if (theme)
+    await page.addInitScript((theme) => {
+      localStorage.setItem(
+        'openg7.pilotage.appearance.v1',
+        JSON.stringify({ theme, system: false, density: 'comfortable' })
+      );
+    }, theme);
   const requests: Route[] = [];
+  const mutations: string[] = [];
   await page.route('**/api/**', async (route) => {
-    const path = new URL(route.request().url()).pathname;
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (request.method() !== 'GET') {
+      mutations.push(`${request.method()} ${path}`);
+      return route.fulfill({ status: 405, json: {} });
+    }
     if (path.endsWith('/auth/config')) {
       return route.fulfill({ json: { mode: 'oidc' } });
     }
@@ -132,6 +176,7 @@ async function prepare(page: Page, language: string, width: number) {
   const view = page.locator('[data-og7="admin-transparency"]');
   return {
     requests,
+    mutations,
     view,
     refresh: view.getByRole('button', {
       name: language === 'en' ? 'Refresh' : 'Actualiser',
@@ -161,6 +206,164 @@ async function complete(
       })
   );
 }
+
+for (const language of ['fr-CA', 'en'] as const)
+  for (const width of [390, 1536]) {
+    test(`transparency composition keeps financial totals and their source accessible in ${language} at ${width}px`, async ({
+      page
+    }, testInfo) => {
+      await prepareAdminDesignReview(page);
+      const { requests, mutations, view, current } = await prepare(
+        page,
+        language,
+        width,
+        'mineral'
+      );
+      await page.setViewportSize({
+        width,
+        height: width === 1536 ? 864 : 1000
+      });
+      await complete(page, requests[0], 200, withAllocations(newer));
+      const summary = view.locator('[data-og7="transparency-summary"]');
+      const allocations = view.locator('[data-og7="transparency-allocations"]');
+      await expect(summary.getByRole('article')).toHaveCount(4);
+      await expect(current).toContainText('database');
+      await expect(current.getByText('20', { exact: true })).toBeVisible();
+      await expect(summary).toContainText('CAD');
+      await expect(allocations.getByRole('row')).toHaveCount(3);
+      await captureAdminDesign(page, testInfo, `transparency-${width}`);
+      if (width === 1536) {
+        for (const card of await summary.getByRole('article').all())
+          await expect(card).toBeInViewport({ ratio: 1 });
+        await expect(current.getByRole('heading')).toBeInViewport({ ratio: 1 });
+        await captureAdminDesign(
+          page,
+          testInfo,
+          'transparency-complete-1536',
+          true
+        );
+      }
+      if (language === 'en') {
+        await page.evaluate(() => {
+          document.documentElement.style.fontSize = '200%';
+        });
+        await expectAdminPageFits(page);
+        const scroll = view.locator(
+          '[data-og7="transparency-allocation-scroll"]'
+        );
+        await scroll.scrollIntoViewIfNeeded();
+        await scroll.focus();
+        await expect(scroll).toBeFocused();
+        await expect(scroll).toHaveCSS('overflow-x', 'auto');
+        await expect(current.getByText('20', { exact: true })).toBeVisible();
+      }
+      expect(mutations).toEqual([]);
+    });
+  }
+
+for (const theme of ['mineral', 'night', 'graphite'] as const) {
+  for (const { language, width } of [
+    { language: 'fr-CA', width: 390 },
+    { language: 'en', width: 1280 }
+  ]) {
+    test(`transparency styles preserve ${theme} palettes and dimensions in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      const { requests, mutations, view, current, refresh } = await prepare(
+        page,
+        language,
+        width,
+        theme
+      );
+      await complete(page, requests[0], 200, withAllocations(newer));
+      await expect(page.locator('html')).toHaveAttribute('lang', language);
+      await expect(page.locator('html')).toHaveAttribute(
+        'data-og7-pilot-theme',
+        theme
+      );
+      const palette = palettes[theme];
+      const summary = view.locator('[data-og7="transparency-summary"]');
+      const statuses = view.locator('[data-og7="transparency-statuses"]');
+      for (const grid of [summary, statuses]) {
+        const cards = grid.getByRole('article');
+        await expect(cards).toHaveCount(4);
+        for (const card of await cards.all()) {
+          await expect(card.locator('strong')).toHaveCSS('color', palette.text);
+        }
+      }
+      await expect(current).toHaveCSS('background-color', palette.panel);
+      const allocations = view.locator('[data-og7="transparency-allocations"]');
+      await expect(allocations.getByRole('table')).toHaveCSS(
+        'border-collapse',
+        'collapse'
+      );
+      await expect(allocations.getByRole('columnheader').first()).toHaveCSS(
+        'text-align',
+        'left'
+      );
+      const scroll = view.locator(
+        '[data-og7="transparency-allocation-scroll"]'
+      );
+      await expect(scroll).toHaveCSS('overflow-x', 'auto');
+      if (width === 390)
+        expect(
+          await scroll.evaluate(
+            (element) => element.scrollWidth > element.clientWidth
+          )
+        ).toBe(true);
+      expect((await refresh.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+      expect(mutations).toEqual([]);
+    });
+  }
+}
+
+test('transparency keeps its totals, panel bounds and zero state when resized', async ({
+  page
+}) => {
+  const { requests, mutations, view, current, refresh } = await prepare(
+    page,
+    'en',
+    901,
+    'mineral'
+  );
+  await complete(page, requests[0], 200, withAllocations(newer));
+  const summary = view.locator('[data-og7="transparency-summary"]');
+  for (const width of [390, 701, 899, 900, 901, 1280, 1536]) {
+    await page.setViewportSize({ width, height: 950 });
+    for (const grid of [
+      summary,
+      view.locator('[data-og7="transparency-statuses"]'),
+      current.locator('dl')
+    ]) {
+      const bounds = (await grid.boundingBox())!;
+      expect(bounds.x).toBeGreaterThanOrEqual(-1);
+      expect(bounds.x + bounds.width).toBeLessThanOrEqual(width + 1);
+    }
+    await expect(summary.getByRole('article')).toHaveCount(4);
+    await expect(current.getByText('20', { exact: true })).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1
+      )
+    ).toBe(true);
+  }
+  await refresh.click();
+  await expect.poll(() => requests.length).toBe(2);
+  await complete(page, requests[1], 200, snapshot(0, newer.last_updated_at));
+  const empty = view
+    .locator('[data-og7="transparency-allocations"]')
+    .getByRole('article');
+  await expect(empty).toBeVisible();
+  await expect(
+    view.locator('[data-og7="transparency-allocation-scroll"]')
+  ).toHaveCount(0);
+  expect(mutations).toEqual([]);
+});
 
 for (const language of ['fr-CA', 'en']) {
   for (const width of [390, 1280]) {
@@ -267,10 +470,10 @@ for (const language of ['fr-CA', 'en']) {
       }
       await expect(
         allocations.getByRole('row').nth(1).getByRole('cell').nth(2)
-      ).toHaveText(money(125.25));
+      ).toHaveText(money(125.25) + ' CAD');
       await expect(
         allocations.getByRole('row').nth(2).getByRole('cell').nth(2)
-      ).toHaveText(money(50));
+      ).toHaveText(money(50) + ' CAD');
       await expect(
         allocations.getByRole('row').nth(2).getByRole('cell').nth(3)
       ).toHaveText(language === 'en' ? 'Not available' : 'Non disponible');

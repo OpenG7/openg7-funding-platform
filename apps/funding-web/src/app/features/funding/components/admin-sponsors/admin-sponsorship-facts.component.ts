@@ -133,41 +133,8 @@ import { AdminSponsorshipPublicationComponent } from './admin-sponsorship-public
   styleUrls: [
     '../admin-ui/admin-theme.css',
     '../admin-ui/admin-controls.css',
-    '../admin-ui/admin-forms.css'
-  ],
-  styles: [
-    `
-      :host {
-        display: block;
-      }
-      section {
-        padding: 1rem;
-        color: var(--admin-text);
-      }
-      article {
-        padding: 0.8rem 0;
-        border-bottom: 1px solid var(--admin-border);
-      }
-      dl {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 1rem;
-      }
-      dt {
-        font-size: var(--admin-caption-size, 0.875rem);
-      }
-      dd {
-        margin: 0.2rem 0;
-      }
-      a {
-        color: var(--admin-muted);
-        font-weight: var(--admin-control-weight);
-      }
-      a:focus-visible {
-        outline: 3px solid var(--admin-focus);
-        outline-offset: 3px;
-      }
-    `
+    '../admin-ui/admin-forms.css',
+    './admin-sponsorship-facts.component.css'
   ]
 })
 export class AdminSponsorshipFactsComponent {

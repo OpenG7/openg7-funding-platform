@@ -1,6 +1,7 @@
+@reference '../../../../../styles/tailwind.css';
+
 .panel {
-  height: 100%;
-  padding: 1.25rem;
+  @apply tw:h-full tw:p-5;
 }
 
 :host {
@@ -8,9 +9,9 @@
 }
 
 .event-list {
-  display: grid;
+  @apply tw:grid;
   gap: 0.55rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  @apply tw:grid-cols-2;
 }
 
 .event-list article {
@@ -35,15 +36,15 @@
 .event-list span {
   color: var(--text-main);
   font-size: 0.875rem;
-  text-transform: uppercase;
+  @apply tw:uppercase;
 }
 
 .event-list strong {
   color: var(--text-main);
-  display: block;
+  @apply tw:block;
   font-size: 0.875rem;
   margin-top: 0.18rem;
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }
 
 .event-list p {

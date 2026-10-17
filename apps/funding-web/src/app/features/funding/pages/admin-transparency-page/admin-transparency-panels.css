@@ -1,43 +1,27 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
-  margin: 0 auto;
-  max-width: 78rem;
-  width: 100%;
+  @apply tw:block tw:min-w-0 tw:w-full;
 }
 
 .admin-panel {
-  display: grid;
-  gap: 1rem;
-  min-width: 0;
+  @apply tw:grid tw:min-w-0 tw:gap-4 tw:rounded-admin-card tw:p-admin-card;
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.45rem;
-  padding: 1rem;
 }
 
-.admin-panel header {
-  align-items: center;
-  display: flex;
-  gap: 1rem;
-  justify-content: space-between;
+.admin-panel > header {
+  @apply tw:flex tw:min-w-0 tw:flex-wrap tw:items-start tw:gap-3 tw:justify-between;
 }
 
-.admin-panel span {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
-  font-weight: var(--admin-label-weight);
-  letter-spacing: 0;
-  text-transform: uppercase;
+.admin-panel > header > div {
+  @apply tw:grid tw:min-w-0 tw:gap-1;
+}
+
+.admin-panel > header span {
+  @apply tw:text-admin-muted tw:text-admin-caption tw:wrap-anywhere;
 }
 
 .admin-panel h2 {
-  margin: 0;
-}
-
-@media (max-width: 900px) {
-  .admin-panel header {
-    align-items: start;
-    flex-direction: column;
-  }
+  @apply tw:m-0 tw:min-w-0 tw:wrap-anywhere;
 }

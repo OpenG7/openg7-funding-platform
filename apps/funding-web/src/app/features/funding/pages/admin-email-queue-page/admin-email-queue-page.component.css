@@ -1,73 +1,48 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
+  @apply tw:block tw:min-w-0;
 }
 
 .admin-content {
-  display: grid;
-  gap: 1rem;
-  min-width: 0;
+  @apply tw:grid tw:gap-admin-card-gap tw:min-w-0 tw:w-full tw:mx-auto;
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 88rem;
 }
 
 .admin-topbar,
 .state {
   margin: 0 auto;
   max-width: 88rem;
-  width: 100%;
+  @apply tw:w-full;
 }
 
 .admin-topbar {
-  align-items: center;
-  display: flex;
-  gap: 1rem;
-  justify-content: space-between;
+  @apply tw:flex tw:flex-wrap tw:items-center tw:gap-4 tw:justify-between;
 }
 
-.admin-topbar span {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
-  font-weight: var(--admin-label-weight);
-  letter-spacing: 0;
-  text-transform: uppercase;
+.admin-topbar > div {
+  @apply tw:min-w-0 tw:max-w-full;
 }
 
 h1,
 p {
-  margin: 0;
+  @apply tw:m-0 tw:min-w-0 tw:wrap-anywhere;
 }
 
-button {
-  background: var(--admin-panel-raised);
-  border: 0;
-  border-radius: 0.35rem;
-  color: var(--admin-text);
-  cursor: pointer;
-  font-family: inherit;
-  font-size: inherit;
-  font-weight: var(--admin-control-weight);
-  line-height: inherit;
-  min-height: 2.5rem;
-  padding: 0 0.9rem;
-}
-
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
+.admin-topbar button {
+  @apply tw:max-w-full;
+  white-space: normal;
+  text-align: center;
 }
 
 .state {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.45rem;
-  padding: 1rem;
+  @apply tw:p-admin-card tw:rounded-admin-card;
+  line-height: 1.5;
 }
 
 .state-error {
-  color: var(--admin-danger);
-}
-
-@media (max-width: 860px) {
-  .admin-topbar {
-    align-items: start;
-    flex-direction: column;
-  }
+  @apply tw:text-admin-danger;
 }

@@ -1,12 +1,13 @@
+@reference '../../../../../styles/tailwind.css';
+
 .detail-actions .review-button.approval-button {
   --approval-mint: var(--admin-success);
   --approval-gold: var(--admin-gold);
-  position: relative;
-  isolation: isolate;
+  @apply tw:relative tw:isolate;
   gap: 0.45rem;
   background: var(--admin-success-bg);
   border: 1px solid var(--admin-success-border);
-  color: var(--admin-success);
+  @apply tw:text-admin-success;
   box-shadow:
     inset 0 1px 0 #deffe41a,
     0 3px 10px #0003;
@@ -30,23 +31,19 @@
 
 .approval-label,
 .approval-mark {
-  position: relative;
+  @apply tw:relative;
   z-index: 1;
 }
 
 .approval-mark {
-  display: grid;
-  place-items: center;
-  width: 1.25rem;
-  height: 1.25rem;
+  @apply tw:grid tw:place-items-center tw:w-5 tw:h-5;
   flex: 0 0 1.25rem;
   border: 1px solid var(--admin-success-border);
   border-radius: 50%;
 }
 
 .approval-mark svg {
-  width: 1rem;
-  height: 1rem;
+  @apply tw:w-4 tw:h-4;
   fill: none;
   stroke: currentColor;
   stroke-width: 2.5;
@@ -58,14 +55,13 @@
 .approval-sparks,
 .approval-button::before,
 .approval-button::after {
-  position: absolute;
-  pointer-events: none;
+  @apply tw:absolute tw:pointer-events-none;
   border-radius: inherit;
   opacity: 0;
 }
 
 .approval-shine {
-  inset: 0;
+  @apply tw:inset-0;
   background: linear-gradient(
     110deg,
     transparent 35%,
@@ -78,7 +74,7 @@
 
 .detail-actions .approval-button[data-state='pending'] {
   opacity: 1;
-  cursor: wait;
+  @apply tw:cursor-wait;
   border-color: var(--approval-gold);
   box-shadow:
     0 0 0 3px #f4d78b12,
@@ -264,6 +260,6 @@
   .approval-button[data-state='success']::after,
   .approval-shine,
   .approval-sparks {
-    display: none;
+    @apply tw:hidden;
   }
 }

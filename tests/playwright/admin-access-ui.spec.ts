@@ -3,6 +3,12 @@ import type { Page } from '@playwright/test';
 import type { AdminAccessResponse } from '../../apps/funding-web/src/app/features/funding/services/funding-admin.service.js';
 
 import { test, expect } from './support/test.js';
+import {
+  blockAdminReviewWrites,
+  captureAdminDesign,
+  expectAdminPageFits,
+  prepareAdminDesignReview
+} from './support/admin-design-review.js';
 
 async function accessFixture(page: Page) {
   const state = {
@@ -91,6 +97,201 @@ async function openAccess(page: Page, language: 'fr' | 'en') {
       })
       .click();
 }
+
+for (const language of ['fr-CA', 'en'] as const) {
+  for (const width of [390, 1536]) {
+    test(`access composition keeps accounts, draft and revocation readable in ${language} at ${width}px`, async ({
+      page
+    }, testInfo) => {
+      await page.setViewportSize({ width, height: 864 });
+      await prepareAdminDesignReview(page);
+      await page.addInitScript(
+        (locale) => localStorage.setItem('openg7.language', locale),
+        language
+      );
+      const state = await accessFixture(page);
+      const writes = await blockAdminReviewWrites(page);
+      await page.goto('/admin/fundraiser/access');
+      const account = page.locator(
+        '[data-og7="admin-account"][data-og7-id="operator"]'
+      );
+      await account.getByRole('button').click();
+      const editor = page.locator('openg7-admin-access-editor');
+      const name = editor.locator('input[name="name"]');
+      await expect(name).toHaveValue('Operator fixture');
+      await expect(page.locator('[data-og7="admin-account"]')).toHaveCount(2);
+      await expect(page.locator('[data-og7="admin-session"]')).toHaveCount(2);
+      if (width === 1536) {
+        const accounts = (await page
+          .locator('openg7-admin-access-accounts')
+          .boundingBox())!;
+        const fields = (await editor.boundingBox())!;
+        expect(fields.x).toBeGreaterThan(accounts.x + accounts.width);
+      }
+      await page.evaluate(() =>
+        window.scrollTo({ top: 0, behavior: 'instant' })
+      );
+      await captureAdminDesign(page, testInfo, `access-${width}`);
+      await name.fill('Synthetic unsubmitted account draft');
+      const revoke = page.locator(
+        '[data-og7="admin-session"][data-og7-id="operator-session"] button'
+      );
+      await page.keyboard.press('Tab');
+      await revoke.focus();
+      await revoke.press('Enter');
+      const confirmation = page.getByRole('group', {
+        name: language === 'en' ? 'Revoke session' : 'Révoquer la session'
+      });
+      await expect(confirmation.getByRole('button').first()).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(confirmation).toHaveCount(0);
+      await expect(revoke).toBeFocused();
+      await expect(name).toHaveValue('Synthetic unsubmitted account draft');
+      await expect(editor.locator('button[type="submit"]')).toBeDisabled();
+      if (language === 'en')
+        await page.evaluate(
+          () => (document.documentElement.style.fontSize = '32px')
+        );
+      await expectAdminPageFits(page);
+      for (const control of await editor
+        .locator('input:not([type="checkbox"]), select, button')
+        .all()) {
+        const box = (await control.boundingBox())!;
+        expect(box.x).toBeGreaterThanOrEqual(0);
+        expect(box.x + box.width).toBeLessThanOrEqual(width + 1);
+        expect(box.height).toBeGreaterThanOrEqual(44);
+      }
+      expect(state.changes).toEqual([]);
+      expect(writes).toEqual([]);
+    });
+  }
+}
+
+const accessPalettes = {
+  mineral: {
+    panel: 'rgb(255, 255, 255)',
+    raised: 'rgb(240, 244, 249)',
+    text: 'rgb(23, 43, 80)',
+    border: 'rgb(216, 224, 236)',
+    focus: 'rgb(53, 106, 159)'
+  },
+  night: {
+    panel: 'rgb(20, 35, 56)',
+    raised: 'rgb(27, 45, 68)',
+    text: 'rgb(241, 245, 252)',
+    border: 'rgb(64, 86, 111)',
+    focus: 'rgb(158, 218, 255)'
+  },
+  graphite: {
+    panel: 'rgb(37, 41, 47)',
+    raised: 'rgb(50, 56, 65)',
+    text: 'rgb(243, 244, 246)',
+    border: 'rgb(86, 97, 110)',
+    focus: 'rgb(194, 227, 255)'
+  }
+} as const;
+
+for (const theme of ['mineral', 'night', 'graphite'] as const) {
+  for (const { language, width } of [
+    { language: 'fr', width: 390 },
+    { language: 'en', width: 1536 }
+  ] as const) {
+    test(`access retains ${theme} editor surfaces and cancelled revocation in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      const state = await accessFixture(page);
+      await page.addInitScript((theme) => {
+        localStorage.setItem(
+          'openg7.pilotage.appearance.v1',
+          JSON.stringify({ theme, system: false, density: 'comfortable' })
+        );
+      }, theme);
+      await page.setViewportSize({ width, height: 1000 });
+      await openAccess(page, language);
+      const palette = accessPalettes[theme];
+      const operator = page.locator(
+        '[data-og7="admin-account"][data-og7-id="operator"]'
+      );
+      await operator.getByRole('button').click();
+      const form = page.locator('openg7-admin-access-editor form');
+      const name = form.locator('input[name="name"]');
+      await expect(name).toHaveValue('Operator fixture');
+      await expect(form).toHaveCSS('background-color', palette.panel);
+      await expect(form).toHaveCSS('border-color', palette.border);
+      await expect(form).toHaveCSS('border-radius', '14px');
+      await expect(form).toHaveCSS('gap', '16px');
+      await expect(form).toHaveCSS('padding', '20px');
+      for (const field of [name, form.getByRole('combobox')]) {
+        await expect(field).toHaveCSS('background-color', palette.panel);
+        await expect(field).toHaveCSS('color', palette.text);
+        await expect(field).toHaveCSS('padding', '10px 12px');
+        await expect(field).toHaveCSS('border-radius', '10px');
+        await expect(field).toHaveCSS('min-height', '44px');
+      }
+      await name.focus();
+      await expect(name).toHaveCSS('outline-width', '3px');
+      await expect(name).toHaveCSS('outline-color', palette.focus);
+      await name.fill('Synthetic unsaved access draft');
+      const confirmation = form.locator('input[name="confirmed"]');
+      const save = form.getByRole('button', {
+        name: language === 'fr' ? 'Enregistrer les accès' : 'Save access'
+      });
+      await expect(confirmation).not.toBeChecked();
+      await expect(save).toBeDisabled();
+      await confirmation.check();
+      await expect(save).toBeEnabled();
+      await confirmation.uncheck();
+      const revoke = page.locator(
+        '[data-og7="admin-session"][data-og7-id="operator-session"] button'
+      );
+      await expect(revoke).toHaveCSS('background-color', palette.panel);
+      await expect(revoke).toHaveCSS('color', palette.text);
+      await expect(revoke).toHaveCSS('min-height', '44px');
+      await revoke.focus();
+      await page.keyboard.press('Enter');
+      const group = page.getByRole('group', {
+        name: language === 'fr' ? 'Révoquer la session' : 'Revoke session'
+      });
+      await expect(group).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(group).toHaveCount(0);
+      await expect(revoke).toBeFocused();
+      await expect(name).toHaveValue('Synthetic unsaved access draft');
+      await expect(page.locator('[data-og7="admin-session"]')).toHaveCount(2);
+      expect(state.changes).toEqual([]);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+    });
+  }
+}
+
+test('access fits its available content width and keeps its width limit', async ({
+  page
+}) => {
+  await accessFixture(page);
+  await openAccess(page, 'fr');
+  const content = page.locator('[data-og7="admin-access"]');
+  for (const width of [390, 1599, 1600, 1601]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await expect(content).toHaveCSS('max-width', '1248px');
+    await expect(content).toHaveCSS('overflow-wrap', 'anywhere');
+    await expect
+      .poll(() =>
+        content.evaluate((node) =>
+          Number.parseFloat(getComputedStyle(node).paddingTop)
+        )
+      )
+      .toBe(0);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1
+      )
+    ).toBe(true);
+  }
+});
 
 for (const language of ['fr', 'en'] as const) {
   test(`failed access changes retain the draft and return revocation focus in ${language}`, async ({

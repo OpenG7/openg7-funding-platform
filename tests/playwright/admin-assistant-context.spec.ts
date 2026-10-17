@@ -6,6 +6,12 @@ import type {
 } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
+import {
+  blockAdminReviewWrites,
+  captureAdminDesign,
+  expectAdminPageFits,
+  prepareAdminDesignReview
+} from './support/admin-design-review.js';
 
 const id = '10000000-0000-4000-8000-000000000301';
 const secondId = '10000000-0000-4000-8000-000000000302';
@@ -187,6 +193,151 @@ async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
     });
   });
   return { calls, options };
+}
+
+for (const language of ['fr-CA', 'en'] as const)
+  for (const width of [390, 1536]) {
+    test(`context composition keeps confirmed facts and its next step readable in ${language} at ${width}px`, async ({
+      page
+    }, testInfo) => {
+      await prepareAdminDesignReview(page);
+      await fixtures(page, 'reader');
+      const writes = await blockAdminReviewWrites(page);
+      await page.addInitScript((locale) => {
+        localStorage.setItem('openg7.language', locale);
+      }, language);
+      await page.setViewportSize({
+        width,
+        height: width === 1536 ? 864 : 1000
+      });
+      await page.goto(path());
+      const context = page.locator('[data-og7="assistant-context"]');
+      const facts = context.locator('[data-og7="assistant-facts"]');
+      const next = context.locator('[data-og7="assistant-next-step"]');
+      await expect(
+        context.locator('[data-og7="assistant-reference"]')
+      ).toHaveText('DEMO-301');
+      await expect(facts).toContainText(language === 'en' ? 'Paid' : 'Payé');
+      await expect(facts).toContainText(
+        language === 'en' ? 'Not granted' : 'Non accordé'
+      );
+      await expect(next.getByRole('link')).toHaveAttribute(
+        'href',
+        `/admin/fundraiser/sponsors?sponsorshipId=${id}`
+      );
+      await captureAdminDesign(page, testInfo, `assistant-context-${width}`);
+      if (width === 1536) {
+        await expect(next.getByRole('heading')).toBeInViewport({ ratio: 1 });
+      }
+      const disclosure = facts.locator('..').locator('summary');
+      await disclosure.focus();
+      await page.keyboard.press('Enter');
+      await expect(facts).toBeHidden();
+      await page.keyboard.press('Enter');
+      await expect(facts).toBeVisible();
+      if (language === 'en') {
+        await page.evaluate(() => {
+          document.documentElement.style.fontSize = '200%';
+        });
+        await expectAdminPageFits(page);
+        await expect(next.getByRole('link')).toBeVisible();
+      }
+      expect(writes).toEqual([]);
+    });
+  }
+
+for (const sample of [
+  {
+    theme: 'mineral',
+    language: 'fr-CA',
+    width: 390,
+    panel: 'rgb(255, 255, 255)',
+    raised: 'rgb(240, 244, 249)',
+    background: 'rgb(245, 247, 251)',
+    text: 'rgb(23, 43, 80)'
+  },
+  {
+    theme: 'night',
+    language: 'en',
+    width: 1280,
+    panel: 'rgb(20, 35, 56)',
+    raised: 'rgb(27, 45, 68)',
+    background: 'rgb(11, 23, 39)',
+    text: 'rgb(241, 245, 252)'
+  },
+  {
+    theme: 'graphite',
+    language: 'fr-CA',
+    width: 390,
+    panel: 'rgb(37, 41, 47)',
+    raised: 'rgb(50, 56, 65)',
+    background: 'rgb(25, 27, 31)',
+    text: 'rgb(243, 244, 246)'
+  }
+]) {
+  test(`context facts and cancelled delivery review remain readable with ${sample.theme} in ${sample.language}`, async ({
+    page
+  }) => {
+    const { calls } = await fixtures(page);
+    await page.addInitScript(({ language, theme }) => {
+      localStorage.setItem('openg7.language', language);
+      localStorage.setItem(
+        'openg7.pilotage.appearance.v1',
+        JSON.stringify({ theme, system: false })
+      );
+    }, sample);
+    await page.setViewportSize({ width: sample.width, height: 950 });
+    await page.goto(path());
+    const english = sample.language === 'en';
+    const context = page.locator('[data-og7="assistant-context"]');
+    const facts = context.locator('[data-og7="assistant-facts"]').first();
+    await expect(
+      context.locator('[data-og7="assistant-reference"]')
+    ).toHaveText('DEMO-301');
+    await expect(context).toHaveCSS('background-color', sample.panel);
+    await expect(context.locator('[data-og7="assistant-next-step"]')).toHaveCSS(
+      'background-color',
+      sample.raised
+    );
+    const confirmedFacts = await facts.innerText();
+    await page
+      .getByRole('button', {
+        name: english ? 'Request information' : 'Demander des informations',
+        exact: true
+      })
+      .click();
+    const recipient = page.getByLabel(english ? 'Recipient' : 'Destinataire', {
+      exact: true
+    });
+    await expect(recipient).toHaveValue('demo@example.invalid');
+    await expect(recipient).toHaveAttribute('readonly', '');
+    const message = page.getByLabel('Message', { exact: true });
+    await expect(message).toHaveCSS('background-color', sample.background);
+    await expect(message).toHaveCSS('color', sample.text);
+    await message.fill('Message synthétique pour une revue annulée.');
+    const review = page.getByRole('button', {
+      name: english ? 'Review delivery' : 'Vérifier l’envoi',
+      exact: true
+    });
+    await review.focus();
+    await page.keyboard.press('Enter');
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toHaveCSS('background-color', sample.panel);
+    await expect(dialog).toContainText('demo@example.invalid');
+    await page.keyboard.press('Escape');
+    await expect(dialog).not.toBeVisible();
+    await expect(review).toBeFocused();
+    expect(await facts.innerText()).toBe(confirmedFacts);
+    expect(
+      calls.filter((call) => call.path.endsWith('request-information'))
+    ).toEqual([]);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1
+      )
+    ).toBe(true);
+  });
 }
 
 test('deterministic dossier facts and recommendation work with conversation disabled', async ({

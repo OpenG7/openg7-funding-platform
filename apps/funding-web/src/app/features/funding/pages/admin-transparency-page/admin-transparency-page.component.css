@@ -1,80 +1,41 @@
-.admin-content {
-  display: grid;
-  gap: 1rem;
-  min-width: 0;
-}
+@reference '../../../../../styles/tailwind.css';
 
-.admin-topbar,
-.admin-auth-panel,
-.state {
+.admin-content {
+  @apply tw:grid tw:gap-6 tw:min-w-0 tw:w-full;
   margin: 0 auto;
   max-width: 78rem;
-  width: 100%;
 }
 
 .admin-topbar {
-  align-items: center;
-  display: flex;
-  gap: 1rem;
-  justify-content: space-between;
+  @apply tw:flex tw:flex-wrap tw:items-start tw:justify-between tw:gap-4;
 }
 
-.admin-topbar span {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
-  font-weight: var(--admin-label-weight);
-  letter-spacing: 0;
-  text-transform: uppercase;
+.admin-topbar > div {
+  @apply tw:grid tw:min-w-0 tw:gap-2;
+  flex: 1 1 24rem;
 }
 
 .admin-topbar h1,
-.admin-auth-panel h2 {
-  margin: 0;
+.admin-auth-panel p,
+.state {
+  @apply tw:m-0;
 }
 
-.admin-auth-panel {
-  background: var(--admin-panel);
-  border: 1px solid var(--admin-border);
-  border-radius: 0.45rem;
-  padding: 1rem;
-  align-items: end;
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: minmax(0, 1fr) minmax(16rem, 24rem);
+.admin-auth-panel h2 {
+  @apply tw:sr-only;
 }
 
 .admin-auth-panel p {
-  color: var(--admin-muted);
-  line-height: 1.55;
-  margin: 0.35rem 0 0;
+  @apply tw:text-admin-muted tw:text-admin-navigation tw:wrap-anywhere;
 }
 
-button {
-  background: var(--admin-panel-raised);
-  border: 0;
-  border-radius: 0.35rem;
-  color: var(--admin-text);
-  cursor: pointer;
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-  font-weight: var(--admin-control-weight);
-  min-height: 2.7rem;
-  padding: 0 0.9rem;
+.state {
+  @apply tw:rounded-admin-control tw:text-admin-muted tw:p-4;
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
 }
 
 .state-error {
-  color: var(--admin-danger);
-  font-weight: var(--admin-label-weight);
-}
-
-@media (max-width: 900px) {
-  .admin-auth-panel {
-    grid-template-columns: 1fr;
-  }
-
-  .admin-topbar {
-    align-items: start;
-    flex-direction: column;
-  }
+  @apply tw:text-admin-danger tw:border-admin-danger-border;
+  background: var(--admin-danger-bg);
 }

@@ -1,3 +1,29 @@
+<ng-template #periodValues>
+  <dl class="periods">
+    <div>
+      <dt>{{ 'admin.cockpit.currentPeriod' | translate }}</dt>
+      <dd>{{ format(trend().current) }}</dd>
+    </div>
+    <div>
+      <dt>{{ 'admin.cockpit.previousPeriod' | translate }}</dt>
+      <dd>{{ format(trend().previous) }}</dd>
+    </div>
+  </dl>
+</ng-template>
+<ng-template #dateRange>
+  @if (chart(); as graph) {
+    <div class="chart-range">
+      <time [attr.datetime]="graph.start">{{ date(graph.start) }}</time>
+      <time [attr.datetime]="graph.end">{{ date(graph.end) }}</time>
+    </div>
+  }
+</ng-template>
+<ng-template #comparisonHelp>
+  @if (comparisonHint(); as hint) {
+    <p class="comparison-hint">{{ hint | translate }}</p>
+  }
+</ng-template>
+
 <div class="chart-panel">
   <p class="chart-title">{{ 'admin.cockpit.dailyTrend' | translate }}</p>
   @if (chart(); as graph) {
@@ -19,27 +45,19 @@
       />
       <polyline class="curve" [attr.points]="graph.points" />
     </svg>
-    <div class="chart-range">
-      <time [attr.datetime]="graph.start">{{ date(graph.start) }}</time>
-      <time [attr.datetime]="graph.end">{{ date(graph.end) }}</time>
-    </div>
   } @else {
     <p class="chart-empty">
-      {{ 'admin.cockpit.chartUnavailable' | translate }}
+      <span>{{ 'admin.cockpit.chartUnavailable' | translate }}</span>
     </p>
+  }
+  @if (!compact()) {
+    <ng-container [ngTemplateOutlet]="dateRange" />
   }
 </div>
 
-<dl class="periods">
-  <div>
-    <dt>{{ 'admin.cockpit.currentPeriod' | translate }}</dt>
-    <dd>{{ format(trend().current) }}</dd>
-  </div>
-  <div>
-    <dt>{{ 'admin.cockpit.previousPeriod' | translate }}</dt>
-    <dd>{{ format(trend().previous) }}</dd>
-  </div>
-</dl>
+@if (!compact()) {
+  <ng-container [ngTemplateOutlet]="periodValues" />
+}
 <div class="comparison">
   <p class="comparison-heading">
     <span>{{ 'admin.cockpit.comparison' | translate }}</span>
@@ -52,48 +70,59 @@
       {{ percentage() }}
     </strong>
   </p>
-  @if (comparisonHint(); as hint) {
-    <p class="comparison-hint">{{ hint | translate }}</p>
+  @if (!compact()) {
+    <ng-container [ngTemplateOutlet]="comparisonHelp" />
   }
 </div>
 
-@if (dailyValues().length) {
+@if (compact() || dailyValues().length) {
   <details>
-    <summary>
-      <span>{{ 'admin.cockpit.series' | translate }}</span>
+    <summary
+      [attr.title]="compact() ? ('admin.cockpit.series' | translate) : null"
+    >
+      <span class="disclosure-label">{{
+        'admin.cockpit.series' | translate
+      }}</span>
       <span class="disclosure-icon" aria-hidden="true"></span>
     </summary>
-    <div
-      class="table-scroll"
-      tabindex="0"
-      role="region"
-      [attr.aria-label]="'admin.cockpit.dailySeries' | translate"
-    >
-      <table>
-        <caption>
-          {{
-            'admin.cockpit.dailySeries' | translate
-          }}
-        </caption>
-        <thead>
-          <tr>
-            <th scope="col">{{ 'admin.cockpit.day' | translate }}</th>
-            <th scope="col">{{ 'admin.cockpit.value' | translate }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (point of dailyValues(); track point.day) {
+    @if (compact()) {
+      <ng-container [ngTemplateOutlet]="periodValues" />
+      <ng-container [ngTemplateOutlet]="dateRange" />
+      <ng-container [ngTemplateOutlet]="comparisonHelp" />
+    }
+    @if (dailyValues().length) {
+      <div
+        class="table-scroll"
+        tabindex="0"
+        role="region"
+        [attr.aria-label]="'admin.cockpit.dailySeries' | translate"
+      >
+        <table>
+          <caption>
+            {{
+              'admin.cockpit.dailySeries' | translate
+            }}
+          </caption>
+          <thead>
             <tr>
-              <th scope="row">
-                <time [attr.datetime]="point.day">{{
-                  date(point.day, true)
-                }}</time>
-              </th>
-              <td>{{ format(point.value) }}</td>
+              <th scope="col">{{ 'admin.cockpit.day' | translate }}</th>
+              <th scope="col">{{ 'admin.cockpit.value' | translate }}</th>
             </tr>
-          }
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            @for (point of dailyValues(); track point.day) {
+              <tr>
+                <th scope="row">
+                  <time [attr.datetime]="point.day">{{
+                    date(point.day, true)
+                  }}</time>
+                </th>
+                <td>{{ format(point.value) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
   </details>
 }

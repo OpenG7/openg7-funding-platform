@@ -1,114 +1,99 @@
-.filters {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-.email-groups ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
+@reference '../../../../../styles/tailwind.css';
+
 .categories {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  @apply tw:flex tw:flex-wrap tw:gap-2 tw:min-w-0;
 }
 .category {
-  display: inline-flex;
+  @apply tw:inline-flex tw:items-center tw:min-h-11 tw:max-w-full tw:rounded-admin-control tw:text-admin-text tw:text-admin-caption tw:text-left tw:cursor-pointer tw:wrap-anywhere;
   gap: 0.65rem;
-  align-items: center;
-  min-height: 2.75rem;
   padding: 0.5rem 0.8rem;
   border: 1px solid var(--admin-border);
-  border-radius: 0.45rem;
-  background: transparent;
-  color: var(--admin-text);
-  font: inherit;
+  background: var(--admin-panel);
+  font-family: inherit;
   font-weight: var(--admin-control-weight);
-  font-size: var(--admin-caption-size, 0.875rem);
-  text-align: left;
-  cursor: pointer;
+  line-height: 1.5;
+  transition:
+    background-color var(--admin-motion-duration) var(--admin-motion-easing),
+    border-color var(--admin-motion-duration) var(--admin-motion-easing);
 }
 .category span {
-  color: var(--admin-muted);
+  @apply tw:inline-grid tw:place-items-center tw:shrink-0 tw:rounded-full tw:text-admin-muted;
+  min-width: 1.5rem;
+  padding: 0 0.35rem;
+  background: var(--admin-subtle);
   font-weight: var(--admin-emphasis-weight);
+  font-variant-numeric: tabular-nums;
+}
+.category:hover,
+.group-button:hover {
+  border-color: var(--admin-accent);
 }
 .category[aria-pressed='true'],
 .group-button[aria-pressed='true'] {
-  background: var(--admin-panel-raised);
-  border-color: var(--admin-accent, #87c8ff);
-  box-shadow: inset 0 -2px var(--admin-accent, #87c8ff);
+  background: var(--admin-selected);
+  border-color: var(--admin-accent);
+  box-shadow: inset 0 -2px var(--admin-accent);
 }
 .filters {
-  margin: 1rem 0;
-  justify-content: flex-start;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:flex tw:items-end tw:gap-3 tw:flex-wrap tw:text-admin-caption;
+  margin: 0 0 1rem;
 }
 .filters label {
-  display: grid;
-  gap: 0.35rem;
+  @apply tw:grid tw:min-w-0 tw:max-w-full tw:gap-2;
+  flex: 0 1 19rem;
 }
 .filters select {
-  color: var(--admin-text);
-  background: var(--admin-panel);
-  border: 1px solid var(--admin-border);
-  border-radius: 0.4rem;
-  min-height: 2.75rem;
-  padding: 0.5rem 0.75rem;
-  font: inherit;
-  font-weight: 400;
-  max-width: 100%;
+  @apply tw:w-full tw:min-w-0 tw:max-w-full tw:min-h-11;
+}
+.filters > p {
+  @apply tw:max-w-full tw:wrap-anywhere;
+  flex: 1 1 15rem;
+  padding-bottom: 0.625rem;
 }
 summary {
-  cursor: pointer;
+  @apply tw:cursor-pointer tw:min-h-11 tw:wrap-anywhere;
+  padding: 0.6rem 0;
   font-weight: var(--admin-control-weight);
-  padding: 0.3rem 0;
+}
+summary::marker {
+  color: var(--admin-accent);
 }
 .email-groups {
-  padding: 0.75rem;
-  background: var(--admin-panel-raised);
-  border-radius: 0.4rem;
+  @apply tw:p-3 tw:rounded-admin-control;
+  background: var(--admin-subtle);
+  border: 1px solid var(--admin-border);
+  margin-bottom: 1rem;
 }
 .email-groups p {
-  font-size: var(--admin-caption-size, 0.875rem);
-  margin: 0.4rem 0;
+  @apply tw:text-admin-caption;
+  margin: 0.5rem 0 0.75rem;
 }
 .email-groups ul {
-  display: grid;
-  gap: 0.35rem;
+  @apply tw:grid tw:gap-2 tw:p-0 tw:m-0 tw:overflow-auto;
+  list-style: none;
   max-height: 18rem;
-  overflow: auto;
 }
 .group-button {
-  width: 100%;
-  display: flex;
-  gap: 1rem;
-  justify-content: space-between;
-  text-align: left;
-  color: var(--admin-text);
+  @apply tw:w-full tw:min-h-11 tw:flex tw:items-center tw:gap-4 tw:justify-between tw:text-left tw:text-admin-text tw:rounded-admin-control tw:text-admin-caption tw:cursor-pointer;
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.3rem;
-  padding: 0.65rem;
-  font: inherit;
+  padding: 0.75rem;
+  font-family: inherit;
   font-weight: var(--admin-control-weight);
-  font-size: var(--admin-caption-size, 0.875rem);
-  cursor: pointer;
+  line-height: 1.5;
+}
+.group-button > span {
+  @apply tw:min-w-0 tw:wrap-anywhere;
+}
+.group-button strong {
+  font-variant-numeric: tabular-nums;
 }
 .active-filter {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  margin-top: 0.75rem;
+  @apply tw:flex tw:items-center tw:gap-3 tw:flex-wrap tw:mt-3 tw:mb-4 tw:text-admin-caption;
 }
 @media (max-width: 640px) {
   .categories {
-    flex-wrap: nowrap;
-    overflow: auto;
-    padding-bottom: 0.5rem;
+    @apply tw:flex-nowrap tw:overflow-auto tw:pb-2;
   }
   .category {
     flex: 0 0 auto;

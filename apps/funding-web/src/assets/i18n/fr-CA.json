@@ -183,16 +183,16 @@
       "palette": "Palette de l’administration",
       "themes": {
         "night": "Nuit OpenG7",
-        "mineral": "Clair minéral",
+        "mineral": "OpenG7 Premium Light",
         "graphite": "Graphite"
       },
       "descriptions": {
         "night": "Bleu nuit et accents d’or.",
-        "mineral": "Surfaces claires, lecture précise.",
+        "mineral": "Blanc perle, bleu marine et accents dorés.",
         "graphite": "Gris neutres et or discret."
       },
       "system": "Suivre le thème du système",
-      "systemHint": "Clair minéral le jour, Nuit OpenG7 en mode sombre, selon votre appareil.",
+      "systemHint": "Premium Light le jour, Nuit OpenG7 en mode sombre, selon votre appareil.",
       "current": "Apparence affichée :",
       "density": "Densité du pilotage",
       "comfortable": "Confort",
@@ -743,7 +743,7 @@
         "unavailable": "Les données nécessaires à ce bloc sont indisponibles."
       },
       "stale": "Dernière lecture conservée : ces données peuvent être périmées.",
-      "source": "Contributions confirmées enregistrées en PostgreSQL",
+      "source": "Contributions confirmées · Registre du fonds",
       "asOf": "Lecture du",
       "periods": "Comparaison des 30 derniers jours complets avec les 30 précédents",
       "currency": "Devise des montants",
@@ -859,6 +859,7 @@
         "unsaved": "Modifications non enregistrées"
       },
       "workspace": {
+        "context": "Suivi du dossier",
         "financeActions": "Actions financières",
         "navigation": "Navigation du dossier",
         "back": "Toutes les commandites",
@@ -1354,7 +1355,7 @@
       "title": "À traiter",
       "todayTitle": "À traiter aujourd’hui",
       "help": "Les interventions sont classées selon leur priorité. Une tâche disparaît lorsque sa condition est résolue.",
-      "todayHelp": "Urgences, priorités du jour et échéances arrivées à terme, selon l’heure de Toronto.",
+      "todayHelp": "Priorités et échéances · Heure de Toronto.",
       "viewAll": "Voir toutes les tâches du jour",
       "refresh": "Actualiser les tâches",
       "open": "Ouvrir",

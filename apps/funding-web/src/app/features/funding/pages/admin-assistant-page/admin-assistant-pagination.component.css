@@ -1,26 +1,28 @@
+@reference '../../../../../styles/tailwind.css';
+
 .queue-footer,
 .pagination {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
+  @apply tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap tw:min-w-0;
 }
 .queue-footer {
+  @apply tw:text-admin-caption;
   border-top: 1px solid var(--admin-border);
-  padding-top: 1rem;
-  margin-top: 0.25rem;
-  font-size: var(--admin-caption-size, 0.875rem);
+  padding: 1rem 1.25rem;
+}
+.queue-footer > small {
+  @apply tw:wrap-anywhere;
 }
 .pagination {
-  gap: 0.6rem;
+  @apply tw:max-w-full;
+}
+.pagination > span {
+  font-variant-numeric: tabular-nums;
 }
 @media (max-width: 640px) {
   .queue-footer {
     align-items: start;
   }
   .pagination {
-    width: 100%;
-    justify-content: space-between;
+    @apply tw:w-full tw:justify-between;
   }
 }

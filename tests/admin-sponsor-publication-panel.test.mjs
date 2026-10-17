@@ -373,7 +373,7 @@ test('publication panel contains presentation only and owns the styles across An
   );
   assert.match(
     styles,
-    /\.publication-grid\s*\{[\s\S]*?grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/
+    /\.publication-grid\s*\{[^}]*(?:grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)\s*;|@apply\s+[^;}]*\btw:grid-cols-2(?=\s|;))/
   );
   assert.match(
     styles,

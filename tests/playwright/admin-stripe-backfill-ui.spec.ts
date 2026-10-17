@@ -112,6 +112,118 @@ async function setup(page: Page, role = 'owner', authMode = 'oidc') {
   return state;
 }
 
+for (const theme of ['mineral', 'night', 'graphite'] as const) {
+  test(`Stripe recovery CSS preserves ${theme} surfaces and responsive scope without executing`, async ({
+    page
+  }) => {
+    await page.addInitScript((theme) => {
+      localStorage.setItem('openg7.language', 'fr-CA');
+      localStorage.setItem(
+        'openg7.pilotage.appearance.v1',
+        JSON.stringify({ theme, system: false, density: 'comfortable' })
+      );
+    }, theme);
+    await page.setViewportSize({ width: 390, height: 1000 });
+    const state = await setup(page);
+    state.current = {
+      id: '10000000-0000-4000-8000-000000000805',
+      status: 'preview',
+      mode: 'test',
+      accountId: 'acct_synthetic',
+      projectId: 'openg7',
+      scope: { from: '2026-09-01', to: '2026-09-27', limit: 100 },
+      expiresAt: '2099-01-01T00:00:00Z',
+      counts: {
+        scanned: 1,
+        matched: 1,
+        payments: 1,
+        refunds: 0,
+        disputes: 0,
+        missingFees: 0
+      }
+    };
+    const panel = page.locator('[data-og7="stripe-backfill"]');
+    const refresh = panel.locator('[data-og7="stripe-backfill-refresh"]');
+    await expect(refresh).toBeEnabled();
+    await refresh.click();
+    const result = panel.locator('[data-og7="stripe-backfill-result"]');
+    const fields = panel.getByRole('spinbutton').locator('..').locator('..');
+    const metrics = result.locator('dl');
+    for (const english of [false, true]) {
+      await test.step(
+        english ? 'English desktop' : 'French mobile',
+        async () => {
+          if (english) {
+            await page.setViewportSize({ width: 1440, height: 1000 });
+            await page
+              .getByRole('button', {
+                name: 'Switch administration language to English'
+              })
+              .click();
+          }
+          await expect(page.locator('html')).toHaveAttribute(
+            'data-og7-pilot-theme',
+            theme
+          );
+          await expect(panel).toHaveCSS(
+            'background-color',
+            {
+              mineral: 'rgb(255, 255, 255)',
+              night: 'rgb(20, 35, 56)',
+              graphite: 'rgb(37, 41, 47)'
+            }[theme]
+          );
+          await expect(panel).toHaveCSS('padding', english ? '20px' : '16px');
+          await expect(fields).toHaveCSS('display', 'grid');
+          await expect(metrics).toHaveCSS('gap', '8px');
+          await expect(result.locator('dd').first()).toHaveCSS(
+            'font-variant-numeric',
+            'tabular-nums'
+          );
+          await expect(panel.getByRole('spinbutton')).toHaveCSS(
+            'min-height',
+            '44px'
+          );
+          const execute = panel.locator('[data-og7="stripe-backfill-execute"]');
+          await execute.focus();
+          await page.keyboard.press('Enter');
+          await expect(page.getByRole('dialog')).toContainText(
+            'acct_synthetic'
+          );
+          await page.keyboard.press('Escape');
+          await expect(execute).toBeFocused();
+          expect(state.posts).toEqual([]);
+        }
+      );
+    }
+    if (theme === 'mineral') {
+      for (const width of [540, 541, 1100, 1101]) {
+        await test.step(`Stripe recovery CSS boundary ${width}px`, async () => {
+          await page.setViewportSize({ width, height: 1000 });
+          for (const [grid, columns] of [
+            [fields, width <= 540 ? 1 : width <= 1100 ? 2 : 4],
+            [metrics, width <= 540 ? 2 : width <= 1100 ? 3 : 5]
+          ] as const) {
+            await expect
+              .poll(() =>
+                grid.evaluate(
+                  (node) =>
+                    getComputedStyle(node).gridTemplateColumns.split(' ').length
+                )
+              )
+              .toBe(columns);
+          }
+          expect(
+            await page.evaluate(
+              () => document.documentElement.scrollWidth <= innerWidth + 1
+            )
+          ).toBe(true);
+        });
+      }
+    }
+  });
+}
+
 for (const locale of ['fr', 'en']) {
   for (const width of [390, 1280]) {
     test(`Stripe recovery preview, cancellation, confirmation and refresh in ${locale} at ${width}px`, async ({

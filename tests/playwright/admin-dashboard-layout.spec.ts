@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { AxeBuilder } from '@axe-core/playwright';
 import type {
   AdminCockpitMetrics,
@@ -9,6 +9,8 @@ import type {
 
 import { expect, test } from './support/test.js';
 import { cockpitFixtures } from './support/cockpit-fixtures.js';
+import { premiumFixtures } from './support/admin-premium-fixtures.js';
+import { expectAdminFontsReady } from './support/admin-fonts.js';
 
 const record: AdminContributionRecord = {
   id: 'ui-sponsorship-1',
@@ -73,6 +75,36 @@ const dashboard: AdminDashboardResponse = {
   last_updated_at: '2026-09-15T14:00:00.000Z'
 };
 const sessionToken = 'openg7-admin-session.ui-fixture';
+const dashboardAttention = {
+  available: true,
+  coverage: 'complete',
+  missingSources: [],
+  generatedAt: dashboard.last_updated_at,
+  timezone: 'America/Toronto',
+  total: 4,
+  filteredTotal: 4,
+  todayTotal: 4,
+  page: 1,
+  pageSize: 4,
+  counts: { urgent: 1, today: 3, this_week: 0, informational: 0 },
+  typeCounts: {},
+  items: [
+    'stripe_event_failed',
+    'sponsorship_needs_review',
+    'email_delivery_failed',
+    'invoice_missing'
+  ].map((type, index) => ({
+    id: 'dashboard-task-' + index,
+    type,
+    severity: index === 0 ? 'urgent' : 'today',
+    title: type,
+    explanation: type,
+    detectedAt: dashboard.last_updated_at,
+    adminUrl: '/admin/fundraiser/attention',
+    facts: { reference: 'DEMO-2026-00' + index },
+    suggestedActions: []
+  }))
+};
 
 async function fixtures(page: Page, expired = false): Promise<void> {
   await page.addInitScript(
@@ -94,38 +126,7 @@ async function fixtures(page: Page, expired = false): Promise<void> {
         'metrics' | 'activity' | 'systems';
       await route.fulfill({ json: cockpitFixtures()[block] });
     } else if (pathname === '/api/admin/attention') {
-      await route.fulfill({
-        json: {
-          available: true,
-          coverage: 'complete',
-          missingSources: [],
-          generatedAt: dashboard.last_updated_at,
-          timezone: 'America/Toronto',
-          total: 4,
-          filteredTotal: 4,
-          todayTotal: 4,
-          page: 1,
-          pageSize: 4,
-          counts: { urgent: 1, today: 3, this_week: 0, informational: 0 },
-          typeCounts: {},
-          items: [
-            'stripe_event_failed',
-            'sponsorship_needs_review',
-            'email_delivery_failed',
-            'invoice_missing'
-          ].map((type, index) => ({
-            id: 'dashboard-task-' + index,
-            type,
-            severity: index === 0 ? 'urgent' : 'today',
-            title: type,
-            explanation: type,
-            detectedAt: dashboard.last_updated_at,
-            adminUrl: '/admin/fundraiser/attention',
-            facts: { reference: 'DEMO-2026-00' + index },
-            suggestedActions: []
-          }))
-        }
-      });
+      await route.fulfill({ json: dashboardAttention });
     } else if (pathname === '/api/admin/assistant/summary') {
       await route.fulfill({
         json: {
@@ -161,7 +162,409 @@ test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 1672, height: 941 });
 });
 
-test('default warm mineral palette keeps dashboard readable at 125% display scaling', async ({
+const shellPalettes = {
+  mineral: {
+    background: 'rgb(245, 247, 251)',
+    sidebar: 'rgb(247, 249, 252)',
+    border: 'rgb(216, 224, 236)',
+    text: 'rgb(23, 43, 80)',
+    selected: 'rgb(237, 243, 250)',
+    accent: 'rgb(54, 93, 136)'
+  },
+  night: {
+    background: 'rgb(11, 23, 39)',
+    sidebar: 'rgb(13, 27, 44)',
+    border: 'rgb(64, 86, 111)',
+    text: 'rgb(241, 245, 252)',
+    selected: 'rgb(36, 61, 83)',
+    accent: 'rgb(158, 218, 255)'
+  },
+  graphite: {
+    background: 'rgb(25, 27, 31)',
+    sidebar: 'rgb(30, 33, 38)',
+    border: 'rgb(86, 97, 110)',
+    text: 'rgb(243, 244, 246)',
+    selected: 'rgb(56, 67, 79)',
+    accent: 'rgb(176, 210, 235)'
+  }
+} as const;
+
+async function shellColumns(element: Locator): Promise<number> {
+  return element.evaluate(
+    (node) => getComputedStyle(node).gridTemplateColumns.split(' ').length
+  );
+}
+
+for (const language of ['fr-CA', 'en'] as const)
+  for (const viewport of [
+    { width: 390, height: 1000 },
+    // 1920x1080 at 125% supplies 1536x864 CSS pixels.
+    { width: 1536, height: 864 }
+  ]) {
+    test(`dashboard composition prioritizes the work queue in ${language} at ${viewport.width}px`, async ({
+      page
+    }, testInfo) => {
+      const { state, writes } = await premiumFixtures(
+        page,
+        language,
+        dashboard
+      );
+      state.sponsor = {
+        ...state.sponsor,
+        sponsor_company_name: 'NordVale Énergie'
+      };
+      state.progress = { ...state.progress, companyName: 'NordVale Énergie' };
+      await page.route('**/api/admin/attention*', (route) =>
+        route.request().method() === 'GET'
+          ? route.fulfill({ json: dashboardAttention })
+          : route.fallback()
+      );
+      await page.setViewportSize(viewport);
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.goto('/admin/fundraiser');
+      const root = page.locator('[data-og7="admin-dashboard"]');
+      const heading = root.getByRole('heading', {
+        name: language === 'en' ? 'Control centre' : 'Centre de pilotage',
+        exact: true
+      });
+      const metrics = root.locator('[data-og7="cockpit-metrics"]');
+      const cards = metrics.getByRole('article');
+      const workflow = root.locator('[data-og7="dashboard-workflow"]');
+      const queue = workflow.locator('[data-og7="attention-panel"]');
+      const dossier = workflow.locator('[data-og7="sponsorship-progress"]');
+      const secondary = root.locator('[data-og7="dashboard-secondary"]');
+      const supervision = root.locator('[data-og7="dashboard-supervision"]');
+      const firstTask = queue
+        .locator('[data-og7="attention-items"]')
+        .getByRole('listitem')
+        .first();
+      await expect(heading).toBeVisible();
+      await expect(page.locator('html')).toHaveAttribute('lang', language);
+      await expect(
+        root.locator('[data-og7="dashboard-refresh"]')
+      ).toBeEnabled();
+      await expect(cards).toHaveCount(4);
+      await expect(dossier).toContainText('NordVale Énergie');
+      await expect(firstTask).toContainText('DEMO-2026-000');
+      await expectAdminFontsReady(page);
+
+      async function expectComposition(stacked: boolean) {
+        const cardBoxes = await cards.evaluateAll((elements) =>
+          elements.map((element) => {
+            const box = element.getBoundingClientRect();
+            return { x: box.x, y: box.y, width: box.width, height: box.height };
+          })
+        );
+        for (let index = 1; index < cardBoxes.length; index++) {
+          const previous = cardBoxes[index - 1]!;
+          const current = cardBoxes[index]!;
+          if (stacked) {
+            expect(current.x).toBeCloseTo(previous.x, 0);
+            expect(current.y).toBeGreaterThanOrEqual(
+              previous.y + previous.height - 1
+            );
+          } else {
+            expect(current.y).toBeCloseTo(previous.y, 0);
+            expect(current.x).toBeGreaterThanOrEqual(
+              previous.x + previous.width - 1
+            );
+          }
+        }
+        const queueBox = (await queue.boundingBox())!;
+        const dossierBox = (await dossier.boundingBox())!;
+        if (stacked) {
+          expect(dossierBox.x).toBeCloseTo(queueBox.x, 0);
+          expect(dossierBox.y).toBeGreaterThanOrEqual(
+            queueBox.y + queueBox.height - 1
+          );
+        } else {
+          // The queue's emphasis border sits above its inner section.
+          expect(Math.abs(dossierBox.y - queueBox.y)).toBeLessThanOrEqual(4);
+          expect(dossierBox.x).toBeGreaterThanOrEqual(
+            queueBox.x + queueBox.width - 1
+          );
+          expect(queueBox.width / dossierBox.width).toBeCloseTo(1.5, 1);
+        }
+        const metricsBox = (await metrics.boundingBox())!;
+        const workflowBox = (await workflow.boundingBox())!;
+        expect(workflowBox.y).toBeGreaterThanOrEqual(
+          metricsBox.y + metricsBox.height - 1
+        );
+        for (const element of [metrics, workflow, secondary, supervision]) {
+          const box = (await element.boundingBox())!;
+          expect(box.x).toBeGreaterThanOrEqual(-1);
+          expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
+        }
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth + 1
+          )
+        ).toBe(true);
+      }
+
+      await test.step('the first task is available before secondary information and celebrations', async () => {
+        await expectComposition(viewport.width === 390);
+        await expect(
+          secondary.locator('[data-og7="assistant-context"]')
+        ).toHaveCount(1);
+        await expect(
+          secondary.locator('[data-og7="cockpit-activity"]')
+        ).toHaveCount(1);
+        await expect(
+          supervision.locator('[data-og7="cockpit-systems"]')
+        ).toHaveCount(1);
+        const workflowBox = (await workflow.boundingBox())!;
+        const celebrationBox = (await root
+          .locator('[data-og7="admin-celebrations"]')
+          .boundingBox())!;
+        expect(celebrationBox.y).toBeGreaterThanOrEqual(
+          workflowBox.y + workflowBox.height - 1
+        );
+        const secondaryBox = (await secondary.boundingBox())!;
+        const supervisionBox = (await supervision.boundingBox())!;
+        expect(supervisionBox.y).toBeGreaterThanOrEqual(
+          secondaryBox.y + secondaryBox.height - 1
+        );
+        await page.screenshot({
+          path: testInfo.outputPath(
+            `dashboard-composition-${viewport.width}.png`
+          ),
+          animations: 'disabled'
+        });
+        if (language === 'fr-CA' && viewport.width === 1536)
+          await page.screenshot({
+            path: testInfo.outputPath('dashboard-composition-full.png'),
+            animations: 'disabled',
+            fullPage: true
+          });
+        if (viewport.width === 1536) {
+          // No earlier focus, click or scroll may reveal these first-screen targets.
+          expect(await page.evaluate(() => scrollY)).toBe(0);
+          for (const card of await cards.all())
+            await expect(card).toBeInViewport({ ratio: 1 });
+          await expect(queue.getByRole('heading', { level: 2 })).toBeInViewport(
+            { ratio: 1 }
+          );
+          await expect(firstTask).toBeInViewport({ ratio: 1 });
+        }
+      });
+
+      await test.step('the primary control-desk link and the exact attention destination remain keyboard accessible', async () => {
+        const primary = root.locator('[data-og7="dashboard-pilotage"]');
+        await expect(primary).toHaveAccessibleName(
+          language === 'en' ? 'Control desk' : 'Poste de pilotage'
+        );
+        await expect(primary).toHaveAttribute(
+          'href',
+          '/admin/fundraiser/pilotage'
+        );
+        await page.keyboard.press('Tab');
+        await primary.focus();
+        await expect(primary).toBeFocused();
+        await expect(primary).toHaveCSS('outline-style', 'solid');
+        await expect(queue.getByRole('link').first()).toHaveAttribute(
+          'href',
+          '/admin/fundraiser/attention?due=today'
+        );
+      });
+
+      if (language === 'en' && viewport.width === 390)
+        await test.step('200% mobile text keeps the queue usable without horizontal page scrolling', async () => {
+          await page.evaluate(() => {
+            document.documentElement.style.fontSize = '200%';
+          });
+          await expect(page.locator('html')).toHaveCSS('font-size', '32px');
+          await expectComposition(true);
+          const open = firstTask.getByRole('link');
+          await open.focus();
+          await expect(open).toBeFocused();
+          await expect(open).toBeInViewport({ ratio: 1 });
+          await page.screenshot({
+            path: testInfo.outputPath('dashboard-composition-390-text-200.png'),
+            animations: 'disabled',
+            fullPage: true
+          });
+        });
+      expect(writes).toEqual([]);
+      expect(state.commands).toEqual([]);
+    });
+  }
+
+for (const theme of ['mineral', 'night', 'graphite'] as const) {
+  test(`admin shell preserves ${theme} navigation surfaces on French mobile and English desktop`, async ({
+    page
+  }) => {
+    await fixtures(page);
+    await page.addInitScript((theme) => {
+      localStorage.setItem('openg7.language', 'fr-CA');
+      localStorage.setItem(
+        'openg7.pilotage.appearance.v1',
+        JSON.stringify({ theme, system: false, density: 'comfortable' })
+      );
+    }, theme);
+    await page.setViewportSize({ width: 390, height: 941 });
+    await page.goto('/admin/fundraiser');
+    const shell = page.locator('openg7-admin-layout');
+    const sidebar = page.locator('#admin-sidebar');
+    const aside = sidebar.getByRole('complementary');
+    const banner = page.getByRole('banner');
+    const nav = sidebar.locator('nav');
+    const mobileToggle = sidebar.getByRole('button', {
+      name: 'Ouvrir le menu'
+    });
+    const palette = shellPalettes[theme];
+    for (const language of ['fr-CA', 'en']) {
+      await test.step(
+        language === 'fr-CA' ? '390px mobile' : '1536px desktop',
+        async () => {
+          if (language === 'fr-CA') await mobileToggle.click();
+          else {
+            await page.setViewportSize({ width: 1536, height: 941 });
+            await banner
+              .getByRole('button', {
+                name: 'Switch administration language to English'
+              })
+              .click();
+          }
+          await expect(page.locator('html')).toHaveAttribute('lang', language);
+          await expect(shell).toHaveCSS('background-color', palette.background);
+          await expect(aside).toHaveCSS('background-color', palette.sidebar);
+          await expect(aside).toHaveCSS('padding', '16px 12px');
+          await expect(banner).toHaveCSS('border-bottom-color', palette.border);
+          const active = nav.getByRole('link', {
+            name: language === 'en' ? 'Dashboard' : 'Tableau de bord',
+            exact: true
+          });
+          await expect(active).toHaveAttribute('aria-current', 'page');
+          await expect(active).toHaveCSS('background-color', palette.selected);
+          await expect(active).toHaveCSS('color', palette.accent);
+          await expect(active).toHaveCSS('font-size', '15px');
+          await expect(active).toHaveCSS('min-height', '44px');
+          await expect(active).toHaveCSS('padding', '10px 12px');
+          const shadow = await active.evaluate(
+            (node) => getComputedStyle(node).boxShadow
+          );
+          expect(shadow).toContain(palette.accent);
+          expect(shadow).toContain('3px 0px 0px 0px inset');
+          if (language === 'fr-CA') {
+            await active.focus();
+            await page.keyboard.press('Escape');
+            await expect(nav).toBeHidden();
+            await expect(mobileToggle).toBeFocused();
+          } else {
+            await expect(sidebar).toHaveCSS('width', '240px');
+            await expect(aside).toHaveCSS('position', 'sticky');
+            await expect(aside).toHaveCSS('max-height', '941px');
+          }
+          expect(
+            await page.evaluate(
+              () => document.documentElement.scrollWidth <= innerWidth + 1
+            )
+          ).toBe(true);
+        }
+      );
+    }
+  });
+}
+
+test('admin shell preserves inclusive navigation and chrome breakpoints through menu changes', async ({
+  page
+}) => {
+  await fixtures(page);
+  await page.goto('/admin/fundraiser');
+  const layout = page.locator('[data-og7="admin-layout"]');
+  const sidebar = page.locator('#admin-sidebar');
+  const aside = sidebar.getByRole('complementary');
+  const nav = sidebar.locator('nav');
+  const main = page.getByRole('main');
+  const banner = page.getByRole('banner');
+  const search = banner.locator('openg7-admin-global-search');
+  const tools = banner
+    .getByRole('button', {
+      name: 'Switch administration language to English'
+    })
+    .locator('..');
+  const identity = banner
+    .getByText('Administration', { exact: true })
+    .locator('..');
+  const desktopToggle = page.locator('[data-og7="admin-navigation-toggle"]');
+  const mobileToggle = sidebar.locator(
+    'button[aria-controls="admin-navigation-content"]'
+  );
+  const brandText = sidebar.getByText('Open G7', { exact: true }).locator('..');
+  for (const width of [400, 401, 480, 481, 860, 861, 1200, 1201]) {
+    await test.step(`${width}px`, async () => {
+      await page.setViewportSize({ width, height: 941 });
+      await expect(banner).toHaveCSS(
+        'padding',
+        width <= 860 ? '12.8px 16px' : `12px ${Math.min(32, width * 0.02)}px`
+      );
+      await expect(main).toHaveCSS(
+        'padding',
+        width <= 860
+          ? '20px 16px 32px'
+          : `20px ${Math.min(32, width * 0.02)}px 32px`
+      );
+      await expect(search).toHaveCSS(
+        'flex-basis',
+        width <= 480 ? '100%' : '0%'
+      );
+      await expect(banner).toHaveCSS(
+        'flex-wrap',
+        width <= 480 ? 'wrap' : 'nowrap'
+      );
+      if (width <= 1200) await expect(identity).toBeHidden();
+      else await expect(identity).toBeVisible();
+      if (width <= 480) {
+        await expect(brandText).toBeHidden();
+        await expect(tools).toHaveCSS('justify-content', 'space-between');
+      } else await expect(brandText).toBeVisible();
+      if (width <= 860) {
+        await expect(desktopToggle).toBeHidden();
+        await expect(nav).toBeHidden();
+        await expect.poll(() => shellColumns(layout)).toBe(1);
+        await mobileToggle.focus();
+        await page.keyboard.press('Enter');
+        await expect(nav).toBeVisible();
+        await expect.poll(() => shellColumns(nav)).toBe(width <= 400 ? 1 : 2);
+        await expect(aside).toHaveCSS('border-right-width', '0px');
+        await expect(aside).toHaveCSS('border-bottom-width', '1px');
+        await page.keyboard.press('Escape');
+        await expect(nav).toBeHidden();
+        await expect(mobileToggle).toBeFocused();
+      } else {
+        await expect(mobileToggle).toBeHidden();
+        await expect(sidebar).toHaveCSS(
+          'width',
+          width <= 1200 ? '224px' : '240px'
+        );
+        await expect(aside).toHaveCSS('border-right-width', '1px');
+        await expect(aside).toHaveCSS('overflow-y', 'auto');
+        await expect.poll(() => shellColumns(layout)).toBe(2);
+        const expandedWidth = await main.evaluate(
+          (node) => node.getBoundingClientRect().width
+        );
+        await desktopToggle.focus();
+        await page.keyboard.press('Enter');
+        await expect(sidebar).toBeHidden();
+        await expect.poll(() => shellColumns(layout)).toBe(1);
+        expect(
+          await main.evaluate((node) => node.getBoundingClientRect().width)
+        ).toBeGreaterThan(expandedWidth);
+        await page.keyboard.press('Space');
+        await expect(sidebar).toBeVisible();
+        await expect(desktopToggle).toBeFocused();
+      }
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+    });
+  }
+});
+
+test('default Premium Light palette keeps dashboard readable at 125% display scaling', async ({
   page
 }, testInfo) => {
   await fixtures(page);
@@ -177,11 +580,11 @@ test('default warm mineral palette keeps dashboard readable at 125% display scal
   );
   await expect(page.locator('openg7-admin-layout')).toHaveCSS(
     'background-color',
-    'rgb(247, 245, 240)'
+    'rgb(245, 247, 251)'
   );
   await expect(
     page.getByRole('heading', { name: 'Centre de pilotage' })
-  ).toHaveCSS('color', 'rgb(41, 51, 46)');
+  ).toHaveCSS('color', 'rgb(23, 43, 80)');
   await page.screenshot({
     path: testInfo.outputPath('mineral-dashboard.png'),
     fullPage: true

@@ -22,6 +22,7 @@ import { AdminInspectionService } from '../../services/admin-inspection.service.
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
+import { AdminIconComponent } from '../../components/admin-ui/admin-icon.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 
 import { AdminExpensesReadController } from './admin-expenses-read-controller.js';
@@ -42,6 +43,7 @@ import type {
   imports: [
     CommonModule,
     AdminLayoutComponent,
+    AdminIconComponent,
     TranslatePipe,
     AdminExpenseCreateComponent,
     AdminExpenseFiltersComponent,
@@ -52,11 +54,11 @@ import type {
     <openg7-admin-layout>
       <section class="admin-content">
         <header class="admin-topbar">
-          <div>
-            <span>{{ 'admin.legacy.administration' | translate }}</span>
+          <div class="heading-copy">
             <h1>{{ 'admin.legacy.depenses_et_allocations' | translate }}</h1>
           </div>
-          <button type="button" (click)="loadExpenses()">
+          <button type="button" class="admin-button" (click)="loadExpenses()">
+            <openg7-admin-icon name="refresh" />
             {{ 'admin.legacy.actualiser' | translate }}
           </button>
         </header>
@@ -110,53 +112,62 @@ import type {
             </article>
           </section>
 
-          <openg7-admin-expense-create
-            [draft]="newExpenseDraft()"
-            [busy]="mutationBusy()"
-            (draftChange)="setNewField($event)"
-            (createRequested)="createExpense()"
-          />
+          <div class="expense-workspace">
+            <div class="expense-register">
+              <header class="register-heading">
+                <h2>{{ 'admin.legacy.liste_des_depenses' | translate }}</h2>
+              </header>
+              <openg7-admin-expense-filters
+                [search]="search()"
+                [status]="statusFilter()"
+                (searchChange)="search.set($event)"
+                (statusChange)="statusFilter.set($event)"
+              />
+              <section
+                class="expense-list"
+                [attr.aria-label]="
+                  'admin.legacy.liste_des_depenses' | translate
+                "
+              >
+                <openg7-admin-expense-card
+                  *ngFor="
+                    let expense of filteredExpenses();
+                    trackBy: trackByExpense
+                  "
+                  [expense]="expense"
+                  [edit]="editFor(expense.id)"
+                  [busy]="mutationBusy()"
+                  [amountLabel]="
+                    formatMoney(expense.amount_allocated, expense.currency)
+                  "
+                  (editChange)="setEditField(expense.id, $event)"
+                  (saveRequested)="saveExpense(expense, $event)"
+                  (proofRequested)="inspection.proof(expense)"
+                />
 
-          <openg7-admin-expense-filters
-            [search]="search()"
-            [status]="statusFilter()"
-            (searchChange)="search.set($event)"
-            (statusChange)="statusFilter.set($event)"
-          />
-
-          <section
-            class="expense-list"
-            [attr.aria-label]="'admin.legacy.liste_des_depenses' | translate"
-          >
-            <openg7-admin-expense-card
-              *ngFor="
-                let expense of filteredExpenses();
-                trackBy: trackByExpense
-              "
-              [expense]="expense"
-              [edit]="editFor(expense.id)"
+                <article
+                  class="empty-state"
+                  *ngIf="state() === 'ready' && filteredExpenses().length === 0"
+                >
+                  <h3>
+                    {{ 'admin.legacy.aucune_entree_trouvee' | translate }}
+                  </h3>
+                  <p>
+                    {{
+                      'admin.legacy.ajoutez_une_depense_ou_modifiez_les_filtres'
+                        | translate
+                    }}
+                  </p>
+                </article>
+              </section>
+            </div>
+            <openg7-admin-expense-create
+              [draft]="newExpenseDraft()"
               [busy]="mutationBusy()"
-              [amountLabel]="
-                formatMoney(expense.amount_allocated, expense.currency)
-              "
-              (editChange)="setEditField(expense.id, $event)"
-              (saveRequested)="saveExpense(expense, $event)"
-              (proofRequested)="inspection.proof(expense)"
+              (draftChange)="setNewField($event)"
+              (createRequested)="createExpense()"
             />
-
-            <article
-              class="empty-state"
-              *ngIf="state() === 'ready' && filteredExpenses().length === 0"
-            >
-              <h3>{{ 'admin.legacy.aucune_entree_trouvee' | translate }}</h3>
-              <p>
-                {{
-                  'admin.legacy.ajoutez_une_depense_ou_modifiez_les_filtres'
-                    | translate
-                }}
-              </p>
-            </article>
-          </section>
+          </div>
         </ng-container>
       </section>
     </openg7-admin-layout>
@@ -164,105 +175,8 @@ import type {
   styleUrls: [
     '../../components/admin-ui/admin-theme.css',
     '../../components/admin-ui/admin-controls.css',
-    '../../components/admin-ui/admin-forms.css'
-  ],
-  styles: [
-    `
-      .admin-content,
-      .expense-list {
-        display: grid;
-        gap: 1rem;
-        min-width: 0;
-      }
-
-      .admin-topbar,
-      .summary-grid,
-      .expense-list,
-      .state,
-      openg7-admin-expense-create,
-      openg7-admin-expense-filters {
-        margin: 0 auto;
-        max-width: 78rem;
-        width: 100%;
-      }
-
-      .admin-topbar {
-        align-items: center;
-        display: flex;
-        gap: 0.75rem;
-        justify-content: space-between;
-      }
-
-      .admin-topbar span,
-      .summary-grid span {
-        color: var(--admin-muted);
-        font-size: var(--admin-caption-size, 0.875rem);
-        font-weight: var(--admin-label-weight);
-        letter-spacing: 0;
-        text-transform: uppercase;
-      }
-
-      .admin-topbar h1,
-      .empty-state h3 {
-        margin: 0;
-      }
-
-      .summary-grid article,
-      .empty-state {
-        background: var(--admin-panel);
-        border: 1px solid var(--admin-border);
-        border-radius: 0.45rem;
-        padding: 1rem;
-      }
-
-      .empty-state p {
-        color: var(--admin-muted);
-        line-height: 1.55;
-        margin: 0.35rem 0 0;
-      }
-
-      .summary-grid {
-        display: grid;
-        gap: 0.75rem;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-      }
-
-      .summary-grid strong {
-        display: block;
-        font-size: 1.65rem;
-        margin-top: 0.2rem;
-      }
-
-      button {
-        background: var(--admin-panel-raised);
-        border: 0;
-        border-radius: 0.35rem;
-        color: var(--admin-text);
-        cursor: pointer;
-        font-family: inherit;
-        font-size: inherit;
-        line-height: inherit;
-        font-weight: var(--admin-control-weight);
-        min-height: 2.55rem;
-        padding: 0 0.85rem;
-      }
-
-      .state-error {
-        color: var(--admin-danger);
-        font-weight: var(--admin-label-weight);
-      }
-
-      @media (max-width: 900px) {
-        .summary-grid {
-          grid-template-columns: 1fr;
-        }
-
-        .admin-topbar {
-          align-items: start;
-          flex-direction: column;
-        }
-      }
-    `
+    '../../components/admin-ui/admin-forms.css',
+    './admin-expenses-page.component.css'
   ]
 })
 export class AdminExpensesPageComponent implements OnInit {

@@ -9,21 +9,21 @@ import { expect, test } from './support/test.js';
 
 const palettes = {
   mineral: {
-    neutral: ['#29332e', '#f0f4ee'],
-    success: ['#226342', '#e8f3e9'],
-    warning: ['#805411', '#fff3d9'],
+    neutral: ['#52627b', '#f5f7fb'],
+    success: ['#236342', '#eaf6ee'],
+    warning: ['#805411', '#fff4d6'],
     danger: ['#a52d3e', '#fcecef'],
-    blue: ['#356b52', '#dce9da']
+    blue: ['#365d88', '#edf3fa']
   },
   night: {
-    neutral: ['#f1f5fc', '#1b2d44'],
+    neutral: ['#bdcbe0', '#102033'],
     success: ['#a1e7b1', '#163c2e'],
     warning: ['#ffda85', '#3b3020'],
     danger: ['#ffb5bc', '#402630'],
     blue: ['#9edaff', '#243d53']
   },
   graphite: {
-    neutral: ['#f3f4f6', '#323841'],
+    neutral: ['#c4cbd5', '#202429'],
     success: ['#a7dfbc', '#263c32'],
     warning: ['#f5d494', '#413725'],
     danger: ['#ffbcc9', '#462c35'],
@@ -178,10 +178,10 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
         await expect(badge).toHaveCSS('padding-right', '9.6px');
         await expect(badge).toHaveCSS('border-top-width', '1px');
         await expect(badge).toHaveCSS('border-top-style', 'solid');
-        await expect(badge).toHaveCSS('border-radius', '6.4px');
+        await expect(badge).toHaveCSS('border-radius', '10px');
       }
 
-      // All current metric consumers use embedded=true; cover their real grid.
+      // Dashboard metrics use the compact embedded presentation on real components.
       const metrics = dashboard.locator('[data-og7="admin-metric"]');
       await expect(metrics).toHaveCount(4);
       const sponsorships = dashboard.getByRole('article', {
@@ -191,13 +191,13 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
       await expect(sponsorships).toContainText('48');
       for (const metric of await metrics.all()) {
         await expect(metric).toHaveCSS('display', 'grid');
-        await expect(metric).toHaveCSS('gap', '12px');
+        await expect(metric).toHaveCSS('gap', '8px');
         await expect(metric).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
         await expect(metric).toHaveCSS('background-image', 'none');
         await expect(metric).toHaveCSS('border-top-width', '0px');
         await expect(metric).toHaveCSS('border-radius', '0px');
-        await expect(metric).toHaveCSS('padding-top', '19.2px');
-        await expect(metric).toHaveCSS('padding-bottom', '16px');
+        await expect(metric).toHaveCSS('padding-top', '16px');
+        await expect(metric).toHaveCSS('padding-bottom', '12px');
         const value = metric.locator('strong');
         await expect(value).toHaveCSS('font-variant-numeric', 'tabular-nums');
         await expect(value).toHaveCSS('grid-column', '1 / -1');
@@ -211,8 +211,8 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
         await expectPalette(icon, palette);
         // A direct grid item blockifies its authored inline-flex display.
         await expect(icon).toHaveCSS('display', 'flex');
-        await expect(icon).toHaveCSS('width', '40px');
-        await expect(icon).toHaveCSS('height', '40px');
+        await expect(icon).toHaveCSS('width', '28px');
+        await expect(icon).toHaveCSS('height', '28px');
       }
 
       // A different tab can change the inherited tokens after CSS compilation.

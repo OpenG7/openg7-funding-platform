@@ -1,29 +1,29 @@
+@reference '../../../../../styles/tailwind.css';
+
 .diagnostic-table span {
   color: var(--text-main);
   font-size: 0.875rem;
-  text-transform: uppercase;
+  @apply tw:uppercase;
 }
 
 .diagnostic-panel {
-  margin-top: 0.75rem;
+  @apply tw:mt-3;
 }
 
 .diagnostic-panel header {
-  align-items: center;
-  display: flex;
-  justify-content: space-between;
+  @apply tw:items-center tw:flex tw:justify-between;
 }
 
 .diagnostic-table {
-  display: grid;
+  @apply tw:grid;
   gap: 0.45rem;
   margin-top: 0.65rem;
 }
 
 .diagnostic-table article {
-  align-items: center;
+  @apply tw:items-center;
   border-top: 1px solid var(--border-color);
-  display: grid;
+  @apply tw:grid;
   gap: 0.6rem;
   grid-template-columns: 6rem minmax(16rem, 1fr) minmax(9rem, auto) minmax(
       14rem,
@@ -37,7 +37,7 @@
 }
 
 .diagnostic-table em {
-  font-style: normal;
+  @apply tw:not-italic;
 }
 
 .diagnostic-table article.ok em {

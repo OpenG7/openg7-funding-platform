@@ -1,22 +1,39 @@
 :host {
-  --admin-bg: var(--og7-admin-bg, #f7f5f0);
-  --admin-sidebar: var(--og7-admin-sidebar, #e8efe7);
+  --admin-bg: var(--og7-admin-bg, #f5f7fb);
+  --admin-sidebar: var(--og7-admin-sidebar, #f7f9fc);
   --admin-panel: var(--og7-admin-panel, #ffffff);
-  --admin-panel-raised: var(--og7-admin-raised, #f0f4ee);
-  --admin-subtle: var(--og7-admin-subtle, #f7f5f0);
-  --admin-border: var(--og7-admin-border, #cad5c9);
-  --admin-text: var(--og7-admin-text, #29332e);
-  --admin-muted: var(--og7-admin-muted, #53635a);
-  --admin-gold: var(--og7-admin-gold, #8e5c10);
-  --admin-focus: var(--og7-admin-focus, #2f6b50);
-  --admin-accent: var(--og7-admin-accent, #356b52);
-  --admin-selected: var(--og7-admin-selected, #dce9da);
-  --admin-success: var(--og7-admin-success, #226342);
-  --admin-success-bg: var(--og7-admin-success-bg, #e8f3e9);
+  --admin-panel-raised: var(--og7-admin-raised, #f0f4f9);
+  --admin-subtle: var(--og7-admin-subtle, #f5f7fb);
+  --admin-border: var(--og7-admin-border, #d8e0ec);
+  --admin-text: var(--og7-admin-text, #172b50);
+  --admin-muted: var(--og7-admin-muted, #52627b);
+  --admin-gold: var(--og7-admin-gold, #946500);
+  --admin-focus: var(--og7-admin-focus, #356a9f);
+  --admin-accent: var(--og7-admin-accent, #365d88);
+  --admin-selected: var(--og7-admin-selected, #edf3fa);
+  --admin-success: var(--og7-admin-success, #236342);
+  --admin-success-bg: var(--og7-admin-success-bg, #eaf6ee);
   --admin-warning: var(--og7-admin-warning, #805411);
-  --admin-warning-bg: var(--og7-admin-warning-bg, #fff3d9);
+  --admin-warning-bg: var(--og7-admin-warning-bg, #fff4d6);
   --admin-danger: var(--og7-admin-danger, #a52d3e);
   --admin-danger-bg: var(--og7-admin-danger-bg, #fcecef);
+  /* Shared presentation contracts, inherited by existing Angular primitives. */
+  --admin-control-border: color-mix(
+    in srgb,
+    var(--admin-text) 55%,
+    var(--admin-panel)
+  );
+  --admin-hover: var(--admin-panel-raised);
+  --admin-page-gutter: clamp(1rem, 2vw, 2rem);
+  --admin-section-gap: 2rem;
+  --admin-card-gap: 1.25rem;
+  --admin-card-padding: 1.25rem;
+  --admin-radius-card: 0.875rem;
+  --admin-radius-control: 0.625rem;
+  --admin-shadow: 0 4px 16px rgb(23 43 80 / 4%);
+  --admin-shadow-raised: 0 12px 32px rgb(23 43 80 / 9%);
+  --admin-motion-duration: 160ms;
+  --admin-motion-easing: cubic-bezier(0.2, 0.7, 0.2, 1);
   --admin-success-border: color-mix(
     in srgb,
     var(--admin-success) 50%,
@@ -35,4 +52,10 @@
   color: var(--admin-text);
   font-family: var(--admin-font-family, 'Segoe UI', system-ui, sans-serif);
   line-height: var(--admin-body-leading, 1.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host {
+    --admin-motion-duration: 0ms;
+  }
 }

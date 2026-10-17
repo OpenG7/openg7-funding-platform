@@ -56,7 +56,6 @@ type LoadState = 'idle' | 'loading' | 'ready' | 'error';
       <section class="admin-content" data-og7="invoice-workspace">
         <header class="admin-topbar">
           <div>
-            <span>{{ 'admin.legacy.administration' | translate }}</span>
             <h1>{{ 'admin.legacy.factures_commandite' | translate }}</h1>
           </div>
           <nav>

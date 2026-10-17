@@ -1,18 +1,19 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
 }
 
 h1,
 h2,
 p,
 ul {
-  margin: 0;
+  @apply tw:m-0;
 }
 
 button {
   border: 0;
-  cursor: pointer;
+  @apply tw:cursor-pointer;
   font: inherit;
 }
 
@@ -26,8 +27,7 @@ code {
   border: 1px solid var(--border-color);
   border-radius: 0.72rem;
   box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
-  min-width: 0;
-  padding: 1.25rem;
+  @apply tw:min-w-0 tw:p-5;
 }
 
 .panel h2,
@@ -36,7 +36,7 @@ code {
   font-size: 1.125rem;
   letter-spacing: 0.05em;
   margin-bottom: 0.45rem;
-  text-transform: uppercase;
+  @apply tw:uppercase;
 }
 
 .panel p,
@@ -52,7 +52,7 @@ code {
   border: 1px solid var(--border-color);
   border-radius: 0.42rem;
   color: var(--text-soft);
-  overflow: auto;
+  @apply tw:overflow-auto;
   padding: 0.6rem;
   white-space: nowrap;
 }
@@ -63,7 +63,7 @@ code {
   border: 1px solid var(--border-color);
   border-radius: 0.45rem;
   color: var(--color-primary);
-  min-height: 2.75rem;
+  @apply tw:min-h-11;
   padding: 0 0.7rem;
 }
 

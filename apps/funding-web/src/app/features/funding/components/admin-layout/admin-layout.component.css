@@ -1,42 +1,40 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-height: 100vh;
+  @apply tw:block tw:min-h-screen;
   background: var(--admin-bg);
 }
 .layout.sandbox-controller-open {
   --admin-guidance-inline-end: calc(24rem + 1.25rem);
   --admin-guidance-reserved-width: 24rem;
-  height: 100dvh;
+  @apply tw:h-dvh;
   grid-template-columns: 15rem minmax(0, 1fr) 24rem;
-  overflow: hidden;
+  @apply tw:overflow-hidden;
 }
 .layout.sandbox-controller-open.navigation-collapsed,
 .layout.sandbox-controller-open.concentrated {
   grid-template-columns: minmax(0, 1fr) 24rem;
 }
 .sandbox-controller-open > .workspace {
-  min-height: 0;
-  overflow: auto;
+  @apply tw:min-h-0 tw:overflow-auto;
 }
 .sandbox-controller-open > openg7-admin-nav {
-  max-height: 100dvh;
-  overflow: auto;
+  @apply tw:max-h-dvh tw:overflow-auto;
 }
 .sandbox-controller-open .topbar {
-  flex-wrap: wrap;
+  @apply tw:flex-wrap;
 }
 .sandbox-controller-open .topbar openg7-admin-global-search {
   flex: 1 1 18rem;
   min-width: min(18rem, 100%);
 }
 .sandbox-controller-open .tools {
-  max-width: 100%;
+  @apply tw:max-w-full;
 }
 .sandbox-controller-dock {
   grid-column: 3;
   grid-row: 1;
-  min-height: 0;
-  overflow: auto;
+  @apply tw:min-h-0 tw:overflow-auto;
   border-left: 1px solid var(--admin-border);
   background: var(--admin-panel, var(--admin-bg));
 }
@@ -73,79 +71,67 @@
   }
 }
 .layout {
-  display: grid;
+  @apply tw:grid;
   grid-template-columns: 15rem minmax(0, 1fr);
-  min-height: 100vh;
+  @apply tw:min-h-screen;
 }
 .workspace {
-  min-width: 0;
+  @apply tw:min-w-0;
 }
 .guidance-tools {
   --admin-guidance-margin: 0;
   --admin-guidance-inline-margin: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 0;
-  padding: 0.75rem 1.5rem 0;
+  @apply tw:flex tw:flex-wrap tw:items-center tw:gap-2 tw:min-w-0;
+  padding: 0.75rem var(--admin-page-gutter) 0;
 }
 .guidance-tools openg7-admin-guidance {
   flex: 0 1 auto;
 }
 .topbar {
-  align-items: center;
+  @apply tw:items-center;
+  background: var(--admin-panel);
   border-bottom: 1px solid var(--admin-border);
-  display: flex;
-  gap: 1rem;
-  justify-content: space-between;
-  min-height: 4rem;
-  padding: 0.625rem 1.5rem;
+  box-shadow: var(--admin-shadow);
+  @apply tw:flex tw:gap-4 tw:justify-between tw:min-h-16;
+  padding: 0.75rem var(--admin-page-gutter);
 }
 .topbar openg7-admin-global-search {
-  flex: 1;
-  max-width: 42rem;
-  min-width: 0;
+  @apply tw:flex-1 tw:max-w-2xl tw:min-w-0;
 }
 .navigation-toggle {
   flex: 0 0 auto;
-  width: 2.75rem;
+  @apply tw:w-11;
   padding: 0.55rem;
 }
 .tools {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  @apply tw:items-center tw:flex tw:flex-wrap tw:gap-2;
 }
 .identity {
-  align-items: center;
+  @apply tw:items-center;
   border-left: 1px solid var(--admin-border);
-  color: var(--admin-muted);
-  display: flex;
+  @apply tw:text-admin-muted tw:flex;
   font-size: var(--admin-secondary-size, 0.875rem);
-  gap: 0.5rem;
-  padding-left: 0.75rem;
+  @apply tw:gap-2 tw:pl-3;
 }
 main {
   margin: 0 auto;
   max-width: 100rem;
-  padding: 1.5rem 1.5rem 2rem;
+  padding: var(--admin-card-padding) var(--admin-page-gutter)
+    var(--admin-section-gap);
 }
 main:focus {
   outline: none;
 }
 .skip-link {
-  background: var(--admin-gold);
-  border-radius: 0.4rem;
+  background: var(--og7-admin-primary, var(--admin-gold));
+  @apply tw:rounded-admin-sm;
   color: var(--og7-admin-on-primary, #182033);
-  left: 1rem;
+  @apply tw:left-4;
   padding: 0.8rem 1rem;
-  position: fixed;
-  top: 1rem;
+  @apply tw:fixed tw:top-4;
   transform: translateY(-200%);
   clip-path: inset(50%);
-  z-index: 20;
+  @apply tw:z-20;
 }
 .skip-link:focus {
   transform: translateY(0);
@@ -153,7 +139,7 @@ main:focus {
 }
 @media (max-width: 1200px) {
   .identity {
-    display: none;
+    @apply tw:hidden;
   }
   .layout {
     grid-template-columns: 14rem minmax(0, 1fr);
@@ -167,7 +153,7 @@ main:focus {
     grid-template-columns: minmax(0, 1fr);
   }
   .navigation-toggle {
-    display: none;
+    @apply tw:hidden;
   }
   .topbar {
     padding: 0.8rem 1rem;
@@ -181,39 +167,34 @@ main:focus {
     grid-template-columns: minmax(0, 1fr);
   }
   .navigation-collapsed openg7-admin-nav {
-    display: none;
+    @apply tw:hidden;
   }
 }
 @media (max-width: 480px) {
   .topbar {
-    flex-wrap: wrap;
+    @apply tw:flex-wrap;
   }
   .topbar openg7-admin-global-search {
-    flex-basis: 100%;
+    @apply tw:basis-full;
   }
   .tools {
-    width: 100%;
-    justify-content: space-between;
+    @apply tw:w-full tw:justify-between;
   }
 }
 
 /* A reserved viewport row keeps decisions visible without overlaying the document. */
 .pilotage-layout {
-  height: 100dvh;
-  min-height: 0;
-  overflow: auto;
+  @apply tw:h-dvh tw:min-h-0 tw:overflow-auto;
 }
 .pilotage-layout .workspace {
-  display: grid;
+  @apply tw:grid;
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto auto minmax(0, 1fr);
-  min-height: 0;
+  @apply tw:min-h-0;
 }
 .pilotage-layout main {
   /* Keep the dossier reachable when enlarged text or a short viewport fills the chrome. */
-  min-height: 20rem;
-  min-width: 0;
-  width: 100%;
+  @apply tw:min-h-80 tw:min-w-0 tw:w-full;
   padding-block: 1rem;
 }
 .layout.concentrated {
@@ -221,7 +202,7 @@ main:focus {
 }
 .concentrated openg7-admin-nav,
 .concentrated .topbar {
-  display: none;
+  @apply tw:hidden;
 }
 .pilotage-layout.concentrated .workspace {
   grid-template-rows: auto minmax(0, 1fr);
@@ -232,7 +213,7 @@ main:focus {
   }
   .pilotage-layout > openg7-admin-nav {
     max-height: 45dvh;
-    overflow: auto;
+    @apply tw:overflow-auto;
   }
   .pilotage-layout.concentrated {
     grid-template-rows: minmax(0, 1fr);
@@ -240,8 +221,7 @@ main:focus {
 }
 @media (max-width: 480px) {
   .pilotage-layout .topbar {
-    padding-block: 0.5rem;
-    gap: 0.5rem;
+    @apply tw:py-2 tw:gap-2;
   }
   .pilotage-layout .tools {
     gap: 0.4rem;

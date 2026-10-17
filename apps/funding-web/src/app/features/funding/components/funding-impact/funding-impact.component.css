@@ -1,0 +1,50 @@
+@reference '../../../../../styles/tailwind.css';
+
+.impact-card {
+  @apply tw:min-h-full;
+}
+
+.impact-card h2 {
+  color: var(--text-main);
+  margin: 0 0 0.8rem;
+}
+
+.impact-card ul {
+  @apply tw:grid tw:gap-2;
+  list-style: none;
+  @apply tw:m-0 tw:p-0;
+}
+
+.impact-card li {
+  color: var(--text-soft);
+  @apply tw:grid;
+  gap: 0.15rem;
+  padding-left: 1.4rem;
+  @apply tw:relative;
+}
+
+.impact-card strong {
+  color: var(--text-main);
+}
+
+.impact-card span {
+  color: var(--text-soft);
+  font-size: 0.875rem;
+}
+
+.impact-card li::before {
+  background: var(--color-primary);
+  border-radius: 999px;
+  content: '';
+  height: 0.62rem;
+  @apply tw:left-0 tw:absolute;
+  top: 0.38rem;
+  width: 0.62rem;
+}
+
+.impact-card p {
+  border-top: 1px solid var(--border-color);
+  color: var(--text-soft);
+  margin: 0.85rem 0 0;
+  padding-top: 0.8rem;
+}

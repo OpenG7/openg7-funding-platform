@@ -51,26 +51,7 @@ import { TranslatePipe } from '@ngx-translate/core';
       ↵
     </button>
   </div>`,
-  styles: [
-    `
-      .keys {
-        display: grid;
-        grid-template-columns: repeat(10, minmax(0, 1fr));
-        gap: 0.3rem;
-      }
-      .keys button {
-        min-height: 2.4rem;
-        background: var(--og7-admin-raised, #183550);
-        border: 1px solid var(--og7-admin-border, #52738f);
-        color: var(--og7-admin-text, #fff);
-        border-radius: 0.35rem;
-      }
-      .keys button:focus-visible {
-        outline: 3px solid var(--og7-admin-focus, #64dfff);
-        outline-offset: 2px;
-      }
-    `
-  ]
+  styleUrl: './pilot-keyboard.component.css'
 })
 export class PilotKeyboardComponent {
   readonly value = input('');

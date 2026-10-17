@@ -6,6 +6,12 @@ import type {
 } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
+import {
+  blockAdminReviewWrites,
+  captureAdminDesign,
+  expectAdminPageFits,
+  prepareAdminDesignReview
+} from './support/admin-design-review.js';
 
 const base = '/admin/fundraiser/assistant';
 const at = '2026-09-21T14:00:00Z';
@@ -298,6 +304,228 @@ async function fixtures(page: Page) {
   });
   return { options, calls };
 }
+
+for (const language of ['fr-CA', 'en'] as const)
+  for (const width of [390, 1536]) {
+    test(`Assistant composition keeps its queue and optional question accessible in ${language} at ${width}px`, async ({
+      page
+    }, testInfo) => {
+      await prepareAdminDesignReview(page);
+      const { options } = await fixtures(page);
+      options.mode = 'mock';
+      const writes = await blockAdminReviewWrites(page);
+      await page.addInitScript((locale) => {
+        localStorage.setItem('openg7.language', locale);
+      }, language);
+      await page.setViewportSize({
+        width,
+        height: width === 1536 ? 864 : 1000
+      });
+      await page.goto(base);
+      const queue = page.locator('[data-og7="assistant-items"]');
+      const categories = page.locator('[data-og7="assistant-categories"]');
+      const emailCategory = categories.locator(
+        '[data-og7-id="email_delivery_failed"]'
+      );
+      await expect(queue.locator(':scope > li')).toHaveCount(15);
+      await expect(
+        page.locator('[data-og7="assistant-recommendations"] > li')
+      ).toHaveCount(3);
+      const dueDate = new Intl.DateTimeFormat(language, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+        timeZone: 'America/Toronto'
+      }).format(new Date(publication.dueAt!));
+      await expect(queue).toContainText(dueDate);
+      await expect(
+        page.locator('[data-og7="assistant-recommendations"]')
+      ).toContainText(dueDate);
+      await captureAdminDesign(page, testInfo, `assistant-${width}`);
+      if (width === 1536) {
+        await expect(emailCategory).toBeInViewport({ ratio: 1 });
+        await expect(queue.locator(':scope > li').first()).toBeInViewport({
+          ratio: 1
+        });
+      }
+      await emailCategory.focus();
+      await page.keyboard.press('Enter');
+      await expect(emailCategory).toHaveAttribute('aria-pressed', 'true');
+      await expect(page.locator('[data-og7="assistant-count"]')).toContainText(
+        '127'
+      );
+      const examine = queue.getByRole('button').first();
+      await examine.focus();
+      await page.keyboard.press('Enter');
+      await expect(page.getByRole('dialog')).toContainText(
+        emails[0]!.emailQueueId!
+      );
+      await page.keyboard.press('Escape');
+      await expect(examine).toBeFocused();
+      if (language === 'en') {
+        await page.evaluate(() => {
+          document.documentElement.style.fontSize = '200%';
+        });
+        await expectAdminPageFits(page);
+        const question = page.locator('[data-og7="assistant-question"]');
+        await question.locator('summary').click();
+        await expect(question.getByRole('textbox')).toBeVisible();
+        await question
+          .getByRole('textbox')
+          .fill('A synthetic question without submission');
+        await expectAdminPageFits(page);
+      }
+      expect(writes).toEqual([]);
+    });
+  }
+
+const overviewPalettes = {
+  mineral: {
+    panel: 'rgb(255, 255, 255)',
+    selected: 'rgb(237, 243, 250)',
+    text: 'rgb(23, 43, 80)'
+  },
+  night: {
+    panel: 'rgb(20, 35, 56)',
+    selected: 'rgb(36, 61, 83)',
+    text: 'rgb(241, 245, 252)'
+  },
+  graphite: {
+    panel: 'rgb(37, 41, 47)',
+    selected: 'rgb(56, 67, 79)',
+    text: 'rgb(243, 244, 246)'
+  }
+} as const;
+
+for (const theme of ['mineral', 'night', 'graphite'] as const)
+  for (const { language, width } of [
+    { language: 'fr-CA', width: 390 },
+    { language: 'en', width: 1280 }
+  ]) {
+    test(`Assistant queue and optional panels remain readable with ${theme} in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      const { options, calls } = await fixtures(page);
+      options.mode = 'mock';
+      await page.addInitScript(
+        ({ language, theme }) => {
+          localStorage.setItem('openg7.language', language);
+          localStorage.setItem(
+            'openg7.pilotage.appearance.v1',
+            JSON.stringify({ theme, system: false })
+          );
+        },
+        { language, theme }
+      );
+      await page.setViewportSize({ width, height: 950 });
+      await page.goto(base);
+      const palette = overviewPalettes[theme];
+      const items = page.locator('[data-og7="assistant-items"]');
+      await expect(items.locator(':scope > li')).toHaveCount(15);
+      await expect(items.locator('..')).toHaveCSS(
+        'background-color',
+        palette.panel
+      );
+      const categories = page.locator('[data-og7="assistant-categories"]');
+      await expect(categories).toHaveCSS(
+        'flex-wrap',
+        width <= 640 ? 'nowrap' : 'wrap'
+      );
+      const category = categories.locator(
+        '[data-og7-id="email_delivery_failed"]'
+      );
+      await category.focus();
+      await page.keyboard.press('Enter');
+      await expect(category).toHaveAttribute('aria-pressed', 'true');
+      await expect(category).toHaveCSS('background-color', palette.selected);
+      await expect(category).toHaveCSS('color', palette.text);
+      const groups = page.locator('openg7-admin-assistant-filters details');
+      await expect(groups).toHaveAttribute('open', '');
+      await expect(groups.getByRole('button').first()).toHaveCSS(
+        'background-color',
+        palette.panel
+      );
+
+      const question = page.locator('[data-og7="assistant-question"]');
+      await question.locator('summary').click();
+      const input = question.getByRole('textbox');
+      await expect(input).toBeVisible();
+      await expect(input).toHaveCSS('background-color', palette.panel);
+      await expect(input).toHaveCSS('color', palette.text);
+      await input.fill('Question synthétique sans soumission');
+      await page.locator('[data-og7="assistant-summary"] summary').click();
+      const facts = page.locator('[data-og7="assistant-summary"] dl');
+      await expect(facts).toContainText('50 CAD');
+      await expect(facts.getByText('50 CAD', { exact: true })).toBeVisible();
+
+      const examine = items.getByRole('button').first();
+      await examine.focus();
+      await page.keyboard.press('Enter');
+      await expect(page.getByRole('dialog')).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(examine).toBeFocused();
+      expect(calls.filter((call) => call.method === 'POST')).toEqual([]);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+    });
+  }
+
+test('Assistant categories and queue actions fit their available space', async ({
+  page
+}) => {
+  await fixtures(page);
+  await page.goto(base);
+  const categories = page.locator('[data-og7="assistant-categories"]');
+  const item = page.locator('[data-og7="assistant-items"] > li').first();
+  await expect(item).toBeVisible();
+  for (const width of [390, 639, 640, 641, 1000, 1536]) {
+    await page.setViewportSize({ width, height: 950 });
+    await expect(categories).toHaveCSS(
+      'flex-wrap',
+      width <= 640 ? 'nowrap' : 'wrap'
+    );
+    await expect(categories).toHaveCSS(
+      'overflow-x',
+      width <= 640 ? 'auto' : 'visible'
+    );
+    const lastCategory = categories.getByRole('button').last();
+    await lastCategory.focus();
+    // Chromium rounds the intersection of a focused item with its horizontal
+    // scrollport. Allow a fractional edge while bounding every clipped side.
+    await expect(lastCategory).toBeInViewport({ ratio: 0.99 });
+    const clippedEdges = await lastCategory.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const parent = element.closest<HTMLElement>(
+        '[data-og7="assistant-categories"]'
+      )!;
+      const strip = parent.getBoundingClientRect();
+      const left = Math.max(0, strip.left + parent.clientLeft);
+      const right = Math.min(
+        innerWidth,
+        strip.left + parent.clientLeft + parent.clientWidth
+      );
+      return [
+        left - rect.left,
+        rect.right - right,
+        -rect.top,
+        rect.bottom - innerHeight
+      ];
+    });
+    expect(Math.max(...clippedEdges)).toBeLessThanOrEqual(1);
+    expect((await lastCategory.boundingBox())!.height).toBeGreaterThanOrEqual(
+      44
+    );
+    const inspect = item.getByRole('button');
+    expect((await inspect.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1
+      )
+    ).toBe(true);
+  }
+});
 
 test('bounded overview, server pagination past 100, and email grouping survive reload', async ({
   page

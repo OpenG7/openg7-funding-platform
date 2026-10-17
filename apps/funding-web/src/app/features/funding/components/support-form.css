@@ -1,24 +1,21 @@
+@reference '../../../../styles/tailwind.css';
 /* Shared presentation for the contributor and embedded sponsorship help forms. */
 .support-form form {
-  display: grid;
+  @apply tw:grid;
   gap: 0.65rem;
-  margin-top: 1rem;
+  @apply tw:mt-4;
 }
 .support-form label {
-  display: block;
+  @apply tw:block;
   font-weight: 700;
   color: var(--text-main);
 }
 .support-form .form-row {
-  display: flex;
-  flex-wrap: wrap;
+  @apply tw:flex tw:flex-wrap;
   gap: 0.65rem;
 }
 .support-form input:not([type='file']) {
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 0;
-  min-height: 2.75rem;
+  @apply tw:box-border tw:w-full tw:min-w-0 tw:min-h-11;
   padding: 0.8rem;
   color: var(--text-main);
   background: var(--surface-panel);
@@ -37,7 +34,7 @@
 }
 .support-form button {
   justify-self: start;
-  max-width: 100%;
+  @apply tw:max-w-full;
   min-height: 44px;
   border: 1px solid var(--color-primary);
   border-radius: 0.6rem;
@@ -46,12 +43,11 @@
   padding: 0.75rem 1rem;
   font: inherit;
   font-weight: 600;
-  cursor: pointer;
-  overflow-wrap: anywhere;
+  @apply tw:cursor-pointer tw:wrap-anywhere;
 }
 .support-form button:disabled {
   opacity: 0.7;
-  cursor: wait;
+  @apply tw:cursor-wait;
 }
 .support-form :is(input, button):focus-visible {
   outline: 3px solid var(--color-primary);
@@ -65,7 +61,7 @@
 .support-form .field-status {
   color: var(--text-soft);
   line-height: 1.6;
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }
 .support-form .field-status.error,
 .support-form .field-status.error p {
@@ -77,9 +73,9 @@
   background: transparent;
   border: 0;
   border-top: 1px solid var(--border-color);
-  border-radius: 0;
+  @apply tw:rounded-none;
   padding: 1.25rem 0 0;
-  margin-top: 1rem;
+  @apply tw:mt-4;
 }
 .state-card.embedded h3 {
   font: inherit;

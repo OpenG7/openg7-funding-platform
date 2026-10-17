@@ -1,279 +1,278 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
-  color: var(--og7-admin-text, #e4edf8);
+  @apply tw:block tw:min-w-0 tw:text-admin-text;
+  container: pilot-programme / inline-size;
 }
 .programme {
-  display: grid;
-  gap: 1rem;
+  @apply tw:grid tw:gap-5 tw:min-w-0;
+  grid-template-columns: minmax(0, 1fr);
 }
 .tabs,
 .toolbar,
 .scope {
-  display: flex;
-  gap: 0.65rem;
-  flex-wrap: wrap;
-  align-items: center;
+  @apply tw:flex tw:flex-wrap tw:items-center tw:gap-3 tw:min-w-0;
 }
 .tabs {
-  border-bottom: 1px solid var(--og7-admin-border, #35536b);
-  padding-bottom: 0.75rem;
+  @apply tw:pb-4;
+  border-bottom: 1px solid var(--admin-border);
 }
 .tabs button[aria-current],
 .primary {
-  background: var(--og7-admin-selected, #155671);
-  border-color: var(--og7-admin-accent, #71e0f7);
+  background: var(--admin-selected);
+  border-color: var(--admin-accent);
 }
 .programme button,
 .programme select,
 .programme input {
+  @apply tw:rounded-admin-control tw:max-w-full tw:min-w-0;
   font-family: inherit;
   font-size: inherit;
-  line-height: inherit;
+  line-height: 1.4;
   color: inherit;
-  border: 1px solid var(--og7-admin-border, #50708a);
-  border-radius: 0.5rem;
-  background: var(--og7-admin-subtle, #102b40);
-  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--admin-control-border);
+  background: var(--admin-panel);
+  padding: 0.625rem 0.875rem;
 }
 .programme button {
-  cursor: pointer;
-  text-align: left;
+  @apply tw:cursor-pointer tw:text-left tw:wrap-anywhere;
+  min-height: 2.75rem;
+  font-weight: var(--admin-control-weight);
 }
 .programme button:disabled {
-  opacity: 0.55;
-  cursor: default;
+  opacity: 0.65;
+  @apply tw:cursor-not-allowed;
+  color: var(--admin-muted);
+  background: var(--admin-panel-raised);
 }
 .programme :focus-visible {
-  outline: 3px solid var(--og7-admin-focus, #70e3ff);
+  outline: 3px solid var(--admin-focus);
   outline-offset: 3px;
 }
 .programme a {
-  color: var(--og7-admin-accent, #8ceaff);
+  @apply tw:inline-flex tw:items-center tw:min-h-11 tw:max-w-full tw:wrap-anywhere;
+  color: var(--admin-accent);
+  text-underline-offset: 0.2em;
 }
 .programme label {
-  display: grid;
-  gap: 0.4rem;
+  @apply tw:grid tw:gap-2 tw:min-w-0 tw:max-w-full;
+  font-weight: var(--admin-label-weight);
 }
 .programme input[type='number'] {
-  width: 5rem;
+  width: 6rem;
+  min-height: 2.75rem;
 }
 .programme input[type='checkbox'] {
   width: 1.15rem;
   height: 1.15rem;
-  accent-color: var(--og7-admin-accent, #1bb9d6);
+  accent-color: var(--admin-accent);
 }
 .programme .check {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
+  @apply tw:flex tw:items-center tw:min-h-11;
+  gap: 0.75rem;
 }
 .programme h2,
 .programme h3,
 .programme h4,
 .programme p {
-  margin: 0;
+  @apply tw:m-0 tw:min-w-0 tw:wrap-anywhere;
 }
 .programme p {
   line-height: 1.65;
 }
 .programme small {
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 .stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.6rem;
+  @apply tw:grid tw:gap-3 tw:min-w-0;
+  grid-template-columns: minmax(0, 1fr);
 }
 .stats div {
-  display: grid;
-  padding: 1rem;
-  border: 1px solid var(--og7-admin-border, #35536b);
-  border-radius: 0.7rem;
+  @apply tw:grid tw:gap-1 tw:min-w-0 tw:p-admin-card tw:rounded-admin-card;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-panel);
+  color: var(--admin-muted);
+  font-size: var(--admin-caption-size);
 }
 .stats strong {
-  font-size: 2.2rem;
-  color: var(--og7-admin-accent, #88eaff);
+  @apply tw:wrap-anywhere;
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--admin-text);
+  font-variant-numeric: tabular-nums;
 }
 .priority {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
+  @apply tw:flex tw:flex-wrap tw:justify-between tw:gap-3;
 }
 .priority small {
-  color: var(--og7-admin-muted, #b5ccdf);
+  color: var(--admin-muted);
 }
 .notice {
-  padding: 0.8rem;
-  border-left: 3px solid var(--og7-admin-warning, #f9c86a);
-  background: var(--og7-admin-subtle, #172d42);
+  @apply tw:p-4 tw:rounded-admin-control;
+  border: 1px solid var(--admin-border);
+  border-inline-start: 3px solid var(--admin-warning);
+  background: var(--admin-subtle);
 }
 .week {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 0.45rem;
-  min-height: 18rem;
+  @apply tw:grid tw:gap-3 tw:min-w-0;
+  grid-template-columns: minmax(0, 1fr);
 }
 .day {
-  background: var(--og7-admin-subtle, #0b1e30);
-  border: 1px solid var(--og7-admin-border, #345068);
-  border-radius: 0.6rem;
-  padding: 0.5rem;
-  min-width: 0;
+  @apply tw:p-3 tw:min-w-0 tw:rounded-admin-card;
+  background: var(--admin-subtle);
+  border: 1px solid var(--admin-border);
+  min-height: 8rem;
 }
 .day h3 {
-  margin-bottom: 0.6rem;
-  color: var(--og7-admin-accent, #b5e9f4);
+  margin-bottom: 0.75rem;
+  color: var(--admin-text);
+  font-size: var(--admin-subheading-size);
+  font-weight: 600;
 }
 .calendar-card {
-  display: grid;
-  gap: 0.4rem;
-  width: 100%;
-  font-size: var(--admin-caption-size, 0.875rem) !important;
-  margin-bottom: 0.6rem;
-  overflow-wrap: anywhere;
+  @apply tw:grid tw:gap-2 tw:w-full tw:wrap-anywhere;
+  margin-bottom: 0.75rem;
 }
 .calendar-card time,
 .calendar-card small {
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 .calendar-card.selected {
-  outline: 2px solid var(--og7-admin-accent, #63def6);
+  outline: 2px solid var(--admin-accent);
 }
 .empty-day {
-  font-size: var(--admin-caption-size, 0.875rem);
-  color: var(--og7-admin-muted, #a6b9ca);
+  @apply tw:text-admin-caption;
+  color: var(--admin-muted);
 }
 .selected-card,
 .rule,
 .incident {
-  display: grid;
-  gap: 0.75rem;
-  border: 1px solid var(--og7-admin-border, #426079);
-  border-radius: 0.65rem;
-  padding: 1rem;
+  @apply tw:grid tw:gap-3 tw:min-w-0 tw:rounded-admin-card tw:p-admin-card;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-panel);
 }
 .changes {
   list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.5rem;
+  @apply tw:m-0 tw:p-0 tw:grid tw:gap-2;
 }
 .changes li {
-  display: grid;
+  @apply tw:grid;
   gap: 0.35rem;
-  padding: 0.75rem;
-  background: var(--og7-admin-subtle, #142a3d);
+  @apply tw:p-3;
+  background: var(--admin-subtle);
 }
 .changes del {
-  color: var(--og7-admin-danger, #ffb2ac);
+  color: var(--admin-danger);
 }
 .changes ins {
-  color: var(--og7-admin-success, #93efd2);
+  color: var(--admin-success);
   text-decoration: none;
 }
 .screen {
-  border: 1px solid var(--og7-admin-border, #548199);
-  border-radius: 0.8rem;
-  overflow: hidden;
-  max-width: 650px;
+  @apply tw:overflow-hidden tw:rounded-admin-card tw:w-full;
+  border: 1px solid var(--admin-border);
+  max-width: 42rem;
   margin: auto;
-  width: 100%;
+  background: var(--admin-panel);
 }
 .screen header,
 .screen footer {
-  padding: 1rem;
-  background: var(--og7-admin-raised, #17344b);
+  @apply tw:p-4;
+  background: var(--admin-panel-raised);
 }
 .screen footer {
-  font-size: var(--admin-caption-size, 0.875rem);
-  color: var(--og7-admin-muted, #bed0df);
+  @apply tw:text-admin-caption;
+  color: var(--admin-muted);
 }
 .screen img {
-  width: 100%;
+  @apply tw:w-full;
   max-height: 350px;
-  object-fit: contain;
-  background: var(--og7-admin-subtle, #071725);
+  @apply tw:object-contain;
+  background: var(--admin-subtle);
 }
 .screen > .copy {
-  padding: 1.25rem;
+  @apply tw:p-5;
 }
 .copy {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+  @apply tw:whitespace-pre-wrap tw:wrap-anywhere;
 }
 .sequence {
-  display: grid;
-  gap: 0.5rem;
-  padding-left: 1.5rem;
+  @apply tw:grid tw:gap-2 tw:pl-6;
 }
 .sequence button {
-  width: 100%;
+  @apply tw:w-full;
 }
 .sequence [aria-current] {
-  border-color: var(--og7-admin-accent, #71e0f7);
+  border-color: var(--admin-accent);
 }
 .comparison {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+  @apply tw:grid tw:gap-4 tw:min-w-0;
+  grid-template-columns: minmax(0, 1fr);
 }
 .comparison section {
-  display: grid;
+  @apply tw:grid;
   gap: 0.7rem;
   align-content: start;
-  min-width: 0;
+  @apply tw:min-w-0;
 }
 .comparison p {
   padding: 0.6rem;
 }
 .removed {
-  background: var(--og7-admin-danger-bg, #522d36);
-  border-left: 3px solid var(--og7-admin-danger, #ffb2ac);
+  background: var(--admin-danger-bg);
+  border-left: 3px solid var(--admin-danger);
 }
 .added {
-  background: var(--og7-admin-success-bg, #153e37);
-  border-left: 3px solid var(--og7-admin-success, #93efd2);
+  background: var(--admin-success-bg);
+  border-left: 3px solid var(--admin-success);
 }
 .confirmation {
-  border: 2px solid var(--og7-admin-accent, #77dff7);
-  padding: 1.2rem;
-  border-radius: 0.8rem;
-  display: grid;
-  gap: 0.8rem;
-  background: var(--og7-admin-subtle, #10283c);
+  @apply tw:grid tw:gap-4 tw:min-w-0 tw:rounded-admin-card tw:p-admin-card;
+  border: 1px solid var(--admin-control-border);
+  border-inline-start: 3px solid var(--admin-accent);
+  background: var(--admin-subtle);
 }
 .programme details > button {
-  display: block;
+  @apply tw:block;
   margin-top: 0.6rem;
-  width: 100%;
+  @apply tw:w-full;
 }
-@media (max-width: 1100px) {
-  .week {
+.programme select {
+  width: 100%;
+  min-height: 2.75rem;
+}
+.programme .calendar-card {
+  font-size: var(--admin-caption-size);
+}
+.programme summary {
+  min-height: 2.75rem;
+  padding-block: 0.625rem;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.programme button:hover:not(:disabled) {
+  background: var(--admin-selected);
+  border-color: var(--admin-accent);
+}
+@container pilot-programme (min-width: 28rem) {
+  .stats {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-}
-@media (max-width: 620px) {
   .week {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .stats {
-    grid-template-columns: 1fr;
+}
+@container pilot-programme (min-width: 40rem) {
+  .week {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .comparison {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .priority {
-    display: grid;
-  }
-  .scope select {
-    max-width: 100%;
-  }
-  .toolbar {
-    align-items: stretch;
-  }
-  .tabs button {
-    flex: 1 1 40%;
+}
+@container pilot-programme (min-width: 64rem) {
+  .week {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
   }
 }

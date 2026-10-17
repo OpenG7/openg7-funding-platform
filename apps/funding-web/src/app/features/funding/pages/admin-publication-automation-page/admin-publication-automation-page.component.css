@@ -1,103 +1,169 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  color: var(--admin-text, #e5edf7);
+  @apply tw:block tw:min-w-0 tw:text-admin-text;
 }
 .automation {
-  padding: clamp(1rem, 3vw, 2.5rem);
-  max-width: 1500px;
-  margin: auto;
+  @apply tw:grid tw:gap-admin-card-gap tw:min-w-0 tw:w-full tw:mx-auto;
+  max-width: 78rem;
+  container: publication-automation / inline-size;
 }
 header,
 .actions,
-.summary,
 .tabs {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+  @apply tw:flex tw:items-center tw:gap-3 tw:flex-wrap;
 }
 header {
-  justify-content: space-between;
-  margin-bottom: 1rem;
+  @apply tw:justify-between tw:min-w-0;
+  gap: 1rem 1.5rem;
 }
-h1 {
-  margin: 0.75rem 0;
+header > div {
+  @apply tw:min-w-0 tw:max-w-full;
 }
-h2 {
-  margin: 0;
+h1,
+h2,
+p {
+  @apply tw:m-0 tw:min-w-0 tw:wrap-anywhere;
+}
+header p {
+  @apply tw:mt-2 tw:text-admin-muted;
+  max-width: 48rem;
 }
 p {
   line-height: 1.6;
 }
 a {
-  color: var(--og7-admin-accent, #9ecfff);
+  @apply tw:text-admin-accent;
 }
-.job {
-  padding: 1.15rem;
-  border: 1px solid var(--admin-border);
-  border-radius: 1rem;
-  background: var(--admin-panel);
+.back-link {
+  @apply tw:justify-self-start tw:inline-flex tw:items-center tw:min-h-admin-control tw:wrap-anywhere;
+  font-size: var(--admin-caption-size);
+  text-underline-offset: 0.2em;
 }
-.detail {
-  font-size: var(--admin-caption-size, 0.875rem);
-  color: var(--admin-muted);
-  overflow-wrap: anywhere;
-}
-.worker-control {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 1rem;
-  padding: 1.15rem;
-  border: 1px solid var(--admin-border);
-  border-radius: 1rem;
-  background: var(--admin-panel);
-}
-.worker-control > div {
-  flex: 1 1 22rem;
-  min-width: 0;
-}
-.worker-control p {
-  margin: 0.5rem 0 0;
-}
-.badge {
-  font-size: var(--admin-caption-size, 0.875rem);
-  padding: 0.2rem 0.5rem;
-  border: 1px solid var(--admin-border);
-  border-radius: 1rem;
+.actions .admin-button,
+.tabs .admin-button,
+header > .admin-button {
+  @apply tw:max-w-full;
+  white-space: normal;
 }
 .summary {
-  margin: 1.5rem 0 2rem;
-  gap: 1.25rem;
+  @apply tw:grid tw:min-w-0 tw:rounded-admin-card;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border: 1px solid var(--admin-border);
+  background: var(--admin-panel);
+  box-shadow: var(--admin-shadow);
+}
+.summary > span {
+  @apply tw:grid tw:min-w-0 tw:gap-2 tw:p-admin-card tw:text-admin-caption tw:text-admin-muted tw:wrap-anywhere;
 }
 .summary b {
-  font-size: 1.3rem;
-  margin-right: 0.4rem;
+  @apply tw:text-admin-text;
+  font-size: 1.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+}
+.detail {
+  @apply tw:text-admin-caption tw:text-admin-muted tw:wrap-anywhere;
+}
+.worker-control,
+.delivery-workspace {
+  @apply tw:p-admin-card tw:min-w-0 tw:rounded-admin-card;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-panel);
+  box-shadow: var(--admin-shadow);
+}
+.automation-workflow {
+  @apply tw:grid tw:gap-admin-card-gap tw:min-w-0;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+.automation-settings {
+  @apply tw:min-w-0;
+}
+.worker-control {
+  @apply tw:flex tw:items-center tw:justify-between tw:flex-wrap tw:gap-4;
+}
+.worker-control > div {
+  @apply tw:min-w-0;
+  flex: 1 1 22rem;
+}
+.worker-control p {
+  @apply tw:mt-2 tw:text-admin-muted;
+}
+.delivery-workspace {
+  @apply tw:grid tw:gap-4;
+}
+.tabs {
+  @apply tw:min-w-0;
+  gap: 0.5rem;
+}
+.tabs .admin-button {
+  background: transparent;
+  border-color: transparent;
+  padding-inline: 0.75rem;
+  font-size: var(--admin-caption-size);
 }
 .tabs button[aria-pressed='true'] {
-  background: var(--og7-admin-selected, #244c73);
-  border-color: var(--og7-admin-accent, #9bcafa);
+  background: var(--admin-selected);
+  border-color: var(--admin-control-border);
+  color: var(--admin-accent);
+}
+label {
+  @apply tw:grid tw:gap-2 tw:min-w-0 tw:m-0 tw:text-admin-muted tw:text-admin-caption;
+  font-weight: 500;
+}
+.filter {
+  flex: 1 1 18rem;
+  max-width: 24rem;
+}
+.delivery-controls {
+  @apply tw:flex tw:items-end tw:justify-between tw:flex-wrap tw:gap-4 tw:min-w-0;
+}
+.delivery-controls > .admin-button {
+  @apply tw:max-w-full;
+  white-space: normal;
+}
+select {
+  @apply tw:w-full tw:max-w-full tw:box-border tw:min-w-0 tw:min-h-admin-control tw:rounded-admin-control tw:text-admin-text;
+  border: 1px solid var(--admin-control-border);
+  background: var(--admin-panel);
+  padding: 0.65rem 0.75rem;
+  font: inherit;
+  font-weight: 400;
 }
 .jobs {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem;
+  @apply tw:grid tw:gap-4 tw:min-w-0;
+  grid-template-columns: minmax(0, 1fr);
 }
 .job {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  @apply tw:grid tw:gap-3 tw:p-admin-card tw:min-w-0 tw:text-left tw:cursor-pointer tw:wrap-anywhere tw:rounded-admin-control;
+  align-content: start;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-subtle);
   color: inherit;
-  text-align: left;
-  cursor: pointer;
-  overflow-wrap: anywhere;
+  font: inherit;
+  font-size: var(--admin-caption-size);
+  transition:
+    background-color var(--admin-motion-duration) var(--admin-motion-easing),
+    border-color var(--admin-motion-duration) var(--admin-motion-easing);
 }
 .job strong {
   white-space: pre-wrap;
+  font-size: var(--admin-body-size);
+  font-weight: 600;
+  line-height: 1.6;
 }
 .job:hover {
-  border-color: var(--og7-admin-accent, #9bcafa);
+  border-color: var(--admin-accent);
+  background: var(--admin-selected);
+}
+.badge {
+  @apply tw:text-admin-caption tw:rounded-admin-control tw:justify-self-start;
+  padding: 0.25rem 0.625rem;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-panel);
 }
 button:focus-visible,
 a:focus-visible {
@@ -105,51 +171,36 @@ a:focus-visible {
   outline-offset: 3px;
 }
 .empty {
-  padding: 2rem;
-  grid-column: 1/-1;
-  text-align: center;
-  border: 1px dashed var(--admin-border);
-  border-radius: 1rem;
+  @apply tw:p-admin-card tw:text-center tw:text-admin-muted;
+  grid-column: 1 / -1;
+  padding-block: 2rem;
 }
 .alert {
-  padding: 1rem;
-  background: var(--og7-admin-warning-bg, #392e19);
-  color: var(--admin-warning);
-  border-radius: 0.7rem;
+  @apply tw:p-admin-card tw:text-admin-warning tw:rounded-admin-control;
+  background: var(--admin-warning-bg);
+  border: 1px solid var(--admin-warning-border);
 }
-label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  margin: 1rem 0;
+.automation > p[role='status']:empty {
+  display: none;
 }
-.filter {
-  max-width: 20rem;
-}
-select {
-  border: 1px solid var(--admin-border);
-  background: var(--admin-panel-raised);
-  color: var(--admin-text);
-  border-radius: 0.4rem;
-  padding: 0.65rem;
-  width: 100%;
-  box-sizing: border-box;
-  font: inherit;
-  font-weight: 400;
-}
-@media (max-width: 1100px) {
+@container publication-automation (min-width: 42rem) {
+  .summary {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
   .jobs {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-@media (max-width: 650px) {
-  .jobs {
-    grid-template-columns: 1fr;
+@container publication-automation (min-width: 68rem) {
+  .automation-workflow {
+    grid-template-columns: minmax(0, 1.75fr) minmax(18rem, 1fr);
+  }
+}
+@container publication-automation (max-width: 18rem) {
+  .summary {
+    grid-template-columns: minmax(0, 1fr);
   }
   header {
-    align-items: flex-start;
-  }
-  .actions {
-    width: 100%;
+    align-items: start;
   }
 }

@@ -54,86 +54,8 @@ import { TranslatePipe } from '@ngx-translate/core';
   styleUrls: [
     '../admin-ui/admin-theme.css',
     '../admin-ui/admin-controls.css',
-    '../admin-ui/admin-forms.css'
-  ],
-  styles: [
-    `
-      :host {
-        display: block;
-        width: 100%;
-      }
-
-      .admin-summary-grid {
-        display: grid;
-        gap: 0.9rem;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        width: 100%;
-      }
-
-      .admin-summary-grid article {
-        align-items: center;
-        background: var(--admin-panel);
-        border: 1px solid var(--admin-border);
-        border-radius: 0.5rem;
-        display: grid;
-        gap: 0.9rem;
-        grid-template-columns: auto minmax(0, 1fr);
-        min-height: 7rem;
-        padding: 1.1rem;
-      }
-
-      .metric-mark {
-        align-items: center;
-        background: var(--admin-panel-raised);
-        border-radius: 999px;
-        color: var(--admin-text);
-        display: inline-flex;
-        font-weight: var(--admin-emphasis-weight);
-        height: 3rem;
-        justify-content: center;
-        width: 3rem;
-      }
-
-      .metric-mark.gold {
-        background: var(--og7-admin-warning-bg, #3c3221);
-        color: var(--admin-warning);
-      }
-
-      .metric-mark.green {
-        background: var(--admin-panel-raised);
-        color: var(--admin-success);
-      }
-
-      .metric-mark.money {
-        background: var(--og7-admin-warning-bg, #3c3221);
-        color: var(--admin-warning);
-      }
-
-      .admin-summary-grid article span:not(.metric-mark) {
-        color: var(--admin-muted);
-        font-size: var(--admin-caption-size, 0.875rem);
-        font-weight: var(--admin-label-weight);
-        letter-spacing: 0;
-        text-transform: uppercase;
-      }
-
-      .admin-summary-grid strong {
-        display: block;
-        font-size: 1.7rem;
-        line-height: 1.1;
-        margin-top: 0.18rem;
-      }
-
-      .admin-summary-grid small {
-        color: var(--admin-muted);
-      }
-
-      @media (max-width: 860px) {
-        .admin-summary-grid {
-          grid-template-columns: 1fr;
-        }
-      }
-    `
+    '../admin-ui/admin-forms.css',
+    './admin-sponsors-summary.component.css'
   ]
 })
 export class AdminSponsorsSummaryComponent {

@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { AxeBuilder } from '@axe-core/playwright';
 import type {
   AdminSponsorshipProgress,
@@ -12,6 +12,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
+import { expectAdminFontsReady } from './support/admin-fonts.js';
 import { moderationFixture, completeModeration } from './support/moderation.js';
 import { registerSponsorHistoryPanelTests } from './admin-sponsor-history-panels.ui.js';
 import { registerSponsorFiltersTests } from './admin-sponsors-filters.ui.js';
@@ -566,6 +567,10 @@ async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
 const progress = (page: Page) =>
   page.locator('[data-og7="sponsorship-progress"]');
 const tabs = (page: Page) => page.locator('[data-og7="dossier-tabs"]');
+const dossierNext = (page: Page) =>
+  page
+    .locator('[data-og7="sponsorship-dossier"]')
+    .locator('[data-og7="dossier-next"]');
 
 registerSponsorHistoryPanelTests({ fixtures, path, tabs });
 registerAdminMediaUsageTests({ fixtures, path, asset: () => mediaAsset() });
@@ -584,6 +589,423 @@ registerContributionActivityOverlayTests({
 
 const editForm = (page: Page) => page.locator('[data-og7="edit-dossier-form"]');
 const guide = (page: Page) => page.locator('[data-og7="dossier-guide"]');
+
+const sponsorStylePalettes = {
+  mineral: { panel: 'rgb(255, 255, 255)', text: 'rgb(23, 43, 80)' },
+  night: { panel: 'rgb(20, 35, 56)', text: 'rgb(241, 245, 252)' },
+  graphite: { panel: 'rgb(37, 41, 47)', text: 'rgb(243, 244, 246)' }
+} as const;
+
+async function expectSponsorColorMix(
+  element: Locator,
+  properties: Record<string, string>
+) {
+  const colors = await element.evaluate((element, properties) => {
+    const reference = document.createElement('span');
+    reference.style.position = 'absolute';
+    reference.style.visibility = 'hidden';
+    for (const [property, value] of Object.entries(properties))
+      reference.style.setProperty(property, value);
+    element.append(reference);
+    try {
+      return Object.keys(properties).map((property) => ({
+        property,
+        actual: getComputedStyle(element).getPropertyValue(property),
+        expected: getComputedStyle(reference).getPropertyValue(property)
+      }));
+    } finally {
+      reference.remove();
+    }
+  }, properties);
+  for (const color of colors)
+    expect(color.actual, color.property).toBe(color.expected);
+}
+
+for (const theme of ['mineral', 'night', 'graphite'] as const)
+  for (const { language, width } of [
+    { language: 'fr-CA', width: 390 },
+    { language: 'en', width: 1440 }
+  ]) {
+    test(`sponsor list and dossier remain readable with ${theme} in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      const { calls } = await fixtures(page, 'operator');
+      await page.addInitScript(
+        ({ theme, language }) => {
+          localStorage.setItem('openg7.language', language);
+          localStorage.setItem(
+            'openg7.pilotage.appearance.v1',
+            JSON.stringify({ theme, system: false })
+          );
+        },
+        { theme, language }
+      );
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.setViewportSize({ width, height: 1000 });
+      await page.goto('/admin/fundraiser/sponsors');
+      const palette = sponsorStylePalettes[theme];
+      const list = page.locator('[data-og7="sponsors-list"]');
+      await expect(list).toHaveCSS('background-color', palette.panel);
+      const selected = list.locator(
+        `[data-og7="sponsor-row"][data-og7-id="${id}"]`
+      );
+      await expect(selected).toContainText('Atelier Boréal');
+      await expect(selected).toHaveCSS('background-color', palette.panel);
+      await selected.focus();
+      await page.keyboard.press('Enter');
+      const frame = page.locator('[data-og7="sponsorship-dossier"]');
+      await expect(frame).toHaveCSS('background-color', palette.panel);
+      await expect(frame).toHaveCSS('color', palette.text);
+      await expect(
+        frame.getByRole('heading', { name: 'Atelier Boréal', exact: true })
+      ).toBeVisible();
+      await expect(tabs(page).getByRole('button')).toHaveCount(5);
+      const review = frame
+        .locator('openg7-admin-sponsor-detail-header')
+        .getByRole('group', {
+          name: language === 'en' ? 'Review' : 'Revue',
+          exact: true
+        });
+      await expect(review).toHaveAttribute(
+        'data-review-state',
+        'pending_review'
+      );
+      expect(
+        await page.evaluate(() =>
+          CSS.supports('color', 'color-mix(in lab, red, red)')
+        )
+      ).toBe(true);
+      await expectSponsorColorMix(review, { color: 'var(--admin-text)' });
+      await expect(review).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+      await expect(review).toHaveCSS('border-top-width', '0px');
+      await expect(review).toHaveCSS('background-image', 'none');
+
+      const profile = tabs(page).getByRole('button', {
+        name: language === 'en' ? 'Profile & media' : 'Fiche et médias',
+        exact: true
+      });
+      await profile.focus();
+      await page.keyboard.press('Enter');
+      await expect(profile).toHaveAttribute('aria-current', 'page');
+      await expect(page.locator('[data-og7="dossier-identity"]')).toContainText(
+        'demo@example.invalid'
+      );
+      const opener = page.getByRole('button', {
+        name: language === 'en' ? 'Edit dossier' : 'Modifier le dossier',
+        exact: true
+      });
+      await opener.click();
+      const dialog = page.getByRole('dialog').filter({ has: editForm(page) });
+      await expect(dialog).toBeVisible();
+      const company = editForm(page).getByRole('textbox').first();
+      await expect(company).toHaveValue('Atelier Boréal');
+      await company.fill('Brouillon synthétique non enregistré');
+      await page.keyboard.press('Escape');
+      await expect(dialog).not.toBeVisible();
+      await expect(opener).toBeFocused();
+      await expect(
+        frame.getByRole('heading', { name: 'Atelier Boréal', exact: true })
+      ).toBeVisible();
+      expect(calls.every((call) => call.method === 'GET')).toBe(true);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+    });
+  }
+
+test('selected sponsor keeps a usable compact queue on the 1439/1440px boundary and mobile dossier padding', async ({
+  page
+}) => {
+  const { calls } = await fixtures(page, 'operator');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(path());
+  const frame = page.locator('[data-og7="sponsorship-dossier"]');
+  const list = page.locator('[data-og7="sponsors-list"]');
+  await expect(
+    frame.getByRole('heading', { name: 'Atelier Boréal', exact: true })
+  ).toBeVisible();
+  for (const width of [1439, 1440, 1500, 1501]) {
+    await page.setViewportSize({ width, height: 1000 });
+    if (width < 1440) await expect(list).toBeHidden();
+    else await expect(list).toBeVisible();
+    await expect(frame).toBeVisible();
+    await expect(
+      tabs(page).getByRole('button', { name: 'Aperçu', exact: true })
+    ).toHaveAttribute('aria-current', 'page');
+  }
+  for (const width of [
+    419, 420, 421, 599, 600, 601, 699, 700, 701, 719, 720, 721, 759, 760, 761,
+    859, 860, 861
+  ]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await expect(frame).toHaveCSS('border-radius', '14px');
+    await expect(tabs(page).getByRole('button')).toHaveCount(5);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1
+      )
+    ).toBe(true);
+  }
+  expect(calls.every((call) => call.method === 'GET')).toBe(true);
+});
+
+for (const language of ['fr-CA', 'en'] as const)
+  for (const viewport of [
+    { width: 390, height: 1000 },
+    // 1920x1080 at 125% supplies 1536x864 CSS pixels, without device scaling.
+    { width: 1536, height: 864 }
+  ]) {
+    test(`dossier composition keeps identity and context usable in ${language} at ${viewport.width}px`, async ({
+      page
+    }, testInfo) => {
+      const { calls, options } = await fixtures(page, 'owner');
+      // Presentation data is local to this case; no saved dossier is changed.
+      options.listSize = 3;
+      options.edited.set(secondId, {
+        sponsor_company_name: 'Atelier Boréal',
+        amount: 250,
+        sponsor_review_status: 'approved'
+      });
+      options.edited.set('10000000-0000-4000-8000-000000000403', {
+        sponsor_company_name: 'Rivage Technologies',
+        amount: 100
+      });
+      options.edited.set(id, {
+        amount: 500,
+        currency: 'CAD',
+        sponsor_company_name: 'NordVale Énergie',
+        public_name: 'NordVale Énergie',
+        sponsor_contact_name: 'Camille Tremblay',
+        sponsor_contact_email: 'camille@nordvale.example.invalid',
+        sponsor_website_url: 'https://nordvale.example.invalid'
+      });
+      options.progressOverrides = {
+        companyName: 'NordVale Énergie',
+        amountMinor: 50000,
+        currency: 'CAD',
+        commitment: recordedCommitment(50000),
+        publicationCompletion: { done: 0, total: 3 }
+      };
+      const writes: string[] = [];
+      await page.route('**/api/**', (route) => {
+        if (route.request().method() === 'GET') return route.fallback();
+        writes.push(route.request().url());
+        return route.fulfill({ status: 405, json: {} });
+      });
+      await page.addInitScript((language) => {
+        localStorage.setItem('openg7.language', language);
+        localStorage.setItem(
+          'openg7.pilotage.appearance.v1',
+          JSON.stringify({ theme: 'mineral', system: false })
+        );
+      }, language);
+      await page.setViewportSize(viewport);
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.goto(path('identity'));
+      const frame = page.locator('[data-og7="sponsorship-dossier"]');
+      const main = frame.locator('[data-og7="dossier-main"]');
+      const context = frame.locator('[data-og7="dossier-context"]');
+      const identity = main.locator('[data-og7="dossier-identity"]');
+      await expect(
+        frame.getByRole('heading', { name: 'NordVale Énergie', exact: true })
+      ).toBeVisible();
+      await expect(page.locator('html')).toHaveAttribute('lang', language);
+      await expect(identity).toContainText('camille@nordvale.example.invalid');
+      await expectAdminFontsReady(page);
+      async function revealDesktopQueue() {
+        if (viewport.width !== 1536) return;
+        const queue = page.locator('[data-og7="sponsors-list"]');
+        await queue.getByRole('searchbox').fill('');
+        await expect(queue.locator('[data-og7="sponsor-row"]')).toHaveCount(3);
+        await queue
+          .getByRole('searchbox')
+          .evaluate((element) => element.blur());
+      }
+      await revealDesktopQueue();
+
+      async function expectComposition(stacked: boolean) {
+        await expect(main).toHaveCount(1);
+        await expect(context).toHaveCount(1);
+        const mainBox = (await main.boundingBox())!;
+        const contextBox = (await context.boundingBox())!;
+        if (stacked) {
+          expect(contextBox.y).toBeGreaterThanOrEqual(
+            mainBox.y + mainBox.height - 1
+          );
+          expect(contextBox.x).toBeCloseTo(mainBox.x, 0);
+          expect(contextBox.width).toBeCloseTo(mainBox.width, 0);
+        } else {
+          expect(contextBox.x).toBeGreaterThanOrEqual(
+            mainBox.x + mainBox.width - 1
+          );
+          expect(contextBox.y).toBeCloseTo(mainBox.y, 0);
+          expect(contextBox.width).toBeGreaterThanOrEqual(240);
+          expect(contextBox.width).toBeLessThanOrEqual(300);
+          expect(mainBox.width).toBeGreaterThan(contextBox.width);
+        }
+        for (const box of [mainBox, contextBox]) {
+          expect(box.x).toBeGreaterThanOrEqual(-1);
+          expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
+        }
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth + 1
+          )
+        ).toBe(true);
+      }
+
+      await test.step('identity starts in the desktop viewport; context has its own readable column', async () => {
+        await expectComposition(viewport.width === 390);
+        await expect(
+          main.locator('[data-og7="sponsorship-progress"]')
+        ).toHaveCount(1);
+        await expect(
+          context.locator('[data-og7="moderation-actions"]')
+        ).toHaveCount(1);
+        await expect(context.locator('[data-og7="edit-dossier"]')).toHaveCount(
+          1
+        );
+        await expect(context.locator('[data-og7="dossier-guide"]')).toHaveCount(
+          1
+        );
+        await expect(context.locator('[data-og7="dossier-next"]')).toHaveCount(
+          1
+        );
+        await expect(dossierNext(page)).toHaveAttribute(
+          'href',
+          path() + '#dossier-review'
+        );
+        await expect(tabs(page).getByRole('button')).toHaveCount(5);
+        await expect(tabs(page).locator('[aria-current="page"]')).toHaveCount(
+          1
+        );
+        await page.screenshot({
+          path: testInfo.outputPath(`nordvale-dossier-${viewport.width}.png`),
+          animations: 'disabled'
+        });
+        if (viewport.width === 1536) {
+          // No scrolling or focus on the identity content precedes these checks.
+          expect(await page.evaluate(() => scrollY)).toBe(0);
+          await expect(
+            identity.getByRole('heading', { level: 3 })
+          ).toBeInViewport({
+            ratio: 1
+          });
+          const identityBox = (await identity.boundingBox())!;
+          expect(identityBox.y).toBeLessThan(viewport.height - 120);
+          await expect(identity.locator(':scope > dl')).toBeInViewport({
+            ratio: 1
+          });
+          await expect(
+            identity.locator('[data-og7="identity-edit"]')
+          ).toBeInViewport({ ratio: 1 });
+          const coordinatesBox = (await identity
+            .locator(':scope > dl')
+            .boundingBox())!;
+          const dock = frame.locator('[data-og7="dossier-actions"]');
+          await expect(dock).toBeInViewport({ ratio: 1 });
+          const dockBox = (await dock.boundingBox())!;
+          expect(coordinatesBox.y + coordinatesBox.height).toBeLessThanOrEqual(
+            dockBox.y + 1
+          );
+          const queue = page.locator('[data-og7="sponsors-list"]');
+          await expect(queue).toBeVisible();
+          expect((await queue.boundingBox())!.width).toBeCloseTo(224, 0);
+        }
+      });
+
+      if (viewport.width === 390 && language === 'en') {
+        await test.step('200% text keeps the main content and context within the mobile page', async () => {
+          await page.evaluate(() => {
+            document.documentElement.style.fontSize = '200%';
+          });
+          await expect(page.locator('html')).toHaveCSS('font-size', '32px');
+          await expectComposition(true);
+          await expect(identity).toContainText('NordVale Énergie');
+          await page.screenshot({
+            path: testInfo.outputPath('nordvale-dossier-390-text-200.png'),
+            animations: 'disabled',
+            fullPage: true
+          });
+        });
+      }
+
+      await test.step('the contextual moderation decision remains an explicit cancellable keyboard action', async () => {
+        const opener = context.locator('[data-og7="moderation-open"]');
+        await opener.focus();
+        await expect(opener).toBeInViewport({ ratio: 1 });
+        await page.keyboard.press('Enter');
+        const decision = page.locator('[data-og7="moderation-decision"]');
+        const dialog = page.getByRole('dialog').filter({ has: decision });
+        await expect(dialog).toBeVisible();
+        await expect(dialog).toHaveAccessibleName(/.+/);
+        const confirmation = decision.locator(
+          '[data-og7="moderation-confirmation"]'
+        );
+        await expect(confirmation).toBeVisible();
+        await expect(confirmation).not.toBeChecked();
+        await expect(
+          decision.locator('[data-og7="moderation-submit"]')
+        ).toBeDisabled();
+        await page.keyboard.press('Escape');
+        await expect(dialog).toBeHidden();
+        await expect(opener).toBeFocused();
+        await expect(opener).toBeInViewport({ ratio: 1 });
+        expect(writes).toEqual([]);
+        expect(calls.every((call) => call.method === 'GET')).toBe(true);
+      });
+
+      await test.step('publication retains the main/context composition without authorizing a delivery', async () => {
+        if (viewport.width === 390 && language === 'en')
+          await page.evaluate(() => {
+            document.documentElement.style.removeProperty('font-size');
+          });
+        await page.goto(path('publication'));
+        await revealDesktopQueue();
+        const journey = main.locator(
+          '[data-og7="dossier-publication-journey"]'
+        );
+        await expect(journey.getByRole('progressbar')).toHaveAttribute(
+          'value',
+          '0'
+        );
+        await expect(journey.getByRole('progressbar')).toHaveAttribute(
+          'max',
+          '3'
+        );
+        await expectAdminFontsReady(page);
+        await expectComposition(viewport.width === 390);
+        await expect(
+          tabs(page).getByRole('button', { name: 'Publication', exact: true })
+        ).toHaveAttribute('aria-current', 'page');
+        if (viewport.width === 1536) {
+          expect(await page.evaluate(() => scrollY)).toBe(0);
+          await expect(
+            journey.getByRole('heading', {
+              name:
+                language === 'en'
+                  ? 'Publications for this sponsorship'
+                  : 'Les publications de cette commandite',
+              exact: true
+            })
+          ).toBeInViewport({
+            ratio: 1
+          });
+        }
+        await page.screenshot({
+          path: testInfo.outputPath(
+            `nordvale-publication-${viewport.width}.png`
+          ),
+          animations: 'disabled'
+        });
+        expect(writes).toEqual([]);
+        expect(calls.every((call) => call.method === 'GET')).toBe(true);
+      });
+    });
+  }
 
 for (const width of [1280, 390]) {
   test(`dossier guide explains all milestones without validating them at ${width}px`, async ({
@@ -966,9 +1388,9 @@ for (const alreadySubmitted of [false, true]) {
       await expect(
         identity.locator('[data-og7="identity-submission-required"]')
       ).toContainText('vous ne pouvez pas la valider à sa place');
-      await expect(progress(page)).toContainText(
-        'Coordonnées renseignées. En attente de la transmission'
-      );
+      await expect(
+        page.locator('[data-og7="sponsorship-dossier"]')
+      ).toContainText('Coordonnées renseignées. En attente de la transmission');
       // Simulate a later sponsor submission returned by the API, independently of the correction.
       options.edited.set(id, {
         ...options.edited.get(id),
@@ -2839,7 +3261,7 @@ for (const width of [1280, 390]) {
       '/admin/fundraiser/attention?type=sponsorship_needs_review';
     const query = '&returnTo=' + encodeURIComponent(returnTo);
     await page.goto(path('identity') + query);
-    const next = progress(page).locator('[data-og7="dossier-next"]');
+    const next = dossierNext(page);
     await expect(next).toHaveText('Voir les actions de validation');
     await expect(next).toHaveAttribute(
       'href',
@@ -2849,13 +3271,11 @@ for (const width of [1280, 390]) {
     for (const keyboard of [false, true]) {
       await next.scrollIntoViewIfNeeded();
       await next.focus();
-      const before = await page.evaluate(() => scrollY);
       if (keyboard) await next.press('Enter');
       else await next.click();
       await expect(page).toHaveURL(path() + query + '#dossier-review');
       await expect(target).toBeFocused();
-      await expect(target).toBeInViewport();
-      expect(await page.evaluate(() => scrollY)).toBeGreaterThan(before);
+      await expect(target).toBeInViewport({ ratio: 1 });
       await page.keyboard.press('Tab');
       await expect(
         actions(page).getByRole('button', { name: 'Refuser', exact: true })
@@ -2907,7 +3327,8 @@ for (const [reason, tab, section, label] of nextDestinations) {
     options.next = { reason, tab, adminUrl: path(tab) };
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(path());
-    const link = progress(page).getByRole('link', { name: label, exact: true });
+    const link = dossierNext(page);
+    await expect(link).toHaveText(label);
     await link.click();
     await expect(page).toHaveURL(path(tab) + '#dossier-' + section);
     await expect(page.locator('#dossier-' + section)).toBeFocused();
@@ -3042,7 +3463,7 @@ test('browser history restores the viewport after visiting a next-step section',
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 1280, height: 844 });
   await page.goto(path('identity'));
-  const next = progress(page).locator('[data-og7="dossier-next"]');
+  const next = dossierNext(page);
   await next.scrollIntoViewIfNeeded();
   // Start away from the top and keep the link visible so clicking cannot scroll it.
   await next.evaluate((element) => {
@@ -3083,16 +3504,18 @@ test('completed dossiers have a completion message without a next-step link in e
   options.next = { reason: 'complete', tab: 'overview', adminUrl: path() };
   for (const url of [path(), '/admin/fundraiser']) {
     await page.goto(url);
-    await expect(progress(page)).toContainText('Dossier terminé');
     await expect(
-      progress(page).locator('[data-og7="dossier-next"]')
-    ).toHaveCount(0);
+      page.getByText('Dossier terminé', { exact: true })
+    ).toBeVisible();
+    await expect(page.locator('[data-og7="dossier-next"]')).toHaveCount(0);
     await expect(progress(page).locator('ol').getByRole('link')).toHaveCount(6);
   }
   await page
     .getByRole('button', { name: 'Switch administration language to English' })
     .click();
-  await expect(progress(page)).toContainText('Dossier complete');
+  await expect(
+    page.getByText('Dossier complete', { exact: true })
+  ).toBeVisible();
   expect(calls.every((call) => call.method === 'GET')).toBe(true);
 });
 
@@ -3588,16 +4011,18 @@ test('a late progress response cannot overwrite a newly selected dossier or rese
   await page
     .getByRole('button', { name: 'Dossier suivant', exact: true })
     .click();
-  await expect(
-    progress(page).locator('[data-og7="dossier-next"]')
-  ).toHaveAttribute('href', new RegExp(`sponsorshipId=${secondId}`));
+  await expect(dossierNext(page)).toHaveAttribute(
+    'href',
+    new RegExp(`sponsorshipId=${secondId}`)
+  );
   release();
   await tabs(page)
     .getByRole('button', { name: 'Finances', exact: true })
     .click();
-  await expect(
-    progress(page).locator('[data-og7="dossier-next"]')
-  ).toHaveAttribute('href', new RegExp(`sponsorshipId=${secondId}`));
+  await expect(dossierNext(page)).toHaveAttribute(
+    'href',
+    new RegExp(`sponsorshipId=${secondId}`)
+  );
   expect(
     calls.filter((c) => c.url.pathname === '/api/admin/sponsorships')
   ).toHaveLength(1);

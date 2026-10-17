@@ -4,6 +4,16 @@
 
 /* Resolve inherited OpenG7 tokens on the styled element, including theme changes. */
 @theme inline {
+  --font-admin-body: var(
+    --admin-font-family,
+    'Segoe UI',
+    system-ui,
+    sans-serif
+  );
+  --font-admin-heading: var(
+    --admin-heading-font-family,
+    var(--admin-font-family)
+  );
   --color-admin-panel: var(--admin-panel);
   --color-admin-raised: var(--admin-panel-raised);
   --color-admin-border: var(--admin-border);
@@ -12,6 +22,8 @@
   --color-admin-gold: var(--admin-gold);
   --color-admin-accent: var(--admin-accent);
   --color-admin-selected: var(--admin-selected);
+  --color-admin-control-border: var(--admin-control-border);
+  --color-admin-hover: var(--admin-hover);
   --color-admin-success: var(--admin-success);
   --color-admin-success-bg: var(--admin-success-bg);
   --color-admin-success-border: var(--admin-success-border);
@@ -24,9 +36,12 @@
   --text-admin-caption: var(--admin-caption-size, 0.875rem);
   --text-admin-navigation: var(--admin-navigation-size, 0.9375rem);
   --spacing-admin-control: var(--admin-control-height, 2.75rem);
-  --spacing-admin-card: 1.2rem;
+  --spacing-admin-card: var(--admin-card-padding, 1.25rem);
+  --spacing-admin-section: var(--admin-section-gap, 2rem);
+  --spacing-admin-card-gap: var(--admin-card-gap, 1.25rem);
+  --spacing-admin-page: var(--admin-page-gutter, 1.5rem);
   --spacing-admin-badge-x: 0.6rem;
   --radius-admin-sm: 0.4rem;
-  --radius-admin-control: 0.6rem;
-  --radius-admin-card: 0.8rem;
+  --radius-admin-control: var(--admin-radius-control, 0.625rem);
+  --radius-admin-card: var(--admin-radius-card, 0.875rem);
 }

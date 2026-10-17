@@ -1,12 +1,11 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host .note-open {
   justify-self: start;
 }
 
 .note-card-heading {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
+  @apply tw:flex tw:flex-wrap tw:items-center tw:justify-between;
   gap: 0.5rem 0.75rem;
 }
 
@@ -15,8 +14,7 @@
   border: 1px solid var(--admin-warning-border);
   border-radius: 999px;
   background: var(--admin-warning-bg);
-  color: var(--admin-warning);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-warning tw:text-admin-caption;
 }
 
 .note-preview {
@@ -24,72 +22,61 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
   line-clamp: 3;
-  overflow: hidden;
-  color: var(--admin-text);
+  @apply tw:overflow-hidden tw:text-admin-text;
   font-size: 0.9rem;
 }
 
 .note-empty {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
 }
 
 .note-editor {
-  display: grid;
-  gap: 1.25rem;
-  min-width: 0;
+  @apply tw:grid tw:gap-5 tw:min-w-0;
 }
 
 .note-context {
-  display: flex;
+  @apply tw:flex;
   align-items: start;
-  justify-content: space-between;
-  gap: 1rem;
+  @apply tw:justify-between tw:gap-4;
   padding: 1.15rem;
   border: 1px solid var(--admin-border);
-  border-radius: 1rem;
+  @apply tw:rounded-2xl;
   background:
     radial-gradient(ellipse at top right, #f4c9570c, transparent 75%),
     var(--admin-panel);
 }
 
 .note-dossier {
-  display: grid;
-  gap: 0.25rem;
-  min-width: 0;
+  @apply tw:grid tw:gap-1 tw:min-w-0;
 }
 
 .note-eyebrow {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
   letter-spacing: normal;
-  text-transform: uppercase;
+  @apply tw:uppercase;
 }
 
 .note-dossier strong {
   font-size: 1.05rem;
   font-weight: var(--admin-section-weight);
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }
 
 .note-reference {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
-  overflow-wrap: anywhere;
+  @apply tw:text-admin-muted tw:text-admin-caption tw:wrap-anywhere;
 }
 
 .note-private {
-  display: inline-flex;
+  @apply tw:inline-flex;
   flex: 0 0 auto;
-  align-items: center;
+  @apply tw:items-center;
   gap: 0.4rem;
   padding: 0.35rem 0.65rem;
   border: 1px solid var(--admin-warning-border);
   border-radius: 999px;
   background: var(--admin-warning-bg);
-  color: var(--admin-gold);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-gold tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
 }
 
@@ -104,15 +91,13 @@
 }
 
 .note-privacy {
-  margin: 0;
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:m-0 tw:text-admin-muted tw:text-admin-caption;
 }
 
 .note-field {
-  display: grid;
+  @apply tw:grid;
   gap: 0.65rem;
-  min-width: 0;
+  @apply tw:min-w-0;
 }
 
 .note-field label {
@@ -121,9 +106,7 @@
 }
 
 :host .note-field textarea {
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 12rem;
+  @apply tw:box-border tw:w-full tw:min-h-48;
   max-height: max(12rem, 55dvh);
   padding: 1rem 1.1rem;
   border-radius: 0.85rem;
@@ -134,7 +117,7 @@
 }
 
 .note-field textarea::placeholder {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   opacity: 0.8;
 }
 
@@ -146,22 +129,19 @@
 
 .note-counter {
   justify-self: end;
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
   font-variant-numeric: tabular-nums;
 }
 
 .note-counter.is-near-limit {
-  color: var(--admin-warning);
+  @apply tw:text-admin-warning;
 }
 
 .note-feedback {
-  display: grid;
-  gap: 0.25rem;
+  @apply tw:grid tw:gap-1;
   padding-left: 0.85rem;
   border-left: 2px solid var(--admin-border);
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
 }
 
 .note-feedback.is-dirty {
@@ -169,21 +149,17 @@
 }
 
 .note-feedback.is-dirty .note-status {
-  color: var(--admin-warning);
+  @apply tw:text-admin-warning;
 }
 
 .note-feedback small {
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 
 .note-actions {
-  position: sticky;
+  @apply tw:sticky;
   bottom: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.75rem;
+  @apply tw:flex tw:flex-wrap tw:items-center tw:justify-end tw:gap-3;
   padding-block: 1rem max(0.5rem, env(safe-area-inset-bottom));
   border-top: 1px solid var(--admin-border);
   background: var(--admin-bg);
@@ -196,17 +172,16 @@
 }
 
 :host .note-actions .admin-button:disabled {
-  cursor: not-allowed;
+  @apply tw:cursor-not-allowed;
 }
 
 @media (max-width: 420px) {
   .note-context {
-    gap: 0.75rem;
-    padding: 1rem;
+    @apply tw:gap-3 tw:p-4;
   }
 
   .note-actions {
-    display: grid;
+    @apply tw:grid;
     grid-template-columns: 1fr;
   }
 }

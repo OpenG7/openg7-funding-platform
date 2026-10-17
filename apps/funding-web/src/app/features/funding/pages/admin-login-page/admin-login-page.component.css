@@ -1,0 +1,78 @@
+@reference '../../../../../styles/tailwind.css';
+
+.admin-login-shell {
+  @apply tw:items-center;
+  background: var(--admin-bg);
+  @apply tw:text-admin-text tw:grid;
+  font-family: inherit;
+  @apply tw:min-h-screen tw:p-4 tw:min-w-0;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.admin-login-panel {
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  @apply tw:rounded-admin-card;
+  box-shadow: var(--admin-shadow-raised);
+  @apply tw:grid tw:gap-4;
+  margin: 0 auto;
+  max-width: 28rem;
+  @apply tw:p-admin-card tw:w-full tw:min-w-0;
+  grid-template-columns: minmax(0, 1fr);
+}
+.login-brand {
+  @apply tw:flex tw:flex-wrap tw:items-center tw:justify-between tw:gap-3;
+}
+
+.admin-login-panel span {
+  @apply tw:text-admin-muted;
+  font-size: 0.875rem;
+  font-weight: var(--admin-label-weight);
+  letter-spacing: 0;
+}
+
+.admin-login-panel h1 {
+  margin: 0.35rem 0 0.65rem;
+  @apply tw:wrap-anywhere;
+}
+
+.admin-login-panel p {
+  @apply tw:text-admin-muted;
+  line-height: 1.55;
+  @apply tw:m-0 tw:wrap-anywhere;
+}
+
+.admin-login-panel form,
+.admin-login-panel label {
+  @apply tw:grid tw:min-w-0 tw:gap-3;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.admin-login-panel label {
+  font-size: 0.9375rem;
+  font-weight: var(--admin-label-weight);
+}
+
+.admin-login-panel input {
+  @apply tw:w-full;
+  font-weight: 400;
+}
+.admin-login-panel .admin-button {
+  @apply tw:max-w-full tw:min-w-0;
+  white-space: normal;
+  text-align: center;
+}
+.login-links {
+  @apply tw:grid tw:gap-2 tw:pt-3;
+  border-top: 1px solid var(--admin-border);
+}
+.login-links a {
+  @apply tw:inline-flex tw:items-center tw:min-h-admin-control tw:wrap-anywhere;
+}
+.admin-login-panel .state-error {
+  background: var(--admin-panel-raised);
+  border: 1px solid var(--admin-border);
+  @apply tw:rounded-admin-control tw:text-admin-danger;
+  font-weight: 500;
+  padding: 0.75rem 0.85rem;
+}

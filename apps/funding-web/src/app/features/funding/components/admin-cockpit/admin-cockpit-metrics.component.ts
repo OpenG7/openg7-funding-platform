@@ -27,7 +27,7 @@ import { createCockpitBlock } from './cockpit-block.js';
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-cockpit-metrics.component.html',
-  styleUrls: ['./admin-cockpit.css']
+  styleUrls: ['./admin-cockpit.css', './admin-cockpit-metrics.component.css']
 })
 export class AdminCockpitMetricsComponent {
   readonly refreshKey = input(0);

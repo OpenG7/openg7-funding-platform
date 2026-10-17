@@ -1,56 +1,30 @@
+@reference '../../../../../styles/tailwind.css';
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
 }
 h1,
 h2,
 p {
-  margin: 0;
+  @apply tw:m-0 tw:min-w-0 tw:wrap-anywhere;
 }
-button,
-input,
-a {
-  font: inherit;
+.admin-button {
+  @apply tw:min-w-0 tw:max-w-full;
+  white-space: normal;
+  text-align: center;
 }
-input {
-  font-weight: 400;
-}
-button,
-.primary-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.55rem;
-  border: 1px solid var(--admin-border);
-  border-radius: 0.45rem;
-  min-height: 2.75rem;
-  padding: 0.6rem 0.85rem;
-  background: var(--admin-panel-raised);
-  color: var(--admin-text);
-  font-weight: var(--admin-control-weight);
-  cursor: pointer;
-}
-button:hover:not(:disabled) {
-  background: var(--og7-admin-selected, #234760);
-  border-color: var(--og7-admin-accent, #86cfff);
-}
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-summary:focus-visible,
-[tabindex]:focus {
+summary:focus-visible {
   outline: 3px solid var(--admin-focus);
-  outline-offset: 4px;
+  outline-offset: 3px;
+}
+:host [tabindex='-1']:focus {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: -3px;
 }
 [tabindex='-1'] {
   scroll-margin-top: 1rem;
 }
 a {
-  color: var(--og7-admin-accent, #9edaff);
+  color: var(--admin-accent);
   text-underline-offset: 0.2em;
 }
 .systems-panel,
@@ -59,66 +33,70 @@ a {
 .checklist {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.75rem;
-  padding: 1.1rem;
-  min-width: 0;
+  @apply tw:min-w-0 tw:rounded-admin-card tw:p-admin-card;
 }
 .scope {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
   line-height: 1.5;
   margin-top: 0.9rem;
 }
 .eyebrow {
-  display: block;
-  color: var(--og7-admin-accent, #9bd5ed);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:block tw:text-admin-muted tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0;
   margin-bottom: 0.35rem;
 }
 .setup-panel header,
 .setup-table-panel header {
-  display: flex;
-  gap: 0.7rem;
-  justify-content: space-between;
+  @apply tw:flex tw:flex-wrap tw:gap-3 tw:justify-between;
   align-items: start;
+}
+.setup-panel header > div,
+.setup-table-panel header > div {
+  @apply tw:min-w-0 tw:max-w-full;
+}
+.setup-panel h2,
+.setup-table-panel h2,
+.systems-panel h2,
+.checklist h2 {
+  font-size: var(--admin-section-size, 1.1875rem);
+  font-weight: var(--admin-section-weight, 600);
+  line-height: var(--admin-section-leading, 1.4);
 }
 .setup-panel header > div > span,
 .setup-table-panel header > div > span {
-  display: block;
-  font-size: var(--admin-caption-size, 0.875rem);
-  letter-spacing: 0.07em;
-  color: var(--admin-muted);
-  text-transform: uppercase;
-  margin-bottom: 0.2rem;
+  @apply tw:block tw:text-admin-caption;
+  @apply tw:text-admin-muted;
+  margin-bottom: 0.35rem;
 }
 summary {
-  color: var(--og7-admin-accent, #b8dfff);
-  cursor: pointer;
-  font-size: var(--admin-caption-size, 0.875rem);
-  padding: 0.3rem 0;
+  color: var(--admin-accent);
+  @apply tw:cursor-pointer tw:text-admin-caption tw:min-h-admin-control tw:wrap-anywhere;
+  padding: 0.65rem 0;
+  font-weight: var(--admin-label-weight);
+  line-height: 1.5;
 }
 code {
-  font-size: var(--admin-caption-size, 0.875rem);
-  overflow-wrap: anywhere;
+  @apply tw:text-admin-caption tw:wrap-anywhere;
 }
 .status-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.3rem;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:inline-flex tw:items-center tw:rounded-admin-control tw:text-admin-caption;
+  padding: 0.25rem 0.65rem;
   font-weight: var(--admin-label-weight);
-  background: var(--admin-panel-raised);
+  line-height: 1.4;
+  background: var(--admin-subtle);
+  border: 1px solid var(--admin-border);
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
 .status-ok {
-  color: var(--admin-accent);
+  @apply tw:text-admin-accent;
+  background: var(--admin-selected);
 }
 .status-warn {
   background: var(--admin-warning-bg);
-  color: var(--admin-warning);
+  border-color: var(--admin-warning-border);
+  @apply tw:text-admin-warning;
 }
 .tour-target {
   box-shadow: 0 0 0 3px var(--admin-focus);

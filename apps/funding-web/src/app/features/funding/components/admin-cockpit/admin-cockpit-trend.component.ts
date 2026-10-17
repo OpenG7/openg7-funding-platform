@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -13,14 +14,16 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
 @Component({
   selector: 'openg7-admin-cockpit-trend',
   standalone: true,
-  imports: [TranslatePipe],
+  imports: [NgTemplateOutlet, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-cockpit-trend.component.html',
-  styleUrl: './admin-cockpit-trend.component.css'
+  styleUrl: './admin-cockpit-trend.component.css',
+  host: { '[class.compact]': 'compact()' }
 })
 export class AdminCockpitTrendComponent {
   readonly trend = input.required<CockpitTrend>();
   readonly currency = input<string>();
+  readonly compact = input(false);
   readonly i18n = inject(FundingI18nService);
   readonly dailyValues = computed(() => [...this.trend().series].reverse());
   readonly chart = computed(() => {

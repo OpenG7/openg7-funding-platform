@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { AxeBuilder } from '@axe-core/playwright';
 
 import { expect, test } from './support/test.js';
 import {
@@ -304,6 +305,16 @@ test('LT locking, release-all and closing preserve the neutral safety boundary',
   await ltLock.click();
   await virtualFrames(page);
   await expect(ltLock).toHaveAttribute('aria-pressed', 'true');
+  await expect(ltLock).toHaveCSS('min-width', '44px');
+  await expect(ltLock).toHaveCSS('min-height', '44px');
+  await expect(ltLock).toHaveCSS('background-color', 'rgb(237, 202, 114)');
+  await expect(ltLock).toHaveCSS('color', 'rgb(37, 34, 15)');
+  const pressedContrast = await new AxeBuilder({ page })
+    .include('[data-og7="virtual-lock-lt"]')
+    .withRules(['color-contrast'])
+    .analyze();
+  expect(pressedContrast.violations).toEqual([]);
+  expect(pressedContrast.incomplete).toEqual([]);
   await expect.poll(async () => (await pad.values('buttons'))[6]).toBe(1);
   await expect(field).toBeFocused();
   await pad.press(0);

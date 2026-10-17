@@ -1,0 +1,14 @@
+@reference '../../../../../styles/tailwind.css';
+
+:host {
+  @apply tw:block tw:min-w-0;
+}
+
+.queue-page {
+  @apply tw:grid tw:min-w-0 tw:w-full tw:mx-auto tw:gap-admin-card-gap;
+  max-width: 78rem;
+}
+
+h1 {
+  @apply tw:text-admin-text tw:m-0 tw:min-w-0 tw:wrap-anywhere;
+}

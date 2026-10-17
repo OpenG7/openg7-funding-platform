@@ -1,5 +1,6 @@
 @import './styles/admin-appearance.css';
 @import './styles/admin-typography.css';
+@reference './styles/tailwind.css';
 
 [data-og7-controller-focus='true'] {
   outline: 3px solid var(--admin-focus, var(--color-primary)) !important;
@@ -36,7 +37,7 @@
   }
 
   openg7-root:has(openg7-usage-refund-policy-page) > openg7-site-music {
-    display: none !important;
+    @apply tw:hidden!;
   }
 }
 
@@ -45,32 +46,25 @@
   openg7-usage-refund-policy-page .builders-nav {
     grid-template-areas: 'brand' 'actions' 'nav';
     grid-template-columns: minmax(0, 1fr);
-    gap: 0.5rem;
+    @apply tw:gap-2;
   }
 
   openg7-usage-refund-policy-page .nav-actions {
-    min-width: 0;
-    justify-self: stretch;
-    justify-content: space-between;
-    flex-wrap: wrap;
+    @apply tw:min-w-0 tw:justify-self-stretch tw:justify-between tw:flex-wrap;
   }
 
   openg7-usage-refund-policy-page .nav-contribute {
-    white-space: normal;
-    text-align: center;
-    min-width: 0;
-    padding: 0.5rem;
+    @apply tw:whitespace-normal tw:text-center tw:min-w-0 tw:p-2;
   }
 }
 
 * {
-  box-sizing: border-box;
+  @apply tw:box-border;
 }
 
 html,
 body {
-  margin: 0;
-  min-height: 100%;
+  @apply tw:m-0 tw:min-h-full;
 }
 
 html {
@@ -95,9 +89,7 @@ openg7-support-page,
 openg7-webhooks-page,
 openg7-api-keys-page,
 openg7-funding-transparency-page {
-  display: block;
-  min-width: 0;
-  width: 100%;
+  @apply tw:block tw:min-w-0 tw:w-full;
 }
 
 button,
@@ -108,7 +100,7 @@ textarea {
 }
 
 button {
-  cursor: pointer;
+  @apply tw:cursor-pointer;
 }
 
 button:focus-visible,
@@ -121,10 +113,10 @@ a:focus-visible {
 }
 
 .builders-nav {
-  align-items: center;
+  @apply tw:items-center;
   background: var(--surface-panel);
   border-bottom: 1px solid var(--border-color);
-  display: grid;
+  @apply tw:grid;
   gap: 0.5rem 1.5rem;
   grid-template-areas:
     'brand actions'
@@ -135,15 +127,15 @@ a:focus-visible {
 }
 
 .builders-brand {
-  align-items: center;
+  @apply tw:items-center;
   color: var(--text-main);
-  display: flex;
+  @apply tw:flex;
   gap: 0.55rem;
   grid-area: brand;
   line-height: 1.2;
-  min-width: 0;
+  @apply tw:min-w-0;
   text-decoration: none;
-  text-transform: uppercase;
+  @apply tw:uppercase;
 }
 
 .brand-leaf {
@@ -153,7 +145,7 @@ a:focus-visible {
 
 .builders-brand strong,
 .builders-brand em {
-  display: block;
+  @apply tw:block;
   letter-spacing: 0;
 }
 
@@ -168,14 +160,10 @@ a:focus-visible {
 }
 
 .builders-nav nav {
-  align-items: center;
-  display: flex;
-  flex-wrap: nowrap;
+  @apply tw:items-center tw:flex tw:flex-nowrap;
   gap: clamp(0.65rem, 1.55vw, 1.65rem);
   grid-area: nav;
-  justify-content: flex-start;
-  min-width: 0;
-  overflow-x: auto;
+  @apply tw:justify-start tw:min-w-0 tw:overflow-x-auto;
   scrollbar-width: thin;
 }
 
@@ -185,18 +173,18 @@ a:focus-visible {
   font-size: 0.9375rem;
   font-weight: 600;
   padding: 0.45rem 0 0.55rem;
-  position: relative;
+  @apply tw:relative;
   text-decoration: none;
-  white-space: nowrap;
+  @apply tw:whitespace-nowrap;
 }
 
 .builders-nav nav a::after {
   background: linear-gradient(90deg, transparent, var(--gold-400), transparent);
-  bottom: 0;
+  @apply tw:bottom-0;
   content: '';
   height: 2px;
   left: 50%;
-  position: absolute;
+  @apply tw:absolute;
   transform: translateX(-50%) scaleX(0);
   transform-origin: center;
   transition: transform 180ms ease;
@@ -214,45 +202,41 @@ a:focus-visible {
 }
 
 .nav-contribute {
-  align-items: center;
+  @apply tw:items-center;
   background: var(--color-primary);
   border: 1px solid var(--color-primary);
   border-radius: 0.45rem;
   color: var(--on-primary);
-  display: inline-flex;
+  @apply tw:inline-flex;
   font-weight: 600;
-  justify-content: center;
-  min-height: 2.75rem;
+  @apply tw:justify-center tw:min-h-11;
   padding: 0 1.35rem;
   text-decoration: none;
 }
 
 .nav-actions {
-  align-items: center;
-  display: flex;
+  @apply tw:items-center tw:flex;
   gap: 0.65rem;
   grid-area: actions;
   justify-self: end;
-  min-width: max-content;
+  @apply tw:min-w-max;
 }
 
 .hero-copy {
-  display: grid;
-  gap: 0.75rem;
+  @apply tw:grid tw:gap-3;
   max-width: 36rem;
   padding: 2rem clamp(1rem, 2vw, 2rem);
-  position: relative;
-  z-index: 1;
+  @apply tw:relative tw:z-1;
 }
 
 .hero-copy h1 {
   font-size: clamp(2rem, 3vw, 2.75rem);
   line-height: 1.12;
-  margin: 0;
+  @apply tw:m-0;
 }
 
 .hero-copy h1 strong {
-  display: block;
+  @apply tw:block;
 }
 
 .hero-copy h1 strong {
@@ -263,7 +247,7 @@ a:focus-visible {
   color: var(--text-soft);
   font-size: 1rem;
   line-height: 1.5;
-  margin: 0;
+  @apply tw:m-0;
   max-width: 28rem;
 }
 
@@ -272,7 +256,7 @@ a:focus-visible {
   font-size: 0.875rem;
   font-weight: 600;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  @apply tw:uppercase;
 }
 
 .finance-panel {
@@ -283,8 +267,7 @@ a:focus-visible {
 
 .finance-panel {
   border-radius: 0.62rem;
-  min-width: 0;
-  padding: 1.25rem;
+  @apply tw:min-w-0 tw:p-5;
 }
 
 .finance-panel h3 {
@@ -292,30 +275,30 @@ a:focus-visible {
   font-size: 1.1875rem;
   line-height: 1.3;
   margin: 0 0 0.78rem;
-  text-transform: uppercase;
+  @apply tw:uppercase;
 }
 
 .non-charity-note {
   color: var(--text-soft);
   font-size: 0.875rem;
   line-height: 1.45;
-  margin: 0;
+  @apply tw:m-0;
 }
 
 .non-charity-note {
   background: var(--surface-subtle);
   border: 1px solid var(--border-color);
-  border-radius: 0.5rem;
+  @apply tw:rounded-lg;
   margin-top: 0.72rem;
   padding: 0.875rem 1rem;
-  text-align: left;
+  @apply tw:text-left;
 }
 
 .state {
   color: var(--text-soft);
   font-size: 0.875rem;
   margin: 0.62rem 0 0;
-  text-align: center;
+  @apply tw:text-center;
 }
 
 .state-error {
@@ -327,22 +310,22 @@ a:focus-visible {
 }
 
 .finance-panel dl {
-  display: grid;
+  @apply tw:grid;
   gap: 0.45rem;
-  margin: 0;
+  @apply tw:m-0;
 }
 
 .finance-panel div {
-  align-items: center;
+  @apply tw:items-center;
   color: var(--text-soft);
-  display: flex;
+  @apply tw:flex;
   font-size: 0.9375rem;
-  justify-content: space-between;
+  @apply tw:justify-between;
 }
 
 .finance-panel dt,
 .finance-panel dd {
-  margin: 0;
+  @apply tw:m-0;
 }
 
 .finance-panel dd {
@@ -354,7 +337,7 @@ a:focus-visible {
 .finance-panel a {
   border-top: 1px solid var(--border-color);
   color: var(--color-primary);
-  display: block;
+  @apply tw:block;
   font-size: 0.9375rem;
   margin-top: 0.75rem;
   padding-top: 0.6rem;
@@ -367,7 +350,7 @@ a:focus-visible {
   }
 
   .builders-nav nav {
-    gap: 1rem;
+    @apply tw:gap-4;
   }
 
   .hero-copy {
@@ -379,12 +362,12 @@ a:focus-visible {
   .builders-nav {
     gap: 0.35rem 0.55rem;
     grid-template-columns: minmax(0, 1fr) auto;
-    min-height: auto;
+    @apply tw:min-h-auto;
     padding: 0.45rem 0.65rem;
   }
 
   .builders-brand {
-    min-width: 0;
+    @apply tw:min-w-0;
   }
 
   .brand-leaf {
@@ -400,10 +383,10 @@ a:focus-visible {
   }
 
   .builders-nav nav {
-    flex-wrap: wrap;
+    @apply tw:flex-wrap;
     gap: 0.28rem 0.7rem;
     grid-column: 1 / -1;
-    overflow-x: visible;
+    @apply tw:overflow-x-visible;
   }
 
   .builders-nav nav a {
@@ -412,7 +395,7 @@ a:focus-visible {
   }
 
   .builders-nav nav a::after {
-    bottom: 0;
+    @apply tw:bottom-0;
     width: 2.8rem;
   }
 
@@ -422,9 +405,9 @@ a:focus-visible {
   }
 
   .nav-contribute {
-    min-height: 2.75rem;
+    @apply tw:min-h-11;
     padding: 0 0.55rem;
-    white-space: nowrap;
+    @apply tw:whitespace-nowrap;
   }
 }
 

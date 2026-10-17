@@ -1,19 +1,20 @@
+@reference '../../../../../styles/tailwind.css';
 :host {
-  display: block;
+  @apply tw:block;
 }
 .support-page {
   background: var(--surface-page);
   color: var(--text-main);
   font-family: 'Segoe UI', Arial, sans-serif;
-  min-height: 100dvh;
+  @apply tw:min-h-dvh;
 }
 .support-page :is(h1, h2, h3, p) {
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }
 .support-page h1 {
   font-size: clamp(2rem, 5vw, 2.75rem);
   line-height: 1.25;
-  margin: 0;
+  @apply tw:m-0;
 }
 .support-page h2 {
   font-size: clamp(1.5rem, 3vw, 2rem);
@@ -31,7 +32,7 @@
 .support-page a {
   color: var(--color-primary);
   text-underline-offset: 0.2em;
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }
 .support-page :is(a, button, input, summary):focus-visible,
 .support-page [tabindex='-1']:focus {
@@ -42,32 +43,26 @@
   scroll-margin-top: 6rem;
 }
 .support-hero {
-  position: relative;
-  overflow: hidden;
+  @apply tw:relative tw:overflow-hidden;
   padding: 3rem max(1.25rem, calc((100vw - 1152px) / 2));
 }
 .support-hero-image,
 .support-dragon {
-  position: absolute;
-  inset: 0;
-  height: 100%;
-  width: 100%;
-  object-fit: cover;
+  @apply tw:absolute tw:inset-0 tw:h-full tw:w-full tw:object-cover;
 }
 .support-hero-image {
   object-position: center 36%;
   opacity: 0.78;
 }
 .support-dragon {
-  left: auto;
+  @apply tw:left-auto;
   right: -6%;
   width: 46%;
   object-position: right center;
   opacity: 0.22;
 }
 .support-hero-overlay {
-  position: absolute;
-  inset: 0;
+  @apply tw:absolute tw:inset-0;
   background:
     linear-gradient(
       90deg,
@@ -79,7 +74,7 @@
     linear-gradient(180deg, transparent 60%, var(--surface-page));
 }
 .support-copy {
-  position: relative;
+  @apply tw:relative;
   max-width: 54rem;
 }
 .support-copy > p {
@@ -87,19 +82,14 @@
   font-size: 1.1rem;
 }
 .support-actions-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-top: 1.5rem;
+  @apply tw:flex tw:flex-wrap tw:gap-3 tw:mt-6;
 }
 .support-actions-row a,
 .primary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  @apply tw:inline-flex tw:items-center tw:justify-center;
   padding: 0.75rem 1rem;
   min-height: 44px;
-  box-sizing: border-box;
+  @apply tw:box-border;
   border: 1px solid var(--color-primary);
   border-radius: 0.6rem;
   font-weight: 700;
@@ -112,49 +102,41 @@
 }
 .support-section {
   max-width: 1200px;
-  box-sizing: border-box;
+  @apply tw:box-border;
   margin: 2.5rem auto;
   padding: 0 1.5rem;
 }
 .support-help-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.5rem;
+  @apply tw:grid tw:grid-cols-2 tw:gap-6;
   align-items: start;
 }
 .help-card {
-  min-width: 0;
+  @apply tw:min-w-0;
   border: 1px solid var(--border-color);
-  border-radius: 1rem;
-  padding: 1.5rem;
+  @apply tw:rounded-2xl tw:p-6;
   background: var(--surface-panel);
 }
 .help-card > a {
-  display: inline-block;
+  @apply tw:inline-block;
   padding-block: 0.6rem;
 }
 .reference-recovery {
   border-top: 1px solid var(--border-color);
-  margin-top: 1.25rem;
-  padding-top: 0.5rem;
+  @apply tw:mt-5 tw:pt-2;
 }
 summary {
   padding: 0.75rem 0;
   color: var(--color-primary);
   font-weight: 700;
-  cursor: pointer;
-  overflow-wrap: anywhere;
+  @apply tw:cursor-pointer tw:wrap-anywhere;
 }
 .lookup-result {
-  padding: 1rem;
-  margin-top: 1rem;
+  @apply tw:p-4 tw:mt-4;
   border: 1px solid var(--border-color);
   border-radius: 0.6rem;
 }
 .lookup-result dl {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  @apply tw:grid tw:grid-cols-2 tw:gap-4;
   margin: 1rem 0;
 }
 .lookup-result dt {
@@ -163,23 +145,18 @@ summary {
 }
 .lookup-result dd {
   margin: 0.25rem 0 0;
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }
 .contact-card {
-  display: grid;
+  @apply tw:grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
-  gap: 1.5rem;
-  margin-top: 1.25rem;
+  @apply tw:gap-6 tw:mt-5;
 }
 .contact-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.75rem;
-  min-width: 0;
+  @apply tw:flex tw:flex-col tw:items-start tw:gap-3 tw:min-w-0;
 }
 .contact-actions > span {
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }
 .support-page .field-hint {
   font-size: 0.9rem;
@@ -190,39 +167,33 @@ summary {
   padding: 0.5rem 0;
 }
 .support-faq details > :last-child:not(summary) {
-  display: inline-block;
-  margin-bottom: 1rem;
+  @apply tw:inline-block tw:mb-4;
   padding-block: 0.5rem;
 }
 .text-action {
   font: inherit;
   color: var(--color-primary);
-  cursor: pointer;
-  padding: 0;
+  @apply tw:cursor-pointer tw:p-0;
   background: transparent;
   border: 0;
   text-decoration: underline;
   text-underline-offset: 0.2em;
-  text-align: start;
+  @apply tw:text-start;
 }
 .support-technical {
   border-top: 1px solid var(--border-color);
-  padding-top: 2rem;
+  @apply tw:pt-8;
 }
 .support-action-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.5rem;
-  margin-top: 1.25rem;
+  @apply tw:grid tw:grid-cols-2 tw:gap-6 tw:mt-5;
 }
 .support-action-grid a {
-  display: flex;
-  flex-direction: column;
+  @apply tw:flex tw:flex-col;
   gap: 0.65rem;
-  padding: 1.25rem;
+  @apply tw:p-5;
   background: var(--surface-panel);
   border: 1px solid var(--border-color);
-  border-radius: 0.75rem;
+  @apply tw:rounded-xl;
   text-decoration: none;
 }
 .support-action-grid a:hover {
@@ -237,16 +208,13 @@ summary {
   line-height: 1.5;
 }
 .support-action-grid span:last-child {
-  margin-top: auto;
+  @apply tw:mt-auto;
 }
 .support-footer {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.5rem;
-  align-items: center;
+  @apply tw:flex tw:flex-wrap tw:gap-6 tw:items-center;
   max-width: 1152px;
   margin: 3rem auto 0;
-  padding: 1.5rem;
+  @apply tw:p-6;
   border-top: 1px solid var(--border-color);
 }
 .support-footer-brand {
@@ -255,12 +223,10 @@ summary {
   text-decoration: none;
 }
 .support-footer nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
+  @apply tw:flex tw:flex-wrap tw:gap-4;
 }
 .support-footer nav a {
-  display: inline-block;
+  @apply tw:inline-block;
   padding-block: 0.5rem;
 }
 .support-footer small {
@@ -268,7 +234,7 @@ summary {
 }
 @media (max-width: 900px) {
   .support-action-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    @apply tw:grid-cols-2;
   }
 }
 @media (max-width: 760px) {
@@ -280,14 +246,13 @@ summary {
     padding-inline: 1rem;
   }
   .help-card {
-    padding: 1.25rem;
+    @apply tw:p-5;
   }
   .support-hero {
     padding: 2rem 1rem;
   }
   .support-actions-row {
-    flex-direction: column;
-    align-items: stretch;
+    @apply tw:flex-col tw:items-stretch;
   }
 }
 @media (max-width: 420px) {

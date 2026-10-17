@@ -8,6 +8,12 @@ import type {
 } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
+import {
+  blockAdminReviewWrites,
+  captureAdminDesign,
+  expectAdminPageFits,
+  prepareAdminDesignReview
+} from './support/admin-design-review.js';
 
 const date = '2026-10-02T12:00:00.123Z';
 const record = (id: string): AdminExpenseRecord => ({
@@ -163,6 +169,73 @@ async function prepare(page: Page, language: string, width: number) {
   await expect(card('1')).toBeVisible();
   return { records, submissions, reads, options, finish, card };
 }
+
+for (const language of ['fr-CA', 'en'] as const)
+  for (const width of [390, 1536]) {
+    test(`expense composition keeps the register before creation and preserves input in ${language} at ${width}px`, async ({
+      page
+    }, testInfo) => {
+      await prepareAdminDesignReview(page);
+      const state = await prepare(page, language, width);
+      const writes = await blockAdminReviewWrites(page);
+      await page.setViewportSize({
+        width,
+        height: width === 1536 ? 864 : 1000
+      });
+      const summary = page.getByRole('region', {
+        name: language === 'en' ? 'Expense summary' : 'Resume depenses',
+        exact: true
+      });
+      const filters = page.locator('[data-og7="allocation-filters"]');
+      const creation = page.locator('[data-og7="allocation-create"]');
+      await expect(summary.getByRole('article')).toHaveCount(4);
+      await expect(state.card('1')).toContainText('42');
+      await expect(state.card('1')).toContainText('CAD');
+      await captureAdminDesign(page, testInfo, `expenses-${width}`);
+      if (width === 1536) {
+        for (const metric of await summary.getByRole('article').all())
+          await expect(metric).toBeInViewport({ ratio: 1 });
+        await expect(filters).toBeInViewport({ ratio: 1 });
+        await expect(state.card('1').getByRole('heading')).toBeInViewport({
+          ratio: 1
+        });
+        await captureAdminDesign(
+          page,
+          testInfo,
+          'expenses-complete-1536',
+          true
+        );
+      }
+      expect(
+        await state
+          .card('1')
+          .evaluate((element) =>
+            Boolean(
+              element.compareDocumentPosition(
+                document.querySelector('[data-og7="allocation-create"]')!
+              ) & Node.DOCUMENT_POSITION_FOLLOWING
+            )
+          )
+      ).toBe(true);
+      const project = creation.getByLabel(
+        language === 'en' ? 'Project or supplier' : 'Projet ou fournisseur',
+        { exact: true }
+      );
+      await project.fill('Synthetic unsaved draft');
+      if (language === 'en') {
+        await page.evaluate(() => {
+          document.documentElement.style.fontSize = '200%';
+        });
+        await expectAdminPageFits(page);
+      }
+      await project.scrollIntoViewIfNeeded();
+      await project.focus();
+      await expect(project).toBeInViewport({ ratio: 1 });
+      await expect(project).toHaveValue('Synthetic unsaved draft');
+      expect(state.submissions).toEqual([]);
+      expect(writes).toEqual([]);
+    });
+  }
 
 async function save(
   page: Page,

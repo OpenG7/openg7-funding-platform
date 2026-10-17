@@ -183,16 +183,16 @@
       "palette": "Administration palette",
       "themes": {
         "night": "OpenG7 Night",
-        "mineral": "Mineral Light",
+        "mineral": "OpenG7 Premium Light",
         "graphite": "Graphite"
       },
       "descriptions": {
         "night": "Midnight blue with gold accents.",
-        "mineral": "Light surfaces, clear reading.",
+        "mineral": "Pearl white, navy blue and gold accents.",
         "graphite": "Neutral greys and subtle gold."
       },
       "system": "Follow the system theme",
-      "systemHint": "Mineral Light in light mode and OpenG7 Night in dark mode, following your device.",
+      "systemHint": "Premium Light in light mode and OpenG7 Night in dark mode, following your device.",
       "current": "Current appearance:",
       "density": "Pilotage density",
       "comfortable": "Comfort",
@@ -551,7 +551,7 @@
       "waiting": "Waiting for {{days}} day(s)",
       "exhausted": "Delivery stopped after {{count}} attempts",
       "attempts": "{{count}} / {{max}} attempts",
-      "due": "Due: {{date}",
+      "due": "Due: {{date}}",
       "optionalError": "This section is unavailable. Close and reopen it to try again.",
       "questionError": "Your question could not be processed. You can try again.",
       "prepare": {
@@ -743,7 +743,7 @@
         "unavailable": "The data required for this block is unavailable."
       },
       "stale": "Last successful snapshot retained: these data may be stale.",
-      "source": "Confirmed contributions recorded in PostgreSQL",
+      "source": "Confirmed contributions · Fund records",
       "asOf": "Read at",
       "periods": "Last 30 complete days compared with the preceding 30 days",
       "currency": "Amount currency",
@@ -859,6 +859,7 @@
         "unsaved": "Unsaved changes"
       },
       "workspace": {
+        "context": "Dossier follow-up",
         "financeActions": "Financial actions",
         "navigation": "Dossier navigation",
         "back": "All sponsorships",
@@ -1354,7 +1355,7 @@
       "title": "To do",
       "todayTitle": "To do today",
       "help": "Interventions are ordered by priority. A task disappears when its underlying condition is resolved.",
-      "todayHelp": "Urgent tasks, today’s priorities and due items, using Toronto time.",
+      "todayHelp": "Priorities and deadlines · Toronto time.",
       "viewAll": "View all of today’s tasks",
       "refresh": "Refresh tasks",
       "open": "Open",

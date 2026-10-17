@@ -1,17 +1,17 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
-  color: var(--admin-text);
+  @apply tw:block tw:min-w-0 tw:text-admin-text;
 }
 :host(.active) {
-  position: relative;
+  @apply tw:relative;
   z-index: 10;
 }
 .guidance {
   margin: var(--admin-guidance-margin, 0.75rem 1.75rem 0);
 }
 .guidance.open {
-  position: fixed;
+  @apply tw:fixed;
   inset-block-start: 6rem;
   inset-inline-end: var(--admin-guidance-inline-end, 1.25rem);
   width: min(
@@ -22,9 +22,7 @@
     --admin-guidance-max-height,
     min(36rem, 70dvh, calc(100dvh - 7.5rem))
   );
-  margin: 0;
-  display: flex;
-  flex-direction: column;
+  @apply tw:m-0 tw:flex tw:flex-col;
   border: 1px solid var(--admin-border);
   border-radius: 1.1rem;
   background: var(--admin-panel, var(--admin-bg));
@@ -37,59 +35,51 @@
   inset-block-end: var(--admin-guidance-bottom, 1.25rem);
 }
 .guidance-bar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
+  @apply tw:flex tw:items-center tw:flex-wrap;
   gap: 0.8rem;
 }
 .open .guidance-bar {
-  display: grid;
+  @apply tw:grid;
   grid-template-columns: minmax(0, 1fr) auto;
   flex: 0 0 auto;
   padding: 0.85rem 1rem;
   border-bottom: 1px solid var(--admin-border);
 }
 .open .guidance-bar .admin-button {
-  min-width: 0;
+  @apply tw:min-w-0;
   padding: 0.6rem 0.7rem;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
   line-height: 1.4;
-  white-space: normal;
+  @apply tw:whitespace-normal;
 }
 .open .location {
   grid-column: 1 / -1;
 }
 .location {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
+  @apply tw:flex tw:flex-wrap tw:items-baseline;
   gap: 0.6rem;
-  margin: 0;
+  @apply tw:m-0;
 }
 .location span,
 .step-position,
 .quiet,
 .privacy {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
 }
 .location strong {
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
 }
 .guidance-body {
   flex: 1 1 auto;
-  min-height: 0;
-  padding: 1rem;
-  overflow: auto;
+  @apply tw:min-h-0 tw:p-4 tw:overflow-auto;
   overscroll-behavior: contain;
 }
 .mode-choice {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  @apply tw:flex tw:flex-wrap tw:gap-2;
   margin-block-end: 1rem;
 }
 .mode-choice .admin-button {
-  white-space: normal;
+  @apply tw:whitespace-normal;
   min-height: 2.75rem;
 }
 .mode-choice [aria-pressed='true'] {
@@ -98,18 +88,15 @@
 .step-copy {
   border-left: 3px solid var(--admin-focus);
   padding-left: 0.9rem;
-  margin-bottom: 1rem;
+  @apply tw:mb-4;
   max-width: 64rem;
 }
 .step-position {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  justify-content: space-between;
+  @apply tw:flex tw:flex-wrap tw:gap-4 tw:justify-between;
   font-size: 0.9rem;
 }
 h2 {
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
   font-size: 1.1rem;
   line-height: 1.4;
   margin: 0.45rem 0;
@@ -121,17 +108,15 @@ h2:focus {
 p {
   margin: 0.5rem 0;
   line-height: 1.55;
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }
 .cue-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  @apply tw:flex tw:flex-wrap tw:items-center;
   gap: 0.65rem;
 }
 .cue-actions .admin-button {
   min-height: 2.75rem;
-  white-space: normal;
+  @apply tw:whitespace-normal;
 }
 .pause {
   margin-inline-start: auto;
@@ -139,7 +124,7 @@ p {
 .quiet,
 .privacy,
 .storage-warning {
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 .quiet {
   margin-top: 0.9rem;
@@ -148,7 +133,7 @@ p {
   margin-top: 0.7rem;
 }
 .privacy summary {
-  cursor: pointer;
+  @apply tw:cursor-pointer;
   width: fit-content;
   line-height: 1.5;
 }
@@ -162,13 +147,13 @@ p {
 .saved-cue {
   border-left: 3px solid var(--admin-gold);
   padding-left: 0.9rem;
-  margin-bottom: 1rem;
+  @apply tw:mb-4;
 }
 .storage-warning {
-  color: var(--admin-gold);
+  @apply tw:text-admin-gold;
 }
 .clear-warning {
-  padding: 0.75rem;
+  @apply tw:p-3;
 }
 @media (max-width: 860px) {
   .guidance {
@@ -193,7 +178,7 @@ p {
     gap: 0.65rem;
   }
   .location {
-    width: 100%;
+    @apply tw:w-full;
   }
   .guidance-body {
     padding: 0.85rem;
@@ -202,7 +187,7 @@ p {
     flex: 1 1 100%;
   }
   .pause {
-    margin-inline-start: 0;
+    @apply tw:ms-0;
   }
 }
 @media (prefers-reduced-motion: no-preference) {

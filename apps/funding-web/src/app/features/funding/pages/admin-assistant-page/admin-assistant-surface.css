@@ -1,34 +1,39 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
 }
 h1,
 h2,
 h3,
 h4,
 p {
-  margin: 0;
-}
-h3 {
-  overflow-wrap: anywhere;
+  @apply tw:m-0 tw:min-w-0 tw:wrap-anywhere;
 }
 .muted,
 small {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   line-height: 1.5;
 }
 .notice {
-  padding: 0.8rem;
-  background: var(--admin-panel-raised);
-  border-radius: 0.4rem;
+  @apply tw:rounded-admin-control tw:p-4;
+  background: var(--admin-subtle);
+  border: 1px solid var(--admin-border);
 }
 .error {
-  color: var(--admin-danger);
+  @apply tw:text-admin-danger;
+  background: var(--admin-danger-bg);
+  border-color: var(--admin-danger-border);
 }
-button:focus-visible,
-summary:focus-visible,
-select:focus-visible,
-input:focus-visible {
-  outline: 3px solid var(--admin-accent, #87c8ff);
+.admin-button {
+  @apply tw:max-w-full;
+  white-space: normal;
+  text-align: center;
+}
+.admin-link {
+  @apply tw:inline-flex tw:items-center tw:min-h-11 tw:max-w-full tw:wrap-anywhere;
+}
+:where(a, button, summary, select, input):focus-visible {
+  outline: 3px solid var(--admin-focus);
   outline-offset: 3px;
 }

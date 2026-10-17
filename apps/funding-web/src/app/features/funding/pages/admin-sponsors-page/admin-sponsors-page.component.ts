@@ -53,6 +53,7 @@ import {
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminSponsorDetailMediaComponent } from '../../components/admin-sponsors/admin-sponsor-detail-media.component.js';
 import { AdminSponsorshipProgressComponent } from '../../components/admin-sponsors/admin-sponsorship-progress.component.js';
+import { AdminSponsorshipNextStepComponent } from '../../components/admin-sponsors/admin-sponsorship-next-step.component.js';
 import { AdminSponsorshipGuideComponent } from '../../components/admin-sponsors/admin-sponsorship-guide.component.js';
 import { AdminSponsorshipInterventionsComponent } from '../../components/admin-sponsors/admin-sponsorship-interventions.component.js';
 import { AdminSponsorshipAccessComponent } from '../../components/admin-sponsors/admin-sponsorship-access.component.js';
@@ -92,6 +93,7 @@ import { AdminSponsorsNavigationAdapter } from './admin-sponsors-navigation.adap
     TranslatePipe,
     AdminSponsorDetailMediaComponent,
     AdminSponsorshipProgressComponent,
+    AdminSponsorshipNextStepComponent,
     AdminSponsorshipGuideComponent,
     AdminSponsorshipInterventionsComponent,
     AdminSponsorshipFactsComponent,

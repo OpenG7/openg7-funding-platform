@@ -1,39 +1,33 @@
+@reference '../../../../../styles/tailwind.css';
+:host {
+  --admin-system-cards-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+}
 .section-heading {
-  display: flex;
+  @apply tw:flex tw:flex-wrap;
   align-items: start;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  @apply tw:justify-between tw:gap-4 tw:mb-4;
+}
+.section-heading > div:first-child {
+  @apply tw:min-w-0;
+  flex: 1 1 24rem;
 }
 .section-heading h2 {
-  display: flex;
+  @apply tw:flex tw:flex-wrap;
   gap: 0.65rem;
-  align-items: center;
+  @apply tw:items-center;
 }
 .section-heading h2 openg7-admin-icon {
-  color: var(--og7-admin-accent, #9bd5ed);
+  color: var(--admin-accent);
   font-size: 1.2rem;
 }
 .section-heading p {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
   margin-top: 0.2rem;
 }
 .systems-tools {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
+  @apply tw:flex tw:flex-wrap tw:items-center tw:gap-3 tw:min-w-0 tw:max-w-full;
 }
 .count {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
-}
-@media (max-width: 700px) {
-  .section-heading {
-    align-items: stretch;
-    flex-direction: column;
-  }
-  .systems-tools {
-    justify-content: space-between;
-  }
+  @apply tw:text-admin-muted tw:text-admin-caption tw:wrap-anywhere;
+  font-weight: var(--admin-label-weight);
 }

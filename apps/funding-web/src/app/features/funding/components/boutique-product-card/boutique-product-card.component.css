@@ -1,0 +1,135 @@
+@reference '../../../../../styles/tailwind.css';
+
+:host {
+  @apply tw:block tw:min-w-0;
+}
+
+article {
+  --universe-accent: var(--color-gold);
+  --universe-glow: rgb(184 142 63 / 16%);
+  background: var(--surface-panel);
+  border: 1px solid var(--border-color);
+  @apply tw:rounded-xl tw:h-full tw:overflow-hidden;
+}
+
+article[data-universe='princesses'] {
+  --universe-accent: #844478;
+  --universe-glow: rgb(177 106 189 / 20%);
+}
+
+article[data-universe='unicorns'] {
+  --universe-accent: #286b67;
+  --universe-glow: rgb(91 170 176 / 20%);
+}
+
+a,
+.card-content {
+  color: inherit;
+  @apply tw:flex tw:flex-col tw:h-full;
+  text-decoration: none;
+}
+
+a:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: -3px;
+}
+
+a:hover .product-action {
+  background: var(--color-primary);
+  color: var(--on-primary);
+}
+
+.product-visual {
+  aspect-ratio: 4 / 5;
+  background: var(--surface-page);
+  @apply tw:overflow-hidden;
+}
+
+img {
+  @apply tw:block tw:h-full tw:w-full;
+}
+
+.image-placeholder {
+  @apply tw:items-center;
+  background:
+    radial-gradient(ellipse at 50% 35%, var(--universe-glow), transparent 70%),
+    var(--surface-raised);
+  color: var(--text-soft);
+  @apply tw:flex tw:flex-col tw:gap-6 tw:h-full tw:justify-center tw:p-4 tw:text-center;
+}
+
+.placeholder-mark {
+  border: 1px solid var(--border-color);
+  color: var(--universe-accent);
+  font-family: Georgia, serif;
+  font-size: 3rem;
+  line-height: 1;
+  padding: 1rem 1.35rem;
+}
+
+.product-details {
+  @apply tw:items-start tw:flex;
+  flex: 1;
+  @apply tw:flex-col tw:gap-3 tw:p-6;
+}
+
+.product-status {
+  color: var(--text-soft);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.product-universe {
+  color: var(--universe-accent);
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  @apply tw:uppercase;
+}
+
+h3 {
+  color: var(--text-main);
+  font-family: Georgia, serif;
+  font-size: 1.2rem;
+  line-height: 1.25;
+  @apply tw:m-0 tw:wrap-anywhere;
+}
+
+p,
+.image-placeholder,
+.product-universe,
+.product-status,
+.product-price,
+.product-action {
+  font-family: inherit;
+}
+
+p {
+  color: var(--text-soft);
+  font-size: 1rem;
+  line-height: 1.5;
+  @apply tw:m-0;
+}
+
+.product-price {
+  color: var(--text-main);
+  font-size: 1.1rem;
+}
+
+.product-action {
+  @apply tw:items-center;
+  border: 1px solid var(--color-primary);
+  border-radius: 0.4rem;
+  color: var(--color-primary);
+  @apply tw:flex;
+  font-size: 0.875rem;
+  @apply tw:gap-2 tw:justify-between tw:mt-auto tw:min-h-11;
+  padding: 0.5rem 0.75rem;
+  @apply tw:w-full;
+}
+
+@media (max-width: 560px) {
+  .product-details {
+    @apply tw:p-4;
+  }
+}

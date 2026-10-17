@@ -37,42 +37,8 @@ import { AdminSponsorEditController } from './admin-sponsor-edit-controller.js';
   styleUrls: [
     '../admin-ui/admin-theme.css',
     '../admin-ui/admin-controls.css',
-    '../admin-ui/admin-forms.css'
-  ],
-  styles: [
-    `
-      :host {
-        display: block;
-        padding: 0 1rem 1rem;
-      }
-      form,
-      label {
-        display: grid;
-        gap: 0.5rem;
-      }
-      form {
-        gap: 1rem;
-      }
-      input,
-      select {
-        width: 100%;
-        min-width: 0;
-        box-sizing: border-box;
-      }
-      .actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.75rem;
-      }
-      .error {
-        color: var(--admin-danger);
-      }
-      input:focus-visible,
-      select:focus-visible {
-        outline: 3px solid var(--admin-focus);
-        outline-offset: 2px;
-      }
-    `
+    '../admin-ui/admin-forms.css',
+    './admin-sponsor-edit.component.css'
   ]
 })
 export class AdminSponsorEditComponent {

@@ -4,9 +4,22 @@
   aria-live="polite"
   aria-labelledby="selected-contribution-title"
 >
-  <h3 id="selected-contribution-title">
-    {{ 'admin.legacy.detail_de_la_contribution' | translate }}
-  </h3>
+  <header>
+    <h3 id="selected-contribution-title">
+      {{ 'admin.legacy.detail_de_la_contribution' | translate }}
+    </h3>
+    <a
+      class="admin-button"
+      data-og7="contribution-journey"
+      (click)="followPayment.emit(contribution().id)"
+      routerLink="/admin/fundraiser/contributions"
+      [queryParams]="{
+        contributionId: contribution().id,
+        paymentJourney: contribution().id
+      }"
+      >{{ 'admin.guidance.paymentJourney.followCurrent' | translate }}</a
+    >
+  </header>
   <dl>
     <div>
       <dt>{{ 'admin.legacy.reference' | translate }}</dt>
@@ -26,28 +39,31 @@
     </div>
     <div>
       <dt>{{ 'admin.legacy.statut' | translate }}</dt>
-      <dd>{{ contribution().paymentStatus }}</dd>
+      <dd>
+        <openg7-admin-badge
+          [tone]="
+            contribution().paymentStatus === 'paid'
+              ? 'success'
+              : contribution().paymentStatus === 'pending'
+                ? 'warning'
+                : contribution().paymentStatus === 'failed' ||
+                    contribution().paymentStatus === 'disputed'
+                  ? 'danger'
+                  : 'neutral'
+          "
+          >{{ contribution().paymentStatus }}</openg7-admin-badge
+        >
+      </dd>
     </div>
     <div>
       <dt>{{ 'admin.legacy.montant' | translate }}</dt>
-      <dd>{{ contribution().amountLabel }}</dd>
+      <dd class="amount-value">{{ contribution().amountLabel }}</dd>
     </div>
     <div>
       <dt>{{ 'admin.legacy.date' | translate }}</dt>
-      <dd>
+      <dd class="date-value">
         {{ contribution().dateLabel }}
       </dd>
     </div>
   </dl>
-  <a
-    class="admin-button admin-button--primary"
-    data-og7="contribution-journey"
-    (click)="followPayment.emit(contribution().id)"
-    routerLink="/admin/fundraiser/contributions"
-    [queryParams]="{
-      contributionId: contribution().id,
-      paymentJourney: contribution().id
-    }"
-    >{{ 'admin.guidance.paymentJourney.followCurrent' | translate }}</a
-  >
 </section>

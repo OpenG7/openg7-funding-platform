@@ -1,0 +1,16 @@
+@reference '../../../../../styles/tailwind.css';
+
+.moderation-fields {
+  @apply tw:grid tw:gap-4;
+}
+label {
+  @apply tw:grid;
+  gap: 0.35rem;
+}
+pre {
+  @apply tw:whitespace-pre-wrap tw:wrap-anywhere tw:overflow-auto;
+  max-height: 20rem;
+}
+footer {
+  @apply tw:flex tw:gap-3 tw:flex-wrap;
+}

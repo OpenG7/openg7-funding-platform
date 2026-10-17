@@ -1,9 +1,15 @@
 import { readFile } from 'node:fs/promises';
 
-import type { Download } from '@playwright/test';
+import type { Download, Page } from '@playwright/test';
 import type { AdminSponsorshipInvoiceRecord } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
+import {
+  blockAdminReviewWrites,
+  captureAdminDesign,
+  expectAdminPageFits,
+  prepareAdminDesignReview
+} from './support/admin-design-review.js';
 
 const id = '10000000-0000-4000-8000-000000000711';
 const creditId = '10000000-0000-4000-8000-000000000712';
@@ -113,6 +119,247 @@ function seedSession(language: string): void {
     '2099-01-01T00:00:00Z'
   );
 }
+
+async function documentStyleFixtures(
+  page: Page,
+  language: string,
+  theme: string
+) {
+  await page.addInitScript(seedSession, language);
+  await page.addInitScript((theme) => {
+    localStorage.setItem(
+      'openg7.pilotage.appearance.v1',
+      JSON.stringify({ theme, system: false, density: 'comfortable' })
+    );
+  }, theme);
+  const writes: string[] = [];
+  await page.route('**/api/**', async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (request.method() !== 'GET') {
+      writes.push(path);
+      return route.fulfill({ status: 503, json: {} });
+    }
+    if (path.endsWith('/sponsorship-invoices'))
+      return route.fulfill({
+        json: {
+          ...twoInvoiceListing,
+          summary: { ...twoInvoiceListing.summary, failed_email_count: 1 },
+          invoices: [
+            {
+              ...invoice,
+              credit_notes: invoice.credit_notes.map((credit) => ({
+                ...credit,
+                last_email_status: 'queued'
+              }))
+            },
+            { ...secondInvoice, last_email_status: 'failed' }
+          ]
+        }
+      });
+    return route.fulfill({ status: 503, json: {} });
+  });
+  return writes;
+}
+
+const documentPalettes = {
+  mineral: {
+    panel: 'rgb(255, 255, 255)',
+    selected: 'rgb(237, 243, 250)',
+    text: 'rgb(23, 43, 80)',
+    success: 'rgb(35, 99, 66)',
+    warning: 'rgb(128, 84, 17)',
+    danger: 'rgb(165, 45, 62)'
+  },
+  night: {
+    panel: 'rgb(20, 35, 56)',
+    selected: 'rgb(36, 61, 83)',
+    text: 'rgb(241, 245, 252)',
+    success: 'rgb(161, 231, 177)',
+    warning: 'rgb(255, 218, 133)',
+    danger: 'rgb(255, 181, 188)'
+  },
+  graphite: {
+    panel: 'rgb(37, 41, 47)',
+    selected: 'rgb(56, 67, 79)',
+    text: 'rgb(243, 244, 246)',
+    success: 'rgb(167, 223, 188)',
+    warning: 'rgb(245, 212, 148)',
+    danger: 'rgb(255, 188, 201)'
+  }
+} as const;
+
+for (const language of ['fr-CA', 'en'] as const)
+  for (const width of [390, 1536]) {
+    test(`invoice composition keeps document selection and amounts accessible in ${language} at ${width}px`, async ({
+      page
+    }, testInfo) => {
+      await prepareAdminDesignReview(page);
+      await documentStyleFixtures(page, language, 'mineral');
+      const writes = await blockAdminReviewWrites(page);
+      await page.setViewportSize({
+        width,
+        height: width === 1536 ? 864 : 1000
+      });
+      await page.goto('/admin/fundraiser/invoices');
+      const summary = page.getByRole('region', {
+        name: language === 'en' ? 'Invoice summary' : 'Resume factures',
+        exact: true
+      });
+      const detail = page.getByRole('region', {
+        name: language === 'en' ? 'Invoice details' : 'Detail facture',
+        exact: true
+      });
+      const selections = page.locator('[data-og7="invoice-selection"]');
+      await expect(selections).toHaveCount(2);
+      await expect(summary.getByRole('article')).toHaveCount(5);
+      await expect(detail).toContainText('INV-SYNTHETIC');
+      await expect(detail).toContainText('CAD');
+      await captureAdminDesign(page, testInfo, `invoices-${width}`);
+      if (width === 1536) {
+        for (const metric of await summary.getByRole('article').all())
+          await expect(metric).toBeInViewport({ ratio: 1 });
+        await expect(selections.first()).toBeInViewport({ ratio: 1 });
+        await captureAdminDesign(page, testInfo, 'invoices-detail-1536', true);
+      }
+      await selections.last().focus();
+      await page.keyboard.press('Enter');
+      await expect(detail).toContainText('INV-SYNTHETIC-B');
+      await expect(selections.last()).toHaveAttribute('aria-pressed', 'true');
+      await expect(selections.last()).toBeFocused();
+      if (language === 'en') {
+        await page.evaluate(() => {
+          document.documentElement.style.fontSize = '200%';
+        });
+        await expectAdminPageFits(page);
+        const recipient = detail.getByLabel('Recipient', { exact: true });
+        await recipient.scrollIntoViewIfNeeded();
+        await recipient.focus();
+        await expect(recipient).toBeInViewport({ ratio: 1 });
+        await expect(recipient).toHaveValue('other@example.test');
+      }
+      expect(writes).toEqual([]);
+    });
+  }
+
+for (const theme of ['mineral', 'night', 'graphite'] as const) {
+  for (const { language, width } of [
+    { language: 'fr-CA', width: 390 },
+    { language: 'en', width: 1280 }
+  ]) {
+    test(`invoice and credit-note surfaces keep delivery states readable with ${theme} in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      const palette = documentPalettes[theme];
+      const english = language === 'en';
+      await page.setViewportSize({ width, height: 950 });
+      const writes = await documentStyleFixtures(page, language, theme);
+      await page.goto('/admin/fundraiser/invoices');
+      const summary = page.getByRole('region', {
+        name: english ? 'Invoice summary' : 'Resume factures',
+        exact: true
+      });
+      const detail = page.getByRole('region', {
+        name: english ? 'Invoice details' : 'Detail facture',
+        exact: true
+      });
+      const selections = page.locator('[data-og7="invoice-selection"]');
+      await expect(selections).toHaveCount(2);
+      await expect(summary.getByRole('article')).toHaveCount(5);
+      await expect(detail).toHaveCSS('background-color', palette.panel);
+      await expect(summary).toHaveCSS('background-color', palette.panel);
+      await expect(selections.first()).toHaveCSS(
+        'background-color',
+        palette.selected
+      );
+      await expect(selections.first()).toHaveCSS('color', palette.text);
+      await expect(
+        selections.first().locator('openg7-admin-document-email-status span')
+      ).toHaveCSS('color', palette.success);
+      await expect(
+        selections.last().locator('openg7-admin-document-email-status span')
+      ).toHaveCSS('color', palette.danger);
+      await expect(
+        page
+          .locator('[data-og7="credit-note"]')
+          .locator('openg7-admin-document-email-status span')
+      ).toHaveCSS('color', palette.warning);
+
+      const recipient = page.getByLabel(
+        english ? 'Recipient' : 'Destinataire',
+        {
+          exact: true
+        }
+      );
+      await expect(recipient).toHaveValue('original@example.test');
+      await expect(recipient).toHaveCSS('background-color', palette.panel);
+      await expect(recipient).toHaveCSS('color', palette.text);
+      const bounds = await recipient.boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds!.x).toBeGreaterThanOrEqual(0);
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+
+      const resend = detail.getByRole('button', {
+        name: english ? 'Resend' : 'Renvoyer',
+        exact: true
+      });
+      await resend.focus();
+      await page.keyboard.press('Enter');
+      const dialog = page.getByRole('dialog');
+      await expect(dialog).toContainText('INV-SYNTHETIC');
+      await dialog
+        .getByRole('button', {
+          name: english ? 'Cancel' : 'Annuler',
+          exact: true
+        })
+        .last()
+        .click();
+      await expect(resend).toBeFocused();
+      expect(writes).toEqual([]);
+    });
+  }
+}
+
+test('invoice identities, summary and delivery controls fit resized viewports with accessible document selection', async ({
+  page
+}) => {
+  await documentStyleFixtures(page, 'fr-CA', 'mineral');
+  await page.goto('/admin/fundraiser/invoices');
+  const summary = page.getByRole('region', {
+    name: 'Resume factures',
+    exact: true
+  });
+  const board = page.getByRole('region', {
+    name: 'Factures admin',
+    exact: true
+  });
+  const identity = page.getByRole('region', {
+    name: 'Identite facture',
+    exact: true
+  });
+  const selected = page.locator('[data-og7="invoice-selection"]').first();
+  await expect(selected).toHaveAttribute('aria-pressed', 'true');
+  for (const width of [
+    390, 619, 620, 621, 859, 860, 861, 1079, 1080, 1081, 1536
+  ]) {
+    await page.setViewportSize({ width, height: 950 });
+    await expect(summary.getByRole('article')).toHaveCount(5);
+    await expect(selected).toHaveAttribute('aria-pressed', 'true');
+    for (const surface of [board, identity, selected]) {
+      const bounds = (await surface.boundingBox())!;
+      expect(bounds.x).toBeGreaterThanOrEqual(-1);
+      expect(bounds.x + bounds.width).toBeLessThanOrEqual(width + 1);
+    }
+    await expect(selected).toContainText('INV-SYNTHETIC');
+    const recipient = page.getByLabel('Destinataire', { exact: true });
+    expect((await recipient.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1
+      )
+    ).toBe(true);
+  }
+});
 
 for (const language of ['fr-CA', 'en'])
   for (const width of [390, 1280]) {
@@ -688,7 +935,9 @@ for (const language of ['fr-CA', 'en'])
           : 'Générer la facture de ce dossier',
         exact: true
       });
+      await expect(generate).toBeEnabled();
       await generate.focus();
+      await expect(generate).toBeFocused();
       await page.keyboard.press('Enter');
       const dialog = page.getByRole('dialog');
       await expect(dialog).toContainText(id);

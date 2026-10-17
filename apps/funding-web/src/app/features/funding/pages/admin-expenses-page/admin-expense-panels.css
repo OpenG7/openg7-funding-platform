@@ -1,73 +1,109 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
+  container: expense-panel / inline-size;
 }
 
 .create-panel,
 .expense-card {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.45rem;
-  display: grid;
-  gap: 1rem;
-  min-width: 0;
-  padding: 1rem;
+  @apply tw:grid tw:min-w-0 tw:p-admin-card tw:rounded-admin-card;
+  gap: var(--admin-card-gap);
+}
+
+.create-panel {
+  border-top: 3px solid var(--admin-border);
 }
 
 header,
 footer {
-  align-items: center;
-  display: flex;
-  gap: 0.75rem;
-  justify-content: space-between;
+  @apply tw:flex tw:flex-wrap tw:items-center tw:gap-3;
 }
 
-span {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+header {
+  padding-bottom: var(--admin-card-gap);
+  border-bottom: 1px solid var(--admin-border);
+}
+
+header > div {
+  @apply tw:min-w-0;
+}
+
+.expense-heading {
+  flex: 1 1 14rem;
+  @apply tw:grid tw:justify-items-start tw:gap-2;
+}
+
+.expense-status {
+  @apply tw:text-admin-muted tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
-  letter-spacing: 0;
-  text-transform: uppercase;
+  padding: 0.25rem 0.6rem;
+  background: var(--admin-panel-raised);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-control);
 }
 
 h2 {
-  margin: 0;
+  @apply tw:m-0 tw:wrap-anywhere;
+  font-size: var(--admin-section-size, 1.1875rem);
+  line-height: var(--admin-section-leading, 1.4);
+  font-weight: var(--admin-section-weight, 600);
 }
 
-button {
-  background: var(--admin-panel-raised);
-  border: 0;
-  border-radius: 0.35rem;
-  color: var(--admin-text);
-  cursor: pointer;
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-  font-weight: var(--admin-control-weight);
-  min-height: 2.55rem;
-  padding: 0 0.85rem;
+.expense-amount {
+  @apply tw:wrap-anywhere;
+  font-size: clamp(1.125rem, 1.5vw, 1.375rem);
+  line-height: 1.3;
+  font-weight: var(--admin-emphasis-weight);
+  font-variant-numeric: tabular-nums;
 }
 
-button.approve {
-  background: var(--og7-admin-success-bg, #193d32);
+.proof-action {
+  margin-inline-start: auto;
 }
 
-button.neutral {
-  background: var(--admin-panel-raised);
+footer {
+  padding-top: var(--admin-card-gap);
+  border-top: 1px solid var(--admin-border);
 }
 
-button.reject {
-  background: var(--og7-admin-danger-bg, #422532);
+.create-panel footer .admin-button {
+  width: 100%;
 }
 
 .expense-card footer {
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  @apply tw:justify-end;
 }
 
-@media (max-width: 900px) {
-  header {
-    align-items: start;
-    flex-direction: column;
+.admin-button {
+  @apply tw:min-h-admin-control;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.admin-button.approve:not(:disabled) {
+  color: var(--admin-success);
+  border-color: var(--admin-success-border);
+  background: var(--admin-success-bg);
+}
+
+.admin-button.reject:not(:disabled) {
+  color: var(--admin-danger);
+  border-color: var(--admin-danger-border);
+  background: var(--admin-danger-bg);
+}
+
+@container expense-panel (max-width: 34rem) {
+  .expense-heading {
+    flex-basis: 100%;
+  }
+  .expense-card footer .admin-button {
+    flex: 1 1 10rem;
+  }
+  .proof-action {
+    margin-inline-start: 0;
   }
 }

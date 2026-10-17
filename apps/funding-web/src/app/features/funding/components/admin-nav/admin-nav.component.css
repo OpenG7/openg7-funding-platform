@@ -1,136 +1,115 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
 }
 aside {
+  @apply tw:flex tw:flex-col tw:min-h-screen tw:py-4 tw:px-3;
   background: var(--admin-sidebar);
   border-right: 1px solid var(--admin-border);
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  padding: 1rem 0.75rem;
 }
 .brand {
   padding: 0 0.5rem 1.25rem;
   border-bottom: 1px solid var(--admin-border);
 }
 .brand-link {
-  align-items: center;
-  color: var(--admin-text);
-  display: flex;
-  gap: 0.75rem;
+  @apply tw:flex tw:items-center tw:text-admin-text tw:gap-3;
   text-decoration: none;
 }
 .brand-mark {
-  align-items: center;
+  @apply tw:flex tw:items-center tw:justify-center tw:size-10;
   background: var(--og7-admin-primary, var(--admin-gold));
   border: 1px solid var(--admin-border);
   border-radius: 50%;
   color: var(--og7-admin-on-primary, #101827);
-  display: flex;
   flex: 0 0 auto;
   font-weight: var(--admin-emphasis-weight);
-  height: 2.5rem;
-  justify-content: center;
-  width: 2.5rem;
 }
 strong {
-  display: block;
+  @apply tw:block;
   font-size: 1.375rem;
   line-height: 1.2;
 }
 small {
-  color: var(--admin-muted);
-  display: block;
+  @apply tw:text-admin-muted tw:block tw:uppercase;
   font-size: var(--admin-secondary-size, 0.875rem);
   margin-top: 0.3rem;
-  text-transform: uppercase;
 }
 .navigation-content {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
+  @apply tw:flex tw:flex-1 tw:flex-col;
 }
 nav {
-  margin-top: 1rem;
+  @apply tw:mt-4;
 }
 section + section {
-  margin-top: 1rem;
+  @apply tw:mt-5;
 }
 h2 {
+  @apply tw:uppercase;
   color: var(--og7-admin-muted, #9eafc5);
   font-size: var(--admin-secondary-size, 0.875rem);
   font-weight: var(--admin-label-weight);
   letter-spacing: 0.06em;
   margin: 0 0 0.5rem;
   padding: 0 0.75rem;
-  text-transform: uppercase;
 }
 nav a,
 footer a,
 footer button {
-  align-items: center;
+  @apply tw:flex tw:items-center tw:rounded-lg tw:text-admin-text tw:gap-2.5;
+  @apply tw:min-h-admin-control tw:py-2.5 tw:px-3 tw:text-admin-navigation;
   border: 1px solid transparent;
-  border-radius: 0.5rem;
-  color: var(--admin-text);
-  display: flex;
-  gap: 0.625rem;
-  min-height: var(--admin-control-height, 2.75rem);
-  padding: 0.625rem 0.75rem;
   text-decoration: none;
-  font-size: var(--admin-navigation-size, 0.9375rem);
   line-height: 1.4;
+  transition:
+    background-color var(--admin-motion-duration) var(--admin-motion-easing),
+    border-color var(--admin-motion-duration) var(--admin-motion-easing),
+    color var(--admin-motion-duration) var(--admin-motion-easing);
 }
 nav a:hover,
 footer a:hover,
 footer button:hover {
-  background: var(--admin-panel-raised);
+  background: var(--admin-hover);
 }
 nav a.active {
-  background: var(--og7-admin-selected, #30322d);
-  box-shadow: inset 3px 0 0 var(--admin-gold);
+  background: var(--admin-selected);
+  border-color: var(--admin-border);
+  box-shadow: inset 3px 0 0 var(--admin-accent);
+  @apply tw:text-admin-accent;
   font-weight: var(--admin-label-weight);
 }
 openg7-admin-icon {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   font-size: 1.25rem;
 }
 a.active openg7-admin-icon {
-  color: var(--admin-gold);
+  @apply tw:text-admin-accent;
 }
 footer {
-  margin-top: auto;
-  padding-top: 1rem;
+  @apply tw:mt-auto tw:pt-4;
 }
 footer button {
+  @apply tw:cursor-pointer tw:w-full tw:text-left;
   background: transparent;
-  cursor: pointer;
   font-family: inherit;
-  width: 100%;
-  text-align: left;
 }
 .signature {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted tw:py-3 tw:px-2 tw:text-center;
   font-size: var(--admin-secondary-size, 0.875rem);
-  padding: 0.75rem 0.5rem;
-  text-align: center;
 }
 .signature openg7-admin-icon {
-  color: var(--admin-gold);
+  @apply tw:text-admin-gold;
   font-size: 2rem;
 }
 .signature p {
   margin: 0.4rem 0 0;
 }
 .menu-toggle {
-  display: none;
+  @apply tw:hidden;
 }
 @media (min-width: 861px) {
   aside.collapsible {
-    position: sticky;
-    top: 0;
-    max-height: 100vh;
-    overflow-y: auto;
+    @apply tw:sticky tw:top-0 tw:max-h-screen tw:overflow-y-auto;
   }
 }
 @media (max-width: 860px) {
@@ -140,43 +119,38 @@ footer button {
     border-right: 0;
   }
   .brand {
-    align-items: center;
-    display: flex;
+    @apply tw:flex tw:items-center tw:justify-between;
     gap: 0.7rem;
-    justify-content: space-between;
   }
   .collapsible .brand {
     border: 0;
     padding-bottom: 0.15rem;
   }
   .collapsible .menu-toggle {
-    display: inline-flex;
+    @apply tw:inline-flex;
   }
   .collapsible:not(.expanded) .navigation-content {
-    display: none;
+    @apply tw:hidden;
   }
   nav {
-    display: grid;
-    gap: 1rem;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    @apply tw:grid tw:gap-4 tw:grid-cols-2;
   }
   section + section {
-    margin-top: 0;
+    @apply tw:mt-0;
   }
   .signature {
-    display: none;
+    @apply tw:hidden;
   }
   footer {
-    display: flex;
-    flex-wrap: wrap;
+    @apply tw:flex tw:flex-wrap;
   }
   footer button {
-    width: auto;
+    @apply tw:w-auto;
   }
 }
 @media (max-width: 480px) {
   .collapsible .brand-link > span:last-child {
-    display: none;
+    @apply tw:hidden;
   }
 }
 @media (max-width: 400px) {
@@ -187,22 +161,17 @@ footer button {
     font-size: 1.15rem;
   }
   .brand-mark {
-    width: 2.5rem;
-    height: 2.5rem;
+    @apply tw:size-10;
   }
 }
 :host .action-count {
-  margin-left: auto;
+  @apply tw:ml-auto tw:text-admin-danger;
   border-radius: 999px;
   background: var(--admin-danger-bg);
-  color: var(--admin-danger);
   padding: 0.1rem 0.45rem;
   font-size: var(--admin-secondary-size, 0.875rem);
 }
 :host .count-description {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
+  @apply tw:absolute tw:size-px tw:overflow-hidden;
   clip-path: inset(50%);
 }

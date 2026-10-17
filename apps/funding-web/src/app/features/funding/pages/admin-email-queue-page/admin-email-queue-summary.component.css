@@ -1,52 +1,85 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
+  @apply tw:block tw:min-w-0 tw:w-full;
   margin: 0 auto;
   max-width: 88rem;
-  min-width: 0;
-  width: 100%;
+  container: email-queue-summary / inline-size;
 }
 
 .summary-grid {
-  display: grid;
-  gap: 0.75rem;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  @apply tw:grid tw:rounded-admin-card;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+  background: var(--admin-border);
+  border: 1px solid var(--admin-border);
+  overflow: clip;
 }
 
 article {
   background: var(--admin-panel);
-  border: 1px solid var(--admin-border);
-  border-radius: 0.45rem;
-  display: grid;
-  gap: 0.25rem;
-  min-height: 6.25rem;
-  padding: 1rem;
+  @apply tw:grid tw:min-w-0 tw:gap-1 tw:p-4;
+  align-content: start;
+}
+
+article:last-of-type {
+  grid-column: 1 / -1;
 }
 
 span {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption tw:wrap-anywhere;
   font-weight: var(--admin-label-weight);
   letter-spacing: 0;
-  text-transform: uppercase;
 }
 
 strong {
-  font-size: 1.55rem;
-  line-height: 1.1;
+  @apply tw:wrap-anywhere;
+  font-size: 1.75rem;
+  font-weight: var(--admin-emphasis-weight);
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
 }
 
 small {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted tw:text-admin-caption tw:wrap-anywhere;
+  line-height: 1.5;
 }
 
-@media (max-width: 1080px) {
+.summary-meta {
+  @apply tw:grid tw:min-w-0 tw:gap-2;
+  grid-column: 1 / -1;
+  background: var(--admin-panel);
+  padding: 0.75rem 1rem;
+}
+
+.snapshot {
+  @apply tw:flex tw:flex-wrap tw:items-baseline;
+  gap: 0.35rem 0.75rem;
+}
+
+.snapshot strong {
+  font-size: 1rem;
+  font-weight: var(--admin-label-weight);
+  line-height: 1.5;
+}
+
+.summary-meta p {
+  @apply tw:m-0 tw:text-admin-muted tw:text-admin-caption tw:wrap-anywhere;
+  line-height: 1.5;
+}
+
+@container email-queue-summary (min-width: 22rem) {
   .summary-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    @apply tw:grid-cols-2;
   }
 }
 
-@media (max-width: 620px) {
+@container email-queue-summary (min-width: 60rem) {
   .summary-grid {
-    grid-template-columns: 1fr;
+    @apply tw:grid-cols-5;
+  }
+
+  article:last-of-type {
+    grid-column: auto;
   }
 }

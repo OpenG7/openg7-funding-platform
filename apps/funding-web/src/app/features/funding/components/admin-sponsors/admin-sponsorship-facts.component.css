@@ -1,0 +1,29 @@
+@reference '../../../../../styles/tailwind.css';
+
+:host {
+  @apply tw:block;
+}
+section {
+  @apply tw:p-4 tw:text-admin-text;
+}
+article {
+  padding: 0.8rem 0;
+  border-bottom: 1px solid var(--admin-border);
+}
+dl {
+  @apply tw:flex tw:flex-wrap tw:gap-4;
+}
+dt {
+  @apply tw:text-admin-caption;
+}
+dd {
+  margin: 0.2rem 0;
+}
+a {
+  @apply tw:text-admin-muted;
+  font-weight: var(--admin-control-weight);
+}
+a:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 3px;
+}

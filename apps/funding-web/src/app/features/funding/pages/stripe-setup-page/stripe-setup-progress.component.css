@@ -1,29 +1,27 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
 }
 
 .setup-progress {
   background: var(--surface-panel);
   border: 1px solid var(--border-color);
   border-radius: 0.75rem;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  @apply tw:grid tw:grid-cols-3;
   list-style: none;
-  overflow: hidden;
-  padding: 0;
-  gap: 1rem;
+  @apply tw:overflow-hidden tw:p-0 tw:gap-4;
 }
 
 .setup-progress li {
-  align-items: center;
+  @apply tw:items-center;
   border-right: 1px solid var(--border-color);
-  display: grid;
+  @apply tw:grid;
   gap: 0.8rem;
   grid-template-columns: auto 1fr;
   min-height: 3.65rem;
   padding: 0.55rem 0.7rem;
-  position: relative;
+  @apply tw:relative;
 }
 
 .setup-progress li:last-child {
@@ -39,11 +37,9 @@
   border: 2px solid var(--border-color);
   border-radius: 999px;
   color: var(--text-main);
-  display: grid;
+  @apply tw:grid;
   font-weight: 900;
-  height: 2rem;
-  place-items: center;
-  width: 2rem;
+  @apply tw:h-8 tw:place-items-center tw:w-8;
 }
 
 .setup-progress li.complete span {
@@ -62,9 +58,9 @@
 
 .setup-progress em {
   color: var(--text-main);
-  display: block;
+  @apply tw:block;
   font-size: 0.875rem;
-  font-style: normal;
+  @apply tw:not-italic;
   margin-top: 0.1rem;
 }
 

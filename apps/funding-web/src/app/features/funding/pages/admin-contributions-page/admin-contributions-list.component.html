@@ -17,19 +17,36 @@
     }}</small>
   </header>
 
-  <div class="table-scroll" *ngIf="rows().length > 0">
+  <div
+    class="table-scroll"
+    *ngIf="rows().length > 0"
+    tabindex="0"
+    role="group"
+    aria-labelledby="contributions-title"
+  >
     <table>
+      <caption class="table-caption">
+        {{
+          'admin.legacy.liste_admin' | translate
+        }}
+      </caption>
       <thead>
         <tr>
-          <th>{{ 'admin.legacy.type' | translate }}</th>
-          <th>{{ 'admin.legacy.reference' | translate }}</th>
-          <th>{{ 'admin.legacy.nom' | translate }}</th>
-          <th>{{ 'admin.legacy.courriel' | translate }}</th>
-          <th>{{ 'admin.legacy.statut' | translate }}</th>
-          <th>{{ 'admin.legacy.public' | translate }}</th>
-          <th>{{ 'admin.legacy.commandite' | translate }}</th>
-          <th>{{ 'admin.legacy.montant' | translate }}</th>
-          <th>{{ 'admin.legacy.date' | translate }}</th>
+          <th scope="col">{{ 'admin.legacy.reference' | translate }}</th>
+          <th scope="col">{{ 'admin.legacy.nom' | translate }}</th>
+          <th scope="col" class="status-cell">
+            {{ 'admin.legacy.statut' | translate }}
+          </th>
+          <th scope="col" class="amount-cell">
+            {{ 'admin.legacy.montant' | translate }}
+          </th>
+          <th scope="col" class="type-cell">
+            {{ 'admin.legacy.type' | translate }}
+          </th>
+          <th scope="col">{{ 'admin.legacy.courriel' | translate }}</th>
+          <th scope="col">{{ 'admin.legacy.public' | translate }}</th>
+          <th scope="col">{{ 'admin.legacy.commandite' | translate }}</th>
+          <th scope="col">{{ 'admin.legacy.date' | translate }}</th>
         </tr>
       </thead>
       <tbody>
@@ -45,22 +62,36 @@
             $event.preventDefault(); selected.emit(contribution.id)
           "
         >
-          <td>{{ contribution.typeLabel }}</td>
           <td class="reference-cell">
             {{
               contribution.reference ||
                 ('admin.legacy.non_attribuee' | translate)
             }}
           </td>
-          <td>{{ contribution.name }}</td>
-          <td>{{ contribution.emailLabel }}</td>
-          <td>{{ contribution.paymentStatus }}</td>
-          <td>{{ contribution.publicDisplayLabel }}</td>
-          <td>{{ contribution.sponsorStatusLabel }}</td>
-          <td>
+          <td class="name-cell">{{ contribution.name }}</td>
+          <td class="status-cell">
+            <openg7-admin-badge
+              [tone]="
+                contribution.paymentStatus === 'paid'
+                  ? 'success'
+                  : contribution.paymentStatus === 'pending'
+                    ? 'warning'
+                    : contribution.paymentStatus === 'failed' ||
+                        contribution.paymentStatus === 'disputed'
+                      ? 'danger'
+                      : 'neutral'
+              "
+              >{{ contribution.paymentStatus }}</openg7-admin-badge
+            >
+          </td>
+          <td class="amount-cell">
             {{ contribution.amountLabel }}
           </td>
-          <td>
+          <td class="type-cell">{{ contribution.typeLabel }}</td>
+          <td>{{ contribution.emailLabel }}</td>
+          <td>{{ contribution.publicDisplayLabel }}</td>
+          <td>{{ contribution.sponsorStatusLabel }}</td>
+          <td class="date-cell">
             {{ contribution.dateLabel }}
           </td>
         </tr>

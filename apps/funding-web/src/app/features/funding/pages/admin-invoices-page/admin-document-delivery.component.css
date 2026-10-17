@@ -1,70 +1,41 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: grid;
-  gap: 0.7rem;
-  min-width: 0;
-}
-
-button {
-  border: 0;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-}
-
-.primary-action {
-  background: var(--admin-panel-raised);
-  border-radius: 0.4rem;
-  color: var(--admin-text);
-  font-weight: var(--admin-control-weight);
-  min-height: 2.45rem;
-  padding: 0 0.95rem;
-}
-
-.primary-action:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
+  @apply tw:grid tw:min-w-0 tw:gap-4;
 }
 
 label {
-  color: var(--admin-muted);
-  display: grid;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:grid tw:min-w-0 tw:gap-2 tw:text-admin-muted tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
-  gap: 0.35rem;
-  text-transform: uppercase;
 }
 
 input {
-  background: var(--admin-panel);
-  border: 1px solid var(--admin-border);
-  border-radius: 0.35rem;
-  color: var(--admin-text);
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-  font-weight: 400;
-  min-height: 2.5rem;
-  padding: 0 0.75rem;
-  text-transform: none;
+  @apply tw:w-full;
+  font-size: var(--admin-body-size, 1rem);
+}
+
+.primary-action {
+  @apply tw:cursor-pointer tw:py-2.5 tw:px-4;
+  line-height: 1.4;
 }
 
 .resend-actions {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+  @apply tw:flex tw:min-w-0 tw:flex-wrap tw:items-center tw:gap-3;
 }
 
 .resend-message {
-  color: var(--admin-muted);
-  font-weight: 500;
+  @apply tw:min-w-0 tw:text-admin-muted tw:wrap-anywhere;
 }
 
 .resend-message.success {
-  color: var(--admin-success);
+  @apply tw:text-admin-success;
 }
 
 .resend-message.error {
-  color: var(--admin-danger);
+  @apply tw:text-admin-danger;
+}
+
+.resend-actions a {
+  @apply tw:inline-flex tw:min-h-admin-control tw:max-w-full tw:items-center tw:py-2 tw:wrap-anywhere;
+  text-underline-offset: 0.2em;
 }

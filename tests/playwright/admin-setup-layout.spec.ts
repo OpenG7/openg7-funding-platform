@@ -5,6 +5,12 @@ import type { CockpitSystem } from '@openg7/funding-core';
 import { expect, test } from './support/test.js';
 import { cockpitFixtures } from './support/cockpit-fixtures.js';
 import {
+  blockAdminReviewWrites,
+  captureAdminDesign,
+  expectAdminPageFits,
+  prepareAdminDesignReview
+} from './support/admin-design-review.js';
+import {
   installAdminTokenSession,
   setupFixture
 } from './support/setup-fixtures.js';
@@ -76,6 +82,233 @@ const recommendation = (page: Page) =>
   page.locator('[data-og7="setup-recommendation"]');
 const card = (page: Page, id: string) =>
   page.locator(`[data-og7="setup-system"][data-og7-id="${id}"]`);
+
+const setupPalettes = {
+  mineral: {
+    panel: 'rgb(255, 255, 255)',
+    raised: 'rgb(240, 244, 249)',
+    border: 'rgb(216, 224, 236)',
+    text: 'rgb(23, 43, 80)'
+  },
+  night: {
+    panel: 'rgb(20, 35, 56)',
+    raised: 'rgb(27, 45, 68)',
+    border: 'rgb(64, 86, 111)',
+    text: 'rgb(241, 245, 252)'
+  },
+  graphite: {
+    panel: 'rgb(37, 41, 47)',
+    raised: 'rgb(50, 56, 65)',
+    border: 'rgb(86, 97, 110)',
+    text: 'rgb(243, 244, 246)'
+  }
+} as const;
+
+for (const language of ['fr-CA', 'en'] as const)
+  for (const width of [390, 1536]) {
+    test(`setup composition keeps observations and configuration distinct in ${language} at ${width}px`, async ({
+      page
+    }, testInfo) => {
+      await prepareAdminDesignReview(page);
+      const data = await installFixtures(page, language);
+      const writes = await blockAdminReviewWrites(page);
+      await page.setViewportSize({
+        width,
+        height: width === 1536 ? 864 : 1000
+      });
+      await page.goto('/admin/fundraiser/setup');
+      await expect(page.locator('[data-og7="setup-system"]')).toHaveCount(5);
+      await expect(card(page, 'database')).toHaveAttribute(
+        'data-state',
+        'operational'
+      );
+      await expect(page.locator('#setup-readiness')).toContainText(
+        language === 'en'
+          ? 'OIDC checks validate neither client sign-in nor MFA'
+          : 'Les contrôles OIDC ne valident ni la connexion du client ni le MFA'
+      );
+      await captureAdminDesign(page, testInfo, `configuration-${width}`);
+      if (width === 1536) {
+        await expect(page.locator('#setup-readiness > header')).toBeInViewport({
+          ratio: 1
+        });
+        await expect(
+          page.locator('[data-og7="setup-system"]').first()
+        ).toBeInViewport({ ratio: 1 });
+        await captureAdminDesign(
+          page,
+          testInfo,
+          `configuration-complete-${width}`,
+          true
+        );
+      }
+      const guide = root(page).getByRole('button', {
+        name: 'Guide',
+        exact: true
+      });
+      await guide.focus();
+      await page.keyboard.press('Enter');
+      await expect(page.getByRole('dialog')).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(guide).toBeFocused();
+      if (language === 'en') {
+        await page.evaluate(() => {
+          document.documentElement.style.fontSize = '200%';
+        });
+        await expectAdminPageFits(page);
+        const databaseTitle = card(page, 'database').locator('strong').first();
+        const titleLines = await databaseTitle.evaluate(
+          (element) =>
+            element.getBoundingClientRect().height /
+            Number.parseFloat(getComputedStyle(element).lineHeight)
+        );
+        expect(titleLines).toBeLessThanOrEqual(2);
+      }
+      await root(page)
+        .getByRole('navigation', {
+          name:
+            language === 'en'
+              ? 'Configuration sections'
+              : 'Sections de configuration'
+        })
+        .getByRole('button', { name: 'Configuration', exact: true })
+        .click();
+      await expect(page.locator('#setup-env')).toBeFocused();
+      await expect(
+        page.locator('[data-og7="setup-configuration-table"]')
+      ).toBeVisible();
+      await expectAdminPageFits(page);
+      expect(writes).toEqual([]);
+      expect(data.writes).toBe(0);
+    });
+  }
+
+for (const theme of ['mineral', 'night', 'graphite'] as const) {
+  test(`setup CSS preserves ${theme} panels and keyboard configuration disclosure on French mobile and English desktop`, async ({
+    page
+  }) => {
+    const data = await installFixtures(page);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.addInitScript((theme) => {
+      localStorage.setItem(
+        'openg7.pilotage.appearance.v1',
+        JSON.stringify({
+          theme,
+          system: false,
+          density: 'comfortable'
+        })
+      );
+    }, theme);
+    await page.setViewportSize({ width: 390, height: 1000 });
+    await page.goto('/admin/fundraiser/setup');
+    const palette = setupPalettes[theme];
+    const readiness = root(page).locator('#setup-readiness');
+    const checklist = root(page).locator('[data-og7="setup-checklist"]');
+    const environment = root(page).locator('#setup-env');
+    const email = root(page).locator('#setup-email');
+    await expect(card(page, 'database')).toBeVisible();
+    for (const language of ['fr-CA', 'en']) {
+      await test.step(
+        language === 'fr-CA' ? '390px French' : '1600px English',
+        async () => {
+          if (language === 'en') {
+            await page.setViewportSize({ width: 1600, height: 1000 });
+            await page
+              .getByRole('button', {
+                name: 'Switch administration language to English'
+              })
+              .click();
+          }
+          await expect(page.locator('html')).toHaveAttribute('lang', language);
+          await expect(page.locator('html')).toHaveAttribute(
+            'data-og7-pilot-theme',
+            theme
+          );
+          for (const panel of [readiness, checklist, environment, email]) {
+            await expect(panel).toHaveCSS('background-color', palette.panel);
+            await expect(panel).toHaveCSS('border-top-color', palette.border);
+          }
+          const next = recommendation(page);
+          await expect(next).toBeVisible();
+          expect(
+            (await next.locator(':scope > a, :scope > button').boundingBox())!
+              .height
+          ).toBeGreaterThanOrEqual(44);
+          const input = email.getByRole('textbox');
+          await expect(input).toHaveCSS('color', palette.text);
+          expect((await input.boundingBox())!.height).toBeGreaterThanOrEqual(
+            44
+          );
+          await expect(
+            root(page).locator('#setup-queue strong').first()
+          ).toHaveCSS('font-variant-numeric', 'tabular-nums');
+          expect(
+            (await checklist.locator('li button').first().boundingBox())!.height
+          ).toBeGreaterThanOrEqual(44);
+          const disclosure = environment.locator('summary');
+          await disclosure.focus();
+          await page.keyboard.press('Enter');
+          const scrolling = page.locator(
+            '[data-og7="setup-configuration-table"]'
+          );
+          await expect(scrolling).toBeVisible();
+          await expect(scrolling).toHaveCSS('overflow-x', 'auto');
+          await scrolling.focus();
+          if (language === 'fr-CA') {
+            await page.keyboard.press('ArrowRight');
+            await expect
+              .poll(() => scrolling.evaluate((node) => node.scrollLeft))
+              .toBeGreaterThan(0);
+          }
+          await disclosure.focus();
+          await page.keyboard.press('Space');
+          await expect(scrolling).toBeHidden();
+          expect(
+            await page.evaluate(
+              () => document.documentElement.scrollWidth <= innerWidth + 1
+            )
+          ).toBe(true);
+          expect(data.writes).toBe(0);
+        }
+      );
+    }
+  });
+}
+
+test('setup keeps diagnostics and controls within resized content', async ({
+  page
+}) => {
+  const data = await installFixtures(page);
+  await page.goto('/admin/fundraiser/setup');
+  await expect(card(page, 'database')).toBeVisible();
+  const services = root(page).locator('openg7-admin-setup-services');
+  const workspace = services.locator('..');
+  const sidebar = root(page).locator('aside');
+  const action = recommendation(page).locator(':scope > a, :scope > button');
+  for (const width of [390, 700, 1000, 1350, 1536]) {
+    await test.step(`${width}px`, async () => {
+      await page.setViewportSize({ width, height: 1000 });
+      const bounds = (await workspace.boundingBox())!;
+      for (const surface of [services, sidebar]) {
+        const box = (await surface.boundingBox())!;
+        expect(box.x).toBeGreaterThanOrEqual(bounds.x);
+        expect(box.x + box.width).toBeLessThanOrEqual(
+          bounds.x + bounds.width + 1
+        );
+      }
+      for (const control of [
+        action,
+        root(page).locator('#setup-email').getByRole('textbox')
+      ]) {
+        expect((await control.boundingBox())!.height).toBeGreaterThanOrEqual(
+          44
+        );
+      }
+      await expectAdminPageFits(page);
+      expect(data.writes).toBe(0);
+    });
+  }
+});
 
 for (const language of ['fr-CA', 'en']) {
   for (const width of [390, 1600]) {
@@ -330,7 +563,8 @@ test('expired service observations remove the reassuring recommendation without 
   markSystemsOperational(data);
   await page.goto('/admin/fundraiser/setup');
   await expect(recommendation(page)).toHaveAttribute('data-tone', 'success');
-  await page.clock.runFor(61_000);
+  // Expiry depends on elapsed time, without replaying every animation frame.
+  await page.clock.fastForward(61_000);
   await expect(recommendation(page)).toContainText(
     'La disponibilité OIDC reste à vérifier'
   );
@@ -516,14 +750,14 @@ test('Stripe connection and webhook checks expire independently and legacy respo
     'Activité récente'
   );
   // The shared cockpit clock refreshes displayed observations every 30 seconds.
-  await page.clock.runFor(31_000);
+  await page.clock.fastForward(31_000);
   await expect(stripe.locator('[data-og7-id="webhooks"]')).toContainText(
     'Observation périmée'
   );
   await expect(stripe.locator('[data-og7-id="connection"]')).toContainText(
     'Opérationnel'
   );
-  await page.clock.runFor(30_000);
+  await page.clock.fastForward(30_000);
   await expect(stripe.locator('[data-og7-id="connection"]')).toContainText(
     'Observation périmée'
   );

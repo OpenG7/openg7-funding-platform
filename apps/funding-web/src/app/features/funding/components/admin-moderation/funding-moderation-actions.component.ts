@@ -1,7 +1,10 @@
+import { DOCUMENT } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  Injector,
+  afterNextRender,
   computed,
   effect,
   inject,
@@ -9,6 +12,7 @@ import {
   output,
   signal
 } from '@angular/core';
+import { Router } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import {
   MODERATION_REASONS,
@@ -32,6 +36,7 @@ import { AdminAutomaticPreparationDirective } from '../admin-automatic/admin-aut
   styleUrls: [
     '../admin-ui/admin-theme.css',
     '../admin-ui/admin-controls.css',
+    '../admin-ui/admin-forms.css',
     './funding-moderation-actions.component.css'
   ]
 })
@@ -45,6 +50,9 @@ export class FundingModerationActionsComponent {
   private readonly moderation = inject(FundingModerationService);
   private readonly confirmation = inject(AdminConfirmationService);
   private readonly i18n = inject(FundingI18nService);
+  private readonly document = inject(DOCUMENT);
+  private readonly injector = inject(Injector);
+  private readonly router = inject(Router);
   readonly canReview = computed(() => this.admin.identity()?.role !== 'reader');
   readonly canAssign = computed(() => this.admin.identity()?.role === 'owner');
   readonly level = signal<ModerationLevel>('N1');
@@ -159,12 +167,14 @@ export class FundingModerationActionsComponent {
     if (this.busy() || this.disabled() || !this.canReview()) return;
     const subject = this.subject();
     const generation = this.generation;
+    const restoreCancelledFocus = this.captureDecisionFocus();
     this.busy.set(true);
     try {
       const decision = await this.moderation.requestDecision(
         subject,
         this.level()
       );
+      if (!decision && generation === this.generation) restoreCancelledFocus();
       if (
         !decision ||
         generation !== this.generation ||
@@ -235,6 +245,7 @@ export class FundingModerationActionsComponent {
       return;
     const subject = this.subject();
     const generation = this.generation;
+    const restoreCancelledFocus = this.captureDecisionFocus();
     this.busy.set(true);
     try {
       const decision = await this.moderation.requestDecision(
@@ -242,6 +253,7 @@ export class FundingModerationActionsComponent {
         this.level(),
         { requireExplanation: true }
       );
+      if (!decision && generation === this.generation) restoreCancelledFocus();
       if (
         !decision ||
         generation !== this.generation ||
@@ -267,6 +279,35 @@ export class FundingModerationActionsComponent {
     } finally {
       if (generation === this.generation) this.busy.set(false);
     }
+  }
+  private captureDecisionFocus(): () => void {
+    // Disabling the opener clears activeElement before the drawer can capture it.
+    const opener = this.document.activeElement as HTMLElement | null;
+    const generation = this.generation;
+    const sessionGeneration = this.admin.sessionGeneration();
+    const url = this.router.url;
+    return () => {
+      // The drawer must be closed and busy=false rendered before focusing again.
+      afterNextRender(
+        () => {
+          if (
+            generation !== this.generation ||
+            sessionGeneration !== this.admin.sessionGeneration() ||
+            this.router.url !== url ||
+            this.router.currentNavigation() ||
+            this.busy() ||
+            this.disabled() ||
+            !this.canReview() ||
+            !opener?.isConnected ||
+            opener.matches(':disabled') ||
+            this.document.querySelector('dialog[open]')
+          )
+            return;
+          opener.focus();
+        },
+        { injector: this.injector }
+      );
+    };
   }
   private errorKey(error: unknown): string {
     if (

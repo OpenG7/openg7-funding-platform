@@ -1,0 +1,59 @@
+@reference '../../../../../styles/tailwind.css';
+
+:host {
+  @apply tw:block tw:min-w-0;
+}
+.next-step {
+  @apply tw:flex tw:flex-col tw:items-stretch tw:gap-3 tw:text-admin-caption;
+}
+.next-copy {
+  @apply tw:min-w-0 tw:wrap-anywhere;
+  order: -1;
+}
+strong {
+  font-weight: var(--admin-label-weight);
+}
+p {
+  @apply tw:text-admin-muted tw:text-admin-caption tw:wrap-anywhere;
+  margin: 0.25rem 0 0;
+}
+.next-step > .admin-button {
+  @apply tw:w-full tw:text-center;
+  white-space: normal;
+}
+.embedded {
+  @apply tw:flex-row tw:flex-wrap tw:items-center tw:justify-between tw:gap-4 tw:p-4;
+  border-radius: 8px;
+  background: var(--admin-panel-raised, #21314a);
+  font-size: inherit;
+}
+.embedded .next-copy {
+  order: 0;
+}
+.embedded strong {
+  font-weight: var(--admin-emphasis-weight);
+}
+.embedded p {
+  color: inherit;
+  margin: 0.3rem 0 0;
+}
+.embedded > .admin-button {
+  width: auto;
+}
+.embedded.compact {
+  background: transparent;
+  border-top: 1px solid var(--admin-border);
+  border-radius: 0;
+  gap: 0.5rem 1rem;
+  padding: 0.75rem 0 0;
+  @apply tw:text-admin-caption;
+}
+.embedded.compact p {
+  color: var(--admin-muted);
+  margin-top: 0.15rem;
+}
+@media (max-width: 600px) {
+  .embedded.compact > .admin-button {
+    @apply tw:w-full;
+  }
+}

@@ -1,142 +1,107 @@
+@reference '../../../../../styles/tailwind.css';
 .admin-content {
-  display: grid;
-  gap: 1.1rem;
-  min-width: 0;
+  @apply tw:grid tw:min-w-0 tw:w-full tw:mx-auto;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+  max-width: 88rem;
+  container: setup-page / inline-size;
 }
 .admin-topbar {
-  display: flex;
-  justify-content: space-between;
-  gap: 1.5rem;
-  align-items: center;
+  @apply tw:flex tw:flex-wrap tw:justify-between tw:gap-4 tw:items-center;
 }
 .admin-topbar > div:first-child {
+  @apply tw:min-w-0;
+  flex: 1 1 28rem;
   max-width: 52rem;
 }
-.admin-topbar span,
-.eyebrow {
-  display: block;
-  color: var(--og7-admin-accent, #9bd5ed);
-  font-size: var(--admin-caption-size, 0.875rem);
-  font-weight: var(--admin-label-weight);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  margin-bottom: 0.35rem;
-}
 .subtitle {
-  color: var(--admin-muted);
-  font-size: 0.9rem;
+  @apply tw:text-admin-muted;
+  font-size: 1rem;
+  line-height: var(--admin-body-leading, 1.55);
   margin-top: 0.55rem;
 }
 .topbar-actions {
-  display: flex;
-  gap: 0.5rem;
-  flex-shrink: 0;
-}
-.secondary-button {
-  background: transparent;
+  @apply tw:flex tw:flex-wrap tw:gap-2 tw:max-w-full;
 }
 .environment-bar {
-  display: flex;
+  @apply tw:flex tw:items-center;
   gap: 0.75rem 1.5rem;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  font-size: var(--admin-caption-size, 0.875rem);
-  color: var(--admin-muted);
+  @apply tw:justify-between tw:flex-wrap tw:text-admin-caption tw:text-admin-muted;
 }
 .environment-bar > span {
-  display: inline-flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.45rem;
+  @apply tw:inline-flex tw:items-center tw:flex-wrap tw:min-w-0 tw:max-w-full tw:wrap-anywhere;
+  gap: 0.5rem;
+}
+.environment-bar time {
+  font-variant-numeric: tabular-nums;
 }
 .environment {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.4rem;
-  padding: 0.4rem 0.7rem;
+  @apply tw:rounded-admin-control;
+  padding: 0.5rem 0.75rem;
 }
 .environment strong {
-  color: var(--admin-text);
-  text-transform: uppercase;
+  @apply tw:text-admin-text tw:uppercase;
 }
 .environment-dot {
+  @apply tw:shrink-0;
   width: 0.45rem;
   height: 0.45rem;
   border-radius: 50%;
-  background: var(--og7-admin-accent, #8dbddd);
+  background: var(--admin-accent);
 }
 .section-nav {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  padding: 0.45rem 0 0.85rem;
+  @apply tw:flex tw:gap-2 tw:flex-wrap;
+  padding-bottom: 1rem;
   border-bottom: 1px solid var(--admin-border);
 }
 .section-nav button {
   background: transparent;
   border-color: transparent;
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:justify-start;
 }
 .section-nav button[aria-current='location'] {
-  background: var(--og7-admin-selected, #12354c);
-  border-color: var(--og7-admin-accent, #3c6d89);
-  color: var(--admin-text);
+  background: var(--admin-selected);
+  border-color: var(--admin-accent);
+  @apply tw:text-admin-accent;
 }
 .workspace-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(17rem, 1fr);
+  @apply tw:grid tw:min-w-0;
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
-  gap: 1rem;
+  gap: 1.5rem;
 }
 .setup-sidebar {
-  display: grid;
-  gap: 1rem;
-  min-width: 0;
+  @apply tw:grid tw:min-w-0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
 }
 .audit-link {
-  display: flex;
-  align-items: center;
-  justify-content: end;
-  gap: 0.5rem;
-  font-size: var(--admin-caption-size, 0.875rem);
-  padding: 0.8rem 0.2rem;
+  margin-top: 0.75rem;
 }
 .state {
+  background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.6rem;
-  padding: 1rem;
+  @apply tw:p-admin-card tw:rounded-admin-card;
 }
 .tour-actions {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.7rem;
-  padding: 1rem;
+  @apply tw:flex tw:flex-wrap tw:justify-between tw:gap-3 tw:p-admin-card;
   border-top: 1px solid var(--admin-border);
 }
 .state-error {
-  color: var(--admin-danger);
+  @apply tw:text-admin-danger;
 }
-@media (max-width: 1350px) {
+@container setup-page (min-width: 50rem) {
+  .setup-sidebar {
+    @apply tw:grid-cols-2;
+  }
+}
+@container setup-page (min-width: 68rem) {
   .workspace-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .setup-sidebar {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@media (max-width: 700px) {
-  .admin-topbar {
-    align-items: stretch;
-    flex-direction: column;
-  }
-  .topbar-actions {
-    justify-content: start;
+    grid-template-columns: minmax(0, 2fr) minmax(17rem, 1fr);
   }
   .setup-sidebar {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .environment-bar {
-    font-size: var(--admin-caption-size, 0.875rem);
   }
 }

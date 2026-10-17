@@ -1,0 +1,93 @@
+@reference '../../../../../styles/tailwind.css';
+
+:host {
+  @apply tw:block;
+}
+
+button,
+input {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 2px;
+}
+
+.detail-body {
+  @apply tw:grid;
+  gap: 0.9rem;
+  @apply tw:overflow-auto tw:p-4;
+}
+
+.muted-copy {
+  @apply tw:text-admin-muted;
+  margin: 0.35rem 0 0;
+}
+
+.media-review-panel {
+  border-top: 1px solid var(--admin-border);
+  @apply tw:grid tw:gap-4 tw:pt-4;
+}
+
+.media-review-panel > header {
+  @apply tw:grid tw:gap-2;
+  grid-template-columns: minmax(0, 1fr) minmax(12rem, 0.8fr);
+}
+
+.media-review-panel header span {
+  @apply tw:text-admin-muted tw:text-admin-caption;
+  font-weight: var(--admin-label-weight);
+  @apply tw:uppercase;
+}
+
+.media-review-panel h3,
+.media-review-panel header p {
+  @apply tw:m-0;
+}
+
+.media-review-panel h3 {
+  margin-top: 0.2rem;
+}
+
+.media-review-panel header p {
+  @apply tw:text-admin-muted tw:text-admin-caption;
+}
+
+.media-review-summary {
+  @apply tw:grid;
+  gap: 0.65rem;
+  @apply tw:justify-items-start;
+}
+
+.approve-all-action {
+  background: var(--og7-admin-success-bg, #193d32);
+  border: 1px solid var(--admin-border);
+  @apply tw:rounded-admin-sm tw:text-admin-text tw:cursor-pointer;
+  font-weight: var(--admin-control-weight);
+  @apply tw:min-h-10;
+  padding: 0 0.85rem;
+}
+
+.approve-all-action:disabled {
+  @apply tw:cursor-not-allowed;
+  opacity: 0.55;
+}
+
+.media-review-list {
+  @apply tw:grid tw:gap-4;
+}
+
+.inline-status {
+  @apply tw:text-admin-muted;
+}
+
+@media (max-width: 720px) {
+  .media-review-panel > header {
+    grid-template-columns: 1fr;
+  }
+}

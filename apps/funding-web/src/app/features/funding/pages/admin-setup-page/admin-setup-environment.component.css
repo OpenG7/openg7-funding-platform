@@ -1,39 +1,43 @@
+@reference '../../../../../styles/tailwind.css';
 .setup-table-panel {
-  display: grid;
-  gap: 1rem;
+  @apply tw:grid tw:gap-4;
+  grid-template-columns: minmax(0, 1fr);
 }
 .setup-table-panel small {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
 }
 .table-scroll {
-  overflow-x: auto;
-  min-width: 0;
+  @apply tw:overflow-x-auto tw:min-w-0;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-control);
+  overscroll-behavior-x: contain;
+  scrollbar-color: var(--admin-control-border) var(--admin-panel);
+}
+:host .table-scroll:focus-visible {
+  outline-offset: -3px;
 }
 .configuration-details {
-  min-width: 0;
+  @apply tw:min-w-0;
 }
 table {
-  border-collapse: collapse;
+  @apply tw:border-collapse;
   min-width: 42rem;
-  width: 100%;
+  @apply tw:w-full;
 }
 th,
 td {
   border-bottom: 1px solid var(--admin-border);
-  padding: 0.75rem 0.6rem;
-  text-align: left;
-  vertical-align: top;
-  font-size: var(--admin-caption-size, 0.875rem);
+  padding: 0.875rem 0.75rem;
+  @apply tw:text-left tw:align-top tw:text-admin-caption;
 }
 th {
-  color: var(--admin-text);
+  @apply tw:text-admin-muted;
+  background: var(--admin-subtle);
+  font-weight: var(--admin-label-weight);
 }
 td {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
 }
-@media (max-width: 700px) {
-  .setup-table-panel header {
-    flex-direction: column;
-  }
+tbody tr:last-child td {
+  border-bottom: 0;
 }

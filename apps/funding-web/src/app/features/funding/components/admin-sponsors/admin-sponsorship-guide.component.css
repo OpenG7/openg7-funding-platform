@@ -1,6 +1,7 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
   margin-block: 1rem;
 }
 details {
@@ -10,8 +11,7 @@ details {
   color: var(--admin-text, #edf2ff);
 }
 summary {
-  cursor: pointer;
-  padding: 1rem;
+  @apply tw:cursor-pointer tw:p-4;
   font-weight: var(--admin-control-weight);
   font-size: 1.1rem;
 }
@@ -21,21 +21,18 @@ details:not([open]) {
 }
 details:not([open]) summary {
   padding: 0.7rem 0.3rem;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
   font-weight: var(--admin-control-weight);
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
 }
 .guide-body {
   padding: 0 1rem 1rem;
-  overflow-wrap: anywhere;
+  @apply tw:wrap-anywhere;
 }
 .guide-position,
 .guide-actions,
 nav {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem;
+  @apply tw:flex tw:flex-wrap tw:items-center tw:gap-3;
 }
 .guide-position {
   padding-block: 0.75rem;
@@ -46,7 +43,7 @@ p {
   margin: 0 0 0.75rem;
 }
 .guide-position h3 {
-  margin: 0;
+  @apply tw:m-0;
 }
 .guide-position strong,
 .completion {
@@ -54,7 +51,7 @@ p {
 }
 .help {
   color: var(--admin-muted, #bccbe0);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 [data-og7='guide-reason'] {
   margin-block: 0.75rem;
@@ -66,16 +63,15 @@ li {
   padding: 0.3rem 0 0.3rem 0.25rem;
 }
 .condition {
-  padding: 0.75rem;
+  @apply tw:p-3;
   background: var(--admin-bg, #101c2e);
   border-radius: 8px;
 }
 nav {
-  margin-top: 1rem;
+  @apply tw:mt-4;
 }
 .admin-button {
-  max-width: 100%;
-  white-space: normal;
+  @apply tw:max-w-full tw:whitespace-normal;
   text-align: start;
 }
 summary:focus-visible {
@@ -84,6 +80,6 @@ summary:focus-visible {
 }
 @media (max-width: 420px) {
   .guide-actions .admin-button {
-    width: 100%;
+    @apply tw:w-full;
   }
 }

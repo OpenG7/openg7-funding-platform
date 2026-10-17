@@ -1,0 +1,44 @@
+@reference '../../../../../styles/tailwind.css';
+
+:host {
+  @apply tw:block tw:min-w-0;
+}
+
+.access-content {
+  @apply tw:grid tw:min-w-0 tw:w-full tw:wrap-anywhere;
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 78rem;
+  margin: auto;
+  gap: 1.5rem;
+  container: access-page / inline-size;
+}
+
+h1,
+p {
+  margin: 0;
+}
+header {
+  @apply tw:grid tw:gap-2;
+}
+header p {
+  @apply tw:text-admin-muted;
+}
+.back-link {
+  @apply tw:inline-flex tw:items-center tw:min-h-admin-control;
+  justify-self: start;
+}
+.access-workspace {
+  @apply tw:grid tw:min-w-0;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 1.5rem;
+}
+:host h1:focus {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: -3px;
+}
+@container access-page (min-width: 60rem) {
+  .access-workspace {
+    @apply tw:grid-cols-2;
+  }
+}

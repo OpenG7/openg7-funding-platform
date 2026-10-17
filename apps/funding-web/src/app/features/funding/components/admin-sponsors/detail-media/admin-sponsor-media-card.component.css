@@ -1,6 +1,7 @@
+@reference '../../../../../../styles/tailwind.css';
+
 :host {
-  display: block;
-  min-width: 0;
+  @apply tw:block tw:min-w-0;
 }
 
 button,
@@ -18,133 +19,117 @@ input:focus-visible {
 }
 
 .secondary-danger-action {
-  align-items: center;
+  @apply tw:items-center;
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.4rem;
-  color: var(--admin-danger);
-  cursor: pointer;
-  display: inline-flex;
+  @apply tw:rounded-admin-sm tw:text-admin-danger tw:cursor-pointer tw:inline-flex;
   font-weight: var(--admin-control-weight);
-  justify-content: center;
-  min-height: 2.5rem;
+  @apply tw:justify-center tw:min-h-10;
   padding: 0 0.85rem;
   text-decoration: none;
 }
 
 .secondary-danger-action:disabled {
-  cursor: not-allowed;
+  @apply tw:cursor-not-allowed;
   opacity: 0.55;
 }
 
 .media-review-item {
   align-items: start;
-  display: grid;
-  gap: 1rem;
+  @apply tw:grid tw:gap-4;
   grid-template-columns: 11rem minmax(0, 1fr);
 }
 
 .media-preview {
-  align-items: center;
+  @apply tw:items-center;
   aspect-ratio: 4 / 3;
   background: var(--admin-panel-raised);
   border: 1px solid var(--admin-border);
-  display: flex;
-  justify-content: center;
-  overflow: hidden;
+  @apply tw:flex tw:justify-center tw:overflow-hidden;
 }
 
 .media-preview img {
-  height: 100%;
-  object-fit: contain;
-  width: 100%;
+  @apply tw:h-full tw:object-contain tw:w-full;
 }
 
 .media-review-copy {
-  display: grid;
+  @apply tw:grid;
   gap: 0.65rem;
-  min-width: 0;
+  @apply tw:min-w-0;
 }
 
 .media-review-heading {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  justify-content: space-between;
+  @apply tw:items-center tw:flex tw:flex-wrap tw:gap-2 tw:justify-between;
 }
 
 .media-review-copy small {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
 }
 
 .media-review-copy label {
-  display: grid;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:grid tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
   gap: 0.35rem;
 }
 
 .media-review-copy label span {
-  color: var(--admin-muted);
+  @apply tw:text-admin-muted;
   font-weight: var(--admin-label-weight);
 }
 
 .media-review-copy input {
   border: 1px solid var(--admin-border);
   border-radius: 0.35rem;
-  min-height: 2.5rem;
+  @apply tw:min-h-10;
   padding: 0.55rem 0.65rem;
-  width: 100%;
+  @apply tw:w-full;
 }
 
 .media-status {
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
 }
 
 .media-status.approved {
-  color: var(--admin-success);
+  @apply tw:text-admin-success;
 }
 
 .media-status.pending_review {
-  color: var(--admin-warning);
+  @apply tw:text-admin-warning;
 }
 
 .media-status.rejected {
-  color: var(--admin-danger);
+  @apply tw:text-admin-danger;
 }
 
 .media-review-actions {
-  display: flex;
-  flex-wrap: wrap;
+  @apply tw:flex tw:flex-wrap;
   gap: 0.55rem;
 }
 
 .approve-action,
 .reject-action {
-  border-radius: 0.4rem;
-  cursor: pointer;
+  @apply tw:rounded-admin-sm tw:cursor-pointer;
   font-weight: var(--admin-control-weight);
-  min-height: 2.5rem;
+  @apply tw:min-h-10;
   padding: 0 0.85rem;
 }
 
 .approve-action {
   background: var(--og7-admin-success-bg, #193d32);
   border: 1px solid var(--admin-border);
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
 }
 
 .reject-action {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  color: var(--admin-danger);
+  @apply tw:text-admin-danger;
 }
 
 .approve-action:disabled,
 .reject-action:disabled {
-  cursor: not-allowed;
+  @apply tw:cursor-not-allowed;
   opacity: 0.55;
 }
 

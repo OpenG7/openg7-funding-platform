@@ -16,7 +16,11 @@ import type { AdminAccessAccount } from '../../services/funding-admin.service.js
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [TranslatePipe, AdminAutomaticPreparationDirective],
   templateUrl: './admin-access-accounts.component.html',
-  styleUrl: './admin-access-controls.css'
+  styleUrls: [
+    '../../components/admin-ui/admin-controls.css',
+    '../../components/admin-ui/admin-forms.css',
+    './admin-access-controls.css'
+  ]
 })
 export class AdminAccessAccountsComponent {
   readonly accounts = input.required<readonly AdminAccessAccount[]>();

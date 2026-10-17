@@ -1,10 +1,13 @@
+@reference '../../../../../styles/tailwind.css';
 :host {
-  display: block;
-  color: var(--admin-text, #e5edf7);
+  @apply tw:grid tw:min-w-0 tw:gap-admin-card-gap;
+  color: var(--admin-text);
 }
 details > summary {
-  cursor: pointer;
-  padding: 1rem 0;
+  @apply tw:cursor-pointer;
+  padding: 0;
+  min-height: var(--admin-control-height);
+  align-content: center;
   font-weight: var(--admin-control-weight);
 }
 details > summary:focus-visible {
@@ -13,20 +16,16 @@ details > summary:focus-visible {
 }
 header,
 .actions {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+  @apply tw:flex tw:items-center tw:gap-3 tw:flex-wrap;
 }
 header {
-  justify-content: space-between;
-  margin-bottom: 1rem;
+  @apply tw:justify-between tw:mb-4;
 }
 h2 {
-  margin: 0;
+  @apply tw:m-0;
 }
 h2 span {
-  display: block;
+  @apply tw:block tw:min-w-0;
   margin-top: 0.3rem;
   font-weight: 400;
 }
@@ -34,78 +33,69 @@ p {
   line-height: 1.6;
 }
 .feeds {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1rem;
+  @apply tw:grid tw:gap-4 tw:min-w-0;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  margin-top: 1rem;
 }
 article {
-  padding: 1.15rem;
+  padding: var(--admin-card-padding);
   border: 1px solid var(--admin-border);
-  border-radius: 1rem;
+  border-radius: var(--admin-radius-card);
   background: var(--admin-panel);
 }
 .detail {
-  font-size: var(--admin-caption-size, 0.875rem);
-  color: var(--admin-muted);
-  overflow-wrap: anywhere;
+  @apply tw:text-admin-caption tw:text-admin-muted tw:wrap-anywhere;
 }
 .worker-control {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 1rem;
-  padding: 1.15rem;
+  @apply tw:flex tw:items-center tw:justify-between tw:flex-wrap tw:gap-4;
+  padding: var(--admin-card-padding);
   border: 1px solid var(--admin-border);
-  border-radius: 1rem;
+  border-radius: var(--admin-radius-card);
   background: var(--admin-panel);
 }
 .worker-control > div {
   flex: 1 1 22rem;
-  min-width: 0;
+  @apply tw:min-w-0;
 }
 .worker-control p {
   margin: 0.5rem 0 0;
 }
 .worker-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+  @apply tw:inline-flex tw:items-center tw:justify-center tw:shrink-0;
   gap: 0.65rem;
   min-width: 6.5rem;
   min-height: 44px;
-  padding: 0.65rem;
+  padding: 0.65rem 0.75rem;
   border: 1px solid var(--admin-border);
-  border-radius: 0.6rem;
+  border-radius: var(--admin-radius-control);
   background: var(--admin-panel-raised);
-  color: var(--admin-text);
+  @apply tw:text-admin-text;
   font: inherit;
   font-weight: var(--admin-control-weight);
-  cursor: pointer;
+  @apply tw:cursor-pointer;
 }
 .worker-toggle[aria-checked='true'] {
   background: var(--og7-admin-success-bg, #163e35);
   border-color: var(--admin-success);
-  color: var(--admin-success);
+  @apply tw:text-admin-success;
 }
 .worker-toggle:hover:not([aria-disabled='true']) {
   border-color: var(--og7-admin-accent, #d2e8ff);
 }
 .worker-toggle[aria-disabled='true'] {
-  cursor: not-allowed;
+  @apply tw:cursor-not-allowed;
   opacity: 0.65;
 }
 .worker-toggle__track {
-  display: block;
+  @apply tw:block tw:min-w-0;
   width: 2.25rem;
   height: 1.25rem;
   border: 1px solid currentColor;
-  border-radius: 1rem;
+  border-radius: var(--admin-radius-card);
 }
 .worker-toggle__track::before {
   content: '';
-  display: block;
+  @apply tw:block tw:min-w-0;
   width: 0.875rem;
   height: 0.875rem;
   margin: 2px;
@@ -116,10 +106,10 @@ article {
   transform: translateX(1rem);
 }
 .badge {
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
   padding: 0.2rem 0.5rem;
   border: 1px solid var(--admin-border);
-  border-radius: 1rem;
+  border-radius: var(--admin-radius-card);
 }
 button:focus-visible,
 a:focus-visible {
@@ -127,27 +117,24 @@ a:focus-visible {
   outline-offset: 3px;
 }
 label {
-  display: flex;
-  flex-direction: column;
+  @apply tw:flex tw:flex-col;
   gap: 0.4rem;
   margin: 1rem 0;
 }
 input,
 select {
-  border: 1px solid var(--admin-border);
-  background: var(--admin-panel-raised);
-  color: var(--admin-text);
-  border-radius: 0.4rem;
-  padding: 0.65rem;
-  width: 100%;
-  box-sizing: border-box;
+  border: 1px solid var(--admin-control-border);
+  background: var(--admin-panel);
+  @apply tw:text-admin-text;
+  border-radius: var(--admin-radius-control);
+  padding: 0.65rem 0.75rem;
+  @apply tw:w-full tw:box-border tw:min-w-0 tw:max-w-full tw:min-h-admin-control;
   font: inherit;
   font-weight: 400;
 }
 fieldset {
   border: 0;
-  padding: 0;
-  min-width: 0;
+  @apply tw:p-0 tw:min-w-0;
 }
 fieldset:disabled {
   opacity: 0.8;
@@ -156,58 +143,44 @@ input[type='checkbox'] {
   width: 1.1rem;
   margin-top: 0.2rem;
 }
-@media (max-width: 1100px) {
-  .feeds {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
 @media (max-width: 650px) {
-  .feeds {
-    grid-template-columns: 1fr;
-  }
   header {
     align-items: flex-start;
   }
   .actions {
-    width: 100%;
+    @apply tw:w-full;
   }
 }
 .feed-settings {
-  display: grid;
+  @apply tw:grid;
   gap: 1.1rem;
-  min-width: 0;
+  @apply tw:min-w-0;
 }
 
 .feed-settings h3,
 .feed-settings p {
-  margin: 0;
+  @apply tw:m-0;
 }
 
 .settings-destination,
 .settings-section-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
+  @apply tw:flex tw:items-center tw:justify-between tw:flex-wrap;
   gap: 0.9rem;
 }
 
 .settings-destination {
   padding: 1.1rem;
   border: 1px solid var(--admin-border);
-  border-radius: 1rem;
-  background:
-    radial-gradient(ellipse at top right, #f4c95712, transparent 75%),
-    var(--admin-panel);
+  border-radius: var(--admin-radius-card);
+  background: var(--admin-subtle);
 }
 
 .settings-eyebrow {
-  display: block;
+  @apply tw:block tw:min-w-0;
   margin-bottom: 0.3rem;
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
+  @apply tw:uppercase;
 }
 
 .settings-destination h3 span {
@@ -216,10 +189,9 @@ input[type='checkbox'] {
 }
 
 .settings-caption {
-  display: block;
+  @apply tw:block tw:min-w-0;
   margin-top: 0.3rem;
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
 }
 
 .settings-mode {
@@ -228,7 +200,7 @@ input[type='checkbox'] {
   border-radius: 999px;
   background: var(--admin-warning-bg);
   color: var(--admin-gold);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 
 .settings-connection {
@@ -237,58 +209,49 @@ input[type='checkbox'] {
 
 .feed-settings .settings-connection-state {
   margin-top: 0.3rem;
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
 }
 
 .feed-settings .settings-connection-state[data-state='ready'] {
-  color: var(--admin-success);
+  @apply tw:text-admin-success;
 }
 
 .feed-settings .settings-connection-state[data-state='error'],
 .feed-settings .settings-connection-state[data-state='expired'] {
-  color: var(--admin-danger);
+  @apply tw:text-admin-danger;
 }
 
 .settings-connection-help summary {
   padding: 0.65rem 0;
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
   font-weight: var(--admin-control-weight);
 }
 
 .settings-fields {
-  display: grid;
+  @apply tw:grid;
   gap: 1.1rem;
-  margin: 0;
+  @apply tw:m-0;
 }
 
 .settings-section {
-  display: grid;
+  @apply tw:grid;
   gap: 0.9rem;
-  padding: 1.1rem;
-  border: 1px solid var(--admin-border);
-  border-radius: 0.9rem;
+  padding: 1.25rem 0 0;
+  border-top: 1px solid var(--admin-border);
   background: var(--admin-panel);
 }
 
 .settings-help,
 .settings-field-grid small {
-  color: var(--admin-muted);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-muted tw:text-admin-caption;
   font-weight: 400;
 }
 
 .feed-settings .settings-toggle {
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin: 0;
-  min-height: 2.75rem;
+  @apply tw:flex-row tw:items-center tw:justify-between tw:gap-4 tw:m-0 tw:min-h-11;
   font-size: 0.9rem;
   font-weight: var(--admin-control-weight);
-  cursor: pointer;
+  @apply tw:cursor-pointer;
 }
 
 .feed-settings .settings-toggle input {
@@ -297,7 +260,7 @@ input[type='checkbox'] {
   width: 2.6rem;
   height: 1.5rem;
   padding: 0.15rem;
-  margin: 0;
+  @apply tw:m-0;
   border-radius: 999px;
   background: var(--admin-bg);
   cursor: inherit;
@@ -305,7 +268,7 @@ input[type='checkbox'] {
 
 .settings-toggle input::before {
   content: '';
-  display: block;
+  @apply tw:block tw:min-w-0;
   height: 1.05rem;
   width: 1.05rem;
   border-radius: 50%;
@@ -323,45 +286,38 @@ input[type='checkbox'] {
 }
 
 .settings-days {
-  margin: 0;
+  @apply tw:m-0;
 }
 
 .settings-days legend {
   margin-bottom: 0.65rem;
-  font-size: var(--admin-caption-size, 0.875rem);
-  color: var(--admin-muted);
+  @apply tw:text-admin-caption tw:text-admin-muted;
 }
 
 .settings-day-grid {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  @apply tw:grid;
+  grid-template-columns: repeat(auto-fit, minmax(2.75rem, 1fr));
   gap: 0.4rem;
 }
 
 .feed-settings .settings-day {
-  position: relative;
-  margin: 0;
-  cursor: pointer;
+  @apply tw:relative tw:m-0 tw:cursor-pointer;
 }
 
 .feed-settings .settings-day input {
-  position: absolute;
+  @apply tw:absolute;
   width: 1px;
   height: 1px;
-  padding: 0;
-  margin: 0;
+  @apply tw:p-0 tw:m-0;
   clip-path: inset(50%);
 }
 
 .settings-day span {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 2.75rem;
+  @apply tw:flex tw:justify-center tw:items-center tw:min-h-11;
   border: 1px solid var(--admin-border);
   border-radius: 0.55rem;
   background: var(--admin-bg);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-caption;
 }
 
 .settings-day input:checked + span {
@@ -378,32 +334,29 @@ input[type='checkbox'] {
 }
 
 .settings-field-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  @apply tw:grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
   gap: 0.9rem;
 }
 
 .feed-settings .settings-field-grid label {
-  margin: 0;
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:m-0 tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
 }
 
 .settings-field-grid input {
-  color-scheme: dark;
-  min-width: 0;
-  min-height: 2.75rem;
+  color-scheme: var(--og7-admin-color-scheme, light);
+  @apply tw:min-w-0 tw:min-h-11;
   font-size: 1rem;
-  border-radius: 0.6rem;
+  border-radius: var(--admin-radius-control);
 }
 
 .settings-manual {
-  display: grid;
+  @apply tw:grid;
   justify-items: start;
   gap: 0.85rem;
-  padding: 1.1rem;
-  border: 1px dashed var(--admin-border);
-  border-radius: 0.9rem;
+  padding: 1.25rem 0 0;
+  border-top: 1px solid var(--admin-border);
 }
 
 .feed-settings .settings-manual h3 {
@@ -412,8 +365,7 @@ input[type='checkbox'] {
 
 .feed-settings .settings-unsaved,
 .settings-feedback {
-  color: var(--admin-warning);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-warning tw:text-admin-caption;
 }
 
 .settings-feedback:empty {
@@ -422,8 +374,7 @@ input[type='checkbox'] {
 
 .feed-settings .settings-validation,
 .settings-error {
-  color: var(--admin-danger);
-  font-size: var(--admin-caption-size, 0.875rem);
+  @apply tw:text-admin-danger tw:text-admin-caption;
 }
 
 .feed-settings .settings-validation {
@@ -439,10 +390,9 @@ input[type='checkbox'] {
 .settings-actions {
   position: sticky;
   bottom: 0;
-  display: flex;
-  flex-wrap: wrap;
+  @apply tw:flex tw:flex-wrap;
   justify-content: flex-end;
-  gap: 0.75rem;
+  @apply tw:gap-3;
   padding-block: 1rem max(0.5rem, env(safe-area-inset-bottom));
   border-top: 1px solid var(--admin-border);
   background: var(--admin-bg);
@@ -450,12 +400,12 @@ input[type='checkbox'] {
 }
 
 .feed-settings .admin-button:disabled {
-  cursor: not-allowed;
+  @apply tw:cursor-not-allowed;
 }
 
 @media (max-width: 520px) {
   .settings-day-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    @apply tw:grid-cols-4;
   }
 
   .settings-field-grid {
@@ -463,12 +413,45 @@ input[type='checkbox'] {
   }
 
   .settings-actions {
-    display: grid;
+    @apply tw:grid;
     grid-template-columns: minmax(0, 1fr);
   }
 
   .settings-section-heading .admin-button,
   .settings-manual .admin-button {
-    width: 100%;
+    @apply tw:w-full;
   }
+}
+
+:host > details {
+  padding: var(--admin-card-padding);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-card);
+  background: var(--admin-panel);
+}
+.worker-control {
+  box-shadow: var(--admin-shadow);
+}
+.worker-control p {
+  font-size: var(--admin-caption-size);
+}
+h2,
+h3,
+p,
+label,
+article {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.actions .admin-button,
+.settings-actions .admin-button {
+  max-width: 100%;
+  white-space: normal;
+}
+.badge {
+  width: fit-content;
+  max-width: 100%;
+}
+input[type='checkbox'] {
+  min-height: auto;
 }

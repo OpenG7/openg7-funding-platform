@@ -8,6 +8,12 @@ import type { Page } from '@playwright/test';
 import { expect, test } from './support/test.js';
 import { setupFixture } from './support/setup-fixtures.js';
 import { cockpitFixtures } from './support/cockpit-fixtures.js';
+import {
+  blockAdminReviewWrites,
+  captureAdminDesign,
+  expectAdminPageFits,
+  prepareAdminDesignReview
+} from './support/admin-design-review.js';
 
 async function recoveryFixture(page: Page, language: 'fr-CA' | 'en') {
   await page.addInitScript((locale) => {
@@ -80,6 +86,86 @@ async function recoveryFixture(page: Page, language: 'fr-CA' | 'en') {
     });
   });
   return state;
+}
+
+for (const language of ['fr-CA', 'en'] as const) {
+  for (const width of [390, 1536]) {
+    test(`backups composition remains accessible in ${language} at ${width}px`, async ({
+      page
+    }, testInfo) => {
+      await prepareAdminDesignReview(page);
+      await page.setViewportSize({
+        width,
+        height: width === 1536 ? 864 : 1000
+      });
+      const state = await recoveryFixture(page, language);
+      state.job = {
+        requestId: '00000000-0000-4000-8000-000000000321',
+        source: 'daily',
+        status: 'succeeded',
+        createdAt: '2026-09-15T12:00:00Z',
+        startedAt: '2026-09-15T12:00:01Z',
+        finishedAt: '2026-09-15T12:00:04Z',
+        bytes: 4096,
+        sha256: 'c'.repeat(64),
+        retainUntil: '2026-10-15T12:00:04Z'
+      };
+      const writes = await blockAdminReviewWrites(page);
+      await page.goto('/admin/fundraiser/setup?section=backups');
+      const panel = page.locator('[data-og7="setup-backups"]');
+      const row = panel.locator('[data-og7="backup-history-row"]');
+      await expect(row).toHaveCount(1);
+      await expect(
+        panel.locator('[data-og7="backup-overview"] > div')
+      ).toHaveCount(3);
+      await expect(
+        panel.locator('[data-og7="backup-service-state"]')
+      ).toHaveAttribute('data-state', 'ready');
+      await panel.evaluate((node) => node.scrollIntoView({ block: 'start' }));
+      await captureAdminDesign(page, testInfo, `backups-${width}`);
+      if (language === 'en') {
+        await page.evaluate(
+          () => (document.documentElement.style.fontSize = '200%')
+        );
+        await panel.evaluate((node) => node.scrollIntoView({ block: 'start' }));
+        await expectAdminPageFits(page);
+        if (width === 390) {
+          const title = panel.getByRole('heading', { level: 2 });
+          const contentWidth = await panel.evaluate((node) => {
+            const style = getComputedStyle(node);
+            return (
+              node.clientWidth -
+              parseFloat(style.paddingLeft) -
+              parseFloat(style.paddingRight)
+            );
+          });
+          const titleBounds = await title.boundingBox();
+          expect(titleBounds!.width).toBeGreaterThanOrEqual(
+            contentWidth * 0.95
+          );
+          const lineCount = await title.evaluate(
+            (node) =>
+              node.getBoundingClientRect().height /
+              parseFloat(getComputedStyle(node).lineHeight)
+          );
+          expect(lineCount).toBeLessThanOrEqual(3.1);
+        }
+        await captureAdminDesign(page, testInfo, `backups-text-200-${width}`);
+      }
+      const details = row.getByRole('button');
+      expect((await details.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      await details.focus();
+      await page.keyboard.press('Enter');
+      await expect(page.locator('[data-og7="backup-evidence"]')).toContainText(
+        'c'.repeat(64)
+      );
+      await expectAdminPageFits(page);
+      await page.keyboard.press('Escape');
+      await expect(details).toBeFocused();
+      expect(state.posts).toEqual([]);
+      expect(writes).toEqual([]);
+    });
+  }
 }
 
 for (const language of ['fr-CA', 'en'] as const) {
@@ -212,11 +298,13 @@ for (const phase of ['confirmation', 'response'] as const) {
   });
 }
 
-for (const theme of ['night', 'mineral', 'graphite']) {
+for (const theme of ['night', 'mineral', 'graphite'] as const) {
   for (const language of ['fr-CA', 'en']) {
     test(`backup states and opaque status contrast in ${theme} with ${language}`, async ({
       page
     }) => {
+      // Multiple Axe audits and service transitions share this test's budget.
+      test.setTimeout(60_000);
       const en = language === 'en';
       await page.setViewportSize({ width: en ? 390 : 1440, height: 1050 });
       await page.addInitScript(
@@ -291,6 +379,18 @@ for (const theme of ['night', 'mineral', 'graphite']) {
       const panel = page.locator('[data-og7="setup-backups"]');
       const service = panel.locator('[data-og7="backup-service-state"]');
       const request = panel.locator('[data-og7="backup-request"]');
+      const overview = panel.locator('[data-og7="backup-overview"]');
+      await expect(panel).toHaveCSS('display', 'grid');
+      await expect(panel).toHaveCSS(
+        'color',
+        {
+          night: 'rgb(241, 245, 252)',
+          mineral: 'rgb(23, 43, 80)',
+          graphite: 'rgb(243, 244, 246)'
+        }[theme]!
+      );
+      await expect(overview).toHaveCSS('display', 'grid');
+      await expect(overview.locator(':scope > div')).toHaveCount(3);
       const refresh = panel.getByRole('button', {
         name: en ? 'Check backups' : 'Vérifier les sauvegardes',
         exact: true
@@ -320,15 +420,49 @@ for (const theme of ['night', 'mineral', 'graphite']) {
         );
         await expect(badges.nth(index)).toBeVisible();
       }
-      // Mobile history has transparent status text on a radial gradient, whose
-      // contrast Axe cannot determine. Only opaque surfaces are audited here.
-      if (!en) {
-        const audit = await new AxeBuilder({ page })
-          .include('[data-og7="backup-history-row"] > [data-state]')
-          .withRules(['color-contrast'])
-          .analyze();
-        expect(audit.violations).toEqual([]);
-        expect(audit.incomplete).toEqual([]);
+      const audit = await new AxeBuilder({ page })
+        .include('[data-og7="backup-history-row"] > [data-state]')
+        .withRules(['color-contrast'])
+        .analyze();
+      expect(audit.violations).toEqual([]);
+      expect(audit.incomplete).toEqual([]);
+      const details = rows
+        .filter({ has: page.locator('[data-state="succeeded"]') })
+        .getByRole('button');
+      await details.focus();
+      await page.keyboard.press('Enter');
+      const evidence = page.locator('[data-og7="backup-evidence"]');
+      await expect(evidence.locator('code').first()).toHaveCSS(
+        'overflow-wrap',
+        'anywhere'
+      );
+      await expect(evidence.locator('dd').first()).toHaveCSS(
+        'font-variant-numeric',
+        'tabular-nums'
+      );
+      await page.keyboard.press('Escape');
+      await expect(details).toBeFocused();
+      if (theme === 'mineral' && !en) {
+        for (const width of [700, 701, 1100, 1101]) {
+          await test.step(`backup history reflows at ${width}px`, async () => {
+            await page.setViewportSize({ width, height: 1050 });
+            await expectAdminPageFits(page);
+            await expect(
+              rows.first().locator(':scope > span').last()
+            ).toBeVisible();
+            const row = await rows.first().boundingBox();
+            const control = await rows
+              .first()
+              .getByRole('button')
+              .boundingBox();
+            expect(control!.height).toBeGreaterThanOrEqual(44);
+            expect(control!.x).toBeGreaterThanOrEqual(row!.x - 1);
+            expect(control!.x + control!.width).toBeLessThanOrEqual(
+              row!.x + row!.width + 1
+            );
+          });
+        }
+        await page.setViewportSize({ width: 1440, height: 1050 });
       }
       await expect(page.locator('body')).toHaveJSProperty(
         'scrollWidth',

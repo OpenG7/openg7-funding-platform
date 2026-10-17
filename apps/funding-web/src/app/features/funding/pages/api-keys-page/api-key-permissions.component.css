@@ -1,6 +1,7 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
-  display: grid;
-  min-width: 0;
+  @apply tw:grid tw:min-w-0;
   grid-row: span 2;
 }
 
@@ -9,15 +10,13 @@
 }
 
 .permission-table {
-  display: grid;
-  gap: 0.5rem;
+  @apply tw:grid tw:gap-2;
 }
 
 .permission-table article {
-  align-items: center;
+  @apply tw:items-center;
   border-top: 1px solid var(--border-color);
-  display: grid;
-  gap: 0.5rem;
+  @apply tw:grid tw:gap-2;
   grid-template-columns: minmax(0, 1fr) auto auto auto;
   min-height: 2.7rem;
 }
@@ -28,7 +27,7 @@
   border-radius: 999px;
   color: var(--text-main);
   font-size: 0.875rem;
-  font-style: normal;
+  @apply tw:not-italic;
   padding: 0.14rem 0.45rem;
 }
 

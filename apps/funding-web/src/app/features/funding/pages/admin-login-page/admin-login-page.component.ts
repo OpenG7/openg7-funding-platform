@@ -21,19 +21,22 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
     <main class="admin-login-shell">
       <section class="admin-login-panel" aria-labelledby="admin-login-title">
         <header>
-          <span>OpenG7</span>
-          <button
-            type="button"
-            (click)="i18n.toggleLanguage()"
-            [attr.aria-label]="
-              (i18n.currentLanguage() === 'fr-CA'
-                ? 'admin.shell.toEnglish'
-                : 'admin.shell.toFrench'
-              ) | translate
-            "
-          >
-            {{ i18n.currentLanguage() === 'fr-CA' ? 'EN' : 'FR' }}
-          </button>
+          <div class="login-brand">
+            <span>OpenG7</span>
+            <button
+              type="button"
+              class="admin-button"
+              (click)="i18n.toggleLanguage()"
+              [attr.aria-label]="
+                (i18n.currentLanguage() === 'fr-CA'
+                  ? 'admin.shell.toEnglish'
+                  : 'admin.shell.toFrench'
+                ) | translate
+              "
+            >
+              {{ i18n.currentLanguage() === 'fr-CA' ? 'EN' : 'FR' }}
+            </button>
+          </div>
           <h1 id="admin-login-title">
             {{ 'admin.legacy.acces_admin' | translate }}
           </h1>
@@ -49,9 +52,12 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
 
         @if (mode() === 'oidc') {
           <p>{{ 'admin.access.signInHelp' | translate }}</p>
-          <a [href]="identityUrl()" data-og7="identity-sign-in">{{
-            'admin.access.signIn' | translate
-          }}</a>
+          <a
+            class="admin-button admin-button--primary"
+            [href]="identityUrl()"
+            data-og7="identity-sign-in"
+            >{{ 'admin.access.signIn' | translate }}</a
+          >
         }
         @if (mode() === 'token') {
           <form (submit)="$event.preventDefault(); signIn()">
@@ -66,7 +72,11 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
               />
             </label>
 
-            <button type="submit" [disabled]="state() === 'loading'">
+            <button
+              type="submit"
+              class="admin-button admin-button--primary"
+              [disabled]="state() === 'loading'"
+            >
               {{
                 state() === 'loading'
                   ? ('admin.legacy.connexion' | translate)
@@ -88,117 +98,28 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
           }}
         </p>
 
-        <a routerLink="/admin/oidc-setup" data-og7="identity-setup-link">{{
-          'admin.identitySetup.openGuide' | translate
-        }}</a>
+        <footer class="login-links">
+          <a
+            class="admin-link"
+            routerLink="/admin/oidc-setup"
+            data-og7="identity-setup-link"
+            >{{ 'admin.identitySetup.openGuide' | translate }}</a
+          >
 
-        <a routerLink="/fonds-des-batisseurs">{{
-          'admin.legacy.retour_au_fonds' | translate
-        }}</a>
+          <a class="admin-link" routerLink="/fonds-des-batisseurs">{{
+            'admin.legacy.retour_au_fonds' | translate
+          }}</a>
+        </footer>
       </section>
     </main>
   `,
   styleUrls: [
+    '../../../../../styles/admin-fonts.css',
+    '../../../../../styles/admin-type-tokens.css',
     '../../components/admin-ui/admin-theme.css',
     '../../components/admin-ui/admin-controls.css',
-    '../../components/admin-ui/admin-forms.css'
-  ],
-  styles: [
-    `
-      .admin-login-shell {
-        align-items: center;
-        background: var(--admin-bg);
-        color: var(--admin-text);
-        display: grid;
-        font-family: inherit;
-        min-height: 100vh;
-        padding: 1rem;
-      }
-
-      .admin-login-panel {
-        background: var(--admin-panel);
-        border: 1px solid var(--admin-border);
-        border-radius: 0.5rem;
-        box-shadow: 0 1rem 2.5rem rgb(15 23 42 / 10%);
-        display: grid;
-        gap: 1rem;
-        margin: 0 auto;
-        max-width: 28rem;
-        padding: clamp(1.25rem, 4vw, 2rem);
-        width: 100%;
-      }
-
-      .admin-login-panel span {
-        color: var(--admin-muted);
-        font-size: 0.875rem;
-        font-weight: var(--admin-label-weight);
-        letter-spacing: 0;
-        text-transform: uppercase;
-      }
-
-      .admin-login-panel h1 {
-        margin: 0.35rem 0 0.65rem;
-      }
-
-      .admin-login-panel p {
-        color: var(--admin-muted);
-        line-height: 1.55;
-        margin: 0;
-      }
-
-      .admin-login-panel form,
-      .admin-login-panel label {
-        display: grid;
-        gap: 0.65rem;
-      }
-
-      .admin-login-panel label {
-        font-size: 0.9375rem;
-        font-weight: var(--admin-label-weight);
-      }
-
-      .admin-login-panel input,
-      .admin-login-panel button {
-        border-radius: 0.35rem;
-        font: inherit;
-        min-height: 2.9rem;
-      }
-
-      .admin-login-panel input {
-        border: 1px solid var(--admin-border);
-        padding: 0.65rem 0.75rem;
-        font-weight: 400;
-      }
-
-      .admin-login-panel button {
-        background: var(--og7-admin-primary);
-        border: 0;
-        color: var(--og7-admin-on-primary);
-        cursor: pointer;
-        font-weight: var(--admin-control-weight);
-        padding: 0 1rem;
-      }
-
-      .admin-login-panel button:disabled {
-        cursor: wait;
-        opacity: 0.65;
-      }
-
-      .admin-login-panel a {
-        color: var(--admin-muted);
-        font-weight: var(--admin-control-weight);
-        text-decoration: none;
-      }
-
-      .state-error {
-        background: var(--admin-panel-raised);
-        border: 1px solid var(--admin-border);
-        border-radius: 0.35rem;
-        color: var(--admin-danger);
-        font-weight: 500;
-        padding: 0.75rem 0.85rem;
-      }
-    `
+    '../../components/admin-ui/admin-forms.css',
+    './admin-login-page.component.css'
   ]
 })
 export class AdminLoginPageComponent implements OnInit {

@@ -1,27 +1,28 @@
+@reference '../../../../../styles/tailwind.css';
+
 :host {
   background: var(--surface-page);
   color: var(--text-main);
-  display: block;
+  @apply tw:block;
   font-family: 'Segoe UI', Arial, sans-serif;
   min-height: 100dvh;
 }
 
 .stripe-admin-shell {
   background: var(--surface-page);
-  display: block;
+  @apply tw:block;
   min-height: 100dvh;
-  position: relative;
+  @apply tw:relative;
 }
 
 .admin-sidebar {
   background: var(--surface-panel);
   border: 1px solid var(--border-color);
   border-left-color: var(--border-color);
-  display: grid;
+  @apply tw:grid;
   grid-template-rows: auto auto auto 1fr auto;
   inset: 0 auto 0 0;
-  overflow-y: auto;
-  position: fixed;
+  @apply tw:overflow-y-auto tw:fixed;
   min-height: 100dvh;
   padding: 1.35rem 0.9rem;
   width: 15rem;
@@ -31,10 +32,9 @@
 .dragon-brand,
 .admin-sidebar a,
 .admin-sidebar footer {
-  align-items: center;
+  @apply tw:items-center;
   color: var(--color-primary);
-  display: flex;
-  gap: 0.75rem;
+  @apply tw:flex tw:gap-3;
   text-decoration: none;
 }
 
@@ -47,15 +47,15 @@
   border: 1px solid var(--border-color);
   border-radius: 0.75rem;
   color: var(--text-main);
-  display: grid;
+  @apply tw:grid;
   font-size: 2.1rem;
   height: 3.2rem;
-  place-items: center;
+  @apply tw:place-items-center;
   width: 3.2rem;
 }
 
 .dragon-brand strong {
-  display: block;
+  @apply tw:block;
   font-family: 'Segoe UI', Arial, sans-serif;
   font-size: 1.55rem;
   line-height: 1.25;
@@ -65,8 +65,7 @@
 .dragon-brand small,
 .admin-sidebar footer em {
   color: var(--text-soft);
-  display: block;
-  font-style: normal;
+  @apply tw:block tw:not-italic;
 }
 
 .dragon-brand small {
@@ -78,7 +77,7 @@
 }
 
 .admin-sidebar nav {
-  display: grid;
+  @apply tw:grid;
   gap: 0.3rem;
 }
 
@@ -91,13 +90,13 @@
   font-size: 0.875rem;
   letter-spacing: 0.06em;
   margin: 0 0 0.5rem 0.25rem;
-  text-transform: uppercase;
+  @apply tw:uppercase;
 }
 
 .admin-sidebar a {
   border: 1px solid transparent;
   border-radius: 0.45rem;
-  min-height: 2.75rem;
+  @apply tw:min-h-11;
   padding: 0 0.65rem;
 }
 
@@ -112,21 +111,20 @@
   background: var(--surface-subtle);
   border: 1px solid var(--border-color);
   border-radius: 0.65rem;
-  margin-top: 2rem;
-  padding: 0.75rem;
+  @apply tw:mt-8 tw:p-3;
 }
 
 .admin-sidebar footer > span {
   border: 1px solid var(--border-color);
   border-radius: 999px;
-  display: grid;
+  @apply tw:grid;
   height: 2.4rem;
-  place-items: center;
+  @apply tw:place-items-center;
   width: 2.4rem;
 }
 
 .admin-sidebar footer strong {
-  display: block;
+  @apply tw:block;
   font-size: 0.875rem;
 }
 
@@ -134,25 +132,20 @@
   background: var(--surface-page);
   margin-left: 16rem;
   min-height: 100dvh;
-  min-width: 0;
-  padding: 1.5rem;
-  position: relative;
+  @apply tw:min-w-0 tw:p-6 tw:relative;
   z-index: 1;
 }
 
 .admin-topbar {
-  align-items: center;
+  @apply tw:items-center;
   border-bottom: 1px solid var(--border-color);
-  display: flex;
-  justify-content: space-between;
+  @apply tw:flex tw:justify-between;
   min-height: 3rem;
 }
 
 .admin-topbar nav,
 .admin-topbar div {
-  align-items: center;
-  display: flex;
-  gap: 0.75rem;
+  @apply tw:items-center tw:flex tw:gap-3;
 }
 
 .admin-topbar span,
@@ -165,33 +158,31 @@
 .admin-topbar button {
   background: transparent;
   color: var(--color-primary);
-  min-height: 2.75rem;
+  @apply tw:min-h-11;
 }
 
 .admin-user {
   color: var(--text-main);
   font-size: 0.875rem;
-  text-align: right;
+  @apply tw:text-right;
 }
 
 .admin-user small {
-  display: block;
+  @apply tw:block;
 }
 
 .setup-hero {
   min-height: 8.9rem;
-  overflow: hidden;
-  position: relative;
+  @apply tw:overflow-hidden tw:relative;
 }
 
 .setup-hero img {
   filter: saturate(1.05) contrast(1.08);
-  height: 100%;
+  @apply tw:h-full;
   inset: 0;
   object-fit: cover;
   object-position: center center;
-  position: absolute;
-  width: 100%;
+  @apply tw:absolute tw:w-full;
 }
 
 .setup-hero::after {
@@ -206,12 +197,12 @@
     linear-gradient(180deg, transparent 60%, var(--surface-page));
   content: '';
   inset: 0;
-  position: absolute;
+  @apply tw:absolute;
 }
 
 .hero-shield,
 .hero-copy {
-  position: relative;
+  @apply tw:relative;
   z-index: 1;
 }
 
@@ -222,8 +213,7 @@
 }
 
 .hero-copy {
-  align-items: center;
-  display: flex;
+  @apply tw:items-center tw:flex;
   gap: 0.9rem;
   padding: 0.15rem clamp(0.9rem, 3vw, 3.6rem) 0.85rem;
 }
@@ -260,7 +250,7 @@
   border: 1px solid var(--border-color);
   border-radius: 0.72rem;
   box-shadow: 0 8px 24px rgb(41 51 46 / 7%);
-  min-width: 0;
+  @apply tw:min-w-0;
   padding: 0.78rem;
 }
 
@@ -269,13 +259,12 @@
   border: 1px solid var(--border-color);
   border-radius: 0.45rem;
   color: var(--color-primary);
-  min-height: 2.75rem;
+  @apply tw:min-h-11;
   padding: 0 0.65rem;
 }
 
 .setup-footer {
-  align-items: center;
-  display: grid;
+  @apply tw:items-center tw:grid;
   gap: 0.7rem;
   grid-template-columns: minmax(24rem, 1fr) auto auto;
   margin-top: 0.65rem;
@@ -286,8 +275,7 @@
 }
 
 .setup-footer div {
-  display: flex;
-  gap: 0.5rem;
+  @apply tw:flex tw:gap-2;
 }
 
 .setup-footer small {
@@ -297,21 +285,19 @@
 
 @media (max-width: 900px) {
   .admin-sidebar {
-    align-items: center;
-    display: grid;
+    @apply tw:items-center tw:grid;
     gap: 0.55rem 1rem;
     grid-template-columns: auto minmax(0, 1fr);
     inset: auto;
     width: 14rem;
     min-height: auto;
-    overflow: visible;
+    @apply tw:overflow-visible;
     padding: 0.7rem 1rem;
-    position: relative;
-    width: auto;
+    @apply tw:relative tw:w-auto;
   }
 
   .dragon-brand {
-    margin-bottom: 0;
+    @apply tw:mb-0;
   }
 
   .dragon-brand > span {
@@ -332,13 +318,12 @@
 
   .admin-sidebar section:first-of-type nav,
   .admin-sidebar section:nth-of-type(2) nav {
-    display: flex;
-    flex-wrap: wrap;
+    @apply tw:flex tw:flex-wrap;
     gap: 0.35rem;
   }
 
   .admin-sidebar section {
-    margin-top: 0;
+    @apply tw:mt-0;
   }
 
   .admin-sidebar section:first-of-type,
@@ -353,7 +338,7 @@
 
   .admin-sidebar section:nth-of-type(3),
   .admin-sidebar footer {
-    display: none;
+    @apply tw:hidden;
   }
 
   .admin-sidebar a {
@@ -362,7 +347,7 @@
   }
 
   .admin-workspace {
-    margin-left: 0;
+    @apply tw:ml-0;
   }
 }
 
@@ -376,21 +361,18 @@
   .admin-sidebar {
     inset: auto;
     min-height: auto;
-    position: relative;
-    width: auto;
+    @apply tw:relative tw:w-auto;
   }
 
   .admin-workspace {
-    margin-left: 0;
-    padding: 0.75rem;
+    @apply tw:ml-0 tw:p-3;
   }
 
   .admin-topbar,
   .admin-topbar div,
   .hero-copy,
   .setup-footer div {
-    align-items: flex-start;
-    flex-direction: column;
+    @apply tw:items-start tw:flex-col;
   }
 
   .hero-copy h1 {

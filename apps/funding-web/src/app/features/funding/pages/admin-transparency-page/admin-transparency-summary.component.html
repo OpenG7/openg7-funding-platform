@@ -4,7 +4,10 @@
   [attr.aria-label]="'admin.legacy.resume_transparence' | translate"
 >
   <article>
-    <span>{{ 'admin.legacy.total_recu' | translate }}</span>
+    <span>
+      {{ 'admin.legacy.total_recu' | translate }}
+      <small>{{ publicSummary().currency }}</small>
+    </span>
     <strong>
       {{
         formatMoney()(publicSummary().total_received, publicSummary().currency)
@@ -12,13 +15,19 @@
     </strong>
   </article>
   <article>
-    <span>{{ 'admin.legacy.net_estime' | translate }}</span>
+    <span>
+      {{ 'admin.legacy.net_estime' | translate }}
+      <small>{{ publicSummary().currency }}</small>
+    </span>
     <strong>
       {{ formatMoney()(publicSummary().total_net, publicSummary().currency) }}
     </strong>
   </article>
   <article>
-    <span>{{ 'admin.legacy.disponible_estime' | translate }}</span>
+    <span>
+      {{ 'admin.legacy.disponible_estime' | translate }}
+      <small>{{ publicSummary().currency }}</small>
+    </span>
     <strong>
       {{
         formatMoney()(
@@ -29,7 +38,10 @@
     </strong>
   </article>
   <article>
-    <span>{{ 'admin.legacy.alloue_publie' | translate }}</span>
+    <span>
+      {{ 'admin.legacy.alloue_publie' | translate }}
+      <small>{{ expensesSummary().currency }}</small>
+    </span>
     <strong>
       {{
         formatMoney()(
