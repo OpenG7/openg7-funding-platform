@@ -2,27 +2,23 @@
   <section class="admin-content" data-og7="admin-transparency">
     <header class="admin-topbar">
       <div>
-        <span>{{ 'admin.legacy.administration' | translate }}</span>
         <h1>{{ 'admin.legacy.transparence' | translate }}</h1>
+        <section class="admin-auth-panel" aria-labelledby="admin-auth-title">
+          <h2 id="admin-auth-title">
+            {{ 'admin.legacy.acces_admin' | translate }}
+          </h2>
+          <p>
+            {{
+              'admin.legacy.vue_privee_des_donnees_qui_alimentent_la_transparence_publique'
+                | translate
+            }}
+          </p>
+        </section>
       </div>
-      <button type="button" (click)="loadTransparency()">
+      <button type="button" class="admin-button" (click)="loadTransparency()">
         {{ 'admin.legacy.actualiser' | translate }}
       </button>
     </header>
-
-    <section class="admin-auth-panel" aria-labelledby="admin-auth-title">
-      <div>
-        <h2 id="admin-auth-title">
-          {{ 'admin.legacy.acces_admin' | translate }}
-        </h2>
-        <p>
-          {{
-            'admin.legacy.vue_privee_des_donnees_qui_alimentent_la_transparence_publique'
-              | translate
-          }}
-        </p>
-      </div>
-    </section>
 
     <p class="state" role="status" *ngIf="state() === 'loading'">
       {{ 'admin.legacy.chargement_de_la_transparence' | translate }}

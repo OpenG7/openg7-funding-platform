@@ -1,29 +1,30 @@
 @reference '../../../../../styles/tailwind.css';
 
-.admin-panel small {
-  @apply tw:text-admin-muted;
-  line-height: 1.55;
-  margin: 0.35rem 0 0;
+.admin-panel > header > small {
+  @apply tw:max-w-full tw:text-admin-muted tw:text-admin-caption tw:wrap-anywhere;
+}
+
+.snapshot-source {
+  font-variant-numeric: tabular-nums;
 }
 
 dl {
-  @apply tw:grid tw:gap-3 tw:grid-cols-4 tw:m-0;
+  @apply tw:grid tw:min-w-0 tw:gap-4 tw:m-0;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+}
+
+dl > div {
+  @apply tw:grid tw:min-w-0 tw:gap-1;
+  align-content: start;
 }
 
 dt {
-  @apply tw:text-admin-muted tw:text-admin-caption tw:uppercase;
-  font-weight: var(--admin-label-weight);
-  letter-spacing: 0;
+  @apply tw:text-admin-muted tw:text-admin-caption tw:wrap-anywhere;
 }
 
 dd {
-  font-size: 1.2rem;
-  font-weight: var(--admin-emphasis-weight);
-  margin: 0.2rem 0 0;
-}
-
-@media (max-width: 900px) {
-  dl {
-    grid-template-columns: 1fr;
-  }
+  @apply tw:m-0 tw:min-w-0 tw:wrap-anywhere;
+  font-size: 1.125rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--admin-label-weight);
 }

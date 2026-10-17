@@ -22,6 +22,7 @@ import { AdminInspectionService } from '../../services/admin-inspection.service.
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
+import { AdminIconComponent } from '../../components/admin-ui/admin-icon.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 
 import { AdminEmailQueueController } from './admin-email-queue-controller.js';
@@ -36,6 +37,7 @@ import { AdminEmailQueueSummaryComponent } from './admin-email-queue-summary.com
   imports: [
     CommonModule,
     AdminLayoutComponent,
+    AdminIconComponent,
     AdminEmailQueueSummaryComponent,
     AdminEmailQueueFiltersComponent,
     AdminEmailQueueMessagesComponent,
@@ -47,14 +49,15 @@ import { AdminEmailQueueSummaryComponent } from './admin-email-queue-summary.com
       <section class="admin-content">
         <header class="admin-topbar">
           <div>
-            <span>{{ 'admin.legacy.administration' | translate }}</span>
             <h1>{{ 'admin.legacy.file_courriel' | translate }}</h1>
           </div>
           <button
             type="button"
+            class="admin-button"
             (click)="loadEmailQueue()"
             [disabled]="state() === 'loading'"
           >
+            <openg7-admin-icon name="refresh" />
             {{ 'admin.legacy.actualiser' | translate }}
           </button>
         </header>

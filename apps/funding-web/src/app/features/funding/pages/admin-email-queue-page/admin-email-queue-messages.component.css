@@ -9,52 +9,58 @@
 .queue-panel {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.45rem;
-  @apply tw:grid tw:p-4;
-  gap: 0.85rem;
+  @apply tw:grid tw:min-w-0 tw:rounded-admin-card;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 header {
-  @apply tw:flex tw:items-center tw:gap-4 tw:justify-between;
+  @apply tw:flex tw:flex-wrap tw:items-center tw:gap-3 tw:justify-between tw:p-admin-card;
+}
+
+header > div {
+  @apply tw:min-w-0 tw:max-w-full;
 }
 
 header span {
-  @apply tw:text-admin-muted tw:text-admin-caption tw:uppercase;
+  @apply tw:text-admin-muted tw:text-admin-caption tw:wrap-anywhere;
   font-weight: var(--admin-label-weight);
   letter-spacing: 0;
 }
 
 h2 {
-  @apply tw:m-0;
+  @apply tw:m-0 tw:wrap-anywhere;
+  margin-top: 0.25rem;
+  font-size: var(--admin-section-size, 1.1875rem);
+  font-weight: var(--admin-section-weight, 600);
+  line-height: var(--admin-section-leading, 1.4);
 }
 
 small,
 .empty-state span {
-  @apply tw:text-admin-muted;
+  @apply tw:text-admin-muted tw:text-admin-caption tw:wrap-anywhere;
+  line-height: 1.5;
 }
 
-button {
-  border-radius: 0.35rem;
-  @apply tw:cursor-pointer;
-  font-family: inherit;
-  font-size: inherit;
-  font-weight: var(--admin-control-weight);
-  line-height: inherit;
-  padding: 0 0.9rem;
-}
-
-button:disabled {
-  @apply tw:cursor-not-allowed tw:opacity-55;
-}
-
-.secondary-action {
-  background: var(--admin-panel);
-  border: 1px solid var(--admin-border);
-  @apply tw:text-admin-text tw:min-h-9;
+.admin-button {
+  @apply tw:max-w-full;
+  white-space: normal;
+  text-align: center;
 }
 
 .table-scroll {
-  @apply tw:overflow-x-auto;
+  @apply tw:min-w-0 tw:overflow-x-auto;
+  overscroll-behavior-x: contain;
+  scrollbar-color: var(--admin-control-border) var(--admin-panel);
+  border-top: 1px solid var(--admin-border);
+  border-radius: 0 0 var(--admin-radius-card) var(--admin-radius-card);
+}
+
+.table-scroll:focus-visible {
+  outline-offset: -3px;
+}
+
+.table-caption {
+  @apply tw:sr-only;
 }
 
 table {
@@ -65,16 +71,23 @@ table {
 th,
 td {
   border-bottom: 1px solid var(--admin-border);
-  padding: 0.7rem 0.5rem;
+  padding: 0.875rem 0.75rem;
   @apply tw:text-left tw:align-top;
+  line-height: 1.5;
 }
 
 th {
-  @apply tw:text-admin-muted tw:text-admin-caption tw:uppercase;
+  @apply tw:text-admin-muted tw:text-admin-caption;
+  background: var(--admin-subtle);
+  font-weight: var(--admin-label-weight);
 }
 
 td {
-  @apply tw:wrap-anywhere;
+  @apply tw:wrap-anywhere tw:text-admin-caption;
+}
+
+tbody tr:last-child td {
+  border-bottom: 0;
 }
 
 td strong,
@@ -82,33 +95,73 @@ td small {
   @apply tw:block;
 }
 
-.status-pill {
-  @apply tw:inline-flex tw:items-center tw:text-admin-muted tw:text-admin-caption tw:whitespace-nowrap;
-  background: var(--admin-panel-raised);
-  border-radius: 999px;
+.date-cell {
+  min-width: 8rem;
+  color: var(--admin-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.status-cell {
+  min-width: 6rem;
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+.template-cell {
+  min-width: 9rem;
+}
+
+.recipient-cell {
+  min-width: 14rem;
+}
+
+.recipient-action {
+  @apply tw:justify-start;
+  text-align: left;
+}
+
+.subject-cell {
+  min-width: 14rem;
+}
+
+.subject-cell strong {
+  font-size: 1rem;
   font-weight: var(--admin-label-weight);
-  min-height: 1.65rem;
-  padding: 0 0.65rem;
 }
 
-.status-sent {
-  background: var(--admin-panel-raised);
-  @apply tw:text-admin-success;
-}
-
-.status-failed {
-  background: var(--og7-admin-danger-bg, #422532);
+.message-error {
   @apply tw:text-admin-danger;
+  margin-top: 0.5rem;
 }
 
-.status-queued {
-  background: var(--og7-admin-warning-bg, #3c3221);
-  @apply tw:text-admin-warning;
+.attempts-cell {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
-.status-sending {
-  background: var(--admin-panel-raised);
-  @apply tw:text-admin-muted;
+.actions-cell {
+  min-width: 14rem;
+}
+
+.reconciliation {
+  @apply tw:grid tw:gap-3 tw:rounded-admin-control;
+  margin-top: 0.75rem;
+  padding: 0.875rem;
+  background: var(--admin-subtle);
+  border: 1px solid var(--admin-border);
+}
+
+.reconciliation p {
+  @apply tw:m-0 tw:text-admin-muted;
+}
+
+.reconciliation label {
+  @apply tw:grid tw:min-w-0 tw:gap-2;
+  font-weight: var(--admin-label-weight);
+}
+
+.reconciliation input {
+  @apply tw:w-full tw:min-h-admin-control;
 }
 
 .retry-message {
@@ -125,14 +178,8 @@ td small {
 }
 
 .empty-state {
-  background: var(--admin-panel);
-  border-radius: 0.35rem;
-  @apply tw:grid tw:gap-1 tw:p-4;
-}
-
-@media (max-width: 860px) {
-  header {
-    align-items: start;
-    @apply tw:flex-col;
-  }
+  background: var(--admin-subtle);
+  border: 1px dashed var(--admin-border);
+  @apply tw:grid tw:gap-1 tw:p-4 tw:rounded-admin-control;
+  margin: 0 var(--admin-card-padding) var(--admin-card-padding);
 }

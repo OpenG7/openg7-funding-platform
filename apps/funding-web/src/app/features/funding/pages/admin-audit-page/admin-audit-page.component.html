@@ -16,19 +16,24 @@
     <section class="audit-panel" aria-labelledby="audit-title">
       <header class="journal-toolbar">
         <div class="journal-heading">
-          <h2 id="audit-title">
-            {{ 'admin.legacy.journal_admin' | translate }}
-          </h2>
-          @if (response()) {
-            <span class="entry-count" data-og7="audit-count" role="status">
-              {{
-                (filteredEntries().length === 1
-                  ? 'admin.audit.entryCountOne'
-                  : 'admin.audit.entryCount'
-                ) | translate: { count: filteredEntries().length }
-              }}
-            </span>
-          }
+          <span class="journal-symbol">
+            <openg7-admin-icon name="audit" />
+          </span>
+          <div class="journal-title">
+            <h2 id="audit-title">
+              {{ 'admin.legacy.journal_admin' | translate }}
+            </h2>
+            @if (response()) {
+              <span class="entry-count" data-og7="audit-count" role="status">
+                {{
+                  (filteredEntries().length === 1
+                    ? 'admin.audit.entryCountOne'
+                    : 'admin.audit.entryCount'
+                  ) | translate: { count: filteredEntries().length }
+                }}
+              </span>
+            }
+          </div>
         </div>
         <label class="search-field">
           <span class="sr-only">{{
@@ -90,7 +95,7 @@
                     class="entry-link"
                     (click)="inspection.audit(entry)"
                   >
-                    {{ entry.action }}
+                    <span>{{ entry.action }}</span>
                     <openg7-admin-icon name="arrow" />
                   </button>
                   <p class="entry-summary">

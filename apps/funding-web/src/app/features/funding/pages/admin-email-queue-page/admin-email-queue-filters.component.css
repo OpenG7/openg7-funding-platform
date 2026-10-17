@@ -4,34 +4,29 @@
   @apply tw:block tw:min-w-0 tw:w-full;
   margin: 0 auto;
   max-width: 88rem;
+  container: email-queue-filters / inline-size;
 }
 
 .filters {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.45rem;
-  @apply tw:grid tw:gap-3 tw:p-4;
-  grid-template-columns: minmax(11rem, 0.3fr) minmax(0, 1fr);
+  @apply tw:grid tw:gap-4 tw:p-admin-card tw:rounded-admin-card;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 label {
-  @apply tw:grid tw:text-admin-caption;
+  @apply tw:grid tw:min-w-0 tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
-  gap: 0.35rem;
+  gap: 0.5rem;
 }
 
 select,
 input {
-  border: 1px solid var(--admin-border);
-  border-radius: 0.35rem;
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-  padding: 0.65rem 0.75rem;
+  @apply tw:w-full tw:min-h-admin-control;
 }
 
-@media (max-width: 860px) {
+@container email-queue-filters (min-width: 38rem) {
   .filters {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(12rem, 0.35fr) minmax(0, 1fr);
   }
 }

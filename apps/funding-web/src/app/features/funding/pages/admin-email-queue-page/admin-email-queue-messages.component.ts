@@ -9,6 +9,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import type { AdminEmailQueueMessageRecord } from '@openg7/funding-core';
 
 import { AdminAutomaticPreparationDirective } from '../../components/admin-automatic/admin-automatic-preparation.directive.js';
+import { AdminBadgeComponent } from '../../components/admin-ui/admin-badge.component.js';
 
 import type {
   EmailQueueLoadState,
@@ -19,7 +20,12 @@ import type {
 @Component({
   selector: 'openg7-admin-email-queue-messages',
   standalone: true,
-  imports: [CommonModule, TranslatePipe, AdminAutomaticPreparationDirective],
+  imports: [
+    CommonModule,
+    TranslatePipe,
+    AdminAutomaticPreparationDirective,
+    AdminBadgeComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-email-queue-messages.component.html',
   styleUrls: [

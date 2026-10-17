@@ -1,9 +1,14 @@
 import { AxeBuilder } from '@axe-core/playwright';
-import type { Locator, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import type { AdminEmailQueueMessageRecord } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
 import { installAdminTokenSession } from './support/setup-fixtures.js';
+import {
+  captureAdminDesign,
+  expectAdminPageFits,
+  prepareAdminDesignReview
+} from './support/admin-design-review.js';
 
 const date = '2026-09-23T12:00:00Z';
 const refreshedDate = '2026-09-24T12:00:00Z';
@@ -63,6 +68,8 @@ const emailPalettes = {
   mineral: {
     panel: 'rgb(255, 255, 255)',
     raised: 'rgb(240, 244, 249)',
+    neutralBackground: 'rgb(245, 247, 251)',
+    successBackground: 'rgb(234, 246, 238)',
     text: 'rgb(23, 43, 80)',
     muted: 'rgb(82, 98, 123)',
     border: 'rgb(216, 224, 236)',
@@ -75,6 +82,8 @@ const emailPalettes = {
   night: {
     panel: 'rgb(20, 35, 56)',
     raised: 'rgb(27, 45, 68)',
+    neutralBackground: 'rgb(16, 32, 51)',
+    successBackground: 'rgb(22, 60, 46)',
     text: 'rgb(241, 245, 252)',
     muted: 'rgb(189, 203, 224)',
     border: 'rgb(64, 86, 111)',
@@ -87,6 +96,8 @@ const emailPalettes = {
   graphite: {
     panel: 'rgb(37, 41, 47)',
     raised: 'rgb(50, 56, 65)',
+    neutralBackground: 'rgb(32, 36, 41)',
+    successBackground: 'rgb(38, 60, 50)',
     text: 'rgb(243, 244, 246)',
     muted: 'rgb(196, 203, 213)',
     border: 'rgb(86, 97, 110)',
@@ -130,11 +141,74 @@ async function styleQueueFixture(page: Page) {
   return { options, mutations };
 }
 
-async function emailGridColumns(element: Locator): Promise<number> {
-  return element.evaluate(
-    (node) => getComputedStyle(node).gridTemplateColumns.split(' ').length
-  );
-}
+for (const language of ['fr-CA', 'en'] as const)
+  for (const width of [390, 1536]) {
+    test(`email composition keeps queue totals, filters and message inspection accessible in ${language} at ${width}px`, async ({
+      page
+    }, testInfo) => {
+      await prepareAdminDesignReview(page);
+      await preparePage(page, language, width);
+      const { mutations } = await styleQueueFixture(page);
+      await page.setViewportSize({
+        width,
+        height: width === 1536 ? 864 : 1000
+      });
+      await page.goto('/admin/fundraiser/email-queue');
+      const summary = page.getByRole('region', {
+        name:
+          language === 'en' ? 'Email queue summary' : 'Resume file courriel',
+        exact: true
+      });
+      const filters = page.getByRole('region', {
+        name:
+          language === 'en' ? 'Email queue filters' : 'Filtres file courriel',
+        exact: true
+      });
+      const messages = page.getByRole('region', {
+        name: language === 'en' ? 'Email messages' : 'Messages courriel',
+        exact: true
+      });
+      await expect(summary.getByRole('article')).toHaveCount(5);
+      await expect(
+        summary.getByRole('article').first().locator('strong')
+      ).toHaveText('11');
+      await expect(messages.getByRole('row')).toHaveCount(5);
+      await captureAdminDesign(page, testInfo, `email-queue-${width}`);
+      if (width === 1536) {
+        for (const metric of await summary.getByRole('article').all())
+          await expect(metric).toBeInViewport({ ratio: 1 });
+        await expect(filters).toBeInViewport({ ratio: 1 });
+        await expect(messages.getByRole('heading')).toBeInViewport({
+          ratio: 1
+        });
+      }
+      const inspect = messages.getByRole('button', {
+        name: 'style-failed@example.test',
+        exact: true
+      });
+      await inspect.scrollIntoViewIfNeeded();
+      await inspect.focus();
+      await page.keyboard.press('Enter');
+      await expect(page.getByRole('dialog')).toContainText(
+        'style-failed@example.test'
+      );
+      await page.keyboard.press('Escape');
+      await expect(inspect).toBeFocused();
+      if (language === 'en') {
+        await page.evaluate(() => {
+          document.documentElement.style.fontSize = '200%';
+        });
+        await expectAdminPageFits(page);
+        const search = filters.getByRole('searchbox');
+        await search.fill('synthetic-no-match');
+        await expect(messages.getByRole('row')).toHaveCount(0);
+        await search.clear();
+        await expect(messages.getByRole('row')).toHaveCount(5);
+        await expectAdminPageFits(page);
+      }
+      expect(mutations).toEqual([]);
+    });
+  }
 
 for (const theme of ['mineral', 'night', 'graphite'] as const) {
   for (const { language, width } of [
@@ -171,39 +245,21 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
         name: english ? 'Email messages' : 'Messages courriel',
         exact: true
       });
-      await expect(summary.getByRole('article')).toHaveCount(6);
+      await expect(summary.getByRole('article')).toHaveCount(5);
       await expect(page.locator('html')).toHaveAttribute('lang', language);
       await expect(page.locator('html')).toHaveAttribute(
         'data-og7-pilot-theme',
         theme
       );
-      await expect
-        .poll(() => emailGridColumns(summary))
-        .toBe(width === 390 ? 1 : 5);
-      await expect
-        .poll(() => emailGridColumns(filters))
-        .toBe(width === 390 ? 1 : 2);
       for (const panel of [
         summary.getByRole('article').first(),
         filters,
         messages
       ]) {
         await expect(panel).toHaveCSS('background-color', palette.panel);
-        await expect(panel).toHaveCSS('border-top-color', palette.border);
-        await expect(panel).toHaveCSS('border-top-width', '1px');
-        await expect(panel).toHaveCSS('border-radius', '7.2px');
-        await expect(panel).toHaveCSS('padding', '16px');
       }
-      await expect(summary.getByRole('article').first()).toHaveCSS(
-        'min-height',
-        '100px'
-      );
-      await expect(summary.locator('strong').first()).toHaveCSS(
-        'font-size',
-        '24.8px'
-      );
       const search = filters.getByRole('searchbox');
-      await expect(search).toHaveCSS('padding', '10.4px 12px');
+      expect((await search.boundingBox())!.height).toBeGreaterThanOrEqual(44);
       await expect(search).toHaveCSS('color', palette.text);
       const table = messages.getByRole('table');
       await expect(table).toHaveCSS('min-width', '1248px');
@@ -215,9 +271,9 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
       ).toBe(true);
       for (const [status, color, background] of [
         ['failed', palette.danger, palette.dangerBackground],
-        ['sent', palette.success, palette.raised],
+        ['sent', palette.success, palette.successBackground],
         ['queued', palette.warning, palette.warningBackground],
-        ['sending', palette.muted, palette.raised]
+        ['sending', palette.muted, palette.neutralBackground]
       ] as const) {
         const row = messages
           .getByRole('row')
@@ -225,16 +281,13 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
         const pill = row.getByRole('cell').nth(1).locator('span');
         await expect(pill).toHaveCSS('color', color);
         await expect(pill).toHaveCSS('background-color', background);
-        await expect(pill).toHaveCSS('min-height', '26.4px');
-        await expect(pill).toHaveCSS('padding', '0px 10.4px');
         const retry = row.getByRole('button', {
           name: english ? 'Retry' : 'Relancer',
           exact: true
         });
-        await expect(retry).toHaveCSS('min-height', '36px');
+        expect((await retry.boundingBox())!.height).toBeGreaterThanOrEqual(44);
         if (status === 'sent' || status === 'sending') {
           await expect(retry).toBeDisabled();
-          await expect(retry).toHaveCSS('opacity', '0.55');
         }
       }
       const retry = messages
@@ -254,8 +307,10 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
       await search.fill('synthetic-missing@example.test');
       const empty = messages.getByRole('article');
       await expect(empty).toHaveCSS('display', 'grid');
-      await expect(empty).toHaveCSS('gap', '4px');
-      await expect(empty).toHaveCSS('background-color', palette.panel);
+      await expect(empty).toHaveCSS(
+        'background-color',
+        palette.neutralBackground
+      );
       options.status = 503;
       await page
         .getByRole('button', {
@@ -267,7 +322,6 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
         exact: true
       });
       await expect(error).toHaveCSS('color', palette.danger);
-      await expect(error).toHaveCSS('padding', '16px');
       expect(mutations).toEqual([]);
       expect(
         await page.evaluate(
@@ -278,7 +332,7 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
   }
 }
 
-test('email queue grids preserve the 620px, 860px and 1080px boundaries', async ({
+test('email queue metrics, filters and local register fit resized viewports', async ({
   page
 }) => {
   await preparePage(page, 'fr-CA', 1280);
@@ -296,24 +350,18 @@ test('email queue grids preserve the 620px, 860px and 1080px boundaries', async 
     name: 'Messages courriel',
     exact: true
   });
-  await expect(summary.getByRole('article')).toHaveCount(6);
-  for (const width of [620, 621, 860, 861, 1080, 1081]) {
+  await expect(summary.getByRole('article')).toHaveCount(5);
+  for (const width of [390, 620, 621, 860, 861, 1080, 1081, 1536]) {
     await test.step(`${width}px`, async () => {
       await page.setViewportSize({ width, height: 950 });
-      await expect
-        .poll(() => emailGridColumns(summary))
-        .toBe(width <= 620 ? 1 : width <= 1080 ? 2 : 5);
-      await expect
-        .poll(() => emailGridColumns(filters))
-        .toBe(width <= 860 ? 1 : 2);
-      for (const header of [
-        page.getByRole('main').locator('header').first(),
-        messages.locator('header')
-      ])
-        await expect(header).toHaveCSS(
-          'flex-direction',
-          width <= 860 ? 'column' : 'row'
-        );
+      await expect(summary.getByRole('article')).toHaveCount(5);
+      await expectAdminPageFits(page);
+      for (const control of await filters.locator('input, select').all()) {
+        const bounds = (await control.boundingBox())!;
+        expect(bounds.x).toBeGreaterThanOrEqual(-1);
+        expect(bounds.x + bounds.width).toBeLessThanOrEqual(width + 1);
+        expect(bounds.height).toBeGreaterThanOrEqual(44);
+      }
       await expect(messages.getByRole('table')).toHaveCSS(
         'min-width',
         '1248px'
@@ -375,11 +423,7 @@ function snapshotDate(page: Page, english: boolean) {
       name: english ? 'Email queue summary' : 'Resume file courriel',
       exact: true
     })
-    .locator('article')
-    .filter({
-      has: page.getByText(english ? 'Updated' : 'Mis a jour', { exact: true })
-    })
-    .locator('strong');
+    .locator('[data-og7="email-queue-updated"]');
 }
 
 for (const language of ['fr-CA', 'en']) {

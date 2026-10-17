@@ -1,31 +1,89 @@
 @reference '../../../../../styles/tailwind.css';
 
+.admin-panel {
+  @apply tw:gap-0 tw:p-0;
+}
+
+.admin-panel > header {
+  @apply tw:p-admin-card;
+}
+
 .table-scroll {
-  @apply tw:overflow-x-auto;
+  @apply tw:min-w-0 tw:max-w-full tw:overflow-x-auto;
+  border-top: 1px solid var(--admin-border);
+  border-radius: 0 0 var(--admin-radius-card) var(--admin-radius-card);
+  overscroll-behavior-x: contain;
+  scrollbar-color: var(--admin-control-border) var(--admin-panel);
+}
+
+.table-scroll:focus-visible {
+  outline-offset: -3px;
 }
 
 table {
   @apply tw:border-collapse tw:w-full;
-  min-width: 58rem;
+  min-width: 44rem;
+  table-layout: fixed;
 }
 
 th,
 td {
+  @apply tw:text-left tw:align-top tw:py-4 tw:px-5 tw:wrap-anywhere;
   border-bottom: 1px solid var(--admin-border);
-  padding: 0.7rem 0.5rem;
-  @apply tw:text-left tw:align-top;
 }
 
 th {
-  @apply tw:text-admin-muted tw:text-admin-caption tw:uppercase;
+  @apply tw:text-admin-muted tw:text-admin-caption;
+  background: var(--admin-subtle);
   font-weight: var(--admin-label-weight);
 }
 
+th:nth-child(1) {
+  width: 25%;
+}
+
+th:nth-child(2) {
+  width: 35%;
+}
+
+th:nth-child(3),
+th:nth-child(4) {
+  width: 20%;
+}
+
+.project-cell {
+  font-weight: var(--admin-label-weight);
+}
+
+.description-cell,
+.date-cell {
+  @apply tw:text-admin-muted;
+}
+
+.amount-cell {
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+td.amount-cell {
+  font-weight: var(--admin-label-weight);
+}
+
+.amount-cell small {
+  @apply tw:block tw:text-admin-muted tw:text-admin-caption;
+  font-weight: 400;
+  margin-top: 0.25rem;
+}
+
+tbody tr:last-child td {
+  border-bottom: 0;
+}
+
 .empty-state {
-  background: var(--admin-panel);
-  border: 1px solid var(--admin-border);
-  border-radius: 0.45rem;
-  @apply tw:p-4;
+  @apply tw:rounded-admin-control tw:p-4;
+  background: var(--admin-panel-raised);
+  border: 1px dashed var(--admin-border);
+  margin: 0 var(--admin-card-padding) var(--admin-card-padding);
 }
 
 .empty-state h3 {
@@ -34,6 +92,5 @@ th {
 
 .empty-state p {
   @apply tw:text-admin-muted;
-  line-height: 1.55;
-  margin: 0.35rem 0 0;
+  margin: 0.375rem 0 0;
 }

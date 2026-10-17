@@ -6,6 +6,11 @@ import type {
 } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
+import {
+  captureAdminDesign,
+  expectAdminPageFits,
+  prepareAdminDesignReview
+} from './support/admin-design-review.js';
 
 const snapshot = (count: number, date: string): AdminTransparencyResponse => ({
   data_source: 'database',
@@ -202,6 +207,60 @@ async function complete(
   );
 }
 
+for (const language of ['fr-CA', 'en'] as const)
+  for (const width of [390, 1536]) {
+    test(`transparency composition keeps financial totals and their source accessible in ${language} at ${width}px`, async ({
+      page
+    }, testInfo) => {
+      await prepareAdminDesignReview(page);
+      const { requests, mutations, view, current } = await prepare(
+        page,
+        language,
+        width,
+        'mineral'
+      );
+      await page.setViewportSize({
+        width,
+        height: width === 1536 ? 864 : 1000
+      });
+      await complete(page, requests[0], 200, withAllocations(newer));
+      const summary = view.locator('[data-og7="transparency-summary"]');
+      const allocations = view.locator('[data-og7="transparency-allocations"]');
+      await expect(summary.getByRole('article')).toHaveCount(4);
+      await expect(current).toContainText('database');
+      await expect(current.getByText('20', { exact: true })).toBeVisible();
+      await expect(summary).toContainText('CAD');
+      await expect(allocations.getByRole('row')).toHaveCount(3);
+      await captureAdminDesign(page, testInfo, `transparency-${width}`);
+      if (width === 1536) {
+        for (const card of await summary.getByRole('article').all())
+          await expect(card).toBeInViewport({ ratio: 1 });
+        await expect(current.getByRole('heading')).toBeInViewport({ ratio: 1 });
+        await captureAdminDesign(
+          page,
+          testInfo,
+          'transparency-complete-1536',
+          true
+        );
+      }
+      if (language === 'en') {
+        await page.evaluate(() => {
+          document.documentElement.style.fontSize = '200%';
+        });
+        await expectAdminPageFits(page);
+        const scroll = view.locator(
+          '[data-og7="transparency-allocation-scroll"]'
+        );
+        await scroll.scrollIntoViewIfNeeded();
+        await scroll.focus();
+        await expect(scroll).toBeFocused();
+        await expect(scroll).toHaveCSS('overflow-x', 'auto');
+        await expect(current.getByText('20', { exact: true })).toBeVisible();
+      }
+      expect(mutations).toEqual([]);
+    });
+  }
+
 for (const theme of ['mineral', 'night', 'graphite'] as const) {
   for (const { language, width } of [
     { language: 'fr-CA', width: 390 },
@@ -226,64 +285,17 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
       const summary = view.locator('[data-og7="transparency-summary"]');
       const statuses = view.locator('[data-og7="transparency-statuses"]');
       for (const grid of [summary, statuses]) {
-        await expect(grid).toHaveCSS('display', 'grid');
-        await expect(grid).toHaveCSS('gap', '12px');
-        await expect
-          .poll(() =>
-            grid.evaluate(
-              (element) =>
-                getComputedStyle(element).gridTemplateColumns.split(/\s+/)
-                  .length
-            )
-          )
-          .toBe(width <= 900 ? 1 : 4);
         const cards = grid.getByRole('article');
         await expect(cards).toHaveCount(4);
         for (const card of await cards.all()) {
-          await expect(card).toHaveCSS('background-color', palette.panel);
-          await expect(card).toHaveCSS('background-image', 'none');
-          await expect(card).toHaveCSS('border-top-color', palette.border);
-          await expect(card).toHaveCSS('border-top-width', '1px');
-          await expect(card).toHaveCSS('border-radius', '7.2px');
-          await expect(card).toHaveCSS('padding', '16px');
-          await expect(card.locator('span')).toHaveCSS('color', palette.muted);
-          await expect(card.locator('span')).toHaveCSS('font-size', '14px');
-          await expect(card.locator('span')).toHaveCSS('font-weight', '600');
-          await expect
-            .poll(() =>
-              card.locator('span').evaluate((element) => {
-                const spacing = getComputedStyle(element).letterSpacing;
-                return spacing === 'normal' ? 0 : Number.parseFloat(spacing);
-              })
-            )
-            .toBe(0);
           await expect(card.locator('strong')).toHaveCSS('color', palette.text);
-          await expect(card.locator('strong')).toHaveCSS('font-size', '24.8px');
-          await expect(card.locator('strong')).toHaveCSS('margin-top', '3.2px');
         }
       }
       await expect(current).toHaveCSS('background-color', palette.panel);
-      await expect(current).toHaveCSS('padding', '16px');
-      await expect(current.locator('dd').first()).toHaveCSS(
-        'font-size',
-        '19.2px'
-      );
-      await expect(current.locator('dd').first()).toHaveCSS(
-        'font-weight',
-        '700'
-      );
       const allocations = view.locator('[data-og7="transparency-allocations"]');
-      await expect(allocations.getByRole('table')).toHaveCSS(
-        'min-width',
-        '928px'
-      );
       await expect(allocations.getByRole('table')).toHaveCSS(
         'border-collapse',
         'collapse'
-      );
-      await expect(allocations.getByRole('columnheader').first()).toHaveCSS(
-        'padding',
-        '11.2px 8px'
       );
       await expect(allocations.getByRole('columnheader').first()).toHaveCSS(
         'text-align',
@@ -299,8 +311,7 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
             (element) => element.scrollWidth > element.clientWidth
           )
         ).toBe(true);
-      await expect(refresh).toHaveCSS('min-height', '43.2px');
-      await expect(refresh).toHaveCSS('border-radius', '5.6px');
+      expect((await refresh.boundingBox())!.height).toBeGreaterThanOrEqual(44);
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= innerWidth + 1
@@ -311,7 +322,7 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
   }
 }
 
-test('transparency keeps the 900px grid boundary, panel alignment and empty presentation', async ({
+test('transparency keeps its totals, panel bounds and zero state when resized', async ({
   page
 }) => {
   const { requests, mutations, view, current, refresh } = await prepare(
@@ -322,36 +333,19 @@ test('transparency keeps the 900px grid boundary, panel alignment and empty pres
   );
   await complete(page, requests[0], 200, withAllocations(newer));
   const summary = view.locator('[data-og7="transparency-summary"]');
-  for (const width of [901, 900, 899]) {
+  for (const width of [390, 701, 899, 900, 901, 1280, 1536]) {
     await page.setViewportSize({ width, height: 950 });
     for (const grid of [
       summary,
       view.locator('[data-og7="transparency-statuses"]'),
       current.locator('dl')
     ]) {
-      await expect
-        .poll(() =>
-          grid.evaluate(
-            (element) =>
-              getComputedStyle(element).gridTemplateColumns.split(/\s+/).length
-          )
-        )
-        .toBe(width <= 900 ? 1 : 4);
+      const bounds = (await grid.boundingBox())!;
+      expect(bounds.x).toBeGreaterThanOrEqual(-1);
+      expect(bounds.x + bounds.width).toBeLessThanOrEqual(width + 1);
     }
-    for (const header of [
-      view.locator('header').first(),
-      current.locator('header')
-    ]) {
-      await expect(header).toHaveCSS(
-        'flex-direction',
-        width <= 900 ? 'column' : 'row'
-      );
-      await expect(header).toHaveCSS(
-        'align-items',
-        width <= 900 ? 'start' : 'center'
-      );
-    }
-    await expect(summary.locator('..')).toHaveCSS('max-width', '1248px');
+    await expect(summary.getByRole('article')).toHaveCount(4);
+    await expect(current.getByText('20', { exact: true })).toBeVisible();
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth + 1
@@ -365,9 +359,6 @@ test('transparency keeps the 900px grid boundary, panel alignment and empty pres
     .locator('[data-og7="transparency-allocations"]')
     .getByRole('article');
   await expect(empty).toBeVisible();
-  await expect(empty).toHaveCSS('background-color', palettes.mineral.panel);
-  await expect(empty).toHaveCSS('border-radius', '7.2px');
-  await expect(empty).toHaveCSS('padding', '16px');
   await expect(
     view.locator('[data-og7="transparency-allocation-scroll"]')
   ).toHaveCount(0);
@@ -479,10 +470,10 @@ for (const language of ['fr-CA', 'en']) {
       }
       await expect(
         allocations.getByRole('row').nth(1).getByRole('cell').nth(2)
-      ).toHaveText(money(125.25));
+      ).toHaveText(money(125.25) + ' CAD');
       await expect(
         allocations.getByRole('row').nth(2).getByRole('cell').nth(2)
-      ).toHaveText(money(50));
+      ).toHaveText(money(50) + ' CAD');
       await expect(
         allocations.getByRole('row').nth(2).getByRole('cell').nth(3)
       ).toHaveText(language === 'en' ? 'Not available' : 'Non disponible');

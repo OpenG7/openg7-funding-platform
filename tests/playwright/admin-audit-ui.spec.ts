@@ -2,6 +2,12 @@ import type { Page } from '@playwright/test';
 import type { AdminAuditLogEntry } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
+import {
+  blockAdminReviewWrites,
+  captureAdminDesign,
+  expectAdminPageFits,
+  prepareAdminDesignReview
+} from './support/admin-design-review.js';
 
 const date = '2026-09-29T14:30:00Z';
 const entries: AdminAuditLogEntry[] = Array.from(
@@ -82,6 +88,52 @@ const auditPalettes = {
   }
 } as const;
 
+for (const language of ['fr-CA', 'en'] as const)
+  for (const width of [390, 1536]) {
+    test(`audit composition keeps the search and first entry accessible in ${language} at ${width}px`, async ({
+      page
+    }, testInfo) => {
+      await prepareAdminDesignReview(page);
+      await fixtures(page, language);
+      const writes = await blockAdminReviewWrites(page);
+      await page.setViewportSize({
+        width,
+        height: width === 1536 ? 864 : 1000
+      });
+      await page.goto('/admin/fundraiser/audit');
+      const view = page.locator('[data-og7="admin-audit"]');
+      const rows = view.locator('[data-og7="audit-entry"]');
+      const search = view.getByRole('searchbox');
+      await expect(rows).toHaveCount(20);
+      await captureAdminDesign(page, testInfo, `audit-${width}`);
+      if (width === 1536) {
+        await expect(search).toBeInViewport({ ratio: 1 });
+        await expect(rows.first()).toBeInViewport({ ratio: 1 });
+      }
+      await search.fill(entries[20].entity_id!);
+      await expect(rows).toHaveCount(1);
+      const inspect = rows.first().getByRole('button');
+      await inspect.scrollIntoViewIfNeeded();
+      await inspect.focus();
+      await page.keyboard.press('Enter');
+      await expect(page.getByRole('dialog')).toContainText(
+        entries[20].summary!
+      );
+      await page.keyboard.press('Escape');
+      await expect(inspect).toBeFocused();
+      if (language === 'en') {
+        await page.evaluate(() => {
+          document.documentElement.style.fontSize = '200%';
+        });
+        await expectAdminPageFits(page);
+        await search.clear();
+        await expect(rows).toHaveCount(20);
+        await expectAdminPageFits(page);
+      }
+      expect(writes).toEqual([]);
+    });
+  }
+
 for (const theme of ['mineral', 'night', 'graphite'] as const) {
   test(`audit retains ${theme} surfaces and readable entries on French mobile and English desktop`, async ({
     page
@@ -112,7 +164,6 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
         const rows = audit.locator('[data-og7="audit-entry"]');
         await expect(rows).toHaveCount(20);
         await expect(page.locator('html')).toHaveAttribute('lang', language);
-        await expect(audit).toHaveCSS('gap', '16px');
         await expect(panel).toHaveCSS(
           'background-color',
           auditPalettes[theme].panel
@@ -120,11 +171,6 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
         await expect(panel).toHaveCSS(
           'border-top-color',
           auditPalettes[theme].border
-        );
-        await expect(panel).toHaveCSS('border-radius', '10.4px');
-        await expect(panel.locator(':scope > header')).toHaveCSS(
-          'padding',
-          '16px'
         );
         const inspect = rows.first().getByRole('button');
         await expect(inspect).toHaveCSS('color', auditPalettes[theme].text);

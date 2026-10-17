@@ -7,51 +7,68 @@
       <span>{{
         'admin.legacy.p0_message_s' | translate: { p0: messages().length }
       }}</span>
-      <h2>{{ 'admin.legacy.derniers_courriels' | translate }}</h2>
+      <h2 id="email-queue-title">
+        {{ 'admin.legacy.derniers_courriels' | translate }}
+      </h2>
     </div>
     <small>{{
       'admin.legacy.dernier_echec_p0' | translate: { p0: lastFailedAtLabel() }
     }}</small>
   </header>
 
-  <div class="table-scroll" *ngIf="messages().length > 0">
+  <div
+    class="table-scroll"
+    *ngIf="messages().length > 0"
+    tabindex="0"
+    role="group"
+    aria-labelledby="email-queue-title"
+  >
     <table>
+      <caption class="table-caption">
+        {{
+          'admin.legacy.derniers_courriels' | translate
+        }}
+      </caption>
       <thead>
         <tr>
-          <th>{{ 'admin.legacy.date' | translate }}</th>
-          <th>{{ 'admin.legacy.statut' | translate }}</th>
-          <th>{{ 'admin.legacy.template' | translate }}</th>
-          <th>{{ 'admin.legacy.destinataire' | translate }}</th>
-          <th>{{ 'admin.legacy.sujet' | translate }}</th>
-          <th>{{ 'admin.legacy.tentatives' | translate }}</th>
-          <th>
+          <th scope="col">{{ 'admin.legacy.date' | translate }}</th>
+          <th scope="col" class="status-cell">
+            {{ 'admin.legacy.statut' | translate }}
+          </th>
+          <th scope="col">{{ 'admin.legacy.template' | translate }}</th>
+          <th scope="col">{{ 'admin.legacy.destinataire' | translate }}</th>
+          <th scope="col">{{ 'admin.legacy.sujet' | translate }}</th>
+          <th scope="col">{{ 'admin.legacy.tentatives' | translate }}</th>
+          <th scope="col">
             {{ 'admin.legacy.prochaine_tentative' | translate }}
           </th>
-          <th>{{ 'admin.legacy.action' | translate }}</th>
+          <th scope="col">{{ 'admin.legacy.action' | translate }}</th>
         </tr>
       </thead>
       <tbody>
         <tr *ngFor="let view of messages(); trackBy: trackByMessage">
-          <td>{{ view.updatedAtLabel }}</td>
-          <td>
-            <span
-              class="status-pill"
-              [class.status-sent]="view.message.status === 'sent'"
-              [class.status-failed]="
-                view.message.status === 'failed' ||
-                view.message.status === 'uncertain'
+          <td class="date-cell">{{ view.updatedAtLabel }}</td>
+          <td class="status-cell">
+            <openg7-admin-badge
+              [tone]="
+                view.message.status === 'sent'
+                  ? 'success'
+                  : view.message.status === 'failed' ||
+                      view.message.status === 'uncertain'
+                    ? 'danger'
+                    : view.message.status === 'queued'
+                      ? 'warning'
+                      : 'neutral'
               "
-              [class.status-queued]="view.message.status === 'queued'"
-              [class.status-sending]="view.message.status === 'sending'"
             >
               {{ view.statusLabel }}
-            </span>
+            </openg7-admin-badge>
           </td>
-          <td>{{ view.templateLabel }}</td>
-          <td>
+          <td class="template-cell">{{ view.templateLabel }}</td>
+          <td class="recipient-cell">
             <button
               type="button"
-              class="secondary-action"
+              class="admin-button recipient-action"
               (click)="inspectRequested.emit(view.message)"
               [openg7AutomaticPrepare]="'email-preview:' + view.message.id"
               [automaticFor]="contributionIdFor(view.message)"
@@ -60,24 +77,26 @@
               {{ view.message.recipient_email }}
             </button>
           </td>
-          <td>
+          <td class="subject-cell">
             <strong>{{ view.message.subject }}</strong>
-            <small *ngIf="view.message.last_error">
+            <small class="message-error" *ngIf="view.message.last_error">
               {{ view.message.last_error }}
             </small>
           </td>
-          <td>{{ view.message.attempts }} / {{ view.message.max_attempts }}</td>
-          <td>
+          <td class="attempts-cell">
+            {{ view.message.attempts }} / {{ view.message.max_attempts }}
+          </td>
+          <td class="date-cell">
             {{
               view.message.status === 'uncertain'
                 ? ('admin.emailDelivery.uncertain' | translate)
                 : view.nextAttemptAtLabel
             }}
           </td>
-          <td>
+          <td class="actions-cell">
             <button
               type="button"
-              class="secondary-action"
+              class="admin-button"
               [disabled]="
                 view.message.status === 'sent' ||
                 view.message.status === 'uncertain' ||
@@ -97,68 +116,72 @@
               }}
             </button>
             @if (view.message.status === 'uncertain') {
-              <p>{{ 'admin.emailDelivery.explanation' | translate }}</p>
-              <label>
-                {{ 'admin.emailDelivery.evidenceReference' | translate }}
-                <input
-                  #evidence
-                  type="text"
-                  maxlength="100"
-                  data-og7="email-delivery-evidence"
-                />
-              </label>
-              <button
-                type="button"
-                data-og7="email-delivery-mark-sent"
-                [openg7AutomaticPrepare]="
-                  'email-reconcile-sent:' + view.message.id
-                "
-                [automaticFor]="contributionIdFor(view.message)"
-                [automaticExecutionMode]="'confirmation_required'"
-                (automaticPrepare)="
-                  reconcileRequested.emit({
-                    message: view.message,
-                    outcome: 'sent',
-                    evidenceReference: evidence.value
-                  })
-                "
-                [disabled]="view.retryState === 'sending'"
-                (click)="
-                  reconcileRequested.emit({
-                    message: view.message,
-                    outcome: 'sent',
-                    evidenceReference: evidence.value
-                  })
-                "
-              >
-                {{ 'admin.emailDelivery.markSent' | translate }}
-              </button>
-              <button
-                type="button"
-                data-og7="email-delivery-mark-not-sent"
-                [openg7AutomaticPrepare]="
-                  'email-reconcile-not-sent:' + view.message.id
-                "
-                [automaticFor]="contributionIdFor(view.message)"
-                [automaticExecutionMode]="'confirmation_required'"
-                (automaticPrepare)="
-                  reconcileRequested.emit({
-                    message: view.message,
-                    outcome: 'not_sent',
-                    evidenceReference: evidence.value
-                  })
-                "
-                [disabled]="view.retryState === 'sending'"
-                (click)="
-                  reconcileRequested.emit({
-                    message: view.message,
-                    outcome: 'not_sent',
-                    evidenceReference: evidence.value
-                  })
-                "
-              >
-                {{ 'admin.emailDelivery.markNotSent' | translate }}
-              </button>
+              <div class="reconciliation">
+                <p>{{ 'admin.emailDelivery.explanation' | translate }}</p>
+                <label>
+                  {{ 'admin.emailDelivery.evidenceReference' | translate }}
+                  <input
+                    #evidence
+                    type="text"
+                    maxlength="100"
+                    data-og7="email-delivery-evidence"
+                  />
+                </label>
+                <button
+                  type="button"
+                  class="admin-button"
+                  data-og7="email-delivery-mark-sent"
+                  [openg7AutomaticPrepare]="
+                    'email-reconcile-sent:' + view.message.id
+                  "
+                  [automaticFor]="contributionIdFor(view.message)"
+                  [automaticExecutionMode]="'confirmation_required'"
+                  (automaticPrepare)="
+                    reconcileRequested.emit({
+                      message: view.message,
+                      outcome: 'sent',
+                      evidenceReference: evidence.value
+                    })
+                  "
+                  [disabled]="view.retryState === 'sending'"
+                  (click)="
+                    reconcileRequested.emit({
+                      message: view.message,
+                      outcome: 'sent',
+                      evidenceReference: evidence.value
+                    })
+                  "
+                >
+                  {{ 'admin.emailDelivery.markSent' | translate }}
+                </button>
+                <button
+                  type="button"
+                  class="admin-button"
+                  data-og7="email-delivery-mark-not-sent"
+                  [openg7AutomaticPrepare]="
+                    'email-reconcile-not-sent:' + view.message.id
+                  "
+                  [automaticFor]="contributionIdFor(view.message)"
+                  [automaticExecutionMode]="'confirmation_required'"
+                  (automaticPrepare)="
+                    reconcileRequested.emit({
+                      message: view.message,
+                      outcome: 'not_sent',
+                      evidenceReference: evidence.value
+                    })
+                  "
+                  [disabled]="view.retryState === 'sending'"
+                  (click)="
+                    reconcileRequested.emit({
+                      message: view.message,
+                      outcome: 'not_sent',
+                      evidenceReference: evidence.value
+                    })
+                  "
+                >
+                  {{ 'admin.emailDelivery.markNotSent' | translate }}
+                </button>
+              </div>
             }
             <small
               class="retry-message"

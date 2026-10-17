@@ -137,6 +137,13 @@ partir de 60 rem. Les formulaires se replient selon leur propre largeur; aucune
 harmonisation visuelle ne change les confirmations, les versions ou les faits
 comptables.
 
+Transparence conserve une synthèse des montants avec leurs devises, puis les
+statuts et le snapshot avec sa provenance et sa date. L'audit donne priorité à la
+recherche et aux références intégrales. La file de courriels regroupe ses cinq
+compteurs; sa date et l'explication des envois incertains restent visibles en pied
+de synthèse. Le registre garde ses détails, confirmations et rapprochements,
+avec un défilement horizontal local accessible au clavier.
+
 La vue Publications présente d'abord les prochains lots. Les accès à la rédaction,
 aux lots et au calendrier occupent un rail à droite dès 60 rem de contenu disponible,
 puis suivent la file en dessous. Entre 44 et 60 rem, ils occupent trois colonnes;
