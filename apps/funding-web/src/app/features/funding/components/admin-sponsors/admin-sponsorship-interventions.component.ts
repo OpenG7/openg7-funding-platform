@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
   OnChanges,
   OnInit,
   PLATFORM_ID,
@@ -10,12 +11,14 @@ import {
   inject,
   input,
   output,
-  signal
+  signal,
+  viewChild
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { SPONSORSHIP_FOLLOWUP_DAYS } from '@openg7/funding-core';
 
+import { adminHistoryActor } from '../../models/admin-history-actor.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminAutomaticPreparationDirective } from '../admin-automatic/admin-automatic-preparation.directive.js';
@@ -32,6 +35,7 @@ import { AdminSponsorshipInterventionsController } from './admin-sponsorship-int
   styleUrls: [
     '../admin-ui/admin-theme.css',
     '../admin-ui/admin-controls.css',
+    '../admin-ui/admin-history.css',
     './admin-sponsorship-interventions.component.css'
   ]
 })
@@ -53,6 +57,8 @@ export class AdminSponsorshipInterventionsComponent
   private readonly router = inject(Router);
   private readonly destroy = inject(DestroyRef);
   private readonly platform = inject(PLATFORM_ID);
+  private readonly composeForm =
+    viewChild<ElementRef<HTMLFormElement>>('interventionForm');
   private initialized = false;
   private readonly controller = new AdminSponsorshipInterventionsController({
     contributionId: () => this.contributionId(),
@@ -90,7 +96,7 @@ export class AdminSponsorshipInterventionsComponent
     }
   }
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['autoOpen'] && this.autoOpen()) this.expanded.set(true);
+    if (changes['autoOpen']) this.expanded.set(this.autoOpen());
     if (changes['contributionId']) this.controller.resetDossier();
     if (
       this.initialized &&
@@ -104,6 +110,12 @@ export class AdminSponsorshipInterventionsComponent
   }
   setKind(value: string): void {
     this.controller.setKind(value);
+  }
+  historyActor(actor: string): ReturnType<typeof adminHistoryActor> {
+    return adminHistoryActor(actor, (key) => this.i18n.t(key));
+  }
+  focusComposer(): void {
+    this.composeForm()?.nativeElement.focus();
   }
   formatDate(value: string, dateOnly = false): string {
     const date = new Date(value);

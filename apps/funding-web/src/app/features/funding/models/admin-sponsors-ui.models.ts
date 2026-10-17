@@ -25,9 +25,12 @@ export interface AdminSponsorFeedStatusOption {
 
 export interface AdminSponsorHistoryEntryView {
   readonly id: string;
+  readonly dateTime?: string;
   readonly dateTimeLabel: string;
   readonly label: string;
   readonly detail?: string;
+  readonly actorLabel?: string;
+  readonly actorDetail?: string;
   readonly stateClass?: string;
 }
 

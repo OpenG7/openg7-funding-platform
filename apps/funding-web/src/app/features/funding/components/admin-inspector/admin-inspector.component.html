@@ -40,21 +40,32 @@
         }
       </dl>
       @if (context.history; as history) {
-        <ol>
-          @for (entry of history; track entry.id) {
-            <li>
-              <time>{{ entry.created_at }}</time>
-              <h3>{{ entry.action }}</h3>
-              <p>{{ entry.summary }}</p>
-              <p>
-                {{ 'admin.inspector.fields.actor' | translate }} :
-                {{ entry.actor }}
-              </p>
-            </li>
-          } @empty {
-            <p role="status">{{ 'admin.inspector.noHistory' | translate }}</p>
-          }
-        </ol>
+        @if (history.length > 0) {
+          <ol
+            class="admin-history"
+            role="list"
+            [attr.aria-label]="
+              'admin.inspector.kinds.' + context.kind | translate
+            "
+            data-og7="inspection-history"
+          >
+            @for (entry of history; track entry.id) {
+              <li [attr.data-og7-id]="entry.id">
+                <time [attr.datetime]="entry.created_at">{{
+                  dateTime(entry.created_at)
+                }}</time>
+                <p class="history-title">{{ entry.summary }}</p>
+                <code class="history-action">{{ entry.action }}</code>
+                <p class="history-actor">
+                  {{ 'admin.inspector.fields.actor' | translate }} :
+                  {{ entry.actor }}
+                </p>
+              </li>
+            }
+          </ol>
+        } @else {
+          <p role="status">{{ 'admin.inspector.noHistory' | translate }}</p>
+        }
       }
       @if (invoice(); as document) {
         <ul>

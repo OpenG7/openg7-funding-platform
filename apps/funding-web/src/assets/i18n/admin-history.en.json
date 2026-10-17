@@ -1,0 +1,44 @@
+{
+  "inspect": "View audit log",
+  "newestFirst": "Newest first",
+  "availableScope": "Dossier milestones and latest available administrative actions.",
+  "singleEvent": "1 event",
+  "eventCount": "{{count}} events",
+  "actionCode": "Action: {{action}}",
+  "interventions": {
+    "privateScope": "Internal journal of actions and dossier follow-up.",
+    "payment": "Payment",
+    "guidanceTitle": "Follow-up guidance",
+    "guidance": "Follow-up markers from payment: first reminder after {{first}} days, second after {{second}} days, decision review after {{decision}} days. Record an extension to set a new review date.",
+    "scope": "These markers identify incomplete records, not unread emails. A reminder note describes an action already taken; it does not send a message. Refunds remain a case-by-case decision in the Finances tab.",
+    "noteScope": "Record an action already taken. Saving a note does not send an email or initiate a refund.",
+    "singleEntry": "1 intervention shown",
+    "entryCount": "{{count}} interventions shown"
+  },
+  "actors": {
+    "sponsor": "Sponsor",
+    "adminSession": "Administrative session",
+    "admin": "Administration",
+    "publicRecovery": "Public access request",
+    "system": "System",
+    "unavailable": "Actor unavailable"
+  },
+  "actions": {
+    "sponsorshipReceived": "Sponsorship received",
+    "paymentConfirmed": "Payment confirmed",
+    "detailsReceived": "Sponsor details received",
+    "detailsSubmitted": "Information submitted for review",
+    "accessLinkRequested": "Private follow-up link queued for delivery",
+    "informationRequested": "Information request queued for delivery",
+    "obligationFulfilled": "Benefit fulfilled with qualified evidence",
+    "historicalEvidenceReviewed": "Historical evidence reviewed",
+    "publicVisibilityObserved": "Public visibility check recorded",
+    "commitmentQualified": "Historical agreement qualified",
+    "destinationAdjusted": "Benefit destination adjusted",
+    "formatAdjusted": "Benefit format adjusted",
+    "obligationWaived": "Benefit waiver recorded",
+    "reconsiderationRequested": "Reconsideration request received",
+    "correctionSubmitted": "Correction submitted for review",
+    "recorded": "Action recorded"
+  }
+}

@@ -189,6 +189,8 @@ export interface SponsorAuditEntry {
   readonly date: string;
   readonly label: string;
   readonly detail?: string;
+  readonly actorLabel?: string;
+  readonly actorDetail?: string;
 }
 
 export interface SponsorRefundHistoryEntry extends SponsorAuditEntry {
