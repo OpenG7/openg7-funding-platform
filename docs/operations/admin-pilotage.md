@@ -167,6 +167,39 @@ du paiement, de l'offre enregistrée, des obligations et de leurs preuves.
 Les quantités et les passages promis doivent tous être présents. Les devises
 restent séparées. Le soutien personnel ne crée aucune contrepartie commerciale.
 
+Le carrousel affiche un seul **Bon de préparation** à la fois. Sa position dans
+la liste figée est distincte du nombre de dossiers examinés par le serveur.
+**Précédent**, **Suivant** et **Actualiser** consultent les faits actuels, y compris
+ceux d'un dossier pas encore examiné ; ils ne lancent aucune préparation,
+n'accusent réception d'aucune lecture et ne reprennent pas le passage.
+Le bon présente paiement, offre acceptée, contrôles, autorisations, brouillons
+privés, contenu à relire et éléments manquants. Les liens ouvrent les écrans
+propriétaires pour compléter le dossier.
+
+Le même bon est accessible directement dans **Publication**, sixième étape du
+dossier consulté, avant les détails des engagements. Aucun passage automatique
+n'est requis ou créé. La qualification historique reste accessible dans ces
+détails ; son absence apparaît comme un blocage dans le bon. Les deux accès
+partagent la version du contenu et l'historique des accords : une préparation
+déjà approuvée dans sa version actuelle ne demande pas un deuxième accord.
+
+**Approuver la préparation** est un accord explicite sur la version consultée,
+réservé à un opérateur ou propriétaire. Le serveur revérifie la version et les
+préconditions puis conserve acteur, date, version, référence d'audit et contenu
+approuvé dans une transaction. Un changement déterminant exige une nouvelle
+revue et conserve les accords précédents dans l'historique. Un accord sur la
+préparation ne réalise aucun avantage et n'autorise ni publication, refus,
+remboursement ni envoi. Il ne fait pas avancer le carrousel ou le traitement.
+Le rôle lecteur conserve uniquement la consultation.
+
+Une base incompatible ou des droits PostgreSQL insuffisants empêchent le
+démarrage de l'API et sont revérifiés à chaque lecture ou accord. Si la
+configuration change après démarrage, les deux accès au bon affichent une erreur
+de mise à jour de la base ou de droits serveur. L'accord reste désactivé jusqu'à
+une actualisation réussie après correction. Les diagnostics et codes sûrs sont
+décrits dans le [contrat des bons](../technical/admin-automatic-runs.md#runtime-preparation-readiness).
+La détection ne lance aucune migration et ne répète aucun accord.
+
 Le guide attend **J’ai lu, continuer** à chaque point de lecture : périmètre,
 aperçu du prochain dossier, résultat confirmé de ce dossier, puis bilan final.
 L'aperçu relit le parcours du paiement sans mutation ; sa validation permet un
@@ -230,7 +263,11 @@ Le contrat privé et les droits des endpoints sont décrits dans
 [l'API administrative](../technical/admin-automatic-runs.md).
 La migration additive `055_admin_automatic_responsibility_runs.sql` conserve
 manifestes, commandes idempotentes et entrées de rapport immuables ; elle
-n'active aucun worker. Appliquer la procédure de
+n'active aucun worker. La migration additive
+`056_admin_preparation_approvals.sql` ajoute l'historique immuable des accords
+sur les préparations privées, sans créer d'accord existant ni déclencher
+d'opération. `057_dossier_preparation_approvals.sql` rend ce bon accessible sans
+passage et conserve les accords précédents. Appliquer la procédure de
 [migration](database-migrations.md) avant d'utiliser le nouveau mode.
 
 ### Préparation d'un dossier ou d'une rubrique

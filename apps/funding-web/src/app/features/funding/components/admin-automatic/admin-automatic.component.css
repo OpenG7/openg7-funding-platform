@@ -3,6 +3,16 @@
 :host {
   @apply tw:block tw:min-w-0;
 }
+.other-preparation-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  margin-block: 0.65rem;
+}
+[data-og7='admin-automatic'][hidden] {
+  display: none;
+}
 .balance-counts {
   @apply tw:grid tw:grid-cols-2;
   gap: 0.6rem;

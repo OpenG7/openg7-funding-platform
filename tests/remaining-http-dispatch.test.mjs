@@ -26,6 +26,9 @@ const startApi = async (t, configuration = {}) => {
     import { createHash } from 'node:crypto';
     const digest = value => createHash('sha256').update(value).digest('hex');
     pg.Pool.prototype.query = async function(sql, values) {
+      // Synthetic readiness only; real schema checks have disposable PG tests.
+      if (sql.includes('AS schema_compatible'))
+        return { rows: [{ schema_compatible: true, can_read: true, can_approve: true }] };
       if (sql.includes('FROM admin_identity_sessions')) {
         if (values[0] === digest('e'.repeat(43))) throw new Error('Synthetic identity outage');
         const role = ['reader', 'operator', 'owner'].find((_, index) =>

@@ -34,6 +34,7 @@ import { createAdminInsightsHttpHandler } from '../admin-insights.http.js';
 import { createAdminPilotageHttpHandler } from '../admin-pilotage.http.js';
 import { createAdminAutomaticRunsHttpHandler } from '../admin-automatic-runs.http.js';
 import { AdminAutomaticRunsService } from '../admin-automatic-runs.service.js';
+import { AdminPreparationService } from '../admin-preparation.service.js';
 import { PilotError } from '../admin-pilotage.service.js';
 import { createAdminPublicationAutomationHttpHandler } from '../admin-publication-automation.http.js';
 import { createAdminPublicationBatchesHttpHandler } from '../admin-publication-batches.http.js';
@@ -673,7 +674,10 @@ export const createAdminHttpHandlers = ({
     getAdminAuditActor,
     readBody,
     writeJson,
-    automaticRuns: dbPool ? new AdminAutomaticRunsService(dbPool) : null
+    automaticRuns: dbPool ? new AdminAutomaticRunsService(dbPool) : null,
+    dossierPreparations: dbPool ? new AdminPreparationService(dbPool) : null,
+    reportPreparationFailure: (diagnostic) =>
+      console.error(JSON.stringify(diagnostic))
   });
 
   const handleAdminPublicationAutomationRequest =

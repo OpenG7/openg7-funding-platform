@@ -220,6 +220,7 @@ function paymentJourney(contributionId: string): AdminPaymentJourney {
 /** Built UI only: synthetic API observations, never proof of real financial work. */
 async function fixture(page: Page, language = 'fr-CA') {
   const f = {
+    language,
     state: { run: null, balance: null } as AdminAutomaticRunState,
     entries: [] as AdminAutomaticRunEntry[],
     writes: [] as { pathname: string; body: Record<string, unknown> }[],
@@ -395,6 +396,14 @@ async function fixture(page: Page, language = 'fr-CA') {
   return f;
 }
 
+async function expandProcessing(page: Page) {
+  const processing = hook(page, 'processing');
+  await expect(processing).toBeVisible();
+  if ((await processing.getAttribute('open')) === null)
+    await processing.locator(':scope > summary').click();
+  await expect(processing).toHaveJSProperty('open', true);
+}
+
 async function open(page: Page, phase = 'review') {
   await page.goto(path);
   const toggle = page.locator('[data-og7="admin-guidance-toggle"]');
@@ -403,6 +412,7 @@ async function open(page: Page, phase = 'review') {
   if (!(await panel.isVisible())) await toggle.click();
   await page.locator('[data-og7="admin-guidance-automatic-mode"]').click();
   await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', phase);
+  await expandProcessing(page);
 }
 
 async function expectReading(page: Page, step: ReadingStep) {
@@ -410,6 +420,7 @@ async function expectReading(page: Page, step: ReadingStep) {
     'data-og7-id',
     'awaiting_approval'
   );
+  await expect(hook(page, 'processing')).toHaveJSProperty('open', true);
   await expect(hook(page, 'reading')).toHaveAttribute('data-og7-id', step);
   await expect(hook(page, 'approve')).toBeEnabled();
   const target = hook(page, step === 'result' ? 'latest' : step);
@@ -433,10 +444,18 @@ type PortfolioFixture = Awaited<ReturnType<typeof fixture>>;
 const advances = (f: PortfolioFixture) =>
   f.writes.filter((write) => write.pathname.endsWith('/advance'));
 
+async function expectProgress(page: Page, processed: number, total = 3) {
+  const progress = hook(page, 'progress');
+  await expect(progress).toBeVisible();
+  await expect(progress).toHaveAttribute('value', String(processed));
+  await expect(progress).toHaveAttribute('max', String(Math.max(total, 1)));
+}
+
 /** Each call is an explicit test gesture, never an API-fixture approval. */
 async function readDossiers(page: Page, f: PortfolioFixture, firstIndex = 0) {
   for (let index = firstIndex; index < paymentIds.length; ++index) {
     await expectReading(page, 'dossier');
+    await expectProgress(page, index);
     await expect(hook(page, 'dossier')).toContainText(
       `DEMO-BALANCE-${index + 1}`
     );
@@ -447,15 +466,37 @@ async function readDossiers(page: Page, f: PortfolioFixture, firstIndex = 0) {
     await expect(hook(page, 'latest')).toContainText(
       `DEMO-BALANCE-${index + 1}`
     );
+    await expectProgress(page, index + 1);
+    const status = entry(index).balanceStatus;
+    const statusLabel = {
+      balanced: f.language === 'en' ? 'Balanced' : 'Équilibré',
+      action_required: f.language === 'en' ? 'Your action' : 'À toi',
+      waiting: f.language === 'en' ? 'Waiting' : 'En attente',
+      blocked: f.language === 'en' ? 'Blocked' : 'Bloqué',
+      unknown: f.language === 'en' ? 'To clarify' : 'À clarifier'
+    }[status];
+    await expect(hook(page, 'dossier-status')).toHaveAttribute(
+      'data-og7-id',
+      status
+    );
+    await expect(hook(page, 'dossier-status')).toHaveText(statusLabel);
     expect(advances(f)).toHaveLength(index + 1);
     await approveReading(page, 'result');
   }
   await expectReading(page, 'summary');
+  await expectProgress(page, paymentIds.length);
+  await expect(hook(page, 'state')).toContainText(
+    f.language === 'en' ? 'Your review' : 'À toi de lire'
+  );
   await expect(hook(page, 'completion')).toHaveCount(0);
 }
 
 async function completePassage(page: Page, f: PortfolioFixture) {
   await expectReading(page, 'scope');
+  await expectProgress(page, 0);
+  await expect(hook(page, 'progress')).toHaveAccessibleName(
+    f.language === 'en' ? 'Checked dossiers' : 'Dossiers vérifiés'
+  );
   expect(advances(f)).toHaveLength(0);
   await approveReading(page, 'scope');
   await readDossiers(page, f);
@@ -530,6 +571,7 @@ for (const [language, width] of [
     ).toBe(true);
     const writesBeforeReload = f.writes.length;
     await page.reload();
+    await expandProcessing(page);
     await expect(hook(page, 'state')).toHaveAttribute(
       'data-og7-id',
       'completed'
@@ -560,6 +602,27 @@ for (const [language, width] of [
       language === 'en' ? 'I’ve read it, continue' : 'J’ai lu, continuer'
     );
     const scope = hook(page, 'scope');
+    const help = hook(page, 'help');
+    await expect(help).toBeVisible();
+    await expect(hook(page, 'resume')).toBeHidden();
+    await expect(help).toHaveJSProperty('open', false);
+    await expect(hook(page, 'state')).toContainText(
+      language === 'en' ? 'Your review' : 'À toi de lire'
+    );
+    await expectProgress(page, 0);
+    const writesBeforeHelp = f.writes.length;
+    const helpToggle = help.locator('summary');
+    await helpToggle.focus();
+    await helpToggle.press('Enter');
+    await expect(help).toHaveJSProperty('open', true);
+    await helpToggle.press('Enter');
+    await expect(help).toHaveJSProperty('open', false);
+    await expectReading(page, 'scope');
+    expect(f.writes).toHaveLength(writesBeforeHelp);
+    await page.locator('[data-og7="admin-guidance-panel"]').screenshot({
+      path: test.info().outputPath(`compact-scope-${language}.png`),
+      animations: 'disabled'
+    });
     const scopeElement = (await scope.elementHandle())!;
     expect(
       await scope.evaluate((element) =>
@@ -576,7 +639,7 @@ for (const [language, width] of [
       )
     ).toEqual([{ continuous: true, running: true, changesLayout: false }]);
     await page.clock.install();
-    await page.clock.runFor(12000);
+    await page.clock.fastForward(12000);
     await expectReading(page, 'scope');
     expect(advances(f)).toHaveLength(0);
     expect(f.journeyReads).toEqual([]);
@@ -619,16 +682,44 @@ for (const [language, width] of [
     await expect(hook(page, 'approve')).toHaveCount(0);
     releaseAdvance();
     await expectReading(page, 'result');
-    await page.clock.runFor(12000);
+    await page.clock.fastForward(12000);
     await expectReading(page, 'result');
     expect(advances(f)).toHaveLength(1);
     await expect(hook(page, 'latest')).toContainText('DEMO-BALANCE-1');
+    await expectProgress(page, 1);
     await hook(page, 'pause').click();
     await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'paused');
     await expect(page.locator(highlighted)).toHaveCount(0);
     await expect(hook(page, 'approve')).toHaveCount(0);
-    await page.clock.runFor(12000);
+    await page.clock.fastForward(12000);
     expect(advances(f)).toHaveLength(1);
+  });
+}
+
+for (const language of ['fr-CA', 'en']) {
+  test(`an empty durable passage keeps a valid zero progress indicator without starting work in ${language}`, async ({
+    page
+  }) => {
+    const f = await fixture(page, language);
+    const state = runState(0, 'completed');
+    f.state = {
+      ...state,
+      run: {
+        ...state.run!,
+        dossierCount: 0,
+        uncoveredCount: 0,
+        nextContributionId: null,
+        currencyTotals: []
+      }
+    };
+    await open(page, 'completed');
+    await expectProgress(page, 0, 0);
+    await expect(hook(page, 'progress')).toHaveAccessibleName(
+      language === 'en' ? 'Checked dossiers' : 'Dossiers vérifiés'
+    );
+    await expect(hook(page, 'reading')).toHaveCount(0);
+    await expect(hook(page, 'dossier-status')).toHaveCount(0);
+    expect(f.writes).toEqual([]);
   });
 }
 
@@ -904,6 +995,7 @@ test('a new session reads its own passage before a suspended previous session re
   await page.locator('[data-og7="admin-automatic-portfolio-start"]').click();
   await expect.poll(() => reads).toEqual(['A', 'B']);
   await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'paused');
+  await expandProcessing(page);
   await expect(hook(page, 'latest')).toContainText(newEntry.reference);
   await expect(hook(page, 'report')).toContainText(stateB.run!.id);
 
@@ -1050,6 +1142,7 @@ for (const status of ['running', 'paused', 'uncertain'] as const) {
       'data-og7-id',
       status === 'running' ? 'review' : status
     );
+    await expandProcessing(page);
     await expect(shortcut).toBeDisabled();
     await expect(hook(page, 'start')).toBeDisabled();
     if (status === 'uncertain') {
@@ -1060,6 +1153,7 @@ for (const status of ['running', 'paused', 'uncertain'] as const) {
     }
     expect(f.writes).toEqual([]);
     await page.reload();
+    await expandProcessing(page);
     await expect(hook(page, 'state')).toHaveAttribute(
       'data-og7-id',
       status === 'running' ? 'review' : status
@@ -1147,6 +1241,7 @@ for (const [language, width] of [
     expect(audit.violations).toEqual([]);
     const beforeReload = f.writes.length;
     await page.reload();
+    await expandProcessing(page);
     await expect(hook(page, 'state')).toHaveAttribute(
       'data-og7-id',
       'completed'
@@ -1187,6 +1282,7 @@ test('automatic responsibilities pause immediately during a pending dossier and 
   ).toMatchObject({ action: 'pause', expectedVersion: 2 });
   await expect(hook(page, 'latest')).toContainText('DEMO-BALANCE-1');
   await page.reload();
+  await expandProcessing(page);
   await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'paused');
   expect(
     f.writes.filter((write) => write.pathname.endsWith('/advance'))
@@ -1241,6 +1337,7 @@ test('an uncertain response remains visible after reload and never replays a pay
   await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'uncertain');
   await expect(hook(page, 'resume')).toBeDisabled();
   await page.reload();
+  await expandProcessing(page);
   await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'uncertain');
   await expect(hook(page, 'resume')).toHaveCount(0);
   await expect(hook(page, 'start')).toBeDisabled();

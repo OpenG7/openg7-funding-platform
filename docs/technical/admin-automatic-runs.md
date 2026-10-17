@@ -76,6 +76,113 @@ private run bookkeeping; manifest inputs and report entries are immutable.
 User-facing operation and restart rules:
 [automatic mode](../operations/admin-pilotage.md#mode-automatique-de-rapprochement).
 
+## Versioned preparation receipts
+
+`GET /api/admin/sponsorships/preparation?sponsorshipId=<uuid>` reads the current
+private preparation directly in the selected dossier's Publication step, before
+the commitment details. Its `AdminDossierPreparationReceipt` shares
+`AdminPreparationReceiptData` with the carousel, adding `context: 'dossier'`
+without run or navigation counters. Administrative readers,
+operators and owners may consult it; opening the dossier neither creates a run
+nor examines a batch position. Historical qualification remains available in the
+commitment details, while missing terms remain blockers; current pricing is never
+substituted. `/admin` aliases, session/origin policy and private `no-store`
+responses apply to both contexts.
+
+`POST /api/admin/sponsorships/preparation/approve` accepts
+`{contributionId,expectedVersion,requestId,confirmed:true}`, without `runId`.
+Only operators and owners can record this private agreement. It reuses the same
+transaction, prerequisites, idempotence and conflict rules as batch approval.
+
+`GET /api/admin/automatic-runs/preparation?runId=<uuid>&position=<1-based>`
+reads one dossier from the caller's frozen manifest, including dossiers not yet
+examined. The position consulted is independent from the processing cursor.
+This read uses current payment facts, the historically accepted offer, current
+checks and authorizations, and the exact private website/publication draft text.
+Protected source links allow review of associated media. This preparation agreement
+covers the listed private source drafts; final image selection, assembled delivery
+content and destination-specific publication rights require their own workflow.
+Long offer terms and
+approval history remain available in expandable sections. GET never prepares,
+advances, approves or dispatches work.
+
+`POST /api/admin/automatic-runs/preparation/approve` accepts
+`{runId,contributionId,expectedVersion,requestId,confirmed:true}`. Operators and
+owners can approve; readers can inspect their own receipts. Server authorization,
+ownership, current prerequisites and the deterministic preparation digest are
+checked again in a transaction. `409 PREPARATION_VERSION_CONFLICT` means the
+presented version is stale; `409 PREPARATION_INCOMPLETE` identifies a preparation
+whose prerequisites are missing. The client rereads the receipt without retrying
+the write. Opening the content is not an approval.
+
+The immutable agreement records dossier, digest, exact private receipt snapshot,
+actor, UTC time, request and audit reference. Approval and audit commit together.
+Request keys bind the actor and payload; conflicting or concurrent submissions
+are reconciled against durable records without replaying a mutation. Content,
+payment, commitments, media and moderation authority determine the version;
+navigation counters, batch examination and approval history do not. Direct and
+batch views share the same version and approval history; examination remains a
+separate batch prerequisite without a fictitious examination on the direct receipt.
+Already examined 056 content versions retain their digest. Dossier approvals have
+a null `runId`; batch approvals retain their actor-owned run reference. Changed facts produce
+`review_required`; prior approvals remain visible as history. A new agreement is
+explicit. Neither approval nor carousel navigation changes the run cursor.
+
+The Web shows one compact Received / Promised / Prepared receipt, with real
+check/authorization counts excluding `not_required` and expandable checks, terms
+and full approval trace. After server success, the stamp replaces the approval
+button without changing the displayed receipt; the visible scope keeps
+publication, sponsor moderation, refunds, rejection and sending under separate
+confirmations and checks, independently of batch processing and local reading
+checkpoints.
+The historical offer keeps each benefit's type, quantity, channel and target
+separate from current preparation permissions and private-draft readiness.
+Agreement scope stays visible above the approval control, while the receipt
+footer names the actions requiring separate confirmation.
+
+Migrations [056](../../apps/funding-api/migrations/056_admin_preparation_approvals.sql)
+and [057](../../apps/funding-api/migrations/057_dossier_preparation_approvals.sql)
+are additive and must precede the updated API. Migration 057 allows an agreement
+without a run and adds a global dossier/version uniqueness constraint for new
+generation-2 agreements; generation-1 history, snapshots and run references remain
+unchanged. Cross-context concurrent submissions reconcile the same logical agreement.
+Refresh application-role grants
+using the documented [migration procedure](../operations/database-migrations.md).
+The new table is append-only and private. No existing approval or publication is
+inferred from historical preparation or a local reading acknowledgment.
+
+### Runtime preparation readiness
+
+When PostgreSQL is configured, the API checks the preparation approvals table
+and its effective application-role permissions before opening the HTTP listener,
+in development and production. The check requires its schema delivered by
+056/057 and the permissions to select and insert approval rows. A failed check stops
+startup with a safe error code. `/health` remains a liveness endpoint; it does
+not replace this startup check or prove every database feature is available.
+
+Each preparation read and approval checks readiness again before accessing the
+receipt or writing an agreement. This detects schema or grant changes after
+startup. Both the carousel and dossier endpoints return HTTP 503 with
+`PREPARATION_SCHEMA_INCOMPATIBLE` for missing or incompatible schema, or
+`PREPARATION_DATABASE_ACCESS_DENIED` for insufficient database permissions.
+The latter is a server configuration failure, distinct from the caller's HTTP
+401/403 authorization failure. Other unavailable reads retain `RUN_UNAVAILABLE`.
+Known PostgreSQL missing-relation, missing-column and insufficient-privilege
+errors are also classified if a dependency changes after the readiness check.
+
+The Web displays a database-update or database-access configuration message in
+French and English. Approval stays disabled while that configuration error is
+displayed; a successful explicit refresh can clear it after remediation. An
+approval failure is reconciled by reading only, without repeating the write.
+
+Server failures include a generated `correlationId` in the response and a
+structured diagnostic with operation, category, safe code, date and correlation.
+Only allowlisted SQLSTATE codes are recorded; raw SQL, PostgreSQL diagnostics,
+connection details and dossier content are excluded. Detection does not run
+migrations, grant permissions or resume processing. Apply the existing migration
+procedure to the intended environment, then restart a refused API or explicitly
+refresh a running one after remediation.
+
 ## Pending dossiers
 
 The header's new-passage button reads the existing private

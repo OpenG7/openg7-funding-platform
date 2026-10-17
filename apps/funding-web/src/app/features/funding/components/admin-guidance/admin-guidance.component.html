@@ -4,6 +4,7 @@
       #card
       class="guidance"
       [class.open]="guidance.enabled()"
+      [class.automatic]="guidance.mode() === 'automatic'"
       [class.at-bottom]="placement() === 'bottom'"
       [attr.data-og7-placement]="placement()"
       data-og7="admin-guidance"
@@ -57,19 +58,33 @@
               type="button"
               class="admin-button"
               data-og7="admin-guidance-discovery-mode"
+              [title]="t('discoveryMode')"
               [attr.aria-pressed]="guidance.mode() === 'discovery'"
               (click)="guidance.setMode('discovery')"
             >
-              {{ t('discoveryMode') }}
+              @if (guidance.mode() === 'automatic') {
+                <openg7-admin-icon name="dashboard" />
+              }
+              <span
+                [class.mode-label-hidden]="guidance.mode() === 'automatic'"
+                >{{ t('discoveryMode') }}</span
+              >
             </button>
             <button
               type="button"
               class="admin-button"
               data-og7="admin-guidance-payment-mode"
+              [title]="t('paymentJourney.title')"
               [attr.aria-pressed]="guidance.mode() === 'payment'"
               (click)="guidance.setMode('payment')"
             >
-              {{ t('paymentJourney.title') }}
+              @if (guidance.mode() === 'automatic') {
+                <openg7-admin-icon name="contributions" />
+              }
+              <span
+                [class.mode-label-hidden]="guidance.mode() === 'automatic'"
+                >{{ t('paymentJourney.title') }}</span
+              >
             </button>
             <button
               type="button"
