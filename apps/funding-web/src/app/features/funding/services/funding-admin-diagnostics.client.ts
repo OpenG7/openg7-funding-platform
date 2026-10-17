@@ -5,6 +5,7 @@ import type {
   AdminCockpitMetrics,
   AdminCockpitActivity,
   AdminCockpitSystems,
+  AdminPlatformJourneys,
   AdminAuditLogResponse,
   AdminDashboardResponse
 } from '@openg7/funding-core';
@@ -36,7 +37,7 @@ export class FundingAdminDiagnosticsClient {
     return response.json();
   }
 
-  async getCockpit<T extends 'metrics' | 'activity' | 'systems'>(
+  async getCockpit<T extends 'metrics' | 'activity' | 'systems' | 'journeys'>(
     block: T,
     token: string
   ): Promise<
@@ -44,10 +45,12 @@ export class FundingAdminDiagnosticsClient {
       metrics: AdminCockpitMetrics;
       activity: AdminCockpitActivity;
       systems: AdminCockpitSystems;
+      journeys: AdminPlatformJourneys;
     }[T]
   > {
     return this.session.requestAdminData(`/admin/cockpit/${block}`, {
-      auth: { token }
+      auth: { token },
+      cache: block === 'journeys' ? 'no-store' : undefined
     });
   }
 

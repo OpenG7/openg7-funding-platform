@@ -1,70 +1,60 @@
 @reference '../../../../../styles/tailwind.css';
 
 :host {
-  @apply tw:block tw:w-full;
+  @apply tw:block tw:min-w-0;
 }
 
-.admin-summary-grid {
-  @apply tw:grid;
-  gap: 0.9rem;
-  @apply tw:grid-cols-4 tw:w-full;
+.sponsors-summary {
+  @apply tw:flex tw:items-center tw:gap-6;
+  padding-block: 0.25rem;
 }
 
-.admin-summary-grid article {
-  @apply tw:items-center;
-  background: var(--admin-panel);
-  border: 1px solid var(--admin-border);
-  @apply tw:rounded-lg tw:grid;
-  gap: 0.9rem;
-  grid-template-columns: auto minmax(0, 1fr);
-  min-height: 7rem;
-  padding: 1.1rem;
-}
-
-.metric-mark {
-  @apply tw:items-center;
-  background: var(--admin-panel-raised);
-  border-radius: 999px;
-  @apply tw:text-admin-text tw:inline-flex;
-  font-weight: var(--admin-emphasis-weight);
-  @apply tw:h-12 tw:justify-center tw:w-12;
-}
-
-.metric-mark.gold {
-  background: var(--og7-admin-warning-bg, #3c3221);
-  @apply tw:text-admin-warning;
-}
-
-.metric-mark.green {
-  background: var(--admin-panel-raised);
-  @apply tw:text-admin-success;
-}
-
-.metric-mark.money {
-  background: var(--og7-admin-warning-bg, #3c3221);
-  @apply tw:text-admin-warning;
-}
-
-.admin-summary-grid article span:not(.metric-mark) {
+.summary-scope,
+dt {
   @apply tw:text-admin-muted tw:text-admin-caption;
-  font-weight: var(--admin-label-weight);
-  letter-spacing: 0;
-  @apply tw:uppercase;
 }
 
-.admin-summary-grid strong {
-  @apply tw:block;
-  font-size: 1.7rem;
-  line-height: 1.1;
-  margin-top: 0.18rem;
+dl {
+  @apply tw:flex tw:flex-wrap tw:items-center tw:m-0;
+  gap: 0.75rem 1.5rem;
 }
 
-.admin-summary-grid small {
-  @apply tw:text-admin-muted;
+dl > div {
+  @apply tw:flex tw:items-baseline tw:gap-2;
+  border-inline-start: 1px solid var(--admin-border);
+  padding-inline-start: 1.5rem;
+}
+
+dd {
+  @apply tw:m-0;
+  order: -1;
+  font-size: 1.25rem;
+  font-weight: var(--admin-emphasis-weight);
+  font-variant-numeric: tabular-nums;
+}
+
+.needs-review {
+  color: var(--admin-warning);
 }
 
 @media (max-width: 860px) {
-  .admin-summary-grid {
-    grid-template-columns: 1fr;
+  .sponsors-summary {
+    @apply tw:items-start tw:flex-col tw:gap-2;
+  }
+  dl {
+    @apply tw:w-full;
+    gap: 0.75rem 1.25rem;
+  }
+  dl > div {
+    @apply tw:border-0 tw:p-0;
+  }
+}
+
+@media (max-width: 480px) {
+  dl {
+    @apply tw:grid tw:grid-cols-3 tw:items-start tw:gap-3;
+  }
+  dl > div {
+    @apply tw:flex-col tw:gap-1;
   }
 }

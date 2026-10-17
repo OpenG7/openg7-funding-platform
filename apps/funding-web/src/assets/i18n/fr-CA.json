@@ -846,6 +846,23 @@
       "checked": "Vérifié le",
       "healthScope": "Contrôles en lecture seule, conservés au plus une minute. Les contrôles OIDC ne valident ni la connexion du client ni le MFA. La disponibilité de la base identité est vérifiée uniquement par le contrôle interne de Keycloak géré. Ces observations ne prouvent ni l’écriture dans le stockage ni la réception des courriels."
     },
+    "sponsors": {
+      "title": "Commanditaires",
+      "subtitle": "Retrouvez vos organisations et suivez chaque commandite.",
+      "publicSite": "Voir le site public",
+      "pageScope": "Sur cette page",
+      "pendingReview": "À réviser",
+      "active": "Actifs",
+      "activeHelp": "Paiement confirmé et commandite non refusée.",
+      "records": "Dossiers commanditaires",
+      "recordsHelp": "Ouvrez un dossier pour consulter les détails et les actions.",
+      "emptyTitle": "Aucun commanditaire pour le moment",
+      "emptyHelp": "Les nouvelles commandites apparaîtront ici.",
+      "result": "{{count}} résultat",
+      "results": "{{count}} résultats",
+      "search": "Rechercher un commanditaire",
+      "searchPlaceholder": "Organisation ou courriel…"
+    },
     "dossier": {
       "noteEditor": {
         "private": "Privé",
@@ -866,7 +883,6 @@
         "previous": "Dossier précédent",
         "next": "Dossier suivant",
         "dossier": "Dossier",
-        "queue": "Commandites",
         "filters": "Filtres",
         "access": "Accès au suivi",
         "help": "Aide pas à pas",
@@ -900,9 +916,10 @@
       "consentGranted": "Consentement accordé",
       "consentMissing": "Consentement absent",
       "approvedConsent": "Approuvés avec consentement",
-      "listScope": "Dans les résultats affichés",
       "current": "Commandite en cours",
       "progress": "Progression du dossier",
+      "stateSummary": "État du dossier",
+      "resolvedSteps": "{{completed}} sur {{total}} étapes réglées",
       "guide": {
         "title": "Guide pas à pas du dossier",
         "intro": "Suivez l’étape recommandée ou parcourez les autres étapes. Parcourir le guide ne valide aucune étape ; les états sont actualisés après les actions enregistrées.",
@@ -1135,7 +1152,7 @@
       "publicationBridge": {
         "eyebrow": "Étape 6 · Publication",
         "title": "Les publications de cette commandite",
-        "intro": "Vérifiez le contenu préparé, autorisez sa programmation, puis suivez son envoi.",
+        "intro": "Consultez le créneau proposé, modifiez-le si nécessaire, puis vérifiez et autorisez la publication.",
         "benefits": "Ce que prévoit la contribution",
         "benefit": {
           "website_mention": "Mention de l’entreprise sur OpenG7.org",
@@ -1175,15 +1192,15 @@
         "simulation": "Simulation — aucun envoi réel sur le réseau social.",
         "paused": "La destination est en pause. L’envoi attend sa reprise.",
         "publishedAt": "Publiée le",
-        "proposedDate": "Date prévue :",
+        "proposedDate": "Créneau proposé :",
         "scheduledHelp": "L’envoi aura lieu si le moteur est actif, la destination disponible et les conditions toujours remplies.",
         "waitingHelp": "Aucun envoi final n’est prêt à vérifier. Consultez la préparation et les réglages du moteur.",
         "failureHelp": "Consultez le détail dans le moteur avant toute nouvelle action.",
         "action": {
-          "review": "Vérifier et programmer",
+          "review": "Vérifier et autoriser",
           "schedule": "Voir la programmation",
           "resolve": "Examiner le blocage",
-          "open": "Ouvrir dans le moteur"
+          "open": "Voir le détail"
         },
         "viewPost": "Voir la publication",
         "noSocial": "Aucune publication sociale n’est enregistrée dans l’offre de ce dossier.",
@@ -1869,7 +1886,6 @@
       }
     },
     "legacy": {
-      "administration": "Administration",
       "assistant": "Assistant",
       "actualiser": "Actualiser",
       "copilote_operationnel_en_lecture_seule": "Copilote opérationnel en lecture seule",
@@ -2206,12 +2222,8 @@
       "terminer": "Terminer",
       "suivant": "Suivant",
       "fil_d_ariane_admin": "Fil d'Ariane admin",
-      "accueil": "Accueil",
       "fundraiser": "Fundraiser",
       "commanditaires": "Commanditaires",
-      "commanditaires_partenaires": "Commanditaires / partenaires",
-      "gestion_des_organisations_commanditaires_statut_de_revue_et_visib": "Gestion des organisations commanditaires, statut de revue et visibilite publique.",
-      "retour_public": "Retour public",
       "commandites_admin": "Commandites admin",
       "dossier_commanditaire_selectionne": "Dossier commanditaire selectionne",
       "publication": "Publication",
@@ -2331,7 +2343,6 @@
       "note_visible_uniquement_pour_l_administration": "Note visible uniquement pour l'administration.",
       "enregistrer_la_note": "Enregistrer la note",
       "liste_des_commandites": "Liste des commandites",
-      "rechercher_une_entreprise_ou_un_courriel": "Rechercher une entreprise ou un courriel...",
       "statut_de_revue": "Statut de revue",
       "refusees": "Refusees",
       "visibilite_statut_feed": "Visibilite / statut feed",
@@ -2345,8 +2356,6 @@
       "reessayer": "Reessayer",
       "commanditaire": "Commanditaire",
       "soumission": "Soumission",
-      "toutes_les_commandites_ont_ete_revisees": "Toutes les commandites ont ete revisees.",
-      "il_n_y_a_actuellement_aucune_nouvelle_commandite_a_traiter": "Il n'y a actuellement aucune nouvelle commandite a traiter.",
       "aucune_commandite_ne_correspond_aux_filtres": "Aucune commandite ne correspond aux filtres.",
       "reinitialisez_les_filtres_ou_elargissez_la_recherche": "Reinitialisez les filtres ou elargissez la recherche.",
       "reinitialiser_les_filtres": "Reinitialiser les filtres",
@@ -2354,17 +2363,10 @@
       "page_precedente": "Page precedente",
       "page_suivante": "Page suivante",
       "par_page": "Par page",
-      "resume_des_commandites": "Resume des commandites",
       "to": "TO",
-      "total_commanditaires": "Total commanditaires",
-      "toutes_organisations": "Toutes organisations",
       "vi": "VI",
       "ac": "AC",
-      "commanditaires_actifs": "Commanditaires actifs",
-      "avec_paiement_confirme": "Avec paiement confirme",
-      "ca": "CA",
-      "contribution_totale": "Contribution totale",
-      "paiements_confirmes": "Paiements confirmes"
+      "ca": "CA"
     },
     "confirmation": {
       "title": "Confirmer l’action",

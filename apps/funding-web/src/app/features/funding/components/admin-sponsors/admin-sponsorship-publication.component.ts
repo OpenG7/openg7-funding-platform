@@ -1,24 +1,39 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
+  PLATFORM_ID,
   computed,
+  effect,
   inject,
   input,
-  output
+  output,
+  untracked
 } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import {
   type AdminSponsorshipProgress,
+  type PublicationPreparationCandidate,
+  type PublicationPreparationEntry,
   type SponsorshipProgressPublication
 } from '@openg7/funding-core';
 
+import enSchedule from '../../../../../assets/i18n/admin-publication-schedule.en.json' with { type: 'json' };
+import frSchedule from '../../../../../assets/i18n/admin-publication-schedule.fr-CA.json' with { type: 'json' };
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { ContributionActivityService } from '../../services/contribution-activity.service.js';
+import { FundingAdminService } from '../../services/funding-admin.service.js';
+import { FundingModerationService } from '../../services/funding-moderation.service.js';
+import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
+import { AdminSponsorSchedulingController } from '../../services/admin-sponsor-scheduling-controller.js';
+import { PublicationDeliveryDrawerComponent } from '../admin-publications/publication-delivery-drawer.component.js';
 import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
 import { AdminAutomaticPreparationDirective } from '../admin-automatic/admin-automatic-preparation.directive.js';
 
 import { AdminSponsorshipCommitmentsComponent } from './admin-sponsorship-commitments.component.js';
+import { AdminSponsorshipPreparationComponent } from './admin-sponsorship-preparation.component.js';
 
 /** Funding organism: persisted recognition facts and explicit visibility requests. */
 @Component({
@@ -29,7 +44,9 @@ import { AdminSponsorshipCommitmentsComponent } from './admin-sponsorship-commit
     TranslatePipe,
     AdminIconComponent,
     AdminAutomaticPreparationDirective,
-    AdminSponsorshipCommitmentsComponent
+    AdminSponsorshipCommitmentsComponent,
+    PublicationDeliveryDrawerComponent,
+    AdminSponsorshipPreparationComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-sponsorship-publication.component.html',
@@ -58,6 +75,44 @@ export class AdminSponsorshipPublicationComponent {
   });
   readonly activity = inject(ContributionActivityService);
   private readonly i18n = inject(FundingI18nService);
+  private readonly admin = inject(FundingAdminService);
+  private readonly moderation = inject(FundingModerationService);
+  private readonly confirmation = inject(AdminConfirmationService);
+  readonly scheduling = new AdminSponsorSchedulingController({
+    admin: this.admin,
+    i18n: this.i18n,
+    moderate: (subject, level, initial) =>
+      this.moderation.requestDecision(subject, level, initial),
+    confirm: (message, title) => this.confirmation.confirm(message, title),
+    changed: () => this.commitmentChanged.emit()
+  });
+
+  constructor() {
+    const browser = isPlatformBrowser(inject(PLATFORM_ID));
+    effect(() => {
+      const language = this.i18n.currentLanguage();
+      untracked(() =>
+        this.i18n.mergeTranslations(language, {
+          admin: {
+            dossier: {
+              publicationBridge: {
+                schedule: language === 'en' ? enSchedule : frSchedule
+              }
+            }
+          }
+        })
+      );
+    });
+    if (browser)
+      this.scheduling.delivery.browserTimezone =
+        Intl.DateTimeFormat().resolvedOptions().timeZone;
+    effect(() => {
+      const dossier = this.dossier();
+      if (browser)
+        untracked(() => void this.scheduling.load(dossier.contributionId));
+    });
+    inject(DestroyRef).onDestroy(() => this.scheduling.dispose());
+  }
   readonly benefitsKnown = computed(
     () =>
       this.dossier().commitment?.state === 'active' &&
@@ -73,18 +128,82 @@ export class AdminSponsorshipPublicationComponent {
     const rows: {
       key: string;
       channel: string;
+      target: string;
       publication: SponsorshipProgressPublication | null;
+      source: PublicationPreparationEntry | null;
+      candidate: PublicationPreparationCandidate | null;
     }[] = d.publications.map((p) => ({
       key: p.id,
       channel: p.channel,
-      publication: p
+      target: p.target,
+      publication: p,
+      source: null,
+      candidate: null
     }));
-    for (const channel of ['facebook', 'linkedin']) {
+    for (const source of this.scheduling.entries()) {
+      const existing = rows.find((row) => row.key === source.draftId);
+      if (existing) existing.source = source;
+      else
+        rows.push({
+          key: source.draftId,
+          channel: source.feedId.split(':')[1],
+          target: source.feedId.split(':')[0],
+          publication: null,
+          source,
+          candidate: null
+        });
+    }
+    for (const candidate of this.scheduling.candidates()) {
+      rows.push({
+        key: `candidate:${candidate.obligationId}`,
+        channel: candidate.feedId.split(':')[1],
+        target: candidate.feedId.split(':')[0],
+        publication: null,
+        source: null,
+        candidate
+      });
+    }
+    for (const row of rows) {
+      const deliveryId = row.publication?.deliveryId ?? row.source?.deliveryId;
+      const delivery = this.scheduling
+        .state()
+        ?.deliveries.find((job) => job.id === deliveryId);
+      if (delivery)
+        row.publication = {
+          id: row.key,
+          channel: row.channel,
+          target: row.target,
+          status: row.publication?.status ?? 'draft',
+          batchStatus: row.publication?.batchStatus ?? null,
+          slotStatus: row.publication?.slotStatus ?? null,
+          deliveryId: delivery.id,
+          deliveryStatus: delivery.status,
+          deliveryMode: delivery.mode,
+          deliveryError: delivery.errorCode,
+          feedPaused: this.scheduling
+            .state()
+            ?.feeds.find((feed) => feed.id === delivery.feedId)?.paused,
+          publicUrl: delivery.externalPostUrl,
+          scheduledAt: delivery.scheduledAt,
+          publishedAt: delivery.publishedAt
+        };
+    }
+    for (const benefit of d.commitment?.offer?.benefits ?? []) {
       if (
-        this.benefits().some((b) => b === `${channel}_batch`) &&
-        !rows.some((r) => r.channel === channel)
+        this.benefitsKnown() &&
+        benefit.channel !== 'website' &&
+        !rows.some(
+          (r) => r.channel === benefit.channel && r.target === benefit.target
+        )
       )
-        rows.push({ key: channel, channel, publication: null });
+        rows.push({
+          key: `${benefit.target}:${benefit.channel}`,
+          channel: benefit.channel,
+          target: benefit.target,
+          publication: null,
+          source: null,
+          candidate: null
+        });
     }
     return rows;
   });
@@ -104,6 +223,28 @@ export class AdminSponsorshipPublicationComponent {
     );
   });
   readonly automationPath = '/admin/fundraiser/publications/automation';
+
+  deliveryId(
+    publication: SponsorshipProgressPublication | null,
+    source: PublicationPreparationEntry | null
+  ): string | null {
+    return publication?.deliveryId ?? source?.deliveryId ?? null;
+  }
+
+  canPrepare(
+    source: PublicationPreparationEntry | PublicationPreparationCandidate
+  ): boolean {
+    return source.nextOpportunity?.action === 'PREPARE_FEED';
+  }
+
+  canEdit(deliveryId: string): boolean {
+    const delivery = this.scheduling
+      .state()
+      ?.deliveries.find((job) => job.id === deliveryId);
+    return (
+      !!delivery && ['draft', 'approved', 'blocked'].includes(delivery.status)
+    );
+  }
 
   status(p: SponsorshipProgressPublication | null): string {
     if (!p) return 'waiting';
@@ -164,7 +305,8 @@ export class AdminSponsorshipPublicationComponent {
     return Number.isFinite(date.getTime())
       ? new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
           dateStyle: 'medium',
-          timeStyle: 'short'
+          timeStyle: 'short',
+          timeZone: 'America/Toronto'
         }).format(date)
       : '';
   }

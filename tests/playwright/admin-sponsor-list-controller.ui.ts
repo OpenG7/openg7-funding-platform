@@ -211,14 +211,26 @@ for (const { locale, width, lateStatus } of [
       await expect(search).toBeFocused();
       for (const viewportWidth of [859, 860, 861, 1119, 1120, 1121]) {
         await page.setViewportSize({ width: viewportWidth, height: 950 });
-        await expect
-          .poll(() =>
-            current.evaluate(
-              (element) =>
-                getComputedStyle(element).gridTemplateColumns.split(' ').length
-            )
+        await expect(current).toBeVisible();
+        await expect(
+          current.getByText('Synthetic delayed approved', { exact: true })
+        ).toBeVisible();
+        await expect(
+          current.getByText(locale === 'en' ? 'Approved' : 'Approuvee', {
+            exact: true
+          })
+        ).toBeVisible();
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth + 1
           )
-          .toBe(viewportWidth <= 860 ? 1 : viewportWidth <= 1120 ? 2 : 7);
+        ).toBe(true);
+        expect(
+          await current.evaluate(
+            (element) => element.scrollWidth <= element.clientWidth + 1
+          )
+        ).toBe(true);
+        await expect(search).toBeFocused();
         await expect(search).toHaveValue('Synthetic delayed');
         await expect(list.getByRole('combobox').first()).toHaveValue(
           'approved'

@@ -22,6 +22,7 @@ import { registerSponsorshipCommitmentTests } from './admin-sponsorship-commitme
 import { registerSponsorshipHistoricalAuditTests } from './admin-sponsorship-historical-audit.ui.js';
 import { registerSponsorshipTimingTests } from './admin-sponsorship-timing.ui.js';
 import { registerAdminMediaUsageTests } from './sponsor-media-usage.ui.js';
+import { registerDossierPublicationScheduleTests } from './dossier-publication-schedule.ui.js';
 
 const id = '10000000-0000-4000-8000-000000000401';
 const secondId = '10000000-0000-4000-8000-000000000402';
@@ -577,6 +578,12 @@ registerAdminMediaUsageTests({ fixtures, path, asset: () => mediaAsset() });
 registerSponsorshipCommitmentTests({ fixtures, path });
 registerSponsorshipHistoricalAuditTests({ fixtures, path });
 registerSponsorshipTimingTests({ fixtures, path });
+registerDossierPublicationScheduleTests({
+  fixtures,
+  path,
+  dossier,
+  recordedCommitment
+});
 registerSponsorFiltersTests({ fixtures, path });
 registerSponsorResultsTests({ fixtures });
 registerContributionActivityOverlayTests({
@@ -861,7 +868,7 @@ for (const language of ['fr-CA', 'en'] as const)
         await expectComposition(viewport.width === 390);
         await expect(
           main.locator('[data-og7="sponsorship-progress"]')
-        ).toHaveCount(1);
+        ).toBeHidden();
         await expect(
           context.locator('[data-og7="moderation-actions"]')
         ).toHaveCount(1);
@@ -1226,9 +1233,7 @@ test('dossier guide clears unavailable facts and resets its recommendation after
   );
   for (const status of [503, 403]) {
     options.status = status;
-    await progress(page)
-      .getByRole('button', { name: 'Actualiser le dossier' })
-      .click();
+    await page.locator('[data-og7="dossier-refresh"]').click();
     await expect(guide(page)).toHaveCount(0);
     await expect(progress(page).getByRole('alert')).toBeVisible();
   }
@@ -1998,7 +2003,7 @@ for (const returnBeforeResponse of [false, true]) {
       );
     }
     release();
-    await expect(progress(page).getByRole('button')).toBeEnabled();
+    await expect(page.locator('[data-og7="dossier-refresh"]')).toBeEnabled();
     if (!returnBeforeResponse) {
       await page
         .getByRole('button', { name: 'Dossier précédent', exact: true })
@@ -2808,7 +2813,7 @@ for (const [width, localNote] of [
     options.edited.set(secondId, {
       sponsor_review_note: 'Second dossier actualisé'
     });
-    const refresh = progress(page).getByRole('button');
+    const refresh = page.locator('[data-og7="dossier-refresh"]');
     for (let pass = 0; pass < 2; pass++) {
       await refresh.click();
       await expect(refresh).toBeEnabled();
@@ -3189,64 +3194,82 @@ for (const width of [1280, 390]) {
 }
 
 for (const width of [1280, 390]) {
-  test(`dossier progress links preserve scroll including repeated steps at ${width}px`, async ({
+  test(`dossier states stay collapsed and leave navigation to the tabs at ${width}px`, async ({
     page
-  }) => {
+  }, testInfo) => {
     const { calls } = await fixtures(page);
     await page.setViewportSize({ width, height: 844 });
     const returnTo =
       '/admin/fundraiser/assistant?type=sponsorship_needs_review';
-    await page.goto(
-      path('identity') + '&returnTo=' + encodeURIComponent(returnTo)
+    const query = '&returnTo=' + encodeURIComponent(returnTo);
+    await page.goto(path() + query);
+    const details = page.locator('[data-og7="dossier-progress-details"]');
+    const summary = details.locator('summary');
+    await expect(summary).toContainText('État du dossier');
+    await expect(summary).toContainText('4 sur 6 étapes réglées');
+    await expect(details).not.toHaveAttribute('open', '');
+    await expect(details.locator('[data-og7-id="payment"]')).toBeHidden();
+    await expect(progress(page).getByRole('link')).toHaveCount(0);
+    await expect(progress(page).getByRole('button')).toHaveCount(0);
+    const refresh = page.locator('[data-og7="dossier-refresh"]');
+    await expect(refresh).toHaveAccessibleName('Actualiser le dossier');
+    await expect(refresh).toBeVisible();
+    await tabs(page).evaluate((element) =>
+      element.scrollIntoView({ block: 'start', behavior: 'instant' })
     );
-    await expect(
-      progress(page).locator('[data-og7-id="identity"]')
-    ).toBeVisible();
-    await progress(page).evaluate((element) =>
-      window.scrollTo({
-        top: window.scrollY + element.getBoundingClientRect().top - 120,
-        behavior: 'instant'
-      })
-    );
-    const steps = [
-      ['identity', 'identity'],
-      ['payment', 'overview'],
-      ['media', 'media'],
-      ['review', 'overview'],
-      ['billing', 'billing'],
-      ['publication', 'publication']
-    ] as const;
-    for (const [index, [step, tab]] of steps.entries()) {
-      const link = progress(page)
-        .locator(`[data-og7-id="${step}"]`)
-        .getByRole('link');
-      // Keep the clicked milestone above the floating review actions before
-      // measuring navigation scroll, so Playwright need not reveal it on click.
-      await link.evaluate((element) =>
-        element.scrollIntoView({ block: 'center', behavior: 'instant' })
-      );
-      await link.focus();
-      const before = await page.evaluate(() => window.scrollY);
-      expect(before).toBeGreaterThanOrEqual(0);
-      if (index % 2) await link.press('Enter');
-      else await link.click();
-      await expect(page).toHaveURL(
-        path(tab) + '&returnTo=' + encodeURIComponent(returnTo)
-      );
-      await page.evaluate(
-        () =>
-          new Promise<void>((resolve) =>
-            requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
-          )
-      );
-      const position = await page.evaluate(() => ({
-        y: window.scrollY,
-        maximum: document.documentElement.scrollHeight - innerHeight
-      }));
-      expect(position.y).toBeCloseTo(Math.min(before, position.maximum), 0);
-      await expect(link).toBeFocused();
-      await expect(link).toBeInViewport();
+    await page.screenshot({
+      path: testInfo.outputPath(`dossier-overview-${width}.png`),
+      animations: 'disabled'
+    });
+
+    await summary.focus();
+    await page.keyboard.press('Enter');
+    await expect(details).toHaveAttribute('open', '');
+    for (const [step, state] of [
+      ['payment', 'complete'],
+      ['identity', 'complete'],
+      ['media', 'complete'],
+      ['review', 'pending'],
+      ['billing', 'complete'],
+      ['publication', 'cancelled']
+    ]) {
+      const status = details.locator(`[data-og7-id="${step}"]`);
+      await expect(status).toBeVisible();
+      await expect(status).toHaveAttribute('data-state', state);
     }
+    await expect(details.getByRole('link')).toHaveCount(0);
+    await expect(page).toHaveURL(path() + query);
+    await page.keyboard.press('Enter');
+    await expect(details).not.toHaveAttribute('open', '');
+    await expect(summary).toBeFocused();
+
+    for (const [tab, label] of [
+      ['identity', 'Fiche et médias'],
+      ['publication', 'Publication'],
+      ['billing', 'Finances'],
+      ['audit', 'Historique']
+    ]) {
+      const button = tabs(page).getByRole('button', {
+        name: label,
+        exact: true
+      });
+      await button.focus();
+      await page.keyboard.press('Enter');
+      await expect(page).toHaveURL(path(tab) + query);
+      await expect(button).toBeFocused();
+      await expect(progress(page)).toBeHidden();
+      await expect(refresh).toBeVisible();
+    }
+    await tabs(page)
+      .getByRole('button', { name: 'Aperçu', exact: true })
+      .click();
+    await expect(summary).toBeVisible();
+    await expect(details).not.toHaveAttribute('open', '');
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1
+      )
+    ).toBe(true);
     expect(calls.every((call) => call.method === 'GET')).toBe(true);
   });
 }
@@ -3508,7 +3531,17 @@ test('completed dossiers have a completion message without a next-step link in e
       page.getByText('Dossier terminé', { exact: true })
     ).toBeVisible();
     await expect(page.locator('[data-og7="dossier-next"]')).toHaveCount(0);
-    await expect(progress(page).locator('ol').getByRole('link')).toHaveCount(6);
+    if (url === path()) {
+      await expect(progress(page).getByRole('link')).toHaveCount(0);
+      await page
+        .locator('[data-og7="dossier-progress-details"] > summary')
+        .click();
+      await expect(progress(page).locator('[data-og7-id]')).toHaveCount(6);
+    } else {
+      await expect(progress(page).locator('ol').getByRole('link')).toHaveCount(
+        6
+      );
+    }
   }
   await page
     .getByRole('button', { name: 'Switch administration language to English' })
@@ -3644,7 +3677,7 @@ test('cockpit remembers selected dossier for this session and clears it on logou
 }) => {
   const { calls } = await fixtures(page);
   await page.goto(path('billing', secondId));
-  await expect(progress(page)).toContainText('Progression du dossier');
+  await expect(progress(page)).toBeHidden();
   await page
     .getByRole('navigation', { name: 'Navigation admin du fonds' })
     .getByRole('link', { name: 'Tableau de bord', exact: true })
@@ -3692,17 +3725,14 @@ test('denied progress clears facts and expired session returns to login', async 
   await page.goto(path('billing'));
   await expect(page.locator('#dossier-billing')).toContainText('FAC-DEMO-401');
   options.status = 403;
-  await progress(page)
-    .getByRole('button', { name: 'Actualiser le dossier' })
-    .click();
+  await page.locator('[data-og7="dossier-refresh"]').click();
+  await expect(progress(page).getByRole('alert')).toBeVisible();
   await expect(progress(page).getByRole('alert')).toContainText('pas accès');
   await expect(page.locator('#dossier-billing')).not.toContainText(
     'FAC-DEMO-401'
   );
   options.status = 401;
-  await progress(page)
-    .getByRole('button', { name: 'Actualiser le dossier' })
-    .click();
+  await page.locator('[data-og7="dossier-refresh"]').click();
   await expect(page).toHaveURL(/\/admin\/login/);
 });
 
@@ -3717,10 +3747,12 @@ test('refreshing progress clears invoice facts until the server responds', async
     release = resolve;
   });
   try {
-    await progress(page)
-      .getByRole('button', { name: 'Actualiser le dossier' })
-      .click();
+    await page.locator('[data-og7="dossier-refresh"]').click();
     await expect(progress(page)).toHaveAttribute('aria-busy', 'true');
+    await expect(progress(page)).toBeVisible();
+    await expect(progress(page).getByRole('status')).toContainText(
+      'Chargement du dossier'
+    );
     await expect(page.locator('#dossier-billing')).not.toContainText(
       'FAC-DEMO-401'
     );
@@ -4094,7 +4126,7 @@ function recordedCommitment(
 }
 
 for (const width of [1280, 390]) {
-  test(`publication bridge explains benefits and opens the exact delivery at ${width}px`, async ({
+  test(`publication bridge explains benefits and retains advanced dossier navigation at ${width}px`, async ({
     page
   }) => {
     const { calls, options } = await fixtures(page);
@@ -4140,10 +4172,15 @@ for (const width of [1280, 390]) {
         name: 'Vérifier et approuver les médias requis par les engagements'
       })
     ).toHaveAttribute('href', path('media'));
-    const link = journey.getByRole('link', { name: 'Vérifier et programmer' });
+    await expect(
+      journey.locator('[data-og7="publication-review"]')
+    ).toHaveAccessibleName('Vérifier et autoriser');
+    const link = journey.getByRole('link', {
+      name: 'Suivre ce dossier dans le moteur'
+    });
     await expect(link).toHaveAttribute(
       'href',
-      `/admin/fundraiser/publications/automation?sponsorshipId=${id}&deliveryId=${secondId}`
+      `/admin/fundraiser/publications/automation?sponsorshipId=${id}`
     );
     await expect(
       page.locator('[data-og7="dossier-publication-editor"]')
@@ -4165,7 +4202,7 @@ for (const width of [1280, 390]) {
     await link.focus();
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(
-      new RegExp(`automation\\?sponsorshipId=${id}&deliveryId=${secondId}`)
+      new RegExp(`automation\\?sponsorshipId=${id}$`)
     );
     expect(calls.filter((call) => call.method === 'POST')).toHaveLength(0);
   });

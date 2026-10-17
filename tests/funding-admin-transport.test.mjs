@@ -47,6 +47,141 @@ const serviceFixture = (t, token = syntheticToken) => {
   return { service: new FundingAdminService(), sessionStorage };
 };
 
+const preparationRequest = {
+  contributionId: '10000000-0000-4000-8000-000000001102',
+  expectedVersion: 'a'.repeat(64),
+  requestId: '10000000-0000-4000-8000-000000001199',
+  confirmed: true
+};
+const preparationRequests = [
+  {
+    name: 'read',
+    path:
+      '/admin/sponsorships/preparation?sponsorshipId=' +
+      preparationRequest.contributionId,
+    invoke: (service) =>
+      service.getSponsorshipPreparation(preparationRequest.contributionId)
+  },
+  {
+    name: 'approve',
+    path: '/admin/sponsorships/preparation/approve',
+    method: 'POST',
+    body: preparationRequest,
+    invoke: (service) =>
+      service.approveSponsorshipPreparation(preparationRequest)
+  }
+];
+
+test('dossier preparation keeps saved authentication, exact approval input and no-store reads without retrying', async (t) => {
+  for (const request of preparationRequests) {
+    await t.test(request.name, async (t) => {
+      const { service } = serviceFixture(t);
+      const receipt = {
+        context: 'dossier',
+        contributionId: preparationRequest.contributionId
+      };
+      const fetchMock = t.mock.method(
+        globalThis,
+        'fetch',
+        async (url, options) => {
+          assert.equal(url, baseUrl + request.path);
+          assert.equal(options.method, request.method);
+          assert.equal(options.cache, 'no-store');
+          assert.equal(
+            options.headers.Authorization,
+            `Bearer ${syntheticToken}`
+          );
+          assert.equal(options.headers.Accept, 'application/json');
+          assert.equal(
+            options.body,
+            request.body === undefined
+              ? undefined
+              : JSON.stringify(request.body)
+          );
+          return Response.json(receipt);
+        }
+      );
+      assert.deepEqual(await request.invoke(service), receipt);
+      assert.equal(fetchMock.mock.callCount(), 1);
+    });
+  }
+});
+
+test('dossier preparation preserves public runtime failure codes without exposing database details or changing sessions', async (t) => {
+  for (const request of preparationRequests) {
+    for (const status of [401, 403, 409, 503]) {
+      for (const code of [
+        'PREPARATION_SCHEMA_INCOMPATIBLE',
+        'PREPARATION_DATABASE_ACCESS_DENIED'
+      ]) {
+        await t.test(`${request.name}: ${status} ${code}`, async (t) => {
+          const { service, sessionStorage } = serviceFixture(t);
+          const fetchMock = t.mock.method(globalThis, 'fetch', async () =>
+            Response.json(
+              { code, message: 'Synthetic private database detail' },
+              { status }
+            )
+          );
+          await assert.rejects(request.invoke(service), (error) => {
+            assert.ok(error instanceof AdminDashboardRequestError);
+            assert.equal(error.status, status);
+            assert.equal(error.code, code);
+            assert.equal(error.message, 'Admin dashboard could not be loaded.');
+            return true;
+          });
+          assert.equal(fetchMock.mock.callCount(), 1);
+          assert.equal(service.sessionGeneration(), 0);
+          assert.equal(sessionStorage.getItem(sessionKey), syntheticToken);
+          assert.equal(
+            sessionStorage.getItem(selectionKey),
+            'synthetic-selection'
+          );
+        });
+      }
+    }
+  }
+});
+
+test('dossier preparation tolerates malformed runtime errors and propagates network failures without replay', async (t) => {
+  for (const request of preparationRequests) {
+    for (const [name, response] of [
+      ['invalid JSON', () => new Response('not JSON', { status: 503 })],
+      ['null body', () => Response.json(null, { status: 503 })],
+      [
+        'invalid code',
+        () => Response.json({ code: { private: true } }, { status: 503 })
+      ]
+    ]) {
+      await t.test(`${request.name}: ${name}`, async (t) => {
+        const { service } = serviceFixture(t);
+        const fetchMock = t.mock.method(globalThis, 'fetch', async () =>
+          response()
+        );
+        await assert.rejects(request.invoke(service), (error) => {
+          assert.ok(error instanceof AdminDashboardRequestError);
+          assert.equal(error.status, 503);
+          assert.equal(error.code, undefined);
+          assert.equal(error.message, 'Admin dashboard could not be loaded.');
+          return true;
+        });
+        assert.equal(fetchMock.mock.callCount(), 1);
+      });
+    }
+    await t.test(`${request.name}: network failure`, async (t) => {
+      const { service } = serviceFixture(t);
+      const failure = new Error('Synthetic connection failure');
+      const fetchMock = t.mock.method(globalThis, 'fetch', async () => {
+        throw failure;
+      });
+      await assert.rejects(
+        request.invoke(service),
+        (error) => error === failure
+      );
+      assert.equal(fetchMock.mock.callCount(), 1);
+    });
+  }
+});
+
 test('exact JPEG previews authenticate a delivery version and verify bytes/hash headers before display', async (t) => {
   const { service } = serviceFixture(t),
     bytes = Buffer.from('synthetic prepared JPEG bytes'),
@@ -398,13 +533,10 @@ test('admin JSON failures keep endpoint-specific errors and session invalidation
                   ? 'READ_ONLY'
                   : 'SYNTHETIC_FAILURE'
           );
-          assert.equal(
-            error.status,
-            family.name === 'automation' ? undefined : status
-          );
+          assert.equal(error.status, status);
           assert.equal(
             error instanceof AdminDashboardRequestError,
-            family.name === 'activity' || family.name === 'backfill'
+            ['activity', 'backfill', 'automation'].includes(family.name)
           );
           return true;
         });
@@ -631,6 +763,12 @@ const explicitJsonRequests = [
     invoke: (service, token) => service.getCockpit(block, token),
     path: `/admin/cockpit/${block}`
   })),
+  {
+    name: 'platform journey observations',
+    invoke: (service, token) => service.getCockpit('journeys', token),
+    path: '/admin/cockpit/journeys',
+    cache: 'no-store'
+  },
   {
     name: 'work queue',
     invoke: (service, token) =>
@@ -1995,6 +2133,7 @@ const remainingRequests = [
     savedAuth: true,
     path: '/admin/publication-automation/media',
     cache: 'no-store',
+    errorKind: 'status-fixed',
     fallback: 'AUTOMATION_UNAVAILABLE',
     invoke: (service) => service.publicationMedia()
   },

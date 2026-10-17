@@ -71,6 +71,8 @@ test(
       'DELETE FROM sponsorship_public_visibility_observations',
       'UPDATE admin_automatic_run_entries SET actor=actor',
       'DELETE FROM admin_automatic_run_entries',
+      'UPDATE admin_preparation_approvals SET actor=actor',
+      'DELETE FROM admin_preparation_approvals',
       'DELETE FROM admin_audit_log'
     ]) {
       await assert.rejects(runtime.query(sql), { code: '42501' });
@@ -97,7 +99,8 @@ test(
       'sponsorship_obligation_duration_attestations',
       'sponsorship_historical_evidence_reviews',
       'sponsorship_public_visibility_observations',
-      'admin_automatic_run_entries'
+      'admin_automatic_run_entries',
+      'admin_preparation_approvals'
     ]) {
       await database.pool.query(`GRANT UPDATE ON ${table} TO ${role}`);
       await assert.rejects(assertProductionDatabasePrivileges(runtime, true), {

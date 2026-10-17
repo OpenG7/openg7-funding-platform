@@ -1,6 +1,8 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 
+import type { AdminSponsorsListState } from '../../models/admin-sponsors-ui.models.js';
+
 @Component({
   selector: 'openg7-admin-sponsors-summary',
   standalone: true,
@@ -8,59 +10,44 @@ import { TranslatePipe } from '@ngx-translate/core';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section
-      class="admin-summary-grid"
-      [attr.aria-label]="'admin.legacy.resume_des_commandites' | translate"
+      class="sponsors-summary"
+      data-og7="sponsors-summary"
+      [attr.aria-label]="'admin.sponsors.pageScope' | translate"
+      [attr.aria-busy]="state() === 'loading'"
     >
-      <article>
-        <span class="metric-mark">{{ 'admin.legacy.to' | translate }}</span>
+      <span class="summary-scope">{{
+        'admin.sponsors.pageScope' | translate
+      }}</span>
+      <dl>
         <div>
-          <span>{{ 'admin.legacy.total_commanditaires' | translate }}</span>
-          <strong>{{ totalSponsorships() }}</strong>
-          <small>{{ 'admin.legacy.toutes_organisations' | translate }}</small>
+          <dt>{{ 'admin.sponsors.pendingReview' | translate }}</dt>
+          <dd
+            [class.needs-review]="
+              state() === 'ready' && pendingReviewCount() > 0
+            "
+          >
+            {{ state() === 'ready' ? pendingReviewCount() : '—' }}
+          </dd>
         </div>
-      </article>
-      <article>
-        <span class="metric-mark gold">{{
-          'admin.legacy.vi' | translate
-        }}</span>
         <div>
-          <span>{{ 'admin.dossier.approvedConsent' | translate }}</span>
-          <strong>{{ visibleCount() }}</strong>
-          <small>{{ 'admin.dossier.listScope' | translate }}</small>
+          <dt>{{ 'admin.dossier.approvedConsent' | translate }}</dt>
+          <dd>{{ state() === 'ready' ? visibleCount() : '—' }}</dd>
         </div>
-      </article>
-      <article>
-        <span class="metric-mark green">{{
-          'admin.legacy.ac' | translate
-        }}</span>
-        <div>
-          <span>{{ 'admin.legacy.commanditaires_actifs' | translate }}</span>
-          <strong>{{ activeCount() }}</strong>
-          <small>{{ 'admin.legacy.avec_paiement_confirme' | translate }}</small>
+        <div [title]="'admin.sponsors.activeHelp' | translate">
+          <dt>{{ 'admin.sponsors.active' | translate }}</dt>
+          <dd>{{ state() === 'ready' ? activeCount() : '—' }}</dd>
         </div>
-      </article>
-      <article>
-        <span class="metric-mark money">{{
-          'admin.legacy.ca' | translate
-        }}</span>
-        <div>
-          <span>{{ 'admin.legacy.contribution_totale' | translate }}</span>
-          <strong>{{ totalContributionLabel() }}</strong>
-          <small>{{ 'admin.legacy.paiements_confirmes' | translate }}</small>
-        </div>
-      </article>
+      </dl>
     </section>
   `,
   styleUrls: [
     '../admin-ui/admin-theme.css',
-    '../admin-ui/admin-controls.css',
-    '../admin-ui/admin-forms.css',
     './admin-sponsors-summary.component.css'
   ]
 })
 export class AdminSponsorsSummaryComponent {
-  readonly totalSponsorships = input.required<number>();
+  readonly state = input.required<AdminSponsorsListState>();
+  readonly pendingReviewCount = input.required<number>();
   readonly visibleCount = input.required<number>();
   readonly activeCount = input.required<number>();
-  readonly totalContributionLabel = input.required<string>();
 }

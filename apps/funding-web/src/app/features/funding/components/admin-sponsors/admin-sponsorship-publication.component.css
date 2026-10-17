@@ -47,6 +47,17 @@ footer {
 .delivery-board {
   @apply tw:grid tw:gap-4 tw:min-w-0;
 }
+.schedule-help {
+  @apply tw:text-admin-caption;
+}
+[data-og7='publication-next-slot'] time {
+  display: block;
+  color: var(--admin-text);
+  font-weight: var(--admin-label-weight);
+}
+[data-og7='publication-next-slot'] span {
+  @apply tw:text-admin-caption;
+}
 .completion {
   @apply tw:flex tw:items-center tw:flex-wrap tw:gap-4;
   padding: 1.15rem 1.25rem;

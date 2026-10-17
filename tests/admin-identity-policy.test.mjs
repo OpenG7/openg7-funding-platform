@@ -58,6 +58,21 @@ test('email reconciliation shares retry permissions for both aliases and rejects
   }
 });
 
+test('platform journey observations are readable by administrative roles without granting mutations', () => {
+  for (const path of [
+    '/admin/cockpit/journeys',
+    '/api/admin/cockpit/journeys'
+  ]) {
+    for (const role of ['reader', 'operator', 'owner']) {
+      assert.equal(adminRoleAllows(role, 'GET', path), true);
+    }
+    for (const role of ['reader', 'operator']) {
+      assert.equal(adminRoleAllows(role, 'POST', path), false);
+      assert.equal(adminRoleAllows(role, 'DELETE', path), false);
+    }
+  }
+});
+
 test('automatic responsibility runs keep report reads private and restrict preparations to operators and owners', () => {
   for (const prefix of ['', '/api']) {
     for (const path of [

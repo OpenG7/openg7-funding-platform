@@ -2008,7 +2008,7 @@ test('Admin sponsors publication channels are preselected from open recorded obl
   );
 });
 
-test('Admin sponsor rows are color-coded by processing state', () => {
+test('Admin sponsor rows expose processing context and independent statuses', () => {
   const page = readAdminSponsorsSource();
   const results = readAdminSponsorsComponentSource(
     'list-results/admin-sponsors-results'
@@ -2033,13 +2033,11 @@ test('Admin sponsor rows are color-coded by processing state', () => {
   for (const marker of [
     '[ngClass]="row.rowStateClass"',
     '[attr.title]="row.processingLabel"',
-    'sponsor-row-state-action-required',
-    'sponsor-row-state-approved-ready',
-    'sponsor-row-state-publication-progress',
-    'sponsor-row-state-published',
-    'sponsor-row-state-blocked',
-    'sponsor-row-state-waiting-payment',
-    '--sponsor-row-accent'
+    'row.reviewStatusLabel',
+    'row.visibilityLabel',
+    'row.feedStatusLabel',
+    'row.paymentStatusLabel',
+    'row.refundWorkflowStatusLabel'
   ]) {
     assert.ok(
       results.includes(marker),

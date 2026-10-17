@@ -10,10 +10,7 @@ import {
 import { withPostgresTransaction } from '../postgres-transaction.js';
 import { lockPublicationBatchCapacity } from '../fund-publication-capacity.persistence.js';
 import { publicationMembershipFits } from '../fund-publication-rendering.persistence.js';
-import {
-  publicationSourceUncertainSql,
-  retireObsoletePublicationDrafts
-} from '../fund-publication-draft-retirement.persistence.js';
+import { retireObsoletePublicationDrafts } from '../fund-publication-draft-retirement.persistence.js';
 import { revokeCommitmentDeliveries } from '../sponsorship-fulfilment.repository.js';
 
 import { canonicalPublicationAccount } from './account-reservations.js';
@@ -28,6 +25,10 @@ import {
 } from './context.js';
 import { composeSponsorshipContent } from './content.js';
 import { lockPublicationPlanningFeed } from './planning-lock.js';
+import {
+  preparationMaterializationScopeSql,
+  preparationMaterializationSql
+} from './preparation-materialization.js';
 import {
   PREPARATION_SCAN_LIMIT,
   eligibleDestination,
@@ -99,9 +100,7 @@ export async function prepare(
     const feeds = await context.feeds(db);
     const feed = feeds.find((f) => f.id === feedId)!;
     assert(feed, 'INVALID_FEED', 400);
-    const candidateScope = `c.contribution_type='sponsorship_interest' AND c.status='paid'
-      AND c.public_display_consent IS TRUE AND c.sponsor_review_status IN ('pending_review','approved')
-      AND NULLIF(btrim(c.sponsor_company_name),'') IS NOT NULL AND c.sponsor_feed_status<>'hidden'`;
+    const candidateScope = preparationMaterializationScopeSql;
     // Lock delivery authority before source contributions, like term adjustments.
     // Creation then uses only this locked set and rereads current terms after a wait.
     await db.query(
@@ -121,17 +120,10 @@ export async function prepare(
     // Sponsor review belongs to the final human decision, never to this worker.
     await db.query(
       `INSERT INTO sponsor_publication_drafts(contribution_id,feed_target,channel,title,body,disclosure_text,obligation_id,created_at)
-        SELECT c.id,$1,$2,CASE WHEN $2='linkedin' THEN 'Un partenaire engagé : ' ELSE 'Merci à ' END || c.sponsor_company_name,COALESCE(NULLIF(btrim(c.sponsor_public_summary),''),'Merci de soutenir le Fonds des Bâtisseurs OpenG7.'),'Commandite rémunérée.',passage.id,
-          CASE WHEN passage.ordinal=1 THEN GREATEST(c.created_at,COALESCE(c.paid_at,c.created_at),passage.created_at) ELSE clock_timestamp() END FROM fund_contributions c
-        JOIN LATERAL(SELECT o.id,o.ordinal,o.created_at FROM sponsorship_obligations o JOIN sponsorship_commitments a ON a.id=o.commitment_id
-          WHERE a.state='active' AND o.contribution_id=c.id AND o.channel=$2 AND o.target=$1 AND o.state IN ('pending','blocked')
-          ORDER BY o.ordinal,o.id LIMIT 1) passage ON TRUE
-        WHERE ${candidateScope} AND c.id=ANY($3::uuid[])
-          AND NOT ${publicationSourceUncertainSql('c.id', '$2')}
-          AND NOT EXISTS(SELECT 1 FROM sponsor_publication_drafts existing WHERE existing.contribution_id=c.id AND existing.feed_target=$1 AND existing.channel=$2 AND existing.status NOT IN ('published','cancelled','rejected'))
-          AND NOT EXISTS(SELECT 1 FROM sponsor_publication_drafts refusal WHERE refusal.contribution_id=c.id AND refusal.feed_target=$1 AND refusal.channel=$2
-            AND refusal.status='rejected' AND (refusal.obligation_id IS NULL OR refusal.obligation_id=passage.id))
-        ORDER BY c.created_at,c.id
+        SELECT contribution_id,feed_target,channel,title,body,disclosure_text,obligation_id,
+          CASE WHEN ordinal=1 THEN first_created_at ELSE clock_timestamp() END
+        FROM (${preparationMaterializationSql('$1', '$2', 'c.id=ANY($3::uuid[])')}) candidate
+        ORDER BY contribution_created_at,contribution_id
         ON CONFLICT(obligation_id) WHERE obligation_id IS NOT NULL AND status NOT IN ('published','cancelled','rejected') DO NOTHING`,
       [target, channel, lockedContributions.rows.map((row) => row.id)]
     );

@@ -39,12 +39,32 @@ import { AdminSponsorsPaginationComponent } from './list-results/admin-sponsors-
       [class.compact]="compact()"
       [attr.aria-label]="'admin.legacy.liste_des_commandites' | translate"
     >
-      @if (compact()) {
-        <div class="list-caption">
-          <strong>{{ 'admin.dossier.workspace.queue' | translate }}</strong
-          ><span>{{ totalItems() }}</span>
+      <header class="list-caption">
+        <div>
+          <h2>{{ 'admin.sponsors.records' | translate }}</h2>
+          @if (!compact()) {
+            <p>{{ 'admin.sponsors.recordsHelp' | translate }}</p>
+          }
         </div>
-      }
+        <span
+          class="results-count"
+          data-og7="sponsors-results-count"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          @if (state() === 'ready') {
+            {{
+              (totalItems() === 1
+                ? 'admin.sponsors.result'
+                : 'admin.sponsors.results'
+              ) | translate: { count: totalItems() }
+            }}
+          } @else {
+            —
+          }
+        </span>
+      </header>
       <openg7-admin-sponsors-filters
         [compact]="compact()"
         [search]="search()"

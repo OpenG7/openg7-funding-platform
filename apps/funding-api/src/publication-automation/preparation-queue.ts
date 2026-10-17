@@ -19,7 +19,10 @@ import {
 } from '../../../../packages/funding-core/src/index.js';
 
 import { recurrenceTimes } from './policy.js';
-import { createPreparationOpportunityPlanner } from './preparation-opportunity.js';
+import {
+  createPreparationOpportunityPlanner,
+  type PreparationOpportunityPlanner
+} from './preparation-opportunity.js';
 import {
   preparationEligibilitySql,
   preparationFormatSql,
@@ -157,7 +160,8 @@ export async function preparationQueue(
   db: Db,
   feeds: readonly PublicationFeed[],
   filter: PublicationAutomationFilter,
-  now = new Date()
+  now = new Date(),
+  planner?: PreparationOpportunityPlanner
 ): Promise<PublicationPreparationQueue> {
   const dates = new Map(
     feeds.map((feed) => [feed.id, new Set(recurrenceTimes(feed, now))])
@@ -177,11 +181,8 @@ export async function preparationQueue(
   ).rows.filter((batch) =>
     dates.get(batch.feed_id)?.has(batch.starts_at.toISOString())
   );
-  const opportunityPlanner = await createPreparationOpportunityPlanner(
-    db,
-    feeds,
-    now
-  );
+  const opportunityPlanner =
+    planner ?? (await createPreparationOpportunityPlanner(db, feeds, now));
   const offset = filter.queueOffset ?? 0;
   const result: PublicationPreparationQueue = {
     entries: [],

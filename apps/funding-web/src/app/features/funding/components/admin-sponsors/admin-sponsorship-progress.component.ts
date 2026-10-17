@@ -48,24 +48,14 @@ export class AdminSponsorshipProgressComponent implements OnInit, OnChanges {
   readonly compact = input(false);
   readonly streamlined = input(false);
   readonly showNextStep = input(true);
-  readonly activeTab = input<SponsorshipDossierTab>('overview');
   readonly completedSteps = computed(
     () =>
       this.data()?.dossier?.milestones.filter(
         (step) => step.state === 'complete' || step.state === 'not_required'
       ).length ?? 0
   );
-  readonly activeStep = computed(() => {
-    const steps =
-      this.data()?.dossier?.milestones.filter(
-        (step) => step.tab === this.activeTab()
-      ) ?? [];
-    return (steps.find((step) => step.state !== 'complete') ?? steps.at(-1))
-      ?.id;
-  });
   readonly refreshKey = input<unknown>(0);
   readonly disabled = input(false);
-  readonly refreshRequested = output<void>();
   readonly loaded = output<AdminSponsorshipProgress | null>();
   readonly i18n = inject(FundingI18nService);
   readonly router = inject(Router);
@@ -104,8 +94,7 @@ export class AdminSponsorshipProgressComponent implements OnInit, OnChanges {
       void this.load();
   }
   refresh(): void {
-    if (this.streamlined()) this.refreshRequested.emit();
-    else void this.load();
+    void this.load();
   }
 
   load(): Promise<void> {

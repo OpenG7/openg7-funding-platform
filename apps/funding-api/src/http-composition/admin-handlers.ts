@@ -18,6 +18,7 @@ import { runAdminAssistantQuery } from '../admin-assistant/orchestrator.js';
 import { prepareAdminAssistantDraft } from '../admin-assistant/preparation.service.js';
 import { getCockpitActivity } from '../admin-cockpit/activity.js';
 import { getCockpitMetrics } from '../admin-cockpit/metrics.js';
+import { getCockpitJourneys } from '../admin-cockpit/journeys.js';
 import {
   ContributionExportError,
   exportAdminContributions
@@ -33,6 +34,7 @@ import { createAdminInsightsHttpHandler } from '../admin-insights.http.js';
 import { createAdminPilotageHttpHandler } from '../admin-pilotage.http.js';
 import { createAdminAutomaticRunsHttpHandler } from '../admin-automatic-runs.http.js';
 import { AdminAutomaticRunsService } from '../admin-automatic-runs.service.js';
+import { AdminPreparationService } from '../admin-preparation.service.js';
 import { PilotError } from '../admin-pilotage.service.js';
 import { createAdminPublicationAutomationHttpHandler } from '../admin-publication-automation.http.js';
 import { createAdminPublicationBatchesHttpHandler } from '../admin-publication-batches.http.js';
@@ -377,6 +379,7 @@ export const createAdminHttpHandlers = ({
     getAdminWorkQueue: (query) => getAdminWorkQueue(dbPool, query),
     getCockpitMetrics: () => getCockpitMetrics(dbPool),
     getCockpitActivity: () => getCockpitActivity(dbPool),
+    getCockpitJourneys: () => getCockpitJourneys(dbPool, new Date(), true),
     readCockpitSystems,
     getAdminDashboard: () => getAdminDashboard(dbPool),
     reportFailure: (message, error) => console.error(message, error)
@@ -671,7 +674,10 @@ export const createAdminHttpHandlers = ({
     getAdminAuditActor,
     readBody,
     writeJson,
-    automaticRuns: dbPool ? new AdminAutomaticRunsService(dbPool) : null
+    automaticRuns: dbPool ? new AdminAutomaticRunsService(dbPool) : null,
+    dossierPreparations: dbPool ? new AdminPreparationService(dbPool) : null,
+    reportPreparationFailure: (diagnostic) =>
+      console.error(JSON.stringify(diagnostic))
   });
 
   const handleAdminPublicationAutomationRequest =

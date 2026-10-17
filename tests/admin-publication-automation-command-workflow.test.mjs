@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { signal } from '@angular/core';
 
-import { AdminPublicationAutomationCommandWorkflow } from '../dist/apps/funding-web/src/app/features/funding/pages/admin-publication-automation-page/admin-publication-automation-command-workflow.js';
+import { AdminPublicationAutomationCommandWorkflow } from '../dist/apps/funding-web/src/app/features/funding/components/admin-publications/admin-publication-automation-command-workflow.js';
 
 const approval = {
   action: 'approve',
@@ -464,7 +464,7 @@ test('composition passes the returned delivery ID and confirmed filtered state t
 
 test('the automation workflow uses its local typed ports without pilotage receipt or storage contracts', () => {
   const source = readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/admin-publication-automation-page/admin-publication-automation-command-workflow.ts',
+    'apps/funding-web/src/app/features/funding/components/admin-publications/admin-publication-automation-command-workflow.ts',
     'utf8'
   );
   assert.match(source, /PublicationAutomationCommandPorts/);

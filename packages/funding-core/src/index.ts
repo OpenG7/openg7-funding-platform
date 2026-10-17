@@ -106,6 +106,18 @@ export type {
   CockpitSystemEvidence
 } from './admin-cockpit.js';
 
+export type {
+  AdminPlatformJourneys,
+  AdminPlatformJourney,
+  AdminPlatformJourneyId,
+  AdminPlatformJourneyState,
+  AdminPlatformJourneyDiagnostic,
+  AdminPlatformJourneyEvidenceScope,
+  AdminPlatformJourneyStep,
+  AdminPlatformJourneyStepId,
+  AdminPlatformJourneyObservation
+} from './admin-platform-journeys.js';
+
 export * from './publication-automation.js';
 export * from './publication-provider-media.js';
 
@@ -337,3 +349,4 @@ export type {
   ResponsibilityBalanceEvidence
 } from './admin-responsibility-balance.js';
 export * from './admin-automatic-runs.js';
+export * from './admin-preparation.js';

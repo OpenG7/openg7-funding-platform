@@ -785,6 +785,56 @@ test('selected sponsorship opens its exact Assistant context', async ({
   ).toHaveCount(0);
 });
 
+for (const width of [1280, 390]) {
+  test(`dossier refresh also reloads the inline assistant and recovers its context at ${width}px`, async ({
+    page
+  }) => {
+    const { calls, options } = await fixtures(page);
+    await sponsorshipFixture(page);
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto(`/admin/fundraiser/sponsors?sponsorshipId=${id}`);
+    const context = page.locator('[data-og7="assistant-context"]');
+    await expect(
+      context.locator('[data-og7="assistant-reference"]')
+    ).toHaveText('DEMO-301');
+    await expect(
+      context.getByRole('button', { name: 'Actualiser le contexte' })
+    ).toHaveCount(0);
+    const refresh = page.locator('[data-og7="dossier-refresh"]');
+    await expect(refresh).toHaveAccessibleName('Actualiser le dossier');
+    await expect(
+      page.getByRole('button', {
+        name: /Actualiser le dossier|Actualiser le contexte/
+      })
+    ).toHaveCount(1);
+    const contextReads = () =>
+      calls.filter((call) => call.path === '/api/admin/assistant/context')
+        .length;
+    const initialReads = contextReads();
+    options.contextStatus = 503;
+    await refresh.click();
+    await expect(context).toContainText(
+      'Le contexte est indisponible. Vous pouvez réessayer.'
+    );
+    expect(contextReads()).toBe(initialReads + 1);
+
+    options.contextStatus = 200;
+    await refresh.click();
+    await expect(
+      context.locator('[data-og7="assistant-reference"]')
+    ).toHaveText('DEMO-301');
+    expect(contextReads()).toBe(initialReads + 2);
+    await context
+      .getByRole('link', { name: 'Ouvrir l’Assistant pour ce dossier' })
+      .click();
+    await expect(page).toHaveURL(path());
+    await expect(
+      context.getByRole('button', { name: 'Actualiser le contexte' })
+    ).toBeVisible();
+    expect(calls.every((call) => call.method === 'GET')).toBe(true);
+  });
+}
+
 for (const language of ['fr', 'en'] as const) {
   test(`opening the Assistant preserves private edits only for this navigation in ${language}`, async ({
     page

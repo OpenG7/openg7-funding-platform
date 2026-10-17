@@ -102,7 +102,8 @@ test.describe('Docker admin sponsorship review', () => {
 
     const fixture = SPONSORSHIP_FIXTURES.approve;
     await page
-      .getByLabel('Recherche', { exact: true })
+      .locator('[data-og7="sponsors-list"]')
+      .getByRole('searchbox')
       .fill(fixture.companyName);
     await expect(
       page.getByRole('button', { name: new RegExp(fixture.companyName) })

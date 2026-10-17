@@ -21,15 +21,10 @@ import { isValidUuid } from './business-helpers/request-validation.js';
 import { createAdminPublicationDraftOnConnection } from './fund-publication-drafts.repository.js';
 import { moderationApprovedSql } from './moderation/policy.js';
 import { withPostgresTransaction } from './postgres-transaction.js';
+import { AdminPreparationService } from './admin-preparation.service.js';
+import { AdminAutomaticRunError } from './admin-automatic-run-error.js';
 
-export class AdminAutomaticRunError extends Error {
-  constructor(
-    readonly code: string,
-    readonly status = 409
-  ) {
-    super(code);
-  }
-}
+export { AdminAutomaticRunError } from './admin-automatic-run-error.js';
 
 function check(
   condition: unknown,
@@ -147,6 +142,21 @@ async function audit(
 /** No network, publication, email, financial correction or human decision port exists. */
 export class AdminAutomaticRunsService {
   constructor(private readonly pool: Pool) {}
+
+  preparation(actor: string, runId: string, position: number) {
+    return new AdminPreparationService(this.pool).preparation(
+      actor,
+      runId,
+      position
+    );
+  }
+
+  approvePreparation(raw: unknown, actor: string) {
+    return new AdminPreparationService(this.pool).approvePreparation(
+      raw,
+      actor
+    );
+  }
 
   private async run(
     db: PoolClient,

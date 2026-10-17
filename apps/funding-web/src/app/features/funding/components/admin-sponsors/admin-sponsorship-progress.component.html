@@ -5,110 +5,142 @@
   [attr.aria-label]="'admin.dossier.progress' | translate"
   [attr.aria-busy]="state() === 'loading'"
 >
-  <header>
-    <h2>
-      {{
-        (compact() ? 'admin.dossier.current' : 'admin.dossier.progress')
-          | translate
-      }}
-      @if (streamlined() && data()?.dossier; as d) {
-        <span class="progress-count"
-          >{{ completedSteps() }} / {{ d.milestones.length }}</span
-        >
+  @if (streamlined()) {
+    @if (state() === 'loading') {
+      <p role="status">{{ 'admin.dossier.loading' | translate }}</p>
+    } @else if (state() !== 'ready') {
+      <p role="alert">{{ 'admin.dossier.' + state() | translate }}</p>
+    } @else if (data()?.dossier; as d) {
+      <details data-og7="dossier-progress-details">
+        <summary>
+          <span>{{ 'admin.dossier.stateSummary' | translate }}</span>
+          <span class="progress-count">{{
+            'admin.dossier.resolvedSteps'
+              | translate
+                : { completed: completedSteps(), total: d.milestones.length }
+          }}</span>
+        </summary>
+        <dl class="status-list">
+          @for (step of d.milestones; track step.id) {
+            <div [attr.data-state]="step.state" [attr.data-og7-id]="step.id">
+              <dt>{{ 'admin.dossier.steps.' + step.id | translate }}</dt>
+              <dd>{{ 'admin.dossier.states.' + step.state | translate }}</dd>
+            </div>
+          }
+        </dl>
+      </details>
+      @if (showNextStep()) {
+        <openg7-admin-sponsorship-next-step
+          [dossier]="d"
+          [embedded]="true"
+          [compact]="true"
+        />
       }
-    </h2>
-    <button
-      type="button"
-      class="admin-button"
-      [attr.aria-label]="'admin.dossier.refresh' | translate"
-      [attr.title]="'admin.dossier.refresh' | translate"
-      [disabled]="disabled() || state() === 'loading'"
-      (click)="refresh()"
-    >
-      @if (streamlined() || compact()) {
-        <openg7-admin-icon name="refresh" />
-      } @else {
-        {{ 'admin.dossier.refresh' | translate }}
-      }
-    </button>
-  </header>
-  @if (state() === 'loading') {
-    <p role="status">{{ 'admin.dossier.loading' | translate }}</p>
-  } @else if (state() !== 'ready') {
-    <p role="alert">{{ 'admin.dossier.' + state() | translate }}</p>
-  } @else if (data()?.dossier; as d) {
-    @if (compact()) {
-      <h3>{{ d.companyName || d.reference }}</h3>
-      <p>{{ d.reference }} · {{ money(d.amountMinor, d.currency) }}</p>
-    }
-    @if (!streamlined()) {
-      <dl class="independent-states">
-        <div>
-          <dt>{{ 'admin.dossier.review' | translate }}</dt>
-          <dd>{{ 'admin.dossier.values.' + d.reviewStatus | translate }}</dd>
-        </div>
-        <div>
-          <dt>{{ 'admin.dossier.consent' | translate }}</dt>
-          <dd>
-            {{
-              'admin.dossier.' + (d.publicConsent ? 'yes' : 'no') | translate
-            }}
-          </dd>
-        </div>
-        <div>
-          <dt>{{ 'admin.dossier.eligibility' | translate }}</dt>
-          <dd>
-            {{
-              'admin.dossier.' + (d.publicEligible ? 'yes' : 'no') | translate
-            }}
-          </dd>
-        </div>
-        <div>
-          <dt>{{ 'admin.dossier.tabs.publication' | translate }}</dt>
-          <dd>{{ 'admin.dossier.values.' + d.feedStatus | translate }}</dd>
-        </div>
-      </dl>
-    }
-    <ol class="milestones">
-      @for (step of d.milestones; track step.id) {
-        <li [attr.data-state]="step.state" [attr.data-og7-id]="step.id">
-          <a
-            [routerLink]="'/admin/fundraiser/sponsors'"
-            [queryParams]="params(d.contributionId, step.tab)"
-            [attr.aria-current]="
-              streamlined() && step.id === activeStep() ? 'step' : null
-            "
-            queryParamsHandling="merge"
-          >
-            <span class="step-marker" aria-hidden="true">{{
-              step.state === 'complete' ? '✓' : $index + 1
-            }}</span>
-            <strong>{{ 'admin.dossier.steps.' + step.id | translate }}</strong>
-            <span class="step-status">{{
-              'admin.dossier.states.' + step.state | translate
-            }}</span>
-            @if (!compact() && !streamlined()) {
-              <small>{{
-                'admin.dossier.reasons.' + step.reason | translate
-              }}</small>
-            }
-          </a>
-        </li>
-      }
-    </ol>
-    @if (showNextStep()) {
-      <openg7-admin-sponsorship-next-step
-        [dossier]="d"
-        [embedded]="true"
-        [compact]="streamlined()"
-      />
-    }
-    @if (!compact() && !streamlined()) {
-      <p class="help">{{ 'admin.dossier.independent' | translate }}</p>
+    } @else {
+      <p role="status">
+        {{ 'admin.dossier.' + (data()?.status || 'unavailable') | translate }}
+      </p>
     }
   } @else {
-    <p role="status">
-      {{ 'admin.dossier.' + (data()?.status || 'unavailable') | translate }}
-    </p>
+    <header>
+      <h2>
+        {{
+          (compact() ? 'admin.dossier.current' : 'admin.dossier.progress')
+            | translate
+        }}
+      </h2>
+      <button
+        type="button"
+        class="admin-button"
+        [attr.aria-label]="'admin.dossier.refresh' | translate"
+        [attr.title]="'admin.dossier.refresh' | translate"
+        [disabled]="disabled() || state() === 'loading'"
+        (click)="refresh()"
+      >
+        @if (streamlined() || compact()) {
+          <openg7-admin-icon name="refresh" />
+        } @else {
+          {{ 'admin.dossier.refresh' | translate }}
+        }
+      </button>
+    </header>
+    @if (state() === 'loading') {
+      <p role="status">{{ 'admin.dossier.loading' | translate }}</p>
+    } @else if (state() !== 'ready') {
+      <p role="alert">{{ 'admin.dossier.' + state() | translate }}</p>
+    } @else if (data()?.dossier; as d) {
+      @if (compact()) {
+        <h3>{{ d.companyName || d.reference }}</h3>
+        <p>{{ d.reference }} · {{ money(d.amountMinor, d.currency) }}</p>
+      }
+      @if (!streamlined()) {
+        <dl class="independent-states">
+          <div>
+            <dt>{{ 'admin.dossier.review' | translate }}</dt>
+            <dd>{{ 'admin.dossier.values.' + d.reviewStatus | translate }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'admin.dossier.consent' | translate }}</dt>
+            <dd>
+              {{
+                'admin.dossier.' + (d.publicConsent ? 'yes' : 'no') | translate
+              }}
+            </dd>
+          </div>
+          <div>
+            <dt>{{ 'admin.dossier.eligibility' | translate }}</dt>
+            <dd>
+              {{
+                'admin.dossier.' + (d.publicEligible ? 'yes' : 'no') | translate
+              }}
+            </dd>
+          </div>
+          <div>
+            <dt>{{ 'admin.dossier.tabs.publication' | translate }}</dt>
+            <dd>{{ 'admin.dossier.values.' + d.feedStatus | translate }}</dd>
+          </div>
+        </dl>
+      }
+      <ol class="milestones">
+        @for (step of d.milestones; track step.id) {
+          <li [attr.data-state]="step.state" [attr.data-og7-id]="step.id">
+            <a
+              [routerLink]="'/admin/fundraiser/sponsors'"
+              [queryParams]="params(d.contributionId, step.tab)"
+              queryParamsHandling="merge"
+            >
+              <span class="step-marker" aria-hidden="true">{{
+                step.state === 'complete' ? '✓' : $index + 1
+              }}</span>
+              <strong>{{
+                'admin.dossier.steps.' + step.id | translate
+              }}</strong>
+              <span class="step-status">{{
+                'admin.dossier.states.' + step.state | translate
+              }}</span>
+              @if (!compact() && !streamlined()) {
+                <small>{{
+                  'admin.dossier.reasons.' + step.reason | translate
+                }}</small>
+              }
+            </a>
+          </li>
+        }
+      </ol>
+      @if (showNextStep()) {
+        <openg7-admin-sponsorship-next-step
+          [dossier]="d"
+          [embedded]="true"
+          [compact]="streamlined()"
+        />
+      }
+      @if (!compact() && !streamlined()) {
+        <p class="help">{{ 'admin.dossier.independent' | translate }}</p>
+      }
+    } @else {
+      <p role="status">
+        {{ 'admin.dossier.' + (data()?.status || 'unavailable') | translate }}
+      </p>
+    }
   }
 </section>

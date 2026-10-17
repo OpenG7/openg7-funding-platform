@@ -1,11 +1,12 @@
 <header class="admin-table-toolbar">
   <label class="search-control">
-    {{ 'admin.legacy.recherche' | translate
-    }}<input
+    <span class="visually-hidden">{{
+      'admin.sponsors.search' | translate
+    }}</span>
+    <openg7-admin-icon name="search" />
+    <input
       type="search"
-      [attr.placeholder]="
-        'admin.legacy.rechercher_une_entreprise_ou_un_courriel' | translate
-      "
+      [attr.placeholder]="'admin.sponsors.searchPlaceholder' | translate"
       [value]="search()"
       (input)="onSearch($event)"
     />
@@ -13,9 +14,12 @@
 
   <details class="list-filters">
     <summary>
+      <openg7-admin-icon name="settings" />
       {{ 'admin.dossier.workspace.filters' | translate }}
       @if (hasActiveFilters()) {
-        <span aria-hidden="true"> •</span>
+        <span class="filter-count" data-og7="sponsors-active-filter-count">{{
+          activeFilterCount()
+        }}</span>
       }
     </summary>
     <div class="filter-row">

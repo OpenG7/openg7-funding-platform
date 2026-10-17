@@ -27,6 +27,7 @@ import type {
   AdminCockpitMetrics,
   AdminCockpitActivity,
   AdminCockpitSystems,
+  AdminPlatformJourneys,
   AdminAssistantContextResponse,
   AdminSponsorshipProgressResponse,
   AdminInformationRequest,
@@ -404,6 +405,18 @@ export class FundingAdminService {
     return this.sponsorshipsClient.getSponsorshipProgress(token, sponsorshipId);
   }
 
+  getSponsorshipPreparation(
+    contributionId: string
+  ): Promise<import('@openg7/funding-core').AdminDossierPreparationReceipt> {
+    return this.sponsorshipsClient.getSponsorshipPreparation(contributionId);
+  }
+
+  approveSponsorshipPreparation(
+    payload: import('@openg7/funding-core').AdminDossierPreparationApproveRequest
+  ): Promise<import('@openg7/funding-core').AdminDossierPreparationReceipt> {
+    return this.sponsorshipsClient.approveSponsorshipPreparation(payload);
+  }
+
   getPaymentJourney(
     contributionId: string
   ): Promise<import('@openg7/funding-core').AdminPaymentJourneyResponse> {
@@ -474,7 +487,7 @@ export class FundingAdminService {
     return this.diagnosticsClient.getDashboard(token);
   }
 
-  getCockpit<T extends 'metrics' | 'activity' | 'systems'>(
+  getCockpit<T extends 'metrics' | 'activity' | 'systems' | 'journeys'>(
     block: T,
     token: string
   ): Promise<
@@ -482,6 +495,7 @@ export class FundingAdminService {
       metrics: AdminCockpitMetrics;
       activity: AdminCockpitActivity;
       systems: AdminCockpitSystems;
+      journeys: AdminPlatformJourneys;
     }[T]
   > {
     return this.diagnosticsClient.getCockpit(block, token);

@@ -1,7 +1,9 @@
 import type {
   AdminAutomaticRun,
   AdminAutomaticRunReport,
-  AdminAutomaticRunState
+  AdminAutomaticRunState,
+  AdminPreparationReceipt,
+  AdminPreparationApproveRequest
 } from '@openg7/funding-core';
 
 import type { FundingAdminService } from '../../services/funding-admin.service.js';
@@ -38,6 +40,22 @@ export class AdminAutomaticPortfolioClient {
     const query = new URLSearchParams({ runId, limit: '50' });
     if (after !== undefined) query.set('after', String(after));
     return this.request('/report?' + query);
+  }
+
+  preparation(
+    runId: string,
+    position: number
+  ): Promise<AdminPreparationReceipt> {
+    return this.request(
+      '/preparation?' +
+        new URLSearchParams({ runId, position: String(position) })
+    );
+  }
+
+  approvePreparation(
+    input: AdminPreparationApproveRequest
+  ): Promise<AdminPreparationReceipt> {
+    return this.request('/preparation/approve', input);
   }
 
   private async request<T>(suffix: string, body?: object): Promise<T> {

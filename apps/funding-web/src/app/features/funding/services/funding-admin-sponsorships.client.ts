@@ -105,6 +105,48 @@ export class FundingAdminSponsorshipsClient {
   }
   constructor(private readonly session: FundingAdminSession) {}
 
+  async getSponsorshipPreparation(
+    contributionId: string
+  ): Promise<import('@openg7/funding-core').AdminDossierPreparationReceipt> {
+    const response = await this.session.requestAdminJson(
+      `/admin/sponsorships/preparation?${new URLSearchParams({ sponsorshipId: contributionId })}`,
+      { auth: 'saved', cache: 'no-store' }
+    );
+    return this.preparationResponse(response);
+  }
+
+  async approveSponsorshipPreparation(
+    payload: import('@openg7/funding-core').AdminDossierPreparationApproveRequest
+  ): Promise<import('@openg7/funding-core').AdminDossierPreparationReceipt> {
+    const response = await this.session.requestAdminJson(
+      '/admin/sponsorships/preparation/approve',
+      {
+        auth: 'saved',
+        method: 'POST',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
+      }
+    );
+    return this.preparationResponse(response);
+  }
+
+  private async preparationResponse(
+    response: Response
+  ): Promise<import('@openg7/funding-core').AdminDossierPreparationReceipt> {
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as {
+        code?: unknown;
+      } | null;
+      throw new AdminDashboardRequestError(
+        response.status,
+        undefined,
+        typeof payload?.code === 'string' ? payload.code : undefined
+      );
+    }
+    return response.json();
+  }
+
   async getSponsorshipProgress(
     token: string,
     sponsorshipId?: string

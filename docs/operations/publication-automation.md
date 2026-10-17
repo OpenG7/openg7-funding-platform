@@ -28,14 +28,45 @@ requires rescheduling and review; it creates no provider call or fulfilled benef
 
 ## Dossier bridge
 
-The sponsorship dossier’s Publication step links to this workspace with
-`sponsorshipId=<uuid>` and optionally `deliveryId=<uuid>`. These filters are also
-accepted by `GET /api/admin/publication-automation`: they intersect, are validated,
-and apply before the 200-delivery limit. Invalid UUIDs return `400 INVALID_FILTER`.
+The sponsorship dossier’s Publication step reads its own server preparation queue,
+unprepared commitment candidates and deliveries to show the next proposed date for
+each destination, explicitly in `America/Toronto`. An unallocated forecast is an
+indication from the current snapshot, not a reservation: the server checks
+availability again during private preparation and final authorization. Viewing
+the step never prepares, approves or
+sends a publication. Leaving the proposed date unchanged keeps that date selected;
+it does not authorize sending. Benefit cards and proposed dates precede the detailed
+commitment records. The review drawer labels dates with the browser's timezone.
+
+For an existing delivery, **Review and authorize** opens its exact final-publication
+drawer within step 6. **Change proposed time** opens the same delivery's editor. The
+drawer shows the full text, available media, destination account, mode and date;
+collective deliveries retain all participants. Saving an edit revokes the previous
+authorization. Acceptance still requires the displayed human confirmation and
+versioned moderation decision. A newly paid dossier can receive a read-only
+opportunity before any source draft exists, including with the worker disabled.
+The optional `preparationCandidates` field accompanies dossier-filtered reads
+without `deliveryId`; it describes unmaterialized obligations separately from the
+existing queue. Its forecast uses the private preparation's initial text and a
+shared read-only scheduling snapshot. It creates no draft, slot or provider call;
+the privately prepared draft still requires media selection and final content review.
+When that opportunity allows preparation, an owner can explicitly prepare privately
+within step 6. Its confirmation names the scope: all eligible dossiers for that
+destination. This grants no approval and does not enable the worker.
+Failed reads are retryable, and a late response for one dossier cannot populate
+another dossier's cards or reopen its delivery. Recovery after a failed command
+clears pending loading state; a `401` or `403`, including on that recovery read,
+also clears cached proposals, the open drawer and its private edit fields.
+
+The advanced workspace remains accessible with `sponsorshipId=<uuid>` and optionally
+`deliveryId=<uuid>`. These filters are accepted by
+`GET /api/admin/publication-automation`: they intersect, are validated, and apply
+before the 200-delivery limit. Opening a dossier delivery missing from the initial
+200 results performs this exact scoped read and retains the other dossier cards.
+Invalid UUIDs return `400 INVALID_FILTER`.
 The filtered view includes all delivery states and a return link to step 6.
-Counters, worker controls and feed settings remain global. Collective deliveries
-retain their full membership: approval still covers the whole displayed post.
-A missing delivery is reported without opening another one or composing a batch.
+Counters, worker controls and feed settings remain global. A missing delivery is
+reported without opening another one or composing a batch.
 
 Sponsorship composition now preserves a complete recognition block per source:
 title, body and disclosure. Its public identity comes from the dossier; custom

@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   input,
   output
 } from '@angular/core';
@@ -13,11 +14,12 @@ import type {
   SponsorPaymentStatusFilter,
   SponsorshipReviewFilter
 } from '../../../models/admin-sponsors-ui.models.js';
+import { AdminIconComponent } from '../../admin-ui/admin-icon.component.js';
 
 @Component({
   selector: 'openg7-admin-sponsors-filters',
   standalone: true,
-  imports: [CommonModule, TranslatePipe],
+  imports: [CommonModule, TranslatePipe, AdminIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[class.compact]': 'compact()' },
   templateUrl: './admin-sponsors-filters.component.html',
@@ -37,6 +39,13 @@ export class AdminSponsorsFiltersComponent {
   readonly hasActiveFilters = input.required<boolean>();
   readonly feedStatusOptions =
     input.required<readonly AdminSponsorFeedStatusOption[]>();
+  readonly activeFilterCount = computed(
+    () =>
+      Number(this.search().trim().length > 0) +
+      Number(this.reviewFilter() !== 'all') +
+      Number(this.feedFilter() !== 'all') +
+      Number(this.paymentFilter() !== 'all')
+  );
 
   readonly searchChange = output<string>();
   readonly reviewFilterChange = output<string>();

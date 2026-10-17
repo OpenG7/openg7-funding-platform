@@ -12,6 +12,8 @@ const operatorActions = new Set([
   '/admin/automatic-runs',
   '/admin/automatic-runs/advance',
   '/admin/automatic-runs/control',
+  '/admin/automatic-runs/preparation/approve',
+  '/admin/sponsorships/preparation/approve',
   '/admin/sponsorships/details',
   '/admin/sponsorships/interventions',
   '/admin/sponsorships/review',

@@ -1,5 +1,6 @@
 <section
   class="context-card"
+  [class.inline-dossier]="inlineDossier()"
   data-og7="assistant-context"
   [attr.aria-label]="'admin.context.title' | translate"
   [attr.aria-busy]="state() === 'loading'"
@@ -10,14 +11,16 @@
         'admin.context.title' | translate
       }}
     </h2>
-    <button
-      class="admin-button"
-      type="button"
-      (click)="load()"
-      [disabled]="state() === 'loading' || busy()"
-    >
-      {{ 'admin.context.refresh' | translate }}
-    </button>
+    @if (!inlineDossier()) {
+      <button
+        class="admin-button"
+        type="button"
+        (click)="load()"
+        [disabled]="state() === 'loading' || busy()"
+      >
+        {{ 'admin.context.refresh' | translate }}
+      </button>
+    }
   </header>
   @if (state() !== 'ready') {
     <p role="status">{{ 'admin.context.state.' + state() | translate }}</p>
