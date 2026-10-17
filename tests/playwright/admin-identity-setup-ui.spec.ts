@@ -344,19 +344,46 @@ test('public identity guide adapts to its own width without authentication or AP
   await expect(guideLinks).toHaveCount(3);
   for (const link of await guideLinks.all())
     await expect(link).toHaveCSS('color', 'rgb(53, 107, 82)');
-  for (const width of [699, 700, 701, 730, 731, 732]) {
+  const columnCounts = new Set<number>();
+  for (const width of [699, 700, 701, 730, 731, 732, 800]) {
     await page.setViewportSize({ width, height: 1000 });
-    const available = (await page
-      .locator('openg7-admin-identity-setup')
-      .boundingBox())!.width;
+    let observedColumns = 0;
     await expect
-      .poll(() =>
-        steps.evaluate(
-          (element) =>
-            getComputedStyle(element).gridTemplateColumns.split(/\s+/).length
-        )
+      .poll(
+        async () => {
+          // Resizing can change the vertical scrollbar and therefore the
+          // container width. Sample geometry and columns together on each poll.
+          const { available, rootFontSize, columns } = await steps.evaluate(
+            (element) => {
+              const container = element.closest('openg7-admin-identity-setup');
+              if (!container)
+                throw new Error('Identity query container missing.');
+              const style = getComputedStyle(container);
+              return {
+                available:
+                  container.getBoundingClientRect().width -
+                  Number.parseFloat(style.borderLeftWidth) -
+                  Number.parseFloat(style.borderRightWidth) -
+                  Number.parseFloat(style.paddingLeft) -
+                  Number.parseFloat(style.paddingRight),
+                rootFontSize: Number.parseFloat(
+                  getComputedStyle(document.documentElement).fontSize
+                ),
+                columns:
+                  getComputedStyle(element).gridTemplateColumns.split(/\s+/)
+                    .length
+              };
+            }
+          );
+          observedColumns = columns;
+          return columns - (available >= 42 * rootFontSize ? 2 : 1);
+        },
+        {
+          message: `${width}px: identity columns follow the current 42rem boundary`
+        }
       )
-      .toBe(available >= 42 * 16 ? 2 : 1);
+      .toBe(0);
+    columnCounts.add(observedColumns);
     await expect(guide(page)).toHaveCSS('padding', '20px');
     await expect(guide(page)).toHaveCSS('border-radius', '14px');
     expect(
@@ -365,6 +392,7 @@ test('public identity guide adapts to its own width without authentication or AP
       )
     ).toBe(true);
   }
+  expect([...columnCounts].sort()).toEqual([1, 2]);
   await expect(page.locator('[data-og7="identity-configuration"]')).toHaveCount(
     0
   );
