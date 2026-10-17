@@ -51,6 +51,57 @@ claim ou token n'est exposé. Le diagnostic est une lecture réservée au propri
 avec refus `401` sans session et `403` pour lecteur/opérateur ; aucun changement de
 droits, de MFA ou de secrets n'est proposé par cette page.
 
+### État des parcours
+
+Le tableau de bord `/admin/fundraiser` présente une grille responsive de six voyants
+lumineux : contribution, facturation, commandite, publication, transparence et
+administration. Les couleurs et libellés proviennent de
+`GET /api/admin/cockpit/journeys`. Chaque voyant ouvre ses étapes,
+son diagnostic, la portée des preuves, les dates d'observation et d'expiration,
+ainsi qu'un accès à la vue administrative concernée. Les détails restent
+accessibles au clavier et la présentation s'adapte aux petits écrans.
+
+- **Vert — Opérationnel** : une chaîne métier corrélée et récemment terminée est observée.
+- **Jaune — Dégradé** : retard anormal ou résultat de livraison incertain à examiner.
+- **Rouge — Bloqué** : échec confirmé dans le traitement observé.
+- **Gris — Non vérifié** : source absente, lecture impossible ou preuve insuffisante/périmée.
+
+La lecture réutilise les faits persistés et ne crée ni paiement, publication,
+courriel, fichier de test ou approbation. Les succès d'opérations différentes ne
+forment pas une chaîne complète. Une revue ou autorisation humaine en attente
+reste une attente normale, sans signaler une panne. Une opération récente réussie
+ne masque pas un incident non résolu dans le périmètre surveillé.
+
+Un vert atteste une exécution récente, sans garantir tous les dossiers ou toutes
+les destinations. Les destinations de publication volontairement en pause sont
+exclues des témoins et incidents de publication observés.
+Une absence ou une altération publique constatée sur une commandite toujours
+autorisée reste un incident jusqu'à une nouvelle observation de début suivie d'un
+contrôle public. Les obligations terminées, preuves obsolètes et masquages
+volontaires ne constituent pas cet incident.
+La preuve de traitement serveur reste distincte d'une recette navigateur et d'une
+qualification de fournisseur externe : une facture liée à un courriel accepté par
+SMTP ne prouve pas sa réception en boîte; une référence de suivi disponible ne
+prouve pas l'ouverture de la page par la personne. Les lectures financières seules
+ne certifient pas le rendu public. Une requête administrative autorisée atteste
+l'accès API courant, sans qualifier une nouvelle connexion OIDC/MFA.
+Le mode **Test**, **Production** ou **Environnement non déterminé** vient de la provenance observée;
+une lecture PostgreSQL réussie ne suffit pas à attribuer le mode réel.
+
+Les observations se relisent toutes les 45 secondes lorsque l'onglet est visible.
+Une observation terminée doit dater de moins de quinze minutes; sa validité de
+lecture est au plus d'une minute. Une preuve périmée ou une actualisation échouée
+retire les couleurs favorables, y compris pendant une nouvelle tentative. Le
+dernier détail peut rester visible, explicitement non vérifié, jusqu'à une réponse
+réussie. L'absence d'activité récente ne signifie pas une panne.
+
+L'endpoint et son alias `/admin/cockpit/journeys` exigent une session
+administrative valide, conservent les droits de lecture existants et répondent
+avec `Cache-Control: private, no-store`. Les réponses exposent uniquement des
+états, codes de diagnostic, dates et destinations administratives fixes; aucun
+corps de webhook, jeton, destinataire ou note privée. Aucun schéma ou paramètre
+d'activation supplémentaire n'est nécessaire.
+
 ### Observations des services
 
 Les cartes Stripe, courriel, stockage et PostgreSQL utilisent

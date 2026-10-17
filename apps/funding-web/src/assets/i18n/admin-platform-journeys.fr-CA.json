@@ -1,0 +1,78 @@
+{
+  "title": "État des parcours",
+  "intro": "Six parcours à surveiller. Ouvrez un voyant pour comprendre ses étapes.",
+  "refresh": "Actualiser l’état des parcours",
+  "open": "Ouvrir le suivi",
+  "close": "Replier le détail",
+  "error": "L’actualisation a échoué. Les dernières observations conservées sont à vérifier.",
+  "forbidden": "Votre compte ne permet pas de consulter ces observations.",
+  "expired": "Cette observation est périmée. Son état actuel n’est pas vérifié.",
+  "observed": "Dernière observation :",
+  "checked": "Vérifié le",
+  "validUntil": "Observation valable jusqu’au",
+  "noObservation": "Aucune observation disponible",
+  "steps": "Étapes du parcours",
+  "scope": "Ces voyants reposent sur des observations serveur et s’actualisent lorsque la page est visible. Une chaîne corrélée atteste les faits enregistrés ; elle ne vérifie ni le parcours dans le navigateur ni la réception d’un courriel. Les preuves de test sont identifiées séparément.",
+  "name": {
+    "contribution": "Contribution",
+    "invoicing": "Facturation",
+    "sponsorship": "Commandite",
+    "publication": "Publication",
+    "transparency": "Transparence",
+    "administration": "Administration"
+  },
+  "state": {
+    "operational": "Opérationnel",
+    "degraded": "Dégradé",
+    "unavailable": "Bloqué",
+    "unknown": "Non vérifié"
+  },
+  "environment": {
+    "live": "Production",
+    "test": "Test",
+    "unknown": "Environnement non déterminé"
+  },
+  "evidence": {
+    "correlated_records": "Chaîne métier corrélée à partir des données serveur.",
+    "partial_records": "Observation partielle des données serveur ; le parcours complet reste à vérifier.",
+    "authenticated_request": "Requête administrative authentifiée observée ; la connexion complète reste à vérifier.",
+    "none": "Aucune preuve récente disponible pour cette étape."
+  },
+  "diagnostic": {
+    "correlated_chain": "Les étapes requises sont reliées à une même chaîne métier récemment observée.",
+    "correlated_step": "Cette étape dispose d’un fait confirmé relié au parcours observé.",
+    "partial_observation": "Des étapes sont observées, mais la preuve du parcours reste incomplète.",
+    "no_recent_observation": "Aucune observation récente ne permet de confirmer le fonctionnement.",
+    "source_missing": "Une source nécessaire à l’observation n’est pas configurée ou disponible.",
+    "source_unavailable": "La lecture d’une source nécessaire n’a pas abouti.",
+    "processing_failed": "Un échec de traitement empêche de terminer ce parcours.",
+    "processing_delayed": "Un traitement dépasse le délai attendu et demande une vérification.",
+    "delivery_uncertain": "Le résultat d’une livraison est incertain. Vérifiez les faits avant toute reprise.",
+    "awaiting_review": "Une revue administrative est attendue ; cette attente normale ne signale pas une panne.",
+    "awaiting_authorization": "Une autorisation administrative est attendue ; cette attente normale ne signale pas une panne.",
+    "smtp_accepted": "Le courriel a été accepté par le transport SMTP. Sa réception n’est pas confirmée.",
+    "public_observation_missing": "L’affichage public n’a pas été vérifié ; les données disponibles ne suffisent pas à le confirmer.",
+    "authenticated_request": "L’API a accepté cette requête avec une session administrative valide."
+  },
+  "step": {
+    "checkout": "Formulaire et Checkout",
+    "payment": "Paiement Stripe",
+    "confirmation": "Confirmation enregistrée",
+    "followup": "Suivi disponible",
+    "invoice": "Facture disponible",
+    "email": "Remise du courriel",
+    "dossier": "Dossier de commandite",
+    "media": "Médias",
+    "review": "Revue administrative",
+    "visibility": "Visibilité autorisée",
+    "authorization": "Autorisation de publication",
+    "scheduling": "Programmation",
+    "delivery": "Livraison confirmée",
+    "transactions": "Transactions confirmées",
+    "calculation": "Calcul des agrégats",
+    "public_display": "Affichage public",
+    "login": "Connexion",
+    "session": "Session administrative",
+    "api_access": "Accès API autorisé"
+  }
+}

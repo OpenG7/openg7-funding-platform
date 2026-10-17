@@ -27,6 +27,7 @@ import type {
   AdminCockpitMetrics,
   AdminCockpitActivity,
   AdminCockpitSystems,
+  AdminPlatformJourneys,
   AdminAssistantContextResponse,
   AdminSponsorshipProgressResponse,
   AdminInformationRequest,
@@ -474,7 +475,7 @@ export class FundingAdminService {
     return this.diagnosticsClient.getDashboard(token);
   }
 
-  getCockpit<T extends 'metrics' | 'activity' | 'systems'>(
+  getCockpit<T extends 'metrics' | 'activity' | 'systems' | 'journeys'>(
     block: T,
     token: string
   ): Promise<
@@ -482,6 +483,7 @@ export class FundingAdminService {
       metrics: AdminCockpitMetrics;
       activity: AdminCockpitActivity;
       systems: AdminCockpitSystems;
+      journeys: AdminPlatformJourneys;
     }[T]
   > {
     return this.diagnosticsClient.getCockpit(block, token);

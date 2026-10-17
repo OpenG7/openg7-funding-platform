@@ -4,6 +4,7 @@ import type {
   AdminCockpitActivity,
   AdminCockpitMetrics,
   AdminCockpitSystems,
+  AdminPlatformJourneys,
   AdminDashboardResponse,
   AdminSearchRequest,
   AdminSearchResponse,
@@ -47,6 +48,7 @@ export interface AdminInsightsHttpDependencies {
   readonly getCockpitMetrics: () => Promise<AdminCockpitMetrics>;
   readonly getCockpitActivity: () => Promise<AdminCockpitActivity>;
   readonly readCockpitSystems: () => Promise<AdminCockpitSystems>;
+  readonly getCockpitJourneys: () => Promise<AdminPlatformJourneys>;
   readonly getAdminDashboard: () => Promise<AdminDashboardResponse>;
   readonly reportFailure: (message: string, error: unknown) => void;
 }
@@ -67,6 +69,7 @@ export const createAdminInsightsHttpHandler = ({
   getCockpitMetrics,
   getCockpitActivity,
   readCockpitSystems,
+  getCockpitJourneys,
   getAdminDashboard,
   reportFailure
 }: AdminInsightsHttpDependencies) => {
@@ -204,7 +207,9 @@ export const createAdminInsightsHttpHandler = ({
         '/admin/cockpit/activity',
         '/api/admin/cockpit/activity',
         '/admin/cockpit/systems',
-        '/api/admin/cockpit/systems'
+        '/api/admin/cockpit/systems',
+        '/admin/cockpit/journeys',
+        '/api/admin/cockpit/journeys'
       )
     ) {
       if (!ensureAdminAuthorization(request, response)) return true;
@@ -214,7 +219,9 @@ export const createAdminInsightsHttpHandler = ({
           ? await getCockpitMetrics()
           : path.endsWith('/activity')
             ? await getCockpitActivity()
-            : await readCockpitSystems();
+            : path.endsWith('/journeys')
+              ? await getCockpitJourneys()
+              : await readCockpitSystems();
         writeJson(request, response, 200, result, {
           'Cache-Control': 'private, no-store'
         });

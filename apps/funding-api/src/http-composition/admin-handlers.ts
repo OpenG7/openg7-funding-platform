@@ -18,6 +18,7 @@ import { runAdminAssistantQuery } from '../admin-assistant/orchestrator.js';
 import { prepareAdminAssistantDraft } from '../admin-assistant/preparation.service.js';
 import { getCockpitActivity } from '../admin-cockpit/activity.js';
 import { getCockpitMetrics } from '../admin-cockpit/metrics.js';
+import { getCockpitJourneys } from '../admin-cockpit/journeys.js';
 import {
   ContributionExportError,
   exportAdminContributions
@@ -377,6 +378,7 @@ export const createAdminHttpHandlers = ({
     getAdminWorkQueue: (query) => getAdminWorkQueue(dbPool, query),
     getCockpitMetrics: () => getCockpitMetrics(dbPool),
     getCockpitActivity: () => getCockpitActivity(dbPool),
+    getCockpitJourneys: () => getCockpitJourneys(dbPool, new Date(), true),
     readCockpitSystems,
     getAdminDashboard: () => getAdminDashboard(dbPool),
     reportFailure: (message, error) => console.error(message, error)

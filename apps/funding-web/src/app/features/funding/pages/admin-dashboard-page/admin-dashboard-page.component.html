@@ -28,6 +28,8 @@
       </div>
     </header>
 
+    <openg7-admin-platform-journeys [refreshKey]="attentionRefresh()" />
+
     @if (state() === 'loading') {
       <p class="notice" role="status">
         {{ 'admin.dashboard.loading' | translate }}

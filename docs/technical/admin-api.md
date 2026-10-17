@@ -66,11 +66,11 @@ current timing version, reason and exact obligation confirmation. Duration
 closure also requires its start observation and confirmed continuity evidence.
 Commitment reads expose timing. Scope, schema, interruptions and retries:
 [timing contract](sponsorship-obligation-timing.md).
-Protected cockpit reads use `/api/admin/cockpit/metrics`, `/activity` and `/systems`.
-Amounts are integer minor units per currency; missing fees keep net receipts
-unavailable. System checks provide dated evidence with expiry, without sending
-email or writing test files. Stripe's optional `connection` is separate from
-webhooks; see [check semantics](../operations/admin-setup.md).
+Protected cockpit reads: `/api/admin/cockpit/{metrics,activity,systems,journeys}`.
+Amounts use integer minor units per currency; missing fees leave net unavailable.
+Checks expire and send no email or test files. Stripe's optional `connection`
+is independent of webhooks. Journeys include six dated chains and steps;
+[evidence and states](../operations/admin-setup.md#état-des-parcours).
 `POST /api/admin/search` uses private JSON, grouped results and bounded pagination;
 terms stay out of URLs/storage. Exact IDs precede list limits;
 invoice/publication pages reload on target changes. Drawers protect private
