@@ -4717,38 +4717,53 @@ test('workspace English mobile keeps help and access optional and opens them wit
   expect(calls.every((call) => call.method === 'GET')).toBe(true);
 });
 
-test('workspace sections remain accessible with distinct financial and publication actions', async ({
-  page
-}) => {
-  const { calls } = await fixtures(page, 'owner');
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto(path());
-  for (const title of [
-    'Aperçu',
-    'Fiche et médias',
-    'Publication',
-    'Finances',
-    'Historique'
-  ]) {
-    await tabs(page).getByRole('button', { name: title, exact: true }).click();
-    expect(
-      (await new AxeBuilder({ page }).analyze()).violations,
-      title
-    ).toEqual([]);
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-      'Atelier Boréal'
+for (const english of [false, true]) {
+  test(`workspace sections remain accessible with distinct financial and publication actions${english ? ' EN mobile' : ''}`, async ({
+    page
+  }) => {
+    const { calls } = await fixtures(page, 'owner');
+    await page.setViewportSize(
+      english ? { width: 390, height: 844 } : { width: 1280, height: 900 }
     );
+    await page.goto(path());
+    if (english) {
+      await page
+        .getByRole('button', {
+          name: 'Switch administration language to English'
+        })
+        .click();
+    }
+    const titles = english
+      ? ['Overview', 'Profile & media', 'Publication', 'Finances', 'History']
+      : ['Aperçu', 'Fiche et médias', 'Publication', 'Finances', 'Historique'];
+    for (const title of titles) {
+      await tabs(page)
+        .getByRole('button', { name: title, exact: true })
+        .click();
+      const section = page.locator('[data-og7="dossier-main"]');
+      await expect(
+        section.getByRole('heading', { name: title, level: 2, exact: true })
+      ).toHaveCount(1);
+      expect(
+        (await new AxeBuilder({ page }).analyze()).violations,
+        title
+      ).toEqual([]);
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+        'Atelier Boréal'
+      );
+      await expect(
+        page.locator('openg7-admin-sponsor-detail-header').getByRole('group', {
+          name: english ? 'Review' : 'Revue',
+          exact: true
+        })
+      ).toContainText(english ? 'Awaiting review' : 'À réviser');
+    }
     await expect(
-      page
-        .locator('openg7-admin-sponsor-detail-header')
-        .getByRole('group', { name: 'Revue', exact: true })
-    ).toContainText('À réviser');
-  }
-  await expect(
-    page.locator('[data-og7="dossier-interventions"]')
-  ).toBeVisible();
-  expect(calls.every((call) => call.method === 'GET')).toBe(true);
-});
+      page.locator('[data-og7="dossier-interventions"]')
+    ).toBeVisible();
+    expect(calls.every((call) => call.method === 'GET')).toBe(true);
+  });
+}
 
 for (const english of [false, true]) {
   test(`moderation V1 requires contextual reasons and separates private notes from external explanation ${english ? 'EN mobile' : 'FR desktop'}`, async ({

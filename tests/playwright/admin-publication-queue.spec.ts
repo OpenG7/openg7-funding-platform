@@ -934,10 +934,16 @@ test('reveals creation, history and secondary publication actions only on reques
     .click();
   await expect(
     first.getByRole('button', { name: 'Marquer comme publiée manuellement' })
+  ).toHaveCount(0);
+  await expect(
+    first.getByRole('button', { name: 'Annuler le lot', exact: true })
   ).not.toBeVisible();
   await first.getByText('Autres actions', { exact: true }).click();
+  await expect(
+    first.getByRole('button', { name: 'Marquer comme publiée manuellement' })
+  ).toHaveCount(0);
   await first
-    .getByRole('button', { name: 'Marquer comme publiée manuellement' })
+    .getByRole('button', { name: 'Annuler le lot', exact: true })
     .click();
   await expect(page.locator('[data-og7="confirm-action"]')).toBeVisible();
   expect(mutations).toEqual([]);

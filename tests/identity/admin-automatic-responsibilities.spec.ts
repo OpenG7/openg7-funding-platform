@@ -10,6 +10,18 @@ const route = '/admin/fundraiser/attention';
 const hook = (page: Page, name: string) =>
   page.locator(`[data-og7="automatic-portfolio-${name}"]`);
 
+async function openReport(page: Page) {
+  const processing = hook(page, 'processing');
+  await expect(processing).toBeVisible();
+  if ((await processing.getAttribute('open')) === null)
+    await processing.locator(':scope > summary').click();
+  await expect(processing).toHaveJSProperty('open', true);
+  const report = hook(page, 'report');
+  await expect(report.locator(':scope > summary')).toBeVisible();
+  if ((await report.getAttribute('open')) === null)
+    await report.locator(':scope > summary').click();
+}
+
 async function acknowledgeReading(
   page: Page,
   step: 'scope' | 'dossier' | 'result' | 'summary'
@@ -176,7 +188,10 @@ test('automatic responsibilities traverse confirmed payments and retain a dated 
         'data-og7-id',
         'completed'
       );
-      await hook(page, 'report').locator('summary').click();
+      // Reload returns to the compact receipt. Open its processing panel through
+      // the visible disclosure before reading the nested durable report.
+      await expect(hook(page, 'processing')).toHaveJSProperty('open', false);
+      await openReport(page);
       await expect(hook(page, 'report-entry')).toHaveCount(2);
       await expect(hook(page, 'report')).toContainText('DEMO-AUTOMATIC-CAD');
       await expect(hook(page, 'report')).toContainText('DEMO-AUTOMATIC-USD');
@@ -254,8 +269,7 @@ test('automatic responsibilities traverse confirmed payments and retain a dated 
         'data-og7-id',
         'outstanding'
       );
-      if ((await hook(page, 'report').getAttribute('open')) === null)
-        await hook(page, 'report').locator('summary').click();
+      await openReport(page);
       await expect(hook(page, 'report-entry')).toHaveCount(3);
       await expect(hook(page, 'proof')).toHaveCount(0);
       const beforeReload = commands.length;
@@ -264,7 +278,8 @@ test('automatic responsibilities traverse confirmed payments and retain a dated 
         'data-og7-id',
         'completed'
       );
-      await hook(page, 'report').locator('summary').click();
+      await expect(hook(page, 'processing')).toHaveJSProperty('open', false);
+      await openReport(page);
       await expect(hook(page, 'report-entry')).toHaveCount(3);
       expect(commands).toHaveLength(beforeReload);
       expect(await entries(state.run!.id)).toEqual(reportEntries);
