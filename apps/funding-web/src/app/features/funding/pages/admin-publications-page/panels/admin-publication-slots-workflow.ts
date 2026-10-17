@@ -28,7 +28,6 @@ export interface AdminPublicationSlotsWorkflowPorts {
     | 'updatePublicationSlot'
     | 'assignBatchToPublicationSlot'
     | 'assignDraftToPublicationSlot'
-    | 'publishPublicationSlot'
     | 'cancelPublicationSlot'
   >;
   readonly state: {
@@ -202,23 +201,6 @@ export class AdminPublicationSlotsWorkflow {
       await this.ports.api.assignDraftToPublicationSlot(this.ports.token(), {
         slotId: slot.id,
         draftId
-      });
-      await this.ports.reload();
-    } catch {
-      this.ports.failed();
-    } finally {
-      state.slotActionState.set(null);
-    }
-  }
-
-  async publishSlot(slot: AdminPublicationSlotRecord): Promise<void> {
-    const state = this.ports.state;
-    if (state.slotActionState()) return;
-    if (!(await this.ports.confirm('publish', slot.id))) return;
-    state.slotActionState.set(slot.id);
-    try {
-      await this.ports.api.publishPublicationSlot(this.ports.token(), {
-        slotId: slot.id
       });
       await this.ports.reload();
     } catch {

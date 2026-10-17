@@ -30,6 +30,7 @@ import {
 
 import { loadSponsorshipAssistantDataset } from './context.repository.js';
 import { findSponsorshipByReference } from './sponsorship-reference.js';
+import { publicationSlotExecution } from './attention/publication-execution.js';
 import {
   loadAttentionDataset,
   type AttentionDataset
@@ -215,7 +216,8 @@ const prepareSlotProposal = (
     .filter(
       (slot) =>
         (slot.status === 'open' || slot.status === 'scheduled') &&
-        Date.parse(slot.startsAt) < dataset.now.getTime()
+        Date.parse(slot.startsAt) < dataset.now.getTime() &&
+        !publicationSlotExecution(dataset, slot.id)
     )
     .sort((first, second) => first.startsAt.localeCompare(second.startsAt));
 

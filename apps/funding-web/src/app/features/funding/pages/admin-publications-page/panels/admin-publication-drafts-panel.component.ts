@@ -12,6 +12,7 @@ import {
   untracked
 } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
+import { RouterLink } from '@angular/router';
 import type {
   AdminPublicationBatchRecord,
   AdminPublicationDraftRecord,
@@ -27,6 +28,8 @@ import { FundingModerationActionsComponent } from '../../../components/admin-mod
 import { AdminAutomaticPreparationDirective } from '../../../components/admin-automatic/admin-automatic-preparation.directive.js';
 import { FundingAdminService } from '../../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../../services/funding-i18n.service.js';
+import enPublication from '../../../../../../assets/i18n/admin-publication-schedule.en.json' with { type: 'json' };
+import frPublication from '../../../../../../assets/i18n/admin-publication-schedule.fr-CA.json' with { type: 'json' };
 import type { PublicationLoadState } from '../publication-panels.contracts.js';
 import {
   publicationBatchStatusLabel,
@@ -55,6 +58,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
   imports: [
     CommonModule,
     TranslatePipe,
+    RouterLink,
     FundingModerationActionsComponent,
     AdminAutomaticPreparationDirective
   ],
@@ -165,6 +169,15 @@ export class AdminPublicationDraftsPanelComponent {
   });
 
   constructor() {
+    effect(() => {
+      const language = this.i18n.currentLanguage();
+      untracked(() =>
+        this.i18n.mergeTranslations(
+          language,
+          (language === 'en' ? enPublication : frPublication).adminOverrides
+        )
+      );
+    });
     effect(() => {
       const drafts = this.drafts();
       untracked(() => this.workflow.reconcileDrafts(drafts));

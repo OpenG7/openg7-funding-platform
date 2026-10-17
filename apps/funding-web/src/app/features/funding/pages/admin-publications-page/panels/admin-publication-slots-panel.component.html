@@ -259,15 +259,13 @@
               </div>
 
               <footer>
-                <button
-                  type="button"
+                <a
                   class="approve"
                   *ngIf="slot.status === 'scheduled'"
-                  [disabled]="slot.capacityUsed === 0 || !!slotActionState()"
-                  (click)="publishSlot(slot)"
+                  routerLink="/admin/fundraiser/publications/automation"
                 >
-                  {{ 'admin.publications.markPublished' | translate }}
-                </button>
+                  {{ 'admin.publicationAutomation.prepareSend' | translate }}
+                </a>
                 <button
                   type="button"
                   class="reject"

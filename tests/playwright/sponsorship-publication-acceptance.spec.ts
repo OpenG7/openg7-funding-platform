@@ -700,7 +700,9 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
       await expect(editor).toBeVisible();
       await editor.getByLabel(/Slug public/i).fill('recette-' + record.id);
       await editor.getByLabel(/Destination feed/i).selectOption('openg7');
-      await editor.getByLabel(/Statut feed/i).selectOption('planned');
+      await editor
+        .getByRole('combobox', { name: 'Statut de suivi déclaré', exact: true })
+        .selectOption('planned');
       await editor
         .getByLabel(/Resume public/i)
         .fill(
@@ -710,7 +712,7 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
         .getByRole('button', { name: 'Enregistrer', exact: true })
         .click();
       await expect(
-        editor.getByText('Publication enregistree.', { exact: true })
+        editor.getByText('Paramètres de suivi enregistrés', { exact: true })
       ).toBeVisible();
       await assertPrivate();
       // Saving the public summary changes the dossier's editorial revision.

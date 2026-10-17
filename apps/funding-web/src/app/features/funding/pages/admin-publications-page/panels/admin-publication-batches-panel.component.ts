@@ -149,10 +149,6 @@ export class AdminPublicationBatchesPanelComponent {
     return this.workflow.scheduleBatch(batch);
   }
 
-  publishBatch(batch: AdminPublicationBatchRecord): Promise<void> {
-    return this.workflow.publishBatch(batch);
-  }
-
   publishSocialBatch(batch: AdminPublicationBatchRecord): void {
     const drafts = this.drafts().filter((draft) => draft.batch_id === batch.id);
     const target = drafts[0]?.feed_target;

@@ -271,6 +271,15 @@ export const createAdminPublicationDraftsHttpHandler = ({
         return true;
       }
 
+      if (parsed.status === 'published') {
+        writeJson(request, response, 409, {
+          code: 'FINAL_APPROVAL_REQUIRED',
+          error:
+            'Prepare and approve the exact publication in /admin/fundraiser/publications/automation.'
+        });
+        return true;
+      }
+
       if (!isValidOptionalHttpsUrl(parsed.publicUrl)) {
         writeJson(request, response, 400, {
           error: 'Publication public URL must be a valid https link.'

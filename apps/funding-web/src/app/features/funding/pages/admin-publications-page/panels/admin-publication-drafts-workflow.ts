@@ -107,19 +107,17 @@ export class AdminPublicationDraftsWorkflow {
   ): Promise<void> {
     const { state } = this.ports;
     if (state.actionState()) return;
+    if (status === 'published') {
+      this.ports.notice('admin.publications.finalAuthorizationRequired');
+      return;
+    }
     if (
       status === 'rejected' &&
       !(await this.ports.confirm('refuse', draft.title))
     )
       return;
-    if (
-      status === 'published' &&
-      !(await this.ports.confirm('publish', draft.title))
-    )
-      return;
     const edit = this.editFor(draft.id);
-    const requiresDecision =
-      status === 'approved' || status === 'published' || status === 'rejected';
+    const requiresDecision = status === 'approved' || status === 'rejected';
     if (requiresDecision && state.dirtyDraftIds().has(draft.id)) {
       this.ports.notice('admin.moderation.saveFirst');
       return;

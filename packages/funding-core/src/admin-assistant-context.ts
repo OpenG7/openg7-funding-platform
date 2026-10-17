@@ -1,5 +1,6 @@
 import type { SponsorFeedChannel } from './publication-contracts.js';
 import type { SponsorshipReviewStatus } from './sponsorship-contracts.js';
+import type { SponsorshipPublicationWorkflow } from './sponsorship-progress.js';
 
 /**
  * `disabled` = no model provider; the deterministic summary still works.
@@ -22,6 +23,7 @@ export type AdminAssistantNextStep =
   | 'complete';
 
 export interface AdminAssistantContext {
+  readonly publicationWorkflow?: SponsorshipPublicationWorkflow;
   readonly contributionId: string;
   readonly reference: string;
   readonly version: string;

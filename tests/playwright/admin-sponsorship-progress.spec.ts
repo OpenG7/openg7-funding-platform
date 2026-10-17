@@ -426,6 +426,9 @@ async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
       if (url.pathname.endsWith('/website-visibility')) {
         options.progressOverrides = {
           ...options.progressOverrides,
+          ...(input.visible
+            ? qualifiedWebsiteProgress(options.progressOverrides)
+            : {}),
           website: {
             visible: input.visible,
             held: !input.visible,
@@ -1942,7 +1945,7 @@ test('publication save normalizes the slug, confirms visibility and preserves a 
   await expect(slug).toHaveValue('invalid-slug');
   await slug.fill('atelier-demo');
   await editor.getByLabel('Destination feed').selectOption('openg7');
-  await editor.getByLabel('Statut feed').selectOption('published');
+  await editor.getByLabel('Statut de suivi déclaré').selectOption('published');
   await save.click();
   await expect(page.locator('[data-og7="confirm-action"]')).toBeVisible();
   await page.keyboard.press('Escape');
@@ -2824,7 +2827,9 @@ for (const [width, localNote] of [
       await expect(editor.getByLabel('Resume public')).toHaveValue(
         'Présentation actualisée'
       );
-      await expect(editor.getByLabel('Statut feed')).toHaveValue('planned');
+      await expect(editor.getByLabel('Statut de suivi déclaré')).toHaveValue(
+        'planned'
+      );
     }
     await tabs(page)
       .getByRole('button', { name: 'Aperçu', exact: true })
@@ -4125,6 +4130,51 @@ function recordedCommitment(
   };
 }
 
+/** Synthetic server qualification, distinct from the requested visibility. */
+function qualifiedWebsiteProgress(
+  progress: Partial<AdminSponsorshipProgress>
+): Partial<AdminSponsorshipProgress> {
+  const commitment = progress.commitment;
+  const obligation = commitment?.obligations.find(
+    (item) => item.channel === 'website'
+  );
+  if (!commitment || !obligation) return {};
+  const evidenceId = '10000000-0000-4000-8000-000000000461';
+  return {
+    commitment: {
+      ...commitment,
+      obligations: commitment.obligations.map((item) =>
+        item.id === obligation.id
+          ? { ...item, state: 'fulfilled', fulfilmentEvidenceId: evidenceId }
+          : item
+      )
+    },
+    qualifiedFulfilmentEvidenceIds: [
+      ...new Set([
+        ...(progress.qualifiedFulfilmentEvidenceIds ?? []),
+        evidenceId
+      ])
+    ],
+    fulfilmentEvidence: [
+      ...(progress.fulfilmentEvidence ?? []).filter(
+        (item) => item.id !== evidenceId
+      ),
+      {
+        id: evidenceId,
+        obligationId: obligation.id,
+        deliveryId: null,
+        channel: 'website',
+        target: obligation.target,
+        provenance: 'website_verified',
+        deliveredAt: date,
+        externalPostUrl: null,
+        visibility: 'visible',
+        visibilityObservedAt: date
+      }
+    ]
+  };
+}
+
 for (const width of [1280, 390]) {
   test(`publication bridge explains benefits and retains advanced dossier navigation at ${width}px`, async ({
     page
@@ -4212,7 +4262,12 @@ for (const [deliveryStatus, deliveryMode, label, qualified] of [
   ['approved', 'live', 'Programmée avec autorisation', false],
   ['published', 'mock', 'Simulation terminée', false],
   ['published', 'live', 'Publiée', true],
-  ['published', 'live', 'Publication déclarée, preuve à qualifier', false],
+  [
+    'published',
+    'live',
+    'Déclaration historique · livraison non confirmée',
+    false
+  ],
   ['uncertain', 'live', 'Résultat à vérifier', false],
   ['blocked', 'live', 'Envoi bloqué', false]
 ] as const) {
@@ -4250,6 +4305,7 @@ for (const [deliveryStatus, deliveryMode, label, qualified] of [
             }
           ]
         : [],
+      qualifiedFulfilmentEvidenceIds: qualified ? [evidenceId] : [],
       publicationCompletion: {
         done: qualified ? 1 : 0,
         total: 3
@@ -4301,7 +4357,7 @@ test('publication bridge keeps unqualified CAD benefits unknown despite current 
   await page.goto(path('publication'));
   const journey = page.locator('[data-og7="dossier-publication-journey"]');
   await expect(journey).toContainText(
-    'Les engagements de ce dossier restent à qualifier à partir de son accord d’origine.'
+    'L’accord d’origine manque dans ce dossier. Indiquez les prestations promises à partir d’un contrat ou d’un courriel'
   );
   await expect(journey).not.toContainText(
     'Reconnaissance collective sur Facebook'
@@ -4471,6 +4527,9 @@ test('website publication failure preserves confirmed visibility and readers can
   const { options, calls } = await fixtures(page, 'reader');
   options.progressOverrides = {
     amountMinor: 10000,
+    ...qualifiedWebsiteProgress({
+      commitment: recordedCommitment(10000, false)
+    }),
     publications: [],
     publicationCompletion: { done: 1, total: 1 },
     website: {

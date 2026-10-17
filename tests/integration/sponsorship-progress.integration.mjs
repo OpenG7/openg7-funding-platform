@@ -257,8 +257,9 @@ test(
         )
       ).rows[0].id;
       await pool.query(
-        `INSERT INTO sponsor_publication_drafts (contribution_id, feed_target, channel, title, body, disclosure_text, status, batch_id)
-      VALUES ($1, 'openg7','facebook','Fixture','Private draft body','Fixture','approved',$2)`,
+        `INSERT INTO sponsor_publication_drafts (contribution_id, feed_target, channel, title, body, disclosure_text, status, batch_id, obligation_id)
+      VALUES ($1, 'openg7','facebook','Fixture','Private draft body','Fixture','approved',$2,
+        (SELECT id FROM sponsorship_obligations WHERE contribution_id=$1 AND channel='facebook' ORDER BY ordinal LIMIT 1))`,
         [id, batch]
       );
       assert.equal(
@@ -325,6 +326,40 @@ test(
       assert.equal(linked.deliveryStatus, 'draft');
       assert.equal(linked.deliveryMode, 'mock');
       assert.equal(linked.feedPaused, true);
+      assert.ok(
+        linked.obligationId,
+        'progress reads the exact promised passage'
+      );
+      await pool.query(
+        "UPDATE publication_feeds SET paused=FALSE WHERE id='openg7:facebook'"
+      );
+      await pool.query(
+        'UPDATE publication_worker_settings SET enabled=TRUE WHERE id=TRUE'
+      );
+      await pool.query(
+        "UPDATE publication_deliveries SET status='approved',mode='live' WHERE id=$1",
+        [deliveryId]
+      );
+      const scheduled = await load();
+      const facebookWorkflow = (value) =>
+        value.publicationWorkflow.obligations.find(
+          (item) => item.channel === 'facebook'
+        );
+      assert.equal(facebookWorkflow(scheduled).reason, 'publication_scheduled');
+      assert.equal(facebookWorkflow(scheduled).responsibility, 'platform');
+      assert.equal(facebookWorkflow(scheduled).deliveryId, deliveryId);
+      const assistant = (await getAdminAssistantContext(pool, id)).context;
+      assert.equal(facebookWorkflow(assistant).reason, 'publication_scheduled');
+      await pool.query(
+        'UPDATE publication_worker_settings SET enabled=FALSE WHERE id=TRUE'
+      );
+      assert.equal(
+        facebookWorkflow(await load()).reason,
+        'publication_worker_disabled'
+      );
+      await pool.query(
+        "UPDATE publication_feeds SET paused=TRUE WHERE id='openg7:facebook'"
+      );
       for (const [status, mode, expected] of [
         ['approved', 'mock', 'partial'],
         ['published', 'mock', 'partial'],
@@ -340,6 +375,13 @@ test(
         );
         const current = await load();
         assert.equal(current.publications[0].deliveryStatus, status);
+        if (status === 'uncertain') {
+          assert.equal(
+            facebookWorkflow(current).reason,
+            'publication_uncertain'
+          );
+          assert.equal(facebookWorkflow(current).responsibility, 'admin');
+        }
         assert.equal(
           current.milestones.find((s) => s.id === 'publication').state,
           expected,

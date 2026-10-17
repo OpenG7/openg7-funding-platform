@@ -10,6 +10,7 @@ import {
 } from '../admin-assistant/attention.service.js';
 import { sponsorshipAdminUrl } from '../sponsorship-admin-presentation.js';
 import { isUnfinishedPublicationDraft } from '../sponsorship-publication-coverage.js';
+import { publicationSlotExecution } from '../admin-assistant/attention/publication-execution.js';
 
 import {
   DAY,
@@ -100,6 +101,10 @@ export const buildWorkQueueItems = (
     facts: AdminAttentionItem['facts'],
     dueAt?: string
   ): void => {
+    const execution =
+      facts['kind'] === 'slot'
+        ? publicationSlotExecution(dataset, String(facts['reference']))
+        : undefined;
     const sponsorshipId =
       type === 'invoice_missing'
         ? id
@@ -112,7 +117,9 @@ export const buildWorkQueueItems = (
       explanation: type,
       detectedAt,
       dueAt,
-      adminUrl,
+      adminUrl: execution
+        ? `/admin/fundraiser/publications/automation?deliveryId=${encodeURIComponent(execution.deliveryId)}`
+        : adminUrl,
       facts,
       ...(sponsorshipId
         ? { sponsorshipId, contributionId: sponsorshipId }
@@ -121,7 +128,9 @@ export const buildWorkQueueItems = (
         ? { publicationId: String(facts['reference']) }
         : {}),
       suggestedActions: [
-        ...(type === 'publication_late' && facts['kind'] === 'slot'
+        ...(type === 'publication_late' &&
+        facts['kind'] === 'slot' &&
+        !execution
           ? [
               {
                 actionType: 'propose_slot',

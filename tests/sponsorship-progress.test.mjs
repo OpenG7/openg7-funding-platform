@@ -66,26 +66,97 @@ const invoice = {
   currency: 'CAD',
   issuedAt: '2026-09-01'
 };
-const facts = (rest = {}) => ({
-  commitment: committed(rest.amountMinor ?? 50000),
-  websiteVisible: false,
-  websiteHeld: true,
-  websiteVersion: 'v1',
-  companyName: 'Demo',
-  amountMinor: 50000,
-  refundId: null,
-  refundAmountMinor: null,
-  refundError: false,
-  requiresInvoice: true,
-  documents: [invoice],
-  publications: [],
-  refunds: [],
-  charges: [],
-  failedEmails: [],
-  failedStripeEvents: [],
-  ...rest
-});
+const facts = (rest = {}) => {
+  const commitment = rest.commitment ?? committed(rest.amountMinor ?? 50000);
+  return {
+    commitment,
+    qualifiedFulfilmentEvidenceIds: commitment.obligations
+      .filter(
+        (obligation) =>
+          obligation.state === 'fulfilled' && obligation.fulfilmentEvidenceId
+      )
+      .map((obligation) => obligation.fulfilmentEvidenceId),
+    websiteVisible: false,
+    websiteHeld: true,
+    websiteVersion: 'v1',
+    companyName: 'Demo',
+    amountMinor: 50000,
+    refundId: null,
+    refundAmountMinor: null,
+    refundError: false,
+    requiresInvoice: true,
+    documents: [invoice],
+    publications: [],
+    refunds: [],
+    charges: [],
+    failedEmails: [],
+    failedStripeEvents: [],
+    ...rest
+  };
+};
 const step = (dossier, id) => dossier.milestones.find((s) => s.id === id);
+
+test('workflow keeps an authorized channel waiting when another promise has a missing required logo', () => {
+  const commitment = committed();
+  const linkedin = commitment.obligations.find(
+    (item) => item.channel === 'linkedin'
+  );
+  Object.assign(linkedin, {
+    state: 'blocked',
+    blockedReason: 'required_elements_missing'
+  });
+  commitment.offer.benefits.find(
+    (item) => item.channel === 'linkedin'
+  ).requiredElements = ['approved_logo'];
+  const facebook = commitment.obligations.find(
+    (item) => item.channel === 'facebook'
+  );
+  const result = buildSponsorshipProgress(
+    source({ reviewStatus: 'approved' }),
+    facts({
+      commitment,
+      publications: [
+        {
+          id: 'facebook-draft',
+          obligationId: facebook.id,
+          channel: 'facebook',
+          target: facebook.target,
+          status: 'scheduled',
+          deliveryId: 'facebook-delivery',
+          deliveryStatus: 'approved',
+          deliveryMode: 'live',
+          scheduledAt: '2026-11-01T18:00:00Z'
+        }
+      ]
+    })
+  );
+  assert.ok(result.publicationBlockers.includes('media'));
+  const fb = result.publicationWorkflow.obligations.find(
+    (item) => item.channel === 'facebook'
+  );
+  const li = result.publicationWorkflow.obligations.find(
+    (item) => item.channel === 'linkedin'
+  );
+  assert.equal(fb.state, 'waiting');
+  assert.equal(fb.reason, 'publication_scheduled');
+  assert.equal(li.state, 'blocked');
+});
+
+test('a fulfilled record without qualified evidence is an explicit exception and cannot close the dossier', () => {
+  const commitment = committed(50000, ['website', 'facebook', 'linkedin']);
+  const result = buildSponsorshipProgress(
+    source({ reviewStatus: 'approved' }),
+    facts({
+      commitment,
+      qualifiedFulfilmentEvidenceIds: [],
+      websiteVisible: true
+    })
+  );
+  assert.equal(result.publicationCompletion.done, 0);
+  assert.equal(result.publicationWorkflow.reason, 'fulfilment_unverified');
+  assert.equal(step(result, 'publication').state, 'error');
+  assert.notEqual(result.next.reason, 'complete');
+});
 
 test('identity distinguishes missing contact details from sponsor submission and remains independent of review', () => {
   for (const detailsSubmittedAt of [null, '2026-09-01']) {

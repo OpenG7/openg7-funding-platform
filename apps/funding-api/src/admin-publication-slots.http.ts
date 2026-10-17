@@ -84,7 +84,6 @@ export const createAdminPublicationSlotsHttpHandler = ({
   updateAdminPublicationSlot,
   assignBatchToPublicationSlot,
   assignDraftToPublicationSlot,
-  publishAdminPublicationSlot,
   cancelAdminPublicationSlot,
   insertAdminAuditLog
 }: AdminPublicationSlotsHttpDependencies) => {
@@ -483,59 +482,12 @@ export const createAdminPublicationSlotsHttpHandler = ({
         '/api/admin/publication-slots/publish'
       )
     ) {
-      if (!ensureAdminAccess(request, response)) {
-        return true;
-      }
-
-      let parsed: AdminPublicationSlotLifecycleRequest;
-      try {
-        const body = await readBody(request);
-        parsed = JSON.parse(body) as AdminPublicationSlotLifecycleRequest;
-        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
-          throw new Error('Invalid request object.');
-      } catch {
-        writeJson(request, response, 400, {
-          error: 'Invalid publication slot request body.'
-        });
-        return true;
-      }
-
-      if (!isValidUuid(parsed.slotId)) {
-        writeJson(request, response, 400, {
-          error: 'Invalid publication slot id.'
-        });
-        return true;
-      }
-
-      try {
-        const result = await publishAdminPublicationSlot(parsed);
-        if (!result.updated || !result.slot) {
-          writeJson(request, response, 409, {
-            error:
-              'Publication slot was not found, is not scheduled, or has no assigned drafts.'
-          });
-          return true;
-        }
-
-        await insertAdminAuditLog({
-          actor: getAdminAuditActor(request),
-          action: 'publication_slot.publish',
-          entityType: 'publication_slot',
-          entityId: result.slot.id,
-          summary: `Publication slot published (${result.slot.assignedDraftIds.length} draft(s)).`,
-          metadata: {
-            channel: result.slot.channel,
-            feedTarget: result.slot.feedTarget,
-            assignedDraftIds: result.slot.assignedDraftIds
-          }
-        });
-        writeJson(request, response, 200, result);
-      } catch (error) {
-        reportFailure('Failed to publish publication slot.', error);
-        writeJson(request, response, 502, {
-          error: 'Publication slot could not be published.'
-        });
-      }
+      if (!ensureAdminAccess(request, response)) return true;
+      writeJson(request, response, 409, {
+        code: 'FINAL_APPROVAL_REQUIRED',
+        error:
+          'Prepare and approve the exact publication in /admin/fundraiser/publications/automation.'
+      });
       return true;
     }
 

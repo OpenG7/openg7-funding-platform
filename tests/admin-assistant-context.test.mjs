@@ -84,19 +84,22 @@ test('deterministic next step respects independent payment, refund, media, revie
       'qualify_commitment'
     ],
     [
-      source({
-        reviewStatus: 'approved',
-        commitment: {
-          ...recordedSponsorshipCommitment(['website_mention']),
-          obligations: recordedSponsorshipCommitment([
-            'website_mention'
-          ]).obligations.map((o) => ({
-            ...o,
-            state: 'fulfilled',
-            fulfilmentEvidenceId: 'synthetic-qualified-proof'
-          }))
-        }
-      }),
+      source(
+        {
+          reviewStatus: 'approved',
+          commitment: {
+            ...recordedSponsorshipCommitment(['website_mention']),
+            obligations: recordedSponsorshipCommitment([
+              'website_mention'
+            ]).obligations.map((o) => ({
+              ...o,
+              state: 'fulfilled',
+              fulfilmentEvidenceId: 'synthetic-qualified-proof'
+            }))
+          }
+        },
+        { qualifiedFulfilmentEvidenceIds: ['synthetic-qualified-proof'] }
+      ),
       'complete'
     ]
   ])
@@ -127,6 +130,66 @@ test('legacy published drafts and an absent proof never mark recorded obligation
     buildSponsorshipAssistantContext(unknown).nextStep,
     'qualify_commitment'
   );
+});
+
+test('assistant follows authorized platform work and still prepares a different missing channel', () => {
+  const commitment = recordedSponsorshipCommitment([
+    'facebook_batch',
+    'linkedin_batch'
+  ]);
+  const facebook = {
+    id: 'facebook-draft',
+    obligationId: commitment.obligations[0].id,
+    channel: 'facebook',
+    target: 'openg7',
+    status: 'scheduled',
+    deliveryId: 'facebook-delivery',
+    deliveryStatus: 'approved',
+    deliveryMode: 'live',
+    scheduledAt: '2026-11-01T18:00:00Z'
+  };
+  const input = source(
+    { reviewStatus: 'approved', commitment },
+    {
+      publications: [facebook],
+      dataset: {
+        drafts: [
+          {
+            id: facebook.id,
+            contribution_id: source().record.contributionId,
+            channel: 'facebook',
+            feed_target: 'openg7',
+            status: 'scheduled'
+          }
+        ]
+      }
+    }
+  );
+  assert.equal(
+    buildSponsorshipAssistantContext(input).nextStep,
+    'prepare_publication'
+  );
+  const linkedin = {
+    ...facebook,
+    id: 'linkedin-draft',
+    obligationId: commitment.obligations[1].id,
+    channel: 'linkedin',
+    deliveryId: 'linkedin-delivery'
+  };
+  input.publications.push(linkedin);
+  input.dataset.drafts.push({
+    ...input.dataset.drafts[0],
+    id: linkedin.id,
+    channel: 'linkedin'
+  });
+  const context = buildSponsorshipAssistantContext(input);
+  assert.equal(context.nextStep, 'monitor_publication');
+  assert.equal(context.publicationWorkflow.state, 'waiting');
+  assert.equal(context.publicationWorkflow.responsibility, 'platform');
+  input.publications[1] = { ...linkedin, deliveryStatus: 'uncertain' };
+  const uncertain = buildSponsorshipAssistantContext(input);
+  assert.equal(uncertain.nextStep, 'monitor_publication');
+  assert.equal(uncertain.publicationWorkflow.reason, 'publication_uncertain');
 });
 
 test('public context omits recipients and request eligibility requires a usable recipient', async () => {

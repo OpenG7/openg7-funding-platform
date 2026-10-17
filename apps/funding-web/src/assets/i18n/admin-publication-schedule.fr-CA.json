@@ -9,5 +9,88 @@
   "edit": "Modifier le créneau",
   "prepare": "Préparer cette destination",
   "prepareConfirm": "Préparer les brouillons de cette destination pour tous les dossiers admissibles ? Cette action ne publie rien et n’autorise aucun envoi.",
-  "details": "Voir le suivi détaillé"
+  "details": "Voir le suivi détaillé",
+  "workflow": {
+    "title": "Prestations promises et prochaines étapes",
+    "help": "Vous vérifiez et autorisez le contenu. La plateforme publie à la date programmée puis confirme automatiquement chaque prestation après réussite.",
+    "deliveredAt": "Livraison confirmée le",
+    "scheduledFor": "Date d’envoi autorisée :",
+    "responsibility": {
+      "admin": "Prochaine étape : administrateur.",
+      "platform": "Prochaine étape : plateforme.",
+      "none": "Aucune action restante pour cette prestation."
+    },
+    "reason": {
+      "commitment_needs_confirmation": "Les prestations de l’accord d’origine sont à documenter avant de préparer leur diffusion.",
+      "publication_preparation_required": "Promise · préparation à compléter",
+      "publication_authorization_required": "Préparée · contenu exact à autoriser",
+      "publication_scheduled": "Programmée · envoi automatique à venir",
+      "publication_publishing": "Envoi en cours par la plateforme",
+      "publication_retry_pending": "Nouvelle tentative programmée par la plateforme",
+      "publication_paused": "Programmée · destination en pause",
+      "publication_worker_disabled": "Programmée · moteur arrêté, reprise à examiner",
+      "publication_failed": "Échec · intervention requise",
+      "publication_uncertain": "Résultat incertain · vérifier avant toute relance",
+      "publication_pending": "État à examiner · une déclaration ancienne ne prouve pas la livraison",
+      "publication_simulation": "Simulation terminée · aucun envoi réel",
+      "fulfilment_unverified": "Preuve de livraison à vérifier",
+      "obligation_unverified": "Prestation enregistrée à vérifier",
+      "publication_done": "Livrée · preuve enregistrée",
+      "obligation_adjusted": "Dispense enregistrée",
+      "website_publication_required": "Publication de la fiche sur le site à autoriser",
+      "duration_in_progress": "Durée d’affichage promise en cours",
+      "publication_blocked": "Prérequis de publication à compléter",
+      "commitment_blocked": "Exigences de l’accord à vérifier",
+      "publication_cancelled": "Publication annulée · décision à réexaminer"
+    }
+  },
+  "paymentJourney": {
+    "reasons": {
+      "publication_preparation_required": "Préparez la publication prévue par l’accord avant de vérifier son contenu final.",
+      "publication_authorization_required": "Vérifiez et autorisez le contenu exact, sa destination et sa date. La plateforme effectuera ensuite l’envoi.",
+      "publication_scheduled": "La publication est autorisée et programmée. La plateforme exécutera l’envoi puis enregistrera sa livraison après réussite.",
+      "publication_publishing": "La plateforme effectue l’envoi. Attendez son résultat avant toute nouvelle action.",
+      "publication_retry_pending": "La plateforme a programmé une nouvelle tentative après un échec certain. Suivez son résultat.",
+      "publication_paused": "La destination est en pause. Examinez ses réglages pour permettre la reprise de l’envoi autorisé.",
+      "publication_worker_disabled": "Le moteur est arrêté. Examinez ses réglages avant de reprendre les publications autorisées.",
+      "publication_simulation": "La simulation est terminée. Autorisez un envoi réel pour livrer la prestation promise.",
+      "publication_failed": "L’envoi a échoué. Examinez son résultat et les conditions de reprise sans republier les prestations déjà livrées.",
+      "publication_uncertain": "Le résultat de l’envoi est incertain. Réconciliez-le avant toute nouvelle tentative."
+    },
+    "platformWaiting": "La plateforme prend en charge la publication programmée et confirme sa livraison après réussite. Vous pouvez actualiser son état.",
+    "viewWaiting": "Voir la publication"
+  },
+  "adminOverrides": {
+    "admin": {
+      "commitments": {
+        "evidenceId": "Référence de preuve enregistrée",
+        "qualify": "Documenter les prestations de l’accord d’origine",
+        "historicalHelp": "Retrouvez le contrat, le courriel ou l’accord initial et saisissez les prestations promises : canal, destination, quantité et format. La preuve demandée ici concerne cet accord, pas une publication déjà réussie. Le montant payé ne permet pas de déduire les prestations.",
+        "evidenceReference": "Référence interne du contrat ou du courriel établissant l’accord"
+      },
+      "dossier": {
+        "publicationBridge": {
+          "intro": "La plateforme exécute les publications autorisées du calendrier et enregistre leur livraison après réussite. Retrouvez ici ce qui est promis, son avancement et la prochaine étape.",
+          "blocker": {
+            "commitment_needs_confirmation": "Documenter les prestations promises dans le contrat ou le courriel d’origine"
+          },
+          "status": {
+            "prepared": "Brouillon préparé · publication finale à composer",
+            "unverified": "Déclaration historique · livraison non confirmée"
+          },
+          "commitmentUnknown": "L’accord d’origine manque dans ce dossier. Indiquez les prestations promises à partir d’un contrat ou d’un courriel ; aucune preuve de publication déjà livrée n’est demandée à cette étape.",
+          "declaredStatus": "Statut de suivi déclaré",
+          "confirmDeclaration": "Enregistrer cette déclaration historique de publication ? Aucun envoi ne sera déclenché et aucune prestation ne sera marquée livrée.",
+          "trackingSaved": "Paramètres de suivi enregistrés",
+          "declaredPublication": "Publication déclarée · livraison à vérifier",
+          "completedBenefits": "Prestations traitées avec preuve ou dispense",
+          "readyForPlanning": "Dossier accepté · publication à préparer",
+          "historicalDeclaration": "Ces paramètres conservent le suivi historique. Déclarer « publié » ne déclenche aucun envoi et ne confirme aucune prestation livrée. Utilisez les publications programmées ci-dessus pour autoriser un envoi réel."
+        }
+      },
+      "publications": {
+        "finalAuthorizationRequired": "Vérifiez et autorisez la publication finale dans le moteur. La plateforme confirmera sa livraison après un envoi réussi."
+      }
+    }
+  }
 }

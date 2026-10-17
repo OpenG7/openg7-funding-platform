@@ -76,7 +76,6 @@ const operations = {
   updateSlot: 'updatePublicationSlot',
   assignBatchToSlot: 'assignBatchToPublicationSlot',
   assignDraftToSlot: 'assignDraftToPublicationSlot',
-  publishSlot: 'publishPublicationSlot',
   cancelSlot: 'cancelPublicationSlot'
 };
 const fixture = () => {
@@ -482,7 +481,7 @@ test('assignment revalidates stored selections against refreshed records before 
   assert.deepEqual(f.effects, []);
 });
 
-for (const action of ['publishSlot', 'cancelSlot']) {
+for (const action of ['cancelSlot']) {
   test(`${action} waits for explicit confirmation before mutation then reload`, async () => {
     const f = fixture();
     const pending = deferred();
@@ -504,7 +503,7 @@ for (const action of ['publishSlot', 'cancelSlot']) {
     ]);
     assert.deepEqual(f.effects, [
       {
-        confirm: action === 'publishSlot' ? 'publish' : 'cancelPublication',
+        confirm: 'cancelPublication',
         target: 'synthetic-slot'
       },
       'mutation',
@@ -523,12 +522,7 @@ for (const action of ['publishSlot', 'cancelSlot']) {
   });
 }
 
-for (const action of [
-  'assignBatchToSlot',
-  'assignDraftToSlot',
-  'publishSlot',
-  'cancelSlot'
-]) {
+for (const action of ['assignBatchToSlot', 'assignDraftToSlot', 'cancelSlot']) {
   for (const response of [undefined, { updated: false }]) {
     test(`${action} preserves refresh for ${JSON.stringify(response)} lifecycle response and locks through reload`, async () => {
       const f = fixture();
@@ -617,9 +611,9 @@ for (const [action, method] of Object.entries(operations)) {
         failure === 'mutation'
           ? ['mutation', 'failed']
           : ['mutation', 'reload', 'failed'];
-      if (action === 'publishSlot' || action === 'cancelSlot')
+      if (action === 'cancelSlot')
         expected.unshift({
-          confirm: action === 'publishSlot' ? 'publish' : 'cancelPublication',
+          confirm: 'cancelPublication',
           target: 'synthetic-slot'
         });
       assert.deepEqual(f.effects, expected);

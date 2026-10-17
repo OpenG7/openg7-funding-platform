@@ -4,7 +4,10 @@ import type {
   SponsorshipObligation
 } from '@openg7/funding-core';
 
+import { hasQualifiedSponsorshipFulfilment } from './sponsorship-progress-evidence.js';
+
 interface ObligationProgressFacts {
+  readonly qualifiedFulfilmentEvidenceIds: readonly string[];
   readonly commitment: SponsorshipCommitmentRecord | null | undefined;
   readonly amountMinor: number;
   readonly currency: string;
@@ -71,10 +74,11 @@ export const projectSponsorshipObligationProgress = (
     completion: {
       total: obligations.filter((obligation) => obligation.state !== 'adjusted')
         .length,
-      done: obligations.filter(
-        (obligation) =>
-          obligation.state === 'fulfilled' &&
-          obligation.fulfilmentEvidenceId !== null
+      done: obligations.filter((obligation) =>
+        hasQualifiedSponsorshipFulfilment(
+          obligation,
+          facts.qualifiedFulfilmentEvidenceIds
+        )
       ).length
     },
     complete:
@@ -83,8 +87,10 @@ export const projectSponsorshipObligationProgress = (
       obligations.every(
         (obligation) =>
           obligation.state === 'adjusted' ||
-          (obligation.state === 'fulfilled' &&
-            obligation.fulfilmentEvidenceId !== null)
+          hasQualifiedSponsorshipFulfilment(
+            obligation,
+            facts.qualifiedFulfilmentEvidenceIds
+          )
       ),
     blockers: qualified
       ? [

@@ -36,6 +36,8 @@ export interface SponsorshipProgressDocument {
 }
 export interface SponsorshipProgressPublication {
   readonly id: string;
+  /** Exact promised passage; absent for legacy declarations. */
+  readonly obligationId?: string | null;
   readonly channel: string;
   readonly target: string;
   readonly status: string;
@@ -47,11 +49,42 @@ export interface SponsorshipProgressPublication {
   readonly deliveryId?: string | null;
   readonly deliveryError?: string | null;
   readonly feedPaused?: boolean | null;
+  readonly workerEnabled?: boolean | null;
+  readonly nextAttemptAt?: string | null;
   readonly publicUrl?: string | null;
   readonly scheduledAt: string | null;
   readonly publishedAt: string | null;
 }
+export type SponsorshipPublicationWorkflowState =
+  | 'waiting'
+  | 'action_required'
+  | 'blocked'
+  | 'error'
+  | 'uncertain'
+  | 'complete';
+
+/** Read-only operational projection; it grants no approval or delivery authority. */
+export interface SponsorshipPublicationWorkflowStep {
+  readonly state: SponsorshipPublicationWorkflowState;
+  readonly responsibility: 'admin' | 'platform' | 'none';
+  readonly reason: string;
+}
+export interface SponsorshipPublicationWorkflowObligation extends SponsorshipPublicationWorkflowStep {
+  readonly obligationId: string;
+  readonly channel: string;
+  readonly target: string;
+  readonly ordinal: number;
+  readonly deliveryId: string | null;
+  readonly scheduledAt: string | null;
+}
+export interface SponsorshipPublicationWorkflow extends SponsorshipPublicationWorkflowStep {
+  readonly obligations: readonly SponsorshipPublicationWorkflowObligation[];
+}
 export interface AdminSponsorshipProgress {
+  /** Qualified delivery-time evidence only; historical declarations remain separate. */
+  readonly qualifiedFulfilmentEvidenceIds?: readonly string[];
+  /** Absent on older servers; never infer platform work from a date alone. */
+  readonly publicationWorkflow?: SponsorshipPublicationWorkflow;
   readonly fulfilmentEvidence?: readonly SponsorshipFulfilmentEvidence[];
   readonly commitment?: SponsorshipCommitmentRecord | null;
   /** Absent on older servers: never infer visibility from review or feed status. */

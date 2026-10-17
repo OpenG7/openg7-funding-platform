@@ -37,7 +37,6 @@ const fixture = () => {
   const replies = {
     create: async () => ({ created: true, batch: { id: 'synthetic-created' } }),
     schedule: async () => ({ scheduled: true, batch }),
-    publish: async () => ({ published: true, batch }),
     cancel: async () => ({ cancelled: true, batch }),
     reload: async () => {},
     confirm: async () => true
@@ -53,7 +52,6 @@ const fixture = () => {
     api: {
       createPublicationBatch: apiMethod('create'),
       schedulePublicationBatch: apiMethod('schedule'),
-      publishPublicationBatch: apiMethod('publish'),
       cancelPublicationBatch: apiMethod('cancel')
     },
     token: () => 'synthetic-token',
@@ -86,13 +84,6 @@ const operations = [
     method: 'scheduleBatch',
     action: 'schedule',
     flag: 'scheduled',
-    lock: batch.id
-  },
-  {
-    method: 'publishBatch',
-    action: 'publish',
-    flag: 'published',
-    confirmation: 'publish',
     lock: batch.id
   },
   {
@@ -283,7 +274,7 @@ test('an empty schedule makes no request and an invalid date reports failure and
   }
 });
 
-test('publication and cancellation confirm the target before mutation and reload', async (t) => {
+test('cancellation confirms the target before mutation and reload', async (t) => {
   for (const operation of operations.filter((item) => item.confirmation)) {
     await t.test(operation.action, async () => {
       const f = fixture();
@@ -300,12 +291,7 @@ test('publication and cancellation confirm the target before mutation and reload
         {
           action: operation.action,
           token: 'synthetic-token',
-          payload: {
-            batchId: batch.id,
-            ...(operation.action === 'publish'
-              ? { confirmation: batch.id }
-              : {})
-          }
+          payload: { batchId: batch.id }
         }
       ]);
       assert.deepEqual(f.events, [

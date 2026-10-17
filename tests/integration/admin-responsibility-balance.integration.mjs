@@ -4,6 +4,9 @@ import test from 'node:test';
 import sharp from 'sharp';
 
 import { loadResponsibilityBalance } from '../../dist/apps/funding-api/src/admin-responsibility-balance.service.js';
+import { getSponsorshipProgress } from '../../dist/apps/funding-api/src/sponsorship-progress.service.js';
+import { getAdminAssistantContext } from '../../dist/apps/funding-api/src/admin-assistant/context.service.js';
+import { projectPreparation } from '../../dist/apps/funding-api/src/admin-preparation.projection.js';
 import { adjustSponsorshipObligation } from '../../dist/apps/funding-api/src/sponsorship-commitments/changes.js';
 import { withPostgresTransaction } from '../../dist/apps/funding-api/src/postgres-transaction.js';
 import { setSponsorshipWebsiteVisibility } from '../../dist/apps/funding-api/src/sponsorship-website.service.js';
@@ -362,6 +365,41 @@ test(
         assert.equal(balance.outstanding, 1);
         assert.ok(balance.reasons.includes('fulfilment_snapshot_unqualified'));
         assert.equal(balance.obligations[0].evidence, undefined);
+        const dossier = (await getSponsorshipProgress(pool, id)).dossier;
+        assert.deepEqual(dossier.qualifiedFulfilmentEvidenceIds, []);
+        assert.equal(dossier.publicationCompletion.done, 0);
+        assert.equal(
+          dossier.publicationWorkflow.reason,
+          'fulfilment_unverified'
+        );
+        assert.notEqual(dossier.publicationWorkflow.state, 'complete');
+        assert.equal(
+          dossier.milestones.find((item) => item.id === 'publication').reason,
+          'fulfilment_unverified'
+        );
+        const context = (await getAdminAssistantContext(pool, id)).context;
+        assert.equal(
+          context.publicationWorkflow.reason,
+          'fulfilment_unverified'
+        );
+        assert.notEqual(context.nextStep, 'complete');
+        const preparation = await projectPreparation(pool, {
+          contribution_id: id,
+          reference: 'SYNTHETIC-UNQUALIFIED-PROOF',
+          amount_minor: '50000',
+          currency: 'CAD'
+        });
+        assert.equal(
+          preparation.checks.find((item) => item.code === 'accepted_offer')
+            .state,
+          'complete'
+        );
+        assert.ok(
+          preparation.blockers.some(
+            (item) => item.code === 'fulfilment_unverified'
+          )
+        );
+        assert.equal(preparation.canApprove, false);
       }
     );
   }

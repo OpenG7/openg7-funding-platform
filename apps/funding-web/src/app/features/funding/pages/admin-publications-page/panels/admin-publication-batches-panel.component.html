@@ -190,15 +190,6 @@
                 <div class="secondary-actions">
                   <button
                     type="button"
-                    class="approve"
-                    *ngIf="batch.status === 'scheduled'"
-                    [disabled]="batchActionState() === batch.id"
-                    (click)="publishBatch(batch)"
-                  >
-                    {{ 'admin.publications.markPublished' | translate }}
-                  </button>
-                  <button
-                    type="button"
                     class="reject"
                     *ngIf="
                       batch.status === 'open' || batch.status === 'scheduled'

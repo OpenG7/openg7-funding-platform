@@ -23,6 +23,37 @@ const emptyResults = () => ({
   }
 });
 
+test('execution facts join the dataset and a failed read cannot silently reopen slot preparation', async () => {
+  const executions = [
+    {
+      slotId: 'synthetic-slot',
+      deliveryId: 'synthetic-delivery',
+      status: 'uncertain'
+    }
+  ];
+  const readers = Object.fromEntries(
+    Object.entries(emptyResults()).map(([name, result]) => [
+      name,
+      async () => result
+    ])
+  );
+  const pool = { synthetic: true };
+  readers.loadPublicationSlotExecutions = async (actualPool) => {
+    assert.strictEqual(actualPool, pool);
+    return executions;
+  };
+  const result = await createAttentionDatasetLoader(readers)(pool, NOW);
+  assert.strictEqual(result.publicationSlotExecutions, executions);
+  const failure = new Error('Synthetic execution read failure');
+  readers.loadPublicationSlotExecutions = async () => {
+    throw failure;
+  };
+  await assert.rejects(
+    createAttentionDatasetLoader(readers)(pool, NOW),
+    (error) => error === failure
+  );
+});
+
 test('complete datasets request every source without caps and preserve source truncation', async () => {
   const calls = [];
   const cappedSponsorships = Array.from({ length: 2000 }, (_unused, index) => ({

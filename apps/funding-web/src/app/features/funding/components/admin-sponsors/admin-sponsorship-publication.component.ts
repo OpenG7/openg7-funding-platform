@@ -91,17 +91,20 @@ export class AdminSponsorshipPublicationComponent {
     const browser = isPlatformBrowser(inject(PLATFORM_ID));
     effect(() => {
       const language = this.i18n.currentLanguage();
-      untracked(() =>
+      untracked(() => {
+        const { adminOverrides, ...schedule } =
+          language === 'en' ? enSchedule : frSchedule;
+        this.i18n.mergeTranslations(language, adminOverrides);
         this.i18n.mergeTranslations(language, {
           admin: {
             dossier: {
               publicationBridge: {
-                schedule: language === 'en' ? enSchedule : frSchedule
+                schedule
               }
             }
           }
-        })
-      );
+        });
+      });
     });
     if (browser)
       this.scheduling.delivery.browserTimezone =
@@ -208,21 +211,70 @@ export class AdminSponsorshipPublicationComponent {
     return rows;
   });
   readonly blockers = computed(() => this.dossier().publicationBlockers ?? []);
-  readonly completed = computed(
-    () => this.dossier().publicationCompletion?.done ?? 0
-  );
-  readonly publicationComplete = computed(() => {
+  readonly publicationCompletion = computed(() => {
     const completion = this.dossier().publicationCompletion;
+    if (!completion) return null;
+    const qualified =
+      this.dossier().commitment?.obligations.filter((obligation) =>
+        Boolean(this.evidence(obligation.id))
+      ).length ?? 0;
+    return { ...completion, done: Math.min(completion.done, qualified) };
+  });
+  readonly completed = computed(() => this.publicationCompletion()?.done ?? 0);
+  readonly publicationComplete = computed(() => {
+    if (this.dossier().publicationWorkflow)
+      return this.dossier().publicationWorkflow?.state === 'complete';
+    const obligations = this.dossier().commitment?.obligations ?? [];
     return (
       this.benefitsKnown() &&
-      Boolean(
-        completion &&
-        completion.total > 0 &&
-        completion.done === completion.total
+      obligations.length > 0 &&
+      obligations.every(
+        (obligation) =>
+          obligation.state === 'adjusted' ||
+          Boolean(this.evidence(obligation.id))
       )
     );
   });
   readonly automationPath = '/admin/fundraiser/publications/automation';
+
+  evidence(obligationId: string) {
+    const dossier = this.dossier();
+    const obligation = dossier.commitment?.obligations.find(
+      (item) => item.id === obligationId
+    );
+    if (obligation?.state !== 'fulfilled') return undefined;
+    return dossier.fulfilmentEvidence?.find(
+      (evidence) =>
+        evidence.obligationId === obligationId &&
+        evidence.id === obligation.fulfilmentEvidenceId &&
+        evidence.channel === obligation.channel &&
+        evidence.target === obligation.target &&
+        dossier.qualifiedFulfilmentEvidenceIds?.includes(evidence.id) === true
+    );
+  }
+
+  evidenceUrl(obligationId: string): string | null {
+    return this.safePublicUrl(this.evidence(obligationId)?.externalPostUrl);
+  }
+
+  publicationDateLabel(reasonOrDeliveryStatus: string): string {
+    return [
+      'approved',
+      'publishing',
+      'failed',
+      'uncertain',
+      'published',
+      'publication_scheduled',
+      'publication_publishing',
+      'publication_retry_pending',
+      'publication_paused',
+      'publication_worker_disabled',
+      'publication_failed',
+      'publication_uncertain'
+    ].includes(reasonOrDeliveryStatus)
+      ? 'admin.dossier.publicationBridge.schedule.workflow.scheduledFor'
+      : 'admin.dossier.publicationBridge.proposedDate';
+  }
 
   deliveryId(
     publication: SponsorshipProgressPublication | null,
@@ -248,18 +300,20 @@ export class AdminSponsorshipPublicationComponent {
 
   status(p: SponsorshipProgressPublication | null): string {
     if (!p) return 'waiting';
-    if (p.status === 'published' || p.deliveryStatus === 'published') {
-      if (p.deliveryMode === 'mock') return 'simulated';
-      return this.dossier().fulfilmentEvidence?.some(
-        (e) =>
-          e.deliveryId === p.deliveryId &&
-          e.deliveryId !== null &&
-          e.channel === p.channel &&
-          e.target === p.target
-      )
-        ? 'published'
-        : 'unverified';
-    }
+    if (p.deliveryStatus === 'uncertain') return 'uncertain';
+    if (p.deliveryMode === 'mock' && p.deliveryStatus === 'published')
+      return 'simulated';
+    const proven = this.dossier().fulfilmentEvidence?.some(
+      (e) =>
+        this.evidence(e.obligationId)?.id === e.id &&
+        e.deliveryId === p.deliveryId &&
+        e.deliveryId !== null &&
+        e.channel === p.channel &&
+        e.target === p.target
+    );
+    if (proven) return 'published';
+    if (p.deliveryStatus === 'published')
+      return p.deliveryMode === 'mock' ? 'simulated' : 'unverified';
     if (
       ['uncertain', 'failed', 'blocked', 'rejected', 'cancelled'].includes(
         p.deliveryStatus ?? ''
@@ -274,7 +328,11 @@ export class AdminSponsorshipPublicationComponent {
       return 'cancelled';
     if (p.deliveryId && p.deliveryStatus === 'approved') return 'scheduled';
     if (p.deliveryStatus === 'publishing') return 'publishing';
-    return p.deliveryId ? 'review' : 'waiting';
+    if (p.deliveryId) return 'review';
+    if (p.status === 'published') return 'unverified';
+    if (['draft', 'pending_review', 'approved', 'scheduled'].includes(p.status))
+      return 'prepared';
+    return 'waiting';
   }
   action(p: SponsorshipProgressPublication | null): string {
     const status = this.status(p);
@@ -319,8 +377,13 @@ export class AdminSponsorshipPublicationComponent {
   }
   publicUrl(p: SponsorshipProgressPublication | null): string | null {
     if (!p?.publicUrl || this.status(p) !== 'published') return null;
+    return this.safePublicUrl(p.publicUrl);
+  }
+
+  private safePublicUrl(value: string | null | undefined): string | null {
+    if (!value) return null;
     try {
-      const url = new URL(p.publicUrl);
+      const url = new URL(value);
       return ['http:', 'https:'].includes(url.protocol) &&
         !url.username &&
         !url.password

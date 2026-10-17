@@ -159,6 +159,53 @@ test('a journey complete flag cannot hide pending obligations', () => {
   assert.equal(balance.next.reason, 'publication_pending');
 });
 
+test('a qualified delivered promise does not hide an uncertain external publication attempt', () => {
+  const value = facts();
+  value.journey.state = 'action_required';
+  value.journey.steps[1] = {
+    id: 'publication',
+    state: 'error',
+    reason: 'publication_uncertain',
+    responsibility: 'admin'
+  };
+  value.journey.next = {
+    reason: 'publication_uncertain',
+    responsibility: 'admin',
+    adminUrl: '/admin/fundraiser/sponsors'
+  };
+  const balance = project(value);
+  assert.equal(balance.fulfilled, 1);
+  assert.equal(balance.outstanding, 0);
+  assert.equal(balance.status, 'action_required');
+  assert.equal(balance.next.reason, 'publication_uncertain');
+});
+
+test('a scheduled platform passage remains outstanding and waiting; an integrity exception takes priority', () => {
+  const value = pending();
+  value.journey.state = 'waiting';
+  value.journey.steps[1] = {
+    id: 'publication',
+    state: 'pending',
+    reason: 'publication_scheduled',
+    responsibility: 'platform'
+  };
+  value.journey.next = {
+    reason: 'publication_scheduled',
+    responsibility: 'platform',
+    adminUrl: '/admin/fundraiser/sponsors'
+  };
+  const waiting = project(value);
+  assert.equal(waiting.status, 'waiting');
+  assert.equal(waiting.outstanding, 1);
+  assert.equal(waiting.fulfilled, 0);
+  assert.equal(waiting.next.responsibility, 'platform');
+  value.commitment.offer.amountMinor++;
+  const unknown = project(value);
+  assert.equal(unknown.status, 'unknown');
+  assert.equal(unknown.next.reason, 'offer_payment_mismatch');
+  assert.equal(unknown.next.responsibility, 'admin');
+});
+
 for (const [label, alter] of [
   ['foreign dossier', (e) => (e.contributionId = uuid(9))],
   ['foreign obligation', (e) => (e.obligationId = uuid(9))],

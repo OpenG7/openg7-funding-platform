@@ -73,7 +73,7 @@ test.describe('Docker admin sponsorship feed publication', () => {
     await editor.getByLabel(/Slug public/i).fill(slug);
     await editor.getByLabel(/Destination feed/i).selectOption('openg7');
     // Save edited content before asking for review of that exact revision.
-    await editor.getByLabel(/Statut feed/i).selectOption('drafted');
+    await editor.getByLabel(/Statut de suivi déclaré/i).selectOption('drafted');
 
     // Some tiers force a channel on (isPromisedFeedChannel), which disables
     // the checkbox -- only check the ones this fixture's tier leaves free.
@@ -96,7 +96,9 @@ test.describe('Docker admin sponsorship feed publication', () => {
 
     await page.getByRole('button', { name: 'Enregistrer' }).click();
 
-    await expect(page.getByText('Publication enregistree')).toBeVisible();
+    await expect(
+      page.getByText('Paramètres de suivi enregistrés')
+    ).toBeVisible();
     // Editing the public placement invalidates the prior editorial revision.
     const moderation = page.locator('[data-og7="moderation-actions"]');
     await moderation.getByRole('combobox').first().selectOption('N0');
@@ -160,7 +162,9 @@ test.describe('Docker admin sponsorship feed publication', () => {
       .getByRole('button', { name: 'Publication', exact: true })
       .click();
     await page.locator('[data-og7="publication-advanced"] > summary').click();
-    await editor.getByLabel(/Statut feed/i).selectOption('published');
+    await editor
+      .getByLabel(/Statut de suivi déclaré/i)
+      .selectOption('published');
     const published = page.waitForResponse(
       (response) =>
         response.url().endsWith('/api/admin/sponsorships/publication') &&
@@ -172,7 +176,9 @@ test.describe('Docker admin sponsorship feed publication', () => {
     expect(publicationResponse.ok(), await publicationResponse.text()).toBe(
       true
     );
-    await expect(page.getByText('Publication enregistree')).toBeVisible();
+    await expect(
+      page.getByText('Paramètres de suivi enregistrés')
+    ).toBeVisible();
 
     // Reload and reopen the same tab to confirm the save actually persisted
     // to the database rather than only updating local component state.

@@ -2143,6 +2143,81 @@ test('automatic preparation waiting for a late zone cannot reveal it after pause
   expect(fixture.mutations).toEqual([]);
 });
 
+for (const language of ['fr-CA', 'en']) {
+  test(`a scheduled publication stays with the platform without another preparation or delivery question in ${language}`, async ({
+    page
+  }) => {
+    const fixture = await fixtures(page, language);
+    const destination = `${dashboardPath}/publications/automation?deliveryId=10000000-0000-4000-8000-000000000799`;
+    const pending = pendingAutomaticJourney(
+      'publication_scheduled',
+      destination
+    );
+    const waiting: AdminPaymentJourney = {
+      ...pending,
+      state: 'waiting',
+      steps: pending.steps.map((step) =>
+        step.id === 'obligation'
+          ? { ...step, state: 'pending', responsibility: 'platform' }
+          : step
+      ),
+      next: { ...pending.next!, responsibility: 'platform' }
+    };
+    fixture.journeys.set(paymentId, waiting);
+    await page.setViewportSize({
+      width: language === 'en' ? 320 : 1440,
+      height: 900
+    });
+    await page.goto(`${dashboardPath}?paymentJourney=${paymentId}`);
+    await expect(paymentHook(page, 'platform-waiting')).toBeVisible();
+    await expect(paymentHook(page, 'next')).toHaveAccessibleName(
+      language === 'en' ? 'View publication' : 'Voir la publication'
+    );
+    await openAutomatic(page);
+    await automaticHook(page, 'scope').selectOption('payment');
+    await automaticHook(page, 'start').focus();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(destination);
+    await expect(automaticHook(page, 'state')).toHaveAttribute(
+      'data-og7-id',
+      'waiting'
+    );
+    await expect(automaticHook(page, 'platform-step')).toContainText(
+      language === 'en' ? 'platform handles' : 'plateforme prend en charge'
+    );
+    await expect(automaticHook(page, 'human-step')).toHaveCount(0);
+    await expect(automaticHook(page, 'prepare')).toHaveCount(0);
+    await expect(automaticHook(page, 'complete')).toHaveCount(0);
+    await expect(page.locator('dialog[open]')).toHaveCount(0);
+    for (const reason of [
+      'publication_publishing',
+      'publication_retry_pending'
+    ]) {
+      fixture.journeys.set(paymentId, {
+        ...waiting,
+        next: { ...waiting.next!, reason }
+      });
+      await automaticHook(page, 'verify').focus();
+      await page.keyboard.press('Enter');
+      await expect(automaticHook(page, 'state')).toContainText(
+        language === 'en'
+          ? reason === 'publication_publishing'
+            ? 'sending'
+            : 'retry'
+          : reason === 'publication_publishing'
+            ? 'envoie'
+            : 'reprise'
+      );
+      await expect(automaticHook(page, 'state')).toHaveAttribute(
+        'data-og7-id',
+        'waiting'
+      );
+      await expect(automaticHook(page, 'prepare')).toHaveCount(0);
+    }
+    expect(fixture.mutations).toEqual([]);
+  });
+}
+
 test('automatic preparation rechecks a selected invoice action and follows a changed recommendation without opening its stale confirmation', async ({
   page
 }) => {

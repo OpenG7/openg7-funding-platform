@@ -1707,7 +1707,6 @@ test('Publication batch admin endpoints are authenticated, validated, rate-limit
     "'publication_batch.assign'",
     "'publication_batch.unassign'",
     "'publication_batch.schedule'",
-    "'publication_batch.publish'",
     "'publication_batch.cancel'"
   ]) {
     assert.ok(
@@ -1755,7 +1754,6 @@ test('Publication slot admin endpoints are authenticated, validated, rate-limite
     "'publication_slot.update'",
     "'publication_slot.assign_batch'",
     "'publication_slot.assign_draft'",
-    "'publication_slot.publish'",
     "'publication_slot.cancel'"
   ]) {
     assert.ok(
@@ -1799,7 +1797,8 @@ test('Publication batch types and admin UI expose capacity, next availability, a
   );
   assert.ok(translatedUiSource(page).includes('createBatch()'));
   assert.ok(translatedUiSource(page).includes('scheduleBatch(batch)'));
-  assert.ok(translatedUiSource(page).includes('publishBatch(batch)'));
+  assert.ok(!translatedUiSource(page).includes('publishBatch(batch)'));
+  assert.ok(translatedUiSource(page).includes('publishSocialBatch(batch)'));
   assert.ok(translatedUiSource(page).includes('cancelBatch(batch)'));
   assert.ok(translatedUiSource(page).includes('assignToBatch(draft)'));
   assert.ok(translatedUiSource(page).includes('unassignFromBatch(draft)'));
@@ -1845,7 +1844,12 @@ test('Publication slot types and admin UI expose calendar, edit, capacity, and a
   assert.ok(translatedUiSource(page).includes('updateSlot(slot)'));
   assert.ok(translatedUiSource(page).includes('assignBatchToSlot(slot)'));
   assert.ok(translatedUiSource(page).includes('assignDraftToSlot(slot)'));
-  assert.ok(translatedUiSource(page).includes('publishSlot(slot)'));
+  assert.ok(!translatedUiSource(page).includes('publishSlot(slot)'));
+  assert.ok(
+    translatedUiSource(page).includes(
+      '/admin/fundraiser/publications/automation'
+    )
+  );
   assert.ok(translatedUiSource(page).includes('cancelSlot(slot)'));
   assert.ok(translatedUiSource(page).includes('slot.capacityAvailable'));
   assert.ok(

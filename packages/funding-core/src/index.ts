@@ -70,7 +70,11 @@ export type {
   SponsorshipProgressPublication,
   SponsorshipWebsiteVisibilityRequest,
   AdminSponsorshipProgress,
-  AdminSponsorshipProgressResponse
+  AdminSponsorshipProgressResponse,
+  SponsorshipPublicationWorkflow,
+  SponsorshipPublicationWorkflowObligation,
+  SponsorshipPublicationWorkflowState,
+  SponsorshipPublicationWorkflowStep
 } from './sponsorship-progress.js';
 
 export { SPONSORSHIP_FOLLOWUP_DAYS } from './sponsorship-interventions.js';

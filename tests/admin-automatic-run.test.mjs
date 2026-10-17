@@ -207,6 +207,7 @@ test('a waiting obligation remains waiting without repeated navigation and resum
   const f = fixture(plan('sponsors', { state: 'waiting' }));
   await f.run.start();
   assert.equal(f.snapshot().phase, 'waiting');
+  assert.equal(f.calls('present').length, 0);
   await f.run.verify();
   assert.equal(f.snapshot().phase, 'waiting');
   assert.equal(f.calls('navigate').length, 1);
@@ -214,6 +215,38 @@ test('a waiting obligation remains waiting without repeated navigation and resum
   await f.run.verify();
   assert.equal(f.calls('navigate').length, 2);
   assert.equal(f.snapshot().phase, 'awaiting_confirmation');
+});
+
+test('a waiting server step cannot open a preparation even through a stale explicit choice', async () => {
+  const f = fixture(
+    plan('automation', {
+      state: 'waiting',
+      reason: 'publication_scheduled',
+      responsibility: 'platform'
+    })
+  );
+  await f.run.start();
+  f.state.calls.length = 0;
+  await f.run.prepare('publication.compose');
+  assert.deepEqual(f.state.calls, [{ port: 'read' }]);
+  assert.equal(f.snapshot().phase, 'waiting');
+  assert.equal(f.snapshot().plan.responsibility, 'platform');
+});
+
+test('a publication that becomes waiting during preparation verification never opens the old action', async () => {
+  const f = fixture(
+    plan('automation', { reason: 'publication_authorization_required' })
+  );
+  await f.run.start();
+  f.state.calls.length = 0;
+  f.state.plan = {
+    ...f.state.plan,
+    state: 'waiting',
+    responsibility: 'platform'
+  };
+  await f.run.prepare('publication.compose');
+  assert.deepEqual(f.state.calls, [{ port: 'read' }]);
+  assert.equal(f.snapshot().phase, 'waiting');
 });
 
 test('an open dialogue defers a changed recommendation until the dialogue closes', async () => {
@@ -523,6 +556,26 @@ test('a payment plan comes from the exact requested payment and refuses missing 
       payment
     )
   );
+});
+
+test('a scheduled publication plan retains server responsibility and its exact delivery destination', () => {
+  const adminUrl =
+    '/admin/fundraiser/publications/automation?deliveryId=synthetic-exact-delivery';
+  const result = automaticPaymentPlan(
+    journey({
+      state: 'waiting',
+      next: {
+        reason: 'publication_scheduled',
+        responsibility: 'platform',
+        adminUrl
+      }
+    }),
+    payment
+  );
+  assert.equal(result.state, 'waiting');
+  assert.equal(result.responsibility, 'platform');
+  assert.equal(result.reason, 'publication_scheduled');
+  assert.equal(result.adminUrl, adminUrl);
 });
 
 for (const reason of ['invoice_missing', 'credit_missing']) {

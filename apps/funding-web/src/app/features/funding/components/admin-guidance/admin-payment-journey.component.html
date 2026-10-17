@@ -64,6 +64,15 @@
           <div class="next-step" data-og7="payment-journey-next-step">
             <h3>{{ t('next') }}</h3>
             <p>{{ t('situations.' + d.state) }}</p>
+            @if (
+              d.state === 'waiting' &&
+              d.next?.responsibility === 'platform' &&
+              d.next?.reason?.startsWith('publication_')
+            ) {
+              <p data-og7="payment-journey-platform-waiting">
+                {{ t('platformWaiting') }}
+              </p>
+            }
             @if (d.next; as next) {
               <p>{{ reason(next.reason) }}</p>
               @if (journey.nextUrl(); as nextUrl) {
@@ -72,7 +81,15 @@
                   data-og7="payment-journey-next"
                   [attr.href]="nextUrl"
                   (click)="journey.openNext($event)"
-                  >{{ t('openNext') }}</a
+                  >{{
+                    t(
+                      d.state === 'waiting' &&
+                        next.responsibility === 'platform' &&
+                        next.reason.startsWith('publication_')
+                        ? 'viewWaiting'
+                        : 'openNext'
+                    )
+                  }}</a
                 >
               }
               @if (journey.canShow() && next.target; as target) {

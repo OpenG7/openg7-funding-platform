@@ -6,12 +6,13 @@
 .publication-journey {
   @apply tw:grid tw:gap-6;
 }
-.publication-journey > header > h3 {
+.publication-journey > header > h2 {
   font-family: var(--admin-heading-font-family);
   font-size: 1.375rem;
   font-weight: var(--admin-section-weight);
   line-height: 1.35;
 }
+h2,
 h3,
 h4,
 p {
@@ -49,6 +50,29 @@ footer {
 }
 .schedule-help {
   @apply tw:text-admin-caption;
+}
+.obligation-console,
+.obligation-heading {
+  @apply tw:grid tw:gap-2;
+}
+.obligation-list {
+  @apply tw:grid tw:gap-3 tw:m-0 tw:p-0;
+  list-style: none;
+}
+.obligation-list > li {
+  @apply tw:grid tw:gap-2 tw:p-4 tw:rounded-xl;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-panel);
+}
+.obligation-list > li[data-state='complete'] {
+  border-color: var(--admin-success-border);
+}
+.obligation-list > li[data-state='error'],
+.obligation-list > li[data-state='uncertain'] {
+  border-color: var(--admin-danger-border);
+}
+.obligation-list .admin-button {
+  justify-self: start;
 }
 [data-og7='publication-next-slot'] time {
   display: block;

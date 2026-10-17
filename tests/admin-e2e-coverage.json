@@ -183,13 +183,14 @@
         "shared slot",
         "Toronto DST overlap",
         "persisted replanning",
+        "final publication authorization required",
         "confirmed cancellation"
       ],
       "evidence": [
         {
           "level": "e2e",
           "file": "tests/identity/manual-publication-calendar-journey.spec.ts",
-          "title": "manual publication calendar persists Toronto replanning across all shared batches, rejects ambiguous times and confirms cancellation"
+          "title": "manual publication calendar preserves scheduling, requires final publication authorization and confirms cancellation"
         },
         {
           "level": "e2e",

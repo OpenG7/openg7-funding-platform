@@ -15,8 +15,10 @@ import {
   afterNextRender,
   afterRenderEffect,
   computed,
+  effect,
   inject,
   signal,
+  untracked,
   viewChild
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -52,6 +54,8 @@ import {
   FundingAdminService
 } from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import enPublication from '../../../../../assets/i18n/admin-publication-schedule.en.json' with { type: 'json' };
+import frPublication from '../../../../../assets/i18n/admin-publication-schedule.fr-CA.json' with { type: 'json' };
 import { AdminSponsorDetailMediaComponent } from '../../components/admin-sponsors/admin-sponsor-detail-media.component.js';
 import { AdminSponsorshipProgressComponent } from '../../components/admin-sponsors/admin-sponsorship-progress.component.js';
 import { AdminSponsorshipNextStepComponent } from '../../components/admin-sponsors/admin-sponsorship-next-step.component.js';
@@ -513,6 +517,15 @@ export class AdminSponsorsPageComponent implements OnInit {
   });
 
   constructor() {
+    effect(() => {
+      const language = this.i18n.currentLanguage();
+      untracked(() =>
+        this.i18n.mergeTranslations(
+          language,
+          (language === 'en' ? enPublication : frPublication).adminOverrides
+        )
+      );
+    });
     this.destroyRef.onDestroy(() => {
       this.listController.dispose();
       this.mediaWorkflow.dispose();

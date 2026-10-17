@@ -38,6 +38,17 @@ const DRAFT_TYPES: Readonly<Record<string, AdminAssistantDraftType>> = {
   propose_slot: 'slot_proposal'
 };
 
+function preparationReference(
+  item: AdminAttentionItem,
+  type: AdminAssistantDraftType
+): string {
+  return type === 'slot_proposal'
+    ? (item.publicationId ?? String(item.facts['reference'] ?? ''))
+    : (item.sponsorshipId ??
+        item.publicationId ??
+        String(item.facts['reference'] ?? ''));
+}
+
 /** Private overview reads and draft preparation; route, scroll and focus belong to the page. */
 export class AdminAssistantController {
   readonly selectedId = signal<string | null>(null);
@@ -153,31 +164,55 @@ export class AdminAssistantController {
   }
 
   async prepare(item: AdminAttentionItem): Promise<void> {
-    const type = this.prepareType(item);
+    let currentItem = this.selected();
+    const type = currentItem ? this.prepareType(currentItem) : undefined;
     if (
       this.disposed ||
       !this.overviewActive ||
       !type ||
+      this.prepareType(item) !== type ||
       !this.canPrepare() ||
       this.draftState() === 'loading' ||
       this.detailState() !== 'ready' ||
-      this.selected()?.id !== item.id
+      currentItem?.id !== item.id
     )
       return;
+    const reference = preparationReference(currentItem, type);
     const generation = ++this.draftGeneration;
     this.draftState.set('loading');
     this.prepared.set(null);
     try {
+      if (type === 'publication_draft' || type === 'slot_proposal') {
+        const current = await this.ports.admin.getWorkQueue(
+          this.ports.token(),
+          { itemId: item.id, pageSize: 1 }
+        );
+        if (!this.current(generation, this.draftGeneration)) return;
+        currentItem = current.available
+          ? (current.items.find((candidate) => candidate.id === item.id) ??
+            null)
+          : null;
+        this.selected.set(currentItem);
+        this.detailState.set(current.available ? 'ready' : 'unavailable');
+        // The server may have scheduled or delivered this work since the drawer opened.
+        if (
+          !currentItem ||
+          this.prepareType(currentItem) !== type ||
+          preparationReference(currentItem, type) !== reference
+        ) {
+          this.draftState.set('idle');
+          return;
+        }
+      }
+      if (!currentItem || !this.canPrepare()) {
+        this.draftState.set('idle');
+        return;
+      }
       const result = await this.ports.admin.prepareAssistantDraft(
         this.ports.token(),
         {
           type,
-          reference:
-            type === 'slot_proposal'
-              ? (item.publicationId ?? String(item.facts['reference'] ?? ''))
-              : (item.sponsorshipId ??
-                item.publicationId ??
-                String(item.facts['reference'] ?? '')),
+          reference,
           language: this.ports.language()
         }
       );

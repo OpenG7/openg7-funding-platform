@@ -16,6 +16,38 @@ import { loadResponsibilityBalanceOnClient } from './admin-responsibility-balanc
 export const preparationDigest = (value: unknown): string =>
   createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
+/** Preserve integrity gates without describing every historical delivery issue as an unknown offer. */
+export function preparationBalanceBlockers(
+  balance: Pick<ResponsibilityBalance, 'unknown' | 'reasons'>
+): readonly string[] {
+  if (!balance.unknown) return [];
+  const blockers = new Set<string>();
+  for (const reason of balance.reasons) {
+    if (
+      reason.startsWith('fulfilment_') ||
+      reason === 'orphan_fulfilment_evidence' ||
+      reason === 'duration_attestation_missing'
+    )
+      blockers.add('fulfilment_unverified');
+    else if (
+      reason.startsWith('obligation_') ||
+      reason === 'promised_obligation_missing' ||
+      reason === 'deadline_origin_unknown'
+    )
+      blockers.add('obligation_unverified');
+    else if (
+      reason.startsWith('offer_') ||
+      reason === 'commitment_needs_confirmation' ||
+      reason === 'contribution_type_unknown' ||
+      reason === 'payment_confirmation_unknown' ||
+      reason === 'personal_payment_has_sponsorship_records'
+    )
+      blockers.add('offer_unverified');
+  }
+  // Forward-compatible unknowns remain blocking until explicitly classified.
+  return blockers.size ? [...blockers] : ['offer_unverified'];
+}
+
 export interface PreparationSource {
   contribution_id: string;
   reference: string;
@@ -120,12 +152,16 @@ export async function projectPreparation(
         )
       ).rows[0];
       acceptedOffer = offer?.snapshot ?? null;
+      const integrityBlockers = preparationBalanceBlockers(balance);
       checks.push({
         code: 'accepted_offer',
-        state: acceptedOffer && balance.unknown === 0 ? 'complete' : 'missing'
+        state:
+          acceptedOffer && !integrityBlockers.includes('offer_unverified')
+            ? 'complete'
+            : 'missing'
       });
       if (!acceptedOffer) block('commitment_needs_confirmation');
-      else if (balance.unknown > 0) block('offer_unverified');
+      else for (const code of integrityBlockers) block(code);
       const authorization = (
         code: string,
         available: boolean,

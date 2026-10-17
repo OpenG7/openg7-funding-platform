@@ -11,7 +11,6 @@ export interface AdminPublicationBatchesWorkflowPorts {
     FundingAdminService,
     | 'createPublicationBatch'
     | 'schedulePublicationBatch'
-    | 'publishPublicationBatch'
     | 'cancelPublicationBatch'
   >;
   readonly state: {
@@ -76,24 +75,6 @@ export class AdminPublicationBatchesWorkflow {
       await this.ports.api.schedulePublicationBatch(this.ports.token(), {
         batchId: batch.id,
         scheduledAt: new Date(scheduledAt).toISOString()
-      });
-      await this.ports.reload();
-    } catch {
-      this.ports.failed();
-    } finally {
-      state.batchActionState.set(null);
-    }
-  }
-
-  async publishBatch(batch: AdminPublicationBatchRecord): Promise<void> {
-    const { state } = this.ports;
-    if (state.batchActionState()) return;
-    if (!(await this.ports.confirm('publish', batch.id))) return;
-    state.batchActionState.set(batch.id);
-    try {
-      await this.ports.api.publishPublicationBatch(this.ports.token(), {
-        batchId: batch.id,
-        confirmation: batch.id
       });
       await this.ports.reload();
     } catch {

@@ -19,15 +19,14 @@ import { after, before, test } from 'node:test';
 import { pathToFileURL } from 'node:url';
 import { firstValueFrom } from 'rxjs';
 import ts from 'typescript';
+import { adminPublicationTranslations } from './support/admin-publication-translations.mjs';
 
 const componentFile =
   'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-publication-panel.component.ts';
 const catalogs = Object.fromEntries(
   ['fr-CA', 'en'].map((locale) => [
     locale,
-    JSON.parse(
-      readFileSync(`apps/funding-web/src/assets/i18n/${locale}.json`, 'utf8')
-    )
+    adminPublicationTranslations(locale)
   ])
 );
 const draft = Object.freeze({

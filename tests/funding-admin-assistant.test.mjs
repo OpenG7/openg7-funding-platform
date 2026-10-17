@@ -995,6 +995,55 @@ test('preparation reports not_found for an unknown or missing reference', () => 
   );
 });
 
+test('managed slot executions suppress replacement proposals in both attention and direct preparation', () => {
+  for (const status of ['approved', 'publishing', 'uncertain']) {
+    const ds = dataset({
+      slots: [
+        {
+          id: 'managed-slot',
+          status: 'scheduled',
+          startsAt: '2026-07-01T00:00:00Z',
+          channel: 'facebook',
+          feedTarget: 'openg7'
+        }
+      ],
+      publicationSlotExecutions: [
+        { slotId: 'managed-slot', deliveryId: 'managed-delivery', status }
+      ]
+    });
+    const item = detectLatePublicationItems(ds)[0];
+    assert.equal(
+      item.adminUrl,
+      '/admin/fundraiser/publications/automation?deliveryId=managed-delivery',
+      status
+    );
+    assert.ok(
+      item.suggestedActions.every(
+        (action) => action.executionMode === 'navigate'
+      ),
+      status
+    );
+    for (const language of ['fr-CA', 'en']) {
+      const prepared = prepareDraftFromDataset(ds, {
+        type: 'slot_proposal',
+        reference: 'managed-slot',
+        language
+      });
+      assert.equal(prepared.status, 'not_applicable', status);
+      assert.equal(prepared.draft, null, status);
+    }
+    const withEmptySlot = {
+      ...ds,
+      slots: [...ds.slots, { ...ds.slots[0], id: 'empty-slot' }]
+    };
+    const prepared = prepareDraftFromDataset(withEmptySlot, {
+      type: 'slot_proposal'
+    });
+    assert.equal(prepared.status, 'ok');
+    assert.equal(prepared.draft.reference, 'empty-slot');
+  }
+});
+
 test('slot proposals localize all copy and absence errors without modifying the dataset', () => {
   const ds = dataset({
     slots: [

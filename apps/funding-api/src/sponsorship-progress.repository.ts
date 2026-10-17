@@ -3,12 +3,16 @@ import type {
   SponsorshipProgressDocument,
   SponsorshipProgressPublication
 } from '@openg7/funding-core';
-import type { PoolClient } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 
 import { effectiveRefundsSql } from './fund-refund-projection.js';
 import { SPONSOR_WEBSITE_VISIBLE_SQL } from './sponsorship-website-eligibility.js';
 import { loadSponsorshipCommitment } from './sponsorship-commitments.repository.js';
 import { listSponsorshipFulfilmentEvidence } from './sponsorship-fulfilment.repository.js';
+import {
+  loadSponsorshipEvidenceFacts,
+  qualifiedSponsorshipEvidenceIds
+} from './sponsorship-progress-evidence.js';
 
 export interface SponsorshipRefundFact {
   readonly id: string;
@@ -17,6 +21,7 @@ export interface SponsorshipRefundFact {
 }
 /** Persisted inputs for the progress projection; this model grants no action. */
 export interface SponsorshipProgressFacts {
+  readonly qualifiedFulfilmentEvidenceIds?: readonly string[];
   readonly commitment?: AdminSponsorshipProgress['commitment'];
   readonly fulfilmentEvidence?: AdminSponsorshipProgress['fulfilmentEvidence'];
   readonly websiteVisible: boolean;
@@ -40,6 +45,35 @@ export interface SponsorshipProgressFacts {
 
 interface StripeRefundRow extends SponsorshipRefundFact {
   readonly refunds: readonly SponsorshipRefundFact[];
+}
+
+/** Exact dossier publication facts shared by progress and the read-only assistant. */
+export async function loadSponsorshipProgressPublications(
+  client: Pool | PoolClient,
+  id: string
+): Promise<readonly SponsorshipProgressPublication[]> {
+  const result = await client.query<SponsorshipProgressPublication>(
+    `SELECT d.id, d.obligation_id AS "obligationId", d.channel, d.feed_target AS target, d.status,
+    b.status AS "batchStatus", s.status AS "slotStatus",
+    CASE WHEN a.id IS NOT NULL THEN a.status ELSE j.status END AS "deliveryStatus",
+    CASE WHEN a.id IS NOT NULL THEN a.mode ELSE j.mode END AS "deliveryMode",
+    a.id AS "deliveryId", a.next_attempt_at::text AS "nextAttemptAt", a.error_code AS "deliveryError", f.paused AS "feedPaused",
+    COALESCE((SELECT enabled FROM publication_worker_settings WHERE id=TRUE),$2::boolean) AS "workerEnabled",
+    COALESCE(d.public_url, CASE WHEN a.mode = 'live' AND a.status = 'published' THEN a.external_post_url END) AS "publicUrl",
+    COALESCE(a.scheduled_at, d.scheduled_at, s.starts_at, b.scheduled_at)::text AS "scheduledAt",
+    COALESCE(d.published_at, CASE WHEN a.mode = 'live' AND a.status = 'published' THEN a.published_at END)::text AS "publishedAt"
+    FROM sponsor_publication_drafts d LEFT JOIN sponsor_publication_batches b ON b.id = d.batch_id
+    LEFT JOIN publication_slots s ON s.id = COALESCE(d.slot_id, b.slot_id)
+    LEFT JOIN LATERAL (SELECT status, mode FROM social_publication_jobs WHERE d.id = ANY(draft_ids) ORDER BY updated_at DESC, id LIMIT 1) j ON true
+    LEFT JOIN LATERAL (SELECT * FROM publication_deliveries WHERE batch_id = d.batch_id
+      AND feed_id = d.feed_target || ':' || d.channel
+      ORDER BY (status = 'published' AND mode = 'live') DESC,
+      (status NOT IN ('cancelled', 'rejected')) DESC, updated_at DESC, id LIMIT 1) a ON true
+    LEFT JOIN publication_feeds f ON f.id = d.feed_target || ':' || d.channel
+    WHERE d.contribution_id = $1::uuid ORDER BY d.channel, d.feed_target, d.id`,
+    [id, process.env.SOCIAL_PUBLICATION_WORKER_ENABLED === 'true']
+  );
+  return result.rows;
 }
 
 /** Read sequentially on the caller's dossier snapshot; keep provider payloads private. */
@@ -77,26 +111,7 @@ export const loadSponsorshipProgressFacts = async (
     FROM sponsorship_credit_notes WHERE contribution_id = $1::uuid ORDER BY "issuedAt", id`,
     [id]
   );
-  const publications = await client.query<SponsorshipProgressPublication>(
-    `SELECT d.id, d.channel, d.feed_target AS target, d.status,
-    b.status AS "batchStatus", s.status AS "slotStatus",
-    CASE WHEN a.id IS NOT NULL THEN a.status ELSE j.status END AS "deliveryStatus",
-    CASE WHEN a.id IS NOT NULL THEN a.mode ELSE j.mode END AS "deliveryMode",
-    a.id AS "deliveryId", a.error_code AS "deliveryError", f.paused AS "feedPaused",
-    COALESCE(d.public_url, CASE WHEN a.mode = 'live' AND a.status = 'published' THEN a.external_post_url END) AS "publicUrl",
-    COALESCE(a.scheduled_at, d.scheduled_at, s.starts_at, b.scheduled_at)::text AS "scheduledAt",
-    COALESCE(d.published_at, CASE WHEN a.mode = 'live' AND a.status = 'published' THEN a.published_at END)::text AS "publishedAt"
-    FROM sponsor_publication_drafts d LEFT JOIN sponsor_publication_batches b ON b.id = d.batch_id
-    LEFT JOIN publication_slots s ON s.id = COALESCE(d.slot_id, b.slot_id)
-    LEFT JOIN LATERAL (SELECT status, mode FROM social_publication_jobs WHERE d.id = ANY(draft_ids) ORDER BY updated_at DESC, id LIMIT 1) j ON true
-    LEFT JOIN LATERAL (SELECT * FROM publication_deliveries WHERE batch_id = d.batch_id
-      AND feed_id = d.feed_target || ':' || d.channel
-      ORDER BY (status = 'published' AND mode = 'live') DESC,
-      (status NOT IN ('cancelled', 'rejected')) DESC, updated_at DESC, id LIMIT 1) a ON true
-    LEFT JOIN publication_feeds f ON f.id = d.feed_target || ':' || d.channel
-    WHERE d.contribution_id = $1::uuid ORDER BY d.channel, d.feed_target`,
-    [id]
-  );
+  const publications = await loadSponsorshipProgressPublications(client, id);
   const auditRefunds = await client.query<SponsorshipRefundFact>(
     `SELECT metadata->>'refundId' AS id, (metadata->>'amount')::integer AS amount, metadata->>'currency' AS currency
     FROM admin_audit_log WHERE entity_type = 'sponsorship' AND entity_id = $1 AND action IN ('sponsorship_refund.stripe_full', 'sponsorship_refund.stripe_partial')
@@ -140,12 +155,18 @@ export const loadSponsorshipProgressFacts = async (
       OR COALESCE(e.payload->'data'->'object'->'payment_intent'->>'id', e.payload->'data'->'object'->>'payment_intent') = c.stripe_payment_intent_id)`,
     [id]
   );
+  const commitment = await loadSponsorshipCommitment(client, id);
+  const evidenceFacts = await loadSponsorshipEvidenceFacts(client, id);
   return {
-    commitment: await loadSponsorshipCommitment(client, id),
+    commitment,
+    qualifiedFulfilmentEvidenceIds: qualifiedSponsorshipEvidenceIds(
+      commitment,
+      evidenceFacts
+    ),
     fulfilmentEvidence: await listSponsorshipFulfilmentEvidence(client, id),
     ...details.rows[0]!,
     documents: documents.rows,
-    publications: publications.rows,
+    publications,
     refunds: [
       ...auditRefunds.rows,
       ...stripeRefunds.rows.flatMap((r) => r.refunds)

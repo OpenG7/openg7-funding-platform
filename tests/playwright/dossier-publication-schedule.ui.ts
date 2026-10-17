@@ -235,6 +235,412 @@ export function registerDossierPublicationScheduleTests(
 ): void {
   test.describe('dossier publication schedule', () => {
     test.use({ timezoneId: 'Asia/Tokyo' });
+    for (const language of ['fr-CA', 'en'] as const) {
+      test(`publication console assigns scheduled work to the platform in ${language}`, async ({
+        page
+      }) => {
+        const { options, job, state, controls } = await fixtures(page, context);
+        job.mode = 'live';
+        job.status = 'approved';
+        state.feeds[0]!.paused = false;
+        options.progressOverrides = {
+          ...options.progressOverrides,
+          publicationWorkflow: {
+            state: 'waiting',
+            responsibility: 'platform',
+            reason: 'publication_scheduled',
+            obligations: [
+              {
+                obligationId: 'synthetic-facebook-obligation',
+                channel: 'facebook',
+                target: 'openg7',
+                ordinal: 1,
+                state: 'waiting',
+                responsibility: 'platform',
+                reason: 'publication_scheduled',
+                deliveryId,
+                scheduledAt
+              }
+            ]
+          }
+        };
+        await page.addInitScript(
+          (locale) => localStorage.setItem('openg7.language', locale),
+          language
+        );
+        await page.setViewportSize({
+          width: language === 'en' ? 390 : 1280,
+          height: 1000
+        });
+        await page.goto(context.path('publication'));
+        const console = page.locator('[data-og7="publication-obligations"]');
+        await expect(console).toBeVisible();
+        await expect(
+          console.locator('[data-og7-id="synthetic-facebook-obligation"]')
+        ).toHaveAttribute('data-responsibility', 'platform');
+        await expect(console.locator('time')).toHaveAttribute(
+          'datetime',
+          scheduledAt
+        );
+        await expect(console).toContainText(
+          language === 'en'
+            ? 'Authorized publication date:'
+            : 'Date d’envoi autorisée :'
+        );
+        await expect(console).not.toContainText(
+          language === 'en' ? 'Proposed time:' : 'Créneau proposé :'
+        );
+        await expect(channel(page)).toHaveAttribute('data-state', 'scheduled');
+        const authorizedDate = channel(page).locator(
+          '[data-og7="publication-next-slot"]'
+        );
+        await expect(authorizedDate).toContainText(
+          language === 'en'
+            ? 'Authorized publication date:'
+            : 'Date d’envoi autorisée :'
+        );
+        await expect(authorizedDate).not.toContainText(
+          language === 'en' ? 'Proposed time:' : 'Créneau proposé :'
+        );
+        await expect(console).toContainText(
+          language === 'en'
+            ? 'automatic publication pending'
+            : 'envoi automatique à venir'
+        );
+        await expect(console.getByRole('button')).toHaveCount(0);
+        await expect(
+          console.locator('[data-og7="publication-obligation-proof"]')
+        ).toHaveCount(0);
+        expect(controls.commands).toEqual([]);
+        const violations = (
+          await new AxeBuilder({ page })
+            .include('[data-og7="publication-obligations"]')
+            .analyze()
+        ).violations;
+        expect(violations).toEqual([]);
+        await console.screenshot({
+          path: test.info().outputPath(`publication-console-${language}.png`)
+        });
+      });
+    }
+
+    test('publication console keeps an uncertain delivery actionable despite an existing qualified proof', async ({
+      page
+    }) => {
+      const { options, job, state, controls } = await fixtures(page, context);
+      job.mode = 'live';
+      job.status = 'uncertain';
+      job.externalPostUrl = 'https://example.invalid/uncertain-delivery';
+      state.feeds[0]!.paused = false;
+      const commitment = options.progressOverrides.commitment!;
+      const facebookId = commitment.obligations.find(
+        (item) => item.channel === 'facebook'
+      )!.id;
+      options.progressOverrides = {
+        ...options.progressOverrides,
+        commitment: {
+          ...commitment,
+          obligations: commitment.obligations.map((item) =>
+            item.id === facebookId
+              ? {
+                  ...item,
+                  state: 'fulfilled',
+                  fulfilmentEvidenceId: 'synthetic-existing-proof'
+                }
+              : item
+          )
+        },
+        qualifiedFulfilmentEvidenceIds: ['synthetic-existing-proof'],
+        fulfilmentEvidence: [
+          {
+            id: 'synthetic-existing-proof',
+            obligationId: facebookId,
+            deliveryId,
+            channel: 'facebook',
+            target: 'openg7',
+            provenance: 'provider_acknowledged',
+            deliveredAt: evaluatedAt,
+            externalPostUrl: 'https://example.invalid/retained-proof',
+            visibility: 'unknown',
+            visibilityObservedAt: null
+          }
+        ],
+        publicationWorkflow: {
+          state: 'uncertain',
+          responsibility: 'admin',
+          reason: 'publication_uncertain',
+          obligations: [
+            {
+              obligationId: facebookId,
+              channel: 'facebook',
+              target: 'openg7',
+              ordinal: 1,
+              state: 'uncertain',
+              responsibility: 'admin',
+              reason: 'publication_uncertain',
+              deliveryId,
+              scheduledAt
+            }
+          ]
+        }
+      };
+      await page.goto(context.path('publication'));
+      const card = channel(page);
+      await expect(card).toHaveAttribute('data-state', 'uncertain');
+      await expect(card).toContainText('Résultat à vérifier');
+      await expect(
+        card.getByRole('link', { name: 'Voir la publication' })
+      ).toHaveCount(0);
+      await expect(
+        card.locator('[data-og7="publication-review"]')
+      ).toHaveAccessibleName('Examiner le blocage');
+      const obligation = page.locator(
+        `[data-og7="publication-obligations"] [data-og7-id="${facebookId}"]`
+      );
+      await expect(obligation).toHaveAttribute('data-state', 'uncertain');
+      await expect(obligation).toContainText('vérifier avant toute relance');
+      await expect(
+        obligation.getByRole('link', { name: 'Voir la publication' })
+      ).toHaveAttribute('href', 'https://example.invalid/retained-proof');
+      await card.locator('[data-og7="publication-review"]').click();
+      await expect(
+        page.getByRole('dialog', { name: 'Publication finale' })
+      ).toContainText('Le résultat de cet envoi est incertain');
+      expect(controls.commands).toEqual([]);
+    });
+
+    test('publication console keeps legacy completion counts unconfirmed without qualified evidence', async ({
+      page
+    }) => {
+      const { options, job, controls } = await fixtures(page, context);
+      job.mode = 'live';
+      job.status = 'published';
+      job.externalPostUrl = 'https://example.invalid/legacy-declaration';
+      const commitment = options.progressOverrides.commitment!;
+      const obligations = commitment.obligations.map((item) => ({
+        ...item,
+        state: 'fulfilled' as const,
+        fulfilmentEvidenceId: 'synthetic-legacy-proof-' + item.id
+      }));
+      options.progressOverrides = {
+        ...options.progressOverrides,
+        commitment: { ...commitment, obligations },
+        publicationCompletion: { done: 3, total: 3 },
+        publicationBlockers: ['review'],
+        fulfilmentEvidence: obligations.map((item) => ({
+          id: item.fulfilmentEvidenceId,
+          obligationId: item.id,
+          deliveryId: item.channel === 'facebook' ? deliveryId : null,
+          channel: item.channel,
+          target: item.target,
+          provenance:
+            item.channel === 'website'
+              ? 'website_verified'
+              : 'provider_acknowledged',
+          deliveredAt: evaluatedAt,
+          externalPostUrl: job.externalPostUrl,
+          visibility: 'unknown',
+          visibilityObservedAt: null
+        }))
+      };
+      await page.goto(context.path('publication'));
+      await expect(page.locator('#publication-delivery-count')).toContainText(
+        '0 / 3'
+      );
+      await expect(
+        page.getByRole('progressbar', { name: /Contreparties livrées/ })
+      ).toHaveAttribute('value', '0');
+      await expect(
+        page.locator('[data-og7="publication-blockers"]')
+      ).toContainText('Vérifier et accepter le dossier');
+      await expect(channel(page)).toHaveAttribute('data-state', 'unverified');
+      await expect(
+        channel(page).getByRole('link', { name: 'Voir la publication' })
+      ).toHaveCount(0);
+      options.progressOverrides = {
+        ...options.progressOverrides,
+        commitment: {
+          ...commitment,
+          obligations: obligations.map((item) => ({
+            ...item,
+            state: 'adjusted',
+            fulfilmentEvidenceId: null
+          }))
+        },
+        publicationCompletion: { done: 0, total: 0 }
+      };
+      await page.reload();
+      await expect(page.locator('#publication-delivery-count')).toContainText(
+        '0 / 0'
+      );
+      await expect(
+        page.locator('[data-og7="publication-blockers"]')
+      ).toHaveCount(0);
+      await expect(
+        page.getByRole('progressbar', { name: /Contreparties livrées/ })
+      ).toHaveCount(0);
+      expect(controls.commands).toEqual([]);
+    });
+
+    test('publication console preserves the Facebook proof when LinkedIn fails or remains uncertain', async ({
+      page
+    }) => {
+      const { options, job, controls } = await fixtures(page, context);
+      job.mode = 'live';
+      job.status = 'published';
+      job.publishedAt = evaluatedAt;
+      const commitment = options.progressOverrides.commitment!;
+      const facebookId = commitment.obligations.find(
+        (item) => item.channel === 'facebook'
+      )!.id;
+      const linkedinId = commitment.obligations.find(
+        (item) => item.channel === 'linkedin'
+      )!.id;
+      options.progressOverrides = {
+        ...options.progressOverrides,
+        commitment: {
+          ...commitment,
+          obligations: commitment.obligations.map((item) =>
+            item.id === facebookId
+              ? {
+                  ...item,
+                  state: 'fulfilled',
+                  fulfilmentEvidenceId: 'synthetic-facebook-proof'
+                }
+              : item
+          )
+        },
+        qualifiedFulfilmentEvidenceIds: ['synthetic-facebook-proof'],
+        publicationCompletion: { done: 1, total: 3 },
+        fulfilmentEvidence: [
+          {
+            id: 'synthetic-facebook-proof',
+            obligationId: facebookId,
+            deliveryId,
+            channel: 'facebook',
+            target: 'openg7',
+            provenance: 'provider_acknowledged',
+            deliveredAt: evaluatedAt,
+            externalPostUrl: 'https://example.invalid/facebook-post',
+            visibility: 'unknown',
+            visibilityObservedAt: null
+          }
+        ],
+        publicationWorkflow: {
+          state: 'error',
+          responsibility: 'admin',
+          reason: 'publication_failed',
+          obligations: [
+            {
+              obligationId: facebookId,
+              channel: 'facebook',
+              target: 'openg7',
+              ordinal: 1,
+              state: 'complete',
+              responsibility: 'none',
+              reason: 'publication_done',
+              deliveryId,
+              scheduledAt
+            },
+            {
+              obligationId: linkedinId,
+              channel: 'linkedin',
+              target: 'openg7',
+              ordinal: 1,
+              state: 'error',
+              responsibility: 'admin',
+              reason: 'publication_failed',
+              deliveryId: null,
+              scheduledAt
+            }
+          ]
+        }
+      };
+      await page.goto(context.path('publication'));
+      const console = page.locator('[data-og7="publication-obligations"]');
+      const facebook = console.locator(`[data-og7-id="${facebookId}"]`);
+      const linkedin = console.locator(`[data-og7-id="${linkedinId}"]`);
+      await expect(facebook).toHaveAttribute('data-state', 'complete');
+      await expect(
+        facebook.getByRole('link', { name: 'Voir la publication' })
+      ).toHaveAttribute('href', 'https://example.invalid/facebook-post');
+      await expect(
+        facebook.locator('[data-og7="publication-obligation-proof"] time')
+      ).toHaveAttribute('datetime', evaluatedAt);
+      const detailedFacebook = page.locator(
+        `[data-og7="commitments-obligations"] [data-og7-id="${facebookId}"]`
+      );
+      await expect(detailedFacebook).toContainText('Réalisée avec preuve');
+      await expect(linkedin).toHaveAttribute('data-state', 'error');
+      await expect(
+        linkedin.locator('[data-og7="publication-obligation-proof"]')
+      ).toHaveCount(0);
+      await expect(page.locator('#publication-delivery-count')).toContainText(
+        '1 / 3'
+      );
+      options.progressOverrides = {
+        ...options.progressOverrides,
+        publicationWorkflow: {
+          ...options.progressOverrides.publicationWorkflow!,
+          state: 'uncertain',
+          reason: 'publication_uncertain',
+          obligations:
+            options.progressOverrides.publicationWorkflow!.obligations.map(
+              (item) =>
+                item.obligationId === linkedinId
+                  ? {
+                      ...item,
+                      state: 'uncertain',
+                      reason: 'publication_uncertain'
+                    }
+                  : item
+            )
+        }
+      };
+      await page.reload();
+      await expect(linkedin).toHaveAttribute('data-state', 'uncertain');
+      await expect(linkedin).toContainText('vérifier avant toute relance');
+      await expect(facebook.getByRole('link')).toHaveAttribute(
+        'href',
+        'https://example.invalid/facebook-post'
+      );
+      options.progressOverrides = {
+        ...options.progressOverrides,
+        qualifiedFulfilmentEvidenceIds: [],
+        publicationCompletion: { done: 0, total: 3 },
+        publicationWorkflow: {
+          ...options.progressOverrides.publicationWorkflow!,
+          state: 'blocked',
+          responsibility: 'admin',
+          reason: 'fulfilment_unverified',
+          obligations:
+            options.progressOverrides.publicationWorkflow!.obligations.map(
+              (item) =>
+                item.obligationId === facebookId
+                  ? {
+                      ...item,
+                      state: 'blocked',
+                      responsibility: 'admin',
+                      reason: 'fulfilment_unverified'
+                    }
+                  : item
+            )
+        }
+      };
+      await page.reload();
+      await expect(facebook).toHaveAttribute('data-state', 'blocked');
+      await expect(facebook).toContainText('Preuve de livraison à vérifier');
+      await expect(
+        facebook.locator('[data-og7="publication-obligation-proof"]')
+      ).toHaveCount(0);
+      await expect(facebook.getByRole('link')).toHaveCount(0);
+      await expect(channel(page)).toHaveAttribute('data-state', 'unverified');
+      await expect(detailedFacebook).toContainText(
+        'Déclaration historique · livraison non confirmée'
+      );
+      expect(controls.commands).toEqual([]);
+    });
+
     for (const [language, width] of [
       ['fr-CA', 1280],
       ['en', 390]
@@ -252,6 +658,9 @@ export function registerDossierPublicationScheduleTests(
         const slot = card.locator('[data-og7="publication-next-slot"]');
         await expect(slot).toContainText('10');
         await expect(slot).toContainText('Toronto');
+        await expect(slot).toContainText(
+          language === 'en' ? 'Proposed time:' : 'Créneau proposé :'
+        );
         await expect(slot.locator('time')).toHaveAttribute(
           'datetime',
           scheduledAt

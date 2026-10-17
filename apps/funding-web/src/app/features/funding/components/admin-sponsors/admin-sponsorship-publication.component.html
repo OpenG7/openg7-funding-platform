@@ -3,7 +3,7 @@
     <span class="eyebrow">{{
       'admin.dossier.publicationBridge.eyebrow' | translate
     }}</span>
-    <h3>{{ 'admin.dossier.publicationBridge.title' | translate }}</h3>
+    <h2>{{ 'admin.dossier.publicationBridge.title' | translate }}</h2>
     <p>{{ 'admin.dossier.publicationBridge.intro' | translate }}</p>
   </header>
   <openg7-admin-sponsorship-preparation
@@ -11,9 +11,9 @@
     [refreshKey]="dossier().version"
   />
   <section class="benefits" aria-labelledby="publication-benefits">
-    <h4 id="publication-benefits">
+    <h3 id="publication-benefits">
       {{ 'admin.dossier.publicationBridge.benefits' | translate }}
-    </h4>
+    </h3>
     @if (!benefitsKnown()) {
       <p>
         {{ 'admin.dossier.publicationBridge.commitmentUnknown' | translate }}
@@ -60,32 +60,23 @@
     @if (scheduling.notice()) {
       <p role="status">{{ scheduling.notice() | translate }}</p>
     }
-    @if (dossier().publicationCompletion; as completion) {
-      <div
-        class="completion"
-        [class.is-complete]="
-          completion.total > 0 && completion.done === completion.total
-        "
-      >
+    @if (publicationCompletion(); as completion) {
+      <div class="completion" [class.is-complete]="publicationComplete()">
         <span class="completion-icon" aria-hidden="true">
           <openg7-admin-icon
-            [name]="
-              completion.total > 0 && completion.done === completion.total
-                ? 'audit'
-                : 'clock'
-            "
+            [name]="publicationComplete() ? 'audit' : 'clock'"
           />
         </span>
         <div class="completion-copy">
           <span class="section-label">{{
             'admin.dossier.publicationBridge.deliveryTitle' | translate
           }}</span>
-          <h4 id="publication-delivery-count">
+          <h3 id="publication-delivery-count">
             {{
               'admin.dossier.publicationBridge.completion'
                 | translate: { done: completion.done, total: completion.total }
             }}
-          </h4>
+          </h3>
         </div>
         @if (completion.total > 0) {
           <progress
@@ -98,7 +89,7 @@
     }
     @if (blockers().length && !publicationComplete()) {
       <section class="blockers" data-og7="publication-blockers">
-        <h4>{{ 'admin.dossier.publicationBridge.blockers' | translate }}</h4>
+        <h3>{{ 'admin.dossier.publicationBridge.blockers' | translate }}</h3>
         <ul>
           @for (reason of blockers(); track reason) {
             <li>
@@ -119,6 +110,113 @@
         </ul>
       </section>
     }
+    @if (dossier().publicationWorkflow; as workflow) {
+      <section
+        class="obligation-console"
+        data-og7="publication-obligations"
+        aria-labelledby="publication-obligations-title"
+      >
+        <h3 id="publication-obligations-title">
+          {{
+            'admin.dossier.publicationBridge.schedule.workflow.title'
+              | translate
+          }}
+        </h3>
+        <p>
+          {{
+            'admin.dossier.publicationBridge.schedule.workflow.help' | translate
+          }}
+        </p>
+        <p data-og7="publication-next-responsibility" role="status">
+          {{
+            'admin.dossier.publicationBridge.schedule.workflow.responsibility.' +
+              workflow.responsibility | translate
+          }}
+          {{
+            'admin.dossier.publicationBridge.schedule.workflow.reason.' +
+              workflow.reason | translate
+          }}
+        </p>
+        <ul class="obligation-list">
+          @for (item of workflow.obligations; track item.obligationId) {
+            <li
+              [attr.data-og7-id]="item.obligationId"
+              [attr.data-state]="item.state"
+              [attr.data-responsibility]="item.responsibility"
+            >
+              <div class="obligation-heading">
+                <strong
+                  >{{
+                    'admin.commitments.channels.' + item.channel | translate
+                  }}
+                  · {{ item.target === 'openg20' ? 'OpenG20' : 'OpenG7' }} · #{{
+                    item.ordinal
+                  }}</strong
+                >
+                <span>{{
+                  'admin.dossier.publicationBridge.schedule.workflow.reason.' +
+                    item.reason | translate
+                }}</span>
+              </div>
+              <p>
+                {{
+                  'admin.dossier.publicationBridge.schedule.workflow.responsibility.' +
+                    item.responsibility | translate
+                }}
+              </p>
+              @if (evidence(item.obligationId); as proof) {
+                <p data-og7="publication-obligation-proof">
+                  {{
+                    'admin.dossier.publicationBridge.schedule.workflow.deliveredAt'
+                      | translate
+                  }}
+                  <time [attr.datetime]="proof.deliveredAt">{{
+                    date(proof.deliveredAt)
+                  }}</time>
+                </p>
+                @if (evidenceUrl(item.obligationId); as url) {
+                  <a
+                    class="admin-button"
+                    [href]="url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    >{{
+                      'admin.dossier.publicationBridge.viewPost' | translate
+                    }}</a
+                  >
+                }
+              } @else if (item.scheduledAt) {
+                <p>
+                  {{ publicationDateLabel(item.reason) | translate }}
+                  <time [attr.datetime]="item.scheduledAt">{{
+                    date(item.scheduledAt)
+                  }}</time>
+                  {{
+                    'admin.dossier.publicationBridge.schedule.timezone'
+                      | translate
+                  }}
+                </p>
+              }
+              @if (item.deliveryId && item.responsibility === 'admin') {
+                <button
+                  type="button"
+                  class="admin-button"
+                  [disabled]="scheduling.busy() || scheduling.loading()"
+                  (click)="scheduling.open(item.deliveryId)"
+                >
+                  {{
+                    (item.reason === 'publication_authorization_required'
+                      ? 'admin.dossier.publicationBridge.action.review'
+                      : 'admin.dossier.publicationBridge.action.resolve'
+                    ) | translate
+                  }}
+                </button>
+              }
+            </li>
+          }
+        </ul>
+      </section>
+    }
     <div class="channels">
       <article
         class="website-card"
@@ -130,9 +228,9 @@
             <span class="channel-icon"
               ><openg7-admin-icon name="publications"
             /></span>
-            <h4>
+            <h3>
               {{ 'admin.dossier.publicationBridge.site.title' | translate }}
-            </h4>
+            </h3>
           </div>
           <strong class="publication-state">{{
             'admin.dossier.publicationBridge.site.status.' + websiteState()
@@ -226,7 +324,7 @@
           [attr.data-state]="status(card.publication)"
         >
           <header>
-            <h4>
+            <h3>
               {{
                 card.channel === 'facebook'
                   ? 'Facebook'
@@ -234,7 +332,7 @@
                     ? 'LinkedIn'
                     : card.channel
               }}
-            </h4>
+            </h3>
             <span class="target">{{
               card.target === 'openg20' ? 'OpenG20' : 'OpenG7'
             }}</span>
@@ -259,7 +357,7 @@
               </p>
             } @else if (p.scheduledAt) {
               <p data-og7="publication-next-slot">
-                {{ 'admin.dossier.publicationBridge.proposedDate' | translate }}
+                {{ publicationDateLabel(p.deliveryStatus ?? '') | translate }}
                 <time [attr.datetime]="p.scheduledAt">{{
                   date(p.scheduledAt)
                 }}</time>
@@ -402,9 +500,9 @@
           ><openg7-admin-icon name="sponsors"
         /></span>
         <div>
-          <h4>
+          <h3>
             {{ 'admin.dossier.publicationBridge.socialTitle' | translate }}
-          </h4>
+          </h3>
           <p>
             {{
               (benefitsKnown()

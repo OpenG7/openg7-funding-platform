@@ -5,6 +5,11 @@ import type { Pool, PoolClient } from 'pg';
 import { listSponsorshipsForAttention } from '../fund-contributions.repository.js';
 import { listAdminPublicationDrafts } from '../fund-admin.repository.js';
 import { listSponsorMediaAssets } from '../sponsor-media.repository.js';
+import { loadSponsorshipProgressPublications } from '../sponsorship-progress.repository.js';
+import {
+  loadSponsorshipEvidenceFacts,
+  qualifiedSponsorshipEvidenceIds
+} from '../sponsorship-progress-evidence.js';
 
 import type { AttentionDataset } from './attention.service.js';
 
@@ -42,6 +47,14 @@ export const loadSponsorshipAssistantDataset = async (
     all: true,
     contributionId: record.contributionId
   });
+  const publications = await loadSponsorshipProgressPublications(
+    pool,
+    record.contributionId
+  );
+  const qualifiedFulfilmentEvidenceIds = qualifiedSponsorshipEvidenceIds(
+    record.commitment,
+    await loadSponsorshipEvidenceFacts(pool, record.contributionId)
+  );
   const recipient = details.rows[0]?.recipient?.trim() || null;
   const consent = details.rows[0]?.consent ?? false;
   const version = createHash('sha256')
@@ -58,6 +71,8 @@ export const loadSponsorshipAssistantDataset = async (
             asset.version
           ])
           .sort(),
+        publications,
+        qualifiedFulfilmentEvidenceIds,
         drafts: drafts.drafts
           .map((draft) => [draft.id, draft.status, draft.updated_at])
           .sort()
@@ -79,7 +94,16 @@ export const loadSponsorshipAssistantDataset = async (
       currency: record.currency
     }
   };
-  return { record, dataset, media, recipient, consent, version };
+  return {
+    record,
+    dataset,
+    media,
+    recipient,
+    consent,
+    version,
+    publications,
+    qualifiedFulfilmentEvidenceIds
+  };
 };
 
 export type SponsorshipAssistantDataset = NonNullable<

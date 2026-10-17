@@ -89,13 +89,6 @@ const mutations = [
     409
   ],
   [
-    'publication-slots/publish',
-    'publishAdminPublicationSlot',
-    { slotId: id },
-    'publication_slot.publish',
-    409
-  ],
-  [
     'publication-slots/cancel',
     'cancelAdminPublicationSlot',
     { slotId: id },
@@ -131,18 +124,24 @@ const mutations = [
     409
   ],
   [
-    'publication-batches/publish',
-    'publishAdminPublicationBatch',
-    { batchId: id },
-    'publication_batch.publish',
-    409
-  ],
-  [
     'publication-batches/cancel',
     'cancelAdminPublicationBatch',
     { batchId: id },
     'publication_batch.cancel',
     409
+  ]
+];
+const retiredPublications = [
+  ['publication-slots/publish', 'publishAdminPublicationSlot', { slotId: id }],
+  [
+    'publication-batches/publish',
+    'publishAdminPublicationBatch',
+    { batchId: id }
+  ],
+  [
+    'publication-batches/publish-social',
+    'publishSocialPublicationBatch',
+    { batchId: id }
   ]
 ];
 const reads = [
@@ -230,6 +229,8 @@ const fixture = ({ denied, role = 'operator', overrides = {} } = {}) => {
     dependencies[name] = record(name, { items: [name] });
   for (const [, name] of mutations)
     dependencies[name] = record(name, { updated: true, draft, slot, batch });
+  for (const [, name] of retiredPublications)
+    dependencies[name] = record(name, { updated: true, draft, slot, batch });
   const handlers = [
     createAdminPublicationDraftsHttpHandler(dependencies),
     createAdminPublicationSlotsHttpHandler(dependencies),
@@ -262,7 +263,7 @@ test('publication routes reject absent, forbidden and unavailable admin access b
   const routes = [
     ...reads.map(([path]) => [path, 'GET']),
     ...mutations.map(([path]) => [path, 'POST']),
-    ['publication-batches/publish-social', 'POST']
+    ...retiredPublications.map(([path]) => [path, 'POST'])
   ];
   for (const denied of [401, 403, 503]) {
     for (const [path, method] of routes) {
@@ -287,7 +288,7 @@ test('reader role may read publication state but cannot mutate it', async () => 
       200
     );
   }
-  for (const [path, , input] of mutations) {
+  for (const [path, , input] of [...mutations, ...retiredPublications]) {
     const f = fixture({ role: 'reader' });
     assert.equal(
       (await f.run(`/admin/${path}`, { method: 'POST', input })).status,
@@ -615,17 +616,32 @@ test('notification rejection remains a warning while an uncertain notification e
   assert.equal(uncertain.values('report').length, 1);
 });
 
-test('legacy social publish never bypasses final approval even with a confirmed payload', async () => {
+test('legacy publication declarations cannot bypass final approval or manufacture a successful delivery', async () => {
   for (const prefix of ['/admin/', '/api/admin/']) {
+    for (const [path, , input] of retiredPublications) {
+      const f = fixture();
+      const result = await f.run(prefix + path, {
+        method: 'POST',
+        input: { ...input, confirmation: id }
+      });
+      assert.equal(result.handled, true);
+      assert.equal(result.status, 409);
+      assert.equal(result.payload.code, 'FINAL_APPROVAL_REQUIRED');
+      assert.deepEqual(f.names(), ['access', 'json']);
+    }
     const f = fixture();
-    const result = await f.run(prefix + 'publication-batches/publish-social', {
+    const result = await f.run(prefix + 'publication-drafts/update', {
       method: 'POST',
-      input: { batchId: id, confirmation: id }
+      input: {
+        draftId: id,
+        status: 'published',
+        publicUrl: 'https://www.linkedin.com/feed/update/synthetic',
+        confirmation: id
+      }
     });
-    assert.equal(result.handled, true);
     assert.equal(result.status, 409);
     assert.equal(result.payload.code, 'FINAL_APPROVAL_REQUIRED');
-    assert.deepEqual(f.names(), ['access', 'json']);
+    assert.deepEqual(f.names(), ['access', 'body', 'json']);
   }
 });
 
