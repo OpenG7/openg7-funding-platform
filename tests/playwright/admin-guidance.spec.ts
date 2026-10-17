@@ -1461,8 +1461,9 @@ for (const language of ['fr-CA', 'en']) {
       await expectShownLandmarkUncovered(page);
       await hook(page, 'next').focus();
       await expect(hook(page, 'next')).toBeFocused();
-      // Chromium may clip a fraction of a CSS pixel inside the scrollable card.
-      await expect(hook(page, 'next')).toBeInViewport({ ratio: 0.99 });
+      // Chromium's rounded intersection can clip less than one CSS pixel of
+      // the 44px control inside the scrollable card (44 * 0.02 = 0.88px).
+      await expect(hook(page, 'next')).toBeInViewport({ ratio: 0.98 });
       await page.keyboard.press('Enter');
       await expectStep(page, 'choose');
       await expect(page.locator(highlighted)).toHaveCount(0);
@@ -1725,13 +1726,22 @@ for (const { width, concentrated, placement } of [
         const bottom = Math.min(innerHeight, frame.bottom, toolbar.top);
         const cardCrossesZone =
           rect.left < card.right && rect.right > card.left;
-        const availableHeight = cardCrossesZone
+        // The reveal algorithm reserves 12px at each viewport edge and another
+        // 12px beside the floating card. A zone that fits only without those
+        // margins uses the heading fallback; focus and hit testing still apply.
+        const readableTop = top + 12;
+        const readableBottom = bottom - 12;
+        const cardOverlapsSpace =
+          cardCrossesZone &&
+          card.bottom > readableTop &&
+          card.top < readableBottom;
+        const availableHeight = cardOverlapsSpace
           ? Math.max(
-              Math.min(bottom, card.top) - top,
-              bottom - Math.max(top, card.bottom)
+              Math.min(readableBottom, card.top - 12) - readableTop,
+              readableBottom - Math.max(readableTop, card.bottom + 12)
             )
-          : bottom - top;
-        const wholeZoneFits = rect.height + 16 <= availableHeight;
+          : readableBottom - readableTop;
+        const wholeZoneFits = rect.height <= availableHeight;
         const points = [
           {
             x: heading.left + heading.width / 2,
