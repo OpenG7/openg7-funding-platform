@@ -1,101 +1,102 @@
 @reference '../../../../../../styles/tailwind.css';
 
 :host {
-  @apply tw:block;
-}
-
-button,
-input {
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-}
-
-button:focus-visible,
-a:focus-visible,
-input:focus-visible {
-  outline: 3px solid var(--admin-focus);
-  outline-offset: 2px;
-}
-
-.secondary-danger-action {
-  @apply tw:items-center;
-  background: var(--admin-panel);
-  border: 1px solid var(--admin-border);
-  @apply tw:rounded-admin-sm tw:text-admin-danger tw:cursor-pointer tw:inline-flex;
-  font-weight: var(--admin-control-weight);
-  @apply tw:justify-center tw:min-h-10;
-  padding: 0 0.85rem;
-  text-decoration: none;
-}
-
-.secondary-danger-action:disabled {
-  @apply tw:cursor-not-allowed;
-  opacity: 0.55;
+  @apply tw:block tw:min-w-0;
+  container: admin-sponsor-logo / inline-size;
 }
 
 .detail-card {
+  @apply tw:grid tw:min-w-0 tw:gap-admin-card-gap tw:rounded-admin-card tw:p-admin-card;
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  @apply tw:rounded-lg tw:grid;
-  gap: 0.85rem;
-  @apply tw:p-4;
 }
 
-.detail-card h3 {
-  @apply tw:m-0;
+h3 {
+  margin: 0;
+  font-size: var(--admin-section-size, 1.1875rem);
+  font-weight: var(--admin-section-weight, 600);
+  line-height: var(--admin-section-leading, 1.4);
 }
 
-.muted-copy {
-  @apply tw:text-admin-muted;
-  margin: 0.35rem 0 0;
-}
-
-dt {
-  @apply tw:text-admin-muted tw:text-admin-caption;
-  font-weight: var(--admin-label-weight);
-  letter-spacing: 0;
-  @apply tw:uppercase;
-}
-
-dd {
-  margin: 0.15rem 0 0;
-  @apply tw:wrap-anywhere;
-}
-
-.compact-definition-list {
-  @apply tw:grid tw:gap-3 tw:m-0;
+.logo-details {
+  @apply tw:grid tw:items-center tw:min-w-0 tw:gap-4;
 }
 
 .logo-preview {
-  @apply tw:items-center;
-  background: var(--admin-panel-raised);
+  @apply tw:flex tw:items-center tw:justify-center tw:rounded-admin-control;
+  margin: 0;
+  width: min(100%, 12rem);
+  min-height: 8rem;
+  padding: 0.75rem;
+  background: var(--admin-subtle);
   border: 1px solid var(--admin-border);
-  border-radius: 0.35rem;
-  @apply tw:flex;
-  height: 4.5rem;
-  @apply tw:justify-center tw:overflow-hidden tw:w-32;
-}
-
-.large-preview {
-  @apply tw:h-32 tw:w-48;
 }
 
 .logo-preview img {
-  max-height: 100%;
-  @apply tw:max-w-full tw:object-contain;
+  display: block;
+  max-width: 100%;
+  max-height: 8rem;
+  object-fit: contain;
+}
+
+.compact-definition-list {
+  margin: 0;
+  min-width: 0;
+}
+
+dt,
+.muted-copy,
+.inline-status {
+  @apply tw:text-admin-muted tw:text-admin-caption;
+}
+
+dd {
+  margin: 0.3rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.empty-state {
+  @apply tw:grid tw:gap-2 tw:rounded-admin-control;
+  padding: 1rem;
+  background: var(--admin-subtle);
+  border: 1px dashed var(--admin-border);
+}
+
+p {
+  margin: 0;
+}
+
+.logo-upload {
+  @apply tw:grid tw:gap-3;
 }
 
 .logo-actions {
-  @apply tw:items-center tw:flex tw:flex-wrap tw:gap-3;
+  @apply tw:flex tw:flex-wrap tw:gap-3;
 }
 
-.logo-upload-control {
-  @apply tw:grid tw:text-admin-caption;
-  font-weight: var(--admin-label-weight);
-  gap: 0.35rem;
+.logo-actions .admin-button {
+  max-width: 100%;
+  white-space: normal;
 }
 
-.inline-status {
-  @apply tw:text-admin-muted;
+.secondary-danger-action:not(:disabled) {
+  color: var(--admin-danger);
+  border-color: var(--admin-danger-border);
+}
+
+.secondary-danger-action:not(:disabled):hover {
+  background: var(--admin-danger-bg);
+  border-color: var(--admin-danger);
+}
+
+@container admin-sponsor-logo (min-width: 32rem) {
+  .logo-details {
+    grid-template-columns: 12rem minmax(0, 1fr);
+  }
+}
+
+@container admin-sponsor-logo (max-width: 24rem) {
+  .logo-actions .admin-button {
+    flex: 1 1 100%;
+  }
 }

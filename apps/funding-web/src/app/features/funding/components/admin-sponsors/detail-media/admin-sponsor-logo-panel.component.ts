@@ -1,7 +1,7 @@
-import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   input,
   output
 } from '@angular/core';
@@ -12,7 +12,7 @@ import type { AdminSponsorDetailIdentityView } from '../../../models/admin-spons
 @Component({
   selector: 'openg7-admin-sponsor-logo-panel',
   standalone: true,
-  imports: [CommonModule, TranslatePipe],
+  imports: [TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-sponsor-logo-panel.component.html',
   styleUrls: [
@@ -24,6 +24,22 @@ import type { AdminSponsorDetailIdentityView } from '../../../models/admin-spons
 })
 export class AdminSponsorLogoPanelComponent {
   readonly identity = input.required<AdminSponsorDetailIdentityView>();
+  readonly disabled = input(false);
   readonly uploadLogo = output<Event>();
   readonly deleteLogo = output<void>();
+  readonly hasLogo = computed(() =>
+    Boolean(this.identity().logoPreviewSource || this.identity().logoUrl)
+  );
+
+  onUploadLogo(event: Event): void {
+    if (!this.disabled() && !this.identity().uploadDisabled) {
+      this.uploadLogo.emit(event);
+    }
+  }
+
+  onDeleteLogo(): void {
+    if (!this.disabled() && !this.identity().deleteDisabled && this.hasLogo()) {
+      this.deleteLogo.emit();
+    }
+  }
 }

@@ -5,95 +5,145 @@
   container: admin-sponsor-identity / inline-size;
 }
 
-section {
-  @apply tw:p-admin-card;
+.identity-layout {
+  display: grid;
+  gap: var(--admin-card-gap);
+  padding: 0 var(--admin-card-padding);
 }
+
+.profile-card {
+  min-width: 0;
+  padding: var(--admin-card-padding);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-card);
+  background: var(--admin-panel);
+}
+
 h3 {
   margin: 0;
+  font-family: var(--admin-heading-font-family);
   font-size: var(--admin-section-size);
   font-weight: var(--admin-section-weight);
 }
-.identity-heading {
-  @apply tw:flex tw:flex-wrap tw:items-center tw:justify-between tw:gap-3;
-  margin-bottom: 0.65rem;
-}
-.identity-heading button {
-  @apply tw:max-w-full tw:whitespace-normal;
+
+.identity-heading,
+.identity-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
 }
 
-h4 {
-  margin: 0 0 0.4rem;
-  font-size: 1rem;
+.identity-heading {
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.identity-heading button {
+  max-width: 100%;
+  white-space: normal;
+  text-align: start;
+}
+
+.identity-state {
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  background: var(--admin-warning-bg);
+  color: var(--admin-warning);
+  font-size: var(--admin-caption-size);
   font-weight: var(--admin-label-weight);
 }
 
-section > h4 {
-  margin-top: 1.75rem;
+.identity-state[data-state='complete'],
+.identity-state[data-state='submitted'] {
+  background: var(--admin-success-bg);
+  color: var(--admin-success);
 }
 
-p {
-  margin: 0 0 0.9rem;
-}
-
-[data-og7='identity-coordinates-status'],
-[data-og7='identity-submission-status'] {
-  @apply tw:text-admin-muted tw:text-admin-caption;
-}
-
+p,
 dl {
-  @apply tw:grid tw:gap-4;
-  row-gap: 0.75rem;
-  margin: 0.75rem 0;
+  margin: 0;
+}
+
+.identity-help,
+dt {
+  color: var(--admin-muted);
+  font-size: var(--admin-caption-size);
+}
+
+.identity-coordinates,
+.identity-explanation dl {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
 }
 
 .identity-coordinates > div {
-  @apply tw:min-w-0;
+  min-width: 0;
 }
-dt {
-  @apply tw:text-admin-muted tw:text-admin-caption;
-}
+
 dd {
   margin: 0.25rem 0 0;
-  @apply tw:wrap-anywhere;
+  overflow-wrap: anywhere;
   font-weight: 500;
 }
+
+.readonly-help,
+.submission-date {
+  margin-top: 1rem;
+}
+
 .identity-explanation {
-  margin-top: 1.5rem;
-  padding-top: 0.25rem;
+  margin-top: 1rem;
   border-top: 1px solid var(--admin-border);
 }
+
 .identity-explanation summary {
-  @apply tw:cursor-pointer tw:text-admin-accent tw:text-admin-caption tw:min-h-admin-control;
-  padding: 0.65rem 0;
+  min-height: var(--admin-control-height);
+  padding-block: 0.75rem;
+  color: var(--admin-accent);
+  font-size: var(--admin-caption-size);
   font-weight: var(--admin-control-weight);
+  cursor: pointer;
 }
+
 .identity-explanation summary:focus-visible {
   outline: 3px solid var(--admin-focus);
   outline-offset: 3px;
-}
-.identity-explanation dl {
-  margin: 0.5rem 0 0;
-}
-.identity-explanation dt {
-  font-weight: var(--admin-label-weight);
-  @apply tw:text-admin-text;
-}
-.identity-explanation dd {
-  font-weight: 400;
-  @apply tw:text-admin-caption;
-}
-.submission-required {
-  border-inline-start: 3px solid var(--admin-focus);
-  padding-inline-start: 0.75rem;
+  border-radius: var(--admin-radius-control);
 }
 
-@container admin-sponsor-identity (min-width: 30rem) {
+.identity-explanation dl {
+  margin-top: 0.25rem;
+}
+
+.identity-explanation dt {
+  color: var(--admin-text);
+  font-weight: var(--admin-label-weight);
+}
+
+.identity-explanation dd {
+  font-size: var(--admin-caption-size);
+  font-weight: 400;
+}
+
+.submission-required {
+  margin-block: 1rem;
+  padding: 0.75rem 1rem;
+  border-inline-start: 3px solid var(--admin-warning);
+  border-radius: var(--admin-radius-control);
+  background: var(--admin-warning-bg);
+  color: var(--admin-warning);
+  font-size: var(--admin-caption-size);
+}
+
+@container admin-sponsor-identity (min-width: 34rem) {
   .identity-coordinates {
-    @apply tw:grid-cols-2;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     column-gap: 1.5rem;
   }
 
   .identity-coordinates > div:last-child {
-    @apply tw:col-span-full;
+    grid-column: 1 / -1;
   }
 }

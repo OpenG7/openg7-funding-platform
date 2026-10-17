@@ -1,63 +1,101 @@
-<article class="detail-card">
-  <h3>{{ 'admin.legacy.logo_actuel' | translate }}</h3>
-  <figure
-    class="logo-preview large-preview"
-    *ngIf="identity().logoPreviewSource; else noLogoPreview"
-  >
-    <img
-      [src]="identity().logoPreviewSource"
-      [alt]="'Logo ' + (identity().companyName || 'commanditaire')"
-    />
-  </figure>
-  <ng-template #noLogoPreview
-    ><p class="muted-copy">
-      {{ 'admin.legacy.aucun_logo_disponible' | translate }}
-    </p></ng-template
-  >
-  <dl class="compact-definition-list">
-    <div>
-      <dt>{{ 'admin.legacy.url_du_logo' | translate }}</dt>
-      <dd>
-        <a
-          *ngIf="identity().logoUrl; else emptyLogoUrl"
-          [href]="identity().logoUrl"
-          target="_blank"
-          rel="noreferrer"
-          >{{ identity().logoUrl }}</a
-        ><ng-template #emptyLogoUrl>{{
-          'admin.legacy.non_fourni' | translate
-        }}</ng-template>
-      </dd>
+<article
+  class="detail-card"
+  data-og7="dossier-logo"
+  aria-labelledby="sponsor-logo-title"
+>
+  <h3 id="sponsor-logo-title">{{ 'admin.legacy.logo_actuel' | translate }}</h3>
+
+  @if (hasLogo()) {
+    <div class="logo-details">
+      <figure class="logo-preview">
+        @if (identity().logoPreviewSource) {
+          <img
+            [src]="identity().logoPreviewSource"
+            [alt]="
+              identity().companyName
+                ? ('admin.dossier.media.logoAlt'
+                  | translate: { name: identity().companyName })
+                : ('funding.followup.media.logo' | translate)
+            "
+          />
+        } @else {
+          <span class="muted-copy">{{
+            'funding.followup.media.previewUnavailable' | translate
+          }}</span>
+        }
+      </figure>
+      @if (identity().logoUrl) {
+        <dl class="compact-definition-list">
+          <div>
+            <dt>{{ 'admin.legacy.url_du_logo' | translate }}</dt>
+            <dd>
+              <a
+                class="admin-link"
+                [href]="identity().logoUrl"
+                target="_blank"
+                rel="noreferrer"
+                >{{ identity().logoUrl }}</a
+              >
+            </dd>
+          </div>
+        </dl>
+      }
     </div>
-    <div>
-      <dt>{{ 'admin.legacy.nom_public' | translate }}</dt>
-      <dd>{{ identity().publicNameLabel }}</dd>
+  } @else {
+    <div class="empty-state" data-og7="admin-sponsor-logo-empty">
+      <p>{{ 'admin.legacy.aucun_logo_disponible' | translate }}</p>
+      <p class="muted-copy">
+        {{ 'admin.dossier.media.logoEmptyHelp' | translate }}
+      </p>
     </div>
-    <div>
-      <dt>{{ 'admin.legacy.site_web_public' | translate }}</dt>
-      <dd>
-        {{ identity().websiteUrl || ('admin.legacy.non_fourni' | translate) }}
-      </dd>
-    </div>
-  </dl>
-  <div class="logo-actions">
-    <label class="logo-upload-control"
-      >{{ identity().logoActionLabel
-      }}<input
+  }
+
+  <div class="logo-upload">
+    <p class="muted-copy" id="sponsor-logo-formats">
+      {{
+        'admin.messages.formats_acceptes_png_jpeg_ou_webp_max_512_kib'
+          | translate
+      }}
+    </p>
+    <div class="logo-actions">
+      <input
+        #logoFile
         type="file"
+        hidden
         accept="image/png,image/jpeg,image/webp"
-        [disabled]="identity().uploadDisabled"
-        (change)="uploadLogo.emit($event)" /></label
-    ><button
-      type="button"
-      class="secondary-danger-action"
-      [disabled]="identity().deleteDisabled"
-      (click)="deleteLogo.emit()"
-    >
-      {{ 'admin.legacy.supprimer_le_logo' | translate }}
-    </button>
+        [disabled]="disabled() || identity().uploadDisabled"
+        (change)="onUploadLogo($event)"
+        data-og7="admin-sponsor-logo-file"
+      />
+      <button
+        type="button"
+        class="admin-button admin-button--primary"
+        aria-describedby="sponsor-logo-formats"
+        [disabled]="disabled() || identity().uploadDisabled"
+        (click)="logoFile.click()"
+        data-og7="admin-sponsor-logo-upload"
+      >
+        {{ identity().logoActionLabel }}
+      </button>
+      @if (hasLogo()) {
+        <button
+          type="button"
+          class="admin-button secondary-danger-action"
+          [disabled]="disabled() || identity().deleteDisabled"
+          (click)="onDeleteLogo()"
+          data-og7="admin-sponsor-logo-delete"
+        >
+          {{ 'admin.legacy.supprimer_le_logo' | translate }}
+        </button>
+      }
+    </div>
   </div>
-  <small class="inline-status" aria-live="polite">{{
-    identity().statusMessage
-  }}</small>
+  @if (
+    identity().statusMessage &&
+    identity().statusMessage !==
+      ('admin.messages.formats_acceptes_png_jpeg_ou_webp_max_512_kib'
+        | translate)
+  ) {
+    <p class="inline-status" role="status">{{ identity().statusMessage }}</p>
+  }
 </article>

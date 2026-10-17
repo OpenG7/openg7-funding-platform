@@ -40,6 +40,7 @@ import { AdminSponsorMediaCardComponent } from './detail-media/admin-sponsor-med
     >
       <openg7-admin-sponsor-logo-panel
         [identity]="identity()"
+        [disabled]="busy()"
         (uploadLogo)="uploadLogo.emit($event)"
         (deleteLogo)="deleteLogo.emit()"
       />
@@ -52,64 +53,75 @@ import { AdminSponsorMediaCardComponent } from './detail-media/admin-sponsor-med
         />
       }
 
-      <section class="media-review-panel" aria-labelledby="media-review-title">
+      <section
+        class="media-review-panel"
+        data-og7="media-review-panel"
+        aria-labelledby="media-review-title"
+      >
         <header>
           <div>
-            <span>{{
-              'admin.legacy.medias_du_commanditaire' | translate
-            }}</span>
             <h3 id="media-review-title">
               {{ 'admin.legacy.photos_en_revue' | translate }}
             </h3>
-          </div>
-          <div class="media-review-summary">
-            <p>
+            <p class="muted-copy">
               {{
                 'admin.legacy.chaque_fichier_reste_prive_jusqu_a_son_approbation_le_texte_alter'
                   | translate
               }}
             </p>
+          </div>
+          @if (identity().mediaAssets.length > 0) {
             <button
               type="button"
-              class="approve-all-action"
+              class="admin-button approve-all-action"
+              data-og7="admin-media-approve-all"
               [disabled]="
                 busy() ||
                 identity().approvableMediaCount === 0 ||
                 !allUsageReady()
               "
-              (click)="approveAllMedia.emit(pendingReviews())"
+              (click)="approveAll()"
             >
               {{ 'admin.legacy.tout_approuver' | translate }}
             </button>
-          </div>
+          }
         </header>
 
-        <p class="muted-copy" *ngIf="identity().mediaAssets.length === 0">
-          {{
-            'admin.legacy.aucun_media_televerse_par_le_commanditaire'
-              | translate
-          }}
-        </p>
+        @if (identity().mediaAssets.length === 0) {
+          <div class="empty-state" data-og7="admin-sponsor-photos-empty">
+            <p>
+              {{
+                'admin.legacy.aucun_media_televerse_par_le_commanditaire'
+                  | translate
+              }}
+            </p>
+            <p class="muted-copy">
+              {{ 'admin.dossier.media.photosEmptyHelp' | translate }}
+            </p>
+          </div>
+        } @else {
+          <div class="media-review-list">
+            <openg7-admin-sponsor-media-card
+              *ngFor="let asset of identity().mediaAssets; trackBy: trackAsset"
+              [asset]="asset"
+              [altText]="altTextFor(asset)"
+              [mediaBusy]="busy()"
+              (busyChange)="setUsageBusy(asset, $event)"
+              (restrictionsChange)="setRestrictions(asset, $event)"
+              (altTextChange)="setAltText(asset, $event)"
+              (previewMedia)="previewMedia.emit($event)"
+              (reviewMedia)="reviewMedia.emit($event)"
+              (deleteMedia)="deleteMedia.emit($event)"
+              (moderationChanged)="moderationChanged.emit()"
+            />
+          </div>
+        }
 
-        <div class="media-review-list">
-          <openg7-admin-sponsor-media-card
-            *ngFor="let asset of identity().mediaAssets; trackBy: trackAsset"
-            [asset]="asset"
-            [altText]="altTextFor(asset)"
-            [mediaBusy]="busy()"
-            (busyChange)="setUsageBusy(asset, $event)"
-            (restrictionsChange)="setRestrictions(asset, $event)"
-            (altTextChange)="setAltText(asset, $event)"
-            (previewMedia)="previewMedia.emit($event)"
-            (reviewMedia)="reviewMedia.emit($event)"
-            (deleteMedia)="deleteMedia.emit($event)"
-            (moderationChanged)="moderationChanged.emit()"
-          />
-        </div>
-
-        <small class="inline-status" aria-live="polite">{{
-          identity().mediaMessage
-        }}</small>
+        @if (identity().mediaMessage) {
+          <p class="inline-status" role="status">
+            {{ identity().mediaMessage }}
+          </p>
+        }
       </section>
     </section>
   `,
@@ -168,6 +180,15 @@ export class AdminSponsorDetailMediaComponent {
   );
   setUsageBusy(asset: AdminSponsorMediaAssetView, value: boolean): void {
     this.usageBusy.update((state) => ({ ...state, [asset.id]: value }));
+  }
+  approveAll(): void {
+    if (
+      !this.busy() &&
+      this.identity().approvableMediaCount > 0 &&
+      this.allUsageReady()
+    ) {
+      this.approveAllMedia.emit(this.pendingReviews());
+    }
   }
   setRestrictions(asset: AdminSponsorMediaAssetView, value: boolean): void {
     this.restrictions.update((state) => ({

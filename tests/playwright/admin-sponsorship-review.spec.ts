@@ -302,7 +302,7 @@ test.describe('Docker admin sponsorship review', () => {
     // only when isFullRefund). Read the isolated "Paiement" definition inside
     // the "Commandite" card rather than substring-checking the whole row: the
     // row's flattened text also contains the unrelated refund *workflow*
-    // status ("Remboursement complete"), which itself contains the substring
+    // status ("Remboursement terminé"), which itself contains the substring
     // "Rembourse" and would make a naive not.toContainText('Rembourse') fail
     // even though the payment status is correctly still "Paye". The sidebar
     // search filter also has its own "Paye"/"Rembourse" <option> text, which
@@ -384,7 +384,7 @@ test.describe('Docker admin sponsorship review', () => {
       header.getByRole('heading', { name: fixture.companyName, exact: true })
     ).toBeVisible();
     await expect(
-      header.getByText('Remboursement complete', { exact: true })
+      header.getByText('Remboursement terminé', { exact: true })
     ).toBeVisible();
   });
 
@@ -399,7 +399,7 @@ test.describe('Docker admin sponsorship review', () => {
       .click();
     const media = page.locator('openg7-admin-sponsor-detail-media');
 
-    // The upload control is a <label> wrapping the file input, not a button.
+    // The upload button opens the hidden file input used by this fixture.
     await expect(media.getByText('Televerser un logo')).toBeVisible();
 
     // The API detects the file type from magic bytes, not the declared MIME
@@ -417,7 +417,7 @@ test.describe('Docker admin sponsorship review', () => {
 
     await expect(media.getByText(/Logo enregistre/i)).toBeVisible();
     await expect(
-      media.getByRole('img', { name: `Logo ${fixture.companyName}` })
+      media.getByRole('img', { name: `Logo de ${fixture.companyName}` })
     ).toBeVisible();
     await expect(media.getByText('Remplacer le logo')).toBeVisible();
 

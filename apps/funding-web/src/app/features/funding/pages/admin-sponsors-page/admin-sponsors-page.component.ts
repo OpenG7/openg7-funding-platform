@@ -56,6 +56,8 @@ import {
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import enPublication from '../../../../../assets/i18n/admin-publication-schedule.en.json' with { type: 'json' };
 import frPublication from '../../../../../assets/i18n/admin-publication-schedule.fr-CA.json' with { type: 'json' };
+import enProfile from '../../../../../assets/i18n/admin-sponsor-profile.en.json' with { type: 'json' };
+import frProfile from '../../../../../assets/i18n/admin-sponsor-profile.fr-CA.json' with { type: 'json' };
 import enHistory from '../../../../../assets/i18n/admin-history.en.json' with { type: 'json' };
 import frHistory from '../../../../../assets/i18n/admin-history.fr-CA.json' with { type: 'json' };
 import { AdminSponsorDetailMediaComponent } from '../../components/admin-sponsors/admin-sponsor-detail-media.component.js';
@@ -535,6 +537,7 @@ export class AdminSponsorsPageComponent implements OnInit {
         );
         this.i18n.mergeTranslations(language, {
           admin: {
+            dossier: language === 'en' ? enProfile : frProfile,
             history: language === 'en' ? enHistory : frHistory
           }
         });
