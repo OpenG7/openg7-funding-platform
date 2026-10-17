@@ -918,6 +918,8 @@
       "approvedConsent": "Approuvés avec consentement",
       "current": "Commandite en cours",
       "progress": "Progression du dossier",
+      "stateSummary": "État du dossier",
+      "resolvedSteps": "{{completed}} sur {{total}} étapes réglées",
       "guide": {
         "title": "Guide pas à pas du dossier",
         "intro": "Suivez l’étape recommandée ou parcourez les autres étapes. Parcourir le guide ne valide aucune étape ; les états sont actualisés après les actions enregistrées.",

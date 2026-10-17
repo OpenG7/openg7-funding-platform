@@ -918,6 +918,8 @@
       "approvedConsent": "Approved with consent",
       "current": "Current sponsorship",
       "progress": "Dossier progress",
+      "stateSummary": "Dossier status",
+      "resolvedSteps": "{{completed}} of {{total}} steps resolved",
       "guide": {
         "title": "Step-by-step dossier guide",
         "intro": "Follow the recommended step or browse the other steps. Browsing the guide does not complete a step; statuses refresh after recorded actions.",

@@ -124,6 +124,16 @@
             <div class="dossier-neighbours">
               <button
                 type="button"
+                data-og7="dossier-refresh"
+                [disabled]="state() === 'loading' || actionState() !== null"
+                (click)="loadSponsorships(true)"
+                [attr.aria-label]="'admin.dossier.refresh' | translate"
+                [title]="'admin.dossier.refresh' | translate"
+              >
+                <openg7-admin-icon name="refresh" />
+              </button>
+              <button
+                type="button"
                 [disabled]="!adjacentDossier(-1)"
                 (click)="openAdjacentDossier(-1)"
                 [attr.aria-label]="
@@ -181,14 +191,13 @@
           <div class="dossier-content-grid">
             <div class="dossier-main" data-og7="dossier-main">
               <openg7-admin-sponsorship-progress
+                [hidden]="activeTab() !== 'overview' && !!progress()"
                 [sponsorshipId]="selected.id"
                 [streamlined]="true"
                 [showNextStep]="false"
-                [activeTab]="activeTab()"
                 [refreshKey]="assistantRefresh()"
                 [disabled]="actionState() !== null || state() === 'loading'"
                 (loaded)="progress.set($event)"
-                (refreshRequested)="loadSponsorships(true)"
               />
               <openg7-admin-sponsorship-interventions
                 [hidden]="activeTab() !== 'audit' && activeTab() !== 'refund'"

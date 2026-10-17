@@ -39,6 +39,7 @@
   @apply tw:flex tw:items-center tw:justify-between tw:gap-3;
 }
 .dossier-toolbar {
+  flex-wrap: wrap;
   padding: 0.35rem var(--admin-card-padding);
   border-bottom: 1px solid var(--admin-border);
 }
@@ -65,6 +66,12 @@
 .dossier-toolbar button:disabled {
   opacity: 0.4;
   @apply tw:cursor-default;
+}
+.dossier-toolbar .workspace-back {
+  flex: 1 1 8rem;
+  min-width: 0;
+  justify-content: flex-start;
+  text-align: start;
 }
 .dossier-toolbar button:focus-visible,
 .dossier-access > summary:focus-visible {
