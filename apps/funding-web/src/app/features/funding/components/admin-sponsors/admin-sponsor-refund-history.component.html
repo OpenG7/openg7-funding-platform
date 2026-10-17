@@ -118,6 +118,22 @@
               }}</time>
               <p class="history-title">{{ entry.label }}</p>
               <small *ngIf="entry.detail">{{ entry.detail }}</small>
+              @if (entry.actorLabel) {
+                @if (entry.actorDetail) {
+                  <details class="history-actor">
+                    <summary>
+                      {{ 'admin.inspector.fields.actor' | translate }} :
+                      {{ entry.actorLabel }}
+                    </summary>
+                    <code>{{ entry.actorDetail }}</code>
+                  </details>
+                } @else {
+                  <p class="history-actor">
+                    {{ 'admin.inspector.fields.actor' | translate }} :
+                    {{ entry.actorLabel }}
+                  </p>
+                }
+              }
             </li>
           }
         </ol>

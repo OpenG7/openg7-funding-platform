@@ -124,10 +124,12 @@ test(
 import {createServer} from 'node:http';
 createServer(async (req,res)=>{
   if(req.url==='/health'){res.end('ok');return;}
-  if(req.headers.authorization!=='Bearer synthetic-proxy-test'){
-    res.writeHead(401);res.end('Synthetic API authorization required');req.resume();return;
-  }
+  // Drain the fixture body before closing an upstream connection on rejection.
+  // Otherwise an early 401 can race Nginx's buffered upload and become a 502.
   let bytes=0;for await(const chunk of req)bytes+=chunk.length;
+  if(req.headers.authorization!=='Bearer synthetic-proxy-test'){
+    res.writeHead(401);res.end('Synthetic API authorization required');return;
+  }
   res.writeHead(200,{'Content-Type':'application/json'});
   res.end(JSON.stringify({bytes,path:req.url,authorizationChecked:true}));
 }).listen(3333,'0.0.0.0');

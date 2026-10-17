@@ -29,39 +29,64 @@ import { sponsorMediaMutationRejection } from '../../models/sponsor-media-mutati
   imports: [TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <section data-og7="admin-media-preference" [attr.aria-busy]="busy()">
-      <h4>{{ 'funding.followup.media.usage.preferenceTitle' | translate }}</h4>
-      <p>{{ 'funding.followup.media.usage.preferenceSeparate' | translate }}</p>
+    <section
+      class="preference-panel"
+      data-og7="admin-media-preference"
+      [attr.aria-busy]="busy()"
+      [attr.aria-labelledby]="
+        'admin-media-preference-title-' + contributionId()
+      "
+    >
+      <header>
+        <h3 [id]="'admin-media-preference-title-' + contributionId()">
+          {{ 'funding.followup.media.usage.preferenceTitle' | translate }}
+        </h3>
+        <p class="help-copy">
+          {{ 'funding.followup.media.usage.preferenceSeparate' | translate }}
+        </p>
+      </header>
       @if (preference(); as item) {
         @if (item.state !== 'none') {
-          <p>
+          <p
+            class="preference-state"
+            [class.preference-state--accepted]="item.state === 'accepted'"
+            [class.preference-state--rejected]="item.state === 'rejected'"
+          >
             {{
               'funding.followup.media.usage.preferenceStates.' + item.state
                 | translate
             }}
           </p>
-        }
-        @if (item.preferredAssetId) {
-          <p>
-            {{ 'funding.followup.media.usage.preferred' | translate }} ·
-            {{ item.preferredAssetId }}
+        } @else {
+          <p class="help-copy" data-og7="admin-media-preference-empty">
+            {{ 'admin.dossier.media.preferenceEmpty' | translate }}
           </p>
         }
-        @if (item.correction) {
-          <p>{{ item.correction }}</p>
+        @if (item.preferredAssetId) {
+          <dl class="preference-photo">
+            <div>
+              <dt>
+                {{ 'funding.followup.media.usage.preferred' | translate }}
+              </dt>
+              <dd>{{ item.preferredAssetId }}</dd>
+            </div>
+          </dl>
         }
-        @if (!item.available) {
-          <p>
+        @if (item.correction) {
+          <p class="request-copy">{{ item.correction }}</p>
+        }
+        @if (item.state !== 'none' && !item.available) {
+          <p class="preference-unavailable">
             {{
               'funding.followup.media.usage.preferenceUnavailable' | translate
             }}
           </p>
         }
         @if (item.sponsorExplanation) {
-          <p>{{ item.sponsorExplanation }}</p>
+          <p class="request-copy">{{ item.sponsorExplanation }}</p>
         }
         @if (item.state === 'pending' && canWrite()) {
-          <label
+          <label class="explanation-field"
             >{{ 'funding.followup.media.usage.externalExplanation' | translate
             }}<textarea
               rows="3"
@@ -72,43 +97,51 @@ import { sponsorMediaMutationRejection } from '../../models/sponsor-media-mutati
               [disabled]="disabled() || busy()"
             ></textarea>
           </label>
-          <label
+          <label class="confirmation-field"
             ><input
               type="checkbox"
               [checked]="confirmed()"
               (change)="confirmed.set($any($event.target).checked)"
               [disabled]="disabled() || busy()"
               data-og7="admin-media-preference-confirmation"
-            />{{
+            /><span>{{
               'funding.followup.media.usage.preferenceConfirmation' | translate
-            }}</label
+            }}</span></label
           >
-          <button
-            type="button"
-            [disabled]="!canDecide() || !item.available"
-            (click)="decide('accepted')"
-            data-og7="admin-media-preference-accept"
-          >
-            {{ 'funding.followup.media.usage.acceptPreference' | translate }}
-          </button>
-          <button
-            type="button"
-            [disabled]="!canDecide()"
-            (click)="decide('rejected')"
-            data-og7="admin-media-preference-reject"
-          >
-            {{ 'funding.followup.media.usage.rejectPreference' | translate }}
-          </button>
+          <div class="preference-actions">
+            <button
+              type="button"
+              class="admin-button admin-button--primary"
+              [disabled]="!canDecide() || !item.available"
+              (click)="decide('accepted')"
+              data-og7="admin-media-preference-accept"
+            >
+              {{ 'funding.followup.media.usage.acceptPreference' | translate }}
+            </button>
+            <button
+              type="button"
+              class="admin-button preference-reject"
+              [disabled]="!canDecide()"
+              (click)="decide('rejected')"
+              data-og7="admin-media-preference-reject"
+            >
+              {{ 'funding.followup.media.usage.rejectPreference' | translate }}
+            </button>
+          </div>
         }
       }
       @if (notice()) {
-        <p role="status">
+        <p
+          class="preference-notice"
+          [attr.role]="notice() === 'preferenceReviewed' ? 'status' : 'alert'"
+        >
           {{ 'funding.followup.media.usage.' + notice() | translate }}
         </p>
       }
       @if (pending()) {
         <button
           type="button"
+          class="admin-button"
           [disabled]="disabled() || busy()"
           (click)="retry()"
           data-og7="admin-media-preference-retry"
@@ -117,8 +150,10 @@ import { sponsorMediaMutationRejection } from '../../models/sponsor-media-mutati
         </button>
       }
       @if (loadFailed()) {
+        <p role="alert">{{ 'admin.dossier.unavailable' | translate }}</p>
         <button
           type="button"
+          class="admin-button"
           [disabled]="disabled() || busy()"
           (click)="refresh()"
         >
@@ -126,7 +161,13 @@ import { sponsorMediaMutationRejection } from '../../models/sponsor-media-mutati
         </button>
       }
     </section>
-  `
+  `,
+  styleUrls: [
+    '../admin-ui/admin-theme.css',
+    '../admin-ui/admin-controls.css',
+    '../admin-ui/admin-forms.css',
+    './admin-sponsor-media-preference.component.css'
+  ]
 })
 export class AdminSponsorMediaPreferenceComponent implements OnDestroy {
   readonly contributionId = input.required<string>();

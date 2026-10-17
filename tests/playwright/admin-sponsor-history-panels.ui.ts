@@ -19,6 +19,8 @@ interface HistoryPanelTestContext {
 
 const id = '10000000-0000-4000-8000-000000000401';
 const date = '2026-09-16T14:00:00Z';
+const hostile = '<img src=x onerror="alert(1)">';
+const actorReference = `admin:synthetic-${'reference'.repeat(28)}${hostile}`;
 
 /** Uses the page suite's synthetic fixtures without creating financial effects. */
 export function registerSponsorHistoryPanelTests({
@@ -49,7 +51,7 @@ export function registerSponsorHistoryPanelTests({
         admin_audit_entries: [
           {
             id: 'synthetic-refund-audit',
-            actor: 'Synthetic history operator',
+            actor: actorReference,
             action: 'sponsorship_refund.stripe_partial',
             entity_type: 'contribution',
             entity_id: id,
@@ -94,9 +96,16 @@ export function registerSponsorHistoryPanelTests({
       await expect(history).toContainText('Second line');
       await expect(history).toContainText('Synthetic document error');
       await expect(history).toContainText(english ? '125.25' : '125,25');
-      const milestones = history.locator(
-        '[data-og7="dossier-refund-timeline"] li'
+      const milestoneList = history.getByRole('list', {
+        name: english ? 'Refund milestones' : 'Jalons du remboursement',
+        exact: true
+      });
+      await expect(milestoneList).toHaveAttribute(
+        'data-og7',
+        'dossier-refund-timeline'
       );
+      await expect(milestoneList).toHaveAttribute('role', 'list');
+      const milestones = milestoneList.locator('li');
       await expect(milestones).toHaveCount(3);
       expect(
         await milestones.evaluateAll((entries) =>
@@ -107,13 +116,55 @@ export function registerSponsorHistoryPanelTests({
         `${id}:refund-processing`,
         `${id}:refund-completed`
       ]);
-      const events = history.locator('[data-og7="dossier-refund-audit"] li');
+      expect(
+        await milestones
+          .locator('time')
+          .evaluateAll((times) =>
+            times.map((time) => time.getAttribute('datetime'))
+          )
+      ).toEqual(['2026-09-14T14:00:00Z', '2026-09-15T14:00:00Z', date]);
+      const auditList = history.getByRole('list', {
+        name: english
+          ? 'Related admin actions'
+          : 'Actions administratives liées',
+        exact: true
+      });
+      await expect(auditList).toHaveAttribute(
+        'data-og7',
+        'dossier-refund-audit'
+      );
+      await expect(auditList).toHaveAttribute('role', 'list');
+      const events = auditList.locator('li');
       await expect(events).toHaveCount(1);
       await expect(events.first()).toHaveAttribute(
         'data-og7-id',
         'synthetic-refund-audit'
       );
-      await expect(events).toContainText('Synthetic history operator');
+      const disclosure = events.locator('details');
+      await expect(disclosure).not.toHaveAttribute('open', '');
+      const actorCode = disclosure.locator('code');
+      await expect(actorCode).not.toBeVisible();
+      const actorSummary = disclosure.locator('summary');
+      await expect(actorSummary).toContainText(english ? 'Actor' : 'Acteur');
+      await expect(actorSummary).not.toContainText(actorReference);
+      await actorSummary.focus();
+      await actorSummary.press('Enter');
+      await expect(actorCode).toBeVisible();
+      await expect(actorCode).toHaveText(actorReference);
+      await expect(history.locator('img, script, [onerror]')).toHaveCount(0);
+      const historyWidth = await history.evaluate((element) => ({
+        scrollWidth: element.scrollWidth,
+        clientWidth: element.clientWidth
+      }));
+      expect(
+        historyWidth.scrollWidth,
+        `Refund history width: scrollWidth=${historyWidth.scrollWidth}px, clientWidth=${historyWidth.clientWidth}px`
+      ).toBeLessThanOrEqual(historyWidth.clientWidth + 1);
+      await history.screenshot({
+        path: `test-results/admin-refund-history-${locale}-${width}.png`
+      });
+      await actorSummary.press('Space');
+      await expect(actorCode).not.toBeVisible();
       await expect(history.locator('button, input, textarea')).toHaveCount(0);
       await expect(page.locator('#dossier-billing')).toContainText(
         'FAC-DEMO-401'
@@ -143,13 +194,23 @@ export function registerSponsorHistoryPanelTests({
         admin_audit_entries: [
           {
             id: 'synthetic-history-inspection',
-            actor: 'Synthetic audit reader',
+            actor: actorReference,
             action: 'synthetic.history.inspection',
             entity_type: 'contribution',
             entity_id: id,
-            summary: 'Synthetic inspected history',
+            summary: `Synthetic inspected history ${hostile}`,
             metadata: {},
-            created_at: date
+            created_at: '2026-09-18T14:00:00Z'
+          },
+          {
+            id: 'synthetic-readable-actor',
+            actor: 'Synthetic audit reader',
+            action: 'synthetic.history.readable',
+            entity_type: 'contribution',
+            entity_id: id,
+            summary: 'Synthetic readable actor history',
+            metadata: {},
+            created_at: '2026-09-17T14:00:00Z'
           }
         ]
       });
@@ -164,19 +225,91 @@ export function registerSponsorHistoryPanelTests({
           .click();
       const history = page.locator('[data-og7="dossier-audit-history"]');
       await expect(history).toContainText('Synthetic inspected history');
+      const events = history.getByRole('list', {
+        name: english ? 'Available history' : 'Historique disponible',
+        exact: true
+      });
+      await expect(events).toHaveAttribute('data-og7', 'dossier-audit-events');
+      await expect(events).toHaveAttribute('role', 'list');
+      await expect(events.locator('li')).toHaveCount(5);
+      const summary = history.locator('[data-og7="dossier-audit-summary"]');
+      await expect(summary).toContainText(
+        english ? '5 events' : '5 événements'
+      );
+      await expect(summary).toContainText(
+        english ? 'Newest first' : 'Du plus récent au plus ancien'
+      );
+      await expect(history).toContainText(
+        english
+          ? 'Dossier milestones and latest available administrative actions.'
+          : 'Jalons du dossier et dernières actions administratives disponibles.'
+      );
+      const technicalEvent = events.locator(
+        '[data-og7-id="synthetic-history-inspection"]'
+      );
+      await expect(events.locator('li').first()).toHaveAttribute(
+        'data-og7-id',
+        'synthetic-history-inspection'
+      );
+      await expect(technicalEvent.locator('time')).toHaveAttribute(
+        'datetime',
+        '2026-09-18T14:00:00Z'
+      );
+      await expect(technicalEvent.locator('small')).toContainText(hostile);
+      const actorDisclosure = technicalEvent.locator('details');
+      const actorSummary = actorDisclosure.locator('summary');
+      const actorCode = actorDisclosure.locator('code');
+      await expect(actorCode).not.toBeVisible();
+      await expect(actorSummary).toContainText(english ? 'Actor' : 'Acteur');
+      await expect(actorSummary).not.toContainText(actorReference);
+      await actorSummary.focus();
+      await actorSummary.press('Enter');
+      await expect(actorCode).toHaveText(actorReference);
+      await expect(actorCode).toBeVisible();
+      expect(
+        await history.evaluate(
+          (element) => element.scrollWidth <= element.clientWidth + 1
+        )
+      ).toBe(true);
+      await history.screenshot({
+        path: `test-results/admin-history-${locale}-${width}.png`
+      });
+      await actorSummary.press('Space');
+      await expect(actorCode).not.toBeVisible();
+      const readableEvent = events.locator(
+        '[data-og7-id="synthetic-readable-actor"]'
+      );
+      await expect(readableEvent).toContainText('Synthetic audit reader');
+      await expect(readableEvent.locator('details')).toHaveCount(0);
+      await expect(history.locator('img, script, [onerror]')).toHaveCount(0);
       const anchor = page.locator('#dossier-audit');
       await anchor.focus();
       await expect(anchor).toBeFocused();
       const opener = history.getByRole('button', {
-        name: english ? 'Dossier history' : 'Historique du dossier',
+        name: english ? 'View audit log' : 'Consulter le journal',
         exact: true
       });
+      const controlSize = await opener.boundingBox();
+      expect(controlSize?.height).toBeGreaterThanOrEqual(44);
       await opener.focus();
       await opener.press('Enter');
       const inspection = page.locator('dialog[open]');
       await expect(inspection).toContainText('Synthetic inspected history');
       await expect(inspection).toContainText('Synthetic audit reader');
       await expect(inspection).toContainText(id);
+      await expect(inspection.locator('time').first()).toHaveAttribute(
+        'datetime',
+        '2026-09-18T14:00:00Z'
+      );
+      await expect(inspection.locator('time').first()).not.toHaveText(
+        '2026-09-18T14:00:00Z'
+      );
+      await expect(inspection.locator('img, script, [onerror]')).toHaveCount(0);
+      expect(
+        await inspection.evaluate(
+          (element) => element.scrollWidth <= element.clientWidth + 1
+        )
+      ).toBe(true);
       await page.keyboard.press('Escape');
       await expect(inspection).toHaveCount(0);
       await expect(opener).toBeFocused();

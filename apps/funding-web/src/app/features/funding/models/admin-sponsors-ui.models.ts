@@ -29,6 +29,8 @@ export interface AdminSponsorHistoryEntryView {
   readonly dateTimeLabel: string;
   readonly label: string;
   readonly detail?: string;
+  readonly actorLabel?: string;
+  readonly actorDetail?: string;
   readonly stateClass?: string;
 }
 

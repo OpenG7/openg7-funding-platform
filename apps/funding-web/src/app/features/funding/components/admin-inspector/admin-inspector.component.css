@@ -23,16 +23,9 @@ img {
   @apply tw:object-contain;
   margin: 1rem auto;
 }
-ol {
-  padding-left: 1.2rem;
-}
-li {
-  padding: 0.5rem 0;
+ul li {
+  padding-block: 0.5rem;
   @apply tw:wrap-anywhere;
-}
-
-time {
-  @apply tw:text-admin-muted;
 }
 footer {
   @apply tw:flex tw:flex-wrap tw:gap-3;

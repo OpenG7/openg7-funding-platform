@@ -16,6 +16,8 @@ import { expectAdminFontsReady } from './support/admin-fonts.js';
 import { moderationFixture, completeModeration } from './support/moderation.js';
 import { registerSponsorHistoryPanelTests } from './admin-sponsor-history-panels.ui.js';
 import { registerSponsorFinanceTests } from './admin-sponsor-finance.ui.js';
+import { registerSponsorProfileTests } from './admin-sponsor-profile.ui.js';
+import { registerSponsorInterventionTests } from './admin-sponsor-interventions.ui.js';
 import { registerSponsorFiltersTests } from './admin-sponsors-filters.ui.js';
 import { registerSponsorResultsTests } from './admin-sponsors-results.ui.js';
 import { registerContributionActivityOverlayTests } from './contribution-activity-overlays.ui.js';
@@ -579,6 +581,8 @@ const dossierNext = (page: Page) =>
 
 registerSponsorHistoryPanelTests({ fixtures, path, tabs });
 registerSponsorFinanceTests({ fixtures, path });
+registerSponsorProfileTests({ fixtures, path, asset: () => mediaAsset() });
+registerSponsorInterventionTests({ fixtures, path, id, date });
 registerAdminMediaUsageTests({ fixtures, path, asset: () => mediaAsset() });
 registerSponsorshipCommitmentTests({ fixtures, path });
 registerSponsorshipHistoricalAuditTests({ fixtures, path });
@@ -902,20 +906,22 @@ for (const language of ['fr-CA', 'en'] as const)
           // No scrolling or focus on the identity content precedes these checks.
           expect(await page.evaluate(() => scrollY)).toBe(0);
           await expect(
-            identity.getByRole('heading', { level: 3 })
+            identity.locator('#dossier-identity-title')
           ).toBeInViewport({
             ratio: 1
           });
           const identityBox = (await identity.boundingBox())!;
           expect(identityBox.y).toBeLessThan(viewport.height - 120);
-          await expect(identity.locator(':scope > dl')).toBeInViewport({
+          await expect(
+            identity.locator('[data-og7="identity-coordinates"]')
+          ).toBeInViewport({
             ratio: 1
           });
           await expect(
             identity.locator('[data-og7="identity-edit"]')
           ).toBeInViewport({ ratio: 1 });
           const coordinatesBox = (await identity
-            .locator(':scope > dl')
+            .locator('[data-og7="identity-coordinates"]')
             .boundingBox())!;
           const dock = frame.locator('[data-og7="dossier-actions"]');
           await expect(dock).toBeInViewport({ ratio: 1 });
@@ -1176,6 +1182,12 @@ for (const [reason, tab, title, section] of [
   }) => {
     const { calls, options } = await fixtures(page, 'operator');
     options.next = { reason, tab, adminUrl: path(tab) };
+    if (reason === 'stripe_failed')
+      options.progressOverrides = {
+        failedStripeEvents: [
+          { id: 'evt_synthetic_failed', type: 'payment_intent.succeeded' }
+        ]
+      };
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(path());
     await page
@@ -1305,8 +1317,11 @@ for (const role of ['owner', 'operator', 'reader'] as const) {
       'Une correction administrative des coordonnées ne remplace pas cette transmission.'
     );
     await expect(
-      progress(page).locator('[data-og7-id="identity"]')
-    ).toHaveAttribute('data-state', 'blocked');
+      identity.locator('[data-og7="identity-coordinates-state"]')
+    ).toHaveAttribute('data-state', 'missing');
+    await expect(
+      identity.locator('[data-og7="identity-submission-state"]')
+    ).toHaveAttribute('data-state', 'pending');
     const edit = identity.locator('[data-og7="identity-edit"]');
     if (role === 'reader') {
       await expect(edit).toHaveCount(0);
@@ -1382,10 +1397,15 @@ for (const alreadySubmitted of [false, true]) {
     ).toContainText(
       'Le nom de l’entreprise et le courriel du contact sont renseignés.'
     );
-    const step = progress(page).locator('[data-og7-id="identity"]');
-    await expect(step).toHaveAttribute(
+    await expect(
+      identity.locator('[data-og7="identity-coordinates-state"]')
+    ).toHaveAttribute('data-state', 'complete');
+    const submissionState = identity.locator(
+      '[data-og7="identity-submission-state"]'
+    );
+    await expect(submissionState).toHaveAttribute(
       'data-state',
-      alreadySubmitted ? 'complete' : 'pending'
+      alreadySubmitted ? 'submitted' : 'pending'
     );
     await expect(
       identity.locator('[data-og7="identity-submission-status"]')
@@ -1407,7 +1427,10 @@ for (const alreadySubmitted of [false, true]) {
         sponsor_details_submitted_at: date
       });
       await page.reload();
-      await expect(step).toHaveAttribute('data-state', 'complete');
+      await expect(submissionState).toHaveAttribute('data-state', 'submitted');
+      await expect(
+        identity.locator('[data-og7="identity-coordinates-state"]')
+      ).toHaveAttribute('data-state', 'complete');
       await expect(
         identity.locator('[data-og7="identity-submission-status"]')
       ).toHaveText('Le commanditaire a transmis son formulaire.');
@@ -1609,12 +1632,14 @@ test('dossier controls respect reader and operator permissions', async ({
     'Tout approuver',
     'Approuver le media',
     'Refuser',
-    'Supprimer',
-    'Supprimer le logo'
+    'Supprimer'
   ])
     await expect(
       media.getByRole('button', { name: button, exact: true })
     ).toBeDisabled();
+  await expect(
+    media.getByRole('button', { name: 'Supprimer le logo', exact: true })
+  ).toHaveCount(0);
   await expect(media.locator('input[type="file"]')).toBeDisabled();
   await media.getByRole('button', { name: 'Aperçu', exact: true }).click();
   await expect(page.locator('dialog[open]').getByRole('img')).toBeVisible();
@@ -2206,7 +2231,7 @@ test('logo upload rejects invalid files, reports failure and deletion is confirm
   const media = page.locator('openg7-admin-sponsor-detail-media');
   const upload = media.locator('input[type="file"]');
   const remove = media.getByRole('button', { name: 'Supprimer le logo' });
-  await expect(remove).toBeDisabled();
+  await expect(remove).toHaveCount(0);
   await upload.setInputFiles({
     name: 'fixture.txt',
     mimeType: 'text/plain',
@@ -2239,7 +2264,7 @@ test('logo upload rejects invalid files, reports failure and deletion is confirm
   expect(postsTo(calls, '/logo/delete')).toHaveLength(0);
   await remove.click();
   await page.locator('[data-og7="confirm-action"]').click();
-  await expect(remove).toBeDisabled();
+  await expect(remove).toHaveCount(0);
   expect(postsTo(calls, '/logo/delete')[0]?.body).toMatchObject({
     contributionId: id,
     expectedVersion: 'v1',
@@ -3073,7 +3098,10 @@ test('media and history inspections stay inside the selected dossier', async ({
   );
   await page.keyboard.press('Escape');
   await tabs(page).getByRole('button', { name: 'Historique' }).click();
-  await page.getByRole('button', { name: 'Historique du dossier' }).click();
+  await page
+    .locator('[data-og7="dossier-audit-history"]')
+    .getByRole('button', { name: 'Consulter le journal', exact: true })
+    .click();
   await expect(page.locator('dialog[open]')).toContainText(
     'Aucune entrée d’audit disponible'
   );
@@ -3355,6 +3383,12 @@ for (const [reason, tab, section, label] of nextDestinations) {
   test(`next step reaches its named section: ${reason}`, async ({ page }) => {
     const { calls, options } = await fixtures(page);
     options.next = { reason, tab, adminUrl: path(tab) };
+    if (reason === 'stripe_failed')
+      options.progressOverrides = {
+        failedStripeEvents: [
+          { id: 'evt_synthetic_failed', type: 'payment_intent.succeeded' }
+        ]
+      };
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(path());
     const link = dossierNext(page);
@@ -3805,6 +3839,11 @@ test('intervention journal records actions with actor and date, retains notes ac
   const { calls } = await fixtures(page, 'operator');
   await page.goto(path('refund'));
   const journal = page.locator('[data-og7="dossier-interventions"]');
+  const journalToggle = journal.locator('[data-og7="interventions-toggle"]');
+  await expect(journalToggle).toHaveAttribute('aria-expanded', 'false');
+  await journalToggle.focus();
+  await journalToggle.press('Enter');
+  await expect(journalToggle).toHaveAttribute('aria-expanded', 'true');
   await expect(journal).toContainText('Dossier incomplet — décision requise');
   await expect(journal.locator('[data-og7="intervention-kind"]')).toHaveValue(
     'internal'
@@ -3937,6 +3976,11 @@ test('intervention journal keeps older notes readable for a reader and renders n
   );
   await page.goto(path('refund'));
   const journal = page.locator('[data-og7="dossier-interventions"]');
+  const journalToggle = journal.locator('[data-og7="interventions-toggle"]');
+  await expect(journalToggle).toHaveAttribute('aria-expanded', 'false');
+  await journalToggle.focus();
+  await journalToggle.press('Enter');
+  await expect(journalToggle).toHaveAttribute('aria-expanded', 'true');
   await expect(journal.locator('[data-og7="intervention-form"]')).toHaveCount(
     0
   );

@@ -1,4 +1,5 @@
 {
+  "regionLabel": "Sponsorship finances",
   "confirmedRefunds": "Confirmed refunds",
   "confirmedHelp": "This total comes from refunds confirmed by Stripe. A request or processing in progress does not confirm a refund.",
   "workflowStatus": "Request processing",

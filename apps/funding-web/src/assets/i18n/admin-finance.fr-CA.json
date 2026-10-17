@@ -1,4 +1,5 @@
 {
+  "regionLabel": "Finances de la commandite",
   "confirmedRefunds": "Remboursements confirmés",
   "confirmedHelp": "Ce total provient des remboursements confirmés par Stripe. Une demande ou un traitement en cours ne confirme aucun remboursement.",
   "workflowStatus": "Traitement de la demande",

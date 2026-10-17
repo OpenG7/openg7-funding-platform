@@ -239,7 +239,10 @@ test.describe('Docker admin sponsorship review', () => {
 
     await page.getByRole('button', { name: 'Rembourser Stripe' }).click();
 
-    const refundPanel = page.locator('[aria-label="Remboursement Stripe"]');
+    const refundPanel = page.getByRole('region', {
+      name: 'Remboursement Stripe',
+      exact: true
+    });
     await expect(refundPanel).toBeVisible();
     await refundPanel
       .getByLabel(/Texte de confirmation/i)
@@ -276,7 +279,10 @@ test.describe('Docker admin sponsorship review', () => {
 
     await page.getByRole('button', { name: 'Rembourser Stripe' }).click();
 
-    const refundPanel = page.locator('[aria-label="Remboursement Stripe"]');
+    const refundPanel = page.getByRole('region', {
+      name: 'Remboursement Stripe',
+      exact: true
+    });
     await expect(refundPanel).toBeVisible();
 
     const partialAmount = fixture.amountCents / 100 / 2;
@@ -399,7 +405,7 @@ test.describe('Docker admin sponsorship review', () => {
       .click();
     const media = page.locator('openg7-admin-sponsor-detail-media');
 
-    // The upload control is a <label> wrapping the file input, not a button.
+    // The upload button opens the hidden file input used by this fixture.
     await expect(media.getByText('Televerser un logo')).toBeVisible();
 
     // The API detects the file type from magic bytes, not the declared MIME
@@ -417,7 +423,7 @@ test.describe('Docker admin sponsorship review', () => {
 
     await expect(media.getByText(/Logo enregistre/i)).toBeVisible();
     await expect(
-      media.getByRole('img', { name: `Logo ${fixture.companyName}` })
+      media.getByRole('img', { name: `Logo de ${fixture.companyName}` })
     ).toBeVisible();
     await expect(media.getByText('Remplacer le logo')).toBeVisible();
 

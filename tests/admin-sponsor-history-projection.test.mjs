@@ -5,12 +5,18 @@ import test from 'node:test';
 import { AdminSponsorHistoryProjection } from '../dist/apps/funding-web/src/app/features/funding/models/admin-sponsor-history.projection.js';
 
 const dictionaries = Object.fromEntries(
-  ['fr-CA', 'en'].map((locale) => [
-    locale,
-    JSON.parse(
+  ['fr-CA', 'en'].map((locale) => {
+    const dictionary = JSON.parse(
       readFileSync(`apps/funding-web/src/assets/i18n/${locale}.json`, 'utf8')
-    )
-  ])
+    );
+    dictionary.admin.history = JSON.parse(
+      readFileSync(
+        `apps/funding-web/src/assets/i18n/admin-history.${locale}.json`,
+        'utf8'
+      )
+    );
+    return [locale, dictionary];
+  })
 );
 
 function presentation(locale = 'fr-CA') {
@@ -234,10 +240,9 @@ test('refund projections keep record amounts in major units and audit amounts in
   assert.ok(
     history.every(({ detail }) => detail.includes('Raison: Paiement en double'))
   );
-  assert.equal(
-    projector.refundAuditEntriesFor(record)[0].detail,
-    'Acteur: synthetic-owner - Montant: 25.75 USD'
-  );
+  const [refundAuditEntry] = projector.refundAuditEntriesFor(record);
+  assert.equal(refundAuditEntry.detail, 'Montant: 25.75 USD');
+  assert.equal(refundAuditEntry.actorLabel, 'synthetic-owner');
   assert.deepEqual(amounts, [
     [25.75, 'USD'],
     [25.75, 'USD'],
@@ -292,10 +297,8 @@ test('refund audit filters review metadata by existing types and sorts newest fi
   );
   assert.equal(projector.trackByAuditEntry(999, entries[0]), 'partial');
   assert.equal(source[0].id, 'full');
-  assert.equal(
-    entries[1].detail,
-    'Acteur: synthetic-owner - Suivi: Remboursement demandé'
-  );
+  assert.equal(entries[1].detail, 'Suivi: Remboursement demandé');
+  assert.equal(entries[1].actorLabel, 'synthetic-owner');
   assert.ok(
     entries[2].detail.includes('Traitement: remboursement manuel demande')
   );
@@ -317,7 +320,8 @@ test('audit metadata ignores absent, nonfinite and mistyped values while retaini
         ]
       })
     );
-    assert.equal(entry.detail, 'Acteur: synthetic-owner');
+    assert.equal(entry.detail, '');
+    assert.equal(entry.actorLabel, 'synthetic-owner');
   }
   const [entry] = projector.refundAuditEntriesFor(
     sponsorship({
@@ -331,10 +335,7 @@ test('audit metadata ignores absent, nonfinite and mistyped values while retaini
       ]
     })
   );
-  assert.equal(
-    entry.detail,
-    'Acteur: synthetic-owner - Amount: $0.00 - Type: partial - Email not sent'
-  );
+  assert.equal(entry.detail, 'Amount: $0.00 - Type: partial - Email not sent');
 });
 
 test('refund audit retains provider references, credit-note results and notification failures', () => {
@@ -367,7 +368,6 @@ test('refund audit retains provider references, credit-note results and notifica
   assert.equal(
     entry.detail,
     [
-      'Acteur: synthetic-owner',
       'Amount: $25.75',
       callbacks.t('admin.messages.type_complet'),
       callbacks.t('admin.messages.raison_p0', {
@@ -481,17 +481,20 @@ test('audit presentation retains identity allowlists, actor, unknown actions and
     })
   );
   const byId = Object.fromEntries(entries.map((entry) => [entry.id, entry]));
-  const actor = callbacks.t('admin.editDossier.actor', {
-    actor: 'synthetic-owner'
-  });
-  assert.equal(byId.intervention.detail, `${actor} · Synthetic note`);
+  assert.equal(byId.intervention.detail, 'Synthetic note');
+  assert.equal(byId.intervention.actorLabel, 'synthetic-owner');
   assert.equal(
     byId.details.detail,
-    `${actor} · ${callbacks.t('admin.editDossier.fields.contactEmail')}, ${callbacks.t('admin.editDossier.fields.companyName')} · ${callbacks.t('admin.editDossier.reasons.contact_update')}`
+    `${callbacks.t('admin.editDossier.fields.contactEmail')}, ${callbacks.t('admin.editDossier.fields.companyName')} · ${callbacks.t('admin.editDossier.reasons.contact_update')}`
   );
-  assert.equal(byId['details-invalid'].detail, actor);
-  assert.equal(byId['unknown-summary'].label, 'Synthetic summary');
-  assert.equal(byId['unknown-action'].label, 'unknown.action');
+  assert.equal(byId['details-invalid'].detail, '');
+  assert.equal(byId['unknown-summary'].label, 'Action recorded');
+  assert.equal(
+    byId['unknown-summary'].detail,
+    'Action: unknown.action - Synthetic summary'
+  );
+  assert.equal(byId['unknown-action'].label, 'Action recorded');
+  assert.equal(byId['unknown-action'].detail, 'Action: unknown.action');
   for (const [id, key] of [
     ['not-applied', 'notApplied'],
     ['published', 'published'],
@@ -502,11 +505,137 @@ test('audit presentation retains identity allowlists, actor, unknown actions and
       callbacks.t(`admin.dossier.publicationBridge.site.audit.${key}`)
     );
   }
-  assert.equal(
-    byId.publication.detail,
-    'Acteur: synthetic-owner - Publication: feed:planned'
-  );
+  assert.equal(byId.publication.detail, 'Publication: feed:planned');
 });
+
+test('submission snapshot is omitted only when its exact instant is represented by the audit', () => {
+  const projector = new AdminSponsorHistoryProjection(presentation());
+  const submittedAt = '2026-09-03T12:00:00.000Z';
+  for (const [snapshotDate, auditDate, expectSnapshot] of [
+    [submittedAt, submittedAt, false],
+    [submittedAt, '2026-09-03T08:00:00-04:00', false],
+    [submittedAt, '2026-09-03T12:00:00.001Z', true],
+    [submittedAt, '2026-09-02T12:00:00.000Z', true],
+    ['2026-09-03T12:00:00.000123Z', '2026-09-03T12:00:00.000123Z', false],
+    ['2026-09-03T12:00:00.000123Z', '2026-09-03T12:00:00.000456Z', true],
+    ['2026-09-03T12:00:00.000123Z', submittedAt, true],
+    [submittedAt, '2026-09-03T12:00:00.000000Z', true],
+    ['invalid', 'invalid', true]
+  ]) {
+    const record = Object.freeze(
+      sponsorship({
+        sponsor_details_submitted_at: snapshotDate,
+        admin_audit_entries: Object.freeze([
+          audit('submitted', 'sponsorship.details_submitted', {}, auditDate)
+        ])
+      })
+    );
+    const before = structuredClone(record);
+    const entries = projector.auditEntriesFor(record);
+    assert.equal(
+      entries.some(({ id }) => id === 'synthetic-sponsor:details'),
+      expectSnapshot
+    );
+    assert.equal(entries.filter(({ id }) => id === 'submitted').length, 1);
+    assert.deepEqual(record, before);
+  }
+});
+
+for (const locale of ['fr-CA', 'en']) {
+  test(`dossier actions use translated labels and actor identities remain available in ${locale}`, () => {
+    const callbacks = presentation(locale);
+    const projector = new AdminSponsorHistoryProjection(callbacks);
+    const actions = [
+      ['sponsorship.details_submitted', 'detailsSubmitted'],
+      ['sponsorship.access_link_requested', 'accessLinkRequested'],
+      ['sponsorship.request_information', 'informationRequested'],
+      ['sponsorship_obligation.fulfilled', 'obligationFulfilled'],
+      [
+        'sponsorship_evidence.historical_reviewed',
+        'historicalEvidenceReviewed'
+      ],
+      ['sponsorship_timing.public_observed', 'publicVisibilityObserved'],
+      ['sponsorship_commitment.qualification', 'commitmentQualified'],
+      ['sponsorship_commitment.destination', 'destinationAdjusted'],
+      ['sponsorship_commitment.format', 'formatAdjusted'],
+      ['sponsorship_commitment.waiver', 'obligationWaived'],
+      ['moderation.reconsideration_requested', 'reconsiderationRequested'],
+      ['moderation.correction_submitted', 'correctionSubmitted']
+    ];
+    const actors = [
+      ['sponsor', 'sponsor'],
+      ['sponsor-followup', 'sponsor'],
+      ['sponsor:synthetic-dossier-id', 'sponsor'],
+      ['funding-admin-session', 'adminSession'],
+      ['admin:synthetic-admin-id', 'admin'],
+      ['public-recovery', 'publicRecovery'],
+      ['system:sponsorship-public-visibility', 'system'],
+      ['', 'unavailable'],
+      ['  sponsor:synthetic-dossier-id  ', 'sponsor'],
+      ['  ', 'unavailable'],
+      ['  synthetic-owner  ', undefined]
+    ];
+    for (const [action, key] of actions) {
+      const record = sponsorship({
+        admin_audit_entries: [
+          {
+            ...audit('translated-action', action),
+            actor: 'sponsor',
+            summary: 'Server summary in an unrelated language'
+          }
+        ]
+      });
+      const entry = projector
+        .auditEntriesFor(record)
+        .find(({ id }) => id === 'translated-action');
+      assert.equal(entry.label, callbacks.t(`admin.history.actions.${key}`));
+      assert.equal(entry.detail, '');
+      assert.equal(
+        entry.actorLabel,
+        callbacks.t('admin.history.actors.sponsor')
+      );
+      assert.equal(entry.actorDetail, 'sponsor');
+    }
+    for (const [actor, key] of actors) {
+      const record = sponsorship({
+        admin_audit_entries: [
+          {
+            ...audit('actor', 'sponsorship_refund.stripe_full'),
+            actor
+          }
+        ]
+      });
+      for (const entry of [
+        projector.auditEntriesFor(record).find(({ id }) => id === 'actor'),
+        projector.refundAuditEntriesFor(record)[0]
+      ]) {
+        assert.equal(
+          entry.actorLabel,
+          key ? callbacks.t(`admin.history.actors.${key}`) : actor.trim()
+        );
+        assert.equal(
+          entry.actorDetail,
+          key && actor.trim() ? actor : undefined
+        );
+        assert.equal(entry.detail, '');
+      }
+    }
+    const unknown = projector
+      .auditEntriesFor(
+        sponsorship({
+          admin_audit_entries: [audit('unknown', 'future.unknown_action')]
+        })
+      )
+      .find(({ id }) => id === 'unknown');
+    assert.equal(unknown.label, callbacks.t('admin.history.actions.recorded'));
+    assert.equal(
+      unknown.detail,
+      callbacks.t('admin.history.actionCode', {
+        action: 'future.unknown_action'
+      })
+    );
+  });
+}
 
 for (const locale of ['fr-CA', 'en']) {
   test(`refund translations and sparse timeline presentation stay available in ${locale}`, () => {

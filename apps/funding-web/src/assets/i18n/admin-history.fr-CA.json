@@ -1,0 +1,44 @@
+{
+  "inspect": "Consulter le journal",
+  "newestFirst": "Du plus récent au plus ancien",
+  "availableScope": "Jalons du dossier et dernières actions administratives disponibles.",
+  "singleEvent": "1 événement",
+  "eventCount": "{{count}} événements",
+  "actionCode": "Action : {{action}}",
+  "interventions": {
+    "privateScope": "Journal interne des démarches et du suivi du dossier.",
+    "payment": "Paiement",
+    "guidanceTitle": "Repères et règles du suivi",
+    "guidance": "Repères de suivi depuis le paiement : première relance à {{first}} jours, deuxième à {{second}} jours, décision à examiner à {{decision}} jours. Vous pouvez consigner une prolongation avec une nouvelle échéance.",
+    "scope": "Ces repères signalent les dossiers incomplets, pas une absence de lecture du courriel. Une note de relance décrit une démarche déjà effectuée ; elle n’envoie aucun message. La décision de remboursement reste au cas par cas, dans l’onglet Finances.",
+    "noteScope": "Consignez une démarche déjà effectuée. Enregistrer une note n’envoie aucun courriel et ne déclenche aucun remboursement.",
+    "singleEntry": "1 intervention affichée",
+    "entryCount": "{{count}} interventions affichées"
+  },
+  "actors": {
+    "sponsor": "Commanditaire",
+    "adminSession": "Session administrative",
+    "admin": "Administration",
+    "publicRecovery": "Demande d’accès publique",
+    "system": "Système",
+    "unavailable": "Acteur non disponible"
+  },
+  "actions": {
+    "sponsorshipReceived": "Commandite reçue",
+    "paymentConfirmed": "Paiement confirmé",
+    "detailsReceived": "Informations du commanditaire reçues",
+    "detailsSubmitted": "Informations transmises pour révision",
+    "accessLinkRequested": "Lien privé de suivi mis en file d’envoi",
+    "informationRequested": "Demande de renseignements mise en file d’envoi",
+    "obligationFulfilled": "Prestation réalisée avec une preuve qualifiée",
+    "historicalEvidenceReviewed": "Preuve historique examinée",
+    "publicVisibilityObserved": "Contrôle de visibilité publique enregistré",
+    "commitmentQualified": "Accord historique qualifié",
+    "destinationAdjusted": "Destination de la prestation ajustée",
+    "formatAdjusted": "Format de la prestation ajusté",
+    "obligationWaived": "Dispense de prestation enregistrée",
+    "reconsiderationRequested": "Demande de réexamen reçue",
+    "correctionSubmitted": "Correction transmise pour révision",
+    "recorded": "Action enregistrée"
+  }
+}

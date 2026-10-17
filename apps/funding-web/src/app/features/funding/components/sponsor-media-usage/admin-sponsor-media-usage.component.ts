@@ -31,29 +31,41 @@ import {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (canWrite()) {
-      <openg7-sponsor-media-usage-editor
-        [value]="asset().usage ?? null"
-        [disabled]="disabled() || busy()"
-        [requireEvidence]="true"
-        (saved)="save($event)"
-      />
-      @if (notice()) {
-        <p role="status">
-          {{ 'funding.followup.media.usage.' + notice() | translate }}
-        </p>
-      }
-      @if (pending()) {
-        <button
-          type="button"
+      <div class="usage-panel" [attr.aria-busy]="busy()">
+        <openg7-sponsor-media-usage-editor
+          [value]="asset().usage ?? null"
           [disabled]="disabled() || busy()"
-          (click)="retry()"
-          data-og7="admin-media-usage-retry"
-        >
-          {{ 'funding.followup.media.usage.retry' | translate }}
-        </button>
-      }
+          [requireEvidence]="true"
+          (saved)="save($event)"
+        />
+        @if (notice()) {
+          <p
+            class="usage-notice"
+            [attr.role]="notice() === 'saved' ? 'status' : 'alert'"
+          >
+            {{ 'funding.followup.media.usage.' + notice() | translate }}
+          </p>
+        }
+        @if (pending()) {
+          <button
+            type="button"
+            class="admin-button"
+            [disabled]="disabled() || busy()"
+            (click)="retry()"
+            data-og7="admin-media-usage-retry"
+          >
+            {{ 'funding.followup.media.usage.retry' | translate }}
+          </button>
+        }
+      </div>
     }
-  `
+  `,
+  styleUrls: [
+    '../admin-ui/admin-theme.css',
+    '../admin-ui/admin-controls.css',
+    '../admin-ui/admin-forms.css',
+    './admin-sponsor-media-usage.component.css'
+  ]
 })
 export class AdminSponsorMediaUsageComponent implements OnDestroy {
   readonly asset = input.required<AdminSponsorMediaAssetView>();

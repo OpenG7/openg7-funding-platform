@@ -39,6 +39,9 @@ async function useEnglish(page: Page): Promise<void> {
 }
 
 async function expectResponsiveFinance(page: Page): Promise<void> {
+  await expect(finance(page)).toHaveAccessibleName(
+    /^(Finances de la commandite|Sponsorship finances)$/
+  );
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth + 1

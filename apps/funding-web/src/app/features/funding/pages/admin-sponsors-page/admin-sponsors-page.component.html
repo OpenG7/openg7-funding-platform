@@ -219,7 +219,7 @@
                 [canManage]="canManage()"
                 [canResendAccess]="canUseOwnerActions()"
                 [disabled]="actionsDisabled()"
-                [autoOpen]="activeTab() === 'refund' || activeTab() === 'audit'"
+                [autoOpen]="activeTab() === 'audit'"
                 (accessRequested)="openFollowupAccess()"
                 (saved)="loadSponsorships()"
               />
@@ -384,9 +384,7 @@
                   class="dossier-finances"
                   data-og7="dossier-finances"
                   role="region"
-                  [attr.aria-label]="
-                    'admin.dossier.workspace.finances' | translate
-                  "
+                  [attr.aria-label]="'admin.finance.regionLabel' | translate"
                 >
                   @if (progress(); as dossier) {
                     <div class="finance-facts-grid">

@@ -1,0 +1,32 @@
+{
+  "identityHelp": {
+    "completeLabel": "Complete",
+    "missingLabel": "To complete",
+    "submittedLabel": "Form submitted",
+    "pendingLabel": "Pending",
+    "submittedAt": "Submission date",
+    "differenceTitle": "Contact details and submission: two separate actions",
+    "adminEntry": "Entry or correction by administration",
+    "adminEntryMeaning": "You can enter contact details received by phone or email. This correction is recorded in the history and preserves the review status; it does not submit the form on the sponsor’s behalf.",
+    "sponsorEntry": "Submission by the sponsor",
+    "sponsorEntryMeaning": "Through their private follow-up link, the sponsor clicks “Submit my information to the team”. A submission date is recorded and the dossier enters review. Review and publication authorization remain separate steps.",
+    "submissionRequired": "To complete the Identity step, contact details must be complete and the sponsor must have submitted their form. Even if you fill in every field, the step still awaits this submission; you cannot validate it on their behalf.",
+    "coordinates": "Sponsor contact details",
+    "coordinatesComplete": "The company name and contact email are present.",
+    "coordinatesMissing": "Enter the company name and contact email to complete the contact details. The public name, contact name and website are optional.",
+    "edit": "Edit identity and contact details",
+    "readonly": "Your access is read-only. An operator or owner can correct these contact details.",
+    "submission": "Sponsor submission",
+    "submitted": "The sponsor has submitted their form.",
+    "submissionPending": "Waiting for the sponsor to submit their form.",
+    "submissionHelp": "The sponsor must open their private follow-up link and click “Submit my information to the team”. An administrative correction of contact details does not replace this submission.",
+    "access": "View sponsor follow-up access",
+    "ownerHelp": "If the sponsor has lost their link, ask an owner to resend follow-up access."
+  },
+  "media": {
+    "preferenceEmpty": "No preference or correction submitted.",
+    "logoAlt": "Logo for {{name}}",
+    "logoEmptyHelp": "Add the logo to complete the profile. Uploading it does not publish the sponsorship.",
+    "photosEmptyHelp": "Ask the sponsor to add a presentation photo through their follow-up form, then review its permissions and content here."
+  }
+}

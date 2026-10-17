@@ -58,6 +58,10 @@ import enPublication from '../../../../../assets/i18n/admin-publication-schedule
 import frPublication from '../../../../../assets/i18n/admin-publication-schedule.fr-CA.json' with { type: 'json' };
 import enFinance from '../../../../../assets/i18n/admin-finance.en.json' with { type: 'json' };
 import frFinance from '../../../../../assets/i18n/admin-finance.fr-CA.json' with { type: 'json' };
+import enProfile from '../../../../../assets/i18n/admin-sponsor-profile.en.json' with { type: 'json' };
+import frProfile from '../../../../../assets/i18n/admin-sponsor-profile.fr-CA.json' with { type: 'json' };
+import enHistory from '../../../../../assets/i18n/admin-history.en.json' with { type: 'json' };
+import frHistory from '../../../../../assets/i18n/admin-history.fr-CA.json' with { type: 'json' };
 import { AdminSponsorDetailMediaComponent } from '../../components/admin-sponsors/admin-sponsor-detail-media.component.js';
 import { AdminSponsorshipProgressComponent } from '../../components/admin-sponsors/admin-sponsorship-progress.component.js';
 import { AdminSponsorshipNextStepComponent } from '../../components/admin-sponsors/admin-sponsorship-next-step.component.js';
@@ -503,7 +507,9 @@ export class AdminSponsorsPageComponent implements OnInit {
           dateTime: entry.date,
           dateTimeLabel: this.dateTimeLabel(entry.date),
           label: entry.label,
-          detail: entry.detail
+          detail: entry.detail,
+          actorLabel: entry.actorLabel,
+          actorDetail: entry.actorDetail
         }))
       };
     });
@@ -516,9 +522,12 @@ export class AdminSponsorsPageComponent implements OnInit {
               .auditEntriesFor(selected)
               .map((entry) => ({
                 id: entry.id,
+                dateTime: entry.date,
                 dateTimeLabel: this.dateTimeLabel(entry.date),
                 label: entry.label,
-                detail: entry.detail
+                detail: entry.detail,
+                actorLabel: entry.actorLabel,
+                actorDetail: entry.actorDetail
               }))
           }
         : null;
@@ -551,7 +560,11 @@ export class AdminSponsorsPageComponent implements OnInit {
           (language === 'en' ? enPublication : frPublication).adminOverrides
         );
         this.i18n.mergeTranslations(language, {
-          admin: { finance: language === 'en' ? enFinance : frFinance }
+          admin: {
+            finance: language === 'en' ? enFinance : frFinance,
+            dossier: language === 'en' ? enProfile : frProfile,
+            history: language === 'en' ? enHistory : frHistory
+          }
         });
       });
     });
