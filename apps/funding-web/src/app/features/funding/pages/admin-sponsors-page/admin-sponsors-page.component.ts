@@ -56,6 +56,8 @@ import {
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import enPublication from '../../../../../assets/i18n/admin-publication-schedule.en.json' with { type: 'json' };
 import frPublication from '../../../../../assets/i18n/admin-publication-schedule.fr-CA.json' with { type: 'json' };
+import enHistory from '../../../../../assets/i18n/admin-history.en.json' with { type: 'json' };
+import frHistory from '../../../../../assets/i18n/admin-history.fr-CA.json' with { type: 'json' };
 import { AdminSponsorDetailMediaComponent } from '../../components/admin-sponsors/admin-sponsor-detail-media.component.js';
 import { AdminSponsorshipProgressComponent } from '../../components/admin-sponsors/admin-sponsorship-progress.component.js';
 import { AdminSponsorshipNextStepComponent } from '../../components/admin-sponsors/admin-sponsorship-next-step.component.js';
@@ -468,6 +470,7 @@ export class AdminSponsorsPageComponent implements OnInit {
           .refundHistoryEntriesFor(selected)
           .map((entry) => ({
             id: entry.id,
+            dateTime: entry.date,
             dateTimeLabel: this.dateTimeLabel(entry.date),
             label: entry.label,
             detail: entry.detail,
@@ -475,9 +478,12 @@ export class AdminSponsorsPageComponent implements OnInit {
           })),
         auditEntries: history.refundAuditEntriesFor(selected).map((entry) => ({
           id: entry.id,
+          dateTime: entry.date,
           dateTimeLabel: this.dateTimeLabel(entry.date),
           label: entry.label,
-          detail: entry.detail
+          detail: entry.detail,
+          actorLabel: entry.actorLabel,
+          actorDetail: entry.actorDetail
         }))
       };
     });
@@ -490,9 +496,12 @@ export class AdminSponsorsPageComponent implements OnInit {
               .auditEntriesFor(selected)
               .map((entry) => ({
                 id: entry.id,
+                dateTime: entry.date,
                 dateTimeLabel: this.dateTimeLabel(entry.date),
                 label: entry.label,
-                detail: entry.detail
+                detail: entry.detail,
+                actorLabel: entry.actorLabel,
+                actorDetail: entry.actorDetail
               }))
           }
         : null;
@@ -519,12 +528,15 @@ export class AdminSponsorsPageComponent implements OnInit {
   constructor() {
     effect(() => {
       const language = this.i18n.currentLanguage();
-      untracked(() =>
+      untracked(() => {
         this.i18n.mergeTranslations(
           language,
           (language === 'en' ? enPublication : frPublication).adminOverrides
-        )
-      );
+        );
+        this.i18n.mergeTranslations(language, {
+          admin: { history: language === 'en' ? enHistory : frHistory }
+        });
+      });
     });
     this.destroyRef.onDestroy(() => {
       this.listController.dispose();

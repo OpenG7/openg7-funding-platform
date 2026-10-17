@@ -11,10 +11,11 @@
 .detail-card {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  border-radius: 0.9rem;
+  border-radius: var(--admin-radius-card);
   @apply tw:grid;
-  gap: 0.85rem;
-  @apply tw:min-w-0 tw:p-4;
+  gap: var(--admin-card-gap);
+  @apply tw:min-w-0;
+  padding: var(--admin-card-padding);
 }
 
 .detail-card h3 {
@@ -105,62 +106,6 @@ dd {
 .refund-processing {
   background: var(--admin-panel-raised);
   @apply tw:text-admin-muted;
-}
-
-.refund-history-list {
-  @apply tw:grid tw:gap-3;
-  list-style: none;
-  @apply tw:m-0 tw:p-0;
-}
-
-.refund-history-list li {
-  background: var(--admin-panel);
-  border: 1px solid var(--admin-border);
-  border-left: 0.28rem solid var(--admin-border);
-  border-radius: 8px;
-  padding: 0.8rem 0.9rem;
-}
-
-.refund-history-requested {
-  background: var(--og7-admin-warning-bg, #3c3221);
-  border-left-color: var(--admin-border);
-}
-
-.refund-history-processing,
-.refund-history-completed,
-.refund-history-failed {
-  background: var(--admin-panel-raised);
-  border-left-color: var(--admin-border);
-}
-
-.refund-history-not-requested {
-  background: var(--admin-panel);
-  border-left-color: var(--admin-border);
-}
-
-.audit-list {
-  @apply tw:grid tw:gap-3 tw:m-0;
-  padding-left: 1.2rem;
-}
-
-.audit-list time,
-.refund-history-list time {
-  @apply tw:text-admin-muted tw:text-admin-caption;
-  font-weight: 500;
-}
-
-.audit-list p,
-.refund-history-list p {
-  margin: 0.15rem 0;
-}
-
-.refund-history-list p {
-  font-weight: 500;
-}
-
-.audit-list li,
-.refund-history-list li {
-  @apply tw:min-w-0 tw:wrap-anywhere;
 }
 
 @media (max-width: 860px) {

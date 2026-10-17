@@ -1,0 +1,34 @@
+{
+  "inspect": "Consulter le journal",
+  "newestFirst": "Du plus récent au plus ancien",
+  "availableScope": "Jalons du dossier et dernières actions administratives disponibles.",
+  "singleEvent": "1 événement",
+  "eventCount": "{{count}} événements",
+  "actionCode": "Action : {{action}}",
+  "actors": {
+    "sponsor": "Commanditaire",
+    "adminSession": "Session administrative",
+    "admin": "Administration",
+    "publicRecovery": "Demande d’accès publique",
+    "system": "Système",
+    "unavailable": "Acteur non disponible"
+  },
+  "actions": {
+    "sponsorshipReceived": "Commandite reçue",
+    "paymentConfirmed": "Paiement confirmé",
+    "detailsReceived": "Informations du commanditaire reçues",
+    "detailsSubmitted": "Informations transmises pour révision",
+    "accessLinkRequested": "Lien privé de suivi mis en file d’envoi",
+    "informationRequested": "Demande de renseignements mise en file d’envoi",
+    "obligationFulfilled": "Prestation réalisée avec une preuve qualifiée",
+    "historicalEvidenceReviewed": "Preuve historique examinée",
+    "publicVisibilityObserved": "Contrôle de visibilité publique enregistré",
+    "commitmentQualified": "Accord historique qualifié",
+    "destinationAdjusted": "Destination de la prestation ajustée",
+    "formatAdjusted": "Format de la prestation ajusté",
+    "obligationWaived": "Dispense de prestation enregistrée",
+    "reconsiderationRequested": "Demande de réexamen reçue",
+    "correctionSubmitted": "Correction transmise pour révision",
+    "recorded": "Action enregistrée"
+  }
+}

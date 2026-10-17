@@ -44,13 +44,22 @@
   </article>
 
   <article class="detail-card">
-    <h3>{{ 'admin.legacy.jalons_remboursement' | translate }}</h3>
+    <h3 id="dossier-refund-timeline-title">
+      {{ 'admin.legacy.jalons_remboursement' | translate }}
+    </h3>
     @if (view().timelineEntries.length > 0) {
-      <ol class="refund-history-list" data-og7="dossier-refund-timeline">
+      <ol
+        class="admin-history"
+        role="list"
+        aria-labelledby="dossier-refund-timeline-title"
+        data-og7="dossier-refund-timeline"
+      >
         @for (entry of view().timelineEntries; track entry.id) {
           <li [class]="entry.stateClass" [attr.data-og7-id]="entry.id">
-            <time>{{ entry.dateTimeLabel }}</time>
-            <p>{{ entry.label }}</p>
+            <time [attr.datetime]="entry.dateTime">{{
+              entry.dateTimeLabel
+            }}</time>
+            <p class="history-title">{{ entry.label }}</p>
             <small *ngIf="entry.detail">{{ entry.detail }}</small>
           </li>
         }
@@ -80,14 +89,39 @@
   </article>
 
   <article class="detail-card">
-    <h3>{{ 'admin.legacy.actions_admin_liees' | translate }}</h3>
+    <h3 id="dossier-refund-audit-title">
+      {{ 'admin.legacy.actions_admin_liees' | translate }}
+    </h3>
     @if (view().auditEntries.length > 0) {
-      <ol class="audit-list" data-og7="dossier-refund-audit">
+      <ol
+        class="admin-history"
+        role="list"
+        aria-labelledby="dossier-refund-audit-title"
+        data-og7="dossier-refund-audit"
+      >
         @for (entry of view().auditEntries; track entry.id) {
           <li [attr.data-og7-id]="entry.id">
-            <time>{{ entry.dateTimeLabel }}</time>
-            <p>{{ entry.label }}</p>
+            <time [attr.datetime]="entry.dateTime">{{
+              entry.dateTimeLabel
+            }}</time>
+            <p class="history-title">{{ entry.label }}</p>
             <small *ngIf="entry.detail">{{ entry.detail }}</small>
+            @if (entry.actorLabel) {
+              @if (entry.actorDetail) {
+                <details class="history-actor">
+                  <summary>
+                    {{ 'admin.inspector.fields.actor' | translate }} :
+                    {{ entry.actorLabel }}
+                  </summary>
+                  <code>{{ entry.actorDetail }}</code>
+                </details>
+              } @else {
+                <p class="history-actor">
+                  {{ 'admin.inspector.fields.actor' | translate }} :
+                  {{ entry.actorLabel }}
+                </p>
+              }
+            }
           </li>
         }
       </ol>

@@ -1,0 +1,34 @@
+{
+  "inspect": "View audit log",
+  "newestFirst": "Newest first",
+  "availableScope": "Dossier milestones and latest available administrative actions.",
+  "singleEvent": "1 event",
+  "eventCount": "{{count}} events",
+  "actionCode": "Action: {{action}}",
+  "actors": {
+    "sponsor": "Sponsor",
+    "adminSession": "Administrative session",
+    "admin": "Administration",
+    "publicRecovery": "Public access request",
+    "system": "System",
+    "unavailable": "Actor unavailable"
+  },
+  "actions": {
+    "sponsorshipReceived": "Sponsorship received",
+    "paymentConfirmed": "Payment confirmed",
+    "detailsReceived": "Sponsor details received",
+    "detailsSubmitted": "Information submitted for review",
+    "accessLinkRequested": "Private follow-up link queued for delivery",
+    "informationRequested": "Information request queued for delivery",
+    "obligationFulfilled": "Benefit fulfilled with qualified evidence",
+    "historicalEvidenceReviewed": "Historical evidence reviewed",
+    "publicVisibilityObserved": "Public visibility check recorded",
+    "commitmentQualified": "Historical agreement qualified",
+    "destinationAdjusted": "Benefit destination adjusted",
+    "formatAdjusted": "Benefit format adjusted",
+    "obligationWaived": "Benefit waiver recorded",
+    "reconsiderationRequested": "Reconsideration request received",
+    "correctionSubmitted": "Correction submitted for review",
+    "recorded": "Action recorded"
+  }
+}

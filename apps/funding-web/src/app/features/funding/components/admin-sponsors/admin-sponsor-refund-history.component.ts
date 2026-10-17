@@ -13,6 +13,7 @@ import type { AdminSponsorRefundHistoryView } from '../../models/admin-sponsors-
   templateUrl: './admin-sponsor-refund-history.component.html',
   styleUrls: [
     '../admin-ui/admin-theme.css',
+    '../admin-ui/admin-history.css',
     './admin-sponsor-refund-history.component.css'
   ]
 })
