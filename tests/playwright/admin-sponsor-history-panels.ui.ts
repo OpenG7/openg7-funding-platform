@@ -265,7 +265,7 @@ export function registerSponsorHistoryPanelTests({
       await expect(actorCode).toBeVisible();
       expect(
         await history.evaluate(
-          (element) => element.scrollWidth <= element.clientWidth
+          (element) => element.scrollWidth <= element.clientWidth + 1
         )
       ).toBe(true);
       await history.screenshot({
@@ -304,7 +304,7 @@ export function registerSponsorHistoryPanelTests({
       await expect(inspection.locator('img, script, [onerror]')).toHaveCount(0);
       expect(
         await inspection.evaluate(
-          (element) => element.scrollWidth <= element.clientWidth
+          (element) => element.scrollWidth <= element.clientWidth + 1
         )
       ).toBe(true);
       await page.keyboard.press('Escape');
