@@ -14,8 +14,7 @@ import type {
 
 import type { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
 import type { FundingI18nService } from '../../services/funding-i18n.service.js';
-
-import type { PublicationAutomationCommandRunner } from './publication-automation.ports.js';
+import type { PublicationAutomationCommandRunner } from '../../components/admin-publications/publication-automation.ports.js';
 
 export interface PublicationAutomationSettingsPorts {
   readonly state: Signal<PublicationAutomationState | null>;

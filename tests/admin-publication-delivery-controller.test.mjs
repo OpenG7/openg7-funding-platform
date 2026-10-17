@@ -19,7 +19,7 @@ const workspaceHook = registerHooks({
   }
 });
 const { PublicationDeliveryController } =
-  await import('../dist/apps/funding-web/src/app/features/funding/pages/admin-publication-automation-page/publication-delivery-controller.js');
+  await import('../dist/apps/funding-web/src/app/features/funding/components/admin-publications/publication-delivery-controller.js');
 workspaceHook.deregister();
 
 const deferred = () => {
@@ -929,7 +929,7 @@ test('construction is browser-lazy and the page controls resource disposal', asy
 
 test('drawer preserves dossier hooks, content/media/destination, translations and the accessible shared shell', () => {
   const root =
-    'apps/funding-web/src/app/features/funding/pages/admin-publication-automation-page/';
+    'apps/funding-web/src/app/features/funding/components/admin-publications/';
   const html = fs.readFileSync(
     root + 'publication-delivery-drawer.component.html',
     'utf8'

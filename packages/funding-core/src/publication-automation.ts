@@ -108,6 +108,8 @@ export interface PublicationAutomationState {
   deliveries: PublicationDelivery[];
   /** Private preparation facts; absent on older API responses. Never authorizes sending. */
   queue?: PublicationPreparationQueue;
+  /** Scoped, unmaterialized obligations. No draft, reservation or authorization is created. */
+  readonly preparationCandidates?: readonly PublicationPreparationCandidate[];
   /** Complete persisted scope, independent of filters/pages; no publication authorization. */
   reliability?: PublicationReliability;
   summary: {
@@ -145,6 +147,19 @@ export interface PublicationPreparationEntry {
   readonly publicationFormat?: SponsorshipPublicationFormat;
   /** Private possibility evaluated from a snapshot, never an allocation or authorization. */
   readonly nextOpportunity?: PublicationPreparationOpportunity;
+}
+/** A possible first private preparation, distinct from a persisted source draft. */
+export interface PublicationPreparationCandidate {
+  readonly obligationId: string;
+  readonly sponsorshipId: string;
+  readonly name: string;
+  readonly feedId: PublicationFeedId;
+  readonly publicationFormat: SponsorshipPublicationFormat;
+  readonly status: 'deferred' | 'needs_correction';
+  readonly reason: PublicationPreparationReason;
+  readonly renderedLength: number;
+  readonly budget: number;
+  readonly nextOpportunity: PublicationPreparationOpportunity;
 }
 export type PublicationOpportunityReason =
   | 'EXISTING_PROPOSAL'

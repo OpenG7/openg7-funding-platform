@@ -26,17 +26,17 @@ import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout
 import { AdminPublicationCalendarComponent } from '../../components/admin-publications/admin-publication-calendar.component.js';
 import { AdminAutomaticPreparationDirective } from '../../components/admin-automatic/admin-automatic-preparation.directive.js';
 import type { PublicationCalendarEntry } from '../../components/admin-publications/publication-calendar.js';
+import { PublicationDeliveryController } from '../../components/admin-publications/publication-delivery-controller.js';
+import { PublicationDeliveryDrawerComponent } from '../../components/admin-publications/publication-delivery-drawer.component.js';
+import { AdminPublicationAutomationCommandWorkflow } from '../../components/admin-publications/admin-publication-automation-command-workflow.js';
+import type { PublicationAutomationCommandRunner } from '../../components/admin-publications/publication-automation.ports.js';
 
 import { PublicationAutomationSettingsController } from './publication-automation-settings.controller.js';
 import { AdminPublicationAutomationSettingsComponent } from './admin-publication-automation-settings.component.js';
-import { PublicationDeliveryController } from './publication-delivery-controller.js';
-import { PublicationDeliveryDrawerComponent } from './publication-delivery-drawer.component.js';
 import { PublicationSourceQueueComponent } from './publication-source-queue.component.js';
 import { PublicationReliabilityPanelComponent } from './publication-reliability-panel.component.js';
 import { PublicationReliabilityController } from './publication-reliability-controller.js';
-import { AdminPublicationAutomationCommandWorkflow } from './admin-publication-automation-command-workflow.js';
 import { PublicationAutomationReadController } from './publication-automation-read-controller.js';
-import type { PublicationAutomationCommandRunner } from './publication-automation.ports.js';
 
 @Component({
   selector: 'openg7-admin-publication-automation-page',

@@ -18,6 +18,16 @@ import { recurrenceTimes } from './policy.js';
 import type { Db } from './sources.js';
 
 export const PREPARATION_OPPORTUNITY_SEARCH_DAYS = 366;
+export type PreparationOpportunityPlanner = Awaited<
+  ReturnType<typeof createPreparationOpportunityPlanner>
+>;
+type OpportunityFacts = Pick<
+  PublicationPreparationEntry,
+  'feedId' | 'status' | 'reason' | 'publicationFormat'
+> &
+  Partial<
+    Pick<PublicationPreparationEntry, 'deliveryId' | 'batchId' | 'scheduledAt'>
+  >;
 
 /** One read-only global snapshot. Projections are independent possibilities, not FIFO assignments. */
 export async function createPreparationOpportunityPlanner(
@@ -78,7 +88,7 @@ export async function createPreparationOpportunityPlanner(
   });
   return {
     project(
-      entry: PublicationPreparationEntry,
+      entry: OpportunityFacts,
       source: PublicationRecognitionSource
     ): PublicationPreparationOpportunity {
       if (entry.reason === 'MODERATION_REVIEW_REQUIRED')

@@ -161,7 +161,14 @@
     @if (!c.editing()) {
       @if (c.selected(); as job) {
         <p class="publication-copy">{{ job.message }}</p>
-        <p>{{ c.dateLabel(job.scheduledAt) }}</p>
+        <p>
+          <time [attr.datetime]="job.scheduledAt">{{
+            c.dateLabel(job.scheduledAt)
+          }}</time>
+          @if (c.browserTimezone) {
+            <span> ({{ c.browserTimezone }})</span>
+          }
+        </p>
         @if (job.publicationFormat === 'image_collection') {
           <p>{{ 'admin.publicationAutomation.collectionHelp' | translate }}</p>
           <ol data-og7="publication-collection-preview">

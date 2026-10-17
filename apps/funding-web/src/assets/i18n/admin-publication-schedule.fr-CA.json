@@ -1,0 +1,13 @@
+{
+  "help": "Le créneau proposé est sélectionné par défaut. Vous pouvez le modifier avant de confirmer le contenu et d’autoriser l’envoi.",
+  "timezone": "(heure de Toronto)",
+  "forecast": "Cette possibilité ne réserve aucun créneau. La disponibilité sera vérifiée lors de la préparation et de l’autorisation.",
+  "loading": "Recherche des créneaux et des propositions de ce dossier…",
+  "loadFailed": "Les propositions ne sont pas disponibles. Actualisez leur suivi avant de les vérifier.",
+  "missingDelivery": "Cette publication n’est plus disponible dans ce dossier. Actualisez les propositions avant de poursuivre.",
+  "refresh": "Actualiser les propositions",
+  "edit": "Modifier le créneau",
+  "prepare": "Préparer cette destination",
+  "prepareConfirm": "Préparer les brouillons de cette destination pour tous les dossiers admissibles ? Cette action ne publie rien et n’autorise aucun envoi.",
+  "details": "Voir le suivi détaillé"
+}

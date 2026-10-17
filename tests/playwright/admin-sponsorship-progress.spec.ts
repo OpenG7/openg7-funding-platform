@@ -22,6 +22,7 @@ import { registerSponsorshipCommitmentTests } from './admin-sponsorship-commitme
 import { registerSponsorshipHistoricalAuditTests } from './admin-sponsorship-historical-audit.ui.js';
 import { registerSponsorshipTimingTests } from './admin-sponsorship-timing.ui.js';
 import { registerAdminMediaUsageTests } from './sponsor-media-usage.ui.js';
+import { registerDossierPublicationScheduleTests } from './dossier-publication-schedule.ui.js';
 
 const id = '10000000-0000-4000-8000-000000000401';
 const secondId = '10000000-0000-4000-8000-000000000402';
@@ -577,6 +578,12 @@ registerAdminMediaUsageTests({ fixtures, path, asset: () => mediaAsset() });
 registerSponsorshipCommitmentTests({ fixtures, path });
 registerSponsorshipHistoricalAuditTests({ fixtures, path });
 registerSponsorshipTimingTests({ fixtures, path });
+registerDossierPublicationScheduleTests({
+  fixtures,
+  path,
+  dossier,
+  recordedCommitment
+});
 registerSponsorFiltersTests({ fixtures, path });
 registerSponsorResultsTests({ fixtures });
 registerContributionActivityOverlayTests({
@@ -4094,7 +4101,7 @@ function recordedCommitment(
 }
 
 for (const width of [1280, 390]) {
-  test(`publication bridge explains benefits and opens the exact delivery at ${width}px`, async ({
+  test(`publication bridge explains benefits and retains advanced dossier navigation at ${width}px`, async ({
     page
   }) => {
     const { calls, options } = await fixtures(page);
@@ -4140,10 +4147,15 @@ for (const width of [1280, 390]) {
         name: 'Vérifier et approuver les médias requis par les engagements'
       })
     ).toHaveAttribute('href', path('media'));
-    const link = journey.getByRole('link', { name: 'Vérifier et programmer' });
+    await expect(
+      journey.locator('[data-og7="publication-review"]')
+    ).toHaveAccessibleName('Vérifier et autoriser');
+    const link = journey.getByRole('link', {
+      name: 'Suivre ce dossier dans le moteur'
+    });
     await expect(link).toHaveAttribute(
       'href',
-      `/admin/fundraiser/publications/automation?sponsorshipId=${id}&deliveryId=${secondId}`
+      `/admin/fundraiser/publications/automation?sponsorshipId=${id}`
     );
     await expect(
       page.locator('[data-og7="dossier-publication-editor"]')
@@ -4165,7 +4177,7 @@ for (const width of [1280, 390]) {
     await link.focus();
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(
-      new RegExp(`automation\\?sponsorshipId=${id}&deliveryId=${secondId}`)
+      new RegExp(`automation\\?sponsorshipId=${id}$`)
     );
     expect(calls.filter((call) => call.method === 'POST')).toHaveLength(0);
   });

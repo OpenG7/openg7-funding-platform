@@ -398,13 +398,10 @@ test('admin JSON failures keep endpoint-specific errors and session invalidation
                   ? 'READ_ONLY'
                   : 'SYNTHETIC_FAILURE'
           );
-          assert.equal(
-            error.status,
-            family.name === 'automation' ? undefined : status
-          );
+          assert.equal(error.status, status);
           assert.equal(
             error instanceof AdminDashboardRequestError,
-            family.name === 'activity' || family.name === 'backfill'
+            ['activity', 'backfill', 'automation'].includes(family.name)
           );
           return true;
         });
@@ -1995,6 +1992,7 @@ const remainingRequests = [
     savedAuth: true,
     path: '/admin/publication-automation/media',
     cache: 'no-store',
+    errorKind: 'status-fixed',
     fallback: 'AUTOMATION_UNAVAILABLE',
     invoke: (service) => service.publicationMedia()
   },
