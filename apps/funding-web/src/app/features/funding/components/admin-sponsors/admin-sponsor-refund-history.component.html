@@ -6,30 +6,30 @@
   <article class="detail-card">
     <header class="refund-summary-header">
       <h3>{{ 'admin.legacy.suivi_remboursement' | translate }}</h3>
-      <div class="refund-workflow-status">
-        <span>{{ 'admin.finance.workflowStatus' | translate }}</span>
-        <span [class]="view().statusClass">{{ view().statusLabel }}</span>
-      </div>
-    </header>
-    <dl class="refund-summary-grid" data-og7="dossier-refund-summary">
-      <div>
-        <dt>{{ 'admin.legacy.montant_commandite' | translate }}</dt>
-        <dd class="refund-amount">{{ view().amountLabel }}</dd>
-      </div>
-      <div>
-        <dt>{{ 'admin.legacy.reference_publique' | translate }}</dt>
-        <dd>
-          <code>{{ view().publicReferenceLabel }}</code>
-        </dd>
-      </div>
       @if (view().hasRefundWorkflow) {
+        <div class="refund-workflow-status">
+          <span>{{ 'admin.finance.workflowStatus' | translate }}</span>
+          <span [class]="view().statusClass">{{ view().statusLabel }}</span>
+        </div>
+      }
+    </header>
+    @if (view().hasRefundWorkflow) {
+      <dl class="refund-summary-grid" data-og7="dossier-refund-summary">
+        <div>
+          <dt>{{ 'admin.legacy.montant_commandite' | translate }}</dt>
+          <dd class="refund-amount">{{ view().amountLabel }}</dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.reference_publique' | translate }}</dt>
+          <dd>
+            <code>{{ view().publicReferenceLabel }}</code>
+          </dd>
+        </div>
         <div>
           <dt>{{ 'admin.finance.operationAmount' | translate }}</dt>
           <dd class="refund-amount">{{ view().refundAmountLabel }}</dd>
         </div>
-      }
-    </dl>
-    @if (view().hasRefundWorkflow) {
+      </dl>
       <dl class="refund-provider-details">
         <div>
           <dt>{{ 'admin.legacy.raison_stripe' | translate }}</dt>

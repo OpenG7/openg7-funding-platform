@@ -744,13 +744,20 @@ for (const width of [1920, 1280, 390]) {
       name: "Vue d'ensemble",
       exact: true
     });
+    const summary = details.locator('[data-og7="dossier-overview-summary"]');
     await expect(open).toBeVisible();
     await open.click();
     await expect(details).toBeFocused();
     await expect(
-      details.getByRole('heading', { name: 'Entreprise & contact' })
+      summary.getByRole('heading', { name: 'Commandite', exact: true })
     ).toBeInViewport();
-    await expect(details).toContainText('Atelier démo');
+    await expect(summary.locator('code')).toHaveText('DEMO-301');
+    await expect(
+      summary.getByRole('button', {
+        name: 'Consulter la fiche et les médias',
+        exact: true
+      })
+    ).toBeVisible();
     await expect(page).toHaveURL(url);
 
     // Opening the same dossier again must also work from the keyboard.
@@ -758,7 +765,7 @@ for (const width of [1920, 1280, 390]) {
     await open.press('Enter');
     await expect(details).toBeFocused();
     await expect(
-      details.getByRole('heading', { name: 'Entreprise & contact' })
+      summary.getByRole('heading', { name: 'Commandite', exact: true })
     ).toBeInViewport();
     expect(calls.every((call) => call.method === 'GET')).toBe(true);
   });

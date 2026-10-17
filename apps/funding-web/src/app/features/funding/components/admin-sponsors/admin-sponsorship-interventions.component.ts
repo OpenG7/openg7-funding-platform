@@ -4,14 +4,17 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  Injector,
   OnChanges,
   OnInit,
   PLATFORM_ID,
   SimpleChanges,
+  afterNextRender,
+  effect,
   inject,
   input,
   output,
-  signal,
+  untracked,
   viewChild
 } from '@angular/core';
 import { Router } from '@angular/router';
@@ -22,6 +25,7 @@ import { adminHistoryActor } from '../../models/admin-history-actor.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminAutomaticPreparationDirective } from '../admin-automatic/admin-automatic-preparation.directive.js';
+import { AdminDrawerComponent } from '../admin-ui/admin-drawer.component.js';
 
 import { AdminSponsorshipInterventionsController } from './admin-sponsorship-interventions-controller.js';
 
@@ -29,7 +33,11 @@ import { AdminSponsorshipInterventionsController } from './admin-sponsorship-int
 @Component({
   selector: 'openg7-admin-sponsorship-interventions',
   standalone: true,
-  imports: [TranslatePipe, AdminAutomaticPreparationDirective],
+  imports: [
+    TranslatePipe,
+    AdminAutomaticPreparationDirective,
+    AdminDrawerComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-sponsorship-interventions.component.html',
   styleUrls: [
@@ -50,13 +58,13 @@ export class AdminSponsorshipInterventionsComponent
   readonly saved = output<void>();
   readonly accessRequested = output<void>();
   readonly canResendAccess = input(false);
-  readonly expanded = signal(false);
   readonly days = SPONSORSHIP_FOLLOWUP_DAYS;
   readonly i18n = inject(FundingI18nService);
   private readonly admin = inject(FundingAdminService);
   private readonly router = inject(Router);
   private readonly destroy = inject(DestroyRef);
   private readonly platform = inject(PLATFORM_ID);
+  private readonly injector = inject(Injector);
   private readonly composeForm =
     viewChild<ElementRef<HTMLFormElement>>('interventionForm');
   private initialized = false;
@@ -66,6 +74,7 @@ export class AdminSponsorshipInterventionsComponent
     disabled: () => this.disabled(),
     isDestroyed: () => this.destroy.destroyed,
     token: () => this.admin.getSavedAdminToken(),
+    sessionGeneration: () => this.admin.sessionGeneration(),
     newRequestId: () => crypto.randomUUID(),
     getSponsorshipInterventions: (token, id, before) =>
       this.admin.getSponsorshipInterventions(token, id, before),
@@ -80,6 +89,7 @@ export class AdminSponsorshipInterventionsComponent
     }
   });
   readonly data = this.controller.data;
+  readonly expanded = this.controller.expanded;
   readonly loading = this.controller.loading;
   readonly saving = this.controller.saving;
   readonly error = this.controller.error;
@@ -89,21 +99,46 @@ export class AdminSponsorshipInterventionsComponent
   readonly nextReviewOn = this.controller.nextReviewOn;
   readonly kinds = this.controller.kinds;
 
+  constructor() {
+    let sessionGeneration = this.admin.sessionGeneration();
+    effect(() => {
+      const current = this.admin.sessionGeneration();
+      if (current !== sessionGeneration) {
+        sessionGeneration = current;
+        untracked(() => this.controller.resetDossier());
+      }
+    });
+  }
+
   ngOnInit(): void {
     if (isPlatformBrowser(this.platform)) {
       this.initialized = true;
-      void this.load();
+      if (this.autoOpen()) void this.open();
     }
   }
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['autoOpen']) this.expanded.set(this.autoOpen());
     if (changes['contributionId']) this.controller.resetDossier();
     if (
       this.initialized &&
-      !this.saving() &&
-      (changes['contributionId'] || changes['refreshKey'])
+      (changes['autoOpen'] || changes['contributionId']) &&
+      this.autoOpen()
     )
-      void this.load();
+      void this.open();
+    if (this.initialized && changes['refreshKey'])
+      void this.controller.refreshIfOpen();
+  }
+  open(): Promise<void> {
+    return this.controller.open();
+  }
+  close(): void {
+    this.controller.close();
+  }
+  openAccess(): void {
+    if (this.saving() || this.disabled()) return;
+    this.close();
+    afterNextRender(() => this.accessRequested.emit(), {
+      injector: this.injector
+    });
   }
   load(more = false): Promise<void> {
     return this.controller.load(more);

@@ -440,6 +440,56 @@ test('general audit combines dossier milestones and server entries without mutat
   );
 });
 
+test('audit domains follow existing actions and keep unknown actions available without changing facts', () => {
+  const projector = new AdminSponsorHistoryProjection(presentation());
+  const actions = [
+    ['sponsorship.details_submitted', 'profile'],
+    ['sponsorship.details.update', 'profile'],
+    ['sponsorship.logo.upload', 'profile'],
+    ['sponsorship.media.approved', 'profile'],
+    ['sponsorship_review.approved', 'review'],
+    ['moderation.reconsideration_requested', 'review'],
+    ['sponsorship_publication.update', 'publication'],
+    ['sponsorship_website.visibility', 'publication'],
+    ['sponsorship_obligation.fulfilled', 'publication'],
+    ['sponsorship_commitment.waiver', 'publication'],
+    ['sponsorship_timing.public_observed', 'publication'],
+    ['sponsorship_refund.stripe_partial', 'finances'],
+    ['sponsorship_invoice.backfill', 'finances'],
+    ['sponsorship.intervention.recorded', 'followup'],
+    ['sponsorship.access_link_requested', 'followup'],
+    ['sponsorship.request_information', 'followup'],
+    ['future.unknown_action', 'other']
+  ];
+  const record = Object.freeze(
+    sponsorship({
+      paid_at: '2026-09-02T12:00:00.000Z',
+      sponsor_details_submitted_at: '2026-09-02T12:00:00.000Z',
+      sponsor_reviewed_at: '2026-09-02T12:00:00.000Z',
+      sponsor_visibility_updated_at: '2026-09-02T12:00:00.000Z',
+      admin_audit_entries: Object.freeze([
+        ...actions.map(([action]) => audit(action, action)),
+        audit('refund-decision', 'sponsorship_review.refused', {
+          refundHandling: 'manual_required'
+        })
+      ])
+    })
+  );
+  const before = structuredClone(record);
+  const byId = Object.fromEntries(
+    projector.auditEntriesFor(record).map((entry) => [entry.id, entry])
+  );
+  for (const [action, domain] of actions)
+    assert.equal(byId[action].domain, domain, action);
+  assert.equal(byId['refund-decision'].domain, 'finances');
+  assert.equal(byId['synthetic-sponsor:created'].domain, 'profile');
+  assert.equal(byId['synthetic-sponsor:details'].domain, 'profile');
+  assert.equal(byId['synthetic-sponsor:paid'].domain, 'finances');
+  assert.equal(byId['synthetic-sponsor:reviewed'].domain, 'review');
+  assert.equal(byId['synthetic-sponsor:visibility'].domain, 'publication');
+  assert.deepEqual(record, before);
+});
+
 test('audit presentation retains identity allowlists, actor, unknown actions and visibility outcomes', () => {
   const callbacks = presentation('en');
   const projector = new AdminSponsorHistoryProjection(callbacks);

@@ -184,9 +184,13 @@ export interface SponsorRefundDraft {
   readonly refundNote: string;
 }
 
+export type SponsorHistoryDomain =
+  'profile' | 'publication' | 'finances' | 'followup' | 'review' | 'other';
+
 export interface SponsorAuditEntry {
   readonly id: string;
   readonly date: string;
+  readonly domain?: SponsorHistoryDomain;
   readonly label: string;
   readonly detail?: string;
   readonly actorLabel?: string;

@@ -9,6 +9,10 @@
   border-bottom: 1px solid var(--admin-border);
 }
 .detail-tabs button {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
   @apply tw:min-h-11 tw:min-w-0 tw:text-admin-muted tw:cursor-pointer;
   background: transparent;
   border: 0;
@@ -21,6 +25,18 @@
   font-weight: var(--admin-control-weight);
   white-space: normal;
   box-shadow: none;
+}
+.tab-state {
+  padding: 0.1rem 0.35rem;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-control, 0.5rem);
+  font-size: 0.6875rem;
+  color: var(--admin-muted);
+  background: var(--admin-panel);
+}
+.tab-state[data-state='error'],
+.tab-state[data-state='blocked'] {
+  color: var(--admin-danger);
 }
 :host .detail-tabs button:hover {
   @apply tw:text-admin-text;

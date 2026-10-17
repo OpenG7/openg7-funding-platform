@@ -12,6 +12,7 @@ import { adminHistoryActor } from './admin-history-actor.js';
 import type {
   AdminSponsorHistoryPresentation,
   SponsorAuditEntry,
+  SponsorHistoryDomain,
   SponsorRefundHistoryEntry
 } from './admin-sponsor-workflow.ports.js';
 
@@ -198,9 +199,10 @@ export class AdminSponsorHistoryProjection {
   ): SponsorAuditEntry[] {
     return (sponsorship.admin_audit_entries ?? [])
       .filter((entry) => this.isRefundAuditEntry(entry))
-      .map((entry) => ({
+      .map<SponsorAuditEntry>((entry) => ({
         id: entry.id,
         date: entry.created_at,
+        domain: 'finances',
         label: this.adminAuditLabel(entry),
         detail: this.adminAuditDetail(entry),
         ...this.adminAuditActor(entry)
@@ -327,6 +329,7 @@ export class AdminSponsorHistoryProjection {
     entries.push({
       id: `${sponsorship.id}:created`,
       date: sponsorship.created_at,
+      domain: 'profile',
       label: this.presentation.t('admin.history.actions.sponsorshipReceived')
     });
 
@@ -334,6 +337,7 @@ export class AdminSponsorHistoryProjection {
       entries.push({
         id: `${sponsorship.id}:paid`,
         date: sponsorship.paid_at,
+        domain: 'finances',
         label: this.presentation.t('admin.history.actions.paymentConfirmed'),
         detail: this.presentation.paymentStatusLabel(sponsorship.payment_status)
       });
@@ -351,6 +355,7 @@ export class AdminSponsorHistoryProjection {
       entries.push({
         id: `${sponsorship.id}:details`,
         date: sponsorship.sponsor_details_submitted_at,
+        domain: 'profile',
         label: this.presentation.t('admin.history.actions.detailsReceived')
       });
     }
@@ -359,6 +364,7 @@ export class AdminSponsorHistoryProjection {
       entries.push({
         id: `${sponsorship.id}:reviewed`,
         date: sponsorship.sponsor_reviewed_at,
+        domain: 'review',
         label: this.presentation.t('admin.messages.statut_de_revue_p0', {
           p0: this.presentation.reviewStatusLabel(
             sponsorship.sponsor_review_status
@@ -371,6 +377,7 @@ export class AdminSponsorHistoryProjection {
       entries.push({
         id: `${sponsorship.id}:visibility`,
         date: sponsorship.sponsor_visibility_updated_at,
+        domain: 'publication',
         label: this.presentation.t(
           'admin.messages.donnees_de_publication_mises_a_jour'
         ),
@@ -386,6 +393,7 @@ export class AdminSponsorHistoryProjection {
     ) {
       entries.push({
         id: `${sponsorship.id}:refund-workflow`,
+        domain: 'finances',
         date:
           sponsorship.sponsorship_refund_completed_at ??
           sponsorship.sponsorship_refund_processed_at ??
@@ -401,6 +409,7 @@ export class AdminSponsorHistoryProjection {
       entries.push({
         id: entry.id,
         date: entry.created_at,
+        domain: this.auditDomain(entry),
         label: this.adminAuditLabel(entry),
         detail: this.adminAuditDetail(entry),
         ...this.adminAuditActor(entry)
@@ -414,6 +423,44 @@ export class AdminSponsorHistoryProjection {
 
   trackByAuditEntry(_: number, entry: SponsorAuditEntry): string {
     return entry.id;
+  }
+
+  private auditDomain(entry: AdminAuditLogEntry): SponsorHistoryDomain {
+    const action = entry.action;
+    if (
+      this.isRefundAuditEntry(entry) ||
+      action.startsWith('sponsorship_refund.') ||
+      action.startsWith('sponsorship_invoice.')
+    )
+      return 'finances';
+    if (
+      action.startsWith('sponsorship_review.') ||
+      action.startsWith('moderation.')
+    )
+      return 'review';
+    if (
+      action === 'sponsorship.access_link_requested' ||
+      action === 'sponsorship.request_information' ||
+      action === 'sponsorship.intervention.recorded'
+    )
+      return 'followup';
+    if (
+      action === 'sponsorship.details_submitted' ||
+      action === 'sponsorship.details.update' ||
+      action.startsWith('sponsorship.logo.') ||
+      action.startsWith('sponsorship.media.')
+    )
+      return 'profile';
+    if (
+      action.startsWith('sponsorship_publication.') ||
+      action.startsWith('sponsorship_website.') ||
+      action.startsWith('sponsorship_commitment.') ||
+      action.startsWith('sponsorship_obligation.') ||
+      action.startsWith('sponsorship_evidence.') ||
+      action.startsWith('sponsorship_timing.')
+    )
+      return 'publication';
+    return 'other';
   }
 
   private sameAuditInstant(left: string, right: string): boolean {

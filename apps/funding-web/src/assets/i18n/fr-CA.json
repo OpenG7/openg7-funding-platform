@@ -342,6 +342,8 @@
       "page": "{{page}} / {{total}}"
     },
     "interventions": {
+      "open": "Suivi et interventions",
+      "close": "Fermer le suivi",
       "title": "Suivi et interventions",
       "refresh": "Actualiser le journal",
       "latest": "Dernière intervention consignée :",

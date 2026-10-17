@@ -14,6 +14,7 @@ export interface AdminSponsorshipInterventionsPorts {
   disabled(): boolean;
   isDestroyed(): boolean;
   token(): string;
+  sessionGeneration(): number;
   newRequestId(): string;
   getSponsorshipInterventions(
     token: string,
@@ -28,8 +29,14 @@ export interface AdminSponsorshipInterventionsPorts {
   onUnauthorized(): Promise<void>;
 }
 
+interface InterventionSession {
+  readonly token: string;
+  readonly generation: number;
+}
+
 /** Private journal reads, append requests and uncertain retries for one dossier. */
 export class AdminSponsorshipInterventionsController {
+  readonly expanded = signal(false);
   readonly data = signal<SponsorshipInterventionsResponse | null>(null);
   readonly loading = signal(false);
   readonly saving = signal(false);
@@ -46,6 +53,8 @@ export class AdminSponsorshipInterventionsController {
     'refund_review'
   ];
   private generation = 0;
+  private stale = true;
+  private sessionContext: InterventionSession | null = null;
   private pending: {
     signature: string;
     request: SponsorshipInterventionRequest;
@@ -55,31 +64,89 @@ export class AdminSponsorshipInterventionsController {
 
   resetDossier(): void {
     this.generation++;
+    this.expanded.set(false);
+    this.stale = true;
+    this.sessionContext = null;
     this.note.set('');
     this.kind.set('internal');
     this.nextReviewOn.set('');
     this.pending = null;
     this.success.set(false);
     this.saving.set(false);
+    this.loading.set(false);
+    this.error.set('');
     this.data.set(null);
   }
 
-  private current(generation: number): boolean {
-    return generation === this.generation && !this.ports.isDestroyed();
+  async open(): Promise<void> {
+    if (!this.activeSession()) {
+      await this.ports.onUnauthorized();
+      return;
+    }
+    this.expanded.set(true);
+    if (!this.loading() && !this.saving() && (this.stale || !this.data()))
+      await this.load();
+  }
+
+  close(): void {
+    if (!this.saving()) this.expanded.set(false);
+  }
+
+  async refreshIfOpen(): Promise<void> {
+    this.stale = true;
+    if (this.expanded() && !this.saving()) await this.load();
+  }
+
+  private activeSession(): InterventionSession | null {
+    const token = this.ports.token();
+    const generation = this.ports.sessionGeneration();
+    if (
+      !token ||
+      (this.sessionContext &&
+        (this.sessionContext.token !== token ||
+          this.sessionContext.generation !== generation))
+    )
+      this.resetDossier();
+    if (!token) return null;
+    this.sessionContext = { token, generation };
+    return this.sessionContext;
+  }
+
+  private sameSession(session: InterventionSession): boolean {
+    const token = this.ports.token();
+    return (
+      session.token === token &&
+      session.generation === this.ports.sessionGeneration()
+    );
+  }
+
+  private current(generation: number, session: InterventionSession): boolean {
+    if (generation !== this.generation || this.ports.isDestroyed())
+      return false;
+    if (!this.sameSession(session)) {
+      this.resetDossier();
+      return false;
+    }
+    return true;
   }
 
   async load(more = false): Promise<void> {
+    const session = this.activeSession();
+    if (!session) {
+      await this.ports.onUnauthorized();
+      return;
+    }
     const generation = ++this.generation;
     const previous = more ? this.data() : null;
     this.loading.set(true);
     this.error.set('');
     try {
       const data = await this.ports.getSponsorshipInterventions(
-        this.ports.token(),
+        session.token,
         this.ports.contributionId(),
         previous?.nextCursor ?? undefined
       );
-      if (!this.current(generation)) return;
+      if (!this.current(generation, session)) return;
       if (!data.followup || !Array.isArray(data.entries))
         throw new Error('Invalid intervention response.');
       this.data.set({
@@ -93,10 +160,14 @@ export class AdminSponsorshipInterventionsController {
             ]
           : data.entries
       });
+      this.stale = false;
     } catch (error) {
-      if (this.current(generation)) await this.handleError(error, 'loadError');
+      if (this.current(generation, session)) {
+        this.stale = true;
+        await this.handleError(error, 'loadError');
+      }
     } finally {
-      if (this.current(generation)) this.loading.set(false);
+      if (this.current(generation, session)) this.loading.set(false);
     }
   }
 
@@ -106,6 +177,11 @@ export class AdminSponsorshipInterventionsController {
   }
 
   async save(): Promise<void> {
+    const session = this.activeSession();
+    if (!session) {
+      await this.ports.onUnauthorized();
+      return;
+    }
     if (
       !this.ports.canManage() ||
       this.ports.disabled() ||
@@ -140,10 +216,10 @@ export class AdminSponsorshipInterventionsController {
     this.success.set(false);
     try {
       await this.ports.recordSponsorshipIntervention(
-        this.ports.token(),
+        session.token,
         this.pending.request
       );
-      if (!this.current(generation)) return;
+      if (!this.current(generation, session)) return;
       this.note.set('');
       this.nextReviewOn.set('');
       this.kind.set('internal');
@@ -153,13 +229,15 @@ export class AdminSponsorshipInterventionsController {
       await this.load();
       if (
         !this.ports.isDestroyed() &&
+        this.sameSession(session) &&
         this.ports.contributionId() === payload.contributionId
       )
         this.ports.saved();
     } catch (error) {
-      if (this.current(generation)) await this.handleError(error, 'saveError');
+      if (this.current(generation, session))
+        await this.handleError(error, 'saveError');
     } finally {
-      if (this.current(generation)) this.saving.set(false);
+      if (this.current(generation, session)) this.saving.set(false);
     }
   }
 
@@ -178,7 +256,10 @@ export class AdminSponsorshipInterventionsController {
     if (status === 401 || status === 403) {
       this.data.set(null);
       this.note.set('');
+      this.kind.set('internal');
+      this.nextReviewOn.set('');
       this.pending = null;
+      this.stale = true;
     }
     if (status === 401) await this.ports.onUnauthorized();
   }

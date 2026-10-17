@@ -1,4 +1,13 @@
 {
+  "actions": {
+    "title": "To address",
+    "activity": "View activity"
+  },
+  "overview": {
+    "openProfile": "View profile and media",
+    "openFinances": "View finances",
+    "financeHint": "Payments, invoices and refunds are grouped under Finances."
+  },
   "identityHelp": {
     "completeLabel": "Complete",
     "missingLabel": "To complete",

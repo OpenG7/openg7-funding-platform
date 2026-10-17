@@ -25,7 +25,6 @@ textarea:focus-visible {
   outline-offset: 2px;
 }
 
-.secondary-action,
 .mini-action {
   @apply tw:items-center;
   background: var(--admin-panel);
@@ -37,7 +36,6 @@ textarea:focus-visible {
   text-decoration: none;
 }
 
-.secondary-action:disabled,
 .mini-action:disabled {
   @apply tw:cursor-not-allowed;
   opacity: 0.55;
@@ -107,57 +105,22 @@ dd {
   @apply tw:text-admin-muted;
 }
 
-.tier-badge,
-.payment-badge,
-.refund-badge {
-  border-radius: 999px;
-  @apply tw:inline-flex tw:text-admin-caption;
-  font-weight: var(--admin-label-weight);
-  padding: 0.25rem 0.55rem;
-  @apply tw:w-max;
+.detail-summary dl {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  align-items: start;
 }
 
-.payment-pending,
-.refund-requested,
-.tier-gold {
-  background: var(--og7-admin-warning-bg, #3c3221);
-  @apply tw:text-admin-warning;
+.summary-help {
+  @apply tw:m-0 tw:text-admin-muted;
 }
 
-.payment-paid,
-.refund-completed {
-  background: var(--og7-admin-success-bg, #193d32);
-  @apply tw:text-admin-success;
-}
-
-.payment-failed,
-.refund-failed {
-  background: var(--og7-admin-danger-bg, #422532);
-  @apply tw:text-admin-danger;
-}
-
-.refund-not-requested {
-  background: var(--admin-panel-raised);
-  @apply tw:text-admin-muted;
-}
-
-.refund-processing {
-  background: var(--admin-panel-raised);
-  @apply tw:text-admin-muted;
-}
-
-.tier-silver {
-  background: var(--admin-panel-raised);
-  @apply tw:text-admin-muted;
-}
-
-.tier-bronze {
-  background: var(--og7-admin-warning-bg, #3c3221);
-  @apply tw:text-admin-warning;
+.summary-links {
+  @apply tw:flex tw:flex-wrap tw:gap-3;
 }
 
 @media (max-width: 860px) {
-  .detail-card-grid {
+  .detail-card-grid,
+  .detail-summary dl {
     grid-template-columns: 1fr;
   }
 }

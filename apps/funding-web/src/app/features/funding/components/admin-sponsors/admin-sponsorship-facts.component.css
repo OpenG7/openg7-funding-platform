@@ -69,6 +69,22 @@ dt,
 .confirmed-refund dd {
   font-variant-numeric: tabular-nums;
 }
+.document-inspect {
+  color: var(--admin-accent);
+  background: transparent;
+  border: 0;
+  padding: 0.35rem 0;
+  font: inherit;
+  font-weight: var(--admin-label-weight);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+  text-align: start;
+}
+.document-inspect:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 2px;
+}
 .confirmed-refund {
   margin: 1rem 0 0.5rem;
 }

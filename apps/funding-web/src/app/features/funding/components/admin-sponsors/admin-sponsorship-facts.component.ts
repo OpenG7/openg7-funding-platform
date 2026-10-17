@@ -10,6 +10,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import type { AdminSponsorshipProgress } from '@openg7/funding-core';
 
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { AdminInspectionService } from '../../services/admin-inspection.service.js';
 import { AdminBadgeComponent } from '../admin-ui/admin-badge.component.js';
 
 import { AdminSponsorshipPublicationComponent } from './admin-sponsorship-publication.component.js';
@@ -34,6 +35,7 @@ import { AdminSponsorshipPublicationComponent } from './admin-sponsorship-public
   ]
 })
 export class AdminSponsorshipFactsComponent {
+  readonly inspection = inject(AdminInspectionService);
   readonly canManageWebsite = input(false);
   readonly websiteDisabled = input(false);
   readonly websiteMessage = input('');

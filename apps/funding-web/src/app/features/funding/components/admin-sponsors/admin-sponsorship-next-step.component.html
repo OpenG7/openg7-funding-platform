@@ -3,6 +3,7 @@
   class="next-step"
   [class.embedded]="embedded()"
   [class.compact]="compact()"
+  [class.workspace]="workspace()"
 >
   @if (d.preparationActivityId; as activityId) {
     <button
@@ -16,8 +17,12 @@
   }
   <div class="next-copy">
     <strong>{{
-      (nextSection() ? 'admin.dossier.next' : 'admin.dossier.completed')
-        | translate
+      (nextSection()
+        ? workspace()
+          ? 'admin.dossier.actions.title'
+          : 'admin.dossier.next'
+        : 'admin.dossier.completed'
+      ) | translate
     }}</strong>
     <p>{{ 'admin.dossier.reasons.' + d.next.reason | translate }}</p>
   </div>
@@ -31,5 +36,57 @@
       data-og7="dossier-next"
       >{{ 'admin.dossier.nextActions.' + section | translate }}</a
     >
+  }
+  @if (workspace()) {
+    @if (d.publicationWorkflow; as workflow) {
+      @if (workflow.state !== 'complete') {
+        <div
+          data-og7="publication-next-responsibility"
+          class="workflow-summary"
+        >
+          <strong>{{
+            'admin.dossier.workspace.publication' | translate
+          }}</strong>
+          <p>
+            {{
+              'admin.dossier.publicationBridge.schedule.workflow.responsibility.' +
+                workflow.responsibility | translate
+            }}
+          </p>
+          <p>
+            {{
+              'admin.dossier.publicationBridge.schedule.workflow.reason.' +
+                workflow.reason | translate
+            }}
+          </p>
+        </div>
+      }
+    }
+    @if (d.publicationBlockers?.length && !publicationComplete()) {
+      <details data-og7="publication-blockers" class="action-details">
+        <summary>
+          {{ 'admin.dossier.publicationBridge.blockers' | translate }}
+        </summary>
+        <ul>
+          @for (reason of d.publicationBlockers; track reason) {
+            <li>
+              <a
+                routerLink="/admin/fundraiser/sponsors"
+                [queryParams]="{
+                  sponsorshipId: d.contributionId,
+                  tab: blockerTab(reason)
+                }"
+                [fragment]="'dossier-' + blockerSection(reason)"
+                queryParamsHandling="merge"
+                >{{
+                  'admin.dossier.publicationBridge.blocker.' + reason
+                    | translate
+                }}</a
+              >
+            </li>
+          }
+        </ul>
+      </details>
+    }
   }
 </div>
