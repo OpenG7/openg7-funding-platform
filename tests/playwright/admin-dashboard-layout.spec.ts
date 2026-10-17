@@ -201,7 +201,7 @@ for (const language of ['fr-CA', 'en'] as const)
     // 1920x1080 at 125% supplies 1536x864 CSS pixels.
     { width: 1536, height: 864 }
   ]) {
-    test(`dashboard composition prioritizes the work queue in ${language} at ${viewport.width}px`, async ({
+    test(`dashboard composition starts with journey status and keeps the work queue accessible in ${language} at ${viewport.width}px`, async ({
       page
     }, testInfo) => {
       const { state, writes } = await premiumFixtures(
@@ -228,6 +228,7 @@ for (const language of ['fr-CA', 'en'] as const)
         exact: true
       });
       const metrics = root.locator('[data-og7="cockpit-metrics"]');
+      const journeys = root.locator('[data-og7="platform-journeys"]');
       const cards = metrics.getByRole('article');
       const workflow = root.locator('[data-og7="dashboard-workflow"]');
       const queue = workflow.locator('[data-og7="attention-panel"]');
@@ -286,6 +287,10 @@ for (const language of ['fr-CA', 'en'] as const)
           expect(queueBox.width / dossierBox.width).toBeCloseTo(1.5, 1);
         }
         const metricsBox = (await metrics.boundingBox())!;
+        const journeysBox = (await journeys.boundingBox())!;
+        expect(metricsBox.y).toBeGreaterThanOrEqual(
+          journeysBox.y + journeysBox.height - 1
+        );
         const workflowBox = (await workflow.boundingBox())!;
         expect(workflowBox.y).toBeGreaterThanOrEqual(
           metricsBox.y + metricsBox.height - 1
@@ -302,7 +307,7 @@ for (const language of ['fr-CA', 'en'] as const)
         ).toBe(true);
       }
 
-      await test.step('the first task is available before secondary information and celebrations', async () => {
+      await test.step('journey status leads the metrics and work queue before secondary information', async () => {
         await expectComposition(viewport.width === 390);
         await expect(
           secondary.locator('[data-og7="assistant-context"]')
@@ -340,12 +345,12 @@ for (const language of ['fr-CA', 'en'] as const)
         if (viewport.width === 1536) {
           // No earlier focus, click or scroll may reveal these first-screen targets.
           expect(await page.evaluate(() => scrollY)).toBe(0);
-          for (const card of await cards.all())
-            await expect(card).toBeInViewport({ ratio: 1 });
-          await expect(queue.getByRole('heading', { level: 2 })).toBeInViewport(
-            { ratio: 1 }
-          );
-          await expect(firstTask).toBeInViewport({ ratio: 1 });
+          await expect(
+            journeys.getByRole('heading', { level: 2 })
+          ).toBeInViewport({ ratio: 1 });
+          await expect(
+            journeys.locator('[data-og7="platform-journey"]').first()
+          ).toBeInViewport({ ratio: 1 });
         }
       });
 

@@ -1,0 +1,215 @@
+<section
+  class="journeys-panel"
+  data-og7="platform-journeys"
+  aria-labelledby="platform-journeys-title"
+  [attr.aria-busy]="block.state() === 'loading'"
+>
+  <header class="journeys-heading">
+    <div>
+      <h2 id="platform-journeys-title">
+        {{ 'admin.platformJourneys.title' | translate }}
+      </h2>
+      <p class="journeys-intro">
+        {{ 'admin.platformJourneys.intro' | translate }}
+      </p>
+    </div>
+    <div data-og7="platform-journeys-refresh">
+      <openg7-admin-cockpit-status
+        [state]="block.state()"
+        [stale]="stale()"
+        [refreshLabel]="'admin.platformJourneys.refresh' | translate"
+        (refresh)="block.load()"
+      />
+    </div>
+  </header>
+
+  @if (block.state() === 'error') {
+    <p class="journeys-notice" data-og7="platform-journeys-error">
+      {{ 'admin.platformJourneys.error' | translate }}
+    </p>
+  }
+  @if (block.state() === 'forbidden') {
+    <p class="journeys-notice" data-og7="platform-journeys-forbidden">
+      {{ 'admin.platformJourneys.forbidden' | translate }}
+    </p>
+  }
+  @if (block.data(); as data) {
+    <div class="journeys-controls">
+      @for (journey of data.journeys; track journey.id) {
+        <button
+          type="button"
+          class="journey-control"
+          data-og7="platform-journey"
+          [id]="'platform-journey-control-' + journey.id"
+          [attr.data-og7-id]="journey.id"
+          [attr.data-state]="state(journey)"
+          [attr.aria-expanded]="selected() === journey.id"
+          [attr.aria-controls]="'platform-journey-detail-' + journey.id"
+          (click)="select(journey.id)"
+        >
+          <span
+            class="journey-light"
+            data-og7="platform-journey-light"
+            aria-hidden="true"
+            ><openg7-admin-icon [name]="icon(state(journey))"
+          /></span>
+          <span class="journey-label">
+            <strong>{{
+              'admin.platformJourneys.name.' + journey.id | translate
+            }}</strong>
+            <span class="journey-status">{{
+              'admin.platformJourneys.state.' + state(journey) | translate
+            }}</span>
+            <span class="journey-environment">{{
+              'admin.platformJourneys.environment.' + journey.environment
+                | translate
+            }}</span>
+          </span>
+          <span class="journey-chevron" aria-hidden="true">⌄</span>
+        </button>
+      }
+    </div>
+    <div class="journeys-details">
+      @for (journey of data.journeys; track journey.id) {
+        <details
+          class="journey"
+          data-og7="platform-journey-details"
+          [attr.data-og7-id]="journey.id"
+          [attr.data-state]="state(journey)"
+          [id]="'platform-journey-detail-' + journey.id"
+          [open]="selected() === journey.id"
+          (toggle)="close(journey.id, $event)"
+        >
+          <summary data-og7="platform-journey-summary">
+            <span class="journey-step-light" aria-hidden="true"
+              ><openg7-admin-icon [name]="icon(state(journey))"
+            /></span>
+            <span class="journey-label">
+              <strong>{{
+                'admin.platformJourneys.name.' + journey.id | translate
+              }}</strong>
+              <span class="journey-status">{{
+                'admin.platformJourneys.state.' + state(journey) | translate
+              }}</span>
+            </span>
+            <span class="journey-close">{{
+              'admin.platformJourneys.close' | translate
+            }}</span>
+          </summary>
+          <div class="journey-details">
+            <p class="journey-diagnostic">
+              {{
+                'admin.platformJourneys.diagnostic.' + journey.diagnostic
+                  | translate
+              }}
+            </p>
+            <p class="journey-evidence">
+              {{
+                'admin.platformJourneys.evidence.' + journey.evidenceScope
+                  | translate
+              }}
+            </p>
+            <p class="journey-environment">
+              {{
+                'admin.platformJourneys.environment.' + journey.environment
+                  | translate
+              }}
+            </p>
+            @if (expired(journey)) {
+              <p class="journeys-notice">
+                {{ 'admin.platformJourneys.expired' | translate }}
+              </p>
+            }
+            <dl class="journey-dates">
+              <div>
+                <dt>{{ 'admin.platformJourneys.observed' | translate }}</dt>
+                <dd>
+                  <time [attr.datetime]="journey.observedAt">{{
+                    date(journey.observedAt)
+                  }}</time>
+                </dd>
+              </div>
+              <div>
+                <dt>{{ 'admin.platformJourneys.checked' | translate }}</dt>
+                <dd>
+                  <time [attr.datetime]="journey.checkedAt">{{
+                    date(journey.checkedAt)
+                  }}</time>
+                </dd>
+              </div>
+              <div>
+                <dt>{{ 'admin.platformJourneys.validUntil' | translate }}</dt>
+                <dd>
+                  <time [attr.datetime]="journey.validUntil">{{
+                    date(journey.validUntil)
+                  }}</time>
+                </dd>
+              </div>
+            </dl>
+            <ol
+              class="journey-steps"
+              [attr.aria-label]="'admin.platformJourneys.steps' | translate"
+            >
+              @for (step of journey.steps; track step.id) {
+                <li
+                  data-og7="platform-journey-step"
+                  [attr.data-og7-id]="step.id"
+                  [attr.data-state]="state(step)"
+                >
+                  <div class="journey-step-heading">
+                    <span class="journey-step-light" aria-hidden="true"
+                      ><openg7-admin-icon [name]="icon(state(step))"
+                    /></span>
+                    <strong>{{
+                      'admin.platformJourneys.step.' + step.id | translate
+                    }}</strong>
+                    <span class="journey-status">{{
+                      'admin.platformJourneys.state.' + state(step) | translate
+                    }}</span>
+                  </div>
+                  <p>
+                    {{
+                      'admin.platformJourneys.diagnostic.' + step.diagnostic
+                        | translate
+                    }}
+                  </p>
+                  <p class="journey-evidence">
+                    {{
+                      'admin.platformJourneys.evidence.' + step.evidenceScope
+                        | translate
+                    }}
+                  </p>
+                  <p class="journey-environment">
+                    {{
+                      'admin.platformJourneys.environment.' + step.environment
+                        | translate
+                    }}
+                  </p>
+                  <p class="journey-step-observed">
+                    {{ 'admin.platformJourneys.observed' | translate }}
+                    <time [attr.datetime]="step.observedAt">{{
+                      date(step.observedAt)
+                    }}</time>
+                  </p>
+                </li>
+              }
+            </ol>
+            <a
+              class="admin-link journey-link"
+              [routerLink]="router.parseUrl(journey.adminUrl)"
+              >{{ 'admin.platformJourneys.open' | translate
+              }}<openg7-admin-icon name="arrow"
+            /></a>
+          </div>
+        </details>
+      }
+    </div>
+    <p class="journeys-meta">
+      {{ 'admin.cockpit.asOf' | translate }}
+      <time [attr.datetime]="data.generatedAt">{{
+        date(data.generatedAt)
+      }}</time>
+    </p>
+  }
+  <p class="journeys-scope">{{ 'admin.platformJourneys.scope' | translate }}</p>
+</section>

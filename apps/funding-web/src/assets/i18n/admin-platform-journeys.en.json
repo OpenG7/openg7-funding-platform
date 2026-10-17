@@ -1,0 +1,78 @@
+{
+  "title": "Journey status",
+  "intro": "Six journeys to monitor. Open a light to understand its steps.",
+  "refresh": "Refresh journey status",
+  "open": "Open follow-up",
+  "close": "Collapse details",
+  "error": "The refresh failed. Retained observations need to be checked.",
+  "forbidden": "Your account cannot view these observations.",
+  "expired": "This observation has expired. Its current state is not verified.",
+  "observed": "Last observation:",
+  "checked": "Checked at",
+  "validUntil": "Observation valid until",
+  "noObservation": "No observation available",
+  "steps": "Journey steps",
+  "scope": "These lights use server observations and refresh while this page is visible. A correlated chain confirms recorded facts; it does not check the browser journey or email receipt. Test evidence is labelled separately.",
+  "name": {
+    "contribution": "Contribution",
+    "invoicing": "Invoicing",
+    "sponsorship": "Sponsorship",
+    "publication": "Publication",
+    "transparency": "Transparency",
+    "administration": "Administration"
+  },
+  "state": {
+    "operational": "Operational",
+    "degraded": "Degraded",
+    "unavailable": "Blocked",
+    "unknown": "Not verified"
+  },
+  "environment": {
+    "live": "Production",
+    "test": "Test",
+    "unknown": "Environment undetermined"
+  },
+  "evidence": {
+    "correlated_records": "Correlated business chain from server records.",
+    "partial_records": "Partial observation of server records; the complete journey remains unverified.",
+    "authenticated_request": "Authenticated administrative request observed; the complete sign-in remains unverified.",
+    "none": "No recent evidence available for this step."
+  },
+  "diagnostic": {
+    "correlated_chain": "The required steps belong to one recently observed business chain.",
+    "correlated_step": "This step has a confirmed fact linked to the observed journey.",
+    "partial_observation": "Some steps have been observed, but journey evidence is incomplete.",
+    "no_recent_observation": "No recent observation confirms operation.",
+    "source_missing": "A source needed for this observation is not configured or available.",
+    "source_unavailable": "A required source could not be read.",
+    "processing_failed": "A processing failure prevents this journey from completing.",
+    "processing_delayed": "Processing is taking longer than expected and needs checking.",
+    "delivery_uncertain": "A delivery outcome is uncertain. Verify the facts before retrying.",
+    "awaiting_review": "An administrative review is pending; this expected wait does not indicate an outage.",
+    "awaiting_authorization": "Administrative authorization is pending; this expected wait does not indicate an outage.",
+    "smtp_accepted": "The email was accepted by the SMTP transport. Receipt is not confirmed.",
+    "public_observation_missing": "The public display has not been checked; the available records cannot confirm it.",
+    "authenticated_request": "The API accepted this request with a valid administrative session."
+  },
+  "step": {
+    "checkout": "Form and Checkout",
+    "payment": "Stripe payment",
+    "confirmation": "Recorded confirmation",
+    "followup": "Follow-up available",
+    "invoice": "Invoice available",
+    "email": "Email handoff",
+    "dossier": "Sponsorship dossier",
+    "media": "Media",
+    "review": "Administrative review",
+    "visibility": "Authorized visibility",
+    "authorization": "Publication authorization",
+    "scheduling": "Scheduling",
+    "delivery": "Confirmed delivery",
+    "transactions": "Confirmed transactions",
+    "calculation": "Aggregate calculation",
+    "public_display": "Public display",
+    "login": "Sign-in",
+    "session": "Administrative session",
+    "api_access": "Authorized API access"
+  }
+}

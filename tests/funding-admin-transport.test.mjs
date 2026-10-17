@@ -629,6 +629,12 @@ const explicitJsonRequests = [
     path: `/admin/cockpit/${block}`
   })),
   {
+    name: 'platform journey observations',
+    invoke: (service, token) => service.getCockpit('journeys', token),
+    path: '/admin/cockpit/journeys',
+    cache: 'no-store'
+  },
+  {
     name: 'work queue',
     invoke: (service, token) =>
       service.getWorkQueue(token, { pageSize: 1, itemId: 'sponsor /' }),

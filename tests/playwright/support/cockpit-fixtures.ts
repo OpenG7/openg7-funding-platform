@@ -2,6 +2,10 @@ import type {
   AdminCockpitMetrics,
   AdminCockpitActivity,
   AdminCockpitSystems,
+  AdminPlatformJourneys,
+  AdminPlatformJourneyObservation,
+  AdminPlatformJourneyStep,
+  AdminPlatformJourneyStepId,
   CockpitTrend
 } from '@openg7/funding-core';
 
@@ -141,5 +145,136 @@ export const cockpitFixtures = () => {
       }
     ]
   };
-  return { metrics, activity, systems };
+  // Synthetic UI observations only: no payment, authorization or delivery is run.
+  const journeyObservation: AdminPlatformJourneyObservation = {
+    state: 'operational',
+    environment: 'test',
+    diagnostic: 'correlated_step',
+    evidenceScope: 'correlated_records',
+    ...observation,
+    adminUrl: '/admin/fundraiser'
+  };
+  const step = (
+    id: AdminPlatformJourneyStepId,
+    overrides: Partial<AdminPlatformJourneyObservation> = {}
+  ): AdminPlatformJourneyStep => ({ ...journeyObservation, id, ...overrides });
+  const journeys: AdminPlatformJourneys = {
+    generatedAt,
+    journeys: [
+      {
+        ...journeyObservation,
+        id: 'contribution',
+        diagnostic: 'correlated_chain',
+        steps: [
+          step('checkout'),
+          step('payment'),
+          step('confirmation'),
+          step('followup')
+        ]
+      },
+      {
+        ...journeyObservation,
+        id: 'invoicing',
+        state: 'degraded',
+        diagnostic: 'processing_delayed',
+        evidenceScope: 'partial_records',
+        adminUrl: '/admin/fundraiser/email-queue',
+        steps: [
+          step('payment'),
+          step('invoice'),
+          step('email', {
+            state: 'degraded',
+            diagnostic: 'processing_delayed',
+            evidenceScope: 'partial_records',
+            adminUrl: '/admin/fundraiser/email-queue'
+          })
+        ]
+      },
+      {
+        ...journeyObservation,
+        id: 'sponsorship',
+        state: 'unknown',
+        diagnostic: 'awaiting_review',
+        evidenceScope: 'partial_records',
+        adminUrl: '/admin/fundraiser/sponsors',
+        steps: [
+          step('dossier'),
+          step('media'),
+          step('review', {
+            state: 'unknown',
+            diagnostic: 'awaiting_review',
+            observedAt: null
+          }),
+          step('visibility', {
+            state: 'unknown',
+            diagnostic: 'no_recent_observation',
+            evidenceScope: 'none',
+            observedAt: null
+          })
+        ]
+      },
+      {
+        ...journeyObservation,
+        id: 'publication',
+        state: 'unavailable',
+        diagnostic: 'processing_failed',
+        evidenceScope: 'partial_records',
+        adminUrl: '/admin/fundraiser/publications',
+        steps: [
+          step('authorization'),
+          step('scheduling'),
+          step('delivery', {
+            state: 'unavailable',
+            diagnostic: 'processing_failed'
+          })
+        ]
+      },
+      {
+        ...journeyObservation,
+        id: 'transparency',
+        state: 'unknown',
+        diagnostic: 'public_observation_missing',
+        evidenceScope: 'partial_records',
+        adminUrl: '/admin/fundraiser/transparency',
+        steps: [
+          step('transactions'),
+          step('calculation'),
+          step('public_display', {
+            state: 'unknown',
+            diagnostic: 'public_observation_missing',
+            evidenceScope: 'none',
+            observedAt: null
+          })
+        ]
+      },
+      {
+        ...journeyObservation,
+        id: 'administration',
+        state: 'unknown',
+        diagnostic: 'partial_observation',
+        evidenceScope: 'authenticated_request',
+        environment: 'unknown',
+        steps: [
+          step('login', {
+            state: 'unknown',
+            diagnostic: 'source_missing',
+            evidenceScope: 'none',
+            environment: 'unknown',
+            observedAt: null
+          }),
+          step('session', {
+            diagnostic: 'authenticated_request',
+            evidenceScope: 'authenticated_request',
+            environment: 'unknown'
+          }),
+          step('api_access', {
+            diagnostic: 'authenticated_request',
+            evidenceScope: 'authenticated_request',
+            environment: 'unknown'
+          })
+        ]
+      }
+    ]
+  };
+  return { metrics, activity, systems, journeys };
 };

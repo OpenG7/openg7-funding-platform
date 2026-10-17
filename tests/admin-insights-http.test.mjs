@@ -53,6 +53,7 @@ const fixture = ({
     getCockpitMetrics: port('metrics'),
     getCockpitActivity: port('activity'),
     readCockpitSystems: port('systems'),
+    getCockpitJourneys: port('journeys'),
     getAdminDashboard: port('dashboard'),
     reportFailure: (message, error) =>
       calls.push({ name: 'report', value: { message, error } })
@@ -103,6 +104,7 @@ const routes = [
   ['cockpit/metrics', 'metrics'],
   ['cockpit/activity', 'activity'],
   ['cockpit/systems', 'systems'],
+  ['cockpit/journeys', 'journeys'],
   ['dashboard', 'dashboard']
 ];
 
@@ -253,6 +255,10 @@ test('unavailable read ports preserve status, public errors and log policy', asy
       503,
       { error: 'Cockpit data unavailable.', code: 'COCKPIT_UNAVAILABLE' }
     ],
+    journeys: [
+      503,
+      { error: 'Cockpit data unavailable.', code: 'COCKPIT_UNAVAILABLE' }
+    ],
     dashboard: [502, { error: 'Admin dashboard could not be loaded.' }]
   };
   for (const [path, name, method = 'GET'] of routes) {
@@ -282,6 +288,8 @@ test('unowned routes, trailing paths and unowned methods fall through without si
     ['/admin/attention/other', 'GET'],
     ['/admin/stripe-event', 'POST'],
     ['/admin/cockpit/systems', 'POST'],
+    ['/api/admin/cockpit/journeys', 'POST'],
+    ['/admin/cockpit/journeys/other', 'GET'],
     ['/admin/dashboard', 'HEAD'],
     ['/admin/email/test', 'GET']
   ]) {

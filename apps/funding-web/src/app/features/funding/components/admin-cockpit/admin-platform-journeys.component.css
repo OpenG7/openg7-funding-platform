@@ -1,0 +1,263 @@
+@reference '../../../../../styles/tailwind.css';
+
+:host {
+  @apply tw:block tw:min-w-0 tw:text-admin-text;
+  container: platform-journeys / inline-size;
+}
+.journeys-panel {
+  @apply tw:rounded-admin-card tw:p-admin-card;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-panel);
+  box-shadow: var(--admin-shadow);
+}
+.journeys-heading {
+  @apply tw:flex tw:items-start tw:justify-between tw:gap-4 tw:flex-wrap;
+  margin-bottom: 1.25rem;
+}
+h2 {
+  margin: 0;
+  font-size: var(--admin-section-size, 1.1875rem);
+  font-weight: var(--admin-section-weight, 600);
+  line-height: var(--admin-section-leading, 1.4);
+}
+.journeys-intro,
+.journeys-scope,
+.journeys-meta,
+.journey-evidence,
+.journey-dates,
+.journey-step-observed {
+  @apply tw:text-admin-muted;
+  font-size: var(--admin-secondary-size, 0.875rem);
+}
+.journeys-intro {
+  margin: 0.4rem 0 0;
+}
+.journeys-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.journey-control {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+  min-height: 6.5rem;
+  padding: 1rem;
+  color: var(--admin-text);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-control);
+  background: var(--admin-panel);
+  box-shadow: var(--admin-shadow);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.journey-control:hover,
+.journey-control[aria-expanded='true'] {
+  border-color: var(--journey-color);
+  box-shadow: var(--admin-shadow-raised);
+}
+.journey-control[aria-expanded='true'] .journey-chevron {
+  transform: rotate(180deg);
+}
+.journey,
+.journey-control {
+  --journey-color: var(--admin-muted);
+  --journey-lamp-color: #cbd5e1;
+  --journey-lamp-ink: #334155;
+  min-width: 0;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-control);
+}
+.journey {
+  background: var(--admin-subtle);
+  margin-top: 1rem;
+}
+.journey:not([open]) {
+  display: none;
+}
+[data-state='operational'] {
+  --journey-color: var(--admin-success);
+  --journey-lamp-color: #22c55e;
+  --journey-lamp-ink: #052e16;
+}
+[data-state='degraded'] {
+  --journey-color: var(--admin-warning);
+  --journey-lamp-color: #facc15;
+  --journey-lamp-ink: #422006;
+}
+[data-state='unavailable'] {
+  --journey-color: var(--admin-danger);
+  --journey-lamp-color: #ef4444;
+  --journey-lamp-ink: #450a0a;
+}
+[data-state='unknown'] {
+  --journey-color: var(--admin-muted);
+  --journey-lamp-color: #cbd5e1;
+  --journey-lamp-ink: #334155;
+}
+summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 4rem;
+  padding: 1rem;
+  cursor: pointer;
+  list-style: none;
+  border-radius: inherit;
+}
+summary::-webkit-details-marker {
+  display: none;
+}
+summary:hover {
+  background: var(--admin-hover);
+}
+summary:focus-visible,
+.journey-control:focus-visible,
+.journey-link:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 3px;
+}
+.journey-light,
+.journey-step-light {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: var(--journey-lamp-ink);
+  background: var(--journey-lamp-color);
+  border: 2px solid var(--journey-color);
+  border-radius: 50%;
+}
+.journey-light {
+  width: 2.5rem;
+  height: 2.5rem;
+  box-shadow:
+    inset 2px 2px 6px rgb(255 255 255 / 35%),
+    inset -3px -3px 8px rgb(0 0 0 / 12%),
+    0 0 0 4px
+      color-mix(in srgb, var(--journey-lamp-color) 15%, var(--admin-panel)),
+    0 0 18px color-mix(in srgb, var(--journey-lamp-color) 45%, transparent);
+}
+.journey-label {
+  display: grid;
+  gap: 0.25rem;
+  flex: 1 1 5rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.journey-label strong {
+  font-size: 1rem;
+  font-weight: var(--admin-label-weight, 600);
+}
+.journey-status {
+  color: var(--journey-color);
+  font-size: var(--admin-secondary-size, 0.875rem);
+  font-weight: var(--admin-label-weight, 600);
+}
+.journey-environment {
+  color: var(--admin-muted);
+  font-size: var(--admin-secondary-size, 0.875rem);
+}
+.journey-chevron {
+  color: var(--admin-muted);
+  margin-left: auto;
+}
+.journey[open] summary {
+  min-height: 4rem;
+  border-bottom: 1px solid var(--admin-border);
+}
+.journey-close {
+  color: var(--admin-muted);
+  font-size: var(--admin-secondary-size, 0.875rem);
+}
+.journey-details {
+  padding: 0 1rem 1rem;
+  overflow-wrap: anywhere;
+}
+.journey-diagnostic {
+  margin-bottom: 0.35rem;
+}
+.journey-evidence {
+  margin-top: 0;
+}
+.journey-dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 2rem;
+}
+.journey-dates dt {
+  margin-bottom: 0.2rem;
+}
+.journey-dates dd {
+  margin: 0;
+  color: var(--admin-text);
+  font-variant-numeric: tabular-nums;
+}
+.journey-steps {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+  list-style: none;
+  margin: 1rem 0;
+  padding: 0;
+}
+.journey-steps li {
+  min-width: 0;
+  padding: 0.85rem;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-control);
+  background: var(--admin-panel);
+}
+.journey-step-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.journey-step-heading strong {
+  flex: 1;
+  font-size: 1rem;
+  font-weight: var(--admin-label-weight, 600);
+}
+.journey-step-light {
+  width: 1.6rem;
+  height: 1.6rem;
+  font-size: 0.8rem;
+}
+.journey-steps p {
+  margin: 0.6rem 0 0;
+  font-size: var(--admin-secondary-size, 0.875rem);
+}
+.journey-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: var(--admin-control-height, 2.75rem);
+}
+.journeys-notice {
+  color: var(--admin-muted);
+  font-size: var(--admin-secondary-size, 0.875rem);
+}
+.journeys-meta {
+  margin: 1rem 0 0;
+}
+.journeys-scope {
+  margin: 0.85rem 0 0;
+  max-width: 85ch;
+}
+@container platform-journeys (min-width: 42rem) {
+  .journeys-controls {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .journey-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@container platform-journeys (max-width: 30rem) {
+  .journeys-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

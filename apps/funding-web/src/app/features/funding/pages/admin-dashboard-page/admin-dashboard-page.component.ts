@@ -28,6 +28,7 @@ import { AdminIconComponent } from '../../components/admin-ui/admin-icon.compone
 import { AdminCockpitMetricsComponent } from '../../components/admin-cockpit/admin-cockpit-metrics.component.js';
 import { AdminCockpitActivityComponent } from '../../components/admin-cockpit/admin-cockpit-activity.component.js';
 import { AdminCockpitSystemsComponent } from '../../components/admin-cockpit/admin-cockpit-systems.component.js';
+import { AdminPlatformJourneysComponent } from '../../components/admin-cockpit/admin-platform-journeys.component.js';
 import {
   AdminDashboardRequestError,
   FundingAdminService
@@ -49,7 +50,8 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
     AdminIconComponent,
     AdminCockpitMetricsComponent,
     AdminCockpitActivityComponent,
-    AdminCockpitSystemsComponent
+    AdminCockpitSystemsComponent,
+    AdminPlatformJourneysComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-dashboard-page.component.html',
