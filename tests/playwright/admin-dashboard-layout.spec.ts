@@ -479,6 +479,9 @@ test('admin shell preserves inclusive navigation and chrome breakpoints through 
   const main = page.getByRole('main');
   const banner = page.getByRole('banner');
   const search = banner.locator('openg7-admin-global-search');
+  const newPassage = banner.locator(
+    '[data-og7="admin-automatic-portfolio-start"]'
+  );
   const tools = banner
     .getByRole('button', {
       name: 'Switch administration language to English'
@@ -509,9 +512,10 @@ test('admin shell preserves inclusive navigation and chrome breakpoints through 
         'flex-basis',
         width <= 480 ? '100%' : '0%'
       );
-      await expect(banner).toHaveCSS(
-        'flex-wrap',
-        width <= 480 ? 'wrap' : 'nowrap'
+      await expect(banner).toHaveCSS('flex-wrap', 'wrap');
+      await expect(newPassage).toHaveCSS(
+        'flex-basis',
+        width <= 480 ? '100%' : 'auto'
       );
       if (width <= 1200) await expect(identity).toBeHidden();
       else await expect(identity).toBeVisible();
