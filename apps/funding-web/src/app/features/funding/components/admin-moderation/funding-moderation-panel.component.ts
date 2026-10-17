@@ -59,6 +59,7 @@ export class FundingModerationPanelComponent {
   readonly policyVersion = MODERATION_POLICY_VERSION;
   readonly provisions = MODERATION_EDITORIAL_PROVISIONS;
   private generation = 0;
+  private destroyed = false;
   readonly adverse = computed(() => this.moderation.pending()?.level !== 'N0');
   readonly explanationRequired = computed(
     () =>
@@ -120,6 +121,7 @@ export class FundingModerationPanelComponent {
       if (request) void this.loadContent(request);
     });
     inject(DestroyRef).onDestroy(() => {
+      this.destroyed = true;
       this.generation++;
       this.moderation.answer(null);
     });
@@ -149,6 +151,7 @@ export class FundingModerationPanelComponent {
       this.content.set(content);
       this.loading.set(false);
     } catch (error) {
+      if (this.destroyed) return;
       const status =
         error instanceof AdminDashboardRequestError ? error.status : 0;
       if (status === 401) {

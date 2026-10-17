@@ -154,3 +154,15 @@ test('a late refusal from a replaced session never clears or redirects the new s
   assert.equal(f.navigations.length, 0);
   assert.equal(f.panel.content(), null);
 });
+
+test('a destroyed moderation panel cannot redirect a public page after a late refusal', async (t) => {
+  const f = fixture(t);
+  TestBed.resetTestingModule();
+  f.state.token = '';
+  f.reject(new AdminDashboardRequestError(401));
+  await Promise.resolve();
+  assert.equal(f.moderation.pending(), null);
+  assert.equal(f.state.clears, 0);
+  assert.equal(f.navigations.length, 0);
+  assert.equal(f.panel.content(), null);
+});
