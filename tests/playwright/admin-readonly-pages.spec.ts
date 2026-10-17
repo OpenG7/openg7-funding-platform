@@ -120,9 +120,10 @@ test.describe('Docker admin transparency snapshot', () => {
     await expect(
       page.getByRole('heading', { name: 'Transparence' })
     ).toBeVisible();
-    await expect(page.getByText('Total recu', { exact: true })).toBeVisible();
+    const summary = page.locator('[data-og7="transparency-summary"]');
+    await expect(summary.getByText(/^\s*Total recu\s+CAD\s*$/)).toBeVisible();
     await expect(
-      page.getByText('Alloue publie', { exact: true })
+      summary.getByText(/^\s*Alloue publie\s+CAD\s*$/)
     ).toBeVisible();
     await expect(
       page.getByRole('heading', { name: 'Snapshot public courant' })
@@ -159,6 +160,7 @@ test.describe('Docker admin transparency snapshot', () => {
     await expect(
       page.getByRole('heading', { name: 'Transparence' })
     ).toBeVisible();
-    await expect(page.getByText('Total recu', { exact: true })).toBeVisible();
+    const summary = page.locator('[data-og7="transparency-summary"]');
+    await expect(summary.getByText(/^\s*Total recu\s+CAD\s*$/)).toBeVisible();
   });
 });

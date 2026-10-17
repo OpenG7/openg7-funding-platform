@@ -344,7 +344,7 @@ small {
 }
 @media (max-width: 600px) {
   .followup-content {
-    @apply tw:gap-4 tw:pt-4;
+    @apply tw:gap-3 tw:pt-3;
   }
   .next-step.state-card,
   .followup-form-panel {
@@ -354,7 +354,13 @@ small {
     grid-template-columns: 1fr;
   }
   .followup-hero {
-    padding-block: 1rem;
+    padding-block: 0.5rem;
+  }
+  .followup-hero h1 {
+    margin-block: 0.25rem;
+  }
+  .followup-hero p {
+    @apply tw:m-0;
   }
   .recovery-form button {
     @apply tw:justify-self-stretch;
