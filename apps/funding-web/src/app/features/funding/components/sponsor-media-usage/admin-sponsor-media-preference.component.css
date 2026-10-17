@@ -1,0 +1,109 @@
+@reference '../../../../../styles/tailwind.css';
+
+:host {
+  @apply tw:block tw:min-w-0;
+}
+
+.preference-panel {
+  @apply tw:grid tw:gap-4 tw:min-w-0 tw:p-admin-card tw:rounded-admin-card;
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+}
+
+header {
+  @apply tw:grid tw:gap-2;
+}
+
+h3 {
+  margin: 0;
+  font-size: var(--admin-section-size);
+  font-weight: var(--admin-section-weight);
+  line-height: var(--admin-section-leading);
+}
+
+p,
+dl {
+  margin: 0;
+}
+
+.help-copy,
+dt {
+  @apply tw:text-admin-muted tw:text-admin-caption;
+}
+
+dd {
+  margin: 0.25rem 0 0;
+}
+
+.preference-state {
+  @apply tw:justify-self-start tw:text-admin-caption tw:rounded-admin-sm;
+  padding: 0.35rem 0.65rem;
+  background: var(--admin-warning-bg);
+  color: var(--admin-warning);
+  border: 1px solid var(--admin-warning-border);
+  font-weight: var(--admin-label-weight);
+}
+
+.preference-state--accepted {
+  background: var(--admin-success-bg);
+  color: var(--admin-success);
+  border-color: var(--admin-success-border);
+}
+
+.preference-state--rejected {
+  background: var(--admin-danger-bg);
+  color: var(--admin-danger);
+  border-color: var(--admin-danger-border);
+}
+
+.request-copy {
+  white-space: pre-wrap;
+}
+
+.preference-unavailable {
+  border-inline-start: 3px solid var(--admin-warning);
+  padding-inline-start: 0.75rem;
+}
+
+.explanation-field {
+  @apply tw:grid tw:gap-2 tw:text-admin-caption;
+  font-weight: var(--admin-label-weight);
+}
+
+textarea {
+  @apply tw:w-full tw:resize-y;
+}
+
+.confirmation-field {
+  @apply tw:flex tw:items-start tw:gap-3 tw:text-admin-caption;
+  line-height: var(--admin-body-leading);
+}
+
+.confirmation-field input {
+  flex: 0 0 auto;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0.2rem 0 0;
+  accent-color: var(--admin-accent);
+}
+
+.preference-actions {
+  @apply tw:flex tw:flex-wrap tw:gap-3;
+}
+
+.admin-button {
+  @apply tw:max-w-full tw:whitespace-normal;
+}
+
+.preference-panel > .admin-button {
+  @apply tw:justify-self-start;
+}
+
+.preference-reject:not(:disabled) {
+  color: var(--admin-danger);
+  border-color: var(--admin-danger-border);
+}
+
+.preference-notice[role='status'] {
+  color: var(--admin-success);
+}

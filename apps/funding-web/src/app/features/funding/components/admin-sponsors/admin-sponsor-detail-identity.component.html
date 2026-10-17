@@ -1,0 +1,178 @@
+<section
+  data-og7="dossier-identity"
+  id="dossier-identity"
+  class="identity-layout admin-focus-target"
+  tabindex="-1"
+  [attr.aria-label]="'admin.dossier.tabs.identity' | translate"
+>
+  <section class="profile-card" aria-labelledby="dossier-identity-title">
+    <header class="identity-heading">
+      <div class="identity-title">
+        <h3 id="dossier-identity-title">
+          {{ 'admin.dossier.identityHelp.coordinates' | translate }}
+        </h3>
+        <span
+          class="identity-state"
+          data-og7="identity-coordinates-state"
+          [attr.data-state]="coordinatesComplete() ? 'complete' : 'missing'"
+        >
+          {{
+            'admin.dossier.identityHelp.' +
+              (coordinatesComplete() ? 'completeLabel' : 'missingLabel')
+              | translate
+          }}
+        </span>
+      </div>
+      @if (canEdit()) {
+        <button
+          type="button"
+          class="admin-button"
+          data-og7="identity-edit"
+          [disabled]="disabled()"
+          (click)="editRequested.emit()"
+        >
+          {{ 'admin.dossier.identityHelp.edit' | translate }}
+        </button>
+      }
+    </header>
+    <p data-og7="identity-coordinates-status" class="identity-help">
+      {{
+        'admin.dossier.identityHelp.' +
+          (coordinatesComplete() ? 'coordinatesComplete' : 'coordinatesMissing')
+          | translate
+      }}
+    </p>
+    <dl class="identity-coordinates">
+      <div>
+        <dt>{{ 'admin.dossier.company' | translate }}</dt>
+        <dd>
+          {{
+            sponsorship().sponsor_company_name ||
+              ('admin.dossier.notProvided' | translate)
+          }}
+        </dd>
+      </div>
+      <div>
+        <dt>{{ 'admin.dossier.publicName' | translate }}</dt>
+        <dd>{{ identity().publicNameLabel }}</dd>
+      </div>
+      <div>
+        <dt>{{ 'admin.dossier.contact' | translate }}</dt>
+        <dd>{{ identity().contactName }}</dd>
+      </div>
+      <div>
+        <dt>{{ 'admin.dossier.email' | translate }}</dt>
+        <dd>
+          {{
+            identity().contactEmail || ('admin.dossier.notProvided' | translate)
+          }}
+        </dd>
+      </div>
+      <div>
+        <dt>{{ 'admin.dossier.website' | translate }}</dt>
+        <dd>
+          {{
+            identity().websiteUrl || ('admin.dossier.notProvided' | translate)
+          }}
+        </dd>
+      </div>
+    </dl>
+    @if (!canEdit()) {
+      <p class="identity-help readonly-help">
+        {{ 'admin.dossier.identityHelp.readonly' | translate }}
+      </p>
+    }
+  </section>
+
+  <section class="profile-card" aria-labelledby="identity-submission-title">
+    <header class="identity-heading">
+      <h3 id="identity-submission-title">
+        {{ 'admin.dossier.identityHelp.submission' | translate }}
+      </h3>
+      <span
+        class="identity-state"
+        data-og7="identity-submission-state"
+        [attr.data-state]="
+          sponsorship().sponsor_details_submitted_at ? 'submitted' : 'pending'
+        "
+      >
+        {{
+          'admin.dossier.identityHelp.' +
+            (sponsorship().sponsor_details_submitted_at
+              ? 'submittedLabel'
+              : 'pendingLabel') | translate
+        }}
+      </span>
+    </header>
+    <p data-og7="identity-submission-status" class="identity-help">
+      {{
+        'admin.dossier.identityHelp.' +
+          (sponsorship().sponsor_details_submitted_at
+            ? 'submitted'
+            : 'submissionPending') | translate
+      }}
+    </p>
+    @if (submittedAtLabel(); as dateLabel) {
+      <dl class="submission-date">
+        <div>
+          <dt>{{ 'admin.dossier.identityHelp.submittedAt' | translate }}</dt>
+          <dd>
+            <time
+              [attr.datetime]="sponsorship().sponsor_details_submitted_at"
+              >{{ dateLabel }}</time
+            >
+          </dd>
+        </div>
+      </dl>
+    }
+    @if (!sponsorship().sponsor_details_submitted_at) {
+      <p data-og7="identity-submission-required" class="submission-required">
+        {{ 'admin.dossier.identityHelp.submissionRequired' | translate }}
+      </p>
+      @if (canResendAccess()) {
+        <button
+          type="button"
+          class="admin-button"
+          data-og7="identity-followup-access"
+          [disabled]="disabled()"
+          (click)="accessRequested.emit()"
+        >
+          {{ 'admin.dossier.identityHelp.access' | translate }}
+        </button>
+      } @else {
+        <p class="identity-help">
+          {{ 'admin.dossier.identityHelp.ownerHelp' | translate }}
+        </p>
+      }
+    }
+    <aside
+      class="identity-explanation"
+      aria-labelledby="identity-explanation-title"
+    >
+      <details>
+        <summary id="identity-explanation-title">
+          {{ 'admin.dossier.identityHelp.differenceTitle' | translate }}
+        </summary>
+        @if (!sponsorship().sponsor_details_submitted_at) {
+          <p class="identity-help">
+            {{ 'admin.dossier.identityHelp.submissionHelp' | translate }}
+          </p>
+        }
+        <dl>
+          <div>
+            <dt>{{ 'admin.dossier.identityHelp.adminEntry' | translate }}</dt>
+            <dd>
+              {{ 'admin.dossier.identityHelp.adminEntryMeaning' | translate }}
+            </dd>
+          </div>
+          <div>
+            <dt>{{ 'admin.dossier.identityHelp.sponsorEntry' | translate }}</dt>
+            <dd>
+              {{ 'admin.dossier.identityHelp.sponsorEntryMeaning' | translate }}
+            </dd>
+          </div>
+        </dl>
+      </details>
+    </aside>
+  </section>
+</section>

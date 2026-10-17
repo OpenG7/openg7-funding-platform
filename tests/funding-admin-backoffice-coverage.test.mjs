@@ -463,7 +463,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
     [
       'secondary-danger-action',
       'compact-definition-list',
-      'large-preview',
+      'data-og7="admin-sponsor-logo-upload"',
       'image/png,image/jpeg,image/webp'
     ],
     'admin sponsor logo panel'

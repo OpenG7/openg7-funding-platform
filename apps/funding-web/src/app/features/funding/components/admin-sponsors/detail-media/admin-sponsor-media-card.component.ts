@@ -1,4 +1,3 @@
-import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -24,7 +23,6 @@ import type {
   selector: 'openg7-admin-sponsor-media-card',
   standalone: true,
   imports: [
-    CommonModule,
     TranslatePipe,
     FundingModerationActionsComponent,
     AdminSponsorMediaUsageComponent,
@@ -73,9 +71,36 @@ export class AdminSponsorMediaCardComponent {
     });
   }
   confirmRestrictions(event: Event): void {
+    if (this.busy()) return;
     const value = (event.target as HTMLInputElement).checked;
     this.restrictionsConfirmed.set(value);
     this.restrictionsChange.emit(value);
+  }
+  preview(): void {
+    this.previewMedia.emit({
+      id: this.asset().id,
+      alt: this.asset().altText || this.asset().kindLabel
+    });
+  }
+
+  reject(): void {
+    if (!this.busy() && this.asset().reviewStatus !== 'rejected') {
+      this.reviewMedia.emit({
+        assetId: this.asset().id,
+        expectedVersion: this.asset().version,
+        reviewStatus: 'rejected',
+        altText: this.altText()
+      });
+    }
+  }
+
+  remove(): void {
+    if (!this.busy()) {
+      this.deleteMedia.emit({
+        assetId: this.asset().id,
+        expectedVersion: this.asset().version
+      });
+    }
   }
   approve(): void {
     if (!this.busy() && this.usageReady())
@@ -95,6 +120,8 @@ export class AdminSponsorMediaCardComponent {
   }
 
   setAltText(event: Event): void {
-    this.altTextChange.emit((event.target as HTMLInputElement).value);
+    if (!this.busy()) {
+      this.altTextChange.emit((event.target as HTMLInputElement).value);
+    }
   }
 }
