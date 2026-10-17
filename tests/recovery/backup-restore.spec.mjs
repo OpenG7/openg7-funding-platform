@@ -16,6 +16,7 @@ import {
   completeRecoveryLoginAfterNetworkChange,
   navigateRecoveryLoginAfterNetworkChange
 } from '../support/recovery-login-navigation.mjs';
+import { navigateRecoveryAdminAfterNetworkChange } from '../support/recovery-admin-navigation.mjs';
 import { approveCurrentModeration } from '../playwright/support/moderation.js';
 
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
@@ -876,14 +877,25 @@ async function recoveryScenario(mediaDriver, { playwright }, info) {
         revision: 3,
         data: { companyName: 'Saisie à reprendre' }
       });
-      await admin.page.goto(target.origin + '/admin/fundraiser/contributions');
-      await expect(admin.page.locator('main')).toContainText(
-        'Atelier restauration'
+      await navigateRecoveryAdminAfterNetworkChange(
+        admin.page,
+        target.origin + '/admin/fundraiser/contributions',
+        () =>
+          expect(admin.page.locator('main')).toContainText(
+            'Atelier restauration'
+          )
       );
-      await admin.page.goto(target.origin + '/admin/fundraiser/invoices');
-      await expect(admin.page.locator('main')).toContainText('FAC-RESTORE-500');
-      await admin.page.goto(target.origin + '/admin/fundraiser/email-queue');
-      await expect(admin.page.locator('main')).toContainText('En attente');
+      await navigateRecoveryAdminAfterNetworkChange(
+        admin.page,
+        target.origin + '/admin/fundraiser/invoices',
+        () =>
+          expect(admin.page.locator('main')).toContainText('FAC-RESTORE-500')
+      );
+      await navigateRecoveryAdminAfterNetworkChange(
+        admin.page,
+        target.origin + '/admin/fundraiser/email-queue',
+        () => expect(admin.page.locator('main')).toContainText('En attente')
+      );
       const mobile = admin;
       await mobile.page.setViewportSize({ width: 390, height: 844 });
       await mobile.page.evaluate(() =>

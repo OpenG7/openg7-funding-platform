@@ -269,11 +269,14 @@ test.describe('Docker admin sponsorship review', () => {
   });
 
   test('completes a partial Stripe refund without marking the sponsorship as fully refunded', async ({
-    page
+    page,
+    request
   }) => {
     await signInAsAdmin(page);
 
     const fixture = SPONSORSHIP_FIXTURES.partialRefund;
+    const before = await storedSponsorship(request, fixture.publicReference);
+    expect(before.payment_status).toBe('paid');
     await openFixtureSponsorship(page, fixture.companyName);
     await page.getByRole('button', { name: 'Finances', exact: true }).click();
 
@@ -301,27 +304,30 @@ test.describe('Docker admin sponsorship review', () => {
     ).toBeVisible();
     await expect(page.getByText(/Avoir cree:/i)).toBeVisible();
 
+    const after = await storedSponsorship(request, fixture.publicReference);
+    expect(after).toMatchObject({
+      amount: before.amount,
+      currency: before.currency,
+      payment_status: 'paid',
+      sponsorship_refund_status: 'completed',
+      sponsorship_refund_amount: partialAmount
+    });
+    await expect(page.locator('#dossier-refund dd')).toHaveText(
+      new Intl.NumberFormat('fr-CA', {
+        style: 'currency',
+        currency: before.currency,
+        currencyDisplay: 'code'
+      }).format(partialAmount)
+    );
+
     await page.getByRole('button', { name: 'Aperçu', exact: true }).click();
-    // A partial refund must not flip the sponsorship's own payment status to
-    // "refunded" -- only a full refund does that
-    // (apps/funding-api/src/main.ts calls updateContributionStatusByPaymentIntent
-    // only when isFullRefund). Read the isolated "Paiement" definition inside
-    // the "Commandite" card rather than substring-checking the whole row: the
-    // row's flattened text also contains the unrelated refund *workflow*
-    // status ("Remboursement terminé"), which itself contains the substring
-    // "Rembourse" and would make a naive not.toContainText('Rembourse') fail
-    // even though the payment status is correctly still "Paye". The sidebar
-    // search filter also has its own "Paye"/"Rembourse" <option> text, which
-    // rules out a bare exact-text match too. hasText does a case-insensitive
-    // substring match, so an unanchored 'Paiement' also matches the "Date de
-    // paiement" term -- anchor it to match only the exact "Paiement" term.
-    const paymentStatus = page
-      .locator('article', {
-        has: page.getByRole('heading', { name: 'Commandite', exact: true })
-      })
-      .locator('dt', { hasText: /^Paiement$/ })
-      .locator('xpath=following-sibling::dd[1]');
-    await expect(paymentStatus).toHaveText('Paye');
+    // The common header retains the payment status after the overview was
+    // simplified. Keep it distinct from refund workflow and filter labels.
+    const header = page.locator('openg7-admin-sponsor-detail-header');
+    await expect(
+      header.getByRole('heading', { name: fixture.companyName, exact: true })
+    ).toBeVisible();
+    await expect(header.getByText('Paye', { exact: true })).toBeVisible();
   });
 
   test('a proposed rejection cannot mark a manual refund completed before independent review', async ({

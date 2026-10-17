@@ -479,8 +479,26 @@ test('moderation content refusals stay distinct, retries use real content and ob
     });
     await open();
     await waiting;
+    const activityRefusal = page.waitForResponse(
+      (response) =>
+        response.url().includes('/api/admin/contribution-activity?') &&
+        response.status() === 401
+    );
+    const contentRefusal = page.waitForResponse((response) =>
+      response.url().includes('/api/admin/moderation/content?')
+    );
     await f.revoke(page);
-    release();
+    try {
+      // The activity client invalidates the same session before the held read
+      // finishes. Its cancellation of the panel must not swallow the 401.
+      expect((await activityRefusal).status()).toBe(401);
+      await expect(
+        page.locator('[data-og7="moderation-decision"]')
+      ).toHaveCount(0);
+    } finally {
+      release();
+    }
+    expect((await contentRefusal).status()).toBe(401);
     await expect(page).toHaveURL(/\/admin\/login/);
     await expect(page.locator('[data-og7="moderation-decision"]')).toHaveCount(
       0
