@@ -1,0 +1,145 @@
+@if (dossier(); as d) {
+  @if (view() !== 'overview' || d.failedStripeEvents.length) {
+    <section
+      data-og7="dossier-facts"
+      [attr.data-og7-id]="view()"
+      [id]="'dossier-' + (view() === 'overview' ? 'stripe' : view())"
+      class="admin-focus-target"
+      [class.finance-card]="view() === 'billing' || view() === 'refund'"
+      tabindex="-1"
+      [attr.aria-label]="
+        (view() === 'overview'
+          ? 'admin.dossier.nextActions.stripe'
+          : 'admin.dossier.tabs.' + view()
+        ) | translate
+      "
+    >
+      @if (view() === 'billing') {
+        <header class="finance-heading">
+          <h3>{{ 'admin.dossier.documents' | translate }}</h3>
+          <a
+            class="admin-button"
+            routerLink="/admin/fundraiser/invoices"
+            [queryParams]="{ contributionId: d.contributionId }"
+            queryParamsHandling="merge"
+            >{{ 'admin.dossier.openInvoices' | translate }}</a
+          >
+        </header>
+        @if (d.documents.length) {
+          <ul
+            class="document-list"
+            role="list"
+            [attr.aria-label]="'admin.dossier.documents' | translate"
+          >
+            @for (document of d.documents; track document.id) {
+              <li [attr.data-og7-id]="document.id">
+                <div>
+                  <span class="document-kind">
+                    {{ 'admin.dossier.' + document.kind | translate }}
+                    ·
+                    <time [attr.datetime]="document.issuedAt">{{
+                      date(document.issuedAt)
+                    }}</time>
+                  </span>
+                  <strong class="document-number">{{ document.number }}</strong>
+                </div>
+                <strong class="document-amount">{{
+                  money(document.amountMinor, document.currency)
+                }}</strong>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="finance-empty">
+            {{ 'admin.dossier.noDocuments' | translate }}
+          </p>
+        }
+        @if (d.refund.creditMissing) {
+          <p class="finance-notice" role="status">
+            {{ 'admin.dossier.reasons.credit_missing' | translate }}
+          </p>
+        }
+        @if (d.failedEmails.length) {
+          <div class="finance-notice">
+            <h4>{{ 'admin.finance.emailIssues' | translate }}</h4>
+            <ul role="list">
+              @for (email of d.failedEmails; track email.id) {
+                <li>
+                  <a
+                    routerLink="/admin/fundraiser/email-queue"
+                    [queryParams]="{ messageId: email.id }"
+                    queryParamsHandling="merge"
+                    >{{
+                      (email.status === 'uncertain'
+                        ? 'admin.dossier.reasons.email_uncertain'
+                        : 'admin.dossier.reasons.email_failed'
+                      ) | translate
+                    }}</a
+                  >
+                </li>
+              }
+            </ul>
+          </div>
+        }
+      }
+      @if (view() === 'refund') {
+        <header class="finance-heading">
+          <h3>{{ 'admin.finance.confirmedRefunds' | translate }}</h3>
+          <openg7-admin-badge
+            [tone]="
+              d.refund.state === 'error' || d.refund.state === 'blocked'
+                ? 'danger'
+                : d.refund.state === 'partial' || d.refund.state === 'pending'
+                  ? 'warning'
+                  : d.refund.state === 'complete'
+                    ? 'success'
+                    : 'neutral'
+            "
+            >{{ 'admin.dossier.states.' + d.refund.state | translate }}
+          </openg7-admin-badge>
+        </header>
+        <dl class="confirmed-refund">
+          <div>
+            <dt>{{ 'admin.dossier.confirmedRefund' | translate }}</dt>
+            <dd>{{ money(d.refund.confirmedAmountMinor, d.currency) }}</dd>
+          </div>
+        </dl>
+        <p class="finance-help">
+          {{ 'admin.finance.confirmedHelp' | translate }}
+        </p>
+        @if (d.refund.hasError) {
+          <p class="finance-notice finance-notice-danger" role="alert">
+            {{ 'admin.dossier.reasons.refund_check' | translate }}
+          </p>
+        }
+      }
+      @if (view() === 'publication') {
+        <openg7-admin-sponsorship-publication
+          [dossier]="d"
+          [canManageWebsite]="canManageWebsite()"
+          [websiteDisabled]="websiteDisabled()"
+          [websiteMessage]="websiteMessage()"
+          (changeWebsiteVisibility)="changeWebsiteVisibility.emit($event)"
+          (editWebsite)="editWebsite.emit()"
+          (commitmentChanged)="commitmentChanged.emit()"
+        />
+      }
+      @if (view() === 'overview') {
+        @for (event of d.failedStripeEvents; track event.id) {
+          <p>
+            {{ 'admin.dossier.reasons.stripe_failed' | translate }} ·
+            {{ event.type }} · {{ event.id }}
+          </p>
+          <a
+            routerLink="/admin/fundraiser/attention"
+            [queryParams]="{
+              type: 'stripe_event_failed',
+              itemId: 'stripe_event_failed:' + event.id
+            }"
+            >{{ 'admin.dossier.openStep' | translate }}</a
+          >
+        }
+      }
+    </section>
+  }
+}

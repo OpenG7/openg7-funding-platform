@@ -19,6 +19,7 @@ import type { AdminSponsorAuditHistoryView } from '../../models/admin-sponsors-u
   styleUrls: [
     '../admin-ui/admin-theme.css',
     '../admin-ui/admin-controls.css',
+    '../admin-ui/admin-history.css',
     './admin-sponsor-audit-history.component.css'
   ]
 })

@@ -286,7 +286,7 @@ for (const amounts of [[20000, 30000], [50000]]) {
           .getByLabel(/Message au commanditaire/)
           .fill('Remboursement de recette, sans mouvement de fonds réel.');
         await panel
-          .getByLabel(/Note remboursement/)
+          .getByLabel(/Note sur le remboursement/)
           .fill('Note interne de recette.');
         const pending = page.waitForResponse(
           (r) => r.url().endsWith(refundUrl) && r.request().method() === 'POST'

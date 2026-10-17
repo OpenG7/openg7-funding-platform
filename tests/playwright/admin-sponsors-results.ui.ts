@@ -163,7 +163,7 @@ export function registerSponsorResultsTests({
         payment: 'refunded',
         refund: 'completed',
         labels: {
-          'fr-CA': ['Rembourse', 'Remboursement complete'],
+          'fr-CA': ['Rembourse', 'Remboursement terminé'],
           en: ['Refunded', 'Refund complete']
         }
       },

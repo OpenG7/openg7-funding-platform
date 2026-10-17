@@ -2,27 +2,28 @@
   class="refund-workflow"
   data-og7="dossier-refund-form"
   data-og7-automatic-block="editing"
-  [attr.aria-label]="'admin.legacy.remboursement_stripe' | translate"
+  aria-labelledby="sponsor-refund-title"
+  [attr.aria-busy]="busy()"
 >
   <header>
     <div>
-      <span>Stripe</span>
-      <h3>
+      <span>{{ 'admin.legacy.action_sensible' | translate }}</span>
+      <h3 id="sponsor-refund-title">
         {{ 'admin.legacy.remboursement_stripe' | translate }}
       </h3>
     </div>
     <button
       type="button"
-      class="icon-action"
+      class="admin-button icon-action"
       (click)="cancelled.emit()"
       [disabled]="pending()"
       [attr.aria-label]="'admin.legacy.fermer_le_remboursement' | translate"
     >
-      ×
+      <span aria-hidden="true">×</span>
     </button>
   </header>
 
-  <p id="sponsor-refund-warning" class="refund-warning rejection-span-2">
+  <p id="sponsor-refund-warning" class="refund-warning refund-span-full">
     {{
       'admin.legacy.cette_action_declenche_un_remboursement_stripe_de_p0_sur_un_paiem'
         | translate
@@ -43,6 +44,8 @@
       [max]="sponsorship().amount"
       step="0.01"
       inputmode="decimal"
+      required
+      [disabled]="fieldsLocked()"
       [value]="draft().refundAmount"
       (input)="draftFieldChange.emit({ field: 'refundAmount', event: $event })"
   /></label>
@@ -50,6 +53,7 @@
   <label
     >{{ 'admin.legacy.raison_stripe' | translate
     }}<select
+      [disabled]="fieldsLocked()"
       [value]="draft().refundReason"
       (change)="reasonChange.emit($event)"
     >
@@ -65,24 +69,28 @@
     </select></label
   >
 
-  <label class="rejection-span-2"
+  <label class="refund-span-full"
     >{{ 'admin.legacy.texte_de_confirmation' | translate
-    }}<small
+    }}<small id="sponsor-refund-confirmation-help"
       >{{ 'admin.legacy.recopiez' | translate
       }}<code>{{ confirmationText() }}</code></small
     ><input
       type="text"
-      aria-describedby="sponsor-refund-validation"
+      aria-describedby="sponsor-refund-confirmation-help sponsor-refund-validation"
       autocomplete="off"
+      spellcheck="false"
+      required
+      [disabled]="fieldsLocked()"
       [value]="draft().confirmationText"
       (input)="
         draftFieldChange.emit({ field: 'confirmationText', event: $event })
       "
   /></label>
 
-  <label class="checkbox-line rejection-span-2">
+  <label class="checkbox-line refund-span-full">
     <input
       type="checkbox"
+      [disabled]="fieldsLocked()"
       [checked]="draft().notifySponsor"
       (change)="notifySponsorChange.emit($event)"
     />
@@ -93,8 +101,10 @@
     >{{ 'admin.legacy.destinataire' | translate
     }}<input
       type="email"
+      aria-describedby="sponsor-refund-validation"
       autocomplete="email"
-      [disabled]="!draft().notifySponsor"
+      [required]="draft().notifySponsor"
+      [disabled]="!draft().notifySponsor || fieldsLocked()"
       [value]="draft().recipientEmail"
       (input)="
         draftFieldChange.emit({ field: 'recipientEmail', event: $event })
@@ -106,7 +116,9 @@
     }}<textarea
       rows="4"
       maxlength="1000"
-      [disabled]="!draft().notifySponsor"
+      aria-describedby="sponsor-refund-validation"
+      [required]="draft().notifySponsor"
+      [disabled]="!draft().notifySponsor || fieldsLocked()"
       [value]="draft().sponsorMessage"
       (input)="
         draftFieldChange.emit({ field: 'sponsorMessage', event: $event })
@@ -114,11 +126,12 @@
     ></textarea>
   </label>
 
-  <label class="rejection-span-2"
+  <label class="refund-span-full"
     >{{ 'admin.legacy.note_remboursement' | translate
     }}<textarea
       rows="3"
       maxlength="1000"
+      [disabled]="fieldsLocked()"
       [value]="draft().refundNote"
       (input)="draftFieldChange.emit({ field: 'refundNote', event: $event })"
     ></textarea>
@@ -128,12 +141,14 @@
     <span
       id="sponsor-refund-validation"
       class="inline-status"
+      role="status"
       aria-live="polite"
+      aria-atomic="true"
       >{{ validationMessage() }}</span
     >
     <button
       type="button"
-      class="secondary-action"
+      class="admin-button secondary-action"
       (click)="cancelled.emit()"
       [disabled]="pending()"
     >
@@ -141,8 +156,10 @@
     </button>
     <button
       type="button"
-      class="review-button refund"
-      [disabled]="!canConfirm() || actionsDisabled()"
+      class="admin-button refund-confirm"
+      aria-describedby="sponsor-refund-warning sponsor-refund-validation"
+      [attr.aria-busy]="busy()"
+      [disabled]="!canConfirm() || fieldsLocked()"
       (click)="confirmed.emit()"
     >
       {{

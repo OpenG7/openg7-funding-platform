@@ -1,30 +1,38 @@
-<div
+<article
   class="media-review-item"
   data-og7="admin-sponsor-media"
   [attr.data-og7-id]="asset().id"
+  [attr.aria-labelledby]="'sponsor-media-title-' + asset().id"
 >
   <div class="media-preview">
-    <img
-      *ngIf="asset().previewSource"
-      [src]="asset().previewSource"
-      [alt]="asset().altText || asset().kindLabel"
-    />
+    @if (asset().previewSource) {
+      <img
+        [src]="asset().previewSource"
+        [alt]="asset().altText || asset().kindLabel"
+      />
+    } @else {
+      <span>{{ 'funding.followup.media.previewUnavailable' | translate }}</span>
+    }
   </div>
 
   <div class="media-review-copy">
+    <div class="media-review-heading">
+      <h4 [id]="'sponsor-media-title-' + asset().id">
+        {{ asset().kindLabel }}
+      </h4>
+      <span [class]="'media-status ' + asset().reviewStatus">
+        {{ asset().reviewStatusLabel }}
+      </span>
+    </div>
+    <p class="media-metadata">
+      {{ asset().dimensionsLabel }} · {{ asset().sizeLabel }}
+    </p>
     <openg7-funding-moderation-actions
       [subject]="{ type: 'media', id: asset().id }"
       [automaticFor]="asset().contributionId ?? null"
       [disabled]="busy()"
       (changed)="moderationChanged.emit()"
     />
-    <div class="media-review-heading">
-      <strong>{{ asset().kindLabel }}</strong>
-      <span [class]="'media-status ' + asset().reviewStatus">
-        {{ asset().reviewStatusLabel }}
-      </span>
-    </div>
-    <small>{{ asset().dimensionsLabel }} · {{ asset().sizeLabel }}</small>
     <openg7-admin-sponsor-media-usage
       [asset]="asset()"
       [disabled]="mediaBusy()"
@@ -32,9 +40,9 @@
       (changed)="moderationChanged.emit()"
     />
     @if (asset().usage?.restrictions) {
-      <p>{{ asset().usage?.restrictions }}</p>
+      <p class="usage-restrictions">{{ asset().usage?.restrictions }}</p>
       @if (!asset().usageRestrictionsReviewed) {
-        <label
+        <label class="restrictions-confirmation"
           ><input
             type="checkbox"
             [checked]="restrictionsConfirmed()"
@@ -47,7 +55,7 @@
         >
       }
     }
-    <label>
+    <label class="alt-text-field">
       {{ 'admin.legacy.texte_alternatif' | translate
       }}<span>{{ 'admin.legacy.optionnel' | translate }}</span>
       <input
@@ -59,32 +67,24 @@
         [value]="altText()"
         (input)="setAltText($event)"
         [disabled]="busy()"
+        data-og7="admin-media-alt-text"
       />
     </label>
     <div class="media-review-actions">
       <button
         type="button"
         class="admin-button"
+        data-og7="admin-media-preview"
         [openg7AutomaticPrepare]="'sponsor.media.preview:' + asset().id"
         [automaticFor]="asset().contributionId ?? null"
-        (automaticPrepare)="
-          previewMedia.emit({
-            id: asset().id,
-            alt: asset().altText || asset().kindLabel
-          })
-        "
-        (click)="
-          previewMedia.emit({
-            id: asset().id,
-            alt: asset().altText || asset().kindLabel
-          })
-        "
+        (automaticPrepare)="preview()"
+        (click)="preview()"
       >
         {{ 'admin.inspector.preview' | translate }}
       </button>
       <button
         type="button"
-        class="approve-action"
+        class="admin-button approve-action"
         data-og7="admin-media-approve"
         [disabled]="
           busy() ||
@@ -103,32 +103,22 @@
       </button>
       <button
         type="button"
-        class="reject-action"
+        class="admin-button reject-action"
+        data-og7="admin-media-reject"
         [disabled]="busy() || asset().reviewStatus === 'rejected'"
-        (click)="
-          reviewMedia.emit({
-            assetId: asset().id,
-            expectedVersion: asset().version,
-            reviewStatus: 'rejected',
-            altText: altText()
-          })
-        "
+        (click)="reject()"
       >
         {{ 'admin.legacy.refuser' | translate }}
       </button>
       <button
         type="button"
-        class="secondary-danger-action"
+        class="admin-button secondary-danger-action"
+        data-og7="admin-media-delete"
         [disabled]="busy()"
-        (click)="
-          deleteMedia.emit({
-            assetId: asset().id,
-            expectedVersion: asset().version
-          })
-        "
+        (click)="remove()"
       >
         {{ 'admin.legacy.supprimer' | translate }}
       </button>
     </div>
   </div>
-</div>
+</article>

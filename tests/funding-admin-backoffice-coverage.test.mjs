@@ -368,7 +368,8 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'refund-processing',
       'refund-completed',
       'refund-summary-grid',
-      'refund-history-list',
+      'data-og7="dossier-refund-timeline"',
+      'data-og7="dossier-refund-audit"',
       'metadataString',
       'refundHandlingAuditLabel',
       'creditNoteNumber',
@@ -377,7 +378,9 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'refundSponsorship',
       'admin_audit_entries',
       'adminAuditLabel',
-      'Acteur: ${entry.actor}',
+      'adminHistoryActor(entry.actor',
+      '{{ entry.actorLabel }}',
+      '{{ entry.actorDetail }}',
       'paymentEligibilityMessage',
       'canApproveSponsorship',
       'canSavePublication',
@@ -463,7 +466,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
     [
       'secondary-danger-action',
       'compact-definition-list',
-      'large-preview',
+      'data-og7="admin-sponsor-logo-upload"',
       'image/png,image/jpeg,image/webp'
     ],
     'admin sponsor logo panel'

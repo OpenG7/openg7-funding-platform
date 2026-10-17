@@ -200,7 +200,7 @@ test('cockpit displays confirmed amounts, late fees and a real partial refund se
       .getByRole('checkbox', { name: /Envoyer le courriel de remboursement/ })
       .uncheck();
     await panel
-      .getByLabel(/Note remboursement/)
+      .getByLabel(/Note sur le remboursement/)
       .fill('Synthetic cockpit partial refund.');
     const refunded = page.waitForResponse(
       (r) =>

@@ -3,13 +3,15 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
   OnChanges,
   OnInit,
   PLATFORM_ID,
   computed,
   inject,
   input,
-  output
+  output,
+  viewChild
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
@@ -48,6 +50,7 @@ export class AdminSponsorshipProgressComponent implements OnInit, OnChanges {
   readonly compact = input(false);
   readonly streamlined = input(false);
   readonly showNextStep = input(true);
+  readonly showSummary = input(true);
   readonly completedSteps = computed(
     () =>
       this.data()?.dossier?.milestones.filter(
@@ -57,11 +60,13 @@ export class AdminSponsorshipProgressComponent implements OnInit, OnChanges {
   readonly refreshKey = input<unknown>(0);
   readonly disabled = input(false);
   readonly loaded = output<AdminSponsorshipProgress | null>();
+  readonly refreshed = output<HTMLElement>();
   readonly i18n = inject(FundingI18nService);
   readonly router = inject(Router);
   private readonly admin = inject(FundingAdminService);
   private readonly platform = inject(PLATFORM_ID);
   private readonly destroy = inject(DestroyRef);
+  private readonly panel = viewChild<ElementRef<HTMLElement>>('progressPanel');
   private initialized = false;
   private readonly controller = new AdminSponsorshipProgressController({
     sponsorshipId: () => this.sponsorshipId(),
@@ -93,8 +98,23 @@ export class AdminSponsorshipProgressComponent implements OnInit, OnChanges {
     if (this.initialized && (changes['sponsorshipId'] || changes['refreshKey']))
       void this.load();
   }
-  refresh(): void {
-    void this.load();
+  async refresh(): Promise<void> {
+    const panel = this.panel()?.nativeElement;
+    const restoreFocus = panel?.contains(panel.ownerDocument.activeElement);
+    const sponsorshipId = this.sponsorshipId();
+    if (restoreFocus) panel?.focus({ preventScroll: true });
+    await this.load();
+    if (
+      restoreFocus &&
+      panel &&
+      !this.destroy.destroyed &&
+      sponsorshipId === this.sponsorshipId() &&
+      panel.ownerDocument.activeElement === panel &&
+      this.data()?.dossier &&
+      !this.showSummary() &&
+      !this.showNextStep()
+    )
+      this.refreshed.emit(panel);
   }
 
   load(): Promise<void> {

@@ -91,6 +91,16 @@
 .dossier-section-title {
   @apply tw:sr-only;
 }
+.dossier-finances {
+  @apply tw:grid tw:min-w-0;
+  gap: var(--admin-card-gap);
+  padding-inline: var(--admin-card-padding);
+}
+.finance-facts-grid {
+  @apply tw:grid tw:min-w-0;
+  gap: var(--admin-card-gap);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+}
 .dossier-context {
   @apply tw:min-w-0;
   background: var(--admin-subtle);
@@ -166,6 +176,9 @@
   }
 }
 @media (max-width: 600px) {
+  .dossier-finances {
+    padding-inline: 1rem;
+  }
   :host .admin-workspace.has-dossier {
     padding-inline: 0;
   }

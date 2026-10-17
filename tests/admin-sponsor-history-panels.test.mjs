@@ -26,12 +26,24 @@ const componentFiles = [
   'admin-sponsor-audit-history.component.ts'
 ].map((filename) => componentRoot + filename);
 const catalogs = Object.fromEntries(
-  ['fr-CA', 'en'].map((locale) => [
-    locale,
-    JSON.parse(
+  ['fr-CA', 'en'].map((locale) => {
+    const catalog = JSON.parse(
       readFileSync(`apps/funding-web/src/assets/i18n/${locale}.json`, 'utf8')
-    )
-  ])
+    );
+    catalog.admin.finance = JSON.parse(
+      readFileSync(
+        `apps/funding-web/src/assets/i18n/admin-finance.${locale}.json`,
+        'utf8'
+      )
+    );
+    catalog.admin.history = JSON.parse(
+      readFileSync(
+        `apps/funding-web/src/assets/i18n/admin-history.${locale}.json`,
+        'utf8'
+      )
+    );
+    return [locale, catalog];
+  })
 );
 let compiledDirectory;
 let RefundHistoryComponent;
@@ -142,27 +154,47 @@ async function fixture(t, component, value, locale = 'fr-CA') {
   return fixture;
 }
 
+function assertNamedHistoryList(root, hook, heading) {
+  const list = root.querySelector(`[data-og7="${hook}"]`);
+  assert.ok(list, hook);
+  assert.equal(list.tagName, 'OL');
+  assert.equal(list.getAttribute('role'), 'list');
+  const labelledBy = list.getAttribute('aria-labelledby');
+  const label = labelledBy
+    ? labelledBy
+        .split(/\s+/)
+        .map((id) => root.querySelector(`[id="${id}"]`)?.textContent.trim())
+        .join(' ')
+    : list.getAttribute('aria-label');
+  assert.equal(label, heading);
+  return list;
+}
+
 for (const locale of ['fr-CA', 'en']) {
   test(`refund panel distinguishes absent history and retains translated labels in ${locale}`, async (t) => {
     const view = await fixture(t, RefundHistoryComponent, emptyRefund, locale);
     const root = view.nativeElement;
     const copy = catalogs[locale].admin.legacy;
-    assert.equal(root.querySelectorAll('article').length, 3);
+    assert.equal(root.querySelectorAll('article').length, 1);
     assert.equal(root.querySelectorAll('ol').length, 0);
+    assert.ok(
+      !root.textContent.includes(catalogs[locale].admin.history.newestFirst)
+    );
     assert.equal(
       root.querySelector('section').getAttribute('aria-label'),
       copy.historique_remboursement
     );
     for (const key of [
       'suivi_remboursement',
-      'jalons_remboursement',
-      'actions_admin_liees',
-      'aucun_remboursement_n_est_demande_pour_cette_commandite',
-      'aucun_jalon_de_remboursement_n_est_encore_date_pour_ce_dossier',
-      'aucune_action_admin_de_remboursement_n_est_encore_associee_a_cett'
+      'aucun_remboursement_n_est_demande_pour_cette_commandite'
     ]) {
       assert.ok(root.textContent.includes(copy[key]), key);
     }
+    assert.ok(!root.querySelector('#dossier-refund-timeline-title'));
+    assert.ok(!root.querySelector('#dossier-refund-audit-title'));
+    assert.ok(
+      !root.textContent.includes(catalogs[locale].admin.finance.operationAmount)
+    );
     assert.equal(root.querySelectorAll('button, input, textarea').length, 0);
     assert.equal(
       root.querySelector('section').getAttribute('data-og7'),
@@ -182,22 +214,16 @@ for (const locale of ['fr-CA', 'en']) {
       copy.legacy.historique_et_audit
     );
     assert.equal(anchor.getAttribute('data-og7'), 'dossier-audit-history');
-    assert.ok(anchor.classList.contains('admin-focus-target'));
     assert.ok(
       root.textContent.includes(
         copy.legacy
           .aucun_historique_administratif_detaille_n_est_encore_disponible_p
       )
     );
-    assert.ok(
-      root.textContent.includes(
-        copy.legacy
-          .les_actions_admin_proviennent_du_journal_prive_et_restent_limitee
-      )
-    );
+    assert.ok(root.textContent.includes(copy.history.availableScope));
     const button = root.querySelector('button');
     assert.equal(button.type, 'button');
-    assert.equal(button.textContent.trim(), copy.inspector.kinds.history);
+    assert.equal(button.textContent.trim(), copy.history.inspect);
     const intentions = [];
     view.componentInstance.inspect.subscribe((intent) =>
       intentions.push(intent)
@@ -206,7 +232,101 @@ for (const locale of ['fr-CA', 'en']) {
     assert.deepEqual(intentions, [undefined]);
     assert.deepEqual(data, { entries: [] });
     assert.equal(root.querySelectorAll('ol').length, 0);
+    assert.ok(!root.textContent.includes(copy.history.newestFirst));
+    assert.ok(!root.querySelector('[data-og7="dossier-audit-summary"]'));
   });
+
+  for (const [name, component, hook] of [
+    ['audit', () => AuditHistoryComponent, 'dossier-audit-events'],
+    ['refund', () => RefundHistoryComponent, 'dossier-refund-audit']
+  ]) {
+    test(`${name} history keeps actor references in a closed disclosure and escapes event content in ${locale}`, async (t) => {
+      const hostile = '<img src=x onerror="alert(1)">';
+      const rawActor = `admin:synthetic-${'reference'.repeat(30)}${hostile}`;
+      const entries = [
+        {
+          id: 'technical-actor',
+          dateTime: '2026-09-03T14:00:00Z',
+          dateTimeLabel: 'September 3, 2026',
+          label: `Synthetic event ${hostile}`,
+          detail: `Synthetic detail ${hostile}`,
+          actorLabel: 'Synthetic administrator',
+          actorDetail: rawActor
+        },
+        {
+          id: 'readable-actor',
+          dateTimeLabel: 'September 2, 2026',
+          label: 'Synthetic event with readable actor',
+          actorLabel: `Synthetic operator ${hostile}`
+        },
+        {
+          id: 'without-actor',
+          dateTimeLabel: 'September 1, 2026',
+          label: 'Synthetic event without actor'
+        }
+      ];
+      const data =
+        name === 'audit'
+          ? { entries }
+          : { ...emptyRefund, auditEntries: entries };
+      const before = structuredClone(data);
+      const view = await fixture(t, component(), data, locale);
+      const root = view.nativeElement;
+      const list = root.querySelector(`[data-og7="${hook}"]`);
+      const technical = list.querySelector('[data-og7-id="technical-actor"]');
+      const disclosure = technical.querySelector('details');
+      const copy = catalogs[locale].admin;
+      assert.ok(disclosure);
+      assert.equal(disclosure.hasAttribute('open'), false);
+      assert.equal(
+        disclosure.querySelector('summary').textContent.trim(),
+        `${copy.inspector.fields.actor} : Synthetic administrator`
+      );
+      assert.equal(disclosure.querySelector('code').textContent, rawActor);
+      assert.equal(
+        technical.querySelector('small').textContent.trim(),
+        entries[0].detail
+      );
+      assert.ok(technical.textContent.includes(entries[0].label));
+      const readable = list.querySelector('[data-og7-id="readable-actor"]');
+      assert.ok(!readable.querySelector('details'));
+      assert.ok(
+        Array.from(readable.querySelectorAll('p')).some((node) =>
+          node.textContent.includes(entries[1].actorLabel)
+        )
+      );
+      assert.ok(
+        !list
+          .querySelector('[data-og7-id="without-actor"]')
+          .querySelector('details')
+      );
+      assert.equal(root.querySelectorAll('img, script, [onerror]').length, 0);
+      assert.deepEqual(data, before);
+      if (name === 'audit') {
+        const summary = root.querySelector(
+          '[data-og7="dossier-audit-summary"]'
+        );
+        assert.ok(
+          summary.textContent.includes(
+            copy.history.eventCount.replace('{{count}}', '3')
+          )
+        );
+        assert.ok(summary.textContent.includes(copy.history.newestFirst));
+        view.componentRef.setInput('view', { entries: [entries[1]] });
+        view.detectChanges();
+        assert.ok(
+          root
+            .querySelector('[data-og7="dossier-audit-summary"]')
+            .textContent.includes(copy.history.singleEvent)
+        );
+        assert.equal(root.querySelectorAll('details').length, 0);
+        view.componentRef.setInput('view', { entries: [] });
+        view.detectChanges();
+        assert.ok(!root.querySelector('[data-og7="dossier-audit-summary"]'));
+        assert.ok(!root.textContent.includes(copy.history.newestFirst));
+      }
+    });
+  }
 }
 
 test('refund panel renders projected chronology, references, notes and failures without changing the view', async (t) => {
@@ -223,12 +343,14 @@ test('refund panel renders projected chronology, references, notes and failures 
     timelineEntries: Object.freeze([
       Object.freeze({
         id: 'requested',
+        dateTime: '2026-09-01T14:00:00Z',
         dateTimeLabel: 'September 1, 2026',
         label: 'Request recorded',
         stateClass: 'refund-history-requested'
       }),
       Object.freeze({
         id: 'processing',
+        dateTime: '2026-09-02T14:00:00Z',
         dateTimeLabel: 'September 2, 2026',
         label: 'Processing started',
         detail: 'No final confirmation',
@@ -238,9 +360,11 @@ test('refund panel renders projected chronology, references, notes and failures 
     auditEntries: Object.freeze([
       Object.freeze({
         id: 'admin-action',
+        dateTime: '2026-09-02T14:00:00Z',
         dateTimeLabel: 'September 2, 2026',
         label: 'Server audit',
-        detail: 'Synthetic operator'
+        detail: 'Synthetic refund details',
+        actorLabel: 'Synthetic operator'
       })
     ])
   });
@@ -254,12 +378,16 @@ test('refund panel renders projected chronology, references, notes and failures 
   assert.ok(root.textContent.includes(data.refundError));
   assert.equal(root.querySelectorAll('script').length, 0);
   assert.deepEqual(
-    Array.from(root.querySelectorAll('dd')).map((node) =>
-      node.textContent.trim()
+    Array.from(root.querySelectorAll('.compact-definition-list dd')).map(
+      (node) => node.textContent.trim()
     ),
     [data.refundNote, data.refundError]
   );
-  const timeline = root.querySelector('[data-og7="dossier-refund-timeline"]');
+  const timeline = assertNamedHistoryList(
+    root,
+    'dossier-refund-timeline',
+    catalogs['fr-CA'].admin.legacy.jalons_remboursement
+  );
   assert.deepEqual(
     Array.from(timeline.querySelectorAll('li')).map((node) =>
       node.getAttribute('data-og7-id')
@@ -273,6 +401,19 @@ test('refund panel renders projected chronology, references, notes and failures 
     ['September 1, 2026', 'September 2, 2026']
   );
   assert.equal(timeline.querySelectorAll('small').length, 1);
+  assert.deepEqual(
+    Array.from(timeline.querySelectorAll('time')).map((node) =>
+      node.getAttribute('datetime')
+    ),
+    ['2026-09-01T14:00:00Z', '2026-09-02T14:00:00Z']
+  );
+  const audit = assertNamedHistoryList(
+    root,
+    'dossier-refund-audit',
+    catalogs['fr-CA'].admin.legacy.actions_admin_liees
+  );
+  assert.ok(audit.textContent.includes('Synthetic operator'));
+  assert.equal(audit.querySelectorAll('details').length, 0);
   assert.equal(
     root
       .querySelector('[data-og7="dossier-refund-audit"] li')
@@ -283,7 +424,10 @@ test('refund panel renders projected chronology, references, notes and failures 
 
   view.componentRef.setInput('view', emptyRefund);
   view.detectChanges();
-  assert.equal(root.querySelectorAll('ol, dd').length, 0);
+  assert.equal(
+    root.querySelectorAll('ol, .compact-definition-list dd').length,
+    0
+  );
   assert.ok(!root.textContent.includes('Synthetic operator'));
   assert.ok(!root.textContent.includes(data.refundNote));
 });
@@ -292,6 +436,7 @@ test('audit panel preserves projected event order and replaces the selected doss
   const entries = Object.freeze([
     Object.freeze({
       id: 'newest',
+      dateTime: '2026-09-03T14:00:00Z',
       dateTimeLabel: 'September 3, 2026',
       label: 'Newest server event',
       detail: 'Private audit detail'
@@ -304,6 +449,11 @@ test('audit panel preserves projected event order and replaces the selected doss
   ]);
   const view = await fixture(t, AuditHistoryComponent, { entries });
   const root = view.nativeElement;
+  const list = assertNamedHistoryList(
+    root,
+    'dossier-audit-events',
+    catalogs['fr-CA'].admin.legacy.historique_disponible
+  );
   assert.deepEqual(
     Array.from(root.querySelectorAll('li')).map((node) =>
       node.getAttribute('data-og7-id')
@@ -312,6 +462,22 @@ test('audit panel preserves projected event order and replaces the selected doss
   );
   assert.equal(root.querySelectorAll('small').length, 1);
   assert.equal(root.querySelectorAll('button').length, 1);
+  assert.deepEqual(
+    Array.from(list.querySelectorAll('time')).map(
+      (node) => node.getAttribute('datetime') ?? null
+    ),
+    ['2026-09-03T14:00:00Z', null]
+  );
+  assert.ok(
+    root.textContent.includes(catalogs['fr-CA'].admin.history.newestFirst)
+  );
+  assert.ok(
+    root
+      .querySelector('[data-og7="dossier-audit-summary"]')
+      .textContent.includes(
+        catalogs['fr-CA'].admin.history.eventCount.replace('{{count}}', '2')
+      )
+  );
 
   view.componentRef.setInput('view', {
     entries: [
@@ -322,6 +488,11 @@ test('audit panel preserves projected event order and replaces the selected doss
   assert.equal(root.querySelectorAll('li').length, 1);
   assert.ok(root.textContent.includes('Other dossier'));
   assert.ok(!root.textContent.includes('Private audit detail'));
+  assert.ok(
+    root
+      .querySelector('[data-og7="dossier-audit-summary"]')
+      .textContent.includes(catalogs['fr-CA'].admin.history.singleEvent)
+  );
   assert.deepEqual(
     entries.map((entry) => entry.id),
     ['newest', 'oldest']

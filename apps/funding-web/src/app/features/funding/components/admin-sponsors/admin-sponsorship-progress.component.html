@@ -1,4 +1,6 @@
 <section
+  #progressPanel
+  tabindex="-1"
   class="progress-panel"
   [class.streamlined]="streamlined()"
   data-og7="sponsorship-progress"
@@ -9,9 +11,22 @@
     @if (state() === 'loading') {
       <p role="status">{{ 'admin.dossier.loading' | translate }}</p>
     } @else if (state() !== 'ready') {
-      <p role="alert">{{ 'admin.dossier.' + state() | translate }}</p>
+      <div class="progress-feedback">
+        <p role="alert">{{ 'admin.dossier.' + state() | translate }}</p>
+        @if (state() === 'error') {
+          <button
+            type="button"
+            class="admin-button"
+            (click)="refresh()"
+            [disabled]="disabled()"
+          >
+            <openg7-admin-icon name="refresh" />
+            {{ 'admin.dossier.retry' | translate }}
+          </button>
+        }
+      </div>
     } @else if (data()?.dossier; as d) {
-      <details data-og7="dossier-progress-details">
+      <details data-og7="dossier-progress-details" [hidden]="!showSummary()">
         <summary>
           <span>{{ 'admin.dossier.stateSummary' | translate }}</span>
           <span class="progress-count">{{
@@ -37,9 +52,20 @@
         />
       }
     } @else {
-      <p role="status">
-        {{ 'admin.dossier.' + (data()?.status || 'unavailable') | translate }}
-      </p>
+      <div class="progress-feedback">
+        <p role="status">
+          {{ 'admin.dossier.' + (data()?.status || 'unavailable') | translate }}
+        </p>
+        <button
+          type="button"
+          class="admin-button"
+          (click)="refresh()"
+          [disabled]="disabled()"
+        >
+          <openg7-admin-icon name="refresh" />
+          {{ 'admin.dossier.retry' | translate }}
+        </button>
+      </div>
     }
   } @else {
     <header>

@@ -1,34 +1,121 @@
 @reference '../../../../../styles/tailwind.css';
+
 :host {
   @apply tw:block tw:min-w-0;
+  color: var(--admin-text, var(--text-main));
 }
+
 fieldset {
   border: 1px solid var(--admin-border, var(--border-color));
-  @apply tw:rounded-lg;
-  padding: 0.8rem;
-  @apply tw:min-w-0;
+  border-radius: var(--admin-radius-control, 0.5rem);
+  padding: 0.9rem;
+  @apply tw:min-w-0 tw:max-w-full;
   margin: 0.6rem 0;
 }
-label {
-  @apply tw:flex;
-  align-items: start;
-  @apply tw:flex-wrap tw:gap-2;
-  margin: 0.5rem 0;
+
+legend {
+  @apply tw:max-w-full;
+  padding-inline: 0.25rem;
+  font-weight: var(--admin-label-weight, 600);
+  overflow-wrap: anywhere;
 }
+
+p {
+  color: var(--admin-muted, var(--text-soft));
+  margin: 0.5rem 0 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+[role='alert'] {
+  color: var(--admin-danger, var(--color-danger));
+}
+
+label {
+  @apply tw:grid tw:gap-2 tw:min-w-0;
+  margin: 0.75rem 0;
+  font-size: var(--admin-caption-size, 1rem);
+  font-weight: var(--admin-label-weight, 600);
+  line-height: var(--admin-body-leading, 1.5);
+  overflow-wrap: anywhere;
+}
+
+label:has(input[type='checkbox']) {
+  grid-template-columns: 1.125rem minmax(0, 1fr);
+  align-items: start;
+  column-gap: 0.65rem;
+  font-weight: 400;
+}
+
+input[type='checkbox'] {
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0.2rem 0 0;
+  accent-color: var(--admin-accent, var(--color-primary));
+}
+
 input[type='text'],
 textarea {
-  flex: 1 1 100%;
-  @apply tw:max-w-full tw:box-border;
+  @apply tw:w-full tw:min-w-0 tw:max-w-full tw:box-border;
+  min-height: var(--admin-control-height, 2.75rem);
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--admin-radius-control, 0.5rem);
   font: inherit;
-  color: inherit;
-  background: transparent;
-  border: 1px solid var(--admin-border, var(--border-color));
-  @apply tw:rounded-sm tw:p-2;
+  font-size: var(--admin-body-size, 1rem);
+  font-weight: 400;
+  line-height: var(--admin-body-leading, 1.5);
+  color: var(--admin-text, var(--text-main));
+  background: var(--admin-panel, var(--surface-panel));
+  border: 1px solid var(--admin-control-border, var(--border-color));
 }
+
+textarea {
+  @apply tw:resize-y;
+}
+
 button {
+  @apply tw:inline-flex tw:items-center tw:justify-center tw:max-w-full;
+  min-height: var(--admin-control-height, 2.75rem);
+  padding: 0.625rem 1rem;
+  border: 1px solid var(--admin-control-border, var(--border-color));
+  border-radius: var(--admin-radius-control, 0.5rem);
+  color: var(--admin-text, var(--text-main));
+  background: var(--admin-panel, var(--surface-panel));
   font: inherit;
-  @apply tw:min-h-11;
+  font-weight: var(--admin-control-weight, 600);
+  line-height: 1.4;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  cursor: pointer;
 }
+
+button:not(:disabled):hover {
+  background: var(--admin-hover, var(--surface-raised));
+  border-color: var(--admin-accent, var(--color-primary));
+}
+
+input[type='text']:not(:disabled):hover,
+textarea:not(:disabled):hover {
+  border-color: var(--admin-accent, var(--color-primary));
+}
+
+input:disabled,
+textarea:disabled,
+button:disabled {
+  cursor: not-allowed;
+}
+
+input[type='text']:disabled,
+textarea:disabled,
+button:disabled {
+  background: var(--admin-panel-raised, var(--surface-raised));
+  border-color: var(--admin-border, var(--border-color));
+  color: var(--admin-muted, var(--text-soft));
+}
+
+button:disabled {
+  opacity: 0.65;
+}
+
 input:focus-visible,
 textarea:focus-visible,
 button:focus-visible {

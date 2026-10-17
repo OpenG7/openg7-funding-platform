@@ -150,7 +150,7 @@ export class AdminSponsorRefundWorkflow {
     const amount = this.refundAmountFor(sponsorship);
     return amount
       ? this.ports.formatAmount(amount, sponsorship.currency)
-      : 'montant invalide';
+      : this.ports.t('admin.finance.invalidAmount');
   }
 
   isFullRefundDraft(sponsorship: AdminSponsorshipRecord): boolean {
@@ -341,9 +341,9 @@ export class AdminSponsorRefundWorkflow {
     const reason = this.ports.t('admin.messages.raison_p0', {
       p0: this.ports.stripeRefundReasonLabel(result.refundReason)
     });
-    const workflow = ` Suivi: ${this.ports.refundWorkflowStatusLabel(
-      result.refundWorkflowStatus
-    )}.`;
+    const workflow = this.ports.t('admin.finance.refundWorkflowSummary', {
+      status: this.ports.refundWorkflowStatusLabel(result.refundWorkflowStatus)
+    });
     const localStatus = result.paymentStatusUpdated
       ? this.ports.t('admin.messages.commandite_marquee_comme_remboursee')
       : '';
@@ -385,7 +385,9 @@ export class AdminSponsorRefundWorkflow {
     }
 
     return result.notification.error
-      ? `Courriel de remboursement/avoir non envoye: ${result.notification.error}`
+      ? this.ports.t('admin.finance.refundNotificationFailedWithError', {
+          error: result.notification.error
+        })
       : this.ports.t(
           'admin.messages.courriel_de_remboursement_avoir_non_envoye'
         );
@@ -408,7 +410,7 @@ export class AdminSponsorRefundWorkflow {
     const sponsorName =
       sponsorship.sponsor_company_name ||
       sponsorship.public_name ||
-      'votre organisation';
+      this.ports.t('admin.finance.organizationFallback');
 
     return {
       confirmationText: '',
