@@ -21,6 +21,9 @@ const paths = {
   settings: 'M4 7h16M4 17h16M8 4v6m8 4v6',
   logout: 'M9 3H3v18h6m6-15 6 6-6 6M7 12h14',
   arrow: 'M4 12h16m-6-6 6 6-6 6',
+  bell: 'M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4',
+  bellActive:
+    'M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4M2 8a10 10 0 0 1 2-5m18 5a10 10 0 0 0-2-5',
   menu: 'M3 6h18M3 12h18M3 18h18',
   close: 'm6 6 12 12M6 18 18 6',
   refresh:

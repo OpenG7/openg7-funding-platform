@@ -17,7 +17,8 @@ export const paginateWorkQueue = (
   items: readonly AdminAttentionItem[],
   now: Date,
   query: AdminWorkQueueQuery = {},
-  missingSources: readonly string[] = []
+  missingSources: readonly string[] = [],
+  pendingDossierCount: number | null = null
 ): AdminWorkQueueResponse => {
   const counts = Object.fromEntries(
     WORK_QUEUE_PRIORITIES.map((priority) => [
@@ -103,6 +104,7 @@ export const paginateWorkQueue = (
     available: missingSources.length === 0,
     coverage: missingSources.length ? 'unavailable' : 'complete',
     missingSources,
+    pendingDossierCount: missingSources.length ? null : pendingDossierCount,
     generatedAt: now.toISOString(),
     timezone: 'America/Toronto',
     total: items.length,

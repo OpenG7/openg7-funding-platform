@@ -92,7 +92,7 @@
   background: var(--admin-panel);
   border-bottom: 1px solid var(--admin-border);
   box-shadow: var(--admin-shadow);
-  @apply tw:flex tw:gap-4 tw:justify-between tw:min-h-16;
+  @apply tw:flex tw:flex-wrap tw:gap-4 tw:justify-between tw:min-h-16;
   padding: 0.75rem var(--admin-page-gutter);
 }
 .topbar openg7-admin-global-search {
@@ -105,6 +105,65 @@
 }
 .tools {
   @apply tw:items-center tw:flex tw:flex-wrap tw:gap-2;
+  max-width: 100%;
+}
+.new-passage {
+  white-space: normal;
+  text-align: center;
+}
+.new-passage-bell {
+  display: inline-flex;
+  flex: 0 0 auto;
+  opacity: 0.55;
+  transform-origin: 50% 15%;
+}
+.new-passage-bell.active {
+  opacity: 1;
+  animation: passage-bell-ring 650ms ease-in-out 2;
+}
+.new-passage-count {
+  flex: 0 0 auto;
+  min-width: 1.6rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.new-passage-count.active {
+  background: var(--admin-text);
+  color: var(--admin-panel);
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+@keyframes passage-bell-ring {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  20%,
+  60% {
+    transform: rotate(15deg);
+  }
+  40%,
+  80% {
+    transform: rotate(-15deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .new-passage-bell.active {
+    animation: none;
+  }
 }
 .identity {
   @apply tw:items-center;
@@ -179,6 +238,9 @@ main:focus {
   }
   .tools {
     @apply tw:w-full tw:justify-between;
+  }
+  .new-passage {
+    flex-basis: 100%;
   }
 }
 

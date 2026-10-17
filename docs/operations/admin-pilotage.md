@@ -160,12 +160,28 @@ publication ou paiement de production.
 
 ### Mode automatique de rapprochement
 
-Dans **Mode guidé → Automatique**, **Équilibrer les responsabilités** lance un
-passage sur les paiements confirmés. Le serveur fige la liste des dossiers,
+**Démarrer un nouveau passage**, dans l'en-tête ou **Mode guidé → Automatique**,
+lance un passage sur les paiements confirmés. Le serveur fige la liste des dossiers,
 leurs références, montants et devises ; chaque dossier est ensuite relu à partir
 du paiement, de l'offre enregistrée, des obligations et de leurs preuves.
 Les quantités et les passages promis doivent tous être présents. Les devises
 restent séparées. Le soutien personnel ne crée aucune contrepartie commerciale.
+
+Le guide attend **J’ai lu, continuer** à chaque point de lecture : périmètre,
+aperçu du prochain dossier, résultat confirmé de ce dossier, puis bilan final.
+L'aperçu relit le parcours du paiement sans mutation ; sa validation permet un
+seul contrôle serveur et les préparations privées admissibles. Chaque résultat,
+y compris le dernier, reste à lire avant la suite. Les zones utiles gardent leur
+halo avec une pulsation douce continue jusqu'au clic ; le mouvement réduit
+conserve un halo fixe. Ce clic accuse réception de la lecture ; il n'approuve
+aucune publication, aucun remboursement ni aucun courriel et ne remplace aucune
+confirmation métier. Le serveur peut avoir terminé son contrôle alors que le
+résultat ou le bilan attend encore la lecture ; ces deux états restent distincts.
+
+Au bilan, le rapport complet reste consultable par pages ; le chargement d'une
+page bloque la confirmation de lecture. Une page indisponible se réessaie sans
+relancer les contrôles et conserve le repère ; un refus 401/403 arrête la lecture
+et retire les données privées affichées.
 
 Le mode explique le dossier contrôlé et sa raison, prépare les brouillons privés
 admissibles, puis inscrit le résultat dans un rapport durable avant de passer
@@ -197,9 +213,11 @@ un fait ultérieur peut rouvrir une responsabilité.
 Les paiements confirmés après la capture apparaissent comme nouveaux dossiers à
 inclure dans un nouveau passage. **Revérifier** relit la même liste figée après
 les interventions humaines. La reprise est explicite : ouvrir le panneau ou
-recharger la page relit le rapport sans relancer les opérations. Pause, saisie,
-navigation manuelle, formulaire ou dialogue ouvert, onglet masqué et changement
-de session arrêtent l'avancement. Une requête déjà partie peut se terminer ;
+recharger la page relit le rapport sans relancer les opérations. Pause, fermeture du guide,
+changement de mode, saisie, navigation manuelle, formulaire ou dialogue ouvert,
+onglet masqué, changement de session et erreur interrompant le passage retirent
+le halo et arrêtent l'avancement. Les accusés de lecture restent en mémoire pendant le passage,
+sans reprise automatique après rechargement. Une requête déjà partie peut se terminer ;
 la pause empêche le dossier suivant. Un résultat incertain exige sa
 réconciliation et n'est jamais rejoué automatiquement.
 

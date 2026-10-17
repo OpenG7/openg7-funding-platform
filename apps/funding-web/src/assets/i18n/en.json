@@ -1801,6 +1801,9 @@
     },
     "shell": {
       "skip": "Skip to main content",
+      "startPass": "Start a new passage",
+      "startPassCountUnavailable": "Dossier count unavailable.",
+      "startPassDossierCount": "Dossiers to process: {{count}}",
       "workspace": "Builders Fund · Administration",
       "identity": "Administration",
       "toEnglish": "Switch administration language to English",

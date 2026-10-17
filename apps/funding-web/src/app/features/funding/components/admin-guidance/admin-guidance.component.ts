@@ -2,10 +2,12 @@ import { DOCUMENT } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  type ComponentRef,
   DestroyRef,
   ElementRef,
   ViewContainerRef,
   afterRenderEffect,
+  computed,
   inject,
   signal,
   viewChild
@@ -15,6 +17,7 @@ import { RouterLink } from '@angular/router';
 import { AdminGuidanceService } from '../../services/admin-guidance.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
+import type { AdminAutomaticComponent } from '../admin-automatic/admin-automatic.component.js';
 
 import { highlightGuidanceRegions } from './admin-guidance-highlight.js';
 import { AdminPaymentJourneyComponent } from './admin-payment-journey.component.js';
@@ -45,6 +48,20 @@ export class AdminGuidanceComponent {
   readonly placement = signal<'top' | 'bottom'>('top');
   readonly automaticLoading = signal(false);
   readonly automaticError = signal(false);
+  private readonly automaticComponent =
+    signal<ComponentRef<AdminAutomaticComponent> | null>(null);
+  private readonly portfolioStartRequested = signal(false);
+  readonly portfolioStartDisabled = computed(() => {
+    const automatic = this.automaticComponent()?.instance;
+    const run = automatic?.portfolio.snapshot().state?.run;
+    return (
+      this.portfolioStartRequested() ||
+      this.automaticLoading() ||
+      !!automatic?.portfolioStarting() ||
+      !!automatic?.portfolio.active() ||
+      (!!run && run.status !== 'completed')
+    );
+  });
   private readonly document = inject(DOCUMENT);
   private readonly card = viewChild<ElementRef<HTMLElement>>('card');
   private readonly toggle = viewChild<ElementRef<HTMLButtonElement>>('toggle');
@@ -68,6 +85,9 @@ export class AdminGuidanceComponent {
       onCleanup(() => {
         current = false;
         release?.();
+        this.automaticComponent.set(null);
+        this.automaticLoading.set(false);
+        this.portfolioStartRequested.set(false);
       });
       this.automaticLoading.set(true);
       this.automaticError.set(false);
@@ -75,6 +95,7 @@ export class AdminGuidanceComponent {
         .then(({ AdminAutomaticComponent }) => {
           if (!current) return;
           const component = host.createComponent(AdminAutomaticComponent);
+          this.automaticComponent.set(component);
           release = () => component.destroy();
           component.instance.show.subscribe((target) => this.show(target));
           this.automaticLoading.set(false);
@@ -84,9 +105,21 @@ export class AdminGuidanceComponent {
           if (!current) return;
           release?.();
           release = undefined;
+          this.automaticComponent.set(null);
           this.automaticLoading.set(false);
           this.automaticError.set(true);
+          this.portfolioStartRequested.set(false);
         });
+    });
+    afterRenderEffect(() => {
+      const automatic = this.automaticComponent()?.instance;
+      if (!this.portfolioStartRequested() || !automatic) return;
+      if (automatic.languageError()) {
+        this.portfolioStartRequested.set(false);
+      } else if (automatic.languageReady()) {
+        this.portfolioStartRequested.set(false);
+        void automatic.startPortfolio();
+      }
     });
     afterRenderEffect(() => {
       this.guidance.page();
@@ -112,6 +145,12 @@ export class AdminGuidanceComponent {
   }
   t(key: string, params?: Record<string, unknown>): string {
     return this.i18n.t('admin.guidance.' + key, params);
+  }
+  startPortfolio(): void {
+    if (!this.guidance.available() || this.portfolioStartDisabled()) return;
+    this.portfolioStartRequested.set(true);
+    if (!this.guidance.enabled()) this.guidance.toggle();
+    this.guidance.setMode('automatic');
   }
   move(direction: number): void {
     this.guidance.move(direction);

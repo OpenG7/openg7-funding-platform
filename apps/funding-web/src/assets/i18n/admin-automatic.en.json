@@ -114,12 +114,13 @@
       "idle": "Ready to balance responsibilities",
       "loading": "Reading the passage context",
       "review": "Report available — the next step awaits your start",
-      "explaining": "Here is what I will check and why",
+      "explaining": "Preparing the area to read",
       "advancing": "Checking one dossier and preparing authorised work",
       "paused": "Paused — no next step will be started",
       "completed": "Passage verification finished",
       "uncertain": "Reconcile the result before resuming",
-      "error": "The verification did not finish"
+      "error": "The verification did not finish",
+      "awaiting_approval": "Waiting for your reading confirmation"
     },
     "statuses": {
       "balanced": "Balanced at the time of this check",
@@ -140,6 +141,25 @@
       "forbidden": "Your access does not permit this read. No private dossier is retained on screen.",
       "stale": "The passage changed in another session. Read its state before resuming.",
       "uncertain": "The request did not return a certain result. I will not replay it. Read the report and reconcile any actions before resuming."
+    },
+    "reading": {
+      "approve": "I’ve read it, continue",
+      "resume": "Resume reading",
+      "help": "The golden area stays illuminated until you confirm reading it. Publishing, refunds and sending still require their separate confirmations.",
+      "manifest": "This passage covers {{count}} dossiers recorded when it started.",
+      "dossierTitle": "Dossier to check: {{reference}}",
+      "amount": "Dossier amount: {{amount}}",
+      "previewAt": "Journey read on {{date}}",
+      "noRecommendation": "The journey reports no open step. The passage will still check the commitments and their evidence.",
+      "serverComplete": "Dossier processing is complete. The guide awaits your reading of the result and summary.",
+      "summaryTitle": "Summary of checked dossiers",
+      "reportLoading": "Reading the next report page…",
+      "steps": {
+        "scope": "Read the scope",
+        "dossier": "Review the next dossier",
+        "result": "Read the confirmed result",
+        "summary": "Read the passage summary"
+      }
     }
   },
   "help": "I open the relevant screens and prepare available actions. You keep control of decisions and confirmations.",

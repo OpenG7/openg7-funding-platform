@@ -8,7 +8,10 @@ import {
   type QueueInvoiceCandidate,
   type QueueStripeEvent
 } from './contracts.js';
-import { buildWorkQueueItems } from './projection.js';
+import {
+  buildWorkQueueItems,
+  countPendingWorkQueueDossiers
+} from './projection.js';
 import { loadRefundFollowupItems } from './refund-followup.js';
 import { loadReliabilityFollowupItems } from './reliability-followup.js';
 
@@ -16,8 +19,17 @@ import { loadReliabilityFollowupItems } from './reliability-followup.js';
 export const loadAdminWorkQueue = async (
   pool: Pool | null,
   now = new Date()
-): Promise<{ items: AdminAttentionItem[]; missingSources: string[] }> => {
-  if (!pool) return { items: [], missingSources: ['database'] };
+): Promise<{
+  items: AdminAttentionItem[];
+  missingSources: string[];
+  pendingDossierCount: number | null;
+}> => {
+  if (!pool)
+    return {
+      items: [],
+      missingSources: ['database'],
+      pendingDossierCount: null
+    };
   const required = [
     'fund_contributions',
     'stripe_events',
@@ -50,7 +62,8 @@ export const loadAdminWorkQueue = async (
   const missing = required.filter(
     (name) => !presence.rows.some((row) => row.name === name && row.present)
   );
-  if (missing.length) return { items: [], missingSources: missing };
+  if (missing.length)
+    return { items: [], missingSources: missing, pendingDossierCount: null };
   const [dataset, invoices, events, refunds, reliability] = await Promise.all([
     // A list of responsibilities never requires adding distinct currencies.
     loadAttentionDataset(pool, now, true, false),
@@ -66,11 +79,13 @@ export const loadAdminWorkQueue = async (
     loadRefundFollowupItems(pool, now),
     loadReliabilityFollowupItems(pool, now)
   ]);
+  const items = buildWorkQueueItems(dataset, invoices.rows, events.rows, [
+    ...refunds,
+    ...reliability
+  ]);
   return {
-    items: buildWorkQueueItems(dataset, invoices.rows, events.rows, [
-      ...refunds,
-      ...reliability
-    ]),
-    missingSources: []
+    items,
+    missingSources: [],
+    pendingDossierCount: countPendingWorkQueueDossiers(items, dataset)
   };
 };
