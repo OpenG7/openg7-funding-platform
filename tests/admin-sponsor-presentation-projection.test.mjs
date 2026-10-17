@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { registerHooks } from 'node:module';
 import test from 'node:test';
 import { recordedSponsorshipCommitment } from './support/sponsorship-commitment-fixture.mjs';
+import { adminPublicationTranslations } from './support/admin-publication-translations.mjs';
 
 import { AdminSponsorHistoryProjection } from '../dist/apps/funding-web/src/app/features/funding/models/admin-sponsor-history.projection.js';
 
@@ -30,9 +30,7 @@ try {
 const dictionaries = Object.fromEntries(
   ['fr-CA', 'en'].map((locale) => [
     locale,
-    JSON.parse(
-      readFileSync(`apps/funding-web/src/assets/i18n/${locale}.json`, 'utf8')
-    )
+    adminPublicationTranslations(locale)
   ])
 );
 
@@ -177,7 +175,7 @@ test('list presentation preserves processing precedence without changing financi
     [{ sponsor_feed_status: 'published' }, 'action-required'],
     [
       { sponsor_review_status: 'approved', sponsor_feed_status: 'published' },
-      'published'
+      'publication-progress'
     ],
     ...['planned', 'drafted'].map((sponsor_feed_status) => [
       { sponsor_review_status: 'approved', sponsor_feed_status },
@@ -199,6 +197,49 @@ test('list presentation preserves processing precedence without changing financi
     assert.ok(row.processingLabel.trim());
     assert.deepEqual(record, before);
   }
+});
+
+test('list declarations and historical evidence identifiers defer delivery qualification to the dossier', () => {
+  const { projection } = fixture();
+  const commitment = recordedSponsorshipCommitment([
+    'facebook_batch',
+    'linkedin_batch'
+  ]);
+  const record = sponsorship({
+    sponsor_review_status: 'approved',
+    sponsor_feed_status: 'published',
+    commitment
+  });
+  assert.equal(
+    projection.sponsorshipProcessingState(record),
+    'publication-progress'
+  );
+  commitment.obligations[0].state = 'fulfilled';
+  commitment.obligations[0].fulfilmentEvidenceId = 'synthetic-facebook-proof';
+  assert.equal(
+    projection.sponsorshipProcessingState(record),
+    'publication-progress'
+  );
+  commitment.obligations[1].state = 'fulfilled';
+  assert.equal(
+    projection.sponsorshipProcessingState(record),
+    'publication-progress'
+  );
+  commitment.obligations[1].fulfilmentEvidenceId = 'synthetic-linkedin-proof';
+  assert.equal(
+    projection.sponsorshipProcessingState(record),
+    'publication-progress'
+  );
+  assert.match(
+    projection.sponsorshipProcessingLabel(record),
+    /livraison à vérifier/
+  );
+  commitment.obligations[1].state = 'adjusted';
+  commitment.obligations[1].fulfilmentEvidenceId = null;
+  assert.equal(
+    projection.sponsorshipProcessingState(record),
+    'publication-progress'
+  );
 });
 
 test('consent presentation remains distinct from paid status, approval and website visibility', () => {

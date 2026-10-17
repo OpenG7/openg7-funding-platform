@@ -14,6 +14,13 @@ export interface FinancialTotalsInput {
   readonly currency: string;
 }
 
+/** Minimal execution facts; no source content, account identifier or credentials. */
+export interface PublicationSlotExecution {
+  readonly slotId: string;
+  readonly deliveryId: string;
+  readonly status: 'approved' | 'publishing' | 'uncertain';
+}
+
 /** Everything the pure detectors need, already loaded from the repositories. */
 export interface AttentionDataset {
   readonly now: Date;
@@ -22,6 +29,7 @@ export interface AttentionDataset {
   readonly drafts: readonly AdminPublicationDraftRecord[];
   readonly batches: readonly AdminPublicationBatchRecord[];
   readonly slots: readonly AdminPublicationSlotRecord[];
+  readonly publicationSlotExecutions?: readonly PublicationSlotExecution[];
   readonly emailMessages: readonly AdminEmailQueueMessageRecord[];
   /** Operational queues do not require a scalar monetary summary. */
   readonly financialTotals: FinancialTotalsInput | null;

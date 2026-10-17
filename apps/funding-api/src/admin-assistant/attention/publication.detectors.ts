@@ -6,6 +6,7 @@ import { resolveSponsorshipPublicationCoverage } from '../../sponsorship-publica
 import { isApprovedActionableSponsorship } from '../../sponsorship-review-policy.js';
 
 import type { AttentionDataset } from './contracts.js';
+import { publicationSlotExecution } from './publication-execution.js';
 import { ADMIN_URLS, severityForAge } from './shared.js';
 
 // ---------------------------------------------------------------------------
@@ -80,6 +81,7 @@ export const detectLatePublicationItems = (
     if (daysLate === null || daysLate < 0) {
       continue;
     }
+    const execution = publicationSlotExecution(dataset, slot.id);
     items.push({
       id: `publication_late:slot:${slot.id}`,
       type: 'publication_late',
@@ -91,7 +93,9 @@ export const detectLatePublicationItems = (
       publicationId: slot.id,
       detectedAt: dataset.now.toISOString(),
       dueAt: slot.startsAt,
-      adminUrl: ADMIN_URLS.publications,
+      adminUrl: execution
+        ? `/admin/fundraiser/publications/automation?deliveryId=${encodeURIComponent(execution.deliveryId)}`
+        : ADMIN_URLS.publications,
       facts: {
         kind: 'slot',
         channel: slot.channel,
@@ -103,11 +107,15 @@ export const detectLatePublicationItems = (
         capacity: slot.capacity
       },
       suggestedActions: [
-        {
-          actionType: 'propose_slot',
-          label: 'Proposer un créneau',
-          executionMode: 'prepare'
-        },
+        ...(!execution
+          ? [
+              {
+                actionType: 'propose_slot',
+                label: 'Proposer un créneau',
+                executionMode: 'prepare' as const
+              }
+            ]
+          : []),
         {
           actionType: 'open_publication_slot',
           label: 'Ouvrir le créneau',

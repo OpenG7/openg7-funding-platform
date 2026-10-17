@@ -8,6 +8,7 @@ export interface AdminPaymentJourneyStep {
   readonly reason: string;
   readonly adminUrl: string;
   readonly target?: string;
+  readonly responsibility?: 'admin' | 'platform' | 'none';
 }
 
 export interface AdminPaymentJourney {
@@ -25,6 +26,7 @@ export interface AdminPaymentJourney {
     readonly reason: string;
     readonly adminUrl: string;
     readonly target?: string;
+    readonly responsibility?: 'admin' | 'platform' | 'none';
   } | null;
 }
 

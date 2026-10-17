@@ -9,5 +9,88 @@
   "edit": "Change proposed time",
   "prepare": "Prepare this destination",
   "prepareConfirm": "Prepare drafts for all eligible dossiers on this destination? This action does not publish anything or authorize delivery.",
-  "details": "View detailed progress"
+  "details": "View detailed progress",
+  "workflow": {
+    "title": "Promised benefits and next steps",
+    "help": "You review and authorize the content. The platform publishes at the scheduled time and automatically confirms each benefit after success.",
+    "deliveredAt": "Delivery confirmed on",
+    "scheduledFor": "Authorized publication date:",
+    "responsibility": {
+      "admin": "Next step: administrator.",
+      "platform": "Next step: platform.",
+      "none": "No remaining action for this benefit."
+    },
+    "reason": {
+      "commitment_needs_confirmation": "Document the original agreement’s promised benefits before preparing publication.",
+      "publication_preparation_required": "Promised · preparation needed",
+      "publication_authorization_required": "Prepared · exact content needs authorization",
+      "publication_scheduled": "Scheduled · automatic publication pending",
+      "publication_publishing": "The platform is publishing",
+      "publication_retry_pending": "The platform has scheduled a retry",
+      "publication_paused": "Scheduled · destination paused",
+      "publication_worker_disabled": "Scheduled · worker stopped, review resumption",
+      "publication_failed": "Failed · intervention required",
+      "publication_uncertain": "Uncertain result · verify before retrying",
+      "publication_pending": "Review needed · a historical declaration does not prove delivery",
+      "publication_simulation": "Simulation completed · no actual publication",
+      "fulfilment_unverified": "Review delivery evidence",
+      "obligation_unverified": "Review the recorded benefit",
+      "publication_done": "Delivered · evidence recorded",
+      "obligation_adjusted": "Waiver recorded",
+      "website_publication_required": "Authorize the website profile publication",
+      "duration_in_progress": "Promised display duration in progress",
+      "publication_blocked": "Complete publication prerequisites",
+      "commitment_blocked": "Review the agreement’s requirements",
+      "publication_cancelled": "Publication cancelled · review the decision"
+    }
+  },
+  "paymentJourney": {
+    "reasons": {
+      "publication_preparation_required": "Prepare the publication promised in the agreement before reviewing its final content.",
+      "publication_authorization_required": "Review and authorize the exact content, destination and date. The platform will then publish it.",
+      "publication_scheduled": "The publication is authorized and scheduled. The platform will publish it and record delivery after success.",
+      "publication_publishing": "The platform is publishing. Wait for the result before taking further action.",
+      "publication_retry_pending": "The platform has scheduled a retry after a confirmed failure. Follow its result.",
+      "publication_paused": "The destination is paused. Review its settings to resume the authorized publication.",
+      "publication_worker_disabled": "The worker is stopped. Review its settings before resuming authorized publications.",
+      "publication_simulation": "The simulation is complete. Authorize an actual publication to deliver the promised benefit.",
+      "publication_failed": "Publication failed. Review the result and recovery conditions without republishing benefits already delivered.",
+      "publication_uncertain": "The publication result is uncertain. Reconcile it before any new attempt."
+    },
+    "platformWaiting": "The platform handles the scheduled publication and confirms delivery after success. You can refresh its status.",
+    "viewWaiting": "View publication"
+  },
+  "adminOverrides": {
+    "admin": {
+      "commitments": {
+        "evidenceId": "Recorded evidence reference",
+        "qualify": "Document the original agreement’s benefits",
+        "historicalHelp": "Find the original contract, email or agreement and record the promised benefits: channel, destination, quantity and format. The evidence requested here establishes the agreement, not an already successful publication. Benefits cannot be inferred from the amount paid.",
+        "evidenceReference": "Internal reference to the contract or email establishing the agreement"
+      },
+      "dossier": {
+        "publicationBridge": {
+          "intro": "The platform executes authorized calendar publications and records delivery after success. See each promised benefit, its progress and the next step here.",
+          "blocker": {
+            "commitment_needs_confirmation": "Document the promised benefits using the original contract or email"
+          },
+          "status": {
+            "prepared": "Draft prepared · final publication needs composition",
+            "unverified": "Historical declaration · delivery unconfirmed"
+          },
+          "commitmentUnknown": "This dossier has no recorded original agreement. Document the promised benefits using a contract or email; evidence of an already delivered publication is not requested at this step.",
+          "declaredStatus": "Declared tracking status",
+          "confirmDeclaration": "Record this historical publication declaration? No publication will be sent and no benefit will be marked delivered.",
+          "trackingSaved": "Tracking settings saved",
+          "declaredPublication": "Publication declared · verify delivery",
+          "completedBenefits": "Benefits closed with evidence or waiver",
+          "readyForPlanning": "Dossier accepted · prepare publication",
+          "historicalDeclaration": "These settings retain historical tracking. Declaring “published” does not send anything or confirm a delivered benefit. Use the scheduled publications above to authorize an actual publication."
+        }
+      },
+      "publications": {
+        "finalAuthorizationRequired": "Review and authorize the final publication in the automation workspace. The platform will confirm delivery after a successful publication."
+      }
+    }
+  }
 }

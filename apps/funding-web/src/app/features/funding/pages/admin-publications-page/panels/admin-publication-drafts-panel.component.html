@@ -357,14 +357,14 @@
               >
                 {{ 'admin.legacy.planifier' | translate }}
               </button>
-              <button
+              <a
                 *ngIf="draft.status !== 'published'"
-                type="button"
                 class="neutral"
-                (click)="saveDraft(draft, 'published')"
+                routerLink="/admin/fundraiser/publications/automation"
+                [queryParams]="{ sponsorshipId: draft.contribution_id }"
               >
-                {{ 'admin.publications.markPublished' | translate }}
-              </button>
+                {{ 'admin.publicationAutomation.prepareSend' | translate }}
+              </a>
               <button
                 *ngIf="draft.status !== 'rejected'"
                 type="button"

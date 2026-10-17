@@ -593,7 +593,7 @@ for (const amount of [100, 250]) {
               );
               await xbox.select(
                 admin.getByRole('combobox', {
-                  name: 'Statut feed',
+                  name: 'Statut de suivi déclaré',
                   exact: true
                 }),
                 'planned'
@@ -621,7 +621,10 @@ for (const amount of [100, 250]) {
                 .getByLabel(/Destination feed/i)
                 .selectOption('openg7');
               await admin
-                .getByRole('combobox', { name: 'Statut feed', exact: true })
+                .getByRole('combobox', {
+                  name: 'Statut de suivi déclaré',
+                  exact: true
+                })
                 .selectOption('planned');
               await admin
                 .getByLabel(/Resume public/i)
@@ -631,7 +634,9 @@ for (const amount of [100, 250]) {
                 .click();
             }
             await expect(
-              admin.getByText('Publication enregistree.', { exact: true })
+              admin.getByText('Paramètres de suivi enregistrés', {
+                exact: true
+              })
             ).toBeVisible();
             await assertPrivate();
             // The summary and slug belong to a new editorial revision. Review

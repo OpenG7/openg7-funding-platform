@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { registerHooks } from 'node:module';
 import test from 'node:test';
 import { recordedSponsorshipCommitment } from './support/sponsorship-commitment-fixture.mjs';
+import { adminPublicationTranslations } from './support/admin-publication-translations.mjs';
 
 import { AdminDashboardRequestError } from '../dist/apps/funding-web/src/app/features/funding/services/funding-admin-session.js';
 
@@ -57,11 +57,7 @@ const deferred = () => {
 };
 
 const fixture = (record = sponsor(), locale = null) => {
-  const catalog = locale
-    ? JSON.parse(
-        readFileSync(`apps/funding-web/src/assets/i18n/${locale}.json`, 'utf8')
-      )
-    : null;
+  const catalog = locale ? adminPublicationTranslations(locale) : null;
   const state = {
     records: [record],
     selected: record.id,
@@ -207,7 +203,7 @@ test('saving a publication sends the existing trimmed contract with the dossier 
   assert.deepEqual(f.reloads, ['publication:synthetic-sponsor']);
   assert.equal(
     f.workflow.publicationMessages()[f.state.selected],
-    'admin.messages.publication_enregistree_'
+    'admin.dossier.publicationBridge.trackingSaved'
   );
 });
 
@@ -279,7 +275,11 @@ test('unchanged fields and invalid or duplicate slugs are blocked locally', asyn
 
 test('publication and removal from published status require the matching explicit confirmation', async (t) => {
   for (const [from, to, key] of [
-    ['drafted', 'published', 'admin.confirmation.publish'],
+    [
+      'drafted',
+      'published',
+      'admin.dossier.publicationBridge.confirmDeclaration'
+    ],
     ['published', 'hidden', 'admin.confirmation.cancelPublication'],
     ['published', 'drafted', 'admin.confirmation.cancelPublication']
   ]) {
@@ -906,7 +906,7 @@ test('publication state labels retain message, payment, slug, dirty and saved pr
   const record = f.state.records[0];
   assert.equal(
     f.workflow.publicationStateLabel(record),
-    'admin.messages.publication_enregistree'
+    'admin.dossier.publicationBridge.trackingSaved'
   );
   f.setField('feedNotes', 'Synthetic edit');
   assert.equal(

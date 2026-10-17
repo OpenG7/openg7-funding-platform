@@ -80,7 +80,7 @@
               {{ o.target }} · #{{ o.ordinal }}</strong
             >
             <span
-              >{{ 'admin.commitments.states.' + o.state | translate }} ·
+              >{{ obligationStateLabel(o) | translate }} ·
               @if (o.channel !== 'website') {
                 {{
                   'admin.commitments.formats.' + (o.format ?? 'unknown')

@@ -54,6 +54,22 @@ repérer les canaux encore à préparer;
 l'autorisation d'envoi et les preuves de publication restent vérifiées dans leurs
 parcours respectifs.
 
+Le contexte expose aussi la projection opérationnelle `publicationWorkflow`,
+commune à la progression du dossier. Elle indique qui doit intervenir et suit
+chaque prestation par canal, destination et passage. Une publication autorisée
+en attente d'exécution est du travail pris en charge par la plateforme. Le guide
+ne demande alors aucune déclaration de livraison et ne propose pas une nouvelle
+préparation du même passage. Les autorisations humaines, échecs certains et
+résultats incertains conservent leurs décisions et parcours distincts. La preuve
+de livraison est enregistrée par la plateforme après réussite réelle ; la preuve
+demandée pour un ancien accord sert uniquement à établir ses prestations promises.
+
+Un créneau échu lié à un envoi autorisé, en cours ou incertain renvoie au suivi
+de cet envoi, sans proposer de reprogrammation. Cette règle est aussi vérifiée
+avant de préparer une proposition directe. Un refus conservé reste un blocage
+à examiner. Les essais historiques en cours ou incertains suspendent les nouveaux
+passages du même canal, sans devenir une preuve pour plusieurs prestations.
+
 Le compteur des commandites approuvées, la détection des publications à préparer
 et la préparation privée utilisent la même
 [règle de revue exploitable](../apps/funding-api/src/sponsorship-review-policy.ts) :

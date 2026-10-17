@@ -25,6 +25,7 @@ export interface AdminAutomaticPlan {
   readonly reason: string;
   readonly target?: string;
   readonly contributionId?: string;
+  readonly responsibility?: 'admin' | 'platform' | 'none';
   readonly state: AdminPaymentJourney['state'];
 }
 
@@ -138,6 +139,7 @@ export function automaticPaymentPlan(
     adminUrl,
     reason: next.reason,
     ...(target ? { target } : {}),
+    ...(next.responsibility ? { responsibility: next.responsibility } : {}),
     contributionId,
     state: journey.state
   };
@@ -232,6 +234,10 @@ export class AdminAutomaticRun {
         await this.visit(plan, epoch);
         return;
       }
+      if (plan.state === 'waiting') {
+        this.update('waiting', plan);
+        return;
+      }
       this.update('explaining', plan);
       await this.ports.explain();
       if (!this.current(epoch)) return;
@@ -290,15 +296,15 @@ export class AdminAutomaticRun {
       return;
     }
     if (!this.current(epoch)) return;
+    if (plan.state === 'waiting') {
+      this.update('waiting', plan);
+      return;
+    }
     this.update('preparing', plan);
     const result = await this.ports.present(plan);
     if (!this.current(epoch)) return;
     this.update(
-      plan.state === 'waiting'
-        ? 'waiting'
-        : result === 'unavailable'
-          ? 'blocked'
-          : 'awaiting_confirmation',
+      result === 'unavailable' ? 'blocked' : 'awaiting_confirmation',
       plan
     );
   }

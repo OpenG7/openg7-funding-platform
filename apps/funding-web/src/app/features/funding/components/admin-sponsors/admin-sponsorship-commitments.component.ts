@@ -13,7 +13,10 @@ import {
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
-import type { AdminSponsorshipProgress } from '@openg7/funding-core';
+import type {
+  AdminSponsorshipProgress,
+  SponsorshipObligation
+} from '@openg7/funding-core';
 
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
@@ -113,6 +116,17 @@ export class AdminSponsorshipCommitmentsComponent {
     event: Event
   ): void {
     this.c.updateBenefit(index, key, (event.target as HTMLInputElement).value);
+  }
+  obligationStateLabel(obligation: SponsorshipObligation): string {
+    if (
+      obligation.state === 'fulfilled' &&
+      (!obligation.fulfilmentEvidenceId ||
+        !this.dossier().qualifiedFulfilmentEvidenceIds?.includes(
+          obligation.fulfilmentEvidenceId
+        ))
+    )
+      return 'admin.dossier.publicationBridge.status.unverified';
+    return 'admin.commitments.states.' + obligation.state;
   }
   updateCheck(
     index: number,

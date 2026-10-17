@@ -213,10 +213,10 @@ records feed placement metadata:
 - feed status: `not_planned`, `planned`, `drafted`, or `published`
 - optional public post URL once a publication exists
 
-The legacy publication-batch social endpoint now returns HTTP 409
-`FINAL_APPROVAL_REQUIRED`. Prepare and approve the exact content in the
-[publication automation workspace](../operations/publication-automation.md#source-preparation-queue);
-the authorized worker owns delivery and recovery. Payment alone never authorizes sending.
+Batch and slot publication, `publish-social`, and draft updates to `published`
+return `409 FINAL_APPROVAL_REQUIRED`. Prepare and approve exact content in the
+[publication workspace](../operations/publication-automation.md#source-preparation-queue);
+the authorized worker owns delivery and recovery. Payment never authorizes sending.
 
 When an admin refuses a sponsorship from `/admin/fundraiser/sponsors`, the
 review flow requires an internal refusal reason, can send a sponsor-facing

@@ -176,9 +176,9 @@ test('save submits the exact captured payload and waits for confirmation before 
     assert.equal(f.state.dirtyDraftIds().has('synthetic-draft'), false);
     return reload.promise;
   };
-  const pending = f.workflow.saveDraft(draft(), 'published');
+  const pending = f.workflow.saveDraft(draft(), 'rejected');
   assert.deepEqual(f.calls, [
-    { method: 'confirm', action: 'publish', target: 'Server title' }
+    { method: 'confirm', action: 'refuse', target: 'Server title' }
   ]);
   assert.equal(f.state.actionState(), null);
   f.workflow.reconcileDrafts([
@@ -202,12 +202,13 @@ test('save submits the exact captured payload and waits for confirmation before 
       confirmation: 'synthetic-draft',
       moderationDecision: moderationDecision(
         { type: 'publication_draft', id: 'synthetic-draft' },
-        'N0'
+        'N3',
+        { internalReason: 'Confirmed note' }
       ),
       title: 'Confirmed title',
       body: 'Confirmed body',
       disclosureText: 'Confirmed disclosure',
-      status: 'published',
+      status: 'rejected',
       publicUrl: 'https://example.test/post',
       scheduledAt: '2030-06-03T14:30:00.000Z',
       reviewNote: 'Confirmed note'
@@ -231,10 +232,7 @@ test('save submits the exact captured payload and waits for confirmation before 
   assert.equal(f.state.actionState(), null);
 });
 
-for (const [status, action] of [
-  ['rejected', 'refuse'],
-  ['published', 'publish']
-]) {
+for (const [status, action] of [['rejected', 'refuse']]) {
   test(`${status} cancellation leaves edits untouched without a mutation`, async () => {
     const f = fixture();
     const edit = f.edit('synthetic-draft', { title: 'Local title' });
@@ -251,6 +249,18 @@ for (const [status, action] of [
     assert.equal(f.state.actionState(), null);
   });
 }
+
+test('a declared published status requests final authorization without a mutation or moderation decision', async () => {
+  const f = fixture();
+  f.ports.moderate = async () => assert.fail('no historical-status approval');
+  const edit = f.edit('synthetic-draft', { title: 'Preserved local title' });
+  await f.workflow.saveDraft(draft(), 'published');
+  assert.deepEqual(f.calls, [
+    { method: 'notice', key: 'admin.publications.finalAuthorizationRequired' }
+  ]);
+  assert.equal(f.workflow.editFor('synthetic-draft'), edit);
+  assert.equal(f.state.actionState(), null);
+});
 
 test('confirmation failures retain the existing rejected promise boundary', async () => {
   const f = fixture();

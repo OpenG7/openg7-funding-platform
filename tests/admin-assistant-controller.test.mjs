@@ -334,6 +334,84 @@ test('preparation respects reader permissions, the selected dossier, duplicate c
   assert.equal(calls.prepare.length, 1);
 });
 
+for (const actionType of ['prepare_publication', 'propose_slot']) {
+  test(`${actionType} rereads the exact queue item and cannot prepare work now owned by the publication engine`, async (t) => {
+    const { controller: c, ports, calls } = fixture(t);
+    const initial = item('synthetic-a', {
+      suggestedActions: [
+        { actionType, executionMode: 'prepare', label: 'Prepare' }
+      ]
+    });
+    ports.admin.getWorkQueue = async () => queue([initial]);
+    await select(c);
+    const scheduled = {
+      ...initial,
+      suggestedActions: [
+        {
+          actionType: 'open_publication',
+          executionMode: 'navigate',
+          label: 'View publication'
+        }
+      ]
+    };
+    const reads = [];
+    ports.admin.getWorkQueue = async (token, input) => {
+      reads.push(input);
+      return queue([scheduled]);
+    };
+    await c.prepare(initial);
+    assert.deepEqual(reads, [{ itemId: initial.id, pageSize: 1 }]);
+    assert.deepEqual(calls.prepare, []);
+    assert.equal(c.selected(), scheduled);
+    assert.equal(c.prepareType(c.selected()), undefined);
+    assert.equal(c.draftState(), 'idle');
+  });
+}
+
+test('a publication item resolved during its fresh read removes the stale preparation without creating a draft', async (t) => {
+  const { controller: c, ports, calls } = fixture(t);
+  const initial = item('synthetic-a', {
+    suggestedActions: [
+      {
+        actionType: 'prepare_publication',
+        executionMode: 'prepare',
+        label: 'Prepare'
+      }
+    ]
+  });
+  ports.admin.getWorkQueue = async () => queue([initial]);
+  await select(c);
+  ports.admin.getWorkQueue = async () => queue([]);
+  await c.prepare(initial);
+  assert.equal(c.selected(), null);
+  assert.equal(c.detailState(), 'ready');
+  assert.equal(c.draftState(), 'idle');
+  assert.deepEqual(calls.prepare, []);
+});
+
+test('a fresh publication scope cannot replace the target the user selected', async (t) => {
+  const { controller: c, ports, calls } = fixture(t);
+  const initial = item('synthetic-a', {
+    sponsorshipId: undefined,
+    publicationId: 'synthetic-original-publication',
+    suggestedActions: [
+      {
+        actionType: 'prepare_publication',
+        executionMode: 'prepare',
+        label: 'Prepare'
+      }
+    ]
+  });
+  ports.admin.getWorkQueue = async () => queue([initial]);
+  await select(c);
+  const changed = { ...initial, publicationId: 'synthetic-new-publication' };
+  ports.admin.getWorkQueue = async () => queue([changed]);
+  await c.prepare(initial);
+  assert.equal(c.selected(), changed);
+  assert.deepEqual(calls.prepare, []);
+  assert.equal(c.draftState(), 'idle');
+});
+
 for (const [actionType, type, changes, reference] of [
   ['prepare_reminder', 'sponsorship_reminder', {}, 'synthetic-a'],
   [

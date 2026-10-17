@@ -27,7 +27,7 @@ interface PaymentCommunication {
   readonly id: string;
   readonly status: string;
 }
-const settled = (step: AdminPaymentJourneyStep): boolean =>
+const settled = (step: Pick<AdminPaymentJourneyStep, 'state'>): boolean =>
   step.state === 'complete' || step.state === 'not_required';
 
 const journeyTarget = (tab: string): string =>
@@ -67,11 +67,29 @@ export function buildPaymentJourney(
       : '/admin/fundraiser/attention?type=stripe_event_failed';
   const paid = ['paid', 'refunded'].includes(source.paymentStatus);
   const steps: AdminPaymentJourneyStep[] = dossier
-    ? dossier.milestones.map((step) => ({
-        ...step,
-        adminUrl: sponsorshipAdminUrl(source.contributionId, step.tab),
-        target: journeyTarget(step.tab)
-      }))
+    ? dossier.milestones.map((step) => {
+        const workflow =
+          step.id === 'publication' && !settled(step)
+            ? dossier.publicationWorkflow
+            : undefined;
+        return {
+          ...step,
+          ...(workflow
+            ? {
+                reason: workflow.reason,
+                responsibility: workflow.responsibility,
+                state:
+                  workflow.state === 'uncertain' || workflow.state === 'error'
+                    ? ('error' as const)
+                    : workflow.state === 'blocked'
+                      ? ('blocked' as const)
+                      : step.state
+              }
+            : {}),
+          adminUrl: sponsorshipAdminUrl(source.contributionId, step.tab),
+          target: journeyTarget(step.tab)
+        };
+      })
     : [
         {
           id: 'payment',
@@ -100,6 +118,7 @@ export function buildPaymentJourney(
   if (
     dossier &&
     dossier.next.reason !== 'complete' &&
+    !(dossier.next.tab === 'publication' && dossier.publicationWorkflow) &&
     !(
       unsent &&
       ['email_failed', 'email_uncertain'].includes(dossier.next.reason)
@@ -154,6 +173,7 @@ export function buildPaymentJourney(
             ? 'email_pending'
             : 'email_uncertain'
         : 'email_complete',
+      responsibility: pending ? 'platform' : unsent ? 'admin' : 'none',
       adminUrl: `/admin/fundraiser/email-queue${unsent ? '?messageId=' + encodeURIComponent(unsent.id) : ''}`,
       ...(unsent?.status === 'uncertain'
         ? { target: 'email-delivery-evidence' }
@@ -171,9 +191,14 @@ export function buildPaymentJourney(
   }
   const outstanding = steps.filter((step) => !settled(step));
   const next =
-    outstanding.find((step) => step.state === 'error') ?? outstanding[0];
+    outstanding.find((step) => step.state === 'error') ??
+    outstanding.find((step) => step.state === 'blocked') ??
+    outstanding.find((step) => step.responsibility !== 'platform') ??
+    outstanding[0];
   const waiting =
-    next?.reason === 'email_pending' || next?.reason === 'payment_pending';
+    next?.responsibility === 'platform' ||
+    next?.reason === 'email_pending' ||
+    next?.reason === 'payment_pending';
   return {
     ...source,
     state: !next
@@ -190,6 +215,9 @@ export function buildPaymentJourney(
       ? {
           reason: next.reason,
           adminUrl: next.adminUrl,
+          ...(next.responsibility
+            ? { responsibility: next.responsibility }
+            : {}),
           ...(next.target ? { target: next.target } : {})
         }
       : null

@@ -190,6 +190,18 @@
           />
           <div class="dossier-content-grid">
             <div class="dossier-main" data-og7="dossier-main">
+              <h2 id="dossier-section-title" class="dossier-section-title">
+                {{
+                  'admin.dossier.workspace.' +
+                    (activeTab() === 'identity' || activeTab() === 'media'
+                      ? 'profile'
+                      : activeTab() === 'billing' || activeTab() === 'refund'
+                        ? 'finances'
+                        : activeTab() === 'audit'
+                          ? 'history'
+                          : activeTab()) | translate
+                }}
+              </h2>
               <openg7-admin-sponsorship-progress
                 [hidden]="activeTab() !== 'overview' && !!progress()"
                 [sponsorshipId]="selected.id"

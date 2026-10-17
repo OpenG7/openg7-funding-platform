@@ -233,12 +233,6 @@ export function registerBatchPanelTests(): void {
 
   for (const action of [
     {
-      endpoint: 'publish',
-      label: 'Marquer comme publiée manuellement',
-      message: 'Confirmer la publication de cet élément ?',
-      status: 'published' as const
-    },
-    {
       endpoint: 'cancel',
       label: 'Annuler le lot',
       message: 'Annuler cette publication ?',
@@ -268,7 +262,7 @@ export function registerBatchPanelTests(): void {
           records[0] = { ...records[0], status: action.status };
           return route.fulfill({
             json: {
-              [action.endpoint === 'publish' ? 'published' : 'cancelled']: true,
+              cancelled: true,
               batch: records[0]
             }
           });
@@ -304,11 +298,7 @@ export function registerBatchPanelTests(): void {
         .click();
       await expect.poll(() => writes.length).toBe(1);
       await expect(trigger).toBeDisabled();
-      expect(writes).toEqual([
-        action.endpoint === 'publish'
-          ? { batchId: 'first', confirmation: 'first' }
-          : { batchId: 'first' }
-      ]);
+      expect(writes).toEqual([{ batchId: 'first' }]);
       expect(reads).toBe(readsBeforeMutation);
       await expect(
         editor.getByLabel('Prochaine disponibilite', { exact: true })

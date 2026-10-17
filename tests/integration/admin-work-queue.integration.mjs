@@ -4,6 +4,7 @@ import test from 'node:test';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 
 import { getAdminWorkQueue } from '../../dist/apps/funding-api/src/admin-work-queue.service.js';
+import { prepareAdminAssistantDraft } from '../../dist/apps/funding-api/src/admin-assistant/preparation.service.js';
 import { listAdminEmailQueue } from '../../dist/apps/funding-api/src/email-notification.service.js';
 import {
   listAdminPublicationDrafts,
@@ -14,6 +15,110 @@ import {
   backfillMissingSponsorshipInvoices,
   listAdminSponsorshipInvoices
 } from '../../dist/apps/funding-api/src/sponsorship-invoices.repository.js';
+
+test(
+  'a fresh execution read removes overdue slot proposals while preserving real empty slots',
+  { timeout: 90000 },
+  async () => {
+    const { pool, stop } = await startDisposablePostgres();
+    const now = new Date('2026-10-17T14:00:00Z');
+    try {
+      for (const [status, retry] of [
+        ['approved', false],
+        ['approved', true],
+        ['publishing', false],
+        ['uncertain', false]
+      ]) {
+        const slotId = (
+          await pool.query(
+            `INSERT INTO publication_slots(feed_target,channel,starts_at,capacity,status)
+        VALUES('openg7','facebook',$1,5,'scheduled') RETURNING id::text`,
+            ['2026-10-17T13:00:00Z']
+          )
+        ).rows[0].id;
+        const itemId = `publication_late:slot:${slotId}`;
+        const before = await getAdminWorkQueue(pool, { itemId }, now);
+        assert.ok(
+          before.items[0].suggestedActions.some(
+            (action) => action.actionType === 'propose_slot'
+          )
+        );
+        const batchId = (
+          await pool.query(
+            `INSERT INTO sponsor_publication_batches(channel,capacity,status,scheduled_at,slot_id)
+        VALUES('facebook',5,'scheduled',$1,$2) RETURNING id::text`,
+            ['2026-10-17T13:00:00Z', slotId]
+          )
+        ).rows[0].id;
+        const deliveryId = (
+          await pool.query(
+            `INSERT INTO publication_deliveries(feed_id,kind,batch_id,message,scheduled_at,account_id,mode,status,approved_at,approved_by,next_attempt_at)
+        VALUES('openg7:facebook','sponsorship',$1,'Synthetic managed publication',$2,'synthetic-account','live',$3,$2,'synthetic-admin',$4)
+        RETURNING id::text`,
+            [
+              batchId,
+              '2026-10-17T13:00:00Z',
+              status,
+              retry ? '2026-10-17T14:02:00Z' : null
+            ]
+          )
+        ).rows[0].id;
+        const current = await getAdminWorkQueue(pool, { itemId }, now);
+        assert.equal(current.items.length, 1);
+        assert.equal(
+          current.items[0].adminUrl,
+          `/admin/fundraiser/publications/automation?deliveryId=${deliveryId}`
+        );
+        assert.ok(
+          current.items[0].suggestedActions.every(
+            (action) => action.executionMode === 'navigate'
+          )
+        );
+        const preparation = await prepareAdminAssistantDraft(
+          pool,
+          { type: 'slot_proposal', reference: slotId, language: 'en' },
+          { now }
+        );
+        assert.equal(preparation.status, 'not_applicable');
+        assert.equal(preparation.draft, null);
+      }
+      const emptyId = (
+        await pool.query(
+          `INSERT INTO publication_slots(feed_target,channel,starts_at,capacity,status)
+      VALUES('openg7','linkedin',$1,5,'open') RETURNING id::text`,
+          ['2026-10-17T13:00:00Z']
+        )
+      ).rows[0].id;
+      const empty = await getAdminWorkQueue(
+        pool,
+        { itemId: `publication_late:slot:${emptyId}` },
+        now
+      );
+      assert.ok(
+        empty.items[0].suggestedActions.some(
+          (action) => action.actionType === 'propose_slot'
+        )
+      );
+      const preparation = await prepareAdminAssistantDraft(
+        pool,
+        { type: 'slot_proposal', reference: emptyId },
+        { now }
+      );
+      assert.equal(preparation.status, 'ok');
+      assert.equal(preparation.draft.reference, emptyId);
+      assert.equal(
+        (
+          await pool.query(
+            'SELECT count(*)::int AS total FROM publication_deliveries'
+          )
+        ).rows[0].total,
+        4
+      );
+    } finally {
+      await stop();
+    }
+  }
+);
 
 // Owns a disposable, loopback-only database. Never loads .env.
 test(

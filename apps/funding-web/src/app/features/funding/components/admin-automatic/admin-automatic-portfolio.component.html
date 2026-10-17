@@ -208,7 +208,13 @@
               (click)="open(entry)"
             >
               <openg7-admin-icon name="arrow" />
-              {{ t('compact.reviewDossier') }}
+              {{
+                t(
+                  entry.balanceStatus === 'waiting'
+                    ? 'compact.viewWaiting'
+                    : 'compact.reviewDossier'
+                )
+              }}
             </button>
           }
         </div>
@@ -468,7 +474,13 @@
                       (click)="open(entry)"
                     >
                       <openg7-admin-icon name="arrow" />
-                      {{ t('compact.reviewDossier') }}
+                      {{
+                        t(
+                          entry.balanceStatus === 'waiting'
+                            ? 'compact.viewWaiting'
+                            : 'compact.reviewDossier'
+                        )
+                      }}
                     </button>
                   }
                 </li>

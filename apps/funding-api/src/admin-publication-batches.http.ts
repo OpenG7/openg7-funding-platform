@@ -22,7 +22,6 @@ import type {
 } from './fund-admin.repository.js';
 import type { queuePublicationBatchFullNotification } from './email-notification.service.js';
 import { createRouteMatcher } from './http-routing.js';
-import { ModerationError } from './moderation/policy.js';
 import type { AdminPublicationHttpDependencies } from './admin-publication-http.shared.js';
 import {
   PUBLICATION_BATCH_MIN_CAPACITY,
@@ -95,7 +94,6 @@ export const createAdminPublicationBatchesHttpHandler = ({
   assignDraftToPublicationBatch,
   unassignDraftFromPublicationBatch,
   scheduleAdminPublicationBatch,
-  publishAdminPublicationBatch,
   cancelAdminPublicationBatch,
   listAdminSocialPublicationJobs,
   getPublicationBatchById,
@@ -442,65 +440,12 @@ export const createAdminPublicationBatchesHttpHandler = ({
         '/api/admin/publication-batches/publish'
       )
     ) {
-      if (!ensureAdminAccess(request, response)) {
-        return true;
-      }
-
-      let parsed: AdminPublicationBatchLifecycleRequest;
-      try {
-        const body = await readBody(request);
-        parsed = JSON.parse(body) as AdminPublicationBatchLifecycleRequest;
-        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
-          throw new Error('Invalid request object.');
-      } catch {
-        writeJson(request, response, 400, {
-          error: 'Invalid publication batch request body.'
-        });
-        return true;
-      }
-
-      if (!isValidUuid(parsed.batchId)) {
-        writeJson(request, response, 400, {
-          error: 'Invalid publication batch id.'
-        });
-        return true;
-      }
-
-      try {
-        const result = await publishAdminPublicationBatch(parsed);
-        if (!result.updated || !result.batch) {
-          writeJson(request, response, 409, {
-            error:
-              'Publication batch was not found or must be scheduled before it can be published.'
-          });
-          return true;
-        }
-
-        await insertAdminAuditLog({
-          actor: getAdminAuditActor(request),
-          action: 'publication_batch.publish',
-          entityType: 'publication_batch',
-          entityId: result.batch.id,
-          summary: `Publication batch published (${result.batch.assignedDraftIds.length} sponsor(s)).`,
-          metadata: {
-            channel: result.batch.channel,
-            assignedDraftIds: result.batch.assignedDraftIds
-          }
-        });
-        writeJson(request, response, 200, result);
-      } catch (error) {
-        if (error instanceof ModerationError) {
-          writeJson(request, response, error.status, {
-            code: error.code,
-            error: error.code
-          });
-          return true;
-        }
-        reportFailure('Failed to publish publication batch.', error);
-        writeJson(request, response, 502, {
-          error: 'Publication batch could not be published.'
-        });
-      }
+      if (!ensureAdminAccess(request, response)) return true;
+      writeJson(request, response, 409, {
+        code: 'FINAL_APPROVAL_REQUIRED',
+        error:
+          'Prepare and approve the exact publication in /admin/fundraiser/publications/automation.'
+      });
       return true;
     }
 

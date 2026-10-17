@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { qualifiedSponsorshipEvidenceIds } from '../dist/apps/funding-api/src/sponsorship-progress-evidence.js';
 
 import {
   activeDraftChannels,
@@ -388,6 +389,7 @@ test('attention, preparatory proposals and context agree on missing channels and
             obligations: original.commitment.obligations.map((o) => ({
               ...o,
               state: 'fulfilled',
+              version: o.version + 1,
               fulfilmentEvidenceId: `synthetic-qualified-${o.id}`
             }))
           }
@@ -447,6 +449,27 @@ test('attention, preparatory proposals and context agree on missing channels and
     }
 
     const context = buildSponsorshipAssistantContext({
+      qualifiedFulfilmentEvidenceIds: qualifiedSponsorshipEvidenceIds(
+        record.commitment,
+        scenario.fulfilled
+          ? record.commitment.obligations.map((obligation) => ({
+              id: obligation.fulfilmentEvidenceId,
+              obligationId: obligation.id,
+              contributionId: obligation.contributionId,
+              obligationVersion: obligation.version - 1,
+              channel: obligation.channel,
+              target: obligation.target,
+              mode: 'live',
+              qualifiedSnapshot: true,
+              provenance:
+                obligation.channel === 'website'
+                  ? 'website_verified'
+                  : 'provider_acknowledged',
+              deliveredAt: '2026-09-23T00:00:00Z',
+              externalPostUrl: null
+            }))
+          : []
+      ),
       record,
       dataset,
       recipient: null,

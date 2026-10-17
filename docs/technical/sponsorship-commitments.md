@@ -12,6 +12,35 @@ before Stripe. Confirmed payment activates obligations once; payment, consent,
 moderation, visibility and publication remain independent. Existing financial
 facts, issued invoices and queued email bodies are preserved.
 
+Historical qualification establishes what must be delivered from the original
+agreement. Its documentary reference is evidence of that agreement, not evidence
+of an already successful publication. A dossier with an accepted offer follows
+the normal preparation, final authorization and server execution workflow without
+requiring a new manual qualification. For managed social deliveries, the platform
+records qualified fulfilment after confirmed real publication; simulations never
+fulfil obligations. The administrator handles authorizations and exceptions.
+
+<a id="work-console"></a>
+
+Dossier progress and assistant context add optional `publicationWorkflow`:
+`state`, `responsibility` (`admin`, `platform`, `none`), an operational `reason`,
+and individual obligations identified by ID, channel, destination and ordinal,
+with their delivery ID and scheduled date when known. This read-only projection
+distinguishes platform waiting, human decisions, certain failures, uncertain
+results and completed work. It grants no authorization. Older responses without
+this field remain supported without inferring execution from a date alone.
+Payment journeys expose the same responsibility on publication steps and the next
+action; unrelated human work remains actionable while a publication is waiting.
+The dossier's optional `qualifiedFulfilmentEvidenceIds` contains only exact
+version/channel/destination matches with qualified immutable snapshots and any
+required duration attestation. An old `fulfilled` state and evidence pointer alone
+do not complete the work console: an unqualified proof projects
+`fulfilment_unverified`, retains its history and requires examination. The private
+qualification facts and snapshots are never included in these responses.
+Preparation receipts distinguish unknown commercial terms from unverified
+fulfilment or obligation integrity: those incidents keep their own blocking reason
+and do not make an existing accepted offer disappear.
+
 `GET /api/admin/sponsorship-commitments?contributionId=<uuid>` returns
 `{ commitment }`. The record contains its offer, provenance, version and individual
 obligations: benefit, channel, logical destination, ordinal, state, blocking reason,

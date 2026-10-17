@@ -5,7 +5,7 @@ import { createSchedulingFixture } from '../integration/support/publication-batc
 import { startIdentityStack } from './stack.mjs';
 import { openAdminIdentity } from './support/admin-browser.js';
 
-test('manual publication calendar persists Toronto replanning across all shared batches, rejects ambiguous times and confirms cancellation', async ({
+test('manual publication calendar preserves scheduling, requires final publication authorization and confirms cancellation', async ({
   playwright
 }) => {
   const stack = await startIdentityStack();
@@ -42,6 +42,44 @@ test('manual publication calendar persists Toronto replanning across all shared 
   };
   try {
     let card = await open();
+    await expect(
+      card.getByRole('button', {
+        name: 'Marquer comme publiée manuellement',
+        exact: true
+      })
+    ).toHaveCount(0);
+    await expect(
+      card.getByRole('link', { name: 'Préparer l’envoi', exact: true })
+    ).toHaveAttribute('href', '/admin/fundraiser/publications/automation');
+    const beforeDeclarations = await setup.snapshot(fixture);
+    for (const [path, data] of [
+      ['/api/admin/publication-slots/publish', { slotId: fixture.slotId }],
+      [
+        '/api/admin/publication-batches/publish',
+        {
+          batchId: fixture.members[0]!.batchId,
+          confirmation: fixture.members[0]!.batchId
+        }
+      ],
+      [
+        '/api/admin/publication-drafts/update',
+        {
+          draftId: fixture.members[0]!.draftId,
+          status: 'published',
+          confirmation: fixture.members[0]!.draftId
+        }
+      ]
+    ] as const) {
+      const response = await page.request.post(path, {
+        headers: { Origin: stack.origin },
+        data
+      });
+      expect(response.status(), await response.text()).toBe(409);
+      expect(await response.json()).toMatchObject({
+        code: 'FINAL_APPROVAL_REQUIRED'
+      });
+      expect(await setup.snapshot(fixture)).toEqual(beforeDeclarations);
+    }
     await expect(card.getByLabel('Date et heure')).toHaveValue(
       '2030-11-03T01:30'
     );

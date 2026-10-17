@@ -95,9 +95,22 @@
       }
     </div>
     @if (state.phase === 'awaiting_confirmation' || state.phase === 'waiting') {
-      <p data-og7="automatic-human-step">
-        {{ t(state.plan?.contributionId ? 'humanStep' : 'humanPageStep') }}
-      </p>
+      @if (state.phase === 'waiting') {
+        <p data-og7="automatic-platform-step">
+          {{
+            t(
+              state.plan?.responsibility === 'platform' &&
+                state.plan?.reason?.startsWith('publication_')
+                ? 'platformWaitingHelp'
+                : 'waitingHelp'
+            )
+          }}
+        </p>
+      } @else {
+        <p data-og7="automatic-human-step">
+          {{ t(state.plan?.contributionId ? 'humanStep' : 'humanPageStep') }}
+        </p>
+      }
       <div class="actions">
         <button
           type="button"
@@ -105,7 +118,7 @@
           data-og7="automatic-verify"
           (click)="automatic.verify()"
         >
-          {{ t('verify') }}
+          {{ t(state.phase === 'waiting' ? 'refreshWaiting' : 'verify') }}
         </button>
         @if (state.plan?.target; as target) {
           <button
@@ -118,7 +131,7 @@
           </button>
         }
       </div>
-      @if (automatic.choices().length) {
+      @if (state.phase !== 'waiting' && automatic.choices().length) {
         <h3>{{ t('preparations') }}</h3>
         <p class="quiet">{{ t('choiceHelp') }}</p>
         <div class="preparations" data-og7="automatic-preparations">

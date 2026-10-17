@@ -488,6 +488,58 @@ test('slot, batch and draft yield one late alert for a shared placement', () => 
   );
 });
 
+test('overdue slots keep managed sends and uncertain results in their execution workspace without proposing a new slot', () => {
+  for (const status of ['approved', 'publishing', 'uncertain']) {
+    const items = buildWorkQueueItems(
+      dataset({
+        slots: [slot()],
+        batches: [batch()],
+        drafts: [draft()],
+        publicationSlotExecutions: [
+          { slotId: 'slot-1', deliveryId: 'managed-1', status }
+        ]
+      })
+    );
+    assert.equal(items.length, 1, status);
+    assert.equal(items[0].publicationId, 'slot-1', status);
+    assert.equal(
+      items[0].adminUrl,
+      '/admin/fundraiser/publications/automation?deliveryId=managed-1',
+      status
+    );
+    assert.ok(
+      items[0].suggestedActions.every(
+        (action) => action.executionMode === 'navigate'
+      ),
+      status
+    );
+  }
+  const items = buildWorkQueueItems(
+    dataset({
+      slots: [slot()],
+      publicationSlotExecutions: [
+        { slotId: 'slot-1', deliveryId: 'ready', status: 'approved' },
+        {
+          slotId: 'other-slot',
+          deliveryId: 'other-uncertain',
+          status: 'uncertain'
+        },
+        { slotId: 'slot-1', deliveryId: 'unresolved', status: 'uncertain' }
+      ]
+    })
+  );
+  assert.equal(
+    items[0].adminUrl,
+    '/admin/fundraiser/publications/automation?deliveryId=unresolved'
+  );
+  const empty = buildWorkQueueItems(dataset({ slots: [slot()] }));
+  assert.ok(
+    empty[0].suggestedActions.some(
+      (action) => action.actionType === 'propose_slot'
+    )
+  );
+});
+
 test('publication placements attach a dossier only while its matching draft remains unfinished', () => {
   const placements = [
     {

@@ -12,6 +12,7 @@ import {
   untracked
 } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
+import { RouterLink } from '@angular/router';
 import type {
   AdminPublicationBatchRecord,
   AdminPublicationDraftRecord,
@@ -48,6 +49,7 @@ import {
   imports: [
     CommonModule,
     TranslatePipe,
+    RouterLink,
     AdminPublicationCalendarComponent,
     AdminDrawerComponent
   ],
@@ -169,10 +171,6 @@ export class AdminPublicationSlotsPanelComponent {
 
   assignDraftToSlot(slot: AdminPublicationSlotRecord): Promise<void> {
     return this.workflow.assignDraftToSlot(slot);
-  }
-
-  publishSlot(slot: AdminPublicationSlotRecord): Promise<void> {
-    return this.workflow.publishSlot(slot);
   }
 
   cancelSlot(slot: AdminPublicationSlotRecord): Promise<void> {

@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  effect,
   inject,
   output
 } from '@angular/core';
@@ -27,8 +28,37 @@ export class AdminPaymentJourneyComponent {
   readonly i18n = inject(FundingI18nService);
   readonly show = output<string>();
 
+  constructor() {
+    effect((onCleanup) => {
+      const language = this.i18n.currentLanguage();
+      let current = true;
+      onCleanup(() => (current = false));
+      const locale =
+        language === 'en'
+          ? import('../../../../../assets/i18n/admin-publication-schedule.en.json')
+          : import('../../../../../assets/i18n/admin-publication-schedule.fr-CA.json');
+      void locale
+        .then(({ default: translations }) => {
+          if (current)
+            this.i18n.mergeTranslations(language, {
+              admin: {
+                guidance: { paymentJourney: translations.paymentJourney }
+              }
+            });
+        })
+        .catch(() => {
+          // The existing generic journey copy remains usable if feature copy cannot load.
+        });
+    });
+  }
+
   t(key: string, params?: Record<string, unknown>): string {
-    return this.i18n.t('admin.guidance.paymentJourney.' + key, params);
+    const path = 'admin.guidance.paymentJourney.' + key;
+    const text = this.i18n.t(path, params);
+    if (text === path && key === 'platformWaiting')
+      return this.t('situations.waiting');
+    if (text === path && key === 'viewWaiting') return this.t('openNext');
+    return text;
   }
   reason(reason: string): string {
     for (const key of [

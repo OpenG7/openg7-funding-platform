@@ -157,6 +157,8 @@ export class AdminPreparationReceiptComponent {
       'contribution_missing',
       'commitment_needs_confirmation',
       'offer_unverified',
+      'fulfilment_unverified',
+      'obligation_unverified',
       'public_consent_missing',
       'sponsor_review_required',
       'moderation_review_required'

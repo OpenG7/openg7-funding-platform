@@ -88,6 +88,9 @@
   @apply tw:min-w-0;
   padding-block: 1rem 2rem;
 }
+.dossier-section-title {
+  @apply tw:sr-only;
+}
 .dossier-context {
   @apply tw:min-w-0;
   background: var(--admin-subtle);

@@ -63,11 +63,22 @@ test('pilotage real subjects distinguish overdue slots from moderatable deliveri
       `publication_late:slot:${slot}`
     );
     await expect(page.locator('[data-og7="moderation-open"]')).toHaveCount(0);
-    await page.locator('[data-og7="pilot-details"]').click();
+    const details = page.locator('[data-og7="pilot-details"]');
+    await details.click();
+    const detailsDialog = page.getByRole('dialog', {
+      name: 'Détails',
+      exact: true
+    });
+    await expect(detailsDialog).toBeVisible();
     await expect(
-      page.locator('[data-og7="pilot-details-footer"] a')
+      detailsDialog.getByRole('button', { name: 'Fermer', exact: true }).first()
+    ).toBeFocused();
+    await expect(
+      detailsDialog.locator('[data-og7="pilot-details-footer"] a')
     ).toHaveAttribute('href', `/admin/fundraiser/publications?slotId=${slot}`);
     await page.keyboard.press('Escape');
+    await expect(detailsDialog).toBeHidden();
+    await expect(details).toBeFocused();
     await page
       .locator('[data-og7="pilot-queue"]')
       .getByRole('button', { name: /Publication synthétique avec sujet réel/ })

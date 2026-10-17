@@ -17,7 +17,11 @@ import { pilotageVersion } from './admin-pilotage-version.js';
 import { withPostgresTransaction } from './postgres-transaction.js';
 import { loadSponsorshipCommitment } from './sponsorship-commitments.repository.js';
 import { sponsorshipOfferFingerprint } from './sponsorship-commitments/offers.js';
-import { dossierFulfilmentQualificationSql } from './sponsorship-commitments/historical-audit-projection.js';
+import {
+  exactSponsorshipEvidence as exactEvidence,
+  loadSponsorshipEvidenceFacts,
+  type SponsorshipEvidenceFact
+} from './sponsorship-progress-evidence.js';
 
 export class ResponsibilityBalanceError extends Error {
   constructor(
@@ -28,11 +32,7 @@ export class ResponsibilityBalanceError extends Error {
   }
 }
 
-export interface ResponsibilityEvidenceFact extends ResponsibilityBalanceEvidence {
-  readonly mode: string;
-  /** Same recorded-source qualification as the existing historical audit. */
-  readonly qualifiedSnapshot: boolean;
-}
+export type ResponsibilityEvidenceFact = SponsorshipEvidenceFact;
 
 export interface ResponsibilityChangeFact {
   readonly id: string;
@@ -58,24 +58,6 @@ export interface ResponsibilityBalanceFacts {
   readonly evidence: readonly ResponsibilityEvidenceFact[];
   readonly changes: readonly ResponsibilityChangeFact[];
 }
-
-const exactEvidence = (
-  obligation: SponsorshipObligation,
-  evidence: ResponsibilityEvidenceFact
-): boolean =>
-  evidence.id === obligation.fulfilmentEvidenceId &&
-  evidence.obligationId === obligation.id &&
-  evidence.contributionId === obligation.contributionId &&
-  evidence.channel === obligation.channel &&
-  evidence.target === obligation.target &&
-  evidence.obligationVersion + 1 === obligation.version &&
-  evidence.mode === 'live' &&
-  Number.isFinite(Date.parse(evidence.deliveredAt)) &&
-  (obligation.channel === 'website'
-    ? evidence.provenance === 'website_verified'
-    : ['provider_acknowledged', 'provider_verified'].includes(
-        evidence.provenance
-      ));
 
 /** Immutable amendments must form the same reviewed destination/format history. */
 function validAmendments(
@@ -147,6 +129,7 @@ export function buildResponsibilityBalance(
     throw new ResponsibilityBalanceError('BALANCE_FACTS_INVALID');
   const reasons = new Set<string>();
   const unresolved = new Set<string>();
+  const unknownReasons = new Set<string>();
   const projected: ResponsibilityBalanceObligation[] = [];
   let promisedBenefits: readonly SponsorshipOfferedBenefit[] = [];
   let expected = 0;
@@ -157,6 +140,7 @@ export function buildResponsibilityBalance(
   let blocked = false;
   const unknownReason = (reason: string) => {
     reasons.add(reason);
+    unknownReasons.add(reason);
     unknown++;
   };
   if (!facts.paidAt || !Number.isFinite(Date.parse(facts.paidAt)))
@@ -349,7 +333,12 @@ export function buildResponsibilityBalance(
   if (journey.paymentStatus === 'refunded' && outstanding > 0) blocked = true;
   const operational = journey.steps.filter(
     (step) =>
-      step.id !== 'publication' &&
+      (step.id !== 'publication' ||
+        [
+          'publication_uncertain',
+          'publication_failed',
+          'fulfilment_unverified'
+        ].includes(step.reason)) &&
       !['complete', 'not_required'].includes(step.state)
   );
   const status: ResponsibilityBalance['status'] = unknown
@@ -369,11 +358,18 @@ export function buildResponsibilityBalance(
   const next =
     status === 'balanced'
       ? null
-      : (journey.next ?? {
-          reason: [...reasons][0] ?? 'publication_pending',
-          adminUrl: `/admin/fundraiser/sponsors?sponsorshipId=${journey.contributionId}&tab=publication`,
-          target: 'dossier-publication-journey'
-        });
+      : unknown
+        ? {
+            reason: [...unknownReasons][0]!,
+            responsibility: 'admin' as const,
+            adminUrl: `/admin/fundraiser/sponsors?sponsorshipId=${journey.contributionId}&tab=publication`,
+            target: 'dossier-publication-journey'
+          }
+        : (journey.next ?? {
+            reason: [...reasons][0] ?? 'publication_pending',
+            adminUrl: `/admin/fundraiser/sponsors?sponsorshipId=${journey.contributionId}&tab=publication`,
+            target: 'dossier-publication-journey'
+          });
   return {
     contributionId: journey.contributionId,
     reference: journey.reference,
@@ -439,15 +435,10 @@ export async function loadResponsibilityBalanceOnClient(
   );
   if (!journey) throw new ResponsibilityBalanceError('BALANCE_UNAVAILABLE');
   const commitment = await loadSponsorshipCommitment(client, contributionId);
-  const evidence = await client.query<ResponsibilityEvidenceFact>(
-    `${dossierFulfilmentQualificationSql}
-    SELECT proof.id,proof.obligation_id AS "obligationId",proof.contribution_id AS "contributionId",
-      proof.obligation_version AS "obligationVersion",proof.channel,proof.target,proof.mode,proof.provenance,
-      proof.delivered_at::text AS "deliveredAt",proof.external_post_url AS "externalPostUrl",
-      COALESCE(cardinality(classified.findings)=0,FALSE) AS "qualifiedSnapshot"
-    FROM sponsorship_fulfilment_evidence proof LEFT JOIN classified ON classified.id=proof.id
-    WHERE proof.contribution_id=$2::uuid ORDER BY proof.obligation_id,proof.id`,
-    [evaluatedAt, contributionId]
+  const evidence = await loadSponsorshipEvidenceFacts(
+    client,
+    contributionId,
+    evaluatedAt
   );
   const changes = await client.query<ResponsibilityChangeFact>(
     `SELECT change.id,change.obligation_id AS "obligationId",change.commitment_id AS "commitmentId",
@@ -465,7 +456,7 @@ export async function loadResponsibilityBalanceOnClient(
       ...facts,
       journey,
       commitment,
-      evidence: evidence.rows,
+      evidence,
       changes: changes.rows
     },
     now

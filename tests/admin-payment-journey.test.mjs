@@ -47,6 +47,92 @@ const dossier = (changes = {}) => ({
   ...changes
 });
 
+test('authorized publication work waits for the platform, while independent human actions remain actionable', () => {
+  const sponsor = source({ contributionType: 'sponsorship_interest' });
+  for (const reason of [
+    'publication_scheduled',
+    'publication_publishing',
+    'publication_retry_pending'
+  ]) {
+    const active = dossier({
+      milestones: [
+        {
+          id: 'publication',
+          state: 'partial',
+          reason: 'publication_pending',
+          tab: 'publication'
+        }
+      ],
+      publicationWorkflow: {
+        state: 'waiting',
+        responsibility: 'platform',
+        reason,
+        obligations: []
+      },
+      next: {
+        reason: 'publication_pending',
+        tab: 'publication',
+        adminUrl: '/admin/fundraiser/sponsors'
+      }
+    });
+    const journey = buildPaymentJourney(sponsor, active);
+    assert.equal(journey.state, 'waiting');
+    assert.equal(journey.next.reason, reason);
+    assert.equal(journey.next.responsibility, 'platform');
+    assert.equal(journey.completed, 0);
+    const needsReview = buildPaymentJourney(sponsor, {
+      ...active,
+      milestones: [
+        ...active.milestones,
+        {
+          id: 'review',
+          state: 'blocked',
+          reason: 'review_pending',
+          tab: 'overview'
+        }
+      ]
+    });
+    assert.equal(needsReview.state, 'blocked');
+    assert.equal(needsReview.next.reason, 'review_pending');
+  }
+});
+
+test('certain publication failure and an uncertain remote result keep separate recovery reasons', () => {
+  for (const [state, reason] of [
+    ['error', 'publication_failed'],
+    ['uncertain', 'publication_uncertain']
+  ]) {
+    const journey = buildPaymentJourney(
+      source({ contributionType: 'sponsorship_interest' }),
+      dossier({
+        milestones: [
+          {
+            id: 'publication',
+            state: 'error',
+            reason: 'publication_failed',
+            tab: 'publication'
+          }
+        ],
+        publicationWorkflow: {
+          state,
+          responsibility: 'admin',
+          reason,
+          obligations: []
+        },
+        next: {
+          reason: 'publication_failed',
+          tab: 'publication',
+          adminUrl: '/admin/fundraiser/sponsors'
+        }
+      })
+    );
+    assert.equal(journey.state, 'action_required');
+    assert.equal(journey.next.reason, reason);
+    assert.equal(journey.next.responsibility, 'admin');
+    assert.equal(journey.steps.length, 1);
+  }
+});
+
 test('personal confirmed payment finishes without inventing sponsorship work, pending and disputes do not', () => {
   const complete = buildPaymentJourney(source(), null);
   assert.equal(complete.state, 'complete');

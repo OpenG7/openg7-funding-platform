@@ -18,6 +18,7 @@ import {
 import { resolveSponsorshipSelection } from './admin-work-queue.service.js';
 import { withPostgresTransaction } from './postgres-transaction.js';
 import { projectSponsorshipObligationProgress } from './sponsorship-progress-obligations.js';
+import { projectSponsorshipPublicationWorkflow } from './sponsorship-progress-workflow.js';
 import { projectSponsorshipRefundProgress } from './sponsorship-refund-progress.js';
 import {
   findSponsorshipPreparationActivityId,
@@ -58,6 +59,7 @@ export const buildSponsorshipProgress = (
     complete: publicationComplete,
     blockers: obligationBlockers
   } = projectSponsorshipObligationProgress({
+    qualifiedFulfilmentEvidenceIds: facts.qualifiedFulfilmentEvidenceIds ?? [],
     commitment,
     amountMinor: facts.amountMinor,
     currency,
@@ -74,13 +76,6 @@ export const buildSponsorshipProgress = (
   const published = (d: SponsorshipProgressPublication) =>
     (d.status === 'published' && d.deliveryMode !== 'mock') ||
     (d.deliveryStatus === 'published' && d.deliveryMode === 'live');
-  const publicationError = facts.publications.some(
-    (d) =>
-      ['failed', 'uncertain'].includes(d.deliveryStatus ?? '') && !published(d)
-  );
-  const publicationCancelled = facts.publications.some(
-    (d) => !published(d) && cancelled(d)
-  );
   // Shared read-only prerequisites; identity belongs to the website, hidden to social.
   const visibilityBlockers = (target: 'website' | 'social'): string[] => [
     ...(!consent ? ['consent'] : []),
@@ -96,12 +91,48 @@ export const buildSponsorshipProgress = (
   const publicationBlockers = [
     ...new Set([...visibilityBlockers('social'), ...obligationBlockers])
   ];
+  const websiteBlockers = visibilityBlockers('website');
+  const publicationWorkflow = projectSponsorshipPublicationWorkflow(
+    commitment,
+    facts.publications,
+    [
+      ...visibilityBlockers('social'),
+      ...(!qualified ? ['commitment_needs_confirmation'] : [])
+    ],
+    source.dataset?.now,
+    facts.qualifiedFulfilmentEvidenceIds ?? []
+  );
+  // A retired attempt must not override the current passage. Uncertain and
+  // in-flight attempts are retained by the workflow until reconciliation.
+  const currentPublications = facts.publications.filter((publication) => {
+    const selected = publicationWorkflow.obligations.filter(
+      (obligation) =>
+        obligation.channel === publication.channel &&
+        obligation.target === publication.target &&
+        obligation.deliveryId
+    );
+    return (
+      !selected.length ||
+      selected.some(
+        (obligation) => obligation.deliveryId === publication.deliveryId
+      )
+    );
+  });
+  const publicationError = currentPublications.some(
+    (d) =>
+      ['failed', 'uncertain'].includes(d.deliveryStatus ?? '') && !published(d)
+  );
+  const publicationUncertain = currentPublications.some(
+    (d) => d.deliveryStatus === 'uncertain'
+  );
+  const publicationCancelled = currentPublications.some(
+    (d) => !published(d) && cancelled(d)
+  );
   const publicationBlocked =
     publicationBlockers.length > 0 ||
-    facts.publications.some(
+    currentPublications.some(
       (d) => d.deliveryStatus === 'blocked' && !published(d)
     );
-  const websiteBlockers = visibilityBlockers('website');
   const milestones: SponsorshipMilestone[] = [
     {
       id: 'payment',
@@ -185,33 +216,46 @@ export const buildSponsorshipProgress = (
     },
     {
       id: 'publication',
-      state: publicationComplete
-        ? 'complete'
-        : !qualified
-          ? 'blocked'
-          : publicationError
-            ? 'error'
-            : publicationCancelled
-              ? 'cancelled'
-              : publicationBlocked
-                ? 'blocked'
-                : (websiteRequired && facts.websiteVisible) ||
-                    facts.publications.some(published)
-                  ? 'partial'
-                  : 'pending',
-      reason: publicationComplete
-        ? 'publication_done'
-        : !qualified
-          ? 'commitment_needs_confirmation'
-          : publicationError
-            ? 'publication_failed'
-            : publicationCancelled
-              ? 'publication_cancelled'
-              : !consent
-                ? 'consent_missing'
-                : publicationBlocked
-                  ? 'publication_blocked'
-                  : 'publication_pending',
+      state:
+        publicationUncertain ||
+        publicationWorkflow.reason === 'fulfilment_unverified'
+          ? 'error'
+          : publicationComplete
+            ? 'complete'
+            : !qualified
+              ? 'blocked'
+              : publicationError
+                ? 'error'
+                : publicationCancelled
+                  ? 'cancelled'
+                  : publicationBlocked
+                    ? 'blocked'
+                    : (websiteRequired && facts.websiteVisible) ||
+                        facts.publications.some(published)
+                      ? 'partial'
+                      : 'pending',
+      reason: publicationUncertain
+        ? 'publication_uncertain'
+        : publicationWorkflow.reason === 'fulfilment_unverified'
+          ? 'fulfilment_unverified'
+          : publicationComplete
+            ? 'publication_done'
+            : !qualified
+              ? 'commitment_needs_confirmation'
+              : publicationError
+                ? 'publication_failed'
+                : publicationCancelled
+                  ? 'publication_cancelled'
+                  : !consent
+                    ? 'consent_missing'
+                    : publicationBlocked
+                      ? 'publication_blocked'
+                      : [
+                            'publication_preparation_required',
+                            'website_publication_required'
+                          ].includes(publicationWorkflow.reason)
+                        ? 'publication_pending'
+                        : publicationWorkflow.reason,
       tab: 'publication'
     }
   ];
@@ -242,6 +286,8 @@ export const buildSponsorshipProgress = (
                 ? { reason: outstanding.reason, tab: outstanding.tab }
                 : { reason: 'complete', tab: 'overview' as const };
   return {
+    qualifiedFulfilmentEvidenceIds: facts.qualifiedFulfilmentEvidenceIds ?? [],
+    publicationWorkflow,
     contributionId: record.contributionId,
     commitment: commitment ?? null,
     fulfilmentEvidence: facts.fulfilmentEvidence ?? [],

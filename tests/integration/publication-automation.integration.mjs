@@ -1949,6 +1949,127 @@ test(
       }
     );
     await t.test(
+      'a Facebook success remains delivered when LinkedIn fails and later worker ticks do not resend it',
+      async (st) => {
+        await reset();
+        env.SOCIAL_PUBLICATION_MODE = 'live';
+        env.SOCIAL_PUBLICATION_OPENG20_FACEBOOK_ACCOUNT_ID = '20';
+        env.SOCIAL_PUBLICATION_OPENG20_FACEBOOK_ACCESS_TOKEN = 'synthetic';
+        env.SOCIAL_PUBLICATION_OPENG20_LINKEDIN_ACCOUNT_ID = '70';
+        env.SOCIAL_PUBLICATION_OPENG20_LINKEDIN_ACCESS_TOKEN = 'synthetic';
+        const sends = [];
+        st.mock.method(globalThis, 'fetch', async (url, init) => {
+          if (url.includes('/me?')) return Response.json({ id: '20' });
+          if (url.includes('/organizationAcls?'))
+            return Response.json({
+              elements: [
+                {
+                  organization: 'urn:li:organization:70',
+                  role: 'ADMINISTRATOR'
+                }
+              ]
+            });
+          if (url.endsWith('/20/feed') && init.method === 'POST') {
+            sends.push('facebook');
+            return Response.json({ id: '20_777' });
+          }
+          if (url.endsWith('/posts') && init.method === 'POST') {
+            sends.push('linkedin');
+            return Response.json(
+              { message: 'Synthetic definite rejection' },
+              { status: 400 }
+            );
+          }
+          assert.fail('Unexpected fixture provider request.');
+        });
+        const contributionId = await sponsor({ agreement: false });
+        await recordFixtureSponsorshipAgreement(pool, contributionId, {
+          channels: ['facebook', 'linkedin'],
+          target: 'openg20'
+        });
+        await presentation(contributionId);
+        const deliveries = [];
+        for (const channel of ['facebook', 'linkedin']) {
+          const destination = `openg20:${channel}`;
+          await service.command(
+            { action: 'check', feedId: destination },
+            'tester'
+          );
+          const feed = (await service.state()).feeds.find(
+            (f) => f.id === destination
+          );
+          await service.command(
+            { action: 'settings', settings: { ...feed, paused: false } },
+            'tester'
+          );
+          await service.prepare(destination, 'planner');
+          const proposal = (await service.state()).deliveries.find(
+            (d) => d.feedId === destination
+          );
+          assert.ok(proposal);
+          await service.command(
+            {
+              action: 'edit',
+              id: proposal.id,
+              version: proposal.version,
+              message: proposal.message,
+              scheduledAt: future,
+              mediaId: null
+            },
+            'tester'
+          );
+          await approve(proposal.id);
+          deliveries.push(proposal.id);
+        }
+        await service.tick(due);
+        assert.equal((await record(deliveries[0])).status, 'published');
+        assert.equal((await record(deliveries[1])).status, 'blocked');
+        const obligations = async () =>
+          (
+            await pool.query(
+              'SELECT channel,state,fulfilment_evidence_id FROM sponsorship_obligations WHERE contribution_id=$1 ORDER BY channel',
+              [contributionId]
+            )
+          ).rows;
+        const first = await obligations();
+        assert.equal(
+          first.find((o) => o.channel === 'facebook').state,
+          'fulfilled'
+        );
+        assert.ok(
+          first.find((o) => o.channel === 'facebook').fulfilment_evidence_id
+        );
+        assert.equal(
+          first.find((o) => o.channel === 'linkedin').state,
+          'pending'
+        );
+        assert.equal(
+          first.find((o) => o.channel === 'linkedin').fulfilment_evidence_id,
+          null
+        );
+        await service.tick(due);
+        await service.tick(due);
+        assert.deepEqual(await obligations(), first);
+        assert.equal(
+          sends.filter((channel) => channel === 'facebook').length,
+          1
+        );
+        assert.equal(
+          sends.filter((channel) => channel === 'linkedin').length,
+          1
+        );
+        assert.equal(
+          (
+            await pool.query(
+              'SELECT count(*)::int AS n FROM sponsorship_fulfilment_evidence WHERE contribution_id=$1',
+              [contributionId]
+            )
+          ).rows[0].n,
+          1
+        );
+      }
+    );
+    await t.test(
       'database failure after provider success cannot turn into an automatic resend',
       async (st) => {
         await reset();

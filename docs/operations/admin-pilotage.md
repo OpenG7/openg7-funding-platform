@@ -116,6 +116,15 @@ nul seulement si toutes les étapes requises sont réglées. Les faits sont lus
 dans une transaction cohérente en lecture seule. Les méthodes autres que GET
 renvoient 405 et n'exécutent aucune opération.
 
+Le parcours constitue une console de travail : les étapes de publication
+précisent la responsabilité administrative ou celle de la plateforme. Une
+publication autorisée programmée, en cours ou en reprise automatique prévue
+reste en attente des faits serveur ; le guide permet de les actualiser sans
+demander une attestation manuelle de livraison ni rouvrir sa préparation.
+Une décision humaine encore nécessaire ailleurs dans le dossier reste proposée.
+Le succès réel enregistre automatiquement la preuve du passage correspondant ;
+un résultat incertain exige sa réconciliation avant un nouvel envoi.
+
 Le soutien personnel ne crée aucune contrepartie de commandite : sa confirmation
 et les éventuels incidents ou communications constituent son suivi. Pour une
 commandite, les jalons portent sur paiement, identité, médias, revue, facturation

@@ -122,6 +122,7 @@ export class AdminAutomaticComponent {
         : this.t('reasonUnavailable');
     }
     for (const key of [
+      'admin.automatic.portfolio.reasons.' + reason,
       'admin.guidance.paymentJourney.reasons.' + reason,
       'admin.dossier.reasons.' + reason
     ]) {

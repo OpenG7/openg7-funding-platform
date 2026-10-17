@@ -20,7 +20,6 @@ type SponsorProcessingState =
   | 'action-required'
   | 'approved-ready'
   | 'publication-progress'
-  | 'published'
   | 'blocked'
   | 'waiting-payment';
 
@@ -265,8 +264,9 @@ export class AdminSponsorPresentationProjection {
     if (sponsorship.payment_status !== 'paid') return 'waiting-payment';
     if (sponsorship.sponsor_review_status === 'pending_review')
       return 'action-required';
-    if (sponsorship.sponsor_feed_status === 'published') return 'published';
+    // List rows lack the qualified evidence projection available in the dossier.
     if (
+      sponsorship.sponsor_feed_status === 'published' ||
       sponsorship.sponsor_feed_status === 'planned' ||
       sponsorship.sponsor_feed_status === 'drafted'
     )
@@ -283,11 +283,15 @@ export class AdminSponsorPresentationProjection {
       case 'action-required':
         return this.presentation.t('admin.messages.traitement_requis');
       case 'approved-ready':
-        return 'Approuvee, publication a planifier';
+        return this.presentation.t(
+          'admin.dossier.publicationBridge.readyForPlanning'
+        );
       case 'publication-progress':
+        if (sponsorship.sponsor_feed_status === 'published')
+          return this.presentation.t(
+            'admin.dossier.publicationBridge.declaredPublication'
+          );
         return this.presentation.t('admin.messages.publication_en_preparation');
-      case 'published':
-        return this.presentation.t('admin.messages.publication_terminee');
       case 'blocked':
         return this.presentation.t('admin.messages.commandite_bloquee');
       case 'waiting-payment':

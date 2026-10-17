@@ -170,7 +170,7 @@ export class AdminSponsorPublicationWorkflow {
         !(await this.ports.confirm(
           this.ports.t(
             draft.feedStatus === 'published'
-              ? 'admin.confirmation.publish'
+              ? 'admin.dossier.publicationBridge.confirmDeclaration'
               : 'admin.confirmation.cancelPublication'
           ),
           sponsorship.public_reference ?? sponsorship.id
@@ -222,7 +222,7 @@ export class AdminSponsorPublicationWorkflow {
       if (!this.isCurrent(sponsorship.id, revision)) return;
       this.setPublicationMessage(
         sponsorship.id,
-        this.ports.t('admin.messages.publication_enregistree_')
+        this.ports.t('admin.dossier.publicationBridge.trackingSaved')
       );
     } catch (error) {
       if (this.disposed) return;
@@ -353,7 +353,7 @@ export class AdminSponsorPublicationWorkflow {
     if (slugError) return slugError;
     return this.publicationDirtyFor(sponsorship)
       ? this.ports.t('admin.messages.modifications_non_enregistrees')
-      : this.ports.t('admin.messages.publication_enregistree');
+      : this.ports.t('admin.dossier.publicationBridge.trackingSaved');
   }
 
   slugErrorFor(sponsorship: AdminSponsorshipRecord): string {

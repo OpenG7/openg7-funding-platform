@@ -35,6 +35,9 @@
     <p class="inline-status" [class.is-dirty]="dirty()" aria-live="polite">
       {{ stateLabel() }}
     </p>
+    <p data-og7="publication-historical-declaration-help">
+      {{ 'admin.dossier.publicationBridge.historicalDeclaration' | translate }}
+    </p>
     <fieldset class="publication-grid" [disabled]="actionsDisabled()">
       <label>
         {{ 'admin.legacy.slug_public' | translate }}
@@ -68,7 +71,7 @@
         </select>
       </label>
       <label>
-        {{ 'admin.legacy.statut_feed' | translate }}
+        {{ 'admin.dossier.publicationBridge.declaredStatus' | translate }}
         <select
           [value]="draft().feedStatus"
           (change)="fieldChange.emit({ field: 'feedStatus', event: $event })"

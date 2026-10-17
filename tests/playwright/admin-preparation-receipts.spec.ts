@@ -590,6 +590,40 @@ test('an incomplete preparation names its missing prerequisite and cannot be app
   expect(f.writes).toEqual([]);
 });
 
+for (const code of ['fulfilment_unverified', 'obligation_unverified']) {
+  test(`a ${code} preparation preserves its accepted offer and names the actual integrity check`, async ({
+    page
+  }) => {
+    const f = await fixture(page);
+    const original = f.receipts.get(3)!;
+    f.receipts.set(3, {
+      ...original,
+      status: 'incomplete',
+      canApprove: false,
+      blockers: [
+        {
+          code,
+          adminUrl: `/admin/fundraiser/sponsors?sponsorshipId=${original.contributionId}`
+        }
+      ]
+    });
+    await open(page);
+    await expect(hook(page, 'offer')).not.toContainText(
+      'L’accord d’origine est manquant'
+    );
+    await expect(hook(page, 'blockers')).toContainText(
+      code === 'fulfilment_unverified'
+        ? 'preuve de livraison'
+        : 'suivi d’un engagement'
+    );
+    await expect(
+      hook(page, 'summary').getByText('Autorisée', { exact: true })
+    ).toHaveCount(0);
+    await expect(hook(page, 'approve')).toBeDisabled();
+    expect(f.writes).toEqual([]);
+  });
+}
+
 test('cancelled, published and incomplete drafts keep their actual states while preparation authorization remains available', async ({
   page
 }) => {

@@ -12,6 +12,7 @@ import {
   sponsorshipRef
 } from '../sponsorship-admin-presentation.js';
 import { summarizeSponsorshipMedia } from '../sponsorship-media-policy.js';
+import { projectSponsorshipPublicationWorkflow } from '../sponsorship-progress-workflow.js';
 import {
   isUnfinishedPublicationDraft,
   resolveSponsorshipPublicationCoverage
@@ -38,6 +39,18 @@ export const buildSponsorshipAssistantContext = (
   const { hasApprovedPresentation, ...media } = summarizeSponsorshipMedia(
     source.media
   );
+  const publicationWorkflow = projectSponsorshipPublicationWorkflow(
+    record.commitment,
+    source.publications ?? [],
+    [
+      ...(!source.consent ? ['consent'] : []),
+      ...(record.reviewStatus !== 'approved' ? ['review'] : []),
+      ...(record.paymentStatus !== 'paid' ? ['payment'] : []),
+      ...(record.refundStatus !== 'not_requested' ? ['refund'] : [])
+    ],
+    source.dataset.now,
+    source.qualifiedFulfilmentEvidenceIds ?? []
+  );
   let nextStep: AdminAssistantNextStep;
   if (record.refundStatus !== 'not_requested') nextStep = 'check_refund';
   else if (record.paymentStatus !== 'paid') nextStep = 'check_payment';
@@ -49,8 +62,16 @@ export const buildSponsorshipAssistantContext = (
   else if (!source.consent) nextStep = 'confirm_consent';
   else if (record.commitment?.state !== 'active' || !record.commitment.offer)
     nextStep = 'qualify_commitment';
-  else if (preparationChannels.length) nextStep = 'prepare_publication';
   else if (
+    preparationChannels.length &&
+    !['uncertain', 'error'].includes(publicationWorkflow.state) &&
+    publicationWorkflow.obligations.some(
+      (obligation) => obligation.reason === 'publication_preparation_required'
+    )
+  )
+    nextStep = 'prepare_publication';
+  else if (
+    publicationWorkflow.state !== 'complete' ||
     dataset.drafts.some(isUnfinishedPublicationDraft) ||
     record.commitment.obligations.some(
       (o) =>
@@ -61,6 +82,7 @@ export const buildSponsorshipAssistantContext = (
     nextStep = 'monitor_publication';
   else nextStep = 'complete';
   return {
+    publicationWorkflow,
     contributionId: record.contributionId,
     reference: sponsorshipRef(record),
     version: source.version,

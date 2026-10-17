@@ -4,6 +4,12 @@ The calendar is at `/admin/fundraiser/publications/calendar`. The delivery cockp
 is at `/admin/fundraiser/publications/automation`, with its own calendar including
 editorial posts. The three existing publication workspaces remain separate.
 
+The administration is a work console: the administrator authorizes the exact
+publication, then the platform executes it and records its confirmed result.
+A complete sponsor dossier, a prepared draft, an authorized date and a fulfilled
+benefit describe separate milestones. An authorized future delivery is normal
+platform work; it does not require a manual declaration of fulfilment.
+
 Manual slot date/time fields use the slot's selected IANA timezone; source draft
 scheduling uses `America/Toronto`, matching the calendar. Text-only edits of those
 slots and drafts retain the exact stored instant, including seconds and the selected
@@ -78,13 +84,23 @@ The check runs at approval, immediately before dispatch and at completion, inclu
 reconciliation. Draft editing still revokes authorization; an incomplete draft
 cannot be approved. See the [decision](../decisions/2026-10-11-sponsorship-recognition-blocks.md).
 This protects sponsorship `publication_deliveries` with a batch. Legacy social
-jobs and manual batch/slot status changes do not use this guard; their convergence
-remains part of the open work and cannot be claimed as validated by these checks.
+jobs remain historical records outside this guard. The public administration
+endpoints for marking a batch or slot published, publishing a legacy social batch,
+or setting a source draft to `published` return `409 FINAL_APPROVAL_REQUIRED`.
+They cannot create an operational success declaration. Use the exact final
+publication's review and authorization drawer; existing historical declarations
+are preserved and do not establish qualified fulfilment.
 
 Dossier progress reads the matching automatic delivery by batch and destination,
 with legacy job fallback. It exposes its identifier, state, mode, safe error code,
 feed pause, date and public result link; it never exposes draft text or credentials.
 Live publication evidence completes the matching channel; simulations do not.
+Each successful send records the exact reserved passage and its provider reference.
+If Facebook succeeds while LinkedIn fails, the Facebook evidence stays delivered
+and only LinkedIn remains to be resolved. Repeated worker ticks do not publish the
+successful Facebook delivery again. An uncertain result requires reconciliation
+before any resend; provider acknowledgement followed by a database failure keeps
+the independently recorded observation available for that investigation.
 Website visibility has its own card and confirmed publish/hide actions in step 6.
 Completion requires all promised benefits, including the currently visible website
 profile; see the [dossier contract](../admin-ux-lot-4.md#visibilité-web-et-contreparties-livrées).

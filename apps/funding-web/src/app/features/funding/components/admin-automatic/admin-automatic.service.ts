@@ -91,6 +91,7 @@ export class AdminAutomaticService {
     present: (plan, id) => this.present(plan, id),
     changed: (snapshot) => {
       if (snapshot.phase === 'navigating') this.reveal.set(null);
+      if (snapshot.phase === 'waiting') this.lastPreparation.set(null);
       this.snapshot.set(snapshot);
       this.arm();
     }
@@ -357,6 +358,7 @@ export class AdminAutomaticService {
   private eligible(
     plan: AdminAutomaticPlan
   ): readonly AdminAutomaticPreparationEntry[] {
+    if (plan.state === 'waiting' || plan.state === 'complete') return [];
     if (this.document.querySelector('[data-og7-automatic-block]')) return [];
     const dialogs = Array.from(
       this.document.querySelectorAll<HTMLDialogElement>('dialog[open]')

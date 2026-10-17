@@ -12,6 +12,7 @@ import {
 } from '../../fund-contributions.repository.js';
 
 import type { AttentionDataset } from './contracts.js';
+import { loadPublicationSlotExecutions } from './publication-execution.js';
 
 async function disputedTotals(
   pool: Pool | null
@@ -34,6 +35,7 @@ async function disputedTotals(
 }
 
 export interface AttentionDatasetReaders {
+  readonly loadPublicationSlotExecutions?: typeof loadPublicationSlotExecutions;
   readonly listSponsorshipsForAttention: typeof listSponsorshipsForAttention;
   readonly listAdminPublicationDrafts: typeof listAdminPublicationDrafts;
   readonly listAdminPublicationBatches: typeof listAdminPublicationBatches;
@@ -58,7 +60,8 @@ export const createAttentionDatasetLoader =
       slots,
       emailQueue,
       dashboard,
-      disputes
+      disputes,
+      publicationSlotExecutions
     ] = await Promise.all([
       readers.listSponsorshipsForAttention(pool, complete ? null : undefined),
       readers.listAdminPublicationDrafts(pool, { all: complete }),
@@ -66,7 +69,8 @@ export const createAttentionDatasetLoader =
       readers.listAdminPublicationSlots(pool, { all: complete }),
       readers.listAdminEmailQueue(pool, { all: complete }),
       includeFinancialSummary ? readers.getAdminDashboard(pool) : null,
-      includeFinancialSummary ? undefined : disputedTotals(pool)
+      includeFinancialSummary ? undefined : disputedTotals(pool),
+      readers.loadPublicationSlotExecutions?.(pool)
     ]);
 
     return {
@@ -76,6 +80,7 @@ export const createAttentionDatasetLoader =
       drafts: drafts.drafts,
       batches: batches.batches,
       slots: slots.slots,
+      ...(publicationSlotExecutions ? { publicationSlotExecutions } : {}),
       emailMessages: emailQueue.messages,
       financialTotals: dashboard
         ? {
@@ -90,6 +95,7 @@ export const createAttentionDatasetLoader =
   };
 
 export const loadAttentionDataset = createAttentionDatasetLoader({
+  loadPublicationSlotExecutions,
   listSponsorshipsForAttention,
   listAdminPublicationDrafts,
   listAdminPublicationBatches,

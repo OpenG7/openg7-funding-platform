@@ -376,7 +376,10 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         await admin.getByLabel(/Slug public/i).fill('media-' + id);
         await admin.getByLabel(/Destination feed/i).selectOption('openg7');
         await admin
-          .getByRole('combobox', { name: 'Statut feed', exact: true })
+          .getByRole('combobox', {
+            name: 'Statut de suivi déclaré',
+            exact: true
+          })
           .selectOption('planned');
         await admin
           .getByLabel(/Resume public/i)
@@ -385,7 +388,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
           .getByRole('button', { name: 'Enregistrer', exact: true })
           .click();
         await expect(
-          admin.getByText('Publication enregistree.', { exact: true })
+          admin.getByText('Paramètres de suivi enregistrés', { exact: true })
         ).toBeVisible();
         expect(
           (
