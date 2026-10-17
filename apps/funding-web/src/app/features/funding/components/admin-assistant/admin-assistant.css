@@ -13,6 +13,17 @@
 .context-card {
   @apply tw:grid tw:gap-admin-section;
 }
+.inline-dossier {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 1rem var(--admin-card-padding);
+}
+.inline-dossier .heading h2 {
+  font-family: var(--admin-font-family);
+  font-size: 1rem;
+  font-weight: var(--admin-label-weight);
+}
 .heading,
 .actions,
 .question {
