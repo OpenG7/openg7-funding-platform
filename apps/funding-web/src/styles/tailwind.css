@@ -4,6 +4,16 @@
 
 /* Resolve inherited OpenG7 tokens on the styled element, including theme changes. */
 @theme inline {
+  --font-admin-body: var(
+    --admin-font-family,
+    'Segoe UI',
+    system-ui,
+    sans-serif
+  );
+  --font-admin-heading: var(
+    --admin-heading-font-family,
+    var(--admin-font-family)
+  );
   --color-admin-panel: var(--admin-panel);
   --color-admin-raised: var(--admin-panel-raised);
   --color-admin-border: var(--admin-border);

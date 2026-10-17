@@ -1,22 +1,5 @@
-/* Shared typography for the admin shell, its routed content and sign-in page. */
+/* Shared rules reach routed headings; values and font faces load with admin. */
 :is(openg7-admin-layout, openg7-admin-login-page) {
-  --admin-font-family: 'Segoe UI', system-ui, sans-serif;
-  --admin-body-size: 1rem;
-  --admin-body-leading: 1.55;
-  --admin-caption-size: 0.875rem;
-  --admin-secondary-size: var(--admin-caption-size);
-  --admin-navigation-size: 0.9375rem;
-  --admin-control-height: 2.75rem;
-  --admin-title-size: clamp(1.625rem, 1.25rem + 0.75vw, 2rem);
-  --admin-title-weight: 650;
-  --admin-title-leading: 1.2;
-  --admin-section-size: 1.1875rem;
-  --admin-section-weight: 600;
-  --admin-section-leading: 1.4;
-  --admin-subheading-size: 1.0625rem;
-  --admin-control-weight: 600;
-  --admin-label-weight: 600;
-  --admin-emphasis-weight: 700;
   font-family: var(--admin-font-family);
   font-size: var(--admin-body-size);
   font-weight: 400;
@@ -24,13 +7,15 @@
 }
 
 :is(openg7-admin-layout, openg7-admin-login-page) h1 {
+  font-family: var(--admin-heading-font-family);
   font-size: var(--admin-title-size);
   font-weight: var(--admin-title-weight);
-  letter-spacing: -0.025em;
+  letter-spacing: -0.02em;
   line-height: var(--admin-title-leading);
 }
 
 :is(openg7-admin-layout, openg7-admin-login-page) h2 {
+  font-family: var(--admin-heading-font-family);
   font-size: var(--admin-section-size);
   font-weight: var(--admin-section-weight);
   line-height: var(--admin-section-leading);

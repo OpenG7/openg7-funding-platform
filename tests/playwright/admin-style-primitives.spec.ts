@@ -13,7 +13,7 @@ const palettes = {
     success: ['#236342', '#eaf6ee'],
     warning: ['#805411', '#fff4d6'],
     danger: ['#a52d3e', '#fcecef'],
-    blue: ['#245b94', '#e7f2ff']
+    blue: ['#365d88', '#edf3fa']
   },
   night: {
     neutral: ['#bdcbe0', '#102033'],

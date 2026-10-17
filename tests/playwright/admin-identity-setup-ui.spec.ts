@@ -60,8 +60,8 @@ const identityPalettes = {
     text: 'rgb(23, 43, 80)',
     muted: 'rgb(82, 98, 123)',
     raised: 'rgb(240, 244, 249)',
-    selected: 'rgb(231, 242, 255)',
-    focus: 'rgb(18, 101, 176)'
+    selected: 'rgb(237, 243, 250)',
+    focus: 'rgb(53, 106, 159)'
   },
   night: {
     panel: 'rgb(20, 35, 56)',

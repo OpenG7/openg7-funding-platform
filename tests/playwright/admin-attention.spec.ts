@@ -153,7 +153,7 @@ const attentionPalettes = {
     muted: 'rgb(82, 98, 123)',
     danger: 'rgb(165, 45, 62)',
     dangerBackground: 'rgb(252, 236, 239)',
-    focus: 'rgb(18, 101, 176)'
+    focus: 'rgb(53, 106, 159)'
   },
   night: {
     panel: 'rgb(20, 35, 56)',

@@ -99,6 +99,8 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
     </main>
   `,
   styleUrls: [
+    '../../../../../styles/admin-fonts.css',
+    '../../../../../styles/admin-type-tokens.css',
     '../../components/admin-ui/admin-theme.css',
     '../../components/admin-ui/admin-controls.css',
     '../../components/admin-ui/admin-forms.css',

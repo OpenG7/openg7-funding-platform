@@ -1,6 +1,12 @@
 import type { Locator, Page } from '@playwright/test';
 
 import { expect, test } from './support/test.js';
+import {
+  expectAdminFontsReady,
+  expectLocalAdminFonts,
+  fontFamilies,
+  watchFontRequests
+} from './support/admin-fonts.js';
 
 type Language = 'fr-CA' | 'en';
 
@@ -163,10 +169,12 @@ for (const language of ['fr-CA', 'en'] as const) {
       test.setTimeout(60000);
       await page.setViewportSize({
         width,
-        height: width === 1536 ? 760 : 1000
+        height: width === 1536 ? 864 : 1000
       });
       const fixture = await fixtures(page, language);
+      const fontRequests = watchFontRequests(page);
       let dashboard: Awaited<ReturnType<typeof typography>> | undefined;
+      let bodyFamily: string | undefined;
       let controlsChecked = 0;
       let buttonsChecked = 0;
 
@@ -186,12 +194,49 @@ for (const language of ['fr-CA', 'en'] as const) {
           // heading while Angular replaces the preceding page during startup.
           await expect(heading).toBeVisible();
           await expect(heading).toHaveText(title[language]);
+          await expect
+            .poll(async () =>
+              fontFamilies((await typography(heading)).family).slice(0, 2)
+            )
+            .toEqual(['Sora', 'Inter']);
+          await expectAdminFontsReady(page);
           const actual = await typography(heading);
-          expect(actual.family).not.toBe('');
-          expect(actual.size).not.toBe('');
+          expect(actual.weight).toBe('600');
+          expect(Number.parseFloat(actual.size)).toBeCloseTo(
+            Math.min(30, Math.max(26, 20 + width * 0.006)),
+            2
+          );
+          expect(Number.parseFloat(actual.letterSpacing)).toBeCloseTo(
+            Number.parseFloat(actual.size) * -0.02,
+            3
+          );
           dashboard ??= actual;
           expect.soft(actual, `${path}: heading typography`).toEqual(dashboard);
-          await expect.soft(main).toHaveCSS('font-family', dashboard.family);
+          const currentBodyFamily = await main.evaluate(
+            (element) => getComputedStyle(element).fontFamily
+          );
+          bodyFamily ??= currentBodyFamily;
+          expect(fontFamilies(currentBodyFamily).slice(0, 2)).toEqual([
+            'Inter',
+            'Segoe UI'
+          ]);
+          await expect.soft(main).toHaveCSS('font-family', bodyFamily);
+          for (const [selector, family] of [
+            ['h2', 'Sora'],
+            ['h3, h4, h5, h6', 'Inter']
+          ]) {
+            const families = await main
+              .locator(selector)
+              .evaluateAll((elements) =>
+                elements
+                  .filter((element) => element.getClientRects().length > 0)
+                  .map((element) => getComputedStyle(element).fontFamily)
+              );
+            for (const actualFamily of families)
+              expect
+                .soft(fontFamilies(actualFamily)[0], `${path}: ${selector}`)
+                .toBe(family);
+          }
           expect
             .soft(
               await page.evaluate(
@@ -222,7 +267,7 @@ for (const language of ['fr-CA', 'en'] as const) {
               .toBe('600');
             expect
               .soft(button.family, `${path}: button ${button.text}`)
-              .toBe(dashboard.family);
+              .toBe(bodyFamily);
           }
           buttonsChecked += buttons.length;
 
@@ -247,13 +292,14 @@ for (const language of ['fr-CA', 'en'] as const) {
               .toBe('400');
             expect
               .soft(control.family, `${path}: field ${control.name}`)
-              .toBe(dashboard.family);
+              .toBe(bodyFamily);
           }
           controlsChecked += controls.length;
         });
       }
       expect(buttonsChecked).toBeGreaterThan(0);
       expect(controlsChecked).toBeGreaterThan(0);
+      expectLocalAdminFonts(fontRequests, page.url());
       expect(fixture.mutations).toEqual([]);
     });
   }

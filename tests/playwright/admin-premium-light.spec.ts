@@ -5,6 +5,12 @@ import type { Page } from '@playwright/test';
 import { expect, test } from './support/test.js';
 import { cockpitFixtures } from './support/cockpit-fixtures.js';
 import {
+  expectAdminFontsReady,
+  expectLocalAdminFonts,
+  fontFamilies,
+  watchFontRequests
+} from './support/admin-fonts.js';
+import {
   controllerJourneysFixtures,
   controllerPath
 } from './support/controller-journeys.fixtures.js';
@@ -82,6 +88,7 @@ for (const language of ['fr-CA', 'en'] as const) {
     }, testInfo) => {
       await page.setViewportSize(viewport);
       await page.emulateMedia({ reducedMotion: 'reduce' });
+      const fontRequests = watchFontRequests(page);
       const { state, gate, writes } = await premiumFixtures(page, language);
       await page.goto('/admin/fundraiser');
       const shell = page.locator('openg7-admin-layout');
@@ -97,6 +104,24 @@ for (const language of ['fr-CA', 'en'] as const) {
       await expect(shell).toHaveCSS('color', 'rgb(23, 43, 80)');
       await expect(shell).toHaveCSS('line-height', '24.8px');
       const heading = dashboard.getByRole('heading', { level: 1 });
+      await expect
+        .poll(async () =>
+          fontFamilies(
+            await heading.evaluate(
+              (element) => getComputedStyle(element).fontFamily
+            )
+          ).slice(0, 2)
+        )
+        .toEqual(['Sora', 'Inter']);
+      await expectAdminFontsReady(page);
+      expect(
+        fontFamilies(
+          await shell.evaluate(
+            (element) => getComputedStyle(element).fontFamily
+          )
+        )[0]
+      ).toBe('Inter');
+      await expect(heading).toHaveCSS('font-weight', '600');
       const title = await heading.evaluate((element) => {
         const style = getComputedStyle(element);
         return {
@@ -105,8 +130,8 @@ for (const language of ['fr-CA', 'en'] as const) {
         };
       });
       expect(title.size).toBeGreaterThanOrEqual(26);
-      expect(title.size).toBeLessThanOrEqual(32);
-      expect(title.tracking).toBeCloseTo(title.size * -0.025, 3);
+      expect(title.size).toBeLessThanOrEqual(30);
+      expect(title.tracking).toBeCloseTo(title.size * -0.02, 3);
       const summaries = dashboard.getByRole('region', {
         name:
           language === 'en' ? 'Operations summary' : 'Synthèse des opérations'
@@ -131,7 +156,7 @@ for (const language of ['fr-CA', 'en'] as const) {
       await expect(refresh).toBeFocused();
       await expect(refresh).toHaveCSS('outline-width', '3px');
       await expect(refresh).toHaveCSS('outline-style', 'solid');
-      await expect(refresh).toHaveCSS('outline-color', 'rgb(18, 101, 176)');
+      await expect(refresh).toHaveCSS('outline-color', 'rgb(53, 106, 159)');
       await expect(refresh).toHaveCSS('outline-offset', '3px');
       expect(
         await refresh.evaluate((element) =>
@@ -177,6 +202,8 @@ for (const language of ['fr-CA', 'en'] as const) {
         animations: 'disabled'
       });
       await page.reload();
+      await expect(refresh).toBeEnabled();
+      await expectAdminFontsReady(page);
       await expect(page.locator('html')).toHaveAttribute(
         'data-og7-pilot-theme',
         'mineral'
@@ -193,6 +220,7 @@ for (const language of ['fr-CA', 'en'] as const) {
       await expect(
         dossier.getByRole('heading', { name: 'Xbox fixture', exact: true })
       ).toBeVisible();
+      await expectAdminFontsReady(page);
       await expect(dossier).toHaveCSS('background-color', 'rgb(255, 255, 255)');
       await expect(dossier).toHaveCSS('border-radius', '14px');
       const moderationSelect = dossier
@@ -206,7 +234,7 @@ for (const language of ['fr-CA', 'en'] as const) {
       await moderationSelect.focus();
       await expect(moderationSelect).toHaveCSS(
         'outline',
-        'rgb(18, 101, 176) solid 3px'
+        'rgb(53, 106, 159) solid 3px'
       );
       const tabs = page.locator('[data-og7="dossier-tabs"]');
       await expect(tabs.locator('[aria-current="page"]')).toHaveCount(1);
@@ -215,9 +243,9 @@ for (const language of ['fr-CA', 'en'] as const) {
       );
       await expect(activeNavigation).toHaveCSS(
         'background-color',
-        'rgb(231, 242, 255)'
+        'rgb(237, 243, 250)'
       );
-      await expect(activeNavigation).toHaveCSS('color', 'rgb(36, 91, 148)');
+      await expect(activeNavigation).toHaveCSS('color', 'rgb(54, 93, 136)');
       const opener = page.locator('[data-og7="edit-dossier"]');
       await opener.focus();
       await page.keyboard.press('Enter');
@@ -228,17 +256,17 @@ for (const language of ['fr-CA', 'en'] as const) {
       await expect(save).toHaveCSS('background-color', 'rgb(240, 244, 249)');
       await company.fill('Synthetic unsaved premium draft');
       await expect(save).toBeEnabled();
-      await expect(save).toHaveCSS('background-color', 'rgb(235, 193, 79)');
+      await expect(save).toHaveCSS('background-color', 'rgb(237, 202, 114)');
       await expect(save).toHaveCSS('background-image', 'none');
       await expect(save).toHaveCSS('color', 'rgb(37, 34, 15)');
       await save.hover();
-      await expect(save).toHaveCSS('background-color', 'rgb(235, 193, 79)');
+      await expect(save).toHaveCSS('background-color', 'rgb(237, 202, 114)');
       await expect(save).toHaveCSS('color', 'rgb(37, 34, 15)');
       await page.keyboard.press('Tab');
       await company.focus();
       await expect(company).toHaveCSS('outline-width', '3px');
       await expect(company).toHaveCSS('outline-offset', '3px');
-      await expect(company).toHaveCSS('outline-color', 'rgb(18, 101, 176)');
+      await expect(company).toHaveCSS('outline-color', 'rgb(53, 106, 159)');
       const controlsContrast = await new AxeBuilder({ page })
         .include('[data-og7="edit-dossier-form"]')
         .include('[data-og7="moderation-actions"]')
@@ -266,8 +294,79 @@ for (const language of ['fr-CA', 'en'] as const) {
       ).toBe(true);
       expect(writes).toEqual([]);
       expect(state.commands).toEqual([]);
+      expectLocalAdminFonts(fontRequests, page.url());
     });
   }
+}
+
+for (const { language, width } of [
+  { language: 'fr-CA', width: 390 },
+  { language: 'en', width: 1536 }
+]) {
+  test(`admin font failures retain readable fallback and keyboard controls in ${language}`, async ({
+    page
+  }, testInfo) => {
+    await page.setViewportSize({ width, height: width === 1536 ? 864 : 1000 });
+    const fontRequests = watchFontRequests(page);
+    const { writes, state } = await premiumFixtures(page, language);
+    await page.route(/\.woff2(?:\?|$)/, (route) => route.abort('failed'));
+    await page.goto('/admin/fundraiser');
+    const dashboard = page.locator('[data-og7="admin-dashboard"]');
+    const heading = dashboard.getByRole('heading', { level: 1 });
+    await expect(heading).toBeVisible();
+    const fonts = await page.evaluate(async () => {
+      await document.fonts.ready;
+      return Array.from(document.fonts, (face) => ({
+        family: face.family.replace(/^['"]|['"]$/g, ''),
+        status: face.status
+      }));
+    });
+    for (const family of ['Inter', 'Sora']) {
+      expect(
+        fonts.some((face) => face.family === family && face.status === 'error')
+      ).toBe(true);
+      expect(
+        fonts.some((face) => face.family === family && face.status === 'loaded')
+      ).toBe(false);
+    }
+    const fallback = await heading.evaluate((element) => {
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return {
+        family: style.fontFamily,
+        size: Number.parseFloat(style.fontSize),
+        width: rect.width,
+        height: rect.height
+      };
+    });
+    expect(fontFamilies(fallback.family)).toContain('Segoe UI');
+    expect(fallback.size).toBeGreaterThanOrEqual(26);
+    expect(fallback.height).toBeGreaterThanOrEqual(26);
+    expect(fallback.width).toBeGreaterThan(0);
+    const refresh = dashboard.locator('[data-og7="dashboard-refresh"]');
+    await expect(refresh).toBeEnabled();
+    await page.keyboard.press('Tab');
+    await refresh.focus();
+    await expect(refresh).toBeFocused();
+    await expect(refresh).toHaveCSS('outline-width', '3px');
+    const accessibility = await new AxeBuilder({ page })
+      .include('[data-og7="admin-dashboard"]')
+      .withRules(['color-contrast', 'button-name', 'label', 'link-name'])
+      .analyze();
+    expect(accessibility.violations).toEqual([]);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1
+      )
+    ).toBe(true);
+    expectLocalAdminFonts(fontRequests, page.url());
+    expect(writes).toEqual([]);
+    expect(state.commands).toEqual([]);
+    await heading.scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: testInfo.outputPath(`premium-font-fallback-${width}.png`)
+    });
+  });
 }
 
 test.describe('Public prerendering', () => {
@@ -276,6 +375,7 @@ test.describe('Public prerendering', () => {
   test('Premium Light leaves public SSR readable without JavaScript', async ({
     page
   }) => {
+    const fontRequests = watchFontRequests(page);
     // Administrative routes are client-rendered by the built-Web server;
     // exercise public prerendering through the normal isolated page fixture.
     await page.route('**/api/**', (route) =>
@@ -293,6 +393,21 @@ test.describe('Public prerendering', () => {
         'rgb(247, 245, 240)'
       );
       await expect(page.locator('body')).toHaveCSS('color', 'rgb(41, 51, 46)');
+      expect(
+        fontFamilies(
+          await page
+            .locator('body')
+            .evaluate((element) => getComputedStyle(element).fontFamily)
+        )[0]
+      ).toBe('Segoe UI');
+      expect(
+        await page.evaluate(() =>
+          Array.from(document.fonts, (face) =>
+            face.family.replace(/^['"]|['"]$/g, '')
+          ).filter((family) => family === 'Inter' || family === 'Sora')
+        )
+      ).toEqual([]);
     }
+    expect(fontRequests.filter((url) => /inter|sora/i.test(url))).toEqual([]);
   });
 });

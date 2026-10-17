@@ -111,7 +111,7 @@ small {
   --mini-bg: #f5f7fb;
   --mini-panel: #fff;
   --mini-line: #d8e0ec;
-  --mini-accent: #ebc14f;
+  --mini-accent: #edca72;
 }
 .miniature[data-theme='graphite'] {
   --mini-bg: #191b1f;

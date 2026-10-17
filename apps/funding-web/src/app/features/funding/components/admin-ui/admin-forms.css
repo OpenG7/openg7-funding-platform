@@ -95,9 +95,9 @@ p {
 }
 :host .primary-action:not(:disabled, [aria-disabled='true']),
 :host button[type='submit']:not(:disabled, [aria-disabled='true']) {
-  background: var(--og7-admin-primary, #ebc14f);
+  background: var(--og7-admin-primary, #edca72);
   color: var(--og7-admin-on-primary, #25220f);
-  border: 1px solid var(--og7-admin-primary, #ebc14f);
+  border: 1px solid var(--og7-admin-primary, #edca72);
   box-shadow: var(--admin-shadow);
 }
 :host .primary-action:not(:disabled, [aria-disabled='true']):hover,

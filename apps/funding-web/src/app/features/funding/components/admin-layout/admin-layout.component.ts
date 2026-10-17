@@ -131,6 +131,8 @@ import { AdminSandboxService } from '../../services/admin-sandbox.service.js';
     </div>
   `,
   styleUrls: [
+    '../../../../../styles/admin-fonts.css',
+    '../../../../../styles/admin-type-tokens.css',
     '../admin-ui/admin-theme.css',
     '../admin-ui/admin-controls.css',
     './admin-layout.component.css'

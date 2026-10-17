@@ -123,7 +123,7 @@ const contributionPalettes = {
     text: 'rgb(23, 43, 80)',
     muted: 'rgb(82, 98, 123)',
     border: 'rgb(216, 224, 236)',
-    focus: 'rgb(18, 101, 176)'
+    focus: 'rgb(53, 106, 159)'
   },
   night: {
     panel: 'rgb(20, 35, 56)',

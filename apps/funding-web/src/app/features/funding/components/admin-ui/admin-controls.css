@@ -20,7 +20,7 @@
   scroll-margin-block-start: 1.5rem;
 }
 :host .admin-focus-target:focus {
-  outline: 3px solid var(--admin-focus, #9edaff);
+  outline: 3px solid var(--admin-focus, #356a9f);
   outline-offset: -3px;
 }
 .admin-button:not(:disabled, [aria-disabled='true']):hover {
@@ -29,14 +29,14 @@
   box-shadow: var(--admin-shadow);
 }
 .admin-button--primary:not(:disabled, [aria-disabled='true']) {
-  background: var(--og7-admin-primary, #ebc14f);
-  border-color: var(--og7-admin-primary, #ebc14f);
+  background: var(--og7-admin-primary, #edca72);
+  border-color: var(--og7-admin-primary, #edca72);
   color: var(--og7-admin-on-primary, #25220f);
   box-shadow: var(--admin-shadow);
 }
 .admin-button--primary:not(:disabled, [aria-disabled='true']):hover {
-  background: var(--og7-admin-primary, #ebc14f);
-  border-color: var(--og7-admin-primary, #ebc14f);
+  background: var(--og7-admin-primary, #edca72);
+  border-color: var(--og7-admin-primary, #edca72);
   box-shadow: var(--admin-shadow-raised);
 }
 .admin-button:disabled,
@@ -48,7 +48,7 @@
   box-shadow: none;
 }
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
-  outline: 3px solid var(--admin-focus, #9edaff);
+  outline: 3px solid var(--admin-focus, #356a9f);
   outline-offset: 3px;
 }
 .admin-link {

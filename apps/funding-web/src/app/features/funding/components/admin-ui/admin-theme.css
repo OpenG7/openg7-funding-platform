@@ -8,9 +8,9 @@
   --admin-text: var(--og7-admin-text, #172b50);
   --admin-muted: var(--og7-admin-muted, #52627b);
   --admin-gold: var(--og7-admin-gold, #946500);
-  --admin-focus: var(--og7-admin-focus, #1265b0);
-  --admin-accent: var(--og7-admin-accent, #245b94);
-  --admin-selected: var(--og7-admin-selected, #e7f2ff);
+  --admin-focus: var(--og7-admin-focus, #356a9f);
+  --admin-accent: var(--og7-admin-accent, #365d88);
+  --admin-selected: var(--og7-admin-selected, #edf3fa);
   --admin-success: var(--og7-admin-success, #236342);
   --admin-success-bg: var(--og7-admin-success-bg, #eaf6ee);
   --admin-warning: var(--og7-admin-warning, #805411);

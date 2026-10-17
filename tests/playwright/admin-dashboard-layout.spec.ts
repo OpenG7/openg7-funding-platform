@@ -167,8 +167,8 @@ const shellPalettes = {
     sidebar: 'rgb(247, 249, 252)',
     border: 'rgb(216, 224, 236)',
     text: 'rgb(23, 43, 80)',
-    selected: 'rgb(231, 242, 255)',
-    accent: 'rgb(36, 91, 148)'
+    selected: 'rgb(237, 243, 250)',
+    accent: 'rgb(54, 93, 136)'
   },
   night: {
     background: 'rgb(11, 23, 39)',

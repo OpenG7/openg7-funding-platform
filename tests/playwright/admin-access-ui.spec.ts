@@ -98,7 +98,7 @@ const accessPalettes = {
     raised: 'rgb(240, 244, 249)',
     text: 'rgb(23, 43, 80)',
     border: 'rgb(216, 224, 236)',
-    focus: 'rgb(18, 101, 176)'
+    focus: 'rgb(53, 106, 159)'
   },
   night: {
     panel: 'rgb(20, 35, 56)',

@@ -77,7 +77,9 @@ stylé; les thèmes et préférences typographiques existants gardent leur rôle
 ## OpenG7 Premium Light — Design System v1
 
 Le thème clair de l'administration s'inspire de la maquette Commandites : fonds
-blanc perle, texte bleu marine, sélection bleu pâle et action principale dorée.
+blanc perle, texte bleu marine, sélection bleu grisé clair et action principale
+or doux. La référence Algolia précise le dessin géométrique des titres et la
+douceur recherchée dans la lecture.
 L'or foncé sert aux repères et le bleu aux liens et au focus. Les couleurs d'état
 conservent leur sens. La palette publique reste indépendante.
 
@@ -87,17 +89,32 @@ Les fondations ont un propriétaire précis :
   sémantiques et variantes Nuit OpenG7/Graphite. L'identifiant enregistré
   `mineral` désigne toujours le thème clair, désormais nommé Premium Light;
   aucun effacement des préférences du navigateur n'est nécessaire.
-- [Typographie](../../apps/funding-web/src/styles/admin-typography.css) : corps,
-  légendes, navigation, titres fluides et contrôles. La police système évite un
-  téléchargement supplémentaire; les tailles en rem suivent le réglage du texte.
+- [Typographie](../../apps/funding-web/src/styles/admin-typography.css) : règles
+  communes du corps, des légendes, de la navigation, des titres et des contrôles.
+  Les [valeurs](../../apps/funding-web/src/styles/admin-type-tokens.css) sont
+  chargées avec le cadre admin et la connexion : Inter pour la lecture, les
+  contrôles et les sous-titres; Sora pour les titres h1/h2, avec un h1 fluide de
+  26 à 30 px au réglage de texte par défaut. Les tailles en rem suivent ce réglage.
 - [Contrat admin](../../apps/funding-web/src/app/features/funding/components/admin-ui/admin-theme.css) :
   espacements de page, section et carte, rayons, ombres, bordure des contrôles et
   durée des interactions. La bordure des champs est plus contrastée que celle
   des cartes. La préférence de mouvement réduit ramène cette durée à zéro.
 - [Alias Tailwind](../../apps/funding-web/src/styles/tailwind.css) : accès aux
   tokens par `@theme inline`, par exemple `tw:p-admin-card`,
-  `tw:gap-admin-section` et `tw:gap-admin-card-gap`. Changer un token ne demande
+  `tw:gap-admin-section`, `tw:gap-admin-card-gap`, `tw:font-admin-body` et
+  `tw:font-admin-heading`. Changer un token ne demande
   pas de recopier une couleur ou un espacement dans chaque composant.
+
+Les [fontes](../../apps/funding-web/src/styles/admin-fonts.css) sont deux fichiers
+WOFF2 variables Latin, auto-hébergés et chargés avec les styles admin différés.
+Leur [provenance et leurs empreintes](../../apps/funding-web/src/styles/fonts/SOURCES.txt)
+accompagnent les licences SIL OFL 1.1. Le navigateur ne contacte pas Google Fonts;
+`font-display: swap` et la pile système gardent le texte visible si une fonte
+échoue. Les glyphes absents passent à Inter puis à la pile système; la couverture
+FR inclut les ligatures Œ/œ et les accents combinants. Le site public conserve sa police et
+ne télécharge pas ces deux fichiers lors d'une entrée directe. Les règles globales
+restent limitées aux hôtes admin pour atteindre leurs pages routées; les valeurs
+et les fontes sont différées pour préserver le budget du chargement initial.
 
 Les primitives Angular existantes (boutons, formulaires, badges, cartes métriques
 et confirmation) consomment ce contrat. Le cadre, le cockpit et la composition

@@ -307,7 +307,7 @@ test('LT locking, release-all and closing preserve the neutral safety boundary',
   await expect(ltLock).toHaveAttribute('aria-pressed', 'true');
   await expect(ltLock).toHaveCSS('min-width', '44px');
   await expect(ltLock).toHaveCSS('min-height', '44px');
-  await expect(ltLock).toHaveCSS('background-color', 'rgb(235, 193, 79)');
+  await expect(ltLock).toHaveCSS('background-color', 'rgb(237, 202, 114)');
   await expect(ltLock).toHaveCSS('color', 'rgb(37, 34, 15)');
   const pressedContrast = await new AxeBuilder({ page })
     .include('[data-og7="virtual-lock-lt"]')
