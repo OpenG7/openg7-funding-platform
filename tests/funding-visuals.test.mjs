@@ -82,6 +82,9 @@ test('Funding header uses stable grid areas instead of overlapping actions', () 
   assert.ok(styles.includes("'brand actions'"));
   assert.ok(styles.includes("'nav nav'"));
   assert.ok(styles.includes('grid-area: nav;'));
-  assert.ok(styles.includes('overflow-x: auto;'));
+  assert.match(
+    styles,
+    /\.builders-nav nav\s*\{[^}]*(?:overflow-x:\s*auto\s*;|@apply\s+[^;}]*\btw:overflow-x-auto(?=\s|;))/
+  );
   assert.ok(styles.includes('flex: 0 0 auto;'));
 });

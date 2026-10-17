@@ -665,7 +665,10 @@ test('decision surfaces keep encapsulation, sticky host, mobile and reduced moti
     assert.match(styles, /focus-visible/);
   }
   const styles = DecisionActions.ɵcmp.styles.join('\n');
-  assert.match(styles, /\[_nghost-%COMP%\]\s*\{[^}]*position: sticky/s);
+  assert.match(
+    styles,
+    /\[_nghost-%COMP%\]\s*\{[^}]*(?:position:\s*sticky\s*;|@apply\s+[^;}]*\btw:sticky(?=\s|;))/s
+  );
   assert.match(styles, /max-width: 600px/);
   assert.match(styles, /prefers-reduced-motion: reduce/);
   assert.match(styles, /animation: none/);

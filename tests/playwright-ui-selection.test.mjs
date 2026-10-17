@@ -64,6 +64,7 @@ test('public journeys and accessibility keep separate selections across four bro
       [
         'builders-public.spec.ts',
         'public-journeys.spec.ts',
+        'funding-tailwind.spec.ts',
         'support-page.spec.ts',
         'refund-policy.spec.ts'
       ]
