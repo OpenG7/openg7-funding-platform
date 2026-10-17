@@ -121,6 +121,13 @@ une lecture indisponible ne conserve pas les indicateurs du dossier précédent.
 La préparation, la revue, le paiement et l’autorisation de publication restent
 distincts. Le guide conserve les explications détaillées à la demande.
 
+Dans le bon de préparation, sélectionner un contrôle affiche son détail, puis
+**Actions** ouvre le controller partagé. L'action proposée rejoint l'écran
+propriétaire; relire ensuite le bon pour obtenir la progression serveur. L'accord
+sur une préparation admissible conserve sa confirmation explicite et la version
+consultée. Voir le [parcours de préparation](operations/admin-pilotage.md#preparation-pilot)
+pour la sélection, les commandes et les limites de la simulation Gamepad.
+
 **Aperçu** conserve la référence et les avantages enregistrés, avec des raccourcis
 vers la fiche et les finances. **Note interne** ouvre l’éditeur de la note de revue
 depuis chaque onglet; cette note reste distincte des interventions successives.

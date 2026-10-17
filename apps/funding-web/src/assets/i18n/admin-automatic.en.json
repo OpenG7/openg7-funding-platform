@@ -85,6 +85,7 @@
     "cancel": "Cancel",
     "title": "Dossier preparation",
     "compact": {
+      "processingHelp": "Progress, reading steps and report.",
       "start": "Start",
       "resume": "Resume",
       "pause": "Pause",
@@ -169,7 +170,7 @@
     "draftPrepared": "Private draft prepared for {{channel}} / {{target}}. Approval and delivery remain outstanding.",
     "draftPreserved": "Existing draft preserved for {{channel}} / {{target}}. Its preparation does not establish publication.",
     "humanReview": "Open the dossier to review and confirm",
-    "report": "Durable report for human review",
+    "report": "Report by dossier",
     "reportHelp": "These observations and actions come from the server. Delivered benefits remain separate from drafts and dispensations. The delivery balance does not replace reviewing promised deadlines and durations. Reading the report runs no action.",
     "runReference": "Passage {{id}} · updated {{date}}",
     "observation": "Pass {{pass}} · {{date}} · actor: {{actor}}",
@@ -280,6 +281,56 @@
         "mixedDraftsCount": "Items: {{count}} · see statuses",
         "noDrafts": "No drafts"
       },
+      "pilot": {
+        "title": "Preparation controls",
+        "progress": "{{completed}} / {{total}} checks satisfied",
+        "progressLabel": "Satisfied preparation checks",
+        "choose": "Preparation prerequisites",
+        "complete": "Verified",
+        "required": "To complete",
+        "completeHelp": "This check is satisfied in the version being reviewed.",
+        "requiredHelp": "Review the information in its own screen to complete this check.",
+        "ready": "Preparation ready",
+        "readyHelp": "The prerequisites are satisfied. You can review and approve this preparation.",
+        "waiting": "Preparation to review",
+        "waitingHelp": "Review the current facts and server checks before continuing.",
+        "actionsLabel": "Actions",
+        "controller": "Contextual actions",
+        "unavailable": "This action is unavailable in the current context.",
+        "why": "Why?",
+        "confirm": "Confirm the agreement on preparation {{reference}}, version {{version}}. Publishing keeps its separate authorization.",
+        "checks": {
+          "dossier_examined": "Dossier examination",
+          "payment_confirmed": "Confirmed payment",
+          "accepted_offer": "Promised publications",
+          "content_prepared": "Presentation and content",
+          "public_consent": "Public consent",
+          "sponsor_review": "Sponsor review",
+          "moderation_review": "Moderation",
+          "other": "Check to review"
+        },
+        "issues": {
+          "media": "Required media",
+          "presentation": "Presentation and content",
+          "other": "Item to review"
+        },
+        "summaries": {
+          "agreement": "The publications to deliver have not been defined yet or need to be checked.",
+          "moderation": "A review is needed to continue preparing this dossier.",
+          "presentation": "The presentation or prepared content needs to be completed.",
+          "inspect": "A dossier check needs your attention."
+        },
+        "actions": {
+          "agreement": "Complete the agreement",
+          "moderation": "Perform the review",
+          "presentation": "Review the presentation",
+          "inspect": "View the dossier",
+          "approve": "Approve preparation",
+          "details": "View details",
+          "history": "Agreement history",
+          "back": "Back"
+        }
+      },
       "carousel": "Dossier preparation receipts",
       "carouselRole": "carousel",
       "empty": "No receipts: this batch contains no confirmed payments.",
@@ -287,7 +338,7 @@
       "receiptName": "Preparation receipt — {{reference}}",
       "position": "Receipt {{position}} of {{total}}",
       "progress": "{{processed}} of {{total}} dossiers examined",
-      "processing": "Batch processing and detailed report",
+      "processing": "Batch progress",
       "version": "Version",
       "fullVersion": "Full version:",
       "payment": "Payment",

@@ -2,6 +2,9 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
+  Injector,
+  afterNextRender,
   computed,
   effect,
   inject,
@@ -17,8 +20,14 @@ import type {
 
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
 import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
 import { AdminPreparationReceiptComponent } from '../admin-preparation/admin-preparation-receipt.component.js';
+import {
+  projectPreparationPilot,
+  reconcilePreparationIssue
+} from '../admin-preparation/preparation-pilot.projection.js';
+import { capturePreparationFocus } from '../admin-preparation/preparation-focus.js';
 import {
   type AdminPreparationError,
   isPreparationConfigurationError,
@@ -49,6 +58,7 @@ export class AdminPreparationCarouselComponent {
   readonly approving = signal(false);
   readonly error = signal<AdminPreparationError | null>(null);
   readonly uncertain = signal(false);
+  readonly selectedIssueId = signal<string | null>(null);
   readonly canApprove = computed(
     () =>
       this.receipt()?.canApprove === true &&
@@ -60,6 +70,12 @@ export class AdminPreparationCarouselComponent {
       !isPreparationConfigurationError(this.error())
   );
   private readonly client = new AdminAutomaticPortfolioClient(this.admin);
+  private readonly confirmation = inject(AdminConfirmationService);
+  private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
+  private restoreFocus: (() => void) | null = null;
+  private observedRevision = this.admin.dataRevision();
+  private pendingRevision = -1;
   private runId = '';
   private identity = '';
   private serial = 0;
@@ -83,6 +99,9 @@ export class AdminPreparationCarouselComponent {
           ++this.approvalSerial;
           this.approving.set(false);
           this.command = null;
+          this.selectedIssueId.set(null);
+          this.restoreFocus = null;
+          this.pendingRevision = -1;
           this.receipt.set(null);
           this.position.set(
             Math.max(1, Math.min(run.dossierCount, run.processedCount || 1))
@@ -96,6 +115,23 @@ export class AdminPreparationCarouselComponent {
           return;
         }
         void this.load();
+      });
+    });
+    effect(() => {
+      const revision = this.admin.dataRevision();
+      untracked(() => {
+        if (revision === this.observedRevision) return;
+        if (this.approving()) {
+          this.pendingRevision = revision;
+          return;
+        }
+        this.observedRevision = revision;
+        if (
+          (this.receipt() || this.loading()) &&
+          !this.approving() &&
+          this.admin.hasValidAdminSession()
+        )
+          void this.load();
       });
     });
   }
@@ -114,10 +150,13 @@ export class AdminPreparationCarouselComponent {
     if (next < 1 || next > this.run().dossierCount) return;
     this.position.set(next);
     this.command = null;
+    this.selectedIssueId.set(null);
+    this.restoreFocus = null;
     void this.load();
   }
 
   async load(preserveError = false): Promise<void> {
+    this.restoreFocus ??= capturePreparationFocus(this.element.nativeElement);
     const ticket = ++this.serial;
     const runId = this.runId;
     const identity = this.identity;
@@ -130,7 +169,7 @@ export class AdminPreparationCarouselComponent {
       if (!this.current(runId, identity) || ticket !== this.serial) return;
       if (receipt.runId !== runId || receipt.position !== position)
         throw new Error('PREPARATION_RESPONSE_MISMATCH');
-      this.receipt.set(receipt);
+      this.receive(receipt);
       this.uncertain.set(false);
     } catch (error) {
       if (!this.current(runId, identity) || ticket !== this.serial) return;
@@ -140,8 +179,34 @@ export class AdminPreparationCarouselComponent {
     }
   }
 
+  async confirmAndApprove(receipt: AdminPreparationReceipt): Promise<void> {
+    if (!this.canApprove() || this.receipt() !== receipt) return;
+    const confirmed = await this.confirmation.confirm(
+      this.t('pilot.confirm', {
+        reference: receipt.reference,
+        version: receipt.version.slice(0, 8)
+      }),
+      receipt.reference
+    );
+    if (confirmed) await this.approve(receipt);
+  }
+
+  private receive(receipt: AdminPreparationReceipt): void {
+    this.selectedIssueId.set(
+      reconcilePreparationIssue(
+        projectPreparationPilot(receipt).issues,
+        this.selectedIssueId()
+      )
+    );
+    this.receipt.set(receipt);
+    const restore = this.restoreFocus;
+    this.restoreFocus = null;
+    if (restore) afterNextRender(restore, { injector: this.injector });
+  }
+
   async approve(receipt: AdminPreparationReceipt): Promise<void> {
     if (!this.canApprove() || this.receipt() !== receipt) return;
+    const revisionBeforeApproval = this.admin.dataRevision();
     const ticket = ++this.approvalSerial;
     const identity = this.identity;
     if (
@@ -172,10 +237,14 @@ export class AdminPreparationCarouselComponent {
         result.runId !== receipt.runId
       )
         throw new Error('PREPARATION_RESPONSE_MISMATCH');
+      // This response already contains the confirmed server receipt. Only
+      // consume our own invalidation; concurrent mutations still trigger a read.
+      if (this.admin.dataRevision() === revisionBeforeApproval + 1)
+        this.observedRevision = this.admin.dataRevision();
       // A run refresh may have started a read before this approval committed.
       ++this.serial;
       this.loading.set(false);
-      this.receipt.set(result);
+      this.receive(result);
       this.command = null;
     } catch (error) {
       if (
@@ -190,7 +259,14 @@ export class AdminPreparationCarouselComponent {
         this.receipt.set(null);
       else await this.load(true);
     } finally {
-      if (ticket === this.approvalSerial) this.approving.set(false);
+      if (ticket === this.approvalSerial) {
+        this.approving.set(false);
+        if (this.pendingRevision > this.observedRevision && this.receipt()) {
+          this.observedRevision = this.admin.dataRevision();
+          void this.load();
+        }
+        this.pendingRevision = -1;
+      }
     }
   }
 

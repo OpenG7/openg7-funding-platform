@@ -85,6 +85,7 @@
     "cancel": "Annuler",
     "title": "Préparation des dossiers",
     "compact": {
+      "processingHelp": "Avancement, étapes de lecture et rapport.",
       "start": "Démarrer",
       "resume": "Reprendre",
       "pause": "Pause",
@@ -169,7 +170,7 @@
     "draftPrepared": "Brouillon privé préparé pour {{channel}} / {{target}}. La validation et la livraison restent à accomplir.",
     "draftPreserved": "Brouillon existant conservé pour {{channel}} / {{target}}. Aucune publication n’est déduite de sa préparation.",
     "humanReview": "Ouvrir le dossier pour examiner et confirmer",
-    "report": "Rapport durable pour relecture",
+    "report": "Rapport par dossier",
     "reportHelp": "Ces observations et actions viennent du serveur. Chaque réalisation reste distincte d’un brouillon ou d’une dispense. Le bilan des réalisations ne remplace pas la relecture des délais et durées promis. Une relecture du rapport ne lance aucune action.",
     "runReference": "Passage {{id}} · actualisé le {{date}}",
     "observation": "Passage {{pass}} · {{date}} · acteur : {{actor}}",
@@ -280,6 +281,56 @@
         "mixedDraftsCount": "Contenus : {{count}} · voir les états",
         "noDrafts": "Aucun brouillon"
       },
+      "pilot": {
+        "title": "Pilotage de la préparation",
+        "progress": "{{completed}} / {{total}} contrôles satisfaits",
+        "progressLabel": "Contrôles de préparation satisfaits",
+        "choose": "Prérequis de préparation",
+        "complete": "Vérifié",
+        "required": "À compléter",
+        "completeHelp": "Ce contrôle est satisfait dans la version consultée.",
+        "requiredHelp": "Examine les informations dans leur écran pour compléter ce contrôle.",
+        "ready": "Préparation prête",
+        "readyHelp": "Les prérequis sont satisfaits. Tu peux examiner puis approuver cette préparation.",
+        "waiting": "Préparation à examiner",
+        "waitingHelp": "Relis les faits actuels et les contrôles serveur avant de poursuivre.",
+        "actionsLabel": "Actions",
+        "controller": "Actions contextuelles",
+        "unavailable": "Cette action est indisponible dans le contexte actuel.",
+        "why": "Pourquoi ?",
+        "confirm": "Confirmer l’accord sur la préparation {{reference}}, version {{version}}. Toute publication conserve son autorisation distincte.",
+        "checks": {
+          "dossier_examined": "Examen du dossier",
+          "payment_confirmed": "Paiement confirmé",
+          "accepted_offer": "Publications promises",
+          "content_prepared": "Présentation et contenus",
+          "public_consent": "Consentement public",
+          "sponsor_review": "Revue du commanditaire",
+          "moderation_review": "Modération",
+          "other": "Contrôle à examiner"
+        },
+        "issues": {
+          "media": "Médias requis",
+          "presentation": "Présentation et contenus",
+          "other": "Point à examiner"
+        },
+        "summaries": {
+          "agreement": "Les publications à livrer ne sont pas encore définies ou doivent être vérifiées.",
+          "moderation": "Une revue est nécessaire pour poursuivre la préparation.",
+          "presentation": "La présentation ou les contenus préparés doivent être complétés.",
+          "inspect": "Un contrôle du dossier demande ton attention."
+        },
+        "actions": {
+          "agreement": "Compléter l’accord",
+          "moderation": "Effectuer la revue",
+          "presentation": "Examiner la présentation",
+          "inspect": "Voir le dossier",
+          "approve": "Approuver la préparation",
+          "details": "Voir le détail",
+          "history": "Historique des accords",
+          "back": "Retour"
+        }
+      },
       "carousel": "Bons de préparation des dossiers",
       "carouselRole": "carrousel",
       "empty": "Aucun bon : ce lot ne contient aucun paiement confirmé.",
@@ -287,7 +338,7 @@
       "receiptName": "Bon de préparation — {{reference}}",
       "position": "Bon {{position}} sur {{total}}",
       "progress": "{{processed}} sur {{total}} dossiers examinés",
-      "processing": "Traitement du lot et rapport détaillé",
+      "processing": "Suivi du lot",
       "version": "Version",
       "fullVersion": "Version complète :",
       "payment": "Paiement",

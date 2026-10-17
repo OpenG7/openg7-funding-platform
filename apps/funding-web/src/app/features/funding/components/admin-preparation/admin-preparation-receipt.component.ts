@@ -8,6 +8,7 @@ import {
   output,
   viewChild
 } from '@angular/core';
+import { Router } from '@angular/router';
 import type {
   AdminPreparationCheck,
   AdminPreparationDraft,
@@ -18,11 +19,15 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
 import { automaticAdminUrl } from '../admin-automatic/admin-automatic-run.js';
 
+import { PreparationPilotComponent } from './preparation-pilot.component.js';
+import type { PreparationPilotIssue } from './preparation-pilot.models.js';
+import { preparationIssueDestination } from './preparation-navigation.js';
+
 /** Shared private preparation presentation; the host owns loading and approval. */
 @Component({
   selector: 'openg7-admin-preparation-receipt',
   standalone: true,
-  imports: [AdminIconComponent],
+  imports: [AdminIconComponent, PreparationPilotComponent],
   templateUrl: './admin-preparation-receipt.component.html',
   styleUrls: [
     '../admin-ui/admin-controls.css',
@@ -36,8 +41,12 @@ export class AdminPreparationReceiptComponent {
   readonly readOnly = input(false);
   readonly canApprove = input(false);
   readonly approving = input(false);
+  readonly selectedIssueId = input<string | null>(null);
+  readonly selectedIssueIdChange = output<string | null>();
   readonly approve = output<AdminPreparationReceiptData>();
+  readonly confirmApproval = output<AdminPreparationReceiptData>();
   readonly i18n = inject(FundingI18nService);
+  private readonly router = inject(Router);
   private readonly paper = viewChild<ElementRef<HTMLElement>>('paper');
   private readonly approvalButton =
     viewChild<ElementRef<HTMLButtonElement>>('approvalButton');
@@ -50,8 +59,16 @@ export class AdminPreparationReceiptComponent {
       this.restoreApprovalFocus = false;
       const button = this.approvalButton()?.nativeElement;
       const active = button?.ownerDocument.activeElement;
-      if (button && (active === button || active === button.ownerDocument.body))
-        this.paper()?.nativeElement.focus({ preventScroll: true });
+      const paper = this.paper()?.nativeElement;
+      if (
+        button &&
+        paper &&
+        (active === button ||
+          active === button.ownerDocument.body ||
+          active === button.ownerDocument.getElementById('admin-main') ||
+          (active !== null && active !== undefined && paper.contains(active)))
+      )
+        paper.focus({ preventScroll: true });
     });
   }
 
@@ -60,6 +77,36 @@ export class AdminPreparationReceiptComponent {
     this.restoreApprovalFocus =
       !!button && button.ownerDocument.activeElement === button;
     this.approve.emit(this.receipt());
+  }
+
+  requestConfirmedApproval(): void {
+    if (!this.canApprove() || this.approving()) return;
+    this.restoreApprovalFocus = true;
+    this.confirmApproval.emit(this.receipt());
+  }
+
+  openIssue(issue: PreparationPilotIssue): void {
+    const url = preparationIssueDestination(issue);
+    if (!url) return;
+    void this.router.navigateByUrl(url);
+  }
+
+  reveal(section: 'details' | 'history'): void {
+    const paper = this.paper()?.nativeElement;
+    const selector =
+      section === 'history'
+        ? '[data-og7="preparation-receipt-history"]'
+        : '[data-og7="preparation-receipt-details"]';
+    const disclosure = paper?.querySelector<HTMLDetailsElement>(selector);
+    if (!disclosure) {
+      paper?.focus({ preventScroll: true });
+      return;
+    }
+    disclosure.open = true;
+    disclosure
+      .querySelector<HTMLElement>('summary')
+      ?.focus({ preventScroll: true });
+    disclosure.scrollIntoView({ block: 'nearest' });
   }
 
   t(key: string, params?: Record<string, unknown>): string {

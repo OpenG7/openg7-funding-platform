@@ -2,6 +2,9 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
+  Injector,
+  afterNextRender,
   computed,
   effect,
   inject,
@@ -16,7 +19,13 @@ import type {
 
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
 import { AdminPreparationReceiptComponent } from '../admin-preparation/admin-preparation-receipt.component.js';
+import {
+  projectPreparationPilot,
+  reconcilePreparationIssue
+} from '../admin-preparation/preparation-pilot.projection.js';
+import { capturePreparationFocus } from '../admin-preparation/preparation-focus.js';
 import {
   type AdminPreparationError,
   isPreparationConfigurationError,
@@ -48,6 +57,13 @@ export class AdminSponsorshipPreparationComponent {
   readonly approving = signal(false);
   readonly error = signal<AdminPreparationError | null>(null);
   readonly uncertain = signal(false);
+  readonly selectedIssueId = signal<string | null>(null);
+  private readonly confirmation = inject(AdminConfirmationService);
+  private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
+  private restoreFocus: (() => void) | null = null;
+  private observedRevision = this.admin.dataRevision();
+  private pendingRevision = -1;
   readonly canApprove = computed(
     () =>
       this.receipt()?.canApprove === true &&
@@ -107,6 +123,9 @@ export class AdminSponsorshipPreparationComponent {
           this.approving.set(false);
           this.uncertain.set(false);
           this.command = null;
+          this.selectedIssueId.set(null);
+          this.restoreFocus = null;
+          this.pendingRevision = -1;
           this.receipt.set(null);
           this.error.set(null);
         }
@@ -120,14 +139,32 @@ export class AdminSponsorshipPreparationComponent {
         if (ready) void this.load();
       });
     });
+    effect(() => {
+      const revision = this.admin.dataRevision();
+      untracked(() => {
+        if (revision === this.observedRevision) return;
+        if (this.approving()) {
+          this.pendingRevision = revision;
+          return;
+        }
+        this.observedRevision = revision;
+        if (
+          (this.receipt() || this.loading()) &&
+          !this.approving() &&
+          this.admin.hasValidAdminSession()
+        )
+          void this.load();
+      });
+    });
   }
 
-  t(key: string): string {
-    return this.i18n.t('admin.automatic.portfolio.receipt.' + key);
+  t(key: string, params?: Record<string, unknown>): string {
+    return this.i18n.t('admin.automatic.portfolio.receipt.' + key, params);
   }
 
   async load(preserveError = false): Promise<void> {
     if (!this.current(this.dossierId, this.identity)) return;
+    this.restoreFocus ??= capturePreparationFocus(this.element.nativeElement);
     const ticket = ++this.serial;
     const dossierId = this.dossierId;
     const identity = this.identity;
@@ -139,7 +176,7 @@ export class AdminSponsorshipPreparationComponent {
       if (!this.current(dossierId, identity) || ticket !== this.serial) return;
       if (receipt.context !== 'dossier' || receipt.contributionId !== dossierId)
         throw new Error('PREPARATION_RESPONSE_MISMATCH');
-      this.receipt.set(receipt);
+      this.receive(receipt);
       this.uncertain.set(false);
     } catch (error) {
       if (!this.current(dossierId, identity) || ticket !== this.serial) return;
@@ -149,8 +186,36 @@ export class AdminSponsorshipPreparationComponent {
     }
   }
 
+  async confirmAndApprove(
+    receipt: AdminDossierPreparationReceipt
+  ): Promise<void> {
+    if (!this.canApprove() || this.receipt() !== receipt) return;
+    const confirmed = await this.confirmation.confirm(
+      this.t('pilot.confirm', {
+        reference: receipt.reference,
+        version: receipt.version.slice(0, 8)
+      }),
+      receipt.reference
+    );
+    if (confirmed) await this.approve(receipt);
+  }
+
+  private receive(receipt: AdminDossierPreparationReceipt): void {
+    this.selectedIssueId.set(
+      reconcilePreparationIssue(
+        projectPreparationPilot(receipt).issues,
+        this.selectedIssueId()
+      )
+    );
+    this.receipt.set(receipt);
+    const restore = this.restoreFocus;
+    this.restoreFocus = null;
+    if (restore) afterNextRender(restore, { injector: this.injector });
+  }
+
   async approve(receipt: AdminDossierPreparationReceipt): Promise<void> {
     if (!this.canApprove() || this.receipt() !== receipt) return;
+    const revisionBeforeApproval = this.admin.dataRevision();
     const ticket = ++this.approvalSerial;
     const identity = this.identity;
     const refreshKey = this.refreshKey();
@@ -182,6 +247,8 @@ export class AdminSponsorshipPreparationComponent {
         result.contributionId !== receipt.contributionId
       )
         throw new Error('PREPARATION_RESPONSE_MISMATCH');
+      if (this.admin.dataRevision() === revisionBeforeApproval + 1)
+        this.observedRevision = this.admin.dataRevision();
       // A dossier refreshed while this response was in flight may already have
       // a newer preparation. Reconcile it without repeating the approval.
       if (refreshKey !== this.refreshKey()) {
@@ -192,7 +259,7 @@ export class AdminSponsorshipPreparationComponent {
       // An older read must not replace the newly recorded agreement.
       ++this.serial;
       this.loading.set(false);
-      this.receipt.set(result);
+      this.receive(result);
       this.command = null;
     } catch (error) {
       if (
@@ -206,7 +273,14 @@ export class AdminSponsorshipPreparationComponent {
       if (status === 401 || status === 403) this.receipt.set(null);
       else await this.load(true);
     } finally {
-      if (ticket === this.approvalSerial) this.approving.set(false);
+      if (ticket === this.approvalSerial) {
+        this.approving.set(false);
+        if (this.pendingRevision > this.observedRevision && this.receipt()) {
+          this.observedRevision = this.admin.dataRevision();
+          void this.load();
+        }
+        this.pendingRevision = -1;
+      }
     }
   }
 

@@ -5,8 +5,12 @@ const controls = (zone: Element): HTMLElement[] =>
     zone.querySelectorAll<HTMLElement>('button:not([disabled]),a[href]')
   ).filter(
     (element) =>
+      element.tabIndex >= 0 &&
       element.getClientRects().length > 0 &&
-      !element.closest('[inert],[aria-hidden="true"],[aria-disabled="true"]')
+      element.closest('[data-controller-zone]') === zone &&
+      !element.closest(
+        '[hidden],[inert],[aria-hidden="true"],[aria-disabled="true"]'
+      )
   );
 
 export function focusControllerZone(
@@ -14,8 +18,20 @@ export function focusControllerZone(
   destination: 'radial' | 'bottom'
 ): boolean {
   const layout = active.closest('[data-og7="admin-layout"]');
-  const zone = layout?.querySelector(`[data-controller-zone="${destination}"]`);
-  const target = zone ? controls(zone)[0] : undefined;
+  const owner = active.closest('[data-og7-controller-owner]');
+  const ownerId = owner?.getAttribute('data-og7-controller-owner');
+  if (!owner || !ownerId) return false;
+  const root = layout ?? owner;
+  const zones = [root, ...root.querySelectorAll('[data-controller-zone]')];
+  const target = zones
+    .filter(
+      (zone) =>
+        zone.getAttribute('data-controller-zone') === destination &&
+        zone
+          .closest('[data-og7-controller-owner]')
+          ?.getAttribute('data-og7-controller-owner') === ownerId
+    )
+    .flatMap(controls)[0];
   if (!target) return false;
   target.focus({ preventScroll: true });
   target.scrollIntoView({ block: 'nearest', inline: 'nearest' });

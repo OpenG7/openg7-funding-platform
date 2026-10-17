@@ -1,5 +1,8 @@
 import type { AdminIconName } from '../components/admin-ui/admin-icon.component.js';
 
+/** Local presentation state; opening the controller never executes an intention. */
+export type ControllerMode = 'closed' | 'peek' | 'open';
+
 /** Presentation context only. The page rechecks selection and version before acting. */
 export interface ControllerContext {
   readonly key: string;

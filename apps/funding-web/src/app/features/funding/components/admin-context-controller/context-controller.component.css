@@ -32,6 +32,24 @@
 }
 .controller-toggle {
   display: none;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0.5rem;
+  border: 1px solid var(--admin-control-border);
+  border-radius: var(--admin-radius-control);
+  background: var(--admin-panel-raised);
+  color: var(--admin-text);
+  cursor: pointer;
+}
+.controller-toggle:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 3px;
+}
+.controller-toggle:hover {
+  background: var(--admin-hover);
 }
 .controller-actions {
   display: flex;
@@ -62,24 +80,6 @@
   }
   .controller-toggle {
     display: var(--context-controller-toggle-display, inline-flex);
-    align-items: center;
-    justify-content: center;
-    flex: 0 0 auto;
-    width: 2.75rem;
-    min-height: 2.75rem;
-    padding: 0.5rem;
-    border: 1px solid var(--admin-control-border);
-    border-radius: var(--admin-radius-control);
-    background: var(--admin-panel-raised);
-    color: var(--admin-text);
-    cursor: pointer;
-  }
-  .controller-toggle:focus-visible {
-    outline: 3px solid var(--admin-focus);
-    outline-offset: 3px;
-  }
-  .controller-toggle:hover {
-    background: var(--admin-hover);
   }
   .controller-actions {
     display: var(--context-controller-actions-display, grid);
@@ -154,4 +154,26 @@
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 0.4rem;
   }
+}
+
+/* Explicit modes keep a usable disclosure at every viewport size. */
+:host(.has-explicit-mode) .controller-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+:host(.has-explicit-mode) .controller-copy {
+  display: grid;
+}
+:host(.has-explicit-mode) .controller-toggle {
+  display: inline-flex;
+}
+:host(.has-explicit-mode.is-collapsed) .controller-heading {
+  margin-bottom: 0;
+}
+:host([data-controller-mode='closed']) .controller-copy {
+  display: none;
+}
+.controller-actions[hidden] {
+  display: none !important;
 }

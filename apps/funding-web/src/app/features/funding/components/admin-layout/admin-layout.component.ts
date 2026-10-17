@@ -179,7 +179,7 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
           #controllerRadialSlot
           class="controller-radial-slot"
           data-og7="controller-radial-slot"
-          data-og7-controller-owner="pilotage"
+          [attr.data-og7-controller-owner]="controllerOwner()"
         >
           <ng-container [ngTemplateOutlet]="controllerRadial()" />
         </div>
@@ -187,7 +187,7 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
           #controllerDeckSlot
           class="controller-deck-slot"
           data-og7="controller-deck-slot"
-          data-og7-controller-owner="pilotage"
+          [attr.data-og7-controller-owner]="controllerOwner()"
         >
           <ng-container [ngTemplateOutlet]="controllerDeck()" />
         </div>
@@ -216,6 +216,7 @@ export class AdminLayoutComponent {
   readonly controllerRadial = input<TemplateRef<unknown> | null>(null);
   readonly controllerDeck = input<TemplateRef<unknown> | null>(null);
   readonly controllerExpanded = input(true);
+  readonly controllerOwner = input('pilotage');
   readonly i18n = inject(FundingI18nService);
   readonly appearance = inject(PilotAppearanceService);
   readonly navigationCollapsed = signal(false);

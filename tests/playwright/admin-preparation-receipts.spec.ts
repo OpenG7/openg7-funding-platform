@@ -8,6 +8,10 @@ import type {
 
 import { expect, sampledFrames, test } from './support/test.js';
 import {
+  adminController,
+  installAdminController
+} from './support/admin-controller.js';
+import {
   actor,
   approvedAt,
   contributionId,
@@ -22,6 +26,21 @@ const hook = (page: Page, name: string) =>
 const carousel = (page: Page) =>
   page.locator('[data-og7="preparation-receipts-carousel"]');
 const card = (page: Page) => page.locator('[data-og7="preparation-receipt"]');
+
+async function approveReceipt(
+  page: Page,
+  activation: 'click' | 'Enter' = 'click'
+) {
+  const button = hook(page, 'approve');
+  if (activation === 'click') await button.click();
+  else {
+    await button.focus();
+    await page.keyboard.press(activation);
+  }
+  const confirmation = page.locator('[data-og7="confirm-action"]');
+  await expect(confirmation).toBeVisible();
+  await confirmation.click();
+}
 
 function state(): AdminAutomaticRunState {
   return {
@@ -288,7 +307,7 @@ for (const language of ['fr-CA', 'en']) {
       const f = await fixture(page, language);
       f.approvalFailure = { status: 503, code: failure.code };
       await open(page);
-      await hook(page, 'approve').click();
+      await approveReceipt(page);
       await expect(hook(page, 'error')).toContainText(failure.message);
       await expectPosition(page, 3, language);
       await expect(hook(page, 'refresh')).toBeEnabled();
@@ -486,7 +505,7 @@ for (const language of ['fr-CA', 'en']) {
     f.approvalGate = new Promise<void>((resolve) => {
       releaseApproval = resolve;
     });
-    await hook(page, 'approve').click();
+    await approveReceipt(page);
     await expect(hook(page, 'approve')).toBeDisabled();
     await expect(hook(page, 'stamp')).toHaveCount(0);
     await expect.poll(() => f.writes.length).toBe(1);
@@ -536,7 +555,7 @@ test('a receipt read started during approval cannot overwrite its confirmed stam
   f.approvalGate = new Promise<void>((resolve) => {
     releaseApproval = resolve;
   });
-  await hook(page, 'approve').click();
+  await approveReceipt(page);
   await expect.poll(() => f.writes.length).toBe(1);
 
   let releaseReceipt!: () => void;
@@ -700,7 +719,7 @@ test('a stale version reloads the same receipt as À revoir and retains its prio
       body: 'Texte privé synthétique corrigé après la première lecture.'
     }))
   });
-  await hook(page, 'approve').click();
+  await approveReceipt(page);
   await expect(card(page)).toContainText('À revoir');
   await expectPosition(page, 3);
   await expect(hook(page, 'stamp')).toHaveCount(0);
@@ -842,8 +861,7 @@ for (const width of [1440, 390]) {
       .analyze();
     expect(audit.violations).toEqual([]);
     await expect(carousel(page)).not.toContainText('admin.automatic.');
-    await hook(page, 'approve').focus();
-    await page.keyboard.press('Enter');
+    await approveReceipt(page, 'Enter');
     await expect(hook(page, 'stamp')).toBeVisible();
     await expect(card(page)).toBeFocused();
     await expect(hook(page, 'stamp')).toContainText(actor);
@@ -864,3 +882,360 @@ for (const width of [1440, 390]) {
     });
   });
 }
+
+const pilot = (page: Page) =>
+  card(page).locator('[data-og7="preparation-pilot"]');
+const pilotIssue = (page: Page, code: string) =>
+  pilot(page).locator(
+    `[data-og7="preparation-issue"][data-og7-id="check:${code}"]`
+  );
+const pilotAction = (page: Page, id: string) =>
+  pilot(page).locator(
+    `[data-og7="preparation-pilot-action"][data-og7-id="preparation-${id}"]`
+  );
+
+function pilotReceipt(completed = 0): AdminPreparationReceipt {
+  const source = receipt(3);
+  const resolved = (index: number) => index < completed;
+  const blockers = [
+    'commitment_needs_confirmation',
+    'presentation_missing',
+    'moderation_review_required'
+  ];
+  return {
+    ...source,
+    version: `synthetic-pilot-version-${completed}`,
+    status: completed === 3 ? 'ready' : 'incomplete',
+    canApprove: completed === 3,
+    checks: [
+      { code: 'accepted_offer', state: resolved(0) ? 'complete' : 'missing' },
+      { code: 'content_prepared', state: resolved(1) ? 'complete' : 'missing' }
+    ],
+    authorizations: [
+      { code: 'moderation_review', state: resolved(2) ? 'complete' : 'missing' }
+    ],
+    blockers: blockers.slice(completed).map((code) => ({
+      code,
+      adminUrl: `/admin/fundraiser/sponsors?sponsorshipId=${source.contributionId}&tab=publication`
+    }))
+  };
+}
+
+async function expectPilotProgress(page: Page, completed: number, total = 3) {
+  const progress = pilot(page).locator(
+    '[data-og7="preparation-pilot-progress"]'
+  );
+  await expect(progress).toHaveAttribute(
+    'data-og7-completed',
+    String(completed)
+  );
+  await expect(progress).toHaveAttribute('data-og7-total', String(total));
+}
+
+for (const language of ['fr-CA', 'en']) {
+  test(`preparation pilot selects and inspects prerequisites without executing them in ${language}`, async ({
+    page
+  }) => {
+    const f = await fixture(page, language);
+    f.receipts.set(3, pilotReceipt());
+    await open(page);
+    await expectPilotProgress(page, 0);
+    await expect(pilotIssue(page, 'accepted_offer')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'peek');
+    await expect(pilotAction(page, 'approve')).toHaveCount(0);
+
+    await pilotIssue(page, 'moderation_review').click();
+    await expect(pilotIssue(page, 'moderation_review')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    await expect(pilotIssue(page, 'accepted_offer')).toHaveAttribute(
+      'aria-pressed',
+      'false'
+    );
+    const detail = pilot(page).locator('[data-og7="preparation-issue-detail"]');
+    await expect(detail.getByRole('heading')).toHaveText(/\S/);
+    await expect(pilotIssue(page, 'moderation_review')).toContainText(
+      await detail.getByRole('heading').innerText()
+    );
+    await expect(pilot(page)).not.toContainText('admin.automatic.');
+    expect(f.writes).toEqual([]);
+
+    const actions = pilot(page).locator(
+      '[data-og7="preparation-pilot-actions"]'
+    );
+    await actions.click();
+    await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'open');
+    await expect(pilotAction(page, 'open')).toBeVisible();
+    await expect(pilotAction(page, 'details')).toBeVisible();
+    expect(f.writes).toEqual([]);
+    await page.keyboard.press('Escape');
+    await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'peek');
+    await expect(actions).toBeFocused();
+
+    await page.keyboard.press('Space');
+    await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'open');
+    await pilotAction(page, 'back').click();
+    await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'peek');
+    await expect(actions).toBeFocused();
+    expect(f.writes).toEqual([]);
+  });
+}
+
+test('preparation keyboard navigation selects a prerequisite and only Actions opens its controller', async ({
+  page
+}) => {
+  const f = await fixture(page);
+  f.receipts.set(3, pilotReceipt());
+  await open(page);
+  const issues = pilot(page).locator('[data-og7="preparation-issue"]');
+  await issues.first().focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(issues.nth(1)).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(issues.nth(1)).toHaveAttribute('aria-pressed', 'true');
+  await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'peek');
+  await page.keyboard.press('ArrowUp');
+  await expect(issues.first()).toBeFocused();
+  await page.keyboard.press('Space');
+  await expect(issues.first()).toHaveAttribute('aria-pressed', 'true');
+  expect(f.writes).toEqual([]);
+  const actions = pilot(page).locator('[data-og7="preparation-pilot-actions"]');
+  await actions.focus();
+  await page.keyboard.press('Enter');
+  await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'open');
+  await page.keyboard.press('Escape');
+  await expect(actions).toBeFocused();
+  expect(f.writes).toEqual([]);
+});
+
+test('preparation progress comes from refreshed server facts and reaches the final approval only at three completed checks', async ({
+  page
+}) => {
+  const f = await fixture(page);
+  f.receipts.set(3, pilotReceipt());
+  await open(page);
+  await expectPilotProgress(page, 0);
+  await pilot(page).locator('[data-og7="preparation-pilot-actions"]').click();
+  await expect(pilotAction(page, 'approve')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+
+  f.receipts.set(3, pilotReceipt(1));
+  await expectPilotProgress(page, 0);
+  await hook(page, 'refresh').click();
+  await expectPilotProgress(page, 1);
+  await expect(pilotIssue(page, 'content_prepared')).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
+  expect(f.writes).toEqual([]);
+
+  f.receipts.set(3, pilotReceipt(3));
+  await hook(page, 'refresh').click();
+  await expectPilotProgress(page, 3);
+  await pilot(page).locator('[data-og7="preparation-pilot-actions"]').click();
+  await expect(pilotAction(page, 'approve')).toBeVisible();
+  await expect(pilotAction(page, 'approve')).toBeEnabled();
+  await expect(pilotAction(page, 'open')).toHaveCount(0);
+  expect(f.writes).toEqual([]);
+});
+
+test('a prerequisite primary action opens its owning dossier without a preparation or batch mutation', async ({
+  page
+}) => {
+  const f = await fixture(page);
+  f.receipts.set(3, pilotReceipt());
+  await open(page);
+  await pilot(page).locator('[data-og7="preparation-pilot-actions"]').click();
+  await pilotAction(page, 'open').click();
+  await expect(page).toHaveURL(
+    new RegExp(`sponsors\\?sponsorshipId=${contributionId(3)}&tab=publication`)
+  );
+  expect(f.writes).toEqual([]);
+});
+
+test('the preparation controller asks for confirmation before final approval and cancellation sends nothing', async ({
+  page
+}) => {
+  const f = await fixture(page);
+  f.receipts.set(3, pilotReceipt(3));
+  await open(page);
+  await pilot(page).locator('[data-og7="preparation-pilot-actions"]').click();
+  await pilotAction(page, 'approve').click();
+  const confirmation = page.locator('[data-og7="confirm-action"]');
+  await expect(confirmation).toBeVisible();
+  expect(f.writes).toEqual([]);
+  await page.keyboard.press('Escape');
+  await expect(confirmation).toHaveCount(0);
+  await expect(hook(page, 'stamp')).toHaveCount(0);
+  expect(f.writes).toEqual([]);
+
+  await pilotAction(page, 'approve').click();
+  await confirmation.click();
+  await expect(hook(page, 'stamp')).toContainText(actor);
+  expect(f.writes).toHaveLength(1);
+  expect(f.writes[0]).toMatchObject({
+    pathname: `${receiptPath}/approve`,
+    body: {
+      contributionId: contributionId(3),
+      runId,
+      expectedVersion: pilotReceipt(3).version,
+      confirmed: true
+    }
+  });
+});
+
+test('the incomplete preparation controller remains accessible in the effective 1536 by 864 desktop viewport with the guide at top and bottom', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 1536, height: 864 });
+  const f = await fixture(page);
+  f.receipts.set(3, pilotReceipt());
+  await open(page);
+  const guide = page.locator('[data-og7="admin-guidance"]');
+  for (const placement of ['top', 'bottom']) {
+    if (placement === 'bottom')
+      await guide.locator('[data-og7="admin-guidance-move"]').click();
+    await expect(guide).toHaveAttribute('data-og7-placement', placement);
+    const actions = pilot(page).locator(
+      '[data-og7="preparation-pilot-actions"]'
+    );
+    await actions.click();
+    await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'open');
+    for (const id of ['open', 'details', 'history', 'back']) {
+      const control = pilotAction(page, id);
+      await expect(control).toHaveAccessibleName(/\S/);
+      await expectInsideViewport(control);
+      await expect
+        .poll(() =>
+          control.evaluate((element) => {
+            const bounds = element.getBoundingClientRect();
+            const hit = element.ownerDocument.elementFromPoint(
+              bounds.left + bounds.width / 2,
+              bounds.top + bounds.height / 2
+            );
+            return !!hit && (hit === element || element.contains(hit));
+          })
+        )
+        .toBe(true);
+    }
+    expect(
+      await guide.evaluate(
+        (element) => element.scrollWidth - element.clientWidth
+      )
+    ).toBeLessThanOrEqual(1);
+    await page.keyboard.press('Escape');
+    await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'peek');
+    await expect(actions).toBeFocused();
+    expect(f.writes).toEqual([]);
+  }
+});
+
+test('Gamepad first selects an unfocused prerequisite and the controller toggle closes without opening its primary action', async ({
+  page
+}) => {
+  await installAdminController(page);
+  const f = await fixture(page);
+  f.receipts.set(3, pilotReceipt());
+  await open(page);
+  const pad = adminController(page);
+  const issue = pilotIssue(page, 'moderation_review');
+  await issue.focus();
+  await pad.release();
+  await pad.press('A');
+  await expect(issue).toHaveAttribute('aria-pressed', 'true');
+  await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'peek');
+  expect(f.writes).toEqual([]);
+  await expect(page).toHaveURL(/\/admin\/fundraiser\/attention$/);
+
+  await pad.press('A');
+  await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'open');
+  const toggle = pilot(page).locator('[data-og7="context-controller-toggle"]');
+  await toggle.focus();
+  await pad.press('A');
+  await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'peek');
+  await expect(
+    pilot(page).locator('[data-og7="preparation-pilot-actions"]')
+  ).toBeFocused();
+  await expect(page).toHaveURL(/\/admin\/fundraiser\/attention$/);
+  expect(f.writes).toEqual([]);
+});
+
+test('Gamepad X and Y open the existing preparation detail and history without executing a mutation', async ({
+  page
+}) => {
+  await installAdminController(page);
+  const f = await fixture(page);
+  const current = pilotReceipt(3);
+  f.receipts.set(3, {
+    ...current,
+    approvalHistory: [
+      {
+        id: 'synthetic-previous-preparation-approval',
+        runId,
+        contributionId: current.contributionId,
+        version: 'synthetic-previous-version',
+        actor,
+        approvedAt,
+        requestId: 'synthetic-previous-request',
+        auditReference: 'synthetic-previous-preparation-audit'
+      }
+    ]
+  });
+  await open(page);
+  const pad = adminController(page);
+  const actions = pilot(page).locator('[data-og7="preparation-pilot-actions"]');
+  await actions.click();
+  await expect(pilotAction(page, 'approve')).toBeFocused();
+  await pad.release();
+  await pad.press('X');
+  await expect(hook(page, 'details')).toHaveJSProperty('open', true);
+  await expect(hook(page, 'details').locator('summary')).toBeFocused();
+  await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'peek');
+  expect(f.writes).toEqual([]);
+
+  await actions.click();
+  await expect(pilotAction(page, 'approve')).toBeFocused();
+  await pad.release();
+  await pad.press('Y');
+  await expect(hook(page, 'history')).toHaveJSProperty('open', true);
+  await expect(hook(page, 'history').locator('summary')).toBeFocused();
+  expect(f.writes).toEqual([]);
+});
+
+test('Gamepad opens the preparation controller through the same native actions, with a fresh press required for confirmation', async ({
+  page
+}) => {
+  await installAdminController(page);
+  const f = await fixture(page);
+  f.receipts.set(3, pilotReceipt(3));
+  await open(page);
+  const pad = adminController(page);
+  const actions = pilot(page).locator('[data-og7="preparation-pilot-actions"]');
+  await actions.focus();
+  await pad.release();
+  await pad.press('A');
+  await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'open');
+  expect(f.writes).toEqual([]);
+  await pad.press('B');
+  await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'peek');
+  await expect(actions).toBeFocused();
+  await pad.press('A');
+  await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'open');
+  await expect(pilotAction(page, 'approve')).toBeFocused();
+  // Focus changes invalidate held input. Observe neutral after the final target
+  // has acquired focus before starting the distinct approval gesture.
+  await pad.release();
+  await pad.hold('A');
+  const confirmation = page.locator('[data-og7="confirm-action"]');
+  await expect(confirmation).toBeVisible();
+  await sampledFrames(page);
+  expect(f.writes).toEqual([]);
+  await pad.release();
+  await pad.press('B');
+  await expect(confirmation).toHaveCount(0);
+  expect(f.writes).toEqual([]);
+});
