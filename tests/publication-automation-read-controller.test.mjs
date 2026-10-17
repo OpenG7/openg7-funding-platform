@@ -3,7 +3,7 @@ import test from 'node:test';
 import { signal } from '@angular/core';
 
 import { PublicationAutomationReadController } from '../dist/apps/funding-web/src/app/features/funding/pages/admin-publication-automation-page/publication-automation-read-controller.js';
-import { AdminPublicationAutomationCommandWorkflow } from '../dist/apps/funding-web/src/app/features/funding/pages/admin-publication-automation-page/admin-publication-automation-command-workflow.js';
+import { AdminPublicationAutomationCommandWorkflow } from '../dist/apps/funding-web/src/app/features/funding/components/admin-publications/admin-publication-automation-command-workflow.js';
 
 const filter = {
   sponsorshipId: 'synthetic-sponsor',

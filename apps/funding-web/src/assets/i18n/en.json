@@ -1135,7 +1135,7 @@
       "publicationBridge": {
         "eyebrow": "Step 6 · Publication",
         "title": "Publications for this sponsorship",
-        "intro": "Review the prepared content, authorize its schedule, then follow delivery.",
+        "intro": "Check the proposed time, change it if needed, then review and authorize the publication.",
         "benefits": "What the contribution includes",
         "benefit": {
           "website_mention": "Company recognition on OpenG7.org",
@@ -1175,15 +1175,15 @@
         "simulation": "Simulation — nothing is posted to the social network.",
         "paused": "The destination is paused. Delivery awaits resumption.",
         "publishedAt": "Published on",
-        "proposedDate": "Planned date:",
+        "proposedDate": "Proposed time:",
         "scheduledHelp": "Delivery requires an active worker, an available destination and eligibility at sending time.",
         "waitingHelp": "No final delivery is ready for review. Check preparation and the engine settings.",
         "failureHelp": "Check the details in the engine before taking further action.",
         "action": {
-          "review": "Review and schedule",
+          "review": "Review and authorize",
           "schedule": "View schedule",
           "resolve": "Investigate the block",
-          "open": "Open in engine"
+          "open": "View details"
         },
         "viewPost": "View publication",
         "noSocial": "No social publication is recorded in this dossier’s offer.",

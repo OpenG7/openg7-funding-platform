@@ -285,7 +285,7 @@ et l'aperçu doivent rendre cette distinction compréhensible.
 Sources : [upload privé](../../apps/funding-api/src/sponsorship-followup-media.http.ts),
 [sélection et portée](../../apps/funding-api/src/publication-automation/media.ts),
 [adaptateur fournisseur](../../apps/funding-api/src/publication-automation/provider.ts)
-et [éditeur administratif](../../apps/funding-web/src/app/features/funding/pages/admin-publication-automation-page/publication-delivery-drawer.component.html).
+et [éditeur administratif](../../apps/funding-web/src/app/features/funding/components/admin-publications/publication-delivery-drawer.component.html).
 
 ### Comparaison des formules
 

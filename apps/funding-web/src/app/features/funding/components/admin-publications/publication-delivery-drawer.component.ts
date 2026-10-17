@@ -9,9 +9,9 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 
-import { AdminDrawerComponent } from '../../components/admin-ui/admin-drawer.component.js';
-import { FundingModerationActionsComponent } from '../../components/admin-moderation/funding-moderation-actions.component.js';
-import { AdminAutomaticPreparationDirective } from '../../components/admin-automatic/admin-automatic-preparation.directive.js';
+import { AdminDrawerComponent } from '../admin-ui/admin-drawer.component.js';
+import { FundingModerationActionsComponent } from '../admin-moderation/funding-moderation-actions.component.js';
+import { AdminAutomaticPreparationDirective } from '../admin-automatic/admin-automatic-preparation.directive.js';
 
 import type { PublicationDeliveryController } from './publication-delivery-controller.js';
 
@@ -31,8 +31,8 @@ import type { PublicationDeliveryController } from './publication-delivery-contr
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './publication-delivery-drawer.component.html',
   styleUrls: [
-    '../../components/admin-ui/admin-theme.css',
-    '../../components/admin-ui/admin-controls.css',
+    '../admin-ui/admin-theme.css',
+    '../admin-ui/admin-controls.css',
     './publication-delivery-drawer.component.css'
   ]
 })

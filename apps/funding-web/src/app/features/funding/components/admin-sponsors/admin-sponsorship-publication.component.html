@@ -6,10 +6,6 @@
     <h3>{{ 'admin.dossier.publicationBridge.title' | translate }}</h3>
     <p>{{ 'admin.dossier.publicationBridge.intro' | translate }}</p>
   </header>
-  <openg7-admin-sponsorship-commitments
-    [dossier]="dossier()"
-    (changed)="commitmentChanged.emit()"
-  />
   <section class="benefits" aria-labelledby="publication-benefits">
     <h4 id="publication-benefits">
       {{ 'admin.dossier.publicationBridge.benefits' | translate }}
@@ -35,6 +31,31 @@
       'admin.dossier.publicationBridge.deliveryTitle' | translate
     "
   >
+    <p class="schedule-help" data-og7="publication-slot-help">
+      {{ 'admin.dossier.publicationBridge.schedule.help' | translate }}
+    </p>
+    @if (scheduling.loading()) {
+      <p role="status" data-og7="publication-schedule-loading">
+        {{ 'admin.dossier.publicationBridge.schedule.loading' | translate }}
+      </p>
+    }
+    @if (scheduling.error()) {
+      <div role="alert" data-og7="publication-schedule-error">
+        <p>{{ scheduling.error() | translate }}</p>
+        <button
+          type="button"
+          class="admin-button"
+          data-og7="publication-schedule-refresh"
+          [disabled]="scheduling.busy() || scheduling.loading()"
+          (click)="scheduling.refresh()"
+        >
+          {{ 'admin.dossier.publicationBridge.schedule.refresh' | translate }}
+        </button>
+      </div>
+    }
+    @if (scheduling.notice()) {
+      <p role="status">{{ scheduling.notice() | translate }}</p>
+    }
     @if (dossier().publicationCompletion; as completion) {
       <div
         class="completion"
@@ -194,6 +215,7 @@
         }
       </article>
       @for (card of cards(); track card.key) {
+        @let source = card.source ?? card.candidate;
         <article
           data-og7="publication-channel"
           [attr.data-og7-id]="card.key"
@@ -209,11 +231,9 @@
                     : card.channel
               }}
             </h4>
-            @if (card.publication; as p) {
-              <span class="target">{{
-                p.target === 'openg20' ? 'OpenG20' : 'OpenG7'
-              }}</span>
-            }
+            <span class="target">{{
+              card.target === 'openg20' ? 'OpenG20' : 'OpenG7'
+            }}</span>
           </header>
           <strong class="publication-state social-state">{{
             'admin.dossier.publicationBridge.status.' + status(card.publication)
@@ -234,9 +254,15 @@
                 {{ date(p.publishedAt) }}
               </p>
             } @else if (p.scheduledAt) {
-              <p>
+              <p data-og7="publication-next-slot">
                 {{ 'admin.dossier.publicationBridge.proposedDate' | translate }}
-                {{ date(p.scheduledAt) }}
+                <time [attr.datetime]="p.scheduledAt">{{
+                  date(p.scheduledAt)
+                }}</time>
+                <span>{{
+                  'admin.dossier.publicationBridge.schedule.timezone'
+                    | translate
+                }}</span>
               </p>
             }
             @if (status(p) === 'scheduled') {
@@ -248,6 +274,37 @@
             }
             @if (p.deliveryError) {
               <p>{{ errorMessage(p.deliveryError) }}</p>
+            }
+          }
+          @if (
+            !card.publication?.scheduledAt && source?.nextOpportunity;
+            as opportunity
+          ) {
+            @if (opportunity.proposedAt; as proposedAt) {
+              <p data-og7="publication-next-slot">
+                {{ 'admin.dossier.publicationBridge.proposedDate' | translate }}
+                <time [attr.datetime]="proposedAt">{{ date(proposedAt) }}</time>
+                <span>{{
+                  'admin.dossier.publicationBridge.schedule.timezone'
+                    | translate
+                }}</span>
+              </p>
+            }
+          }
+          @if (source?.nextOpportunity; as opportunity) {
+            @if (!deliveryId(card.publication, card.source)) {
+              <p>
+                {{
+                  'admin.publicationAutomation.sourceQueue.opportunity.reasons.' +
+                    opportunity.reason | translate
+                }}
+              </p>
+              <p class="schedule-help">
+                {{
+                  'admin.dossier.publicationBridge.schedule.forecast'
+                    | translate
+                }}
+              </p>
             }
           }
           @if (status(card.publication) === 'waiting') {
@@ -273,16 +330,64 @@
                 >{{ 'admin.dossier.publicationBridge.viewPost' | translate }}</a
               >
             }
-            <a
-              class="admin-button"
-              [routerLink]="automationPath"
-              [queryParams]="params(card.publication)"
-            >
-              {{
-                'admin.dossier.publicationBridge.action.' +
-                  action(card.publication) | translate
-              }}
-            </a>
+            @if (deliveryId(card.publication, card.source); as id) {
+              <button
+                type="button"
+                class="admin-button"
+                [class.admin-button--primary]="
+                  status(card.publication) === 'review'
+                "
+                data-og7="publication-review"
+                [disabled]="scheduling.busy() || scheduling.loading()"
+                [openg7AutomaticPrepare]="'publication.delivery.open:' + id"
+                [automaticFor]="dossier().contributionId"
+                (automaticPrepare)="scheduling.open(id)"
+                (click)="scheduling.open(id)"
+              >
+                {{
+                  'admin.dossier.publicationBridge.action.' +
+                    action(card.publication) | translate
+                }}
+              </button>
+              @if (canEdit(id)) {
+                <button
+                  type="button"
+                  class="admin-button"
+                  data-og7="publication-slot-edit"
+                  [disabled]="scheduling.busy() || scheduling.loading()"
+                  [openg7AutomaticPrepare]="'publication.delivery.edit:' + id"
+                  [automaticFor]="dossier().contributionId"
+                  (automaticPrepare)="scheduling.open(id, true)"
+                  (click)="scheduling.open(id, true)"
+                >
+                  {{
+                    'admin.dossier.publicationBridge.schedule.edit' | translate
+                  }}
+                </button>
+              }
+            } @else if (source && canPrepare(source)) {
+              <button
+                type="button"
+                class="admin-button admin-button--primary"
+                data-og7="publication-prepare"
+                [disabled]="scheduling.busy() || scheduling.loading()"
+                (click)="scheduling.prepare(source.feedId)"
+              >
+                {{
+                  'admin.dossier.publicationBridge.schedule.prepare' | translate
+                }}
+              </button>
+            } @else {
+              <a
+                class="admin-button"
+                [routerLink]="automationPath"
+                [queryParams]="params(card.publication)"
+              >
+                {{
+                  'admin.dossier.publicationBridge.schedule.details' | translate
+                }}
+              </a>
+            }
           </div>
         </article>
       }
@@ -308,6 +413,10 @@
       </div>
     }
   </section>
+  <openg7-admin-sponsorship-commitments
+    [dossier]="dossier()"
+    (changed)="commitmentChanged.emit()"
+  />
   <footer>
     @if (dossier().preparationActivityId; as activityId) {
       <button
@@ -327,3 +436,7 @@
     <p>{{ 'admin.dossier.publicationBridge.authorization' | translate }}</p>
   </footer>
 </div>
+<openg7-publication-delivery-drawer
+  [controller]="scheduling.delivery"
+  [automaticFor]="dossier().contributionId"
+/>

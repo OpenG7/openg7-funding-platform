@@ -1,0 +1,13 @@
+{
+  "help": "The proposed time is selected by default. You can change it before confirming the content and authorizing delivery.",
+  "timezone": "(Toronto time)",
+  "forecast": "This possibility does not reserve a time slot. Availability will be checked during preparation and authorization.",
+  "loading": "Loading this dossier’s proposed times and publications…",
+  "loadFailed": "Proposals are unavailable. Refresh their status before reviewing them.",
+  "missingDelivery": "This publication is no longer available in this dossier. Refresh the proposals before continuing.",
+  "refresh": "Refresh proposals",
+  "edit": "Change proposed time",
+  "prepare": "Prepare this destination",
+  "prepareConfirm": "Prepare drafts for all eligible dossiers on this destination? This action does not publish anything or authorize delivery.",
+  "details": "View detailed progress"
+}

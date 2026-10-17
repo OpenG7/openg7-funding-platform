@@ -270,7 +270,7 @@ intacts. Les textes de brouillons sauvegardés ne sont pas réécrits automatiqu
 Réutiliser les [panneaux de décision dossier](../../apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-rejection-panel.component.html),
 le [workflow de revue](../../apps/funding-web/src/app/features/funding/services/admin-sponsor-review-workflow.ts),
 le [workflow média](../../apps/funding-web/src/app/features/funding/services/admin-sponsor-media-workflow.ts),
-le [contrôleur de livraison](../../apps/funding-web/src/app/features/funding/pages/admin-publication-automation-page/publication-delivery-controller.ts),
+le [contrôleur de livraison](../../apps/funding-web/src/app/features/funding/components/admin-publications/publication-delivery-controller.ts),
 le [suivi privé](../../apps/funding-web/src/app/features/funding/components/sponsorship-followup/sponsorship-followup-form.component.ts)
 et la [page de politique](../../apps/funding-web/src/app/features/funding/pages/usage-refund-policy-page/usage-refund-policy-page.component.ts).
 Le formulaire partagé de décision doit rester un composant métier Funding;

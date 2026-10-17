@@ -4,7 +4,7 @@ import type {
   PublicationAutomationState
 } from '@openg7/funding-core';
 
-import type { PublicationAutomationCommandContext } from './publication-automation.ports.js';
+import type { PublicationAutomationCommandContext } from '../../components/admin-publications/publication-automation.ports.js';
 
 export interface PublicationAutomationReadTimer {
   schedule(

@@ -24,7 +24,10 @@ import type {
   AdminSocialPublicationJobsResponse
 } from '@openg7/funding-core';
 
-import type { FundingAdminSession } from './funding-admin-session.js';
+import {
+  AdminDashboardRequestError,
+  type FundingAdminSession
+} from './funding-admin-session.js';
 import { errorMessageFromResponse } from './funding-admin-response.js';
 
 /** Funding admin publication preparation and delivery endpoints; authentication belongs to the shared session. */
@@ -81,7 +84,11 @@ export class FundingAdminPublicationsClient {
       const data = (await response.json().catch(() => ({}))) as {
         code?: string;
       };
-      throw new Error(data.code ?? 'AUTOMATION_UNAVAILABLE');
+      throw new AdminDashboardRequestError(
+        response.status,
+        data.code ?? 'AUTOMATION_UNAVAILABLE',
+        data.code
+      );
     }
     return response.json() as Promise<
       PublicationAutomationState | { id?: string }
@@ -97,7 +104,11 @@ export class FundingAdminPublicationsClient {
       `/admin/publication-automation/media${query.size ? `?${query}` : ''}`,
       { auth: 'saved', cache: 'no-store' }
     );
-    if (!response.ok) throw new Error('AUTOMATION_UNAVAILABLE');
+    if (!response.ok)
+      throw new AdminDashboardRequestError(
+        response.status,
+        'AUTOMATION_UNAVAILABLE'
+      );
     return response.json() as Promise<
       import('@openg7/funding-core').PublicationMediaOption[]
     >;
@@ -120,7 +131,8 @@ export class FundingAdminPublicationsClient {
       }
     );
     if (!response.ok)
-      throw new Error(
+      throw new AdminDashboardRequestError(
+        response.status,
         (await response.json().catch(() => ({}))).code ?? 'MEDIA_UNAVAILABLE'
       );
     const blob = await response.blob();

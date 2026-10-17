@@ -35,6 +35,8 @@ import {
 } from './planning.js';
 import { complete, PublicationDeliveryWorker } from './delivery-worker.js';
 import { preparationQueue } from './preparation-queue.js';
+import { preparationCandidateOpportunities } from './preparation-candidate-opportunities.js';
+import { createPreparationOpportunityPlanner } from './preparation-opportunity.js';
 import { publicationReliability } from './reliability.js';
 import {
   publicationReliabilityIncidentPage,
@@ -166,12 +168,24 @@ export class PublicationAutomationService {
     const counts = await db.query(
       `SELECT count(*) FILTER(WHERE status='draft')::int AS "awaitingApproval",count(*) FILTER(WHERE status IN ('approved','publishing'))::int AS scheduled,count(*) FILTER(WHERE status IN ('blocked','uncertain'))::int AS exceptions,count(*) FILTER(WHERE published_at >= NOW()-INTERVAL '24 hours')::int AS "publishedToday" FROM publication_deliveries`
     );
+    const now = new Date();
+    const planner = await createPreparationOpportunityPlanner(db, feeds, now);
     return {
       workerEnabled: worker.enabled,
       workerVersion: worker.version,
       feeds,
       deliveries: jobs.rows.map(publicDelivery),
-      queue: await preparationQueue(db, feeds, filter),
+      queue: await preparationQueue(db, feeds, filter, now, planner),
+      ...(filter.sponsorshipId && !filter.deliveryId
+        ? {
+            preparationCandidates: await preparationCandidateOpportunities(
+              db,
+              feeds,
+              filter.sponsorshipId,
+              planner
+            )
+          }
+        : {}),
       reliability: await publicationReliability(db),
       summary: counts.rows[0]
     };
