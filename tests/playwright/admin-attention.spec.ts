@@ -148,12 +148,12 @@ async function fixtures(page: Page): Promise<void> {
 const attentionPalettes = {
   mineral: {
     panel: 'rgb(255, 255, 255)',
-    border: 'rgb(202, 213, 201)',
-    text: 'rgb(41, 51, 46)',
-    muted: 'rgb(83, 99, 90)',
+    border: 'rgb(216, 224, 236)',
+    text: 'rgb(23, 43, 80)',
+    muted: 'rgb(82, 98, 123)',
     danger: 'rgb(165, 45, 62)',
     dangerBackground: 'rgb(252, 236, 239)',
-    focus: 'rgb(47, 107, 80)'
+    focus: 'rgb(18, 101, 176)'
   },
   night: {
     panel: 'rgb(20, 35, 56)',

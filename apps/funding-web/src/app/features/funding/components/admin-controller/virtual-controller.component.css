@@ -59,10 +59,9 @@ button,
   touch-action: none;
 }
 button {
-  min-width: 2.6rem;
-  min-height: 2.6rem;
+  @apply tw:min-w-admin-control tw:min-h-admin-control;
   padding: 0.4rem;
-  border: 1px solid var(--admin-border, #435a73);
+  border: 1px solid var(--admin-control-border, #435a73);
   border-radius: 0.55rem;
   color: inherit;
   background: var(--admin-bg, #0b1726);
@@ -70,11 +69,15 @@ button {
   @apply tw:text-admin-caption tw:cursor-pointer;
 }
 button:hover {
-  border-color: var(--admin-gold, #f4cd66);
+  border-color: var(--admin-accent, #245b94);
+}
+:where(button, input):focus-visible {
+  outline: 3px solid var(--admin-focus, #1265b0);
+  outline-offset: 3px;
 }
 button.pressed {
-  color: #182031;
-  background: var(--admin-gold, #f4cd66);
+  color: var(--og7-admin-on-primary, #25220f);
+  background: var(--og7-admin-primary, #ebc14f);
 }
 .buttons {
   @apply tw:grid tw:grid-cols-6;

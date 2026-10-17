@@ -1,5 +1,26 @@
 @reference '../../../../../styles/tailwind.css';
 
+/* Public instructions use the public palette, including shared admin primitives. */
+:host {
+  --og7-admin-bg: var(--surface-page);
+  --og7-admin-sidebar: var(--surface-subtle);
+  --og7-admin-panel: var(--surface-panel);
+  --og7-admin-raised: var(--surface-raised);
+  --og7-admin-subtle: var(--surface-page);
+  --og7-admin-border: var(--border-color);
+  --og7-admin-text: var(--text-main);
+  --og7-admin-muted: var(--text-soft);
+  --og7-admin-gold: var(--color-gold);
+  --og7-admin-primary: var(--color-primary);
+  --og7-admin-on-primary: var(--on-primary);
+  --og7-admin-accent: var(--color-accent);
+  --og7-admin-focus: var(--color-primary);
+  --og7-admin-selected: #dce9da;
+  --og7-admin-success: var(--color-success);
+  --og7-admin-warning: var(--color-warning);
+  --og7-admin-danger: var(--color-danger);
+}
+
 .identity-setup-shell {
   @apply tw:min-h-screen;
   padding: clamp(1rem, 4vw, 3rem);

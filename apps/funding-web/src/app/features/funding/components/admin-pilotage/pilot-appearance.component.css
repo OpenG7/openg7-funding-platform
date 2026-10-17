@@ -108,10 +108,10 @@ small {
   @apply tw:overflow-hidden;
 }
 .miniature[data-theme='mineral'] {
-  --mini-bg: #f7f5f0;
+  --mini-bg: #f5f7fb;
   --mini-panel: #fff;
-  --mini-line: #cad5c9;
-  --mini-accent: #2f6b50;
+  --mini-line: #d8e0ec;
+  --mini-accent: #ebc14f;
 }
 .miniature[data-theme='graphite'] {
   --mini-bg: #191b1f;

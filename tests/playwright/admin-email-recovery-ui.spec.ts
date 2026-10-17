@@ -62,15 +62,15 @@ async function preparePage(page: Page, language: string, width: number) {
 const emailPalettes = {
   mineral: {
     panel: 'rgb(255, 255, 255)',
-    raised: 'rgb(240, 244, 238)',
-    text: 'rgb(41, 51, 46)',
-    muted: 'rgb(83, 99, 90)',
-    border: 'rgb(202, 213, 201)',
+    raised: 'rgb(240, 244, 249)',
+    text: 'rgb(23, 43, 80)',
+    muted: 'rgb(82, 98, 123)',
+    border: 'rgb(216, 224, 236)',
     danger: 'rgb(165, 45, 62)',
     dangerBackground: 'rgb(252, 236, 239)',
     warning: 'rgb(128, 84, 17)',
-    warningBackground: 'rgb(255, 243, 217)',
-    success: 'rgb(34, 99, 66)'
+    warningBackground: 'rgb(255, 244, 214)',
+    success: 'rgb(35, 99, 66)'
   },
   night: {
     panel: 'rgb(20, 35, 56)',

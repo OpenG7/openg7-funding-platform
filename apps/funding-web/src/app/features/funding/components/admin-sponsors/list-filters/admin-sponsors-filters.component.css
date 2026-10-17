@@ -9,7 +9,7 @@
   border-bottom: 1px solid var(--admin-border);
   @apply tw:grid tw:gap-4;
   grid-template-columns: minmax(16rem, 1fr) auto;
-  @apply tw:p-4;
+  @apply tw:p-admin-card;
 }
 
 .filter-row {
@@ -41,8 +41,9 @@ select:focus-visible {
 
 input,
 select {
-  border: 1px solid var(--admin-border);
-  border-radius: 0.35rem;
+  background: var(--admin-panel-raised);
+  border: 1px solid var(--admin-control-border);
+  @apply tw:rounded-admin-control tw:text-admin-text tw:min-w-0 tw:w-full;
   padding: 0.65rem 0.75rem;
 }
 
@@ -53,13 +54,17 @@ select {
   padding: 0 0.85rem;
   text-decoration: none;
   background: var(--admin-panel);
-  border: 1px solid var(--admin-border);
+  border: 1px solid var(--admin-control-border);
   @apply tw:text-admin-text;
 }
 
 .tertiary-action:disabled {
   @apply tw:cursor-not-allowed;
   opacity: 0.55;
+}
+
+.tertiary-action:hover:not(:disabled) {
+  background: var(--admin-hover);
 }
 
 :host .list-filters summary {

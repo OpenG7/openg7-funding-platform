@@ -175,13 +175,13 @@ async function fixtures(page: Page) {
 
 const searchPalettes = {
   mineral: {
-    background: 'rgb(247, 245, 240)',
+    background: 'rgb(245, 247, 251)',
     panel: 'rgb(255, 255, 255)',
-    raised: 'rgb(240, 244, 238)',
-    border: 'rgb(202, 213, 201)',
-    text: 'rgb(41, 51, 46)',
-    muted: 'rgb(83, 99, 90)',
-    gold: 'rgb(142, 92, 16)'
+    raised: 'rgb(240, 244, 249)',
+    border: 'rgb(216, 224, 236)',
+    text: 'rgb(23, 43, 80)',
+    muted: 'rgb(82, 98, 123)',
+    gold: 'rgb(148, 101, 0)'
   },
   night: {
     background: 'rgb(11, 23, 39)',
@@ -228,7 +228,7 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
       const trigger = page.locator('[data-og7="admin-search-open"]');
       await expect(trigger).toHaveCSS('background-color', palette.raised);
       await expect(trigger).toHaveCSS('color', palette.muted);
-      await expect(trigger).toHaveCSS('border-radius', '9.6px');
+      await expect(trigger).toHaveCSS('border-radius', '10px');
       await expect(trigger).toHaveCSS('font-size', '15px');
       await expect(trigger).toHaveCSS('min-height', '44px');
       await trigger.focus();
@@ -253,7 +253,7 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
       await expect(result).toHaveCount(1);
       await expect(result).toHaveCSS('background-color', palette.panel);
       await expect(result).toHaveCSS('padding', '16px');
-      await expect(result).toHaveCSS('border-radius', '9.6px');
+      await expect(result).toHaveCSS('border-radius', '10px');
       await expect(result.getByRole('link').first()).toHaveCSS(
         'color',
         palette.gold

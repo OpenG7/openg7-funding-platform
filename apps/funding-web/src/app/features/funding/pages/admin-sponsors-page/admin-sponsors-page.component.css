@@ -1,7 +1,7 @@
 @reference '../../../../../styles/tailwind.css';
 
 .admin-workspace {
-  @apply tw:grid tw:gap-4 tw:min-w-0;
+  @apply tw:grid tw:gap-admin-section tw:min-w-0;
 }
 
 .admin-page-header,
@@ -86,9 +86,9 @@ textarea:focus-visible {
 }
 
 .primary-action {
-  background: var(--og7-admin-warning-bg, #3c3221);
-  border: 1px solid var(--admin-border);
-  @apply tw:text-admin-text;
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-control-border);
+  @apply tw:text-admin-accent;
 }
 
 .secondary-action,
@@ -96,7 +96,7 @@ textarea:focus-visible {
 .mini-action,
 .icon-action {
   background: var(--admin-panel);
-  border: 1px solid var(--admin-border);
+  border: 1px solid var(--admin-control-border);
   @apply tw:text-admin-text;
 }
 
@@ -111,7 +111,7 @@ textarea:focus-visible {
 
 .secondary-danger-action {
   background: var(--admin-panel);
-  border: 1px solid var(--admin-border);
+  border: 1px solid var(--admin-control-border);
   @apply tw:text-admin-danger;
 }
 
@@ -125,12 +125,13 @@ textarea:focus-visible {
 .empty-detail-state {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  @apply tw:rounded-lg;
+  @apply tw:rounded-admin-card;
+  box-shadow: var(--admin-shadow);
 }
 
 .sponsors-board {
   align-items: start;
-  @apply tw:grid tw:gap-4;
+  @apply tw:grid tw:gap-admin-card-gap;
   grid-template-columns: minmax(52rem, 1fr) minmax(22rem, 32rem);
 }
 
@@ -141,8 +142,8 @@ textarea:focus-visible {
 input,
 select,
 textarea {
-  border: 1px solid var(--admin-border);
-  border-radius: 0.35rem;
+  border: 1px solid var(--admin-control-border);
+  @apply tw:rounded-admin-control;
   padding: 0.65rem 0.75rem;
 }
 
@@ -153,7 +154,7 @@ textarea {
 .empty-detail-state {
   @apply tw:grid;
   gap: 0.7rem;
-  @apply tw:p-4;
+  @apply tw:p-admin-card;
 }
 
 .sponsor-detail-panel {
@@ -184,7 +185,15 @@ textarea {
 .detail-body {
   @apply tw:grid;
   gap: 0.9rem;
-  @apply tw:overflow-auto tw:p-4;
+  @apply tw:overflow-auto tw:p-admin-card;
+}
+
+.primary-action:hover,
+.secondary-action:hover:not(:disabled),
+.tertiary-action:hover:not(:disabled),
+.mini-action:hover:not(:disabled),
+.icon-action:hover:not(:disabled) {
+  background: var(--admin-hover);
 }
 
 @keyframes selected-box-fade-in {

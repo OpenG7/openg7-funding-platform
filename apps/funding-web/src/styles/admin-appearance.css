@@ -1,25 +1,25 @@
-/* The warm mineral palette is also the SSR and storage-unavailable default. */
+/* OpenG7 Premium Light v1; `mineral` remains the persisted light-theme ID. */
 openg7-admin-layout,
 openg7-admin-pilotage-page,
 openg7-admin-login-page {
-  --og7-admin-bg: #f7f5f0;
-  --og7-admin-sidebar: #e8efe7;
+  --og7-admin-bg: #f5f7fb;
+  --og7-admin-sidebar: #f7f9fc;
   --og7-admin-panel: #ffffff;
-  --og7-admin-raised: #f0f4ee;
-  --og7-admin-subtle: #f7f5f0;
-  --og7-admin-border: #cad5c9;
-  --og7-admin-text: #29332e;
-  --og7-admin-muted: #53635a;
-  --og7-admin-gold: #8e5c10;
-  --og7-admin-primary: #2f6b50;
-  --og7-admin-on-primary: #ffffff;
-  --og7-admin-accent: #356b52;
-  --og7-admin-focus: #2f6b50;
-  --og7-admin-selected: #dce9da;
-  --og7-admin-success: #226342;
-  --og7-admin-success-bg: #e8f3e9;
+  --og7-admin-raised: #f0f4f9;
+  --og7-admin-subtle: #f5f7fb;
+  --og7-admin-border: #d8e0ec;
+  --og7-admin-text: #172b50;
+  --og7-admin-muted: #52627b;
+  --og7-admin-gold: #946500;
+  --og7-admin-primary: #ebc14f;
+  --og7-admin-on-primary: #25220f;
+  --og7-admin-accent: #245b94;
+  --og7-admin-focus: #1265b0;
+  --og7-admin-selected: #e7f2ff;
+  --og7-admin-success: #236342;
+  --og7-admin-success-bg: #eaf6ee;
   --og7-admin-warning: #805411;
-  --og7-admin-warning-bg: #fff3d9;
+  --og7-admin-warning-bg: #fff4d6;
   --og7-admin-danger: #a52d3e;
   --og7-admin-danger-bg: #fcecef;
   --og7-admin-purple: #68419d;

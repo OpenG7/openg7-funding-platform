@@ -183,16 +183,16 @@
       "palette": "Palette de l’administration",
       "themes": {
         "night": "Nuit OpenG7",
-        "mineral": "Clair minéral",
+        "mineral": "OpenG7 Premium Light",
         "graphite": "Graphite"
       },
       "descriptions": {
         "night": "Bleu nuit et accents d’or.",
-        "mineral": "Surfaces claires, lecture précise.",
+        "mineral": "Blanc perle, bleu marine et accents dorés.",
         "graphite": "Gris neutres et or discret."
       },
       "system": "Suivre le thème du système",
-      "systemHint": "Clair minéral le jour, Nuit OpenG7 en mode sombre, selon votre appareil.",
+      "systemHint": "Premium Light le jour, Nuit OpenG7 en mode sombre, selon votre appareil.",
       "current": "Apparence affichée :",
       "density": "Densité du pilotage",
       "comfortable": "Confort",

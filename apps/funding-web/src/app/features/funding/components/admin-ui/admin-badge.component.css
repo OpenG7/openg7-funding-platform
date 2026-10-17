@@ -5,11 +5,12 @@
 }
 
 span {
-  @apply tw:text-admin-text tw:rounded-admin-sm;
+  @apply tw:text-admin-muted tw:rounded-admin-control;
   @apply tw:text-admin-caption tw:py-1 tw:px-admin-badge-x;
-  background: var(--admin-panel-raised);
+  background: var(--admin-subtle);
   border: 1px solid var(--admin-border);
   font-weight: 600;
+  line-height: 1.4;
 }
 
 [data-tone='success'] {

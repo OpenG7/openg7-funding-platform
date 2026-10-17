@@ -115,7 +115,7 @@ input {
   @apply tw:text-admin-text;
 }
 .today .day-number {
-  background: var(--admin-gold);
+  background: var(--og7-admin-primary, var(--admin-gold));
   color: var(--og7-admin-on-primary, #172338);
   font-weight: var(--admin-control-weight);
 }

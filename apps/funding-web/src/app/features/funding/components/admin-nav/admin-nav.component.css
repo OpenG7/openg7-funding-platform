@@ -42,7 +42,7 @@ nav {
   @apply tw:mt-4;
 }
 section + section {
-  @apply tw:mt-4;
+  @apply tw:mt-5;
 }
 h2 {
   @apply tw:uppercase;
@@ -61,15 +61,21 @@ footer button {
   border: 1px solid transparent;
   text-decoration: none;
   line-height: 1.4;
+  transition:
+    background-color var(--admin-motion-duration) var(--admin-motion-easing),
+    border-color var(--admin-motion-duration) var(--admin-motion-easing),
+    color var(--admin-motion-duration) var(--admin-motion-easing);
 }
 nav a:hover,
 footer a:hover,
 footer button:hover {
-  background: var(--admin-panel-raised);
+  background: var(--admin-hover);
 }
 nav a.active {
-  background: var(--og7-admin-selected, #30322d);
-  box-shadow: inset 3px 0 0 var(--admin-gold);
+  background: var(--admin-selected);
+  border-color: var(--admin-border);
+  box-shadow: inset 3px 0 0 var(--admin-accent);
+  @apply tw:text-admin-accent;
   font-weight: var(--admin-label-weight);
 }
 openg7-admin-icon {
@@ -77,7 +83,7 @@ openg7-admin-icon {
   font-size: 1.25rem;
 }
 a.active openg7-admin-icon {
-  @apply tw:text-admin-gold;
+  @apply tw:text-admin-accent;
 }
 footer {
   @apply tw:mt-auto tw:pt-4;

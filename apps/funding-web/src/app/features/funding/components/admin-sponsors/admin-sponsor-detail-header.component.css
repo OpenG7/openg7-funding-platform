@@ -1,10 +1,10 @@
 @reference '../../../../../styles/tailwind.css';
 
 :host .detail-header {
-  padding: 1.5rem 1.75rem 1rem;
-  gap: 0.85rem;
+  padding: var(--admin-card-padding);
+  gap: var(--admin-card-gap);
   grid-template-columns: minmax(0, 1fr) auto;
-  background: radial-gradient(ellipse at top right, #f4c95709, transparent 65%);
+  background: var(--admin-panel);
 }
 :host .detail-title {
   @apply tw:col-span-full;
@@ -15,9 +15,9 @@
 :host .sponsor-avatar.large {
   height: 3.25rem;
   width: 3.25rem;
-  background: var(--admin-warning-bg);
-  border: 1px solid var(--admin-warning-border);
-  @apply tw:text-admin-gold tw:rounded-2xl;
+  background: var(--admin-selected);
+  border: 1px solid var(--admin-border);
+  @apply tw:text-admin-accent tw:rounded-admin-card;
 }
 :host .detail-badges {
   grid-column: 1;
@@ -27,21 +27,13 @@
   --review-accent: var(--admin-warning);
   @apply tw:flex;
   flex: 0 0 auto;
-  @apply tw:items-center;
+  @apply tw:items-center tw:flex-wrap;
   gap: 0.85rem;
-  @apply tw:box-border tw:w-max tw:max-w-full tw:whitespace-nowrap;
-  padding: 0.85rem 1.15rem;
-  border: 1px solid color-mix(in srgb, var(--review-accent) 38%, transparent);
-  border-radius: 999px;
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--admin-panel-raised) 88%, var(--review-accent)),
-    var(--admin-panel)
-  );
-  box-shadow:
-    inset 0 1px 0 #ffffff18,
-    0 3px 0 #08131f,
-    0 9px 22px #00000038;
+  @apply tw:box-border tw:w-max tw:max-w-full tw:rounded-admin-control;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-panel-raised);
+  box-shadow: var(--admin-shadow);
 }
 :host .review-capsule[data-review-state='approved'] {
   --review-accent: var(--admin-success);

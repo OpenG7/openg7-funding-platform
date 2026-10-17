@@ -586,7 +586,7 @@ const editForm = (page: Page) => page.locator('[data-og7="edit-dossier-form"]');
 const guide = (page: Page) => page.locator('[data-og7="dossier-guide"]');
 
 const sponsorStylePalettes = {
-  mineral: { panel: 'rgb(255, 255, 255)', text: 'rgb(41, 51, 46)' },
+  mineral: { panel: 'rgb(255, 255, 255)', text: 'rgb(23, 43, 80)' },
   night: { panel: 'rgb(20, 35, 56)', text: 'rgb(241, 245, 252)' },
   graphite: { panel: 'rgb(37, 41, 47)', text: 'rgb(243, 244, 246)' }
 } as const;
@@ -645,10 +645,7 @@ for (const theme of ['mineral', 'night', 'graphite'] as const)
         `[data-og7="sponsor-row"][data-og7-id="${id}"]`
       );
       await expect(selected).toContainText('Atelier Boréal');
-      await expectSponsorColorMix(selected, {
-        'background-color':
-          'color-mix(in srgb, var(--admin-panel) 96%, var(--sponsor-row-accent))'
-      });
+      await expect(selected).toHaveCSS('background-color', palette.panel);
       await selected.focus();
       await page.keyboard.press('Enter');
       const frame = page.locator('[data-og7="sponsorship-dossier"]');
@@ -674,11 +671,10 @@ for (const theme of ['mineral', 'night', 'graphite'] as const)
         )
       ).toBe(true);
       await expectSponsorColorMix(review, {
-        'background-image':
-          'linear-gradient(135deg, color-mix(in srgb, var(--admin-panel-raised) 88%, var(--review-accent)), var(--admin-panel))',
-        'border-top-color':
-          'color-mix(in srgb, var(--review-accent) 38%, transparent)'
+        'background-color': 'var(--admin-panel-raised)',
+        'border-top-color': 'var(--admin-border)'
       });
+      await expect(review).toHaveCSS('background-image', 'none');
 
       const profile = tabs(page).getByRole('button', {
         name: language === 'en' ? 'Profile & media' : 'Fiche et médias',
@@ -741,10 +737,7 @@ test('selected sponsor keeps a usable compact queue on the 1439/1440px boundary 
     859, 860, 861
   ]) {
     await page.setViewportSize({ width, height: 1000 });
-    await expect(frame).toHaveCSS(
-      'border-radius',
-      width <= 600 ? '16px' : '20px'
-    );
+    await expect(frame).toHaveCSS('border-radius', '14px');
     await expect(tabs(page).getByRole('button')).toHaveCount(5);
     expect(
       await page.evaluate(

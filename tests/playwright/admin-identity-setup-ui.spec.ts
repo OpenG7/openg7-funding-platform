@@ -56,12 +56,12 @@ async function installOwnerFixtures(page: Page) {
 const identityPalettes = {
   mineral: {
     panel: 'rgb(255, 255, 255)',
-    border: 'rgb(202, 213, 201)',
-    text: 'rgb(41, 51, 46)',
-    muted: 'rgb(83, 99, 90)',
-    raised: 'rgb(240, 244, 238)',
-    selected: 'rgb(220, 233, 218)',
-    focus: 'rgb(47, 107, 80)'
+    border: 'rgb(216, 224, 236)',
+    text: 'rgb(23, 43, 80)',
+    muted: 'rgb(82, 98, 123)',
+    raised: 'rgb(240, 244, 249)',
+    selected: 'rgb(231, 242, 255)',
+    focus: 'rgb(18, 101, 176)'
   },
   night: {
     panel: 'rgb(20, 35, 56)',

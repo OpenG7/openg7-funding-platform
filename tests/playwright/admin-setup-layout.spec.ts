@@ -80,9 +80,9 @@ const card = (page: Page, id: string) =>
 const setupPalettes = {
   mineral: {
     panel: 'rgb(255, 255, 255)',
-    raised: 'rgb(240, 244, 238)',
-    border: 'rgb(202, 213, 201)',
-    text: 'rgb(41, 51, 46)'
+    raised: 'rgb(240, 244, 249)',
+    border: 'rgb(216, 224, 236)',
+    text: 'rgb(23, 43, 80)'
   },
   night: {
     panel: 'rgb(20, 35, 56)',
@@ -515,7 +515,8 @@ test('expired service observations remove the reassuring recommendation without 
   markSystemsOperational(data);
   await page.goto('/admin/fundraiser/setup');
   await expect(recommendation(page)).toHaveAttribute('data-tone', 'success');
-  await page.clock.runFor(61_000);
+  // Expiry depends on elapsed time, without replaying every animation frame.
+  await page.clock.fastForward(61_000);
   await expect(recommendation(page)).toContainText(
     'La disponibilité OIDC reste à vérifier'
   );
@@ -701,14 +702,14 @@ test('Stripe connection and webhook checks expire independently and legacy respo
     'Activité récente'
   );
   // The shared cockpit clock refreshes displayed observations every 30 seconds.
-  await page.clock.runFor(31_000);
+  await page.clock.fastForward(31_000);
   await expect(stripe.locator('[data-og7-id="webhooks"]')).toContainText(
     'Observation périmée'
   );
   await expect(stripe.locator('[data-og7-id="connection"]')).toContainText(
     'Opérationnel'
   );
-  await page.clock.runFor(30_000);
+  await page.clock.fastForward(30_000);
   await expect(stripe.locator('[data-og7-id="connection"]')).toContainText(
     'Observation périmée'
   );

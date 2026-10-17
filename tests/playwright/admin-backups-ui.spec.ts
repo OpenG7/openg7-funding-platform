@@ -299,7 +299,7 @@ for (const theme of ['night', 'mineral', 'graphite'] as const) {
         'color',
         {
           night: 'rgb(241, 245, 252)',
-          mineral: 'rgb(41, 51, 46)',
+          mineral: 'rgb(23, 43, 80)',
           graphite: 'rgb(243, 244, 246)'
         }[theme]!
       );

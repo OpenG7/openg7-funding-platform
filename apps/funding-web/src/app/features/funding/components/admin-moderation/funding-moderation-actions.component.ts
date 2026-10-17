@@ -32,6 +32,7 @@ import { AdminAutomaticPreparationDirective } from '../admin-automatic/admin-aut
   styleUrls: [
     '../admin-ui/admin-theme.css',
     '../admin-ui/admin-controls.css',
+    '../admin-ui/admin-forms.css',
     './funding-moderation-actions.component.css'
   ]
 })

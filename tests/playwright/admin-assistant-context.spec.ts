@@ -195,9 +195,9 @@ for (const sample of [
     language: 'fr-CA',
     width: 390,
     panel: 'rgb(255, 255, 255)',
-    raised: 'rgb(240, 244, 238)',
-    background: 'rgb(247, 245, 240)',
-    text: 'rgb(41, 51, 46)'
+    raised: 'rgb(240, 244, 249)',
+    background: 'rgb(245, 247, 251)',
+    text: 'rgb(23, 43, 80)'
   },
   {
     theme: 'night',

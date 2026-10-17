@@ -163,12 +163,12 @@ test.beforeEach(async ({ page }) => {
 
 const shellPalettes = {
   mineral: {
-    background: 'rgb(247, 245, 240)',
-    sidebar: 'rgb(232, 239, 231)',
-    border: 'rgb(202, 213, 201)',
-    text: 'rgb(41, 51, 46)',
-    selected: 'rgb(220, 233, 218)',
-    gold: 'rgb(142, 92, 16)'
+    background: 'rgb(245, 247, 251)',
+    sidebar: 'rgb(247, 249, 252)',
+    border: 'rgb(216, 224, 236)',
+    text: 'rgb(23, 43, 80)',
+    selected: 'rgb(231, 242, 255)',
+    accent: 'rgb(36, 91, 148)'
   },
   night: {
     background: 'rgb(11, 23, 39)',
@@ -176,7 +176,7 @@ const shellPalettes = {
     border: 'rgb(64, 86, 111)',
     text: 'rgb(241, 245, 252)',
     selected: 'rgb(36, 61, 83)',
-    gold: 'rgb(244, 201, 87)'
+    accent: 'rgb(158, 218, 255)'
   },
   graphite: {
     background: 'rgb(25, 27, 31)',
@@ -184,7 +184,7 @@ const shellPalettes = {
     border: 'rgb(86, 97, 110)',
     text: 'rgb(243, 244, 246)',
     selected: 'rgb(56, 67, 79)',
-    gold: 'rgb(241, 206, 128)'
+    accent: 'rgb(176, 210, 235)'
   }
 } as const;
 
@@ -241,14 +241,14 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
           });
           await expect(active).toHaveAttribute('aria-current', 'page');
           await expect(active).toHaveCSS('background-color', palette.selected);
-          await expect(active).toHaveCSS('color', palette.text);
+          await expect(active).toHaveCSS('color', palette.accent);
           await expect(active).toHaveCSS('font-size', '15px');
           await expect(active).toHaveCSS('min-height', '44px');
           await expect(active).toHaveCSS('padding', '10px 12px');
           const shadow = await active.evaluate(
             (node) => getComputedStyle(node).boxShadow
           );
-          expect(shadow).toContain(palette.gold);
+          expect(shadow).toContain(palette.accent);
           expect(shadow).toContain('3px 0px 0px 0px inset');
           if (language === 'fr-CA') {
             await active.focus();
@@ -301,11 +301,13 @@ test('admin shell preserves inclusive navigation and chrome breakpoints through 
       await page.setViewportSize({ width, height: 941 });
       await expect(banner).toHaveCSS(
         'padding',
-        width <= 860 ? '12.8px 16px' : '10px 24px'
+        width <= 860 ? '12.8px 16px' : `12px ${Math.min(32, width * 0.02)}px`
       );
       await expect(main).toHaveCSS(
         'padding',
-        width <= 860 ? '20px 16px 32px' : '24px 24px 32px'
+        width <= 860
+          ? '20px 16px 32px'
+          : `20px ${Math.min(32, width * 0.02)}px 32px`
       );
       await expect(search).toHaveCSS(
         'flex-basis',
@@ -366,7 +368,7 @@ test('admin shell preserves inclusive navigation and chrome breakpoints through 
   }
 });
 
-test('default warm mineral palette keeps dashboard readable at 125% display scaling', async ({
+test('default Premium Light palette keeps dashboard readable at 125% display scaling', async ({
   page
 }, testInfo) => {
   await fixtures(page);
@@ -382,11 +384,11 @@ test('default warm mineral palette keeps dashboard readable at 125% display scal
   );
   await expect(page.locator('openg7-admin-layout')).toHaveCSS(
     'background-color',
-    'rgb(247, 245, 240)'
+    'rgb(245, 247, 251)'
   );
   await expect(
     page.getByRole('heading', { name: 'Centre de pilotage' })
-  ).toHaveCSS('color', 'rgb(41, 51, 46)');
+  ).toHaveCSS('color', 'rgb(23, 43, 80)');
   await page.screenshot({
     path: testInfo.outputPath('mineral-dashboard.png'),
     fullPage: true

@@ -33,13 +33,16 @@ le [runbook éditorial](editorial-programme.md).
 
 ## Apparence et concentration
 
-**Apparence** propose Clair minéral (ivoire, sauge et vert, par défaut), Nuit OpenG7
+**Apparence** propose OpenG7 Premium Light (perle, bleu marine et or, par défaut), Nuit OpenG7
 et Graphite, ainsi que les densités Confort et Compact. Les choix enregistrés sont
 conservés. La palette couvre le cadre de navigation et le
 contenu de toutes les pages utilisant le layout admin partagé. Elle est conservée
 après un changement de page ou un rechargement. La densité reste propre au pilotage.
-**Suivre le thème du système** alterne entre Clair minéral et Nuit OpenG7 selon
+**Suivre le thème du système** alterne entre Premium Light et Nuit OpenG7 selon
 la préférence de l'appareil, y compris lorsqu'elle change hors du pilotage.
+
+L'identifiant clair enregistré `mineral` est conservé. Les fondations et les
+primitives sont décrites dans le [design system](../development/css-frameworks.md#openg7-premium-light--design-system-v1).
 
 Ces préférences sont locales au navigateur (`openg7.pilotage.appearance.v1`),
 communes aux comptes sur cet appareil et synchronisées entre ses onglets,

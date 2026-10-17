@@ -183,16 +183,16 @@
       "palette": "Administration palette",
       "themes": {
         "night": "OpenG7 Night",
-        "mineral": "Mineral Light",
+        "mineral": "OpenG7 Premium Light",
         "graphite": "Graphite"
       },
       "descriptions": {
         "night": "Midnight blue with gold accents.",
-        "mineral": "Light surfaces, clear reading.",
+        "mineral": "Pearl white, navy blue and gold accents.",
         "graphite": "Neutral greys and subtle gold."
       },
       "system": "Follow the system theme",
-      "systemHint": "Mineral Light in light mode and OpenG7 Night in dark mode, following your device.",
+      "systemHint": "Premium Light in light mode and OpenG7 Night in dark mode, following your device.",
       "current": "Current appearance:",
       "density": "Pilotage density",
       "comfortable": "Comfort",

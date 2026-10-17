@@ -348,10 +348,10 @@ registerPublicationReliabilityTests({
 const publicationPalettes = {
   mineral: {
     panel: 'rgb(255, 255, 255)',
-    raised: 'rgb(240, 244, 238)',
-    subtle: 'rgb(247, 245, 240)',
-    border: 'rgb(202, 213, 201)',
-    text: 'rgb(41, 51, 46)'
+    raised: 'rgb(240, 244, 249)',
+    subtle: 'rgb(245, 247, 251)',
+    border: 'rgb(216, 224, 236)',
+    text: 'rgb(23, 43, 80)'
   },
   night: {
     panel: 'rgb(20, 35, 56)',

@@ -7,17 +7,18 @@
 .sponsors-list-panel {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  @apply tw:rounded-lg tw:min-w-0 tw:overflow-hidden;
+  @apply tw:rounded-admin-card tw:min-w-0 tw:overflow-hidden;
+  box-shadow: var(--admin-shadow);
 }
 
 :host .sponsors-list-panel {
-  @apply tw:rounded-2xl;
+  @apply tw:rounded-admin-card;
 }
 
 .list-caption {
   @apply tw:flex tw:justify-between tw:items-center;
-  padding: 1.1rem 1rem 0;
-  font-size: 0.9rem;
+  padding: var(--admin-card-padding) var(--admin-card-padding) 0;
+  font-size: 1rem;
 }
 
 .list-caption span {

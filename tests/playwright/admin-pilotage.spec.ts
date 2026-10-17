@@ -30,7 +30,7 @@ function overviewCount(page: Page, label: string) {
 
 const adminPalettes = {
   night: { background: 'rgb(11, 23, 39)', sidebar: 'rgb(13, 27, 44)' },
-  mineral: { background: 'rgb(247, 245, 240)', sidebar: 'rgb(232, 239, 231)' },
+  mineral: { background: 'rgb(245, 247, 251)', sidebar: 'rgb(247, 249, 252)' },
   graphite: { background: 'rgb(25, 27, 31)', sidebar: 'rgb(30, 33, 38)' }
 };
 

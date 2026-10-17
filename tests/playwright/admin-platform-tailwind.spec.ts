@@ -8,8 +8,8 @@ import { expect, test } from './support/test.js';
 const palettes = {
   mineral: {
     panel: 'rgb(255, 255, 255)',
-    raised: 'rgb(240, 244, 238)',
-    text: 'rgb(41, 51, 46)'
+    raised: 'rgb(240, 244, 249)',
+    text: 'rgb(23, 43, 80)'
   },
   night: {
     panel: 'rgb(20, 35, 56)',

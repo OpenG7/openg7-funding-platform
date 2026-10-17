@@ -22,6 +22,7 @@ export default defineBuiltWebSuite({
     'admin-dashboard-layout.spec.ts',
     'admin-typography.spec.ts',
     'admin-style-primitives.spec.ts',
+    'admin-premium-light.spec.ts',
     'admin-cockpit.spec.ts',
     'admin-global-search.spec.ts',
     'admin-attention.spec.ts',

@@ -67,8 +67,8 @@ async function fixtures(page: Page, language = 'fr-CA') {
 const auditPalettes = {
   mineral: {
     panel: 'rgb(255, 255, 255)',
-    border: 'rgb(202, 213, 201)',
-    text: 'rgb(41, 51, 46)'
+    border: 'rgb(216, 224, 236)',
+    text: 'rgb(23, 43, 80)'
   },
   night: {
     panel: 'rgb(20, 35, 56)',
@@ -222,7 +222,13 @@ for (const language of ['fr-CA', 'en']) {
       );
       await expect(next).toHaveCount(0);
       const inspect = rows.getByRole('button', { name: entries[20].action });
+      await page.keyboard.press('Tab');
       await inspect.focus();
+      await inspect.hover();
+      await expect(inspect).toBeFocused();
+      await expect(inspect).toHaveCSS('outline-style', 'solid');
+      await expect(inspect).toHaveCSS('outline-width', '3px');
+      await expect(inspect).toHaveCSS('outline-offset', '3px');
       await page.keyboard.press('Enter');
       const dialog = page.getByRole('dialog');
       await expect(dialog).toContainText(entries[20].summary!);

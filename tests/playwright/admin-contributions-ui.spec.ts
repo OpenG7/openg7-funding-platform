@@ -119,11 +119,11 @@ async function fixtures(page: Page, language: string) {
 const contributionPalettes = {
   mineral: {
     panel: 'rgb(255, 255, 255)',
-    raised: 'rgb(240, 244, 238)',
-    text: 'rgb(41, 51, 46)',
-    muted: 'rgb(83, 99, 90)',
-    border: 'rgb(202, 213, 201)',
-    focus: 'rgb(47, 107, 80)'
+    raised: 'rgb(240, 244, 249)',
+    text: 'rgb(23, 43, 80)',
+    muted: 'rgb(82, 98, 123)',
+    border: 'rgb(216, 224, 236)',
+    focus: 'rgb(18, 101, 176)'
   },
   night: {
     panel: 'rgb(20, 35, 56)',

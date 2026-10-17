@@ -7,7 +7,7 @@
 .empty-admin-state {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  @apply tw:rounded-lg;
+  @apply tw:rounded-admin-card;
 }
 
 button {
@@ -28,7 +28,7 @@ button:focus-visible {
   padding: 0 0.85rem;
   text-decoration: none;
   background: var(--admin-panel);
-  border: 1px solid var(--admin-border);
+  border: 1px solid var(--admin-control-border);
   @apply tw:text-admin-text;
 }
 
@@ -37,11 +37,15 @@ button:focus-visible {
   opacity: 0.55;
 }
 
+.secondary-action:hover:not(:disabled) {
+  background: var(--admin-hover);
+}
+
 .state,
 .empty-admin-state {
   @apply tw:grid;
   gap: 0.7rem;
-  @apply tw:p-4;
+  @apply tw:p-admin-card;
 }
 
 .empty-admin-state h2 {
@@ -102,11 +106,7 @@ button:focus-visible {
 .sponsor-table-row {
   --sponsor-row-accent: var(--admin-muted);
   appearance: none;
-  background: color-mix(
-    in srgb,
-    var(--admin-panel) 96%,
-    var(--sponsor-row-accent)
-  );
+  background: var(--admin-panel);
   border: 0;
   border-bottom: 1px solid var(--admin-border);
   border-left: 0.28rem solid var(--sponsor-row-accent, transparent);
@@ -114,25 +114,22 @@ button:focus-visible {
   padding-left: 0.72rem;
   @apply tw:text-left;
   transition:
-    background-color 0.16s ease,
-    box-shadow 0.16s ease,
-    border-color 0.16s ease;
+    background-color var(--admin-motion-duration) var(--admin-motion-easing),
+    box-shadow var(--admin-motion-duration) var(--admin-motion-easing),
+    border-color var(--admin-motion-duration) var(--admin-motion-easing);
   @apply tw:w-full;
 }
 
 .sponsor-table-row:not(:disabled):hover {
-  background: color-mix(
-    in srgb,
-    var(--admin-panel-raised) 94%,
-    var(--sponsor-row-accent)
-  );
+  background: var(--admin-hover);
   outline: none;
 }
 
 .sponsor-table-row.selected,
 .sponsor-table-row.selected:hover {
-  background: color-mix(in srgb, var(--admin-panel) 88%, var(--admin-focus));
-  box-shadow: inset 0 0 0 1px var(--admin-focus);
+  background: var(--admin-selected);
+  border-left-color: var(--admin-accent);
+  box-shadow: inset 0 0 0 1px var(--admin-accent);
 }
 
 :host .sponsor-table-row:focus-visible {
@@ -291,7 +288,8 @@ button:focus-visible {
 }
 
 .sponsor-table-row.selection-pulse {
-  animation: selected-box-fade-in 0.52s ease both;
+  animation: selected-box-fade-in var(--admin-motion-duration)
+    var(--admin-motion-easing) both;
 }
 
 :host(.compact) .sponsor-table-head,

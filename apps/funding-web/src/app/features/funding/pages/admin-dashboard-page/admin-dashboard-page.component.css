@@ -5,7 +5,7 @@
 }
 .dashboard {
   container: admin-dashboard / inline-size;
-  @apply tw:grid tw:gap-6;
+  @apply tw:grid tw:gap-admin-section;
 }
 .page-heading,
 .panel-heading {
@@ -38,26 +38,27 @@ h1 {
   gap: 0.4rem;
 }
 .metrics {
-  @apply tw:grid tw:gap-5;
+  @apply tw:grid tw:gap-admin-card-gap;
   grid-template-columns: minmax(0, 1fr);
 }
 .summaries {
-  @apply tw:grid tw:gap-5;
+  @apply tw:grid tw:gap-admin-card-gap;
   grid-template-columns: minmax(0, 1fr);
 }
 .details {
-  @apply tw:grid tw:gap-5;
+  @apply tw:grid tw:gap-admin-card-gap;
   grid-template-columns: minmax(0, 1fr);
   align-items: start;
 }
 .panel {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  @apply tw:rounded-xl tw:min-w-0 tw:overflow-hidden;
+  @apply tw:rounded-admin-card tw:min-w-0 tw:overflow-hidden;
+  box-shadow: var(--admin-shadow);
 }
 .panel-heading {
   border-bottom: 1px solid var(--admin-border);
-  @apply tw:p-5;
+  @apply tw:p-admin-card;
 }
 h2 {
   @apply tw:text-admin-text tw:m-0;
@@ -75,7 +76,7 @@ h2 {
   @apply tw:gap-2 tw:min-h-8;
 }
 .status-list {
-  @apply tw:grid tw:gap-4 tw:m-0 tw:p-5;
+  @apply tw:grid tw:gap-4 tw:m-0 tw:p-admin-card;
 }
 .status-list div {
   @apply tw:items-center tw:flex tw:gap-4 tw:justify-between;
@@ -113,7 +114,7 @@ dd {
   text-decoration: none;
 }
 .contributions a:hover {
-  background: var(--admin-panel-raised);
+  background: var(--admin-hover);
 }
 .contributor {
   @apply tw:flex-1 tw:min-w-0;
@@ -151,7 +152,8 @@ dd {
   align-items: start;
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  @apply tw:rounded-xl tw:text-admin-muted tw:flex tw:gap-3 tw:m-0 tw:p-5;
+  @apply tw:rounded-admin-card tw:text-admin-muted tw:flex tw:gap-3 tw:m-0 tw:p-admin-card;
+  box-shadow: var(--admin-shadow);
 }
 .notice p {
   font-size: var(--admin-secondary-size, 0.875rem);
@@ -208,13 +210,13 @@ dd {
 .workflow-grid {
   @apply tw:grid;
   grid-template-columns: minmax(0, 1fr);
-  @apply tw:gap-5;
+  @apply tw:gap-admin-card-gap;
   align-items: start;
 }
 .cockpit-secondary {
   @apply tw:grid;
   grid-template-columns: minmax(0, 1fr);
-  @apply tw:gap-5;
+  @apply tw:gap-admin-card-gap;
   align-items: start;
 }
 @container admin-dashboard (min-width: 64rem) {

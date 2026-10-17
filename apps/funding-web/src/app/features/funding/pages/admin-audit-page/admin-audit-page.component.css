@@ -121,7 +121,6 @@ tbody tr:focus-within {
 
 .entry-link:not(:disabled):hover {
   color: var(--admin-focus);
-  outline: none;
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }

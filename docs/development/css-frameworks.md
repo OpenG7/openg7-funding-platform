@@ -74,6 +74,50 @@ Les alias `@theme inline` relient par exemple `--color-admin-muted` à
 `var(--admin-caption-size, 0.875rem)`. Les valeurs restent résolues sur l'élément
 stylé; les thèmes et préférences typographiques existants gardent leur rôle.
 
+## OpenG7 Premium Light — Design System v1
+
+Le thème clair de l'administration s'inspire de la maquette Commandites : fonds
+blanc perle, texte bleu marine, sélection bleu pâle et action principale dorée.
+L'or foncé sert aux repères et le bleu aux liens et au focus. Les couleurs d'état
+conservent leur sens. La palette publique reste indépendante.
+
+Les fondations ont un propriétaire précis :
+
+- [Apparence](../../apps/funding-web/src/styles/admin-appearance.css) : couleurs
+  sémantiques et variantes Nuit OpenG7/Graphite. L'identifiant enregistré
+  `mineral` désigne toujours le thème clair, désormais nommé Premium Light;
+  aucun effacement des préférences du navigateur n'est nécessaire.
+- [Typographie](../../apps/funding-web/src/styles/admin-typography.css) : corps,
+  légendes, navigation, titres fluides et contrôles. La police système évite un
+  téléchargement supplémentaire; les tailles en rem suivent le réglage du texte.
+- [Contrat admin](../../apps/funding-web/src/app/features/funding/components/admin-ui/admin-theme.css) :
+  espacements de page, section et carte, rayons, ombres, bordure des contrôles et
+  durée des interactions. La bordure des champs est plus contrastée que celle
+  des cartes. La préférence de mouvement réduit ramène cette durée à zéro.
+- [Alias Tailwind](../../apps/funding-web/src/styles/tailwind.css) : accès aux
+  tokens par `@theme inline`, par exemple `tw:p-admin-card`,
+  `tw:gap-admin-section` et `tw:gap-admin-card-gap`. Changer un token ne demande
+  pas de recopier une couleur ou un espacement dans chaque composant.
+
+Les primitives Angular existantes (boutons, formulaires, badges, cartes métriques
+et confirmation) consomment ce contrat. Le cadre, le cockpit et la composition
+des dossiers commanditaires en sont les premières compositions harmonisées.
+Leurs contenus, permissions, étapes et confirmations restent portés par leurs
+composants métier. Les autres compositions profitent de la palette commune;
+leur harmonisation détaillée reste progressive.
+
+La densité privilégie l'espace entre les grandes sections, tout en conservant
+des contrôles d'au moins 44 px dans les primitives communes. Le réglage Compact
+reste propre au pilotage et ne réduit pas la typographie. Les focus clavier et
+manette gardent leur contour visible; les transitions de couleur et d'ombre
+n'animent pas la géométrie des zones de décision.
+
+La recette de référence représente un écran physique de 1920 × 1080 à 125 % par
+un viewport de 1536 × 864 pixels CSS. Ce viewport teste l'espace disponible;
+`deviceScaleFactor` seul ne simule pas le zoom du navigateur. Les tests de texte
+agrandi, mobile, thèmes sombres et contrôleur simulé complètent cette recette.
+Ils ne qualifient ni l'écran Windows ni une manette Xbox physique.
+
 ## Correspondances et responsabilité
 
 Les exemples Tailwind suivants s'utilisent dans `@apply`, avec la référence

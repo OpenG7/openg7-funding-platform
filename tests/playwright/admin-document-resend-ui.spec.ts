@@ -170,9 +170,9 @@ async function expectDocumentColumns(grid: Locator, columns: number) {
 const documentPalettes = {
   mineral: {
     panel: 'rgb(255, 255, 255)',
-    raised: 'rgb(240, 244, 238)',
-    text: 'rgb(41, 51, 46)',
-    success: 'rgb(34, 99, 66)',
+    raised: 'rgb(240, 244, 249)',
+    text: 'rgb(23, 43, 80)',
+    success: 'rgb(35, 99, 66)',
     warning: 'rgb(128, 84, 17)',
     danger: 'rgb(165, 45, 62)'
   },

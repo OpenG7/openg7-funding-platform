@@ -69,8 +69,8 @@ async function gridColumns(element: Locator): Promise<number> {
 const cockpitPalettes = {
   mineral: {
     panel: 'rgb(255, 255, 255)',
-    border: 'rgb(202, 213, 201)',
-    gold: 'rgb(142, 92, 16)'
+    border: 'rgb(216, 224, 236)',
+    gold: 'rgb(148, 101, 0)'
   },
   night: {
     panel: 'rgb(20, 35, 56)',
@@ -135,7 +135,7 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
         'background-color',
         cockpitPalettes[theme].panel
       );
-      await expect(summaryPanel).toHaveCSS('border-radius', '12px');
+      await expect(summaryPanel).toHaveCSS('border-radius', '14px');
       await expect(summaryPanel.locator('header')).toHaveCSS('padding', '20px');
       const metricGrid = page
         .locator('[data-og7="cockpit-metric"][data-og7-id="sponsorships"]')

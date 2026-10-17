@@ -5,14 +5,11 @@
 }
 
 article {
-  @apply tw:flex tw:gap-4 tw:h-full tw:p-admin-card tw:rounded-admin-card;
+  @apply tw:flex tw:gap-admin-card-gap tw:h-full tw:p-admin-card tw:rounded-admin-card;
   align-items: start;
-  background: linear-gradient(
-    140deg,
-    var(--admin-panel-raised, #192a40),
-    var(--admin-panel)
-  );
+  background: var(--admin-panel);
   border: 1px solid var(--admin-border);
+  box-shadow: var(--admin-shadow);
 }
 
 div {
@@ -24,6 +21,7 @@ article.embedded {
   grid-template-columns: 2.5rem minmax(0, 1fr);
   background: transparent;
   border: 0;
+  box-shadow: none;
 }
 
 .embedded div {
