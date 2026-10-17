@@ -18,6 +18,7 @@ import { AdminGuidanceService } from '../../services/admin-guidance.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
 import type { AdminAutomaticComponent } from '../admin-automatic/admin-automatic.component.js';
+import { adminContentRegions } from '../admin-layout/admin-content-scope.js';
 
 import { highlightGuidanceRegions } from './admin-guidance-highlight.js';
 import { AdminPaymentJourneyComponent } from './admin-payment-journey.component.js';
@@ -63,6 +64,7 @@ export class AdminGuidanceComponent {
     );
   });
   private readonly document = inject(DOCUMENT);
+  private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly card = viewChild<ElementRef<HTMLElement>>('card');
   private readonly toggle = viewChild<ElementRef<HTMLButtonElement>>('toggle');
   private readonly resume = viewChild<ElementRef<HTMLAnchorElement>>('resume');
@@ -175,16 +177,25 @@ export class AdminGuidanceComponent {
   show(hook = this.guidance.step()?.target): void {
     this.clearHighlight();
     if (hook && !/^[a-z0-9-]+$/.test(hook)) return;
-    const main = this.document.getElementById('admin-main');
+    const layout = this.element.nativeElement.closest<HTMLElement>(
+      '[data-og7="admin-layout"]'
+    );
+    const scopes = layout ? adminContentRegions(layout) : [];
+    const main = scopes.find((region) => region.id === 'admin-main');
     const view = this.document.defaultView;
     const regions = hook
-      ? Array.from(
-          main?.querySelectorAll<HTMLElement>(`[data-og7="${hook}"]`) ?? []
-        ).filter(
-          (region) =>
-            region.getClientRects().length > 0 &&
-            view?.getComputedStyle(region).visibility !== 'hidden'
-        )
+      ? scopes
+          .flatMap((scope) =>
+            Array.from(
+              scope.querySelectorAll<HTMLElement>(`[data-og7="${hook}"]`)
+            )
+          )
+          .filter(
+            (region) =>
+              region.closest('[data-og7="admin-layout"]') === layout &&
+              region.getClientRects().length > 0 &&
+              view?.getComputedStyle(region).visibility !== 'hidden'
+          )
       : [];
     this.missing.set(Boolean(hook && regions.length === 0));
     if (this.guidance.mode() === 'payment' && regions.length === 0) return;

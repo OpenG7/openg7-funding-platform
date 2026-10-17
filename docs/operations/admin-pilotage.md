@@ -4,7 +4,7 @@ Route : `/admin/fundraiser/pilotage`, accessible depuis la navigation admin.
 La page utilise le cadre commun de l'administration : menu latéral, recherche,
 langue et menu repliable sur mobile. Les espaces de pilotage sont des filtres
 dans le contenu, sous le titre; ils changent la file sans quitter la page.
-Une décision centrale, la file « À suivre » et les commandes en bas conservent
+Une décision centrale, la file « À suivre » et les commandes contextuelles conservent
 le parcours spécialisé. Les raccourcis du pilotage sont neutralisés lorsque
 le focus est dans la navigation globale ou la recherche; le retour aux décisions
 exige de relâcher la manette.
@@ -58,8 +58,43 @@ L'entrée et la sortie conservent la sélection. Les changements d'apparence,
 y compris système, ne rechargent pas les dossiers et préservent les saisies.
 La concentration revient au mode normal après rechargement.
 
-Les actions occupent une zone réservée sous le contenu défilant et ne le
-recouvrent pas. Le stick droit fait défiler cet espace, ou le panneau ouvert.
+Le controller reste propre au Pilotage. Le layout réserve une palette à droite
+dès 1440 pixels CSS et 700 pixels de hauteur, reliée au bandeau inférieur par une
+coque décorative CSS continue. La grille réserve les deux zones, sans recouvrir
+le dossier; le bandeau passe aussi sous la navigation latérale. Les dimensions
+sont de 12rem et 5rem, puis 15rem et 5,5rem dès 1760 × 800 pixels CSS.
+La palette est rétractable; son bouton conserve le focus et son ouverture
+ne déclenche aucune commande. Le bandeau reste utilisable pendant la rétraction.
+Le guide flottant réserve la largeur de la palette et la hauteur du bandeau.
+
+Entre 1280 × 650 et le format complet, le bandeau mesure 4rem et les décisions
+reprennent leur disposition classique sous le dossier. Sous ces seuils, ou avec
+le simulateur ouvert, le bandeau disparaît et les actions classiques restent
+accessibles même après une rétraction. Sur mobile, la coque est absente.
+1920 × 1080 à 125 % correspond généralement à environ 1536 × 864 pixels CSS,
+avec une hauteur utile réduite par le navigateur : mesurer le viewport effectif.
+
+Le radial expose les quatre intentions existantes : accepter, refuser, modifier,
+détails. Le bandeau propose accueil, décision précédente/suivante, dossier complet,
+file et diagnostic manette. Aucun historique ou gestionnaire de documents
+universel n'est simulé. Les vrais boutons conservent la préparation automatique,
+les profils Gamepad réaffectés et les confirmations métier; aucun raccourci de
+remboursement ou d'envoi de courriel n'est ajouté au catalogue du Pilotage.
+Les raccourcis configurés restent affichés sans manette; l'état matériel reste
+indiqué séparément. Menu/View/Y gardent leurs fonctions existantes.
+
+Tab parcourt les contrôles HTML dans l'ordre du document. Les flèches parcourent
+verticalement le radial et horizontalement le bandeau; Droite depuis le radial
+rejoint le bandeau, Haut depuis le bandeau revient au radial. Bas depuis le dernier
+contrôle radial rejoint aussi le bandeau. À la manette, A active le contrôle
+focalisé et B depuis le bandeau revient au radial sans préparer de refus.
+LB/RB changent de décision hors dialogue. Un changement de zone ou de cible
+impose le retour au neutre. Les panneaux ouverts conservent leur priorité.
+Les intentions différées sont revérifiées contre la cible et sa version;
+accueil et diagnostic gardent un contexte de workspace même lorsque la file est vide.
+Le stick droit fait défiler l'espace de travail ou le panneau ouvert.
+La coque et ses raccords restent décoratifs, sans Canvas, WebGL, flou de fond ni
+animation permanente; les contrôles natifs partagent le même composant générique.
 Le texte d'une décision reste entier dans cet espace, sans défilement imbriqué.
 Apparence garde la priorité du panneau et impose le retour au neutre après
 chaque choix; aucune préférence ne déclenche une commande métier.

@@ -11,7 +11,7 @@ import {
   viewChild
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import type {
   PilotAction,
   PilotCommand,
@@ -49,9 +49,28 @@ import { PilotDecisionDetailsComponent } from '../../components/admin-pilotage/p
 import { AdminPublicationCalendarComponent } from '../../components/admin-publications/admin-publication-calendar.component.js';
 import { PilotAppearanceService } from '../../services/pilot-appearance.service.js';
 import { PilotAppearanceComponent } from '../../components/admin-pilotage/pilot-appearance.component.js';
+import { ContextControllerComponent } from '../../components/admin-context-controller/context-controller.component.js';
+import { ContextControllerActionComponent } from '../../components/admin-context-controller/context-controller-action.component.js';
+import { BottomCommandDeckComponent } from '../../components/admin-context-controller/bottom-command-deck.component.js';
+import {
+  focusControllerZone,
+  moveControllerFocus,
+  type ControllerDirection
+} from '../../components/admin-context-controller/controller-focus.js';
+import type {
+  ControllerAction,
+  ControllerActionRequest,
+  ControllerContext
+} from '../../models/context-controller.models.js';
 
 import { AdminPilotageCommandWorkflow } from './admin-pilotage-command-workflow.js';
 import { AdminPilotageReadController } from './admin-pilotage-read.controller.js';
+import {
+  matchesControllerContext,
+  pilotageControllerActions,
+  pilotageControllerContext,
+  pilotageDeckActions
+} from './pilotage-controller-actions.js';
 
 type Panel =
   | ''
@@ -69,6 +88,7 @@ type Panel =
 /** Routed orchestration: one stable decision, explicit commands and server receipts. */
 @Component({
   selector: 'openg7-admin-pilotage-page',
+  host: { '[class.context-controller-expanded]': 'controllerExpanded()' },
   standalone: true,
   imports: [
     PilotAppearanceComponent,
@@ -84,7 +104,10 @@ type Panel =
     AdminAutomaticPreparationDirective,
     FundingModerationActionsComponent,
     EditorialProgrammeComponent,
-    AdminGuideComponent
+    AdminGuideComponent,
+    ContextControllerComponent,
+    ContextControllerActionComponent,
+    BottomCommandDeckComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-pilotage-page.component.html',
@@ -123,6 +146,7 @@ export class AdminPilotagePageComponent {
   private readonly guide = viewChild(AdminGuideComponent);
   private readonly programme = viewChild(EditorialProgrammeComponent);
   private readonly document = inject(DOCUMENT);
+  private readonly router = inject(Router);
   private releaseController: (() => void) | undefined;
   private confirmationFocusFrame = 0;
   readonly panel = signal<Panel>('');
@@ -236,6 +260,149 @@ export class AdminPilotagePageComponent {
       this.receipt()?.status === 'completed'
   );
   readonly profile = defaultControllerProfile();
+  readonly controllerExpanded = signal(true);
+  readonly workspaceControllerContext: ControllerContext = {
+    key: 'pilotage-workspace',
+    targetId: 'pilotage',
+    revision: '1'
+  };
+  readonly controllerContext = computed(() =>
+    pilotageControllerContext(this.selected())
+  );
+  readonly controllerActions = computed(() => {
+    this.i18n.currentLanguage();
+    const blockedReason = this.busy()
+      ? this.t('loading')
+      : this.unresolved()
+        ? this.t('uncertain')
+        : this.stale()
+          ? this.t('stale')
+          : !this.state()?.writable
+            ? this.t('readOnly')
+            : this.t('controllerUnavailable');
+    return pilotageControllerActions({
+      decision: this.selected(),
+      primary: this.primary(),
+      reject: this.reject(),
+      editable: this.editable(),
+      blocked: this.blocked(),
+      busy: this.busy(),
+      bindings: this.controller.profile().bindings,
+      labels: {
+        accept: this.t('accept'),
+        reject: this.t('reject'),
+        edit: this.t('edit'),
+        details: this.t('details'),
+        unavailable: this.t('controllerUnavailable')
+      },
+      blockedReason,
+      explain: (code) => this.errorLabel(code)
+    });
+  });
+  readonly deckActions = computed(() => {
+    this.i18n.currentLanguage();
+    return pilotageDeckActions({
+      decision: this.selected(),
+      busy: this.busy(),
+      canNavigate:
+        !!this.selected() && this.queue().length > 1 && !this.loading(),
+      hasFollowing: this.following().length > 0,
+      labels: {
+        home: this.t('deckHome'),
+        previous: this.t('previous'),
+        next: this.t('next'),
+        record: this.t('deckRecord'),
+        queue: this.t('deckQueue'),
+        diagnostics: this.t('deckDiagnostics')
+      }
+    });
+  });
+  setControllerExpanded(expanded: boolean): void {
+    this.controllerExpanded.set(expanded);
+    this.controller.reset();
+  }
+  prepareControllerAction(action: ControllerAction): void {
+    const context = this.controllerContext();
+    if (context) this.controllerAction({ actionId: action.id, context });
+  }
+  controllerAction(request: ControllerActionRequest): void {
+    const action = [...this.controllerActions(), ...this.deckActions()].find(
+      (candidate) => candidate.id === request.actionId
+    );
+    const context =
+      action?.scope === 'workspace'
+        ? this.workspaceControllerContext
+        : this.controllerContext();
+    if (
+      this.panel() ||
+      this.inspection.current() ||
+      this.document.querySelector('dialog[open]') ||
+      !matchesControllerContext(context, request.context) ||
+      !action?.enabled ||
+      !action.visible
+    )
+      return;
+    switch (request.actionId) {
+      case 'pilot-accept':
+        if (this.primary()) this.request(this.primary()!.id);
+        break;
+      case 'pilot-reject':
+        if (this.reject()) this.request(this.reject()!.id);
+        break;
+      case 'pilot-edit':
+        this.startEdit();
+        break;
+      case 'pilot-details':
+        void this.details();
+        break;
+      case 'pilot-home':
+        this.persist();
+        void this.router.navigateByUrl('/admin/fundraiser');
+        break;
+      case 'pilot-previous':
+        this.next(-1);
+        break;
+      case 'pilot-next':
+        this.next();
+        break;
+      case 'pilot-open-record':
+        this.portal();
+        void this.router.navigateByUrl(this.selected()!.detailsUrl);
+        break;
+      case 'pilot-queue':
+        this.queueVisible.set(true);
+        this.controller.reset();
+        this.document.defaultView?.requestAnimationFrame(() => {
+          if (this.panel() || this.document.querySelector('dialog[open]'))
+            return;
+          this.document.querySelector<HTMLElement>('#pilot-following')?.focus();
+        });
+        break;
+      case 'pilot-diagnostics':
+        this.open('settings');
+        break;
+    }
+  }
+  controllerKeydown(event: KeyboardEvent): void {
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey)
+      return;
+    const directions: Readonly<Record<string, ControllerDirection>> = {
+      ArrowUp: 'up',
+      ArrowDown: 'down',
+      ArrowLeft: 'left',
+      ArrowRight: 'right'
+    };
+    const direction = directions[event.key];
+    const target = event.target as HTMLElement | null;
+    if (
+      direction &&
+      !this.panel() &&
+      !this.document.querySelector('dialog[open]') &&
+      target?.closest('[data-og7-controller-owner="pilotage"]') &&
+      moveControllerFocus(target, direction)
+    )
+      event.preventDefault();
+  }
   readonly rawLabels = [
     'A',
     'B',
@@ -298,10 +465,18 @@ export class AdminPilotagePageComponent {
         { priority: 100, keyboard: true }
       );
       let globalNavigation = this.globalNavigationActive();
+      let controllerZone = this.document.activeElement?.closest(
+        '[data-controller-zone]'
+      );
       const focusChanged = () => {
         const next = this.globalNavigationActive();
-        if (next !== globalNavigation) this.controller.reset();
+        const nextZone = this.document.activeElement?.closest(
+          '[data-controller-zone]'
+        );
+        if (next !== globalNavigation || nextZone !== controllerZone)
+          this.controller.reset();
         globalNavigation = next;
+        controllerZone = nextZone;
       };
       this.document.addEventListener('focusin', focusChanged);
       destroy.onDestroy(() =>
@@ -859,12 +1034,33 @@ export class AdminPilotagePageComponent {
         this.moveFocus(intent);
       return;
     }
+    const active = this.document.activeElement as HTMLElement | null;
+    if (
+      active?.closest(
+        '[data-og7-controller-owner="pilotage"] [data-controller-zone]'
+      )
+    ) {
+      if (['up', 'down', 'left', 'right'].includes(intent)) {
+        moveControllerFocus(active, intent as ControllerDirection);
+        return;
+      }
+      if (
+        intent === 'secondary' &&
+        active.closest('[data-controller-zone="bottom"]')
+      ) {
+        focusControllerZone(active, 'radial');
+        this.controller.reset();
+        return;
+      }
+    }
     switch (intent) {
       case 'primary': {
         const active = this.document.activeElement as HTMLElement | null;
         if (
           active?.matches('button:not([disabled]),a[href]') &&
-          active.closest('.pilot')
+          active.closest(
+            '[data-og7="pilotage"], [data-og7-controller-owner="pilotage"]'
+          )
         )
           active.click();
         else if (this.primary()) this.request(this.primary()!.id);
@@ -931,7 +1127,9 @@ export class AdminPilotagePageComponent {
       this.document.querySelector('dialog[open]') ||
       (active?.closest('openg7-admin-layout') &&
         active.id !== 'admin-main' &&
-        !active.closest('[data-og7="pilotage"]'))
+        !active.closest(
+          '[data-og7="pilotage"], [data-og7-controller-owner="pilotage"]'
+        ))
     );
   }
   private moveFocus(intent: ControllerIntent): void {

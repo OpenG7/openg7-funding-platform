@@ -13,6 +13,7 @@ import { NavigationStart, Router } from '@angular/router';
 
 import { AdminGuidanceService } from '../../services/admin-guidance.service.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
+import { adminContentRegions } from '../admin-layout/admin-content-scope.js';
 
 import {
   AdminAutomaticPreparationService,
@@ -172,9 +173,17 @@ export class AdminAutomaticService {
       const leave = () => this.pause();
       const edit = (event: Event) => {
         const element = event.target as HTMLElement | null;
+        const layout = this.document
+          .getElementById('admin-main')
+          ?.closest<HTMLElement>('[data-og7="admin-layout"]');
         if (
           this.run.active &&
-          element?.closest('#admin-main') &&
+          element &&
+          layout &&
+          element.closest('[data-og7="admin-layout"]') === layout &&
+          adminContentRegions(layout).some((content) =>
+            content.contains(element)
+          ) &&
           element.matches('input, textarea, select, [contenteditable="true"]')
         )
           this.pause();
@@ -387,7 +396,10 @@ export class AdminAutomaticService {
       };
       const found = () => {
         if (!this.current() || operation !== this.operation) return true;
-        const main = this.document.getElementById('admin-main');
+        const layout = this.document
+          .getElementById('admin-main')
+          ?.closest<HTMLElement>('[data-og7="admin-layout"]');
+        const regions = layout ? adminContentRegions(layout) : [];
         const prefixes = automaticPreparations[plan.reason] ?? [];
         const preparedControlReady =
           prefixes.length === 0 ||
@@ -397,14 +409,19 @@ export class AdminAutomaticService {
               prefixes.some((prefix) => entry.id.startsWith(prefix))
             );
         return (
-          main &&
+          regions.length > 0 &&
           preparedControlReady &&
           (!plan.target ||
-            Array.from(main.querySelectorAll<HTMLElement>('[data-og7]')).some(
-              (element) =>
-                element.getAttribute('data-og7') === plan.target &&
-                element.getClientRects().length > 0
-            ))
+            regions
+              .flatMap((content) =>
+                Array.from(content.querySelectorAll<HTMLElement>('[data-og7]'))
+              )
+              .some(
+                (element) =>
+                  element.closest('[data-og7="admin-layout"]') === layout &&
+                  element.getAttribute('data-og7') === plan.target &&
+                  element.getClientRects().length > 0
+              ))
         );
       };
       const observer = new view.MutationObserver(() => {

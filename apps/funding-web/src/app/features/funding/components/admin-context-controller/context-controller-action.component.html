@@ -1,0 +1,14 @@
+<span class="controller-action-icon" aria-hidden="true">
+  <openg7-admin-icon [name]="action().icon" />
+</span>
+<span class="controller-action-copy">
+  <span class="controller-action-label">{{ action().label }}</span>
+  @if (disabled() && action().disabledReason) {
+    <small>{{ action().disabledReason }}</small>
+  }
+</span>
+@if (action().shortcut; as shortcut) {
+  <kbd class="controller-action-shortcut" [attr.data-tone]="shortcut.tone">{{
+    shortcut.label
+  }}</kbd>
+}

@@ -1,0 +1,30 @@
+<section class="controller" [attr.aria-label]="title()">
+  <header class="controller-heading">
+    <div class="controller-copy">
+      <strong>{{ title() }}</strong>
+      @if (contextLabel()) {
+        <span>{{ contextLabel() }}</span>
+      }
+    </div>
+    <button
+      #toggleButton
+      type="button"
+      class="controller-toggle"
+      data-og7="context-controller-toggle"
+      [attr.aria-label]="expanded() ? collapseLabel() : expandLabel()"
+      [attr.title]="expanded() ? collapseLabel() : expandLabel()"
+      [attr.aria-expanded]="expanded()"
+      [attr.aria-controls]="actionsId()"
+      (click)="toggle()"
+    >
+      <openg7-admin-icon [name]="expanded() ? 'close' : 'menu'" />
+    </button>
+  </header>
+  <div
+    class="controller-actions"
+    data-og7="context-controller-actions"
+    [id]="actionsId()"
+  >
+    <ng-content />
+  </div>
+</section>

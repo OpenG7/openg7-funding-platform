@@ -1,12 +1,17 @@
 @reference '../../../../../styles/tailwind.css';
 
 :host {
+  --admin-content-max-width: 100rem;
   @apply tw:block tw:min-h-screen;
   background: var(--admin-bg);
 }
 .layout.sandbox-controller-open {
-  --admin-guidance-inline-end: calc(24rem + 1.25rem);
-  --admin-guidance-reserved-width: 24rem;
+  --admin-guidance-inline-end: calc(
+    24rem + 1.25rem + var(--admin-context-controller-width, 0px)
+  );
+  --admin-guidance-reserved-width: calc(
+    24rem + var(--admin-context-controller-width, 0px)
+  );
   @apply tw:h-dvh;
   grid-template-columns: 15rem minmax(0, 1fr) 24rem;
   @apply tw:overflow-hidden;
@@ -174,7 +179,7 @@
 }
 main {
   margin: 0 auto;
-  max-width: 100rem;
+  max-width: var(--admin-content-max-width);
   padding: var(--admin-card-padding) var(--admin-page-gutter)
     var(--admin-section-gap);
 }
@@ -294,5 +299,286 @@ main:focus {
   }
   .pilotage-layout openg7-contribution-activity {
     font-size: 0.7rem;
+  }
+}
+
+/* One chassis owns the right rail and the full-width deck. Its controls stay in flow. */
+.layout.controller-shell {
+  --controller-deck-height: 0px;
+  --controller-rail-width: 0px;
+  --controller-workspace-column: 2;
+  --controller-content-min-height: 12rem;
+  --controller-corner-size: clamp(1rem, 1.8vw, 2rem);
+  --controller-material: var(--admin-panel);
+  --controller-material-raised: var(--admin-panel-raised);
+  --controller-rim: color-mix(
+    in srgb,
+    var(--admin-gold) 60%,
+    var(--admin-border)
+  );
+  --context-controller-surface-padding: 0;
+  --context-controller-surface-border: 0;
+  --context-controller-surface-radius: 0;
+  --context-controller-surface-background: transparent;
+  --context-controller-surface-shadow: none;
+  --context-controller-own-rim-opacity: 0;
+  --context-controller-heading-display: none;
+  --context-controller-toggle-display: none;
+  --context-controller-actions-display: flex;
+  --context-controller-collapsed-actions-display: flex;
+  --admin-context-controller-width: var(--controller-rail-width);
+  --admin-nav-viewport-height: 100%;
+  position: relative;
+  isolation: isolate;
+  grid-template-rows: minmax(min-content, 1fr) auto;
+}
+.controller-shell > .workspace {
+  grid-column: var(--controller-workspace-column);
+  grid-row: 1;
+  min-height: min-content;
+  grid-template-rows: auto auto minmax(
+      var(--controller-content-min-height),
+      1fr
+    );
+}
+.controller-shell.concentrated > .workspace {
+  grid-template-rows: auto minmax(var(--controller-content-min-height), 1fr);
+}
+.controller-shell main {
+  /* In classical mode, short chrome must scroll rather than cover the dossier. */
+  min-height: var(--controller-content-min-height);
+  /* Size comes from the reserved grid row, not the full scrollable dossier. */
+  contain: size;
+}
+.controller-shell > openg7-admin-nav {
+  grid-column: 1;
+  grid-row: 1 / -1;
+  min-height: 0;
+  overflow: auto;
+}
+@media (min-width: 861px) {
+  .controller-shell > openg7-admin-nav {
+    /* The sidebar scrolls inside its grid area; its whole menu must not size the rows. */
+    contain: size;
+  }
+}
+.controller-radial-slot {
+  grid-column: var(--controller-workspace-column);
+  grid-row: 2;
+  min-width: 0;
+  padding: 0.5rem var(--admin-page-gutter) 1rem;
+}
+.controller-deck-slot,
+.controller-shell-surface {
+  display: none;
+}
+.layout.controller-shell.navigation-collapsed,
+.layout.controller-shell.concentrated {
+  --controller-workspace-column: 1;
+}
+.controller-shell.sandbox-controller-open > .sandbox-controller-dock {
+  grid-row: 1 / -1;
+}
+.controller-shell.sandbox-controller-open {
+  --context-controller-footer-direction: row;
+  --context-controller-collapsed-shortcuts-display: flex;
+  --context-controller-classic-navigation-display: flex;
+}
+
+/* On laptops the deck is functional and flat; decisions keep their classical row. */
+@media (min-width: 1280px) and (min-height: 650px) {
+  .layout.controller-shell:not(.sandbox-controller-open) {
+    --controller-deck-height: 4rem;
+    --admin-nav-viewport-height: calc(100dvh - var(--controller-deck-height));
+    --admin-guidance-bottom: calc(var(--controller-deck-height) + 1rem);
+    --admin-guidance-max-height: min(
+      36rem,
+      70dvh,
+      calc(100dvh - var(--controller-deck-height) - 7.5rem)
+    );
+    grid-template-rows: minmax(min-content, 1fr) auto var(
+        --controller-deck-height
+      );
+  }
+  .controller-shell:not(.sandbox-controller-open) > openg7-admin-nav {
+    grid-row: 1 / 3;
+  }
+  .controller-shell:not(.sandbox-controller-open) > .controller-deck-slot {
+    display: block;
+    grid-column: 1 / -1;
+    grid-row: 3;
+    min-width: 0;
+    min-height: 0;
+    background: var(--controller-material);
+    border-top: 1px solid var(--controller-rim);
+  }
+}
+
+@media (min-width: 1440px) and (min-height: 700px) {
+  .layout.controller-shell:not(.sandbox-controller-open) {
+    --controller-rail-width: 5.5rem;
+    --controller-content-min-height: 0px;
+    --controller-deck-height: 5rem;
+    --admin-guidance-inline-end: calc(var(--controller-rail-width) + 1rem);
+    --admin-guidance-reserved-width: var(--controller-rail-width);
+    --context-controller-heading-display: flex;
+    --context-controller-toggle-display: inline-flex;
+    --context-controller-actions-display: grid;
+    --context-controller-collapsed-actions-display: none;
+    grid-template-columns: 15rem minmax(0, 1fr) var(--controller-rail-width);
+    grid-template-rows: minmax(0, 1fr) var(--controller-deck-height);
+  }
+  .layout.controller-shell.controller-shell-expanded:not(
+      .sandbox-controller-open
+    ) {
+    --controller-rail-width: 12rem;
+  }
+  .layout.controller-shell.navigation-collapsed:not(.sandbox-controller-open),
+  .layout.controller-shell.concentrated:not(.sandbox-controller-open) {
+    grid-template-columns: minmax(0, 1fr) var(--controller-rail-width);
+  }
+  .controller-shell:not(.sandbox-controller-open) > openg7-admin-nav {
+    grid-row: 1;
+  }
+  .controller-shell:not(.sandbox-controller-open) > .workspace,
+  .controller-shell:not(.sandbox-controller-open) main {
+    min-height: 0;
+  }
+  .controller-shell:not(.sandbox-controller-open) main {
+    padding-block-end: max(1rem, var(--controller-corner-size));
+  }
+  .controller-shell:not(.sandbox-controller-open) > .controller-radial-slot {
+    display: flex;
+    flex-direction: column;
+    justify-content: safe center;
+    grid-column: 3;
+    grid-row: 1;
+    min-height: 0;
+    padding: 1rem 0.5rem max(1rem, var(--controller-corner-size)) 1rem;
+    overflow-x: clip;
+    overflow-y: auto;
+    scroll-padding-block: 1rem;
+  }
+  .controller-shell.navigation-collapsed:not(.sandbox-controller-open)
+    > .controller-radial-slot,
+  .controller-shell.concentrated:not(.sandbox-controller-open)
+    > .controller-radial-slot {
+    grid-column: 2;
+  }
+  .controller-shell:not(.sandbox-controller-open) > .controller-deck-slot {
+    grid-row: 2;
+    position: relative;
+    border: 0;
+    background: transparent;
+  }
+  .controller-shell:not(.sandbox-controller-open) > .controller-shell-surface {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      linear-gradient(
+          105deg,
+          var(--controller-material-raised),
+          var(--controller-material)
+        )
+        right top / var(--controller-rail-width) 100% no-repeat,
+      linear-gradient(
+          var(--controller-material-raised),
+          var(--controller-material)
+        )
+        bottom / 100% var(--controller-deck-height) no-repeat;
+  }
+  .controller-shell-surface::before,
+  .controller-shell-surface::after {
+    content: '';
+    position: absolute;
+    background: var(--controller-rim);
+    box-shadow: 0 0 0.4rem
+      color-mix(in srgb, var(--admin-gold) 12%, transparent);
+  }
+  .controller-shell-surface::before {
+    inset-inline-end: var(--controller-rail-width);
+    inset-block-start: 0;
+    inset-block-end: calc(
+      var(--controller-deck-height) + var(--controller-corner-size)
+    );
+    width: 1px;
+  }
+  .controller-shell-surface::after {
+    inset-inline-start: 0;
+    inset-inline-end: calc(
+      var(--controller-rail-width) + var(--controller-corner-size)
+    );
+    inset-block-end: var(--controller-deck-height);
+    height: 1px;
+  }
+  .controller-shell-corner {
+    position: absolute;
+    inset-inline-end: var(--controller-rail-width);
+    inset-block-end: var(--controller-deck-height);
+    width: var(--controller-corner-size);
+    aspect-ratio: 1;
+    background: radial-gradient(
+      circle var(--controller-corner-size) at top left,
+      transparent calc(100% - 1px),
+      var(--controller-rim) 100%,
+      var(--controller-material-raised) calc(100% + 1px)
+    );
+  }
+}
+@media (min-width: 1760px) and (min-height: 800px) {
+  .layout.controller-shell:not(.sandbox-controller-open) {
+    --controller-deck-height: 5.5rem;
+  }
+  .layout.controller-shell.controller-shell-expanded:not(
+      .sandbox-controller-open
+    ) {
+    --controller-rail-width: 15rem;
+  }
+}
+@media (max-width: 860px) {
+  .layout.controller-shell,
+  .layout.controller-shell.sandbox-controller-open {
+    --controller-workspace-column: 1;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(min-content, 1fr) auto;
+  }
+  .controller-shell > openg7-admin-nav {
+    grid-row: 1;
+  }
+  .controller-shell > .workspace {
+    grid-row: 2;
+  }
+  .controller-shell > .controller-radial-slot {
+    grid-row: 3;
+  }
+  .layout.controller-shell.concentrated {
+    grid-template-rows: minmax(min-content, 1fr) auto;
+  }
+  .controller-shell.concentrated > .workspace {
+    grid-row: 1;
+  }
+  .controller-shell.concentrated > .controller-radial-slot {
+    grid-row: 2;
+  }
+  .layout.controller-shell.sandbox-controller-open {
+    grid-template-rows: auto minmax(min-content, 1fr) auto auto;
+  }
+  .layout.controller-shell.sandbox-controller-open.concentrated {
+    grid-template-rows: minmax(min-content, 1fr) auto auto;
+  }
+  .controller-shell.sandbox-controller-open > .sandbox-controller-dock {
+    grid-row: 4;
+  }
+  .controller-shell.sandbox-controller-open.concentrated
+    > .sandbox-controller-dock {
+    grid-row: 3;
+  }
+}
+@media (max-width: 480px) {
+  .layout.controller-shell:not(.concentrated):not(.sandbox-controller-open) {
+    --admin-guidance-max-height: min(36rem, 45dvh, calc(100dvh - 1.5rem));
   }
 }

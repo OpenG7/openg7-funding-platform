@@ -1,0 +1,43 @@
+@reference '../../../../../styles/tailwind.css';
+
+:host {
+  display: block;
+  min-width: 0;
+  height: 100%;
+}
+.command-deck {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: center;
+  gap: 0.2rem;
+  height: 100%;
+  min-width: 0;
+  padding: 0 max(0.75rem, env(safe-area-inset-left)) env(safe-area-inset-bottom)
+    max(0.75rem, env(safe-area-inset-right));
+}
+.command-deck-hint {
+  color: var(--admin-muted);
+  font-size: var(--admin-caption-size, 0.8125rem);
+  line-height: 1.25;
+}
+.command-deck-actions {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(7.25rem, 1fr);
+  align-items: stretch;
+  gap: clamp(0.35rem, 0.6vw, 0.75rem);
+  min-width: 0;
+  padding: 0.4rem;
+  overflow-x: auto;
+  scroll-padding-inline: 0.5rem;
+  scrollbar-width: thin;
+}
+@media (max-width: 1439px), (max-height: 699px) {
+  .command-deck-hint {
+    display: none;
+  }
+  .command-deck-actions {
+    grid-auto-columns: minmax(7rem, 1fr);
+    gap: 0.35rem;
+  }
+}

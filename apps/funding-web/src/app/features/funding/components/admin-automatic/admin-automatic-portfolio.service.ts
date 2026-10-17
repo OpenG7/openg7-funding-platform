@@ -17,6 +17,7 @@ import type {
 
 import { AdminGuidanceService } from '../../services/admin-guidance.service.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
+import { adminContentRegions } from '../admin-layout/admin-content-scope.js';
 
 import { AdminAutomaticPortfolioClient } from './admin-automatic-portfolio.client.js';
 import {
@@ -109,9 +110,17 @@ export class AdminAutomaticPortfolioService {
       };
       const edit = (event: Event) => {
         const target = event.target as HTMLElement | null;
+        const layout = this.document
+          .getElementById('admin-main')
+          ?.closest<HTMLElement>('[data-og7="admin-layout"]');
         if (
           this.run.active &&
-          target?.closest('#admin-main') &&
+          target &&
+          layout &&
+          target.closest('[data-og7="admin-layout"]') === layout &&
+          adminContentRegions(layout).some((content) =>
+            content.contains(target)
+          ) &&
           target.matches('input,textarea,select,[contenteditable="true"]')
         )
           pause();

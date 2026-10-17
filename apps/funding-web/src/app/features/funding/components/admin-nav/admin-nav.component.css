@@ -4,7 +4,8 @@
   @apply tw:block tw:min-w-0;
 }
 aside {
-  @apply tw:flex tw:flex-col tw:min-h-screen tw:py-4 tw:px-3;
+  @apply tw:flex tw:flex-col tw:py-4 tw:px-3;
+  min-height: var(--admin-nav-viewport-height, 100vh);
   background: var(--admin-sidebar);
   border-right: 1px solid var(--admin-border);
 }
@@ -109,7 +110,8 @@ footer button {
 }
 @media (min-width: 861px) {
   aside.collapsible {
-    @apply tw:sticky tw:top-0 tw:max-h-screen tw:overflow-y-auto;
+    @apply tw:sticky tw:top-0 tw:overflow-y-auto;
+    max-height: var(--admin-nav-viewport-height, 100vh);
   }
 }
 @media (max-width: 860px) {
