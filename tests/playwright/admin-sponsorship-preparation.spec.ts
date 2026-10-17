@@ -1122,9 +1122,9 @@ test('Gamepad bumpers leave the preparation issues for Actions and publication s
   await expect(actions).toBeFocused();
   await xbox.reach(issues.first());
   await expect(issues.first()).toBeFocused();
-  // The refresh control immediately precedes the list outside the pilot.
-  // One LB must cross that boundary instead of wrapping to the last issue.
-  await xbox.press('LB');
+  // reach also honours the visibility guard's separate reveal gesture.
+  // Leaving backwards must reach the host instead of wrapping in the list.
+  await xbox.reach(hook(page, 'refresh'));
   await expect(hook(page, 'refresh')).toBeFocused();
   await expect(pilot).toHaveAttribute('data-og7-mode', 'peek');
   expect(f.writes).toEqual([]);
