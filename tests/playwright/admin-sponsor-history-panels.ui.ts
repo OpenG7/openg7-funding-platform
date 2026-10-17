@@ -175,6 +175,9 @@ export function registerSponsorHistoryPanelTests({
       await expect(
         history.locator('[data-og7="interventions-history"]')
       ).toHaveCount(0);
+      await expect(history).toContainText(
+        english ? 'Latest processing amount' : 'Montant du dernier traitement'
+      );
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= innerWidth + 1

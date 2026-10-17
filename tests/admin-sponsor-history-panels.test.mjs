@@ -30,6 +30,12 @@ const catalogs = Object.fromEntries(
     const catalog = JSON.parse(
       readFileSync(`apps/funding-web/src/assets/i18n/${locale}.json`, 'utf8')
     );
+    catalog.admin.finance = JSON.parse(
+      readFileSync(
+        `apps/funding-web/src/assets/i18n/admin-finance.${locale}.json`,
+        'utf8'
+      )
+    );
     catalog.admin.history = JSON.parse(
       readFileSync(
         `apps/funding-web/src/assets/i18n/admin-history.${locale}.json`,
@@ -169,7 +175,7 @@ for (const locale of ['fr-CA', 'en']) {
     const view = await fixture(t, RefundHistoryComponent, emptyRefund, locale);
     const root = view.nativeElement;
     const copy = catalogs[locale].admin.legacy;
-    assert.equal(root.querySelectorAll('article').length, 3);
+    assert.equal(root.querySelectorAll('article').length, 1);
     assert.equal(root.querySelectorAll('ol').length, 0);
     assert.ok(
       !root.textContent.includes(catalogs[locale].admin.history.newestFirst)
@@ -180,16 +186,15 @@ for (const locale of ['fr-CA', 'en']) {
     );
     for (const key of [
       'suivi_remboursement',
-      'jalons_remboursement',
-      'actions_admin_liees',
-      'aucun_remboursement_n_est_demande_pour_cette_commandite',
-      'aucun_jalon_de_remboursement_n_est_encore_date_pour_ce_dossier',
-      'aucune_action_admin_de_remboursement_n_est_encore_associee_a_cett'
+      'aucun_remboursement_n_est_demande_pour_cette_commandite'
     ]) {
       assert.ok(root.textContent.includes(copy[key]), key);
     }
-    assert.ok(root.querySelector('#dossier-refund-timeline-title'));
-    assert.ok(root.querySelector('#dossier-refund-audit-title'));
+    assert.ok(!root.querySelector('#dossier-refund-timeline-title'));
+    assert.ok(!root.querySelector('#dossier-refund-audit-title'));
+    assert.ok(
+      !root.textContent.includes(catalogs[locale].admin.finance.operationAmount)
+    );
     assert.equal(root.querySelectorAll('button, input, textarea').length, 0);
     assert.equal(
       root.querySelector('section').getAttribute('data-og7'),
@@ -373,8 +378,8 @@ test('refund panel renders projected chronology, references, notes and failures 
   assert.ok(root.textContent.includes(data.refundError));
   assert.equal(root.querySelectorAll('script').length, 0);
   assert.deepEqual(
-    Array.from(root.querySelectorAll('dd')).map((node) =>
-      node.textContent.trim()
+    Array.from(root.querySelectorAll('.compact-definition-list dd')).map(
+      (node) => node.textContent.trim()
     ),
     [data.refundNote, data.refundError]
   );
@@ -419,7 +424,10 @@ test('refund panel renders projected chronology, references, notes and failures 
 
   view.componentRef.setInput('view', emptyRefund);
   view.detectChanges();
-  assert.equal(root.querySelectorAll('ol, dd').length, 0);
+  assert.equal(
+    root.querySelectorAll('ol, .compact-definition-list dd').length,
+    0
+  );
   assert.ok(!root.textContent.includes('Synthetic operator'));
   assert.ok(!root.textContent.includes(data.refundNote));
 });

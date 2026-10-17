@@ -443,6 +443,74 @@ test('refund validation, cancellation and notification controls obey parent stat
   );
 });
 
+for (const lock of ['pending', 'actionsDisabled']) {
+  test(`refund locks every draft field while ${lock} and restores the notification choice`, async (t) => {
+    const view = await fixture(t, RefundPanel, refundInputs({ [lock]: true }));
+    const fields = Array.from(
+      view.nativeElement.querySelectorAll('input, select, textarea')
+    );
+    assert.equal(fields.length, 7);
+    assert.equal(
+      fields.every((field) => field.disabled),
+      true
+    );
+    view.componentRef.setInput(lock, false);
+    view.componentRef.setInput('draft', {
+      ...refundDraft,
+      notifySponsor: false
+    });
+    view.detectChanges();
+    assert.equal(
+      view.nativeElement.querySelector('input[type="number"]').disabled,
+      false
+    );
+    assert.equal(
+      view.nativeElement.querySelector('input[type="text"]').disabled,
+      false
+    );
+    assert.equal(view.nativeElement.querySelector('select').disabled, false);
+    assert.equal(
+      view.nativeElement.querySelector('input[type="checkbox"]').disabled,
+      false
+    );
+    assert.equal(
+      view.nativeElement.querySelector('input[type="email"]').disabled,
+      true
+    );
+    assert.equal(view.nativeElement.querySelector('textarea').disabled, true);
+    assert.equal(
+      view.nativeElement.querySelectorAll('textarea')[1].disabled,
+      false
+    );
+  });
+}
+
+test('refund labels its sensitive operation and links confirmation guidance and live validation', async (t) => {
+  const view = await fixture(t, RefundPanel, refundInputs());
+  const element = view.nativeElement;
+  const panel = element.querySelector('[data-og7="dossier-refund-form"]');
+  const title = element.querySelector('#sponsor-refund-title');
+  assert.equal(panel.getAttribute('aria-labelledby'), title.id);
+  assert.equal(title.textContent.trim(), 'Remboursement Stripe');
+  assert.equal(panel.getAttribute('aria-busy'), 'false');
+  const confirmation = element.querySelector('input[type="text"]');
+  assert.equal(confirmation.required, true);
+  assert.equal(
+    confirmation.getAttribute('aria-describedby'),
+    'sponsor-refund-confirmation-help sponsor-refund-validation'
+  );
+  assert.match(
+    element.querySelector('#sponsor-refund-confirmation-help').textContent,
+    /SYNTHETIC-401/
+  );
+  const validation = element.querySelector('#sponsor-refund-validation');
+  assert.equal(validation.getAttribute('role'), 'status');
+  assert.equal(validation.getAttribute('aria-atomic'), 'true');
+  view.componentRef.setInput('busy', true);
+  view.detectChanges();
+  assert.equal(panel.getAttribute('aria-busy'), 'true');
+});
+
 for (const [name, getComponent, getInputs, lockInput, confirmationLabel] of [
   [
     'refusal',

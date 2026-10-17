@@ -56,6 +56,8 @@ import {
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import enPublication from '../../../../../assets/i18n/admin-publication-schedule.en.json' with { type: 'json' };
 import frPublication from '../../../../../assets/i18n/admin-publication-schedule.fr-CA.json' with { type: 'json' };
+import enFinance from '../../../../../assets/i18n/admin-finance.en.json' with { type: 'json' };
+import frFinance from '../../../../../assets/i18n/admin-finance.fr-CA.json' with { type: 'json' };
 import enProfile from '../../../../../assets/i18n/admin-sponsor-profile.en.json' with { type: 'json' };
 import frProfile from '../../../../../assets/i18n/admin-sponsor-profile.fr-CA.json' with { type: 'json' };
 import enHistory from '../../../../../assets/i18n/admin-history.en.json' with { type: 'json' };
@@ -381,6 +383,28 @@ export class AdminSponsorsPageComponent implements OnInit {
   readonly paymentFilter = this.listController.paymentFilter;
   readonly assistantRefresh = this.listController.assistantRefresh;
   readonly progress = this.listController.progress;
+
+  focusRefreshedFacts(source: HTMLElement): void {
+    const sponsorshipId = this.selectedSponsorshipId();
+    const tab = this.activeTab();
+    afterNextRender(
+      () => {
+        if (
+          this.destroyRef.destroyed ||
+          this.selectedSponsorshipId() !== sponsorshipId ||
+          this.activeTab() !== tab ||
+          source.ownerDocument.activeElement !== source
+        )
+          return;
+        const panel = this.sponsorDetailPanel?.nativeElement;
+        const target =
+          panel?.querySelector<HTMLElement>('[data-og7="dossier-facts"]') ??
+          panel;
+        target?.focus({ preventScroll: true });
+      },
+      { injector: this.injector }
+    );
+  }
   readonly websiteSettingsOpen = this.listController.websiteSettingsOpen;
   readonly versionConflict = this.listController.versionConflict;
   readonly selectedSponsorshipId = this.listController.selectedSponsorshipId;
@@ -537,6 +561,7 @@ export class AdminSponsorsPageComponent implements OnInit {
         );
         this.i18n.mergeTranslations(language, {
           admin: {
+            finance: language === 'en' ? enFinance : frFinance,
             dossier: language === 'en' ? enProfile : frProfile,
             history: language === 'en' ? enHistory : frHistory
           }

@@ -3,112 +3,104 @@
 :host {
   @apply tw:block tw:min-w-0;
 }
-button,
-input,
-select,
-textarea {
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-}
-button:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
-  outline: 3px solid var(--admin-focus);
-  outline-offset: 2px;
-}
-button {
-  @apply tw:items-center tw:rounded-admin-sm tw:cursor-pointer tw:inline-flex;
-  font-weight: var(--admin-control-weight);
-  @apply tw:justify-center tw:min-h-10;
-  padding: 0 0.85rem;
-  text-decoration: none;
-}
-.secondary-action,
 .icon-action {
-  background: var(--admin-panel);
-  border: 1px solid var(--admin-border);
-  @apply tw:text-admin-text;
-}
-button:disabled {
-  @apply tw:cursor-not-allowed;
-  opacity: 0.55;
-}
-.icon-action {
-  min-height: 2.2rem;
-  @apply tw:p-0;
-  width: 2.2rem;
+  @apply tw:shrink-0 tw:p-0;
+  width: var(--admin-control-height, 2.75rem);
+  font-size: 1.5rem;
 }
 .inline-status {
   @apply tw:text-admin-muted;
+  flex: 1 1 100%;
+  font-size: var(--admin-caption-size, 0.875rem);
   font-weight: 400;
-}
-input,
-select,
-textarea {
-  border: 1px solid var(--admin-border);
-  border-radius: 0.35rem;
-  padding: 0.65rem 0.75rem;
 }
 textarea {
   @apply tw:resize-y;
 }
 label {
-  @apply tw:grid;
+  @apply tw:grid tw:min-w-0 tw:text-admin-caption;
+  align-content: start;
   gap: 0.35rem;
-  @apply tw:text-admin-caption;
+  font-weight: var(--admin-label-weight);
+}
+small {
+  @apply tw:text-admin-muted;
+  font-size: inherit;
+  font-weight: 400;
+}
+code {
+  @apply tw:wrap-anywhere;
+  margin-inline-start: 0.35rem;
   font-weight: var(--admin-label-weight);
 }
 header,
 footer {
   @apply tw:items-center tw:flex tw:gap-3 tw:col-span-full tw:justify-between;
 }
-footer {
-  @apply tw:flex-wrap;
+header {
+  align-items: start;
 }
-header span {
-  @apply tw:text-admin-caption;
+footer {
+  @apply tw:flex-wrap tw:justify-end;
+  border-top: 1px solid var(--admin-border);
+  padding-top: 1rem;
+}
+header > div > span {
+  @apply tw:text-admin-caption tw:text-admin-danger;
   font-weight: var(--admin-label-weight);
   @apply tw:uppercase;
 }
 h3 {
   margin: 0.15rem 0 0;
+  font-size: var(--admin-section-size, 1.1875rem);
+  font-weight: var(--admin-section-weight, 600);
+  line-height: var(--admin-section-leading, 1.4);
 }
-.rejection-span-2 {
+.refund-span-full {
   @apply tw:col-span-full;
 }
 .checkbox-line {
-  @apply tw:items-center tw:flex tw:gap-2;
+  @apply tw:items-center tw:flex tw:gap-3 tw:min-h-admin-control;
 }
 .checkbox-line input {
+  @apply tw:shrink-0;
+  width: 1.125rem;
+  height: 1.125rem;
   min-height: auto;
+  accent-color: var(--admin-accent);
 }
 .refund-workflow {
-  background: var(--admin-panel-raised);
-  border-top: 1px solid var(--admin-border);
-  @apply tw:grid;
-  gap: 0.85rem;
-  @apply tw:grid-cols-2 tw:p-4;
+  @apply tw:grid tw:rounded-admin-card;
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-danger-border);
+  border-inline-start: 3px solid var(--admin-danger);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  padding: var(--admin-card-padding, 1.25rem);
 }
-header span {
-  @apply tw:text-admin-muted;
+.refund-confirm:not(:disabled) {
+  @apply tw:text-admin-danger;
+  background: var(--admin-danger-bg);
+  border-color: var(--admin-danger-border);
 }
-.review-button.refund {
-  background: var(--admin-panel-raised);
-  border: 1px solid var(--admin-border);
-  @apply tw:text-admin-text;
+.refund-confirm:not(:disabled):hover {
+  background: var(--admin-danger-bg);
+  border-color: var(--admin-danger);
 }
 .refund-warning {
-  background: var(--admin-panel-raised);
-  border: 1px solid var(--admin-border);
-  @apply tw:rounded-admin-sm tw:text-admin-muted;
-  font-weight: 500;
-  @apply tw:m-0;
-  padding: 0.75rem 0.9rem;
+  @apply tw:rounded-admin-control tw:text-admin-danger tw:m-0;
+  background: var(--admin-danger-bg);
+  border: 1px solid var(--admin-danger-border);
+  font-size: var(--admin-caption-size, 0.875rem);
+  padding: 0.85rem 1rem;
 }
 @media (max-width: 860px) {
   .refund-workflow {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 600px) {
+  footer .admin-button {
+    flex: 1 1 100%;
   }
 }

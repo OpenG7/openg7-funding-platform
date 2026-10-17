@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   ElementRef,
   input,
   output,
@@ -21,6 +22,7 @@ import type { SponsorRefundDraft } from '../../models/admin-sponsor-workflow.por
   templateUrl: './admin-sponsor-refund-panel.component.html',
   styleUrls: [
     '../admin-ui/admin-forms.css',
+    '../admin-ui/admin-controls.css',
     './admin-sponsor-refund-panel.component.css'
   ]
 })
@@ -35,6 +37,10 @@ export class AdminSponsorRefundPanelComponent {
   readonly actionsDisabled = input.required<boolean>();
   readonly pending = input.required<boolean>();
   readonly busy = input.required<boolean>();
+
+  readonly fieldsLocked = computed(
+    () => this.pending() || this.actionsDisabled()
+  );
 
   readonly draftFieldChange = output<AdminSponsorRefundFieldChange>();
   readonly reasonChange = output<Event>();

@@ -239,7 +239,10 @@ test.describe('Docker admin sponsorship review', () => {
 
     await page.getByRole('button', { name: 'Rembourser Stripe' }).click();
 
-    const refundPanel = page.locator('[aria-label="Remboursement Stripe"]');
+    const refundPanel = page.getByRole('region', {
+      name: 'Remboursement Stripe',
+      exact: true
+    });
     await expect(refundPanel).toBeVisible();
     await refundPanel
       .getByLabel(/Texte de confirmation/i)
@@ -276,7 +279,10 @@ test.describe('Docker admin sponsorship review', () => {
 
     await page.getByRole('button', { name: 'Rembourser Stripe' }).click();
 
-    const refundPanel = page.locator('[aria-label="Remboursement Stripe"]');
+    const refundPanel = page.getByRole('region', {
+      name: 'Remboursement Stripe',
+      exact: true
+    });
     await expect(refundPanel).toBeVisible();
 
     const partialAmount = fixture.amountCents / 100 / 2;

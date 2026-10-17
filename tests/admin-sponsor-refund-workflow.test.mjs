@@ -163,7 +163,7 @@ test('default draft handles absent contact, company and public reference without
   assert.equal(f.workflow.refundConfirmationText(record), record.id);
   assert.equal(draft.notifySponsor, false);
   assert.equal(draft.recipientEmail, '');
-  assert.match(draft.sponsorMessage, /votre organisation/);
+  assert.match(draft.sponsorMessage, /admin.finance.organizationFallback/);
   assert.deepEqual(f.workflow.refundDrafts(), {});
   f.ready();
   assert.equal(f.workflow.canConfirmRefund(record), true);
@@ -216,7 +216,10 @@ test('amount validation preserves decimal comma, precision, bounds and full refu
   }
   f.setField('refundAmount', '0.00');
   assert.equal(f.workflow.canConfirmRefund(record), false);
-  assert.equal(f.workflow.refundDraftAmountLabel(record), 'montant invalide');
+  assert.equal(
+    f.workflow.refundDraftAmountLabel(record),
+    'admin.finance.invalidAmount'
+  );
   f.setField('refundAmount', '250.01');
   assert.equal(f.workflow.canConfirmRefund(record), false);
   assert.match(
@@ -557,7 +560,7 @@ test('result labels retain status, workflow, reason, credit and partial refund i
     p1: '250.00 CAD',
     p2: 'admin.messages.raison_p0:{"p0":"reason:requested_by_customer"}',
     p3: 'admin.messages.statut_stripe_p0:{"p0":"succeeded"}',
-    p4: ' Suivi: workflow:completed.',
+    p4: 'admin.finance.refundWorkflowSummary:{"status":"workflow:completed"}',
     p5: 'admin.messages.commandite_marquee_comme_remboursee',
     p6: 'admin.messages.avoir_cree_p0:{"p0":"SYNTHETIC-CREDIT-1"}'
   });
@@ -593,7 +596,7 @@ test('notification presentation distinguishes sent, queued, failed and absent no
     ],
     [
       { sent: false, queued: false, error: 'Synthetic delivery failure' },
-      'Courriel de remboursement/avoir non envoye: Synthetic delivery failure'
+      'admin.finance.refundNotificationFailedWithError:{"error":"Synthetic delivery failure"}'
     ]
   ];
   for (const [notification, label] of cases) {

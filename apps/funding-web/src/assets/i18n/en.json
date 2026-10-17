@@ -1019,6 +1019,7 @@
       "next": "Next step",
       "openStep": "Open step",
       "refresh": "Refresh dossier",
+      "retry": "Try again",
       "loading": "Loading dossier…",
       "error": "Progress is unavailable. Please retry.",
       "forbidden": "You do not have access to this dossier.",

@@ -298,6 +298,7 @@ test('refund audit filters review metadata by existing types and sorts newest fi
   assert.equal(projector.trackByAuditEntry(999, entries[0]), 'partial');
   assert.equal(source[0].id, 'full');
   assert.equal(entries[1].detail, 'Suivi: Remboursement demandé');
+  assert.equal(entries[1].actorLabel, 'synthetic-owner');
   assert.ok(
     entries[2].detail.includes('Traitement: remboursement manuel demande')
   );
