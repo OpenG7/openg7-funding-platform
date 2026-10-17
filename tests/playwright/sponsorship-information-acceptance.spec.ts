@@ -553,7 +553,10 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
       await company.goto(link!);
       await expect(company).toHaveURL(/\/admin\/login/);
       await admin.goto(link!);
-      await admin.getByLabel('Recherche', { exact: true }).fill(reference);
+      await admin
+        .locator('[data-og7="sponsors-list"]')
+        .getByRole('searchbox')
+        .fill(reference);
       await admin.getByRole('button', { name: new RegExp(name) }).click();
       await admin.goto(
         '/admin/fundraiser/sponsors?sponsorshipId=' + id + '&tab=media'

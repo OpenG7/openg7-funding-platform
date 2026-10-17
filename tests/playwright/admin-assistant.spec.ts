@@ -407,9 +407,11 @@ test.describe('assistant dossier links', () => {
       await expect(page).toHaveURL(
         new RegExp(`sponsorshipId=${sponsorshipId}`)
       );
-      await expect(page.getByLabel('Recherche', { exact: true })).toHaveValue(
-        sponsorshipId
-      );
+      await expect(
+        page
+          .locator('[data-og7="sponsors-list"]')
+          .getByRole('searchbox', { includeHidden: true })
+      ).toHaveValue(sponsorshipId);
       const detail = page.getByRole('complementary', {
         name: 'Dossier commanditaire selectionne'
       });
@@ -429,9 +431,9 @@ test.describe('assistant dossier links', () => {
       ).toBeVisible();
       await page.locator('[data-og7="dossier-back"]').click();
       await expect(detail).toBeHidden();
-      await expect(page.getByLabel('Recherche', { exact: true })).toHaveValue(
-        ''
-      );
+      await expect(
+        page.locator('[data-og7="sponsors-list"]').getByRole('searchbox')
+      ).toHaveValue('');
       await expect(page).not.toHaveURL(/sponsorshipId=/);
       const firstRow = page.locator('[data-og7="sponsor-row"]', {
         hasText: first.sponsor_company_name
@@ -464,7 +466,9 @@ test.describe('assistant dossier links', () => {
     await page
       .getByRole('button', { name: 'Reinitialiser les filtres', exact: true })
       .click();
-    await expect(page.getByLabel('Recherche', { exact: true })).toHaveValue('');
+    await expect(
+      page.locator('[data-og7="sponsors-list"]').getByRole('searchbox')
+    ).toHaveValue('');
     await expect(
       page.locator('[data-og7="sponsor-row"]', {
         hasText: first.sponsor_company_name

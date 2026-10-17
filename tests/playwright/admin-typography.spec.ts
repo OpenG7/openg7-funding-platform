@@ -39,8 +39,8 @@ const adminPages: {
   {
     path: '/admin/fundraiser/sponsors',
     title: {
-      'fr-CA': 'Commanditaires / partenaires',
-      en: 'Sponsors / partners'
+      'fr-CA': 'Commanditaires',
+      en: 'Sponsors'
     }
   },
   {

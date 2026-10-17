@@ -390,14 +390,18 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   assertIncludesAll(
     sponsorsResults,
     [
-      'sponsor-row-state-action-required',
-      'sponsor-row-state-approved-ready',
-      'sponsor-row-state-publication-progress',
-      'sponsor-row-state-published',
-      'sponsor-row-state-blocked',
-      'sponsor-row-state-waiting-payment'
+      'data-og7="sponsor-row"',
+      '[attr.data-og7-id]="row.id"',
+      '[attr.aria-current]',
+      'selectedSponsorshipId() === row.id',
+      '(click)="selectSponsorship.emit(row.id)"',
+      'row.reviewStatusLabel',
+      'row.visibilityLabel',
+      'row.feedStatusLabel',
+      'row.paymentStatusLabel',
+      'row.refundWorkflowStatusLabel'
     ],
-    'admin sponsorship row styles'
+    'admin sponsorship selectable rows and independent statuses'
   );
 
   assertIncludesAll(

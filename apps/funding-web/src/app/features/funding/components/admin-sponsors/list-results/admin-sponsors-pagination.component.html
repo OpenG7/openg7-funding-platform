@@ -1,5 +1,5 @@
 <footer class="pagination-bar">
-  <span>
+  <span class="pagination-summary">
     {{
       'admin.legacy.affichage_de_p0_a_p1_sur_p2_resultats'
         | translate
@@ -20,7 +20,9 @@
     >
       &lsaquo;
     </button>
-    <strong>{{ page() }}</strong>
+    <span class="current-page" aria-current="page"
+      ><strong>{{ page() }}</strong> / {{ totalPages() }}</span
+    >
     <button
       type="button"
       class="icon-action"

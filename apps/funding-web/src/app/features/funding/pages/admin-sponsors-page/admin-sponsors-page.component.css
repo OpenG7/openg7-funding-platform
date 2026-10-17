@@ -31,7 +31,7 @@
 }
 
 .admin-title-row {
-  align-items: end;
+  align-items: center;
   @apply tw:justify-between;
 }
 
@@ -47,11 +47,24 @@
   margin: 0.35rem 0 0;
 }
 
-.admin-kicker {
-  @apply tw:text-admin-muted tw:text-admin-caption;
-  font-weight: var(--admin-label-weight);
-  letter-spacing: 0;
-  @apply tw:uppercase;
+.admin-title-row > div:first-child {
+  min-width: 0;
+}
+
+.admin-actions {
+  flex-shrink: 0;
+}
+
+.public-link {
+  @apply tw:inline-flex tw:items-center tw:justify-center tw:gap-2 tw:text-admin-muted tw:text-admin-caption tw:min-h-11;
+  padding-inline: 0.5rem;
+  text-decoration: none;
+}
+
+.public-link:hover {
+  color: var(--admin-accent);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
 }
 
 button,
@@ -233,9 +246,12 @@ textarea {
     grid-template-columns: 1fr;
   }
 
-  .admin-title-row,
-  .admin-actions {
+  .admin-title-row {
     @apply tw:items-stretch tw:flex-col;
+  }
+
+  .admin-actions {
+    @apply tw:flex-wrap;
   }
 }
 

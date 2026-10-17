@@ -4,15 +4,13 @@
   @apply tw:block tw:min-w-0;
 }
 
-.pagination-controls {
-  @apply tw:items-center tw:flex tw:gap-3;
-}
-
 button,
 select {
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
+  font: inherit;
+}
+
+button {
+  font-weight: var(--admin-control-weight);
 }
 
 button:focus-visible,
@@ -21,38 +19,69 @@ select:focus-visible {
   outline-offset: 2px;
 }
 
-select {
-  border: 1px solid var(--admin-border);
-  border-radius: 0.35rem;
-  padding: 0.65rem 0.75rem;
+.pagination-bar {
+  @apply tw:items-center tw:grid tw:text-admin-caption;
+  border-top: 1px solid var(--admin-border);
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 1.5rem;
+  padding: 0.875rem 1.25rem;
+}
+
+.pagination-summary,
+.pagination-bar label {
+  color: var(--admin-muted);
+}
+
+.pagination-controls {
+  @apply tw:items-center tw:flex;
+  gap: 0.25rem;
+}
+
+.current-page {
+  @apply tw:text-admin-muted;
+  min-width: 3.5rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.current-page strong {
+  color: var(--admin-text);
+  font-weight: var(--admin-emphasis-weight);
 }
 
 .icon-action {
   @apply tw:items-center tw:rounded-admin-sm tw:cursor-pointer tw:inline-flex;
-  font-weight: var(--admin-control-weight);
-  @apply tw:justify-center;
-  text-decoration: none;
+  @apply tw:justify-center tw:text-admin-text tw:p-0;
   background: var(--admin-panel);
-  border: 1px solid var(--admin-border);
-  @apply tw:text-admin-text;
-  min-height: 2.2rem;
-  @apply tw:p-0;
-  width: 2.2rem;
+  border: 1px solid transparent;
+  font-size: 1.4rem;
+  min-height: 2.75rem;
+  width: 2.75rem;
+}
+
+.icon-action:not(:disabled):hover {
+  background: var(--admin-hover);
+  border-color: var(--admin-border);
+  box-shadow: none;
 }
 
 .icon-action:disabled {
   @apply tw:cursor-not-allowed;
-  opacity: 0.55;
-}
-
-.pagination-bar {
-  @apply tw:items-center tw:flex tw:gap-4 tw:justify-between;
-  padding: 0.8rem 1rem;
+  background: transparent;
+  border-color: transparent;
+  opacity: 0.4;
 }
 
 .pagination-bar label {
   @apply tw:items-center tw:flex;
-  gap: 0.45rem;
+  gap: 0.625rem;
+}
+
+.pagination-bar select {
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-control);
+  min-height: 2.75rem;
+  padding: 0.5rem 0.65rem;
 }
 
 :host(.compact) .pagination-bar > label {
@@ -60,13 +89,25 @@ select {
 }
 
 :host(.compact) .pagination-bar {
-  @apply tw:flex-col tw:items-center;
-  gap: 0.65rem;
-  @apply tw:text-admin-caption;
+  grid-template-columns: 1fr;
+  justify-items: center;
+  gap: 0.25rem;
+  padding-inline: 0.75rem;
 }
 
-@media (max-width: 860px) {
+@media (max-width: 680px) {
   .pagination-bar {
-    @apply tw:items-stretch tw:flex-col;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.5rem;
+    padding-inline: 1rem;
+  }
+
+  .pagination-summary {
+    grid-column: 1 / -1;
+  }
+
+  .pagination-bar label {
+    justify-self: end;
+    gap: 0.5rem;
   }
 }

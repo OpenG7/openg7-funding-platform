@@ -44,6 +44,7 @@ import { AdminInspectionService } from '../../services/admin-inspection.service.
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
 import { AdminAssistantContextComponent } from '../../components/admin-assistant/admin-assistant-context.component.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
+import { AdminIconComponent } from '../../components/admin-ui/admin-icon.component.js';
 import { FundingModerationService } from '../../services/funding-moderation.service.js';
 import { FundingModerationActionsComponent } from '../../components/admin-moderation/funding-moderation-actions.component.js';
 import {
@@ -100,6 +101,7 @@ import { AdminSponsorsNavigationAdapter } from './admin-sponsors-navigation.adap
     CommonModule,
     RouterLink,
     AdminLayoutComponent,
+    AdminIconComponent,
     FundingModerationActionsComponent,
     AdminSponsorDetailHeaderComponent,
     AdminSponsorEditComponent,
@@ -494,7 +496,12 @@ export class AdminSponsorsPageComponent implements OnInit {
   readonly hasActiveFilters = this.listController.hasActiveFilters;
   readonly visibleCount = this.listController.visibleCount;
   readonly activeCount = this.listController.activeCount;
-  readonly totalContribution = this.listController.totalContribution;
+  readonly pendingReviewCount = computed(
+    () =>
+      this.sponsorships().filter(
+        (item) => item.sponsor_review_status === 'pending_review'
+      ).length
+  );
   private readonly pendingSection = this.listController.pendingSection;
 
   private readonly navigationAdapter = new AdminSponsorsNavigationAdapter({

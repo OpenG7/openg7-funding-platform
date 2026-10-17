@@ -4,16 +4,9 @@
   @apply tw:block tw:min-w-0;
 }
 
-.empty-admin-state {
-  background: var(--admin-panel);
-  border: 1px solid var(--admin-border);
-  @apply tw:rounded-admin-card;
-}
-
 button {
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
+  font: inherit;
+  font-weight: var(--admin-control-weight);
 }
 
 button:focus-visible {
@@ -23,18 +16,12 @@ button:focus-visible {
 
 .secondary-action {
   @apply tw:items-center tw:rounded-admin-sm tw:cursor-pointer tw:inline-flex;
-  font-weight: var(--admin-control-weight);
-  @apply tw:justify-center tw:min-h-10;
-  padding: 0 0.85rem;
-  text-decoration: none;
+  @apply tw:justify-center tw:text-admin-text;
   background: var(--admin-panel);
   border: 1px solid var(--admin-control-border);
-  @apply tw:text-admin-text;
-}
-
-.secondary-action:disabled {
-  @apply tw:cursor-not-allowed;
-  opacity: 0.55;
+  font-weight: var(--admin-control-weight);
+  min-height: 2.75rem;
+  padding: 0 0.85rem;
 }
 
 .secondary-action:hover:not(:disabled) {
@@ -43,22 +30,32 @@ button:focus-visible {
 
 .state,
 .empty-admin-state {
-  @apply tw:grid;
+  @apply tw:grid tw:p-admin-card;
   gap: 0.7rem;
-  @apply tw:p-admin-card;
+}
+
+.empty-admin-state {
+  padding-block: 3.5rem;
+  text-align: center;
 }
 
 .empty-admin-state h2 {
   @apply tw:m-0;
+  font-size: 1.0625rem;
+  font-weight: var(--admin-emphasis-weight);
 }
 
 .empty-admin-state p {
   @apply tw:text-admin-muted;
-  margin: 0.35rem 0 0;
+  margin: 0;
+}
+
+.empty-admin-state .secondary-action {
+  justify-self: center;
+  margin-top: 0.5rem;
 }
 
 .state-error {
-  background: var(--admin-panel);
   @apply tw:text-admin-danger;
 }
 
@@ -89,47 +86,49 @@ button:focus-visible {
 .sponsor-table-head,
 .sponsor-table-row {
   @apply tw:grid;
-  gap: 0.65rem;
   grid-template-columns:
-    minmax(12rem, 1.6fr) minmax(6rem, 0.7fr) minmax(6.75rem, 0.75fr)
-    minmax(7rem, 0.8fr) minmax(7rem, 0.75fr) minmax(7rem, 0.75fr) 1.25rem;
-  padding: 0.75rem 1rem;
+    minmax(13rem, 2fr) minmax(6.25rem, 0.8fr) minmax(8rem, 1fr)
+    minmax(6.75rem, 0.85fr) minmax(7rem, 0.9fr) 0.75rem;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
 }
 
 .sponsor-table-head {
-  background: var(--admin-panel-raised);
-  border-bottom: 1px solid var(--admin-border);
   @apply tw:text-admin-muted tw:text-admin-caption;
+  border-bottom: 1px solid var(--admin-border);
   font-weight: var(--admin-label-weight);
+  padding-block: 0.8rem;
 }
 
 .sponsor-table-row {
-  --sponsor-row-accent: var(--admin-muted);
+  @apply tw:box-border tw:text-admin-text tw:cursor-pointer tw:text-left tw:w-full;
   appearance: none;
   background: var(--admin-panel);
   border: 0;
   border-bottom: 1px solid var(--admin-border);
-  border-left: 0.28rem solid var(--sponsor-row-accent, transparent);
-  @apply tw:box-border tw:text-admin-text tw:cursor-pointer;
-  padding-left: 0.72rem;
-  @apply tw:text-left;
+  border-left: 3px solid transparent;
+  border-radius: 0;
+  padding-left: calc(1.25rem - 3px);
   transition:
     background-color var(--admin-motion-duration) var(--admin-motion-easing),
-    box-shadow var(--admin-motion-duration) var(--admin-motion-easing),
     border-color var(--admin-motion-duration) var(--admin-motion-easing);
-  @apply tw:w-full;
+}
+
+.sponsor-table-row:last-child {
+  border-bottom: 0;
 }
 
 .sponsor-table-row:not(:disabled):hover {
-  background: var(--admin-hover);
-  outline: none;
+  background: var(--admin-subtle);
+  border-color: var(--admin-border);
+  border-left-color: transparent;
+  box-shadow: none;
 }
 
 .sponsor-table-row.selected,
 .sponsor-table-row.selected:hover {
   background: var(--admin-selected);
   border-left-color: var(--admin-accent);
-  box-shadow: none;
 }
 
 :host .sponsor-table-row:focus-visible {
@@ -137,77 +136,67 @@ button:focus-visible {
   outline-offset: -3px;
 }
 
-.sponsor-row-state-action-required {
-  --sponsor-row-accent: var(--admin-warning);
-}
-
-.sponsor-row-state-approved-ready {
-  --sponsor-row-accent: var(--admin-success);
-}
-
-.sponsor-row-state-publication-progress {
-  --sponsor-row-accent: var(--admin-focus);
-}
-
-.sponsor-row-state-published {
-  --sponsor-row-accent: #7dd3c7;
-}
-
-.sponsor-row-state-blocked {
-  --sponsor-row-accent: var(--admin-danger);
-}
-
-.sponsor-row-state-waiting-payment {
-  --sponsor-row-accent: var(--admin-muted);
-}
-
-.row-cell,
-.stacked-cell,
-.amount-cell {
-  @apply tw:content-center tw:grid;
+.row-cell {
+  @apply tw:grid tw:min-w-0;
+  align-content: start;
   gap: 0.3rem;
-  @apply tw:min-w-0;
 }
 
 .sponsor-main {
-  @apply tw:items-center tw:grid tw:gap-3;
+  @apply tw:items-start tw:grid;
+  gap: 0.75rem;
   grid-template-columns: auto minmax(0, 1fr);
 }
 
-.sponsor-main strong,
-.sponsor-main small,
-.stacked-cell small {
-  @apply tw:wrap-anywhere;
-}
-
-.sponsor-main > span:last-child {
+.sponsor-identity {
   @apply tw:min-w-0;
 }
 
 .sponsor-main strong {
-  @apply tw:block tw:whitespace-normal;
+  @apply tw:block tw:whitespace-normal tw:wrap-anywhere;
+  font-weight: var(--admin-emphasis-weight);
   line-height: 1.4;
 }
 
+.sponsor-metadata {
+  @apply tw:flex tw:flex-wrap;
+  gap: 0.125rem 0.65rem;
+  margin-top: 0.25rem;
+}
+
+.sponsor-metadata small {
+  @apply tw:wrap-anywhere;
+}
+
+.sponsor-metadata .submission-date {
+  white-space: nowrap;
+}
+
 .sponsor-avatar {
-  @apply tw:items-center;
-  background: var(--admin-panel-raised);
-  border-radius: 999px;
-  @apply tw:text-admin-text tw:inline-flex;
+  @apply tw:items-center tw:text-admin-muted tw:inline-flex tw:justify-center;
+  background: var(--admin-subtle);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.625rem;
+  font-size: 0.75rem;
   font-weight: var(--admin-emphasis-weight);
-  height: 2.35rem;
-  @apply tw:justify-center;
-  width: 2.35rem;
+  height: 2.25rem;
+  width: 2.25rem;
+}
+
+.amount-cell strong {
+  font-weight: var(--admin-emphasis-weight);
+  font-variant-numeric: tabular-nums;
 }
 
 .row-open {
-  @apply tw:text-admin-muted;
-  font-size: 1.6rem;
-  @apply tw:justify-center;
+  @apply tw:text-admin-muted tw:justify-center;
+  align-self: center;
+  font-size: 1.5rem;
 }
 
-.sponsor-table-row small:not(.tier-badge) {
-  @apply tw:text-admin-muted;
+.sponsor-table-row small,
+.visibility-badge {
+  @apply tw:text-admin-muted tw:text-admin-caption;
   font-weight: 400;
 }
 
@@ -217,80 +206,68 @@ button:focus-visible {
 .payment-badge,
 .refund-badge,
 .tier-badge {
-  border-radius: 999px;
-  @apply tw:inline-flex tw:text-admin-caption;
+  @apply tw:inline-flex tw:max-w-full tw:wrap-anywhere tw:text-admin-caption;
+  align-items: baseline;
+  line-height: 1.4;
+}
+
+.status-badge,
+.feed-badge,
+.payment-badge,
+.refund-badge {
   font-weight: var(--admin-label-weight);
-  padding: 0.25rem 0.55rem;
-  @apply tw:w-max;
 }
 
 .status-pending,
-.feed-planned,
-.payment-pending,
 .refund-requested,
-.visibility-review,
-.tier-gold {
-  background: var(--og7-admin-warning-bg, #3c3221);
-  @apply tw:text-admin-warning;
+.refund-processing {
+  color: var(--admin-warning);
 }
 
-.status-approved,
-.feed-published,
-.payment-paid,
-.refund-completed,
-.visibility-visible {
-  background: var(--og7-admin-success-bg, #193d32);
-  @apply tw:text-admin-success;
+.status-pending::before {
+  content: '';
+  align-self: center;
+  flex-shrink: 0;
+  background: currentColor;
+  border-radius: 50%;
+  width: 0.35rem;
+  height: 0.35rem;
+  margin-right: 0.4rem;
 }
 
 .status-rejected,
 .payment-failed,
 .refund-failed {
-  background: var(--og7-admin-danger-bg, #422532);
-  @apply tw:text-admin-danger;
+  color: var(--admin-danger);
 }
 
-.visibility-hidden,
-.feed-not_planned,
-.refund-not-requested {
-  background: var(--admin-panel-raised);
-  @apply tw:text-admin-muted;
+.refund-completed {
+  color: var(--admin-success);
 }
 
-.refund-processing,
-.feed-drafted {
-  background: var(--og7-admin-selected, #203951);
-  color: var(--admin-focus);
+.feed-not_planned {
+  color: var(--admin-muted);
 }
 
-.tier-silver {
-  background: var(--admin-panel-raised);
-  @apply tw:text-admin-muted;
-}
-
-.tier-bronze {
-  background: var(--admin-warning-bg);
-  @apply tw:text-admin-warning;
+.cell-label,
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 @keyframes selected-box-fade-in {
-  0% {
-    box-shadow:
-      inset 0 0 0 1px var(--admin-focus),
-      0 0 0 0 rgb(158 218 255 / 0%);
-    opacity: 0.62;
-    transform: translateY(0.25rem);
+  from {
+    background-color: var(--admin-panel-raised);
   }
-  45% {
-    box-shadow:
-      inset 0 0 0 1px var(--admin-focus),
-      0 0 0 0.28rem rgb(158 218 255 / 14%);
-    opacity: 1;
-  }
-  100% {
-    box-shadow: none;
-    opacity: 1;
-    transform: translateY(0);
+  to {
+    background-color: var(--admin-selected);
   }
 }
 
@@ -300,9 +277,13 @@ button:focus-visible {
 }
 
 :host(.compact) .sponsor-table-head,
-:host(.compact) .sponsor-table-row > :nth-child(n + 4),
-:host(.compact) .sponsor-main small,
-:host(.compact) .amount-cell small {
+:host(.compact) .publication-cell,
+:host(.compact) .row-open,
+:host(.compact) .sponsor-metadata,
+:host(.compact) .amount-cell small,
+:host(.compact) .payment-cell > small,
+:host(.compact) .cell-label,
+:host(.compact) .visibility-badge {
   @apply tw:hidden;
 }
 
@@ -310,73 +291,82 @@ button:focus-visible {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.5rem;
   padding: 0.9rem 0.75rem;
-  border-left-width: 3px;
 }
 
 :host(.compact) .sponsor-main {
   @apply tw:col-span-full;
-  align-items: start;
   gap: 0.625rem;
   font-size: var(--admin-navigation-size, 0.9375rem);
 }
 
-:host(.compact) .sponsor-main .sponsor-avatar {
+:host(.compact) .sponsor-avatar {
   @apply tw:h-8 tw:w-8 tw:text-admin-caption;
 }
 
 :host(.compact) .amount-cell {
-  @apply tw:text-admin-caption;
+  @apply tw:text-admin-caption tw:text-right;
   grid-row: 2;
   grid-column: 2;
-  @apply tw:text-right;
 }
 
-:host(.compact) .sponsor-table-row > :nth-child(3) {
+:host(.compact) .review-cell {
+  @apply tw:text-admin-caption;
   grid-row: 2;
   grid-column: 1;
-  @apply tw:text-admin-caption;
 }
 
-:host(.compact) .sponsor-table-row > :nth-child(3) > :nth-child(2) {
-  @apply tw:hidden;
+:host(.compact) .payment-cell {
+  @apply tw:col-span-full tw:text-admin-caption;
+  grid-row: 3;
 }
 
-:host(.compact) .status-badge {
-  @apply tw:max-w-full tw:whitespace-normal tw:wrap-anywhere;
-}
-
-@media (max-width: 1120px) {
+@media (max-width: 1200px) {
   .sponsor-table-head {
     @apply tw:hidden;
   }
 
   .sponsor-table-row {
-    @apply tw:grid-cols-2;
-    gap: 0.8rem 1rem;
-    @apply tw:p-4;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1.25rem 1rem;
   }
 
   .sponsor-main {
     @apply tw:col-span-full;
   }
 
+  .cell-label {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0 0 0.125rem;
+    overflow: visible;
+    clip-path: none;
+    white-space: normal;
+    color: var(--admin-muted);
+    font-size: 0.75rem;
+    font-weight: 400;
+  }
+
   .row-open {
     @apply tw:hidden;
   }
 }
 
-@media (max-width: 860px) {
-  .sponsor-table-head {
-    @apply tw:hidden;
-  }
-
+@media (max-width: 680px) {
   .sponsor-table-row {
-    grid-template-columns: 1fr;
-    gap: 0.7rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    padding: 1.125rem 1rem;
+    padding-left: calc(1rem - 3px);
   }
 
-  .row-open {
-    @apply tw:hidden;
+  .sponsor-main {
+    gap: 0.65rem;
+  }
+
+  .sponsor-metadata {
+    display: grid;
+    gap: 0.125rem;
   }
 }
 
