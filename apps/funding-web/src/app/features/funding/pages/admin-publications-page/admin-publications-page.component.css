@@ -4,11 +4,15 @@
 .publication-view {
   @apply tw:grid;
   grid-template-columns: minmax(0, 1fr);
-  @apply tw:gap-4 tw:min-w-0;
+  @apply tw:gap-6 tw:min-w-0;
 }
 
 .publication-view[hidden] {
   @apply tw:hidden;
+}
+
+.admin-content {
+  container: publication-workspace / inline-size;
 }
 
 .admin-topbar,
@@ -27,13 +31,16 @@
 }
 
 .admin-topbar {
-  @apply tw:justify-between;
+  @apply tw:justify-between tw:items-start;
 }
 
-.admin-topbar span {
-  @apply tw:text-admin-muted tw:text-admin-caption;
-  font-weight: var(--admin-label-weight);
-  @apply tw:uppercase;
+.heading-copy {
+  flex: 1 1 28rem;
+  @apply tw:min-w-0;
+}
+
+.header-actions {
+  @apply tw:shrink-0 tw:min-w-0 tw:max-w-full;
 }
 
 .admin-topbar h1,
@@ -42,7 +49,7 @@
 }
 
 .publication-breadcrumb a {
-  @apply tw:inline-flex tw:items-center tw:gap-2 tw:min-h-11 tw:text-admin-gold;
+  @apply tw:inline-flex tw:items-center tw:gap-2 tw:min-h-11 tw:text-admin-accent;
   text-decoration: none;
 }
 
@@ -52,27 +59,44 @@
 
 .page-help {
   @apply tw:text-admin-muted;
-  font-size: 0.9rem;
-  margin: 0.5rem 0 0;
+  margin: 0.6rem 0 0;
+  max-width: 62ch;
 }
 
 .publication-spaces {
-  @apply tw:grid tw:grid-cols-3 tw:gap-3;
+  @apply tw:grid tw:gap-4;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .publication-spaces a {
   @apply tw:grid;
-  grid-template-rows: auto 1fr auto;
-  @apply tw:gap-4 tw:p-5;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: 1fr auto;
+  @apply tw:gap-x-4 tw:gap-y-3 tw:p-admin-card;
   border: 1px solid var(--admin-border);
-  @apply tw:rounded-xl;
+  @apply tw:rounded-admin-card;
   background: var(--admin-panel);
   @apply tw:text-admin-text;
   text-decoration: none;
+  transition:
+    border-color var(--admin-motion-duration) var(--admin-motion-easing),
+    box-shadow var(--admin-motion-duration) var(--admin-motion-easing);
 }
 
 .publication-spaces a:hover {
-  @apply tw:border-admin-gold;
+  border-color: var(--admin-accent);
+  box-shadow: var(--admin-shadow);
+}
+
+.publication-spaces h2 {
+  font-size: var(--admin-subheading-size, 1rem);
+  line-height: 1.5;
+  font-family: var(--admin-font-family);
+  font-weight: var(--admin-control-weight);
+}
+
+.publication-spaces a > div {
+  @apply tw:min-w-0 tw:wrap-anywhere;
 }
 
 .publication-spaces a:focus-visible,
@@ -82,16 +106,21 @@
 }
 
 .publication-spaces p {
-  margin: 0.5rem 0 0;
-  @apply tw:text-admin-muted;
+  margin: 0.35rem 0 0;
+  @apply tw:text-admin-muted tw:text-admin-caption;
 }
 
-.space-number {
-  @apply tw:text-admin-gold tw:text-admin-caption;
+.space-icon {
+  @apply tw:inline-flex tw:items-center tw:justify-center tw:rounded-admin-control tw:text-admin-accent;
+  width: 2.5rem;
+  height: 2.5rem;
+  grid-row: 1 / -1;
+  background: var(--admin-selected);
 }
 
 .space-open {
-  @apply tw:flex tw:justify-between tw:gap-2 tw:text-admin-gold;
+  @apply tw:flex tw:items-center tw:justify-between tw:gap-2 tw:text-admin-accent tw:text-admin-caption;
+  grid-column: 2;
   font-weight: var(--admin-control-weight);
 }
 
@@ -108,18 +137,36 @@
   font-weight: 500;
 }
 
-@media (max-width: 700px) {
+.state {
+  @apply tw:p-4 tw:rounded-admin-control;
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+}
+
+@container publication-workspace (min-width: 44rem) {
   .publication-spaces {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@container publication-workspace (min-width: 60rem) {
+  .publication-overview {
+    grid-template-columns: minmax(0, 1fr) 18rem;
+    align-items: start;
+    max-width: 78rem;
+    width: 100%;
+    margin-inline: auto;
+  }
+
+  .publication-overview .publication-spaces {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+@media (max-width: 700px) {
   .publication-spaces a {
-    grid-template-columns: auto minmax(0, 1fr);
-    grid-template-rows: auto auto;
     gap: 0.65rem 1rem;
     @apply tw:p-4;
-  }
-  .space-open {
-    grid-column: 2;
   }
 }
 
@@ -127,5 +174,9 @@
   .admin-topbar {
     align-items: start;
     @apply tw:flex-col;
+  }
+
+  .heading-copy {
+    flex-basis: auto;
   }
 }

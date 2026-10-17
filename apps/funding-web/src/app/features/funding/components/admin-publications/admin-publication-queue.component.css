@@ -9,7 +9,7 @@
 .queue {
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
-  @apply tw:rounded-admin-control tw:p-5 tw:min-w-0;
+  @apply tw:rounded-admin-card tw:p-5 tw:min-w-0;
 }
 
 .queue-header,
@@ -19,7 +19,11 @@
 }
 
 .queue-header {
-  @apply tw:justify-between;
+  @apply tw:justify-between tw:items-start;
+}
+
+.queue-header > div:first-child {
+  @apply tw:min-w-0;
 }
 
 h2,
@@ -30,8 +34,9 @@ p {
 
 .eyebrow,
 .card-order {
-  @apply tw:text-admin-gold tw:text-admin-caption;
+  @apply tw:text-admin-muted tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
+  line-height: 1.4;
 }
 
 .eyebrow {
@@ -60,10 +65,12 @@ small,
 
 .queue-controls {
   @apply tw:shrink-0;
+  margin-left: auto;
 }
 
 .queue-controls button {
-  @apply tw:min-w-11;
+  @apply tw:min-w-11 tw:min-h-11;
+  padding-inline: 0.7rem;
   font-size: 1.25rem;
 }
 
@@ -105,12 +112,18 @@ small,
 }
 
 .queue-card-next {
-  background: linear-gradient(
-    145deg,
-    var(--og7-admin-warning-bg, #343021),
-    var(--admin-bg) 65%
-  );
-  @apply tw:border-admin-gold;
+  border-top-color: var(--admin-accent);
+}
+
+.queue-card h3 {
+  font-size: 1rem;
+  font-weight: var(--admin-label-weight);
+  line-height: 1.4;
+}
+
+.card-target {
+  margin-top: 0.2rem;
+  line-height: 1.5;
 }
 
 .card-order {
@@ -121,33 +134,44 @@ small,
   @apply tw:grid tw:place-items-center;
   border: 1px solid var(--admin-border);
   border-radius: 50%;
-  width: 1.9rem;
-  height: 1.9rem;
+  width: 1.75rem;
+  height: 1.75rem;
   @apply tw:shrink-0;
 }
 
 .queue-card-next .order-number {
-  background: var(--og7-admin-primary, var(--admin-gold));
-  color: var(--og7-admin-on-primary, #182033);
-  border-color: var(--og7-admin-primary, var(--admin-gold));
+  background: var(--admin-selected);
+  color: var(--admin-accent);
+  border-color: var(--admin-accent);
 }
 
 .card-date {
   border-block: 1px solid var(--admin-border);
-  padding-block: 0.8rem;
-  margin-block: 0.9rem;
+  padding-block: 0.75rem;
+  margin-block: 0.75rem;
   @apply tw:grid tw:gap-1;
+  line-height: 1.5;
 }
 
-time,
-.card-capacity {
+.card-date time,
+.card-date strong {
+  font-size: 1rem;
   font-weight: var(--admin-label-weight);
+  font-variant-numeric: tabular-nums;
+}
+
+.card-capacity {
+  @apply tw:text-admin-muted tw:text-admin-caption;
+  font-weight: var(--admin-label-weight);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
 }
 
 .card-members {
   @apply tw:flex-1;
   margin: 0.5rem 0 1rem;
-  font-size: 0.9rem;
+  @apply tw:text-admin-caption;
+  line-height: 1.5;
 }
 
 .card-members p + p {

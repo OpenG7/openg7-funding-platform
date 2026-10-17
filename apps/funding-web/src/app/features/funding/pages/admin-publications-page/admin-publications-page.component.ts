@@ -28,6 +28,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
+import { AdminIconComponent } from '../../components/admin-ui/admin-icon.component.js';
 import { AdminPublicationQueueComponent } from '../../components/admin-publications/admin-publication-queue.component.js';
 import { AdminAutomaticPreparationDirective } from '../../components/admin-automatic/admin-automatic-preparation.directive.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
@@ -48,6 +49,7 @@ type PublicationView = 'overview' | 'drafts' | 'batches' | 'calendar';
   imports: [
     CommonModule,
     AdminLayoutComponent,
+    AdminIconComponent,
     AdminPublicationQueueComponent,
     AdminAutomaticPreparationDirective,
     AdminPublicationDraftsPanelComponent,

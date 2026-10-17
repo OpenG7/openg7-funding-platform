@@ -140,7 +140,6 @@
           <button
             type="button"
             class="admin-button"
-            [class.admin-button--primary]="index === 0 && !!item.scheduledAt"
             (click)="openBatch.emit(item.batch.id)"
             [attr.aria-label]="
               'admin.publicationQueue.openLabel'

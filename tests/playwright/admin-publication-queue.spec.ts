@@ -1,6 +1,7 @@
 import { AxeBuilder } from '@axe-core/playwright';
 
 import { expect, test } from './support/test.js';
+import { expectAdminFontsReady } from './support/admin-fonts.js';
 import {
   batch,
   batches,
@@ -21,23 +22,271 @@ registerBatchPanelTests();
 const publicationPalettes = {
   mineral: {
     panel: 'rgb(255, 255, 255)',
-    raised: 'rgb(240, 244, 249)',
     background: 'rgb(245, 247, 251)',
     text: 'rgb(23, 43, 80)'
   },
   night: {
     panel: 'rgb(20, 35, 56)',
-    raised: 'rgb(27, 45, 68)',
     background: 'rgb(11, 23, 39)',
     text: 'rgb(241, 245, 252)'
   },
   graphite: {
     panel: 'rgb(37, 41, 47)',
-    raised: 'rgb(50, 56, 65)',
     background: 'rgb(25, 27, 31)',
     text: 'rgb(243, 244, 246)'
   }
 } as const;
+
+for (const language of ['fr-CA', 'en'] as const)
+  for (const viewport of [
+    { width: 390, height: 1000 },
+    // A 1920x1080 display at 125% supplies 1536x864 CSS pixels.
+    { width: 1536, height: 864 }
+  ]) {
+    test(`publication composition prioritizes the next batch in ${language} at ${viewport.width}px`, async ({
+      page
+    }, testInfo) => {
+      await page.clock.setFixedTime(new Date('2030-06-01T12:00:00Z'));
+      const mutations = await fixtures(page, batches, [
+        {
+          ...draft,
+          sponsor_company_name: 'NordVale Énergie',
+          title: 'NordVale Énergie · Reconnaissance de commandite'
+        }
+      ]);
+      const automationRequests: string[] = [];
+      page.on('request', (request) => {
+        if (
+          /^\/api\/admin\/publication-automation(?:\/|$)/.test(
+            new URL(request.url()).pathname
+          )
+        )
+          automationRequests.push(request.method() + ' ' + request.url());
+      });
+      await page.addInitScript((language) => {
+        localStorage.setItem('openg7.language', language);
+        localStorage.setItem(
+          'openg7.pilotage.appearance.v1',
+          JSON.stringify({ theme: 'mineral', system: false })
+        );
+      }, language);
+      await page.setViewportSize(viewport);
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.goto('/admin/fundraiser/publications');
+      const main = page.locator('[data-og7="publications-page"]');
+      const queue = main.locator('[data-og7="publication-queue"]');
+      const cards = queue.locator('[data-og7="publication-queue-card"]');
+      const scrolling = queue.locator('#publication-queue-viewport');
+      const spaces = main.locator('[data-og7="publication-space"]');
+      await expect(main).toHaveAttribute('data-og7-view', 'overview');
+      await expect(page.locator('html')).toHaveAttribute('lang', language);
+      await expect(cards).toHaveCount(6);
+      await expect(cards.first()).toContainText('NordVale Énergie');
+      await expect(spaces).toHaveCount(3);
+      await expectAdminFontsReady(page);
+
+      async function expectPageFits() {
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth + 1
+          )
+        ).toBe(true);
+        const queueBox = (await queue.boundingBox())!;
+        expect(queueBox.x).toBeGreaterThanOrEqual(-1);
+        expect(queueBox.x + queueBox.width).toBeLessThanOrEqual(
+          viewport.width + 1
+        );
+      }
+
+      await test.step('the queue precedes the three spaces and the first batch is visible before any scroll', async () => {
+        await expectPageFits();
+        expect(await page.evaluate(() => scrollY)).toBe(0);
+        expect(await scrolling.evaluate((element) => element.scrollLeft)).toBe(
+          0
+        );
+        expect(
+          await queue.evaluate((element) =>
+            Boolean(
+              element.compareDocumentPosition(
+                document.querySelector('[data-og7="publication-space"]')!
+              ) & Node.DOCUMENT_POSITION_FOLLOWING
+            )
+          )
+        ).toBe(true);
+        const queueBox = (await queue.boundingBox())!;
+        const navigationBox = (await spaces
+          .first()
+          .locator('..')
+          .boundingBox())!;
+        if (viewport.width === 1536) {
+          expect(navigationBox.x).toBeGreaterThanOrEqual(
+            queueBox.x + queueBox.width - 1
+          );
+          expect(navigationBox.y).toBeCloseTo(queueBox.y, 0);
+        } else {
+          expect(navigationBox.y).toBeGreaterThanOrEqual(
+            queueBox.y + queueBox.height - 1
+          );
+        }
+        await page.screenshot({
+          path: testInfo.outputPath(
+            `publications-composition-${viewport.width}.png`
+          ),
+          animations: 'disabled'
+        });
+        await expect(queue.getByRole('heading', { level: 2 })).toBeInViewport({
+          ratio: 1
+        });
+        if (viewport.width === 1536) {
+          await expect(cards.first()).toBeInViewport({ ratio: 1 });
+          await expect(cards.first().getByRole('button')).toBeInViewport({
+            ratio: 1
+          });
+          for (const link of await spaces.all())
+            await expect(link).toBeInViewport({ ratio: 1 });
+          await page.screenshot({
+            path: testInfo.outputPath('publications-composition-1536-full.png'),
+            animations: 'disabled',
+            fullPage: true
+          });
+        }
+      });
+
+      await test.step('each workspace link has its translated title, exact destination and visible keyboard focus', async () => {
+        for (const [space, title] of [
+          [
+            'drafts',
+            language === 'en' ? 'Writing and review' : 'Rédaction et validation'
+          ],
+          [
+            'batches',
+            language === 'en' ? 'Publication batches' : 'Lots de publication'
+          ],
+          [
+            'calendar',
+            language === 'en' ? 'Editorial calendar' : 'Calendrier éditorial'
+          ]
+        ] as const) {
+          const link = main.locator(
+            `[data-og7="publication-space"][data-og7-id="${space}"]`
+          );
+          await expect(link).toHaveAttribute(
+            'href',
+            '/admin/fundraiser/publications/' + space
+          );
+          await expect(link).toContainText(title);
+          await page.keyboard.press('Tab');
+          await link.focus();
+          await expect(link).toBeFocused();
+          await expect(link).toBeInViewport({ ratio: 1 });
+          await expect(link).toHaveCSS('outline-style', 'solid');
+          expect(
+            await link.evaluate((element) =>
+              Number.parseFloat(getComputedStyle(element).outlineWidth)
+            )
+          ).toBeGreaterThan(0);
+        }
+      });
+
+      await test.step('calendar details open and close by keyboard with restored focus', async () => {
+        const batchesLink = main.locator(
+          '[data-og7="publication-space"][data-og7-id="batches"]'
+        );
+        await batchesLink.focus();
+        await page.keyboard.press('Enter');
+        await expect(page).toHaveURL(/\/publications\/batches$/);
+        await expect(main.locator('h1')).toBeFocused();
+        await page.locator('#publication-day-2030-06-03').click();
+        const opener = page.locator(
+          '[data-og7="calendar-agenda-entry"][data-og7-id="first"]'
+        );
+        await opener.focus();
+        await page.keyboard.press('Enter');
+        const dialog = page.getByRole('dialog');
+        await expect(dialog).toBeVisible();
+        await expect(dialog).toHaveAccessibleName(/\S+/);
+        const selectedBatch = dialog.locator('[data-og7="publication-batch"]');
+        await expect(selectedBatch).toHaveCount(1);
+        await expect(selectedBatch).toHaveAttribute('data-og7-id', 'first');
+        await expect(selectedBatch).toContainText('LinkedIn');
+        if (viewport.width === 1536)
+          await page.screenshot({
+            path: testInfo.outputPath('publications-calendar-detail-1536.png'),
+            animations: 'disabled'
+          });
+        await page.keyboard.press('Escape');
+        await expect(dialog).toBeHidden();
+        await expect(opener).toBeFocused();
+        await expect(opener).toBeInViewport({ ratio: 1 });
+      });
+
+      if (viewport.width === 1536)
+        await test.step('the desktop writing and editorial calendar pages have read-only review captures', async () => {
+          await openSpace(page, 'drafts');
+          await expect(
+            page.locator('#attention-object-draft-first')
+          ).toBeVisible();
+          await expectAdminFontsReady(page);
+          await expect(page.getByRole('dialog')).toBeHidden();
+          await page.screenshot({
+            path: testInfo.outputPath('publications-drafts-1536.png'),
+            animations: 'disabled',
+            fullPage: true
+          });
+          await openSpace(page, 'calendar');
+          const calendar = page.locator('[data-og7="publication-calendar"]');
+          await expect(calendar.locator('[data-og7-date]')).toHaveCount(42);
+          await expectAdminFontsReady(page);
+          await expect(page.getByRole('dialog')).toBeHidden();
+          await page.screenshot({
+            path: testInfo.outputPath('publications-calendar-1536.png'),
+            animations: 'disabled',
+            fullPage: true
+          });
+        });
+
+      if (language === 'en' && viewport.width === 390)
+        await test.step('200% mobile text retains local queue scrolling and readable workspace access', async () => {
+          await openSpace(page, 'overview');
+          await page.evaluate(() => {
+            document.documentElement.style.fontSize = '200%';
+          });
+          await expect(page.locator('html')).toHaveCSS('font-size', '32px');
+          await expectPageFits();
+          await expect(scrolling).toHaveCSS('overflow-x', 'auto');
+          const link = spaces.first();
+          await link.focus();
+          await expect(link).toBeFocused();
+          await expect(link).toBeInViewport({ ratio: 1 });
+          await page.screenshot({
+            path: testInfo.outputPath(
+              'publications-composition-390-text-200.png'
+            ),
+            animations: 'disabled',
+            fullPage: true
+          });
+        });
+      if (language === 'en' && viewport.width === 1536)
+        await test.step('200% desktop text moves workspace access below the queue without horizontal page scrolling', async () => {
+          await openSpace(page, 'overview');
+          await page.evaluate(() => {
+            document.documentElement.style.fontSize = '200%';
+          });
+          await expect(page.locator('html')).toHaveCSS('font-size', '32px');
+          await expectPageFits();
+          const queueBox = (await queue.boundingBox())!;
+          const navigationBox = (await spaces
+            .first()
+            .locator('..')
+            .boundingBox())!;
+          expect(navigationBox.y).toBeGreaterThanOrEqual(
+            queueBox.y + queueBox.height - 1
+          );
+        });
+      expect(mutations).toEqual([]);
+      expect(automationRequests).toEqual([]);
+    });
+  }
 
 for (const theme of ['mineral', 'night', 'graphite'] as const)
   for (const { language, width } of [
@@ -100,7 +349,7 @@ for (const theme of ['mineral', 'night', 'graphite'] as const)
       await expect(dialog).toBeVisible();
       await expect(dialog.locator('[data-og7="publication-batch"]')).toHaveCSS(
         'background-color',
-        palette.raised
+        palette.panel
       );
       await page.keyboard.press('Escape');
       await expect(dialog).not.toBeVisible();
@@ -114,7 +363,7 @@ for (const theme of ['mineral', 'night', 'graphite'] as const)
     });
   }
 
-test('publication navigation, horizontal queue and calendar retain the 600, 700 and 900px boundaries', async ({
+test('publication navigation, horizontal queue, desktop rail and calendar retain their responsive boundaries', async ({
   page
 }) => {
   await page.clock.setFixedTime(new Date('2030-06-01T12:00:00Z'));
@@ -126,12 +375,22 @@ test('publication navigation, horizontal queue and calendar retain the 600, 700 
     .first()
     .locator('..');
   const queue = main.locator('[data-og7="publication-queue"]');
-  for (const width of [599, 600, 601, 699, 700, 701, 899, 900, 901]) {
+  for (const width of [
+    599, 600, 601, 699, 700, 701, 899, 900, 901, 1199, 1200, 1201, 1536
+  ]) {
     await page.setViewportSize({ width, height: 1000 });
     await expect(main.locator(':scope > header')).toHaveCSS(
       'flex-direction',
       width <= 900 ? 'column' : 'row'
     );
+    const rootFontSize = await page
+      .locator('html')
+      .evaluate((element) =>
+        Number.parseFloat(getComputedStyle(element).fontSize)
+      );
+    const contentWidth = (await main.boundingBox())!.width;
+    const contentRem = contentWidth / rootFontSize;
+    const rail = contentRem >= 60;
     await expect
       .poll(() =>
         spaces.evaluate(
@@ -139,11 +398,33 @@ test('publication navigation, horizontal queue and calendar retain the 600, 700 
             getComputedStyle(element).gridTemplateColumns.split(' ').length
         )
       )
-      .toBe(width <= 700 ? 1 : 3);
-    await expect(queue).toHaveCSS(
-      'padding-top',
-      width <= 600 ? '14.4px' : '20px'
-    );
+      .toBe(rail || contentRem < 44 ? 1 : 3);
+    const queueBox = (await queue.boundingBox())!;
+    const navigationBox = (await spaces.boundingBox())!;
+    if (rail) {
+      expect(navigationBox.x).toBeGreaterThanOrEqual(
+        queueBox.x + queueBox.width - 1
+      );
+      expect(navigationBox.y).toBeCloseTo(queueBox.y, 0);
+    } else {
+      expect(navigationBox.y).toBeGreaterThanOrEqual(
+        queueBox.y + queueBox.height - 1
+      );
+    }
+    const scrolling = queue.locator('#publication-queue-viewport');
+    await expect(scrolling).toHaveCSS('overflow-x', 'auto');
+    await scrolling.evaluate((element) => element.scrollTo({ left: 0 }));
+    await expect(
+      queue.getByRole('button', { name: 'Voir les lots précédents' })
+    ).toBeDisabled();
+    await expect(
+      queue.getByRole('button', { name: 'Voir les lots suivants' })
+    ).toBeEnabled();
+    expect(
+      await scrolling.evaluate(
+        (element) => element.scrollWidth > element.clientWidth
+      )
+    ).toBe(true);
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth + 1
@@ -156,9 +437,16 @@ test('publication navigation, horizontal queue and calendar retain the 600, 700 
   const entry = day.locator('[data-og7="calendar-entry"]').first();
   for (const width of [699, 700, 701]) {
     await page.setViewportSize({ width, height: 1000 });
-    await expect(day).toHaveCSS('min-height', width <= 700 ? '60px' : '132px');
+    const date = day.locator('#publication-day-2030-06-03');
+    await expect(date).toBeVisible();
+    expect((await date.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     if (width <= 700) await expect(entry).toBeHidden();
     else await expect(entry).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1
+      )
+    ).toBe(true);
   }
   expect(mutations).toEqual([]);
 });

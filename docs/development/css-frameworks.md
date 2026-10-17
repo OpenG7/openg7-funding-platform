@@ -117,8 +117,8 @@ restent limitées aux hôtes admin pour atteindre leurs pages routées; les vale
 et les fontes sont différées pour préserver le budget du chargement initial.
 
 Les primitives Angular existantes (boutons, formulaires, badges, cartes métriques
-et confirmation) consomment ce contrat. Le cadre, le cockpit et la composition
-des dossiers commanditaires en sont les premières compositions harmonisées.
+et confirmation) consomment ce contrat. Le cadre, le cockpit, les dossiers
+commanditaires et les espaces de publication utilisent ces compositions harmonisées.
 Leurs contenus, permissions, étapes et confirmations restent portés par leurs
 composants métier. Les autres compositions profitent de la palette commune;
 leur harmonisation détaillée reste progressive.
@@ -127,6 +127,15 @@ Le tableau de bord commence par une synthèse financière compacte, puis la file
 des priorités et le dossier courant. Les tendances restent consultables avec
 leurs périodes et séries; les calculs et précisions financières sont conservés.
 Les célébrations, l'activité et la supervision viennent après ce travail courant.
+
+La vue Publications présente d'abord les prochains lots. Les accès à la rédaction,
+aux lots et au calendrier occupent un rail à droite dès 60 rem de contenu disponible,
+puis suivent la file en dessous. Entre 44 et 60 rem, ils occupent trois colonnes;
+en dessous, ils s'empilent. Les seuils suivent aussi la taille du texte.
+L'accent bleu repère le prochain lot sans
+confondre son ouverture avec une autorisation de publication. Les calendriers et
+les formulaires suivent la même palette et conservent les fuseaux, statuts,
+confirmations et saisies non enregistrées.
 
 Dans un dossier commanditaire, l'identité et les onglets précèdent le travail
 actif. La modération, l'édition et le guide occupent un rail de suivi lorsque

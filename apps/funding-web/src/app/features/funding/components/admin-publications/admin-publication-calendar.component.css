@@ -37,9 +37,9 @@ input {
   color-scheme: var(--og7-admin-color-scheme, dark);
   max-width: 11rem;
   @apply tw:min-h-11 tw:p-2;
-  border: 1px solid var(--admin-border);
+  border: 1px solid var(--admin-control-border);
   @apply tw:rounded-admin-control;
-  background: var(--admin-bg);
+  background: var(--admin-panel);
   @apply tw:text-admin-text;
   font-family: inherit;
   font-size: inherit;
@@ -51,16 +51,24 @@ input {
   font-size: inherit;
   line-height: inherit;
   font-weight: var(--admin-control-weight);
-  border: 1px solid var(--admin-border);
-  border-radius: 2rem;
+  border: 1px solid var(--admin-control-border);
+  border-radius: var(--admin-radius-control);
   padding: 0.5rem 0.8rem;
   background: transparent;
   @apply tw:text-admin-muted tw:min-h-11;
+  transition:
+    color var(--admin-motion-duration) var(--admin-motion-easing),
+    background-color var(--admin-motion-duration) var(--admin-motion-easing),
+    border-color var(--admin-motion-duration) var(--admin-motion-easing);
+}
+.channel-filter:hover {
+  color: var(--admin-text);
+  background: var(--admin-panel-raised);
 }
 .channel-filter[aria-pressed='true'] {
   @apply tw:text-admin-text;
-  background: var(--admin-panel-raised);
-  @apply tw:border-admin-gold;
+  background: var(--admin-selected);
+  border-color: var(--admin-accent);
 }
 .channel-filter[data-channel='facebook']::before,
 .channel-filter[data-channel='linkedin']::before {
@@ -87,6 +95,7 @@ input {
   padding: 0.7rem 0.5rem;
   background: var(--admin-panel-raised);
   @apply tw:text-admin-muted tw:text-center tw:text-admin-caption tw:capitalize;
+  font-weight: var(--admin-label-weight);
 }
 .calendar-day {
   @apply tw:min-w-0;
@@ -101,23 +110,30 @@ input {
   @apply tw:text-admin-muted;
 }
 .selected-day {
-  box-shadow: inset 0 0 0 2px var(--admin-gold);
+  box-shadow: inset 0 0 0 2px var(--admin-accent);
 }
 .day-number {
   border: 0;
   border-radius: 50%;
-  @apply tw:min-h-8 tw:min-w-8;
+  @apply tw:inline-flex tw:items-center tw:justify-center tw:min-h-11 tw:min-w-11;
+  padding: 0;
   font-family: inherit;
   line-height: inherit;
   font-weight: var(--admin-control-weight);
   @apply tw:text-admin-caption tw:cursor-pointer;
   background: transparent;
   @apply tw:text-admin-text;
+  font-variant-numeric: tabular-nums;
+}
+.day-number:hover,
+.selected-day .day-number {
+  background: var(--admin-selected);
 }
 .today .day-number {
-  background: var(--og7-admin-primary, var(--admin-gold));
-  color: var(--og7-admin-on-primary, #172338);
-  font-weight: var(--admin-control-weight);
+  background: var(--admin-selected);
+  color: var(--admin-accent);
+  font-weight: var(--admin-label-weight);
+  box-shadow: inset 0 0 0 1px var(--admin-accent);
 }
 .day-events {
   @apply tw:grid;
@@ -127,7 +143,7 @@ input {
 .calendar-event {
   @apply tw:grid;
   gap: 0.2rem;
-  @apply tw:min-w-0 tw:w-full tw:text-left tw:cursor-pointer;
+  @apply tw:min-w-0 tw:min-h-11 tw:w-full tw:text-left tw:cursor-pointer;
   font-family: inherit;
   line-height: inherit;
   font-weight: var(--admin-control-weight);
@@ -137,6 +153,9 @@ input {
   border-radius: 0.35rem;
   background: var(--og7-admin-selected, #8abbff12);
   @apply tw:text-admin-text;
+  transition:
+    background-color var(--admin-motion-duration) var(--admin-motion-easing),
+    border-color var(--admin-motion-duration) var(--admin-motion-easing);
 }
 .calendar-event[data-channel='linkedin'] {
   border-color: var(--og7-admin-border, #79ded344);
@@ -145,7 +164,9 @@ input {
 }
 .calendar-event:hover {
   background: var(--admin-panel-raised);
-  @apply tw:border-admin-gold;
+  border-top-color: var(--admin-accent);
+  border-right-color: var(--admin-accent);
+  border-bottom-color: var(--admin-accent);
 }
 .calendar-event[data-status='cancelled'] strong {
   text-decoration: line-through;
@@ -154,6 +175,14 @@ input {
 .calendar-event small,
 .event-top {
   @apply tw:wrap-anywhere;
+  line-height: 1.45;
+}
+.calendar-event strong {
+  font-weight: var(--admin-label-weight);
+}
+.calendar-event time {
+  font-weight: var(--admin-label-weight);
+  font-variant-numeric: tabular-nums;
 }
 .calendar-event small {
   @apply tw:text-admin-muted tw:text-admin-caption;
@@ -163,12 +192,15 @@ input {
   @apply tw:flex tw:flex-wrap tw:justify-between;
   gap: 0.2rem;
   @apply tw:text-admin-caption;
+  color: var(--admin-muted);
+  font-variant-numeric: tabular-nums;
 }
 .more-events {
-  @apply tw:cursor-pointer tw:text-admin-gold;
+  @apply tw:cursor-pointer;
+  color: var(--admin-accent);
   background: transparent;
   border: 0;
-  @apply tw:min-h-8;
+  @apply tw:min-h-11;
   font-family: inherit;
   line-height: inherit;
   font-weight: var(--admin-control-weight);
@@ -205,6 +237,9 @@ input {
 .mobile-count {
   @apply tw:hidden;
 }
+.month-grid :is(button, [tabindex]):focus-visible {
+  outline-offset: -3px;
+}
 @media (max-width: 700px) {
   .calendar-toolbar {
     @apply tw:items-start;
@@ -238,7 +273,7 @@ input {
   .has-events {
     border-radius: 1rem;
     background: var(--admin-panel-raised);
-    @apply tw:text-admin-gold;
+    color: var(--admin-text);
     padding: 0 0.3rem;
   }
   .weekday {
