@@ -41,7 +41,23 @@
                       date(document.issuedAt)
                     }}</time>
                   </span>
-                  <strong class="document-number">{{ document.number }}</strong>
+                  @if (document.kind === 'invoice') {
+                    <button
+                      type="button"
+                      class="document-number document-inspect"
+                      data-og7="dossier-document-preview"
+                      [attr.data-og7-id]="document.id"
+                      (click)="
+                        inspection.invoice(document.id, d.contributionId)
+                      "
+                    >
+                      {{ document.number }}
+                    </button>
+                  } @else {
+                    <strong class="document-number">{{
+                      document.number
+                    }}</strong>
+                  }
                 </div>
                 <strong class="document-amount">{{
                   money(document.amountMinor, document.currency)

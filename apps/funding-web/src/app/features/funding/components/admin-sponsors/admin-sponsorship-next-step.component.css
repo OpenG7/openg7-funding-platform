@@ -21,6 +21,30 @@ p {
   @apply tw:w-full tw:text-center;
   white-space: normal;
 }
+.workflow-summary,
+.action-details {
+  border-top: 1px solid var(--admin-border);
+  padding-top: 0.75rem;
+}
+.action-details summary {
+  cursor: pointer;
+  padding-block: 0.5rem;
+  font-weight: var(--admin-label-weight);
+}
+.action-details ul {
+  padding-inline-start: 1.25rem;
+  margin-bottom: 0;
+}
+.action-details li + li {
+  margin-top: 0.5rem;
+}
+.action-details a {
+  color: var(--admin-accent);
+}
+.action-details :is(a, summary):focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 2px;
+}
 .embedded {
   @apply tw:flex-row tw:flex-wrap tw:items-center tw:justify-between tw:gap-4 tw:p-4;
   border-radius: 8px;
@@ -51,6 +75,20 @@ p {
 .embedded.compact p {
   color: var(--admin-muted);
   margin-top: 0.15rem;
+}
+.embedded.workspace {
+  border: 0;
+  padding: 0;
+}
+.embedded.workspace .next-copy {
+  order: -1;
+  flex: 1 1 16rem;
+}
+.embedded.workspace .workflow-summary {
+  flex: 1 1 16rem;
+}
+.embedded.workspace .action-details {
+  flex: 1 1 100%;
 }
 @media (max-width: 600px) {
   .embedded.compact > .admin-button {

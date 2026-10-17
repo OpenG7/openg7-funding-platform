@@ -195,6 +195,9 @@ for (const locale of ['fr-CA', 'en']) {
     assert.ok(
       !root.textContent.includes(catalogs[locale].admin.finance.operationAmount)
     );
+    assert.ok(!root.querySelector('[data-og7="dossier-refund-summary"]'));
+    assert.ok(!root.textContent.includes(emptyRefund.amountLabel));
+    assert.ok(!root.textContent.includes(emptyRefund.publicReferenceLabel));
     assert.equal(root.querySelectorAll('button, input, textarea').length, 0);
     assert.equal(
       root.querySelector('section').getAttribute('data-og7'),
@@ -234,6 +237,87 @@ for (const locale of ['fr-CA', 'en']) {
     assert.equal(root.querySelectorAll('ol').length, 0);
     assert.ok(!root.textContent.includes(copy.history.newestFirst));
     assert.ok(!root.querySelector('[data-og7="dossier-audit-summary"]'));
+  });
+
+  test(`audit filters domains without changing event order, available facts or inspection in ${locale}`, async (t) => {
+    const entries = Object.freeze([
+      Object.freeze({
+        id: 'finance-new',
+        domain: 'finances',
+        dateTimeLabel: 'September 3, 2026',
+        label: 'Confirmed refund'
+      }),
+      Object.freeze({
+        id: 'profile',
+        domain: 'profile',
+        dateTimeLabel: 'September 2, 2026',
+        label: 'Sponsor information'
+      }),
+      Object.freeze({
+        id: 'finance-old',
+        domain: 'finances',
+        dateTimeLabel: 'September 1, 2026',
+        label: 'Confirmed payment'
+      }),
+      Object.freeze({
+        id: 'unknown',
+        dateTimeLabel: 'August 31, 2026',
+        label: 'Unclassified action'
+      })
+    ]);
+    const before = structuredClone(entries);
+    const view = await fixture(t, AuditHistoryComponent, { entries }, locale);
+    const root = view.nativeElement;
+    const copy = catalogs[locale].admin.history;
+    const select = root.querySelector('[data-og7="dossier-audit-domain"]');
+    assert.equal(
+      root.querySelector(`label[for="${select.id}"]`).textContent.trim(),
+      copy.filters.domain
+    );
+    const eventIds = () =>
+      Array.from(
+        root.querySelectorAll('[data-og7="dossier-audit-events"] li')
+      ).map((entry) => entry.getAttribute('data-og7-id'));
+    view.componentInstance.setDomainFilter('finances');
+    view.detectChanges();
+    assert.deepEqual(eventIds(), ['finance-new', 'finance-old']);
+    assert.ok(
+      root
+        .querySelector('[role="status"]')
+        .textContent.includes(
+          copy.filters.resultCount
+            .replace('{{count}}', '2')
+            .replace('{{total}}', '4')
+        )
+    );
+    view.componentInstance.setDomainFilter('publication');
+    view.detectChanges();
+    assert.deepEqual(eventIds(), []);
+    assert.equal(
+      root
+        .querySelector('[data-og7="dossier-audit-filter-empty"]')
+        .textContent.trim(),
+      copy.filters.empty
+    );
+    const intentions = [];
+    view.componentInstance.inspect.subscribe((intent) =>
+      intentions.push(intent)
+    );
+    root.querySelector('button').click();
+    assert.deepEqual(intentions, [undefined]);
+    view.componentInstance.setDomainFilter('other');
+    view.detectChanges();
+    assert.deepEqual(eventIds(), ['unknown']);
+    view.componentInstance.setDomainFilter('invalid-domain');
+    view.detectChanges();
+    assert.deepEqual(eventIds(), ['unknown']);
+    view.componentInstance.setDomainFilter('all');
+    view.detectChanges();
+    assert.deepEqual(
+      eventIds(),
+      entries.map((entry) => entry.id)
+    );
+    assert.deepEqual(entries, before);
   });
 
   for (const [name, component, hook] of [

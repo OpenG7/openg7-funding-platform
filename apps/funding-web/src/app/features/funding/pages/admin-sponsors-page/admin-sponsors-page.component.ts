@@ -155,6 +155,22 @@ export class AdminSponsorsPageComponent implements OnInit {
     this.sponsorAccess()?.focus();
   }
 
+  openReviewNote(): void {
+    this.setActiveTab('overview');
+    afterNextRender(() => this.sponsorOverview()?.openNote(), {
+      injector: this.injector
+    });
+  }
+
+  openDossierSection(tab: SponsorDetailsTab): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { sponsorshipId: this.selectedSponsorshipId(), tab },
+      queryParamsHandling: 'merge',
+      fragment: 'dossier-' + tab
+    });
+  }
+
   readonly sponsorOverview = viewChild(AdminSponsorDetailOverviewComponent);
   readonly sponsorAccess = viewChild(AdminSponsorshipAccessComponent);
   private readonly sponsorProgress = viewChild(
@@ -509,6 +525,7 @@ export class AdminSponsorsPageComponent implements OnInit {
           label: entry.label,
           detail: entry.detail,
           actorLabel: entry.actorLabel,
+          domain: entry.domain,
           actorDetail: entry.actorDetail
         }))
       };
@@ -527,6 +544,7 @@ export class AdminSponsorsPageComponent implements OnInit {
                 label: entry.label,
                 detail: entry.detail,
                 actorLabel: entry.actorLabel,
+                domain: entry.domain,
                 actorDetail: entry.actorDetail
               }))
           }
@@ -555,14 +573,16 @@ export class AdminSponsorsPageComponent implements OnInit {
     effect(() => {
       const language = this.i18n.currentLanguage();
       untracked(() => {
-        this.i18n.mergeTranslations(
-          language,
-          (language === 'en' ? enPublication : frPublication).adminOverrides
-        );
+        const { adminOverrides, ...schedule } =
+          language === 'en' ? enPublication : frPublication;
+        this.i18n.mergeTranslations(language, adminOverrides);
         this.i18n.mergeTranslations(language, {
           admin: {
             finance: language === 'en' ? enFinance : frFinance,
-            dossier: language === 'en' ? enProfile : frProfile,
+            dossier: {
+              ...(language === 'en' ? enProfile : frProfile),
+              publicationBridge: { schedule }
+            },
             history: language === 'en' ? enHistory : frHistory
           }
         });

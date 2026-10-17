@@ -6,8 +6,10 @@ import {
   output
 } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
+import type { AdminSponsorshipProgress } from '@openg7/funding-core';
 
 import type { SponsorDetailsTab } from '../../models/admin-sponsors-ui.models.js';
+import { dossierTabState } from '../../models/admin-sponsorship-workspace.js';
 
 interface AdminSponsorDetailTabItem {
   readonly id: SponsorDetailsTab;
@@ -30,9 +32,23 @@ interface AdminSponsorDetailTabItem {
         type="button"
         [class.active]="isActive(tab.id)"
         [attr.aria-current]="isActive(tab.id) ? 'page' : null"
+        [attr.aria-label]="'admin.dossier.workspace.' + tab.label | translate"
+        [attr.aria-describedby]="
+          stateFor(tab.id) ? 'dossier-tab-state-' + tab.id : null
+        "
         (click)="selectTab(tab.id)"
       >
         {{ 'admin.dossier.workspace.' + tab.label | translate }}
+        @if (stateFor(tab.id); as state) {
+          <span
+            class="tab-state"
+            [attr.data-state]="state"
+            [id]="'dossier-tab-state-' + tab.id"
+            data-og7="dossier-tab-state"
+            [attr.data-og7-id]="tab.id"
+            >{{ 'admin.dossier.states.' + state | translate }}</span
+          >
+        }
       </button>
     </nav>
   `,
@@ -45,6 +61,7 @@ interface AdminSponsorDetailTabItem {
 })
 export class AdminSponsorDetailTabsComponent {
   readonly activeTab = input.required<SponsorDetailsTab>();
+  readonly dossier = input<AdminSponsorshipProgress | null>(null);
   readonly activeTabChange = output<SponsorDetailsTab>();
 
   readonly tabs: readonly AdminSponsorDetailTabItem[] = [
@@ -66,5 +83,9 @@ export class AdminSponsorDetailTabsComponent {
 
   selectTab(tab: SponsorDetailsTab): void {
     this.activeTabChange.emit(tab);
+  }
+
+  stateFor(tab: SponsorDetailsTab): string | null {
+    return dossierTabState(this.dossier(), tab);
   }
 }

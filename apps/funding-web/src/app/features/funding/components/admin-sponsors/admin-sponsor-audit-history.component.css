@@ -52,6 +52,33 @@
   @apply tw:max-w-full;
 }
 
+.history-filters {
+  @apply tw:grid tw:gap-2;
+  max-width: 24rem;
+}
+
+.history-filters label {
+  color: var(--admin-muted);
+  font-size: var(--admin-caption-size);
+  font-weight: var(--admin-label-weight);
+}
+
+.history-filters select {
+  width: 100%;
+  min-height: 2.75rem;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-control);
+  padding: 0.5rem 0.75rem;
+  background: var(--admin-panel);
+  color: var(--admin-text);
+  font: inherit;
+}
+
+.history-filters select:focus-visible {
+  outline: 2px solid var(--admin-focus);
+  outline-offset: 3px;
+}
+
 .history-scope {
   border-top: 1px solid var(--admin-border);
   @apply tw:pt-4 tw:text-admin-caption;

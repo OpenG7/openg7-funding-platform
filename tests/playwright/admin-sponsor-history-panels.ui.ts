@@ -34,6 +34,110 @@ export function registerSponsorHistoryPanelTests({
   ] as const) {
     const english = locale === 'en';
 
+    test(`activity domains filter known and unknown events while preserving full audit inspection in ${locale} at ${width}px`, async ({
+      page
+    }) => {
+      const { calls, options } = await fixtures(page, 'reader');
+      options.edited.set(id, {
+        sponsor_visibility_updated_at: null,
+        admin_audit_entries: [
+          {
+            id: 'synthetic-filter-finances',
+            actor: 'Synthetic finance reader',
+            action: 'sponsorship_refund.stripe_partial',
+            entity_type: 'contribution',
+            entity_id: id,
+            summary: 'Synthetic finance activity',
+            metadata: { amount: 12525, currency: 'CAD' },
+            created_at: '2026-09-19T14:00:00Z'
+          },
+          {
+            id: 'synthetic-filter-profile',
+            actor: 'Synthetic profile reader',
+            action: 'sponsorship.logo.upload',
+            entity_type: 'contribution',
+            entity_id: id,
+            summary: 'Synthetic profile activity',
+            metadata: {},
+            created_at: '2026-09-18T14:00:00Z'
+          },
+          {
+            id: 'synthetic-filter-other',
+            actor: 'Synthetic audit reader',
+            action: 'future.unknown_action',
+            entity_type: 'contribution',
+            entity_id: id,
+            summary: 'Synthetic unclassified activity',
+            metadata: {},
+            created_at: '2026-09-17T14:00:00Z'
+          }
+        ]
+      });
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(path('audit'));
+      if (english)
+        await page
+          .getByRole('button', {
+            name: 'Switch administration language to English'
+          })
+          .click();
+      const history = page.locator('[data-og7="dossier-audit-history"]');
+      const filter = history.getByRole('combobox', {
+        name: english ? 'Filter activity' : 'Filtrer l’activité',
+        exact: true
+      });
+      await filter.focus();
+      await filter.selectOption('finances');
+      await expect(filter).toBeFocused();
+      await expect(
+        history.locator('[data-og7-id="synthetic-filter-finances"]')
+      ).toBeVisible();
+      await expect(
+        history.locator('[data-og7-id="synthetic-filter-profile"]')
+      ).toHaveCount(0);
+      await expect(
+        history.locator('[data-og7-id="synthetic-filter-other"]')
+      ).toHaveCount(0);
+      await expect(
+        history.locator('[data-og7="dossier-audit-summary"]')
+      ).toContainText(english ? ' of ' : ' sur ');
+      const inspect = history.getByRole('button', {
+        name: english ? 'View audit log' : 'Consulter le journal',
+        exact: true
+      });
+      await inspect.focus();
+      await inspect.press('Enter');
+      const dialog = page.locator('dialog[open]');
+      await expect(dialog).toContainText('Synthetic profile reader');
+      await expect(dialog).toContainText('Synthetic unclassified activity');
+      await page.keyboard.press('Escape');
+      await expect(inspect).toBeFocused();
+      await filter.selectOption('publication');
+      await expect(
+        history.locator('[data-og7="dossier-audit-filter-empty"]')
+      ).toHaveText(
+        english ? 'No events in this area.' : 'Aucun événement dans ce domaine.'
+      );
+      await filter.selectOption('other');
+      await expect(
+        history.locator('[data-og7="dossier-audit-events"] li')
+      ).toHaveCount(1);
+      await expect(history).toContainText('Synthetic unclassified activity');
+      await filter.selectOption('all');
+      await expect(
+        history.locator('[data-og7-id="synthetic-filter-finances"]')
+      ).toBeVisible();
+      await expect(
+        history.locator('[data-og7-id="synthetic-filter-profile"]')
+      ).toBeVisible();
+      expect(
+        await history.evaluate(
+          (element) => element.scrollWidth <= element.clientWidth + 1
+        )
+      ).toBe(true);
+      expect(calls.every((call) => call.method === 'GET')).toBe(true);
+    });
+
     test(`extracted refund history preserves projected facts, notes and chronology in ${locale} at ${width}px`, async ({
       page
     }) => {

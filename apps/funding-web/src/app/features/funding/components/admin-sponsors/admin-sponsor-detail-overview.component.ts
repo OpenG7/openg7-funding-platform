@@ -11,7 +11,10 @@ import {
 } from '@angular/core';
 
 import { AdminDrawerComponent } from '../admin-ui/admin-drawer.component.js';
-import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors-ui.models.js';
+import type {
+  AdminSponsorDetailOverviewView,
+  SponsorDetailsTab
+} from '../../models/admin-sponsors-ui.models.js';
 
 @Component({
   selector: 'openg7-admin-sponsor-detail-overview',
@@ -25,128 +28,70 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
       tabindex="-1"
       [attr.aria-label]="'admin.legacy.vue_d_ensemble' | translate"
     >
-      <div class="detail-card-grid">
-        <article class="detail-card">
-          <h3>{{ 'admin.legacy.entreprise_contact' | translate }}</h3>
-          <dl>
-            <div>
-              <dt>{{ 'admin.legacy.nom_de_l_entreprise' | translate }}</dt>
-              <dd>{{ overview().companyName }}</dd>
-            </div>
-            <div>
-              <dt>{{ 'admin.legacy.nom_public' | translate }}</dt>
-              <dd>{{ overview().publicNameLabel }}</dd>
-            </div>
-            <div>
-              <dt>{{ 'admin.legacy.contact' | translate }}</dt>
-              <dd>{{ overview().contactName }}</dd>
-            </div>
-            <div>
-              <dt>{{ 'admin.legacy.courriel' | translate }}</dt>
-              <dd>
-                <a
-                  *ngIf="overview().contactEmail; else emptyEmail"
-                  [href]="'mailto:' + overview().contactEmail"
-                  >{{ overview().contactEmail }}</a
-                ><ng-template #emptyEmail>{{
-                  'admin.legacy.non_fourni' | translate
-                }}</ng-template>
-              </dd>
-            </div>
-            <div>
-              <dt>{{ 'admin.legacy.site_web' | translate }}</dt>
-              <dd>
-                <a
-                  *ngIf="overview().websiteUrl; else emptyWebsite"
-                  [href]="overview().websiteUrl"
-                  target="_blank"
-                  rel="noreferrer"
-                  >{{ overview().websiteUrl }}</a
-                ><ng-template #emptyWebsite>{{
-                  'admin.legacy.non_fourni' | translate
-                }}</ng-template>
-              </dd>
-            </div>
-            <div>
-              <dt>{{ 'admin.legacy.reference_publique' | translate }}</dt>
-              <dd class="copy-line">
-                <code>{{
-                  overview().publicReference ||
-                    ('admin.legacy.non_attribuee_175' | translate)
-                }}</code
-                ><button
-                  type="button"
-                  class="mini-action"
-                  (click)="copyReference.emit()"
-                  [disabled]="!overview().publicReference"
-                >
-                  {{ 'admin.legacy.copier' | translate }}
-                </button>
-              </dd>
-            </div>
-          </dl>
-          <small class="inline-status" *ngIf="overview().copyMessage">{{
-            overview().copyMessage
-          }}</small>
-        </article>
-
-        <article
-          class="detail-card admin-focus-target"
-          id="dossier-payment"
-          tabindex="-1"
-          aria-labelledby="dossier-payment-title"
+      <article
+        class="detail-card detail-summary admin-focus-target"
+        id="dossier-payment"
+        tabindex="-1"
+        aria-labelledby="dossier-payment-title"
+        data-og7="dossier-overview-summary"
+      >
+        <h3 id="dossier-payment-title">
+          {{ 'admin.legacy.commandite' | translate }}
+        </h3>
+        <dl>
+          <div>
+            <dt>{{ 'admin.legacy.reference_publique' | translate }}</dt>
+            <dd class="copy-line">
+              <code>{{
+                overview().publicReference ||
+                  ('admin.legacy.non_attribuee_175' | translate)
+              }}</code>
+              <button
+                type="button"
+                class="mini-action"
+                (click)="copyReference.emit()"
+                [disabled]="!overview().publicReference"
+              >
+                {{ 'admin.legacy.copier' | translate }}
+              </button>
+            </dd>
+          </div>
+          <div>
+            <dt>{{ 'admin.legacy.avantages' | translate }}</dt>
+            <dd>{{ overview().benefitsLabel }}</dd>
+          </div>
+        </dl>
+        <small
+          class="inline-status"
+          role="status"
+          *ngIf="overview().copyMessage"
+          >{{ overview().copyMessage }}</small
         >
-          <h3 id="dossier-payment-title">
-            {{ 'admin.legacy.commandite' | translate }}
-          </h3>
-          <dl>
-            <div>
-              <dt>{{ 'admin.legacy.montant' | translate }}</dt>
-              <dd>{{ overview().amountLabel }}</dd>
-            </div>
-            <div>
-              <dt>{{ 'admin.legacy.niveau_tier' | translate }}</dt>
-              <dd>
-                <span [class]="overview().tierClass">{{
-                  overview().tierLabel
-                }}</span>
-              </dd>
-            </div>
-            <div>
-              <dt>{{ 'admin.legacy.avantages' | translate }}</dt>
-              <dd>{{ overview().benefitsLabel }}</dd>
-            </div>
-            <div>
-              <dt>{{ 'admin.legacy.paiement' | translate }}</dt>
-              <dd>
-                <span [class]="overview().paymentStatusClass">{{
-                  overview().paymentStatusLabel
-                }}</span>
-              </dd>
-            </div>
-            <div>
-              <dt>{{ 'admin.legacy.remboursement' | translate }}</dt>
-              <dd>
-                <span [class]="overview().refundStatusClass">{{
-                  overview().refundStatusLabel
-                }}</span>
-              </dd>
-            </div>
-            <div *ngIf="overview().hasRefundWorkflow">
-              <dt>{{ 'admin.legacy.suivi_remboursement' | translate }}</dt>
-              <dd>{{ overview().refundWorkflowTimelineLabel }}</dd>
-            </div>
-            <div *ngIf="overview().refundId">
-              <dt>{{ 'admin.legacy.refund_stripe' | translate }}</dt>
-              <dd>{{ overview().refundId }}</dd>
-            </div>
-            <div>
-              <dt>{{ 'admin.legacy.date_de_paiement' | translate }}</dt>
-              <dd>{{ overview().paidAtLabel }}</dd>
-            </div>
-          </dl>
-        </article>
-      </div>
+        <p class="summary-help">
+          {{ 'admin.dossier.overview.financeHint' | translate }}
+        </p>
+        <nav
+          class="summary-links"
+          [attr.aria-label]="'admin.dossier.workspace.dossier' | translate"
+        >
+          <button
+            type="button"
+            class="admin-button"
+            data-og7="overview-open-profile"
+            (click)="sectionRequested.emit('identity')"
+          >
+            {{ 'admin.dossier.overview.openProfile' | translate }}
+          </button>
+          <button
+            type="button"
+            class="admin-button"
+            data-og7="overview-open-finances"
+            (click)="sectionRequested.emit('billing')"
+          >
+            {{ 'admin.dossier.overview.openFinances' | translate }}
+          </button>
+        </nav>
+      </article>
 
       <div class="detail-card-grid detail-notes">
         <article class="detail-card" *ngIf="overview().sponsorMessage">
@@ -177,7 +122,7 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
           <button
             type="button"
             class="admin-button note-open"
-            (click)="noteOpen.set(true)"
+            (click)="openNote()"
           >
             {{
               (disabled() ? 'admin.inspector.note' : 'admin.inspector.editNote')
@@ -309,8 +254,13 @@ export class AdminSponsorDetailOverviewComponent {
   readonly overview = input.required<AdminSponsorDetailOverviewView>();
   readonly disabled = input(false);
   readonly copyReference = output<void>();
+  readonly sectionRequested = output<SponsorDetailsTab>();
   readonly reviewNoteChange = output<string>();
   readonly saveReviewNote = output<void>();
+
+  openNote(): void {
+    this.noteOpen.set(true);
+  }
 
   focusDetails(): void {
     const details = this.details()?.nativeElement;
