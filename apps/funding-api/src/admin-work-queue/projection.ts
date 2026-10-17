@@ -20,6 +20,54 @@ import {
   type QueueStripeEvent
 } from './contracts.js';
 
+/** Correlate every unfinished dossier while navigation retains one stable target. */
+const publicationDossierIds = (
+  dataset: Pick<AttentionDataset, 'drafts' | 'batches'>,
+  facts: AdminAttentionItem['facts']
+): string[] =>
+  [
+    ...new Set(
+      dataset.drafts
+        .filter((draft) =>
+          facts['kind'] === 'draft'
+            ? draft.id === facts['reference']
+            : facts['kind'] === 'batch'
+              ? draft.batch_id === facts['reference']
+              : facts['kind'] === 'slot'
+                ? draft.slot_id === facts['reference'] ||
+                  dataset.batches.some(
+                    (batch) =>
+                      batch.id === draft.batch_id &&
+                      batch.slotId === facts['reference']
+                  )
+                : false
+        )
+        .filter(isUnfinishedPublicationDraft)
+        .map((draft) => draft.contribution_id)
+    )
+  ].sort();
+
+/** Count the full queue's required dossiers, including shared publication placements. */
+export const countPendingWorkQueueDossiers = (
+  items: readonly AdminAttentionItem[],
+  dataset: Pick<AttentionDataset, 'drafts' | 'batches'>
+): number => {
+  const dossiers = new Set<string>();
+  for (const item of items) {
+    if (item.severity === 'informational') continue;
+    const id = item.contributionId ?? item.sponsorshipId;
+    if (id) dossiers.add(id);
+    if (
+      item.type === 'publication_late' ||
+      item.type === 'publication_ready' ||
+      item.type === 'publication_slot_upcoming'
+    )
+      for (const dossierId of publicationDossierIds(dataset, item.facts))
+        if (dossierId) dossiers.add(dossierId);
+  }
+  return dossiers.size;
+};
+
 /** One publication action per logical placement: slot > batch > standalone draft. */
 export const buildWorkQueueItems = (
   dataset: AttentionDataset,
@@ -55,24 +103,7 @@ export const buildWorkQueueItems = (
     const sponsorshipId =
       type === 'invoice_missing'
         ? id
-        : dataset.drafts
-            .filter((draft) =>
-              facts['kind'] === 'draft'
-                ? draft.id === facts['reference']
-                : facts['kind'] === 'batch'
-                  ? draft.batch_id === facts['reference']
-                  : facts['kind'] === 'slot'
-                    ? draft.slot_id === facts['reference'] ||
-                      dataset.batches.some(
-                        (batch) =>
-                          batch.id === draft.batch_id &&
-                          batch.slotId === facts['reference']
-                      )
-                    : false
-            )
-            .filter(isUnfinishedPublicationDraft)
-            .map((draft) => draft.contribution_id)
-            .sort()[0];
+        : publicationDossierIds(dataset, facts)[0];
     items.push({
       id: `${type}:${id}`,
       type,

@@ -3,6 +3,8 @@ import { AxeBuilder } from '@axe-core/playwright';
 import type {
   AdminAutomaticRunEntry,
   AdminAutomaticRunState,
+  AdminPaymentJourney,
+  AdminWorkQueueResponse,
   ResponsibilityBalance
 } from '@openg7/funding-core';
 
@@ -20,6 +22,8 @@ const paymentIds = [1, 2, 3].map(
 const now = '2026-10-15T12:00:00Z';
 const hook = (page: Page, name: string) =>
   page.locator(`[data-og7="automatic-portfolio-${name}"]`);
+const highlighted = '[data-og7-guidance-highlight]';
+type ReadingStep = 'scope' | 'dossier' | 'result' | 'summary';
 
 function entry(index: number): AdminAutomaticRunEntry {
   const contributionId = paymentIds[index % paymentIds.length]!;
@@ -176,16 +180,68 @@ function runState(
   };
 }
 
+function paymentJourney(contributionId: string): AdminPaymentJourney {
+  const index = paymentIds.indexOf(contributionId);
+  const dossier = entry(index);
+  const adminUrl = `/admin/fundraiser/sponsors?sponsorshipId=${contributionId}`;
+  return {
+    contributionId,
+    reference: dossier.reference,
+    contributionType: dossier.balance.contributionType,
+    amountMinor: dossier.balance.amountMinor,
+    currency: dossier.balance.currency,
+    paymentStatus: 'paid',
+    state: 'action_required',
+    completed: 1,
+    total: 2,
+    steps: [
+      {
+        id: 'payment',
+        state: 'complete',
+        reason: 'payment_recorded',
+        adminUrl: `/admin/fundraiser/contributions?contributionId=${contributionId}`
+      },
+      {
+        id: 'publication',
+        state: 'pending',
+        reason: 'publication_pending',
+        adminUrl,
+        target: 'sponsorship-dossier'
+      }
+    ],
+    next: {
+      reason: 'publication_pending',
+      adminUrl,
+      target: 'sponsorship-dossier'
+    }
+  };
+}
+
 /** Built UI only: synthetic API observations, never proof of real financial work. */
 async function fixture(page: Page, language = 'fr-CA') {
   const f = {
     state: { run: null, balance: null } as AdminAutomaticRunState,
     entries: [] as AdminAutomaticRunEntry[],
     writes: [] as { pathname: string; body: Record<string, unknown> }[],
+    readGate: null as Promise<void> | null,
     advanceGate: null as Promise<void> | null,
     loseAdvanceResponse: false,
     invalidPaymentFacts: false,
     reportReads: [] as number[],
+    reportSeedCount: 0,
+    reportGate: null as Promise<void> | null,
+    journeyReads: [] as string[],
+    journeyGate: null as Promise<void> | null,
+    journeyStatus: 200,
+    queueActionCounts: {} as AdminWorkQueueResponse['actionCounts'],
+    queuePendingDossierCount:
+      0 as AdminWorkQueueResponse['pendingDossierCount'],
+    queueTotal: 0,
+    queueInformational: 0,
+    queueAvailable: true,
+    queueCoverage: 'complete' as 'complete' | 'unavailable' | 'partial',
+    queueStatus: 200,
+    queueReads: 0,
     signedIn: true
   };
   await page.addInitScript(
@@ -221,6 +277,10 @@ async function fixture(page: Page, language = 'fr-CA') {
               ? 'completed'
               : 'running'
         );
+        if (processed === 3 && f.reportSeedCount > 0)
+          f.entries = Array.from({ length: f.reportSeedCount }, (_, index) =>
+            entry(index)
+          );
         if (f.loseAdvanceResponse) return route.abort('failed');
         return route.fulfill({ json: f.state });
       }
@@ -257,11 +317,31 @@ async function fixture(page: Page, language = 'fr-CA') {
             }
           : {}
       });
-    if (pathname === '/api/admin/automatic-runs')
+    if (pathname === '/api/admin/automatic-runs') {
+      if (f.readGate) await f.readGate;
       return route.fulfill({ json: f.state });
+    }
+    if (pathname === '/api/admin/payment-journey') {
+      const contributionId = url.searchParams.get('contributionId')!;
+      f.journeyReads.push(contributionId);
+      if (f.journeyGate) await f.journeyGate;
+      if (f.journeyStatus !== 200)
+        return route.fulfill({
+          status: f.journeyStatus,
+          json: { code: 'SYNTHETIC_PREVIEW_UNAVAILABLE' }
+        });
+      return route.fulfill({
+        json: {
+          status: 'ok',
+          generatedAt: now,
+          journey: paymentJourney(contributionId)
+        }
+      });
+    }
     if (pathname === '/api/admin/automatic-runs/report') {
       const after = Number(url.searchParams.get('after') ?? 0);
       f.reportReads.push(after);
+      if (after > 0 && f.reportGate) await f.reportGate;
       const entries = f.entries.filter((item) => item.seq > after).slice(0, 50);
       return route.fulfill({
         json: {
@@ -274,24 +354,39 @@ async function fixture(page: Page, language = 'fr-CA') {
         }
       });
     }
-    if (pathname === '/api/admin/attention')
+    if (pathname === '/api/admin/attention') {
+      f.queueReads++;
+      if (f.queueStatus !== 200)
+        return route.fulfill({
+          status: f.queueStatus,
+          json: { code: 'SYNTHETIC_ATTENTION_UNAVAILABLE' }
+        });
       return route.fulfill({
         json: {
-          available: true,
-          coverage: 'complete',
-          missingSources: [],
+          available: f.queueAvailable,
+          coverage: f.queueCoverage,
+          missingSources:
+            f.queueCoverage === 'complete' ? [] : ['synthetic-source'],
           generatedAt: now,
           timezone: 'America/Toronto',
-          total: 0,
+          total: f.queueTotal,
           filteredTotal: 0,
           todayTotal: 0,
-          counts: { urgent: 0, today: 0, this_week: 0, informational: 0 },
+          counts: {
+            urgent: 0,
+            today: 0,
+            this_week: 0,
+            informational: f.queueInformational
+          },
           typeCounts: {},
+          actionCounts: f.queueActionCounts,
+          pendingDossierCount: f.queuePendingDossierCount,
           page: 1,
           pageSize: 25,
           items: []
         }
       });
+    }
     return route.fulfill({
       status: 503,
       json: { code: 'SYNTHETIC_UI_FIXTURE_UNAVAILABLE' }
@@ -310,6 +405,669 @@ async function open(page: Page, phase = 'review') {
   await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', phase);
 }
 
+async function expectReading(page: Page, step: ReadingStep) {
+  await expect(hook(page, 'state')).toHaveAttribute(
+    'data-og7-id',
+    'awaiting_approval'
+  );
+  await expect(hook(page, 'reading')).toHaveAttribute('data-og7-id', step);
+  await expect(hook(page, 'approve')).toBeEnabled();
+  const target = hook(page, step === 'result' ? 'latest' : step);
+  await expect(target).toHaveAttribute('data-og7-guidance-highlight', '');
+}
+
+async function approveReading(page: Page, step: ReadingStep) {
+  await expectReading(page, step);
+  const approval = hook(page, 'approve');
+  const reviewId = await approval.getAttribute('data-og7-id');
+  expect(reviewId).toMatch(/^\d+$/);
+  await approval.click();
+  await expect(
+    page.locator(
+      `[data-og7="automatic-portfolio-approve"][data-og7-id="${reviewId}"]`
+    )
+  ).toHaveCount(0);
+}
+
+type PortfolioFixture = Awaited<ReturnType<typeof fixture>>;
+const advances = (f: PortfolioFixture) =>
+  f.writes.filter((write) => write.pathname.endsWith('/advance'));
+
+/** Each call is an explicit test gesture, never an API-fixture approval. */
+async function readDossiers(page: Page, f: PortfolioFixture, firstIndex = 0) {
+  for (let index = firstIndex; index < paymentIds.length; ++index) {
+    await expectReading(page, 'dossier');
+    await expect(hook(page, 'dossier')).toContainText(
+      `DEMO-BALANCE-${index + 1}`
+    );
+    expect(advances(f)).toHaveLength(index);
+    expect(f.journeyReads.at(-1)).toBe(paymentIds[index]);
+    await approveReading(page, 'dossier');
+    await expectReading(page, 'result');
+    await expect(hook(page, 'latest')).toContainText(
+      `DEMO-BALANCE-${index + 1}`
+    );
+    expect(advances(f)).toHaveLength(index + 1);
+    await approveReading(page, 'result');
+  }
+  await expectReading(page, 'summary');
+  await expect(hook(page, 'completion')).toHaveCount(0);
+}
+
+async function completePassage(page: Page, f: PortfolioFixture) {
+  await expectReading(page, 'scope');
+  expect(advances(f)).toHaveLength(0);
+  await approveReading(page, 'scope');
+  await readDossiers(page, f);
+  await approveReading(page, 'summary');
+  await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'completed');
+  await expect(page.locator(highlighted)).toHaveCount(0);
+}
+
+for (const [language, width] of [
+  ['fr-CA', 1440],
+  ['en', 390]
+] as const) {
+  test(`the header starts a responsibility passage from the closed guide in ${language}`, async ({
+    page
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const f = await fixture(page, language);
+    f.queueActionCounts = undefined;
+    await page.goto(path);
+    const shortcut = page.locator(
+      '[data-og7="admin-automatic-portfolio-start"]'
+    );
+    await expect(shortcut).toBeVisible();
+    await expect(shortcut).toHaveAccessibleName(
+      language === 'en' ? 'Start a new passage' : 'Démarrer un nouveau passage'
+    );
+    await expect(shortcut).toHaveAccessibleDescription(
+      language === 'en' ? 'Dossiers to process: 0' : 'Dossiers à traiter : 0'
+    );
+    await expect(
+      page.locator('[data-og7="admin-automatic-portfolio-count"]')
+    ).toHaveText('0');
+    await expect(
+      page.locator('[data-og7="admin-automatic-portfolio-bell"]')
+    ).toHaveAttribute('data-og7-id', 'inactive');
+    await expect(page.locator('[data-og7="admin-guidance-panel"]')).toHaveCount(
+      0
+    );
+    await page
+      .locator('header')
+      .filter({ has: shortcut })
+      .screenshot({
+        path: test.info().outputPath(`header-${language}.png`),
+        animations: 'disabled'
+      });
+    expect(f.writes).toEqual([]);
+    await shortcut.click();
+    await completePassage(page, f);
+    await expect(hook(page, 'state')).toHaveAttribute(
+      'data-og7-id',
+      'completed'
+    );
+    expect(
+      f.writes.filter((write) => write.pathname === '/api/admin/automatic-runs')
+    ).toHaveLength(1);
+    expect(
+      f.writes.filter((write) => write.pathname.endsWith('/advance'))
+    ).toHaveLength(3);
+    await expect(
+      page.locator('[data-og7="admin-guidance-automatic-mode"]')
+    ).toHaveAttribute('aria-pressed', 'true');
+    const shortcutBounds = await shortcut.boundingBox();
+    expect(shortcutBounds).not.toBeNull();
+    expect(shortcutBounds!.x).toBeGreaterThanOrEqual(0);
+    expect(shortcutBounds!.x + shortcutBounds!.width).toBeLessThanOrEqual(
+      width
+    );
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth
+      )
+    ).toBe(true);
+    const writesBeforeReload = f.writes.length;
+    await page.reload();
+    await expect(hook(page, 'state')).toHaveAttribute(
+      'data-og7-id',
+      'completed'
+    );
+    expect(f.writes).toHaveLength(writesBeforeReload);
+  });
+}
+
+for (const [language, width] of [
+  ['fr-CA', 1440],
+  ['en', 390]
+] as const) {
+  test(`passage reading stays illuminated until a separate human approval for every step in ${language}`, async ({
+    page
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    const f = await fixture(page, language);
+    let releaseAdvance!: () => void;
+    f.advanceGate = new Promise<void>((resolve) => {
+      releaseAdvance = resolve;
+    });
+    await page.goto(path);
+    await page.locator('[data-og7="admin-automatic-portfolio-start"]').click();
+    await expectReading(page, 'scope');
+    const approval = hook(page, 'approve');
+    await expect(approval).toHaveAccessibleName(
+      language === 'en' ? 'I’ve read it, continue' : 'J’ai lu, continuer'
+    );
+    const scope = hook(page, 'scope');
+    const scopeElement = (await scope.elementHandle())!;
+    expect(
+      await scope.evaluate((element) =>
+        element.getAnimations().map((animation) => ({
+          continuous: animation.effect?.getTiming().iterations === Infinity,
+          running: animation.playState === 'running',
+          changesLayout: (animation.effect as KeyframeEffect)
+            .getKeyframes()
+            .some(
+              (frame) =>
+                frame.transform !== undefined || frame.width !== undefined
+            )
+        }))
+      )
+    ).toEqual([{ continuous: true, running: true, changesLayout: false }]);
+    await page.clock.install();
+    await page.clock.runFor(12000);
+    await expectReading(page, 'scope');
+    expect(advances(f)).toHaveLength(0);
+    expect(f.journeyReads).toEqual([]);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await expect
+      .poll(() => scope.evaluate((element) => element.getAnimations().length))
+      .toBe(0);
+    await expect(scope).toHaveAttribute('data-og7-guidance-highlight', '');
+    await expect(scope).toHaveCSS('outline-style', 'solid');
+    await expect(scope).toHaveCSS('outline-width', '3px');
+    await approval.focus();
+    await expect(approval).toBeFocused();
+    await approval.press('Enter');
+    await expectReading(page, 'dossier');
+    await expect(
+      page.locator(
+        '[data-og7="automatic-portfolio-scope"][data-og7-guidance-highlight]'
+      )
+    ).toHaveCount(0);
+    await expect
+      .poll(() =>
+        scopeElement.evaluate((element) => ({
+          marker: element.getAttribute('data-og7-guidance-highlight'),
+          animations: element.getAnimations().length
+        }))
+      )
+      .toEqual({ marker: null, animations: 0 });
+    expect(advances(f)).toHaveLength(0);
+    expect(f.journeyReads).toEqual([paymentIds[0]]);
+    await expect(hook(page, 'dossier')).toContainText('DEMO-BALANCE-1');
+    await hook(page, 'approve').evaluate((element) => {
+      (element as HTMLButtonElement).click();
+      (element as HTMLButtonElement).click();
+    });
+    await expect(hook(page, 'state')).toHaveAttribute(
+      'data-og7-id',
+      'advancing'
+    );
+    await expect.poll(() => advances(f).length).toBe(1);
+    await expect(hook(page, 'approve')).toHaveCount(0);
+    releaseAdvance();
+    await expectReading(page, 'result');
+    await page.clock.runFor(12000);
+    await expectReading(page, 'result');
+    expect(advances(f)).toHaveLength(1);
+    await expect(hook(page, 'latest')).toContainText('DEMO-BALANCE-1');
+    await hook(page, 'pause').click();
+    await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'paused');
+    await expect(page.locator(highlighted)).toHaveCount(0);
+    await expect(hook(page, 'approve')).toHaveCount(0);
+    await page.clock.runFor(12000);
+    expect(advances(f)).toHaveLength(1);
+  });
+}
+
+for (const language of ['fr-CA', 'en']) {
+  test(`the header counts unique pending dossiers and activates its bell in ${language}`, async ({
+    page
+  }) => {
+    await page.setViewportSize({
+      width: language === 'en' ? 390 : 1440,
+      height: 900
+    });
+    const f = await fixture(page, language);
+    f.queueActionCounts = {
+      sponsorship_needs_review: 2,
+      publication_needs_preparation: 3
+    };
+    f.queuePendingDossierCount = 2;
+    f.queueTotal = 14;
+    f.queueInformational = 9;
+    await page.goto(path);
+    const shortcut = page.locator(
+      '[data-og7="admin-automatic-portfolio-start"]'
+    );
+    await expect(
+      page.locator('[data-og7="admin-automatic-portfolio-count"]')
+    ).toHaveText('2');
+    await expect(
+      page.locator('[data-og7="admin-automatic-portfolio-bell"]')
+    ).toHaveAttribute('data-og7-id', 'active');
+    await expect(shortcut).toHaveAccessibleName(
+      language === 'en' ? 'Start a new passage' : 'Démarrer un nouveau passage'
+    );
+    await expect(shortcut).toHaveAttribute(
+      'aria-describedby',
+      'admin-new-passage-count-description'
+    );
+    await expect(shortcut).toHaveAccessibleDescription(
+      language === 'en' ? 'Dossiers to process: 2' : 'Dossiers à traiter : 2'
+    );
+    await page
+      .locator('header')
+      .filter({ has: shortcut })
+      .screenshot({
+        path: test.info().outputPath(`header-active-${language}.png`),
+        animations: 'disabled'
+      });
+    const accessibility = await new AxeBuilder({ page })
+      .include('header')
+      .analyze();
+    expect(accessibility.violations).toEqual([]);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await expect(
+      page.locator('[data-og7="admin-automatic-portfolio-bell"]')
+    ).toHaveCSS('animation-name', 'none');
+    expect(f.writes).toEqual([]);
+  });
+}
+
+for (const queueState of [
+  'unavailable',
+  'partial',
+  'forbidden',
+  'missing_dossier_count'
+] as const) {
+  test(`the header shows an unknown count with an inactive bell for a ${queueState} queue`, async ({
+    page
+  }) => {
+    const language = queueState === 'forbidden' ? 'en' : 'fr-CA';
+    const f = await fixture(page, language);
+    f.queueActionCounts = { sponsorship_needs_review: 5 };
+    f.queuePendingDossierCount = 5;
+    await page.goto(path);
+    const shortcut = page.locator(
+      '[data-og7="admin-automatic-portfolio-start"]'
+    );
+    const count = page.locator('[data-og7="admin-automatic-portfolio-count"]');
+    await expect(count).toHaveText('5');
+    if (queueState === 'unavailable') {
+      f.queueAvailable = false;
+      f.queueCoverage = 'unavailable';
+    } else if (queueState === 'partial') f.queueCoverage = 'partial';
+    else if (queueState === 'forbidden') f.queueStatus = 403;
+    else f.queuePendingDossierCount = undefined;
+    await page
+      .locator('[data-og7="attention-panel"]')
+      .getByRole('button', {
+        name: language === 'en' ? 'Refresh tasks' : 'Actualiser les tâches',
+        exact: true
+      })
+      .click();
+    await expect(shortcut).toBeVisible();
+    await expect(count).toHaveText('—');
+    await expect(
+      page.locator('[data-og7="admin-automatic-portfolio-bell"]')
+    ).toHaveAttribute('data-og7-id', 'inactive');
+    await expect(shortcut).toHaveAccessibleDescription(
+      language === 'en'
+        ? 'Dossier count unavailable.'
+        : 'Compteur des dossiers indisponible.'
+    );
+    expect(f.writes).toEqual([]);
+  });
+}
+
+test('finishing a passage refreshes the server count and deactivates the header bell when no dossiers remain', async ({
+  page
+}) => {
+  const f = await fixture(page);
+  f.queueActionCounts = { sponsorship_needs_review: 5 };
+  f.queuePendingDossierCount = 5;
+  await page.goto(path);
+  const count = page.locator('[data-og7="admin-automatic-portfolio-count"]');
+  await expect(count).toHaveText('5');
+  const readsBeforePassage = f.queueReads;
+  await page.locator('[data-og7="admin-automatic-portfolio-start"]').click();
+  await approveReading(page, 'scope');
+  await readDossiers(page, f);
+  await expect(count).toHaveText('5');
+  f.queueActionCounts = {};
+  f.queuePendingDossierCount = 0;
+  await approveReading(page, 'summary');
+  await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'completed');
+  await expect.poll(() => f.queueReads).toBeGreaterThan(readsBeforePassage);
+  await expect(count).toHaveText('0');
+  await expect(
+    page.locator('[data-og7="admin-automatic-portfolio-bell"]')
+  ).toHaveAttribute('data-og7-id', 'inactive');
+});
+
+test('the header shortcut supports the keyboard and suppresses another start while loading', async ({
+  page
+}) => {
+  const f = await fixture(page);
+  let releaseRead!: () => void;
+  f.readGate = new Promise<void>((resolve) => {
+    releaseRead = resolve;
+  });
+  await page.goto(path);
+  const shortcut = page.locator('[data-og7="admin-automatic-portfolio-start"]');
+  await expect(shortcut).toBeEnabled();
+  await shortcut.focus();
+  await expect(shortcut).toBeFocused();
+  await shortcut.press('Enter');
+  await expect(shortcut).toBeDisabled();
+  await shortcut.press('Enter');
+  expect(f.writes).toEqual([]);
+  releaseRead();
+  await completePassage(page, f);
+  await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'completed');
+  expect(
+    f.writes.filter((write) => write.pathname === '/api/admin/automatic-runs')
+  ).toHaveLength(1);
+});
+
+test('closing the guide cancels a header start while its current passage is loading', async ({
+  page
+}) => {
+  const f = await fixture(page);
+  let releaseRead!: () => void;
+  f.readGate = new Promise<void>((resolve) => {
+    releaseRead = resolve;
+  });
+  await page.goto(path);
+  const shortcut = page.locator('[data-og7="admin-automatic-portfolio-start"]');
+  await expect(shortcut).toBeEnabled();
+  await shortcut.click();
+  await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'loading');
+  const toggle = page.locator('[data-og7="admin-guidance-toggle"]');
+  await toggle.click();
+  await expect(page.locator('[data-og7="admin-guidance-panel"]')).toHaveCount(
+    0
+  );
+  const readResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'GET' &&
+      new URL(response.url()).pathname === '/api/admin/automatic-runs'
+  );
+  releaseRead();
+  await (await readResponse).finished();
+  await expect(shortcut).toBeEnabled();
+  expect(f.writes).toEqual([]);
+  await toggle.click();
+  await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'review');
+  await expect(hook(page, 'start')).toBeEnabled();
+  expect(f.writes).toEqual([]);
+});
+
+test('a new session reads its own passage before a suspended previous session returns', async ({
+  page
+}) => {
+  const f = await fixture(page);
+  const oldEntry = { ...entry(2), reference: 'SESSION-A-PRIVATE-REPORT' };
+  const oldState = runState(3, 'completed');
+  const stateA: AdminAutomaticRunState = {
+    ...oldState,
+    run: { ...oldState.run!, latestEntry: oldEntry }
+  };
+  const newEntry = { ...entry(0), reference: 'SESSION-B-CURRENT-REPORT' };
+  const newState = runState(1, 'paused');
+  const stateB: AdminAutomaticRunState = {
+    ...newState,
+    run: {
+      ...newState.run!,
+      id: '10000000-0000-4000-8000-000000000912',
+      latestEntry: newEntry
+    }
+  };
+  let owner: 'A' | 'B' = 'A';
+  let releaseA!: () => void;
+  const gateA = new Promise<void>((resolve) => {
+    releaseA = resolve;
+  });
+  const reads: string[] = [];
+  await page.route('**/api/admin/auth/current', (route) =>
+    route.fulfill({
+      status: f.signedIn ? 200 : 401,
+      json: f.signedIn
+        ? {
+            id: `portfolio-owner-${owner}`,
+            sessionId: `portfolio-session-${owner}`,
+            displayName: `Compte synthétique ${owner}`,
+            role: 'owner',
+            expiresAt: '2099-01-01T00:00:00Z'
+          }
+        : {}
+    })
+  );
+  await page.route('**/api/admin/automatic-runs', async (route) => {
+    if (route.request().method() !== 'GET') return route.fallback();
+    const session = owner;
+    reads.push(session);
+    if (session === 'A') await gateA;
+    return route.fulfill({ json: session === 'A' ? stateA : stateB });
+  });
+  await open(page, 'loading');
+  await expect.poll(() => reads).toEqual(['A']);
+  const pageDocument = (await page.locator('html').elementHandle())!;
+
+  f.signedIn = false;
+  f.queueStatus = 401;
+  const rejectedSession = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === '/api/admin/auth/current' &&
+      response.status() === 401
+  );
+  const refreshTasks = page
+    .locator('[data-og7="attention-panel"]')
+    .getByRole('button', { name: 'Actualiser les tâches', exact: true });
+  await refreshTasks.focus();
+  await refreshTasks.press('Enter');
+  await expect(page).toHaveURL(/\/admin\/login(?:\?|$)/);
+  await (await rejectedSession).finished();
+  await expect(page.locator(highlighted)).toHaveCount(0);
+  await page.locator('[data-og7="identity-setup-link"]').click();
+  await expect(page).toHaveURL(/\/admin\/oidc-setup$/);
+
+  owner = 'B';
+  f.signedIn = true;
+  f.queueStatus = 200;
+  f.state = stateB;
+  f.entries = [newEntry];
+  await page
+    .locator('[data-og7="identity-setup-page"] footer a[href="/admin/login"]')
+    .click();
+  await expect(page).toHaveURL(/\/admin\/fundraiser$/);
+  await expect(
+    page.getByText('Compte synthétique B', { exact: false })
+  ).toBeVisible();
+  // Router links keep the root service alive; a document reload would hide the cache bug.
+  expect(await pageDocument.evaluate((element) => element.isConnected)).toBe(
+    true
+  );
+  await page.locator('[data-og7="admin-automatic-portfolio-start"]').click();
+  await expect.poll(() => reads).toEqual(['A', 'B']);
+  await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'paused');
+  await expect(hook(page, 'latest')).toContainText(newEntry.reference);
+  await expect(hook(page, 'report')).toContainText(stateB.run!.id);
+
+  const oldResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === '/api/admin/automatic-runs' &&
+      response.request().method() === 'GET'
+  );
+  releaseA();
+  await (await oldResponse).finished();
+  await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'paused');
+  await expect(hook(page, 'latest')).toContainText(newEntry.reference);
+  await expect(
+    page.locator('[data-og7="automatic-portfolio"]')
+  ).not.toContainText(oldEntry.reference);
+  await hook(page, 'refresh').click();
+  await expect.poll(() => reads).toEqual(['A', 'B', 'B']);
+  await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'paused');
+  expect(f.writes).toEqual([]);
+});
+
+for (const interruption of ['close', 'navigation', 'session'] as const) {
+  test(`${interruption} removes a pending reading halo and cannot approve or advance the old passage`, async ({
+    page
+  }) => {
+    const f = await fixture(page);
+    await open(page);
+    await hook(page, 'start').click();
+    await expectReading(page, 'scope');
+    const region = (await hook(page, 'scope').elementHandle())!;
+    const previousApproval = (await hook(page, 'approve').elementHandle())!;
+    if (interruption === 'close') {
+      await page.locator('[data-og7="admin-guidance-toggle"]').click();
+      await expect(
+        page.locator('[data-og7="admin-guidance-panel"]')
+      ).toHaveCount(0);
+    } else if (interruption === 'navigation') {
+      await page
+        .locator('a[href="/admin/fundraiser/contributions"]')
+        .first()
+        .click();
+      await expect(page).toHaveURL(
+        (url) => url.pathname === '/admin/fundraiser/contributions'
+      );
+    } else {
+      f.signedIn = false;
+      f.queueStatus = 401;
+      const refreshTasks = page
+        .locator('[data-og7="attention-panel"]')
+        .getByRole('button', {
+          name: 'Actualiser les tâches',
+          exact: true
+        });
+      await refreshTasks.focus();
+      await expect(refreshTasks).toBeFocused();
+      await refreshTasks.press('Enter');
+      await expect(page).toHaveURL(/\/admin\/login(?:\?|$)/);
+    }
+    await expect(page.locator(highlighted)).toHaveCount(0);
+    await expect(hook(page, 'approve')).toHaveCount(0);
+    await expect
+      .poll(() =>
+        region.evaluate((element) => ({
+          marker: element.getAttribute('data-og7-guidance-highlight'),
+          animations: element.getAnimations().length
+        }))
+      )
+      .toEqual({ marker: null, animations: 0 });
+    await previousApproval.evaluate((element) =>
+      (element as HTMLButtonElement).click()
+    );
+    expect(advances(f)).toHaveLength(0);
+    expect(
+      f.writes.filter((write) => write.pathname === '/api/admin/automatic-runs')
+    ).toHaveLength(1);
+  });
+}
+
+test('pausing a pending dossier preview discards its late result and requires a fresh reading when resumed', async ({
+  page
+}) => {
+  const f = await fixture(page);
+  let releaseJourney!: () => void;
+  f.journeyGate = new Promise<void>((resolve) => {
+    releaseJourney = resolve;
+  });
+  await open(page);
+  await hook(page, 'start').click();
+  await approveReading(page, 'scope');
+  await expect.poll(() => f.journeyReads.length).toBe(1);
+  await expect(hook(page, 'state')).toHaveAttribute(
+    'data-og7-id',
+    'explaining'
+  );
+  await expect(hook(page, 'approve')).toHaveCount(0);
+  await hook(page, 'pause').click();
+  await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'paused');
+  await expect(hook(page, 'resume')).toBeEnabled();
+  releaseJourney();
+  f.journeyGate = null;
+  await hook(page, 'resume').click();
+  await expectReading(page, 'scope');
+  await approveReading(page, 'scope');
+  await expectReading(page, 'dossier');
+  expect(f.journeyReads).toEqual([paymentIds[0], paymentIds[0]]);
+  expect(advances(f)).toHaveLength(0);
+  await hook(page, 'pause').click();
+  await expect(page.locator(highlighted)).toHaveCount(0);
+});
+
+test('an unavailable dossier preview stops reading without an uncertain financial result or a replay', async ({
+  page
+}) => {
+  const f = await fixture(page);
+  f.journeyStatus = 503;
+  await open(page);
+  await hook(page, 'start').click();
+  await approveReading(page, 'scope');
+  await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'error');
+  await expect(hook(page, 'state')).toContainText(
+    'Le rapport n’est pas disponible.'
+  );
+  await expect(hook(page, 'approve')).toHaveCount(0);
+  await expect(hook(page, 'reconcile')).toHaveCount(0);
+  await expect(page.locator(highlighted)).toHaveCount(0);
+  expect(advances(f)).toHaveLength(0);
+  expect(f.journeyReads).toEqual([paymentIds[0]]);
+});
+
+for (const status of ['running', 'paused', 'uncertain'] as const) {
+  test(`the header reveals a ${status} passage without starting or resuming it`, async ({
+    page
+  }) => {
+    const f = await fixture(page);
+    f.state = runState(1, status);
+    f.entries = [entry(0)];
+    await page.goto(path);
+    const shortcut = page.locator(
+      '[data-og7="admin-automatic-portfolio-start"]'
+    );
+    await expect(shortcut).toBeEnabled();
+    await shortcut.click();
+    await expect(hook(page, 'state')).toHaveAttribute(
+      'data-og7-id',
+      status === 'running' ? 'review' : status
+    );
+    await expect(shortcut).toBeDisabled();
+    await expect(hook(page, 'start')).toBeDisabled();
+    if (status === 'uncertain') {
+      await expect(hook(page, 'reconcile')).toBeVisible();
+      await expect(hook(page, 'resume')).toHaveCount(0);
+    } else {
+      await expect(hook(page, 'resume')).toBeEnabled();
+    }
+    expect(f.writes).toEqual([]);
+    await page.reload();
+    await expect(hook(page, 'state')).toHaveAttribute(
+      'data-og7-id',
+      status === 'running' ? 'review' : status
+    );
+    expect(f.writes).toEqual([]);
+  });
+}
+
 for (const [language, width] of [
   ['fr-CA', 1440],
   ['en', 390]
@@ -321,6 +1079,7 @@ for (const [language, width] of [
     const f = await fixture(page, language);
     await open(page);
     await hook(page, 'start').click();
+    await completePassage(page, f);
     await expect(hook(page, 'state')).toHaveAttribute(
       'data-og7-id',
       'completed'
@@ -408,6 +1167,8 @@ test('automatic responsibilities pause immediately during a pending dossier and 
   });
   await open(page);
   await hook(page, 'start').click();
+  await approveReading(page, 'scope');
+  await approveReading(page, 'dossier');
   await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'advancing');
   await hook(page, 'pause').click();
   await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'paused');
@@ -432,6 +1193,42 @@ test('automatic responsibilities pause immediately during a pending dossier and 
   ).toHaveLength(1);
 });
 
+test('pausing the last result resumes its reading and summary without checking a completed dossier again', async ({
+  page
+}) => {
+  const f = await fixture(page);
+  await open(page);
+  await hook(page, 'start').click();
+  await approveReading(page, 'scope');
+  for (let index = 0; index < paymentIds.length; ++index) {
+    await approveReading(page, 'dossier');
+    await expectReading(page, 'result');
+    expect(advances(f)).toHaveLength(index + 1);
+    if (index < paymentIds.length - 1) await approveReading(page, 'result');
+  }
+  await expect(hook(page, 'latest')).toContainText('DEMO-BALANCE-3');
+  await expect(hook(page, 'completion')).toHaveCount(0);
+  expect(f.state.run?.status).toBe('completed');
+  await hook(page, 'pause').click();
+  await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'paused');
+  await expect(page.locator(highlighted)).toHaveCount(0);
+  await expect(hook(page, 'completion')).toHaveCount(0);
+  await hook(page, 'resume').click();
+  await approveReading(page, 'scope');
+  await expectReading(page, 'result');
+  await expect(hook(page, 'latest')).toContainText('DEMO-BALANCE-3');
+  await approveReading(page, 'result');
+  await expectReading(page, 'summary');
+  await expect(hook(page, 'completion')).toHaveCount(0);
+  await approveReading(page, 'summary');
+  await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'completed');
+  expect(advances(f)).toHaveLength(3);
+  expect(f.journeyReads).toEqual(paymentIds);
+  expect(
+    f.writes.filter((write) => write.pathname.endsWith('/control'))
+  ).toEqual([]);
+});
+
 test('an uncertain response remains visible after reload and never replays a payment dossier', async ({
   page
 }) => {
@@ -439,6 +1236,8 @@ test('an uncertain response remains visible after reload and never replays a pay
   f.loseAdvanceResponse = true;
   await open(page);
   await hook(page, 'start').click();
+  await approveReading(page, 'scope');
+  await approveReading(page, 'dossier');
   await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'uncertain');
   await expect(hook(page, 'resume')).toBeDisabled();
   await page.reload();
@@ -458,10 +1257,7 @@ test('an open confirmation dialogue stops the automatic next dossier without con
   const f = await fixture(page);
   await open(page);
   await hook(page, 'start').click();
-  await expect(hook(page, 'state')).toHaveAttribute(
-    'data-og7-id',
-    'explaining'
-  );
+  await expectReading(page, 'scope');
   await page.evaluate(() => {
     const dialog = document.createElement('dialog');
     dialog.id = 'synthetic-human-confirmation';
@@ -470,6 +1266,8 @@ test('an open confirmation dialogue stops the automatic next dossier without con
     dialog.showModal();
   });
   await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'paused');
+  await expect(page.locator(highlighted)).toHaveCount(0);
+  await expect(hook(page, 'approve')).toHaveCount(0);
   expect(
     f.writes.filter((write) => write.pathname.endsWith('/advance'))
   ).toHaveLength(0);
@@ -498,6 +1296,58 @@ test('reconciliation requires a separate human confirmation and never resumes or
   expect(
     f.writes.filter((write) => write.pathname.endsWith('/advance'))
   ).toHaveLength(0);
+});
+
+test('the summary reading keeps its approval and halo while all report pages are loaded without advancing', async ({
+  page
+}) => {
+  const f = await fixture(page);
+  f.reportSeedCount = 120;
+  let releaseReport!: () => void;
+  f.reportGate = new Promise<void>((resolve) => {
+    releaseReport = resolve;
+  });
+  await open(page);
+  await hook(page, 'start').click();
+  await approveReading(page, 'scope');
+  await readDossiers(page, f);
+  await hook(page, 'report').locator('summary').click();
+  await expect(hook(page, 'report-entry')).toHaveCount(50);
+  await expect(hook(page, 'more')).toBeEnabled();
+  const approval = hook(page, 'approve');
+  const reviewId = await approval.getAttribute('data-og7-id');
+  const writesBeforeReading = f.writes.length;
+  await hook(page, 'more').click();
+  await expect.poll(() => f.reportReads.includes(50)).toBe(true);
+  await expect(approval).toBeDisabled();
+  await expect(hook(page, 'more')).toBeDisabled();
+  await expect(hook(page, 'reading')).toHaveAttribute('data-og7-id', 'summary');
+  await expect(approval).toHaveAttribute('data-og7-id', reviewId!);
+  await expect(hook(page, 'summary')).toHaveAttribute(
+    'data-og7-guidance-highlight',
+    ''
+  );
+  expect(advances(f)).toHaveLength(3);
+  expect(f.writes).toHaveLength(writesBeforeReading);
+  f.reportGate = null;
+  releaseReport();
+  await expect(hook(page, 'report-entry')).toHaveCount(100);
+  await expectReading(page, 'summary');
+  await expect(approval).toHaveAttribute('data-og7-id', reviewId!);
+  await hook(page, 'more').click();
+  await expect(hook(page, 'report-entry')).toHaveCount(120);
+  await expect(hook(page, 'more')).toHaveCount(0);
+  await expectReading(page, 'summary');
+  await expect(approval).toHaveAttribute('data-og7-id', reviewId!);
+  expect(f.reportReads).toContain(100);
+  expect(advances(f)).toHaveLength(3);
+  expect(f.writes).toHaveLength(writesBeforeReading);
+  expect(
+    f.writes.filter((write) => write.pathname.endsWith('/control'))
+  ).toEqual([]);
+  await approveReading(page, 'summary');
+  await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'completed');
+  await expect(page.locator(highlighted)).toHaveCount(0);
 });
 
 test('the durable report loads further pages without an automatic action or a new passage', async ({
@@ -662,6 +1512,10 @@ test('the shared Xbox controls can start and pause a responsibility passage', as
   const controller = adminController(page);
   await controller.ready();
   await controller.activate(hook(page, 'start'));
+  await expectReading(page, 'scope');
+  await controller.activate(hook(page, 'approve'));
+  await expectReading(page, 'dossier');
+  await controller.activate(hook(page, 'approve'));
   await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'advancing');
   await controller.activate(hook(page, 'pause'));
   await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'paused');

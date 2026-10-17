@@ -42,6 +42,7 @@ test(
     const composeFile = join(root, 'compose.json');
     const envFile = join(root, 'empty.env');
     const nodeShim = join(root, 'node');
+    const initializationFile = join(root, '001-initialize.sql');
     const project = `og7-migration-cli-${randomBytes(6).toString('hex')}`;
     const env = {
       ...process.env,
@@ -70,6 +71,7 @@ test(
       await unlink(composeFile);
       await unlink(envFile);
       await unlink(nodeShim);
+      await unlink(initializationFile);
       await rmdir(root);
     });
     await writeFile(envFile, '');
@@ -77,6 +79,12 @@ test(
       nodeShim,
       '#!/usr/bin/env bash\nexec "$OPENG7_TEST_NODE" "$@"\n',
       { mode: 0o755 }
+    );
+    // The image's temporary initialization server accepts Unix sockets before
+    // completing initialization, then shuts down before the permanent server.
+    await writeFile(
+      initializationFile,
+      "SELECT pg_sleep(8); ALTER DATABASE og7_migration_cli SET openg7.initialization_complete = 'yes';"
     );
     await writeFile(
       composeFile,
@@ -91,6 +99,14 @@ test(
               POSTGRES_PASSWORD: 'synthetic-disposable-password'
             },
             tmpfs: ['/var/lib/postgresql/data'],
+            volumes: [
+              {
+                type: 'bind',
+                source: initializationFile,
+                target: '/docker-entrypoint-initdb.d/001-initialize.sql',
+                read_only: true
+              }
+            ],
             networks: ['data'],
             labels: { 'org.openg7.disposable-test': 'true' }
           }
@@ -100,7 +116,12 @@ test(
     );
     await writeFile(
       join(directory, '001_probe.sql'),
-      'CREATE TABLE cli_probe(id integer PRIMARY KEY); INSERT INTO cli_probe VALUES (1);'
+      `DO $$ BEGIN
+        IF current_setting('openg7.initialization_complete', true) IS DISTINCT FROM 'yes' THEN
+          RAISE EXCEPTION 'database initialization is not complete';
+        END IF;
+      END $$;
+      CREATE TABLE cli_probe(id integer PRIMARY KEY); INSERT INTO cli_probe VALUES (1);`
     );
     const run = async (args, bash = false) => {
       const shell = bash

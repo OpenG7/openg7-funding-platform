@@ -13,7 +13,8 @@ const properties = [
 /** Temporary visual cue only. Browser APIs are used exclusively on user request. */
 export function highlightGuidanceRegions(
   regions: readonly HTMLElement[],
-  view: Window | null
+  view: Window | null,
+  options: { persistent?: boolean } = {}
 ): () => void {
   const motion = view?.matchMedia('(prefers-reduced-motion: reduce)');
   const animations: Animation[] = [];
@@ -33,7 +34,11 @@ export function highlightGuidanceRegions(
       animations.push(
         region.animate(
           [{ boxShadow: halo }, { boxShadow: crest }, { boxShadow: halo }],
-          { duration: 1600, iterations: 3, easing: 'ease-in-out' }
+          {
+            duration: 1600,
+            iterations: options.persistent ? Infinity : 3,
+            easing: 'ease-in-out'
+          }
         )
       );
     return () => {

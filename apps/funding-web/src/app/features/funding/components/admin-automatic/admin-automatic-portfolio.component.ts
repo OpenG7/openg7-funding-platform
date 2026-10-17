@@ -1,8 +1,11 @@
+import { NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
   afterNextRender,
+  afterRenderEffect,
+  computed,
   inject,
   output,
   viewChild
@@ -13,6 +16,8 @@ import type {
 } from '@openg7/funding-core';
 
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { highlightGuidanceRegions } from '../admin-guidance/admin-guidance-highlight.js';
+import { revealGuidanceRegion } from '../admin-guidance/admin-guidance-scroll.js';
 
 import { automaticAdminUrl } from './admin-automatic-run.js';
 import { AdminAutomaticPortfolioService } from './admin-automatic-portfolio.service.js';
@@ -20,6 +25,7 @@ import { AdminAutomaticPortfolioService } from './admin-automatic-portfolio.serv
 @Component({
   selector: 'openg7-admin-automatic-portfolio',
   standalone: true,
+  imports: [NgTemplateOutlet],
   templateUrl: './admin-automatic-portfolio.component.html',
   styleUrls: [
     '../admin-ui/admin-controls.css',
@@ -33,15 +39,46 @@ export class AdminAutomaticPortfolioComponent {
   readonly prepare = output<AdminAutomaticRunEntry>();
   private readonly reconciliation =
     viewChild<ElementRef<HTMLDialogElement>>('reconciliation');
+  private readonly heading = viewChild<ElementRef<HTMLElement>>('heading');
+  private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly reading = computed(() => {
+    const state = this.portfolio.snapshot();
+    return state.phase === 'awaiting_approval' ? state.review : null;
+  });
 
   constructor() {
     afterNextRender(() => {
       void this.portfolio.load();
     });
+    afterRenderEffect((onCleanup) => {
+      const review = this.reading();
+      if (!review) return;
+      const hook = review.step === 'result' ? 'latest' : review.step;
+      const region = this.element.nativeElement.querySelector<HTMLElement>(
+        `[data-og7="automatic-portfolio-${hook}"]`
+      );
+      const view = region?.ownerDocument.defaultView;
+      if (!region || !view || !region.getClientRects().length) return;
+      const release = highlightGuidanceRegions([region], view, {
+        persistent: true
+      });
+      onCleanup(release);
+      region.focus({ preventScroll: true });
+      region.scrollIntoView({
+        block: 'nearest',
+        inline: 'nearest',
+        behavior: 'instant'
+      });
+      revealGuidanceRegion(region, region, undefined, view);
+    });
   }
 
   t(key: string, params?: Record<string, unknown>): string {
     return this.i18n.t('admin.automatic.portfolio.' + key, params);
+  }
+
+  focus(): void {
+    this.heading()?.nativeElement.focus();
   }
 
   reason(code: string): string {

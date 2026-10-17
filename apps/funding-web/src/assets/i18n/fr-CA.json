@@ -1801,6 +1801,9 @@
     },
     "shell": {
       "skip": "Aller au contenu principal",
+      "startPass": "Démarrer un nouveau passage",
+      "startPassCountUnavailable": "Compteur des dossiers indisponible.",
+      "startPassDossierCount": "Dossiers à traiter : {{count}}",
       "workspace": "Fonds des bâtisseurs · Administration",
       "identity": "Administration",
       "toEnglish": "Switch administration language to English",

@@ -98,6 +98,9 @@ if (options.mode === 'apply') {
         '-T',
         'postgres',
         'pg_isready',
+        // The official image's temporary initialization server is socket-only.
+        '-h',
+        '127.0.0.1',
         '-U',
         user,
         '-d',

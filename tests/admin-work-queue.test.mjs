@@ -9,6 +9,7 @@ import {
   paginateWorkQueue,
   parseWorkQueueQuery
 } from '../dist/apps/funding-api/src/admin-work-queue.service.js';
+import { countPendingWorkQueueDossiers } from '../dist/apps/funding-api/src/admin-work-queue/projection.js';
 import {
   WORK_QUEUE_PRIORITIES as corePriorities,
   compareAdminWorkQueueItems
@@ -210,6 +211,117 @@ const draft = (overrides = {}) => ({
   scheduled_at: '2026-09-14T14:00:00Z',
   channel: 'facebook',
   ...overrides
+});
+
+test('required dossier count deduplicates aliases and actions globally before filters and pages', () => {
+  const items = [
+    {
+      id: 'review',
+      type: 'sponsorship_needs_review',
+      severity: 'today',
+      contributionId: 'dossier-a',
+      sponsorshipId: 'dossier-a'
+    },
+    {
+      id: 'invoice',
+      type: 'invoice_missing',
+      severity: 'urgent',
+      sponsorshipId: 'dossier-a'
+    },
+    {
+      id: 'refund',
+      type: 'sponsorship_refund_followup',
+      severity: 'this_week',
+      contributionId: 'dossier-b'
+    },
+    {
+      id: 'informational',
+      type: 'financial_data_warning',
+      severity: 'informational',
+      contributionId: 'information-only'
+    },
+    { id: 'event', type: 'stripe_event_failed', severity: 'urgent' },
+    { id: 'email', type: 'email_delivery_failed', severity: 'today' }
+  ];
+  const count = countPendingWorkQueueDossiers(items, dataset());
+  assert.equal(count, 2);
+  for (const query of [
+    { page: 2, pageSize: 1 },
+    { type: 'email_delivery_failed', pageSize: 1 },
+    { priority: 'informational', pageSize: 1 }
+  ]) {
+    const response = paginateWorkQueue(items, now, query, [], count);
+    assert.equal(response.pendingDossierCount, 2);
+    assert.equal(response.items.length, 1);
+  }
+  assert.equal(
+    paginateWorkQueue(items, now, {}, ['database'], count).pendingDossierCount,
+    null
+  );
+  assert.equal(
+    paginateWorkQueue(
+      [],
+      now,
+      {},
+      [],
+      countPendingWorkQueueDossiers([], dataset())
+    ).pendingDossierCount,
+    0
+  );
+});
+
+test('shared publication batches and slots count all unfinished dossiers while keeping one stable navigation target', () => {
+  for (const placement of ['batch', 'slot']) {
+    const ds = dataset({
+      slots: placement === 'slot' ? [slot()] : [],
+      batches: [batch({ slotId: placement === 'slot' ? 'slot-1' : null })],
+      drafts: [
+        draft({
+          id: 'direct',
+          contribution_id: 'dossier-z',
+          batch_id: placement === 'batch' ? 'batch-1' : null,
+          slot_id: placement === 'slot' ? 'slot-1' : null
+        }),
+        draft({ id: 'via-batch', contribution_id: 'dossier-a' }),
+        draft({ id: 'same-dossier', contribution_id: 'dossier-a' }),
+        ...['published', 'rejected', 'cancelled'].map((status) =>
+          draft({ id: status, contribution_id: `terminal-${status}`, status })
+        ),
+        draft({
+          id: 'unrelated',
+          contribution_id: 'unrelated-dossier',
+          batch_id: 'another-batch',
+          status: 'pending_review'
+        })
+      ]
+    });
+    const before = JSON.stringify(ds);
+    const items = buildWorkQueueItems(ds);
+    assert.equal(items.length, 1, placement);
+    assert.equal(items[0].id, `publication_late:${placement}:${placement}-1`);
+    assert.equal(items[0].sponsorshipId, 'dossier-a');
+    assert.equal(countPendingWorkQueueDossiers(items, ds), 2, placement);
+    assert.equal(
+      countPendingWorkQueueDossiers(items, {
+        ...ds,
+        drafts: [...ds.drafts].reverse()
+      }),
+      2,
+      placement
+    );
+    assert.equal(
+      paginateWorkQueue(
+        items,
+        now,
+        { pageSize: 1 },
+        [],
+        countPendingWorkQueueDossiers(items, ds)
+      ).pendingDossierCount,
+      2,
+      placement
+    );
+    assert.equal(JSON.stringify(ds), before);
+  }
 });
 
 test('all results beyond the old 100-item cap remain reachable with global counts', () => {
@@ -609,11 +721,14 @@ test('query parser rejects invalid filters, fractions, overflow and oversized pa
 });
 
 test('absent database or missing tables never look like an empty operational queue', async () => {
-  assert.equal((await getAdminWorkQueue(null)).available, false);
+  const absent = await getAdminWorkQueue(null);
+  assert.equal(absent.available, false);
+  assert.equal(absent.pendingDossierCount, null);
   const missing = await getAdminWorkQueue({
     query: async () => ({ rows: [] })
   });
   assert.equal(missing.coverage, 'unavailable');
+  assert.equal(missing.pendingDossierCount, null);
   assert.ok(missing.missingSources.includes('sponsor_publication_batches'));
   assert.equal(paginateWorkQueue([], now).available, true);
 });
@@ -637,12 +752,14 @@ test('incomplete sources stop acquisition and report each missing table in stabl
   );
   assert.deepEqual(snapshot, {
     items: [],
-    missingSources: ['stripe_events', 'publication_slots']
+    missingSources: ['stripe_events', 'publication_slots'],
+    pendingDossierCount: null
   });
   assert.equal(calls, 1);
   assert.deepEqual(await loadAdminWorkQueue(null, now), {
     items: [],
-    missingSources: ['database']
+    missingSources: ['database'],
+    pendingDossierCount: null
   });
 });
 

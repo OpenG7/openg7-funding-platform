@@ -92,6 +92,25 @@ li {
   @apply tw:text-admin-muted;
   font-size: 0.875rem;
 }
+.reading-step {
+  min-width: 0;
+  padding: 0.5rem 0.4rem 1rem;
+}
+.reading-step-title {
+  color: var(--admin-gold);
+  font-weight: 700;
+}
+.reading-zone {
+  border-radius: 0.5rem;
+  scroll-margin-block: 0.75rem;
+  padding: 0.5rem;
+}
+.reading-step > .admin-button {
+  width: 100%;
+}
+.actions .admin-button[hidden] {
+  display: none;
+}
 summary {
   @apply tw:cursor-pointer;
   padding-block: 0.65rem;

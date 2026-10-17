@@ -114,12 +114,13 @@
       "idle": "Prêt à équilibrer les responsabilités",
       "loading": "Je relis le contexte du passage",
       "review": "Rapport consultable — la suite attend ton démarrage",
-      "explaining": "Voici ce que je vais vérifier et pourquoi",
+      "explaining": "Je prépare la zone à lire",
       "advancing": "Je vérifie un dossier et prépare les actions autorisées",
       "paused": "En pause — aucune étape suivante ne sera lancée",
       "completed": "Vérification du passage terminée",
       "uncertain": "Résultat à réconcilier avant toute reprise",
-      "error": "La vérification n’a pas abouti"
+      "error": "La vérification n’a pas abouti",
+      "awaiting_approval": "La suite attend ta confirmation de lecture"
     },
     "statuses": {
       "balanced": "Équilibré lors de cette vérification",
@@ -140,6 +141,25 @@
       "forbidden": "Tes droits ne permettent pas cette lecture. Aucun dossier privé n’est conservé à l’écran.",
       "stale": "Le passage a changé dans une autre session. Relis son état avant de reprendre.",
       "uncertain": "La requête n’a pas donné de résultat certain. Je ne la rejoue pas. Relis le rapport et réconcilie les éventuelles actions avant de reprendre."
+    },
+    "reading": {
+      "approve": "J’ai lu, continuer",
+      "resume": "Reprendre la lecture",
+      "help": "La zone dorée reste éclairée jusqu’à ta confirmation de lecture. Publier, rembourser ou envoyer exige toujours une confirmation séparée.",
+      "manifest": "Ce passage porte sur {{count}} dossiers recensés au démarrage.",
+      "dossierTitle": "Dossier à vérifier : {{reference}}",
+      "amount": "Montant du dossier : {{amount}}",
+      "previewAt": "Suivi relu le {{date}}",
+      "noRecommendation": "Le suivi ne signale pas d’étape ouverte. Le passage vérifiera quand même les engagements et leurs preuves.",
+      "serverComplete": "Le traitement des dossiers est terminé. Le guide attend ta lecture du résultat et du bilan.",
+      "summaryTitle": "Bilan des dossiers vérifiés",
+      "reportLoading": "Lecture de la suite du rapport…",
+      "steps": {
+        "scope": "Le périmètre à lire",
+        "dossier": "Le dossier à vérifier",
+        "result": "Le résultat à relire",
+        "summary": "Le bilan du passage"
+      }
     }
   },
   "help": "Je rejoins les écrans utiles et prépare les actions disponibles. Tu gardes les décisions et leurs confirmations.",

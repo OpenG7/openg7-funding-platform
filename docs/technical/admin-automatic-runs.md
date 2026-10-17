@@ -24,6 +24,23 @@ on every lookup. An uncertain or interrupted operation is retained for
 reconciliation and is never automatically replayed. Loading a run does not
 start a worker or resume a browser driver.
 
+The browser driver waits for a local **I’ve read it, continue** acknowledgment at
+each reading checkpoint: captured scope, next dossier preview, confirmed result
+(including the last dossier), then final summary. Previews use the existing
+read-only payment-journey GET; acknowledging a preview permits one `advance`.
+Acknowledgments do not approve business actions, add a server contract or persist
+across reloads. The server run may already be completed while the browser still
+awaits result or summary reading; its durable status remains visible separately.
+The complete report remains paginable during summary reading. Loading a page
+blocks acknowledgment; an unavailable page can be retried without advancing or
+repeating dossier checks, preserving the reading cue. A 401/403 stops reading and
+clears the private data displayed.
+Relevant reading zones keep a gentle continuous halo until acknowledgment, static
+with reduced motion. Pause, guide closure, mode change, manual navigation, editing,
+an open dialogue, a hidden tab, session change or an error interrupting the run
+stops the driver and removes the halo. Reports remain readable after reload
+without continuation.
+
 Reconcile is an explicit human action. It locks the run and consults the durable
 command and report. A completed command recovers its recorded result; a command
 without an entry can be marked failed only when the atomic database transaction
@@ -58,3 +75,25 @@ Migration `055_admin_automatic_responsibility_runs.sql` is required. It adds onl
 private run bookkeeping; manifest inputs and report entries are immutable.
 User-facing operation and restart rules:
 [automatic mode](../operations/admin-pilotage.md#mode-automatique-de-rapprochement).
+
+## Pending dossiers
+
+The header's new-passage button reads the existing private
+`GET /api/admin/attention` projection before opening the guide. Its optional
+`pendingDossierCount` counts distinct dossiers linked to at least one required
+action, before filters and pagination. Multiple actions count a dossier once;
+shared publication batches and slots include every related unfinished draft's
+dossier, including indirect batch assignments. Published, rejected and cancelled
+drafts add no dossier through that association.
+
+Informational entries and tasks without a dossier reference, including unlinked
+email or Stripe incidents, are excluded from the count and remain visible in the
+queue. The count describes that queue's current required dossiers, including
+refund/dispute follow-up, rather than the run's frozen manifest or all historical
+payments. Reading it neither starts a passage nor performs an action.
+
+This field is additive: a complete empty source returns `0`; incomplete sources
+return `null`. A missing field from an older API also means unknown. The Web shows
+an unavailable count and an inactive bell for unknown values; a positive known
+count activates the bell. Existing queue reads populate it, and the browser
+refreshes the queue after a passage stops, without automatically resuming work.

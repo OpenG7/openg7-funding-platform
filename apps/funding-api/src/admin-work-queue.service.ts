@@ -29,7 +29,13 @@ export const getAdminWorkQueue = async (
   now = new Date()
 ): Promise<AdminWorkQueueResponse> => {
   const snapshot = await loadAdminWorkQueue(pool, now);
-  return paginateWorkQueue(snapshot.items, now, query, snapshot.missingSources);
+  return paginateWorkQueue(
+    snapshot.items,
+    now,
+    query,
+    snapshot.missingSources,
+    snapshot.pendingDossierCount
+  );
 };
 
 /** Preserve explicit references; otherwise select from the complete operational queue. */

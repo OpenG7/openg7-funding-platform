@@ -139,9 +139,8 @@ for (const prefix of ['', '/en']) {
       await expect(language).toHaveCSS('outline-width', '3px');
       await expect(language).toHaveCSS('outline-color', 'rgb(47, 107, 80)');
       await page.keyboard.press('Enter');
-      await expect(page).toHaveURL(
-        (url) => url.pathname === (prefix ? '' : '/en') + surface.path
-      );
+      // Match the SPA URL without waiting for unrelated media to finish loading.
+      await expect(page).toHaveURL((prefix ? '' : '/en') + surface.path);
       expect(mutations).toEqual([]);
       expect(errors).toEqual([]);
     });

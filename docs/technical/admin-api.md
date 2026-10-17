@@ -47,10 +47,12 @@ has no named accounts. Alerts remain opt-in (`yarn operations:watch` or Compose)
 
 `yarn test:ui:admin` uses synthetic APIs without DB.
 `GET /api/admin/attention` serves `/admin/fundraiser/attention` with pagination,
-URL filters and exact record links. `GET /api/admin/assistant/context` accepts
+URL filters, exact record links and a [dossier count](admin-automatic-runs.md#pending-dossiers).
+`GET /api/admin/assistant/context` accepts
 optional `sponsorshipId`; information requests require an editable preview and
 confirmation at `POST /api/admin/sponsorships/request-information`. Queue and audit
 are atomic; duplicate requests reuse the original email.
+
 `GET /api/admin/sponsorships/progress?sponsorshipId=<uuid>` reads one dossier.
 Recorded offers, obligations and owner actions: [commitment API](sponsorship-commitments.md).
 
