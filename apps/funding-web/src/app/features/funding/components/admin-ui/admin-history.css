@@ -1,0 +1,113 @@
+/* Shared chronology for dossier milestones, administrative actions and inspection. */
+.admin-history {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-history > li {
+  position: relative;
+  min-width: 0;
+  padding: 0 0 1.5rem 1.5rem;
+  overflow-wrap: anywhere;
+}
+
+.admin-history > li::before {
+  position: absolute;
+  inset-block: 0.5rem 0;
+  inset-inline-start: 0.25rem;
+  border-inline-start: 1px solid var(--admin-border);
+  content: '';
+}
+
+.admin-history > li::after {
+  position: absolute;
+  inset-block-start: 0.4rem;
+  inset-inline-start: 0;
+  width: 0.55rem;
+  height: 0.55rem;
+  border: 2px solid var(--admin-panel);
+  border-radius: 50%;
+  background: var(--history-marker, var(--admin-accent));
+  box-shadow: 0 0 0 1px var(--history-marker, var(--admin-accent));
+  content: '';
+}
+
+.admin-history > li:last-child {
+  padding-block-end: 0;
+}
+
+.admin-history > li:last-child::before {
+  display: none;
+}
+
+.admin-history time,
+.admin-history small,
+.admin-history .history-actor,
+.admin-history .history-action {
+  color: var(--admin-muted);
+  font-size: var(--admin-caption-size, 0.875rem);
+  line-height: var(--admin-body-leading, 1.55);
+}
+
+.admin-history time,
+.admin-history small,
+.admin-history .history-action {
+  display: block;
+}
+
+.admin-history .history-title {
+  margin: 0.25rem 0;
+  color: var(--admin-text);
+  font-size: var(--admin-body-size, 1rem);
+  font-weight: var(--admin-label-weight, 600);
+  line-height: var(--admin-body-leading, 1.55);
+}
+
+.admin-history small {
+  white-space: pre-line;
+}
+
+.admin-history .history-actor {
+  margin: 0.5rem 0 0;
+}
+
+.admin-history summary {
+  width: fit-content;
+  max-width: 100%;
+  min-height: var(--admin-control-height, 2.75rem);
+  padding-block: 0.625rem;
+  color: var(--admin-accent);
+  cursor: pointer;
+}
+
+.admin-history summary:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 3px;
+  border-radius: var(--admin-radius-control);
+}
+
+.admin-history .history-actor code {
+  display: block;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-control);
+  background: var(--admin-subtle);
+  color: var(--admin-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.admin-history .refund-history-requested,
+.admin-history .refund-history-processing {
+  --history-marker: var(--admin-warning);
+}
+
+.admin-history .refund-history-completed {
+  --history-marker: var(--admin-success);
+}
+
+.admin-history .refund-history-failed {
+  --history-marker: var(--admin-danger);
+}

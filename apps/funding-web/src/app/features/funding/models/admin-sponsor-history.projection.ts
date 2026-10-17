@@ -8,6 +8,7 @@ import type {
   SponsorshipReviewStatus
 } from '@openg7/funding-core';
 
+import { adminHistoryActor } from './admin-history-actor.js';
 import type {
   AdminSponsorHistoryPresentation,
   SponsorAuditEntry,
@@ -201,7 +202,8 @@ export class AdminSponsorHistoryProjection {
         id: entry.id,
         date: entry.created_at,
         label: this.adminAuditLabel(entry),
-        detail: this.adminAuditDetail(entry)
+        detail: this.adminAuditDetail(entry),
+        ...this.adminAuditActor(entry)
       }))
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }
@@ -325,23 +327,31 @@ export class AdminSponsorHistoryProjection {
     entries.push({
       id: `${sponsorship.id}:created`,
       date: sponsorship.created_at,
-      label: this.presentation.t('admin.messages.reception_de_la_commandite')
+      label: this.presentation.t('admin.history.actions.sponsorshipReceived')
     });
 
     if (sponsorship.paid_at) {
       entries.push({
         id: `${sponsorship.id}:paid`,
         date: sponsorship.paid_at,
-        label: this.presentation.t('admin.messages.paiement_confirme'),
+        label: this.presentation.t('admin.history.actions.paymentConfirmed'),
         detail: this.presentation.paymentStatusLabel(sponsorship.payment_status)
       });
     }
 
-    if (sponsorship.sponsor_details_submitted_at) {
+    const detailsSubmittedAt = sponsorship.sponsor_details_submitted_at;
+    if (
+      detailsSubmittedAt &&
+      !(sponsorship.admin_audit_entries ?? []).some(
+        (entry) =>
+          entry.action === 'sponsorship.details_submitted' &&
+          this.sameAuditInstant(entry.created_at, detailsSubmittedAt)
+      )
+    ) {
       entries.push({
         id: `${sponsorship.id}:details`,
         date: sponsorship.sponsor_details_submitted_at,
-        label: this.presentation.t('admin.messages.details_commanditaire_recus')
+        label: this.presentation.t('admin.history.actions.detailsReceived')
       });
     }
 
@@ -392,7 +402,8 @@ export class AdminSponsorHistoryProjection {
         id: entry.id,
         date: entry.created_at,
         label: this.adminAuditLabel(entry),
-        detail: this.adminAuditDetail(entry)
+        detail: this.adminAuditDetail(entry),
+        ...this.adminAuditActor(entry)
       });
     }
 
@@ -403,6 +414,18 @@ export class AdminSponsorHistoryProjection {
 
   trackByAuditEntry(_: number, entry: SponsorAuditEntry): string {
     return entry.id;
+  }
+
+  private sameAuditInstant(left: string, right: string): boolean {
+    const leftTime = Date.parse(left);
+    if (!Number.isFinite(leftTime) || leftTime !== Date.parse(right)) {
+      return false;
+    }
+    if (left === right) return true;
+    // Date truncates submillisecond precision; preserve distinct database values.
+    const millisecondIso =
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
+    return millisecondIso.test(left) && millisecondIso.test(right);
   }
 
   private metadataString(
@@ -459,6 +482,38 @@ export class AdminSponsorHistoryProjection {
     }
 
     switch (entry.action) {
+      case 'sponsorship.details_submitted':
+        return this.presentation.t('admin.history.actions.detailsSubmitted');
+      case 'sponsorship.access_link_requested':
+        return this.presentation.t('admin.history.actions.accessLinkRequested');
+      case 'sponsorship.request_information':
+        return this.presentation.t(
+          'admin.history.actions.informationRequested'
+        );
+      case 'sponsorship_obligation.fulfilled':
+        return this.presentation.t('admin.history.actions.obligationFulfilled');
+      case 'sponsorship_evidence.historical_reviewed':
+        return this.presentation.t(
+          'admin.history.actions.historicalEvidenceReviewed'
+        );
+      case 'sponsorship_timing.public_observed':
+        return this.presentation.t(
+          'admin.history.actions.publicVisibilityObserved'
+        );
+      case 'sponsorship_commitment.qualification':
+        return this.presentation.t('admin.history.actions.commitmentQualified');
+      case 'sponsorship_commitment.destination':
+        return this.presentation.t('admin.history.actions.destinationAdjusted');
+      case 'sponsorship_commitment.format':
+        return this.presentation.t('admin.history.actions.formatAdjusted');
+      case 'sponsorship_commitment.waiver':
+        return this.presentation.t('admin.history.actions.obligationWaived');
+      case 'moderation.reconsideration_requested':
+        return this.presentation.t(
+          'admin.history.actions.reconsiderationRequested'
+        );
+      case 'moderation.correction_submitted':
+        return this.presentation.t('admin.history.actions.correctionSubmitted');
       case 'sponsorship.intervention.recorded':
         return this.presentation.t('admin.interventions.saved');
       case 'sponsorship.details.update':
@@ -493,18 +548,19 @@ export class AdminSponsorHistoryProjection {
                 : 'hidden')
         );
       default:
-        return entry.summary || entry.action;
+        return this.presentation.t('admin.history.actions.recorded');
     }
+  }
+
+  private adminAuditActor(
+    entry: AdminAuditLogEntry
+  ): Pick<SponsorAuditEntry, 'actorLabel' | 'actorDetail'> {
+    return adminHistoryActor(entry.actor, (key) => this.presentation.t(key));
   }
 
   private adminAuditDetail(entry: AdminAuditLogEntry): string {
     if (entry.action === 'sponsorship.intervention.recorded') {
-      return [
-        this.presentation.t('admin.editDossier.actor', { actor: entry.actor }),
-        this.metadataString(entry, 'note')
-      ]
-        .filter(Boolean)
-        .join(' · ');
+      return this.metadataString(entry, 'note') ?? '';
     }
     if (entry.action === 'sponsorship.details.update') {
       const fields = Array.isArray(entry.metadata.changedFields)
@@ -522,7 +578,6 @@ export class AdminSponsorHistoryProjection {
         : [];
       const reason = this.metadataString(entry, 'reason');
       return [
-        this.presentation.t('admin.editDossier.actor', { actor: entry.actor }),
         fields
           .map((field) =>
             this.presentation.t('admin.editDossier.fields.' + field)
@@ -536,7 +591,19 @@ export class AdminSponsorHistoryProjection {
         .filter(Boolean)
         .join(' · ');
     }
-    const details = [`Acteur: ${entry.actor}`];
+    const details: string[] = [];
+
+    if (
+      this.adminAuditLabel(entry) ===
+      this.presentation.t('admin.history.actions.recorded')
+    ) {
+      details.push(
+        this.presentation.t('admin.history.actionCode', {
+          action: entry.action
+        })
+      );
+      if (entry.summary?.trim()) details.push(entry.summary);
+    }
 
     if (
       entry.action === 'sponsorship_refund.stripe_full' ||

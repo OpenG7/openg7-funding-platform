@@ -31,6 +31,7 @@ import { AdminInspectionController } from './admin-inspection-controller.js';
   styleUrls: [
     '../admin-ui/admin-theme.css',
     '../admin-ui/admin-controls.css',
+    '../admin-ui/admin-history.css',
     './admin-inspector.component.css'
   ]
 })
@@ -87,6 +88,16 @@ export class AdminInspectorComponent {
       style: 'currency',
       currency
     }).format(value);
+  }
+
+  dateTime(value: string): string {
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime()))
+      return this.i18n.t('admin.inspector.absent');
+    return new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    }).format(date);
   }
   fieldValue(field: InspectionField): string | number {
     if (field.value == null) return this.i18n.t('admin.inspector.absent');

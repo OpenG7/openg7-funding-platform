@@ -6,17 +6,57 @@
   [attr.aria-label]="'admin.legacy.historique_et_audit' | translate"
 >
   <article class="detail-card">
-    <h3>{{ 'admin.legacy.historique_disponible' | translate }}</h3>
-    <button type="button" (click)="inspect.emit()">
-      {{ 'admin.inspector.kinds.history' | translate }}
-    </button>
+    <header class="history-header">
+      <div>
+        <h3 id="dossier-audit-title">
+          {{ 'admin.legacy.historique_disponible' | translate }}
+        </h3>
+        @if (view().entries.length > 0) {
+          <p class="history-summary" data-og7="dossier-audit-summary">
+            <span class="history-count">{{
+              (view().entries.length === 1
+                ? 'admin.history.singleEvent'
+                : 'admin.history.eventCount'
+              ) | translate: { count: view().entries.length }
+            }}</span>
+            <span>{{ 'admin.history.newestFirst' | translate }}</span>
+          </p>
+        }
+      </div>
+      <button type="button" class="admin-button" (click)="inspect.emit()">
+        {{ 'admin.history.inspect' | translate }}
+      </button>
+    </header>
     @if (view().entries.length > 0) {
-      <ol class="audit-list" data-og7="dossier-audit-events">
+      <ol
+        class="admin-history"
+        role="list"
+        aria-labelledby="dossier-audit-title"
+        data-og7="dossier-audit-events"
+      >
         @for (entry of view().entries; track entry.id) {
           <li [attr.data-og7-id]="entry.id">
-            <time>{{ entry.dateTimeLabel }}</time>
-            <p>{{ entry.label }}</p>
+            <time [attr.datetime]="entry.dateTime">{{
+              entry.dateTimeLabel
+            }}</time>
+            <p class="history-title">{{ entry.label }}</p>
             <small *ngIf="entry.detail">{{ entry.detail }}</small>
+            @if (entry.actorLabel) {
+              @if (entry.actorDetail) {
+                <details class="history-actor">
+                  <summary>
+                    {{ 'admin.inspector.fields.actor' | translate }} :
+                    {{ entry.actorLabel }}
+                  </summary>
+                  <code>{{ entry.actorDetail }}</code>
+                </details>
+              } @else {
+                <p class="history-actor">
+                  {{ 'admin.inspector.fields.actor' | translate }} :
+                  {{ entry.actorLabel }}
+                </p>
+              }
+            }
           </li>
         }
       </ol>
@@ -28,11 +68,8 @@
         }}
       </p>
     }
-    <p class="muted-copy">
-      {{
-        'admin.legacy.les_actions_admin_proviennent_du_journal_prive_et_restent_limitee'
-          | translate
-      }}
+    <p class="history-scope muted-copy">
+      {{ 'admin.history.availableScope' | translate }}
     </p>
   </article>
 </section>
