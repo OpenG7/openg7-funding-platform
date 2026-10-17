@@ -2212,7 +2212,8 @@ test('Admin sponsorship refund uses Stripe with explicit confirmation and audit'
     'refund-processing',
     'refund-completed',
     'refund-summary-grid',
-    'refund-history-list',
+    'data-og7="dossier-refund-timeline"',
+    'data-og7="dossier-refund-audit"',
     'metadataString',
     'refundHandlingAuditLabel',
     'creditNoteNumber',
@@ -2367,7 +2368,9 @@ test('Admin sponsorship list uses backend pagination, filters, payment rules, an
   );
   assert.ok(translatedUiSource(page).includes('admin_audit_entries'));
   assert.ok(translatedUiSource(page).includes('adminAuditLabel'));
-  assert.ok(translatedUiSource(page).includes('Acteur: ${entry.actor}'));
+  assert.ok(translatedUiSource(page).includes('adminHistoryActor(entry.actor'));
+  assert.ok(translatedUiSource(page).includes('{{ entry.actorLabel }}'));
+  assert.ok(translatedUiSource(page).includes('{{ entry.actorDetail }}'));
   assert.ok(translatedUiSource(page).includes('paymentEligibilityMessage'));
   assert.ok(translatedUiSource(page).includes('canApproveSponsorship'));
   assert.ok(translatedUiSource(page).includes('canSavePublication'));
