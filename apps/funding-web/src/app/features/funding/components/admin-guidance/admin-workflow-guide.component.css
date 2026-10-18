@@ -1,0 +1,91 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1rem;
+}
+h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+}
+p {
+  margin-block: 0.5rem;
+  line-height: 1.5;
+}
+.help,
+dd {
+  font-size: 0.85rem;
+  color: var(--admin-muted);
+}
+summary {
+  cursor: pointer;
+  padding-block: 0.65rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+summary:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 2px;
+}
+.journeys {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin-block: 0.4rem;
+}
+.steps,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-block: 0.65rem;
+}
+.steps .admin-button {
+  flex: 1;
+  min-width: 2.75rem;
+  justify-content: center;
+}
+.admin-button {
+  min-height: 2.75rem;
+  max-width: 100%;
+  white-space: normal;
+  font-size: 0.8rem;
+  text-align: start;
+}
+[aria-pressed='true'],
+[aria-current='step'] {
+  border-color: var(--admin-gold);
+  background: var(--admin-panel-raised);
+  box-shadow: inset 3px 0 var(--admin-gold);
+}
+.current-step {
+  border-inline-start: 3px solid var(--admin-gold);
+  padding: 0.6rem;
+  background: var(--admin-panel-raised);
+  border-radius: var(--admin-radius-control);
+}
+dl {
+  margin: 0;
+}
+dt {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+dd {
+  margin: 0.2rem 0 0.5rem;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.notice {
+  border-inline-start: 3px solid var(--admin-warning);
+  padding: 0.5rem;
+  background: var(--admin-warning-bg);
+  font-size: 0.85rem;
+}
+@media (max-width: 420px) {
+  .journeys {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

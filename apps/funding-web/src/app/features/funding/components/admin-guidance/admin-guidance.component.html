@@ -5,6 +5,7 @@
       class="guidance"
       [class.open]="guidance.enabled()"
       [class.automatic]="guidance.mode() === 'automatic'"
+      [class.compact]="compact()"
       [class.at-bottom]="placement() === 'bottom'"
       [attr.data-og7-placement]="placement()"
       data-og7="admin-guidance"
@@ -62,13 +63,12 @@
               [attr.aria-pressed]="guidance.mode() === 'discovery'"
               (click)="guidance.setMode('discovery')"
             >
-              @if (guidance.mode() === 'automatic') {
+              @if (compact()) {
                 <openg7-admin-icon name="dashboard" />
               }
-              <span
-                [class.mode-label-hidden]="guidance.mode() === 'automatic'"
-                >{{ t('discoveryMode') }}</span
-              >
+              <span [class.mode-label-hidden]="compact()">{{
+                t('discoveryMode')
+              }}</span>
             </button>
             <button
               type="button"
@@ -78,13 +78,12 @@
               [attr.aria-pressed]="guidance.mode() === 'payment'"
               (click)="guidance.setMode('payment')"
             >
-              @if (guidance.mode() === 'automatic') {
+              @if (compact()) {
                 <openg7-admin-icon name="contributions" />
               }
-              <span
-                [class.mode-label-hidden]="guidance.mode() === 'automatic'"
-                >{{ t('paymentJourney.title') }}</span
-              >
+              <span [class.mode-label-hidden]="compact()">{{
+                t('paymentJourney.title')
+              }}</span>
             </button>
             <button
               type="button"
@@ -95,6 +94,22 @@
             >
               {{ t('automaticMode') }}
             </button>
+            <button
+              type="button"
+              class="admin-button"
+              data-og7="admin-guidance-workflows-mode"
+              [title]="t('workflowsMode')"
+              [attr.aria-pressed]="guidance.mode() === 'workflows'"
+              (click)="guidance.setMode('workflows')"
+            >
+              @if (guidance.mode() === 'automatic') {
+                <openg7-admin-icon name="search" />
+              }
+              <span
+                [class.mode-label-hidden]="guidance.mode() === 'automatic'"
+                >{{ t('workflowsMode') }}</span
+              >
+            </button>
           </nav>
           @if (guidance.mode() === 'automatic') {
             <ng-container #automaticHost />
@@ -103,6 +118,14 @@
             }
             @if (automaticError()) {
               <p role="alert">{{ t('automaticUnavailable') }}</p>
+            }
+          } @else if (guidance.mode() === 'workflows') {
+            <ng-container #workflowHost />
+            @if (workflowLoading()) {
+              <p role="status">{{ t('workflowsMode') }}…</p>
+            }
+            @if (workflowError()) {
+              <p role="alert">{{ t('workflowsUnavailable') }}</p>
             }
           } @else if (guidance.mode() === 'payment') {
             <openg7-admin-payment-journey (show)="show($event)" />

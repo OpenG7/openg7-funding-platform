@@ -94,6 +94,7 @@
       <aside
         #sponsorDetailPanel
         data-og7="sponsorship-dossier"
+        [attr.data-og7-id]="selectedSponsorship()?.id ?? null"
         class="sponsor-detail-panel"
         tabindex="-1"
         [class.is-empty]="!selectedSponsorship()"

@@ -16,6 +16,7 @@ import {
   ADMIN_GUIDANCE_PAGES,
   adminGuidancePage
 } from '../components/admin-guidance/admin-guidance-pages.js';
+import { ADMIN_WORKFLOW_GUIDE_JOURNEYS } from '../components/admin-guidance/admin-workflow-guide.catalog.js';
 
 import {
   AdminGuidanceState,
@@ -74,6 +75,14 @@ export class AdminGuidanceService {
     )
   );
   readonly navigationUrl = this.url;
+  readonly workflow = computed(
+    () =>
+      this.snapshot().workflow ?? {
+        journeyId: 'agreement',
+        step: 0,
+        paused: false
+      }
+  );
   readonly storageAvailable = signal(true);
   readonly forgetFailed = signal(false);
   readonly resumeTarget = signal<string | null>(null);
@@ -126,10 +135,34 @@ export class AdminGuidanceService {
       bookmark: current.bookmark ?? this.currentBookmark()
     });
   }
-  setMode(mode: 'discovery' | 'payment' | 'automatic'): void {
+  setMode(mode: 'discovery' | 'payment' | 'automatic' | 'workflows'): void {
     const current = { ...this.snapshot() };
     delete current.mode;
     this.persist({ ...current, ...(mode !== 'discovery' ? { mode } : {}) });
+  }
+  selectWorkflow(journeyId: string, step = 0): void {
+    const journey = ADMIN_WORKFLOW_GUIDE_JOURNEYS.find(
+      (entry) => entry.id === journeyId
+    );
+    if (
+      !journey ||
+      !Number.isInteger(step) ||
+      step < 0 ||
+      step >= journey.steps.length
+    )
+      return;
+    this.persist({
+      ...this.snapshot(),
+      enabled: true,
+      mode: 'workflows',
+      workflow: { journeyId, step, paused: false }
+    });
+  }
+  pauseWorkflow(paused: boolean): void {
+    this.persist({
+      ...this.snapshot(),
+      workflow: { ...this.workflow(), paused }
+    });
   }
   followPayment(contributionId: string, preservePause = false): void {
     const id = guidanceContributionId(contributionId);

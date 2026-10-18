@@ -108,6 +108,30 @@ gestes distincts. Les panneaux métier gardent la priorité et leurs confirmatio
 
 ## Guides interactifs
 
+### Explorer les six parcours en navigation libre
+
+Dans **Mode guidé → Six parcours**, choisir librement un parcours puis une étape
+numérotée, ou utiliser **Étape précédente / suivante**. Le guide décrit l’action,
+son résultat attendu, son emplacement actuel et l’organisation proposée à évaluer.
+Les parcours couvrent l’accord, la préparation, l’autorisation, la livraison,
+la fiche publique et le suivi historique manuel. Les propositions d’organisation
+restent explicitement signalées comme des améliorations à réaliser.
+
+Sur l’onglet Publication d’un dossier, chaque étape met ses repères réels en
+surbrillance et ouvre seulement les volets de lecture nécessaires. La page reste
+utilisable : aucun voile modal ni clic automatique sur une commande métier.
+Une zone absente selon les droits ou l’état du dossier est indiquée sans faux
+repère ; toutes les étapes restent consultables. Les tiroirs de publication et
+les confirmations s’ouvrent volontairement dans leurs écrans habituels et gardent
+leur priorité. Fermer le tiroir permet de poursuivre la comparaison dans le guide.
+
+**Arrêter le parcours**, réduire le guide ou changer de page retire la surbrillance.
+Le parcours, l’étape et la pause sont des préférences personnelles mémorisées sans
+faits de dossier, texte d’accord ni décision métier. Le lien vers Publication ne
+reprend qu’un identifiant de dossier valide et l’onglet ; il ne transmet aucun
+paramètre de composition ou d’autorisation. Le guide réutilise le halo et le
+défilement accessibles existants, avec respect de la réduction des mouvements.
+
 ### Mode guidé dans l'administration
 
 Le bouton **Mode guidé**, sous la barre commune, accompagne les 18 rubriques

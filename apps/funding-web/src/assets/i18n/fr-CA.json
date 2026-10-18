@@ -1743,6 +1743,8 @@
       "modeLabel": "Type de guide",
       "discoveryMode": "Découvrir les rubriques",
       "automaticMode": "Automatique",
+      "workflowsMode": "Six parcours",
+      "workflowsUnavailable": "Les six parcours n’ont pas pu être chargés. Rechargez la page pour réessayer.",
       "automaticUnavailable": "Le mode automatique ne peut pas être chargé. Rechargez la page pour réessayer.",
       "paymentJourney": {
         "title": "Parcours du paiement",

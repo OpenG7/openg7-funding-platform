@@ -20,6 +20,7 @@
       <button
         type="button"
         class="publication-save"
+        data-og7="publication-tracking-save"
         [disabled]="
           !dirty() || !!slugError() || !canSave() || actionsDisabled()
         "
@@ -39,7 +40,7 @@
       {{ 'admin.dossier.publicationBridge.historicalDeclaration' | translate }}
     </p>
     <fieldset class="publication-grid" [disabled]="actionsDisabled()">
-      <label>
+      <label data-og7="publication-public-address">
         {{ 'admin.legacy.slug_public' | translate }}
         <input
           type="text"
@@ -59,7 +60,7 @@
           >
         }
       </label>
-      <label>
+      <label data-og7="publication-manual-target">
         {{ 'admin.legacy.destination_feed' | translate }}
         <select
           [value]="draft().feedTarget"
@@ -70,7 +71,7 @@
           <option value="openg20">OpenG20</option>
         </select>
       </label>
-      <label>
+      <label data-og7="publication-manual-status">
         {{ 'admin.dossier.publicationBridge.declaredStatus' | translate }}
         <select
           [value]="draft().feedStatus"
@@ -116,7 +117,7 @@
           LinkedIn
         </label>
       </fieldset>
-      <label class="publication-span-2">
+      <label class="publication-span-2" data-og7="publication-public-summary">
         {{ 'admin.legacy.resume_public' | translate }}
         <textarea
           rows="4"
@@ -125,7 +126,7 @@
           (input)="fieldChange.emit({ field: 'publicSummary', event: $event })"
         ></textarea>
       </label>
-      <label>
+      <label data-og7="publication-manual-link">
         {{ 'admin.legacy.lien_de_publication' | translate }}
         <input
           type="url"
@@ -134,7 +135,7 @@
           (input)="fieldChange.emit({ field: 'feedPublicUrl', event: $event })"
         />
       </label>
-      <label class="publication-span-2">
+      <label class="publication-span-2" data-og7="publication-manual-notes">
         {{ 'admin.legacy.notes_feed' | translate }}
         <textarea
           rows="4"
@@ -146,7 +147,10 @@
     </fieldset>
   </article>
 
-  <article class="detail-card public-preview">
+  <article
+    class="detail-card public-preview"
+    data-og7="publication-public-preview"
+  >
     <span>{{ 'admin.legacy.previsualisation_non_publiee' | translate }}</span>
     <div>
       @if (logoSource()) {

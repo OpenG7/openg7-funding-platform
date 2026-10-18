@@ -1,0 +1,177 @@
+{
+  "mode": "Six parcours",
+  "title": "Explorer les six parcours",
+  "intro": "Choisis un parcours pour comparer les actions et leurs résultats attendus. Les organisations proposées décrivent des améliorations à réaliser.",
+  "choose": "Choisir un parcours",
+  "step": "Étape {{current}} sur {{total}}",
+  "action": "Action à examiner",
+  "outcome": "Résultat attendu",
+  "location": "Emplacement actuel",
+  "proposed": "Organisation proposée · à réaliser",
+  "show": "Montrer cette zone",
+  "previous": "Étape précédente",
+  "next": "Étape suivante",
+  "stop": "Arrêter le parcours",
+  "resume": "Reprendre le parcours",
+  "missing": "Cette zone n’est pas disponible dans le dossier affiché.",
+  "contextual": "Revenir au guide contextuel",
+  "openDossier": "Ouvrir un dossier de commandite",
+  "needsDossier": "Choisis un dossier de commandite pour montrer les zones du parcours.",
+  "readOnly": "Explorer le guide ne prépare, n’autorise et ne publie rien.",
+  "automatic": "Passer au guide automatique",
+  "journeys": {
+    "agreement": {
+      "title": "Établir les prestations de l’accord",
+      "goal": "Documenter les prestations à partir de l’accord d’origine, puis les faire confirmer par le propriétaire.",
+      "location": "Publication du dossier : Pilotage de la préparation, puis Engagements enregistrés.",
+      "proposed": "Rassembler source, proposition locale, prestations et confirmation dans un parcours continu.",
+      "steps": {
+        "pilot": {
+          "title": "Examiner les publications promises",
+          "action": "Sélectionner Publications promises dans le Pilotage et lire le point à traiter.",
+          "outcome": "Le contrôle manquant et les actions disponibles sont identifiés, sans valider l’accord."
+        },
+        "source": {
+          "title": "Vérifier l’accord d’origine",
+          "action": "Lire le texte enregistré ou documenter une source privée avec les termes exacts de l’accord.",
+          "outcome": "Une source versionnée permet de vérifier les termes. L’enregistrement d’une nouvelle version déclenche l’analyse locale."
+        },
+        "proposal": {
+          "title": "Examiner la proposition locale",
+          "action": "Comparer chaque clause repérée à sa citation et relever les ambiguïtés ou termes à traiter manuellement.",
+          "outcome": "Les éléments à documenter sont repérés. Cette analyse locale n’utilise pas de modèle IA et demande une revue humaine."
+        },
+        "qualification": {
+          "title": "Documenter et relier les prestations",
+          "action": "Renseigner les prestations établies dans le formulaire, puis relier chaque clause à la prestation correspondante ou justifier son traitement.",
+          "outcome": "Un brouillon de prestations et de correspondances est prêt à être examiné; les termes non représentables restent à traiter manuellement."
+        },
+        "confirm": {
+          "title": "Confirmer les prestations validées",
+          "action": "Le propriétaire relit les termes, fournit le motif et la preuve, puis confirme explicitement le dossier dans le formulaire.",
+          "outcome": "Après validation serveur, les prestations sont enregistrées dans l’accord. L’autorisation de publication reste distincte."
+        }
+      }
+    },
+    "preparation": {
+      "title": "Préparer les publications",
+      "goal": "Passer des obligations enregistrées à des brouillons prêts pour une revue humaine.",
+      "location": "Publication du dossier : obligations, cartes des canaux et commandes de préparation.",
+      "proposed": "Regrouper les obligations et leurs brouillons, avec une prochaine action visible pour chaque canal.",
+      "steps": {
+        "obligations": {
+          "title": "Lire les obligations",
+          "action": "Comparer les canaux, destinations, quantités et éléments requis avec l’accord enregistré.",
+          "outcome": "Le périmètre de préparation est établi à partir des prestations documentées."
+        },
+        "prepare": {
+          "title": "Repérer la préparation à lancer",
+          "action": "Examiner la commande Préparer de la carte du canal et vérifier la destination concernée.",
+          "outcome": "Après exécution explicite de la commande disponible, la plateforme prépare un brouillon à relire."
+        },
+        "draft": {
+          "title": "Examiner le brouillon",
+          "action": "Lire l’état de la publication préparée et repérer les éléments encore à compléter avant la revue.",
+          "outcome": "Le brouillon et ses limites sont visibles. Sa préparation ne confirme ni autorisation ni livraison."
+        }
+      }
+    },
+    "authorization": {
+      "title": "Vérifier et autoriser un envoi",
+      "goal": "Examiner le contenu final, la destination et la date avant une autorisation administrative explicite.",
+      "location": "Publication du dossier : carte du canal, puis tiroir de revue à ouvrir volontairement pour le contenu, la date et l’autorisation.",
+      "proposed": "Rendre le passage de la revue à l’autorisation plus lisible, avec les préconditions près de la confirmation.",
+      "steps": {
+        "review": {
+          "title": "Repérer la revue disponible",
+          "action": "Lire l’état de la carte du canal et identifier sa commande de revue.",
+          "outcome": "L’accès à la revue est identifié. Le guide laisse le tiroir fermé; son ouverture reste volontaire."
+        },
+        "content": {
+          "title": "Vérifier le contenu final",
+          "action": "Dans le tiroir ouvert volontairement, relire le texte, les médias, la destination et les commanditaires inclus.",
+          "outcome": "La personne chargée de la revue connaît le contenu exact concerné par sa décision."
+        },
+        "schedule": {
+          "title": "Vérifier la date et le mode",
+          "action": "Dans le tiroir, examiner le créneau proposé, le fuseau horaire et le mode d’envoi avant de retenir une date.",
+          "outcome": "La date et le mode retenus sont compris. Une proposition de créneau ne vaut pas autorisation."
+        },
+        "authorize": {
+          "title": "Confirmer l’autorisation",
+          "action": "La personne autorisée confirme explicitement le contenu, la destination, le mode et la date dans le tiroir.",
+          "outcome": "Après validation serveur, l’autorisation porte sur cette version. La livraison attend encore le résultat de l’envoi."
+        }
+      }
+    },
+    "delivery": {
+      "title": "Suivre la livraison et ses preuves",
+      "goal": "Comprendre l’état de chaque obligation et consulter les preuves de réalisation disponibles.",
+      "location": "Publication du dossier : tableau de suivi des obligations et cartes des canaux.",
+      "proposed": "Présenter ensemble le statut, la prochaine responsabilité et la preuve qualifiée de chaque obligation.",
+      "steps": {
+        "status": {
+          "title": "Lire le statut courant",
+          "action": "Consulter l’état de chaque obligation et de la publication associée : attente, programmation, envoi, échec ou réussite.",
+          "outcome": "Les faits confirmés sont distingués des opérations en attente, des simulations et des résultats incertains."
+        },
+        "responsibility": {
+          "title": "Identifier la prochaine responsabilité",
+          "action": "Lire si la prochaine étape revient à l’administration ou à la plateforme et examiner la raison affichée.",
+          "outcome": "La personne qui consulte le dossier sait s’il faut intervenir, attendre ou vérifier un résultat avant une reprise."
+        },
+        "evidence": {
+          "title": "Consulter la preuve qualifiée",
+          "action": "Après une réussite confirmée, consulter la preuve qualifiée enregistrée par la plateforme et le lien de publication disponible.",
+          "outcome": "La réalisation est vérifiable à partir de la preuve enregistrée. Aucun rattachement manuel n’est effectué par ce guide."
+        }
+      }
+    },
+    "website": {
+      "title": "Préparer la fiche sur le site",
+      "goal": "Vérifier la présentation publique, puis examiner sa visibilité indépendamment des envois sociaux.",
+      "location": "Publication du dossier : carte Site Web; présentation et aperçu dans Paramètres avancés · visibilité et suivi manuel.",
+      "proposed": "Créer une zone Fiche Web réunissant présentation, aperçu et visibilité, distincte du suivi historique.",
+      "steps": {
+        "presentation": {
+          "title": "Examiner la présentation",
+          "action": "Dans les paramètres avancés, relire le slug et le résumé publics avec le nom et le logo du dossier.",
+          "outcome": "Les éléments de la fiche à conserver ou à corriger sont identifiés avant enregistrement."
+        },
+        "preview": {
+          "title": "Vérifier l’aperçu",
+          "action": "Comparer l’aperçu non publié avec les éléments attendus pour la présentation de l’organisation.",
+          "outcome": "Le rendu préparé est relu. L’aperçu ne rend pas la fiche publique."
+        },
+        "visibility": {
+          "title": "Examiner la visibilité",
+          "action": "Sur la carte Site Web, lire les prérequis et la commande de publication ou de masquage disponible selon les droits.",
+          "outcome": "La visibilité reste une décision administrative explicite, vérifiée côté serveur et distincte des publications sociales."
+        }
+      }
+    },
+    "history": {
+      "title": "Conserver une déclaration historique",
+      "goal": "Documenter un statut déclaré et un lien historique sans les assimiler à une livraison prouvée.",
+      "location": "Publication du dossier → Paramètres avancés · visibilité et suivi manuel : statut déclaré, lien, notes et enregistrement.",
+      "proposed": "Séparer le suivi historique de la fiche Web et afficher clairement la portée des déclarations manuelles.",
+      "steps": {
+        "tracking": {
+          "title": "Lire le suivi manuel existant",
+          "action": "Consulter le statut déclaré, le lien historique et les notes conservés dans les paramètres avancés.",
+          "outcome": "Les déclarations historiques disponibles sont identifiées; leur présence ne confirme pas une prestation livrée."
+        },
+        "declare": {
+          "title": "Renseigner une déclaration",
+          "action": "Choisir un statut déclaré, renseigner le lien historique disponible et préciser les limites dans les notes.",
+          "outcome": "Une déclaration manuelle est prête à enregistrer. Elle ne constitue pas une preuve qualifiée de réalisation."
+        },
+        "save": {
+          "title": "Enregistrer les métadonnées",
+          "action": "Relire les champs modifiés et utiliser la commande Enregistrer de la zone de suivi manuel.",
+          "outcome": "Après validation serveur, les métadonnées historiques sont conservées. Cet enregistrement ne déclenche aucun envoi et ne confirme aucune livraison."
+        }
+      }
+    }
+  }
+}
