@@ -253,6 +253,20 @@ serveur, hors éléments non requis. Son total varie selon le bon; les blocages
 complémentaires ne l'augmentent pas. Cliquer, lire ou fermer une commande ne
 valide aucun contrôle.
 
+Pour les accords historiques, la destination de l’accord donne aussi accès à
+l’[assistance locale versionnée](../technical/preparation-assistance.md), réservée
+au propriétaire. Le texte, le job et la revue humaine ont leurs propres versions ;
+un résultat prêt à examiner ne complète aucun contrôle du bon. Le formulaire
+habituel conserve la qualification humaine et sa confirmation.
+
+Le guide et le bon affichent aussi un résumé compact de cette assistance pour le
+contrôle des publications promises : attente, traitement, résultat à examiner,
+revue, erreur ou péremption. Ce résumé ne contient ni accord ni notes privées et
+ne modifie pas la version du bon. **Examiner**, **Voir la source** et **Relancer**
+partagent les mêmes métadonnées et le même dispatcher entre boutons et controller.
+Une relance reste explicite et est désactivée pendant un job actif. La révision
+de l’assistance invalide les commandes en cours comme un changement de sélection.
+
 L'action principale rejoint l'écran propriétaire de l'accord, de la modération
 ou de la présentation. Les détails et l'historique restent consultables. Après
 une correction, relire le bon pour obtenir l'état serveur; un changement de

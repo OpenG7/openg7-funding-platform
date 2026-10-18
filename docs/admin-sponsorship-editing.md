@@ -128,6 +128,17 @@ sur une préparation admissible conserve sa confirmation explicite et la version
 consultée. Voir le [parcours de préparation](operations/admin-pilotage.md#preparation-pilot)
 pour la sélection, les commandes et les limites de la simulation Gamepad.
 
+Pour un accord historique à qualifier, le propriétaire peut enregistrer un texte
+privé versionné et lancer une **assistance locale** depuis la section de l’accord.
+Une nouvelle source admissible démarre le traitement dès son enregistrement ;
+une source identique ou la simple consultation ne le relance pas.
+Elle repère les canaux et présente les clauses exactes à examiner, sans fournisseur
+IA ni déduction des prestations. Les décisions et modifications humaines sont
+conservées ; l’offre complète se renseigne dans le formulaire habituel. Une clause
+non résolue ou non représentable bloque l’application. La qualification exige
+toujours motif, confirmation et versions courantes. La voie manuelle reste
+accessible. Voir les [états, limites et règles de reprise](technical/preparation-assistance.md).
+
 **Aperçu** conserve la référence et les avantages enregistrés, avec des raccourcis
 vers la fiche et les finances. **Note interne** ouvre l’éditeur de la note de revue
 depuis chaque onglet; cette note reste distincte des interventions successives.

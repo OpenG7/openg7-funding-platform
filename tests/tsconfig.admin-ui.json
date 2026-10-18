@@ -34,6 +34,7 @@
     "playwright/admin-automatic-portfolio.spec.ts",
     "playwright/admin-preparation-receipts.spec.ts",
     "playwright/admin-sponsorship-preparation.spec.ts",
+    "playwright/admin-preparation-assistance.spec.ts",
     "playwright/admin-controller-journeys.spec.ts",
     "playwright/admin-virtual-controller.spec.ts",
     "playwright/admin-sandbox-acceptance.spec.ts",

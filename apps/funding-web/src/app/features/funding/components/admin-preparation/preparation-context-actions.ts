@@ -1,4 +1,8 @@
 import type { AdminPreparationReceiptData } from '@openg7/funding-core';
+import {
+  preparationAssistanceActions,
+  type PreparationAssistanceSummary
+} from '@openg7/funding-core';
 
 import type {
   ControllerAction,
@@ -19,7 +23,7 @@ export function preparationContextActions(
     label: string,
     icon: ControllerAction['icon'],
     enabled: boolean,
-    shortcut: 'a' | 'b' | 'x' | 'y',
+    shortcut: 'a' | 'b' | 'x' | 'y' | undefined,
     requiresConfirmation = false
   ): ControllerAction => ({
     id,
@@ -33,41 +37,81 @@ export function preparationContextActions(
     busy: input.busy,
     requiresConfirmation,
     disabledReason: available && enabled ? undefined : t('pilot.unavailable'),
-    shortcut: { label: shortcut.toUpperCase(), tone: shortcut }
+    shortcut: shortcut
+      ? { label: shortcut.toUpperCase(), tone: shortcut }
+      : undefined
   });
-  const primary = issue
-    ? action(
-        'preparation-open',
-        t('pilot.actions.' + issue.actionKind),
-        issue.actionKind === 'moderation' ? 'audit' : 'publications',
-        !!issue.adminUrl && !!automaticAdminUrl(issue.adminUrl),
-        'a'
-      )
-    : receipt && receipt.status !== 'approved'
+  const assisted =
+    !!input.canAssist &&
+    issue?.checkCode === 'accepted_offer' &&
+    input.assistanceSummary?.contributionId === receipt?.contributionId;
+  const assistanceActions = assisted
+    ? preparationAssistanceActions(input.assistanceSummary ?? null, {
+        permitted: !!input.canAssist,
+        busy: input.busy || !!input.assistanceBusy
+      }).map((descriptor) => ({
+        ...action(
+          'preparation-assistance-' + descriptor.id,
+          t('pilot.assistance.actions.' + descriptor.id),
+          descriptor.id === 'rerun' ? 'refresh' : 'search',
+          descriptor.enabled,
+          descriptor.id === 'review'
+            ? 'a'
+            : descriptor.id === 'source'
+              ? 'x'
+              : 'y'
+        ),
+        busy: input.busy || input.assistanceBusy,
+        disabledReason: descriptor.disabledReason
+          ? t('pilot.assistance.disabled.' + descriptor.disabledReason)
+          : undefined
+      }))
+    : [];
+  const review = assistanceActions.find(
+    (entry) => entry.id === 'preparation-assistance-review' && entry.enabled
+  );
+  const primary =
+    review ??
+    (issue
       ? action(
-          'preparation-approve',
-          t('pilot.actions.approve'),
-          'check',
-          input.canApprove && receipt.canApprove,
-          'a',
-          true
+          'preparation-open',
+          t('pilot.actions.' + issue.actionKind),
+          issue.actionKind === 'moderation' ? 'audit' : 'publications',
+          !!issue.adminUrl && !!automaticAdminUrl(issue.adminUrl),
+          'a'
         )
-      : null;
+      : receipt && receipt.status !== 'approved'
+        ? action(
+            'preparation-approve',
+            t('pilot.actions.approve'),
+            'check',
+            input.canApprove && receipt.canApprove,
+            'a',
+            true
+          )
+        : null);
   return [
     ...(primary ? [primary] : []),
+    ...assistanceActions
+      .filter((entry) => entry !== review)
+      .map((entry) =>
+        entry.id === 'preparation-assistance-review'
+          ? { ...entry, shortcut: undefined }
+          : entry
+      ),
     action(
       'preparation-details',
       t('pilot.actions.details'),
       'search',
       true,
-      'x'
+      assisted ? undefined : 'x'
     ),
     action(
       'preparation-history',
       t('pilot.actions.history'),
       'clock',
       true,
-      'y'
+      assisted ? undefined : 'y'
     ),
     action('preparation-back', t('pilot.actions.back'), 'close', true, 'b')
   ];
@@ -75,13 +119,18 @@ export function preparationContextActions(
 
 export function preparationControllerContext(
   receipt: AdminPreparationReceiptData | null,
-  issueId: string | null
+  issueId: string | null,
+  summary: PreparationAssistanceSummary | null = null
 ): ControllerContext | null {
   return receipt
     ? {
         key: issueId ?? 'preparation',
         targetId: receipt.contributionId,
-        revision: receipt.version
+        revision:
+          summary?.contributionId === receipt.contributionId &&
+          issueId === 'check:' + summary.controlCode
+            ? receipt.version + ':' + summary.revision
+            : receipt.version
       }
     : null;
 }

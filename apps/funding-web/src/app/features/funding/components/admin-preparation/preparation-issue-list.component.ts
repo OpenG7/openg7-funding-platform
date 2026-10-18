@@ -7,6 +7,7 @@ import {
   output,
   viewChildren
 } from '@angular/core';
+import type { PreparationAssistanceSummary } from '@openg7/funding-core';
 
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
@@ -32,7 +33,22 @@ import type { PreparationPilotIssue } from './preparation-pilot.models.js';
           (keydown)="keydown($event, issue.id)"
         >
           <openg7-admin-icon [name]="issue.completed ? 'check' : 'warning'" />
-          <span>{{ t(issue.titleKey) }}</span>
+          <span class="issue-copy"
+            ><span>{{ t(issue.titleKey) }}</span>
+            @if (
+              issue.checkCode === 'accepted_offer' &&
+              canAssist() &&
+              (assistanceSummary() || assistanceError() || assistanceBusy())
+            ) {
+              <small
+                data-og7="preparation-issue-assistance-state"
+                [attr.data-og7-state]="assistanceStatus()"
+                >{{
+                  t('pilot.assistance.compact.' + assistanceStatus())
+                }}</small
+              >
+            }
+          </span>
           <small>{{
             t(issue.completed ? 'pilot.complete' : 'pilot.required')
           }}</small>
@@ -82,18 +98,43 @@ import type { PreparationPilotIssue } from './preparation-pilot.models.js';
       color: var(--admin-muted);
       font-size: 0.7rem;
     }
+    .issue-copy {
+      display: grid;
+      gap: 0.2rem;
+    }
+    .issue-copy small {
+      overflow-wrap: anywhere;
+    }
   `
 })
 export class PreparationIssueListComponent {
   readonly issues = input.required<readonly PreparationPilotIssue[]>();
   readonly selectedId = input<string | null>(null);
   readonly selected = output<string>();
+  readonly canAssist = input(false);
+  readonly assistanceSummary = input<PreparationAssistanceSummary | null>(null);
+  readonly assistanceBusy = input(false);
+  readonly assistanceError = input('');
   private readonly i18n = inject(FundingI18nService);
   private readonly buttons =
     viewChildren<ElementRef<HTMLButtonElement>>('issueButton');
 
   t(key: string): string {
     return this.i18n.t('admin.automatic.portfolio.receipt.' + key);
+  }
+  assistanceStatus(): string {
+    const summary = this.assistanceSummary();
+    if (this.assistanceError()) return 'unavailable';
+    if (!summary) return 'loading';
+    if (summary.stale) return 'stale';
+    if (summary.run?.reviewDecision) return summary.run.reviewDecision;
+    return summary.run
+      ? summary.run.state === 'succeeded'
+        ? 'ready'
+        : summary.run.state
+      : summary.sourceVersion
+        ? 'noRun'
+        : 'noSource';
   }
 
   move(offset: number, from = this.selectedId()): void {

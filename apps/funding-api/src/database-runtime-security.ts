@@ -64,7 +64,9 @@ export const assertProductionDatabasePrivileges = async (
             (a.relname IN ('admin_audit_log','sponsorship_website_exposure_observations',
                 'sponsorship_obligation_duration_attestations','sponsorship_historical_evidence_reviews',
                 'sponsorship_public_visibility_observations','admin_automatic_run_entries',
-                'admin_preparation_approvals')
+                'admin_preparation_approvals','preparation_assistance_sources',
+                'preparation_assistance_suggestions','preparation_assistance_reviews',
+                'preparation_assistance_requests')
               AND has_any_column_privilege(current_user, a.oid, 'UPDATE'))
             OR (a.relname = 'openg7_schema_migrations'
               AND has_any_column_privilege(current_user, a.oid, 'INSERT,UPDATE'))

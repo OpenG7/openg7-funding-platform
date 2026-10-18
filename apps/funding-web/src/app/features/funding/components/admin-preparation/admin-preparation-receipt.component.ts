@@ -12,7 +12,8 @@ import { Router } from '@angular/router';
 import type {
   AdminPreparationCheck,
   AdminPreparationDraft,
-  AdminPreparationReceiptData
+  AdminPreparationReceiptData,
+  PreparationAssistanceSummary
 } from '@openg7/funding-core';
 
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
@@ -21,7 +22,10 @@ import { automaticAdminUrl } from '../admin-automatic/admin-automatic-run.js';
 
 import { PreparationPilotComponent } from './preparation-pilot.component.js';
 import type { PreparationPilotIssue } from './preparation-pilot.models.js';
-import { preparationIssueDestination } from './preparation-navigation.js';
+import {
+  preparationIssueDestination,
+  preparationAssistanceDestination
+} from './preparation-navigation.js';
 
 /** Shared private preparation presentation; the host owns loading and approval. */
 @Component({
@@ -42,6 +46,12 @@ export class AdminPreparationReceiptComponent {
   readonly canApprove = input(false);
   readonly approving = input(false);
   readonly selectedIssueId = input<string | null>(null);
+  readonly canAssist = input(false);
+  readonly assistanceSummary = input<PreparationAssistanceSummary | null>(null);
+  readonly assistanceBusy = input(false);
+  readonly assistanceError = input('');
+  readonly assistanceRefresh = output<void>();
+  readonly assistanceRerun = output<string>();
   readonly selectedIssueIdChange = output<string | null>();
   readonly approve = output<AdminPreparationReceiptData>();
   readonly confirmApproval = output<AdminPreparationReceiptData>();
@@ -89,6 +99,14 @@ export class AdminPreparationReceiptComponent {
     const url = preparationIssueDestination(issue);
     if (!url) return;
     void this.router.navigateByUrl(url);
+  }
+  openAssistance(section: 'review' | 'source'): void {
+    if (!this.canAssist()) return;
+    const url = preparationAssistanceDestination(
+      this.receipt().contributionId,
+      section
+    );
+    if (url) void this.router.navigateByUrl(url);
   }
 
   reveal(section: 'details' | 'history'): void {

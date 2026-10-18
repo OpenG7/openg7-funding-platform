@@ -59,6 +59,11 @@ export const adminRoleAllows = (
   const path = pathname.replace(/^\/api(?=\/)/, '');
   if (role === 'owner') return true;
   if (
+    path === '/admin/preparation-assistance' ||
+    path.startsWith('/admin/preparation-assistance/')
+  )
+    return false;
+  if (
     [
       '/admin/moderation/adoption-preview',
       '/admin/moderation/retention-preview',

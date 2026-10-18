@@ -119,6 +119,7 @@ import { FundingAdminAssistantClient } from './funding-admin-assistant.client.js
 import { FundingAdminModerationClient } from './funding-admin-moderation.client.js';
 import { FundingAdminCommitmentsClient } from './funding-admin-commitments.client.js';
 import { FundingAdminHistoricalAuditClient } from './funding-admin-historical-audit.client.js';
+import { FundingAdminPreparationAssistanceClient } from './funding-admin-preparation-assistance.client.js';
 export type { AdminSponsorshipListQuery } from './funding-admin-sponsorships.client.js';
 export { AdminDashboardRequestError } from './funding-admin-session.js';
 export type {
@@ -176,6 +177,39 @@ export class FundingAdminService {
   );
   private readonly historicalAuditClient =
     new FundingAdminHistoricalAuditClient(this.session);
+  private readonly preparationAssistanceClient =
+    new FundingAdminPreparationAssistanceClient(this.session);
+  getPreparationAssistance(contributionId: string) {
+    return this.preparationAssistanceClient.read(contributionId);
+  }
+  getPreparationAssistanceSummary(contributionId: string) {
+    return this.preparationAssistanceClient.summary(contributionId);
+  }
+  rerunPreparationAssistanceSummary(
+    request: import('@openg7/funding-core').PreparationAssistanceRunRequest
+  ) {
+    return this.preparationAssistanceClient.rerunSummary(request);
+  }
+  savePreparationAssistanceSource(
+    request: import('@openg7/funding-core').PreparationAssistanceSourceRequest
+  ) {
+    return this.preparationAssistanceClient.source(request);
+  }
+  startPreparationAssistanceRun(
+    request: import('@openg7/funding-core').PreparationAssistanceRunRequest
+  ) {
+    return this.preparationAssistanceClient.run(request);
+  }
+  reviewPreparationAssistance(
+    request: import('@openg7/funding-core').PreparationAssistanceReviewRequest
+  ) {
+    return this.preparationAssistanceClient.review(request);
+  }
+  applyPreparationAssistance(
+    request: import('@openg7/funding-core').PreparationAssistanceApplyRequest
+  ) {
+    return this.preparationAssistanceClient.apply(request);
+  }
   historicalSponsorshipAudit(
     query: Parameters<FundingAdminHistoricalAuditClient['preview']>[0]
   ) {

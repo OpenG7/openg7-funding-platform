@@ -9,6 +9,7 @@ import type { ContributionActivityService } from './contribution-activity.servic
 import type { processQueuedEmailMessages } from './email-notification.service.js';
 import type { PublicationAutomationService } from './publication-automation/service.js';
 import type { SponsorshipPublicVisibilityWorker } from './sponsorship-timing/visibility-worker.js';
+import type { PreparationAssistanceService } from './preparation-assistance/service.js';
 
 export interface ApiBackgroundWorkerTimer {
   unref(): unknown;
@@ -38,6 +39,10 @@ export interface ApiBackgroundWorkersDependencies {
     'tick'
   > | null;
   readonly sponsorshipVisibilityIntervalMs?: number;
+  readonly preparationAssistance?: Pick<
+    PreparationAssistanceService,
+    'tick'
+  > | null;
   readonly logger?: Pick<Console, 'info' | 'warn' | 'error'>;
   readonly setInterval?: (
     callback: () => void,
@@ -66,6 +71,7 @@ export const createApiBackgroundWorkers = (
   const scheduleInterval = dependencies.setInterval ?? setInterval;
   let emailQueueProcessing = false;
   let adminSponsorshipReviewReminderProcessing = false;
+  let preparationAssistanceProcessing = false;
 
   const runEmailQueueWorker = async (): Promise<void> => {
     if (!dbPool || !emailQueueWorkerEnabled || emailQueueProcessing) {
@@ -155,8 +161,30 @@ export const createApiBackgroundWorkers = (
     }
   };
 
+  const runPreparationAssistanceWorker = async (): Promise<void> => {
+    if (preparationAssistanceProcessing) return;
+    preparationAssistanceProcessing = true;
+    try {
+      await dependencies.preparationAssistance?.tick();
+    } catch {
+      logger.error(
+        'Preparation assistance interrupted; verify migration 058 and database availability.'
+      );
+    } finally {
+      preparationAssistanceProcessing = false;
+    }
+  };
+
   const start = (): void => {
     if (!hasDatabase) return;
+
+    if (dependencies.preparationAssistance) {
+      void runPreparationAssistanceWorker();
+      scheduleInterval(
+        () => void runPreparationAssistanceWorker(),
+        2000
+      ).unref();
+    }
 
     if (dependencies.sponsorshipVisibility) {
       void runSponsorshipVisibilityWorker();
@@ -198,6 +226,7 @@ export const createApiBackgroundWorkers = (
     runContributionActivity,
     runPublicationWorker,
     runSponsorshipVisibilityWorker,
+    runPreparationAssistanceWorker,
     start
   };
 };

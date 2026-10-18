@@ -54,13 +54,13 @@ function fixture() {
     calls.push({ kind, payload: structuredClone(payload) });
     if (state.failure) throw state.failure;
     if (state.result) return state.result;
-    if (kind === 'qualify')
+    if (kind === 'qualify' || kind === 'assistance')
       m = {
         ...m,
         state: 'active',
         version: 2,
         provenance: 'qualified_historical',
-        offer: payload.offer,
+        offer: kind === 'assistance' ? payload.draft.offer : payload.offer,
         obligations: [
           {
             id: obId,
@@ -105,6 +105,7 @@ function fixture() {
       return { commitment: m };
     },
     qualify: (p) => send('qualify', p),
+    applyAssistance: (p) => send('assistance', p),
     adjust: (p) => send('adjust', p),
     adoption: async (size, cursor) => {
       calls.push({ kind: 'preview', size, cursor });
@@ -130,6 +131,154 @@ function fixture() {
   };
   return { c, state, calls, fill };
 }
+function assistanceSelection() {
+  const item = {
+    id: 'clause-1',
+    citation: {
+      sourceId: 'synthetic-source',
+      sourceVersion: 1,
+      start: 0,
+      end: 8,
+      excerpt: 'Facebook'
+    },
+    channels: ['facebook'],
+    attention: 'human_mapping_required'
+  };
+  return {
+    state: {
+      contributionId: id,
+      reference: 'SYNTHETIC-45',
+      revision: 'synthetic-1',
+      stale: false,
+      source: {
+        id: 'synthetic-source',
+        version: 1,
+        title: 'Private original agreement',
+        text: 'Facebook',
+        fingerprint: 'synthetic-fingerprint',
+        createdAt: '2026-10-17T12:00:00Z'
+      },
+      commitment: {
+        version: 1,
+        state: 'needs_confirmation',
+        amountMinor: 50000,
+        currency: 'CAD'
+      },
+      capabilities: {
+        canManageSource: true,
+        canRun: true,
+        canReview: true,
+        canApply: true
+      },
+      run: {
+        id: 'synthetic-run',
+        sourceVersion: 1,
+        commitmentVersion: 1,
+        adapter: 'local_rules_v1',
+        state: 'succeeded',
+        phase: 'finished',
+        errorCode: null,
+        createdAt: '2026-10-17T12:00:00Z',
+        finishedAt: '2026-10-17T12:00:00Z',
+        review: null,
+        application: null,
+        suggestion: {
+          adapter: 'local_rules_v1',
+          proposedOffer: null,
+          limitations: [],
+          items: [item]
+        }
+      }
+    },
+    items: [
+      {
+        itemId: 'clause-1',
+        disposition: 'included',
+        benefitId: 'facebook_batch',
+        note: 'Verified original clause'
+      }
+    ]
+  };
+}
+
+test('assisted qualification applies the edited domain form exactly once without a parallel qualification command', async () => {
+  const f = fixture();
+  f.fill();
+  f.c.chooseAssistance(assistanceSelection());
+  assert.equal(f.c.confirmation(), '');
+  f.c.confirmation.set(id);
+  assert.equal(f.c.assistanceCanApply(), true);
+  await f.c.qualify();
+  assert.deepEqual(
+    f.calls.map((call) => call.kind),
+    ['assistance']
+  );
+  assert.equal(f.calls[0].payload.expectedCommitmentVersion, 1);
+  assert.equal(f.calls[0].payload.sourceVersion, 1);
+  assert.equal(f.calls[0].payload.expectedReviewVersion, 0);
+  assert.equal(f.calls[0].payload.draft.offer.benefits[0].quantity, 2);
+  assert.equal(f.state.changed, 1);
+  assert.equal(f.c.assistance(), null);
+});
+
+test('permission invalidation removes private assistance and uncertain requests before another explicit selection', async () => {
+  const f = fixture();
+  f.fill();
+  f.c.chooseAssistance(assistanceSelection());
+  f.c.confirmation.set(id);
+  f.state.failure = new AdminDashboardRequestError(
+    503,
+    'Synthetic transport failure'
+  );
+  await f.c.qualify();
+  assert.ok(f.c.pending()?.assistance);
+  assert.match(f.c.evidence(), /Private original agreement/);
+  f.c.invalidateAssistance();
+  assert.equal(f.c.assistance(), null);
+  assert.equal(f.c.pending(), null);
+  assert.equal(f.c.evidence(), '');
+  assert.equal(f.c.reason(), '');
+  assert.deepEqual(f.c.benefits(), []);
+  assert.equal(f.c.assistanceCanApply(), false);
+  f.state.failure = null;
+  await f.c.retry();
+  assert.equal(f.calls.length, 1);
+});
+
+test('an assisted apply denied by the server removes private source context and cannot be retried in the revoked permission scope', async () => {
+  const f = fixture();
+  f.fill();
+  f.c.chooseAssistance(assistanceSelection());
+  f.c.confirmation.set(id);
+  f.state.failure = new AdminDashboardRequestError(403);
+  await f.c.qualify();
+  assert.equal(f.c.assistance(), null);
+  assert.equal(f.c.pending(), null);
+  assert.equal(f.c.evidence(), '');
+  assert.equal(f.c.saving(), false);
+  assert.equal(f.c.assistanceCanApply(), false);
+  await f.c.retry();
+  assert.equal(f.calls.length, 1);
+});
+
+test('a late assisted application response cannot restore private context or form state after permission invalidation', async () => {
+  const f = fixture();
+  f.fill();
+  f.c.chooseAssistance(assistanceSelection());
+  f.c.confirmation.set(id);
+  let finish;
+  f.state.result = new Promise((resolve) => (finish = resolve));
+  const applying = f.c.qualify();
+  assert.equal(f.calls.length, 1);
+  f.c.invalidateAssistance();
+  finish({ commitment: { ...f.c.data(), state: 'active', version: 2 } });
+  await applying;
+  assert.equal(f.c.data().version, 1);
+  assert.equal(f.c.assistance(), null);
+  assert.equal(f.c.saved(), false);
+  assert.equal(f.state.changed, 0);
+});
+
 test('an earlier read cannot replace a newer commitment already supplied for the same dossier', async () => {
   for (const missing of [false, true]) {
     const f = fixture(),

@@ -185,7 +185,7 @@ resets backoff or alters issued documents. See [UI recovery and limits](../payme
 
 ## Sponsorship review admin
 
-Admin review: `/admin/fundraiser/sponsors`. Private sponsorship endpoints:
+Review at `/admin/fundraiser/sponsors`. Private endpoints:
 
 ```text
 GET /api/admin/sponsorships
@@ -199,10 +199,12 @@ POST /api/admin/sponsorships/refund
 POST /api/admin/sponsorships/publication
 ```
 
-Local/test `token` mode uses `Authorization: Bearer <sessionToken>` after the
-session exchange; no anonymous or root-secret operational access. OIDC rejects
-legacy tokens and requires its cookie session, role and exact mutation origin.
+Local/test `token`: `Authorization: Bearer <sessionToken>` after login.
+Anonymous/root-secret requests are refused. OIDC requires cookies,
+role and exact mutation origin; legacy tokens are refused.
 See [authentication rules](../operations/admin-identity-and-alerts.md).
+
+See [agreement assistance](preparation-assistance.md).
 
 The sponsorship publication endpoint prepares the public sponsor profile and
 records feed placement metadata:

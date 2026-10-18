@@ -7,6 +7,19 @@ import {
 } from '../dist/apps/funding-api/src/admin-identity.js';
 import { operationsAlertConfig } from '../dist/apps/funding-api/src/operations-alerts.js';
 
+test('agreement preparation assistance is private to owners for reads and mutations', () => {
+  for (const prefix of ['/admin', '/api/admin']) {
+    for (const path of ['', '/source', '/runs', '/review', '/apply']) {
+      for (const method of ['GET', 'POST']) {
+        const route = `${prefix}/preparation-assistance${path}`;
+        assert.equal(adminRoleAllows('owner', method, route), true);
+        assert.equal(adminRoleAllows('operator', method, route), false);
+        assert.equal(adminRoleAllows('reader', method, route), false);
+      }
+    }
+  }
+});
+
 test('administrative roles default to refusing mutations and reserve money and private exports for owners', () => {
   assert.equal(adminRoleAllows('reader', 'GET', '/api/admin/dashboard'), true);
   assert.equal(

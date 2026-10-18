@@ -35,6 +35,21 @@
     <p>{{ 'admin.commitments.ownerOnly' | translate }}</p>
   }
   @if (c.data(); as m) {
+    @if (canOwn() && m.provenance !== 'accepted_offer') {
+      <openg7-preparation-assistance-review
+        [contributionId]="dossier().contributionId"
+        [commitmentVersion]="m.version"
+        [offer]="c.offerDraft()"
+        [reason]="c.reason()"
+        [selected]="!!c.assistance()"
+        [disabled]="locked()"
+        (selectionChange)="c.updateAssistance($event)"
+        (useForm)="useAssistance($event)"
+        (reasonChange)="c.reason.set($event)"
+        (manual)="manualQualification()"
+        (invalidated)="c.invalidateAssistance()"
+      />
+    }
     <p>
       {{ 'admin.commitments.provenance.' + m.provenance | translate }} ·
       {{ 'admin.commitments.version' | translate }} {{ m.version }}
@@ -141,6 +156,16 @@
           [attr.aria-describedby]="c.error() ? 'commitments-error' : null"
         >
           <h4>{{ 'admin.commitments.qualify' | translate }}</h4>
+          @if (c.assistance()) {
+            <p data-og7="assistance-form-scope">
+              {{ 'admin.preparationAssistance.formScope' | translate }}
+            </p>
+            @if (c.assistanceStale()) {
+              <p role="alert" data-og7="assistance-form-stale">
+                {{ 'admin.preparationAssistance.stale' | translate }}
+              </p>
+            }
+          }
           <p>{{ 'admin.commitments.historicalHelp' | translate }}</p>
           <p>
             {{ 'admin.commitments.financialFact' | translate }}:
@@ -294,6 +319,7 @@
               >{{ 'admin.commitments.evidenceReference' | translate
               }}<textarea
                 [value]="c.evidence()"
+                [readOnly]="!!c.assistance()"
                 (input)="c.evidence.set(value($event))"
                 maxlength="2000"
                 required
@@ -323,10 +349,18 @@
             /></label>
             <button
               type="submit"
-              [disabled]="!c.benefits().length"
+              [disabled]="
+                !c.benefits().length ||
+                (c.assistance() && !c.assistanceCanApply())
+              "
               data-og7="commitments-qualify"
             >
-              {{ 'admin.commitments.qualify' | translate }}
+              {{
+                (c.assistance()
+                  ? 'admin.preparationAssistance.apply'
+                  : 'admin.commitments.qualify'
+                ) | translate
+              }}
             </button>
           </fieldset>
         </form>

@@ -1,4 +1,7 @@
-import type { AdminPreparationReceiptData } from '@openg7/funding-core';
+import type {
+  AdminPreparationReceiptData,
+  PreparationAssistanceSummary
+} from '@openg7/funding-core';
 
 export type PreparationActionKind =
   'agreement' | 'moderation' | 'presentation' | 'inspect';
@@ -27,6 +30,9 @@ export interface PreparationContextActionsInput {
   /** The host's current permission, in addition to receipt.canApprove. */
   readonly canApprove: boolean;
   readonly busy: boolean;
+  readonly canAssist?: boolean;
+  readonly assistanceSummary?: PreparationAssistanceSummary | null;
+  readonly assistanceBusy?: boolean;
   /** Keys are relative to admin.automatic.portfolio.receipt. */
   readonly t: (key: string) => string;
 }

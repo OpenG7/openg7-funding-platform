@@ -81,7 +81,9 @@ BEGIN
       IF item.relname NOT IN ('admin_audit_log', 'sponsorship_website_exposure_observations',
         'sponsorship_obligation_duration_attestations', 'sponsorship_historical_evidence_reviews',
         'sponsorship_public_visibility_observations', 'admin_automatic_run_entries',
-        'admin_preparation_approvals') THEN
+        'admin_preparation_approvals','preparation_assistance_sources',
+        'preparation_assistance_suggestions','preparation_assistance_reviews',
+        'preparation_assistance_requests') THEN
         EXECUTE format('GRANT UPDATE ON TABLE public.%I TO %I', item.relname, runtime_name);
       END IF;
     END IF;

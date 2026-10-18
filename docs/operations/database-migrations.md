@@ -54,6 +54,16 @@ sont décrits dans le [runbook de publication](publication-automation.md).
 
 ## Première application locale
 
+La migration [058](../../apps/funding-api/migrations/058_preparation_assistance.sql)
+ajoute les sources textuelles privées versionnées, jobs locaux durables,
+propositions, revues et reçus idempotents de l’assistance aux accords historiques.
+L’appliquer avant l’API correspondante, puis rafraîchir les grants du rôle
+applicatif avec le runner à jour. Sources, propositions, revues et reçus restent
+immuables ; les jobs conservent leurs entrées immuables et un état opérationnel
+modifiable. Aucun dossier existant n’est qualifié et aucun traitement ou envoi
+n’est créé par la migration. Voir les
+[états et limites de l’assistance](../technical/preparation-assistance.md).
+
 La migration [031](../../apps/funding-api/migrations/031_create_checkout_operations.sql)
 ajoute les opérations Checkout privées et leur clé unique, sans modifier les
 contributions ni les faits financiers existants. Elle conserve les paramètres

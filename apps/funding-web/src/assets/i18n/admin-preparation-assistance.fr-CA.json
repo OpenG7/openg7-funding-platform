@@ -1,0 +1,84 @@
+{
+  "title": "Préparer les publications promises",
+  "sourceConflict": "Une autre version de la source a été enregistrée. Ta saisie est conservée sur sa version d’origine. Compare le texte enregistré avant de reprendre la version courante.",
+  "resetSource": "Remplacer ma saisie par la source courante",
+  "reviewConflict": "La revue a changé pendant tes modifications. Tes résolutions sont conservées et ne peuvent pas être appliquées à la nouvelle version. Reprends explicitement la revue enregistrée avant de continuer.",
+  "resetReview": "Abandonner mes modifications et reprendre la revue enregistrée",
+  "saveBeforeRun": "Enregistre le brouillon de revue ou abandonne explicitement ses modifications avant de démarrer une nouvelle indexation.",
+  "apply": "Appliquer les prestations validées à l’accord",
+  "formScope": "Ce formulaire applique la revue sélectionnée avec sa source et ses versions. Documente les prestations et examine toutes les clauses avant de confirmer avec l’identifiant du dossier.",
+  "replaceDraft": "Remplacer les prestations saisies par le brouillon de revue enregistré ?",
+  "localNotice": "Indexation locale déterministe du texte enregistré. Aucun fournisseur externe ni modèle IA n’est utilisé. Les quantités, destinations et formats restent à documenter par une personne.",
+  "refresh": "Relire l’assistance",
+  "loading": "Lecture des données enregistrées…",
+  "source": {
+    "title": "Accord d’origine — source privée",
+    "name": "Titre de la source",
+    "text": "Texte exact de l’accord",
+    "help": "Copie le texte utile de l’accord ({{max}} caractères maximum). Une nouvelle version déclenche automatiquement l’indexation locale. Un contenu identique ne relance rien. Le contenu est traité comme une donnée, jamais comme une instruction.",
+    "save": "Enregistrer et indexer une version de la source",
+    "version": "{{title}} · source version {{version}}",
+    "view": "Consulter le texte enregistré"
+  },
+  "analyze": "Indexer cette source",
+  "reanalyze": "Démarrer une nouvelle indexation",
+  "manual": "Compléter manuellement",
+  "manualHelp": "La qualification manuelle reste disponible dans le formulaire de l’accord, même si cette assistance est indisponible.",
+  "stale": "La source ou l’engagement a changé depuis ce traitement. Relis les faits et démarre une nouvelle indexation avant d’utiliser la proposition.",
+  "processing": "Indexation locale en cours",
+  "failed": "Le traitement n’a pas abouti. Tu peux relire son état, démarrer un nouveau traitement si disponible ou compléter l’accord manuellement.",
+  "states": {
+    "queued": "En attente de traitement",
+    "processing": "Traitement en cours",
+    "succeeded": "Indexation prête — revue humaine requise",
+    "failed": "Échec du traitement",
+    "cancelled": "Traitement annulé"
+  },
+  "phases": {
+    "queued": "Source enregistrée",
+    "extracting": "Repérage des clauses et canaux",
+    "verifying": "Vérification des citations",
+    "finished": "Traitement terminé"
+  },
+  "suggestion": "Clauses repérées et publications à documenter",
+  "mappingHelp": "Examine chaque extrait. Prépare les prestations dans le formulaire habituel, puis relie chaque clause représentable à une prestation. L’indexation ne déduit aucune offre.",
+  "reviews": {
+    "saved": "Brouillon de revue enregistré",
+    "rejected": "Proposition rejetée",
+    "accepted": "Prestations appliquées après validation humaine"
+  },
+  "reviewVersion": "revue version {{version}}",
+  "clause": "Clause {{id}}",
+  "citation": "Source version {{version}}, caractères {{start}} à {{end}}",
+  "attention": {
+    "human_mapping_required": "Correspondance à établir par une personne.",
+    "unsupported_terms": "Cette clause contient potentiellement des termes que le modèle d’engagement ne représente pas. Son inclusion bloque l’application assistée."
+  },
+  "detected": "Canaux repérés :",
+  "disposition": "Traitement humain de la clause",
+  "dispositions": {
+    "unresolved": "À examiner",
+    "included": "Relier à une prestation documentée",
+    "unsupported": "Terme contractuel non représentable — traitement manuel requis",
+    "excluded": "Hors périmètre contractuel (motiver)"
+  },
+  "benefit": "Prestation correspondante du formulaire",
+  "chooseBenefit": "Choisir une prestation documentée",
+  "clauseNote": "Justification ou point à traiter",
+  "unsupportedHelp": "Un vrai terme contractuel non représentable exige un traitement manuel. Ne l’écarte pas pour débloquer l’application. « Hors périmètre » sert uniquement à corriger un repérage sans portée contractuelle et exige une justification.",
+  "reviewReason": "Motif de la revue humaine (au moins 5 caractères)",
+  "useForm": "Préparer dans le formulaire de qualification",
+  "formSelected": "Reprendre la préparation dans le formulaire",
+  "saveReview": "Enregistrer le brouillon de revue",
+  "reject": "Rejeter la proposition",
+  "applied": "L’accord a été qualifié par le workflow métier. Relis le bon pour connaître les contrôles satisfaits.",
+  "separation": "Une indexation ou un brouillon enregistré ne satisfait aucun contrôle. L’application exige la validation explicite du propriétaire et ne publie rien.",
+  "errors": {
+    "forbidden": "Tes droits ne permettent plus de consulter cette assistance. Les données privées ont été retirées.",
+    "unavailable": "L’assistance est indisponible. Tu peux réessayer la lecture ou compléter l’accord manuellement.",
+    "uncertain": "Le résultat de cette commande doit être vérifié. Les données ont été relues sans répéter la commande.",
+    "stale": "Les faits ou la version ont changé. Relis la source et la revue avant de continuer.",
+    "timeout": "Le traitement reste en attente au-delà du délai de suivi. Relis son état ou utilise la qualification manuelle.",
+    "reviewInvalid": "Vérifie le motif de revue et les correspondances avec les prestations documentées."
+  }
+}

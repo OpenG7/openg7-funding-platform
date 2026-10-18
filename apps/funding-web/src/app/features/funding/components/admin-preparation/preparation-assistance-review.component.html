@@ -1,0 +1,341 @@
+<section
+  class="assistance"
+  data-og7="preparation-assistance"
+  [attr.aria-label]="t('title')"
+  [attr.aria-busy]="locked()"
+>
+  @if (languageError()) {
+    <p role="alert">{{ i18n.t('admin.guidance.automaticUnavailable') }}</p>
+  } @else if (languageReady()) {
+    <header>
+      <h4>{{ t('title') }}</h4>
+      <button
+        type="button"
+        class="admin-button"
+        data-og7="assistance-refresh"
+        [disabled]="locked()"
+        (click)="c.load()"
+      >
+        {{ t('refresh') }}
+      </button>
+    </header>
+    <p class="notice">{{ t('localNotice') }}</p>
+    @if (c.error(); as error) {
+      <p class="error" role="alert" data-og7="assistance-error">
+        {{ t('errors.' + error) }}
+      </p>
+    }
+    @if (c.sourceConflict()) {
+      <p class="warning" role="alert" data-og7="assistance-source-conflict">
+        {{ t('sourceConflict') }}
+      </p>
+      <button
+        type="button"
+        class="admin-button"
+        data-og7="assistance-source-reset"
+        [disabled]="locked()"
+        (click)="c.resetSourceDraft()"
+      >
+        {{ t('resetSource') }}
+      </button>
+    }
+    @if (c.reviewConflict()) {
+      <p class="warning" role="alert" data-og7="assistance-review-conflict">
+        {{ t('reviewConflict') }}
+      </p>
+    }
+    @if (c.loading()) {
+      <p role="status">{{ t('loading') }}</p>
+    }
+    @if (c.data(); as state) {
+      <form
+        (submit)="$event.preventDefault(); c.saveSource()"
+        data-og7="assistance-source-form"
+      >
+        <fieldset [disabled]="locked() || !state.capabilities.canManageSource">
+          <legend>{{ t('source.title') }}</legend>
+          <label
+            >{{ t('source.name')
+            }}<input
+              data-og7="assistance-source-title"
+              [value]="c.title()"
+              (input)="c.setSource('title', value($event))"
+              maxlength="200"
+              required
+          /></label>
+          <label
+            >{{ t('source.text')
+            }}<textarea
+              data-og7="assistance-source-text"
+              [value]="c.text()"
+              (input)="c.setSource('text', value($event))"
+              [maxLength]="maxSourceLength"
+              rows="5"
+              required
+            ></textarea>
+          </label>
+          <p class="help">{{ t('source.help', { max: maxSourceLength }) }}</p>
+          <button
+            type="submit"
+            class="admin-button"
+            data-og7="assistance-source-save"
+            [disabled]="
+              c.sourceConflict() ||
+              !c.sourceDirty() ||
+              !c.text().trim() ||
+              !c.title().trim()
+            "
+          >
+            {{ t('source.save') }}
+          </button>
+        </fieldset>
+      </form>
+      @if (state.source; as source) {
+        <p class="source-version" data-og7="assistance-source-version">
+          {{
+            t('source.version', {
+              title: source.title,
+              version: source.version
+            })
+          }}
+        </p>
+        <details
+          data-og7="assistance-source-view"
+          id="dossier-assistance-source"
+          tabindex="-1"
+        >
+          <summary>{{ t('source.view') }}</summary>
+          <pre>{{ source.text }}</pre>
+          <p class="fingerprint">{{ source.fingerprint }}</p>
+        </details>
+      }
+      <div class="run-tools">
+        <button
+          type="button"
+          class="admin-button"
+          data-og7="assistance-run"
+          [disabled]="
+            locked() ||
+            !state.capabilities.canRun ||
+            c.sourceDirty() ||
+            c.reviewDirty()
+          "
+          (click)="c.analyze()"
+        >
+          {{ t(state.run ? 'reanalyze' : 'analyze') }}
+        </button>
+        <button
+          type="button"
+          class="admin-button"
+          data-og7="assistance-manual"
+          [disabled]="disabled()"
+          (click)="manual.emit()"
+        >
+          {{ t('manual') }}
+        </button>
+      </div>
+      @if (state.stale) {
+        <p class="warning" role="status" data-og7="assistance-stale">
+          {{ t('stale') }}
+        </p>
+      }
+      @if (state.run; as run) {
+        <div
+          class="run-state"
+          role="status"
+          data-og7="assistance-run-state"
+          [attr.data-og7-state]="run.state"
+        >
+          <openg7-admin-icon
+            name="settings"
+            [class.processing]="processing()"
+          />
+          <span
+            >{{ t('states.' + run.state) }} ·
+            {{ t('phases.' + run.phase) }}</span
+          >
+        </div>
+        @if (processing()) {
+          <progress [attr.aria-label]="t('processing')"></progress>
+        }
+        @if (run.state === 'failed') {
+          <p class="error" role="status">{{ t('failed') }}</p>
+        }
+        @if (run.suggestion; as suggestion) {
+          <section
+            data-og7="assistance-suggestion"
+            id="dossier-assistance-review"
+            tabindex="-1"
+            [attr.aria-label]="t('suggestion')"
+          >
+            <h5>{{ t('suggestion') }}</h5>
+            <p>{{ t('mappingHelp') }}</p>
+            @if (c.reviewDirty()) {
+              <p class="help">{{ t('saveBeforeRun') }}</p>
+            }
+            @if (c.reviewDirty() || c.reviewConflict()) {
+              <button
+                type="button"
+                class="admin-button"
+                data-og7="assistance-review-reset"
+                [disabled]="locked()"
+                (click)="resetReview()"
+              >
+                {{ t('resetReview') }}
+              </button>
+            }
+            @if (run.review; as review) {
+              <p data-og7="assistance-review-state">
+                {{ t('reviews.' + review.decision) }} ·
+                {{ t('reviewVersion', { version: review.version }) }}
+              </p>
+            }
+            @for (item of suggestion.items; track item.id) {
+              <fieldset
+                class="clause"
+                data-og7="assistance-clause"
+                [attr.data-og7-id]="item.id"
+                [disabled]="
+                  locked() || !state.capabilities.canReview || state.stale
+                "
+              >
+                <legend>{{ t('clause', { id: item.id }) }}</legend>
+                <blockquote>{{ item.citation.excerpt }}</blockquote>
+                <p class="help">
+                  {{
+                    t('citation', {
+                      version: item.citation.sourceVersion,
+                      start: item.citation.start,
+                      end: item.citation.end
+                    })
+                  }}
+                </p>
+                <p>{{ t('attention.' + item.attention) }}</p>
+                @if (item.channels.length) {
+                  <p>{{ t('detected') }} {{ item.channels.join(', ') }}</p>
+                }
+                <label
+                  >{{ t('disposition')
+                  }}<select
+                    data-og7="assistance-clause-disposition"
+                    [value]="resolution(item.id)?.disposition ?? 'unresolved'"
+                    (change)="disposition(item.id, $event)"
+                  >
+                    @for (choice of dispositions; track choice) {
+                      <option
+                        [value]="choice"
+                        [disabled]="
+                          choice === 'included' &&
+                          item.attention === 'unsupported_terms'
+                        "
+                      >
+                        {{ t('dispositions.' + choice) }}
+                      </option>
+                    }
+                  </select></label
+                >
+                @if (resolution(item.id)?.disposition === 'included') {
+                  <label
+                    >{{ t('benefit')
+                    }}<select
+                      data-og7="assistance-clause-benefit"
+                      [value]="resolution(item.id)?.benefitId ?? ''"
+                      (change)="benefit(item.id, $event)"
+                    >
+                      <option value="">{{ t('chooseBenefit') }}</option>
+                      @for (
+                        benefit of offer()?.benefits ?? [];
+                        track benefit.id
+                      ) {
+                        <option [value]="benefit.id">
+                          {{ benefit.channel }} · {{ benefit.target }} ·
+                          {{ benefit.quantity }}
+                        </option>
+                      }
+                    </select></label
+                  >
+                }
+                <label
+                  >{{ t('clauseNote')
+                  }}<textarea
+                    data-og7="assistance-clause-note"
+                    [value]="resolution(item.id)?.note ?? ''"
+                    (input)="c.resolve(item.id, { note: value($event) })"
+                    maxlength="2000"
+                    rows="2"
+                  ></textarea>
+                </label>
+              </fieldset>
+            }
+            <p class="warning">{{ t('unsupportedHelp') }}</p>
+            <label
+              >{{ t('reviewReason')
+              }}<textarea
+                data-og7="assistance-review-reason"
+                [value]="reason()"
+                (input)="reasonChange.emit(value($event))"
+                [disabled]="
+                  locked() || !state.capabilities.canReview || state.stale
+                "
+                maxlength="2000"
+                rows="2"
+              ></textarea>
+            </label>
+            <div class="run-tools">
+              <button
+                type="button"
+                class="admin-button"
+                data-og7="assistance-use-form"
+                [disabled]="
+                  locked() ||
+                  state.stale ||
+                  c.reviewConflict() ||
+                  c.sourceConflict() ||
+                  !state.capabilities.canReview
+                "
+                (click)="chooseForm()"
+              >
+                {{ t(selected() ? 'formSelected' : 'useForm') }}
+              </button>
+              <button
+                type="button"
+                class="admin-button"
+                data-og7="assistance-review-save"
+                [disabled]="
+                  locked() ||
+                  !state.capabilities.canReview ||
+                  state.stale ||
+                  c.reviewConflict()
+                "
+                (click)="review('save')"
+              >
+                {{ t('saveReview') }}
+              </button>
+              <button
+                type="button"
+                class="admin-button"
+                data-og7="assistance-review-reject"
+                [disabled]="
+                  locked() ||
+                  !state.capabilities.canReview ||
+                  state.stale ||
+                  c.reviewConflict()
+                "
+                (click)="review('reject')"
+              >
+                {{ t('reject') }}
+              </button>
+            </div>
+            @if (run.application) {
+              <p role="status" data-og7="assistance-applied">
+                {{ t('applied') }}
+              </p>
+            }
+            <p class="help">{{ t('separation') }}</p>
+          </section>
+        }
+      }
+    }
+    <p class="help">{{ t('manualHelp') }}</p>
+  }
+</section>
