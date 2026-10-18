@@ -1450,6 +1450,7 @@
       "assistant": "Assistant",
       "contributions": "Contributions",
       "sponsors": "Commandites",
+      "campaigns": "Campagnes",
       "publications": "Publications",
       "invoices": "Factures",
       "expenses": "Dépenses",
@@ -1583,6 +1584,20 @@
           "verify": {
             "title": "Relire les états",
             "body": "Après votre action et sa confirmation, vérifiez les états concernés. Une approbation seule ne confirme pas une publication."
+          }
+        },
+        "campaigns": {
+          "read": {
+            "title": "Lire les prestations promises",
+            "body": "Les engagements du paiement confirmé restent visibles, y compris ceux dont la préparation attend encore une approbation."
+          },
+          "choose": {
+            "title": "Choisir le travail à suivre",
+            "body": "Les préparations approuvées dans leur version actuelle apparaissent en premier. Filtrez par canal, destination ou avancement avant d’ouvrir une prestation."
+          },
+          "verify": {
+            "title": "Distinguer approbation et livraison",
+            "body": "Consultez les contrôles de préparation et la preuve qualifiée de chaque prestation. Cette liste ne publie rien et ne remplace aucune autorisation."
           }
         },
         "invoices": {

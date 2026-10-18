@@ -355,6 +355,7 @@ export type {
 } from './admin-responsibility-balance.js';
 export * from './admin-automatic-runs.js';
 export * from './admin-preparation.js';
+export * from './admin-campaigns.js';
 export {
   PREPARATION_SOURCE_MAX_LENGTH,
   PREPARATION_SOURCE_MAX_ITEMS,

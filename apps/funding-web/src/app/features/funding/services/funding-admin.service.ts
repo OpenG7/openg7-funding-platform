@@ -125,6 +125,7 @@ import { FundingAdminPilotageClient } from './funding-admin-pilotage.client.js';
 import { FundingAdminAssistantClient } from './funding-admin-assistant.client.js';
 import { FundingAdminModerationClient } from './funding-admin-moderation.client.js';
 import { FundingAdminCommitmentsClient } from './funding-admin-commitments.client.js';
+import { FundingAdminCampaignsClient } from './funding-admin-campaigns.client.js';
 import { FundingAdminHistoricalAuditClient } from './funding-admin-historical-audit.client.js';
 import { FundingAdminPreparationAssistanceClient } from './funding-admin-preparation-assistance.client.js';
 import { FundingAdminMediaAnalysisClient } from './funding-admin-media-analysis.client.js';
@@ -188,6 +189,16 @@ export class FundingAdminService {
   private readonly commitmentsClient = new FundingAdminCommitmentsClient(
     this.session
   );
+  private readonly campaignsClient = new FundingAdminCampaignsClient(
+    this.session
+  );
+
+  getCampaigns(
+    query: import('@openg7/funding-core').AdminCampaignsQuery,
+    signal?: AbortSignal
+  ): Promise<import('@openg7/funding-core').AdminCampaignsResponse> {
+    return this.campaignsClient.list(query, signal);
+  }
   private readonly historicalAuditClient =
     new FundingAdminHistoricalAuditClient(this.session);
   private readonly preparationAssistanceClient =

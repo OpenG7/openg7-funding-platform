@@ -62,6 +62,11 @@ export const ADMIN_GUIDANCE_PAGES: readonly AdminGuidancePage[] = [
     undefined,
     'sponsorship-dossier'
   ]),
+  page('campaigns', '/campaigns', 'admin.nav.campaigns', [
+    'campaigns-page',
+    'campaigns-filters',
+    'campaigns-list'
+  ]),
   page('invoices', '/invoices', 'admin.nav.invoices', ['invoice-selection']),
   page('publications', '/publications', 'admin.nav.publications', [
     'publications-page',

@@ -479,8 +479,8 @@ for (const presentResult of ['manual', 'unavailable']) {
   });
 }
 
-test('all eighteen administration categories have an explicit safe local destination', () => {
-  assert.equal(ADMIN_GUIDANCE_PAGES.length, 18);
+test('all nineteen administration categories have an explicit safe local destination', () => {
+  assert.equal(ADMIN_GUIDANCE_PAGES.length, 19);
   for (const page of ADMIN_GUIDANCE_PAGES) {
     const result = automaticPagePlan(page.id);
     assert.equal(result.pageId, page.id);

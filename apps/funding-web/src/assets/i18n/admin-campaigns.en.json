@@ -1,0 +1,131 @@
+{
+  "eyebrow": "Sponsor commitments",
+  "title": "Campaigns",
+  "subtitle": "Track publications promised after a confirmed payment, their preparation and their delivery evidence.",
+  "refresh": "Refresh",
+  "scope": "By default, current approved preparations appear first. Promised services still awaiting preparation remain upcoming, subject to completing and validating the dossier.",
+  "listTitle": "Promised publications",
+  "count": "{{count}} promised services",
+  "dossiersOnPage": "{{count}} dossiers on this page",
+  "groupByDossier": "Group by dossier",
+  "loading": "Loading campaigns…",
+  "retry": "Try again",
+  "emptyTitle": "No promised services in this selection",
+  "empty": "Change the filters or return after a payment is confirmed and the sponsorship commitments are recorded.",
+  "noDate": "To be specified",
+  "unnamedSponsor": "Sponsor name not provided",
+  "passage": "Placement {{ordinal}} of {{quantity}}",
+  "proofAvailable": "Available",
+  "proofPending": "Awaiting evidence",
+  "proofNotRequired": "Not applicable",
+  "conditional": "Upcoming, subject to approval",
+  "adjusted": "Waived",
+  "page": "Page {{page}} of {{pages}}",
+  "pagination": "Campaign pagination",
+  "previous": "Previous",
+  "next": "Next",
+  "filters": {
+    "title": "Filter campaigns",
+    "search": "Find a dossier",
+    "searchPlaceholder": "Sponsor or reference",
+    "channel": "Channel",
+    "target": "Destination",
+    "state": "Delivery state",
+    "sort": "Sort by",
+    "direction": "Order",
+    "allChannels": "All channels",
+    "allTargets": "All destinations",
+    "allStates": "All states",
+    "apply": "Apply"
+  },
+  "channels": {
+    "website": "Website",
+    "facebook": "Facebook",
+    "linkedin": "LinkedIn"
+  },
+  "targets": {
+    "openg7": "OpenG7",
+    "openg20": "OpenG20"
+  },
+  "states": {
+    "waiting": "Upcoming",
+    "action_required": "Action required",
+    "blocked": "Blocked",
+    "error": "Failed",
+    "uncertain": "Needs reconciliation",
+    "complete": "Delivered"
+  },
+  "preparationStates": {
+    "ready": "Ready for validation",
+    "incomplete": "Incomplete",
+    "approved": "Approved",
+    "review_required": "Needs review"
+  },
+  "sorts": {
+    "preparation": "Approved preparation",
+    "paid_at": "Payment date",
+    "due_at": "Promised due date"
+  },
+  "directions": {
+    "desc": "Descending",
+    "asc": "Ascending"
+  },
+  "columns": {
+    "promise": "Promised service",
+    "preparation": "Preparation",
+    "due": "Due date",
+    "proof": "Delivery evidence"
+  },
+  "errors": {
+    "error": "Campaigns could not be loaded. Try again to get the current data.",
+    "forbidden": "Your session does not allow you to view campaigns.",
+    "unavailable": "Campaigns are temporarily unavailable. Try again in a moment."
+  },
+  "formats": {
+    "unspecified": "As recorded in the agreement",
+    "collective_text": "Collective text recognition",
+    "individual_portrait": "Individual portrait",
+    "collective_composite": "Collective visual",
+    "image_collection": "Image collection"
+  },
+  "detail": {
+    "title": "Promised service details",
+    "choose": "Select a promised service to see its preparation, content and delivery evidence.",
+    "openOwner": "Open the publication dossier",
+    "preparation": "Preparation workspace",
+    "preparationHelp": "Current dossier checks determine the next preparation step.",
+    "content": "Content and delivery",
+    "paidAt": "Confirmed payment",
+    "format": "Promised format",
+    "scheduled": "Scheduled delivery",
+    "timezone": "(Toronto time)",
+    "nextStep": "Next step",
+    "unknownReason": "Open the dossier to examine the next step.",
+    "openDelivery": "Review delivery",
+    "draft": "Associated draft",
+    "noContent": "No content is associated with this placement. Open the publication dossier to continue preparing it.",
+    "authorization": "An approved preparation does not authorize publication. The exact content, destination and schedule require their own authorization.",
+    "proof": "Delivery evidence",
+    "delivered": "Delivery confirmed on {{date}}",
+    "noProof": "No qualified evidence for this promised service. Follow-up remains open until delivery is confirmed.",
+    "adjusted": "A waiver was recorded for this promised service. It does not constitute delivery.",
+    "openProof": "View the delivered publication",
+    "newTab": "(new tab)"
+  },
+  "responsibility": {
+    "admin": "Next intervention: administrator.",
+    "platform": "Next intervention: platform.",
+    "none": "No remaining action for this promised service."
+  },
+  "provenance": {
+    "provider_acknowledged": "Receipt acknowledged by the provider",
+    "provider_verified": "Delivery verified with the provider",
+    "website_verified": "Website publication verified"
+  },
+  "visibility": {
+    "visible": "Visibility observed",
+    "missing": "Publication currently not found",
+    "changed": "Publication changed since delivery",
+    "unknown": "Current visibility needs verification"
+  }
+}

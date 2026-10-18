@@ -88,13 +88,17 @@ d’une cartouche Web. Il nécessite la migration 027 ; les envois sont configur
 séparément de la préparation.
 
 L'entrée est `/admin/login`. Les pages protégées sous `/admin/fundraiser`
-couvrent le cockpit, À traiter, l'Assistant, les contributions, commandites,
+couvrent le cockpit, À traiter, l'Assistant, les contributions, commandites, campagnes,
 factures/avoirs, publications, dépenses, transparence, audit, courriels,
 configuration et accès/sessions. Les routes sont dans `admin.routes.ts`.
 
 L’[administration des publications](admin-publication-queue.md) propose un accueil
 avec carrousel et trois pages distinctes : rédaction et validation, lots de
 publication et calendrier éditorial.
+
+Les [campagnes](technical/admin-campaigns.md) rassemblent les prestations promises,
+leur préparation et leurs preuves, y compris les prestations à venir sous réserve
+d’approbation.
 
 Les [lots 1](admin-ux-lot-1.md), [2](admin-ux-lot-2.md),
 [3](admin-ux-lot-3.md), [4](admin-ux-lot-4.md), [5](admin-ux-lot-5.md),
@@ -113,7 +117,7 @@ synthèse, des catégories filtrables, des groupes de courriels et un détail av
 retour au contexte, à partir de la file complète et paginée de **À traiter**.
 
 L'[audit et la réception des corrections admin](development/admin-e2e-correction-plan.md)
-relient les 20 URL, les 18 garanties et les recettes avec API et
+relient les 21 URL, les 18 garanties et les recettes avec API et
 PostgreSQL réels. Le registre vérifié en CI conserve les scénarios exacts.
 
 ## Travaux envisagés

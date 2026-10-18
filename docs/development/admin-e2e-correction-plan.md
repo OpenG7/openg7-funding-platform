@@ -227,7 +227,7 @@ Preuve : [Assistant HTTP réel](../../tests/identity/admin-assistant-contract-jo
 La découverte vérifiait déjà les fichiers sélectionnés, sans connaître les
 garanties administratives ni leur niveau de simulation.
 
-Le registre versionné relie 20 URL et 18 garanties aux rôles, états et titres
+Le registre versionné relie désormais 21 URL et 18 garanties aux rôles, états et titres
 exacts. La garde refuse route sans rattachement, garantie absente, titre non
 sélectionné, test ignoré ou échec attendu et preuve uniquement UI.
 

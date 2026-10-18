@@ -134,7 +134,7 @@ défilement accessibles existants, avec respect de la réduction des mouvements.
 
 ### Mode guidé dans l'administration
 
-Le bouton **Mode guidé**, sous la barre commune, accompagne les 18 rubriques
+Le bouton **Mode guidé**, sous la barre commune, accompagne les 19 rubriques
 administratives authentifiées. **Découvrir les rubriques** affiche **Vous êtes ici**,
 une seule étape de lecture et **Me montrer dans la page** pour déplacer le focus vers le repère
 correspondant. Chaque zone visible correspondant à ce repère reçoit un contour
@@ -221,7 +221,7 @@ signalé séparément. Les guides de découverte détaillés restent disponibles
 
 La recette UI `admin-guidance.spec.ts`, avec réponses API interceptées, vérifie navigation et reprise, comptes,
 révocation, stockage indisponible ou corrompu, absence de commande métier,
-FR/EN, clavier, mobile, concentration et présence dans les 18 rubriques. Elle
+FR/EN, clavier, mobile, concentration et présence dans les 19 rubriques. Elle
 vérifie aussi reprise d'un paiement, erreurs, réponses tardives, remplacement
 volontaire du dossier et recommandation devenue obsolète. Cette recette UI ne
 prouve pas à elle seule le traitement financier ou la réalisation des engagements.
@@ -268,6 +268,13 @@ déjà approuvée dans sa version actuelle ne demande pas un deuxième accord.
 <a id="preparation-pilot"></a>
 
 #### Pilotage de la préparation
+
+La rubrique [Campagnes](../technical/admin-campaigns.md), sous
+`/admin/fundraiser/campaigns`, présente les prestations promises de chaque achat
+confirmé. Elle comprend les prestations à venir sous réserve des contrôles et
+approbations du bon. Par défaut, les préparations approuvées dans leur version
+actuelle apparaissent en premier. La consultation permet de retrouver le bon et
+les écrans propriétaires ; elle ne déclenche ni approbation ni publication.
 
 La liste des contrôles, le détail sélectionné et les commandes contextuelles
 partagent le même bon dans le guide et le dossier. Sélectionner un contrôle
@@ -418,7 +425,7 @@ passage et conserve les accords précédents. Appliquer la procédure de
 ### Préparation d'un dossier ou d'une rubrique
 
 Les outils de préparation du guide flottant proposent le paiement suivi ou l’une des
-18 rubriques administratives. **Démarrer la préparation** montre l’étape et sa
+19 rubriques administratives. **Démarrer la préparation** montre l’étape et sa
 raison, rejoint l’écran, met la zone utile en évidence et ouvre les préparations
 explicitement déclarées par les composants propriétaires. Lorsque plusieurs
 décisions sont possibles, l’administrateur choisit celle à préparer. Les

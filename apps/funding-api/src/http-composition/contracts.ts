@@ -69,6 +69,7 @@ export interface AdminHttpHandlers {
   readonly handleAdminPublicationBatchesRequest: HttpHandler;
   readonly handleAdminPilotageRequest: HttpHandler;
   readonly handleAdminAutomaticRunsRequest: HttpHandler;
+  readonly handleAdminCampaignsRequest: HttpHandler;
   readonly handleAdminPublicationAutomationRequest: HttpHandler;
   readonly handleAdminSponsorshipRefundRequest: HttpHandler;
   readonly handleAdminStripeBackfillRequest: HttpHandler;

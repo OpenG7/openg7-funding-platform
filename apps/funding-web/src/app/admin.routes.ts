@@ -93,6 +93,14 @@ export const adminRoutes: Routes = [
       )
   },
   {
+    path: 'fundraiser/campaigns',
+    canMatch: [adminSessionRequired],
+    loadComponent: () =>
+      import('./features/funding/pages/admin-campaigns-page/admin-campaigns-page.component.js').then(
+        (m) => m.AdminCampaignsPageComponent
+      )
+  },
+  {
     path: 'fundraiser/invoices',
     canMatch: [adminSessionRequired],
     loadComponent: () =>
