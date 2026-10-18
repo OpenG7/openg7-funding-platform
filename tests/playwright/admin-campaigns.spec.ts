@@ -3,7 +3,8 @@ import type { Page } from '@playwright/test';
 import type {
   AdminCampaignItem,
   AdminCampaignsResponse,
-  AdminDossierPreparationReceipt
+  AdminDossierPreparationReceipt,
+  AdminDossierPreparationApproveRequest
 } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
@@ -14,6 +15,14 @@ const approvedId = '10000000-0000-4000-8000-000000000801';
 const futureId = '10000000-0000-4000-8000-000000000802';
 const deliveredId = '10000000-0000-4000-8000-000000000803';
 const hook = (page: Page, name: string) => page.locator(`[data-og7="${name}"]`);
+
+async function navigate(page: Page, destination: string) {
+  await page
+    .locator('openg7-admin-nav nav')
+    .locator(`a[href="${destination}"]`)
+    .click();
+  await expect(page).toHaveURL(destination);
+}
 
 function promise(
   id: string,
@@ -165,8 +174,18 @@ async function fixtures(page: Page, language = 'fr-CA') {
     signedIn: true,
     empty: false,
     paginated: false,
+    rows: promises(),
+    identity: {
+      id: 'synthetic-campaign-reader',
+      sessionId: 'synthetic-campaign-session',
+      role: 'reader' as 'reader' | 'operator' | 'owner'
+    },
+    allowPreparationApproval: false,
+    receipts: new Map<string, AdminDossierPreparationReceipt>(),
+    approvals: [] as AdminDossierPreparationApproveRequest[],
     gate: null as Promise<void> | null,
     queries: [] as URLSearchParams[],
+    completedReads: 0,
     preparations: [] as string[],
     mutations: [] as string[]
   };
@@ -175,6 +194,56 @@ async function fixtures(page: Page, language = 'fr-CA') {
     const url = new URL(request.url());
     if (request.method() !== 'GET') {
       state.mutations.push(`${request.method()} ${url.pathname}`);
+      if (
+        state.allowPreparationApproval &&
+        url.pathname === '/api/admin/sponsorships/preparation/approve' &&
+        request.method() === 'POST'
+      ) {
+        const body =
+          request.postDataJSON() as AdminDossierPreparationApproveRequest;
+        state.approvals.push(body);
+        const current = state.receipts.get(body.contributionId);
+        if (
+          !current?.canApprove ||
+          body.expectedVersion !== current.version ||
+          body.confirmed !== true
+        )
+          return route.fulfill({
+            status: 409,
+            json: { code: 'PREPARATION_VERSION_CONFLICT' }
+          });
+        const approval = {
+          id: body.requestId,
+          requestId: body.requestId,
+          contributionId: current.contributionId,
+          runId: null,
+          version: current.version,
+          actor: state.identity.id,
+          approvedAt: generatedAt,
+          auditReference: 'synthetic-campaign-preparation-audit'
+        };
+        const receipt: AdminDossierPreparationReceipt = {
+          ...current,
+          status: 'approved',
+          canApprove: false,
+          approval,
+          approvalHistory: [...current.approvalHistory, approval]
+        };
+        state.receipts.set(current.contributionId, receipt);
+        state.rows = state.rows.map((row) =>
+          row.contributionId === current.contributionId
+            ? {
+                ...row,
+                preparation: {
+                  ...row.preparation,
+                  status: 'approved',
+                  approvedAt: generatedAt
+                }
+              }
+            : row
+        );
+        return route.fulfill({ json: receipt });
+      }
       return route.fulfill({
         status: 405,
         json: { error: 'Read-only fixture' }
@@ -187,22 +256,18 @@ async function fixtures(page: Page, language = 'fr-CA') {
         status: state.signedIn ? 200 : 401,
         json: state.signedIn
           ? {
-              id: 'synthetic-campaign-reader',
-              sessionId: 'synthetic-campaign-session',
+              id: state.identity.id,
+              sessionId: state.identity.sessionId,
               displayName: 'Lecture synthétique',
-              role: 'reader',
+              role: state.identity.role,
               expiresAt: '2099-01-01T00:00:00Z'
             }
           : {}
       });
     if (url.pathname === '/api/admin/campaigns') {
       state.queries.push(url.searchParams);
-      if (state.gate) await state.gate;
-      if (state.status !== 200)
-        return route.fulfill({
-          status: state.status,
-          json: { error: 'Fixture unavailable' }
-        });
+      const status = state.status;
+      const gate = state.gate;
       const currentPage = Number(url.searchParams.get('page') ?? 1);
       const rows = state.empty
         ? []
@@ -229,7 +294,7 @@ async function fixtures(page: Page, language = 'fr-CA') {
                 }
               };
             })
-          : promises();
+          : state.rows;
       const json: AdminCampaignsResponse = {
         generatedAt,
         items: rows.slice((currentPage - 1) * 25, currentPage * 25),
@@ -242,15 +307,22 @@ async function fixtures(page: Page, language = 'fr-CA') {
           hasNextPage: currentPage * 25 < rows.length
         }
       };
-      return route.fulfill({ json });
+      if (gate) await gate;
+      await route.fulfill({
+        status,
+        json: status === 200 ? json : { error: 'Fixture unavailable' }
+      });
+      state.completedReads += 1;
+      return;
     }
     if (url.pathname === '/api/admin/sponsorships/preparation') {
       const id = url.searchParams.get('sponsorshipId') ?? '';
       state.preparations.push(id);
-      const row = promises().find((item) => item.contributionId === id);
+      const row = state.rows.find((item) => item.contributionId === id);
+      const receipt = state.receipts.get(id) ?? (row ? preparation(row) : null);
       return route.fulfill({
-        status: row ? 200 : 404,
-        json: row ? preparation(row) : {}
+        status: receipt ? 200 : 404,
+        json: receipt ?? {}
       });
     }
     return route.fulfill({
@@ -393,6 +465,159 @@ test('campaigns distinguish unavailable, empty and forbidden reads without resto
   await expect(hook(page, 'campaigns-list').getByRole('alert')).toBeVisible();
   await expect(hook(page, 'campaign-row')).toHaveCount(0);
   await expect(hook(page, 'campaigns-empty')).toHaveCount(0);
+  expect(fixture.mutations).toEqual([]);
+});
+
+test('a confirmed preparation approval refreshes the active campaigns query from the API', async ({
+  page
+}) => {
+  const fixture = await fixtures(page);
+  fixture.identity.role = 'operator';
+  fixture.allowPreparationApproval = true;
+  fixture.rows = fixture.rows.map((row) =>
+    row.id === 'upcoming-website'
+      ? {
+          ...row,
+          preparation: {
+            status: 'ready',
+            version: 'synthetic-ready-preparation-v1',
+            approvedAt: null,
+            blockers: []
+          }
+        }
+      : row
+  );
+  const ready = fixture.rows.find((row) => row.id === 'upcoming-website')!;
+  fixture.receipts.set(ready.contributionId, {
+    ...preparation(ready),
+    canApprove: true,
+    acceptedOffer: {
+      version: 'synthetic-campaign-offer-v1',
+      amountMinor: 50000,
+      currency: 'CAD',
+      benefits: [
+        {
+          id: 'website_mention',
+          channel: 'website',
+          target: 'openg7',
+          quantity: 1,
+          requiredElements: ['company_name', 'approved_presentation'],
+          deadlineDays: null,
+          durationDays: null
+        }
+      ]
+    },
+    checks: [
+      { code: 'payment_confirmed', state: 'complete' },
+      { code: 'accepted_offer', state: 'complete' },
+      { code: 'content_prepared', state: 'complete' }
+    ],
+    authorizations: [
+      { code: 'public_consent', state: 'complete' },
+      { code: 'sponsor_review', state: 'complete' },
+      { code: 'moderation_review', state: 'complete' }
+    ]
+  });
+  await page.goto(path);
+  await expect(hook(page, 'campaign-row')).toHaveCount(4);
+  await hook(page, 'campaigns-search').fill('Atelier');
+  await hook(page, 'campaigns-sort').selectOption('paid_at');
+  await hook(page, 'campaigns-apply').click();
+  await expect.poll(() => fixture.queries.at(-1)?.get('sort')).toBe('paid_at');
+  const selected = page.locator(
+    '[data-og7="campaign-row"][data-og7-id="upcoming-website"]'
+  );
+  await selected.click();
+  const approve = hook(page, 'campaign-preparation').locator(
+    '[data-og7="preparation-receipt-approve"]'
+  );
+  await expect(approve).toBeEnabled();
+  const readsBeforeApproval = fixture.queries.length;
+  await approve.click();
+  await expect(hook(page, 'confirm-action')).toBeVisible();
+  expect(fixture.approvals).toEqual([]);
+  await hook(page, 'confirm-action').click();
+  await expect.poll(() => fixture.approvals.length).toBe(1);
+  await expect
+    .poll(() => fixture.queries.length)
+    .toBeGreaterThan(readsBeforeApproval);
+  await expect(selected).toContainText('Approuvée');
+  await expect(selected).toHaveAttribute('aria-pressed', 'true');
+  await expect(hook(page, 'campaigns-search')).toHaveValue('Atelier');
+  await expect(hook(page, 'campaigns-sort')).toHaveValue('paid_at');
+  expect(Object.fromEntries(fixture.queries.at(-1)!)).toMatchObject({
+    search: 'Atelier',
+    sort: 'paid_at',
+    page: '1'
+  });
+  expect(fixture.approvals[0]).toMatchObject({
+    contributionId: ready.contributionId,
+    expectedVersion: ready.preparation.version,
+    confirmed: true
+  });
+  expect(fixture.mutations).toEqual([
+    'POST /api/admin/sponsorships/preparation/approve'
+  ]);
+});
+
+test('a role change outside campaigns purges its view and a late old refusal cannot clear the new session', async ({
+  page
+}) => {
+  const fixture = await fixtures(page);
+  await page.goto(path);
+  await expect(hook(page, 'campaign-row')).toHaveCount(4);
+  await hook(page, 'campaigns-search').fill('Atelier');
+  await hook(page, 'campaigns-apply').click();
+  await expect
+    .poll(() => fixture.queries.at(-1)?.get('search'))
+    .toBe('Atelier');
+  await hook(page, 'campaign-row').first().click();
+  await expect(hook(page, 'campaign-detail')).toContainText('Projet local');
+  let release!: () => void;
+  fixture.gate = new Promise<void>((resolve) => (release = resolve));
+  fixture.status = 401;
+  const beforeRefresh = fixture.queries.length;
+  await hook(page, 'campaigns-refresh').click();
+  await expect.poll(() => fixture.queries.length).toBe(beforeRefresh + 1);
+  await expect(hook(page, 'campaigns-loading')).toBeVisible();
+  await navigate(page, '/admin/fundraiser/invoices');
+  await expect(hook(page, 'campaigns-page')).toHaveCount(0);
+
+  fixture.identity.role = 'owner';
+  await navigate(page, '/admin/fundraiser/attention');
+  fixture.identity.role = 'reader';
+  fixture.status = 200;
+  fixture.gate = null;
+  fixture.rows = [
+    promise('new-session-website', futureId, {
+      companyName: 'Lecture après changement de rôle',
+      channel: 'website'
+    })
+  ];
+  await navigate(page, path);
+  await expect(hook(page, 'campaign-row')).toHaveCount(1);
+  await expect(hook(page, 'campaigns-search')).toHaveValue('');
+  expect(fixture.queries.at(-1)?.get('search')).toBeNull();
+  await expect(hook(page, 'campaign-row')).toHaveAttribute(
+    'aria-pressed',
+    'false'
+  );
+  await expect(hook(page, 'campaign-detail')).not.toContainText('Projet local');
+
+  const completedBeforeRelease = fixture.completedReads;
+  release();
+  await expect
+    .poll(() => fixture.completedReads)
+    .toBe(completedBeforeRelease + 1);
+  await expect(page).toHaveURL(path);
+  await expect(hook(page, 'campaign-row')).toHaveAttribute(
+    'data-og7-id',
+    'new-session-website'
+  );
+  await expect(hook(page, 'campaigns-list')).toContainText(
+    'Lecture après changement de rôle'
+  );
+  await expect(hook(page, 'campaign-detail')).not.toContainText('Projet local');
   expect(fixture.mutations).toEqual([]);
 });
 

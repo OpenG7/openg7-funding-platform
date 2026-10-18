@@ -1588,16 +1588,16 @@
         },
         "campaigns": {
           "read": {
-            "title": "Lire les prestations promises",
-            "body": "Les engagements du paiement confirmé restent visibles, y compris ceux dont la préparation attend encore une approbation."
+            "title": "Lire les promesses",
+            "body": "Paiements confirmés : prestations à suivre."
           },
           "choose": {
-            "title": "Choisir le travail à suivre",
-            "body": "Les préparations approuvées dans leur version actuelle apparaissent en premier. Filtrez par canal, destination ou avancement avant d’ouvrir une prestation."
+            "title": "Reprendre le suivi",
+            "body": "Filtres, page et sélection restent en mémoire pour cette session."
           },
           "verify": {
-            "title": "Distinguer approbation et livraison",
-            "body": "Consultez les contrôles de préparation et la preuve qualifiée de chaque prestation. Cette liste ne publie rien et ne remplace aucune autorisation."
+            "title": "Vérifier les preuves",
+            "body": "Préparer n’autorise pas la publication. Vérifiez la preuve qualifiée."
           }
         },
         "invoices": {

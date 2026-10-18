@@ -23,13 +23,10 @@ import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout
 import { AdminIconComponent } from '../../components/admin-ui/admin-icon.component.js';
 import { AdminSponsorshipPreparationComponent } from '../../components/admin-sponsors/admin-sponsorship-preparation.component.js';
 import { automaticAdminUrl } from '../../components/admin-automatic/admin-automatic-run.js';
-import { FundingAdminService } from '../../services/funding-admin.service.js';
+import { AdminCampaignsStore } from '../../services/admin-campaigns-store.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 
-import {
-  AdminCampaignsController,
-  groupCampaignRows
-} from './admin-campaigns-controller.js';
+import { groupCampaignRows } from './admin-campaigns-controller.js';
 
 interface CampaignFilters {
   search: string;
@@ -60,11 +57,9 @@ interface CampaignFilters {
   ]
 })
 export class AdminCampaignsPageComponent {
-  readonly admin = inject(FundingAdminService);
+  readonly c = inject(AdminCampaignsStore);
   readonly i18n = inject(FundingI18nService);
   private readonly router = inject(Router);
-  private readonly ready = signal(false);
-  private sessionKey = '';
   readonly channels = ['website', 'facebook', 'linkedin'] as const;
   readonly targets = ['openg7', 'openg20'] as const;
   readonly states = [
@@ -76,24 +71,8 @@ export class AdminCampaignsPageComponent {
     'complete'
   ] as const;
   readonly sorts = ['preparation', 'paid_at', 'due_at'] as const;
-  readonly filters = signal<CampaignFilters>({
-    search: '',
-    channel: '',
-    target: '',
-    state: '',
-    sort: 'preparation',
-    direction: 'desc'
-  });
+  readonly filters = signal<CampaignFilters>(this.filterDraft(this.c.query()));
   readonly grouped = signal(true);
-  readonly c = new AdminCampaignsController({
-    list: (query, signal) => this.admin.getCampaigns(query, signal),
-    unauthorized: async () => {
-      this.admin.clearAdminSession();
-      await this.router.navigate(['/admin/login'], {
-        queryParams: { returnUrl: this.router.url, sessionExpired: '1' }
-      });
-    }
-  });
   readonly groups = computed(() =>
     groupCampaignRows(this.c.data()?.items ?? [], this.grouped())
   );
@@ -114,25 +93,25 @@ export class AdminCampaignsPageComponent {
         })
       );
     });
-    afterNextRender(() => this.ready.set(true));
+    afterNextRender(() => void this.c.connect());
     effect(() => {
-      const ready = this.ready();
-      const generation = this.admin.sessionGeneration();
-      const identity = this.admin.identity();
-      const revision = this.admin.dataRevision();
+      this.c.sessionKey();
       untracked(() => {
-        void revision;
-        if (!ready) return;
-        const sessionKey = `${generation}:${identity?.id ?? 'token'}:${identity?.sessionId ?? 'token'}:${identity?.role ?? ''}`;
-        if (sessionKey !== this.sessionKey) {
-          this.sessionKey = sessionKey;
-          this.c.invalidate();
-        }
-        if (this.admin.hasValidAdminSession()) void this.c.load();
-        else this.c.invalidate();
+        this.filters.set(this.filterDraft(this.c.query()));
       });
     });
-    inject(DestroyRef).onDestroy(() => this.c.dispose());
+    inject(DestroyRef).onDestroy(() => this.c.detach());
+  }
+
+  private filterDraft(query: AdminCampaignsQuery): CampaignFilters {
+    return {
+      search: query.search ?? '',
+      channel: query.channel ?? '',
+      target: query.target ?? '',
+      state: query.state ?? '',
+      sort: query.sort,
+      direction: query.direction
+    };
   }
 
   t(key: string, params?: Record<string, unknown>): string {

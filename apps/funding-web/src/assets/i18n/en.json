@@ -1588,16 +1588,16 @@
         },
         "campaigns": {
           "read": {
-            "title": "Read the promised services",
-            "body": "Commitments from confirmed payments remain visible, including those whose preparation still awaits approval."
+            "title": "Read the promises",
+            "body": "Confirmed payments and promised services."
           },
           "choose": {
-            "title": "Choose the work to follow",
-            "body": "Preparations approved in their current version appear first. Filter by channel, destination or progress before opening a service."
+            "title": "Resume follow-up",
+            "body": "Filters, page and selection stay in memory for this session."
           },
           "verify": {
-            "title": "Separate approval from delivery",
-            "body": "Review the preparation checks and qualified evidence for each service. This list sends no publication and replaces no authorization."
+            "title": "Verify the evidence",
+            "body": "Preparation does not authorize publication. Check qualified evidence."
           }
         },
         "invoices": {

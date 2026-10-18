@@ -33,6 +33,32 @@ un ancien statut « publié », une URL ou une simulation seuls ne suffisent pas
 Les preuves restent liées à leur canal, destination et passage ; la visibilité
 actuelle demeure une information distincte de la livraison attestée.
 
+## État de navigation et actualisation
+
+La route fournit la feature NgRx `adminCampaigns` et sa
+[façade de lecture](../../apps/funding-web/src/app/features/funding/services/admin-campaigns-store.service.ts).
+Le store conserve en mémoire la requête appliquée, sa page, la sélection et le
+dernier résultat serveur pendant la session de navigation. Quitter Campagnes
+annule la lecture en cours. Revenir dans la même session reconstruit la page
+avec la requête conservée et effectue une nouvelle lecture API ; la sélection
+est rétablie si son obligation appartient encore à la réponse. Les saisies de
+filtres non appliquées restent locales à la page et ne remplacent pas la requête.
+
+La façade observe les mutations administratives confirmées par le transport API,
+y compris lorsque Campagnes est fermée. Elle invalide alors les données en
+conservant requête et sélection : la page active recharge immédiatement ; une
+page fermée attend sa prochaine ouverture. Une approbation de préparation ne
+modifie donc pas optimistement la liste ; celle-ci attend la réponse actualisée
+du serveur.
+
+Un changement de compte, de session ou de rôle, ou une déconnexion, purge aussi
+la requête et la sélection, même depuis une autre rubrique. Les générations de
+requêtes et l’annulation empêchent une ancienne réponse de réintroduire un état
+privé ou d’appliquer un ancien refus à une nouvelle session. Une erreur retire
+les données précédentes ; un refus 401 efface la session et revient à la connexion.
+Cet état NgRx ne fait l’objet d’aucune persistance dans le navigateur : un
+rechargement complet repart de la requête initiale.
+
 ## Lecture API
 
 `GET /api/admin/campaigns` (alias `/admin/campaigns`) exige une session
@@ -81,7 +107,18 @@ exerce HTTP et PostgreSQL jetables.
 La recette [admin-campaigns.spec.ts](../../tests/playwright/admin-campaigns.spec.ts)
 utilise Angular et un navigateur réels avec des API synthétiques interceptées.
 Elle couvre la lecture des prestations approuvées et à venir, les filtres,
-les états de chargement et d’erreur, le détail, le clavier et les langues FR/EN.
-Elle n’atteste aucun envoi fournisseur ni accès à la production. Le registre
-administratif conserve 18 garanties ; le rattachement de cette route à A17
-documente son inventaire et ne constitue pas une preuve E2E métier réelle.
+les états de chargement et d’erreur, le détail, le clavier et les langues FR/EN,
+ainsi que le rafraîchissement après approbation et l’invalidation après changement
+de rôle hors de la page, avec un ancien refus retardé.
+
+Le parcours [admin-campaigns-journey.spec.ts](../../tests/identity/admin-campaigns-journey.spec.ts)
+relie le Web compilé à la véritable API et à PostgreSQL jetable, avec fournisseur
+OIDC local signé et sans interception des réponses API. Il compare les
+prestations en base, la réponse HTTP privée et leur rendu, vérifie les filtres,
+la pagination, la reprise de la sélection avec relecture au retour et le refus
+d’une session réellement révoquée. Les paiements confirmés et accords de départ
+sont synthétiques ; ce parcours ne constitue pas une recette Stripe ou d’envoi
+fournisseur et ne qualifie pas la production.
+
+Le registre administratif conserve 18 garanties : A02 rattache cette lecture
+privée et sa révocation au scénario réel ; A17 conserve l’inventaire de la route.

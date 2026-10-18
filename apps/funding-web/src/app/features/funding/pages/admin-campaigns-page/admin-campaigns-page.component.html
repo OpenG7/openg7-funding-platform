@@ -10,7 +10,7 @@
         type="button"
         class="admin-button"
         data-og7="campaigns-refresh"
-        [disabled]="c.state() === 'loading'"
+        [disabled]="c.state() === 'loading' || c.state() === 'idle'"
         (click)="c.load()"
       >
         <openg7-admin-icon name="refresh" />{{ t('refresh') }}
@@ -43,12 +43,18 @@
         {{ t('filters.channel') }}
         <select
           data-og7="campaigns-channel"
-          [value]="filters().channel"
           (change)="setFilter('channel', $event)"
         >
-          <option value="">{{ t('filters.allChannels') }}</option>
+          <option value="" [selected]="!filters().channel">
+            {{ t('filters.allChannels') }}
+          </option>
           @for (channel of channels; track channel) {
-            <option [value]="channel">{{ t('channels.' + channel) }}</option>
+            <option
+              [value]="channel"
+              [selected]="filters().channel === channel"
+            >
+              {{ t('channels.' + channel) }}
+            </option>
           }
         </select>
       </label>
@@ -56,12 +62,15 @@
         {{ t('filters.target') }}
         <select
           data-og7="campaigns-target"
-          [value]="filters().target"
           (change)="setFilter('target', $event)"
         >
-          <option value="">{{ t('filters.allTargets') }}</option>
+          <option value="" [selected]="!filters().target">
+            {{ t('filters.allTargets') }}
+          </option>
           @for (target of targets; track target) {
-            <option [value]="target">{{ t('targets.' + target) }}</option>
+            <option [value]="target" [selected]="filters().target === target">
+              {{ t('targets.' + target) }}
+            </option>
           }
         </select>
       </label>
@@ -69,24 +78,25 @@
         {{ t('filters.state') }}
         <select
           data-og7="campaigns-state"
-          [value]="filters().state"
           (change)="setFilter('state', $event)"
         >
-          <option value="">{{ t('filters.allStates') }}</option>
+          <option value="" [selected]="!filters().state">
+            {{ t('filters.allStates') }}
+          </option>
           @for (state of states; track state) {
-            <option [value]="state">{{ t('states.' + state) }}</option>
+            <option [value]="state" [selected]="filters().state === state">
+              {{ t('states.' + state) }}
+            </option>
           }
         </select>
       </label>
       <label>
         {{ t('filters.sort') }}
-        <select
-          data-og7="campaigns-sort"
-          [value]="filters().sort"
-          (change)="setFilter('sort', $event)"
-        >
+        <select data-og7="campaigns-sort" (change)="setFilter('sort', $event)">
           @for (sort of sorts; track sort) {
-            <option [value]="sort">{{ t('sorts.' + sort) }}</option>
+            <option [value]="sort" [selected]="filters().sort === sort">
+              {{ t('sorts.' + sort) }}
+            </option>
           }
         </select>
       </label>
@@ -114,7 +124,7 @@
       class="campaign-list"
       data-og7="campaigns-list"
       [attr.aria-label]="t('listTitle')"
-      [attr.aria-busy]="c.state() === 'loading'"
+      [attr.aria-busy]="c.state() === 'loading' || c.state() === 'idle'"
     >
       <header class="list-header">
         <div>
@@ -138,7 +148,7 @@
         </label>
       </header>
 
-      @if (c.state() === 'loading') {
+      @if (c.state() === 'loading' || c.state() === 'idle') {
         <div class="empty-state" role="status" data-og7="campaigns-loading">
           <openg7-admin-icon name="clock" />
           <p>{{ t('loading') }}</p>

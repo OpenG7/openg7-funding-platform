@@ -51,6 +51,7 @@
       "id": "A02",
       "routes": [
         "/admin/login",
+        "/admin/fundraiser/campaigns",
         "/admin/fundraiser/invoices",
         "/admin/fundraiser/email-queue",
         "/admin/fundraiser/expenses"
@@ -59,7 +60,8 @@
       "states": [
         "revoked session",
         "forbidden refresh",
-        "late private response"
+        "late private response",
+        "campaign view retained across navigation with fresh API facts"
       ],
       "evidence": [
         {
@@ -71,6 +73,11 @@
           "level": "e2e",
           "file": "tests/identity/financial-access-revocation.spec.ts",
           "title": "a forbidden private refresh purges drafts and a late successful read cannot restore the revoked session"
+        },
+        {
+          "level": "e2e",
+          "file": "tests/identity/admin-campaigns-journey.spec.ts",
+          "title": "campaigns store reads the real authenticated API, retains its view across navigation and purges revoked sessions"
         }
       ]
     },
