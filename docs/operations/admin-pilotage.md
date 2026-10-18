@@ -58,7 +58,7 @@ L'entrée et la sortie conservent la sélection. Les changements d'apparence,
 y compris système, ne rechargent pas les dossiers et préservent les saisies.
 La concentration revient au mode normal après rechargement.
 
-Le controller reste propre au Pilotage. Le layout réserve une palette à droite
+La palette du Pilotage utilise le controller partagé. Le layout réserve une palette à droite
 dès 1440 pixels CSS et 700 pixels de hauteur, reliée au bandeau inférieur par une
 coque décorative CSS continue. La grille réserve les deux zones, sans recouvrir
 le dossier; le bandeau passe aussi sous la navigation latérale. Les dimensions
@@ -98,6 +98,13 @@ animation permanente; les contrôles natifs partagent le même composant génér
 Le texte d'une décision reste entier dans cet espace, sans défilement imbriqué.
 Apparence garde la priorité du panneau et impose le retour au neutre après
 chaque choix; aucune préférence ne déclenche une commande métier.
+
+Le controller partagé propose aussi les états explicites fermé (`closed`), aperçu
+(`peek`) et ouvert (`open`) pour les bons de préparation. Les actions restent
+masquées hors de l'état ouvert, y compris sur mobile; le bouton d'ouverture reste
+accessible. Chaque surface possède son identifiant et son propriétaire de focus.
+Sélectionner un élément, ouvrir ses commandes et activer une intention sont trois
+gestes distincts. Les panneaux métier gardent la priorité et leurs confirmations.
 
 ## Guides interactifs
 
@@ -220,12 +227,42 @@ Le bon présente paiement, offre acceptée, contrôles, autorisations, brouillon
 privés, contenu à relire et éléments manquants. Les liens ouvrent les écrans
 propriétaires pour compléter le dossier.
 
+La zone **Suivi du lot** reste repliée à la consultation
+d'un passage existant ; sa phase et sa progression restent visibles. Son ouverture
+donne accès aux commandes, au bilan et au rapport durable. Dans le rapport, chaque
+dossier affiche d'abord sa référence et son statut ; déplier ce dossier révèle
+les faits avant/après, engagements, preuves et références d'audit. Ces ouvertures
+au clavier ou à la souris consultent le rapport sans relancer le traitement.
+
 Le même bon est accessible directement dans **Publication**, sixième étape du
 dossier consulté, avant les détails des engagements. Aucun passage automatique
 n'est requis ou créé. La qualification historique reste accessible dans ces
 détails ; son absence apparaît comme un blocage dans le bon. Les deux accès
 partagent la version du contenu et l'historique des accords : une préparation
 déjà approuvée dans sa version actuelle ne demande pas un deuxième accord.
+
+<a id="preparation-pilot"></a>
+
+#### Pilotage de la préparation
+
+La liste des contrôles, le détail sélectionné et les commandes contextuelles
+partagent le même bon dans le guide et le dossier. Sélectionner un contrôle
+affiche son explication; **Actions** ouvre les commandes sans enregistrer de
+décision. Le compteur reprend les contrôles et autorisations applicables du
+serveur, hors éléments non requis. Son total varie selon le bon; les blocages
+complémentaires ne l'augmentent pas. Cliquer, lire ou fermer une commande ne
+valide aucun contrôle.
+
+L'action principale rejoint l'écran propriétaire de l'accord, de la modération
+ou de la présentation. Les détails et l'historique restent consultables. Après
+une correction, relire le bon pour obtenir l'état serveur; un changement de
+sélection, de dossier ou de version referme les actions et impose le retour au
+neutre. Lorsque le serveur autorise l'accord et que le rôle le permet, le
+controller propose **Approuver la préparation**, puis ouvre la confirmation
+habituelle. Annuler ne transmet aucun accord. Au clavier et à la manette, le
+panneau supérieur conserve le focus; une nouvelle pression est requise pour
+confirmer. Les essais avec une manette simulée ne qualifient pas un périphérique
+USB/Bluetooth réel.
 
 **Approuver la préparation** est un accord explicite sur la version consultée,
 réservé à un opérateur ou propriétaire. Le serveur revérifie la version et les

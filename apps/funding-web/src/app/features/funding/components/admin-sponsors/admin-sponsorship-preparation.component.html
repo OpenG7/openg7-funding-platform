@@ -38,7 +38,10 @@
           [readOnly]="admin.identity()?.role === 'reader'"
           [canApprove]="canApprove()"
           [approving]="approving()"
-          (approve)="approve(item)"
+          [selectedIssueId]="selectedIssueId()"
+          (selectedIssueIdChange)="selectedIssueId.set($event)"
+          (confirmApproval)="confirmAndApprove(item)"
+          (approve)="confirmAndApprove(item)"
         />
       }
     }

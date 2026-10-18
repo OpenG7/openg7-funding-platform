@@ -20,6 +20,7 @@
     </p>
     <p
       class="receipt-status"
+      [hidden]="item.status === 'ready' && item.canApprove"
       [class.fact-positive]="item.status === 'approved'"
       [class.fact-warning]="item.status !== 'approved'"
     >
@@ -148,21 +149,26 @@
         </div>
       </dl>
     </div>
-    @if (item.blockers.length) {
-      <div class="receipt-blockers" data-og7="preparation-receipt-blockers">
-        <h5><openg7-admin-icon name="warning" />{{ t('missing') }}</h5>
-        <ul>
-          @for (blocker of item.blockers; track $index) {
-            <li>
-              {{ label('blockers', blocker.code) }}
-              @if (adminUrl(blocker.adminUrl); as url) {
-                <a [href]="url">{{ t('openDossier') }}</a>
-              }
-            </li>
-          }
-        </ul>
-      </div>
-    }
+    <div
+      class="receipt-pilot"
+      [class.ready-pilot]="item.canApprove || item.status === 'approved'"
+      [attr.data-og7]="
+        item.blockers.length ? 'preparation-receipt-blockers' : null
+      "
+    >
+      <openg7-preparation-pilot
+        [receipt]="item"
+        [idPrefix]="idPrefix()"
+        [selectedId]="selectedIssueId()"
+        (selectedIdChange)="selectedIssueIdChange.emit($event)"
+        [canApprove]="canApprove()"
+        [busy]="approving()"
+        (approveRequested)="requestConfirmedApproval()"
+        (sourceRequested)="openIssue($event)"
+        (detailsRequested)="reveal('details')"
+        (historyRequested)="reveal('history')"
+      />
+    </div>
   </section>
 
   <div class="receipt-disclosures">

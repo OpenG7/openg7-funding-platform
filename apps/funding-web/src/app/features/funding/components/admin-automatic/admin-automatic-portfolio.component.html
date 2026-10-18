@@ -23,649 +23,717 @@
     [open]="(!run && !!state.state) || processingExpanded()"
     (toggle)="toggleProcessing($event)"
   >
-    <summary>{{ t('receipt.processing') }}</summary>
-    <div
-      class="portfolio-overview"
-      data-og7="automatic-portfolio-state"
-      [attr.data-og7-id]="state.phase"
-      role="status"
-      aria-live="polite"
-      aria-atomic="true"
-    >
-      <div class="portfolio-status-line">
-        <openg7-admin-badge [tone]="phaseTone()">
-          <span class="status-label" [title]="t('phases.' + state.phase)">
-            <openg7-admin-icon [name]="phaseIcon()" />
-            {{ t('compact.phases.' + state.phase) }}
+    <summary class="processing-summary">
+      <span class="processing-heading">
+        <span class="processing-symbol" aria-hidden="true">
+          <openg7-admin-icon name="search" />
+        </span>
+        <span class="processing-heading-copy">
+          <strong>{{ t('receipt.processing') }}</strong>
+          <span class="quiet">{{ t('compact.processingHelp') }}</span>
+        </span>
+        <span class="processing-chevron" aria-hidden="true">
+          <openg7-admin-icon name="arrow" />
+        </span>
+      </span>
+      <span
+        class="portfolio-overview"
+        data-og7="automatic-portfolio-state"
+        [attr.data-og7-id]="state.phase"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        <span class="portfolio-status-line">
+          <openg7-admin-badge [tone]="phaseTone()">
+            <span class="status-label" [title]="t('phases.' + state.phase)">
+              <openg7-admin-icon [name]="phaseIcon()" />
+              {{ t('compact.phases.' + state.phase) }}
+            </span>
+          </openg7-admin-badge>
+          @if (run) {
+            <span class="quiet">{{
+              t('compact.pass', { pass: run.pass })
+            }}</span>
+          }
+        </span>
+        @if (state.review; as reading) {
+          <span class="reading-prompt overview-note">
+            {{ t('compact.reading.' + reading.step) }}
           </span>
-        </openg7-admin-badge>
-        @if (run) {
-          <span class="quiet">{{ t('compact.pass', { pass: run.pass }) }}</span>
         }
-      </div>
-      @if (state.review; as reading) {
-        <p class="reading-prompt">{{ t('compact.reading.' + reading.step) }}</p>
-      }
-      @if (state.error) {
-        <p>{{ t('errors.' + state.error) }}</p>
-      }
-      @if (run) {
-        <div class="portfolio-progress">
-          <strong>{{
-            t('compact.checked', {
-              processed: run.processedCount,
-              total: run.dossierCount
-            })
-          }}</strong>
-          <progress
-            data-og7="automatic-portfolio-progress"
-            [value]="run.processedCount"
-            [max]="run.dossierCount || 1"
-            [attr.aria-label]="t('compact.progress')"
-            [attr.aria-valuetext]="
+        @if (state.error) {
+          <span class="overview-note">{{ t('errors.' + state.error) }}</span>
+        }
+        @if (run) {
+          <span class="portfolio-progress">
+            <strong>{{
               t('compact.checked', {
                 processed: run.processedCount,
                 total: run.dossierCount
               })
-            "
-          ></progress>
-        </div>
-        @if (run.observedAt) {
-          <p class="quiet" data-og7="automatic-portfolio-observed">
-            {{ t('observedAt', { date: date(run.observedAt) }) }}
-          </p>
-        }
-        @if (
-          state.phase === 'completed' &&
-          run.status === 'completed' &&
-          !state.error
-        ) {
-          <p
-            data-og7="automatic-portfolio-completion"
-            [attr.data-og7-id]="run.globalBalanced ? 'balanced' : 'outstanding'"
-          >
-            {{ t(run.globalBalanced ? 'balanced' : 'passComplete') }}
-          </p>
-        }
-      }
-    </div>
-    <ng-template #scope>
-      <div
-        class="reading-zone"
-        tabindex="-1"
-        data-og7="automatic-portfolio-scope"
-      >
-        <ul class="scope-facts">
-          <li>
-            <openg7-admin-icon name="contributions" />
-            <span>{{
-              run
-                ? t('compact.manifest', { count: run.dossierCount })
-                : t('compact.confirmedPayments')
-            }}</span>
-          </li>
-          <li>
-            <openg7-admin-icon name="audit" />
-            <span>{{ t('compact.privateDrafts') }}</span>
-          </li>
-          <li>
-            <openg7-admin-icon name="bellActive" />
-            <span>{{ t('compact.confirmation') }}</span>
-          </li>
-        </ul>
-        <p class="quiet">{{ t('compact.confirmationHelp') }}</p>
-        <details data-og7="automatic-portfolio-help">
-          <summary>{{ t('compact.details') }}</summary>
-          <p>{{ t('mission') }}</p>
-          <p>{{ t('scope') }}</p>
-          <p>{{ t('resumeHelp') }}</p>
-        </details>
-      </div>
-    </ng-template>
-    <ng-template #dossier>
-      @if (portfolio.reviewJourney(); as journey) {
-        <section
-          class="activity reading-zone"
-          tabindex="-1"
-          data-og7="automatic-portfolio-dossier"
-        >
-          <div class="dossier-heading">
-            <h3>{{ journey.reference }}</h3>
-            <strong>{{ amount(journey.amountMinor, journey.currency) }}</strong>
-          </div>
-          <p class="status-label">
-            <openg7-admin-icon name="search" />
-            <strong>{{ t('compact.toCheck') }}</strong>
-          </p>
-          @if (journey.next) {
-            <p>{{ reason(journey.next.reason) }}</p>
-          } @else {
-            <p>{{ t('reading.noRecommendation') }}</p>
-          }
-          @if (portfolio.reviewObservedAt(); as observedAt) {
-            <p class="quiet">
-              {{ t('reading.previewAt', { date: date(observedAt) }) }}
-            </p>
-          }
-          <details>
-            <summary>{{ t('compact.checkDetails') }}</summary>
-            <p>{{ t('nextWhy') }}</p>
-          </details>
-        </section>
-      }
-    </ng-template>
-    <ng-template #latest>
-      @if (run?.latestEntry; as entry) {
-        <div
-          class="activity reading-zone"
-          tabindex="-1"
-          data-og7="automatic-portfolio-latest"
-        >
-          <div class="dossier-heading">
-            <h3>{{ entry.reference }}</h3>
-            <openg7-admin-badge
-              [tone]="statuses[entry.balanceStatus].tone"
-              data-og7="automatic-portfolio-dossier-status"
-              [attr.data-og7-id]="entry.balanceStatus"
-            >
-              <span
-                class="status-label"
-                [title]="t('statuses.' + entry.balanceStatus)"
-              >
-                <openg7-admin-icon
-                  [name]="statuses[entry.balanceStatus].icon"
-                />
-                {{ t('compact.statuses.' + entry.balanceStatus) }}
-              </span>
-            </openg7-admin-badge>
-          </div>
-          <dl class="benefit-counts" [attr.aria-label]="t('promisesTitle')">
-            @for (metric of benefitMetrics; track metric) {
-              <div>
-                <dt>{{ t('compact.benefits.' + metric) }}</dt>
-                <dd>{{ entry.balance[metric] }}</dd>
-              </div>
-            }
-          </dl>
-          @for (reason of entry.reasonCodes; track reason) {
-            <p>{{ t('why') }} {{ this.reason(reason) }}</p>
-          }
-          @for (action of entry.actions; track $index) {
-            <p data-og7="automatic-portfolio-action">
-              {{
-                t(action.created ? 'draftPrepared' : 'draftPreserved', {
-                  channel: t('channels.' + action.channel),
-                  target: t('targets.' + action.target)
+            }}</strong>
+            <progress
+              data-og7="automatic-portfolio-progress"
+              [value]="run.processedCount"
+              [max]="run.dossierCount || 1"
+              [attr.aria-label]="t('compact.progress')"
+              [attr.aria-valuetext]="
+                t('compact.checked', {
+                  processed: run.processedCount,
+                  total: run.dossierCount
                 })
-              }}
-            </p>
-          }
-          @if (destination(entry)) {
-            <button
-              type="button"
-              class="admin-button"
-              data-og7="automatic-portfolio-human"
-              (click)="open(entry)"
+              "
+            ></progress>
+          </span>
+          @if (run.observedAt) {
+            <span
+              class="quiet overview-note"
+              data-og7="automatic-portfolio-observed"
             >
-              <openg7-admin-icon name="arrow" />
-              {{
-                t(
-                  entry.balanceStatus === 'waiting'
-                    ? 'compact.viewWaiting'
-                    : 'compact.reviewDossier'
-                )
-              }}
-            </button>
+              {{ t('observedAt', { date: date(run.observedAt) }) }}
+            </span>
           }
-        </div>
-      }
-    </ng-template>
-    <ng-template #summary>
-      @if (run) {
-        <section
+          @if (
+            state.phase === 'completed' &&
+            run.status === 'completed' &&
+            !state.error
+          ) {
+            <span
+              class="overview-note"
+              data-og7="automatic-portfolio-completion"
+              [attr.data-og7-id]="
+                run.globalBalanced ? 'balanced' : 'outstanding'
+              "
+            >
+              {{ t(run.globalBalanced ? 'balanced' : 'passComplete') }}
+            </span>
+          }
+        }
+      </span>
+    </summary>
+    <div class="processing-body">
+      <ng-template #scope>
+        <div
           class="reading-zone"
           tabindex="-1"
-          data-og7="automatic-portfolio-summary"
-          [attr.aria-busy]="state.reportLoading ? 'true' : null"
+          data-og7="automatic-portfolio-scope"
         >
-          <h3>{{ t('reading.summaryTitle') }}</h3>
-          <dl class="balance-counts" data-og7="automatic-portfolio-counts">
-            <div>
-              <dt>{{ t('balancedCount') }}</dt>
-              <dd>{{ run.balancedCount }}</dd>
+          <ul class="scope-facts">
+            <li>
+              <openg7-admin-icon name="contributions" />
+              <span>{{
+                run
+                  ? t('compact.manifest', { count: run.dossierCount })
+                  : t('compact.confirmedPayments')
+              }}</span>
+            </li>
+            <li>
+              <openg7-admin-icon name="audit" />
+              <span>{{ t('compact.privateDrafts') }}</span>
+            </li>
+            <li>
+              <openg7-admin-icon name="bellActive" />
+              <span>{{ t('compact.confirmation') }}</span>
+            </li>
+          </ul>
+          <p class="quiet">{{ t('compact.confirmationHelp') }}</p>
+          <details data-og7="automatic-portfolio-help">
+            <summary>{{ t('compact.details') }}</summary>
+            <p>{{ t('mission') }}</p>
+            <p>{{ t('scope') }}</p>
+            <p>{{ t('resumeHelp') }}</p>
+          </details>
+        </div>
+      </ng-template>
+      <ng-template #dossier>
+        @if (portfolio.reviewJourney(); as journey) {
+          <section
+            class="activity reading-zone"
+            tabindex="-1"
+            data-og7="automatic-portfolio-dossier"
+          >
+            <div class="dossier-heading">
+              <h3>{{ journey.reference }}</h3>
+              <strong>{{
+                amount(journey.amountMinor, journey.currency)
+              }}</strong>
             </div>
-            <div>
-              <dt>{{ t('outstandingCount') }}</dt>
-              <dd>{{ run.outstandingCount }}</dd>
-            </div>
-            <div>
-              <dt>{{ t('unknownCount') }}</dt>
-              <dd>{{ run.unknownCount }}</dd>
-            </div>
-            <div>
-              <dt>{{ t('uncoveredCount') }}</dt>
-              <dd>{{ run.uncoveredCount }}</dd>
-            </div>
-            <div>
-              <dt>{{ t('uncheckedCount') }}</dt>
-              <dd>{{ run.dossierCount - run.processedCount }}</dd>
-            </div>
-          </dl>
-          @if (run.newPaymentCount) {
-            <p data-og7="automatic-portfolio-new-payments">
-              {{ t('newPayments', { count: run.newPaymentCount }) }}
+            <p class="status-label">
+              <openg7-admin-icon name="search" />
+              <strong>{{ t('compact.toCheck') }}</strong>
             </p>
-          }
-          <ul data-og7="automatic-portfolio-currencies">
-            @for (total of run.currencyTotals; track total.currency) {
-              <li>
+            @if (journey.next) {
+              <p>{{ reason(journey.next.reason) }}</p>
+            } @else {
+              <p>{{ t('reading.noRecommendation') }}</p>
+            }
+            @if (portfolio.reviewObservedAt(); as observedAt) {
+              <p class="quiet">
+                {{ t('reading.previewAt', { date: date(observedAt) }) }}
+              </p>
+            }
+            <details>
+              <summary>{{ t('compact.checkDetails') }}</summary>
+              <p>{{ t('nextWhy') }}</p>
+            </details>
+          </section>
+        }
+      </ng-template>
+      <ng-template #latest>
+        @if (run?.latestEntry; as entry) {
+          <div
+            class="activity reading-zone"
+            tabindex="-1"
+            data-og7="automatic-portfolio-latest"
+          >
+            <div class="dossier-heading">
+              <h3>{{ entry.reference }}</h3>
+              <openg7-admin-badge
+                [tone]="statuses[entry.balanceStatus].tone"
+                data-og7="automatic-portfolio-dossier-status"
+                [attr.data-og7-id]="entry.balanceStatus"
+              >
+                <span
+                  class="status-label"
+                  [title]="t('statuses.' + entry.balanceStatus)"
+                >
+                  <openg7-admin-icon
+                    [name]="statuses[entry.balanceStatus].icon"
+                  />
+                  {{ t('compact.statuses.' + entry.balanceStatus) }}
+                </span>
+              </openg7-admin-badge>
+            </div>
+            <dl class="benefit-counts" [attr.aria-label]="t('promisesTitle')">
+              @for (metric of benefitMetrics; track metric) {
+                <div>
+                  <dt>{{ t('compact.benefits.' + metric) }}</dt>
+                  <dd>{{ entry.balance[metric] }}</dd>
+                </div>
+              }
+            </dl>
+            @for (reason of entry.reasonCodes; track reason) {
+              <p>{{ t('why') }} {{ this.reason(reason) }}</p>
+            }
+            @for (action of entry.actions; track $index) {
+              <p data-og7="automatic-portfolio-action">
                 {{
-                  t('amountReceived', {
-                    amount: amount(total.amountMinor, total.currency)
+                  t(action.created ? 'draftPrepared' : 'draftPreserved', {
+                    channel: t('channels.' + action.channel),
+                    target: t('targets.' + action.target)
                   })
                 }}
-              </li>
+              </p>
             }
-          </ul>
+            @if (destination(entry)) {
+              <button
+                type="button"
+                class="admin-button"
+                data-og7="automatic-portfolio-human"
+                (click)="open(entry)"
+              >
+                <openg7-admin-icon name="arrow" />
+                {{
+                  t(
+                    entry.balanceStatus === 'waiting'
+                      ? 'compact.viewWaiting'
+                      : 'compact.reviewDossier'
+                  )
+                }}
+              </button>
+            }
+          </div>
+        }
+      </ng-template>
+      <ng-template #summary>
+        @if (run) {
+          <section
+            class="reading-zone"
+            tabindex="-1"
+            data-og7="automatic-portfolio-summary"
+            [attr.aria-busy]="state.reportLoading ? 'true' : null"
+          >
+            <h3 class="section-title">
+              <openg7-admin-icon name="dashboard" />
+              {{ t('reading.summaryTitle') }}
+            </h3>
+            <dl class="balance-counts" data-og7="automatic-portfolio-counts">
+              <div>
+                <dt>{{ t('balancedCount') }}</dt>
+                <dd class="metric-success">{{ run.balancedCount }}</dd>
+              </div>
+              <div>
+                <dt>{{ t('outstandingCount') }}</dt>
+                <dd>{{ run.outstandingCount }}</dd>
+              </div>
+              <div>
+                <dt>{{ t('unknownCount') }}</dt>
+                <dd>{{ run.unknownCount }}</dd>
+              </div>
+              <div>
+                <dt>{{ t('uncoveredCount') }}</dt>
+                <dd>{{ run.uncoveredCount }}</dd>
+              </div>
+              <div>
+                <dt>{{ t('uncheckedCount') }}</dt>
+                <dd>{{ run.dossierCount - run.processedCount }}</dd>
+              </div>
+            </dl>
+            @if (run.newPaymentCount) {
+              <p data-og7="automatic-portfolio-new-payments">
+                {{ t('newPayments', { count: run.newPaymentCount }) }}
+              </p>
+            }
+            <ul data-og7="automatic-portfolio-currencies">
+              @for (total of run.currencyTotals; track total.currency) {
+                <li>
+                  {{
+                    t('amountReceived', {
+                      amount: amount(total.amountMinor, total.currency)
+                    })
+                  }}
+                </li>
+              }
+            </ul>
 
-          <details data-og7="automatic-portfolio-report">
-            <summary>{{ t('report') }}</summary>
-            <p>{{ t('reportHelp') }}</p>
-            <p>
-              {{ t('runReference', { id: run.id, date: date(run.updatedAt) }) }}
-            </p>
-            <ol>
-              @for (entry of state.entries; track entry.seq) {
-                <li
-                  class="report-entry"
-                  data-og7="automatic-portfolio-report-entry"
-                  [attr.data-og7-id]="entry.contributionId"
-                >
-                  <div class="dossier-heading">
-                    <h3>{{ entry.reference }}</h3>
-                    <openg7-admin-badge
-                      [tone]="statuses[entry.balanceStatus].tone"
+            <details
+              class="portfolio-report"
+              data-og7="automatic-portfolio-report"
+            >
+              <summary>
+                <openg7-admin-icon name="audit" />
+                {{ t('report') }}
+              </summary>
+              <ol class="report-list">
+                @for (entry of state.entries; track entry.seq) {
+                  <li
+                    class="report-entry"
+                    data-og7="automatic-portfolio-report-entry"
+                    [attr.data-og7-id]="entry.contributionId"
+                  >
+                    <details
+                      class="entry-details"
+                      data-og7="automatic-portfolio-entry-details"
                     >
-                      <span
-                        class="status-label"
-                        [title]="t('statuses.' + entry.balanceStatus)"
-                      >
-                        <openg7-admin-icon
-                          [name]="statuses[entry.balanceStatus].icon"
-                        />
-                        {{ t('compact.statuses.' + entry.balanceStatus) }}
-                      </span>
-                    </openg7-admin-badge>
-                  </div>
-                  <p>
-                    {{
-                      t('observation', {
-                        pass: entry.pass,
-                        date: date(entry.createdAt),
-                        actor: entry.actor
-                      })
-                    }}
-                  </p>
-                  <p data-og7="automatic-portfolio-before">
-                    <strong>{{ t('before') }}</strong>
-                    {{
-                      t('benefits', {
-                        expected: entry.beforeBalance.expected,
-                        fulfilled: entry.beforeBalance.fulfilled,
-                        waived: entry.beforeBalance.waived,
-                        outstanding: entry.beforeBalance.outstanding,
-                        unknown: entry.beforeBalance.unknown
-                      })
-                    }}
-                  </p>
-                  <p data-og7="automatic-portfolio-after">
-                    <strong>{{ t('after') }}</strong>
-                    {{
-                      t('benefits', {
-                        expected: entry.balance.expected,
-                        fulfilled: entry.balance.fulfilled,
-                        waived: entry.balance.waived,
-                        outstanding: entry.balance.outstanding,
-                        unknown: entry.balance.unknown
-                      })
-                    }}
-                  </p>
-                  <h4>{{ t('promisesTitle') }}</h4>
-                  @if (entry.balance.promisedBenefits.length) {
-                    <ul data-og7="automatic-portfolio-promises">
-                      @for (
-                        benefit of entry.balance.promisedBenefits;
-                        track $index
-                      ) {
-                        <li data-og7="automatic-portfolio-promise">
-                          <p>
-                            <strong>{{
-                              t('benefitNames.' + benefit.id)
-                            }}</strong>
-                          </p>
-                          <p>
+                      <summary class="entry-summary">
+                        <span class="entry-reference">{{
+                          entry.reference
+                        }}</span>
+                        <openg7-admin-badge
+                          [tone]="statuses[entry.balanceStatus].tone"
+                        >
+                          <span
+                            class="status-label"
+                            [title]="t('statuses.' + entry.balanceStatus)"
+                          >
+                            <openg7-admin-icon
+                              [name]="statuses[entry.balanceStatus].icon"
+                            />
+                            {{ t('compact.statuses.' + entry.balanceStatus) }}
+                          </span>
+                        </openg7-admin-badge>
+                      </summary>
+                      <div class="entry-body">
+                        <p>
+                          {{
+                            t('observation', {
+                              pass: entry.pass,
+                              date: date(entry.createdAt),
+                              actor: entry.actor
+                            })
+                          }}
+                        </p>
+                        <div class="balance-comparison">
+                          <p data-og7="automatic-portfolio-before">
+                            <strong>{{ t('before') }}</strong>
                             {{
-                              t('promiseDestination', {
-                                channel: t('channels.' + benefit.channel),
-                                target: t('targets.' + benefit.target),
-                                quantity: benefit.quantity
+                              t('benefits', {
+                                expected: entry.beforeBalance.expected,
+                                fulfilled: entry.beforeBalance.fulfilled,
+                                waived: entry.beforeBalance.waived,
+                                outstanding: entry.beforeBalance.outstanding,
+                                unknown: entry.beforeBalance.unknown
                               })
                             }}
                           </p>
-                          @if (benefit.channel !== 'website') {
-                            <p>
+                          <p data-og7="automatic-portfolio-after">
+                            <strong>{{ t('after') }}</strong>
+                            {{
+                              t('benefits', {
+                                expected: entry.balance.expected,
+                                fulfilled: entry.balance.fulfilled,
+                                waived: entry.balance.waived,
+                                outstanding: entry.balance.outstanding,
+                                unknown: entry.balance.unknown
+                              })
+                            }}
+                          </p>
+                        </div>
+                        <h4>{{ t('promisesTitle') }}</h4>
+                        @if (entry.balance.promisedBenefits.length) {
+                          <ul data-og7="automatic-portfolio-promises">
+                            @for (
+                              benefit of entry.balance.promisedBenefits;
+                              track $index
+                            ) {
+                              <li data-og7="automatic-portfolio-promise">
+                                <p>
+                                  <strong>{{
+                                    t('benefitNames.' + benefit.id)
+                                  }}</strong>
+                                </p>
+                                <p>
+                                  {{
+                                    t('promiseDestination', {
+                                      channel: t('channels.' + benefit.channel),
+                                      target: t('targets.' + benefit.target),
+                                      quantity: benefit.quantity
+                                    })
+                                  }}
+                                </p>
+                                @if (benefit.channel !== 'website') {
+                                  <p>
+                                    {{
+                                      t('promiseFormat', {
+                                        format: t(
+                                          'formats.' +
+                                            (benefit.format ??
+                                              'collective_text')
+                                        )
+                                      })
+                                    }}
+                                  </p>
+                                }
+                                <p>
+                                  {{
+                                    t('promiseElements', {
+                                      elements: requiredElements(benefit)
+                                    })
+                                  }}
+                                </p>
+                                <p>
+                                  {{
+                                    benefit.deadlineDays === null
+                                      ? t('noFixedDeadline')
+                                      : t('promiseDeadline', {
+                                          days: benefit.deadlineDays
+                                        })
+                                  }}
+                                </p>
+                                <p>
+                                  {{
+                                    benefit.durationDays === null
+                                      ? t('noFixedDuration')
+                                      : t('promiseDuration', {
+                                          days: benefit.durationDays
+                                        })
+                                  }}
+                                </p>
+                              </li>
+                            }
+                          </ul>
+                        } @else {
+                          <p>
+                            {{
+                              t(
+                                entry.balance.contributionType ===
+                                  'personal_support' &&
+                                  entry.balance.status === 'balanced'
+                                  ? 'personalNoBenefits'
+                                  : 'promisesUnknown'
+                              )
+                            }}
+                          </p>
+                        }
+                        @for (reason of entry.reasonCodes; track reason) {
+                          <p>{{ t('why') }} {{ this.reason(reason) }}</p>
+                        }
+                        @for (action of entry.actions; track $index) {
+                          <p>
+                            {{
+                              t(
+                                action.created
+                                  ? 'draftPrepared'
+                                  : 'draftPreserved',
+                                {
+                                  channel: t('channels.' + action.channel),
+                                  target: t('targets.' + action.target)
+                                }
+                              )
+                            }}
+                          </p>
+                          @if (action.auditReference) {
+                            <p class="quiet">
+                              {{ t('audit') }}
+                              <code>{{ action.auditReference }}</code>
+                            </p>
+                          }
+                        }
+                        @for (
+                          obligation of entry.balance.obligations;
+                          track obligation.id
+                        ) {
+                          <p>
+                            {{
+                              t('obligation', {
+                                channel: t('channels.' + obligation.channel),
+                                target: t('targets.' + obligation.target),
+                                ordinal: obligation.ordinal
+                              })
+                            }}
+                            : {{ t('obligationStates.' + obligation.state) }}
+                          </p>
+                          @if (obligation.timing?.dueAt; as dueAt) {
+                            <p data-og7="automatic-portfolio-due">
+                              {{ t('obligationDue', { date: date(dueAt) }) }}
+                            </p>
+                          }
+                          @if (obligation.evidence; as proof) {
+                            <p data-og7="automatic-portfolio-proof">
                               {{
-                                t('promiseFormat', {
-                                  format: t(
-                                    'formats.' +
-                                      (benefit.format ?? 'collective_text')
+                                t('proof', {
+                                  id: proof.id,
+                                  date: date(proof.deliveredAt),
+                                  provenance: t(
+                                    'provenances.' + proof.provenance
                                   )
                                 })
                               }}
                             </p>
+                            @if (externalUrl(proof.externalPostUrl); as url) {
+                              <a
+                                [href]="url"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                >{{ t('viewProof') }}</a
+                              >
+                            }
                           }
-                          <p>
+                        }
+                        <p class="quiet">
+                          {{ t('audit') }}
+                          <code>{{ entry.auditReference }}</code>
+                        </p>
+                        @if (destination(entry)) {
+                          <button
+                            type="button"
+                            class="admin-button"
+                            data-og7="automatic-portfolio-human"
+                            (click)="open(entry)"
+                          >
+                            <openg7-admin-icon name="arrow" />
                             {{
-                              t('promiseElements', {
-                                elements: requiredElements(benefit)
-                              })
+                              t(
+                                entry.balanceStatus === 'waiting'
+                                  ? 'compact.viewWaiting'
+                                  : 'compact.reviewDossier'
+                              )
                             }}
-                          </p>
-                          <p>
-                            {{
-                              benefit.deadlineDays === null
-                                ? t('noFixedDeadline')
-                                : t('promiseDeadline', {
-                                    days: benefit.deadlineDays
-                                  })
-                            }}
-                          </p>
-                          <p>
-                            {{
-                              benefit.durationDays === null
-                                ? t('noFixedDuration')
-                                : t('promiseDuration', {
-                                    days: benefit.durationDays
-                                  })
-                            }}
-                          </p>
-                        </li>
-                      }
-                    </ul>
-                  } @else {
-                    <p>
-                      {{
-                        t(
-                          entry.balance.contributionType ===
-                            'personal_support' &&
-                            entry.balance.status === 'balanced'
-                            ? 'personalNoBenefits'
-                            : 'promisesUnknown'
-                        )
-                      }}
-                    </p>
-                  }
-                  @for (reason of entry.reasonCodes; track reason) {
-                    <p>{{ t('why') }} {{ this.reason(reason) }}</p>
-                  }
-                  @for (action of entry.actions; track $index) {
-                    <p>
-                      {{
-                        t(action.created ? 'draftPrepared' : 'draftPreserved', {
-                          channel: t('channels.' + action.channel),
-                          target: t('targets.' + action.target)
-                        })
-                      }}
-                    </p>
-                    @if (action.auditReference) {
-                      <p class="quiet">
-                        {{ t('audit') }}
-                        <code>{{ action.auditReference }}</code>
-                      </p>
-                    }
-                  }
-                  @for (
-                    obligation of entry.balance.obligations;
-                    track obligation.id
-                  ) {
-                    <p>
-                      {{
-                        t('obligation', {
-                          channel: t('channels.' + obligation.channel),
-                          target: t('targets.' + obligation.target),
-                          ordinal: obligation.ordinal
-                        })
-                      }}
-                      : {{ t('obligationStates.' + obligation.state) }}
-                    </p>
-                    @if (obligation.timing?.dueAt; as dueAt) {
-                      <p data-og7="automatic-portfolio-due">
-                        {{ t('obligationDue', { date: date(dueAt) }) }}
-                      </p>
-                    }
-                    @if (obligation.evidence; as proof) {
-                      <p data-og7="automatic-portfolio-proof">
-                        {{
-                          t('proof', {
-                            id: proof.id,
-                            date: date(proof.deliveredAt),
-                            provenance: t('provenances.' + proof.provenance)
-                          })
-                        }}
-                      </p>
-                      @if (externalUrl(proof.externalPostUrl); as url) {
-                        <a
-                          [href]="url"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          >{{ t('viewProof') }}</a
-                        >
-                      }
-                    }
-                  }
-                  <p class="quiet">
-                    {{ t('audit') }} <code>{{ entry.auditReference }}</code>
-                  </p>
-                  @if (destination(entry)) {
-                    <button
-                      type="button"
-                      class="admin-button"
-                      data-og7="automatic-portfolio-human"
-                      (click)="open(entry)"
-                    >
-                      <openg7-admin-icon name="arrow" />
-                      {{
-                        t(
-                          entry.balanceStatus === 'waiting'
-                            ? 'compact.viewWaiting'
-                            : 'compact.reviewDossier'
-                        )
-                      }}
-                    </button>
-                  }
-                </li>
+                          </button>
+                        }
+                      </div>
+                    </details>
+                  </li>
+                }
+              </ol>
+              @if (state.nextCursor !== null) {
+                <button
+                  type="button"
+                  class="admin-button"
+                  data-og7="automatic-portfolio-more"
+                  [disabled]="
+                    (portfolio.active() && state.review?.step !== 'summary') ||
+                    state.reportLoading
+                  "
+                  (click)="portfolio.more()"
+                >
+                  {{ t('more') }}
+                </button>
               }
-            </ol>
-            @if (state.nextCursor !== null) {
-              <button
-                type="button"
-                class="admin-button"
-                data-og7="automatic-portfolio-more"
-                [disabled]="
-                  (portfolio.active() && state.review?.step !== 'summary') ||
-                  state.reportLoading
-                "
-                (click)="portfolio.more()"
-              >
-                {{ t('more') }}
-              </button>
-            }
-            @if (state.reportLoading) {
-              <p role="status">{{ t('reading.reportLoading') }}</p>
-            }
-          </details>
-        </section>
+              @if (state.reportLoading) {
+                <p role="status">{{ t('reading.reportLoading') }}</p>
+              }
+              <details class="report-context">
+                <summary>{{ t('compact.details') }}</summary>
+                <p>{{ t('reportHelp') }}</p>
+                <p>
+                  {{
+                    t('runReference', { id: run.id, date: date(run.updatedAt) })
+                  }}
+                </p>
+              </details>
+            </details>
+          </section>
+        }
+      </ng-template>
+      @if (!state.review && !portfolio.active()) {
+        <ng-container [ngTemplateOutlet]="scope" />
       }
-    </ng-template>
-    @if (!state.review && !portfolio.active()) {
-      <ng-container [ngTemplateOutlet]="scope" />
-    }
-    <div class="actions">
-      <button
-        type="button"
-        class="admin-button admin-button--primary"
-        data-og7="automatic-portfolio-start"
-        [title]="t('start')"
-        [hidden]="portfolio.active()"
-        [disabled]="portfolio.active() || (!!run && run.status !== 'completed')"
-        (click)="portfolio.start()"
-      >
-        {{ t('compact.start') }}
-      </button>
-      @if (
-        run &&
-        (run.status !== 'completed' || state.phase === 'paused') &&
-        run.status !== 'uncertain'
-      ) {
-        <button
-          type="button"
-          class="admin-button"
-          data-og7="automatic-portfolio-resume"
-          [hidden]="portfolio.active()"
-          [title]="t(run.status === 'completed' ? 'reading.resume' : 'resume')"
-          [disabled]="portfolio.active() || state.error === 'uncertain'"
-          (click)="portfolio.resume()"
-        >
-          {{ t('compact.resume') }}
-        </button>
-      }
-      <button
-        type="button"
-        class="admin-button"
-        data-og7="automatic-portfolio-pause"
-        [title]="t('pause')"
-        [disabled]="!portfolio.active()"
-        (click)="portfolio.pause()"
-      >
-        {{ t('compact.pause') }}
-      </button>
-      <button
-        type="button"
-        class="admin-button"
-        data-og7="automatic-portfolio-refresh"
-        [title]="t('refresh')"
-        [hidden]="portfolio.active()"
-        [disabled]="portfolio.active()"
-        (click)="portfolio.load()"
-      >
-        {{ t('compact.refresh') }}
-      </button>
-      @if (run && (run.status === 'completed' || run.status === 'paused')) {
-        <button
-          type="button"
-          class="admin-button"
-          data-og7="automatic-portfolio-recheck"
-          [hidden]="portfolio.active()"
-          [title]="t('recheck')"
-          [disabled]="portfolio.active() || state.error === 'uncertain'"
-          (click)="portfolio.resume(true)"
-        >
-          {{ t('compact.recheck') }}
-        </button>
-      }
-      @if (run?.status === 'uncertain') {
-        <button
-          type="button"
-          class="admin-button"
-          data-og7="automatic-portfolio-reconcile"
-          [disabled]="portfolio.active()"
-          (click)="confirmReconciliation()"
-        >
-          {{ t('reconcile') }}
-        </button>
-      }
-    </div>
-
-    @if (run?.status === 'completed' && portfolio.active()) {
-      <p data-og7="automatic-portfolio-server-completed">
-        {{ t('reading.serverComplete') }}
-      </p>
-    }
-    @if (state.review; as reading) {
-      @for (checkpoint of [reading]; track checkpoint.id) {
-        <section
-          class="reading-step"
-          data-og7="automatic-portfolio-reading"
-          [attr.data-og7-id]="checkpoint.step"
-          [attr.aria-label]="t('reading.steps.' + checkpoint.step)"
-        >
-          <ol class="review-stages" [attr.aria-label]="t('compact.stages')">
-            @for (step of reviewSteps; track step) {
-              <li
-                [attr.aria-current]="step === checkpoint.step ? 'step' : null"
-              >
-                {{ t('compact.steps.' + step) }}
-              </li>
-            }
-          </ol>
-          @switch (checkpoint.step) {
-            @case ('scope') {
-              <ng-container [ngTemplateOutlet]="scope" />
-            }
-            @case ('dossier') {
-              <ng-container [ngTemplateOutlet]="dossier" />
-            }
-            @case ('result') {
-              <ng-container [ngTemplateOutlet]="latest" />
-            }
-            @case ('summary') {
-              <ng-container [ngTemplateOutlet]="summary" />
-            }
-          }
-          <p class="quiet" [title]="t('reading.help')">
-            {{ t('compact.readHelp') }}
-          </p>
-          <button
-            type="button"
-            class="admin-button admin-button--primary"
-            data-og7="automatic-portfolio-approve"
-            [attr.data-og7-id]="checkpoint.id"
-            [disabled]="state.reportLoading || !!state.error"
-            (click)="portfolio.approve(checkpoint.id)"
-          >
-            {{ t('reading.approve') }}
-          </button>
-        </section>
-      }
-    } @else if (!portfolio.active()) {
-      <ng-container [ngTemplateOutlet]="latest" />
-      <ng-container [ngTemplateOutlet]="summary" />
-    }
-    <dialog
-      #reconciliation
-      aria-labelledby="automatic-reconciliation-title"
-      data-og7="automatic-portfolio-reconciliation"
-    >
-      <h2 id="automatic-reconciliation-title">{{ t('reconcile') }}</h2>
-      <p>{{ t('reconcileHelp') }}</p>
       <div class="actions">
         <button
           type="button"
-          class="admin-button"
-          autofocus
-          (click)="closeReconciliation()"
+          class="admin-button admin-button--primary"
+          data-og7="automatic-portfolio-start"
+          [title]="t('start')"
+          [hidden]="portfolio.active()"
+          [disabled]="
+            portfolio.active() || (!!run && run.status !== 'completed')
+          "
+          (click)="portfolio.start()"
         >
-          {{ t('cancel') }}
+          {{ t('compact.start') }}
+        </button>
+        @if (
+          run &&
+          (run.status !== 'completed' || state.phase === 'paused') &&
+          run.status !== 'uncertain'
+        ) {
+          <button
+            type="button"
+            class="admin-button"
+            data-og7="automatic-portfolio-resume"
+            [hidden]="portfolio.active()"
+            [title]="
+              t(run.status === 'completed' ? 'reading.resume' : 'resume')
+            "
+            [disabled]="portfolio.active() || state.error === 'uncertain'"
+            (click)="portfolio.resume()"
+          >
+            {{ t('compact.resume') }}
+          </button>
+        }
+        <button
+          type="button"
+          class="admin-button"
+          data-og7="automatic-portfolio-pause"
+          [title]="t('pause')"
+          [disabled]="!portfolio.active()"
+          (click)="portfolio.pause()"
+        >
+          {{ t('compact.pause') }}
         </button>
         <button
           type="button"
-          class="admin-button admin-button--primary"
-          data-og7="automatic-portfolio-reconcile-confirm"
-          (click)="reconcile()"
+          class="admin-button"
+          data-og7="automatic-portfolio-refresh"
+          [title]="t('refresh')"
+          [hidden]="portfolio.active()"
+          [disabled]="portfolio.active()"
+          (click)="portfolio.load()"
         >
-          {{ t('reconcileConfirm') }}
+          {{ t('compact.refresh') }}
         </button>
+        @if (run && (run.status === 'completed' || run.status === 'paused')) {
+          <button
+            type="button"
+            class="admin-button"
+            data-og7="automatic-portfolio-recheck"
+            [hidden]="portfolio.active()"
+            [title]="t('recheck')"
+            [disabled]="portfolio.active() || state.error === 'uncertain'"
+            (click)="portfolio.resume(true)"
+          >
+            {{ t('compact.recheck') }}
+          </button>
+        }
+        @if (run?.status === 'uncertain') {
+          <button
+            type="button"
+            class="admin-button"
+            data-og7="automatic-portfolio-reconcile"
+            [disabled]="portfolio.active()"
+            (click)="confirmReconciliation()"
+          >
+            {{ t('reconcile') }}
+          </button>
+        }
       </div>
-    </dialog>
+
+      @if (run?.status === 'completed' && portfolio.active()) {
+        <p data-og7="automatic-portfolio-server-completed">
+          {{ t('reading.serverComplete') }}
+        </p>
+      }
+      @if (state.review; as reading) {
+        @for (checkpoint of [reading]; track checkpoint.id) {
+          <section
+            class="reading-step"
+            data-og7="automatic-portfolio-reading"
+            [attr.data-og7-id]="checkpoint.step"
+            [attr.aria-label]="t('reading.steps.' + checkpoint.step)"
+          >
+            <ol class="review-stages" [attr.aria-label]="t('compact.stages')">
+              @for (step of reviewSteps; track step; let index = $index) {
+                <li
+                  [attr.aria-current]="step === checkpoint.step ? 'step' : null"
+                >
+                  <span class="review-step-number" aria-hidden="true">{{
+                    index + 1
+                  }}</span>
+                  {{ t('compact.steps.' + step) }}
+                </li>
+              }
+            </ol>
+            @switch (checkpoint.step) {
+              @case ('scope') {
+                <ng-container [ngTemplateOutlet]="scope" />
+              }
+              @case ('dossier') {
+                <ng-container [ngTemplateOutlet]="dossier" />
+              }
+              @case ('result') {
+                <ng-container [ngTemplateOutlet]="latest" />
+              }
+              @case ('summary') {
+                <ng-container [ngTemplateOutlet]="summary" />
+              }
+            }
+            <p class="quiet" [title]="t('reading.help')">
+              {{ t('compact.readHelp') }}
+            </p>
+            <button
+              type="button"
+              class="admin-button admin-button--primary"
+              data-og7="automatic-portfolio-approve"
+              [attr.data-og7-id]="checkpoint.id"
+              [disabled]="state.reportLoading || !!state.error"
+              (click)="portfolio.approve(checkpoint.id)"
+            >
+              {{ t('reading.approve') }}
+            </button>
+          </section>
+        }
+      } @else if (!portfolio.active()) {
+        <ng-container [ngTemplateOutlet]="latest" />
+        <ng-container [ngTemplateOutlet]="summary" />
+      }
+      <dialog
+        #reconciliation
+        aria-labelledby="automatic-reconciliation-title"
+        data-og7="automatic-portfolio-reconciliation"
+      >
+        <h2 id="automatic-reconciliation-title">{{ t('reconcile') }}</h2>
+        <p>{{ t('reconcileHelp') }}</p>
+        <div class="actions">
+          <button
+            type="button"
+            class="admin-button"
+            autofocus
+            (click)="closeReconciliation()"
+          >
+            {{ t('cancel') }}
+          </button>
+          <button
+            type="button"
+            class="admin-button admin-button--primary"
+            data-og7="automatic-portfolio-reconcile-confirm"
+            (click)="reconcile()"
+          >
+            {{ t('reconcileConfirm') }}
+          </button>
+        </div>
+      </dialog>
+    </div>
   </details>
 </section>

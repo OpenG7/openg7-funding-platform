@@ -11,19 +11,22 @@
       type="button"
       class="controller-toggle"
       data-og7="context-controller-toggle"
-      [attr.aria-label]="expanded() ? collapseLabel() : expandLabel()"
-      [attr.title]="expanded() ? collapseLabel() : expandLabel()"
-      [attr.aria-expanded]="expanded()"
+      [attr.aria-label]="actionsExpanded() ? collapseLabel() : expandLabel()"
+      [attr.title]="actionsExpanded() ? collapseLabel() : expandLabel()"
+      [attr.aria-expanded]="actionsExpanded()"
       [attr.aria-controls]="actionsId()"
       (click)="toggle()"
     >
-      <openg7-admin-icon [name]="expanded() ? 'close' : 'menu'" />
+      <openg7-admin-icon [name]="actionsExpanded() ? 'close' : 'menu'" />
     </button>
   </header>
   <div
+    #actions
     class="controller-actions"
     data-og7="context-controller-actions"
     [id]="actionsId()"
+    [hidden]="mode() !== null && !actionsExpanded()"
+    [attr.inert]="mode() !== null && !actionsExpanded() ? '' : null"
   >
     <ng-content />
   </div>

@@ -404,7 +404,7 @@ async function expandProcessing(page: Page) {
   await expect(processing).toHaveJSProperty('open', true);
 }
 
-async function open(page: Page, phase = 'review') {
+async function open(page: Page, phase = 'review', expand = true) {
   await page.goto(path);
   const toggle = page.locator('[data-og7="admin-guidance-toggle"]');
   await expect(toggle).toBeVisible();
@@ -412,7 +412,7 @@ async function open(page: Page, phase = 'review') {
   if (!(await panel.isVisible())) await toggle.click();
   await page.locator('[data-og7="admin-guidance-automatic-mode"]').click();
   await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', phase);
-  await expandProcessing(page);
+  if (expand) await expandProcessing(page);
 }
 
 async function expectReading(page: Page, step: ReadingStep) {
@@ -1193,10 +1193,13 @@ for (const [language, width] of [
     await expect(hook(page, 'currencies')).toContainText('CAD');
     await expect(hook(page, 'currencies')).toContainText('USD');
     await expect(hook(page, 'new-payments')).toBeVisible();
-    await hook(page, 'report').locator('summary').click();
+    await hook(page, 'report').locator(':scope > summary').click();
     await expect(hook(page, 'report-entry')).toHaveCount(3);
     await expect(hook(page, 'proof')).toHaveCount(1);
     const draft = hook(page, 'report-entry').nth(1);
+    await draft
+      .locator('[data-og7="automatic-portfolio-entry-details"] > summary')
+      .click();
     await expect(draft).toContainText(
       language === 'en' ? 'Private draft prepared' : 'Brouillon privé préparé'
     );
@@ -1246,7 +1249,7 @@ for (const [language, width] of [
       'data-og7-id',
       'completed'
     );
-    await hook(page, 'report').locator('summary').click();
+    await hook(page, 'report').locator(':scope > summary').click();
     await expect(hook(page, 'report-entry')).toHaveCount(3);
     expect(f.writes).toHaveLength(beforeReload);
   });
@@ -1344,7 +1347,7 @@ test('an uncertain response remains visible after reload and never replays a pay
   expect(
     f.writes.filter((write) => write.pathname.endsWith('/advance'))
   ).toHaveLength(1);
-  await hook(page, 'report').locator('summary').click();
+  await hook(page, 'report').locator(':scope > summary').click();
   await expect(hook(page, 'report-entry')).toHaveCount(1);
 });
 
@@ -1408,7 +1411,7 @@ test('the summary reading keeps its approval and halo while all report pages are
   await hook(page, 'start').click();
   await approveReading(page, 'scope');
   await readDossiers(page, f);
-  await hook(page, 'report').locator('summary').click();
+  await hook(page, 'report').locator(':scope > summary').click();
   await expect(hook(page, 'report-entry')).toHaveCount(50);
   await expect(hook(page, 'more')).toBeEnabled();
   const approval = hook(page, 'approve');
@@ -1454,13 +1457,121 @@ test('the durable report loads further pages without an automatic action or a ne
   f.state = runState(3, 'completed');
   f.entries = Array.from({ length: 51 }, (_, i) => entry(i));
   await open(page, 'completed');
-  await hook(page, 'report').locator('summary').click();
+  await hook(page, 'report').locator(':scope > summary').click();
   await expect(hook(page, 'report-entry')).toHaveCount(50);
   await hook(page, 'more').click();
   await expect(hook(page, 'report-entry')).toHaveCount(51);
   expect(f.reportReads).toContain(50);
   expect(f.writes).toEqual([]);
 });
+
+for (const [language, width] of [
+  ['fr-CA', 1440],
+  ['en', 390]
+] as const) {
+  test(`batch progress stays visible and report dossiers open with the keyboard without mutations in ${language}`, async ({
+    page
+  }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    const f = await fixture(page, language);
+    f.state = runState(3, 'completed');
+    f.entries = [entry(0), entry(1), entry(2)];
+    await open(page, 'completed', false);
+    await page.evaluate(() => {
+      document.documentElement.style.zoom = '1.25';
+    });
+
+    const processing = hook(page, 'processing');
+    const processingToggle = processing.locator(':scope > summary');
+    await expect(processing).toHaveJSProperty('open', false);
+    await expect(hook(page, 'state')).toBeVisible();
+    await expectProgress(page, 3);
+    await expect(
+      processing.getByRole('progressbar', {
+        name: language === 'en' ? 'Checked dossiers' : 'Dossiers vérifiés'
+      })
+    ).toBeVisible();
+    await expect(hook(page, 'start')).toBeHidden();
+    await processing.screenshot({
+      path: testInfo.outputPath('suivi-du-lot-replie.png')
+    });
+    await processingToggle.focus();
+    await processingToggle.press('Enter');
+    await expect(processing).toHaveJSProperty('open', true);
+
+    const report = hook(page, 'report');
+    const reportToggle = report.locator(':scope > summary');
+    await expect(report).toHaveJSProperty('open', false);
+    await reportToggle.focus();
+    await reportToggle.press('Space');
+    await expect(report).toHaveJSProperty('open', true);
+    const dossiers = hook(page, 'entry-details');
+    await expect(dossiers).toHaveCount(3);
+    for (const dossier of await dossiers.all())
+      await expect(dossier).toHaveJSProperty('open', false);
+    await page.locator('[data-og7="admin-guidance-panel"]').screenshot({
+      path: testInfo.outputPath('suivi-du-lot-rapport.png')
+    });
+
+    const delivered = dossiers.first();
+    const deliveredToggle = delivered.locator(':scope > summary');
+    await expect(deliveredToggle).toContainText('DEMO-BALANCE-1');
+    await expect(deliveredToggle).toContainText(
+      language === 'en' ? 'Balanced' : 'Équilibré'
+    );
+    await expect(hook(page, 'before').first()).toBeHidden();
+    await expect(hook(page, 'proof')).toBeHidden();
+    await deliveredToggle.focus();
+    await deliveredToggle.press('Enter');
+    await expect(delivered).toHaveJSProperty('open', true);
+    await expect(hook(page, 'before').first()).toBeVisible();
+    await expect(hook(page, 'after').first()).toBeVisible();
+    await expect(hook(page, 'proof')).toBeVisible();
+    await expect(
+      delivered.getByRole('link', {
+        name: language === 'en' ? 'View the evidence' : 'Consulter la preuve'
+      })
+    ).toHaveAttribute('href', 'https://example.test/synthetic-delivery');
+    await expect(delivered).toContainText('synthetic-observation-1');
+
+    const draft = dossiers.nth(1);
+    await draft.locator(':scope > summary').focus();
+    await draft.locator(':scope > summary').press('Space');
+    await expect(draft).toHaveJSProperty('open', true);
+    await expect(
+      draft.locator('[data-og7="automatic-portfolio-due"]')
+    ).toBeVisible();
+    await expect(draft).toContainText('synthetic-draft-audit');
+    for (const region of [processing, report, delivered, draft]) {
+      const bounds = await region.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          left: rect.left,
+          right: rect.right,
+          viewport: element.ownerDocument.documentElement.clientWidth,
+          overflow: element.scrollWidth - element.clientWidth
+        };
+      });
+      expect(bounds.left).toBeGreaterThanOrEqual(-1);
+      expect(bounds.right).toBeLessThanOrEqual(bounds.viewport + 1);
+      expect(bounds.overflow).toBeLessThanOrEqual(1);
+    }
+
+    await deliveredToggle.focus();
+    await deliveredToggle.press('Space');
+    await expect(delivered).toHaveJSProperty('open', false);
+    await expect(deliveredToggle).toBeFocused();
+    await expect(hook(page, 'proof')).toBeHidden();
+    await processingToggle.focus();
+    await processingToggle.press('Enter');
+    await expect(processing).toHaveJSProperty('open', false);
+    await expect(processingToggle).toBeFocused();
+    await expect(hook(page, 'state')).toBeVisible();
+    await expectProgress(page, 3);
+    expect(f.writes).toEqual([]);
+    expect(f.state.run?.processedCount).toBe(3);
+  });
+}
 
 test('a report can hand off its exact payment to the existing preparation tool without turning a completed journey into qualified benefit evidence', async ({
   page
@@ -1552,8 +1663,11 @@ test('a missing obligation keeps the accepted offer visible with its quantity an
   f.state = { ...state, run: { ...state.run!, latestEntry: missing }, balance };
   f.entries = [entry(0), entry(1), missing];
   await open(page, 'completed');
-  await hook(page, 'report').locator('summary').click();
+  await hook(page, 'report').locator(':scope > summary').click();
   const report = hook(page, 'report-entry').last();
+  await report
+    .locator('[data-og7="automatic-portfolio-entry-details"] > summary')
+    .click();
   await expect(report).toContainText('quantité promise : 2');
   await expect(report).toContainText('Durée promise : 30 jours');
   await expect(report).toContainText(
@@ -1585,7 +1699,7 @@ test('an invalid confirmed payment explicitly rejects starting without uncertain
   );
   await expect(hook(page, 'reconcile')).toHaveCount(0);
   await expect(hook(page, 'completion')).toHaveCount(0);
-  await hook(page, 'report').locator('summary').click();
+  await hook(page, 'report').locator(':scope > summary').click();
   await expect(hook(page, 'report-entry')).toHaveCount(3);
   expect(f.writes).toHaveLength(1);
   expect(f.writes[0]?.pathname).toBe('/api/admin/automatic-runs');

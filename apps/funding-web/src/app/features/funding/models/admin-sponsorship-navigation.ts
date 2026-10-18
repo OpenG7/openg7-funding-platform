@@ -11,6 +11,7 @@ const sectionTabs = {
   media: 'media',
   billing: 'billing',
   publication: 'publication',
+  agreement: 'publication',
   refund: 'refund',
   audit: 'audit'
 } as const satisfies Record<string, SponsorshipDossierTab>;

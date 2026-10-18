@@ -1,0 +1,94 @@
+<section
+  [class.is-ready]="ready() || receipt().status === 'approved'"
+  [attr.aria-label]="t('pilot.title')"
+>
+  <header>
+    <h4>
+      {{
+        t(
+          receipt().status === 'approved'
+            ? 'approved'
+            : ready()
+              ? 'pilot.ready'
+              : 'pilot.title'
+        )
+      }}
+    </h4>
+    <span
+      data-og7="preparation-pilot-progress"
+      role="status"
+      [attr.data-og7-completed]="projection().completed"
+      [attr.data-og7-total]="projection().total"
+    >
+      {{
+        t('pilot.progress', {
+          completed: projection().completed,
+          total: projection().total
+        })
+      }}
+    </span>
+  </header>
+  <progress
+    [value]="projection().completed"
+    [max]="projection().total || 1"
+    [attr.aria-label]="t('pilot.progressLabel')"
+  ></progress>
+  <div class="pilot-content">
+    @if (!ready() && receipt().status !== 'approved') {
+      <openg7-preparation-issue-list
+        [issues]="projection().issues"
+        [selectedId]="selection()"
+        (selected)="select($event)"
+      />
+    }
+    <div>
+      @if (!ready() && receipt().status !== 'approved') {
+        <openg7-preparation-issue-detail [issue]="issue()" [ready]="ready()" />
+      }
+      <button
+        #opener
+        type="button"
+        class="admin-button pilot-open"
+        data-og7="preparation-pilot-actions"
+        [disabled]="busy()"
+        [attr.aria-expanded]="mode() === 'open'"
+        [attr.aria-controls]="idPrefix() + '-pilot-actions'"
+        (click)="open()"
+      >
+        {{ t('pilot.actionsLabel') }}
+      </button>
+    </div>
+  </div>
+  <div
+    data-og7="preparation-pilot-controller"
+    [attr.data-og7-mode]="mode()"
+    [hidden]="mode() !== 'open'"
+  >
+    <openg7-context-controller
+      [hidden]="mode() !== 'open'"
+      [context]="context()"
+      [mode]="mode()"
+      (modeChange)="changeMode($event)"
+      [title]="t('pilot.controller')"
+      [contextLabel]="
+        issue()
+          ? t(issue()!.titleKey)
+          : t(ready() ? 'pilot.ready' : 'pilot.waiting')
+      "
+      [collapseLabel]="t('pilot.actions.back')"
+      [expandLabel]="t('pilot.actionsLabel')"
+      [actionsId]="idPrefix() + '-pilot-actions'"
+    >
+      @for (action of actions(); track action.id) {
+        <button
+          openg7-context-controller-action
+          data-og7="preparation-pilot-action"
+          [attr.data-og7-id]="action.id"
+          [action]="action"
+          [context]="context()"
+          (actionRequested)="request($event)"
+        ></button>
+      }
+    </openg7-context-controller>
+  </div>
+</section>

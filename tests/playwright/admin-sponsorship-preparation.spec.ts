@@ -9,6 +9,10 @@ import type {
 } from '@openg7/funding-core';
 
 import { expect, sampledFrames, test } from './support/test.js';
+import {
+  adminController,
+  installAdminController
+} from './support/admin-controller.js';
 import { moderationFixture } from './support/moderation.js';
 import {
   actor,
@@ -30,6 +34,21 @@ const card = (page: Page) =>
   wrapper(page).locator('[data-og7="preparation-receipt"]');
 const hook = (page: Page, name: string) =>
   wrapper(page).locator(`[data-og7="preparation-receipt-${name}"]`);
+
+async function approveReceipt(
+  page: Page,
+  activation: 'click' | 'Enter' = 'click'
+) {
+  const button = hook(page, 'approve');
+  if (activation === 'click') await button.click();
+  else {
+    await button.focus();
+    await page.keyboard.press(activation);
+  }
+  const confirmation = page.locator('[data-og7="confirm-action"]');
+  await expect(confirmation).toBeVisible();
+  await confirmation.click();
+}
 
 function dossierReceipt(position: number): AdminDossierPreparationReceipt {
   const source = receipt(position);
@@ -483,7 +502,7 @@ for (const language of ['fr-CA', 'en']) {
       f.approvalFailure = { status: 503, code: failure.code };
       await page.goto(path());
       await expectDossier(page);
-      await hook(page, 'approve').click();
+      await approveReceipt(page);
       await expect(hook(page, 'error')).toContainText(failure.message);
       await expectDossier(page);
       await expect(hook(page, 'refresh')).toBeEnabled();
@@ -653,6 +672,99 @@ test('the dossier receipt and a batch receipt for the same payment keep separate
   expect(f.writes).toEqual([]);
 });
 
+test('a dossier agreement refreshes the mounted batch receipt during a pending read and its old response cannot restore unapproved facts', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  const f = await fixture(page);
+  let releaseOldRead!: () => void;
+  const oldReadGate = new Promise<void>((resolve) => {
+    releaseOldRead = resolve;
+  });
+  let preparationReads = 0;
+  await page.route('**/api/admin/automatic-runs**', async (route) => {
+    expect(route.request().method()).toBe('GET');
+    const url = new URL(route.request().url());
+    if (url.pathname.endsWith('/preparation')) {
+      const read = ++preparationReads;
+      const current = f.receipts.get(firstId)!;
+      const snapshot = {
+        ...receipt(1),
+        totalCount: 1,
+        processedCount: 1,
+        version: current.version,
+        status: current.status,
+        canApprove: current.canApprove,
+        approval: current.approval,
+        approvalHistory: current.approvalHistory
+      };
+      if (read === 1) await oldReadGate;
+      return route.fulfill({ json: snapshot });
+    }
+    if (url.pathname.endsWith('/report'))
+      return route.fulfill({ json: { entries: [], nextCursor: null } });
+    return route.fulfill({
+      json: {
+        run: {
+          id: runId,
+          version: 2,
+          status: 'paused',
+          startedAt: observedAt,
+          updatedAt: observedAt,
+          observedAt,
+          pass: 1,
+          cursor: 1,
+          dossierCount: 1,
+          processedCount: 1,
+          balancedCount: 0,
+          outstandingCount: 1,
+          unknownCount: 0,
+          uncoveredCount: 0,
+          newPaymentCount: 0,
+          currencyTotals: [{ currency: 'CAD', amountMinor: 2500 }],
+          latestEntry: null,
+          nextContributionId: null,
+          globalBalanced: false
+        },
+        balance: null
+      }
+    });
+  });
+  await page.goto(path());
+  await expectDossier(page);
+  await page.locator('[data-og7="admin-guidance-toggle"]').click();
+  await page.locator('[data-og7="admin-guidance-automatic-mode"]').click();
+  const batch = page.locator('[data-og7="preparation-receipts-carousel"]');
+  const batchReceipt = batch.locator('[data-og7="preparation-receipt"]');
+  const batchStamp = batch.locator('[data-og7="preparation-receipt-stamp"]');
+  await expect(batch).toBeVisible();
+  await expect.poll(() => preparationReads).toBe(1);
+  await expect(batchReceipt).toHaveCount(0);
+  expect(f.writes).toEqual([]);
+
+  await approveReceipt(page);
+  await expect(hook(page, 'stamp')).toContainText(actor);
+  // This second GET must be caused by the owner's confirmed mutation while the
+  // first GET is still pending; no refresh control or raw fetch is invoked.
+  await expect.poll(() => preparationReads).toBeGreaterThan(1);
+  await expect(batchStamp).toContainText(actor);
+  const lateResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname ===
+        '/api/admin/automatic-runs/preparation' &&
+      response.request().method() === 'GET'
+  );
+  releaseOldRead();
+  await (await lateResponse).finished();
+  await sampledFrames(page);
+  await expect(batchStamp).toContainText(actor);
+  await expect(
+    batch.locator('[data-og7="preparation-receipt-approve"]')
+  ).toBeDisabled();
+  expect(f.writes).toHaveLength(1);
+  expect(f.writes[0]!.pathname).toBe(`${receiptPath}/approve`);
+});
+
 test('approving a dossier preparation records its version and actor without publishing or moving away', async ({
   page
 }) => {
@@ -663,7 +775,7 @@ test('approving a dossier preparation records its version and actor without publ
   });
   await page.goto(path());
   await expectDossier(page);
-  await hook(page, 'approve').click();
+  await approveReceipt(page);
   await expect(hook(page, 'approve')).toBeDisabled();
   await expect(hook(page, 'stamp')).toHaveCount(0);
   await expect.poll(() => f.writes.length).toBe(1);
@@ -702,7 +814,7 @@ test('a delayed approval response cannot restore an approved stamp after the par
   });
   await page.goto(path());
   await expectDossier(page);
-  await hook(page, 'approve').click();
+  await approveReceipt(page);
   await expect.poll(() => f.receipts.get(firstId)?.status).toBe('approved');
   const committed = f.receipts.get(firstId)!;
   expect(committed.approval).toMatchObject({
@@ -776,7 +888,7 @@ test('a changed preparation reloads À revoir and keeps the previous version agr
       body: 'Présentation privée synthétique révisée.'
     }))
   });
-  await hook(page, 'approve').click();
+  await approveReceipt(page);
   await expect(hook(page, 'error')).toBeVisible();
   await expect(card(page)).toContainText('À revoir');
   await expectDossier(page);
@@ -893,8 +1005,7 @@ for (const [width, language] of [
       .include('[data-og7="dossier-preparation"]')
       .analyze();
     expect(audit.violations).toEqual([]);
-    await hook(page, 'approve').focus();
-    await page.keyboard.press('Enter');
+    await approveReceipt(page, 'Enter');
     await expect(hook(page, 'stamp')).toContainText(actor);
     await expect(card(page)).toBeFocused();
     await expectDossier(page);
@@ -902,3 +1013,179 @@ for (const [width, language] of [
     await expect(wrapper(page)).not.toContainText('admin.automatic.');
   });
 }
+
+test('the dossier approval button requires its own explicit confirmation and cancellation preserves the current receipt', async ({
+  page
+}) => {
+  const f = await fixture(page);
+  await page.goto(path());
+  await expectDossier(page);
+  const approval = hook(page, 'approve');
+  await approval.focus();
+  await page.keyboard.press('Enter');
+  const confirmation = page.locator('[data-og7="confirm-action"]');
+  await expect(confirmation).toBeVisible();
+  await expect(hook(page, 'stamp')).toHaveCount(0);
+  expect(f.writes).toEqual([]);
+  await page.keyboard.press('Escape');
+  await expect(confirmation).toHaveCount(0);
+  await expect(approval).toBeFocused();
+  await expectDossier(page);
+  expect(f.receipts.get(firstId)?.status).toBe('ready');
+  expect(f.writes).toEqual([]);
+});
+
+for (const restriction of ['reader', 'server-disallowed'] as const) {
+  test(`the dossier preparation controller keeps final approval disabled for ${restriction} despite completed checks`, async ({
+    page
+  }) => {
+    const f = await fixture(page);
+    const current = f.receipts.get(firstId)!;
+    f.receipts.set(firstId, {
+      ...current,
+      status: 'ready',
+      canApprove: restriction === 'reader'
+    });
+    if (restriction === 'reader') f.role = 'reader';
+    await page.goto(path());
+    await expectDossier(page);
+    const pilot = wrapper(page).locator('[data-og7="preparation-pilot"]');
+    await pilot.locator('[data-og7="preparation-pilot-actions"]').click();
+    await expect(pilot).toHaveAttribute('data-og7-mode', 'open');
+    const approve = pilot.locator(
+      '[data-og7="preparation-pilot-action"][data-og7-id="preparation-approve"]'
+    );
+    await expect(approve).toBeVisible();
+    await expect(approve).toBeDisabled();
+    await expect(hook(page, 'approve')).toBeDisabled();
+    await expect(approve).toHaveAccessibleName(/\S/);
+    await page.keyboard.press('Escape');
+    await expect(pilot).toHaveAttribute('data-og7-mode', 'peek');
+    await expect(
+      pilot.locator('[data-og7="preparation-pilot-actions"]')
+    ).toBeFocused();
+    expect(f.writes).toEqual([]);
+    expect(
+      f.calls.filter((call) => call.pathname.includes('/automatic-runs'))
+    ).toEqual([]);
+  });
+}
+
+test('Gamepad bumpers leave the preparation issues for Actions and publication settings and return to global navigation without a write', async ({
+  page
+}) => {
+  // The round trip uses sampled hardware input through the whole dossier.
+  test.setTimeout(60000);
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await installAdminController(page);
+  const f = await fixture(page);
+  const current = f.receipts.get(firstId)!;
+  f.receipts.set(firstId, {
+    ...current,
+    status: 'incomplete',
+    canApprove: false,
+    authorizations: current.authorizations.map((check) =>
+      check.code === 'moderation_review'
+        ? { ...check, state: 'missing' }
+        : check
+    ),
+    blockers: [
+      { code: 'moderation_review_required', adminUrl: path('overview') }
+    ]
+  });
+  await page.goto(path('overview'));
+  const xbox = adminController(page);
+  const tabs = page.locator('[data-og7="dossier-tabs"]');
+  await xbox.activate(
+    tabs.getByRole('button', { name: 'Publication', exact: true })
+  );
+  await expectDossier(page);
+  const pilot = wrapper(page).locator('[data-og7="preparation-pilot"]');
+  const issues = pilot.locator('[data-og7="preparation-issue"]');
+  const actions = pilot.locator('[data-og7="preparation-pilot-actions"]');
+  const advanced = page.locator('[data-og7="publication-advanced"]');
+  await expect(issues).toHaveCount(6);
+
+  // reach uses real LB/RB samples. Neither entering nor leaving the issue list
+  // sets focus directly or replaces the application's navigation decisions.
+  await xbox.reach(issues.first());
+  await expect(issues.first()).toBeFocused();
+  await xbox.reach(actions);
+  await expect(actions).toBeFocused();
+  await expect(pilot).toHaveAttribute('data-og7-mode', 'peek');
+  await xbox.activate(advanced.locator(':scope > summary'));
+  await expect(advanced).toHaveJSProperty('open', true);
+  await expect(advanced.locator(':scope > summary')).toBeFocused();
+  expect(f.writes).toEqual([]);
+
+  await xbox.reach(actions);
+  await expect(actions).toBeFocused();
+  await xbox.reach(issues.first());
+  await expect(issues.first()).toBeFocused();
+  // reach also honours the visibility guard's separate reveal gesture.
+  // Leaving backwards must reach the host instead of wrapping in the list.
+  await xbox.reach(hook(page, 'refresh'));
+  await expect(hook(page, 'refresh')).toBeFocused();
+  await expect(pilot).toHaveAttribute('data-og7-mode', 'peek');
+  expect(f.writes).toEqual([]);
+});
+
+test('the dossier pilot supports any number of server checks and updates only after its receipt is refreshed', async ({
+  page
+}) => {
+  const f = await fixture(page);
+  const current = f.receipts.get(firstId)!;
+  f.receipts.set(firstId, {
+    ...current,
+    status: 'incomplete',
+    canApprove: false,
+    checks: [
+      { code: 'accepted_offer', state: 'missing' },
+      { code: 'content_prepared', state: 'complete' },
+      { code: 'payment_confirmed', state: 'complete' },
+      { code: 'dossier_examined', state: 'not_required' }
+    ],
+    authorizations: [{ code: 'moderation_review', state: 'missing' }],
+    blockers: [
+      {
+        code: 'commitment_needs_confirmation',
+        adminUrl: path('publication')
+      },
+      { code: 'moderation_review_required', adminUrl: path('overview') }
+    ]
+  });
+  await page.goto(path());
+  await expectDossier(page);
+  const pilot = wrapper(page).locator('[data-og7="preparation-pilot"]');
+  const progress = pilot.locator('[data-og7="preparation-pilot-progress"]');
+  await expect(progress).toHaveAttribute('data-og7-total', '4');
+  await expect(progress).toHaveAttribute('data-og7-completed', '2');
+  await expect(pilot.locator('[data-og7="preparation-issue"]')).toHaveCount(4);
+
+  const previous = f.receipts.get(firstId)!;
+  f.receipts.set(firstId, {
+    ...previous,
+    version: 'synthetic-dossier-pilot-refreshed',
+    status: 'ready',
+    canApprove: true,
+    checks: previous.checks.map((check) =>
+      check.code === 'accepted_offer' ? { ...check, state: 'complete' } : check
+    ),
+    authorizations: [{ code: 'moderation_review', state: 'complete' }],
+    blockers: []
+  });
+  await expect(progress).toHaveAttribute('data-og7-completed', '2');
+  await hook(page, 'refresh').click();
+  await expect(progress).toHaveAttribute('data-og7-completed', '4');
+  await expect(progress).toHaveAttribute('data-og7-total', '4');
+  await pilot.locator('[data-og7="preparation-pilot-actions"]').click();
+  await expect(
+    pilot.locator(
+      '[data-og7="preparation-pilot-action"][data-og7-id="preparation-approve"]'
+    )
+  ).toBeEnabled();
+  expect(f.writes).toEqual([]);
+  expect(f.receiptReads.filter((id) => id === firstId).length).toBeGreaterThan(
+    1
+  );
+});

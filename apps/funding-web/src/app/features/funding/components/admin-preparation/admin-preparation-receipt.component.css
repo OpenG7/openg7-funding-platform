@@ -80,6 +80,9 @@ p {
   margin-block: 0.45rem 0;
   font-size: 0.8rem;
 }
+.receipt-status[hidden] {
+  display: none;
+}
 .fact-positive {
   color: var(--admin-success);
 }
@@ -101,6 +104,16 @@ p {
   border-block-start: 1px dashed var(--admin-border);
   margin-block-start: 0.6rem;
   padding-block-start: 0.6rem;
+}
+.receipt-pilot {
+  margin-block-start: 0.6rem;
+  padding-block-start: 0.65rem;
+  border-block-start: 1px dashed var(--admin-border);
+  container-type: inline-size;
+}
+.receipt-pilot.ready-pilot {
+  margin-block-start: 0.3rem;
+  padding-block-start: 0.35rem;
 }
 .receipt-money > strong {
   text-align: end;
