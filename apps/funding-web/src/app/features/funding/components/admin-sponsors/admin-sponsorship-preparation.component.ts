@@ -34,6 +34,10 @@ import {
 } from '../admin-preparation/admin-preparation-error.js';
 import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
 import { PreparationAssistanceSummaryController } from '../admin-preparation/preparation-assistance-summary.controller.js';
+import {
+  PreparationReturnService,
+  type PreparationReturnRequest
+} from '../admin-preparation/preparation-return.service.js';
 
 /** The open sponsorship's receipt, independent of an automatic run or publication. */
 @Component({
@@ -76,6 +80,9 @@ export class AdminSponsorshipPreparationComponent {
   private readonly confirmation = inject(AdminConfirmationService);
   private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
+  private readonly returnNavigation = inject(PreparationReturnService);
+  private returnSequence = 0;
+  private returnRequest: PreparationReturnRequest | null = null;
   private restoreFocus: (() => void) | null = null;
   private observedRevision = this.admin.dataRevision();
   private pendingRevision = -1;
@@ -191,6 +198,62 @@ export class AdminSponsorshipPreparationComponent {
           void this.load();
       });
     });
+    effect(() => {
+      const request = this.returnNavigation.restoreRequest();
+      const dossierId = this.contributionId();
+      const ready = this.languageReady();
+      const approving = this.approving();
+      if (
+        !request ||
+        request.origin.kind !== 'dossier' ||
+        request.origin.contributionId !== dossierId ||
+        !ready ||
+        approving
+      )
+        return;
+      untracked(() => {
+        if (
+          this.returnSequence === request.sequence ||
+          !this.returnNavigation.current(request)
+        )
+          return;
+        this.returnSequence = request.sequence;
+        this.returnRequest = request;
+        this.selectedIssueId.set(request.origin.issueId);
+        this.refresh();
+      });
+    });
+  }
+
+  private finishReturn(receipt?: AdminDossierPreparationReceipt): void {
+    const request = this.returnRequest;
+    if (
+      !request ||
+      this.disposed ||
+      !this.returnNavigation.current(request) ||
+      (receipt && receipt.contributionId !== request.origin.contributionId)
+    )
+      return;
+    if (
+      receipt?.contributionId === request.origin.contributionId &&
+      projectPreparationPilot(receipt).issues.some(
+        (issue) => issue.id === request.origin.issueId
+      )
+    )
+      this.selectedIssueId.set(request.origin.issueId);
+    afterNextRender(
+      () => {
+        if (
+          this.disposed ||
+          this.loading() ||
+          (receipt && this.receipt() !== receipt)
+        )
+          return;
+        this.returnRequest = null;
+        this.returnNavigation.finish(request, this.element.nativeElement);
+      },
+      { injector: this.injector }
+    );
   }
 
   t(key: string, params?: Record<string, unknown>): string {
@@ -220,6 +283,7 @@ export class AdminSponsorshipPreparationComponent {
     } catch (error) {
       if (!this.current(dossierId, identity) || ticket !== this.serial) return;
       this.error.set(preparationError(error, 'read'));
+      this.finishReturn();
     } finally {
       if (ticket === this.serial) this.loading.set(false);
     }
@@ -247,6 +311,7 @@ export class AdminSponsorshipPreparationComponent {
       )
     );
     this.receipt.set(receipt);
+    this.finishReturn(receipt);
     const restore = this.restoreFocus;
     this.restoreFocus = null;
     if (restore) afterNextRender(restore, { injector: this.injector });

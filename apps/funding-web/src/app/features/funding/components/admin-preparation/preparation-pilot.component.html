@@ -54,9 +54,6 @@
           [assistanceSummary]="currentAssistance()"
           [assistanceBusy]="assistanceBusy()"
           [assistanceError]="assistanceError()"
-          [assistanceActions]="assistanceActions()"
-          [context]="context()"
-          (assistanceRequested)="requestAssistance($event)"
           (refreshRequested)="assistanceRefreshRequested.emit()"
         />
       }

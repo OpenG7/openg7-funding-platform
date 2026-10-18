@@ -42,13 +42,45 @@
         [offer]="c.offerDraft()"
         [reason]="c.reason()"
         [selected]="!!c.assistance()"
+        [readyToConfirm]="c.assistanceCanApply()"
+        [formDirty]="
+          c.benefits().length > 0 ||
+          c.evidence().trim().length > 0 ||
+          c.reason().trim().length > 0 ||
+          c.confirmation().trim().length > 0
+        "
         [disabled]="locked()"
         (selectionChange)="c.updateAssistance($event)"
         (useForm)="useAssistance($event)"
+        (documentClause)="documentClause($event)"
+        (reasonRequested)="focusSharedReason()"
         (reasonChange)="c.reason.set($event)"
         (manual)="manualQualification()"
-        (invalidated)="c.invalidateAssistance()"
+        (invalidated)="c.invalidateAssistance(); documentingClauseId.set('')"
       />
+    }
+    @if (hasSharedReason()) {
+      <label
+        >{{ 'admin.preparationAssistance.reviewReason' | translate }}
+        <textarea
+          data-og7="assistance-review-reason"
+          [value]="c.reason()"
+          (input)="c.reason.set(value($event))"
+          [disabled]="locked() || m.state !== 'needs_confirmation'"
+          [attr.aria-invalid]="
+            assistanceReview()?.c.error() === 'reviewInvalid' &&
+            c.reason().trim().length < 5
+              ? 'true'
+              : null
+          "
+          aria-describedby="assistance-reason-help"
+          maxlength="2000"
+          rows="2"
+        ></textarea>
+      </label>
+      <p id="assistance-reason-help">
+        {{ 'admin.preparationAssistance.reasonHelp' | translate }}
+      </p>
     }
     <p>
       {{ 'admin.commitments.provenance.' + m.provenance | translate }} ·
@@ -156,6 +188,26 @@
           [attr.aria-describedby]="c.error() ? 'commitments-error' : null"
         >
           <h4>{{ 'admin.commitments.qualify' | translate }}</h4>
+          @if (documentingClauseId()) {
+            <p>
+              {{
+                'admin.preparationAssistance.documentingClause'
+                  | translate: { clause: documentingClauseNumber() }
+              }}
+            </p>
+            <button
+              type="button"
+              class="admin-button"
+              data-og7="commitments-return-clause"
+              [disabled]="locked()"
+              (click)="returnToClause()"
+            >
+              {{
+                'admin.preparationAssistance.returnToClause'
+                  | translate: { clause: documentingClauseNumber() }
+              }}
+            </button>
+          }
           @if (c.assistance()) {
             <p data-og7="assistance-form-scope">
               {{ 'admin.preparationAssistance.formScope' | translate }}
@@ -326,16 +378,18 @@
                 data-og7="commitments-evidence"
               ></textarea>
             </label>
-            <label
-              >{{ 'admin.commitments.reason' | translate
-              }}<textarea
-                [value]="c.reason()"
-                (input)="c.reason.set(value($event))"
-                maxlength="2000"
-                required
-                data-og7="commitments-reason"
-              ></textarea>
-            </label>
+            @if (!hasSharedReason()) {
+              <label
+                >{{ 'admin.commitments.reason' | translate
+                }}<textarea
+                  [value]="c.reason()"
+                  (input)="c.reason.set(value($event))"
+                  maxlength="2000"
+                  required
+                  data-og7="commitments-reason"
+                ></textarea>
+              </label>
+            }
             <label
               >{{ 'admin.commitments.confirmation' | translate }}
               <code>{{ dossier().contributionId }}</code
@@ -347,8 +401,50 @@
                 required
                 data-og7="commitments-confirmation"
             /></label>
+            @if (c.assistance() && qualificationBlockers().length) {
+              <aside
+                class="qualification-blockers"
+                data-og7="assistance-qualification-blockers"
+                aria-live="polite"
+              >
+                <p>
+                  {{ 'admin.preparationAssistance.blockers.title' | translate }}
+                </p>
+                <ul>
+                  @for (
+                    blocker of qualificationBlockers().slice(0, 5);
+                    track $index
+                  ) {
+                    <li>
+                      <button
+                        type="button"
+                        data-og7="assistance-qualification-blocker"
+                        (click)="focusBlocker(blocker)"
+                      >
+                        {{
+                          'admin.preparationAssistance.blockers.' + blocker.code
+                            | translate: { clause: blocker.clause }
+                        }}
+                      </button>
+                    </li>
+                  }
+                </ul>
+                @if (qualificationBlockers().length > 5) {
+                  <p>
+                    {{
+                      'admin.preparationAssistance.blockers.more'
+                        | translate
+                          : { count: qualificationBlockers().length - 5 }
+                    }}
+                  </p>
+                }
+              </aside>
+            }
             <button
               type="submit"
+              [class.qualification-primary]="
+                !!c.assistance() && c.assistanceCanApply()
+              "
               [disabled]="
                 !c.benefits().length ||
                 (c.assistance() && !c.assistanceCanApply())

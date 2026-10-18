@@ -253,6 +253,12 @@ serveur, hors éléments non requis. Son total varie selon le bon; les blocages
 complémentaires ne l'augmentent pas. Cliquer, lire ou fermer une commande ne
 valide aucun contrôle.
 
+Le Pilotage regroupe les vérifications et autorisations du bon. Le volet replié
+**Détails de l’accord et traçabilité** conserve les clauses de l’offre, la date du
+paiement, les états des brouillons, le bilan des engagements et la version
+complète, sans répéter ces listes de contrôles. La relecture du contenu exact et
+l’historique des accords gardent leurs volets distincts.
+
 Pour les accords historiques, la destination de l’accord donne aussi accès à
 l’[assistance locale versionnée](../technical/preparation-assistance.md), réservée
 au propriétaire. Le texte, le job et la revue humaine ont leurs propres versions ;
@@ -263,9 +269,20 @@ Le guide et le bon affichent aussi un résumé compact de cette assistance pour 
 contrôle des publications promises : attente, traitement, résultat à examiner,
 revue, erreur ou péremption. Ce résumé ne contient ni accord ni notes privées et
 ne modifie pas la version du bon. **Examiner**, **Voir la source** et **Relancer**
-partagent les mêmes métadonnées et le même dispatcher entre boutons et controller.
+sont regroupés dans **Actions contextuelles**, accessibles à la souris, au clavier
+et à la manette. Le résumé conserve ses états et explications ainsi que
+**Actualiser** en cas d’erreur de lecture.
 Une relance reste explicite et est désactivée pendant un job actif. La révision
 de l’assistance invalide les commandes en cours comme un changement de sélection.
+
+L’action **Examiner** rejoint la revue des prestations. Les repères Source,
+Revue des prestations et Confirmation distinguent lecture, brouillon et accord.
+Depuis une clause, **Documenter cette prestation** ouvre un brouillon dans le
+formulaire métier ; **Revenir à la clause** permet ensuite de la relier. Le motif
+global n’a qu’une saisie. Les blocages de l’application donnent accès au point à
+compléter. Le retour au Pilotage relit le bon et restaure son contrôle ; le repère
+est limité à la visite et ne conserve aucun texte privé. Voir le
+[parcours de revue](../technical/preparation-assistance.md#revue-humaine-et-application).
 
 L'action principale rejoint l'écran propriétaire de l'accord, de la modération
 ou de la présentation. Les détails et l'historique restent consultables. Après

@@ -114,8 +114,9 @@ approbation du bon métier. Les compteurs de clauses n’augmentent pas le compt
 des contrôles satisfaits.
 
 Le [registre sémantique](../../packages/funding-core/src/preparation-assistance-summary.ts)
-projette **Examiner**, **Voir la source** et **Relancer** pour les boutons du détail
-et le Context Controller. Les deux premières actions rejoignent l’écran existant
+projette **Examiner**, **Voir la source** et **Relancer** uniquement dans le Context
+Controller du pilotage. Le détail d’assistance conserve les états, explications et
+une actualisation de lecture en cas d’erreur. Les deux premières actions rejoignent l’écran existant
 et son focus, sans écriture. La relance utilise `/runs?view=summary`, les versions
 courantes et un UUID conservé pour une reprise identique. Elle reste désactivée
 pendant un job actif. Le dernier résultat réussi reste consultable après rejet,
@@ -138,6 +139,25 @@ lecture du formulaire complet. Ses brouillons restent préservés jusqu’à la
 résolution explicite des conflits de version.
 
 ## Revue humaine et application
+
+L’écran distingue source, revue des prestations et confirmation. Une source déjà
+enregistrée se consulte en lecture ; son éditeur s’ouvre explicitement et reste
+ouvert en cas de saisie ou conflit. **Documenter cette prestation** ouvre le
+formulaire métier depuis une clause représentable : une première ligne vide de
+brouillon est ajoutée si nécessaire, sans remplir ni appliquer une offre. Le
+retour à la clause conserve les prestations saisies. Le motif global est saisi
+une seule fois et partagé avec la qualification ; les justifications de clauses
+restent distinctes. La progression compte des résolutions de brouillon, jamais
+des engagements appliqués. Les blocages situés près de la confirmation donnent
+accès aux clauses ou champs concernés ; les validateurs métier restent requis.
+
+**Retour au Pilotage de la préparation** conserve en mémoire uniquement une route
+admin autorisée, le dossier, le contrôle et la position du passage. Il relit le
+bon serveur avant de restaurer la sélection et le focus, sans lancer de passage
+ni approuver un contrôle. Ce repère disparaît au rechargement complet ou au
+changement d’identité/session. Un retour au guide qui quitterait une saisie non
+enregistrée exige de confirmer son abandon. Si le contrôle a disparu, le focus
+revient aux actions disponibles ou à l’actualisation en cas d’erreur de lecture.
 
 Chaque clause reste à résoudre : rattachement à un bénéfice de l’offre, attente,
 terme non représentable, ou exclusion motivée hors périmètre contractuel. Une

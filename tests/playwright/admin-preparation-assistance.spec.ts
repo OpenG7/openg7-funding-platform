@@ -166,6 +166,7 @@ async function fixtures(
   const fixture = {
     state: initial(!options.empty),
     reads: 0,
+    receiptReads: 0,
     summaryReads: 0,
     compactRuns: 0,
     personal: false,
@@ -209,8 +210,12 @@ async function fixtures(
     approval: null,
     approvalHistory: []
   });
-  await page.route('**/api/admin/sponsorships/preparation?**', async (route) =>
-    route.fulfill({ json: receipt() })
+  await page.route(
+    '**/api/admin/sponsorships/preparation?**',
+    async (route) => {
+      fixture.receiptReads++;
+      return route.fulfill({ json: receipt() });
+    }
   );
   await page.route(`**${endpoint}**`, async (route) => {
     const request = route.request();
@@ -349,8 +354,92 @@ async function open(page: Page) {
   await expect(hook(page, 'admin-commitments')).toBeVisible();
 }
 
-async function documentBenefit(page: Page) {
-  await hook(page, 'commitments-add-benefit').click();
+async function guideFixtures(
+  page: Page,
+  receipt: () => AdminDossierPreparationReceipt,
+  total = 1
+) {
+  const runId = '10000000-0000-4000-8000-000000009901';
+  const guide = {
+    runId,
+    reads: [] as { runId: string | null; position: number }[],
+    commands: [] as string[]
+  };
+  await page.route('**/api/admin/automatic-runs**', async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    if (request.method() !== 'GET') {
+      guide.commands.push(url.pathname);
+      return route.fulfill({
+        status: 405,
+        json: { error: 'Unexpected automatic guide command' }
+      });
+    }
+    if (url.pathname.endsWith('/preparation')) {
+      const position = Number(url.searchParams.get('position'));
+      guide.reads.push({ runId: url.searchParams.get('runId'), position });
+      return route.fulfill({
+        json: {
+          ...receipt(),
+          context: undefined,
+          runId,
+          position,
+          totalCount: total,
+          processedCount: 0
+        }
+      });
+    }
+    if (url.pathname.endsWith('/report'))
+      return route.fulfill({ json: { entries: [], nextCursor: null } });
+    return route.fulfill({
+      json: {
+        run: {
+          id: runId,
+          version: 1,
+          status: 'paused',
+          startedAt: date,
+          updatedAt: date,
+          observedAt: date,
+          pass: 1,
+          cursor: 1,
+          dossierCount: total,
+          processedCount: 0,
+          balancedCount: 0,
+          outstandingCount: total,
+          unknownCount: 0,
+          uncoveredCount: total,
+          newPaymentCount: 0,
+          currencyTotals: [{ currency: 'CAD', amountMinor: 50000 * total }],
+          latestEntry: null,
+          nextContributionId: controllerId,
+          globalBalanced: false
+        },
+        balance: null
+      }
+    });
+  });
+  return guide;
+}
+
+async function openGuide(page: Page) {
+  await page.goto('/admin/fundraiser/attention');
+  const toggle = hook(page, 'admin-guidance-toggle');
+  await expect(toggle).toBeVisible();
+  if (!(await hook(page, 'admin-guidance-panel').isVisible()))
+    await toggle.click();
+  await hook(page, 'admin-guidance-automatic-mode').click();
+  await expect(hook(page, 'preparation-receipts-carousel')).toBeVisible();
+}
+
+async function editSource(page: Page) {
+  const editor = hook(page, 'assistance-source-form');
+  if (!(await editor.isVisible()))
+    await hook(page, 'assistance-source-edit').click();
+  await expect(editor).toBeVisible();
+}
+
+async function documentBenefit(page: Page, add = true) {
+  if (add) await hook(page, 'commitments-add-benefit').click();
   await hook(page, 'commitments-benefit-channel').selectOption('facebook');
   await hook(page, 'commitments-benefit-target').selectOption('openg7');
   await hook(page, 'commitments-benefit-quantity').fill('2');
@@ -378,11 +467,14 @@ for (const locale of ['en', 'fr-CA']) {
         : 'Analyse locale du texte enregistré'
     );
     expect(fixture.commands).toEqual([]);
+    await expect(hook(page, 'assistance-source-form')).toBeVisible();
     await hook(page, 'assistance-source-title').fill(
       'Synthetic original agreement'
     );
     await hook(page, 'assistance-source-text').fill(text);
     await hook(page, 'assistance-source-save').click();
+    await expect(hook(page, 'assistance-source-form')).toBeHidden();
+    await expect(hook(page, 'assistance-run-state')).toBeFocused();
     await expect(hook(page, 'assistance-source-version')).toContainText('1');
     expect(fixture.commands[0]!.body.expectedSourceVersion).toBeNull();
     await expect(hook(page, 'assistance-run')).toBeDisabled();
@@ -449,7 +541,7 @@ for (const locale of ['en', 'fr-CA']) {
   });
 }
 
-test('a human edits and saves the existing offer form, then applies once with exact versions and dossier confirmation', async ({
+test('clause-linked benefit drafting preserves human edits and applies once with exact versions and dossier confirmation', async ({
   page
 }) => {
   const { fixture, base } = await fixtures(page);
@@ -463,14 +555,45 @@ test('a human edits and saves the existing offer form, then applies once with ex
     }
   };
   await open(page);
-  await hook(page, 'assistance-use-form').click();
-  await expect(hook(page, 'commitments-add-benefit')).toBeFocused();
-  await documentBenefit(page);
+  await expect(hook(page, 'assistance-review-reason')).toHaveCount(1);
+  await expect(hook(page, 'commitments-reason')).toBeHidden();
+  await hook(page, 'assistance-next-unresolved').click();
+  await expect(hook(page, 'assistance-clause')).toBeFocused();
+  await hook(page, 'assistance-clause-document').click();
+  await expect(hook(page, 'commitments-benefit-channel')).toBeFocused();
+  await expect(hook(page, 'commitments-benefit-channel')).toHaveValue('');
+  await expect(hook(page, 'commitments-benefit-quantity')).toHaveValue('');
+  await expect(hook(page, 'assistance-review-reason')).toHaveCount(1);
+  await expect(hook(page, 'commitments-reason')).toBeHidden();
+  expect(fixture.commands).toEqual([]);
+  await documentBenefit(page, false);
+  await hook(page, 'commitments-return-clause').click();
+  await expect(hook(page, 'assistance-clause-disposition')).toBeFocused();
   await hook(page, 'assistance-clause-disposition').selectOption('included');
+  const clauseBlocker = hook(page, 'assistance-qualification-blocker').filter({
+    hasText: /clause 1/i
+  });
+  await expect(clauseBlocker).toBeVisible();
+  await clauseBlocker.click();
+  await expect(hook(page, 'assistance-clause-disposition')).toBeFocused();
   await hook(page, 'assistance-clause-benefit').selectOption('facebook_batch');
+  await expect(hook(page, 'assistance-clause')).toHaveAttribute(
+    'data-og7-complete',
+    'true'
+  );
+  await expect(hook(page, 'assistance-next-unresolved')).toHaveCount(0);
+  await hook(page, 'assistance-clause-document').click();
+  await expect(hook(page, 'commitments-benefit-channel')).toHaveCount(1);
+  await expect(hook(page, 'commitments-benefit-channel')).toHaveValue(
+    'facebook'
+  );
+  await expect(hook(page, 'commitments-benefit-quantity')).toHaveValue('2');
+  await hook(page, 'commitments-return-clause').click();
+  await expect(hook(page, 'assistance-clause-disposition')).toBeFocused();
   await hook(page, 'assistance-review-reason').fill(
     'Verified against the synthetic original agreement'
   );
+  await expect(hook(page, 'assistance-qualification-blockers')).toHaveCount(0);
   await hook(page, 'assistance-review-save').click();
   await expect(hook(page, 'assistance-review-state')).toContainText(
     'Review draft saved'
@@ -554,6 +677,10 @@ test('a concurrent source or human review preserves unsaved text and resolutions
 }) => {
   const { fixture } = await fixtures(page);
   await open(page);
+  await expect(hook(page, 'assistance-source-view')).toBeVisible();
+  await expect(hook(page, 'assistance-source-form')).toBeHidden();
+  await editSource(page);
+  await expect(hook(page, 'assistance-source-text')).toBeFocused();
   await hook(page, 'assistance-source-text').fill('My unsaved agreement text');
   fixture.state = {
     ...fixture.state,
@@ -694,9 +821,9 @@ for (const role of ['reader', 'operator']) {
   });
 }
 
-const inlineAction = (page: Page, id: string) =>
+const pilotAssistanceAction = (page: Page, id: string) =>
   page.locator(
-    `[data-og7="preparation-assistance-action"][data-og7-id="inline-preparation-assistance-${id}"]`
+    `[data-og7="preparation-pilot-action"][data-og7-id="preparation-assistance-${id}"]`
   );
 
 async function openPilotActions(
@@ -720,7 +847,20 @@ async function openPilotActions(
   );
 }
 
-test('the dossier shows compact assistance on the agreement only and native buttons share controller metadata and read destinations', async ({
+async function returnToPilot(page: Page, fixture: { receiptReads: number }) {
+  const reads = fixture.receiptReads;
+  const destination = new URL(controllerPath('publication'), page.url());
+  await hook(page, 'assistance-return').click();
+  await expect(page).toHaveURL(destination.toString());
+  await expect(
+    page.locator(
+      '[data-og7="preparation-issue"][data-og7-id="check:accepted_offer"]'
+    )
+  ).toBeFocused();
+  expect(fixture.receiptReads).toBeGreaterThan(reads);
+}
+
+test('the dossier shows compact assistance on the agreement only and its controller owns the read actions', async ({
   page
 }) => {
   const { fixture } = await fixtures(page);
@@ -743,21 +883,13 @@ test('the dossier shows compact assistance on the agreement only and native butt
     '3'
   );
   await hook(page, 'preparation-pilot-actions').click();
-  const radial = pilot.locator(
+  const actions = pilot.locator(
     '[data-og7="preparation-pilot-action"][data-og7-id^="preparation-assistance-"]'
   );
-  const native = hook(page, 'preparation-assistance-action');
-  const describe = (elements: Element[]) =>
-    elements.map((element) => ({
-      id: element.getAttribute('data-og7-id')!.replace(/^inline-/, ''),
-      label: element.getAttribute('aria-label'),
-      disabled: (element as HTMLButtonElement).disabled
-    }));
-  expect(await native.evaluateAll(describe)).toEqual(
-    await radial.evaluateAll(describe)
-  );
-  await page.keyboard.press('Escape');
-  await inlineAction(page, 'source').focus();
+  await expect(actions).toHaveCount(3);
+  await expect(hook(page, 'preparation-assistance-action')).toHaveCount(0);
+  await expect(pilotAssistanceAction(page, 'source')).toBeEnabled();
+  await pilotAssistanceAction(page, 'source').focus();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/#dossier-assistance-source$/);
   await expect(hook(page, 'assistance-source-view')).toHaveJSProperty(
@@ -769,10 +901,13 @@ test('the dossier shows compact assistance on the agreement only and native butt
       element.contains(document.activeElement)
     )
   ).toBe(true);
-  await inlineAction(page, 'review').focus();
+  await hook(page, 'preparation-pilot-actions').click();
+  await expect(pilotAssistanceAction(page, 'review')).toBeEnabled();
+  await pilotAssistanceAction(page, 'review').focus();
   await page.keyboard.press('Space');
   await expect(page).toHaveURL(/#dossier-assistance-review$/);
   await expect(hook(page, 'assistance-suggestion')).toBeFocused();
+  await returnToPilot(page, fixture);
   expect(fixture.commands).toEqual([]);
   const payment = pilot.locator(
     '[data-og7="preparation-issue"][data-og7-id="check:payment_confirmed"]'
@@ -825,6 +960,7 @@ test('an indexing revision closes held controller input and a new Xbox Y intent 
     'data-og7-mode',
     'open'
   );
+  await expect(pilotAssistanceAction(page, 'rerun')).toBeDisabled();
   await pad.hold('Y');
   fixture.state = initial();
   await expect(
@@ -874,36 +1010,53 @@ test('Xbox X opens the stored source and A examines the same result without a wr
   await open(page);
   const pad = adminController(page);
   await pad.ready();
-  await expect(inlineAction(page, 'review')).toBeEnabled();
   await openPilotActions(page, pad);
+  await expect(pilotAssistanceAction(page, 'review')).toBeEnabled();
   await pad.press('X');
   await expect(page).toHaveURL(/#dossier-assistance-source$/);
   await expect(hook(page, 'assistance-source-view')).toHaveJSProperty(
     'open',
     true
   );
+  await returnToPilot(page, fixture);
   await openPilotActions(page, pad);
   await pad.press('A');
   await expect(page).toHaveURL(/#dossier-assistance-review$/);
   await expect(hook(page, 'assistance-suggestion')).toBeFocused();
+  await returnToPilot(page, fixture);
   expect(fixture.commands).toEqual([]);
 });
 
-test('an unavailable compact reread clears previous actions and an explicit receipt refresh recovers without a job', async ({
+test('an unavailable compact reread clears controller assistance actions and an explicit refresh recovers without a job', async ({
   page
 }) => {
   const { fixture } = await fixtures(page);
   await open(page);
-  await expect(inlineAction(page, 'rerun')).toBeEnabled();
+  await expect(
+    hook(page, 'preparation-assistance-summary-state')
+  ).toHaveAttribute('data-og7-state', 'succeeded');
+  await hook(page, 'preparation-pilot-actions').click();
+  await expect(pilotAssistanceAction(page, 'rerun')).toBeEnabled();
   fixture.error = 503;
   await hook(page, 'preparation-receipt-refresh').click();
   await expect(hook(page, 'preparation-assistance-summary')).toContainText(
     'Assistance is unavailable'
   );
-  await expect(hook(page, 'preparation-assistance-action')).toHaveCount(0);
+  await expect(
+    page.locator(
+      '[data-og7="preparation-pilot-action"][data-og7-id^="preparation-assistance-"]'
+    )
+  ).toHaveCount(0);
   fixture.error = 0;
+  await expect(
+    hook(page, 'preparation-assistance-summary-refresh')
+  ).toHaveCount(1);
   await hook(page, 'preparation-assistance-summary-refresh').click();
-  await expect(inlineAction(page, 'rerun')).toBeEnabled();
+  await expect(
+    hook(page, 'preparation-assistance-summary-state')
+  ).toHaveAttribute('data-og7-state', 'succeeded');
+  await hook(page, 'preparation-pilot-actions').click();
+  await expect(pilotAssistanceAction(page, 'rerun')).toBeEnabled();
   expect(fixture.commands).toEqual([]);
 });
 
@@ -926,57 +1079,13 @@ test('the guide reads and reruns compact facts without loading the private sourc
   page
 }) => {
   const { fixture, receipt } = await fixtures(page);
-  const runId = '10000000-0000-4000-8000-000000009901';
-  await page.route('**/api/admin/automatic-runs**', async (route) => {
-    const path = new URL(route.request().url()).pathname;
-    if (path.endsWith('/preparation'))
-      return route.fulfill({
-        json: {
-          ...receipt(),
-          context: undefined,
-          runId,
-          position: 1,
-          totalCount: 1,
-          processedCount: 0
-        }
-      });
-    if (path.endsWith('/report'))
-      return route.fulfill({ json: { entries: [], nextCursor: null } });
-    return route.fulfill({
-      json: {
-        run: {
-          id: runId,
-          version: 1,
-          status: 'paused',
-          startedAt: date,
-          updatedAt: date,
-          observedAt: date,
-          pass: 1,
-          cursor: 1,
-          dossierCount: 1,
-          processedCount: 0,
-          balancedCount: 0,
-          outstandingCount: 1,
-          unknownCount: 0,
-          uncoveredCount: 1,
-          newPaymentCount: 0,
-          currencyTotals: [{ currency: 'CAD', amountMinor: 50000 }],
-          latestEntry: null,
-          nextContributionId: controllerId,
-          globalBalanced: false
-        },
-        balance: null
-      }
-    });
-  });
-  await page.goto('/admin/fundraiser/attention');
-  const toggle = hook(page, 'admin-guidance-toggle');
-  await expect(toggle).toBeVisible();
-  if (!(await hook(page, 'admin-guidance-panel').isVisible()))
-    await toggle.click();
-  await hook(page, 'admin-guidance-automatic-mode').click();
-  await expect(hook(page, 'preparation-receipts-carousel')).toBeVisible();
-  await expect(inlineAction(page, 'rerun')).toBeEnabled();
+  await guideFixtures(page, receipt);
+  await openGuide(page);
+  await expect(
+    hook(page, 'preparation-assistance-summary-state')
+  ).toHaveAttribute('data-og7-state', 'succeeded');
+  await hook(page, 'preparation-pilot-actions').click();
+  await expect(pilotAssistanceAction(page, 'rerun')).toBeEnabled();
   expect(fixture.reads).toBe(0);
   expect(fixture.summaryReads).toBeGreaterThan(0);
   await expect(hook(page, 'preparation-receipt')).not.toContainText(
@@ -985,7 +1094,7 @@ test('the guide reads and reruns compact facts without loading the private sourc
   await expect(hook(page, 'preparation-receipt')).not.toContainText(
     source().text
   );
-  await inlineAction(page, 'rerun').click();
+  await pilotAssistanceAction(page, 'rerun').click();
   await expect(
     hook(page, 'preparation-assistance-summary-state')
   ).toHaveAttribute('data-og7-state', 'queued');
@@ -1000,6 +1109,72 @@ test('the guide reads and reruns compact facts without loading the private sourc
     '3'
   );
 });
+
+for (const draft of ['source', 'evidence'] as const) {
+  test(`returning to the guide protects unsaved ${draft} before restoring its receipt, position and focus`, async ({
+    page
+  }) => {
+    const { fixture, base, receipt } = await fixtures(page);
+    const guide = await guideFixtures(page, receipt, 2);
+    await openGuide(page);
+    await hook(page, 'preparation-receipt-next').click();
+    await expect(hook(page, 'preparation-receipt-position')).toHaveText(
+      'Receipt 2 of 2'
+    );
+    await expect(
+      hook(page, 'preparation-assistance-summary-state')
+    ).toHaveAttribute('data-og7-state', 'succeeded');
+    await hook(page, 'preparation-pilot-actions').click();
+    await pilotAssistanceAction(page, 'review').click();
+    await expect(page).toHaveURL(/#dossier-assistance-review$/);
+    await expect(hook(page, 'assistance-suggestion')).toBeFocused();
+    if (draft === 'source') await editSource(page);
+    const editor = hook(
+      page,
+      draft === 'source' ? 'assistance-source-text' : 'commitments-evidence'
+    );
+    const unsaved = `Synthetic unsaved ${draft} for the original agreement`;
+    await editor.fill(unsaved);
+    await expect(hook(page, 'commitments-benefit-channel')).toHaveCount(0);
+    await expect(hook(page, 'assistance-review-reason')).toHaveValue('');
+    await expect(hook(page, 'commitments-confirmation')).toHaveValue('');
+    const confirmation = page.locator('openg7-admin-confirmation dialog[open]');
+    await hook(page, 'assistance-return').click();
+    await expect(confirmation).toContainText('discard unsaved changes');
+    await confirmation
+      .getByRole('button', { name: 'Cancel', exact: true })
+      .last()
+      .click();
+    await expect(confirmation).toHaveCount(0);
+    await expect(page).toHaveURL(/#dossier-assistance-review$/);
+    await expect(editor).toHaveValue(unsaved);
+    expect(fixture.commands).toEqual([]);
+    expect(base.commands).toEqual([]);
+
+    const reads = guide.reads.length;
+    await hook(page, 'assistance-return').click();
+    await expect(confirmation).toBeVisible();
+    await hook(page, 'confirm-action').click();
+    await expect(page).toHaveURL(/\/admin\/fundraiser\/attention$/);
+    await expect(hook(page, 'preparation-receipt-position')).toHaveText(
+      'Receipt 2 of 2'
+    );
+    await expect(
+      page.locator(
+        '[data-og7="preparation-issue"][data-og7-id="check:accepted_offer"]'
+      )
+    ).toBeFocused();
+    expect(guide.reads.length).toBeGreaterThan(reads);
+    expect(guide.reads.at(-1)).toEqual({ runId: guide.runId, position: 2 });
+    await expect(hook(page, 'preparation-receipt')).toHaveAttribute(
+      'data-og7-id',
+      controllerId
+    );
+    expect(fixture.commands).toEqual([]);
+    expect(base.commands).toEqual([]);
+    expect(guide.commands).toEqual([]);
+  });
+}
 
 function structuredState(): PreparationAssistanceState {
   const lines = [
@@ -1051,6 +1226,13 @@ for (const locale of ['fr-CA', 'en']) {
     expect((await table.locator('caption').boundingBox())?.height).toBeLessThan(
       100
     );
+    await expect(
+      rows.nth(0).locator('[data-og7="assistance-proposal-cited-details"]')
+    ).toHaveJSProperty('open', false);
+    await rows
+      .nth(0)
+      .locator('[data-og7="assistance-proposal-cited-details"] > summary')
+      .click();
     await expect(rows.nth(0)).toContainText('800–1000 mots');
     await expect(rows.nth(0)).toContainText('3 visuels');
     await expect(
@@ -1060,6 +1242,12 @@ for (const locale of ['fr-CA', 'en']) {
       rows.nth(1).locator('[data-og7="assistance-proposal-quantity"]')
     ).toHaveText('2');
     await expect(rows.nth(3)).toContainText('48 h');
+    await expect(
+      rows.nth(3).locator('[data-og7="assistance-proposal-terms"]')
+    ).toHaveCount(0);
+    await expect(
+      rows.nth(3).locator('[data-og7="assistance-clause-document"]')
+    ).toHaveCount(0);
     await table.screenshot({
       path: testInfo.outputPath('structured-proposal.png')
     });

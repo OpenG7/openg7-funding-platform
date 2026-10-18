@@ -7,12 +7,6 @@ import {
 } from '@angular/core';
 import type { PreparationAssistanceSummary } from '@openg7/funding-core';
 
-import type {
-  ControllerAction,
-  ControllerActionRequest,
-  ControllerContext
-} from '../../models/context-controller.models.js';
-import { ContextControllerActionComponent } from '../admin-context-controller/context-controller-action.component.js';
 import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 
@@ -21,7 +15,7 @@ import type { PreparationPilotIssue } from './preparation-pilot.models.js';
 @Component({
   selector: 'openg7-preparation-issue-detail',
   standalone: true,
-  imports: [ContextControllerActionComponent, AdminIconComponent],
+  imports: [AdminIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section
@@ -110,28 +104,16 @@ import type { PreparationPilotIssue } from './preparation-pilot.models.js';
               }
             }
             <p>{{ t('pilot.assistance.separation') }}</p>
-            <div class="assistance-actions">
-              @for (action of assistanceActions(); track action.id) {
-                <button
-                  openg7-context-controller-action
-                  data-og7="preparation-assistance-action"
-                  [attr.data-og7-id]="'inline-' + action.id"
-                  [action]="action"
-                  [context]="context()"
-                  (actionRequested)="assistanceRequested.emit($event)"
-                ></button>
-              }
-              @if (assistanceError()) {
-                <button
-                  type="button"
-                  data-og7="preparation-assistance-summary-refresh"
-                  [disabled]="assistanceBusy()"
-                  (click)="refreshRequested.emit()"
-                >
-                  {{ t('refresh') }}
-                </button>
-              }
-            </div>
+            @if (assistanceError()) {
+              <button
+                type="button"
+                data-og7="preparation-assistance-summary-refresh"
+                [disabled]="assistanceBusy()"
+                (click)="refreshRequested.emit()"
+              >
+                {{ t('refresh') }}
+              </button>
+            }
           </div>
         }
       } @else {
@@ -157,10 +139,6 @@ import type { PreparationPilotIssue } from './preparation-pilot.models.js';
     h6 {
       margin: 0.65rem 0 0.25rem;
       font-size: 0.8rem;
-    }
-    .assistance-actions {
-      display: grid;
-      gap: 0.35rem;
     }
     .processing {
       animation: preparation-assistance-turn 4s linear infinite;
@@ -199,9 +177,6 @@ export class PreparationIssueDetailComponent {
   readonly assistanceSummary = input<PreparationAssistanceSummary | null>(null);
   readonly assistanceBusy = input(false);
   readonly assistanceError = input('');
-  readonly assistanceActions = input<readonly ControllerAction[]>([]);
-  readonly context = input<ControllerContext | null>(null);
-  readonly assistanceRequested = output<ControllerActionRequest>();
   readonly refreshRequested = output<void>();
   private readonly i18n = inject(FundingI18nService);
 

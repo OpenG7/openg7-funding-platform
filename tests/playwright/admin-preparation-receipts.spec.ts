@@ -478,7 +478,9 @@ async function expectCompactReceipt(page: Page) {
       }
     };
   });
-  expect(measurements.receipt.heightCss).toBeLessThanOrEqual(560);
+  // Allow the agreement and traceability label to wrap on narrow screens;
+  // geometry above still requires every approval control to be visible together.
+  expect(measurements.receipt.heightCss).toBeLessThanOrEqual(580);
   return measurements;
 }
 

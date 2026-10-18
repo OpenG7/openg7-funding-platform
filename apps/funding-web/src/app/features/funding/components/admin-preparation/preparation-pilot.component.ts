@@ -156,11 +156,6 @@ export class PreparationPilotComponent {
           };
     });
   });
-  readonly assistanceActions = computed(() =>
-    this.actions().filter((action) =>
-      action.id.startsWith('preparation-assistance-')
-    )
-  );
   private readonly i18n = inject(FundingI18nService);
   private readonly controller = inject(ControllerService);
   private readonly document = inject(DOCUMENT);
@@ -263,10 +258,6 @@ export class PreparationPilotComponent {
 
   request(request: ControllerActionRequest): void {
     if (this.mode() !== 'open') return;
-    this.dispatch(request);
-  }
-  requestAssistance(request: ControllerActionRequest): void {
-    if (!request.actionId.startsWith('preparation-assistance-')) return;
     this.dispatch(request);
   }
   private dispatch(request: ControllerActionRequest): void {

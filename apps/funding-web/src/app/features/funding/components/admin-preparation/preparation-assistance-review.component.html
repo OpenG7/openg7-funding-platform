@@ -8,7 +8,7 @@
     <p role="alert">{{ i18n.t('admin.guidance.automaticUnavailable') }}</p>
   } @else if (languageReady()) {
     <header>
-      <h4>{{ t('title') }}</h4>
+      <h4>{{ t(c.data()?.run?.suggestion ? 'reviewTitle' : 'title') }}</h4>
       <button
         type="button"
         class="admin-button"
@@ -48,9 +48,58 @@
       <p role="status">{{ t('loading') }}</p>
     }
     @if (c.data(); as state) {
+      <ol class="assistance-steps" [attr.aria-label]="t('steps.label')">
+        <li [attr.aria-current]="!state.run?.suggestion ? 'step' : null">
+          1 · {{ t('steps.source') }}
+        </li>
+        <li
+          [attr.aria-current]="
+            state.run?.suggestion &&
+            !readyToConfirm() &&
+            !state.run?.application
+              ? 'step'
+              : null
+          "
+        >
+          2 · {{ t('steps.review') }}
+        </li>
+        <li
+          [attr.aria-current]="
+            readyToConfirm() || state.run?.application ? 'step' : null
+          "
+        >
+          3 · {{ t('steps.confirm') }}
+        </li>
+      </ol>
+      @if (returnNavigation.canReturn(contributionId())) {
+        <button
+          type="button"
+          class="admin-button"
+          data-og7="assistance-return"
+          [disabled]="locked() || returnNavigation.returning()"
+          (click)="returnToPreparation()"
+        >
+          {{ t('returnToPreparation') }}
+        </button>
+      }
+      @if (state.source && !sourceEditorVisible()) {
+        <div class="source-overview">
+          <p>{{ state.source.title }} · {{ t('source.saved') }}</p>
+          <button
+            type="button"
+            class="admin-button"
+            data-og7="assistance-source-edit"
+            [disabled]="locked() || !state.capabilities.canManageSource"
+            (click)="editSource()"
+          >
+            {{ t('source.edit') }}
+          </button>
+        </div>
+      }
       <form
-        (submit)="$event.preventDefault(); c.saveSource()"
+        (submit)="$event.preventDefault(); saveSource()"
         data-og7="assistance-source-form"
+        [hidden]="!sourceEditorVisible()"
       >
         <fieldset [disabled]="locked() || !state.capabilities.canManageSource">
           <legend>{{ t('source.title') }}</legend>
@@ -75,10 +124,14 @@
             ></textarea>
           </label>
           <p class="help">{{ t('source.help', { max: maxSourceLength }) }}</p>
+          @if (state.source) {
+            <p class="help">{{ t('source.editHelp') }}</p>
+          }
           <button
             type="submit"
             class="admin-button"
             data-og7="assistance-source-save"
+            [class.primary-action]="!state.source"
             [disabled]="
               c.sourceConflict() ||
               !c.sourceDirty() ||
@@ -114,6 +167,9 @@
           type="button"
           class="admin-button"
           data-og7="assistance-run"
+          [class.primary-action]="
+            !state.run?.suggestion && state.capabilities.canRun
+          "
           [disabled]="
             locked() ||
             !state.capabilities.canRun ||
@@ -121,6 +177,7 @@
             c.reviewDirty()
           "
           (click)="c.analyze()"
+          aria-describedby="assistance-analysis-hint"
         >
           {{ t(state.run ? 'reanalyze' : 'analyze') }}
         </button>
@@ -134,6 +191,13 @@
           {{ t('manual') }}
         </button>
       </div>
+      <p
+        id="assistance-analysis-hint"
+        class="help"
+        data-og7="assistance-analysis-hint"
+      >
+        {{ analysisHint() ? t('hints.' + analysisHint()) : '' }}
+      </p>
       @if (state.stale) {
         <p class="warning" role="status" data-og7="assistance-stale">
           {{ t('stale') }}
@@ -144,6 +208,7 @@
           class="run-state"
           role="status"
           data-og7="assistance-run-state"
+          tabindex="-1"
           [attr.data-og7-state]="run.state"
         >
           <openg7-admin-icon
@@ -198,25 +263,28 @@
                 locked() || !state.capabilities.canReview || state.stale
               "
               (resolutionChange)="c.resolve($event.itemId, $event.patch)"
+              (documentRequested)="documentBenefitClause($event)"
             />
             <p class="warning">{{ t('unsupportedHelp') }}</p>
-            <label
-              >{{ t('reviewReason')
-              }}<textarea
-                data-og7="assistance-review-reason"
-                [value]="reason()"
-                (input)="reasonChange.emit(value($event))"
-                [disabled]="
-                  locked() || !state.capabilities.canReview || state.stale
-                "
-                maxlength="2000"
-                rows="2"
-              ></textarea>
-            </label>
+            <p class="help">
+              {{
+                t(reason().trim().length >= 5 ? 'reasonReady' : 'reasonMissing')
+              }}
+            </p>
+            <button
+              type="button"
+              class="admin-button"
+              data-og7="assistance-edit-reason"
+              [disabled]="locked()"
+              (click)="reasonRequested.emit()"
+            >
+              {{ t('editReason') }}
+            </button>
             <div class="run-tools">
               <button
                 type="button"
                 class="admin-button"
+                [class.primary-action]="!selected()"
                 data-og7="assistance-use-form"
                 [disabled]="
                   locked() ||
@@ -232,6 +300,7 @@
               <button
                 type="button"
                 class="admin-button"
+                [class.primary-action]="selected() && !readyToConfirm()"
                 data-og7="assistance-review-save"
                 [disabled]="
                   locked() ||

@@ -1,3 +1,8 @@
+import type {
+  AdminPreparationReceipt,
+  AdminPreparationReceiptData
+} from '@openg7/funding-core';
+
 import { automaticAdminUrl } from '../admin-automatic/admin-automatic-run.js';
 
 import type { PreparationPilotIssue } from './preparation-pilot.models.js';
@@ -56,4 +61,66 @@ export function preparationAssistanceDestination(
       '#dossier-assistance-' +
       section
   );
+}
+
+/** Navigation identifiers only; no agreement, review, receipt contents or arbitrary query. */
+export interface PreparationReturnOrigin {
+  readonly url: string;
+  readonly contributionId: string;
+  readonly issueId: string;
+  readonly kind: 'dossier' | 'guide';
+  readonly runId: string | null;
+  readonly position: number | null;
+}
+
+const returnIdentifier = /^[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}$/i;
+
+export function preparationReturnOrigin(
+  currentUrl: string,
+  receipt: AdminPreparationReceiptData &
+    Partial<Pick<AdminPreparationReceipt, 'runId' | 'position'>>,
+  issueId: string
+): PreparationReturnOrigin | null {
+  const safeUrl = automaticAdminUrl(currentUrl);
+  if (
+    !safeUrl ||
+    !returnIdentifier.test(receipt.contributionId) ||
+    !/^(?:check|blocker):[a-z][a-z0-9_]{0,99}$/.test(issueId)
+  )
+    return null;
+  const url = new URL(safeUrl, 'https://admin.invalid');
+  const guide = receipt.runId !== undefined;
+  if (
+    guide &&
+    (!returnIdentifier.test(receipt.runId!) ||
+      !Number.isSafeInteger(receipt.position) ||
+      receipt.position! < 1)
+  )
+    return null;
+  if (!guide && url.pathname !== '/admin/fundraiser/sponsors') return null;
+  // The origin may contain search text or a fragment naming a private detail.
+  // Keep only the dossier selector and its declared tab, never those contents.
+  const params = new URLSearchParams();
+  if (url.pathname === '/admin/fundraiser/sponsors') {
+    const selected = guide
+      ? url.searchParams.get('sponsorshipId')
+      : receipt.contributionId;
+    if (selected && returnIdentifier.test(selected))
+      params.set('sponsorshipId', selected);
+    const tab = guide ? url.searchParams.get('tab') : 'publication';
+    if (
+      tab &&
+      /^(overview|identity|media|billing|publication|refund|audit)$/.test(tab)
+    )
+      params.set('tab', tab);
+  }
+  const query = params.toString();
+  return {
+    url: url.pathname + (query ? '?' + query : ''),
+    contributionId: receipt.contributionId,
+    issueId,
+    kind: guide ? 'guide' : 'dossier',
+    runId: guide ? receipt.runId! : null,
+    position: guide ? receipt.position! : null
+  };
 }

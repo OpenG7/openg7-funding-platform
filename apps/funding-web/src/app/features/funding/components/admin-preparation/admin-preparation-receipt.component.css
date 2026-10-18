@@ -194,7 +194,7 @@ ul {
 }
 .receipt-disclosures {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0 0.65rem;
   margin-block-start: 0.1rem;
 }
@@ -253,7 +253,6 @@ a {
   display: inline-block;
   margin-inline-start: 0.3rem;
 }
-.receipt-checks li,
 .receipt-drafts li {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -262,7 +261,6 @@ a {
   margin-block: 0.4rem;
   font-size: 0.8rem;
 }
-.receipt-checks strong,
 .receipt-drafts strong {
   font-size: 0.75rem;
   text-align: end;
@@ -355,11 +353,9 @@ a {
   .receipt-version {
     font-size: 0.7rem;
   }
-  .receipt-checks li,
   .receipt-drafts li {
     grid-template-columns: auto minmax(0, 1fr);
   }
-  .receipt-checks strong,
   .receipt-drafts strong {
     grid-column: 2;
     text-align: start;

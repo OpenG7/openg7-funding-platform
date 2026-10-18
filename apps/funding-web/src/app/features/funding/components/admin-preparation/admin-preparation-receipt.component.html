@@ -262,40 +262,6 @@
           }}
         </p>
       }
-      <h5>{{ t('compact.checks') }}</h5>
-      <ul class="receipt-checks" data-og7="preparation-receipt-checks">
-        @for (check of item.checks; track check.code) {
-          <li>
-            <openg7-admin-icon
-              [name]="
-                check.state === 'complete'
-                  ? 'check'
-                  : check.state === 'missing'
-                    ? 'warning'
-                    : 'settings'
-              "
-            /><span>{{ label('checks', check.code) }}</span
-            ><strong>{{ t('checkStates.' + check.state) }}</strong>
-          </li>
-        }
-      </ul>
-      <h5>{{ t('authorizations') }}</h5>
-      <ul class="receipt-checks" data-og7="preparation-receipt-authorizations">
-        @for (check of item.authorizations; track check.code) {
-          <li>
-            <openg7-admin-icon
-              [name]="
-                check.state === 'complete'
-                  ? 'check'
-                  : check.state === 'missing'
-                    ? 'warning'
-                    : 'settings'
-              "
-            /><span>{{ label('checks', check.code) }}</span
-            ><strong>{{ t('checkStates.' + check.state) }}</strong>
-          </li>
-        }
-      </ul>
       <h5>{{ t('drafts') }}</h5>
       <ul class="receipt-drafts" data-og7="preparation-receipt-drafts">
         @for (draft of item.drafts; track draft.id) {
