@@ -282,6 +282,62 @@
         "noDrafts": "No drafts"
       },
       "pilot": {
+        "assistance": {
+          "compact": {
+            "loading": "Reading assistance…",
+            "unavailable": "Assistance unavailable",
+            "noSource": "Original source needed",
+            "noRun": "Source saved",
+            "queued": "Index queued",
+            "processing": "Indexing in progress",
+            "ready": "Ready to examine",
+            "saved": "Human review draft saved",
+            "rejected": "Proposal rejected",
+            "accepted": "Applied after human confirmation",
+            "failed": "Indexing failed",
+            "cancelled": "Run cancelled",
+            "stale": "Index needs refreshing"
+          },
+          "title": "Agreement assistance",
+          "local": "Deterministic local indexing. No external provider or AI model.",
+          "loading": "Reading assistance…",
+          "noSource": "No original agreement source saved. Complete the agreement in its usual form.",
+          "noRun": "Source saved; no indexing run recorded.",
+          "stale": "The source or commitment changed. You may read the previous result; a new run is needed before applying it.",
+          "separation": "An indexing result or human draft never satisfies a preparation control. Manual qualification remains available.",
+          "counts": "{{clauses}} located clauses · {{unsupported}} possibly unrepresentable · {{unresolved}} unresolved",
+          "states": {
+            "queued": "Queued",
+            "processing": "Local indexing in progress",
+            "succeeded": "Result ready to examine",
+            "failed": "Indexing failed",
+            "cancelled": "Run cancelled"
+          },
+          "reviews": {
+            "saved": "Human review draft saved",
+            "rejected": "Proposal rejected by a person",
+            "accepted": "Benefits applied after human confirmation"
+          },
+          "actions": {
+            "review": "Examine",
+            "source": "View source",
+            "rerun": "Run again"
+          },
+          "disabled": {
+            "unavailable": "Assistance is unavailable or busy.",
+            "no_source": "Save an original agreement source first.",
+            "no_result": "No result is ready to examine.",
+            "running": "A run is already queued or processing.",
+            "not_eligible": "A new run is not available for this agreement."
+          },
+          "errors": {
+            "unavailable": "Assistance is unavailable. Refresh or use the agreement form manually.",
+            "forbidden": "Your current permissions do not allow this assistance. Its previous state was cleared.",
+            "uncertain": "The run request needs verification. Current facts were reread without repeating the command.",
+            "stale": "Versions changed. Refresh the assistance before another request.",
+            "timeout": "The job is still pending. Refresh its state or continue manually."
+          }
+        },
         "title": "Preparation controls",
         "progress": "{{completed}} / {{total}} checks satisfied",
         "progressLabel": "Satisfied preparation checks",

@@ -41,3 +41,19 @@ export function preparationIssueDestination(
   url.hash = destination[1];
   return automaticAdminUrl(url.pathname + url.search + url.hash);
 }
+
+/** Assistance consultations always open the same owner form and never create a job. */
+export function preparationAssistanceDestination(
+  contributionId: string,
+  section: 'review' | 'source'
+): string | null {
+  return automaticAdminUrl(
+    '/admin/fundraiser/sponsors?' +
+      new URLSearchParams({
+        sponsorshipId: contributionId,
+        tab: 'publication'
+      }) +
+      '#dossier-assistance-' +
+      section
+  );
+}

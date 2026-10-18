@@ -101,6 +101,54 @@ const fixture = (overrides = {}) => {
   };
 };
 
+test('preparation assistance resumes through its bounded worker without logging private failures', async () => {
+  let ticks = 0;
+  const f = fixture({
+    preparationAssistance: {
+      tick: async () => {
+        ticks++;
+        throw new Error('private source text');
+      }
+    }
+  });
+  f.workers.start();
+  await setImmediate();
+  assert.equal(ticks, 1);
+  assert.equal(f.timers.length, 5);
+  assert.equal(f.timers[0].intervalMs, 2000);
+  assert.equal(f.timers[0].unrefCalls, 1);
+  f.timers[0].callback();
+  await setImmediate();
+  assert.equal(ticks, 2);
+  assert.doesNotMatch(JSON.stringify(f.logs), /private source text/);
+  const noDatabase = fixture({
+    hasDatabase: false,
+    preparationAssistance: { tick: () => assert.fail('no database') }
+  });
+  noDatabase.workers.start();
+  assert.equal(noDatabase.timers.length, 0);
+});
+
+test('a pending preparation analysis prevents overlapping local claims and releases after completion', async () => {
+  const pending = deferred();
+  let ticks = 0;
+  const f = fixture({
+    preparationAssistance: {
+      tick: async () => {
+        ticks++;
+        await pending.promise;
+      }
+    }
+  });
+  const first = f.workers.runPreparationAssistanceWorker();
+  await f.workers.runPreparationAssistanceWorker();
+  assert.equal(ticks, 1);
+  pending.resolve();
+  await first;
+  await f.workers.runPreparationAssistanceWorker();
+  assert.equal(ticks, 2);
+});
+
 test('public visibility startup remains absent by default and explicit opt-in adds only its bounded service timer', async () => {
   const disabled = fixture();
   disabled.workers.start();

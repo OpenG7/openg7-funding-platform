@@ -15,7 +15,10 @@ import {
   untracked,
   viewChild
 } from '@angular/core';
-import type { AdminPreparationReceiptData } from '@openg7/funding-core';
+import type {
+  AdminPreparationReceiptData,
+  PreparationAssistanceSummary
+} from '@openg7/funding-core';
 
 import type {
   ControllerActionRequest,
@@ -73,6 +76,13 @@ export class PreparationPilotComponent {
   readonly selectedId = input<string | null>(null);
   readonly canApprove = input(false);
   readonly busy = input(false);
+  readonly canAssist = input(false);
+  readonly assistanceSummary = input<PreparationAssistanceSummary | null>(null);
+  readonly assistanceBusy = input(false);
+  readonly assistanceError = input('');
+  readonly assistanceRefreshRequested = output<void>();
+  readonly assistanceRerunRequested = output<string>();
+  readonly assistanceNavigationRequested = output<'review' | 'source'>();
   readonly selectedIdChange = output<string | null>();
   readonly approveRequested = output<void>();
   readonly sourceRequested = output<PreparationPilotIssue>();
@@ -90,11 +100,39 @@ export class PreparationPilotComponent {
       this.projection().issues.find((issue) => issue.id === this.selection()) ??
       null
   );
-  readonly context = computed(() =>
-    preparationControllerContext(this.receipt(), this.selection())
+  readonly context = computed(
+    () =>
+      preparationControllerContext(
+        this.receipt(),
+        this.selection(),
+        this.currentAssistance()
+      ),
+    {
+      equal: (before, after) =>
+        before === after ||
+        (after !== null && matchesPreparationControllerContext(before, after))
+    }
+  );
+  readonly currentAssistance = computed(() =>
+    this.canAssist() &&
+    this.assistanceSummary()?.contributionId === this.receipt().contributionId
+      ? this.assistanceSummary()
+      : null
   );
   readonly ready = computed(
     () => this.receipt().canApprove && this.receipt().status !== 'approved'
+  );
+  private readonly baseActions = computed(() =>
+    preparationContextActions({
+      receipt: this.receipt(),
+      issue: this.issue(),
+      canApprove: this.canApprove(),
+      busy: this.busy(),
+      canAssist: this.canAssist(),
+      assistanceSummary: this.currentAssistance(),
+      assistanceBusy: this.assistanceBusy(),
+      t: (key) => this.t(key)
+    })
   );
   readonly actions = computed(() => {
     const bindings = this.controller.profile().bindings;
@@ -104,13 +142,7 @@ export class PreparationPilotComponent {
       X: 'edit',
       Y: 'details'
     } as const;
-    return preparationContextActions({
-      receipt: this.receipt(),
-      issue: this.issue(),
-      canApprove: this.canApprove(),
-      busy: this.busy(),
-      t: (key) => this.t(key)
-    }).map((action) => {
+    return this.baseActions().map((action) => {
       const label = action.shortcut?.label as keyof typeof intents | undefined;
       const index = label && bindings[intents[label]];
       return index === undefined
@@ -124,6 +156,11 @@ export class PreparationPilotComponent {
           };
     });
   });
+  readonly assistanceActions = computed(() =>
+    this.actions().filter((action) =>
+      action.id.startsWith('preparation-assistance-')
+    )
+  );
   private readonly i18n = inject(FundingI18nService);
   private readonly controller = inject(ControllerService);
   private readonly document = inject(DOCUMENT);
@@ -136,9 +173,15 @@ export class PreparationPilotComponent {
     const destroy = inject(DestroyRef);
     effect(() => {
       const selection = this.selection();
-      const revision = this.receipt().version;
+      const revision = this.context()?.revision;
       const contributionId = this.receipt().contributionId;
       untracked(() => {
+        const active = this.document.activeElement;
+        const hadControllerFocus =
+          !!active &&
+          this.element.nativeElement
+            .querySelector('[data-og7="preparation-pilot-controller"]')
+            ?.contains(active);
         if (selection !== this.selectedId())
           this.selectedIdChange.emit(selection);
         // Every selection or server revision invalidates held input and open actions.
@@ -146,6 +189,19 @@ export class PreparationPilotComponent {
         void contributionId;
         this.mode.set('peek');
         this.controller.reset();
+        if (hadControllerFocus)
+          afterNextRender(
+            () => {
+              if (
+                this.document.activeElement === active ||
+                this.document.activeElement === this.document.body
+              ) {
+                const opener = this.opener()?.nativeElement;
+                if (opener) revealControllerFocus(opener);
+              }
+            },
+            { injector: this.injector }
+          );
       });
     });
     afterNextRender(() => {
@@ -206,10 +262,15 @@ export class PreparationPilotComponent {
   }
 
   request(request: ControllerActionRequest): void {
-    if (
-      this.mode() !== 'open' ||
-      !matchesPreparationControllerContext(this.context(), request.context)
-    )
+    if (this.mode() !== 'open') return;
+    this.dispatch(request);
+  }
+  requestAssistance(request: ControllerActionRequest): void {
+    if (!request.actionId.startsWith('preparation-assistance-')) return;
+    this.dispatch(request);
+  }
+  private dispatch(request: ControllerActionRequest): void {
+    if (!matchesPreparationControllerContext(this.context(), request.context))
       return;
     const action = this.actions().find(
       (action) => action.id === request.actionId
@@ -219,9 +280,23 @@ export class PreparationPilotComponent {
       this.close();
       return;
     }
+    if (action.id === 'preparation-assistance-rerun') {
+      const summary = this.currentAssistance();
+      if (!summary) return;
+      this.close();
+      this.assistanceRerunRequested.emit(summary.revision);
+      return;
+    }
     if (action.id !== 'preparation-approve') this.mode.set('peek');
     this.controller.reset();
-    if (action.id === 'preparation-open') {
+    if (
+      action.id === 'preparation-assistance-review' ||
+      action.id === 'preparation-assistance-source'
+    ) {
+      this.assistanceNavigationRequested.emit(
+        action.id === 'preparation-assistance-review' ? 'review' : 'source'
+      );
+    } else if (action.id === 'preparation-open') {
       const issue = this.issue();
       if (issue) this.sourceRequested.emit(issue);
     } else if (action.id === 'preparation-approve')
@@ -297,8 +372,9 @@ export class PreparationPilotComponent {
       return true;
     }
     if (this.mode() === 'open' && ['edit', 'details'].includes(intent)) {
-      const id =
-        intent === 'edit' ? 'preparation-details' : 'preparation-history';
+      const id = this.baseActions().find(
+        (action) => action.shortcut?.label === (intent === 'edit' ? 'X' : 'Y')
+      )?.id;
       this.actionButtons()
         .find((button) => button.getAttribute('data-og7-id') === id)
         ?.click();

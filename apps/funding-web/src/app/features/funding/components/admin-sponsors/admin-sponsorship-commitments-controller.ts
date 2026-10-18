@@ -5,14 +5,17 @@ import type {
   SponsorshipCommitmentQualificationRequest,
   SponsorshipObligationAdjustmentRequest,
   SponsorshipCommitmentAdoptionPreview,
-  SponsorshipOfferedBenefit
+  SponsorshipOfferedBenefit,
+  PreparationAssistanceApplyRequest
 } from '@openg7/funding-core';
 import {
   normalizeSponsorshipOfferSnapshot,
+  normalizePreparationAssistanceDraft,
   publicationFormatCapability
 } from '@openg7/funding-core';
 
 import { AdminDashboardRequestError } from '../../services/funding-admin-session.js';
+import type { PreparationAssistanceSelection } from '../admin-preparation/preparation-assistance.controller.js';
 
 export interface CommitmentBenefitFields {
   readonly channel: string;
@@ -40,6 +43,7 @@ type PendingCommand =
   | {
       readonly kind: 'qualify';
       readonly payload: SponsorshipCommitmentQualificationRequest;
+      readonly assistance?: PreparationAssistanceApplyRequest;
     }
   | {
       readonly kind: 'adjust';
@@ -53,6 +57,9 @@ export interface AdminSponsorshipCommitmentsPorts {
   get(id: string): Promise<{ commitment: SponsorshipCommitmentRecord | null }>;
   qualify(
     payload: SponsorshipCommitmentQualificationRequest
+  ): Promise<{ commitment: SponsorshipCommitmentRecord | null }>;
+  applyAssistance?(
+    payload: PreparationAssistanceApplyRequest
   ): Promise<{ commitment: SponsorshipCommitmentRecord | null }>;
   adjust(
     payload: SponsorshipObligationAdjustmentRequest
@@ -73,6 +80,8 @@ export class AdminSponsorshipCommitmentsController {
   readonly error = signal('');
   readonly saved = signal(false);
   readonly pending = signal<PendingCommand | null>(null);
+  readonly assistance = signal<PreparationAssistanceSelection | null>(null);
+  readonly assistanceStale = signal(false);
   readonly benefits = signal<readonly CommitmentBenefitFields[]>([]);
   readonly reason = signal('');
   readonly evidence = signal('');
@@ -89,6 +98,7 @@ export class AdminSponsorshipCommitmentsController {
   private selected = '';
   private generation = 0;
   private previewGeneration = 0;
+  private hasAssistanceDraft = false;
   private readonly pendingByDossier = new Map<string, PendingCommand>();
   constructor(private readonly ports: AdminSponsorshipCommitmentsPorts) {}
   select(): void {
@@ -97,6 +107,9 @@ export class AdminSponsorshipCommitmentsController {
       this.selected = d.contributionId;
       this.generation++;
       this.benefits.set([]);
+      this.assistance.set(null);
+      this.hasAssistanceDraft = false;
+      this.assistanceStale.set(false);
       this.clearFields();
       this.error.set('');
       this.saved.set(false);
@@ -224,7 +237,40 @@ export class AdminSponsorshipCommitmentsController {
         evidenceReference: this.evidence().trim(),
         offer
       };
-      this.remember({ kind: 'qualify', payload });
+      const assisted = this.assistance();
+      if (assisted) {
+        const state = assisted.state,
+          run = state.run;
+        if (
+          this.assistanceStale() ||
+          state.stale ||
+          !run?.suggestion ||
+          !state.source ||
+          !state.capabilities.canApply ||
+          state.contributionId !== d.contributionId ||
+          state.commitment.version !== m.version
+        )
+          throw new Error('Stale assistance.');
+        const draft = normalizePreparationAssistanceDraft(
+          { offer, items: assisted.items, reason: payload.reason },
+          run.suggestion,
+          { requireResolved: true }
+        );
+        this.remember({
+          kind: 'qualify',
+          payload,
+          assistance: {
+            contributionId: d.contributionId,
+            requestId: payload.requestId,
+            runId: run.id,
+            sourceVersion: state.source.version,
+            expectedCommitmentVersion: m.version,
+            expectedReviewVersion: run.review?.version ?? 0,
+            confirmation: this.confirmation(),
+            draft
+          }
+        });
+      } else this.remember({ kind: 'qualify', payload });
     } catch {
       this.error.set('invalid');
       return;
@@ -302,7 +348,9 @@ export class AdminSponsorshipCommitmentsController {
     try {
       const response =
         command.kind === 'qualify'
-          ? await this.ports.qualify(command.payload)
+          ? command.assistance
+            ? await this.applyAssistance(command.assistance)
+            : await this.ports.qualify(command.payload)
           : await this.ports.adjust(command.payload);
       if (!this.current(generation)) return;
       const m = response.commitment;
@@ -324,6 +372,9 @@ export class AdminSponsorshipCommitmentsController {
       this.saved.set(true);
       this.clearFields();
       this.benefits.set([]);
+      this.assistance.set(null);
+      this.hasAssistanceDraft = false;
+      this.assistanceStale.set(false);
       this.selectedObligation.set('');
       this.ports.changed();
     } catch (error) {
@@ -331,6 +382,160 @@ export class AdminSponsorshipCommitmentsController {
     } finally {
       if (this.current(generation)) this.saving.set(false);
     }
+  }
+  /** Explicitly choose a proposal; private drafts remain editable in this owning form. */
+  chooseAssistance(selection: PreparationAssistanceSelection): void {
+    const state = selection.state,
+      run = state.run;
+    if (
+      !this.permitted() ||
+      this.pending() ||
+      state.contributionId !== this.selected ||
+      state.stale ||
+      !state.source ||
+      !run?.suggestion
+    )
+      return;
+    this.assistance.set(selection);
+    this.hasAssistanceDraft = true;
+    this.assistanceStale.set(false);
+    const offer = run.review?.offer ?? run.suggestion.proposedOffer;
+    if (offer)
+      this.benefits.set(
+        offer.benefits.map((benefit) => ({
+          channel: benefit.channel,
+          target: benefit.target,
+          quantity: String(benefit.quantity),
+          companyName: benefit.requiredElements.includes('company_name'),
+          presentation: benefit.requiredElements.includes(
+            'approved_presentation'
+          ),
+          logo: benefit.requiredElements.includes('approved_logo'),
+          format: benefit.format ?? '',
+          deadlineDays:
+            benefit.deadlineDays === null ? '' : String(benefit.deadlineDays),
+          durationDays:
+            benefit.durationDays === null ? '' : String(benefit.durationDays)
+        }))
+      );
+    if (run.review?.reason) this.reason.set(run.review.reason);
+    this.evidence.set(
+      `${state.source.title} · v${state.source.version} · ${state.source.id}`
+    );
+    this.confirmation.set('');
+    this.error.set('');
+  }
+  updateAssistance(selection: PreparationAssistanceSelection): void {
+    const previous = this.assistance();
+    if (!previous) return;
+    const before = previous.state,
+      next = selection.state;
+    if (before.contributionId !== next.contributionId) return;
+    if (
+      next.stale ||
+      before.run?.id !== next.run?.id ||
+      before.source?.version !== next.source?.version ||
+      before.commitment.version !== next.commitment.version
+    ) {
+      this.assistanceStale.set(true);
+      return;
+    }
+    if (
+      before.run?.review?.version !== next.run?.review?.version &&
+      next.run?.review
+    ) {
+      const current = {
+        offer: this.offerDraft(),
+        items: selection.items,
+        reason: this.reason().trim()
+      };
+      const saved = {
+        offer: next.run.review.offer,
+        items: next.run.review.items,
+        reason: next.run.review.reason
+      };
+      if (JSON.stringify(current) !== JSON.stringify(saved))
+        this.assistanceStale.set(true);
+    }
+    this.assistance.set(selection);
+  }
+  manualQualification(): void {
+    if (this.pending() || this.saving()) return;
+    this.assistance.set(null);
+    this.assistanceStale.set(false);
+    this.confirmation.set('');
+  }
+  /** Revoke all private assistance context, including uncertain commands from this session. */
+  invalidateAssistance(): void {
+    const selectedCommand = this.pending();
+    const assisted =
+      this.hasAssistanceDraft ||
+      Boolean(this.assistance()) ||
+      (selectedCommand?.kind === 'qualify' &&
+        Boolean(selectedCommand.assistance));
+    for (const [id, command] of this.pendingByDossier)
+      if (command.kind === 'qualify' && command.assistance)
+        this.pendingByDossier.delete(id);
+    this.assistance.set(null);
+    this.hasAssistanceDraft = false;
+    this.assistanceStale.set(false);
+    if (assisted) {
+      ++this.generation;
+      this.pending.set(null);
+      this.saving.set(false);
+      this.loading.set(false);
+      this.benefits.set([]);
+      this.clearFields();
+    }
+  }
+  offerDraft() {
+    try {
+      const d = this.ports.dossier();
+      if (!this.benefits().length) return null;
+      return normalizeSponsorshipOfferSnapshot({
+        version: 'historical-qualification-v1',
+        amountMinor: d.amountMinor,
+        currency: d.currency,
+        benefits: this.benefits().map((row) => this.benefit(row))
+      });
+    } catch {
+      return null;
+    }
+  }
+  assistanceCanApply(): boolean {
+    const selected = this.assistance(),
+      state = selected?.state,
+      run = state?.run;
+    if (
+      !selected ||
+      !state ||
+      !run?.suggestion ||
+      state.stale ||
+      this.assistanceStale() ||
+      !state.capabilities.canApply ||
+      !this.ports.canOwn() ||
+      state.commitment.version !== this.data()?.version
+    )
+      return false;
+    try {
+      normalizePreparationAssistanceDraft(
+        {
+          offer: this.offerDraft(),
+          items: selected.items,
+          reason: this.reason()
+        },
+        run.suggestion,
+        { requireResolved: true }
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  private applyAssistance(request: PreparationAssistanceApplyRequest) {
+    if (!this.ports.applyAssistance)
+      throw new Error('Assistance is unavailable.');
+    return this.ports.applyAssistance(request);
   }
   async loadPreview(more = false): Promise<void> {
     if (
@@ -433,6 +638,7 @@ export class AdminSponsorshipCommitmentsController {
                   ? 'uncertain'
                   : 'loadError'
     );
+    if (status === 401 || status === 403) this.invalidateAssistance();
     if (status === 401) await this.ports.unauthorized();
   }
 }

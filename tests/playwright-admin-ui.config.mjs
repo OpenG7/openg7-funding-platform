@@ -31,6 +31,7 @@ export default defineBuiltWebSuite({
     'admin-automatic-portfolio.spec.ts',
     'admin-preparation-receipts.spec.ts',
     'admin-sponsorship-preparation.spec.ts',
+    'admin-preparation-assistance.spec.ts',
     'admin-controller-journeys.spec.ts',
     'admin-virtual-controller.spec.ts',
     'admin-assistant-context.spec.ts',

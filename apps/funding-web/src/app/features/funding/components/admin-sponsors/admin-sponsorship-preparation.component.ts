@@ -1,3 +1,4 @@
+import { DOCUMENT } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -32,6 +33,7 @@ import {
   preparationError
 } from '../admin-preparation/admin-preparation-error.js';
 import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
+import { PreparationAssistanceSummaryController } from '../admin-preparation/preparation-assistance-summary.controller.js';
 
 /** The open sponsorship's receipt, independent of an automatic run or publication. */
 @Component({
@@ -58,6 +60,19 @@ export class AdminSponsorshipPreparationComponent {
   readonly error = signal<AdminPreparationError | null>(null);
   readonly uncertain = signal(false);
   readonly selectedIssueId = signal<string | null>(null);
+  readonly canAssist = computed(
+    () =>
+      this.admin.hasValidAdminSession() &&
+      (!this.admin.identity() || this.admin.identity()?.role === 'owner')
+  );
+  private readonly document = inject(DOCUMENT);
+  readonly assistance = new PreparationAssistanceSummaryController({
+    admin: this.admin,
+    identity: () => this.identityKey(),
+    permitted: () => this.canAssist(),
+    visible: () => this.document.visibilityState !== 'hidden',
+    unauthorized: () => this.admin.clearAdminSession()
+  });
   private readonly confirmation = inject(AdminConfirmationService);
   private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
@@ -86,6 +101,26 @@ export class AdminSponsorshipPreparationComponent {
       this.disposed = true;
       ++this.serial;
       ++this.approvalSerial;
+      this.assistance.dispose();
+    });
+    effect(() => {
+      const receipt = this.receipt(),
+        loading = this.loading(),
+        permitted = this.canAssist(),
+        identity = this.identityKey(),
+        revision = this.admin.dataRevision();
+      untracked(() => {
+        void identity;
+        if (permitted && !receipt && loading) return;
+        const applicable = receipt?.checks.some(
+          (check) =>
+            check.code === 'accepted_offer' && check.state !== 'not_required'
+        );
+        this.assistance.select(
+          permitted && applicable ? receipt!.contributionId : '',
+          String(revision)
+        );
+      });
     });
     effect((onCleanup) => {
       const language = this.i18n.currentLanguage();
@@ -160,6 +195,10 @@ export class AdminSponsorshipPreparationComponent {
 
   t(key: string, params?: Record<string, unknown>): string {
     return this.i18n.t('admin.automatic.portfolio.receipt.' + key, params);
+  }
+  refresh(): void {
+    void this.assistance.load();
+    void this.load();
   }
 
   async load(preserveError = false): Promise<void> {

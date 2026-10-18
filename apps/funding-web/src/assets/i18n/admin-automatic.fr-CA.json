@@ -282,6 +282,62 @@
         "noDrafts": "Aucun brouillon"
       },
       "pilot": {
+        "assistance": {
+          "compact": {
+            "loading": "Lecture de l’assistance…",
+            "unavailable": "Assistance indisponible",
+            "noSource": "Source d’origine à renseigner",
+            "noRun": "Source enregistrée",
+            "queued": "Indexation en attente",
+            "processing": "Indexation en cours",
+            "ready": "Prêt à examiner",
+            "saved": "Brouillon de revue humaine enregistré",
+            "rejected": "Proposition rejetée",
+            "accepted": "Appliqué après confirmation humaine",
+            "failed": "Échec de l’indexation",
+            "cancelled": "Indexation annulée",
+            "stale": "Indexation à actualiser"
+          },
+          "title": "Assistance à l’accord",
+          "local": "Indexation locale déterministe. Aucun fournisseur externe ni modèle IA.",
+          "loading": "Lecture de l’assistance…",
+          "noSource": "Aucune source de l’accord d’origine enregistrée. Complète l’accord dans son formulaire habituel.",
+          "noRun": "Source enregistrée ; aucune indexation consignée.",
+          "stale": "La source ou l’engagement a changé. Le résultat précédent reste consultable ; une nouvelle indexation est nécessaire avant application.",
+          "separation": "Un résultat d’indexation ou un brouillon humain ne satisfait aucun contrôle de préparation. La qualification manuelle reste disponible.",
+          "counts": "{{clauses}} clauses repérées · {{unsupported}} potentiellement non représentables · {{unresolved}} non résolues",
+          "states": {
+            "queued": "En attente",
+            "processing": "Indexation locale en cours",
+            "succeeded": "Résultat prêt à examiner",
+            "failed": "Échec de l’indexation",
+            "cancelled": "Indexation annulée"
+          },
+          "reviews": {
+            "saved": "Brouillon de revue humaine enregistré",
+            "rejected": "Proposition rejetée par une personne",
+            "accepted": "Prestations appliquées après confirmation humaine"
+          },
+          "actions": {
+            "review": "Examiner",
+            "source": "Voir la source",
+            "rerun": "Relancer"
+          },
+          "disabled": {
+            "unavailable": "L’assistance est indisponible ou occupée.",
+            "no_source": "Enregistre d’abord la source de l’accord d’origine.",
+            "no_result": "Aucun résultat n’est prêt à examiner.",
+            "running": "Une indexation est déjà en attente ou en cours.",
+            "not_eligible": "Une nouvelle indexation n’est pas disponible pour cet accord."
+          },
+          "errors": {
+            "unavailable": "L’assistance est indisponible. Actualise ou utilise le formulaire de l’accord manuellement.",
+            "forbidden": "Tes droits actuels ne permettent pas cette assistance. Son état précédent a été effacé.",
+            "uncertain": "La demande d’indexation reste à vérifier. Les données courantes ont été relues sans répéter la commande.",
+            "stale": "Les versions ont changé. Actualise l’assistance avant une autre demande.",
+            "timeout": "Le job reste en attente. Actualise son état ou continue manuellement."
+          }
+        },
         "title": "Pilotage de la préparation",
         "progress": "{{completed}} / {{total}} contrôles satisfaits",
         "progressLabel": "Contrôles de préparation satisfaits",

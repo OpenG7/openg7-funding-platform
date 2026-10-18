@@ -29,6 +29,8 @@ const startApi = async (t, configuration = {}) => {
       // Synthetic readiness only; real schema checks have disposable PG tests.
       if (sql.includes('AS schema_compatible'))
         return { rows: [{ schema_compatible: true, can_read: true, can_approve: true }] };
+      if (sql.includes('WITH expected(name, mutable)'))
+        return { rows: [{ ready: true }] };
       if (sql.includes('FROM admin_identity_sessions')) {
         if (values[0] === digest('e'.repeat(43))) throw new Error('Synthetic identity outage');
         const role = ['reader', 'operator', 'owner'].find((_, index) =>
@@ -198,7 +200,10 @@ test(
         '/admin/stripe-backfill',
         '/admin/backups',
         '/admin/contribution-activity/present',
-        '/admin/sponsorships/followup-access'
+        '/admin/sponsorships/followup-access',
+        ...['source', 'runs', 'review', 'apply'].map(
+          (action) => '/admin/preparation-assistance/' + action
+        )
       ]) {
         assert.equal(
           (await api.beforeBody(prefix + path)).status,
@@ -264,7 +269,10 @@ test(
           '/admin/sponsorships/refund',
           '/admin/stripe-backfill',
           '/admin/backups',
-          '/admin/sponsorships/followup-access'
+          '/admin/sponsorships/followup-access',
+          ...['source', 'runs', 'review', 'apply'].map(
+            (action) => '/admin/preparation-assistance/' + action
+          )
         ]) {
           assert.equal(
             (await api.beforeBody(prefix + path, headers)).status,
@@ -277,8 +285,56 @@ test(
             .status,
           403
         );
+        for (const suffix of ['', '/summary']) {
+          assert.equal(
+            (
+              await api.exchange(
+                prefix +
+                  '/admin/preparation-assistance' +
+                  suffix +
+                  '?contributionId=10000000-0000-4000-8000-000000000901',
+                { headers }
+              )
+            ).status,
+            403,
+            'agreement workflow observations remain owner-only on GET'
+          );
+        }
       }
       const owner = { cookie: `og7-admin=${'3'.repeat(43)}` };
+      for (const action of ['source', 'runs', 'review', 'apply']) {
+        const path = prefix + '/admin/preparation-assistance/' + action;
+        assert.equal(
+          (await api.beforeBody(path, owner)).status,
+          403,
+          'assistance origin checked before body'
+        );
+        assert.equal(
+          (
+            await api.beforeBody(path, {
+              cookie: `og7-admin=${'x'.repeat(43)}`,
+              origin: 'http://127.0.0.1'
+            })
+          ).status,
+          401,
+          'expired assistance session refused'
+        );
+        assert.equal(
+          (
+            await api.exchange(path, {
+              method: 'POST',
+              body: '{',
+              headers: {
+                ...owner,
+                origin: 'http://127.0.0.1',
+                'content-type': 'application/json'
+              }
+            })
+          ).status,
+          400,
+          'owner reaches the assistance parser through assembled routing'
+        );
+      }
       assert.equal(
         (await api.beforeBody(prefix + '/admin/sponsorships/refund', owner))
           .status,

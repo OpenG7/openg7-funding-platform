@@ -1,16 +1,35 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { registerHooks } from 'node:module';
 
 import {
   projectPreparationPilot,
   reconcilePreparationIssue
 } from '../dist/apps/funding-web/src/app/features/funding/components/admin-preparation/preparation-pilot.projection.js';
 import {
+  preparationIssueDestination,
+  preparationAssistanceDestination
+} from '../dist/apps/funding-web/src/app/features/funding/components/admin-preparation/preparation-navigation.js';
+const coreHook = registerHooks({
+  resolve(specifier, context, next) {
+    return specifier === '@openg7/funding-core'
+      ? {
+          url: new URL(
+            '../dist/packages/funding-core/src/index.js',
+            import.meta.url
+          ).href,
+          shortCircuit: true
+        }
+      : next(specifier, context);
+  }
+});
+const {
   matchesPreparationControllerContext,
   preparationContextActions,
   preparationControllerContext
-} from '../dist/apps/funding-web/src/app/features/funding/components/admin-preparation/preparation-context-actions.js';
-import { preparationIssueDestination } from '../dist/apps/funding-web/src/app/features/funding/components/admin-preparation/preparation-navigation.js';
+} =
+  await import('../dist/apps/funding-web/src/app/features/funding/components/admin-preparation/preparation-context-actions.js');
+coreHook.deregister();
 
 const contributionId = '10000000-0000-4000-8000-000000000811';
 const adminUrl = '/admin/fundraiser/sponsors?sponsorshipId=' + contributionId;
@@ -54,6 +73,35 @@ function receipt(changes = {}) {
 }
 
 const t = (key) => key;
+const assistance = () => ({
+  contributionId,
+  controlCode: 'accepted_offer',
+  revision: 'source1-run1-review0',
+  sourceVersion: 1,
+  commitmentVersion: 1,
+  stale: false,
+  capabilities: {
+    canManageSource: true,
+    canRun: true,
+    canReview: true,
+    canApply: true
+  },
+  run: {
+    id: 'synthetic-local-run',
+    sourceVersion: 1,
+    commitmentVersion: 1,
+    adapter: 'local_rules_v1',
+    state: 'succeeded',
+    phase: 'finished',
+    errorCode: null,
+    reviewVersion: 0,
+    reviewDecision: null,
+    clauseCount: 2,
+    unsupportedCount: 1,
+    unresolvedCount: 2,
+    appliedCommitmentVersion: null
+  }
+});
 const actions = (current, changes = {}) =>
   preparationContextActions({
     receipt: current,
@@ -88,6 +136,114 @@ test('counts real applicable server checks and authorizations as blockers resolv
   assert.equal(
     after.issues.every((issue) => issue.completed),
     true
+  );
+});
+
+test('assistance action descriptors share exact ids and shortcuts without changing server prerequisite counts', () => {
+  const current = receipt(),
+    issue = projectPreparationPilot(current).issues.find(
+      (entry) => entry.checkCode === 'accepted_offer'
+    );
+  const projected = actions(current, {
+    issue,
+    canAssist: true,
+    assistanceSummary: assistance()
+  });
+  assert.deepEqual(
+    projected
+      .filter((action) => action.id.startsWith('preparation-assistance-'))
+      .map((action) => [action.id, action.enabled, action.shortcut?.label]),
+    [
+      ['preparation-assistance-review', true, 'A'],
+      ['preparation-assistance-source', true, 'X'],
+      ['preparation-assistance-rerun', true, 'Y']
+    ]
+  );
+  assert.equal(
+    projected.find((action) => action.id === 'preparation-details').shortcut,
+    undefined
+  );
+  assert.equal(
+    projected.find((action) => action.id === 'preparation-history').shortcut,
+    undefined
+  );
+  assert.equal(
+    projected.some((action) => 'execute' in action),
+    false
+  );
+  assert.deepEqual(
+    [
+      projectPreparationPilot(current).completed,
+      projectPreparationPilot(current).total
+    ],
+    [2, 6]
+  );
+  for (const entry of [
+    { issue, canAssist: false, assistanceSummary: assistance() },
+    {
+      issue: { ...issue, checkCode: 'moderation_review' },
+      canAssist: true,
+      assistanceSummary: assistance()
+    },
+    {
+      issue,
+      canAssist: true,
+      assistanceSummary: { ...assistance(), contributionId: 'another-dossier' }
+    }
+  ])
+    assert.equal(
+      actions(current, entry).some((action) =>
+        action.id.startsWith('preparation-assistance-')
+      ),
+      false
+    );
+});
+
+test('source, job and review revisions invalidate only the corresponding control context', () => {
+  const current = receipt(),
+    summary = assistance();
+  const agreement = preparationControllerContext(
+    current,
+    'check:accepted_offer',
+    summary
+  );
+  const moderation = preparationControllerContext(
+    current,
+    'check:moderation_review',
+    summary
+  );
+  for (const revision of [
+    'source2-run2-review0',
+    'source1-run1-processing',
+    'source1-run1-review2'
+  ]) {
+    const next = { ...summary, revision };
+    assert.equal(
+      matchesPreparationControllerContext(
+        preparationControllerContext(current, 'check:accepted_offer', next),
+        agreement
+      ),
+      false
+    );
+    assert.deepEqual(
+      preparationControllerContext(current, 'check:moderation_review', next),
+      moderation
+    );
+  }
+  assert.equal(
+    preparationControllerContext(current, 'check:accepted_offer', {
+      ...summary,
+      contributionId: 'another-dossier'
+    }).revision,
+    current.version
+  );
+  assert.equal(
+    preparationAssistanceDestination(contributionId, 'review'),
+    adminUrl + '&tab=publication#dossier-assistance-review'
+  );
+  assert.equal(
+    preparationAssistanceDestination(contributionId, 'source'),
+    adminUrl + '&tab=publication#dossier-assistance-source'
   );
 });
 

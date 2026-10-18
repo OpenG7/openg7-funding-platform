@@ -17,6 +17,8 @@ test(
       // Synthetic readiness only; real schema checks have disposable PG tests.
       if (sql.includes('AS schema_compatible'))
         return { rows: [{ schema_compatible: true, can_read: true, can_approve: true }] };
+      if (sql.includes('WITH expected(name, mutable)'))
+        return { rows: [{ ready: true }] };
       if (sql.includes('sponsorship_followup_token_hash') && values?.[0] === digest('q'.repeat(43)))
         return {rows:[{id:'11111111-1111-4111-8111-111111111111', payment_status:'paid', sponsor_review_status:'pending_review', amount_cents:'50000', currency:'cad'}]};
       if (sql.includes('sponsorship_followup_token_hash') && values?.[0] === digest('r'.repeat(43)))

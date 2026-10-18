@@ -5,6 +5,7 @@ import Stripe from 'stripe';
 
 import { createAdminAuthorization } from './admin-authorization.js';
 import { createApiBackgroundWorkers } from './api-background-workers.js';
+import { PreparationAssistanceService } from './preparation-assistance/service.js';
 import {
   createCheckoutReturnUrlResolver,
   loadApiRuntimeAdminAuthMode,
@@ -27,6 +28,7 @@ import {
 } from './admin-identity.js';
 import { AdminPilotageService } from './admin-pilotage.service.js';
 import { assertPreparationReadiness } from './admin-preparation-readiness.js';
+import { assertPreparationAssistanceReadiness } from './preparation-assistance-readiness.js';
 import {
   buildSponsorshipReviewReminderAdminUrl,
   queueDueSponsorshipReviewReminder
@@ -341,6 +343,9 @@ const backgroundWorkers = createApiBackgroundWorkers({
   buildSponsorshipReviewReminderAdminUrl,
   contributionActivity,
   publicationAutomation,
+  preparationAssistance: dbPool
+    ? new PreparationAssistanceService(dbPool)
+    : null,
   sponsorshipVisibility:
     dbPool && sponsorshipVisibilityConfig.enabled
       ? new SponsorshipPublicVisibilityWorker(
@@ -459,7 +464,10 @@ const handleRequest = createHttpDispatcher({
 
 try {
   await assertProductionDatabasePrivileges(dbPool, isProduction);
-  if (dbPool) await assertPreparationReadiness(dbPool, 'approve');
+  if (dbPool) {
+    await assertPreparationReadiness(dbPool, 'approve');
+    await assertPreparationAssistanceReadiness(dbPool);
+  }
 } catch (error) {
   await dbPool?.end();
   throw error;

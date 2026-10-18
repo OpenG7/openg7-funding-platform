@@ -13,7 +13,7 @@
         [attr.aria-label]="t('refresh')"
         [title]="t('refresh')"
         [disabled]="loading() || approving()"
-        (click)="load()"
+        (click)="refresh()"
       >
         <openg7-admin-icon name="refresh" />
       </button>
@@ -39,6 +39,12 @@
           [canApprove]="canApprove()"
           [approving]="approving()"
           [selectedIssueId]="selectedIssueId()"
+          [canAssist]="canAssist()"
+          [assistanceSummary]="assistance.data()"
+          [assistanceBusy]="assistance.loading() || assistance.busy()"
+          [assistanceError]="assistance.error()"
+          (assistanceRefresh)="assistance.load()"
+          (assistanceRerun)="assistance.rerun($event)"
           (selectedIssueIdChange)="selectedIssueId.set($event)"
           (confirmApproval)="confirmAndApprove(item)"
           (approve)="confirmAndApprove(item)"

@@ -38,12 +38,27 @@
       <openg7-preparation-issue-list
         [issues]="projection().issues"
         [selectedId]="selection()"
+        [canAssist]="canAssist()"
+        [assistanceSummary]="currentAssistance()"
+        [assistanceBusy]="assistanceBusy()"
+        [assistanceError]="assistanceError()"
         (selected)="select($event)"
       />
     }
     <div>
       @if (!ready() && receipt().status !== 'approved') {
-        <openg7-preparation-issue-detail [issue]="issue()" [ready]="ready()" />
+        <openg7-preparation-issue-detail
+          [issue]="issue()"
+          [ready]="ready()"
+          [canAssist]="canAssist()"
+          [assistanceSummary]="currentAssistance()"
+          [assistanceBusy]="assistanceBusy()"
+          [assistanceError]="assistanceError()"
+          [assistanceActions]="assistanceActions()"
+          [context]="context()"
+          (assistanceRequested)="requestAssistance($event)"
+          (refreshRequested)="assistanceRefreshRequested.emit()"
+        />
       }
       <button
         #opener

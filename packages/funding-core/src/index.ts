@@ -354,3 +354,30 @@ export type {
 } from './admin-responsibility-balance.js';
 export * from './admin-automatic-runs.js';
 export * from './admin-preparation.js';
+export {
+  PREPARATION_SOURCE_MAX_LENGTH,
+  PREPARATION_SOURCE_MAX_ITEMS,
+  PREPARATION_ASSISTANCE_ADAPTER,
+  extractPreparationPublications,
+  preparationCitationsMatch,
+  normalizePreparationAssistanceDraft,
+  type PreparationAssistanceSource,
+  type PreparationAssistanceCitation,
+  type PreparationAssistanceItem,
+  type PreparationAssistanceSuggestion,
+  type PreparationAssistanceResolution,
+  type PreparationAssistanceDraft,
+  type PreparationAssistanceReview,
+  type PreparationAssistanceRun,
+  type PreparationAssistanceState,
+  type PreparationAssistanceSourceRequest,
+  type PreparationAssistanceRunRequest,
+  type PreparationAssistanceReviewRequest,
+  type PreparationAssistanceApplyRequest
+} from './preparation-assistance.js';
+export {
+  preparationAssistanceActions,
+  type PreparationAssistanceSummary,
+  type PreparationAssistanceActionId,
+  type PreparationAssistanceAction
+} from './preparation-assistance-summary.js';

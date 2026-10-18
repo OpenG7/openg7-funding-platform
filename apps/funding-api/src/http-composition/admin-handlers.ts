@@ -35,6 +35,8 @@ import { createAdminPilotageHttpHandler } from '../admin-pilotage.http.js';
 import { createAdminAutomaticRunsHttpHandler } from '../admin-automatic-runs.http.js';
 import { AdminAutomaticRunsService } from '../admin-automatic-runs.service.js';
 import { AdminPreparationService } from '../admin-preparation.service.js';
+import { createAdminPreparationAssistanceHttpHandler } from '../admin-preparation-assistance.http.js';
+import { PreparationAssistanceService } from '../preparation-assistance/service.js';
 import { PilotError } from '../admin-pilotage.service.js';
 import { createAdminPublicationAutomationHttpHandler } from '../admin-publication-automation.http.js';
 import { createAdminPublicationBatchesHttpHandler } from '../admin-publication-batches.http.js';
@@ -385,6 +387,20 @@ export const createAdminHttpHandlers = ({
     reportFailure: (message, error) => console.error(message, error)
   });
 
+  const handlePreparationAssistanceRequest =
+    createAdminPreparationAssistanceHttpHandler({
+      publicBaseOrigin,
+      readBody,
+      writeJson,
+      ensureAdminAccess,
+      getAdminAuditActor,
+      canOwn: (request) =>
+        adminIdentity
+          ? adminIdentity.identity(request)?.role === 'owner'
+          : Boolean(resolveAdminAuthorization(request)),
+      assistance: dbPool ? new PreparationAssistanceService(dbPool) : null
+    });
+
   const handleSponsorshipCommitmentsRequest =
     createSponsorshipCommitmentsHttpHandler({
       publicBaseOrigin,
@@ -437,6 +453,7 @@ export const createAdminHttpHandlers = ({
 
   const handleAdminSponsorshipRecordsRequest: typeof handleExistingAdminSponsorshipRecordsRequest =
     async (request, response) =>
+      (await handlePreparationAssistanceRequest(request, response)) ||
       (await handleSponsorshipTimingRequest(request, response)) ||
       (await handleSponsorshipCommitmentsRequest(request, response)) ||
       (await handleExistingAdminSponsorshipRecordsRequest(request, response));

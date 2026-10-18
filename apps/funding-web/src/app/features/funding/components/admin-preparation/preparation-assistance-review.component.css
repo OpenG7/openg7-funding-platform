@@ -1,0 +1,91 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+.assistance {
+  padding: 1rem;
+  margin-block: 1rem;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-card);
+  background: var(--admin-panel);
+}
+header,
+.run-tools,
+.run-state {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+header {
+  justify-content: space-between;
+}
+h4,
+h5 {
+  margin: 0.4rem 0;
+}
+label {
+  display: grid;
+  gap: 0.3rem;
+  margin-block: 0.75rem;
+}
+input,
+textarea,
+select {
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+fieldset {
+  min-width: 0;
+}
+.clause {
+  margin-block: 0.8rem;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-control);
+  padding: 0.75rem;
+}
+blockquote,
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 0.5rem 0;
+  padding: 0.65rem;
+  background: var(--admin-panel-raised);
+}
+.notice,
+.help,
+.source-version {
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.warning {
+  color: var(--admin-warning);
+}
+.error {
+  color: var(--admin-danger);
+}
+.fingerprint {
+  overflow-wrap: anywhere;
+  font-size: 0.75rem;
+}
+.run-state {
+  margin-block: 1rem 0.5rem;
+}
+progress {
+  width: 100%;
+}
+.processing {
+  animation: assistance-turn 4s linear infinite;
+}
+@keyframes assistance-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .processing {
+    animation: none;
+  }
+}
