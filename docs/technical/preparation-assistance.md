@@ -3,12 +3,47 @@
 Le propriétaire peut conserver un texte d’accord privé et examiner les clauses
 dans le dossier commanditaire. Une nouvelle version de source lance son indexation
 locale automatiquement si l’engagement historique reste à qualifier, dans la même
-transaction que l’enregistrement et l’audit. Le traitement repère les canaux et
-conserve chaque ligne non vide avec sa provenance.
+transaction que l’enregistrement et l’audit. Le traitement conserve chaque ligne
+non vide avec sa provenance et produit un tableau de détails explicites à examiner.
 Il ne lit pas de PDF, ne pratique pas d’OCR et n’appelle aucun fournisseur IA.
-Aucun montant, quantité, format, destination ou délai commercial n’est déduit du
-texte. L’offre reste renseignée et vérifiée par une personne dans le formulaire
-de qualification existant. Aucun score de confiance probabiliste n’est affiché.
+Aucun montant ni offre commerciale n’est déduit du texte. Les nouvelles analyses
+repèrent certaines quantités, destinations et certains formats explicitement cités,
+avec leurs extraits exacts. L’offre reste renseignée et vérifiée par une personne
+dans le formulaire de qualification existant. Aucun score de confiance
+probabiliste n’est affiché.
+
+## Proposition structurée locale
+
+Les nouveaux jobs utilisent `local_rules_v2`. Chaque ligne conserve sa citation
+et ajoute `structured` : version du contrat, nature (`publication`, `proof`,
+`other`), quantité, destination, format, faits cités et points à vérifier.
+Le vocabulaire FR/EN est borné ; ce n’est pas une lecture sémantique générale.
+Une quantité exige un nombre explicite lié à une publication et à un canal unique.
+Un nombre de mots, de visuels ou d’heures ne devient pas une quantité de publications.
+La destination exige un marqueur explicite comme « sur OpenG7 » ; le format
+exige « format » suivi d’une valeur prise en charge. Les négations, conditions,
+exemples, instructions et portées ambiguës laissent les valeurs à confirmer.
+
+Articles dédiés, quotas de mots ou de visuels, hashtags et promesses de remise de
+preuves restent visibles avec leurs citations mais n’étendent pas le modèle
+d’engagement. Les points hors modèle bloquent leur inclusion dans la qualification.
+`proposedOffer` reste `null` : les détails du tableau ne remplissent ni n’appliquent
+automatiquement l’offre. Les compteurs distinguent clauses de publication,
+clauses de preuve et lignes ; ils n’additionnent pas les quantités commerciales.
+
+Les faits ont des offsets UTF-16 dans la source enregistrée. Le serveur vérifie
+le résultat v2 contre l’analyse locale attendue avant de le conserver et à sa
+lecture, sans dépendre de l’ordre des clés JSONB. Une quantité, citation ou donnée
+structurée forgée est rejetée. Les éditeurs de résolution et de justification
+du tableau utilisent le même brouillon, les mêmes droits et le même workflow
+d’application que le formulaire existant. Sur un espace étroit, chaque ligne
+devient une carte dont l’ordre de lecture reste prestation, détails, source, revue.
+
+Les sources et résultats `local_rules_v1` restent inchangés. Les jobs v1 en attente
+se terminent avec l’ancien indexeur ; une réanalyse explicitement demandée crée
+un nouveau job v2. Consulter un ancien résultat ne l’enrichit pas et ne lance rien.
+Toute évolution future du comportement d’analyse doit préserver l’adaptateur
+des résultats existants et disposer d’une version distincte.
 
 ## Contrat HTTP privé
 
@@ -58,7 +93,9 @@ ou `cancelled`, indépendamment de la revue (`saved`, `rejected`, `accepted`) et
 de la qualification commerciale. Les phases ne sont pas des pourcentages de
 progression. Le worker traite un job à la fois par instance, avec réservation
 SQL, bail et jeton de tentative pour refuser un résultat tardif. Les demandes
-concurrentes sur les mêmes entrées sont dédupliquées. Une réanalyse est une
+concurrentes sur les mêmes entrées sont dédupliquées, y compris entre les
+adaptateurs v1 et v2 pendant une mise à jour. L’index unique de 059 interdit
+deux jobs actifs pour une même source et version d’engagement. Une réanalyse est une
 nouvelle génération explicite, sans écrasement du résultat ni du refus précédent.
 
 Une nouvelle source ou une nouvelle version d’engagement rend une ancienne
@@ -124,9 +161,15 @@ La qualification manuelle reste accessible si l’assistance est indisponible.
 
 Appliquer la migration additive
 [`058_preparation_assistance.sql`](../../apps/funding-api/migrations/058_preparation_assistance.sql)
+et la migration
+[`059_preparation_structured_analysis.sql`](../../apps/funding-api/migrations/059_preparation_structured_analysis.sql)
 avant cette API, puis rafraîchir les grants du rôle applicatif avec le runner
 mis à jour selon la [procédure de migrations](../operations/database-migrations.md).
-Le démarrage de l’API vérifie la présence des tables et les droits nécessaires.
+059 élargit la liste des adaptateurs autorisés, sans réécrire de source, résultat
+ou engagement. Le démarrage vérifie tables, droits et contrainte de compatibilité v2.
+Arrêter les anciennes instances de l’API et leurs workers avant de démarrer
+cette version : les workers v1 ne savent pas produire une suggestion v2.
+Les jobs v1 en attente sont repris par le nouveau worker avec leur ancien indexeur.
 Sources, suggestions, revues et reçus de requêtes sont append-only. Seul l’état
 opérationnel des jobs est modifiable ; leurs entrées restent immuables.
 La migration ne crée aucun texte, job, accord ou envoi existant. La production

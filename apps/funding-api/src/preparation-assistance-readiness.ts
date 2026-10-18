@@ -20,7 +20,12 @@ export async function assertPreparationAssistanceReadiness(
         AND has_table_privilege(current_user,c.oid,'INSERT')
         AND (NOT expected.mutable OR has_table_privilege(current_user,c.oid,'UPDATE')),
         false
-      )) AS ready
+      )) AND EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid=to_regclass('public.preparation_assistance_runs')
+          AND conname='preparation_assistance_runs_supported_adapter_check'
+          AND contype='c' AND convalidated
+      ) AS ready
       FROM expected
       LEFT JOIN pg_namespace n ON n.nspname='public'
       LEFT JOIN pg_class c ON c.relnamespace=n.oid AND c.relname=expected.name

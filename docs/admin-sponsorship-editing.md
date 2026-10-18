@@ -132,9 +132,11 @@ Pour un accord historique à qualifier, le propriétaire peut enregistrer un tex
 privé versionné et lancer une **assistance locale** depuis la section de l’accord.
 Une nouvelle source admissible démarre le traitement dès son enregistrement ;
 une source identique ou la simple consultation ne le relance pas.
-Elle repère les canaux et présente les clauses exactes à examiner, sans fournisseur
-IA ni déduction des prestations. Les décisions et modifications humaines sont
-conservées ; l’offre complète se renseigne dans le formulaire habituel. Une clause
+Le tableau rapproche les détails explicitement repérés de leur source : nature,
+quantité, destination, format, mots, visuels ou remise de preuves. Les ambiguïtés
+et termes hors modèle restent visibles, sans fournisseur IA ni offre automatique.
+Les décisions et modifications humaines sont conservées ; l’offre complète se
+renseigne dans le formulaire habituel. Une clause
 non résolue ou non représentable bloque l’application. La qualification exige
 toujours motif, confirmation et versions courantes. La voie manuelle reste
 accessible. Voir les [états, limites et règles de reprise](technical/preparation-assistance.md).

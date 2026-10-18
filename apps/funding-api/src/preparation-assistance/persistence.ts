@@ -152,7 +152,10 @@ export async function loadAssistanceSuggestion(
   );
   let valid = false;
   try {
-    valid = !!source && preparationCitationsMatch(source, row.snapshot);
+    valid =
+      !!source &&
+      row.snapshot.adapter === run.adapter &&
+      preparationCitationsMatch(source, row.snapshot);
   } catch {
     // Persisted provider output is not trusted merely because it is valid JSON.
   }

@@ -1,5 +1,5 @@
 {
-  "title": "Préparer les publications promises",
+  "title": "Documenter les prestations de l’accord d’origine",
   "sourceConflict": "Une autre version de la source a été enregistrée. Ta saisie est conservée sur sa version d’origine. Compare le texte enregistré avant de reprendre la version courante.",
   "resetSource": "Remplacer ma saisie par la source courante",
   "reviewConflict": "La revue a changé pendant tes modifications. Tes résolutions sont conservées et ne peuvent pas être appliquées à la nouvelle version. Reprends explicitement la revue enregistrée avant de continuer.",
@@ -8,7 +8,7 @@
   "apply": "Appliquer les prestations validées à l’accord",
   "formScope": "Ce formulaire applique la revue sélectionnée avec sa source et ses versions. Documente les prestations et examine toutes les clauses avant de confirmer avec l’identifiant du dossier.",
   "replaceDraft": "Remplacer les prestations saisies par le brouillon de revue enregistré ?",
-  "localNotice": "Indexation locale déterministe du texte enregistré. Aucun fournisseur externe ni modèle IA n’est utilisé. Les quantités, destinations et formats restent à documenter par une personne.",
+  "localNotice": "Analyse locale du texte enregistré, sans fournisseur externe ni modèle IA. Les mentions explicites sont proposées à la lecture ; une personne vérifie les prestations avant de les appliquer.",
   "refresh": "Relire l’assistance",
   "loading": "Lecture des données enregistrées…",
   "source": {
@@ -40,8 +40,8 @@
     "verifying": "Vérification des citations",
     "finished": "Traitement terminé"
   },
-  "suggestion": "Clauses repérées et publications à documenter",
-  "mappingHelp": "Examine chaque extrait. Prépare les prestations dans le formulaire habituel, puis relie chaque clause représentable à une prestation. L’indexation ne déduit aucune offre.",
+  "suggestion": "Proposition locale — publications et livrables",
+  "mappingHelp": "Compare les détails repérés à leur source. Complète ou révise les prestations dans le formulaire de qualification, puis relie chaque clause représentable à une prestation documentée. Aucune offre n’est appliquée automatiquement.",
   "reviews": {
     "saved": "Brouillon de revue enregistré",
     "rejected": "Proposition rejetée",
@@ -73,6 +73,72 @@
   "reject": "Rejeter la proposition",
   "applied": "L’accord a été qualifié par le workflow métier. Relis le bon pour connaître les contrôles satisfaits.",
   "separation": "Une indexation ou un brouillon enregistré ne satisfait aucun contrôle. L’application exige la validation explicite du propriétaire et ne publie rien.",
+  "proposal": {
+    "caption": "Tableau des prestations et clauses à examiner",
+    "counts": "Clauses de publication : {{publications}} · Clauses de preuve : {{proofs}} · Lignes à examiner : {{clauses}}",
+    "reviewHelp": "Chaque ligne est une clause de la source. Les quantités ne sont pas additionnées. « À confirmer » signifie que le texte ne fournit pas de valeur explicite sans ambiguïté. Les détails repérés ne remplacent pas les prestations validées dans le formulaire.",
+    "legacy": "Ce résultat utilise l’ancienne indexation par lignes. Il reste consultable et révisable. Une nouvelle indexation explicite est nécessaire pour obtenir les détails structurés.",
+    "noStructuredDetails": "Détails structurés absents de cette génération ; examine l’extrait.",
+    "channelUnknown": "Canal à confirmer",
+    "unknown": "À confirmer",
+    "quantity": "Quantité repérée",
+    "target": "Destination repérée",
+    "format": "Format repéré",
+    "gapsTitle": "{{count}} points à vérifier",
+    "columns": {
+      "service": "Prestation / clause",
+      "details": "Détails repérés",
+      "source": "Source exacte",
+      "review": "Revue humaine"
+    },
+    "natures": {
+      "publication": "Publication",
+      "proof": "Preuve de livraison",
+      "other": "Clause à qualifier"
+    },
+    "channels": {
+      "website": "Site Web",
+      "facebook": "Facebook",
+      "linkedin": "LinkedIn"
+    },
+    "targets": { "openg7": "OpenG7", "openg20": "OpenG20" },
+    "formats": {
+      "unknown": "À confirmer",
+      "collective_text": "Texte collectif",
+      "individual_portrait": "Portrait individuel",
+      "collective_composite": "Visuel collectif",
+      "image_collection": "Collection d’images"
+    },
+    "facts": {
+      "nature": "Nature mentionnée",
+      "quantity": "Quantité mentionnée",
+      "target": "Destination mentionnée",
+      "format": "Format mentionné",
+      "word_count": "Nombre de mots",
+      "visual_count": "Visuels",
+      "hashtag": "Hashtags",
+      "delivery_deadline": "Remise / délai mentionné",
+      "unsupported_term": "Terme à traiter explicitement"
+    },
+    "reviewStates": {
+      "unresolved": "À examiner",
+      "included": "Inclusion demandée dans le brouillon",
+      "unsupported": "Traitement manuel requis",
+      "excluded": "Exclusion demandée dans le brouillon"
+    },
+    "gaps": {
+      "ambiguous_context": "Contexte ambigu, conditionnel ou non contractuel : les valeurs restent à confirmer.",
+      "channel_missing": "Aucun canal explicite repéré.",
+      "channel_ambiguous": "Le rattachement à un canal reste ambigu dans cette clause.",
+      "quantity_missing": "Aucune quantité de publications explicite repérée.",
+      "quantity_ambiguous": "La portée du nombre ou la quantité reste ambiguë.",
+      "target_missing": "La destination doit être documentée par une personne.",
+      "target_ambiguous": "Plusieurs destinations sont mentionnées ; le rattachement reste à préciser.",
+      "format_missing": "Le format de la prestation doit être documenté.",
+      "format_ambiguous": "Le format cité ne correspond pas sans ambiguïté à un format pris en charge.",
+      "outside_offer_model": "Des termes de cette clause dépassent le modèle commercial actuel. Ils restent visibles et exigent un traitement manuel."
+    }
+  },
   "errors": {
     "forbidden": "Tes droits ne permettent plus de consulter cette assistance. Les données privées ont été retirées.",
     "unavailable": "L’assistance est indisponible. Tu peux réessayer la lecture ou compléter l’accord manuellement.",

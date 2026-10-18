@@ -9,7 +9,10 @@ import { AdminPreparationService } from '../../dist/apps/funding-api/src/admin-p
 import { tickPreparationAssistance } from '../../dist/apps/funding-api/src/preparation-assistance/worker.js';
 import { assertPreparationAssistanceReadiness } from '../../dist/apps/funding-api/src/preparation-assistance-readiness.js';
 import { assertProductionDatabasePrivileges } from '../../dist/apps/funding-api/src/database-runtime-security.js';
-import { extractPreparationPublications } from '../../dist/packages/funding-core/src/preparation-assistance.js';
+import {
+  extractPreparationPublications,
+  extractStructuredPreparationPublications
+} from '../../dist/packages/funding-core/src/preparation-assistance.js';
 import {
   buildMigrationSql,
   readMigrations
@@ -104,6 +107,15 @@ test(
       return contribution;
     }
     const prior = await historical();
+    await pool.query(
+      buildMigrationSql(
+        migrations.filter((item) => item.version < 59),
+        { database }
+      )
+    );
+    await assert.rejects(assertPreparationAssistanceReadiness(pool), {
+      message: 'PREPARATION_ASSISTANCE_SCHEMA_OR_GRANTS_REQUIRED'
+    });
     await pool.query(buildMigrationSql(migrations, { database }));
     await pool.query(buildMigrationSql(migrations, { database }));
     await assertPreparationAssistanceReadiness(pool);
@@ -195,6 +207,139 @@ test(
           ).rows[0],
           prior
         );
+      }
+    );
+
+    await t.test(
+      'legacy queued jobs remain readable and explicit reanalysis creates a separate structured generation',
+      async () => {
+        const contribution = await historical();
+        const text = 'Une publication Facebook sur OpenG7.';
+        const source = (
+          await pool.query(
+            `INSERT INTO preparation_assistance_sources(contribution_id,version,title,source_text,fingerprint,actor)
+           VALUES($1,1,'Synthetic legacy agreement',$2,encode(digest($2,'sha256'),'hex'),$3) RETURNING *`,
+            [contribution.id, text, actor]
+          )
+        ).rows[0];
+        const run = (
+          await pool.query(
+            `INSERT INTO preparation_assistance_runs(contribution_id,source_id,source_version,commitment_version,adapter,generation,requested_by)
+           VALUES($1,$2,1,1,'local_rules_v1',1,$3) RETURNING *`,
+            [contribution.id, source.id, actor]
+          )
+        ).rows[0];
+        const active = await service.read(contribution.id);
+        const deduplicated = await queue(active, true);
+        assert.equal(deduplicated.run.id, run.id);
+        assert.equal(deduplicated.run.adapter, 'local_rules_v1');
+        assert.equal(
+          await count(
+            'SELECT count(*) n FROM preparation_assistance_runs WHERE source_id=$1',
+            [source.id]
+          ),
+          1
+        );
+        await service.tick();
+        const legacy = await service.read(contribution.id);
+        assert.equal(legacy.run.id, run.id);
+        assert.equal(legacy.run.state, 'succeeded');
+        assert.equal(legacy.run.suggestion.adapter, 'local_rules_v1');
+        assert.equal(legacy.run.suggestion.items[0].structured, undefined);
+        const before = (
+          await pool.query(
+            'SELECT snapshot FROM preparation_assistance_suggestions WHERE run_id=$1',
+            [run.id]
+          )
+        ).rows[0].snapshot;
+        const next = await queue(legacy, true);
+        assert.equal(next.run.adapter, 'local_rules_v2');
+        assert.notEqual(next.run.id, run.id);
+        assert.equal(next.source.version, 1);
+        await service.tick();
+        const structured = await service.read(contribution.id);
+        assert.equal(structured.run.state, 'succeeded');
+        assert.equal(structured.run.suggestion.adapter, 'local_rules_v2');
+        assert.equal(
+          structured.run.suggestion.items[0].structured.nature,
+          'publication'
+        );
+        assert.equal(structured.run.suggestion.proposedOffer, null);
+        assert.deepEqual(
+          (
+            await pool.query(
+              'SELECT snapshot FROM preparation_assistance_suggestions WHERE run_id=$1',
+              [run.id]
+            )
+          ).rows[0].snapshot,
+          before
+        );
+      }
+    );
+
+    await t.test(
+      'structured details survive JSONB and remain private observations rather than commercial benefits',
+      async () => {
+        const fixture = await analyzed(
+          '2 publications Facebook sur OpenG7, format texte collectif.\nUn article de 800 à 1000 mots sur le site Web avec 3 visuels.\nPreuves de livraison à remettre sous 48 h.'
+        );
+        assert.equal(fixture.state.run.state, 'succeeded');
+        const suggestion = fixture.state.run.suggestion;
+        assert.equal(suggestion.adapter, 'local_rules_v2');
+        assert.equal(suggestion.proposedOffer, null);
+        assert.equal(suggestion.items[0].structured.quantity, 2);
+        for (const item of suggestion.items) {
+          assert.equal(item.structured.version, 1);
+          for (const fact of item.structured.facts) {
+            assert.equal(
+              fixture.state.source.text.slice(
+                fact.citation.start,
+                fact.citation.end
+              ),
+              fact.citation.excerpt
+            );
+            assert.equal(fact.citation.sourceId, fixture.state.source.id);
+          }
+        }
+        assert.ok(
+          suggestion.items[1].structured.gaps.includes('outside_offer_model')
+        );
+        assert.equal(suggestion.items[1].attention, 'unsupported_terms');
+        assert.equal(suggestion.items[2].structured.nature, 'proof');
+        assert.equal(fixture.state.commitment.state, 'needs_confirmation');
+        assert.equal(
+          await count(
+            'SELECT count(*) n FROM sponsorship_commitments WHERE contribution_id=$1 AND offer_id IS NOT NULL',
+            [fixture.contribution.id]
+          ),
+          0
+        );
+        const summary = await service.summary(fixture.contribution.id);
+        assert.equal(summary.run.adapter, 'local_rules_v2');
+        assert.equal(JSON.stringify(summary).includes('800'), false);
+        assert.equal(JSON.stringify(summary).includes('facts'), false);
+        assert.deepEqual(await externalFacts(), originalExternal);
+      }
+    );
+
+    await t.test(
+      'wrong adapter results and fabricated structured facts fail without persisting a suggestion',
+      async () => {
+        for (const analyze of [
+          extractPreparationPublications,
+          (source) => {
+            const suggestion = extractStructuredPreparationPublications(source);
+            suggestion.items[0].structured.quantity = 99;
+            return suggestion;
+          }
+        ]) {
+          const fixture = await sourced('2 publications Facebook sur OpenG7.');
+          await tickPreparationAssistance(runtime, analyze);
+          const state = await service.read(fixture.contribution.id);
+          assert.equal(state.run.state, 'failed');
+          assert.equal(state.run.errorCode, 'ASSISTANCE_SUGGESTION_INVALID');
+          assert.equal(state.run.suggestion, null);
+        }
       }
     );
 
@@ -787,7 +932,7 @@ test(
         const worker = tickPreparationAssistance(runtime, async (source) => {
           started();
           await gate;
-          return extractPreparationPublications(source);
+          return extractStructuredPreparationPublications(source);
         });
         await beginning;
         const changed = await service.saveSource(
@@ -1121,7 +1266,7 @@ test(
         const old = tickPreparationAssistance(runtime, async (source) => {
           started();
           await gate;
-          return extractPreparationPublications(source);
+          return extractStructuredPreparationPublications(source);
         });
         await beginning;
         await pool.query(
@@ -1176,7 +1321,7 @@ test(
         const second = await sourced();
         await queue(second.state);
         await tickPreparationAssistance(runtime, (source) => {
-          const suggestion = extractPreparationPublications(source);
+          const suggestion = extractStructuredPreparationPublications(source);
           suggestion.items[0].citation.excerpt = 'Invented content';
           return suggestion;
         });

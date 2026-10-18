@@ -10,6 +10,11 @@ import type {
   SponsorshipCommitmentRecord
 } from '@openg7/funding-core';
 
+import {
+  extractStructuredPreparationPublications,
+  preparationCitationsMatch
+} from '../../packages/funding-core/src/index.js';
+
 import { expect, sampledFrames, test } from './support/test.js';
 import {
   adminController,
@@ -369,8 +374,8 @@ for (const locale of ['en', 'fr-CA']) {
     const panel = hook(page, 'preparation-assistance');
     await expect(panel).toContainText(
       locale === 'en'
-        ? 'Deterministic local indexing'
-        : 'Indexation locale déterministe'
+        ? 'Local analysis of the stored text'
+        : 'Analyse locale du texte enregistré'
     );
     expect(fixture.commands).toEqual([]);
     await hook(page, 'assistance-source-title').fill(
@@ -994,4 +999,144 @@ test('the guide reads and reruns compact facts without loading the private sourc
     'data-og7-total',
     '3'
   );
+});
+
+function structuredState(): PreparationAssistanceState {
+  const lines = [
+    'Un article de 800–1000 mots sur le site Web avec 3 visuels.',
+    '2 publications Facebook sur OpenG7, format texte collectif.',
+    'Une publication LinkedIn sur OpenG7 avec hashtags #OpenG7.',
+    'Preuves de livraison à remettre sous 48 h.'
+  ];
+  const state = initial();
+  const stored = { ...source(), text: lines.join('\n') };
+  const proposal = extractStructuredPreparationPublications(stored);
+  expect(preparationCitationsMatch(stored, proposal)).toBe(true);
+  return {
+    ...state,
+    source: stored,
+    run: {
+      ...state.run!,
+      adapter: proposal.adapter,
+      suggestion: proposal
+    }
+  };
+}
+
+for (const locale of ['fr-CA', 'en']) {
+  test(`the ${locale} structured proposal separates cited details, delivery evidence and human resolutions on desktop and mobile`, async ({
+    page
+  }, testInfo) => {
+    await page.setViewportSize({
+      width: locale === 'fr-CA' ? 1672 : 390,
+      height: 941
+    });
+    const { fixture, base } = await fixtures(page, { locale });
+    fixture.state = structuredState();
+    await open(page);
+    const table = hook(page, 'assistance-proposal-table');
+    await expect(table).toBeVisible();
+    await expect(hook(page, 'assistance-proposal-legacy')).toHaveCount(0);
+    await expect(hook(page, 'assistance-proposal-counts')).toHaveText(
+      locale === 'fr-CA'
+        ? 'Clauses de publication : 3 · Clauses de preuve : 1 · Lignes à examiner : 4'
+        : 'Publication clauses: 3 · Evidence clauses: 1 · Lines to review: 4'
+    );
+    const rows = hook(page, 'assistance-clause');
+    await expect(rows).toHaveCount(4);
+    await expect(rows.first()).toHaveCSS(
+      'display',
+      locale === 'fr-CA' ? 'table-row' : 'block'
+    );
+    expect((await table.locator('caption').boundingBox())?.height).toBeLessThan(
+      100
+    );
+    await expect(rows.nth(0)).toContainText('800–1000 mots');
+    await expect(rows.nth(0)).toContainText('3 visuels');
+    await expect(
+      rows.nth(0).locator('[data-og7="assistance-proposal-quantity"]')
+    ).toHaveText(locale === 'fr-CA' ? 'À confirmer' : 'To confirm');
+    await expect(
+      rows.nth(1).locator('[data-og7="assistance-proposal-quantity"]')
+    ).toHaveText('2');
+    await expect(rows.nth(3)).toContainText('48 h');
+    await table.screenshot({
+      path: testInfo.outputPath('structured-proposal.png')
+    });
+    await expect(
+      rows
+        .nth(3)
+        .locator(
+          '[data-og7="assistance-clause-disposition"] option[value="included"]'
+        )
+    ).toHaveJSProperty('disabled', true);
+    await expect(hook(page, 'preparation-pilot-progress')).toHaveAttribute(
+      'data-og7-completed',
+      '1'
+    );
+    await expect(hook(page, 'preparation-pilot')).not.toContainText('800–1000');
+    await expect(hook(page, 'commitments-benefit-quantity')).toHaveCount(0);
+    await expect(
+      rows.nth(1).locator('[data-og7="assistance-proposal-row-state"]')
+    ).toHaveAttribute('data-og7-state', 'unresolved');
+    await expect(rows.nth(1)).toBeVisible();
+    expect(fixture.commands).toEqual([]);
+    expect(base.commands).toEqual([]);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1
+      )
+    ).toBe(true);
+    await rows
+      .nth(3)
+      .locator('[data-og7="assistance-proposal-gaps"] > summary')
+      .focus();
+    await page.keyboard.press('Enter');
+    await expect(
+      rows.nth(3).locator('[data-og7="assistance-proposal-gaps"]')
+    ).toHaveJSProperty('open', true);
+    await rows
+      .nth(1)
+      .locator('[data-og7="assistance-clause-note"]')
+      .fill('Synthetic human clarification of the original agreement');
+    await hook(page, 'assistance-review-reason').fill(
+      'Synthetic human draft after examining every cited detail'
+    );
+    await hook(page, 'assistance-review-save').click();
+    expect(fixture.commands).toHaveLength(1);
+    expect(fixture.commands[0]!.path).toBe(endpoint + '/review');
+    expect(fixture.commands[0]!.body).toMatchObject({
+      draft: {
+        offer: null,
+        items: [
+          { itemId: 'clause-1', disposition: 'unresolved' },
+          {
+            itemId: 'clause-2',
+            disposition: 'unresolved',
+            note: 'Synthetic human clarification of the original agreement'
+          },
+          { itemId: 'clause-3', disposition: 'unresolved' },
+          { itemId: 'clause-4', disposition: 'unresolved' }
+        ]
+      }
+    });
+    expect(base.commitment?.state).toBe('needs_confirmation');
+    await expect(hook(page, 'preparation-pilot-progress')).toHaveAttribute(
+      'data-og7-completed',
+      '1'
+    );
+  });
+}
+
+test('legacy proposals remain readable without inventing structured facts or automatically requesting a new analysis', async ({
+  page
+}) => {
+  const { fixture } = await fixtures(page);
+  await open(page);
+  await expect(hook(page, 'assistance-proposal-legacy')).toBeVisible();
+  await expect(hook(page, 'assistance-proposal-terms')).toHaveCount(0);
+  await expect(
+    hook(page, 'assistance-clause').locator('blockquote')
+  ).toHaveText(text.split('\n'));
+  expect(fixture.commands).toEqual([]);
 });

@@ -168,7 +168,7 @@ export const createApiBackgroundWorkers = (
       await dependencies.preparationAssistance?.tick();
     } catch {
       logger.error(
-        'Preparation assistance interrupted; verify migration 058 and database availability.'
+        'Preparation assistance interrupted; verify migration 059 and database availability.'
       );
     } finally {
       preparationAssistanceProcessing = false;

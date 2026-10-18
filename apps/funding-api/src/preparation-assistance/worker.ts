@@ -4,7 +4,10 @@ import type { Pool } from 'pg';
 
 import {
   extractPreparationPublications,
+  extractStructuredPreparationPublications,
+  PREPARATION_ASSISTANCE_STRUCTURED_ADAPTER,
   preparationCitationsMatch,
+  type PreparationAssistanceAdapter,
   type PreparationAssistanceSource,
   type PreparationAssistanceSuggestion
 } from '../../../../packages/funding-core/src/index.js';
@@ -19,13 +22,14 @@ import {
 } from './persistence.js';
 
 type LocalAnalysis = (
-  source: PreparationAssistanceSource
+  source: PreparationAssistanceSource,
+  adapter: PreparationAssistanceAdapter
 ) => PreparationAssistanceSuggestion | Promise<PreparationAssistanceSuggestion>;
 
 /** One bounded local job, durably fenced against crashes, expired leases and source changes. */
 export async function tickPreparationAssistance(
   pool: Pool,
-  analyze: LocalAnalysis = extractPreparationPublications
+  analyze?: LocalAnalysis
 ): Promise<void> {
   const token = randomUUID();
   const claimed = await withPostgresTransaction(pool, async (db) => {
@@ -84,7 +88,13 @@ export async function tickPreparationAssistance(
   let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
     suggestion = await Promise.race([
-      Promise.resolve().then(() => analyze(claimed.source)),
+      Promise.resolve().then(() =>
+        analyze
+          ? analyze(claimed.source, claimed.run.adapter)
+          : claimed.run.adapter === PREPARATION_ASSISTANCE_STRUCTURED_ADAPTER
+            ? extractStructuredPreparationPublications(claimed.source)
+            : extractPreparationPublications(claimed.source)
+      ),
       new Promise<never>((_, reject) => {
         timeout = setTimeout(
           () => reject(new Error('ASSISTANCE_ANALYSIS_TIMEOUT')),
@@ -93,7 +103,8 @@ export async function tickPreparationAssistance(
       })
     ]);
     requireAssistance(
-      preparationCitationsMatch(claimed.source, suggestion),
+      suggestion.adapter === claimed.run.adapter &&
+        preparationCitationsMatch(claimed.source, suggestion),
       'ASSISTANCE_SUGGESTION_INVALID'
     );
   } catch (error) {

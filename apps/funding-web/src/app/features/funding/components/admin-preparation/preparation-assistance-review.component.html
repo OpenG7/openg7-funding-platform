@@ -190,83 +190,15 @@
                 {{ t('reviewVersion', { version: review.version }) }}
               </p>
             }
-            @for (item of suggestion.items; track item.id) {
-              <fieldset
-                class="clause"
-                data-og7="assistance-clause"
-                [attr.data-og7-id]="item.id"
-                [disabled]="
-                  locked() || !state.capabilities.canReview || state.stale
-                "
-              >
-                <legend>{{ t('clause', { id: item.id }) }}</legend>
-                <blockquote>{{ item.citation.excerpt }}</blockquote>
-                <p class="help">
-                  {{
-                    t('citation', {
-                      version: item.citation.sourceVersion,
-                      start: item.citation.start,
-                      end: item.citation.end
-                    })
-                  }}
-                </p>
-                <p>{{ t('attention.' + item.attention) }}</p>
-                @if (item.channels.length) {
-                  <p>{{ t('detected') }} {{ item.channels.join(', ') }}</p>
-                }
-                <label
-                  >{{ t('disposition')
-                  }}<select
-                    data-og7="assistance-clause-disposition"
-                    [value]="resolution(item.id)?.disposition ?? 'unresolved'"
-                    (change)="disposition(item.id, $event)"
-                  >
-                    @for (choice of dispositions; track choice) {
-                      <option
-                        [value]="choice"
-                        [disabled]="
-                          choice === 'included' &&
-                          item.attention === 'unsupported_terms'
-                        "
-                      >
-                        {{ t('dispositions.' + choice) }}
-                      </option>
-                    }
-                  </select></label
-                >
-                @if (resolution(item.id)?.disposition === 'included') {
-                  <label
-                    >{{ t('benefit')
-                    }}<select
-                      data-og7="assistance-clause-benefit"
-                      [value]="resolution(item.id)?.benefitId ?? ''"
-                      (change)="benefit(item.id, $event)"
-                    >
-                      <option value="">{{ t('chooseBenefit') }}</option>
-                      @for (
-                        benefit of offer()?.benefits ?? [];
-                        track benefit.id
-                      ) {
-                        <option [value]="benefit.id">
-                          {{ benefit.channel }} · {{ benefit.target }} ·
-                          {{ benefit.quantity }}
-                        </option>
-                      }
-                    </select></label
-                  >
-                }
-                <label
-                  >{{ t('clauseNote')
-                  }}<textarea
-                    data-og7="assistance-clause-note"
-                    [value]="resolution(item.id)?.note ?? ''"
-                    (input)="c.resolve(item.id, { note: value($event) })"
-                    maxlength="2000"
-                    rows="2"
-                  ></textarea>
-                </label>
-              </fieldset>
-            }
+            <openg7-preparation-assistance-proposal-table
+              [items]="suggestion.items"
+              [resolutions]="c.items()"
+              [offer]="offer()"
+              [disabled]="
+                locked() || !state.capabilities.canReview || state.stale
+              "
+              (resolutionChange)="c.resolve($event.itemId, $event.patch)"
+            />
             <p class="warning">{{ t('unsupportedHelp') }}</p>
             <label
               >{{ t('reviewReason')

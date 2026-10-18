@@ -1,5 +1,5 @@
 {
-  "title": "Prepare promised publications",
+  "title": "Document the original agreement’s deliverables",
   "sourceConflict": "Someone saved a new source version. Your text is preserved against its original version. Compare the stored text before explicitly loading the current version.",
   "resetSource": "Replace my text with the current source",
   "reviewConflict": "The review changed while you were editing. Your resolutions are preserved and cannot be applied to the new version. Explicitly load the saved review before continuing.",
@@ -8,7 +8,7 @@
   "apply": "Apply reviewed benefits to the agreement",
   "formScope": "This form applies the selected review with its source and versions. Document benefits and review every clause before confirming with the dossier identifier.",
   "replaceDraft": "Replace the entered benefits with the saved review draft?",
-  "localNotice": "Deterministic local indexing of the stored text. No external provider or AI model is used. A person must document quantities, destinations and formats.",
+  "localNotice": "Local analysis of the stored text, without an external provider or AI model. Explicit mentions are presented for review; a person verifies benefits before applying them.",
   "refresh": "Refresh assistance",
   "loading": "Reading stored facts…",
   "source": {
@@ -40,8 +40,8 @@
     "verifying": "Checking citations",
     "finished": "Run finished"
   },
-  "suggestion": "Located clauses and publications to document",
-  "mappingHelp": "Review every excerpt. Document benefits in the usual form, then link each representable clause to a benefit. Indexing does not infer an offer.",
+  "suggestion": "Local proposal — publications and deliverables",
+  "mappingHelp": "Compare located details with their source. Complete or revise benefits in the qualification form, then link each representable clause to a documented benefit. No offer is applied automatically.",
   "reviews": {
     "saved": "Review draft saved",
     "rejected": "Proposal rejected",
@@ -73,6 +73,72 @@
   "reject": "Reject proposal",
   "applied": "The business workflow qualified the agreement. Refresh the receipt to see which controls are satisfied.",
   "separation": "Indexing or saving a draft does not satisfy a control. Applying requires the owner's explicit confirmation and publishes nothing.",
+  "proposal": {
+    "caption": "Benefits and clauses to review",
+    "counts": "Publication clauses: {{publications}} · Evidence clauses: {{proofs}} · Lines to review: {{clauses}}",
+    "reviewHelp": "Each row is a source clause. Quantities are not added together. “To confirm” means the text provides no unambiguous explicit value. Located details do not replace benefits validated in the form.",
+    "legacy": "This result uses the previous line index. It remains available for consultation and review. Start an explicit new indexing run to obtain structured details.",
+    "noStructuredDetails": "This generation has no structured details; review the excerpt.",
+    "channelUnknown": "Channel to confirm",
+    "unknown": "To confirm",
+    "quantity": "Located quantity",
+    "target": "Located destination",
+    "format": "Located format",
+    "gapsTitle": "{{count}} points to verify",
+    "columns": {
+      "service": "Benefit / clause",
+      "details": "Located details",
+      "source": "Exact source",
+      "review": "Human review"
+    },
+    "natures": {
+      "publication": "Publication",
+      "proof": "Delivery evidence",
+      "other": "Clause to qualify"
+    },
+    "channels": {
+      "website": "Website",
+      "facebook": "Facebook",
+      "linkedin": "LinkedIn"
+    },
+    "targets": { "openg7": "OpenG7", "openg20": "OpenG20" },
+    "formats": {
+      "unknown": "To confirm",
+      "collective_text": "Collective text",
+      "individual_portrait": "Individual portrait",
+      "collective_composite": "Collective visual",
+      "image_collection": "Image collection"
+    },
+    "facts": {
+      "nature": "Mentioned nature",
+      "quantity": "Mentioned quantity",
+      "target": "Mentioned destination",
+      "format": "Mentioned format",
+      "word_count": "Word count",
+      "visual_count": "Visuals",
+      "hashtag": "Hashtags",
+      "delivery_deadline": "Mentioned delivery / deadline",
+      "unsupported_term": "Term requiring explicit handling"
+    },
+    "reviewStates": {
+      "unresolved": "Needs review",
+      "included": "Inclusion requested in the draft",
+      "unsupported": "Manual handling required",
+      "excluded": "Exclusion requested in the draft"
+    },
+    "gaps": {
+      "ambiguous_context": "Ambiguous, conditional or non-contractual context: values still need confirmation.",
+      "channel_missing": "No explicit channel was located.",
+      "channel_ambiguous": "The link to a channel remains ambiguous in this clause.",
+      "quantity_missing": "No explicit publication quantity was located.",
+      "quantity_ambiguous": "The number’s scope or quantity remains ambiguous.",
+      "target_missing": "A person must document the destination.",
+      "target_ambiguous": "Several destinations are mentioned; their mapping needs clarification.",
+      "format_missing": "The benefit’s format must be documented.",
+      "format_ambiguous": "The cited format does not unambiguously match a supported format.",
+      "outside_offer_model": "Some terms exceed the current commercial model. They remain visible and require manual handling."
+    }
+  },
   "errors": {
     "forbidden": "Your permissions no longer allow this assistance. Private data was cleared.",
     "unavailable": "Assistance is unavailable. Retry the read or complete the agreement manually.",

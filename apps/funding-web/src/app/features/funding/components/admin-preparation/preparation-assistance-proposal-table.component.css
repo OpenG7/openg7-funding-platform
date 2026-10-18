@@ -1,0 +1,172 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+.proposal {
+  container-type: inline-size;
+}
+.table-frame {
+  max-width: 100%;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+caption {
+  text-align: start;
+  font-weight: 650;
+  padding-block: 0.5rem;
+}
+th,
+td {
+  text-align: start;
+  vertical-align: top;
+  padding: 0.75rem;
+  border: 1px solid var(--admin-border);
+  overflow-wrap: anywhere;
+}
+th {
+  background: var(--admin-panel-raised);
+}
+th:first-child {
+  width: 16%;
+}
+th:nth-child(2) {
+  width: 25%;
+}
+th:nth-child(3) {
+  width: 25%;
+}
+.row-title,
+.channel {
+  display: block;
+}
+.channel {
+  color: var(--admin-muted);
+  margin-block-start: 0.35rem;
+}
+.notice {
+  color: var(--admin-muted);
+  font-size: 0.8rem;
+}
+.counts {
+  padding: 0.6rem;
+  background: var(--admin-panel-raised);
+  border-radius: var(--admin-radius-control);
+}
+.terms {
+  margin: 0;
+}
+.terms div {
+  margin-block-end: 0.5rem;
+}
+dt {
+  color: var(--admin-muted);
+}
+dd {
+  margin: 0;
+}
+.facts {
+  padding-inline-start: 1rem;
+}
+.facts li {
+  margin-block-end: 0.5rem;
+}
+.facts strong {
+  display: block;
+  font-size: 0.8rem;
+}
+blockquote {
+  margin: 0;
+  padding: 0.65rem;
+  white-space: pre-wrap;
+  background: var(--admin-panel-raised);
+}
+details {
+  margin-block-start: 0.75rem;
+}
+details ul {
+  padding-inline-start: 1rem;
+}
+summary {
+  cursor: pointer;
+}
+.row-state {
+  font-weight: 650;
+  margin-block-start: 0;
+}
+.warning {
+  color: var(--admin-warning);
+}
+fieldset {
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  border: 0;
+}
+legend {
+  font-size: 0.8rem;
+  color: var(--admin-muted);
+}
+label {
+  display: grid;
+  gap: 0.3rem;
+  margin-block: 0.6rem;
+}
+input,
+textarea,
+select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+summary:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 3px;
+}
+.mobile-label {
+  display: none;
+}
+@container (max-width: 44rem) {
+  table,
+  tbody,
+  tr,
+  td {
+    display: block;
+    width: auto;
+  }
+  caption {
+    display: block;
+  }
+  thead {
+    display: block;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  tr {
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius-control);
+    margin-block-end: 0.85rem;
+  }
+  td {
+    border: 0;
+    padding: 0.6rem;
+  }
+  td + td {
+    border-block-start: 1px solid var(--admin-border);
+  }
+  .mobile-label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 650;
+    color: var(--admin-muted);
+    margin-block-end: 0.35rem;
+  }
+}
