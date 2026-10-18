@@ -9,6 +9,35 @@
   border-radius: var(--admin-radius-card);
   background: var(--admin-panel);
 }
+.assistance-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  list-style: none;
+  padding: 0;
+  color: var(--admin-muted);
+  font-size: 0.85rem;
+}
+.assistance-steps [aria-current='step'] {
+  color: var(--admin-text);
+  font-weight: 650;
+}
+.source-overview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-block: 1rem;
+}
+form[hidden] {
+  display: none;
+}
+.primary-action {
+  border-color: var(--admin-gold);
+  background: var(--admin-panel-raised);
+  font-weight: 650;
+}
 header,
 .run-tools,
 .run-state {

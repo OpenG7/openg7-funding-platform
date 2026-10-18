@@ -262,7 +262,7 @@
         "authorizations": "Autorisations",
         "checks": "Vérifications",
         "drafts": "Brouillons",
-        "details": "Détails",
+        "details": "Détails de l’accord et traçabilité",
         "reviewContent": "Relire le contenu",
         "scope": "Préparation uniquement. Publication, refus, remboursement et envoi : confirmations séparées.",
         "progress": "{{count}} / {{total}} examinés",
@@ -382,7 +382,7 @@
           "presentation": "Examiner la présentation",
           "inspect": "Voir le dossier",
           "approve": "Approuver la préparation",
-          "details": "Voir le détail",
+          "details": "Accord et traçabilité",
           "history": "Historique des accords",
           "back": "Retour"
         }

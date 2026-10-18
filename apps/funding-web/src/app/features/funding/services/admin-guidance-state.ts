@@ -1,4 +1,5 @@
 import { ADMIN_GUIDANCE_PAGES } from '../components/admin-guidance/admin-guidance-pages.js';
+import { ADMIN_WORKFLOW_GUIDE_JOURNEYS } from '../components/admin-guidance/admin-workflow-guide.catalog.js';
 
 export interface AdminGuidanceBookmark {
   pageId: string;
@@ -9,8 +10,9 @@ export interface AdminGuidanceBookmark {
 export interface AdminGuidanceSnapshot {
   enabled: boolean;
   bookmark: AdminGuidanceBookmark | null;
-  mode?: 'payment' | 'automatic';
+  mode?: 'payment' | 'automatic' | 'workflows';
   payment?: { contributionId: string; paused: boolean };
+  workflow?: { journeyId: string; step: number; paused: boolean };
 }
 
 type GuidanceStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
@@ -62,12 +64,36 @@ function cleanSnapshot(value: unknown): AdminGuidanceSnapshot | null {
   if (
     snapshot['mode'] !== undefined &&
     snapshot['mode'] !== 'payment' &&
-    snapshot['mode'] !== 'automatic'
+    snapshot['mode'] !== 'automatic' &&
+    snapshot['mode'] !== 'workflows'
   )
     return null;
+  let workflow: AdminGuidanceSnapshot['workflow'];
+  if (snapshot['workflow'] !== undefined) {
+    const candidate = snapshot['workflow'];
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate))
+      return null;
+    const value = candidate as Record<string, unknown>;
+    const definition = ADMIN_WORKFLOW_GUIDE_JOURNEYS.find(
+      (entry) => entry.id === value['journeyId']
+    );
+    const step = value['step'];
+    if (
+      !definition ||
+      typeof step !== 'number' ||
+      !Number.isInteger(step) ||
+      step < 0 ||
+      step >= definition.steps.length ||
+      typeof value['paused'] !== 'boolean'
+    )
+      return null;
+    workflow = { journeyId: definition.id, step, paused: value['paused'] };
+  }
   const journey = {
     ...(snapshot['mode'] === 'payment' ? { mode: 'payment' as const } : {}),
     ...(snapshot['mode'] === 'automatic' ? { mode: 'automatic' as const } : {}),
+    ...(snapshot['mode'] === 'workflows' ? { mode: 'workflows' as const } : {}),
+    ...(workflow ? { workflow } : {}),
     ...(paymentBookmark ? { payment: paymentBookmark } : {})
   };
   const bookmark = snapshot['bookmark'];

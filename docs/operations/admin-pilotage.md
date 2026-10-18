@@ -108,6 +108,30 @@ gestes distincts. Les panneaux métier gardent la priorité et leurs confirmatio
 
 ## Guides interactifs
 
+### Explorer les six parcours en navigation libre
+
+Dans **Mode guidé → Six parcours**, choisir librement un parcours puis une étape
+numérotée, ou utiliser **Étape précédente / suivante**. Le guide décrit l’action,
+son résultat attendu, son emplacement actuel et l’organisation proposée à évaluer.
+Les parcours couvrent l’accord, la préparation, l’autorisation, la livraison,
+la fiche publique et le suivi historique manuel. Les propositions d’organisation
+restent explicitement signalées comme des améliorations à réaliser.
+
+Sur l’onglet Publication d’un dossier, chaque étape met ses repères réels en
+surbrillance et ouvre seulement les volets de lecture nécessaires. La page reste
+utilisable : aucun voile modal ni clic automatique sur une commande métier.
+Une zone absente selon les droits ou l’état du dossier est indiquée sans faux
+repère ; toutes les étapes restent consultables. Les tiroirs de publication et
+les confirmations s’ouvrent volontairement dans leurs écrans habituels et gardent
+leur priorité. Fermer le tiroir permet de poursuivre la comparaison dans le guide.
+
+**Arrêter le parcours**, réduire le guide ou changer de page retire la surbrillance.
+Le parcours, l’étape et la pause sont des préférences personnelles mémorisées sans
+faits de dossier, texte d’accord ni décision métier. Le lien vers Publication ne
+reprend qu’un identifiant de dossier valide et l’onglet ; il ne transmet aucun
+paramètre de composition ou d’autorisation. Le guide réutilise le halo et le
+défilement accessibles existants, avec respect de la réduction des mouvements.
+
 ### Mode guidé dans l'administration
 
 Le bouton **Mode guidé**, sous la barre commune, accompagne les 18 rubriques
@@ -253,6 +277,21 @@ serveur, hors éléments non requis. Son total varie selon le bon; les blocages
 complémentaires ne l'augmentent pas. Cliquer, lire ou fermer une commande ne
 valide aucun contrôle.
 
+Pour un bon incomplet, le guide s’élargit selon la place disponible : le détail
+du contrôle sélectionné apparaît à gauche, la liste reste à droite. Le premier
+encadré donne le point à traiter, notamment la source d’origine manquante pour
+les publications promises. Les explications de l’assistance restent dans un volet
+replié sous cet état. Sur écran étroit, le détail précède la liste.
+La sélection révèle ce point sans quitter le bouton sélectionné au clavier ou
+à la manette ; les commandes restent accessibles par **Actions**. Les bons prêts
+ou approuvés gardent leur format compact.
+
+Le Pilotage regroupe les vérifications et autorisations du bon. Le volet replié
+**Détails de l’accord et traçabilité** conserve les clauses de l’offre, la date du
+paiement, les états des brouillons, le bilan des engagements et la version
+complète, sans répéter ces listes de contrôles. La relecture du contenu exact et
+l’historique des accords gardent leurs volets distincts.
+
 Pour les accords historiques, la destination de l’accord donne aussi accès à
 l’[assistance locale versionnée](../technical/preparation-assistance.md), réservée
 au propriétaire. Le texte, le job et la revue humaine ont leurs propres versions ;
@@ -263,9 +302,20 @@ Le guide et le bon affichent aussi un résumé compact de cette assistance pour 
 contrôle des publications promises : attente, traitement, résultat à examiner,
 revue, erreur ou péremption. Ce résumé ne contient ni accord ni notes privées et
 ne modifie pas la version du bon. **Examiner**, **Voir la source** et **Relancer**
-partagent les mêmes métadonnées et le même dispatcher entre boutons et controller.
+sont regroupés dans **Actions contextuelles**, accessibles à la souris, au clavier
+et à la manette. Le résumé conserve ses états et explications ainsi que
+**Actualiser** en cas d’erreur de lecture.
 Une relance reste explicite et est désactivée pendant un job actif. La révision
 de l’assistance invalide les commandes en cours comme un changement de sélection.
+
+L’action **Examiner** rejoint la revue des prestations. Les repères Source,
+Revue des prestations et Confirmation distinguent lecture, brouillon et accord.
+Depuis une clause, **Documenter cette prestation** ouvre un brouillon dans le
+formulaire métier ; **Revenir à la clause** permet ensuite de la relier. Le motif
+global n’a qu’une saisie. Les blocages de l’application donnent accès au point à
+compléter. Le retour au Pilotage relit le bon et restaure son contrôle ; le repère
+est limité à la visite et ne conserve aucun texte privé. Voir le
+[parcours de revue](../technical/preparation-assistance.md#revue-humaine-et-application).
 
 L'action principale rejoint l'écran propriétaire de l'accord, de la modération
 ou de la présentation. Les détails et l'historique restent consultables. Après

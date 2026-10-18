@@ -31,6 +31,7 @@
     "playwright/admin-global-search.spec.ts",
     "playwright/admin-attention.spec.ts",
     "playwright/admin-guidance.spec.ts",
+    "playwright/admin-workflow-guide.spec.ts",
     "playwright/admin-automatic-portfolio.spec.ts",
     "playwright/admin-preparation-receipts.spec.ts",
     "playwright/admin-sponsorship-preparation.spec.ts",

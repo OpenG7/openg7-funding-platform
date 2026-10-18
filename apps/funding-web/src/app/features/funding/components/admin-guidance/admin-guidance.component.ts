@@ -45,10 +45,15 @@ export class AdminGuidanceComponent {
   readonly guidance = inject(AdminGuidanceService);
   readonly journey = inject(AdminPaymentJourneyService);
   readonly i18n = inject(FundingI18nService);
+  readonly compact = computed(() =>
+    ['automatic', 'workflows'].includes(this.guidance.mode())
+  );
   readonly missing = signal(false);
   readonly placement = signal<'top' | 'bottom'>('top');
   readonly automaticLoading = signal(false);
   readonly automaticError = signal(false);
+  readonly workflowLoading = signal(false);
+  readonly workflowError = signal(false);
   private readonly automaticComponent =
     signal<ComponentRef<AdminAutomaticComponent> | null>(null);
   private readonly portfolioStartRequested = signal(false);
@@ -72,11 +77,42 @@ export class AdminGuidanceComponent {
   private readonly automaticHost = viewChild('automaticHost', {
     read: ViewContainerRef
   });
+  private readonly workflowHost = viewChild('workflowHost', {
+    read: ViewContainerRef
+  });
   private focusResume = false;
   private releaseHighlight: (() => void) | undefined;
   private frame = 0;
 
   constructor() {
+    afterRenderEffect((onCleanup) => {
+      const host = this.workflowHost();
+      if (!host) return;
+      let current = true;
+      let release: (() => void) | undefined;
+      this.workflowLoading.set(true);
+      this.workflowError.set(false);
+      onCleanup(() => {
+        current = false;
+        release?.();
+        this.workflowLoading.set(false);
+      });
+      void import('./admin-workflow-guide.component.js')
+        .then(({ AdminWorkflowGuideComponent }) => {
+          if (!current) return;
+          const component = host.createComponent(AdminWorkflowGuideComponent);
+          release = () => component.destroy();
+          component.instance.moveRequested.subscribe(() => this.moveCard());
+          this.workflowLoading.set(false);
+          component.changeDetectorRef.markForCheck();
+        })
+        .catch(() => {
+          if (!current) return;
+          release?.();
+          this.workflowLoading.set(false);
+          this.workflowError.set(true);
+        });
+    });
     // The optional admin surface uses the existing router component runtime.
     // A first deferred block would add its runtime to the public initial bundle.
     afterRenderEffect((onCleanup) => {

@@ -262,7 +262,7 @@
         "authorizations": "Authorizations",
         "checks": "Checks",
         "drafts": "Drafts",
-        "details": "Details",
+        "details": "Agreement details and traceability",
         "reviewContent": "Review content",
         "scope": "Preparation only. Publication, rejection, refunds and sending require separate confirmations.",
         "progress": "{{count}} / {{total}} examined",
@@ -382,7 +382,7 @@
           "presentation": "Review the presentation",
           "inspect": "View the dossier",
           "approve": "Approve preparation",
-          "details": "View details",
+          "details": "Agreement and traceability",
           "history": "Agreement history",
           "back": "Back"
         }

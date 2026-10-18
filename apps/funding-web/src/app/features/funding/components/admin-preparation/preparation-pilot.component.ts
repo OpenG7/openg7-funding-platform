@@ -65,6 +65,7 @@ import { PreparationIssueDetailComponent } from './preparation-issue-detail.comp
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     'data-og7': 'preparation-pilot',
+    '[class.has-issues]': "!ready() && receipt().status !== 'approved'",
     '[attr.data-og7-controller-owner]': 'idPrefix()',
     '[attr.data-og7-mode]': 'mode()',
     '(keydown.escape)': 'escape($event)'
@@ -156,11 +157,6 @@ export class PreparationPilotComponent {
           };
     });
   });
-  readonly assistanceActions = computed(() =>
-    this.actions().filter((action) =>
-      action.id.startsWith('preparation-assistance-')
-    )
-  );
   private readonly i18n = inject(FundingI18nService);
   private readonly controller = inject(ControllerService);
   private readonly document = inject(DOCUMENT);
@@ -218,9 +214,48 @@ export class PreparationPilotComponent {
 
   select(id: string): void {
     if (!this.projection().issues.some((issue) => issue.id === id)) return;
+    const contributionId = this.receipt().contributionId;
+    const version = this.receipt().version;
     this.selectedIdChange.emit(id);
     this.mode.set('peek');
     this.controller.reset();
+    afterNextRender(
+      () => {
+        if (
+          this.selection() !== id ||
+          this.receipt().contributionId !== contributionId ||
+          this.receipt().version !== version
+        )
+          return;
+        const active = this.document.activeElement;
+        if (
+          !(active instanceof HTMLElement) ||
+          !this.element.nativeElement.contains(active)
+        )
+          return;
+        const attention = this.element.nativeElement.querySelector<HTMLElement>(
+          '[data-og7="preparation-issue-attention"]'
+        );
+        const choices = this.element.nativeElement.querySelector<HTMLElement>(
+          'openg7-preparation-issue-list'
+        );
+        // Reveal both columns together when the detail sits beside the list.
+        const target =
+          attention &&
+          choices &&
+          attention.getBoundingClientRect().right <=
+            choices.getBoundingClientRect().left
+            ? this.element.nativeElement.querySelector<HTMLElement>(
+                '.pilot-content'
+              )
+            : attention;
+        target?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        // Keep the selected native control reachable, including in a short guide.
+        if (active.getAttribute('data-og7') === 'preparation-issue')
+          active.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      },
+      { injector: this.injector }
+    );
   }
 
   open(): void {
@@ -263,10 +298,6 @@ export class PreparationPilotComponent {
 
   request(request: ControllerActionRequest): void {
     if (this.mode() !== 'open') return;
-    this.dispatch(request);
-  }
-  requestAssistance(request: ControllerActionRequest): void {
-    if (!request.actionId.startsWith('preparation-assistance-')) return;
     this.dispatch(request);
   }
   private dispatch(request: ControllerActionRequest): void {

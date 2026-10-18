@@ -21,7 +21,12 @@ import type { PreparationPilotIssue } from './preparation-pilot.models.js';
   imports: [AdminIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="issues" [attr.aria-label]="t('pilot.choose')" role="group">
+    <div
+      class="issues"
+      data-og7="preparation-issue-list"
+      [attr.aria-label]="t('pilot.choose')"
+      role="group"
+    >
       @for (issue of issues(); track issue.id) {
         <button
           #issueButton

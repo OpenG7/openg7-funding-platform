@@ -91,6 +91,16 @@ button {
 button:disabled {
   cursor: not-allowed;
 }
+.qualification-primary {
+  background: var(--admin-success-bg);
+  border-color: var(--admin-success);
+  font-weight: 650;
+}
+.qualification-blockers button {
+  text-align: start;
+  min-height: 2.75rem;
+  text-decoration: underline;
+}
 aside {
   @apply tw:p-4;
   background: var(--admin-warning-bg);

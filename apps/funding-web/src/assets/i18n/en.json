@@ -1743,6 +1743,8 @@
       "modeLabel": "Guide type",
       "discoveryMode": "Explore the sections",
       "automaticMode": "Automatic",
+      "workflowsMode": "Six journeys",
+      "workflowsUnavailable": "The six journeys could not be loaded. Reload the page to try again.",
       "automaticUnavailable": "Automatic mode could not be loaded. Reload the page to try again.",
       "paymentJourney": {
         "title": "Payment journey",

@@ -4,6 +4,7 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  Injector,
   PLATFORM_ID,
   computed,
   effect,
@@ -12,6 +13,7 @@ import {
   output,
   signal,
   untracked,
+  afterNextRender,
   afterRenderEffect
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -24,6 +26,7 @@ import {
 
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
 import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
 import { revealControllerFocus } from '../admin-controller/admin-controller-navigation.js';
 
@@ -32,6 +35,7 @@ import {
   type PreparationAssistanceSelection
 } from './preparation-assistance.controller.js';
 import { PreparationAssistanceProposalTableComponent } from './preparation-assistance-proposal-table.component.js';
+import { PreparationReturnService } from './preparation-return.service.js';
 
 /** Historical agreement assistance. Extraction never checks or approves a business control. */
 @Component({
@@ -52,20 +56,31 @@ export class PreparationAssistanceReviewComponent {
   readonly offer = input<SponsorshipOfferSnapshot | null>(null);
   readonly reason = input('');
   readonly selected = input(false);
+  readonly readyToConfirm = input(false);
+  readonly formDirty = input(false);
   readonly disabled = input(false);
   readonly selectionChange = output<PreparationAssistanceSelection>();
   readonly useForm = output<PreparationAssistanceSelection>();
+  readonly documentClause = output<{
+    readonly selection: PreparationAssistanceSelection;
+    readonly itemId: string;
+  }>();
   readonly reasonChange = output<string>();
+  readonly reasonRequested = output<void>();
   readonly manual = output<void>();
   readonly invalidated = output<void>();
   readonly languageReady = signal(false);
   readonly languageError = signal(false);
   readonly maxSourceLength = PREPARATION_SOURCE_MAX_LENGTH;
+  readonly sourceEditing = signal(false);
+  readonly returnNavigation = inject(PreparationReturnService);
   private readonly admin = inject(FundingAdminService);
+  private readonly confirmation = inject(AdminConfirmationService);
   readonly i18n = inject(FundingI18nService);
   private readonly document = inject(DOCUMENT);
   private readonly router = inject(Router);
   private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
   private readonly fragment = toSignal(inject(ActivatedRoute).fragment);
   private focusedNavigation = '';
   private readonly browser = isPlatformBrowser(inject(PLATFORM_ID));
@@ -93,6 +108,23 @@ export class PreparationAssistanceReviewComponent {
   readonly processing = computed(
     () => !this.c.error() && this.c.data()?.run?.state === 'processing'
   );
+  readonly sourceEditorVisible = computed(
+    () =>
+      !this.c.data()?.source ||
+      this.sourceEditing() ||
+      this.c.sourceDirty() ||
+      this.c.sourceConflict()
+  );
+  readonly analysisHint = computed(() => {
+    if (this.c.sourceDirty()) return 'saveSourceFirst';
+    if (this.c.reviewDirty()) return 'saveReviewFirst';
+    const state = this.c.data();
+    if (!state?.source) return 'sourceRequired';
+    if (state.run?.state === 'queued' || state.run?.state === 'processing')
+      return 'analysisRunning';
+    if (!state.capabilities.canRun) return 'analysisUnavailable';
+    return '';
+  });
   private formDraft = '';
 
   constructor() {
@@ -149,6 +181,7 @@ export class PreparationAssistanceReviewComponent {
       this.admin.identity();
       if (!this.browser) return;
       untracked(() => {
+        this.sourceEditing.set(false);
         this.c.select(id, key);
       });
     });
@@ -180,6 +213,92 @@ export class PreparationAssistanceReviewComponent {
   value(event: Event): string {
     return (event.target as HTMLInputElement).value;
   }
+  editSource(): void {
+    this.sourceEditing.set(true);
+    afterNextRender(
+      () => {
+        const target = this.element.nativeElement.querySelector<HTMLElement>(
+          '[data-og7="assistance-source-text"]'
+        );
+        if (target) revealControllerFocus(target);
+      },
+      { injector: this.injector }
+    );
+  }
+  async saveSource(): Promise<void> {
+    const id = this.contributionId();
+    const session = this.admin.sessionGeneration();
+    await this.c.saveSource();
+    if (
+      !this.destroy.destroyed &&
+      this.contributionId() === id &&
+      this.admin.sessionGeneration() === session &&
+      !this.c.error() &&
+      !this.c.sourceDirty()
+    ) {
+      this.sourceEditing.set(false);
+      afterNextRender(
+        () => {
+          if (
+            this.destroy.destroyed ||
+            this.contributionId() !== id ||
+            this.admin.sessionGeneration() !== session
+          )
+            return;
+          const active = this.document.activeElement;
+          if (
+            active &&
+            active !== this.document.body &&
+            !this.element.nativeElement.contains(active)
+          )
+            return;
+          const target =
+            this.element.nativeElement.querySelector<HTMLElement>(
+              '[data-og7="assistance-run-state"]'
+            ) ??
+            this.element.nativeElement.querySelector<HTMLElement>(
+              '[data-og7="assistance-source-edit"]'
+            );
+          if (target) revealControllerFocus(target);
+        },
+        { injector: this.injector }
+      );
+    }
+  }
+  async returnToPreparation(): Promise<void> {
+    const id = this.contributionId();
+    const origin = this.returnNavigation.origin(id);
+    if (!origin || this.locked() || this.returnNavigation.returning()) return;
+    if (
+      origin.kind === 'guide' &&
+      (this.c.sourceDirty() || this.c.reviewDirty() || this.formDirty()) &&
+      !(await this.confirmation.confirm(this.t('returnUnsaved'), id))
+    )
+      return;
+    if (this.contributionId() === id && !this.locked())
+      await this.returnNavigation.returnToOrigin(id);
+  }
+  documentBenefitClause(itemId: string): void {
+    const state = this.c.data();
+    const item = state?.run?.suggestion?.items.find(
+      (item) => item.id === itemId
+    );
+    if (
+      !state ||
+      !item ||
+      item.attention === 'unsupported_terms' ||
+      state.stale ||
+      this.c.reviewConflict() ||
+      this.c.sourceConflict() ||
+      this.locked() ||
+      !state.capabilities.canReview
+    )
+      return;
+    this.documentClause.emit({
+      selection: { state, items: this.c.items() },
+      itemId
+    });
+  }
   chooseForm(): void {
     const state = this.c.data();
     if (
@@ -197,6 +316,7 @@ export class PreparationAssistanceReviewComponent {
     if (!suggestion || this.locked()) return;
     if (this.reason().trim().length < 5) {
       this.c.error.set('reviewInvalid');
+      this.focusReviewError(true);
       return;
     }
     try {
@@ -207,7 +327,23 @@ export class PreparationAssistanceReviewComponent {
       await this.c.review(decision, draft);
     } catch {
       this.c.error.set('reviewInvalid');
+      this.focusReviewError(false);
     }
+  }
+  private focusReviewError(reason: boolean): void {
+    if (reason) {
+      this.reasonRequested.emit();
+      return;
+    }
+    afterNextRender(
+      () => {
+        const target = this.element.nativeElement.querySelector<HTMLElement>(
+          '[data-og7="assistance-clause-disposition"]'
+        );
+        if (target) revealControllerFocus(target);
+      },
+      { injector: this.injector }
+    );
   }
   resetReview(): void {
     this.c.resetReviewDraft();

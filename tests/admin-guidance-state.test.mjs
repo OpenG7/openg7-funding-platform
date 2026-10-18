@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { ADMIN_GUIDANCE_PAGES } from '../dist/apps/funding-web/src/app/features/funding/components/admin-guidance/admin-guidance-pages.js';
+import { ADMIN_WORKFLOW_GUIDE_JOURNEYS } from '../dist/apps/funding-web/src/app/features/funding/components/admin-guidance/admin-workflow-guide.catalog.js';
 import {
   AdminGuidanceState,
   guidancePaymentContext
@@ -406,6 +407,199 @@ test('automatic mode remembers a preference without retaining a run or authoriza
     new AdminGuidanceState(() => storage).load(account),
     expected
   );
+});
+
+test('the workflow catalogue exposes the six existing journeys and their 21 reading steps', () => {
+  assert.deepEqual(
+    ADMIN_WORKFLOW_GUIDE_JOURNEYS.map((journey) => [
+      journey.id,
+      journey.steps.map((step) => step.id)
+    ]),
+    [
+      [
+        'agreement',
+        ['pilot', 'source', 'proposal', 'qualification', 'confirm']
+      ],
+      ['preparation', ['obligations', 'prepare', 'draft']],
+      ['authorization', ['review', 'content', 'schedule', 'authorize']],
+      ['delivery', ['status', 'responsibility', 'evidence']],
+      ['website', ['presentation', 'preview', 'visibility']],
+      ['history', ['tracking', 'declare', 'save']]
+    ]
+  );
+  assert.equal(
+    ADMIN_WORKFLOW_GUIDE_JOURNEYS.reduce(
+      (count, journey) => count + journey.steps.length,
+      0
+    ),
+    21
+  );
+  for (const journey of ADMIN_WORKFLOW_GUIDE_JOURNEYS)
+    for (const step of journey.steps) {
+      assert.ok(step.targets.length > 0, `${journey.id}:${step.id}`);
+      assert.ok(
+        step.targets.every((target) => /^[a-z0-9-]+$/.test(target)),
+        `${journey.id}:${step.id} uses fixed reading hooks only`
+      );
+    }
+});
+
+test('workflow mode can be selected independently of a workflow bookmark', () => {
+  const storage = memoryStorage();
+  const state = new AdminGuidanceState(() => storage);
+  const expected = { ...snapshot(), mode: 'workflows' };
+  assert.equal(state.save(account, expected), true);
+  assert.deepEqual(JSON.parse(storage.getItem(key())), expected);
+  assert.deepEqual(
+    new AdminGuidanceState(() => storage).load(account),
+    expected
+  );
+});
+
+test('a paused workflow resumes after reload without sharing its step or copies with another account', () => {
+  const storage = memoryStorage();
+  const state = new AdminGuidanceState(() => storage);
+  const selected = {
+    ...snapshot(),
+    mode: 'workflows',
+    workflow: { journeyId: 'agreement', step: 2, paused: false }
+  };
+  assert.equal(state.save(account, selected), true);
+  const paused = {
+    ...selected,
+    workflow: { ...selected.workflow, paused: true }
+  };
+  assert.equal(state.save(account, paused), true);
+  selected.workflow.step = 0;
+  const reload = new AdminGuidanceState(() => storage);
+  assert.deepEqual(reload.load(account), paused);
+  assert.deepEqual(reload.load(otherAccount), empty());
+  const other = {
+    ...snapshot(),
+    mode: 'workflows',
+    workflow: { journeyId: 'history', step: 2, paused: false }
+  };
+  assert.equal(reload.save(otherAccount, other), true);
+  const copy = reload.load(account);
+  copy.workflow.step = 4;
+  copy.workflow.paused = false;
+  assert.deepEqual(reload.load(account), paused);
+  assert.equal(reload.save(account, copy), true);
+  const resumed = new AdminGuidanceState(() => storage);
+  assert.deepEqual(resumed.load(account), copy);
+  assert.deepEqual(resumed.load(otherAccount), other);
+  assert.equal(resumed.clear(account), true);
+  assert.deepEqual(resumed.load(account), empty());
+  assert.deepEqual(resumed.load(otherAccount), other);
+});
+
+test('every workflow persists its last step and rejects the next index without losing its bookmark', () => {
+  const storage = memoryStorage();
+  const state = new AdminGuidanceState(() => storage);
+  for (const journey of ADMIN_WORKFLOW_GUIDE_JOURNEYS) {
+    const valid = {
+      ...snapshot(),
+      mode: 'workflows',
+      workflow: {
+        journeyId: journey.id,
+        step: journey.steps.length - 1,
+        paused: true
+      }
+    };
+    assert.equal(state.save(account, valid), true, journey.id);
+    const before = storage.getItem(key());
+    assert.equal(
+      state.save(account, {
+        ...valid,
+        workflow: { ...valid.workflow, step: journey.steps.length }
+      }),
+      false,
+      journey.id
+    );
+    assert.equal(storage.getItem(key()), before, journey.id);
+    assert.deepEqual(
+      new AdminGuidanceState(() => storage).load(account),
+      valid,
+      journey.id
+    );
+  }
+});
+
+test('workflow bookmarks retain reading position without private parameters or completed actions', () => {
+  const storage = memoryStorage();
+  const state = new AdminGuidanceState(() => storage);
+  const expected = {
+    ...snapshot(),
+    mode: 'workflows',
+    workflow: { journeyId: 'agreement', step: 2, paused: true }
+  };
+  const supplied = {
+    ...expected,
+    token: 'synthetic-token',
+    url: '/admin/fundraiser/sponsors?contact=synthetic@example.test',
+    authorization: { confirmed: true, actor: account },
+    workflow: {
+      ...expected.workflow,
+      contributionId: 'abcdef00-1234-5678-9abc-abcdef123456',
+      source: 'Synthetic private agreement text',
+      note: 'Synthetic private review note',
+      query: { batchId: 'synthetic-batch', feedId: 'openg7:facebook' },
+      targets: ['button[type="submit"]'],
+      command: { action: 'compose' },
+      approved: true,
+      completed: true
+    }
+  };
+  assert.equal(state.save(account, supplied), true);
+  assert.deepEqual(JSON.parse(storage.getItem(key())), expected);
+  storage.setItem(key(), JSON.stringify(supplied));
+  assert.deepEqual(
+    new AdminGuidanceState(() => storage).load(account),
+    expected
+  );
+});
+
+test('invalid workflow identifiers, steps and pause flags cannot replace valid reading cues', () => {
+  const expected = {
+    ...snapshot(),
+    mode: 'workflows',
+    workflow: { journeyId: 'agreement', step: 2, paused: true }
+  };
+  const invalidWorkflows = [
+    null,
+    [],
+    {},
+    { journeyId: 'unknown', step: 0, paused: false },
+    { journeyId: '/admin/fundraiser/sponsors', step: 0, paused: false },
+    { journeyId: 'agreement?token=synthetic', step: 0, paused: false },
+    { journeyId: 'Agreement', step: 0, paused: false },
+    { journeyId: 'agreement', step: -1, paused: false },
+    { journeyId: 'agreement', step: 0.5, paused: false },
+    { journeyId: 'agreement', step: '1', paused: false },
+    { journeyId: 'agreement', step: Infinity, paused: false },
+    { journeyId: 'agreement', step: NaN, paused: false },
+    { journeyId: 'agreement', paused: false },
+    { journeyId: 'agreement', step: 0 },
+    { journeyId: 'agreement', step: 0, paused: 'true' },
+    { journeyId: 'agreement', step: 0, paused: 0 }
+  ];
+  for (const workflow of invalidWorkflows) {
+    const label = JSON.stringify(workflow);
+    const storage = memoryStorage();
+    const state = new AdminGuidanceState(() => storage);
+    assert.equal(state.save(account, expected), true);
+    const before = storage.getItem(key());
+    const invalid = { ...expected, workflow };
+    assert.equal(state.save(account, invalid), false, label);
+    assert.equal(storage.getItem(key()), before, label);
+    assert.deepEqual(state.load(account), expected, label);
+    storage.setItem(key(), JSON.stringify(invalid));
+    assert.deepEqual(
+      new AdminGuidanceState(() => storage).load(account),
+      empty(),
+      label
+    );
+  }
 });
 
 test('automatic payment preference retains only the payment bookmark and no server facts', () => {

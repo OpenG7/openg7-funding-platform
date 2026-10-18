@@ -1,0 +1,129 @@
+<section data-og7="workflow-guide" [attr.aria-label]="t('title')">
+  <h2>{{ t('title') }}</h2>
+  <p class="help">{{ t('readOnly') }}</p>
+  <details class="journey-picker">
+    <summary>{{ t('choose') }} · {{ journeyText('title') }}</summary>
+    <nav class="journeys" [attr.aria-label]="t('choose')">
+      @for (entry of journeys; track entry.id; let index = $index) {
+        <button
+          type="button"
+          class="admin-button"
+          data-og7="workflow-guide-journey"
+          [attr.data-og7-id]="entry.id"
+          [attr.aria-pressed]="journey().id === entry.id"
+          (click)="guidance.selectWorkflow(entry.id)"
+        >
+          {{ index + 1 }} · {{ t('journeys.' + entry.id + '.title') }}
+        </button>
+      }
+    </nav>
+  </details>
+  <p class="help">{{ journeyText('goal') }}</p>
+  <nav
+    class="steps"
+    [attr.aria-label]="
+      t('step', {
+        current: guidance.workflow().step + 1,
+        total: journey().steps.length
+      })
+    "
+  >
+    @for (entry of journey().steps; track entry.id; let index = $index) {
+      <button
+        type="button"
+        class="admin-button"
+        data-og7="workflow-guide-step"
+        [attr.data-og7-id]="entry.id"
+        [attr.aria-current]="step().id === entry.id ? 'step' : null"
+        [attr.aria-label]="
+          index + 1 + ' · ' + journeyText('steps.' + entry.id + '.title')
+        "
+        [title]="journeyText('steps.' + entry.id + '.title')"
+        (click)="guidance.selectWorkflow(journey().id, index)"
+      >
+        {{ index + 1 }}
+      </button>
+    }
+  </nav>
+  <div class="current-step" aria-live="polite" aria-atomic="true">
+    <h3>{{ stepText('title') }}</h3>
+    <dl>
+      <dt>{{ t('action') }}</dt>
+      <dd>{{ stepText('action') }}</dd>
+      <dt>{{ t('outcome') }}</dt>
+      <dd>{{ stepText('outcome') }}</dd>
+    </dl>
+  </div>
+  @if (!context()) {
+    <p class="notice" role="status">{{ t('needsDossier') }}</p>
+    <a
+      class="admin-button"
+      data-og7="workflow-guide-open-dossier"
+      routerLink="/admin/fundraiser/sponsors"
+      [queryParams]="dossierParams()"
+      >{{ t('openDossier') }}</a
+    >
+  } @else if (missing() && !guidance.workflow().paused) {
+    <p class="notice" role="status" data-og7="workflow-guide-missing">
+      {{ t('missing') }}
+    </p>
+  }
+  <div class="actions">
+    <button
+      type="button"
+      class="admin-button"
+      data-og7="workflow-guide-previous"
+      [disabled]="guidance.workflow().step === 0"
+      (click)="move(-1)"
+    >
+      {{ t('previous') }}
+    </button>
+    <button
+      type="button"
+      class="admin-button"
+      data-og7="workflow-guide-next"
+      [disabled]="guidance.workflow().step === journey().steps.length - 1"
+      (click)="move(1)"
+    >
+      {{ t('next') }}
+    </button>
+    <button
+      type="button"
+      class="admin-button"
+      data-og7="workflow-guide-show"
+      [disabled]="!context() || guidance.workflow().paused"
+      (click)="show()"
+    >
+      {{ t('show') }}
+    </button>
+    @if (guidance.workflow().paused) {
+      <button
+        type="button"
+        class="admin-button"
+        data-og7="workflow-guide-resume"
+        (click)="guidance.pauseWorkflow(false)"
+      >
+        {{ t('resume') }}
+      </button>
+    } @else {
+      <button
+        type="button"
+        class="admin-button"
+        data-og7="workflow-guide-pause"
+        (click)="guidance.pauseWorkflow(true)"
+      >
+        {{ t('stop') }}
+      </button>
+    }
+  </div>
+  <details class="comparison">
+    <summary>{{ t('location') }} / {{ t('proposed') }}</summary>
+    <dl>
+      <dt>{{ t('location') }}</dt>
+      <dd>{{ journeyText('location') }}</dd>
+      <dt>{{ t('proposed') }}</dt>
+      <dd>{{ journeyText('proposed') }}</dd>
+    </dl>
+    <p class="help">{{ t('intro') }}</p>
+  </details>
+</section>

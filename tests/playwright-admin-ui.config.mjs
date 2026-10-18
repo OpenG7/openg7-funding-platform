@@ -28,6 +28,7 @@ export default defineBuiltWebSuite({
     'admin-global-search.spec.ts',
     'admin-attention.spec.ts',
     'admin-guidance.spec.ts',
+    'admin-workflow-guide.spec.ts',
     'admin-automatic-portfolio.spec.ts',
     'admin-preparation-receipts.spec.ts',
     'admin-sponsorship-preparation.spec.ts',

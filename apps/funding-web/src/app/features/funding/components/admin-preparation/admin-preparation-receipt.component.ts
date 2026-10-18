@@ -24,8 +24,10 @@ import { PreparationPilotComponent } from './preparation-pilot.component.js';
 import type { PreparationPilotIssue } from './preparation-pilot.models.js';
 import {
   preparationIssueDestination,
-  preparationAssistanceDestination
+  preparationAssistanceDestination,
+  preparationReturnOrigin
 } from './preparation-navigation.js';
+import { PreparationReturnService } from './preparation-return.service.js';
 
 /** Shared private preparation presentation; the host owns loading and approval. */
 @Component({
@@ -57,6 +59,7 @@ export class AdminPreparationReceiptComponent {
   readonly confirmApproval = output<AdminPreparationReceiptData>();
   readonly i18n = inject(FundingI18nService);
   private readonly router = inject(Router);
+  private readonly returnNavigation = inject(PreparationReturnService);
   private readonly paper = viewChild<ElementRef<HTMLElement>>('paper');
   private readonly approvalButton =
     viewChild<ElementRef<HTMLButtonElement>>('approvalButton');
@@ -98,6 +101,8 @@ export class AdminPreparationReceiptComponent {
   openIssue(issue: PreparationPilotIssue): void {
     const url = preparationIssueDestination(issue);
     if (!url) return;
+    if (this.canAssist() && url.endsWith('#dossier-agreement'))
+      this.rememberOrigin(issue.id);
     void this.router.navigateByUrl(url);
   }
   openAssistance(section: 'review' | 'source'): void {
@@ -106,7 +111,16 @@ export class AdminPreparationReceiptComponent {
       this.receipt().contributionId,
       section
     );
-    if (url) void this.router.navigateByUrl(url);
+    if (url) {
+      this.rememberOrigin(this.selectedIssueId() ?? 'check:accepted_offer');
+      void this.router.navigateByUrl(url);
+    }
+  }
+
+  private rememberOrigin(issueId: string): void {
+    this.returnNavigation.remember(
+      preparationReturnOrigin(this.router.url, this.receipt(), issueId)
+    );
   }
 
   reveal(section: 'details' | 'history'): void {
