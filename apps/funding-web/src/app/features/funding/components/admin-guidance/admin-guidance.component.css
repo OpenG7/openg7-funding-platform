@@ -88,6 +88,14 @@
 .guidance.open.automatic {
   max-height: var(--admin-guidance-max-height, min(45rem, calc(100% - 7.5rem)));
 }
+@media (min-width: 48rem) {
+  .guidance.open.automatic:has(openg7-preparation-pilot.has-issues) {
+    width: min(
+      62rem,
+      calc(100% - var(--admin-guidance-reserved-width, 0px) - 2.5rem)
+    );
+  }
+}
 .automatic .guidance-bar {
   padding: 0.5rem 0.7rem;
   gap: 0.4rem;

@@ -34,6 +34,9 @@
     0 0 / 0.75rem 0.375rem repeat-x;
   pointer-events: none;
 }
+.preparation-receipt.has-issues {
+  width: min(100%, 58rem);
+}
 .receipt-header {
   text-align: center;
 }

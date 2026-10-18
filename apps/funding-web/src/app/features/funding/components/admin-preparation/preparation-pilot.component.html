@@ -36,6 +36,7 @@
   <div class="pilot-content">
     @if (!ready() && receipt().status !== 'approved') {
       <openg7-preparation-issue-list
+        class="pilot-issues"
         [issues]="projection().issues"
         [selectedId]="selection()"
         [canAssist]="canAssist()"
@@ -45,7 +46,7 @@
         (selected)="select($event)"
       />
     }
-    <div>
+    <div class="pilot-attention" data-og7="preparation-pilot-attention">
       @if (!ready() && receipt().status !== 'approved') {
         <openg7-preparation-issue-detail
           [issue]="issue()"
@@ -69,38 +70,38 @@
       >
         {{ t('pilot.actionsLabel') }}
       </button>
-    </div>
-  </div>
-  <div
-    data-og7="preparation-pilot-controller"
-    [attr.data-og7-mode]="mode()"
-    [hidden]="mode() !== 'open'"
-  >
-    <openg7-context-controller
-      [hidden]="mode() !== 'open'"
-      [context]="context()"
-      [mode]="mode()"
-      (modeChange)="changeMode($event)"
-      [title]="t('pilot.controller')"
-      [contextLabel]="
-        issue()
-          ? t(issue()!.titleKey)
-          : t(ready() ? 'pilot.ready' : 'pilot.waiting')
-      "
-      [collapseLabel]="t('pilot.actions.back')"
-      [expandLabel]="t('pilot.actionsLabel')"
-      [actionsId]="idPrefix() + '-pilot-actions'"
-    >
-      @for (action of actions(); track action.id) {
-        <button
-          openg7-context-controller-action
-          data-og7="preparation-pilot-action"
-          [attr.data-og7-id]="action.id"
-          [action]="action"
+      <div
+        data-og7="preparation-pilot-controller"
+        [attr.data-og7-mode]="mode()"
+        [hidden]="mode() !== 'open'"
+      >
+        <openg7-context-controller
+          [hidden]="mode() !== 'open'"
           [context]="context()"
-          (actionRequested)="request($event)"
-        ></button>
-      }
-    </openg7-context-controller>
+          [mode]="mode()"
+          (modeChange)="changeMode($event)"
+          [title]="t('pilot.controller')"
+          [contextLabel]="
+            issue()
+              ? t(issue()!.titleKey)
+              : t(ready() ? 'pilot.ready' : 'pilot.waiting')
+          "
+          [collapseLabel]="t('pilot.actions.back')"
+          [expandLabel]="t('pilot.actionsLabel')"
+          [actionsId]="idPrefix() + '-pilot-actions'"
+        >
+          @for (action of actions(); track action.id) {
+            <button
+              openg7-context-controller-action
+              data-og7="preparation-pilot-action"
+              [attr.data-og7-id]="action.id"
+              [action]="action"
+              [context]="context()"
+              (actionRequested)="request($event)"
+            ></button>
+          }
+        </openg7-context-controller>
+      </div>
+    </div>
   </div>
 </section>

@@ -2,6 +2,7 @@
 <article
   #paper
   class="preparation-receipt"
+  [class.has-issues]="!item.canApprove && item.status !== 'approved'"
   tabindex="-1"
   data-og7="preparation-receipt"
   [attr.data-og7-id]="item.contributionId"

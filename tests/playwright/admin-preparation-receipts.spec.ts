@@ -3,7 +3,8 @@ import type { Locator, Page } from '@playwright/test';
 import type {
   AdminAutomaticRunState,
   AdminPreparationReceipt,
-  AdminWorkQueueResponse
+  AdminWorkQueueResponse,
+  PreparationAssistanceSummary
 } from '@openg7/funding-core';
 
 import { expect, sampledFrames, test } from './support/test.js';
@@ -118,6 +119,7 @@ async function fixture(page: Page, language = 'fr-CA') {
     receiptGate: null as Promise<void> | null,
     receiptFailure: null as { status: number; code: string } | null,
     approvalFailure: null as { status: number; code: string } | null,
+    assistance: null as PreparationAssistanceSummary | null,
     signedIn: true,
     role: 'owner' as 'owner' | 'reader'
   };
@@ -223,6 +225,11 @@ async function fixture(page: Page, language = 'fr-CA') {
     }
     if (pathname === '/api/admin/attention')
       return route.fulfill({ json: attention });
+    if (
+      pathname === '/api/admin/preparation-assistance/summary' &&
+      f.assistance
+    )
+      return route.fulfill({ json: f.assistance });
     return route.fulfill({
       status: 503,
       json: { code: 'SYNTHETIC_UI_FIXTURE_UNAVAILABLE' }
@@ -923,6 +930,105 @@ function pilotReceipt(completed = 0): AdminPreparationReceipt {
   };
 }
 
+async function missingSourcePilot(page: Page, language = 'fr-CA') {
+  const f = await fixture(page, language);
+  f.receipts.set(3, {
+    ...pilotReceipt(),
+    acceptedOffer: null,
+    balance: null,
+    checks: [
+      { code: 'dossier_examined', state: 'complete' },
+      { code: 'payment_confirmed', state: 'complete' },
+      { code: 'accepted_offer', state: 'missing' },
+      { code: 'content_prepared', state: 'missing' }
+    ],
+    authorizations: [
+      { code: 'public_consent', state: 'complete' },
+      { code: 'sponsor_review', state: 'complete' },
+      { code: 'moderation_review', state: 'missing' }
+    ]
+  });
+  f.assistance = {
+    contributionId: contributionId(3),
+    controlCode: 'accepted_offer',
+    revision: 'synthetic-source-missing',
+    sourceVersion: null,
+    commitmentVersion: 1,
+    run: null,
+    stale: false,
+    capabilities: {
+      canManageSource: true,
+      canRun: true,
+      canReview: true,
+      canApply: true
+    }
+  };
+  await open(page);
+  await expectPilotProgress(page, 4, 7);
+  await expect(
+    pilot(page).locator('[data-og7="preparation-issue"]')
+  ).toHaveCount(7);
+  return f;
+}
+
+async function expectAttentionLayout(page: Page, layout: 'left' | 'above') {
+  await expect
+    .poll(() =>
+      pilot(page).evaluate((element) => {
+        const doc = element.ownerDocument;
+        const view = doc.defaultView!;
+        const bounds = (selector: string) =>
+          element.querySelector<HTMLElement>(selector)!.getBoundingClientRect();
+        const detail = bounds('[data-og7="preparation-issue-detail"]');
+        const list = bounds('[data-og7="preparation-issue-list"]');
+        const attention = element.querySelector<HTMLElement>(
+          '[data-og7="preparation-issue-attention"]'
+        )!;
+        const panel = element.closest<HTMLElement>(
+          '[data-og7="admin-guidance-panel"]'
+        )!;
+        const panelBounds = panel.getBoundingClientRect();
+        const clip = {
+          left: Math.max(0, panelBounds.left),
+          right: Math.min(view.innerWidth, panelBounds.right),
+          top: Math.max(0, panelBounds.top),
+          bottom: Math.min(view.innerHeight, panelBounds.bottom)
+        };
+        const inside = (target: DOMRect) =>
+          target.width > 0 &&
+          target.height > 0 &&
+          target.left >= clip.left - 1 &&
+          target.right <= clip.right + 1 &&
+          target.top >= clip.top - 1 &&
+          target.bottom <= clip.bottom + 1;
+        const attentionBounds = attention.getBoundingClientRect();
+        const hit = doc.elementFromPoint(
+          attentionBounds.left + attentionBounds.width / 2,
+          attentionBounds.top + attentionBounds.height / 2
+        );
+        return {
+          left: detail.right <= list.left + 1,
+          above: detail.bottom <= list.top + 1,
+          attentionVisible:
+            inside(attentionBounds) &&
+            !!hit &&
+            (hit === attention || attention.contains(hit)),
+          listVisible: inside(list),
+          overflow:
+            doc.documentElement.scrollWidth > view.innerWidth + 1 ||
+            panel.scrollWidth > panel.clientWidth + 1 ||
+            element.scrollWidth > element.clientWidth + 1
+        };
+      })
+    )
+    .toMatchObject({
+      [layout]: true,
+      attentionVisible: true,
+      ...(layout === 'left' ? { listVisible: true } : {}),
+      overflow: false
+    });
+}
+
 async function expectPilotProgress(page: Page, completed: number, total = 3) {
   const progress = pilot(page).locator(
     '[data-og7="preparation-pilot-progress"]'
@@ -986,6 +1092,106 @@ for (const language of ['fr-CA', 'en']) {
     expect(f.writes).toEqual([]);
   });
 }
+
+for (const language of ['fr-CA', 'en']) {
+  test(`the ${language} missing-source attention stays beside the prerequisite list at desktop top and bottom without taking selection focus`, async ({
+    page
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1536, height: 864 });
+    const f = await missingSourcePilot(page, language);
+    const guide = page.locator('[data-og7="admin-guidance"]');
+    const agreement = pilotIssue(page, 'accepted_offer');
+    const content = pilotIssue(page, 'content_prepared');
+    const detail = pilot(page).locator('[data-og7="preparation-issue-detail"]');
+    const sourceAttention = pilot(page).locator(
+      '[data-og7="preparation-issue-attention"]'
+    );
+    for (const placement of ['top', 'bottom']) {
+      if (placement === 'bottom')
+        await guide.locator('[data-og7="admin-guidance-move"]').click();
+      await expect(guide).toHaveAttribute('data-og7-placement', placement);
+      await agreement.click();
+      await expect(agreement).toBeFocused();
+      await expect(sourceAttention).toContainText(
+        language === 'en'
+          ? 'No original agreement source saved. Complete the agreement in its usual form.'
+          : 'Aucune source de l’accord d’origine enregistrée. Complète l’accord dans son formulaire habituel.'
+      );
+      await expect(
+        pilot(page).locator('[data-og7="preparation-assistance-summary-state"]')
+      ).toHaveCount(1);
+      await expectAttentionLayout(page, 'left');
+      await guide.screenshot({
+        path: testInfo.outputPath(`preparation-attention-${placement}.png`),
+        animations: 'disabled'
+      });
+      const agreementTitle = await detail
+        .getByRole('heading')
+        .first()
+        .innerText();
+
+      await page.keyboard.press('ArrowDown');
+      await expect(content).toBeFocused();
+      await page.keyboard.press('Enter');
+      await expect(content).toHaveAttribute('aria-pressed', 'true');
+      await expect(content).toBeFocused();
+      await expect(detail).toHaveCount(1);
+      await expect(detail.getByRole('heading').first()).not.toHaveText(
+        agreementTitle
+      );
+      await expect(
+        pilot(page).locator('[data-og7="preparation-assistance-summary"]')
+      ).toHaveCount(0);
+      await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'peek');
+
+      await page.keyboard.press('ArrowUp');
+      await expect(agreement).toBeFocused();
+      await page.keyboard.press('Space');
+      await expect(agreement).toHaveAttribute('aria-pressed', 'true');
+      await expect(agreement).toBeFocused();
+      await expect(detail.getByRole('heading').first()).toHaveText(
+        agreementTitle
+      );
+      await expectAttentionLayout(page, 'left');
+      const examined = pilotIssue(page, 'dossier_examined');
+      await examined.click();
+      await expect(examined).toBeFocused();
+      await expect(examined).toHaveAttribute('aria-pressed', 'true');
+      await expect(sourceAttention).toHaveText(
+        language === 'en'
+          ? 'This check is satisfied in the version being reviewed.'
+          : 'Ce contrôle est satisfait dans la version consultée.'
+      );
+      await expect(
+        pilot(page).locator('[data-og7="preparation-assistance-summary"]')
+      ).toHaveCount(0);
+      await expectPilotProgress(page, 4, 7);
+      expect(f.writes).toEqual([]);
+      await expect(page).toHaveURL(/\/admin\/fundraiser\/attention$/);
+    }
+  });
+}
+
+test('selecting promised publications reveals missing-source attention above the prerequisite list on mobile without horizontal scrolling', async ({
+  page
+}, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const f = await missingSourcePilot(page);
+  const agreement = pilotIssue(page, 'accepted_offer');
+  await agreement.click();
+  await expect(agreement).toBeFocused();
+  await expect(
+    pilot(page).locator('[data-og7="preparation-issue-attention"]')
+  ).toContainText('Aucune source de l’accord d’origine enregistrée.');
+  await expectAttentionLayout(page, 'above');
+  await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'peek');
+  await page.locator('[data-og7="admin-guidance"]').screenshot({
+    path: testInfo.outputPath('preparation-attention-mobile.png'),
+    animations: 'disabled'
+  });
+  expect(f.writes).toEqual([]);
+  await expect(page).toHaveURL(/\/admin\/fundraiser\/attention$/);
+});
 
 test('preparation keyboard navigation selects a prerequisite and only Actions opens its controller', async ({
   page

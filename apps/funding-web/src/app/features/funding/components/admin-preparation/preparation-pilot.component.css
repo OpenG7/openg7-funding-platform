@@ -29,7 +29,15 @@ progress {
 }
 .pilot-content {
   display: grid;
+  grid-template-areas: 'attention' 'issues';
   gap: 0.6rem;
+}
+.pilot-issues {
+  grid-area: issues;
+}
+.pilot-attention {
+  grid-area: attention;
+  min-width: 0;
 }
 .pilot-open {
   margin-block: 0.5rem;
@@ -88,9 +96,10 @@ openg7-context-controller[hidden] {
 .is-ready [data-og7='preparation-pilot-controller'] {
   grid-column: 1 / -1;
 }
-@container (min-width: 44rem) {
+@container (min-width: 40rem) {
   .pilot-content {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas: 'attention issues';
     align-items: start;
   }
 }

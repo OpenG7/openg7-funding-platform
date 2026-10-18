@@ -253,6 +253,15 @@ serveur, hors éléments non requis. Son total varie selon le bon; les blocages
 complémentaires ne l'augmentent pas. Cliquer, lire ou fermer une commande ne
 valide aucun contrôle.
 
+Pour un bon incomplet, le guide s’élargit selon la place disponible : le détail
+du contrôle sélectionné apparaît à gauche, la liste reste à droite. Le premier
+encadré donne le point à traiter, notamment la source d’origine manquante pour
+les publications promises. Les explications de l’assistance restent dans un volet
+replié sous cet état. Sur écran étroit, le détail précède la liste.
+La sélection révèle ce point sans quitter le bouton sélectionné au clavier ou
+à la manette ; les commandes restent accessibles par **Actions**. Les bons prêts
+ou approuvés gardent leur format compact.
+
 Le Pilotage regroupe les vérifications et autorisations du bon. Le volet replié
 **Détails de l’accord et traçabilité** conserve les clauses de l’offre, la date du
 paiement, les états des brouillons, le bilan des engagements et la version
