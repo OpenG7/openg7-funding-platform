@@ -1,0 +1,101 @@
+<summary>{{ view().t('analysis.title') }}</summary>
+<p>
+  {{
+    view().t(
+      analysis().capabilities() === 'configured'
+        ? 'analysis.assisted'
+        : 'analysis.technicalOnly'
+    )
+  }}
+</p>
+@if (analysis().error()) {
+  <p role="alert">{{ view().t('analysis.error') }}</p>
+}
+@if (analysis().run(); as analysisRun) {
+  <p>
+    {{
+      view().t(
+        'analysis.states.' + (analysisRun.stale ? 'stale' : analysisRun.state)
+      )
+    }}
+  </p>
+  @if (analysisRun.suggestion) {
+    <p>
+      {{ analysisRun.suggestion.technical.width }} ×
+      {{ analysisRun.suggestion.technical.height }} px
+    </p>
+    @for (signal of analysisRun.suggestion.signals; track signal) {
+      <p>{{ view().t('analysis.signals.' + signal) }}</p>
+    }
+  }
+  @if (analysisRun.review) {
+    <p>
+      {{ view().t('analysis.decisions.' + analysisRun.review.decision) }}
+    </p>
+  }
+  @if (
+    analysisRun.state === 'succeeded' &&
+    !analysisRun.stale &&
+    (!analysisRun.review || analysisRun.review.decision === 'saved')
+  ) {
+    <button
+      type="button"
+      class="admin-button"
+      [disabled]="
+        !controller().canWrite() || !!controller().drafts()[asset().id]
+      "
+      (click)="analysis().prefill()"
+    >
+      {{ view().t('analysis.prefill') }}
+    </button>
+    <label class="field"
+      >{{ view().t('analysis.classification')
+      }}<select
+        data-og7="media-analysis-classification"
+        [disabled]="!controller().canWrite()"
+        (change)="changeClassification($event)"
+      >
+        @for (kind of classifications; track kind) {
+          <option [value]="kind" [selected]="classification() === kind">
+            {{ view().t('analysis.classes.' + kind) }}
+          </option>
+        }
+      </select></label
+    >
+    <div class="inspector-actions">
+      <button
+        type="button"
+        class="admin-button"
+        [disabled]="!controller().canWrite()"
+        (click)="analysis().reviewAnalysis('save')"
+        data-og7="media-analysis-save"
+      >
+        {{ view().t('analysis.save') }}</button
+      ><button
+        type="button"
+        class="admin-button"
+        [disabled]="!controller().canWrite()"
+        (click)="analysis().reviewAnalysis('accept')"
+        data-og7="media-analysis-accept"
+      >
+        {{ view().t('analysis.accept') }}</button
+      ><button
+        type="button"
+        class="admin-button"
+        [disabled]="!controller().canWrite()"
+        (click)="analysis().reviewAnalysis('reject')"
+        data-og7="media-analysis-reject"
+      >
+        {{ view().t('analysis.reject') }}
+      </button>
+    </div>
+  }
+}
+<button
+  type="button"
+  class="admin-button"
+  [disabled]="!controller().canWrite()"
+  (click)="analysis().analyze()"
+>
+  {{ view().t(analysis().run() ? 'analysis.rerun' : 'analysis.run') }}
+</button>

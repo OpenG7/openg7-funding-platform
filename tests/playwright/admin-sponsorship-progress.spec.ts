@@ -1783,22 +1783,61 @@ test('dossier controls respect reader and operator permissions', async ({
     .getByRole('button', { name: 'Fiche et médias', exact: true })
     .click();
   const media = page.locator('openg7-admin-sponsor-detail-media');
-  for (const button of [
-    'Tout approuver',
-    'Approuver le media',
-    'Refuser',
-    'Supprimer'
-  ])
-    await expect(
-      media.getByRole('button', { name: button, exact: true })
-    ).toBeDisabled();
+  const workspace = media.locator('[data-og7="media-review-workspace"]');
+  await expect(
+    workspace.locator('[data-og7="media-dossier-rules"]')
+  ).toBeDisabled();
+  await expect(
+    workspace.getByRole('button', { name: 'Créer un lot', exact: true })
+  ).toBeDisabled();
+  const tile = workspace.locator('[data-og7="media-tile"]').first();
+  await expect(tile.getByRole('checkbox')).toBeDisabled();
+  await expect(
+    workspace.locator('[data-og7="media-batch-approve"]')
+  ).toHaveCount(0);
+  await tile.getByRole('button').focus();
+  await tile.getByRole('button').press('Enter');
+  const inspector = workspace.locator('[data-og7="media-inspector"]');
+  await expect(
+    inspector.locator('[data-og7="media-inspector-alt"]')
+  ).toBeDisabled();
+  await expect(
+    inspector.locator('[data-og7="media-inspector-approve"]')
+  ).toBeDisabled();
+  await expect(
+    inspector.locator('[data-og7="media-full-preview"] img')
+  ).toBeVisible();
+  await expect(
+    inspector.locator('[data-og7="media-full-preview"] img')
+  ).toHaveAttribute('src', /^blob:/);
+  expect(
+    calls.some(
+      (call) =>
+        call.method === 'GET' &&
+        call.url.pathname ===
+          `/api/admin/sponsorships/media/content/${secondId}` &&
+        !call.url.searchParams.has('variant')
+    )
+  ).toBe(true);
+  await inspector.getByText('Plus d’options', { exact: true }).click();
+  for (const button of ['Refuser', 'Supprimer', 'Choisir pour le site']) {
+    const controls = inspector.getByRole('button', {
+      name: button,
+      exact: true
+    });
+    await expect(controls).not.toHaveCount(0);
+    for (const control of await controls.all())
+      await expect(control).toBeDisabled();
+  }
+  await expect(workspace.locator('[data-og7="media-history"]')).toHaveCount(0);
   await expect(
     media.getByRole('button', { name: 'Supprimer le logo', exact: true })
   ).toHaveCount(0);
   await expect(media.locator('input[type="file"]')).toBeDisabled();
-  await media.getByRole('button', { name: 'Aperçu', exact: true }).click();
-  await expect(page.locator('dialog[open]').getByRole('img')).toBeVisible();
-  await page.keyboard.press('Escape');
+  await inspector.locator('[data-og7="media-inspector-close"]').click();
+  await expect(
+    workspace.locator('[data-og7="media-full-preview"]')
+  ).toHaveCount(0);
   await tabs(page)
     .getByRole('button', { name: 'Publication', exact: true })
     .click();

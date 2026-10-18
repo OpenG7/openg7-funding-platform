@@ -1,0 +1,41 @@
+<summary>{{ view().t('history') }}</summary>
+<p class="muted">{{ view().t('historyPrivate') }}</p>
+@if (history().loading()) {
+  <p role="status">{{ view().t('loading') }}</p>
+}
+@if (history().error()) {
+  <p role="alert">{{ view().t('historyUnavailable') }}</p>
+  <button type="button" class="admin-button" (click)="history().loadHistory()">
+    {{ view().t('refresh') }}
+  </button>
+}
+@if (history().data(); as timeline) {
+  @if (!timeline.entries.length) {
+    <p>{{ view().t('historyEmpty') }}</p>
+  }
+  <ol class="history-events">
+    @for (entry of timeline.entries; track entry.id) {
+      <li>
+        <time [attr.datetime]="entry.occurredAt">{{ entry.occurredAt }}</time>
+        <p>{{ entry.summary }}</p>
+        <small>{{ entry.actor }}</small>
+        @if (entry.evidenceReference) {
+          <details>
+            <summary>{{ view().t('privateEvidence') }}</summary>
+            <p>{{ entry.evidenceReference }}</p>
+          </details>
+        }
+      </li>
+    }
+  </ol>
+  @if (timeline.nextCursor) {
+    <button
+      type="button"
+      class="admin-button"
+      [disabled]="history().loading()"
+      (click)="history().loadHistory(true)"
+    >
+      {{ view().t('historyMore') }}
+    </button>
+  }
+}

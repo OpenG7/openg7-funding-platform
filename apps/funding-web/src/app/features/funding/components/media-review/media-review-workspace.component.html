@@ -23,10 +23,10 @@
       <label
         >{{ t('uploadKind')
         }}<select
-          [value]="uploadKind()"
+          [value]="upload.kind()"
           [disabled]="!c.canWrite()"
           (change)="
-            uploadKind.set(
+            upload.kind.set(
               value($event) === 'logo' ? 'logo' : 'supporting_image'
             )
           "
@@ -36,17 +36,17 @@
         </select></label
       >
       <label class="admin-button"
-        >{{ t(uploading() ? 'uploading' : 'upload')
+        >{{ t(upload.busy() ? 'uploading' : 'upload')
         }}<input
           type="file"
           accept="image/jpeg,image/png,image/webp"
           multiple
           [disabled]="!c.canWrite()"
-          (change)="upload($event)"
+          (change)="upload.upload($event)"
           data-og7="media-upload-files"
       /></label>
     </div>
-    @if (uploadResult(); as result) {
+    @if (upload.result(); as result) {
       <p class="notice" role="status">
         {{
           t('uploadResult', {
@@ -56,7 +56,7 @@
         }}
       </p>
     }
-    @if (analysisProgress(); as progress) {
+    @if (analysis.progress(); as progress) {
       <p role="status">
         {{
           t('analysis.progress', {
@@ -66,12 +66,12 @@
         }}
       </p>
     }
-    @if (analysisBusy()) {
+    @if (analysis.busy()) {
       <button
         type="button"
         class="admin-button"
-        [disabled]="analysisStop()"
-        (click)="analysisStop.set(true)"
+        [disabled]="analysis.stop()"
+        (click)="analysis.stop.set(true)"
       >
         {{ t('analysis.stop') }}
       </button>
@@ -125,7 +125,7 @@
           type="button"
           class="admin-button"
           [disabled]="!c.canWrite()"
-          (click)="openRules('dossier')"
+          (click)="commands.openRules('dossier')"
           data-og7="media-dossier-rules"
         >
           {{ t('editDefaults') }}
@@ -157,7 +157,7 @@
           type="button"
           class="admin-button"
           [disabled]="!c.canWrite()"
-          (click)="form.set('batch')"
+          (click)="commands.form.set('batch')"
         >
           {{ t('newBatch') }}
         </button>
@@ -206,7 +206,7 @@
             type="button"
             class="admin-button primary"
             [disabled]="!canAction('approve')"
-            (click)="prepare('approve')"
+            (click)="commands.prepare('approve')"
             data-og7="media-batch-approve"
           >
             {{ t('actions.approve') }}
@@ -215,7 +215,7 @@
             type="button"
             class="admin-button"
             [disabled]="!canAction('analyze')"
-            (click)="analyzeSelection()"
+            (click)="analysis.analyzeSelection()"
             data-og7="media-batch-analyze"
           >
             {{ t('analysis.selection') }}
@@ -224,7 +224,7 @@
             type="button"
             class="admin-button"
             [disabled]="!c.canWrite()"
-            (click)="openRules('dossier')"
+            (click)="commands.openRules('dossier')"
           >
             {{ t('actions.permissions') }}
           </button>
@@ -232,7 +232,7 @@
             type="button"
             class="admin-button danger"
             [disabled]="!c.canWrite()"
-            (click)="openReject()"
+            (click)="commands.openReject()"
           >
             {{ t('actions.reject') }}
           </button>
@@ -240,7 +240,7 @@
             type="button"
             class="admin-button danger"
             [disabled]="!c.canWrite()"
-            (click)="prepare('delete')"
+            (click)="commands.prepare('delete')"
             data-og7="media-batch-delete"
           >
             {{ t('actions.delete') }}
@@ -248,8 +248,8 @@
           <label
             >{{ t('moveTo')
             }}<select
-              [value]="targetBatch()"
-              (change)="targetBatch.set(value($event))"
+              [value]="commands.targetBatch()"
+              (change)="commands.targetBatch.set(value($event))"
             >
               <option value="">{{ t('noBatch') }}</option>
               @for (batch of workspace.batches; track batch.id) {
@@ -261,7 +261,7 @@
             type="button"
             class="admin-button"
             [disabled]="!c.canWrite()"
-            (click)="prepare('move')"
+            (click)="commands.prepare('move')"
           >
             {{ t('move') }}
           </button>
@@ -326,7 +326,7 @@
                 @if (asset.ruleId && asset.usageSource === 'media') {
                   <span class="exception">{{ t('exception') }}</span>
                 }
-                @if (analysisFor(asset.id); as analysis) {
+                @if (analysis.analysisFor(asset.id); as analysis) {
                   <span class="analysis-badge">{{
                     t(
                       'analysis.states.' +
@@ -454,7 +454,7 @@
                 type="button"
                 class="admin-button primary"
                 [disabled]="!canAction('approve', true)"
-                (click)="prepare('approve', asset)"
+                (click)="commands.prepare('approve', asset)"
                 data-og7="media-inspector-approve"
               >
                 {{ t('reviewApprove') }}</button
@@ -462,7 +462,7 @@
                 type="button"
                 class="admin-button danger"
                 [disabled]="!c.canWrite()"
-                (click)="openReject(asset)"
+                (click)="commands.openReject(asset)"
               >
                 {{ t('actions.reject') }}
               </button>
@@ -473,7 +473,7 @@
                 type="button"
                 class="admin-button"
                 [disabled]="!c.canWrite()"
-                (click)="openRules('media')"
+                (click)="commands.openRules('media')"
               >
                 {{ t('customize') }}
               </button>
@@ -482,7 +482,7 @@
                   type="button"
                   class="admin-button"
                   [disabled]="!c.canWrite()"
-                  (click)="restoreInheritance(asset)"
+                  (click)="commands.restoreInheritance(asset)"
                 >
                   {{ t('restoreInheritance') }}
                 </button>
@@ -492,7 +492,7 @@
                 class="admin-button"
                 [disabled]="!c.canWrite() || asset.reviewStatus !== 'approved'"
                 (click)="
-                  prepare(
+                  commands.prepare(
                     asset.websiteSelected
                       ? 'website_deselect'
                       : 'website_select',
@@ -508,7 +508,7 @@
                 type="button"
                 class="admin-button danger"
                 [disabled]="!c.canWrite()"
-                (click)="prepare('delete', asset)"
+                (click)="commands.prepare('delete', asset)"
               >
                 {{ t('actions.delete') }}
               </button>
@@ -518,165 +518,23 @@
                 (changed)="refresh(); changed.emit()"
               />
             </details>
-            <details class="analysis" data-og7="media-analysis">
-              <summary>{{ t('analysis.title') }}</summary>
-              <p>
-                {{
-                  t(
-                    analysisCapabilities() === 'configured'
-                      ? 'analysis.assisted'
-                      : 'analysis.technicalOnly'
-                  )
-                }}
-              </p>
-              @if (analysisError()) {
-                <p role="alert">{{ t('analysis.error') }}</p>
-              }
-              @if (run(); as analysis) {
-                <p>
-                  {{
-                    t(
-                      'analysis.states.' +
-                        (analysis.stale ? 'stale' : analysis.state)
-                    )
-                  }}
-                </p>
-                @if (analysis.suggestion) {
-                  <p>
-                    {{ analysis.suggestion.technical.width }} ×
-                    {{ analysis.suggestion.technical.height }} px
-                  </p>
-                  @for (signal of analysis.suggestion.signals; track signal) {
-                    <p>{{ t('analysis.signals.' + signal) }}</p>
-                  }
-                }
-                @if (analysis.review) {
-                  <p>
-                    {{ t('analysis.decisions.' + analysis.review.decision) }}
-                  </p>
-                }
-                @if (
-                  analysis.state === 'succeeded' &&
-                  !analysis.stale &&
-                  (!analysis.review || analysis.review.decision === 'saved')
-                ) {
-                  <button
-                    type="button"
-                    class="admin-button"
-                    [disabled]="!c.canWrite() || !!c.drafts()[asset.id]"
-                    (click)="prefill()"
-                  >
-                    {{ t('analysis.prefill') }}
-                  </button>
-                  <label class="field"
-                    >{{ t('analysis.classification')
-                    }}<select
-                      data-og7="media-analysis-classification"
-                      [disabled]="!c.canWrite()"
-                      (change)="changeClassification($event)"
-                    >
-                      @for (kind of classifications; track kind) {
-                        <option
-                          [value]="kind"
-                          [selected]="classification() === kind"
-                        >
-                          {{ t('analysis.classes.' + kind) }}
-                        </option>
-                      }
-                    </select></label
-                  >
-                  <div class="inspector-actions">
-                    <button
-                      type="button"
-                      class="admin-button"
-                      [disabled]="!c.canWrite()"
-                      (click)="reviewAnalysis('save')"
-                      data-og7="media-analysis-save"
-                    >
-                      {{ t('analysis.save') }}</button
-                    ><button
-                      type="button"
-                      class="admin-button"
-                      [disabled]="!c.canWrite()"
-                      (click)="reviewAnalysis('accept')"
-                      data-og7="media-analysis-accept"
-                    >
-                      {{ t('analysis.accept') }}</button
-                    ><button
-                      type="button"
-                      class="admin-button"
-                      [disabled]="!c.canWrite()"
-                      (click)="reviewAnalysis('reject')"
-                      data-og7="media-analysis-reject"
-                    >
-                      {{ t('analysis.reject') }}
-                    </button>
-                  </div>
-                }
-              }
-              <button
-                type="button"
-                class="admin-button"
-                [disabled]="!c.canWrite()"
-                (click)="analyze()"
-              >
-                {{ t(run() ? 'analysis.rerun' : 'analysis.run') }}
-              </button>
-            </details>
+            <details
+              openg7-media-review-analysis
+              class="analysis"
+              data-og7="media-analysis"
+              [analysis]="analysis"
+              [controller]="c"
+              [asset]="asset"
+              [view]="this"
+            ></details>
             @if (admin.identity()?.role !== 'reader') {
               <details
+                openg7-media-review-history
                 class="advanced"
-                (toggle)="historyOpened($event)"
+                [history]="history"
+                [view]="this"
                 data-og7="media-history"
-              >
-                <summary>{{ t('history') }}</summary>
-                <p class="muted">{{ t('historyPrivate') }}</p>
-                @if (historyLoading()) {
-                  <p role="status">{{ t('loading') }}</p>
-                }
-                @if (historyError()) {
-                  <p role="alert">{{ t('historyUnavailable') }}</p>
-                  <button
-                    type="button"
-                    class="admin-button"
-                    (click)="loadHistory()"
-                  >
-                    {{ t('refresh') }}
-                  </button>
-                }
-                @if (history(); as timeline) {
-                  @if (!timeline.entries.length) {
-                    <p>{{ t('historyEmpty') }}</p>
-                  }
-                  <ol class="history-events">
-                    @for (entry of timeline.entries; track entry.id) {
-                      <li>
-                        <time [attr.datetime]="entry.occurredAt">{{
-                          entry.occurredAt
-                        }}</time>
-                        <p>{{ entry.summary }}</p>
-                        <small>{{ entry.actor }}</small>
-                        @if (entry.evidenceReference) {
-                          <details>
-                            <summary>{{ t('privateEvidence') }}</summary>
-                            <p>{{ entry.evidenceReference }}</p>
-                          </details>
-                        }
-                      </li>
-                    }
-                  </ol>
-                  @if (timeline.nextCursor) {
-                    <button
-                      type="button"
-                      class="admin-button"
-                      [disabled]="historyLoading()"
-                      (click)="loadHistory(true)"
-                    >
-                      {{ t('historyMore') }}
-                    </button>
-                  }
-                }
-              </details>
+              ></details>
             }
             <openg7-context-controller
               [context]="context()"
@@ -709,222 +567,8 @@
   }
 </section>
 
-<openg7-admin-drawer
-  [opened]="!!form()"
-  [title]="
-    t(
-      form() === 'rules'
-        ? 'rulesTitle'
-        : form() === 'batch'
-          ? 'newBatch'
-          : form() === 'reject'
-            ? 'rejectTitle'
-            : 'planTitle'
-    )
-  "
-  [closeLabel]="t('close')"
-  [busy]="c.busy()"
-  [wide]="form() === 'plan'"
-  (closed)="closeForm()"
->
-  @if (c.error()) {
-    <p role="alert" class="notice error">{{ t('errors.' + c.error()) }}</p>
-  }
-  @if (form() === 'rules') {
-    <p>{{ t('rulesHelp') }}</p>
-    @if (inheritRequested()) {
-      <p class="notice">{{ t('inheritConfirm') }}</p>
-    }
-    <label class="field"
-      >{{ t('scope')
-      }}<select
-        [value]="rulesScope()"
-        [disabled]="c.busy() || inheritRequested()"
-        (change)="changeScope($event)"
-      >
-        <option value="dossier">{{ t('scopes.dossier') }}</option>
-        <option value="batch">{{ t('scopes.batch') }}</option>
-        @if (c.inspected()) {
-          <option value="media">{{ t('scopes.media') }}</option>
-        }
-      </select></label
-    >
-    @if (rulesScope() === 'batch') {
-      <label class="field"
-        >{{ t('batch')
-        }}<select
-          [value]="rulesBatch()"
-          (change)="rulesBatch.set(value($event))"
-        >
-          @for (batch of c.data()?.batches; track batch.id) {
-            <option [value]="batch.id">{{ batch.name }}</option>
-          }
-        </select></label
-      >
-    }
-    <p class="notice">{{ t('coverage', { count: coveredAssets().length }) }}</p>
-    @if (rulesScope() !== 'media' && !inheritRequested()) {
-      <label class="check"
-        ><input
-          type="checkbox"
-          [checked]="includesFutureUploads()"
-          [disabled]="c.busy()"
-          (change)="includesFutureUploads.set(checked($event))"
-          data-og7="media-rules-future"
-        />{{ t('futureCoverage') }}</label
-      >
-    }
-    <openg7-sponsor-media-usage-editor
-      [value]="rulesValue()"
-      [requireEvidence]="true"
-      [disabled]="
-        !c.canWrite() ||
-        !rulesScopeId() ||
-        (!coveredAssets().length && !includesFutureUploads())
-      "
-      (saved)="saveRules($event, inheritRequested())"
-    />
-  }
-  @if (form() === 'batch') {
-    <label class="field"
-      >{{ t('batchName')
-      }}<input
-        maxlength="120"
-        [value]="batchName()"
-        [disabled]="c.busy()"
-        (input)="batchName.set(value($event))" /></label
-    ><button
-      type="button"
-      class="admin-button primary"
-      [disabled]="!c.canWrite() || !batchName().trim()"
-      (click)="createBatch()"
-    >
-      {{ t('createBatch') }}
-    </button>
-  }
-  @if (form() === 'reject') {
-    <label class="field"
-      >{{ t('rejectReason')
-      }}<select
-        [value]="rejectReason()"
-        (change)="rejectReason.set(value($event))"
-      >
-        <option value="">{{ t('chooseReason') }}</option>
-        @for (reason of reasons; track reason.code) {
-          <option [value]="reason.code">
-            {{ reason.label[i18n.currentLanguage() === 'en' ? 'en' : 'fr'] }}
-          </option>
-        }
-      </select></label
-    >
-    <label class="field"
-      >{{ t('internalReason')
-      }}<textarea
-        maxlength="1000"
-        [value]="rejectInternalReason()"
-        (input)="rejectInternalReason.set(value($event))"
-      ></textarea>
-    </label>
-    <label class="field"
-      >{{ t('sponsorExplanation')
-      }}<textarea
-        maxlength="1000"
-        [value]="rejectExplanation()"
-        (input)="rejectExplanation.set(value($event))"
-      ></textarea>
-    </label>
-    <button
-      type="button"
-      class="admin-button danger"
-      [disabled]="
-        !c.canWrite() || !rejectReason() || !rejectExplanation().trim()
-      "
-      (click)="prepareReject()"
-    >
-      {{ t('prepareDecision') }}
-    </button>
-  }
-  @if (form() === 'plan') {
-    @if (c.plan(); as plan) {
-      <p class="notice">{{ t('planHelp', { count: plan.assets.length }) }}</p>
-      <p>
-        {{ t('planAction') }} :
-        <strong>{{ t('actions.' + plan.action) }}</strong>
-      </p>
-      @if (plan.blocked.length) {
-        <div role="alert" class="notice error">
-          <p>{{ t('blockedPlan') }}</p>
-          <ul>
-            @for (item of plan.blocked; track item.id) {
-              <li>
-                {{ assetName(item.id) }} :
-                @for (reason of item.reasons; track reason) {
-                  <span>{{ reasonLabel(reason) }} </span>
-                }
-              </li>
-            }
-          </ul>
-        </div>
-      }
-      <div class="manifest" data-og7="media-batch-manifest">
-        @for (asset of plan.assets; track asset.id) {
-          <article>
-            <div class="manifest-image">
-              <openg7-media-review-thumbnail
-                [collection]="thumbnails"
-                [assetId]="asset.id"
-                [version]="asset.version"
-                [alt]="asset.altText || asset.originalFilename"
-              />
-            </div>
-            <div>
-              <h4>{{ asset.originalFilename }}</h4>
-              <p>{{ t('altText') }} : {{ asset.altText || t('missingAlt') }}</p>
-              <p>
-                {{ t('sources.' + asset.usageSource) }} ·
-                {{ usageSummary(asset) }}
-              </p>
-              @if (asset.usage?.credit) {
-                <p>{{ t('credit') }} : {{ asset.usage?.credit }}</p>
-              }
-              @if (asset.usage?.restrictions) {
-                <p class="notice">
-                  {{ t('restrictions') }} : {{ asset.usage?.restrictions }}
-                </p>
-              }
-            </div>
-          </article>
-        }
-      </div>
-      <p class="muted">
-        {{
-          t(
-            plan.action === 'website_select'
-              ? 'websiteExposure'
-              : plan.action === 'website_deselect'
-                ? 'websiteRemoval'
-                : 'noPublication'
-          )
-        }}
-      </p>
-      <label class="check"
-        ><input
-          type="checkbox"
-          [checked]="humanReviewed()"
-          [disabled]="c.busy() || !!plan.blocked.length"
-          (change)="humanReviewed.set(checked($event))"
-          data-og7="media-manifest-confirmation"
-        />{{ t('manifestConfirmation') }}</label
-      >
-      <button
-        type="button"
-        class="admin-button primary"
-        [disabled]="!humanReviewed() || !c.canWrite() || !!plan.blocked.length"
-        (click)="execute()"
-        data-og7="media-batch-execute"
-      >
-        {{ t('confirmExecute') }}
-      </button>
-    }
-  }
-</openg7-admin-drawer>
+<openg7-media-review-commands
+  [commands]="commands"
+  [view]="this"
+  [thumbnails]="thumbnails"
+/>

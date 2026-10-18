@@ -164,3 +164,31 @@ Pour revenir en arrière, arrêter les traitements et conserver une API sachant 
 les droits hérités ; ne pas supprimer les nouvelles tables ni réactiver une ancienne
 autorisation. Préférer une correction en avant. Une restauration de production ou
 un nettoyage des copies historiques demande son instruction séparée.
+
+### Responsabilités internes
+
+Les façades de service conservent les contrats existants. Les modules internes
+séparent les responsabilités sans créer un second modèle de média :
+
+- [Plans de lot](../../apps/funding-api/src/sponsor-media-workspace/plans.ts) :
+  verrouillage, réconciliation et transaction. `plan-manifest.ts` prépare les
+  candidats exacts ; `plan-mutations.ts` applique le manifeste déjà revalidé avec
+  le même client transactionnel. `cleanup.ts` possède les baux et les appels au
+  stockage, après la transaction de suppression.
+- [Analyse](../../apps/funding-api/src/sponsor-media-analysis/service.ts) :
+  `commands.ts` valide les demandes et possède leur transaction idempotente ;
+  `projection.ts` lit les résultats et reçus ; `start.ts` et `review.ts` exécutent
+  respectivement la demande d'analyse et la décision humaine dans cette transaction.
+- [Téléversement](../../apps/funding-api/src/sponsor-media-upload.service.ts) :
+  `sponsor-media-upload/request.ts` valide l'entrée, l'empreinte et le reçu ;
+  `storage.ts` possède uniquement les clés de la tentative et le nettoyage des
+  fichiers remplacés. La façade décide quand la persistance transfère cette propriété.
+- [Espace de revue Web](../../apps/funding-web/src/app/features/funding/components/media-review/media-review-workspace.component.ts) :
+  composition de la galerie et de l'inspecteur unique. Les contrôleurs locaux
+  `MediaReviewAnalysis`, `MediaReviewUpload`, `MediaReviewHistory` et
+  `MediaReviewCommands` conservent chacun leur état et leur reprise ; le composant
+  de commandes présente les règles, lots et manifestes à confirmer.
+
+La [recette navigateur](../../tests/playwright/media-review-workspace.ui.ts) conserve
+son point d'enregistrement ; ses fixtures interceptées, décisions de revue et
+scénarios d'analyse sont séparés dans le répertoire voisin `media-review-workspace/`.

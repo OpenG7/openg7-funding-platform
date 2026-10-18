@@ -458,11 +458,52 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   const mediaWorkspace = read(
     'apps/funding-web/src/app/features/funding/components/media-review/media-review-workspace.component.html'
   );
+  const mediaWorkspaceComponent = read(
+    'apps/funding-web/src/app/features/funding/components/media-review/media-review-workspace.component.ts'
+  );
+  const mediaCommandsComponent = read(
+    'apps/funding-web/src/app/features/funding/components/media-review/media-review-commands.component.ts'
+  );
+  const mediaCommands = read(
+    'apps/funding-web/src/app/features/funding/components/media-review/media-review-commands.component.html'
+  );
   assertIncludesAll(
     mediaWorkspace,
     [
       'data-og7="media-gallery"',
       'data-og7="media-inspector"',
+      '<openg7-media-review-commands',
+      '[commands]="commands"',
+      '[view]="this"',
+      '[thumbnails]="thumbnails"'
+    ],
+    'media workspace gallery, inspector and composed command surface'
+  );
+  assertIncludesAll(
+    mediaWorkspaceComponent,
+    [
+      "from './media-review-commands.component.js'",
+      'MediaReviewCommandsComponent'
+    ],
+    'media workspace command component dependency'
+  );
+  assert.match(
+    mediaWorkspaceComponent,
+    /imports:\s*\[[\s\S]*?MediaReviewCommandsComponent/,
+    'media workspace imports the rendered command component'
+  );
+  assertIncludesAll(
+    mediaCommandsComponent,
+    [
+      "selector: 'openg7-media-review-commands'",
+      "templateUrl: './media-review-commands.component.html'",
+      'input.required<MediaReviewCommands>()'
+    ],
+    'media command component owns the command controller and its template'
+  );
+  assertIncludesAll(
+    mediaCommands,
+    [
       'data-og7="media-batch-manifest"',
       'data-og7="media-manifest-confirmation"',
       'data-og7="media-batch-execute"'
