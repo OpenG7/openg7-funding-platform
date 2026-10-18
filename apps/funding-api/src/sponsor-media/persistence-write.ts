@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 
 import type {
   ModerationDecisionInput,
+  SponsorMediaAsset,
   SponsorMediaReviewStatus
 } from '@openg7/funding-core';
 import type { Pool, PoolClient } from 'pg';
@@ -12,10 +13,14 @@ import { withPostgresTransaction } from '../postgres-transaction.js';
 import {
   approveModeratedSubject,
   auditModeratedMutation,
-  recordAdverseModeration
+  recordAdverseModeration,
+  withModerationTransaction
 } from '../moderation-legacy.js';
 import { ModerationError } from '../moderation/policy.js';
-import { SPONSOR_MEDIA_ALT_TEXT_MAX_LENGTH } from '../business-helpers/request-validation.js';
+import {
+  isValidUuid,
+  SPONSOR_MEDIA_ALT_TEXT_MAX_LENGTH
+} from '../business-helpers/request-validation.js';
 import { lockModerationDependencies } from '../moderation/content.js';
 
 import type {
@@ -61,6 +66,13 @@ export const createSponsorMediaAsset = async (
   if (!pool) {
     return { status: 'contribution_not_found' };
   }
+  if (input.requestId !== undefined || input.requestFingerprint !== undefined) {
+    if (
+      !isValidUuid(input.requestId) ||
+      !/^[a-f0-9]{64}$/.test(input.requestFingerprint ?? '')
+    )
+      throw new ModerationError('INVALID_MEDIA_UPLOAD_REQUEST', 400);
+  }
   return createMediaTransaction(pool, async (client) => {
     const contribution = await client.query<{
       readonly id: string;
@@ -77,6 +89,33 @@ export const createSponsorMediaAsset = async (
     );
     if (!contribution.rows[0]) {
       return { status: 'contribution_not_found' };
+    }
+    if (input.requestId) {
+      const recorded = (
+        await client.query<{
+          actor: string;
+          payload_fingerprint: string;
+          result: { uploaded?: boolean; asset?: SponsorMediaAsset };
+        }>(
+          'SELECT actor,payload_fingerprint,result FROM sponsor_media_workspace_commands WHERE contribution_id=$1::uuid AND request_id=$2::uuid',
+          [input.contributionId, input.requestId]
+        )
+      ).rows[0];
+      if (recorded) {
+        if (
+          recorded.actor !== input.auditActor ||
+          recorded.payload_fingerprint !== input.requestFingerprint ||
+          recorded.result.uploaded !== true ||
+          !recorded.result.asset ||
+          recorded.result.asset.contributionId !== input.contributionId
+        )
+          throw new ModerationError('MEDIA_REQUEST_CONFLICT', 409);
+        return {
+          status: 'created',
+          asset: recorded.result.asset,
+          replaced: null
+        };
+      }
     }
     if (
       input.uploadedBy === 'sponsor' &&
@@ -179,13 +218,16 @@ export const createSponsorMediaAsset = async (
       action: 'sponsorship.media.upload',
       entityType: 'sponsor_media_asset',
       entityId: input.id,
-      summary: 'Sponsor media uploaded through the private follow-up flow.',
+      summary:
+        'Sponsor media uploaded privately; no review or publication authorized.',
       metadata: {
         contributionId: input.contributionId,
         kind: input.kind,
         mimeType: input.originalMimeType,
         sizeBytes: input.originalSizeBytes,
-        storageDriver: input.storageDriver
+        storageDriver: input.storageDriver,
+        ...(input.requestId ? { requestId: input.requestId } : {}),
+        ...(replaced ? { replacedAssetId: replaced.id } : {})
       }
     });
     if (!audited) {
@@ -216,6 +258,21 @@ export const createSponsorMediaAsset = async (
           input.id,
           input.contributionId,
           JSON.stringify(usage),
+          input.auditActor
+        ]
+      );
+    }
+    if (input.requestId) {
+      await client.query(
+        'INSERT INTO sponsor_media_workspace_commands(contribution_id,request_id,payload_fingerprint,result,actor) VALUES($1::uuid,$2::uuid,$3,$4::jsonb,$5)',
+        [
+          input.contributionId,
+          input.requestId,
+          input.requestFingerprint,
+          JSON.stringify({
+            uploaded: true,
+            asset: mapAsset(inserted.rows[0]!)
+          }),
           input.auditActor
         ]
       );
@@ -409,7 +466,13 @@ export const reviewSponsorMediaAsset = async (
           input.reviewedBy,
           'sponsorship.media.approved'
         );
-        return { status: 'updated', asset: mapStorageRecord(result.rows[0]) };
+        return {
+          status: 'updated',
+          asset: mapStorageRecord({
+            ...result.rows[0],
+            usage_rights: current.usage_rights
+          })
+        };
       }
       return { status: 'conflict', asset: mapStorageRecord(current) } as const;
     },
@@ -419,7 +482,7 @@ export const reviewSponsorMediaAsset = async (
 
 /** Prepare an edited public caption before a separate review of its exact content. */
 export const updateSponsorMediaMetadata = async (
-  pool: Pool | null,
+  pool: Pool | PoolClient | null,
   input: {
     readonly assetId: string;
     readonly expectedVersion: string;
@@ -437,7 +500,7 @@ export const updateSponsorMediaMetadata = async (
       input.altText.length > SPONSOR_MEDIA_ALT_TEXT_MAX_LENGTH)
   )
     throw new ModerationError('INVALID_MEDIA_METADATA', 400);
-  return withPostgresTransaction(
+  return withModerationTransaction(
     pool,
     async (db) => {
       await lockModerationDependencies(db, {
@@ -473,6 +536,6 @@ export const updateSponsorMediaMetadata = async (
         asset: mapStorageRecord(result.rows[0]!)
       } as const;
     },
-    { shouldCommit: (result) => result.status === 'updated' }
+    (result) => result.status === 'updated'
   );
 };

@@ -43,6 +43,8 @@ export interface ApiBackgroundWorkersDependencies {
     PreparationAssistanceService,
     'tick'
   > | null;
+  readonly mediaAnalysis?: { tick(): Promise<unknown> } | null;
+  readonly mediaReview?: { tick(): Promise<unknown> } | null;
   readonly logger?: Pick<Console, 'info' | 'warn' | 'error'>;
   readonly setInterval?: (
     callback: () => void,
@@ -72,6 +74,28 @@ export const createApiBackgroundWorkers = (
   let emailQueueProcessing = false;
   let adminSponsorshipReviewReminderProcessing = false;
   let preparationAssistanceProcessing = false;
+  let mediaProcessing = false;
+
+  const runMediaWorkers = async (): Promise<void> => {
+    if (mediaProcessing) return;
+    mediaProcessing = true;
+    try {
+      for (const worker of [
+        dependencies.mediaAnalysis,
+        dependencies.mediaReview
+      ]) {
+        try {
+          await worker?.tick();
+        } catch {
+          logger.error(
+            'Media processing interrupted; inspect media jobs and database availability.'
+          );
+        }
+      }
+    } finally {
+      mediaProcessing = false;
+    }
+  };
 
   const runEmailQueueWorker = async (): Promise<void> => {
     if (!dbPool || !emailQueueWorkerEnabled || emailQueueProcessing) {
@@ -177,6 +201,11 @@ export const createApiBackgroundWorkers = (
 
   const start = (): void => {
     if (!hasDatabase) return;
+
+    if (dependencies.mediaAnalysis || dependencies.mediaReview) {
+      void runMediaWorkers();
+      scheduleInterval(() => void runMediaWorkers(), 2_000).unref();
+    }
 
     if (dependencies.preparationAssistance) {
       void runPreparationAssistanceWorker();

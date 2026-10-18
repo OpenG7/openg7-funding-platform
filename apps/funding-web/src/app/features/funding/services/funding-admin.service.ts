@@ -15,6 +15,12 @@ import type {
 } from '@openg7/funding-core';
 import { Injectable, signal } from '@angular/core';
 import type {
+  SponsorMediaRuleRequest,
+  SponsorMediaBatchRequest,
+  SponsorMediaBatchPlanRequest,
+  SponsorMediaBatchExecuteRequest
+} from '@openg7/funding-core';
+import type {
   AdminSearchRequest,
   SponsorshipWebsiteVisibilityRequest,
   SponsorshipIntervention,
@@ -99,6 +105,7 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
+import { FundingAdminMediaReviewClient } from './funding-admin-media-review.client.js';
 import { FundingAdminSession } from './funding-admin-session.js';
 import type {
   AdminAccessAccount,
@@ -120,6 +127,7 @@ import { FundingAdminModerationClient } from './funding-admin-moderation.client.
 import { FundingAdminCommitmentsClient } from './funding-admin-commitments.client.js';
 import { FundingAdminHistoricalAuditClient } from './funding-admin-historical-audit.client.js';
 import { FundingAdminPreparationAssistanceClient } from './funding-admin-preparation-assistance.client.js';
+import { FundingAdminMediaAnalysisClient } from './funding-admin-media-analysis.client.js';
 export type { AdminSponsorshipListQuery } from './funding-admin-sponsorships.client.js';
 export { AdminDashboardRequestError } from './funding-admin-session.js';
 export type {
@@ -130,6 +138,8 @@ export type {
 
 @Injectable({ providedIn: 'root' })
 export class FundingAdminService {
+  readonly mediaMutationBusy = signal(false);
+  private mediaMutationCount = 0;
   readonly workQueue = signal<AdminWorkQueueResponse | null>(null);
   private queueGeneration = 0;
   private readonly session = new FundingAdminSession(
@@ -140,6 +150,9 @@ export class FundingAdminService {
     () => this.workQueue.set(null)
   );
   private readonly sponsorshipsClient = new FundingAdminSponsorshipsClient(
+    this.session
+  );
+  private readonly mediaReviewClient = new FundingAdminMediaReviewClient(
     this.session
   );
   private readonly publicationsClient = new FundingAdminPublicationsClient(
@@ -179,6 +192,25 @@ export class FundingAdminService {
     new FundingAdminHistoricalAuditClient(this.session);
   private readonly preparationAssistanceClient =
     new FundingAdminPreparationAssistanceClient(this.session);
+  private readonly mediaAnalysisClient = new FundingAdminMediaAnalysisClient(
+    this.session
+  );
+  getSponsorMediaAnalyses(contributionId: string) {
+    return this.mediaAnalysisClient.read(contributionId);
+  }
+  getSponsorMediaAnalysisReceipt(contributionId: string, requestId: string) {
+    return this.mediaAnalysisClient.receipt(contributionId, requestId);
+  }
+  startSponsorMediaAnalysis(
+    request: import('@openg7/funding-core').SponsorMediaAnalysisRequest
+  ) {
+    return this.mediaAnalysisClient.start(request);
+  }
+  reviewSponsorMediaAnalysis(
+    request: import('@openg7/funding-core').SponsorMediaAnalysisReviewRequest
+  ) {
+    return this.mediaAnalysisClient.review(request);
+  }
   getPreparationAssistance(contributionId: string) {
     return this.preparationAssistanceClient.read(contributionId);
   }
@@ -922,6 +954,51 @@ export class FundingAdminService {
 
   getSponsorMediaPreview(token: string, assetId: string): Promise<Blob> {
     return this.sponsorshipsClient.getSponsorMediaPreview(token, assetId);
+  }
+
+  mediaWorkspace(contributionId: string) {
+    return this.mediaReviewClient.read(contributionId);
+  }
+  mediaRules(request: SponsorMediaRuleRequest) {
+    return this.mediaMutation(() => this.mediaReviewClient.rules(request));
+  }
+  mediaBatch(request: SponsorMediaBatchRequest) {
+    return this.mediaMutation(() => this.mediaReviewClient.batch(request));
+  }
+  mediaBatchPlan(request: SponsorMediaBatchPlanRequest) {
+    return this.mediaReviewClient.plan(request);
+  }
+  mediaBatchExecute(request: SponsorMediaBatchExecuteRequest) {
+    return this.mediaMutation(() => this.mediaReviewClient.execute(request));
+  }
+  mediaThumbnail(assetId: string) {
+    return this.mediaReviewClient.thumbnail(assetId);
+  }
+  mediaReceipt(contributionId: string, requestId: string) {
+    return this.mediaReviewClient.receipt(contributionId, requestId);
+  }
+  mediaHistory(contributionId: string, assetId: string, cursor?: string) {
+    return this.mediaReviewClient.history(contributionId, assetId, cursor);
+  }
+  mediaUpload(
+    contributionId: string,
+    kind: import('@openg7/funding-core').SponsorMediaKind,
+    file: File,
+    requestId: string
+  ) {
+    return this.mediaMutation(() =>
+      this.mediaReviewClient.upload(contributionId, kind, file, requestId)
+    );
+  }
+  private async mediaMutation<T>(run: () => Promise<T>): Promise<T> {
+    this.mediaMutationCount++;
+    this.mediaMutationBusy.set(true);
+    try {
+      return await run();
+    } finally {
+      this.mediaMutationCount--;
+      this.mediaMutationBusy.set(this.mediaMutationCount > 0);
+    }
   }
 
   reviewSponsorMedia(

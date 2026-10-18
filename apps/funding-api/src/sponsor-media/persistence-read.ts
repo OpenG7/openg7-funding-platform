@@ -19,7 +19,7 @@ import {
 } from './persistence-mappers.js';
 import {
   publicMediaContributionSql,
-  selectAssetColumns
+  selectEffectiveAssetColumns as selectAssetColumns
 } from './persistence-queries.js';
 import { sponsorMediaPublicUrl } from './public-url.js';
 import { confirmedMediaUsageSql } from './usage-policy.js';
@@ -115,6 +115,7 @@ export const listPublicSponsorMediaByContributionIds = async (
        WHERE contribution_id = ANY($1::uuid[])
          AND deleted_at IS NULL
          AND review_status = 'approved'
+          AND website_selected IS TRUE
          AND ${confirmedMediaUsageSql('sponsor_media_assets', 'website', 'openg7')}
          AND ${moderationVisibleSql('media', 'sponsor_media_assets.id')}
          AND public_url IS NOT NULL
@@ -157,6 +158,7 @@ export const getApprovedPublicSponsorMedia = async (
      WHERE media.id = $1::uuid
        AND media.deleted_at IS NULL
        AND media.review_status = 'approved'
+        AND media.website_selected IS TRUE
        AND ${confirmedMediaUsageSql('media', 'website', 'openg7')}
        AND ${moderationVisibleSql('media', 'media.id')}
        AND EXISTS (

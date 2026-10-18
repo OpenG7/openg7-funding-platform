@@ -10,18 +10,19 @@ governance. Evidence reads require operator/owner rights.
 
 ## Fundraiser admin
 
+[Media workspace](sponsor-media-usage.md#revue-par-lot-et-héritage):
+rights inheritance and batch review; acceptance does not authorize publication.
+
 `GET/POST /api/admin/backups`: [database backups](../operations/admin-database-backups.md)
 (owner only; migration 030).
 
 [Stripe recovery](../operations/admin-stripe-backfill.md).
 
-`POST /api/admin/sponsorships/media/delete` requires `assetId`, current
-`expectedVersion` and `confirmation=assetId` after the UI dialog. A missing or
-different confirmation returns `400 CONFIRMATION_REQUIRED` before storage mutation;
-a stale version returns `409`. Deploy API/Web together; old clients must refresh.
-Admin rights and the sponsor-side lock on approved assets remain enforced.
-Controlled public media uses `Cache-Control: no-store` to recheck admissibility;
-this cannot revoke downloaded copies or older caches. See the
+Compatibility endpoint `POST /api/admin/sponsorships/media/delete` requires admin
+rights, `assetId`, current `expectedVersion` and `confirmation=assetId`. Missing
+confirmation returns `400`; stale versions return `409` before storage mutation.
+Sponsor-side locks remain enforced. Public media uses `Cache-Control: no-store`;
+downloaded copies cannot be revoked. See the
 [media recipe](../sponsorship-e2e-coverage.md#recette-navigateur--retrait-et-remplacement-de-médias-approuvés).
 
 Admin dashboard: `/admin/fundraiser`.
@@ -256,7 +257,7 @@ specific sponsorship, including the recorded admin actor. A dedicated
 "Remboursements" tab summarizes the current refund workflow, dated milestones,
 Stripe refund id, notes/errors, and refund-related admin audit entries.
 
-`POST /api/admin/sponsorships/logo` accepts PNG/JPEG/WebP after MIME/signature
+Compatibility endpoint `POST /api/admin/sponsorships/logo` accepts PNG/JPEG/WebP after MIME/signature
 validation, stores files outside the bundle in local or OVH private storage,
 records a controlled `/api/public/sponsor-logos/...` URL and audits the upload.
 `GET /api/admin/sponsorships/logo` previews it; replacement cleans up the previous

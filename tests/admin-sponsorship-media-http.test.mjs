@@ -578,20 +578,8 @@ test('media approval keeps private storage and records the controlled API URL fo
             moderationDecision: undefined
           }
         ]);
-        assert.deepEqual(f.values('audit'), [
-          {
-            actor,
-            action: 'sponsorship.media.approved',
-            entityType: 'sponsor_media_asset',
-            entityId: assetId,
-            summary: 'Sponsor media marked approved.',
-            metadata: {
-              contributionId,
-              kind: 'supporting_image',
-              storageDriver
-            }
-          }
-        ]);
+        // The repository commits the approval and its audit together. HTTP adds no second approval event.
+        assert.deepEqual(f.values('audit'), []);
         assert.deepEqual(f.names(), [
           'access',
           'body',
@@ -599,8 +587,6 @@ test('media approval keeps private storage and records the controlled API URL fo
           'publicUrl',
           'actor',
           'review',
-          'actor',
-          'audit',
           'json'
         ]);
       });
@@ -656,9 +642,9 @@ test('legacy public object references are retained for separate remediation and 
         moderationDecision: undefined
       }
     ]);
-    assert.equal(
-      f.values('audit')[0].action,
-      'sponsorship.media.' + reviewStatus
+    assert.deepEqual(
+      f.values('audit').map((entry) => entry.action),
+      reviewStatus === 'rejected' ? ['sponsorship.media.rejected'] : []
     );
   }
 });
@@ -1369,7 +1355,7 @@ test('admin media failures keep their HTTP errors without retrying mutations or 
     [
       'media/review',
       'POST',
-      { body: JSON.stringify(reviewInput) },
+      { body: JSON.stringify({ ...reviewInput, reviewStatus: 'rejected' }) },
       'audit',
       'Sponsor media review could not be completed.'
     ],

@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 
 import sharp from 'sharp';
+import type { Page } from '@playwright/test';
 import type {
   AdminAuditLogResponse,
   AdminSponsorshipsResponse,
@@ -10,7 +11,9 @@ import type {
   PublicationAutomationState,
   PublicationDelivery,
   PublicationFeedId,
-  SponsorshipMediaResponse
+  SponsorshipMediaResponse,
+  ModerationContent,
+  ModerationDecisionRecord
 } from '@openg7/funding-core';
 
 import {
@@ -38,6 +41,48 @@ interface Receipt {
   }[];
 }
 
+/** A single explicit human confirmation on the exact server-built candidate manifest. */
+async function confirmMediaManifest(
+  page: Page,
+  action: string,
+  ids: readonly string[]
+) {
+  const manifest = page.locator('[data-og7="media-batch-manifest"]');
+  await expect(manifest).toBeVisible();
+  await expect(manifest.locator('openg7-media-review-thumbnail')).toHaveCount(
+    ids.length
+  );
+  const confirmation = page.locator('[data-og7="media-manifest-confirmation"]');
+  const execute = page.locator('[data-og7="media-batch-execute"]');
+  await expect(confirmation).not.toBeChecked();
+  await expect(execute).toBeDisabled();
+  await confirmation.check();
+  const completed = page.waitForResponse(
+    (response) =>
+      response.url().endsWith('/api/admin/sponsorships/media/batch/execute') &&
+      response.request().method() === 'POST'
+  );
+  await execute.click();
+  const response = await completed;
+  expect(response.ok(), await response.text()).toBe(true);
+  const request = response.request().postDataJSON();
+  expect(request).toMatchObject({
+    confirmation: request.planId,
+    humanReviewed: true
+  });
+  const receipt = await response.json();
+  expect(receipt).toMatchObject({
+    action,
+    status: 'completed',
+    planId: request.planId
+  });
+  expect(receipt.items.map((item: { id: string }) => item.id).sort()).toEqual(
+    [...ids].sort()
+  );
+  await expect(manifest).toHaveCount(0);
+  return receipt;
+}
+
 for (const change of ['replace-logo', 'delete-photo'] as const) {
   test(`approved media ${change}: revoke old deliveries and explicitly authorize the revised publication`, async ({
     page: admin,
@@ -53,6 +98,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
     const stub = process.env.STRIPE_STUB_BASE_URL!;
     const name = 'Atelier initial ' + randomUUID().slice(0, 8);
     let selectedMediaId: string | null = null;
+    let deletionRequestId: string | null = null;
     const email = `media-${randomUUID()}@simulation.example.test`;
     const errors: string[] = [];
     admin.on('pageerror', (error) => errors.push(error.message));
@@ -300,27 +346,38 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         )
       ).assets.filter((asset) => asset.reviewStatus !== 'approved');
       expect(pendingMedia).toHaveLength(3);
-      const pendingIds = new Set(pendingMedia.map((asset) => asset.id));
-      await admin
-        .getByRole('button', { name: 'Tout approuver', exact: true })
+      const workspace = admin.locator('[data-og7="media-review-workspace"]');
+      await workspace
+        .getByRole('button', { name: 'Sélectionner cette page', exact: true })
         .click();
-      for (let index = 0; index < pendingMedia.length; index++) {
-        const reviewed = admin.waitForResponse(
-          (response) =>
-            response.url().endsWith('/api/admin/sponsorships/media/review') &&
-            response.request().method() === 'POST'
-        );
-        await completeModeration(admin);
-        const response = await reviewed;
-        expect(response.ok(), await response.text()).toBe(true);
-        const reviewedAsset = response.request().postDataJSON();
-        expect(pendingIds.delete(reviewedAsset.assetId)).toBe(true);
-        expect(reviewedAsset).toMatchObject({
-          reviewStatus: 'approved',
-          moderationDecision: { level: 'N0' }
+      await admin.locator('[data-og7="media-batch-approve"]').click();
+      await confirmMediaManifest(
+        admin,
+        'approve',
+        pendingMedia.map((asset) => asset.id)
+      );
+      for (const asset of pendingMedia) {
+        const query = new URLSearchParams({
+          subjectType: 'media',
+          subjectId: asset.id
         });
+        const content = await get<ModerationContent>(
+          '/api/admin/moderation/content?' + query
+        );
+        const decisions = await get<{ items: ModerationDecisionRecord[] }>(
+          '/api/admin/moderation/decisions?' + query
+        );
+        expect(decisions.items).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              id: content.currentDecisionId,
+              level: 'N0',
+              contentVersion: content.contentVersion,
+              contentFingerprint: content.fingerprint
+            })
+          ])
+        );
       }
-      expect(pendingIds.size).toBe(0);
       await expect
         .poll(async () =>
           (
@@ -336,7 +393,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
             '/api/admin/sponsorships/media?contributionId=' + id
           )
         ).assets;
-      const originalAsset = (await assets()).find(
+      let originalAsset = (await assets()).find(
         (a) =>
           a.kind === (change === 'replace-logo' ? 'logo' : 'supporting_image')
       )!;
@@ -350,6 +407,34 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
       await expect
         .poll(async () => (await sponsor()).sponsor_review_status)
         .toBe('approved');
+      const selectWebsiteMedia = async (assetId: string) => {
+        await admin.goto(
+          '/admin/fundraiser/sponsors?sponsorshipId=' + id + '&tab=media'
+        );
+        const tile = admin.locator(
+          `[data-og7="media-tile"][data-og7-id="${assetId}"]`
+        );
+        await tile.getByRole('button').click();
+        const inspector = admin.locator('[data-og7="media-inspector"]');
+        await inspector.getByText('Plus d’options', { exact: true }).click();
+        await inspector
+          .getByRole('button', {
+            name: /^Choisir (?:comme photo du|pour le) site$/
+          })
+          .click();
+        await confirmMediaManifest(admin, 'website_select', [assetId]);
+      };
+      const initialAssets = await assets();
+      for (const kind of ['logo', 'supporting_image'] as const) {
+        const selected =
+          kind === originalAsset.kind
+            ? originalAsset
+            : initialAssets.find((asset) => asset.kind === kind)!;
+        await selectWebsiteMedia(selected.id);
+      }
+      originalAsset = (await assets()).find(
+        (asset) => asset.id === originalAsset.id
+      )!;
       for (const feedId of feeds) await command({ action: 'prepare', feedId });
       jobs = (await state()).deliveries.filter((j) =>
         j.sponsors.some((s) => s.id === id)
@@ -481,31 +566,30 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
           '/admin/fundraiser/sponsors?sponsorshipId=' + id + '&tab=media'
         );
         const card = admin.locator(
-          '[data-og7="admin-sponsor-media"][data-og7-id="' +
-            originalAsset.id +
-            '"]'
+          '[data-og7="media-tile"][data-og7-id="' + originalAsset.id + '"]'
         );
-        await card
+        await card.getByRole('button').click();
+        const inspector = admin.locator('[data-og7="media-inspector"]');
+        await inspector.getByText('Plus d’options', { exact: true }).click();
+        await inspector
           .getByRole('button', { name: 'Supprimer', exact: true })
           .click();
+        await expect(
+          admin.locator('[data-og7="media-batch-execute"]')
+        ).toBeDisabled();
         await admin
-          .getByRole('dialog', { name: 'Confirmer l’action' })
-          .getByRole('button', { name: 'Annuler', exact: true })
-          .last()
+          .getByRole('dialog', { name: 'Vérifier la décision groupée' })
+          .getByRole('button', { name: 'Fermer', exact: true })
           .click();
         expect((await assets()).some((a) => a.id === originalAsset.id)).toBe(
           true
         );
-        await card
+        await inspector
           .getByRole('button', { name: 'Supprimer', exact: true })
           .click();
-        const removed = admin.waitForResponse(
-          (r) =>
-            r.url().endsWith('/admin/sponsorships/media/delete') &&
-            r.request().method() === 'POST'
-        );
-        await admin.locator('[data-og7="confirm-action"]').click();
-        expect((await removed).ok()).toBe(true);
+        deletionRequestId = (
+          await confirmMediaManifest(admin, 'delete', [originalAsset.id])
+        ).requestId;
         await expect(card).toHaveCount(0);
       });
       expect((await request.get(publicPath)).status()).toBe(404);
@@ -580,12 +664,12 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         // A replacement and dossier reapproved before the worker runs cannot revive the old image.
         await admin.reload();
         const card = admin.locator(
-          '[data-og7="admin-sponsor-media"][data-og7-id="' + pending.id + '"]'
+          '[data-og7="media-tile"][data-og7-id="' + pending.id + '"]'
         );
-        await card
-          .getByRole('button', { name: 'Approuver le media', exact: true })
-          .click();
-        await completeModeration(admin);
+        await card.getByRole('button').click();
+        await admin.locator('[data-og7="media-inspector-approve"]').click();
+        await confirmMediaManifest(admin, 'approve', [pending.id]);
+        await selectWebsiteMedia(pending.id);
         await expect
           .poll(
             async () =>
@@ -646,9 +730,10 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
       }
       for (const job of jobs)
         expect(await delivery(job.id)).toMatchObject({
-          status: 'approved',
-          version: job.version,
-          approvedAt: job.approvedAt,
+          status: 'blocked',
+          version: job.version + 1,
+          approvedAt: null,
+          errorCode: 'MEDIA_CHANGED',
           mediaId: originalAsset.id
         });
       await setWorker(true);
@@ -666,7 +751,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
       expect(Date.now()).toBeLessThan(originalDue.getTime());
       for (const job of jobs) {
         expect(await delivery(job.id)).toMatchObject({
-          errorCode: 'MEDIA_NOT_APPROVED',
+          errorCode: 'MEDIA_CHANGED',
           approvedAt: null,
           attempts: 0,
           publishedAt: null,
@@ -809,13 +894,13 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
       expect(publicData).not.toContain(originalAsset.id);
       const audit = (await get<AdminAuditLogResponse>('/api/admin/audit-log'))
         .entries;
-      expect(
-        audit.filter(
-          (e) =>
-            e.entity_id === originalAsset.id &&
-            e.action === 'sponsorship.media.delete'
-        )
-      ).toHaveLength(1);
+      const deletionAudit = audit.filter(
+        (e) =>
+          e.entity_id === id &&
+          e.action === 'sponsorship.media.workspace.delete' &&
+          e.metadata.requestId === deletionRequestId
+      );
+      expect(deletionAudit).toHaveLength(1);
       for (const job of jobs) {
         const entries = audit.filter((e) => e.entity_id === job.id);
         const invalidations = entries.filter(
@@ -823,10 +908,13 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         );
         expect(invalidations).toHaveLength(1);
         expect(invalidations[0]).toMatchObject({
-          actor: 'publication-worker',
+          actor: deletionAudit[0]!.actor,
           metadata: {
-            code: 'MEDIA_NOT_APPROVED',
-            mediaId: originalAsset.id
+            code: 'MEDIA_CHANGED',
+            mediaId: originalAsset.id,
+            assetIds: [originalAsset.id],
+            previousStatus: 'approved',
+            requestId: deletionRequestId
           }
         });
         expect(

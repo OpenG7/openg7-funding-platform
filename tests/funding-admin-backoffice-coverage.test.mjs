@@ -69,9 +69,6 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   const sponsorLogoPanel = readAdminSponsorsComponentSource(
     'detail-media/admin-sponsor-logo-panel'
   );
-  const sponsorMediaCard = readAdminSponsorsComponentSource(
-    'detail-media/admin-sponsor-media-card'
-  );
   const invoicesPage = readAdminAccountingSource('invoices');
   const emailQueuePage = readAdminOperationsSource('email-queue');
   const adminNav = read(
@@ -453,12 +450,24 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
     [
       'AdminSponsorDetailIdentityView',
       'ChangeDetectionStrategy.OnPush',
-      'uploadLogo = output<Event>()',
-      'deleteLogo = output<void>()',
-      'approveAllMedia = output<readonly AdminSponsorMediaReviewEvent[]>()',
-      'Tout approuver'
+      'moderationChanged = output<void>()',
+      '<openg7-media-review-workspace'
     ],
     'admin sponsor detail media component'
+  );
+  const mediaWorkspace = read(
+    'apps/funding-web/src/app/features/funding/components/media-review/media-review-workspace.component.html'
+  );
+  assertIncludesAll(
+    mediaWorkspace,
+    [
+      'data-og7="media-gallery"',
+      'data-og7="media-inspector"',
+      'data-og7="media-batch-manifest"',
+      'data-og7="media-manifest-confirmation"',
+      'data-og7="media-batch-execute"'
+    ],
+    'media workspace selection and explicit human manifest'
   );
 
   assertIncludesAll(
@@ -473,9 +482,9 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   );
 
   assertIncludesAll(
-    sponsorMediaCard,
-    ['admin.legacy.texte_alternatif', 'admin.legacy.optionnel'],
-    'admin sponsor media card'
+    mediaWorkspace,
+    ['data-og7="media-inspector-alt"', "t('altText')"],
+    'single media inspector'
   );
 
   assertIncludesAll(

@@ -29,6 +29,10 @@ import {
 import { AdminPilotageService } from './admin-pilotage.service.js';
 import { assertPreparationReadiness } from './admin-preparation-readiness.js';
 import { assertPreparationAssistanceReadiness } from './preparation-assistance-readiness.js';
+import { assertSponsorMediaReadiness } from './sponsor-media-readiness.js';
+import { assertSponsorMediaAnalysisReadiness } from './sponsor-media-analysis-readiness.js';
+import { SponsorMediaAnalysisService } from './sponsor-media-analysis/service.js';
+import { SponsorMediaWorkspaceService } from './sponsor-media-workspace/service.js';
 import {
   buildSponsorshipReviewReminderAdminUrl,
   queueDueSponsorshipReviewReminder
@@ -343,6 +347,12 @@ const backgroundWorkers = createApiBackgroundWorkers({
   buildSponsorshipReviewReminderAdminUrl,
   contributionActivity,
   publicationAutomation,
+  mediaAnalysis: dbPool
+    ? new SponsorMediaAnalysisService(dbPool, sponsorMediaStorage)
+    : null,
+  mediaReview: dbPool
+    ? new SponsorMediaWorkspaceService(dbPool, sponsorMediaStorage)
+    : null,
   preparationAssistance: dbPool
     ? new PreparationAssistanceService(dbPool)
     : null,
@@ -467,6 +477,8 @@ try {
   if (dbPool) {
     await assertPreparationReadiness(dbPool, 'approve');
     await assertPreparationAssistanceReadiness(dbPool);
+    await assertSponsorMediaReadiness(dbPool);
+    await assertSponsorMediaAnalysisReadiness(dbPool);
   }
 } catch (error) {
   await dbPool?.end();

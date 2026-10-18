@@ -153,6 +153,12 @@ operation is permitted.
 
 ## Media, model and privacy
 
+Common media rules are versioned dossier/batch/asset references with private evidence
+and an explicit scope. Changes invalidate dependent decisions. Collective review
+confirms an exact manifest; file acceptance, website selection and dispatch
+authorization remain separate. Assistance produces private proposals without decision
+authority and declares its actual capabilities. See the [media decision](decisions/2026-10-18-media-review-workspace.md).
+
 Conceptual entities link contributions/transactions/Stripe events, sponsor profiles/
 reviews/publication plans, expenses, refunds/credit notes/journal entries, sources,
 reconciliation, media and audit. These concepts do not replace migrations.

@@ -158,6 +158,13 @@
     border-top: 0;
     border-inline-start: 1px solid var(--admin-border);
   }
+  .dossier-content-grid.media-review-wide {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .media-review-wide > .dossier-context {
+    border-inline-start: 0;
+    border-top: 1px solid var(--admin-border);
+  }
 }
 :host .detail-body {
   @apply tw:p-admin-card tw:gap-admin-section;

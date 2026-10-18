@@ -58,7 +58,7 @@ test('company links reject credentials, local addresses and URL parser normaliza
 test('media settings fail closed when invalid or incompatible with the proxy envelope', () => {
   assert.deepEqual(loadSponsorMediaLimits({}), {
     maxUploadBytes: 8388608,
-    maxSupportingImages: 3
+    maxSupportingImages: 100
   });
   assert.equal(
     loadSponsorMediaLimits({ FUNDING_SPONSOR_MEDIA_MAX_BYTES: '1024' })
@@ -69,7 +69,7 @@ test('media settings fail closed when invalid or incompatible with the proxy env
     assert.throws(() =>
       loadSponsorMediaLimits({ FUNDING_SPONSOR_MEDIA_MAX_BYTES: value })
     );
-  for (const value of ['0', '-1', '1.5', '9007199254740992'])
+  for (const value of ['0', '-1', '1.5', '101', '9007199254740992'])
     assert.throws(() =>
       loadSponsorMediaLimits({
         FUNDING_SPONSOR_MEDIA_MAX_SUPPORTING_IMAGES: value

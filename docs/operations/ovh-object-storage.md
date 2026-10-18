@@ -33,7 +33,7 @@ Configuration OVH attendue:
 ```env
 SPONSOR_MEDIA_STORAGE_DRIVER=ovh-s3
 FUNDING_SPONSOR_MEDIA_MAX_BYTES=8388608
-FUNDING_SPONSOR_MEDIA_MAX_SUPPORTING_IMAGES=3
+FUNDING_SPONSOR_MEDIA_MAX_SUPPORTING_IMAGES=100
 SPONSOR_MEDIA_REGION=bhs
 SPONSOR_MEDIA_ENDPOINT=https://s3.bhs.io.cloud.ovh.net
 SPONSOR_MEDIA_PUBLIC_BUCKET=openg7-funding-sponsor-media-public-prod
@@ -138,7 +138,7 @@ par `FUNDING_SPONSOR_MEDIA_MAX_SUPPORTING_IMAGES`.
 La taille doit être un entier de 1 à 8 388 608 octets; une configuration invalide
 arrête le démarrage de l'API. Ce plafond conserve la marge multipart sous les
 9 Mio autorisés par Nginx et Traefik. Le nombre de photos doit être un entier
-strictement positif. Les valeurs par défaut restent 8 Mio et trois photos,
+de 1 à 100. Les valeurs par défaut sont 8 Mio et cent photos,
 auxquelles s'ajoute un logo actif. Les images dépassant 40 millions de pixels
 sont refusées même si leur fichier est petit.
 
@@ -159,6 +159,13 @@ Le téléversement historique de logo administratif
 Nginx et Traefik autorisent 576 Kio sur cette route pour inclure les 64 Kio
 d'enveloppe multipart de l'API, tout en conservant les limites générales des
 autres routes. Les contrôles d'accès restent appliqués par l'API.
+
+Le nouvel upload administratif `POST /api/admin/sponsorships/media/upload`
+utilise le même traitement privé des images que le suivi, avec un UUID de requête
+stable et un reçu atomique. Ses enveloppes Nginx/Traefik sont bornées à 9 Mio,
+et l'API applique séparément la taille configurée et les champs multipart.
+Les nouveaux logos suivent le modèle `sponsor_media_assets`. Le circuit historique
+reste accessible aux anciens clients ; la nouvelle galerie ne l'utilise plus.
 Les [tests HTTP du lecteur](../../tests/http-transport.test.mjs) couvrent le refus
 avant la fin de l'envoi et la réutilisation de la connexion après évacuation;
 le [test d'upload](../../tests/sponsorship-upload-http.test.mjs) vérifie les limites

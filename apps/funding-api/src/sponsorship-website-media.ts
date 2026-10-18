@@ -63,9 +63,9 @@ export async function readWebsiteMediaSources(
   }>(
     `SELECT m.id,m.contribution_id,m.kind,m.updated_at::text AS version,m.checksum_sha256,
       m.processed_storage_key,m.processed_mime_type,m.width,m.height,m.alt_text,
-      m.usage_rights,m.usage_restrictions_reviewed
+      sponsor_media_effective_usage(m.id) AS usage_rights,m.usage_restrictions_reviewed
       FROM sponsor_media_assets m WHERE m.contribution_id=$1::uuid AND m.deleted_at IS NULL
-        AND m.review_status='approved' AND m.public_url IS NOT NULL
+        AND m.review_status='approved' AND m.public_url IS NOT NULL AND m.website_selected IS TRUE
         AND ${confirmedMediaUsageSql('m', 'website', 'openg7')}
         AND ${moderationApprovedSql('media', 'm.id')}
       ORDER BY m.kind,m.sort_order,m.created_at,m.id`,

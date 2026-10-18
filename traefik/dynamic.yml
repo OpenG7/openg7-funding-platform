@@ -69,7 +69,7 @@ http:
       tls: {}
 
     openg7-sponsor-media-upload:
-      rule: '(Host(`openg7.org`) || Host(`www.openg7.org`)) && Path(`/api/sponsorship-followup/media`) && Method(`POST`)'
+      rule: '(Host(`openg7.org`) || Host(`www.openg7.org`)) && (Path(`/api/sponsorship-followup/media`) || Path(`/api/admin/sponsorships/media/upload`)) && Method(`POST`)'
       entryPoints:
         - websecure
       service: openg7-api
@@ -84,7 +84,7 @@ http:
         certResolver: letsencrypt
 
     openg7-sponsor-media-upload-local:
-      rule: 'Host(`localhost`) && Path(`/api/sponsorship-followup/media`) && Method(`POST`)'
+      rule: 'Host(`localhost`) && (Path(`/api/sponsorship-followup/media`) || Path(`/api/admin/sponsorships/media/upload`)) && Method(`POST`)'
       entryPoints:
         - websecure
       service: openg7-api

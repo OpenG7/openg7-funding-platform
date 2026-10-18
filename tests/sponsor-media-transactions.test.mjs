@@ -220,13 +220,14 @@ test('logo replacement commits the new asset, old soft deletion and sponsor revi
       'sponsorship.media.upload',
       'sponsor_media_asset',
       replacementId,
-      'Sponsor media uploaded through the private follow-up flow.',
+      'Sponsor media uploaded privately; no review or publication authorized.',
       JSON.stringify({
         contributionId,
         kind: 'logo',
         mimeType: 'image/png',
         sizeBytes: 100,
-        storageDriver: 'local'
+        storageDriver: 'local',
+        replacedAssetId: assetId
       })
     ]
   ]);

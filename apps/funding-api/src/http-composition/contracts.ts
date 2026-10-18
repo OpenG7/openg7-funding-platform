@@ -21,6 +21,7 @@ import type { AdminSponsorshipRefundHttpDependencies } from '../admin-sponsorshi
 import type { AdminStripeBackfillHttpDependencies } from '../admin-stripe-backfill.http.js';
 import type { ApiRuntimeConfig } from '../api-runtime-config.js';
 import type { createHttpTransport, readBody } from '../http-transport.js';
+import type { SponsorMediaStorage } from '../sponsor-media-storage.js';
 import type { createRouteMatcher } from '../http-routing.js';
 import type { PublicFundingHttpDependencies } from '../public-funding.http.js';
 import type { PublicPaymentsHttpDependencies } from '../public-payments.http.js';
@@ -154,7 +155,6 @@ export interface AdminHttpCompositionContext
       | 'readBodyBuffer'
       | 'writeBinary'
       | 'routeAssetId'
-      | 'sponsorMediaStorage'
       | 'sponsorMediaPublicUrl'
       | 'deleteSponsorMediaObjects'
       | 'writeSponsorMediaMutationFailure'
@@ -186,6 +186,7 @@ export interface AdminHttpCompositionContext
   readonly readBody: typeof readBody;
   readonly sponsorshipFollowupTokenTtlDays: ApiRuntimeConfig['sponsorshipFollowupTokenTtlDays'];
   readonly adminAssistantConfig: ApiRuntimeConfig['adminAssistantConfig'];
+  readonly sponsorMediaStorage: SponsorMediaStorage;
 }
 
 // The dispatcher owns global precedence and interleaves named public/admin ports

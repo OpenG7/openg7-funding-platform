@@ -40,6 +40,8 @@ export interface SponsorMediaStorageRecord extends SponsorMediaAsset {
 }
 
 export interface CreateSponsorMediaAssetInput {
+  readonly requestId?: string;
+  readonly requestFingerprint?: string;
   readonly usage?: import('@openg7/funding-core').SponsorMediaUsageRights;
   readonly id: string;
   readonly contributionId: string;

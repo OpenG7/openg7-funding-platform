@@ -29,7 +29,7 @@ const startApi = async (t, configuration = {}) => {
       // Synthetic readiness only; real schema checks have disposable PG tests.
       if (sql.includes('AS schema_compatible'))
         return { rows: [{ schema_compatible: true, can_read: true, can_approve: true }] };
-      if (sql.includes('WITH expected(name, mutable)'))
+      if (sql.includes('WITH expected(name'))
         return { rows: [{ ready: true }] };
       if (sql.includes('FROM admin_identity_sessions')) {
         if (values[0] === digest('e'.repeat(43))) throw new Error('Synthetic identity outage');

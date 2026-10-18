@@ -200,7 +200,7 @@ export async function projectPreparation(
         usage_rights: { state?: string };
         moderation_approved: boolean;
       }>(
-        `SELECT a.id,a.kind,a.review_status,a.usage_rights,a.checksum_sha256,a.alt_text,
+        `SELECT a.id,a.kind,a.review_status,sponsor_media_effective_usage(a.id) AS usage_rights,a.checksum_sha256,a.alt_text,
           a.width,a.height,a.updated_at::text,${moderationApprovedSql('media', 'a.id')} AS moderation_approved
          FROM sponsor_media_assets a WHERE a.contribution_id=$1::uuid AND a.deleted_at IS NULL ORDER BY a.id`,
         [id]

@@ -64,7 +64,7 @@ export async function mediaOptions(
     (feedId?.split(':') as ['openg7' | 'openg20', 'facebook' | 'linkedin']) ??
     [];
   const result = await db.query(
-    `SELECT m.id,m.contribution_id AS "contributionId",m.updated_at::text AS version,m.kind,m.usage_rights->'transformations' AS transformations,m.public_url AS url,m.alt_text AS alt,c.sponsor_company_name AS company,m.usage_rights->>'credit' AS credit FROM sponsor_media_assets m JOIN fund_contributions c ON c.id=m.contribution_id WHERE m.deleted_at IS NULL AND m.review_status='approved' AND ${moderationApprovedSql('media', 'm.id')} AND ${moderationApprovedSql('sponsorship', 'c.id')} AND ${confirmedMediaUsageSql('m', channel, target)} AND c.public_display_consent IS TRUE AND c.sponsor_review_status='approved' AND c.status='paid' AND m.public_url IS NOT NULL AND ($1::uuid IS NULL OR ${belongsToBatchSql('$1')}) ORDER BY m.created_at DESC LIMIT 200`,
+    `SELECT m.id,m.contribution_id AS "contributionId",m.updated_at::text AS version,m.kind,sponsor_media_effective_usage(m.id)->'transformations' AS transformations,m.public_url AS url,m.alt_text AS alt,c.sponsor_company_name AS company,sponsor_media_effective_usage(m.id)->>'credit' AS credit FROM sponsor_media_assets m JOIN fund_contributions c ON c.id=m.contribution_id WHERE m.deleted_at IS NULL AND m.review_status='approved' AND ${moderationApprovedSql('media', 'm.id')} AND ${moderationApprovedSql('sponsorship', 'c.id')} AND ${confirmedMediaUsageSql('m', channel, target)} AND c.public_display_consent IS TRUE AND c.sponsor_review_status='approved' AND c.status='paid' AND m.public_url IS NOT NULL AND ($1::uuid IS NULL OR ${belongsToBatchSql('$1')}) ORDER BY m.created_at DESC LIMIT 200`,
     [batchId]
   );
   return result.rows.map((row) => ({
@@ -83,7 +83,7 @@ export async function mediaRecord(
   const record = (
     await db.query<Omit<Media, 'derivedHash' | 'transform'>>(
       `SELECT m.id,m.public_url AS url,m.alt_text AS alt,m.processed_storage_key AS key,m.updated_at::text AS version,m.checksum_sha256 AS hash,
-        m.usage_rights AS usage,m.usage_restrictions_reviewed AS "restrictionsReviewed"
+        sponsor_media_effective_usage(m.id) AS usage,m.usage_restrictions_reviewed AS "restrictionsReviewed"
         FROM sponsor_media_assets m JOIN fund_contributions c ON c.id=m.contribution_id WHERE m.id=$1 AND m.deleted_at IS NULL AND m.review_status='approved' AND ${moderationApprovedSql('media', 'm.id')} AND (${allowPendingSponsors ? `c.sponsor_review_status='pending_review' OR ` : ''}(${moderationApprovedSql('sponsorship', 'c.id')} AND c.sponsor_review_status='approved')) AND m.public_url IS NOT NULL AND LENGTH(TRIM(m.alt_text))>0 AND c.public_display_consent IS TRUE AND c.status='paid' AND ($2::uuid IS NULL OR ${belongsToBatchSql('$2')})${lock ? ' FOR SHARE OF m,c' : ''}`,
       [id, batchId]
     )

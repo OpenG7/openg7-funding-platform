@@ -53,6 +53,23 @@ export function revealControllerFocus(element: HTMLElement): void {
   const view = document.defaultView;
   if (!view || element.closest('dialog[open],[data-og7="admin-guidance"]'))
     return;
+  const footer = document.querySelector<HTMLElement>(
+    '[data-og7="dossier-actions"]'
+  );
+  if (footer && !footer.contains(element)) {
+    const bounds = element.getBoundingClientRect(),
+      obstruction = footer.getBoundingClientRect();
+    if (
+      obstruction.top > 0 &&
+      obstruction.top < view.innerHeight &&
+      bounds.bottom > obstruction.top - 16 &&
+      bounds.top < obstruction.bottom
+    )
+      view.scrollBy({
+        top: bounds.bottom - obstruction.top + 24,
+        behavior: 'instant'
+      });
+  }
   const guide = document.querySelector<HTMLElement>(
     '[data-og7="admin-guidance"].open'
   );

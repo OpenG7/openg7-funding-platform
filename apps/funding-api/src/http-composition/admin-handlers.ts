@@ -46,6 +46,12 @@ import { parseAdminSearch, searchAdmin } from '../admin-search.service.js';
 import { createAdminSponsorshipDecisionsHttpHandler } from '../admin-sponsorship-decisions.http.js';
 import { updateAdminSponsorshipDetails } from '../admin-sponsorship-details.service.js';
 import { createAdminSponsorshipMediaHttpHandler } from '../admin-sponsorship-media.http.js';
+import { createSponsorMediaWorkspaceHttpHandler } from '../sponsor-media-workspace/http.js';
+import { SponsorMediaWorkspaceService } from '../sponsor-media-workspace/service.js';
+import { createSponsorMediaAnalysisHttpHandler } from '../sponsor-media-analysis.http.js';
+import { SponsorMediaAnalysisService } from '../sponsor-media-analysis/service.js';
+import { createSponsorMediaUploadHttpHandler } from '../sponsor-media-upload.http.js';
+import { SponsorMediaUploadService } from '../sponsor-media-upload.service.js';
 import { createAdminSponsorshipRecordsHttpHandler } from '../admin-sponsorship-records.http.js';
 import { createSponsorshipCommitmentsHttpHandler } from '../sponsorship-commitments/admin-http.js';
 import { createSponsorshipTimingHttpHandler } from '../sponsorship-timing/admin-http.js';
@@ -548,10 +554,57 @@ export const createAdminHttpHandlers = ({
     reportFailure: (message, error) => console.error(message, error)
   });
 
+  const canReviewMedia = (request: Parameters<typeof ensureAdminAccess>[0]) =>
+    adminIdentity
+      ? ['operator', 'owner'].includes(
+          adminIdentity.identity(request)?.role ?? ''
+        )
+      : Boolean(resolveAdminAuthorization(request));
+  const handleMediaWorkspace = createSponsorMediaWorkspaceHttpHandler({
+    publicBaseOrigin,
+    pool: dbPool,
+    service: dbPool
+      ? new SponsorMediaWorkspaceService(dbPool, sponsorMediaStorage)
+      : null,
+    ensureAdminAccess,
+    canReview: canReviewMedia,
+    getAdminAuditActor,
+    readBody,
+    writeJson
+  });
+  const handleMediaAnalysis = createSponsorMediaAnalysisHttpHandler({
+    publicBaseOrigin,
+    ensureAdminAccess,
+    canReview: canReviewMedia,
+    getAdminAuditActor,
+    readBody,
+    writeJson,
+    mediaAnalysis: dbPool
+      ? new SponsorMediaAnalysisService(dbPool, sponsorMediaStorage)
+      : null
+  });
+  const handleMediaUpload = createSponsorMediaUploadHttpHandler({
+    publicBaseOrigin,
+    ensureAdminAccess,
+    canReview: canReviewMedia,
+    getAdminAuditActor,
+    readBodyBuffer,
+    writeJson,
+    sponsorMediaMaxBytes,
+    mediaUpload: dbPool
+      ? new SponsorMediaUploadService(dbPool, sponsorMediaStorage, {
+          maxUploadBytes: sponsorMediaMaxBytes,
+          maxSupportingImages: sponsorMediaMaxSupportingImages
+        })
+      : null
+  });
   const handleAdminSponsorshipMediaRequest = async (
     request: Parameters<typeof handleAdminMediaUsage>[0],
     response: Parameters<typeof handleAdminMediaUsage>[1]
   ) =>
+    (await handleMediaWorkspace(request, response)) ||
+    (await handleMediaAnalysis(request, response)) ||
+    (await handleMediaUpload(request, response)) ||
     (await handleAdminMediaUsage(request, response)) ||
     (await handleAdminMedia(request, response));
 

@@ -104,4 +104,21 @@ test('reverse proxies allow configured sponsor media uploads and CSP previews', 
     nginx,
     /location = \/api\/sponsorship-followup\/media \{[\s\S]*client_max_body_size 9m;/
   );
+  for (const router of [
+    'openg7-sponsor-media-upload',
+    'openg7-sponsor-media-upload-local'
+  ]) {
+    const configuration = traefik
+      .slice(traefik.indexOf(`    ${router}:`))
+      .split(/\n    [\w-]+:/)[0];
+    assert.ok(
+      configuration.includes('Path(`/api/admin/sponsorships/media/upload`)')
+    );
+    assert.ok(configuration.includes('sponsor-media-body-limit'));
+    assert.ok(configuration.includes('api-rate-limit'));
+  }
+  assert.match(
+    nginx,
+    /location = \/api\/admin\/sponsorships\/media\/upload \{\s*client_max_body_size 9m;\s*access_log off;/
+  );
 });

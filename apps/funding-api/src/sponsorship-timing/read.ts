@@ -13,7 +13,7 @@ type Db = Pick<Pool | PoolClient, 'query'>;
 /** Known metadata/version restrictions only. A GET neither reads files nor attests exposure. */
 function durationRestartRequiredSql(alias: string): string {
   const eligibleMedia = `exposure_media.contribution_id=${alias}.contribution_id AND exposure_media.deleted_at IS NULL
-    AND exposure_media.review_status='approved' AND exposure_media.public_url IS NOT NULL
+    AND exposure_media.review_status='approved' AND exposure_media.public_url IS NOT NULL AND exposure_media.website_selected IS TRUE
     AND ${confirmedMediaUsageSql('exposure_media', 'website', 'openg7')}
     AND ${moderationApprovedSql('media', 'exposure_media.id')}`;
   const firstMedia = (
@@ -38,7 +38,7 @@ function durationRestartRequiredSql(alias: string): string {
       AND exposure_media.contribution_id=${alias}.contribution_id WHERE exposure_media.id IS NULL
       OR exposure_media.updated_at IS DISTINCT FROM (image->>'version')::timestamptz
       OR exposure_media.checksum_sha256 IS DISTINCT FROM image->>'sourceHash'
-      OR exposure_media.usage_rights IS DISTINCT FROM image->'usage'
+      OR sponsor_media_effective_usage(exposure_media.id) IS DISTINCT FROM image->'usage'
       OR exposure_media.usage_restrictions_reviewed IS DISTINCT FROM (image->>'restrictionsReviewed')::boolean))`;
 }
 

@@ -25,6 +25,7 @@ import type { AdminSponsorDetailIdentityView } from '../../../models/admin-spons
 export class AdminSponsorLogoPanelComponent {
   readonly identity = input.required<AdminSponsorDetailIdentityView>();
   readonly disabled = input(false);
+  readonly hideControls = input(false);
   readonly uploadLogo = output<Event>();
   readonly deleteLogo = output<void>();
   readonly hasLogo = computed(() =>
