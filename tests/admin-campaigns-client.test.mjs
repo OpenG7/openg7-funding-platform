@@ -19,6 +19,8 @@ test('campaign reads share saved authentication, private cache policy and cancel
       {
         page: 2,
         pageSize: 50,
+        sponsorshipId: 'a1000000-0000-4000-8000-000000000001',
+        obligationId: 'b2000000-0000-4000-8000-000000000026',
         channel: 'linkedin',
         target: 'openg20',
         state: 'waiting',
@@ -35,6 +37,14 @@ test('campaign reads share saved authentication, private cache policy and cancel
   assert.equal(url.pathname, '/admin/campaigns');
   assert.equal(url.searchParams.get('search'), 'Synthetic & Company');
   assert.equal(url.searchParams.get('channel'), 'linkedin');
+  assert.equal(
+    url.searchParams.get('sponsorshipId'),
+    'a1000000-0000-4000-8000-000000000001'
+  );
+  assert.equal(
+    url.searchParams.get('obligationId'),
+    'b2000000-0000-4000-8000-000000000026'
+  );
   assert.equal(url.searchParams.get('unexpected'), null);
   assert.deepEqual(calls[0].options, {
     auth: 'saved',

@@ -22,6 +22,8 @@ export class FundingAdminCampaignsClient {
     for (const key of [
       'page',
       'pageSize',
+      'sponsorshipId',
+      'obligationId',
       'channel',
       'target',
       'state',

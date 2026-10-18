@@ -21,7 +21,10 @@ import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
 import { automaticAdminUrl } from '../admin-automatic/admin-automatic-run.js';
 
 import { PreparationPilotComponent } from './preparation-pilot.component.js';
-import type { PreparationPilotIssue } from './preparation-pilot.models.js';
+import type {
+  PreparationDetailsMode,
+  PreparationPilotIssue
+} from './preparation-pilot.models.js';
 import {
   preparationIssueDestination,
   preparationAssistanceDestination,
@@ -45,6 +48,7 @@ export class AdminPreparationReceiptComponent {
   readonly receipt = input.required<AdminPreparationReceiptData>();
   readonly idPrefix = input.required<string>();
   readonly readOnly = input(false);
+  readonly detailsMode = input<PreparationDetailsMode>('hidden');
   readonly canApprove = input(false);
   readonly approving = input(false);
   readonly selectedIssueId = input<string | null>(null);
@@ -121,6 +125,13 @@ export class AdminPreparationReceiptComponent {
     this.returnNavigation.remember(
       preparationReturnOrigin(this.router.url, this.receipt(), issueId)
     );
+  }
+
+  openCampaigns(): void {
+    if (this.detailsMode() !== 'campaigns') return;
+    void this.router.navigate(['/admin/fundraiser/campaigns'], {
+      queryParams: { sponsorshipId: this.receipt().contributionId }
+    });
   }
 
   reveal(section: 'details' | 'history'): void {

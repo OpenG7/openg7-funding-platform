@@ -294,10 +294,16 @@ La sélection révèle ce point sans quitter le bouton sélectionné au clavier 
 ou approuvés gardent leur format compact.
 
 Le Pilotage regroupe les vérifications et autorisations du bon. Le volet replié
-**Détails de l’accord et traçabilité** conserve les clauses de l’offre, la date du
-paiement, les états des brouillons, le bilan des engagements et la version
-complète, sans répéter ces listes de contrôles. La relecture du contenu exact et
-l’historique des accords gardent leurs volets distincts.
+**Détails de l’accord et traçabilité** est réservé à **Campagnes**. Il conserve
+les clauses de l’offre, la date du paiement, les états des brouillons, le bilan
+des engagements et la version complète, sans répéter ces listes de contrôles.
+Commandites masque ce volet et sa commande ; la qualification de l’accord
+d’origine reste dans son écran métier. Le Guide propose **Voir les prestations
+dans Campagnes**, avec le dossier du bon courant. La page reprend une prestation
+sélectionnée de ce dossier, choisit l’unique résultat ou laisse choisir parmi
+plusieurs ; zéro résultat reste explicite. Voir le [contrat de navigation ciblée](../technical/admin-campaigns.md#entree-contextuelle-et-details-de-laccord).
+La relecture du contenu exact, l’approbation et l’historique des accords gardent
+leurs volets et commandes distincts dans les trois hôtes.
 
 Pour les accords historiques, la destination de l’accord donne aussi accès à
 l’[assistance locale versionnée](../technical/preparation-assistance.md), réservée

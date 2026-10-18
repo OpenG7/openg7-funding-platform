@@ -14,9 +14,12 @@ import type {
   AdminCampaignsQuery
 } from '@openg7/funding-core';
 
+import type { AdminCampaignsFocus } from '../models/admin-campaigns-navigation.js';
+
 import { AdminDashboardRequestError } from './funding-admin-session.js';
 import { FundingAdminService } from './funding-admin.service.js';
 import {
+  DEFAULT_CAMPAIGNS_QUERY,
   adminCampaignsActions,
   adminCampaignsFeature,
   selectAdminCampaignsSelected
@@ -43,6 +46,7 @@ export class AdminCampaignsStore {
     adminCampaignsFeature.selectSessionKey
   );
   private active = false;
+  private activeFocus: AdminCampaignsFocus | undefined;
   private disposed = false;
   private request: AbortController | null = null;
 
@@ -52,8 +56,9 @@ export class AdminCampaignsStore {
       this.admin.identity();
       this.admin.dataRevision();
       untracked(() => {
+        const previousSessionKey = this.sessionKey();
         if (this.synchronize() && this.active && this.sessionKey())
-          void this.load();
+          this.reloadContext(previousSessionKey);
       });
     });
     inject(DestroyRef).onDestroy(() => {
@@ -62,15 +67,56 @@ export class AdminCampaignsStore {
     });
   }
 
-  async connect(): Promise<void> {
+  async connect(focus?: AdminCampaignsFocus | null): Promise<void> {
     if (this.disposed || !this.browser) return;
     this.active = true;
-    await this.load();
+    this.activeFocus = focus ? { ...focus } : undefined;
+    this.synchronize();
+    if (focus === null)
+      this.store.dispatch(adminCampaignsActions.selectionCleared());
+    const selected = this.selected();
+    const selectedId = focus
+      ? (focus.obligationId ??
+        (selected?.contributionId === focus.sponsorshipId
+          ? selected.id
+          : this.query().sponsorshipId === focus.sponsorshipId
+            ? (this.query().obligationId ?? this.selectedId())
+            : null))
+      : null;
+    const query =
+      focus === null
+        ? { ...DEFAULT_CAMPAIGNS_QUERY }
+        : focus
+          ? {
+              ...DEFAULT_CAMPAIGNS_QUERY,
+              sponsorshipId: focus.sponsorshipId,
+              ...(selectedId ? { obligationId: selectedId } : {})
+            }
+          : this.query();
+    const reading = this.load(query);
+    const generation = this.snapshot().requestGeneration;
+    await reading;
+    if (
+      !focus ||
+      !this.active ||
+      this.disposed ||
+      this.snapshot().requestGeneration !== generation ||
+      this.state() !== 'ready'
+    )
+      return;
+    const data = this.data();
+    const row = selectedId
+      ? data?.items.find((item) => item.id === selectedId)
+      : data?.pagination.totalItems === 1
+        ? data.items[0]
+        : undefined;
+    if (row?.contributionId === focus.sponsorshipId) this.select(row);
   }
 
   /** Leaving the page cancels work without forgetting its applied query or selection. */
   detach(): void {
     this.active = false;
+    this.activeFocus = undefined;
     this.request?.abort();
     this.request = null;
     this.store.dispatch(adminCampaignsActions.detached());
@@ -78,8 +124,9 @@ export class AdminCampaignsStore {
 
   select(row: AdminCampaignItem): void {
     if (!this.active || this.disposed) return;
+    const previousSessionKey = this.sessionKey();
     if (this.synchronize()) {
-      if (this.sessionKey()) void this.load();
+      if (this.sessionKey()) this.reloadContext(previousSessionKey);
       return;
     }
     if (this.state() === 'ready' && this.data()?.items.includes(row))
@@ -92,6 +139,10 @@ export class AdminCampaignsStore {
     this.synchronize();
     const sessionKey = this.sessionKey();
     if (!sessionKey) return;
+    if (previousSessionKey !== sessionKey && this.activeFocus) {
+      await this.connect(this.activeFocus);
+      return;
+    }
     this.request?.abort();
     const request = new AbortController();
     this.request = request;
@@ -174,12 +225,19 @@ export class AdminCampaignsStore {
 
   private current(requestGeneration: number, sessionKey: string): boolean {
     if (this.disposed || !this.active) return false;
+    const previousSessionKey = this.sessionKey();
     const changed = this.synchronize();
-    if (changed && this.sessionKey()) void this.load();
+    if (changed && this.sessionKey()) this.reloadContext(previousSessionKey);
     return (
       !changed &&
       this.snapshot().requestGeneration === requestGeneration &&
       this.sessionKey() === sessionKey
     );
+  }
+
+  private reloadContext(previousSessionKey: string | null): void {
+    if (previousSessionKey !== this.sessionKey() && this.activeFocus)
+      void this.connect(this.activeFocus);
+    else void this.load();
   }
 }

@@ -59,6 +59,7 @@ export const adminCampaignsActions = createActionGroup({
       status: 'error' | 'forbidden' | 'unavailable';
     }>(),
     Selected: props<{ id: string }>(),
+    'Selection Cleared': emptyProps(),
     Detached: emptyProps()
   }
 });
@@ -134,6 +135,10 @@ export const adminCampaignsFeature = createFeature({
         ? { ...state, selectedId: id }
         : state
     ),
+    on(adminCampaignsActions.selectionCleared, (state) => ({
+      ...state,
+      selectedId: null
+    })),
     on(adminCampaignsActions.detached, (state) => ({
       ...state,
       status: state.status === 'loading' ? ('idle' as const) : state.status,

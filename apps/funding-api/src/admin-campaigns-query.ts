@@ -19,6 +19,8 @@ export function parseAdminCampaignsQuery(
   const allowed = [
     'page',
     'pageSize',
+    'sponsorshipId',
+    'obligationId',
     'channel',
     'target',
     'state',
@@ -33,6 +35,9 @@ export function parseAdminCampaignsQuery(
     if (!allowed.includes(key) || params.getAll(key).length !== 1) invalid();
   const page = params.get('page') ?? '1';
   const pageSize = params.get('pageSize') ?? '25';
+  const sponsorshipId = params.get('sponsorshipId');
+  const obligationId = params.get('obligationId');
+  const identifier = /^[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}$/i;
   const channel = params.get('channel');
   const target = params.get('target');
   const state = params.get('state');
@@ -45,6 +50,9 @@ export function parseAdminCampaignsQuery(
     !Number.isSafeInteger((Number(page) - 1) * Number(pageSize)) ||
     !Number.isSafeInteger(Number(page) * Number(pageSize)) ||
     !['25', '50', '100'].includes(pageSize) ||
+    (sponsorshipId !== null && !identifier.test(sponsorshipId)) ||
+    (obligationId !== null &&
+      (!sponsorshipId || !identifier.test(obligationId))) ||
     (channel !== null &&
       !['website', 'facebook', 'linkedin'].includes(channel)) ||
     (target !== null && !['openg7', 'openg20'].includes(target)) ||
@@ -66,6 +74,8 @@ export function parseAdminCampaignsQuery(
   return {
     page: Number(page),
     pageSize: Number(pageSize) as AdminCampaignsQuery['pageSize'],
+    ...(sponsorshipId ? { sponsorshipId: sponsorshipId.toLowerCase() } : {}),
+    ...(obligationId ? { obligationId: obligationId.toLowerCase() } : {}),
     ...(channel ? { channel: channel as AdminCampaignsQuery['channel'] } : {}),
     ...(target ? { target: target as AdminCampaignsQuery['target'] } : {}),
     ...(state ? { state: state as AdminCampaignsQuery['state'] } : {}),

@@ -14,6 +14,8 @@ const generatedAt = '2026-10-18T12:00:00Z';
 const approvedId = '10000000-0000-4000-8000-000000000801';
 const futureId = '10000000-0000-4000-8000-000000000802';
 const deliveredId = '10000000-0000-4000-8000-000000000803';
+const obligationId = (ordinal: number) =>
+  `10000000-0000-4000-8000-${String(5000 + ordinal).padStart(12, '0')}`;
 const hook = (page: Page, name: string) => page.locator(`[data-og7="${name}"]`);
 
 async function navigate(page: Page, destination: string) {
@@ -277,7 +279,7 @@ async function fixtures(page: Page, language = 'fr-CA') {
                 'facebook') as AdminCampaignItem['channel'];
               const target = (url.searchParams.get('target') ??
                 'openg7') as AdminCampaignItem['target'];
-              const row = promise(`page-promise-${index}`, futureId);
+              const row = promise(obligationId(index + 1), futureId);
               return {
                 ...row,
                 ordinal: index + 1,
@@ -295,16 +297,23 @@ async function fixtures(page: Page, language = 'fr-CA') {
               };
             })
           : state.rows;
+      const scopedRows = rows.filter(
+        (row) =>
+          (!url.searchParams.has('sponsorshipId') ||
+            row.contributionId === url.searchParams.get('sponsorshipId')) &&
+          (!url.searchParams.has('obligationId') ||
+            row.id === url.searchParams.get('obligationId'))
+      );
       const json: AdminCampaignsResponse = {
         generatedAt,
-        items: rows.slice((currentPage - 1) * 25, currentPage * 25),
+        items: scopedRows.slice((currentPage - 1) * 25, currentPage * 25),
         pagination: {
           page: currentPage,
           pageSize: 25,
-          totalItems: rows.length,
-          totalPages: Math.ceil(rows.length / 25),
+          totalItems: scopedRows.length,
+          totalPages: Math.ceil(scopedRows.length / 25),
           hasPreviousPage: currentPage > 1,
-          hasNextPage: currentPage * 25 < rows.length
+          hasNextPage: currentPage * 25 < scopedRows.length
         }
       };
       if (gate) await gate;
@@ -394,6 +403,14 @@ test('campaigns show approved preparation first and upcoming promises without se
     `/admin/fundraiser/sponsors?sponsorshipId=${deliveredId}&tab=publication`
   );
   await expect.poll(() => fixture.preparations).toContain(deliveredId);
+  const agreement = hook(page, 'campaign-preparation').locator(
+    '[data-og7="preparation-receipt-details"]'
+  );
+  await expect(agreement).toHaveJSProperty('open', false);
+  await agreement.locator('summary').click();
+  await expect(agreement).toHaveJSProperty('open', true);
+  await expect(agreement).toContainText('synthetic-preparation-v3');
+  await expect(agreement).toContainText('Version complète');
   expect(fixture.mutations).toEqual([]);
 });
 
@@ -438,6 +455,125 @@ test('campaign filters and pagination are explicit and clear private detail whil
   expect(fixture.queries.at(-1)?.get('page')).toBe('2');
   await expect(hook(page, 'campaigns-previous')).toBeEnabled();
   await expect(hook(page, 'campaigns-next')).toBeDisabled();
+  expect(fixture.mutations).toEqual([]);
+});
+
+test('a campaign deep link selects its exact twenty-sixth obligation before pagination and keeps agreement details keyboard accessible', async ({
+  page
+}) => {
+  const fixture = await fixtures(page);
+  fixture.paginated = true;
+  const selectedId = obligationId(26);
+  await page.goto(
+    `${path}?sponsorshipId=${futureId}&obligationId=${selectedId}`
+  );
+  await expect(hook(page, 'campaign-row')).toHaveCount(1);
+  await expect(hook(page, 'campaign-row')).toHaveAttribute(
+    'data-og7-id',
+    selectedId
+  );
+  await expect(hook(page, 'campaign-row')).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
+  expect(Object.fromEntries(fixture.queries[0]!)).toMatchObject({
+    sponsorshipId: futureId,
+    obligationId: selectedId,
+    page: '1'
+  });
+  await expect.poll(() => fixture.preparations).toContain(futureId);
+  const agreement = hook(page, 'campaign-preparation').locator(
+    '[data-og7="preparation-receipt-details"]'
+  );
+  await agreement.locator('summary').focus();
+  await page.keyboard.press('Enter');
+  await expect(agreement).toHaveJSProperty('open', true);
+  await expect(agreement).toContainText('synthetic-preparation-v2');
+  expect(fixture.mutations).toEqual([]);
+});
+
+test('a campaign dossier link offers an explicit choice for multiple promises and selects its sole promise', async ({
+  page
+}) => {
+  const fixture = await fixtures(page);
+  await page.goto(`${path}?sponsorshipId=${approvedId}`);
+  await expect(hook(page, 'campaign-row')).toHaveCount(2);
+  await expect(hook(page, 'campaign-row').first()).toHaveAttribute(
+    'aria-pressed',
+    'false'
+  );
+  await expect(hook(page, 'campaign-row').nth(1)).toHaveAttribute(
+    'aria-pressed',
+    'false'
+  );
+  await expect(hook(page, 'campaign-preparation')).toHaveCount(0);
+  expect(fixture.preparations).toEqual([]);
+  await hook(page, 'campaign-row').nth(1).focus();
+  await page.keyboard.press('Enter');
+  await expect(hook(page, 'campaign-row').nth(1)).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
+  await expect.poll(() => fixture.preparations).toContain(approvedId);
+
+  await page.goto(`${path}?sponsorshipId=${futureId}`);
+  await expect(hook(page, 'campaign-row')).toHaveCount(1);
+  await expect(hook(page, 'campaign-row')).toHaveAttribute(
+    'data-og7-id',
+    'upcoming-website'
+  );
+  await expect(hook(page, 'campaign-row')).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
+  await expect.poll(() => fixture.preparations).toContain(futureId);
+  expect(fixture.mutations).toEqual([]);
+});
+
+for (const targetId of [obligationId(404), obligationId(1)]) {
+  test(`an unavailable campaign target ${targetId} never selects a different promise`, async ({
+    page
+  }) => {
+    const fixture = await fixtures(page);
+    fixture.rows[2] = {
+      ...fixture.rows[2]!,
+      id: obligationId(1)
+    };
+    await page.goto(
+      `${path}?sponsorshipId=${approvedId}&obligationId=${targetId}`
+    );
+    await expect(hook(page, 'campaigns-empty')).toBeVisible();
+    await expect(hook(page, 'campaign-row')).toHaveCount(0);
+    await expect(hook(page, 'campaign-preparation')).toHaveCount(0);
+    expect(fixture.preparations).toEqual([]);
+    expect(fixture.mutations).toEqual([]);
+  });
+}
+
+test('malformed or orphan campaign links block reads and recover explicitly to the global list', async ({
+  page
+}) => {
+  const fixture = await fixtures(page);
+  for (const query of [
+    'sponsorshipId=not-a-dossier',
+    `obligationId=${obligationId(1)}`
+  ]) {
+    const readsBeforeArrival = fixture.queries.length;
+    await page.goto(`${path}?${query}`);
+    const alert = hook(page, 'campaigns-destination-error');
+    await expect(alert).toBeVisible();
+    await expect(hook(page, 'campaign-row')).toHaveCount(0);
+    await expect(hook(page, 'campaign-preparation')).toHaveCount(0);
+    expect(fixture.queries).toHaveLength(readsBeforeArrival);
+    await alert.getByRole('button').click();
+    await expect(page).toHaveURL(path);
+    await expect(alert).toHaveCount(0);
+    await expect(hook(page, 'campaign-row')).toHaveCount(4);
+    expect(fixture.queries).toHaveLength(readsBeforeArrival + 1);
+    expect(fixture.queries.at(-1)?.has('sponsorshipId')).toBe(false);
+    expect(fixture.queries.at(-1)?.has('obligationId')).toBe(false);
+  }
+  expect(fixture.preparations).toEqual([]);
   expect(fixture.mutations).toEqual([]);
 });
 
@@ -647,6 +783,14 @@ for (const { language, width, title } of [
         '[data-og7="preparation-receipt"]'
       )
     ).toBeVisible();
+    const agreement = hook(page, 'campaign-preparation').locator(
+      '[data-og7="preparation-receipt-details"]'
+    );
+    await expect(agreement).toHaveJSProperty('open', false);
+    await agreement.locator('summary').focus();
+    await page.keyboard.press('Enter');
+    await expect(agreement).toHaveJSProperty('open', true);
+    await expect(agreement).toContainText('synthetic-preparation-v1');
     await page.screenshot({
       path: test.info().outputPath(`campaigns-${language}-${width}.png`),
       fullPage: true

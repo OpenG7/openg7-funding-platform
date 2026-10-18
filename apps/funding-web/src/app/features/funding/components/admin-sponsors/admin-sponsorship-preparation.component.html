@@ -34,6 +34,7 @@
       @for (item of [current]; track item.contributionId + ':' + item.version) {
         <openg7-admin-preparation-receipt
           [receipt]="item"
+          [detailsMode]="detailsMode()"
           [idPrefix]="'dossier-preparation-' + contributionId()"
           [readOnly]="admin.identity()?.role === 'reader'"
           [canApprove]="canApprove()"

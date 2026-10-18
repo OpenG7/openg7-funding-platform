@@ -160,6 +160,7 @@
       <openg7-preparation-pilot
         [receipt]="item"
         [idPrefix]="idPrefix()"
+        [detailsMode]="detailsMode()"
         [selectedId]="selectedIssueId()"
         [canAssist]="canAssist()"
         [assistanceSummary]="assistanceSummary()"
@@ -174,6 +175,7 @@
         (approveRequested)="requestConfirmedApproval()"
         (sourceRequested)="openIssue($event)"
         (detailsRequested)="reveal('details')"
+        (campaignsRequested)="openCampaigns()"
         (historyRequested)="reveal('history')"
       />
     </div>
@@ -208,93 +210,95 @@
         <p>{{ t('noDrafts') }}</p>
       }
     </details>
-    <details data-og7="preparation-receipt-details">
-      <summary>{{ t('compact.details') }}</summary>
-      @if (item.payment.confirmedAt) {
-        <p>
-          {{ t('confirmedAt', { date: date(item.payment.confirmedAt) }) }}
-        </p>
-      }
-      <h5>{{ t('acceptedOffer') }}</h5>
-      <p>{{ t('offerHelp') }}</p>
-      @if (item.acceptedOffer; as offer) {
-        <p>
-          {{ t('offerVersion') }}
-          <span class="receipt-reference">{{ offer.version }}</span>
-        </p>
-      }
-      @for (benefit of item.acceptedOffer?.benefits ?? []; track $index) {
-        <h5>
-          {{ portfolioText('benefitNames.' + benefit.id) }} ·
-          <span class="receipt-number">× {{ benefit.quantity }}</span>
-        </h5>
-        @if (benefit.format) {
+    @if (detailsMode() === 'inline') {
+      <details data-og7="preparation-receipt-details">
+        <summary>{{ t('compact.details') }}</summary>
+        @if (item.payment.confirmedAt) {
+          <p>
+            {{ t('confirmedAt', { date: date(item.payment.confirmedAt) }) }}
+          </p>
+        }
+        <h5>{{ t('acceptedOffer') }}</h5>
+        <p>{{ t('offerHelp') }}</p>
+        @if (item.acceptedOffer; as offer) {
+          <p>
+            {{ t('offerVersion') }}
+            <span class="receipt-reference">{{ offer.version }}</span>
+          </p>
+        }
+        @for (benefit of item.acceptedOffer?.benefits ?? []; track $index) {
+          <h5>
+            {{ portfolioText('benefitNames.' + benefit.id) }} ·
+            <span class="receipt-number">× {{ benefit.quantity }}</span>
+          </h5>
+          @if (benefit.format) {
+            <p>
+              {{
+                portfolioText('promiseFormat', {
+                  format: portfolioText('formats.' + benefit.format)
+                })
+              }}
+            </p>
+          }
           <p>
             {{
-              portfolioText('promiseFormat', {
-                format: portfolioText('formats.' + benefit.format)
+              benefit.deadlineDays === null
+                ? portfolioText('noFixedDeadline')
+                : portfolioText('promiseDeadline', {
+                    days: benefit.deadlineDays
+                  })
+            }}
+          </p>
+          <p>
+            {{
+              benefit.durationDays === null
+                ? portfolioText('noFixedDuration')
+                : portfolioText('promiseDuration', {
+                    days: benefit.durationDays
+                  })
+            }}
+          </p>
+          <p>
+            {{
+              portfolioText('promiseElements', {
+                elements: requiredElements(benefit.requiredElements)
+              })
+            }}
+          </p>
+        }
+        <h5>{{ t('drafts') }}</h5>
+        <ul class="receipt-drafts" data-og7="preparation-receipt-drafts">
+          @for (draft of item.drafts; track draft.id) {
+            <li>
+              <openg7-admin-icon name="publications" /><span
+                >{{ portfolioText('channels.' + draft.channel) }} ·
+                {{ portfolioText('targets.' + draft.target) }}</span
+              ><strong>{{ label('draftStates', draft.status) }}</strong>
+            </li>
+          } @empty {
+            <li>{{ t('noDrafts') }}</li>
+          }
+        </ul>
+        @if (item.balance; as balance) {
+          <p>
+            {{
+              portfolioText('benefits', {
+                expected: balance.expected,
+                fulfilled: balance.fulfilled,
+                waived: balance.waived,
+                outstanding: balance.outstanding,
+                unknown: balance.unknown
               })
             }}
           </p>
         }
         <p>
-          {{
-            benefit.deadlineDays === null
-              ? portfolioText('noFixedDeadline')
-              : portfolioText('promiseDeadline', {
-                  days: benefit.deadlineDays
-                })
-          }}
+          {{ t('fullVersion') }}
+          <span class="receipt-reference">{{ item.version }}</span>
         </p>
-        <p>
-          {{
-            benefit.durationDays === null
-              ? portfolioText('noFixedDuration')
-              : portfolioText('promiseDuration', {
-                  days: benefit.durationDays
-                })
-          }}
-        </p>
-        <p>
-          {{
-            portfolioText('promiseElements', {
-              elements: requiredElements(benefit.requiredElements)
-            })
-          }}
-        </p>
-      }
-      <h5>{{ t('drafts') }}</h5>
-      <ul class="receipt-drafts" data-og7="preparation-receipt-drafts">
-        @for (draft of item.drafts; track draft.id) {
-          <li>
-            <openg7-admin-icon name="publications" /><span
-              >{{ portfolioText('channels.' + draft.channel) }} ·
-              {{ portfolioText('targets.' + draft.target) }}</span
-            ><strong>{{ label('draftStates', draft.status) }}</strong>
-          </li>
-        } @empty {
-          <li>{{ t('noDrafts') }}</li>
-        }
-      </ul>
-      @if (item.balance; as balance) {
-        <p>
-          {{
-            portfolioText('benefits', {
-              expected: balance.expected,
-              fulfilled: balance.fulfilled,
-              waived: balance.waived,
-              outstanding: balance.outstanding,
-              unknown: balance.unknown
-            })
-          }}
-        </p>
-      }
-      <p>
-        {{ t('fullVersion') }}
-        <span class="receipt-reference">{{ item.version }}</span>
-      </p>
-      <p>{{ t('approvalScope') }}</p>
-    </details>
+        <p>{{ t('approvalScope') }}</p>
+      </details>
+    }
   </div>
 
   <section class="receipt-approval" [attr.aria-label]="t('approvalTitle')">

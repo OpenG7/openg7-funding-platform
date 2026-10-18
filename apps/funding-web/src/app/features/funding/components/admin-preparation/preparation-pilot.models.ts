@@ -6,6 +6,9 @@ import type {
 export type PreparationActionKind =
   'agreement' | 'moderation' | 'presentation' | 'inspect';
 
+/** Agreement details belong to Campaigns; other hosts may link there or omit them. */
+export type PreparationDetailsMode = 'inline' | 'campaigns' | 'hidden';
+
 /** A server control or a remaining server blocker, never a local workflow state. */
 export interface PreparationPilotIssue {
   readonly id: string;
@@ -30,6 +33,7 @@ export interface PreparationContextActionsInput {
   /** The host's current permission, in addition to receipt.canApprove. */
   readonly canApprove: boolean;
   readonly busy: boolean;
+  readonly detailsMode: PreparationDetailsMode;
   readonly canAssist?: boolean;
   readonly assistanceSummary?: PreparationAssistanceSummary | null;
   readonly assistanceBusy?: boolean;

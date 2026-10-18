@@ -33,6 +33,34 @@ un ancien statut « publié », une URL ou une simulation seuls ne suffisent pas
 Les preuves restent liées à leur canal, destination et passage ; la visibilité
 actuelle demeure une information distincte de la livraison attestée.
 
+<a id="entree-contextuelle-et-details-de-laccord"></a>
+
+## Entrée contextuelle et détails de l'accord
+
+Le volet **Détails de l'accord et traçabilité** du bon partagé est réservé à
+Campagnes (`detailsMode="inline"`). Il reste replié et conserve les clauses de
+l'offre, la date de paiement, les états de brouillons, le bilan et la version
+complète du dossier. Commandites masque ce volet et sa commande (`hidden`). Le
+Guide remplace cette commande par **Voir les prestations dans Campagnes**
+(`campaigns`). La qualification de l'accord d'origine dans Commandites, la
+relecture du contenu, l'approbation et son historique restent disponibles.
+
+Le Guide ouvre `/admin/fundraiser/campaigns?sponsorshipId=<uuid>` avec le dossier
+du bon courant. La page reprend la prestation déjà sélectionnée de ce même
+dossier en mémoire. À défaut, elle sélectionne l'unique résultat ou demande de
+choisir parmi plusieurs. Un dossier sans prestation fournit un état vide
+explicite ; aucun passage n'est choisi arbitrairement ni créé depuis le barème.
+Une origine connaissant la prestation exacte peut ajouter `obligationId=<uuid>` ;
+ce paramètre exige toujours `sponsorshipId` et ne peut élargir son périmètre.
+
+Les identifiants ciblent la requête API avant tri et pagination, indépendamment
+de l'ancienne page ou des filtres mémorisés. Une cible absente ou appartenant à
+un autre dossier renvoie zéro ligne. Des identifiants malformés, répétés ou une
+obligation sans dossier produisent un état d'entrée invalide, sans repli vers
+tous les dossiers. Un repère annonce le périmètre ciblé ; l'action de retour à
+toutes les campagnes retire explicitement ces identifiants et réinitialise la
+requête ciblée. Ce contexte n'accorde aucun droit supplémentaire.
+
 ## État de navigation et actualisation
 
 La route fournit la feature NgRx `adminCampaigns` et sa
@@ -57,7 +85,9 @@ requêtes et l’annulation empêchent une ancienne réponse de réintroduire un
 privé ou d’appliquer un ancien refus à une nouvelle session. Une erreur retire
 les données précédentes ; un refus 401 efface la session et revient à la connexion.
 Cet état NgRx ne fait l’objet d’aucune persistance dans le navigateur : un
-rechargement complet repart de la requête initiale.
+rechargement complet sans identifiants de contexte dans l'URL repart de la
+requête initiale. Un lien ciblé réapplique son dossier après changement de
+session, avec les filtres et la sélection précédents purgés.
 
 ## Lecture API
 
@@ -65,16 +95,18 @@ rechargement complet repart de la requête initiale.
 administrative et renvoie `Cache-Control: private, no-store`. Les autres méthodes
 sont refusées sans mutation. Les paramètres acceptés, chacun une seule fois, sont :
 
-| Paramètre   | Valeurs                                                                                      |
-| ----------- | -------------------------------------------------------------------------------------------- |
-| `page`      | Entier positif, défaut `1`                                                                   |
-| `pageSize`  | `25`, `50`, `100`, défaut `25`                                                               |
-| `channel`   | `website`, `facebook`, `linkedin`                                                            |
-| `target`    | `openg7`, `openg20`                                                                          |
-| `state`     | État du workflow : `waiting`, `action_required`, `blocked`, `error`, `uncertain`, `complete` |
-| `search`    | Commanditaire ou référence, au plus 120 caractères, sans caractères de contrôle              |
-| `sort`      | `preparation`, `paid_at`, `due_at`, défaut `preparation`                                     |
-| `direction` | `asc`, `desc`, défaut `desc`                                                                 |
+| Paramètre       | Valeurs                                                                                      |
+| --------------- | -------------------------------------------------------------------------------------------- |
+| `page`          | Entier positif, défaut `1`                                                                   |
+| `pageSize`      | `25`, `50`, `100`, défaut `25`                                                               |
+| `sponsorshipId` | UUID exact du dossier ; limite le périmètre avant pagination                                 |
+| `obligationId`  | UUID exact de la prestation ; exige `sponsorshipId` et reste limité à ce dossier             |
+| `channel`       | `website`, `facebook`, `linkedin`                                                            |
+| `target`        | `openg7`, `openg20`                                                                          |
+| `state`         | État du workflow : `waiting`, `action_required`, `blocked`, `error`, `uncertain`, `complete` |
+| `search`        | Commanditaire ou référence, au plus 120 caractères, sans caractères de contrôle              |
+| `sort`          | `preparation`, `paid_at`, `due_at`, défaut `preparation`                                     |
+| `direction`     | `asc`, `desc`, défaut `desc`                                                                 |
 
 La réponse contient `generatedAt`, `items` et `pagination`. Chaque élément expose
 la prestation, sa préparation versionnée, son workflow, le contenu disponible,

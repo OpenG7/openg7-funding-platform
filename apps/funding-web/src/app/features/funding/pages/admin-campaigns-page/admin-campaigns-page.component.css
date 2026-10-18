@@ -75,6 +75,14 @@ a {
 .authority-note openg7-admin-icon {
   margin-top: 0.15rem;
 }
+.destination-note {
+  align-items: center;
+  flex-wrap: wrap;
+}
+.destination-note > div {
+  flex: 1 1 24rem;
+  min-width: 0;
+}
 .filters {
   @apply tw:grid tw:gap-3 tw:p-admin-card tw:rounded-admin-card tw:min-w-0;
   grid-template-columns: repeat(3, minmax(0, 1fr));

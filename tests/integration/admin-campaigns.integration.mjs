@@ -240,6 +240,65 @@ test(
     );
 
     await t.test(
+      'dossier handoffs isolate promises and resolve the twenty-sixth passage before pagination',
+      async () => {
+        const before = await snapshot();
+        const target = (
+          await pool.query(
+            'SELECT id FROM sponsorship_obligations WHERE contribution_id=$1 AND ordinal=26',
+            [upcoming]
+          )
+        ).rows[0].id;
+        const broad = await service.list(query());
+        assert.equal(
+          broad.items.some((item) => item.id === target),
+          false
+        );
+
+        const first = await http.request(`?sponsorshipId=${upcoming}`);
+        const second = await http.request(`?sponsorshipId=${upcoming}&page=2`);
+        assert.equal(first.status, 200);
+        assert.equal(first.body.pagination.totalItems, 30);
+        assert.equal(first.body.items.length, 25);
+        assert.equal(second.body.items.length, 5);
+        assert.ok(
+          [...first.body.items, ...second.body.items].every(
+            (item) => item.contributionId === upcoming
+          )
+        );
+
+        const suffix = `?sponsorshipId=${upcoming}&obligationId=${target}`;
+        for (const role of ['reader', 'operator', 'owner']) {
+          const exact = await http.request(suffix, role);
+          assert.equal(exact.status, 200);
+          assert.equal(exact.body.pagination.totalItems, 1);
+          assert.equal(exact.body.pagination.totalPages, 1);
+          assert.equal(exact.body.items[0].id, target);
+          assert.equal(exact.body.items[0].ordinal, 26);
+          assert.equal(exact.body.items[0].contributionId, upcoming);
+        }
+        for (const emptyScope of [
+          `?sponsorshipId=${approved}&obligationId=${target}`,
+          `?sponsorshipId=${randomUUID()}`,
+          `?sponsorshipId=${upcoming}&obligationId=${randomUUID()}`,
+          `?sponsorshipId=${unconfirmed}`,
+          suffix + '&channel=website'
+        ]) {
+          const empty = await http.request(emptyScope);
+          assert.equal(empty.status, 200);
+          assert.equal(empty.body.pagination.totalItems, 0);
+          assert.deepEqual(empty.body.items, []);
+        }
+        assert.equal((await http.request(suffix, null)).status, 401);
+        assert.equal(
+          (await http.request('?sponsorshipId=invalid', null)).status,
+          401
+        );
+        assert.deepEqual(await snapshot(), before);
+      }
+    );
+
+    await t.test(
       'a stale approval returns to review while its promises remain visible',
       async () => {
         await pool.query(
@@ -364,6 +423,11 @@ test(
           '?target=other',
           '?sort=amount',
           '?page=1&page=2',
+          '?sponsorshipId=',
+          '?sponsorshipId=invalid',
+          `?sponsorshipId=${approved}&sponsorshipId=${upcoming}`,
+          `?obligationId=${randomUUID()}`,
+          `?sponsorshipId=${approved}&obligationId=invalid`,
           '?unknown=1'
         ])
           assert.equal((await http.request(suffix)).status, 400, suffix);

@@ -108,6 +108,7 @@ const actions = (current, changes = {}) =>
     issue: null,
     canApprove: true,
     busy: false,
+    detailsMode: 'inline',
     t,
     ...changes
   });
@@ -428,6 +429,60 @@ test('approval requires host and server permission, is disabled while busy and a
       .slice(1)
       .map((action) => action.id),
     ['preparation-details', 'preparation-history', 'preparation-back']
+  );
+});
+
+test('the host owns agreement details while a Guide handoff only offers navigation to Campaigns', () => {
+  const current = receipt();
+  const omitted = actions(current, { detailsMode: 'hidden' });
+  assert.equal(
+    omitted.some((action) =>
+      ['preparation-details', 'preparation-campaigns'].includes(action.id)
+    ),
+    false
+  );
+  const redirected = actions(current, { detailsMode: 'campaigns' });
+  assert.equal(
+    redirected.some((action) => action.id === 'preparation-details'),
+    false
+  );
+  const handoff = redirected.find(
+    (action) => action.id === 'preparation-campaigns'
+  );
+  assert.equal(handoff.enabled, true);
+  assert.equal(handoff.label, 'pilot.actions.campaigns');
+  assert.equal(handoff.shortcut.label, 'X');
+  assert.equal(handoff.requiresConfirmation, false);
+  assert.equal('execute' in handoff, false);
+  assert.equal(
+    actions(current, { detailsMode: 'campaigns', busy: true }).find(
+      (action) => action.id === 'preparation-campaigns'
+    ).enabled,
+    false
+  );
+  assert.equal(
+    actions(null, { detailsMode: 'campaigns' }).find(
+      (action) => action.id === 'preparation-campaigns'
+    ).enabled,
+    false
+  );
+  const issue = projectPreparationPilot(current).issues.find(
+    (entry) => entry.checkCode === 'accepted_offer'
+  );
+  const assisted = actions(current, {
+    detailsMode: 'campaigns',
+    issue,
+    canAssist: true,
+    assistanceSummary: assistance()
+  });
+  assert.equal(
+    assisted.find((action) => action.id === 'preparation-campaigns').shortcut,
+    undefined
+  );
+  assert.equal(
+    assisted.find((action) => action.id === 'preparation-assistance-source')
+      .shortcut.label,
+    'X'
   );
 });
 

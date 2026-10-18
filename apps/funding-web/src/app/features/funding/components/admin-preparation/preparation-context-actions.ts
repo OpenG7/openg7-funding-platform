@@ -99,13 +99,23 @@ export function preparationContextActions(
           ? { ...entry, shortcut: undefined }
           : entry
       ),
-    action(
-      'preparation-details',
-      t('pilot.actions.details'),
-      'search',
-      true,
-      assisted ? undefined : 'x'
-    ),
+    ...(input.detailsMode === 'hidden'
+      ? []
+      : [
+          action(
+            input.detailsMode === 'campaigns'
+              ? 'preparation-campaigns'
+              : 'preparation-details',
+            t(
+              input.detailsMode === 'campaigns'
+                ? 'pilot.actions.campaigns'
+                : 'pilot.actions.details'
+            ),
+            'search',
+            true,
+            assisted ? undefined : 'x'
+          )
+        ]),
     action(
       'preparation-history',
       t('pilot.actions.history'),

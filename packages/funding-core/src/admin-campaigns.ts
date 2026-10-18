@@ -9,6 +9,10 @@ export type AdminCampaignSort = 'preparation' | 'paid_at' | 'due_at';
 export interface AdminCampaignsQuery {
   readonly page: number;
   readonly pageSize: 25 | 50 | 100;
+  /** Exact dossier scope; unlike search, this never matches another sponsor. */
+  readonly sponsorshipId?: string;
+  /** Exact promised passage; requires sponsorshipId and applies before pagination. */
+  readonly obligationId?: string;
   readonly channel?: SponsorshipObligation['channel'];
   readonly target?: SponsorshipObligation['target'];
   readonly state?: SponsorshipPublicationWorkflowObligation['state'];

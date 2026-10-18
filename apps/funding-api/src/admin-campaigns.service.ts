@@ -66,10 +66,18 @@ const defaultPorts: AdminCampaignsReadPorts = {
          AND EXISTS(SELECT 1 FROM sponsorship_obligations ob
            JOIN sponsorship_commitments m ON m.id=ob.commitment_id
            WHERE ob.contribution_id=c.id AND m.state='active' AND m.offer_id IS NOT NULL
-             AND ($1::text IS NULL OR ob.channel=$1) AND ($2::text IS NULL OR ob.target=$2))
+             AND ($1::text IS NULL OR ob.channel=$1) AND ($2::text IS NULL OR ob.target=$2)
+             AND ($5::uuid IS NULL OR ob.id=$5::uuid))
+         AND ($4::uuid IS NULL OR c.id=$4::uuid)
          AND ($3::text IS NULL OR position(lower($3) in lower(COALESCE(c.sponsor_company_name,'')||' '||COALESCE(c.public_reference,c.id::text)))>0)
        ORDER BY c.id`,
-      [query.channel ?? null, query.target ?? null, query.search ?? null]
+      [
+        query.channel ?? null,
+        query.target ?? null,
+        query.search ?? null,
+        query.sponsorshipId ?? null,
+        query.obligationId ?? null
+      ]
     );
     return result.rows;
   },
@@ -158,7 +166,19 @@ export async function loadAdminCampaignsOnClient(
   now = new Date(),
   ports: AdminCampaignsReadPorts = defaultPorts
 ): Promise<AdminCampaignsResponse> {
-  const sources = await ports.sources(db, query);
+  const sponsorshipId = query.sponsorshipId?.toLowerCase();
+  const obligationId = query.obligationId?.toLowerCase();
+  if (obligationId && !sponsorshipId)
+    throw new AdminCampaignsError('CAMPAIGNS_INVALID_REQUEST', 400);
+  const sources = (await ports.sources(db, query)).filter(
+    (source) =>
+      (!sponsorshipId ||
+        source.contribution_id.toLowerCase() === sponsorshipId) &&
+      (!obligationId ||
+        source.commitment.obligations.some(
+          (obligation) => obligation.id.toLowerCase() === obligationId
+        ))
+  );
   const preparations = new Map<
     string,
     ReturnType<AdminCampaignsReadPorts['preparation']>
@@ -186,6 +206,7 @@ export async function loadAdminCampaignsOnClient(
         (item) => item.id === obligation.benefitId
       );
       if (
+        (obligationId && obligation.id.toLowerCase() !== obligationId) ||
         !benefit ||
         obligation.ordinal < 1 ||
         obligation.ordinal > benefit.quantity ||

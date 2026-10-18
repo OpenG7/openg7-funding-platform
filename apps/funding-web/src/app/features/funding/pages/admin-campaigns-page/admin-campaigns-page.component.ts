@@ -9,7 +9,13 @@ import {
   signal,
   untracked
 } from '@angular/core';
-import { Router, RouterLink, type UrlTree } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import {
+  ActivatedRoute,
+  Router,
+  RouterLink,
+  type UrlTree
+} from '@angular/router';
 import type {
   AdminCampaignItem,
   AdminCampaignsQuery
@@ -25,6 +31,7 @@ import { AdminSponsorshipPreparationComponent } from '../../components/admin-spo
 import { automaticAdminUrl } from '../../components/admin-automatic/admin-automatic-run.js';
 import { AdminCampaignsStore } from '../../services/admin-campaigns-store.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { adminCampaignsDestination } from '../../models/admin-campaigns-navigation.js';
 
 import { groupCampaignRows } from './admin-campaigns-controller.js';
 
@@ -60,6 +67,15 @@ export class AdminCampaignsPageComponent {
   readonly c = inject(AdminCampaignsStore);
   readonly i18n = inject(FundingI18nService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly params = toSignal(this.route.queryParamMap, {
+    initialValue: this.route.snapshot.queryParamMap
+  });
+  readonly destination = computed(() =>
+    adminCampaignsDestination(this.params())
+  );
+  private readonly rendered = signal(false);
+  private routeKey = '';
   readonly channels = ['website', 'facebook', 'linkedin'] as const;
   readonly targets = ['openg7', 'openg20'] as const;
   readonly states = [
@@ -93,7 +109,24 @@ export class AdminCampaignsPageComponent {
         })
       );
     });
-    afterNextRender(() => void this.c.connect());
+    afterNextRender(() => this.rendered.set(true));
+    effect(() => {
+      const rendered = this.rendered();
+      const destination = this.destination();
+      untracked(() => {
+        if (!rendered) return;
+        const key = JSON.stringify(destination);
+        if (key === this.routeKey) return;
+        this.routeKey = key;
+        if (destination.kind === 'invalid') this.c.detach();
+        else {
+          void this.c.connect(
+            destination.kind === 'focused' ? destination.focus : undefined
+          );
+          this.filters.set(this.filterDraft(this.c.query()));
+        }
+      });
+    });
     effect(() => {
       this.c.sessionKey();
       untracked(() => {
@@ -131,12 +164,30 @@ export class AdminCampaignsPageComponent {
       pageSize: 25,
       sort: this.sorts.find((sort) => sort === filters.sort) ?? 'preparation',
       direction: filters.direction === 'asc' ? 'asc' : 'desc',
+      ...(this.c.query().sponsorshipId
+        ? { sponsorshipId: this.c.query().sponsorshipId }
+        : {}),
+      ...(this.c.query().obligationId
+        ? { obligationId: this.c.query().obligationId }
+        : {}),
       channel: this.channels.find((channel) => channel === filters.channel),
       target: this.targets.find((target) => target === filters.target),
       state: this.states.find((state) => state === filters.state),
       ...(filters.search.trim() ? { search: filters.search.trim() } : {})
     };
     void this.c.load(query);
+  }
+
+  showAll(): void {
+    this.routeKey = JSON.stringify({ kind: 'all' });
+    void this.c.connect(null);
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { sponsorshipId: null, obligationId: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true
+    });
+    this.filters.set(this.filterDraft(this.c.query()));
   }
 
   changePage(delta: number): void {

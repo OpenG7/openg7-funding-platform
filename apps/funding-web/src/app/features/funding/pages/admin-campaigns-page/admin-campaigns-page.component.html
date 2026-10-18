@@ -10,7 +10,11 @@
         type="button"
         class="admin-button"
         data-og7="campaigns-refresh"
-        [disabled]="c.state() === 'loading' || c.state() === 'idle'"
+        [disabled]="
+          destination().kind === 'invalid' ||
+          c.state() === 'loading' ||
+          c.state() === 'idle'
+        "
         (click)="c.load()"
       >
         <openg7-admin-icon name="refresh" />{{ t('refresh') }}
@@ -22,440 +26,504 @@
       <p>{{ t('scope') }}</p>
     </div>
 
-    <form
-      class="filters"
-      data-og7="campaigns-filters"
-      [attr.aria-label]="t('filters.title')"
-      (submit)="apply($event)"
-    >
-      <label class="search-field">
-        {{ t('filters.search') }}
-        <input
-          type="search"
-          maxlength="120"
-          data-og7="campaigns-search"
-          [value]="filters().search"
-          [placeholder]="t('filters.searchPlaceholder')"
-          (input)="setFilter('search', $event)"
-        />
-      </label>
-      <label>
-        {{ t('filters.channel') }}
-        <select
-          data-og7="campaigns-channel"
-          (change)="setFilter('channel', $event)"
-        >
-          <option value="" [selected]="!filters().channel">
-            {{ t('filters.allChannels') }}
-          </option>
-          @for (channel of channels; track channel) {
-            <option
-              [value]="channel"
-              [selected]="filters().channel === channel"
-            >
-              {{ t('channels.' + channel) }}
-            </option>
-          }
-        </select>
-      </label>
-      <label>
-        {{ t('filters.target') }}
-        <select
-          data-og7="campaigns-target"
-          (change)="setFilter('target', $event)"
-        >
-          <option value="" [selected]="!filters().target">
-            {{ t('filters.allTargets') }}
-          </option>
-          @for (target of targets; track target) {
-            <option [value]="target" [selected]="filters().target === target">
-              {{ t('targets.' + target) }}
-            </option>
-          }
-        </select>
-      </label>
-      <label>
-        {{ t('filters.state') }}
-        <select
-          data-og7="campaigns-state"
-          (change)="setFilter('state', $event)"
-        >
-          <option value="" [selected]="!filters().state">
-            {{ t('filters.allStates') }}
-          </option>
-          @for (state of states; track state) {
-            <option [value]="state" [selected]="filters().state === state">
-              {{ t('states.' + state) }}
-            </option>
-          }
-        </select>
-      </label>
-      <label>
-        {{ t('filters.sort') }}
-        <select data-og7="campaigns-sort" (change)="setFilter('sort', $event)">
-          @for (sort of sorts; track sort) {
-            <option [value]="sort" [selected]="filters().sort === sort">
-              {{ t('sorts.' + sort) }}
-            </option>
-          }
-        </select>
-      </label>
-      <label>
-        {{ t('filters.direction') }}
-        <select
-          data-og7="campaigns-direction"
-          [value]="filters().direction"
-          (change)="setFilter('direction', $event)"
-        >
-          <option value="desc">{{ t('directions.desc') }}</option>
-          <option value="asc">{{ t('directions.asc') }}</option>
-        </select>
-      </label>
-      <button
-        type="submit"
-        class="admin-button admin-button--primary"
-        data-og7="campaigns-apply"
+    @if (destination().kind === 'invalid') {
+      <div
+        class="scope-note destination-note"
+        role="alert"
+        data-og7="campaigns-destination-error"
       >
-        <openg7-admin-icon name="search" />{{ t('filters.apply') }}
-      </button>
-    </form>
-
-    <section
-      class="campaign-list"
-      data-og7="campaigns-list"
-      [attr.aria-label]="t('listTitle')"
-      [attr.aria-busy]="c.state() === 'loading' || c.state() === 'idle'"
-    >
-      <header class="list-header">
-        <div>
-          <h2>{{ t('listTitle') }}</h2>
-          @if (c.data(); as data) {
-            <p class="muted" role="status" aria-live="polite">
-              {{ t('count', { count: data.pagination.totalItems }) }}
-              <span aria-hidden="true"> · </span>
-              {{ t('dossiersOnPage', { count: dossierCount() }) }}
-            </p>
-          }
-        </div>
-        <label class="group-toggle">
-          <input
-            type="checkbox"
-            data-og7="campaigns-grouping"
-            [checked]="grouped()"
-            (change)="grouped.set(!grouped())"
-          />
-          {{ t('groupByDossier') }}
-        </label>
-      </header>
-
-      @if (c.state() === 'loading' || c.state() === 'idle') {
-        <div class="empty-state" role="status" data-og7="campaigns-loading">
-          <openg7-admin-icon name="clock" />
-          <p>{{ t('loading') }}</p>
-        </div>
-      } @else if (c.state() !== 'ready') {
-        <div class="empty-state error-state" role="alert">
-          <openg7-admin-icon name="warning" />
-          <p>{{ t('errors.' + c.state()) }}</p>
-          @if (c.state() !== 'forbidden') {
-            <button type="button" class="admin-button" (click)="c.load()">
-              {{ t('retry') }}
-            </button>
-          }
-        </div>
-      } @else if (!c.data()?.items?.length) {
-        <div class="empty-state" role="status" data-og7="campaigns-empty">
-          <openg7-admin-icon name="publications" />
-          <h3>{{ t('emptyTitle') }}</h3>
-          <p>{{ t('empty') }}</p>
-        </div>
-      } @else {
-        <div class="column-headings" aria-hidden="true">
-          <span>{{ t('columns.promise') }}</span>
-          <span>{{ t('filters.target') }}</span>
-          <span>{{ t('columns.preparation') }}</span>
-          <span>{{ t('filters.state') }}</span>
-          <span>{{ t('columns.due') }}</span>
-          <span>{{ t('columns.proof') }}</span>
-        </div>
-        @for (group of groups(); track group.id) {
-          <section class="dossier-group">
-            @if (grouped()) {
-              <h3 class="group-heading">
-                <span class="company-mark" aria-hidden="true">
-                  <openg7-admin-icon name="sponsors" />
-                </span>
-                <span>{{
-                  group.rows[0].companyName || t('unnamedSponsor')
-                }}</span>
-                <small>{{ group.rows[0].reference }}</small>
-              </h3>
-            }
-            <ul class="rows">
-              @for (row of group.rows; track row.id) {
-                <li>
-                  <button
-                    type="button"
-                    class="campaign-row"
-                    data-og7="campaign-row"
-                    [attr.data-og7-id]="row.id"
-                    [attr.aria-pressed]="c.selectedId() === row.id"
-                    aria-controls="campaign-detail"
-                    (click)="c.select(row)"
-                  >
-                    <span class="promise-cell">
-                      @if (!grouped()) {
-                        <strong>{{
-                          row.companyName || t('unnamedSponsor')
-                        }}</strong>
-                        <small>{{ row.reference }}</small>
-                      }
-                      <strong>{{ t('channels.' + row.channel) }}</strong>
-                      <small>{{
-                        t('passage', {
-                          ordinal: row.ordinal,
-                          quantity: row.quantity
-                        })
-                      }}</small>
-                    </span>
-                    <span
-                      ><small class="mobile-label">{{
-                        t('filters.target')
-                      }}</small
-                      >{{ t('targets.' + row.target) }}</span
-                    >
-                    <span>
-                      <small class="mobile-label">{{
-                        t('columns.preparation')
-                      }}</small>
-                      <span
-                        class="status"
-                        [class.positive]="row.preparation.status === 'approved'"
-                      >
-                        {{ t('preparationStates.' + row.preparation.status) }}
-                      </span>
-                      @if (
-                        row.preparation.status !== 'approved' &&
-                        !row.workflow.deliveryId &&
-                        !row.proof &&
-                        row.workflow.state !== 'complete'
-                      ) {
-                        <small class="conditional">{{
-                          t('conditional')
-                        }}</small>
-                      }
-                    </span>
-                    <span>
-                      <small class="mobile-label">{{
-                        t('filters.state')
-                      }}</small>
-                      <span
-                        class="status"
-                        [class.positive]="row.workflow.state === 'complete'"
-                        [class.warning]="
-                          row.workflow.state === 'blocked' ||
-                          row.workflow.state === 'uncertain' ||
-                          row.workflow.state === 'error'
-                        "
-                      >
-                        {{
-                          row.obligationState === 'adjusted'
-                            ? t('adjusted')
-                            : t('states.' + row.workflow.state)
-                        }}
-                      </span>
-                    </span>
-                    <span [class.overdue]="row.timing?.overdue">
-                      <small class="mobile-label">{{ t('columns.due') }}</small>
-                      {{ date(row.timing?.dueAt) }}
-                    </span>
-                    <span class="proof-cell" [class.positive]="!!row.proof">
-                      <openg7-admin-icon
-                        [name]="row.proof ? 'check' : 'clock'"
-                      />
-                      {{
-                        t(
-                          row.proof
-                            ? 'proofAvailable'
-                            : row.obligationState === 'adjusted'
-                              ? 'proofNotRequired'
-                              : 'proofPending'
-                        )
-                      }}
-                    </span>
-                  </button>
-                </li>
-              }
-            </ul>
-          </section>
-        }
-        @if (c.data(); as data) {
-          <footer class="pagination">
-            <p class="muted">
-              {{
-                t('page', {
-                  page: data.pagination.page,
-                  pages: data.pagination.totalPages
-                })
-              }}
-            </p>
-            <nav [attr.aria-label]="t('pagination')">
-              <button
-                type="button"
-                class="admin-button"
-                data-og7="campaigns-previous"
-                [disabled]="!data.pagination.hasPreviousPage"
-                (click)="changePage(-1)"
-              >
-                {{ t('previous') }}
-              </button>
-              <button
-                type="button"
-                class="admin-button"
-                data-og7="campaigns-next"
-                [disabled]="!data.pagination.hasNextPage"
-                (click)="changePage(1)"
-              >
-                {{ t('next') }}
-              </button>
-            </nav>
-          </footer>
-        }
-      }
-    </section>
-
-    <section
-      id="campaign-detail"
-      class="detail"
-      data-og7="campaign-detail"
-      [attr.aria-label]="t('detail.title')"
-    >
-      @if (c.selected(); as row) {
-        <header class="detail-header">
+        <p>{{ t('destination.invalid') }}</p>
+        <button type="button" class="admin-button" (click)="showAll()">
+          {{ t('destination.showAll') }}
+        </button>
+      </div>
+    } @else {
+      @if (c.query().sponsorshipId) {
+        <div
+          class="scope-note destination-note"
+          data-og7="campaigns-destination"
+        >
           <div>
-            <p class="eyebrow">{{ t('detail.title') }} · {{ row.reference }}</p>
-            <h2>{{ row.companyName || t('unnamedSponsor') }}</h2>
-            <p class="muted">
-              {{ t('channels.' + row.channel) }} ·
-              {{ t('targets.' + row.target) }} ·
+            <p>
               {{
-                t('passage', { ordinal: row.ordinal, quantity: row.quantity })
+                t(
+                  c.query().obligationId
+                    ? 'destination.placement'
+                    : 'destination.dossier'
+                )
               }}
+            </p>
+            @if (
+              c.state() === 'ready' &&
+              !c.selected() &&
+              (c.data()?.pagination?.totalItems ?? 0) > 1
+            ) {
+              <p>{{ t('destination.choose') }}</p>
+            }
+          </div>
+          <button
+            type="button"
+            class="admin-button"
+            data-og7="campaigns-show-all"
+            (click)="showAll()"
+          >
+            {{ t('destination.showAll') }}
+          </button>
+        </div>
+      }
+
+      <form
+        class="filters"
+        data-og7="campaigns-filters"
+        [attr.aria-label]="t('filters.title')"
+        (submit)="apply($event)"
+      >
+        <label class="search-field">
+          {{ t('filters.search') }}
+          <input
+            type="search"
+            maxlength="120"
+            data-og7="campaigns-search"
+            [value]="filters().search"
+            [placeholder]="t('filters.searchPlaceholder')"
+            (input)="setFilter('search', $event)"
+          />
+        </label>
+        <label>
+          {{ t('filters.channel') }}
+          <select
+            data-og7="campaigns-channel"
+            (change)="setFilter('channel', $event)"
+          >
+            <option value="" [selected]="!filters().channel">
+              {{ t('filters.allChannels') }}
+            </option>
+            @for (channel of channels; track channel) {
+              <option
+                [value]="channel"
+                [selected]="filters().channel === channel"
+              >
+                {{ t('channels.' + channel) }}
+              </option>
+            }
+          </select>
+        </label>
+        <label>
+          {{ t('filters.target') }}
+          <select
+            data-og7="campaigns-target"
+            (change)="setFilter('target', $event)"
+          >
+            <option value="" [selected]="!filters().target">
+              {{ t('filters.allTargets') }}
+            </option>
+            @for (target of targets; track target) {
+              <option [value]="target" [selected]="filters().target === target">
+                {{ t('targets.' + target) }}
+              </option>
+            }
+          </select>
+        </label>
+        <label>
+          {{ t('filters.state') }}
+          <select
+            data-og7="campaigns-state"
+            (change)="setFilter('state', $event)"
+          >
+            <option value="" [selected]="!filters().state">
+              {{ t('filters.allStates') }}
+            </option>
+            @for (state of states; track state) {
+              <option [value]="state" [selected]="filters().state === state">
+                {{ t('states.' + state) }}
+              </option>
+            }
+          </select>
+        </label>
+        <label>
+          {{ t('filters.sort') }}
+          <select
+            data-og7="campaigns-sort"
+            (change)="setFilter('sort', $event)"
+          >
+            @for (sort of sorts; track sort) {
+              <option [value]="sort" [selected]="filters().sort === sort">
+                {{ t('sorts.' + sort) }}
+              </option>
+            }
+          </select>
+        </label>
+        <label>
+          {{ t('filters.direction') }}
+          <select
+            data-og7="campaigns-direction"
+            [value]="filters().direction"
+            (change)="setFilter('direction', $event)"
+          >
+            <option value="desc">{{ t('directions.desc') }}</option>
+            <option value="asc">{{ t('directions.asc') }}</option>
+          </select>
+        </label>
+        <button
+          type="submit"
+          class="admin-button admin-button--primary"
+          data-og7="campaigns-apply"
+        >
+          <openg7-admin-icon name="search" />{{ t('filters.apply') }}
+        </button>
+      </form>
+
+      <section
+        class="campaign-list"
+        data-og7="campaigns-list"
+        [attr.aria-label]="t('listTitle')"
+        [attr.aria-busy]="c.state() === 'loading' || c.state() === 'idle'"
+      >
+        <header class="list-header">
+          <div>
+            <h2>{{ t('listTitle') }}</h2>
+            @if (c.data(); as data) {
+              <p class="muted" role="status" aria-live="polite">
+                {{ t('count', { count: data.pagination.totalItems }) }}
+                <span aria-hidden="true"> · </span>
+                {{ t('dossiersOnPage', { count: dossierCount() }) }}
+              </p>
+            }
+          </div>
+          <label class="group-toggle">
+            <input
+              type="checkbox"
+              data-og7="campaigns-grouping"
+              [checked]="grouped()"
+              (change)="grouped.set(!grouped())"
+            />
+            {{ t('groupByDossier') }}
+          </label>
+        </header>
+
+        @if (c.state() === 'loading' || c.state() === 'idle') {
+          <div class="empty-state" role="status" data-og7="campaigns-loading">
+            <openg7-admin-icon name="clock" />
+            <p>{{ t('loading') }}</p>
+          </div>
+        } @else if (c.state() !== 'ready') {
+          <div class="empty-state error-state" role="alert">
+            <openg7-admin-icon name="warning" />
+            <p>{{ t('errors.' + c.state()) }}</p>
+            @if (c.state() !== 'forbidden') {
+              <button type="button" class="admin-button" (click)="c.load()">
+                {{ t('retry') }}
+              </button>
+            }
+          </div>
+        } @else if (!c.data()?.items?.length) {
+          <div class="empty-state" role="status" data-og7="campaigns-empty">
+            <openg7-admin-icon name="publications" />
+            <h3>{{ t('emptyTitle') }}</h3>
+            <p>
+              {{ t(c.query().sponsorshipId ? 'destination.empty' : 'empty') }}
             </p>
           </div>
-          <a class="admin-button" [routerLink]="ownerUrl(row)"
-            ><openg7-admin-icon name="arrow" />{{ t('detail.openOwner') }}</a
-          >
-        </header>
-        <div class="detail-columns">
-          <section
-            class="preparation-panel"
-            data-og7="campaign-preparation"
-            [attr.aria-label]="t('columns.preparation')"
-          >
-            <h3>{{ t('detail.preparation') }}</h3>
-            <p class="muted">{{ t('detail.preparationHelp') }}</p>
-            <openg7-admin-sponsorship-preparation
-              [contributionId]="row.contributionId"
-              [refreshKey]="preparationRefreshKey()"
-            />
-          </section>
-          <section
-            class="content-panel"
-            data-og7="campaign-content"
-            [attr.aria-label]="t('detail.content')"
-          >
-            <h3>{{ t('detail.content') }}</h3>
-            <dl class="facts">
-              <div>
-                <dt>{{ t('detail.paidAt') }}</dt>
-                <dd>{{ date(row.paidAt) }}</dd>
-              </div>
-              <div>
-                <dt>{{ t('detail.format') }}</dt>
-                <dd>{{ t('formats.' + (row.format || 'unspecified')) }}</dd>
-              </div>
-              <div>
-                <dt>{{ t('columns.due') }}</dt>
-                <dd>{{ date(row.timing?.dueAt) }}</dd>
-              </div>
-              <div>
-                <dt>{{ t('detail.scheduled') }}</dt>
-                <dd>
-                  {{ scheduledDate(row.workflow.scheduledAt) }}
-                  @if (row.workflow.scheduledAt) {
-                    <small>{{ t('detail.timezone') }}</small>
-                  }
-                </dd>
-              </div>
-            </dl>
-            <div class="next-step" data-og7="campaign-next-step">
-              <h4>{{ t('detail.nextStep') }}</h4>
-              <p>{{ workflowReason(row) }}</p>
-              <p class="muted">
-                {{ t('responsibility.' + row.workflow.responsibility) }}
-              </p>
-              @if (row.workflow.deliveryId) {
-                <a class="admin-button" [routerLink]="deliveryUrl(row)"
-                  >{{ t('detail.openDelivery')
-                  }}<openg7-admin-icon name="arrow"
-                /></a>
+        } @else {
+          <div class="column-headings" aria-hidden="true">
+            <span>{{ t('columns.promise') }}</span>
+            <span>{{ t('filters.target') }}</span>
+            <span>{{ t('columns.preparation') }}</span>
+            <span>{{ t('filters.state') }}</span>
+            <span>{{ t('columns.due') }}</span>
+            <span>{{ t('columns.proof') }}</span>
+          </div>
+          @for (group of groups(); track group.id) {
+            <section class="dossier-group">
+              @if (grouped()) {
+                <h3 class="group-heading">
+                  <span class="company-mark" aria-hidden="true">
+                    <openg7-admin-icon name="sponsors" />
+                  </span>
+                  <span>{{
+                    group.rows[0].companyName || t('unnamedSponsor')
+                  }}</span>
+                  <small>{{ group.rows[0].reference }}</small>
+                </h3>
               }
-            </div>
-            @if (row.content; as content) {
-              <article class="content-preview">
-                <h4>{{ content.title || t('detail.draft') }}</h4>
-                <p>{{ content.body }}</p>
-              </article>
-            } @else {
-              <p class="content-placeholder">{{ t('detail.noContent') }}</p>
-            }
-            <aside class="authority-note">
-              <openg7-admin-icon name="audit" />
-              <p>{{ t('detail.authorization') }}</p>
-            </aside>
-            <section class="proof-panel" [attr.aria-label]="t('detail.proof')">
-              <h4>
-                <openg7-admin-icon [name]="row.proof ? 'check' : 'clock'" />{{
-                  t('detail.proof')
-                }}
-              </h4>
-              @if (row.proof; as proof) {
-                <p>
-                  {{ t('detail.delivered', { date: date(proof.deliveredAt) }) }}
-                </p>
-                <p class="muted">
-                  {{ t('provenance.' + proof.provenance) }} ·
-                  {{ t('visibility.' + proof.visibility) }}
-                </p>
-                @if (proofUrl(row); as url) {
-                  <a [href]="url" target="_blank" rel="noopener noreferrer"
-                    >{{ t('detail.openProof')
-                    }}<span class="visually-hidden">
-                      {{ t('detail.newTab') }}</span
-                    ></a
-                  >
+              <ul class="rows">
+                @for (row of group.rows; track row.id) {
+                  <li>
+                    <button
+                      type="button"
+                      class="campaign-row"
+                      data-og7="campaign-row"
+                      [attr.data-og7-id]="row.id"
+                      [attr.aria-pressed]="c.selectedId() === row.id"
+                      aria-controls="campaign-detail"
+                      (click)="c.select(row)"
+                    >
+                      <span class="promise-cell">
+                        @if (!grouped()) {
+                          <strong>{{
+                            row.companyName || t('unnamedSponsor')
+                          }}</strong>
+                          <small>{{ row.reference }}</small>
+                        }
+                        <strong>{{ t('channels.' + row.channel) }}</strong>
+                        <small>{{
+                          t('passage', {
+                            ordinal: row.ordinal,
+                            quantity: row.quantity
+                          })
+                        }}</small>
+                      </span>
+                      <span
+                        ><small class="mobile-label">{{
+                          t('filters.target')
+                        }}</small
+                        >{{ t('targets.' + row.target) }}</span
+                      >
+                      <span>
+                        <small class="mobile-label">{{
+                          t('columns.preparation')
+                        }}</small>
+                        <span
+                          class="status"
+                          [class.positive]="
+                            row.preparation.status === 'approved'
+                          "
+                        >
+                          {{ t('preparationStates.' + row.preparation.status) }}
+                        </span>
+                        @if (
+                          row.preparation.status !== 'approved' &&
+                          !row.workflow.deliveryId &&
+                          !row.proof &&
+                          row.workflow.state !== 'complete'
+                        ) {
+                          <small class="conditional">{{
+                            t('conditional')
+                          }}</small>
+                        }
+                      </span>
+                      <span>
+                        <small class="mobile-label">{{
+                          t('filters.state')
+                        }}</small>
+                        <span
+                          class="status"
+                          [class.positive]="row.workflow.state === 'complete'"
+                          [class.warning]="
+                            row.workflow.state === 'blocked' ||
+                            row.workflow.state === 'uncertain' ||
+                            row.workflow.state === 'error'
+                          "
+                        >
+                          {{
+                            row.obligationState === 'adjusted'
+                              ? t('adjusted')
+                              : t('states.' + row.workflow.state)
+                          }}
+                        </span>
+                      </span>
+                      <span [class.overdue]="row.timing?.overdue">
+                        <small class="mobile-label">{{
+                          t('columns.due')
+                        }}</small>
+                        {{ date(row.timing?.dueAt) }}
+                      </span>
+                      <span class="proof-cell" [class.positive]="!!row.proof">
+                        <openg7-admin-icon
+                          [name]="row.proof ? 'check' : 'clock'"
+                        />
+                        {{
+                          t(
+                            row.proof
+                              ? 'proofAvailable'
+                              : row.obligationState === 'adjusted'
+                                ? 'proofNotRequired'
+                                : 'proofPending'
+                          )
+                        }}
+                      </span>
+                    </button>
+                  </li>
                 }
-              } @else {
-                <p class="muted">
-                  {{
-                    t(
-                      row.obligationState === 'adjusted'
-                        ? 'detail.adjusted'
-                        : 'detail.noProof'
-                    )
-                  }}
-                </p>
-              }
+              </ul>
             </section>
-          </section>
-        </div>
-      } @else {
-        <div class="selection-hint">
-          <openg7-admin-icon name="publications" />
-          <p>{{ t('detail.choose') }}</p>
-        </div>
-      }
-    </section>
+          }
+          @if (c.data(); as data) {
+            <footer class="pagination">
+              <p class="muted">
+                {{
+                  t('page', {
+                    page: data.pagination.page,
+                    pages: data.pagination.totalPages
+                  })
+                }}
+              </p>
+              <nav [attr.aria-label]="t('pagination')">
+                <button
+                  type="button"
+                  class="admin-button"
+                  data-og7="campaigns-previous"
+                  [disabled]="!data.pagination.hasPreviousPage"
+                  (click)="changePage(-1)"
+                >
+                  {{ t('previous') }}
+                </button>
+                <button
+                  type="button"
+                  class="admin-button"
+                  data-og7="campaigns-next"
+                  [disabled]="!data.pagination.hasNextPage"
+                  (click)="changePage(1)"
+                >
+                  {{ t('next') }}
+                </button>
+              </nav>
+            </footer>
+          }
+        }
+      </section>
+
+      <section
+        id="campaign-detail"
+        class="detail"
+        data-og7="campaign-detail"
+        [attr.aria-label]="t('detail.title')"
+      >
+        @if (c.selected(); as row) {
+          <header class="detail-header">
+            <div>
+              <p class="eyebrow">
+                {{ t('detail.title') }} · {{ row.reference }}
+              </p>
+              <h2>{{ row.companyName || t('unnamedSponsor') }}</h2>
+              <p class="muted">
+                {{ t('channels.' + row.channel) }} ·
+                {{ t('targets.' + row.target) }} ·
+                {{
+                  t('passage', { ordinal: row.ordinal, quantity: row.quantity })
+                }}
+              </p>
+            </div>
+            <a class="admin-button" [routerLink]="ownerUrl(row)"
+              ><openg7-admin-icon name="arrow" />{{ t('detail.openOwner') }}</a
+            >
+          </header>
+          <div class="detail-columns">
+            <section
+              class="preparation-panel"
+              data-og7="campaign-preparation"
+              [attr.aria-label]="t('columns.preparation')"
+            >
+              <h3>{{ t('detail.preparation') }}</h3>
+              <p class="muted">{{ t('detail.preparationHelp') }}</p>
+              <openg7-admin-sponsorship-preparation
+                detailsMode="inline"
+                [contributionId]="row.contributionId"
+                [refreshKey]="preparationRefreshKey()"
+              />
+            </section>
+            <section
+              class="content-panel"
+              data-og7="campaign-content"
+              [attr.aria-label]="t('detail.content')"
+            >
+              <h3>{{ t('detail.content') }}</h3>
+              <dl class="facts">
+                <div>
+                  <dt>{{ t('detail.paidAt') }}</dt>
+                  <dd>{{ date(row.paidAt) }}</dd>
+                </div>
+                <div>
+                  <dt>{{ t('detail.format') }}</dt>
+                  <dd>{{ t('formats.' + (row.format || 'unspecified')) }}</dd>
+                </div>
+                <div>
+                  <dt>{{ t('columns.due') }}</dt>
+                  <dd>{{ date(row.timing?.dueAt) }}</dd>
+                </div>
+                <div>
+                  <dt>{{ t('detail.scheduled') }}</dt>
+                  <dd>
+                    {{ scheduledDate(row.workflow.scheduledAt) }}
+                    @if (row.workflow.scheduledAt) {
+                      <small>{{ t('detail.timezone') }}</small>
+                    }
+                  </dd>
+                </div>
+              </dl>
+              <div class="next-step" data-og7="campaign-next-step">
+                <h4>{{ t('detail.nextStep') }}</h4>
+                <p>{{ workflowReason(row) }}</p>
+                <p class="muted">
+                  {{ t('responsibility.' + row.workflow.responsibility) }}
+                </p>
+                @if (row.workflow.deliveryId) {
+                  <a class="admin-button" [routerLink]="deliveryUrl(row)"
+                    >{{ t('detail.openDelivery')
+                    }}<openg7-admin-icon name="arrow"
+                  /></a>
+                }
+              </div>
+              @if (row.content; as content) {
+                <article class="content-preview">
+                  <h4>{{ content.title || t('detail.draft') }}</h4>
+                  <p>{{ content.body }}</p>
+                </article>
+              } @else {
+                <p class="content-placeholder">{{ t('detail.noContent') }}</p>
+              }
+              <aside class="authority-note">
+                <openg7-admin-icon name="audit" />
+                <p>{{ t('detail.authorization') }}</p>
+              </aside>
+              <section
+                class="proof-panel"
+                [attr.aria-label]="t('detail.proof')"
+              >
+                <h4>
+                  <openg7-admin-icon [name]="row.proof ? 'check' : 'clock'" />{{
+                    t('detail.proof')
+                  }}
+                </h4>
+                @if (row.proof; as proof) {
+                  <p>
+                    {{
+                      t('detail.delivered', { date: date(proof.deliveredAt) })
+                    }}
+                  </p>
+                  <p class="muted">
+                    {{ t('provenance.' + proof.provenance) }} ·
+                    {{ t('visibility.' + proof.visibility) }}
+                  </p>
+                  @if (proofUrl(row); as url) {
+                    <a [href]="url" target="_blank" rel="noopener noreferrer"
+                      >{{ t('detail.openProof')
+                      }}<span class="visually-hidden">
+                        {{ t('detail.newTab') }}</span
+                      ></a
+                    >
+                  }
+                } @else {
+                  <p class="muted">
+                    {{
+                      t(
+                        row.obligationState === 'adjusted'
+                          ? 'detail.adjusted'
+                          : 'detail.noProof'
+                      )
+                    }}
+                  </p>
+                }
+              </section>
+            </section>
+          </div>
+        } @else {
+          <div class="selection-hint">
+            <openg7-admin-icon name="publications" />
+            <p>{{ t('detail.choose') }}</p>
+          </div>
+        }
+      </section>
+    }
   </section>
 </openg7-admin-layout>

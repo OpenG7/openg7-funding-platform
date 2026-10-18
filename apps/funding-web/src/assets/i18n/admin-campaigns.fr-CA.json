@@ -24,6 +24,14 @@
   "pagination": "Pagination des campagnes",
   "previous": "Précédente",
   "next": "Suivante",
+  "destination": {
+    "dossier": "Prestations du dossier ciblé",
+    "placement": "Prestation ciblée du dossier",
+    "choose": "Choisissez la prestation à consulter dans la liste.",
+    "showAll": "Afficher toutes les prestations",
+    "invalid": "Ce lien ne permet pas d’identifier un dossier et une prestation valides.",
+    "empty": "Aucune prestation accessible ne correspond à ce lien. Les engagements doivent être enregistrés pour apparaître ici."
+  },
   "filters": {
     "title": "Filtrer les campagnes",
     "search": "Rechercher un dossier",

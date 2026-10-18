@@ -122,6 +122,9 @@ PostgreSQL réels. Le registre vérifié en CI conserve les scénarios exacts.
 
 ## Travaux envisagés
 
+- [Blueprint des opérations Guide, commandites et campagnes](development/admin-operations-blueprint.md) :
+  inventaire des zones et actions par surface et onglet, responsabilités,
+  périmètres à séparer et composants transversaux à réutiliser.
 - [Analyse de mise en œuvre de la modération des commandites](development/sponsorship-moderation-implementation-analysis.md) :
   écarts avec la politique V1.0, textes FR/EN, décisions versionnées, corrections,
   réexamens et 25 tâches P0 à P3 à réaliser et vérifier.

@@ -35,7 +35,33 @@ test('service uses the actual source query in a read-only consistent snapshot, e
   assert.doesNotMatch(calls[1].sql, /c\.status\s*=\s*'paid'/);
   assert.equal(calls[2].sql, 'COMMIT');
   assert.equal(calls[3].sql, 'release');
-  assert.deepEqual(calls[1].values, [null, null, null]);
+  assert.deepEqual(calls[1].values, [null, null, null, null, null]);
+});
+
+test('exact campaign scopes bind dossier and passage UUIDs in the database read', async () => {
+  const sponsorshipId = 'a1000000-0000-4000-8000-000000000001';
+  const obligationId = 'b2000000-0000-4000-8000-000000000026';
+  const calls = [];
+  await loadAdminCampaignsOnClient(
+    {
+      async query(sql, values) {
+        calls.push({ sql, values });
+        return { rows: [] };
+      }
+    },
+    { ...query, sponsorshipId, obligationId },
+    now
+  );
+  assert.match(calls[0].sql, /c\.id=\$4::uuid/);
+  assert.match(calls[0].sql, /ob\.id=\$5::uuid/);
+  assert.doesNotMatch(calls[0].sql, new RegExp(sponsorshipId));
+  assert.deepEqual(calls[0].values, [
+    null,
+    null,
+    null,
+    sponsorshipId,
+    obligationId
+  ]);
 });
 
 function source(
@@ -138,6 +164,72 @@ function fixture(sources) {
     }
   };
 }
+
+test('exact dossier scopes retain multiple passages and resolve a passage beyond the first page', async () => {
+  const dossier = source(1, { quantity: 30, channel: 'facebook' });
+  const other = source(2, {
+    approval: { version: 'current', approvedAt: now.toISOString() }
+  });
+  const target = dossier.commitment.obligations[25];
+  const unscoped = await fixture([dossier, other]).list();
+  assert.equal(
+    unscoped.items.some((item) => item.id === target.id),
+    false
+  );
+
+  const scope = { sponsorshipId: dossier.contribution_id };
+  const first = await fixture([dossier, other]).list(scope);
+  const second = await fixture([dossier, other]).list({ ...scope, page: 2 });
+  assert.equal(first.pagination.totalItems, 30);
+  assert.equal(first.pagination.totalPages, 2);
+  assert.equal(first.items.length, 25);
+  assert.equal(second.items.length, 5);
+  assert.ok(
+    [...first.items, ...second.items].every(
+      (item) => item.contributionId === dossier.contribution_id
+    )
+  );
+
+  const exact = fixture([dossier, other]);
+  const response = await exact.list({ ...scope, obligationId: target.id });
+  assert.equal(response.pagination.totalItems, 1);
+  assert.equal(response.pagination.totalPages, 1);
+  assert.equal(response.items[0].id, target.id);
+  assert.equal(response.items[0].ordinal, 26);
+  assert.deepEqual(exact.calls.preparation, [dossier.contribution_id]);
+  assert.deepEqual(exact.calls.progress, [dossier.contribution_id]);
+});
+
+test('missing or mismatched campaign scopes remain empty without projecting another dossier', async () => {
+  const dossier = source(1, { quantity: 3 });
+  const other = source(2, {
+    approval: { version: 'current', approvedAt: now.toISOString() }
+  });
+  for (const scope of [
+    { sponsorshipId: '99999999-0000-4000-8000-000000000001' },
+    {
+      sponsorshipId: dossier.contribution_id,
+      obligationId: other.commitment.obligations[0].id
+    },
+    {
+      sponsorshipId: dossier.contribution_id,
+      obligationId: '99999999-0000-4000-8000-000000000002'
+    }
+  ]) {
+    const f = fixture([dossier, other]);
+    const response = await f.list(scope);
+    assert.equal(response.pagination.totalItems, 0);
+    assert.deepEqual(response.items, []);
+    assert.deepEqual(f.calls, { preparation: [], progress: [] });
+  }
+  await assert.rejects(
+    fixture([dossier]).list({
+      obligationId: dossier.commitment.obligations[0].id
+    }),
+    (error) =>
+      error.code === 'CAMPAIGNS_INVALID_REQUEST' && error.status === 400
+  );
+});
 
 test('global current preparation priority precedes pagination, without dropping unapproved promised work', async () => {
   const sources = Array.from({ length: 60 }, (_, n) => source(n + 1));

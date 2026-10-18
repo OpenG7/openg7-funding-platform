@@ -11,6 +11,8 @@ const defaults = {
   sort: 'preparation',
   direction: 'desc'
 };
+const sponsorshipId = 'a1000000-0000-4000-8000-000000000001';
+const obligationId = 'b2000000-0000-4000-8000-000000000026';
 
 function fixture({ denied, unavailable = false, failure } = {}) {
   const calls = [];
@@ -95,6 +97,22 @@ test('campaign list accepts complete validated filters and safe defaults', async
   });
 });
 
+test('campaign handoffs accept only exact dossier and passage identifiers and normalize UUID case', async () => {
+  const f = fixture();
+  const result = await f.run(
+    `/api/admin/campaigns?sponsorshipId=${sponsorshipId.toUpperCase()}&obligationId=${obligationId.toUpperCase()}`
+  );
+  assert.equal(result.status, 200);
+  assert.deepEqual(f.calls, [
+    'access',
+    { ...defaults, sponsorshipId, obligationId }
+  ]);
+  assert.deepEqual(
+    parseAdminCampaignsQuery(new URLSearchParams({ sponsorshipId })),
+    { ...defaults, sponsorshipId }
+  );
+});
+
 test('campaign filters reject unknown, duplicate and malformed values before service access', async () => {
   for (const query of [
     'unknown=1',
@@ -107,6 +125,14 @@ test('campaign filters reject unknown, duplicate and malformed values before ser
     'page=9007199254740991',
     'pageSize=10',
     'pageSize=',
+    'sponsorshipId=',
+    'sponsorshipId=not-a-uuid',
+    `sponsorshipId=%20${sponsorshipId}`,
+    `sponsorshipId=${sponsorshipId}&sponsorshipId=${sponsorshipId}`,
+    `obligationId=${obligationId}`,
+    `sponsorshipId=${sponsorshipId}&obligationId=`,
+    `sponsorshipId=${sponsorshipId}&obligationId=not-a-uuid`,
+    `sponsorshipId=${sponsorshipId}&obligationId=${obligationId}&obligationId=${obligationId}`,
     'channel=instagram',
     'channel=',
     'target=external',

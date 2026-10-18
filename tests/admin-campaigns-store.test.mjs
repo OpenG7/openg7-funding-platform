@@ -487,6 +487,149 @@ for (const change of ['revision', 'session']) {
   });
 }
 
+test('a dossier handoff clears unrelated filters and leaves multiple passages for an explicit choice', async (t) => {
+  const f = fixture(t);
+  await f.store.connect();
+  await f.store.load({
+    ...DEFAULT_CAMPAIGNS_QUERY,
+    page: 2,
+    search: 'Another dossier',
+    channel: 'linkedin',
+    state: 'complete'
+  });
+  const sponsorshipId = '10000000-0000-4000-8000-000000000001';
+  f.read(async () =>
+    response(
+      row('20000000-0000-4000-8000-000000000001'),
+      row('20000000-0000-4000-8000-000000000002')
+    )
+  );
+  await f.store.connect({ sponsorshipId });
+  assert.deepEqual(f.calls.at(-1).query, {
+    ...DEFAULT_CAMPAIGNS_QUERY,
+    sponsorshipId
+  });
+  assert.equal(f.store.selected(), null);
+});
+
+test('a dossier with exactly one promised passage selects that passage after the scoped read', async (t) => {
+  const f = fixture(t);
+  const id = '20000000-0000-4000-8000-000000000001';
+  f.read(async () => response(row(id)));
+  await f.store.connect({
+    sponsorshipId: '10000000-0000-4000-8000-000000000001'
+  });
+  assert.equal(f.store.selectedId(), id);
+});
+
+test('a handoff to the same dossier preserves the selected twenty-sixth passage through an exact API scope', async (t) => {
+  const f = fixture(t);
+  const sponsorshipId = '10000000-0000-4000-8000-000000000001';
+  const obligationId = '20000000-0000-4000-8000-000000000026';
+  f.read(async () => response(row(obligationId)));
+  await f.store.connect();
+  await f.store.load({ ...DEFAULT_CAMPAIGNS_QUERY, page: 2 });
+  f.store.select(f.store.data().items[0]);
+  f.store.detach();
+  await f.store.connect({ sponsorshipId });
+  assert.deepEqual(f.calls.at(-1).query, {
+    ...DEFAULT_CAMPAIGNS_QUERY,
+    sponsorshipId,
+    obligationId
+  });
+  assert.equal(f.store.selectedId(), obligationId);
+});
+
+test('an explicit unknown passage does not fall back to another obligation', async (t) => {
+  const f = fixture(t);
+  const sponsorshipId = '10000000-0000-4000-8000-000000000001';
+  const obligationId = '20000000-0000-4000-8000-000000000099';
+  f.read(async () => response());
+  await f.store.connect({ sponsorshipId, obligationId });
+  assert.deepEqual(f.calls.at(-1).query, {
+    ...DEFAULT_CAMPAIGNS_QUERY,
+    sponsorshipId,
+    obligationId
+  });
+  assert.equal(f.store.state(), 'ready');
+  assert.equal(f.store.selected(), null);
+});
+
+test('a late dossier handoff cannot select a passage after another destination is loaded', async (t) => {
+  const f = fixture(t);
+  const old = deferred();
+  const firstId = '10000000-0000-4000-8000-000000000001';
+  const secondId = '10000000-0000-4000-8000-000000000002';
+  f.read((query) =>
+    query.sponsorshipId === firstId
+      ? old.promise
+      : Promise.resolve(
+          response(
+            {
+              ...row('20000000-0000-4000-8000-000000000002'),
+              contributionId: secondId
+            },
+            {
+              ...row('20000000-0000-4000-8000-000000000003'),
+              contributionId: secondId
+            }
+          )
+        )
+  );
+  const obsolete = f.store.connect({ sponsorshipId: firstId });
+  await f.store.connect({ sponsorshipId: secondId });
+  old.resolve(response(row('20000000-0000-4000-8000-000000000001')));
+  await obsolete;
+  assert.equal(f.store.query().sponsorshipId, secondId);
+  assert.equal(f.store.selected(), null);
+  assert.equal(f.store.data().items[0].contributionId, secondId);
+});
+
+test('showing all campaigns removes a previous dossier and obligation scope', async (t) => {
+  const f = fixture(t);
+  const obligationId = '20000000-0000-4000-8000-000000000001';
+  f.read(async () => response(row(obligationId)));
+  await f.store.connect({
+    sponsorshipId: '10000000-0000-4000-8000-000000000001',
+    obligationId
+  });
+  assert.equal(f.store.selectedId(), obligationId);
+  await f.store.connect(null);
+  assert.deepEqual(f.calls.at(-1).query, DEFAULT_CAMPAIGNS_QUERY);
+  assert.deepEqual(f.store.query(), DEFAULT_CAMPAIGNS_QUERY);
+  assert.equal(f.store.selectedId(), null);
+});
+
+for (const synchronous of [false, true]) {
+  test(`a focused route keeps its dossier after a session change${synchronous ? ' before effects flush' : ''}`, async (t) => {
+    const f = fixture(t);
+    const sponsorshipId = '10000000-0000-4000-8000-000000000001';
+    f.read(async () =>
+      response(
+        row('20000000-0000-4000-8000-000000000001'),
+        row('20000000-0000-4000-8000-000000000002')
+      )
+    );
+    await f.store.connect({ sponsorshipId });
+    f.store.select(f.store.data().items[0]);
+    await f.store.load({ ...f.store.query(), channel: 'facebook' });
+    const before = f.calls.length;
+    f.admin.identity.update((identity) => ({
+      ...identity,
+      sessionId: 'synthetic-replacement-session'
+    }));
+    if (synchronous) await f.store.load();
+    await settle();
+    assert.equal(f.calls.length, before + 1);
+    assert.deepEqual(f.calls.at(-1).query, {
+      ...DEFAULT_CAMPAIGNS_QUERY,
+      sponsorshipId
+    });
+    assert.equal(f.store.selectedId(), null);
+    assert.equal(f.store.state(), 'ready');
+  });
+}
+
 test('server rendering never starts an authenticated campaigns read', async (t) => {
   const f = fixture(t, { browser: false });
   await f.store.connect();

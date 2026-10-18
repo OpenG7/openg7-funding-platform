@@ -2,6 +2,8 @@ import { AxeBuilder } from '@axe-core/playwright';
 import type { Locator, Page } from '@playwright/test';
 import type {
   AdminAutomaticRunState,
+  AdminCampaignItem,
+  AdminCampaignsResponse,
   AdminPreparationReceipt,
   AdminWorkQueueResponse,
   PreparationAssistanceSummary
@@ -114,6 +116,7 @@ async function fixture(page: Page, language = 'fr-CA') {
     ),
     state: state(),
     reads: [] as number[],
+    campaignQueries: [] as URLSearchParams[],
     writes: [] as { pathname: string; body: Record<string, unknown> }[],
     approvalGate: null as Promise<void> | null,
     receiptGate: null as Promise<void> | null,
@@ -225,6 +228,78 @@ async function fixture(page: Page, language = 'fr-CA') {
     }
     if (pathname === '/api/admin/attention')
       return route.fulfill({ json: attention });
+    if (pathname === '/api/admin/campaigns') {
+      f.campaignQueries.push(url.searchParams);
+      const items: AdminCampaignItem[] = [...f.receipts.values()].flatMap(
+        (current) =>
+          (current.balance?.obligations ?? []).map((obligation) => ({
+            id: obligation.id,
+            contributionId: current.contributionId,
+            reference: current.reference,
+            companyName: `Atelier synthétique ${current.reference}`,
+            paidAt: current.payment.confirmedAt ?? observedAt,
+            channel: obligation.channel,
+            target: obligation.target,
+            ordinal: obligation.ordinal,
+            quantity:
+              current.acceptedOffer?.benefits.find(
+                (benefit) => benefit.id === obligation.benefitId
+              )?.quantity ?? 1,
+            format: obligation.format ?? null,
+            obligationState: obligation.state,
+            timing: null,
+            preparation: {
+              status: current.status,
+              version: current.version,
+              approvedAt: current.approval?.approvedAt ?? null,
+              blockers: current.blockers.map((blocker) => blocker.code)
+            },
+            workflow: {
+              obligationId: obligation.id,
+              channel: obligation.channel,
+              target: obligation.target,
+              ordinal: obligation.ordinal,
+              state: 'action_required',
+              responsibility: 'admin',
+              reason: 'publication_draft_missing',
+              deliveryId: null,
+              scheduledAt: null
+            },
+            content: null,
+            proof: null,
+            adminUrl: `/admin/fundraiser/sponsors?sponsorshipId=${current.contributionId}&tab=publication`
+          }))
+      );
+      const selected = items.filter(
+        (item) =>
+          item.contributionId === url.searchParams.get('sponsorshipId') &&
+          (!url.searchParams.has('obligationId') ||
+            item.id === url.searchParams.get('obligationId'))
+      );
+      const json: AdminCampaignsResponse = {
+        generatedAt: observedAt,
+        items: selected,
+        pagination: {
+          page: 1,
+          pageSize: 25,
+          totalItems: selected.length,
+          totalPages: selected.length ? 1 : 0,
+          hasPreviousPage: false,
+          hasNextPage: false
+        }
+      };
+      return route.fulfill({ json });
+    }
+    if (pathname === '/api/admin/sponsorships/preparation') {
+      const source = [...f.receipts.values()].find(
+        (current) =>
+          current.contributionId === url.searchParams.get('sponsorshipId')
+      );
+      return route.fulfill({
+        status: source ? 200 : 404,
+        json: source ? { ...source, context: 'dossier' } : {}
+      });
+    }
     if (
       pathname === '/api/admin/preparation-assistance/summary' &&
       f.assistance
@@ -485,8 +560,7 @@ async function expectCompactReceipt(page: Page) {
       }
     };
   });
-  // Allow the agreement and traceability label to wrap on narrow screens;
-  // geometry above still requires every approval control to be visible together.
+  // The geometry above requires every approval control to be visible together.
   expect(measurements.receipt.heightCss).toBeLessThanOrEqual(580);
   return measurements;
 }
@@ -807,10 +881,7 @@ test('a historical website offer names its promised presentation and its private
   await expect(hook(page, 'content')).toContainText(
     'Présentation privée du dossier synthétique 1.'
   );
-  await hook(page, 'details').locator('summary').click();
-  await expect(hook(page, 'details')).toContainText(
-    'synthetic-historical-offer-v1'
-  );
+  await expect(hook(page, 'details')).toHaveCount(0);
   expect(f.writes).toEqual([]);
   expect(f.state.run?.processedCount).toBe(3);
 });
@@ -1078,7 +1149,9 @@ for (const language of ['fr-CA', 'en']) {
     await actions.click();
     await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'open');
     await expect(pilotAction(page, 'open')).toBeVisible();
-    await expect(pilotAction(page, 'details')).toBeVisible();
+    await expect(pilotAction(page, 'details')).toHaveCount(0);
+    await expect(pilotAction(page, 'campaigns')).toBeVisible();
+    await expect(hook(page, 'details')).toHaveCount(0);
     expect(f.writes).toEqual([]);
     await page.keyboard.press('Escape');
     await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'peek');
@@ -1265,6 +1338,71 @@ test('a prerequisite primary action opens its owning dossier without a preparati
   expect(f.writes).toEqual([]);
 });
 
+for (const language of ['fr-CA', 'en']) {
+  test(`the Guide sends its current dossier to Campaigns without choosing among several services in ${language}`, async ({
+    page
+  }) => {
+    const f = await fixture(page, language);
+    await open(page);
+    await expect(hook(page, 'details')).toHaveCount(0);
+    await pilot(page).locator('[data-og7="preparation-pilot-actions"]').click();
+    await expect(pilotAction(page, 'details')).toHaveCount(0);
+    const action = pilotAction(page, 'campaigns');
+    await expect(action).toHaveAccessibleName(
+      language === 'en'
+        ? /View services in Campaigns/
+        : /Voir les prestations dans Campagnes/
+    );
+    await action.focus();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(
+      `/admin/fundraiser/campaigns?sponsorshipId=${contributionId(3)}`
+    );
+    const rows = page.locator('[data-og7="campaign-row"]');
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(0)).toHaveAttribute('aria-pressed', 'false');
+    await expect(rows.nth(1)).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator('[data-og7="campaign-preparation"]')).toHaveCount(
+      0
+    );
+    expect(f.campaignQueries[0]?.get('sponsorshipId')).toBe(contributionId(3));
+    expect(f.campaignQueries[0]?.has('obligationId')).toBe(false);
+    expect(f.writes).toEqual([]);
+  });
+}
+
+test('Gamepad X sends the Guide receipt with a sole service to its Campaigns preparation without a mutation', async ({
+  page
+}) => {
+  await installAdminController(page);
+  const f = await fixture(page);
+  await open(page);
+  await hook(page, 'previous').click();
+  await expectPosition(page, 2);
+  await hook(page, 'previous').click();
+  await expectPosition(page, 1);
+  await expect(hook(page, 'details')).toHaveCount(0);
+  await pilot(page).locator('[data-og7="preparation-pilot-actions"]').click();
+  const pad = adminController(page);
+  await pad.release();
+  await pad.press('X');
+  await expect(page).toHaveURL(
+    `/admin/fundraiser/campaigns?sponsorshipId=${contributionId(1)}`
+  );
+  const rows = page.locator('[data-og7="campaign-row"]');
+  await expect(rows).toHaveCount(1);
+  await expect(rows).toHaveAttribute('aria-pressed', 'true');
+  const selected = page.locator('[data-og7="campaign-preparation"]');
+  await expect(
+    selected.locator('[data-og7="preparation-receipt"]')
+  ).toHaveAttribute('data-og7-id', contributionId(1));
+  await expect(
+    selected.locator('[data-og7="preparation-receipt-details"]')
+  ).toHaveCount(1);
+  expect(f.campaignQueries[0]?.get('sponsorshipId')).toBe(contributionId(1));
+  expect(f.writes).toEqual([]);
+});
+
 test('the preparation controller asks for confirmation before final approval and cancellation sends nothing', async ({
   page
 }) => {
@@ -1313,7 +1451,7 @@ test('the incomplete preparation controller remains accessible in the effective 
     );
     await actions.click();
     await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'open');
-    for (const id of ['open', 'details', 'history', 'back']) {
+    for (const id of ['open', 'campaigns', 'history', 'back']) {
       const control = pilotAction(page, id);
       await expect(control).toHaveAccessibleName(/\S/);
       await expectInsideViewport(control);
@@ -1372,7 +1510,7 @@ test('Gamepad first selects an unfocused prerequisite and the controller toggle 
   expect(f.writes).toEqual([]);
 });
 
-test('Gamepad X and Y open the existing preparation detail and history without executing a mutation', async ({
+test('Gamepad Y opens the existing preparation history without executing a mutation', async ({
   page
 }) => {
   await installAdminController(page);
@@ -1398,15 +1536,8 @@ test('Gamepad X and Y open the existing preparation detail and history without e
   const actions = pilot(page).locator('[data-og7="preparation-pilot-actions"]');
   await actions.click();
   await expect(pilotAction(page, 'approve')).toBeFocused();
-  await pad.release();
-  await pad.press('X');
-  await expect(hook(page, 'details')).toHaveJSProperty('open', true);
-  await expect(hook(page, 'details').locator('summary')).toBeFocused();
-  await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'peek');
-  expect(f.writes).toEqual([]);
-
-  await actions.click();
-  await expect(pilotAction(page, 'approve')).toBeFocused();
+  await expect(hook(page, 'details')).toHaveCount(0);
+  await expect(pilotAction(page, 'details')).toHaveCount(0);
   await pad.release();
   await pad.press('Y');
   await expect(hook(page, 'history')).toHaveJSProperty('open', true);

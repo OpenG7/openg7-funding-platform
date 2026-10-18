@@ -24,6 +24,14 @@
   "pagination": "Campaign pagination",
   "previous": "Previous",
   "next": "Next",
+  "destination": {
+    "dossier": "Promised services for the linked dossier",
+    "placement": "Linked promised service",
+    "choose": "Choose the promised service to view from the list.",
+    "showAll": "Show all promised services",
+    "invalid": "This link does not identify a valid dossier and promised service.",
+    "empty": "No accessible promised service matches this link. Commitments must be recorded before they appear here."
+  },
   "filters": {
     "title": "Filter campaigns",
     "search": "Find a dossier",
