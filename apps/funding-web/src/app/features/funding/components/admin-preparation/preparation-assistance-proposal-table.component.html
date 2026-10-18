@@ -1,0 +1,215 @@
+<div class="proposal" data-og7="assistance-proposal">
+  @if (structured()) {
+    <p class="counts" data-og7="assistance-proposal-counts">
+      {{
+        t('proposal.counts', {
+          publications: publicationClauses(),
+          proofs: proofClauses(),
+          clauses: items().length
+        })
+      }}
+    </p>
+  } @else {
+    <p class="notice" data-og7="assistance-proposal-legacy">
+      {{ t('proposal.legacy') }}
+    </p>
+  }
+  <p class="notice">{{ t('proposal.reviewHelp') }}</p>
+  <div class="table-frame">
+    <table data-og7="assistance-proposal-table" role="table">
+      <caption>
+        {{
+          t('proposal.caption')
+        }}
+      </caption>
+      <thead role="rowgroup">
+        <tr role="row">
+          <th scope="col">{{ t('proposal.columns.service') }}</th>
+          <th scope="col">{{ t('proposal.columns.details') }}</th>
+          <th scope="col">{{ t('proposal.columns.source') }}</th>
+          <th scope="col">{{ t('proposal.columns.review') }}</th>
+        </tr>
+      </thead>
+      <tbody role="rowgroup">
+        @for (item of items(); track item.id; let index = $index) {
+          <tr
+            role="row"
+            data-og7="assistance-clause"
+            [attr.data-og7-id]="item.id"
+          >
+            <td role="cell">
+              <span class="mobile-label" aria-hidden="true">{{
+                t('proposal.columns.service')
+              }}</span>
+              <strong class="row-title"
+                >{{ index + 1 }} ·
+                {{
+                  t('proposal.natures.' + (item.structured?.nature ?? 'other'))
+                }}</strong
+              >
+              @for (channel of item.channels; track channel) {
+                <span class="channel">{{
+                  t('proposal.channels.' + channel)
+                }}</span>
+              }
+              @if (!item.channels.length) {
+                <p class="notice">{{ t('proposal.channelUnknown') }}</p>
+              }
+            </td>
+            <td role="cell">
+              <span class="mobile-label" aria-hidden="true">{{
+                t('proposal.columns.details')
+              }}</span>
+              @if (item.structured; as details) {
+                <dl class="terms" data-og7="assistance-proposal-terms">
+                  <div>
+                    <dt>{{ t('proposal.quantity') }}</dt>
+                    <dd data-og7="assistance-proposal-quantity">
+                      {{ details.quantity ?? t('proposal.unknown') }}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>{{ t('proposal.target') }}</dt>
+                    <dd>
+                      {{
+                        details.target
+                          ? t('proposal.targets.' + details.target)
+                          : t('proposal.unknown')
+                      }}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>{{ t('proposal.format') }}</dt>
+                    <dd>
+                      {{
+                        t('proposal.formats.' + (details.format ?? 'unknown'))
+                      }}
+                    </dd>
+                  </div>
+                </dl>
+                <ul class="facts" data-og7="assistance-proposal-facts">
+                  @for (fact of details.facts; track $index) {
+                    <li>
+                      <strong>{{ t('proposal.facts.' + fact.kind) }}</strong>
+                      <q>{{ fact.citation.excerpt }}</q>
+                    </li>
+                  }
+                </ul>
+                @if (details.gaps.length) {
+                  <details data-og7="assistance-proposal-gaps">
+                    <summary>
+                      {{
+                        t('proposal.gapsTitle', { count: details.gaps.length })
+                      }}
+                    </summary>
+                    <ul>
+                      @for (gap of details.gaps; track gap) {
+                        <li>{{ t('proposal.gaps.' + gap) }}</li>
+                      }
+                    </ul>
+                  </details>
+                }
+              } @else {
+                <p class="notice">{{ t('proposal.noStructuredDetails') }}</p>
+              }
+            </td>
+            <td role="cell">
+              <span class="mobile-label" aria-hidden="true">{{
+                t('proposal.columns.source')
+              }}</span>
+              <blockquote>{{ item.citation.excerpt }}</blockquote>
+              <p class="notice">
+                {{
+                  t('citation', {
+                    version: item.citation.sourceVersion,
+                    start: item.citation.start,
+                    end: item.citation.end
+                  })
+                }}
+              </p>
+            </td>
+            <td role="cell">
+              <span class="mobile-label" aria-hidden="true">{{
+                t('proposal.columns.review')
+              }}</span>
+              <p
+                class="row-state"
+                data-og7="assistance-proposal-row-state"
+                [attr.data-og7-state]="
+                  resolution(item.id)?.disposition ?? 'unresolved'
+                "
+              >
+                {{
+                  t(
+                    'proposal.reviewStates.' +
+                      (resolution(item.id)?.disposition ?? 'unresolved')
+                  )
+                }}
+              </p>
+              <p
+                class="notice"
+                [class.warning]="item.attention === 'unsupported_terms'"
+              >
+                {{ t('attention.' + item.attention) }}
+              </p>
+              <fieldset [disabled]="disabled()">
+                <legend>{{ t('clause', { id: item.id }) }}</legend>
+                <label
+                  >{{ t('disposition')
+                  }}<select
+                    data-og7="assistance-clause-disposition"
+                    [value]="resolution(item.id)?.disposition ?? 'unresolved'"
+                    (change)="disposition(item.id, $event)"
+                  >
+                    @for (choice of dispositions; track choice) {
+                      <option
+                        [value]="choice"
+                        [disabled]="
+                          choice === 'included' &&
+                          item.attention === 'unsupported_terms'
+                        "
+                      >
+                        {{ t('dispositions.' + choice) }}
+                      </option>
+                    }
+                  </select></label
+                >
+                @if (resolution(item.id)?.disposition === 'included') {
+                  <label
+                    >{{ t('benefit')
+                    }}<select
+                      data-og7="assistance-clause-benefit"
+                      [value]="resolution(item.id)?.benefitId ?? ''"
+                      (change)="benefit(item.id, $event)"
+                    >
+                      <option value="">{{ t('chooseBenefit') }}</option>
+                      @for (
+                        benefit of offer()?.benefits ?? [];
+                        track benefit.id
+                      ) {
+                        <option [value]="benefit.id">
+                          {{ benefit.channel }} · {{ benefit.target }} ·
+                          {{ benefit.quantity }}
+                        </option>
+                      }
+                    </select></label
+                  >
+                }
+                <label
+                  >{{ t('clauseNote')
+                  }}<textarea
+                    data-og7="assistance-clause-note"
+                    [value]="resolution(item.id)?.note ?? ''"
+                    (input)="note(item.id, $event)"
+                    maxlength="2000"
+                    rows="2"
+                  ></textarea>
+                </label>
+              </fieldset>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

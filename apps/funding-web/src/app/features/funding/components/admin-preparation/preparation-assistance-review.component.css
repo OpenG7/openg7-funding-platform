@@ -39,13 +39,6 @@ select {
 fieldset {
   min-width: 0;
 }
-.clause {
-  margin-block: 0.8rem;
-  border: 1px solid var(--admin-border);
-  border-radius: var(--admin-radius-control);
-  padding: 0.75rem;
-}
-blockquote,
 pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;

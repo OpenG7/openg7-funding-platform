@@ -19,7 +19,6 @@ import { ActivatedRoute, Router } from '@angular/router';
 import {
   PREPARATION_SOURCE_MAX_LENGTH,
   normalizePreparationAssistanceDraft,
-  type PreparationAssistanceResolution,
   type SponsorshipOfferSnapshot
 } from '@openg7/funding-core';
 
@@ -32,12 +31,13 @@ import {
   PreparationAssistanceController,
   type PreparationAssistanceSelection
 } from './preparation-assistance.controller.js';
+import { PreparationAssistanceProposalTableComponent } from './preparation-assistance-proposal-table.component.js';
 
 /** Historical agreement assistance. Extraction never checks or approves a business control. */
 @Component({
   selector: 'openg7-preparation-assistance-review',
   standalone: true,
-  imports: [AdminIconComponent],
+  imports: [AdminIconComponent, PreparationAssistanceProposalTableComponent],
   templateUrl: './preparation-assistance-review.component.html',
   styleUrls: [
     '../admin-ui/admin-controls.css',
@@ -61,8 +61,6 @@ export class PreparationAssistanceReviewComponent {
   readonly languageReady = signal(false);
   readonly languageError = signal(false);
   readonly maxSourceLength = PREPARATION_SOURCE_MAX_LENGTH;
-  readonly dispositions: readonly PreparationAssistanceResolution['disposition'][] =
-    ['unresolved', 'included', 'unsupported', 'excluded'];
   private readonly admin = inject(FundingAdminService);
   readonly i18n = inject(FundingI18nService);
   private readonly document = inject(DOCUMENT);
@@ -181,21 +179,6 @@ export class PreparationAssistanceReviewComponent {
   }
   value(event: Event): string {
     return (event.target as HTMLInputElement).value;
-  }
-  resolution(id: string): PreparationAssistanceResolution | undefined {
-    return this.c.items().find((item) => item.itemId === id);
-  }
-  disposition(id: string, event: Event): void {
-    const value = this.value(
-      event
-    ) as PreparationAssistanceResolution['disposition'];
-    if (this.dispositions.includes(value))
-      this.c.resolve(id, { disposition: value });
-  }
-  benefit(id: string, event: Event): void {
-    const value = this.value(event);
-    const benefit = this.offer()?.benefits.find((item) => item.id === value);
-    this.c.resolve(id, { benefitId: benefit?.id ?? null });
   }
   chooseForm(): void {
     const state = this.c.data();

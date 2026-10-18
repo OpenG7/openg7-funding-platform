@@ -1,7 +1,7 @@
 import type { PoolClient } from 'pg';
 
 import {
-  PREPARATION_ASSISTANCE_ADAPTER,
+  PREPARATION_ASSISTANCE_STRUCTURED_ADAPTER,
   type PreparationAssistanceSource
 } from '../../../../packages/funding-core/src/index.js';
 
@@ -24,11 +24,21 @@ export async function enqueueAssistanceRun(
     context.state === 'needs_confirmation',
     'ASSISTANCE_COMMITMENT_VERSION_CONFLICT'
   );
+  const active = (
+    await db.query<{ id: string }>(
+      `SELECT id FROM preparation_assistance_runs WHERE source_id=$1::uuid
+       AND commitment_version=$2 AND state IN ('queued','processing')
+       ORDER BY created_at DESC,id DESC LIMIT 1`,
+      [source.id, context.version]
+    )
+  ).rows[0];
+  // During an upgrade, a v1 worker may still own these same source inputs.
+  if (active) return active.id;
   const existing = (
     await db.query<{ id: string; generation: number; state: string }>(
       `SELECT id,generation,state FROM preparation_assistance_runs WHERE source_id=$1::uuid
        AND commitment_version=$2 AND adapter=$3 ORDER BY generation DESC LIMIT 1`,
-      [source.id, context.version, PREPARATION_ASSISTANCE_ADAPTER]
+      [source.id, context.version, PREPARATION_ASSISTANCE_STRUCTURED_ADAPTER]
     )
   ).rows[0];
   // A normal submission never restarts terminal work. Reanalysis is always explicit.
@@ -46,7 +56,7 @@ export async function enqueueAssistanceRun(
         source.id,
         source.version,
         context.version,
-        PREPARATION_ASSISTANCE_ADAPTER,
+        PREPARATION_ASSISTANCE_STRUCTURED_ADAPTER,
         (existing?.generation ?? 0) + 1,
         actor
       ]

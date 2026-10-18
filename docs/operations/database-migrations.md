@@ -64,6 +64,16 @@ modifiable. Aucun dossier existant n’est qualifié et aucun traitement ou envo
 n’est créé par la migration. Voir les
 [états et limites de l’assistance](../technical/preparation-assistance.md).
 
+La migration [059](../../apps/funding-api/migrations/059_preparation_structured_analysis.sql)
+autorise l’adaptateur de proposition structurée `local_rules_v2` en conservant
+`local_rules_v1`. L’appliquer avant l’API correspondante ; la garde de démarrage
+vérifie cette compatibilité. Elle ne réanalyse aucune source et ne modifie aucun
+résultat ou engagement. Les anciens jobs se terminent en v1 ; seuls les nouveaux
+jobs utilisent v2. Un index unique empêche deux jobs actifs sur les mêmes entrées,
+y compris entre adaptateurs. Le modèle commercial et les grants existants sont conservés.
+Arrêter les anciennes instances de l’API et leurs workers avant le démarrage de
+cette version, pour qu’aucun ancien worker ne réserve un job v2.
+
 La migration [031](../../apps/funding-api/migrations/031_create_checkout_operations.sql)
 ajoute les opérations Checkout privées et leur clé unique, sans modifier les
 contributions ni les faits financiers existants. Elle conserve les paramètres
