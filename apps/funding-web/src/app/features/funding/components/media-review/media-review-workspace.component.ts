@@ -215,15 +215,16 @@ export class MediaReviewWorkspaceComponent {
         session = this.admin.sessionGeneration();
       untracked(() => {
         void session;
+        const authenticated = this.browser && this.admin.hasValidAdminSession();
         this.c.setScope('');
-        this.c.setScope(id);
+        if (authenticated) this.c.setScope(id);
         this.thumbnails.clear();
         this.fullPreview.clear();
         this.commands.reset();
         this.analysis.reset();
         this.history.reset();
         this.upload.reset();
-        if (this.browser) {
+        if (authenticated) {
           void this.c.load();
           void this.analysis.loadAnalyses();
         }

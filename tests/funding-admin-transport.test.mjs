@@ -47,6 +47,54 @@ const serviceFixture = (t, token = syntheticToken) => {
   return { service: new FundingAdminService(), sessionStorage };
 };
 
+test('reading an already cleared admin session does not repeatedly invalidate private consumers', (t) => {
+  const { service, sessionStorage } = serviceFixture(t);
+  const fetchMock = t.mock.method(globalThis, 'fetch', () => {
+    throw new Error('Reading an empty session must not issue a request.');
+  });
+  service.clearAdminSession();
+  const generation = service.sessionGeneration();
+  for (let read = 0; read < 20; read++) {
+    assert.equal(service.getSavedAdminToken(), '');
+    assert.equal(service.hasValidAdminSession(), false);
+    assert.equal(service.getSelectedSponsorship(), undefined);
+  }
+  assert.equal(service.sessionGeneration(), generation);
+  assert.equal(service.identity(), null);
+  assert.equal(sessionStorage.getItem(selectionKey), null);
+  assert.equal(fetchMock.mock.callCount(), 0);
+});
+
+test('partial, invalid and expired admin sessions purge private state once before empty reads settle', async (t) => {
+  for (const kind of ['partial', 'invalid', 'expired']) {
+    await t.test(kind, (t) => {
+      const { service, sessionStorage } = serviceFixture(t);
+      service.identity.set({
+        id: 'synthetic-owner',
+        sessionId: 'synthetic-session',
+        displayName: 'Synthetic owner',
+        role: 'owner',
+        expiresAt: '2099-01-01T00:00:00Z'
+      });
+      service.workQueue.set({ synthetic: true });
+      if (kind === 'partial') sessionStorage.removeItem(sessionKey);
+      if (kind === 'invalid') sessionStorage.setItem(sessionKey, 'invalid');
+      if (kind === 'expired')
+        sessionStorage.setItem(expiryKey, '2000-01-01T00:00:00Z');
+      assert.equal(service.getSavedAdminToken(), '');
+      assert.equal(service.sessionGeneration(), 1);
+      assert.equal(service.identity(), null);
+      assert.equal(service.workQueue(), null);
+      assert.equal(sessionStorage.getItem(sessionKey), null);
+      assert.equal(sessionStorage.getItem(expiryKey), null);
+      assert.equal(sessionStorage.getItem(selectionKey), null);
+      for (let read = 0; read < 20; read++)
+        assert.equal(service.hasValidAdminSession(), false);
+      assert.equal(service.sessionGeneration(), 1);
+    });
+  }
+});
+
 const preparationRequest = {
   contributionId: '10000000-0000-4000-8000-000000001102',
   expectedVersion: 'a'.repeat(64),

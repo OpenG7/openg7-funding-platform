@@ -21,6 +21,7 @@ import { completeModeration } from './support/moderation.js';
 import { test, expect } from './support/test.js';
 import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
 import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';
+import { approveAcceptanceMedia } from './support/acceptance-media-review.js';
 import { adjustAcceptanceObligationDestination } from './support/acceptance-agreement.js';
 
 const automation = '/api/admin/publication-automation';
@@ -294,27 +295,12 @@ test('lost social responses survive restart and recover through verified reconci
             '/api/admin/sponsorships/media?contributionId=' + company.record.id
           )
         ).assets.filter((asset) => asset.reviewStatus !== 'approved');
-        const pendingIds = new Set(pendingMedia.map((asset) => asset.id));
-        await page
-          .getByRole('button', { name: 'Tout approuver', exact: true })
-          .click();
-        for (let index = 0; index < pendingMedia.length; index++) {
-          const reviewed = page.waitForResponse(
-            (response) =>
-              response.url().endsWith('/api/admin/sponsorships/media/review') &&
-              response.request().method() === 'POST'
-          );
-          await completeModeration(page);
-          const response = await reviewed;
-          expect(response.ok(), await response.text()).toBe(true);
-          const input = response.request().postDataJSON();
-          expect(pendingIds.delete(input.assetId)).toBe(true);
-          expect(input).toMatchObject({
-            reviewStatus: 'approved',
-            moderationDecision: { level: 'N0' }
-          });
-        }
-        expect(pendingIds.size).toBe(0);
+        await approveAcceptanceMedia(
+          page,
+          request,
+          company.record.id,
+          pendingMedia.map((asset) => asset.id)
+        );
         await expect
           .poll(async () =>
             (

@@ -1030,8 +1030,8 @@ for (const language of ['fr-CA', 'en'] as const)
         ).toBe(true);
       }
 
-      await test.step('identity starts in the desktop viewport; context has its own readable column', async () => {
-        await expectComposition(viewport.width === 390);
+      await test.step('the profile keeps identity visible and review context below the media workspace', async () => {
+        await expectComposition(true);
         await expect(
           main.locator('[data-og7="sponsorship-progress"]')
         ).toBeHidden();

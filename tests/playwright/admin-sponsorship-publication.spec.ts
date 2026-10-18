@@ -94,7 +94,9 @@ test.describe('Docker admin sponsorship feed publication', () => {
       .getByLabel(/Notes feed/i)
       .fill('E2E Playwright: note de feed automatisee.');
 
-    await page.getByRole('button', { name: 'Enregistrer' }).click();
+    await editor
+      .getByRole('button', { name: 'Enregistrer', exact: true })
+      .click();
 
     await expect(
       page.getByText('Paramètres de suivi enregistrés')
@@ -170,7 +172,9 @@ test.describe('Docker admin sponsorship feed publication', () => {
         response.url().endsWith('/api/admin/sponsorships/publication') &&
         response.request().method() === 'POST'
     );
-    await page.getByRole('button', { name: 'Enregistrer' }).click();
+    await editor
+      .getByRole('button', { name: 'Enregistrer', exact: true })
+      .click();
     await page.locator('[data-og7="confirm-action"]').click();
     const publicationResponse = await published;
     expect(publicationResponse.ok(), await publicationResponse.text()).toBe(

@@ -187,6 +187,14 @@ export class FundingAdminSession {
     const expiresAt =
       window.sessionStorage.getItem(sessionExpiresAtStorageKey) ?? '';
 
+    if (
+      !sessionToken &&
+      !expiresAt &&
+      this.identity() === null &&
+      window.sessionStorage.getItem(selectedSponsorshipStorageKey) === null
+    )
+      return ''; // An already empty session must not invalidate reactive consumers again.
+
     if (!sessionToken || !this.isAdminSessionToken(sessionToken)) {
       this.clearAdminSession();
       return '';

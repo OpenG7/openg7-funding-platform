@@ -27,6 +27,13 @@ section,
   align-items: flex-start;
   gap: 1rem;
 }
+.workspace-heading {
+  flex-wrap: wrap;
+}
+.workspace-heading > div {
+  min-width: 0;
+  flex: 1 1 12rem;
+}
 .workspace-heading p {
   margin-top: 0.35rem;
 }
@@ -86,7 +93,11 @@ section,
   display: grid;
   gap: 0.3rem;
   font-size: 0.85rem;
+  min-width: 0;
   max-width: 100%;
+}
+.gallery-tools input[type='file'] {
+  width: 100%;
 }
 .search {
   flex: 1 1 13rem;

@@ -23,6 +23,7 @@ import { runAcceptancePublicationWorker } from './support/acceptance-publication
 import { test, expect } from './support/test.js';
 import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
 import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';
+import { approveAcceptanceMedia } from './support/acceptance-media-review.js';
 
 const automation = '/api/admin/publication-automation';
 const cockpit = '/admin/fundraiser/publications/automation';
@@ -276,27 +277,12 @@ for (const review of ['pending', 'reapproved'] as const) {
           '/api/admin/sponsorships/media?contributionId=' + id
         )
       ).assets.filter((asset) => asset.reviewStatus !== 'approved');
-      const pendingIds = new Set(pendingMedia.map((asset) => asset.id));
-      await admin
-        .getByRole('button', { name: 'Tout approuver', exact: true })
-        .click();
-      for (let index = 0; index < pendingMedia.length; index++) {
-        const reviewed = admin.waitForResponse(
-          (response) =>
-            response.url().endsWith('/api/admin/sponsorships/media/review') &&
-            response.request().method() === 'POST'
-        );
-        await completeModeration(admin);
-        const response = await reviewed;
-        expect(response.ok(), await response.text()).toBe(true);
-        const input = response.request().postDataJSON();
-        expect(pendingIds.delete(input.assetId)).toBe(true);
-        expect(input).toMatchObject({
-          reviewStatus: 'approved',
-          moderationDecision: { level: 'N0' }
-        });
-      }
-      expect(pendingIds.size).toBe(0);
+      await approveAcceptanceMedia(
+        admin,
+        request,
+        id,
+        pendingMedia.map((asset) => asset.id)
+      );
       await expect
         .poll(async () =>
           (

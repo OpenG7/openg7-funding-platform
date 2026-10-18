@@ -31,6 +31,10 @@ import {
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
 import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';
+import {
+  approveAcceptanceMedia,
+  selectAcceptanceWebsiteMedia
+} from './support/acceptance-media-review.js';
 import { acceptanceSql } from './support/acceptance-database.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import {
@@ -75,6 +79,9 @@ for (const amount of [100, 250]) {
       context.setDefaultTimeout(15000);
       const stub = process.env.STRIPE_STUB_BASE_URL!;
       const name = `Palier ${amount} ${randomUUID().slice(0, 8)}`;
+      // The Xbox journey types every character through the visible keyboard.
+      const publicSlug = name.toLowerCase().replaceAll(' ', '-');
+      const publicSummary = 'Commandite simulée.';
       const email = `tier-${randomUUID()}@simulation.example.test`;
       const privateNote = 'Message confidentiel du commanditaire de recette.';
       const amountConsent = amount === 250;
@@ -520,35 +527,13 @@ for (const amount of [100, 250]) {
             (asset) => asset.reviewStatus !== 'approved'
           );
           expect(pendingMedia).toHaveLength(2);
-          const pendingIds = new Set(pendingMedia.map((asset) => asset.id));
-          const approveAll = admin.getByRole('button', {
-            name: 'Tout approuver',
-            exact: true
-          });
-          if (xbox) await xbox.activate(approveAll);
-          else await approveAll.click();
-          for (let index = 0; index < pendingMedia.length; index++) {
-            const reviewed = admin.waitForResponse(
-              (response) =>
-                response
-                  .url()
-                  .endsWith('/api/admin/sponsorships/media/review') &&
-                response.request().method() === 'POST'
-            );
-            await completeModeration(admin, false, xbox);
-            const response = await reviewed;
-            expect(response.ok(), await response.text()).toBe(true);
-            const reviewedAsset = response.request().postDataJSON();
-            expect(pendingIds.delete(reviewedAsset.assetId)).toBe(true);
-            expect(reviewedAsset).toMatchObject({
-              reviewStatus: 'approved',
-              moderationDecision: {
-                level: 'N0',
-                confirmation: reviewedAsset.assetId
-              }
-            });
-          }
-          expect(pendingIds.size).toBe(0);
+          await approveAcceptanceMedia(
+            admin,
+            request,
+            contributionId,
+            pendingMedia.map((asset) => asset.id),
+            xbox
+          );
           await expect
             .poll(async () =>
               (await media()).every((m) => m.reviewStatus === 'approved')
@@ -574,6 +559,14 @@ for (const amount of [100, 250]) {
           // Review alone keeps the website profile private until its explicit visibility decision.
           await assertPrivate();
           if (publicConsent) {
+            await selectAcceptanceWebsiteMedia(
+              admin,
+              request,
+              contributionId,
+              (await media()).map((asset) => asset.id),
+              xbox
+            );
+            await assertPrivate();
             if (xbox) {
               await xbox.activate(
                 admin
@@ -583,10 +576,7 @@ for (const amount of [100, 250]) {
               await xbox.activate(
                 admin.locator('[data-og7="publication-advanced"] > summary')
               );
-              await xbox.text(
-                admin.getByLabel(/Slug public/i),
-                'tier-' + contributionId
-              );
+              await xbox.text(admin.getByLabel(/Slug public/i), publicSlug);
               await xbox.select(
                 admin.getByLabel(/Destination feed/i),
                 'openg7'
@@ -600,7 +590,7 @@ for (const amount of [100, 250]) {
               );
               await xbox.text(
                 admin.getByLabel(/Resume public/i),
-                'Présentation publique synthétique du commanditaire.'
+                publicSummary
               );
               await xbox.activate(
                 admin.getByRole('button', { name: 'Enregistrer', exact: true })
@@ -614,9 +604,7 @@ for (const amount of [100, 250]) {
               await admin
                 .locator('[data-og7="publication-advanced"] > summary')
                 .click();
-              await admin
-                .getByLabel(/Slug public/i)
-                .fill('tier-' + contributionId);
+              await admin.getByLabel(/Slug public/i).fill(publicSlug);
               await admin
                 .getByLabel(/Destination feed/i)
                 .selectOption('openg7');
@@ -626,9 +614,7 @@ for (const amount of [100, 250]) {
                   exact: true
                 })
                 .selectOption('planned');
-              await admin
-                .getByLabel(/Resume public/i)
-                .fill('Présentation publique synthétique du commanditaire.');
+              await admin.getByLabel(/Resume public/i).fill(publicSummary);
               await admin
                 .getByRole('button', { name: 'Enregistrer', exact: true })
                 .click();
@@ -683,8 +669,7 @@ for (const amount of [100, 250]) {
             ).toMatchObject({
               amount: amountConsent ? amount : null,
               message: null,
-              public_summary:
-                'Présentation publique synthétique du commanditaire.'
+              public_summary: publicSummary
             });
             for (const secret of [email, privateNote, reference])
               expect(JSON.stringify(publicData)).not.toContain(secret);

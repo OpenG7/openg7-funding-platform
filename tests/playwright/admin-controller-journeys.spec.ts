@@ -873,6 +873,24 @@ test('a same-route session expiry purges the Xbox editor before its private draf
       json: { error: 'Synthetic session expired' }
     });
   });
+  let sessionExpired = false;
+  const privateReadsAfterExpiry: string[] = [];
+  page.on('response', (response) => {
+    if (
+      new URL(response.url()).pathname === '/api/admin/payment-journey' &&
+      response.status() === 401
+    )
+      sessionExpired = true;
+  });
+  page.on('request', (request) => {
+    const pathname = new URL(request.url()).pathname;
+    if (
+      sessionExpired &&
+      request.method() === 'GET' &&
+      pathname.startsWith('/api/admin/')
+    )
+      privateReadsAfterExpiry.push(pathname);
+  });
   try {
     await pad.activate(hook(page, 'payment-journey-refresh'));
     await pending;
@@ -896,6 +914,8 @@ test('a same-route session expiry purges the Xbox editor before its private draf
     expect(page.url()).toBe(sameUrl);
     await pad.press('A');
     expect(state.commands).toEqual([]);
+    expect(sessionExpired).toBe(true);
+    expect(privateReadsAfterExpiry).toEqual([]);
   } finally {
     release();
   }

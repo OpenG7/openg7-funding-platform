@@ -22,6 +22,7 @@ import { runAcceptanceReviewReminder } from './support/acceptance-review-reminde
 import { test, expect } from './support/test.js';
 import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
 import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';
+import { approveAcceptanceMedia } from './support/acceptance-media-review.js';
 
 const requestUrl = '/api/admin/sponsorships/request-information';
 const detailsUrl = '/api/admin/sponsorships/details';
@@ -564,27 +565,12 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
       const pendingMedia = (await media()).filter(
         (asset) => asset.reviewStatus !== 'approved'
       );
-      const pendingIds = new Set(pendingMedia.map((asset) => asset.id));
-      await admin
-        .getByRole('button', { name: 'Tout approuver', exact: true })
-        .click();
-      for (let index = 0; index < pendingMedia.length; index++) {
-        const reviewed = admin.waitForResponse(
-          (response) =>
-            response.url().endsWith('/api/admin/sponsorships/media/review') &&
-            response.request().method() === 'POST'
-        );
-        await completeModeration(admin);
-        const response = await reviewed;
-        expect(response.ok(), await response.text()).toBe(true);
-        const reviewedAsset = response.request().postDataJSON();
-        expect(pendingIds.delete(reviewedAsset.assetId)).toBe(true);
-        expect(reviewedAsset).toMatchObject({
-          reviewStatus: 'approved',
-          moderationDecision: { level: 'N0' }
-        });
-      }
-      expect(pendingIds.size).toBe(0);
+      await approveAcceptanceMedia(
+        admin,
+        request,
+        id,
+        pendingMedia.map((asset) => asset.id)
+      );
       await expect
         .poll(async () =>
           (await media()).every((m) => m.reviewStatus === 'approved')
