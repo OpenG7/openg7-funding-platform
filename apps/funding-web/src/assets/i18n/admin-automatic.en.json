@@ -383,6 +383,7 @@
           "inspect": "View the dossier",
           "approve": "Approve preparation",
           "details": "Agreement and traceability",
+          "campaigns": "View services in Campaigns",
           "history": "Agreement history",
           "back": "Back"
         }

@@ -1450,6 +1450,7 @@
       "assistant": "Assistant",
       "contributions": "Contributions",
       "sponsors": "Sponsorships",
+      "campaigns": "Campaigns",
       "publications": "Publications",
       "invoices": "Invoices",
       "expenses": "Expenses",
@@ -1583,6 +1584,20 @@
           "verify": {
             "title": "Review the statuses",
             "body": "After your action and confirmation, check the relevant statuses. Approval alone does not confirm publication."
+          }
+        },
+        "campaigns": {
+          "read": {
+            "title": "Read the promises",
+            "body": "Confirmed payments and promised services."
+          },
+          "choose": {
+            "title": "Resume follow-up",
+            "body": "Filters, page and selection stay in memory for this session."
+          },
+          "verify": {
+            "title": "Verify the evidence",
+            "body": "Preparation does not authorize publication. Check qualified evidence."
           }
         },
         "invoices": {

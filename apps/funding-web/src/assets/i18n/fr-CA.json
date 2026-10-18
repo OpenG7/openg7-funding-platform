@@ -1450,6 +1450,7 @@
       "assistant": "Assistant",
       "contributions": "Contributions",
       "sponsors": "Commandites",
+      "campaigns": "Campagnes",
       "publications": "Publications",
       "invoices": "Factures",
       "expenses": "Dépenses",
@@ -1583,6 +1584,20 @@
           "verify": {
             "title": "Relire les états",
             "body": "Après votre action et sa confirmation, vérifiez les états concernés. Une approbation seule ne confirme pas une publication."
+          }
+        },
+        "campaigns": {
+          "read": {
+            "title": "Lire les promesses",
+            "body": "Paiements confirmés : prestations à suivre."
+          },
+          "choose": {
+            "title": "Reprendre le suivi",
+            "body": "Filtres, page et sélection restent en mémoire pour cette session."
+          },
+          "verify": {
+            "title": "Vérifier les preuves",
+            "body": "Préparer n’autorise pas la publication. Vérifiez la preuve qualifiée."
           }
         },
         "invoices": {

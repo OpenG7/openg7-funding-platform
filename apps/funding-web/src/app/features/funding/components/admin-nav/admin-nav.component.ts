@@ -274,6 +274,11 @@ export class AdminNavComponent implements OnInit {
           icon: 'sponsors'
         },
         {
+          key: 'campaigns',
+          url: '/admin/fundraiser/campaigns',
+          icon: 'publications'
+        },
+        {
           key: 'publications',
           url: '/admin/fundraiser/publications',
           icon: 'publications'

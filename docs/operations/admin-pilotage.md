@@ -134,7 +134,7 @@ défilement accessibles existants, avec respect de la réduction des mouvements.
 
 ### Mode guidé dans l'administration
 
-Le bouton **Mode guidé**, sous la barre commune, accompagne les 18 rubriques
+Le bouton **Mode guidé**, sous la barre commune, accompagne les 19 rubriques
 administratives authentifiées. **Découvrir les rubriques** affiche **Vous êtes ici**,
 une seule étape de lecture et **Me montrer dans la page** pour déplacer le focus vers le repère
 correspondant. Chaque zone visible correspondant à ce repère reçoit un contour
@@ -221,7 +221,7 @@ signalé séparément. Les guides de découverte détaillés restent disponibles
 
 La recette UI `admin-guidance.spec.ts`, avec réponses API interceptées, vérifie navigation et reprise, comptes,
 révocation, stockage indisponible ou corrompu, absence de commande métier,
-FR/EN, clavier, mobile, concentration et présence dans les 18 rubriques. Elle
+FR/EN, clavier, mobile, concentration et présence dans les 19 rubriques. Elle
 vérifie aussi reprise d'un paiement, erreurs, réponses tardives, remplacement
 volontaire du dossier et recommandation devenue obsolète. Cette recette UI ne
 prouve pas à elle seule le traitement financier ou la réalisation des engagements.
@@ -269,6 +269,13 @@ déjà approuvée dans sa version actuelle ne demande pas un deuxième accord.
 
 #### Pilotage de la préparation
 
+La rubrique [Campagnes](../technical/admin-campaigns.md), sous
+`/admin/fundraiser/campaigns`, présente les prestations promises de chaque achat
+confirmé. Elle comprend les prestations à venir sous réserve des contrôles et
+approbations du bon. Par défaut, les préparations approuvées dans leur version
+actuelle apparaissent en premier. La consultation permet de retrouver le bon et
+les écrans propriétaires ; elle ne déclenche ni approbation ni publication.
+
 La liste des contrôles, le détail sélectionné et les commandes contextuelles
 partagent le même bon dans le guide et le dossier. Sélectionner un contrôle
 affiche son explication; **Actions** ouvre les commandes sans enregistrer de
@@ -287,10 +294,16 @@ La sélection révèle ce point sans quitter le bouton sélectionné au clavier 
 ou approuvés gardent leur format compact.
 
 Le Pilotage regroupe les vérifications et autorisations du bon. Le volet replié
-**Détails de l’accord et traçabilité** conserve les clauses de l’offre, la date du
-paiement, les états des brouillons, le bilan des engagements et la version
-complète, sans répéter ces listes de contrôles. La relecture du contenu exact et
-l’historique des accords gardent leurs volets distincts.
+**Détails de l’accord et traçabilité** est réservé à **Campagnes**. Il conserve
+les clauses de l’offre, la date du paiement, les états des brouillons, le bilan
+des engagements et la version complète, sans répéter ces listes de contrôles.
+Commandites masque ce volet et sa commande ; la qualification de l’accord
+d’origine reste dans son écran métier. Le Guide propose **Voir les prestations
+dans Campagnes**, avec le dossier du bon courant. La page reprend une prestation
+sélectionnée de ce dossier, choisit l’unique résultat ou laisse choisir parmi
+plusieurs ; zéro résultat reste explicite. Voir le [contrat de navigation ciblée](../technical/admin-campaigns.md#entree-contextuelle-et-details-de-laccord).
+La relecture du contenu exact, l’approbation et l’historique des accords gardent
+leurs volets et commandes distincts dans les trois hôtes.
 
 Pour les accords historiques, la destination de l’accord donne aussi accès à
 l’[assistance locale versionnée](../technical/preparation-assistance.md), réservée
@@ -418,7 +431,7 @@ passage et conserve les accords précédents. Appliquer la procédure de
 ### Préparation d'un dossier ou d'une rubrique
 
 Les outils de préparation du guide flottant proposent le paiement suivi ou l’une des
-18 rubriques administratives. **Démarrer la préparation** montre l’étape et sa
+19 rubriques administratives. **Démarrer la préparation** montre l’étape et sa
 raison, rejoint l’écran, met la zone utile en évidence et ouvre les préparations
 explicitement déclarées par les composants propriétaires. Lorsque plusieurs
 décisions sont possibles, l’administrateur choisit celle à préparer. Les

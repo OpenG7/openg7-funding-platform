@@ -43,7 +43,10 @@ import {
   projectPreparationPilot,
   reconcilePreparationIssue
 } from './preparation-pilot.projection.js';
-import type { PreparationPilotIssue } from './preparation-pilot.models.js';
+import type {
+  PreparationDetailsMode,
+  PreparationPilotIssue
+} from './preparation-pilot.models.js';
 import { PreparationIssueListComponent } from './preparation-issue-list.component.js';
 import { PreparationIssueDetailComponent } from './preparation-issue-detail.component.js';
 
@@ -77,6 +80,7 @@ export class PreparationPilotComponent {
   readonly selectedId = input<string | null>(null);
   readonly canApprove = input(false);
   readonly busy = input(false);
+  readonly detailsMode = input<PreparationDetailsMode>('hidden');
   readonly canAssist = input(false);
   readonly assistanceSummary = input<PreparationAssistanceSummary | null>(null);
   readonly assistanceBusy = input(false);
@@ -88,6 +92,7 @@ export class PreparationPilotComponent {
   readonly approveRequested = output<void>();
   readonly sourceRequested = output<PreparationPilotIssue>();
   readonly detailsRequested = output<void>();
+  readonly campaignsRequested = output<void>();
   readonly historyRequested = output<void>();
   readonly mode = signal<ControllerMode>('peek');
   readonly projection = computed(() => projectPreparationPilot(this.receipt()));
@@ -129,6 +134,7 @@ export class PreparationPilotComponent {
       issue: this.issue(),
       canApprove: this.canApprove(),
       busy: this.busy(),
+      detailsMode: this.detailsMode(),
       canAssist: this.canAssist(),
       assistanceSummary: this.currentAssistance(),
       assistanceBusy: this.assistanceBusy(),
@@ -333,6 +339,8 @@ export class PreparationPilotComponent {
     } else if (action.id === 'preparation-approve')
       this.approveRequested.emit();
     else if (action.id === 'preparation-details') this.detailsRequested.emit();
+    else if (action.id === 'preparation-campaigns')
+      this.campaignsRequested.emit();
     else if (action.id === 'preparation-history') this.historyRequested.emit();
   }
 

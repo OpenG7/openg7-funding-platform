@@ -1,6 +1,9 @@
 import { inject } from '@angular/core';
 import { CanMatchFn, Router, Routes } from '@angular/router';
+import { provideStore } from '@ngrx/store';
 
+import { AdminCampaignsStore } from './features/funding/services/admin-campaigns-store.service.js';
+import { adminCampaignsFeature } from './features/funding/services/admin-campaigns.store.js';
 import { FundingAdminService } from './features/funding/services/funding-admin.service.js';
 
 const adminSessionRequired: CanMatchFn = async (_route, segments) => {
@@ -90,6 +93,20 @@ export const adminRoutes: Routes = [
     loadComponent: () =>
       import('./features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.js').then(
         (m) => m.AdminSponsorsPageComponent
+      )
+  },
+  {
+    path: 'fundraiser/campaigns',
+    canMatch: [adminSessionRequired],
+    providers: [
+      provideStore({
+        [adminCampaignsFeature.name]: adminCampaignsFeature.reducer
+      }),
+      AdminCampaignsStore
+    ],
+    loadComponent: () =>
+      import('./features/funding/pages/admin-campaigns-page/admin-campaigns-page.component.js').then(
+        (m) => m.AdminCampaignsPageComponent
       )
   },
   {

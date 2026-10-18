@@ -101,7 +101,8 @@ test('admin route coverage follows declarations and the publication matcher spac
     'utf8'
   );
   const discovered = declaredAdminRoutes(source);
-  assert.equal(discovered.length, 20);
+  assert.equal(discovered.length, 21);
+  assert.ok(discovered.includes('/admin/fundraiser/campaigns'));
   assert.ok(discovered.includes('/admin/fundraiser/publications/calendar'));
   const extra = source.replace(
     "path: 'fundraiser/access'",

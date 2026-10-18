@@ -35,6 +35,8 @@ import { createAdminPilotageHttpHandler } from '../admin-pilotage.http.js';
 import { createAdminAutomaticRunsHttpHandler } from '../admin-automatic-runs.http.js';
 import { AdminAutomaticRunsService } from '../admin-automatic-runs.service.js';
 import { AdminPreparationService } from '../admin-preparation.service.js';
+import { createAdminCampaignsHttpHandler } from '../admin-campaigns.http.js';
+import { AdminCampaignsService } from '../admin-campaigns.service.js';
 import { createAdminPreparationAssistanceHttpHandler } from '../admin-preparation-assistance.http.js';
 import { PreparationAssistanceService } from '../preparation-assistance/service.js';
 import { PilotError } from '../admin-pilotage.service.js';
@@ -738,6 +740,13 @@ export const createAdminHttpHandlers = ({
     PublicationAutomationError
   });
 
+  const handleAdminCampaignsRequest = createAdminCampaignsHttpHandler({
+    publicBaseOrigin,
+    ensureAdminAccess,
+    writeJson,
+    campaigns: dbPool ? new AdminCampaignsService(dbPool) : null
+  });
+
   const handleAdminAutomaticRunsRequest = createAdminAutomaticRunsHttpHandler({
     publicBaseOrigin,
     ensureAdminAccess,
@@ -905,6 +914,7 @@ export const createAdminHttpHandlers = ({
     handleAdminPublicationBatchesRequest,
     handleAdminPilotageRequest,
     handleAdminAutomaticRunsRequest,
+    handleAdminCampaignsRequest,
     handleAdminPublicationAutomationRequest,
     handleAdminSponsorshipRefundRequest,
     handleAdminStripeBackfillRequest,

@@ -525,7 +525,7 @@ for (const language of ['fr-CA', 'en']) {
   }
 }
 
-test('the current sponsorship preparation appears only in Publication and preserves its accepted offer and exact private content', async ({
+test('the current sponsorship preparation stays in Publication with its offer and private content while agreement traceability belongs to Campaigns', async ({
   page
 }) => {
   const f = await fixture(page);
@@ -543,10 +543,20 @@ test('the current sponsorship preparation appears only in Publication and preser
   await expect(hook(page, 'content')).toContainText(
     'Présentation privée du dossier synthétique 1.'
   );
-  await hook(page, 'details').locator('summary').click();
-  await expect(hook(page, 'details')).toContainText(
-    'synthetic-historical-offer-v1'
-  );
+  await expect(hook(page, 'details')).toHaveCount(0);
+  const pilot = wrapper(page).locator('[data-og7="preparation-pilot"]');
+  await pilot.locator('[data-og7="preparation-pilot-actions"]').click();
+  await expect(
+    pilot.locator(
+      '[data-og7="preparation-pilot-action"][data-og7-id="preparation-details"]'
+    )
+  ).toHaveCount(0);
+  await expect(
+    pilot.locator(
+      '[data-og7="preparation-pilot-action"][data-og7-id="preparation-campaigns"]'
+    )
+  ).toHaveCount(0);
+  await page.keyboard.press('Escape');
   await tabs.getByRole('button', { name: 'Aperçu', exact: true }).click();
   await expect(wrapper(page)).toHaveCount(0);
   expect(f.writes).toEqual([]);

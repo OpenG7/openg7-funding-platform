@@ -746,7 +746,7 @@ test('private CSV export names its scope and requires explicit confirmation', as
 test('all admin routes share a single layout, translated headings and mobile width', async ({
   page
 }) => {
-  // Visit all 18 routes and switch languages twice on each page.
+  // Visit all 19 protected routes and switch languages twice on each page.
   test.setTimeout(60_000);
   await fixtures(page);
   await page.setViewportSize({ width: 390, height: 844 });
@@ -757,6 +757,7 @@ test('all admin routes share a single layout, translated headings and mobile wid
     'attention',
     'contributions',
     'sponsors',
+    'campaigns',
     'publications',
     'publications/drafts',
     'publications/batches',

@@ -1,0 +1,414 @@
+@reference '../../../../../styles/tailwind.css';
+
+:host {
+  @apply tw:block tw:min-w-0 tw:text-admin-text;
+}
+.campaigns {
+  @apply tw:grid tw:min-w-0 tw:gap-admin-card-gap tw:mx-auto;
+  max-width: 96rem;
+}
+h1,
+h2,
+h3,
+h4,
+p,
+ul,
+dl,
+dd {
+  margin: 0;
+}
+h1 {
+  font-size: clamp(1.8rem, 3vw, 2.5rem);
+  letter-spacing: -0.035em;
+}
+h2 {
+  font-size: 1.25rem;
+}
+h3 {
+  font-size: 1rem;
+}
+h4 {
+  font-size: 0.95rem;
+}
+p,
+strong,
+small,
+dt,
+dd,
+a {
+  overflow-wrap: anywhere;
+}
+.page-header,
+.list-header,
+.detail-header,
+.pagination {
+  @apply tw:flex tw:items-center tw:justify-between tw:flex-wrap tw:gap-4 tw:min-w-0;
+}
+.page-header {
+  align-items: flex-start;
+}
+.page-header > div {
+  flex: 1 1 30rem;
+  min-width: 0;
+}
+.eyebrow {
+  @apply tw:text-admin-caption tw:text-admin-muted;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  margin-bottom: 0.25rem;
+}
+.subtitle {
+  max-width: 52rem;
+  margin-top: 0.5rem;
+  color: var(--admin-muted);
+}
+.scope-note,
+.authority-note {
+  @apply tw:flex tw:items-start tw:gap-3 tw:rounded-admin-control tw:text-admin-caption;
+  padding: 0.9rem 1rem;
+  color: var(--admin-accent);
+  background: var(--admin-selected);
+  border: 1px solid var(--admin-border);
+}
+.scope-note openg7-admin-icon,
+.authority-note openg7-admin-icon {
+  margin-top: 0.15rem;
+}
+.destination-note {
+  align-items: center;
+  flex-wrap: wrap;
+}
+.destination-note > div {
+  flex: 1 1 24rem;
+  min-width: 0;
+}
+.filters {
+  @apply tw:grid tw:gap-3 tw:p-admin-card tw:rounded-admin-card tw:min-w-0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+}
+.filters label {
+  @apply tw:grid tw:gap-1.5 tw:min-w-0 tw:text-admin-caption tw:text-admin-muted;
+  font-weight: 500;
+}
+.filters .search-field {
+  grid-column: span 2;
+}
+.filters input,
+.filters select {
+  width: 100%;
+}
+.filters > button {
+  align-self: end;
+}
+.campaign-list,
+.detail {
+  @apply tw:min-w-0 tw:rounded-admin-card;
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  box-shadow: var(--admin-shadow);
+  overflow: clip;
+}
+.list-header,
+.detail-header {
+  padding: 1.25rem;
+}
+.list-header p,
+.detail-header p {
+  margin-top: 0.3rem;
+}
+.muted,
+small,
+dt {
+  color: var(--admin-muted);
+}
+small {
+  font-size: var(--admin-caption-size);
+}
+.group-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: var(--admin-caption-size);
+}
+.group-toggle input {
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--admin-accent);
+}
+.column-headings,
+.campaign-row {
+  display: grid;
+  grid-template-columns:
+    minmax(10rem, 1.5fr) minmax(5rem, 0.65fr) minmax(7rem, 1fr)
+    minmax(7rem, 1fr) minmax(6rem, 0.9fr) minmax(6rem, 0.8fr);
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem 1.25rem;
+}
+.column-headings {
+  color: var(--admin-muted);
+  background: var(--admin-subtle);
+  border-block: 1px solid var(--admin-border);
+  font-size: var(--admin-caption-size);
+  font-weight: 600;
+}
+.group-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  padding: 1rem 1.25rem 0.5rem;
+}
+.group-heading small {
+  font-weight: 400;
+  margin-left: auto;
+}
+.company-mark {
+  display: inline-flex;
+  padding: 0.4rem;
+  color: var(--admin-accent);
+  background: var(--admin-selected);
+  border-radius: 0.55rem;
+}
+.rows {
+  list-style: none;
+  padding: 0;
+}
+.campaign-row {
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid var(--admin-border);
+  border-radius: 0;
+  background: var(--admin-panel);
+  font-weight: 400;
+  font-size: var(--admin-caption-size);
+  cursor: pointer;
+}
+.campaign-row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.campaign-row[aria-pressed='true'] {
+  background: var(--admin-selected);
+  box-shadow: inset 3px 0 var(--admin-gold);
+}
+.campaign-row:not(:disabled):hover {
+  background: var(--admin-subtle);
+  box-shadow: inset 3px 0 var(--admin-accent);
+}
+.campaign-row:focus-visible {
+  outline-offset: -4px;
+}
+.promise-cell {
+  display: grid;
+  gap: 0.2rem;
+}
+.promise-cell strong {
+  font-weight: 600;
+}
+.status {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 2rem;
+  background: var(--admin-subtle);
+}
+.status.positive {
+  background: var(--admin-success-bg);
+  border-color: var(--admin-success-border);
+}
+.positive {
+  color: var(--admin-success);
+}
+.status.warning {
+  color: var(--admin-warning);
+  background: var(--admin-warning-bg);
+  border-color: var(--admin-warning-border);
+}
+.overdue {
+  color: var(--admin-danger);
+}
+.proof-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.conditional {
+  display: block;
+  margin-top: 0.35rem;
+}
+.next-step {
+  display: grid;
+  justify-items: start;
+  gap: 0.6rem;
+  padding: 1rem;
+  background: var(--admin-selected);
+  border-radius: var(--admin-radius-control);
+}
+.mobile-label {
+  display: none;
+}
+.pagination {
+  padding: 1rem 1.25rem;
+}
+.pagination nav {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 0.8rem;
+  padding: 3rem 1.25rem;
+  color: var(--admin-muted);
+  text-align: center;
+}
+.empty-state > openg7-admin-icon {
+  font-size: 1.8rem;
+  color: var(--admin-accent);
+}
+.empty-state p {
+  max-width: 40rem;
+}
+.error-state {
+  color: var(--admin-danger);
+}
+.detail-header {
+  border-bottom: 1px solid var(--admin-border);
+}
+.detail-header > div {
+  flex: 1 1 24rem;
+  min-width: 0;
+}
+.detail-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  align-items: start;
+}
+.preparation-panel,
+.content-panel {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  padding: 1.25rem;
+}
+.preparation-panel {
+  border-right: 1px solid var(--admin-border);
+}
+.content-panel > h3,
+.preparation-panel > h3 {
+  color: var(--admin-accent);
+}
+.facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  font-size: var(--admin-caption-size);
+}
+.facts dt {
+  margin-bottom: 0.25rem;
+}
+.facts dd {
+  font-weight: 600;
+}
+.content-preview {
+  padding: 1.25rem;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-control);
+  background: var(--admin-subtle);
+}
+.content-preview p {
+  margin-top: 0.75rem;
+  white-space: pre-wrap;
+}
+.content-placeholder {
+  color: var(--admin-muted);
+  padding-block: 1.5rem;
+}
+.proof-panel {
+  display: grid;
+  gap: 0.6rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--admin-border);
+}
+.proof-panel h4 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.selection-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  color: var(--admin-muted);
+  padding: 2rem 1.25rem;
+  text-align: center;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+@media (min-width: 1500px) {
+  .filters {
+    grid-template-columns: minmax(14rem, 2fr) repeat(5, minmax(0, 1fr)) auto;
+  }
+  .filters .search-field {
+    grid-column: auto;
+  }
+}
+@media (max-width: 1100px) {
+  .column-headings {
+    display: none;
+  }
+  .campaign-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.9rem;
+  }
+  .mobile-label {
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+  .detail-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .preparation-panel {
+    border-right: 0;
+    border-bottom: 1px solid var(--admin-border);
+  }
+}
+@media (max-width: 640px) {
+  .filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .filters .search-field {
+    grid-column: 1 / -1;
+  }
+  .campaign-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .group-heading small {
+    margin-left: 0;
+  }
+  .page-header > button,
+  .detail-header > a {
+    width: 100%;
+    justify-content: center;
+  }
+  .facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

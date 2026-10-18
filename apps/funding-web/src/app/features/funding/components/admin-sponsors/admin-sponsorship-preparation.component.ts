@@ -27,6 +27,7 @@ import {
   reconcilePreparationIssue
 } from '../admin-preparation/preparation-pilot.projection.js';
 import { capturePreparationFocus } from '../admin-preparation/preparation-focus.js';
+import type { PreparationDetailsMode } from '../admin-preparation/preparation-pilot.models.js';
 import {
   type AdminPreparationError,
   isPreparationConfigurationError,
@@ -54,6 +55,7 @@ import {
 export class AdminSponsorshipPreparationComponent {
   readonly contributionId = input.required<string>();
   readonly refreshKey = input.required<string>();
+  readonly detailsMode = input<PreparationDetailsMode>('hidden');
   readonly admin = inject(FundingAdminService);
   readonly i18n = inject(FundingI18nService);
   readonly receipt = signal<AdminDossierPreparationReceipt | null>(null);

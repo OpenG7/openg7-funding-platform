@@ -42,6 +42,7 @@
     @for (item of [current]; track item.contributionId + ':' + item.version) {
       <openg7-admin-preparation-receipt
         [receipt]="item"
+        detailsMode="campaigns"
         [idPrefix]="'automatic-preparation-' + run().id"
         [readOnly]="admin.identity()?.role === 'reader'"
         [canApprove]="canApprove()"
