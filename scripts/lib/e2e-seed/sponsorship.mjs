@@ -22,7 +22,13 @@ BEGIN
          .join(', ')}]::text[]))
     INTO contribution_ids;
   IF EXISTS(SELECT 1 FROM sponsorship_commitments WHERE contribution_id=ANY(contribution_ids))
-    OR EXISTS(SELECT 1 FROM sponsor_media_usage_history WHERE contribution_id=ANY(contribution_ids)) THEN
+    OR EXISTS(SELECT 1 FROM sponsor_media_usage_history WHERE contribution_id=ANY(contribution_ids))
+    OR EXISTS(SELECT 1 FROM sponsor_media_batches WHERE contribution_id=ANY(contribution_ids))
+    OR EXISTS(SELECT 1 FROM sponsor_media_rule_versions WHERE contribution_id=ANY(contribution_ids))
+    OR EXISTS(SELECT 1 FROM sponsor_media_workspace_commands WHERE contribution_id=ANY(contribution_ids))
+    OR EXISTS(SELECT 1 FROM sponsor_media_batch_plans WHERE contribution_id=ANY(contribution_ids))
+    OR EXISTS(SELECT 1 FROM sponsor_media_analysis_runs WHERE contribution_id=ANY(contribution_ids))
+    OR EXISTS(SELECT 1 FROM sponsor_media_analysis_requests WHERE contribution_id=ANY(contribution_ids)) THEN
     RAISE EXCEPTION 'Acceptance fixtures now preserve commercial and image-use history; start a fresh disposable acceptance stack instead of reseeding these records';
   END IF;
   SELECT ARRAY(SELECT DISTINCT batch_id FROM sponsor_publication_drafts
@@ -60,6 +66,9 @@ BEGIN
     SELECT id FROM contribution_activity WHERE contribution_id = ANY(contribution_ids)
   );
   DELETE FROM contribution_activity WHERE contribution_id = ANY(contribution_ids);
+  -- This revision is a mutable projection created even for legacy fixture media.
+  -- Every recorded media operation above requires a fresh disposable stack.
+  DELETE FROM sponsor_media_workspaces WHERE contribution_id = ANY(contribution_ids);
 END $$;`;
 
   const deleteStatements = fixtures

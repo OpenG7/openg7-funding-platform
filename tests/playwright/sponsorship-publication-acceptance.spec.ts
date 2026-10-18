@@ -22,6 +22,10 @@ import { completePublicationModeration } from './support/acceptance-moderation.j
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
 import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';
+import {
+  approveAcceptanceMedia,
+  selectAcceptanceWebsiteMedia
+} from './support/acceptance-media-review.js';
 import { acceptanceSql } from './support/acceptance-database.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import { completeModeration } from './support/moderation.js';
@@ -419,34 +423,15 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
       await admin.goto(
         '/admin/fundraiser/sponsors?sponsorshipId=' + record.id + '&tab=media'
       );
-      // The dossier owns this route and its media review controls.
-      const approveAll = admin.getByRole('button', {
-        name: 'Tout approuver',
-        exact: true
-      });
-      await expect(approveAll).toBeEnabled();
       const pendingMedia = (await media()).assets.filter(
         (asset) => asset.reviewStatus !== 'approved'
       );
-      const pendingIds = new Set(pendingMedia.map((asset) => asset.id));
-      await approveAll.click();
-      for (let index = 0; index < pendingMedia.length; index++) {
-        const reviewed = admin.waitForResponse(
-          (response) =>
-            response.url().endsWith('/api/admin/sponsorships/media/review') &&
-            response.request().method() === 'POST'
-        );
-        await completeModeration(admin);
-        const response = await reviewed;
-        expect(response.ok(), await response.text()).toBe(true);
-        const reviewedAsset = response.request().postDataJSON();
-        expect(pendingIds.delete(reviewedAsset.assetId)).toBe(true);
-        expect(reviewedAsset).toMatchObject({
-          reviewStatus: 'approved',
-          moderationDecision: { level: 'N0' }
-        });
-      }
-      expect(pendingIds.size).toBe(0);
+      await approveAcceptanceMedia(
+        admin,
+        request,
+        record.id,
+        pendingMedia.map((asset) => asset.id)
+      );
       await expect
         .poll(async () =>
           (await media()).assets.every((m) => m.reviewStatus === 'approved')
@@ -688,6 +673,13 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
       admin = await context.newPage();
       await admin.setViewportSize({ width: 1280, height: 1100 });
       await signInAsAdmin(admin);
+      await selectAcceptanceWebsiteMedia(
+        admin,
+        request,
+        record.id,
+        (await media()).assets.map((asset) => asset.id)
+      );
+      await assertPrivate();
       await admin.goto(
         '/admin/fundraiser/sponsors?sponsorshipId=' +
           record.id +

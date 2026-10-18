@@ -112,7 +112,7 @@ test('runtime config preserves absent-setting defaults without requiring provide
     path.resolve('var/sponsor-logos')
   );
   assert.equal(config.sponsorMediaMaxBytes, 8 * 1024 * 1024);
-  assert.equal(config.sponsorMediaMaxSupportingImages, 3);
+  assert.equal(config.sponsorMediaMaxSupportingImages, 100);
   assert.equal(config.trustedProxyHops, 0);
   assert.deepEqual(config.allowedOrigins, []);
   assert.equal(config.publicBaseUrl, null);

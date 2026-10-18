@@ -35,7 +35,10 @@ export class AdminSponsorMediaWorkflow {
   private mediaLoadGeneration = 0;
   private disposed = false;
 
-  constructor(private readonly ports: AdminSponsorMediaPorts) {}
+  constructor(
+    private readonly ports: AdminSponsorMediaPorts,
+    private readonly options: { readonly eagerMediaPreviews?: boolean } = {}
+  ) {}
 
   async uploadLogo(
     sponsorship: AdminSponsorshipRecord,
@@ -458,7 +461,8 @@ export class AdminSponsorMediaWorkflow {
         [contributionId]: response.assets
       }));
       this.ports.mediaLoaded();
-      await this.loadSponsorMediaPreviews(response.assets);
+      if (this.options.eagerMediaPreviews !== false)
+        await this.loadSponsorMediaPreviews(response.assets);
     } catch (error) {
       if (this.disposed || generation !== this.mediaLoadGeneration) return;
       this.setSponsorMediaMessage(

@@ -226,7 +226,12 @@
               </div>
             }
           }
-          <div class="dossier-content-grid">
+          <div
+            class="dossier-content-grid"
+            [class.media-review-wide]="
+              activeTab() === 'identity' || activeTab() === 'media'
+            "
+          >
             <div class="dossier-main" data-og7="dossier-main">
               <h2 id="dossier-section-title" class="dossier-section-title">
                 {{
@@ -301,24 +306,7 @@
                 <openg7-admin-sponsor-detail-media
                   *ngIf="selectedSponsorDetailIdentity() as identity"
                   [identity]="identity"
-                  (uploadLogo)="mediaWorkflow.uploadLogo(selected, $event)"
-                  (previewMedia)="
-                    inspection.media($event.id, selected.id, $event.alt)
-                  "
-                  (deleteLogo)="mediaWorkflow.deleteLogo(selected)"
-                  (reviewMedia)="
-                    mediaWorkflow.reviewSponsorMedia(selected, $event)
-                  "
-                  (moderationChanged)="
-                    mediaWorkflow.loadSponsorMedia(selected.id);
-                    loadSponsorships(true)
-                  "
-                  (approveAllMedia)="
-                    mediaWorkflow.approveAllSponsorMedia(selected, $event)
-                  "
-                  (deleteMedia)="
-                    mediaWorkflow.deleteSponsorMedia(selected, $event)
-                  "
+                  (moderationChanged)="loadSponsorships(true)"
                 />
               </ng-container>
 

@@ -26,6 +26,13 @@ const operatorActions = new Set([
   '/admin/sponsorships/media/metadata',
   '/admin/sponsorships/media/usage',
   '/admin/sponsorships/media/preference-review',
+  '/admin/sponsorships/media/rules',
+  '/admin/sponsorships/media/batches',
+  '/admin/sponsorships/media/batch/plan',
+  '/admin/sponsorships/media/batch/execute',
+  '/admin/sponsorships/media/analyses',
+  '/admin/sponsorships/media/analyses/review',
+  '/admin/sponsorships/media/upload',
   '/admin/sponsorships/logo',
   '/admin/sponsorships/logo/delete',
   '/admin/email-queue/retry',
@@ -58,6 +65,18 @@ export const adminRoleAllows = (
 ): boolean => {
   const path = pathname.replace(/^\/api(?=\/)/, '');
   if (role === 'owner') return true;
+  if (
+    [
+      '/admin/sponsorships/media/workspace/history',
+      '/admin/sponsorships/media/receipt',
+      '/admin/sponsorships/media/analyses',
+      '/admin/sponsorships/media/analyses/review'
+    ].includes(path)
+  )
+    return (
+      role === 'operator' &&
+      (method === 'GET' || (method === 'POST' && operatorActions.has(path)))
+    );
   if (
     path === '/admin/preparation-assistance' ||
     path.startsWith('/admin/preparation-assistance/')

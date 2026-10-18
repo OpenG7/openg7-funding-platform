@@ -10,6 +10,7 @@ import type {
   SponsorshipIntervention,
   SponsorshipInterventionsResponse
 } from '@openg7/funding-core';
+import { classifySponsorMedia } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
 import { expectAdminFontsReady } from './support/admin-fonts.js';
@@ -27,6 +28,7 @@ import { registerSponsorshipHistoricalAuditTests } from './admin-sponsorship-his
 import { registerSponsorshipTimingTests } from './admin-sponsorship-timing.ui.js';
 import { registerAdminMediaUsageTests } from './sponsor-media-usage.ui.js';
 import { registerDossierPublicationScheduleTests } from './dossier-publication-schedule.ui.js';
+import { registerMediaReviewWorkspaceTests } from './media-review-workspace.ui.js';
 
 const id = '10000000-0000-4000-8000-000000000401';
 const secondId = '10000000-0000-4000-8000-000000000402';
@@ -156,6 +158,16 @@ const record = (value = id): AdminSponsorshipRecord => ({
   created_at: date,
   updated_at: date
 });
+async function confirmMediaPlan(page: Page): Promise<void> {
+  await page.locator('[data-og7="media-manifest-confirmation"]').check();
+  await page.locator('[data-og7="media-batch-execute"]').click();
+  await expect(page.locator('dialog[open]')).toHaveCount(0);
+}
+async function cancelMediaPlan(page: Page): Promise<void> {
+  await expect(page.locator('[data-og7="media-batch-manifest"]')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('dialog[open]')).toHaveCount(0);
+}
 async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
   await page.addInitScript((oidc) => {
     sessionStorage.setItem(
@@ -201,6 +213,39 @@ async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
     milestones: null as AdminSponsorshipProgress['milestones'] | null,
     progressOverrides: {} as Partial<AdminSponsorshipProgress>
   };
+  const mediaPlans = new Map<
+    string,
+    import('@openg7/funding-core').SponsorMediaBatchPlanRequest
+  >();
+  const mediaWorkspace = () => ({
+    contributionId: id,
+    revision:
+      'workspace:' + options.media.map((asset) => asset.version).join(':'),
+    writable: role !== 'reader',
+    rules: [],
+    batches: [],
+    assets: options.media.map((asset) => ({
+      ...asset,
+      batchId: null,
+      ruleId: null,
+      usageSource: 'media',
+      readiness: classifySponsorMedia({
+        usage: asset.usage,
+        reviewStatus: asset.reviewStatus,
+        altText: asset.altText,
+        restrictionsReviewed: asset.usageRestrictionsReviewed,
+        humanReviewed: true
+      }),
+      moderation: {
+        state: null,
+        level: null,
+        contentVersion: 1,
+        fingerprint: asset.id + ':content',
+        currentDecisionId: null
+      },
+      websiteSelected: false
+    }))
+  });
   await page.route('**/api/**', async (route) => {
     if (
       await moderationFixture(route, [
@@ -378,8 +423,113 @@ async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
         }
       });
     }
+    if (url.pathname === '/api/admin/sponsorships/media/batch/plan') {
+      if (options.mutationStatus !== 200)
+        return route.fulfill({
+          status: options.mutationStatus,
+          json: { code: 'SYNTHETIC_PLAN_REFUSED' }
+        });
+      const request =
+        req.postDataJSON() as import('@openg7/funding-core').SponsorMediaBatchPlanRequest;
+      const planId = 'synthetic-plan-' + mediaPlans.size;
+      mediaPlans.set(planId, request);
+      return route.fulfill({
+        json: {
+          id: planId,
+          contributionId: id,
+          action: request.action,
+          revision: mediaWorkspace().revision,
+          expiresAt: new Date(Date.now() + 600000).toISOString(),
+          blocked: [],
+          effects: [],
+          assets: request.assets.map((item) => ({
+            ...mediaWorkspace().assets.find((asset) => asset.id === item.id),
+            ...(item.altText === undefined ? {} : { altText: item.altText })
+          }))
+        }
+      });
+    }
+    if (url.pathname === '/api/admin/sponsorships/media/batch/execute') {
+      if (options.mutationGate) await options.mutationGate;
+      if (options.mutationStatus !== 200)
+        return route.fulfill({
+          status: options.mutationStatus,
+          json: { code: 'SYNTHETIC_EXECUTE_REFUSED' }
+        });
+      const input = req.postDataJSON(),
+        plan = mediaPlans.get(input.planId)!;
+      options.media = options.media.flatMap((asset) => {
+        const item = plan.assets.find((item) => item.id === asset.id);
+        if (!item) return [asset];
+        if (plan.action === 'delete') return [];
+        return [
+          {
+            ...asset,
+            version: asset.version + '-updated',
+            ...(plan.action === 'approve'
+              ? {
+                  reviewStatus: 'approved' as const,
+                  altText: item.altText ?? asset.altText
+                }
+              : plan.action === 'reject'
+                ? { reviewStatus: 'rejected' as const }
+                : {})
+          }
+        ];
+      });
+      return route.fulfill({
+        json: {
+          requestId: input.requestId,
+          planId: input.planId,
+          status: 'completed',
+          action: plan.action,
+          items: plan.assets.map((item) => ({
+            id: item.id,
+            version: item.version + '-updated',
+            result: plan.action
+          }))
+        }
+      });
+    }
+    if (url.pathname === '/api/admin/sponsorships/media/rules') {
+      const input = req.postDataJSON();
+      options.media = options.media.map((asset) =>
+        input.coveredAssetIds.includes(asset.id)
+          ? {
+              ...asset,
+              version: asset.version + '-updated',
+              usage: input.usage
+            }
+          : asset
+      );
+      return route.fulfill({ json: mediaWorkspace() });
+    }
+    if (url.pathname === '/api/admin/sponsorships/media/upload') {
+      if (options.mutationStatus !== 200)
+        return route.fulfill({
+          status: options.mutationStatus,
+          json: { code: 'INVALID_MEDIA_FILE' }
+        });
+      const asset = { ...mediaAsset(), kind: 'logo' as const };
+      options.media = [...options.media, asset];
+      return route.fulfill({ json: { uploaded: true, asset } });
+    }
     if (url.pathname === '/api/admin/sponsorships/media')
       return route.fulfill({ json: { assets: options.media } });
+    if (url.pathname === '/api/admin/sponsorships/media/workspace')
+      return route.fulfill({ json: mediaWorkspace() });
+    if (url.pathname === '/api/admin/sponsorships/media/analyses')
+      return route.fulfill({
+        json: {
+          contributionId: id,
+          capabilities: {
+            technical: 'local',
+            vision: 'not_configured',
+            ocr: 'not_configured'
+          },
+          runs: []
+        }
+      });
     if (
       url.pathname === '/api/admin/sponsorship-commitments' &&
       req.method() === 'GET'
@@ -584,6 +734,11 @@ registerSponsorHistoryPanelTests({ fixtures, path, tabs });
 registerSponsorWorkspaceTests({ fixtures, path });
 registerSponsorFinanceTests({ fixtures, path });
 registerSponsorProfileTests({ fixtures, path, asset: () => mediaAsset() });
+registerMediaReviewWorkspaceTests({
+  fixtures,
+  path,
+  asset: () => mediaAsset()
+});
 registerSponsorInterventionTests({ fixtures, path, id, date });
 registerAdminMediaUsageTests({ fixtures, path, asset: () => mediaAsset() });
 registerSponsorshipCommitmentTests({ fixtures, path });
@@ -875,8 +1030,8 @@ for (const language of ['fr-CA', 'en'] as const)
         ).toBe(true);
       }
 
-      await test.step('identity starts in the desktop viewport; context has its own readable column', async () => {
-        await expectComposition(viewport.width === 390);
+      await test.step('the profile keeps identity visible and review context below the media workspace', async () => {
+        await expectComposition(true);
         await expect(
           main.locator('[data-og7="sponsorship-progress"]')
         ).toBeHidden();
@@ -1628,22 +1783,61 @@ test('dossier controls respect reader and operator permissions', async ({
     .getByRole('button', { name: 'Fiche et médias', exact: true })
     .click();
   const media = page.locator('openg7-admin-sponsor-detail-media');
-  for (const button of [
-    'Tout approuver',
-    'Approuver le media',
-    'Refuser',
-    'Supprimer'
-  ])
-    await expect(
-      media.getByRole('button', { name: button, exact: true })
-    ).toBeDisabled();
+  const workspace = media.locator('[data-og7="media-review-workspace"]');
+  await expect(
+    workspace.locator('[data-og7="media-dossier-rules"]')
+  ).toBeDisabled();
+  await expect(
+    workspace.getByRole('button', { name: 'Créer un lot', exact: true })
+  ).toBeDisabled();
+  const tile = workspace.locator('[data-og7="media-tile"]').first();
+  await expect(tile.getByRole('checkbox')).toBeDisabled();
+  await expect(
+    workspace.locator('[data-og7="media-batch-approve"]')
+  ).toHaveCount(0);
+  await tile.getByRole('button').focus();
+  await tile.getByRole('button').press('Enter');
+  const inspector = workspace.locator('[data-og7="media-inspector"]');
+  await expect(
+    inspector.locator('[data-og7="media-inspector-alt"]')
+  ).toBeDisabled();
+  await expect(
+    inspector.locator('[data-og7="media-inspector-approve"]')
+  ).toBeDisabled();
+  await expect(
+    inspector.locator('[data-og7="media-full-preview"] img')
+  ).toBeVisible();
+  await expect(
+    inspector.locator('[data-og7="media-full-preview"] img')
+  ).toHaveAttribute('src', /^blob:/);
+  expect(
+    calls.some(
+      (call) =>
+        call.method === 'GET' &&
+        call.url.pathname ===
+          `/api/admin/sponsorships/media/content/${secondId}` &&
+        !call.url.searchParams.has('variant')
+    )
+  ).toBe(true);
+  await inspector.getByText('Plus d’options', { exact: true }).click();
+  for (const button of ['Refuser', 'Supprimer', 'Choisir pour le site']) {
+    const controls = inspector.getByRole('button', {
+      name: button,
+      exact: true
+    });
+    await expect(controls).not.toHaveCount(0);
+    for (const control of await controls.all())
+      await expect(control).toBeDisabled();
+  }
+  await expect(workspace.locator('[data-og7="media-history"]')).toHaveCount(0);
   await expect(
     media.getByRole('button', { name: 'Supprimer le logo', exact: true })
   ).toHaveCount(0);
   await expect(media.locator('input[type="file"]')).toBeDisabled();
-  await media.getByRole('button', { name: 'Aperçu', exact: true }).click();
-  await expect(page.locator('dialog[open]').getByRole('img')).toBeVisible();
-  await page.keyboard.press('Escape');
+  await inspector.locator('[data-og7="media-inspector-close"]').click();
+  await expect(
+    workspace.locator('[data-og7="media-full-preview"]')
+  ).toHaveCount(0);
   await tabs(page)
     .getByRole('button', { name: 'Publication', exact: true })
     .click();
@@ -1873,31 +2067,39 @@ test('bulk media approval keeps edited alternative text and approved media text 
   const { calls, options } = await fixtures(page);
   options.media = [mediaAsset()];
   await page.goto(path('media'));
-  const media = page.locator('[data-og7="admin-sponsor-media"]');
-  const altText = media.getByRole('textbox', {
-    name: 'Texte alternatif (optionnel)'
+  await page
+    .locator('[data-og7="media-tile"]')
+    .first()
+    .getByRole('button')
+    .click();
+  const alt = page.locator('[data-og7="media-inspector-alt"]');
+  await alt.fill('Description préparée avant approbation');
+  await page
+    .locator('[data-og7="media-tile"]')
+    .first()
+    .getByRole('checkbox')
+    .check();
+  await page.locator('[data-og7="media-batch-approve"]').click();
+  await confirmMediaPlan(page);
+  await expect(alt).toHaveValue('Description préparée avant approbation');
+  expect(options.media[0].reviewStatus).toBe('approved');
+  await alt.fill('Description corrigée après approbation');
+  await page.locator('[data-og7="media-inspector-approve"]').click();
+  await confirmMediaPlan(page);
+  const plans = postsTo(calls, '/batch/plan');
+  expect(plans).toHaveLength(2);
+  expect(plans[1].body).toMatchObject({
+    action: 'approve',
+    assets: [
+      {
+        id: secondId,
+        version: 'v1-updated',
+        altText: 'Description corrigée après approbation'
+      }
+    ]
   });
-  await altText.fill('Description préparée avant approbation');
-  await page.getByRole('button', { name: 'Tout approuver' }).click();
-  await completeModeration(page);
-  await expect(altText).toHaveValue('Description préparée avant approbation');
-  const saveText = media.getByRole('button', {
-    name: 'Enregistrer le texte alternatif'
-  });
-  await expect(saveText).toBeDisabled();
-  expect(postsTo(calls, '/media/review')[0]?.body?.['altText']).toBe(
-    'Description préparée avant approbation'
-  );
-  await altText.fill('Description corrigée après approbation');
-  await expect(saveText).toBeEnabled();
-  await saveText.click();
-  await completeModeration(page);
-  await expect(saveText).toBeDisabled();
-  expect(postsTo(calls, '/media/review')[1]?.body).toMatchObject({
-    reviewStatus: 'approved',
-    expectedVersion: 'v1-updated-updated-updated',
-    altText: 'Description corrigée après approbation'
-  });
+  expect(postsTo(calls, '/batch/execute')).toHaveLength(2);
+  expect(postsTo(calls, '/media/review')).toHaveLength(0);
 });
 
 test('media decisions lock competing actions and deletion needs confirmation', async ({
@@ -1906,55 +2108,74 @@ test('media decisions lock competing actions and deletion needs confirmation', a
   const { calls, options } = await fixtures(page);
   options.media = [mediaAsset()];
   let release!: () => void;
-  options.mutationGate = new Promise((resolve) => {
-    release = resolve;
-  });
+  options.mutationGate = new Promise((resolve) => (release = resolve));
   await page.goto(path('media'));
-  const media = page.locator('[data-og7="admin-sponsor-media"]');
-  await media.getByRole('button', { name: 'Approuver le media' }).click();
-  await completeModeration(page);
-  for (const button of ['Accepter', 'Refuser'])
+  await page
+    .locator('[data-og7="media-tile"]')
+    .first()
+    .getByRole('button')
+    .click();
+  await page.locator('[data-og7="media-inspector-approve"]').click();
+  await page.locator('[data-og7="media-manifest-confirmation"]').check();
+  await page.locator('[data-og7="media-batch-execute"]').click();
+  for (const name of ['Accepter', 'Refuser'])
     await expect(
-      actions(page).getByRole('button', { name: button, exact: true })
+      actions(page).getByRole('button', { name, exact: true })
     ).toBeDisabled();
-  await expect(page.locator('input[type="file"]')).toBeDisabled();
-  await tabs(page)
-    .getByRole('button', { name: 'Finances', exact: true })
-    .click();
-  await expect(
-    actions(page).getByRole('button', { name: 'Rembourser Stripe' })
-  ).toBeDisabled();
-  await tabs(page)
-    .getByRole('button', { name: 'Fiche et médias', exact: true })
-    .click();
+  await expect(page.locator('[data-og7="media-upload-files"]')).toBeDisabled();
   release();
-  await expect(
-    media.getByRole('button', { name: 'Refuser', exact: true })
-  ).toBeEnabled();
+  await expect(page.locator('dialog[open]')).toHaveCount(0);
   options.mutationGate = null;
-  await media.getByRole('button', { name: 'Refuser', exact: true }).click();
-  await expect(page.locator('[data-og7="confirm-action"]')).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(page.locator('[data-og7="confirm-action"]')).toBeHidden();
-  expect(postsTo(calls, '/media/review')).toHaveLength(1);
-  await media.getByRole('button', { name: 'Refuser', exact: true }).click();
-  await page.locator('[data-og7="confirm-action"]').click();
-  await completeModeration(page, true);
-  await expect(
-    media.getByRole('button', { name: 'Refuser', exact: true })
-  ).toBeDisabled();
-  await media.getByRole('button', { name: 'Supprimer', exact: true }).click();
-  await expect(page.locator('[data-og7="confirm-action"]')).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(page.locator('[data-og7="confirm-action"]')).toBeHidden();
-  expect(postsTo(calls, '/media/delete')).toHaveLength(0);
-  await media.getByRole('button', { name: 'Supprimer', exact: true }).click();
-  await page.locator('[data-og7="confirm-action"]').click();
-  await expect(media).toHaveCount(0);
-  expect(postsTo(calls, '/media/delete')[0]?.body).toMatchObject({
-    assetId: secondId,
-    confirmation: secondId,
-    expectedVersion: 'v1-updated-updated'
+  const inspector = page.locator('[data-og7="media-inspector"]');
+  await inspector
+    .getByRole('button', { name: 'Refuser', exact: true })
+    .first()
+    .click();
+  await page
+    .locator('dialog[open]')
+    .getByLabel('Motif de modération')
+    .selectOption({ index: 1 });
+  await page
+    .locator('dialog[open]')
+    .getByLabel('Explication destinée au commanditaire')
+    .fill('Cette image ne convient pas au contenu présenté.');
+  await page
+    .locator('dialog[open]')
+    .getByRole('button', { name: 'Examiner le refus' })
+    .click();
+  await cancelMediaPlan(page);
+  expect(postsTo(calls, '/batch/execute')).toHaveLength(1);
+  await inspector
+    .getByRole('button', { name: 'Refuser', exact: true })
+    .first()
+    .click();
+  await page
+    .locator('dialog[open]')
+    .getByLabel('Motif de modération')
+    .selectOption({ index: 1 });
+  await page
+    .locator('dialog[open]')
+    .getByLabel('Explication destinée au commanditaire')
+    .fill('Cette image ne convient pas au contenu présenté.');
+  await page
+    .locator('dialog[open]')
+    .getByRole('button', { name: 'Examiner le refus' })
+    .click();
+  await confirmMediaPlan(page);
+  await inspector.getByText('Plus d’options', { exact: true }).click();
+  await inspector
+    .getByRole('button', { name: 'Supprimer', exact: true })
+    .click();
+  await cancelMediaPlan(page);
+  expect(postsTo(calls, '/batch/execute')).toHaveLength(2);
+  await inspector
+    .getByRole('button', { name: 'Supprimer', exact: true })
+    .click();
+  await confirmMediaPlan(page);
+  await expect(page.locator('[data-og7="media-tile"]')).toHaveCount(0);
+  expect(postsTo(calls, '/batch/plan').at(-1)?.body).toMatchObject({
+    action: 'delete',
+    assets: [{ id: secondId, version: 'v1-updated-updated' }]
   });
 });
 
@@ -2223,80 +2444,78 @@ test('a late access recipient cannot open confirmation for another dossier', asy
   expect(postsTo(calls, '/followup-access')).toHaveLength(0);
 });
 
-test('logo upload rejects invalid files, reports failure and deletion is confirmed', async ({
+test('logo upload rejects invalid files, reports definite failure and deletion is confirmed', async ({
   page
 }) => {
   const { calls, options } = await fixtures(page);
   await page.goto(path('media'));
-  const media = page.locator('openg7-admin-sponsor-detail-media');
-  const upload = media.locator('input[type="file"]');
-  const remove = media.getByRole('button', { name: 'Supprimer le logo' });
-  await expect(remove).toHaveCount(0);
+  const workspace = page.locator('[data-og7="media-review-workspace"]'),
+    upload = workspace.locator('[data-og7="media-upload-files"]');
+  await workspace.getByLabel('Type de fichier').selectOption('logo');
   await upload.setInputFiles({
     name: 'fixture.txt',
     mimeType: 'text/plain',
     buffer: Buffer.from('synthetic')
   });
-  await expect(media).toContainText('Logo refuse');
-  expect(postsTo(calls, '/logo')).toHaveLength(0);
-  await upload.setInputFiles({
-    name: 'large.png',
-    mimeType: 'image/png',
-    buffer: Buffer.alloc(512 * 1024 + 1)
-  });
-  expect(postsTo(calls, '/logo')).toHaveLength(0);
+  await expect(workspace).toContainText('1 échec');
+  expect(postsTo(calls, '/media/upload')).toHaveLength(0);
+  options.mutationStatus = 400;
   const file = {
     name: 'fixture.png',
     mimeType: 'image/png',
-    buffer: Buffer.from('synthetic image handled by API fixture')
+    buffer: Buffer.from('synthetic image validated by fixture')
   };
-  options.mutationStatus = 503;
   await upload.setInputFiles(file);
-  await expect(media).toContainText('Synthetic action failure');
+  await expect(workspace).toContainText('1 échec');
   options.mutationStatus = 200;
   await upload.setInputFiles(file);
-  await expect(remove).toBeEnabled();
-  await expect(media.getByRole('img')).toHaveAttribute('src', /^blob:/);
-  await remove.click();
-  await expect(page.locator('[data-og7="confirm-action"]')).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(page.locator('[data-og7="confirm-action"]')).toBeHidden();
+  await expect(workspace.locator('[data-og7="media-tile"]')).toHaveCount(1);
+  await workspace
+    .locator('[data-og7="media-tile"]')
+    .getByRole('button')
+    .click();
+  const inspector = workspace.locator('[data-og7="media-inspector"]');
+  await inspector.getByText('Plus d’options', { exact: true }).click();
+  await inspector
+    .getByRole('button', { name: 'Supprimer', exact: true })
+    .click();
+  await cancelMediaPlan(page);
+  expect(postsTo(calls, '/batch/execute')).toHaveLength(0);
+  await inspector
+    .getByRole('button', { name: 'Supprimer', exact: true })
+    .click();
+  await confirmMediaPlan(page);
+  await expect(workspace.locator('[data-og7="media-tile"]')).toHaveCount(0);
+  expect(postsTo(calls, '/logo')).toHaveLength(0);
   expect(postsTo(calls, '/logo/delete')).toHaveLength(0);
-  await remove.click();
-  await page.locator('[data-og7="confirm-action"]').click();
-  await expect(remove).toHaveCount(0);
-  expect(postsTo(calls, '/logo/delete')[0]?.body).toMatchObject({
-    contributionId: id,
-    expectedVersion: 'v1',
-    confirmation: id
-  });
 });
 
-test('failed media approval preserves its text and can be retried without changing the decision', async ({
+test('failed media approval preserves its text and permits another preflight without replaying a mutation', async ({
   page
 }) => {
   const { calls, options } = await fixtures(page);
   options.media = [mediaAsset()];
   options.mutationStatus = 503;
   await page.goto(path('media'));
-  const media = page.locator('[data-og7="admin-sponsor-media"]');
-  const altText = media.getByRole('textbox', {
-    name: 'Texte alternatif (optionnel)'
-  });
-  await altText.fill('Description conservée');
-  await page.getByRole('button', { name: 'Tout approuver' }).click();
-  await expect(page.locator('openg7-admin-sponsor-detail-media')).toContainText(
-    'Synthetic action failure'
-  );
-  await expect(altText).toHaveValue('Description conservée');
-  options.mutationStatus = 200;
-  await page.getByRole('button', { name: 'Tout approuver' }).click();
-  await completeModeration(page);
+  await page
+    .locator('[data-og7="media-tile"]')
+    .first()
+    .getByRole('button')
+    .click();
+  const alt = page.locator('[data-og7="media-inspector-alt"]');
+  await alt.fill('Description conservée');
+  await page.locator('[data-og7="media-inspector-approve"]').click();
   await expect(
-    media.getByRole('button', { name: 'Enregistrer le texte alternatif' })
-  ).toBeDisabled();
-  expect(postsTo(calls, '/media/review')).toHaveLength(1);
-  expect(postsTo(calls, '/media/metadata')).toHaveLength(2);
+    page.locator('[data-og7="media-workspace-error"]')
+  ).toBeVisible();
+  await expect(alt).toHaveValue('Description conservée');
+  expect(postsTo(calls, '/batch/execute')).toHaveLength(0);
+  options.mutationStatus = 200;
+  await page.locator('[data-og7="media-inspector-approve"]').click();
+  await confirmMediaPlan(page);
+  expect(postsTo(calls, '/batch/execute')).toHaveLength(1);
+  expect(postsTo(calls, '/batch/plan')).toHaveLength(2);
+  expect(options.media[0].altText).toBe('Description conservée');
 });
 
 test('English mobile media editing works with keyboard and without horizontal overflow', async ({
@@ -2309,18 +2528,22 @@ test('English mobile media editing works with keyboard and without horizontal ov
   await page
     .getByRole('button', { name: 'Switch administration language to English' })
     .click();
-  const media = page.locator('[data-og7="admin-sponsor-media"]');
-  await media
-    .getByRole('textbox', { name: 'Alt text (optional)' })
+  const tile = page
+    .locator('[data-og7="media-tile"]')
+    .first()
+    .getByRole('button');
+  await tile.focus();
+  await tile.press('Enter');
+  await page
+    .locator('[data-og7="media-inspector-alt"]')
     .fill('Updated alternative text');
-  const save = media.getByRole('button', { name: 'Save alternative text' });
-  await save.focus();
-  await save.press('Enter');
-  await completeModeration(page);
-  await expect(save).toBeDisabled();
-  expect(postsTo(calls, '/media/review')[0]?.body?.['altText']).toBe(
-    'Updated alternative text'
-  );
+  const approve = page.locator('[data-og7="media-inspector-approve"]');
+  await approve.focus();
+  await approve.press('Enter');
+  await confirmMediaPlan(page);
+  expect(postsTo(calls, '/batch/plan')[0]?.body).toMatchObject({
+    assets: [{ id: secondId, altText: 'Updated alternative text' }]
+  });
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth + 1
@@ -3105,48 +3328,17 @@ for (const [language, width] of [
 test('media and history inspections stay inside the selected dossier', async ({
   page
 }) => {
-  await fixtures(page);
-  await page.route('**/api/admin/sponsorships/media?**', (route) =>
-    route.fulfill({
-      json: {
-        assets: [
-          {
-            id: secondId,
-            contributionId: id,
-            kind: 'logo',
-            version: 'v1',
-            reviewStatus: 'pending_review',
-            altText: 'Logo de test',
-            width: 1,
-            height: 1,
-            sizeBytes: 68,
-            mimeType: 'image/png',
-            createdAt: date,
-            updatedAt: date
-          }
-        ]
-      }
-    })
-  );
-  await page.route('**/api/admin/sponsorships/media/content/**', (route) =>
-    route.fulfill({
-      contentType: 'image/png',
-      body: Buffer.from(
-        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aV0cAAAAASUVORK5CYII=',
-        'base64'
-      )
-    })
-  );
+  const { options } = await fixtures(page);
+  options.media = [mediaAsset()];
   await page.goto(path('media'));
   await page
-    .locator('[data-og7="admin-sponsor-media"]')
-    .getByRole('button', { name: 'Aperçu', exact: true })
+    .locator('[data-og7="media-tile"]')
+    .first()
+    .getByRole('button')
     .click();
-  await expect(page.locator('dialog[open]').getByRole('img')).toHaveAttribute(
-    'src',
-    /^blob:/
-  );
-  await page.keyboard.press('Escape');
+  await expect(
+    page.locator('[data-og7="media-full-preview"] img')
+  ).toHaveAttribute('src', /^blob:/);
   await tabs(page).getByRole('button', { name: 'Historique' }).click();
   await page
     .locator('[data-og7="dossier-audit-history"]')
@@ -3183,7 +3375,7 @@ test('five dossier workspaces use direct URLs; invoice is complete before review
     .getByRole('button', { name: 'Fiche et médias', exact: true })
     .click();
   await expect(
-    page.getByRole('heading', { name: 'Photos en revue' })
+    page.getByRole('heading', { name: 'Revue des médias' })
   ).toBeVisible();
   await page.reload();
   await expect(

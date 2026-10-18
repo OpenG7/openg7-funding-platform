@@ -54,7 +54,7 @@ export async function getSponsorMediaPreference(
   const result = await db.query(
     `SELECT p.*, (p.preferred_asset_id IS NULL OR EXISTS(
     SELECT 1 FROM sponsor_media_assets m WHERE m.id=p.preferred_asset_id AND m.contribution_id=p.contribution_id
-      AND m.deleted_at IS NULL AND m.usage_rights->>'state'<>'withdrawn')) AS available
+      AND m.deleted_at IS NULL AND sponsor_media_effective_usage(m.id)->>'state'<>'withdrawn')) AS available
     FROM sponsor_media_preferences p WHERE p.contribution_id=$1`,
     [contributionId]
   );
@@ -200,7 +200,7 @@ export async function updateSponsorMediaUsage(
       ensure(current!.version === input.expectedVersion, 'VERSION_CONFLICT');
       const row = (
         await db.query<SponsorMediaAssetRow>(
-          `UPDATE sponsor_media_assets SET usage_rights=$2::jsonb,
+          `UPDATE sponsor_media_assets SET usage_rights=$2::jsonb,usage_inheritance='legacy',
       usage_restrictions_reviewed=FALSE,review_status='pending_review',public_url=NULL,reviewed_at=NULL,reviewed_by=NULL,
       updated_at=clock_timestamp() WHERE id=$1 RETURNING ${selectAssetColumns}`,
           [input.assetId, JSON.stringify(usage)]

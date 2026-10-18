@@ -343,7 +343,8 @@ test('publication guards reject shared batches, live jobs and live or foreign de
       'contribution_activity_history',
       'contribution_sms_deliveries',
       'contribution_activity_presentations',
-      'contribution_activity'
+      'contribution_activity',
+      'sponsor_media_workspaces'
     ]
   );
   assert.doesNotMatch(

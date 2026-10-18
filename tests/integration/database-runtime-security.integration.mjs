@@ -5,6 +5,8 @@ import test from 'node:test';
 import pg from 'pg';
 
 import { assertProductionDatabasePrivileges } from '../../dist/apps/funding-api/src/database-runtime-security.js';
+import { assertSponsorMediaReadiness } from '../../dist/apps/funding-api/src/sponsor-media-readiness.js';
+import { assertSponsorMediaAnalysisReadiness } from '../../dist/apps/funding-api/src/sponsor-media-analysis-readiness.js';
 import { buildRuntimeRoleSql } from '../../scripts/lib/database-runtime-role.mjs';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 
@@ -29,6 +31,20 @@ test(
     runtime = new pg.Pool({ ...database.pool.options, user: role, password });
 
     await assertProductionDatabasePrivileges(runtime, true);
+    await assertSponsorMediaReadiness(runtime);
+    await assertSponsorMediaAnalysisReadiness(runtime);
+    // SELECT/INSERT on new columns do not compensate for a missing UPDATE grant.
+    await database.pool.query(
+      `REVOKE UPDATE ON sponsor_media_assets FROM ${role}`
+    );
+    await database.pool.query(
+      `GRANT UPDATE (usage_inheritance,media_batch_id) ON sponsor_media_assets TO ${role}`
+    );
+    await assert.rejects(assertSponsorMediaReadiness(runtime), {
+      message: 'SPONSOR_MEDIA_SCHEMA_OR_GRANTS_REQUIRED'
+    });
+    await database.pool.query(buildRuntimeRoleSql(config));
+    await assertSponsorMediaReadiness(runtime);
     await assert.rejects(
       assertProductionDatabasePrivileges(database.pool, true),
       {
@@ -73,6 +89,12 @@ test(
       'DELETE FROM admin_automatic_run_entries',
       'UPDATE admin_preparation_approvals SET actor=actor',
       'DELETE FROM admin_preparation_approvals',
+      'UPDATE sponsor_media_rule_versions SET actor=actor',
+      'UPDATE sponsor_media_workspace_commands SET actor=actor',
+      'UPDATE sponsor_media_batch_plans SET actor=actor',
+      'UPDATE sponsor_media_analysis_suggestions SET snapshot=snapshot',
+      'UPDATE sponsor_media_analysis_reviews SET actor=actor',
+      'UPDATE sponsor_media_analysis_requests SET actor=actor',
       'DELETE FROM admin_audit_log'
     ]) {
       await assert.rejects(runtime.query(sql), { code: '42501' });
@@ -100,7 +122,13 @@ test(
       'sponsorship_historical_evidence_reviews',
       'sponsorship_public_visibility_observations',
       'admin_automatic_run_entries',
-      'admin_preparation_approvals'
+      'admin_preparation_approvals',
+      'sponsor_media_rule_versions',
+      'sponsor_media_workspace_commands',
+      'sponsor_media_batch_plans',
+      'sponsor_media_analysis_suggestions',
+      'sponsor_media_analysis_reviews',
+      'sponsor_media_analysis_requests'
     ]) {
       await database.pool.query(`GRANT UPDATE ON ${table} TO ${role}`);
       await assert.rejects(assertProductionDatabasePrivileges(runtime, true), {

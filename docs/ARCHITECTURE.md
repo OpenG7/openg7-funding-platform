@@ -157,6 +157,13 @@ opération privilégiée implicite.
 
 ## Médias, modèle et confidentialité
 
+Les règles média communes sont des références versionnées dossier/lot/média,
+avec preuve privée et portée explicite. Leur modification invalide les décisions
+dépendantes. La revue collective confirme un manifeste exact ; l'acceptation du
+fichier, sa sélection Web et l'autorisation d'envoi restent distinctes.
+L'assistance produit des propositions privées sans pouvoir de décision ; ses
+capacités effectives sont déclarées. Voir la [décision média](decisions/2026-10-18-media-review-workspace.md).
+
 Les entités conceptuelles relient contribution/transaction/événement Stripe,
 profil/revue/plan de publication, dépense, remboursement/avoir/journal, source,
 réconciliation, média et audit. Ces concepts ne remplacent pas les migrations.

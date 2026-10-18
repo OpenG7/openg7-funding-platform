@@ -62,3 +62,133 @@ représentations déclaratives de ces logos déjà visibles sont conservées.
 Voir les [règles commandites](../development/sponsorship-rules.md) et le
 [runbook de publication](../operations/publication-automation.md) pour les
 autorisations commerciales, la reprise et les effets externes.
+
+## Revue par lot et héritage
+
+La galerie administrative affiche 25 tuiles par page, des filtres, la sélection
+multiple et un inspecteur unique. Les miniatures privées sont chargées à la demande,
+avec une concurrence bornée. Le fichier source n'est chargé que pour l'inspection.
+Les anciens champs de logo restent consultables dans une section de compatibilité ;
+les nouveaux téléversements administratifs créent des médias du modèle courant.
+
+Les règles sont définies au niveau dossier, lot ou média. Le média référence ses
+règles ; les valeurs héritées ne sont pas recopiées. Chaque qualification exige
+une référence privée de preuve, une portée et une confirmation. Une liste de
+fichiers couverts ne s'étend pas aux futurs ajouts. L'option de portée future exige
+une confirmation explicite ; les droits inconnus des médias historiques sont conservés.
+Une nouvelle règle ne rattache pas silencieusement les fichiers historiques :
+l'action collective de rattachement confirme les médias et leurs versions.
+
+Modifier des droits hérités invalide les revues et livraisons dépendantes, y compris
+les sources de montages et collections. Le retrait reste bloquant ; une exception
+ne donne de nouveaux droits qu'après qualification explicite avec sa preuve.
+
+`ready`, `needs_review` et `blocked` préparent la revue. Ce ne sont pas des états
+d'autorisation de publication. Sans analyse visuelle, l'absence de signal ne rend
+pas une image conforme : la personne peut examiner manuellement le manifeste.
+Les restrictions, le texte alternatif, les refus et les recours restent contrôlés.
+
+Les commandes collectives préparent un plan valable dix minutes, avec sélection,
+versions, contenu exact et effets. La confirmation humaine porte sur ce plan.
+Le serveur revalide tous les membres, puis écrit leurs décisions et le reçu dans
+une transaction. Un conflit ne laisse pas un sous-ensemble accepté. Les octets,
+checksums, formats et dimensions sont contrôlés hors transaction avant préparation
+et avant exécution ; les versions sont à nouveau vérifiées dans la transaction.
+
+L'acceptation collective conserve les fichiers hors sélection Web. Une action
+distincte sélectionne ou retire un média du site admissible. Elle n'autorise aucun
+envoi social. Les sélections historiques restent soumises aux contrôles existants.
+Sur un dossier déjà visible, cette sélection peut modifier immédiatement les
+images affichées ; le manifeste présente cet effet avant confirmation.
+
+### Routes administratives
+
+Routes sous `/api/admin/sponsorships/media`, avec aliases sans `/api` :
+
+| Route                                       | Contrat                                                                                                                                        |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /workspace?contributionId=…`           | Médias, règles effectives, provenance, lots, révision et capacité d'écriture ; preuve privée omise pour le lecteur.                            |
+| `POST /rules`                               | UUID, dossier/révision, portée, droits, preuve, IDs couverts et confirmation de la portée.                                                     |
+| `POST /batches`                             | UUID, dossier/révision, nom et confirmation du dossier.                                                                                        |
+| `POST /batch/plan`                          | UUID, action, dossier/révision et sélection IDs/versions ; contenu candidat et raisons selon l'action.                                         |
+| `POST /batch/execute`                       | UUID, plan, confirmation du plan et `humanReviewed: true`.                                                                                     |
+| `GET /receipt?contributionId=…&requestId=…` | Réconciliation d'une commande appartenant à l'acteur ; aucune relance automatique.                                                             |
+| `GET /workspace/history`                    | Historique paginé du dossier ou média, réservé aux opérateurs/propriétaires.                                                                   |
+| `GET /content/:id?variant=thumbnail`        | WebP privé borné, contrôlant le checksum de la source.                                                                                         |
+| `POST /upload`                              | Multipart : UUID stable, dossier, type et fichier. Le reçu est atomique avec la création ; le même UUID et payload ne dupliquent pas le média. |
+
+Les actions de lot sont accepter, refuser, supprimer, déplacer dans un lot du même
+dossier, rattacher des règles, sélectionner ou retirer du site. Le refus exige une
+raison de modération valide et une explication humaine. Chaque action utilise les
+mêmes intentions depuis les boutons et le Context Controller. L'assistant reste
+en lecture seule.
+
+### Assistance aux images
+
+Les routes `/analyses` et `/analyses/review` conservent des jobs, propositions et
+revues privées. L'analyse locale `local_technical_v1` vérifie réellement le WebP ;
+vision et OCR sont `not_configured`. Elle n'invente ni texte descriptif visuel,
+ni droits, ni décision N0. Un port d'adaptateur permet une analyse visuelle future,
+mais aucun fournisseur externe n'est activé.
+
+L'analyse d'une sélection crée des tâches individuelles avec une concurrence
+bornée ; elle ne constitue aucune décision collective de modération. Le suivi
+des tâches actives s'arrête quand la zone devient invisible et reste borné.
+`GET /analyses/receipt?contributionId=…&requestId=…` réconcilie une demande
+incertaine depuis son journal propriétaire, avec contrôle de l'acteur.
+
+Le préremplissage explicitement demandé copie une proposition dans un brouillon
+vierge. Une saisie commencée est protégée. Accepter la proposition applique les
+métadonnées via le service existant et exige ensuite une nouvelle revue du contenu ;
+cela n'accepte pas le média et ne l'expose pas. Résultats, capacités, versions et
+incertitudes sont conservés ; un résultat obsolète ne peut être appliqué.
+
+### Adoption et reprise
+
+Appliquer les migrations additives `060` et `061`, puis rafraîchir les grants du
+rôle applicatif avant de démarrer cette API. Les gardes refusent les tables ou droits
+manquants. Les migrations ne lancent aucune analyse, suppression ou publication.
+La limite des photos est configurable de 1 à 100, avec 100 par défaut ; la taille
+par fichier reste bornée par le contrat existant. Un réglage local existant plus bas
+reste effectif et n'est pas réécrit.
+
+Les reçus et preuves sont immuables. Après une réponse de mutation perdue, conserver
+UUID et payload, lire le reçu et réconcilier avant de continuer. Les suppressions
+physiques décidées par lot utilisent des jobs durables, hors transaction, et
+reprennent les erreurs. Le remplacement d'un logo en attente nettoie les anciennes
+clés privées après commit ; un échec est signalé pour reprise sans annuler l'upload.
+La conservation d'une publication déjà diffusée ou d'une copie téléchargée ne peut
+être annulée par cette interface.
+
+Pour revenir en arrière, arrêter les traitements et conserver une API sachant lire
+les droits hérités ; ne pas supprimer les nouvelles tables ni réactiver une ancienne
+autorisation. Préférer une correction en avant. Une restauration de production ou
+un nettoyage des copies historiques demande son instruction séparée.
+
+### Responsabilités internes
+
+Les façades de service conservent les contrats existants. Les modules internes
+séparent les responsabilités sans créer un second modèle de média :
+
+- [Plans de lot](../../apps/funding-api/src/sponsor-media-workspace/plans.ts) :
+  verrouillage, réconciliation et transaction. `plan-manifest.ts` prépare les
+  candidats exacts ; `plan-mutations.ts` applique le manifeste déjà revalidé avec
+  le même client transactionnel. `cleanup.ts` possède les baux et les appels au
+  stockage, après la transaction de suppression.
+- [Analyse](../../apps/funding-api/src/sponsor-media-analysis/service.ts) :
+  `commands.ts` valide les demandes et possède leur transaction idempotente ;
+  `projection.ts` lit les résultats et reçus ; `start.ts` et `review.ts` exécutent
+  respectivement la demande d'analyse et la décision humaine dans cette transaction.
+- [Téléversement](../../apps/funding-api/src/sponsor-media-upload.service.ts) :
+  `sponsor-media-upload/request.ts` valide l'entrée, l'empreinte et le reçu ;
+  `storage.ts` possède uniquement les clés de la tentative et le nettoyage des
+  fichiers remplacés. La façade décide quand la persistance transfère cette propriété.
+- [Espace de revue Web](../../apps/funding-web/src/app/features/funding/components/media-review/media-review-workspace.component.ts) :
+  composition de la galerie et de l'inspecteur unique. Les contrôleurs locaux
+  `MediaReviewAnalysis`, `MediaReviewUpload`, `MediaReviewHistory` et
+  `MediaReviewCommands` conservent chacun leur état et leur reprise ; le composant
+  de commandes présente les règles, lots et manifestes à confirmer.
+
+La [recette navigateur](../../tests/playwright/media-review-workspace.ui.ts) conserve
+son point d'enregistrement ; ses fixtures interceptées, décisions de revue et
+scénarios d'analyse sont séparés dans le répertoire voisin `media-review-workspace/`.

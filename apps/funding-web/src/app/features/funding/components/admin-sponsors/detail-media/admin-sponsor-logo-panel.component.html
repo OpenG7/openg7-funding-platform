@@ -50,46 +50,48 @@
     </div>
   }
 
-  <div class="logo-upload">
-    <p class="muted-copy" id="sponsor-logo-formats">
-      {{
-        'admin.messages.formats_acceptes_png_jpeg_ou_webp_max_512_kib'
-          | translate
-      }}
-    </p>
-    <div class="logo-actions">
-      <input
-        #logoFile
-        type="file"
-        hidden
-        accept="image/png,image/jpeg,image/webp"
-        [disabled]="disabled() || identity().uploadDisabled"
-        (change)="onUploadLogo($event)"
-        data-og7="admin-sponsor-logo-file"
-      />
-      <button
-        type="button"
-        class="admin-button admin-button--primary"
-        aria-describedby="sponsor-logo-formats"
-        [disabled]="disabled() || identity().uploadDisabled"
-        (click)="logoFile.click()"
-        data-og7="admin-sponsor-logo-upload"
-      >
-        {{ identity().logoActionLabel }}
-      </button>
-      @if (hasLogo()) {
+  @if (!hideControls()) {
+    <div class="logo-upload">
+      <p class="muted-copy" id="sponsor-logo-formats">
+        {{
+          'admin.messages.formats_acceptes_png_jpeg_ou_webp_max_512_kib'
+            | translate
+        }}
+      </p>
+      <div class="logo-actions">
+        <input
+          #logoFile
+          type="file"
+          hidden
+          accept="image/png,image/jpeg,image/webp"
+          [disabled]="disabled() || identity().uploadDisabled"
+          (change)="onUploadLogo($event)"
+          data-og7="admin-sponsor-logo-file"
+        />
         <button
           type="button"
-          class="admin-button secondary-danger-action"
-          [disabled]="disabled() || identity().deleteDisabled"
-          (click)="onDeleteLogo()"
-          data-og7="admin-sponsor-logo-delete"
+          class="admin-button admin-button--primary"
+          aria-describedby="sponsor-logo-formats"
+          [disabled]="disabled() || identity().uploadDisabled"
+          (click)="logoFile.click()"
+          data-og7="admin-sponsor-logo-upload"
         >
-          {{ 'admin.legacy.supprimer_le_logo' | translate }}
+          {{ identity().logoActionLabel }}
         </button>
-      }
+        @if (hasLogo()) {
+          <button
+            type="button"
+            class="admin-button secondary-danger-action"
+            [disabled]="disabled() || identity().deleteDisabled"
+            (click)="onDeleteLogo()"
+            data-og7="admin-sponsor-logo-delete"
+          >
+            {{ 'admin.legacy.supprimer_le_logo' | translate }}
+          </button>
+        }
+      </div>
     </div>
-  </div>
+  }
   @if (
     identity().statusMessage &&
     identity().statusMessage !==

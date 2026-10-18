@@ -28,6 +28,7 @@ import {
 import { createRouteMatcher } from './http-routing.js';
 import { ModerationError } from './moderation/policy.js';
 import type { createHttpTransport } from './http-transport.js';
+import { sponsorMediaThumbnail } from './sponsor-media-thumbnail.js';
 import {
   parseSponsorLogoUpload,
   SPONSOR_LOGO_FILENAME_PATTERN,
@@ -253,6 +254,17 @@ export const createAdminSponsorshipMediaHttpHandler = ({
       if (!ensureAdminAccess(request, response)) {
         return true;
       }
+      const variant = new URL(
+        request.url ?? '/',
+        publicBaseOrigin
+      ).searchParams.get('variant');
+      if (variant !== null && variant !== 'thumbnail') {
+        writeJson(request, response, 400, {
+          code: 'INVALID_MEDIA_VARIANT',
+          error: 'Unknown media variant.'
+        });
+        return true;
+      }
       try {
         const asset = await getSponsorMediaStorageRecord(adminMediaContentId);
         const image = asset
@@ -266,7 +278,11 @@ export const createAdminSponsorshipMediaHttpHandler = ({
           });
           return true;
         }
-        writeBinary(request, response, 200, image, 'image/webp', {
+        const content =
+          variant === 'thumbnail'
+            ? await sponsorMediaThumbnail(image, asset.checksumSha256)
+            : image;
+        writeBinary(request, response, 200, content, 'image/webp', {
           'Cache-Control': 'private, no-store'
         });
       } catch (error) {
@@ -428,19 +444,22 @@ export const createAdminSponsorshipMediaHttpHandler = ({
             ? await removeLegacyPublicCopy(reviewed.asset)
             : 'not_required';
 
-        await insertAdminAuditLog({
-          actor: getAdminAuditActor(request),
-          action: `sponsorship.media.${reviewStatus}`,
-          entityType: 'sponsor_media_asset',
-          entityId: reviewed.asset.id,
-          summary: `Sponsor media marked ${reviewStatus}.`,
-          metadata: {
-            contributionId: reviewed.asset.contributionId,
-            kind: reviewed.asset.kind,
-            storageDriver: sponsorMediaStorage.driver,
-            ...(reviewStatus === 'rejected' ? { legacyPublicCopyCleanup } : {})
-          }
-        });
+        if (reviewStatus === 'rejected')
+          await insertAdminAuditLog({
+            actor: getAdminAuditActor(request),
+            action: `sponsorship.media.${reviewStatus}`,
+            entityType: 'sponsor_media_asset',
+            entityId: reviewed.asset.id,
+            summary: `Sponsor media marked ${reviewStatus}.`,
+            metadata: {
+              contributionId: reviewed.asset.contributionId,
+              kind: reviewed.asset.kind,
+              storageDriver: sponsorMediaStorage.driver,
+              ...(reviewStatus === 'rejected'
+                ? { legacyPublicCopyCleanup }
+                : {})
+            }
+          });
         const result: AdminSponsorMediaReviewResult = {
           updated: true,
           asset: reviewed.asset

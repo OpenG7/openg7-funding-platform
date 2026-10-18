@@ -73,12 +73,16 @@ Une requête expire après 15 secondes et peut être réessayée. La navigation 
 
 ## Médias et validation
 
-Le suivi privé accepte par défaut **trois photos de présentation et un logo
+Le suivi privé accepte par défaut **cent photos de présentation et un logo
 séparé**. La limite retournée par l’API s’applique aux photos actives du dossier,
 y compris lors d’envois simultanés. Le formulaire affiche leur compteur et refuse
 les fichiers excédentaires sans vignette. Les téléversements confirmés restent
 comptés si l’actualisation échoue; une actualisation réussie est requise avant
 un nouvel ajout. Un fichier refusé reste identifié par son nom et son erreur.
+
+Les droits, la revue et la sélection d'exposition Web sont distincts. L'acceptation
+administrative d'une nouvelle photo ne l'ajoute pas automatiquement au site.
+Voir la [revue des médias](technical/sponsor-media-usage.md#revue-par-lot-et-héritage).
 
 `yarn images:sponsors` génère deux variantes WebP (960 et 1920 pixels) à partir du PNG du bandeau. Le navigateur choisit la variante par `srcset`. Les logos et photos des fiches sont différés; une erreur de logo affiche les initiales et une photo indisponible est retirée.
 

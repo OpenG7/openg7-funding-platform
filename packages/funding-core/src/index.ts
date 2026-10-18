@@ -333,6 +333,7 @@ export * from './sponsorship-obligation-timing.js';
 export * from './publication-reliability.js';
 export * from './sponsorship-publication-formats.js';
 export * from './sponsor-media-usage.js';
+export * from './sponsor-media-review.js';
 export type {
   PublicationObligationSnapshot,
   SponsorshipFulfilmentEvidence
@@ -387,3 +388,5 @@ export {
   type PreparationAssistanceActionId,
   type PreparationAssistanceAction
 } from './preparation-assistance-summary.js';
+export * from './sponsor-media-analysis.js';
+export * from './sponsor-media-actions.js';

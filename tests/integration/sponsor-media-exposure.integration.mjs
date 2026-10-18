@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { readFile, readdir } from 'node:fs/promises';
 import { createServer } from 'node:http';
@@ -19,6 +19,7 @@ import {
   reviewSponsorMediaAsset
 } from '../../dist/apps/funding-api/src/sponsor-media.repository.js';
 import { setSponsorshipWebsiteVisibility } from '../../dist/apps/funding-api/src/sponsorship-website.service.js';
+import { SponsorMediaWorkspaceService } from '../../dist/apps/funding-api/src/sponsor-media-workspace/service.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 import {
   approveFixtureSubject,
@@ -27,7 +28,7 @@ import {
 } from './support/moderation-fixture.mjs';
 
 test(
-  'approved media remain private until website visibility and known URLs are revoked immediately',
+  'approved media require explicit media selection and website visibility; known URLs are revoked immediately',
   { timeout: 90000 },
   async (t) => {
     const { pool, stop } = await startDisposablePostgres();
@@ -74,6 +75,9 @@ test(
       },
       async deletePublicObject() {
         assert.fail('this recipe must not modify historical public objects');
+      },
+      async deletePrivateObject() {
+        assert.fail('website selection must not delete private media');
       }
     };
     const admin = createAdminSponsorshipMediaHttpHandler({
@@ -155,7 +159,7 @@ test(
              processed_storage_key, public_storage_key, public_url, checksum_sha256,
              width, height, review_status, usage_rights)
            VALUES ($1, 'supporting_image', 'synthetic.png', 'image/png', 100,
-             'private/original/' || gen_random_uuid(), 80,
+             'private/original/' || gen_random_uuid(), $7,
              'private/processed/' || gen_random_uuid(), $2, $3, $5,
              100, 100, $4, $6::jsonb) RETURNING id, updated_at::text AS version,
                processed_storage_key`,
@@ -167,7 +171,8 @@ test(
               : null,
             legacy ? 'approved' : 'pending_review',
             checksum,
-            JSON.stringify(syntheticUsage)
+            JSON.stringify(syntheticUsage),
+            image.length
           ]
         )
       ).rows[0];
@@ -219,6 +224,52 @@ test(
       );
     };
     await expectPrivate(path);
+    assert.equal(
+      (
+        await pool.query(
+          'SELECT website_selected FROM sponsor_media_assets WHERE id=$1',
+          [fresh.id]
+        )
+      ).rows[0].website_selected,
+      false,
+      'accepting the media does not select it for website exposure'
+    );
+    const workspaceService = new SponsorMediaWorkspaceService(pool, storage);
+    const workspace = await workspaceService.workspace(contributionId);
+    const currentMedia = workspace.assets.find(
+      (asset) => asset.id === fresh.id
+    );
+    const selection = await workspaceService.plan(
+      {
+        requestId: randomUUID(),
+        contributionId,
+        expectedRevision: workspace.revision,
+        action: 'website_select',
+        assets: [{ id: fresh.id, version: currentMedia.version }]
+      },
+      fixtureModerationActor
+    );
+    assert.deepEqual(selection.blocked, []);
+    const selected = await workspaceService.execute(
+      {
+        requestId: randomUUID(),
+        planId: selection.id,
+        confirmation: selection.id,
+        humanReviewed: true
+      },
+      fixtureModerationActor
+    );
+    assert.equal(selected.status, 'completed');
+    await expectPrivate(path);
+    assert.equal(
+      (
+        await pool.query(
+          'SELECT count(*)::int AS n FROM publication_deliveries'
+        )
+      ).rows[0].n,
+      0,
+      'media selection never creates a social publication'
+    );
     await pool.query(
       'UPDATE fund_contributions SET public_display_consent=TRUE WHERE id=$1',
       [contributionId]
@@ -327,6 +378,14 @@ test(
     );
     await expectPrivate(path);
     await expectPrivate(legacyPath);
+    assert.equal(
+      (
+        await pool.query(
+          'SELECT count(*)::int AS n FROM publication_deliveries'
+        )
+      ).rows[0].n,
+      0
+    );
     assert.deepEqual(failures, []);
   }
 );

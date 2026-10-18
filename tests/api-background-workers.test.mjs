@@ -101,6 +101,49 @@ const fixture = (overrides = {}) => {
   };
 };
 
+test('media analysis and cleanup resume independently without overlapping ticks or private failure logs', async () => {
+  const pending = deferred();
+  let analyses = 0;
+  let cleanups = 0;
+  const f = fixture({
+    mediaAnalysis: {
+      tick: async () => {
+        analyses++;
+        await pending.promise;
+        throw new Error('Private image bytes and storage path');
+      }
+    },
+    mediaReview: {
+      tick: async () => {
+        cleanups++;
+      }
+    }
+  });
+  f.workers.start();
+  const mediaTimer = f.timers[0];
+  assert.equal(mediaTimer.intervalMs, 2000);
+  assert.equal(mediaTimer.unrefCalls, 1);
+  mediaTimer.callback();
+  await setImmediate();
+  assert.equal(analyses, 1);
+  assert.equal(cleanups, 0);
+  pending.resolve();
+  await setImmediate();
+  assert.equal(cleanups, 1);
+  mediaTimer.callback();
+  await setImmediate();
+  assert.equal(analyses, 2);
+  assert.equal(cleanups, 2);
+  assert.doesNotMatch(JSON.stringify(f.logs), /Private image|storage path/);
+  const noDatabase = fixture({
+    hasDatabase: false,
+    mediaAnalysis: { tick: () => assert.fail('no database') },
+    mediaReview: { tick: () => assert.fail('no database') }
+  });
+  noDatabase.workers.start();
+  assert.equal(noDatabase.timers.length, 0);
+});
+
 test('preparation assistance resumes through its bounded worker without logging private failures', async () => {
   let ticks = 0;
   const f = fixture({

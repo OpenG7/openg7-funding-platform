@@ -31,12 +31,18 @@ export const selectAssetColumns = `
   created_at::text AS created_at
 `;
 
+/** Reads resolve references; RETURNING keeps the immutable uploaded license facts. */
+export const selectEffectiveAssetColumns = selectAssetColumns.replace(
+  'usage_rights,',
+  'sponsor_media_effective_usage(id) AS usage_rights,'
+);
+
 export const getAssetForUpdate = async (
   client: PoolClient,
   assetId: string
 ): Promise<SponsorMediaAssetRow | null> => {
   const result = await client.query<SponsorMediaAssetRow>(
-    `SELECT ${selectAssetColumns}
+    `SELECT ${selectEffectiveAssetColumns}
      FROM sponsor_media_assets
      WHERE id = $1::uuid AND deleted_at IS NULL
      FOR UPDATE`,

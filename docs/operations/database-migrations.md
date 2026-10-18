@@ -228,6 +228,16 @@ par défaut. `MIGRATIONS_DIR` désigne le répertoire **complet** des migrations
 
 ## Registre et réexécution
 
+Les migrations `060_sponsor_media_workspace.sql` et `061_sponsor_media_analysis.sql`
+ajoutent les règles média versionnées, lots, plans/reçus collectifs, sélection Web
+et analyses privées. Elles ne lancent aucun traitement ni publication. Les médias
+historiques conservent leurs droits et références ; aucun consentement n'est inféré.
+Rafraîchir les grants du rôle runtime avant le démarrage de la nouvelle API.
+Les gardes vérifient les deux schémas et la protection des preuves immuables.
+Un ancien serveur ignorant l'héritage ne constitue pas un retour sûr : arrêter les
+traitements et privilégier une correction en avant. Voir les
+[contrats média et la reprise](../technical/sponsor-media-usage.md#revue-par-lot-et-héritage).
+
 Le registre `public.openg7_schema_migrations` conserve numéro, nom, empreinte
 SHA-256, date, rôle PostgreSQL, action (`applied` ou `baseline`) et référence
 d'adoption éventuelle. Son schéma d'outillage est défini séparément dans

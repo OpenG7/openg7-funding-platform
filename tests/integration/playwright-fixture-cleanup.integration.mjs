@@ -356,6 +356,16 @@ test(
         'sponsorship_obligations',
         'sponsorship_obligation_timing',
         'sponsor_media_usage_history',
+        'sponsor_media_workspaces',
+        'sponsor_media_batches',
+        'sponsor_media_rule_versions',
+        'sponsor_media_workspace_commands',
+        'sponsor_media_batch_plans',
+        'sponsor_media_cleanup_jobs',
+        'sponsor_media_analysis_runs',
+        'sponsor_media_analysis_suggestions',
+        'sponsor_media_analysis_reviews',
+        'sponsor_media_analysis_requests',
         ...dependencyTables
       ]
     ) {
@@ -398,12 +408,64 @@ test(
       }
     );
 
+    for (const [history, insert] of [
+      [
+        'batch',
+        `INSERT INTO sponsor_media_batches(contribution_id,name) VALUES($1,'Synthetic batch')`
+      ],
+      [
+        'rule',
+        `INSERT INTO sponsor_media_rule_versions(contribution_id,scope_type,scope_id,revision,evidence_reference,authorization_scope,actor,request_id)
+        VALUES($1,'dossier',$1,1,'Synthetic image-use evidence','scope','fixture-cleanup-test',gen_random_uuid())`
+      ],
+      [
+        'receipt',
+        `INSERT INTO sponsor_media_workspace_commands(contribution_id,request_id,payload_fingerprint,result,actor)
+        VALUES($1,gen_random_uuid(),repeat('a',64),'{}','fixture-cleanup-test')`
+      ],
+      [
+        'manifest',
+        `INSERT INTO sponsor_media_batch_plans(contribution_id,request_id,payload_fingerprint,actor,workspace_revision,plan,expires_at)
+        VALUES($1,gen_random_uuid(),repeat('a',64),'fixture-cleanup-test',1,'{}',NOW()+interval '1 hour')`
+      ],
+      [
+        'analysis run',
+        `INSERT INTO sponsor_media_analysis_runs(contribution_id,asset_id,checksum,adapter_version,generation,requested_by)
+        SELECT $1,id,checksum_sha256,'local_technical_v1',1,'fixture-cleanup-test' FROM sponsor_media_assets WHERE contribution_id=$1 LIMIT 1`
+      ],
+      [
+        'analysis receipt',
+        `INSERT INTO sponsor_media_analysis_requests(request_id,contribution_id,action,actor,request_hash,result_id)
+        VALUES(gen_random_uuid(),$1,'run','fixture-cleanup-test',repeat('a',64),gen_random_uuid())`
+      ]
+    ]) {
+      await t.test(
+        `recorded media ${history} rejects cleanup and reseed atomically`,
+        async () => {
+          await reset();
+          await client.query(insert, [await fixtureId()]);
+          const before = await snapshot();
+          for (const sql of [cleanup, seed]) {
+            await assert.rejects(
+              run(sql),
+              /preserve commercial and image-use history/
+            );
+            assert.deepEqual(await snapshot(), before);
+          }
+        }
+      );
+    }
+
     for (const action of ['cleanup', 'reseed']) {
       await t.test(
         `${action} removes fixture refund and activity dependencies while preserving foreign records`,
         async () => {
           await reset();
           const outsideId = await contribution(`outside-${randomUUID()}`);
+          await client.query(
+            'INSERT INTO sponsor_media_workspaces(contribution_id,revision) VALUES($1,7)',
+            [outsideId]
+          );
           await financialDependencies(outsideId, 'uncertain');
           const outsideDependencies = await snapshot(dependencyTables);
           const outsideContribution = async () =>
@@ -459,6 +521,15 @@ test(
               outsideDependencies
             );
             assert.deepEqual(await outsideContribution(), outsideBefore);
+            assert.deepEqual(
+              (
+                await client.query(
+                  'SELECT contribution_id,revision FROM sponsor_media_workspaces WHERE contribution_id=$1',
+                  [outsideId]
+                )
+              ).rows,
+              [{ contribution_id: outsideId, revision: 7 }]
+            );
             assert.equal(
               (
                 await client.query(

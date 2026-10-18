@@ -1,7 +1,10 @@
 import type { Page } from '@playwright/test';
 import type {
   SponsorshipCommitmentQualificationRequest,
-  SponsorshipHistoricalAuditReviewRequest
+  SponsorshipHistoricalAuditReviewRequest,
+  SponsorMediaBatchPlan,
+  SponsorMediaBatchPlanRequest,
+  SponsorMediaWorkspaceAsset
 } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
@@ -132,37 +135,154 @@ test('Xbox editor and select cancellation preserve identity and never submit the
   expect(state.commands).toEqual([]);
 });
 
-test('Xbox can review media rights, alternative text and current moderation before approval', async ({
+test('Xbox reviews one media manifest and confirms its exact alternative text and restrictions before approval', async ({
   page
 }) => {
   const state = await controllerJourneysFixtures(page);
+  let plan: SponsorMediaBatchPlan | null = null;
+  let revision = 'media-workspace-v1';
+  const workspaceAssets = (): SponsorMediaWorkspaceAsset[] =>
+    state.media.map((asset) => ({
+      ...asset,
+      batchId: null,
+      usageSource: 'media',
+      ruleId: null,
+      websiteSelected: false,
+      readiness: {
+        state: 'needs_review',
+        reasons: [
+          'MEDIA_HUMAN_REVIEW_REQUIRED',
+          ...(asset.usageRestrictionsReviewed
+            ? []
+            : ['MEDIA_RESTRICTIONS_REVIEW_REQUIRED'])
+        ]
+      },
+      moderation: {
+        state: asset.reviewStatus === 'approved' ? 'approved' : null,
+        level: asset.reviewStatus === 'approved' ? 'N0' : null,
+        contentVersion: 3,
+        fingerprint: 'a'.repeat(64),
+        currentDecisionId: null
+      }
+    }));
+  await page.route('**/api/admin/sponsorships/media/workspace*', (route) =>
+    route.fulfill({
+      json: {
+        contributionId: id,
+        revision,
+        assets: workspaceAssets(),
+        rules: [],
+        batches: [],
+        writable: true
+      }
+    })
+  );
+  await page.route('**/api/admin/sponsorships/media/analyses*', (route) =>
+    route.fulfill({
+      json: {
+        contributionId: id,
+        capabilities: {
+          technical: 'local',
+          vision: 'not_configured',
+          ocr: 'not_configured'
+        },
+        runs: []
+      }
+    })
+  );
+  await page.route('**/api/admin/sponsorships/media/batch/*', async (route) => {
+    const command = route.request().postDataJSON();
+    const pathname = new URL(route.request().url()).pathname;
+    state.commands.push({ path: pathname, body: command });
+    if (pathname.endsWith('/plan')) {
+      const request = command as SponsorMediaBatchPlanRequest;
+      plan = {
+        id: '10000000-0000-4000-8000-000000000405',
+        contributionId: id,
+        revision,
+        action: request.action,
+        expiresAt: '2099-01-01T00:00:00Z',
+        assets: workspaceAssets().map((asset) => ({
+          ...asset,
+          altText: request.assets[0]!.altText ?? asset.altText,
+          usageRestrictionsReviewed:
+            request.assets[0]!.usageRestrictionsConfirmed === true
+        })),
+        blocked: [],
+        effects: ['Private human media review only.']
+      };
+      return route.fulfill({ json: plan });
+    }
+    expect(command).toMatchObject({
+      planId: plan!.id,
+      confirmation: plan!.id,
+      humanReviewed: true
+    });
+    state.media = state.media.map((asset) => ({
+      ...asset,
+      altText: plan!.assets[0]!.altText,
+      reviewStatus: 'approved',
+      version: 'v2',
+      usageRestrictionsReviewed: true
+    }));
+    revision = 'media-workspace-v2';
+    return route.fulfill({
+      json: {
+        requestId: command.requestId,
+        planId: plan!.id,
+        status: 'completed',
+        action: 'approve',
+        items: [{ id: assetId, version: 'v2', result: 'approved' }]
+      }
+    });
+  });
   const pad = adminController(page);
   await page.goto(path('media'));
   const card = page.locator(
-    `[data-og7="admin-sponsor-media"][data-og7-id="${assetId}"]`
+    `[data-og7="media-tile"][data-og7-id="${assetId}"]`
   );
-  const approve = card.locator('[data-og7="admin-media-approve"]');
-  await expect(approve).toBeDisabled();
+  await pad.activate(card.getByRole('button'));
+  const inspector = hook(page, 'media-inspector');
   await pad.activate(
-    card.locator('[data-og7="admin-media-restrictions-confirmation"]')
+    inspector.getByRole('checkbox', {
+      name: 'I reviewed the usage restrictions for this image.'
+    })
   );
-  await pad.text(
-    card.getByRole('textbox', { name: 'Alt text (optional)', exact: true }),
+  await pad.text(hook(page, 'media-inspector-alt'), 'Photo test 2');
+  expect(state.media[0]!.altText).toBe('Photo test');
+  await pad.activate(hook(page, 'media-inspector-approve'));
+  await expect(hook(page, 'media-batch-manifest')).toContainText(
     'Photo test 2'
   );
-  await pad.activate(approve);
-  await moderation(page, pad);
-  await expect.poll(() => writes(state, '/media/review').length).toBe(1);
-  expect(writes(state, '/media/review')[0]!.body).toMatchObject({
-    assetId,
-    confirmation: assetId,
-    expectedVersion: 'v2',
-    reviewStatus: 'approved',
-    altText: 'Photo test 2'
+  const execute = hook(page, 'media-batch-execute');
+  await expect(execute).toBeDisabled();
+  expect(writes(state, '/media/batch/execute')).toHaveLength(0);
+  expect(writes(state, '/media/batch/plan')[0]!.body).toMatchObject({
+    action: 'approve',
+    contributionId: id,
+    assets: [
+      {
+        id: assetId,
+        version: 'v1',
+        altText: 'Photo test 2',
+        usageRestrictionsConfirmed: true
+      }
+    ]
   });
-  expect(
-    writes(state, '/media/review')[0]!.body.moderationDecision
-  ).toMatchObject({ level: 'N0', confirmation: assetId });
+  await pad.activate(hook(page, 'media-manifest-confirmation'));
+  await pad.reach(execute);
+  await pad.hold('A');
+  await expect.poll(() => writes(state, '/media/batch/execute').length).toBe(1);
+  await pad.hold('A');
+  expect(writes(state, '/media/batch/execute')).toHaveLength(1);
+  await pad.release();
+  expect(state.media[0]).toMatchObject({
+    reviewStatus: 'approved',
+    altText: 'Photo test 2',
+    usageRestrictionsReviewed: true
+  });
+  expect(writes(state, '/media/review')).toHaveLength(0);
+  expect(writes(state, '/moderation/decisions')).toHaveLength(0);
 });
 
 test('Xbox refusal records a reason-bound moderation decision without authorizing a refund', async ({
@@ -753,6 +873,24 @@ test('a same-route session expiry purges the Xbox editor before its private draf
       json: { error: 'Synthetic session expired' }
     });
   });
+  let sessionExpired = false;
+  const privateReadsAfterExpiry: string[] = [];
+  page.on('response', (response) => {
+    if (
+      new URL(response.url()).pathname === '/api/admin/payment-journey' &&
+      response.status() === 401
+    )
+      sessionExpired = true;
+  });
+  page.on('request', (request) => {
+    const pathname = new URL(request.url()).pathname;
+    if (
+      sessionExpired &&
+      request.method() === 'GET' &&
+      pathname.startsWith('/api/admin/')
+    )
+      privateReadsAfterExpiry.push(pathname);
+  });
   try {
     await pad.activate(hook(page, 'payment-journey-refresh'));
     await pending;
@@ -776,6 +914,8 @@ test('a same-route session expiry purges the Xbox editor before its private draf
     expect(page.url()).toBe(sameUrl);
     await pad.press('A');
     expect(state.commands).toEqual([]);
+    expect(sessionExpired).toBe(true);
+    expect(privateReadsAfterExpiry).toEqual([]);
   } finally {
     release();
   }

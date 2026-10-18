@@ -1,0 +1,574 @@
+<section
+  data-og7="media-review-workspace"
+  [attr.aria-busy]="c.loading() || c.busy()"
+  [attr.aria-label]="t('title')"
+>
+  @if (languageReady()) {
+    <header class="workspace-heading">
+      <div>
+        <h3>{{ t('title') }}</h3>
+        <p class="muted">{{ t('subtitle') }}</p>
+      </div>
+      <button
+        type="button"
+        class="admin-button"
+        [disabled]="c.busy()"
+        (click)="refresh()"
+        data-og7="media-refresh"
+      >
+        {{ t('refresh') }}
+      </button>
+    </header>
+    <div class="gallery-tools">
+      <label
+        >{{ t('uploadKind')
+        }}<select
+          [value]="upload.kind()"
+          [disabled]="!c.canWrite()"
+          (change)="
+            upload.kind.set(
+              value($event) === 'logo' ? 'logo' : 'supporting_image'
+            )
+          "
+        >
+          <option value="supporting_image">{{ t('photo') }}</option>
+          <option value="logo">{{ t('logo') }}</option>
+        </select></label
+      >
+      <label class="admin-button"
+        >{{ t(upload.busy() ? 'uploading' : 'upload')
+        }}<input
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          multiple
+          [disabled]="!c.canWrite()"
+          (change)="upload.upload($event)"
+          data-og7="media-upload-files"
+      /></label>
+    </div>
+    @if (upload.result(); as result) {
+      <p class="notice" role="status">
+        {{
+          t('uploadResult', {
+            received: result.received,
+            failed: result.failed
+          })
+        }}
+      </p>
+    }
+    @if (analysis.progress(); as progress) {
+      <p role="status">
+        {{
+          t('analysis.progress', {
+            completed: progress.completed,
+            total: progress.total
+          })
+        }}
+      </p>
+    }
+    @if (analysis.busy()) {
+      <button
+        type="button"
+        class="admin-button"
+        [disabled]="analysis.stop()"
+        (click)="analysis.stop.set(true)"
+      >
+        {{ t('analysis.stop') }}
+      </button>
+    }
+    @if (c.error()) {
+      <p role="alert" class="notice error" data-og7="media-workspace-error">
+        {{ t('errors.' + c.error()) }}
+      </p>
+    }
+    @if (c.uncertain()) {
+      <p class="notice" role="status">{{ t('uncertainHelp') }}</p>
+      <button
+        type="button"
+        class="admin-button"
+        [disabled]="c.busy()"
+        (click)="reconcile()"
+        data-og7="media-reconcile"
+      >
+        {{ t('verifyReceipt') }}
+      </button>
+    }
+    @if (c.receipt(); as receipt) {
+      <p role="status" class="notice success" data-og7="media-batch-receipt">
+        {{ t('completed', { count: receipt.items.length }) }}
+      </p>
+    }
+    @if (c.notice()) {
+      <p role="status" class="notice">{{ t(c.notice()) }}</p>
+    }
+    @if (c.loading() && !c.data()) {
+      <p role="status">{{ t('loading') }}</p>
+    }
+    @if (c.data(); as workspace) {
+      <div class="summary" aria-live="polite">
+        @for (
+          filter of ['all', 'ready', 'needs_review', 'blocked'];
+          track filter
+        ) {
+          <div [attr.data-state]="filter">
+            <strong>{{ count(filter) }}</strong
+            ><span>{{ t('filters.' + filter) }}</span>
+          </div>
+        }
+      </div>
+      <div class="defaults-panel">
+        <div>
+          <h4>{{ t('defaults') }}</h4>
+          <p>{{ rulesSummary() }}</p>
+        </div>
+        <button
+          type="button"
+          class="admin-button"
+          [disabled]="!c.canWrite()"
+          (click)="commands.openRules('dossier')"
+          data-og7="media-dossier-rules"
+        >
+          {{ t('editDefaults') }}
+        </button>
+      </div>
+      <div class="gallery-tools">
+        <label class="search"
+          >{{ t('search')
+          }}<input
+            type="search"
+            [value]="c.search()"
+            (input)="setSearch($event)"
+            data-og7="media-search"
+        /></label>
+        <label
+          >{{ t('batch')
+          }}<select
+            [value]="c.batchFilter()"
+            (change)="c.batchFilter.set(value($event)); c.page.set(1)"
+            data-og7="media-batch-filter"
+          >
+            <option value="">{{ t('allBatches') }}</option>
+            @for (batch of workspace.batches; track batch.id) {
+              <option [value]="batch.id">{{ batch.name }}</option>
+            }
+          </select></label
+        >
+        <button
+          type="button"
+          class="admin-button"
+          [disabled]="!c.canWrite()"
+          (click)="commands.form.set('batch')"
+        >
+          {{ t('newBatch') }}
+        </button>
+      </div>
+      <nav class="filters" [attr.aria-label]="t('filterLabel')">
+        @for (filter of filters; track filter) {
+          <button
+            type="button"
+            class="admin-button"
+            [attr.aria-pressed]="c.filter() === filter"
+            (click)="setFilter(filter)"
+            [attr.data-og7-id]="filter"
+          >
+            {{ t('filters.' + filter) }} <span>{{ count(filter) }}</span>
+          </button>
+        }
+      </nav>
+      <div class="selection-toolbar" data-og7="media-selection-actions">
+        <p role="status">{{ t('selected', { count: c.selected().length }) }}</p>
+        <button
+          type="button"
+          class="admin-button"
+          [disabled]="!c.canWrite() || !c.visible().length"
+          (click)="c.selectPage()"
+        >
+          {{ t('selectPage') }}
+        </button>
+        <button
+          type="button"
+          class="admin-button"
+          [disabled]="!c.canWrite() || !c.counts().ready"
+          (click)="c.selectReady()"
+        >
+          {{ t('selectReady') }}
+        </button>
+        <button
+          type="button"
+          class="admin-button"
+          [disabled]="c.busy() || c.uncertain()"
+          (click)="c.selectedIds.set([])"
+        >
+          {{ t('clearSelection') }}
+        </button>
+        @if (c.selected().length) {
+          <button
+            type="button"
+            class="admin-button primary"
+            [disabled]="!canAction('approve')"
+            (click)="commands.prepare('approve')"
+            data-og7="media-batch-approve"
+          >
+            {{ t('actions.approve') }}
+          </button>
+          <button
+            type="button"
+            class="admin-button"
+            [disabled]="!canAction('analyze')"
+            (click)="analysis.analyzeSelection()"
+            data-og7="media-batch-analyze"
+          >
+            {{ t('analysis.selection') }}
+          </button>
+          <button
+            type="button"
+            class="admin-button"
+            [disabled]="!c.canWrite()"
+            (click)="commands.openRules('dossier')"
+          >
+            {{ t('actions.permissions') }}
+          </button>
+          <button
+            type="button"
+            class="admin-button danger"
+            [disabled]="!c.canWrite()"
+            (click)="commands.openReject()"
+          >
+            {{ t('actions.reject') }}
+          </button>
+          <button
+            type="button"
+            class="admin-button danger"
+            [disabled]="!c.canWrite()"
+            (click)="commands.prepare('delete')"
+            data-og7="media-batch-delete"
+          >
+            {{ t('actions.delete') }}
+          </button>
+          <label
+            >{{ t('moveTo')
+            }}<select
+              [value]="commands.targetBatch()"
+              (change)="commands.targetBatch.set(value($event))"
+            >
+              <option value="">{{ t('noBatch') }}</option>
+              @for (batch of workspace.batches; track batch.id) {
+                <option [value]="batch.id">{{ batch.name }}</option>
+              }
+            </select></label
+          >
+          <button
+            type="button"
+            class="admin-button"
+            [disabled]="!c.canWrite()"
+            (click)="commands.prepare('move')"
+          >
+            {{ t('move') }}
+          </button>
+        }
+      </div>
+      <div class="review-layout">
+        <div class="gallery-column">
+          @if (!c.filtered().length) {
+            <p class="empty" data-og7="media-gallery-empty">
+              {{ t(workspace.assets.length ? 'noResults' : 'empty') }}
+            </p>
+          }
+          <div class="gallery" data-og7="media-gallery">
+            @for (asset of c.visible(); track asset.id) {
+              <article
+                class="media-tile"
+                [class.inspected]="c.inspectedId() === asset.id"
+                [attr.data-og7-id]="asset.id"
+                data-og7="media-tile"
+              >
+                <button
+                  type="button"
+                  class="tile-open"
+                  (click)="inspect(asset)"
+                  [attr.aria-label]="
+                    t('inspectName', { name: asset.originalFilename })
+                  "
+                  [attr.aria-pressed]="c.inspectedId() === asset.id"
+                >
+                  <div class="tile-image">
+                    <openg7-media-review-thumbnail
+                      [collection]="thumbnails"
+                      [assetId]="asset.id"
+                      [version]="asset.version"
+                      [alt]="asset.altText || asset.originalFilename"
+                    />
+                  </div>
+                  <span class="filename">{{ asset.originalFilename }}</span>
+                </button>
+                <div class="tile-footer">
+                  <span
+                    class="status"
+                    [attr.data-state]="
+                      asset.reviewStatus === 'approved'
+                        ? 'approved'
+                        : asset.readiness.state
+                    "
+                    >{{ status(asset) }}</span
+                  >
+                  <label
+                    ><input
+                      type="checkbox"
+                      [checked]="c.selectedIds().includes(asset.id)"
+                      [disabled]="!c.canWrite()"
+                      (change)="c.toggle(asset.id)"
+                      [attr.aria-label]="
+                        t('selectName', { name: asset.originalFilename })
+                      "
+                  /></label>
+                </div>
+                <p class="tile-hint">{{ t('sources.' + asset.usageSource) }}</p>
+                @if (asset.ruleId && asset.usageSource === 'media') {
+                  <span class="exception">{{ t('exception') }}</span>
+                }
+                @if (analysis.analysisFor(asset.id); as analysis) {
+                  <span class="analysis-badge">{{
+                    t(
+                      'analysis.states.' +
+                        (analysis.stale ? 'stale' : analysis.state)
+                    )
+                  }}</span>
+                }
+              </article>
+            }
+          </div>
+          <nav class="pagination" [attr.aria-label]="t('pagination')">
+            <button
+              type="button"
+              class="admin-button"
+              [disabled]="c.currentPage() <= 1"
+              (click)="c.page.set(c.currentPage() - 1)"
+            >
+              {{ t('previous') }}
+            </button>
+            <span>{{
+              t('page', {
+                page: c.currentPage(),
+                total: c.pageCount(),
+                count: c.filtered().length
+              })
+            }}</span>
+            <button
+              type="button"
+              class="admin-button"
+              [disabled]="c.currentPage() >= c.pageCount()"
+              (click)="c.page.set(c.currentPage() + 1)"
+              data-og7="media-next-page"
+            >
+              {{ t('next') }}
+            </button>
+          </nav>
+        </div>
+        <aside
+          #inspector
+          tabindex="-1"
+          class="media-inspector"
+          data-og7="media-inspector"
+          [attr.aria-label]="t('inspector')"
+        >
+          @if (c.inspected(); as asset) {
+            <header class="inspector-heading">
+              <h4>{{ asset.originalFilename }}</h4>
+              <button
+                type="button"
+                class="admin-button"
+                [attr.aria-label]="t('close')"
+                (click)="c.inspectedId.set(null)"
+                data-og7="media-inspector-close"
+              >
+                ×
+              </button>
+            </header>
+            <div
+              tabindex="0"
+              class="full-preview"
+              data-og7="media-full-preview"
+            >
+              @if (previewUrl()) {
+                <img
+                  [src]="previewUrl()"
+                  [alt]="asset.altText || asset.originalFilename"
+                />
+              } @else {
+                <p>
+                  {{ t(previewFailed() ? 'previewUnavailable' : 'loading') }}
+                </p>
+              }
+            </div>
+            <p class="status" [attr.data-state]="asset.readiness.state">
+              {{ status(asset) }}
+            </p>
+            <p class="muted">
+              {{ asset.width }} × {{ asset.height }} px ·
+              {{ size(asset.processedSizeBytes) }}
+            </p>
+            @if (asset.readiness.reasons.length) {
+              <ul class="issues">
+                @for (reason of asset.readiness.reasons; track reason) {
+                  <li>{{ reasonLabel(reason) }}</li>
+                }
+              </ul>
+            }
+            <section class="rights-summary">
+              <h5>{{ t('rights') }}</h5>
+              <p>{{ t('sources.' + asset.usageSource) }}</p>
+              <p>{{ usageSummary(asset) }}</p>
+              @if (asset.usage?.credit) {
+                <p>{{ t('credit') }} : {{ asset.usage?.credit }}</p>
+              }
+              @if (asset.usage?.restrictions) {
+                <p>{{ t('restrictions') }} : {{ asset.usage?.restrictions }}</p>
+              }
+            </section>
+            <label class="field"
+              >{{ t('altText')
+              }}<textarea
+                maxlength="300"
+                rows="3"
+                [value]="c.draft(asset).altText"
+                [disabled]="!c.canWrite()"
+                (input)="c.edit(asset, { altText: value($event) })"
+                data-og7="media-inspector-alt"
+              ></textarea>
+            </label>
+            @if (
+              asset.usage?.restrictions && !asset.usageRestrictionsReviewed
+            ) {
+              <label class="check"
+                ><input
+                  type="checkbox"
+                  [checked]="c.draft(asset).restrictions"
+                  [disabled]="!c.canWrite()"
+                  (change)="c.edit(asset, { restrictions: checked($event) })"
+                />{{ t('reviewRestrictions') }}</label
+              >
+            }
+            <p class="muted">{{ t('manualReview') }}</p>
+            <div class="inspector-actions">
+              <button
+                type="button"
+                class="admin-button primary"
+                [disabled]="!canAction('approve', true)"
+                (click)="commands.prepare('approve', asset)"
+                data-og7="media-inspector-approve"
+              >
+                {{ t('reviewApprove') }}</button
+              ><button
+                type="button"
+                class="admin-button danger"
+                [disabled]="!c.canWrite()"
+                (click)="commands.openReject(asset)"
+              >
+                {{ t('actions.reject') }}
+              </button>
+            </div>
+            <details class="advanced">
+              <summary>{{ t('moreOptions') }}</summary>
+              <button
+                type="button"
+                class="admin-button"
+                [disabled]="!c.canWrite()"
+                (click)="commands.openRules('media')"
+              >
+                {{ t('customize') }}
+              </button>
+              @if (asset.ruleId && asset.usageSource === 'media') {
+                <button
+                  type="button"
+                  class="admin-button"
+                  [disabled]="!c.canWrite()"
+                  (click)="commands.restoreInheritance(asset)"
+                >
+                  {{ t('restoreInheritance') }}
+                </button>
+              }
+              <button
+                type="button"
+                class="admin-button"
+                [disabled]="!c.canWrite() || asset.reviewStatus !== 'approved'"
+                (click)="
+                  commands.prepare(
+                    asset.websiteSelected
+                      ? 'website_deselect'
+                      : 'website_select',
+                    asset
+                  )
+                "
+              >
+                {{
+                  t(asset.websiteSelected ? 'deselectWebsite' : 'selectWebsite')
+                }}
+              </button>
+              <button
+                type="button"
+                class="admin-button danger"
+                [disabled]="!c.canWrite()"
+                (click)="commands.prepare('delete', asset)"
+              >
+                {{ t('actions.delete') }}
+              </button>
+              <openg7-funding-moderation-actions
+                [subject]="{ type: 'media', id: asset.id }"
+                [disabled]="!c.canWrite()"
+                (changed)="refresh(); changed.emit()"
+              />
+            </details>
+            <details
+              openg7-media-review-analysis
+              class="analysis"
+              data-og7="media-analysis"
+              [analysis]="analysis"
+              [controller]="c"
+              [asset]="asset"
+              [view]="this"
+            ></details>
+            @if (admin.identity()?.role !== 'reader') {
+              <details
+                openg7-media-review-history
+                class="advanced"
+                [history]="history"
+                [view]="this"
+                data-og7="media-history"
+              ></details>
+            }
+            <openg7-context-controller
+              [context]="context()"
+              [title]="t('contextActions')"
+              [contextLabel]="asset.originalFilename"
+              [collapseLabel]="t('close')"
+              [expandLabel]="t('contextActions')"
+              actionsId="media-context-actions"
+            >
+              @for (action of actions(); track action.id) {
+                <button
+                  openg7-context-controller-action
+                  [action]="action"
+                  [context]="context()"
+                  (actionRequested)="request($event)"
+                ></button>
+              }
+            </openg7-context-controller>
+          } @else {
+            <div class="inspector-empty">
+              <h4>{{ t('inspector') }}</h4>
+              <p>{{ t('chooseMedia') }}</p>
+            </div>
+          }
+        </aside>
+      </div>
+    }
+  } @else if (languageError()) {
+    <p role="alert">{{ i18n.t('admin.guidance.automaticUnavailable') }}</p>
+  }
+</section>
+
+<openg7-media-review-commands
+  [commands]="commands"
+  [view]="this"
+  [thumbnails]="thumbnails"
+/>

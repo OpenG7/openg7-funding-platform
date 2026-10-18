@@ -157,8 +157,9 @@ export function checkSponsorMediaStorage(context) {
   optionalPositiveInteger(
     'Sponsor media',
     'FUNDING_SPONSOR_MEDIA_MAX_SUPPORTING_IMAGES',
-    '3',
-    'set a positive supporting image limit'
+    '100',
+    'set a supporting image limit between 1 and 100',
+    100
   );
 
   if (

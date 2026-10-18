@@ -202,6 +202,7 @@ export class AdminSponsorsPageComponent implements OnInit {
       !this.canManage() ||
       this.state() === 'loading' ||
       this.actionState() !== null ||
+      this.admin.mediaMutationBusy() ||
       this.versionConflict()
   );
   private readonly route = inject(ActivatedRoute);
@@ -355,38 +356,41 @@ export class AdminSponsorsPageComponent implements OnInit {
       this.historyProjection.stripeRefundReasonLabel(reason)
   });
   readonly mediaWorkflow: AdminSponsorMediaWorkflow =
-    new AdminSponsorMediaWorkflow({
-      ...this.sponsorActionPorts,
-      canContinue: (sponsorship) =>
-        !this.destroyRef.destroyed &&
-        this.canManage() &&
-        this.state() !== 'loading' &&
-        !this.versionConflict() &&
-        this.selectedSponsorship()?.id === sponsorship.id &&
-        this.selectedSponsorship()?.version === sponsorship.version,
-      admin: {
-        uploadSponsorLogo: (token, id, version, file) =>
-          this.admin.uploadSponsorLogo(token, id, version, file),
-        deleteSponsorLogo: (token, id, version, confirmation) =>
-          this.admin.deleteSponsorLogo(token, id, version, confirmation),
-        getSponsorLogoPreview: (token, id) =>
-          this.admin.getSponsorLogoPreview(token, id),
-        getSponsorMedia: (token, id) => this.admin.getSponsorMedia(token, id),
-        getSponsorMediaPreview: (token, id) =>
-          this.admin.getSponsorMediaPreview(token, id),
-        reviewSponsorMedia: (token, payload) =>
-          this.admin.reviewSponsorMedia(token, payload),
-        updateSponsorMediaMetadata: (token, payload) =>
-          this.admin.updateSponsorMediaMetadata(token, payload),
-        deleteSponsorMedia: (token, payload) =>
-          this.admin.deleteSponsorMedia(token, payload)
+    new AdminSponsorMediaWorkflow(
+      {
+        ...this.sponsorActionPorts,
+        canContinue: (sponsorship) =>
+          !this.destroyRef.destroyed &&
+          this.canManage() &&
+          this.state() !== 'loading' &&
+          !this.versionConflict() &&
+          this.selectedSponsorship()?.id === sponsorship.id &&
+          this.selectedSponsorship()?.version === sponsorship.version,
+        admin: {
+          uploadSponsorLogo: (token, id, version, file) =>
+            this.admin.uploadSponsorLogo(token, id, version, file),
+          deleteSponsorLogo: (token, id, version, confirmation) =>
+            this.admin.deleteSponsorLogo(token, id, version, confirmation),
+          getSponsorLogoPreview: (token, id) =>
+            this.admin.getSponsorLogoPreview(token, id),
+          getSponsorMedia: (token, id) => this.admin.getSponsorMedia(token, id),
+          getSponsorMediaPreview: (token, id) =>
+            this.admin.getSponsorMediaPreview(token, id),
+          reviewSponsorMedia: (token, payload) =>
+            this.admin.reviewSponsorMedia(token, payload),
+          updateSponsorMediaMetadata: (token, payload) =>
+            this.admin.updateSponsorMediaMetadata(token, payload),
+          deleteSponsorMedia: (token, payload) =>
+            this.admin.deleteSponsorMedia(token, payload)
+        },
+        confirm: (message) => this.confirmation.confirm(message),
+        moderate: (subject, level, initial) =>
+          this.moderation.requestDecision(subject, level, initial),
+        isBrowser: () => isPlatformBrowser(this.platformId),
+        mediaLoaded: () => this.assistantRefresh.update((value) => value + 1)
       },
-      confirm: (message) => this.confirmation.confirm(message),
-      moderate: (subject, level, initial) =>
-        this.moderation.requestDecision(subject, level, initial),
-      isBrowser: () => isPlatformBrowser(this.platformId),
-      mediaLoaded: () => this.assistantRefresh.update((value) => value + 1)
-    });
+      { eagerMediaPreviews: false }
+    );
 
   readonly adminToken = this.listController.adminToken;
   readonly sponsorships = this.listController.sponsorships;

@@ -1,0 +1,240 @@
+<openg7-admin-drawer
+  [opened]="!!commands().form()"
+  [title]="
+    view().t(
+      commands().form() === 'rules'
+        ? 'rulesTitle'
+        : commands().form() === 'batch'
+          ? 'newBatch'
+          : commands().form() === 'reject'
+            ? 'rejectTitle'
+            : 'planTitle'
+    )
+  "
+  [closeLabel]="view().t('close')"
+  [busy]="commands().c.busy()"
+  [wide]="commands().form() === 'plan'"
+  (closed)="commands().closeForm()"
+>
+  @if (commands().c.error()) {
+    <p role="alert" class="notice error">
+      {{ view().t('errors.' + commands().c.error()) }}
+    </p>
+  }
+  @if (commands().form() === 'rules') {
+    <p>{{ view().t('rulesHelp') }}</p>
+    @if (commands().inheritRequested()) {
+      <p class="notice">{{ view().t('inheritConfirm') }}</p>
+    }
+    <label class="field"
+      >{{ view().t('scope')
+      }}<select
+        [value]="commands().rulesScope()"
+        [disabled]="commands().c.busy() || commands().inheritRequested()"
+        (change)="commands().changeScope($event)"
+      >
+        <option value="dossier">{{ view().t('scopes.dossier') }}</option>
+        <option value="batch">{{ view().t('scopes.batch') }}</option>
+        @if (commands().c.inspected()) {
+          <option value="media">{{ view().t('scopes.media') }}</option>
+        }
+      </select></label
+    >
+    @if (commands().rulesScope() === 'batch') {
+      <label class="field"
+        >{{ view().t('batch')
+        }}<select
+          [value]="commands().rulesBatch()"
+          (change)="commands().rulesBatch.set(view().value($event))"
+        >
+          @for (batch of commands().c.data()?.batches; track batch.id) {
+            <option [value]="batch.id">{{ batch.name }}</option>
+          }
+        </select></label
+      >
+    }
+    <p class="notice">
+      {{ view().t('coverage', { count: commands().coveredAssets().length }) }}
+    </p>
+    @if (
+      commands().rulesScope() !== 'media' && !commands().inheritRequested()
+    ) {
+      <label class="check"
+        ><input
+          type="checkbox"
+          [checked]="commands().includesFutureUploads()"
+          [disabled]="commands().c.busy()"
+          (change)="
+            commands().includesFutureUploads.set(view().checked($event))
+          "
+          data-og7="media-rules-future"
+        />{{ view().t('futureCoverage') }}</label
+      >
+    }
+    <openg7-sponsor-media-usage-editor
+      [value]="commands().rulesValue()"
+      [requireEvidence]="true"
+      [disabled]="
+        !commands().c.canWrite() ||
+        !commands().rulesScopeId() ||
+        (!commands().coveredAssets().length &&
+          !commands().includesFutureUploads())
+      "
+      (saved)="commands().saveRules($event, commands().inheritRequested())"
+    />
+  }
+  @if (commands().form() === 'batch') {
+    <label class="field"
+      >{{ view().t('batchName')
+      }}<input
+        maxlength="120"
+        [value]="commands().batchName()"
+        [disabled]="commands().c.busy()"
+        (input)="commands().batchName.set(view().value($event))" /></label
+    ><button
+      type="button"
+      class="admin-button primary"
+      [disabled]="!commands().c.canWrite() || !commands().batchName().trim()"
+      (click)="commands().createBatch()"
+    >
+      {{ view().t('createBatch') }}
+    </button>
+  }
+  @if (commands().form() === 'reject') {
+    <label class="field"
+      >{{ view().t('rejectReason')
+      }}<select
+        [value]="commands().rejectReason()"
+        (change)="commands().rejectReason.set(view().value($event))"
+      >
+        <option value="">{{ view().t('chooseReason') }}</option>
+        @for (reason of commands().reasons; track reason.code) {
+          <option [value]="reason.code">
+            {{ reason.label[i18n.currentLanguage() === 'en' ? 'en' : 'fr'] }}
+          </option>
+        }
+      </select></label
+    >
+    <label class="field"
+      >{{ view().t('internalReason')
+      }}<textarea
+        maxlength="1000"
+        [value]="commands().rejectInternalReason()"
+        (input)="commands().rejectInternalReason.set(view().value($event))"
+      ></textarea>
+    </label>
+    <label class="field"
+      >{{ view().t('sponsorExplanation')
+      }}<textarea
+        maxlength="1000"
+        [value]="commands().rejectExplanation()"
+        (input)="commands().rejectExplanation.set(view().value($event))"
+      ></textarea>
+    </label>
+    <button
+      type="button"
+      class="admin-button danger"
+      [disabled]="
+        !commands().c.canWrite() ||
+        !commands().rejectReason() ||
+        !commands().rejectExplanation().trim()
+      "
+      (click)="commands().prepareReject()"
+    >
+      {{ view().t('prepareDecision') }}
+    </button>
+  }
+  @if (commands().form() === 'plan') {
+    @if (commands().c.plan(); as plan) {
+      <p class="notice">
+        {{ view().t('planHelp', { count: plan.assets.length }) }}
+      </p>
+      <p>
+        {{ view().t('planAction') }} :
+        <strong>{{ view().t('actions.' + plan.action) }}</strong>
+      </p>
+      @if (plan.blocked.length) {
+        <div role="alert" class="notice error">
+          <p>{{ view().t('blockedPlan') }}</p>
+          <ul>
+            @for (item of plan.blocked; track item.id) {
+              <li>
+                {{ view().assetName(item.id) }} :
+                @for (reason of item.reasons; track reason) {
+                  <span>{{ view().reasonLabel(reason) }} </span>
+                }
+              </li>
+            }
+          </ul>
+        </div>
+      }
+      <div class="manifest" data-og7="media-batch-manifest">
+        @for (asset of plan.assets; track asset.id) {
+          <article>
+            <div class="manifest-image">
+              <openg7-media-review-thumbnail
+                [collection]="thumbnails()"
+                [assetId]="asset.id"
+                [version]="asset.version"
+                [alt]="asset.altText || asset.originalFilename"
+              />
+            </div>
+            <div>
+              <h4>{{ asset.originalFilename }}</h4>
+              <p>
+                {{ view().t('altText') }} :
+                {{ asset.altText || view().t('missingAlt') }}
+              </p>
+              <p>
+                {{ view().t('sources.' + asset.usageSource) }} ·
+                {{ view().usageSummary(asset) }}
+              </p>
+              @if (asset.usage?.credit) {
+                <p>{{ view().t('credit') }} : {{ asset.usage?.credit }}</p>
+              }
+              @if (asset.usage?.restrictions) {
+                <p class="notice">
+                  {{ view().t('restrictions') }} :
+                  {{ asset.usage?.restrictions }}
+                </p>
+              }
+            </div>
+          </article>
+        }
+      </div>
+      <p class="muted">
+        {{
+          view().t(
+            plan.action === 'website_select'
+              ? 'websiteExposure'
+              : plan.action === 'website_deselect'
+                ? 'websiteRemoval'
+                : 'noPublication'
+          )
+        }}
+      </p>
+      <label class="check"
+        ><input
+          type="checkbox"
+          [checked]="commands().humanReviewed()"
+          [disabled]="commands().c.busy() || !!plan.blocked.length"
+          (change)="commands().humanReviewed.set(view().checked($event))"
+          data-og7="media-manifest-confirmation"
+        />{{ view().t('manifestConfirmation') }}</label
+      >
+      <button
+        type="button"
+        class="admin-button primary"
+        [disabled]="
+          !commands().humanReviewed() ||
+          !commands().c.canWrite() ||
+          !!plan.blocked.length
+        "
+        (click)="commands().execute()"
+        data-og7="media-batch-execute"
+      >
+        {{ view().t('confirmExecute') }}
+      </button>
+    }
+  }
+</openg7-admin-drawer>

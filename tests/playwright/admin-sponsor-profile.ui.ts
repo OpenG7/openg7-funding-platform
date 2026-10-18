@@ -26,7 +26,8 @@ const id = '10000000-0000-4000-8000-000000000401';
 const date = '2026-09-16T14:00:00Z';
 const identity = (page: Page) => page.locator('[data-og7="dossier-identity"]');
 const logo = (page: Page) => page.locator('[data-og7="dossier-logo"]');
-const media = (page: Page) => page.locator('[data-og7="media-review-panel"]');
+const media = (page: Page) =>
+  page.locator('[data-og7="media-review-workspace"]');
 
 async function useEnglish(page: Page): Promise<void> {
   await page
@@ -69,45 +70,26 @@ export function registerSponsorProfileTests({
   }) => {
     const { calls, options } = await fixtures(page, 'reader');
     options.media = [asset()];
-    const writes: string[] = [];
-    page.on('request', (request) => {
-      const pathname = new URL(request.url()).pathname;
-      if (pathname.startsWith('/api/') && request.method() !== 'GET')
-        writes.push(request.method() + ' ' + pathname);
-    });
     await page.setViewportSize({ width: 390, height: 900 });
     await page.goto(path('media'));
-
-    const parent = page.locator('#dossier-media');
-    const card = media(page).locator('[data-og7="admin-sponsor-media"]');
-    await expect(card.getByRole('img')).toBeVisible();
-    for (const panel of [parent, media(page), card])
-      await expect(panel).not.toHaveAttribute('aria-busy', 'true');
-    for (const action of ['approve', 'reject', 'delete'])
-      await expect(
-        card.locator(`[data-og7="admin-media-${action}"]`)
-      ).toBeDisabled();
+    const tile = media(page)
+      .locator('[data-og7="media-tile"]')
+      .first()
+      .getByRole('button');
+    await tile.focus();
+    await tile.press('Enter');
     await expect(
-      card.locator('[data-og7="admin-media-alt-text"]')
+      media(page).locator('[data-og7="media-full-preview"] img')
+    ).toBeVisible();
+    await expect(
+      media(page).locator('[data-og7="media-inspector-alt"]')
     ).toBeDisabled();
     await expect(
-      media(page).locator('[data-og7="admin-media-approve-all"]')
+      media(page).locator('[data-og7="media-inspector-approve"]')
     ).toBeDisabled();
     await expect(
-      logo(page).locator('[data-og7="admin-sponsor-logo-upload"]')
+      media(page).locator('[data-og7="media-upload-files"]')
     ).toBeDisabled();
-
-    const preview = card.locator('[data-og7="admin-media-preview"]');
-    await expect(preview).toBeEnabled();
-    await preview.focus();
-    await preview.press('Enter');
-    await expect(page.locator('dialog[open]').getByRole('img')).toBeVisible();
-    await page.keyboard.press('Escape');
-    await expect(page.locator('dialog[open]')).toHaveCount(0);
-    await expect(preview).toBeEnabled();
-    for (const panel of [parent, media(page), card])
-      await expect(panel).not.toHaveAttribute('aria-busy', 'true');
-    expect(writes).toEqual([]);
     expect(calls.every((call) => call.method === 'GET')).toBe(true);
   });
 
@@ -181,12 +163,12 @@ export function registerSponsorProfileTests({
             exact: true
           })
         ).toHaveCount(0);
-        await expect(logo(page).locator('input[type="file"]')).toBeDisabled();
+        await expect(logo(page).locator('input[type="file"]')).toHaveCount(0);
         await expect(
-          media(page).locator('[data-og7="admin-sponsor-media"]')
+          media(page).locator('[data-og7="media-tile"]')
         ).toHaveCount(0);
         await expect(
-          media(page).locator('[data-og7="admin-media-approve-all"]')
+          media(page).locator('[data-og7="media-batch-approve"]')
         ).toHaveCount(0);
         await expectResponsiveProfile(page);
         if ((!english && width === 1280) || (english && width === 390)) {
@@ -283,9 +265,6 @@ export function registerSponsorProfileTests({
       page
     }) => {
       const { calls, options } = await fixtures(page, 'operator');
-      options.edited.set(id, {
-        sponsor_logo_url: `/api/public/sponsor-logos/${id}.webp`
-      });
       options.media = [
         {
           ...asset(),
@@ -302,38 +281,17 @@ export function registerSponsorProfileTests({
       await page.setViewportSize({ width: english ? 390 : 1280, height: 900 });
       await page.goto(path('media'));
       if (english) await useEnglish(page);
-
-      await expect(logo(page).getByRole('img')).toBeVisible();
-      await expect(logo(page).getByRole('img')).toHaveAttribute(
-        'src',
-        /^blob:/
-      );
+      const tile = media(page).locator('[data-og7="media-tile"]').first();
+      await tile.scrollIntoViewIfNeeded();
+      await expect(tile.getByRole('img')).toHaveAttribute('src', /^blob:/);
+      await tile.getByRole('button').click();
       await expect(
-        logo(page).getByRole('button', {
-          name: english ? 'Delete logo' : 'Supprimer le logo',
-          exact: true
-        })
-      ).toBeEnabled();
-      const card = media(page).locator('[data-og7="admin-sponsor-media"]');
-      await expect(card.getByRole('img')).toBeVisible();
-      await expect(card.getByRole('img')).toHaveAttribute('src', /^blob:/);
+        media(page).locator('[data-og7="media-full-preview"] img')
+      ).toHaveAttribute('src', /^blob:/);
       await expect(
-        card.locator('[data-og7="admin-media-approve"]')
-      ).toBeDisabled();
-      await expect(
-        media(page).locator('[data-og7="admin-media-approve-all"]')
+        media(page).locator('[data-og7="media-inspector-approve"]')
       ).toBeDisabled();
       await expectResponsiveProfile(page);
-
-      const preview = card.locator('[data-og7="admin-media-preview"]');
-      await preview.focus();
-      await preview.press('Enter');
-      await expect(page.locator('dialog[open]').getByRole('img')).toBeVisible();
-      await page.keyboard.press('Escape');
-      await expect(page.locator('dialog[open]')).toHaveCount(0);
-      await expect(
-        card.locator('[data-og7="admin-media-approve"]')
-      ).toBeDisabled();
       expect(calls.every((call) => call.method === 'GET')).toBe(true);
     });
   }

@@ -270,6 +270,47 @@ export function registerPrivateMediaUsageTests(): void {
     });
   }
 }
+function adminWorkspace(media: SponsorMediaAsset[]) {
+  return {
+    contributionId: media[0].contributionId,
+    revision: 'workspace:' + media.map((asset) => asset.version).join(':'),
+    writable: true,
+    rules: [],
+    batches: [],
+    assets: media.map((asset) => ({
+      ...asset,
+      batchId: null,
+      ruleId: null,
+      usageSource: 'media',
+      readiness: {
+        state: asset.usage?.state === 'confirmed' ? 'ready' : 'blocked',
+        reasons: []
+      },
+      moderation: {
+        state: null,
+        level: null,
+        contentVersion: 1,
+        fingerprint: asset.id,
+        currentDecisionId: null
+      },
+      websiteSelected: false
+    }))
+  };
+}
+async function openAdminRights(page: Page): Promise<void> {
+  await page
+    .locator('[data-og7="media-tile"]')
+    .first()
+    .getByRole('button')
+    .click();
+  const inspector = page.locator('[data-og7="media-inspector"]');
+  await inspector.getByText(/^(Plus d’options|More options)$/).click();
+  await inspector
+    .getByRole('button', {
+      name: /^(Personnaliser les autorisations|Customize permissions)$/
+    })
+    .click();
+}
 interface AdminContext {
   fixtures(
     page: Page,
@@ -313,7 +354,7 @@ export function registerAdminMediaUsageTests(context: AdminContext): void {
       options.media = [{ ...context.asset(), usage: unknown }];
       const commands: Record<string, unknown>[] = [];
       await page.route(
-        '**/api/admin/sponsorships/media/usage',
+        '**/api/admin/sponsorships/media/rules',
         async (route) => {
           const payload = route.request().postDataJSON();
           commands.push(payload);
@@ -329,18 +370,17 @@ export function registerAdminMediaUsageTests(context: AdminContext): void {
             version: 'v3',
             usage: payload.usage
           }));
-          return json(route, { updated: true, asset: options.media[0] });
+          return json(route, adminWorkspace(options.media));
         }
       );
       await adminMediaPage(page, context, english);
-      const card = page.locator('[data-og7="admin-sponsor-media"]'),
-        editor = card.locator('[data-og7="media-usage-editor"]');
+      await openAdminRights(page);
+      const card = page.locator('[data-og7="media-inspector"]'),
+        editor = page.locator('dialog[open] [data-og7="media-usage-editor"]');
       await qualifyRights(editor);
       await editor.locator('[data-og7="media-usage-save"]').click();
-      await expect(card).toContainText(
-        english
-          ? 'Review the refreshed information'
-          : 'Vérifiez les informations actualisées'
+      await expect(page.locator('dialog[open]')).toContainText(
+        english ? 'The dossier changed' : 'Le dossier a changé'
       );
       await expect(
         card.locator('[data-og7="admin-media-usage-retry"]')
@@ -351,27 +391,25 @@ export function registerAdminMediaUsageTests(context: AdminContext): void {
       await qualifyRights(editor);
       await editor.locator('[data-og7="media-usage-save"]').click();
       await expect(
-        card.locator('[data-og7="admin-media-approve"]')
+        card.locator('[data-og7="media-inspector-approve"]')
       ).toBeEnabled();
       expect(commands).toHaveLength(2);
-      expect(commands.map((command) => command.expectedVersion)).toEqual([
-        'v1',
-        'v2'
+      expect(commands.map((command) => command.expectedRevision)).toEqual([
+        'workspace:v1',
+        'workspace:v2'
       ]);
       expect(commands[1].requestId).not.toBe(commands[0].requestId);
       expect(options.media[0].reviewStatus).toBe('pending_review');
     });
-    test(`image usage admin lost response retains the UUID and exact qualification even after an attempted edit ${suffix}`, async ({
+    test(`image usage admin lost response freezes qualification until its read-only receipt is verified ${suffix}`, async ({
       page
     }) => {
-      // Mobile WebKit can keep smooth-scrolling between pointer down/up.
-      // Exercise the retry with the supported reduced-motion preference.
-      if (english) await page.emulateMedia({ reducedMotion: 'reduce' });
       const { options } = await context.fixtures(page, 'operator');
       options.media = [{ ...context.asset(), usage: unknown }];
-      const commands: Record<string, unknown>[] = [];
+      const commands: Record<string, unknown>[] = [],
+        receipts: string[] = [];
       await page.route(
-        '**/api/admin/sponsorships/media/usage',
+        '**/api/admin/sponsorships/media/rules',
         async (route) => {
           const payload = route.request().postDataJSON();
           commands.push(payload);
@@ -380,33 +418,42 @@ export function registerAdminMediaUsageTests(context: AdminContext): void {
             version: 'v2',
             usage: payload.usage
           }));
-          if (commands.length === 1) return route.abort('failed');
-          return json(route, { updated: true, asset: options.media[0] });
+          return route.abort('failed');
+        }
+      );
+      await page.route(
+        '**/api/admin/sponsorships/media/receipt?**',
+        async (route) => {
+          receipts.push(
+            new URL(route.request().url()).searchParams.get('requestId')!
+          );
+          return json(route, {
+            found: true,
+            result: adminWorkspace(options.media)
+          });
         }
       );
       await adminMediaPage(page, context, english);
-      const card = page.locator('[data-og7="admin-sponsor-media"]'),
-        editor = card.locator('[data-og7="media-usage-editor"]');
+      await openAdminRights(page);
+      const editor = page.locator(
+        'dialog[open] [data-og7="media-usage-editor"]'
+      );
       await qualifyRights(editor);
       await editor.locator('[data-og7="media-usage-save"]').click();
-      const retry = card.locator('[data-og7="admin-media-usage-retry"]');
-      await expect(retry).toBeVisible();
-      const original = structuredClone(commands[0]);
-      await editor
-        .locator('[data-og7="media-usage-credit"]')
-        .fill('Changed synthetic credit');
-      await editor.locator('[data-og7="media-usage-confirmation"]').check();
-      await editor.locator('[data-og7="media-usage-save"]').click();
-      await expect(card).toContainText(
-        english
-          ? 'A previous request must be verified'
-          : 'Une demande précédente doit être vérifiée'
-      );
+      await expect(editor.getByRole('button')).toBeDisabled();
+      await page
+        .locator('dialog[open]')
+        .getByRole('button', {
+          name: english ? 'Close' : 'Fermer',
+          exact: true
+        })
+        .click();
+      await page.locator('[data-og7="media-reconcile"]').click();
+      await expect(
+        page.locator('[data-og7="media-inspector-approve"]')
+      ).toBeEnabled();
       expect(commands).toHaveLength(1);
-      await retry.click();
-      await expect(retry).toHaveCount(0);
-      expect(commands).toHaveLength(2);
-      expect(commands[1]).toEqual(original);
+      expect(receipts).toEqual([commands[0].requestId]);
       expect(options.media[0].reviewStatus).toBe('pending_review');
     });
     for (const uncertain of [false, true])
@@ -510,7 +557,7 @@ export function registerAdminMediaUsageTests(context: AdminContext): void {
       options.media = [{ ...context.asset(), usage: unknown }];
       const commands: Record<string, unknown>[] = [];
       await page.route(
-        '**/api/admin/sponsorships/media/usage',
+        '**/api/admin/sponsorships/media/rules',
         async (route) => {
           const payload = route.request().postDataJSON();
           commands.push(payload);
@@ -520,7 +567,7 @@ export function registerAdminMediaUsageTests(context: AdminContext): void {
             usage: payload.usage,
             usageRestrictionsReviewed: false
           }));
-          return json(route, { updated: true, asset: options.media[0] });
+          return json(route, adminWorkspace(options.media));
         }
       );
       await page.goto(context.path('media'));
@@ -530,10 +577,11 @@ export function registerAdminMediaUsageTests(context: AdminContext): void {
             name: 'Switch administration language to English'
           })
           .click();
-      const card = page.locator('[data-og7="admin-sponsor-media"]'),
-        editor = card.locator('[data-og7="media-usage-editor"]');
+      await openAdminRights(page);
+      const card = page.locator('[data-og7="media-inspector"]'),
+        editor = page.locator('dialog[open] [data-og7="media-usage-editor"]');
       await expect(
-        card.locator('[data-og7="admin-media-approve"]')
+        card.locator('[data-og7="media-inspector-approve"]')
       ).toBeDisabled();
       await editor.locator('[data-og7-id="channel:website"]').check();
       await editor.locator('[data-og7-id="target:openg7"]').check();
@@ -544,13 +592,15 @@ export function registerAdminMediaUsageTests(context: AdminContext): void {
       await editor.locator('[data-og7="media-usage-confirmation"]').check();
       await editor.locator('[data-og7="media-usage-save"]').click();
       await expect(
-        card.locator('[data-og7="admin-media-approve"]')
+        card.locator('[data-og7="media-inspector-approve"]')
       ).toBeEnabled();
       expect(commands).toHaveLength(1);
       expect(commands[0]).toMatchObject({
-        assetId: options.media[0].id,
-        expectedVersion: 'v1',
+        scope: 'media',
+        scopeId: options.media[0].id,
+        expectedRevision: 'workspace:v1',
         confirmation: options.media[0].id,
+        coveredAssetIds: [options.media[0].id],
         evidenceReference: 'Synthetic private permission record',
         usage: {
           state: 'confirmed',
@@ -563,7 +613,7 @@ export function registerAdminMediaUsageTests(context: AdminContext): void {
       expect(
         (
           await new AxeBuilder({ page })
-            .include('[data-og7="admin-sponsor-media"]')
+            .include('[data-og7="media-inspector"]')
             .analyze()
         ).violations
       ).toEqual([]);
@@ -589,9 +639,7 @@ export function registerAdminMediaUsageTests(context: AdminContext): void {
         : route.fallback()
     );
     await page.goto(context.path('media'));
-    await expect(
-      page.locator('[data-og7="admin-sponsor-media"]')
-    ).toBeVisible();
+    await expect(page.locator('[data-og7="media-tile"]')).toBeVisible();
     await expect(page.locator('[data-og7="media-usage-evidence"]')).toHaveCount(
       0
     );

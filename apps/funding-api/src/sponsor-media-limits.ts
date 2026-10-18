@@ -17,8 +17,8 @@ export function loadSponsorMediaLimits(env: NodeJS.ProcessEnv) {
     ),
     maxSupportingImages: parse(
       'FUNDING_SPONSOR_MEDIA_MAX_SUPPORTING_IMAGES',
-      3,
-      Number.MAX_SAFE_INTEGER
+      100,
+      100
     )
   };
 }

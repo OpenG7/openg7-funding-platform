@@ -9,9 +9,10 @@ export function confirmedMediaUsageSql(
   channel?: SponsorMediaUsageChannel,
   target?: SponsorMediaUsageTarget
 ): string {
-  return `(${alias}.usage_rights->>'state'='confirmed'
-    AND ${alias}.usage_rights->'transformations' ? 'technical'
-    AND (${alias}.usage_rights->>'restrictions' IS NULL OR ${alias}.usage_restrictions_reviewed IS TRUE)
-    ${channel ? `AND ${alias}.usage_rights->'channels' ? '${channel}'` : ''}
-    ${target ? `AND ${alias}.usage_rights->'targets' ? '${target}'` : ''})`;
+  const usage = `sponsor_media_effective_usage(${alias}.id)`;
+  return `(${usage}->>'state'='confirmed'
+    AND ${usage}->'transformations' ? 'technical'
+    AND (${usage}->>'restrictions' IS NULL OR ${alias}.usage_restrictions_reviewed IS TRUE)
+    ${channel ? `AND ${usage}->'channels' ? '${channel}'` : ''}
+    ${target ? `AND ${usage}->'targets' ? '${target}'` : ''})`;
 }
