@@ -44,8 +44,12 @@ sends a publication. Leaving the proposed date unchanged keeps that date selecte
 it does not authorize sending. The benefit workflow shows confirmed completion,
 the current responsibility and reason, with a link to
 `/admin/fundraiser/campaigns?sponsorshipId=<uuid>` for detailed benefits and evidence.
-The full row-by-row obligation console is replaced by this summary. A generic
-benefit overview remains above it. The website/social cards retain their dates and direct delivery
+The full row-by-row obligation console is replaced by this summary. A benefit
+overview from the recorded offer remains above it. Six navigation steps connect
+the offer, preparation, content, authorization, delivery and evidence owners.
+They reuse the dossier sections and the exact delivery drawer; Automation and
+Campaigns links carry the dossier identifier without selecting an arbitrary draft.
+The website/social cards retain their dates and direct delivery
 actions. The recorded agreement, historical qualification, adjustments and timing
 remain in **Promised services** within the dossier; Campaigns does not replace
 those decisions. The review drawer labels dates with the browser's timezone.

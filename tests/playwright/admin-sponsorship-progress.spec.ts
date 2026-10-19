@@ -1187,6 +1187,100 @@ for (const language of ['fr-CA', 'en'] as const)
     });
   }
 
+for (const [language, width] of [
+  ['fr-CA', 1536],
+  ['en', 390]
+] as const) {
+  for (const qualification of ['qualified', 'unqualified', 'stale'] as const) {
+    test(`recorded evidence link preserves the exact obligation in ${language} at ${width}px with qualification ${qualification}`, async ({
+      page
+    }) => {
+      const { calls, options } = await fixtures(page);
+      const commitment = recordedCommitment();
+      const obligation = commitment.obligations.find(
+        (item) => item.channel === 'facebook'
+      )!;
+      const evidenceId = '10000000-0000-4000-8000-000000000460';
+      options.progressOverrides = {
+        commitment: {
+          ...commitment,
+          obligations: commitment.obligations.map((item) =>
+            item.id === obligation.id
+              ? {
+                  ...item,
+                  state: 'fulfilled',
+                  fulfilmentEvidenceId: evidenceId
+                }
+              : item
+          )
+        },
+        qualifiedFulfilmentEvidenceIds:
+          qualification !== 'unqualified' ? [evidenceId] : []
+      };
+      if (qualification === 'stale') {
+        await page.route('**/api/admin/sponsorship-commitments?**', (route) =>
+          route.fulfill({
+            json: {
+              commitment: {
+                ...options.progressOverrides.commitment!,
+                obligations:
+                  options.progressOverrides.commitment!.obligations.map(
+                    (item) =>
+                      item.id === obligation.id
+                        ? {
+                            ...item,
+                            version: item.version + 1,
+                            target: 'openg20'
+                          }
+                        : item
+                  )
+              }
+            }
+          })
+        );
+      }
+      await page.setViewportSize({ width, height: 950 });
+      await page.goto(path('publication'));
+      if (language === 'en')
+        await page
+          .getByRole('button', {
+            name: 'Switch administration language to English'
+          })
+          .click();
+      const panel = page.locator('[data-og7="admin-commitments"]');
+      await expect(
+        panel.locator('[data-og7="commitments-accepted-offer"]')
+      ).toBeVisible();
+      const row = panel.locator(
+        `[data-og7="commitments-obligations"] [data-og7-id="${obligation.id}"]`
+      );
+      await expect(row).toContainText(evidenceId);
+      const link = row.locator('[data-og7="commitments-evidence"]');
+      const qualified = qualification === 'qualified';
+      await expect(link).toHaveCount(qualified ? 1 : 0);
+      if (qualified) {
+        await expect(link).toHaveAttribute('data-og7-id', evidenceId);
+        await expect(link).toHaveAttribute(
+          'href',
+          `/admin/fundraiser/campaigns?sponsorshipId=${id}&obligationId=${obligation.id}`
+        );
+        await link.focus();
+        await page.keyboard.press('Enter');
+        await expect(page).toHaveURL(
+          new RegExp(
+            `campaigns\\?sponsorshipId=${id}&obligationId=${obligation.id}$`
+          )
+        );
+      } else {
+        await expect(row).toContainText(
+          language === 'en' ? 'delivery unconfirmed' : 'livraison non confirmée'
+        );
+      }
+      expect(calls.every((call) => call.method === 'GET')).toBe(true);
+    });
+  }
+}
+
 for (const width of [1280, 390]) {
   test(`dossier guide explains all milestones without validating them at ${width}px`, async ({
     page

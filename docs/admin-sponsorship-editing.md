@@ -207,6 +207,20 @@ Le numéro d’une facture ouvre son inspection dans le dossier; l’accès au r
 complet reste disponible. Les entrées directes `billing` et `refund` partagent les
 mêmes sections et la même commande de suivi.
 
+Dans **Publication**, les repères **Offre → Préparation → Contenu → Autorisation →
+Livraison → Preuve** conduisent aux sections existantes et aux écrans propriétaires.
+L'autorisation reste celle du contenu et de la livraison exacts dans le tiroir
+partagé. Le suivi Web et les canaux sociaux gardent leurs décisions indépendantes ;
+un canal non promis n'est pas un prérequis de livraison. Les références de preuve
+qualifiées dans l'accord rejoignent la prestation exacte dans **Campagnes**.
+Les dates et la portée de la réalisation restent distinctes de l'observation
+actuelle de visibilité ; une référence déclarée seule ne solde pas une prestation.
+Voir le [contrat de visibilité des preuves](technical/admin-campaigns.md).
+
+Dans **Factures**, le badge **Courriel** décrit uniquement le dernier état d'envoi
+de la facture ou de l'avoir concerné. Une mise en file, un envoi ou une issue
+incertaine ne change ni l'émission du document ni le remboursement confirmé.
+
 Dans **Historique**, **Filtrer l’activité** sélectionne les événements de la fiche
 et des médias, de la revue, de la publication, des finances ou du suivi. Les actions
 inconnues restent consultables sous **Autres actions**. Le compteur indique le nombre

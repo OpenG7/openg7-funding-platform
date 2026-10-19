@@ -10,6 +10,21 @@
   "prepare": "Prepare this destination",
   "prepareConfirm": "Prepare drafts for all eligible dossiers on this destination? This action does not publish anything or authorize delivery.",
   "details": "View detailed progress",
+  "chain": {
+    "title": "Publication guideposts",
+    "help": "Each guidepost opens its own tool. Only the agreement’s promised services are required; viewing or preparing does not authorize sending or establish delivery evidence.",
+    "steps": {
+      "offer": "Offer",
+      "preparation": "Preparation",
+      "content": "Content",
+      "authorization": "Authorization",
+      "delivery": "Delivery",
+      "evidence": "Evidence"
+    },
+    "agreementVersion": "Current recorded agreement version",
+    "offerVersion": "Accepted offer version",
+    "contentTarget": "Content, website visibility and social authorization"
+  },
   "workflow": {
     "title": "Promised benefits and next steps",
     "help": "You review and authorize the content. The platform publishes at the scheduled time and automatically confirms each benefit after success.",

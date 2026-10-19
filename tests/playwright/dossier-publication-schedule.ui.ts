@@ -31,8 +31,12 @@ const deliveryId = '77777777-7777-4777-8777-777777777777';
 const scheduledAt = '2030-06-04T14:00:00.000Z';
 const evaluatedAt = '2030-06-01T12:00:00.000Z';
 
-async function fixtures(page: Page, context: Context) {
-  const { options } = await context.fixtures(page, 'owner');
+async function fixtures(
+  page: Page,
+  context: Context,
+  role: 'owner' | 'operator' | 'reader' = 'owner'
+) {
+  const { options } = await context.fixtures(page, role);
   options.progressOverrides = {
     amountMinor: 10000,
     commitment: context.recordedCommitment(10000),
@@ -235,6 +239,162 @@ export function registerDossierPublicationScheduleTests(
 ): void {
   test.describe('dossier publication schedule', () => {
     test.use({ timezoneId: 'Asia/Tokyo' });
+    for (const [language, width] of [
+      ['fr-CA', 1280],
+      ['en', 390]
+    ] as const) {
+      test(`publication guideposts keep a web-only agreement navigable for a ${language} reader at ${width}px`, async ({
+        page
+      }) => {
+        const { options, state, controls } = await fixtures(
+          page,
+          context,
+          'reader'
+        );
+        const commitment = options.progressOverrides.commitment!;
+        const benefits = commitment.offer!.benefits.filter(
+          (benefit) => benefit.channel === 'website'
+        );
+        expect(benefits).toHaveLength(1);
+        const offerVersion = 'synthetic-accepted-web-offer-v2';
+        options.progressOverrides = {
+          ...options.progressOverrides,
+          commitment: {
+            ...commitment,
+            version: 7,
+            offer: { ...commitment.offer!, version: offerVersion, benefits },
+            obligations: commitment.obligations.filter(
+              (obligation) => obligation.channel === 'website'
+            )
+          },
+          publications: [],
+          fulfilmentEvidence: [],
+          qualifiedFulfilmentEvidenceIds: [],
+          publicationCompletion: { done: 0, total: 1 },
+          website: {
+            visible: false,
+            held: false,
+            canPublish: true,
+            version: 'synthetic-website-v4',
+            blockers: []
+          }
+        };
+        state.deliveries = [];
+        state.queue!.entries = [];
+        state.queue!.summary.retained = 0;
+        state.queue!.total = 0;
+        const writes: string[] = [];
+        page.on('request', (request) => {
+          if (request.method() === 'POST')
+            writes.push(new URL(request.url()).pathname);
+        });
+        await page.addInitScript(
+          (locale) => localStorage.setItem('openg7.language', locale),
+          language
+        );
+        await page.setViewportSize({ width, height: 1000 });
+        await page.goto(context.path('publication'));
+        const journey = page.locator(
+          '[data-og7="dossier-publication-journey"]'
+        );
+        const guide = journey.getByRole('navigation', {
+          name:
+            language === 'en'
+              ? 'Publication guideposts'
+              : 'Repères de publication'
+        });
+        const links = guide.locator('[data-og7="publication-chain-link"]');
+        await expect(links).toHaveCount(6);
+        const labels =
+          language === 'en'
+            ? [
+                'Offer',
+                'Preparation',
+                'Content',
+                'Authorization',
+                'Delivery',
+                'Evidence'
+              ]
+            : [
+                'Offre',
+                'Préparation',
+                'Contenu',
+                'Autorisation',
+                'Livraison',
+                'Preuve'
+              ];
+        for (const [index, label] of labels.entries())
+          await expect(links.nth(index)).toHaveAccessibleName(label);
+        await expect(
+          journey.locator('[data-og7="publication-agreement-version"]')
+        ).toHaveText('7');
+        await expect(
+          journey.locator('[data-og7="publication-offer-version"]')
+        ).toHaveText(offerVersion);
+        await expect(
+          journey.locator('#publication-delivery-count')
+        ).toContainText(language === 'en' ? '0 of 1' : '0 / 1');
+        await expect(
+          journey.locator('[data-og7="publication-channel"]')
+        ).toHaveCount(0);
+        await expect(
+          journey.locator('[data-og7="website-visibility"]')
+        ).toHaveCount(0);
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+        for (const [id, fragment] of [
+          ['offer', 'dossier-agreement'],
+          ['preparation', 'dossier-preparation'],
+          ['content', 'dossier-publication-content'],
+          ['authorization', 'dossier-publication-content']
+        ] as const) {
+          await expect(guide.locator(`[data-og7-id="${id}"]`)).toHaveAttribute(
+            'href',
+            context.path('publication') + '#' + fragment
+          );
+        }
+        for (const [id, path] of [
+          ['delivery', '/admin/fundraiser/publications/automation'],
+          ['evidence', '/admin/fundraiser/campaigns']
+        ] as const)
+          await expect(guide.locator(`[data-og7-id="${id}"]`)).toHaveAttribute(
+            'href',
+            path + '?sponsorshipId=' + sponsorshipId
+          );
+        await guide.screenshot({
+          path: test
+            .info()
+            .outputPath(`publication-guideposts-${language}-${width}.png`)
+        });
+        for (const [id, fragment] of [
+          ['offer', 'dossier-agreement'],
+          ['preparation', 'dossier-preparation'],
+          ['content', 'dossier-publication-content']
+        ] as const) {
+          const link = guide.locator(`[data-og7-id="${id}"]`);
+          await link.focus();
+          await link.press('Enter');
+          await expect(page).toHaveURL(
+            context.path('publication') + '#' + fragment
+          );
+          await expect(page.locator('#' + fragment)).toBeFocused();
+        }
+        await expect(journey).not.toContainText('admin.dossier.');
+        expect(
+          (
+            await new AxeBuilder({ page })
+              .include('[data-og7="publication-chain"]')
+              .analyze()
+          ).violations
+        ).toEqual([]);
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth + 1
+          )
+        ).toBe(true);
+        expect(controls.commands).toEqual([]);
+        expect(writes).toEqual([]);
+      });
+    }
     for (const language of ['fr-CA', 'en'] as const) {
       test(`publication console assigns scheduled work to the platform in ${language}`, async ({
         page

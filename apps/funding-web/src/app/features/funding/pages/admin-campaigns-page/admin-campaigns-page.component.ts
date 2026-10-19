@@ -218,6 +218,12 @@ export class AdminCampaignsPageComponent {
     }).format(new Date(value));
   }
 
+  evidenceDate(value: string | null): string | null {
+    return value && Number.isFinite(Date.parse(value))
+      ? this.scheduledDate(value)
+      : null;
+  }
+
   workflowReason(row: AdminCampaignItem): string {
     const reasons: Readonly<Record<string, string>> =
       this.i18n.currentLanguage() === 'en'

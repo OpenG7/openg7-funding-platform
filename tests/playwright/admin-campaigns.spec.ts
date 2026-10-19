@@ -414,6 +414,205 @@ test('campaigns show approved preparation first and upcoming promises without se
   expect(fixture.mutations).toEqual([]);
 });
 
+for (const language of ['fr-CA', 'en'] as const) {
+  for (const viewport of [
+    { width: 1536, height: 864 },
+    { width: 390, height: 844 }
+  ]) {
+    test(`campaign evidence keeps delivery, observation and exact scope distinct in ${language} at ${viewport.width}px`, async ({
+      page
+    }, testInfo) => {
+      const fixture = await fixtures(page, language);
+      const delivered = fixture.rows.find(
+        (row) => row.id === 'delivered-facebook'
+      )!;
+      const historicalProof = delivered.proof!;
+      const observedAt = '2026-10-19T15:42:00Z';
+      const preparationVersion = 'synthetic-current-preparation-v7';
+      const declaredUrl = 'https://example.invalid/declared-publication';
+      fixture.rows = [
+        {
+          ...delivered,
+          preparation: {
+            ...delivered.preparation,
+            version: preparationVersion
+          },
+          proof: {
+            ...historicalProof,
+            visibility: 'changed',
+            visibilityObservedAt: observedAt
+          }
+        },
+        promise('observed-unknown', futureId, {
+          obligationState: 'fulfilled',
+          workflow: {
+            ...delivered.workflow,
+            obligationId: 'observed-unknown'
+          },
+          proof: {
+            ...historicalProof,
+            id: 'qualified-proof-unknown',
+            obligationId: 'observed-unknown',
+            deliveryId: 'synthetic-delivery-unknown',
+            visibility: 'unknown',
+            visibilityObservedAt: observedAt
+          }
+        }),
+        promise('delivered-website', approvedId, {
+          channel: 'website',
+          obligationState: 'fulfilled',
+          workflow: {
+            ...delivered.workflow,
+            obligationId: 'delivered-website',
+            channel: 'website',
+            deliveryId: null
+          },
+          proof: {
+            ...historicalProof,
+            id: 'qualified-proof-website',
+            obligationId: 'delivered-website',
+            deliveryId: null,
+            channel: 'website',
+            provenance: 'website_verified',
+            externalPostUrl: null,
+            visibility: 'unknown',
+            visibilityObservedAt: null
+          }
+        }),
+        promise('declared-only', '10000000-0000-4000-8000-000000000804', {
+          content: {
+            title: language === 'en' ? 'Declared URL' : 'URL déclarée',
+            body: declaredUrl
+          },
+          preparation: {
+            ...delivered.preparation,
+            status: 'approved',
+            version: preparationVersion,
+            approvedAt: generatedAt
+          }
+        })
+      ];
+      await page.setViewportSize(viewport);
+      await page.goto(path);
+      await expect(hook(page, 'campaign-row')).toHaveCount(4);
+      const select = async (id: string) => {
+        const row = page.locator(
+          `[data-og7="campaign-row"][data-og7-id="${id}"]`
+        );
+        await row.focus();
+        await page.keyboard.press('Enter');
+        await expect(row).toHaveAttribute('aria-pressed', 'true');
+      };
+      await select('delivered-facebook');
+      const proof = hook(page, 'campaign-proof');
+      await expect(hook(page, 'campaign-proof-reference')).toHaveText(
+        historicalProof.id
+      );
+      await expect(hook(page, 'campaign-proof-obligation')).toHaveText(
+        historicalProof.obligationId
+      );
+      await expect(hook(page, 'campaign-proof-delivery')).toHaveText(
+        historicalProof.deliveryId!
+      );
+      await expect(hook(page, 'campaign-proof-channel')).toHaveText('Facebook');
+      await expect(hook(page, 'campaign-proof-target')).toHaveText('OpenG7');
+      await expect(hook(page, 'campaign-proof-source')).toHaveText(
+        language === 'en'
+          ? 'Delivery verified with the provider'
+          : 'Livraison vérifiée auprès du fournisseur'
+      );
+      await expect(hook(page, 'campaign-proof-delivered-at')).toHaveAttribute(
+        'datetime',
+        generatedAt
+      );
+      await expect(hook(page, 'campaign-proof-observed-at')).toHaveAttribute(
+        'datetime',
+        observedAt
+      );
+      await expect(hook(page, 'campaign-proof-observed-at')).not.toHaveText(
+        await hook(page, 'campaign-proof-delivered-at').innerText()
+      );
+      await expect(hook(page, 'campaign-proof-visibility')).toHaveText(
+        language === 'en'
+          ? 'Publication changed since delivery'
+          : 'Publication modifiée depuis la livraison'
+      );
+      await expect(hook(page, 'campaign-proof-agreement-scope')).toHaveText(
+        language === 'en'
+          ? 'Agreement version associated with this evidence: not specified.'
+          : 'Version de l’accord associée à cette preuve : non renseignée.'
+      );
+      await expect(proof).not.toContainText(preparationVersion);
+      await expect(proof.getByRole('link')).toHaveAttribute(
+        'href',
+        historicalProof.externalPostUrl!
+      );
+      await proof.scrollIntoViewIfNeeded();
+      await page.screenshot({
+        path: testInfo.outputPath(
+          `campaign-evidence-${language}-${viewport.width}.png`
+        ),
+        animations: 'disabled'
+      });
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth + 1
+          )
+        )
+        .toBe(true);
+
+      await select('observed-unknown');
+      await expect(hook(page, 'campaign-proof-visibility')).toHaveText(
+        language === 'en'
+          ? 'Current visibility needs verification'
+          : 'Visibilité actuelle à vérifier'
+      );
+      await expect(hook(page, 'campaign-proof-observed-at')).toHaveAttribute(
+        'datetime',
+        observedAt
+      );
+      await expect(hook(page, 'campaign-proof-no-observation')).toHaveCount(0);
+
+      await select('delivered-website');
+      await expect(hook(page, 'campaign-proof-source')).toHaveText(
+        language === 'en'
+          ? 'Website fulfilment attested'
+          : 'Réalisation Web attestée'
+      );
+      await expect(hook(page, 'campaign-proof-delivery')).toHaveText(
+        language === 'en' ? 'No linked delivery' : 'Aucune livraison liée'
+      );
+      await expect(hook(page, 'campaign-proof-reference')).toHaveText(
+        'qualified-proof-website'
+      );
+      await expect(hook(page, 'campaign-proof-no-observation')).toHaveText(
+        language === 'en'
+          ? 'No dated observation is available. Current visibility still needs verification.'
+          : 'Aucune observation datée disponible. La visibilité actuelle reste à vérifier.'
+      );
+      await expect(hook(page, 'campaign-proof-observed-at')).toHaveCount(0);
+      await expect(hook(page, 'campaign-proof-delivered-at')).toHaveAttribute(
+        'datetime',
+        generatedAt
+      );
+      await expect(proof.getByRole('link')).toHaveCount(0);
+
+      await select('declared-only');
+      await expect(hook(page, 'campaign-content')).toContainText(declaredUrl);
+      await expect(proof).toContainText(
+        language === 'en'
+          ? 'No qualified evidence for this promised service.'
+          : 'Aucune preuve qualifiée pour cette prestation.'
+      );
+      await expect(hook(page, 'campaign-proof-reference')).toHaveCount(0);
+      await expect(hook(page, 'campaign-proof-observation')).toHaveCount(0);
+      await expect(proof.getByRole('link')).toHaveCount(0);
+      expect(fixture.mutations).toEqual([]);
+    });
+  }
+}
+
 test('campaign filters and pagination are explicit and clear private detail while loading', async ({
   page
 }) => {
