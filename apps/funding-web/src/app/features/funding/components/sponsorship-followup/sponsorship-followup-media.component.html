@@ -239,11 +239,20 @@
           }}
         </p>
         <small>{{ asset.width }} × {{ asset.height }} px</small>
-        <openg7-sponsor-media-usage-editor
-          [value]="asset.usage ?? null"
-          [disabled]="busy()"
-          (saved)="usageController.updateUsage(asset, $event.usage)"
-        />
+        <details
+          class="media-rights"
+          data-og7="followup-media-rights"
+          [attr.data-og7-id]="asset.id"
+        >
+          <summary>
+            {{ 'funding.followup.media.usage.title' | translate }}
+          </summary>
+          <openg7-sponsor-media-usage-editor
+            [value]="asset.usage ?? null"
+            [disabled]="busy()"
+            (saved)="usageController.updateUsage(asset, $event.usage)"
+          />
+        </details>
         <button
           type="button"
           [disabled]="busy()"

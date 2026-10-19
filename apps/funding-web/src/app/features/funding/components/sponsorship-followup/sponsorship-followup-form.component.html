@@ -46,8 +46,8 @@
       <legend class="sr-only">
         {{ 'funding.followup.form.title' | translate }}
       </legend>
-      <div class="form-grid">
-        <label *ngFor="let field of fields" [class.full]="field === 'message'">
+      <ng-template #followupField let-field>
+        <label [class.full]="field === 'message'">
           <span
             >{{ 'funding.followup.form.' + field | translate }}
             <small
@@ -105,27 +105,54 @@
             >{{ errorFor(field) }}</small
           >
         </label>
-        <label class="full" *ngIf="sponsorshipForm.controls.logoUrl.value">
-          {{ 'funding.followup.form.logoUrl' | translate }}
-          <input
-            id="followup-logoUrl"
-            formControlName="logoUrl"
-            type="url"
-            maxlength="2048"
-            [attr.aria-invalid]="errorFor('logoUrl') ? 'true' : null"
-            aria-describedby="followup-logoUrl-error"
-          />
-          <small id="followup-logoUrl-error" class="field-error">{{
-            errorFor('logoUrl')
-          }}</small>
-        </label>
-      </div>
+      </ng-template>
+      <fieldset class="coordinates-group" data-og7="followup-coordinates">
+        <legend>
+          {{ 'funding.followup.journey.coordinates' | translate }}
+        </legend>
+        <div class="form-grid">
+          <ng-container *ngFor="let field of coordinateFields">
+            <ng-container
+              *ngTemplateOutlet="followupField; context: { $implicit: field }"
+            />
+          </ng-container>
+        </div>
+      </fieldset>
+      <details
+        class="presentation-details"
+        data-og7="followup-presentation"
+        [open]="presentationExpanded()"
+        (toggle)="togglePresentation($event)"
+      >
+        <summary>
+          {{ 'funding.followup.journey.presentation' | translate }}
+        </summary>
+        <p class="submission-help">
+          {{ 'funding.followup.journey.presentationHelp' | translate }}
+        </p>
+        <div class="form-grid">
+          <ng-container *ngFor="let field of presentationFields">
+            <ng-container
+              *ngTemplateOutlet="followupField; context: { $implicit: field }"
+            />
+          </ng-container>
+          <label class="full" *ngIf="sponsorshipForm.controls.logoUrl.value">
+            {{ 'funding.followup.form.logoUrl' | translate }}
+            <input
+              id="followup-logoUrl"
+              formControlName="logoUrl"
+              type="url"
+              maxlength="2048"
+              [attr.aria-invalid]="errorFor('logoUrl') ? 'true' : null"
+              aria-describedby="followup-logoUrl-error"
+            />
+            <small id="followup-logoUrl-error" class="field-error">{{
+              errorFor('logoUrl')
+            }}</small>
+          </label>
+        </div>
+      </details>
     </fieldset>
-    <openg7-sponsorship-followup-media
-      [token]="token()"
-      [canUploadMedia]="allowed() && !readOnly() && !busy()"
-      (busyChange)="mediaBusy.set($event)"
-    />
     <div
       *ngIf="formErrors().length && !readOnly()"
       class="form-error-summary full"
@@ -195,4 +222,14 @@
       {{ 'funding.followup.form.saved' | translate }}
     </p>
   </form>
+  <div class="followup-media-section" data-og7="followup-media-section">
+    <p class="submission-help">
+      {{ 'funding.followup.journey.mediaSeparate' | translate }}
+    </p>
+    <openg7-sponsorship-followup-media
+      [token]="token()"
+      [canUploadMedia]="allowed() && !readOnly() && !busy()"
+      (busyChange)="mediaBusy.set($event)"
+    />
+  </div>
 </section>
