@@ -91,16 +91,21 @@ rechargement restent hors de cette correction ciblée.
 | `GET /api/admin/assistant/context?sponsorshipId=<uuid>` | Lecture exacte, y compris d’un dossier en attente de paiement. Sans identifiant, sélection d’un dossier actionnable pour le cockpit. Réponse `ok`, `empty`, `not_found` ou `unavailable`; une erreur de source ne devient pas un succès vide.              |
 | `POST /api/admin/assistant/prepare`                     | Préparation existante, enrichie du paramètre optionnel `language` (`fr-CA`/`en`). Les préparations de commandite chargent le dossier et ses publications directement avant toute limite. Une relance admissible retourne aussi un aperçu privé `delivery`. |
 | `POST /api/admin/assistant/query`                       | Paramètre optionnel `sponsorshipId`. Le contexte est limité au dossier; les outils de totaux financiers globaux, de courriels et de calendrier sont retirés de ce périmètre. Un dossier absent ne provoque pas un repli vers un autre dossier.             |
-| `POST /api/admin/sponsorships/request-information`      | Action administrative distincte des outils conversationnels. Corps : `contributionId`, `contextVersion`, `recipient`, `subject`, `body`, `confirmed: true`. Validation serveur puis mise en file transactionnelle et audit.                                |
+| `POST /api/admin/sponsorships/request-information`      | Action administrative distincte des outils conversationnels. Corps : `requestId` (UUID), `contributionId`, `contextVersion`, `recipient`, `subject`, `body`, `confirmed: true`. Validation serveur puis mise en file transactionnelle et audit.            |
 
 Les alias sans `/api` sont conservés. Contexte et aperçu privé utilisent `Cache-Control: private, no-store`. Le contexte présenté au modèle ne reçoit pas l’aperçu de livraison ni l’adresse du destinataire. Les changements de contrat sont additifs.
 
 ### Envoi confirmé
 
+Le [reçu de demande d’informations](technical/assistant-information-receipts.md)
+définit le UUID `requestId` requis, le replay exact et la vérification GET après
+réponse perdue. Une absence ou une erreur conserve le verrou ; les marqueurs
+historiques sans UUID restent bloqués sans nouvelle commande.
+
 1. Valider la confirmation, l’UUID, l’empreinte de version, le destinataire et les longueurs. Refuser les retours à la ligne et le caractère NUL dans l’objet.
 2. Verrouiller la commandite dans une transaction PostgreSQL.
-3. Retrouver une éventuelle demande identique par sa clé de déduplication (dossier, destinataire, objet et message). Un retry retourne le même courriel, même si le dossier a changé depuis.
-4. Pour une nouvelle demande, relire la version et l’adresse. Exiger une commandite payée, sans remboursement demandé, non refusée et avec fiche incomplète.
+3. Retrouver le reçu du même UUID et acteur ; un replay exact conserve son acceptation et son courriel, même si le dossier a changé depuis.
+4. Pour un nouvel UUID, relire la version et l’adresse. Exiger une commandite payée, sans remboursement demandé, non refusée et avec fiche incomplète, puis réutiliser un courriel de contenu identique s’il existe.
 5. Insérer un message `sponsorship_information_request` dans la file existante et l’audit `sponsorship.request_information` dans la même transaction. L’audit contient l’identifiant du message, sans adresse ni contenu privé. Un échec d’audit annule la mise en file.
 6. Le worker de courriels existant assure l’envoi après validation de la transaction. Un échec se reprend depuis la file, sans recréer le fait métier.
 

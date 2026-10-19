@@ -3,6 +3,8 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import type {
   AdminInformationRequest,
   AdminInformationRequestResult,
+  AdminInformationRequestReceipt,
+  AdminInformationRequestReceiptRequest,
   AdminSponsorshipDetailsResult,
   AdminSponsorshipsResponse,
   SponsorFeedStatus,
@@ -51,6 +53,10 @@ export interface AdminSponsorshipRecordsHttpDependencies {
     input: AdminInformationRequest,
     actor: string
   ) => Promise<AdminInformationRequestResult>;
+  readonly readSponsorshipInformationRequestReceipt: (
+    input: AdminInformationRequestReceiptRequest,
+    actor: string
+  ) => Promise<AdminInformationRequestReceipt>;
   readonly updateAdminSponsorshipDetails: (
     input: unknown,
     actor: string
@@ -95,6 +101,7 @@ export const createAdminSponsorshipRecordsHttpHandler = ({
   listAdminSponsorships,
   getSponsorshipProgress,
   requestSponsorshipInformation,
+  readSponsorshipInformationRequestReceipt,
   updateAdminSponsorshipDetails,
   getSponsorshipInterventions,
   recordSponsorshipIntervention,
@@ -194,6 +201,56 @@ export const createAdminSponsorshipRecordsHttpHandler = ({
     }
 
     if (
+      routeMatches(
+        request.url,
+        '/admin/sponsorships/information-request-receipt',
+        '/api/admin/sponsorships/information-request-receipt'
+      )
+    ) {
+      response.setHeader('Cache-Control', 'private, no-store');
+      if (!ensureAdminAccess(request, response)) return true;
+      if (request.method !== 'GET') {
+        response.setHeader('Allow', 'GET');
+        writeJson(request, response, 405, { code: 'METHOD_NOT_ALLOWED' });
+        return true;
+      }
+      const params = new URL(request.url ?? '/', publicBaseOrigin).searchParams;
+      const requestId = params.get('requestId');
+      const contributionId = params.get('contributionId');
+      if (
+        [...params.keys()].length !== 2 ||
+        params.getAll('requestId').length !== 1 ||
+        params.getAll('contributionId').length !== 1 ||
+        !isValidUuid(requestId) ||
+        !isValidUuid(contributionId)
+      ) {
+        writeJson(request, response, 400, {
+          code: 'INFORMATION_REQUEST_RECEIPT_INVALID'
+        });
+        return true;
+      }
+      try {
+        writeJson(
+          request,
+          response,
+          200,
+          await readSponsorshipInformationRequestReceipt(
+            {
+              requestId: requestId.toLowerCase(),
+              contributionId: contributionId.toLowerCase()
+            },
+            getAdminAuditActor(request)
+          )
+        );
+      } catch {
+        writeJson(request, response, 503, {
+          code: 'INFORMATION_REQUEST_RECEIPT_UNAVAILABLE'
+        });
+      }
+      return true;
+    }
+
+    if (
       request.method === 'POST' &&
       routeMatches(
         request.url,
@@ -225,7 +282,11 @@ export const createAdminSponsorshipRecordsHttpHandler = ({
           error instanceof InformationRequestError ? error.status : 503,
           {
             error:
-              'Information request could not be queued. Refresh the record before trying again.'
+              'Information request could not be queued. Refresh the record before trying again.',
+            code:
+              error instanceof InformationRequestError
+                ? error.code
+                : 'INFORMATION_REQUEST_UNAVAILABLE'
           },
           { 'Cache-Control': 'private, no-store' }
         );

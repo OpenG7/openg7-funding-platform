@@ -95,6 +95,8 @@ test(
       'UPDATE sponsor_media_analysis_suggestions SET snapshot=snapshot',
       'UPDATE sponsor_media_analysis_reviews SET actor=actor',
       'UPDATE sponsor_media_analysis_requests SET actor=actor',
+      'UPDATE sponsorship_information_request_receipts SET actor=actor',
+      'DELETE FROM sponsorship_information_request_receipts',
       'DELETE FROM admin_audit_log'
     ]) {
       await assert.rejects(runtime.query(sql), { code: '42501' });
@@ -128,7 +130,8 @@ test(
       'sponsor_media_batch_plans',
       'sponsor_media_analysis_suggestions',
       'sponsor_media_analysis_reviews',
-      'sponsor_media_analysis_requests'
+      'sponsor_media_analysis_requests',
+      'sponsorship_information_request_receipts'
     ]) {
       await database.pool.query(`GRANT UPDATE ON ${table} TO ${role}`);
       await assert.rejects(assertProductionDatabasePrivileges(runtime, true), {

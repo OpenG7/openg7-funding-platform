@@ -2,6 +2,7 @@ import type { Locator, Page } from '@playwright/test';
 import type {
   AdminAssistantContextResponse,
   AdminAssistantPrepareResponse,
+  AdminInformationRequest,
   AdminSponsorshipProgressResponse,
   AdminSponsorshipRecord
 } from '@openg7/funding-core';
@@ -96,6 +97,7 @@ const proposal: AdminAssistantPrepareResponse = {
   }
 };
 async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
+  let informationRequest: AdminInformationRequest | null = null;
   await page.addInitScript((oidc) => {
     sessionStorage.setItem(
       'openg7-admin-session-token',
@@ -114,6 +116,11 @@ async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
   const options = {
     contextStatus: 200,
     sendStatus: 200,
+    receiptStatus: 200,
+    receiptFound: false,
+    receiptDeliveryStatus: 'queued' as
+      'queued' | 'sending' | 'sent' | 'failed' | 'uncertain',
+    receiptMismatch: false,
     queryStatus: 200,
     prepareStatus: 200,
     contextVersion: 'a'.repeat(64),
@@ -190,10 +197,41 @@ async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
             : currentProposal
       });
     }
-    if (url.pathname === '/api/admin/sponsorships/request-information')
+    if (url.pathname === '/api/admin/sponsorships/request-information') {
+      informationRequest = req.postDataJSON() as AdminInformationRequest;
       return route.fulfill({
         status: options.sendStatus,
-        json: { status: 'queued', messageId: secondId }
+        json: {
+          status: 'queued',
+          messageId: secondId,
+          requestId: informationRequest.requestId,
+          acceptedAt: '2026-10-19T20:00:00.000Z',
+          deliveryStatus: 'queued',
+          sentAt: null
+        }
+      });
+    }
+    if (url.pathname === '/api/admin/sponsorships/information-request-receipt')
+      return route.fulfill({
+        status: options.receiptStatus,
+        json: {
+          requestId: options.receiptMismatch
+            ? secondId
+            : url.searchParams.get('requestId'),
+          contributionId: url.searchParams.get('contributionId'),
+          found: options.receiptFound,
+          ...(options.receiptFound
+            ? {
+                messageId: secondId,
+                acceptedAt: '2026-10-19T20:00:00.000Z',
+                deliveryStatus: options.receiptDeliveryStatus,
+                sentAt:
+                  options.receiptDeliveryStatus === 'sent'
+                    ? '2026-10-19T20:01:00.000Z'
+                    : null
+              }
+            : {})
+        }
       });
     if (url.pathname === '/api/admin/assistant/query')
       return route.fulfill({
@@ -440,7 +478,7 @@ test('information draft requires reviewed recipient and explicit confirmation, E
     .click();
   await expect(
     page.locator('[data-og7="assistant-delivery-result"]')
-  ).toContainText('Demande mise en file');
+  ).toContainText('Demande enregistrée');
   expect(
     calls.filter((call) => call.path.endsWith('request-information'))
   ).toHaveLength(1);
@@ -535,7 +573,7 @@ for (const language of ['fr-CA', 'en'] as const) {
               '10000000-0000-4000-8000-000000000301'
           )
         )
-      ).toBe('pending');
+      ).toMatch(/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/);
       if (width === 1536) {
         await page.evaluate(() => {
           document.documentElement.style.fontSize = '200%';
@@ -545,6 +583,207 @@ for (const language of ['fr-CA', 'en'] as const) {
     });
   }
 }
+
+const informationMarker = 'openg7-assistant-information-pending:' + id;
+async function loseInformationResponse(page: Page, language: 'fr-CA' | 'en') {
+  const english = language === 'en';
+  await page.goto(path());
+  await page
+    .getByRole('button', {
+      name: english ? 'Request information' : 'Demander des informations',
+      exact: true
+    })
+    .click();
+  await page
+    .getByRole('button', {
+      name: english ? 'Review delivery' : 'Vérifier l’envoi',
+      exact: true
+    })
+    .click();
+  await page
+    .getByRole('button', {
+      name: english ? 'Confirm delivery' : 'Confirmer l’envoi',
+      exact: true
+    })
+    .click();
+  await expect(
+    page.locator('[data-og7="assistant-information-uncertain"]')
+  ).toBeVisible();
+  return page.evaluate((key) => sessionStorage.getItem(key), informationMarker);
+}
+
+for (const language of ['fr-CA', 'en'] as const)
+  for (const width of [390, 1536]) {
+    test(`information receipt resolves after reload without another command in ${language} at ${width}px`, async ({
+      page
+    }, testInfo) => {
+      await page.setViewportSize({ width, height: 864 });
+      await page.addInitScript(
+        (locale) => localStorage.setItem('openg7.language', locale),
+        language
+      );
+      const { calls, options } = await fixtures(page);
+      options.sendStatus = 503;
+      options.receiptFound = true;
+      const requestId = await loseInformationResponse(page, language);
+      expect(requestId).toMatch(
+        /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/
+      );
+      await page.reload();
+      expect(
+        calls.filter((c) => c.path.endsWith('information-request-receipt'))
+      ).toHaveLength(0);
+      const receiptResponse = page.waitForResponse((r) =>
+        r.url().includes('/information-request-receipt?')
+      );
+      const check = page.locator(
+        '[data-og7="assistant-information-receipt-check"]'
+      );
+      await check.focus();
+      await check.press('Enter');
+      const url = new URL((await receiptResponse).url());
+      expect(Object.fromEntries(url.searchParams)).toEqual({
+        requestId,
+        contributionId: id
+      });
+      const receipt = page.locator(
+        '[data-og7="assistant-information-receipt"]'
+      );
+      await expect(receipt).toBeVisible();
+      await expect(receipt).toBeFocused();
+      await expect(receipt.getByRole('link')).toHaveAttribute(
+        'href',
+        `/admin/fundraiser/email-queue?messageId=${secondId}`
+      );
+      expect(
+        await page.evaluate(
+          (key) => sessionStorage.getItem(key),
+          informationMarker
+        )
+      ).toBeNull();
+      expect(
+        calls.filter((c) => c.path.endsWith('request-information'))
+      ).toHaveLength(1);
+      await expectAdminPageFits(page);
+      if (
+        (language === 'fr-CA' && width === 390) ||
+        (language === 'en' && width === 1536)
+      )
+        await page.screenshot({
+          path: testInfo.outputPath(
+            `information-receipt-${language}-${width}.png`
+          ),
+          fullPage: true
+        });
+    });
+  }
+
+for (const failure of ['absent', 'unavailable', 'mismatch'] as const)
+  test(`information receipt ${failure} keeps the retained command blocked`, async ({
+    page
+  }) => {
+    const { calls, options } = await fixtures(page);
+    options.sendStatus = 503;
+    options.receiptFound = failure !== 'absent';
+    options.receiptStatus = failure === 'unavailable' ? 503 : 200;
+    options.receiptMismatch = failure === 'mismatch';
+    const requestId = await loseInformationResponse(page, 'fr-CA');
+    await page
+      .locator('[data-og7="assistant-information-receipt-check"]')
+      .click();
+    await expect(
+      page.locator('[data-og7="assistant-information-receipt-error"]')
+    ).toBeVisible();
+    await expect(
+      page.locator('[data-og7="assistant-information-receipt"]')
+    ).toHaveCount(0);
+    expect(
+      await page.evaluate(
+        (key) => sessionStorage.getItem(key),
+        informationMarker
+      )
+    ).toBe(requestId);
+    await page.reload();
+    await expect(
+      page.locator('[data-og7="assistant-information-uncertain"]')
+    ).toBeVisible();
+    expect(
+      calls.filter((c) => c.path.endsWith('request-information'))
+    ).toHaveLength(1);
+  });
+
+test('information sending and uncertain receipts retain one command until delivery resolves', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => localStorage.setItem('openg7.language', 'en'));
+  const { calls, options } = await fixtures(page);
+  options.sendStatus = 503;
+  options.receiptFound = true;
+  options.receiptDeliveryStatus = 'sending';
+  const requestId = await loseInformationResponse(page, 'en');
+  const check = page.locator(
+    '[data-og7="assistant-information-receipt-check"]'
+  );
+  const receipt = page.locator('[data-og7="assistant-information-receipt"]');
+  await check.click();
+  await expect(receipt).toBeFocused();
+  expect(
+    await page.evaluate((key) => sessionStorage.getItem(key), informationMarker)
+  ).toBe(requestId);
+  await page.reload();
+  options.receiptDeliveryStatus = 'uncertain';
+  await check.click();
+  await expect(receipt).toBeFocused();
+  await expect(check).toBeEnabled();
+  options.receiptDeliveryStatus = 'sent';
+  await check.click();
+  await expect(check).toHaveCount(0);
+  await expect(receipt).toBeFocused();
+  expect(
+    await page.evaluate((key) => sessionStorage.getItem(key), informationMarker)
+  ).toBeNull();
+  expect(
+    calls.filter((c) => c.path.endsWith('request-information'))
+  ).toHaveLength(1);
+  expect(
+    calls.filter((c) => c.path.endsWith('information-request-receipt'))
+  ).toHaveLength(3);
+});
+
+for (const language of ['fr-CA', 'en'] as const)
+  test(`legacy information marker remains blocked without an invented receipt in ${language}`, async ({
+    page
+  }) => {
+    await page.addInitScript(
+      ({ locale, key }) => {
+        localStorage.setItem('openg7.language', locale);
+        sessionStorage.setItem(key, 'pending');
+      },
+      { locale: language, key: informationMarker }
+    );
+    const { calls } = await fixtures(page);
+    await page.goto(path());
+    await expect(
+      page.locator('[data-og7="assistant-information-uncertain"]')
+    ).toBeVisible();
+    await expect(
+      page.locator('[data-og7="assistant-information-receipt-check"]')
+    ).toHaveCount(0);
+    expect(
+      await page.evaluate(
+        (key) => sessionStorage.getItem(key),
+        informationMarker
+      )
+    ).toBe('pending');
+    expect(
+      calls.filter(
+        (c) =>
+          c.path.includes('information-request-receipt') ||
+          c.path.endsWith('request-information')
+      )
+    ).toHaveLength(0);
+  });
 
 test('stale context invalidates the draft until it is prepared again', async ({
   page

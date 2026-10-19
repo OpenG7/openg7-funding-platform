@@ -41,5 +41,6 @@ status remains independent and can still block another send. A later failed
 registry refresh does not erase the exact receipt or its email message link.
 See [UI recovery and limits](../payment-trust-validation.md#recette-de-renvoi-des-factures-et-avoirs).
 
-Assistant information requests and expense creation still have no equivalent
-receipt; this endpoint does not resolve their uncertain outcomes.
+Assistant information requests have their own
+[command receipt](assistant-information-receipts.md). Expense creation still has
+no equivalent receipt; this endpoint does not resolve its uncertain outcomes.

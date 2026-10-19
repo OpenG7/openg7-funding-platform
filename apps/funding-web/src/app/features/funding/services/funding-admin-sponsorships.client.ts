@@ -8,6 +8,8 @@ import type {
   AdminSponsorshipProgressResponse,
   AdminInformationRequest,
   AdminInformationRequestResult,
+  AdminInformationRequestReceiptRequest,
+  AdminInformationRequestReceipt,
   AdminSponsorMediaDeleteRequest,
   AdminSponsorMediaReviewRequest,
   AdminSponsorMediaReviewResult,
@@ -165,7 +167,7 @@ export class FundingAdminSponsorshipsClient {
     token: string,
     payload: AdminInformationRequest
   ): Promise<AdminInformationRequestResult> {
-    return this.session.requestAdminData(
+    const response = await this.session.requestAdminJson(
       '/admin/sponsorships/request-information',
       {
         auth: { token },
@@ -173,6 +175,34 @@ export class FundingAdminSponsorshipsClient {
         cache: 'no-store',
         headers: { 'Content-Type': 'application/json' },
         body: payload
+      }
+    );
+    if (!response.ok) {
+      const body: unknown =
+        response.status === 409
+          ? await response.json().catch(() => null)
+          : null;
+      const code =
+        body &&
+        typeof body === 'object' &&
+        'code' in body &&
+        body.code === 'INFORMATION_REQUEST_ID_CONFLICT'
+          ? body.code
+          : undefined;
+      throw new AdminDashboardRequestError(response.status, undefined, code);
+    }
+    return response.json() as Promise<AdminInformationRequestResult>;
+  }
+
+  getInformationRequestReceipt(
+    token: string,
+    input: AdminInformationRequestReceiptRequest
+  ): Promise<AdminInformationRequestReceipt> {
+    return this.session.requestAdminData(
+      `/admin/sponsorships/information-request-receipt?${new URLSearchParams({ requestId: input.requestId, contributionId: input.contributionId })}`,
+      {
+        auth: { token },
+        cache: 'no-store'
       }
     );
   }
