@@ -6,6 +6,7 @@ import * as auditOwner from '../dist/apps/funding-api/src/fund-admin-audit.repos
 import * as expensesOwner from '../dist/apps/funding-api/src/fund-expenses.repository.js';
 
 const draft = {
+  requestId: 'b7e09b08-bf26-4cdb-a4e7-43e2e75298dd',
   projectName: 'Synthetic allocation',
   publicDescription: 'Synthetic description',
   expectedOutcome: 'Synthetic outcome',
@@ -112,6 +113,18 @@ const expenseTransaction = ({
       }
       if (sql.includes('to_regclass')) {
         return { rows: [{ ...presence, has_audit_log: auditAvailable }] };
+      }
+      if (
+        sql.includes('pg_advisory_xact_lock') ||
+        sql.includes('FROM expense_creation_receipts')
+      ) {
+        return { rows: [] };
+      }
+      if (sql.startsWith('INSERT INTO expense_creation_receipts')) {
+        assert.equal(values[0], draft.requestId);
+        assert.equal(values[1], actor.actor);
+        assert.equal(JSON.parse(values[4]).id, allocation.id);
+        return { rows: [], rowCount: 1 };
       }
       if (sql.startsWith('INSERT INTO fund_allocations')) {
         assert.equal(values[7], 1999);

@@ -98,7 +98,12 @@ async function prepare(page: Page, language: string, width: number) {
       reads.push(route.request().url());
       const response: AdminExpensesResponse = {
         data_source: 'database',
-        expenses: [...expenses],
+        expenses: expenses.filter((expense) => {
+          const exactId = new URL(route.request().url()).searchParams.get(
+            'expenseId'
+          );
+          return !exactId || expense.id === exactId;
+        }),
         summary: {
           total_count: expenses.length,
           published_count: expenses.filter(
@@ -123,10 +128,10 @@ async function prepare(page: Page, language: string, width: number) {
     }
     return route.fulfill({ status: 503, json: {} });
   });
-  const finish = async (submission: Submission, status = 200) => {
+  const finish = async (submission: Submission, status = 200, lost = false) => {
     const input = submission.payload;
     const expense: AdminExpenseRecord = {
-      id: `allocation-fixture-${expenses.length + 1}`,
+      id: String(expenses.length + 1),
       project_name: input.projectName,
       public_description: input.publicDescription,
       expected_outcome: input.expectedOutcome,
@@ -142,10 +147,13 @@ async function prepare(page: Page, language: string, width: number) {
       updated_at: date
     };
     if (status === 200) expenses.push(expense);
-    await submission.route.fulfill({
-      status,
-      json: status === 200 ? { updated: true, expense } : {}
-    });
+    if (lost) await submission.route.abort('failed');
+    else
+      await submission.route.fulfill({
+        status,
+        json: status === 200 ? { updated: true, expense } : {}
+      });
+    return expense;
   };
   await page.goto('/admin/fundraiser/expenses');
   const form = page.locator('[data-og7="allocation-create"]');
@@ -155,6 +163,261 @@ async function prepare(page: Page, language: string, width: number) {
     exact: true
   });
   return { form, add, submissions, reads, finish };
+}
+
+const creationCheck = (page: Page) =>
+  page.locator('[data-og7="expense-create-receipt-check"]');
+const creationLink = (page: Page) =>
+  page.locator('[data-og7="expense-create-receipt-open"]');
+const pendingCreation = (page: Page) =>
+  page.evaluate(() =>
+    sessionStorage.getItem('openg7-admin-expense-create-uncertain')
+  );
+
+async function checkCreation(page: Page, english: boolean) {
+  const check = creationCheck(page);
+  await expect(check).toHaveText(
+    english ? 'Check the existing creation' : 'Vérifier la création existante'
+  );
+  await check.focus();
+  await expect(check).toBeFocused();
+  const requested = page.waitForRequest(
+    (request) =>
+      request.method() === 'GET' &&
+      new URL(request.url()).pathname.endsWith('/expenses/create-receipt')
+  );
+  await page.keyboard.press('Enter');
+  await requested;
+}
+
+for (const { language, width } of [
+  { language: 'fr-CA', width: 390 },
+  { language: 'en', width: 1536 }
+]) {
+  const english = language === 'en';
+  test(`allocation creation receipt recovers its exact entry after a lost response without another POST in ${language} at ${width}px`, async ({
+    page
+  }, testInfo) => {
+    const { form, add, submissions, reads, finish } = await prepare(
+      page,
+      language,
+      width
+    );
+    const values = draft('receipt-recovered');
+    await fill(form, english, values);
+    await add.click();
+    await expect.poll(() => submissions.length).toBe(1);
+    const expense = await finish(submissions[0], 200, true);
+    const requestId = submissions[0].payload.requestId;
+    await expect(creationCheck(page)).toBeEnabled();
+    expect(await pendingCreation(page)).toBe(requestId);
+    const receipts: string[] = [];
+    await page.route('**/api/admin/expenses/create-receipt?*', (route) => {
+      const url = new URL(route.request().url());
+      receipts.push(url.searchParams.get('requestId')!);
+      return route.fulfill({
+        json: {
+          requestId,
+          found: true,
+          expenseId: expense.id,
+          acceptedAt: '2026-10-19T20:30:00.000Z'
+        }
+      });
+    });
+    await page.reload();
+    await expect(creationCheck(page)).toBeEnabled();
+    await expect(add).toBeDisabled();
+    expect(receipts).toEqual([]);
+    await checkCreation(page, english);
+    await expect(creationLink(page)).toHaveAttribute(
+      'href',
+      `/admin/fundraiser/expenses?expenseId=${expense.id}`
+    );
+    await expect(
+      page.locator('[data-og7="expense-create-uncertain"]')
+    ).toHaveCount(0);
+    await expect(add).toBeEnabled();
+    expect(await pendingCreation(page)).toBeNull();
+    expect(receipts).toEqual([requestId]);
+    expect(submissions).toHaveLength(1);
+    await creationLink(page).scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: testInfo.outputPath(`expense-receipt-${language}-${width}.png`),
+      animations: 'disabled'
+    });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth
+      )
+    ).toBe(true);
+    await creationLink(page).focus();
+    await expect(creationLink(page)).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(
+      new RegExp(`expenses\\?expenseId=${expense.id}$`)
+    );
+    await expect(
+      page.locator(`[data-og7="allocation-card"][data-og7-id="${expense.id}"]`)
+    ).toContainText(values.project);
+    expect(
+      reads.some(
+        (url) => new URL(url).searchParams.get('expenseId') === expense.id
+      )
+    ).toBe(true);
+    expect(submissions).toHaveLength(1);
+  });
+
+  test(`allocation creation receipt absence, error and incompatible form keep the UUID blocked in ${language} at ${width}px`, async ({
+    page
+  }) => {
+    const { form, add, submissions, finish } = await prepare(
+      page,
+      language,
+      width
+    );
+    await fill(form, english, draft('receipt-blocked'));
+    await add.click();
+    await expect.poll(() => submissions.length).toBe(1);
+    await finish(submissions[0], 200, true);
+    const requestId = submissions[0].payload.requestId;
+    let outcome: 'missing' | 'unavailable' | 'incompatible' = 'missing';
+    const receipts: string[] = [];
+    await page.route('**/api/admin/expenses/create-receipt?*', (route) => {
+      receipts.push(
+        new URL(route.request().url()).searchParams.get('requestId')!
+      );
+      if (outcome === 'unavailable')
+        return route.fulfill({ status: 503, json: {} });
+      return route.fulfill({
+        json:
+          outcome === 'missing'
+            ? { requestId, found: false }
+            : {
+                requestId,
+                found: 'true',
+                expenseId: '1',
+                acceptedAt: '2026-10-19T20:30:00.000Z'
+              }
+      });
+    });
+    for (const state of ['missing', 'unavailable', 'incompatible'] as const) {
+      outcome = state;
+      await checkCreation(page, english);
+      await expect(
+        page.locator('[data-og7="expense-create-receipt-message"]')
+      ).toHaveText(
+        state === 'missing'
+          ? english
+            ? 'No matching receipt is available. The outcome remains uncertain; creation stays blocked.'
+            : 'Aucun reçu correspondant n’est disponible. Le résultat reste incertain ; la création demeure bloquée.'
+          : english
+            ? 'Creation could not be checked. The request stays blocked; retry the check.'
+            : 'La création n’a pas pu être vérifiée. La demande reste bloquée ; réessayez la vérification.'
+      );
+      await expect(creationCheck(page)).toBeEnabled();
+      await expect(add).toBeDisabled();
+      await expect(
+        form.getByLabel(fields(english).project, { exact: true })
+      ).toHaveAttribute('readonly', '');
+      expect(await pendingCreation(page)).toBe(requestId);
+      await page.reload();
+      await expect(creationCheck(page)).toBeEnabled();
+      await expect(add).toBeDisabled();
+    }
+    expect(receipts).toEqual(Array(3).fill(requestId));
+    expect(submissions).toHaveLength(1);
+    await expect(creationLink(page)).toHaveCount(0);
+  });
+
+  test(`allocation creation receipt leaves a legacy marker blocked without inventing an UUID in ${language} at ${width}px`, async ({
+    page
+  }) => {
+    const { add, submissions } = await prepare(page, language, width);
+    const receipts: string[] = [];
+    await page.route('**/api/admin/expenses/create-receipt?*', (route) => {
+      receipts.push(route.request().url());
+      return route.fulfill({ json: { found: false } });
+    });
+    await page.evaluate(() =>
+      sessionStorage.setItem('openg7-admin-expense-create-uncertain', '1')
+    );
+    await page.reload();
+    await expect(
+      page.locator('[data-og7="expense-create-uncertain"]')
+    ).toBeVisible();
+    await expect(add).toBeDisabled();
+    await expect(creationCheck(page)).toHaveCount(0);
+    await expect(creationLink(page)).toHaveCount(0);
+    expect(await pendingCreation(page)).toBe('1');
+    expect(receipts).toEqual([]);
+    expect(submissions).toEqual([]);
+  });
+
+  test(`allocation creation receipt ignores a response after leaving its scope in ${language} at ${width}px`, async ({
+    page
+  }) => {
+    const { form, add, submissions, finish } = await prepare(
+      page,
+      language,
+      width
+    );
+    await fill(form, english, draft('receipt-late'));
+    await add.click();
+    await expect.poll(() => submissions.length).toBe(1);
+    const expense = await finish(submissions[0], 200, true);
+    const requestId = submissions[0].payload.requestId;
+    let pending: Route | undefined;
+    await page.route('**/api/admin/expenses/create-receipt?*', (route) => {
+      pending = route;
+    });
+    await checkCreation(page, english);
+    await expect.poll(() => pending !== undefined).toBe(true);
+    await page.locator('a[href="/admin/fundraiser/audit"]').first().click();
+    await expect(page).toHaveURL(/\/admin\/fundraiser\/audit$/);
+    const completed = page.waitForResponse((response) =>
+      new URL(response.url()).pathname.endsWith('/expenses/create-receipt')
+    );
+    await pending!.fulfill({
+      json: {
+        requestId,
+        found: true,
+        expenseId: expense.id,
+        acceptedAt: '2026-10-19T20:30:00.000Z'
+      }
+    });
+    await (await completed).finished();
+    await expect(creationLink(page)).toHaveCount(0);
+    await expect(
+      page.locator('[data-og7="expense-create-receipt-message"]')
+    ).toHaveCount(0);
+    expect(await pendingCreation(page)).toBe(requestId);
+    expect(submissions).toHaveLength(1);
+  });
+}
+
+for (const protocol of ['conflict', 'incompatible-200'] as const) {
+  test(`allocation creation receipt keeps ${protocol} blocked instead of authorizing another command`, async ({
+    page
+  }) => {
+    const { form, add, submissions } = await prepare(page, 'en', 390);
+    await fill(form, true, draft('receipt-protocol'));
+    await add.click();
+    await expect.poll(() => submissions.length).toBe(1);
+    await submissions[0].route.fulfill({
+      status: protocol === 'conflict' ? 409 : 200,
+      json:
+        protocol === 'conflict'
+          ? { code: 'request_conflict' }
+          : { updated: true, expense: { id: '0' } }
+    });
+    await expect(creationCheck(page)).toBeEnabled();
+    await expect(add).toBeDisabled();
+    expect(await pendingCreation(page)).toBe(submissions[0].payload.requestId);
+    await page.reload();
+    await expect(creationCheck(page)).toBeEnabled();
+    await expect(add).toBeDisabled();
+    expect(submissions).toHaveLength(1);
+  });
 }
 
 for (const language of ['fr-CA', 'en']) {
@@ -230,7 +493,7 @@ for (const language of ['fr-CA', 'en']) {
         await page.evaluate(() =>
           sessionStorage.getItem('openg7-admin-expense-create-uncertain')
         )
-      ).toBe('1');
+      ).toBe(submissions[1].payload.requestId);
       await add.dispatchEvent('click');
       expect(submissions).toHaveLength(2);
       await page

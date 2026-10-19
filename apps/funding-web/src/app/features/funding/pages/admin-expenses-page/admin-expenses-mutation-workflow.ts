@@ -1,4 +1,4 @@
-import { signal } from '@angular/core';
+import { computed, signal } from '@angular/core';
 import type {
   AdminExpenseRecord,
   AdminExpenseStatus
@@ -14,23 +14,43 @@ import { AdminDashboardRequestError } from '../../services/funding-admin-session
 
 import { updatedExpenseDateTime } from './admin-expenses-read-controller.js';
 import type { AdminExpensesMutationPorts } from './admin-expenses.contracts.js';
+import type { NewExpenseDraft } from './admin-expense-presentation.types.js';
 
 const pendingCreationKey = 'openg7-admin-expense-create-uncertain';
+const requestIdPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const validExpenseId = (value: unknown): value is string =>
+  typeof value === 'string' &&
+  /^[1-9]\d{0,18}$/.test(value) &&
+  (value.length < 19 || value <= '9223372036854775807');
 
 /** Freezes confirmed writes and reconciles only responses from the original scope. */
 export class AdminExpensesMutationWorkflow {
   readonly busy = signal(false);
   readonly confirming = signal(false);
   readonly createUncertain = signal(false);
+  readonly receiptCheckBusy = signal(false);
+  readonly creationReceiptMessage = signal('');
+  readonly createdExpenseId = signal<string | null>(null);
+  private readonly pendingCreation = signal<string | null>(null);
+  readonly canVerifyCreation = computed(() =>
+    requestIdPattern.test(this.pendingCreation() ?? '')
+  );
   private disposed = false;
+  private receiptRevision = 0;
+  private submittedDraft: NewExpenseDraft | null = null;
 
   constructor(private readonly ports: AdminExpensesMutationPorts) {
-    this.createUncertain.set(this.hasPendingCreation());
+    this.pendingCreation.set(this.readPendingCreation());
+    this.createUncertain.set(Boolean(this.pendingCreation()));
   }
 
   async create(): Promise<void> {
-    if (this.busy() || this.disposed) return;
-    if (this.hasPendingCreation()) this.createUncertain.set(true);
+    if (this.busy() || this.receiptCheckBusy() || this.disposed) return;
+    this.pendingCreation.set(
+      this.pendingCreation() ?? this.readPendingCreation()
+    );
+    if (this.pendingCreation()) this.createUncertain.set(true);
     if (this.createUncertain() || this.ports.read.state() !== 'ready') return;
     const revision = this.ports.read.scopeRevision();
     if (!this.current(revision)) return;
@@ -48,6 +68,7 @@ export class AdminExpensesMutationWorkflow {
     }
 
     let submitted = false;
+    let requestId: string | null = null;
     try {
       this.busy.set(true);
       if (isPublicAllocationStatus(draft.status)) {
@@ -65,7 +86,11 @@ export class AdminExpensesMutationWorkflow {
       }
       if (!this.current(revision) || this.ports.read.state() !== 'ready')
         return;
+      requestId = this.ports.newRequestId();
+      if (!requestId || !requestIdPattern.test(requestId))
+        throw new Error('Expense creation request ID is unavailable.');
       const payload = {
+        requestId,
         confirmation: isPublicAllocationStatus(draft.status)
           ? PUBLIC_ALLOCATION_CREATE_CONFIRMATION
           : undefined,
@@ -82,13 +107,17 @@ export class AdminExpensesMutationWorkflow {
         currency: 'CAD' as const,
         status: draft.status
       };
-      // Store only an opaque tab-scoped marker before the request. A page
+      // Store only the opaque tab-scoped UUID before the request. A page
       // change cannot turn an unanswered create into permission to create again.
-      this.markCreationPending(true);
+      this.resetReceiptView();
+      this.submittedDraft = draft;
+      this.markCreationPending(requestId);
       submitted = true;
-      await this.ports.admin.createExpense(token, payload);
+      const result = await this.ports.admin.createExpense(token, payload);
+      if (result?.updated !== true || !validExpenseId(result.expense?.id))
+        throw new Error('Expense creation was not confirmed.');
       submitted = false;
-      this.markCreationPending(false);
+      this.completeCreation(requestId);
       if (!this.current(revision)) return;
       this.ports.resetDraftIfUnchanged(draft);
       await this.ports.read.load(true);
@@ -97,17 +126,88 @@ export class AdminExpensesMutationWorkflow {
         error instanceof AdminDashboardRequestError &&
         error.status >= 400 &&
         error.status < 500 &&
-        error.status !== 408;
-      if (submitted && definitive) this.markCreationPending(false);
+        error.status !== 408 &&
+        error.code !== 'request_conflict';
+      if (submitted && definitive && requestId)
+        this.completeCreation(requestId);
       if (!this.current(revision)) return;
       if (this.handleAccessError(error)) return;
-      // No creation receipt or request ID exists in this API contract. A lost
-      // response or server failure cannot prove that the allocation was absent.
+      // Only the exact command receipt can resolve an unknown outcome.
       if (submitted && !definitive) this.createUncertain.set(true);
       this.ports.read.state.set('error');
     } finally {
       if (!this.disposed) this.busy.set(false);
     }
+  }
+
+  async verifyCreationReceipt(): Promise<void> {
+    const revision = this.ports.read.scopeRevision();
+    const requestId = this.pendingCreation();
+    if (
+      !this.current(revision) ||
+      this.busy() ||
+      this.receiptCheckBusy() ||
+      !requestId ||
+      !requestIdPattern.test(requestId)
+    )
+      return;
+    const check = ++this.receiptRevision;
+    const active = () =>
+      this.current(revision) && check === this.receiptRevision;
+    this.receiptCheckBusy.set(true);
+    this.creationReceiptMessage.set('');
+    try {
+      const receipt = await this.ports.admin.getExpenseCreateReceipt(
+        this.ports.token(),
+        requestId
+      );
+      if (!active() || this.pendingCreation() !== requestId) return;
+      if (receipt.requestId !== requestId.toLowerCase())
+        throw new Error('Expense receipt does not match this request.');
+      if (receipt.found === false) {
+        this.creationReceiptMessage.set(
+          this.ports.t('admin.financialSafety.expenseReceipt.notFound')
+        );
+        return;
+      }
+      if (
+        receipt.found !== true ||
+        !validExpenseId(receipt.expenseId) ||
+        typeof receipt.acceptedAt !== 'string' ||
+        !Number.isFinite(Date.parse(receipt.acceptedAt)) ||
+        new Date(receipt.acceptedAt).toISOString() !== receipt.acceptedAt
+      )
+        throw new Error('Expense creation receipt is incomplete.');
+      this.createdExpenseId.set(receipt.expenseId);
+      this.completeCreation(requestId);
+      this.createUncertain.set(Boolean(this.pendingCreation()));
+      if (this.submittedDraft)
+        this.ports.resetDraftIfUnchanged(this.submittedDraft);
+      this.submittedDraft = null;
+      const message = this.ports.t(
+        'admin.financialSafety.expenseReceipt.found'
+      );
+      this.creationReceiptMessage.set(message);
+      await this.ports.read.load(true);
+      if (active() && this.ports.read.state() !== 'ready')
+        this.creationReceiptMessage.set(
+          `${message} ${this.ports.t('admin.financialSafety.stale')}`
+        );
+    } catch (error) {
+      if (!active() || this.handleAccessError(error)) return;
+      this.creationReceiptMessage.set(
+        this.ports.t('admin.financialSafety.expenseReceipt.unavailable')
+      );
+    } finally {
+      if (active()) this.receiptCheckBusy.set(false);
+    }
+  }
+
+  resetReceiptView(): void {
+    ++this.receiptRevision;
+    this.receiptCheckBusy.set(false);
+    this.creationReceiptMessage.set('');
+    this.createdExpenseId.set(null);
   }
 
   async save(
@@ -190,25 +290,37 @@ export class AdminExpensesMutationWorkflow {
 
   dispose(): void {
     this.disposed = true;
+    this.resetReceiptView();
     this.confirming.set(false);
     this.busy.set(false);
   }
 
-  private hasPendingCreation(): boolean {
+  private readPendingCreation(): string | null {
     try {
-      return this.ports.storage?.()?.getItem(pendingCreationKey) === '1';
+      return this.ports.storage?.()?.getItem(pendingCreationKey) || null;
     } catch {
-      return false;
+      return null;
     }
   }
 
-  private markCreationPending(pending: boolean): void {
+  private markCreationPending(requestId: string): void {
+    this.pendingCreation.set(requestId);
     try {
-      const storage = this.ports.storage?.();
-      if (pending) storage?.setItem(pendingCreationKey, '1');
-      else storage?.removeItem(pendingCreationKey);
+      this.ports.storage?.()?.setItem(pendingCreationKey, requestId);
     } catch {
       // The current instance still refuses a second creation after uncertainty.
+    }
+  }
+
+  private completeCreation(requestId: string): void {
+    if (this.pendingCreation() === requestId) this.pendingCreation.set(null);
+    try {
+      const storage = this.ports.storage?.();
+      const stored = storage?.getItem(pendingCreationKey);
+      if (stored === requestId) storage?.removeItem(pendingCreationKey);
+      else if (stored) this.pendingCreation.set(stored);
+    } catch {
+      // A retained UUID can be checked again; it never permits an implicit replay.
     }
   }
 

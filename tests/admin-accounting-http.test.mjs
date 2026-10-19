@@ -15,6 +15,7 @@ import { readBody } from '../dist/apps/funding-api/src/http-transport.js';
 const actor = 'synthetic-owner';
 const version = '2026-09-24 12:00:00.123456+00';
 const createInput = {
+  requestId: 'b7e09b08-bf26-4cdb-a4e7-43e2e75298dd',
   projectName: 'Synthetic project',
   publicDescription: 'Synthetic public description',
   expectedOutcome: 'Synthetic outcome',
@@ -37,7 +38,10 @@ const fixture = ({
   expenseDate = '2026-09-25T12:00:00.000Z',
   create = undefined,
   summary = undefined,
-  list = undefined
+  list = undefined,
+  databaseAvailable = true,
+  receipt = { requestId: createInput.requestId, found: false },
+  receiptError
 } = {}) => {
   const calls = [];
   const expense = {
@@ -92,6 +96,15 @@ const fixture = ({
     Object.assign(response, { status, payload });
   };
   const handler = createAdminAccountingHttpHandler({
+    databaseAvailable: () => databaseAvailable,
+    readAdminExpenseCreateReceipt: async (requestId, receiptActor) => {
+      calls.push({
+        name: 'receipt',
+        value: { requestId, actor: receiptActor }
+      });
+      if (receiptError) throw receiptError;
+      return receipt;
+    },
     publicBaseOrigin: 'https://funding.example.test',
     ensureAdminAccess: (request, response) => {
       calls.push({ name: 'access' });
@@ -203,6 +216,125 @@ test('mixed allocation currencies do not produce expense or transparency scalar 
       error: 'Amounts in different currencies cannot be combined.'
     });
   }
+});
+
+test('expense creation receipts are private owner reads bound to the authenticated actor', async (t) => {
+  const receipt = {
+    requestId: createInput.requestId,
+    found: true,
+    expenseId: '42',
+    acceptedAt: '2026-10-19T20:50:00.000Z'
+  };
+  for (const prefix of ['/admin/', '/api/admin/']) {
+    await t.test(prefix, async () => {
+      const f = fixture({ receipt });
+      const result = await f.run(
+        `${prefix}expenses/create-receipt?requestId=${createInput.requestId}`
+      );
+      assert.equal(result.status, 200);
+      assert.equal(result.headers['Cache-Control'], 'private, no-store');
+      assert.deepEqual(result.payload, receipt);
+      assert.deepEqual(f.values('receipt'), [
+        { requestId: createInput.requestId, actor }
+      ]);
+      assert.deepEqual(f.names(), ['access', 'actor', 'receipt', 'json']);
+    });
+    for (const role of ['reader', 'operator']) {
+      const f = fixture({ role });
+      const result = await f.run(
+        `${prefix}expenses/create-receipt?requestId=${createInput.requestId}`
+      );
+      assert.equal(result.status, 403);
+      assert.equal(result.headers['Cache-Control'], 'private, no-store');
+      assert.deepEqual(f.names(), ['access', 'json']);
+    }
+    for (const denied of [401, 403, 503]) {
+      const f = fixture({ denied });
+      assert.equal(
+        (await f.run(`${prefix}expenses/create-receipt?requestId=invalid`))
+          .status,
+        denied
+      );
+      assert.deepEqual(f.names(), ['access', 'json']);
+    }
+  }
+});
+
+test('expense receipt validation and unavailable storage never create an expense', async () => {
+  for (const query of [
+    '',
+    '?requestId=invalid',
+    `?requestId=${createInput.requestId}&requestId=${createInput.requestId}`,
+    `?requestId=${createInput.requestId}&actor=other`,
+    `?requestId=${createInput.requestId}&expenseId=42`
+  ]) {
+    const f = fixture();
+    assert.equal(
+      (await f.run(`/api/admin/expenses/create-receipt${query}`)).status,
+      400
+    );
+    assert.deepEqual(f.names(), ['access', 'json']);
+  }
+  for (const method of ['POST', 'PUT', 'DELETE', 'HEAD']) {
+    const f = fixture();
+    const result = await f.run(
+      `/api/admin/expenses/create-receipt?requestId=${createInput.requestId}`,
+      { method, body: '{invalid' }
+    );
+    assert.equal(result.status, 405);
+    assert.equal(result.headers.Allow, 'GET');
+    assert.deepEqual(f.names(), ['access', 'json']);
+  }
+  for (const options of [
+    { databaseAvailable: false },
+    { receiptError: new Error('synthetic-private-diagnostic') }
+  ]) {
+    const f = fixture(options);
+    const result = await f.run(
+      `/api/admin/expenses/create-receipt?requestId=${createInput.requestId}`
+    );
+    assert.equal(result.status, 503);
+    assert.deepEqual(result.payload, { code: 'EXPENSE_RECEIPT_UNAVAILABLE' });
+    assert.equal(
+      JSON.stringify(f.calls).includes('synthetic-private-diagnostic'),
+      false
+    );
+    assert.equal(f.values('create').length, 0);
+  }
+  const f = fixture();
+  const result = await f.run(
+    `/api/admin/expenses/create-receipt?requestId=${createInput.requestId}`
+  );
+  assert.deepEqual(result.payload, {
+    requestId: createInput.requestId,
+    found: false
+  });
+  assert.equal(f.values('create').length, 0);
+});
+
+test('creation requires an explicit UUID and reports incompatible UUID reuse as conflict', async () => {
+  for (const requestId of [undefined, null, '', 'not-a-uuid', 42]) {
+    const f = fixture();
+    assert.equal(
+      (
+        await f.run('/api/admin/expenses', {
+          method: 'POST',
+          body: JSON.stringify({ ...createInput, requestId })
+        })
+      ).status,
+      400
+    );
+    assert.equal(f.values('create').length, 0);
+  }
+  const f = fixture({
+    createError: new AdminExpenseValidationError(
+      'request_conflict',
+      'The command conflicts.'
+    )
+  });
+  const result = await f.run('/api/admin/expenses', { method: 'POST' });
+  assert.equal(result.status, 409);
+  assert.equal(result.payload.code, 'request_conflict');
 });
 
 test('accounting reads preserve route aliases, exact bigint scope and no-store', async (t) => {

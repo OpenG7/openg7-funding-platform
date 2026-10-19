@@ -73,7 +73,7 @@ is independent of webhooks. Journeys include six dated chains and steps;
 terms stay out of URLs/storage. Exact IDs precede list limits;
 invoice/publication pages reload on target changes. Drawers protect private
 previews and require confirmations; Stripe inspection excludes raw webhooks.
-Dashboard `data_available=false` means no PostgreSQL. Recipes are in the linked guides.
+Dashboard `data_available=false` means no PostgreSQL.
 
 ```text
 GET /api/admin/dashboard
@@ -84,6 +84,7 @@ GET /api/admin/contributions
 GET /api/admin/payment-journey?contributionId=<uuid>
 POST /api/admin/contributions.csv
 GET /api/admin/expenses
+GET /api/admin/expenses/create-receipt?requestId=<uuid>
 POST /api/admin/expenses
 POST /api/admin/expenses/update
 GET /api/admin/transparency
@@ -121,9 +122,9 @@ GET /api/admin/sponsorship-credit-notes/pdf?creditNoteId=<uuid>
 POST /api/admin/sponsorship-credit-notes/resend
 ```
 
-The dashboard summarizes received funds, estimated availability, pending
-sponsorship reviews, feed state, Stripe event errors and recent contributions.
-Contributions support local type/payment/public-display-consent filters and search.
+The dashboard summarizes funds, reviews, feed and Stripe errors. Contributions
+support type/payment/consent filters and search.
+See [expense creation receipts](expense-creation-receipts.md).
 Scalar totals for contributions, invoices/credit notes, expenses and the legacy
 dashboard reject mixed currencies: `409 ADMIN_FINANCIAL_CURRENCY_CONFLICT`, without
 conversion. Pending contributions and archived allocations do not select these

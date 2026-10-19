@@ -1,4 +1,5 @@
 import type {
+  AdminExpenseCreateReceipt,
   AdminDocumentResendReceipt,
   AdminDocumentResendReceiptRequest,
   AdminWorkQueueQuery,
@@ -767,6 +768,13 @@ export class FundingAdminService {
     expenseId?: string
   ): Promise<AdminExpensesResponse> {
     return this.accountingClient.getExpenses(token, expenseId);
+  }
+
+  async getExpenseCreateReceipt(
+    token: string,
+    requestId: string
+  ): Promise<AdminExpenseCreateReceipt> {
+    return this.accountingClient.getExpenseCreateReceipt(token, requestId);
   }
 
   async createExpense(

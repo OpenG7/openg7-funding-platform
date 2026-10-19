@@ -47,6 +47,55 @@ const serviceFixture = (t, token = syntheticToken) => {
   return { service: new FundingAdminService(), sessionStorage };
 };
 
+test('expense receipt transport is a private GET with the exact UUID and never submits a mutation', async (t) => {
+  const { service } = serviceFixture(t);
+  const requestId = 'b7e09b08-bf26-4cdb-a4e7-43e2e75298dd';
+  const receipt = {
+    requestId,
+    found: true,
+    expenseId: '42',
+    acceptedAt: '2026-10-19T20:50:00.000Z'
+  };
+  const fetchMock = t.mock.method(globalThis, 'fetch', async (url, options) => {
+    assert.equal(
+      url,
+      `${baseUrl}/admin/expenses/create-receipt?requestId=${requestId}`
+    );
+    assert.equal(options.method, 'GET');
+    assert.equal(options.cache, 'no-store');
+    assert.equal(options.body, undefined);
+    assert.equal(options.headers.Authorization, `Bearer ${syntheticToken}`);
+    return Response.json(receipt);
+  });
+  assert.deepEqual(
+    await service.getExpenseCreateReceipt(syntheticToken, requestId),
+    receipt
+  );
+  assert.equal(fetchMock.mock.callCount(), 1);
+});
+
+test('expense creation transport retains the UUID-conflict code without replaying a POST', async (t) => {
+  const { service } = serviceFixture(t);
+  const requestId = 'b7e09b08-bf26-4cdb-a4e7-43e2e75298dd';
+  const fetchMock = t.mock.method(
+    globalThis,
+    'fetch',
+    async (_url, options) => {
+      assert.equal(options.method, 'POST');
+      assert.equal(JSON.parse(options.body).requestId, requestId);
+      return Response.json({ code: 'request_conflict' }, { status: 409 });
+    }
+  );
+  await assert.rejects(
+    service.createExpense(syntheticToken, { requestId }),
+    (error) =>
+      error instanceof AdminDashboardRequestError &&
+      error.status === 409 &&
+      error.code === 'request_conflict'
+  );
+  assert.equal(fetchMock.mock.callCount(), 1);
+});
+
 test('reading an already cleared admin session does not repeatedly invalidate private consumers', (t) => {
   const { service, sessionStorage } = serviceFixture(t);
   const fetchMock = t.mock.method(globalThis, 'fetch', () => {
