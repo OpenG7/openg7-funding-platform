@@ -1,16 +1,8 @@
+import { fundingBaseTranslations } from './funding-base-translations.mjs';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 const catalogs = ['fr-CA', 'en'].map((language) =>
-  JSON.parse(
-    readFileSync(
-      new URL(
-        `../../apps/funding-web/src/assets/i18n/${language}.json`,
-        import.meta.url
-      ),
-      'utf8'
-    )
-  )
+  fundingBaseTranslations(language)
 );
 
 // The older coverage suites inspect source code. Include only labels actually

@@ -1,3 +1,4 @@
+import { fundingBaseTranslations } from './support/funding-base-translations.mjs';
 import '@angular/compiler';
 import { createProgram } from '@angular/compiler-cli';
 import { TestBed } from '@angular/core/testing';
@@ -5,13 +6,7 @@ import { BrowserTestingModule } from '@angular/platform-browser/testing';
 import { platformServer, ServerModule } from '@angular/platform-server';
 import { provideTranslateService, TranslateService } from '@ngx-translate/core';
 import assert from 'node:assert/strict';
-import {
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync
-} from 'node:fs';
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { after, before, test } from 'node:test';
@@ -22,12 +17,7 @@ import ts from 'typescript';
 const componentFile =
   'apps/funding-web/src/app/features/funding/components/funding-transparency-reports/funding-transparency-reports.component.ts';
 const catalogs = Object.fromEntries(
-  ['fr-CA', 'en'].map((locale) => [
-    locale,
-    JSON.parse(
-      readFileSync(`apps/funding-web/src/assets/i18n/${locale}.json`, 'utf8')
-    )
-  ])
+  ['fr-CA', 'en'].map((locale) => [locale, fundingBaseTranslations(locale)])
 );
 let compiledDirectory;
 let ReportsComponent;

@@ -196,29 +196,94 @@ test('lazy home remains readable without JavaScript in both languages', async ({
   }
 });
 
-test('the public entry does not download administrative page implementations', async ({
-  page
-}) => {
-  const scripts: Promise<string>[] = [];
-  page.on('response', (response) => {
-    if (new URL(response.url()).pathname.endsWith('.js'))
-      scripts.push(response.text());
+for (const locale of ['fr-CA', 'en']) {
+  test(`the public entry does not download administrative implementations or base locales: ${locale}`, async ({
+    page
+  }) => {
+    const scripts: Promise<string>[] = [];
+    page.on('response', (response) => {
+      if (new URL(response.url()).pathname.endsWith('.js'))
+        scripts.push(response.text());
+    });
+    await page.route('**/api/**', (route) =>
+      route.fulfill({ status: 503, json: {} })
+    );
+    await page.goto(
+      locale === 'en' ? '/en/fonds-des-batisseurs' : '/fonds-des-batisseurs'
+    );
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await page.waitForLoadState('load');
+    const downloaded = (await Promise.all(scripts)).join('\n');
+    expect(downloaded.length).toBeGreaterThan(10000);
+    for (const selector of [
+      'openg7-admin-nav',
+      'openg7-admin-login-page',
+      'openg7-admin-access-page',
+      'Navigation admin du fonds',
+      'Fund administration navigation'
+    ])
+      expect(downloaded).not.toContain(selector);
   });
-  await page.route('**/api/**', (route) =>
-    route.fulfill({ status: 503, json: {} })
-  );
-  await page.goto('/fonds-des-batisseurs');
-  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-  await page.waitForLoadState('load');
-  const downloaded = (await Promise.all(scripts)).join('\n');
-  expect(downloaded.length).toBeGreaterThan(10000);
-  for (const selector of [
-    'openg7-admin-nav',
-    'openg7-admin-login-page',
-    'openg7-admin-access-page'
-  ])
-    expect(downloaded).not.toContain(selector);
-});
+}
+
+for (const locale of [
+  {
+    language: 'fr-CA',
+    title: 'Acces admin',
+    other: 'Admin access',
+    switchLabel: 'Switch administration language to English'
+  },
+  {
+    language: 'en',
+    title: 'Admin access',
+    other: 'Acces admin',
+    switchLabel: 'Passer l’administration en français'
+  }
+]) {
+  test(`administrative base locales load on direct entry and survive language switches: ${locale.language}`, async ({
+    page
+  }) => {
+    await page.addInitScript(
+      (language) => localStorage.setItem('openg7.language', language),
+      locale.language
+    );
+    await page.route('**/api/**', (route) => {
+      const path = new URL(route.request().url()).pathname;
+      if (path.endsWith('/auth/config'))
+        return route.fulfill({ json: { mode: 'token' } });
+      return route.fulfill({ status: 401, json: {} });
+    });
+    await page.goto('/admin/login');
+    const heading = page.getByRole('heading', { level: 1 });
+    await expect(heading).toHaveText(locale.title);
+    await page.getByRole('button', { name: locale.switchLabel }).click();
+    await expect(heading).toHaveText(locale.other);
+    await page
+      .getByRole('button', {
+        name:
+          locale.language === 'en'
+            ? 'Switch administration language to English'
+            : 'Passer l’administration en français'
+      })
+      .click();
+    await expect(heading).toHaveText(locale.title);
+    await expect(page.locator('html')).toHaveAttribute('lang', locale.language);
+
+    // Keep this navigation in the same application: a partial EN admin store
+    // must not prevent the public EN catalog from loading on a later switch.
+    await page.locator('a[href="/fonds-des-batisseurs"]').click();
+    await expect(page).toHaveURL(/\/fonds-des-batisseurs$/);
+    await page
+      .getByRole('button', { name: 'Switch site language to English' })
+      .click();
+    await expect(page).toHaveURL(/\/en\/fonds-des-batisseurs$/);
+    await expect(
+      page.locator(
+        'openg7-funding-header a[href="/en/fonds-des-batisseurs/a-propos"]'
+      )
+    ).toHaveText('About');
+  });
+}
 
 for (const language of ['fr-CA', 'en']) {
   test(`404 preserves HTTP status, language and accessible recovery: ${language}`, async ({

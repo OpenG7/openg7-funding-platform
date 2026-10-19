@@ -1,5 +1,6 @@
+import { fundingBaseTranslations } from './support/funding-base-translations.mjs';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
@@ -9,9 +10,7 @@ import {
 } from '../dist/apps/funding-web/src/app/features/funding/config/boutique-products.config.js';
 
 const translations = ['fr-CA', 'en'].map((locale) =>
-  JSON.parse(
-    readFileSync(`apps/funding-web/src/assets/i18n/${locale}.json`, 'utf8')
-  )
+  fundingBaseTranslations(locale)
 );
 const translated = (dictionary, key) =>
   key.split('.').reduce((value, part) => value?.[part], dictionary);

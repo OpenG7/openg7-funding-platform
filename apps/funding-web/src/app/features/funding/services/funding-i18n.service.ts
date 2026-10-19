@@ -4,6 +4,8 @@ import { NavigationEnd, Router } from '@angular/router';
 import { TranslateService } from '@ngx-translate/core';
 import { FUNDING_DEFAULT_LANGUAGE } from '@openg7/funding-i18n';
 
+import { fundingPublicTranslations } from './funding-translate.loader.js';
+
 export type FundingLanguage = 'fr-CA' | 'en';
 export type FundingCanonicalPath =
   | '/404'
@@ -44,6 +46,7 @@ export class FundingI18nService {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly router = inject(Router);
   private readonly translationVersion = signal(0);
+  private readonly featureBaseLanguages = new Set<FundingLanguage>();
   readonly currentLanguage = signal<FundingLanguage>(FUNDING_DEFAULT_LANGUAGE);
   readonly currentCanonicalPath = signal<FundingCanonicalPath>('/');
 
@@ -93,6 +96,16 @@ export class FundingI18nService {
     language: FundingLanguage,
     translations: Parameters<TranslateService['setTranslation']>[1]
   ): void {
+    // A feature registered before use(language) must not create a partial store
+    // that makes ngx-translate skip loading that language's public base.
+    if (!this.featureBaseLanguages.has(language)) {
+      this.featureBaseLanguages.add(language);
+      this.translate.setTranslation(
+        language,
+        fundingPublicTranslations(language),
+        true
+      );
+    }
     this.translate.setTranslation(language, translations, true);
     this.translationVersion.update((value) => value + 1);
   }

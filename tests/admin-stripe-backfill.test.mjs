@@ -1,5 +1,5 @@
+import { fundingBaseTranslations } from './support/funding-base-translations.mjs';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
   parseStripeBackfillScope,
@@ -61,9 +61,7 @@ test('local recovery refuses live or malformed credentials before connecting', a
 
 test('Stripe recovery French and English have the same complete message keys', () => {
   const messages = (locale) =>
-    JSON.parse(
-      readFileSync(`apps/funding-web/src/assets/i18n/${locale}.json`, 'utf8')
-    ).admin.stripeBackfill;
+    fundingBaseTranslations(locale).admin.stripeBackfill;
   const keys = (value) =>
     Object.entries(value)
       .flatMap(([key, text]) =>

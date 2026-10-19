@@ -1,3 +1,4 @@
+import { fundingBaseTranslations } from './support/funding-base-translations.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
@@ -58,14 +59,7 @@ const review = (asset, altText = '') => ({
 
 const fixture = (t, locale = null) => {
   const selected = sponsorship();
-  const catalog = locale
-    ? JSON.parse(
-        fs.readFileSync(
-          `apps/funding-web/src/assets/i18n/${locale}.json`,
-          'utf8'
-        )
-      )
-    : null;
+  const catalog = locale ? fundingBaseTranslations(locale) : null;
   const calls = [];
   const translated = [];
   const created = [];

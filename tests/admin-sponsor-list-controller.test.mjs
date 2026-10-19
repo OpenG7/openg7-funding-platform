@@ -1,5 +1,5 @@
+import { fundingBaseTranslations } from './support/funding-base-translations.mjs';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { registerHooks } from 'node:module';
 import test from 'node:test';
 
@@ -88,11 +88,7 @@ function fixture(t, locale = null) {
     focus = [],
     scroll = [];
   const browser = { position: [0, 480], navigating: false };
-  const catalog = locale
-    ? JSON.parse(
-        readFileSync(`apps/funding-web/src/assets/i18n/${locale}.json`, 'utf8')
-      )
-    : null;
+  const catalog = locale ? fundingBaseTranslations(locale) : null;
   const translate = (key) => {
     if (!catalog) return key;
     const text = key

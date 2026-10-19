@@ -383,11 +383,24 @@ small {
 }
 @media (max-width: 600px) {
   .followup-content {
-    @apply tw:gap-3 tw:pt-3;
+    @apply tw:gap-2 tw:pt-2;
   }
   .next-step.state-card,
   .followup-form-panel {
-    @apply tw:p-4;
+    padding: 0.5rem 0.75rem;
+  }
+  .next-step.state-card {
+    row-gap: 0.5rem;
+  }
+  .followup-form-panel > header > h2 {
+    margin-bottom: 0.5rem;
+  }
+  .draft-status,
+  .followup-form-panel form > fieldset {
+    margin-block: 0.25rem;
+  }
+  .coordinates-group > legend {
+    margin-bottom: 0.5rem;
   }
   .next-step > .toolbar {
     display: grid;
@@ -405,10 +418,10 @@ small {
     grid-template-columns: 1fr;
   }
   .followup-hero {
-    padding-block: 0.5rem;
+    padding-block: 0.25rem;
   }
   .followup-hero h1 {
-    margin-block: 0.25rem;
+    margin-block: 0;
   }
   .followup-hero p {
     @apply tw:m-0;

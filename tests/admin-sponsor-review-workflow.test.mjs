@@ -1,5 +1,5 @@
+import { fundingBaseTranslations } from './support/funding-base-translations.mjs';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { moderationDecision } from './support/moderation-ui-fixture.mjs';
 
@@ -745,9 +745,7 @@ test('disposal prevents late refresh, central errors and UI changes after either
 test('FR and EN use existing translations for forms, actions, note states and notification results', async (t) => {
   const phrases = [];
   for (const language of ['fr-CA', 'en']) {
-    const dictionary = JSON.parse(
-      readFileSync(`apps/funding-web/src/assets/i18n/${language}.json`, 'utf8')
-    );
+    const dictionary = fundingBaseTranslations(language);
     const f = fixture(t);
     const translated = [];
     f.ports.t = (key, params = {}) => {

@@ -12,6 +12,11 @@ ces pages conserve cet état. Le bouton permet ensuite de lancer et d'arrêter
 la musique dans les deux langues. Les autres routes conservent leur politique
 de lecture existante.
 
+Sur écran mobile jusqu'à 600 px, la commande se trouve dans l'en-tête, entre
+le changement de langue et le soutien. Sur grand écran, elle reste flottante.
+Une seule commande est visible et présente dans le parcours clavier ; la lecture
+et la pause choisies restent partagées pendant la navigation, sans recréer le lecteur.
+
 ## Emplacements préparés
 
 | Univers    | Identifiant de carte | Dossier des photos            | Exemple de fichier |

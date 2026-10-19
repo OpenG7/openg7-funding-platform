@@ -1,3 +1,4 @@
+import { fundingBaseTranslations } from './support/funding-base-translations.mjs';
 import { translatedUiSource } from './support/translated-ui-source.mjs';
 import { readFundingApiSource } from './support/funding-api-source.mjs';
 import { readAdminSurfaceSource } from './support/admin-surface-source.mjs';
@@ -116,9 +117,7 @@ test('the admin assistant page exposes every required UI state', () => {
     'admin-assistant-page states'
   );
   for (const language of ['fr-CA', 'en']) {
-    const labels = JSON.parse(
-      read(`apps/funding-web/src/assets/i18n/${language}.json`)
-    ).admin.context.queryStatus;
+    const labels = fundingBaseTranslations(language).admin.context.queryStatus;
     for (const status of [
       'ok',
       'assistant_disabled',

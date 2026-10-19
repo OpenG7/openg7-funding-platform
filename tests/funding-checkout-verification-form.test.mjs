@@ -1,3 +1,4 @@
+import { fundingBaseTranslations } from './support/funding-base-translations.mjs';
 import '@angular/compiler';
 import { createProgram } from '@angular/compiler-cli';
 import { TestBed } from '@angular/core/testing';
@@ -24,12 +25,7 @@ import ts from 'typescript';
 const componentFile =
   'apps/funding-web/src/app/features/funding/components/funding-contribution-form/funding-contribution-form.component.ts';
 const catalogs = Object.fromEntries(
-  ['fr-CA', 'en'].map((locale) => [
-    locale,
-    JSON.parse(
-      readFileSync(`apps/funding-web/src/assets/i18n/${locale}.json`, 'utf8')
-    )
-  ])
+  ['fr-CA', 'en'].map((locale) => [locale, fundingBaseTranslations(locale)])
 );
 let compiledDirectory;
 let ContributionForm;
@@ -49,8 +45,9 @@ before(async () => {
   );
   const options = {
     target: ts.ScriptTarget.ES2022,
-    module: ts.ModuleKind.ES2022,
+    module: ts.ModuleKind.ESNext,
     moduleResolution: ts.ModuleResolutionKind.Bundler,
+    resolveJsonModule: true,
     experimentalDecorators: true,
     strict: true,
     strictTemplates: true,

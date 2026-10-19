@@ -411,6 +411,20 @@ a:focus-visible {
   }
 }
 
+@media (max-width: 380px) {
+  .builders-nav {
+    grid-template-areas: 'brand' 'actions' 'nav';
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .nav-actions {
+    justify-self: stretch;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

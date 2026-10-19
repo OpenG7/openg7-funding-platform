@@ -1,3 +1,4 @@
+import { fundingBaseTranslations } from './support/funding-base-translations.mjs';
 import '@angular/compiler';
 import { createProgram } from '@angular/compiler-cli';
 import { TestBed } from '@angular/core/testing';
@@ -27,9 +28,7 @@ const componentFiles = [
 ].map((filename) => componentRoot + filename);
 const catalogs = Object.fromEntries(
   ['fr-CA', 'en'].map((locale) => {
-    const catalog = JSON.parse(
-      readFileSync(`apps/funding-web/src/assets/i18n/${locale}.json`, 'utf8')
-    );
+    const catalog = fundingBaseTranslations(locale);
     catalog.admin.finance = JSON.parse(
       readFileSync(
         `apps/funding-web/src/assets/i18n/admin-finance.${locale}.json`,

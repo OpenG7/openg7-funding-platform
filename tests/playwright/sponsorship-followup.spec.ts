@@ -62,6 +62,23 @@ for (const english of [false, true]) {
           .outputPath('followup-initial-' + (english ? 'en' : 'fr') + '.png'),
         fullPage: false
       });
+      const musicToggle = page.locator('openg7-site-music').getByRole('button');
+      await expect(musicToggle).toHaveCount(1);
+      await expect(
+        page
+          .locator('openg7-funding-header openg7-site-music')
+          .getByRole('button')
+      ).toHaveCount(1);
+      expect(
+        await firstField.evaluate((field) => {
+          const bounds = field.getBoundingClientRect();
+          return [bounds.left + 2, bounds.right - 2].every((x) =>
+            [bounds.top + 2, bounds.bottom - 2].every(
+              (y) => document.elementFromPoint(x, y) === field
+            )
+          );
+        })
+      ).toBe(true);
       const fieldBox = await firstField.boundingBox();
       expect(fieldBox!.y + fieldBox!.height).toBeLessThan(844);
       const form = await page

@@ -1,3 +1,4 @@
+import { fundingBaseTranslations } from './support/funding-base-translations.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
@@ -72,12 +73,7 @@ test('media API failures have safe localized feedback without exposing server co
     );
     assert.equal(feedback.key, key);
     for (const locale of ['fr-CA', 'en']) {
-      const catalog = JSON.parse(
-        fs.readFileSync(
-          'apps/funding-web/src/assets/i18n/' + locale + '.json',
-          'utf8'
-        )
-      );
+      const catalog = fundingBaseTranslations(locale);
       assert.equal(typeof catalog.funding.followup.media[key], 'string');
     }
   }
