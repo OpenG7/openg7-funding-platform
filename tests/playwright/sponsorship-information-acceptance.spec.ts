@@ -345,30 +345,36 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
       await expect(review).toBeFocused();
       expect(await informationMessages()).toHaveLength(0);
       await review.click();
-      const captured = Promise.withResolvers<{
+      type CapturedCommand = {
         input: AdminInformationRequest;
         result: AdminInformationRequestResult;
-      }>();
+      };
+      let resolveCaptured!: (value: CapturedCommand) => void;
+      let rejectCaptured!: (error: unknown) => void;
+      const captured = new Promise<CapturedCommand>((resolve, reject) => {
+        resolveCaptured = resolve;
+        rejectCaptured = reject;
+      });
       let browserCommands = 0;
       await admin.route('**' + requestUrl, async (route) => {
         browserCommands++;
         try {
           const response = await route.fetch();
           expect(response.ok()).toBe(true);
-          captured.resolve({
+          resolveCaptured({
             input: route.request().postDataJSON() as AdminInformationRequest,
             result: (await response.json()) as AdminInformationRequestResult
           });
           await route.abort('failed');
         } catch (error) {
-          captured.reject(error);
+          rejectCaptured(error);
           await route.abort('failed');
         }
       });
       await admin
         .getByRole('button', { name: 'Confirmer l’envoi', exact: true })
         .click();
-      const accepted = await captured.promise;
+      const accepted = await captured;
       sentRequest = accepted.input;
       informationMessageId = accepted.result.messageId;
       await expect(
