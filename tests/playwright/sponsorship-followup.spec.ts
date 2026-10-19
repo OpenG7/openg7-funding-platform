@@ -56,6 +56,12 @@ for (const english of [false, true]) {
         { exact: false }
       );
       await expect(firstField).toBeEnabled();
+      await page.screenshot({
+        path: test
+          .info()
+          .outputPath('followup-initial-' + (english ? 'en' : 'fr') + '.png'),
+        fullPage: false
+      });
       const fieldBox = await firstField.boundingBox();
       expect(fieldBox!.y + fieldBox!.height).toBeLessThan(844);
       const form = await page
@@ -114,6 +120,158 @@ for (const english of [false, true]) {
       });
     }
   );
+}
+
+for (const english of [false, true]) {
+  for (const viewport of [
+    { width: 1536, height: 864 },
+    { width: 390, height: 844 }
+  ]) {
+    test(`private follow-up separates text submission, optional presentation and review navigation ${english ? 'EN' : 'FR'} at ${viewport.width}px`, async ({
+      page
+    }) => {
+      await page.setViewportSize(viewport);
+      const calls = await mock(page, {
+        current: {
+          ...fixture(),
+          detailsSubmitted: false,
+          websiteUrl: null,
+          message: null,
+          logoUrl: null
+        }
+      });
+      await visit(page, english);
+      const presentation = page.locator('[data-og7="followup-presentation"]');
+      const summary = presentation.locator('summary');
+      const submit = page.getByRole('button', {
+        name: english
+          ? 'Submit my information to the team'
+          : 'Soumettre mes informations à l’équipe',
+        exact: true
+      });
+      const website = page.locator('#followup-websiteUrl');
+      const message = page.locator('#followup-message');
+      const media = page.locator('openg7-sponsorship-followup-media');
+      await expect(presentation).toHaveJSProperty('open', false);
+      await expect(website).toBeHidden();
+      await expect(
+        page.locator('[data-og7="followup-coordinates"] input')
+      ).toHaveCount(3);
+      await expect(
+        page.locator('form openg7-sponsorship-followup-media')
+      ).toHaveCount(0);
+      await expect(media).toHaveCount(1);
+      const mediaInstance = await media.elementHandle();
+      const submitBox = await submit.boundingBox();
+      const mediaBox = await media.boundingBox();
+      expect(submitBox!.y + submitBox!.height).toBeLessThan(mediaBox!.y);
+      await summary.focus();
+      await page.keyboard.press('Enter');
+      await expect(presentation).toHaveJSProperty('open', true);
+      await website.fill('https://example.test/presentation');
+      await message.fill('Présentation privée conservée dans le brouillon.');
+      await expect(draftStatus(page)).toContainText(
+        english ? 'Draft saved.' : 'Brouillon enregistré.'
+      );
+      expect(calls.draft().data?.message).toBe(
+        'Présentation privée conservée dans le brouillon.'
+      );
+      expect(calls.posts()).toBe(0);
+      await summary.focus();
+      await page.keyboard.press('Enter');
+      await expect(presentation).toHaveJSProperty('open', false);
+      const draftBeforeReview = calls.draft();
+      const urlBeforeReview = page.url();
+      await page.locator('[data-og7="followup-open-review"]').focus();
+      await page.keyboard.press('Enter');
+      await expect(
+        page.locator('[data-og7="followup-review-section"]')
+      ).toBeFocused();
+      expect(page.url()).toBe(urlBeforeReview);
+      expect(calls.draft()).toEqual(draftBeforeReview);
+      expect(calls.posts()).toBe(0);
+      await expect(message).toHaveValue(
+        'Présentation privée conservée dans le brouillon.'
+      );
+
+      await summary.focus();
+      await page.keyboard.press('Enter');
+      await website.fill('http://example.test/presentation');
+      await summary.focus();
+      await page.keyboard.press('Enter');
+      await expect(presentation).toHaveJSProperty('open', false);
+      await expect(submit).toBeEnabled();
+      await submit.focus();
+      await page.keyboard.press('Enter');
+      await expect(presentation).toHaveJSProperty('open', true);
+      await expect(website).toBeFocused();
+      await expect(website).toHaveAttribute('aria-invalid', 'true');
+      expect(calls.posts()).toBe(0);
+      await website.fill('https://example.test/presentation');
+      await submit.click();
+      await expect.poll(() => calls.posts()).toBe(1);
+      await expect(
+        page.getByRole('status').filter({
+          hasText: english ? 'Information saved.' : 'Informations enregistrées.'
+        })
+      ).toBeVisible();
+      await expect(message).toHaveValue(
+        'Présentation privée conservée dans le brouillon.'
+      );
+      expect(
+        await mediaInstance!.evaluate((element) => element.isConnected)
+      ).toBe(true);
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth + 1
+          )
+        )
+        .toBe(true);
+    });
+  }
+}
+
+for (const english of [false, true]) {
+  test(`restored optional presentation opens without submitting the private draft ${english ? 'EN mobile' : 'FR desktop'}`, async ({
+    page
+  }) => {
+    await page.setViewportSize(
+      english ? { width: 390, height: 844 } : { width: 1536, height: 864 }
+    );
+    const restored = {
+      ...draftValues('Atelier brouillon complémentaire'),
+      websiteUrl: 'https://example.test/restored',
+      logoUrl: 'https://example.test/logo.png',
+      message: 'Message privé repris du brouillon.'
+    };
+    const calls = await mock(page, {
+      current: { ...fixture(), websiteUrl: null, logoUrl: null, message: null },
+      draft: { revision: 7, data: restored, updatedAt: '2026-10-19T15:00:00Z' }
+    });
+    await visit(page, english);
+    const presentation = page.locator('[data-og7="followup-presentation"]');
+    await expect(presentation).toHaveJSProperty('open', true);
+    await expect(page.locator('#followup-websiteUrl')).toHaveValue(
+      restored.websiteUrl
+    );
+    await expect(page.locator('#followup-message')).toHaveValue(
+      restored.message
+    );
+    await expect(page.locator('#followup-logoUrl')).toHaveValue(
+      restored.logoUrl
+    );
+    await presentation.locator('summary').focus();
+    await page.keyboard.press('Enter');
+    await expect(presentation).toHaveJSProperty('open', false);
+    await page.reload();
+    await expect(presentation).toHaveJSProperty('open', true);
+    await expect(page.locator('#followup-message')).toHaveValue(
+      restored.message
+    );
+    expect(calls.posts()).toBe(0);
+    expect(calls.draft().revision).toBe(7);
+  });
 }
 
 for (const scenario of [

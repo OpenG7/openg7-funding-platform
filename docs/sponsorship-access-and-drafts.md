@@ -13,6 +13,23 @@ même accès privé. Contrats, confidentialité et séparation des effets financ
 
 Les médias conservent leur parcours indépendant : téléversement et suppression ont leurs propres confirmations. Abandonner le brouillon texte ne supprime pas les fichiers téléversés.
 
+Dans le suivi privé, la soumission du texte se trouve immédiatement après les
+coordonnées et la présentation, avant le gestionnaire des médias. Les trois
+coordonnées obligatoires restent visibles ; le site, le message et l'ancienne
+URL de logo sont regroupés dans **Présentation complémentaire**. Les valeurs
+déjà présentes sont dépliées au chargement ou à la restauration du brouillon.
+Replier une section conserve ses champs et leur saisie ; une erreur de
+validation ouvre le groupe avant d'y placer le focus.
+
+Le gestionnaire des médias reste chargé après le formulaire. Les autorisations
+nécessaires au téléversement restent visibles. Pour chaque fichier existant,
+**Droits d'utilisation** déplie l'éditeur déjà présent ; l'ouverture et la
+fermeture ne confirment aucun droit et conservent les modifications locales.
+Retirer des droits ou proposer une image garde sa commande et sa confirmation.
+Le raccourci **Revue et demandes**, dans le bandeau supérieur,
+rejoint le bloc de modération existant. La consultation, la correction autorisée
+et la demande de réexamen conservent leurs états et leurs actions distincts.
+
 Un média approuvé reste verrouillé pour l'entreprise : son retrait exige une
 confirmation administrative. Pour remplacer un logo approuvé, l'admin retire
 l'ancien fichier, puis l'entreprise téléverse le nouveau dans son suivi ; ce
@@ -77,6 +94,7 @@ Les écritures de brouillon sont sérialisées dans le navigateur et verrouillé
 
 ## Limites visibles
 
+- Sur l'écran initial FR à 390 × 844 px, le lecteur musical flottant chevauche une partie du bord droit du premier champ. Le libellé et la saisie restent accessibles ; ce placement reste à traiter dans la réception UX.
 - Les dernières secondes non encore confirmées peuvent être perdues si le navigateur ferme ou plante. Aucune promesse de sauvegarde hors ligne : une erreur conserve la saisie dans la page et propose une reprise.
 - En cas de conflit, la saisie locale reste affichée. « Charger le brouillon sauvegardé » remplace explicitement cette saisie par la version serveur ; il n'y a pas de fusion automatique.
 - Il faut pouvoir recevoir les courriels de l'adresse du paiement. Le renvoi ne permet pas à l'admin de changer silencieusement cette adresse.

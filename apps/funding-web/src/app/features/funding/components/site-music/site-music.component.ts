@@ -154,11 +154,10 @@ export class SiteMusicComponent implements OnInit, OnDestroy {
   }
 
   private isAutomaticStartSuppressedRoute(): boolean {
-    const routerPath = this.normalizedPath(this.router.url);
-    const browserPath = this.normalizedPath(window.location.pathname);
-    return (
-      ['/music', '/boutique'].includes(routerPath) ||
-      ['/music', '/boutique'].includes(browserPath)
+    return [this.router.url, window.location.pathname].some((path) =>
+      ['/music', '/boutique'].includes(
+        this.i18n.canonicalPathForPath(this.normalizedPath(path))
+      )
     );
   }
 
