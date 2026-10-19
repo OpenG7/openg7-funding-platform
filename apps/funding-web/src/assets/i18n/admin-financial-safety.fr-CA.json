@@ -5,6 +5,17 @@
   "createUncertain": "Le résultat de la création est incertain. Consultez le registre et vérifiez l’opération avant toute nouvelle création.",
   "uncertainStatus": "Résultat incertain — vérification requise",
   "deliveryUncertain": "Le résultat de cet envoi est incertain. Vérifiez la file courriel et utilisez sa réconciliation avant toute nouvelle demande. Aucun nouvel envoi n’est disponible ici.",
+  "verifyReceipt": "Vérifier la demande existante",
+  "receiptChecking": "Vérification de la demande…",
+  "receiptNotFound": "Aucun reçu correspondant n’est disponible. Le résultat reste incertain ; la demande reste bloquée et aucun nouvel envoi n’a été effectué.",
+  "receiptUnavailable": "Le reçu n’a pas pu être vérifié. La demande reste bloquée ; réessayez la vérification avant toute nouvelle demande.",
+  "receiptDelivery": {
+    "queued": "Demande enregistrée : le courriel est en file, sa livraison n’est pas encore confirmée.",
+    "sending": "Demande enregistrée : la livraison du courriel est en cours. Aucun nouvel envoi n’est disponible ici.",
+    "sent": "Demande enregistrée : la file courriel confirme son envoi.",
+    "failed": "Demande enregistrée : la livraison du courriel a échoué. Consultez le message exact dans la file.",
+    "uncertain": "Demande enregistrée : la livraison du courriel reste incertaine. Utilisez la réconciliation du message exact dans la file avant tout nouvel envoi."
+  },
   "informationUncertain": "Le résultat de cette demande est incertain. Vérifiez la file courriel avant toute nouvelle demande ; actualiser le dossier ne confirme pas son envoi.",
   "refundReadFailed": "La réponse du remboursement a été reçue, mais son état actualisé est indisponible. Vérifiez le dossier avant toute nouvelle opération."
 }

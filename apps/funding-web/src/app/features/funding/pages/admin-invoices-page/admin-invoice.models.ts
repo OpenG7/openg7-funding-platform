@@ -15,6 +15,8 @@ export interface AdminDocumentDeliveryView {
   readonly message: string;
   readonly messageId: string | null;
   readonly serverStatus?: string | null;
+  readonly canVerifyReceipt?: boolean;
+  readonly checkingReceipt?: boolean;
 }
 
 export interface AdminDocumentDownloadView {

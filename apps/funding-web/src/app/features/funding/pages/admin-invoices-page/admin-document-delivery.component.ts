@@ -60,8 +60,28 @@ import type { AdminDocumentDeliveryView } from './admin-invoice.models.js';
       </button>
       @if (uncertain()) {
         <p role="status">
-          {{ 'admin.financialSafety.deliveryUncertain' | translate }}
+          {{
+            delivery().message ||
+              ('admin.financialSafety.deliveryUncertain' | translate)
+          }}
         </p>
+      }
+      @if (delivery().canVerifyReceipt) {
+        <button
+          type="button"
+          class="secondary-action"
+          [disabled]="!canManage() || delivery().checkingReceipt"
+          (click)="verifyReceipt.emit()"
+          data-og7="document-receipt-check"
+          [attr.data-og7-id]="delivery().id"
+        >
+          {{
+            (delivery().checkingReceipt
+              ? 'admin.financialSafety.receiptChecking'
+              : 'admin.financialSafety.verifyReceipt'
+            ) | translate
+          }}
+        </button>
       }
       <span
         class="resend-message"
@@ -105,6 +125,7 @@ export class AdminDocumentDeliveryComponent {
   readonly resendLabelKey = input.required<string>();
   readonly emailChange = output<string>();
   readonly resend = output<void>();
+  readonly verifyReceipt = output<void>();
   readonly uncertain = computed(
     () =>
       this.delivery().state === 'uncertain' ||

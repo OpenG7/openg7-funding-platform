@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test from 'node:test';
 
+import { readAdminDocumentResendReceipt } from '../../dist/apps/funding-api/src/admin-document-resend-receipts.repository.js';
 import { queueAdminDocumentResend } from '../../dist/apps/funding-api/src/admin-document-resend.service.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 
@@ -44,6 +45,20 @@ test(
   async (t) => {
     const db = await startDisposablePostgres();
     t.after(db.stop);
+    const snapshot = async () =>
+      Object.fromEntries(
+        await Promise.all(
+          [
+            'email_messages',
+            'admin_audit_log',
+            'sponsorship_invoices',
+            'sponsorship_credit_notes'
+          ].map(async (table) => [
+            table,
+            (await db.pool.query(`SELECT * FROM ${table} ORDER BY id`)).rows
+          ])
+        )
+      );
     for (const kind of ['invoice', 'creditNote']) {
       await t.test(kind, async () => {
         const original = invoice();
@@ -62,6 +77,21 @@ test(
           to: 'corrected@example.test',
           requestId: randomUUID()
         };
+        const receiptRequest = {
+          requestId: input.requestId,
+          documentKind: kind === 'invoice' ? 'invoice' : 'credit_note',
+          documentId: document.id
+        };
+        const beforeMissingRead = await snapshot();
+        assert.deepEqual(
+          await readAdminDocumentResendReceipt(
+            db.pool,
+            receiptRequest,
+            'fixture'
+          ),
+          { ...receiptRequest, found: false }
+        );
+        assert.deepEqual(await snapshot(), beforeMissingRead);
         const results = await Promise.all(
           Array.from({ length: 6 }, () =>
             queueAdminDocumentResend(db.pool, input, 'fixture')
@@ -151,6 +181,64 @@ test(
             error: null
           }
         );
+        // Receipt reads observe the committed command and current worker state,
+        // without retrying delivery, resetting backoff or changing the document.
+        const sentAt = '2026-10-19T18:30:00.000Z';
+        for (const deliveryStatus of [
+          'queued',
+          'sending',
+          'sent',
+          'failed',
+          'uncertain'
+        ]) {
+          await db.pool.query(
+            `UPDATE email_messages SET status=$2, attempts=3,
+              delivery_attempt_id=$3, next_attempt_at='2030-01-01T00:00:00Z',
+              last_error='SYNTHETIC_DELIVERY_STATE', sent_at=$4 WHERE id=$1`,
+            [
+              messageId,
+              deliveryStatus,
+              randomUUID(),
+              deliveryStatus === 'sent' ? sentAt : null
+            ]
+          );
+          const beforeReads = await snapshot();
+          const receipt = await readAdminDocumentResendReceipt(
+            db.pool,
+            {
+              ...receiptRequest,
+              requestId: receiptRequest.requestId.toUpperCase(),
+              documentId: receiptRequest.documentId.toUpperCase()
+            },
+            'fixture'
+          );
+          assert.deepEqual(receipt, {
+            ...receiptRequest,
+            found: true,
+            messageId,
+            acceptedAt: audits[0].created_at.toISOString(),
+            deliveryStatus,
+            sentAt: deliveryStatus === 'sent' ? sentAt : null
+          });
+          for (const [request, actor] of [
+            [receiptRequest, 'another-synthetic-admin'],
+            [
+              {
+                ...receiptRequest,
+                documentKind: kind === 'invoice' ? 'credit_note' : 'invoice'
+              },
+              'fixture'
+            ],
+            [{ ...receiptRequest, documentId: randomUUID() }, 'fixture'],
+            [{ ...receiptRequest, requestId: randomUUID() }, 'fixture']
+          ]) {
+            assert.deepEqual(
+              await readAdminDocumentResendReceipt(db.pool, request, actor),
+              { ...request, found: false }
+            );
+          }
+          assert.deepEqual(await snapshot(), beforeReads);
+        }
       });
     }
     await t.test(
@@ -176,12 +264,34 @@ test(
           ).rows[0].count,
           0
         );
+        const receiptRequest = {
+          requestId: input.requestId,
+          documentKind: 'invoice',
+          documentId: input.invoice.id
+        };
+        assert.deepEqual(
+          await readAdminDocumentResendReceipt(
+            db.pool,
+            receiptRequest,
+            'fixture'
+          ),
+          { ...receiptRequest, found: false }
+        );
         await db.pool.query(
           'DROP TRIGGER fail_document_audit ON admin_audit_log'
         );
-        assert.ok(
-          (await queueAdminDocumentResend(db.pool, input, 'fixture')).messageId
+        const accepted = await queueAdminDocumentResend(
+          db.pool,
+          input,
+          'fixture'
         );
+        const receipt = await readAdminDocumentResendReceipt(
+          db.pool,
+          receiptRequest,
+          'fixture'
+        );
+        assert.equal(receipt.found, true);
+        assert.equal(receipt.messageId, accepted.messageId);
       }
     );
   }

@@ -45,14 +45,19 @@ clés Stripe côté serveur restent inchangés. Une observation de visibilité g
 son UUID tant que son résultat n'est pas établi, puis le libère après confirmation
 POST/GET, même si le tiroir est réouvert par le callback de succès.
 
-## Limites et absence de nouvelles capacités serveur
+## Limites et reçus consultables
 
-- Factures ne projette pas le dernier emailMessageId et n'offre pas de GET de reçu
-  par UUID; demande d'information et création Dépenses n'offrent pas non plus de
-  reçu consultable. Ces besoins ont été relevés dans l'audit avant implémentation.
-  Aucun reçu ni résolution automatique n'a été inventé. Une relecture générique
-  ne déverrouille pas une opération inconnue. La résolution automatique de ces
-  verrous reste un travail de contrat serveur séparé.
+- Le complément OUX-006 permet de vérifier manuellement un renvoi de facture ou
+  d'avoir par [reçu GET lié à l'acteur](../technical/admin-api.md#document-resend-receipts),
+  UUID et document exacts. Le reçu distingue commande enregistrée et livraison.
+  `sending`/`uncertain` conservent le marqueur et sa vérification après rechargement ;
+  un reçu `queued`/`sent`/`failed` permet de lever le verrou de cette requête.
+  Absence, indisponibilité ou refus ne déclenchent ni déverrouillage ni nouvel envoi.
+  La projection Factures ne donne toujours pas le dernier messageId ; seul le reçu
+  de la demande exacte fournit le lien vers son message.
+- Demande d'information Assistant et création Dépenses n'offrent toujours pas de
+  reçu consultable. Leur relecture générique ne déverrouille pas une opération
+  inconnue ; leur résolution reste un travail de contrat serveur séparé.
 - La file courriel conserve son workflow versionné de réconciliation avec preuve.
   Le lien générique n'affirme pas identifier un message dont l'ID n'a pas été reçu.
 - Si le stockage de session est refusé, les verrous de création/information/renvoi

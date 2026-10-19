@@ -292,6 +292,8 @@ export type {
   AdminSponsorshipInvoiceBackfillResult,
   AdminSponsorshipInvoiceResendRequest,
   AdminSponsorshipInvoiceResendResult,
+  AdminDocumentResendReceiptRequest,
+  AdminDocumentResendReceipt,
   AdminSponsorshipCreditNoteResendRequest,
   AdminSponsorshipCreditNoteResendResult
 } from './sponsorship-documents.js';
