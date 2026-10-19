@@ -1,4 +1,6 @@
 import type {
+  AdminDocumentResendReceipt,
+  AdminDocumentResendReceiptRequest,
   AdminWorkQueueQuery,
   AdminWorkQueueResponse,
   PublicationAutomationState,
@@ -698,6 +700,13 @@ export class FundingAdminService {
     payload: AdminSponsorshipInvoiceResendRequest
   ): Promise<AdminSponsorshipInvoiceResendResult> {
     return this.documentsClient.resendSponsorshipInvoice(token, payload);
+  }
+
+  async getDocumentResendReceipt(
+    token: string,
+    input: AdminDocumentResendReceiptRequest
+  ): Promise<AdminDocumentResendReceipt> {
+    return this.documentsClient.getDocumentResendReceipt(token, input);
   }
 
   async getSponsorshipInvoicePdf(

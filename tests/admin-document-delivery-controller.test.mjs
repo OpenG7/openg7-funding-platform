@@ -59,6 +59,16 @@ const until = async (predicate) => {
 };
 
 const queued = { sent: false, queued: true, messageId: 'synthetic-message' };
+const receiptFor = (input, deliveryStatus = 'queued') => ({
+  ...input,
+  requestId: input.requestId.toLowerCase(),
+  documentId: input.documentId.toLowerCase(),
+  found: true,
+  messageId: 'synthetic-recovered-message',
+  acceptedAt: '2026-10-19T12:00:00.000Z',
+  deliveryStatus,
+  sentAt: deliveryStatus === 'sent' ? '2026-10-19T12:00:01.000Z' : null
+});
 const backfill = (changes = {}) => ({
   eligible_count: 3,
   missing_count: 2,
@@ -73,7 +83,12 @@ function fixture(t, storage = new Map()) {
   const a = invoice();
   const b = invoice('synthetic-invoice-b');
   const selected = signal(a);
-  const state = { manage: true, token: 'synthetic-token', target: undefined };
+  const state = {
+    manage: true,
+    token: 'synthetic-token',
+    target: undefined,
+    revision: 0
+  };
   const calls = [];
   const confirmations = [];
   const downloads = [];
@@ -89,6 +104,10 @@ function fixture(t, storage = new Map()) {
   };
   const ports = {
     admin: {
+      async getDocumentResendReceipt(token, payload) {
+        calls.push({ kind: 'receipt', token, payload });
+        return receiptFor(payload);
+      },
       async resendSponsorshipInvoice(token, payload) {
         calls.push({ kind: 'invoice', token, payload });
         return queued;
@@ -111,6 +130,7 @@ function fixture(t, storage = new Map()) {
       }
     },
     adminToken: () => state.token,
+    accessRevision: () => state.revision,
     canManage: () => state.manage,
     canBackfill: () => state.manage && state.owner !== false,
     invoices: () => [a, b],
@@ -803,4 +823,222 @@ test('backfill empty, complete and failure outcomes remain explicit and route ch
   assert.equal(f.controller.backfillState(), 'idle');
   assert.equal(f.controller.backfillMessage(), '');
   assert.equal(f.refreshes.length, refreshes);
+});
+
+async function uncertainDelivery(t, kind = 'invoice') {
+  const f = fixture(t);
+  const document = kind === 'invoice' ? f.a : f.a.credit_notes[0];
+  const method =
+    kind === 'invoice'
+      ? 'resendSponsorshipInvoice'
+      : 'resendSponsorshipCreditNote';
+  f.ports.admin[method] = async (token, payload) => {
+    f.calls.push({ kind, token, payload });
+    throw new Error('Synthetic lost acknowledgment');
+  };
+  if (kind === 'invoice') await f.controller.resendInvoice(document);
+  else await f.controller.resendCreditNote(document);
+  return {
+    ...f,
+    document,
+    kind,
+    stateFor: () =>
+      kind === 'invoice'
+        ? f.controller.resendState()
+        : f.controller.creditNoteResendStateFor(document.id),
+    messageFor: () =>
+      kind === 'invoice'
+        ? f.controller.resendMessage()
+        : f.controller.creditNoteResendMessageFor(document.id),
+    verify: () =>
+      kind === 'invoice'
+        ? f.controller.verifyInvoiceReceipt(document)
+        : f.controller.verifyCreditNoteReceipt(document)
+  };
+}
+
+for (const kind of ['invoice', 'credit_note']) {
+  for (const deliveryStatus of [
+    'queued',
+    'sent',
+    'failed',
+    'sending',
+    'uncertain'
+  ]) {
+    test(`${kind} receipt confirms its command separately from ${deliveryStatus} delivery without a POST`, async (t) => {
+      const f = await uncertainDelivery(t, kind);
+      const requestId = f.calls[0].payload.requestId;
+      const initialStorage = [...f.storage];
+      f.ports.admin.getDocumentResendReceipt = async (token, payload) => {
+        f.calls.push({ kind: 'receipt', token, payload });
+        return receiptFor(payload, deliveryStatus);
+      };
+      await f.verify();
+      assert.deepEqual(f.calls[1], {
+        kind: 'receipt',
+        token: 'synthetic-token',
+        payload: {
+          documentKind: kind,
+          documentId: f.document.id,
+          requestId
+        }
+      });
+      assert.equal(f.calls.length, 2);
+      assert.equal(
+        f.controller.resendMessageIds()[f.document.id],
+        'synthetic-recovered-message'
+      );
+      assert.match(
+        f.messageFor(),
+        new RegExp('receiptDelivery\\.' + deliveryStatus)
+      );
+      const pendingDelivery = ['sending', 'uncertain'].includes(deliveryStatus);
+      assert.equal(
+        f.stateFor(),
+        pendingDelivery
+          ? 'uncertain'
+          : deliveryStatus === 'failed'
+            ? 'error'
+            : 'sent'
+      );
+      assert.equal(
+        f.controller.canVerifyReceipt(f.document.id),
+        pendingDelivery
+      );
+      assert.deepEqual([...f.storage], pendingDelivery ? initialStorage : []);
+    });
+  }
+}
+
+test('a recovered queued command and exact message survive a failed dossier refresh', async (t) => {
+  const f = await uncertainDelivery(t);
+  f.ports.refreshInvoices = async () => {
+    throw new Error('Synthetic dossier read failure');
+  };
+  await f.verify();
+  assert.equal(f.controller.resendState(), 'sent');
+  assert.match(f.controller.resendMessage(), /receiptDelivery\.queued.*stale/);
+  assert.equal(
+    f.controller.resendMessageIds()[f.a.id],
+    'synthetic-recovered-message'
+  );
+  assert.equal(f.storage.size, 0);
+  assert.equal(f.calls.filter((c) => c.kind === 'invoice').length, 1);
+});
+
+for (const deliveryStatus of ['sending', 'uncertain']) {
+  test(`${deliveryStatus} receipt retains the same UUID through page restoration`, async (t) => {
+    const first = await uncertainDelivery(t);
+    first.ports.admin.getDocumentResendReceipt = async (_token, input) =>
+      receiptFor(input, deliveryStatus);
+    await first.verify();
+    const requestId = first.calls[0].payload.requestId;
+    assert.equal(first.storage.size, 2);
+    first.controller.dispose();
+    const next = fixture(t, first.storage);
+    await next.controller.restorePendingDocuments([next.a]);
+    assert.equal(next.controller.resendState(), 'uncertain');
+    assert.equal(next.controller.canVerifyReceipt(next.a.id), true);
+    await next.controller.resendInvoice(next.a);
+    assert.equal(next.calls.length, 0);
+    await next.controller.verifyInvoiceReceipt(next.a);
+    assert.equal(next.calls.length, 1);
+    assert.equal(next.calls[0].kind, 'receipt');
+    assert.equal(next.calls[0].payload.requestId, requestId);
+    assert.equal(next.storage.size, 0);
+  });
+}
+
+for (const outcome of [
+  'absent',
+  'unavailable',
+  'wrong_request',
+  'wrong_document',
+  'wrong_kind'
+]) {
+  test(`receipt ${outcome} preserves the pending request and cannot authorize another POST`, async (t) => {
+    const f = await uncertainDelivery(t);
+    const stored = [...f.storage];
+    f.ports.admin.getDocumentResendReceipt = async (_token, input) => {
+      if (outcome === 'unavailable')
+        throw new Error('Synthetic receipt failure');
+      if (outcome === 'absent') return { ...input, found: false };
+      const receipt = receiptFor(input);
+      if (outcome === 'wrong_request')
+        receipt.requestId = webcrypto.randomUUID();
+      if (outcome === 'wrong_document') receipt.documentId = 'another-document';
+      if (outcome === 'wrong_kind') receipt.documentKind = 'credit_note';
+      return receipt;
+    };
+    await f.verify();
+    assert.equal(f.controller.resendState(), 'uncertain');
+    assert.deepEqual([...f.storage], stored);
+    assert.deepEqual(f.controller.resendMessageIds(), {});
+    await f.controller.resendInvoice(f.a);
+    assert.equal(f.calls.length, 1);
+  });
+}
+
+for (const status of [401, 403]) {
+  test(`receipt refusal ${status} purges private feedback but preserves the unresolved marker`, async (t) => {
+    const f = await uncertainDelivery(t);
+    const stored = [...f.storage];
+    const denied = [];
+    f.ports.onAccessDenied = (code) => denied.push(code);
+    f.ports.admin.getDocumentResendReceipt = async () => {
+      throw new AdminDashboardRequestError(status);
+    };
+    await f.verify();
+    assert.deepEqual(denied, [status]);
+    assert.equal(f.controller.resendMessage(), '');
+    assert.deepEqual(f.controller.resendMessageIds(), {});
+    assert.deepEqual([...f.storage], stored);
+    assert.equal(f.controller.canVerifyReceipt(f.a.id), false);
+  });
+}
+
+test('an old receipt response cannot unlock the next scope verification of the same document', async (t) => {
+  const f = await uncertainDelivery(t);
+  const first = deferred();
+  const next = deferred();
+  let reads = 0;
+  let input;
+  f.ports.admin.getDocumentResendReceipt = (_token, request) => {
+    input = request;
+    return ++reads === 1 ? first.promise : next.promise;
+  };
+  const previous = f.verify();
+  assert.equal(f.controller.checkingReceipt(f.a.id), true);
+  f.controller.resetScope();
+  await f.controller.restorePendingDocuments([f.a]);
+  const current = f.verify();
+  assert.equal(reads, 2);
+  first.resolve(receiptFor(input));
+  await previous;
+  assert.equal(f.controller.checkingReceipt(f.a.id), true);
+  assert.equal(f.storage.size, 2);
+  await f.verify();
+  await f.controller.resendInvoice(f.a);
+  assert.equal(reads, 2);
+  assert.equal(f.calls.length, 1);
+  next.resolve(receiptFor(input));
+  await current;
+  assert.equal(f.controller.checkingReceipt(f.a.id), false);
+  assert.equal(f.storage.size, 0);
+});
+
+test('a receipt completed after identity revision changes cannot clear another actor marker', async (t) => {
+  const f = await uncertainDelivery(t);
+  const held = deferred();
+  let input;
+  f.ports.admin.getDocumentResendReceipt = (_token, request) => {
+    input = request;
+    return held.promise;
+  };
+  const pending = f.verify();
+  f.state.revision++;
+  held.resolve(receiptFor(input));
+  await pending;
+  assert.equal(f.storage.size, 2);
+  assert.deepEqual(f.controller.resendMessageIds(), {});
 });

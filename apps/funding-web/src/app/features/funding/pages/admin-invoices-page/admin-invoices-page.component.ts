@@ -202,9 +202,11 @@ type LoadState = 'idle' | 'loading' | 'ready' | 'error';
                 inspection.invoice($event.id, $event.contribution_id)
               "
               (invoiceResend)="resendInvoice($event)"
+              (invoiceVerifyReceipt)="verifyInvoiceReceipt($event)"
               (invoiceRecipientChange)="setResendEmail($event)"
               (creditNoteDownload)="downloadCreditNotePdf($event)"
               (creditNoteResend)="resendCreditNote($event)"
+              (creditNoteVerifyReceipt)="verifyCreditNoteReceipt($event)"
               (creditNoteRecipientChange)="setCreditNoteResendEmail($event)"
             />
           </section>
@@ -334,6 +336,8 @@ export class AdminInvoicesPageComponent implements OnInit {
         delivery: {
           id: creditNote.id,
           serverStatus: creditNote.last_email_status,
+          canVerifyReceipt: this.delivery.canVerifyReceipt(creditNote.id),
+          checkingReceipt: this.delivery.checkingReceipt(creditNote.id),
           email: this.delivery.creditNoteResendEmail(creditNote),
           state: this.delivery.creditNoteResendStateFor(creditNote.id),
           message: this.delivery.creditNoteResendMessageFor(creditNote.id),
@@ -347,6 +351,8 @@ export class AdminInvoicesPageComponent implements OnInit {
       delivery: {
         id: invoice.id,
         serverStatus: invoice.last_email_status,
+        canVerifyReceipt: this.delivery.canVerifyReceipt(invoice.id),
+        checkingReceipt: this.delivery.checkingReceipt(invoice.id),
         email: this.resendEmail(),
         state: this.resendState(),
         message: this.resendMessage(),
@@ -509,6 +515,16 @@ export class AdminInvoicesPageComponent implements OnInit {
 
   resendInvoice(invoice: AdminSponsorshipInvoiceRecord): Promise<void> {
     return this.delivery.resendInvoice(invoice);
+  }
+
+  verifyInvoiceReceipt(invoice: AdminSponsorshipInvoiceRecord): Promise<void> {
+    return this.delivery.verifyInvoiceReceipt(invoice);
+  }
+
+  verifyCreditNoteReceipt(
+    creditNote: AdminSponsorshipCreditNoteRecord
+  ): Promise<void> {
+    return this.delivery.verifyCreditNoteReceipt(creditNote);
   }
 
   resendCreditNote(

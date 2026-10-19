@@ -325,12 +325,18 @@ statut `uncertain` est explicite et oriente vers la file courriel. Après répon
 perdue, le document et son destinataire sont verrouillés; un marqueur opaque de
 session empêche une autre requête après navigation/rechargement lorsque le
 stockage est disponible. L'UUID initial est conservé, sans rejeu par ce formulaire.
-Il n'existe pas de GET de reçu documentaire ni de dernier messageId dans la
-projection; le lien de vérification est donc générique si ce messageId n'a pas
-été reçu. La file possède son propre workflow de réconciliation. Le verrou local
-ne se lève pas automatiquement sur simple relecture : une résolution fiable
-nécessite ce contrat manquant. Un POST acquitté conserve son résultat et son lien
-exact même si le rafraîchissement ultérieur échoue.
+« Vérifier la demande existante » consulte le
+[reçu documentaire](technical/admin-api.md#document-resend-receipts) par UUID,
+type, document et acteur d'origine, sans POST ni appel SMTP. Un reçu absent peut
+précéder le commit d'une demande encore en cours : il ne permet jamais de la
+débloquer. Une réponse `queued`/`sent`/`failed` établit la commande enregistrée et
+son message exact ; `sending`/`uncertain` garde le marqueur et le blocage après
+rechargement. Le statut de livraison reste distinct de cette preuve de commande.
+Le dernier statut du registre garde son propre verrou s'il est `uncertain` ; le
+reçu d'une ancienne demande ne le remplace pas. La file conserve son workflow de
+réconciliation. La projection ne donne toujours pas le dernier messageId ; sans
+reçu correspondant, son lien reste générique. Un acquittement ou reçu confirmé
+conserve son résultat et son lien exact si le rafraîchissement ultérieur échoue.
 
 La recette [document-resend-acceptance.spec.ts](../tests/playwright/document-resend-acceptance.spec.ts)
 couvre les scénarios 27 et 54 de l'inventaire. Une entreprise paie 500 CAD via

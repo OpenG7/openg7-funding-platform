@@ -1571,6 +1571,19 @@ const creditNoteResendRequest = {
 };
 const operationalRequests = [
   {
+    name: 'document resend receipt',
+    errorKind: 'status',
+    invoke: (service, token) =>
+      service.getDocumentResendReceipt(token, {
+        requestId: 'receipt /',
+        documentKind: 'invoice',
+        documentId: 'invoice /'
+      }),
+    path: '/admin/sponsorship-documents/resend-receipt?requestId=receipt+%2F&documentKind=invoice&documentId=invoice+%2F',
+    method: 'GET',
+    fallback: 'Document receipt unavailable.'
+  },
+  {
     name: 'backup status',
     savedAuth: true,
     invoke: (service) => service.databaseBackups('backup /'),

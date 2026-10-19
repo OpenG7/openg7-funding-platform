@@ -1,4 +1,6 @@
 import type {
+  AdminDocumentResendReceipt,
+  AdminDocumentResendReceiptRequest,
   AdminSponsorshipCreditNoteResendRequest,
   AdminSponsorshipCreditNoteResendResult,
   AdminSponsorshipInvoiceBackfillRequest,
@@ -20,6 +22,26 @@ import {
 /** Funding admin invoice and credit-note endpoints. Authentication belongs to the shared session. */
 export class FundingAdminDocumentsClient {
   constructor(private readonly session: FundingAdminSession) {}
+
+  async getDocumentResendReceipt(
+    token: string,
+    input: AdminDocumentResendReceiptRequest
+  ): Promise<AdminDocumentResendReceipt> {
+    const params = new URLSearchParams({ ...input });
+    const response = await this.session.requestAdminJson(
+      `/admin/sponsorship-documents/resend-receipt?${params.toString()}`,
+      { auth: { token }, method: 'GET' }
+    );
+    if (!response.ok)
+      throw new AdminDashboardRequestError(
+        response.status,
+        await errorMessageFromResponse(
+          response,
+          'Document receipt unavailable.'
+        )
+      );
+    return (await response.json()) as AdminDocumentResendReceipt;
+  }
 
   async getSponsorshipInvoices(
     token: string,

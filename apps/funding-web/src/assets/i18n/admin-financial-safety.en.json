@@ -5,6 +5,17 @@
   "createUncertain": "The creation outcome is uncertain. Check the register and verify the operation before creating another record.",
   "uncertainStatus": "Uncertain outcome — verification required",
   "deliveryUncertain": "The outcome of this email request is uncertain. Check the email queue and use its reconciliation workflow before making another request. No new send is available here.",
+  "verifyReceipt": "Check the existing request",
+  "receiptChecking": "Checking the request…",
+  "receiptNotFound": "No matching receipt is available. The outcome remains uncertain; the request stays blocked and no new email was sent.",
+  "receiptUnavailable": "The receipt could not be checked. The request stays blocked; retry the check before making another request.",
+  "receiptDelivery": {
+    "queued": "Request recorded: the email is queued; delivery is not confirmed yet.",
+    "sending": "Request recorded: email delivery is in progress. No new send is available here.",
+    "sent": "Request recorded: the email queue confirms it was sent.",
+    "failed": "Request recorded: email delivery failed. Check the exact message in the queue.",
+    "uncertain": "Request recorded: email delivery remains uncertain. Reconcile the exact message in the queue before sending again."
+  },
   "informationUncertain": "The outcome of this request is uncertain. Check the email queue before making another request; refreshing the dossier does not confirm delivery.",
   "refundReadFailed": "The refund response was received, but its updated status is unavailable. Check the dossier before taking further action."
 }

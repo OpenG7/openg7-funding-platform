@@ -177,12 +177,11 @@ Backfill requires `confirmation` matching `contributionId`, or `BACKFILL_INVOICE
 for a bulk run (400 `confirmation_required` otherwise). Update API/Web together;
 no migration. Owner access and the UI confirmation remain required.
 
-Resends require `to`, UUID `requestId`, and `confirmation` matching `invoiceId`
-or `creditNoteId` (400 `CONFIRMATION_REQUIRED` if confirmation/UUID is missing).
-Update Web/API together; no migration. Identical retries share one `messageId`;
-reusing the UUID for another document/recipient returns 409 `REQUEST_CONFLICT`.
-Queue and audit commit atomically; the worker delivers afterward. Replay never
-resets backoff or alters issued documents. See [UI recovery and limits](../payment-trust-validation.md#recette-de-renvoi-des-factures-et-avoirs).
+### Document resend receipts
+
+The [document resend contract](document-resend-receipts.md) covers confirmed,
+idempotent POSTs and the actor-bound receipt GET, including delivery uncertainty
+and [UI recovery limits](../payment-trust-validation.md#recette-de-renvoi-des-factures-et-avoirs).
 
 ## Sponsorship review admin
 
