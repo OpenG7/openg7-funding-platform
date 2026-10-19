@@ -34,6 +34,22 @@ réconciliation qualifiée. La contrainte interdit qu'une même publication dist
 solde deux passages du même dossier, canal et destination. Chaque ordinal est
 soldé séparément, dans la même transaction que sa preuve et son audit.
 
+La lecture de preuve expose aussi `obligationVersion` et `deliveryVersion`, issus
+des colonnes immuables de la preuve. La première désigne la version de la prestation
+capturée avant son solde ; le solde incrémente ensuite l'obligation courante sans
+modifier ce fait historique. La seconde désigne la version de la livraison sociale
+capturée, et vaut `null` pour une preuve Web sans livraison sociale. Ces valeurs ne
+sont jamais calculées depuis les versions courantes de l'obligation, de la livraison
+ou de l'accord. Elles ne décrivent pas la version historique globale de l'accord,
+qui n'est pas enregistrée dans cette preuve.
+
+Les deux propriétés sont additives et optionnelles dans le contrat partagé pour
+accepter une ancienne réponse API. Leur absence est affichée comme non renseignée,
+sans substituer une version courante ni `0`. La projection est commune au dossier,
+à Campagnes et au suivi privé ; elle n'expose aucun snapshot interne, acteur,
+identifiant de compte fournisseur ni contenu privé supplémentaire. Aucune migration
+ni écriture de preuve ne change.
+
 Le site OpenG7 utilise `website_verified` après une transition de visibilité
 explicitement autorisée pour une prestation sans durée fixe, ou après
 l'attestation humaine distincte d'une durée promise. Dans les deux cas, le

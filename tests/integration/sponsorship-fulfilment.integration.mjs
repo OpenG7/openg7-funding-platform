@@ -265,6 +265,21 @@ test(
           contributionId
         );
         assert.equal(evidence.length, 2);
+        for (const delivery of [first, second]) {
+          const proof = evidence.find(
+            (item) => item.deliveryId === delivery.id
+          );
+          const captured = delivery.obligation_snapshot[0];
+          assert.equal(proof.obligationVersion, captured.version);
+          assert.equal(proof.deliveryVersion, delivery.version);
+          assert.equal(
+            commitment.obligations.find(
+              (item) => item.id === proof.obligationId
+            ).version,
+            proof.obligationVersion + 1,
+            'fulfilled obligation advances without rewriting its historical evidence version'
+          );
+        }
         assert.equal(
           JSON.stringify(evidence).includes('private-processed'),
           false
@@ -357,6 +372,17 @@ test(
           evidence.find((e) => e.channel === 'website').provenance,
           'website_verified'
         );
+        const websiteProof = evidence.find(
+          (item) => item.channel === 'website'
+        );
+        const websiteObligation = (
+          await loadSponsorshipCommitment(pool, contributionId)
+        ).obligations.find((item) => item.id === websiteProof.obligationId);
+        assert.equal(
+          websiteProof.obligationVersion,
+          websiteObligation.version - 1
+        );
+        assert.equal(websiteProof.deliveryVersion, null);
       }
     );
     await t.test(

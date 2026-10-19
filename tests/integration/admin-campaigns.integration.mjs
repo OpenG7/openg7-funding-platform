@@ -395,6 +395,21 @@ test(
         assert.equal(item.workflow.state, 'complete');
         assert.equal(item.proof.obligationId, item.id);
         assert.equal(item.proof.deliveryId, live.id);
+        assert.equal(
+          item.proof.obligationVersion,
+          live.obligation_snapshot[0].version
+        );
+        assert.equal(item.proof.deliveryVersion, live.version);
+        const currentObligation = (
+          await pool.query(
+            'SELECT version FROM sponsorship_obligations WHERE id=$1::uuid',
+            [item.id]
+          )
+        ).rows[0];
+        assert.equal(
+          currentObligation.version,
+          item.proof.obligationVersion + 1
+        );
         assert.equal(item.proof.provenance, 'provider_acknowledged');
         assert.equal(item.preparation.status, 'review_required');
         assert.deepEqual(await snapshot(), before);
@@ -437,6 +452,14 @@ test(
         assert.equal(response.status, 200);
         assert.equal(response.body.items.length, 1);
         assert.equal(response.body.items[0].proof.deliveryId !== null, true);
+        assert.equal(
+          Number.isSafeInteger(response.body.items[0].proof.obligationVersion),
+          true
+        );
+        assert.equal(
+          Number.isSafeInteger(response.body.items[0].proof.deliveryVersion),
+          true
+        );
         const privateResponse = JSON.stringify(response.body);
         assert.equal(privateResponse.includes('source_snapshot'), false);
         assert.equal(privateResponse.includes('obligation_snapshot'), false);

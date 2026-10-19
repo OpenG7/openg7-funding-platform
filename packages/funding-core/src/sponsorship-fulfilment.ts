@@ -8,6 +8,11 @@ export interface SponsorshipFulfilmentEvidence {
   readonly id: string;
   readonly obligationId: string;
   readonly deliveryId: string | null;
+  /** Immutable version captured when this exact passage was fulfilled, not its current version.
+   * Optional while older API responses remain supported. This is not an agreement version. */
+  readonly obligationVersion?: number;
+  /** Captured social delivery version; null for website evidence, absent in older responses. */
+  readonly deliveryVersion?: number | null;
   readonly channel: SponsorshipObligationChannel;
   readonly target: SponsorshipObligationTarget;
   readonly provenance:

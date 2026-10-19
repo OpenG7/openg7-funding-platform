@@ -532,6 +532,8 @@ for (const language of ['fr-CA', 'en'] as const) {
           },
           proof: {
             ...historicalProof,
+            obligationVersion: 3,
+            deliveryVersion: 11,
             visibility: 'changed',
             visibilityObservedAt: observedAt
           }
@@ -565,6 +567,8 @@ for (const language of ['fr-CA', 'en'] as const) {
             id: 'qualified-proof-website',
             obligationId: 'delivered-website',
             deliveryId: null,
+            obligationVersion: 5,
+            deliveryVersion: null,
             channel: 'website',
             provenance: 'website_verified',
             externalPostUrl: null,
@@ -606,6 +610,22 @@ for (const language of ['fr-CA', 'en'] as const) {
       );
       await expect(hook(page, 'campaign-proof-delivery')).toHaveText(
         historicalProof.deliveryId!
+      );
+      await expect(hook(page, 'campaign-proof-obligation-version')).toHaveText(
+        '3'
+      );
+      await expect(hook(page, 'campaign-proof-delivery-version')).toHaveText(
+        '11'
+      );
+      await expect(proof).toContainText(
+        language === 'en'
+          ? 'Promised service version at fulfilment'
+          : 'Version de la prestation lors de la réalisation'
+      );
+      await expect(proof).toContainText(
+        language === 'en'
+          ? 'Delivery version at fulfilment'
+          : 'Version de livraison lors de la réalisation'
       );
       await expect(hook(page, 'campaign-proof-channel')).toHaveText('Facebook');
       await expect(hook(page, 'campaign-proof-target')).toHaveText('OpenG7');
@@ -656,6 +676,11 @@ for (const language of ['fr-CA', 'en'] as const) {
         .toBe(true);
 
       await select('observed-unknown');
+      for (const version of ['obligation', 'delivery']) {
+        await expect(
+          hook(page, `campaign-proof-${version}-version`)
+        ).toHaveText(language === 'en' ? 'Not specified' : 'Non renseignée');
+      }
       await expect(hook(page, 'campaign-proof-visibility')).toHaveText(
         language === 'en'
           ? 'Current visibility needs verification'
@@ -675,6 +700,12 @@ for (const language of ['fr-CA', 'en'] as const) {
       );
       await expect(hook(page, 'campaign-proof-delivery')).toHaveText(
         language === 'en' ? 'No linked delivery' : 'Aucune livraison liée'
+      );
+      await expect(hook(page, 'campaign-proof-obligation-version')).toHaveText(
+        '5'
+      );
+      await expect(hook(page, 'campaign-proof-delivery-version')).toHaveText(
+        language === 'en' ? 'No social delivery' : 'Sans livraison sociale'
       );
       await expect(hook(page, 'campaign-proof-reference')).toHaveText(
         'qualified-proof-website'

@@ -548,12 +548,40 @@
                       </dd>
                     </div>
                     <div>
+                      <dt>{{ t('detail.obligationVersionAtFulfilment') }}</dt>
+                      <dd data-og7="campaign-proof-obligation-version">
+                        @if (
+                          evidenceVersion(proof.obligationVersion);
+                          as version
+                        ) {
+                          {{ version }}
+                        } @else {
+                          {{ t('detail.versionUnknown') }}
+                        }
+                      </dd>
+                    </div>
+                    <div>
                       <dt>{{ t('detail.deliveryReference') }}</dt>
                       <dd data-og7="campaign-proof-delivery">
                         @if (proof.deliveryId) {
                           <code>{{ proof.deliveryId }}</code>
                         } @else {
                           {{ t('detail.noLinkedDelivery') }}
+                        }
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>{{ t('detail.deliveryVersionAtFulfilment') }}</dt>
+                      <dd data-og7="campaign-proof-delivery-version">
+                        @if (proof.channel === 'website' && !proof.deliveryId) {
+                          {{ t('detail.noSocialDelivery') }}
+                        } @else if (
+                          evidenceVersion(proof.deliveryVersion);
+                          as version
+                        ) {
+                          {{ version }}
+                        } @else {
+                          {{ t('detail.versionUnknown') }}
                         }
                       </dd>
                     </div>
