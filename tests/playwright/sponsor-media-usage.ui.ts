@@ -304,7 +304,10 @@ async function openAdminRights(page: Page): Promise<void> {
     .getByRole('button')
     .click();
   const inspector = page.locator('[data-og7="media-inspector"]');
-  await inspector.getByText(/^(Plus d’options|More options)$/).click();
+  const summary = inspector.getByText(/^(Plus d’options|More options)$/);
+  await summary.focus();
+  await page.keyboard.press('Enter');
+  await expect(summary.locator('..')).toHaveJSProperty('open', true);
   await inspector
     .getByRole('button', {
       name: /^(Personnaliser les autorisations|Customize permissions)$/
