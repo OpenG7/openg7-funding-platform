@@ -1,5 +1,5 @@
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { TranslatePipe } from '@ngx-translate/core';
 import {
@@ -47,6 +47,7 @@ import type {
     AdminLayoutComponent,
     AdminIconComponent,
     TranslatePipe,
+    RouterLink,
     AdminExpenseCreateComponent,
     AdminExpenseFiltersComponent,
     AdminExpenseCardComponent
@@ -88,6 +89,48 @@ import type {
           >
             {{ 'admin.financialSafety.createUncertain' | translate }}
           </p>
+        }
+        @if (canManageExpenses()) {
+          @if (createUncertain() && canVerifyCreation()) {
+            <p class="state">
+              <button
+                type="button"
+                class="admin-button admin-button--secondary"
+                data-og7="expense-create-receipt-check"
+                [disabled]="receiptCheckBusy() || mutationBusy()"
+                (click)="verifyExpenseCreation()"
+              >
+                {{
+                  (receiptCheckBusy()
+                    ? 'admin.financialSafety.expenseReceipt.checking'
+                    : 'admin.financialSafety.expenseReceipt.check'
+                  ) | translate
+                }}
+              </button>
+            </p>
+          }
+          @if (creationReceiptMessage()) {
+            <p
+              class="state"
+              data-og7="expense-create-receipt-message"
+              role="status"
+            >
+              {{ creationReceiptMessage() }}
+            </p>
+          }
+          @if (createdExpenseId(); as expenseId) {
+            <p class="state">
+              <a
+                class="admin-button admin-button--secondary"
+                data-og7="expense-create-receipt-open"
+                routerLink="/admin/fundraiser/expenses"
+                [queryParams]="{ expenseId }"
+                >{{
+                  'admin.financialSafety.expenseReceipt.open' | translate
+                }}</a
+              >
+            </p>
+          }
         }
         <p class="state state-error" *ngIf="state() === 'error'">
           {{
@@ -209,6 +252,7 @@ import type {
   styleUrls: [
     '../../components/admin-ui/admin-theme.css',
     '../../components/admin-ui/admin-controls.css',
+    '../../components/admin-ui/admin-controls.css',
     '../../components/admin-ui/admin-forms.css',
     './admin-expenses-page.component.css'
   ]
@@ -245,6 +289,8 @@ export class AdminExpensesPageComponent implements OnInit {
         this.admin.getSavedAdminToken()
       ).canManageExpenses,
     storage: () => adminDocumentDeliveryBrowser()?.storage() ?? null,
+    newRequestId: () =>
+      adminDocumentDeliveryBrowser()?.crypto.randomUUID() ?? null,
     draft: () => this.newExpenseDraft(),
     resetDraftIfUnchanged: (draft) => this.resetDraftIfUnchanged(draft),
     t: (key) => this.i18n.t(key),
@@ -256,6 +302,10 @@ export class AdminExpensesPageComponent implements OnInit {
     () => this.mutation.busy() && !this.mutation.confirming()
   );
   readonly createUncertain = this.mutation.createUncertain;
+  readonly receiptCheckBusy = this.mutation.receiptCheckBusy;
+  readonly canVerifyCreation = this.mutation.canVerifyCreation;
+  readonly creationReceiptMessage = this.mutation.creationReceiptMessage;
+  readonly createdExpenseId = this.mutation.createdExpenseId;
   readonly response = this.read.response;
   readonly expenseEdits = this.read.expenseEdits;
   readonly state = this.read.state;
@@ -308,6 +358,7 @@ export class AdminExpensesPageComponent implements OnInit {
   }
 
   private clearPrivate(): void {
+    this.mutation.resetReceiptView();
     this.read.setScope(undefined);
     this.resetDraftIfUnchanged(this.newExpenseDraft());
     this.search.set('');
@@ -344,6 +395,7 @@ export class AdminExpensesPageComponent implements OnInit {
     this.route.queryParamMap
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((params) => {
+        this.mutation.resetReceiptView();
         this.read.setScope(params.get('expenseId') ?? undefined);
         this.search.set('');
         this.statusFilter.set('all');
@@ -357,6 +409,10 @@ export class AdminExpensesPageComponent implements OnInit {
 
   createExpense(): Promise<void> {
     return this.mutation.create();
+  }
+
+  verifyExpenseCreation(): Promise<void> {
+    return this.mutation.verifyCreationReceipt();
   }
 
   saveExpense(

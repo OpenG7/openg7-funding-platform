@@ -11,6 +11,14 @@
   "readOnly": "Read only: your role allows you to view these records and their evidence.",
   "stale": "Last known state: these records could not be refreshed. Check their status before taking action.",
   "createUncertain": "The creation outcome is uncertain. Check the register and verify the operation before creating another record.",
+  "expenseReceipt": {
+    "check": "Check the existing creation",
+    "checking": "Checking the creation…",
+    "found": "Creation found. Review the existing entry before creating another.",
+    "notFound": "No matching receipt is available. The outcome remains uncertain; creation stays blocked.",
+    "unavailable": "Creation could not be checked. The request stays blocked; retry the check.",
+    "open": "View the created entry"
+  },
   "uncertainStatus": "Uncertain outcome — verification required",
   "deliveryUncertain": "The outcome of this email request is uncertain. Check the email queue and use its reconciliation workflow before making another request. No new send is available here.",
   "verifyReceipt": "Check the existing request",

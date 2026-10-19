@@ -31,12 +31,16 @@ export interface AdminExpensesMutationReadPort {
 }
 
 export interface AdminExpensesMutationPorts {
-  readonly admin: Pick<FundingAdminService, 'createExpense' | 'updateExpense'>;
+  readonly admin: Pick<
+    FundingAdminService,
+    'createExpense' | 'updateExpense' | 'getExpenseCreateReceipt'
+  >;
   readonly confirmation: Pick<AdminConfirmationService, 'confirm'>;
   readonly read: AdminExpensesMutationReadPort;
   token(): string;
   draft(): NewExpenseDraft;
   canManage(): boolean;
+  newRequestId(): string | null;
   storage?(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null;
   resetDraftIfUnchanged(submitted: NewExpenseDraft): void;
   t(key: string): string;

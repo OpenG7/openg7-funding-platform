@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 
 import type {
   AdminExpenseCreateRequest,
+  AdminExpenseCreateReceipt,
   AdminExpenseMutationResult,
   AdminExpensesResponse,
   AdminExpenseStatus,
@@ -19,6 +20,7 @@ import type { AdminExpenseAuditInput } from './fund-admin.repository.js';
 import { AdminFinancialCurrencyConflictError } from './admin-financial-currency.js';
 import { createRouteMatcher } from './http-routing.js';
 import type { createHttpTransport } from './http-transport.js';
+import { isValidUuid } from './business-helpers/request-validation.js';
 
 type ApiRequest = IncomingMessage;
 type ApiResponse = ServerResponse<IncomingMessage>;
@@ -75,6 +77,11 @@ export interface AdminAccountingHttpDependencies {
     input: AdminExpenseCreateRequest,
     audit: AdminExpenseAuditInput
   ) => Promise<AdminExpenseMutationResult>;
+  readonly databaseAvailable: () => boolean;
+  readonly readAdminExpenseCreateReceipt: (
+    requestId: string,
+    actor: string
+  ) => Promise<AdminExpenseCreateReceipt>;
   readonly updateAdminExpense: (
     input: AdminExpenseUpdateRequest,
     audit: AdminExpenseAuditInput
@@ -102,6 +109,8 @@ export const createAdminAccountingHttpHandler = ({
   isValidAdminExpectedVersion,
   listAdminExpenses,
   createAdminExpense,
+  databaseAvailable,
+  readAdminExpenseCreateReceipt,
   updateAdminExpense,
   getPublicTransparencySummary,
   AdminExpenseValidationError,
@@ -120,6 +129,54 @@ export const createAdminAccountingHttpHandler = ({
     request: ApiRequest,
     response: ApiResponse
   ): Promise<boolean> => {
+    if (
+      routeMatches(
+        request.url,
+        '/admin/expenses/create-receipt',
+        '/api/admin/expenses/create-receipt'
+      )
+    ) {
+      response.setHeader('Cache-Control', 'private, no-store');
+      if (!ensureAdminAccess(request, response)) return true;
+      if (request.method !== 'GET') {
+        response.setHeader('Allow', 'GET');
+        writeJson(request, response, 405, { code: 'METHOD_NOT_ALLOWED' });
+        return true;
+      }
+      const params = new URL(request.url ?? '/', publicBaseOrigin).searchParams;
+      const requestId = params.get('requestId');
+      if (
+        [...params.keys()].length !== 1 ||
+        params.getAll('requestId').length !== 1 ||
+        !isValidUuid(requestId)
+      ) {
+        writeJson(request, response, 400, { code: 'INVALID_EXPENSE_RECEIPT' });
+        return true;
+      }
+      if (!databaseAvailable()) {
+        writeJson(request, response, 503, {
+          code: 'EXPENSE_RECEIPT_UNAVAILABLE'
+        });
+        return true;
+      }
+      try {
+        writeJson(
+          request,
+          response,
+          200,
+          await readAdminExpenseCreateReceipt(
+            requestId!,
+            getAdminAuditActor(request)
+          )
+        );
+      } catch {
+        reportFailure('Failed to read expense creation receipt.', undefined);
+        writeJson(request, response, 503, {
+          code: 'EXPENSE_RECEIPT_UNAVAILABLE'
+        });
+      }
+      return true;
+    }
     if (
       request.method === 'GET' &&
       routeMatches(request.url, '/admin/expenses', '/api/admin/expenses')
@@ -178,6 +235,14 @@ export const createAdminAccountingHttpHandler = ({
       } catch {
         writeJson(request, response, 400, {
           error: 'Invalid expense request body.'
+        });
+        return true;
+      }
+
+      if (!isValidUuid(parsed.requestId)) {
+        writeJson(request, response, 400, {
+          code: 'invalid_request_id',
+          error: 'A creation request UUID is required.'
         });
         return true;
       }
@@ -292,10 +357,15 @@ export const createAdminAccountingHttpHandler = ({
         writeJson(request, response, 200, result);
       } catch (error) {
         if (error instanceof AdminExpenseValidationError) {
-          writeJson(request, response, 400, {
-            code: error.code,
-            error: error.message
-          });
+          writeJson(
+            request,
+            response,
+            error.code === 'request_conflict' ? 409 : 400,
+            {
+              code: error.code,
+              error: error.message
+            }
+          );
           return true;
         }
         reportFailure('Failed to create admin expense.', error);

@@ -54,6 +54,7 @@ test('allocation: confirmed publication, public proof, concurrent edit, hide and
   const initialLedger = await ledger();
   const baseline = await get<AdminExpensesResponse>(request, endpoint, true);
   const input = {
+    requestId: randomUUID(),
     projectName: name,
     publicDescription: 'Documentation publique du projet',
     expectedOutcome: 'Un guide accessible',

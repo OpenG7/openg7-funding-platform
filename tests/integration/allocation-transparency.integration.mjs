@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import test from 'node:test';
 
 import {
@@ -30,7 +31,11 @@ test(
       pool.query('TRUNCATE fund_allocations, admin_audit_log CASCADE')
     );
     const create = (changes = {}) =>
-      createAdminExpense(pool, { ...draft, ...changes }, actor);
+      createAdminExpense(
+        pool,
+        { ...draft, requestId: randomUUID(), ...changes },
+        actor
+      );
     const update = (expense, changes = {}) =>
       updateAdminExpense(
         pool,

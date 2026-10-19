@@ -2,6 +2,7 @@ import type {
   AdminContributionsResponse,
   AdminContributionsExportRequest,
   AdminExpenseCreateRequest,
+  AdminExpenseCreateReceipt,
   AdminExpenseMutationResult,
   AdminExpenseUpdateRequest,
   AdminExpensesResponse,
@@ -85,6 +86,23 @@ export class FundingAdminAccountingClient {
     return (await response.json()) as AdminExpensesResponse;
   }
 
+  async getExpenseCreateReceipt(
+    token: string,
+    requestId: string
+  ): Promise<AdminExpenseCreateReceipt> {
+    const params = new URLSearchParams({ requestId });
+    const response = await this.session.requestAdminJson(
+      `/admin/expenses/create-receipt?${params.toString()}`,
+      { auth: { token }, method: 'GET', cache: 'no-store' }
+    );
+    if (!response.ok)
+      throw new AdminDashboardRequestError(
+        response.status,
+        'Expense creation receipt could not be loaded.'
+      );
+    return (await response.json()) as AdminExpenseCreateReceipt;
+  }
+
   async createExpense(
     token: string,
     payload: AdminExpenseCreateRequest
@@ -97,9 +115,11 @@ export class FundingAdminAccountingClient {
     });
 
     if (!response.ok) {
+      const { code } = await errorDetailsFromResponse(response);
       throw new AdminDashboardRequestError(
         response.status,
-        'Admin expense could not be created.'
+        'Admin expense could not be created.',
+        code === 'request_conflict' ? code : undefined
       );
     }
 

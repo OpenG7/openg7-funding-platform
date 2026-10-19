@@ -42,5 +42,5 @@ registry refresh does not erase the exact receipt or its email message link.
 See [UI recovery and limits](../payment-trust-validation.md#recette-de-renvoi-des-factures-et-avoirs).
 
 Assistant information requests have their own
-[command receipt](assistant-information-receipts.md). Expense creation still has
-no equivalent receipt; this endpoint does not resolve its uncertain outcomes.
+[command receipt](assistant-information-receipts.md), and expense creation has its
+[own receipt](expense-creation-receipts.md). Each reconciles only its command.

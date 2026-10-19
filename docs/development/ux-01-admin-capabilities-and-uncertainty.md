@@ -55,13 +55,16 @@ POST/GET, même si le tiroir est réouvert par le callback de succès.
   Absence, indisponibilité ou refus ne déclenchent ni déverrouillage ni nouvel envoi.
   La projection Factures ne donne toujours pas le dernier messageId ; seul le reçu
   de la demande exacte fournit le lien vers son message.
-- La demande d'information Assistant dispose d'un
-  [reçu lié à l'acteur, au dossier et au UUID](../technical/assistant-information-receipts.md).
-  Sa vérification manuelle ne renvoie aucune demande ; absence, erreur ou reçu
-  malformé conservent le verrou. `sending`/`uncertain` et les anciens marqueurs
-  sans UUID restent bloqués après rechargement.
-- La création Dépenses n'offre pas encore de reçu consultable dans cette branche.
-  Sa relecture générique ne déverrouille pas une opération inconnue.
+- Le complément Dépenses prépare un [reçu de création](../technical/expense-creation-receipts.md)
+  propriétaire et lié à l'acteur, avec UUID conservé avant POST et lien vers
+  l'entrée exacte retrouvée, sans la recréer. Absence/erreur conserve le verrou ;
+  un marqueur historique sans UUID n'est pas transformé en reçu. Le
+  [parcours propriétaire](../funding-transparency.md#allocations-publiées-et-réalisations)
+  distingue cette préparation en branche d'une livraison intégrée.
+- Le complément Assistant fournit un [reçu de demande d'information](../technical/assistant-information-receipts.md)
+  lié à l'acteur, au dossier et à l'UUID exacts. Sa vérification ne renvoie aucun
+  courriel ; absence/erreur et livraison `sending`/`uncertain` conservent le verrou.
+  Un marqueur historique sans UUID ne devient pas un reçu.
 - La file courriel conserve son workflow versionné de réconciliation avec preuve.
   Le lien générique n'affirme pas identifier un message dont l'ID n'a pas été reçu.
 - Si le stockage de session est refusé, les verrous de création/information/renvoi

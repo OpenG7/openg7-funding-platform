@@ -297,6 +297,7 @@ test('Payment ordering and refund projections on disposable PostgreSQL', async (
       const created = await createAdminExpense(
         pool,
         {
+          requestId: '0d05cc2e-a64c-44d6-8c43-c3b21d27282d',
           projectName: 'Integration achievement audit',
           publicDescription: 'Public description',
           expectedOutcome: 'Public outcome',

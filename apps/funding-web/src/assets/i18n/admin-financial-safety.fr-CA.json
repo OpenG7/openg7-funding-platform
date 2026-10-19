@@ -11,6 +11,14 @@
   "readOnly": "Lecture seule : votre rôle permet de consulter ces données et leurs preuves.",
   "stale": "Dernier état connu : les données n’ont pas pu être actualisées. Vérifiez leur état avant toute action.",
   "createUncertain": "Le résultat de la création est incertain. Consultez le registre et vérifiez l’opération avant toute nouvelle création.",
+  "expenseReceipt": {
+    "check": "Vérifier la création existante",
+    "checking": "Vérification de la création…",
+    "found": "Création retrouvée. Consultez l’entrée existante avant toute nouvelle création.",
+    "notFound": "Aucun reçu correspondant n’est disponible. Le résultat reste incertain ; la création demeure bloquée.",
+    "unavailable": "La création n’a pas pu être vérifiée. La demande reste bloquée ; réessayez la vérification.",
+    "open": "Voir l’entrée créée"
+  },
   "uncertainStatus": "Résultat incertain — vérification requise",
   "deliveryUncertain": "Le résultat de cet envoi est incertain. Vérifiez la file courriel et utilisez sa réconciliation avant toute nouvelle demande. Aucun nouvel envoi n’est disponible ici.",
   "verifyReceipt": "Vérifier la demande existante",

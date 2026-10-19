@@ -26,6 +26,7 @@ workspaceHook.deregister();
 
 const originalVersion = '2026-10-02T12:00:00.123Z';
 const nextVersion = '2026-10-02T12:01:00.456Z';
+const firstRequestId = '20000000-0000-4000-8000-000000000001';
 const record = (fields = {}) => ({
   id: 'allocation-a',
   project_name: 'Synthetic allocation',
@@ -81,6 +82,8 @@ const fixture = async (initial = record()) => {
   const updates = [];
   const confirmations = [];
   const reads = [];
+  const receiptReads = [];
+  const requestIds = [];
   let rows = [initial];
   let currentDraft = draft();
   let resets = 0;
@@ -100,9 +103,13 @@ const fixture = async (initial = record()) => {
   await read.load();
   const ports = {
     admin: {
+      getExpenseCreateReceipt: async (token, requestId) => {
+        receiptReads.push({ token, requestId });
+        return { requestId, found: false };
+      },
       createExpense: async (token, payload) => {
         creates.push({ token, payload });
-        return { updated: true, expense: record() };
+        return { updated: true, expense: record({ id: '1' }) };
       },
       updateExpense: async (token, payload) => {
         updates.push({ token, payload });
@@ -118,6 +125,13 @@ const fixture = async (initial = record()) => {
     read,
     token: () => 'synthetic-session',
     canManage: () => true,
+    newRequestId: () => {
+      const requestId =
+        '20000000-0000-4000-8000-' +
+        String(requestIds.length + 1).padStart(12, '0');
+      requestIds.push(requestId);
+      return requestId;
+    },
     storage: () => ({
       getItem: (key) => stored.get(key) ?? null,
       setItem: (key, value) => stored.set(key, value),
@@ -145,6 +159,8 @@ const fixture = async (initial = record()) => {
     creates,
     updates,
     reads,
+    receiptReads,
+    requestIds,
     confirmations,
     stored,
     draft: () => currentDraft,
@@ -195,6 +211,7 @@ test('public creation freezes confirmed contents and keeps new input while block
     {
       token: 'synthetic-session',
       payload: {
+        requestId: firstRequestId,
         confirmation: 'CREATE_PUBLIC_ALLOCATION',
         projectName: 'New allocation',
         publicDescription: 'New description',
@@ -210,7 +227,7 @@ test('public creation freezes confirmed contents and keeps new input while block
     }
   ]);
   await f.workflow.create();
-  pending.resolve({ updated: true, expense: record() });
+  pending.resolve({ updated: true, expense: record({ id: '1' }) });
   await creating;
   assert.equal(f.draft().projectName, 'Next allocation');
   assert.equal(f.resets(), 0);
@@ -323,7 +340,7 @@ test('an unanswered creation remains blocked after refresh and does not create a
   assert.equal(f.workflow.createUncertain(), true);
   assert.deepEqual(
     [...f.stored],
-    [['openg7-admin-expense-create-uncertain', '1']]
+    [['openg7-admin-expense-create-uncertain', firstRequestId]]
   );
   f.workflow.dispose();
   const next = new AdminExpensesMutationWorkflow(f.ports);
@@ -339,12 +356,12 @@ test('a confirmed create clears its opaque marker even if its page was left befo
   const running = f.workflow.create();
   assert.deepEqual(
     [...f.stored],
-    [['openg7-admin-expense-create-uncertain', '1']]
+    [['openg7-admin-expense-create-uncertain', firstRequestId]]
   );
   f.workflow.dispose();
   const next = new AdminExpensesMutationWorkflow(f.ports);
   assert.equal(next.createUncertain(), true);
-  pending.resolve({ updated: true, expense: record() });
+  pending.resolve({ updated: true, expense: record({ id: '1' }) });
   await running;
   assert.equal(f.stored.size, 0);
   // Reading cannot automatically resolve a marker already observed by a page.
@@ -364,8 +381,244 @@ test('a definite validation refusal remains correctable without claiming an unce
   await f.read.load();
   f.ports.admin.createExpense = async (token, payload) => {
     f.creates.push({ token, payload });
-    return { updated: true, expense: record() };
+    return { updated: true, expense: record({ id: '1' }) };
   };
+  await f.workflow.create();
+  assert.equal(f.creates.length, 1);
+});
+
+const creationReceipt = (requestId, fields = {}) => ({
+  requestId,
+  found: true,
+  expenseId: '9223372036854775807',
+  acceptedAt: '2026-10-19T20:30:00.000Z',
+  ...fields
+});
+
+const uncertainCreation = async () => {
+  const f = await fixture();
+  f.ports.admin.createExpense = async (token, payload) => {
+    assert.equal(
+      f.stored.get('openg7-admin-expense-create-uncertain'),
+      payload.requestId
+    );
+    f.creates.push({ token, payload });
+    throw new TypeError('Synthetic lost response');
+  };
+  await f.workflow.create();
+  return f;
+};
+
+test('an exact creation receipt recovers its entry without another POST and the next command uses a fresh UUID', async () => {
+  const f = await uncertainCreation();
+  assert.equal(f.receiptReads.length, 0);
+  assert.equal(f.workflow.canVerifyCreation(), true);
+  f.ports.admin.getExpenseCreateReceipt = async (token, requestId) => {
+    f.receiptReads.push({ token, requestId });
+    return creationReceipt(requestId);
+  };
+  await f.workflow.verifyCreationReceipt();
+  assert.deepEqual(f.receiptReads, [
+    { token: 'synthetic-session', requestId: firstRequestId }
+  ]);
+  assert.equal(f.creates.length, 1);
+  assert.equal(f.workflow.createdExpenseId(), '9223372036854775807');
+  assert.equal(f.workflow.createUncertain(), false);
+  assert.equal(f.workflow.canVerifyCreation(), false);
+  assert.equal(f.stored.size, 0);
+  assert.equal(f.resets(), 1);
+  f.setDraft(draft());
+  f.ports.admin.createExpense = async (token, payload) => {
+    f.creates.push({ token, payload });
+    return { updated: true, expense: record({ id: '1' }) };
+  };
+  await f.workflow.create();
+  assert.equal(f.creates.length, 2);
+  assert.notEqual(
+    f.creates[0].payload.requestId,
+    f.creates[1].payload.requestId
+  );
+});
+
+for (const outcome of ['absent', 'unavailable']) {
+  test(`a creation receipt ${outcome} retains the UUID and blocking state`, async () => {
+    const f = await uncertainCreation();
+    if (outcome === 'unavailable')
+      f.ports.admin.getExpenseCreateReceipt = async () => {
+        throw new AdminDashboardRequestError(503, 'unavailable');
+      };
+    await f.workflow.verifyCreationReceipt();
+    assert.equal(f.workflow.createUncertain(), true);
+    assert.equal(f.workflow.createdExpenseId(), null);
+    assert.equal(f.workflow.receiptCheckBusy(), false);
+    assert.equal(
+      f.stored.get('openg7-admin-expense-create-uncertain'),
+      firstRequestId
+    );
+    assert.equal(
+      f.workflow.creationReceiptMessage(),
+      'admin.financialSafety.expenseReceipt.' +
+        (outcome === 'absent' ? 'notFound' : 'unavailable')
+    );
+    await f.workflow.create();
+    assert.equal(f.creates.length, 1);
+  });
+}
+
+test('the legacy marker remains blocked without inventing a request UUID', async () => {
+  const f = await fixture();
+  f.stored.set('openg7-admin-expense-create-uncertain', '1');
+  const workflow = new AdminExpensesMutationWorkflow(f.ports);
+  assert.equal(workflow.createUncertain(), true);
+  assert.equal(workflow.canVerifyCreation(), false);
+  await workflow.verifyCreationReceipt();
+  await workflow.create();
+  assert.equal(
+    f.receiptReads.length + f.creates.length + f.requestIds.length,
+    0
+  );
+  assert.equal(f.stored.get('openg7-admin-expense-create-uncertain'), '1');
+});
+
+for (const fields of [
+  { requestId: '20000000-0000-4000-8000-000000000099' },
+  { expenseId: '0' },
+  { expenseId: '1/elsewhere' },
+  { expenseId: '9223372036854775808' },
+  { found: 'true' },
+  { found: null },
+  { acceptedAt: 'not-a-date' }
+]) {
+  test(`a mismatched or malformed creation receipt stays blocked: ${JSON.stringify(fields)}`, async () => {
+    const f = await uncertainCreation();
+    f.ports.admin.getExpenseCreateReceipt = async (token, requestId) =>
+      creationReceipt(requestId, fields);
+    await f.workflow.verifyCreationReceipt();
+    assert.equal(f.workflow.createUncertain(), true);
+    assert.equal(f.workflow.createdExpenseId(), null);
+    assert.equal(f.workflow.canVerifyCreation(), true);
+    assert.equal(
+      f.workflow.creationReceiptMessage(),
+      'admin.financialSafety.expenseReceipt.unavailable'
+    );
+    assert.equal(f.creates.length, 1);
+  });
+}
+
+test('a receipt late in another scope cannot expose its target or clear a newer check', async () => {
+  const f = await uncertainCreation();
+  const old = deferred();
+  f.ports.admin.getExpenseCreateReceipt = () => old.promise;
+  const previous = f.workflow.verifyCreationReceipt();
+  f.read.setScope('allocation-b');
+  f.workflow.resetReceiptView();
+  const pending = deferred();
+  f.ports.admin.getExpenseCreateReceipt = () => pending.promise;
+  const current = f.workflow.verifyCreationReceipt();
+  old.resolve(creationReceipt(firstRequestId));
+  await previous;
+  assert.equal(f.workflow.createdExpenseId(), null);
+  assert.equal(f.workflow.receiptCheckBusy(), true);
+  assert.equal(f.workflow.createUncertain(), true);
+  pending.resolve({ requestId: firstRequestId, found: false });
+  await current;
+  assert.equal(f.workflow.receiptCheckBusy(), false);
+  assert.equal(
+    f.stored.get('openg7-admin-expense-create-uncertain'),
+    firstRequestId
+  );
+});
+
+test('a found receipt survives a failed registry refresh without discarding a later draft', async () => {
+  const f = await uncertainCreation();
+  f.setDraft(draft({ projectName: 'Next draft' }));
+  f.ports.admin.getExpenseCreateReceipt = async (token, requestId) =>
+    creationReceipt(requestId);
+  f.readPorts.admin.getExpenses = async () => {
+    throw new Error('Synthetic read failure');
+  };
+  await f.workflow.verifyCreationReceipt();
+  assert.equal(f.workflow.createdExpenseId(), '9223372036854775807');
+  assert.equal(f.workflow.createUncertain(), false);
+  assert.equal(f.stored.size, 0);
+  assert.equal(f.draft().projectName, 'Next draft');
+  assert.equal(f.read.state(), 'error');
+  assert.ok(
+    f.workflow.creationReceiptMessage().includes('admin.financialSafety.stale')
+  );
+  assert.equal(f.creates.length, 1);
+});
+
+test('receipt lookup works from memory when storage is denied and does not erase another retained UUID', async () => {
+  const f = await fixture();
+  f.ports.storage = () => {
+    throw new Error('Synthetic storage denial');
+  };
+  f.ports.admin.createExpense = async () => {
+    throw new TypeError('Synthetic loss');
+  };
+  await f.workflow.create();
+  assert.equal(f.workflow.createUncertain(), true);
+  assert.equal(f.workflow.canVerifyCreation(), true);
+  f.ports.admin.getExpenseCreateReceipt = async (token, requestId) =>
+    creationReceipt(requestId);
+  await f.workflow.verifyCreationReceipt();
+  assert.equal(f.workflow.createdExpenseId(), '9223372036854775807');
+  const retained = await uncertainCreation();
+  retained.stored.set(
+    'openg7-admin-expense-create-uncertain',
+    '20000000-0000-4000-8000-000000000099'
+  );
+  retained.ports.admin.getExpenseCreateReceipt = async (token, requestId) =>
+    creationReceipt(requestId);
+  await retained.workflow.verifyCreationReceipt();
+  assert.equal(retained.workflow.createUncertain(), true);
+  assert.equal(
+    retained.stored.get('openg7-admin-expense-create-uncertain'),
+    '20000000-0000-4000-8000-000000000099'
+  );
+});
+
+for (const result of [
+  null,
+  { updated: false, expense: record({ id: '1' }) },
+  { updated: true, expense: null },
+  { updated: true, expense: record({ id: '9223372036854775808' }) }
+]) {
+  test(`an incompatible HTTP 200 create result retains its UUID: ${JSON.stringify(result)}`, async () => {
+    const f = await fixture();
+    f.ports.admin.createExpense = async (token, payload) => {
+      f.creates.push({ token, payload });
+      return result;
+    };
+    await f.workflow.create();
+    assert.equal(f.workflow.createUncertain(), true);
+    assert.equal(f.workflow.canVerifyCreation(), true);
+    assert.equal(
+      f.stored.get('openg7-admin-expense-create-uncertain'),
+      firstRequestId
+    );
+    assert.equal(f.resets(), 0);
+    await f.read.load();
+    await f.workflow.create();
+    assert.equal(f.creates.length, 1);
+  });
+}
+
+test('request_conflict retains the original UUID for its receipt instead of permitting another creation', async () => {
+  const f = await fixture();
+  f.ports.admin.createExpense = async (token, payload) => {
+    f.creates.push({ token, payload });
+    throw new AdminDashboardRequestError(409, 'conflict', 'request_conflict');
+  };
+  await f.workflow.create();
+  assert.equal(f.workflow.createUncertain(), true);
+  assert.equal(f.workflow.canVerifyCreation(), true);
+  assert.equal(
+    f.stored.get('openg7-admin-expense-create-uncertain'),
+    firstRequestId
+  );
+  await f.read.load();
   await f.workflow.create();
   assert.equal(f.creates.length, 1);
 });
