@@ -159,7 +159,21 @@ for (const language of ['fr-CA', 'en'] as const) {
       await expectAdminFontsReady(page);
       await expect(dossier).toHaveCSS('background-color', 'rgb(255, 255, 255)');
       await expect(dossier).toHaveCSS('border-radius', '14px');
-      const moderationSelect = dossier
+      const moderationToggle = dossier.locator(
+        '[data-og7="dossier-tool-toggle"][data-og7-id="moderation"]'
+      );
+      await expect(moderationToggle).toHaveAttribute('aria-expanded', 'false');
+      await expect(
+        dossier.locator('[data-og7="moderation-actions"]')
+      ).toHaveCount(0);
+      await moderationToggle.focus();
+      await page.keyboard.press('Enter');
+      const moderationTool = dossier.locator(
+        '[data-og7="dossier-tool-panel"][data-og7-id="moderation"]'
+      );
+      await expect(moderationTool).toBeVisible();
+      await expect(moderationToggle).toHaveAttribute('aria-expanded', 'true');
+      const moderationSelect = moderationTool
         .locator('[data-og7="moderation-actions"]')
         .getByRole('combobox')
         .first();
@@ -172,16 +186,48 @@ for (const language of ['fr-CA', 'en'] as const) {
         'outline',
         'rgb(53, 106, 159) solid 3px'
       );
+      const moderationContrast = await new AxeBuilder({ page })
+        .include('[data-og7="moderation-actions"]')
+        .withRules(['color-contrast'])
+        .analyze();
+      expect(moderationContrast.violations).toEqual([]);
+      expect(
+        moderationContrast.passes.some((rule) => rule.id === 'color-contrast')
+      ).toBe(true);
+      await page.keyboard.press('Escape');
+      await expect(moderationTool).toBeHidden();
+      await expect(moderationToggle).toHaveAttribute('aria-expanded', 'false');
+      await expect(moderationToggle).toBeFocused();
       const tabs = page.locator('[data-og7="dossier-tabs"]');
       await expect(tabs.locator('[aria-current="page"]')).toHaveCount(1);
+      const sidebar = page.locator('#admin-sidebar');
+      const mobileMenu = sidebar.locator(
+        'button[aria-controls="admin-navigation-content"]'
+      );
+      if (viewport.width === 390) {
+        await mobileMenu.focus();
+        await page.keyboard.press('Enter');
+        await expect(mobileMenu).toHaveAttribute('aria-expanded', 'true');
+      }
       const activeNavigation = page.locator(
         '#admin-sidebar nav a[aria-current="page"]'
       );
+      await expect(activeNavigation).toHaveCount(1);
+      await expect(activeNavigation).toHaveAttribute(
+        'href',
+        '/admin/fundraiser/sponsors'
+      );
+      await expect(activeNavigation).toBeVisible();
       await expect(activeNavigation).toHaveCSS(
         'background-color',
         'rgb(237, 243, 250)'
       );
       await expect(activeNavigation).toHaveCSS('color', 'rgb(54, 93, 136)');
+      if (viewport.width === 390) {
+        await page.keyboard.press('Escape');
+        await expect(mobileMenu).toHaveAttribute('aria-expanded', 'false');
+        await expect(mobileMenu).toBeFocused();
+      }
       const opener = page.locator('[data-og7="edit-dossier"]');
       await opener.focus();
       await page.keyboard.press('Enter');
@@ -205,7 +251,6 @@ for (const language of ['fr-CA', 'en'] as const) {
       await expect(company).toHaveCSS('outline-color', 'rgb(53, 106, 159)');
       const controlsContrast = await new AxeBuilder({ page })
         .include('[data-og7="edit-dossier-form"]')
-        .include('[data-og7="moderation-actions"]')
         .withRules(['color-contrast'])
         .analyze();
       expect(controlsContrast.violations).toEqual([]);
@@ -233,6 +278,41 @@ for (const language of ['fr-CA', 'en'] as const) {
       expectLocalAdminFonts(fontRequests, page.url());
     });
   }
+}
+
+for (const language of ['fr-CA', 'en'] as const) {
+  test(`admin navigation keeps one current section with dossier context and quality in ${language}`, async ({
+    page
+  }) => {
+    const { state, writes } = await premiumFixtures(page, language);
+    const sponsorshipId = new URL(
+      controllerPath(),
+      'http://admin.invalid'
+    ).searchParams.get('sponsorshipId')!;
+    for (const [destination, section] of [
+      ['/admin/fundraiser?view=summary#admin-main', '/admin/fundraiser'],
+      [
+        controllerPath('identity') + '#dossier-identity',
+        '/admin/fundraiser/sponsors'
+      ],
+      [
+        '/admin/fundraiser/sponsors/quality?returnSponsorshipId=' +
+          sponsorshipId +
+          '#sponsors-quality-title',
+        '/admin/fundraiser/sponsors/quality'
+      ]
+    ]) {
+      await page.goto(destination);
+      const activeNavigation = page.locator(
+        '#admin-sidebar nav a[aria-current="page"]'
+      );
+      await expect(activeNavigation).toHaveCount(1);
+      await expect(activeNavigation).toHaveAttribute('href', section);
+      await expect(activeNavigation).toBeVisible();
+    }
+    expect(writes).toEqual([]);
+    expect(state.commands).toEqual([]);
+  });
 }
 
 for (const { language, width } of [

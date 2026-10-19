@@ -116,9 +116,14 @@ interface AdminNavigationGroup {
                     routerLinkActive="active"
                     ariaCurrentWhenActive="page"
                     [routerLinkActiveOptions]="{
-                      exact:
+                      paths:
                         link.url === '/admin/fundraiser' ||
                         link.url === '/admin/fundraiser/sponsors'
+                          ? 'exact'
+                          : 'subset',
+                      queryParams: 'ignored',
+                      fragment: 'ignored',
+                      matrixParams: 'ignored'
                     }"
                     (click)="closeMenu(toggle)"
                     [attr.aria-describedby]="

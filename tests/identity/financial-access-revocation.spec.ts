@@ -9,7 +9,10 @@ import {
 } from '@playwright/test';
 
 import { startIdentityStack } from './stack.mjs';
-import { signInAdminIdentity } from './support/admin-browser.js';
+import {
+  openSponsorModeration,
+  signInAdminIdentity
+} from './support/admin-browser.js';
 
 async function login(page: Page, subject: string, destination: string) {
   await signInAdminIdentity(page, destination, subject);
@@ -359,7 +362,7 @@ test('moderation content refusals stay distinct, retries use real content and ob
       '/admin/fundraiser/sponsors?sponsorshipId=' + f.id
     );
     const open = async () => {
-      const actions = page.locator('[data-og7="moderation-actions"]').first();
+      const actions = await openSponsorModeration(page);
       await actions.getByRole('combobox').first().selectOption('N0');
       await actions.locator('[data-og7="moderation-open"]').click();
     };

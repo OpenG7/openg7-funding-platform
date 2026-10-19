@@ -12,6 +12,7 @@ import {
   type AcceptanceModerationIdentity
 } from './acceptance-oidc-moderation-identity.js';
 import { expect } from './test.js';
+import { openSponsorshipModeration } from './sponsorship-dossier.js';
 
 type RefundHandling = 'none' | 'manual_completed';
 type Dossier = AdminSponsorshipsResponse['items'][number];
@@ -169,9 +170,7 @@ async function confirmIndependentReview(
   await reviewer.goto(
     '/admin/fundraiser/sponsors?sponsorshipId=' + contributionId
   );
-  const moderation = reviewer
-    .locator('[data-og7="moderation-actions"]')
-    .first();
+  const moderation = await openSponsorshipModeration(reviewer);
   await moderation.locator('details > summary').click();
   const decision = moderation.locator(
     '[data-og7="moderation-history-decision"][data-og7-id="' + decisionId + '"]'

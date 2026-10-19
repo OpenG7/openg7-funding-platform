@@ -479,8 +479,15 @@ for (const presentResult of ['manual', 'unavailable']) {
   });
 }
 
-test('all nineteen administration categories have an explicit safe local destination', () => {
-  assert.equal(ADMIN_GUIDANCE_PAGES.length, 19);
+test('all twenty administration categories have an explicit safe local destination', () => {
+  assert.equal(ADMIN_GUIDANCE_PAGES.length, 20);
+  assert.ok(
+    ADMIN_GUIDANCE_PAGES.some(
+      (page) =>
+        page.id === 'sponsorsQuality' &&
+        page.path === '/admin/fundraiser/sponsors/quality'
+    )
+  );
   for (const page of ADMIN_GUIDANCE_PAGES) {
     const result = automaticPagePlan(page.id);
     assert.equal(result.pageId, page.id);
