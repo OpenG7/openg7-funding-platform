@@ -16,6 +16,7 @@ import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { registerAdminFinancialTranslations } from '../../services/admin-financial-translations.js';
 import { PilotAppearanceService } from '../../services/pilot-appearance.service.js';
 import { AdminNavComponent } from '../admin-nav/admin-nav.component.js';
 import { AdminGuidanceComponent } from '../admin-guidance/admin-guidance.component.js';
@@ -245,6 +246,7 @@ export class AdminLayoutComponent {
   });
 
   constructor() {
+    registerAdminFinancialTranslations();
     let disconnect = (): void => {};
     // Render effects run only in the browser and also follow dynamically supplied templates.
     afterRenderEffect((onCleanup) => {

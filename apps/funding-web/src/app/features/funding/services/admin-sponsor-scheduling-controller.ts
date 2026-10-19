@@ -303,8 +303,8 @@ export class AdminSponsorSchedulingController {
     }
   }
 
-  private async run(command: PublicationAutomationCommand): Promise<void> {
-    if (this.disposed || this.busy() || !('id' in command)) return;
+  private async run(command: PublicationAutomationCommand): Promise<boolean> {
+    if (this.disposed || this.busy() || !('id' in command)) return false;
     const selected = this.delivery.selected();
     const job = this.findDelivery(command.id);
     if (
@@ -314,9 +314,9 @@ export class AdminSponsorSchedulingController {
       command.version !== job.version
     ) {
       this.showError(new Error('VERSION_CONFLICT'));
-      return;
+      return false;
     }
-    await this.workflow.run(command);
+    return this.workflow.run(command);
   }
 
   private findDelivery(id: string): PublicationDelivery | undefined {

@@ -416,7 +416,7 @@ test('notification opt-out omits email, message and empty note from the request'
 });
 
 test('known failures preserve drafts and delegate unauthorized and conflict errors to the page', async (t) => {
-  for (const status of [401, 409, 500]) {
+  for (const status of [400, 401, 403, 409]) {
     await t.test(`${status}`, async () => {
       const f = fixture();
       const record = f.state.record;
@@ -446,6 +446,57 @@ test('known failures preserve drafts and delegate unauthorized and conflict erro
       assert.deepEqual(f.transitions, [`refund:${record.id}`, null]);
     });
   }
+});
+
+for (const failure of [
+  new Error('Synthetic response lost'),
+  new AdminDashboardRequestError(408, 'Synthetic request timeout'),
+  new AdminDashboardRequestError(500, 'Synthetic server interruption'),
+  new AdminDashboardRequestError(503, 'Synthetic service interruption')
+]) {
+  test(`unconfirmed refund ${failure.message} locks the submitted version even when recovery cannot establish an outcome`, async () => {
+    const f = fixture();
+    const record = f.state.record;
+    f.ready();
+    f.ports.admin.refundSponsorship = async (token, payload) => {
+      f.calls.push({ token, payload });
+      throw failure;
+    };
+    f.ports.reloadSponsorships = async () => {
+      f.reloads.push(f.state.action);
+      throw new Error('Synthetic recovery read lost');
+    };
+    await f.workflow.confirmRefund(record);
+    assert.equal(f.workflow.activeRefundId(), null);
+    assert.equal(f.workflow.openRefundPanel(record), false);
+    assert.equal(f.workflow.canConfirmRefund(record), false);
+    await f.workflow.confirmRefund(record);
+    assert.equal(f.calls.length, 1);
+    assert.equal(f.reloads.length, 1);
+    assert.deepEqual(f.pulses, []);
+    assert.equal(
+      f.messages.at(-1).message,
+      'admin.messages.refund_awaiting_confirmation'
+    );
+  });
+}
+
+test('a confirmed refund with a failed refresh never offers the submitted version again', async () => {
+  const f = fixture();
+  f.ready();
+  f.ports.reloadSponsorships = async () => {
+    throw new Error('Synthetic read unavailable after confirmed refund');
+  };
+  await f.workflow.confirmRefund(f.state.record);
+  assert.equal(f.workflow.activeRefundId(), null);
+  assert.equal(f.workflow.openRefundPanel(f.state.record), false);
+  assert.equal(
+    f.messages.at(-1).message,
+    'admin.financialSafety.refundReadFailed'
+  );
+  await f.workflow.confirmRefund(f.state.record);
+  assert.equal(f.calls.length, 1);
+  assert.deepEqual(f.pulses, []);
 });
 
 test('an uncertain result closes and reconciles the server state with no replay or success pulse', async () => {

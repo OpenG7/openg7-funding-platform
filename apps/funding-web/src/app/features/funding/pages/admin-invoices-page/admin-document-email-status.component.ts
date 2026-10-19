@@ -36,6 +36,8 @@ export class AdminDocumentEmailStatusComponent {
         return 'admin.legacy.envoi';
       case 'queued':
         return 'admin.legacy.en_file';
+      case 'uncertain':
+        return 'admin.financialSafety.uncertainStatus';
       default:
         return 'admin.messages.jamais_envoye';
     }

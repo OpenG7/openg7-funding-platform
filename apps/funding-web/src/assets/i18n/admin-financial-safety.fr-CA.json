@@ -1,0 +1,10 @@
+{
+  "ownerRequired": "Cette action est réservée au propriétaire.",
+  "readOnly": "Lecture seule : votre rôle permet de consulter ces données et leurs preuves.",
+  "stale": "Dernier état connu : les données n’ont pas pu être actualisées. Vérifiez leur état avant toute action.",
+  "createUncertain": "Le résultat de la création est incertain. Consultez le registre et vérifiez l’opération avant toute nouvelle création.",
+  "uncertainStatus": "Résultat incertain — vérification requise",
+  "deliveryUncertain": "Le résultat de cet envoi est incertain. Vérifiez la file courriel et utilisez sa réconciliation avant toute nouvelle demande. Aucun nouvel envoi n’est disponible ici.",
+  "informationUncertain": "Le résultat de cette demande est incertain. Vérifiez la file courriel avant toute nouvelle demande ; actualiser le dossier ne confirme pas son envoi.",
+  "refundReadFailed": "La réponse du remboursement a été reçue, mais son état actualisé est indisponible. Vérifiez le dossier avant toute nouvelle opération."
+}

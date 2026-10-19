@@ -1,0 +1,10 @@
+{
+  "ownerRequired": "This action is restricted to the owner.",
+  "readOnly": "Read only: your role allows you to view these records and their evidence.",
+  "stale": "Last known state: these records could not be refreshed. Check their status before taking action.",
+  "createUncertain": "The creation outcome is uncertain. Check the register and verify the operation before creating another record.",
+  "uncertainStatus": "Uncertain outcome — verification required",
+  "deliveryUncertain": "The outcome of this email request is uncertain. Check the email queue and use its reconciliation workflow before making another request. No new send is available here.",
+  "informationUncertain": "The outcome of this request is uncertain. Check the email queue before making another request; refreshing the dossier does not confirm delivery.",
+  "refundReadFailed": "The refund response was received, but its updated status is unavailable. Check the dossier before taking further action."
+}

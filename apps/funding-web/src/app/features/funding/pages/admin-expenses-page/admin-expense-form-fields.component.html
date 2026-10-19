@@ -3,6 +3,7 @@
     {{ 'admin.legacy.projet_ou_fournisseur' | translate
     }}<input
       type="text"
+      [readOnly]="readOnly()"
       maxlength="160"
       [value]="draft().projectName"
       (input)="setTextField('projectName', $event)"
@@ -12,6 +13,7 @@
     {{ 'admin.legacy.montant_cad' | translate
     }}<input
       type="number"
+      [readOnly]="readOnly()"
       min="0"
       step="0.01"
       [value]="draft().amountAllocated"
@@ -20,7 +22,11 @@
   </label>
   <label>
     {{ 'admin.legacy.statut' | translate
-    }}<select [value]="draft().status" (change)="setStatus($event)">
+    }}<select
+      [disabled]="readOnly()"
+      [value]="draft().status"
+      (change)="setStatus($event)"
+    >
       <option *ngFor="let status of expenseStatuses" [value]="status">
         {{ statusKeys[status] | translate }}
       </option>
@@ -30,6 +36,7 @@
     {{ 'admin.legacy.date_publication' | translate
     }}<input
       type="datetime-local"
+      [readOnly]="readOnly()"
       [value]="publishedAt()"
       (input)="setTextField('publishedAt', $event)"
     />
@@ -38,6 +45,7 @@
     {{ 'admin.legacy.description_publique' | translate
     }}<textarea
       rows="3"
+      [readOnly]="readOnly()"
       maxlength="1000"
       [value]="draft().publicDescription"
       (input)="setTextField('publicDescription', $event)"
@@ -47,6 +55,7 @@
     {{ 'admin.legacy.resultat_attendu' | translate
     }}<textarea
       rows="2"
+      [readOnly]="readOnly()"
       maxlength="1000"
       [value]="draft().expectedOutcome"
       (input)="setTextField('expectedOutcome', $event)"
@@ -55,6 +64,7 @@
   <label>
     {{ 'admin.legacy.avancement' | translate
     }}<select
+      [disabled]="readOnly()"
       [value]="draft().progressStatus"
       (change)="setProgressStatus($event)"
     >
@@ -69,6 +79,7 @@
     {{ 'admin.legacy.preuve_publique' | translate
     }}<input
       type="url"
+      [readOnly]="readOnly()"
       [value]="draft().proofUrl"
       (input)="setTextField('proofUrl', $event)"
     />
@@ -77,6 +88,7 @@
     {{ 'admin.legacy.source_de_la_preuve' | translate
     }}<input
       type="text"
+      [readOnly]="readOnly()"
       maxlength="500"
       [value]="draft().proofSource"
       (input)="setTextField('proofSource', $event)"
@@ -86,6 +98,7 @@
     {{ 'admin.legacy.date_de_la_preuve' | translate
     }}<input
       type="datetime-local"
+      [readOnly]="readOnly()"
       [value]="draft().proofPublishedAt"
       (input)="setTextField('proofPublishedAt', $event)"
     />

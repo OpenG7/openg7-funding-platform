@@ -160,7 +160,7 @@ async function prepare(page: Page, language: string, width: number) {
 for (const language of ['fr-CA', 'en']) {
   for (const width of [390, 1280]) {
     const english = language === 'en';
-    test(`allocation creation preserves the next draft and a failed submission in ${language} at ${width}px`, async ({
+    test(`allocation creation preserves the next draft and blocks an unconfirmed submission across refresh and reload in ${language} at ${width}px`, async ({
       page
     }) => {
       const { form, add, submissions, reads, finish } = await prepare(
@@ -211,8 +211,11 @@ for (const language of ['fr-CA', 'en']) {
       await expect.poll(() => submissions.length).toBe(2);
       expect(submissions[1].payload.projectName).toBe('next');
       await finish(submissions[1], 500);
-      await expect(add).toBeEnabled();
+      await expect(add).toBeDisabled();
       await expectDraft(form, english, next);
+      await expect(
+        page.locator('[data-og7="expense-create-uncertain"]')
+      ).toBeVisible();
       await expect(
         page.getByText(
           english
@@ -222,6 +225,40 @@ for (const language of ['fr-CA', 'en']) {
         )
       ).toBeVisible();
       expect(reads).toHaveLength(2);
+      expect(submissions).toHaveLength(2);
+      expect(
+        await page.evaluate(() =>
+          sessionStorage.getItem('openg7-admin-expense-create-uncertain')
+        )
+      ).toBe('1');
+      await add.dispatchEvent('click');
+      expect(submissions).toHaveLength(2);
+      await page
+        .getByRole('button', {
+          name: english ? 'Refresh' : 'Actualiser',
+          exact: true
+        })
+        .click();
+      await expect.poll(() => reads.length).toBe(3);
+      await expect(add).toBeDisabled();
+      await expect(
+        page.locator('[data-og7="expense-create-uncertain"]')
+      ).toBeVisible();
+      await add.dispatchEvent('click');
+      expect(submissions).toHaveLength(2);
+      await page.reload();
+      await expect.poll(() => reads.length).toBe(4);
+      await expect(form).toBeVisible();
+      await expect(add).toBeDisabled();
+      await expect(
+        page.locator('[data-og7="expense-create-uncertain"]')
+      ).toBeVisible();
+      expect(
+        await page.evaluate(() =>
+          sessionStorage.getItem('openg7-admin-expense-create-uncertain')
+        )
+      ).toBe('1');
+      await add.dispatchEvent('click');
       expect(submissions).toHaveLength(2);
       const accessibility = await new AxeBuilder({ page })
         .include('[data-og7="allocation-create"]')
@@ -277,7 +314,7 @@ for (const language of ['fr-CA', 'en']) {
       await add.click();
       const dialog = page.getByRole('dialog');
       await expect(dialog).toContainText(published.description);
-      await expect(add).toBeDisabled();
+      await expect(add).toBeEnabled();
       expect(submissions).toHaveLength(0);
       await dialog
         .getByRole('button', {
@@ -287,6 +324,7 @@ for (const language of ['fr-CA', 'en']) {
         .last()
         .click();
       await expect(add).toBeEnabled();
+      await expect(add).toBeFocused();
       await expectDraft(form, english, published);
       expect(submissions).toHaveLength(0);
       await add.click();

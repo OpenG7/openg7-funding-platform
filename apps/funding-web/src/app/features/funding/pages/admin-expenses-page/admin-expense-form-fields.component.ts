@@ -34,15 +34,18 @@ import type {
 export class AdminExpenseFormFieldsComponent {
   readonly draft = input.required<NewExpenseDraft>();
   readonly publishedAt = input<string | null>(null);
+  readonly readOnly = input(false);
   readonly fieldChange = output<ExpenseEditFieldChange>();
   readonly expenseStatuses = expenseStatuses;
   readonly statusKeys = expenseStatusTranslationKeys;
 
   setTextField(field: ExpenseTextField, event: Event): void {
+    if (this.readOnly()) return;
     this.fieldChange.emit({ field, value: this.valueFromEvent(event) });
   }
 
   setStatus(event: Event): void {
+    if (this.readOnly()) return;
     const value = this.valueFromEvent(event);
     this.fieldChange.emit({
       field: 'status',
@@ -53,6 +56,7 @@ export class AdminExpenseFormFieldsComponent {
   }
 
   setProgressStatus(event: Event): void {
+    if (this.readOnly()) return;
     const value = this.valueFromEvent(event);
     this.fieldChange.emit({
       field: 'progressStatus',

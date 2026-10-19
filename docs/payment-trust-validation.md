@@ -319,6 +319,19 @@ ni modification du moteur de reprise n'est nécessaire pour cette recette.
 
 ## Recette de renvoi des factures et avoirs
 
+Évolution UI PR-UX-01 : le backfill est réservé à owner; les PDF restent
+consultables par les trois rôles et les renvois par operator/owner. Le dernier
+statut `uncertain` est explicite et oriente vers la file courriel. Après réponse
+perdue, le document et son destinataire sont verrouillés; un marqueur opaque de
+session empêche une autre requête après navigation/rechargement lorsque le
+stockage est disponible. L'UUID initial est conservé, sans rejeu par ce formulaire.
+Il n'existe pas de GET de reçu documentaire ni de dernier messageId dans la
+projection; le lien de vérification est donc générique si ce messageId n'a pas
+été reçu. La file possède son propre workflow de réconciliation. Le verrou local
+ne se lève pas automatiquement sur simple relecture : une résolution fiable
+nécessite ce contrat manquant. Un POST acquitté conserve son résultat et son lien
+exact même si le rafraîchissement ultérieur échoue.
+
 La recette [document-resend-acceptance.spec.ts](../tests/playwright/document-resend-acceptance.spec.ts)
 couvre les scénarios 27 et 54 de l'inventaire. Une entreprise paie 500 CAD via
 Checkout simulé ; un remboursement simulé de 100 CAD prépare un avoir. L'admin
@@ -327,8 +340,8 @@ ne crée aucun courriel ; les demandes sans authentification, confirmation,
 UUID ou destinataire valide sont refusées côté serveur.
 
 Pour chaque document, la recette transmet la demande à l'API réelle puis coupe
-uniquement sa réponse. Après rechargement et nouvelle saisie de la même adresse,
-la reprise conserve le UUID et le même message. Deux rejeux concurrents ne créent
+uniquement sa réponse. L'UI bloque un nouvel envoi après rechargement et fournit
+le lien de vérification. Deux rejeux API contrôlés du même UUID ne créent
 aucun doublon ; changer le destinataire du même UUID produit un conflit. Un refus
 SMTP laisse un échec visible dans la file. Après rétablissement, la relance du
 message existant donne un seul courriel capturé par Mailpit. Un message déjà
@@ -354,8 +367,8 @@ node --test tests/integration/document-resend.integration.mjs
 
 Limites : une réponse HTTP perdue et un échec connu avant acceptation SMTP, sans
 qualification de délivrabilité réelle ni ambiguïté après acceptation SMTP. La
-conservation du UUID après rechargement nécessite le stockage de session du
-navigateur ; sans ce stockage, la reprise conserve le UUID seulement sur la page
+conservation du verrou après rechargement nécessite le stockage de session du
+navigateur ; sans ce stockage, la protection mémoire dure seulement sur la page
 ouverte. Aucun secret, courriel réel ou mouvement de fonds réel n'est utilisé.
 Le contrat exige une mise à jour coordonnée API/Web ; aucune migration.
 

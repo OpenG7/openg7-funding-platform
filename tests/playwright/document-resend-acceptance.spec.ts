@@ -232,7 +232,7 @@ test('confirmed invoice and credit-note resends recover from SMTP failure and lo
       let messageId = '';
       await test.step(
         kind +
-          ': lost response reuses the confirmed request, then SMTP failure remains visible',
+          ': lost response blocks a new UI request; API deduplicates the original UUID',
         async () => {
           await gate('reject');
           await page.route(
@@ -249,18 +249,14 @@ test('confirmed invoice and credit-note resends recover from SMTP failure and lo
           await send.click();
           await page.locator('[data-og7="confirm-action"]').click();
           await expect.poll(() => messageId).not.toBe('');
-          await expect(send).toBeEnabled();
+          await expect(send).toBeDisabled();
           await page.reload();
-          await recipient.fill(corrected);
-          await send.click();
-          const recovered = page.waitForResponse(
-            (r) => r.url().endsWith(endpoint) && r.request().method() === 'POST'
-          );
-          await page.locator('[data-og7="confirm-action"]').click();
-          const response = await recovered;
-          expect(response.ok()).toBe(true);
-          expect(response.request().postDataJSON()).toEqual(body);
-          expect((await response.json()).messageId).toBe(messageId);
+          await expect(send).toBeDisabled();
+          await expect(
+            page.locator(
+              '[data-og7="document-email-reconcile"][data-og7-id="' + id + '"]'
+            )
+          ).toBeVisible();
           const duplicates = await Promise.all(
             [1, 2].map(() => request.post(endpoint, { headers, data: body }))
           );
@@ -289,12 +285,10 @@ test('confirmed invoice and credit-note resends recover from SMTP failure and lo
           await gate('allow');
           await page
             .locator(
-              '[data-og7="document-email-status"][data-og7-id="' + id + '"]'
+              '[data-og7="document-email-reconcile"][data-og7-id="' + id + '"]'
             )
             .click();
-          await expect(page).toHaveURL(
-            new RegExp('/admin/fundraiser/email-queue\\?messageId=' + messageId)
-          );
+          await expect(page).toHaveURL(/\/admin\/fundraiser\/email-queue$/);
           const row = page.getByRole('row').filter({ hasText: corrected });
           await row
             .getByRole('button', { name: 'Relancer', exact: true })

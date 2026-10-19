@@ -24,6 +24,8 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import { AdminIconComponent } from '../../components/admin-ui/admin-icon.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
+import { adminFinancialCapabilities } from '../../services/admin-financial-capabilities.js';
+import { adminDocumentDeliveryBrowser } from '../../services/admin-document-delivery-browser.js';
 
 import { AdminExpensesReadController } from './admin-expenses-read-controller.js';
 import { AdminExpensesMutationWorkflow } from './admin-expenses-mutation-workflow.js';
@@ -63,9 +65,30 @@ import type {
           </button>
         </header>
 
+        @if (!canManageExpenses()) {
+          <p class="state" data-og7="financial-read-only" role="status">
+            {{ 'admin.financialSafety.readOnly' | translate }}
+          </p>
+        }
+
         <p class="state" *ngIf="state() === 'loading'">
           {{ 'admin.legacy.chargement_des_depenses' | translate }}
         </p>
+
+        @if (state() === 'error' && response()) {
+          <p class="state" data-og7="financial-stale" role="status">
+            {{ 'admin.financialSafety.stale' | translate }}
+          </p>
+        }
+        @if (createUncertain()) {
+          <p
+            class="state state-error"
+            data-og7="expense-create-uncertain"
+            role="alert"
+          >
+            {{ 'admin.financialSafety.createUncertain' | translate }}
+          </p>
+        }
         <p class="state state-error" *ngIf="state() === 'error'">
           {{
             readError() ||
@@ -112,7 +135,10 @@ import type {
             </article>
           </section>
 
-          <div class="expense-workspace">
+          <div
+            class="expense-workspace"
+            [class.is-read-only]="!canManageExpenses()"
+          >
             <div class="expense-register">
               <header class="register-heading">
                 <h2>{{ 'admin.legacy.liste_des_depenses' | translate }}</h2>
@@ -136,7 +162,8 @@ import type {
                   "
                   [expense]="expense"
                   [edit]="editFor(expense.id)"
-                  [busy]="mutationBusy()"
+                  [busy]="mutationBusy() || state() !== 'ready'"
+                  [canManage]="canManageExpenses()"
                   [amountLabel]="
                     formatMoney(expense.amount_allocated, expense.currency)
                   "
@@ -154,19 +181,26 @@ import type {
                   </h3>
                   <p>
                     {{
-                      'admin.legacy.ajoutez_une_depense_ou_modifiez_les_filtres'
-                        | translate
+                      (canManageExpenses()
+                        ? 'admin.legacy.ajoutez_une_depense_ou_modifiez_les_filtres'
+                        : 'admin.financialSafety.readOnly'
+                      ) | translate
                     }}
                   </p>
                 </article>
               </section>
             </div>
-            <openg7-admin-expense-create
-              [draft]="newExpenseDraft()"
-              [busy]="mutationBusy()"
-              (draftChange)="setNewField($event)"
-              (createRequested)="createExpense()"
-            />
+            @if (canManageExpenses()) {
+              <openg7-admin-expense-create
+                [draft]="newExpenseDraft()"
+                [busy]="
+                  mutationBusy() || createUncertain() || state() !== 'ready'
+                "
+                [readOnly]="createUncertain()"
+                (draftChange)="setNewField($event)"
+                (createRequested)="createExpense()"
+              />
+            }
           </div>
         </ng-container>
       </section>
@@ -189,6 +223,11 @@ export class AdminExpensesPageComponent implements OnInit {
   readonly inspection = inject(AdminInspectionService);
   private readonly admin = inject(FundingAdminService);
   readonly adminToken = signal<string>('');
+  readonly canManageExpenses = computed(
+    () =>
+      adminFinancialCapabilities(this.admin.identity(), this.adminToken())
+        .canManageExpenses
+  );
   private readonly read = new AdminExpensesReadController({
     admin: this.admin,
     token: () => this.adminToken(),
@@ -200,6 +239,12 @@ export class AdminExpensesPageComponent implements OnInit {
     confirmation: this.confirmation,
     read: this.read,
     token: () => this.adminToken(),
+    canManage: () =>
+      adminFinancialCapabilities(
+        this.admin.identity(),
+        this.admin.getSavedAdminToken()
+      ).canManageExpenses,
+    storage: () => adminDocumentDeliveryBrowser()?.storage() ?? null,
     draft: () => this.newExpenseDraft(),
     resetDraftIfUnchanged: (draft) => this.resetDraftIfUnchanged(draft),
     t: (key) => this.i18n.t(key),
@@ -207,7 +252,10 @@ export class AdminExpensesPageComponent implements OnInit {
     onAccessDenied: (status) => this.accessDenied(status)
   });
   readonly conflict = this.read.conflict;
-  readonly mutationBusy = this.mutation.busy;
+  readonly mutationBusy = computed(
+    () => this.mutation.busy() && !this.mutation.confirming()
+  );
+  readonly createUncertain = this.mutation.createUncertain;
   readonly response = this.read.response;
   readonly expenseEdits = this.read.expenseEdits;
   readonly state = this.read.state;
@@ -324,6 +372,7 @@ export class AdminExpensesPageComponent implements OnInit {
   }
 
   setNewField(change: NewExpenseFieldChange): void {
+    if (!this.canManageExpenses() || this.createUncertain()) return;
     switch (change.field) {
       case 'projectName':
         this.newProjectName.set(change.value);
@@ -356,6 +405,7 @@ export class AdminExpensesPageComponent implements OnInit {
   }
 
   setEditField(expenseId: string, change: ExpenseEditFieldChange): void {
+    if (!this.canManageExpenses()) return;
     this.read.setEditField(expenseId, change);
   }
 
