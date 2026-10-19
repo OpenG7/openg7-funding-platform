@@ -7,7 +7,7 @@ import type {
 } from '@openg7/funding-core';
 
 export interface PublicationAutomationCommandRunner {
-  run(command: PublicationAutomationCommand, open?: boolean): Promise<void>;
+  run(command: PublicationAutomationCommand, open?: boolean): Promise<boolean>;
 }
 
 export type PublicationAutomationMedia = PublicationMediaOption;

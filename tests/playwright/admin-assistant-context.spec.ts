@@ -429,6 +429,92 @@ test('information draft requires reviewed recipient and explicit confirmation, E
   );
 });
 
+for (const language of ['fr-CA', 'en'] as const) {
+  for (const width of [390, 1536]) {
+    test(`uncertain information delivery blocks changed requests and survives reload in ${language} at ${width}px`, async ({
+      page
+    }, testInfo) => {
+      await page.setViewportSize({ width, height: 864 });
+      await page.addInitScript((locale) => {
+        localStorage.setItem('openg7.language', locale);
+      }, language);
+      const { calls, options } = await fixtures(page);
+      options.sendStatus = 503;
+      const english = language === 'en';
+      await page.goto(path());
+      await page
+        .getByRole('button', {
+          name: english ? 'Request information' : 'Demander des informations',
+          exact: true
+        })
+        .click();
+      await page
+        .getByRole('button', {
+          name: english ? 'Review delivery' : 'Vérifier l’envoi',
+          exact: true
+        })
+        .click();
+      await page
+        .getByRole('button', {
+          name: english ? 'Confirm delivery' : 'Confirmer l’envoi',
+          exact: true
+        })
+        .click();
+      const warning = page.locator(
+        '[data-og7="assistant-information-uncertain"]'
+      );
+      await expect(warning).toBeVisible();
+      await expect(
+        page.getByLabel(english ? 'Subject' : 'Objet', { exact: true })
+      ).toBeDisabled();
+      await expect(page.getByLabel('Message', { exact: true })).toBeDisabled();
+      await expect(
+        page.getByRole('button', {
+          name: english ? 'Review delivery' : 'Vérifier l’envoi',
+          exact: true
+        })
+      ).toBeDisabled();
+      const link = warning.getByRole('link');
+      await expect(link).toHaveAttribute(
+        'href',
+        '/admin/fundraiser/email-queue'
+      );
+      await link.focus();
+      await expect(link).toBeFocused();
+      await captureAdminDesign(
+        page,
+        testInfo,
+        `assistant-information-uncertain-${width}`
+      );
+      await page.reload();
+      await expect(warning).toBeVisible();
+      await expect(
+        page.getByRole('button', {
+          name: english ? 'Request information' : 'Demander des informations',
+          exact: true
+        })
+      ).toHaveCount(0);
+      expect(
+        calls.filter((call) => call.path.endsWith('request-information'))
+      ).toHaveLength(1);
+      expect(
+        await page.evaluate(() =>
+          sessionStorage.getItem(
+            'openg7-assistant-information-pending:' +
+              '10000000-0000-4000-8000-000000000301'
+          )
+        )
+      ).toBe('pending');
+      if (width === 1536) {
+        await page.evaluate(() => {
+          document.documentElement.style.fontSize = '200%';
+        });
+        await expectAdminPageFits(page);
+      }
+    });
+  }
+}
+
 test('stale context invalidates the draft until it is prepared again', async ({
   page
 }) => {

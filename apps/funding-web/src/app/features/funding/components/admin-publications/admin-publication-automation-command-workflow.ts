@@ -14,11 +14,11 @@ export class AdminPublicationAutomationCommandWorkflow implements PublicationAut
   async run(
     command: PublicationAutomationCommand,
     open = false
-  ): Promise<void> {
+  ): Promise<boolean> {
     const { state } = this.ports;
-    if (state.busy()) return;
+    if (state.busy()) return false;
     const context = this.ports.capture();
-    if (!this.ports.isCurrent(context)) return;
+    if (!this.ports.isCurrent(context)) return false;
     state.busy.set(true);
     state.error.set('');
     state.notice.set('');
@@ -27,14 +27,14 @@ export class AdminPublicationAutomationCommandWorkflow implements PublicationAut
       try {
         result = await this.ports.api.execute(command);
       } catch (error) {
-        if (!this.ports.isCurrent(context)) return;
+        if (!this.ports.isCurrent(context)) return false;
         await this.refreshAfterFailure(context);
         if (this.ports.isCurrent(context)) this.ports.showError(error);
-        return;
+        return false;
       }
-      if (!this.ports.isCurrent(context)) return;
+      if (!this.ports.isCurrent(context)) return false;
       const next = await this.ports.api.read(context.filter);
-      if (!this.ports.isCurrent(context)) return;
+      if (!this.ports.isCurrent(context)) return false;
       this.ports.applyState(next);
       this.ports.confirmed(command, result, next, open);
       state.notice.set(
@@ -44,8 +44,10 @@ export class AdminPublicationAutomationCommandWorkflow implements PublicationAut
             ? 'admin.publicationAutomation.settingsPanel.checked'
             : 'admin.publicationAutomation.saved'
       );
+      return true;
     } catch (error) {
       if (this.ports.isCurrent(context)) this.ports.showError(error);
+      return false;
     } finally {
       state.busy.set(false);
     }

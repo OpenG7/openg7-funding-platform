@@ -60,43 +60,46 @@ import type {
       <openg7-admin-expense-form-fields
         [draft]="edit()"
         [publishedAt]="edit().publishedAt"
+        [readOnly]="!canManage()"
         (fieldChange)="editChange.emit($event)"
       />
 
-      <footer>
-        <button
-          type="button"
-          class="admin-button admin-button--primary"
-          [disabled]="busy()"
-          (click)="saveRequested.emit(undefined)"
-        >
-          {{ 'admin.legacy.enregistrer' | translate }}
-        </button>
-        <button
-          type="button"
-          class="admin-button approve"
-          [disabled]="busy()"
-          (click)="saveRequested.emit('published')"
-        >
-          {{ 'admin.legacy.publier' | translate }}
-        </button>
-        <button
-          type="button"
-          class="admin-button neutral"
-          [disabled]="busy()"
-          (click)="saveRequested.emit('private')"
-        >
-          {{ 'admin.legacy.masquer' | translate }}
-        </button>
-        <button
-          type="button"
-          class="admin-button reject"
-          [disabled]="busy()"
-          (click)="saveRequested.emit('archived')"
-        >
-          {{ 'admin.legacy.archiver' | translate }}
-        </button>
-      </footer>
+      @if (canManage()) {
+        <footer>
+          <button
+            type="button"
+            class="admin-button admin-button--primary"
+            [disabled]="busy()"
+            (click)="saveRequested.emit(undefined)"
+          >
+            {{ 'admin.legacy.enregistrer' | translate }}
+          </button>
+          <button
+            type="button"
+            class="admin-button approve"
+            [disabled]="busy()"
+            (click)="saveRequested.emit('published')"
+          >
+            {{ 'admin.legacy.publier' | translate }}
+          </button>
+          <button
+            type="button"
+            class="admin-button neutral"
+            [disabled]="busy()"
+            (click)="saveRequested.emit('private')"
+          >
+            {{ 'admin.legacy.masquer' | translate }}
+          </button>
+          <button
+            type="button"
+            class="admin-button reject"
+            [disabled]="busy()"
+            (click)="saveRequested.emit('archived')"
+          >
+            {{ 'admin.legacy.archiver' | translate }}
+          </button>
+        </footer>
+      }
     </article>
   `,
   styleUrls: [
@@ -109,6 +112,7 @@ export class AdminExpenseCardComponent {
   readonly expense = input.required<AdminExpenseRecord>();
   readonly edit = input.required<ExpenseEdit>();
   readonly busy = input.required<boolean>();
+  readonly canManage = input.required<boolean>();
   readonly amountLabel = input.required<string>();
   readonly editChange = output<ExpenseEditFieldChange>();
   readonly saveRequested = output<AdminExpenseStatus | undefined>();

@@ -248,13 +248,24 @@ for (const prefix of ['', '/en']) {
     }
     await expect.poll(() => lookups.length).toBeGreaterThanOrEqual(3);
     expect(lookups.every((value) => value === reference)).toBe(true);
-    await page
-      .getByRole('button', {
-        name: prefix
-          ? 'Close payment confirmation'
-          : 'Fermer la confirmation de paiement'
+    const closeNotice = page.getByRole('button', {
+      name: prefix
+        ? 'Close payment confirmation'
+        : 'Fermer la confirmation de paiement'
+    });
+    await closeNotice.scrollIntoViewIfNeeded();
+    // Language navigation restores #support with smooth scrolling. Let the
+    // close button stop moving before sending its native pointer click.
+    let previousCloseY: number | undefined;
+    await expect
+      .poll(async () => {
+        const y = (await closeNotice.boundingBox())?.y;
+        const stable = y !== undefined && y === previousCloseY;
+        previousCloseY = y;
+        return stable;
       })
-      .click();
+      .toBe(true);
+    await closeNotice.click();
     await expect(page).toHaveURL(
       (url) => url.search === '?intent=sponsorship' && url.hash === '#support'
     );

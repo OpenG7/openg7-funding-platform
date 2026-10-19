@@ -349,8 +349,9 @@ export class AdminPublicationAutomationPageComponent {
   async run(
     command: PublicationAutomationCommand,
     open = false
-  ): Promise<void> {
-    if (!this.readController.isDisposed())
-      await this.commandWorkflow.run(command, open);
+  ): Promise<boolean> {
+    return this.readController.isDisposed()
+      ? false
+      : this.commandWorkflow.run(command, open);
   }
 }

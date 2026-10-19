@@ -265,7 +265,7 @@ async function save(
         name: english ? 'Save' : 'Enregistrer',
         exact: true
       })
-    ).toBeDisabled();
+    ).toBeEnabled();
     await page.locator('[data-og7="confirm-action"]').focus();
     await page.keyboard.press('Enter');
   }
@@ -383,6 +383,34 @@ for (const language of ['fr-CA', 'en']) {
         })
         .click();
       await expect.poll(() => reads.length).toBe(2);
+      await expect(
+        card('1').getByRole('button', { name: saveName, exact: true })
+      ).toBeDisabled();
+      await expect(
+        card('1').getByRole('button', {
+          name: english ? 'Publish' : 'Publier',
+          exact: true
+        })
+      ).toBeDisabled();
+      expect(submissions).toHaveLength(0);
+      // A newer successful read restores eligibility while the old response
+      // remains held. Explicit refresh adopts server fields before editing.
+      await page
+        .getByRole('button', {
+          name: english ? 'Refresh' : 'Actualiser',
+          exact: true
+        })
+        .click();
+      await expect.poll(() => reads.length).toBe(3);
+      await expect(
+        card('1').getByRole('button', { name: saveName, exact: true })
+      ).toBeEnabled();
+      await card('1')
+        .getByLabel(description, { exact: true })
+        .fill('Submitted description');
+      await card('2')
+        .getByLabel(description, { exact: true })
+        .fill('Unsaved second allocation');
       await save(page, card('1'), english, true);
       await expect.poll(() => submissions.length).toBe(1);
       // The POST can start before the modal releases the underlying fields.
@@ -402,13 +430,13 @@ for (const language of ['fr-CA', 'en']) {
       });
       options.holdNextRead = true;
       const confirmed = (await finish(submissions[0]))!;
-      await expect.poll(() => reads.length).toBe(3);
+      await expect.poll(() => reads.length).toBe(4);
       await card('1')
         .getByLabel(english ? 'Proof source' : 'Source de la preuve', {
           exact: true
         })
         .fill('Typed during the reread');
-      await reads[2].route.fulfill({ json: reads[2].response });
+      await reads[3].route.fulfill({ json: reads[3].response });
       await expect(
         card('1').getByRole('button', { name: saveName, exact: true })
       ).toBeEnabled();
@@ -557,7 +585,7 @@ for (const language of ['fr-CA', 'en']) {
       ).toBeEnabled();
     });
 
-    test(`a failed allocation reread preserves confirmed version and further edits in ${language} at ${width}px`, async ({
+    test(`a failed allocation reread preserves edits and requires a successful refresh before another save in ${language} at ${width}px`, async ({
       page
     }) => {
       const { submissions, options, finish, card } = await prepare(
@@ -578,7 +606,8 @@ for (const language of ['fr-CA', 'en']) {
       const confirmed = (await finish(submissions[0]))!;
       await expect(
         card('1').getByRole('button', { name: saveName, exact: true })
-      ).toBeEnabled();
+      ).toBeDisabled();
+      await expect(page.locator('[data-og7="financial-stale"]')).toBeVisible();
       await expect(
         page.getByText(
           english
@@ -593,13 +622,39 @@ for (const language of ['fr-CA', 'en']) {
       await expect(
         card('2').getByLabel(description, { exact: true })
       ).toHaveValue('Other local draft');
+      await card('1')
+        .getByRole('button', {
+          name: saveName,
+          exact: true
+        })
+        .dispatchEvent('click');
+      await rendered(page);
+      expect(submissions).toHaveLength(1);
+      options.readStatus = 200;
+      await page
+        .getByRole('button', {
+          name: english ? 'Refresh' : 'Actualiser',
+          exact: true
+        })
+        .click();
+      await expect(
+        card('1').getByRole('button', { name: saveName, exact: true })
+      ).toBeEnabled();
+      await expect(page.locator('[data-og7="financial-stale"]')).toHaveCount(0);
+      await expect(card('1').getByLabel(outcome, { exact: true })).toHaveValue(
+        confirmed.expected_outcome
+      );
+      // Explicit refresh adopts server facts; reapply the reviewed draft before saving.
+      await card('1').getByLabel(outcome, { exact: true }).fill('Next outcome');
+      await card('2')
+        .getByLabel(description, { exact: true })
+        .fill('Other local draft');
       await save(page, card('1'), english);
       await expect.poll(() => submissions.length).toBe(2);
       expect(submissions[1].payload).toMatchObject({
         expectedVersion: confirmed.updated_at,
         expectedOutcome: 'Next outcome'
       });
-      options.readStatus = 200;
       await finish(submissions[1]);
       await expect(
         card('1').getByRole('button', { name: saveName, exact: true })

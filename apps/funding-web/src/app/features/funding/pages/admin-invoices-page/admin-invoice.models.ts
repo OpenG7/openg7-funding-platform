@@ -4,7 +4,7 @@ import type {
 } from '@openg7/funding-core';
 
 export type DocumentResendState =
-  'idle' | 'confirming' | 'sending' | 'sent' | 'error';
+  'idle' | 'confirming' | 'sending' | 'sent' | 'error' | 'uncertain';
 export type DocumentDownloadState = 'idle' | 'loading' | 'error';
 
 /** Presentation snapshots only; the local delivery controller owns drafts and requests. */
@@ -14,6 +14,7 @@ export interface AdminDocumentDeliveryView {
   readonly state: DocumentResendState;
   readonly message: string;
   readonly messageId: string | null;
+  readonly serverStatus?: string | null;
 }
 
 export interface AdminDocumentDownloadView {

@@ -16,6 +16,7 @@ import { AdminDashboardRequestError } from './funding-admin-session.js';
 export class AdminSponsorRefundWorkflow {
   readonly activeRefundId = signal<string | null>(null);
   readonly refundDrafts = signal<Record<string, SponsorRefundDraft>>({});
+  private readonly submittedVersions = new Map<string, string>();
 
   constructor(private readonly ports: AdminSponsorRefundPorts) {}
 
@@ -113,6 +114,7 @@ export class AdminSponsorRefundWorkflow {
   canRefundSponsorship(sponsorship: AdminSponsorshipRecord): boolean {
     return (
       this.ports.canUseOwnerActions() &&
+      this.submittedVersions.get(sponsorship.id) !== sponsorship.version &&
       sponsorship.payment_status === 'paid' &&
       sponsorship.sponsorship_refund_status !== 'processing' &&
       !(
@@ -179,6 +181,8 @@ export class AdminSponsorRefundWorkflow {
 
   refundValidationMessage(sponsorship: AdminSponsorshipRecord): string {
     const draft = this.refundDraftFor(sponsorship);
+    if (this.submittedVersions.get(sponsorship.id) === sponsorship.version)
+      return this.ports.t('admin.messages.refund_awaiting_confirmation');
     if (!this.canRefundSponsorship(sponsorship)) {
       if (sponsorship.sponsorship_refund_status === 'completed') {
         return this.ports.t(
@@ -264,6 +268,7 @@ export class AdminSponsorRefundWorkflow {
       this.ports.t('admin.messages.remboursement_stripe_en_cours')
     );
 
+    let confirmedResult: AdminSponsorshipRefundResult | null = null;
     try {
       const result = await this.ports.admin.refundSponsorship(
         this.ports.adminToken(),
@@ -283,6 +288,8 @@ export class AdminSponsorRefundWorkflow {
             : undefined
         }
       );
+      confirmedResult = result;
+      this.submittedVersions.set(sponsorship.id, sponsorship.version);
       await this.ports.reloadSponsorships();
       this.activeRefundId.set(null);
       this.ports.setReviewMessage(
@@ -297,12 +304,29 @@ export class AdminSponsorRefundWorkflow {
       );
       this.ports.pulseSelection(sponsorship.id);
     } catch (error) {
+      if (confirmedResult) {
+        this.activeRefundId.set(null);
+        this.ports.setReviewMessage(
+          sponsorship.id,
+          this.ports.t('admin.financialSafety.refundReadFailed'),
+          true
+        );
+        return;
+      }
       if (
-        error instanceof AdminDashboardRequestError &&
+        !(error instanceof AdminDashboardRequestError) ||
+        error.status === 0 ||
+        error.status === 408 ||
+        error.status >= 500 ||
         error.code === 'SPONSORSHIP_REFUND_UNCERTAIN'
       ) {
+        this.submittedVersions.set(sponsorship.id, sponsorship.version);
         this.activeRefundId.set(null);
-        await this.ports.reloadSponsorships();
+        try {
+          await this.ports.reloadSponsorships();
+        } catch {
+          // A failed read cannot release the submitted version for another refund.
+        }
         this.ports.setReviewMessage(
           sponsorship.id,
           this.ports.t('admin.messages.refund_awaiting_confirmation'),

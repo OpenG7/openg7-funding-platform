@@ -22,6 +22,15 @@ Les webhooks et le backfill refusent une transaction de solde dont le montant br
 
 ## Allocations publiées et réalisations
 
+Dans l'administration Dépenses, reader et operator consultent le registre et les
+preuves en lecture seule. Seul owner dispose de création, édition, publication,
+masquage et archivage; l'API contrôle toujours ces droits. Une lecture en échec
+affiche le dernier état connu et bloque les mutations jusqu'à une lecture valide.
+Après une réponse de création perdue, la création reste bloquée et le registre
+reste consultable. Le contrat ne fournit pas de requestId ni de reçu : relire le
+registre ne prouve pas l'absence d'une création. Voir les
+[limites UX-01](development/ux-00-current-platform-audit.md#capacités-vérifiées-et-manquantes-avant-implémentation).
+
 Une allocation décrit une utilisation prévue du fonds. Sa création, son avancement
 et sa publication ne déclenchent aucun paiement fournisseur et ne changent ni les
 transactions Stripe ni le net avant dépenses opérationnelles. `draft`, `private`

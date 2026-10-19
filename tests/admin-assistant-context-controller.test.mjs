@@ -83,7 +83,7 @@ const deferred = () => {
 };
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 
-function fixture() {
+function fixture(storage = new Map()) {
   const calls = { context: [], prepare: [], query: [], send: [], effects: [] };
   const options = {
     sponsorshipId: id,
@@ -127,10 +127,15 @@ function fixture() {
       calls.effects.push('unauthorized');
     },
     closeConfirmation: () => calls.effects.push('close'),
-    openConfirmation: () => calls.effects.push('open')
+    openConfirmation: () => calls.effects.push('open'),
+    storage: () => ({
+      getItem: (key) => storage.get(key) ?? null,
+      setItem: (key, value) => storage.set(key, value),
+      removeItem: (key) => storage.delete(key)
+    })
   };
   const controller = new AdminAssistantContextController(ports);
-  return { controller, ports, calls, options };
+  return { controller, ports, calls, options, storage };
 }
 
 async function populate(c) {
@@ -339,12 +344,12 @@ test('delivery requires reviewed confirmation, preserves edits on cancel and ref
   assert.equal(calls.effects.at(-1), 'refresh');
 });
 
-test('a failed send keeps the editable draft and requires new confirmation before retry', async () => {
+test('a definitive refused send preserves the draft and requires a new confirmation', async () => {
   const { controller: c, ports, calls } = fixture();
   await populate(c);
   const request = ports.requestSponsorshipInformation;
   ports.requestSponsorshipInformation = async () => {
-    throw new AdminDashboardRequestError(503);
+    throw new AdminDashboardRequestError(400);
   };
   c.reviewSend();
   await c.send();
@@ -361,6 +366,127 @@ test('a failed send keeps the editable draft and requires new confirmation befor
   assert.equal(c.error(), '');
   assert.equal(c.delivery(), delivery);
   assert.equal(calls.send.length, 1);
+});
+
+for (const failure of [
+  new Error('Synthetic request response lost'),
+  new AdminDashboardRequestError(408),
+  new AdminDashboardRequestError(503)
+]) {
+  test(`an information request with ${failure.message} retains its exact payload and prevents a changed resend`, async () => {
+    const { controller: c, ports, calls } = fixture();
+    await populate(c);
+    const sent = [];
+    ports.requestSponsorshipInformation = async (token, input) => {
+      sent.push(structuredClone(input));
+      throw failure;
+    };
+    c.reviewSend();
+    const input = c.confirmation();
+    await c.send();
+    assert.deepEqual(c.uncertainInformation(), input);
+    assert.equal(c.canPrepare(), false);
+    assert.equal(c.busy(), false);
+    assert.equal(c.delivery(), null);
+    c.subject.set('Different subject cannot create another logical request');
+    c.body.set('Different body cannot create another logical request');
+    c.reviewSend();
+    await c.send();
+    await c.prepare('sponsorship_reminder');
+    assert.deepEqual(sent, [input]);
+    assert.equal(c.confirmation(), null);
+    assert.equal(calls.prepare.length, 1);
+    assert.equal(calls.effects.includes('refresh'), false);
+    await c.load();
+    assert.deepEqual(c.uncertainInformation(), input);
+    assert.equal(c.canPrepare(), false);
+    assert.equal(c.subject(), input.subject);
+    assert.equal(c.body(), input.body);
+    await c.send();
+    assert.equal(sent.length, 1);
+  });
+}
+
+test('an uncertain information request survives the one-use handoff even when the dossier version changes', async () => {
+  const { controller: source, ports } = fixture();
+  await populate(source);
+  ports.requestSponsorshipInformation = async () => {
+    throw new Error('Synthetic uncertain mail request');
+  };
+  source.reviewSend();
+  await source.send();
+  const { controller: destination, ports: nextPorts, calls } = fixture();
+  nextPorts.getAssistantContext = async () => context(id, 'b'.repeat(64));
+  await destination.load(source.snapshot());
+  assert.deepEqual(
+    destination.uncertainInformation(),
+    source.uncertainInformation()
+  );
+  assert.equal(destination.canPrepare(), false);
+  await destination.prepare('sponsorship_reminder');
+  destination.reviewSend();
+  await destination.send();
+  assert.deepEqual(calls.send, []);
+  assert.deepEqual(calls.prepare, []);
+});
+
+test('uncertain private mail state is removed when the session changes', async () => {
+  const { controller: c, ports, options } = fixture();
+  await populate(c);
+  ports.requestSponsorshipInformation = async () => {
+    throw new Error('Synthetic old-session uncertainty');
+  };
+  c.reviewSend();
+  await c.send();
+  options.sessionGeneration.set(2);
+  await c.load();
+  assert.equal(c.uncertainInformation(), null);
+  assert.equal(c.subject(), '');
+  assert.equal(c.body(), '');
+  assert.equal(c.informationUncertain(), true);
+  assert.equal(c.canPrepare(), false);
+});
+
+test('a new controller keeps an opaque uncertain marker without persisting the private request or sending again', async () => {
+  const first = fixture();
+  await populate(first.controller);
+  first.ports.requestSponsorshipInformation = async () => {
+    throw new Error('Synthetic disconnected response');
+  };
+  first.controller.reviewSend();
+  await first.controller.send();
+  assert.deepEqual(
+    [...first.storage],
+    [['openg7-assistant-information-pending:' + id, 'pending']]
+  );
+  const stored = JSON.stringify([...first.storage]);
+  assert.equal(stored.includes('@'), false);
+  assert.equal(stored.includes('Private edited'), false);
+  const next = fixture(first.storage);
+  await next.controller.load();
+  assert.equal(next.controller.uncertainInformation(), null);
+  assert.equal(next.controller.informationUncertain(), true);
+  assert.equal(next.controller.canPrepare(), false);
+  await next.controller.prepare('sponsorship_reminder');
+  next.controller.reviewSend();
+  await next.controller.send();
+  assert.deepEqual(next.calls.prepare, []);
+  assert.deepEqual(next.calls.send, []);
+});
+
+test('a definitive information response removes its opaque marker', async () => {
+  for (const outcome of ['queued', 'refused']) {
+    const { controller: c, ports, storage } = fixture();
+    await populate(c);
+    if (outcome === 'refused')
+      ports.requestSponsorshipInformation = async () => {
+        throw new AdminDashboardRequestError(400);
+      };
+    c.reviewSend();
+    await c.send();
+    assert.equal(storage.size, 0);
+    assert.equal(c.informationUncertain(), false);
+  }
 });
 
 test('a version conflict invalidates the draft and permits preparation again without claiming delivery', async () => {
@@ -381,6 +507,23 @@ test('a version conflict invalidates the draft and permits preparation again wit
   await c.prepare('sponsorship_reminder');
   assert.equal(c.error(), '');
   assert.equal(c.prepared(), proposal);
+});
+
+test('a server-selected cockpit dossier releases only its refused information request and exposes the conflict', async () => {
+  const { controller: c, ports, options, storage } = fixture();
+  options.sponsorshipId = undefined;
+  await populate(c);
+  ports.requestSponsorshipInformation = async () => {
+    throw new AdminDashboardRequestError(409);
+  };
+  c.reviewSend();
+  await c.send();
+  assert.equal(c.data().context.contributionId, id);
+  assert.equal(c.uncertainInformation(), null);
+  assert.equal(c.informationUncertain(), false);
+  assert.equal(c.error(), 'conflict');
+  assert.equal(c.prepared(), null);
+  assert.equal(storage.size, 0);
 });
 
 test('401 during an action erases private fields and confirmation before redirecting', async () => {

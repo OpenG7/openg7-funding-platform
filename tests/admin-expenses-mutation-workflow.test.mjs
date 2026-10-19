@@ -3,6 +3,7 @@ import { registerHooks } from 'node:module';
 import test from 'node:test';
 
 import { AdminExpensesReadController } from '../dist/apps/funding-web/src/app/features/funding/pages/admin-expenses-page/admin-expenses-read-controller.js';
+import { AdminDashboardRequestError } from '../dist/apps/funding-web/src/app/features/funding/services/funding-admin-session.js';
 
 // The root TypeScript build emits workspaces under dist/, without package-local builds.
 const workspaceHook = registerHooks({
@@ -83,6 +84,7 @@ const fixture = async (initial = record()) => {
   let rows = [initial];
   let currentDraft = draft();
   let resets = 0;
+  const stored = new Map();
   const readPorts = {
     admin: {
       getExpenses: async (token, expenseId) => {
@@ -115,6 +117,12 @@ const fixture = async (initial = record()) => {
     },
     read,
     token: () => 'synthetic-session',
+    canManage: () => true,
+    storage: () => ({
+      getItem: (key) => stored.get(key) ?? null,
+      setItem: (key, value) => stored.set(key, value),
+      removeItem: (key) => stored.delete(key)
+    }),
     draft: () => currentDraft,
     resetDraftIfUnchanged: (submitted) => {
       if (
@@ -138,6 +146,7 @@ const fixture = async (initial = record()) => {
     updates,
     reads,
     confirmations,
+    stored,
     draft: () => currentDraft,
     setDraft: (value) => {
       currentDraft = value;
@@ -165,6 +174,7 @@ test('public creation freezes confirmed contents and keeps new input while block
   };
   const creating = f.workflow.create();
   assert.equal(f.workflow.busy(), true);
+  assert.equal(f.workflow.confirming(), true);
   assert.deepEqual(f.confirmations, [
     {
       title: 'admin.confirmation.publish',
@@ -179,6 +189,8 @@ test('public creation freezes confirmed contents and keeps new input while block
   assert.equal(f.creates.length, 0);
   confirmation.resolve(true);
   await Promise.resolve();
+  assert.equal(f.workflow.confirming(), false);
+  assert.equal(f.workflow.busy(), true);
   assert.deepEqual(f.creates, [
     {
       token: 'synthetic-session',
@@ -204,6 +216,8 @@ test('public creation freezes confirmed contents and keeps new input while block
   assert.equal(f.resets(), 0);
   assert.equal(f.reads.length, 2);
   assert.equal(f.workflow.busy(), false);
+  assert.equal(f.workflow.confirming(), false);
+  assert.equal(f.workflow.createUncertain(), false);
 });
 
 test('cancelled creation leaves the form unchanged without a write or reload', async () => {
@@ -216,6 +230,144 @@ test('cancelled creation leaves the form unchanged without a write or reload', a
   assert.equal(f.creates.length, 0);
   assert.equal(f.reads.length, 1);
   assert.equal(f.workflow.busy(), false);
+  assert.equal(f.workflow.confirming(), false);
+});
+
+for (const action of ['create', 'save']) {
+  test(`${action} keeps its confirmation opener available while an internal lock refuses duplicate actions`, async () => {
+    const f = await fixture();
+    f.setDraft(draft({ status: 'published' }));
+    const confirmation = deferred();
+    f.ports.confirmation.confirm = () => confirmation.promise;
+    const run = () =>
+      action === 'create'
+        ? f.workflow.create()
+        : f.workflow.save(record(), 'published');
+    const running = run();
+    assert.equal(f.workflow.busy(), true);
+    assert.equal(f.workflow.confirming(), true);
+    assert.equal(f.workflow.busy() && !f.workflow.confirming(), false);
+    await run();
+    assert.equal(f.creates.length + f.updates.length, 0);
+    confirmation.resolve(false);
+    await running;
+    assert.equal(f.workflow.busy(), false);
+    assert.equal(f.workflow.confirming(), false);
+    assert.equal(f.creates.length + f.updates.length, 0);
+  });
+}
+
+for (const action of ['create', 'save']) {
+  test(`${action} refuses missing capability before confirmation and rechecks it after confirmation`, async () => {
+    const f = await fixture();
+    f.setDraft(draft({ status: 'published' }));
+    f.ports.canManage = () => false;
+    const run = () =>
+      action === 'create'
+        ? f.workflow.create()
+        : f.workflow.save(record(), 'published');
+    await run();
+    assert.equal(f.creates.length + f.updates.length, 0);
+    assert.equal(f.confirmations.length, 0);
+
+    f.ports.canManage = () => true;
+    const pending = deferred();
+    f.ports.confirmation.confirm = () => pending.promise;
+    const running = run();
+    f.ports.canManage = () => false;
+    pending.resolve(true);
+    await running;
+    assert.equal(f.creates.length + f.updates.length, 0);
+    assert.equal(f.workflow.busy(), false);
+  });
+
+  test(`${action} requires a current successful read, including after confirmation`, async () => {
+    const f = await fixture();
+    f.setDraft(draft({ status: 'published' }));
+    const run = () =>
+      action === 'create'
+        ? f.workflow.create()
+        : f.workflow.save(record(), 'published');
+    for (const state of ['idle', 'loading', 'error']) {
+      f.read.state.set(state);
+      await run();
+    }
+    assert.equal(f.creates.length + f.updates.length, 0);
+    assert.equal(f.confirmations.length, 0);
+    f.read.state.set('ready');
+    const pending = deferred();
+    f.ports.confirmation.confirm = () => pending.promise;
+    const running = run();
+    f.read.state.set('error');
+    pending.resolve(true);
+    await running;
+    assert.equal(f.creates.length + f.updates.length, 0);
+  });
+}
+
+test('an unanswered creation remains blocked after refresh and does not create a second allocation', async () => {
+  const f = await fixture();
+  f.ports.admin.createExpense = async (token, payload) => {
+    f.creates.push({ token, payload });
+    // Persistence could have completed before this transport failure.
+    throw new TypeError('Synthetic lost response');
+  };
+  await f.workflow.create();
+  assert.equal(f.workflow.createUncertain(), true);
+  assert.equal(f.workflow.busy(), false);
+  assert.equal(f.creates.length, 1);
+  await f.read.load();
+  f.setDraft(draft({ projectName: 'Changed draft is not another request' }));
+  await f.workflow.create();
+  assert.equal(f.creates.length, 1);
+  assert.equal(f.workflow.createUncertain(), true);
+  assert.deepEqual(
+    [...f.stored],
+    [['openg7-admin-expense-create-uncertain', '1']]
+  );
+  f.workflow.dispose();
+  const next = new AdminExpensesMutationWorkflow(f.ports);
+  assert.equal(next.createUncertain(), true);
+  await next.create();
+  assert.equal(f.creates.length, 1);
+});
+
+test('a confirmed create clears its opaque marker even if its page was left before the response', async () => {
+  const f = await fixture();
+  const pending = deferred();
+  f.ports.admin.createExpense = () => pending.promise;
+  const running = f.workflow.create();
+  assert.deepEqual(
+    [...f.stored],
+    [['openg7-admin-expense-create-uncertain', '1']]
+  );
+  f.workflow.dispose();
+  const next = new AdminExpensesMutationWorkflow(f.ports);
+  assert.equal(next.createUncertain(), true);
+  pending.resolve({ updated: true, expense: record() });
+  await running;
+  assert.equal(f.stored.size, 0);
+  // Reading cannot automatically resolve a marker already observed by a page.
+  assert.equal(next.createUncertain(), true);
+  assert.equal(f.resets(), 0);
+});
+
+test('a definite validation refusal remains correctable without claiming an uncertain creation', async () => {
+  const f = await fixture();
+  f.ports.admin.createExpense = async () => {
+    throw new AdminDashboardRequestError(400, 'invalid_amount');
+  };
+  await f.workflow.create();
+  assert.equal(f.workflow.createUncertain(), false);
+  assert.equal(f.stored.size, 0);
+  assert.equal(f.read.state(), 'error');
+  await f.read.load();
+  f.ports.admin.createExpense = async (token, payload) => {
+    f.creates.push({ token, payload });
+    return { updated: true, expense: record() };
+  };
+  await f.workflow.create();
+  assert.equal(f.creates.length, 1);
 });
 
 test('creation resets only an unchanged successful draft and retains input on failure', async () => {

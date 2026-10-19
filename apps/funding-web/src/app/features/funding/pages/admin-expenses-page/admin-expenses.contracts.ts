@@ -36,6 +36,8 @@ export interface AdminExpensesMutationPorts {
   readonly read: AdminExpensesMutationReadPort;
   token(): string;
   draft(): NewExpenseDraft;
+  canManage(): boolean;
+  storage?(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null;
   resetDraftIfUnchanged(submitted: NewExpenseDraft): void;
   t(key: string): string;
   formatMoney(amount: number, currency: string): string;

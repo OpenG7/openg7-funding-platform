@@ -19,6 +19,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import type { AdminAssistantDraftType } from '@openg7/funding-core';
 
 import { FundingAdminService } from '../../services/funding-admin.service.js';
+import { adminDocumentDeliveryBrowser } from '../../services/admin-document-delivery-browser.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
 
@@ -89,7 +90,8 @@ export class AdminAssistantContextComponent implements OnInit, OnChanges {
       });
     },
     closeConfirmation: () => this.dialog()?.nativeElement.close(),
-    openConfirmation: () => this.dialog()?.nativeElement.showModal()
+    openConfirmation: () => this.dialog()?.nativeElement.showModal(),
+    storage: () => adminDocumentDeliveryBrowser()?.storage() ?? null
   });
   readonly data = this.controller.data;
   readonly state = this.controller.state;
@@ -99,6 +101,8 @@ export class AdminAssistantContextComponent implements OnInit, OnChanges {
   readonly answer = this.controller.answer;
   readonly delivery = this.controller.delivery;
   readonly confirmation = this.controller.confirmation;
+  readonly uncertainInformation = this.controller.uncertainInformation;
+  readonly informationUncertain = this.controller.informationUncertain;
   readonly subject = this.controller.subject;
   readonly body = this.controller.body;
   readonly question = this.controller.question;

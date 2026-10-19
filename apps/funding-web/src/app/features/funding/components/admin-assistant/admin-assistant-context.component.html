@@ -195,7 +195,7 @@
                 (ngModelChange)="subject.set($event)"
                 required
                 maxlength="200"
-                [disabled]="busy()"
+                [disabled]="busy() || informationUncertain()"
             /></label>
             <label
               >{{ 'admin.context.message' | translate
@@ -206,13 +206,18 @@
                 required
                 maxlength="6000"
                 rows="8"
-                [disabled]="busy()"
+                [disabled]="busy() || informationUncertain()"
               ></textarea>
             </label>
             <button
               type="submit"
               class="admin-button admin-button--primary"
-              [disabled]="busy() || !subject().trim() || !body().trim()"
+              [disabled]="
+                busy() ||
+                informationUncertain() ||
+                !subject().trim() ||
+                !body().trim()
+              "
             >
               {{ 'admin.context.reviewSend' | translate }}
             </button>
@@ -266,7 +271,18 @@
   @if (busy()) {
     <p role="status">{{ 'admin.context.working' | translate }}</p>
   }
-  @if (error()) {
+  @if (!busy() && informationUncertain()) {
+    <div class="inset" role="status" data-og7="assistant-information-uncertain">
+      <p>{{ 'admin.financialSafety.informationUncertain' | translate }}</p>
+      @if (uncertainInformation(); as pending) {
+        <p>{{ pending.recipient }} · {{ pending.subject }}</p>
+      }
+      <a class="admin-link" routerLink="/admin/fundraiser/email-queue">
+        {{ 'admin.context.viewEmail' | translate }}
+      </a>
+    </div>
+  }
+  @if (error() && !informationUncertain()) {
     <p role="alert" class="error">
       {{ 'admin.context.' + error() | translate }}
     </p>

@@ -94,6 +94,8 @@ export class PublicationDeliveryController {
   browserTimezone = '';
   private generation = 0;
   private disposed = false;
+  private readonly visibilityRequests = new Map<string, string>();
+  private readonly activeVisibility = new Set<string>();
 
   constructor(private readonly ports: PublicationDeliveryPorts) {
     this.state = ports.state;
@@ -468,21 +470,34 @@ export class PublicationDeliveryController {
       !this.currentSelection(selected, generation)
     )
       return;
-    if (
-      !(await this.ports.confirm(
-        this.ports.i18n.t('admin.publicationAutomation.checkVisibilityConfirm'),
-        selected.feedId
-      )) ||
-      !this.currentSelection(selected, generation)
-    )
-      return;
-    await this.ports.commands.run({
-      action: 'check-visibility',
-      id: selected.id,
-      version: selected.version,
-      confirmation: selected.id,
-      requestId: crypto.randomUUID()
-    });
+    const key = `${selected.id}:${selected.version}`;
+    if (this.activeVisibility.has(key)) return;
+    this.activeVisibility.add(key);
+    try {
+      if (
+        !(await this.ports.confirm(
+          this.ports.i18n.t(
+            'admin.publicationAutomation.checkVisibilityConfirm'
+          ),
+          selected.feedId
+        )) ||
+        !this.currentSelection(selected, generation)
+      )
+        return;
+      const requestId = this.visibilityRequests.get(key) ?? crypto.randomUUID();
+      this.visibilityRequests.set(key, requestId);
+      const confirmed = await this.ports.commands.run({
+        action: 'check-visibility',
+        id: selected.id,
+        version: selected.version,
+        confirmation: selected.id,
+        requestId
+      });
+      // A confirmed refresh may reopen this drawer and advance its generation.
+      if (confirmed) this.visibilityRequests.delete(key);
+    } finally {
+      this.activeVisibility.delete(key);
+    }
   }
 
   dateLabel(value: string): string {
