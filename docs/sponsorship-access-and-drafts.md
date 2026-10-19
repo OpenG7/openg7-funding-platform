@@ -94,7 +94,6 @@ Les écritures de brouillon sont sérialisées dans le navigateur et verrouillé
 
 ## Limites visibles
 
-- Sur l'écran initial FR à 390 × 844 px, le lecteur musical flottant chevauche une partie du bord droit du premier champ. Le libellé et la saisie restent accessibles ; ce placement reste à traiter dans la réception UX.
 - Les dernières secondes non encore confirmées peuvent être perdues si le navigateur ferme ou plante. Aucune promesse de sauvegarde hors ligne : une erreur conserve la saisie dans la page et propose une reprise.
 - En cas de conflit, la saisie locale reste affichée. « Charger le brouillon sauvegardé » remplace explicitement cette saisie par la version serveur ; il n'y a pas de fusion automatique.
 - Il faut pouvoir recevoir les courriels de l'adresse du paiement. Le renvoi ne permet pas à l'admin de changer silencieusement cette adresse.
