@@ -100,9 +100,34 @@ Les sorties sont dans `test-results/` et les artefacts CI ; conserver les captur
 initiales et de confirmation avec leur contexte. Les artefacts de ce workflow
 expirent après sept jours : leur nom n'est pas une archive durable.
 
-Cet inventaire n'annonce aucune exécution de l'ensemble intégré UX-02 à UX-06.
-Un succès d'une PR antérieure reste associé à son SHA ; il ne peut être attribué
-à une fusion ou une révision ultérieure.
+### Qualification locale UX-06
+
+Sources applicatives et tests du commit
+`9328269e0742aef1842a5ff30206d67e0bfc52a8`, compilés le **19 octobre 2026** avec
+Node 22.23.3 et Yarn 4.9.4. Les suites navigateur ci-dessous utilisent le même
+build production ; leurs API sont interceptées. Cette sélection ne remplace
+pas un passage de toute la CI sur le dernier commit poussé.
+
+| Contrôle                                 | Résultat                              | Configuration et preuve locale                                                                                                                |
+| ---------------------------------------- | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tests Node                               | 7 230 réussis, 8 ignorés, aucun échec | `yarn test` ; journal `%TEMP%/og7-ux06-node-qualified.log`                                                                                    |
+| Production et SSR                        | 25 routes ; initial 505 334 octets    | `--configuration production --stats-json` ; [mesure reproductible](ux-bundle-performance.md)                                                  |
+| En-tête musical mobile                   | 16/16                                 | FR/EN, 320/390 px, Chromium/Firefox/WebKit/WebKit mobile ; `test-results/ux06-header-final`                                                   |
+| Impression de la politique               | 8/8                                   | FR/EN, quatre navigateurs ; `test-results/ux06-policy-print-final`                                                                            |
+| Premier champ privé                      | 2/2                                   | FR/EN, 390 × 844 px, quatre coins atteignables et Axe ; `test-results/ux06-first-field-final`                                                 |
+| Accessibilité, SSR et chargement différé | 80/80                                 | Quatre navigateurs, `tests/playwright-platform-accessibility.config.mjs` ; `test-results/ux06-platform-qualified`                             |
+| Modération du suivi privé                | 4/4                                   | `sponsorship-moderation-followup.spec.ts` ; libellés communs N1/N4, FR desktop et EN mobile ; `test-results/ux06-moderation-levels-qualified` |
+
+Les captures initiales du suivi et de l'en-tête à 320/390 px ont été relues.
+Les trois rôles, la manette et les contre-épreuves serveur restent documentés
+dans la matrice ; ils ne sont pas tous rejoués par cette sélection locale.
+Un succès d'une PR antérieure reste associé à son SHA.
+
+Les recettes Docker corrigées de la [PR UX-05](https://github.com/OpenG7/openg7-funding-platform/pull/356)
+sont reprises dans cette branche. Leur passage local a validé 26 scénarios avec
+API/PostgreSQL jetables et fournisseurs simulés ; le compactage mobile a ensuite
+été qualifié par huit scénarios UI développement. La fusion de ces recettes
+ne change aucun fichier applicatif par rapport à `9328269e`.
 
 Limites connues au 19 octobre 2026 :
 
