@@ -64,3 +64,26 @@ HTTP tests cover aliases, roles, strict queries and unavailable storage. Web
 controller/browser tests cover lost responses, reload, legacy markers and safe
 recovery. The [expense workflow](../funding-transparency.md) remains the reference
 for editing and publication confirmation.
+
+Local evidence, 19 October 2026 (America/Toronto), after integrating the
+Assistant prerequisite:
+
+- Complete Node suite: 7,365 pass, 8 skipped, no failures.
+- Combined PostgreSQL receipt/runtime selection: 16/16 pass, including the
+  7 expense receipt cases. Both additive migrations were checked on existing
+  synthetic data without creating historical receipts.
+- Production Angular build: 25 prerendered routes, 505.39 kB initial bundle,
+  unchanged budgets. Global and admin UI TypeScript checks pass.
+- Browser qualification: 58 distinct cases pass (23 creation, 22 editing,
+  13 financial capabilities), including the 10 new receipt cases. Earlier
+  selections overlap these files and are not additive. FR390 and EN1536 captures
+  of the recovered receipt were inspected; keyboard recovery opens the exact
+  entry without another POST.
+- ESLint has no errors and one pre-existing warning in `scripts/smoke-public.mjs`.
+  Targeted formatting, documentation standards/budgets/links and diff checks pass.
+
+The browser fixtures use a static built Web and intercepted APIs; the PostgreSQL
+tests use disposable local databases. The allocation-transparency Docker scenario
+has its command UUID fixture updated and typechecked, but was not rerun for this
+lot. The Assistant Docker receipt proof belongs to its separate contract. No CI,
+production deployment or external provider qualification is inferred here.

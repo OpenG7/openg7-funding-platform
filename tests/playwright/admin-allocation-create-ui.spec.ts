@@ -527,7 +527,7 @@ for (const language of ['fr-CA', 'en']) {
         await page.evaluate(() =>
           sessionStorage.getItem('openg7-admin-expense-create-uncertain')
         )
-      ).toBe('1');
+      ).toBe(submissions[1].payload.requestId);
       await add.dispatchEvent('click');
       expect(submissions).toHaveLength(2);
       const accessibility = await new AxeBuilder({ page })
