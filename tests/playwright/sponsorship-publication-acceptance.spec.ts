@@ -1,3 +1,5 @@
+import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
+
 import { randomUUID } from 'node:crypto';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -261,9 +263,11 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
       await company.locator('#followup-companyName').fill(companyName);
       await company.locator('#followup-contactName').fill('Contact de recette');
       await company.locator('#followup-contactEmail').fill(privateEmail);
+      await openFollowupPresentation(company);
       await company
         .locator('#followup-websiteUrl')
         .fill('https://simulation.example.test');
+      await openFollowupPresentation(company);
       await company.locator('#followup-message').fill(privateNote);
       const buffer = await sharp({
         create: { width: 800, height: 600, channels: 3, background: '#28556e' }

@@ -1,3 +1,5 @@
+import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
+
 import { randomUUID } from 'node:crypto';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -167,6 +169,7 @@ test('paid company recovers its saved dossier from a captured email after SMTP f
           r.url().endsWith('/sponsorship-followup/draft') &&
           r.request().method() === 'POST'
       );
+      await openFollowupPresentation(company.page);
       await company.page.locator('#followup-message').fill(note);
       savedDraft = (await (await save).json()) as SponsorshipDraftSnapshot;
       await expect(
@@ -450,6 +453,7 @@ test('paid company recovers its saved dossier from a captured email after SMTP f
       await resumed.page
         .locator('#followup-contactName')
         .fill('Contact de recette');
+      await openFollowupPresentation(resumed.page);
       await resumed.page
         .locator('#followup-websiteUrl')
         .fill('https://simulation.example.test');

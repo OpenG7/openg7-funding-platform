@@ -1,3 +1,5 @@
+import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
+
 import { mkdtemp } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
@@ -210,6 +212,7 @@ test('company pays 50 CAD: signed confirmation, admin toast, captured email/SMS 
     await company
       .locator('#followup-contactEmail')
       .fill('company@simulation.example.test');
+    await openFollowupPresentation(company);
     await company
       .locator('#followup-websiteUrl')
       .fill('https://simulation.example.test');

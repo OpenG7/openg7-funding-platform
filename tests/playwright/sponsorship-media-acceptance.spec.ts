@@ -1,3 +1,5 @@
+import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
+
 import { createHash, randomUUID } from 'node:crypto';
 
 import sharp from 'sharp';
@@ -296,6 +298,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         .locator('#followup-contactName')
         .fill('Contact synthétique');
       await company.locator('#followup-contactEmail').fill(email);
+      await openFollowupPresentation(company);
       await company
         .locator('#followup-websiteUrl')
         .fill('https://simulation.example.test');
