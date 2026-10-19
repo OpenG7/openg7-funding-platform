@@ -16,7 +16,7 @@ import {
   viewChild,
   untracked
 } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import type {
   AdminSponsorshipProgress,
@@ -40,6 +40,7 @@ import { AdminSponsorshipHistoricalAuditComponent } from './admin-sponsorship-hi
   selector: 'openg7-admin-sponsorship-commitments',
   standalone: true,
   imports: [
+    RouterLink,
     TranslatePipe,
     AdminAutomaticPreparationDirective,
     AdminSponsorshipTimingComponent,
@@ -314,13 +315,25 @@ export class AdminSponsorshipCommitmentsComponent {
   obligationStateLabel(obligation: SponsorshipObligation): string {
     if (
       obligation.state === 'fulfilled' &&
-      (!obligation.fulfilmentEvidenceId ||
-        !this.dossier().qualifiedFulfilmentEvidenceIds?.includes(
-          obligation.fulfilmentEvidenceId
-        ))
+      !this.hasQualifiedEvidence(obligation)
     )
       return 'admin.dossier.publicationBridge.status.unverified';
     return 'admin.commitments.states.' + obligation.state;
+  }
+  hasQualifiedEvidence(obligation: SponsorshipObligation): boolean {
+    const evidenceId = obligation.fulfilmentEvidenceId;
+    return Boolean(
+      evidenceId &&
+      this.dossier().qualifiedFulfilmentEvidenceIds?.includes(evidenceId) &&
+      this.dossier().commitment?.obligations.some(
+        (recorded) =>
+          recorded.id === obligation.id &&
+          recorded.version === obligation.version &&
+          recorded.channel === obligation.channel &&
+          recorded.target === obligation.target &&
+          recorded.fulfilmentEvidenceId === evidenceId
+      )
+    );
   }
   updateCheck(
     index: number,

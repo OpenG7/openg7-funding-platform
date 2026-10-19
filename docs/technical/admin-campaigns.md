@@ -91,9 +91,14 @@ peut attendre sa préparation ou l'autorisation de sa publication.
 
 Dans l'onglet Publication du dossier, **Prestations promises** conserve la
 référence contractuelle pour qualifier et ajuster l'accord de commandite. Un
-résumé générique des avantages reste affiché ; il ne remplace ni cet accord ni
-une preuve de livraison. La synthèse du workflow rejoint Campagnes pour le
-détail des prestations et de leurs preuves.
+résumé des avantages de l'offre enregistrée reste affiché ; il ne remplace ni
+les obligations courantes ni une preuve de livraison. Les six repères **Offre →
+Préparation → Contenu → Autorisation → Livraison → Preuve** rejoignent les
+organismes et écrans existants. Contenu et autorisation partagent les cartes
+du dossier puis le tiroir de la livraison exacte ; aucun brouillon n'est choisi
+arbitrairement. Automatisation et Campagnes restent filtrées par dossier.
+La version courante de l'accord et la version commerciale de l'offre sont
+distinctes de la version de préparation et d'une preuve historique.
 
 ## Liste et préparation
 
@@ -122,6 +127,23 @@ doit être [qualifiée pour cette obligation exacte](sponsorship-fulfilment.md) 
 un ancien statut « publié », une URL ou une simulation seuls ne suffisent pas.
 Les preuves restent liées à leur canal, destination et occurrence ; la visibilité
 actuelle demeure une information distincte de la livraison attestée.
+
+Le détail présente séparément la preuve qualifiée et sa dernière observation
+de visibilité. La preuve conserve sa source, sa date de réalisation et sa portée :
+identifiants de preuve, de prestation et de livraison éventuelle, canal et cible.
+Une preuve Web peut ne pas avoir de livraison sociale. L'observation conserve
+son état et sa date/heure, affichée dans le fuseau de Toronto. **Inconnue** avec
+date reste distinct d'**aucune observation** ; ni l'un ni l'autre n'efface la
+réalisation. La vérification de réalisation Web ne garantit pas une lecture HTTP
+de la page publique. La version historique de l'accord associée à la preuve n'est
+pas renseignée par le contrat actuel ; aucune version courante ne lui est substituée.
+
+Dans l'accord du dossier, une référence qualifiée ouvre Campagnes avec le dossier
+et la prestation exacts. Une référence historique non qualifiée reste du texte,
+sans lien présentant une livraison comme confirmée. Le lien et l'état livré
+exigent aussi la même prestation, version, destination et référence de preuve
+dans les lectures de l'accord et du dossier. Une lecture désynchronisée reste
+non confirmée jusqu'au rafraîchissement.
 
 <a id="entree-contextuelle-et-details-de-laccord"></a>
 

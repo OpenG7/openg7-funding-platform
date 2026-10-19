@@ -255,6 +255,9 @@ test('recognized section anchors select their exact dossier and tab after scroll
     ['media-gallery', 'media'],
     ['billing', 'billing'],
     ['publication', 'publication'],
+    ['agreement', 'publication'],
+    ['preparation', 'publication'],
+    ['publication-content', 'publication'],
     ['refund', 'refund'],
     ['audit', 'audit']
   ];
@@ -312,6 +315,8 @@ test('sections require an exact tab and a nonempty dossier and history positions
     [path('media'), null, [0, 920]],
     [path('media'), 'dossier-media-gallery', [0, 0]],
     [path('identity'), 'dossier-media-gallery', null],
+    [path('identity'), 'dossier-preparation', null],
+    [path('publication'), 'dossier-publication-content', [0, 920]],
     [path(), 'dossier-review', [0, 920]],
     [path(), 'dossier-review', [0, 0]]
   ]) {

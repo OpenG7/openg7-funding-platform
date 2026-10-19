@@ -273,17 +273,30 @@ for (const theme of ['mineral', 'night', 'graphite'] as const) {
         palette.selected
       );
       await expect(selections.first()).toHaveCSS('color', palette.text);
-      await expect(
-        selections.first().locator('openg7-admin-document-email-status span')
-      ).toHaveCSS('color', palette.success);
-      await expect(
-        selections.last().locator('openg7-admin-document-email-status span')
-      ).toHaveCSS('color', palette.danger);
-      await expect(
-        page
-          .locator('[data-og7="credit-note"]')
-          .locator('openg7-admin-document-email-status span')
-      ).toHaveCSS('color', palette.warning);
+      const invoiceEmail = selections
+        .first()
+        .locator('openg7-admin-document-email-status span');
+      const otherInvoiceEmail = selections
+        .last()
+        .locator('openg7-admin-document-email-status span');
+      const creditNote = page.locator('[data-og7="credit-note"]');
+      const creditEmail = creditNote.locator(
+        'openg7-admin-document-email-status span'
+      );
+      await expect(invoiceEmail).toHaveText(
+        english ? 'Email · Sent' : 'Courriel · Envoye'
+      );
+      await expect(otherInvoiceEmail).toHaveText(
+        english ? 'Email · Failed' : 'Courriel · Echec'
+      );
+      await expect(creditEmail).toHaveText(
+        english ? 'Email · Queued' : 'Courriel · En file'
+      );
+      await expect(invoiceEmail).toHaveCSS('color', palette.success);
+      await expect(otherInvoiceEmail).toHaveCSS('color', palette.danger);
+      await expect(creditEmail).toHaveCSS('color', palette.warning);
+      await expect(detail).toContainText('INV-SYNTHETIC');
+      await expect(creditNote).toContainText('CN-SYNTHETIC');
 
       const recipient = page.getByLabel(
         english ? 'Recipient' : 'Destinataire',

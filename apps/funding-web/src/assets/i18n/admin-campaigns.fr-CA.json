@@ -115,6 +115,17 @@
     "authorization": "Une préparation approuvée n’autorise pas la publication. Le contenu exact, la destination et la programmation conservent leur autorisation distincte.",
     "proof": "Preuve de livraison",
     "delivered": "Livraison confirmée le {{date}}",
+    "deliveredAt": "Date de livraison confirmée",
+    "proofSource": "Source de la preuve",
+    "proofReference": "Référence de la preuve",
+    "obligationReference": "Prestation concernée",
+    "deliveryReference": "Livraison liée",
+    "noLinkedDelivery": "Aucune livraison liée",
+    "evidenceScope": "La preuve conserve le fait livré pour cette prestation. La visibilité dépend de la dernière observation datée.",
+    "visibilityObservation": "Dernière observation de visibilité",
+    "observedAt": "Date de l’observation",
+    "noObservation": "Aucune observation datée disponible. La visibilité actuelle reste à vérifier.",
+    "agreementScope": "Version de l’accord associée à cette preuve : non renseignée.",
     "noProof": "Aucune preuve qualifiée pour cette prestation. Le dossier conserve son suivi jusqu’à la confirmation de la livraison.",
     "adjusted": "Une dispense a été enregistrée pour cette prestation. Elle ne constitue pas une livraison.",
     "openProof": "Consulter la publication livrée",
@@ -128,7 +139,7 @@
   "provenance": {
     "provider_acknowledged": "Réception confirmée par le fournisseur",
     "provider_verified": "Livraison vérifiée auprès du fournisseur",
-    "website_verified": "Publication sur le site vérifiée"
+    "website_verified": "Réalisation Web attestée"
   },
   "visibility": {
     "visible": "Visibilité constatée",

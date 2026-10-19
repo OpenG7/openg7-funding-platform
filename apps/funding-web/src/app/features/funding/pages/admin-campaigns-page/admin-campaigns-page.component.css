@@ -333,14 +333,39 @@ small {
 }
 .proof-panel {
   display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.6rem;
   padding-top: 1rem;
   border-top: 1px solid var(--admin-border);
+  overflow-wrap: anywhere;
 }
 .proof-panel h4 {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+.proof-facts > div,
+.proof-observation {
+  min-width: 0;
+}
+.proof-panel code {
+  font-size: inherit;
+}
+.proof-panel small {
+  display: block;
+  color: var(--admin-muted);
+  font-weight: 400;
+}
+.proof-observation {
+  display: grid;
+  gap: 0.6rem;
+  padding-block-start: 1rem;
+  border-top: 1px solid var(--admin-border);
+}
+.proof-observation h5 {
+  margin: 0;
+  font-size: inherit;
 }
 .selection-hint {
   display: flex;

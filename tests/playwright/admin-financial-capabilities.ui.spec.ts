@@ -325,9 +325,12 @@ test('uncertain SMTP status is explicit and leads to reconciliation without renq
   f.options.emailStatus = 'uncertain';
   await page.goto('/admin/fundraiser/invoices');
   await expect(
-    invoiceDetail(page).getByText('Uncertain outcome — verification required', {
-      exact: true
-    })
+    invoiceDetail(page).getByText(
+      'Email · Uncertain outcome — verification required',
+      {
+        exact: true
+      }
+    )
   ).toBeVisible();
   await expect(
     invoiceDetail(page).getByRole('button', { name: 'Resend', exact: true })

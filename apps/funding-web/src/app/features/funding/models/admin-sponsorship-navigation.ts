@@ -13,6 +13,8 @@ const sectionTabs = {
   billing: 'billing',
   publication: 'publication',
   agreement: 'publication',
+  preparation: 'publication',
+  'publication-content': 'publication',
   'assistance-review': 'publication',
   'assistance-source': 'publication',
   refund: 'refund',

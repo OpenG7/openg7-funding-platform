@@ -139,10 +139,24 @@
               · v{{ o.version }}</span
             >
             @if (o.fulfilmentEvidenceId) {
-              <span
-                >{{ 'admin.commitments.evidenceId' | translate }}:
-                {{ o.fulfilmentEvidenceId }}</span
-              >
+              @if (hasQualifiedEvidence(o)) {
+                <a
+                  routerLink="/admin/fundraiser/campaigns"
+                  [queryParams]="{
+                    sponsorshipId: dossier().contributionId,
+                    obligationId: o.id
+                  }"
+                  data-og7="commitments-evidence"
+                  [attr.data-og7-id]="o.fulfilmentEvidenceId"
+                  >{{ 'admin.commitments.evidenceId' | translate }}:
+                  {{ o.fulfilmentEvidenceId }}</a
+                >
+              } @else {
+                <span
+                  >{{ 'admin.commitments.evidenceId' | translate }}:
+                  {{ o.fulfilmentEvidenceId }}</span
+                >
+              }
             }
             @if (
               o.timing &&
