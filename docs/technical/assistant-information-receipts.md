@@ -68,3 +68,19 @@ POST response after commit and reconciles by GET before checking the single
 queued message, captured email and send audit. Fixture, PostgreSQL, Docker and
 provider validations must be reported separately; no local run qualifies
 production or an external inbox.
+
+Local evidence, 19 October 2026 (America/Toronto), source `fd4a930b`:
+
+- Production Angular build: 25 prerendered routes; admin UI TypeScript and
+  targeted ESLint pass.
+- Controller, transport, HTTP and policy Node selection: 1,253/1,253 pass after
+  the final conflict-code adjustment. PostgreSQL receipt integration: 7/7 pass,
+  including upgrade from migration 061 without invented history.
+- Contextual Assistant UI: 62/62 pass, including the 10 new recovery cases.
+  The earlier 10/10 selection overlaps this complete file and is not additive.
+  Synthetic API fixtures cover FR/EN at 390 and 1536 px, exact email links,
+  keyboard focus, retained locks and legacy state. Screenshots of the recovered
+  receipt were inspected in FR390 and EN1536 without observed overflow.
+
+These UI results use a static built Web with intercepted API responses, not a
+running SSR server. CI, deployment and actual provider delivery remain separate.
