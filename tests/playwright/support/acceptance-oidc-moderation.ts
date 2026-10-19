@@ -169,6 +169,7 @@ async function confirmIndependentReview(
   await reviewer.goto(
     '/admin/fundraiser/sponsors?sponsorshipId=' + contributionId
   );
+  await reviewer.locator('[data-og7="moderation-feature-toggle"]').click();
   const moderation = reviewer
     .locator('[data-og7="moderation-actions"]')
     .first();

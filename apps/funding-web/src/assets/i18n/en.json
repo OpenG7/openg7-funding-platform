@@ -137,6 +137,8 @@
       "continue": "Confirm decision",
       "saveFirst": "Save your changes first, then review the saved version.",
       "actions": "Content moderation",
+      "featureTitle": "Editorial moderation",
+      "closeFeature": "Close moderation",
       "open": "Review",
       "saved": "Decision recorded. Visibility and sending authorization remain separate actions.",
       "history": "Decision history",

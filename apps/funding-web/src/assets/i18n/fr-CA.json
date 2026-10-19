@@ -137,6 +137,8 @@
       "continue": "Confirmer la décision",
       "saveFirst": "Enregistrez d’abord les modifications, puis examinez la version enregistrée.",
       "actions": "Modération du contenu",
+      "featureTitle": "Modération éditoriale",
+      "closeFeature": "Fermer la modération",
       "open": "Examiner",
       "saved": "Décision enregistrée. La visibilité et l’autorisation d’envoi restent des actions distinctes.",
       "history": "Historique des décisions",

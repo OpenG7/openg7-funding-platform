@@ -14,7 +14,7 @@ import type { AdminSponsorDetailHeaderView } from '../../models/admin-sponsors-u
   imports: [TranslatePipe, CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <header class="detail-header">
+    <header class="detail-header" data-og7="dossier-header">
       <div class="detail-title">
         <span class="sponsor-avatar large" aria-hidden="true">{{
           detail().initials
@@ -82,6 +82,9 @@ import type { AdminSponsorDetailHeaderView } from '../../models/admin-sponsors-u
           </div>
         </dl>
       </details>
+      <div class="header-feature">
+        <ng-content select="[dossier-header-feature]" />
+      </div>
     </header>
   `,
   styleUrls: [

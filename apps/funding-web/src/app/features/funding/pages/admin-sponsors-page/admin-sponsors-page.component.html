@@ -187,7 +187,18 @@
                 ? progress()?.website
                 : undefined
             "
-          />
+          >
+            @if (canManage()) {
+              <openg7-funding-moderation-feature
+                dossier-header-feature
+                [subject]="{ type: 'sponsorship', id: selected.id }"
+                [automaticFor]="selected.id"
+                openAction="sponsor.tool.moderation.open"
+                [disabled]="actionsDisabled() || !!sponsorAccess()?.busy()"
+                (changed)="loadSponsorships(true)"
+              />
+            }
+          </openg7-admin-sponsor-detail-header>
           <p
             class="payment-alert"
             *ngIf="paymentEligibilityMessage(selected)"
@@ -526,14 +537,6 @@
                 <span class="context-marker" aria-hidden="true">G7</span>
                 <h2>{{ 'admin.dossier.workspace.context' | translate }}</h2>
               </header>
-              <openg7-funding-moderation-actions
-                class="dossier-moderation"
-                [subject]="{ type: 'sponsorship', id: selected.id }"
-                [automaticFor]="selected.id"
-                [headingLevel]="3"
-                [disabled]="actionsDisabled()"
-                (changed)="loadSponsorships(true)"
-              />
               <div class="dossier-utilities">
                 <openg7-admin-sponsor-edit
                   #sponsorEdit

@@ -103,6 +103,7 @@ test('moderation correction and reconsideration preserve private explanations, a
       level: 'N1' | 'N2',
       explanation: string
     ) => {
+      await page.locator('[data-og7="moderation-feature-toggle"]').click();
       const actions = page.locator('[data-og7="moderation-actions"]').first();
       await actions.getByRole('combobox').first().selectOption(level);
       await actions.locator('[data-og7="moderation-open"]').click();
@@ -192,6 +193,7 @@ test('moderation correction and reconsideration preserve private explanations, a
     await privacy();
 
     await owner.reload();
+    await owner.locator('[data-og7="moderation-feature-toggle"]').click();
     const actions = owner.locator('[data-og7="moderation-actions"]').first();
     await actions.locator('summary').click();
     await actions

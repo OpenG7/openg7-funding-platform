@@ -291,6 +291,7 @@ test('Xbox refusal records a reason-bound moderation decision without authorizin
   const state = await controllerJourneysFixtures(page);
   const pad = adminController(page);
   await page.goto(path());
+  await pad.activate(hook(page, 'moderation-feature-toggle'));
   const actions = hook(page, 'moderation-actions').first();
   await pad.select(actions.getByRole('combobox'), 'N4');
   await pad.activate(actions.locator('[data-og7="moderation-open"]'));

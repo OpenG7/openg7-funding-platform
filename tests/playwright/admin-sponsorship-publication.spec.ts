@@ -102,6 +102,7 @@ test.describe('Docker admin sponsorship feed publication', () => {
       page.getByText('Paramètres de suivi enregistrés')
     ).toBeVisible();
     // Editing the public placement invalidates the prior editorial revision.
+    await page.locator('[data-og7="moderation-feature-toggle"]').click();
     const moderation = page.locator('[data-og7="moderation-actions"]');
     await moderation.getByRole('combobox').first().selectOption('N0');
     await moderation.locator('[data-og7="moderation-open"]').click();

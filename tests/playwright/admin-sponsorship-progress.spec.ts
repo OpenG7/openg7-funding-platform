@@ -29,6 +29,7 @@ import { registerSponsorshipTimingTests } from './admin-sponsorship-timing.ui.js
 import { registerAdminMediaUsageTests } from './sponsor-media-usage.ui.js';
 import { registerDossierPublicationScheduleTests } from './dossier-publication-schedule.ui.js';
 import { registerMediaReviewWorkspaceTests } from './media-review-workspace.ui.js';
+import { registerModerationFeatureTests } from './admin-moderation-feature.ui.js';
 
 const id = '10000000-0000-4000-8000-000000000401';
 const secondId = '10000000-0000-4000-8000-000000000402';
@@ -732,6 +733,7 @@ const dossierNext = (page: Page) =>
 
 registerSponsorHistoryPanelTests({ fixtures, path, tabs });
 registerSponsorWorkspaceTests({ fixtures, path });
+registerModerationFeatureTests({ fixtures, path, secondId });
 registerSponsorFinanceTests({ fixtures, path });
 registerSponsorProfileTests({ fixtures, path, asset: () => mediaAsset() });
 registerMediaReviewWorkspaceTests({
@@ -1037,7 +1039,12 @@ for (const language of ['fr-CA', 'en'] as const)
         ).toBeHidden();
         await expect(
           context.locator('[data-og7="moderation-actions"]')
-        ).toHaveCount(1);
+        ).toHaveCount(0);
+        await expect(
+          frame.locator(
+            '[data-og7="dossier-header"] [data-og7="moderation-feature-toggle"]'
+          )
+        ).toBeVisible();
         await expect(context.locator('[data-og7="edit-dossier"]')).toHaveCount(
           1
         );
@@ -1107,7 +1114,9 @@ for (const language of ['fr-CA', 'en'] as const)
       }
 
       await test.step('the contextual moderation decision remains an explicit cancellable keyboard action', async () => {
-        const opener = context.locator('[data-og7="moderation-open"]');
+        await frame.locator('[data-og7="moderation-feature-toggle"]').click();
+        const feature = frame.locator('[data-og7="moderation-feature-panel"]');
+        const opener = feature.locator('[data-og7="moderation-open"]');
         await opener.focus();
         await expect(opener).toBeInViewport({ ratio: 1 });
         await page.keyboard.press('Enter');
@@ -5144,6 +5153,7 @@ for (const english of [false, true]) {
           name: 'Switch administration language to English'
         })
         .click();
+    await page.locator('[data-og7="moderation-feature-toggle"]').click();
     const actions = page.locator('[data-og7="moderation-actions"]').first();
     await actions.getByRole('combobox').selectOption('N1');
     await actions.locator('[data-og7="moderation-open"]').click();
@@ -5344,6 +5354,7 @@ for (const english of [false, true]) {
           name: 'Switch administration language to English'
         })
         .click();
+    await page.locator('[data-og7="moderation-feature-toggle"]').click();
     const actions = page.locator('[data-og7="moderation-actions"]').first();
     await actions.locator('summary').click();
     const member = actions.locator('[data-og7="moderation-assigned-member"]');

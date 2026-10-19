@@ -10,6 +10,12 @@
   padding: 0.875rem var(--admin-card-padding);
   background: var(--admin-panel);
 }
+.header-feature {
+  @apply tw:col-span-full tw:min-w-0;
+}
+.header-feature:empty {
+  display: none;
+}
 .detail-title {
   @apply tw:col-span-full tw:grid tw:items-center tw:min-w-0;
   grid-template-columns: auto minmax(0, 1fr);
@@ -173,18 +179,28 @@ dd {
 @container sponsorship-dossier (min-width: 54rem) {
   .detail-title {
     grid-column: 1;
-    grid-row: 1 / 3;
+    grid-row: 1;
   }
   .detail-badges {
     grid-column: 2;
     justify-content: end;
   }
   .header-details {
-    justify-self: end;
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: start;
   }
   .header-details[open] {
-    grid-row: 3;
+    grid-row: 2;
     justify-self: stretch;
+  }
+  .header-feature {
+    grid-column: 2;
+    grid-row: auto;
+  }
+  .header-feature:has([aria-expanded='true']) {
+    grid-column: 1 / -1;
+    grid-row: auto;
   }
 }
 @media (max-width: 860px) {

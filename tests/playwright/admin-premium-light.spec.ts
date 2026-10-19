@@ -159,6 +159,7 @@ for (const language of ['fr-CA', 'en'] as const) {
       await expectAdminFontsReady(page);
       await expect(dossier).toHaveCSS('background-color', 'rgb(255, 255, 255)');
       await expect(dossier).toHaveCSS('border-radius', '14px');
+      await dossier.locator('[data-og7="moderation-feature-toggle"]').click();
       const moderationSelect = dossier
         .locator('[data-og7="moderation-actions"]')
         .getByRole('combobox')

@@ -3,7 +3,7 @@
 Inventaire initial du code au **18 octobre 2026**, révision `bc593f7f`. Périmètre :
 `/admin/fundraiser/sponsors?sponsorshipId=<uuid>`, ses cinq onglets visibles,
 ses outils permanents et ses panneaux conditionnels. Cette analyse décrit
-l’interface ; l'évolution appliquée à DOS-B.a11/a20 est précisée ci-dessous.
+l’interface ; les évolutions appliquées à DOS-B.a11/a20 et DOS-C sont précisées ci-dessous.
 Le découpage proposé en fin de document reste une proposition.
 Aucune opération métier ni modification de données n’a été exécutée pour l’analyse.
 
@@ -68,7 +68,7 @@ flowchart TB
   T --> F[Finances]
   T --> H[Historique]
   D --> C[Colonne contexte permanente]
-  C --> M[Modération]
+  T --> M[Modération éditoriale]
   C --> U[Édition, aide et accès]
   P --> B[Bon de préparation partagé]
   P --> A[Engagements et qualification]
@@ -123,6 +123,7 @@ tous les onglets ; sa synthèse repliable ne s’affiche que sur Vue d’ensembl
 | DOS-T.a12 — Déplier les blocages de publication | L, T : lire les causes et la responsabilité du traitement ; chaque cause donne un lien N vers sa zone propriétaire. |
 | DOS-T.a13 — Réessayer la lecture de progression | L, T : visible en erreur/indisponibilité, relire les faits de progression. |
 | DOS-T.a14 — Déplier le résumé d’avancement | L, T, Vue d’ensemble : lire les jalons et le nombre résolu. Dans cette page `streamlined=true`, ce résumé n’est pas le parcours complet non compact du composant. |
+| DOS-T.a15 — Ouvrir / fermer la modération éditoriale | L, G : feature transverse DOS-C dans l’en-tête, accessible depuis tous les onglets ; aucune décision à l’ouverture. |
 
 ## Vue d’ensemble
 
@@ -705,14 +706,20 @@ spécialisés : médias, préparation, interventions et engagements ont leurs le
 
 <a id="colonne-contexte-et-moderation"></a>
 
-## Colonne contexte et modération
+## Modération transverse et utilitaires de contexte
 
-### DOS-C — Actions de modération présentes sur tous les onglets
+### DOS-C — Feature de modération dans l’en-tête
 
-Sources : [actions de modération][moderation-actions], [composant][moderation-actions-ts],
+Sources : [feature transverse][moderation-feature], [actions de modération][moderation-actions], [composant][moderation-actions-ts],
 [panneau de décision][moderation-panel]. Responsabilité : créer/lire une décision
 sur un sujet et une version de contenu explicites, traiter ses recours et sa
 revue indépendante. Même organisme pour commandite, média et livraison.
+
+L’entrée d’en-tête ouvre un panneau non modal à la demande. Le panneau et le niveau
+choisi sont conservés entre les onglets du même dossier ; un changement de dossier,
+de session ou la perte des droits de revue les réinitialise. Fermeture et Échap
+restaurent le focus à l’entrée ; la fermeture est bloquée pendant une décision.
+Le sujet typé, les confirmations et les droits restent ceux des actions partagées.
 
 <!-- prettier-ignore -->
 | Action / zone | Responsabilité, effet et conditions |
@@ -874,11 +881,11 @@ identifiable ; une simple ressemblance de panneau ne suffit pas.
 | DOS-X02 | Inventaire d’adoption et bascule d’audit global se trouvent dans un dossier individuel. | Sortir la lecture globale vers une surface de portefeuille/qualité ; dossier préfiltré sur sa contribution. | Audit et API existent ; leur présence imbriquée ne prouve pas une page autonome existante. Campagnes peut orienter vers la qualification sans inventer des prestations. |
 | DOS-X03 | Paramètres avancés mélangent slug/résumé public et statut social historique ; le mot Publication désigne aussi la visibilité réelle. | Éditeur **Fiche publique** distinct du **Suivi historique déclaré** ; preuve qualifiée et envoi automatique restent dans leurs propriétaires. | Workflow de visibilité Web et moteur social existent déjà, séparés côté services. Le formulaire avancé n’est pas un équivalent de l’autorisation sociale. |
 | DOS-X04 | Profil regroupe coordonnées/soumission et workspace média complet (droits, lots, analyse, modération, suppression). | Profil présente identité/soumission et résumé des médias ; ouvrir un espace médias focalisé, ou sections clairement séparées. | `MediaReviewWorkspace` et l’éditeur de droits sont déjà des organismes réutilisables ; le logo ancien n’est qu’une lecture dans cette instance, ne pas réactiver ses commandes cachées. |
-| DOS-X05 | Colonne contexte identique sur tous les onglets : modération, édition, guide, accès ; elle peut concurrencer une action de domaine. | Une zone de contexte factuelle et un lanceur d’actions contextuelles ; ouvrir les outils dans leur panneau propriétaire selon le besoin. | `ContextController`, `AdminDrawer`, panneau de modération et service de confirmation existent ; ils partagent l’interaction, pas les permissions métier. |
+| DOS-X05 | Colonne contexte identique sur tous les onglets : édition, guide, accès ; elle peut concurrencer une action de domaine. La modération s’ouvre désormais depuis l’en-tête. | Une zone de contexte factuelle et un lanceur d’actions contextuelles ; ouvrir les outils dans leur panneau propriétaire selon le besoin. | `ContextController`, `AdminDrawer`, feature de modération d’en-tête et service de confirmation existent ; ils partagent l’interaction, pas les permissions métier. |
 | DOS-X06 | Prochain point, guide dossier, assistant, bon et Guide global expliquent parfois la même intervention avec des modèles différents. | Un contrat d’orientation avec destination/rôle/raison ; Guide enseigne, dossier exécute, bon évalue sa version, Assistant propose. | Projections `AdminSponsorshipProgress`, bon partagé et navigation de préparation existent. Aucun remplacement complet par le Guide global n’est actuellement réalisé. |
 | DOS-X07 | Assistant intégré à Vue d’ensemble peut préparer puis envoyer une vraie demande ; la responsabilité dépasse une simple synthèse. | Garder la recommandation et l’accès ; déplacer la rédaction/conversation vers l’Assistant et l’envoi vers son parcours de confirmation existant. | Route Assistant et file courriel existent ; ne pas assimiler « préparer » à « envoyer ». |
 | DOS-X08 | Note courante, interventions datées et journal d’audit contiennent tous du texte interne, mais servent des usages différents. | Conserver une note synthétique, un journal de suivi append-only et un audit des décisions ; afficher leurs frontières explicitement. | Tiroirs et historiques existent. Fusionner le texte en un champ commun ferait perdre responsabilité et preuve. |
-| DOS-X09 | Barre « Accepter/Refuser » et modération permanente peuvent proposer des portes différentes sur une décision proche ; la première impose N0/N2 et la seconde laisse choisir le niveau. | Un lanceur contextuel unique vers la revue de commandite, conservant le panneau de modération partagé et les parcours financiers séparés. | Panneau DOS-C déjà utilisé par DOS-D ; ne pas supprimer les exigences indépendantes ou confondre le niveau avec le statut final. |
+| DOS-X09 | Barre « Accepter/Refuser » et feature de modération d’en-tête peuvent proposer des portes différentes sur une décision proche ; la première impose N0/N2 et la seconde laisse choisir le niveau. | Un lanceur contextuel unique vers la revue de commandite, conservant le panneau de modération partagé et les parcours financiers séparés. | Panneau DOS-C déjà utilisé par DOS-D ; ne pas supprimer les exigences indépendantes ou confondre le niveau avec le statut final. |
 | DOS-X10 | Plusieurs boutons d’actualisation relisent liste, progression, bon, engagements, assistance, planning ou médias. | Nommer la portée de l’actualisation et harmoniser l’invalidation après mutation. | Services/contrôleurs existants ; un bouton partagé visuellement ne prouve pas une transaction globale de lecture. |
 | DOS-X11 | `content_prepared` peut agréger des blocages de paiement, revue, source, média et brouillon ; son libellé suggère une présentation étroite. | Afficher des sous-responsabilités et leurs propriétaires ; éviter de transformer ce contrôle en formulaire universel. | Projection des contrôles/destinations déjà partagée ; le serveur continue de décider l’admissibilité. |
 | DOS-X12 | Droits par défaut, sélection actuelle et imports futurs passent par le même tiroir de règles. | Montrer objet, couverture actuelle et couverture future comme choix séparés, avec confirmation explicite des fichiers affectés. | Éditeur de droits et scope versionné existent ; l’approbation d’un média reste une autre décision. |
@@ -953,6 +960,7 @@ pas toutes les fonctionnalités possibles de composants anciens non montés.
 [refund-history]: ../../apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-refund-history.component.html
 [audit]: ../../apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-audit-history.component.html
 [inspection]: ../../apps/funding-web/src/app/features/funding/services/admin-inspection.service.ts
+[moderation-feature]: ../../apps/funding-web/src/app/features/funding/components/admin-moderation/funding-moderation-feature.component.ts
 [moderation-actions]: ../../apps/funding-web/src/app/features/funding/components/admin-moderation/funding-moderation-actions.component.html
 [moderation-actions-ts]: ../../apps/funding-web/src/app/features/funding/components/admin-moderation/funding-moderation-actions.component.ts
 [moderation-panel]: ../../apps/funding-web/src/app/features/funding/components/admin-moderation/funding-moderation-panel.component.html

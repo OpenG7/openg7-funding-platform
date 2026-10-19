@@ -48,7 +48,7 @@ import { AdminAssistantContextComponent } from '../../components/admin-assistant
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import { AdminIconComponent } from '../../components/admin-ui/admin-icon.component.js';
 import { FundingModerationService } from '../../services/funding-moderation.service.js';
-import { FundingModerationActionsComponent } from '../../components/admin-moderation/funding-moderation-actions.component.js';
+import { FundingModerationFeatureComponent } from '../../components/admin-moderation/funding-moderation-feature.component.js';
 import {
   AdminDashboardRequestError,
   FundingAdminService
@@ -112,7 +112,7 @@ import { AdminSponsorsNavigationAdapter } from './admin-sponsors-navigation.adap
     RouterLink,
     AdminLayoutComponent,
     AdminIconComponent,
-    FundingModerationActionsComponent,
+    FundingModerationFeatureComponent,
     AdminSponsorDetailHeaderComponent,
     AdminSponsorEditComponent,
     AdminSponsorDetailIdentityComponent,

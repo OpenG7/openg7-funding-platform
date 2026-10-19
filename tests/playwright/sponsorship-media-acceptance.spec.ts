@@ -481,6 +481,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
           ).status()
         ).toBe(404);
         // Saving the public summary changes the dossier's editorial revision.
+        await admin.locator('[data-og7="moderation-feature-toggle"]').click();
         const moderation = admin.locator('[data-og7="moderation-actions"]');
         await moderation.getByRole('combobox').first().selectOption('N0');
         const moderated = admin.waitForResponse(

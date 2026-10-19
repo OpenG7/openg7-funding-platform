@@ -359,6 +359,9 @@ test('moderation content refusals stay distinct, retries use real content and ob
       '/admin/fundraiser/sponsors?sponsorshipId=' + f.id
     );
     const open = async () => {
+      const feature = page.locator('[data-og7="moderation-feature-toggle"]');
+      if ((await feature.getAttribute('aria-expanded')) !== 'true')
+        await feature.click();
       const actions = page.locator('[data-og7="moderation-actions"]').first();
       await actions.getByRole('combobox').first().selectOption('N0');
       await actions.locator('[data-og7="moderation-open"]').click();

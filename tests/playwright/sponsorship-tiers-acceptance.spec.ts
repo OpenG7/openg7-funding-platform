@@ -628,6 +628,9 @@ for (const amount of [100, 250]) {
             // The summary and slug belong to a new editorial revision. Review
             // it before the separate, consent-controlled visibility decision.
             if (xbox) {
+              await xbox.activate(
+                admin.locator('[data-og7="moderation-feature-toggle"]')
+              );
               const editorial = admin
                 .locator('[data-og7="moderation-actions"]')
                 .first();

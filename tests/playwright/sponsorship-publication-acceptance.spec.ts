@@ -708,6 +708,7 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
       ).toBeVisible();
       await assertPrivate();
       // Saving the public summary changes the dossier's editorial revision.
+      await admin.locator('[data-og7="moderation-feature-toggle"]').click();
       const moderation = admin.locator('[data-og7="moderation-actions"]');
       await moderation.getByRole('combobox').first().selectOption('N0');
       const moderated = admin.waitForResponse(
