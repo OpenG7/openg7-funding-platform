@@ -22,7 +22,14 @@ import {
   viewChild
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import {
+  ActivatedRoute,
+  NavigationSkipped,
+  NavigationStart,
+  Router,
+  RouterLink,
+  Scroll
+} from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import type {
   AdminSponsorshipRecord,
@@ -89,6 +96,10 @@ import { AdminSponsorRejectionPanelComponent } from '../../components/admin-spon
 import { AdminSponsorRefundPanelComponent } from '../../components/admin-sponsors/admin-sponsor-refund-panel.component.js';
 import { AdminSponsorDecisionActionsComponent } from '../../components/admin-sponsors/admin-sponsor-decision-actions.component.js';
 import { AdminAutomaticPreparationDirective } from '../../components/admin-automatic/admin-automatic-preparation.directive.js';
+import {
+  AssistantDossierNavigation,
+  assistantDossierQuery
+} from '../../models/admin-assistant-navigation.js';
 
 import { AdminSponsorsNavigationAdapter } from './admin-sponsors-navigation.adapter.js';
 
@@ -300,6 +311,22 @@ export class AdminSponsorsPageComponent implements OnInit {
 
   private readonly platformId = inject(PLATFORM_ID);
   private readonly router = inject(Router);
+  private assistantReturnFocus = this.router.currentNavigation()?.extras.info;
+  private readonly assistantReturnReady = signal(false);
+  private readonly layout = viewChild(AdminLayoutComponent);
+  readonly assistantNavigation = computed(() => {
+    const id = this.selectedSponsorshipId();
+    return id ? new AssistantDossierNavigation(id, 'dossier') : undefined;
+  });
+
+  assistantQueryParams(): { sponsorshipId?: string; returnTo?: string } {
+    return assistantDossierQuery(
+      this.router,
+      this.router.url,
+      this.selectedSponsorshipId()
+    );
+  }
+
   readonly listController = new AdminSponsorListController({
     admin: this.admin,
     t: (key, params) => this.i18n.t(key, params),
@@ -715,6 +742,31 @@ export class AdminSponsorsPageComponent implements OnInit {
       }
     });
     afterRenderEffect(() => {
+      const focus = this.assistantReturnFocus;
+      if (
+        focus instanceof AssistantDossierNavigation &&
+        this.assistantReturnReady() &&
+        this.state() === 'ready' &&
+        this.selectedSponsorship()?.id === focus.sponsorshipId &&
+        this.sponsorProgress()?.state() !== 'loading'
+      ) {
+        const link =
+          this.sponsorDetailPanel?.nativeElement.querySelector<HTMLElement>(
+            '[data-og7="dossier-assistant"]'
+          );
+        const restored =
+          focus.source === 'shell'
+            ? this.layout()?.restoreAssistantFocus()
+            : !!link;
+        if (!restored) return;
+        this.assistantReturnFocus = null;
+        this.pendingSection.set(null);
+        if (focus.source === 'dossier') {
+          link?.focus({ preventScroll: true });
+          link?.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+        }
+        return;
+      }
       const pending = this.pendingSection();
       if (
         !pending ||
@@ -739,7 +791,17 @@ export class AdminSponsorsPageComponent implements OnInit {
     this.listController.initialize();
     this.router.events
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((event) => this.navigationAdapter.handleRouterEvent(event));
+      .subscribe((event) => {
+        if (
+          event instanceof NavigationStart ||
+          event instanceof NavigationSkipped
+        ) {
+          this.assistantReturnFocus = null;
+          this.assistantReturnReady.set(false);
+        }
+        this.navigationAdapter.handleRouterEvent(event);
+        if (event instanceof Scroll) this.assistantReturnReady.set(true);
+      });
     this.route.queryParamMap
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((params) =>

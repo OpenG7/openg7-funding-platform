@@ -1,11 +1,12 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import type {
   AdminAssistantContextResponse,
   AdminAssistantPrepareResponse,
+  AdminSponsorshipProgressResponse,
   AdminSponsorshipRecord
 } from '@openg7/funding-core';
 
-import { expect, test } from './support/test.js';
+import { expect, sampledFrames, test } from './support/test.js';
 import {
   blockAdminReviewWrites,
   captureAdminDesign,
@@ -17,6 +18,36 @@ const id = '10000000-0000-4000-8000-000000000301';
 const secondId = '10000000-0000-4000-8000-000000000302';
 const path = (value = id) =>
   `/admin/fundraiser/assistant?sponsorshipId=${value}`;
+const dossierPath = (tab = 'overview', fragment?: string) =>
+  `/admin/fundraiser/sponsors?sponsorshipId=${id}&tab=${tab}${fragment ? `#${fragment}` : ''}`;
+const assistantLocation = (url: URL) => ({
+  pathname: url.pathname,
+  query: Object.fromEntries(url.searchParams),
+  fragment: url.hash
+});
+const contextualAssistantLocation = (origin: string) => ({
+  pathname: '/admin/fundraiser/assistant',
+  query: { sponsorshipId: id, returnTo: origin },
+  fragment: ''
+});
+async function expectAssistantLinkOrigin(link: Locator, origin: string) {
+  await expect
+    .poll(async () => {
+      const href = await link.getAttribute('href');
+      return href ? assistantLocation(new URL(href, 'http://127.0.0.1')) : null;
+    })
+    .toEqual(contextualAssistantLocation(origin));
+}
+async function expectAssistantPageOrigin(page: Page, origin: string) {
+  await expect(page).toHaveURL(
+    (url) =>
+      url.pathname === '/admin/fundraiser/assistant' &&
+      url.searchParams.size === 2 &&
+      url.searchParams.get('sponsorshipId') === id &&
+      url.searchParams.get('returnTo') === origin &&
+      url.hash === ''
+  );
+}
 const response = (value = id): AdminAssistantContextResponse => ({
   status: 'ok',
   generatedAt: '2026-09-16T14:00:00Z',
@@ -759,7 +790,8 @@ test('cockpit contextual recommendation loads independently from dashboard metri
 });
 
 async function sponsorshipFixture(page: Page) {
-  const record: AdminSponsorshipRecord = {
+  const reads: string[] = [];
+  let record: AdminSponsorshipRecord = {
     id,
     version: '2026-09-16T14:00:00Z',
     public_reference: 'DEMO-301',
@@ -802,8 +834,9 @@ async function sponsorshipFixture(page: Page) {
     created_at: '2026-09-01T14:00:00Z',
     updated_at: '2026-09-16T14:00:00Z'
   };
-  await page.route('**/api/admin/sponsorships?*', (route) =>
-    route.fulfill({
+  await page.route('**/api/admin/sponsorships?*', (route) => {
+    reads.push(route.request().url());
+    return route.fulfill({
       json: {
         data_source: 'database',
         items: [record],
@@ -818,9 +851,303 @@ async function sponsorshipFixture(page: Page) {
         },
         last_updated_at: record.updated_at
       }
-    })
-  );
+    });
+  });
+  return {
+    reads,
+    renameCompany(name: string) {
+      record = { ...record, sponsor_company_name: name };
+    }
+  };
 }
+
+for (const language of ['fr-CA', 'en'] as const) {
+  for (const source of ['dossier', 'shell'] as const) {
+    test(`Assistant returns to its ${source} origin with the dossier tab, fragment and focus in ${language}`, async ({
+      page
+    }) => {
+      const { calls } = await fixtures(page, 'reader');
+      const { reads, renameCompany } = await sponsorshipFixture(page);
+      await page.addInitScript((locale) => {
+        localStorage.setItem('openg7.language', locale);
+      }, language);
+      await page.setViewportSize({
+        width: language === 'en' ? 390 : 1280,
+        height: 844
+      });
+      const tab = source === 'dossier' ? 'identity' : 'audit';
+      const origin = dossierPath(tab, `dossier-${tab}`);
+      await page.goto(origin);
+      const trigger = page.locator(
+        `[data-og7="${source === 'dossier' ? 'dossier-assistant' : 'admin-shell-assistant'}"]`
+      );
+      await expectAssistantLinkOrigin(trigger, origin);
+      await trigger.focus();
+      await trigger.press('Enter');
+      await expectAssistantPageOrigin(page, origin);
+      await expect(page.locator('[data-og7="assistant-reference"]')).toHaveText(
+        'DEMO-301'
+      );
+      const back = page.locator('[data-og7="assistant-dossier-return"]');
+      await expect(back).toHaveAccessibleName(
+        language === 'en' ? 'Back to the dossier' : 'Retour au dossier'
+      );
+      await expect(back).toHaveAttribute('href', origin);
+      await expect(
+        page.locator('[data-og7="assistant-next-step"]').getByRole('link')
+      ).toHaveAttribute(
+        'href',
+        `/admin/fundraiser/sponsors?sponsorshipId=${id}`
+      );
+      const initialReads = reads.length;
+      renameCompany('Atelier reloaded');
+      await back.focus();
+      await back.press('Enter');
+      await expect(page).toHaveURL(origin);
+      await expect.poll(() => reads.length).toBe(initialReads + 1);
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+        'Atelier reloaded'
+      );
+      await expect(
+        page.locator('[data-og7="dossier-tabs"] [aria-current="page"]')
+      ).toHaveAccessibleName(
+        source === 'dossier'
+          ? language === 'en'
+            ? 'Profile & media'
+            : 'Fiche et médias'
+          : language === 'en'
+            ? 'History'
+            : 'Historique'
+      );
+      await expect(page.locator(`#dossier-${tab}`)).toBeVisible();
+      await expect(trigger).toBeFocused();
+      await expect(page.locator('[data-og7="assistant-context"]')).toHaveCount(
+        0
+      );
+      expect(calls.every((call) => call.method === 'GET')).toBe(true);
+    });
+  }
+
+  test(`Assistant keeps its dossier return when its context read fails in ${language}`, async ({
+    page
+  }) => {
+    const { calls, options } = await fixtures(page, 'reader');
+    options.contextStatus = 503;
+    await sponsorshipFixture(page);
+    await page.addInitScript((locale) => {
+      localStorage.setItem('openg7.language', locale);
+    }, language);
+    const origin = dossierPath('identity', 'dossier-identity');
+    await page.goto(origin);
+    const trigger = page.locator('[data-og7="dossier-assistant"]');
+    await trigger.focus();
+    await trigger.press('Enter');
+    await expectAssistantPageOrigin(page, origin);
+    await expect(page.locator('[data-og7="assistant-reference"]')).toHaveCount(
+      0
+    );
+    await expect(page.locator('[data-og7="assistant-context"]')).toContainText(
+      language === 'en'
+        ? 'Context is unavailable. Please try again.'
+        : 'Le contexte est indisponible. Vous pouvez réessayer.'
+    );
+    const back = page.locator('[data-og7="assistant-dossier-return"]');
+    await expect(back).toHaveAttribute('href', origin);
+    await back.focus();
+    await back.press('Enter');
+    await expect(page).toHaveURL(origin);
+    await expect(trigger).toBeFocused();
+    expect(calls.every((call) => call.method === 'GET')).toBe(true);
+  });
+}
+
+test('direct Assistant entry without an origin keeps only its canonical dossier action after reload', async ({
+  page
+}) => {
+  const { calls } = await fixtures(page, 'reader');
+  await sponsorshipFixture(page);
+  await page.goto(path());
+  const back = page.locator('[data-og7="assistant-dossier-return"]');
+  const reference = page.locator('[data-og7="assistant-reference"]');
+  await expect(reference).toHaveText('DEMO-301');
+  await expect(back).toHaveCount(0);
+  await page.reload();
+  await expect(reference).toHaveText('DEMO-301');
+  await expect(back).toHaveCount(0);
+  const open = page
+    .locator('[data-og7="assistant-next-step"]')
+    .getByRole('link', { name: 'Ouvrir le dossier', exact: true });
+  await expect(open).toHaveAttribute(
+    'href',
+    `/admin/fundraiser/sponsors?sponsorshipId=${id}`
+  );
+  await open.focus();
+  await open.press('Enter');
+  await expect(page).toHaveURL(
+    `/admin/fundraiser/sponsors?sponsorshipId=${id}`
+  );
+  await expect(
+    page.locator('[data-og7="sponsorship-dossier"]')
+  ).toHaveAttribute('data-og7-id', id);
+  await expect(
+    page.locator('[data-og7="dossier-assistant"]')
+  ).not.toBeFocused();
+  expect(calls.every((call) => call.method === 'GET')).toBe(true);
+});
+
+for (const [name, origin] of [
+  [
+    'another dossier',
+    `/admin/fundraiser/sponsors?sponsorshipId=${secondId}&tab=identity#dossier-identity`
+  ],
+  [
+    'an external site',
+    `https://external.example.invalid/admin/fundraiser/sponsors?sponsorshipId=${id}&tab=identity#dossier-identity`
+  ]
+] as const) {
+  test(`Assistant rejects a return origin targeting ${name}`, async ({
+    page
+  }) => {
+    const { calls } = await fixtures(page, 'reader');
+    await page.goto(`${path()}&returnTo=${encodeURIComponent(origin)}`);
+    await expect(page.locator('[data-og7="assistant-reference"]')).toHaveText(
+      'DEMO-301'
+    );
+    await expect(
+      page.locator('[data-og7="assistant-dossier-return"]')
+    ).toHaveCount(0);
+    await expect(
+      page.locator('[data-og7="assistant-next-step"]').getByRole('link')
+    ).toHaveAttribute('href', `/admin/fundraiser/sponsors?sponsorshipId=${id}`);
+    expect(calls.every((call) => call.method === 'GET')).toBe(true);
+  });
+}
+
+test('Assistant reconstructs its dossier origin without private or nested query values', async ({
+  page
+}) => {
+  const { calls } = await fixtures(page, 'reader');
+  await sponsorshipFixture(page);
+  const origin = dossierPath('identity', 'dossier-identity');
+  const unsafeOrigin =
+    `/admin/fundraiser/sponsors?sponsorshipId=${id}&tab=identity` +
+    '&recipient=PRIVATE-RECIPIENT&message=PRIVATE-MESSAGE' +
+    '&returnTo=' +
+    encodeURIComponent('https://external.example.invalid/PRIVATE-NESTED') +
+    '#dossier-identity';
+  await page.goto(unsafeOrigin);
+  const trigger = page.locator('[data-og7="dossier-assistant"]');
+  await expectAssistantLinkOrigin(trigger, origin);
+  await trigger.focus();
+  await trigger.press('Enter');
+  await expectAssistantPageOrigin(page, origin);
+  const back = page.locator('[data-og7="assistant-dossier-return"]');
+  await expect(back).toHaveAttribute('href', origin);
+  await page.goto(`${path()}&returnTo=${encodeURIComponent(unsafeOrigin)}`);
+  await expect(back).toHaveAttribute('href', origin);
+  await page.reload();
+  await expect(back).toHaveAttribute('href', origin);
+  await back.focus();
+  await back.press('Enter');
+  await expect(page).toHaveURL(origin);
+  await expect(page.locator('#dossier-identity')).toBeFocused();
+  await expect(
+    page.locator('[data-og7="dossier-assistant"]')
+  ).not.toBeFocused();
+  expect(page.url()).not.toContain('PRIVATE-');
+  expect(calls.every((call) => call.method === 'GET')).toBe(true);
+});
+
+test('Assistant return does not take focus back after a tab change during a pending dossier read', async ({
+  page
+}) => {
+  const { calls } = await fixtures(page, 'reader');
+  await sponsorshipFixture(page);
+  const projection: AdminSponsorshipProgressResponse = {
+    status: 'ok',
+    generatedAt: '2026-09-16T14:00:00Z',
+    dossier: {
+      contributionId: id,
+      reference: 'DEMO-301',
+      companyName: 'Atelier démo',
+      version: 'a'.repeat(64),
+      amountMinor: 50000,
+      currency: 'CAD',
+      paymentStatus: 'paid',
+      reviewStatus: 'pending_review',
+      publicConsent: false,
+      publicEligible: false,
+      feedStatus: 'not_planned',
+      milestones: [],
+      next: {
+        reason: 'complete_information',
+        tab: 'identity',
+        adminUrl: dossierPath('identity', 'dossier-identity')
+      },
+      documents: [],
+      publications: [],
+      refund: {
+        workflow: 'not_requested',
+        state: 'not_required',
+        confirmedAmountMinor: 0,
+        creditMissing: false,
+        hasError: false
+      },
+      failedEmails: [],
+      failedStripeEvents: []
+    }
+  };
+  let blocked = false;
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route('**/api/admin/sponsorships/progress?*', async (route) => {
+    if (blocked) await gate;
+    return route.fulfill({ json: projection });
+  });
+  try {
+    const origin = dossierPath('identity', 'dossier-identity');
+    await page.goto(origin);
+    const progress = page.locator('[data-og7="sponsorship-progress"]');
+    await expect(progress).toHaveAttribute('aria-busy', 'false');
+    const trigger = page.locator('[data-og7="dossier-assistant"]');
+    await trigger.focus();
+    await trigger.press('Enter');
+    await expectAssistantPageOrigin(page, origin);
+    blocked = true;
+    const pendingRead = page.waitForRequest(
+      '**/api/admin/sponsorships/progress?*'
+    );
+    const back = page.locator('[data-og7="assistant-dossier-return"]');
+    await back.focus();
+    await back.press('Enter');
+    await pendingRead;
+    await expect(progress).toHaveAttribute('aria-busy', 'true');
+    const finances = page
+      .locator('[data-og7="dossier-tabs"]')
+      .getByRole('button', { name: 'Finances', exact: true });
+    await finances.focus();
+    await finances.press('Enter');
+    await expect(page).toHaveURL(dossierPath('billing'));
+    await expect(finances).toHaveAttribute('aria-current', 'page');
+    await expect(finances).toBeFocused();
+    const completedRead = page.waitForResponse(
+      '**/api/admin/sponsorships/progress?*'
+    );
+    release();
+    await (await completedRead).finished();
+    await expect(progress).toHaveAttribute('aria-busy', 'false');
+    await sampledFrames(page);
+    await expect(page).toHaveURL(dossierPath('billing'));
+    await expect(finances).toHaveAttribute('aria-current', 'page');
+    await expect(finances).toBeFocused();
+    await expect(trigger).not.toBeFocused();
+    expect(calls.every((call) => call.method === 'GET')).toBe(true);
+  } finally {
+    release();
+  }
+});
 
 for (const width of [1920, 1280, 390]) {
   test(`sponsor overview keeps its facts without loading an inline Assistant at ${width}px`, async ({
@@ -851,7 +1178,7 @@ for (const width of [1920, 1280, 390]) {
       0
     );
     const assistant = page.locator('[data-og7="dossier-assistant"]');
-    await expect(assistant).toHaveAttribute('href', path());
+    await expectAssistantLinkOrigin(assistant, dossierPath());
     await expect(assistant).toBeVisible();
     await expect(page).toHaveURL(url);
     expect(
@@ -871,14 +1198,14 @@ test('selected sponsorship opens its exact Assistant context', async ({
     page.locator('[data-og7="dossier-overview-summary"]')
   ).toBeVisible();
   const assistant = page.locator('[data-og7="dossier-assistant"]');
-  await expect(assistant).toHaveAttribute('href', path());
+  await expectAssistantLinkOrigin(assistant, dossierPath());
   await expect(page.locator('[data-og7="assistant-context"]')).toHaveCount(0);
   expect(calls.some((call) => call.path.endsWith('/assistant/context'))).toBe(
     false
   );
   await assistant.focus();
   await assistant.press('Enter');
-  await expect(page).toHaveURL(path());
+  await expectAssistantPageOrigin(page, dossierPath());
   await expect(page.locator('[data-og7="assistant-reference"]')).toHaveText(
     'DEMO-301'
   );
@@ -919,7 +1246,7 @@ for (const width of [1280, 390]) {
     expect(contextReads()).toBe(0);
 
     await page.locator('[data-og7="dossier-assistant"]').click();
-    await expect(page).toHaveURL(path());
+    await expectAssistantPageOrigin(page, dossierPath());
     await expect(context).toContainText(
       'Le contexte est indisponible. Vous pouvez réessayer.'
     );
@@ -1000,10 +1327,10 @@ for (const language of ['fr', 'en'] as const) {
     );
     await expect(context).toHaveCount(0);
     const workspace = page.locator('[data-og7="dossier-assistant"]');
-    await expect(workspace).toHaveAttribute('href', path());
+    await expectAssistantLinkOrigin(workspace, dossierPath());
     await workspace.focus();
     await workspace.press('Enter');
-    await expect(page).toHaveURL(path());
+    await expectAssistantPageOrigin(page, dossierPath());
     await expect(
       context.locator('[data-og7="assistant-reference"]')
     ).toHaveText('DEMO-301');
@@ -1065,7 +1392,7 @@ test('returning from a dossier prepares a fresh Assistant draft against its curr
   ).toBeVisible();
   options.contextVersion = 'b'.repeat(64);
   await page.locator('[data-og7="dossier-assistant"]').click();
-  await expect(page).toHaveURL(path());
+  await expectAssistantPageOrigin(page, dossierPath());
   await expect(page.locator('[data-og7="assistant-reference"]')).toHaveText(
     'DEMO-301'
   );
@@ -1238,7 +1565,7 @@ test('navigation cannot restore private edits for a different administrator', as
   ).toBeVisible();
   options.identityId = 'another-admin';
   await page.locator('[data-og7="dossier-assistant"]').click();
-  await expect(page).toHaveURL(path());
+  await expectAssistantPageOrigin(page, dossierPath());
   await expect(
     page.getByLabel('Question sur ce dossier', { exact: true })
   ).toHaveValue('');

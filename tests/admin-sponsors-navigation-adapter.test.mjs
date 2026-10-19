@@ -299,7 +299,23 @@ test('recognized section anchors select their exact dossier and tab after scroll
   ]);
 });
 
-test('sections require an exact tab and a nonempty dossier and history positions take priority over anchors', () => {
+test('canonical tabs and aliases focus sections within the same visible workspace', () => {
+  for (const [tab, fragment] of [
+    ['identity', 'dossier-media'],
+    ['identity', 'dossier-media-gallery'],
+    ['media', 'dossier-identity'],
+    ['billing', 'dossier-refund'],
+    ['refund', 'dossier-billing']
+  ]) {
+    const f = fixture();
+    f.adapter.handleRouterEvent(scrollEvent(16, path(tab), fragment));
+    assert.deepEqual(f.calls, [
+      ['scrolled', 16, { fragment, sponsorshipId, tab }]
+    ]);
+  }
+});
+
+test('sections require a coherent tab and a nonempty dossier and history positions take priority over anchors', () => {
   for (const [url, anchor, position] of [
     [path('identity'), 'dossier-review', null],
     ['/admin/fundraiser/sponsors?tab=media', 'dossier-media', null],
@@ -314,8 +330,10 @@ test('sections require an exact tab and a nonempty dossier and history positions
     [path(), null, null],
     [path('media'), null, [0, 920]],
     [path('media'), 'dossier-media-gallery', [0, 0]],
-    [path('identity'), 'dossier-media-gallery', null],
     [path('identity'), 'dossier-preparation', null],
+    [path('billing'), 'dossier-media-gallery', null],
+    [path('refund'), 'dossier-identity', null],
+    [path('media'), 'dossier-billing', null],
     [path('publication'), 'dossier-publication-content', [0, 920]],
     [path(), 'dossier-review', [0, 920]],
     [path(), 'dossier-review', [0, 0]]

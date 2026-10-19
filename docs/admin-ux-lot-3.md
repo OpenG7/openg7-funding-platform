@@ -17,6 +17,73 @@ Réalisé le 16 septembre 2026 selon le [plan de travail](./admin-ux-plan-de-tra
 
 La carte du cockpit choisit actuellement la première commandite des détecteurs d’attention, triée par priorité, sans limite globale de 100 ou 2 000 dossiers. La sélection mémorisée pendant la session et la progression complète du dossier appartiennent au lot 4.
 
+## Retour au dossier — OUX-002
+
+Le **19 octobre 2026**, le retour dossier → Assistant contextuel → dossier est
+implémenté et vérifié localement sur `feat/ux-followup-assistant-return-context`,
+à la suite de l’[écart UX-00](development/ux-00-current-platform-audit.md).
+Cette qualification de branche ne constitue ni une fusion dans `main`, ni un
+déploiement.
+
+Le parcours conserve deux destinations distinctes : **Retour au dossier**
+retrouve l’origine connue ; **Ouvrir le dossier** conserve la prochaine étape
+recommandée par le contexte. Le retour explicite reste disponible lorsqu’une
+lecture de l’Assistant échoue.
+
+L’origine réutilise le paramètre interne `returnTo`, reconstruit pour
+`/admin/fundraiser/sponsors` et le même `sponsorshipId`. Seuls l’onglet connu
+(`overview`, `identity`, `publication`, `billing`, `audit`, alias `media`/`refund`)
+et un fragment propriétaire cohérent sont conservés. Recherche, autres paramètres,
+retour imbriqué, URL externe et sélecteur de focus libre ne font pas partie du
+contrat. Une origine absente ou invalide conserve le parcours de dossier existant,
+sans choisir une autre commandite.
+
+La restauration réutilise l’[adaptateur du dossier](../apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-navigation.adapter.ts)
+et attend la lecture puis le rendu du dossier exact. Dans le même onglet, un
+marqueur interne transitoire rend le focus au lien Assistant du dossier ou de
+l’en-tête. Une nouvelle navigation annule cette intention. Après rechargement,
+ce marqueur n’est pas conservé : un fragment valide restaure le focus de sa section,
+sans promettre le focus du déclencheur. Aucun sélecteur libre, texte de question,
+réponse, brouillon ou destinataire n’est ajouté à l’URL, à l’historique ou au
+stockage navigateur.
+
+Vérifications locales sous Windows et Node 22, sur le build Angular du
+**19 octobre 2026 à 19:50:43 UTC**, sans nouvelle compilation pendant les recettes :
+
+- **31 tests Node réussis** : [validateur de retour](../tests/admin-assistant-navigation.test.mjs)
+  et [adaptateur dossier](../tests/admin-sponsors-navigation-adapter.test.mjs), dont
+  les alias cohérents et le rejet des origines externes, autres dossiers et valeurs
+  ambiguës ; paramètres privés/imbriqués retirés, fragment invalide supprimé.
+- **52 cas contextuels réussis** dans le [fichier complet de l’Assistant](../tests/playwright/admin-assistant-context.spec.ts)
+  en 57,8 s, sans retry, dont les 11 nouveaux cas aussi vérifiés séparément :
+  dossier/en-tête FR/EN, lecture fraîche, focus exact, erreur de contexte, entrée
+  directe, rechargement, origine invalide et navigation annulant un focus tardif.
+  Les garanties existantes de brouillons privés, session et lectures tardives
+  restent couvertes.
+- **32 contrôles plateforme réussis**, quatre navigateurs, en 1,3 min : HTML
+  prérendu sans JavaScript, entrée publique sans implémentations/locales admin,
+  accès admin et changements de langue, HTTP 404 et récupération FR/EN, via la
+  [suite plateforme](../tests/playwright-platform-accessibility.config.mjs).
+- **14 contrôles dossier/shell réussis** en Chromium : alias média/remboursement
+  FR/EN et [couches du shell](../tests/playwright/admin-shell-layers.ui.spec.ts),
+  confirmations imbriquées, Échap, brouillon conservé et actions accessibles,
+  en 23,4 s.
+
+La compilation Angular produit 25 routes et un chargement initial de 505,39 kB.
+Le typage admin, le lint global (sans erreur, avertissement historique dans
+`scripts/smoke-public.mjs`), le format, les standards et les budgets/liens passent.
+La suite Node ciblée a réussi 183 contrôles ; les 31 contrôles de navigation
+ci-dessus ont ensuite été revérifiés après ajout des cas d’alias, sans additionner
+ces passages qui se recouvrent.
+
+Les recettes UI servent le Web compilé et interceptent des réponses synthétiques,
+sans processus SSR serveur, API/DB réelles ni fournisseur externe. Elles ne
+qualifient ni manette physique, ni production. CI de cette correction, intégration
+dans `main` et déploiement restent à confirmer. Les tests contextuels restent
+propriétaires de la confidentialité et de la remise à zéro des brouillons. Les
+autres retours interroutes d’OUX-002 et la restauration de recherche/pagination après
+rechargement restent hors de cette correction ciblée.
+
 ## Contrats et garanties
 
 | Endpoint protégé                                        | Comportement                                                                                                                                                                                                                                               |

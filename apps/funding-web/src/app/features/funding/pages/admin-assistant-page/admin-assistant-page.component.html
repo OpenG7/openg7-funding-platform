@@ -9,6 +9,15 @@
           }}</strong>
         </p>
       </div>
+      @if (dossierReturn(); as origin) {
+        <a
+          class="admin-link"
+          data-og7="assistant-dossier-return"
+          [routerLink]="origin"
+          [info]="dossierReturnFocus"
+          >{{ 'admin.context.returnToDossier' | translate }}</a
+        >
+      }
     </header>
     <openg7-admin-assistant-context
       [sponsorshipId]="id"

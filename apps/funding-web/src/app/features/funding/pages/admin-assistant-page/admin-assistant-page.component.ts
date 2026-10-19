@@ -31,6 +31,10 @@ import { AdminAssistantContextComponent } from '../../components/admin-assistant
 import { AdminAssistantDraftComponent } from '../../components/admin-assistant/admin-assistant-draft.component.js';
 import { AdminDrawerComponent } from '../../components/admin-ui/admin-drawer.component.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
+import {
+  AssistantDossierNavigation,
+  assistantDossierReturn
+} from '../../models/admin-assistant-navigation.js';
 
 import { AdminAssistantQueueComponent } from './admin-assistant-queue.component.js';
 import { AdminAssistantQuestionComponent } from './admin-assistant-question.component.js';
@@ -84,6 +88,18 @@ export class AdminAssistantPageComponent {
   readonly sponsorshipId = computed(
     () => this.params()?.get('sponsorshipId') || undefined
   );
+  readonly dossierReturn = computed(() =>
+    assistantDossierReturn(
+      this.router,
+      this.params()?.get('returnTo'),
+      this.sponsorshipId()
+    )
+  );
+  readonly dossierReturnFocus =
+    this.router.currentNavigation()?.extras.info instanceof
+    AssistantDossierNavigation
+      ? this.router.currentNavigation()?.extras.info
+      : undefined;
   private readonly controller = new AdminAssistantController({
     admin: {
       getWorkQueue: (token, query) => this.admin.getWorkQueue(token, query),
