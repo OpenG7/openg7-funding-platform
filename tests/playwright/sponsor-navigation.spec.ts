@@ -1,3 +1,5 @@
+import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
+
 import type { APIRequestContext } from '@playwright/test';
 import type {
   PublicSponsorshipsResponse,
@@ -213,6 +215,8 @@ test.describe('Docker corporate sponsor navigation', () => {
       .fill(fixture.companyName + ' - mise a jour');
     await page.getByLabel(/Nom du contact/i).fill(fixture.contactName);
     await page.getByLabel(/Courriel du contact/i).fill(fixture.contactEmail);
+    await openFollowupPresentation(page);
+
     await page.getByLabel(/Site web/i).fill(fixture.websiteUrl);
 
     await page
@@ -307,6 +311,7 @@ test.describe('Docker corporate sponsor navigation', () => {
     await page.getByLabel(/Nom de l'entreprise/i).fill(fixture.companyName);
     await page.getByLabel(/Nom du contact/i).fill(fixture.contactName);
     await page.getByLabel(/Courriel du contact/i).fill('invalid-email');
+    await openFollowupPresentation(page);
     await page.getByLabel(/Site web/i).fill(fixture.websiteUrl);
 
     await expect(page.locator('#followup-contactEmail-error')).toHaveText(
@@ -339,6 +344,7 @@ test.describe('Docker corporate sponsor navigation', () => {
     await page.getByLabel(/Nom de l'entreprise/i).fill(fixture.companyName);
     await page.getByLabel(/Nom du contact/i).fill(fixture.contactName);
     await page.getByLabel(/Courriel du contact/i).fill(fixture.contactEmail);
+    await openFollowupPresentation(page);
     await page.getByLabel(/Site web/i).fill('http://invalid-http-url.com');
 
     await page

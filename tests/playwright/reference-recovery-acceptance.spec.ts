@@ -1,3 +1,5 @@
+import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
+
 import { createHash, randomUUID } from 'node:crypto';
 
 import type {
@@ -147,6 +149,7 @@ test('forgotten references: private responses during queue failure, unique captu
       r.url().endsWith('/sponsorship-followup/draft') &&
       r.request().method() === 'POST'
   );
+  await openFollowupPresentation(payer);
   await payer.locator('#followup-message').fill(note);
   expect((await saved).ok()).toBe(true);
   await expect(

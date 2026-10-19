@@ -1,3 +1,5 @@
+import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
+
 import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
@@ -219,6 +221,7 @@ test('lost social responses survive restart and recover through verified reconci
         await page
           .locator('#followup-contactEmail')
           .fill('contact@simulation.example.test');
+        await openFollowupPresentation(page);
         await page
           .locator('#followup-websiteUrl')
           .fill('https://simulation.example.test');

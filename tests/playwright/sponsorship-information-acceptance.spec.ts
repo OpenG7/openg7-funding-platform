@@ -1,3 +1,5 @@
+import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
+
 import { createHash, randomUUID } from 'node:crypto';
 
 import sharp from 'sharp';
@@ -450,6 +452,7 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
         currentContact
       );
       await expect(company).not.toHaveURL(/token=/);
+      await openFollowupPresentation(company);
       await company.locator('#followup-message').fill(privateNote);
       const buffer = await sharp({
         create: { width: 800, height: 600, channels: 3, background: '#28556e' }

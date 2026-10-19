@@ -1,3 +1,5 @@
+import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
+
 import { randomUUID } from 'node:crypto';
 
 import sharp from 'sharp';
@@ -211,6 +213,7 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
         await page
           .locator('#followup-contactEmail')
           .fill('contact@simulation.example.test');
+        await openFollowupPresentation(page);
         await page
           .locator('#followup-websiteUrl')
           .fill('https://simulation.example.test');
