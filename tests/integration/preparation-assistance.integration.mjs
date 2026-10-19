@@ -131,8 +131,11 @@ test(
     await assertPreparationAssistanceReadiness(runtime);
     const service = new PreparationAssistanceService(runtime);
 
-    async function sourced(text = 'Publication Facebook OpenG7') {
-      const contribution = await historical();
+    async function sourced(
+      text = 'Publication Facebook OpenG7',
+      contributionId = randomUUID()
+    ) {
+      const contribution = await historical(contributionId);
       const state = await service.saveSource(
         {
           contributionId: contribution.id,
@@ -157,8 +160,8 @@ test(
         actor
       );
     }
-    async function analyzed(text) {
-      const fixture = await sourced(text);
+    async function analyzed(text, contributionId) {
+      const fixture = await sourced(text, contributionId);
       await queue(fixture.state);
       await service.tick();
       return { ...fixture, state: await service.read(fixture.contribution.id) };
@@ -281,7 +284,8 @@ test(
       'structured details survive JSONB and remain private observations rather than commercial benefits',
       async () => {
         const fixture = await analyzed(
-          '2 publications Facebook sur OpenG7, format texte collectif.\nUn article de 800 à 1000 mots sur le site Web avec 3 visuels.\nPreuves de livraison à remettre sous 48 h.'
+          '2 publications Facebook sur OpenG7, format texte collectif.\nUn article de 800 à 1000 mots sur le site Web avec 3 visuels.\nPreuves de livraison à remettre sous 48 h.',
+          '80000000-0000-4000-8000-000000000800'
         );
         assert.equal(fixture.state.run.state, 'succeeded');
         const suggestion = fixture.state.run.suggestion;
@@ -316,8 +320,46 @@ test(
         );
         const summary = await service.summary(fixture.contribution.id);
         assert.equal(summary.run.adapter, 'local_rules_v2');
-        assert.equal(JSON.stringify(summary).includes('800'), false);
-        assert.equal(JSON.stringify(summary).includes('facts'), false);
+        assert.equal(summary.contributionId, fixture.contribution.id);
+        assert.deepEqual(
+          Object.keys(summary).sort(),
+          [
+            'contributionId',
+            'controlCode',
+            'revision',
+            'sourceVersion',
+            'commitmentVersion',
+            'run',
+            'stale',
+            'capabilities'
+          ].sort()
+        );
+        assert.deepEqual(
+          Object.keys(summary.run).sort(),
+          [
+            'id',
+            'sourceVersion',
+            'commitmentVersion',
+            'adapter',
+            'state',
+            'phase',
+            'errorCode',
+            'reviewVersion',
+            'reviewDecision',
+            'clauseCount',
+            'unsupportedCount',
+            'unresolvedCount',
+            'appliedCommitmentVersion'
+          ].sort()
+        );
+        const serializedSummary = JSON.stringify(summary);
+        for (const privateValue of [
+          fixture.state.source.text,
+          fixture.state.source.title,
+          fixture.state.source.fingerprint,
+          ...suggestion.items.map((item) => item.citation.excerpt)
+        ])
+          assert.equal(serializedSummary.includes(privateValue), false);
         assert.deepEqual(await externalFacts(), originalExternal);
       }
     );
