@@ -289,11 +289,29 @@ test('confirmed invoice and credit-note resends recover from SMTP failure and lo
             )
             .click();
           await expect(page).toHaveURL(/\/admin\/fundraiser\/email-queue$/);
-          const row = page.getByRole('row').filter({ hasText: corrected });
+          const queuedMessage = (await targeted()).find(
+            (message) => message.id === messageId
+          );
+          expect(queuedMessage).toBeDefined();
+          const row = page
+            .getByRole('row')
+            .filter({ hasText: corrected })
+            .filter({
+              has: page.getByText(queuedMessage!.subject, { exact: true })
+            });
+          await expect(row).toHaveCount(1);
           await row
             .getByRole('button', { name: 'Relancer', exact: true })
             .click();
+          const retryRequest = page.waitForRequest(
+            (request) =>
+              request.url().endsWith('/api/admin/email-queue/retry') &&
+              request.method() === 'POST'
+          );
           await page.locator('[data-og7="confirm-action"]').click();
+          expect((await retryRequest).postDataJSON()).toMatchObject({
+            messageId
+          });
           await expect(
             row.locator('[data-og7="email-retry-result"]')
           ).toContainText('Message envoye.');

@@ -25,6 +25,10 @@ import {
 } from './support/acceptance-moderation.js';
 import { completeModeration } from './support/moderation.js';
 import {
+  openDeclaredSponsorshipTracking,
+  openSponsorshipModeration
+} from './support/sponsorship-dossier.js';
+import {
   adminController,
   installAdminController
 } from './support/admin-controller.js';
@@ -577,6 +581,7 @@ for (const amount of [100, 250]) {
                 admin.locator('[data-og7="publication-advanced"] > summary')
               );
               await xbox.text(admin.getByLabel(/Slug public/i), publicSlug);
+              await openDeclaredSponsorshipTracking(admin, xbox);
               await xbox.select(
                 admin.getByLabel(/Destination feed/i),
                 'openg7'
@@ -593,7 +598,7 @@ for (const amount of [100, 250]) {
                 publicSummary
               );
               await xbox.activate(
-                admin.getByRole('button', { name: 'Enregistrer', exact: true })
+                admin.locator('[data-og7="publication-tracking-save"]')
               );
             } else {
               await admin.goto(
@@ -605,6 +610,7 @@ for (const amount of [100, 250]) {
                 .locator('[data-og7="publication-advanced"] > summary')
                 .click();
               await admin.getByLabel(/Slug public/i).fill(publicSlug);
+              await openDeclaredSponsorshipTracking(admin);
               await admin
                 .getByLabel(/Destination feed/i)
                 .selectOption('openg7');
@@ -616,7 +622,7 @@ for (const amount of [100, 250]) {
                 .selectOption('planned');
               await admin.getByLabel(/Resume public/i).fill(publicSummary);
               await admin
-                .getByRole('button', { name: 'Enregistrer', exact: true })
+                .locator('[data-og7="publication-tracking-save"]')
                 .click();
             }
             await expect(
@@ -628,9 +634,7 @@ for (const amount of [100, 250]) {
             // The summary and slug belong to a new editorial revision. Review
             // it before the separate, consent-controlled visibility decision.
             if (xbox) {
-              const editorial = admin
-                .locator('[data-og7="moderation-actions"]')
-                .first();
+              const editorial = await openSponsorshipModeration(admin, xbox);
               await xbox.select(editorial.locator('select').first(), 'N0');
               await xbox.activate(
                 editorial.locator('[data-og7="moderation-open"]')

@@ -18,6 +18,10 @@ import {
   completeModeration,
   currentModerationApproval
 } from './support/moderation.js';
+import {
+  openDeclaredSponsorshipTracking,
+  openSponsorshipModeration
+} from './support/sponsorship-dossier.js';
 
 // Covers the admin feed-publication editor (OpenG7/OpenG20, Facebook/
 // LinkedIn placement). No external network call is involved: the static
@@ -71,6 +75,7 @@ test.describe('Docker admin sponsorship feed publication', () => {
     const feedUrl = 'https://example.com/e2e-playwright-fixture-directory-feed';
 
     await editor.getByLabel(/Slug public/i).fill(slug);
+    await openDeclaredSponsorshipTracking(page);
     await editor.getByLabel(/Destination feed/i).selectOption('openg7');
     // Save edited content before asking for review of that exact revision.
     await editor.getByLabel(/Statut de suivi déclaré/i).selectOption('drafted');
@@ -94,15 +99,13 @@ test.describe('Docker admin sponsorship feed publication', () => {
       .getByLabel(/Notes feed/i)
       .fill('E2E Playwright: note de feed automatisee.');
 
-    await editor
-      .getByRole('button', { name: 'Enregistrer', exact: true })
-      .click();
+    await editor.locator('[data-og7="publication-tracking-save"]').click();
 
     await expect(
       page.getByText('Paramètres de suivi enregistrés')
     ).toBeVisible();
     // Editing the public placement invalidates the prior editorial revision.
-    const moderation = page.locator('[data-og7="moderation-actions"]');
+    const moderation = await openSponsorshipModeration(page);
     await moderation.getByRole('combobox').first().selectOption('N0');
     await moderation.locator('[data-og7="moderation-open"]').click();
     const reviewed = page.waitForResponse(
@@ -164,6 +167,7 @@ test.describe('Docker admin sponsorship feed publication', () => {
       .getByRole('button', { name: 'Publication', exact: true })
       .click();
     await page.locator('[data-og7="publication-advanced"] > summary').click();
+    await openDeclaredSponsorshipTracking(page);
     await editor
       .getByLabel(/Statut de suivi déclaré/i)
       .selectOption('published');
@@ -172,9 +176,7 @@ test.describe('Docker admin sponsorship feed publication', () => {
         response.url().endsWith('/api/admin/sponsorships/publication') &&
         response.request().method() === 'POST'
     );
-    await editor
-      .getByRole('button', { name: 'Enregistrer', exact: true })
-      .click();
+    await editor.locator('[data-og7="publication-tracking-save"]').click();
     await page.locator('[data-og7="confirm-action"]').click();
     const publicationResponse = await published;
     expect(publicationResponse.ok(), await publicationResponse.text()).toBe(
