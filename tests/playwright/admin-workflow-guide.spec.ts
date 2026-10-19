@@ -414,7 +414,7 @@ test('a reader can explore the journeys while private agreement sources remain u
   expect(f.base.commands).toEqual([]);
 });
 
-test('missing delivery evidence clears the previous area and lets the user choose an available reading step', async ({
+test('delivery evidence highlights the scoped Campaigns link and handles its disappearance without mutation', async ({
   page
 }) => {
   const f = await fixtures(page);
@@ -426,9 +426,17 @@ test('missing delivery evidence clears the previous area and lets the user choos
     ''
   );
   await step(page, 'evidence').click();
+  const campaign = hook(page, 'publication-campaign-benefits');
+  await expect(campaign).toHaveAttribute('data-og7-guidance-highlight', '');
+  await expect(campaign).toHaveAttribute(
+    'href',
+    `/admin/fundraiser/campaigns?sponsorshipId=${controllerId}`
+  );
+  await expect(hook(page, 'workflow-guide-missing')).toBeHidden();
+  await expect(page).toHaveURL(/\/admin\/fundraiser\/sponsors\?/);
+  await campaign.evaluate((element) => element.remove());
   await expect(hook(page, 'workflow-guide-missing')).toBeVisible();
   await expect(page.locator(highlighted)).toHaveCount(0);
-  await expect(hook(page, 'publication-obligation-proof')).toHaveCount(0);
   await step(page, 'responsibility').click();
   await expect(hook(page, 'workflow-guide-missing')).toBeHidden();
   await expect(hook(page, 'publication-obligations')).toHaveAttribute(
@@ -445,7 +453,9 @@ test('website and manual-history steps expose only their existing details and ne
   const f = await fixtures(page);
   await open(page);
   const advanced = hook(page, 'publication-advanced');
+  const tracking = hook(page, 'publication-declared-tracking');
   await expect(advanced).toHaveJSProperty('open', false);
+  await expect(tracking).toHaveJSProperty('open', false);
   const save = hook(page, 'publication-tracking-save');
   const disabledBefore = await save.isDisabled();
   const draftValues = () =>
@@ -462,6 +472,7 @@ test('website and manual-history steps expose only their existing details and ne
   await journey(page, 'website').click();
   await step(page, 'presentation').click();
   await expect(advanced).toHaveJSProperty('open', true);
+  await expect(tracking).toHaveJSProperty('open', false);
   for (const target of [
     'publication-public-address',
     'publication-public-summary'
@@ -470,20 +481,23 @@ test('website and manual-history steps expose only their existing details and ne
       'data-og7-guidance-highlight',
       ''
     );
-  await advanced.locator('summary').click();
+  await advanced.locator(':scope > summary').click();
   await expect(advanced).toHaveJSProperty('open', false);
   await journey(page, 'history').click();
   await step(page, 'declare').click();
   await expect(advanced).toHaveJSProperty('open', true);
+  await expect(tracking).toHaveJSProperty('open', true);
   for (const target of [
     'publication-manual-status',
     'publication-manual-link',
     'publication-manual-notes'
-  ])
+  ]) {
     await expect(hook(page, target)).toHaveAttribute(
       'data-og7-guidance-highlight',
       ''
     );
+    await expect(hook(page, target)).toBeVisible();
+  }
   await step(page, 'save').focus();
   await page.keyboard.press('Enter');
   await expect(save).toHaveAttribute('data-og7-guidance-highlight', '');

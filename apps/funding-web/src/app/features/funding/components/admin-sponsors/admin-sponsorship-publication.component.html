@@ -87,103 +87,45 @@
         }
       </div>
     }
-    @if (dossier().publicationWorkflow; as workflow) {
-      <section
-        class="obligation-console"
-        data-og7="publication-obligations"
-        aria-labelledby="publication-obligations-title"
-      >
-        <h3 id="publication-obligations-title">
-          {{
-            'admin.dossier.publicationBridge.schedule.workflow.title'
-              | translate
-          }}
-        </h3>
+    <section
+      class="obligation-summary"
+      data-og7="publication-obligations"
+      [attr.data-state]="dossier().publicationWorkflow?.state ?? null"
+      [attr.data-responsibility]="
+        dossier().publicationWorkflow?.responsibility ?? null
+      "
+      aria-labelledby="publication-obligations-title"
+    >
+      <h3 id="publication-obligations-title">
+        {{
+          'admin.dossier.publicationCleanup.workflowSummaryTitle' | translate
+        }}
+      </h3>
+      @if (dossier().publicationWorkflow; as workflow) {
         <p>
           {{
-            'admin.dossier.publicationBridge.schedule.workflow.help' | translate
+            'admin.dossier.publicationBridge.schedule.workflow.responsibility.' +
+              workflow.responsibility | translate
           }}
         </p>
-        <ul class="obligation-list">
-          @for (item of workflow.obligations; track item.obligationId) {
-            <li
-              [attr.data-og7-id]="item.obligationId"
-              [attr.data-state]="item.state"
-              [attr.data-responsibility]="item.responsibility"
-            >
-              <div class="obligation-heading">
-                <strong
-                  >{{
-                    'admin.commitments.channels.' + item.channel | translate
-                  }}
-                  · {{ item.target === 'openg20' ? 'OpenG20' : 'OpenG7' }} · #{{
-                    item.ordinal
-                  }}</strong
-                >
-                <span>{{
-                  'admin.dossier.publicationBridge.schedule.workflow.reason.' +
-                    item.reason | translate
-                }}</span>
-              </div>
-              <p>
-                {{
-                  'admin.dossier.publicationBridge.schedule.workflow.responsibility.' +
-                    item.responsibility | translate
-                }}
-              </p>
-              @if (evidence(item.obligationId); as proof) {
-                <p data-og7="publication-obligation-proof">
-                  {{
-                    'admin.dossier.publicationBridge.schedule.workflow.deliveredAt'
-                      | translate
-                  }}
-                  <time [attr.datetime]="proof.deliveredAt">{{
-                    date(proof.deliveredAt)
-                  }}</time>
-                </p>
-                @if (evidenceUrl(item.obligationId); as url) {
-                  <a
-                    class="admin-button"
-                    [href]="url"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    >{{
-                      'admin.dossier.publicationBridge.viewPost' | translate
-                    }}</a
-                  >
-                }
-              } @else if (item.scheduledAt) {
-                <p>
-                  {{ publicationDateLabel(item.reason) | translate }}
-                  <time [attr.datetime]="item.scheduledAt">{{
-                    date(item.scheduledAt)
-                  }}</time>
-                  {{
-                    'admin.dossier.publicationBridge.schedule.timezone'
-                      | translate
-                  }}
-                </p>
-              }
-              @if (item.deliveryId && item.responsibility === 'admin') {
-                <button
-                  type="button"
-                  class="admin-button"
-                  [disabled]="scheduling.busy() || scheduling.loading()"
-                  (click)="scheduling.open(item.deliveryId)"
-                >
-                  {{
-                    (item.reason === 'publication_authorization_required'
-                      ? 'admin.dossier.publicationBridge.action.review'
-                      : 'admin.dossier.publicationBridge.action.resolve'
-                    ) | translate
-                  }}
-                </button>
-              }
-            </li>
-          }
-        </ul>
-      </section>
-    }
+        <p>
+          {{
+            'admin.dossier.publicationBridge.schedule.workflow.reason.' +
+              workflow.reason | translate
+          }}
+        </p>
+      }
+      <p>
+        {{ 'admin.dossier.publicationCleanup.workflowSummaryHelp' | translate }}
+      </p>
+      <a
+        class="admin-button"
+        data-og7="publication-campaign-benefits"
+        routerLink="/admin/fundraiser/campaigns"
+        [queryParams]="{ sponsorshipId: dossier().contributionId }"
+        >{{ 'admin.dossier.publicationCleanup.openCampaign' | translate }}</a
+      >
+    </section>
     <div class="channels">
       <article
         class="website-card"

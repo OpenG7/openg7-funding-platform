@@ -112,10 +112,12 @@ gestes distincts. Les panneaux métier gardent la priorité et leurs confirmatio
 
 Dans **Mode guidé → Six parcours**, choisir librement un parcours puis une étape
 numérotée, ou utiliser **Étape précédente / suivante**. Le guide décrit l’action,
-son résultat attendu, son emplacement actuel et l’organisation proposée à évaluer.
+son résultat attendu et son emplacement actuel.
 Les parcours couvrent l’accord, la préparation, l’autorisation, la livraison,
-la fiche publique et le suivi historique manuel. Les propositions d’organisation
-restent explicitement signalées comme des améliorations à réaliser.
+la fiche publique et le suivi historique manuel. Le volet **Emplacement actuel /
+Organisation proposée** présente encore des pistes futures marquées à réaliser,
+également consignées dans le [blueprint du Guide](../development/admin-guide-blueprint.md).
+Leur présence ne signifie pas que l’organisation proposée est livrée.
 
 Sur l’onglet Publication d’un dossier, chaque étape met ses repères réels en
 surbrillance et ouvre seulement les volets de lecture nécessaires. La page reste
@@ -134,7 +136,7 @@ défilement accessibles existants, avec respect de la réduction des mouvements.
 
 ### Mode guidé dans l'administration
 
-Le bouton **Mode guidé**, sous la barre commune, accompagne les 19 rubriques
+Le bouton **Mode guidé**, sous la barre commune, accompagne les 20 rubriques
 administratives authentifiées. **Découvrir les rubriques** affiche **Vous êtes ici**,
 une seule étape de lecture et **Me montrer dans la page** pour déplacer le focus vers le repère
 correspondant. Chaque zone visible correspondant à ce repère reçoit un contour
@@ -221,7 +223,7 @@ signalé séparément. Les guides de découverte détaillés restent disponibles
 
 La recette UI `admin-guidance.spec.ts`, avec réponses API interceptées, vérifie navigation et reprise, comptes,
 révocation, stockage indisponible ou corrompu, absence de commande métier,
-FR/EN, clavier, mobile, concentration et présence dans les 19 rubriques. Elle
+FR/EN, clavier, mobile, concentration et présence dans les 20 rubriques. Elle
 vérifie aussi reprise d'un paiement, erreurs, réponses tardives, remplacement
 volontaire du dossier et recommandation devenue obsolète. Cette recette UI ne
 prouve pas à elle seule le traitement financier ou la réalisation des engagements.
@@ -233,21 +235,23 @@ incomplets sans consentement ou avec publication sociale seulement simulée.
 Leur définition ne remplace pas le résultat d'une exécution et ne qualifie aucune
 publication ou paiement de production.
 
-### Mode automatique de rapprochement
+<a id="mode-automatique-de-rapprochement"></a>
 
-**Démarrer un nouveau passage**, dans l'en-tête ou **Mode guidé → Automatique**,
-lance un passage sur les paiements confirmés. Le serveur fige la liste des dossiers,
+### Préparation des dossiers par lot
+
+La commande de démarrage, dans l'en-tête ou **Mode guidé → Préparation des dossiers**,
+lance une vérification du lot de paiements confirmés. Le serveur fige la liste des dossiers,
 leurs références, montants et devises ; chaque dossier est ensuite relu à partir
 du paiement, de l'offre enregistrée, des obligations et de leurs preuves.
 Les quantités et les passages promis doivent tous être présents. Les devises
 restent séparées. Le soutien personnel ne crée aucune contrepartie commerciale.
 
-Le carrousel affiche un seul **Bon de préparation** à la fois. Sa position dans
+Le carrousel affiche une seule **Fiche de préparation** à la fois. Sa position dans
 la liste figée est distincte du nombre de dossiers examinés par le serveur.
 **Précédent**, **Suivant** et **Actualiser** consultent les faits actuels, y compris
 ceux d'un dossier pas encore examiné ; ils ne lancent aucune préparation,
 n'accusent réception d'aucune lecture et ne reprennent pas le passage.
-Le bon présente paiement, offre acceptée, contrôles, autorisations, brouillons
+La fiche présente paiement, offre acceptée, contrôles, autorisations, brouillons
 privés, contenu à relire et éléments manquants. Les liens ouvrent les écrans
 propriétaires pour compléter le dossier.
 
@@ -258,12 +262,12 @@ dossier affiche d'abord sa référence et son statut ; déplier ce dossier rév�
 les faits avant/après, engagements, preuves et références d'audit. Ces ouvertures
 au clavier ou à la souris consultent le rapport sans relancer le traitement.
 
-Le même bon est accessible directement dans **Publication**, sixième étape du
+La même fiche est accessible directement dans **Publication**, sixième étape du
 dossier consulté, avant les détails des engagements. Aucun passage automatique
 n'est requis ou créé. La qualification historique reste accessible dans ces
-détails ; son absence apparaît comme un blocage dans le bon. Les deux accès
-partagent la version du contenu et l'historique des accords : une préparation
-déjà approuvée dans sa version actuelle ne demande pas un deuxième accord.
+détails ; son absence apparaît comme un blocage dans la fiche. Les deux accès
+partagent la version du contenu et l'historique des approbations : une préparation
+déjà approuvée dans sa version actuelle ne demande pas une deuxième approbation.
 
 <a id="preparation-pilot"></a>
 
@@ -272,49 +276,57 @@ déjà approuvée dans sa version actuelle ne demande pas un deuxième accord.
 La rubrique [Campagnes](../technical/admin-campaigns.md), sous
 `/admin/fundraiser/campaigns`, présente les prestations promises de chaque achat
 confirmé. Elle comprend les prestations à venir sous réserve des contrôles et
-approbations du bon. Par défaut, les préparations approuvées dans leur version
-actuelle apparaissent en premier. La consultation permet de retrouver le bon et
+approbations de la fiche. Par défaut, les préparations approuvées dans leur version
+actuelle apparaissent en premier. La consultation permet de retrouver la fiche et
 les écrans propriétaires ; elle ne déclenche ni approbation ni publication.
 
 La liste des contrôles, le détail sélectionné et les commandes contextuelles
-partagent le même bon dans le guide et le dossier. Sélectionner un contrôle
+partagent la même fiche dans le guide et le dossier. Sélectionner un contrôle
 affiche son explication; **Actions** ouvre les commandes sans enregistrer de
 décision. Le compteur reprend les contrôles et autorisations applicables du
-serveur, hors éléments non requis. Son total varie selon le bon; les blocages
+serveur, hors éléments non requis. Son total varie selon la fiche; les blocages
 complémentaires ne l'augmentent pas. Cliquer, lire ou fermer une commande ne
 valide aucun contrôle.
 
-Pour un bon incomplet, le guide s’élargit selon la place disponible : le détail
+Pour une fiche incomplète, le guide s’élargit selon la place disponible : le détail
 du contrôle sélectionné apparaît à gauche, la liste reste à droite. Le premier
 encadré donne le point à traiter, notamment la source d’origine manquante pour
 les publications promises. Les explications de l’assistance restent dans un volet
 replié sous cet état. Sur écran étroit, le détail précède la liste.
 La sélection révèle ce point sans quitter le bouton sélectionné au clavier ou
-à la manette ; les commandes restent accessibles par **Actions**. Les bons prêts
-ou approuvés gardent leur format compact.
+à la manette ; les commandes restent accessibles par **Actions**. Les fiches prêtes
+ou approuvées gardent leur format compact.
 
-Le Pilotage regroupe les vérifications et autorisations du bon. Le volet replié
-**Détails de l’accord et traçabilité** est réservé à **Campagnes**. Il conserve
+Le Pilotage regroupe les vérifications et autorisations de la fiche. Le volet replié
+**Détails de l’accord de commandite et traçabilité** est réservé à **Campagnes**. Il conserve
 les clauses de l’offre, la date du paiement, les états des brouillons, le bilan
 des engagements et la version complète, sans répéter ces listes de contrôles.
 Commandites masque ce volet et sa commande ; la qualification de l’accord
 d’origine reste dans son écran métier. Le Guide propose **Voir les prestations
-dans Campagnes**, avec le dossier du bon courant. La page reprend une prestation
+dans Campagnes**, avec le dossier de la fiche courante. La page reprend une prestation
 sélectionnée de ce dossier, choisit l’unique résultat ou laisse choisir parmi
 plusieurs ; zéro résultat reste explicite. Voir le [contrat de navigation ciblée](../technical/admin-campaigns.md#entree-contextuelle-et-details-de-laccord).
-La relecture du contenu exact, l’approbation et l’historique des accords gardent
+La relecture du contenu exact, l’approbation et l’historique des approbations gardent
 leurs volets et commandes distincts dans les trois hôtes.
+
+Le [vocabulaire commun des opérations](../technical/admin-campaigns.md#vocabulaire-des-operations)
+réserve **accord de commandite** aux conditions commerciales. L'approbation de
+préparation porte sur le dossier entier, même depuis une prestation sélectionnée ;
+l'autorisation de publication porte sur le contenu et sa diffusion. Le rapport
+annonce **Préparer ce dossier** lorsqu'il ouvre la préparation ciblée. Les
+occurrences promises sont des **Publications**, tandis qu'une **vérification du
+lot** porte sur l'ensemble des dossiers.
 
 Pour les accords historiques, la destination de l’accord donne aussi accès à
 l’[assistance locale versionnée](../technical/preparation-assistance.md), réservée
 au propriétaire. Le texte, le job et la revue humaine ont leurs propres versions ;
-un résultat prêt à examiner ne complète aucun contrôle du bon. Le formulaire
+un résultat prêt à examiner ne complète aucun contrôle de la fiche. Le formulaire
 habituel conserve la qualification humaine et sa confirmation.
 
-Le guide et le bon affichent aussi un résumé compact de cette assistance pour le
+Le guide et la fiche affichent aussi un résumé compact de cette assistance pour le
 contrôle des publications promises : attente, traitement, résultat à examiner,
 revue, erreur ou péremption. Ce résumé ne contient ni accord ni notes privées et
-ne modifie pas la version du bon. **Examiner**, **Voir la source** et **Relancer**
+ne modifie pas la version de la fiche. **Examiner**, **Voir la source** et **Relancer**
 sont regroupés dans **Actions contextuelles**, accessibles à la souris, au clavier
 et à la manette. Le résumé conserve ses états et explications ainsi que
 **Actualiser** en cas d’erreur de lecture.
@@ -326,37 +338,38 @@ Revue des prestations et Confirmation distinguent lecture, brouillon et accord.
 Depuis une clause, **Documenter cette prestation** ouvre un brouillon dans le
 formulaire métier ; **Revenir à la clause** permet ensuite de la relier. Le motif
 global n’a qu’une saisie. Les blocages de l’application donnent accès au point à
-compléter. Le retour au Pilotage relit le bon et restaure son contrôle ; le repère
+compléter. Le retour au Pilotage relit la fiche et restaure son contrôle ; le repère
 est limité à la visite et ne conserve aucun texte privé. Voir le
 [parcours de revue](../technical/preparation-assistance.md#revue-humaine-et-application).
 
 L'action principale rejoint l'écran propriétaire de l'accord, de la modération
 ou de la présentation. Les détails et l'historique restent consultables. Après
-une correction, relire le bon pour obtenir l'état serveur; un changement de
+une correction, relire la fiche pour obtenir l'état serveur; un changement de
 sélection, de dossier ou de version referme les actions et impose le retour au
-neutre. Lorsque le serveur autorise l'accord et que le rôle le permet, le
-controller propose **Approuver la préparation**, puis ouvre la confirmation
-habituelle. Annuler ne transmet aucun accord. Au clavier et à la manette, le
+neutre. Lorsque le serveur autorise l'approbation et que le rôle le permet, le
+bouton principal **Approuver la préparation** et la commande correspondante du
+menu Actions ouvrent la même confirmation habituelle. Ces deux entrées restent
+accessibles au clavier et à la manette. Annuler ne transmet aucune approbation. Le
 panneau supérieur conserve le focus; une nouvelle pression est requise pour
 confirmer. Les essais avec une manette simulée ne qualifient pas un périphérique
 USB/Bluetooth réel.
 
-**Approuver la préparation** est un accord explicite sur la version consultée,
+**Approuver la préparation** est une approbation explicite de la version consultée,
 réservé à un opérateur ou propriétaire. Le serveur revérifie la version et les
 préconditions puis conserve acteur, date, version, référence d'audit et contenu
 approuvé dans une transaction. Un changement déterminant exige une nouvelle
-revue et conserve les accords précédents dans l'historique. Un accord sur la
-préparation ne réalise aucun avantage et n'autorise ni publication, refus,
+revue et conserve les approbations précédentes dans l'historique. Une approbation de
+préparation ne réalise aucune prestation et n'autorise ni publication, refus,
 remboursement ni envoi. Il ne fait pas avancer le carrousel ou le traitement.
 Le rôle lecteur conserve uniquement la consultation.
 
 Une base incompatible ou des droits PostgreSQL insuffisants empêchent le
-démarrage de l'API et sont revérifiés à chaque lecture ou accord. Si la
-configuration change après démarrage, les deux accès au bon affichent une erreur
-de mise à jour de la base ou de droits serveur. L'accord reste désactivé jusqu'à
+démarrage de l'API et sont revérifiés à chaque lecture ou approbation. Si la
+configuration change après démarrage, les deux accès à la fiche affichent une erreur
+de mise à jour de la base ou de droits serveur. L'approbation reste désactivée jusqu'à
 une actualisation réussie après correction. Les diagnostics et codes sûrs sont
-décrits dans le [contrat des bons](../technical/admin-automatic-runs.md#runtime-preparation-readiness).
-La détection ne lance aucune migration et ne répète aucun accord.
+décrits dans le [contrat des fiches](../technical/admin-automatic-runs.md#runtime-preparation-readiness).
+La détection ne lance aucune migration et ne répète aucune approbation.
 
 Le guide attend **J’ai lu, continuer** à chaque point de lecture : périmètre,
 aperçu du prochain dossier, résultat confirmé de ce dossier, puis bilan final.
@@ -431,7 +444,7 @@ passage et conserve les accords précédents. Appliquer la procédure de
 ### Préparation d'un dossier ou d'une rubrique
 
 Les outils de préparation du guide flottant proposent le paiement suivi ou l’une des
-19 rubriques administratives. **Démarrer la préparation** montre l’étape et sa
+20 rubriques administratives. **Démarrer la préparation** montre l’étape et sa
 raison, rejoint l’écran, met la zone utile en évidence et ouvre les préparations
 explicitement déclarées par les composants propriétaires. Lorsque plusieurs
 décisions sont possibles, l’administrateur choisit celle à préparer. Les

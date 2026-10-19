@@ -291,8 +291,22 @@ test('Xbox refusal records a reason-bound moderation decision without authorizin
   const state = await controllerJourneysFixtures(page);
   const pad = adminController(page);
   await page.goto(path());
+  const tool = page.locator(
+    '[data-og7="dossier-tool-panel"][data-og7-id="moderation"]'
+  );
+  await pad.activate(
+    page.locator('[data-og7="dossier-tool-toggle"][data-og7-id="moderation"]')
+  );
+  await expect(tool).toBeVisible();
   const actions = hook(page, 'moderation-actions').first();
   await pad.select(actions.getByRole('combobox'), 'N4');
+  await pad.activate(actions.locator('[data-og7="moderation-open"]'));
+  await expect(hook(page, 'moderation-decision')).toBeVisible();
+  await pad.press('B');
+  await expect(hook(page, 'moderation-decision')).toHaveCount(0);
+  await expect(tool).toBeVisible();
+  await expect(actions.locator('[data-og7="moderation-open"]')).toBeFocused();
+  expect(writes(state, '/moderation/decisions')).toHaveLength(0);
   await pad.activate(actions.locator('[data-og7="moderation-open"]'));
   await moderation(page, pad, true, 'DEHUMANIZATION');
   const decisions = writes(state, '/moderation/decisions');
@@ -308,6 +322,38 @@ test('Xbox refusal records a reason-bound moderation decision without authorizin
     }
   });
   expect(writes(state, '/refund')).toHaveLength(0);
+});
+
+test('Xbox reader opens dossier help while access and moderation stay unavailable', async ({
+  page
+}) => {
+  const state = await controllerJourneysFixtures(page, 'reader');
+  const pad = adminController(page);
+  await page.goto(path());
+  await expect(
+    page.locator('[data-og7="dossier-tool-toggle"][data-og7-id="moderation"]')
+  ).toHaveCount(0);
+  await expect(
+    page.locator('[data-og7="dossier-tool-toggle"][data-og7-id="access"]')
+  ).toHaveCount(0);
+  const help = page.locator(
+    '[data-og7="dossier-tool-toggle"][data-og7-id="help"]'
+  );
+  await pad.activate(help);
+  const panel = page.locator(
+    '[data-og7="dossier-tool-panel"][data-og7-id="help"]'
+  );
+  await expect(panel).toBeVisible();
+  const close = panel.locator('[data-og7="dossier-tool-close"]');
+  await expect(close).toBeFocused();
+  await pad.press('RB');
+  await expect(
+    panel.locator('[data-og7="dossier-guide"] > summary')
+  ).toBeFocused();
+  await pad.activate(close);
+  await expect(panel).toBeHidden();
+  await expect(help).toBeFocused();
+  expect(state.commands).toEqual([]);
 });
 
 test('Xbox refund requires exact text and explicit submission, with no call on cancellation', async ({

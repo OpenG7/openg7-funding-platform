@@ -16,7 +16,7 @@ import {
   viewChild,
   untracked
 } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import type {
   AdminSponsorshipProgress,
@@ -41,7 +41,6 @@ import { AdminSponsorshipHistoricalAuditComponent } from './admin-sponsorship-hi
   standalone: true,
   imports: [
     TranslatePipe,
-    RouterLink,
     AdminAutomaticPreparationDirective,
     AdminSponsorshipTimingComponent,
     AdminSponsorshipHistoricalAuditComponent,
@@ -90,8 +89,6 @@ export class AdminSponsorshipCommitmentsComponent {
       return this.admin.getSponsorshipCommitment(input.contributionId);
     },
     adjust: (input) => this.admin.adjustSponsorshipObligation(input),
-    adoption: (size, cursor) =>
-      this.admin.sponsorshipCommitmentAdoptionPreview(size, cursor),
     changed: () => this.changed.emit(),
     unauthorized: async () => {
       this.admin.clearAdminSession();
@@ -352,9 +349,5 @@ export class AdminSponsorshipCommitmentsComponent {
       style: 'currency',
       currency
     }).format(amountMinor / 100);
-  }
-  setPageSize(event: Event): void {
-    this.c.pageSize.set(this.value(event) === '50' ? 50 : 25);
-    void this.c.loadPreview();
   }
 }

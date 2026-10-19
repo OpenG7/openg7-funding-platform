@@ -1,0 +1,15 @@
+{
+  "workflowSummaryTitle": "Prochaine étape des prestations",
+  "workflowSummaryHelp": "Consultez le détail des prestations, leurs échéances et leurs preuves dans Campagnes.",
+  "openCampaign": "Voir les prestations de cette commandite",
+  "settingsTitle": "Fiche publique et suivi déclaré",
+  "settingsHelp": "La fiche publique et le suivi social déclaré ont des responsabilités distinctes. Leur enregistrement ne publie pas la fiche et n’autorise aucun envoi social.",
+  "profileTitle": "Fiche publique",
+  "profileHelp": "Modifiez l’adresse et le résumé affichés sur la fiche. Sa visibilité se décide séparément dans la carte Site Web.",
+  "declaredTitle": "Suivi social déclaré",
+  "declaredHelp": "Conservez les références et les notes d’un suivi manuel ou historique. Un statut déclaré ne confirme pas une prestation livrée et ne remplace pas l’autorisation d’une publication.",
+  "previewTitle": "Aperçu privé de la fiche",
+  "save": "Enregistrer les modifications",
+  "saveHelp": "Enregistre les champs modifiés de la fiche et du suivi déclaré. Pour autoriser un envoi, ouvrez la publication concernée.",
+  "saving": "Enregistrement…"
+}

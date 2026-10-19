@@ -61,7 +61,7 @@
       "steps": {
         "obligations": {
           "title": "Read the obligations",
-          "action": "Compare channels, destinations, quantities and required elements with the recorded agreement.",
+          "action": "Read the summary, then follow its Campaigns link to compare detailed services with the recorded sponsorship agreement.",
           "outcome": "The scope of preparation is established from the documented benefits."
         },
         "prepare": {
@@ -107,12 +107,12 @@
     "delivery": {
       "title": "Track delivery and its evidence",
       "goal": "Understand each obligation’s status and consult the available fulfilment evidence.",
-      "location": "Dossier Publication tab: obligation tracking board and channel cards.",
+      "location": "Dossier Publication tab: summary and channel cards; Campaigns for service details and evidence.",
       "proposed": "Show each obligation’s status, next responsibility and qualified evidence together.",
       "steps": {
         "status": {
           "title": "Read the current status",
-          "action": "Check each obligation and its associated publication: waiting, scheduled, sending, failed or successful.",
+          "action": "Read the summary and the associated publication’s status: waiting, scheduled, sending, failed or successful. Campaigns provides details for each service.",
           "outcome": "Confirmed facts are distinguished from pending operations, simulations and uncertain results."
         },
         "responsibility": {
@@ -122,7 +122,7 @@
         },
         "evidence": {
           "title": "Consult qualified evidence",
-          "action": "After confirmed success, consult the qualified evidence recorded by the platform and the available publication link.",
+          "action": "Open Campaigns voluntarily from this sponsorship’s services link to consult available qualified evidence and publication links.",
           "outcome": "Fulfilment can be checked against recorded evidence. This guide performs no manual evidence linking."
         }
       }
@@ -168,7 +168,7 @@
         },
         "save": {
           "title": "Save the metadata",
-          "action": "Review the changed fields and use Save in the manual tracking area.",
+          "action": "Review the changed fields, then use Save changes. This shared command saves public profile and declared tracking changes.",
           "outcome": "After server validation, the historical metadata is retained. Saving triggers no delivery and confirms no fulfilment."
         }
       }

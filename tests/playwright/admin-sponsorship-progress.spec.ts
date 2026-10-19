@@ -29,6 +29,9 @@ import { registerSponsorshipTimingTests } from './admin-sponsorship-timing.ui.js
 import { registerAdminMediaUsageTests } from './sponsor-media-usage.ui.js';
 import { registerDossierPublicationScheduleTests } from './dossier-publication-schedule.ui.js';
 import { registerMediaReviewWorkspaceTests } from './media-review-workspace.ui.js';
+import { registerSponsorPublicationCleanupTests } from './admin-sponsors-publication-cleanup.ui.js';
+import { registerSponsorToolTests } from './admin-sponsor-tools.ui.js';
+import { registerSponsorsQualityTests } from './admin-sponsors-quality.ui.js';
 
 const id = '10000000-0000-4000-8000-000000000401';
 const secondId = '10000000-0000-4000-8000-000000000402';
@@ -752,6 +755,9 @@ registerDossierPublicationScheduleTests({
 });
 registerSponsorFiltersTests({ fixtures, path });
 registerSponsorResultsTests({ fixtures });
+registerSponsorPublicationCleanupTests({ fixtures, path, recordedCommitment });
+registerSponsorToolTests({ fixtures, path, secondId });
+registerSponsorsQualityTests({ fixtures, path });
 registerContributionActivityOverlayTests({
   setup: async (page) => {
     const { options } = await fixtures(page, 'operator');
@@ -762,6 +768,16 @@ registerContributionActivityOverlayTests({
 
 const editForm = (page: Page) => page.locator('[data-og7="edit-dossier-form"]');
 const guide = (page: Page) => page.locator('[data-og7="dossier-guide"]');
+const toolToggle = (page: Page, tool: string) =>
+  page.locator(`[data-og7="dossier-tool-toggle"][data-og7-id="${tool}"]`);
+async function openDossierHelp(page: Page): Promise<void> {
+  const toggle = toolToggle(page, 'help');
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true')
+    await toggle.click();
+  await expect(guide(page)).toBeVisible();
+  if ((await guide(page).getAttribute('open')) === null)
+    await guide(page).locator('summary').click();
+}
 
 const sponsorStylePalettes = {
   mineral: { panel: 'rgb(255, 255, 255)', text: 'rgb(23, 43, 80)' },
@@ -931,7 +947,7 @@ for (const language of ['fr-CA', 'en'] as const)
     // 1920x1080 at 125% supplies 1536x864 CSS pixels, without device scaling.
     { width: 1536, height: 864 }
   ]) {
-    test(`dossier composition keeps identity and context usable in ${language} at ${viewport.width}px`, async ({
+    test(`dossier composition keeps identity and optional tools usable in ${language} at ${viewport.width}px`, async ({
       page
     }, testInfo) => {
       const { calls, options } = await fixtures(page, 'owner');
@@ -980,7 +996,7 @@ for (const language of ['fr-CA', 'en'] as const)
       await page.goto(path('identity'));
       const frame = page.locator('[data-og7="sponsorship-dossier"]');
       const main = frame.locator('[data-og7="dossier-main"]');
-      const context = frame.locator('[data-og7="dossier-context"]');
+      const context = frame.locator('[data-og7="dossier-tool-panel"]');
       const identity = main.locator('[data-og7="dossier-identity"]');
       await expect(
         frame.getByRole('heading', { name: 'NordVale Énergie', exact: true })
@@ -999,30 +1015,21 @@ for (const language of ['fr-CA', 'en'] as const)
       }
       await revealDesktopQueue();
 
-      async function expectComposition(stacked: boolean) {
+      async function expectComposition() {
         await expect(main).toHaveCount(1);
-        await expect(context).toHaveCount(1);
+        await expect(context).toBeHidden();
+        await expect(frame.locator('[data-og7="dossier-context"]')).toHaveCount(
+          0
+        );
         const mainBox = (await main.boundingBox())!;
-        const contextBox = (await context.boundingBox())!;
-        if (stacked) {
-          expect(contextBox.y).toBeGreaterThanOrEqual(
-            mainBox.y + mainBox.height - 1
-          );
-          expect(contextBox.x).toBeCloseTo(mainBox.x, 0);
-          expect(contextBox.width).toBeCloseTo(mainBox.width, 0);
-        } else {
-          expect(contextBox.x).toBeGreaterThanOrEqual(
-            mainBox.x + mainBox.width - 1
-          );
-          expect(contextBox.y).toBeCloseTo(mainBox.y, 0);
-          expect(contextBox.width).toBeGreaterThanOrEqual(240);
-          expect(contextBox.width).toBeLessThanOrEqual(300);
-          expect(mainBox.width).toBeGreaterThan(contextBox.width);
-        }
-        for (const box of [mainBox, contextBox]) {
-          expect(box.x).toBeGreaterThanOrEqual(-1);
-          expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
-        }
+        const gridBox = (await frame
+          .locator('[data-og7="dossier-content"]')
+          .boundingBox())!;
+        expect(mainBox.width).toBeCloseTo(gridBox.width, 0);
+        expect(mainBox.x).toBeGreaterThanOrEqual(-1);
+        expect(mainBox.x + mainBox.width).toBeLessThanOrEqual(
+          viewport.width + 1
+        );
         expect(
           await page.evaluate(
             () => document.documentElement.scrollWidth <= innerWidth + 1
@@ -1030,19 +1037,17 @@ for (const language of ['fr-CA', 'en'] as const)
         ).toBe(true);
       }
 
-      await test.step('the profile keeps identity visible and review context below the media workspace', async () => {
-        await expectComposition(true);
+      await test.step('the profile keeps identity visible and tools closed until requested', async () => {
+        await expectComposition();
         await expect(
           main.locator('[data-og7="sponsorship-progress"]')
         ).toBeHidden();
         await expect(
-          context.locator('[data-og7="moderation-actions"]')
-        ).toHaveCount(1);
-        await expect(context.locator('[data-og7="edit-dossier"]')).toHaveCount(
-          1
-        );
-        await expect(context.locator('[data-og7="dossier-guide"]')).toHaveCount(
-          1
+          frame.locator('[data-og7="moderation-actions"]')
+        ).toHaveCount(0);
+        await expect(frame.locator('[data-og7="edit-dossier"]')).toHaveCount(1);
+        await expect(frame.locator('[data-og7="dossier-guide"]')).toHaveCount(
+          0
         );
         await expect(frame.locator('[data-og7="dossier-next"]')).toHaveCount(1);
         await expect(dossierNext(page)).toHaveAttribute(
@@ -1096,7 +1101,7 @@ for (const language of ['fr-CA', 'en'] as const)
             document.documentElement.style.fontSize = '200%';
           });
           await expect(page.locator('html')).toHaveCSS('font-size', '32px');
-          await expectComposition(true);
+          await expectComposition();
           await expect(identity).toContainText('NordVale Énergie');
           await page.screenshot({
             path: testInfo.outputPath('nordvale-dossier-390-text-200.png'),
@@ -1107,6 +1112,8 @@ for (const language of ['fr-CA', 'en'] as const)
       }
 
       await test.step('the contextual moderation decision remains an explicit cancellable keyboard action', async () => {
+        await toolToggle(page, 'moderation').press('Enter');
+        await expect(context).toBeVisible();
         const opener = context.locator('[data-og7="moderation-open"]');
         await opener.focus();
         await expect(opener).toBeInViewport({ ratio: 1 });
@@ -1131,7 +1138,7 @@ for (const language of ['fr-CA', 'en'] as const)
         expect(calls.every((call) => call.method === 'GET')).toBe(true);
       });
 
-      await test.step('publication retains the main/context composition without authorizing a delivery', async () => {
+      await test.step('publication uses the full dossier width without authorizing a delivery', async () => {
         if (viewport.width === 390 && language === 'en')
           await page.evaluate(() => {
             document.documentElement.style.removeProperty('font-size');
@@ -1150,7 +1157,7 @@ for (const language of ['fr-CA', 'en'] as const)
           '3'
         );
         await expectAdminFontsReady(page);
-        await expectComposition(viewport.width === 390);
+        await expectComposition();
         await expect(
           tabs(page).getByRole('button', { name: 'Publication', exact: true })
         ).toHaveAttribute('aria-current', 'page');
@@ -1187,8 +1194,8 @@ for (const width of [1280, 390]) {
     const { calls } = await fixtures(page, 'operator');
     await page.setViewportSize({ width, height: 844 });
     await page.goto(path());
+    await openDossierHelp(page);
     const panel = guide(page);
-    await panel.locator('summary').click();
     await expect(panel).toBeVisible();
     await expect(
       panel.getByRole('heading', { name: 'Revue', exact: true })
@@ -1263,8 +1270,8 @@ for (const role of ['owner', 'operator', 'reader'] as const) {
       sponsor_details_submitted_at: null
     });
     await page.goto(path('identity'));
+    await openDossierHelp(page);
     const panel = guide(page);
-    await panel.locator('summary').click();
     await expect(
       panel.getByRole('heading', { name: 'Identité', exact: true })
     ).toBeVisible();
@@ -1281,6 +1288,7 @@ for (const role of ['owner', 'operator', 'reader'] as const) {
       await expect(page.locator('#dossier-identity')).toBeFocused();
       options.edited.set(id, { sponsor_details_submitted_at: null });
       await page.reload();
+      await openDossierHelp(page);
     } else {
       await edit.click();
       await expect(editForm(page)).toBeVisible();
@@ -1307,7 +1315,7 @@ for (const role of ['owner', 'operator', 'reader'] as const) {
     if (role === 'owner') {
       await panel.locator('[data-og7="guide-followup-access"]').click();
       await expect(
-        page.locator('[data-og7="admin-followup-access"]')
+        page.locator('[data-og7="admin-followup-access"]').getByRole('button')
       ).toBeFocused();
       await expect(
         page.locator('[data-og7="admin-followup-access"]')
@@ -1350,8 +1358,8 @@ for (const [reason, tab, title, section] of [
         name: 'Switch administration language to English'
       })
       .click();
+    await openDossierHelp(page);
     const panel = guide(page);
-    await panel.locator('summary').click();
     await expect(
       panel.getByRole('heading', { name: title, exact: true })
     ).toBeVisible();
@@ -1386,7 +1394,7 @@ test('dossier guide clears unavailable facts and resets its recommendation after
   await expect(guide(page)).toHaveCount(0);
   release();
   options.progressGate = null;
-  await guide(page).locator('summary').click();
+  await openDossierHelp(page);
   await guide(page).locator('[data-og7="guide-previous"]').click();
   await expect(
     guide(page).getByRole('heading', { name: 'Médias', exact: true })
@@ -1394,6 +1402,7 @@ test('dossier guide clears unavailable facts and resets its recommendation after
   await page
     .getByRole('button', { name: 'Dossier suivant', exact: true })
     .click();
+  await openDossierHelp(page);
   await expect(
     guide(page).getByRole('heading', { name: 'Revue', exact: true })
   ).toBeVisible();
@@ -1421,8 +1430,8 @@ test('completed dossier guide remains consultable and never asks to validate bro
     state: 'complete'
   }));
   await page.goto(path());
+  await openDossierHelp(page);
   const panel = guide(page);
-  await panel.locator('summary').click();
   await expect(panel).toContainText(
     'Toutes les étapes requises sont terminées'
   );
@@ -1495,9 +1504,8 @@ for (const role of ['owner', 'operator', 'reader'] as const) {
     if (role === 'owner') {
       await followup.click();
       const access = page.locator('[data-og7="admin-followup-access"]');
-      await expect(access).toBeFocused();
+      await expect(access.getByRole('button')).toBeFocused();
       await expect(access).toBeInViewport();
-      await page.keyboard.press('Tab');
       await expect(access.getByRole('button')).toBeFocused();
       expect(
         calls.filter((call) => call.url.pathname.endsWith('/followup-access'))
@@ -1841,11 +1849,11 @@ test('dossier controls respect reader and operator permissions', async ({
   await tabs(page)
     .getByRole('button', { name: 'Publication', exact: true })
     .click();
-  await page.locator('[data-og7="publication-advanced"] summary').click();
+  await page.locator('[data-og7="publication-advanced"] > summary').click();
   await expect(
     page
       .locator('[data-og7="dossier-publication-editor"]')
-      .getByRole('button', { name: 'Enregistrer', exact: true })
+      .locator('[data-og7="publication-tracking-save"]')
   ).toBeDisabled();
   await expect(page.getByLabel('Slug public', { exact: false })).toBeDisabled();
   expect(calls.filter((call) => call.method === 'POST')).toHaveLength(0);
@@ -2186,12 +2194,15 @@ test('publication save normalizes the slug, confirms visibility and preserves a 
   options.edited.set(id, { sponsor_review_status: 'approved' });
   await page.goto(path('publication'));
   const editor = page.locator('[data-og7="dossier-publication-editor"]');
-  await page.locator('[data-og7="publication-advanced"] summary').click();
+  await page.locator('[data-og7="publication-advanced"] > summary').click();
   const slug = editor.getByLabel('Slug public', { exact: false });
-  const save = editor.getByRole('button', { name: 'Enregistrer', exact: true });
+  const save = editor.locator('[data-og7="publication-tracking-save"]');
   await slug.fill('invalid slug !');
   await expect(slug).toHaveValue('invalid-slug');
   await slug.fill('atelier-demo');
+  await editor
+    .locator('[data-og7="publication-declared-tracking"] > summary')
+    .click();
   await editor.getByLabel('Destination feed').selectOption('openg7');
   await editor.getByLabel('Statut de suivi déclaré').selectOption('published');
   await save.click();
@@ -2230,14 +2241,12 @@ for (const returnBeforeResponse of [false, true]) {
     await tabs(page)
       .getByRole('button', { name: 'Publication', exact: true })
       .click();
-    await page.locator('[data-og7="publication-advanced"] summary').click();
+    await page.locator('[data-og7="publication-advanced"] > summary').click();
     const editor = page.locator('[data-og7="dossier-publication-editor"]');
     await editor
       .getByLabel('Slug public', { exact: false })
       .fill('retour-tardif');
-    await editor
-      .getByRole('button', { name: 'Enregistrer', exact: true })
-      .click();
+    await editor.locator('[data-og7="publication-tracking-save"]').click();
     await expect.poll(() => postsTo(calls, '/publication').length).toBe(1);
     await page
       .getByRole('button', { name: 'Dossier suivant', exact: true })
@@ -2437,6 +2446,7 @@ test('a late access recipient cannot open confirmation for another dossier', asy
     () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
   );
   await expect(progress(page)).not.toHaveAttribute('aria-busy', 'true');
+  await toolToggle(page, 'access').click();
   await expect(
     page.locator('[data-og7="admin-followup-access"]').getByRole('button')
   ).toBeEnabled();
@@ -2562,11 +2572,11 @@ for (const blocked of [
     const { calls, options } = await fixtures(page);
     options.edited.set(id, blocked);
     await page.goto(path('publication'));
-    await page.locator('[data-og7="publication-advanced"] summary').click();
+    await page.locator('[data-og7="publication-advanced"] > summary').click();
     await expect(
       page
         .locator('[data-og7="dossier-publication-editor"]')
-        .getByRole('button', { name: 'Enregistrer', exact: true })
+        .locator('[data-og7="publication-tracking-save"]')
     ).toBeDisabled();
     await tabs(page)
       .getByRole('button', { name: 'Aperçu', exact: true })
@@ -3465,7 +3475,9 @@ for (const width of [1280, 390]) {
       .getByRole('link', { name: 'Assistant', exact: true })
       .last()
       .click();
-    await expect(page).toHaveURL('/admin/fundraiser/assistant');
+    await expect(page).toHaveURL(
+      '/admin/fundraiser/assistant?sponsorshipId=' + id
+    );
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
   });
 }
@@ -4930,7 +4942,7 @@ for (const width of [1920, 1280, 390]) {
       await expect(
         page.getByRole('group', { name: 'Revue', exact: true })
       ).toBeInViewport({ ratio: 1 });
-      await expect(guide(page)).not.toHaveAttribute('open', '');
+      await expect(guide(page)).toHaveCount(0);
       await expect(
         page.locator('[data-og7="dossier-interventions"]')
       ).toBeVisible();
@@ -5017,11 +5029,12 @@ test('workspace English mobile keeps help and access optional and opens them wit
   await expect(
     tabs(page).getByRole('button', { name: 'Profile & media' })
   ).toBeVisible();
-  await guide(page).locator('summary').focus();
+  await toolToggle(page, 'help').focus();
   await page.keyboard.press('Enter');
   await expect(guide(page)).toHaveAttribute('open', '');
-  await page.keyboard.press('Enter');
-  await page.getByText('Follow-up access', { exact: true }).focus();
+  await page.locator('[data-og7="dossier-tool-close"]').press('Enter');
+  await expect(toolToggle(page, 'help')).toBeFocused();
+  await toolToggle(page, 'access').focus();
   await page.keyboard.press('Enter');
   await expect(
     page.locator('[data-og7="admin-followup-access"]')
@@ -5144,6 +5157,7 @@ for (const english of [false, true]) {
           name: 'Switch administration language to English'
         })
         .click();
+    await toolToggle(page, 'moderation').click();
     const actions = page.locator('[data-og7="moderation-actions"]').first();
     await actions.getByRole('combobox').selectOption('N1');
     await actions.locator('[data-og7="moderation-open"]').click();
@@ -5344,6 +5358,7 @@ for (const english of [false, true]) {
           name: 'Switch administration language to English'
         })
         .click();
+    await toolToggle(page, 'moderation').click();
     const actions = page.locator('[data-og7="moderation-actions"]').first();
     await actions.locator('summary').click();
     const member = actions.locator('[data-og7="moderation-assigned-member"]');

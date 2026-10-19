@@ -9,7 +9,7 @@ import {
   input,
   untracked
 } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import type {
   SponsorshipHistoricalAuditConclusion,
@@ -17,6 +17,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { FundingAdminService } from '../../services/funding-admin.service.js';
+import { AdminSponsorsQualityI18nService } from '../../services/admin-sponsors-quality-i18n.service.js';
 
 import { AdminSponsorshipHistoricalAuditController } from './admin-sponsorship-historical-audit-controller.js';
 
@@ -24,7 +25,7 @@ import { AdminSponsorshipHistoricalAuditController } from './admin-sponsorship-h
 @Component({
   selector: 'openg7-admin-sponsorship-historical-audit',
   standalone: true,
-  imports: [TranslatePipe],
+  imports: [TranslatePipe, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-sponsorship-historical-audit.component.html',
   styleUrls: [
@@ -33,14 +34,18 @@ import { AdminSponsorshipHistoricalAuditController } from './admin-sponsorship-h
   ]
 })
 export class AdminSponsorshipHistoricalAuditComponent {
-  readonly contributionId = input.required<string>();
+  readonly contributionId = input('');
+  readonly scope = input<'dossier' | 'portfolio'>('dossier');
   readonly canOwn = input.required<boolean>();
+  readonly labels = inject(AdminSponsorsQualityI18nService);
   private readonly admin = inject(FundingAdminService);
   private readonly router = inject(Router);
   private readonly destroy = inject(DestroyRef);
   private readonly platform = inject(PLATFORM_ID);
   readonly c = new AdminSponsorshipHistoricalAuditController({
     contributionId: () => this.contributionId(),
+    scope: () => this.scope(),
+    identity: () => this.identityKey(),
     canOwn: () => this.canOwn(),
     destroyed: () => this.destroy.destroyed,
     requestId: () => crypto.randomUUID(),
@@ -65,25 +70,29 @@ export class AdminSponsorshipHistoricalAuditComponent {
     'inconclusive'
   ] as const;
   constructor() {
+    let previousIdentity = '';
     effect(() => {
-      const id = this.contributionId(),
-        owner = this.canOwn();
-      if (isPlatformBrowser(this.platform) && id)
+      this.contributionId();
+      this.scope();
+      const owner = this.canOwn(),
+        identity = this.identityKey();
+      if (isPlatformBrowser(this.platform))
         untracked(() => {
+          if (identity !== previousIdentity || !owner) this.c.reset();
+          previousIdentity = identity;
           this.c.select();
-          if (!owner) this.c.data.set(null);
         });
     });
+  }
+  private identityKey(): string {
+    const identity = this.admin.identity();
+    return `${this.admin.sessionGeneration()}:${identity?.id ?? 'token'}:${identity?.sessionId ?? 'token'}:${identity?.role ?? 'owner'}`;
   }
   setFilter(event: Event): void {
     this.c.filter.set(
       (event.target as HTMLSelectElement).value as
         SponsorshipHistoricalAuditFilter | ''
     );
-    void this.c.load();
-  }
-  setGlobal(event: Event): void {
-    this.c.global.set((event.target as HTMLInputElement).checked);
     void this.c.load();
   }
   setConclusion(event: Event): void {
