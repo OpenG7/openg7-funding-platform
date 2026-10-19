@@ -61,9 +61,10 @@ POST/GET, même si le tiroir est réouvert par le callback de succès.
   un marqueur historique sans UUID n'est pas transformé en reçu. Le
   [parcours propriétaire](../funding-transparency.md#allocations-publiées-et-réalisations)
   distingue cette préparation en branche d'une livraison intégrée.
-- La demande d'information Assistant n'offre pas de reçu dans cette branche.
-  Sa relecture générique ne déverrouille pas une opération inconnue ; son
-  complément reste un travail de contrat serveur séparé.
+- Le complément Assistant fournit un [reçu de demande d'information](../technical/assistant-information-receipts.md)
+  lié à l'acteur, au dossier et à l'UUID exacts. Sa vérification ne renvoie aucun
+  courriel ; absence/erreur et livraison `sending`/`uncertain` conservent le verrou.
+  Un marqueur historique sans UUID ne devient pas un reçu.
 - La file courriel conserve son workflow versionné de réconciliation avec preuve.
   Le lien générique n'affirme pas identifier un message dont l'ID n'a pas été reçu.
 - Si le stockage de session est refusé, les verrous de création/information/renvoi

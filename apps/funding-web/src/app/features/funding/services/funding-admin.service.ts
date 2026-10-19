@@ -41,6 +41,8 @@ import type {
   AdminSponsorshipProgressResponse,
   AdminInformationRequest,
   AdminInformationRequestResult,
+  AdminInformationRequestReceiptRequest,
+  AdminInformationRequestReceipt,
   AdminAssistantPrepareRequest,
   AdminAssistantPrepareResponse,
   AdminAssistantQueryRequest,
@@ -600,6 +602,13 @@ export class FundingAdminService {
       token,
       payload
     );
+  }
+
+  getInformationRequestReceipt(
+    token: string,
+    input: AdminInformationRequestReceiptRequest
+  ): Promise<AdminInformationRequestReceipt> {
+    return this.sponsorshipsClient.getInformationRequestReceipt(token, input);
   }
 
   getSponsorshipAccessRecipient(

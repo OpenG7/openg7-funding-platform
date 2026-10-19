@@ -156,6 +156,7 @@ import {
   sponsorshipInvoicePdfFilename
 } from '../sponsorship-document-pdf.service.js';
 import { requestSponsorshipInformation } from '../sponsorship-information.service.js';
+import { readSponsorshipInformationRequestReceipt } from '../sponsorship-information-receipts.repository.js';
 import {
   getSponsorshipInterventions,
   recordSponsorshipIntervention
@@ -457,6 +458,8 @@ export const createAdminHttpHandlers = ({
       getSponsorshipProgress: (id) => getSponsorshipProgress(dbPool, id),
       requestSponsorshipInformation: (input, actor) =>
         requestSponsorshipInformation(dbPool!, input, actor),
+      readSponsorshipInformationRequestReceipt: (input, actor) =>
+        readSponsorshipInformationRequestReceipt(dbPool!, input, actor),
       updateAdminSponsorshipDetails: (input, actor) =>
         updateAdminSponsorshipDetails(dbPool!, input, actor),
       getSponsorshipInterventions: (id, before) =>

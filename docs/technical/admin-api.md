@@ -48,9 +48,9 @@ Alerts remain opt-in (`yarn operations:watch` or Compose).
 `GET /api/admin/attention` serves `/admin/fundraiser/attention` with pagination,
 URL filters, exact record links and a [dossier count](admin-automatic-runs.md#pending-dossiers).
 `GET /api/admin/assistant/context` accepts
-optional `sponsorshipId`; information requests require an editable preview and
-confirmation at `POST /api/admin/sponsorships/request-information`. Queue and audit
-are atomic; duplicate requests reuse the original email.
+optional `sponsorshipId`. [Information requests](assistant-information-receipts.md)
+require a reviewed preview, confirmation and UUID; exact receipts reconcile lost
+responses without resending.
 
 `GET /api/admin/sponsorships/progress?sponsorshipId=<uuid>`: dossier progress.
 [Commitments](sponsorship-commitments.md) define recorded offers and owner actions.

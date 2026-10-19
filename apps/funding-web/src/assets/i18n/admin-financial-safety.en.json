@@ -1,4 +1,12 @@
 {
+  "informationReceipt": {
+    "verify": "Check the information request result",
+    "checking": "Checking the result…",
+    "notFound": "No matching receipt is available. The result remains uncertain; no new request was made.",
+    "unavailable": "The result could not be checked. The request remains blocked; you can retry this check.",
+    "legacy": "This older request has no verification identifier. It remains blocked; check the email queue before making another request.",
+    "acceptedAt": "Request recorded on"
+  },
   "ownerRequired": "This action is restricted to the owner.",
   "readOnly": "Read only: your role allows you to view these records and their evidence.",
   "stale": "Last known state: these records could not be refreshed. Check their status before taking action.",

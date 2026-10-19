@@ -332,7 +332,7 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
 
     let sentRequest: AdminInformationRequest;
     let informationMessageId = '';
-    await test.step('The reviewed request is captured once at the current address and audited without private content', async () => {
+    await test.step('A lost response is reconciled by the exact receipt after reload without a second command', async () => {
       await openRequest();
       await expect(
         admin.getByLabel('Destinataire', { exact: true })
@@ -345,18 +345,56 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
       await expect(review).toBeFocused();
       expect(await informationMessages()).toHaveLength(0);
       await review.click();
-      const sent = admin.waitForResponse((r) => r.url().endsWith(requestUrl));
+      const captured = Promise.withResolvers<{
+        input: AdminInformationRequest;
+        result: AdminInformationRequestResult;
+      }>();
+      let browserCommands = 0;
+      await admin.route('**' + requestUrl, async (route) => {
+        browserCommands++;
+        try {
+          const response = await route.fetch();
+          expect(response.ok()).toBe(true);
+          captured.resolve({
+            input: route.request().postDataJSON() as AdminInformationRequest,
+            result: (await response.json()) as AdminInformationRequestResult
+          });
+          await route.abort('failed');
+        } catch (error) {
+          captured.reject(error);
+          await route.abort('failed');
+        }
+      });
       await admin
         .getByRole('button', { name: 'Confirmer l’envoi', exact: true })
         .click();
-      const response = await sent;
-      expect(response.ok()).toBe(true);
-      sentRequest = response
-        .request()
-        .postDataJSON() as AdminInformationRequest;
-      informationMessageId = (
-        (await response.json()) as AdminInformationRequestResult
-      ).messageId;
+      const accepted = await captured.promise;
+      sentRequest = accepted.input;
+      informationMessageId = accepted.result.messageId;
+      await expect(
+        admin.locator('[data-og7="assistant-information-uncertain"]')
+      ).toBeVisible();
+      await admin.reload();
+      const receiptResponse = admin.waitForResponse((r) =>
+        r.url().includes('/sponsorships/information-request-receipt?')
+      );
+      await admin
+        .locator('[data-og7="assistant-information-receipt-check"]')
+        .click();
+      const receipt = await receiptResponse;
+      expect(receipt.ok()).toBe(true);
+      expect(await receipt.json()).toMatchObject({
+        found: true,
+        requestId: sentRequest.requestId,
+        contributionId: sentRequest.contributionId,
+        messageId: informationMessageId,
+        acceptedAt: accepted.result.acceptedAt
+      });
+      await expect(
+        admin.locator('[data-og7="assistant-information-receipt"]')
+      ).toBeFocused();
+      expect(browserCommands).toBe(1);
+      await admin.unroute('**' + requestUrl);
       await expect(
         admin.getByRole('link', { name: 'Suivre le courriel' })
       ).toHaveAttribute(

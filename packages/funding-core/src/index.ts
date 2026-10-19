@@ -58,6 +58,8 @@ export type {
   AdminInformationRequestPreview,
   AdminInformationRequest,
   AdminInformationRequestResult,
+  AdminInformationRequestReceipt,
+  AdminInformationRequestReceiptRequest,
   AdminAssistantMode
 } from './admin-assistant-context.js';
 

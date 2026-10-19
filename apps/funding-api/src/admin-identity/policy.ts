@@ -66,7 +66,10 @@ export const adminRoleAllows = (
   const path = pathname.replace(/^\/api(?=\/)/, '');
   if (role === 'owner') return true;
   if (path === '/admin/expenses/create-receipt') return false;
-  if (path === '/admin/sponsorship-documents/resend-receipt')
+  if (
+    path === '/admin/sponsorship-documents/resend-receipt' ||
+    path === '/admin/sponsorships/information-request-receipt'
+  )
     return role === 'operator' && method === 'GET';
   if (
     [
