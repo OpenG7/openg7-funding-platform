@@ -217,6 +217,18 @@ PostgreSQL et fournisseurs jetables ; journal
 `%TEMP%/og7-pr356-stub-get-acceptance.log`. Le lancement enregistre la base
 `cdd8d07f` avec le diff du helper, identique au fichier commis dans `b92fdff1`.
 
+Le commit UX-06 `8bebe9f8ff085524cb8a8a4dc6c1769c0e0d473a` stabilise
+l'ouverture des droits média avec focus confirmé et Entrée native, puis vérifie
+l'éditeur dans le dialogue ouvert : **30/30 cas et 5/5 répétitions WebKit mobile**.
+L'annuaire attend son GET avant l'horloge et le GET de rafraîchissement avant
+la navigation d'annulation : **10/10 répétitions desktop/mobile Chromium**.
+Le cas équivalent de Transparence attend également son GET : **12/12 passages
+sur quatre navigateurs**. Les délais et assertions métier sont conservés ;
+le même build applicatif `b6df4f13` est utilisé sans reconstruction.
+Journaux `%TEMP%/og7-pr357-media-usage-native-final.log`,
+`%TEMP%/og7-pr357-sponsors-clock-final.log` et
+`%TEMP%/og7-pr357-transparency-clock-repeated.log`.
+
 Le lint complet rejoué après ces intégrations réussit, avec le seul
 avertissement préexistant de `scripts/smoke-public.mjs` ; journal local
 `%TEMP%/og7-pr357-final-integrated-lint.log`.
@@ -226,7 +238,7 @@ La [CI complète sur `2b7e64e3`](https://github.com/OpenG7/openg7-funding-platfo
 a validé ses **19/19 jobs** le 19 octobre 2026, ainsi que les workflows
 [standards](https://github.com/OpenG7/openg7-funding-platform/actions/runs/39304349387)
 et [documentation](https://github.com/OpenG7/openg7-funding-platform/actions/runs/39304349733).
-Ce résultat précède les trois derniers ajustements de recettes décrits ci-dessus ;
+Ce résultat précède les derniers ajustements de recettes décrits ci-dessus ;
 il conserve son SHA. Le dernier résultat de toute la CI est consultable dans la
 [PR UX-06](https://github.com/OpenG7/openg7-funding-platform/pull/357).
 
