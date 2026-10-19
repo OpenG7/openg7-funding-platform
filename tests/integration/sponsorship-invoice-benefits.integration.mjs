@@ -22,17 +22,55 @@ import { renderSponsorshipInvoicePdf } from '../../dist/apps/funding-api/src/spo
 
 // Read text operands from PDFKit's compressed streams and built-in Helvetica.
 // Joining the hex fragments also joins words split by kerning adjustments.
-const pdfText = (pdf) =>
-  [...pdf.toString('latin1').matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)]
-    .flatMap((stream) => {
-      const content = inflateSync(Buffer.from(stream[1], 'latin1')).toString();
-      return [...content.matchAll(/\[([^\]]*)\]\s*TJ/g)].map((operand) =>
+const pdfText = (pdf) => {
+  const source = pdf.toString('latin1');
+  const streams = /<<((?:(?!>>)[\s\S])*)>>\r?\nstream\r?\n/g;
+  const text = [];
+  for (let stream; (stream = streams.exec(source));) {
+    const length = /\/Length\s+(\d+)(?=\s*(?:\/|$))/.exec(stream[1]);
+    assert.ok(length, 'PDFKit stream must declare its direct byte length');
+    const start = streams.lastIndex;
+    const end = start + Number(length[1]);
+    assert.ok(Number.isSafeInteger(end) && end <= pdf.length);
+    assert.ok(
+      /^\r?\nendstream(?:\r?\n|$)/.test(source.slice(end, end + 13)),
+      'PDFKit stream must end at its declared byte length'
+    );
+    // A compressed stream may itself end in CR: only /Length separates its
+    // bytes from PDFKit's LF before endstream. Never trim binary whitespace.
+    const content = inflateSync(pdf.subarray(start, end)).toString();
+    text.push(
+      ...[...content.matchAll(/\[([^\]]*)\]\s*TJ/g)].map((operand) =>
         [...operand[1].matchAll(/<([0-9a-f]+)>/gi)]
           .map((fragment) => Buffer.from(fragment[1], 'hex').toString('latin1'))
           .join('')
-      );
-    })
-    .join('\n');
+      )
+    );
+    streams.lastIndex = end;
+  }
+  return text.join('\n');
+};
+
+test('PDF text extraction preserves a trailing CR byte and rejects truncated compressed streams', () => {
+  const compressed = Buffer.from(
+    '789c8bb6313134373333344b35373133343337333537b68b5508f1e2525528aecc2bc9482dc94c5630b5b4b4e40200e87e0b0d',
+    'hex'
+  );
+  assert.equal(compressed.at(-1), 0x0d);
+  const pdf = (stream) =>
+    Buffer.concat([
+      Buffer.from(
+        `1 0 obj\n<< /Length ${stream.length} /Filter /FlateDecode >>\nstream\n`
+      ),
+      stream,
+      Buffer.from('\nendstream\nendobj\n')
+    ]);
+
+  assert.equal(pdfText(pdf(compressed)), 'Avantages');
+  assert.throws(() => pdfText(pdf(compressed.subarray(0, -1))), {
+    code: 'Z_BUF_ERROR'
+  });
+});
 
 test(
   'issued invoice benefits survive storage, email, PDF, pricing changes and resends',
