@@ -136,6 +136,29 @@ test('sandbox nginx preserves production routes while adding no-store same-origi
   assert.ok(configured.includes('location = /api/admin/sponsorships/logo {'));
   assert.ok(configured.includes('client_max_body_size 9m;'));
   assert.ok(configured.includes('location = /health {'));
+  for (const configuration of [source, configured]) {
+    const clientRoutes = configuration.match(
+      /location ~ (\^\/\(\?:admin\/[^\n]+) \{/
+    );
+    assert.ok(clientRoutes, 'declared client-rendered routes exist');
+    const clientRoute = new RegExp(clientRoutes[1]);
+    for (const path of [
+      '/admin/fundraiser/sponsors',
+      '/admin/fundraiser/sponsors/quality',
+      '/admin/fundraiser/sponsors/quality/'
+    ])
+      assert.ok(clientRoute.test(path), path);
+    for (const path of [
+      '/admin/fundraiser/sponsors/quality/unknown',
+      '/admin/fundraiser/sponsors/quality-extra',
+      '/admin/fundraiser/unknown'
+    ])
+      assert.equal(clientRoute.test(path), false, path);
+    assert.match(
+      configuration,
+      /location \/ \{[^}]*try_files \$uri \$uri\/ =404;/
+    );
+  }
   assert.ok(!source.includes('/openg7-sandbox.json'));
   assert.ok(
     sandboxNginxConfiguration(source).includes('proxy_pass http://api:3333;')

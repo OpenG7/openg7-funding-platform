@@ -19,6 +19,7 @@
     "/admin/fundraiser/publications/drafts",
     "/admin/fundraiser/setup",
     "/admin/fundraiser/sponsors",
+    "/admin/fundraiser/sponsors/quality",
     "/admin/fundraiser/transparency",
     "/admin/login",
     "/admin/oidc-setup"
@@ -209,20 +210,29 @@
     },
     {
       "id": "A09",
-      "routes": ["/admin/fundraiser/sponsors"],
+      "routes": [
+        "/admin/fundraiser/sponsors",
+        "/admin/fundraiser/sponsors/quality"
+      ],
       "roles": ["owner", "operator", "reader"],
       "states": [
         "historical qualification",
         "lost response",
         "amendment conflict",
         "duration attestation",
-        "immutable terms"
+        "immutable terms",
+        "read-only portfolio inventory and historical audit"
       ],
       "evidence": [
         {
           "level": "e2e",
           "file": "tests/identity/owner-obligation-journey.spec.ts",
           "title": "owner records historical terms, amends one obligation and attests a documented duration with persistent rights and replay guards"
+        },
+        {
+          "level": "e2e",
+          "file": "tests/playwright/admin-acceptance.spec.ts",
+          "title": "admin mobile navigation, language and search use real reads without business mutations"
         }
       ]
     },
@@ -387,6 +397,7 @@
         "/admin/fundraiser/publications/drafts",
         "/admin/fundraiser/setup",
         "/admin/fundraiser/sponsors",
+        "/admin/fundraiser/sponsors/quality",
         "/admin/fundraiser/transparency",
         "/admin/login",
         "/admin/oidc-setup"
