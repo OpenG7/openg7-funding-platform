@@ -452,9 +452,14 @@ export function registerDossierPublicationScheduleTests(
       await expect(
         page.getByRole('progressbar', { name: /Contreparties livrées/ })
       ).toHaveAttribute('value', '0');
+      const tabs = page.locator('[data-og7="dossier-tabs"]');
+      await tabs.getByRole('button', { name: 'Aperçu', exact: true }).click();
       await expect(
         page.locator('[data-og7="publication-blockers"]')
       ).toContainText('Vérifier et accepter le dossier');
+      await tabs
+        .getByRole('button', { name: 'Publication', exact: true })
+        .click();
       await expect(channel(page)).toHaveAttribute('data-state', 'unverified');
       await expect(
         channel(page).getByRole('link', { name: 'Voir la publication' })

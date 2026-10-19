@@ -201,6 +201,20 @@ dd {
     grid-template-areas:
       'title actions'
       'states details';
+    row-gap: 0.25rem;
+    padding-block: 0.5rem;
+  }
+  .detail-title > div {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: 0.75rem;
+  }
+  .detail-title h1 {
+    flex-basis: 100%;
+  }
+  .detail-title p {
+    max-width: 100%;
   }
   .header-actions {
     justify-self: end;
