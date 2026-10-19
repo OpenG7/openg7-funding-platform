@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test';
 import type {
   AdminAssistantContextResponse,
   AdminAssistantPrepareResponse,
+  AdminSponsorshipProgress,
   AdminSponsorshipRecord
 } from '@openg7/funding-core';
 
@@ -38,6 +39,68 @@ const response = (value = id): AdminAssistantContextResponse => ({
     adminUrl: `/admin/fundraiser/sponsors?sponsorshipId=${value}`,
     canRequestInformation: true
   }
+});
+const guideDossier = (value = id): AdminSponsorshipProgress => ({
+  contributionId: value,
+  reference: value === id ? 'DEMO-301' : 'DEMO-302',
+  companyName: 'Atelier démo',
+  version: 'v1',
+  amountMinor: 50000,
+  currency: 'CAD',
+  paymentStatus: 'paid',
+  reviewStatus: 'pending_review',
+  publicConsent: false,
+  publicEligible: false,
+  feedStatus: 'not_planned',
+  milestones: [
+    {
+      id: 'payment',
+      state: 'complete',
+      reason: 'payment_recorded',
+      tab: 'overview'
+    },
+    {
+      id: 'identity',
+      state: 'blocked',
+      reason: 'identity_missing',
+      tab: 'identity'
+    },
+    { id: 'media', state: 'pending', reason: 'media_missing', tab: 'media' },
+    {
+      id: 'review',
+      state: 'pending',
+      reason: 'review_pending',
+      tab: 'overview'
+    },
+    {
+      id: 'billing',
+      state: 'complete',
+      reason: 'invoice_issued',
+      tab: 'billing'
+    },
+    {
+      id: 'publication',
+      state: 'blocked',
+      reason: 'publication_not_planned',
+      tab: 'publication'
+    }
+  ],
+  next: {
+    reason: 'identity_missing',
+    tab: 'identity',
+    adminUrl: `/admin/fundraiser/sponsors?sponsorshipId=${value}&tab=identity`
+  },
+  documents: [],
+  publications: [],
+  refund: {
+    workflow: 'not_requested',
+    state: 'not_required',
+    confirmedAmountMinor: 0,
+    creditMissing: false,
+    hasError: false
+  },
+  failedEmails: [],
+  failedStripeEvents: []
 });
 const proposal: AdminAssistantPrepareResponse = {
   status: 'ok',
@@ -126,6 +189,14 @@ async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
                   version: options.contextVersion
                 }
               : null
+        }
+      });
+    if (url.pathname === '/api/admin/sponsorships/progress')
+      return route.fulfill({
+        json: {
+          status: 'ok',
+          generatedAt: '2026-09-16T14:00:00Z',
+          dossier: guideDossier(url.searchParams.get('sponsorshipId') || id)
         }
       });
     if (url.pathname === '/api/admin/assistant/prepare')
@@ -225,6 +296,33 @@ for (const language of ['fr-CA', 'en'] as const)
         'href',
         `/admin/fundraiser/sponsors?sponsorshipId=${id}`
       );
+      const main = page.locator('[data-og7="assistant-dossier-main"]');
+      const guide = page.locator('[data-og7="assistant-dossier-guide"]');
+      await expect(guide.locator('[data-og7="dossier-guide"]')).toHaveAttribute(
+        'open',
+        ''
+      );
+      await expect(
+        guide.getByRole('heading', {
+          name: language === 'en' ? 'Identity' : 'Identité',
+          exact: true
+        })
+      ).toBeVisible();
+      const mainBox = await main.boundingBox();
+      const guideBox = await guide.boundingBox();
+      expect(mainBox).not.toBeNull();
+      expect(guideBox).not.toBeNull();
+      if (width === 1536) {
+        expect(Math.abs(mainBox!.y - guideBox!.y)).toBeLessThan(2);
+        expect(guideBox!.x).toBeGreaterThanOrEqual(mainBox!.x + mainBox!.width);
+        expect(mainBox!.width / guideBox!.width).toBeGreaterThan(1.85);
+        expect(mainBox!.width / guideBox!.width).toBeLessThan(2.15);
+      } else {
+        expect(guideBox!.y).toBeGreaterThanOrEqual(
+          mainBox!.y + mainBox!.height
+        );
+        expect(Math.abs(mainBox!.width - guideBox!.width)).toBeLessThan(2);
+      }
       await captureAdminDesign(page, testInfo, `assistant-context-${width}`);
       if (width === 1536) {
         await expect(next.getByRole('heading')).toBeInViewport({ ratio: 1 });
@@ -503,7 +601,7 @@ for (const [status, text] of [
 test('late context responses cannot overwrite a newly selected dossier', async ({
   page
 }) => {
-  await fixtures(page);
+  await fixtures(page, 'reader');
   let release!: () => void;
   const held = new Promise<void>((resolve) => {
     release = resolve;
@@ -515,14 +613,33 @@ test('late context responses cannot overwrite a newly selected dossier', async (
       await route.fulfill({ json: response(id) });
     }
   );
+  await page.route(
+    `**/sponsorships/progress?sponsorshipId=${id}`,
+    async (route) => {
+      await held;
+      await route.fulfill({
+        json: {
+          status: 'ok',
+          generatedAt: '2026-09-16T14:00:00Z',
+          dossier: guideDossier(id)
+        }
+      });
+    }
+  );
   await page.goto(path());
   await expect(page.getByText('Chargement du contexte…')).toBeVisible();
+  await expect(page.locator('[data-og7="dossier-guide"]')).toHaveCount(0);
   await page.evaluate((next) => {
     history.pushState({}, '', next);
     window.dispatchEvent(new PopStateEvent('popstate'));
   }, path(secondId));
   await expect(page.locator('[data-og7="assistant-reference"]')).toHaveText(
     'DEMO-302'
+  );
+  const openSection = page.locator('[data-og7="guide-open-section"]');
+  await expect(openSection).toHaveAttribute(
+    'href',
+    `/admin/fundraiser/sponsors?sponsorshipId=${secondId}&tab=identity#dossier-identity`
   );
   release();
   await expect(page.locator('[data-og7="assistant-reference"]')).toHaveText(
@@ -533,6 +650,10 @@ test('late context responses cannot overwrite a newly selected dossier', async (
   ).toHaveAttribute(
     'href',
     `/admin/fundraiser/sponsors?sponsorshipId=${secondId}`
+  );
+  await expect(openSection).toHaveAttribute(
+    'href',
+    `/admin/fundraiser/sponsors?sponsorshipId=${secondId}&tab=identity#dossier-identity`
   );
 });
 
@@ -780,13 +901,22 @@ test('selected sponsorship opens its exact Assistant context', async ({
   await expect(page.locator('[data-og7="assistant-reference"]')).toHaveText(
     'DEMO-301'
   );
-  await page
-    .getByRole('link', { name: 'Ouvrir l’Assistant pour ce dossier' })
-    .click();
+  const assistance = page.locator('[data-og7="dossier-assistant"]');
+  await expect(assistance).toHaveText('Assistant et aide');
+  await expect(assistance).toHaveAttribute('href', path());
+  await expect(page.locator('[data-og7="dossier-activity"]')).toHaveCount(0);
+  await expect(page.locator('[data-og7="dossier-guide"]')).toHaveCount(0);
+  await assistance.focus();
+  await page.keyboard.press('Enter');
   await expect(page).toHaveURL(path());
   await expect(page.locator('[data-og7="assistant-reference"]')).toHaveText(
     'DEMO-301'
   );
+  await expect(
+    page.locator(
+      '[data-og7="assistant-dossier-guide"] [data-og7="dossier-guide"]'
+    )
+  ).toBeVisible();
   await expect(
     page.getByRole('link', { name: 'Ouvrir l’Assistant pour ce dossier' })
   ).toHaveCount(0);

@@ -35,6 +35,8 @@ const secondId = '10000000-0000-4000-8000-000000000402';
 const date = '2026-09-16T14:00:00Z';
 const path = (tab = 'overview', value = id) =>
   `/admin/fundraiser/sponsors?sponsorshipId=${value}&tab=${tab}`;
+const assistantPath = (value = id) =>
+  `/admin/fundraiser/assistant?sponsorshipId=${value}`;
 const dossier = (value = id): AdminSponsorshipProgress => ({
   contributionId: value,
   reference: value === id ? 'DEMO-401' : 'DEMO-402',
@@ -763,6 +765,14 @@ registerContributionActivityOverlayTests({
 const editForm = (page: Page) => page.locator('[data-og7="edit-dossier-form"]');
 const guide = (page: Page) => page.locator('[data-og7="dossier-guide"]');
 
+async function openDossierHelp(page: Page): Promise<void> {
+  if (new URL(page.url()).pathname !== '/admin/fundraiser/assistant')
+    await page.locator('[data-og7="dossier-assistant"]').click();
+  await expect(guide(page)).toBeVisible();
+  if ((await guide(page).getAttribute('open')) === null)
+    await guide(page).locator('summary').click();
+}
+
 const sponsorStylePalettes = {
   mineral: { panel: 'rgb(255, 255, 255)', text: 'rgb(23, 43, 80)' },
   night: { panel: 'rgb(20, 35, 56)', text: 'rgb(241, 245, 252)' },
@@ -1187,8 +1197,8 @@ for (const width of [1280, 390]) {
     const { calls } = await fixtures(page, 'operator');
     await page.setViewportSize({ width, height: 844 });
     await page.goto(path());
+    await openDossierHelp(page);
     const panel = guide(page);
-    await panel.locator('summary').click();
     await expect(panel).toBeVisible();
     await expect(
       panel.getByRole('heading', { name: 'Revue', exact: true })
@@ -1220,36 +1230,37 @@ for (const width of [1280, 390]) {
       }
     }
     await expect(next).toBeDisabled();
-    await expect(
-      progress(page).locator('[data-og7-id="review"]')
-    ).toHaveAttribute('data-state', 'pending');
-    await expect(
-      progress(page).locator('[data-og7-id="publication"]')
-    ).toHaveAttribute('data-state', 'cancelled');
     await panel.locator('[data-og7="guide-recommended"]').click();
     await expect(
       panel.getByRole('heading', { name: 'Revue', exact: true })
     ).toBeVisible();
-    for (let repeat = 0; repeat < 2; repeat++) {
-      await panel.locator('[data-og7="guide-open-section"]').click();
-      await expect(page).toHaveURL(/tab=overview#dossier-review$/);
-      await expect(page.locator('#dossier-review')).toBeFocused();
-      await expect(page.locator('#dossier-review')).toBeInViewport();
-    }
     const summary = panel.locator('summary');
     await summary.focus();
     await page.keyboard.press('Enter');
     await expect(panel.getByRole('heading')).toBeHidden();
     await page.keyboard.press('Enter');
     await expect(panel.getByRole('heading')).toBeVisible();
+    if (width === 390)
+      await panel.screenshot({ path: 'test-results/dossier-guide-mobile.png' });
+    for (let repeat = 0; repeat < 2; repeat++) {
+      await panel.locator('[data-og7="guide-open-section"]').click();
+      await expect(page).toHaveURL(/tab=overview#dossier-review$/);
+      await expect(page.locator('#dossier-review')).toBeFocused();
+      await expect(page.locator('#dossier-review')).toBeInViewport();
+      await expect(
+        progress(page).locator('[data-og7-id="review"]')
+      ).toHaveAttribute('data-state', 'pending');
+      await expect(
+        progress(page).locator('[data-og7-id="publication"]')
+      ).toHaveAttribute('data-state', 'cancelled');
+      await openDossierHelp(page);
+    }
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth + 1
       )
     ).toBe(true);
     expect(calls.every((call) => call.method === 'GET')).toBe(true);
-    if (width === 390)
-      await panel.screenshot({ path: 'test-results/dossier-guide-mobile.png' });
   });
 }
 
@@ -1263,8 +1274,8 @@ for (const role of ['owner', 'operator', 'reader'] as const) {
       sponsor_details_submitted_at: null
     });
     await page.goto(path('identity'));
+    await openDossierHelp(page);
     const panel = guide(page);
-    await panel.locator('summary').click();
     await expect(
       panel.getByRole('heading', { name: 'Identité', exact: true })
     ).toBeVisible();
@@ -1281,12 +1292,21 @@ for (const role of ['owner', 'operator', 'reader'] as const) {
       await expect(page.locator('#dossier-identity')).toBeFocused();
       options.edited.set(id, { sponsor_details_submitted_at: null });
       await page.reload();
+      await openDossierHelp(page);
     } else {
       await edit.click();
       await expect(editForm(page)).toBeVisible();
+      await expect(page).toHaveURL(/tab=identity/);
+      await expect(page).not.toHaveURL(/action=/);
       await page.keyboard.press('Escape');
-      await expect(edit).toBeFocused();
+      await expect(
+        page.getByRole('button', { name: 'Modifier le dossier', exact: true })
+      ).toBeFocused();
       expect(calls.every((call) => call.method === 'GET')).toBe(true);
+      await page.reload();
+      await expect(editForm(page)).toBeHidden();
+      await expect(page).not.toHaveURL(/action=/);
+      await openDossierHelp(page);
       await edit.click();
       await editForm(page)
         .getByLabel('Courriel du contact', { exact: true })
@@ -1297,6 +1317,7 @@ for (const role of ['owner', 'operator', 'reader'] as const) {
       expect(postsTo(calls, '/details')).toHaveLength(0);
       await page.locator('[data-og7="confirm-action"]').click();
       await expect(editForm(page)).toBeHidden();
+      await openDossierHelp(page);
     }
     await expect(panel.locator('[data-og7="guide-reason"]')).toContainText(
       'Coordonnées renseignées. En attente de la transmission'
@@ -1306,12 +1327,24 @@ for (const role of ['owner', 'operator', 'reader'] as const) {
     );
     if (role === 'owner') {
       await panel.locator('[data-og7="guide-followup-access"]').click();
+      await expect(page).toHaveURL(/tab=identity/);
+      await expect(page).not.toHaveURL(/action=/);
       await expect(
         page.locator('[data-og7="admin-followup-access"]')
       ).toBeFocused();
       await expect(
         page.locator('[data-og7="admin-followup-access"]')
       ).toBeInViewport();
+      await page
+        .locator('details')
+        .filter({ has: page.locator('[data-og7="admin-followup-access"]') })
+        .locator('summary')
+        .click();
+      await page.reload();
+      await expect(
+        page.locator('[data-og7="admin-followup-access"]')
+      ).toBeHidden();
+      await expect(page).not.toHaveURL(/action=/);
     } else {
       await expect(
         panel.locator('[data-og7="guide-followup-access"]')
@@ -1350,8 +1383,8 @@ for (const [reason, tab, title, section] of [
         name: 'Switch administration language to English'
       })
       .click();
+    await openDossierHelp(page);
     const panel = guide(page);
-    await panel.locator('summary').click();
     await expect(
       panel.getByRole('heading', { name: title, exact: true })
     ).toBeVisible();
@@ -1380,20 +1413,21 @@ test('dossier guide clears unavailable facts and resets its recommendation after
   options.progressGate = new Promise((resolve) => {
     release = resolve;
   });
-  await page.goto('/admin/fundraiser/sponsors');
-  await page.locator('[data-og7="sponsor-row"]').first().click();
+  await page.goto(assistantPath());
   await expect(progress(page)).toContainText('Chargement du dossier');
   await expect(guide(page)).toHaveCount(0);
   release();
   options.progressGate = null;
-  await guide(page).locator('summary').click();
+  await openDossierHelp(page);
   await guide(page).locator('[data-og7="guide-previous"]').click();
   await expect(
     guide(page).getByRole('heading', { name: 'Médias', exact: true })
   ).toBeVisible();
-  await page
-    .getByRole('button', { name: 'Dossier suivant', exact: true })
-    .click();
+  await page.evaluate((next) => {
+    history.pushState({}, '', next);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, assistantPath(secondId));
+  await openDossierHelp(page);
   await expect(
     guide(page).getByRole('heading', { name: 'Revue', exact: true })
   ).toBeVisible();
@@ -1403,12 +1437,30 @@ test('dossier guide clears unavailable facts and resets its recommendation after
     'href',
     new RegExp(`sponsorshipId=${secondId}.*#dossier-review$`)
   );
-  for (const status of [503, 403]) {
-    options.status = status;
-    await page.locator('[data-og7="dossier-refresh"]').click();
-    await expect(guide(page)).toHaveCount(0);
-    await expect(progress(page).getByRole('alert')).toBeVisible();
-  }
+  options.status = 503;
+  await page.reload();
+  await expect(guide(page)).toHaveCount(0);
+  await expect(progress(page).getByRole('alert')).toBeVisible();
+  await expect(
+    page.locator(
+      '[data-og7="assistant-dossier-main"] [data-og7="assistant-context"]'
+    )
+  ).toBeVisible();
+  options.status = 200;
+  await progress(page)
+    .getByRole('button', { name: 'Réessayer', exact: true })
+    .click();
+  await expect(guide(page)).toBeVisible();
+  await expect(
+    guide(page).locator('[data-og7="guide-open-section"]')
+  ).toHaveAttribute(
+    'href',
+    new RegExp(`sponsorshipId=${secondId}.*#dossier-review$`)
+  );
+  options.status = 403;
+  await page.reload();
+  await expect(guide(page)).toHaveCount(0);
+  await expect(progress(page).getByRole('alert')).toBeVisible();
 });
 
 test('completed dossier guide remains consultable and never asks to validate browsing', async ({
@@ -1421,8 +1473,8 @@ test('completed dossier guide remains consultable and never asks to validate bro
     state: 'complete'
   }));
   await page.goto(path());
+  await openDossierHelp(page);
   const panel = guide(page);
-  await panel.locator('summary').click();
   await expect(panel).toContainText(
     'Toutes les étapes requises sont terminées'
   );
@@ -4930,7 +4982,7 @@ for (const width of [1920, 1280, 390]) {
       await expect(
         page.getByRole('group', { name: 'Revue', exact: true })
       ).toBeInViewport({ ratio: 1 });
-      await expect(guide(page)).not.toHaveAttribute('open', '');
+      await expect(guide(page)).toHaveCount(0);
       await expect(
         page.locator('[data-og7="dossier-interventions"]')
       ).toBeVisible();
@@ -5005,7 +5057,7 @@ test('workspace groups legacy media and refund URLs and preserves confirmations'
   ).toHaveAttribute('aria-current', 'page');
 });
 
-test('workspace English mobile keeps help and access optional and opens them with the keyboard', async ({
+test('workspace English mobile opens shared assistance and optional access with the keyboard', async ({
   page
 }) => {
   const { calls } = await fixtures(page, 'owner');
@@ -5017,10 +5069,15 @@ test('workspace English mobile keeps help and access optional and opens them wit
   await expect(
     tabs(page).getByRole('button', { name: 'Profile & media' })
   ).toBeVisible();
-  await guide(page).locator('summary').focus();
+  const assistance = page.locator('[data-og7="dossier-assistant"]');
+  await expect(assistance).toHaveText('Assistant & help');
+  await expect(guide(page)).toHaveCount(0);
+  await assistance.focus();
   await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(assistantPath());
   await expect(guide(page)).toHaveAttribute('open', '');
-  await page.keyboard.press('Enter');
+  await guide(page).locator('[data-og7="guide-open-section"]').click();
+  await expect(page).toHaveURL(/tab=overview#dossier-review$/);
   await page.getByText('Follow-up access', { exact: true }).focus();
   await page.keyboard.press('Enter');
   await expect(

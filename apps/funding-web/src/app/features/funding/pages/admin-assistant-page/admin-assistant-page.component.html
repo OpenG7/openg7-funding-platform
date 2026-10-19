@@ -1,10 +1,53 @@
 @if (sponsorshipId(); as id) {
   <openg7-admin-layout [sponsorshipId]="id">
-    <h1>{{ 'admin.nav.assistant' | translate }}</h1>
-    <openg7-admin-assistant-context
-      [sponsorshipId]="id"
-      [showWorkspaceLink]="false"
-    />
+    <div class="assistant-page assistant-dossier-page">
+      <header class="page-heading">
+        <h1>{{ 'admin.dossierAssistance.assistant' | translate }}</h1>
+        <a
+          class="admin-button"
+          data-og7="assistant-dossier-back"
+          routerLink="/admin/fundraiser/sponsors"
+          [queryParams]="{ sponsorshipId: id }"
+        >
+          {{ 'admin.dossierAssistance.backToDossier' | translate }}
+        </a>
+      </header>
+      <div
+        class="assistant-dossier-workspace"
+        data-og7="assistant-dossier-workspace"
+      >
+        <div class="assistant-dossier-main" data-og7="assistant-dossier-main">
+          <openg7-admin-assistant-context
+            [sponsorshipId]="id"
+            [showWorkspaceLink]="false"
+          />
+        </div>
+        <aside
+          class="assistant-dossier-guide"
+          data-og7="assistant-dossier-guide"
+          [attr.aria-label]="'admin.dossierAssistance.help' | translate"
+        >
+          <openg7-admin-sponsorship-progress
+            [sponsorshipId]="id"
+            [streamlined]="true"
+            [showSummary]="false"
+            [showNextStep]="false"
+            (loaded)="guideProgress.set($event)"
+          />
+          @if (guideDossier(); as dossier) {
+            <openg7-admin-sponsorship-guide
+              [dossier]="dossier"
+              [expanded]="guideExpanded()"
+              (expandedChange)="guideExpanded.set($event)"
+              [canManage]="canManageDossier()"
+              [canUseOwnerActions]="canUseOwnerActions()"
+              (editIdentity)="openDossierAction('edit-identity')"
+              (openAccess)="openDossierAction('followup-access')"
+            />
+          }
+        </aside>
+      </div>
+    </div>
   </openg7-admin-layout>
 } @else {
   <openg7-admin-layout>

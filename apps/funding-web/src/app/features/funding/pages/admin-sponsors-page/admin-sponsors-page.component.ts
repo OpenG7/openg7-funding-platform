@@ -17,11 +17,10 @@ import {
   computed,
   effect,
   inject,
-  signal,
   untracked,
   viewChild
 } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import type {
@@ -62,10 +61,11 @@ import enProfile from '../../../../../assets/i18n/admin-sponsor-profile.en.json'
 import frProfile from '../../../../../assets/i18n/admin-sponsor-profile.fr-CA.json' with { type: 'json' };
 import enHistory from '../../../../../assets/i18n/admin-history.en.json' with { type: 'json' };
 import frHistory from '../../../../../assets/i18n/admin-history.fr-CA.json' with { type: 'json' };
+import enAssistance from '../../../../../assets/i18n/admin-dossier-assistance.en.json' with { type: 'json' };
+import frAssistance from '../../../../../assets/i18n/admin-dossier-assistance.fr-CA.json' with { type: 'json' };
 import { AdminSponsorDetailMediaComponent } from '../../components/admin-sponsors/admin-sponsor-detail-media.component.js';
 import { AdminSponsorshipProgressComponent } from '../../components/admin-sponsors/admin-sponsorship-progress.component.js';
 import { AdminSponsorshipNextStepComponent } from '../../components/admin-sponsors/admin-sponsorship-next-step.component.js';
-import { AdminSponsorshipGuideComponent } from '../../components/admin-sponsors/admin-sponsorship-guide.component.js';
 import { AdminSponsorshipInterventionsComponent } from '../../components/admin-sponsors/admin-sponsorship-interventions.component.js';
 import { AdminSponsorshipAccessComponent } from '../../components/admin-sponsors/admin-sponsorship-access.component.js';
 import { AdminSponsorshipFactsComponent } from '../../components/admin-sponsors/admin-sponsorship-facts.component.js';
@@ -105,7 +105,6 @@ import { AdminSponsorsNavigationAdapter } from './admin-sponsors-navigation.adap
     AdminSponsorDetailMediaComponent,
     AdminSponsorshipProgressComponent,
     AdminSponsorshipNextStepComponent,
-    AdminSponsorshipGuideComponent,
     AdminSponsorshipInterventionsComponent,
     AdminSponsorshipFactsComponent,
     CommonModule,
@@ -133,8 +132,8 @@ import { AdminSponsorsNavigationAdapter } from './admin-sponsors-navigation.adap
   ]
 })
 export class AdminSponsorsPageComponent implements OnInit {
-  readonly guideExpanded = signal(false);
   readonly sponsorsList = viewChild(AdminSponsorsListPanelComponent);
+  private readonly sponsorEdit = viewChild(AdminSponsorEditComponent);
   private readonly followupAccess =
     viewChild<ElementRef<HTMLDetailsElement>>('followupAccess');
   readonly isFinanceTab = computed(
@@ -153,6 +152,14 @@ export class AdminSponsorsPageComponent implements OnInit {
     const panel = this.followupAccess()?.nativeElement;
     if (panel) panel.open = true;
     this.sponsorAccess()?.focus();
+  }
+
+  openIdentityEditor(): void {
+    if (this.sponsorAccess()?.busy()) return;
+    this.sponsorDetailPanel?.nativeElement
+      .querySelector<HTMLElement>('[data-og7="edit-dossier"]')
+      ?.focus({ preventScroll: true });
+    this.sponsorEdit()?.open();
   }
 
   openReviewNote(): void {
@@ -206,6 +213,8 @@ export class AdminSponsorsPageComponent implements OnInit {
       this.versionConflict()
   );
   private readonly route = inject(ActivatedRoute);
+  private readonly actionParams = toSignal(this.route.queryParamMap);
+  private consumingDossierAction = false;
   private readonly viewport = inject(ViewportScroller);
   private readonly destroyRef = inject(DestroyRef);
   @ViewChild('sponsorDetailPanel')
@@ -587,7 +596,8 @@ export class AdminSponsorsPageComponent implements OnInit {
               ...(language === 'en' ? enProfile : frProfile),
               publicationBridge: { schedule }
             },
-            history: language === 'en' ? enHistory : frHistory
+            history: language === 'en' ? enHistory : frHistory,
+            dossierAssistance: language === 'en' ? enAssistance : frAssistance
           }
         });
       });
@@ -603,6 +613,21 @@ export class AdminSponsorsPageComponent implements OnInit {
       if (feedback && feedback.id !== this.selectedSponsorshipId()) {
         this.listController.clearApprovalFeedback();
       }
+    });
+    afterRenderEffect(() => {
+      const params = this.actionParams();
+      const action = params?.get('action');
+      const sponsorshipId = params?.get('sponsorshipId');
+      if (
+        (action !== 'edit-identity' && action !== 'followup-access') ||
+        !sponsorshipId ||
+        this.selectedSponsorship()?.id !== sponsorshipId ||
+        this.activeTab() !== 'identity' ||
+        this.state() !== 'ready' ||
+        this.sponsorAccess()?.busy()
+      )
+        return;
+      untracked(() => void this.consumeDossierAction(action, sponsorshipId));
     });
     afterRenderEffect(() => {
       const pending = this.pendingSection();
@@ -624,6 +649,37 @@ export class AdminSponsorsPageComponent implements OnInit {
       element.focus({ preventScroll: true });
       element.scrollIntoView({ block: 'start', behavior: 'instant' });
     });
+  }
+
+  /** Consume navigation intent once; opening a control never submits its action. */
+  private async consumeDossierAction(
+    action: 'edit-identity' | 'followup-access',
+    sponsorshipId: string
+  ): Promise<void> {
+    if (this.consumingDossierAction) return;
+    this.consumingDossierAction = true;
+    try {
+      const navigated = await this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { action: null },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+        scroll: 'manual'
+      });
+      if (
+        !navigated ||
+        this.destroyRef.destroyed ||
+        this.selectedSponsorship()?.id !== sponsorshipId ||
+        this.activeTab() !== 'identity'
+      )
+        return;
+      if (action === 'edit-identity' && !this.actionsDisabled())
+        this.openIdentityEditor();
+      if (action === 'followup-access' && this.canUseOwnerActions())
+        this.openFollowupAccess();
+    } finally {
+      this.consumingDossierAction = false;
+    }
   }
 
   ngOnInit(): void {

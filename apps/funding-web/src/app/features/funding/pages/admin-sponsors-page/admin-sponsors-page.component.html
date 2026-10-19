@@ -129,13 +129,6 @@
             >
               {{ 'admin.legacy.note_interne' | translate }}
             </button>
-            <button
-              type="button"
-              data-og7="dossier-activity"
-              (click)="openDossierSection('audit')"
-            >
-              {{ 'admin.dossier.actions.activity' | translate }}
-            </button>
             <openg7-admin-sponsorship-interventions
               [contributionId]="selected.id"
               [refreshKey]="assistantRefresh()"
@@ -145,6 +138,17 @@
               (accessRequested)="openFollowupAccess()"
               (saved)="loadSponsorships()"
             />
+            <a
+              class="admin-button"
+              data-og7="dossier-assistant"
+              [routerLink]="
+                sponsorAccess()?.busy() ? null : '/admin/fundraiser/assistant'
+              "
+              [queryParams]="{ sponsorshipId: selected.id }"
+              [attr.aria-disabled]="sponsorAccess()?.busy() ? 'true' : null"
+            >
+              {{ 'admin.dossierAssistance.assistant' | translate }}
+            </a>
             <div class="dossier-neighbours">
               <button
                 type="button"
@@ -542,20 +546,6 @@
                   (saved)="loadSponsorships()"
                   (conflicted)="versionConflict.set(true)"
                 />
-                @if (progress(); as dossier) {
-                  @if (dossier.contributionId === selected.id) {
-                    <openg7-admin-sponsorship-guide
-                      [dossier]="dossier"
-                      [expanded]="guideExpanded()"
-                      (expandedChange)="guideExpanded.set($event)"
-                      [canManage]="canManage()"
-                      [canUseOwnerActions]="canUseOwnerActions()"
-                      [disabled]="actionsDisabled()"
-                      (editIdentity)="sponsorEdit.open()"
-                      (openAccess)="openFollowupAccess()"
-                    />
-                  }
-                }
                 @if (canUseOwnerActions()) {
                   <details #followupAccess class="dossier-access">
                     <summary>
