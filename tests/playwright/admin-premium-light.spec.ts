@@ -7,7 +7,10 @@ import {
   fontFamilies,
   watchFontRequests
 } from './support/admin-fonts.js';
-import { controllerPath } from './support/controller-journeys.fixtures.js';
+import {
+  controllerId,
+  controllerPath
+} from './support/controller-journeys.fixtures.js';
 import {
   premiumAppearanceKey as appearanceKey,
   premiumFixtures
@@ -313,6 +316,90 @@ for (const language of ['fr-CA', 'en'] as const) {
     expect(writes).toEqual([]);
     expect(state.commands).toEqual([]);
   });
+}
+
+for (const language of ['fr-CA', 'en'] as const) {
+  for (const viewport of [
+    { width: 1536, height: 864 },
+    { width: 390, height: 844 }
+  ]) {
+    test(`four admin workspaces explain their roles during keyboard navigation and return in ${language} at ${viewport.width}px`, async ({
+      page
+    }) => {
+      const { state, writes } = await premiumFixtures(page, language);
+      await page.setViewportSize(viewport);
+      await page.goto('/admin/fundraiser');
+      const mode = page.locator('[data-og7="admin-workspace-mode"]');
+      const navigation = page.locator('#admin-sidebar nav');
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+        'Cockpit'
+      );
+      await expect(mode).toHaveText(language === 'en' ? 'Observe' : 'Observer');
+      for (const [suffix, modeId, role] of [
+        [
+          '/attention',
+          'prioritize',
+          language === 'en' ? 'Prioritize' : 'Prioriser'
+        ],
+        ['/pilotage', 'decide', language === 'en' ? 'Decide' : 'Décider'],
+        ['/assistant', 'prepare', language === 'en' ? 'Prepare' : 'Préparer'],
+        ['', 'observe', language === 'en' ? 'Observe' : 'Observer']
+      ]) {
+        if (viewport.width === 390) {
+          const toggle = page.getByRole('button', {
+            name: language === 'en' ? 'Open menu' : 'Ouvrir le menu',
+            exact: true
+          });
+          await toggle.focus();
+          await page.keyboard.press('Enter');
+        }
+        const destination = '/admin/fundraiser' + suffix;
+        const link = navigation.locator(`a[href="${destination}"]`);
+        await expect(link).toBeVisible();
+        await link.focus();
+        await page.keyboard.press('Enter');
+        await expect(page).toHaveURL(destination);
+        await expect(mode).toHaveCount(1);
+        await expect(mode).toHaveAttribute('data-og7-id', modeId);
+        await expect(mode).toHaveText(role);
+        await expect(mode).toBeVisible();
+        await expect(navigation.locator('a[aria-current="page"]')).toHaveCount(
+          1
+        );
+        await expect(link).toHaveAttribute('aria-current', 'page');
+        if (modeId === 'decide') {
+          const concentration = page.locator('[data-og7="pilot-focus"]');
+          await concentration.focus();
+          await page.keyboard.press('Enter');
+          await expect(concentration).toHaveAttribute('aria-pressed', 'true');
+          await expect(mode).toBeVisible();
+          await expect(mode).toHaveText(role);
+          await concentration.focus();
+          await page.keyboard.press('Enter');
+          await expect(concentration).toHaveAttribute('aria-pressed', 'false');
+        }
+        if (modeId === 'prepare') {
+          await page.goto(
+            '/admin/fundraiser/assistant?sponsorshipId=' + controllerId
+          );
+          await expect(mode).toHaveCount(1);
+          await expect(mode).toHaveAttribute('data-og7-id', 'prepare');
+          await expect(mode).toHaveText(role);
+          await expect(mode).toBeVisible();
+        }
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth + 1
+          )
+        ).toBe(true);
+      }
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+        'Cockpit'
+      );
+      expect(writes).toEqual([]);
+      expect(state.commands).toEqual([]);
+    });
+  }
 }
 
 for (const { language, width } of [

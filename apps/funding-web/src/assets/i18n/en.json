@@ -1435,6 +1435,12 @@
         "publication_reliability_incident": "Publication delivery needs reconciliation before another attempt."
       }
     },
+    "modes": {
+      "observe": "Observe",
+      "prioritize": "Prioritize",
+      "decide": "Decide",
+      "prepare": "Prepare"
+    },
     "nav": {
       "attention": "To do",
       "label": "Fund administration navigation",
@@ -1446,7 +1452,7 @@
       "operations": "Operations",
       "finance": "Finances",
       "system": "System",
-      "dashboard": "Dashboard",
+      "dashboard": "Cockpit",
       "assistant": "Assistant",
       "contributions": "Contributions",
       "sponsors": "Sponsorships",
@@ -1826,7 +1832,7 @@
       "toFrench": "Passer l’administration en français"
     },
     "dashboard": {
-      "title": "Control centre",
+      "title": "Cockpit",
       "subtitle": "An overview of the fund and your operations.",
       "refresh": "Refresh",
       "loading": "Refreshing the dashboard…",

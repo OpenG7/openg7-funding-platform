@@ -6,7 +6,10 @@ p {
 
 footer {
   @apply tw:flex tw:flex-wrap tw:justify-end tw:gap-admin-card-gap;
-  margin-top: var(--admin-section-gap);
+  padding: 1.2rem;
+  padding-bottom: max(1.2rem, env(safe-area-inset-bottom));
+  background: var(--admin-panel);
+  border-top: 1px solid var(--admin-border);
 }
 
 .target {

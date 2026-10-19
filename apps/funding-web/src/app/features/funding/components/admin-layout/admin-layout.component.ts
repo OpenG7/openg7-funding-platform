@@ -247,6 +247,20 @@ export class AdminLayoutComponent {
 
   constructor() {
     registerAdminFinancialTranslations();
+    afterRenderEffect((onCleanup) => {
+      const document = this.element.nativeElement.ownerDocument;
+      // One Escape gesture closes one surface, even after focus returns to its parent.
+      // Pilotage also renders dialogs beside the layout, so capture at page level.
+      const ignoreHeldEscape = (event: KeyboardEvent): void => {
+        if (event.key !== 'Escape' || !event.repeat) return;
+        event.preventDefault();
+        event.stopPropagation();
+      };
+      document.addEventListener('keydown', ignoreHeldEscape, true);
+      onCleanup(() =>
+        document.removeEventListener('keydown', ignoreHeldEscape, true)
+      );
+    });
     let disconnect = (): void => {};
     // Render effects run only in the browser and also follow dynamically supplied templates.
     afterRenderEffect((onCleanup) => {

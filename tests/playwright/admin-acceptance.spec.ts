@@ -192,9 +192,7 @@ test(
       })
       .click();
     await page.goto('/admin/fundraiser');
-    await expect(
-      page.getByRole('heading', { name: 'Control centre' })
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Cockpit' })).toBeVisible();
     await page.locator('[data-og7="admin-search-open"]').click();
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.keyboard.press('Escape');

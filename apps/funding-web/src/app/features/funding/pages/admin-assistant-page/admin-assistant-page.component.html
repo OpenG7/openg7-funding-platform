@@ -1,6 +1,15 @@
 @if (sponsorshipId(); as id) {
   <openg7-admin-layout [sponsorshipId]="id">
-    <h1>{{ 'admin.nav.assistant' | translate }}</h1>
+    <header class="page-heading">
+      <div>
+        <h1>{{ 'admin.nav.assistant' | translate }}</h1>
+        <p class="muted">
+          <strong data-og7="admin-workspace-mode" data-og7-id="prepare">{{
+            'admin.modes.prepare' | translate
+          }}</strong>
+        </p>
+      </div>
+    </header>
     <openg7-admin-assistant-context
       [sponsorshipId]="id"
       [showWorkspaceLink]="false"
@@ -12,7 +21,12 @@
       <header class="page-heading">
         <div>
           <h1>{{ 'admin.nav.assistant' | translate }}</h1>
-          <p class="muted">{{ 'admin.assistantOverview.intro' | translate }}</p>
+          <p class="muted">
+            <strong data-og7="admin-workspace-mode" data-og7-id="prepare">{{
+              'admin.modes.prepare' | translate
+            }}</strong>
+            · {{ 'admin.assistantOverview.intro' | translate }}
+          </p>
         </div>
         <button
           type="button"
