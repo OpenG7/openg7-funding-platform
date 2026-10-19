@@ -53,7 +53,7 @@ réussite, il est vidé seulement si cette saisie est restée inchangée; une no
 saisie ou un échec conserve les champs. La confirmation vaut pour le contenu
 soumis et n'approuve pas la saisie suivante.
 
-Le complément préparé sur `feat/ux-expense-creation-receipts` donne à chaque
+Le complément implémenté sur `feat/ux-expense-creation-receipts` donne à chaque
 création un UUID `requestId`, conservé avant le POST en mémoire et, si disponible,
 dans le stockage de session. Aucun contenu du formulaire n'est conservé dans ce
 marqueur. Une réponse perdue, un résultat incompatible ou un conflit de demande
@@ -69,6 +69,17 @@ conservée ; un reçu retrouvé garde son lien même si le registre échoue ensu
 Sans stockage de session, seule l'instance ouverte conserve l'UUID. Ce complément
 de branche ne vaut ni fusion, ni déploiement ; sa qualification est distincte
 des validations historiques ci-dessous.
+
+Qualification locale du 19 octobre 2026 : création **23/23**, édition **22/22**
+et capacités financières **13/13**, soit 58 scénarios distincts incluant les
+dix nouveaux cas de reçus. Le fichier création a son passage final dans
+`%TEMP%/og7-expense-receipts-create-final.log` ; édition et capacités sont
+qualifiées dans `%TEMP%/og7-expense-receipts-ui-full.log`. Ces recettes Chromium
+utilisent le Web compilé commun et des API interceptées ; les nouveaux cas
+couvrent FR390 et EN1536, clavier, rechargement et réponses tardives. Les captures
+du reçu retrouvé sont relues. Les preuves serveur et leurs limites restent dans
+le [contrat propriétaire](technical/expense-creation-receipts.md) ; aucune
+qualification de production n'est revendiquée.
 
 `expectedVersion` reste obligatoire pour modifier une allocation. Une version
 obsolète renvoie désormais `409 version_conflict`; la saisie reste dans le
