@@ -10,6 +10,7 @@ import {
 import type { Event, Navigation, ParamMap } from '@angular/router';
 
 import { dossierSectionTab } from '../../models/admin-sponsorship-navigation.js';
+import { workspaceTab } from '../../models/admin-sponsorship-workspace.js';
 import type { AdminSponsorListController } from '../../services/admin-sponsor-list-controller.js';
 
 export interface AdminSponsorsNavigationPorts {
@@ -59,14 +60,12 @@ export class AdminSponsorsNavigationAdapter {
     const targetTab = dossierSectionTab(fragment);
     if (!event.position && fragment && targetTab) {
       const sponsorshipId = url.queryParams['sponsorshipId'];
-      if (
-        sponsorshipId &&
-        (url.queryParams['tab'] ?? 'overview') === targetTab
-      ) {
+      const tab = url.queryParams['tab'] ?? 'overview';
+      if (sponsorshipId && workspaceTab(tab) === workspaceTab(targetTab)) {
         this.ports.controller.navigationScrolled(event.routerEvent.id, {
           fragment,
           sponsorshipId,
-          tab: targetTab
+          tab
         });
         return;
       }

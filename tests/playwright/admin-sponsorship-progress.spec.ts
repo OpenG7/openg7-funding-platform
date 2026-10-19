@@ -772,6 +772,7 @@ const toolToggle = (page: Page, tool: string) =>
   page.locator(`[data-og7="dossier-tool-toggle"][data-og7-id="${tool}"]`);
 async function openDossierHelp(page: Page): Promise<void> {
   const toggle = toolToggle(page, 'help');
+  await expect(toggle).toBeEnabled();
   if ((await toggle.getAttribute('aria-expanded')) !== 'true')
     await toggle.click();
   await expect(guide(page)).toBeVisible();
@@ -1496,6 +1497,12 @@ test('dossier guide clears unavailable facts and resets its recommendation after
   await page
     .getByRole('button', { name: 'Dossier suivant', exact: true })
     .click();
+  await expect(page).toHaveURL(path('overview', secondId));
+  await expect(toolToggle(page, 'help')).toBeEnabled();
+  await expect(toolToggle(page, 'help')).toHaveAttribute(
+    'aria-expanded',
+    'false'
+  );
   await openDossierHelp(page);
   await expect(
     guide(page).getByRole('heading', { name: 'Revue', exact: true })
@@ -3632,7 +3639,10 @@ for (const width of [1280, 390]) {
       .last()
       .click();
     await expect(page).toHaveURL(
-      '/admin/fundraiser/assistant?sponsorshipId=' + id
+      '/admin/fundraiser/assistant?sponsorshipId=' +
+        id +
+        '&returnTo=' +
+        encodeURIComponent(path('audit'))
     );
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
   });

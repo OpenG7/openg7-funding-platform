@@ -179,7 +179,8 @@
               class="admin-button"
               data-og7="dossier-assistant"
               routerLink="/admin/fundraiser/assistant"
-              [queryParams]="{ sponsorshipId: selected.id }"
+              [queryParams]="assistantQueryParams()"
+              [info]="assistantNavigation()"
               >{{ 'admin.sponsorsCleanup.assistant' | translate }}</a
             >
             <openg7-admin-sponsor-edit

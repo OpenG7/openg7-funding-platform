@@ -21,7 +21,7 @@ Le pack fourni reste le cadrage d'origine.
 <!-- prettier-ignore -->
 | Lot | OUX | Référence | Périmètre et état de réception |
 | --- | --- | --- | --- |
-| UX-00 | 001–002 | [#352](https://github.com/OpenG7/openg7-funding-platform/pull/352), [audit courant](ux-00-current-platform-audit.md) | Cartographie et écarts sur `main` ; retour Assistant vers onglet/fragment/focus initial non qualifié. |
+| UX-00 | 001–002 | [#352](https://github.com/OpenG7/openg7-funding-platform/pull/352), [audit courant](ux-00-current-platform-audit.md) | Cartographie et écarts sur `main` ; [retour Assistant ciblé](../admin-ux-lot-3.md#retour-au-dossier--oux-002) implémenté et qualifié localement sur `feat/ux-followup-assistant-return-context`, sans fusion ni déploiement. |
 | UX-01 | 003–006 | [#352](https://github.com/OpenG7/openg7-funding-platform/pull/352), [capacités et incertitude](ux-01-admin-capabilities-and-uncertainty.md) | Capacités financières et blocage des reprises incertaines sur `main` ; contrats de reçu manquants conservés comme limites. |
 | UX-02 | 007–008 | [#353](https://github.com/OpenG7/openg7-funding-platform/pull/353) | Modes administratifs, couches et focus implémentés en branche ; PR ouverte. |
 | UX-03 | 009–011 | [#354](https://github.com/OpenG7/openg7-funding-platform/pull/354), [guide du dossier](../admin-sponsorship-editing.md) | En-tête, prochaine action et identité/médias implémentés en branche ; PR ouverte. |
@@ -29,11 +29,14 @@ Le pack fourni reste le cadrage d'origine.
 | UX-05 | 014–015 | [#356](https://github.com/OpenG7/openg7-funding-platform/pull/356), [suivi privé](../sponsorship-access-and-drafts.md) | Suivi, récupération, droits média et audio FR/EN implémentés en branche ; PR ouverte. |
 | UX-06 | 016–017 | [#357](https://github.com/OpenG7/openg7-funding-platform/pull/357), [mesures](ux-bundle-performance.md) | Bundle et réception qualifiés localement ci-dessous ; CI complète et intégration à confirmer dans la PR. |
 
-Les limites inventoriées dans l'[audit UX-00](ux-00-current-platform-audit.md)
-(contrats de reçu de certaines mutations et qualification du retour interroute
-de l'Assistant) restent des écarts déclarés. La sélection locale ci-dessous ne
-les transforme pas en garanties livrées. Les limites matérielles et externes
-figurent en fin de document.
+Les contrats de reçu manquants de l'[audit UX-00](ux-00-current-platform-audit.md)
+restent des écarts déclarés. OUX-002 est qualifié partiellement en branche : retour
+du seul Assistant contextuel vers le même dossier, onglet et fragment, avec focus
+du déclencheur ou de section selon la présence du marqueur transitoire. Les autres
+raccourcis et retours interroutes ne sont pas clos par ce changement. Sa preuve
+spécifique figure dans le guide lié ; les passages historiques ci-dessous ne lui
+sont pas réattribués et ne valent pas livraison sur `main`. Les limites matérielles
+et externes figurent en fin de document.
 
 ## Niveaux de preuve
 

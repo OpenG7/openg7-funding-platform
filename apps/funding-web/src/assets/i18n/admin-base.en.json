@@ -1231,6 +1231,7 @@
       "facts": "Record facts",
       "refresh": "Refresh context",
       "title": "Contextual assistant",
+      "returnToDossier": "Back to the dossier",
       "payment": "Payment",
       "refund": "Refund",
       "review": "Review",
