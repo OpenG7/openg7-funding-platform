@@ -1,5 +1,3 @@
-import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
-
 import { createHash, randomUUID } from 'node:crypto';
 
 import type {
@@ -10,6 +8,7 @@ import type {
   PublicReferenceLookupResponse
 } from '@openg7/funding-core';
 
+import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
 import { adminSessionHeaders } from './support/admin-auth.js';
 import { acceptanceSql } from './support/acceptance-database.js';
 import { test, expect } from './support/test.js';

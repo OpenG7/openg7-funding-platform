@@ -1,5 +1,3 @@
-import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
-
 import { mkdtemp } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
@@ -9,6 +7,7 @@ import sharp from 'sharp';
 import { AxeBuilder } from '@axe-core/playwright';
 import type { ContributionActivityResponse } from '@openg7/funding-core';
 
+import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
 import { test, expect } from './support/test.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';

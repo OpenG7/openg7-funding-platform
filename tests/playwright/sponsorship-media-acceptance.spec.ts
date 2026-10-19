@@ -1,5 +1,3 @@
-import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
-
 import { createHash, randomUUID } from 'node:crypto';
 
 import sharp from 'sharp';
@@ -18,6 +16,7 @@ import type {
   ModerationDecisionRecord
 } from '@openg7/funding-core';
 
+import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
 import {
   approveAcceptanceSubject,
   completePublicationModeration

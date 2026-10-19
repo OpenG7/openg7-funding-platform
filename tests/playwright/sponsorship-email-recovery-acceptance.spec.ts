@@ -1,5 +1,3 @@
-import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
-
 import { randomUUID } from 'node:crypto';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -15,6 +13,7 @@ import type {
   SponsorshipDraftSnapshot
 } from '@openg7/funding-core';
 
+import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import {
   acceptanceSql,
