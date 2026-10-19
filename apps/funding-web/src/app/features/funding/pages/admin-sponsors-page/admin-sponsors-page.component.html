@@ -1,4 +1,4 @@
-<openg7-admin-layout>
+<openg7-admin-layout [sponsorshipId]="selectedSponsorshipId() ?? undefined">
   <section
     class="admin-workspace"
     data-og7="sponsors-workspace"
@@ -129,13 +129,6 @@
             >
               {{ 'admin.legacy.note_interne' | translate }}
             </button>
-            <button
-              type="button"
-              data-og7="dossier-activity"
-              (click)="openDossierSection('audit')"
-            >
-              {{ 'admin.dossier.actions.activity' | translate }}
-            </button>
             <openg7-admin-sponsorship-interventions
               [contributionId]="selected.id"
               [refreshKey]="assistantRefresh()"
@@ -145,6 +138,39 @@
               (accessRequested)="openFollowupAccess()"
               (saved)="loadSponsorships()"
             />
+            <a
+              class="admin-button"
+              data-og7="dossier-assistant"
+              [routerLink]="
+                dossierToolBusy() ? null : '/admin/fundraiser/assistant'
+              "
+              [queryParams]="{ sponsorshipId: selected.id }"
+              [attr.aria-disabled]="dossierToolBusy() ? 'true' : null"
+              >{{ 'admin.sponsorsCleanup.assistant' | translate }}</a
+            >
+            <openg7-admin-sponsor-edit
+              #sponsorEdit
+              [sponsorship]="selected"
+              [disabled]="actionsDisabled()"
+              (saved)="loadSponsorships()"
+              (conflicted)="versionConflict.set(true)"
+            />
+            @if (canUseOwnerActions()) {
+              <button
+                type="button"
+                data-og7="dossier-tool-toggle"
+                data-og7-id="access"
+                [openg7AutomaticPrepare]="'sponsor.tool.access.open'"
+                [automaticFor]="selected.id"
+                (automaticPrepare)="openDossierTool('access', false)"
+                [attr.aria-expanded]="dossierTool() === 'access'"
+                aria-controls="dossier-tool-panel"
+                [disabled]="dossierToolBusy()"
+                (click)="openDossierTool('access')"
+              >
+                {{ 'admin.sponsorsCleanup.access' | translate }}
+              </button>
+            }
             <div class="dossier-neighbours">
               <button
                 type="button"
@@ -187,7 +213,19 @@
                 ? progress()?.website
                 : undefined
             "
-          />
+          >
+            @if (canManage()) {
+              <openg7-funding-moderation-feature
+                dossier-header-feature
+                [subject]="{ type: 'sponsorship', id: selected.id }"
+                [automaticFor]="selected.id"
+                openAction="sponsor.tool.moderation.open"
+                [disabled]="actionsDisabled() || !!sponsorAccess()?.busy()"
+                (openedChange)="onModerationOpened($event)"
+                (changed)="loadSponsorships(true)"
+              />
+            }
+          </openg7-admin-sponsor-detail-header>
           <p
             class="payment-alert"
             *ngIf="paymentEligibilityMessage(selected)"
@@ -208,6 +246,43 @@
               </button>
             </p>
           }
+          @let tool = dossierTool();
+          <section
+            #dossierToolPanel
+            id="dossier-tool-panel"
+            class="dossier-tool-panel admin-focus-target"
+            data-og7="dossier-tool-panel"
+            [attr.data-og7-id]="tool"
+            [hidden]="!tool"
+            tabindex="-1"
+            aria-labelledby="dossier-tool-title"
+            (keydown.escape)="closeDossierTool($event)"
+          >
+            <header>
+              <h2 id="dossier-tool-title">
+                {{ 'admin.sponsorsCleanup.' + (tool ?? 'help') | translate }}
+              </h2>
+              <button
+                type="button"
+                class="admin-button"
+                data-og7="dossier-tool-close"
+                [disabled]="dossierToolBusy()"
+                (click)="closeDossierTool()"
+              >
+                {{ 'admin.sponsorsCleanup.close' | translate }}
+              </button>
+            </header>
+            @if (canUseOwnerActions() && visitedDossierTools().has('access')) {
+              <div [hidden]="tool !== 'access'">
+                <openg7-admin-sponsorship-access
+                  [contributionId]="selected.id"
+                  [token]="adminToken()"
+                  [disabled]="actionsDisabled()"
+                  (queued)="loadSponsorships()"
+                />
+              </div>
+            }
+          </section>
           <openg7-admin-sponsor-detail-tabs
             [activeTab]="activeTab()"
             [dossier]="
@@ -227,12 +302,7 @@
               </div>
             }
           }
-          <div
-            class="dossier-content-grid"
-            [class.media-review-wide]="
-              activeTab() === 'identity' || activeTab() === 'media'
-            "
-          >
+          <div class="dossier-content-grid" data-og7="dossier-content">
             <div class="dossier-main" data-og7="dossier-main">
               <h2 id="dossier-section-title" class="dossier-section-title">
                 {{
@@ -261,13 +331,6 @@
               }
 
               <ng-container *ngIf="activeTab() === 'overview'">
-                <openg7-admin-assistant-context
-                  [sponsorshipId]="selected.id"
-                  [refreshKey]="assistantRefresh()"
-                  [compact]="true"
-                  [inlineDossier]="true"
-                  (dossierOpen)="sponsorOverview()?.focusDetails()"
-                />
                 <openg7-admin-sponsorship-facts
                   *ngIf="progress()"
                   view="overview"
@@ -373,9 +436,6 @@
                   "
                   [publicName]="
                     presentationProjection.publicNameLabel(selected)
-                  "
-                  [channelsLabel]="
-                    publicationWorkflow.draftChannelsLabel(selected.id)
                   "
                   (expandedChange)="websiteSettingsOpen.set($event)"
                   (fieldChange)="
@@ -517,60 +577,6 @@
                 />
               }
             </div>
-            <aside
-              class="dossier-context"
-              data-og7="dossier-context"
-              [attr.aria-label]="'admin.dossier.workspace.context' | translate"
-            >
-              <header class="context-heading">
-                <span class="context-marker" aria-hidden="true">G7</span>
-                <h2>{{ 'admin.dossier.workspace.context' | translate }}</h2>
-              </header>
-              <openg7-funding-moderation-actions
-                class="dossier-moderation"
-                [subject]="{ type: 'sponsorship', id: selected.id }"
-                [automaticFor]="selected.id"
-                [headingLevel]="3"
-                [disabled]="actionsDisabled()"
-                (changed)="loadSponsorships(true)"
-              />
-              <div class="dossier-utilities">
-                <openg7-admin-sponsor-edit
-                  #sponsorEdit
-                  [sponsorship]="selected"
-                  [disabled]="actionsDisabled()"
-                  (saved)="loadSponsorships()"
-                  (conflicted)="versionConflict.set(true)"
-                />
-                @if (progress(); as dossier) {
-                  @if (dossier.contributionId === selected.id) {
-                    <openg7-admin-sponsorship-guide
-                      [dossier]="dossier"
-                      [expanded]="guideExpanded()"
-                      (expandedChange)="guideExpanded.set($event)"
-                      [canManage]="canManage()"
-                      [canUseOwnerActions]="canUseOwnerActions()"
-                      [disabled]="actionsDisabled()"
-                      (editIdentity)="sponsorEdit.open()"
-                      (openAccess)="openFollowupAccess()"
-                    />
-                  }
-                }
-                @if (canUseOwnerActions()) {
-                  <details #followupAccess class="dossier-access">
-                    <summary>
-                      {{ 'admin.dossier.workspace.access' | translate }}
-                    </summary>
-                    <openg7-admin-sponsorship-access
-                      [contributionId]="selected.id"
-                      [token]="adminToken()"
-                      [disabled]="actionsDisabled()"
-                      (queued)="loadSponsorships()"
-                    />
-                  </details>
-                }
-              </div>
-            </aside>
           </div>
           @if (
             canManage() &&

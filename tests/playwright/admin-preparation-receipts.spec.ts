@@ -350,8 +350,8 @@ for (const language of ['fr-CA', 'en']) {
       code: 'PREPARATION_UNAVAILABLE',
       message:
         language === 'en'
-          ? 'The receipt is unavailable. Refresh to read current facts.'
-          : 'Le bon est indisponible. Actualise pour relire les faits actuels.'
+          ? 'The sheet is unavailable. Refresh to read current facts.'
+          : 'La fiche est indisponible. Actualise pour relire les faits actuels.'
     }
   ];
 
@@ -423,7 +423,7 @@ async function expectPosition(
     contributionId(position)
   );
   await expect(hook(page, 'position')).toHaveText(
-    language === 'en' ? `Receipt ${position} of 6` : `Bon ${position} sur 6`
+    language === 'en' ? `Sheet ${position} of 6` : `Fiche ${position} sur 6`
   );
 }
 
@@ -711,12 +711,12 @@ for (const code of ['fulfilment_unverified', 'obligation_unverified']) {
     });
     await open(page);
     await expect(hook(page, 'offer')).not.toContainText(
-      'L’accord d’origine est manquant'
+      'L’accord de commandite d’origine manque'
     );
     await expect(hook(page, 'blockers')).toContainText(
       code === 'fulfilment_unverified'
         ? 'preuve de livraison'
-        : 'suivi d’un engagement'
+        : 'suivi d’une prestation'
     );
     await expect(
       hook(page, 'summary').getByText('Autorisée', { exact: true })
@@ -871,7 +871,11 @@ test('a historical website offer names its promised presentation and its private
   await expect(hook(page, 'confirmations')).toContainText(
     /publication.*refus.*remboursement.*envoi/i
   );
-  await expectCompactReceipt(page);
+  const measurements = await expectCompactReceipt(page);
+  await testInfo.attach('ticket-web-390-125-measurements', {
+    body: JSON.stringify(measurements, null, 2),
+    contentType: 'application/json'
+  });
   await page.screenshot({
     path: testInfo.outputPath('ticket-web-390-125.png'),
     fullPage: false,
@@ -1187,8 +1191,8 @@ for (const language of ['fr-CA', 'en']) {
       await expect(agreement).toBeFocused();
       await expect(sourceAttention).toContainText(
         language === 'en'
-          ? 'No original agreement source saved. Complete the agreement in its usual form.'
-          : 'Aucune source de l’accord d’origine enregistrée. Complète l’accord dans son formulaire habituel.'
+          ? 'No original sponsorship agreement source saved. Complete the sponsorship agreement in its usual form.'
+          : 'Aucune source de l’accord de commandite d’origine enregistrée. Complète l’accord de commandite dans son formulaire habituel.'
       );
       await expect(
         pilot(page).locator('[data-og7="preparation-assistance-summary-state"]')
@@ -1255,7 +1259,9 @@ test('selecting promised publications reveals missing-source attention above the
   await expect(agreement).toBeFocused();
   await expect(
     pilot(page).locator('[data-og7="preparation-issue-attention"]')
-  ).toContainText('Aucune source de l’accord d’origine enregistrée.');
+  ).toContainText(
+    'Aucune source de l’accord de commandite d’origine enregistrée.'
+  );
   await expectAttentionLayout(page, 'above');
   await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'peek');
   await page.locator('[data-og7="admin-guidance"]').screenshot({
@@ -1318,9 +1324,12 @@ test('preparation progress comes from refreshed server facts and reaches the fin
   await hook(page, 'refresh').click();
   await expectPilotProgress(page, 3);
   await pilot(page).locator('[data-og7="preparation-pilot-actions"]').click();
-  await expect(pilotAction(page, 'approve')).toBeVisible();
-  await expect(pilotAction(page, 'approve')).toBeEnabled();
+  await expect(pilotAction(page, 'approve')).toHaveCount(0);
   await expect(pilotAction(page, 'open')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(hook(page, 'approve')).toHaveCount(1);
+  await expect(hook(page, 'approve')).toBeVisible();
+  await expect(hook(page, 'approve')).toBeEnabled();
   expect(f.writes).toEqual([]);
 });
 
@@ -1403,23 +1412,28 @@ test('Gamepad X sends the Guide receipt with a sole service to its Campaigns pre
   expect(f.writes).toEqual([]);
 });
 
-test('the preparation controller asks for confirmation before final approval and cancellation sends nothing', async ({
+test('the sole preparation approval button asks for confirmation and cancellation sends nothing', async ({
   page
 }) => {
   const f = await fixture(page);
   f.receipts.set(3, pilotReceipt(3));
   await open(page);
   await pilot(page).locator('[data-og7="preparation-pilot-actions"]').click();
-  await pilotAction(page, 'approve').click();
+  await expect(pilotAction(page, 'approve')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  const approval = hook(page, 'approve');
+  await approval.focus();
+  await page.keyboard.press('Enter');
   const confirmation = page.locator('[data-og7="confirm-action"]');
   await expect(confirmation).toBeVisible();
   expect(f.writes).toEqual([]);
   await page.keyboard.press('Escape');
   await expect(confirmation).toHaveCount(0);
   await expect(hook(page, 'stamp')).toHaveCount(0);
+  await expect(approval).toBeFocused();
   expect(f.writes).toEqual([]);
 
-  await pilotAction(page, 'approve').click();
+  await page.keyboard.press('Enter');
   await confirmation.click();
   await expect(hook(page, 'stamp')).toContainText(actor);
   expect(f.writes).toHaveLength(1);
@@ -1535,7 +1549,7 @@ test('Gamepad Y opens the existing preparation history without executing a mutat
   const pad = adminController(page);
   const actions = pilot(page).locator('[data-og7="preparation-pilot-actions"]');
   await actions.click();
-  await expect(pilotAction(page, 'approve')).toBeFocused();
+  await expect(pilotAction(page, 'campaigns')).toBeFocused();
   await expect(hook(page, 'details')).toHaveCount(0);
   await expect(pilotAction(page, 'details')).toHaveCount(0);
   await pad.release();
@@ -1545,7 +1559,7 @@ test('Gamepad Y opens the existing preparation history without executing a mutat
   expect(f.writes).toEqual([]);
 });
 
-test('Gamepad opens the preparation controller through the same native actions, with a fresh press required for confirmation', async ({
+test('Gamepad reaches the sole preparation approval button through DOM navigation and requires a fresh confirmation press', async ({
   page
 }) => {
   await installAdminController(page);
@@ -1554,17 +1568,18 @@ test('Gamepad opens the preparation controller through the same native actions, 
   await open(page);
   const pad = adminController(page);
   const actions = pilot(page).locator('[data-og7="preparation-pilot-actions"]');
-  await actions.focus();
-  await pad.release();
+  await pad.ready();
+  await pad.reach(actions);
   await pad.press('A');
   await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'open');
+  await expect(pilotAction(page, 'approve')).toHaveCount(0);
   expect(f.writes).toEqual([]);
   await pad.press('B');
   await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'peek');
   await expect(actions).toBeFocused();
-  await pad.press('A');
-  await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'open');
-  await expect(pilotAction(page, 'approve')).toBeFocused();
+  const approval = hook(page, 'approve');
+  await pad.reach(approval);
+  await expect(approval).toBeFocused();
   // Focus changes invalidate held input. Observe neutral after the final target
   // has acquired focus before starting the distinct approval gesture.
   await pad.release();
@@ -1576,5 +1591,26 @@ test('Gamepad opens the preparation controller through the same native actions, 
   await pad.release();
   await pad.press('B');
   await expect(confirmation).toHaveCount(0);
+  await expect(approval).toBeFocused();
   expect(f.writes).toEqual([]);
+  await pad.release();
+  await pad.hold('A');
+  await expect(confirmation).toBeVisible();
+  await sampledFrames(page);
+  expect(f.writes).toEqual([]);
+  await pad.release();
+  await pad.reach(confirmation);
+  await pad.press('A');
+  await expect(hook(page, 'stamp')).toContainText(actor);
+  await expect(card(page)).toBeFocused();
+  expect(f.writes).toHaveLength(1);
+  expect(f.writes[0]).toMatchObject({
+    pathname: `${receiptPath}/approve`,
+    body: {
+      contributionId: contributionId(3),
+      runId,
+      expectedVersion: pilotReceipt(3).version,
+      confirmed: true
+    }
+  });
 });

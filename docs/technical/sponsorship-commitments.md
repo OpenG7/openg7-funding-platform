@@ -115,8 +115,18 @@ qualification also requires an evidence reference. The duration field explains
 the supported website workflow and unsupported destinations in French and English,
 and keeps the entered value.
 Accepted terms and current
-obligations are displayed separately. Owner adoption preview pages contain 25 or
-50 dossiers and link to this individual review; no bulk mutation is offered.
+obligations are displayed separately.
+
+The owner-only **Qualité des commandites / Sponsorship quality** workspace at
+`/admin/fundraiser/sponsors/quality` now owns the adoption inventory, separate
+from the dossier's agreement forms. Its bounded pages contain 25 or 50 dossiers
+and link to this individual review; no bulk mutation is offered. Loading is
+explicit and uses the existing adoption-preview API. The same workspace exposes
+the portfolio-wide [historical evidence audit](sponsorship-historical-audit.md).
+The dossier retains its contribution-scoped audit, with a contextual link to
+Quality instead of a global-scope toggle. Inventory links preserve a return to
+Quality; a link opened from a dossier also offers a return to that dossier.
+
 Uncertain responses retain the original UUID/payload in component memory and
 lock new commands until an exact retry. No private draft is written to browser
 storage. After closing/reloading, read current server state before any new action.

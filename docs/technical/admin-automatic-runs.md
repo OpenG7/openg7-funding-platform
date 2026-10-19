@@ -78,6 +78,11 @@ User-facing operation and restart rules:
 
 ## Versioned preparation receipts
 
+The interface calls a receipt a **Preparation sheet** and a preparation agreement
+an **Approval**; the original sponsorship agreement names the commercial terms.
+Batch passes are **Batch reviews**. API names and persisted contracts remain
+unchanged. See the shared [operations vocabulary](admin-campaigns.md#vocabulaire-des-operations).
+
 `GET /api/admin/sponsorships/preparation?sponsorshipId=<uuid>` reads the current
 private preparation directly in the selected dossier's Publication step, before
 the commitment details. Its `AdminDossierPreparationReceipt` shares

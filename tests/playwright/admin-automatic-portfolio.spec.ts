@@ -521,7 +521,9 @@ for (const [language, width] of [
     );
     await expect(shortcut).toBeVisible();
     await expect(shortcut).toHaveAccessibleName(
-      language === 'en' ? 'Start a new passage' : 'Démarrer un nouveau passage'
+      language === 'en'
+        ? 'Start a batch review'
+        : 'Démarrer une vérification du lot'
     );
     await expect(shortcut).toHaveAccessibleDescription(
       language === 'en' ? 'Dossiers to process: 0' : 'Dossiers à traiter : 0'
@@ -750,7 +752,9 @@ for (const language of ['fr-CA', 'en']) {
       page.locator('[data-og7="admin-automatic-portfolio-bell"]')
     ).toHaveAttribute('data-og7-id', 'active');
     await expect(shortcut).toHaveAccessibleName(
-      language === 'en' ? 'Start a new passage' : 'Démarrer un nouveau passage'
+      language === 'en'
+        ? 'Start a batch review'
+        : 'Démarrer une vérification du lot'
     );
     await expect(shortcut).toHaveAttribute(
       'aria-describedby',
@@ -1206,7 +1210,7 @@ for (const [language, width] of [
     await expect(draft).toContainText(
       language === 'en'
         ? 'delivered with evidence: 0'
-        : 'réalisés avec preuve : 0'
+        : 'réalisées avec preuve : 0'
     );
     await expect(
       draft.locator('[data-og7="automatic-portfolio-proof"]')
@@ -1671,9 +1675,9 @@ test('a missing obligation keeps the accepted offer visible with its quantity an
   await expect(report).toContainText('quantité promise : 2');
   await expect(report).toContainText('Durée promise : 30 jours');
   await expect(report).toContainText(
-    'Un avantage de l’offre acceptée est absent'
+    'Une prestation de l’offre acceptée est absente'
   );
-  await expect(report).toContainText('réalisés avec preuve : 0');
+  await expect(report).toContainText('réalisées avec preuve : 0');
   await expect(hook(page, 'completion')).toHaveAttribute(
     'data-og7-id',
     'outstanding'
@@ -1695,7 +1699,7 @@ test('an invalid confirmed payment explicitly rejects starting without uncertain
   await hook(page, 'start').click();
   await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'error');
   await expect(hook(page, 'state')).toContainText(
-    'Un paiement confirmé contient un montant ou une devise à vérifier. Le passage n’a pas démarré.'
+    'Un paiement confirmé contient un montant ou une devise à vérifier. La vérification du lot n’a pas démarré.'
   );
   await expect(hook(page, 'reconcile')).toHaveCount(0);
   await expect(hook(page, 'completion')).toHaveCount(0);

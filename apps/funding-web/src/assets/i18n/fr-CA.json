@@ -14,20 +14,20 @@
         "format": "Format",
         "waiver": "Dispense"
       },
-      "title": "Engagements enregistrés",
-      "separation": "Paiement, modération et autorisation de diffusion restent distincts. Qualifier ou ajuster un accord n’autorise aucun envoi.",
-      "refresh": "Relire les engagements",
-      "loading": "Chargement des engagements…",
+      "title": "Prestations promises",
+      "separation": "Paiement, modération et autorisation de publication restent distincts. Qualifier l’accord de commandite n’autorise aucun envoi.",
+      "refresh": "Relire les prestations",
+      "loading": "Chargement des prestations…",
       "saved": "Changement enregistré. Les autorisations de diffusion concernées doivent être réexaminées.",
       "ownerOnly": "La qualification et les ajustements sont réservés au propriétaire.",
       "version": "Version",
-      "recordedOffer": "Accord enregistré — conservé",
-      "currentObligations": "Obligations actuelles",
-      "currentHelp": "L’état courant peut évoluer par ajustement audité; l’accord enregistré reste inchangé.",
-      "passage": "passage(s)",
-      "evidenceId": "Preuve de réalisation",
+      "recordedOffer": "Accord de commandite enregistré",
+      "currentObligations": "Prestations actuelles",
+      "currentHelp": "Les ajustements sont tracés. L’accord de commandite d’origine reste conservé.",
+      "passage": "publication(s)",
+      "evidenceId": "Preuve de livraison",
       "qualify": "Qualifier l’accord historique",
-      "historicalHelp": "Recopiez uniquement les termes établis par l’accord et sa preuve. Ce formulaire ne calcule aucun avantage à partir du montant et ne fabrique pas une acceptation passée.",
+      "historicalHelp": "Documentez l’accord de commandite et sa preuve. Aucun terme n’est déduit du montant ; aucune acceptation passée n’est créée.",
       "financialFact": "Montant confirmé, non modifiable",
       "agreedTerms": "Termes vérifiés",
       "benefit": "Prestation",
@@ -36,42 +36,42 @@
       "quantity": "Quantité convenue",
       "choose": "Choisir explicitement",
       "format": "Format convenu",
-      "requiredHelp": "Sélectionnez les éléments exigés dans l’accord. Au moins un est requis; ils ne remplacent pas les règles actuelles de publication.",
+      "requiredHelp": "Choisissez les éléments exigés par l’accord. Au moins un est requis ; les règles de publication s’appliquent aussi.",
       "deadline": "Délai convenu",
       "duration": "Durée convenue",
       "deadlineDays": "Délai en jours — facultatif",
       "durationDays": "Durée en jours — facultative",
-      "periodHelp": "Un champ vide signifie qu’aucun délai ou durée fixe n’est établi par cet accord.",
-      "durationUnsupportedHelp": "La durée d’exposition est prise en charge pour le site OpenG7 avec des observations datées et une attestation justifiée du propriétaire. Les autres canaux et destinations restent indisponibles; n’omettez pas une durée promise dans l’accord.",
+      "periodHelp": "Vide : aucun délai ou durée fixe prévu dans l’accord de commandite.",
+      "durationUnsupportedHelp": "Site OpenG7 seulement : observations datées et attestation justifiée du propriétaire. Pour les autres destinations, conservez la durée promise dans l’accord.",
       "unspecified": "Non fixé",
       "days": "{{value}} jour(s)",
       "removeBenefit": "Retirer cette prestation",
       "addBenefit": "Ajouter une prestation vérifiée",
-      "evidenceReference": "Référence interne de la preuve de l’accord",
+      "evidenceReference": "Preuve privée de l’accord — référence",
       "reason": "Justification interne",
       "confirmation": "Recopiez cet UUID pour confirmer :",
-      "adjust": "Ajuster une obligation",
-      "adjustHelp": "Une modification conserve l’accord original, incrémente la version et révoque les autorisations de diffusion concernées. Les obligations déjà réalisées ou dispensées sont protégées.",
+      "adjust": "Ajuster une prestation",
+      "adjustHelp": "L’accord d’origine est conservé ; la version change et les autorisations concernées sont révoquées. Les prestations livrées ou dispensées sont protégées.",
       "changeTerms": "Ajustement explicite",
       "changeKind": "Type de changement",
       "destinationChange": "Changer la destination",
       "formatChange": "Changer le format",
-      "waiver": "Dispenser cette obligation",
-      "waiverHelp": "Je confirme cette dispense explicite. Un refus ou remboursement ne solde pas une obligation automatiquement.",
+      "waiver": "Dispenser cette prestation",
+      "waiverHelp": "Je confirme la dispense. Un refus ou remboursement ne dispense pas automatiquement une prestation.",
       "saveAdjustment": "Enregistrer l’ajustement",
-      "unavailable": "Aucun engagement disponible. Relisez le dossier avant toute qualification.",
+      "unavailable": "Aucune prestation disponible. Relisez le dossier avant toute qualification.",
       "unsupportedCurrency": "La qualification de cette devise n’est pas disponible. Aucun avantage CAD n’est appliqué.",
       "retryHelp": "Le résultat reste incertain. Les champs sont verrouillés; reprenez uniquement la requête exacte avec son UUID et sa version d’origine.",
       "retry": "Reprendre la requête exacte",
-      "adoptionTitle": "Aperçu de l’adoption historique",
-      "adoptionHelp": "Lecture seule, une page bornée à la fois. Les anciennes déclarations ne constituent pas des preuves qualifiées. Aucune adoption en masse ni approbation n’est effectuée.",
+      "adoptionTitle": "Dossiers historiques",
+      "adoptionHelp": "Lecture seule, une page à la fois. Les déclarations anciennes ne prouvent aucune livraison. Aucune qualification ni approbation en masse.",
       "pageSize": "Dossiers par page",
       "loadPreview": "Charger la première page",
-      "inventoryCounts": "Obligations : {{obligations}} · Preuves : {{evidence}} · Déclarations anciennes : {{declarations}}",
+      "inventoryCounts": "Prestations : {{obligations}} · Preuves de livraison : {{evidence}} · Déclarations : {{declarations}}",
       "emptyPreview": "Aucun dossier sur cette page.",
       "nextPage": "Page suivante",
       "provenance": {
-        "accepted_offer": "Offre capturée et acceptée au Checkout",
+        "accepted_offer": "Offre acceptée avant paiement",
         "qualified_historical": "Accord historique qualifié explicitement",
         "historical_unverified": "Accord historique à qualifier"
       },
@@ -99,17 +99,17 @@
         "adjusted": "Dispensée explicitement"
       },
       "classifications": {
-        "accepted_snapshot": "Offre capturée",
-        "qualified_historical": "Historique qualifié",
+        "accepted_snapshot": "Offre enregistrée",
+        "qualified_historical": "Accord historique qualifié",
         "legacy_declarations": "Déclarations anciennes, à vérifier",
         "unqualified": "Accord à qualifier"
       },
       "errors": {
-        "durationUnsupported": "Cette durée d’exposition ne peut pas être qualifiée actuellement. Aucun terme n’est enregistré; conservez la durée promise dans l’accord à examiner.",
-        "invalid": "Vérifiez les termes, la preuve, la justification et la confirmation exacte. Aucun changement n’est confirmé.",
-        "loadError": "Les engagements ne sont pas disponibles. Réessayez la lecture.",
+        "durationUnsupported": "Durée non prise en charge : aucun terme enregistré. Conservez la durée promise pour l’examen de l’accord de commandite.",
+        "invalid": "Vérifiez les termes, la preuve de l’accord, la raison et la confirmation exacte. Aucun changement confirmé.",
+        "loadError": "Les prestations sont indisponibles. Réessayez la lecture.",
         "uncertain": "Résultat non confirmé. Conservez la requête exacte et reprenez-la; ne créez pas un nouvel ajustement.",
-        "conflict": "Version ou requête incompatible. Relisez les engagements et vérifiez l’historique avant une nouvelle confirmation.",
+        "conflict": "Version ou requête incompatible. Relisez les prestations et l’historique avant de confirmer.",
         "ownerOnly": "Le propriétaire est requis. Aucun changement n’est confirmé.",
         "unauthorized": "La session a expiré. Reconnectez-vous avant de poursuivre."
       }
@@ -137,6 +137,8 @@
       "continue": "Confirmer la décision",
       "saveFirst": "Enregistrez d’abord les modifications, puis examinez la version enregistrée.",
       "actions": "Modération du contenu",
+      "featureTitle": "Modération éditoriale",
+      "closeFeature": "Fermer la modération",
       "open": "Examiner",
       "saved": "Décision enregistrée. La visibilité et l’autorisation d’envoi restent des actions distinctes.",
       "history": "Historique des décisions",
@@ -847,20 +849,20 @@
       "healthScope": "Contrôles en lecture seule, conservés au plus une minute. Les contrôles OIDC ne valident ni la connexion du client ni le MFA. La disponibilité de la base identité est vérifiée uniquement par le contrôle interne de Keycloak géré. Ces observations ne prouvent ni l’écriture dans le stockage ni la réception des courriels."
     },
     "sponsors": {
-      "title": "Commanditaires",
-      "subtitle": "Retrouvez vos organisations et suivez chaque commandite.",
+      "title": "Commandites",
+      "subtitle": "Suivez chaque dossier de commandite.",
       "publicSite": "Voir le site public",
       "pageScope": "Sur cette page",
       "pendingReview": "À réviser",
-      "active": "Actifs",
+      "active": "Actives",
       "activeHelp": "Paiement confirmé et commandite non refusée.",
-      "records": "Dossiers commanditaires",
+      "records": "Dossiers de commandite",
       "recordsHelp": "Ouvrez un dossier pour consulter les détails et les actions.",
-      "emptyTitle": "Aucun commanditaire pour le moment",
+      "emptyTitle": "Aucune commandite pour le moment",
       "emptyHelp": "Les nouvelles commandites apparaîtront ici.",
       "result": "{{count}} résultat",
       "results": "{{count}} résultats",
-      "search": "Rechercher un commanditaire",
+      "search": "Rechercher une commandite",
       "searchPlaceholder": "Organisation ou courriel…"
     },
     "dossier": {
@@ -896,16 +898,16 @@
         "websiteHidden": "Site Web · Privé",
         "websiteUnknown": "Site Web · À vérifier"
       },
-      "reviewActions": "Actions de validation",
+      "reviewActions": "Revue de la commandite",
       "completed": "Dossier terminé",
       "nextActions": {
         "payment": "Voir le paiement",
-        "review": "Voir les actions de validation",
+        "review": "Voir la revue de la commandite",
         "stripe": "Voir les erreurs Stripe",
         "identity": "Voir l’identité",
         "media": "Voir les médias",
         "billing": "Voir la facturation",
-        "publication": "Voir la publication",
+        "publication": "Voir les publications",
         "refund": "Voir le remboursement",
         "audit": "Voir l’historique"
       },
@@ -915,7 +917,7 @@
       "simulation": "Simulation",
       "consentGranted": "Consentement accordé",
       "consentMissing": "Consentement absent",
-      "approvedConsent": "Approuvés avec consentement",
+      "approvedConsent": "Revue approuvée et consentement",
       "current": "Commandite en cours",
       "progress": "Progression du dossier",
       "stateSummary": "État du dossier",
@@ -968,7 +970,7 @@
             "step1": "Relire l’identité, les médias, le paiement et les notes du dossier.",
             "step2": "Compléter la note ou la raison nécessaire, puis utiliser les contrôles de revue du résumé pour enregistrer la décision appropriée.",
             "step3": "Vérifier le statut obtenu et son historique. Un refus reste visible et ne déclenche pas à lui seul un remboursement.",
-            "condition": "Une approbation administrative est enregistrée. Elle ne vaut pas autorisation de publication."
+            "condition": "La revue de la commandite est approuvée. Elle n’autorise aucune publication."
           },
           "billing": {
             "who": "Équipe administrative ; propriétaire pour les opérations de régularisation réservées.",
@@ -978,11 +980,11 @@
             "condition": "Les documents attendus sont émis et aucun avoir requis ne manque, ou la facturation est indiquée « Non requis »."
           },
           "publication": {
-            "who": "Opérateur ou propriétaire autorisé à préparer et approuver la publication.",
-            "step1": "Vérifier le consentement, la revue, l’image approuvée et l’admissibilité financière dans Publication.",
+            "who": "Opérateur ou propriétaire autorisé à préparer et autoriser la publication.",
+            "step1": "Vérifier consentement, revue, image approuvée et admissibilité du paiement dans Publication.",
             "step2": "Publier explicitement la fiche sur le site lorsqu’elle est prête. Vérifier ensuite le contenu, la destination et l’horaire de chaque publication sociale avant de l’autoriser.",
             "step3": "Suivre les états de publication ; un brouillon ou une planification ne confirme pas la livraison. Examiner les échecs ou annulations avant une reprise.",
-            "condition": "La fiche est visible sur le site et chaque publication sociale prévue par le montant est confirmée. Une simulation ne compte pas comme une livraison."
+            "condition": "La fiche est visible et chaque publication sociale promise dans l’accord est confirmée. Une simulation n’est pas une livraison."
           },
           "refund": {
             "title": "Remboursement à vérifier",
@@ -1065,9 +1067,9 @@
         "not_required": "Non requis"
       },
       "values": {
-        "pending_review": "À réviser",
-        "approved": "Approuvé",
-        "rejected": "Refusé",
+        "pending_review": "Revue à effectuer",
+        "approved": "Revue approuvée",
+        "rejected": "Revue refusée",
         "not_planned": "Non planifiée",
         "planned": "Planifiée",
         "drafted": "Rédigée",
@@ -1100,7 +1102,7 @@
         "invoice_not_required": "Aucune facture Stripe attendue pour cette provenance.",
         "commitment_needs_confirmation": "L’accord d’origine doit être qualifié avant de confirmer les prestations attendues.",
         "publication_failed": "La dernière tentative de publication a échoué.",
-        "publication_done": "Toutes les contreparties sont clôturées par une livraison prouvée ou un ajustement validé.",
+        "publication_done": "Chaque prestation promise est livrée avec preuve ou dispensée.",
         "publication_cancelled": "Publication, lot ou créneau annulé. Vérifier la planification.",
         "consent_missing": "Le consentement public manque.",
         "publication_blocked": "Vérifier le paiement, la revue, les médias et le remboursement avant publication.",
@@ -1135,27 +1137,20 @@
         "eyebrow": "Étape 6 · Publication",
         "title": "Les publications de cette commandite",
         "intro": "Consultez le créneau proposé, modifiez-le si nécessaire, puis vérifiez et autorisez la publication.",
-        "benefits": "Ce que prévoit la contribution",
-        "benefit": {
-          "website_mention": "Mention de l’entreprise sur OpenG7.org",
-          "facebook_batch": "Reconnaissance collective sur Facebook",
-          "linkedin_batch": "Reconnaissance collective sur LinkedIn"
-        },
-        "website": "La fiche sur le site et les publications sociales ont chacune leur propre validation.",
-        "completion": "Contreparties livrées : {{done}} / {{total}}",
-        "deliveryTitle": "Suivi des contreparties",
+        "completion": "Prestations livrées : {{done}} / {{total}}",
+        "deliveryTitle": "Suivi des prestations",
         "socialTitle": "Réseaux sociaux",
         "blockers": "À vérifier avant d’autoriser un nouvel envoi",
         "blocker": {
           "consent": "Obtenir le consentement public du commanditaire",
-          "review": "Vérifier et accepter le dossier",
-          "media": "Vérifier et approuver les médias requis par les engagements",
+          "review": "Approuver la revue de la commandite",
+          "media": "Approuver les médias requis par les prestations promises",
           "payment": "Vérifier l’admissibilité du paiement",
           "refund": "Examiner le remboursement en cours ou complet",
           "hidden": "Vérifier le masquage du commanditaire",
           "identity": "Compléter le nom de l’entreprise",
-          "commitment_needs_confirmation": "Qualifier les engagements à partir de l’accord d’origine",
-          "commitment_blocked": "Examiner le blocage de l’engagement et ses exigences"
+          "commitment_needs_confirmation": "Qualifier les prestations de l’accord de commandite",
+          "commitment_blocked": "Examiner la prestation bloquée et ses exigences"
         },
         "status": {
           "waiting": "En attente de préparation",
@@ -1190,7 +1185,7 @@
         "engine": "Suivre ce dossier dans le moteur",
         "authorization": "Préparer ne publie rien. Chaque envoi demande une validation du contenu et de la destination. Une simulation ne termine pas cette étape.",
         "advanced": "Paramètres avancés · visibilité et suivi manuel",
-        "promisedChannel": "Canal prévu par un engagement enregistré",
+        "promisedChannel": "Canal prévu dans l’accord de commandite",
         "filtered": "Publications liées à ce dossier",
         "collective": "Une publication collective peut inclure plusieurs commanditaires. Votre validation porte sur tout le contenu affiché.",
         "back": "Retour à l’étape 6",
@@ -1198,7 +1193,7 @@
         "notFound": "Cette publication est introuvable dans le contexte demandé. Revenez au dossier pour actualiser son suivi.",
         "globalSettings": "Les compteurs, le moteur et les réglages des destinations concernent tous les dossiers. La liste ci-dessous est filtrée.",
         "currencyUnknown": "Les avantages et les destinations sont à confirmer pour cette devise.",
-        "commitmentUnknown": "Les engagements de ce dossier restent à qualifier à partir de son accord d’origine.",
+        "commitmentUnknown": "Les prestations de ce dossier restent à qualifier à partir de l’accord de commandite.",
         "site": {
           "title": "Site Web",
           "audit": {
@@ -1296,7 +1291,7 @@
       },
       "steps": {
         "check_payment": "Vérifier le paiement avant de poursuivre le dossier.",
-        "qualify_commitment": "Qualifier les engagements historiques à partir de l’accord documenté avant toute préparation de publication.",
+        "qualify_commitment": "Qualifier les prestations de l’accord de commandite avant toute préparation.",
         "check_refund": "Vérifier le remboursement ou le litige avant de poursuivre.",
         "review_rejection": "Consulter le motif du refus et l’historique du dossier.",
         "complete_information": "Compléter les informations et les médias manquants.",
@@ -1579,7 +1574,7 @@
           },
           "choose": {
             "title": "Lire le dossier",
-            "body": "Ouvrez la fiche et examinez les informations, les médias et les engagements avant de décider."
+            "body": "Ouvrez le dossier : informations, médias et prestations promises."
           },
           "verify": {
             "title": "Relire les états",
@@ -1588,7 +1583,7 @@
         },
         "campaigns": {
           "read": {
-            "title": "Lire les promesses",
+            "title": "Lire les prestations promises",
             "body": "Paiements confirmés : prestations à suivre."
           },
           "choose": {
@@ -1597,7 +1592,7 @@
           },
           "verify": {
             "title": "Vérifier les preuves",
-            "body": "Préparer n’autorise pas la publication. Vérifiez la preuve qualifiée."
+            "body": "Préparer n’autorise pas la publication. Vérifiez la preuve de livraison."
           }
         },
         "invoices": {
@@ -1757,10 +1752,10 @@
       },
       "modeLabel": "Type de guide",
       "discoveryMode": "Découvrir les rubriques",
-      "automaticMode": "Automatique",
+      "automaticMode": "Préparation des dossiers",
       "workflowsMode": "Six parcours",
       "workflowsUnavailable": "Les six parcours n’ont pas pu être chargés. Rechargez la page pour réessayer.",
-      "automaticUnavailable": "Le mode automatique ne peut pas être chargé. Rechargez la page pour réessayer.",
+      "automaticUnavailable": "La préparation des dossiers ne peut pas être chargée. Réessayez.",
       "paymentJourney": {
         "title": "Parcours du paiement",
         "followCurrent": "Suivre ce paiement",
@@ -1800,14 +1795,14 @@
           "incident": "Point à vérifier"
         },
         "reasons": {
-          "personal_complete": "Ce soutien personnel est confirmé. Il ne crée aucune contrepartie de commandite à traiter.",
+          "personal_complete": "Ce soutien personnel est confirmé. Il ne crée aucune prestation promise.",
           "personal_refunded": "Le remboursement de ce soutien personnel est confirmé. Aucune revue de commandite n’est nécessaire.",
           "payment_pending": "La confirmation du paiement est encore attendue.",
           "payment_disputed": "Le paiement est contesté. Examinez son état et les faits confirmés avant toute décision.",
           "payment_blocked": "Le paiement ne permet pas de poursuivre. Examinez les faits financiers confirmés.",
           "email_pending": "Une communication est en file ou en cours d’envoi. Attendez sa confirmation avant toute relance.",
           "email_complete": "Les communications liées à ce paiement ont été traitées. Une acceptation du serveur de courriel ne prouve pas leur lecture.",
-          "sponsorship_needs_fulfilment": "Une contrepartie promise par cette commandite reste à réaliser ou à justifier.",
+          "sponsorship_needs_fulfilment": "Une prestation promise reste à livrer ou à justifier.",
           "sponsorship_refund_followup": "Le traitement du remboursement exige une vérification administrative.",
           "sponsorship_credit_missing": "Un remboursement confirmé doit être rapproché de son avoir.",
           "sponsorship_timing_review": "Une échéance ou une prolongation du dossier nécessite une décision.",
@@ -1817,7 +1812,7 @@
     },
     "shell": {
       "skip": "Aller au contenu principal",
-      "startPass": "Démarrer un nouveau passage",
+      "startPass": "Démarrer une vérification du lot",
       "startPassCountUnavailable": "Compteur des dossiers indisponible.",
       "startPassDossierCount": "Dossiers à traiter : {{count}}",
       "workspace": "Fonds des bâtisseurs · Administration",
@@ -2222,7 +2217,7 @@
       "suivant": "Suivant",
       "fil_d_ariane_admin": "Fil d'Ariane admin",
       "fundraiser": "Fundraiser",
-      "commanditaires": "Commanditaires",
+      "commanditaires": "Commandites",
       "commandites_admin": "Commandites admin",
       "dossier_commanditaire_selectionne": "Dossier commanditaire selectionne",
       "publication": "Publication",
@@ -2288,7 +2283,7 @@
       "remboursement_406": "Remboursement...",
       "rembourser_stripe": "Rembourser Stripe",
       "remettre_en_attente": "Remettre en attente",
-      "accepter": "Accepter",
+      "accepter": "Approuver la commandite",
       "aucun_commanditaire_selectionne": "Aucun commanditaire selectionne",
       "selectionnez_une_ligne_dans_la_liste_pour_ouvrir_le_dossier_revis": "Selectionnez une ligne dans la liste pour ouvrir le dossier, reviser la commandite et preparer sa publication.",
       "transparence": "Transparence",
@@ -3055,8 +3050,8 @@
         "SOURCE_CHANGED": "Un brouillon du lot a changé. Enregistrez et vérifiez à nouveau le contenu final.",
         "SOURCE_COMMITMENT_CHANGED": "Un engagement a changé depuis l’autorisation. Vérifiez ses conditions, puis préparez une nouvelle approbation. Un résultat distant incertain exige d’abord une investigation.",
         "SPONSORSHIP_COMMITMENT_REQUIRED": "L’offre d’origine de ce commanditaire doit être qualifiée avant toute autorisation d’envoi.",
-        "SPONSORSHIP_OBLIGATION_UNAVAILABLE": "Aucun passage admissible n’est disponible pour cette destination. Vérifiez les engagements et leurs blocages.",
-        "SPONSORSHIP_OBLIGATION_RESERVED": "Ce passage est déjà réservé par une autre publication. Vérifiez sa programmation ou son résultat.",
+        "SPONSORSHIP_OBLIGATION_UNAVAILABLE": "Aucune prestation admissible pour cette destination. Vérifiez les prestations promises et leurs blocages.",
+        "SPONSORSHIP_OBLIGATION_RESERVED": "Cette prestation est réservée par une autre publication. Vérifiez sa programmation ou son résultat.",
         "ACCOUNT_SLOT_RESERVED": "Une autre publication réserve cette plage sur le même compte. Choisissez une autre heure et vérifiez à nouveau.",
         "FORMAT_UNAVAILABLE": "Ce format est indisponible pour ce canal. Revoyez l’engagement enregistré avec le commanditaire avant de le modifier.",
         "FORMAT_COMMITMENT_MISMATCH": "Le format préparé ne correspond pas à l’engagement enregistré. Revoyez le dossier avant de demander une nouvelle approbation.",

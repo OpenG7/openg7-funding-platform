@@ -461,8 +461,8 @@ for (const language of ['fr-CA', 'en']) {
       code: 'PREPARATION_UNAVAILABLE',
       message:
         language === 'en'
-          ? 'The receipt is unavailable. Refresh to read current facts.'
-          : 'Le bon est indisponible. Actualise pour relire les faits actuels.'
+          ? 'The sheet is unavailable. Refresh to read current facts.'
+          : 'La fiche est indisponible. Actualise pour relire les faits actuels.'
     }
   ];
 
@@ -1046,7 +1046,7 @@ test('the dossier approval button requires its own explicit confirmation and can
 });
 
 for (const restriction of ['reader', 'server-disallowed'] as const) {
-  test(`the dossier preparation controller keeps final approval disabled for ${restriction} despite completed checks`, async ({
+  test(`the dossier exposes no contextual approval and keeps its main approval disabled for ${restriction} despite completed checks`, async ({
     page
   }) => {
     const f = await fixture(page);
@@ -1065,10 +1065,10 @@ for (const restriction of ['reader', 'server-disallowed'] as const) {
     const approve = pilot.locator(
       '[data-og7="preparation-pilot-action"][data-og7-id="preparation-approve"]'
     );
-    await expect(approve).toBeVisible();
-    await expect(approve).toBeDisabled();
+    await expect(approve).toHaveCount(0);
+    await expect(hook(page, 'approve')).toHaveCount(1);
     await expect(hook(page, 'approve')).toBeDisabled();
-    await expect(approve).toHaveAccessibleName(/\S/);
+    await expect(hook(page, 'approve')).toHaveAccessibleName(/\S/);
     await page.keyboard.press('Escape');
     await expect(pilot).toHaveAttribute('data-og7-mode', 'peek');
     await expect(
@@ -1193,7 +1193,9 @@ test('the dossier pilot supports any number of server checks and updates only af
     pilot.locator(
       '[data-og7="preparation-pilot-action"][data-og7-id="preparation-approve"]'
     )
-  ).toBeEnabled();
+  ).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(hook(page, 'approve')).toBeEnabled();
   expect(f.writes).toEqual([]);
   expect(f.receiptReads.filter((id) => id === firstId).length).toBeGreaterThan(
     1

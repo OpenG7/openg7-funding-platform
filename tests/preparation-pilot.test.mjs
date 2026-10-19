@@ -106,7 +106,6 @@ const actions = (current, changes = {}) =>
   preparationContextActions({
     receipt: current,
     issue: null,
-    canApprove: true,
     busy: false,
     detailsMode: 'inline',
     t,
@@ -315,8 +314,7 @@ test('unmapped blockers remain actionable even when all declared checks are comp
   const selected = projected.issues.find((issue) => issue.id === selectedId);
   assert.equal(actions(current, { issue: selected })[0].id, 'preparation-open');
   assert.equal(
-    actions(current).find((action) => action.id === 'preparation-approve')
-      .enabled,
+    actions(current).some((action) => action.id === 'preparation-approve'),
     false
   );
 });
@@ -375,7 +373,7 @@ test('delayed contexts are rejected after changing issue, dossier or exact versi
 test('opening an issue only offers navigation and rejects unsafe destinations', () => {
   const current = receipt();
   const issue = projectPreparationPilot(current).issues[1];
-  const [primary] = actions(current, { issue, canApprove: false });
+  const [primary] = actions(current, { issue });
   assert.equal(primary.id, 'preparation-open');
   assert.equal(primary.enabled, true);
   assert.equal(primary.requiresConfirmation, false);
@@ -401,33 +399,28 @@ test('opening an issue only offers navigation and rejects unsafe destinations', 
   }
 });
 
-test('approval requires host and server permission, is disabled while busy and absent once approved', () => {
+test('contextual actions never duplicate preparation approval, including a ready server receipt', () => {
   const ready = receipt({ status: 'ready', canApprove: true });
-  const enabled = actions(ready).find(
-    (action) => action.id === 'preparation-approve'
-  );
-  assert.equal(enabled.enabled, true);
-  assert.equal(enabled.requiresConfirmation, true);
-  assert.equal(actions(ready, { canApprove: false })[0].enabled, false);
-  assert.equal(actions({ ...ready, canApprove: false })[0].enabled, false);
+  for (const current of [receipt(), ready, { ...ready, status: 'approved' }]) {
+    assert.equal(
+      actions(current).some((action) => action.id === 'preparation-approve'),
+      false
+    );
+    assert.equal(
+      actions(current).some((action) => action.requiresConfirmation),
+      false
+    );
+  }
   assert.equal(
     actions(ready, { busy: true }).every((action) => !action.enabled),
     true
-  );
-  assert.equal(
-    actions({ ...ready, status: 'approved' }).some(
-      (action) => action.id === 'preparation-approve'
-    ),
-    false
   );
   assert.equal(
     actions(null).every((action) => !action.enabled),
     true
   );
   assert.deepEqual(
-    actions(ready)
-      .slice(1)
-      .map((action) => action.id),
+    actions(ready).map((action) => action.id),
     ['preparation-details', 'preparation-history', 'preparation-back']
   );
 });

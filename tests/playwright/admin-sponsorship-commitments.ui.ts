@@ -168,12 +168,10 @@ export function registerSponsorshipCommitmentTests(context: Context): void {
           })
           .click();
       const panel = page.locator('[data-og7="admin-commitments"]');
+      await expect(page.locator('#publication-benefits')).toHaveCount(0);
       await expect(
         panel.getByRole('heading', {
-          name:
-            locale === 'en'
-              ? 'Recorded commitments'
-              : 'Engagements enregistrés',
+          name: locale === 'en' ? 'Promised services' : 'Prestations promises',
           exact: true
         })
       ).toBeVisible();
@@ -187,8 +185,8 @@ export function registerSponsorshipCommitmentTests(context: Context): void {
       await expect(
         panel.getByText(
           locale === 'en'
-            ? 'This exposure duration cannot currently be qualified. No terms were recorded; preserve the promised duration in the agreement for review.'
-            : 'Cette durée d’exposition ne peut pas être qualifiée actuellement. Aucun terme n’est enregistré; conservez la durée promise dans l’accord à examiner.',
+            ? 'Duration unsupported: no terms recorded. Preserve the promised duration for sponsorship agreement review.'
+            : 'Durée non prise en charge : aucun terme enregistré. Conservez la durée promise pour l’examen de l’accord de commandite.',
           { exact: true }
         )
       ).toBeVisible();
@@ -340,8 +338,11 @@ export function registerSponsorshipCommitmentTests(context: Context): void {
   }) => {
     const { state } = await commercialFixtures(page, context);
     await page.goto(context.path('publication'));
-    const panel = page.locator('[data-og7="admin-commitments"]');
-    await panel.locator('[data-og7="commitments-adoption"] summary').click();
+    await expect(page.locator('[data-og7="commitments-adoption"]')).toHaveCount(
+      0
+    );
+    await page.goto('/admin/fundraiser/sponsors/quality');
+    const panel = page.locator('[data-og7="sponsors-quality-page"]');
     await panel.locator('[data-og7="commitments-adoption-load"]').click();
     await expect(
       panel.locator('[data-og7="commitments-adoption"]')

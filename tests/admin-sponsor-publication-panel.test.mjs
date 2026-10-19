@@ -13,6 +13,7 @@ import {
   symlinkSync,
   writeFileSync
 } from 'node:fs';
+import { registerHooks } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { after, before, test } from 'node:test';
@@ -24,10 +25,16 @@ import { adminPublicationTranslations } from './support/admin-publication-transl
 const componentFile =
   'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-publication-panel.component.ts';
 const catalogs = Object.fromEntries(
-  ['fr-CA', 'en'].map((locale) => [
-    locale,
-    adminPublicationTranslations(locale)
-  ])
+  ['fr-CA', 'en'].map((locale) => {
+    const catalog = adminPublicationTranslations(locale);
+    catalog.admin.dossier.publicationCleanup = JSON.parse(
+      readFileSync(
+        `apps/funding-web/src/assets/i18n/admin-sponsors-publication-cleanup.${locale}.json`,
+        'utf8'
+      )
+    );
+    return [locale, catalog];
+  })
 );
 const draft = Object.freeze({
   publicSlug: 'synthetic-company',
@@ -41,6 +48,8 @@ const draft = Object.freeze({
 });
 let compiledDirectory;
 let PublicationPanelComponent;
+let I18nService;
+let workspaceHook;
 
 before(async () => {
   compiledDirectory = mkdtempSync(
@@ -57,8 +66,10 @@ before(async () => {
   );
   const options = {
     target: ts.ScriptTarget.ES2022,
-    module: ts.ModuleKind.ES2022,
+    module: ts.ModuleKind.ESNext,
     moduleResolution: ts.ModuleResolutionKind.Bundler,
+    resolveJsonModule: true,
+    allowSyntheticDefaultImports: true,
     experimentalDecorators: true,
     strict: true,
     strictTemplates: true,
@@ -90,12 +101,33 @@ before(async () => {
     })
   );
   program.emit();
+  workspaceHook = registerHooks({
+    resolve(specifier, context, nextResolve) {
+      if (specifier === '@openg7/funding-i18n') {
+        return {
+          url: pathToFileURL(
+            join(compiledDirectory, 'packages/funding-i18n/src/index.js')
+          ).href,
+          shortCircuit: true
+        };
+      }
+      return nextResolve(specifier, context);
+    }
+  });
   ({ AdminSponsorPublicationPanelComponent: PublicationPanelComponent } =
     await import(
       pathToFileURL(
         join(compiledDirectory, componentFile.replace(/\.ts$/, '.js'))
       ).href
     ));
+  ({ FundingI18nService: I18nService } = await import(
+    pathToFileURL(
+      join(
+        compiledDirectory,
+        'apps/funding-web/src/app/features/funding/services/funding-i18n.service.js'
+      )
+    ).href
+  ));
   TestBed.initTestEnvironment(
     [BrowserTestingModule, ServerModule],
     platformServer()
@@ -104,6 +136,7 @@ before(async () => {
 
 after(() => {
   TestBed.resetTestEnvironment();
+  workspaceHook?.deregister();
   if (
     compiledDirectory &&
     compiledDirectory.startsWith(
@@ -117,10 +150,24 @@ after(() => {
 async function fixture(t, { locale = 'fr-CA', ...overrides } = {}) {
   TestBed.configureTestingModule({
     imports: [PublicationPanelComponent],
-    providers: [provideTranslateService()]
+    providers: [
+      provideTranslateService(),
+      {
+        provide: I18nService,
+        useValue: {
+          currentLanguage: () => locale,
+          mergeTranslations: (language, translations) =>
+            TestBed.inject(TranslateService).setTranslation(
+              language,
+              translations,
+              true
+            )
+        }
+      }
+    ]
   });
   const translate = TestBed.inject(TranslateService);
-  translate.setTranslation(locale, catalogs[locale]);
+  translate.setTranslation(locale, adminPublicationTranslations(locale));
   await firstValueFrom(translate.use(locale));
   const view = TestBed.createComponent(PublicationPanelComponent);
   const inputs = {
@@ -142,7 +189,6 @@ async function fixture(t, { locale = 'fr-CA', ...overrides } = {}) {
     logoSource: 'https://example.invalid/logo.png',
     logoAlt: 'Synthetic company logo',
     publicName: 'Synthetic company',
-    channelsLabel: 'Facebook',
     ...overrides
   };
   for (const [name, value] of Object.entries(inputs))
@@ -197,7 +243,8 @@ test('publication fields and channels emit their original events without editing
 test('shared lock, eligibility, pristine state and validation independently disable saving', async (t) => {
   const view = await fixture(t);
   const button = view.nativeElement.querySelector('button');
-  const fieldset = view.nativeElement.querySelector('.publication-grid');
+  const fieldsets = view.nativeElement.querySelectorAll('.publication-grid');
+  assert.equal(fieldsets.length, 2);
   assert.equal(button.disabled, false);
   for (const [inputName, blocked, unblocked] of [
     ['actionsDisabled', true, false],
@@ -208,7 +255,8 @@ test('shared lock, eligibility, pristine state and validation independently disa
     view.componentRef.setInput(inputName, blocked);
     view.detectChanges();
     assert.equal(button.disabled, true, inputName);
-    assert.equal(fieldset.disabled, inputName === 'actionsDisabled');
+    for (const fieldset of fieldsets)
+      assert.equal(fieldset.disabled, inputName === 'actionsDisabled');
     view.componentRef.setInput(inputName, unblocked);
     view.detectChanges();
     assert.equal(button.disabled, false, inputName);
@@ -246,7 +294,7 @@ test('slug errors stay associated to their field and the status announces dirty,
   assert.equal(status.textContent.trim(), 'Synthetic pending save');
   assert.equal(
     view.nativeElement.querySelector('button').textContent.trim(),
-    catalogs['fr-CA'].admin.legacy.enregistrement
+    catalogs['fr-CA'].admin.dossier.publicationCleanup.saving
   );
   view.componentRef.setInput('dirty', false);
   view.componentRef.setInput('stateLabel', 'Synthetic saved');
@@ -277,11 +325,28 @@ for (const locale of ['fr-CA', 'en']) {
       root.querySelector('article').getAttribute('data-og7'),
       'dossier-publication-editor'
     );
-    assert.ok(root.textContent.includes(copy.commanditaire_et_feeds));
-    assert.ok(root.textContent.includes(copy.previsualisation_non_publiee));
+    const cleanup = catalogs[locale].admin.dossier.publicationCleanup;
+    assert.equal(
+      root.querySelector('summary').textContent.trim(),
+      cleanup.settingsTitle
+    );
+    assert.equal(
+      root
+        .querySelector('[data-og7="publication-profile-settings"] h3')
+        .textContent.trim(),
+      cleanup.profileTitle
+    );
+    assert.equal(
+      root
+        .querySelector('[data-og7="publication-declared-tracking"] summary')
+        .textContent.trim(),
+      cleanup.declaredTitle
+    );
+    assert.ok(root.textContent.includes(cleanup.settingsHelp));
+    assert.ok(root.textContent.includes(cleanup.declaredHelp));
     const preview = root.querySelector('.public-preview');
     assert.equal(
-      preview.querySelector('h3').textContent.trim(),
+      preview.querySelector('strong').textContent.trim(),
       'Synthetic company'
     );
     assert.equal(
@@ -293,7 +358,21 @@ for (const locale of ['fr-CA', 'en']) {
       'Synthetic company logo'
     );
     assert.ok(!preview.querySelector('a'));
+    assert.equal(
+      preview.querySelector('h4').textContent.trim(),
+      cleanup.previewTitle
+    );
     assert.equal(preview.textContent.includes(draft.feedNotes), false);
+    assert.equal(preview.textContent.includes(draft.feedPublicUrl), false);
+    assert.equal(preview.textContent.includes(draft.feedTarget), false);
+    const save = root.querySelector('[data-og7="publication-tracking-save"]');
+    assert.equal(save.textContent.trim(), cleanup.save);
+    assert.equal(
+      root
+        .querySelector(`[id="${save.getAttribute('aria-describedby')}"]`)
+        .textContent.trim(),
+      cleanup.saveHelp
+    );
     assert.equal(
       root.querySelector('input[type="checkbox"]').getAttribute('title'),
       catalogs[locale].admin.dossier.publicationBridge.promisedChannel
@@ -312,8 +391,14 @@ for (const locale of ['fr-CA', 'en']) {
       preview.querySelector('p').textContent.trim(),
       copy.aucun_resume_public_pour_le_moment
     );
-    assert.ok(preview.textContent.includes(copy.aucune));
-    assert.ok(preview.textContent.includes(copy.non_defini));
+    assert.equal(
+      root.querySelector('[data-og7="publication-manual-target"] select').value,
+      ''
+    );
+    assert.equal(
+      root.querySelector('[data-og7="publication-manual-link"] input').value,
+      ''
+    );
   });
 }
 

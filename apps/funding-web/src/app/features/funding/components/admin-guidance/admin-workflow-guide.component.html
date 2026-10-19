@@ -116,14 +116,8 @@
       </button>
     }
   </div>
-  <details class="comparison">
-    <summary>{{ t('location') }} / {{ t('proposed') }}</summary>
-    <dl>
-      <dt>{{ t('location') }}</dt>
-      <dd>{{ journeyText('location') }}</dd>
-      <dt>{{ t('proposed') }}</dt>
-      <dd>{{ journeyText('proposed') }}</dd>
-    </dl>
-    <p class="help">{{ t('intro') }}</p>
+  <details data-og7="workflow-guide-location">
+    <summary>{{ t('location') }}</summary>
+    <p class="help">{{ journeyText('location') }}</p>
   </details>
 </section>

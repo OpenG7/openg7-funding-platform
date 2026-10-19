@@ -105,12 +105,12 @@ Une consultation ne relance jamais un job, notamment après un refus ou un éche
 
 ## Pilotage et commandes contextuelles
 
-Le bon du dossier et le guide chargent le même résumé compact, uniquement pour
+La fiche de préparation du dossier et le guide chargent le même résumé compact, uniquement pour
 le propriétaire et le contrôle `accepted_offer` applicable. Paiement, consentement
 et autres contrôles ne déclenchent pas cette assistance. Le résumé contient les
 versions, états, compteurs et capacités ; il exclut titre, texte, extraits, notes,
 acteur et offre. Sa révision peut évoluer sans modifier `receipt.version` ni une
-approbation du bon métier. Les compteurs de clauses n’augmentent pas le compteur
+approbation de la préparation. Les compteurs de clauses n’augmentent pas le compteur
 des contrôles satisfaits.
 
 Le [registre sémantique](../../packages/funding-core/src/preparation-assistance-summary.ts)
@@ -124,7 +124,7 @@ application ou péremption tant qu’aucun nouveau job ne le remplace dans cette
 vue ; cette consultation n’autorise pas son application. Les générations
 antérieures restent conservées en base, sans écran d’historique dédié.
 
-Sélection, révision du résumé et version du bon forment le contexte des commandes.
+Sélection, révision du résumé et version de la fiche forment le contexte des commandes.
 Une modification ferme les actions et exige un retour au neutre. Clavier, boutons
 et Gamepad utilisent le même dispatcher ; le composant Context Controller conserve
 son rôle de présentation. Ces métadonnées n’activent aucun outil de mutation dans
@@ -152,8 +152,8 @@ des engagements appliqués. Les blocages situés près de la confirmation donnen
 accès aux clauses ou champs concernés ; les validateurs métier restent requis.
 
 **Retour au Pilotage de la préparation** conserve en mémoire uniquement une route
-admin autorisée, le dossier, le contrôle et la position du passage. Il relit le
-bon serveur avant de restaurer la sélection et le focus, sans lancer de passage
+admin autorisée, le dossier, le contrôle et la position de la vérification. Il relit la
+fiche serveur avant de restaurer la sélection et le focus, sans lancer de vérification du lot
 ni approuver un contrôle. Ce repère disparaît au rechargement complet ou au
 changement d’identité/session. Un retour au guide qui quitterait une saisie non
 enregistrée exige de confirmer son abandon. Si le contrôle a disparu, le focus

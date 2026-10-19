@@ -1,27 +1,27 @@
 {
-  "eyebrow": "Sponsor commitments",
-  "title": "Campaigns",
-  "subtitle": "Track publications promised after a confirmed payment, their preparation and their delivery evidence.",
+  "eyebrow": "Campaigns",
+  "title": "Promised service tracking",
+  "subtitle": "Review promised services from paid sponsorships, their dossier preparation and their delivery evidence.",
   "refresh": "Refresh",
-  "scope": "By default, current approved preparations appear first. Promised services still awaiting preparation remain upcoming, subject to completing and validating the dossier.",
-  "listTitle": "Promised publications",
+  "scope": "Recorded promised services remain visible before approval. Dossiers with current approved preparation appear first. Publication awaits the required checks and authorizations.",
+  "listTitle": "Promised services",
   "count": "{{count}} promised services",
   "dossiersOnPage": "{{count}} dossiers on this page",
   "groupByDossier": "Group by dossier",
-  "loading": "Loading campaigns…",
+  "loading": "Loading promised services…",
   "retry": "Try again",
   "emptyTitle": "No promised services in this selection",
-  "empty": "Change the filters or return after a payment is confirmed and the sponsorship commitments are recorded.",
+  "empty": "Change the filters or return after a payment is confirmed and the promised services are recorded.",
   "noDate": "To be specified",
   "unnamedSponsor": "Sponsor name not provided",
-  "passage": "Placement {{ordinal}} of {{quantity}}",
+  "passage": "Publication {{ordinal}} of {{quantity}}",
   "proofAvailable": "Available",
   "proofPending": "Awaiting evidence",
   "proofNotRequired": "Not applicable",
-  "conditional": "Upcoming, subject to approval",
+  "conditional": "Publication awaiting approval",
   "adjusted": "Waived",
   "page": "Page {{page}} of {{pages}}",
-  "pagination": "Campaign pagination",
+  "pagination": "Promised service pagination",
   "previous": "Previous",
   "next": "Next",
   "destination": {
@@ -30,15 +30,16 @@
     "choose": "Choose the promised service to view from the list.",
     "showAll": "Show all promised services",
     "invalid": "This link does not identify a valid dossier and promised service.",
-    "empty": "No accessible promised service matches this link. Commitments must be recorded before they appear here."
+    "empty": "No accessible promised service matches this link. Promised services must be recorded before they appear here."
   },
   "filters": {
-    "title": "Filter campaigns",
+    "title": "Filter promised services",
     "search": "Find a dossier",
     "searchPlaceholder": "Sponsor or reference",
     "channel": "Channel",
     "target": "Destination",
-    "state": "Delivery state",
+    "state": "Tracking status",
+    "complete": "Complete — delivered or waived",
     "sort": "Sort by",
     "direction": "Order",
     "allChannels": "All channels",
@@ -64,13 +65,13 @@
     "complete": "Delivered"
   },
   "preparationStates": {
-    "ready": "Ready for validation",
-    "incomplete": "Incomplete",
-    "approved": "Approved",
-    "review_required": "Needs review"
+    "ready": "Dossier preparation awaiting approval",
+    "incomplete": "Dossier preparation incomplete",
+    "approved": "Dossier preparation approved",
+    "review_required": "Dossier preparation needs review"
   },
   "sorts": {
-    "preparation": "Approved preparation",
+    "preparation": "Approved dossier preparation",
     "paid_at": "Payment date",
     "due_at": "Promised due date"
   },
@@ -80,14 +81,14 @@
   },
   "columns": {
     "promise": "Promised service",
-    "preparation": "Preparation",
+    "preparation": "Dossier preparation",
     "due": "Due date",
     "proof": "Delivery evidence"
   },
   "errors": {
-    "error": "Campaigns could not be loaded. Try again to get the current data.",
-    "forbidden": "Your session does not allow you to view campaigns.",
-    "unavailable": "Campaigns are temporarily unavailable. Try again in a moment."
+    "error": "Promised services could not be loaded. Try again to get the current data.",
+    "forbidden": "Your session does not allow you to view promised services.",
+    "unavailable": "Promised services are temporarily unavailable. Try again in a moment."
   },
   "formats": {
     "unspecified": "As recorded in the agreement",
@@ -98,11 +99,11 @@
   },
   "detail": {
     "title": "Promised service details",
-    "choose": "Select a promised service to see its preparation, content and delivery evidence.",
-    "openOwner": "Open the publication dossier",
-    "preparation": "Preparation workspace",
-    "preparationHelp": "Current dossier checks determine the next preparation step.",
-    "content": "Content and delivery",
+    "choose": "Select a promised service to see dossier preparation, associated content and delivery evidence.",
+    "openOwner": "Open sponsorship dossier (Publication tab)",
+    "preparation": "Sponsorship dossier preparation",
+    "preparationHelp": "These checks and this approval cover the entire sponsorship dossier, including its other promised services. They do not authorize publication.",
+    "content": "Promised service content and delivery",
     "paidAt": "Confirmed payment",
     "format": "Promised format",
     "scheduled": "Scheduled delivery",
@@ -111,11 +112,11 @@
     "unknownReason": "Open the dossier to examine the next step.",
     "openDelivery": "Review delivery",
     "draft": "Associated draft",
-    "noContent": "No content is associated with this placement. Open the publication dossier to continue preparing it.",
+    "noContent": "No content is associated with this publication. Open the sponsorship dossier, Publication tab, to continue preparation.",
     "authorization": "An approved preparation does not authorize publication. The exact content, destination and schedule require their own authorization.",
     "proof": "Delivery evidence",
     "delivered": "Delivery confirmed on {{date}}",
-    "noProof": "No qualified evidence for this promised service. Follow-up remains open until delivery is confirmed.",
+    "noProof": "No qualified delivery evidence for this promised service. The recorded agreement is not delivery evidence.",
     "adjusted": "A waiver was recorded for this promised service. It does not constitute delivery.",
     "openProof": "View the delivered publication",
     "newTab": "(new tab)"

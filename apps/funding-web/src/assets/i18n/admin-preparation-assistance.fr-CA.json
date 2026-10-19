@@ -1,8 +1,8 @@
 {
-  "title": "Documenter les prestations de l’accord d’origine",
-  "reviewTitle": "Examiner les prestations de l’accord",
+  "title": "Documenter les prestations de l’accord de commandite",
+  "reviewTitle": "Examiner les prestations promises",
   "steps": {
-    "label": "Parcours de l’accord",
+    "label": "Parcours de l’accord de commandite",
     "source": "Source",
     "review": "Revue des prestations",
     "confirm": "Confirmation"
@@ -13,7 +13,7 @@
   "reasonReady": "Le motif commun de revue et de qualification est renseigné.",
   "reasonMissing": "Le motif commun de revue et de qualification reste à renseigner.",
   "editReason": "Renseigner ou modifier le motif commun",
-  "documentingClause": "Clause {{clause}} : complète la prestation dans ce brouillon, puis reviens établir la correspondance. Aucun engagement n’est encore appliqué.",
+  "documentingClause": "Clause {{clause}} : complète la prestation dans ce brouillon, puis reviens établir la correspondance. Aucune prestation n’est encore enregistrée.",
   "returnToClause": "Revenir à la clause {{clause}} à relier",
   "hints": {
     "saveSourceFirst": "Enregistre les modifications de la source avant de relancer l’analyse.",
@@ -40,14 +40,14 @@
   "reviewConflict": "La revue a changé pendant tes modifications. Tes résolutions sont conservées et ne peuvent pas être appliquées à la nouvelle version. Reprends explicitement la revue enregistrée avant de continuer.",
   "resetReview": "Abandonner mes modifications et reprendre la revue enregistrée",
   "saveBeforeRun": "Enregistre le brouillon de revue ou abandonne explicitement ses modifications avant de démarrer une nouvelle indexation.",
-  "apply": "Appliquer les prestations validées à l’accord",
+  "apply": "Enregistrer les prestations dans l’accord de commandite",
   "formScope": "Ce formulaire applique la revue sélectionnée avec sa source et ses versions. Documente les prestations et examine toutes les clauses avant de confirmer avec l’identifiant du dossier.",
   "replaceDraft": "Remplacer les prestations saisies par le brouillon de revue enregistré ?",
   "localNotice": "Analyse locale du texte enregistré, sans fournisseur externe ni modèle IA. Les mentions explicites sont proposées à la lecture ; une personne vérifie les prestations avant de les appliquer.",
   "refresh": "Relire l’assistance",
   "loading": "Lecture des données enregistrées…",
   "source": {
-    "title": "Accord d’origine — source privée",
+    "title": "Accord de commandite d’origine — source privée",
     "name": "Titre de la source",
     "text": "Texte exact de l’accord",
     "help": "Copie le texte utile de l’accord ({{max}} caractères maximum). Une nouvelle version déclenche automatiquement l’indexation locale. Un contenu identique ne relance rien. Le contenu est traité comme une donnée, jamais comme une instruction.",
@@ -62,7 +62,7 @@
   "reanalyze": "Relancer l’analyse du texte",
   "manual": "Compléter manuellement",
   "manualHelp": "La qualification manuelle reste disponible dans le formulaire de l’accord, même si cette assistance est indisponible.",
-  "stale": "La source ou l’engagement a changé depuis ce traitement. Relis les faits et démarre une nouvelle indexation avant d’utiliser la proposition.",
+  "stale": "La source ou l’accord de commandite a changé depuis ce traitement. Relis les faits et démarre une nouvelle indexation avant d’utiliser la proposition.",
   "processing": "Indexation locale en cours",
   "failed": "Le traitement n’a pas abouti. Tu peux relire son état, démarrer un nouveau traitement si disponible ou compléter l’accord manuellement.",
   "states": {
@@ -90,7 +90,7 @@
   "citation": "Source version {{version}}, caractères {{start}} à {{end}}",
   "attention": {
     "human_mapping_required": "Correspondance à établir par une personne.",
-    "unsupported_terms": "Cette clause contient potentiellement des termes que le modèle d’engagement ne représente pas. Son inclusion bloque l’application assistée."
+    "unsupported_terms": "Cette clause contient potentiellement des termes que le modèle d’accord de commandite ne représente pas. Son inclusion bloque l’application assistée."
   },
   "detected": "Canaux repérés :",
   "disposition": "Traitement humain de la clause",
@@ -109,7 +109,7 @@
   "formSelected": "Reprendre la préparation dans le formulaire",
   "saveReview": "Enregistrer le brouillon de revue",
   "reject": "Rejeter la proposition",
-  "applied": "L’accord a été qualifié par le workflow métier. Relis le bon pour connaître les contrôles satisfaits.",
+  "applied": "L’accord de commandite a été qualifié. Relis la fiche de préparation pour connaître les contrôles satisfaits.",
   "separation": "Une indexation ou un brouillon enregistré ne satisfait aucun contrôle. L’application exige la validation explicite du propriétaire et ne publie rien.",
   "proposal": {
     "documentBenefit": "Documenter cette prestation",
@@ -119,7 +119,7 @@
     "sourceDetails": "Traçabilité de la citation",
     "deliveryDetails": "Remise et délai cités",
     "noDeliveryDetails": "Aucun délai de remise explicite repéré.",
-    "noItems": "Aucune clause repérée dans ce texte. Vérifie la source ou documente manuellement les engagements; une absence de détection ne signifie pas une absence d’obligation.",
+    "noItems": "Aucune clause repérée dans ce texte. Vérifie la source ou documente les prestations promises manuellement ; une absence de détection ne signifie pas une absence de prestation.",
     "caption": "Tableau des prestations et clauses à examiner",
     "counts": "Clauses de publication : {{publications}} · Clauses de preuve : {{proofs}} · Lignes à examiner : {{clauses}}",
     "reviewHelp": "Chaque ligne est une clause de la source. Les quantités ne sont pas additionnées. « À confirmer » signifie que le texte ne fournit pas de valeur explicite sans ambiguïté. Les détails repérés ne remplacent pas les prestations validées dans le formulaire.",

@@ -78,7 +78,6 @@ export class PreparationPilotComponent {
   readonly receipt = input.required<AdminPreparationReceiptData>();
   readonly idPrefix = input.required<string>();
   readonly selectedId = input<string | null>(null);
-  readonly canApprove = input(false);
   readonly busy = input(false);
   readonly detailsMode = input<PreparationDetailsMode>('hidden');
   readonly canAssist = input(false);
@@ -89,7 +88,6 @@ export class PreparationPilotComponent {
   readonly assistanceRerunRequested = output<string>();
   readonly assistanceNavigationRequested = output<'review' | 'source'>();
   readonly selectedIdChange = output<string | null>();
-  readonly approveRequested = output<void>();
   readonly sourceRequested = output<PreparationPilotIssue>();
   readonly detailsRequested = output<void>();
   readonly campaignsRequested = output<void>();
@@ -132,7 +130,6 @@ export class PreparationPilotComponent {
     preparationContextActions({
       receipt: this.receipt(),
       issue: this.issue(),
-      canApprove: this.canApprove(),
       busy: this.busy(),
       detailsMode: this.detailsMode(),
       canAssist: this.canAssist(),
@@ -324,7 +321,7 @@ export class PreparationPilotComponent {
       this.assistanceRerunRequested.emit(summary.revision);
       return;
     }
-    if (action.id !== 'preparation-approve') this.mode.set('peek');
+    this.mode.set('peek');
     this.controller.reset();
     if (
       action.id === 'preparation-assistance-review' ||
@@ -336,9 +333,8 @@ export class PreparationPilotComponent {
     } else if (action.id === 'preparation-open') {
       const issue = this.issue();
       if (issue) this.sourceRequested.emit(issue);
-    } else if (action.id === 'preparation-approve')
-      this.approveRequested.emit();
-    else if (action.id === 'preparation-details') this.detailsRequested.emit();
+    } else if (action.id === 'preparation-details')
+      this.detailsRequested.emit();
     else if (action.id === 'preparation-campaigns')
       this.campaignsRequested.emit();
     else if (action.id === 'preparation-history') this.historyRequested.emit();

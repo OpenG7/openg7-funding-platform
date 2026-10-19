@@ -1,0 +1,58 @@
+@if (canReview()) {
+  <div class="moderation-feature" data-og7="moderation-feature">
+    <div class="feature-command">
+      <button
+        #trigger
+        type="button"
+        class="admin-button"
+        data-og7="moderation-feature-toggle"
+        [openg7AutomaticPrepare]="
+          openAction() ??
+          'moderation.feature.open:' + subject().type + ':' + subject().id
+        "
+        [automaticFor]="automaticFor()"
+        (automaticPrepare)="open(false)"
+        [attr.aria-expanded]="opened()"
+        [attr.aria-controls]="panelId()"
+        [disabled]="busy() || disabled()"
+        (click)="open()"
+      >
+        {{ 'admin.moderation.featureTitle' | translate }}
+      </button>
+    </div>
+    <section
+      #panel
+      [id]="panelId()"
+      class="feature-panel admin-focus-target"
+      data-og7="moderation-feature-panel"
+      [hidden]="!opened()"
+      tabindex="-1"
+      [attr.aria-labelledby]="panelId() + '-title'"
+      (keydown.escape)="close(true, $event)"
+    >
+      <header>
+        <h2 [id]="panelId() + '-title'">
+          {{ 'admin.moderation.featureTitle' | translate }}
+        </h2>
+        <button
+          type="button"
+          class="admin-button"
+          data-og7="moderation-feature-close"
+          [disabled]="busy()"
+          (click)="close()"
+        >
+          {{ 'admin.moderation.closeFeature' | translate }}
+        </button>
+      </header>
+      @if (visited()) {
+        <openg7-funding-moderation-actions
+          [subject]="subject()"
+          [automaticFor]="automaticFor()"
+          [headingLevel]="3"
+          [disabled]="disabled()"
+          (changed)="changed.emit()"
+        />
+      }
+    </section>
+  </div>
+}

@@ -1,0 +1,39 @@
+:host {
+  display: block;
+}
+
+section {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--admin-border, #cbd5e1);
+  border-radius: 0.75rem;
+}
+
+h2 {
+  font-weight: 600;
+}
+
+.inventory-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 1rem;
+}
+
+label,
+.inventory-results,
+.inventory-results li {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.inventory-results li {
+  padding-block: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+a {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}

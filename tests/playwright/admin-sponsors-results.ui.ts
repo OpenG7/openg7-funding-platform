@@ -87,8 +87,8 @@ export function registerSponsorResultsTests({
         );
         await expect(summary.locator('dt')).toHaveText(
           english
-            ? ['To review', 'Approved with consent', 'Active']
-            : ['À réviser', 'Approuvés avec consentement', 'Actifs']
+            ? ['To review', 'Review approved and consent given', 'Active']
+            : ['À réviser', 'Revue approuvée et consentement', 'Actives']
         );
         await expect(summary.locator('dd')).toHaveText(['0', '0', '1']);
         const first = list.locator(
@@ -287,8 +287,8 @@ export function registerSponsorResultsTests({
       const list = page.locator('[data-og7="sponsors-list"]');
       const emptyQueue = list.getByRole('heading', {
         name: english
-          ? 'No sponsors yet'
-          : 'Aucun commanditaire pour le moment',
+          ? 'No sponsorships yet'
+          : 'Aucune commandite pour le moment',
         exact: true
       });
       const emptyFilters = list.getByRole('heading', {

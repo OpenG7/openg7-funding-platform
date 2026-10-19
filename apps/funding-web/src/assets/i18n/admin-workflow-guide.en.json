@@ -1,13 +1,11 @@
 {
   "mode": "Six journeys",
   "title": "Explore the six journeys",
-  "intro": "Choose a journey to compare actions with their expected outcomes. Proposed layouts describe improvements that still need to be implemented.",
   "choose": "Choose a journey",
   "step": "Step {{current}} of {{total}}",
   "action": "Action to examine",
   "outcome": "Expected outcome",
   "location": "Current location",
-  "proposed": "Proposed layout · not yet implemented",
   "show": "Show this area",
   "previous": "Previous step",
   "next": "Next step",
@@ -18,22 +16,21 @@
   "openDossier": "Open a sponsorship dossier",
   "needsDossier": "Choose a sponsorship dossier to show the journey’s areas.",
   "readOnly": "Exploring the guide does not prepare, authorize or publish anything.",
-  "automatic": "Switch to the automatic guide",
+  "automatic": "Switch to dossier preparation",
   "journeys": {
     "agreement": {
-      "title": "Document the agreed benefits",
-      "goal": "Document benefits from the original agreement, then have the owner confirm them.",
-      "location": "Dossier Publication tab: Preparation controls, then Recorded commitments.",
-      "proposed": "Bring the source, local proposal, benefits and confirmation into one continuous journey.",
+      "title": "Document the agreed services",
+      "goal": "Document services from the original sponsorship agreement, then have the owner confirm them.",
+      "location": "Dossier Publication tab: Preparation controls, then Promised services.",
       "steps": {
         "pilot": {
-          "title": "Examine promised publications",
-          "action": "Select Promised publications in the Preparation controls and read the item requiring attention.",
-          "outcome": "The missing check and available actions are identified without validating the agreement."
+          "title": "Examine promised services",
+          "action": "Select Promised services in the Preparation controls and read the item requiring attention.",
+          "outcome": "The missing check and available actions are identified without validating the sponsorship agreement."
         },
         "source": {
-          "title": "Check the original agreement",
-          "action": "Read the saved text or document a private source containing the agreement’s exact terms.",
+          "title": "Check the original sponsorship agreement",
+          "action": "Read the saved text or document a private source containing the sponsorship agreement’s exact terms.",
           "outcome": "A versioned source supports verification of the terms. Saving a new version starts the local analysis."
         },
         "proposal": {
@@ -42,27 +39,26 @@
           "outcome": "The details to document are identified. This local analysis uses no AI model and requires human review."
         },
         "qualification": {
-          "title": "Document and link the benefits",
-          "action": "Enter established benefits in the form, then link each clause to the corresponding benefit or explain how it should be handled.",
-          "outcome": "A draft of benefits and mappings is ready for review; unsupported terms still require manual handling."
+          "title": "Document and link the services",
+          "action": "Enter established services in the form, then link each clause to the corresponding service or explain how it should be handled.",
+          "outcome": "A draft of services and mappings is ready for review; unsupported terms still require manual handling."
         },
         "confirm": {
-          "title": "Confirm the reviewed benefits",
+          "title": "Confirm the reviewed services",
           "action": "The owner reviews the terms, provides the reason and evidence, then explicitly confirms the dossier in the form.",
-          "outcome": "After server validation, the benefits are recorded in the agreement. Publication authorization remains separate."
+          "outcome": "After server validation, the services are recorded in the sponsorship agreement. Publication authorization remains separate."
         }
       }
     },
     "preparation": {
       "title": "Prepare publications",
-      "goal": "Turn recorded obligations into drafts ready for human review.",
-      "location": "Dossier Publication tab: obligations, channel cards and preparation commands.",
-      "proposed": "Group obligations with their drafts and show the next action for each channel.",
+      "goal": "Turn recorded services into drafts ready for human review.",
+      "location": "Dossier Publication tab: services, channel cards and preparation commands.",
       "steps": {
         "obligations": {
-          "title": "Read the obligations",
-          "action": "Compare channels, destinations, quantities and required elements with the recorded agreement.",
-          "outcome": "The scope of preparation is established from the documented benefits."
+          "title": "Read the services",
+          "action": "Read the summary, then follow its Campaigns link to compare detailed services with the recorded sponsorship agreement.",
+          "outcome": "The scope of preparation is established from the documented services."
         },
         "prepare": {
           "title": "Find the preparation command",
@@ -80,7 +76,6 @@
       "title": "Review and authorize delivery",
       "goal": "Examine the final content, destination and date before explicit administrative authorization.",
       "location": "Dossier Publication tab: channel card, then the review drawer opened voluntarily for content, date and authorization.",
-      "proposed": "Clarify the transition from review to authorization, with prerequisites beside the confirmation.",
       "steps": {
         "review": {
           "title": "Find the available review",
@@ -106,13 +101,12 @@
     },
     "delivery": {
       "title": "Track delivery and its evidence",
-      "goal": "Understand each obligation’s status and consult the available fulfilment evidence.",
-      "location": "Dossier Publication tab: obligation tracking board and channel cards.",
-      "proposed": "Show each obligation’s status, next responsibility and qualified evidence together.",
+      "goal": "Understand each service’s status and consult the available delivery evidence.",
+      "location": "Dossier Publication tab: summary and channel cards; Campaigns for service details and evidence.",
       "steps": {
         "status": {
           "title": "Read the current status",
-          "action": "Check each obligation and its associated publication: waiting, scheduled, sending, failed or successful.",
+          "action": "Read the summary and the associated publication’s status: waiting, scheduled, sending, failed or successful. Campaigns provides details for each service.",
           "outcome": "Confirmed facts are distinguished from pending operations, simulations and uncertain results."
         },
         "responsibility": {
@@ -121,8 +115,8 @@
           "outcome": "The person viewing the dossier knows whether to act, wait or verify a result before any retry."
         },
         "evidence": {
-          "title": "Consult qualified evidence",
-          "action": "After confirmed success, consult the qualified evidence recorded by the platform and the available publication link.",
+          "title": "Consult delivery evidence",
+          "action": "Open Campaigns voluntarily from this sponsorship’s services link to consult available qualified evidence and publication links.",
           "outcome": "Fulfilment can be checked against recorded evidence. This guide performs no manual evidence linking."
         }
       }
@@ -130,12 +124,11 @@
     "website": {
       "title": "Prepare the website profile",
       "goal": "Check the public presentation, then examine its visibility independently of social deliveries.",
-      "location": "Dossier Publication tab: Website card; presentation and preview in Advanced settings · visibility and manual tracking.",
-      "proposed": "Create a Website profile area combining presentation, preview and visibility, separate from historical tracking.",
+      "location": "Dossier Publication tab: Website card; presentation and preview in Public profile and declared tracking.",
       "steps": {
         "presentation": {
           "title": "Examine the presentation",
-          "action": "In advanced settings, review the public slug and summary alongside the dossier’s name and logo.",
+          "action": "In Public profile and declared tracking, review the public slug and summary alongside the dossier’s name and logo.",
           "outcome": "The profile details to keep or correct are identified before saving."
         },
         "preview": {
@@ -153,22 +146,21 @@
     "history": {
       "title": "Keep a historical declaration",
       "goal": "Document a declared status and historical link without treating them as proven delivery.",
-      "location": "Dossier Publication tab → Advanced settings · visibility and manual tracking: declared status, link, notes and save command.",
-      "proposed": "Separate historical tracking from the website profile and clearly explain the scope of manual declarations.",
+      "location": "Dossier Publication tab → Public profile and declared tracking: declared status, link, notes and save command.",
       "steps": {
         "tracking": {
           "title": "Read existing manual tracking",
-          "action": "Consult the declared status, historical link and notes kept in advanced settings.",
-          "outcome": "Available historical declarations are identified; their presence does not confirm delivery of a benefit."
+          "action": "Consult the declared status, historical link and notes in Declared social tracking.",
+          "outcome": "Available historical declarations are identified; their presence does not confirm delivery of a service."
         },
         "declare": {
           "title": "Enter a declaration",
           "action": "Choose a declared status, enter the available historical link and explain limitations in the notes.",
-          "outcome": "A manual declaration is ready to save. It is not qualified fulfilment evidence."
+          "outcome": "A manual declaration is ready to save. It is not qualified delivery evidence."
         },
         "save": {
           "title": "Save the metadata",
-          "action": "Review the changed fields and use Save in the manual tracking area.",
+          "action": "Review the changed fields, then use Save changes. This shared command saves public profile and declared tracking changes.",
           "outcome": "After server validation, the historical metadata is retained. Saving triggers no delivery and confirms no fulfilment."
         }
       }

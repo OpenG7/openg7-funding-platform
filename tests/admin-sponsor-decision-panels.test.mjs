@@ -711,7 +711,7 @@ for (const locale of ['fr-CA', 'en']) {
       'actions',
       () => DecisionActions,
       actionInputs,
-      locale === 'en' ? 'Accept' : 'Accepter'
+      locale === 'en' ? 'Approve sponsorship' : 'Approuver la commandite'
     ]
   ]) {
     test(`${name} renders ${locale} labels and no unresolved translation keys`, async (t) => {

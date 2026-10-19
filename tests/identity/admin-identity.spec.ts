@@ -275,10 +275,13 @@ test('owner creates roles, operator reviews, role withdrawal blocks an open acti
       ).toBe(200);
       await reader.goto(`/admin/fundraiser/sponsors?sponsorshipId=${id}`);
       await expect(
-        operator.getByRole('button', { name: 'Accepter', exact: true })
+        operator.getByRole('button', {
+          name: 'Approuver la commandite',
+          exact: true
+        })
       ).toBeVisible();
       await operator
-        .getByRole('button', { name: 'Accepter', exact: true })
+        .getByRole('button', { name: 'Approuver la commandite', exact: true })
         .click();
       await completeModeration(operator);
       await expect(

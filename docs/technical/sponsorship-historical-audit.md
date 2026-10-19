@@ -6,6 +6,27 @@ ou qualifiée, sans appliquer le barème actuel. Une conclusion administrative
 conserve l'historique; elle ne corrige aucun solde commercial, fait financier,
 autorisation éditoriale ou état de visibilité.
 
+## Parcours administratifs
+
+La rubrique **Qualité des commandites**, à
+`/admin/fundraiser/sponsors/quality`, réunit l'inventaire des accords et l'audit
+des preuves historiques de tous les dossiers. Son entrée de navigation et ses
+outils sont réservés au propriétaire. Le chargement de chaque inventaire est
+explicite ; ouvrir cette page ne déclenche aucun examen ni correction.
+
+Dans l'onglet Publication d'un dossier, le même composant d'audit est borné à
+`contributionId`. La bascule vers toutes les commandites est retirée : un lien
+ouvre la rubrique Qualité avec un identifiant de retour au dossier. La page
+globale configure explicitement la portée portefeuille ; un identifiant de
+dossier absent ne transforme jamais une lecture locale en lecture globale.
+Les liens d'inventaire ouvrent le dossier propriétaire et conservent un retour
+vers Qualité. Ces déplacements ne qualifient aucun accord ni aucune preuve.
+
+Les composants utilisent les endpoints existants et leurs droits API. Les
+réponses tardives d'un autre dossier, d'une autre portée ou d'une autre session
+ne peuvent pas rétablir des données dans la vue courante. Une réponse locale
+contenant une preuve d'une autre contribution est rejetée.
+
 ## Lecture réservée au propriétaire
 
 `GET /api/admin/sponsorship-commitments/historical-audit` et son alias sans `/api`
@@ -58,6 +79,11 @@ les preuves de l'inventaire, indépendamment de la page et des filtres.
 évoluer entre deux pages; `asOf` borne les preuves, sans figer les futures conclusions
 administratives. Les compteurs par observation peuvent se chevaucher.
 
+Cette portée des totaux API reste inchangée. Dans le dossier, l'interface
+n'affiche que `totals.filtered`, borné à la contribution et au filtre choisis ;
+les totaux globaux restent présentés dans Qualité des commandites. Aucun
+compteur global n'est présenté comme un total propre au dossier.
+
 Le DTO minimal contient les identifiants, canal, destination, bénéfice, date de
 livraison, durée, observations des exigences, `reviewVersion` et `latestReview`.
 Ce dernier expose seulement identifiant, conclusion et date. Aucun message privé,
@@ -88,6 +114,11 @@ suivante et `review` (UUID, conclusion, date UTC). Le Web ne déclare le succès
 qu'après validation du reçu exact correspondant à la commande. Un ancien reçu
 rejoué ne remplace pas une version plus récente déjà lue et ne redécrémente pas
 le compteur des preuves sans examen.
+
+La reprise attend la fin d'une lecture en cours, pour qu'un ancien snapshot ne
+remplace pas le reçu confirmé. Un `403` retire les preuves et le formulaire
+affichés. Si seule une lecture est refusée, la commande précédemment incertaine
+reste capturée ; un refus définitif de la mutation retire cette commande.
 
 Une réponse perdue, incohérente, une session expirée ou un conflit non reconnu
 conserve la commande capturée et son UUID en mémoire. Une nouvelle commande reste

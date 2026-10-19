@@ -23,19 +23,18 @@ export function preparationContextActions(
     label: string,
     icon: ControllerAction['icon'],
     enabled: boolean,
-    shortcut: 'a' | 'b' | 'x' | 'y' | undefined,
-    requiresConfirmation = false
+    shortcut: 'a' | 'b' | 'x' | 'y' | undefined
   ): ControllerAction => ({
     id,
     label,
     icon,
     zone: 'radial',
     scope: 'selection',
-    tone: requiresConfirmation ? 'success' : 'default',
+    tone: 'default',
     enabled: available && enabled,
     visible: true,
     busy: input.busy,
-    requiresConfirmation,
+    requiresConfirmation: false,
     disabledReason: available && enabled ? undefined : t('pilot.unavailable'),
     shortcut: shortcut
       ? { label: shortcut.toUpperCase(), tone: shortcut }
@@ -80,16 +79,7 @@ export function preparationContextActions(
           !!issue.adminUrl && !!automaticAdminUrl(issue.adminUrl),
           'a'
         )
-      : receipt && receipt.status !== 'approved'
-        ? action(
-            'preparation-approve',
-            t('pilot.actions.approve'),
-            'check',
-            input.canApprove && receipt.canApprove,
-            'a',
-            true
-          )
-        : null);
+      : null);
   return [
     ...(primary ? [primary] : []),
     ...assistanceActions

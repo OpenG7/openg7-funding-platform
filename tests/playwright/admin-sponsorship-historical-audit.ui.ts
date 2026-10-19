@@ -109,7 +109,14 @@ export function registerSponsorshipHistoricalAuditTests(
       await panel.locator('[data-og7-id="historical-audit-load"]').click();
       await expect(
         panel.locator('[data-og7-id="historical-audit-counts"]')
-      ).toContainText('155');
+      ).toContainText('55');
+      expect(
+        new URL(state.queries[0]!).searchParams.get('contributionId')
+      ).toBe(item.contributionId);
+      await expect(panel.getByRole('checkbox')).toHaveCount(0);
+      await expect(
+        panel.locator('[data-og7-id="historical-audit-counts"]')
+      ).not.toContainText('155');
       await expect(
         panel.locator('[data-og7-id="historical-audit-item"]')
       ).toContainText(evidenceId);

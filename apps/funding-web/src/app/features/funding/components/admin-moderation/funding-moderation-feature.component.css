@@ -1,0 +1,33 @@
+@reference '../../../../../styles/tailwind.css';
+
+:host {
+  @apply tw:block tw:min-w-0;
+}
+[hidden] {
+  display: none !important;
+}
+.feature-command {
+  @apply tw:flex tw:flex-wrap tw:justify-end;
+}
+.feature-panel {
+  @apply tw:min-w-0;
+  margin-top: 0.75rem;
+  padding: var(--admin-card-padding);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-card);
+  background: var(--admin-subtle);
+}
+.feature-panel > header {
+  @apply tw:flex tw:flex-wrap tw:items-center tw:justify-between tw:gap-3;
+  margin-bottom: 1rem;
+}
+.feature-panel h2 {
+  @apply tw:m-0 tw:wrap-anywhere;
+  font-size: 0.9375rem;
+  font-weight: var(--admin-label-weight);
+}
+@media (max-width: 600px) {
+  .feature-panel {
+    padding: 1rem;
+  }
+}

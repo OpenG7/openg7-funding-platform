@@ -30,8 +30,6 @@ export interface PreparationPilotProjection {
 export interface PreparationContextActionsInput {
   readonly receipt: AdminPreparationReceiptData | null;
   readonly issue: PreparationPilotIssue | null;
-  /** The host's current permission, in addition to receipt.canApprove. */
-  readonly canApprove: boolean;
   readonly busy: boolean;
   readonly detailsMode: PreparationDetailsMode;
   readonly canAssist?: boolean;

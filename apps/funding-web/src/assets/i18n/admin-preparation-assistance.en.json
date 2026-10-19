@@ -1,19 +1,19 @@
 {
-  "title": "Document the original agreement’s deliverables",
-  "reviewTitle": "Review the agreement’s benefits",
+  "title": "Document the sponsorship agreement’s promised services",
+  "reviewTitle": "Review promised services",
   "steps": {
-    "label": "Agreement workflow",
+    "label": "Sponsorship agreement workflow",
     "source": "Source",
-    "review": "Benefit review",
+    "review": "Promised service review",
     "confirm": "Confirmation"
   },
   "returnToPreparation": "Return to preparation controls",
-  "returnUnsaved": "Return to the workflow and discard unsaved changes to the source, review or benefits?",
+  "returnUnsaved": "Return to the workflow and discard unsaved changes to the source, review or promised services?",
   "reasonHelp": "One reason is shared by the review draft and agreement qualification. Enter at least 5 characters. Individual clause explanations remain separate.",
   "reasonReady": "The shared review and qualification reason is entered.",
   "reasonMissing": "The shared review and qualification reason still needs to be entered.",
   "editReason": "Enter or edit the shared reason",
-  "documentingClause": "Clause {{clause}}: complete the benefit in this draft, then return to establish its mapping. No commitment has been applied yet.",
+  "documentingClause": "Clause {{clause}}: complete the promised service in this draft, then return to establish its mapping. No promised service has been recorded yet.",
   "returnToClause": "Return to clause {{clause}} to map",
   "hints": {
     "saveSourceFirst": "Save the source changes before starting another analysis.",
@@ -24,13 +24,13 @@
   },
   "blockers": {
     "title": "Complete before applying",
-    "offer": "Document a complete benefit in the form.",
+    "offer": "Document a complete promised service in the form.",
     "reason": "Enter the shared review and qualification reason (at least 5 characters).",
     "unresolved": "Clause {{clause}}: choose its resolution in the draft.",
-    "mapping": "Clause {{clause}}: choose a corresponding documented benefit.",
+    "mapping": "Clause {{clause}}: choose a corresponding documented promised service.",
     "unsupported": "Clause {{clause}}: a contractual term requires manual handling.",
     "exclusion": "Clause {{clause}}: explain the out-of-scope decision (at least 5 characters).",
-    "coverage": "Map each benefit in the form to a reviewed clause.",
+    "coverage": "Map each promised service in the form to a reviewed clause.",
     "stale": "Reread the source and review: their versions have changed.",
     "review": "Reread current capabilities and mappings before confirming.",
     "more": "{{count}} other issues still need attention in the clauses."
@@ -40,14 +40,14 @@
   "reviewConflict": "The review changed while you were editing. Your resolutions are preserved and cannot be applied to the new version. Explicitly load the saved review before continuing.",
   "resetReview": "Discard my changes and load the saved review",
   "saveBeforeRun": "Save the review draft or explicitly discard its changes before starting a new indexing run.",
-  "apply": "Apply reviewed benefits to the agreement",
-  "formScope": "This form applies the selected review with its source and versions. Document benefits and review every clause before confirming with the dossier identifier.",
-  "replaceDraft": "Replace the entered benefits with the saved review draft?",
-  "localNotice": "Local analysis of the stored text, without an external provider or AI model. Explicit mentions are presented for review; a person verifies benefits before applying them.",
+  "apply": "Record promised services in the sponsorship agreement",
+  "formScope": "This form applies the selected review with its source and versions. Document promised services and review every clause before confirming with the dossier identifier.",
+  "replaceDraft": "Replace the entered promised services with the saved review draft?",
+  "localNotice": "Local analysis of the stored text, without an external provider or AI model. Explicit mentions are presented for review; a person verifies promised services before recording them.",
   "refresh": "Refresh assistance",
   "loading": "Reading stored facts…",
   "source": {
-    "title": "Original agreement — private source",
+    "title": "Original sponsorship agreement — private source",
     "name": "Source title",
     "text": "Exact agreement text",
     "help": "Copy the relevant agreement text (up to {{max}} characters). A new version automatically queues local indexing. Identical content does not start another run. Content is treated as data, never as instructions.",
@@ -62,7 +62,7 @@
   "reanalyze": "Analyze the text again",
   "manual": "Complete manually",
   "manualHelp": "Manual qualification remains available in the agreement form, even when assistance is unavailable.",
-  "stale": "The source or commitment changed after this run. Read current facts and start a new run before using the proposal.",
+  "stale": "The source or sponsorship agreement changed after this run. Read current facts and start a new run before using the proposal.",
   "processing": "Local indexing in progress",
   "failed": "The run did not finish successfully. Refresh its state, start a new run if available, or complete the agreement manually.",
   "states": {
@@ -79,50 +79,50 @@
     "finished": "Run finished"
   },
   "suggestion": "Local proposal — publications and deliverables",
-  "mappingHelp": "Compare located details with their source. Complete or revise benefits in the qualification form, then link each representable clause to a documented benefit. No offer is applied automatically.",
+  "mappingHelp": "Compare located details with their source. Complete or revise promised services in the qualification form, then link each representable clause to a documented promised service. No offer is applied automatically.",
   "reviews": {
     "saved": "Review draft saved",
     "rejected": "Proposal rejected",
-    "accepted": "Benefits applied after human confirmation"
+    "accepted": "Promised services recorded after human confirmation"
   },
   "reviewVersion": "review version {{version}}",
   "clause": "Clause {{id}}",
   "citation": "Source version {{version}}, characters {{start}} to {{end}}",
   "attention": {
     "human_mapping_required": "A person must establish the mapping.",
-    "unsupported_terms": "This clause may contain terms the commitment model cannot represent. Including it prevents assisted application."
+    "unsupported_terms": "This clause may contain terms the sponsorship agreement model cannot represent. Including it prevents assisted application."
   },
   "detected": "Located channels:",
   "disposition": "Human clause resolution",
   "dispositions": {
     "unresolved": "Needs review",
-    "included": "Link to a documented benefit",
+    "included": "Link to a documented promised service",
     "unsupported": "Unrepresentable contractual term — manual handling required",
     "excluded": "Outside the contractual scope (explain)"
   },
-  "benefit": "Corresponding benefit from the form",
-  "chooseBenefit": "Choose a documented benefit",
+  "benefit": "Corresponding promised service from the form",
+  "chooseBenefit": "Choose a documented promised service",
   "clauseNote": "Explanation or follow-up needed",
   "unsupportedHelp": "A real contractual term that cannot be represented needs manual handling. Do not exclude it to enable application. “Outside the contractual scope” only corrects a detection with no contractual meaning and requires an explanation.",
   "reviewReason": "Shared review and qualification reason",
-  "useForm": "Document benefits in the form",
+  "useForm": "Document promised services in the form",
   "formSelected": "Resume preparation in the form",
   "saveReview": "Save review draft",
   "reject": "Reject proposal",
-  "applied": "The business workflow qualified the agreement. Refresh the receipt to see which controls are satisfied.",
+  "applied": "The sponsorship agreement was qualified. Refresh the preparation sheet to see which checks are satisfied.",
   "separation": "Indexing or saving a draft does not satisfy a control. Applying requires the owner's explicit confirmation and publishes nothing.",
   "proposal": {
-    "documentBenefit": "Document this benefit",
+    "documentBenefit": "Document this promised service",
     "reviewProgress": "Draft: {{resolved}} of {{total}} clauses completed. Applying still requires confirmation.",
     "nextUnresolved": "Go to the first clause to complete",
     "citedDetails": "View cited facts",
     "sourceDetails": "Citation traceability",
     "deliveryDetails": "Cited delivery and deadline",
     "noDeliveryDetails": "No explicit delivery deadline found.",
-    "noItems": "No clauses found in this text. Check the source or document commitments manually; a lack of detected clauses does not mean there are no obligations.",
-    "caption": "Benefits and clauses to review",
+    "noItems": "No clauses found in this text. Check the source or document promised services manually; no detected clauses does not mean no promised services.",
+    "caption": "Promised services and clauses to review",
     "counts": "Publication clauses: {{publications}} · Evidence clauses: {{proofs}} · Lines to review: {{clauses}}",
-    "reviewHelp": "Each row is a source clause. Quantities are not added together. “To confirm” means the text provides no unambiguous explicit value. Located details do not replace benefits validated in the form.",
+    "reviewHelp": "Each row is a source clause. Quantities are not added together. “To confirm” means the text provides no unambiguous explicit value. Located details do not replace promised services verified in the form.",
     "legacy": "This result uses the previous line index. It remains available for consultation and review. Start an explicit new indexing run to obtain structured details.",
     "noStructuredDetails": "This generation has no structured details; review the excerpt.",
     "channelUnknown": "Channel to confirm",
@@ -132,7 +132,7 @@
     "format": "Located format",
     "gapsTitle": "{{count}} points to verify",
     "columns": {
-      "service": "Benefit / clause",
+      "service": "Promised service / clause",
       "details": "Located details",
       "source": "Exact source",
       "review": "Human review"
@@ -180,7 +180,7 @@
       "quantity_ambiguous": "The number’s scope or quantity remains ambiguous.",
       "target_missing": "A person must document the destination.",
       "target_ambiguous": "Several destinations are mentioned; their mapping needs clarification.",
-      "format_missing": "The benefit’s format must be documented.",
+      "format_missing": "The promised service’s format must be documented.",
       "format_ambiguous": "The cited format does not unambiguously match a supported format.",
       "outside_offer_model": "Some terms exceed the current commercial model. They remain visible and require manual handling."
     }
@@ -191,6 +191,6 @@
     "uncertain": "The command result needs verification. Current facts were read without repeating the command.",
     "stale": "Facts or versions changed. Read the source and review again before continuing.",
     "timeout": "The run remains pending beyond the tracking period. Refresh its state or use manual qualification.",
-    "reviewInvalid": "Check the review reason and mappings to documented benefits."
+    "reviewInvalid": "Check the review reason and mappings to documented promised services."
   }
 }

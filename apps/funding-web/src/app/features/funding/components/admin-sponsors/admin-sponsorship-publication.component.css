@@ -33,45 +33,18 @@ footer {
   @apply tw:uppercase;
   letter-spacing: normal;
 }
-.benefits {
-  background: var(--admin-success-bg);
-  border: 1px solid var(--admin-success-border);
-  @apply tw:rounded-admin-card tw:p-4;
-}
-.benefits ul {
-  margin: 0.65rem 0;
-  padding-left: 1.2rem;
-}
-.benefits li {
-  margin: 0.35rem 0;
-}
 .delivery-board {
   @apply tw:grid tw:gap-4 tw:min-w-0;
 }
 .schedule-help {
   @apply tw:text-admin-caption;
 }
-.obligation-console,
-.obligation-heading {
-  @apply tw:grid tw:gap-2;
-}
-.obligation-list {
-  @apply tw:grid tw:gap-3 tw:m-0 tw:p-0;
-  list-style: none;
-}
-.obligation-list > li {
+.obligation-summary {
   @apply tw:grid tw:gap-2 tw:p-4 tw:rounded-xl;
   border: 1px solid var(--admin-border);
   background: var(--admin-panel);
 }
-.obligation-list > li[data-state='complete'] {
-  border-color: var(--admin-success-border);
-}
-.obligation-list > li[data-state='error'],
-.obligation-list > li[data-state='uncertain'] {
-  border-color: var(--admin-danger-border);
-}
-.obligation-list .admin-button {
+.obligation-summary .admin-button {
   justify-self: start;
 }
 [data-og7='publication-next-slot'] time {

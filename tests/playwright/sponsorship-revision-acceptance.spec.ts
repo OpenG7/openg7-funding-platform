@@ -353,7 +353,7 @@ for (const review of ['pending', 'reapproved'] as const) {
         // Reapprove before the stopped worker can observe pending_review.
         await admin.goto('/admin/fundraiser/sponsors?sponsorshipId=' + id);
         await admin
-          .getByRole('button', { name: 'Accepter', exact: true })
+          .getByRole('button', { name: 'Approuver la commandite', exact: true })
           .click();
         await completeModeration(admin);
         await expect

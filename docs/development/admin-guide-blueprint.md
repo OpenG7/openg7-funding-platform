@@ -2,9 +2,15 @@
 
 Inventaire initial au **18 octobre 2026**, révision `bc593f7f`. Ce document décrit
 les surfaces, leurs responsabilités et les séparations proposées. L'évolution
-appliquée de G-A06 est signalée ci-dessous ; les autres propositions restent à
+appliquée de G-A06 et le retrait des propositions futures de G-W10 sont signalés
+ci-dessous ; les autres propositions restent à
 réaliser. Aucune opération métier décrite n'est exécutée par l'analyse. Vue d’ensemble :
 [blueprint transversal](admin-operations-blueprint.md).
+
+Les libellés de cet inventaire daté se lisent désormais avec le
+[vocabulaire harmonisé des opérations](../technical/admin-campaigns.md#vocabulaire-des-operations) :
+fiche de préparation, approbation de préparation et vérification du lot. Le
+rapport emploie **Préparer ce dossier** pour annoncer la préparation ciblée.
 
 ## Périmètre et vocabulaire
 
@@ -58,10 +64,10 @@ Layout administratif
 | --------------------------------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | G-Z01 · Barre du guide | Ouvrir/réduire la carte, déplacer haut/bas, rappeler la rubrique | Layout, route, préférence d’activation | Non, présentation commune |
 | G-Z02 · Choix des quatre modes | Sélectionner une activité conservée dans le navigateur | `AdminGuidanceService` | Oui : aide à la lecture, suivi métier, exécution de lot et préparation |
-| G-Z03 · Découvrir les rubriques | Expliquer trois repères de la rubrique courante | Catalogue de 19 rubriques et cibles DOM fixes | Périmètre cohérent d’aide contextuelle |
+| G-Z03 · Découvrir les rubriques | Expliquer trois repères de la rubrique courante | Catalogue de 20 rubriques et cibles DOM fixes | Périmètre cohérent d’aide contextuelle |
 | G-Z04 · Repère sauvegardé | Reprendre une lecture, ici ou dans sa rubrique d’origine | Repère page/étape/pause par compte | Non |
 | G-Z05 · Parcours du paiement | Lire la prochaine responsabilité calculée par le serveur et tous les jalons | UUID suivi, projection privée et destination serveur | Suivi d’un dossier, distinct de la découverte de l’interface |
-| G-Z06 · Six parcours | Explorer librement les étapes du dossier, mettre les zones en évidence | Catalogue statique, dossier en onglet Publication | Lecture actuelle et comparaison avec une organisation future dans le même panneau |
+| G-Z06 · Six parcours | Explorer librement les étapes du dossier, mettre les zones en évidence | Catalogue statique, dossier en onglet Publication | **Allégé** : lecture actuelle uniquement ; propositions futures conservées dans le blueprint |
 | G-Z07 · Automatique / carrousel | Consulter un bon courant dans une liste figée, accéder aux décisions du bon | Manifeste de passage, bon versionné, assistance locale | Dossier individuel hébergé dans un outil de lot |
 | G-Z08 · Automatique / Suivi du lot | Démarrer, interrompre, reprendre et contrôler un passage | Commandes serveur, progression, points de lecture | Traitement opérationnel, pas uniquement un guide |
 | G-Z09 · Automatique / bilan et rapport | Consulter observations, engagements, preuves et références d’audit | Rapport durable paginé, avant/après et montants par devise | Lecture de lot cohérente ; voisinage ambigu avec les commandes de préparation |
@@ -133,6 +139,7 @@ pas absence de texte d’aide. Ce tableau complète G-D01 à G-D08 pour chaque p
 | Assistant · `/assistant` | `assistant-summary` | `assistant-recommendations` | `assistant-state` |
 | Contributions · `/contributions` | `contributions-list` | `contribution-row` | — |
 | Commandites · `/sponsors` | — | `sponsorship-dossier` | — |
+| Qualité des commandites · `/sponsors/quality` | `sponsors-quality-page` | `commitments-adoption` | `historical-evidence-audit` |
 | Campagnes · `/campaigns` | `campaigns-page` | `campaigns-filters` | `campaigns-list` |
 | Factures · `/invoices` | `invoice-selection` | — | — |
 | Publications · `/publications` | `publications-page` | `publication-space` | — |
@@ -146,7 +153,7 @@ pas absence de texte d’aide. Ce tableau complète G-D01 à G-D08 pour chaque p
 | Courriels · `/email-queue` | — | — | — |
 | Réglages · `/setup` | `admin-setup` | `setup-checklist` | — |
 
-Source des 19 pages et de leurs 57 étapes :
+Source des 20 pages et de leurs 60 étapes :
 [catalogue de découverte](../../apps/funding-web/src/app/features/funding/components/admin-guidance/admin-guidance-pages.ts).
 Un repère peut entourer plusieurs lignes visibles d’une liste ; il n’identifie
 pas alors une prochaine action propre à un dossier.
@@ -185,9 +192,10 @@ L’explorateur est une aide de lecture disponible aussi au lecteur. Il exige un
 dossier sélectionné sur Commandites avec `tab=publication` pour montrer ses zones.
 Il peut ouvrir des éléments `details` mais n’ouvre pas lui-même les commandes de
 revue ni les dialogues métier. Un dialogue déjà ouvert garde la priorité et
-suspend sa surbrillance. Les textes **Organisation proposée · à réaliser** sont
-des propositions déjà embarquées dans le produit ; ils ne prouvent pas qu’une
-réorganisation a été livrée.
+suspend sa surbrillance. **Évolution appliquée** : les encadrés **Organisation
+proposée · à réaliser** sont retirés du produit. Le volet **Emplacement actuel**
+reste disponible ; les propositions de réorganisation sont conservées dans ce
+blueprint.
 
 <!-- prettier-ignore -->
 | ID | Action | Responsabilité / effet | Condition |
@@ -201,7 +209,7 @@ réorganisation a été livrée.
 | G-W07 | **Montrer cette zone** | Retenter la révélation et le halo, ouvrir seulement les `details` de présentation nécessaires, P | Contexte disponible, parcours non en pause |
 | G-W08 | **Arrêter le parcours** | Mémoriser la pause et retirer la surbrillance, B/P | Ne ferme pas les formulaires du dossier |
 | G-W09 | **Reprendre le parcours** | Retirer la pause et montrer l’étape courante, B/P | Parcours en pause |
-| G-W10 | Déplier **Emplacement actuel / Organisation proposée** | Lire la comparaison et son avertissement de travaux futurs, P/L | Aucune transformation du dossier |
+| G-W10 | Déplier **Emplacement actuel** | Consulter le repère de l'écran actuel, P/L ; propositions futures retirées de l'aide produit. | Aucune transformation du dossier |
 
 ### Chaque parcours et chaque étape
 
@@ -218,7 +226,7 @@ l’opération expliquée, qui reste à effectuer volontairement dans son propri
 | G-W-agreement-proposal | Comparer la proposition locale à sa source | `assistance-suggestion` |
 | G-W-agreement-qualification | Documenter les prestations et leurs correspondances | `commitments-qualification` |
 | G-W-agreement-confirm | Relire et confirmer explicitement les prestations | `commitments-qualify`, `commitments-confirmation` |
-| G-W-preparation-obligations | Lire les obligations enregistrées | `publication-obligations` |
+| G-W-preparation-obligations | Lire la synthèse, puis ouvrir Campagnes pour les prestations détaillées | `publication-obligations` |
 | G-W-preparation-prepare | Repérer la commande de préparation d’un canal | `publication-prepare` |
 | G-W-preparation-draft | Examiner l’état du brouillon préparé | `publication-channel` |
 | G-W-authorization-review | Repérer l’accès volontaire au tiroir de revue | `publication-review` |
@@ -227,17 +235,21 @@ l’opération expliquée, qui reste à effectuer volontairement dans son propri
 | G-W-authorization-authorize | Confirmer une autorisation dans le propriétaire | `publication-review` |
 | G-W-delivery-status | Distinguer attente, simulation, échec et réussite | `publication-channel` |
 | G-W-delivery-responsibility | Identifier la prochaine responsabilité | `publication-obligations` |
-| G-W-delivery-evidence | Consulter la preuve qualifiée disponible | `publication-obligation-proof` |
+| G-W-delivery-evidence | Repérer le lien volontaire vers Campagnes pour les preuves disponibles du dossier | `publication-campaign-benefits` |
 | G-W-website-presentation | Examiner slug et résumé publics | `publication-public-address`, `publication-public-summary` |
 | G-W-website-preview | Vérifier le rendu avant visibilité | `publication-public-preview` |
 | G-W-website-visibility | Examiner les prérequis et la décision de visibilité | `publication-website` |
 | G-W-history-tracking | Lire les déclarations historiques existantes | `publication-historical-declaration-help` |
 | G-W-history-declare | Renseigner un statut déclaré, un lien et des notes | `publication-manual-status`, `publication-manual-link`, `publication-manual-notes` |
-| G-W-history-save | Enregistrer les seules métadonnées historiques | `publication-tracking-save` |
+| G-W-history-save | Enregistrer les champs modifiés de la fiche et du suivi déclaré par la commande commune | `publication-tracking-save` |
 
 Le guide affiche un avertissement si la zone n’est pas disponible ; certaines
 étapes demandent donc d’ouvrir volontairement un tiroir avant de retrouver la
 cible. Le parcours **history** ne produit pas de preuve qualifiée de livraison.
+Le guide ouvre les `details` de présentation ancêtres, y compris **Fiche publique
+et suivi déclaré** puis **Suivi social déclaré**, avant de montrer leurs champs.
+Il ne les enregistre pas. L’étape de preuve met en évidence le lien Campagnes
+filtré par dossier ; elle ne le suit pas et ne confirme aucune livraison.
 Sources : [catalogue](../../apps/funding-web/src/app/features/funding/components/admin-guidance/admin-workflow-guide.catalog.ts),
 [vue et contrôles](../../apps/funding-web/src/app/features/funding/components/admin-guidance/admin-workflow-guide.component.html),
 [comportement](../../apps/funding-web/src/app/features/funding/components/admin-guidance/admin-workflow-guide.component.ts),
@@ -353,7 +365,7 @@ préparation active ou un blocage/une erreur à traiter.
 | ID | Action | Responsabilité / effet | Condition / propriétaire |
 | ----- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | G-T01 | **Autre préparation** | Afficher/replier l’outil ciblé, P | Repli empêché si outil actif, bloqué ou en erreur |
-| G-T02 | Sélecteur paiement / rubrique | Choisir le paiement suivi ou l’une des 19 rubriques et mettre les conducteurs en pause, P | Désactivé pendant activité ; paiement indisponible sans UUID suivi |
+| G-T02 | Sélecteur paiement / rubrique | Choisir le paiement suivi ou l’une des 20 rubriques et mettre les conducteurs en pause, P | Désactivé pendant activité ; paiement indisponible sans UUID suivi |
 | G-T03 | **Démarrer la préparation** / **Relire et reprendre** | Revalider le contexte, rejoindre l’écran et présenter ses préparations admissibles, L/N/P | Désactivé pendant activité ou sans UUID requis ; met le lot en pause |
 | G-T04 | **Pause immédiate** | Suspendre ce conducteur de préparation, P | Outil actif |
 | G-T05 | Phase, dernière préparation, rubrique et raison | Expliquer le travail en cours et ce qui attend une personne ou la plateforme, L/P | Les anciennes observations ne valent pas confirmation actuelle |
@@ -446,7 +458,7 @@ Sources : [catalogues des 10 et 6 étapes](../../apps/funding-web/src/app/featur
 | Le bon de préparation est déjà partagé entre carrousel, dossier et Campagnes | Extraire un nouveau formulaire de préparation du Guide créerait une quatrième implémentation | Conserver l’organisme partagé et changer ses points d’entrée, voir blueprint Dossier |
 | **Examiner le dossier / Voir le suivi** démarre la préparation ciblée | Un libellé de consultation masque un changement d’activité et d’écran | Distinguer **Ouvrir le dossier** et **Préparer la prochaine étape**, avec effets explicites |
 | Le rapport comporte historique durable et preuves ; Campagnes présente des prestations actuelles | Les deux listes ne sont pas interchangeables | Garder un rapport de passage propriétaire ; ouvrir Campagnes avec contexte lorsqu’un suivi courant est demandé |
-| Les Six parcours contiennent à la fois une description actuelle et une organisation future | La proposition d’architecture peut être lue comme une fonction disponible | Réserver l’aide produit au fonctionnement actuel ; porter les propositions dans ce blueprint jusqu’à décision |
+| Les Six parcours contenaient à la fois une description actuelle et une organisation future | La proposition d’architecture pouvait être lue comme une fonction disponible | **Appliqué** : aide produit limitée au fonctionnement actuel ; propositions conservées dans ce blueprint |
 | Découverte et Guide pas à pas ont leurs propres progression, navigation, halo et reprise | Deux modèles d’aide et deux clés locales restent à comprendre et maintenir | Étudier une enveloppe de visite commune ; conserver explicitement la différence modal/non modal et la priorité des dialogues |
 | La description de confidentialité énumère rubrique, étape et paiement, mais omet parcours interactif et mode | L’explication visible est plus étroite que les données réellement mémorisées | Aligner le texte sur le schéma ; donner une portée explicite à l’effacement |
 | Effacer le repère flottant ne supprime pas le guide pas à pas | Deux commandes de progression ne partagent pas le même cycle de vie | Proposer un réglage commun des aides avec choix de portée, sans effacer de données métier |
@@ -459,6 +471,22 @@ propriétaires. Il n’existe pas dans cette analyse de preuve d’une page rout
 autonome pour les passages : ce serait une extraction à créer, pas une réutilisation
 déjà disponible. Ni Campagnes ni le poste de pilotage ne doivent absorber toutes
 ces responsabilités par simple déplacement de la carte.
+
+## Propositions retirées de l’aide produit
+
+Ces pistes proviennent des anciens encadrés des six parcours. Leur conservation
+ici ne prouve pas leur réalisation ; l’état des zones concernées est décrit dans
+les blueprints du dossier et de Campagnes.
+
+<!-- prettier-ignore -->
+| Parcours | Piste de rangement |
+| --- | --- |
+| Accord de commandite | Rassembler source, proposition locale, prestations et confirmation dans un parcours continu. |
+| Préparation | Regrouper les prestations et leurs brouillons, avec une prochaine action visible pour chaque canal. |
+| Autorisation | Rendre le passage de la revue à l’autorisation plus lisible, avec les préconditions près de la confirmation. |
+| Livraison | Présenter ensemble le statut, la prochaine responsabilité et la preuve qualifiée de chaque prestation. |
+| Fiche Web | Réunir présentation, aperçu et visibilité dans une zone distincte du suivi social déclaré. |
+| Suivi historique | Distinguer le suivi social déclaré de la fiche Web et préciser la portée des déclarations manuelles. |
 
 ## Découpage cible proposé
 

@@ -17,7 +17,8 @@ function page(
   id: string,
   suffix: string,
   titleKey: string,
-  targets: readonly (string | undefined)[] = []
+  targets: readonly (string | undefined)[] = [],
+  stepPrefix = `admin.guidance.pages.${id}`
 ): AdminGuidancePage {
   return {
     id,
@@ -25,8 +26,8 @@ function page(
     titleKey,
     steps: ['read', 'choose', 'verify'].map((step, index) => ({
       id: step,
-      titleKey: `admin.guidance.pages.${id}.${step}.title`,
-      bodyKey: `admin.guidance.pages.${id}.${step}.body`,
+      titleKey: `${stepPrefix}.${step}.title`,
+      bodyKey: `${stepPrefix}.${step}.body`,
       ...(targets[index] ? { target: targets[index] } : {})
     }))
   };
@@ -62,6 +63,17 @@ export const ADMIN_GUIDANCE_PAGES: readonly AdminGuidancePage[] = [
     undefined,
     'sponsorship-dossier'
   ]),
+  page(
+    'sponsorsQuality',
+    '/sponsors/quality',
+    'admin.sponsorsQuality.nav',
+    [
+      'sponsors-quality-page',
+      'commitments-adoption',
+      'historical-evidence-audit'
+    ],
+    'admin.sponsorsQuality.guide'
+  ),
   page('campaigns', '/campaigns', 'admin.nav.campaigns', [
     'campaigns-page',
     'campaigns-filters',

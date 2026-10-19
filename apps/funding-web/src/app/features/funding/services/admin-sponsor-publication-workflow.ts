@@ -324,17 +324,6 @@ export class AdminSponsorPublicationWorkflow {
     return `publication:${id}`;
   }
 
-  draftChannelsLabel(id: string): string {
-    const draft = this.publicationDraftFor(id);
-    const channels = [
-      ...(draft.facebook ? [this.ports.t('admin.messages.facebook')] : []),
-      ...(draft.linkedin ? ['LinkedIn'] : [])
-    ];
-    return channels.length > 0
-      ? channels.join(' / ')
-      : this.ports.t('admin.messages.aucun_canal');
-  }
-
   publicationDirtyFor(sponsorship: AdminSponsorshipRecord): boolean {
     const draft = this.publicationDraftFor(sponsorship.id);
     const original = this.toPublicationDraft(sponsorship, false, false);

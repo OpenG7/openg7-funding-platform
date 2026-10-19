@@ -38,9 +38,12 @@ const data = {
 function fixture() {
   const state = {
     id: contributionId,
+    scope: 'dossier',
+    identity: 'synthetic-owner-session',
     owner: true,
     destroyed: false,
     failure: null,
+    readFailure: null,
     result: undefined,
     readResult: undefined,
     queries: [],
@@ -50,13 +53,16 @@ function fixture() {
   };
   const c = new AdminSponsorshipHistoricalAuditController({
     contributionId: () => state.id,
+    scope: () => state.scope,
+    identity: () => state.identity,
     canOwn: () => state.owner,
     destroyed: () => state.destroyed,
     requestId: () =>
       `10000000-0000-4000-8000-${String(++state.nonces).padStart(12, '0')}`,
     preview: async (query) => {
       state.queries.push(query);
-      return structuredClone(state.readResult ?? data);
+      if (state.readFailure) throw state.readFailure;
+      return structuredClone(await (state.readResult ?? data));
     },
     review: async (command) => {
       state.commands.push(structuredClone(command));
@@ -84,12 +90,13 @@ function prepare(c) {
   c.reason.set('Synthetic private review reason');
   c.confirmation.set(true);
 }
-test('owner inventory scopes the dossier while retaining full global counts and stable cursor', async () => {
+test('dossier and portfolio audit scopes are explicit while the API retains its global totals', async () => {
   const { c, state } = fixture();
   await c.load();
   assert.deepEqual(state.queries[0], { pageSize: 25, contributionId });
   assert.equal(c.data().totals.evidence, 150);
-  c.global.set(true);
+  state.scope = 'portfolio';
+  c.select();
   c.filter.set('duration_unverified');
   await c.load('synthetic-cursor');
   assert.deepEqual(state.queries[1], {
@@ -103,6 +110,50 @@ test('owner inventory scopes the dossier while retaining full global counts and 
   await c.submit();
   assert.equal(state.queries.length, 2);
   assert.equal(state.commands.length, 0);
+});
+test('a missing dossier identifier never widens the request to the portfolio', async () => {
+  const { c, state } = fixture();
+  state.id = '';
+  c.select();
+  await c.load();
+  assert.deepEqual(state.queries, []);
+  assert.equal(c.data(), null);
+});
+test('a dossier audit rejects evidence from a different contribution', async () => {
+  const { c, state } = fixture();
+  state.readResult = {
+    ...data,
+    items: [{ ...item, contributionId: '10000000-0000-4000-8000-000000000699' }]
+  };
+  await c.load();
+  assert.equal(c.data(), null);
+  assert.equal(c.error(), 'loadUnavailable');
+  c.choose(state.readResult.items[0]);
+  assert.equal(c.selected(), null);
+});
+test('changing audit scope or owner session discards an in-flight response and private state', async () => {
+  const { c, state } = fixture();
+  let resolve;
+  state.readResult = new Promise((done) => {
+    resolve = done;
+  });
+  const reading = c.load();
+  state.scope = 'portfolio';
+  c.select();
+  resolve(data);
+  await reading;
+  assert.equal(c.data(), null);
+  state.readResult = undefined;
+  await c.load();
+  prepare(c);
+  state.failure = new TypeError('Synthetic uncertain review');
+  await c.submit();
+  assert.ok(c.pending());
+  state.identity = 'another-synthetic-owner-session';
+  c.reset();
+  assert.equal(c.data(), null);
+  assert.equal(c.pending(), null);
+  assert.equal(c.selected(), null);
 });
 test('confirmation and reason are required; a server receipt updates only the review', async () => {
   const { c, state } = fixture();
@@ -138,6 +189,89 @@ test('uncertain response locks payload and retries its original UUID, version an
   assert.deepEqual(state.commands[0], state.commands[1]);
   assert.equal(state.nonces, 1);
   assert.equal(c.pending(), null);
+  assert.equal(c.saved(), true);
+});
+test('an uncertain review waits for an in-flight read before replaying its exact command', async () => {
+  const { c, state } = fixture();
+  await c.load();
+  prepare(c);
+  state.failure = new TypeError('Synthetic lost response');
+  await c.submit();
+  const original = c.pending();
+  let finishRead;
+  state.readResult = new Promise((resolve) => {
+    finishRead = resolve;
+  });
+  const reading = c.load();
+  state.failure = null;
+  await c.retry();
+  assert.equal(c.loading(), true);
+  assert.equal(state.commands.length, 1);
+  assert.equal(c.pending(), original);
+  finishRead(structuredClone(data));
+  await reading;
+  await c.retry();
+  assert.deepEqual(state.commands[1], original);
+  assert.equal(state.nonces, 1);
+  assert.equal(c.pending(), null);
+  assert.equal(c.data().items[0].reviewVersion, 1);
+  assert.equal(c.saved(), true);
+});
+test('a forbidden read purges displayed evidence and form state without losing an uncertain command', async () => {
+  const { c, state } = fixture();
+  await c.load();
+  prepare(c);
+  state.failure = new TypeError('Synthetic lost response');
+  await c.submit();
+  const original = c.pending();
+  state.readFailure = new AdminDashboardRequestError(403);
+  await c.load();
+  assert.equal(c.error(), 'ownerRequired');
+  assert.equal(c.data(), null);
+  assert.equal(c.selected(), null);
+  assert.equal(c.reason(), '');
+  assert.equal(c.confirmation(), false);
+  assert.equal(c.saved(), false);
+  assert.equal(c.pending(), original);
+  assert.equal(state.commands.length, 1);
+  state.failure = null;
+  state.readFailure = null;
+  await c.retry();
+  assert.deepEqual(state.commands[1], original);
+  assert.equal(c.saved(), true);
+  assert.equal(c.pending(), null);
+});
+test('a forbidden review purges displayed evidence and clears its definitely rejected command', async () => {
+  const { c, state } = fixture();
+  await c.load();
+  prepare(c);
+  state.failure = new AdminDashboardRequestError(403);
+  await c.submit();
+  assert.equal(c.error(), 'ownerRequired');
+  assert.equal(c.data(), null);
+  assert.equal(c.selected(), null);
+  assert.equal(c.reason(), '');
+  assert.equal(c.confirmation(), false);
+  assert.equal(c.pending(), null);
+  assert.equal(c.saved(), false);
+});
+test('an expired read keeps shared authentication handling and the captured uncertain command', async () => {
+  const { c, state } = fixture();
+  await c.load();
+  prepare(c);
+  state.failure = new TypeError('Synthetic lost response');
+  await c.submit();
+  const original = c.pending();
+  state.readFailure = new AdminDashboardRequestError(401);
+  await c.load();
+  assert.equal(state.redirects, 1);
+  assert.equal(c.pending(), original);
+  assert.equal(state.commands.length, 1);
+  state.failure = null;
+  state.readFailure = null;
+  await c.retry();
+  assert.deepEqual(state.commands[1], original);
+  assert.equal(state.nonces, 1);
   assert.equal(c.saved(), true);
 });
 test('definite version conflict allows refreshed evidence and a fresh command', async () => {

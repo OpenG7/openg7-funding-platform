@@ -302,7 +302,9 @@ async function fixtures(page: Page, language = 'fr-CA') {
           (!url.searchParams.has('sponsorshipId') ||
             row.contributionId === url.searchParams.get('sponsorshipId')) &&
           (!url.searchParams.has('obligationId') ||
-            row.id === url.searchParams.get('obligationId'))
+            row.id === url.searchParams.get('obligationId')) &&
+          (!url.searchParams.has('state') ||
+            row.workflow.state === url.searchParams.get('state'))
       );
       const json: AdminCampaignsResponse = {
         generatedAt,
@@ -349,7 +351,10 @@ test('campaigns show approved preparation first and upcoming promises without se
   const response = await page.goto(path);
   expect(response?.status()).toBe(200);
   await expect(
-    page.getByRole('heading', { name: 'Campagnes', exact: true })
+    page.getByRole('heading', {
+      name: 'Suivi des prestations promises',
+      exact: true
+    })
   ).toBeVisible();
   await expect(hook(page, 'campaign-row')).toHaveCount(4);
   expect(fixture.queries[0]?.get('sort')).toBe('preparation');
@@ -359,13 +364,15 @@ test('campaigns show approved preparation first and upcoming promises without se
     'data-og7-id',
     'approved-facebook'
   );
-  await expect(hook(page, 'campaign-row').first()).toContainText('Approuvée');
+  await expect(hook(page, 'campaign-row').first()).toContainText(
+    'Préparation du dossier approuvée'
+  );
   await expect(hook(page, 'campaign-row').nth(1)).toContainText(
-    'Passage 2 sur 2'
+    'Publication 2 sur 2'
   );
   await expect(page.locator('[data-og7-id="upcoming-website"]')).toBeVisible();
   await expect(page.locator('[data-og7-id="upcoming-website"]')).toContainText(
-    'À compléter'
+    'Préparation du dossier à compléter'
   );
   expect(fixture.preparations).toEqual([]);
 
@@ -677,7 +684,7 @@ test('a confirmed preparation approval refreshes the active campaigns query from
   await expect
     .poll(() => fixture.queries.length)
     .toBeGreaterThan(readsBeforeApproval);
-  await expect(selected).toContainText('Approuvée');
+  await expect(selected).toContainText('Préparation du dossier approuvée');
   await expect(selected).toHaveAttribute('aria-pressed', 'true');
   await expect(hook(page, 'campaigns-search')).toHaveValue('Atelier');
   await expect(hook(page, 'campaigns-sort')).toHaveValue('paid_at');
@@ -757,9 +764,101 @@ test('a role change outside campaigns purges its view and a late old refusal can
   expect(fixture.mutations).toEqual([]);
 });
 
+for (const labels of [
+  {
+    language: 'fr-CA',
+    tracking: 'État du suivi',
+    complete: 'Terminée — livrée ou dispensée',
+    delivered: 'Livrée',
+    waived: 'Dispensée',
+    evidence: 'Preuve de livraison',
+    waiverHelp: 'Elle ne constitue pas une livraison.'
+  },
+  {
+    language: 'en',
+    tracking: 'Tracking status',
+    complete: 'Complete — delivered or waived',
+    delivered: 'Delivered',
+    waived: 'Waived',
+    evidence: 'Delivery evidence',
+    waiverHelp: 'It does not constitute delivery.'
+  }
+]) {
+  test(`the complete tracking filter includes delivery and waiver while keeping their evidence distinct in ${labels.language}`, async ({
+    page
+  }) => {
+    const fixture = await fixtures(page, labels.language);
+    const delivered = fixture.rows.find(
+      (row) => row.id === 'delivered-facebook'
+    )!;
+    const waived = promise(
+      'waived-facebook',
+      '10000000-0000-4000-8000-000000000804',
+      {
+        companyName: 'Atelier dispensé',
+        obligationState: 'adjusted',
+        workflow: {
+          ...delivered.workflow,
+          obligationId: 'waived-facebook',
+          reason: 'obligation_adjusted'
+        },
+        proof: null
+      }
+    );
+    fixture.rows.push(waived);
+    await page.goto(path);
+    await expect(hook(page, 'campaign-row')).toHaveCount(5);
+    const tracking = page.getByRole('combobox', {
+      name: labels.tracking,
+      exact: true
+    });
+    await expect(
+      tracking.getByRole('option', { name: labels.complete, exact: true })
+    ).toHaveAttribute('value', 'complete');
+    await tracking.selectOption({ label: labels.complete });
+    expect(fixture.queries).toHaveLength(1);
+    await hook(page, 'campaigns-apply').click();
+    await expect(hook(page, 'campaign-row')).toHaveCount(2);
+    expect(fixture.queries.at(-1)?.get('state')).toBe('complete');
+    const deliveredRow = page.locator(
+      '[data-og7="campaign-row"][data-og7-id="delivered-facebook"]'
+    );
+    const waivedRow = page.locator(
+      '[data-og7="campaign-row"][data-og7-id="waived-facebook"]'
+    );
+    await expect(
+      deliveredRow.getByText(labels.delivered, { exact: true })
+    ).toBeVisible();
+    await expect(
+      waivedRow.getByText(labels.waived, { exact: true })
+    ).toBeVisible();
+    await expect(
+      waivedRow.getByText(labels.delivered, { exact: true })
+    ).toHaveCount(0);
+
+    await deliveredRow.click();
+    const evidence = hook(page, 'campaign-detail').getByRole('region', {
+      name: labels.evidence,
+      exact: true
+    });
+    await expect(evidence.getByRole('link')).toHaveAttribute(
+      'href',
+      'https://example.invalid/publication/qualified-proof'
+    );
+    await waivedRow.click();
+    await expect(evidence).toContainText(labels.waiverHelp);
+    await expect(evidence.getByRole('link')).toHaveCount(0);
+    expect(fixture.mutations).toEqual([]);
+  });
+}
+
 for (const { language, width, title } of [
-  { language: 'fr-CA', width: 1440, title: 'Campagnes' },
-  { language: 'en', width: 375, title: 'Campaigns' }
+  {
+    language: 'fr-CA',
+    width: 1440,
+    title: 'Suivi des prestations promises'
+  },
+  { language: 'en', width: 375, title: 'Promised service tracking' }
 ]) {
   test(`campaigns remain accessible in ${language} at ${width}px with keyboard selection`, async ({
     page

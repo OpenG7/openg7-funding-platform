@@ -135,7 +135,13 @@
             </option>
             @for (state of states; track state) {
               <option [value]="state" [selected]="filters().state === state">
-                {{ t('states.' + state) }}
+                {{
+                  t(
+                    state === 'complete'
+                      ? 'filters.complete'
+                      : 'states.' + state
+                  )
+                }}
               </option>
             }
           </select>

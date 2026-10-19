@@ -8,6 +8,13 @@ fournisseur d'IA, OCR ou analyse distante de liens n'est activé par ces routes.
 
 ## Décisions et droits
 
+Dans le dossier commanditaire, **Modération éditoriale** s’ouvre depuis l’en-tête,
+quel que soit l’onglet. La feature Web réutilise les actions de modération communes
+aux médias, brouillons et livraisons. Son panneau conserve niveau et historique
+entre onglets ; fermeture ou Échap rend le focus à son entrée. Un changement de
+dossier, de session ou de droit réinitialise ce contexte. L’ouverture ne prend
+aucune décision et une opération en cours bloque la fermeture.
+
 Les sujets sont typés : `sponsorship`, `media`, `publication_draft` et
 `publication_delivery`. Le UUID seul ne suffit pas à identifier un sujet.
 `GET /api/admin/moderation/content?subjectType=…&subjectId=…` retourne le contenu

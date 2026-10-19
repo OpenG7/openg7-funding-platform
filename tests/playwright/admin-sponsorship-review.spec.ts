@@ -135,7 +135,9 @@ test.describe('Docker admin sponsorship review', () => {
     });
     await openFixtureSponsorship(page, fixture.companyName);
 
-    await page.getByRole('button', { name: 'Accepter' }).click();
+    await page
+      .getByRole('button', { name: 'Approuver la commandite', exact: true })
+      .click();
     await completeModeration(page);
 
     await expect(

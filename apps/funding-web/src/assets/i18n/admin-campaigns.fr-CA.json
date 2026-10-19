@@ -1,27 +1,27 @@
 {
-  "eyebrow": "Engagements commanditaires",
-  "title": "Campagnes",
-  "subtitle": "Retrouvez les publications promises après un paiement confirmé, leur préparation et leurs preuves de livraison.",
+  "eyebrow": "Campagnes",
+  "title": "Suivi des prestations promises",
+  "subtitle": "Consultez les prestations promises des commandites payées, la préparation de leur dossier et leurs preuves de livraison.",
   "refresh": "Actualiser",
-  "scope": "Par défaut, les préparations approuvées à jour apparaissent en premier. Les prestations encore à préparer restent à venir, sous réserve de compléter et de valider le dossier.",
-  "listTitle": "Publications promises",
+  "scope": "Les prestations promises enregistrées restent visibles, même avant approbation. Les préparations de dossier approuvées à jour apparaissent d’abord. La publication attend les validations et autorisations requises.",
+  "listTitle": "Prestations promises",
   "count": "{{count}} prestations",
   "dossiersOnPage": "{{count}} dossiers sur cette page",
   "groupByDossier": "Regrouper par dossier",
-  "loading": "Chargement des campagnes…",
+  "loading": "Chargement des prestations promises…",
   "retry": "Réessayer",
   "emptyTitle": "Aucune prestation dans cette sélection",
-  "empty": "Modifiez les filtres ou revenez après la confirmation d’un paiement et l’enregistrement des engagements de commandite.",
+  "empty": "Modifiez les filtres ou revenez après la confirmation d’un paiement et l’enregistrement des prestations promises.",
   "noDate": "À préciser",
   "unnamedSponsor": "Commanditaire sans nom renseigné",
-  "passage": "Passage {{ordinal}} sur {{quantity}}",
+  "passage": "Publication {{ordinal}} sur {{quantity}}",
   "proofAvailable": "Disponible",
   "proofPending": "À recevoir",
   "proofNotRequired": "Sans objet",
-  "conditional": "À venir sous réserve d’approbation",
+  "conditional": "Publication en attente d’approbation",
   "adjusted": "Dispensée",
   "page": "Page {{page}} sur {{pages}}",
-  "pagination": "Pagination des campagnes",
+  "pagination": "Pagination des prestations promises",
   "previous": "Précédente",
   "next": "Suivante",
   "destination": {
@@ -30,15 +30,16 @@
     "choose": "Choisissez la prestation à consulter dans la liste.",
     "showAll": "Afficher toutes les prestations",
     "invalid": "Ce lien ne permet pas d’identifier un dossier et une prestation valides.",
-    "empty": "Aucune prestation accessible ne correspond à ce lien. Les engagements doivent être enregistrés pour apparaître ici."
+    "empty": "Aucune prestation accessible ne correspond à ce lien. Les prestations promises doivent être enregistrées pour apparaître ici."
   },
   "filters": {
-    "title": "Filtrer les campagnes",
+    "title": "Filtrer les prestations promises",
     "search": "Rechercher un dossier",
     "searchPlaceholder": "Commanditaire ou référence",
     "channel": "Canal",
     "target": "Destination",
-    "state": "État de livraison",
+    "state": "État du suivi",
+    "complete": "Terminée — livrée ou dispensée",
     "sort": "Trier par",
     "direction": "Ordre",
     "allChannels": "Tous les canaux",
@@ -64,13 +65,13 @@
     "complete": "Livrée"
   },
   "preparationStates": {
-    "ready": "Prête à valider",
-    "incomplete": "À compléter",
-    "approved": "Approuvée",
-    "review_required": "À réexaminer"
+    "ready": "Préparation du dossier à approuver",
+    "incomplete": "Préparation du dossier à compléter",
+    "approved": "Préparation du dossier approuvée",
+    "review_required": "Préparation du dossier à réexaminer"
   },
   "sorts": {
-    "preparation": "Préparation approuvée",
+    "preparation": "Préparation du dossier approuvée",
     "paid_at": "Date du paiement",
     "due_at": "Échéance promise"
   },
@@ -80,14 +81,14 @@
   },
   "columns": {
     "promise": "Prestation",
-    "preparation": "Préparation",
+    "preparation": "Préparation du dossier",
     "due": "Échéance",
     "proof": "Preuve de livraison"
   },
   "errors": {
-    "error": "Les campagnes n’ont pas pu être chargées. Réessayez pour obtenir les données à jour.",
-    "forbidden": "Votre session ne permet pas de consulter les campagnes.",
-    "unavailable": "Les campagnes sont temporairement indisponibles. Réessayez dans quelques instants."
+    "error": "Les prestations promises n’ont pas pu être chargées. Réessayez pour obtenir les données à jour.",
+    "forbidden": "Votre session ne permet pas de consulter les prestations promises.",
+    "unavailable": "Les prestations promises sont temporairement indisponibles. Réessayez dans quelques instants."
   },
   "formats": {
     "unspecified": "Selon l’accord enregistré",
@@ -98,11 +99,11 @@
   },
   "detail": {
     "title": "Détail de la prestation",
-    "choose": "Sélectionnez une prestation pour retrouver sa préparation, son contenu et sa preuve de livraison.",
-    "openOwner": "Ouvrir le dossier de publication",
-    "preparation": "Poste de préparation",
-    "preparationHelp": "Les contrôles à jour du dossier déterminent la suite de la préparation.",
-    "content": "Contenu et livraison",
+    "choose": "Sélectionnez une prestation promise pour consulter la préparation du dossier, le contenu associé et sa preuve de livraison.",
+    "openOwner": "Ouvrir le dossier de commandite (onglet Publication)",
+    "preparation": "Préparation du dossier de commandite",
+    "preparationHelp": "Ces contrôles et cette approbation portent sur tout le dossier de commandite, y compris ses autres prestations. Ils n’autorisent pas la publication.",
+    "content": "Contenu et livraison de la prestation",
     "paidAt": "Paiement confirmé",
     "format": "Format promis",
     "scheduled": "Livraison programmée",
@@ -111,11 +112,11 @@
     "unknownReason": "Consultez le dossier pour examiner la prochaine étape.",
     "openDelivery": "Examiner la livraison",
     "draft": "Brouillon associé",
-    "noContent": "Aucun contenu associé à ce passage. Ouvrez le dossier de publication pour poursuivre la préparation.",
+    "noContent": "Aucun contenu associé à cette publication. Ouvrez le dossier de commandite, onglet Publication, pour poursuivre la préparation.",
     "authorization": "Une préparation approuvée n’autorise pas la publication. Le contenu exact, la destination et la programmation conservent leur autorisation distincte.",
     "proof": "Preuve de livraison",
     "delivered": "Livraison confirmée le {{date}}",
-    "noProof": "Aucune preuve qualifiée pour cette prestation. Le dossier conserve son suivi jusqu’à la confirmation de la livraison.",
+    "noProof": "Aucune preuve de livraison qualifiée pour cette prestation. L’accord enregistré ne constitue pas une preuve de livraison.",
     "adjusted": "Une dispense a été enregistrée pour cette prestation. Elle ne constitue pas une livraison.",
     "openProof": "Consulter la publication livrée",
     "newTab": "(nouvel onglet)"

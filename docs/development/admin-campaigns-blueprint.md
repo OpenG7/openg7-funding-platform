@@ -2,11 +2,17 @@
 
 Inventaire initial au **18 octobre 2026**, révision `bc593f7f`. Ce document décrit
 les surfaces et les changements proposés. L'évolution appliquée de CAM-P08 et des
-entrées contextuelles est précisée ci-dessous ; les autres propositions restent
+entrées contextuelles ainsi que le retrait du doublon d'approbation CAM-PA16 sont
+précisés ci-dessous ; les autres propositions restent
 à réaliser. L'analyse ne modifie aucune donnée. Voir la
 [synthèse des trois surfaces](admin-operations-blueprint.md), le
 [Guide](admin-guide-blueprint.md) et le
 [dossier de commandite](admin-sponsorship-dossier-blueprint.md).
+
+L'alignement du [vocabulaire des opérations](../technical/admin-campaigns.md#vocabulaire-des-operations)
+est appliqué : titre **Suivi des prestations promises**, préparation approuvée à
+l'échelle du dossier, **Publication 2 sur 3** et filtre **Terminée — livrée ou
+dispensée**. Les tableaux conservent les libellés de l'inventaire initial.
 
 ## Responsabilité et unité de travail
 
@@ -141,7 +147,7 @@ composants existants ; le rangement ne demande pas un nouveau moteur métier.
 | CAM-P03 | Résumé des destinations, état des autorisations et état des brouillons. Donner un aperçu de préparation. | État agrégé du bon, pas autorisation indépendante par prestation. | [P2][P2], [P3][P3] |
 | CAM-P04 | Progression, liste des contrôles, explication du contrôle choisi, raisons repliées. Identifier le blocage et sa source. | Sélection locale ; compteur issu des contrôles/autorités applicables. Blocages complémentaires possibles hors compteur. | [P4][P4], [P6][P6], [P7][P7] |
 | CAM-P05 | Résumé de l'assistance à l'accord : attente/traitement/résultat/revue/péremption/erreur, détails repliés et commandes contextuelles. | Propriétaire uniquement ; lecture d'un résumé, pas du texte de source ou des brouillons de revue. Un résultat d'assistance ne complète aucun contrôle. | [P8][P8], [P9][P9], [P10][P10] |
-| CAM-P06 | Actions contextuelles. Exposer la destination propriétaire ou la confirmation d'approbation ; détails, historique et retour. | Mêmes descripteurs que les boutons clavier/manette ; action liée au dossier, contrôle et version courants. | [P4][P4], [P8][P8] |
+| CAM-P06 | Actions contextuelles. Exposer la destination propriétaire ; détails, historique et retour. | Mêmes descripteurs que les boutons clavier/manette ; action liée au dossier, contrôle et version courants. L'approbation reste sur le bouton principal. | [P4][P4], [P8][P8] |
 | CAM-P07 | Relire le contenu exact : textes, version, mention de divulgation et lien source de chaque brouillon. | Ensemble des brouillons du reçu, distinct de l'aperçu d'une obligation dans CAM-Z14. | [P2][P2], [P3][P3] |
 | CAM-P08 | Détails de l'accord et traçabilité : confirmation du paiement, version/clauses de l'offre, formats/délais/durées/éléments requis, états des brouillons, bilan et version complète. | **Évolution appliquée** : lecture complète réservée à Campagnes (`inline`), repliée initialement ; volet absent de Commandites (`hidden`) et remplacé par une navigation dans le Guide (`campaigns`). Sa portée reste le dossier entier. | [P2][P2] |
 | CAM-P09 | Approbation de préparation : portée, lecture seule, éventuelle revue requise, bouton, estampille, trace et historique des accords. | Décision versionnée sur **tout le bon**, jamais autorisation de publier ce passage. | [P1][P1], [P2][P2], [P5][P5] |
@@ -186,7 +192,7 @@ Elles ne créent pas deux onglets supplémentaires. Source : [onglets du dossier
 | CAM-PA13 · Relire le contenu | I ; ouvrir/fermer le dépliant des textes exacts. | Reçu présent ; explique aussi l'absence de brouillon. | [P2][P2] |
 | CAM-PA14 · Ouvrir la source d'un brouillon | N ; consulter son écran propriétaire. | Lien administratif validé présent pour le brouillon. | [P2][P2], [P3][P3] |
 | CAM-PA15 · Ouvrir/fermer détails, trace ou historique | I ; consulter clauses, version complète, acteur/date/référence d'audit ou accords précédents. | Dépliant correspondant présent ; lecture seule. | [P2][P2] |
-| CAM-PA16 · Approuver la préparation | Ouvrir la confirmation transversale ; **aucune décision tant qu'elle n'est pas acceptée**. Accessible par bouton du reçu et action contextuelle lorsque prête. | Opérateur/propriétaire ; `canApprove` serveur, pas déjà approuvée, pas de chargement/approbation/incertitude/erreur de configuration. Bouton masqué si déjà approuvée. | [P1][P1], [P2][P2], [P8][P8], [R3][R3] |
+| CAM-PA16 · Approuver la préparation | Ouvrir la confirmation transversale ; **aucune décision tant qu'elle n'est pas acceptée**. **Évolution appliquée** : un seul bouton principal, accessible au clavier et à la manette ; doublon contextuel retiré. | Opérateur/propriétaire ; `canApprove` serveur, pas déjà approuvée, pas de chargement/approbation/incertitude/erreur de configuration. Bouton masqué si déjà approuvée. | [P1][P1], [P2][P2], [R3][R3] |
 | CAM-PA17 · Annuler la confirmation | I ; refuser la demande, sans POST. Une navigation annule aussi la confirmation. | Dialogue partagé ; une seule décision en attente. | [P12][P12] |
 | CAM-PA18 · Confirmer l'approbation | D ; envoyer contributionId, version attendue, requestId et confirmation explicite ; attendre le reçu serveur puis actualiser les données administratives. | API revérifie rôle, préconditions et version ; décision auditée. N'autorise ni envoi ni visibilité publique. | [P1][P1], [P13][P13], [R2][R2], [R3][R3] |
 
@@ -240,7 +246,7 @@ composants métier éprouvés.
 | CAM-Z12–16 : « Contenu et livraison » réunit contrat, travail éditorial, workflow et attestation | Échéance promise, état programmé, texte en préparation et preuve qualifiée répondent à des questions différentes. | Sous-zones « Promesse », « Travail en cours », « Livraison et preuve », chacune avec son prochain lien propriétaire. | **Existe** : contrats de workflow, progression et qualification des preuves. **N'existe pas encore comme widget neutre démontré** : carte universelle de preuve ou résumé unifié ; extraire seulement à partir de réutilisations réelles. |
 | CAM-P04 : « Présentation et contenus » | Le serveur agrège dans `content_prepared` tous les blocages hors examen du lot, y compris consentement, paiement, accord et modération. | Exposer les causes avec leurs propriétaires ; nommer le statut agrégé sans faire croire qu'un simple texte manquant est le seul problème. Ne pas déplacer des préconditions de sécurité dans la seule UI. | **Existe** : projection du pilote, blockers et navigation par cause. **À décider** : scission du libellé/présentation ; changement éventuel de contrat séparé et testé. |
 | CAM-P07 et CAM-Z14 : deux présentations du contenu | Le bon relit tous les textes exacts ; Campagnes affiche le contenu d'un passage. | Garder un aperçu clairement nommé « Contenu associé à cette prestation » et un lien vers la relecture versionnée globale. | **Existe** : reçu de relecture exact. **À créer éventuellement** : aperçu compact réutilisable ; pas un second éditeur. |
-| CAM-P09 : deux entrées Approuver | Bouton du reçu et commande contextuelle aboutissent à la même confirmation ; la proximité avec une ligne peut suggérer une portée limitée. | Conserver une seule intention et une confirmation transversale explicitant « préparation du dossier », version et portée. Les deux accès peuvent rester si leurs rôles sont clairs. | **Existe** : `AdminConfirmationService`, composant de confirmation et même méthode `confirmAndApprove`. Ne pas créer une deuxième approbation. |
+| CAM-P09 : deux entrées Approuver | Bouton du reçu et commande contextuelle aboutissaient à la même confirmation ; la proximité avec une ligne pouvait suggérer une portée limitée. | **Appliqué** : commande contextuelle retirée ; bouton principal et confirmation transversale explicitant « préparation du dossier », version et portée conservés. | **Réutilisé** : `AdminConfirmationService`, composant de confirmation et méthode `confirmAndApprove`. Accès clavier/manette conservé sur le bouton principal. |
 | CAM-Z00 : Guide et préparation globale dans plusieurs points d'entrée | Coquille, Guide, dossier et Campagnes exposent parfois la même préparation avec des navigateurs différents. | Guide explique ou accompagne ; dossier possède les corrections ; Campagnes suit les obligations. Le poste partagé peut être présenté dans une coquille cohérente sans absorber tous les formulaires. | **Existe** : composants communs de reçu/pilote, services de retour/confirmation, inspecteur. **À concevoir** : contrat d'ouverture/retour incluant une origine Campagnes et sa prestation. L'inspecteur n'est pas supposé être un remplacement automatique sans audit de ses capacités. |
 
 ## Écarts distincts et priorités proposées

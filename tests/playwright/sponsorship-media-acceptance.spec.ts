@@ -401,7 +401,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
       // Media selection requires an approved dossier; website visibility remains separate.
       await admin.goto('/admin/fundraiser/sponsors?sponsorshipId=' + id);
       await admin
-        .getByRole('button', { name: 'Accepter', exact: true })
+        .getByRole('button', { name: 'Approuver la commandite', exact: true })
         .click();
       await completeModeration(admin);
       await expect
@@ -683,7 +683,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         ).toBe(404);
         await admin.goto('/admin/fundraiser/sponsors?sponsorshipId=' + id);
         await admin
-          .getByRole('button', { name: 'Accepter', exact: true })
+          .getByRole('button', { name: 'Approuver la commandite', exact: true })
           .click();
         await completeModeration(admin);
         await expect

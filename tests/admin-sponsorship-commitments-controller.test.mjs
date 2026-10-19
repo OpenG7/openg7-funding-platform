@@ -107,10 +107,6 @@ function fixture() {
     qualify: (p) => send('qualify', p),
     applyAssistance: (p) => send('assistance', p),
     adjust: (p) => send('adjust', p),
-    adoption: async (size, cursor) => {
-      calls.push({ kind: 'preview', size, cursor });
-      return { items: [], pageSize: size, nextCursor: null };
-    },
     changed: () => state.changed++,
     unauthorized: async () => {}
   });
@@ -419,7 +415,7 @@ test('explicit destination, format and waiver adjustments use obligation version
   await f.c.adjust();
   assert.equal(f.calls.length, count);
 });
-test('definite version conflicts require a read and a new explicitly confirmed command; preview is bounded and read only', async () => {
+test('definite version conflicts require a read and a new explicitly confirmed command', async () => {
   const f = fixture();
   f.fill();
   f.state.failure = new AdminDashboardRequestError(
@@ -430,16 +426,12 @@ test('definite version conflicts require a read and a new explicitly confirmed c
   await f.c.qualify();
   assert.equal(f.c.error(), 'conflict');
   assert.equal(f.c.pending(), null);
-  f.state.owner = false;
-  await f.c.loadPreview();
-  assert.equal(f.calls.length, 1);
-  f.state.owner = true;
-  f.c.pageSize.set(50);
-  await f.c.loadPreview();
-  assert.deepEqual(f.calls.at(-1), {
-    kind: 'preview',
-    size: 50,
-    cursor: undefined
-  });
-  assert.equal(f.state.changed, 0);
+  await f.c.load();
+  assert.equal(f.state.reads, 1);
+  f.state.failure = null;
+  f.c.confirmation.set(id);
+  await f.c.qualify();
+  assert.equal(f.calls.length, 2);
+  assert.notEqual(f.calls[0].payload.requestId, f.calls[1].payload.requestId);
+  assert.equal(f.state.changed, 1);
 });

@@ -577,7 +577,7 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
         )
         .toBe(true);
       await admin
-        .getByRole('button', { name: 'Accepter', exact: true })
+        .getByRole('button', { name: 'Approuver la commandite', exact: true })
         .click();
       await completeModeration(admin);
       await expect

@@ -547,7 +547,7 @@ for (const amount of [100, 250]) {
             ).toBe(404);
           await assertPrivate();
           const accept = admin.getByRole('button', {
-            name: 'Accepter',
+            name: 'Approuver la commandite',
             exact: true
           });
           if (xbox) await xbox.activate(accept);

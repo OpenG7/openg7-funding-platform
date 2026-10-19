@@ -60,7 +60,6 @@ export class AdminPreparationReceiptComponent {
   readonly assistanceRerun = output<string>();
   readonly selectedIssueIdChange = output<string | null>();
   readonly approve = output<AdminPreparationReceiptData>();
-  readonly confirmApproval = output<AdminPreparationReceiptData>();
   readonly i18n = inject(FundingI18nService);
   private readonly router = inject(Router);
   private readonly returnNavigation = inject(PreparationReturnService);
@@ -90,16 +89,11 @@ export class AdminPreparationReceiptComponent {
   }
 
   requestApproval(): void {
+    if (!this.canApprove() || this.approving()) return;
     const button = this.approvalButton()?.nativeElement;
     this.restoreApprovalFocus =
       !!button && button.ownerDocument.activeElement === button;
     this.approve.emit(this.receipt());
-  }
-
-  requestConfirmedApproval(): void {
-    if (!this.canApprove() || this.approving()) return;
-    this.restoreApprovalFocus = true;
-    this.confirmApproval.emit(this.receipt());
   }
 
   openIssue(issue: PreparationPilotIssue): void {
