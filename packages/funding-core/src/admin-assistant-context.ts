@@ -63,11 +63,36 @@ export interface AdminInformationRequestPreview {
 }
 
 export interface AdminInformationRequest extends AdminInformationRequestPreview {
+  readonly requestId: string;
   readonly confirmed: true;
 }
 
 export interface AdminInformationRequestResult {
+  readonly requestId: string;
   readonly status:
     'queued' | 'already_queued' | 'already_sent' | 'delivery_failed';
   readonly messageId: string;
+  readonly acceptedAt: string;
+  readonly deliveryStatus:
+    'queued' | 'sending' | 'sent' | 'failed' | 'uncertain';
+  readonly sentAt: string | null;
 }
+
+export interface AdminInformationRequestReceiptRequest {
+  readonly requestId: string;
+  readonly contributionId: string;
+}
+
+export type AdminInformationRequestReceipt =
+  AdminInformationRequestReceiptRequest &
+    (
+      | { readonly found: false }
+      | {
+          readonly found: true;
+          readonly messageId: string;
+          readonly acceptedAt: string;
+          readonly deliveryStatus:
+            'queued' | 'sending' | 'sent' | 'failed' | 'uncertain';
+          readonly sentAt: string | null;
+        }
+    );

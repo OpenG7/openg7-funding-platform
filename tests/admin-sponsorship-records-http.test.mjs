@@ -22,6 +22,7 @@ import { readBody } from '../dist/apps/funding-api/src/http-transport.js';
 const id = '11111111-1111-4111-8111-111111111111';
 const actor = 'synthetic-record-operator';
 const information = {
+  requestId: id,
   contributionId: id,
   contextVersion: 'a'.repeat(64),
   recipient: 'synthetic@example.test',
@@ -94,7 +95,21 @@ const fixture = ({
     details: { updated: true, version: 'synthetic-next-version' },
     interventions: { items: [] },
     record: { id, ...intervention },
-    information: { status: informationStatus, messageId: id }
+    information: {
+      requestId: id,
+      status: informationStatus,
+      messageId: id,
+      acceptedAt: '2026-10-19T12:00:00.000Z',
+      deliveryStatus:
+        informationStatus === 'already_sent'
+          ? 'sent'
+          : informationStatus === 'delivery_failed'
+            ? 'failed'
+            : 'queued',
+      sentAt:
+        informationStatus === 'already_sent' ? '2026-10-19T12:01:00.000Z' : null
+    },
+    receipt: { requestId: id, contributionId: id, found: false }
   };
   const writeJson = (_request, response, status, payload, headers = {}) => {
     Object.assign(response, { status, payload });
@@ -145,6 +160,7 @@ const fixture = ({
     listAdminSponsorships: port('list'),
     getSponsorshipProgress: port('progress'),
     requestSponsorshipInformation: port('information'),
+    readSponsorshipInformationRequestReceipt: port('receipt'),
     updateAdminSponsorshipDetails: port(
       'details',
       parseAdminSponsorshipDetails
@@ -375,6 +391,8 @@ test('dossier writes preserve content type, method, malformed JSON and byte limi
 
 test('confirmation, version and recipient remain mandatory and retries retain their logical result', async () => {
   for (const payload of [
+    { ...information, requestId: undefined },
+    { ...information, requestId: 'invalid' },
     { ...information, confirmed: false },
     { ...information, contextVersion: '' },
     { ...information, recipient: 'invalid' }
@@ -423,6 +441,110 @@ test('confirmation, version and recipient remain mandatory and retries retain th
     assert.equal(result.status, 200);
     assert.equal(result.payload.status, informationStatus);
   }
+  for (const code of [
+    'INFORMATION_REQUEST_CONFLICT',
+    'INFORMATION_REQUEST_ID_CONFLICT'
+  ]) {
+    const f = fixture({
+      failing: {
+        name: 'information',
+        error: new InformationRequestError(409, code)
+      }
+    });
+    const result = await f.run('/admin/sponsorships/request-information', {
+      method: 'POST',
+      body: JSON.stringify(information)
+    });
+    assert.equal(result.status, 409);
+    assert.equal(result.payload.code, code);
+    assert.doesNotMatch(
+      JSON.stringify(result.payload),
+      /actor|recipient|request_hash/
+    );
+  }
+});
+
+test('information receipts authorize the original API actor before a private, strict, read-only lookup', async () => {
+  for (const role of ['operator', 'owner']) {
+    for (const prefix of ['/admin', '/api/admin']) {
+      const f = fixture({ role });
+      const result = await f.run(
+        `${prefix}/sponsorships/information-request-receipt?requestId=${id.toUpperCase()}&contributionId=${id.toUpperCase()}`
+      );
+      assert.equal(result.status, 200);
+      assert.equal(result.headers['Cache-Control'], 'private, no-store');
+      assert.deepEqual(result.payload, f.results.receipt);
+      assert.deepEqual(f.calls, [
+        { name: 'access' },
+        {
+          name: 'receipt',
+          args: [{ requestId: id, contributionId: id }, actor]
+        },
+        { name: 'respond' }
+      ]);
+    }
+  }
+  for (const options of [
+    { role: 'reader' },
+    { denied: 401 },
+    { denied: 403 }
+  ]) {
+    const f = fixture(options);
+    const result = await f.run(
+      '/admin/sponsorships/information-request-receipt?private=invalid'
+    );
+    assert.equal(result.status, options.denied ?? 403);
+    assert.deepEqual(
+      f.calls.map((call) => call.name),
+      ['access', 'respond']
+    );
+  }
+  for (const query of [
+    '',
+    `requestId=${id}`,
+    `requestId=invalid&contributionId=${id}`,
+    `requestId=${id}&contributionId=invalid`,
+    `requestId=${id}&contributionId=${id}&requestId=${id}`,
+    `requestId=${id}&contributionId=${id}&contributionId=${id}`,
+    `requestId=${id}&contributionId=${id}&actor=another`,
+    `requestId=${id}&contributionId=${id}&recipient=private@example.test`
+  ]) {
+    const f = fixture();
+    const result = await f.run(
+      '/api/admin/sponsorships/information-request-receipt?' + query
+    );
+    assert.equal(result.status, 400);
+    assert.equal(result.payload.code, 'INFORMATION_REQUEST_RECEIPT_INVALID');
+    assert.deepEqual(
+      f.calls.map((call) => call.name),
+      ['access', 'respond']
+    );
+  }
+  for (const method of ['POST', 'PUT', 'DELETE']) {
+    const f = fixture();
+    const result = await f.run(
+      '/admin/sponsorships/information-request-receipt',
+      { method }
+    );
+    assert.equal(result.status, 405);
+    assert.equal(result.headers.Allow, 'GET');
+    assert.deepEqual(
+      f.calls.map((call) => call.name),
+      ['access', 'respond']
+    );
+  }
+  const f = fixture({ failing: 'receipt' });
+  const result = await f.run(
+    `/admin/sponsorships/information-request-receipt?requestId=${id}&contributionId=${id}`
+  );
+  assert.equal(result.status, 503);
+  assert.deepEqual(result.payload, {
+    code: 'INFORMATION_REQUEST_RECEIPT_UNAVAILABLE'
+  });
+  assert.deepEqual(
+    f.calls.map((call) => call.name),
+    ['access', 'receipt', 'respond']
+  );
 });
 
 test('domain errors retain status while unexpected failures never disclose private diagnostics', async (t) => {

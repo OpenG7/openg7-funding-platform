@@ -14,6 +14,34 @@ const syntheticToken = 'openg7-admin-session.synthetic';
 const cookieMarker = 'openg7-admin-session.cookie';
 const baseUrl = 'https://funding.example.test/api';
 
+test('information command propagates only the UUID ownership conflict and never retries', async (t) => {
+  for (const code of [
+    'INFORMATION_REQUEST_ID_CONFLICT',
+    'INFORMATION_REQUEST_CONFLICT',
+    'PRIVATE_DATABASE_DETAIL',
+    { private: true }
+  ]) {
+    const { service } = serviceFixture(t);
+    const fetchMock = t.mock.method(globalThis, 'fetch', async () =>
+      Response.json({ code, error: 'Private detail' }, { status: 409 })
+    );
+    await assert.rejects(
+      service.requestSponsorshipInformation(syntheticToken, informationRequest),
+      (error) => {
+        assert.equal(error.status, 409);
+        assert.equal(
+          error.code,
+          code === 'INFORMATION_REQUEST_ID_CONFLICT' ? code : undefined
+        );
+        assert.equal(error.message, 'Admin dashboard could not be loaded.');
+        return true;
+      }
+    );
+    assert.equal(fetchMock.mock.callCount(), 1);
+    fetchMock.mock.restore();
+  }
+});
+
 const memoryStorage = () => {
   const values = new Map();
   return {
@@ -683,6 +711,7 @@ test('admin request timeout propagates once without retrying or clearing a valid
 });
 
 const informationRequest = {
+  requestId: '10000000-0000-4000-8000-000000000901',
   contributionId: 'synthetic-contribution',
   contextVersion: 'synthetic-version',
   recipient: 'sponsor@example.test',
@@ -747,6 +776,16 @@ const explicitJsonRequests = [
     method: 'POST',
     cache: 'no-store',
     body: informationRequest
+  },
+  {
+    name: 'information request receipt',
+    invoke: (service, token) =>
+      service.getInformationRequestReceipt(token, {
+        requestId: 'request /',
+        contributionId: 'sponsor /'
+      }),
+    path: '/admin/sponsorships/information-request-receipt?requestId=request+%2F&contributionId=sponsor+%2F',
+    cache: 'no-store'
   },
   {
     name: 'access recipient',

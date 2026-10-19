@@ -7,7 +7,9 @@ import type {
   AdminAssistantQueryRequest,
   AdminAssistantQueryResponse,
   AdminInformationRequest,
-  AdminInformationRequestResult
+  AdminInformationRequestResult,
+  AdminInformationRequestReceipt,
+  AdminInformationRequestReceiptRequest
 } from '@openg7/funding-core';
 
 import { AdminDashboardRequestError } from '../../services/funding-admin-session.js';
@@ -67,10 +69,33 @@ export interface AdminAssistantContextPorts {
   closeConfirmation(): void;
   openConfirmation(): void;
   storage?(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null;
+  newRequestId(): string | null;
+  getInformationRequestReceipt(
+    token: string,
+    input: AdminInformationRequestReceiptRequest
+  ): Promise<AdminInformationRequestReceipt>;
 }
 
 /** Exact dossier reads and explicit human actions; router, lifecycle and DOM stay in the facade. */
 export class AdminAssistantContextController {
+  readonly receiptRequest =
+    signal<AdminInformationRequestReceiptRequest | null>(null);
+  readonly informationReceipt = signal<Extract<
+    AdminInformationRequestReceipt,
+    { found: true }
+  > | null>(null);
+  readonly receiptState = signal<
+    'idle' | 'checking' | 'notFound' | 'unavailable'
+  >('idle');
+  readonly canVerifyReceipt = computed(
+    () =>
+      !!this.receiptRequest() &&
+      this.informationUncertain() &&
+      this.ports.canPrepare() &&
+      this.ports.hasValidSession() &&
+      !this.busy() &&
+      this.receiptState() !== 'checking'
+  );
   readonly data = signal<AdminAssistantContextResponse | null>(null);
   readonly state = signal<'loading' | 'ready' | 'error' | 'forbidden'>(
     'loading'
@@ -165,6 +190,10 @@ export class AdminAssistantContextController {
             input
           );
           this.uncertainInformation.set(input);
+          this.receiptRequest.set({
+            contributionId: input.contributionId,
+            requestId: input.requestId
+          });
           this.subject.set(input.subject);
           this.body.set(input.body);
         }
@@ -218,8 +247,19 @@ export class AdminAssistantContextController {
       !this.body().trim()
     )
       return;
+    let requestId: string | null;
+    try {
+      requestId = this.ports.newRequestId();
+    } catch {
+      requestId = null;
+    }
+    if (!requestId || !this.validRequestId(requestId)) {
+      this.error.set('actionError');
+      return;
+    }
     this.confirmation.set({
       ...preview,
+      requestId,
       subject: this.subject().trim(),
       body: this.body().trim(),
       confirmed: true
@@ -238,7 +278,11 @@ export class AdminAssistantContextController {
     this.cancelSend();
     const key = this.informationKey(input.contributionId);
     this.pendingInformation.set(key, input);
-    this.setInformationMarker(input.contributionId, true, key);
+    this.setInformationMarker(input.contributionId, true, key, input.requestId);
+    this.receiptRequest.set({
+      requestId: input.requestId,
+      contributionId: input.contributionId
+    });
     // Keep the confirmed payload even if navigation starts while the POST is pending.
     this.uncertainInformation.set(input);
     await this.act(async () => {
@@ -253,10 +297,16 @@ export class AdminAssistantContextController {
           error instanceof AdminDashboardRequestError &&
           error.status >= 400 &&
           error.status < 500 &&
-          error.status !== 408
+          error.status !== 408 &&
+          error.code !== 'INFORMATION_REQUEST_ID_CONFLICT'
         ) {
           this.pendingInformation.delete(key);
-          this.setInformationMarker(input.contributionId, false, key);
+          this.setInformationMarker(
+            input.contributionId,
+            false,
+            key,
+            input.requestId
+          );
           if (
             !this.ports.isDestroyed() &&
             this.informationKey(this.currentContributionId() ?? '') === key
@@ -265,17 +315,135 @@ export class AdminAssistantContextController {
         }
         throw error;
       }
-      this.pendingInformation.delete(key);
-      this.setInformationMarker(input.contributionId, false, key);
+      if (!this.validReceipt(result, input))
+        throw new Error('Information receipt does not match this request.');
+      if (!['sending', 'uncertain'].includes(result.deliveryStatus)) {
+        this.pendingInformation.delete(key);
+        this.setInformationMarker(
+          input.contributionId,
+          false,
+          key,
+          input.requestId
+        );
+      }
       return () => {
-        this.uncertainInformation.set(null);
-        this.delivery.set(result);
-        void this.ports.refreshWorkQueue();
-        this.prepared.set(null);
-        this.subject.set('');
-        this.body.set('');
+        this.applyInformationReceipt(
+          { ...result, found: true, contributionId: input.contributionId },
+          key,
+          result
+        );
       };
     });
+  }
+
+  async verifyInformationReceipt(): Promise<boolean> {
+    const request = this.receiptRequest();
+    if (!request || !this.canVerifyReceipt()) return false;
+    const generation = this.generation;
+    const key = this.informationKey(request.contributionId);
+    const current = () =>
+      this.current(generation) &&
+      this.ports.hasValidSession() &&
+      this.ports.canPrepare() &&
+      key === this.informationKey(this.currentContributionId() ?? '') &&
+      this.receiptRequest()?.requestId === request.requestId;
+    this.receiptState.set('checking');
+    try {
+      const receipt = await this.ports.getInformationRequestReceipt(
+        this.ports.token(),
+        request
+      );
+      if (!current()) return false;
+      if (
+        receipt.requestId !== request.requestId.toLowerCase() ||
+        receipt.contributionId !== request.contributionId
+      )
+        throw new Error('Mismatched information receipt.');
+      if (receipt.found === false) {
+        this.receiptState.set('notFound');
+        return false;
+      }
+      if (receipt.found !== true)
+        throw new Error('Invalid information receipt result.');
+      if (!this.validReceipt(receipt, request))
+        throw new Error('Incomplete information receipt.');
+      this.applyInformationReceipt(receipt, key);
+      this.receiptState.set('idle');
+      return true;
+    } catch (error) {
+      if (!current()) return false;
+      this.receiptState.set('unavailable');
+      if (
+        error instanceof AdminDashboardRequestError &&
+        (error.status === 401 || error.status === 403)
+      )
+        await this.handleError(error);
+      return false;
+    } finally {
+      if (current() && this.receiptState() === 'checking')
+        this.receiptState.set('idle');
+    }
+  }
+
+  private validRequestId(value: string): boolean {
+    return /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(value);
+  }
+
+  private validReceipt(
+    receipt:
+      | Extract<AdminInformationRequestReceipt, { found: true }>
+      | AdminInformationRequestResult,
+    request: { requestId: string }
+  ): boolean {
+    const date = (value: unknown) =>
+      typeof value === 'string' &&
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value) &&
+      Number.isFinite(Date.parse(value)) &&
+      new Date(value).toISOString() === value;
+    return (
+      receipt.requestId === request.requestId.toLowerCase() &&
+      typeof receipt.messageId === 'string' &&
+      this.validRequestId(receipt.messageId) &&
+      date(receipt.acceptedAt) &&
+      ['queued', 'sending', 'sent', 'failed', 'uncertain'].includes(
+        receipt.deliveryStatus
+      ) &&
+      (receipt.sentAt === null || date(receipt.sentAt))
+    );
+  }
+
+  private applyInformationReceipt(
+    receipt: Extract<AdminInformationRequestReceipt, { found: true }>,
+    key: string,
+    result?: AdminInformationRequestResult
+  ): void {
+    this.informationReceipt.set(receipt);
+    this.delivery.set(
+      result ?? {
+        ...receipt,
+        status:
+          receipt.deliveryStatus === 'sent'
+            ? 'already_sent'
+            : receipt.deliveryStatus === 'failed'
+              ? 'delivery_failed'
+              : 'already_queued'
+      }
+    );
+    if (!['sending', 'uncertain'].includes(receipt.deliveryStatus)) {
+      this.pendingInformation.delete(key);
+      this.setInformationMarker(
+        receipt.contributionId,
+        false,
+        key,
+        receipt.requestId
+      );
+      this.uncertainInformation.set(null);
+      this.receiptRequest.set(null);
+      this.prepared.set(null);
+      this.subject.set('');
+      this.body.set('');
+    }
+    void this.ports.refreshWorkQueue();
   }
 
   async ask(): Promise<void> {
@@ -312,6 +480,9 @@ export class AdminAssistantContextController {
   }
 
   private clearPrivate(): void {
+    this.receiptRequest.set(null);
+    this.informationReceipt.set(null);
+    this.receiptState.set('idle');
     this.ports.closeConfirmation();
     this.confirmation.set(null);
     this.uncertainInformation.set(null);
@@ -336,11 +507,12 @@ export class AdminAssistantContextController {
   private restoreUncertainInformation(contributionId?: string): void {
     if (!contributionId) return;
     try {
-      this.retainedInformationMarker.set(
-        this.ports
-          .storage?.()
-          ?.getItem(this.informationStorageKey(contributionId)) === 'pending'
-      );
+      const marker = this.ports
+        .storage?.()
+        ?.getItem(this.informationStorageKey(contributionId));
+      this.retainedInformationMarker.set(!!marker);
+      if (marker && this.validRequestId(marker))
+        this.receiptRequest.set({ contributionId, requestId: marker });
     } catch {
       // The exact in-memory payload still prevents a second logical request.
     }
@@ -349,6 +521,7 @@ export class AdminAssistantContextController {
       this.informationKey(contributionId)
     );
     if (input) {
+      this.receiptRequest.set({ contributionId, requestId: input.requestId });
       this.uncertainInformation.set(input);
       this.subject.set(input.subject);
       this.body.set(input.body);
@@ -366,13 +539,19 @@ export class AdminAssistantContextController {
   private setInformationMarker(
     contributionId: string,
     pending: boolean,
-    requestKey: string
+    requestKey: string,
+    requestId: string
   ): void {
+    let retained = pending;
     try {
       const storage = this.ports.storage?.();
       const key = this.informationStorageKey(contributionId);
-      if (pending) storage?.setItem(key, 'pending');
-      else storage?.removeItem(key);
+      if (pending) storage?.setItem(key, requestId);
+      else {
+        const stored = storage?.getItem(key);
+        if (stored === requestId) storage?.removeItem(key);
+        else if (stored) retained = true;
+      }
     } catch {
       // No recipient, body or credential is persisted; memory is the fallback.
     }
@@ -381,7 +560,7 @@ export class AdminAssistantContextController {
       contributionId === this.currentContributionId() &&
       requestKey === this.informationKey(contributionId)
     )
-      this.retainedInformationMarker.set(pending);
+      this.retainedInformationMarker.set(retained);
   }
 
   private async handleError(error: unknown, action = true): Promise<void> {

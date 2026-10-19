@@ -292,6 +292,7 @@ test('explicit context references bypass the global queue and remain exact when 
 
 test('information request validates explicit confirmation and safe bounded message fields', () => {
   const valid = {
+    requestId: '10000000-0000-4000-8000-00000000000a',
     contributionId: source().record.contributionId,
     contextVersion: 'a'.repeat(64),
     recipient: 'demo@example.invalid',
@@ -301,6 +302,9 @@ test('information request validates explicit confirmation and safe bounded messa
   };
   assert.deepEqual(validateInformationRequest(valid), valid);
   for (const patch of [
+    { requestId: undefined },
+    { requestId: 'invalid' },
+    { unexpected: true },
     { confirmed: false },
     { contributionId: 'bad' },
     { contextVersion: '' },
@@ -318,5 +322,13 @@ test('information request validates explicit confirmation and safe bounded messa
   assert.throws(
     () => validateInformationRequest(null),
     (error) => error.status === 400
+  );
+  assert.deepEqual(
+    validateInformationRequest({
+      ...valid,
+      requestId: valid.requestId.toUpperCase(),
+      contributionId: valid.contributionId.toUpperCase()
+    }),
+    valid
   );
 });

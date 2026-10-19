@@ -1,4 +1,12 @@
 {
+  "informationReceipt": {
+    "verify": "Vérifier le résultat de la demande",
+    "checking": "Vérification du résultat…",
+    "notFound": "Aucun reçu correspondant n’est disponible. Le résultat reste incertain ; aucune nouvelle demande n’a été effectuée.",
+    "unavailable": "Le résultat n’a pas pu être vérifié. La demande reste bloquée ; vous pouvez réessayer cette vérification.",
+    "legacy": "Cette ancienne demande n’a pas d’identifiant de vérification. Elle reste bloquée ; consultez la file courriel avant toute nouvelle demande.",
+    "acceptedAt": "Demande enregistrée le"
+  },
   "ownerRequired": "Cette action est réservée au propriétaire.",
   "readOnly": "Lecture seule : votre rôle permet de consulter ces données et leurs preuves.",
   "stale": "Dernier état connu : les données n’ont pas pu être actualisées. Vérifiez leur état avant toute action.",

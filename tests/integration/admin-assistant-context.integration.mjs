@@ -116,6 +116,7 @@ test(
       assert.equal(await count('admin_audit_log'), 0);
       const input = {
         ...proposal.delivery,
+        requestId: '10000000-0000-4000-8000-00000000000a',
         body: '<script>demo</script>\nPlease complete your profile.',
         confirmed: true
       };
@@ -212,6 +213,7 @@ test(
         ['queued', 'already_queued'],
         ['sending', 'already_queued'],
         ['sent', 'already_sent'],
+        ['uncertain', 'already_queued'],
         ['failed', 'delivery_failed']
       ]) {
         await pool.query('UPDATE email_messages SET status=$2 WHERE id=$1', [
@@ -226,7 +228,7 @@ test(
         ).rows[0];
         assert.deepEqual(
           await requestSponsorshipInformation(pool, input, 'test'),
-          { status: expected, messageId: email.id },
+          { ...results[0], status: expected, deliveryStatus: status },
           `${status}: a stale context resolves the original receipt before new context checks`
         );
         assert.equal(await count('email_messages'), 1, status);
@@ -268,7 +270,12 @@ test(
         await assert.rejects(
           requestSponsorshipInformation(
             pool,
-            { ...fresh.delivery, subject: 'Audit rollback', confirmed: true },
+            {
+              ...fresh.delivery,
+              requestId: '10000000-0000-4000-8000-00000000000b',
+              subject: 'Audit rollback',
+              confirmed: true
+            },
             'test'
           ),
           (error) => error.status === 503

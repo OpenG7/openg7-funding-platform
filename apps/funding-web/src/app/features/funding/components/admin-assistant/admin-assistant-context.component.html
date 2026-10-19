@@ -224,7 +224,7 @@
           </form>
         }
       }
-      @if (delivery(); as sent) {
+      @if (!informationReceipt() && delivery(); as sent) {
         <div class="inset" role="status" data-og7="assistant-delivery-result">
           <p>{{ 'admin.context.delivery.' + sent.status | translate }}</p>
           <a
@@ -277,9 +277,70 @@
       @if (uncertainInformation(); as pending) {
         <p>{{ pending.recipient }} · {{ pending.subject }}</p>
       }
-      <a class="admin-link" routerLink="/admin/fundraiser/email-queue">
-        {{ 'admin.context.viewEmail' | translate }}
-      </a>
+      @if (receiptRequest()) {
+        <button
+          type="button"
+          class="admin-button"
+          data-og7="assistant-information-receipt-check"
+          [disabled]="!canVerifyReceipt()"
+          (click)="verifyInformationReceipt()"
+        >
+          {{
+            'admin.financialSafety.informationReceipt.' +
+              (receiptState() === 'checking' ? 'checking' : 'verify')
+              | translate
+          }}
+        </button>
+      } @else {
+        <p>
+          {{ 'admin.financialSafety.informationReceipt.legacy' | translate }}
+        </p>
+      }
+      @if (receiptState() === 'notFound' || receiptState() === 'unavailable') {
+        <p role="alert" data-og7="assistant-information-receipt-error">
+          {{
+            'admin.financialSafety.informationReceipt.' + receiptState()
+              | translate
+          }}
+        </p>
+      }
+      @if (!informationReceipt()) {
+        <a class="admin-link" routerLink="/admin/fundraiser/email-queue">
+          {{ 'admin.context.viewEmail' | translate }}
+        </a>
+      }
+    </div>
+  }
+  @if (informationReceipt(); as receipt) {
+    <div data-og7="assistant-delivery-result">
+      <section
+        #receiptResult
+        tabindex="-1"
+        class="inset admin-focus-target"
+        role="status"
+        data-og7="assistant-information-receipt"
+      >
+        <p>
+          {{
+            'admin.financialSafety.receiptDelivery.' + receipt.deliveryStatus
+              | translate
+          }}
+        </p>
+        <p>
+          {{
+            'admin.financialSafety.informationReceipt.acceptedAt' | translate
+          }}
+          <time [attr.datetime]="receipt.acceptedAt">{{
+            receiptDate(receipt.acceptedAt)
+          }}</time>
+        </p>
+        <a
+          class="admin-link"
+          routerLink="/admin/fundraiser/email-queue"
+          [queryParams]="{ messageId: receipt.messageId }"
+          >{{ 'admin.context.viewEmail' | translate }}</a
+        >
+      </section>
     </div>
   }
   @if (error() && !informationUncertain()) {

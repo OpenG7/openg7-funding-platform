@@ -71,7 +71,15 @@ const answer = {
   ],
   limitations: []
 };
-const delivery = { status: 'queued', messageId: 'synthetic-message' };
+const commandId = '10000000-0000-4000-8000-000000000901';
+const delivery = {
+  status: 'queued',
+  messageId: '10000000-0000-4000-8000-000000000902',
+  requestId: commandId,
+  acceptedAt: '2026-09-16T14:00:00.000Z',
+  deliveryStatus: 'queued',
+  sentAt: null
+};
 const deferred = () => {
   let resolve;
   let reject;
@@ -84,7 +92,14 @@ const deferred = () => {
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 
 function fixture(storage = new Map()) {
-  const calls = { context: [], prepare: [], query: [], send: [], effects: [] };
+  const calls = {
+    context: [],
+    prepare: [],
+    query: [],
+    send: [],
+    receipts: [],
+    effects: []
+  };
   const options = {
     sponsorshipId: id,
     validSession: true,
@@ -95,6 +110,11 @@ function fixture(storage = new Map()) {
     destroyed: false
   };
   const ports = {
+    newRequestId: () => commandId,
+    getInformationRequestReceipt: async (token, input) => {
+      calls.receipts.push({ token, input });
+      return { ...input, found: false };
+    },
     sponsorshipId: () => options.sponsorshipId,
     hasValidSession: () => options.validSession,
     token: () => 'synthetic-session',
@@ -160,6 +180,207 @@ function assertPrivateCleared(c) {
     assert.equal(c[field](), '', field);
   assert.equal(c.snapshot(), null);
 }
+
+async function uncertainRequest(f) {
+  await populate(f.controller);
+  const send = f.ports.requestSponsorshipInformation;
+  f.ports.requestSponsorshipInformation = async (...args) => {
+    await send(...args);
+    throw new Error('Synthetic response lost');
+  };
+  f.controller.reviewSend();
+  const input = f.controller.confirmation();
+  await f.controller.send();
+  return input;
+}
+const recoveredReceipt = (deliveryStatus = 'queued') => ({
+  ...delivery,
+  contributionId: id,
+  found: true,
+  deliveryStatus,
+  sentAt: deliveryStatus === 'sent' ? delivery.acceptedAt : null
+});
+
+for (const status of ['queued', 'sent', 'failed']) {
+  test(`matching ${status} information receipt resolves only the retained command without another POST`, async () => {
+    const f = fixture(),
+      c = f.controller;
+    const input = await uncertainRequest(f);
+    const get = f.ports.getInformationRequestReceipt;
+    f.ports.getInformationRequestReceipt = async (...args) => {
+      await get(...args);
+      return recoveredReceipt(status);
+    };
+    assert.equal(await c.verifyInformationReceipt(), true);
+    assert.equal(c.informationUncertain(), false);
+    assert.equal(c.informationReceipt().messageId, delivery.messageId);
+    assert.equal(c.informationReceipt().deliveryStatus, status);
+    assert.equal(f.storage.size, 0);
+    assert.deepEqual(f.calls.receipts, [
+      {
+        token: 'synthetic-session',
+        input: { requestId: input.requestId, contributionId: id }
+      }
+    ]);
+    assert.equal(f.calls.send.length, 1);
+  });
+}
+
+test('sending and uncertain receipts keep the exact UUID through reload until a definitive receipt', async () => {
+  const f = fixture();
+  await uncertainRequest(f);
+  f.ports.getInformationRequestReceipt = async () =>
+    recoveredReceipt('sending');
+  assert.equal(await f.controller.verifyInformationReceipt(), true);
+  assert.equal(f.controller.informationUncertain(), true);
+  const next = fixture(f.storage),
+    c = next.controller;
+  await c.load();
+  assert.deepEqual(c.receiptRequest(), {
+    requestId: commandId,
+    contributionId: id
+  });
+  next.ports.getInformationRequestReceipt = async () =>
+    recoveredReceipt('uncertain');
+  await c.verifyInformationReceipt();
+  assert.equal(c.informationUncertain(), true);
+  next.ports.getInformationRequestReceipt = async () =>
+    recoveredReceipt('sent');
+  await c.verifyInformationReceipt();
+  assert.equal(c.informationUncertain(), false);
+  assert.equal(next.storage.size, 0);
+  assert.equal(f.calls.send.length, 1);
+  assert.equal(next.calls.send.length, 0);
+});
+
+for (const [name, value] of [
+  ['absent', { requestId: commandId, contributionId: id, found: false }],
+  ['unavailable', new AdminDashboardRequestError(503)],
+  ['wrong request', { ...recoveredReceipt(), requestId: delivery.messageId }],
+  ['wrong dossier', { ...recoveredReceipt(), contributionId: secondId }],
+  ['truthy found', { ...recoveredReceipt(), found: 'true' }],
+  ['missing found', { ...recoveredReceipt(), found: undefined }],
+  ['numeric message', { ...recoveredReceipt(), messageId: 123 }],
+  ['invalid message', { ...recoveredReceipt(), messageId: 'not-a-uuid' }],
+  ['missing accepted date', { ...recoveredReceipt(), acceptedAt: undefined }],
+  ['permissive date', { ...recoveredReceipt(), acceptedAt: '2026-09-16' }],
+  [
+    'invalid calendar',
+    { ...recoveredReceipt(), acceptedAt: '2026-02-30T14:00:00.000Z' }
+  ],
+  ['noncanonical accepted date', { ...recoveredReceipt(), acceptedAt: at }],
+  ['numeric sent date', { ...recoveredReceipt(), sentAt: 123 }],
+  ['noncanonical sent date', { ...recoveredReceipt(), sentAt: at }],
+  ['unknown delivery', { ...recoveredReceipt(), deliveryStatus: 'delivered' }]
+])
+  test(`${name} receipt preserves the UUID and blocks any new information command`, async () => {
+    const f = fixture(),
+      c = f.controller;
+    await uncertainRequest(f);
+    f.ports.getInformationRequestReceipt = async () => {
+      if (value instanceof Error) throw value;
+      return value;
+    };
+    assert.equal(await c.verifyInformationReceipt(), false);
+    assert.equal(c.informationUncertain(), true);
+    assert.equal(c.informationReceipt(), null);
+    assert.equal(
+      c.receiptState(),
+      name === 'absent' ? 'notFound' : 'unavailable'
+    );
+    assert.equal([...f.storage.values()][0], commandId);
+    await c.prepare('sponsorship_reminder');
+    c.reviewSend();
+    await c.send();
+    assert.equal(f.calls.send.length, 1);
+  });
+
+test('legacy pending state stays blocked without generating a UUID or looking up a guessed receipt', async () => {
+  const f = fixture(
+    new Map([['openg7-assistant-information-pending:' + id, 'pending']])
+  );
+  f.ports.newRequestId = () => {
+    throw new Error('Must not generate');
+  };
+  await f.controller.load();
+  assert.equal(f.controller.informationUncertain(), true);
+  assert.equal(f.controller.receiptRequest(), null);
+  await f.controller.verifyInformationReceipt();
+  assert.equal(f.calls.receipts.length, 0);
+  assert.equal(f.calls.send.length, 0);
+  assert.equal([...f.storage.values()][0], 'pending');
+});
+
+for (const change of ['dossier', 'session', 'identity', 'role', 'destroyed'])
+  test(`late receipt cannot apply after ${change} changed`, async () => {
+    const f = fixture(),
+      c = f.controller,
+      held = deferred();
+    await uncertainRequest(f);
+    f.ports.getInformationRequestReceipt = () => held.promise;
+    const verifying = c.verifyInformationReceipt();
+    if (change === 'dossier') f.options.sponsorshipId = secondId;
+    if (change === 'session') f.options.sessionGeneration.set(2);
+    if (change === 'identity') f.options.identityId.set('other-admin');
+    if (change === 'role') f.options.canPrepare.set(false);
+    if (change === 'destroyed') f.options.destroyed = true;
+    if (change !== 'destroyed') await c.load();
+    held.resolve(recoveredReceipt());
+    assert.equal(await verifying, false);
+    assert.equal(c.informationReceipt(), null);
+    assert.equal([...f.storage.values()][0], commandId);
+    assert.equal(f.calls.effects.includes('refresh'), false);
+    assert.equal(f.calls.send.length, 1);
+  });
+
+test('an older POST completion cannot remove a newer retained UUID', async () => {
+  const f = fixture(),
+    c = f.controller,
+    held = deferred();
+  await populate(c);
+  f.ports.requestSponsorshipInformation = () => held.promise;
+  c.reviewSend();
+  const sending = c.send();
+  f.storage.set(
+    'openg7-assistant-information-pending:' + id,
+    delivery.messageId
+  );
+  held.resolve(delivery);
+  await sending;
+  assert.equal([...f.storage.values()][0], delivery.messageId);
+  assert.equal(c.informationUncertain(), true);
+});
+
+test('a missing secure UUID prevents confirmation and POST', async () => {
+  const f = fixture();
+  await populate(f.controller);
+  f.ports.newRequestId = () => null;
+  f.controller.reviewSend();
+  await f.controller.send();
+  assert.equal(f.controller.confirmation(), null);
+  assert.equal(f.controller.error(), 'actionError');
+  assert.equal(f.calls.send.length, 0);
+});
+
+test('a UUID ownership conflict retains the exact verifiable command instead of permitting another send', async () => {
+  const f = fixture(),
+    c = f.controller;
+  await populate(c);
+  f.ports.requestSponsorshipInformation = async () => {
+    throw new AdminDashboardRequestError(
+      409,
+      'Synthetic conflict',
+      'INFORMATION_REQUEST_ID_CONFLICT'
+    );
+  };
+  c.reviewSend();
+  await c.send();
+  assert.equal(c.error(), 'conflict');
+  assert.equal(c.informationUncertain(), true);
+  assert.equal(c.canVerifyReceipt(), true);
+  assert.equal(c.receiptRequest().requestId, commandId);
+  assert.equal([...f.storage.values()][0], commandId);
+});
 
 test('exact dossier loading clears previous private state and retries an unavailable read', async () => {
   const { controller: c, ports, calls, options } = fixture();
@@ -310,6 +531,7 @@ test('delivery requires reviewed confirmation, preserves edits on cancel and ref
   c.reviewSend();
   assert.deepEqual(c.confirmation(), {
     ...proposal.delivery,
+    requestId: commandId,
     subject: 'Private edited subject',
     body: 'Private edited body',
     confirmed: true
@@ -457,7 +679,7 @@ test('a new controller keeps an opaque uncertain marker without persisting the p
   await first.controller.send();
   assert.deepEqual(
     [...first.storage],
-    [['openg7-assistant-information-pending:' + id, 'pending']]
+    [['openg7-assistant-information-pending:' + id, commandId]]
   );
   const stored = JSON.stringify([...first.storage]);
   assert.equal(stored.includes('@'), false);
