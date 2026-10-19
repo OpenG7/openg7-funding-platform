@@ -186,9 +186,18 @@ monté en lecture seule et sans interception des styles compilés.
 
 Cette révision intègre aussi l'ordre des imports corrigé dans le parent
 UX-05 (`2503778f`), sans changer les assertions ni les séquences des recettes.
-Le lint complet rejoué après cette intégration réussit, avec le seul
+
+Le commit parent `90f4333926f0c0ece4a322a9bd2590e9cecc057a` corrige aussi
+le lecteur PDF de la recette d'avantages de facture : la longueur déclarée
+borne les octets compressés, sans retirer un octet CR valide. Une fixture
+déterministe échoue avant correction, réussit après et rejette un flux tronqué.
+Le fichier complet passe **13/13 tests sur PostgreSQL jetable** ; journal local
+`%TEMP%/og7-pr356-invoice-benefits-pdf-fixed.log`. Les assertions de facture,
+d'avantages et de totaux, ainsi que le rendu PDF applicatif, restent inchangés.
+
+Le lint complet rejoué après ces intégrations réussit, avec le seul
 avertissement préexistant de `scripts/smoke-public.mjs` ; journal local
-`%TEMP%/og7-pr357-integrated-import-order-lint.log`.
+`%TEMP%/og7-pr357-final-integrated-lint.log`.
 Les 7 230 tests Node ci-dessus restent associés à `9328269e` : ils ne sont pas
 présentés comme une nouvelle exécution après ces changements CSS et d'imports.
 Le dernier résultat de toute la CI est consultable dans la
