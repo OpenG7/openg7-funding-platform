@@ -412,7 +412,10 @@ test('moderation content refusals stay distinct, retries use real content and ob
     let contentReads = 0;
     await page.route(subject, async (route) => {
       if (++contentReads !== 1) return route.continue();
-      const response = await route.fetch({ maxRetries: 0 });
+      expect(route.request().method()).toBe('GET');
+      // Capture the real read despite one reset keep-alive connection. This
+      // never retries an HTTP refusal or a moderation decision.
+      const response = await route.fetch({ maxRetries: 1 });
       expect(response.ok()).toBe(true);
       oldStarted();
       await oldGate;
