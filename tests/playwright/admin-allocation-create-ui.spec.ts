@@ -372,6 +372,13 @@ for (const { language, width } of [
     });
     await checkCreation(page, english);
     await expect.poll(() => pending !== undefined).toBe(true);
+    if (width < 768)
+      await page
+        .getByRole('button', {
+          name: english ? 'Open menu' : 'Ouvrir le menu',
+          exact: true
+        })
+        .click();
     await page.locator('a[href="/admin/fundraiser/audit"]').first().click();
     await expect(page).toHaveURL(/\/admin\/fundraiser\/audit$/);
     const completed = page.waitForResponse((response) =>
