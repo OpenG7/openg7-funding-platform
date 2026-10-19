@@ -58,10 +58,12 @@ test('scheduled sponsorships stop after refund or dispute while eligible control
   page.on('pageerror', (e) => errors.push(e.message));
   const stub = process.env.STRIPE_STUB_BASE_URL!;
   const get = async <T>(url: string, authenticated = true): Promise<T> => {
-    const response = await request.get(
-      url,
-      authenticated ? { headers: await adminSessionHeaders(request) } : {}
-    );
+    const response = await request.get(url, {
+      ...(authenticated ? { headers: await adminSessionHeaders(request) } : {}),
+      // The stub may close an idle keep-alive socket as it is reused.
+      // Retry only synthetic stub reads; other API reads and mutations do not retry.
+      maxRetries: url.startsWith(stub + '/') ? 1 : 0
+    });
     expect(response.ok(), url).toBe(true);
     return response.json() as Promise<T>;
   };
