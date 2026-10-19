@@ -141,11 +141,13 @@ for (const { language, viewport } of [
   });
 }
 
-for (const { language, viewport } of [
-  { language: 'fr-CA', viewport: { width: 390, height: 432 } },
-  { language: 'en', viewport: { width: 768, height: 432 } }
+for (const { language, viewport, zoom } of [
+  { language: 'fr-CA', viewport: { width: 390, height: 432 }, zoom: 1 },
+  { language: 'en', viewport: { width: 768, height: 432 }, zoom: 1 },
+  { language: 'fr-CA', viewport: { width: 1440, height: 864 }, zoom: 1.25 },
+  { language: 'en', viewport: { width: 390, height: 844 }, zoom: 1.25 }
 ]) {
-  test(`a long ${language} confirmation keeps its actions reachable in a short ${viewport.width}px viewport`, async ({
+  test(`a long ${language} confirmation keeps its actions reachable at ${zoom * 100}% in a ${viewport.width}px viewport`, async ({
     page
   }, testInfo) => {
     const state = await controllerJourneysFixtures(page, 'owner', language, {
@@ -153,6 +155,9 @@ for (const { language, viewport } of [
     });
     await page.setViewportSize(viewport);
     await page.goto(controllerPath('identity'));
+    await page.evaluate((scale) => {
+      document.documentElement.style.zoom = String(scale);
+    }, zoom);
     await hook(page, 'edit-dossier').click();
     const form = hook(page, 'edit-dossier-form');
     await form
@@ -169,7 +174,22 @@ for (const { language, viewport } of [
     await expectUncovered(confirmation.locator('header button'));
     await expectUncovered(confirm);
     await expect(confirmation.locator('footer')).toBeInViewport();
-    if (viewport.width === 390) {
+    const bounds = await confirmation.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        x: rect.x,
+        right: rect.right,
+        y: rect.y,
+        bottom: rect.bottom,
+        viewportWidth: innerWidth,
+        viewportHeight: innerHeight
+      };
+    });
+    expect(bounds.x).toBeGreaterThanOrEqual(-1);
+    expect(bounds.right).toBeLessThanOrEqual(bounds.viewportWidth + 1);
+    expect(bounds.y).toBeGreaterThanOrEqual(-1);
+    expect(bounds.bottom).toBeLessThanOrEqual(bounds.viewportHeight + 1);
+    if (viewport.width === 390 && viewport.height === 432) {
       const content = confirmation.locator('[data-og7="admin-drawer-content"]');
       expect(
         await content.evaluate(
@@ -184,7 +204,7 @@ for (const { language, viewport } of [
     ).toBe(true);
     await page.screenshot({
       path: testInfo.outputPath(
-        `confirmation-${language}-${viewport.width}.png`
+        `confirmation-${language}-${viewport.width}-${zoom * 100}.png`
       )
     });
     await page.keyboard.press('Escape');
