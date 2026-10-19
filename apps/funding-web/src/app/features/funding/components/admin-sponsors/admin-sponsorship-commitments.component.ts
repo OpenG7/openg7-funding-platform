@@ -30,6 +30,10 @@ import { AdminAutomaticPreparationDirective } from '../admin-automatic/admin-aut
 import { PreparationAssistanceReviewComponent } from '../admin-preparation/preparation-assistance-review.component.js';
 import type { PreparationAssistanceSelection } from '../admin-preparation/preparation-assistance.controller.js';
 import { revealControllerFocus } from '../admin-controller/admin-controller-navigation.js';
+import {
+  DossierWorkspaceNavigation,
+  dossierReturnQuery
+} from '../../models/admin-dossier-return.js';
 
 import { AdminSponsorshipCommitmentsController } from './admin-sponsorship-commitments-controller.js';
 import { AdminSponsorshipTimingComponent } from './admin-sponsorship-timing.component.js';
@@ -57,6 +61,23 @@ import { AdminSponsorshipHistoricalAuditComponent } from './admin-sponsorship-hi
   ]
 })
 export class AdminSponsorshipCommitmentsComponent {
+  evidenceQuery(obligationId: string) {
+    return {
+      ...dossierReturnQuery(
+        this.router,
+        this.router.url,
+        this.dossier().contributionId
+      ),
+      obligationId
+    };
+  }
+  evidenceNavigation(evidenceId: string | null) {
+    return new DossierWorkspaceNavigation(
+      this.dossier().contributionId,
+      'commitments-evidence',
+      evidenceId ?? undefined
+    );
+  }
   readonly dossier = input.required<AdminSponsorshipProgress>();
   readonly changed = output<void>();
   readonly assistanceReview = viewChild(PreparationAssistanceReviewComponent);

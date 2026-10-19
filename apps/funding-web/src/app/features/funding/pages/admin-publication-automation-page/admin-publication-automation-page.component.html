@@ -43,10 +43,15 @@
         </div>
         <a
           class="admin-button"
-          routerLink="/admin/fundraiser/sponsors"
-          [queryParams]="{ sponsorshipId: id, tab: 'publication' }"
-          fragment="dossier-publication"
-          >{{ 'admin.dossier.publicationBridge.back' | translate }}</a
+          data-og7="automation-dossier-return"
+          [routerLink]="dossierReturn()"
+          [info]="dossierReturnFocus"
+          >{{
+            (preciseDossierReturn()
+              ? 'admin.context.returnToDossier'
+              : 'admin.dossier.publicationBridge.back'
+            ) | translate
+          }}</a
         >
         <a
           class="admin-button"

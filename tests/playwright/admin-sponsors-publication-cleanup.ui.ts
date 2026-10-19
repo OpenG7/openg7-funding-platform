@@ -64,7 +64,7 @@ export function registerSponsorPublicationCleanupTests(context: Context): void {
     );
     await expect(campaign).toHaveAttribute(
       'href',
-      `/admin/fundraiser/campaigns?sponsorshipId=${sponsorshipId}`
+      `/admin/fundraiser/campaigns?sponsorshipId=${sponsorshipId}&returnTo=${encodeURIComponent(context.path('publication'))}`
     );
     await expect(summary.locator('[data-og7-id]')).toHaveCount(0);
     await expect(
@@ -73,9 +73,10 @@ export function registerSponsorPublicationCleanupTests(context: Context): void {
     await campaign.focus();
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(
-      new RegExp(
-        `/admin/fundraiser/campaigns\\?sponsorshipId=${sponsorshipId}$`
-      )
+      (url) =>
+        url.pathname === '/admin/fundraiser/campaigns' &&
+        url.searchParams.get('sponsorshipId') === sponsorshipId &&
+        url.searchParams.get('returnTo') === context.path('publication')
     );
     expect(calls.every((call) => call.method === 'GET')).toBe(true);
   });

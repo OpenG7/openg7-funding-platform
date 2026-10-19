@@ -25,6 +25,7 @@
   "previous": "Précédente",
   "next": "Suivante",
   "destination": {
+    "back": "Retour au dossier",
     "dossier": "Prestations du dossier ciblé",
     "placement": "Prestation ciblée du dossier",
     "choose": "Choisissez la prestation à consulter dans la liste.",

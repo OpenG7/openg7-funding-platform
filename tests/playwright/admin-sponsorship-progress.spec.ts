@@ -12,7 +12,7 @@ import type {
 } from '@openg7/funding-core';
 import { classifySponsorMedia } from '@openg7/funding-core';
 
-import { expect, test } from './support/test.js';
+import { expect, sampledFrames, test } from './support/test.js';
 import { expectAdminFontsReady } from './support/admin-fonts.js';
 import { moderationFixture, completeModeration } from './support/moderation.js';
 import { registerSponsorHistoryPanelTests } from './admin-sponsor-history-panels.ui.js';
@@ -38,6 +38,27 @@ const secondId = '10000000-0000-4000-8000-000000000402';
 const date = '2026-09-16T14:00:00Z';
 const path = (tab = 'overview', value = id) =>
   `/admin/fundraiser/sponsors?sponsorshipId=${value}&tab=${tab}`;
+async function expectDossierWorkspaceLink(
+  link: Locator,
+  destination: string,
+  origin: string,
+  extra: Record<string, string> = {}
+) {
+  await expect
+    .poll(async () => {
+      const href = await link.getAttribute('href');
+      if (!href) return null;
+      const url = new URL(href, 'http://127.0.0.1');
+      return {
+        path: url.pathname,
+        query: Object.fromEntries(url.searchParams)
+      };
+    })
+    .toEqual({
+      path: destination,
+      query: { sponsorshipId: id, returnTo: origin, ...extra }
+    });
+}
 const dossier = (value = id): AdminSponsorshipProgress => ({
   contributionId: value,
   reference: value === id ? 'DEMO-401' : 'DEMO-402',
@@ -1261,17 +1282,26 @@ for (const [language, width] of [
       await expect(link).toHaveCount(qualified ? 1 : 0);
       if (qualified) {
         await expect(link).toHaveAttribute('data-og7-id', evidenceId);
-        await expect(link).toHaveAttribute(
-          'href',
-          `/admin/fundraiser/campaigns?sponsorshipId=${id}&obligationId=${obligation.id}`
+        await expectDossierWorkspaceLink(
+          link,
+          '/admin/fundraiser/campaigns',
+          path('publication'),
+          { obligationId: obligation.id }
         );
         await link.focus();
         await page.keyboard.press('Enter');
         await expect(page).toHaveURL(
-          new RegExp(
-            `campaigns\\?sponsorshipId=${id}&obligationId=${obligation.id}$`
-          )
+          (url) =>
+            url.pathname === '/admin/fundraiser/campaigns' &&
+            url.searchParams.get('sponsorshipId') === id &&
+            url.searchParams.get('obligationId') === obligation.id &&
+            url.searchParams.get('returnTo') === path('publication')
         );
+        const back = page.locator('[data-og7="campaigns-dossier-return"]');
+        await back.focus();
+        await back.press('Enter');
+        await expect(page).toHaveURL(path('publication'));
+        await expect(link).toBeFocused();
       } else {
         await expect(row).toContainText(
           language === 'en' ? 'delivery unconfirmed' : 'livraison non confirmée'
@@ -4692,6 +4722,135 @@ function qualifiedWebsiteProgress(
   };
 }
 
+for (const language of ['fr-CA', 'en'] as const) {
+  for (const surface of ['campaigns', 'automation'] as const) {
+    test(`publication workspace return preserves its dossier origin and trigger focus from ${surface} in ${language}`, async ({
+      page
+    }) => {
+      const { calls } = await fixtures(page, 'reader');
+      await page.addInitScript(
+        (locale) => localStorage.setItem('openg7.language', locale),
+        language
+      );
+      await page.setViewportSize({
+        width: language === 'en' ? 390 : 1280,
+        height: 844
+      });
+      const origin = path('publication') + '#dossier-agreement';
+      await page.goto(origin);
+      const trigger = page.locator(
+        `[data-og7="${surface === 'campaigns' ? 'publication-campaign-benefits' : 'publication-engine'}"]`
+      );
+      await expectDossierWorkspaceLink(
+        trigger,
+        surface === 'campaigns'
+          ? '/admin/fundraiser/campaigns'
+          : '/admin/fundraiser/publications/automation',
+        origin
+      );
+      await trigger.focus();
+      await trigger.press('Enter');
+      const back = page.locator(
+        `[data-og7="${surface === 'campaigns' ? 'campaigns' : 'automation'}-dossier-return"]`
+      );
+      await expect(back).toHaveAttribute('href', origin);
+      await expect(back).toHaveAccessibleName(
+        language === 'en' ? 'Back to the dossier' : 'Retour au dossier'
+      );
+      const readsBeforeReturn = calls.filter(
+        (call) => call.url.pathname === '/api/admin/sponsorships'
+      ).length;
+      await back.focus();
+      await back.press('Enter');
+      await expect(page).toHaveURL(origin);
+      await expect
+        .poll(
+          () =>
+            calls.filter(
+              (call) => call.url.pathname === '/api/admin/sponsorships'
+            ).length
+        )
+        .toBe(readsBeforeReturn + 1);
+      await expect(
+        tabs(page).getByRole('button', { name: 'Publication', exact: true })
+      ).toHaveAttribute('aria-current', 'page');
+      await expect(trigger).toBeFocused();
+      expect(calls.every((call) => call.method === 'GET')).toBe(true);
+    });
+  }
+}
+
+for (const surface of ['campaigns', 'automation'] as const) {
+  test(`publication workspace reload returns to its section without restoring a stale trigger from ${surface}`, async ({
+    page
+  }) => {
+    const { calls } = await fixtures(page, 'reader');
+    const origin = path('publication') + '#dossier-agreement';
+    await page.goto(origin);
+    const trigger = page.locator(
+      `[data-og7="${surface === 'campaigns' ? 'publication-campaign-benefits' : 'publication-engine'}"]`
+    );
+    await trigger.focus();
+    await trigger.press('Enter');
+    const back = page.locator(
+      `[data-og7="${surface === 'campaigns' ? 'campaigns' : 'automation'}-dossier-return"]`
+    );
+    await expect(back).toHaveAttribute('href', origin);
+    await page.reload();
+    await expect(back).toHaveAttribute('href', origin);
+    await back.focus();
+    await back.press('Enter');
+    await expect(page).toHaveURL(origin);
+    await expect(page.locator('#dossier-agreement')).toBeFocused();
+    await expect(trigger).not.toBeFocused();
+    expect(calls.every((call) => call.method === 'GET')).toBe(true);
+  });
+}
+
+test('publication workspace return cannot reclaim focus after the user changes dossier tabs', async ({
+  page
+}) => {
+  const { options } = await fixtures(page, 'reader');
+  const origin = path('publication') + '#dossier-agreement';
+  await page.goto(origin);
+  const trigger = page.locator('[data-og7="publication-campaign-benefits"]');
+  await trigger.focus();
+  await trigger.press('Enter');
+  const back = page.locator('[data-og7="campaigns-dossier-return"]');
+  await expect(back).toHaveAttribute('href', origin);
+  let release!: () => void;
+  options.progressGate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  try {
+    await back.focus();
+    await back.press('Enter');
+    const progress = page.locator('[data-og7="sponsorship-progress"]');
+    await expect(progress).toHaveAttribute('aria-busy', 'true');
+    const finances = tabs(page).getByRole('button', {
+      name: 'Finances',
+      exact: true
+    });
+    await finances.focus();
+    await finances.press('Enter');
+    await expect(page).toHaveURL(path('billing'));
+    await expect(finances).toBeFocused();
+    const response = page.waitForResponse(
+      '**/api/admin/sponsorships/progress?*'
+    );
+    release();
+    await (await response).finished();
+    await expect(progress).toHaveAttribute('aria-busy', 'false');
+    await sampledFrames(page);
+    await expect(page).toHaveURL(path('billing'));
+    await expect(finances).toBeFocused();
+    await expect(trigger).toHaveCount(0);
+  } finally {
+    release();
+    options.progressGate = null;
+  }
+});
+
 for (const width of [1280, 390]) {
   test(`publication bridge explains benefits and retains advanced dossier navigation at ${width}px`, async ({
     page
@@ -4754,9 +4913,10 @@ for (const width of [1280, 390]) {
     const link = journey.getByRole('link', {
       name: 'Suivre ce dossier dans le moteur'
     });
-    await expect(link).toHaveAttribute(
-      'href',
-      `/admin/fundraiser/publications/automation?sponsorshipId=${id}`
+    await expectDossierWorkspaceLink(
+      link,
+      '/admin/fundraiser/publications/automation',
+      path('publication')
     );
     await expect(
       page.locator('[data-og7="dossier-publication-editor"]')
@@ -4778,7 +4938,10 @@ for (const width of [1280, 390]) {
     await link.focus();
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(
-      new RegExp(`automation\\?sponsorshipId=${id}$`)
+      (url) =>
+        url.pathname === '/admin/fundraiser/publications/automation' &&
+        url.searchParams.get('sponsorshipId') === id &&
+        url.searchParams.get('returnTo') === path('publication')
     );
     expect(calls.filter((call) => call.method === 'POST')).toHaveLength(0);
   });
@@ -4926,11 +5089,10 @@ test('publication bridge keeps CAD thresholds out of other currencies and suppor
   await expect(journey.locator('[data-og7="publication-channel"]')).toHaveCount(
     0
   );
-  await expect(
-    journey.getByRole('link', { name: 'Follow this dossier in the engine' })
-  ).toHaveAttribute(
-    'href',
-    `/admin/fundraiser/publications/automation?sponsorshipId=${id}`
+  await expectDossierWorkspaceLink(
+    journey.getByRole('link', { name: 'Follow this dossier in the engine' }),
+    '/admin/fundraiser/publications/automation',
+    path('publication')
   );
   expect(calls.filter((c) => c.method === 'POST')).toHaveLength(0);
 });

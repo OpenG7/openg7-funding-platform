@@ -24,6 +24,11 @@
             [queryParams]="guidanceParams(link)"
             [queryParamsHandling]="link.fragment ? 'merge' : ''"
             [fragment]="link.fragment"
+            [info]="
+              link.fragment
+                ? undefined
+                : workspaceNavigation('publication-chain-link', link.id)
+            "
             data-og7="publication-chain-link"
             [attr.data-og7-id]="link.id"
           >
@@ -187,7 +192,8 @@
         class="admin-button"
         data-og7="publication-campaign-benefits"
         routerLink="/admin/fundraiser/campaigns"
-        [queryParams]="{ sponsorshipId: dossier().contributionId }"
+        [queryParams]="params()"
+        [info]="workspaceNavigation('publication-campaign-benefits')"
         >{{ 'admin.dossier.publicationCleanup.openCampaign' | translate }}</a
       >
     </section>
@@ -467,6 +473,14 @@
                 class="admin-button"
                 [routerLink]="automationPath"
                 [queryParams]="params(card.publication)"
+                data-og7="publication-details"
+                [attr.data-og7-id]="card.publication?.deliveryId ?? card.key"
+                [info]="
+                  workspaceNavigation(
+                    'publication-details',
+                    card.publication?.deliveryId ?? card.key
+                  )
+                "
               >
                 {{
                   'admin.dossier.publicationBridge.schedule.details' | translate
@@ -507,6 +521,8 @@
       class="admin-button"
       [routerLink]="automationPath"
       [queryParams]="params()"
+      data-og7="publication-engine"
+      [info]="workspaceNavigation('publication-engine')"
       >{{ 'admin.dossier.publicationBridge.engine' | translate }}</a
     >
     <p>{{ 'admin.dossier.publicationBridge.authorization' | translate }}</p>

@@ -175,6 +175,36 @@ requête ciblée. Ce contexte n'accorde aucun droit supplémentaire.
 
 ## État de navigation et actualisation
 
+Une entrée contextuelle conserve un lien **Retour au dossier**, même sans
+prestation sélectionnée, sans résultat ou lorsque la lecture des campagnes
+échoue. Ce lien ne choisit ni ne crée une prestation. Les liens de l'onglet
+Publication et les références de preuve transportent leur origine dans
+`returnTo` : seul le même dossier, un onglet connu et un fragment propriétaire
+cohérent sont retenus. Une origine absente ou refusée revient à l'onglet
+Publication du dossier ciblé. Les liens propriétaires du détail continuent
+d'ouvrir la section recommandée pour la prestation choisie.
+
+Dans le même onglet navigateur, un marqueur transitoire rend le focus au lien
+connu après la relecture et le rendu du dossier. Il peut attendre le rendu
+asynchrone d'une référence de preuve ; une nouvelle navigation annule cette
+intention. Après rechargement, seul le fragment valide restitue le focus à sa
+section. Aucun sélecteur libre, destinataire, contenu ou retour imbriqué n'est
+conservé dans l'origine reconstruite. **Afficher toutes les prestations** retire
+aussi ce retour contextuel. Le modèle est partagé avec le retour de l'Assistant ;
+il n'élargit pas les destinations du menu administratif.
+
+Le 19 octobre 2026, sur `feat/ux-campaign-dossier-return`, 65 scénarios UI ciblés
+passent localement sans retry sur le build Angular production de 16:23:37
+(`America/Toronto`) :
+retours FR/EN, liste sans sélection/vide/erreur, livraison exacte, preuves,
+rechargement, annulation du focus différé et quatre retours Assistant existants.
+Les [tests Campagnes](../../tests/playwright/admin-campaigns.spec.ts),
+[Publication](../../tests/playwright/admin-sponsorship-progress.spec.ts) et
+[Automatisation](../../tests/playwright/admin-publication-automation.spec.ts)
+utilisent des réponses interceptées, sans API/DB réelles ni fournisseur externe.
+Cette preuve de branche ne vaut pas fusion, CI réussie ou déploiement ; les autres
+retours interroutes d'OUX-002 restent hors de cette correction.
+
 La route fournit la feature NgRx `adminCampaigns` et sa
 [façade de lecture](../../apps/funding-web/src/app/features/funding/services/admin-campaigns-store.service.ts).
 Le store conserve en mémoire la requête appliquée, sa page, la sélection et le

@@ -342,6 +342,74 @@ async function fixtures(page: Page, language = 'fr-CA') {
   return state;
 }
 
+for (const language of ['fr-CA', 'en'] as const) {
+  for (const state of ['multiple', 'empty', 'unavailable'] as const) {
+    test(`campaign dossier return remains available without a selected promise in ${language} with ${state} reads`, async ({
+      page
+    }) => {
+      const fixture = await fixtures(page, language);
+      fixture.empty = state === 'empty';
+      fixture.status = state === 'unavailable' ? 503 : 200;
+      await page.setViewportSize({
+        width: language === 'en' ? 390 : 1280,
+        height: 844
+      });
+      const origin = `/admin/fundraiser/sponsors?sponsorshipId=${approvedId}&tab=publication#dossier-agreement`;
+      await page.goto(
+        `${path}?sponsorshipId=${approvedId}&returnTo=${encodeURIComponent(origin)}`
+      );
+      const back = hook(page, 'campaigns-dossier-return');
+      await expect(back).toHaveAccessibleName(
+        language === 'en' ? 'Back to the dossier' : 'Retour au dossier'
+      );
+      await expect(back).toHaveAttribute('href', origin);
+      await expect(hook(page, 'campaign-preparation')).toHaveCount(0);
+      if (state === 'multiple') {
+        await expect(hook(page, 'campaign-row')).toHaveCount(2);
+        await expect(
+          page.locator('[data-og7="campaign-row"][aria-pressed="true"]')
+        ).toHaveCount(0);
+        await hook(page, 'campaigns-show-all').focus();
+        await page.keyboard.press('Enter');
+        await expect(page).toHaveURL(path);
+        await expect(back).toHaveCount(0);
+      } else if (state === 'empty')
+        await expect(hook(page, 'campaigns-empty')).toBeVisible();
+      else
+        await expect(
+          hook(page, 'campaigns-list').getByRole('alert')
+        ).toBeVisible();
+      expect(fixture.preparations).toEqual([]);
+      expect(fixture.mutations).toEqual([]);
+    });
+  }
+}
+
+test('campaign dossier return rejects foreign origins and keeps a canonical same-dossier fallback', async ({
+  page
+}) => {
+  const fixture = await fixtures(page);
+  const canonical = `/admin/fundraiser/sponsors?sponsorshipId=${approvedId}&tab=publication#dossier-publication`;
+  for (const origin of [
+    undefined,
+    `https://external.example.invalid${canonical}`,
+    canonical.replace(approvedId, futureId)
+  ]) {
+    await page.goto(
+      `${path}?sponsorshipId=${approvedId}${origin ? '&returnTo=' + encodeURIComponent(origin) : ''}`
+    );
+    await expect(hook(page, 'campaigns-dossier-return')).toHaveAttribute(
+      'href',
+      canonical
+    );
+    await expect(hook(page, 'campaign-preparation')).toHaveCount(0);
+  }
+  await page.goto(path);
+  await expect(hook(page, 'campaign-row')).toHaveCount(4);
+  await expect(hook(page, 'campaigns-dossier-return')).toHaveCount(0);
+  expect(fixture.mutations).toEqual([]);
+});
+
 test('campaigns show approved preparation first and upcoming promises without sending publications', async ({
   page
 }) => {
@@ -411,6 +479,31 @@ test('campaigns show approved preparation first and upcoming promises without se
   await expect(agreement).toHaveJSProperty('open', true);
   await expect(agreement).toContainText('synthetic-preparation-v3');
   await expect(agreement).toContainText('Version complète');
+  const deliveryId = '10000000-0000-4000-8000-000000000899';
+  fixture.rows = fixture.rows.map((row) =>
+    row.contributionId === deliveredId
+      ? { ...row, workflow: { ...row.workflow, deliveryId } }
+      : row
+  );
+  const origin = `/admin/fundraiser/sponsors?sponsorshipId=${deliveredId}&tab=publication#dossier-agreement`;
+  await page.goto(
+    `${path}?sponsorshipId=${deliveredId}&returnTo=${encodeURIComponent(origin)}`
+  );
+  const delivery = hook(page, 'campaign-delivery');
+  await expect(delivery).toHaveCount(1);
+  await delivery.focus();
+  await delivery.press('Enter');
+  await expect(page).toHaveURL(
+    (url) =>
+      url.pathname === '/admin/fundraiser/publications/automation' &&
+      url.searchParams.get('sponsorshipId') === deliveredId &&
+      url.searchParams.get('deliveryId') === deliveryId &&
+      url.searchParams.get('returnTo') === origin
+  );
+  await expect(hook(page, 'automation-dossier-return')).toHaveAttribute(
+    'href',
+    origin
+  );
   expect(fixture.mutations).toEqual([]);
 });
 
