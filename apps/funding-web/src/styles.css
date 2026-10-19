@@ -80,6 +80,7 @@ body {
 }
 
 openg7-root,
+openg7-funding-header,
 openg7-funding-page,
 openg7-funding-about-page,
 openg7-ecosystem-page,
@@ -407,7 +408,7 @@ a:focus-visible {
   .nav-contribute {
     @apply tw:min-h-11;
     padding: 0 0.55rem;
-    @apply tw:whitespace-nowrap;
+    @apply tw:max-w-28 tw:text-center tw:whitespace-normal;
   }
 }
 

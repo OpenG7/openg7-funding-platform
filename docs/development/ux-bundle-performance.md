@@ -12,19 +12,19 @@ scénarios existants des exécutions réellement vérifiées.
 
 | Mesure production                                | Avant          | Après          |
 | ------------------------------------------------ | -------------- | -------------- |
-| Graphe initial navigateur, CSS global inclus     | 899 949 octets | 505 334 octets |
-| Transfert initial estimé par Angular             | 222,11 kB      | 134,88 kB      |
+| Graphe initial navigateur, CSS global inclus     | 899 949 octets | 505 389 octets |
+| Transfert initial estimé par Angular             | 222,11 kB      | 134,90 kB      |
 | Fichier `main`                                   | 561 943 octets | 3 181 octets   |
 | Catalogues FR/EN dans les sorties initiales      | 554 181 octets | 158 593 octets |
-| CSS global initial                               | 10 114 octets  | 10 324 octets  |
+| CSS global initial                               | 10 114 octets  | 10 379 octets  |
 | Entrée des routes admin, chargée à la navigation | 3 155 octets   | 399 067 octets |
 | Plus grosse page différée : dossier commandite   | 788 313 octets | 788 280 octets |
 | Routes statiques prérendues                      | 25             | 25             |
 
-Le graphe initial baisse de **394 615 octets, soit 43,85 %**. Les seuils existants
+Le graphe initial baisse de **394 560 octets, soit 43,84 %**. Les seuils existants
 de [configuration Angular](../../angular.json) restent à 800 kB d'avertissement
 et 900 kB d'erreur : le build avant avertit à 899,95 kB ; celui après reste sous
-les deux seuils à 505,33 kB. Ici, kB signifie 1 000 octets, comme dans le rapport
+les deux seuils à 505,39 kB. Ici, kB signifie 1 000 octets, comme dans le rapport
 Angular. Le fichier `main` seul reflète aussi une nouvelle répartition entre
 chunks partagés ; le gain annoncé porte sur leur graphe initial complet.
 
@@ -52,6 +52,18 @@ La page dossier de 788 kB est déjà différée. La subdiviser ajouterait des
 frontières dans un écran partagé sans preuve de gain utile sur ce parcours ;
 ce lot conserve son découpage. Le rapport permet de suivre ce coût lors d'une
 évolution du dossier. Il ne fixe pas un objectif de taille pour chaque chunk.
+
+La réception ajoute deux corrections au header partagé. Son hôte utilise le
+contrat block/minimum de largeur nul/largeur complète déjà appliqué aux autres
+hôtes publics : le cas mobile WebKit passe de 426 à 390 px de largeur défilable
+pour un viewport de 390 px. Le CTA mobile est limité à 7 rem avec un texte
+centré pouvant occuper deux lignes. Sous Chromium Linux et ses fontes locales,
+le chevauchement de 9 px entre la marque FR et le contrôle de langue à 390 px
+devient une marge de 13,72 px ; le header reste haut de 145,80 px et les contrôles
+mesurent au moins 44 × 44 px. Les libellés et les écarts entre contrôles sont
+conservés. Ces règles ne masquent aucun débordement par découpage du contenu.
+Ces deux corrections ajoutent 55 octets au CSS global par rapport au build UX-06
+qui les précédait, soit 10 324 → 10 379 octets. Le tableau inclut ce coût.
 
 ## Reproduire
 
