@@ -88,5 +88,6 @@ Local evidence, 19 October 2026 (America/Toronto), source `fd4a930b`:
   produced one queued message, one captured email and one send audit. PostgreSQL,
   SMTP capture and payment simulation stayed inside the disposable stack.
 
-These UI results use a static built Web with intercepted API responses, not a
-running SSR server. CI, deployment and actual provider delivery remain separate.
+The 62 contextual UI cases use a static built Web with intercepted API responses.
+The Docker scenario exercises the containerized API/Web with local provider
+stubs. CI, deployment and actual external delivery remain separate.
