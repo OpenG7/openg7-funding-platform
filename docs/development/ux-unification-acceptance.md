@@ -10,6 +10,31 @@ restent propriétaires des invariants et des préconditions.
 
 Pour OUX-016, voir la [mesure des bundles](ux-bundle-performance.md).
 
+## Traçabilité des lots
+
+État constaté le **19 octobre 2026** : UX-00/01 sont fusionnés sur `main` par
+la PR #352. Les lots suivants sont préparés dans des PR ouvertes ; leur présence
+dans cette branche ne signifie ni fusion dans `main`, ni déploiement.
+Les liens des PR donnent leurs derniers contrôles CI et leurs dépendances.
+Le pack fourni reste le cadrage d'origine.
+
+<!-- prettier-ignore -->
+| Lot | OUX | Référence | Périmètre et état de réception |
+| --- | --- | --- | --- |
+| UX-00 | 001–002 | [#352](https://github.com/OpenG7/openg7-funding-platform/pull/352), [audit courant](ux-00-current-platform-audit.md) | Cartographie et écarts sur `main` ; retour Assistant vers onglet/fragment/focus initial non qualifié. |
+| UX-01 | 003–006 | [#352](https://github.com/OpenG7/openg7-funding-platform/pull/352), [capacités et incertitude](ux-01-admin-capabilities-and-uncertainty.md) | Capacités financières et blocage des reprises incertaines sur `main` ; contrats de reçu manquants conservés comme limites. |
+| UX-02 | 007–008 | [#353](https://github.com/OpenG7/openg7-funding-platform/pull/353) | Modes administratifs, couches et focus implémentés en branche ; PR ouverte. |
+| UX-03 | 009–011 | [#354](https://github.com/OpenG7/openg7-funding-platform/pull/354), [guide du dossier](../admin-sponsorship-editing.md) | En-tête, prochaine action et identité/médias implémentés en branche ; PR ouverte. |
+| UX-04 | 012–013 | [#355](https://github.com/OpenG7/openg7-funding-platform/pull/355), [Campagnes](../technical/admin-campaigns.md) | Navigation Publication, preuves et états documentaires en branche ; version historique d'accord absente et observation Web déclarative explicites. |
+| UX-05 | 014–015 | [#356](https://github.com/OpenG7/openg7-funding-platform/pull/356), [suivi privé](../sponsorship-access-and-drafts.md) | Suivi, récupération, droits média et audio FR/EN implémentés en branche ; PR ouverte. |
+| UX-06 | 016–017 | [#357](https://github.com/OpenG7/openg7-funding-platform/pull/357), [mesures](ux-bundle-performance.md) | Bundle et réception qualifiés localement ci-dessous ; CI complète et intégration à confirmer dans la PR. |
+
+Les limites inventoriées dans l'[audit UX-00](ux-00-current-platform-audit.md)
+(contrats de reçu de certaines mutations et qualification du retour interroute
+de l'Assistant) restent des écarts déclarés. La sélection locale ci-dessous ne
+les transforme pas en garanties livrées. Les limites matérielles et externes
+figurent en fin de document.
+
 ## Niveaux de preuve
 
 | Niveau                | Exécution                                                                                                       | Limite                                                                  |
@@ -128,6 +153,45 @@ sont reprises dans cette branche. Leur passage local a validé 26 scénarios ave
 API/PostgreSQL jetables et fournisseurs simulés ; le compactage mobile a ensuite
 été qualifié par huit scénarios UI développement. La fusion de ces recettes
 ne change aucun fichier applicatif par rapport à `9328269e`.
+
+### Réception des corrections CI
+
+Les styles du commit `b6df4f1321276e55acb696a48bba6020f6517641` corrigent
+deux écarts détectés dans la première CI UX-06 : largeur défilable WebKit
+de 426 px pour un viewport de 390 px et chevauchement du texte de marque
+sous Chromium Linux. Le build production du **19 octobre 2026** pré-rend
+25 routes ; son graphe initial atteint **505 389 octets**. Les causes et les
+mesures avant/après figurent dans le [rapport de performance](ux-bundle-performance.md).
+
+Les contre-épreuves suivantes utilisent ce build figé, avec API interceptées
+et `Audio` synthétique, sans diffusion ni effet externe :
+
+| Contrôle                         | Résultat        | Configuration et preuve locale                                                                                                                |
+| -------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| En-tête musical mobile           | 16/16           | FR/EN, 320/390 px, quatre navigateurs ; `test-results/ux06-header-cta-final`                                                                  |
+| Impression de la politique       | 8/8             | FR/EN, quatre navigateurs ; `test-results/ux06-policy-print-cta-final`                                                                        |
+| Premier champ privé              | 2/2             | FR/EN, 390 × 844 px ; `test-results/ux06-first-field-cta-final`                                                                               |
+| En-tête sous Linux               | 4/4             | Chromium, FR/EN, 320/390 px ; journal `%TEMP%/og7-pr357-linux-header-cta-final.log` et captures `%TEMP%/og7-pr357-linux-header/results-final` |
+| Transparence publique            | 68/68           | Quatre navigateurs ; `tests/playwright-transparency-ui.config.mjs`, `test-results/pr357-transparency-cta-final`                               |
+| Cas WebKit initialement en échec | 3/3 répétitions | FR, WebKit mobile, 390 × 844 px, filtre de remboursements puis navigation/clavier ; `test-results/pr357-transparency-cta-final-repeat`        |
+
+Les captures finales ont été relues. À 390 × 844 px sous Chromium Windows,
+le champ privé FR se termine à 742,45 px, soit 101,55 px avant le bas du
+viewport ; le champ EN se termine à 716,86 px, sans défilement initial.
+Sous Chromium Linux, la marque FR et le bouton de langue sont séparés de
+13,72 px ; les cibles mesurées font au moins 44 × 44 px. Les sorties Linux
+proviennent d'un conteneur jetable sans réseau ni port publié, avec build
+monté en lecture seule et sans interception des styles compilés.
+
+Cette révision intègre aussi l'ordre des imports corrigé dans le parent
+UX-05 (`2503778f`), sans changer les assertions ni les séquences des recettes.
+Le lint complet rejoué après cette intégration réussit, avec le seul
+avertissement préexistant de `scripts/smoke-public.mjs` ; journal local
+`%TEMP%/og7-pr357-integrated-import-order-lint.log`.
+Les 7 230 tests Node ci-dessus restent associés à `9328269e` : ils ne sont pas
+présentés comme une nouvelle exécution après ces changements CSS et d'imports.
+Le dernier résultat de toute la CI est consultable dans la
+[PR UX-06](https://github.com/OpenG7/openg7-funding-platform/pull/357).
 
 Limites connues au 19 octobre 2026 :
 
