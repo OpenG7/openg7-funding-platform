@@ -2500,6 +2500,66 @@ test('logo upload rejects invalid files, reports definite failure and deletion i
   expect(postsTo(calls, '/logo/delete')).toHaveLength(0);
 });
 
+test('media summary hides previous counters while refresh is pending and after a failed read', async ({
+  page
+}) => {
+  const { calls, options } = await fixtures(page, 'reader');
+  options.media = [mediaAsset()];
+  const writes: string[] = [];
+  page.on('request', (request) => {
+    if (request.method() === 'POST')
+      writes.push(new URL(request.url()).pathname);
+  });
+  await page.goto(path('identity'));
+  const summary = page.locator('[data-og7="dossier-media-summary"]');
+  const fileCount = summary.locator('[data-og7="dossier-media-file-count"]');
+  const blockedCount = summary.locator(
+    '[data-og7="dossier-media-blocked-count"]'
+  );
+  await expect(fileCount).toHaveText('Fichiers : 1');
+  await expect(blockedCount).toBeVisible();
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(
+    (url) => url.pathname === '/api/admin/sponsorships/media/workspace',
+    async (route) => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      await gate;
+      return route.fulfill({
+        status: 503,
+        json: { error: 'Synthetic media summary read failure' }
+      });
+    }
+  );
+  try {
+    const refreshed = page.waitForRequest(
+      (request) =>
+        request.method() === 'GET' &&
+        new URL(request.url()).pathname ===
+          '/api/admin/sponsorships/media/workspace'
+    );
+    await page.locator('[data-og7="media-refresh"]').click();
+    await refreshed;
+    await expect(summary).toContainText('Chargement du résumé média…');
+    await expect(fileCount).toHaveCount(0);
+    await expect(blockedCount).toHaveCount(0);
+    expect(writes).toEqual([]);
+  } finally {
+    release();
+  }
+  await expect(summary).toContainText('Résumé média indisponible.');
+  await expect(summary).not.toContainText('Chargement du résumé média…');
+  await expect(fileCount).toHaveCount(0);
+  await expect(blockedCount).toHaveCount(0);
+  await expect(
+    page.locator('[data-og7="media-workspace-error"]')
+  ).toBeVisible();
+  expect(calls.every((call) => call.method === 'GET')).toBe(true);
+  expect(writes).toEqual([]);
+});
+
 test('failed media approval preserves its text and permits another preflight without replaying a mutation', async ({
   page
 }) => {
@@ -3385,7 +3445,9 @@ test('five dossier workspaces use direct URLs; invoice is complete before review
     .getByRole('button', { name: 'Fiche et médias', exact: true })
     .click();
   await expect(
-    page.getByRole('heading', { name: 'Revue des médias' })
+    page
+      .locator('[data-og7="media-review-workspace"]')
+      .getByRole('heading', { name: 'Revue des médias', exact: true })
   ).toBeVisible();
   await page.reload();
   await expect(
@@ -3729,6 +3791,9 @@ test('a delayed section response cannot move focus into a newly selected dossier
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(path() + '#dossier-review');
     await expect(progress(page)).toHaveAttribute('aria-busy', 'true');
+    await expect(
+      page.locator('[data-og7="dossier-recommendation"]')
+    ).toHaveCount(0);
     await page.locator('[data-og7="dossier-back"]').click();
     await page
       .locator('[data-og7="sponsors-list"]')
@@ -3740,6 +3805,13 @@ test('a delayed section response cannot move focus into a newly selected dossier
     await expect(progress(page)).toHaveAttribute('aria-busy', 'false');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(
       'Atelier Rivage'
+    );
+    await expect(
+      page.locator('[data-og7="dossier-recommendation"]')
+    ).toHaveCount(1);
+    await expect(dossierNext(page)).toHaveAttribute(
+      'href',
+      path('overview', secondId) + '#dossier-review'
     );
     // The new dossier uses normal router scrolling; wait for its smooth return to the top.
     await expect.poll(() => page.evaluate(() => scrollY)).toBe(0);
@@ -3763,6 +3835,13 @@ test('a delayed section response cannot move focus into a newly selected dossier
     await expect(detail).toBeFocused();
     await expect(page.locator('#dossier-review')).not.toBeFocused();
     await expect(page).toHaveURL(path('overview', secondId));
+    await expect(
+      page.locator('[data-og7="dossier-recommendation"]')
+    ).toHaveCount(1);
+    await expect(dossierNext(page)).toHaveAttribute(
+      'href',
+      path('overview', secondId) + '#dossier-review'
+    );
     await expect
       .poll(() => page.evaluate(() => scrollY))
       .toBeCloseTo(before, 0);
@@ -4019,10 +4098,16 @@ test('denied progress clears facts and expired session returns to login', async 
   const { options } = await fixtures(page);
   await page.goto(path('billing'));
   await expect(page.locator('#dossier-billing')).toContainText('FAC-DEMO-401');
+  await expect(page.locator('[data-og7="dossier-recommendation"]')).toHaveCount(
+    1
+  );
   options.status = 403;
   await page.locator('[data-og7="dossier-refresh"]').click();
   await expect(progress(page).getByRole('alert')).toBeVisible();
   await expect(progress(page).getByRole('alert')).toContainText('pas accès');
+  await expect(page.locator('[data-og7="dossier-recommendation"]')).toHaveCount(
+    0
+  );
   await expect(page.locator('#dossier-billing')).toHaveCount(0);
   options.status = 401;
   await page.locator('[data-og7="dossier-refresh"]').click();
@@ -4035,6 +4120,9 @@ test('refreshing progress clears invoice facts until the server responds', async
   const { options, calls } = await fixtures(page);
   await page.goto(path('billing'));
   await expect(page.locator('#dossier-billing')).toContainText('FAC-DEMO-401');
+  await expect(page.locator('[data-og7="dossier-recommendation"]')).toHaveCount(
+    1
+  );
   let release!: () => void;
   options.progressGate = new Promise<void>((resolve) => {
     release = resolve;
@@ -4047,12 +4135,18 @@ test('refreshing progress clears invoice facts until the server responds', async
       'Chargement du dossier'
     );
     await expect(page.locator('#dossier-billing')).toHaveCount(0);
+    await expect(
+      page.locator('[data-og7="dossier-recommendation"]')
+    ).toHaveCount(0);
     expect(calls.filter((call) => call.method === 'POST')).toHaveLength(0);
   } finally {
     release();
     options.progressGate = null;
   }
   await expect(page.locator('#dossier-billing')).toContainText('FAC-DEMO-401');
+  await expect(page.locator('[data-og7="dossier-recommendation"]')).toHaveCount(
+    1
+  );
 });
 
 test('English compact dossier supports keyboard at mobile width without horizontal overflow', async ({
@@ -4536,13 +4630,20 @@ for (const width of [1280, 390]) {
     await expect(
       journey.locator('[data-og7="publication-social-notice"]')
     ).toHaveCount(0);
+    await tabs(page)
+      .getByRole('button', { name: 'Aperçu', exact: true })
+      .click();
     const blockers = page.locator('[data-og7="publication-blockers"]');
-    await blockers.locator('summary').click();
+    await expect(blockers).toBeVisible();
     await expect(
       blockers.getByRole('link', {
         name: 'Vérifier et approuver les médias requis par les engagements'
       })
     ).toHaveAttribute('href', path('media') + '#dossier-media');
+    await tabs(page)
+      .getByRole('button', { name: 'Publication', exact: true })
+      .click();
+    await expect(blockers).toHaveCount(0);
     await expect(
       journey.locator('[data-og7="publication-review"]')
     ).toHaveAccessibleName('Vérifier et autoriser');

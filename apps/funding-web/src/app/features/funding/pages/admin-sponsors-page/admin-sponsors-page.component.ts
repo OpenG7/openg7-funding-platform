@@ -220,11 +220,19 @@ export class AdminSponsorsPageComponent implements OnInit {
           this.selectedSponsorshipId() !== sponsorshipId
         )
           return;
-        this.sponsorDetailPanel?.nativeElement
-          .querySelector<HTMLElement>(
+        const trigger =
+          this.sponsorDetailPanel?.nativeElement.querySelector<HTMLElement>(
             `[data-og7="dossier-tool-toggle"][data-og7-id="${tool}"]`
-          )
-          ?.focus({ preventScroll: true });
+          );
+        if (!trigger) return;
+        trigger.focus({ preventScroll: true });
+        const rect = trigger.getBoundingClientRect();
+        const visible = trigger.ownerDocument.elementFromPoint(
+          rect.left + rect.width / 2,
+          rect.top + rect.height / 2
+        );
+        if (!visible || !trigger.contains(visible))
+          trigger.scrollIntoView({ block: 'center', behavior: 'instant' });
       },
       { injector: this.injector }
     );

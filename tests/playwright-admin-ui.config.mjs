@@ -21,6 +21,7 @@ export default defineBuiltWebSuite({
     'admin-document-resend-ui.spec.ts',
     'admin-financial-capabilities.ui.spec.ts',
     'admin-shell-layers.ui.spec.ts',
+    'admin-dossier-v2.ui.spec.ts',
     'admin-dashboard-layout.spec.ts',
     'admin-typography.spec.ts',
     'admin-style-primitives.spec.ts',

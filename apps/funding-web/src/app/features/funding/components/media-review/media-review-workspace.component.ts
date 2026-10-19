@@ -71,6 +71,7 @@ import { MediaReviewHistoryComponent } from './media-review-history.component.js
 })
 export class MediaReviewWorkspaceComponent {
   readonly contributionId = input.required<string>();
+  readonly headingLevel = input<3 | 4>(3);
   readonly disabled = input(false);
   readonly changed = output<void>();
   readonly busyChange = output<boolean>();

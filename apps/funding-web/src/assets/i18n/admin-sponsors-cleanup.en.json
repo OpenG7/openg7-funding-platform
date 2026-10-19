@@ -1,5 +1,25 @@
 {
   "assistant": "Open the Assistant for this dossier",
+  "recommendation": {
+    "owner": "Responsible party",
+    "ownerUnknown": "Responsibility to be determined",
+    "consequence": "This intervention lets the review continue. The other checks remain independent.",
+    "source": "Guidance from the dossier progress projection."
+  },
+  "blockers": {
+    "title": "Blockers and follow-up points",
+    "order": "Shown by domain: identity, review, media, preparation, publication, finance.",
+    "showAll": "View all follow-up points",
+    "showLess": "Show three families",
+    "families": {
+      "identity": "Identity and consent",
+      "review": "Sponsor review",
+      "media": "Media and rights",
+      "preparation": "Preparation and agreement",
+      "publication": "Visibility and delivery",
+      "finance": "Finance and operations"
+    }
+  },
   "moderation": "Editorial moderation",
   "help": "Dossier step-by-step help",
   "access": "Follow-up access",

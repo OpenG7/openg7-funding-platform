@@ -6,12 +6,14 @@
 
 .detail-body {
   @apply tw:grid tw:min-w-0;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--admin-card-gap);
   padding: 0;
 }
 
 .detail-card {
   @apply tw:grid tw:min-w-0;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--admin-card-gap);
   padding: var(--admin-card-padding);
   border: 1px solid var(--admin-border);
@@ -20,13 +22,16 @@
 }
 
 .detail-card h3 {
+  min-width: 0;
   margin: 0;
   font-size: var(--admin-section-size);
   font-weight: var(--admin-section-weight);
+  overflow-wrap: anywhere;
 }
 
 .refund-summary-header {
   @apply tw:flex tw:flex-wrap tw:items-start tw:justify-between tw:gap-4;
+  min-width: 0;
 }
 
 .refund-workflow-status {
@@ -108,12 +113,14 @@ code {
 }
 
 .refund-empty-state {
+  min-width: 0;
   margin: 0;
   padding: 0.875rem 1rem;
   border-inline-start: 3px solid var(--admin-border);
   border-radius: var(--admin-radius-control);
   background: var(--admin-subtle);
   color: var(--admin-muted);
+  overflow-wrap: anywhere;
 }
 
 .compact-definition-list {

@@ -3,14 +3,17 @@
   id="dossier-identity"
   class="identity-layout admin-focus-target"
   tabindex="-1"
-  [attr.aria-label]="'admin.dossier.tabs.identity' | translate"
+  aria-labelledby="dossier-identity-section-title"
 >
+  <h3 id="dossier-identity-section-title" class="section-title">
+    {{ 'admin.dossier.identityHelp.sectionTitle' | translate }}
+  </h3>
   <section class="profile-card" aria-labelledby="dossier-identity-title">
     <header class="identity-heading">
       <div class="identity-title">
-        <h3 id="dossier-identity-title">
+        <h4 id="dossier-identity-title">
           {{ 'admin.dossier.identityHelp.coordinates' | translate }}
-        </h3>
+        </h4>
         <span
           class="identity-state"
           data-og7="identity-coordinates-state"
@@ -86,9 +89,9 @@
 
   <section class="profile-card" aria-labelledby="identity-submission-title">
     <header class="identity-heading">
-      <h3 id="identity-submission-title">
+      <h4 id="identity-submission-title">
         {{ 'admin.dossier.identityHelp.submission' | translate }}
-      </h3>
+      </h4>
       <span
         class="identity-state"
         data-og7="identity-submission-state"

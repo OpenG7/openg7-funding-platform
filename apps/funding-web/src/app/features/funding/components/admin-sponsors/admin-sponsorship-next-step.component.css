@@ -21,27 +21,10 @@ p {
   @apply tw:w-full tw:text-center;
   white-space: normal;
 }
-.workflow-summary,
-.action-details {
-  border-top: 1px solid var(--admin-border);
-  padding-top: 0.75rem;
-}
-.action-details summary {
-  cursor: pointer;
-  padding-block: 0.5rem;
-  font-weight: var(--admin-label-weight);
-}
-.action-details ul {
-  padding-inline-start: 1.25rem;
-  margin-bottom: 0;
-}
-.action-details li + li {
-  margin-top: 0.5rem;
-}
-.action-details a {
+.blocker-family a {
   color: var(--admin-accent);
 }
-.action-details :is(a, summary):focus-visible {
+.blocker-family a:focus-visible {
   outline: 3px solid var(--admin-focus);
   outline-offset: 2px;
 }
@@ -84,13 +67,75 @@ p {
   order: -1;
   flex: 1 1 16rem;
 }
-.embedded.workspace .workflow-summary {
-  flex: 1 1 16rem;
+.embedded.workspace.recommendation {
+  padding: 1.25rem;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-card);
+  background: var(--admin-panel);
+  align-items: start;
 }
-.embedded.workspace .action-details {
+.recommendation .next-copy {
+  flex-basis: 100%;
+}
+.recommendation .next-copy > strong {
+  font-family: var(--admin-heading-font-family);
+  font-size: var(--admin-section-size);
+}
+.recommendation .responsibility {
+  margin-top: 0.75rem;
+}
+.responsibility > span {
+  display: block;
+  font-weight: var(--admin-label-weight);
+}
+.projection-source,
+.blocker-summary {
   flex: 1 1 100%;
+  min-width: 0;
+}
+.recommendation .projection-source {
+  color: var(--admin-muted);
+  margin: 0;
+}
+.blocker-summary {
+  border-top: 1px solid var(--admin-border);
+  padding-top: 1rem;
+}
+.blocker-summary h3,
+.blocker-family h4 {
+  margin: 0;
+  font-size: inherit;
+  font-weight: var(--admin-label-weight);
+}
+.blocker-families {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-block: 1rem;
+}
+.blocker-family {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-card);
+  background: var(--admin-subtle);
+  overflow-wrap: anywhere;
+}
+.blocker-family ul {
+  margin: 0.75rem 0 0;
+  padding-inline-start: 1.1rem;
+}
+.blocker-family li + li {
+  margin-top: 0.75rem;
+}
+.fact-state {
+  display: block;
+  font-weight: var(--admin-label-weight);
 }
 @media (max-width: 600px) {
+  .blocker-families {
+    grid-template-columns: 1fr;
+  }
   .embedded.compact > .admin-button {
     @apply tw:w-full;
   }
