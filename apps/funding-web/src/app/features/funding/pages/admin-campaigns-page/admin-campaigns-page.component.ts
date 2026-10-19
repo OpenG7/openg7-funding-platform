@@ -224,6 +224,12 @@ export class AdminCampaignsPageComponent {
       : null;
   }
 
+  evidenceVersion(value: number | null | undefined): number | null {
+    return typeof value === 'number' && Number.isSafeInteger(value) && value > 0
+      ? value
+      : null;
+  }
+
   workflowReason(row: AdminCampaignItem): string {
     const reasons: Readonly<Record<string, string>> =
       this.i18n.currentLanguage() === 'en'

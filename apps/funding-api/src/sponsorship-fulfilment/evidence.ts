@@ -60,6 +60,8 @@ export async function listSponsorshipFulfilmentEvidence(
     id: string;
     obligationId: string;
     deliveryId: string | null;
+    obligationVersion: number;
+    deliveryVersion: number | null;
     channel: SponsorshipFulfilmentEvidence['channel'];
     target: SponsorshipFulfilmentEvidence['target'];
     provenance: SponsorshipFulfilmentEvidence['provenance'];
@@ -68,7 +70,9 @@ export async function listSponsorshipFulfilmentEvidence(
     visibility: SponsorshipFulfilmentEvidence['visibility'] | null;
     observed_at: Date | null;
   }>(
-    `SELECT e.id,e.obligation_id AS "obligationId",e.delivery_id AS "deliveryId",e.channel,e.target,e.provenance,e.delivered_at,e.external_post_url AS "externalPostUrl",
+    `SELECT e.id,e.obligation_id AS "obligationId",e.delivery_id AS "deliveryId",
+      e.obligation_version AS "obligationVersion",e.delivery_version AS "deliveryVersion",
+      e.channel,e.target,e.provenance,e.delivered_at,e.external_post_url AS "externalPostUrl",
       v.state AS visibility,v.observed_at FROM sponsorship_fulfilment_evidence e
       LEFT JOIN LATERAL (SELECT state,observed_at FROM sponsorship_fulfilment_visibility WHERE evidence_id=e.id ORDER BY observed_at DESC,id DESC LIMIT 1) v ON TRUE
       WHERE e.contribution_id=$1::uuid ORDER BY e.delivered_at,e.id`,

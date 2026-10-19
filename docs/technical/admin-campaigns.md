@@ -138,6 +138,18 @@ réalisation. La vérification de réalisation Web ne garantit pas une lecture H
 de la page publique. La version historique de l'accord associée à la preuve n'est
 pas renseignée par le contrat actuel ; aucune version courante ne lui est substituée.
 
+<a id="versions-historiques-des-preuves"></a>
+
+Le complément OUX-013 est implémenté et qualifié localement sur
+`feat/ux-agreement-evidence-version`.
+Le détail affiche la **Version de la prestation lors de la réalisation** et la
+**Version de livraison lors de la réalisation** depuis les versions conservées
+dans la preuve. Ces valeurs historiques ne sont ni la version courante de la
+prestation ou de la livraison, ni une version de l'accord global. Si un ancien
+contrat API omet ces champs, l'interface affiche **Non renseignée**. Une preuve
+Web sans livraison sociale affiche **Sans livraison sociale**, sans version zéro.
+Cette qualification locale ne vaut ni CI complète, ni fusion, ni déploiement.
+
 Dans l'accord du dossier, une référence qualifiée ouvre Campagnes avec le dossier
 et la prestation exacts. Une référence historique non qualifiée reste du texte,
 sans lien présentant une livraison comme confirmée. Le lien et l'état livré
@@ -266,3 +278,26 @@ fournisseur et ne qualifie pas la production.
 
 Le registre administratif conserve 18 garanties : A02 rattache cette lecture
 privée et sa révocation au scénario réel ; A17 conserve l’inventaire de la route.
+
+Le 19 octobre 2026, le complément de versions historiques sur
+`feat/ux-agreement-evidence-version` est vérifié par la suite Node complète
+(7 245 tests réussis, 8 ignorés) et 13 tests d'intégration PostgreSQL des fichiers
+`sponsorship-fulfilment.integration.mjs` et `admin-campaigns.integration.mjs`.
+Ces derniers distinguent la version capturée de la prestation courante incrémentée,
+la livraison Web absente et la projection HTTP. Le fichier Campagnes complet
+réussit ses 17 cas UI, dont les quatre cas enrichis FR/EN à 1536 et 390 px :
+versions historiques 3/11 distinctes de la préparation courante, ancien contrat
+sans champs de version et preuve Web sans livraison sociale. Les captures à
+390 px sont relues ; les deux libellés et valeurs restent lisibles.
+Le build Angular de production utilisé est celui du 19 octobre à 20:18 UTC,
+sans reconstruction pendant la recette et sans retry. Le typage des tests UI
+réussit également. Journaux locaux :
+`%TEMP%/og7-agreement-evidence-ui-qualified.log` (4 cas ciblés),
+`%TEMP%/og7-agreement-evidence-ui-full.log` (17 cas, incluant les quatre précédents)
+et `%TEMP%/og7-agreement-evidence-admin-ui-typecheck.log`.
+La sélection plateforme réussit également ses 28 cas sur Chromium, Firefox,
+WebKit et WebKit mobile : SSR sans JavaScript, absence de modules et de locales
+admin dans l'entrée publique FR/EN, entrée administrative directe avec changements
+de langue et récupération 404 FR/EN. Journal :
+`%TEMP%/og7-agreement-evidence-platform-final.log`.
+Ces résultats locaux ne qualifient ni la CI complète, ni la fusion, ni la production.
