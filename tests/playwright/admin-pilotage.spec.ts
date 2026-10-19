@@ -369,7 +369,7 @@ for (const language of ['fr-CA', 'en']) {
         // Both ends must remain reachable without cropping the heading itself.
         for (const block of ['start', 'end'] as const) {
           // Container queries can settle after the first scroll following text
-          // enlargement. Retry the native scroll against its resulting bounds.
+          // enlargement. Retry the native scroll and browser intersection together.
           await expect(async () => {
             await title.evaluate(
               (el, block) => el.scrollIntoView({ block, behavior: 'instant' }),
@@ -393,8 +393,8 @@ for (const language of ['fr-CA', 'en']) {
                 headingBounds.y + headingBounds.height
               ).toBeLessThanOrEqual(frameBounds.y + frameBounds.height + 1);
             }
+            await expect(title).toBeInViewport({ timeout: 150 });
           }).toPass({ timeout: 7000 });
-          await expect(title).toBeInViewport();
         }
         for (const action of await actions.all()) {
           // Center the native scroll so fractional rem borders at 200% remain visible.
