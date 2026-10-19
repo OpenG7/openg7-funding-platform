@@ -1769,7 +1769,21 @@ for (const { width, concentrated, placement } of [
           .getBoundingClientRect();
         const focused = document.activeElement as HTMLElement;
         const heading = focused.getBoundingClientRect();
-        const top = Math.max(0, frame.top);
+        let top = Math.max(0, frame.top);
+        const intro = document.querySelector('[data-og7="pilot-intro"]');
+        const introBounds = intro?.getBoundingClientRect();
+        // A sticky heading occupies part of the scrollport. Reserve its actual
+        // visible bounds before deciding whether the whole zone can fit.
+        if (
+          intro &&
+          introBounds &&
+          getComputedStyle(intro).position === 'sticky' &&
+          introBounds.left < rect.right &&
+          introBounds.right > rect.left &&
+          introBounds.top <= top &&
+          introBounds.bottom > top
+        )
+          top = introBounds.bottom;
         const bottom = Math.min(
           innerHeight,
           frame.bottom,
@@ -1811,6 +1825,17 @@ for (const { width, concentrated, placement } of [
           zone: { top: rect.top, bottom: rect.bottom, height: rect.height },
           viewport: { top, bottom, availableHeight },
           card: { top: card.top, bottom: card.bottom },
+          heading: { top: heading.top, bottom: heading.bottom },
+          hitPoints: points.map(({ x, y }) => {
+            const front = document.elementFromPoint(x, y);
+            return {
+              x,
+              y,
+              front: front?.tagName,
+              hook: front?.getAttribute('data-og7'),
+              parentHook: front?.parentElement?.getAttribute('data-og7')
+            };
+          }),
           focusedWithin: element.contains(focused),
           wholeZoneFits,
           wholeZoneVisible: rect.top >= top + 6 && rect.bottom <= bottom - 6,
@@ -1829,7 +1854,7 @@ for (const { width, concentrated, placement } of [
           })
         };
       });
-      expect(visibility).toMatchObject({
+      expect(visibility, JSON.stringify(visibility)).toMatchObject({
         focusedWithin: true,
         pointsVisible: true
       });

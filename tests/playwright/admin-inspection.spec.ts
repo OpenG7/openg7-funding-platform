@@ -788,7 +788,13 @@ test('all admin routes share a single layout, translated headings and mobile wid
         name: 'Switch administration language to English'
       })
       .click();
-    if (
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    if (route === '') {
+      await expect(page.locator('h1')).toHaveText('Cockpit');
+      await expect(
+        page.locator('[data-og7="admin-workspace-mode"]')
+      ).toHaveText('Observe');
+    } else if (
       !['audit', 'contributions', 'assistant'].includes(route) &&
       !route.startsWith('publications')
     )
@@ -796,5 +802,10 @@ test('all admin routes share a single layout, translated headings and mobile wid
     await page
       .getByRole('button', { name: 'Passer l’administration en français' })
       .click();
+    await expect(page.locator('html')).toHaveAttribute('lang', 'fr-CA');
+    if (route === '')
+      await expect(
+        page.locator('[data-og7="admin-workspace-mode"]')
+      ).toHaveText('Observer');
   }
 });
