@@ -9,6 +9,12 @@ le parcours spécialisé. Les raccourcis du pilotage sont neutralisés lorsque
 le focus est dans la navigation globale ou la recherche; le retour aux décisions
 exige de relâcher la manette.
 
+Les quatre entrées du cadre administratif précisent leur rôle : **Cockpit —
+Observer**, **À traiter — Prioriser**, **Poste de pilotage — Décider** et
+**Assistant — Préparer**. Le repère Décider reste visible en concentration;
+l'Assistant conserve Préparer lorsqu'un dossier est sélectionné. Les liens
+rejoignent les écrans propriétaires existants, avec leurs droits et confirmations.
+
 Un rappel de créneau, lot ou brouillon sans livraison renvoie à son dossier ;
 il ne propose pas une décision de modération pour `publication_delivery`.
 Une livraison réelle conserve son panneau lié à son identifiant exact.
@@ -561,6 +567,14 @@ globaux reprennent la main lorsqu’ils sont sélectionnés. Le dialogue au-dess
 des autres possède le focus ; B ferme seulement ce dialogue. A respecte le bouton
 sélectionné, y compris **Annuler**. Toute activation exige un relâchement ;
 changement de page, de contexte ou de périphérique impose le retour au neutre.
+
+Au clavier, une pression sur **Échap** ferme seulement le panneau supérieur
+quand sa fermeture est permise. Maintenir cette touche ne ferme pas le panneau
+parent après le retour du focus : il faut relâcher puis appuyer de nouveau.
+Une opération en cours conserve son verrou de fermeture. Les confirmations
+communes gardent leurs boutons d'annulation et d'accord dans un pied fixe;
+le message et la cible peuvent défiler séparément. Les dialogues natifs
+conservent leur priorité au-dessus du contenu et des outils flottants.
 
 Les tests de parcours manette sont définis dans
 `tests/playwright/admin-controller-journeys.spec.ts`. Les recettes personnelles

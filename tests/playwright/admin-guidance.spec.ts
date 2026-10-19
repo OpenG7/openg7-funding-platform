@@ -1450,9 +1450,7 @@ for (const language of ['fr-CA', 'en']) {
       await page.emulateMedia({ reducedMotion: 'reduce' });
       await page.goto(dashboardPath);
       await hook(page, 'toggle').click();
-      await expect(hook(page, 'page')).toContainText(
-        language === 'en' ? 'Dashboard' : 'Tableau de bord'
-      );
+      await expect(hook(page, 'page')).toContainText('Cockpit');
       await expect(hook(page, 'panel')).not.toContainText('admin.guidance.');
       await expect(page.locator('[data-og7="admin-guidance"]')).toHaveCSS(
         'animation-name',

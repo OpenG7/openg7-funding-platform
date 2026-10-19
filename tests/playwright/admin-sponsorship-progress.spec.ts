@@ -3975,7 +3975,7 @@ test('cockpit remembers selected dossier for this session and clears it on logou
   await expect(progress(page)).toBeHidden();
   await page
     .getByRole('navigation', { name: 'Navigation admin du fonds' })
-    .getByRole('link', { name: 'Tableau de bord', exact: true })
+    .getByRole('link', { name: 'Cockpit', exact: true })
     .click();
   await expect(progress(page)).toContainText('Atelier Rivage');
   expect(

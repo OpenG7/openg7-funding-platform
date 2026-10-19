@@ -12,3 +12,7 @@
 h1 {
   @apply tw:text-admin-text tw:m-0 tw:min-w-0 tw:wrap-anywhere;
 }
+.subtitle {
+  @apply tw:text-admin-muted;
+  margin: 0.5rem 0 0;
+}

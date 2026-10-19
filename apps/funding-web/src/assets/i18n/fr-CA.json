@@ -1435,6 +1435,12 @@
         "publication_reliability_incident": "La livraison de publication demande une réconciliation avant toute nouvelle tentative."
       }
     },
+    "modes": {
+      "observe": "Observer",
+      "prioritize": "Prioriser",
+      "decide": "Décider",
+      "prepare": "Préparer"
+    },
     "nav": {
       "attention": "À traiter",
       "label": "Navigation admin du fonds",
@@ -1446,7 +1452,7 @@
       "operations": "Opérations",
       "finance": "Finances",
       "system": "Système",
-      "dashboard": "Tableau de bord",
+      "dashboard": "Cockpit",
       "assistant": "Assistant",
       "contributions": "Contributions",
       "sponsors": "Commandites",
@@ -1826,7 +1832,7 @@
       "toFrench": "Passer l’administration en français"
     },
     "dashboard": {
-      "title": "Centre de pilotage",
+      "title": "Cockpit",
       "subtitle": "Vue d’ensemble du fonds et de vos opérations.",
       "refresh": "Actualiser",
       "loading": "Actualisation du tableau de bord…",

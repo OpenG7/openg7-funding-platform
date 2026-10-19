@@ -3,7 +3,12 @@
     <header class="page-heading">
       <div>
         <h1>{{ 'admin.dashboard.title' | translate }}</h1>
-        <p class="subtitle">{{ 'admin.dashboard.subtitle' | translate }}</p>
+        <p class="subtitle">
+          <strong data-og7="admin-workspace-mode" data-og7-id="observe">{{
+            'admin.modes.observe' | translate
+          }}</strong>
+          · {{ 'admin.dashboard.subtitle' | translate }}
+        </p>
       </div>
       <div class="page-actions">
         <button

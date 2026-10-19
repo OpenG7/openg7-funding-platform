@@ -10,9 +10,7 @@ test.describe('Docker admin dashboard', () => {
     await signInAsAdmin(page);
     await page.goto('/admin/fundraiser');
 
-    await expect(
-      page.getByRole('heading', { name: 'Centre de pilotage' })
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Cockpit' })).toBeVisible();
     await expect(
       page.getByText('Montants encaissés', { exact: true })
     ).toBeVisible();
@@ -48,9 +46,7 @@ test.describe('Docker admin dashboard', () => {
     await expect(
       page.getByText(/Impossible de charger le tableau de bord/i)
     ).not.toBeVisible();
-    await expect(
-      page.getByRole('heading', { name: 'Centre de pilotage' })
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Cockpit' })).toBeVisible();
     await expect(
       page.getByText('Montants encaissés', { exact: true })
     ).toBeVisible();
