@@ -351,11 +351,17 @@ async function openAdminRights(page: Page): Promise<void> {
   await summary.focus();
   await page.keyboard.press('Enter');
   await expect(summary.locator('..')).toHaveJSProperty('open', true);
-  await inspector
-    .getByRole('button', {
-      name: /^(Personnaliser les autorisations|Customize permissions)$/
-    })
-    .click();
+  const customize = inspector.getByRole('button', {
+    name: /^(Personnaliser les autorisations|Customize permissions)$/
+  });
+  // Native keyboard activation avoids moving pointer coordinates during mobile scrolling.
+  await expect(customize).toBeVisible();
+  await customize.focus();
+  await expect(customize).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(
+    page.locator('dialog[open] [data-og7="media-usage-editor"]')
+  ).toBeVisible();
 }
 interface AdminContext {
   fixtures(

@@ -415,7 +415,10 @@ test('a timeout can be retried and navigation stops polling', async ({
     await pending;
     await route.fulfill({ json: report }).catch(() => {});
   });
+  // The request must arm its timer before the simulated time can advance.
+  const requestStarted = page.waitForRequest('**/public/fund-transparency');
   await page.goto(path);
+  await requestStarted;
   await page.clock.fastForward(15_001);
   await expect(hook(page, 'transparency-status')).toContainText(
     'Impossible de charger'

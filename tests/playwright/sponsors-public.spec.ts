@@ -245,7 +245,10 @@ test('timeout can be retried and leaving the route aborts the request', async ({
 }) => {
   await page.clock.install();
   await page.route(endpoint, () => new Promise<void>(() => {}));
+  // The SSR page can arrive before its browser request arms the timeout.
+  const firstRequest = page.waitForRequest(endpoint);
   await page.goto('/commanditaires');
+  await firstRequest;
   await page.clock.fastForward(15_001);
   await expect(page.getByRole('alert')).toBeVisible();
   await page.unroute(endpoint);
@@ -256,7 +259,9 @@ test('timeout can be retried and leaving the route aborts the request', async ({
     if (request.url().includes('/public/sponsorships')) aborted = true;
   });
   await page.route(endpoint, () => new Promise<void>(() => {}));
+  const refreshedRequest = page.waitForRequest(endpoint);
   await hook(page, 'sponsors-refresh').click();
+  await refreshedRequest;
   await hook(page, 'sponsors-become').click();
   await expect(page).toHaveURL(/fonds-des-batisseurs\?intent=sponsorship/);
   await expect.poll(() => aborted).toBe(true);
