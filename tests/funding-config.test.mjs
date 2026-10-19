@@ -1,3 +1,4 @@
+import { fundingBaseTranslations } from './support/funding-base-translations.mjs';
 import { readFundingCoreSource } from './support/funding-core-source.mjs';
 import { readFundingPersistenceSource } from './support/funding-persistence-source.mjs';
 import {
@@ -689,12 +690,8 @@ test('Stripe webhook service reads publicDisplayName from checkout session metad
 });
 
 test('Public display name input has matching i18n keys in both locales', () => {
-  const fr = JSON.parse(
-    fs.readFileSync('apps/funding-web/src/assets/i18n/fr-CA.json', 'utf8')
-  );
-  const en = JSON.parse(
-    fs.readFileSync('apps/funding-web/src/assets/i18n/en.json', 'utf8')
-  );
+  const fr = fundingBaseTranslations('fr-CA');
+  const en = fundingBaseTranslations('en');
 
   for (const locale of [fr, en]) {
     const contribution = locale.funding.home.contribution;
@@ -708,12 +705,7 @@ test('Contribution form exposes accessible amount validation in both languages',
   assert.ok(source.includes('inputmode="decimal"'));
   assert.ok(source.includes('aria-describedby="custom-contribution-help"'));
   for (const language of ['fr-CA', 'en']) {
-    const locale = JSON.parse(
-      fs.readFileSync(
-        'apps/funding-web/src/assets/i18n/' + language + '.json',
-        'utf8'
-      )
-    );
+    const locale = fundingBaseTranslations(language);
     assert.ok(locale.funding.home.contribution.personalAmountHint);
     assert.ok(locale.funding.home.contribution.sponsorship.minimumAmountError);
   }
@@ -732,12 +724,8 @@ test('Business sponsorship contribution choice is controlled by runtime flag', (
     'apps/funding-web/src/app/features/funding/components/funding-contribution-form/funding-contribution-form.component.css',
     'utf8'
   );
-  const fr = JSON.parse(
-    fs.readFileSync('apps/funding-web/src/assets/i18n/fr-CA.json', 'utf8')
-  );
-  const en = JSON.parse(
-    fs.readFileSync('apps/funding-web/src/assets/i18n/en.json', 'utf8')
-  );
+  const fr = fundingBaseTranslations('fr-CA');
+  const en = fundingBaseTranslations('en');
 
   assert.ok(envExample.includes('FUNDING_BUSINESS_SPONSORSHIP_ENABLED=false'));
   assert.ok(
@@ -1032,12 +1020,8 @@ test('Sponsorship MVP pricing tiers are documented', () => {
 });
 
 test('Sponsor follow-up screen has matching i18n keys in both locales', () => {
-  const fr = JSON.parse(
-    fs.readFileSync('apps/funding-web/src/assets/i18n/fr-CA.json', 'utf8')
-  );
-  const en = JSON.parse(
-    fs.readFileSync('apps/funding-web/src/assets/i18n/en.json', 'utf8')
-  );
+  const fr = fundingBaseTranslations('fr-CA');
+  const en = fundingBaseTranslations('en');
 
   for (const locale of [fr, en]) {
     const checkout = locale.funding.home.checkout;
@@ -3025,12 +3009,8 @@ test('Public sponsorship batch availability exposes only a date per channel, nev
     'utf8'
   );
   const page = readFundingHomeSource();
-  const fr = JSON.parse(
-    fs.readFileSync('apps/funding-web/src/assets/i18n/fr-CA.json', 'utf8')
-  );
-  const en = JSON.parse(
-    fs.readFileSync('apps/funding-web/src/assets/i18n/en.json', 'utf8')
-  );
+  const fr = fundingBaseTranslations('fr-CA');
+  const en = fundingBaseTranslations('en');
 
   assert.ok(
     repository.includes(
@@ -3157,12 +3137,8 @@ test('Sponsors page is routed, prerendered, translated, and indexed', () => {
     'utf8'
   );
   const sitemap = fs.readFileSync('apps/funding-web/src/sitemap.xml', 'utf8');
-  const fr = JSON.parse(
-    fs.readFileSync('apps/funding-web/src/assets/i18n/fr-CA.json', 'utf8')
-  );
-  const en = JSON.parse(
-    fs.readFileSync('apps/funding-web/src/assets/i18n/en.json', 'utf8')
-  );
+  const fr = fundingBaseTranslations('fr-CA');
+  const en = fundingBaseTranslations('en');
 
   assert.ok(routes.includes("path: 'commanditaires'"));
   assert.ok(serverRoutes.includes("path: 'commanditaires'"));
@@ -3202,12 +3178,8 @@ test('Usage and refund policy page is routed, linked, documented, and indexed', 
     fs.readFileSync('docs/docker-deployment.md', 'utf8'),
     fs.readFileSync('docs/production-launch-checklist.md', 'utf8')
   ].join('\n');
-  const fr = JSON.parse(
-    fs.readFileSync('apps/funding-web/src/assets/i18n/fr-CA.json', 'utf8')
-  );
-  const en = JSON.parse(
-    fs.readFileSync('apps/funding-web/src/assets/i18n/en.json', 'utf8')
-  );
+  const fr = fundingBaseTranslations('fr-CA');
+  const en = fundingBaseTranslations('en');
 
   assert.ok(routes.includes('UsageRefundPolicyPageComponent'));
   assert.ok(routes.includes("path: 'politique-utilisation-remboursement'"));

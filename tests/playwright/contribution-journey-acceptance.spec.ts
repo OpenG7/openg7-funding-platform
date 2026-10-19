@@ -7,6 +7,7 @@ import sharp from 'sharp';
 import { AxeBuilder } from '@axe-core/playwright';
 import type { ContributionActivityResponse } from '@openg7/funding-core';
 
+import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
 import { test, expect } from './support/test.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { confirmAcceptanceMediaUsage } from './support/acceptance-media-usage.js';
@@ -210,6 +211,7 @@ test('company pays 50 CAD: signed confirmation, admin toast, captured email/SMS 
     await company
       .locator('#followup-contactEmail')
       .fill('company@simulation.example.test');
+    await openFollowupPresentation(company);
     await company
       .locator('#followup-websiteUrl')
       .fill('https://simulation.example.test');

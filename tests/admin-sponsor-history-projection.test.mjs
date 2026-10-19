@@ -1,3 +1,4 @@
+import { fundingBaseTranslations } from './support/funding-base-translations.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -6,9 +7,7 @@ import { AdminSponsorHistoryProjection } from '../dist/apps/funding-web/src/app/
 
 const dictionaries = Object.fromEntries(
   ['fr-CA', 'en'].map((locale) => {
-    const dictionary = JSON.parse(
-      readFileSync(`apps/funding-web/src/assets/i18n/${locale}.json`, 'utf8')
-    );
+    const dictionary = fundingBaseTranslations(locale);
     dictionary.admin.history = JSON.parse(
       readFileSync(
         `apps/funding-web/src/assets/i18n/admin-history.${locale}.json`,

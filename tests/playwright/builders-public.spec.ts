@@ -121,7 +121,15 @@ test('a stalled registry request times out and can be retried', async ({
 }) => {
   await page.clock.install();
   await page.route(endpoint, () => new Promise<void>(() => {}));
+  // Prerendered aria-busy is already true before the browser arms its timeout.
+  // Observe the real request before advancing that timer.
+  const requestStarted = page.waitForRequest(
+    (request) =>
+      request.method() === 'GET' &&
+      new URL(request.url()).pathname === '/api/public/builders'
+  );
   await page.goto('/batisseurs');
+  await requestStarted;
   await expect(page.locator('[data-og7="builders-directory"]')).toHaveAttribute(
     'aria-busy',
     'true'

@@ -5,6 +5,7 @@ import type {
   SponsorshipFollowupResponse
 } from '@openg7/funding-core';
 
+import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
 import { adminSessionHeaders } from './support/admin-auth.js';
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { expect, test } from './support/test.js';
@@ -72,6 +73,7 @@ test('two company tabs preserve edits on conflict and cannot restore a discarded
       await company(a).fill('Brouillon conservé sur le serveur');
       expect((await saved).status()).toBe(200);
       const conflict = save(b);
+      await openFollowupPresentation(b);
       await b.locator('#followup-message').fill('Texte local à ne pas perdre');
       expect((await conflict).status()).toBe(409);
       await expect(banner(b)).toContainText('autre');
@@ -95,6 +97,7 @@ test('two company tabs preserve edits on conflict and cannot restore a discarded
       await reload(b);
       await expect(company(b)).toHaveValue('Brouillon conservé sur le serveur');
       const saved = save(b);
+      await openFollowupPresentation(b);
       await b.locator('#followup-message').fill('Nouvelle révision partagée');
       expect((await saved).status()).toBe(200);
       const conflict = save(a);
@@ -118,6 +121,7 @@ test('two company tabs preserve edits on conflict and cannot restore a discarded
         revision: before.revision + 1
       });
       const conflict = save(b);
+      await openFollowupPresentation(b);
       await b.locator('#followup-message').fill('Ancienne révision refusée');
       expect((await conflict).status()).toBe(409);
       const staleSubmit = await request.post(url + '/details', {
@@ -134,6 +138,7 @@ test('two company tabs preserve edits on conflict and cannot restore a discarded
       await a
         .getByRole('button', { name: 'Modifier mes informations' })
         .click();
+      await openFollowupPresentation(a);
       await a
         .locator('#followup-message')
         .fill('Modification finale soumise volontairement');

@@ -1,3 +1,4 @@
+import { fundingBaseTranslations } from './support/funding-base-translations.mjs';
 import { readFundingPersistenceSource } from './support/funding-persistence-source.mjs';
 import {
   readAdminSponsorsSource,
@@ -671,8 +672,8 @@ test('E2E 8/8: FR/EN navigation, prerender, sitemap, and deployment docs cover s
   const readme = read('README.md');
   const dockerDocs = read('docs/docker-deployment.md');
   const launchChecklist = read('docs/production-launch-checklist.md');
-  const fr = JSON.parse(read('apps/funding-web/src/assets/i18n/fr-CA.json'));
-  const en = JSON.parse(read('apps/funding-web/src/assets/i18n/en.json'));
+  const fr = fundingBaseTranslations('fr-CA');
+  const en = fundingBaseTranslations('en');
 
   assertIncludesAll(
     header,

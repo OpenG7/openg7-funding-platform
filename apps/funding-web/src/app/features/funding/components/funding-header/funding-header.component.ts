@@ -7,6 +7,7 @@ import {
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 
+import { SiteMusicComponent } from '../site-music/site-music.component.js';
 import { LanguageToggleComponent } from '../language-toggle/language-toggle.component.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 
@@ -17,7 +18,8 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
     RouterLink,
     RouterLinkActive,
     TranslatePipe,
-    LanguageToggleComponent
+    LanguageToggleComponent,
+    SiteMusicComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -98,6 +100,7 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
 
       <div class="nav-actions">
         <openg7-language-toggle></openg7-language-toggle>
+        <openg7-site-music [inline]="true" />
         <a
           class="nav-contribute"
           [routerLink]="homePath()"

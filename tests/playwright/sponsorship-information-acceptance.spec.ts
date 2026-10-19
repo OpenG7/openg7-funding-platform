@@ -16,6 +16,7 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
+import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
 import { completeModeration } from './support/moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptanceReviewReminder } from './support/acceptance-review-reminder.js';
@@ -450,6 +451,7 @@ test('incomplete paid dossier: confirmed contact correction, stale request refus
         currentContact
       );
       await expect(company).not.toHaveURL(/token=/);
+      await openFollowupPresentation(company);
       await company.locator('#followup-message').fill(privateNote);
       const buffer = await sharp({
         create: { width: 800, height: 600, channels: 3, background: '#28556e' }

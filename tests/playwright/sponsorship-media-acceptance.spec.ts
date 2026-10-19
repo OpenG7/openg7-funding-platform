@@ -16,6 +16,7 @@ import type {
   ModerationDecisionRecord
 } from '@openg7/funding-core';
 
+import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
 import {
   approveAcceptanceSubject,
   completePublicationModeration
@@ -296,6 +297,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         .locator('#followup-contactName')
         .fill('Contact synthétique');
       await company.locator('#followup-contactEmail').fill(email);
+      await openFollowupPresentation(company);
       await company
         .locator('#followup-websiteUrl')
         .fill('https://simulation.example.test');

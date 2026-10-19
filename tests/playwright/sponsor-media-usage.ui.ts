@@ -138,6 +138,49 @@ export function registerPrivateMediaUsageTests(): void {
       page.setViewportSize(
         english ? { width: 390, height: 844 } : { width: 1280, height: 900 }
       );
+    test(`image usage disclosure preserves edits without confirming rights ${suffix}`, async ({
+      page
+    }) => {
+      await viewport(page);
+      const state = await privateMedia(page, [asset()]);
+      await visit(page, english);
+      const disclosure = page.locator(
+        `[data-og7="followup-media-rights"][data-og7-id="${id}"]`
+      );
+      const editor = disclosure.locator('[data-og7="media-usage-editor"]');
+      const summary = disclosure.locator('summary');
+      await expect(disclosure).toHaveJSProperty('open', false);
+      await expect(editor).toHaveCount(1);
+      await summary.focus();
+      await page.keyboard.press('Enter');
+      await expect(disclosure).toHaveJSProperty('open', true);
+      const credit = editor.locator('[data-og7="media-usage-credit"]');
+      const confirmation = editor.locator(
+        '[data-og7="media-usage-confirmation"]'
+      );
+      await expect(credit).toHaveValue(rights.credit!);
+      await expect(confirmation).not.toBeChecked();
+      await credit.fill('Synthetic retained media credit');
+      await summary.focus();
+      await page.keyboard.press('Enter');
+      await expect(disclosure).toHaveJSProperty('open', false);
+      await expect(credit).toHaveValue('Synthetic retained media credit');
+      await summary.press('Enter');
+      await expect(disclosure).toHaveJSProperty('open', true);
+      await expect(confirmation).not.toBeChecked();
+      await expect(
+        editor.locator('[data-og7="media-usage-save"]')
+      ).toBeDisabled();
+      expect(state.commands).toEqual([]);
+      expect(state.uploads).toEqual([]);
+      expect(state.assets[0].usage).toEqual(rights);
+      expect(state.assets[0].reviewStatus).toBe('pending_review');
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+    });
     test(`image usage upload requires explicit channels destination and portrait permission ${suffix}`, async ({
       page
     }) => {
@@ -308,11 +351,17 @@ async function openAdminRights(page: Page): Promise<void> {
   await summary.focus();
   await page.keyboard.press('Enter');
   await expect(summary.locator('..')).toHaveJSProperty('open', true);
-  await inspector
-    .getByRole('button', {
-      name: /^(Personnaliser les autorisations|Customize permissions)$/
-    })
-    .click();
+  const customize = inspector.getByRole('button', {
+    name: /^(Personnaliser les autorisations|Customize permissions)$/
+  });
+  // Native keyboard activation avoids moving pointer coordinates during mobile scrolling.
+  await expect(customize).toBeVisible();
+  await customize.focus();
+  await expect(customize).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(
+    page.locator('dialog[open] [data-og7="media-usage-editor"]')
+  ).toBeVisible();
 }
 interface AdminContext {
   fixtures(

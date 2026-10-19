@@ -18,6 +18,7 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
+import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
 import { completePublicationModeration } from './support/acceptance-moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
@@ -261,9 +262,11 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
       await company.locator('#followup-companyName').fill(companyName);
       await company.locator('#followup-contactName').fill('Contact de recette');
       await company.locator('#followup-contactEmail').fill(privateEmail);
+      await openFollowupPresentation(company);
       await company
         .locator('#followup-websiteUrl')
         .fill('https://simulation.example.test');
+      await openFollowupPresentation(company);
       await company.locator('#followup-message').fill(privateNote);
       const buffer = await sharp({
         create: { width: 800, height: 600, channels: 3, background: '#28556e' }

@@ -1,3 +1,4 @@
+import { fundingBaseTranslations } from './support/funding-base-translations.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import fs from 'node:fs';
@@ -35,12 +36,8 @@ test('Contribution selector selected state helper is deterministic', () => {
 });
 
 test('Funding i18n titles contain hero panel keys in both locales', () => {
-  const fr = JSON.parse(
-    fs.readFileSync('apps/funding-web/src/assets/i18n/fr-CA.json', 'utf8')
-  );
-  const en = JSON.parse(
-    fs.readFileSync('apps/funding-web/src/assets/i18n/en.json', 'utf8')
-  );
+  const fr = fundingBaseTranslations('fr-CA');
+  const en = fundingBaseTranslations('en');
 
   assert.ok(fr.funding.transparency.title);
   assert.ok(fr.funding.allocation.title);

@@ -124,6 +124,9 @@ for (const language of ['fr-CA', 'en'] as const) {
       await panel.evaluate((node) => node.scrollIntoView({ block: 'start' }));
       await captureAdminDesign(page, testInfo, `backups-${width}`);
       if (language === 'en') {
+        const initialFontSize = await page.evaluate(() =>
+          parseFloat(getComputedStyle(document.documentElement).fontSize)
+        );
         await page.evaluate(
           () => (document.documentElement.style.fontSize = '200%')
         );
@@ -131,24 +134,32 @@ for (const language of ['fr-CA', 'en'] as const) {
         await expectAdminPageFits(page);
         if (width === 390) {
           const title = panel.getByRole('heading', { level: 2 });
-          const contentWidth = await panel.evaluate((node) => {
-            const style = getComputedStyle(node);
-            return (
-              node.clientWidth -
-              parseFloat(style.paddingLeft) -
-              parseFloat(style.paddingRight)
+          // Container queries can settle between protocol calls after zoom.
+          // Compare the title and its available width in the same layout.
+          await expect(async () => {
+            const geometry = await title.evaluate((node) => {
+              const panel = node.closest('[data-og7="setup-backups"]')!;
+              const style = getComputedStyle(panel);
+              const bounds = node.getBoundingClientRect();
+              return {
+                fontSize: parseFloat(
+                  getComputedStyle(document.documentElement).fontSize
+                ),
+                contentWidth:
+                  panel.clientWidth -
+                  parseFloat(style.paddingLeft) -
+                  parseFloat(style.paddingRight),
+                titleWidth: bounds.width,
+                lineCount:
+                  bounds.height / parseFloat(getComputedStyle(node).lineHeight)
+              };
+            });
+            expect(geometry.fontSize).toBe(initialFontSize * 2);
+            expect(geometry.titleWidth).toBeGreaterThanOrEqual(
+              geometry.contentWidth * 0.95
             );
-          });
-          const titleBounds = await title.boundingBox();
-          expect(titleBounds!.width).toBeGreaterThanOrEqual(
-            contentWidth * 0.95
-          );
-          const lineCount = await title.evaluate(
-            (node) =>
-              node.getBoundingClientRect().height /
-              parseFloat(getComputedStyle(node).lineHeight)
-          );
-          expect(lineCount).toBeLessThanOrEqual(3.1);
+            expect(geometry.lineCount).toBeLessThanOrEqual(3.1);
+          }).toPass({ timeout: 7000 });
         }
         await captureAdminDesign(page, testInfo, `backups-text-200-${width}`);
       }

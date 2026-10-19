@@ -1,3 +1,4 @@
+import { fundingBaseTranslations } from './support/funding-base-translations.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
@@ -996,9 +997,7 @@ test('drawer preserves dossier hooks, content/media/destination, translations an
     .map((match) => match[1])
     .filter((key) => !key.endsWith('.'));
   for (const locale of ['fr-CA', 'en']) {
-    const catalog = JSON.parse(
-      fs.readFileSync(`apps/funding-web/src/assets/i18n/${locale}.json`, 'utf8')
-    );
+    const catalog = fundingBaseTranslations(locale);
     for (const key of keys)
       assert.equal(
         typeof key.split('.').reduce((entry, part) => entry?.[part], catalog),

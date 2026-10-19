@@ -79,6 +79,9 @@ for (const english of [false, true]) {
     });
     await visit(page, english);
     const panel = page.locator('[data-og7="followup-moderation"]');
+    await expect(panel.getByRole('heading', { level: 3 })).toHaveText(
+      english ? 'Reject the sponsorship' : 'Refuser le dossier'
+    );
     await expect(panel).toContainText(
       'The submitted message dehumanizes people.'
     );
@@ -169,6 +172,11 @@ for (const english of [false, true]) {
       return json(route, { revision: 4, data: null, updatedAt: null });
     });
     await visit(page, english);
+    await expect(
+      page
+        .locator('[data-og7="followup-moderation"]')
+        .getByRole('heading', { level: 3 })
+    ).toHaveText(english ? 'Request a correction' : 'Demander une correction');
     const firstField = page.getByLabel(
       english ? 'Company name' : "Nom de l'entreprise",
       { exact: false }

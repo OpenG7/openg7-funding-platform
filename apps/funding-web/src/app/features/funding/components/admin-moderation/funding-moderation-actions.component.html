@@ -23,7 +23,7 @@
       >
         @for (option of levels(); track option) {
           <option [value]="option">
-            {{ 'admin.moderation.levels.' + option | translate }}
+            {{ 'funding.moderation.levels.' + option | translate }}
           </option>
         }
       </select></label
@@ -140,7 +140,7 @@
           [attr.data-og7-id]="decision.id"
         >
           <strong>{{
-            'admin.moderation.levels.' + decision.level | translate
+            'funding.moderation.levels.' + decision.level | translate
           }}</strong>
           <p>{{ reason(decision.primaryReason) }}</p>
           <p>{{ decision.sponsorExplanation }}</p>

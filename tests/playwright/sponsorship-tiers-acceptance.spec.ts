@@ -18,6 +18,7 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
+import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
 import {
   acceptanceModerationDecision,
   approveAcceptanceSubject,
@@ -368,9 +369,11 @@ for (const amount of [100, 250]) {
             .locator('#followup-contactName')
             .fill('Contact de recette');
           await company.locator('#followup-contactEmail').fill(email);
+          await openFollowupPresentation(company);
           await company
             .locator('#followup-websiteUrl')
             .fill('https://simulation.example.test');
+          await openFollowupPresentation(company);
           await company.locator('#followup-message').fill(privateNote);
           const buffer = await sharp({
             create: {

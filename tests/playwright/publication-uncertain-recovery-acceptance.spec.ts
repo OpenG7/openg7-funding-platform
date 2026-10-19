@@ -15,6 +15,7 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
+import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import { completeModeration } from './support/moderation.js';
@@ -219,6 +220,7 @@ test('lost social responses survive restart and recover through verified reconci
         await page
           .locator('#followup-contactEmail')
           .fill('contact@simulation.example.test');
+        await openFollowupPresentation(page);
         await page
           .locator('#followup-websiteUrl')
           .fill('https://simulation.example.test');
