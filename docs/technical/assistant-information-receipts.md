@@ -71,8 +71,8 @@ production or an external inbox.
 
 Local evidence, 19 October 2026 (America/Toronto), source `fd4a930b`:
 
-- Production Angular build: 25 prerendered routes; admin UI TypeScript and
-  targeted ESLint pass.
+- Production Angular build: 25 prerendered routes; admin UI and global TypeScript
+  checks without emission, plus targeted ESLint, pass.
 - Controller, transport, HTTP and policy Node selection: 1,253/1,253 pass after
   the final conflict-code adjustment. PostgreSQL receipt integration: 7/7 pass,
   including upgrade from migration 061 without invented history.
@@ -81,6 +81,12 @@ Local evidence, 19 October 2026 (America/Toronto), source `fd4a930b`:
   Synthetic API fixtures cover FR/EN at 390 and 1536 px, exact email links,
   keyboard focus, retained locks and legacy state. Screenshots of the recovered
   receipt were inspected in FR390 and EN1536 without observed overflow.
+- Disposable Docker sponsorship-information scenario: 1/1 pass without a
+  scenario retry. The real API accepted the request before its browser response
+  was discarded; reload and GET recovered the same message and acceptance date.
+  No second browser command was submitted. Explicit same-UUID API replays still
+  produced one queued message, one captured email and one send audit. PostgreSQL,
+  SMTP capture and payment simulation stayed inside the disposable stack.
 
 These UI results use a static built Web with intercepted API responses, not a
 running SSR server. CI, deployment and actual provider delivery remain separate.
