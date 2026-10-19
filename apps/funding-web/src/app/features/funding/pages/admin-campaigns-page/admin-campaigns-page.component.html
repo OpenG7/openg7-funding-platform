@@ -6,6 +6,15 @@
         <h1>{{ t('title') }}</h1>
         <p class="subtitle">{{ t('subtitle') }}</p>
       </div>
+      @if (dossierReturn(); as origin) {
+        <a
+          class="admin-button"
+          [routerLink]="origin"
+          [info]="dossierReturnFocus"
+          data-og7="campaigns-dossier-return"
+          >{{ t('destination.back') }}</a
+        >
+      }
       <button
         type="button"
         class="admin-button"
@@ -458,7 +467,11 @@
                   {{ t('responsibility.' + row.workflow.responsibility) }}
                 </p>
                 @if (row.workflow.deliveryId) {
-                  <a class="admin-button" [routerLink]="deliveryUrl(row)"
+                  <a
+                    class="admin-button"
+                    data-og7="campaign-delivery"
+                    [routerLink]="deliveryUrl(row)"
+                    [info]="dossierReturnFocus"
                     >{{ t('detail.openDelivery')
                     }}<openg7-admin-icon name="arrow"
                   /></a>

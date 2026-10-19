@@ -11,7 +11,7 @@ import {
   untracked
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import {
   type AdminSponsorshipProgress,
@@ -27,6 +27,10 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { FundingModerationService } from '../../services/funding-moderation.service.js';
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
 import { AdminSponsorSchedulingController } from '../../services/admin-sponsor-scheduling-controller.js';
+import {
+  DossierWorkspaceNavigation,
+  dossierReturnQuery
+} from '../../models/admin-dossier-return.js';
 import { PublicationDeliveryDrawerComponent } from '../admin-publications/publication-delivery-drawer.component.js';
 import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
 import { AdminAutomaticPreparationDirective } from '../admin-automatic/admin-automatic-preparation.directive.js';
@@ -73,6 +77,7 @@ interface PublicationGuidanceLink {
   ]
 })
 export class AdminSponsorshipPublicationComponent {
+  private readonly router = inject(Router);
   readonly dossier = input.required<AdminSponsorshipProgress>();
   readonly canManageWebsite = input(false);
   readonly websiteDisabled = input(false);
@@ -354,15 +359,35 @@ export class AdminSponsorshipPublicationComponent {
     if (['blocked', 'uncertain', 'failed'].includes(status)) return 'resolve';
     return 'open';
   }
-  params(p?: SponsorshipProgressPublication | null): Record<string, string> {
+  params(
+    p?: SponsorshipProgressPublication | null
+  ): Record<string, string | undefined> {
     return {
-      sponsorshipId: this.dossier().contributionId,
+      ...dossierReturnQuery(
+        this.router,
+        this.router.url,
+        this.dossier().contributionId
+      ),
       ...(p?.deliveryId ? { deliveryId: p.deliveryId } : {})
     };
   }
-  guidanceParams(link: PublicationGuidanceLink): Record<string, string> {
+  workspaceNavigation(
+    hook: DossierWorkspaceNavigation['hook'],
+    id?: string
+  ): DossierWorkspaceNavigation {
+    return new DossierWorkspaceNavigation(
+      this.dossier().contributionId,
+      hook,
+      id
+    );
+  }
+  guidanceParams(
+    link: PublicationGuidanceLink
+  ): Record<string, string | undefined> {
     return {
-      sponsorshipId: this.dossier().contributionId,
+      ...(link.fragment
+        ? { sponsorshipId: this.dossier().contributionId }
+        : this.params()),
       ...(link.fragment ? { tab: 'publication' } : {})
     };
   }

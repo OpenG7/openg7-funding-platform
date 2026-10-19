@@ -2570,6 +2570,39 @@ test('mobile keyboard flow, contrast and focus restoration', async ({
   });
 });
 
+for (const language of ['fr-CA', 'en'] as const) {
+  test(`automation dossier return validates and cleans its exact origin in ${language}`, async ({
+    page
+  }) => {
+    const commands = await fixtures(page);
+    await page.addInitScript(
+      (locale) => localStorage.setItem('openg7.language', locale),
+      language
+    );
+    const id = '10000000-0000-4000-8000-000000000401';
+    const canonical = `/admin/fundraiser/sponsors?sponsorshipId=${id}&tab=publication#dossier-publication`;
+    const origin = `/admin/fundraiser/sponsors?sponsorshipId=${id}&tab=publication#dossier-agreement`;
+    const privateOrigin = origin.replace(
+      '#',
+      '&recipient=PRIVATE&returnTo=https%3A%2F%2Fexternal.example.invalid#'
+    );
+    for (const [requested, expected] of [
+      [privateOrigin, origin],
+      [canonical.replace(id, initialJob.id), canonical],
+      ['https://external.example.invalid' + origin, canonical]
+    ] as const) {
+      await page.goto(
+        `/admin/fundraiser/publications/automation?sponsorshipId=${id}&returnTo=${encodeURIComponent(requested)}`
+      );
+      await expect(
+        page.locator('[data-og7="automation-dossier-return"]')
+      ).toHaveAttribute('href', expected);
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+    }
+    expect(commands).toHaveLength(0);
+  });
+}
+
 for (const width of [1280, 390]) {
   test(`dossier bridge filters the engine and returns to publication at ${width}px`, async ({
     page

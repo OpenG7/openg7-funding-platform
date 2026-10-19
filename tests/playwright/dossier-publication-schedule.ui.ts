@@ -358,7 +358,11 @@ export function registerDossierPublicationScheduleTests(
         ] as const)
           await expect(guide.locator(`[data-og7-id="${id}"]`)).toHaveAttribute(
             'href',
-            path + '?sponsorshipId=' + sponsorshipId
+            path +
+              '?sponsorshipId=' +
+              sponsorshipId +
+              '&returnTo=' +
+              encodeURIComponent(context.path('publication'))
           );
         await guide.screenshot({
           path: test
@@ -444,7 +448,7 @@ export function registerDossierPublicationScheduleTests(
           console.locator('[data-og7="publication-campaign-benefits"]')
         ).toHaveAttribute(
           'href',
-          `/admin/fundraiser/campaigns?sponsorshipId=${sponsorshipId}`
+          `/admin/fundraiser/campaigns?sponsorshipId=${sponsorshipId}&returnTo=${encodeURIComponent(context.path('publication'))}`
         );
         await expect(channel(page)).toHaveAttribute('data-state', 'scheduled');
         const authorizedDate = channel(page).locator(
@@ -557,7 +561,7 @@ export function registerDossierPublicationScheduleTests(
         summary.locator('[data-og7="publication-campaign-benefits"]')
       ).toHaveAttribute(
         'href',
-        `/admin/fundraiser/campaigns?sponsorshipId=${sponsorshipId}`
+        `/admin/fundraiser/campaigns?sponsorshipId=${sponsorshipId}&returnTo=${encodeURIComponent(context.path('publication'))}`
       );
       await expect(
         page.locator(
@@ -732,7 +736,7 @@ export function registerDossierPublicationScheduleTests(
       );
       await expect(benefits).toHaveAttribute(
         'href',
-        `/admin/fundraiser/campaigns?sponsorshipId=${sponsorshipId}`
+        `/admin/fundraiser/campaigns?sponsorshipId=${sponsorshipId}&returnTo=${encodeURIComponent(context.path('publication'))}`
       );
       const detailedFacebook = page.locator(
         `[data-og7="commitments-obligations"] [data-og7-id="${facebookId}"]`

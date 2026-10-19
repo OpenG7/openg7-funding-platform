@@ -100,6 +100,19 @@ The filtered view includes all delivery states and a return link to step 6.
 Counters, worker controls and feed settings remain global. A missing delivery is
 reported without opening another one or composing a batch.
 
+Links from a dossier's Publication workspace also carry a restricted `returnTo`
+origin. The return link preserves that same dossier, its known tab and a matching
+section fragment, even when the automation read fails. Without a valid origin,
+the existing Publication/step 6 destination remains available. External origins,
+another dossier, private query values and nested returns cannot change that
+destination. This navigation never prepares or authorizes a delivery.
+
+During same-tab navigation, an in-memory intent restores the known dossier link
+after fresh reads and rendering. A later navigation cancels pending focus;
+reloading discards this intent and uses the recognized section fragment instead.
+Delivery and obligation identifiers keep their existing exact scope: a return
+origin cannot select a replacement delivery or promise.
+
 Sponsorship composition now preserves a complete recognition block per source:
 title, body and disclosure. Its public identity comes from the dossier; custom
 titles receive a separate identity line. Each beneficiary needs a distinct block,

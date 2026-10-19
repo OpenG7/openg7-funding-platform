@@ -142,10 +142,8 @@
               @if (hasQualifiedEvidence(o)) {
                 <a
                   routerLink="/admin/fundraiser/campaigns"
-                  [queryParams]="{
-                    sponsorshipId: dossier().contributionId,
-                    obligationId: o.id
-                  }"
+                  [queryParams]="evidenceQuery(o.id)"
+                  [info]="evidenceNavigation(o.fulfilmentEvidenceId)"
                   data-og7="commitments-evidence"
                   [attr.data-og7-id]="o.fulfilmentEvidenceId"
                   >{{ 'admin.commitments.evidenceId' | translate }}:

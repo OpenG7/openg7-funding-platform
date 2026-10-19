@@ -13,6 +13,7 @@ import {
   PLATFORM_ID,
   ViewChild,
   afterNextRender,
+  afterEveryRender,
   afterRenderEffect,
   computed,
   effect,
@@ -100,6 +101,7 @@ import {
   AssistantDossierNavigation,
   assistantDossierQuery
 } from '../../models/admin-assistant-navigation.js';
+import { dossierWorkspaceFocus } from '../../models/admin-dossier-return.js';
 
 import { AdminSponsorsNavigationAdapter } from './admin-sponsors-navigation.adapter.js';
 
@@ -740,6 +742,37 @@ export class AdminSponsorsPageComponent implements OnInit {
       if (feedback && feedback.id !== this.selectedSponsorshipId()) {
         this.listController.clearApprovalFeedback();
       }
+    });
+    // A known link may be rendered by an asynchronously loaded child (for example evidence).
+    // Waiting for Angular renders avoids retaining a DOM node or polling with a timer.
+    afterEveryRender(() => {
+      const focus = dossierWorkspaceFocus(
+        this.assistantReturnFocus,
+        this.selectedSponsorshipId()
+      );
+      if (
+        !focus ||
+        !this.assistantReturnReady() ||
+        this.state() !== 'ready' ||
+        this.selectedSponsorship()?.id !== focus.sponsorshipId ||
+        !this.sponsorProgress() ||
+        this.sponsorProgress()?.state() === 'loading'
+      )
+        return;
+      const link = Array.from(
+        this.sponsorDetailPanel?.nativeElement.querySelectorAll<HTMLAnchorElement>(
+          'a[data-og7]'
+        ) ?? []
+      ).find(
+        (element) =>
+          element.dataset['og7'] === focus.hook &&
+          element.dataset['og7Id'] === focus.id
+      );
+      if (!link) return;
+      this.assistantReturnFocus = null;
+      this.pendingSection.set(null);
+      link.focus({ preventScroll: true });
+      link.scrollIntoView({ block: 'nearest', behavior: 'instant' });
     });
     afterRenderEffect(() => {
       const focus = this.assistantReturnFocus;

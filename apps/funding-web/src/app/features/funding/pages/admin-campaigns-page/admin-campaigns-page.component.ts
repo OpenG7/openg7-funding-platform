@@ -32,6 +32,10 @@ import { automaticAdminUrl } from '../../components/admin-automatic/admin-automa
 import { AdminCampaignsStore } from '../../services/admin-campaigns-store.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { adminCampaignsDestination } from '../../models/admin-campaigns-navigation.js';
+import {
+  DossierWorkspaceNavigation,
+  dossierReturn
+} from '../../models/admin-dossier-return.js';
 
 import { groupCampaignRows } from './admin-campaigns-controller.js';
 
@@ -74,6 +78,23 @@ export class AdminCampaignsPageComponent {
   readonly destination = computed(() =>
     adminCampaignsDestination(this.params())
   );
+  readonly dossierReturn = computed(() => {
+    const destination = this.destination();
+    if (destination.kind !== 'focused') return null;
+    const id = destination.focus.sponsorshipId;
+    return (
+      dossierReturn(this.router, this.params().get('returnTo'), id) ??
+      this.router.createUrlTree(['/admin/fundraiser/sponsors'], {
+        queryParams: { sponsorshipId: id, tab: 'publication' },
+        fragment: 'dossier-publication'
+      })
+    );
+  });
+  readonly dossierReturnFocus =
+    this.router.currentNavigation()?.extras.info instanceof
+    DossierWorkspaceNavigation
+      ? this.router.currentNavigation()?.extras.info
+      : undefined;
   private readonly rendered = signal(false);
   private routeKey = '';
   readonly channels = ['website', 'facebook', 'linkedin'] as const;
@@ -183,7 +204,7 @@ export class AdminCampaignsPageComponent {
     void this.c.connect(null);
     void this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: { sponsorshipId: null, obligationId: null },
+      queryParams: { sponsorshipId: null, obligationId: null, returnTo: null },
       queryParamsHandling: 'merge',
       replaceUrl: true
     });
@@ -233,12 +254,18 @@ export class AdminCampaignsPageComponent {
   }
 
   deliveryUrl(row: AdminCampaignItem): UrlTree {
+    const origin = dossierReturn(
+      this.router,
+      this.params().get('returnTo'),
+      row.contributionId
+    );
     return this.router.createUrlTree(
       ['/admin/fundraiser/publications/automation'],
       {
         queryParams: {
           sponsorshipId: row.contributionId,
-          deliveryId: row.workflow.deliveryId ?? ''
+          deliveryId: row.workflow.deliveryId ?? '',
+          ...(origin ? { returnTo: this.router.serializeUrl(origin) } : {})
         }
       }
     );

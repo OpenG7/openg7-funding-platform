@@ -9,8 +9,8 @@ import {
 } from '@angular/core';
 import { CommonModule, DOCUMENT } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import type {
   PublicationAutomationCommand,
@@ -20,6 +20,10 @@ import type {
 
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import {
+  DossierWorkspaceNavigation,
+  dossierReturn
+} from '../../models/admin-dossier-return.js';
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
 import { FundingModerationService } from '../../services/funding-moderation.service.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
@@ -68,6 +72,33 @@ export class AdminPublicationAutomationPageComponent {
   private readonly confirmation = inject(AdminConfirmationService);
   private readonly moderation = inject(FundingModerationService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly params = toSignal(this.route.queryParamMap, {
+    initialValue: this.route.snapshot.queryParamMap
+  });
+  readonly preciseDossierReturn = computed(() =>
+    dossierReturn(
+      this.router,
+      this.params().get('returnTo'),
+      this.sponsorshipId()
+    )
+  );
+  readonly dossierReturn = computed(
+    () =>
+      this.preciseDossierReturn() ??
+      this.router.createUrlTree(['/admin/fundraiser/sponsors'], {
+        queryParams: {
+          sponsorshipId: this.sponsorshipId(),
+          tab: 'publication'
+        },
+        fragment: 'dossier-publication'
+      })
+  );
+  readonly dossierReturnFocus =
+    this.router.currentNavigation()?.extras.info instanceof
+    DossierWorkspaceNavigation
+      ? this.router.currentNavigation()?.extras.info
+      : undefined;
   private readonly document = inject(DOCUMENT);
   readonly feedSettingsExpanded =
     this.route.snapshot.queryParamMap.get('settings') === 'feeds';

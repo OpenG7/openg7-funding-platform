@@ -430,7 +430,7 @@ test('delivery evidence highlights the scoped Campaigns link and handles its dis
   await expect(campaign).toHaveAttribute('data-og7-guidance-highlight', '');
   await expect(campaign).toHaveAttribute(
     'href',
-    `/admin/fundraiser/campaigns?sponsorshipId=${controllerId}`
+    `/admin/fundraiser/campaigns?sponsorshipId=${controllerId}&returnTo=${encodeURIComponent(controllerPath('publication'))}`
   );
   await expect(hook(page, 'workflow-guide-missing')).toBeHidden();
   await expect(page).toHaveURL(/\/admin\/fundraiser\/sponsors\?/);
