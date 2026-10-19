@@ -1,5 +1,3 @@
-import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
-
 import type { APIRequestContext } from '@playwright/test';
 import type {
   PublicSponsorshipsResponse,
@@ -7,6 +5,7 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
+import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
 import { approveAcceptanceFixture } from './support/acceptance-moderation.js';
 import { expect, test } from './support/test.js';
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';

@@ -1,5 +1,3 @@
-import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
-
 import type {
   AdminAuditLogResponse,
   FundTransparencyPublicResponse,
@@ -7,6 +5,7 @@ import type {
   SponsorshipFollowupResponse
 } from '@openg7/funding-core';
 
+import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
 import { adminSessionHeaders } from './support/admin-auth.js';
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { expect, test } from './support/test.js';

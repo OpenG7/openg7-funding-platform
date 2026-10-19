@@ -1,5 +1,3 @@
-import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
-
 import { randomUUID } from 'node:crypto';
 
 import sharp from 'sharp';
@@ -18,6 +16,7 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
+import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
 import { completeModeration } from './support/moderation.js';
 import { completePublicationModeration } from './support/acceptance-moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
