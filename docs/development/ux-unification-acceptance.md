@@ -163,8 +163,9 @@ sous Chromium Linux. Le build production du **19 octobre 2026** pré-rend
 25 routes ; son graphe initial atteint **505 389 octets**. Les causes et les
 mesures avant/après figurent dans le [rapport de performance](ux-bundle-performance.md).
 
-Les contre-épreuves suivantes utilisent ce build figé, avec API interceptées
-et `Audio` synthétique, sans diffusion ni effet externe :
+Les contre-épreuves suivantes utilisent ce build figé et des API interceptées.
+Les contrôles musicaux de l'en-tête remplacent aussi `Audio` par une
+implémentation synthétique :
 
 | Contrôle                         | Résultat        | Configuration et preuve locale                                                                                                                |
 | -------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
