@@ -195,12 +195,39 @@ Le fichier complet passe **13/13 tests sur PostgreSQL jetable** ; journal local
 `%TEMP%/og7-pr356-invoice-benefits-pdf-fixed.log`. Les assertions de facture,
 d'avantages et de totaux, ainsi que le rendu PDF applicatif, restent inchangés.
 
+Le commit parent `cdd8d07fe990ed8091a5ed7bc8115da48d526977` synchronise
+deux recettes UI. Le registre attend son vrai GET avant d'avancer l'horloge,
+plutôt que le seul état SSR : **12/12 répétitions et 28/28 cas du fichier**
+passent sur quatre navigateurs. Pilotage vérifie le scroll et l'intersection
+réelle dans la même tentative après agrandissement à 200 % : **12/12 cas
+FR/EN à 390/1536 px** sous Windows et **3/3 EN mobile sous Linux avec CPU
+ralenti ×6**. Les alignements des deux extrémités, cibles et contrôles restent
+exigés. Journaux `%TEMP%/og7-pr356-builders-clock-full.log`,
+`%TEMP%/og7-pr356-pilotage-scroll-fixed.log` et
+`%TEMP%/og7-pr356-linux-pilotage-cpu6-adjusted.log`.
+
+Le commit parent `b92fdff1b2f4f16bce7c385b2dd70599e45a5da2` limite à une
+reprise `ECONNRESET` les seuls GET du stub Stripe après fermeture keep-alive.
+La sonde de transport passe **6/6 contrôles** : GET réussi à la seconde
+tentative, refus HTTP conservé, coupure persistante bornée, aucun rejeu de POST
+ni de lecture d'une autre origine ou d'un faux préfixe. Les webhooks et commandes
+financières restent inchangés. Le scénario Docker de publication après
+remboursement/litige passe **1/1, sans reprise du scénario**, avec API,
+PostgreSQL et fournisseurs jetables ; journal
+`%TEMP%/og7-pr356-stub-get-acceptance.log`. Le lancement enregistre la base
+`cdd8d07f` avec le diff du helper, identique au fichier commis dans `b92fdff1`.
+
 Le lint complet rejoué après ces intégrations réussit, avec le seul
 avertissement préexistant de `scripts/smoke-public.mjs` ; journal local
 `%TEMP%/og7-pr357-final-integrated-lint.log`.
 Les 7 230 tests Node ci-dessus restent associés à `9328269e` : ils ne sont pas
-présentés comme une nouvelle exécution après ces changements CSS et d'imports.
-Le dernier résultat de toute la CI est consultable dans la
+présentés comme une nouvelle exécution après ces changements de styles et de recettes.
+La [CI complète sur `2b7e64e3`](https://github.com/OpenG7/openg7-funding-platform/actions/runs/39304349211)
+a validé ses **19/19 jobs** le 19 octobre 2026, ainsi que les workflows
+[standards](https://github.com/OpenG7/openg7-funding-platform/actions/runs/39304349387)
+et [documentation](https://github.com/OpenG7/openg7-funding-platform/actions/runs/39304349733).
+Ce résultat précède les trois derniers ajustements de recettes décrits ci-dessus ;
+il conserve son SHA. Le dernier résultat de toute la CI est consultable dans la
 [PR UX-06](https://github.com/OpenG7/openg7-funding-platform/pull/357).
 
 Limites connues au 19 octobre 2026 :
