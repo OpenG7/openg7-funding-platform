@@ -38,6 +38,7 @@ import {
 
 import { AdminSponsorshipCommitmentsComponent } from './admin-sponsorship-commitments.component.js';
 import { AdminSponsorshipPreparationComponent } from './admin-sponsorship-preparation.component.js';
+import { registerSponsorPublicationTranslations } from './admin-sponsors-publication-translations.js';
 
 /** Funding organism: persisted recognition facts and explicit visibility requests. */
 @Component({
@@ -92,6 +93,7 @@ export class AdminSponsorshipPublicationComponent {
   });
 
   constructor() {
+    registerSponsorPublicationTranslations();
     const browser = isPlatformBrowser(inject(PLATFORM_ID));
     effect(() => {
       const language = this.i18n.currentLanguage();
@@ -223,7 +225,6 @@ export class AdminSponsorshipPublicationComponent {
       ).length ?? 0;
     return { ...completion, done: Math.min(completion.done, qualified) };
   });
-  readonly completed = computed(() => this.publicationCompletion()?.done ?? 0);
   readonly publicationComplete = computed(() =>
     isDossierPublicationComplete(this.dossier())
   );
@@ -231,10 +232,6 @@ export class AdminSponsorshipPublicationComponent {
 
   evidence(obligationId: string) {
     return qualifiedPublicationEvidence(this.dossier(), obligationId);
-  }
-
-  evidenceUrl(obligationId: string): string | null {
-    return this.safePublicUrl(this.evidence(obligationId)?.externalPostUrl);
   }
 
   publicationDateLabel(reasonOrDeliveryStatus: string): string {

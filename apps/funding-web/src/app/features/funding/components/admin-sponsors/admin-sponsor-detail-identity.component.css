@@ -147,3 +147,13 @@ dd {
     grid-column: 1 / -1;
   }
 }
+
+@container admin-sponsor-identity (min-width: 56rem) {
+  .identity-coordinates {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .identity-coordinates > div:last-child {
+    grid-column: auto;
+  }
+}

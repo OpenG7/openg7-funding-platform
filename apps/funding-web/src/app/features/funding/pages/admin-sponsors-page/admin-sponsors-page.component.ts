@@ -44,7 +44,6 @@ import { AdminSponsorMediaWorkflow } from '../../services/admin-sponsor-media-wo
 import { AdminSponsorListController } from '../../services/admin-sponsor-list-controller.js';
 import { AdminInspectionService } from '../../services/admin-inspection.service.js';
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
-import { AdminAssistantContextComponent } from '../../components/admin-assistant/admin-assistant-context.component.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import { AdminIconComponent } from '../../components/admin-ui/admin-icon.component.js';
 import { FundingModerationService } from '../../services/funding-moderation.service.js';
@@ -62,6 +61,8 @@ import enProfile from '../../../../../assets/i18n/admin-sponsor-profile.en.json'
 import frProfile from '../../../../../assets/i18n/admin-sponsor-profile.fr-CA.json' with { type: 'json' };
 import enHistory from '../../../../../assets/i18n/admin-history.en.json' with { type: 'json' };
 import frHistory from '../../../../../assets/i18n/admin-history.fr-CA.json' with { type: 'json' };
+import enCleanup from '../../../../../assets/i18n/admin-sponsors-cleanup.en.json' with { type: 'json' };
+import frCleanup from '../../../../../assets/i18n/admin-sponsors-cleanup.fr-CA.json' with { type: 'json' };
 import { AdminSponsorDetailMediaComponent } from '../../components/admin-sponsors/admin-sponsor-detail-media.component.js';
 import { AdminSponsorshipProgressComponent } from '../../components/admin-sponsors/admin-sponsorship-progress.component.js';
 import { AdminSponsorshipNextStepComponent } from '../../components/admin-sponsors/admin-sponsorship-next-step.component.js';
@@ -87,8 +88,11 @@ import { AdminSponsorAuditHistoryComponent } from '../../components/admin-sponso
 import { AdminSponsorRejectionPanelComponent } from '../../components/admin-sponsors/admin-sponsor-rejection-panel.component.js';
 import { AdminSponsorRefundPanelComponent } from '../../components/admin-sponsors/admin-sponsor-refund-panel.component.js';
 import { AdminSponsorDecisionActionsComponent } from '../../components/admin-sponsors/admin-sponsor-decision-actions.component.js';
+import { AdminAutomaticPreparationDirective } from '../../components/admin-automatic/admin-automatic-preparation.directive.js';
 
 import { AdminSponsorsNavigationAdapter } from './admin-sponsors-navigation.adapter.js';
+
+type SponsorDossierTool = 'moderation' | 'help' | 'access';
 
 @Component({
   selector: 'openg7-admin-sponsors-page',
@@ -100,7 +104,6 @@ import { AdminSponsorsNavigationAdapter } from './admin-sponsors-navigation.adap
     AdminSponsorRejectionPanelComponent,
     AdminSponsorRefundPanelComponent,
     AdminSponsorDecisionActionsComponent,
-    AdminAssistantContextComponent,
     TranslatePipe,
     AdminSponsorDetailMediaComponent,
     AdminSponsorshipProgressComponent,
@@ -120,7 +123,8 @@ import { AdminSponsorsNavigationAdapter } from './admin-sponsors-navigation.adap
     AdminSponsorDetailTabsComponent,
     AdminSponsorsListPanelComponent,
     AdminSponsorsSummaryComponent,
-    AdminSponsorshipAccessComponent
+    AdminSponsorshipAccessComponent,
+    AdminAutomaticPreparationDirective
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-sponsors-page.component.html',
@@ -135,8 +139,19 @@ import { AdminSponsorsNavigationAdapter } from './admin-sponsors-navigation.adap
 export class AdminSponsorsPageComponent implements OnInit {
   readonly guideExpanded = signal(false);
   readonly sponsorsList = viewChild(AdminSponsorsListPanelComponent);
-  private readonly followupAccess =
-    viewChild<ElementRef<HTMLDetailsElement>>('followupAccess');
+  readonly dossierTool = signal<SponsorDossierTool | null>(null);
+  readonly visitedDossierTools = signal<ReadonlySet<SponsorDossierTool>>(
+    new Set()
+  );
+  private readonly dossierToolPanel =
+    viewChild<ElementRef<HTMLElement>>('dossierToolPanel');
+  private readonly dossierModeration = viewChild(
+    FundingModerationActionsComponent
+  );
+  private readonly sponsorEdit = viewChild(AdminSponsorEditComponent);
+  readonly dossierToolBusy = computed(
+    () => !!this.sponsorAccess()?.busy() || !!this.dossierModeration()?.busy()
+  );
   readonly isFinanceTab = computed(
     () => this.activeTab() === 'billing' || this.activeTab() === 'refund'
   );
@@ -150,9 +165,74 @@ export class AdminSponsorsPageComponent implements OnInit {
   }
 
   openFollowupAccess(): void {
-    const panel = this.followupAccess()?.nativeElement;
-    if (panel) panel.open = true;
-    this.sponsorAccess()?.focus();
+    this.openDossierTool('access', false);
+  }
+
+  openDossierTool(tool: SponsorDossierTool, toggle = true): void {
+    if (
+      this.dossierToolBusy() ||
+      (tool === 'access' && !this.canUseOwnerActions()) ||
+      (tool === 'moderation' && !this.canManage())
+    )
+      return;
+    if (toggle && this.dossierTool() === tool) {
+      this.closeDossierTool();
+      return;
+    }
+    this.visitedDossierTools.update((visited) => new Set([...visited, tool]));
+    this.dossierTool.set(tool);
+    if (tool === 'help') this.guideExpanded.set(true);
+    const sponsorshipId = this.selectedSponsorshipId();
+    afterNextRender(
+      () => {
+        if (
+          this.dossierTool() !== tool ||
+          this.selectedSponsorshipId() !== sponsorshipId
+        )
+          return;
+        const panel = this.dossierToolPanel()?.nativeElement;
+        const accessAction =
+          tool === 'access'
+            ? panel?.querySelector<HTMLElement>(
+                '[data-og7="admin-followup-access"] button:not(:disabled)'
+              )
+            : null;
+        const focusTarget =
+          accessAction ??
+          panel?.querySelector<HTMLElement>('[data-og7="dossier-tool-close"]');
+        focusTarget?.focus({ preventScroll: true });
+        panel?.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+      },
+      { injector: this.injector }
+    );
+  }
+
+  closeDossierTool(event?: Event): void {
+    if (this.dossierToolBusy()) return;
+    event?.stopPropagation();
+    const tool = this.dossierTool();
+    const sponsorshipId = this.selectedSponsorshipId();
+    this.dossierTool.set(null);
+    afterNextRender(
+      () => {
+        if (
+          this.dossierTool() !== null ||
+          this.selectedSponsorshipId() !== sponsorshipId
+        )
+          return;
+        this.sponsorDetailPanel?.nativeElement
+          .querySelector<HTMLElement>(
+            `[data-og7="dossier-tool-toggle"][data-og7-id="${tool}"]`
+          )
+          ?.focus({ preventScroll: true });
+      },
+      { injector: this.injector }
+    );
+  }
+
+  openIdentityEditor(): void {
+    if (this.dossierToolBusy()) return;
+    this.sponsorEdit()?.open();
   }
 
   openReviewNote(): void {
@@ -176,7 +256,6 @@ export class AdminSponsorsPageComponent implements OnInit {
   private readonly sponsorProgress = viewChild(
     AdminSponsorshipProgressComponent
   );
-  private readonly sponsorAssistant = viewChild(AdminAssistantContextComponent);
   private readonly i18n = inject(FundingI18nService);
   private readonly confirmation = inject(AdminConfirmationService);
   private readonly moderation = inject(FundingModerationService);
@@ -587,10 +666,33 @@ export class AdminSponsorsPageComponent implements OnInit {
               ...(language === 'en' ? enProfile : frProfile),
               publicationBridge: { schedule }
             },
-            history: language === 'en' ? enHistory : frHistory
+            history: language === 'en' ? enHistory : frHistory,
+            sponsorsCleanup: language === 'en' ? enCleanup : frCleanup
           }
         });
       });
+    });
+    let toolSelection: string | null = null;
+    let toolTab = this.activeTab();
+    effect(() => {
+      const selectedId = this.selectedSponsorshipId();
+      const tab = this.activeTab();
+      if (selectedId !== toolSelection) this.visitedDossierTools.set(new Set());
+      if (
+        selectedId !== toolSelection ||
+        (tab !== toolTab && !this.dossierToolBusy())
+      ) {
+        this.dossierTool.set(null);
+        toolSelection = selectedId;
+        toolTab = tab;
+      }
+      const tool = this.dossierTool();
+      if (
+        (tool === 'access' && !this.canUseOwnerActions()) ||
+        (tool === 'moderation' && !this.canManage())
+      ) {
+        this.dossierTool.set(null);
+      }
     });
     this.destroyRef.onDestroy(() => {
       this.listController.dispose();
@@ -611,8 +713,7 @@ export class AdminSponsorsPageComponent implements OnInit {
         this.state() !== 'ready' ||
         this.selectedSponsorship()?.id !== pending.sponsorshipId ||
         this.activeTab() !== pending.tab ||
-        this.sponsorProgress()?.state() === 'loading' ||
-        this.sponsorAssistant()?.state() === 'loading'
+        this.sponsorProgress()?.state() === 'loading'
       )
         return;
       const element =

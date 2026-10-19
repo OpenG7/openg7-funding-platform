@@ -1,0 +1,15 @@
+{
+  "workflowSummaryTitle": "Next step for promised services",
+  "workflowSummaryHelp": "View benefit details, deadlines and evidence in Campaigns.",
+  "openCampaign": "View this sponsorship’s benefits",
+  "settingsTitle": "Public profile and declared tracking",
+  "settingsHelp": "The public profile and declared social tracking have separate responsibilities. Saving them does not publish the profile or authorize a social delivery.",
+  "profileTitle": "Public profile",
+  "profileHelp": "Edit the profile address and summary. Its visibility is decided separately in the Website card.",
+  "declaredTitle": "Declared social tracking",
+  "declaredHelp": "Keep references and notes for manual or historical tracking. A declared status does not confirm a delivered benefit or replace publication authorization.",
+  "previewTitle": "Private profile preview",
+  "save": "Save changes",
+  "saveHelp": "Saves changed profile and declared tracking fields. Open the relevant publication to authorize a delivery.",
+  "saving": "Saving…"
+}

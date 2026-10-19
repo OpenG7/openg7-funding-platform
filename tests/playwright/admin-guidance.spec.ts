@@ -28,6 +28,7 @@ const automaticWorkspaces = [
   ['assistant', '/assistant'],
   ['contributions', '/contributions'],
   ['sponsors', '/sponsors'],
+  ['sponsorsQuality', '/sponsors/quality'],
   ['campaigns', '/campaigns'],
   ['invoices', '/invoices'],
   ['publications', '/publications'],
@@ -1858,7 +1859,7 @@ for (const { width, concentrated, placement } of [
   });
 }
 
-test('all nineteen protected admin workspaces retain guidance, including unavailable data', async ({
+test('all protected admin workspaces retain guidance, including unavailable data', async ({
   page
 }) => {
   test.setTimeout(90000);
@@ -1873,6 +1874,7 @@ test('all nineteen protected admin workspaces retain guidance, including unavail
     '/assistant',
     '/contributions',
     '/sponsors',
+    '/sponsors/quality',
     '/campaigns',
     '/invoices',
     '/publications',
@@ -1914,7 +1916,7 @@ for (const { language, width } of [
     );
     await expect(automaticHook(page, 'history')).toHaveCount(0);
     await expect(automaticHook(page, 'scope').locator('option')).toHaveCount(
-      20
+      automaticWorkspaces.length + 1
     );
     expect(
       await automaticHook(page, 'scope')

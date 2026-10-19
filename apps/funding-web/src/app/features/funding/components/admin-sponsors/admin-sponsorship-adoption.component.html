@@ -1,0 +1,87 @@
+<section
+  data-og7="commitments-adoption"
+  aria-labelledby="adoption-inventory-title"
+>
+  <header>
+    <h2 id="adoption-inventory-title">{{ labels.t('inventoryTitle') }}</h2>
+    <p>{{ labels.t('inventoryHelp') }}</p>
+  </header>
+  @if (!canOwn()) {
+    <p role="status">{{ labels.t('ownerRequired') }}</p>
+  } @else {
+    <div class="inventory-controls">
+      <label>
+        {{ 'admin.commitments.pageSize' | translate }}
+        <select
+          class="admin-select"
+          [value]="c.pageSize()"
+          (change)="setPageSize($event)"
+          [disabled]="c.loading()"
+        >
+          <option value="25">25</option>
+          <option value="50">50</option>
+        </select>
+      </label>
+      <button
+        type="button"
+        class="admin-button"
+        (click)="c.load()"
+        [disabled]="c.loading()"
+        data-og7="commitments-adoption-load"
+      >
+        {{ 'admin.commitments.loadPreview' | translate }}
+      </button>
+    </div>
+    @if (c.loading()) {
+      <p role="status">{{ 'admin.commitments.loading' | translate }}</p>
+    }
+    @if (c.error()) {
+      <p role="alert">{{ labels.t(c.error()) }}</p>
+    }
+    @if (c.data(); as preview) {
+      <ul class="inventory-results">
+        @for (item of preview.items; track item.contributionId) {
+          <li [attr.data-og7-id]="item.contributionId">
+            <a
+              routerLink="/admin/fundraiser/sponsors"
+              [queryParams]="{
+                sponsorshipId: item.contributionId,
+                tab: 'publication',
+                returnTo: '/admin/fundraiser/sponsors/quality'
+              }"
+              fragment="dossier-agreement"
+            >
+              {{ item.reference ?? item.contributionId }}
+            </a>
+            <span>{{
+              'admin.commitments.classifications.' + item.classification
+                | translate
+            }}</span>
+            <span>{{
+              'admin.commitments.inventoryCounts'
+                | translate
+                  : {
+                      obligations: item.obligationCount,
+                      evidence: item.fulfilledWithEvidenceCount,
+                      declarations: item.historicalDeclarationCount
+                    }
+            }}</span>
+          </li>
+        } @empty {
+          <li>{{ 'admin.commitments.emptyPreview' | translate }}</li>
+        }
+      </ul>
+      @if (preview.nextCursor) {
+        <button
+          type="button"
+          class="admin-button"
+          (click)="c.load(true)"
+          [disabled]="c.loading()"
+          data-og7="commitments-adoption-next"
+        >
+          {{ 'admin.commitments.nextPage' | translate }}
+        </button>
+      }
+    }
+  }
+</section>

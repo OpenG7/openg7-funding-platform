@@ -1,8 +1,40 @@
 # Modification d’un dossier commanditaire
 
-Depuis `/admin/fundraiser/sponsors`, sélectionner le dossier puis choisir **Modifier le dossier**, sous son en-tête. Le formulaire est accessible depuis chaque onglet, en français et en anglais, sur ordinateur et mobile.
+Depuis `/admin/fundraiser/sponsors`, sélectionner le dossier puis choisir **Modifier le dossier** dans sa barre d’outils. Le formulaire est accessible depuis chaque onglet, en français et en anglais, sur ordinateur et mobile.
 
-Dans **Identité**, le bouton **Modifier l’identité et les coordonnées** ouvre le même formulaire. Deux états distincts expliquent ce qui manque : les coordonnées requièrent un nom d’entreprise et un courriel de contact ; la transmission nécessite que le commanditaire ait soumis son formulaire depuis son lien privé. Une correction administrative ne crée pas cette transmission. Le propriétaire peut rejoindre le contrôle **Renvoyer le lien de suivi** depuis cette section ; les autres rôles voient qui contacter. Rejoindre ce contrôle n’envoie rien : le renvoi conserve sa confirmation du destinataire.
+Dans **Fiche et médias**, la section **Identité** propose **Modifier l’identité et les coordonnées**, qui ouvre le même formulaire. Deux états distincts expliquent ce qui manque : les coordonnées requièrent un nom d’entreprise et un courriel de contact ; la transmission nécessite que le commanditaire ait soumis son formulaire depuis son lien privé. Une correction administrative ne crée pas cette transmission. Le propriétaire peut rejoindre le contrôle **Renvoyer le lien de suivi** depuis cette section ; les autres rôles voient qui contacter. Rejoindre ce contrôle n’envoie rien : le renvoi conserve sa confirmation du destinataire.
+
+<a id="outils-du-dossier-a-la-demande"></a>
+
+## Outils du dossier à la demande
+
+La barre du dossier propose trois outils locaux à la demande : **Modération
+éditoriale** pour l’opérateur/propriétaire, **Aide pas à pas du dossier** pour
+tous les rôles et **Accès au suivi** pour le propriétaire. Un panneau non modal
+affiche un seul de ces outils à la fois. La modération réutilise le composant
+de décisions existant et sa confirmation du contenu exact ; l’aide reste le
+volet explicatif propre au dossier, distinct de l’Assistant.
+
+À l’ouverture, le focus rejoint un contrôle utilisable au clavier et à la
+manette. **Fermer l’outil du dossier** ou Échap rend le focus au déclencheur
+concerné. Hors opération en cours, changer d’onglet masque l’outil courant ; les
+outils déjà ouverts restent montés pour le même dossier, afin de conserver
+notamment l’identifiant d’une demande d’accès incertaine. Changer de dossier
+réinitialise les outils visités ; leur fermeture est bloquée pendant une
+opération de modération ou d’accès en cours.
+Un raccourci d’accès ouvre ou focalise l’outil déjà ouvert ; il n’envoie aucun message.
+
+**Aperçu** conserve les faits, la note et la prochaine étape. La rédaction, la
+conversation et les propositions de l’Assistant sont accessibles par
+**Ouvrir l’Assistant pour ce dossier**, avec le même `sponsorshipId` ; le lien
+Assistant du cadre administratif transporte aussi cette sélection.
+
+Dans **Publication**, la synthèse des prestations rejoint Campagnes avec le
+dossier comme filtre. La fiche publique et le suivi social déclaré ont des
+sous-zones distinctes ; leur sauvegarde conserve le workflow versionné existant.
+Le propriétaire trouve l’inventaire d’adoption et l’audit global dans
+`/admin/fundraiser/sponsors/quality`, **Qualité des commandites**. L’audit affiché
+dans un dossier reste borné à ce dossier.
 
 L’encadré **Coordonnées et transmission : deux actions distinctes** explique la différence entre une saisie administrative (par exemple après un appel) et la transmission datée du commanditaire qui soumet le dossier à la revue. Tant que cette transmission manque, l’onglet Identité et le formulaire de correction précisent que remplir tous les champs ne permet pas de valider cette étape à sa place. La progression et le guide rappellent cette règle. Les libellés ne présument pas que les coordonnées actuellement affichées ont été saisies par un administrateur.
 
@@ -121,12 +153,13 @@ une lecture indisponible ne conserve pas les indicateurs du dossier précédent.
 La préparation, la revue, le paiement et l’autorisation de publication restent
 distincts. Le guide conserve les explications détaillées à la demande.
 
-Dans le bon de préparation, sélectionner un contrôle affiche son détail, puis
+Dans la fiche de préparation, sélectionner un contrôle affiche son détail, puis
 **Actions** ouvre le controller partagé. L'action proposée rejoint l'écran
-propriétaire; relire ensuite le bon pour obtenir la progression serveur. L'accord
-sur une préparation admissible conserve sa confirmation explicite et la version
+propriétaire; relire ensuite la fiche pour obtenir la progression serveur. L'approbation
+d'une préparation admissible conserve sa confirmation explicite et la version
 consultée. Voir le [parcours de préparation](operations/admin-pilotage.md#preparation-pilot)
-pour la sélection, les commandes et les limites de la simulation Gamepad.
+pour la sélection, les commandes et les limites de la simulation Gamepad, ainsi
+que le [vocabulaire commun](technical/admin-campaigns.md#vocabulaire-des-operations).
 
 Pour un accord historique à qualifier, le propriétaire peut enregistrer un texte
 privé versionné et lancer une **assistance locale** depuis la section de l’accord.

@@ -275,20 +275,16 @@ export function registerDossierPublicationScheduleTests(
         await page.goto(context.path('publication'));
         const console = page.locator('[data-og7="publication-obligations"]');
         await expect(console).toBeVisible();
+        await expect(console).toHaveAttribute(
+          'data-responsibility',
+          'platform'
+        );
+        await expect(console.locator('[data-og7-id], time')).toHaveCount(0);
         await expect(
-          console.locator('[data-og7-id="synthetic-facebook-obligation"]')
-        ).toHaveAttribute('data-responsibility', 'platform');
-        await expect(console.locator('time')).toHaveAttribute(
-          'datetime',
-          scheduledAt
-        );
-        await expect(console).toContainText(
-          language === 'en'
-            ? 'Authorized publication date:'
-            : 'Date d’envoi autorisée :'
-        );
-        await expect(console).not.toContainText(
-          language === 'en' ? 'Proposed time:' : 'Créneau proposé :'
+          console.locator('[data-og7="publication-campaign-benefits"]')
+        ).toHaveAttribute(
+          'href',
+          `/admin/fundraiser/campaigns?sponsorshipId=${sponsorshipId}`
         );
         await expect(channel(page)).toHaveAttribute('data-state', 'scheduled');
         const authorizedDate = channel(page).locator(
@@ -394,14 +390,20 @@ export function registerDossierPublicationScheduleTests(
       await expect(
         card.locator('[data-og7="publication-review"]')
       ).toHaveAccessibleName('Examiner le blocage');
-      const obligation = page.locator(
-        `[data-og7="publication-obligations"] [data-og7-id="${facebookId}"]`
-      );
-      await expect(obligation).toHaveAttribute('data-state', 'uncertain');
-      await expect(obligation).toContainText('vérifier avant toute relance');
+      const summary = page.locator('[data-og7="publication-obligations"]');
+      await expect(summary).toHaveAttribute('data-state', 'uncertain');
+      await expect(summary).toContainText('vérifier avant toute relance');
       await expect(
-        obligation.getByRole('link', { name: 'Voir la publication' })
-      ).toHaveAttribute('href', 'https://example.invalid/retained-proof');
+        summary.locator('[data-og7="publication-campaign-benefits"]')
+      ).toHaveAttribute(
+        'href',
+        `/admin/fundraiser/campaigns?sponsorshipId=${sponsorshipId}`
+      );
+      await expect(
+        page.locator(
+          `[data-og7="commitments-obligations"] [data-og7-id="${facebookId}"]`
+        )
+      ).toContainText('synthetic-existing-proof');
       await card.locator('[data-og7="publication-review"]').click();
       await expect(
         page.getByRole('dialog', { name: 'Publication finale' })
@@ -558,23 +560,21 @@ export function registerDossierPublicationScheduleTests(
       };
       await page.goto(context.path('publication'));
       const console = page.locator('[data-og7="publication-obligations"]');
-      const facebook = console.locator(`[data-og7-id="${facebookId}"]`);
-      const linkedin = console.locator(`[data-og7-id="${linkedinId}"]`);
-      await expect(facebook).toHaveAttribute('data-state', 'complete');
-      await expect(
-        facebook.getByRole('link', { name: 'Voir la publication' })
-      ).toHaveAttribute('href', 'https://example.invalid/facebook-post');
-      await expect(
-        facebook.locator('[data-og7="publication-obligation-proof"] time')
-      ).toHaveAttribute('datetime', evaluatedAt);
+      await expect(console).toHaveAttribute('data-state', 'error');
+      await expect(console.locator('[data-og7-id]')).toHaveCount(0);
+      const benefits = console.locator(
+        '[data-og7="publication-campaign-benefits"]'
+      );
+      await expect(benefits).toHaveAttribute(
+        'href',
+        `/admin/fundraiser/campaigns?sponsorshipId=${sponsorshipId}`
+      );
       const detailedFacebook = page.locator(
         `[data-og7="commitments-obligations"] [data-og7-id="${facebookId}"]`
       );
       await expect(detailedFacebook).toContainText('Réalisée avec preuve');
-      await expect(linkedin).toHaveAttribute('data-state', 'error');
-      await expect(
-        linkedin.locator('[data-og7="publication-obligation-proof"]')
-      ).toHaveCount(0);
+      await expect(detailedFacebook).toContainText('synthetic-facebook-proof');
+      await expect(channel(page)).toHaveAttribute('data-state', 'published');
       await expect(page.locator('#publication-delivery-count')).toContainText(
         '1 / 3'
       );
@@ -598,12 +598,10 @@ export function registerDossierPublicationScheduleTests(
         }
       };
       await page.reload();
-      await expect(linkedin).toHaveAttribute('data-state', 'uncertain');
-      await expect(linkedin).toContainText('vérifier avant toute relance');
-      await expect(facebook.getByRole('link')).toHaveAttribute(
-        'href',
-        'https://example.invalid/facebook-post'
-      );
+      await expect(console).toHaveAttribute('data-state', 'uncertain');
+      await expect(console).toContainText('vérifier avant toute relance');
+      await expect(detailedFacebook).toContainText('synthetic-facebook-proof');
+      await expect(channel(page)).toHaveAttribute('data-state', 'published');
       options.progressOverrides = {
         ...options.progressOverrides,
         qualifiedFulfilmentEvidenceIds: [],
@@ -628,12 +626,11 @@ export function registerDossierPublicationScheduleTests(
         }
       };
       await page.reload();
-      await expect(facebook).toHaveAttribute('data-state', 'blocked');
-      await expect(facebook).toContainText('Preuve de livraison à vérifier');
+      await expect(console).toHaveAttribute('data-state', 'blocked');
+      await expect(console).toContainText('Preuve de livraison à vérifier');
       await expect(
-        facebook.locator('[data-og7="publication-obligation-proof"]')
+        console.locator('[data-og7="publication-obligation-proof"]')
       ).toHaveCount(0);
-      await expect(facebook.getByRole('link')).toHaveCount(0);
       await expect(channel(page)).toHaveAttribute('data-state', 'unverified');
       await expect(detailedFacebook).toContainText(
         'Déclaration historique · livraison non confirmée'

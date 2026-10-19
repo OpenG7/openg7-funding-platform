@@ -1,0 +1,20 @@
+.quality-page {
+  display: grid;
+  gap: 1.5rem;
+  padding: clamp(1rem, 3vw, 2rem);
+  min-width: 0;
+}
+
+header {
+  display: grid;
+  gap: 0.75rem;
+}
+
+h1 {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 700;
+}
+
+p {
+  max-width: 75ch;
+}

@@ -88,6 +88,14 @@ export const adminRoutes: Routes = [
       )
   },
   {
+    path: 'fundraiser/sponsors/quality',
+    canMatch: [adminSessionRequired],
+    loadComponent: () =>
+      import('./features/funding/pages/admin-sponsors-quality-page/admin-sponsors-quality-page.component.js').then(
+        (m) => m.AdminSponsorsQualityPageComponent
+      )
+  },
+  {
     path: 'fundraiser/sponsors',
     canMatch: [adminSessionRequired],
     loadComponent: () =>

@@ -13,13 +13,12 @@
   @apply tw:min-w-0 tw:p-4;
 }
 
-.detail-card h3 {
+.detail-card h3,
+.detail-card h4 {
   @apply tw:m-0;
 }
 
-dt,
-.publication-editor header span,
-.public-preview > span {
+.public-preview h4 {
   @apply tw:text-admin-muted tw:text-admin-caption;
   font-weight: var(--admin-label-weight);
   letter-spacing: 0;
@@ -72,17 +71,8 @@ textarea {
   @apply tw:resize-y;
 }
 
-dd,
 .public-preview p {
   @apply tw:wrap-anywhere;
-}
-
-.compact-definition-list {
-  @apply tw:grid tw:gap-3 tw:m-0;
-}
-
-dd {
-  margin: 0.15rem 0 0;
 }
 
 .logo-preview {
@@ -101,24 +91,24 @@ dd {
   @apply tw:max-w-full tw:object-contain;
 }
 
-.publication-editor header,
 .public-preview > div {
   @apply tw:items-center tw:flex;
   gap: 0.8rem;
   @apply tw:justify-between;
 }
 
-.publication-editor header > div,
 .public-preview > div > div {
   @apply tw:min-w-0 tw:wrap-anywhere;
 }
 
-.publication-advanced > summary {
+.publication-advanced > summary,
+.declared-tracking > summary {
   @apply tw:cursor-pointer tw:p-4;
   font-weight: var(--admin-control-weight);
 }
 
-.publication-advanced > summary:focus-visible {
+.publication-advanced > summary:focus-visible,
+.declared-tracking > summary:focus-visible {
   outline: 3px solid var(--admin-focus);
   outline-offset: -3px;
 }
@@ -146,8 +136,36 @@ dd {
   gap: 0.4rem;
 }
 
-.public-preview > span {
+.public-preview h4 {
   @apply tw:text-admin-warning;
+}
+
+.publication-scope,
+.publication-save-tools {
+  @apply tw:grid tw:gap-3 tw:min-w-0;
+}
+
+.declared-tracking {
+  border: 1px solid var(--admin-border);
+  border-radius: 0.5rem;
+}
+
+.declared-tracking > .settings-help,
+.declared-tracking > .publication-grid {
+  margin: 0 1rem 1rem;
+}
+
+.settings-help {
+  @apply tw:m-0 tw:text-admin-muted tw:text-admin-caption;
+}
+
+.publication-save-tools {
+  border-top: 1px solid var(--admin-border);
+  @apply tw:pt-4;
+}
+
+.publication-save-tools .publication-save {
+  justify-self: start;
 }
 
 .field-error {
@@ -160,7 +178,6 @@ dd {
     grid-template-columns: 1fr;
   }
 
-  .publication-editor header,
   .public-preview > div {
     @apply tw:flex-wrap;
   }

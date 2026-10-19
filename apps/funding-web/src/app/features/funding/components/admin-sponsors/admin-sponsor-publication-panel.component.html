@@ -6,183 +6,201 @@
   (toggle)="expandedChange.emit(websiteSettings.open)"
 >
   <summary #publicationSummary>
-    {{ 'admin.dossier.publicationBridge.advanced' | translate }}
+    {{ 'admin.dossier.publicationCleanup.settingsTitle' | translate }}
   </summary>
   <article
     class="detail-card publication-editor"
     data-og7="dossier-publication-editor"
   >
-    <header>
-      <div>
-        <span>{{ 'admin.legacy.publication' | translate }}</span>
-        <h3>{{ 'admin.legacy.commanditaire_et_feeds' | translate }}</h3>
-      </div>
+    <p class="settings-help">
+      {{ 'admin.dossier.publicationCleanup.settingsHelp' | translate }}
+    </p>
+    <section
+      class="publication-scope"
+      data-og7="publication-profile-settings"
+      aria-labelledby="publication-profile-title"
+    >
+      <h3 id="publication-profile-title">
+        {{ 'admin.dossier.publicationCleanup.profileTitle' | translate }}
+      </h3>
+      <p class="settings-help">
+        {{ 'admin.dossier.publicationCleanup.profileHelp' | translate }}
+      </p>
+      <fieldset class="publication-grid" [disabled]="actionsDisabled()">
+        <label data-og7="publication-public-address">
+          {{ 'admin.legacy.slug_public' | translate }}
+          <input
+            type="text"
+            maxlength="120"
+            [value]="draft().publicSlug"
+            (input)="fieldChange.emit({ field: 'publicSlug', event: $event })"
+            [attr.aria-invalid]="slugError() ? 'true' : null"
+            [attr.aria-describedby]="
+              slugError() ? 'publication-slug-error-' + sponsorship().id : null
+            "
+          />
+          @if (slugError()) {
+            <small
+              class="field-error"
+              [id]="'publication-slug-error-' + sponsorship().id"
+              >{{ slugError() }}</small
+            >
+          }
+        </label>
+        <label class="publication-span-2" data-og7="publication-public-summary">
+          {{ 'admin.legacy.resume_public' | translate }}
+          <textarea
+            rows="4"
+            maxlength="500"
+            [value]="draft().publicSummary"
+            (input)="
+              fieldChange.emit({ field: 'publicSummary', event: $event })
+            "
+          ></textarea>
+        </label>
+      </fieldset>
+      <section
+        class="detail-card public-preview"
+        data-og7="publication-public-preview"
+        aria-labelledby="publication-preview-title"
+      >
+        <h4 id="publication-preview-title">
+          {{ 'admin.dossier.publicationCleanup.previewTitle' | translate }}
+        </h4>
+        <div>
+          @if (logoSource()) {
+            <figure class="logo-preview">
+              <img [src]="logoSource()" [alt]="logoAlt()" />
+            </figure>
+          }
+          <div>
+            <strong>{{ publicName() }}</strong>
+            <p>
+              {{
+                draft().publicSummary ||
+                  ('admin.legacy.aucun_resume_public_pour_le_moment'
+                    | translate)
+              }}
+            </p>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <details class="declared-tracking" data-og7="publication-declared-tracking">
+      <summary>
+        {{ 'admin.dossier.publicationCleanup.declaredTitle' | translate }}
+      </summary>
+      <p
+        class="settings-help"
+        data-og7="publication-historical-declaration-help"
+      >
+        {{ 'admin.dossier.publicationCleanup.declaredHelp' | translate }}
+      </p>
+      <fieldset class="publication-grid" [disabled]="actionsDisabled()">
+        <label data-og7="publication-manual-target">
+          {{ 'admin.legacy.destination_feed' | translate }}
+          <select
+            [value]="draft().feedTarget"
+            (change)="fieldChange.emit({ field: 'feedTarget', event: $event })"
+          >
+            <option value="">{{ 'admin.legacy.aucune' | translate }}</option>
+            <option value="openg7">OpenG7</option>
+            <option value="openg20">OpenG20</option>
+          </select>
+        </label>
+        <label data-og7="publication-manual-status">
+          {{ 'admin.dossier.publicationBridge.declaredStatus' | translate }}
+          <select
+            [value]="draft().feedStatus"
+            (change)="fieldChange.emit({ field: 'feedStatus', event: $event })"
+          >
+            @for (status of feedStatusOptions(); track status.value) {
+              <option [value]="status.value">{{ status.label }}</option>
+            }
+          </select>
+        </label>
+        <fieldset>
+          <legend>{{ 'admin.legacy.canaux' | translate }}</legend>
+          <label>
+            <input
+              type="checkbox"
+              [checked]="draft().facebook"
+              [disabled]="promisedChannels().includes('facebook')"
+              [attr.title]="
+                promisedChannels().includes('facebook')
+                  ? promisedChannelTitle()
+                  : null
+              "
+              (change)="
+                channelChange.emit({ channel: 'facebook', event: $event })
+              "
+            />
+            Facebook
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              [checked]="draft().linkedin"
+              [disabled]="promisedChannels().includes('linkedin')"
+              [attr.title]="
+                promisedChannels().includes('linkedin')
+                  ? promisedChannelTitle()
+                  : null
+              "
+              (change)="
+                channelChange.emit({ channel: 'linkedin', event: $event })
+              "
+            />
+            LinkedIn
+          </label>
+        </fieldset>
+        <label data-og7="publication-manual-link">
+          {{ 'admin.legacy.lien_de_publication' | translate }}
+          <input
+            type="url"
+            maxlength="2048"
+            [value]="draft().feedPublicUrl"
+            (input)="
+              fieldChange.emit({ field: 'feedPublicUrl', event: $event })
+            "
+          />
+        </label>
+        <label class="publication-span-2" data-og7="publication-manual-notes">
+          {{ 'admin.legacy.notes_feed' | translate }}
+          <textarea
+            rows="4"
+            maxlength="1000"
+            [value]="draft().feedNotes"
+            (input)="fieldChange.emit({ field: 'feedNotes', event: $event })"
+          ></textarea>
+        </label>
+      </fieldset>
+    </details>
+    <footer class="publication-save-tools">
+      <p class="inline-status" [class.is-dirty]="dirty()" aria-live="polite">
+        {{ stateLabel() }}
+      </p>
+      <p id="publication-save-help" class="settings-help">
+        {{ 'admin.dossier.publicationCleanup.saveHelp' | translate }}
+      </p>
       <button
         type="button"
         class="publication-save"
         data-og7="publication-tracking-save"
+        aria-describedby="publication-save-help"
         [disabled]="
           !dirty() || !!slugError() || !canSave() || actionsDisabled()
         "
         (click)="save.emit()"
       >
         {{
-          saving()
-            ? ('admin.legacy.enregistrement' | translate)
-            : ('admin.legacy.enregistrer' | translate)
+          (saving()
+            ? 'admin.dossier.publicationCleanup.saving'
+            : 'admin.dossier.publicationCleanup.save'
+          ) | translate
         }}
       </button>
-    </header>
-    <p class="inline-status" [class.is-dirty]="dirty()" aria-live="polite">
-      {{ stateLabel() }}
-    </p>
-    <p data-og7="publication-historical-declaration-help">
-      {{ 'admin.dossier.publicationBridge.historicalDeclaration' | translate }}
-    </p>
-    <fieldset class="publication-grid" [disabled]="actionsDisabled()">
-      <label data-og7="publication-public-address">
-        {{ 'admin.legacy.slug_public' | translate }}
-        <input
-          type="text"
-          maxlength="120"
-          [value]="draft().publicSlug"
-          (input)="fieldChange.emit({ field: 'publicSlug', event: $event })"
-          [attr.aria-invalid]="slugError() ? 'true' : null"
-          [attr.aria-describedby]="
-            slugError() ? 'publication-slug-error-' + sponsorship().id : null
-          "
-        />
-        @if (slugError()) {
-          <small
-            class="field-error"
-            [id]="'publication-slug-error-' + sponsorship().id"
-            >{{ slugError() }}</small
-          >
-        }
-      </label>
-      <label data-og7="publication-manual-target">
-        {{ 'admin.legacy.destination_feed' | translate }}
-        <select
-          [value]="draft().feedTarget"
-          (change)="fieldChange.emit({ field: 'feedTarget', event: $event })"
-        >
-          <option value="">{{ 'admin.legacy.aucune' | translate }}</option>
-          <option value="openg7">OpenG7</option>
-          <option value="openg20">OpenG20</option>
-        </select>
-      </label>
-      <label data-og7="publication-manual-status">
-        {{ 'admin.dossier.publicationBridge.declaredStatus' | translate }}
-        <select
-          [value]="draft().feedStatus"
-          (change)="fieldChange.emit({ field: 'feedStatus', event: $event })"
-        >
-          @for (status of feedStatusOptions(); track status.value) {
-            <option [value]="status.value">{{ status.label }}</option>
-          }
-        </select>
-      </label>
-      <fieldset>
-        <legend>{{ 'admin.legacy.canaux' | translate }}</legend>
-        <label>
-          <input
-            type="checkbox"
-            [checked]="draft().facebook"
-            [disabled]="promisedChannels().includes('facebook')"
-            [attr.title]="
-              promisedChannels().includes('facebook')
-                ? promisedChannelTitle()
-                : null
-            "
-            (change)="
-              channelChange.emit({ channel: 'facebook', event: $event })
-            "
-          />
-          Facebook
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            [checked]="draft().linkedin"
-            [disabled]="promisedChannels().includes('linkedin')"
-            [attr.title]="
-              promisedChannels().includes('linkedin')
-                ? promisedChannelTitle()
-                : null
-            "
-            (change)="
-              channelChange.emit({ channel: 'linkedin', event: $event })
-            "
-          />
-          LinkedIn
-        </label>
-      </fieldset>
-      <label class="publication-span-2" data-og7="publication-public-summary">
-        {{ 'admin.legacy.resume_public' | translate }}
-        <textarea
-          rows="4"
-          maxlength="500"
-          [value]="draft().publicSummary"
-          (input)="fieldChange.emit({ field: 'publicSummary', event: $event })"
-        ></textarea>
-      </label>
-      <label data-og7="publication-manual-link">
-        {{ 'admin.legacy.lien_de_publication' | translate }}
-        <input
-          type="url"
-          maxlength="2048"
-          [value]="draft().feedPublicUrl"
-          (input)="fieldChange.emit({ field: 'feedPublicUrl', event: $event })"
-        />
-      </label>
-      <label class="publication-span-2" data-og7="publication-manual-notes">
-        {{ 'admin.legacy.notes_feed' | translate }}
-        <textarea
-          rows="4"
-          maxlength="1000"
-          [value]="draft().feedNotes"
-          (input)="fieldChange.emit({ field: 'feedNotes', event: $event })"
-        ></textarea>
-      </label>
-    </fieldset>
-  </article>
-
-  <article
-    class="detail-card public-preview"
-    data-og7="publication-public-preview"
-  >
-    <span>{{ 'admin.legacy.previsualisation_non_publiee' | translate }}</span>
-    <div>
-      @if (logoSource()) {
-        <figure class="logo-preview">
-          <img [src]="logoSource()" [alt]="logoAlt()" />
-        </figure>
-      }
-      <div>
-        <h3>{{ publicName() }}</h3>
-        <p>
-          {{
-            draft().publicSummary ||
-              ('admin.legacy.aucun_resume_public_pour_le_moment' | translate)
-          }}
-        </p>
-      </div>
-    </div>
-    <dl class="compact-definition-list">
-      <div>
-        <dt>{{ 'admin.legacy.destination' | translate }}</dt>
-        <dd>{{ draft().feedTarget || ('admin.legacy.aucune' | translate) }}</dd>
-      </div>
-      <div>
-        <dt>{{ 'admin.legacy.canaux' | translate }}</dt>
-        <dd>{{ channelsLabel() }}</dd>
-      </div>
-      <div>
-        <dt>{{ 'admin.legacy.lien' | translate }}</dt>
-        <dd>
-          {{ draft().feedPublicUrl || ('admin.legacy.non_defini' | translate) }}
-        </dd>
-      </div>
-    </dl>
+    </footer>
   </article>
 </details>
