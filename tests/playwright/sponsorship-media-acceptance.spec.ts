@@ -21,6 +21,10 @@ import {
   completePublicationModeration
 } from './support/acceptance-moderation.js';
 import { completeModeration } from './support/moderation.js';
+import {
+  openDeclaredSponsorshipTracking,
+  openSponsorshipModeration
+} from './support/sponsorship-dossier.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import { test, expect } from './support/test.js';
@@ -459,6 +463,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
           .locator('[data-og7="publication-advanced"] > summary')
           .click();
         await admin.getByLabel(/Slug public/i).fill('media-' + id);
+        await openDeclaredSponsorshipTracking(admin);
         await admin.getByLabel(/Destination feed/i).selectOption('openg7');
         await admin
           .getByRole('combobox', {
@@ -469,9 +474,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         await admin
           .getByLabel(/Resume public/i)
           .fill('Présentation publique synthétique.');
-        await admin
-          .getByRole('button', { name: 'Enregistrer', exact: true })
-          .click();
+        await admin.locator('[data-og7="publication-tracking-save"]').click();
         await expect(
           admin.getByText('Paramètres de suivi enregistrés', { exact: true })
         ).toBeVisible();
@@ -481,7 +484,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
           ).status()
         ).toBe(404);
         // Saving the public summary changes the dossier's editorial revision.
-        const moderation = admin.locator('[data-og7="moderation-actions"]');
+        const moderation = await openSponsorshipModeration(admin);
         await moderation.getByRole('combobox').first().selectOption('N0');
         const moderated = admin.waitForResponse(
           (response) =>
