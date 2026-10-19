@@ -6,7 +6,11 @@
   @if (languageReady()) {
     <header class="workspace-heading">
       <div>
-        <h3>{{ t('title') }}</h3>
+        @if (headingLevel() === 4) {
+          <h4>{{ t('title') }}</h4>
+        } @else {
+          <h3>{{ t('title') }}</h3>
+        }
         <p class="muted">{{ t('subtitle') }}</p>
       </div>
       <button

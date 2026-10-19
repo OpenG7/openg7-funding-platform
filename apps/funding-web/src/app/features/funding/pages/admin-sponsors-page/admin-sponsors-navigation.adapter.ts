@@ -52,16 +52,19 @@ export class AdminSponsorsNavigationAdapter {
     }
     if (!(event instanceof Scroll)) return;
     if (this.ports.currentNavigation()) return;
-    const targetTab = dossierSectionTab(event.anchor);
-    if (!event.position && event.anchor && targetTab) {
-      const url = this.ports.parseUrl(event.routerEvent.url);
+    const url = this.ports.parseUrl(event.routerEvent.url);
+    const fragment =
+      event.anchor ??
+      (url.queryParams['tab'] === 'media' ? 'dossier-media-gallery' : null);
+    const targetTab = dossierSectionTab(fragment);
+    if (!event.position && fragment && targetTab) {
       const sponsorshipId = url.queryParams['sponsorshipId'];
       if (
         sponsorshipId &&
         (url.queryParams['tab'] ?? 'overview') === targetTab
       ) {
         this.ports.controller.navigationScrolled(event.routerEvent.id, {
-          fragment: event.anchor,
+          fragment,
           sponsorshipId,
           tab: targetTab
         });

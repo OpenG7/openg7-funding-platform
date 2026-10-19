@@ -109,6 +109,36 @@
         <ng-container
           *ngIf="selectedSponsorship() as selected; else noSelection"
         >
+          <openg7-admin-sponsor-detail-header
+            *ngIf="selectedSponsorDetailHeader() as detailHeader"
+            [detail]="detailHeader"
+            [reviewStatus]="selected.sponsor_review_status"
+            [reviewAnchor]="!canManage() && activeTab() === 'overview'"
+            [website]="
+              progress()?.contributionId === selected.id
+                ? progress()?.website
+                : undefined
+            "
+          >
+            @if (canManage()) {
+              <button
+                headerActions
+                type="button"
+                class="admin-button"
+                data-og7="dossier-tool-toggle"
+                data-og7-id="moderation"
+                [openg7AutomaticPrepare]="'sponsor.tool.moderation.open'"
+                [automaticFor]="selected.id"
+                (automaticPrepare)="openDossierTool('moderation', false)"
+                [attr.aria-expanded]="dossierTool() === 'moderation'"
+                aria-controls="dossier-tool-panel"
+                [disabled]="dossierToolBusy()"
+                (click)="openDossierTool('moderation')"
+              >
+                {{ 'admin.sponsorsCleanup.moderation' | translate }}
+              </button>
+            }
+          </openg7-admin-sponsor-detail-header>
           <nav
             class="dossier-toolbar"
             [attr.aria-label]="'admin.dossier.workspace.navigation' | translate"
@@ -159,22 +189,6 @@
               (saved)="loadSponsorships()"
               (conflicted)="versionConflict.set(true)"
             />
-            @if (canManage()) {
-              <button
-                type="button"
-                data-og7="dossier-tool-toggle"
-                data-og7-id="moderation"
-                [openg7AutomaticPrepare]="'sponsor.tool.moderation.open'"
-                [automaticFor]="selected.id"
-                (automaticPrepare)="openDossierTool('moderation', false)"
-                [attr.aria-expanded]="dossierTool() === 'moderation'"
-                aria-controls="dossier-tool-panel"
-                [disabled]="dossierToolBusy()"
-                (click)="openDossierTool('moderation')"
-              >
-                {{ 'admin.sponsorsCleanup.moderation' | translate }}
-              </button>
-            }
             <button
               type="button"
               data-og7="dossier-tool-toggle"
@@ -239,17 +253,7 @@
               </button>
             </div>
           </nav>
-          <openg7-admin-sponsor-detail-header
-            *ngIf="selectedSponsorDetailHeader() as detailHeader"
-            [detail]="detailHeader"
-            [reviewStatus]="selected.sponsor_review_status"
-            [reviewAnchor]="!canManage() && activeTab() === 'overview'"
-            [website]="
-              progress()?.contributionId === selected.id
-                ? progress()?.website
-                : undefined
-            "
-          />
+
           <p
             class="payment-alert"
             *ngIf="paymentEligibilityMessage(selected)"
@@ -344,18 +348,6 @@
             "
             (activeTabChange)="setActiveTab($event)"
           />
-          @if (progress(); as dossier) {
-            @if (dossier.contributionId === selected.id) {
-              <div class="dossier-worklist" data-og7="dossier-worklist">
-                <openg7-admin-sponsorship-next-step
-                  [dossier]="dossier"
-                  [workspace]="true"
-                  [embedded]="true"
-                  [compact]="true"
-                />
-              </div>
-            }
-          }
           <div class="dossier-content-grid" data-og7="dossier-content">
             <div class="dossier-main" data-og7="dossier-main">
               <h2 id="dossier-section-title" class="dossier-section-title">
@@ -370,6 +362,18 @@
                           : activeTab()) | translate
                 }}
               </h2>
+              @if (progress(); as dossier) {
+                @if (dossier.contributionId === selected.id) {
+                  <div class="dossier-worklist" data-og7="dossier-worklist">
+                    <openg7-admin-sponsorship-next-step
+                      [dossier]="dossier"
+                      [workspace]="true"
+                      [embedded]="true"
+                      [compact]="activeTab() !== 'overview'"
+                    />
+                  </div>
+                }
+              }
               <openg7-admin-sponsorship-progress
                 [sponsorshipId]="selected.id"
                 [streamlined]="true"

@@ -2,22 +2,42 @@
 
 Depuis `/admin/fundraiser/sponsors`, sélectionner le dossier puis choisir **Modifier le dossier** dans sa barre d’outils. Le formulaire est accessible depuis chaque onglet, en français et en anglais, sur ordinateur et mobile.
 
-Dans **Fiche et médias**, la section **Identité** propose **Modifier l’identité et les coordonnées**, qui ouvre le même formulaire. Deux états distincts expliquent ce qui manque : les coordonnées requièrent un nom d’entreprise et un courriel de contact ; la transmission nécessite que le commanditaire ait soumis son formulaire depuis son lien privé. Une correction administrative ne crée pas cette transmission. Le propriétaire peut rejoindre le contrôle **Renvoyer le lien de suivi** depuis cette section ; les autres rôles voient qui contacter. Rejoindre ce contrôle n’envoie rien : le renvoi conserve sa confirmation du destinataire.
+Dans **Fiche et médias**, la section **Identité et soumission** propose **Modifier l’identité et les coordonnées**, qui ouvre le même formulaire. Deux états distincts expliquent ce qui manque : les coordonnées requièrent un nom d’entreprise et un courriel de contact ; la transmission nécessite que le commanditaire ait soumis son formulaire depuis son lien privé. Une correction administrative ne crée pas cette transmission. Le propriétaire peut rejoindre le contrôle **Renvoyer le lien de suivi** depuis cette section ; les autres rôles voient qui contacter. Rejoindre ce contrôle n’envoie rien : le renvoi conserve sa confirmation du destinataire.
+
+## Parcourir le dossier
+
+L’en-tête affiche la référence, le montant avec sa devise et des états distincts
+pour la revue, le paiement, la visibilité Web et le remboursement éventuel.
+**Aperçu** contient une seule recommandation détaillée issue de la progression
+serveur. Les autres onglets en gardent un rappel navigable. Les points à traiter
+se regroupent par domaine, avec trois familles visibles puis une commande pour
+toutes les afficher. L’ordre par domaine n’est pas un calcul de priorité ; le
+responsable reste à déterminer quand la projection ne le renseigne pas. Les
+liens rejoignent les contrôles propriétaires sans exécuter leur décision.
+
+Les cinq onglets restent `overview`, `identity`, `publication`, `billing` et
+`audit`. Dans **Fiche et médias**, **Revue des médias** affiche les compteurs de
+l’espace de revue courant puis conserve ses outils, droits et manifestes.
+**Aller à la galerie** y déplace le focus. Un lien entrant avec `tab=media` sans
+ancre cible cette galerie après son montage ; les ancres explicites et les
+positions de navigation arrière gardent leur priorité. L’alias `refund` reste
+rattaché à **Finances**. Aucun onglet supplémentaire n’est créé.
 
 <a id="outils-du-dossier-a-la-demande"></a>
 
 ## Outils du dossier à la demande
 
-La barre du dossier propose trois outils locaux à la demande : **Modération
-éditoriale** pour l’opérateur/propriétaire, **Aide pas à pas du dossier** pour
-tous les rôles et **Accès au suivi** pour le propriétaire. Un panneau non modal
+L’en-tête du dossier propose **Modération éditoriale** pour l’opérateur ou le
+propriétaire. La barre conserve **Aide pas à pas du dossier** pour tous les rôles
+et **Accès au suivi** pour le propriétaire. Un panneau non modal
 affiche un seul de ces outils à la fois. La modération réutilise le composant
 de décisions existant et sa confirmation du contenu exact ; l’aide reste le
 volet explicatif propre au dossier, distinct de l’Assistant.
 
 À l’ouverture, le focus rejoint un contrôle utilisable au clavier et à la
 manette. **Fermer l’outil du dossier** ou Échap rend le focus au déclencheur
-concerné. Hors opération en cours, changer d’onglet masque l’outil courant ; les
+concerné et le révèle dans la fenêtre s’il est masqué. Hors opération en cours,
+changer d’onglet masque l’outil courant ; les
 outils déjà ouverts restent montés pour le même dossier, afin de conserver
 notamment l’identifiant d’une demande d’accès incertaine. Changer de dossier
 réinitialise les outils visités ; leur fermeture est bloquée pendant une

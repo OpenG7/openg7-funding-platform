@@ -9,6 +9,7 @@
     "financeHint": "Paiement, factures et remboursements sont regroupés dans Finances."
   },
   "identityHelp": {
+    "sectionTitle": "Identité et soumission",
     "completeLabel": "Complètes",
     "missingLabel": "À compléter",
     "submittedLabel": "Formulaire transmis",
@@ -33,6 +34,13 @@
     "ownerHelp": "Si le commanditaire a perdu son lien, demandez à un propriétaire de lui renvoyer l’accès au suivi."
   },
   "media": {
+    "sectionTitle": "Revue des médias",
+    "openGallery": "Aller à la galerie",
+    "fileCount": "Fichiers : {{count}}",
+    "blockedCount": "Médias bloqués : {{count}}",
+    "summaryLoading": "Chargement du résumé média…",
+    "summaryUnavailable": "Résumé média indisponible.",
+    "noGallery": "Aucun espace média lié à ce dossier.",
     "preferenceEmpty": "Aucune préférence ni correction transmise.",
     "logoAlt": "Logo de {{name}}",
     "logoEmptyHelp": "Ajoutez le logo pour compléter la fiche. Ce téléversement ne publie pas la commandite.",

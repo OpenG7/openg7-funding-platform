@@ -9,6 +9,7 @@
     "financeHint": "Payments, invoices and refunds are grouped under Finances."
   },
   "identityHelp": {
+    "sectionTitle": "Identity and submission",
     "completeLabel": "Complete",
     "missingLabel": "To complete",
     "submittedLabel": "Form submitted",
@@ -33,6 +34,13 @@
     "ownerHelp": "If the sponsor has lost their link, ask an owner to resend follow-up access."
   },
   "media": {
+    "sectionTitle": "Media review",
+    "openGallery": "Go to gallery",
+    "fileCount": "Files: {{count}}",
+    "blockedCount": "Blocked assets: {{count}}",
+    "summaryLoading": "Loading media summary…",
+    "summaryUnavailable": "Media summary unavailable.",
+    "noGallery": "No media workspace is linked to this dossier.",
     "preferenceEmpty": "No preference or correction submitted.",
     "logoAlt": "Logo for {{name}}",
     "logoEmptyHelp": "Add the logo to complete the profile. Uploading it does not publish the sponsorship.",

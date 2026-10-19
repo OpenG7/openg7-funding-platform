@@ -99,7 +99,7 @@ const progress = (): AdminSponsorshipProgress => ({
       reason: 'identity_complete',
       tab: 'identity'
     },
-    { id: 'media', state: 'pending', reason: 'media_pending', tab: 'media' },
+    { id: 'media', state: 'pending', reason: 'media_review', tab: 'media' },
     {
       id: 'review',
       state: 'pending',

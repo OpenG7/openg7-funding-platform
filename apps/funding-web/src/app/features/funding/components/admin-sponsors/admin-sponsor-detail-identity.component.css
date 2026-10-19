@@ -19,11 +19,16 @@
   background: var(--admin-panel);
 }
 
-h3 {
+h3,
+h4 {
   margin: 0;
   font-family: var(--admin-heading-font-family);
   font-size: var(--admin-section-size);
   font-weight: var(--admin-section-weight);
+}
+
+.section-title {
+  padding-block-start: 0.25rem;
 }
 
 .identity-heading,

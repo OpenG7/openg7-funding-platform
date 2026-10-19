@@ -12,6 +12,8 @@ interface WorkspaceTestContext {
     calls: readonly { readonly method: string; readonly url: URL }[];
     options: {
       progressOverrides: Partial<AdminSponsorshipProgress>;
+      next: AdminSponsorshipProgress['next'] | null;
+      milestones: AdminSponsorshipProgress['milestones'] | null;
       status: number;
     };
   }>;
@@ -80,6 +82,11 @@ export function registerSponsorWorkspaceTests({
           .click();
       const frame = page.locator('[data-og7="sponsorship-dossier"]');
       const rail = frame.locator('[data-og7="dossier-worklist"]');
+      const recommendation = frame.locator(
+        '[data-og7="dossier-recommendation"]'
+      );
+      await expect(recommendation).toHaveCount(1);
+      await expect(rail.locator('[data-og7="dossier-next"]')).toHaveCount(1);
       await expect(
         rail.locator('[data-og7="publication-next-responsibility"]')
       ).toContainText(
@@ -88,6 +95,7 @@ export function registerSponsorWorkspaceTests({
           : 'Prochaine étape : plateforme.'
       );
       await expect(rail).not.toContainText('admin.dossier.');
+      await expect(rail).not.toContainText('admin.sponsorsCleanup.');
       const finances = frame
         .locator('[data-og7="dossier-tabs"]')
         .getByRole('button', { name: 'Finances', exact: true });
@@ -95,11 +103,23 @@ export function registerSponsorWorkspaceTests({
         locale === 'en' ? 'Error' : 'Erreur'
       );
       const blockers = rail.locator('[data-og7="publication-blockers"]');
-      await blockers.locator('summary').focus();
-      await page.keyboard.press('Enter');
-      await blockers.getByRole('link').press('Enter');
+      const media = blockers
+        .locator('[data-og7="dossier-blocker-family"][data-og7-id="media"]')
+        .getByRole('link');
+      await media.focus();
+      await media.press('Enter');
       await expect(page).toHaveURL(/tab=media.*#dossier-media$/);
       await expect(page.locator('#dossier-media')).toBeFocused();
+      await expect(recommendation).toHaveCount(1);
+      await expect(
+        recommendation.locator('[data-og7="dossier-next"]')
+      ).toHaveCount(1);
+      await expect(
+        recommendation.locator('[data-og7="publication-blockers"]')
+      ).toHaveCount(0);
+      await expect(
+        recommendation.locator('[data-og7="dossier-next-owner"]')
+      ).toHaveCount(0);
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= innerWidth + 1
@@ -112,6 +132,156 @@ export function registerSponsorWorkspaceTests({
             .analyze()
         ).violations
       ).toEqual([]);
+      expect(calls.every((call) => call.method === 'GET')).toBe(true);
+    });
+  }
+
+  for (const [locale, width] of [
+    ['fr-CA', 1280],
+    ['en', 390]
+  ] as const) {
+    test(`dossier recommendation preserves server priority and discloses additional blocker families in ${locale} at ${width}px`, async ({
+      page
+    }) => {
+      const { calls, options } = await fixtures(page, 'reader');
+      const english = locale === 'en';
+      options.next = {
+        reason: 'stripe_failed',
+        tab: 'overview',
+        adminUrl: path() + '#dossier-stripe'
+      };
+      options.milestones = [
+        {
+          id: 'identity',
+          state: 'blocked',
+          reason: 'identity_missing',
+          tab: 'identity'
+        },
+        {
+          id: 'review',
+          state: 'pending',
+          reason: 'review_pending',
+          tab: 'overview'
+        },
+        { id: 'media', state: 'pending', reason: 'media_review', tab: 'media' },
+        {
+          id: 'publication',
+          state: 'pending',
+          reason: 'publication_pending',
+          tab: 'publication'
+        }
+      ];
+      options.progressOverrides = {
+        publicationBlockers: ['commitment_needs_confirmation'],
+        publicationWorkflow: {
+          state: 'action_required',
+          responsibility: 'admin',
+          reason: 'publication_preparation_required',
+          obligations: []
+        },
+        failedStripeEvents: [
+          { id: 'evt_synthetic_ux03', type: 'payment_intent.succeeded' }
+        ]
+      };
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(path());
+      if (english)
+        await page
+          .getByRole('button', {
+            name: 'Switch administration language to English'
+          })
+          .click();
+      const recommendation = page.locator(
+        '[data-og7="dossier-recommendation"]'
+      );
+      const families = recommendation.locator(
+        '[data-og7="dossier-blocker-family"]'
+      );
+      await expect(recommendation).toHaveCount(1);
+      await expect(
+        recommendation.getByText(
+          english
+            ? 'A Stripe event linked to this dossier failed.'
+            : 'Un événement Stripe lié au dossier est en échec.',
+          { exact: true }
+        )
+      ).toBeVisible();
+      const primary = recommendation.locator('[data-og7="dossier-next"]');
+      await expect(primary).toHaveText(
+        english ? 'View Stripe errors' : 'Voir les erreurs Stripe'
+      );
+      await expect(primary).toHaveAttribute('href', path() + '#dossier-stripe');
+      await expect(
+        recommendation.locator('[data-og7="dossier-next-owner"]')
+      ).toContainText(
+        english ? 'Responsibility to be determined' : 'Responsable à déterminer'
+      );
+      await expect(families).toHaveCount(3);
+      expect(
+        await families.evaluateAll((elements) =>
+          elements.map((element) => element.getAttribute('data-og7-id'))
+        )
+      ).toEqual(['identity', 'review', 'media']);
+      await expect(
+        families.filter({
+          has: page.getByRole('heading', {
+            name: english ? 'Sponsor review' : 'Revue du commanditaire',
+            exact: true
+          })
+        })
+      ).toContainText(english ? 'Pending' : 'En attente');
+      const all = recommendation.locator('[data-og7="dossier-blockers-all"]');
+      await expect(all).toHaveAttribute('aria-expanded', 'false');
+      await all.focus();
+      await all.press('Enter');
+      await expect(all).toBeFocused();
+      await expect(all).toHaveAttribute('aria-expanded', 'true');
+      await expect(families).toHaveCount(6);
+      expect(
+        await families.evaluateAll((elements) =>
+          elements.map((element) => element.getAttribute('data-og7-id'))
+        )
+      ).toEqual([
+        'identity',
+        'review',
+        'media',
+        'preparation',
+        'publication',
+        'finance'
+      ]);
+      for (const link of await families.getByRole('link').all()) {
+        const href = await link.getAttribute('href');
+        expect(href).not.toBeNull();
+        const destination = new URL(href!, 'http://fixture.invalid');
+        expect(destination.pathname).toBe('/admin/fundraiser/sponsors');
+        expect(destination.searchParams.get('sponsorshipId')).toBe(
+          new URL(path(), 'http://fixture.invalid').searchParams.get(
+            'sponsorshipId'
+          )
+        );
+        expect(destination.hash).toMatch(/^#dossier-/);
+      }
+      await expect(primary).toHaveAttribute('href', path() + '#dossier-stripe');
+      await expect(recommendation).not.toContainText('admin.sponsorsCleanup.');
+      await expect(recommendation).not.toContainText('admin.dossier.');
+      expect(
+        (
+          await new AxeBuilder({ page })
+            .include('[data-og7="dossier-recommendation"]')
+            .analyze()
+        ).violations
+      ).toEqual([]);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+      await all.press('Enter');
+      await expect(families).toHaveCount(3);
+      await primary.focus();
+      await primary.press('Enter');
+      await expect(page).toHaveURL(path() + '#dossier-stripe');
+      await expect(page.locator('#dossier-stripe')).toBeFocused();
       expect(calls.every((call) => call.method === 'GET')).toBe(true);
     });
   }
@@ -130,6 +300,9 @@ export function registerSponsorWorkspaceTests({
     ).toBeVisible();
     await expect(states).toHaveCount(0);
     await expect(page.locator('[data-og7="dossier-next"]')).toHaveCount(0);
+    await expect(
+      page.locator('[data-og7="dossier-recommendation"]')
+    ).toHaveCount(0);
   });
 
   test('invoice inspection stays in the dossier and restores focus after an unavailable preview', async ({

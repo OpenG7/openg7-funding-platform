@@ -9,6 +9,7 @@ const sectionTabs = {
   stripe: 'overview',
   identity: 'identity',
   media: 'media',
+  'media-gallery': 'media',
   billing: 'billing',
   publication: 'publication',
   agreement: 'publication',

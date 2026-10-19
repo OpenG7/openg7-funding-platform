@@ -252,6 +252,7 @@ test('recognized section anchors select their exact dossier and tab after scroll
     ['stripe', 'overview'],
     ['identity', 'identity'],
     ['media', 'media'],
+    ['media-gallery', 'media'],
     ['billing', 'billing'],
     ['publication', 'publication'],
     ['refund', 'refund'],
@@ -308,12 +309,28 @@ test('sections require an exact tab and a nonempty dossier and history positions
     [path('media'), 'media', null],
     [path('media'), 'dossier-MEDIA', null],
     [path(), null, null],
+    [path('media'), null, [0, 920]],
+    [path('media'), 'dossier-media-gallery', [0, 0]],
+    [path('identity'), 'dossier-media-gallery', null],
     [path(), 'dossier-review', [0, 920]],
     [path(), 'dossier-review', [0, 0]]
   ]) {
     const f = fixture();
     f.adapter.handleRouterEvent(scrollEvent(16, url, anchor, position));
     assert.deepEqual(f.calls, [['scrolled', 16, null]]);
+  }
+});
+
+test('a fresh media alias focuses its gallery while explicit anchors retain their target', () => {
+  for (const [anchor, fragment] of [
+    [null, 'dossier-media-gallery'],
+    ['dossier-media', 'dossier-media']
+  ]) {
+    const f = fixture();
+    f.adapter.handleRouterEvent(scrollEvent(17, path('media'), anchor));
+    assert.deepEqual(f.calls, [
+      ['scrolled', 17, { fragment, sponsorshipId, tab: 'media' }]
+    ]);
   }
 });
 
