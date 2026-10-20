@@ -385,6 +385,7 @@
         },
         "actions": {
           "agreement": "Compléter l’accord",
+          "viewAgreement": "Consulter l’accord",
           "moderation": "Effectuer la revue",
           "presentation": "Examiner la présentation",
           "inspect": "Voir le dossier",
@@ -437,6 +438,7 @@
       "readOnly": "Ton rôle permet la consultation. Un opérateur ou un propriétaire peut approuver cette préparation.",
       "audit": "Trace :",
       "history": "Historique des accords",
+      "historyEmpty": "Aucune approbation de préparation enregistrée pour ce bon.",
       "navigation": "Consulter les bons de préparation",
       "previous": "Précédent",
       "next": "Suivant",

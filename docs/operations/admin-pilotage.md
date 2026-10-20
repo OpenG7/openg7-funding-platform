@@ -288,6 +288,8 @@ déjà approuvée dans sa version actuelle ne demande pas une deuxième approbat
 
 <a id="preparation-pilot"></a>
 
+<a id="pilotage-de-la-preparation"></a>
+
 #### Pilotage de la préparation
 
 La rubrique [Campagnes](../technical/admin-campaigns.md), sous
@@ -305,14 +307,18 @@ serveur, hors éléments non requis. Son total varie selon la fiche; les blocage
 complémentaires ne l'augmentent pas. Cliquer, lire ou fermer une commande ne
 valide aucun contrôle.
 
-Pour une fiche incomplète, le guide s’élargit selon la place disponible : le détail
-du contrôle sélectionné apparaît à gauche, la liste reste à droite. Le premier
-encadré donne le point à traiter, notamment la source d’origine manquante pour
-les publications promises. Les explications de l’assistance restent dans un volet
-replié sous cet état. Sur écran étroit, le détail précède la liste.
+Dans le Guide, le diagnostic du contrôle sélectionné apparaît à gauche et la
+liste reste à droite selon la place disponible. Le nom du contrôle figure dans
+les deux zones ; son explication centrale, son état et ses volets de lecture
+forment une seule surface. Sur écran étroit, le détail précède la liste.
 La sélection révèle ce point sans quitter le bouton sélectionné au clavier ou
-à la manette ; les commandes restent accessibles par **Actions**. Les fiches prêtes
-ou approuvées gardent leur format compact.
+à la manette. L’action principale rejoint directement son écran propriétaire ;
+un accord satisfait sélectionné propose **Consulter l’accord**. Les commandes
+secondaires s’ouvrent dans la liste intégrée **Autres actions**, avec un seul
+**Retour**. Une action indisponible conserve son motif accessible sur mobile ;
+l’assistance est proposée selon les capacités du propriétaire. Ouvrir ou fermer
+ces commandes ne lance aucune préparation. L’historique du Guide explicite
+l’absence d’approbation enregistrée lorsque sa liste est vide.
 
 Le Pilotage regroupe les vérifications et autorisations de la fiche. Le volet replié
 **Détails de l’accord de commandite et traçabilité** est réservé à **Campagnes**. Il conserve
@@ -343,9 +349,11 @@ habituel conserve la qualification humaine et sa confirmation.
 Le guide et la fiche affichent aussi un résumé compact de cette assistance pour le
 contrôle des publications promises : attente, traitement, résultat à examiner,
 revue, erreur ou péremption. Ce résumé ne contient ni accord ni notes privées et
-ne modifie pas la version de la fiche. **Examiner**, **Voir la source** et **Relancer**
-sont regroupés dans **Actions contextuelles**, accessibles à la souris, au clavier
-et à la manette. Le résumé conserve ses états et explications ainsi que
+ne modifie pas la version de la fiche. Dans le Guide, **Examiner** devient l’action
+principale lorsqu’un résultat est admissible ; **Voir la source** et **Relancer**
+restent dans **Autres actions**. Les autres hôtes les regroupent dans
+**Actions contextuelles**, accessibles à la souris, au clavier et à la manette.
+Le résumé conserve ses états et explications ainsi que
 **Actualiser** en cas d’erreur de lecture.
 Une relance reste explicite et est désactivée pendant un job actif. La révision
 de l’assistance invalide les commandes en cours comme un changement de sélection.
@@ -363,10 +371,12 @@ L'action principale rejoint l'écran propriétaire de l'accord, de la modératio
 ou de la présentation. Les détails et l'historique restent consultables. Après
 une correction, relire la fiche pour obtenir l'état serveur; un changement de
 sélection, de dossier ou de version referme les actions et impose le retour au
-neutre. Lorsque le serveur autorise l'approbation et que le rôle le permet, le
-bouton principal **Approuver la préparation** et la commande correspondante du
-menu Actions ouvrent la même confirmation habituelle. Ces deux entrées restent
-accessibles au clavier et à la manette. Annuler ne transmet aucune approbation. Le
+neutre. Lorsque le serveur autorise l'approbation et que le rôle le permet,
+**Approuver la préparation** ouvre la confirmation habituelle depuis le bouton
+partagé. C’est l’unique entrée d’approbation du Guide. Dans Campagnes et
+Publication, la commande correspondante du menu Actions rejoint aussi cette
+confirmation. Ces commandes sont accessibles au clavier et à la manette.
+Annuler ne transmet aucune approbation. Le
 panneau supérieur conserve le focus; une nouvelle pression est requise pour
 confirmer. Les essais avec une manette simulée ne qualifient pas un périphérique
 USB/Bluetooth réel.

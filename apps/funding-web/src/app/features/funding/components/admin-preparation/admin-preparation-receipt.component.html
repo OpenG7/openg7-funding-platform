@@ -384,7 +384,7 @@
         </details>
       </div>
     }
-    @if (item.approvalHistory.length) {
+    @if (guided() || item.approvalHistory.length) {
       <details data-og7="preparation-receipt-history">
         <summary>
           {{ t('history') }}
@@ -411,6 +411,10 @@
               }}</span>
             </p>
           </div>
+        } @empty {
+          <p class="receipt-note" data-og7="preparation-receipt-history-empty">
+            {{ t('historyEmpty') }}
+          </p>
         }
       </details>
     }

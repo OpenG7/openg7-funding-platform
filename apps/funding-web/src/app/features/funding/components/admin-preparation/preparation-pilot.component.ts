@@ -151,7 +151,14 @@ export class PreparationPilotComponent {
       X: 'edit',
       Y: 'details'
     } as const;
-    return this.baseActions().map((action) => {
+    return this.baseActions().map((descriptor) => {
+      const action =
+        this.guided() &&
+        this.issue()?.completed &&
+        this.issue()?.actionKind === 'agreement' &&
+        descriptor.id === 'preparation-open'
+          ? { ...descriptor, label: this.t('pilot.actions.viewAgreement') }
+          : descriptor;
       const label = action.shortcut?.label as keyof typeof intents | undefined;
       const index = label && bindings[intents[label]];
       return index === undefined

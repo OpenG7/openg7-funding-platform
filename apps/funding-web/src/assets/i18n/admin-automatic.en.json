@@ -385,6 +385,7 @@
         },
         "actions": {
           "agreement": "Complete the agreement",
+          "viewAgreement": "View agreement",
           "moderation": "Perform the review",
           "presentation": "Review the presentation",
           "inspect": "View the dossier",
@@ -437,6 +438,7 @@
       "readOnly": "Your role allows viewing. An operator or owner can approve this preparation.",
       "audit": "Audit:",
       "history": "Approval history",
+      "historyEmpty": "No preparation approval recorded for this receipt.",
       "navigation": "Browse preparation receipts",
       "previous": "Previous",
       "next": "Next",

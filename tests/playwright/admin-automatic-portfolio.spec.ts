@@ -1297,6 +1297,53 @@ test('automatic responsibilities pause immediately during a pending dossier and 
   ).toHaveLength(1);
 });
 
+for (const uncertain of [false, true]) {
+  test(`V3.2 reducing the Guide during a pending preparation rereads its ${uncertain ? 'uncertain' : 'confirmed'} outcome without replay`, async ({
+    page
+  }) => {
+    const f = await fixture(page);
+    let release!: () => void;
+    f.advanceGate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    f.loseAdvanceResponse = uncertain;
+    await open(page);
+    await hook(page, 'start').click();
+    await approveReading(page, 'scope');
+    await approveReading(page, 'dossier');
+    await expect(hook(page, 'state')).toHaveAttribute(
+      'data-og7-id',
+      'advancing'
+    );
+    expect(advances(f)).toHaveLength(1);
+    const toggle = page.locator('[data-og7="admin-guidance-toggle"]');
+    await toggle.click();
+    await expect(page.locator('[data-og7="admin-guidance-panel"]')).toHaveCount(
+      0
+    );
+    release();
+    await expect.poll(() => f.state.run?.processedCount).toBe(1);
+    await expect
+      .poll(() => f.state.run?.status)
+      .toBe(uncertain ? 'uncertain' : 'paused');
+    await toggle.click();
+    await expandProcessing(page);
+    await expect(hook(page, 'state')).toHaveAttribute(
+      'data-og7-id',
+      uncertain ? 'uncertain' : 'paused'
+    );
+    await expect(hook(page, 'latest')).toContainText('DEMO-BALANCE-1');
+    expect(advances(f)).toHaveLength(1);
+    await page.reload();
+    await open(page, uncertain ? 'uncertain' : 'paused');
+    await expect(hook(page, 'latest')).toContainText('DEMO-BALANCE-1');
+    expect(advances(f)).toHaveLength(1);
+    expect(
+      f.writes.filter((write) => write.pathname === '/api/admin/automatic-runs')
+    ).toHaveLength(1);
+  });
+}
+
 test('pausing the last result resumes its reading and summary without checking a completed dossier again', async ({
   page
 }) => {
