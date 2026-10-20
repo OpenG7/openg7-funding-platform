@@ -248,8 +248,8 @@ for (const locale of ['fr-CA', 'en']) {
         await expect(guide).toContainText(label);
       await expect(guide).toContainText(
         locale === 'en'
-          ? 'Exploring the guide does not prepare, authorize or publish anything.'
-          : 'Explorer le guide ne prépare, n’autorise et ne publie rien.'
+          ? 'Exploring these journeys does not prepare, authorize or publish anything.'
+          : 'Explorer ces parcours ne prépare, n’autorise et ne publie rien.'
       );
       for (const [id, steps] of Object.entries(journeys)) {
         if (!(await journey(page, id).isVisible()))

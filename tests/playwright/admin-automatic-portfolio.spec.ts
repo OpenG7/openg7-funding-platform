@@ -521,7 +521,7 @@ for (const [language, width] of [
     );
     await expect(shortcut).toBeVisible();
     await expect(shortcut).toHaveAccessibleName(
-      language === 'en' ? 'Start a new passage' : 'Démarrer un nouveau passage'
+      language === 'en' ? 'Check a new batch' : 'Vérifier un nouveau lot'
     );
     await expect(shortcut).toHaveAccessibleDescription(
       language === 'en' ? 'Dossiers to process: 0' : 'Dossiers à traiter : 0'
@@ -755,7 +755,7 @@ for (const language of ['fr-CA', 'en']) {
       page.locator('[data-og7="admin-automatic-portfolio-bell"]')
     ).toHaveAttribute('data-og7-id', 'active');
     await expect(shortcut).toHaveAccessibleName(
-      language === 'en' ? 'Start a new passage' : 'Démarrer un nouveau passage'
+      language === 'en' ? 'Check a new batch' : 'Vérifier un nouveau lot'
     );
     await expect(shortcut).toHaveAttribute(
       'aria-describedby',
@@ -1344,41 +1344,49 @@ for (const uncertain of [false, true]) {
   });
 }
 
-test('pausing the last result resumes its reading and summary without checking a completed dossier again', async ({
-  page
-}) => {
-  const f = await fixture(page);
-  await open(page);
-  await hook(page, 'start').click();
-  await approveReading(page, 'scope');
-  for (let index = 0; index < paymentIds.length; ++index) {
-    await approveReading(page, 'dossier');
+for (const language of ['fr-CA', 'en'] as const) {
+  test(`pausing the last result resumes its reading and summary without checking a completed dossier again in ${language}`, async ({
+    page
+  }) => {
+    const f = await fixture(page, language);
+    await open(page);
+    await hook(page, 'start').click();
+    await approveReading(page, 'scope');
+    for (let index = 0; index < paymentIds.length; ++index) {
+      await approveReading(page, 'dossier');
+      await expectReading(page, 'result');
+      expect(advances(f)).toHaveLength(index + 1);
+      if (index < paymentIds.length - 1) await approveReading(page, 'result');
+    }
+    await expect(hook(page, 'latest')).toContainText('DEMO-BALANCE-3');
+    await expect(hook(page, 'completion')).toHaveCount(0);
+    expect(f.state.run?.status).toBe('completed');
+    await hook(page, 'pause').click();
+    await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'paused');
+    await expect(page.locator(highlighted)).toHaveCount(0);
+    await expect(hook(page, 'completion')).toHaveCount(0);
+    await expect(hook(page, 'resume')).toHaveAccessibleName(
+      language === 'en' ? 'Resume reading' : 'Reprendre la lecture'
+    );
+    await hook(page, 'resume').click();
+    await approveReading(page, 'scope');
     await expectReading(page, 'result');
-    expect(advances(f)).toHaveLength(index + 1);
-    if (index < paymentIds.length - 1) await approveReading(page, 'result');
-  }
-  await expect(hook(page, 'latest')).toContainText('DEMO-BALANCE-3');
-  await expect(hook(page, 'completion')).toHaveCount(0);
-  expect(f.state.run?.status).toBe('completed');
-  await hook(page, 'pause').click();
-  await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'paused');
-  await expect(page.locator(highlighted)).toHaveCount(0);
-  await expect(hook(page, 'completion')).toHaveCount(0);
-  await hook(page, 'resume').click();
-  await approveReading(page, 'scope');
-  await expectReading(page, 'result');
-  await expect(hook(page, 'latest')).toContainText('DEMO-BALANCE-3');
-  await approveReading(page, 'result');
-  await expectReading(page, 'summary');
-  await expect(hook(page, 'completion')).toHaveCount(0);
-  await approveReading(page, 'summary');
-  await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'completed');
-  expect(advances(f)).toHaveLength(3);
-  expect(f.journeyReads).toEqual(paymentIds);
-  expect(
-    f.writes.filter((write) => write.pathname.endsWith('/control'))
-  ).toEqual([]);
-});
+    await expect(hook(page, 'latest')).toContainText('DEMO-BALANCE-3');
+    await approveReading(page, 'result');
+    await expectReading(page, 'summary');
+    await expect(hook(page, 'completion')).toHaveCount(0);
+    await approveReading(page, 'summary');
+    await expect(hook(page, 'state')).toHaveAttribute(
+      'data-og7-id',
+      'completed'
+    );
+    expect(advances(f)).toHaveLength(3);
+    expect(f.journeyReads).toEqual(paymentIds);
+    expect(
+      f.writes.filter((write) => write.pathname.endsWith('/control'))
+    ).toEqual([]);
+  });
+}
 
 test('an uncertain response remains visible after reload and never replays a payment dossier', async ({
   page
@@ -1625,65 +1633,128 @@ for (const [language, width] of [
   });
 }
 
-test('a report can hand off its exact payment to the existing preparation tool without turning a completed journey into qualified benefit evidence', async ({
-  page
-}) => {
-  const f = await fixture(page);
-  f.state = runState(3, 'completed');
-  f.entries = [entry(0), entry(1), entry(2)];
-  const requested: string[] = [];
-  await page.route(
-    (url) => url.pathname === '/api/admin/payment-journey',
-    async (route) => {
-      const contributionId = new URL(route.request().url()).searchParams.get(
-        'contributionId'
-      )!;
-      requested.push(contributionId);
-      return route.fulfill({
-        json: {
-          status: 'ok',
-          generatedAt: now,
-          journey: {
-            contributionId,
-            reference: 'DEMO-BALANCE-3',
-            contributionType: 'sponsorship_interest',
-            amountMinor: 5000,
-            currency: 'CAD',
-            paymentStatus: 'paid',
-            state: 'complete',
-            completed: 1,
-            total: 1,
-            steps: [
-              {
-                id: 'payment',
+for (const language of ['fr-CA', 'en'] as const) {
+  for (const origin of ['latest', 'report'] as const) {
+    test(`a ${origin} result names preparation and its pause before handing off its exact payment in ${language}`, async ({
+      page
+    }) => {
+      const f = await fixture(page, language);
+      const original = entry(2);
+      const balance = {
+        ...original.balance,
+        status:
+          origin === 'latest' ? ('waiting' as const) : ('unknown' as const)
+      };
+      const historical = {
+        ...original,
+        pass: 2,
+        createdAt: '2026-10-12T09:17:00Z',
+        balanceStatus: balance.status,
+        balance
+      };
+      const current = runState(3, 'completed');
+      f.state = {
+        run: { ...current.run!, pass: 5, latestEntry: historical },
+        balance
+      };
+      f.entries = [entry(0), entry(1), historical];
+      const requested: string[] = [];
+      await page.route(
+        (url) => url.pathname === '/api/admin/payment-journey',
+        async (route) => {
+          const contributionId = new URL(
+            route.request().url()
+          ).searchParams.get('contributionId')!;
+          requested.push(contributionId);
+          return route.fulfill({
+            json: {
+              status: 'ok',
+              generatedAt: now,
+              journey: {
+                contributionId,
+                reference: 'DEMO-BALANCE-3',
+                contributionType: 'sponsorship_interest',
+                amountMinor: 5000,
+                currency: 'CAD',
+                paymentStatus: 'paid',
                 state: 'complete',
-                reason: 'payment_recorded',
-                adminUrl: `/admin/fundraiser/contributions?contributionId=${contributionId}`
+                completed: 1,
+                total: 1,
+                steps: [
+                  {
+                    id: 'payment',
+                    state: 'complete',
+                    reason: 'payment_recorded',
+                    adminUrl: `/admin/fundraiser/contributions?contributionId=${contributionId}`
+                  }
+                ],
+                next: null
               }
-            ],
-            next: null
-          }
+            }
+          });
         }
-      });
-    }
-  );
-  await open(page, 'completed');
-  await hook(page, 'latest')
-    .locator('[data-og7="automatic-portfolio-human"]')
-    .click();
-  await expect(page.locator('[data-og7="automatic-state"]')).toHaveAttribute(
-    'data-og7-id',
-    'complete'
-  );
-  expect(requested).toContain(paymentIds[2]);
-  await expect(hook(page, 'completion')).toHaveAttribute(
-    'data-og7-id',
-    'outstanding'
-  );
-  expect(f.writes).toEqual([]);
-  expect(f.state.run?.globalBalanced).toBe(false);
-  expect(f.state.balance?.status).toBe('unknown');
-});
+      );
+      await open(page, 'completed');
+      const observation = hook(page, 'latest-observation');
+      const dates = await page.evaluate(
+        ({ locale, previous, latest }) => {
+          const formatter = new Intl.DateTimeFormat(locale, {
+            dateStyle: 'short',
+            timeStyle: 'short'
+          });
+          return {
+            previous: formatter.format(new Date(previous)),
+            latest: formatter.format(new Date(latest))
+          };
+        },
+        { locale: language, previous: historical.createdAt, latest: now }
+      );
+      await expect(observation).toHaveText(
+        language === 'en'
+          ? `Observation from check #2 · ${dates.previous}`
+          : `Observation de la vérification nº2 · ${dates.previous}`
+      );
+      await expect(observation).not.toContainText(dates.latest);
+      const latestAction = hook(page, 'latest').locator(
+        '[data-og7="automatic-portfolio-human"]'
+      );
+      await hook(page, 'report').locator(':scope > summary').click();
+      const dossier = hook(page, 'entry-details').last();
+      await dossier.locator(':scope > summary').click();
+      const reportAction = dossier.locator(
+        '[data-og7="automatic-portfolio-human"]'
+      );
+      const prepareLabel =
+        language === 'en' ? 'Prepare this dossier' : 'Préparer ce dossier';
+      const pauseDescription =
+        language === 'en'
+          ? 'Pauses the batch check and starts preparation for this dossier.'
+          : 'Met en pause la vérification du lot et démarre la préparation ciblée de ce dossier.';
+      for (const action of [latestAction, reportAction]) {
+        await expect(action).toHaveAccessibleName(prepareLabel);
+        await expect(action).toHaveAccessibleDescription(pauseDescription);
+        const descriptionId = await action.getAttribute('aria-describedby');
+        expect(descriptionId).toBeTruthy();
+        await expect(page.locator(`[id="${descriptionId}"]`)).toBeVisible();
+      }
+      expect(await latestAction.getAttribute('aria-describedby')).not.toBe(
+        await reportAction.getAttribute('aria-describedby')
+      );
+      await (origin === 'latest' ? latestAction : reportAction).click();
+      await expect(
+        page.locator('[data-og7="automatic-state"]')
+      ).toHaveAttribute('data-og7-id', 'complete');
+      expect(requested).toContain(paymentIds[2]);
+      await expect(hook(page, 'completion')).toHaveAttribute(
+        'data-og7-id',
+        'outstanding'
+      );
+      expect(f.writes).toEqual([]);
+      expect(f.state.run?.globalBalanced).toBe(false);
+      expect(f.state.balance?.status).toBe(balance.status);
+    });
+  }
+}
 
 test('a missing obligation keeps the accepted offer visible with its quantity and duration while the report remains unresolved', async ({
   page
@@ -1747,7 +1818,7 @@ test('an invalid confirmed payment explicitly rejects starting without uncertain
   await hook(page, 'start').click();
   await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'error');
   await expect(hook(page, 'state')).toContainText(
-    'Un paiement confirmé contient un montant ou une devise à vérifier. Le passage n’a pas démarré.'
+    'Un paiement confirmé contient un montant ou une devise à vérifier. La vérification du lot n’a pas démarré.'
   );
   await expect(hook(page, 'reconcile')).toHaveCount(0);
   await expect(hook(page, 'completion')).toHaveCount(0);

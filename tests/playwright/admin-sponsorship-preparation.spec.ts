@@ -461,8 +461,8 @@ for (const language of ['fr-CA', 'en']) {
       code: 'PREPARATION_UNAVAILABLE',
       message:
         language === 'en'
-          ? 'The receipt is unavailable. Refresh to read current facts.'
-          : 'Le bon est indisponible. Actualise pour relire les faits actuels.'
+          ? 'The preparation record is unavailable. Refresh to read current facts.'
+          : 'La fiche est indisponible. Actualise pour relire les faits actuels.'
     }
   ];
 

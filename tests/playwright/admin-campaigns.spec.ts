@@ -302,7 +302,9 @@ async function fixtures(page: Page, language = 'fr-CA') {
           (!url.searchParams.has('sponsorshipId') ||
             row.contributionId === url.searchParams.get('sponsorshipId')) &&
           (!url.searchParams.has('obligationId') ||
-            row.id === url.searchParams.get('obligationId'))
+            row.id === url.searchParams.get('obligationId')) &&
+          (!url.searchParams.has('state') ||
+            row.workflow.state === url.searchParams.get('state'))
       );
       const json: AdminCampaignsResponse = {
         generatedAt,
@@ -361,7 +363,7 @@ test('campaigns show approved preparation first and upcoming promises without se
   );
   await expect(hook(page, 'campaign-row').first()).toContainText('Approuvée');
   await expect(hook(page, 'campaign-row').nth(1)).toContainText(
-    'Passage 2 sur 2'
+    'Publication 2 sur 2'
   );
   await expect(page.locator('[data-og7-id="upcoming-website"]')).toBeVisible();
   await expect(page.locator('[data-og7-id="upcoming-website"]')).toContainText(
@@ -413,6 +415,172 @@ test('campaigns show approved preparation first and upcoming promises without se
   await expect(agreement).toContainText('Version complète');
   expect(fixture.mutations).toEqual([]);
 });
+
+for (const language of ['fr-CA', 'en'] as const) {
+  for (const width of [390, 1536]) {
+    test(`campaign workflow complete keeps delivery and waiver distinct in ${language} at ${width}px`, async ({
+      page
+    }, testInfo) => {
+      const fixture = await fixtures(page, language);
+      const delivered = fixture.rows.find(
+        (row) => row.id === 'delivered-facebook'
+      )!;
+      const currentPreparation = {
+        status: 'ready' as const,
+        version: 'synthetic-completed-workflow-preparation-v4',
+        approvedAt: null,
+        blockers: []
+      };
+      const waived = promise('waived-facebook', deliveredId, {
+        companyName: delivered.companyName,
+        ordinal: 2,
+        quantity: 3,
+        obligationState: 'adjusted',
+        preparation: currentPreparation,
+        workflow: {
+          ...delivered.workflow,
+          obligationId: 'waived-facebook',
+          ordinal: 2,
+          reason: 'obligation_adjusted'
+        }
+      });
+      fixture.rows = [
+        { ...delivered, quantity: 3, preparation: currentPreparation },
+        waived,
+        promise('pending-facebook', deliveredId, {
+          companyName: delivered.companyName,
+          ordinal: 3,
+          quantity: 3,
+          preparation: currentPreparation
+        })
+      ];
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(path);
+      await expect(hook(page, 'campaign-row')).toHaveCount(3);
+      const stateFilter = hook(page, 'campaigns-state');
+      await expect(stateFilter).toHaveAccessibleName(
+        language === 'en' ? 'Workflow state' : 'État du suivi'
+      );
+      await expect(stateFilter.locator('option[value="complete"]')).toHaveText(
+        language === 'en'
+          ? 'Completed — delivered or waived'
+          : 'Terminée — livrée ou dispensée'
+      );
+      await stateFilter.selectOption('complete');
+      await hook(page, 'campaigns-apply').click();
+      await expect(hook(page, 'campaign-row')).toHaveCount(2);
+      expect(fixture.queries.at(-1)?.get('state')).toBe('complete');
+      const selectedLabelLayout = await stateFilter.evaluate(
+        async (element) => {
+          await document.fonts.ready;
+          const select = element as HTMLSelectElement;
+          const style = getComputedStyle(select);
+          const context = document.createElement('canvas').getContext('2d')!;
+          context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+          const label = select.selectedOptions[0]?.textContent?.trim() ?? '';
+          const letterSpacing = Number.parseFloat(style.letterSpacing) || 0;
+          return {
+            label,
+            textWidth:
+              context.measureText(label).width +
+              Math.max(0, label.length - 1) * letterSpacing,
+            contentWidth:
+              select.clientWidth -
+              Number.parseFloat(style.paddingLeft) -
+              Number.parseFloat(style.paddingRight),
+            arrowAllowance: 24
+          };
+        }
+      );
+      expect(
+        selectedLabelLayout.textWidth + selectedLabelLayout.arrowAllowance
+      ).toBeLessThanOrEqual(selectedLabelLayout.contentWidth + 1);
+      await testInfo.attach('selected-workflow-label-layout', {
+        body: JSON.stringify(selectedLabelLayout, null, 2),
+        contentType: 'application/json'
+      });
+      const deliveredRow = page.locator(
+        '[data-og7="campaign-row"][data-og7-id="delivered-facebook"]'
+      );
+      const waivedRow = page.locator(
+        '[data-og7="campaign-row"][data-og7-id="waived-facebook"]'
+      );
+      await expect(
+        deliveredRow.getByText(language === 'en' ? 'Delivered' : 'Livrée', {
+          exact: true
+        })
+      ).toBeVisible();
+      await expect(
+        waivedRow.getByText(language === 'en' ? 'Waived' : 'Dispensée', {
+          exact: true
+        })
+      ).toBeVisible();
+      await expect(waivedRow).toContainText(
+        language === 'en' ? 'Publication 2 of 3' : 'Publication 2 sur 3'
+      );
+      await expect(waivedRow).toContainText(
+        language === 'en' ? 'Ready for approval' : 'Prête à approuver'
+      );
+      await expect(
+        page.locator(
+          '[data-og7="campaign-row"][data-og7-id="pending-facebook"]'
+        )
+      ).toHaveCount(0);
+      await deliveredRow.click();
+      await expect(hook(page, 'campaign-proof-reference')).toHaveText(
+        delivered.proof!.id
+      );
+      await expect(hook(page, 'campaign-proof-obligation')).toHaveText(
+        delivered.id
+      );
+      await waivedRow.focus();
+      await page.keyboard.press('Enter');
+      await expect(waivedRow).toHaveAttribute('aria-pressed', 'true');
+      await expect(hook(page, 'campaign-proof')).toContainText(
+        language === 'en'
+          ? 'A waiver was recorded for this promised service. It does not constitute delivery.'
+          : 'Une dispense a été enregistrée pour cette prestation. Elle ne constitue pas une livraison.'
+      );
+      await expect(hook(page, 'campaign-proof-reference')).toHaveCount(0);
+      await expect(hook(page, 'campaign-proof').getByRole('link')).toHaveCount(
+        0
+      );
+      await expect(
+        hook(page, 'campaign-detail').getByRole('link', {
+          name:
+            language === 'en'
+              ? 'Open the publication dossier'
+              : 'Ouvrir le dossier de publication',
+          exact: true
+        })
+      ).toHaveAttribute(
+        'href',
+        `/admin/fundraiser/sponsors?sponsorshipId=${deliveredId}&tab=publication`
+      );
+      await expect.poll(() => fixture.preparations).toContain(deliveredId);
+      const preparationDetails = hook(page, 'campaign-preparation').locator(
+        '[data-og7="preparation-receipt-details"]'
+      );
+      await preparationDetails.locator('summary').click();
+      await expect(preparationDetails).toContainText(
+        currentPreparation.version
+      );
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= window.innerWidth + 1
+        )
+      ).toBe(true);
+      await page.screenshot({
+        path: testInfo.outputPath(
+          `campaigns-workflow-complete-${language}-${width}.png`
+        ),
+        fullPage: true
+      });
+      expect(fixture.approvals).toEqual([]);
+      expect(fixture.mutations).toEqual([]);
+    });
+  }
+}
 
 for (const language of ['fr-CA', 'en'] as const) {
   for (const viewport of [
@@ -803,97 +971,118 @@ test('campaigns distinguish unavailable, empty and forbidden reads without resto
   expect(fixture.mutations).toEqual([]);
 });
 
-test('a confirmed preparation approval refreshes the active campaigns query from the API', async ({
-  page
-}) => {
-  const fixture = await fixtures(page);
-  fixture.identity.role = 'operator';
-  fixture.allowPreparationApproval = true;
-  fixture.rows = fixture.rows.map((row) =>
-    row.id === 'upcoming-website'
-      ? {
-          ...row,
-          preparation: {
-            status: 'ready',
-            version: 'synthetic-ready-preparation-v1',
-            approvedAt: null,
-            blockers: []
+for (const language of ['fr-CA', 'en'] as const) {
+  test(`a confirmed preparation approval refreshes the active campaigns query from the API in ${language}`, async ({
+    page
+  }) => {
+    const fixture = await fixtures(page, language);
+    fixture.identity.role = 'operator';
+    fixture.allowPreparationApproval = true;
+    fixture.rows = fixture.rows.map((row) =>
+      row.id === 'upcoming-website'
+        ? {
+            ...row,
+            preparation: {
+              status: 'ready',
+              version: 'synthetic-ready-preparation-v1',
+              approvedAt: null,
+              blockers: []
+            }
           }
-        }
-      : row
-  );
-  const ready = fixture.rows.find((row) => row.id === 'upcoming-website')!;
-  fixture.receipts.set(ready.contributionId, {
-    ...preparation(ready),
-    canApprove: true,
-    acceptedOffer: {
-      version: 'synthetic-campaign-offer-v1',
-      amountMinor: 50000,
-      currency: 'CAD',
-      benefits: [
-        {
-          id: 'website_mention',
-          channel: 'website',
-          target: 'openg7',
-          quantity: 1,
-          requiredElements: ['company_name', 'approved_presentation'],
-          deadlineDays: null,
-          durationDays: null
-        }
+        : row
+    );
+    const ready = fixture.rows.find((row) => row.id === 'upcoming-website')!;
+    fixture.receipts.set(ready.contributionId, {
+      ...preparation(ready),
+      canApprove: true,
+      acceptedOffer: {
+        version: 'synthetic-campaign-offer-v1',
+        amountMinor: 50000,
+        currency: 'CAD',
+        benefits: [
+          {
+            id: 'website_mention',
+            channel: 'website',
+            target: 'openg7',
+            quantity: 1,
+            requiredElements: ['company_name', 'approved_presentation'],
+            deadlineDays: null,
+            durationDays: null
+          }
+        ]
+      },
+      checks: [
+        { code: 'payment_confirmed', state: 'complete' },
+        { code: 'accepted_offer', state: 'complete' },
+        { code: 'content_prepared', state: 'complete' }
+      ],
+      authorizations: [
+        { code: 'public_consent', state: 'complete' },
+        { code: 'sponsor_review', state: 'complete' },
+        { code: 'moderation_review', state: 'complete' }
       ]
-    },
-    checks: [
-      { code: 'payment_confirmed', state: 'complete' },
-      { code: 'accepted_offer', state: 'complete' },
-      { code: 'content_prepared', state: 'complete' }
-    ],
-    authorizations: [
-      { code: 'public_consent', state: 'complete' },
-      { code: 'sponsor_review', state: 'complete' },
-      { code: 'moderation_review', state: 'complete' }
-    ]
+    });
+    await page.goto(path);
+    await expect(hook(page, 'campaign-row')).toHaveCount(4);
+    await hook(page, 'campaigns-search').fill('Atelier');
+    await hook(page, 'campaigns-sort').selectOption('paid_at');
+    await hook(page, 'campaigns-apply').click();
+    await expect
+      .poll(() => fixture.queries.at(-1)?.get('sort'))
+      .toBe('paid_at');
+    const selected = page.locator(
+      '[data-og7="campaign-row"][data-og7-id="upcoming-website"]'
+    );
+    await selected.click();
+    const approve = hook(page, 'campaign-preparation').locator(
+      '[data-og7="preparation-receipt-approve"]'
+    );
+    await expect(selected).toContainText(
+      language === 'en' ? 'Ready for approval' : 'Prête à approuver'
+    );
+    await expect(approve).toHaveAccessibleName(
+      language === 'en' ? 'Approve preparation' : 'Approuver la préparation'
+    );
+    await expect(approve).toBeEnabled();
+    const readsBeforeApproval = fixture.queries.length;
+    await approve.click();
+    const confirmation = page.locator('openg7-admin-confirmation dialog[open]');
+    await expect(confirmation).toContainText(
+      language === 'en'
+        ? `Confirm preparation approval for ${ready.reference}, version ${ready.preparation.version.slice(0, 8)}.`
+        : `Confirmer l’approbation de la préparation ${ready.reference}, version ${ready.preparation.version.slice(0, 8)}.`
+    );
+    await expect(confirmation).not.toContainText(
+      language === 'en' ? 'Confirm the agreement' : 'Confirmer l’accord'
+    );
+    await expect(hook(page, 'confirm-action')).toBeVisible();
+    expect(fixture.approvals).toEqual([]);
+    await hook(page, 'confirm-action').click();
+    await expect.poll(() => fixture.approvals.length).toBe(1);
+    await expect
+      .poll(() => fixture.queries.length)
+      .toBeGreaterThan(readsBeforeApproval);
+    await expect(selected).toContainText(
+      language === 'en' ? 'Approved' : 'Approuvée'
+    );
+    await expect(selected).toHaveAttribute('aria-pressed', 'true');
+    await expect(hook(page, 'campaigns-search')).toHaveValue('Atelier');
+    await expect(hook(page, 'campaigns-sort')).toHaveValue('paid_at');
+    expect(Object.fromEntries(fixture.queries.at(-1)!)).toMatchObject({
+      search: 'Atelier',
+      sort: 'paid_at',
+      page: '1'
+    });
+    expect(fixture.approvals[0]).toMatchObject({
+      contributionId: ready.contributionId,
+      expectedVersion: ready.preparation.version,
+      confirmed: true
+    });
+    expect(fixture.mutations).toEqual([
+      'POST /api/admin/sponsorships/preparation/approve'
+    ]);
   });
-  await page.goto(path);
-  await expect(hook(page, 'campaign-row')).toHaveCount(4);
-  await hook(page, 'campaigns-search').fill('Atelier');
-  await hook(page, 'campaigns-sort').selectOption('paid_at');
-  await hook(page, 'campaigns-apply').click();
-  await expect.poll(() => fixture.queries.at(-1)?.get('sort')).toBe('paid_at');
-  const selected = page.locator(
-    '[data-og7="campaign-row"][data-og7-id="upcoming-website"]'
-  );
-  await selected.click();
-  const approve = hook(page, 'campaign-preparation').locator(
-    '[data-og7="preparation-receipt-approve"]'
-  );
-  await expect(approve).toBeEnabled();
-  const readsBeforeApproval = fixture.queries.length;
-  await approve.click();
-  await expect(hook(page, 'confirm-action')).toBeVisible();
-  expect(fixture.approvals).toEqual([]);
-  await hook(page, 'confirm-action').click();
-  await expect.poll(() => fixture.approvals.length).toBe(1);
-  await expect
-    .poll(() => fixture.queries.length)
-    .toBeGreaterThan(readsBeforeApproval);
-  await expect(selected).toContainText('Approuvée');
-  await expect(selected).toHaveAttribute('aria-pressed', 'true');
-  await expect(hook(page, 'campaigns-search')).toHaveValue('Atelier');
-  await expect(hook(page, 'campaigns-sort')).toHaveValue('paid_at');
-  expect(Object.fromEntries(fixture.queries.at(-1)!)).toMatchObject({
-    search: 'Atelier',
-    sort: 'paid_at',
-    page: '1'
-  });
-  expect(fixture.approvals[0]).toMatchObject({
-    contributionId: ready.contributionId,
-    expectedVersion: ready.preparation.version,
-    confirmed: true
-  });
-  expect(fixture.mutations).toEqual([
-    'POST /api/admin/sponsorships/preparation/approve'
-  ]);
-});
+}
 
 test('a role change outside campaigns purges its view and a late old refusal cannot clear the new session', async ({
   page

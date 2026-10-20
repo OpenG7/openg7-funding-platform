@@ -354,8 +354,8 @@ for (const language of ['fr-CA', 'en']) {
       code: 'PREPARATION_UNAVAILABLE',
       message:
         language === 'en'
-          ? 'The receipt is unavailable. Refresh to read current facts.'
-          : 'Le bon est indisponible. Actualise pour relire les faits actuels.'
+          ? 'The preparation record is unavailable. Refresh to read current facts.'
+          : 'La fiche est indisponible. Actualise pour relire les faits actuels.'
     }
   ];
 
@@ -428,8 +428,8 @@ async function expectPosition(
   );
   await expect(hook(page, 'position')).toHaveText(
     language === 'en'
-      ? `Receipt viewed: ${position} / 6`
-      : `Bon consulté : ${position} / 6`
+      ? `Record viewed: ${position} / 6`
+      : `Fiche consultée : ${position} / 6`
   );
 }
 
@@ -727,7 +727,9 @@ test('an incomplete preparation names its missing prerequisite and cannot be app
     hook(page, 'summary').getByText('À compléter', { exact: true })
   ).toBeVisible();
   await expect(
-    hook(page, 'summary').getByText('Autorisée', { exact: true })
+    hook(page, 'summary').getByText('Admissible à la préparation privée', {
+      exact: true
+    })
   ).toHaveCount(0);
   await expect(hook(page, 'approve')).toBeDisabled();
   await expect(hook(page, 'stamp')).toHaveCount(0);
@@ -761,14 +763,16 @@ for (const code of ['fulfilment_unverified', 'obligation_unverified']) {
         : 'suivi d’un engagement'
     );
     await expect(
-      hook(page, 'summary').getByText('Autorisée', { exact: true })
+      hook(page, 'summary').getByText('Admissible à la préparation privée', {
+        exact: true
+      })
     ).toHaveCount(0);
     await expect(hook(page, 'approve')).toBeDisabled();
     expect(f.writes).toEqual([]);
   });
 }
 
-test('cancelled, published and incomplete drafts keep their actual states while preparation authorization remains available', async ({
+test('cancelled, published and incomplete drafts keep their actual states while private preparation eligibility remains available', async ({
   page
 }) => {
   const f = await fixture(page);
@@ -804,7 +808,9 @@ test('cancelled, published and incomplete drafts keep their actual states while 
     if (index === 0) await open(page);
     else await hook(page, 'refresh').click();
     const summary = hook(page, 'summary');
-    await expect(summary.getByText('Autorisée', { exact: true })).toBeVisible();
+    await expect(
+      summary.getByText('Admissible à la préparation privée', { exact: true })
+    ).toBeVisible();
     await expect(
       summary.getByText(scenario.label, { exact: true })
     ).toBeVisible();
@@ -908,7 +914,9 @@ test('a historical website offer names its promised presentation and its private
   const summary = hook(page, 'summary');
   await expect(summary).toBeVisible();
   await expect(summary.getByText(/Web/)).toBeVisible();
-  await expect(summary.getByText('Autorisée', { exact: true })).toBeVisible();
+  await expect(
+    summary.getByText('Admissible à la préparation privée', { exact: true })
+  ).toBeVisible();
   await expect(summary.getByText('Brouillon', { exact: true })).toBeVisible();
   await expect(summary.getByText(/Prêt.*Privé/i)).toBeVisible();
   await expect(hook(page, 'approve')).toBeEnabled();
@@ -1415,8 +1423,8 @@ for (const language of ['fr-CA', 'en']) {
     await expect(history.locator('summary')).toBeFocused();
     await expect(history).toContainText(
       language === 'en'
-        ? 'No preparation approval recorded for this receipt.'
-        : 'Aucune approbation de préparation enregistrée pour ce bon.'
+        ? 'No preparation approval recorded for this record.'
+        : 'Aucune approbation de préparation enregistrée pour cette fiche.'
     );
     await expect(hook(page, 'stamp')).toHaveCount(0);
     expect(f.writes).toEqual([]);

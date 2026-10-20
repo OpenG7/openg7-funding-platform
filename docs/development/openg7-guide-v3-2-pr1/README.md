@@ -9,6 +9,10 @@ Cette première étape applique le pack V3.2 fourni le **20 octobre 2026**. Les
 sous-vues Bon consulté / Passage et bilan / Autre préparation restent une étape
 ultérieure à spécifier et valider séparément.
 
+Le [suivi du vocabulaire](#suivi-du-vocabulaire) documente l'harmonisation ajoutée
+après `09416578`. Les captures et la recette PR1 ci-dessous conservent leurs
+libellés et résultats historiques.
+
 ## Base et audit initial
 
 L’audit précède les modifications applicatives : branche
@@ -202,3 +206,75 @@ focus/scroll, brouillons, requêtes en vol et `requestId`, puis rendre joignable
 checkpoint arrivé hors vue. Elles devront distinguer la relecture de l’état
 serveur du checkpoint local, sans reprise ou synchronisation des trois cibles
 induites par la navigation.
+
+<a id="suivi-du-vocabulaire"></a>
+
+## Suivi du vocabulaire
+
+Le suivi du **20 octobre 2026**, après `09416578`, applique le
+[vocabulaire commun](../../technical/admin-campaigns.md#vocabulaire-des-operations)
+aux catalogues FR/EN et aux écrans existants. **Accord de commandite** désigne les
+conditions commerciales ; **Approbation de la préparation** désigne la décision
+sur la version du dossier entier. L'autorisation de publication conserve sa
+portée distincte.
+
+Le **Guide administratif** présente des **Fiches de préparation**, des contrôles
+**Satisfaits** et des **Dossiers vérifiés**. Le **lot** désigne le périmètre figé ;
+les **vérifications nº** relisent ce même périmètre. **Admissible à la préparation
+privée** ne signifie pas qu'un contenu est prêt à publier.
+
+Les deux accès **Préparer ce dossier** du résultat et du rapport annoncent leur
+effet par une aide visible associée au bouton : pause du lot et préparation
+ciblée. La dernière observation conserve sa propre date et son numéro de
+vérification, même si elle précède la vérification courante. **Reprendre la
+lecture** distingue les points de lecture locaux du traitement serveur terminé.
+
+Dans Campagnes, **État du suivi** propose **Terminée — livrée ou dispensée** pour
+le filtre API `complete`. Une ligne distingue toujours **Livrée** de **Dispensée**,
+et ses occurrences sont des **Publications**. **Prête à approuver** concerne la
+préparation du dossier. Les clés existantes, états API, propriétaires, confirmations et
+conducteurs restent inchangés.
+
+Le [runbook](../../operations/admin-pilotage.md#pilotage-de-la-preparation) décrit
+ces libellés actuels. Les huit captures de ce dossier restent celles de la
+première recette V3.2 ; les captures de la recette de vocabulaire sont des
+artefacts Playwright distincts.
+
+### Validation de ce suivi
+
+- Build Angular de production réussi sous Node 22 : **25 routes prérendues**,
+  initial **505,48 ko**. Compilations TypeScript applicative et UI réussies.
+- **25 tests Node réussis** : 15 du pilote et 10 de Campagnes. Le nouveau cas
+  Campagnes exerce le service et la projection avec des sources injectées : le
+  filtre `complete` conserve la livraison qualifiée et la dispense avant
+  pagination, sans attribuer de preuve à la dispense.
+- **285 scénarios navigateur distincts validés au fil des reprises**, dans huit
+  suites. Premier passage : 278 réussites, quatre écarts sur le libellé d'en-tête
+  oublié et une ancienne attente de test, puis deux captures historiques
+  volontairement ignorées. Après correction, les trois suites Fiches, Lots et
+  Campagnes donnent 125 réussites, un manque de largeur du filtre anglais et les
+  deux captures ignorées. Après élargissement, les **quatre cas FR/EN à 390 et
+  1536 px passent**, avec mesure du libellé fermé et absence de débordement.
+  Les cinq autres suites du premier passage sont toutes réussies ; ces chiffres
+  ne décrivent pas une exécution unique de 285 scénarios.
+- Les contrôles couvrent notamment l'approbation versionnée FR/EN, les noms
+  accessibles du Guide, les aides de pause visibles et liées aux actions, la
+  date propre à une observation historique et la reprise de lecture sans
+  nouveau contrôle serveur. Les parcours Xbox utilisent une manette simulée.
+- Les **96 clés modifiées** ont leurs correspondantes FR/EN et conservent leurs
+  paramètres d'interpolation. Accentuation et ponctuation vérifiées.
+- ESLint global : zéro erreur, un avertissement préexistant dans
+  `scripts/smoke-public.mjs:165`. Format ciblé, standards, budgets et liens
+  documentaires et `git diff --check` réussis.
+
+Commandes navigateur propres au suivi, avec Node 22 :
+
+```powershell
+npm exec --yes --package=node@22 -- node node_modules/@playwright/test/cli.js test --config tests/playwright-admin-ui.config.mjs tests/playwright/admin-preparation-receipts.spec.ts tests/playwright/admin-preparation-assistance.spec.ts tests/playwright/admin-sponsorship-preparation.spec.ts tests/playwright/admin-campaigns.spec.ts tests/playwright/admin-controller-journeys.spec.ts tests/playwright/admin-automatic-portfolio.spec.ts tests/playwright/admin-guidance.spec.ts tests/playwright/admin-workflow-guide.spec.ts --fully-parallel --workers 4
+npm exec --yes --package=node@22 -- node node_modules/@playwright/test/cli.js test --config tests/playwright-admin-ui.config.mjs tests/playwright/admin-automatic-portfolio.spec.ts tests/playwright/admin-campaigns.spec.ts tests/playwright/admin-preparation-receipts.spec.ts --fully-parallel --workers 4
+npm exec --yes --package=node@22 -- node node_modules/@playwright/test/cli.js test --config tests/playwright-admin-ui.config.mjs tests/playwright/admin-campaigns.spec.ts --grep 'campaign workflow complete' --fully-parallel --workers 4
+```
+
+`GUIDE_V32_CAPTURE_PHASE` n'est pas défini : aucune capture historique du dossier
+n'est remplacée. Les vérifications et limites de simulation décrites plus haut
+restent applicables à ce suivi.

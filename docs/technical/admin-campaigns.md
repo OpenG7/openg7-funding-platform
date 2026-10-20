@@ -10,8 +10,9 @@ publication et ne confirme aucun paiement.
 ## Vocabulaire des opérations
 
 Ces termes sont communs au Guide, aux dossiers de commandite et à Campagnes.
-Le menu **Campagnes** ouvre **Suivi des prestations promises** ; il ne désigne
-pas un regroupement éditorial ayant son propre objectif ou sa propre période.
+Le menu et le titre **Campagnes** désignent le suivi des prestations promises ;
+ils ne désignent pas un regroupement éditorial ayant son propre objectif ou sa
+propre période.
 Les clés de traduction, identifiants et états des contrats techniques restent
 stables ; les libellés précisent leur sens dans l'interface.
 
@@ -24,19 +25,23 @@ stables ; les libellés précisent leur sens dans l'interface.
 | Prestation promise | Unité de travail issue de cet accord ; `obligation` reste le nom du contrat technique. Plusieurs publications promises donnent plusieurs unités suivies. |
 | Publication 2 sur 3 | Occurrence d'une prestation de publication ; distincte de la vérification d'un lot de dossiers. |
 | Fiche de préparation | Contrôles et contenu versionnés du dossier, avec leur état de préparation. |
+| Admissible à la préparation privée | Conditions permettant une préparation privée ; ne signifie ni que tous les contrôles sont satisfaits ni que la publication est autorisée. |
+| Contrôle satisfait | Condition constatée par le serveur ; distinct d'un dossier vérifié, qui peut encore demander une intervention. |
 | Reçu d'opération | Résultat serveur d'une demande identifiée, notamment une décision sur des médias ; permet d'en vérifier l'issue sans répéter la mutation. Ce n'est pas la fiche de préparation. |
 | Approbation de la préparation | Décision sur la version courante de la préparation du dossier entier ; son historique est l'**Historique des approbations**. |
 | Autorisation de publication | Décision distincte portant sur le contenu exact, la destination, le mode et la programmation. |
 | Livraison confirmée | Réalisation étayée par une preuve qualifiée pour la prestation exacte. |
 | Dispense | Décision tracée qui termine le suivi d'une prestation sans déclarer de livraison. |
 | Preuve de l'accord / preuve de livraison | Justificatif des conditions promises / justificatif de leur réalisation ; une preuve de livraison est rattachée à la prestation, pas un livrable autonome dans ce modèle. |
-| Vérification du lot | Traitement d'un ensemble de dossiers ; **Préparer ce dossier** annonce l'entrée dans la préparation ciblée. |
+| Lot | Liste figée de dossiers capturée au démarrage ; une nouvelle vérification conserve cette liste, un nouveau lot capture une nouvelle liste. |
+| Vérification nº 2 | Nouvelle lecture et préparation privée admissible de ce même lot ; `run` et `pass` restent les identifiants techniques du lot et de sa vérification. |
+| Préparer ce dossier | Met le lot en pause et ouvre la préparation ciblée du dossier choisi ; ne se limite pas à consulter son rapport. |
 | Flux de publication | Destination configurée du moteur social, avec compte, canal, cible et cadence ; `feed` reste le terme technique et apparaît encore dans certains libellés. |
 | Statut social déclaré | Suivi historique renseigné dans le dossier, notamment `feedStatus` ; ne décrit ni la visibilité Web effective ni une livraison confirmée du moteur. |
 | Suivi social déclaré | Zone regroupant le statut social déclaré et ses références ou notes historiques ; distincte de la fiche publique Web et du suivi des livraisons du moteur. |
 
 Les noms suivants désignent les responsabilités des outils transversaux dans la
-documentation. Certains sont descriptifs : **Guide administratif** précise le
+documentation et l'interface. **Guide administratif** nomme le
 Guide commun, et **Aide pas à pas du dossier** précise le volet local affiché
 **Aide pas à pas**. Cette nomenclature n'annonce pas un renommage complet de
 l'interface. Les citations de libellés existants, les noms de composants et les
@@ -88,6 +93,11 @@ Le filtre **État du suivi** conserve l'état API `complete`. Son option
 distingue **Livrée** et **Dispensée**. L'approbation affichée sur une ligne reste
 explicitement celle de la préparation du dossier. Une prestation enregistrée
 peut attendre sa préparation ou l'autorisation de sa publication.
+
+En anglais, les mêmes distinctions utilisent **Administrative guide**,
+**Preparation record**, **Preparation approval**, **Agreement**, **Batch** et
+**Check**. **Control desk** désigne le Poste de pilotage ; le **Pilotage de la
+préparation** reste le panneau de contrôles du dossier.
 
 Dans l'onglet Publication du dossier, **Prestations promises** conserve la
 référence contractuelle pour qualifier et ajuster l'accord de commandite. Un

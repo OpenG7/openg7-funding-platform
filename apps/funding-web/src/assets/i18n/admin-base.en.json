@@ -186,12 +186,12 @@
       "system": "Follow the system theme",
       "systemHint": "Premium Light in light mode and OpenG7 Night in dark mode, following your device.",
       "current": "Current appearance:",
-      "density": "Pilotage density",
+      "density": "Control desk density",
       "comfortable": "Comfort",
       "comfortableHint": "Generous previews and room to read.",
       "compact": "Compact",
       "compactHint": "More dossiers visible on larger screens.",
-      "saved": "Preferences saved on this device: palette for the administration and density for pilotage. No dossier content is stored.",
+      "saved": "Preferences saved on this device: palette for the administration and density for the control desk. No dossier content is stored.",
       "storageUnavailable": "Your browser cannot save this choice. It stays applied during this visit."
     },
     "backups": {
@@ -1463,7 +1463,7 @@
       "pilotage": "Control desk"
     },
     "guidance": {
-      "toggle": "Guided mode",
+      "toggle": "Administrative guide",
       "panelTitle": "OpenG7 administrative guide",
       "panelSubtitle": "Find your way, understand and prepare each intervention.",
       "close": "Collapse the guide",
@@ -1765,7 +1765,7 @@
       "retryMode": "Retry loading",
       "retryUnavailable": "The browser cannot retry this load here. Reload the page to resume your saved places.",
       "workflowsUnavailable": "The journeys could not be loaded. Retry while keeping your place.",
-      "automaticUnavailable": "Dossier preparation could not be loaded. Retrying does not start a passage.",
+      "automaticUnavailable": "Dossier preparation could not be loaded. Retrying does not start a batch check.",
       "paymentJourney": {
         "title": "Payment journey",
         "followCurrent": "Follow this payment",
@@ -1822,7 +1822,7 @@
     },
     "shell": {
       "skip": "Skip to main content",
-      "startPass": "Start a new passage",
+      "startPass": "Check a new batch",
       "startPassCountUnavailable": "Dossier count unavailable.",
       "startPassDossierCount": "Dossiers to process: {{count}}",
       "workspace": "Builders Fund · Administration",

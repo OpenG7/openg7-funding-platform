@@ -385,6 +385,62 @@ test('workflow filters apply to all dossiers before counts and pages; blocking r
   assert.equal(empty.pagination.totalItems, 80);
 });
 
+test('complete filters qualified delivery and waiver before pagination without treating a waiver as delivery', async () => {
+  const dossier = source(1, { quantity: 3, channel: 'facebook' });
+  const [delivered, waived, pending] = dossier.commitment.obligations;
+  Object.assign(delivered, {
+    state: 'fulfilled',
+    fulfilmentEvidenceId: 'qualified-delivery-proof',
+    version: 2
+  });
+  Object.assign(waived, { state: 'adjusted', version: 2 });
+  dossier.qualified = ['qualified-delivery-proof'];
+  dossier.evidence = [
+    {
+      id: 'qualified-delivery-proof',
+      obligationId: delivered.id,
+      deliveryId: 'synthetic-qualified-delivery',
+      channel: 'facebook',
+      target: 'openg7',
+      provenance: 'provider_verified',
+      deliveredAt: now.toISOString(),
+      externalPostUrl: 'https://social.example.invalid/qualified-delivery',
+      visibility: 'unknown',
+      visibilityObservedAt: null
+    }
+  ];
+  const result = await fixture([dossier]).list({ state: 'complete' });
+  assert.equal(result.pagination.totalItems, 2);
+  assert.deepEqual(
+    result.items.map((row) => row.id),
+    [delivered.id, waived.id]
+  );
+  assert.ok(result.items.every((row) => row.workflow.state === 'complete'));
+  assert.equal(result.items[0].obligationState, 'fulfilled');
+  assert.equal(result.items[0].workflow.reason, 'publication_done');
+  assert.equal(result.items[0].proof.id, 'qualified-delivery-proof');
+  assert.equal(result.items[1].obligationState, 'adjusted');
+  assert.equal(result.items[1].workflow.reason, 'obligation_adjusted');
+  assert.equal(result.items[1].proof, null);
+  assert.ok(result.items.every((row) => row.id !== pending.id));
+  assert.ok(
+    result.items.every((row) => row.contributionId === dossier.contribution_id)
+  );
+
+  const secondPage = await fixture([dossier]).list({
+    state: 'complete',
+    pageSize: 1,
+    page: 2
+  });
+  assert.equal(secondPage.pagination.totalItems, 2);
+  assert.equal(secondPage.pagination.totalPages, 2);
+  assert.deepEqual(
+    secondPage.items.map((row) => row.id),
+    [waived.id]
+  );
+  assert.equal(secondPage.items[0].proof, null);
+});
+
 test('contractual dates keep null last in both directions and stable passage order on ties', () => {
   const base = {
     contributionId: 'a',

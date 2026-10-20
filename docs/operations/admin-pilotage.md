@@ -106,7 +106,7 @@ Apparence garde la priorité du panneau et impose le retour au neutre après
 chaque choix; aucune préférence ne déclenche une commande métier.
 
 Le controller partagé propose aussi les états explicites fermé (`closed`), aperçu
-(`peek`) et ouvert (`open`) pour les bons de préparation. Les actions restent
+(`peek`) et ouvert (`open`) pour les fiches de préparation. Les actions restent
 masquées hors de l'état ouvert, y compris sur mobile; le bouton d'ouverture reste
 accessible. Chaque surface possède son identifiant et son propriétaire de focus.
 Sélectionner un élément, ouvrir ses commandes et activer une intention sont trois
@@ -116,7 +116,7 @@ gestes distincts. Les panneaux métier gardent la priorité et leurs confirmatio
 
 ### Explorer les six parcours en navigation libre
 
-Dans **Mode guidé → Explorer les parcours**, choisir librement un parcours puis une étape
+Dans **Guide administratif → Explorer les parcours**, choisir librement un parcours puis une étape
 numérotée, ou utiliser **Étape précédente / suivante**. Le guide décrit l’action,
 son résultat attendu et son emplacement actuel.
 Les parcours couvrent l’accord, la préparation, l’autorisation, la livraison,
@@ -140,9 +140,13 @@ reprend qu’un identifiant de dossier valide et l’onglet ; il ne transmet auc
 paramètre de composition ou d’autorisation. Le guide réutilise le halo et le
 défilement accessibles existants, avec respect de la réduction des mouvements.
 
-### Mode guidé dans l'administration
+<a id="mode-guide-dans-ladministration"></a>
 
-Le bouton **Mode guidé**, sous la barre commune, accompagne les 20 rubriques
+<a id="mode-guidé-dans-ladministration"></a>
+
+### Guide administratif
+
+Le bouton **Guide administratif**, sous la barre commune, accompagne les 20 rubriques
 administratives authentifiées. Les quatre modes **Découvrir**, **Suivi d’un paiement**,
 **Préparation des dossiers** et **Explorer les parcours** gardent des libellés
 visibles. La rubrique courante reste affichée dans tous les modes. Le rail devient
@@ -256,31 +260,31 @@ publication ou paiement de production.
 
 ### Préparation des dossiers par lot
 
-La commande de démarrage, dans l'en-tête ou **Mode guidé → Préparation des dossiers**,
+La commande de démarrage, dans l'en-tête ou **Guide administratif → Préparation des dossiers**,
 lance une vérification du lot de paiements confirmés. Le serveur fige la liste des dossiers,
 leurs références, montants et devises ; chaque dossier est ensuite relu à partir
 du paiement, de l'offre enregistrée, des obligations et de leurs preuves.
-Les quantités et les passages promis doivent tous être présents. Les devises
+Les quantités et les publications promises doivent toutes être présentes. Les devises
 restent séparées. Le soutien personnel ne crée aucune contrepartie commerciale.
 
 Le carrousel affiche une seule **Fiche de préparation** à la fois. Sa position dans
 la liste figée est distincte du nombre de dossiers examinés par le serveur.
 **Précédent**, **Suivant** et **Actualiser** consultent les faits actuels, y compris
 ceux d'un dossier pas encore examiné ; ils ne lancent aucune préparation,
-n'accusent réception d'aucune lecture et ne reprennent pas le passage.
+n'accusent réception d'aucune lecture et ne reprennent pas la vérification du lot.
 La fiche présente paiement, offre acceptée, contrôles, autorisations, brouillons
 privés, contenu à relire et éléments manquants. Les liens ouvrent les écrans
 propriétaires pour compléter le dossier.
 
 La zone **Suivi du lot** reste repliée à la consultation
-d'un passage existant ; sa phase et sa progression restent visibles. Son ouverture
+d'un lot existant ; sa phase et sa progression restent visibles. Son ouverture
 donne accès aux commandes, au bilan et au rapport durable. Dans le rapport, chaque
 dossier affiche d'abord sa référence et son statut ; déplier ce dossier révèle
 les faits avant/après, engagements, preuves et références d'audit. Ces ouvertures
 au clavier ou à la souris consultent le rapport sans relancer le traitement.
 
 La même fiche est accessible directement dans **Publication**, sixième étape du
-dossier consulté, avant les détails des engagements. Aucun passage automatique
+dossier consulté, avant les détails des engagements. Aucun lot automatique
 n'est requis ou créé. La qualification historique reste accessible dans ces
 détails ; son absence apparaît comme un blocage dans la fiche. Les deux accès
 partagent la version du contenu et l'historique des approbations : une préparation
@@ -305,7 +309,10 @@ affiche son explication; **Actions** ouvre les commandes sans enregistrer de
 décision. Le compteur reprend les contrôles et autorisations applicables du
 serveur, hors éléments non requis. Son total varie selon la fiche; les blocages
 complémentaires ne l'augmentent pas. Cliquer, lire ou fermer une commande ne
-valide aucun contrôle.
+valide aucun contrôle. Un contrôle **Satisfait** et un **Dossier vérifié** ne
+désignent pas le même résultat : la vérification d'un dossier peut encore relever
+des points à traiter. **Admissible à la préparation privée** indique seulement
+que les préconditions de cette préparation sont réunies.
 
 Dans le Guide, le diagnostic du contrôle sélectionné apparaît à gauche et la
 liste reste à droite selon la place disponible. Le nom du contrôle figure dans
@@ -321,7 +328,7 @@ ces commandes ne lance aucune préparation. L’historique du Guide explicite
 l’absence d’approbation enregistrée lorsque sa liste est vide.
 
 Le Pilotage regroupe les vérifications et autorisations de la fiche. Le volet replié
-**Détails de l’accord de commandite et traçabilité** est réservé à **Campagnes**. Il conserve
+**Détails de la préparation et traçabilité** est réservé à **Campagnes**. Il conserve
 les clauses de l’offre, la date du paiement, les états des brouillons, le bilan
 des engagements et la version complète, sans répéter ces listes de contrôles.
 Commandites masque ce volet et sa commande ; la qualification de l’accord
@@ -336,9 +343,11 @@ Le [vocabulaire commun des opérations](../technical/admin-campaigns.md#vocabula
 réserve **accord de commandite** aux conditions commerciales. L'approbation de
 préparation porte sur le dossier entier, même depuis une prestation sélectionnée ;
 l'autorisation de publication porte sur le contenu et sa diffusion. Le rapport
-annonce **Préparer ce dossier** lorsqu'il ouvre la préparation ciblée. Les
-occurrences promises sont des **Publications**, tandis qu'une **vérification du
-lot** porte sur l'ensemble des dossiers.
+annonce **Préparer ce dossier** lorsqu'il met le lot en pause et ouvre la préparation
+ciblée ; une aide visible décrit cet effet. Les occurrences promises sont des
+**Publications**, tandis qu'une **vérification du lot** porte sur l'ensemble des
+dossiers. Le **lot** est la liste figée ; chaque nouvelle **vérification nº**
+relit cette même liste.
 
 Pour les accords historiques, la destination de l’accord donne aussi accès à
 l’[assistance locale versionnée](../technical/preparation-assistance.md), réservée
@@ -408,6 +417,8 @@ conserve un halo fixe. Ce clic accuse réception de la lecture ; il n'approuve
 aucune publication, aucun remboursement ni aucun courriel et ne remplace aucune
 confirmation métier. Le serveur peut avoir terminé son contrôle alors que le
 résultat ou le bilan attend encore la lecture ; ces deux états restent distincts.
+Lorsque le serveur a terminé, **Reprendre la lecture** désigne uniquement la
+reprise de ces points de lecture locaux.
 
 Au bilan, le rapport complet reste consultable par pages ; le chargement d'une
 page bloque la confirmation de lecture. Une page indisponible se réessaie sans
@@ -419,7 +430,8 @@ admissibles, puis inscrit le résultat dans un rapport durable avant de passer
 au suivant. Ces préparations réutilisent les services métier : elles ne publient
 ni n'envoient de message. Une publication, un refus, un remboursement, une facture
 à réparer ou un courriel à reprendre conserve sa confirmation et ses droits
-habituels. **Examiner ce dossier** permet de rejoindre sa prochaine étape.
+habituels. **Préparer ce dossier** ouvre sa préparation ciblée en mettant le lot
+en pause.
 Un dossier qui attend une personne, une information ou une échéance reste ouvert
 dans le rapport pendant le contrôle des autres dossiers.
 
@@ -429,7 +441,7 @@ qualifiée, une obligation manquante, une preuve étrangère ou simulée et une 
 sans attestation ne permettent pas de solder une responsabilité. Les incidents
 de paiement, de document et de communication restent également visibles.
 
-Le rapport conserve, par dossier et passage, les faits avant/après, actions,
+Le rapport conserve, par dossier et vérification du lot, les faits avant/après, actions,
 raisons, acteur, date et références d'audit, de requête et de preuve. Il est
 accompagné du détail des avantages promis : quantité, format, éléments requis,
 échéance et durée. Les réalisations hors délai restent signalées pour le suivi
@@ -437,24 +449,26 @@ humain. Le rapport est
 consultable par son acteur après rechargement, avec pagination. Le mode token
 partage le même acteur entre ses utilisateurs ; OIDC conserve les comptes
 nominatifs. Aucune donnée de rapport n'est enregistrée dans `localStorage`.
-**Passage terminé** indique la fin de la liste contrôlée. **Responsabilités
-équilibrées lors de ce passage** décrit les observations datées du rapport ;
-un fait ultérieur peut rouvrir une responsabilité.
+La fin de la vérification indique que la liste a été contrôlée ; elle ne signifie
+pas que toutes les responsabilités sont soldées. Le bilan décrit les observations
+datées du rapport ; un fait ultérieur peut rouvrir une responsabilité. La dernière
+observation affiche sa propre date et son numéro de vérification : elle peut
+provenir de la vérification précédente lorsqu'une nouvelle vient de démarrer.
 
 Les paiements confirmés après la capture apparaissent comme nouveaux dossiers à
-inclure dans un nouveau passage. **Revérifier** relit la même liste figée après
+inclure avec **Vérifier un nouveau lot**. **Revérifier ce lot** relit la même liste figée après
 les interventions humaines. La reprise est explicite : ouvrir le panneau ou
 recharger la page relit le rapport sans relancer les opérations. Pause, fermeture du guide,
 changement de mode, saisie, navigation manuelle, formulaire ou dialogue ouvert,
-onglet masqué, changement de session et erreur interrompant le passage retirent
-le halo et arrêtent l'avancement. Les accusés de lecture restent en mémoire pendant le passage,
+onglet masqué, changement de session et erreur interrompant la vérification retirent
+le halo et arrêtent l'avancement. Les accusés de lecture restent en mémoire pendant la vérification,
 sans reprise automatique après rechargement. Une requête déjà partie peut se terminer ;
 la pause empêche le dossier suivant. Un résultat incertain exige sa
 réconciliation et n'est jamais rejoué automatiquement.
 
 **Réconcilier le résultat** demande confirmation puis consulte les commandes
 durables. Le serveur récupère un résultat déjà enregistré ou prouve l'absence
-de préparation validée avant de laisser le passage en pause. **Reprendre** est
+de préparation validée avant de laisser le lot en pause. **Reprendre** est
 un second geste volontaire ; une incohérence conserve le blocage.
 
 Le contrat privé et les droits des endpoints sont décrits dans
@@ -462,10 +476,10 @@ Le contrat privé et les droits des endpoints sont décrits dans
 La migration additive `055_admin_automatic_responsibility_runs.sql` conserve
 manifestes, commandes idempotentes et entrées de rapport immuables ; elle
 n'active aucun worker. La migration additive
-`056_admin_preparation_approvals.sql` ajoute l'historique immuable des accords
-sur les préparations privées, sans créer d'accord existant ni déclencher
-d'opération. `057_dossier_preparation_approvals.sql` rend ce bon accessible sans
-passage et conserve les accords précédents. Appliquer la procédure de
+`056_admin_preparation_approvals.sql` ajoute l'historique immuable des approbations
+sur les préparations privées, sans créer d'approbation existante ni déclencher
+d'opération. `057_dossier_preparation_approvals.sql` rend cette fiche accessible sans
+lot et conserve les approbations précédentes. Appliquer la procédure de
 [migration](database-migrations.md) avant d'utiliser le nouveau mode.
 
 ### Préparation d'un dossier ou d'une rubrique
