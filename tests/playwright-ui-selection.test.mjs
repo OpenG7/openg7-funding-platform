@@ -58,6 +58,10 @@ test('isolated public page suites keep their own coverage and desktop/mobile mat
 });
 
 test('public journeys and accessibility keep separate selections across four browsers', () => {
+  const accessibilityFiles = [
+    'platform-accessibility.spec.ts',
+    'app-update.spec.ts'
+  ];
   const suites = [
     [
       'public-journeys',
@@ -69,7 +73,7 @@ test('public journeys and accessibility keep separate selections across four bro
         'refund-policy.spec.ts'
       ]
     ],
-    ['platform-accessibility', ['platform-accessibility.spec.ts']]
+    ['platform-accessibility', accessibilityFiles]
   ];
   const projects = ['chromium', 'firefox', 'webkit', 'mobile-webkit'];
   for (const [name, files] of suites) {
@@ -83,5 +87,15 @@ test('public journeys and accessibility keep separate selections across four bro
       projects
     );
     assertBrowserMatrix(report.specs, projects);
+  }
+  for (const isolated of [false, true]) {
+    const report = discoverPlaywright('playwright.config.ts', isolated);
+    const selectedFiles = new Set(report.specs.map((spec) => spec.file));
+    for (const file of accessibilityFiles)
+      assert.equal(
+        selectedFiles.has(file),
+        false,
+        `${file} must stay outside Docker (isolated=${isolated})`
+      );
   }
 });
