@@ -274,6 +274,34 @@ for (const language of ['fr-CA', 'en'] as const) {
       expect(new URL(page.url()).searchParams.get('sponsorshipId')).toBe(
         controllerId
       );
+      const originalUrl = page.url();
+      const location = new URL(originalUrl);
+      const origin = location.pathname + location.search + location.hash;
+      const assistance = hook(page, 'dossier-assistant');
+      await expect(hook(page, 'dossier-guide')).toHaveCount(0);
+      await expect(
+        page.locator('[data-og7="dossier-tool-toggle"][data-og7-id="help"]')
+      ).toHaveCount(0);
+      await assistance.focus();
+      await page.keyboard.press('Enter');
+      await expect(page).toHaveURL(
+        (url) =>
+          url.pathname === '/admin/fundraiser/assistant' &&
+          url.searchParams.size === 2 &&
+          url.searchParams.get('sponsorshipId') === controllerId &&
+          url.searchParams.get('returnTo') === origin &&
+          url.hash === ''
+      );
+      await expect(hook(page, 'dossier-guide')).toBeVisible();
+      await expect(hook(page, 'guide-edit-identity')).toHaveCount(0);
+      await expect(hook(page, 'guide-followup-access')).toHaveCount(0);
+      const back = hook(page, 'assistant-dossier-return');
+      await expect(back).toHaveAttribute('href', origin);
+      await back.focus();
+      await page.keyboard.press('Enter');
+      await expect(page).toHaveURL(originalUrl);
+      await expectFocusVisible(assistance);
+      await expectFiveTabs(page, language, 'identity');
       expect(state.commands).toEqual([]);
       await expectNoHorizontalOverflow(page);
     });

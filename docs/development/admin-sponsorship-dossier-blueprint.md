@@ -19,8 +19,16 @@ ni aucune exécution de publication, de remboursement ou de traitement de donné
 
 Le [blueprint général](admin-operations-blueprint.md) compare ce dossier,
 le [Guide administratif](admin-guide-blueprint.md) et Campagnes. L’**aide pas à pas du dossier**
-inventoriée ici est un volet `<details>` ; elle est distincte de la carte du Guide
-administratif et du dialogue « Guide pas à pas ».
+inventoriée ici est un volet `<details>` sur la page **Assistant et aide** ; elle
+est distincte de la carte du Guide administratif et du dialogue « Guide pas à pas ».
+
+La barre du dossier propose une seule entrée **Assistant et aide** vers
+`/admin/fundraiser/assistant?sponsorshipId=<uuid>`, avec le retour au dossier
+d’origine. L’Assistant occupe les deux tiers gauches et l’aide le tiers droit ;
+ils sont empilés sous 1 100 px. Le guide quitte les outils locaux du dossier,
+qui conservent modération et accès au suivi ; l’édition reste dans la barre.
+Le raccourci **Consulter l’activité** est retiré : l’onglet Historique reste
+l’accès au même contenu. Ce regroupement ne déclenche aucune action métier.
 
 Le [vocabulaire harmonisé des opérations](../technical/admin-campaigns.md#vocabulaire-des-operations)
 est appliqué aux libellés actuels : dossier de commandite, accord de commandite,
@@ -49,9 +57,9 @@ et [page Qualité][quality-page].
 <!-- prettier-ignore -->
 | Zone | Avant le rangement | État actuel et propriétaire |
 | --- | --- | --- |
-| Aperçu / DOS-O.z01 | Assistant intégré : faits, recommandation, rédaction et envoi confirmé. | Instance retirée. **Ouvrir l’Assistant pour ce dossier**, dans la barre, transmet `sponsorshipId` ; l’Assistant de l’enveloppe reçoit aussi cet ID. Les actions DOS-O.a01–a12/a21/a22 sont un catalogue historique de l’ancienne instance. |
+| Aperçu / DOS-O.z01 | Assistant intégré : faits, recommandation, rédaction et envoi confirmé. | Instance retirée. **Assistant et aide**, dans la barre, transmet `sponsorshipId` et l’origine de retour ; l’Assistant de l’enveloppe reçoit aussi ce contexte. Les actions DOS-O.a01–a12/a21/a22 sont un catalogue historique de l’ancienne instance. |
 | Orientation / DOS-T | Prochain point et recommandations répétées dans plusieurs surfaces. | Un bandeau principal `AdminSponsorshipNextStep` ; progression factuelle repliable dans Aperçu. L’aide du dossier explique à la demande, la fiche de préparation évalue sa propre version. |
-| Contexte / DOS-C et DOS-U | Colonne permanente de modération, édition, aide et accès. | Colonne retirée. **Modération éditoriale**, **Aide pas à pas du dossier** et **Accès au suivi** ouvrent un panneau non modal depuis la barre, selon les rôles ; le même tiroir d’édition est accessible dans la barre et depuis l’identité. |
+| Contexte / DOS-C et DOS-U | Colonne permanente de modération, édition, aide et accès. | Colonne retirée. **Modération éditoriale** et **Accès au suivi** ouvrent un panneau non modal depuis la barre, selon les rôles ; le même tiroir d’édition est accessible dans la barre et depuis l’identité. L’aide rejoint la page commune **Assistant et aide**. |
 | Publication / DOS-P.z06 | Console complète de chaque obligation, doublant les prestations et les cartes sociales. | Synthèse d’avancement, responsabilité et motif ; lien **Voir les prestations de cette commandite** vers Campagnes avec `sponsorshipId`. Les cartes sociales et leur tiroir partagé restent actifs. |
 | Paramètres / DOS-W | Slug, résumé public et déclaration sociale présentés dans une même grille. | Section **Fiche publique** avec aperçu privé ; **Suivi social déclaré** replié séparément. Une sauvegarde versionnée commune enregistre les champs modifiés, sans publier ni autoriser d’envoi. |
 | Portefeuille / DOS-EI et DOS-EH | Inventaire d’adoption et bascule d’audit global dans un dossier individuel. | `/admin/fundraiser/sponsors/quality`, réservé au propriétaire, héberge adoption et audit de portefeuille. L’audit conservé dans Publication est strictement lié à sa contribution ; un lien vers Qualité conserve un identifiant de retour au dossier. |
@@ -139,8 +147,9 @@ flowchart TB
   T --> F[Finances]
   T --> H[Historique]
   T --> C[Outils à la demande]
-  C --> M[Modération, aide ou accès]
-  T --> U[Édition et Assistant contextuel]
+  C --> M[Modération ou accès]
+  T --> U[Édition]
+  T --> AS[Assistant et aide : page commune]
   P --> B[Fiche de préparation partagée]
   P --> A[Engagements et qualification]
   P --> S[Site Web et livraisons sociales]
@@ -229,7 +238,7 @@ tous les onglets ; sa synthèse repliable ne s’affiche que sur Aperçu.
 | DOS-T.z01 — En-tête | L, T : entreprise, initiales, montant/palier ; revue, visibilité Web, paiement, état de remboursement restent des badges séparés. |
 | DOS-T.a01 — Revenir à la liste | N, T : fermer le dossier sélectionné ; ne refuse ni n’annule la commandite. |
 | DOS-T.a02 — Note interne | N, T : rejoint Aperçu puis ouvre le tiroir de note DOS-O.z05. |
-| DOS-T.a03 — Activité | N, T : rejoint Historique ; n’ouvre pas le journal d’interventions. |
+| DOS-T.a03 — Activité (retiré) | Le raccourci de la barre est supprimé ; l’onglet Historique reste l’accès au même contenu. |
 | DOS-T.a04 — Suivi / interventions | N/L, T : ouvre DOS-J, avec prochaine date de revue si connue. |
 | DOS-T.a05 — Actualiser le dossier | L, T : relire les faits ; désactivé pendant chargement/action. |
 | DOS-T.a06 — Dossier précédent / suivant | N, T : ouvre le voisin disponible dans le contexte de la liste ; désactivé à la borne. |
@@ -242,9 +251,9 @@ tous les onglets ; sa synthèse repliable ne s’affiche que sur Aperçu.
 | DOS-T.a12 — Déplier les blocages de publication | L, T : lire les causes et la responsabilité du traitement ; chaque cause donne un lien N vers sa zone propriétaire. |
 | DOS-T.a13 — Réessayer la lecture de progression | L, T : visible en erreur/indisponibilité, relire les faits de progression. |
 | DOS-T.a14 — Déplier le résumé d’avancement | L, T, Aperçu : lire les jalons et le nombre résolu. Dans cette page `streamlined=true`, ce résumé n’est pas le parcours complet non compact du composant. |
-| DOS-T.a15 — Ouvrir l’Assistant pour ce dossier | N, T : `/admin/fundraiser/assistant?sponsorshipId=…` ; rédaction et conversation quittent Aperçu. L’enveloppe reçoit aussi l’identifiant courant. |
+| DOS-T.a15 — Assistant et aide | N, T : entrée unique `dossier-assistant` vers `/admin/fundraiser/assistant?sponsorshipId=…` ; conserve le dossier courant et son origine de retour pour l’Assistant et le guide sur leur page commune. L’enveloppe reçoit aussi ce contexte. |
 | DOS-T.a16 — Modifier le dossier | N/P, G : ouvrir le tiroir de correction DOS-I.a04–a11 depuis la barre ; même instance que les raccourcis d’identité. |
-| DOS-T.a17 — Ouvrir un outil du dossier | L/N : Modération pour G, Aide pour T, Accès pour O. Un panneau non modal affiche un outil à la fois ; l’aide attend la progression du dossier courant. |
+| DOS-T.a17 — Ouvrir un outil du dossier | L/N : Modération pour G, Accès pour O. Un panneau non modal affiche un outil à la fois. L’aide se consulte sur la page Assistant et aide. |
 | DOS-T.a18 — Fermer / Échap de l’outil | L : masquer le panneau et restaurer le focus sur sa commande ; bloqué pendant activité de modération ou d’accès. Les confirmations/dialogues prioritaires gardent leur propre fermeture. |
 
 <a id="c01-bandeau-prochaine-etape"></a>
@@ -925,25 +934,34 @@ DOS-T.a17 ouvre maintenant cet organisme dans le panneau non modal à la demande
 
 L’ancienne colonne permanente est **historique**. Les actions ci-dessous
 conservent leurs composants propriétaires ; la barre du dossier ouvre l’édition,
-l’aide ou l’accès, plutôt que de les afficher à côté de chaque onglet.
+l’accès ou la page Assistant et aide, plutôt que de les afficher à côté de chaque onglet.
 
 <!-- prettier-ignore -->
 | Zone / action | Responsabilité, effet et conditions |
 | --- | --- |
 | DOS-U.a01 — Modifier le dossier | N/P, G : même tiroir de correction DOS-I.a04–a11 ; commande dans la barre, aussi accessible depuis l’identité. |
-| DOS-U.z01 — Aide pas à pas du dossier | L, T : volet d’explication du parcours courant, séparé de la carte du Guide administratif et du dialogue « Guide pas à pas ». |
+| DOS-U.z01 — Aide pas à pas du dossier | L, T : volet d’explication du parcours courant, déplacé sur la page Assistant et aide ; séparé de la carte du Guide administratif et du dialogue « Guide pas à pas ». |
 | DOS-U.a02 — Déplier l’aide du dossier | L, T : affiche position, sujet, état, raison, qui intervient, trois instructions et condition d’achèvement. |
-| DOS-U.a03 — Modifier l’identité depuis l’aide du dossier | N/P, G si `identity_missing` : réutilise le tiroir DOS-I. |
-| DOS-U.a04 — Ouvrir l’accès depuis l’aide du dossier | N, O si `identity_submission_pending` : réutilise DOS-A. |
+| DOS-U.a03 — Modifier l’identité depuis l’aide du dossier | N/P, G si `identity_missing` : revient au même dossier avec `tab=identity&action=edit-identity` pour ouvrir le tiroir DOS-I. |
+| DOS-U.a04 — Ouvrir l’accès depuis l’aide du dossier | N, O si `identity_submission_pending` : revient au même dossier avec `tab=identity&action=followup-access` pour ouvrir DOS-A. |
 | DOS-U.a05 — Ouvrir la section conseillée | N, T : lien vers le même dossier avec onglet/fragment ; ne réalise pas le jalon. |
 | DOS-U.a06 — Étape précédente / suivante | L, T : parcourir les explications, sans changement métier. |
 | DOS-U.a07 — Revenir à la recommandation | L, T : revenir au premier point conseillé si dossier incomplet. |
 | DOS-U.a08 — Ouvrir l’accès commanditaire | L/N, O : outil à la demande DOS-A ; l’ancien `<details>` de la colonne a été retiré. |
 
-Source de l’aide locale : [aide pas à pas du dossier][dossier-guide]. Elle coexiste avec la
-prochaine action, la fiche de préparation et le Guide administratif ; l’Assistant
-a quitté Aperçu. Ces aides ont des responsabilités explicatives distinctes et
-ne forment pas plusieurs décisions métier.
+La [page Assistant et aide][assistant-page] réutilise l’[aide pas à pas du dossier][dossier-guide]
+et la projection serveur de progression pour le même dossier. Chargement, erreur
+avec reprise, absence et refus de lecture restent explicites ; une lecture
+indisponible ne devient pas un jalon réussi. Sans `sponsorshipId`, la page
+Assistant conserve sa vue d’ensemble globale.
+
+Les retours du guide conservent le même `sponsorshipId` et les droits des contrôles
+existants. Le paramètre `action` est consommé une fois puis retiré par `replaceUrl`
+avant l’ouverture : aucune correction ni demande d’accès n’est soumise au clic,
+et un rechargement ne répète pas l’ouverture. Les confirmations et droits API
+restent ceux des parcours DOS-I et DOS-A.
+La prochaine action, la fiche de préparation et le Guide administratif conservent
+leurs responsabilités ; réunir Assistant et aide ne fusionne aucune décision métier.
 
 ### DOS-A — Accès au suivi commanditaire
 
@@ -1060,7 +1078,7 @@ identifiable ; une simple ressemblance de panneau ne suffit pas.
 | DOS-X03 | Paramètres avancés mélangent slug/résumé public et statut social déclaré ; le mot Publication désigne aussi la visibilité réelle. | **Appliqué** : section Fiche publique et Suivi social déclaré replié, aperçu public recentré, sauvegarde versionnée commune explicite. | Visibilité Web et moteur social gardent leurs autorisations ; sauvegarder ce formulaire n’en remplace aucune. |
 | DOS-X04 | Fiche et médias regroupe coordonnées/soumission et revue complète des médias (droits, lots, analyse, modération, suppression). | La fiche présente identité/soumission et résumé des médias ; ouvrir un espace de revue des médias focalisé, ou sections clairement séparées. | `MediaReviewWorkspace` et l’éditeur des droits d’utilisation sont déjà des organismes réutilisables ; le logo ancien n’est qu’une lecture dans cette instance, ne pas réactiver ses commandes cachées. |
 | DOS-X05 | Colonne contexte identique sur tous les onglets : modération, édition, guide, accès ; elle peut concurrencer une action de domaine. | **Appliqué** : colonne retirée, outils non modaux à la demande et correction dans la barre. | Composants métier, confirmation et panneau de modération existants ; sous-outils conservés montés après ouverture pour leurs requêtes en attente. |
-| DOS-X06 | Prochaine étape, aide du dossier, Assistant, fiche de préparation et Guide administratif expliquent parfois la même intervention avec des modèles différents. | **Appliqué à la composition** : un bandeau principal, progression factuelle, aide à la demande et Assistant externe contextualisé. | `AdminSponsorshipProgress` conserve raison et destination ; aucune fusion des règles de progression, préparation et pédagogie. |
+| DOS-X06 | Prochaine étape, aide du dossier, Assistant, fiche de préparation et Guide administratif expliquent parfois la même intervention avec des modèles différents. | **Appliqué à la composition** : un bandeau principal, progression factuelle et page commune Assistant et aide, accessible par une seule entrée de la barre. | `AdminSponsorshipProgress` et le guide existants sont réutilisés ; les actions reviennent aux contrôles du dossier sans mutation automatique. Aucune fusion des règles de progression, préparation et pédagogie. |
 | DOS-X07 | Assistant intégré à Aperçu peut préparer puis envoyer une vraie demande ; la responsabilité dépasse une simple synthèse. | **Appliqué** : instance retirée ; rédaction/conversation dans l’Assistant avec `sponsorshipId`, envoi dans son parcours confirmé. | Lien de barre et lien d’enveloppe conservent la cible ; préparer reste distinct d’envoyer. |
 | DOS-X08 | Note courante, interventions datées et journal d’audit contiennent tous du texte interne, mais servent des usages différents. | Conserver une note synthétique, un journal de suivi append-only et un audit des décisions ; afficher leurs frontières explicitement. | Tiroirs et historiques existent. Fusionner le texte en un champ commun ferait perdre responsabilité et preuve. |
 | DOS-X09 | Barre « Accepter/Refuser » et modération permanente peuvent proposer des portes différentes sur une décision proche ; la première impose N0/N2 et la seconde laisse choisir le niveau. | **Allégé, décisions conservées** : modération explicite à la demande et barre de revue métier ; pas de fusion de leurs mutations. | Panneau DOS-C partagé avec DOS-D ; les niveaux, statuts et exigences de revue indépendante restent distincts. |
@@ -1106,7 +1124,7 @@ surface à un travail portant sur plusieurs commandites.
 | DOS-F — Finances | Faits, pièces et suivi financier du même dossier. | Conserver ; réutiliser les consultations transversales. | Factures, file courriel et inspecteur ; pas de retry SMTP à ajouter au dossier. |
 | DOS-H — Historique | Chronologie disponible et filtre de domaine. | Conserver la portée annoncée et l’inspection. | `AdminInspectionService` ; les historiques spécialisés gardent leur provenance. |
 | DOS-C et DOS-D — Modération et revue | Deux entrées proches ; effets et préconditions propres à chaque demandeur. | **Allégé** : outil de modération à la demande ; barre de revue métier conservée. | Panneau transversal de modération ; même panneau ne signifie pas même mutation. DOS-X09. |
-| DOS-U — Utilitaires et aide du dossier | Correction, accès et pédagogie concurrencent le domaine actif. | **Appliqué** : colonne retirée ; commandes de barre et outils à la demande. | Même édition, accès et aide ; conservation des sous-outils montés pour les requêtes en attente. DOS-X05/X06. |
+| DOS-U — Utilitaires et aide du dossier | Correction, accès et pédagogie concurrencent le domaine actif. | **Appliqué** : colonne retirée ; édition et accès depuis la barre, aide sur la page commune Assistant et aide. | Mêmes contrôles et guide ; conservation des sous-outils locaux montés pour les requêtes en attente. DOS-X05/X06. |
 | DOS-A — Accès privé | Renvoi d’un lien au destinataire vérifié par le serveur. | Conserver le parcours confirmé, accessible depuis la fiche et le suivi. | Composant existant ; la file courriel suit l’envoi sans remplacer la génération d’accès. |
 | DOS-J — Interventions | Journal privé chronologique et prochaine revue. | Conserver séparément de la note et de l’audit. | Tiroir actuel ; un type « courriel » ou « remboursement » n’exécute pas l’opération. DOS-X08. |
 | DOS-R — Remboursement | Opération financière sur un paiement, avec issues serveur et Stripe. | Conserver dans Finances, propriétaire seul. | Workflow financier actuel ; confirmation générique ou moteur social ne le remplace pas. |
@@ -1122,7 +1140,7 @@ désignés comme composants. Sources : [routes admin][routes], [enveloppe][layou
 <!-- prettier-ignore -->
 | Besoin | Équivalent actuel et cible | Limite ou condition de rangement |
 | --- | --- | --- |
-| Rédiger ou interroger l’Assistant | `/admin/fundraiser/assistant?sponsorshipId=<id>` depuis la barre ; `AdminLayout` reçoit aussi l’ID courant pour son lien Assistant. | Navigation sans envoi ; aucun Assistant de rédaction intégré dans Aperçu. |
+| Rédiger ou interroger l’Assistant, consulter l’aide du dossier | `/admin/fundraiser/assistant?sponsorshipId=<id>` depuis **Assistant et aide** ; `AdminLayout` reçoit aussi le contexte courant pour son lien Assistant. | Navigation sans envoi ; aucun Assistant de rédaction intégré dans Aperçu. `returnTo` conserve le même dossier, l’onglet et le fragment propriétaire cohérent. |
 | Parcourir les prestations promises | `/admin/fundraiser/campaigns?sponsorshipId=<id>` ; ajouter `obligationId=<id>` si la prestation exacte est connue. | L’entrée filtre avant pagination ; plusieurs prestations demandent un choix. Une obligation inconnue ne doit pas être remplacée arbitrairement par la première ligne. |
 | Examiner une livraison sociale | Tiroir partagé DOS-S avec `deliveryId`, ou `/admin/fundraiser/publications/automation?sponsorshipId=<id>&deliveryId=<id>` si l’ID est disponible. | Sans livraison connue, conserver le dossier comme filtre et ne pas présumer un envoi sélectionné. |
 | Corriger un brouillon source | `/admin/fundraiser/publications/drafts`, ou lien administratif fourni pour le brouillon exact dans DOS-B. | L’écran source garde l’édition ; le dossier n’enregistre pas une copie concurrente du texte. |
@@ -1138,6 +1156,16 @@ Le retour local **Toutes les commandites** restaure la position de liste et le
 focus de la ligne, ou la recherche si la ligne n’est plus présente. Les filtres
 et la pagination vivent dans le contrôleur de page ; l’URL ne constitue pas une
 sauvegarde complète de cet état après changement de page administrative.
+
+Depuis Assistant et aide, **Retour au dossier** retrouve l’origine validée ;
+**Ouvrir le dossier** conserve la destination recommandée. Le retour explicite
+reste disponible en cas d’erreur de lecture. `returnTo` est reconstruit pour le
+même dossier et ne conserve que l’onglet connu et son fragment propriétaire
+cohérent, sans question, brouillon ni paramètre privé. Dans le même onglet,
+le marqueur transitoire existant restaure le focus sur l’entrée Assistant du
+dossier ou du cadre administratif ; après rechargement, seul le fragment valide
+restaure sa section. Ce contexte de retour reste distinct des intentions `action`
+à usage unique des raccourcis d’édition et d’accès.
 
 Le mécanisme de retour de préparation connaît actuellement les origines
 `dossier` et `guide`, pas une origine Campagnes autonome. Le menu commun borne
@@ -1213,6 +1241,7 @@ instances explicitement marquées historiques, sans rendre actives leurs ancienn
 [next-navigation]: ../../apps/funding-web/src/app/features/funding/models/admin-sponsorship-navigation.ts
 [contribution-activity]: ../../apps/funding-web/src/app/features/funding/services/contribution-activity.service.ts
 [progress]: ../../apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsorship-progress.component.html
+[assistant-page]: ../../apps/funding-web/src/app/features/funding/pages/admin-assistant-page/admin-assistant-page.component.html
 [assistant]: ../../apps/funding-web/src/app/features/funding/components/admin-assistant/admin-assistant-context.component.html
 [assistant-controller]: ../../apps/funding-web/src/app/features/funding/components/admin-assistant/admin-assistant-context-controller.ts
 [assistant-draft]: ../../apps/funding-web/src/app/features/funding/components/admin-assistant/admin-assistant-draft.component.ts

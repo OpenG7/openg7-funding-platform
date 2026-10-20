@@ -2,12 +2,14 @@
 
 Réalisé le 16 septembre 2026 selon le [plan de travail](./admin-ux-plan-de-travail.md), les [requis](./admin-ux-direction.md) et la [maquette](./images/admin-ui.png).
 
+Composition actuelle : l’Assistant du dossier et son aide pas à pas partagent la même page. Les résultats de validation ci-dessous restent ceux du lot initial et des vérifications datées explicitement.
+
 ## Résultat visible
 
-- Carte **Assistant contextuel** après « À traiter » dans le cockpit, avec faits dépliables, et dans la commandite sélectionnée. L’ouverture du dossier dans l’Assistant conserve son identifiant dans l’URL : `/admin/fundraiser/assistant?sponsorshipId=<uuid>`.
+- Carte **Assistant contextuel** après « À traiter » dans le cockpit, avec faits dépliables. Dans un dossier, l’entrée unique **Assistant et aide** de la barre conserve son identifiant et son origine de retour dans l’URL : `/admin/fundraiser/assistant?sponsorshipId=<uuid>`. Cette page présente l’Assistant à gauche sur deux tiers et l’aide pas à pas à droite sur un tiers ; les deux sont empilés sous 1 100 px. L’Assistant intégré à Aperçu et l’outil d’aide local sont retirés. La modération et l’accès au suivi restent des outils à la demande, et l’édition conserve son tiroir depuis la barre et l’identité.
 - **Ouvrir l’Assistant pour ce dossier** est masqué dans sa destination. Dans le même onglet, ce lien transmet une seule fois la question, la réponse et le brouillon avec ses saisies, uniquement en mémoire, sans stockage navigateur ni contenu privé dans l’URL ou l’historique. Le dossier est relu avant reprise : un changement de version invalide le brouillon et la réponse, avec un message explicite pour le brouillon. Un rechargement ou une ouverture dans un autre onglet ne conserve pas ces saisies; aucune confirmation d’envoi n’est transférée.
 - Le lecteur consulte les faits et peut poser une question, mais ne voit pas les actions de préparation. Un refus d’action entraîne une nouvelle vérification de lecture : les faits restent visibles si l’accès au dossier est toujours autorisé; le brouillon refusé est effacé.
-- Dans la commandite sélectionnée, **Ouvrir le dossier** affiche la fiche détaillée « Vue d’ensemble » et y place le focus, y compris sur mobile et lors d’une nouvelle activation. Depuis le cockpit ou l’Assistant, l’action conserve son lien vers la page du dossier.
+- Depuis le cockpit ou l’Assistant, **Ouvrir le dossier** conserve son lien vers la prochaine étape recommandée du dossier. **Retour au dossier** retrouve l’onglet et le fragment d’origine validés selon le contrat OUX-002 ci-dessous. L’aide rejoint aussi les sections existantes du même dossier ; ses raccourcis d’identité et d’accès sont décrits ci-dessous.
 - Faits distincts : paiement, remboursement, revue, visibilité, consentement, médias approuvés/à réviser/refusés, informations manquantes et couverture des canaux de publication promis.
 - Prochaine étape déterministe, accessible sans fournisseur de modèle : vérifier le paiement/remboursement/refus, compléter la fiche, réviser les médias, effectuer la revue, vérifier le consentement, préparer ou suivre les publications.
 - Préparation d’une relance, d’une note de revue ou d’un brouillon de publication. Chaque proposition indique qu’elle n’est ni envoyée, ni publiée, ni enregistrée.
@@ -115,13 +117,17 @@ Une modification du texte constitue une nouvelle demande, soumise à une nouvell
 
 ## Composition
 
+- Page [Assistant et aide](../apps/funding-web/src/app/features/funding/pages/admin-assistant-page/admin-assistant-page.component.html) : composition responsive du contexte Assistant et du [guide de commandite existant](../apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsorship-guide.component.ts). Sans `sponsorshipId`, la page conserve sa vue d’ensemble globale.
 - Organisme Funding : [AdminAssistantContextComponent](../apps/funding-web/src/app/features/funding/components/admin-assistant/admin-assistant-context.component.ts), responsable du chargement du dossier et du parcours confirmé.
+- La progression serveur est relue par [AdminSponsorshipProgressComponent](../apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsorship-progress.component.ts), puis transmise au guide. Chargement, erreur avec reprise, dossier introuvable, refus de lecture et expiration de session restent explicites ; aucune nouvelle règle de progression n’est calculée dans la page.
 - Molécules de présentation : [brouillon](../apps/funding-web/src/app/features/funding/components/admin-assistant/admin-assistant-draft.component.ts) et [réponse](../apps/funding-web/src/app/features/funding/components/admin-assistant/admin-assistant-answer.component.ts).
 - Lecture et règles : [repository ciblé](../apps/funding-api/src/admin-assistant/context.repository.ts), [projection déterministe](../apps/funding-api/src/admin-assistant/context.service.ts).
 - Action métier : [demande d’informations](../apps/funding-api/src/sponsorship-information.service.ts), réutilisant les repositories, la file et l’audit existants.
 - [Contrats partagés](../packages/funding-core/src/admin-assistant-context.ts), intégration dans le service Angular, le cockpit, les commandites, le bandeau et la page Assistant.
 
 Composants standalone, OnPush et signals; aucun chargement contextuel côté SSR. Le dialogue natif prend en charge le clavier, Échap et le retour du focus. Les requêtes devenues obsolètes après changement de contexte sont ignorées.
+
+Depuis le guide, la correction d’identité revient au dossier avec `tab=identity&action=edit-identity` ; l’accès au suivi utilise `tab=identity&action=followup-access`, toujours avec le même `sponsorshipId`. Le dossier vérifie les droits de présentation, consomme le paramètre `action` une fois et le retire par `replaceUrl`, puis ouvre le contrôle existant sans mutation automatique. Le rechargement ne répète pas cette ouverture. Les droits API et confirmations métier restent propres à ces contrôles. L’entrée `dossier-assistant` est un lien de navigation ordinaire.
 
 ## Validation
 

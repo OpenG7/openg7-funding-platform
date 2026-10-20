@@ -159,13 +159,6 @@
             >
               {{ 'admin.legacy.note_interne' | translate }}
             </button>
-            <button
-              type="button"
-              data-og7="dossier-activity"
-              (click)="openDossierSection('audit')"
-            >
-              {{ 'admin.dossier.actions.activity' | translate }}
-            </button>
             <openg7-admin-sponsorship-interventions
               [contributionId]="selected.id"
               [refreshKey]="assistantRefresh()"
@@ -178,10 +171,13 @@
             <a
               class="admin-button"
               data-og7="dossier-assistant"
-              routerLink="/admin/fundraiser/assistant"
+              [routerLink]="
+                dossierToolBusy() ? null : '/admin/fundraiser/assistant'
+              "
+              [attr.aria-disabled]="dossierToolBusy() ? 'true' : null"
               [queryParams]="assistantQueryParams()"
               [info]="assistantNavigation()"
-              >{{ 'admin.sponsorsCleanup.assistant' | translate }}</a
+              >{{ 'admin.dossierAssistance.assistant' | translate }}</a
             >
             <openg7-admin-sponsor-edit
               #sponsorEdit
@@ -190,22 +186,6 @@
               (saved)="loadSponsorships()"
               (conflicted)="versionConflict.set(true)"
             />
-            <button
-              type="button"
-              data-og7="dossier-tool-toggle"
-              data-og7-id="help"
-              [openg7AutomaticPrepare]="'sponsor.tool.help.open'"
-              [automaticFor]="selected.id"
-              (automaticPrepare)="openDossierTool('help', false)"
-              [attr.aria-expanded]="dossierTool() === 'help'"
-              aria-controls="dossier-tool-panel"
-              [disabled]="
-                dossierToolBusy() || progress()?.contributionId !== selected.id
-              "
-              (click)="openDossierTool('help')"
-            >
-              {{ 'admin.sponsorsCleanup.help' | translate }}
-            </button>
             @if (canUseOwnerActions()) {
               <button
                 type="button"
@@ -289,7 +269,9 @@
           >
             <header>
               <h2 id="dossier-tool-title">
-                {{ 'admin.sponsorsCleanup.' + (tool ?? 'help') | translate }}
+                {{
+                  'admin.sponsorsCleanup.' + (tool ?? 'moderation') | translate
+                }}
               </h2>
               <button
                 type="button"
@@ -311,24 +293,6 @@
                   [disabled]="actionsDisabled()"
                   (changed)="loadSponsorships(true)"
                 />
-              </div>
-            }
-            @if (visitedDossierTools().has('help')) {
-              <div [hidden]="tool !== 'help'">
-                @if (progress(); as dossier) {
-                  @if (dossier.contributionId === selected.id) {
-                    <openg7-admin-sponsorship-guide
-                      [dossier]="dossier"
-                      [expanded]="guideExpanded()"
-                      (expandedChange)="guideExpanded.set($event)"
-                      [canManage]="canManage()"
-                      [canUseOwnerActions]="canUseOwnerActions()"
-                      [disabled]="actionsDisabled()"
-                      (editIdentity)="openIdentityEditor()"
-                      (openAccess)="openFollowupAccess()"
-                    />
-                  }
-                }
               </div>
             }
             @if (canUseOwnerActions() && visitedDossierTools().has('access')) {

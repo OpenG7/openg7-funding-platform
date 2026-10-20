@@ -18,6 +18,37 @@ const toggle = (page: Page, tool: string) =>
   page.locator(`[data-og7="dossier-tool-toggle"][data-og7-id="${tool}"]`);
 const panel = (page: Page, tool: string) =>
   page.locator(`[data-og7="dossier-tool-panel"][data-og7-id="${tool}"]`);
+const assistance = (page: Page) =>
+  page.locator('[data-og7="dossier-assistant"]');
+
+async function openDossierAssistance(
+  page: Page,
+  origin: string
+): Promise<void> {
+  const sponsorshipId = new URL(origin, page.url()).searchParams.get(
+    'sponsorshipId'
+  );
+  await assistance(page).focus();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(
+    (url) =>
+      url.pathname === '/admin/fundraiser/assistant' &&
+      url.searchParams.size === 2 &&
+      url.searchParams.get('sponsorshipId') === sponsorshipId &&
+      url.searchParams.get('returnTo') === origin &&
+      url.hash === ''
+  );
+  await expect(page.locator('[data-og7="dossier-guide"]')).toBeVisible();
+}
+
+async function returnToDossier(page: Page, origin: string): Promise<void> {
+  const back = page.locator('[data-og7="assistant-dossier-return"]');
+  await expect(back).toHaveAttribute('href', origin);
+  await back.focus();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(origin);
+  await expect(assistance(page)).toBeFocused();
+}
 
 /** Uses the existing dossier fixtures; opening tools never authorizes a write. */
 export function registerSponsorToolTests({
@@ -43,8 +74,11 @@ export function registerSponsorToolTests({
       await expect(
         page.locator('[data-og7="dossier-tool-panel"]:visible')
       ).toHaveCount(0);
+      await expect(toggle(page, 'help')).toHaveCount(0);
+      await openDossierAssistance(page, path('identity'));
+      await returnToDossier(page, path('identity'));
 
-      for (const tool of ['help', 'moderation', 'access']) {
+      for (const tool of ['moderation', 'access']) {
         const command = toggle(page, tool);
         await expect(command).toHaveAttribute('aria-expanded', 'false');
         await command.focus();
@@ -104,19 +138,24 @@ export function registerSponsorToolTests({
       page.locator('[data-og7="admin-followup-access"]')
     ).toHaveCount(0);
 
-    await toggle(page, 'help').focus();
-    await page.keyboard.press('Enter');
-    await expect(panel(page, 'help')).toBeVisible();
+    await expect(toggle(page, 'help')).toHaveCount(0);
+    await openDossierAssistance(page, path());
+    await expect(page.locator('[data-og7="guide-edit-identity"]')).toHaveCount(
+      0
+    );
     await expect(
-      panel(page, 'help').locator('[data-og7="dossier-guide"]')
-    ).toBeVisible();
+      page.locator('[data-og7="guide-followup-access"]')
+    ).toHaveCount(0);
     expect(
       (
         await new AxeBuilder({ page })
-          .include('[data-og7="sponsorship-dossier"]')
+          .include('[data-og7="assistant-dossier-workspace"]')
           .analyze()
       ).violations
     ).toEqual([]);
+    await returnToDossier(page, path());
+    await expect(toggle(page, 'moderation')).toHaveCount(0);
+    await expect(toggle(page, 'access')).toHaveCount(0);
     expect(
       calls.some((call) =>
         call.url.pathname.startsWith('/api/admin/moderation/')
@@ -133,7 +172,8 @@ export function registerSponsorToolTests({
       ['media', 'Fiche et médias', '#dossier-media'],
       ['refund', 'Finances', '#dossier-refund']
     ]) {
-      await page.goto(path(tab));
+      const origin = path(tab) + section;
+      await page.goto(origin);
       await expect(
         page.locator('[data-og7="dossier-tabs"]').getByRole('button', {
           name: title,
@@ -141,12 +181,8 @@ export function registerSponsorToolTests({
         })
       ).toHaveAttribute('aria-current', 'page');
       await expect(page.locator(section)).toBeVisible();
-      await toggle(page, 'help').click();
-      await expect(panel(page, 'help')).toBeVisible();
-      await panel(page, 'help')
-        .locator('[data-og7="dossier-tool-close"]')
-        .click();
-      await expect(page).toHaveURL(path(tab));
+      await openDossierAssistance(page, origin);
+      await returnToDossier(page, origin);
       await expect(page.locator(section)).toBeVisible();
     }
     expect(calls.every((call) => call.method === 'GET')).toBe(true);
@@ -158,8 +194,8 @@ export function registerSponsorToolTests({
     const { calls } = await fixtures(page, 'owner');
     await page.setViewportSize({ width: 1536, height: 900 });
     await page.goto(path());
-    await toggle(page, 'help').click();
-    await expect(panel(page, 'help')).toBeVisible();
+    await toggle(page, 'moderation').click();
+    await expect(panel(page, 'moderation')).toBeVisible();
     await page
       .locator('[data-og7="dossier-tabs"]')
       .getByRole('button', { name: 'Publication', exact: true })
@@ -168,7 +204,7 @@ export function registerSponsorToolTests({
     await expect(
       page.locator('[data-og7="dossier-tool-panel"]:visible')
     ).toHaveCount(0);
-    await expect(toggle(page, 'help')).toHaveAttribute(
+    await expect(toggle(page, 'moderation')).toHaveAttribute(
       'aria-expanded',
       'false'
     );
@@ -180,8 +216,8 @@ export function registerSponsorToolTests({
     await expect(
       page.getByRole('button', { name: 'Dossier suivant', exact: true })
     ).toBeEnabled();
-    await toggle(page, 'help').click();
-    await expect(panel(page, 'help')).toBeVisible();
+    await toggle(page, 'moderation').click();
+    await expect(panel(page, 'moderation')).toBeVisible();
     await page
       .getByRole('button', { name: 'Dossier suivant', exact: true })
       .click();
@@ -308,10 +344,15 @@ export function registerSponsorToolTests({
     const close = access.locator('[data-og7="dossier-tool-close"]');
     await expect(close).toBeDisabled();
     await expect(toggle(page, 'access')).toBeDisabled();
-    await expect(toggle(page, 'help')).toBeDisabled();
+    await expect(assistance(page)).toHaveAttribute('aria-disabled', 'true');
+    const originalUrl = page.url();
+    await assistance(page).focus();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(originalUrl);
     await expect(access).toBeVisible();
     release();
     await expect(close).toBeEnabled();
+    await expect(assistance(page)).not.toHaveAttribute('aria-disabled', 'true');
     await expect(page.locator('dialog[open]')).toHaveCount(0);
     await close.click();
     await expect(toggle(page, 'access')).toBeFocused();
@@ -377,8 +418,8 @@ export function registerSponsorToolTests({
       .locator('[data-og7="dossier-tool-close"]')
       .click();
     await expect(access).toBeHidden();
-    await toggle(page, 'help').click();
-    await expect(panel(page, 'help')).toBeVisible();
+    await toggle(page, 'moderation').click();
+    await expect(panel(page, 'moderation')).toBeVisible();
     await page
       .locator('[data-og7="dossier-tabs"]')
       .getByRole('button', { name: 'Finances', exact: true })

@@ -6,7 +6,10 @@ import {
   DestroyRef,
   PLATFORM_ID,
   computed,
-  inject
+  effect,
+  inject,
+  signal,
+  untracked
 } from '@angular/core';
 import {
   ActivatedRoute,
@@ -22,7 +25,8 @@ import type {
   AdminAttentionItem,
   AdminAttentionItemType,
   AdminAttentionSeverity,
-  AdminWorkQueueQuery
+  AdminWorkQueueQuery,
+  AdminSponsorshipProgress
 } from '@openg7/funding-core';
 
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
@@ -31,6 +35,12 @@ import { AdminAssistantContextComponent } from '../../components/admin-assistant
 import { AdminAssistantDraftComponent } from '../../components/admin-assistant/admin-assistant-draft.component.js';
 import { AdminDrawerComponent } from '../../components/admin-ui/admin-drawer.component.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
+import { AdminSponsorshipProgressComponent } from '../../components/admin-sponsors/admin-sponsorship-progress.component.js';
+import { AdminSponsorshipGuideComponent } from '../../components/admin-sponsors/admin-sponsorship-guide.component.js';
+import enAssistance from '../../../../../assets/i18n/admin-dossier-assistance.en.json' with { type: 'json' };
+import frAssistance from '../../../../../assets/i18n/admin-dossier-assistance.fr-CA.json' with { type: 'json' };
+import enProfile from '../../../../../assets/i18n/admin-sponsor-profile.en.json' with { type: 'json' };
+import frProfile from '../../../../../assets/i18n/admin-sponsor-profile.fr-CA.json' with { type: 'json' };
 import {
   AssistantDossierNavigation,
   assistantDossierReturn
@@ -59,7 +69,9 @@ import { AdminAssistantController } from './admin-assistant-controller.js';
     AdminAssistantQuestionComponent,
     AdminAssistantSummaryComponent,
     AdminDrawerComponent,
-    AdminLayoutComponent
+    AdminLayoutComponent,
+    AdminSponsorshipProgressComponent,
+    AdminSponsorshipGuideComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-assistant-page.component.html',
@@ -87,6 +99,18 @@ export class AdminAssistantPageComponent {
   private pendingFocus: string | null = null;
   readonly sponsorshipId = computed(
     () => this.params()?.get('sponsorshipId') || undefined
+  );
+  readonly guideExpanded = signal(true);
+  readonly guideProgress = signal<AdminSponsorshipProgress | null>(null);
+  readonly guideDossier = computed(() => {
+    const dossier = this.guideProgress();
+    return dossier?.contributionId === this.sponsorshipId() ? dossier : null;
+  });
+  readonly canManageDossier = computed(
+    () => this.admin.identity()?.role !== 'reader'
+  );
+  readonly canUseOwnerActions = computed(
+    () => !this.admin.identity() || this.admin.identity()?.role === 'owner'
   );
   readonly dossierReturn = computed(() =>
     assistantDossierReturn(
@@ -151,6 +175,21 @@ export class AdminAssistantPageComponent {
   readonly canPrepare = this.controller.canPrepare;
 
   constructor() {
+    effect(() => {
+      const language = this.i18n.currentLanguage();
+      untracked(() =>
+        this.i18n.mergeTranslations(language, {
+          admin: {
+            dossier: language === 'en' ? enProfile : frProfile,
+            dossierAssistance: language === 'en' ? enAssistance : frAssistance
+          }
+        })
+      );
+    });
+    effect(() => {
+      this.sponsorshipId();
+      this.guideExpanded.set(true);
+    });
     this.destroy.onDestroy(() => this.controller.dispose());
     if (!isPlatformBrowser(this.platform)) return;
     this.router.events
@@ -204,6 +243,19 @@ export class AdminAssistantPageComponent {
 
   load(): Promise<void> {
     return this.controller.load();
+  }
+
+  openDossierAction(action: 'edit-identity' | 'followup-access'): void {
+    const sponsorshipId = this.sponsorshipId();
+    if (
+      !sponsorshipId ||
+      (action === 'edit-identity' && !this.canManageDossier()) ||
+      (action === 'followup-access' && !this.canUseOwnerActions())
+    )
+      return;
+    void this.router.navigate(['/admin/fundraiser/sponsors'], {
+      queryParams: { sponsorshipId, tab: 'identity', action }
+    });
   }
 
   refresh(): void {

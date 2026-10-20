@@ -324,35 +324,49 @@ test('Xbox refusal records a reason-bound moderation decision without authorizin
   expect(writes(state, '/refund')).toHaveLength(0);
 });
 
-test('Xbox reader opens dossier help while access and moderation stay unavailable', async ({
+test('Xbox reader opens shared dossier help and returns to its exact origin without access or moderation controls', async ({
   page
 }) => {
   const state = await controllerJourneysFixtures(page, 'reader');
   const pad = adminController(page);
-  await page.goto(path());
+  const origin = `${path('identity')}#dossier-identity`;
+  await page.goto(origin);
   await expect(
     page.locator('[data-og7="dossier-tool-toggle"][data-og7-id="moderation"]')
   ).toHaveCount(0);
   await expect(
     page.locator('[data-og7="dossier-tool-toggle"][data-og7-id="access"]')
   ).toHaveCount(0);
-  const help = page.locator(
-    '[data-og7="dossier-tool-toggle"][data-og7-id="help"]'
-  );
+  const help = hook(page, 'dossier-assistant');
   await pad.activate(help);
-  const panel = page.locator(
-    '[data-og7="dossier-tool-panel"][data-og7-id="help"]'
+  await expect(page).toHaveURL(
+    (url) =>
+      url.pathname === '/admin/fundraiser/assistant' &&
+      url.searchParams.get('sponsorshipId') === id &&
+      url.searchParams.get('returnTo') === origin
   );
-  await expect(panel).toBeVisible();
-  const close = panel.locator('[data-og7="dossier-tool-close"]');
-  await expect(close).toBeFocused();
-  await pad.press('RB');
-  await expect(
-    panel.locator('[data-og7="dossier-guide"] > summary')
-  ).toBeFocused();
-  await pad.activate(close);
-  await expect(panel).toBeHidden();
+  const guide = hook(page, 'assistant-dossier-guide').locator(
+    '[data-og7="dossier-guide"]'
+  );
+  await expect(guide).toHaveAttribute('open', '');
+  await expect(guide.locator('[data-og7="guide-edit-identity"]')).toHaveCount(
+    0
+  );
+  await expect(guide.locator('[data-og7="guide-followup-access"]')).toHaveCount(
+    0
+  );
+  const summary = guide.locator('summary');
+  await pad.activate(summary);
+  await expect(guide).not.toHaveAttribute('open', '');
+  await expect(summary).toBeFocused();
+  await pad.activate(summary);
+  await expect(guide).toHaveAttribute('open', '');
+  const back = hook(page, 'assistant-dossier-return');
+  await expect(back).toHaveAttribute('href', origin);
+  await pad.activate(back);
+  await expect(page).toHaveURL(origin);
   await expect(help).toBeFocused();
+  await expect(hook(page, 'dossier-guide')).toHaveCount(0);
   expect(state.commands).toEqual([]);
 });
 

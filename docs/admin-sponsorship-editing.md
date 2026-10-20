@@ -28,11 +28,9 @@ rattaché à **Finances**. Aucun onglet supplémentaire n’est créé.
 ## Outils du dossier à la demande
 
 L’en-tête du dossier propose **Modération éditoriale** pour l’opérateur ou le
-propriétaire. La barre conserve **Aide pas à pas du dossier** pour tous les rôles
-et **Accès au suivi** pour le propriétaire. Un panneau non modal
-affiche un seul de ces outils à la fois. La modération réutilise le composant
-de décisions existant et sa confirmation du contenu exact ; l’aide reste le
-volet explicatif propre au dossier, distinct de l’Assistant.
+propriétaire. La barre conserve **Accès au suivi** pour le propriétaire. Un
+panneau non modal affiche un seul de ces outils à la fois. La modération
+réutilise le composant de décisions existant et sa confirmation du contenu exact.
 
 À l’ouverture, le focus rejoint un contrôle utilisable au clavier et à la
 manette. **Fermer l’outil du dossier** ou Échap rend le focus au déclencheur
@@ -48,9 +46,26 @@ opération de modération ou d’accès en cours.
 Un raccourci d’accès ouvre ou focalise l’outil déjà ouvert ; il n’envoie aucun message.
 
 **Aperçu** conserve les faits, la note et la prochaine étape. La rédaction, la
-conversation et les propositions de l’Assistant sont accessibles par
-**Ouvrir l’Assistant pour ce dossier**, avec le même `sponsorshipId` ; le lien
-Assistant du cadre administratif transporte aussi cette sélection.
+conversation, les propositions de l’Assistant et l’aide pas à pas sont accessibles
+par l’entrée unique **Assistant et aide**, avec le même `sponsorshipId` ; le lien
+Assistant du cadre administratif transporte aussi cette sélection et son origine.
+Sur cette page commune, l’Assistant occupe deux tiers et l’aide un tiers ; ils
+sont empilés sous 1 100 px. L’aide quitte le panneau des outils du dossier.
+
+**Retour au dossier** retrouve l’onglet et le fragment d’origine validés, même
+si la lecture de l’Assistant échoue. **Ouvrir le dossier** conserve la prochaine
+étape recommandée. Le retour utilise le même dossier et le contrat `returnTo`
+décrit dans le [guide de l’Assistant](admin-ux-lot-3.md#retour-au-dossier--oux-002),
+sans texte de question ni brouillon dans l’URL. Le focus retrouve le déclencheur
+dans le même onglet ; après rechargement, le fragment valide retrouve sa section.
+
+Depuis l’aide, **Modifier l’identité** revient au même dossier avec
+`tab=identity&action=edit-identity` et le raccourci d’accès avec
+`tab=identity&action=followup-access`. Le dossier vérifie les droits et retire
+`action` par `replaceUrl` avant d’ouvrir le tiroir de correction ou l’outil
+d’accès existant. L’intention est consommée une fois ; un rechargement ne répète
+pas l’ouverture. Aucune saisie n’est enregistrée et aucun courriel n’est envoyé
+par cette navigation : les confirmations et les contrôles API restent requis.
 
 Dans **Publication**, la synthèse des prestations rejoint Campagnes avec le
 dossier comme filtre. La fiche publique et le suivi social déclaré ont des
