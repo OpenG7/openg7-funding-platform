@@ -18,7 +18,12 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <span class="update-status" role="status">
+    <span
+      class="update-status"
+      aria-live="polite"
+      aria-atomic="true"
+      data-og7="app-update-announcement"
+    >
       {{ updates.available() ? t('title') : '' }}
     </span>
     @if (updates.available()) {

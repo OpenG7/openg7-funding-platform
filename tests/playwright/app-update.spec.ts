@@ -70,6 +70,11 @@ test('unchanged, unavailable and invalid versions stay silent, then checks recov
   await expect.poll(() => state.checks).toBe(1);
   await sampledFrames(page);
   await expect(page.locator(noticeSelector)).toHaveCount(0);
+  const update = page.locator('openg7-app-update');
+  await expect(update.getByRole('status')).toHaveCount(0);
+  const announcement = update.locator('[data-og7="app-update-announcement"]');
+  await expect(announcement).toHaveCount(1);
+  await expect(announcement).toHaveText('');
 
   state.fail = true;
   await checkOnEvent(page, state);
@@ -231,6 +236,10 @@ for (const locale of [
     const notice = page.locator(noticeSelector);
     await expect(notice).toBeVisible();
     await expect(notice).toContainText(locale.title);
+    const announcement = page.locator('[data-og7="app-update-announcement"]');
+    await expect(announcement).toHaveText(locale.title);
+    await expect(announcement).toHaveAttribute('aria-live', 'polite');
+    await expect(announcement).toHaveAttribute('aria-atomic', 'true');
     await expect(page.locator('html')).toHaveAttribute('lang', locale.language);
     const refresh = notice.getByRole('button', {
       name: locale.refresh,
