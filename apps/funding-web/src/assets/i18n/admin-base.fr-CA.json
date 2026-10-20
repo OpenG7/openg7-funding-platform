@@ -1464,6 +1464,8 @@
     },
     "guidance": {
       "toggle": "Mode guidé",
+      "panelTitle": "Guide administratif OpenG7",
+      "panelSubtitle": "Se repérer, comprendre et préparer chaque intervention.",
       "close": "Réduire le guide",
       "where": "Vous êtes ici",
       "next": "Un pas à la fois",
@@ -1484,7 +1486,8 @@
       "clearUnavailable": "L’effacement du repère enregistré n’a pas pu être confirmé. Il est masqué pour cette visite, mais peut réapparaître au rechargement.",
       "tokenShared": "Avec une connexion par jeton, ce repère est partagé entre les utilisateurs de ce navigateur.",
       "missing": "Ce repère n’est pas visible pour le moment. Vous pouvez continuer à lire le guide.",
-      "privacy": "Le guide conserve la rubrique, l’étape et, si vous suivez un paiement, son identifiant et votre pause, par compte dans ce navigateur. Aucun contenu de dossier, saisie ni résultat d’action n’est conservé. La reprise relit les faits du serveur.",
+      "privacyTitle": "Repères et confidentialité",
+      "privacy": "Dans ce navigateur, le guide mémorise son ouverture, le mode choisi, la rubrique, l’étape et la pause de découverte, le parcours exploré avec son étape et sa pause, ainsi que l’identifiant et la pause du paiement suivi. Ces repères sont associés à votre compte. Ils ne contiennent aucun contenu de dossier, saisie ni résultat d’action. La reprise relit les faits du serveur.",
       "forget": "Effacer mon repère",
       "pages": {
         "dashboard": {
@@ -1755,11 +1758,14 @@
         }
       },
       "modeLabel": "Type de guide",
-      "discoveryMode": "Découvrir les rubriques",
-      "automaticMode": "Automatique",
-      "workflowsMode": "Six parcours",
-      "workflowsUnavailable": "Les six parcours n’ont pas pu être chargés. Rechargez la page pour réessayer.",
-      "automaticUnavailable": "Le mode automatique ne peut pas être chargé. Rechargez la page pour réessayer.",
+      "discoveryMode": "Découvrir",
+      "paymentMode": "Suivi d’un paiement",
+      "automaticMode": "Préparation des dossiers",
+      "workflowsMode": "Explorer les parcours",
+      "retryMode": "Réessayer le chargement",
+      "retryUnavailable": "Le navigateur ne permet plus de réessayer ce chargement ici. Rechargez la page pour reprendre vos repères enregistrés.",
+      "workflowsUnavailable": "Les parcours n’ont pas pu être chargés. Réessayez en conservant votre repère.",
+      "automaticUnavailable": "La préparation des dossiers n’a pas pu être chargée. Réessayer ne démarre aucun passage.",
       "paymentJourney": {
         "title": "Parcours du paiement",
         "followCurrent": "Suivre ce paiement",

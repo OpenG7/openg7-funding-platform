@@ -423,7 +423,9 @@ async function expectPosition(
     contributionId(position)
   );
   await expect(hook(page, 'position')).toHaveText(
-    language === 'en' ? `Receipt ${position} of 6` : `Bon ${position} sur 6`
+    language === 'en'
+      ? `Receipt viewed: ${position} / 6`
+      : `Bon consulté : ${position} / 6`
   );
 }
 
@@ -470,80 +472,112 @@ async function expectCompactReceipt(page: Page) {
   await expect(hook(page, 'summary')).toBeVisible();
   await current.focus();
   await expect(current).toBeFocused();
-  await current.evaluate((element) => {
-    element.scrollIntoView({ block: 'start', behavior: 'instant' });
+  const required = [
+    ['payment', '[data-og7="preparation-receipt-payment"]'],
+    ['offer', '[data-og7="preparation-receipt-offer-details"] > summary'],
+    ['summary', '[data-og7="preparation-receipt-summary"]'],
+    ['content', '[data-og7="preparation-receipt-content"] > summary'],
+    ['scope', '[data-og7="preparation-receipt-approval-scope"]'],
+    ['approve', '[data-og7="preparation-receipt-approve"]'],
+    ['confirmations', '[data-og7="preparation-receipt-confirmations"]']
+  ] as const;
+  for (const [name, selector] of required) {
+    const target = current.locator(selector);
+    await expect(target).toBeVisible();
+    await target.evaluate((element) => {
+      element.scrollIntoView({ block: 'center', behavior: 'instant' });
+    });
+    await expect
+      .poll(
+        () =>
+          target.evaluate((element) => {
+            const doc = element.ownerDocument;
+            const view = doc.defaultView!;
+            const bounds = element.getBoundingClientRect();
+            const content = element.closest<HTMLElement>(
+              '[data-og7="admin-guidance-content"]'
+            )!;
+            const scroller =
+              view.getComputedStyle(content).overflowY === 'visible'
+                ? element.closest<HTMLElement>(
+                    '[data-og7="admin-guidance-panel"]'
+                  )!
+                : content;
+            const clip = scroller.getBoundingClientRect();
+            const front = doc.elementFromPoint(
+              bounds.left + bounds.width / 2,
+              bounds.top + bounds.height / 2
+            );
+            return {
+              reachable:
+                bounds.width > 0 &&
+                bounds.height > 0 &&
+                bounds.top >= Math.max(0, clip.top) - 1 &&
+                bounds.bottom <= Math.min(view.innerHeight, clip.bottom) + 1 &&
+                bounds.left >= Math.max(0, clip.left) - 1 &&
+                bounds.right <= Math.min(view.innerWidth, clip.right) + 1 &&
+                !!front &&
+                (front === element || element.contains(front)),
+              unclipped: element.scrollWidth <= element.clientWidth + 1
+            };
+          }),
+        {
+          message: `${name} stays readable and reachable in the Guide scroller`
+        }
+      )
+      .toEqual({ reachable: true, unclipped: true });
+  }
+  await hook(page, 'approve').evaluate((element) => {
+    element.parentElement!.scrollIntoView({
+      block: 'center',
+      behavior: 'instant'
+    });
   });
-  const geometry = () =>
-    current.evaluate((element) => {
-      const doc = element.ownerDocument;
-      const view = doc.defaultView!;
-      const body = element.closest<HTMLElement>(
-        '[data-og7="admin-guidance-panel"]'
-      )!;
-      const bodyBounds = body.getBoundingClientRect();
-      const clip = {
-        top: Math.max(0, bodyBounds.top),
-        bottom: Math.min(view.innerHeight, bodyBounds.bottom),
-        left: Math.max(0, bodyBounds.left),
-        right: Math.min(view.innerWidth, bodyBounds.right)
-      };
-      const required = [
-        ['payment', '[data-og7="preparation-receipt-payment"]'],
-        ['offer', '[data-og7="preparation-receipt-offer"]'],
-        ['summary', '[data-og7="preparation-receipt-summary"]'],
-        ['content', '[data-og7="preparation-receipt-content"] > summary'],
-        ['scope', '[data-og7="preparation-receipt-approval-scope"]'],
-        ['approve', '[data-og7="preparation-receipt-approve"]'],
-        ['confirmations', '[data-og7="preparation-receipt-confirmations"]']
-      ];
-      return required.map(([name, selector]) => {
-        const target = element.querySelector<HTMLElement>(selector!);
-        if (!target) return { name, visibleTogether: false, unclipped: false };
-        const bounds = target.getBoundingClientRect();
-        const front = doc.elementFromPoint(
-          bounds.left + bounds.width / 2,
-          bounds.top + bounds.height / 2
-        );
-        return {
-          name,
-          visibleTogether:
-            bounds.width > 0 &&
-            bounds.height > 0 &&
+  await expect
+    .poll(() =>
+      current.evaluate((element) => {
+        const doc = element.ownerDocument;
+        const view = doc.defaultView!;
+        const content = element.closest<HTMLElement>(
+          '[data-og7="admin-guidance-content"]'
+        )!;
+        const scroller =
+          view.getComputedStyle(content).overflowY === 'visible'
+            ? element.closest<HTMLElement>('[data-og7="admin-guidance-panel"]')!
+            : content;
+        const clip = scroller.getBoundingClientRect();
+        return ['approval-scope', 'approve'].every((name) => {
+          const target = element.querySelector<HTMLElement>(
+            `[data-og7="preparation-receipt-${name}"]`
+          )!;
+          const bounds = target.getBoundingClientRect();
+          const front = doc.elementFromPoint(
+            bounds.left + bounds.width / 2,
+            bounds.top + bounds.height / 2
+          );
+          return (
             bounds.top >= clip.top - 1 &&
             bounds.bottom <= clip.bottom + 1 &&
-            bounds.left >= clip.left - 1 &&
-            bounds.right <= clip.right + 1 &&
             !!front &&
-            (front === target || target.contains(front)),
-          unclipped: target.scrollWidth <= target.clientWidth + 1
-        };
-      });
-    });
-  await expect
-    .poll(geometry, {
-      message:
-        'The collapsed receipt must show payment, promise, preparation and approval together without another scroll.'
-    })
-    .toEqual(
-      [
-        'payment',
-        'offer',
-        'summary',
-        'content',
-        'scope',
-        'approve',
-        'confirmations'
-      ].map((name) => ({ name, visibleTogether: true, unclipped: true }))
-    );
+            (front === target || target.contains(front))
+          );
+        });
+      })
+    )
+    .toBe(true);
   const measurements = await current.evaluate((element) => {
     const doc = element.ownerDocument;
     const view = doc.defaultView!;
     const zoom =
       Number.parseFloat(getComputedStyle(doc.documentElement).zoom) || 1;
     const bounds = element.getBoundingClientRect();
-    const body = element.closest<HTMLElement>(
-      '[data-og7="admin-guidance-panel"]'
+    const content = element.closest<HTMLElement>(
+      '[data-og7="admin-guidance-content"]'
     )!;
+    const body =
+      view.getComputedStyle(content).overflowY === 'visible'
+        ? element.closest<HTMLElement>('[data-og7="admin-guidance-panel"]')!
+        : content;
     const bodyBounds = body.getBoundingClientRect();
     return {
       contributionId: element.getAttribute('data-og7-id'),
@@ -560,8 +594,9 @@ async function expectCompactReceipt(page: Page) {
       }
     };
   });
-  // The geometry above requires every approval control to be visible together.
-  expect(measurements.receipt.heightCss).toBeLessThanOrEqual(580);
+  expect(measurements.receipt.widthCss).toBeLessThanOrEqual(
+    measurements.guideBody.widthCss
+  );
   return measurements;
 }
 
@@ -574,8 +609,11 @@ for (const language of ['fr-CA', 'en']) {
     await expectPosition(page, 3, language);
     await expect(hook(page, 'payment')).toContainText('125');
     await expect(hook(page, 'payment')).toContainText('CAD');
+    await hook(page, 'offer-details').locator(':scope > summary').click();
+    await expect(hook(page, 'offer')).toBeVisible();
     await expect(hook(page, 'offer')).toContainText('2');
     await expect(hook(page, 'offer')).toContainText('14');
+    await hook(page, 'offer-details').locator(':scope > summary').click();
     const content = hook(page, 'content');
     await content.locator('summary').click();
     await expect(content).toContainText(
@@ -858,9 +896,11 @@ test('a historical website offer names its promised presentation and its private
   await expectPosition(page, 2);
   await hook(page, 'previous').click();
   await expectPosition(page, 1);
+  await hook(page, 'offer-details').locator(':scope > summary').click();
   await expect(
     hook(page, 'offer').getByText(/1\s*×\s*Présentation sur le site Web/i)
   ).toBeVisible();
+  await hook(page, 'offer-details').locator(':scope > summary').click();
   const summary = hook(page, 'summary');
   await expect(summary).toBeVisible();
   await expect(summary.getByText(/Web/)).toBeVisible();
@@ -898,9 +938,16 @@ for (const width of [1440, 390]) {
     });
     await expectPosition(page, 3);
     const guide = page.locator('[data-og7="admin-guidance-panel"]');
-    await guide.evaluate((element) => {
-      element.scrollTop = 0;
-    });
+    await page
+      .locator('[data-og7="admin-guidance-content"]')
+      .evaluate((element) => {
+        const view = element.ownerDocument.defaultView!;
+        const scroller =
+          view.getComputedStyle(element).overflowY === 'visible'
+            ? element.closest<HTMLElement>('[data-og7="admin-guidance-panel"]')!
+            : element;
+        scroller.scrollTop = 0;
+      });
     await page.screenshot({
       path: testInfo.outputPath(
         `preparation-receipt-${width}-125-overview.png`
@@ -971,8 +1018,75 @@ const pilotIssue = (page: Page, code: string) =>
   );
 const pilotAction = (page: Page, id: string) =>
   pilot(page).locator(
-    `[data-og7="preparation-pilot-action"][data-og7-id="preparation-${id}"]`
+    id === 'open'
+      ? '[data-og7="preparation-pilot-primary"][data-og7-id="preparation-open"]'
+      : `[data-og7="preparation-pilot-action"][data-og7-id="preparation-${id}"]`
   );
+
+test('numbered receipt cards browse independently from the server processing count', async ({
+  page
+}) => {
+  const f = await fixture(page);
+  await open(page);
+  const slots = carousel(page).locator('[data-og7="preparation-receipt-slot"]');
+  await expect(slots).toHaveCount(6);
+  await expect(
+    carousel(page).locator(
+      '[data-og7="preparation-receipt-slot"][aria-current="true"]'
+    )
+  ).toHaveCount(1);
+  await slots.filter({ hasText: '6' }).click();
+  await expectPosition(page, 6);
+  await expect(hook(page, 'progress')).toContainText('3');
+  await expect(slots.filter({ hasText: '6' })).toHaveAttribute(
+    'aria-current',
+    'true'
+  );
+  await page.setViewportSize({ width: 320, height: 667 });
+  for (const slot of await slots.all()) {
+    const size = await slot.evaluate((element) => {
+      const bounds = element.getBoundingClientRect();
+      return { width: bounds.width, height: bounds.height };
+    });
+    expect(size.width).toBeGreaterThanOrEqual(44);
+    expect(size.height).toBeGreaterThanOrEqual(44);
+  }
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth + 1
+    )
+  ).toBe(true);
+  expect(f.state.run?.processedCount).toBe(3);
+  expect(f.writes).toEqual([]);
+});
+
+test('the direct intervention follows an explicitly selected control and keeps a satisfied selection after refresh', async ({
+  page
+}) => {
+  const f = await missingSourcePilot(page);
+  const primary = pilot(page).locator('[data-og7="preparation-pilot-primary"]');
+  const initialLabel = await primary.innerText();
+  await pilotIssue(page, 'moderation_review').click();
+  await expect(primary).not.toHaveText(initialLabel);
+  await expect(pilotIssue(page, 'moderation_review')).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
+  await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'peek');
+  const verified = pilot(page).locator(
+    '[data-og7="preparation-issues-verified"]'
+  );
+  await verified.locator(':scope > summary').click();
+  await pilotIssue(page, 'payment_confirmed').click();
+  await hook(page, 'refresh').click();
+  await expect(pilotIssue(page, 'payment_confirmed')).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
+  await expect(verified).toHaveJSProperty('open', true);
+  await expect(hook(page, 'approve')).toBeDisabled();
+  expect(f.writes).toEqual([]);
+});
 
 function pilotReceipt(completed = 0): AdminPreparationReceipt {
   const source = receipt(3);
@@ -1055,9 +1169,13 @@ async function expectAttentionLayout(page: Page, layout: 'left' | 'above') {
         const attention = element.querySelector<HTMLElement>(
           '[data-og7="preparation-issue-attention"]'
         )!;
-        const panel = element.closest<HTMLElement>(
-          '[data-og7="admin-guidance-panel"]'
+        const content = element.closest<HTMLElement>(
+          '[data-og7="admin-guidance-content"]'
         )!;
+        const panel =
+          view.getComputedStyle(content).overflowY === 'visible'
+            ? element.closest<HTMLElement>('[data-og7="admin-guidance-panel"]')!
+            : content;
         const panelBounds = panel.getBoundingClientRect();
         const clip = {
           left: Math.max(0, panelBounds.left),
@@ -1227,6 +1345,15 @@ for (const language of ['fr-CA', 'en']) {
       );
       await expectAttentionLayout(page, 'left');
       const examined = pilotIssue(page, 'dossier_examined');
+      const verified = pilot(page).locator(
+        '[data-og7="preparation-issues-verified"]'
+      );
+      if (
+        !(await verified.evaluate(
+          (element) => (element as HTMLDetailsElement).open
+        ))
+      )
+        await verified.locator(':scope > summary').click();
       await examined.click();
       await expect(examined).toBeFocused();
       await expect(examined).toHaveAttribute('aria-pressed', 'true');
@@ -1293,13 +1420,14 @@ test('preparation keyboard navigation selects a prerequisite and only Actions op
   expect(f.writes).toEqual([]);
 });
 
-test('preparation progress comes from refreshed server facts and reaches the final approval only at three completed checks', async ({
+test('preparation progress comes from refreshed server facts, retains the chosen control and enables approval only at three completed checks', async ({
   page
 }) => {
   const f = await fixture(page);
   f.receipts.set(3, pilotReceipt());
   await open(page);
   await expectPilotProgress(page, 0);
+  await pilotIssue(page, 'accepted_offer').click();
   await pilot(page).locator('[data-og7="preparation-pilot-actions"]').click();
   await expect(pilotAction(page, 'approve')).toHaveCount(0);
   await page.keyboard.press('Escape');
@@ -1308,9 +1436,13 @@ test('preparation progress comes from refreshed server facts and reaches the fin
   await expectPilotProgress(page, 0);
   await hook(page, 'refresh').click();
   await expectPilotProgress(page, 1);
-  await expect(pilotIssue(page, 'content_prepared')).toHaveAttribute(
+  await expect(pilotIssue(page, 'accepted_offer')).toHaveAttribute(
     'aria-pressed',
     'true'
+  );
+  await expect(pilotIssue(page, 'content_prepared')).toHaveAttribute(
+    'aria-pressed',
+    'false'
   );
   expect(f.writes).toEqual([]);
 
@@ -1318,9 +1450,14 @@ test('preparation progress comes from refreshed server facts and reaches the fin
   await hook(page, 'refresh').click();
   await expectPilotProgress(page, 3);
   await pilot(page).locator('[data-og7="preparation-pilot-actions"]').click();
-  await expect(pilotAction(page, 'approve')).toBeVisible();
-  await expect(pilotAction(page, 'approve')).toBeEnabled();
-  await expect(pilotAction(page, 'open')).toHaveCount(0);
+  await expect(hook(page, 'approve')).toBeVisible();
+  await expect(hook(page, 'approve')).toBeEnabled();
+  await expect(pilotAction(page, 'approve')).toHaveCount(0);
+  await expect(pilotAction(page, 'open')).toHaveCount(1);
+  await expect(pilotIssue(page, 'accepted_offer')).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
   expect(f.writes).toEqual([]);
 });
 
@@ -1330,8 +1467,10 @@ test('a prerequisite primary action opens its owning dossier without a preparati
   const f = await fixture(page);
   f.receipts.set(3, pilotReceipt());
   await open(page);
-  await pilot(page).locator('[data-og7="preparation-pilot-actions"]').click();
-  await pilotAction(page, 'open').click();
+  const primary = pilot(page).locator('[data-og7="preparation-pilot-primary"]');
+  await expect(primary).toBeVisible();
+  await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'peek');
+  await primary.click();
   await expect(page).toHaveURL(
     new RegExp(`sponsors\\?sponsorshipId=${contributionId(3)}&tab=publication`)
   );
@@ -1403,14 +1542,13 @@ test('Gamepad X sends the Guide receipt with a sole service to its Campaigns pre
   expect(f.writes).toEqual([]);
 });
 
-test('the preparation controller asks for confirmation before final approval and cancellation sends nothing', async ({
+test('the shared preparation approval asks for confirmation and cancellation sends nothing', async ({
   page
 }) => {
   const f = await fixture(page);
   f.receipts.set(3, pilotReceipt(3));
   await open(page);
-  await pilot(page).locator('[data-og7="preparation-pilot-actions"]').click();
-  await pilotAction(page, 'approve').click();
+  await hook(page, 'approve').click();
   const confirmation = page.locator('[data-og7="confirm-action"]');
   await expect(confirmation).toBeVisible();
   expect(f.writes).toEqual([]);
@@ -1419,7 +1557,7 @@ test('the preparation controller asks for confirmation before final approval and
   await expect(hook(page, 'stamp')).toHaveCount(0);
   expect(f.writes).toEqual([]);
 
-  await pilotAction(page, 'approve').click();
+  await hook(page, 'approve').click();
   await confirmation.click();
   await expect(hook(page, 'stamp')).toContainText(actor);
   expect(f.writes).toHaveLength(1);
@@ -1535,7 +1673,7 @@ test('Gamepad Y opens the existing preparation history without executing a mutat
   const pad = adminController(page);
   const actions = pilot(page).locator('[data-og7="preparation-pilot-actions"]');
   await actions.click();
-  await expect(pilotAction(page, 'approve')).toBeFocused();
+  await expect(pilotAction(page, 'campaigns')).toBeFocused();
   await expect(hook(page, 'details')).toHaveCount(0);
   await expect(pilotAction(page, 'details')).toHaveCount(0);
   await pad.release();
@@ -1562,9 +1700,11 @@ test('Gamepad opens the preparation controller through the same native actions, 
   await pad.press('B');
   await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'peek');
   await expect(actions).toBeFocused();
+  await pad.release();
   await pad.press('A');
   await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'open');
-  await expect(pilotAction(page, 'approve')).toBeFocused();
+  await hook(page, 'approve').focus();
+  await expect(hook(page, 'approve')).toBeFocused();
   // Focus changes invalidate held input. Observe neutral after the final target
   // has acquired focus before starting the distinct approval gesture.
   await pad.release();

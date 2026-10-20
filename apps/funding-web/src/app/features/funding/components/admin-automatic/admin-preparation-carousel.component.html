@@ -30,6 +30,25 @@
       [attr.aria-label]="portfolioText('compact.progress')"
     ></progress>
   </div>
+  <nav class="receipt-slots" [attr.aria-label]="t('chooseReceipt')">
+    @for (slot of slots(); track slot) {
+      <button
+        type="button"
+        class="admin-button receipt-slot"
+        data-og7="preparation-receipt-slot"
+        [attr.data-og7-id]="slot"
+        [attr.aria-current]="slot === position() ? 'true' : null"
+        [attr.aria-label]="
+          t('slotLabel', { position: slot, total: run().dossierCount })
+        "
+        [disabled]="loading() || approving()"
+        (click)="selectPosition(slot)"
+      >
+        <span>{{ t('slotShort') }}</span>
+        <strong>{{ slot }}</strong>
+      </button>
+    }
+  </nav>
   @if (error(); as error) {
     <p class="receipt-error" role="alert" data-og7="preparation-receipt-error">
       {{ t('errors.' + error) }}
@@ -42,6 +61,7 @@
     @for (item of [current]; track item.contributionId + ':' + item.version) {
       <openg7-admin-preparation-receipt
         [receipt]="item"
+        [guided]="true"
         detailsMode="campaigns"
         [idPrefix]="'automatic-preparation-' + run().id"
         [readOnly]="admin.identity()?.role === 'reader'"

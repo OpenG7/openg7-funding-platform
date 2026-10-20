@@ -102,6 +102,7 @@ export class AdminAutomaticPortfolioComponent {
   private readonly reconciliation =
     viewChild<ElementRef<HTMLDialogElement>>('reconciliation');
   private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readingFocusPending = false;
   private readonly reading = computed(() => {
     const state = this.portfolio.snapshot();
     return state.phase === 'awaiting_approval' ? state.review : null;
@@ -122,7 +123,26 @@ export class AdminAutomaticPortfolioComponent {
     });
     afterRenderEffect((onCleanup) => {
       const review = this.reading();
-      if (!review) return;
+      if (!review) {
+        if (this.readingFocusPending) {
+          const pause =
+            this.element.nativeElement.querySelector<HTMLButtonElement>(
+              '[data-og7="automatic-portfolio-pause"]'
+            );
+          if (
+            pause &&
+            !pause.disabled &&
+            pause.getClientRects().length &&
+            !pause.ownerDocument.querySelector('dialog[open]')
+          ) {
+            this.readingFocusPending = false;
+            pause.focus({ preventScroll: true });
+            pause.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+          }
+        }
+        return;
+      }
+      this.readingFocusPending = false;
       const hook = review.step === 'result' ? 'latest' : review.step;
       const region = this.element.nativeElement.querySelector<HTMLElement>(
         `[data-og7="automatic-portfolio-${hook}"]`
@@ -132,7 +152,13 @@ export class AdminAutomaticPortfolioComponent {
       const release = highlightGuidanceRegions([region], view, {
         persistent: true
       });
-      onCleanup(release);
+      onCleanup(() => {
+        release();
+        const focused = region.ownerDocument.activeElement;
+        this.readingFocusPending =
+          focused === region.ownerDocument.body ||
+          (!!focused && region.parentElement?.contains(focused) === true);
+      });
       region.focus({ preventScroll: true });
       region.scrollIntoView({
         block: 'nearest',

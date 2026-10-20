@@ -2,6 +2,7 @@
 <article
   #paper
   class="preparation-receipt"
+  [class.is-guided]="guided()"
   [class.has-issues]="!item.canApprove && item.status !== 'approved'"
   tabindex="-1"
   data-og7="preparation-receipt"
@@ -61,95 +62,117 @@
     </div>
   </section>
 
-  <section
-    class="receipt-section"
-    data-og7="preparation-receipt-offer"
-    [attr.aria-label]="t('acceptedOffer')"
-  >
-    <h4 class="receipt-offer-label">{{ t('ticket.acceptedOffer') }}</h4>
-    @if (item.acceptedOffer; as offer) {
-      <ul class="receipt-benefits">
-        @for (benefit of offer.benefits; track $index) {
-          <li>
-            <strong class="receipt-number">{{ benefit.quantity }} ×</strong
-            ><span>{{ t('ticket.benefitNames.' + benefit.id) }}</span>
-            <span class="receipt-benefit-context receipt-note"
-              >{{ portfolioText('channels.' + benefit.channel) }} ·
-              {{ portfolioText('targets.' + benefit.target) }}</span
-            >
-            @if (benefit.deadlineDays !== null) {
-              <span
-                class="receipt-deadline receipt-number"
-                [attr.aria-label]="
-                  t('deadline', { days: benefit.deadlineDays })
-                "
-                [title]="t('deadline', { days: benefit.deadlineDays })"
-                >{{
-                  t('compact.deadlineDays', {
-                    days: benefit.deadlineDays
-                  })
-                }}</span
+  <ng-template #acceptedOffer>
+    <section
+      class="receipt-section"
+      data-og7="preparation-receipt-offer"
+      [attr.aria-label]="t('acceptedOffer')"
+    >
+      <h4 class="receipt-offer-label">{{ t('ticket.acceptedOffer') }}</h4>
+      @if (item.acceptedOffer; as offer) {
+        <ul class="receipt-benefits">
+          @for (benefit of offer.benefits; track $index) {
+            <li>
+              <strong class="receipt-number">{{ benefit.quantity }} ×</strong
+              ><span>{{ t('ticket.benefitNames.' + benefit.id) }}</span>
+              <span class="receipt-benefit-context receipt-note"
+                >{{ portfolioText('channels.' + benefit.channel) }} ·
+                {{ portfolioText('targets.' + benefit.target) }}</span
               >
-            }
-          </li>
-        }
-      </ul>
-    } @else {
-      <p class="receipt-note">
-        {{
-          t(
-            item.balance?.contributionType === 'personal_support'
-              ? 'personalSupport'
-              : 'offerMissing'
-          )
-        }}
-      </p>
-    }
-  </section>
+              @if (benefit.deadlineDays !== null) {
+                <span
+                  class="receipt-deadline receipt-number"
+                  [attr.aria-label]="
+                    t('deadline', { days: benefit.deadlineDays })
+                  "
+                  [title]="t('deadline', { days: benefit.deadlineDays })"
+                  >{{
+                    t('compact.deadlineDays', {
+                      days: benefit.deadlineDays
+                    })
+                  }}</span
+                >
+              }
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="receipt-note">
+          {{
+            t(
+              item.balance?.contributionType === 'personal_support'
+                ? 'personalSupport'
+                : 'offerMissing'
+            )
+          }}
+        </p>
+      }
+    </section>
+  </ng-template>
+  @if (guided()) {
+    <details
+      class="receipt-offer-disclosure"
+      data-og7="preparation-receipt-offer-details"
+    >
+      <summary>{{ t('acceptedOffer') }}</summary>
+      <ng-container [ngTemplateOutlet]="acceptedOffer" />
+    </details>
+  } @else {
+    <ng-container [ngTemplateOutlet]="acceptedOffer" />
+  }
 
   <section class="receipt-preparation" [attr.aria-label]="t('prepared')">
-    <div data-og7="preparation-receipt-summary">
-      <dl class="receipt-summary">
-        @for (channel of preparationDestinations(item); track channel) {
+    <ng-template #preparationSummary>
+      <div data-og7="preparation-receipt-summary">
+        <dl class="receipt-summary">
+          @for (channel of preparationDestinations(item); track channel) {
+            <div>
+              <dt>
+                {{
+                  t('ticket.preparationFor', {
+                    channel: portfolioText('channels.' + channel)
+                  })
+                }}
+              </dt>
+              <dd
+                [class.fact-positive]="authorizationState(item) === 'complete'"
+                [class.fact-warning]="authorizationState(item) === 'missing'"
+              >
+                {{
+                  authorizationState(item) === 'complete'
+                    ? t('ticket.authorized')
+                    : authorizationState(item) === 'missing'
+                      ? t('ticket.authorizationMissing')
+                      : t('checkStates.not_required')
+                }}
+              </dd>
+            </div>
+          } @empty {
+            <div>
+              <dt>{{ t('compact.prepared') }}</dt>
+              <dd>{{ t('checkStates.not_required') }}</dd>
+            </div>
+          }
           <div>
             <dt>
-              {{
-                t('ticket.preparationFor', {
-                  channel: portfolioText('channels.' + channel)
-                })
-              }}
+              {{ t(item.drafts.length > 1 ? 'ticket.drafts' : 'ticket.draft') }}
             </dt>
             <dd
-              [class.fact-positive]="authorizationState(item) === 'complete'"
-              [class.fact-warning]="authorizationState(item) === 'missing'"
+              [class.fact-positive]="ticketDraftState(item) === 'ready_private'"
             >
-              {{
-                authorizationState(item) === 'complete'
-                  ? t('ticket.authorized')
-                  : authorizationState(item) === 'missing'
-                    ? t('ticket.authorizationMissing')
-                    : t('checkStates.not_required')
-              }}
+              {{ ticketDraftSummary(item) }}
             </dd>
           </div>
-        } @empty {
-          <div>
-            <dt>{{ t('compact.prepared') }}</dt>
-            <dd>{{ t('checkStates.not_required') }}</dd>
-          </div>
-        }
-        <div>
-          <dt>
-            {{ t(item.drafts.length > 1 ? 'ticket.drafts' : 'ticket.draft') }}
-          </dt>
-          <dd
-            [class.fact-positive]="ticketDraftState(item) === 'ready_private'"
-          >
-            {{ ticketDraftSummary(item) }}
-          </dd>
-        </div>
-      </dl>
-    </div>
+        </dl>
+      </div>
+    </ng-template>
+    @if (guided()) {
+      <div class="receipt-preparation-summary">
+        <ng-container [ngTemplateOutlet]="preparationSummary" />
+      </div>
+    } @else {
+      <ng-container [ngTemplateOutlet]="preparationSummary" />
+    }
     <div
       class="receipt-pilot"
       [class.ready-pilot]="item.canApprove || item.status === 'approved'"
@@ -159,6 +182,7 @@
     >
       <openg7-preparation-pilot
         [receipt]="item"
+        [guided]="guided()"
         [idPrefix]="idPrefix()"
         [detailsMode]="detailsMode()"
         [selectedId]="selectedIssueId()"

@@ -823,7 +823,7 @@ for (const role of ['reader', 'operator']) {
 
 const pilotAssistanceAction = (page: Page, id: string) =>
   page.locator(
-    `[data-og7="preparation-pilot-action"][data-og7-id="preparation-assistance-${id}"]`
+    `[data-og7="preparation-pilot-action"][data-og7-id="preparation-assistance-${id}"], [data-og7="preparation-pilot-primary"][data-og7-id="preparation-assistance-${id}"]`
   );
 
 async function openPilotActions(
@@ -1119,7 +1119,7 @@ for (const draft of ['source', 'evidence'] as const) {
     await openGuide(page);
     await hook(page, 'preparation-receipt-next').click();
     await expect(hook(page, 'preparation-receipt-position')).toHaveText(
-      'Receipt 2 of 2'
+      'Receipt viewed: 2 / 2'
     );
     await expect(
       hook(page, 'preparation-assistance-summary-state')
@@ -1157,7 +1157,7 @@ for (const draft of ['source', 'evidence'] as const) {
     await hook(page, 'confirm-action').click();
     await expect(page).toHaveURL(/\/admin\/fundraiser\/attention$/);
     await expect(hook(page, 'preparation-receipt-position')).toHaveText(
-      'Receipt 2 of 2'
+      'Receipt viewed: 2 / 2'
     );
     await expect(
       page.locator(

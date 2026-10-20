@@ -60,6 +60,12 @@ export class AdminPreparationCarouselComponent {
   readonly i18n = inject(FundingI18nService);
   readonly receipt = signal<AdminPreparationReceipt | null>(null);
   readonly position = signal(1);
+  readonly slots = computed(() => {
+    const total = this.run().dossierCount;
+    const count = Math.max(0, Math.min(6, total));
+    const start = Math.max(1, Math.min(this.position() - 2, total - count + 1));
+    return Array.from({ length: count }, (_, index) => start + index);
+  });
   readonly loading = signal(false);
   readonly approving = signal(false);
   readonly error = signal<AdminPreparationError | null>(null);
@@ -256,6 +262,19 @@ export class AdminPreparationCarouselComponent {
     void this.load();
   }
 
+  selectPosition(position: number): void {
+    if (
+      !Number.isSafeInteger(position) ||
+      position < 1 ||
+      position > this.run().dossierCount ||
+      position === this.position() ||
+      this.loading() ||
+      this.approving()
+    )
+      return;
+    this.go(position - this.position());
+  }
+
   async load(preserveError = false): Promise<void> {
     this.restoreFocus ??= capturePreparationFocus(this.element.nativeElement);
     const ticket = ++this.serial;
@@ -297,7 +316,8 @@ export class AdminPreparationCarouselComponent {
     this.selectedIssueId.set(
       reconcilePreparationIssue(
         projectPreparationPilot(receipt).issues,
-        this.selectedIssueId()
+        this.selectedIssueId(),
+        true
       )
     );
     this.receipt.set(receipt);

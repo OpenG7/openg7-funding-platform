@@ -344,6 +344,22 @@ test('selection stays unresolved, then advances after the selected control is co
   );
 });
 
+test('the Guide preserves a deliberately selected satisfied control after a fresh reading', () => {
+  const projected = projectPreparationPilot(receipt());
+  assert.equal(
+    reconcilePreparationIssue(
+      projected.issues,
+      'check:payment_confirmed',
+      true
+    ),
+    'check:payment_confirmed'
+  );
+  assert.equal(
+    reconcilePreparationIssue(projected.issues, 'removed-control', true),
+    'check:accepted_offer'
+  );
+});
+
 test('delayed contexts are rejected after changing issue, dossier or exact version', () => {
   const current = receipt();
   const requested = preparationControllerContext(

@@ -43,6 +43,33 @@ progress {
   margin-block: 0.5rem;
   width: 100%;
 }
+.pilot-primary {
+  width: 100%;
+  margin-block-start: 0.65rem;
+  border: 1px solid var(--admin-gold);
+  background: var(--admin-panel-raised);
+}
+button.pilot-primary[openg7-context-controller-action]:not(:disabled) {
+  background: var(--og7-admin-primary, #edca72);
+  border-color: var(--og7-admin-primary, #edca72);
+  color: var(--og7-admin-on-primary, #25220f);
+}
+button.pilot-primary[openg7-context-controller-action]:not(:disabled):hover {
+  box-shadow: var(--admin-shadow-raised);
+}
+.pilot-intervention-label {
+  margin: 0 0 0.4rem;
+  color: var(--admin-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+:host(.is-guided) .pilot-open {
+  width: auto;
+  border-color: transparent;
+  font-size: 0.8rem;
+}
 openg7-context-controller {
   --context-controller-icon-size: 1.1rem;
   --context-controller-surface-padding: 0.65rem;
@@ -101,5 +128,9 @@ openg7-context-controller[hidden] {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     grid-template-areas: 'attention issues';
     align-items: start;
+  }
+  :host(.is-guided) .pilot-content {
+    grid-template-columns: minmax(0, 1.5fr) minmax(14rem, 1fr);
+    gap: 1rem;
   }
 }

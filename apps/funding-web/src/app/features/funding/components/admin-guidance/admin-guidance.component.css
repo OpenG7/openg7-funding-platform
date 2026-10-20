@@ -11,126 +11,188 @@
   margin: var(--admin-guidance-margin, 0.75rem 1.75rem 0);
 }
 .guidance.open {
-  @apply tw:fixed;
+  @apply tw:fixed tw:m-0 tw:flex tw:flex-col;
+  container: guidance / inline-size;
   inset-block-start: 6rem;
   inset-inline-end: var(--admin-guidance-inline-end, 1.25rem);
   width: min(
-    32rem,
+    54rem,
     calc(100% - var(--admin-guidance-reserved-width, 0px) - 2.5rem)
   );
   max-height: var(
     --admin-guidance-max-height,
-    min(36rem, 70dvh, calc(100dvh - 7.5rem))
+    min(42rem, 70dvh, calc(100dvh - 7.5rem))
   );
-  @apply tw:m-0 tw:flex tw:flex-col;
   border: 1px solid var(--admin-border);
-  border-radius: 1.1rem;
+  border-radius: 1.15rem;
   background: var(--admin-panel, var(--admin-bg));
-  box-shadow:
-    0 1.25rem 3.5rem rgb(0 0 0 / 22%),
-    0 0.2rem 0.75rem rgb(0 0 0 / 12%);
+  box-shadow: var(--admin-shadow-raised);
+  overflow: hidden;
+}
+.guidance.open.automatic {
+  width: min(
+    76rem,
+    calc(100% - var(--admin-guidance-reserved-width, 0px) - 2.5rem)
+  );
+  max-height: var(
+    --admin-guidance-max-height,
+    min(49rem, calc(100dvh - 7.5rem))
+  );
 }
 .guidance.open.at-bottom {
   inset-block-start: auto;
   inset-block-end: var(--admin-guidance-bottom, 1.25rem);
 }
-.guidance-bar {
+.guidance-bar,
+.window-actions {
   @apply tw:flex tw:items-center tw:flex-wrap;
-  gap: 0.8rem;
+  gap: 0.6rem;
 }
 .open .guidance-bar {
-  @apply tw:grid;
+  position: relative;
+  isolation: isolate;
+  display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   flex: 0 0 auto;
-  padding: 0.85rem 1rem;
+  gap: 0.5rem 1rem;
+  padding: 0.9rem 1.15rem 0.8rem;
   border-bottom: 1px solid var(--admin-border);
+  background: var(--admin-panel-raised);
+}
+.open .guidance-bar::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: url('/assets/admin-guide-panorama.webp') center 55% / cover;
+  opacity: 0.12;
+  pointer-events: none;
+}
+.guide-identity {
+  min-width: 0;
+}
+.guide-title {
+  @apply tw:flex tw:items-center tw:gap-2;
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 750;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+}
+.guide-title openg7-admin-icon {
+  color: var(--admin-accent);
+}
+.guide-subtitle {
+  margin: 0.2rem 0 0;
+  color: var(--admin-muted);
+  font-size: 0.8rem;
+}
+.automatic .guide-subtitle {
+  display: none;
+}
+.open .window-actions {
+  justify-content: flex-end;
 }
 .open .guidance-bar .admin-button {
-  @apply tw:min-w-0;
-  padding: 0.6rem 0.7rem;
-  @apply tw:text-admin-caption;
+  @apply tw:min-w-0 tw:text-admin-caption tw:whitespace-normal;
+  min-height: 2.75rem;
+  padding: 0.55rem 0.7rem;
   line-height: 1.4;
-  @apply tw:whitespace-normal;
-}
-.open .location {
-  grid-column: 1 / -1;
 }
 .location {
-  @apply tw:flex tw:flex-wrap tw:items-baseline;
-  gap: 0.6rem;
-  @apply tw:m-0;
+  @apply tw:flex tw:flex-wrap tw:items-baseline tw:m-0;
+  grid-column: 1 / -1;
+  gap: 0.25rem 0.6rem;
+  font-size: 0.85rem;
 }
 .location span,
 .step-position,
 .quiet,
 .privacy {
-  @apply tw:text-admin-muted;
+  color: var(--admin-muted);
 }
 .location strong {
-  @apply tw:text-admin-text;
+  color: var(--admin-text);
 }
 .guidance-body {
+  display: grid;
+  grid-template-columns: 12.5rem minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   flex: 1 1 auto;
-  @apply tw:min-h-0 tw:p-4 tw:overflow-auto;
+  min-height: 0;
+  overflow: hidden;
+  scroll-padding-block: 0.5rem 4.5rem;
+}
+.mode-rail {
+  @apply tw:flex tw:flex-col tw:min-w-0;
+  min-height: 0;
+  gap: 1rem;
+  padding: 1rem 0.75rem;
+  border-inline-end: 1px solid var(--admin-border);
+  background: var(--admin-panel-raised);
+  overflow: auto;
   overscroll-behavior: contain;
 }
 .mode-choice {
-  @apply tw:flex tw:flex-wrap tw:gap-2;
-  margin-block-end: 1rem;
+  @apply tw:grid tw:gap-2;
+  flex-shrink: 0;
 }
 .mode-choice .admin-button {
   @apply tw:whitespace-normal;
-  min-height: 2.75rem;
+  justify-content: flex-start;
+  gap: 0.7rem;
+  min-height: 3.25rem;
+  padding: 0.7rem 0.75rem;
+  text-align: start;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  border-color: transparent;
+  background: transparent;
+}
+.mode-choice .admin-button span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .mode-choice [aria-pressed='true'] {
   border-color: var(--admin-gold);
+  background: var(--admin-selected);
+  box-shadow: inset 3px 0 0 var(--admin-gold);
 }
-.guidance.open.automatic {
-  max-height: var(--admin-guidance-max-height, min(45rem, calc(100% - 7.5rem)));
+.guide-companions {
+  display: block;
+  width: 100%;
+  max-height: 13rem;
+  min-height: 0;
+  height: auto;
+  margin-block-start: auto;
+  object-fit: contain;
+  border-radius: 0.8rem;
+  opacity: 0.8;
+  pointer-events: none;
 }
-@media (min-width: 48rem) {
-  .guidance.open.automatic:has(openg7-preparation-pilot.has-issues) {
-    width: min(
-      62rem,
-      calc(100% - var(--admin-guidance-reserved-width, 0px) - 2.5rem)
-    );
-  }
+.guidance-content {
+  container: guidance-content / inline-size;
+  min-width: 0;
+  min-height: 0;
+  padding: 1rem 1.1rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scroll-padding-block: 0.5rem 4.5rem;
+  scrollbar-gutter: stable;
 }
-.compact .guidance-bar {
-  padding: 0.5rem 0.7rem;
-  gap: 0.4rem;
+.mode-error {
+  padding: 1rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 0.8rem;
+  background: var(--admin-panel-raised);
 }
-.compact .location,
-.mode-label-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-.compact .mode-choice {
-  flex-wrap: nowrap;
-  gap: 0.35rem;
-  margin-block-end: 0.25rem;
-}
-.compact .mode-choice .admin-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 2.75rem;
-  padding: 0.45rem 0.65rem;
-  font-size: 0.8rem;
-}
-.compact .guidance-body {
-  padding: 0.5rem 0.7rem;
+.mode-error p {
+  margin-top: 0;
 }
 .step-copy {
-  border-left: 3px solid var(--admin-focus);
-  padding-left: 0.9rem;
-  @apply tw:mb-4;
+  border-inline-start: 3px solid var(--admin-focus);
+  padding-inline-start: 0.9rem;
+  margin-block-end: 1rem;
   max-width: 64rem;
 }
 .step-position {
@@ -138,8 +200,8 @@
   font-size: 0.9rem;
 }
 h2 {
-  @apply tw:text-admin-text;
-  font-size: 1.1rem;
+  color: var(--admin-text);
+  font-size: 1.15rem;
   line-height: 1.4;
   margin: 0.45rem 0;
 }
@@ -148,17 +210,17 @@ h2:focus {
   outline-offset: 3px;
 }
 p {
+  @apply tw:wrap-anywhere;
   margin: 0.5rem 0;
   line-height: 1.55;
-  @apply tw:wrap-anywhere;
 }
 .cue-actions {
   @apply tw:flex tw:flex-wrap tw:items-center;
   gap: 0.65rem;
 }
 .cue-actions .admin-button {
-  min-height: 2.75rem;
   @apply tw:whitespace-normal;
+  min-height: 2.75rem;
 }
 .pause {
   margin-inline-start: auto;
@@ -172,10 +234,12 @@ p {
   margin-top: 0.9rem;
 }
 .privacy {
-  margin-top: 0.7rem;
+  margin-top: 1rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--admin-border);
 }
 .privacy summary {
-  @apply tw:cursor-pointer;
+  cursor: pointer;
   width: fit-content;
   line-height: 1.5;
 }
@@ -184,18 +248,78 @@ p {
   outline-offset: 3px;
 }
 .privacy .admin-button {
-  margin-top: 0.7rem;
+  margin-top: 0.4rem;
 }
 .saved-cue {
-  border-left: 3px solid var(--admin-gold);
-  padding-left: 0.9rem;
-  @apply tw:mb-4;
+  border-inline-start: 3px solid var(--admin-gold);
+  padding-inline-start: 0.9rem;
+  margin-block-end: 1rem;
 }
 .storage-warning {
-  @apply tw:text-admin-gold;
+  color: var(--admin-gold);
 }
 .clear-warning {
-  @apply tw:p-3;
+  padding: 0.75rem;
+}
+@container guidance (max-width: 42rem) {
+  .guidance-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+  .mode-rail {
+    padding: 0.55rem 0.7rem;
+    border-inline-end: 0;
+    border-bottom: 1px solid var(--admin-border);
+    overflow: visible;
+  }
+  .mode-choice {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.35rem;
+  }
+  .mode-choice .admin-button {
+    min-height: 2.75rem;
+    padding: 0.5rem 0.55rem;
+    font-size: 0.82rem;
+  }
+  .guide-companions,
+  .guide-subtitle {
+    display: none;
+  }
+  .guidance-content {
+    padding: 0.85rem;
+    overflow: visible;
+    scrollbar-gutter: auto;
+  }
+}
+@container guidance (max-width: 32rem) {
+  .open .guidance-bar {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0.7rem 0.85rem;
+    gap: 0.4rem;
+  }
+  .guide-title {
+    font-size: 1rem;
+  }
+  .open .window-actions {
+    justify-content: flex-start;
+  }
+  .open .guidance-bar .admin-button {
+    padding: 0.45rem 0.6rem;
+  }
+  .location {
+    font-size: 0.78rem;
+  }
+  .mode-choice .admin-button {
+    gap: 0.45rem;
+  }
+  .cue-actions .admin-button {
+    flex: 1 1 100%;
+  }
+  .pause {
+    margin-inline-start: 0;
+  }
 }
 @media (max-width: 860px) {
   .guidance {
@@ -203,13 +327,11 @@ p {
   }
 }
 @media (max-width: 480px) {
+  .guidance.open,
   .guidance.open.automatic {
-    max-height: var(--admin-guidance-max-height, calc(100% - 1.5rem));
-  }
-  .guidance.open {
     inset-block-start: 0.75rem;
     inset-inline-end: var(--admin-guidance-inline-end, 0.75rem);
-    width: calc(100% - 1.5rem);
+    width: calc(100% - var(--admin-guidance-reserved-width, 0px) - 1.5rem);
     max-height: var(
       --admin-guidance-max-height,
       min(70dvh, calc(100dvh - 1.5rem))
@@ -219,20 +341,17 @@ p {
     inset-block-start: auto;
     inset-block-end: var(--admin-guidance-bottom, 0.75rem);
   }
-  .guidance-bar {
-    gap: 0.65rem;
+}
+@media (max-height: 640px) {
+  .guide-companions,
+  .guide-identity {
+    display: none;
   }
-  .location {
-    @apply tw:w-full;
+  .open .guidance-bar {
+    grid-template-columns: minmax(0, 1fr);
   }
-  .guidance-body {
-    padding: 0.85rem;
-  }
-  .cue-actions .admin-button {
-    flex: 1 1 100%;
-  }
-  .pause {
-    @apply tw:ms-0;
+  .open .window-actions {
+    justify-content: flex-start;
   }
 }
 @media (prefers-reduced-motion: no-preference) {

@@ -9,8 +9,36 @@ réaliser. Aucune opération métier décrite n'est exécutée par l'analyse. Vu
 
 Les libellés de cet inventaire daté se lisent désormais avec le
 [vocabulaire harmonisé des opérations](../technical/admin-campaigns.md#vocabulaire-des-operations) :
-fiche de préparation, approbation de préparation et vérification du lot. Le
-rapport emploie **Préparer ce dossier** pour annoncer la préparation ciblée.
+fiche de préparation, approbation de préparation et vérification du lot. Les
+entrées du rapport restent libellées **Examiner le dossier** ou **Voir le suivi** ;
+elles ouvrent l’outil de préparation ciblée.
+
+Pour examiner le panneau après refonte et préparer une V3, utiliser le
+[nouveau blueprint de l’état actuel et ses sept captures](openg7-guide-blueprint-etat-actuel/README.md).
+Le [premier blueprint de revue](admin-guide-ui-ux-review.md) conserve l’état
+antérieur ; les inventaires datés ci-dessous restent des références historiques.
+
+### Évolution de présentation du 19 octobre 2026
+
+Les quatre modes affichent désormais des libellés stables : **Découvrir**,
+**Suivi d’un paiement**, **Préparation des dossiers** et **Explorer les parcours**.
+Leurs identifiants et repères restent inchangés. Le rail et le contexte de rubrique
+restent lisibles ; une grille avec défilement commun les adapte aux petits écrans.
+Les [illustrations décoratives](admin-guide-artwork.md) ne portent aucune information métier.
+
+Dans la fiche du Guide, l’action principale est accessible directement et suit le
+contrôle sélectionné. Le premier contrôle non résolu est choisi initialement ;
+un choix explicite est ensuite conservé lors de la relecture. Les contrôles
+satisfaits sont repliables. L’accord reste consultable dans un volet de détails,
+le résumé de préparation reste visible ; l’approbation conserve son bouton partagé, ses droits,
+sa version et sa confirmation. Les autres surfaces du bon gardent leur composition.
+
+Le compteur du bon consulté reste distinct des dossiers contrôlés et des contrôles
+satisfaits. Après l’aperçu Dossier d’un lot, **Vérifier et préparer ce dossier**
+annonce le contrôle et les brouillons privés admissibles ; les autres points
+conservent leur accusé de lecture. Aucune publication n’est autorisée par ces étapes.
+Le chargement différé propose un réessai local. Les inventaires ci-dessous conservent
+les désignations de l’analyse initiale lorsqu’elles décrivent une responsabilité.
 
 ## Périmètre et vocabulaire
 
