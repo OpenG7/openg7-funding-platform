@@ -146,6 +146,7 @@ test(
       '',
       '/attention',
       '/sponsors',
+      '/sponsors/quality',
       '/invoices',
       '/email-queue',
       '/audit'
@@ -153,6 +154,31 @@ test(
       await page.goto('/admin/fundraiser' + route);
       await expect(page.locator('[data-og7="admin-layout"]')).toHaveCount(1);
       await expect(page.locator('h1')).toBeVisible();
+      if (route === '/sponsors/quality') {
+        const quality = page.locator('[data-og7="sponsors-quality-page"]');
+        await expect(quality.getByRole('heading', { level: 1 })).toHaveText(
+          'Qualité des commandites'
+        );
+        for (const [control, endpoint] of [
+          ['[data-og7="commitments-adoption-load"]', 'adoption-preview'],
+          ['[data-og7-id="historical-audit-load"]', 'historical-audit']
+        ] as const) {
+          const read = page.waitForResponse(
+            (response) =>
+              response.request().method() === 'GET' &&
+              new URL(response.url()).pathname ===
+                '/api/admin/sponsorship-commitments/' + endpoint
+          );
+          await quality.locator(control).click();
+          const response = await read;
+          expect(response.status()).toBe(200);
+          expect(Array.isArray((await response.json()).items)).toBe(true);
+        }
+        await expect(
+          quality.locator('[data-og7-id="historical-audit-counts"]')
+        ).toBeVisible();
+        await expect(quality.getByRole('alert')).toHaveCount(0);
+      }
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= innerWidth + 1
@@ -166,9 +192,7 @@ test(
       })
       .click();
     await page.goto('/admin/fundraiser');
-    await expect(
-      page.getByRole('heading', { name: 'Control centre' })
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Cockpit' })).toBeVisible();
     await page.locator('[data-og7="admin-search-open"]').click();
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.keyboard.press('Escape');

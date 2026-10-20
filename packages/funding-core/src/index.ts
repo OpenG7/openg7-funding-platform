@@ -58,6 +58,8 @@ export type {
   AdminInformationRequestPreview,
   AdminInformationRequest,
   AdminInformationRequestResult,
+  AdminInformationRequestReceipt,
+  AdminInformationRequestReceiptRequest,
   AdminAssistantMode
 } from './admin-assistant-context.js';
 
@@ -292,6 +294,8 @@ export type {
   AdminSponsorshipInvoiceBackfillResult,
   AdminSponsorshipInvoiceResendRequest,
   AdminSponsorshipInvoiceResendResult,
+  AdminDocumentResendReceiptRequest,
+  AdminDocumentResendReceipt,
   AdminSponsorshipCreditNoteResendRequest,
   AdminSponsorshipCreditNoteResendResult
 } from './sponsorship-documents.js';

@@ -35,3 +35,20 @@
   outline: 3px solid var(--color-primary);
   outline-offset: 3px;
 }
+
+:host(.inline) {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  :host {
+    display: none;
+  }
+
+  :host(.inline) {
+    display: block;
+    flex: 0 0 2.9rem;
+    height: 2.9rem;
+    position: static;
+  }
+}

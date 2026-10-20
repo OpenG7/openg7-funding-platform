@@ -40,8 +40,8 @@ import { AdminSponsorshipHistoricalAuditComponent } from './admin-sponsorship-hi
   selector: 'openg7-admin-sponsorship-commitments',
   standalone: true,
   imports: [
-    TranslatePipe,
     RouterLink,
+    TranslatePipe,
     AdminAutomaticPreparationDirective,
     AdminSponsorshipTimingComponent,
     AdminSponsorshipHistoricalAuditComponent,
@@ -90,8 +90,6 @@ export class AdminSponsorshipCommitmentsComponent {
       return this.admin.getSponsorshipCommitment(input.contributionId);
     },
     adjust: (input) => this.admin.adjustSponsorshipObligation(input),
-    adoption: (size, cursor) =>
-      this.admin.sponsorshipCommitmentAdoptionPreview(size, cursor),
     changed: () => this.changed.emit(),
     unauthorized: async () => {
       this.admin.clearAdminSession();
@@ -317,13 +315,25 @@ export class AdminSponsorshipCommitmentsComponent {
   obligationStateLabel(obligation: SponsorshipObligation): string {
     if (
       obligation.state === 'fulfilled' &&
-      (!obligation.fulfilmentEvidenceId ||
-        !this.dossier().qualifiedFulfilmentEvidenceIds?.includes(
-          obligation.fulfilmentEvidenceId
-        ))
+      !this.hasQualifiedEvidence(obligation)
     )
       return 'admin.dossier.publicationBridge.status.unverified';
     return 'admin.commitments.states.' + obligation.state;
+  }
+  hasQualifiedEvidence(obligation: SponsorshipObligation): boolean {
+    const evidenceId = obligation.fulfilmentEvidenceId;
+    return Boolean(
+      evidenceId &&
+      this.dossier().qualifiedFulfilmentEvidenceIds?.includes(evidenceId) &&
+      this.dossier().commitment?.obligations.some(
+        (recorded) =>
+          recorded.id === obligation.id &&
+          recorded.version === obligation.version &&
+          recorded.channel === obligation.channel &&
+          recorded.target === obligation.target &&
+          recorded.fulfilmentEvidenceId === evidenceId
+      )
+    );
   }
   updateCheck(
     index: number,
@@ -352,9 +362,5 @@ export class AdminSponsorshipCommitmentsComponent {
       style: 'currency',
       currency
     }).format(amountMinor / 100);
-  }
-  setPageSize(event: Event): void {
-    this.c.pageSize.set(this.value(event) === '50' ? 50 : 25);
-    void this.c.loadPreview();
   }
 }

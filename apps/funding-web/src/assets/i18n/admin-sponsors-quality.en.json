@@ -1,0 +1,33 @@
+{
+  "nav": "Sponsorship quality",
+  "title": "Sponsorship quality",
+  "description": "Review agreements and historical evidence across sponsorship dossiers. Each correction stays in its owning dossier.",
+  "ownerRequired": "This review is restricted to the owner.",
+  "back": "All sponsorships",
+  "backToDossier": "Back to the sponsorship dossier",
+  "backToQuality": "Back to sponsorship quality",
+  "openQuality": "Open sponsorship quality",
+  "openDossier": "Open dossier",
+  "inventoryTitle": "Sponsorship agreement inventory",
+  "inventoryHelp": "Review dossiers, their promised services and recorded evidence. This inventory does not qualify agreements or publish content.",
+  "loadError": "The inventory is unavailable. Retry the read.",
+  "guide": {
+    "read": {
+      "title": "Understand sponsorship quality",
+      "body": "This workspace brings together inventories across dossiers. Reads and reviews are restricted to the owner."
+    },
+    "choose": {
+      "title": "Choose a dossier to review",
+      "body": "Load an agreement page, then open the relevant dossier to qualify its promised services. The inventory applies no corrections."
+    },
+    "verify": {
+      "title": "Review historical evidence",
+      "body": "Load portfolio evidence, filter findings and record an explicit conclusion. A conclusion publishes nothing and rewrites no evidence."
+    }
+  },
+  "audit": {
+    "dossierScope": "Evidence shown is limited to this dossier. Portfolio counts are available in Sponsorship quality.",
+    "portfolioScope": "This review covers historical evidence across all dossiers.",
+    "dossierCounts": "{{count}} evidence item(s) matching this dossier’s criteria."
+  }
+}

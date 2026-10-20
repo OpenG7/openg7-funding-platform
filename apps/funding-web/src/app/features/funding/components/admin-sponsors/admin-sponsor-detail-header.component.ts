@@ -14,7 +14,7 @@ import type { AdminSponsorDetailHeaderView } from '../../models/admin-sponsors-u
   imports: [TranslatePipe, CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <header class="detail-header">
+    <header class="detail-header" data-og7="dossier-header">
       <div class="detail-title">
         <span class="sponsor-avatar large" aria-hidden="true">{{
           detail().initials
@@ -22,7 +22,17 @@ import type { AdminSponsorDetailHeaderView } from '../../models/admin-sponsors-u
         <div>
           <h1>{{ detail().companyName }}</h1>
           <p>{{ detail().amountLabel }} &middot; {{ detail().tierLabel }}</p>
+          <p class="detail-reference">
+            <span>{{ 'admin.legacy.reference_publique' | translate }}</span>
+            <span data-og7="dossier-public-reference">{{
+              detail().publicReferenceLabel
+            }}</span>
+          </p>
         </div>
+      </div>
+
+      <div class="header-actions">
+        <ng-content select="[headerActions]" />
       </div>
 
       <div class="detail-badges">
@@ -68,10 +78,6 @@ import type { AdminSponsorDetailHeaderView } from '../../models/admin-sponsors-u
       <details class="header-details">
         <summary>{{ 'admin.dossier.workspace.details' | translate }}</summary>
         <dl class="detail-meta">
-          <div>
-            <dt>{{ 'admin.legacy.reference_publique' | translate }}</dt>
-            <dd>{{ detail().publicReferenceLabel }}</dd>
-          </div>
           <div>
             <dt>{{ 'admin.legacy.soumis_le' | translate }}</dt>
             <dd>{{ detail().submittedAtLabel }}</dd>

@@ -76,6 +76,7 @@
         <div class="toolbar">
           <button
             *ngIf="needsDetails()"
+            class="followup-complete-details"
             type="button"
             [disabled]="busy() || !drafts.ready()"
             (click)="focusForm()"
@@ -90,6 +91,13 @@
           >
             {{ 'funding.followup.refresh' | translate }}
           </button>
+          <a
+            class="followup-review-link"
+            href="#followup-review"
+            data-og7="followup-open-review"
+            (click)="focusReview($event)"
+            >{{ 'funding.followup.journey.openReview' | translate }}</a
+          >
         </div>
       </section>
       <div class="followup-workspace">
@@ -142,12 +150,22 @@
         </openg7-sponsorship-followup-form>
         <openg7-sponsorship-followup-status [followup]="current" />
       </div>
-      <openg7-sponsorship-moderation-followup
-        [token]="token()"
-        [refreshKey]="moderationRefresh()"
-        (correctionRequested)="correct($event)"
-        (accessLost)="clearAccess()"
-      />
+      <div
+        #reviewSection
+        id="followup-review"
+        class="followup-review-section"
+        data-og7="followup-review-section"
+        role="group"
+        tabindex="-1"
+        [attr.aria-label]="'funding.moderation.title' | translate"
+      >
+        <openg7-sponsorship-moderation-followup
+          [token]="token()"
+          [refreshKey]="moderationRefresh()"
+          (correctionRequested)="correct($event)"
+          (accessLost)="clearAccess()"
+        />
+      </div>
     </ng-container>
   </section>
 </main>

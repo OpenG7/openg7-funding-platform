@@ -19,6 +19,8 @@ import type {
 } from '../../models/admin-sponsor-workflow.ports.js';
 import type { AdminSponsorFeedStatusOption } from '../../models/admin-sponsors-ui.models.js';
 
+import { registerSponsorPublicationTranslations } from './admin-sponsors-publication-translations.js';
+
 /** Funding organism: controlled advanced publication form and private preview. */
 @Component({
   selector: 'openg7-admin-sponsor-publication-panel',
@@ -51,7 +53,6 @@ export class AdminSponsorPublicationPanelComponent {
   readonly logoSource = input<string | null>(null);
   readonly logoAlt = input('');
   readonly publicName = input.required<string>();
-  readonly channelsLabel = input.required<string>();
 
   readonly expandedChange = output<boolean>();
   readonly fieldChange = output<AdminSponsorPublicationFieldChange>();
@@ -60,6 +61,10 @@ export class AdminSponsorPublicationPanelComponent {
 
   private readonly summary =
     viewChild<ElementRef<HTMLElement>>('publicationSummary');
+
+  constructor() {
+    registerSponsorPublicationTranslations();
+  }
 
   /** The page schedules this after opening; no browser access during SSR setup. */
   focusSummary(): void {

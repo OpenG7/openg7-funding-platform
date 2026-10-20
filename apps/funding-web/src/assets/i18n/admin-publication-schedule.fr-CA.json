@@ -10,6 +10,21 @@
   "prepare": "Préparer cette destination",
   "prepareConfirm": "Préparer les brouillons de cette destination pour tous les dossiers admissibles ? Cette action ne publie rien et n’autorise aucun envoi.",
   "details": "Voir le suivi détaillé",
+  "chain": {
+    "title": "Repères de publication",
+    "help": "Chaque repère rejoint son outil. Seules les prestations de l’accord sont exigées ; consulter ou préparer n’autorise aucun envoi et ne constitue pas une preuve de livraison.",
+    "steps": {
+      "offer": "Offre",
+      "preparation": "Préparation",
+      "content": "Contenu",
+      "authorization": "Autorisation",
+      "delivery": "Livraison",
+      "evidence": "Preuve"
+    },
+    "agreementVersion": "Version courante de l’accord enregistré",
+    "offerVersion": "Version de l’offre acceptée",
+    "contentTarget": "Contenu, visibilité Web et autorisation sociale"
+  },
   "workflow": {
     "title": "Prestations promises et prochaines étapes",
     "help": "Vous vérifiez et autorisez le contenu. La plateforme publie à la date programmée puis confirme automatiquement chaque prestation après réussite.",

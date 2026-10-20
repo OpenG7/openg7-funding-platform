@@ -7,7 +7,9 @@ import type {
   AdminAssistantQueryRequest,
   AdminAssistantQueryResponse,
   AdminInformationRequest,
-  AdminInformationRequestResult
+  AdminInformationRequestResult,
+  AdminInformationRequestReceipt,
+  AdminInformationRequestReceiptRequest
 } from '@openg7/funding-core';
 
 import { AdminDashboardRequestError } from '../../services/funding-admin-session.js';
@@ -23,6 +25,7 @@ export interface AssistantContextSnapshot {
   readonly subject: string;
   readonly body: string;
   readonly question: string;
+  readonly uncertainInformation?: AdminInformationRequest | null;
 }
 
 /** One-use, in-memory handoff. The facade passes it through router navigation info. */
@@ -65,10 +68,34 @@ export interface AdminAssistantContextPorts {
   onUnauthorized(): Promise<void>;
   closeConfirmation(): void;
   openConfirmation(): void;
+  storage?(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null;
+  newRequestId(): string | null;
+  getInformationRequestReceipt(
+    token: string,
+    input: AdminInformationRequestReceiptRequest
+  ): Promise<AdminInformationRequestReceipt>;
 }
 
 /** Exact dossier reads and explicit human actions; router, lifecycle and DOM stay in the facade. */
 export class AdminAssistantContextController {
+  readonly receiptRequest =
+    signal<AdminInformationRequestReceiptRequest | null>(null);
+  readonly informationReceipt = signal<Extract<
+    AdminInformationRequestReceipt,
+    { found: true }
+  > | null>(null);
+  readonly receiptState = signal<
+    'idle' | 'checking' | 'notFound' | 'unavailable'
+  >('idle');
+  readonly canVerifyReceipt = computed(
+    () =>
+      !!this.receiptRequest() &&
+      this.informationUncertain() &&
+      this.ports.canPrepare() &&
+      this.ports.hasValidSession() &&
+      !this.busy() &&
+      this.receiptState() !== 'checking'
+  );
   readonly data = signal<AdminAssistantContextResponse | null>(null);
   readonly state = signal<'loading' | 'ready' | 'error' | 'forbidden'>(
     'loading'
@@ -79,10 +106,17 @@ export class AdminAssistantContextController {
   readonly answer = signal<AdminAssistantQueryResponse | null>(null);
   readonly delivery = signal<AdminInformationRequestResult | null>(null);
   readonly confirmation = signal<AdminInformationRequest | null>(null);
+  readonly uncertainInformation = signal<AdminInformationRequest | null>(null);
+  private readonly retainedInformationMarker = signal(false);
+  readonly informationUncertain = computed(
+    () => this.retainedInformationMarker() || !!this.uncertainInformation()
+  );
   readonly subject = signal('');
   readonly body = signal('');
   readonly question = signal('');
-  readonly canPrepare = computed(() => this.ports.canPrepare());
+  readonly canPrepare = computed(
+    () => this.ports.canPrepare() && !this.informationUncertain()
+  );
   readonly snapshot = computed<AssistantContextSnapshot | null>(() => {
     const context = this.data()?.context;
     return context
@@ -95,11 +129,17 @@ export class AdminAssistantContextController {
           answer: this.answer(),
           subject: this.subject(),
           body: this.body(),
-          question: this.question()
+          question: this.question(),
+          uncertainInformation: this.uncertainInformation()
         }
       : null;
   });
   private generation = 0;
+  private readonly pendingInformation = new Map<
+    string,
+    AdminInformationRequest
+  >();
+  private informationScope = '';
 
   constructor(private readonly ports: AdminAssistantContextPorts) {}
 
@@ -109,10 +149,16 @@ export class AdminAssistantContextController {
 
   async load(snapshot: AssistantContextSnapshot | null = null): Promise<void> {
     const generation = ++this.generation;
+    const scope = this.informationKey('');
+    if (scope !== this.informationScope) {
+      this.pendingInformation.clear();
+      this.informationScope = scope;
+    }
     this.clearPrivate();
     this.error.set('');
     this.busy.set(false);
     this.state.set('loading');
+    this.restoreUncertainInformation(this.ports.sponsorshipId());
     try {
       if (!this.ports.hasValidSession())
         throw new AdminDashboardRequestError(401);
@@ -124,6 +170,7 @@ export class AdminAssistantContextController {
       this.data.set(data);
       this.state.set('ready');
       const context = data.context;
+      this.restoreUncertainInformation(context?.contributionId);
       if (
         snapshot &&
         context &&
@@ -132,6 +179,24 @@ export class AdminAssistantContextController {
         snapshot.identityId === this.ports.identityId()
       ) {
         this.question.set(snapshot.question);
+        if (
+          snapshot.uncertainInformation?.contributionId ===
+            context.contributionId &&
+          this.ports.canPrepare()
+        ) {
+          const input = snapshot.uncertainInformation;
+          this.pendingInformation.set(
+            this.informationKey(context.contributionId),
+            input
+          );
+          this.uncertainInformation.set(input);
+          this.receiptRequest.set({
+            contributionId: input.contributionId,
+            requestId: input.requestId
+          });
+          this.subject.set(input.subject);
+          this.body.set(input.body);
+        }
         if (snapshot.version === context.version) {
           this.answer.set(snapshot.answer);
           if (this.canPrepare()) {
@@ -139,7 +204,8 @@ export class AdminAssistantContextController {
             this.subject.set(snapshot.subject);
             this.body.set(snapshot.body);
           }
-        } else if (snapshot.prepared) this.error.set('conflict');
+        } else if (snapshot.prepared && !this.uncertainInformation())
+          this.error.set('conflict');
       }
     } catch (error) {
       if (this.current(generation)) {
@@ -181,8 +247,19 @@ export class AdminAssistantContextController {
       !this.body().trim()
     )
       return;
+    let requestId: string | null;
+    try {
+      requestId = this.ports.newRequestId();
+    } catch {
+      requestId = null;
+    }
+    if (!requestId || !this.validRequestId(requestId)) {
+      this.error.set('actionError');
+      return;
+    }
     this.confirmation.set({
       ...preview,
+      requestId,
       subject: this.subject().trim(),
       body: this.body().trim(),
       confirmed: true
@@ -199,19 +276,174 @@ export class AdminAssistantContextController {
     const input = this.confirmation();
     if (!input || this.busy() || !this.canPrepare()) return;
     this.cancelSend();
+    const key = this.informationKey(input.contributionId);
+    this.pendingInformation.set(key, input);
+    this.setInformationMarker(input.contributionId, true, key, input.requestId);
+    this.receiptRequest.set({
+      requestId: input.requestId,
+      contributionId: input.contributionId
+    });
+    // Keep the confirmed payload even if navigation starts while the POST is pending.
+    this.uncertainInformation.set(input);
     await this.act(async () => {
-      const result = await this.ports.requestSponsorshipInformation(
-        this.ports.token(),
-        input
-      );
+      let result: AdminInformationRequestResult;
+      try {
+        result = await this.ports.requestSponsorshipInformation(
+          this.ports.token(),
+          input
+        );
+      } catch (error) {
+        if (
+          error instanceof AdminDashboardRequestError &&
+          error.status >= 400 &&
+          error.status < 500 &&
+          error.status !== 408 &&
+          error.code !== 'INFORMATION_REQUEST_ID_CONFLICT'
+        ) {
+          this.pendingInformation.delete(key);
+          this.setInformationMarker(
+            input.contributionId,
+            false,
+            key,
+            input.requestId
+          );
+          if (
+            !this.ports.isDestroyed() &&
+            this.informationKey(this.currentContributionId() ?? '') === key
+          )
+            this.uncertainInformation.set(null);
+        }
+        throw error;
+      }
+      if (!this.validReceipt(result, input))
+        throw new Error('Information receipt does not match this request.');
+      if (!['sending', 'uncertain'].includes(result.deliveryStatus)) {
+        this.pendingInformation.delete(key);
+        this.setInformationMarker(
+          input.contributionId,
+          false,
+          key,
+          input.requestId
+        );
+      }
       return () => {
-        this.delivery.set(result);
-        void this.ports.refreshWorkQueue();
-        this.prepared.set(null);
-        this.subject.set('');
-        this.body.set('');
+        this.applyInformationReceipt(
+          { ...result, found: true, contributionId: input.contributionId },
+          key,
+          result
+        );
       };
     });
+  }
+
+  async verifyInformationReceipt(): Promise<boolean> {
+    const request = this.receiptRequest();
+    if (!request || !this.canVerifyReceipt()) return false;
+    const generation = this.generation;
+    const key = this.informationKey(request.contributionId);
+    const current = () =>
+      this.current(generation) &&
+      this.ports.hasValidSession() &&
+      this.ports.canPrepare() &&
+      key === this.informationKey(this.currentContributionId() ?? '') &&
+      this.receiptRequest()?.requestId === request.requestId;
+    this.receiptState.set('checking');
+    try {
+      const receipt = await this.ports.getInformationRequestReceipt(
+        this.ports.token(),
+        request
+      );
+      if (!current()) return false;
+      if (
+        receipt.requestId !== request.requestId.toLowerCase() ||
+        receipt.contributionId !== request.contributionId
+      )
+        throw new Error('Mismatched information receipt.');
+      if (receipt.found === false) {
+        this.receiptState.set('notFound');
+        return false;
+      }
+      if (receipt.found !== true)
+        throw new Error('Invalid information receipt result.');
+      if (!this.validReceipt(receipt, request))
+        throw new Error('Incomplete information receipt.');
+      this.applyInformationReceipt(receipt, key);
+      this.receiptState.set('idle');
+      return true;
+    } catch (error) {
+      if (!current()) return false;
+      this.receiptState.set('unavailable');
+      if (
+        error instanceof AdminDashboardRequestError &&
+        (error.status === 401 || error.status === 403)
+      )
+        await this.handleError(error);
+      return false;
+    } finally {
+      if (current() && this.receiptState() === 'checking')
+        this.receiptState.set('idle');
+    }
+  }
+
+  private validRequestId(value: string): boolean {
+    return /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(value);
+  }
+
+  private validReceipt(
+    receipt:
+      | Extract<AdminInformationRequestReceipt, { found: true }>
+      | AdminInformationRequestResult,
+    request: { requestId: string }
+  ): boolean {
+    const date = (value: unknown) =>
+      typeof value === 'string' &&
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value) &&
+      Number.isFinite(Date.parse(value)) &&
+      new Date(value).toISOString() === value;
+    return (
+      receipt.requestId === request.requestId.toLowerCase() &&
+      typeof receipt.messageId === 'string' &&
+      this.validRequestId(receipt.messageId) &&
+      date(receipt.acceptedAt) &&
+      ['queued', 'sending', 'sent', 'failed', 'uncertain'].includes(
+        receipt.deliveryStatus
+      ) &&
+      (receipt.sentAt === null || date(receipt.sentAt))
+    );
+  }
+
+  private applyInformationReceipt(
+    receipt: Extract<AdminInformationRequestReceipt, { found: true }>,
+    key: string,
+    result?: AdminInformationRequestResult
+  ): void {
+    this.informationReceipt.set(receipt);
+    this.delivery.set(
+      result ?? {
+        ...receipt,
+        status:
+          receipt.deliveryStatus === 'sent'
+            ? 'already_sent'
+            : receipt.deliveryStatus === 'failed'
+              ? 'delivery_failed'
+              : 'already_queued'
+      }
+    );
+    if (!['sending', 'uncertain'].includes(receipt.deliveryStatus)) {
+      this.pendingInformation.delete(key);
+      this.setInformationMarker(
+        receipt.contributionId,
+        false,
+        key,
+        receipt.requestId
+      );
+      this.uncertainInformation.set(null);
+      this.receiptRequest.set(null);
+      this.prepared.set(null);
+      this.subject.set('');
+      this.body.set('');
+    }
+    void this.ports.refreshWorkQueue();
   }
 
   async ask(): Promise<void> {
@@ -248,8 +480,13 @@ export class AdminAssistantContextController {
   }
 
   private clearPrivate(): void {
+    this.receiptRequest.set(null);
+    this.informationReceipt.set(null);
+    this.receiptState.set('idle');
     this.ports.closeConfirmation();
     this.confirmation.set(null);
+    this.uncertainInformation.set(null);
+    this.retainedInformationMarker.set(false);
     this.data.set(null);
     this.prepared.set(null);
     this.answer.set(null);
@@ -257,6 +494,73 @@ export class AdminAssistantContextController {
     this.subject.set('');
     this.body.set('');
     this.question.set('');
+  }
+
+  private informationKey(contributionId: string): string {
+    return JSON.stringify([
+      this.ports.identityId(),
+      this.ports.sessionGeneration(),
+      contributionId
+    ]);
+  }
+
+  private restoreUncertainInformation(contributionId?: string): void {
+    if (!contributionId) return;
+    try {
+      const marker = this.ports
+        .storage?.()
+        ?.getItem(this.informationStorageKey(contributionId));
+      this.retainedInformationMarker.set(!!marker);
+      if (marker && this.validRequestId(marker))
+        this.receiptRequest.set({ contributionId, requestId: marker });
+    } catch {
+      // The exact in-memory payload still prevents a second logical request.
+    }
+    if (!this.ports.canPrepare()) return;
+    const input = this.pendingInformation.get(
+      this.informationKey(contributionId)
+    );
+    if (input) {
+      this.receiptRequest.set({ contributionId, requestId: input.requestId });
+      this.uncertainInformation.set(input);
+      this.subject.set(input.subject);
+      this.body.set(input.body);
+    }
+  }
+
+  private informationStorageKey(contributionId: string): string {
+    return 'openg7-assistant-information-pending:' + contributionId;
+  }
+
+  private currentContributionId(): string | undefined {
+    return this.ports.sponsorshipId() ?? this.data()?.context?.contributionId;
+  }
+
+  private setInformationMarker(
+    contributionId: string,
+    pending: boolean,
+    requestKey: string,
+    requestId: string
+  ): void {
+    let retained = pending;
+    try {
+      const storage = this.ports.storage?.();
+      const key = this.informationStorageKey(contributionId);
+      if (pending) storage?.setItem(key, requestId);
+      else {
+        const stored = storage?.getItem(key);
+        if (stored === requestId) storage?.removeItem(key);
+        else if (stored) retained = true;
+      }
+    } catch {
+      // No recipient, body or credential is persisted; memory is the fallback.
+    }
+    if (
+      !this.ports.isDestroyed() &&
+      contributionId === this.currentContributionId() &&
+      requestKey === this.informationKey(contributionId)
+    )
+      this.retainedInformationMarker.set(retained);
   }
 
   private async handleError(error: unknown, action = true): Promise<void> {
@@ -276,6 +580,7 @@ export class AdminAssistantContextController {
       return;
     }
     if (status === 401 || status === 403) {
+      this.pendingInformation.clear();
       this.clearPrivate();
       this.state.set('forbidden');
       if (status === 401) await this.ports.onUnauthorized();

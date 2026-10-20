@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   input,
   output
 } from '@angular/core';
@@ -30,6 +31,7 @@ import type { AdminDocumentDeliveryView } from './admin-invoice.models.js';
         type="email"
         autocomplete="email"
         [value]="delivery().email"
+        [readOnly]="!canManage() || locked()"
         (input)="changeEmail($event)"
       />
     </label>
@@ -39,6 +41,7 @@ import type { AdminDocumentDeliveryView } from './admin-invoice.models.js';
         class="primary-action"
         [disabled]="
           !canManage() ||
+          uncertain() ||
           delivery().state === 'sending' ||
           !delivery().email.trim()
         "
@@ -55,11 +58,36 @@ import type { AdminDocumentDeliveryView } from './admin-invoice.models.js';
           ) | translate
         }}
       </button>
+      @if (uncertain()) {
+        <p role="status">
+          {{
+            delivery().message ||
+              ('admin.financialSafety.deliveryUncertain' | translate)
+          }}
+        </p>
+      }
+      @if (delivery().canVerifyReceipt) {
+        <button
+          type="button"
+          class="secondary-action"
+          [disabled]="!canManage() || delivery().checkingReceipt"
+          (click)="verifyReceipt.emit()"
+          data-og7="document-receipt-check"
+          [attr.data-og7-id]="delivery().id"
+        >
+          {{
+            (delivery().checkingReceipt
+              ? 'admin.financialSafety.receiptChecking'
+              : 'admin.financialSafety.verifyReceipt'
+            ) | translate
+          }}
+        </button>
+      }
       <span
         class="resend-message"
         [class.error]="delivery().state === 'error'"
         [class.success]="delivery().state === 'sent'"
-        *ngIf="delivery().message"
+        *ngIf="delivery().message && !uncertain()"
         aria-live="polite"
       >
         {{ delivery().message }}
@@ -72,6 +100,14 @@ import type { AdminDocumentDeliveryView } from './admin-invoice.models.js';
         [attr.data-og7-id]="delivery().id"
         >{{ 'admin.messages.suivre_courriel' | translate }}</a
       >
+      @if (uncertain() && !delivery().messageId) {
+        <a
+          routerLink="/admin/fundraiser/email-queue"
+          data-og7="document-email-reconcile"
+          [attr.data-og7-id]="delivery().id"
+          >{{ 'admin.messages.suivre_courriel' | translate }}</a
+        >
+      }
     </div>
   `,
   styleUrls: [
@@ -89,8 +125,20 @@ export class AdminDocumentDeliveryComponent {
   readonly resendLabelKey = input.required<string>();
   readonly emailChange = output<string>();
   readonly resend = output<void>();
+  readonly verifyReceipt = output<void>();
+  readonly uncertain = computed(
+    () =>
+      this.delivery().state === 'uncertain' ||
+      this.delivery().serverStatus === 'uncertain'
+  );
+  readonly locked = computed(
+    () =>
+      this.uncertain() ||
+      ['confirming', 'sending'].includes(this.delivery().state)
+  );
 
   changeEmail(event: Event): void {
+    if (!this.canManage() || this.locked()) return;
     this.emailChange.emit((event.target as HTMLInputElement).value);
   }
 }

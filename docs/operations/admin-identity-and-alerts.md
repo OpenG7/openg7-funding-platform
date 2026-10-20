@@ -145,6 +145,12 @@ l'opérateur est dans `adminRoleAllows` (`apps/funding-api/src/admin-identity.ts
 une nouvelle mutation est refusée par défaut. Les confirmations métier restent
 obligatoires même avec le rôle approprié.
 
+Le [reçu de renvoi documentaire](../technical/admin-api.md#document-resend-receipts)
+est réservé aux opérateurs/propriétaires et à l'acteur de l'audit d'origine.
+UUID, type et document doivent correspondre ; un autre acteur reçoit le même
+résultat absent. Une rétrogradation en lecteur interdit cette lecture. Le mode
+token local conserve son identité partagée, sans isolation individuelle ajoutée.
+
 Le marqueur de présentation d’un [toast de contribution](contribution-activity.md)
 est accessible aux trois rôles, uniquement pour l’acteur authentifié. Il ne
 modifie aucun dossier ni autorisation de publication. Les comptes OIDC ont des

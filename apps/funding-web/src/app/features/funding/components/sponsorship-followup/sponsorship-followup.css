@@ -243,6 +243,45 @@ fieldset {
 .form-grid {
   @apply tw:grid tw:grid-cols-2 tw:gap-4;
 }
+.coordinates-group > legend {
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+}
+.coordinates-group {
+  margin: 0;
+}
+.presentation-details {
+  border-top: 1px solid var(--border-color);
+}
+.presentation-details > summary,
+.media-rights > summary {
+  min-height: 2.75rem;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+}
+.presentation-details .submission-help {
+  margin-block: 0 1rem;
+}
+.followup-media-section {
+  margin-top: 1.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-color);
+}
+.followup-review-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.followup-review-section {
+  min-width: 0;
+  scroll-margin-block: 1rem;
+}
+.followup-review-section:focus {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 0.25rem;
+}
 label {
   @apply tw:grid;
   gap: 0.4rem;
@@ -344,20 +383,45 @@ small {
 }
 @media (max-width: 600px) {
   .followup-content {
-    @apply tw:gap-3 tw:pt-3;
+    @apply tw:gap-2 tw:pt-2;
   }
   .next-step.state-card,
   .followup-form-panel {
-    @apply tw:p-4;
+    padding: 0.5rem 0.75rem;
+  }
+  .next-step.state-card {
+    row-gap: 0.5rem;
+  }
+  .followup-form-panel > header > h2 {
+    margin-bottom: 0.5rem;
+  }
+  .draft-status,
+  .followup-form-panel form > fieldset {
+    margin-block: 0.25rem;
+  }
+  .coordinates-group > legend {
+    margin-bottom: 0.5rem;
+  }
+  .next-step > .toolbar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    gap: 0.5rem;
+  }
+  .next-step > .toolbar > .followup-complete-details {
+    grid-column: 1 / -1;
+  }
+  .next-step > .toolbar > .secondary-button {
+    padding-inline: 0.5rem;
   }
   .form-grid {
     grid-template-columns: 1fr;
   }
   .followup-hero {
-    padding-block: 0.5rem;
+    padding-block: 0.25rem;
   }
   .followup-hero h1 {
-    margin-block: 0.25rem;
+    margin-block: 0;
   }
   .followup-hero p {
     @apply tw:m-0;

@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
   Injector,
   OnInit,
   signal,
@@ -26,6 +27,8 @@ import { FundingService } from '../../services/funding.service.js';
 import { SponsorshipDraftService } from '../../services/sponsorship-draft.service.js';
 import { SponsorshipFollowupBrowser } from '../../services/sponsorship-followup-browser.js';
 import { SponsorshipFollowupController } from '../../services/sponsorship-followup-controller.js';
+
+import { registerSponsorshipFollowupJourneyTranslations } from './sponsorship-followup-translations.js';
 
 @Component({
   selector: 'openg7-sponsorship-followup-page',
@@ -62,6 +65,8 @@ export class SponsorshipFollowupPageComponent implements OnInit {
   });
   @ViewChild(SponsorshipFollowupFormComponent)
   private form?: SponsorshipFollowupFormComponent;
+  @ViewChild('reviewSection')
+  private reviewSection?: ElementRef<HTMLElement>;
 
   readonly token = this.controller.token;
   readonly correctionDecisionId = this.controller.correctionDecisionId;
@@ -78,6 +83,7 @@ export class SponsorshipFollowupPageComponent implements OnInit {
   readonly nextStepMessage = this.controller.nextStepMessage;
 
   constructor() {
+    registerSponsorshipFollowupJourneyTranslations();
     effect(() => {
       if (this.drafts.accessExpired()) this.controller.clearAccess();
     });
@@ -108,6 +114,12 @@ export class SponsorshipFollowupPageComponent implements OnInit {
 
   focusForm(): void {
     this.form?.focusFirstField();
+  }
+  focusReview(event: Event): void {
+    event.preventDefault();
+    const section = this.reviewSection?.nativeElement;
+    section?.focus({ preventScroll: true });
+    section?.scrollIntoView({ block: 'start' });
   }
   correct(decisionId: string): void {
     this.correctionDecisionId.set(decisionId);

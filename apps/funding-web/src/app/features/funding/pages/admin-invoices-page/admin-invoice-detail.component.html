@@ -217,6 +217,7 @@
             })
           "
           (resend)="creditNoteResend.emit(credit.record)"
+          (verifyReceipt)="creditNoteVerifyReceipt.emit(credit.record)"
         />
       </article>
     </section>
@@ -288,6 +289,7 @@
           invoiceRecipientChange.emit({ id: invoice.id, email: $event })
         "
         (resend)="invoiceResend.emit(invoice)"
+        (verifyReceipt)="invoiceVerifyReceipt.emit(invoice)"
       />
     </section>
 

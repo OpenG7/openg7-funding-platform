@@ -28,6 +28,7 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { AdminDashboardRequestError } from '../../services/funding-admin-session.js';
 import { AdminDocumentDeliveryController } from '../../services/admin-document-delivery-controller.js';
 import { adminDocumentDeliveryBrowser } from '../../services/admin-document-delivery-browser.js';
+import { adminFinancialCapabilities } from '../../services/admin-financial-capabilities.js';
 
 import { AdminInvoiceListComponent } from './admin-invoice-list.component.js';
 import { AdminInvoiceDetailComponent } from './admin-invoice-detail.component.js';
@@ -61,14 +62,15 @@ type LoadState = 'idle' | 'loading' | 'ready' | 'error';
           <nav>
             <button
               type="button"
+              data-og7="invoice-backfill"
               (click)="backfillInvoices()"
               [openg7AutomaticPrepare]="'invoice-backfill'"
               [automaticFor]="contributionId ?? null"
               [automaticExecutionMode]="'confirmation_required'"
               (automaticPrepare)="backfillInvoices()"
               [disabled]="
-                !canManage() ||
-                state() === 'loading' ||
+                !canBackfill() ||
+                state() !== 'ready' ||
                 backfillState() === 'sending'
               "
             >
@@ -89,6 +91,12 @@ type LoadState = 'idle' | 'loading' | 'ready' | 'error';
             </button>
           </nav>
         </header>
+
+        @if (!canBackfill()) {
+          <p class="state" data-og7="financial-read-only" role="status">
+            {{ 'admin.financialSafety.ownerRequired' | translate }}
+          </p>
+        }
 
         @if (contributionId) {
           <p class="state" data-og7="attention-invoice-target">
@@ -113,7 +121,9 @@ type LoadState = 'idle' | 'loading' | 'ready' | 'error';
           }}
         </p>
         @if (state() === 'error' && data()) {
-          <p role="status">{{ 'admin.privacy.stale' | translate }}</p>
+          <p role="status" data-og7="financial-stale">
+            {{ 'admin.privacy.stale' | translate }}
+          </p>
         }
         <p
           class="state"
@@ -192,9 +202,11 @@ type LoadState = 'idle' | 'loading' | 'ready' | 'error';
                 inspection.invoice($event.id, $event.contribution_id)
               "
               (invoiceResend)="resendInvoice($event)"
+              (invoiceVerifyReceipt)="verifyInvoiceReceipt($event)"
               (invoiceRecipientChange)="setResendEmail($event)"
               (creditNoteDownload)="downloadCreditNotePdf($event)"
               (creditNoteResend)="resendCreditNote($event)"
+              (creditNoteVerifyReceipt)="verifyCreditNoteReceipt($event)"
               (creditNoteRecipientChange)="setCreditNoteResendEmail($event)"
             />
           </section>
@@ -237,7 +249,17 @@ export class AdminInvoicesPageComponent implements OnInit {
     );
   });
 
-  readonly canManage = computed(() => this.admin.identity()?.role !== 'reader');
+  private readonly financialCapabilities = computed(() =>
+    adminFinancialCapabilities(this.admin.identity(), this.adminToken())
+  );
+  readonly canManage = computed(
+    () =>
+      this.financialCapabilities().canResendDocuments &&
+      this.state() === 'ready'
+  );
+  readonly canBackfill = computed(
+    () => this.financialCapabilities().canBackfillInvoices
+  );
   private readonly delivery = new AdminDocumentDeliveryController({
     admin: this.admin,
     adminToken: () => {
@@ -245,7 +267,16 @@ export class AdminInvoicesPageComponent implements OnInit {
       this.adminToken.set(token);
       return token;
     },
-    canManage: () => this.canManage(),
+    canManage: () =>
+      adminFinancialCapabilities(
+        this.admin.identity(),
+        this.admin.getSavedAdminToken()
+      ).canResendDocuments && this.state() === 'ready',
+    canBackfill: () =>
+      adminFinancialCapabilities(
+        this.admin.identity(),
+        this.admin.getSavedAdminToken()
+      ).canBackfillInvoices && this.state() === 'ready',
     invoices: () => this.invoices(),
     selectedInvoice: () => this.selectedInvoice(),
     contributionId: () => this.contributionId,
@@ -304,6 +335,9 @@ export class AdminInvoicesPageComponent implements OnInit {
         },
         delivery: {
           id: creditNote.id,
+          serverStatus: creditNote.last_email_status,
+          canVerifyReceipt: this.delivery.canVerifyReceipt(creditNote.id),
+          checkingReceipt: this.delivery.checkingReceipt(creditNote.id),
           email: this.delivery.creditNoteResendEmail(creditNote),
           state: this.delivery.creditNoteResendStateFor(creditNote.id),
           message: this.delivery.creditNoteResendMessageFor(creditNote.id),
@@ -316,6 +350,9 @@ export class AdminInvoicesPageComponent implements OnInit {
       },
       delivery: {
         id: invoice.id,
+        serverStatus: invoice.last_email_status,
+        canVerifyReceipt: this.delivery.canVerifyReceipt(invoice.id),
+        checkingReceipt: this.delivery.checkingReceipt(invoice.id),
         email: this.resendEmail(),
         state: this.resendState(),
         message: this.resendMessage(),
@@ -402,6 +439,12 @@ export class AdminInvoicesPageComponent implements OnInit {
         accessRevision !== this.admin.sessionGeneration()
       )
         return;
+      await this.delivery.restorePendingDocuments(response.invoices);
+      if (
+        generation !== this.loadGeneration ||
+        accessRevision !== this.admin.sessionGeneration()
+      )
+        return;
       this.data.set(response);
       const selectedStillExists = response.invoices.some(
         (invoice) => invoice.id === this.selectedInvoiceId()
@@ -472,6 +515,16 @@ export class AdminInvoicesPageComponent implements OnInit {
 
   resendInvoice(invoice: AdminSponsorshipInvoiceRecord): Promise<void> {
     return this.delivery.resendInvoice(invoice);
+  }
+
+  verifyInvoiceReceipt(invoice: AdminSponsorshipInvoiceRecord): Promise<void> {
+    return this.delivery.verifyInvoiceReceipt(invoice);
+  }
+
+  verifyCreditNoteReceipt(
+    creditNote: AdminSponsorshipCreditNoteRecord
+  ): Promise<void> {
+    return this.delivery.verifyCreditNoteReceipt(creditNote);
   }
 
   resendCreditNote(

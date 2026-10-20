@@ -238,6 +238,17 @@ Un ancien serveur ignorant l'héritage ne constitue pas un retour sûr : arrête
 traitements et privilégier une correction en avant. Voir les
 [contrats média et la reprise](../technical/sponsor-media-usage.md#revue-par-lot-et-héritage).
 
+La migration `062_create_sponsorship_information_request_receipts.sql` ajoute les
+reçus immuables des demandes d'information Assistant : UUID, acteur, contribution,
+empreinte, message et date. Elle laisse la table vide et ne reconstitue aucun UUID
+pour les courriels historiques ; aucun envoi ni fait financier n'est créé.
+L'appliquer et rafraîchir les grants runtime (SELECT/INSERT, sans UPDATE/DELETE)
+avant de livrer ensemble l'API et le Web correspondants. Sans cette table, la
+commande échoue avant toute écriture métier et la lecture ne fabrique pas de reçu
+absent. Un ancien serveur ne gère pas le nouvel UUID : suspendre les demandes
+avant un retour d'image, conserver la table additive et privilégier une correction
+en avant. Voir le [contrat Assistant](../technical/assistant-information-receipts.md).
+
 Le registre `public.openg7_schema_migrations` conserve numéro, nom, empreinte
 SHA-256, date, rôle PostgreSQL, action (`applied` ou `baseline`) et référence
 d'adoption éventuelle. Son schéma d'outillage est défini séparément dans

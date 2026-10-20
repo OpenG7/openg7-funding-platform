@@ -11,7 +11,14 @@ import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `<openg7-admin-layout
     ><div class="queue-page">
-      <h1>{{ 'admin.attention.title' | translate }}</h1>
+      <header>
+        <h1>{{ 'admin.attention.title' | translate }}</h1>
+        <p class="subtitle">
+          <strong data-og7="admin-workspace-mode" data-og7-id="prioritize">{{
+            'admin.modes.prioritize' | translate
+          }}</strong>
+        </p>
+      </header>
       <openg7-admin-attention-panel /></div
   ></openg7-admin-layout>`,
   styleUrls: [

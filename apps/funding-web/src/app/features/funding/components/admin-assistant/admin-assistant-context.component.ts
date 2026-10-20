@@ -6,6 +6,8 @@ import {
   ElementRef,
   OnChanges,
   OnInit,
+  Injector,
+  afterNextRender,
   PLATFORM_ID,
   computed,
   inject,
@@ -19,6 +21,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import type { AdminAssistantDraftType } from '@openg7/funding-core';
 
 import { FundingAdminService } from '../../services/funding-admin.service.js';
+import { adminDocumentDeliveryBrowser } from '../../services/admin-document-delivery-browser.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
 
@@ -64,6 +67,9 @@ export class AdminAssistantContextComponent implements OnInit, OnChanges {
   private readonly admin = inject(FundingAdminService);
   private readonly platform = inject(PLATFORM_ID);
   private readonly destroy = inject(DestroyRef);
+  private readonly injector = inject(Injector);
+  private readonly receiptResult =
+    viewChild<ElementRef<HTMLElement>>('receiptResult');
   private readonly controller = new AdminAssistantContextController({
     sponsorshipId: () => this.sponsorshipId(),
     hasValidSession: () => this.admin.hasValidAdminSession(),
@@ -89,7 +95,12 @@ export class AdminAssistantContextComponent implements OnInit, OnChanges {
       });
     },
     closeConfirmation: () => this.dialog()?.nativeElement.close(),
-    openConfirmation: () => this.dialog()?.nativeElement.showModal()
+    openConfirmation: () => this.dialog()?.nativeElement.showModal(),
+    storage: () => adminDocumentDeliveryBrowser()?.storage() ?? null,
+    newRequestId: () =>
+      adminDocumentDeliveryBrowser()?.crypto.randomUUID() ?? null,
+    getInformationRequestReceipt: (token, input) =>
+      this.admin.getInformationRequestReceipt(token, input)
   });
   readonly data = this.controller.data;
   readonly state = this.controller.state;
@@ -99,6 +110,12 @@ export class AdminAssistantContextComponent implements OnInit, OnChanges {
   readonly answer = this.controller.answer;
   readonly delivery = this.controller.delivery;
   readonly confirmation = this.controller.confirmation;
+  readonly uncertainInformation = this.controller.uncertainInformation;
+  readonly informationUncertain = this.controller.informationUncertain;
+  readonly receiptRequest = this.controller.receiptRequest;
+  readonly informationReceipt = this.controller.informationReceipt;
+  readonly receiptState = this.controller.receiptState;
+  readonly canVerifyReceipt = this.controller.canVerifyReceipt;
   readonly subject = this.controller.subject;
   readonly body = this.controller.body;
   readonly question = this.controller.question;
@@ -143,6 +160,34 @@ export class AdminAssistantContextComponent implements OnInit, OnChanges {
 
   send(): Promise<void> {
     return this.controller.send();
+  }
+
+  async verifyInformationReceipt(): Promise<void> {
+    const request = this.receiptRequest();
+    if (!(await this.controller.verifyInformationReceipt())) return;
+    afterNextRender(
+      () => {
+        const receipt = this.informationReceipt();
+        if (
+          !this.destroy.destroyed &&
+          receipt?.requestId === request?.requestId &&
+          receipt?.contributionId === request?.contributionId
+        )
+          this.receiptResult()?.nativeElement.focus({ preventScroll: true });
+      },
+      { injector: this.injector }
+    );
+  }
+
+  receiptDate(value: string): string {
+    return new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZoneName: 'short'
+    }).format(new Date(value));
   }
 
   ask(): Promise<void> {

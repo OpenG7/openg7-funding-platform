@@ -13,6 +13,23 @@ même accès privé. Contrats, confidentialité et séparation des effets financ
 
 Les médias conservent leur parcours indépendant : téléversement et suppression ont leurs propres confirmations. Abandonner le brouillon texte ne supprime pas les fichiers téléversés.
 
+Dans le suivi privé, la soumission du texte se trouve immédiatement après les
+coordonnées et la présentation, avant le gestionnaire des médias. Les trois
+coordonnées obligatoires restent visibles ; le site, le message et l'ancienne
+URL de logo sont regroupés dans **Présentation complémentaire**. Les valeurs
+déjà présentes sont dépliées au chargement ou à la restauration du brouillon.
+Replier une section conserve ses champs et leur saisie ; une erreur de
+validation ouvre le groupe avant d'y placer le focus.
+
+Le gestionnaire des médias reste chargé après le formulaire. Les autorisations
+nécessaires au téléversement restent visibles. Pour chaque fichier existant,
+**Droits d'utilisation** déplie l'éditeur déjà présent ; l'ouverture et la
+fermeture ne confirment aucun droit et conservent les modifications locales.
+Retirer des droits ou proposer une image garde sa commande et sa confirmation.
+Le raccourci **Revue et demandes**, dans le bandeau supérieur,
+rejoint le bloc de modération existant. La consultation, la correction autorisée
+et la demande de réexamen conservent leurs états et leurs actions distincts.
+
 Un média approuvé reste verrouillé pour l'entreprise : son retrait exige une
 confirmation administrative. Pour remplacer un logo approuvé, l'admin retire
 l'ancien fichier, puis l'entreprise téléverse le nouveau dans son suivi ; ce
@@ -74,6 +91,12 @@ supplémentaire et ne relance pas la livraison. Les contrôles de destinataire
 restent appliqués.
 
 Les écritures de brouillon sont sérialisées dans le navigateur et verrouillées par dossier côté PostgreSQL. Une révision protège contre les écrasements entre onglets. Répéter une écriture identique après perte de réponse est sans effet supplémentaire. La soumission ou l'abandon conserve une révision vide afin qu'un ancien onglet ne puisse recréer silencieusement un brouillon périmé. Répéter une soumission confirmée ne relance pas la revue et ne supprime pas un brouillon ultérieur.
+
+Sur écran mobile jusqu'à 600 px, la commande musicale partagée se trouve dans
+la rangée d'actions de l'en-tête, avec le changement de langue et le soutien.
+Elle reste dans le flux de la page et ne recouvre pas les champs du suivi.
+Une seule commande est visible et accessible au clavier ; le même lecteur
+conserve la lecture ou la pause choisie pendant les changements de page.
 
 ## Limites visibles
 

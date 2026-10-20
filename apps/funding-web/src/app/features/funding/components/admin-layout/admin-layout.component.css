@@ -578,7 +578,7 @@ main:focus {
   }
 }
 @media (max-width: 480px) {
-  .layout.controller-shell:not(.concentrated):not(.sandbox-controller-open) {
+  .layout.controller-shell:not(.sandbox-controller-open) {
     --admin-guidance-max-height: min(36rem, 45dvh, calc(100dvh - 1.5rem));
   }
 }

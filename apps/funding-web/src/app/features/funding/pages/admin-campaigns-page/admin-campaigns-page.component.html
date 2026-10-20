@@ -478,6 +478,7 @@
               </aside>
               <section
                 class="proof-panel"
+                data-og7="campaign-proof"
                 [attr.aria-label]="t('detail.proof')"
               >
                 <h4>
@@ -486,14 +487,97 @@
                   }}
                 </h4>
                 @if (row.proof; as proof) {
-                  <p>
-                    {{
-                      t('detail.delivered', { date: date(proof.deliveredAt) })
-                    }}
-                  </p>
-                  <p class="muted">
-                    {{ t('provenance.' + proof.provenance) }} ·
-                    {{ t('visibility.' + proof.visibility) }}
+                  <p class="muted">{{ t('detail.evidenceScope') }}</p>
+                  <dl class="facts proof-facts">
+                    <div>
+                      <dt>{{ t('detail.deliveredAt') }}</dt>
+                      <dd>
+                        @if (evidenceDate(proof.deliveredAt); as deliveredAt) {
+                          <time
+                            data-og7="campaign-proof-delivered-at"
+                            [attr.datetime]="proof.deliveredAt"
+                            >{{ deliveredAt }}</time
+                          >
+                          <small>{{ t('detail.timezone') }}</small>
+                        } @else {
+                          {{ t('noDate') }}
+                        }
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>{{ t('detail.proofSource') }}</dt>
+                      <dd data-og7="campaign-proof-source">
+                        {{ t('provenance.' + proof.provenance) }}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>{{ t('filters.channel') }}</dt>
+                      <dd data-og7="campaign-proof-channel">
+                        {{ t('channels.' + proof.channel) }}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>{{ t('filters.target') }}</dt>
+                      <dd data-og7="campaign-proof-target">
+                        {{ t('targets.' + proof.target) }}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>{{ t('detail.proofReference') }}</dt>
+                      <dd data-og7="campaign-proof-reference">
+                        <code>{{ proof.id }}</code>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>{{ t('detail.obligationReference') }}</dt>
+                      <dd data-og7="campaign-proof-obligation">
+                        <code>{{ proof.obligationId }}</code>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>{{ t('detail.deliveryReference') }}</dt>
+                      <dd data-og7="campaign-proof-delivery">
+                        @if (proof.deliveryId) {
+                          <code>{{ proof.deliveryId }}</code>
+                        } @else {
+                          {{ t('detail.noLinkedDelivery') }}
+                        }
+                      </dd>
+                    </div>
+                  </dl>
+                  <div
+                    class="proof-observation"
+                    data-og7="campaign-proof-observation"
+                  >
+                    <h5>{{ t('detail.visibilityObservation') }}</h5>
+                    @if (
+                      evidenceDate(proof.visibilityObservedAt);
+                      as observedAt
+                    ) {
+                      <p data-og7="campaign-proof-visibility">
+                        {{ t('visibility.' + proof.visibility) }}
+                      </p>
+                      <dl class="facts">
+                        <div>
+                          <dt>{{ t('detail.observedAt') }}</dt>
+                          <dd>
+                            <time
+                              data-og7="campaign-proof-observed-at"
+                              [attr.datetime]="proof.visibilityObservedAt"
+                              >{{ observedAt }}</time
+                            >
+                            <small>{{ t('detail.timezone') }}</small>
+                          </dd>
+                        </div>
+                      </dl>
+                    } @else {
+                      <p class="muted" data-og7="campaign-proof-no-observation">
+                        {{ t('detail.noObservation') }}
+                      </p>
+                    }
+                  </div>
+                  <p class="muted" data-og7="campaign-proof-agreement-scope">
+                    {{ t('detail.agreementScope') }}
                   </p>
                   @if (proofUrl(row); as url) {
                     <a [href]="url" target="_blank" rel="noopener noreferrer"

@@ -13,6 +13,8 @@ import { AdminDashboardRequestError } from '../../services/funding-admin-session
 
 export interface HistoricalAuditPorts {
   contributionId(): string;
+  scope(): 'dossier' | 'portfolio';
+  identity?(): string;
   canOwn(): boolean;
   destroyed(): boolean;
   requestId(): string;
@@ -31,7 +33,6 @@ export class AdminSponsorshipHistoricalAuditController {
   readonly saving = signal(false);
   readonly error = signal('');
   readonly saved = signal(false);
-  readonly global = signal(false);
   readonly filter = signal<SponsorshipHistoricalAuditFilter | ''>('');
   readonly selected = signal<SponsorshipHistoricalAuditItem | null>(null);
   readonly conclusion =
@@ -42,16 +43,24 @@ export class AdminSponsorshipHistoricalAuditController {
     null
   );
   private generation = 0;
-  private selectedContribution = '';
+  private selectedScope = '';
   private readonly pendingByContribution = new Map<
     string,
     SponsorshipHistoricalAuditReviewRequest
   >();
   constructor(private readonly ports: HistoricalAuditPorts) {}
+  reset(): void {
+    this.pendingByContribution.clear();
+    this.selectedScope = '';
+    this.select();
+  }
+  private scopeKey(): string {
+    return `${this.ports.identity?.() ?? ''}:${this.ports.scope()}:${this.ports.scope() === 'portfolio' ? '' : this.ports.contributionId()}`;
+  }
   select(): void {
-    const id = this.ports.contributionId();
-    if (id === this.selectedContribution) return;
-    this.selectedContribution = id;
+    const id = this.scopeKey();
+    if (id === this.selectedScope) return;
+    this.selectedScope = id;
     this.generation++;
     this.data.set(null);
     this.selected.set(null);
@@ -68,25 +77,40 @@ export class AdminSponsorshipHistoricalAuditController {
       !this.ports.destroyed() &&
       this.ports.canOwn() &&
       generation === this.generation &&
-      id === this.ports.contributionId()
+      id === this.scopeKey()
     );
   }
   async load(cursor?: string): Promise<void> {
-    if (!this.ports.canOwn() || this.saving()) return;
+    if (
+      !this.ports.canOwn() ||
+      this.ports.destroyed() ||
+      this.saving() ||
+      (this.ports.scope() === 'dossier' && !this.ports.contributionId())
+    )
+      return;
     const generation = ++this.generation,
-      id = this.ports.contributionId();
+      id = this.scopeKey();
+    const contributionId = this.ports.contributionId();
+    const portfolio = this.ports.scope() === 'portfolio';
     this.loading.set(true);
     this.error.set('');
     try {
       const result = await this.ports.preview({
         pageSize: 25,
-        ...(this.global() ? {} : { contributionId: id }),
+        ...(portfolio ? {} : { contributionId }),
         ...(this.filter()
           ? { finding: this.filter() as SponsorshipHistoricalAuditFilter }
           : {}),
         ...(cursor ? { cursor } : {})
       });
       if (this.current(generation, id)) {
+        if (
+          !portfolio &&
+          result.items.some((item) => item.contributionId !== contributionId)
+        ) {
+          this.data.set(null);
+          throw new Error('HISTORICAL_AUDIT_SCOPE_MISMATCH');
+        }
         this.data.set(result);
         this.selected.set(null);
       }
@@ -98,13 +122,21 @@ export class AdminSponsorshipHistoricalAuditController {
     }
   }
   choose(item: SponsorshipHistoricalAuditItem): void {
-    if (this.pending() || this.saving()) return;
+    if (
+      !this.ports.canOwn() ||
+      this.pending() ||
+      this.saving() ||
+      (this.ports.scope() === 'dossier' &&
+        item.contributionId !== this.ports.contributionId())
+    )
+      return;
     this.selected.set(item);
     this.reason.set('');
     this.confirmation.set(false);
     this.saved.set(false);
   }
   async submit(): Promise<void> {
+    this.select();
     const selected = this.selected();
     if (
       !this.ports.canOwn() ||
@@ -126,18 +158,24 @@ export class AdminSponsorshipHistoricalAuditController {
       reason: this.reason().trim()
     };
     this.pending.set(command);
-    this.pendingByContribution.set(this.ports.contributionId(), command);
+    this.pendingByContribution.set(this.scopeKey(), command);
     await this.send(command);
   }
   async retry(): Promise<void> {
-    if (this.pending() && this.ports.canOwn() && !this.saving())
+    this.select();
+    if (
+      this.pending() &&
+      this.ports.canOwn() &&
+      !this.saving() &&
+      !this.loading()
+    )
       await this.send(this.pending()!);
   }
   private async send(
     command: SponsorshipHistoricalAuditReviewRequest
   ): Promise<void> {
     const generation = this.generation,
-      id = this.ports.contributionId();
+      id = this.scopeKey();
     this.saving.set(true);
     this.error.set('');
     try {
@@ -227,11 +265,19 @@ export class AdminSponsorshipHistoricalAuditController {
   private async failure(error: unknown, fallback: string): Promise<void> {
     if (error instanceof AdminDashboardRequestError && error.status === 401)
       await this.ports.unauthorized();
-    else
+    else {
+      if (error instanceof AdminDashboardRequestError && error.status === 403) {
+        this.data.set(null);
+        this.selected.set(null);
+        this.reason.set('');
+        this.confirmation.set(false);
+        this.saved.set(false);
+      }
       this.error.set(
         error instanceof AdminDashboardRequestError && error.status === 403
           ? 'ownerRequired'
           : fallback
       );
+    }
   }
 }

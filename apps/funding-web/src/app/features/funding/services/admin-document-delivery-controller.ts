@@ -1,6 +1,8 @@
 import { computed, signal } from '@angular/core';
 import { SPONSORSHIP_INVOICE_BACKFILL_CONFIRMATION } from '@openg7/funding-core';
 import type {
+  AdminDocumentResendReceipt,
+  AdminDocumentResendReceiptRequest,
   AdminSponsorshipCreditNoteRecord,
   AdminSponsorshipInvoiceBackfillResult,
   AdminSponsorshipInvoiceRecord,
@@ -25,9 +27,11 @@ export interface AdminDocumentDeliveryPorts {
     | 'resendSponsorshipCreditNote'
     | 'getSponsorshipInvoicePdf'
     | 'getSponsorshipCreditNotePdf'
+    | 'getDocumentResendReceipt'
   >;
   adminToken(): string;
   canManage(): boolean;
+  canBackfill(): boolean;
   invoices(): readonly AdminSponsorshipInvoiceRecord[];
   selectedInvoice(): AdminSponsorshipInvoiceRecord | null;
   contributionId(): string | undefined;
@@ -56,6 +60,13 @@ interface DocumentResendView {
   sentMessage: string;
   queuedMessage: string;
 }
+interface PendingDocumentResend {
+  documentId: string;
+  key: string;
+  documentKey: string;
+  requestId: string;
+  blocked: boolean;
+}
 
 /** Per-page document operations. Server facts, routes and presentation stay with the page. */
 export class AdminDocumentDeliveryController {
@@ -80,7 +91,15 @@ export class AdminDocumentDeliveryController {
   });
   readonly resendMessageIds = signal<Record<string, string>>({});
   private readonly pendingResends = new Map<string, string>();
+  private readonly pendingDocuments = new Map<string, string>();
   private readonly activeResends = new Set<string>();
+  private readonly receiptRequests = signal<
+    Record<string, PendingDocumentResend>
+  >({});
+  private readonly recoveredReceipts = signal<
+    Record<string, Extract<AdminDocumentResendReceipt, { found: true }>>
+  >({});
+  private readonly receiptChecks = signal<Record<string, boolean>>({});
   private readonly pdfDownloads = signal<
     Partial<Record<string, DocumentDownload>>
   >({});
@@ -110,10 +129,15 @@ export class AdminDocumentDeliveryController {
 
   resetScope(): void {
     if (this.disposed) return;
+    for (const [id, checking] of Object.entries(this.receiptChecks()))
+      if (checking) this.activeResends.delete(id);
     this.scope++;
     this.invoiceResends.set({});
     this.pdfDownloads.set({});
     this.resendMessageIds.set({});
+    this.receiptRequests.set({});
+    this.recoveredReceipts.set({});
+    this.receiptChecks.set({});
     this.creditNoteResendEmails.set({});
     this.creditNoteResendStates.set({});
     this.creditNoteResendMessages.set({});
@@ -126,10 +150,11 @@ export class AdminDocumentDeliveryController {
     this.scope++;
     // Storage keeps uncertain requests available to the next page instance.
     this.pendingResends.clear();
+    this.pendingDocuments.clear();
   }
 
   setResendEmail(change: AdminDocumentRecipientChange): void {
-    if (!this.disposed)
+    if (!this.disposed && !this.recipientLocked(change.id))
       this.updateInvoiceResend(change.id, { email: change.email });
   }
 
@@ -142,7 +167,7 @@ export class AdminDocumentDeliveryController {
   }
 
   setCreditNoteResendEmail(change: AdminDocumentRecipientChange): void {
-    if (this.disposed) return;
+    if (this.disposed || this.recipientLocked(change.id)) return;
     this.creditNoteResendEmails.update((emails) => ({
       ...emails,
       [change.id]: change.email
@@ -155,6 +180,19 @@ export class AdminDocumentDeliveryController {
 
   creditNoteResendMessageFor(id: string): string {
     return this.creditNoteResendMessages()[id] ?? '';
+  }
+
+  canVerifyReceipt(id: string): boolean {
+    return Boolean(
+      this.receiptRequests()[id]?.requestId ||
+      ['sending', 'uncertain'].includes(
+        this.recoveredReceipts()[id]?.deliveryStatus ?? ''
+      )
+    );
+  }
+
+  checkingReceipt(id: string): boolean {
+    return this.receiptChecks()[id] ?? false;
   }
 
   creditNotePdfStateFor(id: string): DocumentDownloadState {
@@ -178,6 +216,67 @@ export class AdminDocumentDeliveryController {
       ),
       ...emails
     }));
+  }
+
+  async restorePendingDocuments(
+    invoices: readonly AdminSponsorshipInvoiceRecord[]
+  ): Promise<void> {
+    const browser = this.ports.browser();
+    const scope = this.scope;
+    if (!browser || !this.isActive(scope)) return;
+    for (const invoice of invoices) {
+      for (const document of [invoice, ...invoice.credit_notes]) {
+        if (this.activeResends.has(document.id)) continue;
+        const key = await this.pendingDocumentKey(browser, document.id);
+        if (!this.isActive(scope)) return;
+        let pending = this.pendingDocuments.get(key);
+        let requestId: string | undefined;
+        try {
+          pending ??= browser.storage()?.getItem(key) ?? undefined;
+          if (pending)
+            requestId =
+              this.pendingResends.get(pending) ??
+              browser.storage()?.getItem(pending) ??
+              undefined;
+        } catch {
+          /* Memory fallback. */
+        }
+        if (!pending) continue;
+        this.pendingDocuments.set(key, pending);
+        if (requestId)
+          this.receiptRequests.update((requests) => ({
+            ...requests,
+            [document.id]: {
+              documentId: document.id,
+              key: pending!,
+              documentKey: key,
+              requestId: requestId!,
+              blocked: true
+            }
+          }));
+        const known = this.recoveredReceipts()[document.id];
+        const message = this.ports.t(
+          known
+            ? 'admin.financialSafety.receiptDelivery.' + known.deliveryStatus
+            : 'admin.financialSafety.deliveryUncertain'
+        );
+        if (document === invoice)
+          this.updateInvoiceResend(document.id, {
+            state: 'uncertain',
+            message
+          });
+        else {
+          this.creditNoteResendStates.update((states) => ({
+            ...states,
+            [document.id]: 'uncertain'
+          }));
+          this.creditNoteResendMessages.update((messages) => ({
+            ...messages,
+            [document.id]: message
+          }));
+        }
+      }
+    }
   }
 
   async downloadInvoicePdf(
@@ -236,18 +335,19 @@ export class AdminDocumentDeliveryController {
   }
 
   async resendInvoice(invoice: AdminSponsorshipInvoiceRecord): Promise<void> {
+    if (!this.canMutate(this.scope)) return;
+    if (invoice.last_email_status === 'uncertain') {
+      this.updateInvoiceResend(invoice.id, {
+        state: 'uncertain',
+        message: this.ports.t('admin.financialSafety.deliveryUncertain')
+      });
+      return;
+    }
     const to = this.invoiceEmail(invoice).trim();
     if (!to) return;
     await this.resendDocument(
       { id: invoice.id, number: invoice.invoice_number, to },
-      {
-        state: () => this.invoiceResends()[invoice.id]?.state ?? 'idle',
-        setState: (state) => this.updateInvoiceResend(invoice.id, { state }),
-        setMessage: (message) =>
-          this.updateInvoiceResend(invoice.id, { message }),
-        sentMessage: 'admin.messages.facture_envoyee',
-        queuedMessage: 'admin.messages.facture_remise_en_file'
-      },
+      this.invoiceResendView(invoice.id),
       (token, requestId) =>
         this.ports.admin.resendSponsorshipInvoice(token, {
           invoiceId: invoice.id,
@@ -261,25 +361,23 @@ export class AdminDocumentDeliveryController {
   async resendCreditNote(
     creditNote: AdminSponsorshipCreditNoteRecord
   ): Promise<void> {
+    if (!this.canMutate(this.scope)) return;
+    if (creditNote.last_email_status === 'uncertain') {
+      this.creditNoteResendStates.update((states) => ({
+        ...states,
+        [creditNote.id]: 'uncertain'
+      }));
+      this.creditNoteResendMessages.update((messages) => ({
+        ...messages,
+        [creditNote.id]: this.ports.t('admin.financialSafety.deliveryUncertain')
+      }));
+      return;
+    }
     const to = this.creditNoteResendEmail(creditNote).trim();
     if (!to) return;
     await this.resendDocument(
       { id: creditNote.id, number: creditNote.credit_note_number, to },
-      {
-        state: () => this.creditNoteResendStateFor(creditNote.id),
-        setState: (state) =>
-          this.creditNoteResendStates.update((states) => ({
-            ...states,
-            [creditNote.id]: state
-          })),
-        setMessage: (message) =>
-          this.creditNoteResendMessages.update((messages) => ({
-            ...messages,
-            [creditNote.id]: message
-          })),
-        sentMessage: 'admin.messages.avoir_envoye',
-        queuedMessage: 'admin.messages.avoir_remis_en_file'
-      },
+      this.creditNoteResendView(creditNote.id),
       (token, requestId) =>
         this.ports.admin.resendSponsorshipCreditNote(token, {
           creditNoteId: creditNote.id,
@@ -288,6 +386,143 @@ export class AdminDocumentDeliveryController {
           requestId
         })
     );
+  }
+
+  verifyInvoiceReceipt(invoice: AdminSponsorshipInvoiceRecord): Promise<void> {
+    return this.verifyDocumentReceipt(
+      { documentKind: 'invoice', documentId: invoice.id },
+      this.invoiceResendView(invoice.id)
+    );
+  }
+
+  verifyCreditNoteReceipt(
+    creditNote: AdminSponsorshipCreditNoteRecord
+  ): Promise<void> {
+    return this.verifyDocumentReceipt(
+      { documentKind: 'credit_note', documentId: creditNote.id },
+      this.creditNoteResendView(creditNote.id)
+    );
+  }
+
+  private invoiceResendView(id: string): DocumentResendView {
+    return {
+      state: () => this.invoiceResends()[id]?.state ?? 'idle',
+      setState: (state) => this.updateInvoiceResend(id, { state }),
+      setMessage: (message) => this.updateInvoiceResend(id, { message }),
+      sentMessage: 'admin.messages.facture_envoyee',
+      queuedMessage: 'admin.messages.facture_remise_en_file'
+    };
+  }
+
+  private creditNoteResendView(id: string): DocumentResendView {
+    return {
+      state: () => this.creditNoteResendStateFor(id),
+      setState: (state) =>
+        this.creditNoteResendStates.update((states) => ({
+          ...states,
+          [id]: state
+        })),
+      setMessage: (message) =>
+        this.creditNoteResendMessages.update((messages) => ({
+          ...messages,
+          [id]: message
+        })),
+      sentMessage: 'admin.messages.avoir_envoye',
+      queuedMessage: 'admin.messages.avoir_remis_en_file'
+    };
+  }
+
+  private async verifyDocumentReceipt(
+    document: Omit<AdminDocumentResendReceiptRequest, 'requestId'>,
+    view: DocumentResendView
+  ): Promise<void> {
+    const scope = this.scope;
+    const browser = this.ports.browser();
+    const pending = this.receiptRequests()[document.documentId];
+    const known = this.recoveredReceipts()[document.documentId];
+    const requestId = pending?.requestId ?? known?.requestId;
+    if (
+      !this.canMutate(scope) ||
+      !browser ||
+      !requestId ||
+      this.activeResends.has(document.documentId)
+    )
+      return;
+    this.activeResends.add(document.documentId);
+    this.receiptChecks.update((checks) => ({
+      ...checks,
+      [document.documentId]: true
+    }));
+    try {
+      const receipt = await this.ports.admin.getDocumentResendReceipt(
+        this.ports.adminToken(),
+        { ...document, requestId }
+      );
+      if (!this.canMutate(scope)) return;
+      if (
+        pending &&
+        this.receiptRequests()[document.documentId]?.requestId !==
+          pending.requestId
+      )
+        return;
+      if (
+        receipt.requestId !== requestId.toLowerCase() ||
+        receipt.documentId !== document.documentId.toLowerCase() ||
+        receipt.documentKind !== document.documentKind
+      )
+        throw new Error('Document receipt does not match this request.');
+      if (!receipt.found) {
+        view.setMessage(this.ports.t('admin.financialSafety.receiptNotFound'));
+        return;
+      }
+      if (
+        !receipt.messageId ||
+        !['queued', 'sending', 'sent', 'failed', 'uncertain'].includes(
+          receipt.deliveryStatus
+        )
+      )
+        throw new Error('Document receipt is incomplete.');
+      this.recoveredReceipts.update((receipts) => ({
+        ...receipts,
+        [document.documentId]: receipt
+      }));
+      this.resendMessageIds.update((ids) => ({
+        ...ids,
+        [document.documentId]: receipt.messageId
+      }));
+      if (pending && !['sending', 'uncertain'].includes(receipt.deliveryStatus))
+        this.completeResend(browser, pending);
+      view.setState(
+        receipt.deliveryStatus === 'failed'
+          ? 'error'
+          : ['sending', 'uncertain'].includes(receipt.deliveryStatus)
+            ? 'uncertain'
+            : 'sent'
+      );
+      const message = this.ports.t(
+        'admin.financialSafety.receiptDelivery.' + receipt.deliveryStatus
+      );
+      view.setMessage(message);
+      try {
+        await this.ports.refreshInvoices();
+      } catch (error) {
+        if (!this.isActive(scope) || this.handleAccessError(error)) return;
+        view.setMessage(
+          `${message} ${this.ports.t('admin.financialSafety.stale')}`
+        );
+      }
+    } catch (error) {
+      if (!this.isActive(scope) || this.handleAccessError(error)) return;
+      view.setMessage(this.ports.t('admin.financialSafety.receiptUnavailable'));
+    } finally {
+      if (this.isActive(scope)) {
+        this.activeResends.delete(document.documentId);
+        this.receiptChecks.update((checks) => ({
+          ...checks,
+          [document.documentId]: false
+        }));
+      }
+    }
   }
 
   private async resendDocument<
@@ -306,11 +541,13 @@ export class AdminDocumentDeliveryController {
       !this.canMutate(scope) ||
       !browser ||
       this.activeResends.has(document.id) ||
-      ['confirming', 'sending'].includes(view.state())
+      ['confirming', 'sending', 'uncertain'].includes(view.state())
     )
       return;
     this.activeResends.add(document.id);
     view.setState('confirming');
+    let submitted = false;
+    let pending: PendingDocumentResend | null = null;
     try {
       const confirmed = await this.ports.confirm(
         this.ports.t('admin.confirmation.retryEmail'),
@@ -323,7 +560,12 @@ export class AdminDocumentDeliveryController {
       }
       view.setMessage('');
       view.setState('sending');
-      const pending = await this.resendRequest(
+      this.resendMessageIds.update((ids) => {
+        const next = { ...ids };
+        delete next[document.id];
+        return next;
+      });
+      pending = await this.resendRequest(
         browser,
         scope,
         document.id,
@@ -333,15 +575,22 @@ export class AdminDocumentDeliveryController {
         if (this.isActive(scope)) view.setState('idle');
         return;
       }
+      if (pending.blocked) {
+        view.setState('uncertain');
+        view.setMessage(
+          this.ports.t('admin.financialSafety.deliveryUncertain')
+        );
+        return;
+      }
       if (!this.canMutate(scope)) {
+        this.completeResend(browser, pending);
         if (this.isActive(scope)) view.setState('idle');
         return;
       }
+      submitted = true;
       const result = await send(this.ports.adminToken(), pending.requestId);
       if (!this.isActive(scope)) return;
-      this.completeResend(browser, pending.key);
-      await this.ports.refreshInvoices();
-      if (!this.isActive(scope)) return;
+      this.completeResend(browser, pending);
       if (result.messageId)
         this.resendMessageIds.update((ids) => ({
           ...ids,
@@ -357,11 +606,30 @@ export class AdminDocumentDeliveryController {
               : 'admin.messages.demande_traitee'
         )
       );
+      // A failed read cannot turn an acknowledged enqueue into a failed send.
+      try {
+        await this.ports.refreshInvoices();
+      } catch (error) {
+        if (!this.isActive(scope) || this.handleAccessError(error)) return;
+        view.setMessage(
+          `${view.state() === 'sent' ? this.ports.t('admin.messages.demande_traitee') : ''} ${this.ports.t('admin.financialSafety.stale')}`.trim()
+        );
+      }
     } catch (error) {
       if (!this.isActive(scope)) return;
+      const definitive =
+        error instanceof AdminDashboardRequestError &&
+        error.status >= 400 &&
+        error.status < 500 &&
+        error.status !== 408;
+      if (definitive && pending) this.completeResend(browser, pending);
       if (this.handleAccessError(error)) return;
-      view.setState('error');
-      view.setMessage(this.messageFromError(error));
+      view.setState(submitted && !definitive ? 'uncertain' : 'error');
+      view.setMessage(
+        submitted && !definitive
+          ? this.ports.t('admin.financialSafety.deliveryUncertain')
+          : this.messageFromError(error)
+      );
     } finally {
       this.activeResends.delete(document.id);
     }
@@ -369,7 +637,11 @@ export class AdminDocumentDeliveryController {
 
   async backfillInvoices(): Promise<void> {
     const scope = this.scope;
-    if (!this.canMutate(scope) || !this.ports.browser() || this.backfillPending)
+    if (
+      !this.canBackfill(scope) ||
+      !this.ports.browser() ||
+      this.backfillPending
+    )
       return;
     const contributionId = this.ports.contributionId();
     this.backfillPending = true;
@@ -383,7 +655,7 @@ export class AdminDocumentDeliveryController {
           )
           .replace('{{id}}', contributionId ?? '')
       );
-      if (!confirmed || !this.canMutate(scope)) return;
+      if (!confirmed || !this.canBackfill(scope)) return;
       this.backfillState.set('sending');
       this.backfillMessage.set('');
       const result = await this.ports.admin.backfillSponsorshipInvoices(
@@ -414,7 +686,7 @@ export class AdminDocumentDeliveryController {
     scope: number,
     id: string,
     to: string
-  ): Promise<{ key: string; requestId: string } | null> {
+  ): Promise<PendingDocumentResend | null> {
     const digest = await browser.crypto.subtle.digest(
       'SHA-256',
       new TextEncoder().encode(`${id}:${to}`)
@@ -427,32 +699,101 @@ export class AdminDocumentDeliveryController {
       Array.from(new Uint8Array(digest), (byte) =>
         byte.toString(16).padStart(2, '0')
       ).join('');
+    const documentKey = await this.pendingDocumentKey(browser, id);
+    if (!this.canMutate(scope)) return null;
+    let documentPending = this.pendingDocuments.get(documentKey);
     let requestId = this.pendingResends.get(key);
     try {
+      documentPending ??= browser.storage()?.getItem(documentKey) ?? undefined;
       requestId ??= browser.storage()?.getItem(key) ?? undefined;
     } catch {
       /* Memory fallback when browser storage is unavailable. */
     }
+    const blocked = Boolean(documentPending || requestId);
+    if (blocked) {
+      const originalKey = documentPending ?? key;
+      let originalRequestId = this.pendingResends.get(originalKey) ?? requestId;
+      try {
+        originalRequestId ??=
+          browser.storage()?.getItem(originalKey) ?? undefined;
+      } catch {
+        /* The opaque in-memory request remains usable when storage is denied. */
+      }
+      const pending = {
+        documentId: id,
+        key: originalKey,
+        documentKey,
+        requestId: originalRequestId ?? '',
+        blocked: true
+      };
+      if (pending.requestId)
+        this.receiptRequests.update((requests) => ({
+          ...requests,
+          [id]: pending
+        }));
+      return pending;
+    }
     requestId ??= browser.crypto.randomUUID();
     this.pendingResends.set(key, requestId);
+    this.pendingDocuments.set(documentKey, documentPending ?? key);
     try {
       browser.storage()?.setItem(key, requestId);
+      browser.storage()?.setItem(documentKey, documentPending ?? key);
     } catch {
       /* Retain the request in memory. */
     }
-    return { key, requestId };
+    const pending = { documentId: id, key, documentKey, requestId, blocked };
+    this.receiptRequests.update((requests) => ({ ...requests, [id]: pending }));
+    this.recoveredReceipts.update((receipts) => {
+      const next = { ...receipts };
+      delete next[id];
+      return next;
+    });
+    return pending;
+  }
+
+  private async pendingDocumentKey(
+    browser: AdminDocumentDeliveryBrowser,
+    id: string
+  ): Promise<string> {
+    const digest = await browser.crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode(id)
+    );
+    return (
+      'openg7-admin-document-pending:' +
+      Array.from(new Uint8Array(digest), (byte) =>
+        byte.toString(16).padStart(2, '0')
+      ).join('')
+    );
   }
 
   private completeResend(
     browser: AdminDocumentDeliveryBrowser,
-    key: string
+    pending: PendingDocumentResend
   ): void {
-    this.pendingResends.delete(key);
+    this.receiptRequests.update((requests) => {
+      const next = { ...requests };
+      if (next[pending.documentId]?.requestId === pending.requestId)
+        delete next[pending.documentId];
+      return next;
+    });
+    this.pendingResends.delete(pending.key);
+    this.pendingDocuments.delete(pending.documentKey);
     try {
-      browser.storage()?.removeItem(key);
+      browser.storage()?.removeItem(pending.key);
+      browser.storage()?.removeItem(pending.documentKey);
     } catch {
       /* A retained UUID can only deduplicate a later retry. */
     }
+  }
+
+  private recipientLocked(id: string): boolean {
+    return (
+      this.activeResends.has(id) ||
+      this.invoiceResends()[id]?.state === 'uncertain' ||
+      this.creditNoteResendStates()[id] === 'uncertain'
+    );
   }
 
   private invoiceEmail(invoice: AdminSponsorshipInvoiceRecord): string {
@@ -553,6 +894,14 @@ export class AdminDocumentDeliveryController {
     return (
       this.isActive(scope) &&
       this.ports.canManage() &&
+      Boolean(this.ports.adminToken())
+    );
+  }
+
+  private canBackfill(scope: number): boolean {
+    return (
+      this.isActive(scope) &&
+      this.ports.canBackfill() &&
       Boolean(this.ports.adminToken())
     );
   }

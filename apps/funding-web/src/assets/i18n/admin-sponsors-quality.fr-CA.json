@@ -1,0 +1,33 @@
+{
+  "nav": "Qualité des commandites",
+  "title": "Qualité des commandites",
+  "description": "Examinez les accords et les preuves historiques de l’ensemble des dossiers. Chaque correction reste dans son dossier propriétaire.",
+  "ownerRequired": "Cette consultation est réservée au propriétaire.",
+  "back": "Toutes les commandites",
+  "backToDossier": "Retour au dossier de commandite",
+  "backToQuality": "Retour à la qualité des commandites",
+  "openQuality": "Ouvrir la qualité des commandites",
+  "openDossier": "Consulter le dossier",
+  "inventoryTitle": "Inventaire des accords de commandite",
+  "inventoryHelp": "Lecture de plusieurs dossiers, de leurs prestations et des preuves enregistrées. Cet inventaire ne qualifie aucun accord et ne publie aucun contenu.",
+  "loadError": "L’inventaire est indisponible. Réessayez sa lecture.",
+  "guide": {
+    "read": {
+      "title": "Comprendre la qualité des commandites",
+      "body": "Cette rubrique réunit les inventaires de plusieurs dossiers. Les lectures et les examens sont réservés au propriétaire."
+    },
+    "choose": {
+      "title": "Choisir un dossier à examiner",
+      "body": "Chargez une page d’accords puis ouvrez le dossier concerné pour qualifier ses prestations. L’inventaire n’applique aucune correction."
+    },
+    "verify": {
+      "title": "Examiner les preuves historiques",
+      "body": "Chargez les preuves du portefeuille, filtrez les constats et consignez une conclusion explicite. Une conclusion ne publie rien et ne réécrit aucune preuve."
+    }
+  },
+  "audit": {
+    "dossierScope": "Les preuves affichées sont limitées à ce dossier. Les compteurs du portefeuille sont consultables dans Qualité des commandites.",
+    "portfolioScope": "Cette consultation couvre les preuves historiques de tous les dossiers.",
+    "dossierCounts": "{{count}} preuve(s) correspondant aux critères de ce dossier."
+  }
+}

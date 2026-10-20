@@ -2,7 +2,30 @@ import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { expect, type BrowserType, type Page } from '@playwright/test';
+import {
+  expect,
+  type BrowserType,
+  type Page,
+  type Request
+} from '@playwright/test';
+
+/** Open the dossier's lazy moderation tool through its visible entry point. */
+export async function openSponsorModeration(page: Page) {
+  const toggle = page.locator(
+    '[data-og7="dossier-tool-toggle"][data-og7-id="moderation"]'
+  );
+  await expect(toggle).toBeVisible();
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true')
+    await toggle.click();
+  const panel = page.locator(
+    '[data-og7="dossier-tool-panel"][data-og7-id="moderation"]'
+  );
+  await expect(panel).toBeVisible();
+  const actions = panel.locator('[data-og7="moderation-actions"]');
+  await expect(actions).toHaveCount(1);
+  await expect(actions).toBeVisible();
+  return actions;
+}
 
 /** Complete the fixture's OIDC sign-in in an existing browser context. */
 export async function signInAdminIdentity(
@@ -10,7 +33,31 @@ export async function signInAdminIdentity(
   path: string,
   role = 'owner'
 ) {
-  await page.goto('/admin/login?returnUrl=' + encodeURIComponent(path));
+  const loginPath = '/admin/login?returnUrl=' + encodeURIComponent(path);
+  let scriptNetworkChanged = false;
+  const recordScriptFailure = (request: Request) => {
+    if (
+      request.method() === 'GET' &&
+      request.resourceType() === 'script' &&
+      request.failure()?.errorText === 'net::ERR_NETWORK_CHANGED' &&
+      new URL(request.url()).origin === new URL(page.url()).origin
+    )
+      scriptNetworkChanged = true;
+  };
+  page.on('requestfailed', recordScriptFailure);
+  try {
+    const response = await page.goto(loginPath);
+    // Recover one interrupted local script load before authentication.
+    // Retry only the login GET, once, before any authentication interaction.
+    if (
+      scriptNetworkChanged &&
+      response?.ok() &&
+      new URL(page.url()).pathname === '/admin/login'
+    )
+      await page.goto(loginPath);
+  } finally {
+    page.off('requestfailed', recordScriptFailure);
+  }
   await page.locator('[data-og7="identity-sign-in"]').click();
   await page.getByLabel('Compte de test').selectOption(role);
   await page.getByRole('button', { name: 'Continuer' }).click();

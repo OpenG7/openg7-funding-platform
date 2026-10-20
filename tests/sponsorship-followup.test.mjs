@@ -1,5 +1,5 @@
+import { fundingBaseTranslations } from './support/funding-base-translations.mjs';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -55,13 +55,7 @@ test('access expiry is distinct from a transient service or network failure', ()
 
 test('follow-up French and English catalogs have matching nonempty messages', () => {
   const catalogs = ['fr-CA', 'en'].map(
-    (locale) =>
-      JSON.parse(
-        readFileSync(
-          'apps/funding-web/src/assets/i18n/' + locale + '.json',
-          'utf8'
-        )
-      ).funding.followup
+    (locale) => fundingBaseTranslations(locale).funding.followup
   );
   const flatten = (value, prefix = '') =>
     Object.entries(value).flatMap(([key, entry]) =>

@@ -5,7 +5,10 @@ import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { startDisposableProvider } from '../integration/support/disposable-provider.mjs';
 
 import { startIdentityStack } from './stack.mjs';
-import { signInAdminIdentity } from './support/admin-browser.js';
+import {
+  openSponsorModeration,
+  signInAdminIdentity
+} from './support/admin-browser.js';
 
 test('moderation correction and reconsideration preserve private explanations, actors and publication boundaries through real OIDC and SMTP', async ({
   browser
@@ -103,7 +106,7 @@ test('moderation correction and reconsideration preserve private explanations, a
       level: 'N1' | 'N2',
       explanation: string
     ) => {
-      const actions = page.locator('[data-og7="moderation-actions"]').first();
+      const actions = await openSponsorModeration(page);
       await actions.getByRole('combobox').first().selectOption(level);
       await actions.locator('[data-og7="moderation-open"]').click();
       const panel = page.locator('[data-og7="moderation-decision"]');
@@ -192,7 +195,7 @@ test('moderation correction and reconsideration preserve private explanations, a
     await privacy();
 
     await owner.reload();
-    const actions = owner.locator('[data-og7="moderation-actions"]').first();
+    const actions = await openSponsorModeration(owner);
     await actions.locator('summary').click();
     await actions
       .locator('[data-og7="moderation-assigned-member"]')

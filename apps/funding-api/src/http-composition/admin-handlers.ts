@@ -29,6 +29,8 @@ import {
   queueAdminDocumentResend
 } from '../admin-document-resend.service.js';
 import { createAdminDocumentsHttpHandler } from '../admin-documents.http.js';
+import { readAdminDocumentResendReceipt } from '../admin-document-resend-receipts.repository.js';
+import { readAdminExpenseCreateReceipt } from '../expense-creation-receipts.repository.js';
 import { createAdminEmailHttpHandler } from '../admin-email.http.js';
 import { createAdminInsightsHttpHandler } from '../admin-insights.http.js';
 import { createAdminPilotageHttpHandler } from '../admin-pilotage.http.js';
@@ -154,6 +156,7 @@ import {
   sponsorshipInvoicePdfFilename
 } from '../sponsorship-document-pdf.service.js';
 import { requestSponsorshipInformation } from '../sponsorship-information.service.js';
+import { readSponsorshipInformationRequestReceipt } from '../sponsorship-information-receipts.repository.js';
 import {
   getSponsorshipInterventions,
   recordSponsorshipIntervention
@@ -318,6 +321,8 @@ export const createAdminHttpHandlers = ({
     sponsorshipCreditNotePdfFilename,
     queueAdminDocumentResend: (input, actor) =>
       queueAdminDocumentResend(dbPool!, input, actor),
+    readAdminDocumentResendReceipt: (input, actor) =>
+      readAdminDocumentResendReceipt(dbPool!, input, actor),
     DocumentResendConflict,
     reportFailure: (message, error) => {
       if (error === undefined) console.error(message);
@@ -326,6 +331,9 @@ export const createAdminHttpHandlers = ({
   });
 
   const handleAdminAccountingRequest = createAdminAccountingHttpHandler({
+    databaseAvailable: () => dbPool !== null,
+    readAdminExpenseCreateReceipt: (requestId, actor) =>
+      readAdminExpenseCreateReceipt(dbPool!, requestId, actor),
     publicBaseOrigin,
     ensureAdminAccess,
     getAdminAuditActor,
@@ -450,6 +458,8 @@ export const createAdminHttpHandlers = ({
       getSponsorshipProgress: (id) => getSponsorshipProgress(dbPool, id),
       requestSponsorshipInformation: (input, actor) =>
         requestSponsorshipInformation(dbPool!, input, actor),
+      readSponsorshipInformationRequestReceipt: (input, actor) =>
+        readSponsorshipInformationRequestReceipt(dbPool!, input, actor),
       updateAdminSponsorshipDetails: (input, actor) =>
         updateAdminSponsorshipDetails(dbPool!, input, actor),
       getSponsorshipInterventions: (id, before) =>

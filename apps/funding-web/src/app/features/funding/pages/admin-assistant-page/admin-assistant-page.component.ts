@@ -41,6 +41,10 @@ import enAssistance from '../../../../../assets/i18n/admin-dossier-assistance.en
 import frAssistance from '../../../../../assets/i18n/admin-dossier-assistance.fr-CA.json' with { type: 'json' };
 import enProfile from '../../../../../assets/i18n/admin-sponsor-profile.en.json' with { type: 'json' };
 import frProfile from '../../../../../assets/i18n/admin-sponsor-profile.fr-CA.json' with { type: 'json' };
+import {
+  AssistantDossierNavigation,
+  assistantDossierReturn
+} from '../../models/admin-assistant-navigation.js';
 
 import { AdminAssistantQueueComponent } from './admin-assistant-queue.component.js';
 import { AdminAssistantQuestionComponent } from './admin-assistant-question.component.js';
@@ -108,6 +112,18 @@ export class AdminAssistantPageComponent {
   readonly canUseOwnerActions = computed(
     () => !this.admin.identity() || this.admin.identity()?.role === 'owner'
   );
+  readonly dossierReturn = computed(() =>
+    assistantDossierReturn(
+      this.router,
+      this.params()?.get('returnTo'),
+      this.sponsorshipId()
+    )
+  );
+  readonly dossierReturnFocus =
+    this.router.currentNavigation()?.extras.info instanceof
+    AssistantDossierNavigation
+      ? this.router.currentNavigation()?.extras.info
+      : undefined;
   private readonly controller = new AdminAssistantController({
     admin: {
       getWorkQueue: (token, query) => this.admin.getWorkQueue(token, query),
@@ -231,7 +247,12 @@ export class AdminAssistantPageComponent {
 
   openDossierAction(action: 'edit-identity' | 'followup-access'): void {
     const sponsorshipId = this.sponsorshipId();
-    if (!sponsorshipId) return;
+    if (
+      !sponsorshipId ||
+      (action === 'edit-identity' && !this.canManageDossier()) ||
+      (action === 'followup-access' && !this.canUseOwnerActions())
+    )
+      return;
     void this.router.navigate(['/admin/fundraiser/sponsors'], {
       queryParams: { sponsorshipId, tab: 'identity', action }
     });

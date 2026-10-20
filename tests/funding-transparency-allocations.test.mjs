@@ -1,3 +1,4 @@
+import { fundingBaseTranslations } from './support/funding-base-translations.mjs';
 import '@angular/compiler';
 import assert from 'node:assert/strict';
 import {
@@ -33,12 +34,7 @@ const componentDirectory =
   'apps/funding-web/src/app/features/funding/components/funding-transparency-allocations';
 const componentFile = `${componentDirectory}/funding-transparency-allocations.component.ts`;
 const catalogs = Object.fromEntries(
-  ['fr-CA', 'en'].map((locale) => [
-    locale,
-    JSON.parse(
-      readFileSync(`apps/funding-web/src/assets/i18n/${locale}.json`, 'utf8')
-    )
-  ])
+  ['fr-CA', 'en'].map((locale) => [locale, fundingBaseTranslations(locale)])
 );
 let compiledDirectory;
 let AllocationsComponent;

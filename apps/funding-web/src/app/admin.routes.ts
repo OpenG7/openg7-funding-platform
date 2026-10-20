@@ -1,12 +1,32 @@
-import { inject } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { CanMatchFn, Router, Routes } from '@angular/router';
 import { provideStore } from '@ngrx/store';
+
+import enTranslations from '../assets/i18n/admin-base.en.json' with { type: 'json' };
+import frCaTranslations from '../assets/i18n/admin-base.fr-CA.json' with { type: 'json' };
 
 import { AdminCampaignsStore } from './features/funding/services/admin-campaigns-store.service.js';
 import { adminCampaignsFeature } from './features/funding/services/admin-campaigns.store.js';
 import { FundingAdminService } from './features/funding/services/funding-admin.service.js';
+import { FundingI18nService } from './features/funding/services/funding-i18n.service.js';
+
+/** Register once per application, before an administrative page or auth guard. */
+@Injectable({ providedIn: 'root' })
+class AdminBaseTranslations {
+  constructor() {
+    const i18n = inject(FundingI18nService);
+    i18n.mergeTranslations('fr-CA', frCaTranslations);
+    i18n.mergeTranslations('en', enTranslations);
+  }
+}
+
+const adminTranslationsReady: CanMatchFn = () => {
+  inject(AdminBaseTranslations);
+  return true;
+};
 
 const adminSessionRequired: CanMatchFn = async (_route, segments) => {
+  inject(AdminBaseTranslations);
   const admin = inject(FundingAdminService);
   const router = inject(Router);
   if (await admin.restoreSession()) {
@@ -43,6 +63,7 @@ export const adminRoutes: Routes = [
   },
   {
     path: 'login',
+    canMatch: [adminTranslationsReady],
     loadComponent: () =>
       import('./features/funding/pages/admin-login-page/admin-login-page.component.js').then(
         (m) => m.AdminLoginPageComponent
@@ -50,6 +71,7 @@ export const adminRoutes: Routes = [
   },
   {
     path: 'oidc-setup',
+    canMatch: [adminTranslationsReady],
     loadComponent: () =>
       import('./features/funding/pages/admin-identity-setup-page/admin-identity-setup-page.component.js').then(
         (m) => m.AdminIdentitySetupPageComponent
@@ -85,6 +107,14 @@ export const adminRoutes: Routes = [
     loadComponent: () =>
       import('./features/funding/pages/admin-contributions-page/admin-contributions-page.component.js').then(
         (m) => m.AdminContributionsPageComponent
+      )
+  },
+  {
+    path: 'fundraiser/sponsors/quality',
+    canMatch: [adminSessionRequired],
+    loadComponent: () =>
+      import('./features/funding/pages/admin-sponsors-quality-page/admin-sponsors-quality-page.component.js').then(
+        (m) => m.AdminSponsorsQualityPageComponent
       )
   },
   {

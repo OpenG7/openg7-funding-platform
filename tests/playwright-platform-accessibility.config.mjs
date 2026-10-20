@@ -4,7 +4,7 @@ import {
 } from './ui/playwright-fixtures.config.mjs';
 
 export default definePublicPageSuite({
-  testMatch: ['platform-accessibility.spec.ts'],
+  testMatch: ['platform-accessibility.spec.ts', 'app-update.spec.ts'],
   outputDir: '../test-results/platform-accessibility',
   projects: publicJourneyProjects()
 });

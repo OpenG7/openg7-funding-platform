@@ -41,8 +41,34 @@ indication from the current snapshot, not a reservation: the server checks
 availability again during private preparation and final authorization. Viewing
 the step never prepares, approves or
 sends a publication. Leaving the proposed date unchanged keeps that date selected;
-it does not authorize sending. Benefit cards and proposed dates precede the detailed
-commitment records. The review drawer labels dates with the browser's timezone.
+it does not authorize sending. The benefit workflow shows confirmed completion,
+the current responsibility and reason, with a link to
+`/admin/fundraiser/campaigns?sponsorshipId=<uuid>` for detailed benefits and evidence.
+The full row-by-row obligation console is replaced by this summary. A benefit
+overview from the recorded offer remains above it. Six navigation steps connect
+the offer, preparation, content, authorization, delivery and evidence owners.
+They reuse the dossier sections and the exact delivery drawer; Automation and
+Campaigns links carry the dossier identifier without selecting an arbitrary draft.
+The website/social cards retain their dates and direct delivery
+actions. The recorded agreement, historical qualification, adjustments and timing
+remain in **Promised services** within the dossier; Campaigns does not replace
+those decisions. The review drawer labels dates with the browser's timezone.
+
+The advanced settings distinguish **Public profile** (slug, public summary and
+private profile preview) from separately collapsed **Declared social tracking**
+(destination, declared status, channels, external reference and private notes).
+One versioned **Save changes** action saves changed fields from both sections;
+it neither publishes the website profile nor authorizes a social delivery.
+Moving into or out of the declared `published` status retains its explicit
+confirmation. Declared tracking never creates qualified fulfilment evidence.
+Website visibility keeps its own confirmed action, and social authorization
+continues through the exact final-publication drawer.
+
+Adoption inventory and portfolio-wide historical evidence review are on the
+owner-only `/admin/fundraiser/sponsors/quality` page. The historical audit kept
+inside a dossier always sends its contribution filter; it cannot switch to the
+portfolio scope in place. Its **Sponsorship quality** link carries `returnSponsorshipId` so the
+return points to that dossier's Publication tab and agreement section.
 
 For an existing delivery, **Review and authorize** opens its exact final-publication
 drawer within step 6. **Change proposed time** opens the same delivery's editor. The

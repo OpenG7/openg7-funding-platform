@@ -14,6 +14,34 @@ const syntheticToken = 'openg7-admin-session.synthetic';
 const cookieMarker = 'openg7-admin-session.cookie';
 const baseUrl = 'https://funding.example.test/api';
 
+test('information command propagates only the UUID ownership conflict and never retries', async (t) => {
+  for (const code of [
+    'INFORMATION_REQUEST_ID_CONFLICT',
+    'INFORMATION_REQUEST_CONFLICT',
+    'PRIVATE_DATABASE_DETAIL',
+    { private: true }
+  ]) {
+    const { service } = serviceFixture(t);
+    const fetchMock = t.mock.method(globalThis, 'fetch', async () =>
+      Response.json({ code, error: 'Private detail' }, { status: 409 })
+    );
+    await assert.rejects(
+      service.requestSponsorshipInformation(syntheticToken, informationRequest),
+      (error) => {
+        assert.equal(error.status, 409);
+        assert.equal(
+          error.code,
+          code === 'INFORMATION_REQUEST_ID_CONFLICT' ? code : undefined
+        );
+        assert.equal(error.message, 'Admin dashboard could not be loaded.');
+        return true;
+      }
+    );
+    assert.equal(fetchMock.mock.callCount(), 1);
+    fetchMock.mock.restore();
+  }
+});
+
 const memoryStorage = () => {
   const values = new Map();
   return {
@@ -46,6 +74,55 @@ const serviceFixture = (t, token = syntheticToken) => {
   });
   return { service: new FundingAdminService(), sessionStorage };
 };
+
+test('expense receipt transport is a private GET with the exact UUID and never submits a mutation', async (t) => {
+  const { service } = serviceFixture(t);
+  const requestId = 'b7e09b08-bf26-4cdb-a4e7-43e2e75298dd';
+  const receipt = {
+    requestId,
+    found: true,
+    expenseId: '42',
+    acceptedAt: '2026-10-19T20:50:00.000Z'
+  };
+  const fetchMock = t.mock.method(globalThis, 'fetch', async (url, options) => {
+    assert.equal(
+      url,
+      `${baseUrl}/admin/expenses/create-receipt?requestId=${requestId}`
+    );
+    assert.equal(options.method, 'GET');
+    assert.equal(options.cache, 'no-store');
+    assert.equal(options.body, undefined);
+    assert.equal(options.headers.Authorization, `Bearer ${syntheticToken}`);
+    return Response.json(receipt);
+  });
+  assert.deepEqual(
+    await service.getExpenseCreateReceipt(syntheticToken, requestId),
+    receipt
+  );
+  assert.equal(fetchMock.mock.callCount(), 1);
+});
+
+test('expense creation transport retains the UUID-conflict code without replaying a POST', async (t) => {
+  const { service } = serviceFixture(t);
+  const requestId = 'b7e09b08-bf26-4cdb-a4e7-43e2e75298dd';
+  const fetchMock = t.mock.method(
+    globalThis,
+    'fetch',
+    async (_url, options) => {
+      assert.equal(options.method, 'POST');
+      assert.equal(JSON.parse(options.body).requestId, requestId);
+      return Response.json({ code: 'request_conflict' }, { status: 409 });
+    }
+  );
+  await assert.rejects(
+    service.createExpense(syntheticToken, { requestId }),
+    (error) =>
+      error instanceof AdminDashboardRequestError &&
+      error.status === 409 &&
+      error.code === 'request_conflict'
+  );
+  assert.equal(fetchMock.mock.callCount(), 1);
+});
 
 test('reading an already cleared admin session does not repeatedly invalidate private consumers', (t) => {
   const { service, sessionStorage } = serviceFixture(t);
@@ -683,6 +760,7 @@ test('admin request timeout propagates once without retrying or clearing a valid
 });
 
 const informationRequest = {
+  requestId: '10000000-0000-4000-8000-000000000901',
   contributionId: 'synthetic-contribution',
   contextVersion: 'synthetic-version',
   recipient: 'sponsor@example.test',
@@ -747,6 +825,16 @@ const explicitJsonRequests = [
     method: 'POST',
     cache: 'no-store',
     body: informationRequest
+  },
+  {
+    name: 'information request receipt',
+    invoke: (service, token) =>
+      service.getInformationRequestReceipt(token, {
+        requestId: 'request /',
+        contributionId: 'sponsor /'
+      }),
+    path: '/admin/sponsorships/information-request-receipt?requestId=request+%2F&contributionId=sponsor+%2F',
+    cache: 'no-store'
   },
   {
     name: 'access recipient',
@@ -1570,6 +1658,19 @@ const creditNoteResendRequest = {
   requestId: 'synthetic-credit-note-resend'
 };
 const operationalRequests = [
+  {
+    name: 'document resend receipt',
+    errorKind: 'status',
+    invoke: (service, token) =>
+      service.getDocumentResendReceipt(token, {
+        requestId: 'receipt /',
+        documentKind: 'invoice',
+        documentId: 'invoice /'
+      }),
+    path: '/admin/sponsorship-documents/resend-receipt?requestId=receipt+%2F&documentKind=invoice&documentId=invoice+%2F',
+    method: 'GET',
+    fallback: 'Document receipt unavailable.'
+  },
   {
     name: 'backup status',
     savedAuth: true,

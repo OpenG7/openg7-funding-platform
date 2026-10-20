@@ -12,6 +12,7 @@ import type {
 import { SPONSORSHIP_INVOICE_BACKFILL_CONFIRMATION } from '../../../packages/funding-core/src/index.js';
 
 import type { queueAdminDocumentResend } from './admin-document-resend.service.js';
+import type { readAdminDocumentResendReceipt } from './admin-document-resend-receipts.repository.js';
 import { AdminFinancialCurrencyConflictError } from './admin-financial-currency.js';
 import type { AdminAuditLogInput } from './fund-admin.repository.js';
 import { createRouteMatcher } from './http-routing.js';
@@ -78,6 +79,10 @@ export interface AdminDocumentsHttpDependencies {
     input: Parameters<typeof queueAdminDocumentResend>[1],
     actor: string
   ) => ReturnType<typeof queueAdminDocumentResend>;
+  readonly readAdminDocumentResendReceipt: (
+    input: Parameters<typeof readAdminDocumentResendReceipt>[1],
+    actor: string
+  ) => ReturnType<typeof readAdminDocumentResendReceipt>;
   readonly DocumentResendConflict: new (
     message?: string
   ) => Error & { readonly code: string };
@@ -108,6 +113,7 @@ export const createAdminDocumentsHttpHandler = ({
   sponsorshipInvoicePdfFilename,
   sponsorshipCreditNotePdfFilename,
   queueAdminDocumentResend,
+  readAdminDocumentResendReceipt,
   DocumentResendConflict,
   reportFailure
 }: AdminDocumentsHttpDependencies) => {
@@ -117,6 +123,60 @@ export const createAdminDocumentsHttpHandler = ({
     request: ApiRequest,
     response: ApiResponse
   ): Promise<boolean> => {
+    if (
+      routeMatches(
+        request.url,
+        '/admin/sponsorship-documents/resend-receipt',
+        '/api/admin/sponsorship-documents/resend-receipt'
+      )
+    ) {
+      response.setHeader('Cache-Control', 'private, no-store');
+      if (!ensureAdminAccess(request, response)) return true;
+      if (request.method !== 'GET') {
+        response.setHeader('Allow', 'GET');
+        writeJson(request, response, 405, { code: 'METHOD_NOT_ALLOWED' });
+        return true;
+      }
+      const params = new URL(request.url ?? '/', publicBaseOrigin).searchParams;
+      const requestId = params.get('requestId');
+      const documentId = params.get('documentId');
+      const documentKind = params.get('documentKind');
+      if (
+        [...params.keys()].length !== 3 ||
+        ['requestId', 'documentId', 'documentKind'].some(
+          (key) => params.getAll(key).length !== 1
+        ) ||
+        !isValidUuid(requestId) ||
+        !isValidUuid(documentId) ||
+        (documentKind !== 'invoice' && documentKind !== 'credit_note')
+      ) {
+        writeJson(request, response, 400, { code: 'INVALID_DOCUMENT_RECEIPT' });
+        return true;
+      }
+      if (!databaseAvailable()) {
+        writeJson(request, response, 503, {
+          code: 'DOCUMENT_RECEIPT_UNAVAILABLE'
+        });
+        return true;
+      }
+      try {
+        writeJson(
+          request,
+          response,
+          200,
+          await readAdminDocumentResendReceipt(
+            { requestId: requestId!, documentId: documentId!, documentKind },
+            getAdminAuditActor(request)
+          )
+        );
+      } catch {
+        reportFailure('Failed to read document resend receipt.');
+        writeJson(request, response, 503, {
+          code: 'DOCUMENT_RECEIPT_UNAVAILABLE'
+        });
+      }
+      return true;
+    }
     if (
       request.method === 'GET' &&
       routeMatches(

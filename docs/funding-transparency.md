@@ -22,6 +22,16 @@ Les webhooks et le backfill refusent une transaction de solde dont le montant br
 
 ## Allocations publiées et réalisations
 
+Dans l'administration Dépenses, reader et operator consultent le registre et les
+preuves en lecture seule. Seul owner dispose de création, édition, publication,
+masquage et archivage; l'API contrôle toujours ces droits. Une lecture en échec
+affiche le dernier état connu et bloque les mutations jusqu'à une lecture valide.
+Après une réponse de création perdue, la création reste bloquée et le registre
+reste consultable. Le complément de cette branche permet de vérifier le
+[reçu de son UUID exact](technical/expense-creation-receipts.md) ; relire le
+registre seul ne prouve pas l'absence d'une création. Voir les
+[limites UX-01 courantes](development/ux-01-admin-capabilities-and-uncertainty.md#limites-et-reçus-consultables).
+
 Une allocation décrit une utilisation prévue du fonds. Sa création, son avancement
 et sa publication ne déclenchent aucun paiement fournisseur et ne changent ni les
 transactions Stripe ni le net avant dépenses opérationnelles. `draft`, `private`
@@ -42,6 +52,34 @@ Le formulaire de création fige la saisie soumise avant la confirmation. Il rest
 réussite, il est vidé seulement si cette saisie est restée inchangée; une nouvelle
 saisie ou un échec conserve les champs. La confirmation vaut pour le contenu
 soumis et n'approuve pas la saisie suivante.
+
+Le complément implémenté sur `feat/ux-expense-creation-receipts` donne à chaque
+création un UUID `requestId`, conservé avant le POST en mémoire et, si disponible,
+dans le stockage de session. Aucun contenu du formulaire n'est conservé dans ce
+marqueur. Une réponse perdue, un résultat incompatible ou un conflit de demande
+garde la création bloquée ; une actualisation du registre ne lève pas ce verrou.
+Le marqueur historique `1`, dépourvu d'UUID, reste bloquant sans fabriquer de reçu.
+
+Le propriétaire peut **Vérifier la création existante** par le
+[reçu lié à l'acteur d'origine](technical/expense-creation-receipts.md).
+Absence, refus ou indisponibilité conservent l'UUID et le verrou. Un reçu exact
+et valide permet **Voir l'entrée créée** avec une relecture de cette dépense ou
+allocation, sans nouveau POST ni nouvelle publication. La saisie suivante reste
+conservée ; un reçu retrouvé garde son lien même si le registre échoue ensuite.
+Sans stockage de session, seule l'instance ouverte conserve l'UUID. Ce complément
+de branche ne vaut ni fusion, ni déploiement ; sa qualification est distincte
+des validations historiques ci-dessous.
+
+Qualification locale du 19 octobre 2026 : création **23/23**, édition **22/22**
+et capacités financières **13/13**, soit 58 scénarios distincts incluant les
+dix nouveaux cas de reçus. Le fichier création a son passage final dans
+`%TEMP%/og7-expense-receipts-create-final.log` ; édition et capacités sont
+qualifiées dans `%TEMP%/og7-expense-receipts-ui-full.log`. Ces recettes Chromium
+utilisent le Web compilé commun et des API interceptées ; les nouveaux cas
+couvrent FR390 et EN1536, clavier, rechargement et réponses tardives. Les captures
+du reçu retrouvé sont relues. Les preuves serveur et leurs limites restent dans
+le [contrat propriétaire](technical/expense-creation-receipts.md) ; aucune
+qualification de production n'est revendiquée.
 
 `expectedVersion` reste obligatoire pour modifier une allocation. Une version
 obsolète renvoie désormais `409 version_conflict`; la saisie reste dans le

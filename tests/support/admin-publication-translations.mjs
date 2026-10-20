@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
 
+import { fundingBaseTranslations } from './funding-base-translations.mjs';
+
 /** Match the lazy administrative locale registration used by publication views. */
 export function adminPublicationTranslations(locale) {
   const read = (file) =>
@@ -12,7 +14,7 @@ export function adminPublicationTranslations(locale) {
         'utf8'
       )
     );
-  const catalog = read(locale);
+  const catalog = fundingBaseTranslations(locale);
   const deferred = read(`admin-publication-schedule.${locale}`);
   const merge = (target, additions) => {
     for (const [key, value] of Object.entries(additions)) {

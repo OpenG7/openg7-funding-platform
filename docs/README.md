@@ -1,19 +1,21 @@
 # Documentation de la plateforme
 
-Révision de l’index : 12 octobre 2026.
-L'[état de la plateforme](platform-status.md) distingue les fonctionnalités
-livrées, leurs préconditions et les preuves d'exécution disponibles. Une fonction
-présente dans le dépôt n'est pas nécessairement activée en production.
+Révision de l’index : 18 octobre 2026.
+L'[état de la plateforme](platform-status.md) distingue fonctions livrées,
+préconditions et preuves d'exécution. Présence dans le dépôt et activation
+en production restent distinctes.
 
 ## Guides fonctionnels actuels
 
-Pour modifier le dépôt, partir du [socle agent](../AGENTS.md), puis lire seulement
-les règles du chemin et du domaine concernés. La [matrice de validation](development/validation.md)
-centralise les commandes et leurs garanties; l'[architecture](ARCHITECTURE.md)
-se lit en français **ou** en [anglais](ARCHITECTURE.en.md).
+Partir du [socle agent](../AGENTS.md), puis lire les règles du chemin et du domaine.
+[Validation](development/validation.md) : commandes et garanties.
+Architecture en [français](ARCHITECTURE.md) **ou** [anglais](ARCHITECTURE.en.md).
 
-La [consolidation de l'application](development/application-consolidation.md)
-décrit les propriétaires des règles partagées et les vérifications de cette passe.
+La [consolidation](development/application-consolidation.md) recense règles
+partagées, propriétaires et vérifications.
+
+Le [blueprint fonctionnel et visuel](development/platform-functional-visual-blueprint.md)
+recense positions, responsabilités et onglets des pages.
 
 La [référence CSS et frameworks](development/css-frameworks.md) présente l'inventaire
 reproductible, l'intégration Tailwind et les correspondances avec Material/CDK.

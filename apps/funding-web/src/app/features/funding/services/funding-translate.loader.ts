@@ -10,9 +10,14 @@ const translations: Record<string, TranslationObject> = {
   'fr-CA': frCaTranslations
 };
 
+/** The same synchronous public base is used before merging feature locales. */
+export function fundingPublicTranslations(language: string): TranslationObject {
+  return translations[language] ?? translations['fr-CA'];
+}
+
 @Injectable()
 export class FundingTranslateLoader implements TranslateLoader {
   getTranslation(language: string): Observable<TranslationObject> {
-    return of(translations[language] ?? translations['fr-CA']);
+    return of(fundingPublicTranslations(language));
   }
 }

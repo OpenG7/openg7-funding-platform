@@ -291,8 +291,22 @@ test('Xbox refusal records a reason-bound moderation decision without authorizin
   const state = await controllerJourneysFixtures(page);
   const pad = adminController(page);
   await page.goto(path());
+  const tool = page.locator(
+    '[data-og7="dossier-tool-panel"][data-og7-id="moderation"]'
+  );
+  await pad.activate(
+    page.locator('[data-og7="dossier-tool-toggle"][data-og7-id="moderation"]')
+  );
+  await expect(tool).toBeVisible();
   const actions = hook(page, 'moderation-actions').first();
   await pad.select(actions.getByRole('combobox'), 'N4');
+  await pad.activate(actions.locator('[data-og7="moderation-open"]'));
+  await expect(hook(page, 'moderation-decision')).toBeVisible();
+  await pad.press('B');
+  await expect(hook(page, 'moderation-decision')).toHaveCount(0);
+  await expect(tool).toBeVisible();
+  await expect(actions.locator('[data-og7="moderation-open"]')).toBeFocused();
+  expect(writes(state, '/moderation/decisions')).toHaveLength(0);
   await pad.activate(actions.locator('[data-og7="moderation-open"]'));
   await moderation(page, pad, true, 'DEHUMANIZATION');
   const decisions = writes(state, '/moderation/decisions');
@@ -308,6 +322,52 @@ test('Xbox refusal records a reason-bound moderation decision without authorizin
     }
   });
   expect(writes(state, '/refund')).toHaveLength(0);
+});
+
+test('Xbox reader opens shared dossier help and returns to its exact origin without access or moderation controls', async ({
+  page
+}) => {
+  const state = await controllerJourneysFixtures(page, 'reader');
+  const pad = adminController(page);
+  const origin = `${path('identity')}#dossier-identity`;
+  await page.goto(origin);
+  await expect(
+    page.locator('[data-og7="dossier-tool-toggle"][data-og7-id="moderation"]')
+  ).toHaveCount(0);
+  await expect(
+    page.locator('[data-og7="dossier-tool-toggle"][data-og7-id="access"]')
+  ).toHaveCount(0);
+  const help = hook(page, 'dossier-assistant');
+  await pad.activate(help);
+  await expect(page).toHaveURL(
+    (url) =>
+      url.pathname === '/admin/fundraiser/assistant' &&
+      url.searchParams.get('sponsorshipId') === id &&
+      url.searchParams.get('returnTo') === origin
+  );
+  const guide = hook(page, 'assistant-dossier-guide').locator(
+    '[data-og7="dossier-guide"]'
+  );
+  await expect(guide).toHaveAttribute('open', '');
+  await expect(guide.locator('[data-og7="guide-edit-identity"]')).toHaveCount(
+    0
+  );
+  await expect(guide.locator('[data-og7="guide-followup-access"]')).toHaveCount(
+    0
+  );
+  const summary = guide.locator('summary');
+  await pad.activate(summary);
+  await expect(guide).not.toHaveAttribute('open', '');
+  await expect(summary).toBeFocused();
+  await pad.activate(summary);
+  await expect(guide).toHaveAttribute('open', '');
+  const back = hook(page, 'assistant-dossier-return');
+  await expect(back).toHaveAttribute('href', origin);
+  await pad.activate(back);
+  await expect(page).toHaveURL(origin);
+  await expect(help).toBeFocused();
+  await expect(hook(page, 'dossier-guide')).toHaveCount(0);
+  expect(state.commands).toEqual([]);
 });
 
 test('Xbox refund requires exact text and explicit submission, with no call on cancellation', async ({

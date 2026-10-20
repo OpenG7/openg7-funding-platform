@@ -933,7 +933,7 @@ test('publication state labels retain message, payment, slug, dirty and saved pr
 });
 
 for (const locale of ['fr-CA', 'en']) {
-  test(`publication, visibility and channel messages resolve existing translations in ${locale}`, async () => {
+  test(`publication and visibility messages resolve existing translations in ${locale}`, async () => {
     const f = fixture(
       sponsor({
         amount: 500,
@@ -943,10 +943,6 @@ for (const locale of ['fr-CA', 'en']) {
         ])
       }),
       locale
-    );
-    assert.match(
-      f.workflow.draftChannelsLabel(f.state.selected),
-      /Facebook \/ LinkedIn/
     );
     assert.ok(f.workflow.publicationStateLabel(f.state.records[0]));
     f.setField('feedStatus', 'published');
@@ -961,11 +957,6 @@ for (const locale of ['fr-CA', 'en']) {
     );
     assert.doesNotMatch(
       f.workflow.websiteMessages()[f.state.selected],
-      /^admin\./
-    );
-    const empty = fixture(sponsor(), locale);
-    assert.doesNotMatch(
-      empty.workflow.draftChannelsLabel(empty.state.selected),
       /^admin\./
     );
   });

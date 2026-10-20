@@ -10,6 +10,24 @@
   @if (!canOwn()) {
     <p>{{ 'admin.historicalAudit.ownerRequired' | translate }}</p>
   } @else {
+    <p data-og7="historical-audit-scope">
+      {{
+        labels.t(
+          scope() === 'portfolio'
+            ? 'audit.portfolioScope'
+            : 'audit.dossierScope'
+        )
+      }}
+    </p>
+    @if (scope() === 'dossier') {
+      <a
+        class="admin-link"
+        routerLink="/admin/fundraiser/sponsors/quality"
+        [queryParams]="{ returnSponsorshipId: contributionId() }"
+        data-og7="historical-audit-open-quality"
+        >{{ labels.t('openQuality') }}</a
+      >
+    }
     <div class="flex flex-wrap items-center gap-3">
       <button
         type="button"
@@ -20,14 +38,6 @@
       >
         {{ 'admin.historicalAudit.load' | translate }}
       </button>
-      <label class="flex items-center gap-2"
-        ><input
-          type="checkbox"
-          [checked]="c.global()"
-          [disabled]="c.saving() || !!c.pending()"
-          (change)="setGlobal($event)"
-        />{{ 'admin.historicalAudit.global' | translate }}</label
-      >
       <label class="audit-filter"
         >{{ 'admin.historicalAudit.filter' | translate }}
         <select
@@ -59,28 +69,34 @@
       <p role="status">{{ 'admin.historicalAudit.saved' | translate }}</p>
     }
     @if (c.data(); as data) {
-      <p data-og7-id="historical-audit-counts">
-        {{
-          'admin.historicalAudit.counts'
-            | translate
-              : {
-                  total: data.totals.evidence,
-                  filtered: data.totals.filtered,
-                  unreviewed: data.totals.unreviewed
-                }
-        }}
-      </p>
-      <p>
-        {{
-          'admin.historicalAudit.globalCounts'
-            | translate
-              : {
-                  duration: data.totals.durationUnverified,
-                  missing: data.totals.requiredElementMissing,
-                  incomplete: data.totals.snapshotIncomplete
-                }
-        }}
-      </p>
+      @if (scope() === 'portfolio') {
+        <p data-og7-id="historical-audit-counts">
+          {{
+            'admin.historicalAudit.counts'
+              | translate
+                : {
+                    total: data.totals.evidence,
+                    filtered: data.totals.filtered,
+                    unreviewed: data.totals.unreviewed
+                  }
+          }}
+        </p>
+        <p>
+          {{
+            'admin.historicalAudit.globalCounts'
+              | translate
+                : {
+                    duration: data.totals.durationUnverified,
+                    missing: data.totals.requiredElementMissing,
+                    incomplete: data.totals.snapshotIncomplete
+                  }
+          }}
+        </p>
+      } @else {
+        <p data-og7-id="historical-audit-counts">
+          {{ labels.t('audit.dossierCounts', { count: data.totals.filtered }) }}
+        </p>
+      }
       @if (data.items.length === 0) {
         <p>{{ 'admin.historicalAudit.empty' | translate }}</p>
       }
@@ -94,6 +110,19 @@
               {{ item.channel }} · {{ item.target }} · {{ item.deliveredAt
               }}<br />{{ item.evidenceId }}
             </p>
+            @if (scope() === 'portfolio') {
+              <a
+                class="admin-link"
+                routerLink="/admin/fundraiser/sponsors"
+                [queryParams]="{
+                  sponsorshipId: item.contributionId,
+                  tab: 'publication',
+                  returnTo: '/admin/fundraiser/sponsors/quality'
+                }"
+                fragment="dossier-agreement"
+                >{{ labels.t('openDossier') }}</a
+              >
+            }
             @if (item.findings.length === 0) {
               <p>
                 {{
@@ -216,7 +245,7 @@
         type="button"
         class="admin-button"
         data-og7-id="historical-audit-retry"
-        [disabled]="c.saving()"
+        [disabled]="c.saving() || c.loading()"
         (click)="c.retry()"
       >
         {{ 'admin.historicalAudit.retry' | translate }}

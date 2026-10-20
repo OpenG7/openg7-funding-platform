@@ -61,7 +61,7 @@
       "steps": {
         "obligations": {
           "title": "Lire les obligations",
-          "action": "Comparer les canaux, destinations, quantités et éléments requis avec l’accord enregistré.",
+          "action": "Lire la synthèse puis suivre son lien vers Campagnes pour comparer les prestations détaillées avec l’accord de commandite enregistré.",
           "outcome": "Le périmètre de préparation est établi à partir des prestations documentées."
         },
         "prepare": {
@@ -107,12 +107,12 @@
     "delivery": {
       "title": "Suivre la livraison et ses preuves",
       "goal": "Comprendre l’état de chaque obligation et consulter les preuves de réalisation disponibles.",
-      "location": "Publication du dossier : tableau de suivi des obligations et cartes des canaux.",
+      "location": "Publication du dossier : synthèse et cartes des canaux ; Campagnes pour le détail des prestations et leurs preuves.",
       "proposed": "Présenter ensemble le statut, la prochaine responsabilité et la preuve qualifiée de chaque obligation.",
       "steps": {
         "status": {
           "title": "Lire le statut courant",
-          "action": "Consulter l’état de chaque obligation et de la publication associée : attente, programmation, envoi, échec ou réussite.",
+          "action": "Lire la synthèse et l’état de la publication associée : attente, programmation, envoi, échec ou réussite. Campagnes présente le détail par prestation.",
           "outcome": "Les faits confirmés sont distingués des opérations en attente, des simulations et des résultats incertains."
         },
         "responsibility": {
@@ -122,7 +122,7 @@
         },
         "evidence": {
           "title": "Consulter la preuve qualifiée",
-          "action": "Après une réussite confirmée, consulter la preuve qualifiée enregistrée par la plateforme et le lien de publication disponible.",
+          "action": "Ouvrir volontairement Campagnes depuis le lien des prestations de cette commandite pour consulter les preuves qualifiées et les liens de publication disponibles.",
           "outcome": "La réalisation est vérifiable à partir de la preuve enregistrée. Aucun rattachement manuel n’est effectué par ce guide."
         }
       }
@@ -168,7 +168,7 @@
         },
         "save": {
           "title": "Enregistrer les métadonnées",
-          "action": "Relire les champs modifiés et utiliser la commande Enregistrer de la zone de suivi manuel.",
+          "action": "Relire les champs modifiés puis utiliser Enregistrer les modifications. Cette commande commune enregistre les changements de la fiche publique et du suivi déclaré.",
           "outcome": "Après validation serveur, les métadonnées historiques sont conservées. Cet enregistrement ne déclenche aucun envoi et ne confirme aucune livraison."
         }
       }

@@ -119,6 +119,24 @@ export interface AdminSponsorshipInvoiceResendRequest {
   readonly requestId: string;
 }
 
+export interface AdminDocumentResendReceiptRequest {
+  readonly requestId: string;
+  readonly documentKind: 'invoice' | 'credit_note';
+  readonly documentId: string;
+}
+
+/** An accepted command is separate from the email worker's current delivery state. */
+export type AdminDocumentResendReceipt =
+  | (AdminDocumentResendReceiptRequest & { readonly found: false })
+  | (AdminDocumentResendReceiptRequest & {
+      readonly found: true;
+      readonly messageId: string;
+      readonly acceptedAt: string;
+      readonly deliveryStatus:
+        'queued' | 'sending' | 'sent' | 'failed' | 'uncertain';
+      readonly sentAt: string | null;
+    });
+
 export interface AdminSponsorshipInvoiceResendResult {
   readonly queued: boolean;
   readonly attempted: boolean;

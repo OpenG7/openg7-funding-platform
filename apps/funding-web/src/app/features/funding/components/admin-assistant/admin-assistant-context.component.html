@@ -195,7 +195,7 @@
                 (ngModelChange)="subject.set($event)"
                 required
                 maxlength="200"
-                [disabled]="busy()"
+                [disabled]="busy() || informationUncertain()"
             /></label>
             <label
               >{{ 'admin.context.message' | translate
@@ -206,20 +206,25 @@
                 required
                 maxlength="6000"
                 rows="8"
-                [disabled]="busy()"
+                [disabled]="busy() || informationUncertain()"
               ></textarea>
             </label>
             <button
               type="submit"
               class="admin-button admin-button--primary"
-              [disabled]="busy() || !subject().trim() || !body().trim()"
+              [disabled]="
+                busy() ||
+                informationUncertain() ||
+                !subject().trim() ||
+                !body().trim()
+              "
             >
               {{ 'admin.context.reviewSend' | translate }}
             </button>
           </form>
         }
       }
-      @if (delivery(); as sent) {
+      @if (!informationReceipt() && delivery(); as sent) {
         <div class="inset" role="status" data-og7="assistant-delivery-result">
           <p>{{ 'admin.context.delivery.' + sent.status | translate }}</p>
           <a
@@ -266,7 +271,79 @@
   @if (busy()) {
     <p role="status">{{ 'admin.context.working' | translate }}</p>
   }
-  @if (error()) {
+  @if (!busy() && informationUncertain()) {
+    <div class="inset" role="status" data-og7="assistant-information-uncertain">
+      <p>{{ 'admin.financialSafety.informationUncertain' | translate }}</p>
+      @if (uncertainInformation(); as pending) {
+        <p>{{ pending.recipient }} · {{ pending.subject }}</p>
+      }
+      @if (receiptRequest()) {
+        <button
+          type="button"
+          class="admin-button"
+          data-og7="assistant-information-receipt-check"
+          [disabled]="!canVerifyReceipt()"
+          (click)="verifyInformationReceipt()"
+        >
+          {{
+            'admin.financialSafety.informationReceipt.' +
+              (receiptState() === 'checking' ? 'checking' : 'verify')
+              | translate
+          }}
+        </button>
+      } @else {
+        <p>
+          {{ 'admin.financialSafety.informationReceipt.legacy' | translate }}
+        </p>
+      }
+      @if (receiptState() === 'notFound' || receiptState() === 'unavailable') {
+        <p role="alert" data-og7="assistant-information-receipt-error">
+          {{
+            'admin.financialSafety.informationReceipt.' + receiptState()
+              | translate
+          }}
+        </p>
+      }
+      @if (!informationReceipt()) {
+        <a class="admin-link" routerLink="/admin/fundraiser/email-queue">
+          {{ 'admin.context.viewEmail' | translate }}
+        </a>
+      }
+    </div>
+  }
+  @if (informationReceipt(); as receipt) {
+    <div data-og7="assistant-delivery-result">
+      <section
+        #receiptResult
+        tabindex="-1"
+        class="inset admin-focus-target"
+        role="status"
+        data-og7="assistant-information-receipt"
+      >
+        <p>
+          {{
+            'admin.financialSafety.receiptDelivery.' + receipt.deliveryStatus
+              | translate
+          }}
+        </p>
+        <p>
+          {{
+            'admin.financialSafety.informationReceipt.acceptedAt' | translate
+          }}
+          <time [attr.datetime]="receipt.acceptedAt">{{
+            receiptDate(receipt.acceptedAt)
+          }}</time>
+        </p>
+        <a
+          class="admin-link"
+          routerLink="/admin/fundraiser/email-queue"
+          [queryParams]="{ messageId: receipt.messageId }"
+          >{{ 'admin.context.viewEmail' | translate }}</a
+        >
+      </section>
+    </div>
+  }
+  @if (error() && !informationUncertain()) {
     <p role="alert" class="error">
       {{ 'admin.context.' + error() | translate }}
     </p>

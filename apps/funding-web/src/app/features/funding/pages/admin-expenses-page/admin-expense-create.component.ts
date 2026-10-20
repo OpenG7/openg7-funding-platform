@@ -35,6 +35,7 @@ import type {
 
       <openg7-admin-expense-form-fields
         [draft]="draft()"
+        [readOnly]="readOnly()"
         (fieldChange)="changeField($event)"
       />
 
@@ -59,10 +60,12 @@ import type {
 export class AdminExpenseCreateComponent {
   readonly draft = input.required<NewExpenseDraft>();
   readonly busy = input.required<boolean>();
+  readonly readOnly = input(false);
   readonly draftChange = output<NewExpenseFieldChange>();
   readonly createRequested = output<void>();
 
   changeField(change: ExpenseEditFieldChange): void {
+    if (this.readOnly()) return;
     if (change.field !== 'publishedAt') this.draftChange.emit(change);
   }
 }

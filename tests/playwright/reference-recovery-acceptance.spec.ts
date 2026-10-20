@@ -8,6 +8,7 @@ import type {
   PublicReferenceLookupResponse
 } from '@openg7/funding-core';
 
+import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
 import { adminSessionHeaders } from './support/admin-auth.js';
 import { acceptanceSql } from './support/acceptance-database.js';
 import { test, expect } from './support/test.js';
@@ -147,6 +148,7 @@ test('forgotten references: private responses during queue failure, unique captu
       r.url().endsWith('/sponsorship-followup/draft') &&
       r.request().method() === 'POST'
   );
+  await openFollowupPresentation(payer);
   await payer.locator('#followup-message').fill(note);
   expect((await saved).ok()).toBe(true);
   await expect(

@@ -340,8 +340,11 @@ export function registerSponsorshipCommitmentTests(context: Context): void {
   }) => {
     const { state } = await commercialFixtures(page, context);
     await page.goto(context.path('publication'));
-    const panel = page.locator('[data-og7="admin-commitments"]');
-    await panel.locator('[data-og7="commitments-adoption"] summary').click();
+    await expect(page.locator('[data-og7="commitments-adoption"]')).toHaveCount(
+      0
+    );
+    await page.goto('/admin/fundraiser/sponsors/quality');
+    const panel = page.locator('[data-og7="sponsors-quality-page"]');
     await panel.locator('[data-og7="commitments-adoption-load"]').click();
     await expect(
       panel.locator('[data-og7="commitments-adoption"]')

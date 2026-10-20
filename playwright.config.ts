@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 import adminUiConfig from './tests/playwright-admin-ui.config.mjs';
 import followupUiConfig from './tests/playwright-followup-ui.config.mjs';
+import platformAccessibilityConfig from './tests/playwright-platform-accessibility.config.mjs';
 import publicJourneysConfig from './tests/playwright-public-journeys.config.mjs';
 import sandboxConfig from './tests/playwright-sandbox.config.mjs';
 
@@ -22,7 +23,7 @@ export default defineConfig({
   // Admin fixtures have a separate step in the disposable acceptance workflow.
   // Reuse each suite's testMatch so no fixture is replayed against Docker there.
   testIgnore: [
-    'platform-accessibility.spec.ts',
+    platformAccessibilityConfig.testMatch ?? [],
     // The sandbox recipe requires its own proxy, manifest and empty database.
     // Its dedicated launcher owns that stack, independently of ordinary Docker.
     sandboxConfig.testMatch ?? [],

@@ -28,6 +28,7 @@ const automaticWorkspaces = [
   ['assistant', '/assistant'],
   ['contributions', '/contributions'],
   ['sponsors', '/sponsors'],
+  ['sponsorsQuality', '/sponsors/quality'],
   ['campaigns', '/campaigns'],
   ['invoices', '/invoices'],
   ['publications', '/publications'],
@@ -1449,9 +1450,7 @@ for (const language of ['fr-CA', 'en']) {
       await page.emulateMedia({ reducedMotion: 'reduce' });
       await page.goto(dashboardPath);
       await hook(page, 'toggle').click();
-      await expect(hook(page, 'page')).toContainText(
-        language === 'en' ? 'Dashboard' : 'Tableau de bord'
-      );
+      await expect(hook(page, 'page')).toContainText('Cockpit');
       await expect(hook(page, 'panel')).not.toContainText('admin.guidance.');
       await expect(page.locator('[data-og7="admin-guidance"]')).toHaveCSS(
         'animation-name',
@@ -1770,7 +1769,21 @@ for (const { width, concentrated, placement } of [
           .getBoundingClientRect();
         const focused = document.activeElement as HTMLElement;
         const heading = focused.getBoundingClientRect();
-        const top = Math.max(0, frame.top);
+        let top = Math.max(0, frame.top);
+        const intro = document.querySelector('[data-og7="pilot-intro"]');
+        const introBounds = intro?.getBoundingClientRect();
+        // A sticky heading occupies part of the scrollport. Reserve its actual
+        // visible bounds before deciding whether the whole zone can fit.
+        if (
+          intro &&
+          introBounds &&
+          getComputedStyle(intro).position === 'sticky' &&
+          introBounds.left < rect.right &&
+          introBounds.right > rect.left &&
+          introBounds.top <= top &&
+          introBounds.bottom > top
+        )
+          top = introBounds.bottom;
         const bottom = Math.min(
           innerHeight,
           frame.bottom,
@@ -1812,6 +1825,17 @@ for (const { width, concentrated, placement } of [
           zone: { top: rect.top, bottom: rect.bottom, height: rect.height },
           viewport: { top, bottom, availableHeight },
           card: { top: card.top, bottom: card.bottom },
+          heading: { top: heading.top, bottom: heading.bottom },
+          hitPoints: points.map(({ x, y }) => {
+            const front = document.elementFromPoint(x, y);
+            return {
+              x,
+              y,
+              front: front?.tagName,
+              hook: front?.getAttribute('data-og7'),
+              parentHook: front?.parentElement?.getAttribute('data-og7')
+            };
+          }),
           focusedWithin: element.contains(focused),
           wholeZoneFits,
           wholeZoneVisible: rect.top >= top + 6 && rect.bottom <= bottom - 6,
@@ -1830,7 +1854,7 @@ for (const { width, concentrated, placement } of [
           })
         };
       });
-      expect(visibility).toMatchObject({
+      expect(visibility, JSON.stringify(visibility)).toMatchObject({
         focusedWithin: true,
         pointsVisible: true
       });
@@ -1858,7 +1882,7 @@ for (const { width, concentrated, placement } of [
   });
 }
 
-test('all nineteen protected admin workspaces retain guidance, including unavailable data', async ({
+test('all protected admin workspaces retain guidance, including unavailable data', async ({
   page
 }) => {
   test.setTimeout(90000);
@@ -1873,6 +1897,7 @@ test('all nineteen protected admin workspaces retain guidance, including unavail
     '/assistant',
     '/contributions',
     '/sponsors',
+    '/sponsors/quality',
     '/campaigns',
     '/invoices',
     '/publications',
@@ -1914,7 +1939,7 @@ for (const { language, width } of [
     );
     await expect(automaticHook(page, 'history')).toHaveCount(0);
     await expect(automaticHook(page, 'scope').locator('option')).toHaveCount(
-      20
+      automaticWorkspaces.length + 1
     );
     expect(
       await automaticHook(page, 'scope')

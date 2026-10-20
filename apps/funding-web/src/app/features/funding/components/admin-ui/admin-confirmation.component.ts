@@ -20,12 +20,15 @@ import { AdminDrawerComponent } from './admin-drawer.component.js';
       [opened]="!!confirmation.pending()"
       [title]="'admin.confirmation.title' | translate"
       [closeLabel]="'admin.confirmation.cancel' | translate"
+      [fixedFooter]="true"
       (closed)="confirmation.answer(false)"
     >
       @if (confirmation.pending(); as decision) {
         <p>{{ decision.message }}</p>
         <p class="target">{{ decision.target }}</p>
-        <footer>
+      }
+      <footer adminDrawerFooter>
+        @if (confirmation.pending()) {
           <button
             type="button"
             class="admin-button"
@@ -41,8 +44,8 @@ import { AdminDrawerComponent } from './admin-drawer.component.js';
           >
             {{ 'admin.confirmation.accept' | translate }}
           </button>
-        </footer>
-      }
+        }
+      </footer>
     </openg7-admin-drawer>
   `,
   styleUrls: [

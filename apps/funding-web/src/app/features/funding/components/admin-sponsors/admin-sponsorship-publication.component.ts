@@ -38,6 +38,19 @@ import {
 
 import { AdminSponsorshipCommitmentsComponent } from './admin-sponsorship-commitments.component.js';
 import { AdminSponsorshipPreparationComponent } from './admin-sponsorship-preparation.component.js';
+import { registerSponsorPublicationTranslations } from './admin-sponsors-publication-translations.js';
+
+interface PublicationGuidanceLink {
+  readonly id:
+    | 'offer'
+    | 'preparation'
+    | 'content'
+    | 'authorization'
+    | 'delivery'
+    | 'evidence';
+  readonly path: string;
+  readonly fragment?: string;
+}
 
 /** Funding organism: persisted recognition facts and explicit visibility requests. */
 @Component({
@@ -67,6 +80,30 @@ export class AdminSponsorshipPublicationComponent {
   readonly changeWebsiteVisibility = output<boolean>();
   readonly editWebsite = output<void>();
   readonly commitmentChanged = output<void>();
+  readonly guidanceLinks: readonly PublicationGuidanceLink[] = [
+    {
+      id: 'offer',
+      path: '/admin/fundraiser/sponsors',
+      fragment: 'dossier-agreement'
+    },
+    {
+      id: 'preparation',
+      path: '/admin/fundraiser/sponsors',
+      fragment: 'dossier-preparation'
+    },
+    {
+      id: 'content',
+      path: '/admin/fundraiser/sponsors',
+      fragment: 'dossier-publication-content'
+    },
+    {
+      id: 'authorization',
+      path: '/admin/fundraiser/sponsors',
+      fragment: 'dossier-publication-content'
+    },
+    { id: 'delivery', path: '/admin/fundraiser/publications/automation' },
+    { id: 'evidence', path: '/admin/fundraiser/campaigns' }
+  ];
   readonly blockerTab = publicationBlockerTab;
   readonly websiteState = computed(() => {
     const site = this.dossier().website;
@@ -92,6 +129,7 @@ export class AdminSponsorshipPublicationComponent {
   });
 
   constructor() {
+    registerSponsorPublicationTranslations();
     const browser = isPlatformBrowser(inject(PLATFORM_ID));
     effect(() => {
       const language = this.i18n.currentLanguage();
@@ -223,7 +261,6 @@ export class AdminSponsorshipPublicationComponent {
       ).length ?? 0;
     return { ...completion, done: Math.min(completion.done, qualified) };
   });
-  readonly completed = computed(() => this.publicationCompletion()?.done ?? 0);
   readonly publicationComplete = computed(() =>
     isDossierPublicationComplete(this.dossier())
   );
@@ -231,10 +268,6 @@ export class AdminSponsorshipPublicationComponent {
 
   evidence(obligationId: string) {
     return qualifiedPublicationEvidence(this.dossier(), obligationId);
-  }
-
-  evidenceUrl(obligationId: string): string | null {
-    return this.safePublicUrl(this.evidence(obligationId)?.externalPostUrl);
   }
 
   publicationDateLabel(reasonOrDeliveryStatus: string): string {
@@ -325,6 +358,12 @@ export class AdminSponsorshipPublicationComponent {
     return {
       sponsorshipId: this.dossier().contributionId,
       ...(p?.deliveryId ? { deliveryId: p.deliveryId } : {})
+    };
+  }
+  guidanceParams(link: PublicationGuidanceLink): Record<string, string> {
+    return {
+      sponsorshipId: this.dossier().contributionId,
+      ...(link.fragment ? { tab: 'publication' } : {})
     };
   }
   date(value: string): string {

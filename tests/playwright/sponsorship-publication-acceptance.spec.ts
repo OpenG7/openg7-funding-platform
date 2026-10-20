@@ -18,6 +18,7 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
+import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
 import { completePublicationModeration } from './support/acceptance-moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { acceptDisplayedSponsorshipOffer } from './support/acceptance-offer.js';
@@ -29,6 +30,10 @@ import {
 import { acceptanceSql } from './support/acceptance-database.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import { completeModeration } from './support/moderation.js';
+import {
+  openDeclaredSponsorshipTracking,
+  openSponsorshipModeration
+} from './support/sponsorship-dossier.js';
 import { test, expect } from './support/test.js';
 
 const automationUrl = '/api/admin/publication-automation';
@@ -257,9 +262,11 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
       await company.locator('#followup-companyName').fill(companyName);
       await company.locator('#followup-contactName').fill('Contact de recette');
       await company.locator('#followup-contactEmail').fill(privateEmail);
+      await openFollowupPresentation(company);
       await company
         .locator('#followup-websiteUrl')
         .fill('https://simulation.example.test');
+      await openFollowupPresentation(company);
       await company.locator('#followup-message').fill(privateNote);
       const buffer = await sharp({
         create: { width: 800, height: 600, channels: 3, background: '#28556e' }
@@ -691,6 +698,7 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
       const editor = admin.locator('[data-og7="dossier-publication-editor"]');
       await expect(editor).toBeVisible();
       await editor.getByLabel(/Slug public/i).fill('recette-' + record.id);
+      await openDeclaredSponsorshipTracking(admin);
       await editor.getByLabel(/Destination feed/i).selectOption('openg7');
       await editor
         .getByRole('combobox', { name: 'Statut de suivi déclaré', exact: true })
@@ -700,15 +708,13 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
         .fill(
           'Entreprise de démonstration pour une recette entièrement simulée.'
         );
-      await admin
-        .getByRole('button', { name: 'Enregistrer', exact: true })
-        .click();
+      await admin.locator('[data-og7="publication-tracking-save"]').click();
       await expect(
         editor.getByText('Paramètres de suivi enregistrés', { exact: true })
       ).toBeVisible();
       await assertPrivate();
       // Saving the public summary changes the dossier's editorial revision.
-      const moderation = admin.locator('[data-og7="moderation-actions"]');
+      const moderation = await openSponsorshipModeration(admin);
       await moderation.getByRole('combobox').first().selectOption('N0');
       const moderated = admin.waitForResponse(
         (response) =>

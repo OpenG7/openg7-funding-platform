@@ -20,6 +20,11 @@ import {
 import { insertAdminAuditLog } from './fund-admin-audit.repository.js';
 import { assertAdminFinancialCurrency } from './admin-financial-currency.js';
 import { getAdminBackofficePresence } from './fund-admin.persistence.js';
+import { isValidUuid } from './business-helpers/request-validation.js';
+import {
+  expenseCreationFingerprint,
+  findExpenseCreationCommand
+} from './expense-creation-receipts.repository.js';
 
 export const allowedAdminExpenseStatuses = new Set<AdminExpenseStatus>([
   'draft',
@@ -308,6 +313,12 @@ export const createAdminExpense = async (
   input: AdminExpenseCreateRequest,
   audit: AdminExpenseAuditInput
 ): Promise<AdminExpenseMutationResult> => {
+  if (!isValidUuid(input.requestId)) {
+    throw new AdminExpenseValidationError(
+      'invalid_request_id',
+      'A creation request UUID is required.'
+    );
+  }
   validateExpenseFields(input);
   if (isPublicAllocationStatus(input.status)) {
     requireExpenseConfirmation(
@@ -327,6 +338,26 @@ export const createAdminExpense = async (
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    const requestId = input.requestId.toLowerCase();
+    const requestHash = expenseCreationFingerprint(input);
+    await client.query(
+      "SELECT pg_advisory_xact_lock(hashtextextended('expense-create:' || $1, 0))",
+      [requestId]
+    );
+    const previous = await findExpenseCreationCommand(client, requestId);
+    if (previous) {
+      if (
+        previous.actor !== audit.actor ||
+        previous.requestHash !== requestHash
+      ) {
+        throw new AdminExpenseValidationError(
+          'request_conflict',
+          'The creation request is already bound to another command.'
+        );
+      }
+      await client.query('COMMIT');
+      return { updated: true, expense: previous.expense };
+    }
     const result = await client.query<{ readonly id: string }>(
       `
       INSERT INTO fund_allocations (
@@ -379,6 +410,7 @@ export const createAdminExpense = async (
       entityId: expense.id,
       summary: `Expense created for ${expense.project_name}.`,
       metadata: {
+        requestId,
         amountAllocated: expense.amount_allocated,
         status: expense.status,
         expectedOutcome: expense.expected_outcome,
@@ -391,6 +423,12 @@ export const createAdminExpense = async (
     if (!audited) {
       throw new Error('Achievement audit could not be recorded.');
     }
+    await client.query(
+      `INSERT INTO expense_creation_receipts
+        (request_id, actor, request_hash, expense_id, expense_snapshot)
+       VALUES ($1::uuid, $2, $3, $4::bigint, $5::jsonb)`,
+      [requestId, audit.actor, requestHash, expense.id, JSON.stringify(expense)]
+    );
     await client.query('COMMIT');
     return { updated: true, expense };
   } catch (error) {

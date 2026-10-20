@@ -658,7 +658,8 @@ h1 {
 .concentrated .domain-picker,
 .concentrated .pilot-tools,
 .concentrated .overview,
-.concentrated .intro-copy > p,
+.concentrated .intro-copy > p:not(.workspace-mode),
+.concentrated .workspace-mode > span,
 .concentrated .programme-button,
 .concentrated openg7-admin-guide,
 .concentrated .up-next {
@@ -720,7 +721,8 @@ h1 {
     @apply tw:text-admin-caption;
     padding: 0.4rem 0.55rem;
   }
-  .intro p:not(.eyebrow) {
+  .intro p:not(.eyebrow):not(.workspace-mode),
+  .intro .workspace-mode > span {
     @apply tw:hidden;
   }
   .intro .eyebrow {

@@ -22,7 +22,7 @@ foi. Utiliser Node 22 et Yarn 4; ne pas changer le lockfile sans nécessité.
 
 Ajouter les tests adaptés avec le changement fonctionnel. Préserver signature,
 répétition, ordre, données fournisseur partielles, reprise après échec et double
-soumission admin lorsque le domaine les expose. Une modification purement
+soumission admin lorsque le domaine les expose. Une modification
 documentaire n'exige pas de lancer les suites applicatives.
 
 ## Portée des commandes
@@ -87,11 +87,13 @@ Les contrôles navigateur demandent leurs binaires; les intégrations Docker leu
 images. Un test simulé, un conteneur sain et une qualification externe sont des
 preuves différentes.
 
+[Réception UX](ux-unification-acceptance.md).
+
 ## Format et compte rendu
 
 `yarn format:check` vérifie tout le dépôt et peut signaler des écarts préexistants.
 Vérifier les fichiers du changement avec Prettier; ne pas reformater le reste du
-dépôt pour faire passer une tâche ciblée. La commande `yarn lint` reste globale.
+dépôt pour faire passer une tâche ciblée. `yarn lint` reste global.
 
 Relire le diff complet du changement; exécuter `git diff --check` et
 `git status --short`. Rapporter commandes réellement exécutées et résultats,

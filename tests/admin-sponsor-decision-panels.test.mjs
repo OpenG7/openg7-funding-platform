@@ -1,3 +1,4 @@
+import { fundingBaseTranslations } from './support/funding-base-translations.mjs';
 import '@angular/compiler';
 import { createProgram } from '@angular/compiler-cli';
 import { TestBed } from '@angular/core/testing';
@@ -27,12 +28,7 @@ const componentFiles = [
   'admin-sponsor-decision-actions.component.ts'
 ];
 const catalogs = Object.fromEntries(
-  ['fr-CA', 'en'].map((locale) => [
-    locale,
-    JSON.parse(
-      readFileSync(`apps/funding-web/src/assets/i18n/${locale}.json`, 'utf8')
-    )
-  ])
+  ['fr-CA', 'en'].map((locale) => [locale, fundingBaseTranslations(locale)])
 );
 let compiledDirectory;
 let RejectionPanel;

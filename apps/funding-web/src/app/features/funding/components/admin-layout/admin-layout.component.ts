@@ -12,10 +12,11 @@ import {
   viewChild
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { registerAdminFinancialTranslations } from '../../services/admin-financial-translations.js';
 import { PilotAppearanceService } from '../../services/pilot-appearance.service.js';
 import { AdminNavComponent } from '../admin-nav/admin-nav.component.js';
 import { AdminGuidanceComponent } from '../admin-guidance/admin-guidance.component.js';
@@ -28,6 +29,10 @@ import { FundingModerationPanelComponent } from '../admin-moderation/funding-mod
 import { AdminControllerComponent } from '../admin-controller/admin-controller.component.js';
 import { AdminSandboxService } from '../../services/admin-sandbox.service.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
+import {
+  AssistantDossierNavigation,
+  assistantDossierQuery
+} from '../../models/admin-assistant-navigation.js';
 
 /** Admin page template: placement and navigation, no business data loading. */
 @Component({
@@ -132,11 +137,12 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
             }
             <openg7-contribution-activity />
             <a
+              #assistantLink
               class="admin-button"
+              data-og7="admin-shell-assistant"
               routerLink="/admin/fundraiser/assistant"
-              [queryParams]="
-                sponsorshipId() ? { sponsorshipId: sponsorshipId() } : {}
-              "
+              [queryParams]="assistantQueryParams()"
+              [info]="assistantNavigation()"
             >
               <openg7-admin-icon name="assistant" />{{
                 'admin.nav.assistant' | translate
@@ -229,6 +235,30 @@ export class AdminLayoutComponent {
   private readonly deckSlot =
     viewChild<ElementRef<HTMLElement>>('controllerDeckSlot');
   private readonly admin = inject(FundingAdminService);
+  private readonly router = inject(Router);
+  private readonly assistantLink =
+    viewChild<ElementRef<HTMLAnchorElement>>('assistantLink');
+  readonly assistantNavigation = computed(() => {
+    const id = this.sponsorshipId();
+    return id ? new AssistantDossierNavigation(id, 'shell') : undefined;
+  });
+
+  assistantQueryParams(): { sponsorshipId?: string; returnTo?: string } {
+    return assistantDossierQuery(
+      this.router,
+      this.router.url,
+      this.sponsorshipId()
+    );
+  }
+
+  restoreAssistantFocus(): boolean {
+    const link = this.assistantLink()?.nativeElement;
+    if (!link) return false;
+    link.focus({ preventScroll: true });
+    link.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+    return true;
+  }
+
   readonly pendingDossierCount = computed(() => {
     const queue = this.admin.workQueue();
     const count = queue?.pendingDossierCount;
@@ -245,6 +275,21 @@ export class AdminLayoutComponent {
   });
 
   constructor() {
+    registerAdminFinancialTranslations();
+    afterRenderEffect((onCleanup) => {
+      const document = this.element.nativeElement.ownerDocument;
+      // One Escape gesture closes one surface, even after focus returns to its parent.
+      // Pilotage also renders dialogs beside the layout, so capture at page level.
+      const ignoreHeldEscape = (event: KeyboardEvent): void => {
+        if (event.key !== 'Escape' || !event.repeat) return;
+        event.preventDefault();
+        event.stopPropagation();
+      };
+      document.addEventListener('keydown', ignoreHeldEscape, true);
+      onCleanup(() =>
+        document.removeEventListener('keydown', ignoreHeldEscape, true)
+      );
+    });
     let disconnect = (): void => {};
     // Render effects run only in the browser and also follow dynamically supplied templates.
     afterRenderEffect((onCleanup) => {

@@ -17,7 +17,7 @@ const adminPages: {
 }[] = [
   {
     path: '/admin/fundraiser',
-    title: { 'fr-CA': 'Centre de pilotage', en: 'Control centre' },
+    title: { 'fr-CA': 'Cockpit', en: 'Cockpit' },
     compactSectionHeadings: {
       selector:
         '[data-og7="dashboard-workflow"] [data-og7="sponsorship-progress"] > header > h2',

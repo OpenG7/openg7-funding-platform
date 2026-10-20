@@ -115,6 +115,17 @@
     "authorization": "An approved preparation does not authorize publication. The exact content, destination and schedule require their own authorization.",
     "proof": "Delivery evidence",
     "delivered": "Delivery confirmed on {{date}}",
+    "deliveredAt": "Confirmed delivery date",
+    "proofSource": "Evidence source",
+    "proofReference": "Evidence reference",
+    "obligationReference": "Promised service reference",
+    "deliveryReference": "Linked delivery",
+    "noLinkedDelivery": "No linked delivery",
+    "evidenceScope": "The evidence records delivery of this promised service. Visibility depends on the latest dated observation.",
+    "visibilityObservation": "Latest visibility observation",
+    "observedAt": "Observation date",
+    "noObservation": "No dated observation is available. Current visibility still needs verification.",
+    "agreementScope": "Agreement version associated with this evidence: not specified.",
     "noProof": "No qualified evidence for this promised service. Follow-up remains open until delivery is confirmed.",
     "adjusted": "A waiver was recorded for this promised service. It does not constitute delivery.",
     "openProof": "View the delivered publication",
@@ -128,7 +139,7 @@
   "provenance": {
     "provider_acknowledged": "Receipt acknowledged by the provider",
     "provider_verified": "Delivery verified with the provider",
-    "website_verified": "Website publication verified"
+    "website_verified": "Website fulfilment attested"
   },
   "visibility": {
     "visible": "Visibility observed",

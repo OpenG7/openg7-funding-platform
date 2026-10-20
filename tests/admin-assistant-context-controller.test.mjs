@@ -71,7 +71,15 @@ const answer = {
   ],
   limitations: []
 };
-const delivery = { status: 'queued', messageId: 'synthetic-message' };
+const commandId = '10000000-0000-4000-8000-000000000901';
+const delivery = {
+  status: 'queued',
+  messageId: '10000000-0000-4000-8000-000000000902',
+  requestId: commandId,
+  acceptedAt: '2026-09-16T14:00:00.000Z',
+  deliveryStatus: 'queued',
+  sentAt: null
+};
 const deferred = () => {
   let resolve;
   let reject;
@@ -83,8 +91,15 @@ const deferred = () => {
 };
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 
-function fixture() {
-  const calls = { context: [], prepare: [], query: [], send: [], effects: [] };
+function fixture(storage = new Map()) {
+  const calls = {
+    context: [],
+    prepare: [],
+    query: [],
+    send: [],
+    receipts: [],
+    effects: []
+  };
   const options = {
     sponsorshipId: id,
     validSession: true,
@@ -95,6 +110,11 @@ function fixture() {
     destroyed: false
   };
   const ports = {
+    newRequestId: () => commandId,
+    getInformationRequestReceipt: async (token, input) => {
+      calls.receipts.push({ token, input });
+      return { ...input, found: false };
+    },
     sponsorshipId: () => options.sponsorshipId,
     hasValidSession: () => options.validSession,
     token: () => 'synthetic-session',
@@ -127,10 +147,15 @@ function fixture() {
       calls.effects.push('unauthorized');
     },
     closeConfirmation: () => calls.effects.push('close'),
-    openConfirmation: () => calls.effects.push('open')
+    openConfirmation: () => calls.effects.push('open'),
+    storage: () => ({
+      getItem: (key) => storage.get(key) ?? null,
+      setItem: (key, value) => storage.set(key, value),
+      removeItem: (key) => storage.delete(key)
+    })
   };
   const controller = new AdminAssistantContextController(ports);
-  return { controller, ports, calls, options };
+  return { controller, ports, calls, options, storage };
 }
 
 async function populate(c) {
@@ -155,6 +180,207 @@ function assertPrivateCleared(c) {
     assert.equal(c[field](), '', field);
   assert.equal(c.snapshot(), null);
 }
+
+async function uncertainRequest(f) {
+  await populate(f.controller);
+  const send = f.ports.requestSponsorshipInformation;
+  f.ports.requestSponsorshipInformation = async (...args) => {
+    await send(...args);
+    throw new Error('Synthetic response lost');
+  };
+  f.controller.reviewSend();
+  const input = f.controller.confirmation();
+  await f.controller.send();
+  return input;
+}
+const recoveredReceipt = (deliveryStatus = 'queued') => ({
+  ...delivery,
+  contributionId: id,
+  found: true,
+  deliveryStatus,
+  sentAt: deliveryStatus === 'sent' ? delivery.acceptedAt : null
+});
+
+for (const status of ['queued', 'sent', 'failed']) {
+  test(`matching ${status} information receipt resolves only the retained command without another POST`, async () => {
+    const f = fixture(),
+      c = f.controller;
+    const input = await uncertainRequest(f);
+    const get = f.ports.getInformationRequestReceipt;
+    f.ports.getInformationRequestReceipt = async (...args) => {
+      await get(...args);
+      return recoveredReceipt(status);
+    };
+    assert.equal(await c.verifyInformationReceipt(), true);
+    assert.equal(c.informationUncertain(), false);
+    assert.equal(c.informationReceipt().messageId, delivery.messageId);
+    assert.equal(c.informationReceipt().deliveryStatus, status);
+    assert.equal(f.storage.size, 0);
+    assert.deepEqual(f.calls.receipts, [
+      {
+        token: 'synthetic-session',
+        input: { requestId: input.requestId, contributionId: id }
+      }
+    ]);
+    assert.equal(f.calls.send.length, 1);
+  });
+}
+
+test('sending and uncertain receipts keep the exact UUID through reload until a definitive receipt', async () => {
+  const f = fixture();
+  await uncertainRequest(f);
+  f.ports.getInformationRequestReceipt = async () =>
+    recoveredReceipt('sending');
+  assert.equal(await f.controller.verifyInformationReceipt(), true);
+  assert.equal(f.controller.informationUncertain(), true);
+  const next = fixture(f.storage),
+    c = next.controller;
+  await c.load();
+  assert.deepEqual(c.receiptRequest(), {
+    requestId: commandId,
+    contributionId: id
+  });
+  next.ports.getInformationRequestReceipt = async () =>
+    recoveredReceipt('uncertain');
+  await c.verifyInformationReceipt();
+  assert.equal(c.informationUncertain(), true);
+  next.ports.getInformationRequestReceipt = async () =>
+    recoveredReceipt('sent');
+  await c.verifyInformationReceipt();
+  assert.equal(c.informationUncertain(), false);
+  assert.equal(next.storage.size, 0);
+  assert.equal(f.calls.send.length, 1);
+  assert.equal(next.calls.send.length, 0);
+});
+
+for (const [name, value] of [
+  ['absent', { requestId: commandId, contributionId: id, found: false }],
+  ['unavailable', new AdminDashboardRequestError(503)],
+  ['wrong request', { ...recoveredReceipt(), requestId: delivery.messageId }],
+  ['wrong dossier', { ...recoveredReceipt(), contributionId: secondId }],
+  ['truthy found', { ...recoveredReceipt(), found: 'true' }],
+  ['missing found', { ...recoveredReceipt(), found: undefined }],
+  ['numeric message', { ...recoveredReceipt(), messageId: 123 }],
+  ['invalid message', { ...recoveredReceipt(), messageId: 'not-a-uuid' }],
+  ['missing accepted date', { ...recoveredReceipt(), acceptedAt: undefined }],
+  ['permissive date', { ...recoveredReceipt(), acceptedAt: '2026-09-16' }],
+  [
+    'invalid calendar',
+    { ...recoveredReceipt(), acceptedAt: '2026-02-30T14:00:00.000Z' }
+  ],
+  ['noncanonical accepted date', { ...recoveredReceipt(), acceptedAt: at }],
+  ['numeric sent date', { ...recoveredReceipt(), sentAt: 123 }],
+  ['noncanonical sent date', { ...recoveredReceipt(), sentAt: at }],
+  ['unknown delivery', { ...recoveredReceipt(), deliveryStatus: 'delivered' }]
+])
+  test(`${name} receipt preserves the UUID and blocks any new information command`, async () => {
+    const f = fixture(),
+      c = f.controller;
+    await uncertainRequest(f);
+    f.ports.getInformationRequestReceipt = async () => {
+      if (value instanceof Error) throw value;
+      return value;
+    };
+    assert.equal(await c.verifyInformationReceipt(), false);
+    assert.equal(c.informationUncertain(), true);
+    assert.equal(c.informationReceipt(), null);
+    assert.equal(
+      c.receiptState(),
+      name === 'absent' ? 'notFound' : 'unavailable'
+    );
+    assert.equal([...f.storage.values()][0], commandId);
+    await c.prepare('sponsorship_reminder');
+    c.reviewSend();
+    await c.send();
+    assert.equal(f.calls.send.length, 1);
+  });
+
+test('legacy pending state stays blocked without generating a UUID or looking up a guessed receipt', async () => {
+  const f = fixture(
+    new Map([['openg7-assistant-information-pending:' + id, 'pending']])
+  );
+  f.ports.newRequestId = () => {
+    throw new Error('Must not generate');
+  };
+  await f.controller.load();
+  assert.equal(f.controller.informationUncertain(), true);
+  assert.equal(f.controller.receiptRequest(), null);
+  await f.controller.verifyInformationReceipt();
+  assert.equal(f.calls.receipts.length, 0);
+  assert.equal(f.calls.send.length, 0);
+  assert.equal([...f.storage.values()][0], 'pending');
+});
+
+for (const change of ['dossier', 'session', 'identity', 'role', 'destroyed'])
+  test(`late receipt cannot apply after ${change} changed`, async () => {
+    const f = fixture(),
+      c = f.controller,
+      held = deferred();
+    await uncertainRequest(f);
+    f.ports.getInformationRequestReceipt = () => held.promise;
+    const verifying = c.verifyInformationReceipt();
+    if (change === 'dossier') f.options.sponsorshipId = secondId;
+    if (change === 'session') f.options.sessionGeneration.set(2);
+    if (change === 'identity') f.options.identityId.set('other-admin');
+    if (change === 'role') f.options.canPrepare.set(false);
+    if (change === 'destroyed') f.options.destroyed = true;
+    if (change !== 'destroyed') await c.load();
+    held.resolve(recoveredReceipt());
+    assert.equal(await verifying, false);
+    assert.equal(c.informationReceipt(), null);
+    assert.equal([...f.storage.values()][0], commandId);
+    assert.equal(f.calls.effects.includes('refresh'), false);
+    assert.equal(f.calls.send.length, 1);
+  });
+
+test('an older POST completion cannot remove a newer retained UUID', async () => {
+  const f = fixture(),
+    c = f.controller,
+    held = deferred();
+  await populate(c);
+  f.ports.requestSponsorshipInformation = () => held.promise;
+  c.reviewSend();
+  const sending = c.send();
+  f.storage.set(
+    'openg7-assistant-information-pending:' + id,
+    delivery.messageId
+  );
+  held.resolve(delivery);
+  await sending;
+  assert.equal([...f.storage.values()][0], delivery.messageId);
+  assert.equal(c.informationUncertain(), true);
+});
+
+test('a missing secure UUID prevents confirmation and POST', async () => {
+  const f = fixture();
+  await populate(f.controller);
+  f.ports.newRequestId = () => null;
+  f.controller.reviewSend();
+  await f.controller.send();
+  assert.equal(f.controller.confirmation(), null);
+  assert.equal(f.controller.error(), 'actionError');
+  assert.equal(f.calls.send.length, 0);
+});
+
+test('a UUID ownership conflict retains the exact verifiable command instead of permitting another send', async () => {
+  const f = fixture(),
+    c = f.controller;
+  await populate(c);
+  f.ports.requestSponsorshipInformation = async () => {
+    throw new AdminDashboardRequestError(
+      409,
+      'Synthetic conflict',
+      'INFORMATION_REQUEST_ID_CONFLICT'
+    );
+  };
+  c.reviewSend();
+  await c.send();
+  assert.equal(c.error(), 'conflict');
+  assert.equal(c.informationUncertain(), true);
+  assert.equal(c.canVerifyReceipt(), true);
+  assert.equal(c.receiptRequest().requestId, commandId);
+  assert.equal([...f.storage.values()][0], commandId);
+});
 
 test('exact dossier loading clears previous private state and retries an unavailable read', async () => {
   const { controller: c, ports, calls, options } = fixture();
@@ -305,6 +531,7 @@ test('delivery requires reviewed confirmation, preserves edits on cancel and ref
   c.reviewSend();
   assert.deepEqual(c.confirmation(), {
     ...proposal.delivery,
+    requestId: commandId,
     subject: 'Private edited subject',
     body: 'Private edited body',
     confirmed: true
@@ -339,12 +566,12 @@ test('delivery requires reviewed confirmation, preserves edits on cancel and ref
   assert.equal(calls.effects.at(-1), 'refresh');
 });
 
-test('a failed send keeps the editable draft and requires new confirmation before retry', async () => {
+test('a definitive refused send preserves the draft and requires a new confirmation', async () => {
   const { controller: c, ports, calls } = fixture();
   await populate(c);
   const request = ports.requestSponsorshipInformation;
   ports.requestSponsorshipInformation = async () => {
-    throw new AdminDashboardRequestError(503);
+    throw new AdminDashboardRequestError(400);
   };
   c.reviewSend();
   await c.send();
@@ -361,6 +588,127 @@ test('a failed send keeps the editable draft and requires new confirmation befor
   assert.equal(c.error(), '');
   assert.equal(c.delivery(), delivery);
   assert.equal(calls.send.length, 1);
+});
+
+for (const failure of [
+  new Error('Synthetic request response lost'),
+  new AdminDashboardRequestError(408),
+  new AdminDashboardRequestError(503)
+]) {
+  test(`an information request with ${failure.message} retains its exact payload and prevents a changed resend`, async () => {
+    const { controller: c, ports, calls } = fixture();
+    await populate(c);
+    const sent = [];
+    ports.requestSponsorshipInformation = async (token, input) => {
+      sent.push(structuredClone(input));
+      throw failure;
+    };
+    c.reviewSend();
+    const input = c.confirmation();
+    await c.send();
+    assert.deepEqual(c.uncertainInformation(), input);
+    assert.equal(c.canPrepare(), false);
+    assert.equal(c.busy(), false);
+    assert.equal(c.delivery(), null);
+    c.subject.set('Different subject cannot create another logical request');
+    c.body.set('Different body cannot create another logical request');
+    c.reviewSend();
+    await c.send();
+    await c.prepare('sponsorship_reminder');
+    assert.deepEqual(sent, [input]);
+    assert.equal(c.confirmation(), null);
+    assert.equal(calls.prepare.length, 1);
+    assert.equal(calls.effects.includes('refresh'), false);
+    await c.load();
+    assert.deepEqual(c.uncertainInformation(), input);
+    assert.equal(c.canPrepare(), false);
+    assert.equal(c.subject(), input.subject);
+    assert.equal(c.body(), input.body);
+    await c.send();
+    assert.equal(sent.length, 1);
+  });
+}
+
+test('an uncertain information request survives the one-use handoff even when the dossier version changes', async () => {
+  const { controller: source, ports } = fixture();
+  await populate(source);
+  ports.requestSponsorshipInformation = async () => {
+    throw new Error('Synthetic uncertain mail request');
+  };
+  source.reviewSend();
+  await source.send();
+  const { controller: destination, ports: nextPorts, calls } = fixture();
+  nextPorts.getAssistantContext = async () => context(id, 'b'.repeat(64));
+  await destination.load(source.snapshot());
+  assert.deepEqual(
+    destination.uncertainInformation(),
+    source.uncertainInformation()
+  );
+  assert.equal(destination.canPrepare(), false);
+  await destination.prepare('sponsorship_reminder');
+  destination.reviewSend();
+  await destination.send();
+  assert.deepEqual(calls.send, []);
+  assert.deepEqual(calls.prepare, []);
+});
+
+test('uncertain private mail state is removed when the session changes', async () => {
+  const { controller: c, ports, options } = fixture();
+  await populate(c);
+  ports.requestSponsorshipInformation = async () => {
+    throw new Error('Synthetic old-session uncertainty');
+  };
+  c.reviewSend();
+  await c.send();
+  options.sessionGeneration.set(2);
+  await c.load();
+  assert.equal(c.uncertainInformation(), null);
+  assert.equal(c.subject(), '');
+  assert.equal(c.body(), '');
+  assert.equal(c.informationUncertain(), true);
+  assert.equal(c.canPrepare(), false);
+});
+
+test('a new controller keeps an opaque uncertain marker without persisting the private request or sending again', async () => {
+  const first = fixture();
+  await populate(first.controller);
+  first.ports.requestSponsorshipInformation = async () => {
+    throw new Error('Synthetic disconnected response');
+  };
+  first.controller.reviewSend();
+  await first.controller.send();
+  assert.deepEqual(
+    [...first.storage],
+    [['openg7-assistant-information-pending:' + id, commandId]]
+  );
+  const stored = JSON.stringify([...first.storage]);
+  assert.equal(stored.includes('@'), false);
+  assert.equal(stored.includes('Private edited'), false);
+  const next = fixture(first.storage);
+  await next.controller.load();
+  assert.equal(next.controller.uncertainInformation(), null);
+  assert.equal(next.controller.informationUncertain(), true);
+  assert.equal(next.controller.canPrepare(), false);
+  await next.controller.prepare('sponsorship_reminder');
+  next.controller.reviewSend();
+  await next.controller.send();
+  assert.deepEqual(next.calls.prepare, []);
+  assert.deepEqual(next.calls.send, []);
+});
+
+test('a definitive information response removes its opaque marker', async () => {
+  for (const outcome of ['queued', 'refused']) {
+    const { controller: c, ports, storage } = fixture();
+    await populate(c);
+    if (outcome === 'refused')
+      ports.requestSponsorshipInformation = async () => {
+        throw new AdminDashboardRequestError(400);
+      };
+    c.reviewSend();
+    await c.send();
+    assert.equal(storage.size, 0);
+    assert.equal(c.informationUncertain(), false);
+  }
 });
 
 test('a version conflict invalidates the draft and permits preparation again without claiming delivery', async () => {
@@ -381,6 +729,23 @@ test('a version conflict invalidates the draft and permits preparation again wit
   await c.prepare('sponsorship_reminder');
   assert.equal(c.error(), '');
   assert.equal(c.prepared(), proposal);
+});
+
+test('a server-selected cockpit dossier releases only its refused information request and exposes the conflict', async () => {
+  const { controller: c, ports, options, storage } = fixture();
+  options.sponsorshipId = undefined;
+  await populate(c);
+  ports.requestSponsorshipInformation = async () => {
+    throw new AdminDashboardRequestError(409);
+  };
+  c.reviewSend();
+  await c.send();
+  assert.equal(c.data().context.contributionId, id);
+  assert.equal(c.uncertainInformation(), null);
+  assert.equal(c.informationUncertain(), false);
+  assert.equal(c.error(), 'conflict');
+  assert.equal(c.prepared(), null);
+  assert.equal(storage.size, 0);
 });
 
 test('401 during an action erases private fields and confirmation before redirecting', async () => {

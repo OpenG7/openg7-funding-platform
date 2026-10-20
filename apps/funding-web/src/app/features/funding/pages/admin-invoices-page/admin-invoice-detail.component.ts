@@ -47,9 +47,11 @@ export class AdminInvoiceDetailComponent {
   readonly invoiceDownload = output<AdminSponsorshipInvoiceRecord>();
   readonly invoiceInspection = output<AdminSponsorshipInvoiceRecord>();
   readonly invoiceResend = output<AdminSponsorshipInvoiceRecord>();
+  readonly invoiceVerifyReceipt = output<AdminSponsorshipInvoiceRecord>();
   readonly invoiceRecipientChange = output<AdminDocumentRecipientChange>();
   readonly creditNoteDownload = output<AdminSponsorshipCreditNoteRecord>();
   readonly creditNoteResend = output<AdminSponsorshipCreditNoteRecord>();
+  readonly creditNoteVerifyReceipt = output<AdminSponsorshipCreditNoteRecord>();
   readonly creditNoteRecipientChange = output<AdminDocumentRecipientChange>();
 
   trackByCreditNote(_index: number, creditNote: AdminCreditNoteView): string {

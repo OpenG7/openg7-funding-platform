@@ -1,3 +1,4 @@
+import { fundingBaseTranslations } from './funding-base-translations.mjs';
 import { readFileSync } from 'node:fs';
 
 // Compatibility for historical source coverage after splitting the page.
@@ -21,9 +22,7 @@ export const readSponsorshipFollowupSource = () => {
       )
     )
   ];
-  const catalog = JSON.parse(
-    readFileSync('apps/funding-web/src/assets/i18n/fr-CA.json', 'utf8')
-  );
+  const catalog = fundingBaseTranslations('fr-CA');
   return (
     paths.map((path) => readFileSync(root + path, 'utf8')).join('\n') +
     '\n' +

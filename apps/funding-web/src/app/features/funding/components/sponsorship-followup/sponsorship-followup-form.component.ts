@@ -100,6 +100,13 @@ export class SponsorshipFollowupFormComponent implements AfterViewInit {
   readonly editing = signal(false);
   readonly submitted = signal(false);
   readonly mediaBusy = signal(false);
+  readonly presentationExpanded = signal(false);
+  readonly coordinateFields = [
+    'companyName',
+    'contactName',
+    'contactEmail'
+  ] as const;
+  readonly presentationFields = ['websiteUrl', 'message'] as const;
   readonly fields = [
     'companyName',
     'contactName',
@@ -190,6 +197,7 @@ export class SponsorshipFollowupFormComponent implements AfterViewInit {
               emitEvent: false
             });
             this.editing.set(true);
+            this.presentationExpanded.set(this.hasPresentationDetails());
             this.revision.update((value) => value + 1);
           } else this.editing.set(false);
         } else if (
@@ -268,9 +276,20 @@ export class SponsorshipFollowupFormComponent implements AfterViewInit {
   }
   focusField(field: FormField): void {
     if (!isPlatformBrowser(this.platformId)) return;
-    this.host.nativeElement
-      .querySelector<HTMLInputElement>('#followup-' + field)
-      ?.focus();
+    const input = this.host.nativeElement.querySelector<HTMLElement>(
+      '#followup-' + field
+    );
+    let details = input?.closest('details') ?? null;
+    while (details) {
+      details.open = true;
+      this.presentationExpanded.set(true);
+      details = details.parentElement?.closest('details') ?? null;
+    }
+    input?.focus();
+  }
+
+  togglePresentation(event: Event): void {
+    this.presentationExpanded.set((event.target as HTMLDetailsElement).open);
   }
 
   private reset(value: SponsorshipDetailsDraft): void {
@@ -285,6 +304,7 @@ export class SponsorshipFollowupFormComponent implements AfterViewInit {
       { emitEvent: false }
     );
     this.submitted.set(false);
+    this.presentationExpanded.set(this.hasPresentationDetails());
     this.revision.update((value) => value + 1);
     this.scheduleAutofillSync();
   }
@@ -307,6 +327,12 @@ export class SponsorshipFollowupFormComponent implements AfterViewInit {
     );
   }
 
+  private hasPresentationDetails(): boolean {
+    return [...this.presentationFields, 'logoUrl' as const].some(
+      (field) => this.sponsorshipForm.controls[field].value.length > 0
+    );
+  }
+
   private syncFormControlsFromInputs(): void {
     if (!isPlatformBrowser(this.platformId)) return;
     const values: Partial<Record<FormField, string>> = {};
@@ -317,6 +343,14 @@ export class SponsorshipFollowupFormComponent implements AfterViewInit {
       if (input && input.value !== this.sponsorshipForm.controls[field].value)
         values[field] = input.value;
     }
-    if (Object.keys(values).length > 0) this.sponsorshipForm.patchValue(values);
+    if (Object.keys(values).length > 0) {
+      this.sponsorshipForm.patchValue(values);
+      if (
+        [...this.presentationFields, 'logoUrl' as const].some(
+          (field) => field in values
+        )
+      )
+        this.presentationExpanded.set(true);
+    }
   }
 }

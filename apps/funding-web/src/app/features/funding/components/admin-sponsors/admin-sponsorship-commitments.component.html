@@ -139,10 +139,24 @@
               · v{{ o.version }}</span
             >
             @if (o.fulfilmentEvidenceId) {
-              <span
-                >{{ 'admin.commitments.evidenceId' | translate }}:
-                {{ o.fulfilmentEvidenceId }}</span
-              >
+              @if (hasQualifiedEvidence(o)) {
+                <a
+                  routerLink="/admin/fundraiser/campaigns"
+                  [queryParams]="{
+                    sponsorshipId: dossier().contributionId,
+                    obligationId: o.id
+                  }"
+                  data-og7="commitments-evidence"
+                  [attr.data-og7-id]="o.fulfilmentEvidenceId"
+                  >{{ 'admin.commitments.evidenceId' | translate }}:
+                  {{ o.fulfilmentEvidenceId }}</a
+                >
+              } @else {
+                <span
+                  >{{ 'admin.commitments.evidenceId' | translate }}:
+                  {{ o.fulfilmentEvidenceId }}</span
+                >
+              }
             }
             @if (
               o.timing &&
@@ -633,80 +647,6 @@
         </button>
       </aside>
     }
-  }
-  @if (canOwn()) {
-    <details data-og7="commitments-adoption">
-      <summary>{{ 'admin.commitments.adoptionTitle' | translate }}</summary>
-      <p>{{ 'admin.commitments.adoptionHelp' | translate }}</p>
-      <label
-        >{{ 'admin.commitments.pageSize' | translate
-        }}<select
-          [value]="c.pageSize()"
-          (change)="setPageSize($event)"
-          [disabled]="c.previewLoading()"
-        >
-          <option value="25">25</option>
-          <option value="50">50</option>
-        </select></label
-      >
-      <button
-        type="button"
-        (click)="c.loadPreview()"
-        [disabled]="c.previewLoading()"
-        data-og7="commitments-adoption-load"
-      >
-        {{ 'admin.commitments.loadPreview' | translate }}
-      </button>
-      @if (c.previewLoading()) {
-        <p role="status">{{ 'admin.commitments.loading' | translate }}</p>
-      }
-      @if (c.previewError()) {
-        <p role="alert">
-          {{ 'admin.commitments.errors.' + c.previewError() | translate }}
-        </p>
-      }
-      @if (c.preview(); as preview) {
-        <ul>
-          @for (item of preview.items; track item.contributionId) {
-            <li>
-              <a
-                routerLink="/admin/fundraiser/sponsors"
-                [queryParams]="{
-                  sponsorshipId: item.contributionId,
-                  tab: 'publication'
-                }"
-                >{{ item.reference ?? item.contributionId }}</a
-              >
-              ·
-              {{
-                'admin.commitments.classifications.' + item.classification
-                  | translate
-              }}<span>{{
-                'admin.commitments.inventoryCounts'
-                  | translate
-                    : {
-                        obligations: item.obligationCount,
-                        evidence: item.fulfilledWithEvidenceCount,
-                        declarations: item.historicalDeclarationCount
-                      }
-              }}</span>
-            </li>
-          } @empty {
-            <li>{{ 'admin.commitments.emptyPreview' | translate }}</li>
-          }
-        </ul>
-        @if (preview.nextCursor) {
-          <button
-            type="button"
-            (click)="c.loadPreview(true)"
-            [disabled]="c.previewLoading()"
-            data-og7="commitments-adoption-next"
-          >
-            {{ 'admin.commitments.nextPage' | translate }}
-          </button>
-        }
-      }
-    </details>
   }
 </section>
 @if (canOwn()) {

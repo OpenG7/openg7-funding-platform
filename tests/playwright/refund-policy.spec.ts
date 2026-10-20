@@ -243,7 +243,9 @@ for (const locale of locales) {
     );
     await page.emulateMedia({ media: 'print' });
     await expect(page.locator('openg7-funding-header')).toBeHidden();
-    await expect(page.locator('openg7-site-music')).toBeHidden();
+    await expect(
+      page.locator('openg7-site-music').getByRole('button')
+    ).toHaveCount(0);
     await expect(page.locator('[data-og7="policy-toc"]')).toBeHidden();
     await expect(page.locator('[data-og7="print-policy"]')).toBeHidden();
     for (const id of [

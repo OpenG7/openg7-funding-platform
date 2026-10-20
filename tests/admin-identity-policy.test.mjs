@@ -115,6 +115,16 @@ test('document and accounting routes preserve read, operator and owner permissio
     ['POST', '/admin/sponsorship-invoices/backfill', ['owner']],
     ['GET', '/admin/sponsorship-invoices/pdf', roles],
     ['POST', '/admin/sponsorship-invoices/resend', ['operator', 'owner']],
+    [
+      'GET',
+      '/admin/sponsorship-documents/resend-receipt',
+      ['operator', 'owner']
+    ],
+    [
+      'GET',
+      '/admin/sponsorships/information-request-receipt',
+      ['operator', 'owner']
+    ],
     ['GET', '/admin/sponsorship-credit-notes/pdf', roles],
     ['POST', '/admin/sponsorship-credit-notes/resend', ['operator', 'owner']],
     ['GET', '/admin/expenses', roles],

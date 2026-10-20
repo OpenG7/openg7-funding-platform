@@ -28,9 +28,11 @@ p {
   margin: 0;
 }
 h3 {
+  min-width: 0;
   font-family: var(--admin-heading-font-family);
   font-size: var(--admin-section-size);
   font-weight: var(--admin-section-weight);
+  overflow-wrap: anywhere;
 }
 h4 {
   font-size: inherit;

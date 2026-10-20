@@ -18,6 +18,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { AdminSponsorsQualityI18nService } from '../../services/admin-sponsors-quality-i18n.service.js';
 import { AdminGlobalSearchComponent } from '../admin-search/admin-global-search.component.js';
 import {
   AdminIconComponent,
@@ -30,6 +31,8 @@ interface AdminNavigationGroup {
     readonly key: string;
     readonly url: string;
     readonly icon: AdminIconName;
+    readonly ownerOnly?: boolean;
+    readonly labelKey?: string;
   }[];
 }
 
@@ -89,9 +92,13 @@ interface AdminNavigationGroup {
             [routerLink]="destination"
             data-og7="return-to-attention"
             >{{
-              (destination.toString().startsWith('/admin/fundraiser/assistant')
-                ? 'admin.assistantOverview.return'
-                : 'admin.attention.back'
+              (destination.toString() === '/admin/fundraiser/sponsors/quality'
+                ? 'admin.sponsorsQuality.backToQuality'
+                : destination
+                      .toString()
+                      .startsWith('/admin/fundraiser/assistant')
+                  ? 'admin.assistantOverview.return'
+                  : 'admin.attention.back'
               ) | translate
             }}</a
           >
@@ -103,39 +110,48 @@ interface AdminNavigationGroup {
                 {{ 'admin.nav.' + group.key | translate }}
               </h2>
               @for (link of group.links; track link.url) {
-                <a
-                  [routerLink]="link.url"
-                  routerLinkActive="active"
-                  ariaCurrentWhenActive="page"
-                  [routerLinkActiveOptions]="{
-                    exact: link.url === '/admin/fundraiser'
-                  }"
-                  (click)="closeMenu(toggle)"
-                  [attr.aria-describedby]="
-                    badge(link.key) ? 'admin-count-' + link.key : null
-                  "
-                >
-                  <openg7-admin-icon [name]="link.icon" />{{
-                    'admin.nav.' + link.key | translate
-                  }}
+                @if (!link.ownerOnly || canOwn()) {
+                  <a
+                    [routerLink]="link.url"
+                    routerLinkActive="active"
+                    ariaCurrentWhenActive="page"
+                    [routerLinkActiveOptions]="{
+                      paths:
+                        link.url === '/admin/fundraiser' ||
+                        link.url === '/admin/fundraiser/sponsors'
+                          ? 'exact'
+                          : 'subset',
+                      queryParams: 'ignored',
+                      fragment: 'ignored',
+                      matrixParams: 'ignored'
+                    }"
+                    (click)="closeMenu(toggle)"
+                    [attr.aria-describedby]="
+                      badge(link.key) ? 'admin-count-' + link.key : null
+                    "
+                  >
+                    <openg7-admin-icon [name]="link.icon" />{{
+                      link.labelKey ?? 'admin.nav.' + link.key | translate
+                    }}
+                    @if (badge(link.key); as count) {
+                      <span
+                        class="action-count"
+                        aria-hidden="true"
+                        data-og7="nav-count"
+                        [attr.data-og7-id]="link.key"
+                        >{{ count }}</span
+                      >
+                    }
+                  </a>
                   @if (badge(link.key); as count) {
                     <span
-                      class="action-count"
-                      aria-hidden="true"
-                      data-og7="nav-count"
-                      [attr.data-og7-id]="link.key"
-                      >{{ count }}</span
+                      class="count-description"
+                      [id]="'admin-count-' + link.key"
+                      >{{
+                        'admin.dossier.actionCount' | translate: { count }
+                      }}</span
                     >
                   }
-                </a>
-                @if (badge(link.key); as count) {
-                  <span
-                    class="count-description"
-                    [id]="'admin-count-' + link.key"
-                    >{{
-                      'admin.dossier.actionCount' | translate: { count }
-                    }}</span
-                  >
                 }
               }
             </section>
@@ -185,13 +201,20 @@ interface AdminNavigationGroup {
 })
 export class AdminNavComponent implements OnInit {
   readonly admin = inject(FundingAdminService);
+  readonly qualityLabels = inject(AdminSponsorsQualityI18nService);
+  readonly canOwn = computed(
+    () =>
+      this.admin.hasValidAdminSession() &&
+      (!this.admin.identity() || this.admin.identity()?.role === 'owner')
+  );
   readonly logoutFailed = signal(false);
   private readonly router = inject(Router);
   private readonly queryParams = toSignal(inject(ActivatedRoute).queryParamMap);
   readonly queueReturn = computed(() => {
     const value = this.queryParams()?.get('returnTo');
     return value &&
-      /^\/admin\/fundraiser\/(?:attention|assistant)(?:\?|$)/.test(value)
+      (/^\/admin\/fundraiser\/(?:attention|assistant)(?:\?|$)/.test(value) ||
+        value === '/admin/fundraiser/sponsors/quality')
       ? this.router.parseUrl(value)
       : null;
   });
@@ -272,6 +295,13 @@ export class AdminNavComponent implements OnInit {
           key: 'sponsors',
           url: '/admin/fundraiser/sponsors',
           icon: 'sponsors'
+        },
+        {
+          key: 'sponsorsQuality',
+          url: '/admin/fundraiser/sponsors/quality',
+          icon: 'audit',
+          ownerOnly: true,
+          labelKey: 'admin.sponsorsQuality.nav'
         },
         {
           key: 'campaigns',

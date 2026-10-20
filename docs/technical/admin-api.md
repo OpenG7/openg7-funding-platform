@@ -48,9 +48,9 @@ Alerts remain opt-in (`yarn operations:watch` or Compose).
 `GET /api/admin/attention` serves `/admin/fundraiser/attention` with pagination,
 URL filters, exact record links and a [dossier count](admin-automatic-runs.md#pending-dossiers).
 `GET /api/admin/assistant/context` accepts
-optional `sponsorshipId`; information requests require an editable preview and
-confirmation at `POST /api/admin/sponsorships/request-information`. Queue and audit
-are atomic; duplicate requests reuse the original email.
+optional `sponsorshipId`. [Information requests](assistant-information-receipts.md)
+require a reviewed preview, confirmation and UUID; exact receipts reconcile lost
+responses without resending.
 
 `GET /api/admin/sponsorships/progress?sponsorshipId=<uuid>`: dossier progress.
 [Commitments](sponsorship-commitments.md) define recorded offers and owner actions.
@@ -73,7 +73,7 @@ is independent of webhooks. Journeys include six dated chains and steps;
 terms stay out of URLs/storage. Exact IDs precede list limits;
 invoice/publication pages reload on target changes. Drawers protect private
 previews and require confirmations; Stripe inspection excludes raw webhooks.
-Dashboard `data_available=false` means no PostgreSQL. Recipes are in the linked guides.
+Dashboard `data_available=false` means no PostgreSQL.
 
 ```text
 GET /api/admin/dashboard
@@ -84,6 +84,7 @@ GET /api/admin/contributions
 GET /api/admin/payment-journey?contributionId=<uuid>
 POST /api/admin/contributions.csv
 GET /api/admin/expenses
+GET /api/admin/expenses/create-receipt?requestId=<uuid>
 POST /api/admin/expenses
 POST /api/admin/expenses/update
 GET /api/admin/transparency
@@ -121,9 +122,9 @@ GET /api/admin/sponsorship-credit-notes/pdf?creditNoteId=<uuid>
 POST /api/admin/sponsorship-credit-notes/resend
 ```
 
-The dashboard summarizes received funds, estimated availability, pending
-sponsorship reviews, feed state, Stripe event errors and recent contributions.
-Contributions support local type/payment/public-display-consent filters and search.
+The dashboard summarizes funds, reviews, feed and Stripe errors. Contributions
+support type/payment/consent filters and search.
+See [expense creation receipts](expense-creation-receipts.md).
 Scalar totals for contributions, invoices/credit notes, expenses and the legacy
 dashboard reject mixed currencies: `409 ADMIN_FINANCIAL_CURRENCY_CONFLICT`, without
 conversion. Pending contributions and archived allocations do not select these
@@ -177,12 +178,11 @@ Backfill requires `confirmation` matching `contributionId`, or `BACKFILL_INVOICE
 for a bulk run (400 `confirmation_required` otherwise). Update API/Web together;
 no migration. Owner access and the UI confirmation remain required.
 
-Resends require `to`, UUID `requestId`, and `confirmation` matching `invoiceId`
-or `creditNoteId` (400 `CONFIRMATION_REQUIRED` if confirmation/UUID is missing).
-Update Web/API together; no migration. Identical retries share one `messageId`;
-reusing the UUID for another document/recipient returns 409 `REQUEST_CONFLICT`.
-Queue and audit commit atomically; the worker delivers afterward. Replay never
-resets backoff or alters issued documents. See [UI recovery and limits](../payment-trust-validation.md#recette-de-renvoi-des-factures-et-avoirs).
+### Document resend receipts
+
+The [document resend contract](document-resend-receipts.md) covers confirmed,
+idempotent POSTs and the actor-bound receipt GET, including delivery uncertainty
+and [UI recovery limits](../payment-trust-validation.md#recette-de-renvoi-des-factures-et-avoirs).
 
 ## Sponsorship review admin
 

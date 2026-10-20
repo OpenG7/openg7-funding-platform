@@ -1,0 +1,27 @@
+{
+  "assistant": "Ouvrir l’Assistant pour ce dossier",
+  "recommendation": {
+    "owner": "Responsable",
+    "ownerUnknown": "Responsable à déterminer",
+    "consequence": "Cette intervention permet de poursuivre l’examen. Les autres contrôles restent indépendants.",
+    "source": "Orientation issue de la progression du dossier."
+  },
+  "blockers": {
+    "title": "Blocages et points à suivre",
+    "order": "Présentation par domaine : identité, revue, médias, préparation, publication, finances.",
+    "showAll": "Voir tous les points à traiter",
+    "showLess": "Afficher trois familles",
+    "families": {
+      "identity": "Identité et consentement",
+      "review": "Revue du commanditaire",
+      "media": "Médias et droits",
+      "preparation": "Préparation et accord",
+      "publication": "Visibilité et livraisons",
+      "finance": "Finance et opérations"
+    }
+  },
+  "moderation": "Modération éditoriale",
+  "help": "Aide pas à pas du dossier",
+  "access": "Accès au suivi",
+  "close": "Fermer l’outil du dossier"
+}

@@ -4,17 +4,9 @@
   [class.embedded]="embedded()"
   [class.compact]="compact()"
   [class.workspace]="workspace()"
+  [class.recommendation]="workspace() && !compact()"
+  data-og7="dossier-recommendation"
 >
-  @if (d.preparationActivityId; as activityId) {
-    <button
-      type="button"
-      class="admin-button"
-      data-og7="dossier-preparation"
-      (click)="activity.openPreparation(activityId)"
-    >
-      {{ 'admin.contributionActivity.view' | translate }}
-    </button>
-  }
   <div class="next-copy">
     <strong>{{
       (nextSection()
@@ -25,6 +17,23 @@
       ) | translate
     }}</strong>
     <p>{{ 'admin.dossier.reasons.' + d.next.reason | translate }}</p>
+    @if (workspace() && !compact() && nextSection()) {
+      <p class="responsibility" data-og7="dossier-next-owner">
+        <span>{{
+          'admin.sponsorsCleanup.recommendation.owner' | translate
+        }}</span>
+        {{
+          (nextResponsibility()
+            ? 'admin.dossier.publicationBridge.schedule.workflow.responsibility.' +
+              nextResponsibility()
+            : 'admin.sponsorsCleanup.recommendation.ownerUnknown'
+          ) | translate
+        }}
+      </p>
+      <p class="consequence">
+        {{ 'admin.sponsorsCleanup.recommendation.consequence' | translate }}
+      </p>
+    }
   </div>
   @if (nextSection(); as section) {
     <a
@@ -37,56 +46,120 @@
       >{{ 'admin.dossier.nextActions.' + section | translate }}</a
     >
   }
-  @if (workspace()) {
-    @if (d.publicationWorkflow; as workflow) {
-      @if (workflow.state !== 'complete') {
-        <div
-          data-og7="publication-next-responsibility"
-          class="workflow-summary"
-        >
-          <strong>{{
-            'admin.dossier.workspace.publication' | translate
-          }}</strong>
-          <p>
-            {{
-              'admin.dossier.publicationBridge.schedule.workflow.responsibility.' +
-                workflow.responsibility | translate
-            }}
-          </p>
-          <p>
-            {{
-              'admin.dossier.publicationBridge.schedule.workflow.reason.' +
-                workflow.reason | translate
-            }}
-          </p>
-        </div>
-      }
-    }
-    @if (d.publicationBlockers?.length && !publicationComplete()) {
-      <details data-og7="publication-blockers" class="action-details">
-        <summary>
-          {{ 'admin.dossier.publicationBridge.blockers' | translate }}
-        </summary>
-        <ul>
-          @for (reason of d.publicationBlockers; track reason) {
-            <li>
-              <a
-                routerLink="/admin/fundraiser/sponsors"
-                [queryParams]="{
-                  sponsorshipId: d.contributionId,
-                  tab: blockerTab(reason)
-                }"
-                [fragment]="'dossier-' + blockerSection(reason)"
-                queryParamsHandling="merge"
-                >{{
-                  'admin.dossier.publicationBridge.blocker.' + reason
-                    | translate
-                }}</a
+  @if ((!workspace() || !compact()) && d.preparationActivityId; as activityId) {
+    <button
+      type="button"
+      class="admin-button"
+      data-og7="dossier-preparation"
+      (click)="activity.openPreparation(activityId)"
+    >
+      {{ 'admin.contributionActivity.view' | translate }}
+    </button>
+  }
+  @if (workspace() && !compact()) {
+    <p class="projection-source">
+      {{ 'admin.sponsorsCleanup.recommendation.source' | translate }}
+    </p>
+    @if (blockerFamilies().length) {
+      <section
+        class="blocker-summary"
+        data-og7="publication-blockers"
+        aria-labelledby="dossier-blockers-title"
+      >
+        <h3 id="dossier-blockers-title">
+          {{ 'admin.sponsorsCleanup.blockers.title' | translate }}
+        </h3>
+        <p class="blocker-order">
+          {{ 'admin.sponsorsCleanup.blockers.order' | translate }}
+        </p>
+        <div class="blocker-families" id="dossier-blocker-families">
+          @for (family of blockerFamilies(); track family.id) {
+            @if ($index < 3 || allBlockersVisible()) {
+              <article
+                class="blocker-family"
+                data-og7="dossier-blocker-family"
+                [attr.data-og7-id]="family.id"
               >
-            </li>
+                <h4>
+                  {{
+                    'admin.sponsorsCleanup.blockers.families.' + family.id
+                      | translate
+                  }}
+                </h4>
+                <ul>
+                  @for (fact of family.facts; track fact.reasonKey) {
+                    <li>
+                      @if (fact.state) {
+                        <span class="fact-state">{{
+                          'admin.dossier.states.' + fact.state | translate
+                        }}</span>
+                      }
+                      <a
+                        routerLink="/admin/fundraiser/sponsors"
+                        [queryParams]="{
+                          sponsorshipId: d.contributionId,
+                          tab: fact.tab
+                        }"
+                        [fragment]="'dossier-' + fact.section"
+                        queryParamsHandling="merge"
+                        >{{ fact.reasonKey | translate }}</a
+                      >
+                    </li>
+                  }
+                </ul>
+                <p
+                  class="responsibility"
+                  [attr.data-og7]="
+                    family.id === 'publication'
+                      ? 'publication-next-responsibility'
+                      : null
+                  "
+                >
+                  <span>{{
+                    'admin.sponsorsCleanup.recommendation.owner' | translate
+                  }}</span>
+                  {{
+                    (family.id === 'publication' && d.publicationWorkflow
+                      ? 'admin.dossier.publicationBridge.schedule.workflow.responsibility.' +
+                        d.publicationWorkflow.responsibility
+                      : 'admin.sponsorsCleanup.recommendation.ownerUnknown'
+                    ) | translate
+                  }}
+                </p>
+                @if (
+                  family.id === 'publication' &&
+                  d.publicationWorkflow &&
+                  d.publicationWorkflow.state !== 'complete'
+                ) {
+                  <p>
+                    {{
+                      'admin.dossier.publicationBridge.schedule.workflow.reason.' +
+                        d.publicationWorkflow.reason | translate
+                    }}
+                  </p>
+                }
+              </article>
+            }
           }
-        </ul>
-      </details>
+        </div>
+        @if (blockerFamilies().length > 3) {
+          <button
+            type="button"
+            class="admin-button"
+            data-og7="dossier-blockers-all"
+            aria-controls="dossier-blocker-families"
+            [attr.aria-expanded]="allBlockersVisible()"
+            (click)="toggleBlockers()"
+          >
+            {{
+              (allBlockersVisible()
+                ? 'admin.sponsorsCleanup.blockers.showLess'
+                : 'admin.sponsorsCleanup.blockers.showAll'
+              ) | translate
+            }}
+          </button>
+        }
+      </section>
     }
   }
 </div>

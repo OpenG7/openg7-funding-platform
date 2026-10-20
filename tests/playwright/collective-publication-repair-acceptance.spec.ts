@@ -24,6 +24,7 @@ import { adjustAcceptanceObligationDestination } from './support/acceptance-agre
 import { parkAcceptancePublicationCandidates } from './support/acceptance-publication-isolation.js';
 import { runAcceptancePublicationWorker } from './support/acceptance-publication-worker.js';
 import { expect, test } from './support/test.js';
+import { openDeclaredSponsorshipTracking } from './support/sponsorship-dossier.js';
 
 for (const cause of ['rejection', 'destination'] as const)
   test(
@@ -249,6 +250,7 @@ for (const cause of ['rejection', 'destination'] as const)
               await editor
                 .getByLabel(/Slug public/i)
                 .fill(removed.sponsor_public_slug ?? '');
+              await openDeclaredSponsorshipTracking(page);
               await editor
                 .getByLabel(/Destination feed/i)
                 .selectOption('openg20');
@@ -260,7 +262,7 @@ for (const cause of ['rejection', 'destination'] as const)
                   response.request().method() === 'POST'
               );
               await editor
-                .getByRole('button', { name: 'Enregistrer', exact: true })
+                .locator('[data-og7="publication-tracking-save"]')
                 .click();
               const response = await saved;
               expect(response.ok(), await response.text()).toBe(true);

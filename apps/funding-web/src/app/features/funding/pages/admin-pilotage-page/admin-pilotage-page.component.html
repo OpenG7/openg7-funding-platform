@@ -118,7 +118,12 @@
             {{ t(domain() ? 'domains.' + domain() : 'overview') }}
           </p>
           <h1>{{ t('title') }}</h1>
-          <p>{{ t('subtitle') }}</p>
+          <p class="workspace-mode">
+            <strong data-og7="admin-workspace-mode" data-og7-id="decide">{{
+              i18n.t('admin.modes.decide')
+            }}</strong>
+            <span> · {{ t('subtitle') }}</span>
+          </p>
         </div>
         <div class="intro-actions">
           <button

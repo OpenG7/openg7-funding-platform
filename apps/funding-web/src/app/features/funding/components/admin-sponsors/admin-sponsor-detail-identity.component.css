@@ -19,11 +19,16 @@
   background: var(--admin-panel);
 }
 
-h3 {
+h3,
+h4 {
   margin: 0;
   font-family: var(--admin-heading-font-family);
   font-size: var(--admin-section-size);
   font-weight: var(--admin-section-weight);
+}
+
+.section-title {
+  padding-block-start: 0.25rem;
 }
 
 .identity-heading,
@@ -145,5 +150,33 @@ dd {
 
   .identity-coordinates > div:last-child {
     grid-column: 1 / -1;
+  }
+}
+
+@container admin-sponsor-identity (min-width: 56rem) {
+  .identity-layout {
+    gap: 0.5rem;
+  }
+
+  .profile-card {
+    padding: 1rem;
+  }
+
+  .identity-heading {
+    margin-bottom: 0.375rem;
+  }
+
+  .identity-coordinates {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    row-gap: 0.5rem;
+    margin-top: 0.375rem;
+  }
+
+  .identity-coordinates dd {
+    margin-top: 0.125rem;
+  }
+
+  .identity-coordinates > div:last-child {
+    grid-column: auto;
   }
 }

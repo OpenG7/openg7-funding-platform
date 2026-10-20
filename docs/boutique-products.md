@@ -6,6 +6,17 @@ sur NorthDragon. Trois emplacements sont prêts : Dragons, Princesses et Licorne
 Les boutons d'univers filtrent la sélection ; « Tous les univers » réaffiche
 l'ensemble. Toutes les cartes sont présentes au rendu initial, même sans JavaScript.
 
+Sur `/boutique`, `/music` et leurs équivalents sous `/en`, le lecteur musical
+commun attend une demande explicite de lecture. Une navigation ordinaire sur
+ces pages conserve cet état. Le bouton permet ensuite de lancer et d'arrêter
+la musique dans les deux langues. Les autres routes conservent leur politique
+de lecture existante.
+
+Sur écran mobile jusqu'à 600 px, la commande se trouve dans l'en-tête, entre
+le changement de langue et le soutien. Sur grand écran, elle reste flottante.
+Une seule commande est visible et présente dans le parcours clavier ; la lecture
+et la pause choisies restent partagées pendant la navigation, sans recréer le lecteur.
+
 ## Emplacements préparés
 
 | Univers    | Identifiant de carte | Dossier des photos            | Exemple de fichier |

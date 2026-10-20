@@ -4,8 +4,8 @@ dialog {
   @apply tw:fixed;
   inset: 0 0 0 auto;
   @apply tw:m-0 tw:box-border;
-  width: min(40rem, 92vw);
-  height: 100dvh;
+  width: min(40rem, 92%);
+  height: auto;
   @apply tw:max-w-none tw:max-h-none tw:p-0 tw:overflow-auto;
   background: var(--admin-bg);
   @apply tw:text-admin-text;
@@ -17,7 +17,7 @@ dialog::backdrop {
   background: #030d1bcc;
 }
 dialog.wide {
-  width: min(90rem, 98vw);
+  width: min(90rem, 98%);
 }
 dialog.fixed-footer[open] {
   @apply tw:grid;
@@ -63,7 +63,7 @@ h2 {
 }
 @media (max-width: 600px) {
   dialog {
-    width: 100vw;
+    width: 100%;
     border-left: 0;
   }
   header,

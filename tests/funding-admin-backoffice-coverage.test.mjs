@@ -75,7 +75,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
     'apps/funding-web/src/app/features/funding/components/admin-nav/admin-nav.component.ts'
   );
   const siteMusic = read(
-    'apps/funding-web/src/app/features/funding/components/site-music/site-music.component.ts'
+    'apps/funding-web/src/app/features/funding/services/site-music.service.ts'
   );
   const api =
     readFundingApiSource() +

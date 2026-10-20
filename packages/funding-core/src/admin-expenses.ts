@@ -68,6 +68,7 @@ export interface AdminExpensesResponse {
 }
 
 export interface AdminExpenseCreateRequest {
+  readonly requestId: string;
   readonly confirmation?: string;
   readonly projectName: string;
   readonly publicDescription: string;
@@ -82,7 +83,9 @@ export interface AdminExpenseCreateRequest {
   readonly publishedAt?: string | null;
 }
 
-export interface AdminExpenseUpdateRequest extends Partial<AdminExpenseCreateRequest> {
+export interface AdminExpenseUpdateRequest extends Partial<
+  Omit<AdminExpenseCreateRequest, 'requestId'>
+> {
   readonly expenseId: string;
   readonly expectedVersion: string;
 }
@@ -91,6 +94,16 @@ export interface AdminExpenseMutationResult {
   readonly updated: boolean;
   readonly expense: AdminExpenseRecord | null;
 }
+
+/** A creation receipt confirms acceptance, never the expense's current visibility. */
+export type AdminExpenseCreateReceipt =
+  | { readonly requestId: string; readonly found: false }
+  | {
+      readonly requestId: string;
+      readonly found: true;
+      readonly expenseId: string;
+      readonly acceptedAt: string;
+    };
 
 export interface AdminTransparencyResponse {
   readonly data_source: 'database';

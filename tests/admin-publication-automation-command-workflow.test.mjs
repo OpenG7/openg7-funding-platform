@@ -136,7 +136,7 @@ test('approval preserves exact delivery and sponsor versions and waits for the f
   assert.deepEqual(f.calls.confirmed, []);
 
   read.resolve(f.next);
-  await pending;
+  assert.equal(await pending, true);
   assert.equal(f.state.busy(), false);
   assert.deepEqual(f.calls.applied, [f.next]);
   assert.deepEqual(f.calls.confirmed, [
@@ -261,7 +261,7 @@ test('a successful POST followed by a failed confirming read remains an error wi
     f.calls.reads.push(value);
     throw failure;
   };
-  await f.workflow.run(approval, true);
+  assert.equal(await f.workflow.run(approval, true), false);
 
   assert.deepEqual(f.calls.commands, [approval]);
   assert.deepEqual(f.calls.reads, [filter]);

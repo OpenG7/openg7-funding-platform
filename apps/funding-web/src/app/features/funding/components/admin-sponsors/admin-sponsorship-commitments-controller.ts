@@ -4,7 +4,6 @@ import type {
   SponsorshipCommitmentRecord,
   SponsorshipCommitmentQualificationRequest,
   SponsorshipObligationAdjustmentRequest,
-  SponsorshipCommitmentAdoptionPreview,
   SponsorshipOfferedBenefit,
   PreparationAssistanceApplyRequest
 } from '@openg7/funding-core';
@@ -64,10 +63,6 @@ export interface AdminSponsorshipCommitmentsPorts {
   adjust(
     payload: SponsorshipObligationAdjustmentRequest
   ): Promise<{ commitment: SponsorshipCommitmentRecord | null }>;
-  adoption(
-    pageSize: 25 | 50,
-    cursor?: string
-  ): Promise<SponsorshipCommitmentAdoptionPreview>;
   changed(): void;
   unauthorized(): Promise<void>;
 }
@@ -91,13 +86,8 @@ export class AdminSponsorshipCommitmentsController {
   readonly target = signal('');
   readonly format = signal('');
   readonly waiverAcknowledged = signal(false);
-  readonly preview = signal<SponsorshipCommitmentAdoptionPreview | null>(null);
-  readonly previewLoading = signal(false);
-  readonly previewError = signal('');
-  readonly pageSize = signal<25 | 50>(25);
   private selected = '';
   private generation = 0;
-  private previewGeneration = 0;
   private hasAssistanceDraft = false;
   private readonly pendingByDossier = new Map<string, PendingCommand>();
   constructor(private readonly ports: AdminSponsorshipCommitmentsPorts) {}
@@ -536,37 +526,6 @@ export class AdminSponsorshipCommitmentsController {
     if (!this.ports.applyAssistance)
       throw new Error('Assistance is unavailable.');
     return this.ports.applyAssistance(request);
-  }
-  async loadPreview(more = false): Promise<void> {
-    if (
-      !this.ports.canOwn() ||
-      this.previewLoading() ||
-      this.ports.isDestroyed()
-    )
-      return;
-    const generation = ++this.previewGeneration,
-      cursor = more ? (this.preview()?.nextCursor ?? undefined) : undefined;
-    this.previewLoading.set(true);
-    this.previewError.set('');
-    try {
-      const result = await this.ports.adoption(this.pageSize(), cursor);
-      if (
-        this.ports.isDestroyed() ||
-        generation !== this.previewGeneration ||
-        !this.ports.canOwn()
-      )
-        return;
-      this.preview.set(result);
-    } catch (error) {
-      if (!this.ports.isDestroyed() && generation === this.previewGeneration) {
-        this.previewError.set('loadError');
-        if (error instanceof AdminDashboardRequestError && error.status === 401)
-          await this.ports.unauthorized();
-      }
-    } finally {
-      if (!this.ports.isDestroyed() && generation === this.previewGeneration)
-        this.previewLoading.set(false);
-    }
   }
   private validText(value: string): boolean {
     return value.trim().length > 0 && value.trim().length <= 2000;

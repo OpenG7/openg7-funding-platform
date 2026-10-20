@@ -1,8 +1,78 @@
 # Modification d’un dossier commanditaire
 
-Depuis `/admin/fundraiser/sponsors`, sélectionner le dossier puis choisir **Modifier le dossier**, sous son en-tête. Le formulaire est accessible depuis chaque onglet, en français et en anglais, sur ordinateur et mobile.
+Depuis `/admin/fundraiser/sponsors`, sélectionner le dossier puis choisir **Modifier le dossier** dans sa barre d’outils. Le formulaire est accessible depuis chaque onglet, en français et en anglais, sur ordinateur et mobile.
 
-Dans **Identité**, le bouton **Modifier l’identité et les coordonnées** ouvre le même formulaire. Deux états distincts expliquent ce qui manque : les coordonnées requièrent un nom d’entreprise et un courriel de contact ; la transmission nécessite que le commanditaire ait soumis son formulaire depuis son lien privé. Une correction administrative ne crée pas cette transmission. Le propriétaire peut rejoindre le contrôle **Renvoyer le lien de suivi** depuis cette section ; les autres rôles voient qui contacter. Rejoindre ce contrôle n’envoie rien : le renvoi conserve sa confirmation du destinataire.
+Dans **Fiche et médias**, la section **Identité et soumission** propose **Modifier l’identité et les coordonnées**, qui ouvre le même formulaire. Deux états distincts expliquent ce qui manque : les coordonnées requièrent un nom d’entreprise et un courriel de contact ; la transmission nécessite que le commanditaire ait soumis son formulaire depuis son lien privé. Une correction administrative ne crée pas cette transmission. Le propriétaire peut rejoindre le contrôle **Renvoyer le lien de suivi** depuis cette section ; les autres rôles voient qui contacter. Rejoindre ce contrôle n’envoie rien : le renvoi conserve sa confirmation du destinataire.
+
+## Parcourir le dossier
+
+L’en-tête affiche la référence, le montant avec sa devise et des états distincts
+pour la revue, le paiement, la visibilité Web et le remboursement éventuel.
+**Aperçu** contient une seule recommandation détaillée issue de la progression
+serveur. Les autres onglets en gardent un rappel navigable. Les points à traiter
+se regroupent par domaine, avec trois familles visibles puis une commande pour
+toutes les afficher. L’ordre par domaine n’est pas un calcul de priorité ; le
+responsable reste à déterminer quand la projection ne le renseigne pas. Les
+liens rejoignent les contrôles propriétaires sans exécuter leur décision.
+
+Les cinq onglets restent `overview`, `identity`, `publication`, `billing` et
+`audit`. Dans **Fiche et médias**, **Revue des médias** affiche les compteurs de
+l’espace de revue courant puis conserve ses outils, droits et manifestes.
+**Aller à la galerie** y déplace le focus. Un lien entrant avec `tab=media` sans
+ancre cible cette galerie après son montage ; les ancres explicites et les
+positions de navigation arrière gardent leur priorité. L’alias `refund` reste
+rattaché à **Finances**. Aucun onglet supplémentaire n’est créé.
+
+<a id="outils-du-dossier-a-la-demande"></a>
+
+## Outils du dossier à la demande
+
+L’en-tête du dossier propose **Modération éditoriale** pour l’opérateur ou le
+propriétaire. La barre conserve **Accès au suivi** pour le propriétaire. Un
+panneau non modal affiche un seul de ces outils à la fois. La modération
+réutilise le composant de décisions existant et sa confirmation du contenu exact.
+
+À l’ouverture, le focus rejoint un contrôle utilisable au clavier et à la
+manette. **Fermer l’outil du dossier** ou Échap rend le focus au déclencheur
+concerné et le révèle dans la fenêtre s’il est masqué. Hors opération en cours,
+changer d’onglet masque l’outil courant ; les
+outils déjà ouverts restent montés pour le même dossier, afin de conserver
+notamment l’identifiant d’une demande d’accès incertaine. Changer de dossier ou
+de session, même avec le même rôle, réinitialise les outils visités et efface
+le contexte de modération précédent. Dans la nouvelle session, la modération repart au niveau
+**Demander une correction (N1)** ; le niveau choisi reste conservé pour la même
+session et le même dossier. Leur fermeture est bloquée pendant une
+opération de modération ou d’accès en cours.
+Un raccourci d’accès ouvre ou focalise l’outil déjà ouvert ; il n’envoie aucun message.
+
+**Aperçu** conserve les faits, la note et la prochaine étape. La rédaction, la
+conversation, les propositions de l’Assistant et l’aide pas à pas sont accessibles
+par l’entrée unique **Assistant et aide**, avec le même `sponsorshipId` ; le lien
+Assistant du cadre administratif transporte aussi cette sélection et son origine.
+Sur cette page commune, l’Assistant occupe deux tiers et l’aide un tiers ; ils
+sont empilés sous 1 100 px. L’aide quitte le panneau des outils du dossier.
+
+**Retour au dossier** retrouve l’onglet et le fragment d’origine validés, même
+si la lecture de l’Assistant échoue. **Ouvrir le dossier** conserve la prochaine
+étape recommandée. Le retour utilise le même dossier et le contrat `returnTo`
+décrit dans le [guide de l’Assistant](admin-ux-lot-3.md#retour-au-dossier--oux-002),
+sans texte de question ni brouillon dans l’URL. Le focus retrouve le déclencheur
+dans le même onglet ; après rechargement, le fragment valide retrouve sa section.
+
+Depuis l’aide, **Modifier l’identité** revient au même dossier avec
+`tab=identity&action=edit-identity` et le raccourci d’accès avec
+`tab=identity&action=followup-access`. Le dossier vérifie les droits et retire
+`action` par `replaceUrl` avant d’ouvrir le tiroir de correction ou l’outil
+d’accès existant. L’intention est consommée une fois ; un rechargement ne répète
+pas l’ouverture. Aucune saisie n’est enregistrée et aucun courriel n’est envoyé
+par cette navigation : les confirmations et les contrôles API restent requis.
+
+Dans **Publication**, la synthèse des prestations rejoint Campagnes avec le
+dossier comme filtre. La fiche publique et le suivi social déclaré ont des
+sous-zones distinctes ; leur sauvegarde conserve le workflow versionné existant.
+Le propriétaire trouve l’inventaire d’adoption et l’audit global dans
+`/admin/fundraiser/sponsors/quality`, **Qualité des commandites**. L’audit affiché
+dans un dossier reste borné à ce dossier.
 
 L’encadré **Coordonnées et transmission : deux actions distinctes** explique la différence entre une saisie administrative (par exemple après un appel) et la transmission datée du commanditaire qui soumet le dossier à la revue. Tant que cette transmission manque, l’onglet Identité et le formulaire de correction précisent que remplir tous les champs ne permet pas de valider cette étape à sa place. La progression et le guide rappellent cette règle. Les libellés ne présument pas que les coordonnées actuellement affichées ont été saisies par un administrateur.
 
@@ -121,12 +191,13 @@ une lecture indisponible ne conserve pas les indicateurs du dossier précédent.
 La préparation, la revue, le paiement et l’autorisation de publication restent
 distincts. Le guide conserve les explications détaillées à la demande.
 
-Dans le bon de préparation, sélectionner un contrôle affiche son détail, puis
+Dans la fiche de préparation, sélectionner un contrôle affiche son détail, puis
 **Actions** ouvre le controller partagé. L'action proposée rejoint l'écran
-propriétaire; relire ensuite le bon pour obtenir la progression serveur. L'accord
-sur une préparation admissible conserve sa confirmation explicite et la version
+propriétaire; relire ensuite la fiche pour obtenir la progression serveur. L'approbation
+d'une préparation admissible conserve sa confirmation explicite et la version
 consultée. Voir le [parcours de préparation](operations/admin-pilotage.md#preparation-pilot)
-pour la sélection, les commandes et les limites de la simulation Gamepad.
+pour la sélection, les commandes et les limites de la simulation Gamepad, ainsi
+que le [vocabulaire commun](technical/admin-campaigns.md#vocabulaire-des-operations).
 
 Pour un accord historique à qualifier, le propriétaire peut enregistrer un texte
 privé versionné et lancer une **assistance locale** depuis la section de l’accord.
@@ -153,6 +224,20 @@ Une demande reste distincte du montant effectivement remboursé et confirmé.
 Le numéro d’une facture ouvre son inspection dans le dossier; l’accès au registre
 complet reste disponible. Les entrées directes `billing` et `refund` partagent les
 mêmes sections et la même commande de suivi.
+
+Dans **Publication**, les repères **Offre → Préparation → Contenu → Autorisation →
+Livraison → Preuve** conduisent aux sections existantes et aux écrans propriétaires.
+L'autorisation reste celle du contenu et de la livraison exacts dans le tiroir
+partagé. Le suivi Web et les canaux sociaux gardent leurs décisions indépendantes ;
+un canal non promis n'est pas un prérequis de livraison. Les références de preuve
+qualifiées dans l'accord rejoignent la prestation exacte dans **Campagnes**.
+Les dates et la portée de la réalisation restent distinctes de l'observation
+actuelle de visibilité ; une référence déclarée seule ne solde pas une prestation.
+Voir le [contrat de visibilité des preuves](technical/admin-campaigns.md).
+
+Dans **Factures**, le badge **Courriel** décrit uniquement le dernier état d'envoi
+de la facture ou de l'avoir concerné. Une mise en file, un envoi ou une issue
+incertaine ne change ni l'émission du document ni le remboursement confirmé.
 
 Dans **Historique**, **Filtrer l’activité** sélectionne les événements de la fiche
 et des médias, de la revue, de la publication, des finances ou du suivi. Les actions

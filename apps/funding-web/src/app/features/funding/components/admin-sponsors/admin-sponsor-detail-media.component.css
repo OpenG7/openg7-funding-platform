@@ -9,6 +9,53 @@
   @apply tw:grid tw:min-w-0 tw:gap-admin-card-gap tw:p-admin-card;
 }
 
+.media-summary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding-block-start: 0.25rem;
+}
+
+.media-summary > div {
+  min-width: 0;
+}
+
+.media-summary button {
+  max-width: 100%;
+  white-space: normal;
+}
+
+.media-gallery {
+  min-width: 0;
+}
+
+.logo-summary {
+  min-height: var(--admin-control-height);
+  cursor: pointer;
+}
+
+.logo-summary .muted-copy {
+  margin-inline-start: 0.5rem;
+}
+
+.logo-thumbnail {
+  display: inline-block;
+  width: 2rem;
+  height: 2rem;
+  margin-inline: 0.25rem 0.5rem;
+  object-fit: contain;
+  vertical-align: middle;
+}
+
+.section-title {
+  margin: 0;
+  font-family: var(--admin-heading-font-family);
+  font-size: var(--admin-section-size);
+  font-weight: var(--admin-section-weight);
+}
+
 .media-review-panel {
   @apply tw:grid tw:min-w-0 tw:gap-admin-card-gap tw:rounded-admin-card tw:p-admin-card;
   background: var(--admin-panel);

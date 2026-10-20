@@ -2,15 +2,23 @@
   <openg7-admin-layout [sponsorshipId]="id">
     <div class="assistant-page assistant-dossier-page">
       <header class="page-heading">
-        <h1>{{ 'admin.dossierAssistance.assistant' | translate }}</h1>
-        <a
-          class="admin-button"
-          data-og7="assistant-dossier-back"
-          routerLink="/admin/fundraiser/sponsors"
-          [queryParams]="{ sponsorshipId: id }"
-        >
-          {{ 'admin.dossierAssistance.backToDossier' | translate }}
-        </a>
+        <div>
+          <h1>{{ 'admin.dossierAssistance.assistant' | translate }}</h1>
+          <p class="muted">
+            <strong data-og7="admin-workspace-mode" data-og7-id="prepare">{{
+              'admin.modes.prepare' | translate
+            }}</strong>
+          </p>
+        </div>
+        @if (dossierReturn(); as origin) {
+          <a
+            class="admin-link"
+            data-og7="assistant-dossier-return"
+            [routerLink]="origin"
+            [info]="dossierReturnFocus"
+            >{{ 'admin.context.returnToDossier' | translate }}</a
+          >
+        }
       </header>
       <div
         class="assistant-dossier-workspace"
@@ -55,7 +63,12 @@
       <header class="page-heading">
         <div>
           <h1>{{ 'admin.nav.assistant' | translate }}</h1>
-          <p class="muted">{{ 'admin.assistantOverview.intro' | translate }}</p>
+          <p class="muted">
+            <strong data-og7="admin-workspace-mode" data-og7-id="prepare">{{
+              'admin.modes.prepare' | translate
+            }}</strong>
+            · {{ 'admin.assistantOverview.intro' | translate }}
+          </p>
         </div>
         <button
           type="button"

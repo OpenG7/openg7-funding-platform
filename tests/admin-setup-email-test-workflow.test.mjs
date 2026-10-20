@@ -1,5 +1,5 @@
+import { fundingBaseTranslations } from './support/funding-base-translations.mjs';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { AdminSetupEmailTestWorkflow } from '../dist/apps/funding-web/src/app/features/funding/pages/admin-setup-page/admin-setup-email-test-workflow.js';
@@ -45,9 +45,7 @@ const fixture = (values = new Map(), locale = 'fr-CA') => {
   const writes = [];
   const reads = [];
   const denied = [];
-  const catalog = JSON.parse(
-    readFileSync(`apps/funding-web/src/assets/i18n/${locale}.json`, 'utf8')
-  );
+  const catalog = fundingBaseTranslations(locale);
   let uuidCalls = 0;
   const ports = {
     admin: {

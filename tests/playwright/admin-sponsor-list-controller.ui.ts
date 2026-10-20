@@ -306,7 +306,7 @@ test('leaving sponsors before a delayed list renders keeps focus on the destinat
     await expect(page.locator('#dossier-review')).toHaveCount(0);
     const dashboard = page
       .getByRole('navigation', { name: 'Navigation admin du fonds' })
-      .getByRole('link', { name: 'Tableau de bord', exact: true });
+      .getByRole('link', { name: 'Cockpit', exact: true });
     await dashboard.click();
     await expect(page).toHaveURL('/admin/fundraiser');
     await expect(dashboard).toHaveAttribute('aria-current', 'page');

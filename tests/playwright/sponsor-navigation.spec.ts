@@ -5,6 +5,7 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
+import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
 import { approveAcceptanceFixture } from './support/acceptance-moderation.js';
 import { expect, test } from './support/test.js';
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
@@ -213,6 +214,8 @@ test.describe('Docker corporate sponsor navigation', () => {
       .fill(fixture.companyName + ' - mise a jour');
     await page.getByLabel(/Nom du contact/i).fill(fixture.contactName);
     await page.getByLabel(/Courriel du contact/i).fill(fixture.contactEmail);
+    await openFollowupPresentation(page);
+
     await page.getByLabel(/Site web/i).fill(fixture.websiteUrl);
 
     await page
@@ -307,6 +310,7 @@ test.describe('Docker corporate sponsor navigation', () => {
     await page.getByLabel(/Nom de l'entreprise/i).fill(fixture.companyName);
     await page.getByLabel(/Nom du contact/i).fill(fixture.contactName);
     await page.getByLabel(/Courriel du contact/i).fill('invalid-email');
+    await openFollowupPresentation(page);
     await page.getByLabel(/Site web/i).fill(fixture.websiteUrl);
 
     await expect(page.locator('#followup-contactEmail-error')).toHaveText(
@@ -339,6 +343,7 @@ test.describe('Docker corporate sponsor navigation', () => {
     await page.getByLabel(/Nom de l'entreprise/i).fill(fixture.companyName);
     await page.getByLabel(/Nom du contact/i).fill(fixture.contactName);
     await page.getByLabel(/Courriel du contact/i).fill(fixture.contactEmail);
+    await openFollowupPresentation(page);
     await page.getByLabel(/Site web/i).fill('http://invalid-http-url.com');
 
     await page

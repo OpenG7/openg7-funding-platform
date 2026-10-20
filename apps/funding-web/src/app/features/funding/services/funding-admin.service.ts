@@ -1,4 +1,7 @@
 import type {
+  AdminExpenseCreateReceipt,
+  AdminDocumentResendReceipt,
+  AdminDocumentResendReceiptRequest,
   AdminWorkQueueQuery,
   AdminWorkQueueResponse,
   PublicationAutomationState,
@@ -38,6 +41,8 @@ import type {
   AdminSponsorshipProgressResponse,
   AdminInformationRequest,
   AdminInformationRequestResult,
+  AdminInformationRequestReceiptRequest,
+  AdminInformationRequestReceipt,
   AdminAssistantPrepareRequest,
   AdminAssistantPrepareResponse,
   AdminAssistantQueryRequest,
@@ -599,6 +604,13 @@ export class FundingAdminService {
     );
   }
 
+  getInformationRequestReceipt(
+    token: string,
+    input: AdminInformationRequestReceiptRequest
+  ): Promise<AdminInformationRequestReceipt> {
+    return this.sponsorshipsClient.getInformationRequestReceipt(token, input);
+  }
+
   getSponsorshipAccessRecipient(
     token: string,
     contributionId: string
@@ -700,6 +712,13 @@ export class FundingAdminService {
     return this.documentsClient.resendSponsorshipInvoice(token, payload);
   }
 
+  async getDocumentResendReceipt(
+    token: string,
+    input: AdminDocumentResendReceiptRequest
+  ): Promise<AdminDocumentResendReceipt> {
+    return this.documentsClient.getDocumentResendReceipt(token, input);
+  }
+
   async getSponsorshipInvoicePdf(
     token: string,
     invoiceId: string
@@ -758,6 +777,13 @@ export class FundingAdminService {
     expenseId?: string
   ): Promise<AdminExpensesResponse> {
     return this.accountingClient.getExpenses(token, expenseId);
+  }
+
+  async getExpenseCreateReceipt(
+    token: string,
+    requestId: string
+  ): Promise<AdminExpenseCreateReceipt> {
+    return this.accountingClient.getExpenseCreateReceipt(token, requestId);
   }
 
   async createExpense(

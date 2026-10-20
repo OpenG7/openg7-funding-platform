@@ -50,7 +50,7 @@ export const ADMIN_WORKFLOW_GUIDE_JOURNEYS: readonly AdminWorkflowGuideJourney[]
       steps: [
         { id: 'status', targets: ['publication-channel'] },
         { id: 'responsibility', targets: ['publication-obligations'] },
-        { id: 'evidence', targets: ['publication-obligation-proof'] }
+        { id: 'evidence', targets: ['publication-campaign-benefits'] }
       ]
     },
     {

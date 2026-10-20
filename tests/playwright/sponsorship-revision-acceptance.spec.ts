@@ -16,6 +16,7 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
+import { openFollowupPresentation } from './support/acceptance-followup-presentation.js';
 import { completeModeration } from './support/moderation.js';
 import { completePublicationModeration } from './support/acceptance-moderation.js';
 import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
@@ -231,6 +232,7 @@ for (const review of ['pending', 'reapproved'] as const) {
         .locator('#followup-contactName')
         .fill('Contact synthétique');
       await company.locator('#followup-contactEmail').fill(email);
+      await openFollowupPresentation(company);
       await company
         .locator('#followup-websiteUrl')
         .fill('https://simulation.example.test');

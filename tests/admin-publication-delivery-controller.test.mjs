@@ -1,3 +1,4 @@
+import { fundingBaseTranslations } from './support/funding-base-translations.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
@@ -83,8 +84,10 @@ const fixture = (t) => {
     busy: signal(false),
     error: signal(''),
     commands: {
-      run: async (command, open = false) =>
-        calls.commands.push({ command, open })
+      run: async (command, open = false) => {
+        calls.commands.push({ command, open });
+        return true;
+      }
     },
     admin: {
       publicationMedia: async () => {
@@ -376,6 +379,41 @@ test('visibility reads require confirmation for the exact live published deliver
   assert.equal(command.version, 7);
   assert.equal(command.confirmation, command.id);
   assert.match(command.requestId, /^[a-f0-9-]{36}$/);
+});
+
+test('an unconfirmed visibility observation reuses its exact UUID after closing and reopening the delivery', async (t) => {
+  const f = fixture(t);
+  const published = delivery({ status: 'published', mode: 'live' });
+  let confirmed = false;
+  f.ports.commands.run = async (command) => {
+    f.calls.commands.push({ command });
+    f.ports.error.set(confirmed ? '' : 'RESULT_UNKNOWN');
+    if (confirmed) f.controller.open(published);
+    return confirmed;
+  };
+  f.controller.open(published);
+  await f.controller.checkVisibility();
+  const first = f.calls.commands.at(-1).command;
+  f.controller.close();
+  f.controller.open(published);
+  confirmed = true;
+  await f.controller.checkVisibility();
+  assert.deepEqual(f.calls.commands.at(-1).command, first);
+  await f.controller.checkVisibility();
+  assert.notEqual(f.calls.commands.at(-1).command.requestId, first.requestId);
+});
+
+test('visibility confirmation cannot start a concurrent observation', async (t) => {
+  const f = fixture(t);
+  const confirmation = deferred();
+  f.ports.confirm = () => confirmation.promise;
+  f.controller.open(delivery({ status: 'published', mode: 'live' }));
+  const first = f.controller.checkVisibility();
+  await f.controller.checkVisibility();
+  assert.equal(f.calls.commands.length, 0);
+  confirmation.resolve(true);
+  await first;
+  assert.equal(f.calls.commands.length, 1);
 });
 
 test('approval binds the displayed delivery version and pending sponsor dossier versions', async (t) => {
@@ -959,9 +997,7 @@ test('drawer preserves dossier hooks, content/media/destination, translations an
     .map((match) => match[1])
     .filter((key) => !key.endsWith('.'));
   for (const locale of ['fr-CA', 'en']) {
-    const catalog = JSON.parse(
-      fs.readFileSync(`apps/funding-web/src/assets/i18n/${locale}.json`, 'utf8')
-    );
+    const catalog = fundingBaseTranslations(locale);
     for (const key of keys)
       assert.equal(
         typeof key.split('.').reduce((entry, part) => entry?.[part], catalog),

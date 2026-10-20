@@ -19,7 +19,7 @@ import { TranslatePipe } from '@ngx-translate/core';
       [class.status-failed]="status() === 'failed'"
       [class.status-queued]="status() === 'queued' || status() === 'sending'"
     >
-      {{ labelKey() | translate }}
+      {{ 'admin.legacy.courriel' | translate }} · {{ labelKey() | translate }}
     </span>
   `,
   styleUrl: './admin-document-email-status.component.css'
@@ -36,6 +36,8 @@ export class AdminDocumentEmailStatusComponent {
         return 'admin.legacy.envoi';
       case 'queued':
         return 'admin.legacy.en_file';
+      case 'uncertain':
+        return 'admin.financialSafety.uncertainStatus';
       default:
         return 'admin.messages.jamais_envoye';
     }

@@ -369,7 +369,7 @@ for (const language of ['fr-CA', 'en']) {
         // Both ends must remain reachable without cropping the heading itself.
         for (const block of ['start', 'end'] as const) {
           // Container queries can settle after the first scroll following text
-          // enlargement. Retry the native scroll against its resulting bounds.
+          // enlargement. Retry the native scroll and browser intersection together.
           await expect(async () => {
             await title.evaluate(
               (el, block) => el.scrollIntoView({ block, behavior: 'instant' }),
@@ -393,8 +393,8 @@ for (const language of ['fr-CA', 'en']) {
                 headingBounds.y + headingBounds.height
               ).toBeLessThanOrEqual(frameBounds.y + frameBounds.height + 1);
             }
+            await expect(title).toBeInViewport({ timeout: 150 });
           }).toPass({ timeout: 7000 });
-          await expect(title).toBeInViewport();
         }
         for (const action of await actions.all()) {
           // Center the native scroll so fractional rem borders at 200% remain visible.
@@ -2203,16 +2203,28 @@ test('weekly guide opens each workspace, preserves unfinished edits and resumes 
     'data-og7-id',
     'programme-compose'
   );
+  try {
+    await page.keyboard.down('Escape');
+    await expect(tour).not.toBeVisible();
+    await expect(guideLaunch(page, 'programme')).toBeFocused();
+    // The programme drawer is a sibling of the shared layout. A repeat from
+    // the same held Escape must not dismiss it after the guide returns focus.
+    await page.keyboard.down('Escape');
+    await expect(
+      page.getByRole('dialog', { name: 'Ma semaine', exact: true })
+    ).toBeVisible();
+    await expect(
+      programme.locator('[data-og7="programme-instruction"]')
+    ).toHaveValue('Mon intention en cours');
+    await expect(guideLaunch(page, 'programme')).toBeFocused();
+    expect(mutations).toEqual([]);
+  } finally {
+    await page.keyboard.up('Escape');
+  }
   await page.keyboard.press('Escape');
-  await expect(tour).not.toBeVisible();
   await expect(
     page.getByRole('dialog', { name: 'Ma semaine', exact: true })
-  ).toBeVisible();
-  await expect(
-    programme.locator('[data-og7="programme-instruction"]')
-  ).toHaveValue('Mon intention en cours');
-  await expect(guideLaunch(page, 'programme')).toBeFocused();
-  await page.keyboard.press('Escape');
+  ).not.toBeVisible();
   await f.open();
   await expect(guideLaunch(page, 'programme')).toHaveText(/Reprendre le guide/);
   await guideLaunch(page, 'programme').click();
@@ -2936,12 +2948,10 @@ for (const width of [390, 1512]) {
       navigation.getByRole('link', { name: 'Poste de pilotage' })
     ).toHaveAttribute('aria-current', 'page');
     await navigation
-      .getByRole('link', { name: 'Tableau de bord', exact: true })
+      .getByRole('link', { name: 'Cockpit', exact: true })
       .click();
     await expect(page).toHaveURL(/\/admin\/fundraiser$/);
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-      'Centre de pilotage'
-    );
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Cockpit');
     await openMenu();
     expect(
       await navigation.getByRole('link').evaluateAll((items) =>
