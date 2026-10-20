@@ -5353,7 +5353,12 @@ test('workspace English mobile opens shared assistance and optional access with 
   await expect(guide(page)).toHaveAttribute('open', '');
   await guide(page).locator('[data-og7="guide-open-section"]').click();
   await expect(page).toHaveURL(/tab=overview#dossier-review$/);
-  await toolToggle(page, 'access').focus();
+  const review = page.locator('#dossier-review');
+  await expect(review).toBeFocused();
+  await expect(review).toBeInViewport();
+  const access = toolToggle(page, 'access');
+  await access.focus();
+  await expect(access).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(
     page.locator('[data-og7="admin-followup-access"]')
