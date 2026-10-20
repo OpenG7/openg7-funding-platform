@@ -22,7 +22,7 @@
         [disabled]="busy() || disabled()"
       >
         @for (option of levels(); track option) {
-          <option [value]="option">
+          <option [value]="option" [selected]="option === level()">
             {{ 'funding.moderation.levels.' + option | translate }}
           </option>
         }

@@ -195,6 +195,87 @@ export function registerSponsorToolTests({
     expect(calls.every((call) => call.method === 'GET')).toBe(true);
   });
 
+  for (const replaceSession of [false, true]) {
+    test(`moderation ${replaceSession ? 'clears its previous session' : 'preserves the same session'} when revisiting a dossier tool`, async ({
+      page
+    }) => {
+      await fixtures(page, 'operator');
+      let sessionId = 'synthetic-original-session';
+      let identityReads = 0;
+      let historyReads = 0;
+      const mutations: string[] = [];
+      await page.route('**/api/admin/auth/current', async (route) => {
+        identityReads++;
+        await route.fulfill({
+          json: {
+            id: 'synthetic-moderator',
+            sessionId,
+            displayName: 'Synthetic moderator',
+            role: 'operator',
+            expiresAt: '2099-01-01T00:00:00Z'
+          }
+        });
+      });
+      await page.route('**/api/admin/moderation/**', async (route) => {
+        if (route.request().method() !== 'GET')
+          mutations.push(route.request().method());
+        if (new URL(route.request().url()).pathname.endsWith('/decisions')) {
+          historyReads++;
+          return route.fulfill({
+            json: {
+              items: [
+                {
+                  id: 'synthetic-history-decision',
+                  level: 'N1',
+                  primaryReason: null,
+                  sponsorExplanation:
+                    'Synthetic history from the original session',
+                  policyVersion: '1.0',
+                  contentVersion: 1,
+                  createdAt: '2026-10-19T12:00:00Z'
+                }
+              ]
+            }
+          });
+        }
+        await route.fallback();
+      });
+      await page.goto(path());
+      await toggle(page, 'moderation').click();
+      const actions = page.locator('[data-og7="moderation-actions"]');
+      await expect(actions.getByRole('combobox')).toHaveValue('N1');
+      await actions.getByRole('combobox').selectOption('N4');
+      await actions.locator('summary').click();
+      await expect(
+        actions.locator('[data-og7="moderation-history-decision"]')
+      ).toContainText('Synthetic history from the original session');
+      expect(historyReads).toBe(1);
+      const previousIdentityReads = identityReads;
+      if (replaceSession) sessionId = 'synthetic-replacement-session';
+      await page
+        .locator('[data-og7="dossier-tabs"]')
+        .getByRole('button', { name: 'Publication', exact: true })
+        .click();
+      await expect(page).toHaveURL(path('publication'));
+      await expect
+        .poll(() => identityReads)
+        .toBeGreaterThan(previousIdentityReads);
+      await expect(toggle(page, 'moderation')).toHaveAttribute(
+        'aria-expanded',
+        'false'
+      );
+      await toggle(page, 'moderation').click();
+      await expect(actions.getByRole('combobox')).toHaveValue(
+        replaceSession ? 'N1' : 'N4'
+      );
+      await expect(
+        actions.locator('[data-og7="moderation-history-decision"]')
+      ).toHaveCount(replaceSession ? 0 : 1);
+      expect(historyReads).toBe(1);
+      expect(mutations).toEqual([]);
+    });
+  }
+
   test('pending access recipient verification keeps its tool open until the request settles', async ({
     page
   }) => {

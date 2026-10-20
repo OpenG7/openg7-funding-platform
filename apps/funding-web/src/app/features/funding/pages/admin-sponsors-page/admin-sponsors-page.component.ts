@@ -163,6 +163,10 @@ export class AdminSponsorsPageComponent implements OnInit {
   readonly dossierToolBusy = computed(
     () => !!this.sponsorAccess()?.busy() || !!this.dossierModeration()?.busy()
   );
+  private readonly dossierToolSessionKey = computed(() => {
+    const identity = this.admin.identity();
+    return `${this.admin.sessionGeneration()}:${identity?.id ?? 'token'}:${identity?.sessionId ?? 'token'}:${identity?.role ?? 'owner'}`;
+  });
   readonly isFinanceTab = computed(
     () => this.activeTab() === 'billing' || this.activeTab() === 'refund'
   );
@@ -709,17 +713,19 @@ export class AdminSponsorsPageComponent implements OnInit {
     });
     let toolSelection: string | null = null;
     let toolTab = this.activeTab();
+    let toolSessionKey = this.dossierToolSessionKey();
     effect(() => {
       const selectedId = this.selectedSponsorshipId();
       const tab = this.activeTab();
-      if (selectedId !== toolSelection) this.visitedDossierTools.set(new Set());
-      if (
-        selectedId !== toolSelection ||
-        (tab !== toolTab && !this.dossierToolBusy())
-      ) {
+      const sessionKey = this.dossierToolSessionKey();
+      const resetTools =
+        selectedId !== toolSelection || sessionKey !== toolSessionKey;
+      if (resetTools) this.visitedDossierTools.set(new Set());
+      if (resetTools || (tab !== toolTab && !this.dossierToolBusy())) {
         this.dossierTool.set(null);
         toolSelection = selectedId;
         toolTab = tab;
+        toolSessionKey = sessionKey;
       }
       const tool = this.dossierTool();
       if (
