@@ -39,8 +39,11 @@ manette. **Fermer l’outil du dossier** ou Échap rend le focus au déclencheur
 concerné et le révèle dans la fenêtre s’il est masqué. Hors opération en cours,
 changer d’onglet masque l’outil courant ; les
 outils déjà ouverts restent montés pour le même dossier, afin de conserver
-notamment l’identifiant d’une demande d’accès incertaine. Changer de dossier
-réinitialise les outils visités ; leur fermeture est bloquée pendant une
+notamment l’identifiant d’une demande d’accès incertaine. Changer de dossier ou
+de session, même avec le même rôle, réinitialise les outils visités et efface
+le contexte de modération précédent. Dans la nouvelle session, la modération repart au niveau
+**Demander une correction (N1)** ; le niveau choisi reste conservé pour la même
+session et le même dossier. Leur fermeture est bloquée pendant une
 opération de modération ou d’accès en cours.
 Un raccourci d’accès ouvre ou focalise l’outil déjà ouvert ; il n’envoie aucun message.
 

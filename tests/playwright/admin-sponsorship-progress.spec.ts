@@ -5364,7 +5364,7 @@ for (const english of [false, true]) {
         .click();
     await toolToggle(page, 'moderation').click();
     const actions = page.locator('[data-og7="moderation-actions"]').first();
-    await actions.getByRole('combobox').selectOption('N1');
+    await expect(actions.getByRole('combobox')).toHaveValue('N1');
     await actions.locator('[data-og7="moderation-open"]').click();
     let panel = page.locator('[data-og7="moderation-decision"]');
     await expect(

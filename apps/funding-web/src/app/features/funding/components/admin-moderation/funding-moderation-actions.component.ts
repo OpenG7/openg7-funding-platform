@@ -21,7 +21,10 @@ import {
 } from '@openg7/funding-core';
 
 import { FundingAdminService } from '../../services/funding-admin.service.js';
-import { FundingModerationService } from '../../services/funding-moderation.service.js';
+import {
+  FundingModerationService,
+  type ModerationRequest
+} from '../../services/funding-moderation.service.js';
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminAutomaticPreparationDirective } from '../admin-automatic/admin-automatic-preparation.directive.js';
@@ -82,15 +85,24 @@ export class FundingModerationActionsComponent {
     'idle'
   );
   private generation = 0;
-  private readonly contextKey = computed(
-    () => `${this.subject().type}:${this.subject().id}`
-  );
+  private readonly contextKey = computed(() => {
+    const subject = this.subject();
+    const identity = this.admin.identity();
+    return `${subject.type}:${subject.id}:${this.admin.sessionGeneration()}:${identity?.id ?? 'token'}:${identity?.sessionId ?? 'token'}:${identity?.role ?? 'owner'}`;
+  });
   private independentAttempt: { id: string; requestId: string } | null = null;
+  private pendingReview: ModerationRequest | null = null;
   constructor() {
-    effect(() => {
+    effect((onCleanup) => {
       this.contextKey();
       this.canReview();
       this.canAssign();
+      onCleanup(() => {
+        const request = this.pendingReview;
+        this.pendingReview = null;
+        if (request && this.moderation.pending() === request)
+          this.moderation.answer(null);
+      });
       this.generation++;
       this.busy.set(false);
       this.decisions.set([]);
@@ -125,7 +137,7 @@ export class FundingModerationActionsComponent {
   }
   async loadHistory(): Promise<void> {
     const subject = this.subject();
-    const generation = this.generation;
+    const generation = this.contextVersion();
     if (!this.canReview()) return;
     try {
       const [cases, decisions, reconsiderations] = await Promise.all([
@@ -133,7 +145,7 @@ export class FundingModerationActionsComponent {
         this.admin.moderationDecisions(subject),
         this.admin.moderationReconsiderations(subject)
       ]);
-      if (generation !== this.generation) return;
+      if (generation !== this.contextVersion()) return;
       this.decisions.set(decisions.items);
       this.reconsiderations.set(reconsiderations.items);
       this.caseState.set(cases.items[0]?.state ?? 'unreviewed');
@@ -144,7 +156,7 @@ export class FundingModerationActionsComponent {
         this.assignmentState.set('loading');
         try {
           const accounts = await this.admin.accessAccounts();
-          if (generation !== this.generation) return;
+          if (generation !== this.contextVersion()) return;
           this.members.set(
             accounts.accounts.filter(
               (account) => !account.disabled && account.role !== 'reader'
@@ -152,11 +164,12 @@ export class FundingModerationActionsComponent {
           );
           this.assignmentState.set('ready');
         } catch {
-          if (generation === this.generation) this.assignmentState.set('error');
+          if (generation === this.contextVersion())
+            this.assignmentState.set('error');
         }
       }
     } catch {
-      if (generation === this.generation) {
+      if (generation === this.contextVersion()) {
         this.decisions.set([]);
         this.reconsiderations.set([]);
         this.notice.set('admin.moderation.failed');
@@ -166,24 +179,22 @@ export class FundingModerationActionsComponent {
   async decide(): Promise<void> {
     if (this.busy() || this.disabled() || !this.canReview()) return;
     const subject = this.subject();
-    const generation = this.generation;
+    const generation = this.contextVersion();
     const restoreCancelledFocus = this.captureDecisionFocus();
     this.busy.set(true);
     try {
-      const decision = await this.moderation.requestDecision(
-        subject,
-        this.level()
-      );
-      if (!decision && generation === this.generation) restoreCancelledFocus();
+      const decision = await this.requestDecision(subject, this.level());
+      if (!decision && generation === this.contextVersion())
+        restoreCancelledFocus();
       if (
         !decision ||
-        generation !== this.generation ||
+        generation !== this.contextVersion() ||
         this.disabled() ||
         !this.canReview()
       )
         return;
       const result = await this.admin.moderationDecision(subject, decision);
-      if (generation !== this.generation) return;
+      if (generation !== this.contextVersion()) return;
       this.notice.set(
         result.decision.state === 'pending_independent_review'
           ? 'admin.moderation.independentReview'
@@ -192,13 +203,14 @@ export class FundingModerationActionsComponent {
       this.changed.emit();
       await this.loadHistory();
     } catch (error) {
-      if (generation === this.generation) this.notice.set(this.errorKey(error));
+      if (generation === this.contextVersion())
+        this.notice.set(this.errorKey(error));
     } finally {
-      if (generation === this.generation) this.busy.set(false);
+      if (generation === this.contextVersion()) this.busy.set(false);
     }
   }
   async independent(id: string): Promise<void> {
-    const generation = this.generation;
+    const generation = this.contextVersion();
     if (
       this.busy() ||
       this.disabled() ||
@@ -208,7 +220,7 @@ export class FundingModerationActionsComponent {
         this.i18n.t('admin.moderation.independentConfirm'),
         id
       )) ||
-      generation !== this.generation
+      generation !== this.contextVersion()
     )
       return;
     this.busy.set(true);
@@ -222,14 +234,15 @@ export class FundingModerationActionsComponent {
         id,
         this.independentAttempt.requestId
       );
-      if (generation !== this.generation) return;
+      if (generation !== this.contextVersion()) return;
       this.notice.set('admin.moderation.saved');
       this.changed.emit();
       await this.loadHistory();
     } catch (error) {
-      if (generation === this.generation) this.notice.set(this.errorKey(error));
+      if (generation === this.contextVersion())
+        this.notice.set(this.errorKey(error));
     } finally {
-      if (generation === this.generation) this.busy.set(false);
+      if (generation === this.contextVersion()) this.busy.set(false);
     }
   }
 
@@ -244,19 +257,18 @@ export class FundingModerationActionsComponent {
     )
       return;
     const subject = this.subject();
-    const generation = this.generation;
+    const generation = this.contextVersion();
     const restoreCancelledFocus = this.captureDecisionFocus();
     this.busy.set(true);
     try {
-      const decision = await this.moderation.requestDecision(
-        subject,
-        this.level(),
-        { requireExplanation: true }
-      );
-      if (!decision && generation === this.generation) restoreCancelledFocus();
+      const decision = await this.requestDecision(subject, this.level(), {
+        requireExplanation: true
+      });
+      if (!decision && generation === this.contextVersion())
+        restoreCancelledFocus();
       if (
         !decision ||
-        generation !== this.generation ||
+        generation !== this.contextVersion() ||
         this.disabled() ||
         !this.canReview()
       )
@@ -266,7 +278,7 @@ export class FundingModerationActionsComponent {
         subject,
         decision
       );
-      if (generation !== this.generation) return;
+      if (generation !== this.contextVersion()) return;
       this.notice.set(
         result.decision.state === 'pending_independent_review'
           ? 'admin.moderation.independentReview'
@@ -275,15 +287,35 @@ export class FundingModerationActionsComponent {
       this.changed.emit();
       await this.loadHistory();
     } catch (error) {
-      if (generation === this.generation) this.notice.set(this.errorKey(error));
+      if (generation === this.contextVersion())
+        this.notice.set(this.errorKey(error));
     } finally {
-      if (generation === this.generation) this.busy.set(false);
+      if (generation === this.contextVersion()) this.busy.set(false);
+    }
+  }
+  private contextVersion(): string {
+    // Identity changes invalidate async work before the reset effect runs.
+    return `${this.generation}:${this.contextKey()}`;
+  }
+  private async requestDecision(
+    subject: ModerationSubject,
+    level: ModerationLevel,
+    initial?: ModerationRequest['initial']
+  ) {
+    const previous = this.moderation.pending();
+    const result = this.moderation.requestDecision(subject, level, initial);
+    const request = previous ? null : this.moderation.pending();
+    this.pendingReview = request;
+    try {
+      return await result;
+    } finally {
+      if (this.pendingReview === request) this.pendingReview = null;
     }
   }
   private captureDecisionFocus(): () => void {
     // Disabling the opener clears activeElement before the drawer can capture it.
     const opener = this.document.activeElement as HTMLElement | null;
-    const generation = this.generation;
+    const generation = this.contextVersion();
     const sessionGeneration = this.admin.sessionGeneration();
     const url = this.router.url;
     return () => {
@@ -291,7 +323,7 @@ export class FundingModerationActionsComponent {
       afterNextRender(
         () => {
           if (
-            generation !== this.generation ||
+            generation !== this.contextVersion() ||
             sessionGeneration !== this.admin.sessionGeneration() ||
             this.router.url !== url ||
             this.router.currentNavigation() ||
@@ -329,7 +361,7 @@ export class FundingModerationActionsComponent {
     const assignedTo = this.assignmentDraft() || null;
     const expectedAssignedTo = this.assignedTo();
     const subject = this.subject();
-    const generation = this.generation;
+    const generation = this.contextVersion();
     if (
       !this.canAssign() ||
       this.busy() ||
@@ -348,7 +380,7 @@ export class FundingModerationActionsComponent {
               ?.displayName
           : this.i18n.t('admin.moderation.unassigned')
       )) ||
-      generation !== this.generation ||
+      generation !== this.contextVersion() ||
       !this.canAssign() ||
       this.busy() ||
       this.disabled()
@@ -361,14 +393,14 @@ export class FundingModerationActionsComponent {
         assignedTo,
         expectedAssignedTo
       );
-      if (generation !== this.generation) return;
+      if (generation !== this.contextVersion()) return;
       this.notice.set('admin.moderation.assignmentSaved');
       await this.loadHistory();
     } catch {
-      if (generation === this.generation)
+      if (generation === this.contextVersion())
         this.notice.set('admin.moderation.failed');
     } finally {
-      if (generation === this.generation) this.busy.set(false);
+      if (generation === this.contextVersion()) this.busy.set(false);
     }
   }
 }
