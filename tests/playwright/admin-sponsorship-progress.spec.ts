@@ -1474,6 +1474,27 @@ for (const [role, action] of [
   });
 }
 
+test('dossier guide action URL without a dossier is discarded before selecting a sponsorship', async ({
+  page
+}) => {
+  const { calls } = await fixtures(page, 'owner');
+  const origin = '/admin/fundraiser/sponsors?tab=identity';
+  await page.goto(origin + '&action=edit-identity');
+  await expect(page).toHaveURL(origin);
+  await page.locator('[data-og7="sponsor-row"]').first().click();
+  await expect(page).toHaveURL(
+    (url) =>
+      url.pathname === '/admin/fundraiser/sponsors' &&
+      url.searchParams.get('sponsorshipId') === id &&
+      url.searchParams.get('tab') === 'identity' &&
+      !url.searchParams.has('action')
+  );
+  await expect(page.locator('[data-og7="dossier-identity"]')).toBeVisible();
+  await expect(editForm(page)).toBeHidden();
+  await expect(page.locator('[data-og7="admin-followup-access"]')).toBeHidden();
+  expect(calls.every((call) => call.method === 'GET')).toBe(true);
+});
+
 test('dossier guide action URL outside its identity tab is discarded before later navigation', async ({
   page
 }) => {

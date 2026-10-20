@@ -751,15 +751,15 @@ export class AdminSponsorsPageComponent implements OnInit {
     afterRenderEffect(() => {
       const params = this.actionParams();
       const action = params?.get('action');
-      const sponsorshipId = params?.get('sponsorshipId');
+      const sponsorshipId = params?.get('sponsorshipId') ?? null;
       if (
         (action !== 'edit-identity' && action !== 'followup-access') ||
-        !sponsorshipId ||
         this.state() !== 'ready' ||
         this.dossierToolBusy()
       )
         return;
       const validContext =
+        !!sponsorshipId &&
         params?.get('tab') === 'identity' &&
         this.selectedSponsorship()?.id === sponsorshipId &&
         this.activeTab() === 'identity';
@@ -817,7 +817,7 @@ export class AdminSponsorsPageComponent implements OnInit {
   /** Consume navigation intent once; opening a control never submits its action. */
   private async consumeDossierAction(
     action: 'edit-identity' | 'followup-access',
-    sponsorshipId: string,
+    sponsorshipId: string | null,
     validContext: boolean
   ): Promise<void> {
     if (this.consumingDossierAction) return;
