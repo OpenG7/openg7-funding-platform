@@ -3,6 +3,7 @@ import {
   Component,
   computed,
   input,
+  model,
   output,
   signal
 } from '@angular/core';
@@ -50,8 +51,7 @@ interface GuideStep {
   ]
 })
 export class AdminSponsorshipGuideComponent {
-  readonly expanded = input(false);
-  readonly expandedChange = output<boolean>();
+  readonly expanded = model(false);
   readonly dossier = input.required<AdminSponsorshipProgress>();
   readonly canManage = input(false);
   readonly canUseOwnerActions = input(false);
@@ -63,8 +63,10 @@ export class AdminSponsorshipGuideComponent {
     stepId: string;
   } | null>(null);
 
-  onToggle(event: Event): void {
-    this.expandedChange.emit((event.target as HTMLDetailsElement).open);
+  toggleExpanded(event: Event): void {
+    // Commit activation before rendering; native toggle is deferred and may be stale.
+    event.preventDefault();
+    this.expanded.update((expanded) => !expanded);
   }
 
   readonly steps = computed<readonly GuideStep[]>(() => {

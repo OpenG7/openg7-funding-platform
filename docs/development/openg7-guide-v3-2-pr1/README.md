@@ -278,3 +278,48 @@ npm exec --yes --package=node@22 -- node node_modules/@playwright/test/cli.js te
 `GUIDE_V32_CAPTURE_PHASE` n'est pas défini : aucune capture historique du dossier
 n'est remplacée. Les vérifications et limites de simulation décrites plus haut
 restent applicables à ce suivi.
+
+## Corrections après la CI
+
+La [recette CI de `bf4b76c8`](https://github.com/OpenG7/openg7-funding-platform/actions/runs/39439646894)
+révèle trois échecs hors des huit suites ciblées du suivi de vocabulaire :
+
+- Dans la file de publication, le sélecteur partiel **Nouveau lot** correspond
+  aussi à **Vérifier un nouveau lot** dans l'en-tête. Le test cible maintenant
+  le nom exact du bouton de création ; les deux actions restent distinctes.
+- Le tour modal du Poste de pilotage peut recouvrir son indicateur après un
+  redimensionnement en anglais. Le défilement interne est insuffisant lorsque
+  l'en-tête laisse trop peu d'espace au-dessus de la carte. Le tour dégage aussi
+  cet espace dans les ancêtres défilants, avec un déplacement borné et mesuré,
+  uniquement à l'ouverture, au changement d'étape et au redimensionnement.
+- L'aide pas à pas du dossier peut se refermer après une réouverture rapide au
+  clavier. Sa trace montre le lien visible puis masqué avant la navigation.
+  L'activation du résumé modifie désormais immédiatement le modèle d'ouverture ;
+  elle ne recopie plus l'événement natif `toggle` différé. Le contrat public
+  `expanded` / `expandedChange` est conservé. Le test vérifie Entrée, Espace,
+  clics successifs, focus, lien et absence de mutation métier.
+
+La reproduction locale du chevauchement échoue avant correction avec le build
+de développement utilisé par la CI. La course d'ouverture de l'aide n'est pas
+systématique en local ; sa trace CI est la preuve de l'échec, et la recette
+renforcée exerce les interactions rapides après correction. Aucun délai
+arbitraire, clic forcé ou assouplissement de visibilité ne remplace ces contrôles.
+
+Après correction, **28 scénarios ciblés passent en 59 secondes**, avec un seul
+worker et le build de développement, comme dans la CI. Les deux scénarios
+d'ouverture de l'aide, à 1280 et 390 px, passent ensuite **cinq fois chacun**
+(10 réussites, 40 secondes). Les tours du Pilotage, leurs commandes Xbox simulées,
+le focus, les changements de dossier et la consultation sans mutation sont
+inclus. Le typage UI et ESLint passent ; ce dernier conserve son avertissement
+préexistant dans `scripts/smoke-public.mjs:165`.
+
+Le build de production réussit aussi (25 routes prérendues, initial 505,48 ko).
+Les **cinq variantes des cas initialement en échec passent sur ce build en
+12,3 secondes**. Format ciblé, standards, budgets/liens documentaires et
+`git diff --check` passent.
+
+```powershell
+npm exec --yes --package=node@22 -- node node_modules/@playwright/test/cli.js test --config tests/playwright-admin-ui.config.mjs tests/playwright/admin-pilotage.spec.ts tests/playwright/admin-publication-queue.spec.ts tests/playwright/admin-sponsorship-progress.spec.ts tests/playwright/admin-assistant-context.spec.ts --grep 'guide|reveals creation, history|workspace English mobile opens shared assistance|late context responses cannot overwrite' --workers 1
+npm exec --yes --package=node@22 -- node node_modules/@playwright/test/cli.js test --config tests/playwright-admin-ui.config.mjs tests/playwright/admin-sponsorship-progress.spec.ts --grep 'dossier guide explains all milestones' --repeat-each 5 --workers 1
+npm exec --yes --package=node@22 -- node node_modules/@playwright/test/cli.js test --config tests/playwright-admin-ui.config.mjs tests/playwright/admin-pilotage.spec.ts tests/playwright/admin-publication-queue.spec.ts tests/playwright/admin-sponsorship-progress.spec.ts --grep 'guide keeps the automation indicator|reveals creation, history|dossier guide explains all milestones' --workers 1
+```

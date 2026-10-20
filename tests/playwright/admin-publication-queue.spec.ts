@@ -918,7 +918,7 @@ test('reveals creation, history and secondary publication actions only on reques
   await expect(
     page.locator('[data-og7="calendar-entry"][data-og7-id="published"]')
   ).toHaveCount(0);
-  await page.getByRole('button', { name: 'Nouveau lot' }).click();
+  await page.getByRole('button', { name: 'Nouveau lot', exact: true }).click();
   await expect(
     page.locator('#new-batch-form').getByLabel('Canal')
   ).toBeVisible();

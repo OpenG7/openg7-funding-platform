@@ -298,6 +298,8 @@ export class AdminGuideComponent {
       const scroller = target.closest<HTMLElement>(
         '[data-og7="pilot-scroll"], dialog[open]'
       );
+      if (this.revealPending && scroller)
+        this.revealScrollport(target, scroller, card, cardTop - 12, win);
       const scrollRect = scroller?.getBoundingClientRect();
       // The window and the nested scrollport both clip the highlighted target.
       const visibleTop = Math.max(
@@ -354,6 +356,55 @@ export class AdminGuideComponent {
         this.rectangle.set(value);
     });
   }
+
+  /** Free the space that an inner scroll cannot expose without clipping its target. */
+  private revealScrollport(
+    target: HTMLElement,
+    scroller: HTMLElement,
+    card: DOMRect,
+    bottom: number,
+    view: Window
+  ): void {
+    const rect = target.getBoundingClientRect();
+    if (
+      rect.left >= card.right ||
+      rect.right <= card.left ||
+      view.getComputedStyle(scroller).position === 'fixed'
+    )
+      return;
+    const frame = scroller.getBoundingClientRect();
+    const top = Math.max(6, frame.top + scroller.clientTop) + 6;
+    const inside = Math.min(
+      Math.max(0, rect.top - top),
+      Math.max(
+        0,
+        scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop
+      )
+    );
+    let remaining = rect.bottom - bottom - inside;
+    for (
+      let parent = scroller.parentElement;
+      parent && remaining > 0;
+      parent = parent.parentElement
+    ) {
+      if (
+        parent !== this.document.scrollingElement &&
+        !/^(auto|scroll|hidden)$/.test(view.getComputedStyle(parent).overflowY)
+      )
+        continue;
+      const available =
+        parent.scrollHeight - parent.clientHeight - parent.scrollTop;
+      if (available <= 0) continue;
+      const before = target.getBoundingClientRect().top;
+      parent.scrollBy({
+        top: Math.min(remaining, available),
+        behavior: 'instant'
+      });
+      const moved = before - target.getBoundingClientRect().top;
+      remaining -= Math.max(0, moved);
+    }
+  }
+
   private stopTracking(): void {
     this.cleanup?.();
     this.cleanup = null;

@@ -775,7 +775,10 @@ for (const language of ['fr-CA', 'en']) {
           target.x + target.width > card.x &&
           target.y < card.y + card.height &&
           target.y + target.height > card.y;
-        expect(overlap).toBe(false);
+        expect(
+          overlap,
+          JSON.stringify({ viewport: size, target, frame, ring, card })
+        ).toBe(false);
       }).toPass({ timeout: 7000 });
     }
     await page.screenshot({
