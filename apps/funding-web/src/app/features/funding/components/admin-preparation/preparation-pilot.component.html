@@ -48,23 +48,13 @@
       />
     }
     <div class="pilot-attention" data-og7="preparation-pilot-attention">
-      @if (guided()) {
-        <p class="pilot-intervention-label">
-          {{
-            t(
-              issue() && !issue()!.completed
-                ? 'pilot.nextIntervention'
-                : 'pilot.selectedControl'
-            )
-          }}
-        </p>
-      }
       @if (
         (guided() && (receipt().status !== 'approved' || issue())) ||
         (!ready() && receipt().status !== 'approved')
       ) {
         <openg7-preparation-issue-detail
           [issue]="issue()"
+          [guided]="guided()"
           [ready]="ready()"
           [canAssist]="canAssist()"
           [assistanceSummary]="currentAssistance()"
@@ -116,16 +106,18 @@
           [expandLabel]="t('pilot.actionsLabel')"
           [actionsId]="idPrefix() + '-pilot-actions'"
         >
-          @for (action of secondaryActions(); track action.id) {
-            <button
-              openg7-context-controller-action
-              data-og7="preparation-pilot-action"
-              [attr.data-og7-id]="action.id"
-              [action]="action"
-              [context]="context()"
-              (actionRequested)="request($event)"
-            ></button>
-          }
+          <div class="pilot-secondary-actions">
+            @for (action of secondaryActions(); track action.id) {
+              <button
+                openg7-context-controller-action
+                data-og7="preparation-pilot-action"
+                [attr.data-og7-id]="action.id"
+                [action]="action"
+                [context]="context()"
+                (actionRequested)="request($event)"
+              ></button>
+            }
+          </div>
         </openg7-context-controller>
       </div>
     </div>

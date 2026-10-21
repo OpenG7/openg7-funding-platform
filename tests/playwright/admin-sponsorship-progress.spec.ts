@@ -1332,6 +1332,14 @@ for (const width of [1280, 390]) {
     await expect(panel.getByRole('heading')).toBeHidden();
     await page.keyboard.press('Enter');
     await expect(panel.getByRole('heading')).toBeVisible();
+    await summary.press('Space');
+    await expect(panel.getByRole('heading')).toBeHidden();
+    await summary.press('Space');
+    await expect(panel.getByRole('heading')).toBeVisible();
+    await summary.click();
+    await summary.click();
+    await expect(panel.getByRole('heading')).toBeVisible();
+    await expect(summary).toBeFocused();
     if (width === 390)
       await panel.screenshot({ path: 'test-results/dossier-guide-mobile.png' });
     for (let repeat = 0; repeat < 2; repeat++) {

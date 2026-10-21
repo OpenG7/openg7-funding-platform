@@ -57,18 +57,53 @@ button.pilot-primary[openg7-context-controller-action]:not(:disabled) {
 button.pilot-primary[openg7-context-controller-action]:not(:disabled):hover {
   box-shadow: var(--admin-shadow-raised);
 }
-.pilot-intervention-label {
-  margin: 0 0 0.4rem;
-  color: var(--admin-muted);
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
 :host(.is-guided) .pilot-open {
   width: auto;
   border-color: transparent;
   font-size: 0.8rem;
+}
+:host(.is-guided) {
+  --context-controller-disabled-reason-display: block;
+}
+:host(.is-guided) button.pilot-primary[openg7-context-controller-action] {
+  display: grid;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 2.75rem;
+  margin-block: 0.7rem 0.25rem;
+  margin-inline-start: auto;
+  padding: 0.65rem 0.9rem;
+}
+.pilot-secondary-actions {
+  display: contents;
+}
+:host(.is-guided) .pilot-secondary-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-column: 1 / -1;
+  gap: 0.2rem;
+  width: 100%;
+  padding-block-start: 0.4rem;
+  border-block-start: 1px solid var(--admin-border);
+}
+:host(.is-guided)
+  .pilot-secondary-actions
+  button[openg7-context-controller-action] {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.7rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.6rem 0.4rem;
+  border: 0;
+  border-radius: 0.3rem;
+  background: transparent;
+  box-shadow: none;
+}
+:host(.is-guided)
+  .pilot-secondary-actions
+  button[openg7-context-controller-action]:not(:disabled):hover {
+  background: var(--admin-hover);
 }
 openg7-context-controller {
   --context-controller-icon-size: 1.1rem;
@@ -76,6 +111,16 @@ openg7-context-controller {
   --context-controller-surface-radius: var(--admin-radius-card);
   --context-controller-actions-display: grid;
   --context-controller-button-radius: var(--admin-radius-control);
+}
+:host(.is-guided) openg7-context-controller {
+  --context-controller-heading-display: none;
+  --context-controller-toggle-display: none;
+  --context-controller-surface-padding: 0;
+  --context-controller-surface-border: 0;
+  --context-controller-surface-radius: 0;
+  --context-controller-surface-background: transparent;
+  --context-controller-surface-shadow: none;
+  --context-controller-own-rim-opacity: 0;
 }
 openg7-context-controller[hidden] {
   display: none;
@@ -132,5 +177,19 @@ openg7-context-controller[hidden] {
   :host(.is-guided) .pilot-content {
     grid-template-columns: minmax(0, 1.5fr) minmax(14rem, 1fr);
     gap: 1rem;
+  }
+}
+@container (max-width: 28rem) {
+  :host(.is-guided) button.pilot-primary[openg7-context-controller-action] {
+    width: 100%;
+    margin-inline-start: 0;
+  }
+}
+@media (max-width: 600px) {
+  :host(.is-guided) button.pilot-primary[openg7-context-controller-action],
+  :host(.is-guided)
+    .pilot-secondary-actions
+    button[openg7-context-controller-action] {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 }

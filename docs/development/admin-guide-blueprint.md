@@ -18,6 +18,11 @@ Pour examiner le panneau après refonte et préparer une V3, utiliser le
 Le [premier blueprint de revue](admin-guide-ui-ux-review.md) conserve l’état
 antérieur ; les inventaires datés ci-dessous restent des références historiques.
 
+La [première étape V3.2 et ses comparaisons](openg7-guide-v3-2-pr1/README.md)
+documente le diagnostic allégé, le CTA proportionné, la liste intégrée des
+secondaires et la recette associée. Les sous-vues Bon / Passage / Autre restent
+une étape ultérieure distincte.
+
 ### Évolution de présentation du 19 octobre 2026
 
 Les quatre modes affichent désormais des libellés stables : **Découvrir**,

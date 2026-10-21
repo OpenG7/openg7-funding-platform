@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import { AxeBuilder } from '@axe-core/playwright';
 import type { Locator, Page } from '@playwright/test';
 import type {
@@ -8,6 +10,8 @@ import type {
   AdminWorkQueueResponse,
   PreparationAssistanceSummary
 } from '@openg7/funding-core';
+
+import { defaultControllerProfile } from '../../apps/funding-web/src/app/features/funding/components/admin-pilotage/controller-input.js';
 
 import { expect, sampledFrames, test } from './support/test.js';
 import {
@@ -124,7 +128,7 @@ async function fixture(page: Page, language = 'fr-CA') {
     approvalFailure: null as { status: number; code: string } | null,
     assistance: null as PreparationAssistanceSummary | null,
     signedIn: true,
-    role: 'owner' as 'owner' | 'reader'
+    role: 'owner' as 'owner' | 'operator' | 'reader'
   };
   await page.addInitScript(
     (locale) => localStorage.setItem('openg7.language', locale),
@@ -350,8 +354,8 @@ for (const language of ['fr-CA', 'en']) {
       code: 'PREPARATION_UNAVAILABLE',
       message:
         language === 'en'
-          ? 'The receipt is unavailable. Refresh to read current facts.'
-          : 'Le bon est indisponible. Actualise pour relire les faits actuels.'
+          ? 'The preparation record is unavailable. Refresh to read current facts.'
+          : 'La fiche est indisponible. Actualise pour relire les faits actuels.'
     }
   ];
 
@@ -424,8 +428,8 @@ async function expectPosition(
   );
   await expect(hook(page, 'position')).toHaveText(
     language === 'en'
-      ? `Receipt viewed: ${position} / 6`
-      : `Bon consulté : ${position} / 6`
+      ? `Record viewed: ${position} / 6`
+      : `Fiche consultée : ${position} / 6`
   );
 }
 
@@ -723,7 +727,9 @@ test('an incomplete preparation names its missing prerequisite and cannot be app
     hook(page, 'summary').getByText('À compléter', { exact: true })
   ).toBeVisible();
   await expect(
-    hook(page, 'summary').getByText('Autorisée', { exact: true })
+    hook(page, 'summary').getByText('Admissible à la préparation privée', {
+      exact: true
+    })
   ).toHaveCount(0);
   await expect(hook(page, 'approve')).toBeDisabled();
   await expect(hook(page, 'stamp')).toHaveCount(0);
@@ -757,14 +763,16 @@ for (const code of ['fulfilment_unverified', 'obligation_unverified']) {
         : 'suivi d’un engagement'
     );
     await expect(
-      hook(page, 'summary').getByText('Autorisée', { exact: true })
+      hook(page, 'summary').getByText('Admissible à la préparation privée', {
+        exact: true
+      })
     ).toHaveCount(0);
     await expect(hook(page, 'approve')).toBeDisabled();
     expect(f.writes).toEqual([]);
   });
 }
 
-test('cancelled, published and incomplete drafts keep their actual states while preparation authorization remains available', async ({
+test('cancelled, published and incomplete drafts keep their actual states while private preparation eligibility remains available', async ({
   page
 }) => {
   const f = await fixture(page);
@@ -800,7 +808,9 @@ test('cancelled, published and incomplete drafts keep their actual states while 
     if (index === 0) await open(page);
     else await hook(page, 'refresh').click();
     const summary = hook(page, 'summary');
-    await expect(summary.getByText('Autorisée', { exact: true })).toBeVisible();
+    await expect(
+      summary.getByText('Admissible à la préparation privée', { exact: true })
+    ).toBeVisible();
     await expect(
       summary.getByText(scenario.label, { exact: true })
     ).toBeVisible();
@@ -904,7 +914,9 @@ test('a historical website offer names its promised presentation and its private
   const summary = hook(page, 'summary');
   await expect(summary).toBeVisible();
   await expect(summary.getByText(/Web/)).toBeVisible();
-  await expect(summary.getByText('Autorisée', { exact: true })).toBeVisible();
+  await expect(
+    summary.getByText('Admissible à la préparation privée', { exact: true })
+  ).toBeVisible();
   await expect(summary.getByText('Brouillon', { exact: true })).toBeVisible();
   await expect(summary.getByText(/Prêt.*Privé/i)).toBeVisible();
   await expect(hook(page, 'approve')).toBeEnabled();
@@ -1115,8 +1127,13 @@ function pilotReceipt(completed = 0): AdminPreparationReceipt {
   };
 }
 
-async function missingSourcePilot(page: Page, language = 'fr-CA') {
+async function missingSourcePilot(
+  page: Page,
+  language = 'fr-CA',
+  role: 'owner' | 'operator' | 'reader' = 'owner'
+) {
   const f = await fixture(page, language);
+  f.role = role;
   f.receipts.set(3, {
     ...pilotReceipt(),
     acceptedOffer: null,
@@ -1227,6 +1244,474 @@ async function expectPilotProgress(page: Page, completed: number, total = 3) {
     String(completed)
   );
   await expect(progress).toHaveAttribute('data-og7-total', String(total));
+}
+
+for (const viewport of [
+  { name: 'desktop', width: 1536, height: 864 },
+  { name: 'mobile', width: 390, height: 844 }
+]) {
+  test(`V3.2 comparison capture of the diagnostic and inline actions on ${viewport.name}`, async ({
+    page
+  }, testInfo) => {
+    const phase = process.env['GUIDE_V32_CAPTURE_PHASE'];
+    test.skip(
+      phase !== 'before' && phase !== 'after',
+      'Set GUIDE_V32_CAPTURE_PHASE=before or after to record a comparison.'
+    );
+    await page.setViewportSize(viewport);
+    const f = await missingSourcePilot(page);
+    const guide = page.locator('[data-og7="admin-guidance"]');
+    const agreement = pilotIssue(page, 'accepted_offer');
+    await agreement.click();
+    await expect(agreement).toHaveAttribute('aria-pressed', 'true');
+    const primary = pilot(page).locator(
+      '[data-og7="preparation-pilot-primary"]'
+    );
+    await primary.scrollIntoViewIfNeeded();
+    const capture = async (state: 'diagnostic' | 'actions') => {
+      const file = path.resolve(
+        'test-results',
+        'guide-v32',
+        phase!,
+        `${viewport.name}-${state}.png`
+      );
+      await page.screenshot({ path: file, animations: 'disabled' });
+      await testInfo.attach(`${phase}-${viewport.name}-${state}`, {
+        path: file,
+        contentType: 'image/png'
+      });
+    };
+    await capture('diagnostic');
+    await pilot(page).locator('[data-og7="preparation-pilot-actions"]').click();
+    await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'open');
+    await pilotAction(page, 'campaigns').scrollIntoViewIfNeeded();
+    await capture('actions');
+    expect(f.writes).toEqual([]);
+    await expect(guide).toBeVisible();
+  });
+}
+
+for (const language of ['fr-CA', 'en']) {
+  test(`V3.2 inline secondary actions keep their actual availability and one return in ${language}`, async ({
+    page
+  }) => {
+    const f = await missingSourcePilot(page, language);
+    const agreement = pilotIssue(page, 'accepted_offer');
+    const detail = pilot(page).locator('[data-og7="preparation-issue-detail"]');
+    const primary = pilot(page).locator(
+      '[data-og7="preparation-pilot-primary"]'
+    );
+    const opener = pilot(page).locator(
+      '[data-og7="preparation-pilot-actions"]'
+    );
+    const menu = pilot(page).locator(
+      '[data-og7="preparation-pilot-controller"]'
+    );
+    const label =
+      language === 'en' ? 'Promised publications' : 'Publications promises';
+    await expect(agreement).toContainText(label);
+    await expect(detail.getByRole('heading')).toHaveText(label);
+    await expect(primary).toHaveCount(1);
+    await expect(primary).toHaveAttribute('data-og7-id', 'preparation-open');
+    await expect(hook(page, 'approve')).toHaveCount(1);
+    await expect(hook(page, 'approve')).toBeDisabled();
+    await expect(menu).toBeHidden();
+
+    for (const disclosure of await detail.locator('summary').all()) {
+      await disclosure.click();
+      expect(f.writes).toEqual([]);
+      await disclosure.click();
+    }
+    await opener.click();
+    await expect(menu).toBeVisible();
+    await expect(opener).toHaveAttribute('aria-expanded', 'true');
+    await expect(pilotAction(page, 'campaigns')).toBeFocused();
+    await expect(pilotAction(page, 'approve')).toHaveCount(0);
+    await expect(menu.locator('[data-og7-id="preparation-open"]')).toHaveCount(
+      0
+    );
+    await expect(
+      menu.getByRole('button', {
+        name: language === 'en' ? 'Back' : 'Retour',
+        exact: true
+      })
+    ).toHaveCount(1);
+    await expect(page.locator('dialog[open], [role="menu"]')).toHaveCount(0);
+    const layout = await menu.evaluate((element) => ({
+      position: getComputedStyle(element).position,
+      top: element.getBoundingClientRect().top,
+      openerBottom: element
+        .closest('[data-og7="preparation-pilot"]')!
+        .querySelector('[data-og7="preparation-pilot-actions"]')!
+        .getBoundingClientRect().bottom
+    }));
+    expect(['fixed', 'absolute']).not.toContain(layout.position);
+    expect(layout.top).toBeGreaterThanOrEqual(layout.openerBottom - 1);
+    for (const [id, reason] of [
+      [
+        'assistance-review',
+        language === 'en' ? /No result is ready/i : /Aucun résultat n’est prêt/i
+      ],
+      [
+        'assistance-source',
+        language === 'en'
+          ? /original agreement source/i
+          : /source de l’accord d’origine/i
+      ],
+      [
+        'assistance-rerun',
+        language === 'en'
+          ? /original agreement source/i
+          : /source de l’accord d’origine/i
+      ]
+    ] as const) {
+      const action = pilotAction(page, id);
+      await expect(action).toBeDisabled();
+      await expect(action).toHaveAccessibleName(reason);
+      await expect(action.getByText(reason)).toBeVisible();
+    }
+    await page.keyboard.press('Escape');
+    await expect(menu).toBeHidden();
+    await expect(opener).toBeFocused();
+    await opener.click();
+    await pilotIssue(page, 'content_prepared').click();
+    await expect(menu).toBeHidden();
+    await expect(primary).toHaveAttribute('data-og7-id', 'preparation-open');
+    expect(f.writes).toEqual([]);
+  });
+
+  test(`V3.2 a satisfied agreement keeps its selected target and offers consultation in ${language}`, async ({
+    page
+  }) => {
+    const f = await fixture(page, language);
+    f.receipts.set(3, pilotReceipt());
+    await open(page);
+    const agreement = pilotIssue(page, 'accepted_offer');
+    await agreement.click();
+    const primary = pilot(page).locator(
+      '[data-og7="preparation-pilot-primary"]'
+    );
+    await expect(primary).toHaveAccessibleName(
+      language === 'en' ? 'Complete the agreement' : 'Compléter l’accord'
+    );
+    f.receipts.set(3, pilotReceipt(1));
+    await hook(page, 'refresh').click();
+    await expect(agreement).toHaveAttribute('aria-pressed', 'true');
+    await expect(primary).toHaveAttribute('data-og7-id', 'preparation-open');
+    await expect(primary).toHaveAccessibleName(
+      language === 'en' ? 'View agreement' : 'Consulter l’accord'
+    );
+    await expect(hook(page, 'approve')).toBeDisabled();
+    await primary.click();
+    await expect(page).toHaveURL(
+      new RegExp(
+        `sponsors\\?sponsorshipId=${contributionId(3)}&tab=publication`
+      )
+    );
+    expect(f.writes).toEqual([]);
+  });
+
+  test(`V3.2 the existing history action explains an empty receipt history in ${language}`, async ({
+    page
+  }) => {
+    const f = await fixture(page, language);
+    await open(page);
+    await pilot(page).locator('[data-og7="preparation-pilot-actions"]').click();
+    await pilotAction(page, 'history').click();
+    const history = hook(page, 'history');
+    await expect(history).toHaveJSProperty('open', true);
+    await expect(history.locator('summary')).toBeFocused();
+    await expect(history).toContainText(
+      language === 'en'
+        ? 'No preparation approval recorded for this record.'
+        : 'Aucune approbation de préparation enregistrée pour cette fiche.'
+    );
+    await expect(hook(page, 'stamp')).toHaveCount(0);
+    expect(f.writes).toEqual([]);
+  });
+}
+
+for (const role of ['reader', 'operator'] as const) {
+  test(`V3.2 ${role} secondary commands do not invent owner assistance`, async ({
+    page
+  }) => {
+    const reads: string[] = [];
+    page.on('request', (request) => {
+      if (
+        new URL(request.url()).pathname.startsWith(
+          '/api/admin/preparation-assistance'
+        )
+      )
+        reads.push(request.url());
+    });
+    const f = await missingSourcePilot(page, 'fr-CA', role);
+    await pilot(page).locator('[data-og7="preparation-pilot-actions"]').click();
+    await expect(pilotAction(page, 'campaigns')).toBeEnabled();
+    await expect(pilotAction(page, 'history')).toBeEnabled();
+    await expect(
+      pilot(page).locator('[data-og7-id^="preparation-assistance-"]')
+    ).toHaveCount(0);
+    await expect(hook(page, 'approve')).toBeDisabled();
+    expect(reads).toEqual([]);
+    expect(f.writes).toEqual([]);
+  });
+}
+
+test('V3.2 a ready receipt offers its sole approval without inventing a control CTA', async ({
+  page
+}) => {
+  const f = await fixture(page);
+  await open(page);
+  await expect(
+    pilot(page).locator('[data-og7="preparation-pilot-primary"]')
+  ).toHaveCount(0);
+  await expect(hook(page, 'approve')).toHaveCount(1);
+  await expect(hook(page, 'approve')).toBeEnabled();
+  await pilot(page).locator('[data-og7="preparation-pilot-actions"]').click();
+  await expect(pilotAction(page, 'approve')).toHaveCount(0);
+  await expect(pilotAction(page, 'campaigns')).toBeEnabled();
+  await expect(pilotAction(page, 'history')).toBeEnabled();
+  expect(f.writes).toEqual([]);
+});
+
+for (const change of ['receipt', 'version'] as const) {
+  test(`V3.2 an obsolete secondary command cannot navigate after a ${change} change with its menu open`, async ({
+    page
+  }) => {
+    const f = await fixture(page);
+    f.receipts.set(3, pilotReceipt());
+    await open(page);
+    await pilot(page).locator('[data-og7="preparation-pilot-actions"]').click();
+    await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'open');
+    const previousCommand = await pilotAction(
+      page,
+      'campaigns'
+    ).elementHandle();
+    if (!previousCommand)
+      throw new Error('The current secondary command is missing.');
+    // Capture the native gesture against the old dossier/version before a
+    // separate user gesture refreshes that context. Keep the old DOM reference.
+    await previousCommand.dispatchEvent('pointerdown', { button: 0 });
+    const position = change === 'receipt' ? 4 : 3;
+    if (change === 'receipt') {
+      await hook(page, 'next').click();
+      await expectPosition(page, position);
+    } else {
+      const updated = { ...pilotReceipt(1), version: 'd'.repeat(64) };
+      f.receipts.set(3, updated);
+      await hook(page, 'refresh').click();
+      await expectPilotProgress(page, 1);
+      await expect(
+        card(page).getByText(updated.version.slice(0, 8), { exact: true })
+      ).toBeVisible();
+      await expect(pilotIssue(page, 'accepted_offer')).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      );
+    }
+    await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'peek');
+    await expect(
+      pilot(page).locator('[data-og7="preparation-pilot-controller"]')
+    ).toBeHidden();
+    expect(
+      await previousCommand.evaluate((element) => element.isConnected)
+    ).toBe(false);
+    await previousCommand.evaluate((element) =>
+      (element as HTMLButtonElement).click()
+    );
+    await sampledFrames(page, 4);
+    await expect(page).toHaveURL(/\/admin\/fundraiser\/attention$/);
+    expect(f.campaignQueries).toEqual([]);
+    expect(f.writes).toEqual([]);
+
+    await pilot(page).locator('[data-og7="preparation-pilot-actions"]').click();
+    await pilotAction(page, 'campaigns').click();
+    await expect(page).toHaveURL(
+      `/admin/fundraiser/campaigns?sponsorshipId=${contributionId(position)}`
+    );
+    await expect
+      .poll(() => f.campaignQueries.map((query) => query.get('sponsorshipId')))
+      .toEqual([contributionId(position)]);
+    expect(f.writes).toEqual([]);
+    await previousCommand.dispose();
+  });
+}
+
+test('V3.2 Home End and native Tab keep selection and the inline action opener reachable', async ({
+  page
+}) => {
+  const f = await missingSourcePilot(page);
+  const agreement = pilotIssue(page, 'accepted_offer');
+  const moderation = pilotIssue(page, 'moderation_review');
+  await agreement.focus();
+  await page.keyboard.press('End');
+  await expect(moderation).toBeFocused();
+  await expect(moderation).toHaveAttribute('aria-pressed', 'true');
+  await page.keyboard.press('Home');
+  await expect(agreement).toBeFocused();
+  await expect(agreement).toHaveAttribute('aria-pressed', 'true');
+  const primary = pilot(page).locator('[data-og7="preparation-pilot-primary"]');
+  const opener = pilot(page).locator('[data-og7="preparation-pilot-actions"]');
+  await primary.focus();
+  await page.keyboard.press('Tab');
+  await expect(opener).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(primary).toBeFocused();
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Enter');
+  await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'open');
+  await page.keyboard.press('Escape');
+  await expect(opener).toBeFocused();
+  expect(f.writes).toEqual([]);
+});
+
+test('V3.2 a remapped Xbox profile changes the announced and executed secondary gestures', async ({
+  page
+}) => {
+  await installAdminController(page);
+  const profile = defaultControllerProfile();
+  profile.bindings = { primary: 2, secondary: 0, edit: 1, details: 3 };
+  await page.addInitScript((value) => {
+    localStorage.setItem('og7-controller-profile', JSON.stringify(value));
+  }, profile);
+  const f = await fixture(page);
+  f.receipts.set(3, pilotReceipt());
+  await open(page);
+  const pad = adminController(page);
+  const primary = pilot(page).locator('[data-og7="preparation-pilot-primary"]');
+  const opener = pilot(page).locator('[data-og7="preparation-pilot-actions"]');
+  await expect(primary.locator('kbd')).toHaveText('X');
+  await opener.focus();
+  await pad.release();
+  await pad.press('X');
+  await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'open');
+  await expect(pilotAction(page, 'campaigns')).toBeFocused();
+  await expect(pilotAction(page, 'campaigns').locator('kbd')).toHaveText('B');
+  await expect(pilotAction(page, 'back').locator('kbd')).toHaveText('A');
+  await pad.press('A');
+  await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'peek');
+  await expect(opener).toBeFocused();
+  await pad.release();
+  await pad.press('X');
+  await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'open');
+  await pad.press('B');
+  await expect(page).toHaveURL(
+    `/admin/fundraiser/campaigns?sponsorshipId=${contributionId(3)}`
+  );
+  expect(f.writes).toEqual([]);
+});
+
+test('V3.2 Xbox A on the focused Guide primary opens only its exact owning dossier', async ({
+  page
+}) => {
+  await installAdminController(page);
+  const f = await fixture(page);
+  f.receipts.set(3, pilotReceipt());
+  await open(page);
+  const primary = pilot(page).locator('[data-og7="preparation-pilot-primary"]');
+  await primary.scrollIntoViewIfNeeded();
+  await primary.focus();
+  const pad = adminController(page);
+  await pad.release();
+  await pad.hold('A');
+  await expect(page).toHaveURL(
+    new RegExp(`sponsors\\?sponsorshipId=${contributionId(3)}&tab=publication`)
+  );
+  await sampledFrames(page, 8);
+  expect(f.writes).toEqual([]);
+  await pad.release();
+});
+
+for (const scenario of [
+  { language: 'en', theme: 'night', width: 1280, height: 720, zoom: 1 },
+  { language: 'fr-CA', theme: 'graphite', width: 390, height: 667, zoom: 1 },
+  { language: 'en', theme: 'mineral', width: 1536, height: 864, zoom: 2 }
+] as const) {
+  test(`V3.2 inline actions remain reachable in ${scenario.language} ${scenario.theme} at the ${scenario.width} by ${scenario.height} layout equivalent to ${scenario.zoom * 100}% zoom`, async ({
+    page
+  }, testInfo) => {
+    await page.addInitScript((theme) => {
+      localStorage.setItem(
+        'openg7.pilotage.appearance.v1',
+        JSON.stringify({ theme, system: false, density: 'comfortable' })
+      );
+    }, scenario.theme);
+    // Browser zoom reduces the CSS viewport; CSS zoom would instead enlarge
+    // dvh-sized fixed panels beyond that viewport and model a different layout.
+    await page.setViewportSize({
+      width: Math.floor(scenario.width / scenario.zoom),
+      height: Math.floor(scenario.height / scenario.zoom)
+    });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const f = await missingSourcePilot(page, scenario.language);
+    const primary = pilot(page).locator(
+      '[data-og7="preparation-pilot-primary"]'
+    );
+    const opener = pilot(page).locator(
+      '[data-og7="preparation-pilot-actions"]'
+    );
+    await expectInsideViewport(primary);
+    const shortcut = await primary.locator('kbd').boundingBox();
+    expect(shortcut).not.toBeNull();
+    expect(shortcut!.width).toBeLessThanOrEqual(shortcut!.height * 1.5);
+    await opener.click();
+    for (const control of [
+      pilotAction(page, 'assistance-review'),
+      pilotAction(page, 'assistance-source'),
+      pilotAction(page, 'assistance-rerun'),
+      pilotAction(page, 'campaigns'),
+      pilotAction(page, 'history'),
+      pilotAction(page, 'back')
+    ]) {
+      await control.scrollIntoViewIfNeeded();
+      await expect(control).toBeVisible();
+      const bounds = await control.boundingBox();
+      expect(bounds?.height).toBeGreaterThanOrEqual(44);
+      expect(bounds?.width).toBeGreaterThanOrEqual(44);
+      await expect
+        .poll(() =>
+          control.evaluate((element) => {
+            const bounds = element.getBoundingClientRect();
+            const hit = document.elementFromPoint(
+              bounds.left + bounds.width / 2,
+              bounds.top + bounds.height / 2
+            );
+            return !!hit && (hit === element || element.contains(hit));
+          })
+        )
+        .toBe(true);
+    }
+    const menu = pilot(page).locator(
+      '[data-og7="preparation-pilot-controller"]'
+    );
+    for (const id of [
+      'assistance-review',
+      'assistance-source',
+      'assistance-rerun'
+    ]) {
+      await expect(pilotAction(page, id).locator('small')).toBeVisible();
+    }
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1
+      )
+    ).toBe(true);
+    const audit = await new AxeBuilder({ page })
+      .include('[data-og7="preparation-pilot"]')
+      .analyze();
+    expect(audit.violations).toEqual([]);
+    await pilotAction(page, 'campaigns').scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: testInfo.outputPath(
+        `guide-v32-${scenario.language}-${scenario.theme}-${scenario.width}-${scenario.zoom * 100}.png`
+      ),
+      animations: 'disabled'
+    });
+    await page.keyboard.press('Escape');
+    await expect(menu).toBeHidden();
+    await expect(opener).toBeFocused();
+    expect(f.writes).toEqual([]);
+  });
 }
 
 for (const language of ['fr-CA', 'en']) {
@@ -1618,7 +2103,7 @@ test('the incomplete preparation controller remains accessible in the effective 
   }
 });
 
-test('Gamepad first selects an unfocused prerequisite and the controller toggle closes without opening its primary action', async ({
+test('Gamepad first selects an unfocused prerequisite and the sole Return closes without opening its primary action', async ({
   page
 }) => {
   await installAdminController(page);
@@ -1637,8 +2122,9 @@ test('Gamepad first selects an unfocused prerequisite and the controller toggle 
 
   await pad.press('A');
   await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'open');
-  const toggle = pilot(page).locator('[data-og7="context-controller-toggle"]');
-  await toggle.focus();
+  const back = pilotAction(page, 'back');
+  await back.focus();
+  await pad.release();
   await pad.press('A');
   await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'peek');
   await expect(

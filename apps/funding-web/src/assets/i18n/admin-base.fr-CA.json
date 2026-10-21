@@ -1463,7 +1463,7 @@
       "pilotage": "Poste de pilotage"
     },
     "guidance": {
-      "toggle": "Mode guidé",
+      "toggle": "Guide administratif",
       "panelTitle": "Guide administratif OpenG7",
       "panelSubtitle": "Se repérer, comprendre et préparer chaque intervention.",
       "close": "Réduire le guide",
@@ -1765,7 +1765,7 @@
       "retryMode": "Réessayer le chargement",
       "retryUnavailable": "Le navigateur ne permet plus de réessayer ce chargement ici. Rechargez la page pour reprendre vos repères enregistrés.",
       "workflowsUnavailable": "Les parcours n’ont pas pu être chargés. Réessayez en conservant votre repère.",
-      "automaticUnavailable": "La préparation des dossiers n’a pas pu être chargée. Réessayer ne démarre aucun passage.",
+      "automaticUnavailable": "La préparation des dossiers n’a pas pu être chargée. Réessayer ne démarre aucune vérification de lot.",
       "paymentJourney": {
         "title": "Parcours du paiement",
         "followCurrent": "Suivre ce paiement",
@@ -1822,7 +1822,7 @@
     },
     "shell": {
       "skip": "Aller au contenu principal",
-      "startPass": "Démarrer un nouveau passage",
+      "startPass": "Vérifier un nouveau lot",
       "startPassCountUnavailable": "Compteur des dossiers indisponible.",
       "startPassDossierCount": "Dossiers à traiter : {{count}}",
       "workspace": "Fonds des bâtisseurs · Administration",

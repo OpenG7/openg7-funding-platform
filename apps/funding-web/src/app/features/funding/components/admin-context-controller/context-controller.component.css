@@ -158,7 +158,7 @@
 
 /* Explicit modes keep a usable disclosure at every viewport size. */
 :host(.has-explicit-mode) .controller-heading {
-  display: flex;
+  display: var(--context-controller-heading-display, flex);
   justify-content: space-between;
   gap: 0.5rem;
 }
@@ -166,7 +166,7 @@
   display: grid;
 }
 :host(.has-explicit-mode) .controller-toggle {
-  display: inline-flex;
+  display: var(--context-controller-toggle-display, inline-flex);
 }
 :host(.has-explicit-mode.is-collapsed) .controller-heading {
   margin-bottom: 0;

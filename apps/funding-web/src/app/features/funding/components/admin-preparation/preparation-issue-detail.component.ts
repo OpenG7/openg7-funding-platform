@@ -18,6 +18,7 @@ import type { PreparationPilotIssue } from './preparation-pilot.models.js';
   standalone: true,
   imports: [AdminIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '[class.is-guided]': 'guided()' },
   template: `
     <section
       data-og7="preparation-issue-detail"
@@ -25,7 +26,14 @@ import type { PreparationPilotIssue } from './preparation-pilot.models.js';
       aria-atomic="true"
     >
       @if (issue(); as current) {
-        <h5>{{ t(current.titleKey) }}</h5>
+        <div class="detail-heading">
+          <h5>{{ t(current.titleKey) }}</h5>
+          @if (guided()) {
+            <span class="detail-state" [class.is-complete]="current.completed">
+              {{ t(current.completed ? 'pilot.complete' : 'pilot.required') }}
+            </span>
+          }
+        </div>
         <div
           [attr.data-og7]="assisted() ? 'preparation-assistance-summary' : null"
           [attr.aria-busy]="assisted() ? assistanceBusy() : null"
@@ -145,6 +153,32 @@ import type { PreparationPilotIssue } from './preparation-pilot.models.js';
       margin: 0 0 0.35rem;
       font-size: 0.85rem;
     }
+    :host(.is-guided) section {
+      padding: 0;
+      background: transparent;
+    }
+    :host(.is-guided) .detail-heading {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 0.5rem 0.8rem;
+      flex-wrap: wrap;
+      margin-block-end: 0.4rem;
+    }
+    :host(.is-guided) h5 {
+      margin: 0;
+      color: var(--admin-text);
+      font-size: 1rem;
+      line-height: 1.4;
+    }
+    .detail-state {
+      color: var(--admin-muted);
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .detail-state.is-complete {
+      color: var(--admin-success);
+    }
     .needs-attention {
       border-inline-start: 3px solid var(--admin-warning);
       padding: 0.4rem 0.55rem;
@@ -152,6 +186,48 @@ import type { PreparationPilotIssue } from './preparation-pilot.models.js';
     }
     .needs-attention p {
       color: var(--admin-text);
+    }
+    :host(.is-guided) .needs-attention {
+      padding: 0;
+      border: 0;
+      background: transparent;
+    }
+    :host(.is-guided) [data-og7='preparation-issue-attention'] p {
+      margin-block: 0.35rem 0.5rem;
+      font-size: 0.85rem;
+      line-height: 1.6;
+    }
+    :host(.is-guided) details {
+      display: inline-block;
+      max-width: 100%;
+      margin-inline-end: 1rem;
+      vertical-align: top;
+    }
+    :host(.is-guided) details[open] {
+      display: block;
+      margin-inline-end: 0;
+    }
+    :host(.is-guided) summary {
+      box-sizing: border-box;
+      min-height: 2.75rem;
+      padding-block: 0.7rem;
+      color: var(--admin-accent);
+      line-height: 1.4;
+    }
+    :host(.is-guided) button {
+      min-height: 2.75rem;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--admin-control-border);
+      border-radius: var(--admin-radius-control);
+      background: var(--admin-panel);
+      color: var(--admin-text);
+      font: inherit;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    :host(.is-guided) button:focus-visible {
+      outline: 3px solid var(--admin-focus);
+      outline-offset: 2px;
     }
     .processing {
       animation: preparation-assistance-turn 4s linear infinite;
@@ -185,6 +261,7 @@ import type { PreparationPilotIssue } from './preparation-pilot.models.js';
 })
 export class PreparationIssueDetailComponent {
   readonly issue = input<PreparationPilotIssue | null>(null);
+  readonly guided = input(false);
   readonly ready = input(false);
   readonly canAssist = input(false);
   readonly assistanceSummary = input<PreparationAssistanceSummary | null>(null);

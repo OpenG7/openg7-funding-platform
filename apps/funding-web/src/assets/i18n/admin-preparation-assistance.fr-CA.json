@@ -7,8 +7,8 @@
     "review": "Revue des prestations",
     "confirm": "Confirmation"
   },
-  "returnToPreparation": "Retour au Pilotage de la préparation",
-  "returnUnsaved": "Revenir au suivi et abandonner les modifications non enregistrées de la source, de la revue ou des prestations ?",
+  "returnToPreparation": "Retour à la fiche de préparation",
+  "returnUnsaved": "Revenir à la fiche de préparation et abandonner les modifications non enregistrées de la source, de la revue ou des prestations ?",
   "reasonHelp": "Un seul motif est partagé entre le brouillon de revue et la qualification de l’accord. Saisis au moins 5 caractères. Les justifications de chaque clause restent distinctes.",
   "reasonReady": "Le motif commun de revue et de qualification est renseigné.",
   "reasonMissing": "Le motif commun de revue et de qualification reste à renseigner.",
@@ -109,7 +109,7 @@
   "formSelected": "Reprendre la préparation dans le formulaire",
   "saveReview": "Enregistrer le brouillon de revue",
   "reject": "Rejeter la proposition",
-  "applied": "L’accord a été qualifié par le workflow métier. Relis le bon pour connaître les contrôles satisfaits.",
+  "applied": "L’accord de commandite a été qualifié. Relis la fiche de préparation pour connaître les contrôles satisfaits.",
   "separation": "Une indexation ou un brouillon enregistré ne satisfait aucun contrôle. L’application exige la validation explicite du propriétaire et ne publie rien.",
   "proposal": {
     "documentBenefit": "Documenter cette prestation",

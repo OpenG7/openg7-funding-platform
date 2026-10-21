@@ -14,11 +14,11 @@
   "stop": "Arrêter le parcours",
   "resume": "Reprendre le parcours",
   "missing": "Cette zone n’est pas disponible dans le dossier affiché.",
-  "contextual": "Revenir au guide contextuel",
+  "contextual": "Revenir au mode Découvrir",
   "openDossier": "Ouvrir un dossier de commandite",
   "needsDossier": "Choisis un dossier de commandite pour montrer les zones du parcours.",
-  "readOnly": "Explorer le guide ne prépare, n’autorise et ne publie rien.",
-  "automatic": "Passer au guide automatique",
+  "readOnly": "Explorer ces parcours ne prépare, n’autorise et ne publie rien.",
+  "automatic": "Ouvrir Préparation des dossiers",
   "journeys": {
     "agreement": {
       "title": "Établir les prestations de l’accord",
@@ -28,7 +28,7 @@
       "steps": {
         "pilot": {
           "title": "Examiner les publications promises",
-          "action": "Sélectionner Publications promises dans le Pilotage et lire le point à traiter.",
+          "action": "Sélectionner Publications promises dans le Pilotage de la préparation et lire le point à traiter.",
           "outcome": "Le contrôle manquant et les actions disponibles sont identifiés, sans valider l’accord."
         },
         "source": {

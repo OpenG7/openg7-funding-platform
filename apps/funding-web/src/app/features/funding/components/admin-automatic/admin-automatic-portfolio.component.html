@@ -205,6 +205,14 @@
                 </span>
               </openg7-admin-badge>
             </div>
+            <p class="quiet" data-og7="automatic-portfolio-latest-observation">
+              {{
+                t('lastObservation', {
+                  pass: entry.pass,
+                  date: date(entry.createdAt)
+                })
+              }}
+            </p>
             <dl class="benefit-counts" [attr.aria-label]="t('promisesTitle')">
               @for (metric of benefitMetrics; track metric) {
                 <div>
@@ -231,6 +239,12 @@
                 type="button"
                 class="admin-button"
                 data-og7="automatic-portfolio-human"
+                [attr.aria-describedby]="
+                  'automatic-latest-prepare-help-' +
+                  entry.runId +
+                  '-' +
+                  entry.seq
+                "
                 (click)="open(entry)"
               >
                 <openg7-admin-icon name="arrow" />
@@ -242,6 +256,17 @@
                   )
                 }}
               </button>
+              <p
+                class="quiet"
+                [id]="
+                  'automatic-latest-prepare-help-' +
+                  entry.runId +
+                  '-' +
+                  entry.seq
+                "
+              >
+                {{ t('reading.prepareDossierPauseHelp') }}
+              </p>
             }
           </div>
         }
@@ -520,6 +545,12 @@
                             type="button"
                             class="admin-button"
                             data-og7="automatic-portfolio-human"
+                            [attr.aria-describedby]="
+                              'automatic-report-prepare-help-' +
+                              entry.runId +
+                              '-' +
+                              entry.seq
+                            "
                             (click)="open(entry)"
                           >
                             <openg7-admin-icon name="arrow" />
@@ -531,6 +562,17 @@
                               )
                             }}
                           </button>
+                          <p
+                            class="quiet"
+                            [id]="
+                              'automatic-report-prepare-help-' +
+                              entry.runId +
+                              '-' +
+                              entry.seq
+                            "
+                          >
+                            {{ t('reading.prepareDossierPauseHelp') }}
+                          </p>
                         }
                       </div>
                     </details>
@@ -600,7 +642,9 @@
             [disabled]="portfolio.active() || state.error === 'uncertain'"
             (click)="portfolio.resume()"
           >
-            {{ t('compact.resume') }}
+            {{
+              t(run.status === 'completed' ? 'resumeReading' : 'compact.resume')
+            }}
           </button>
         }
         <button

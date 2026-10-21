@@ -7,8 +7,8 @@
     "review": "Benefit review",
     "confirm": "Confirmation"
   },
-  "returnToPreparation": "Return to preparation controls",
-  "returnUnsaved": "Return to the workflow and discard unsaved changes to the source, review or benefits?",
+  "returnToPreparation": "Return to the preparation record",
+  "returnUnsaved": "Return to the preparation record and discard unsaved changes to the source, review or benefits?",
   "reasonHelp": "One reason is shared by the review draft and agreement qualification. Enter at least 5 characters. Individual clause explanations remain separate.",
   "reasonReady": "The shared review and qualification reason is entered.",
   "reasonMissing": "The shared review and qualification reason still needs to be entered.",
@@ -109,7 +109,7 @@
   "formSelected": "Resume preparation in the form",
   "saveReview": "Save review draft",
   "reject": "Reject proposal",
-  "applied": "The business workflow qualified the agreement. Refresh the receipt to see which controls are satisfied.",
+  "applied": "The sponsorship agreement was qualified. Refresh the preparation record to see which controls are satisfied.",
   "separation": "Indexing or saving a draft does not satisfy a control. Applying requires the owner's explicit confirmation and publishes nothing.",
   "proposal": {
     "documentBenefit": "Document this benefit",

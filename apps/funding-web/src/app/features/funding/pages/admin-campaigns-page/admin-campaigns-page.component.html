@@ -124,7 +124,7 @@
             }
           </select>
         </label>
-        <label>
+        <label class="workflow-state-field">
           {{ t('filters.state') }}
           <select
             data-og7="campaigns-state"
@@ -135,7 +135,13 @@
             </option>
             @for (state of states; track state) {
               <option [value]="state" [selected]="filters().state === state">
-                {{ t('states.' + state) }}
+                {{
+                  t(
+                    state === 'complete'
+                      ? 'filters.completed'
+                      : 'states.' + state
+                  )
+                }}
               </option>
             }
           </select>

@@ -14,11 +14,11 @@
   "stop": "Stop the journey",
   "resume": "Resume the journey",
   "missing": "This area is not available in the displayed dossier.",
-  "contextual": "Return to the contextual guide",
+  "contextual": "Return to Discover mode",
   "openDossier": "Open a sponsorship dossier",
   "needsDossier": "Choose a sponsorship dossier to show the journey’s areas.",
-  "readOnly": "Exploring the guide does not prepare, authorize or publish anything.",
-  "automatic": "Switch to the automatic guide",
+  "readOnly": "Exploring these journeys does not prepare, authorize or publish anything.",
+  "automatic": "Open Dossier preparation",
   "journeys": {
     "agreement": {
       "title": "Document the agreed benefits",

@@ -66,6 +66,23 @@ for (const [locale, theme, width, height] of [
     await page.setViewportSize({ width, height });
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto(dashboardPath);
+    const guide = page.locator('[data-og7="admin-guidance"]');
+    const guideName =
+      locale === 'en'
+        ? 'OpenG7 administrative guide'
+        : 'Guide administratif OpenG7';
+    const openGuideName =
+      locale === 'en' ? 'Administrative guide' : 'Guide administratif';
+    await expect(guide).toHaveAccessibleName(guideName);
+    await expect(hook(page, 'toggle')).toHaveAccessibleName(openGuideName);
+    await hook(page, 'toggle').click();
+    await expect(guide).toHaveAccessibleName(guideName);
+    await expect(hook(page, 'toggle')).toHaveAccessibleName(
+      locale === 'en' ? 'Collapse the guide' : 'Réduire le guide'
+    );
+    await hook(page, 'toggle').click();
+    await expect(guide).toHaveAccessibleName(guideName);
+    await expect(hook(page, 'toggle')).toHaveAccessibleName(openGuideName);
     await hook(page, 'toggle').click();
     const labels =
       locale === 'en'
