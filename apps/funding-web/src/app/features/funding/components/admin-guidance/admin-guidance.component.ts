@@ -10,6 +10,7 @@ import {
   computed,
   inject,
   signal,
+  untracked,
   viewChild
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
@@ -23,6 +24,12 @@ import { adminContentRegions } from '../admin-layout/admin-content-scope.js';
 import { highlightGuidanceRegions } from './admin-guidance-highlight.js';
 import { AdminPaymentJourneyComponent } from './admin-payment-journey.component.js';
 import { AdminPaymentJourneyService } from './admin-payment-journey.service.js';
+import {
+  ADMIN_GUIDANCE_LOAD_RETRIES,
+  guidanceChunkRetrySource,
+  loadGuidanceChunkRetry
+} from './admin-guidance-retry.js';
+import type { AdminWorkflowGuideComponent } from './admin-workflow-guide.component.js';
 import {
   guidanceSpace,
   revealGuidanceRegion
@@ -45,15 +52,28 @@ export class AdminGuidanceComponent {
   readonly guidance = inject(AdminGuidanceService);
   readonly journey = inject(AdminPaymentJourneyService);
   readonly i18n = inject(FundingI18nService);
-  readonly compact = computed(() =>
-    ['automatic', 'workflows'].includes(this.guidance.mode())
-  );
   readonly missing = signal(false);
   readonly placement = signal<'top' | 'bottom'>('top');
   readonly automaticLoading = signal(false);
   readonly automaticError = signal(false);
   readonly workflowLoading = signal(false);
   readonly workflowError = signal(false);
+  private readonly automaticLoadAttempt = signal(0);
+  private readonly workflowLoadAttempt = signal(0);
+  private readonly automaticRetrySource = signal<string | null>(null);
+  private readonly workflowRetrySource = signal<string | null>(null);
+  readonly canRetryAutomatic = computed(
+    () =>
+      this.automaticError() &&
+      this.automaticRetrySource() !== null &&
+      this.automaticLoadAttempt() < ADMIN_GUIDANCE_LOAD_RETRIES
+  );
+  readonly canRetryWorkflows = computed(
+    () =>
+      this.workflowError() &&
+      this.workflowRetrySource() !== null &&
+      this.workflowLoadAttempt() < ADMIN_GUIDANCE_LOAD_RETRIES
+  );
   private readonly automaticComponent =
     signal<ComponentRef<AdminAutomaticComponent> | null>(null);
   private readonly portfolioStartRequested = signal(false);
@@ -88,6 +108,8 @@ export class AdminGuidanceComponent {
     afterRenderEffect((onCleanup) => {
       const host = this.workflowHost();
       if (!host) return;
+      const attempt = this.workflowLoadAttempt();
+      const retrySource = untracked(this.workflowRetrySource);
       let current = true;
       let release: (() => void) | undefined;
       this.workflowLoading.set(true);
@@ -97,18 +119,32 @@ export class AdminGuidanceComponent {
         release?.();
         this.workflowLoading.set(false);
       });
-      void import('./admin-workflow-guide.component.js')
-        .then(({ AdminWorkflowGuideComponent }) => {
-          if (!current) return;
+      const load =
+        attempt && retrySource
+          ? loadGuidanceChunkRetry<AdminWorkflowGuideComponent>(
+              retrySource,
+              this.document.baseURI,
+              attempt,
+              'AdminWorkflowGuideComponent'
+            )
+          : import('./admin-workflow-guide.component.js').then(
+              ({ AdminWorkflowGuideComponent }) => AdminWorkflowGuideComponent
+            );
+      void load
+        .then((AdminWorkflowGuideComponent) => {
+          if (!current || !this.guidance.available()) return;
           const component = host.createComponent(AdminWorkflowGuideComponent);
           release = () => component.destroy();
           component.instance.moveRequested.subscribe(() => this.moveCard());
           this.workflowLoading.set(false);
           component.changeDetectorRef.markForCheck();
         })
-        .catch(() => {
+        .catch((error: unknown) => {
           if (!current) return;
           release?.();
+          this.workflowRetrySource.set(
+            guidanceChunkRetrySource(error, this.document.baseURI)
+          );
           this.workflowLoading.set(false);
           this.workflowError.set(true);
         });
@@ -118,6 +154,8 @@ export class AdminGuidanceComponent {
     afterRenderEffect((onCleanup) => {
       const host = this.automaticHost();
       if (!host) return;
+      const attempt = this.automaticLoadAttempt();
+      const retrySource = untracked(this.automaticRetrySource);
       let current = true;
       let release: (() => void) | undefined;
       onCleanup(() => {
@@ -129,9 +167,20 @@ export class AdminGuidanceComponent {
       });
       this.automaticLoading.set(true);
       this.automaticError.set(false);
-      void import('../admin-automatic/admin-automatic.component.js')
-        .then(({ AdminAutomaticComponent }) => {
-          if (!current) return;
+      const load =
+        attempt && retrySource
+          ? loadGuidanceChunkRetry<AdminAutomaticComponent>(
+              retrySource,
+              this.document.baseURI,
+              attempt,
+              'AdminAutomaticComponent'
+            )
+          : import('../admin-automatic/admin-automatic.component.js').then(
+              ({ AdminAutomaticComponent }) => AdminAutomaticComponent
+            );
+      void load
+        .then((AdminAutomaticComponent) => {
+          if (!current || !this.guidance.available()) return;
           const component = host.createComponent(AdminAutomaticComponent);
           this.automaticComponent.set(component);
           release = () => component.destroy();
@@ -139,10 +188,13 @@ export class AdminGuidanceComponent {
           this.automaticLoading.set(false);
           component.changeDetectorRef.markForCheck();
         })
-        .catch(() => {
+        .catch((error: unknown) => {
           if (!current) return;
           release?.();
           release = undefined;
+          this.automaticRetrySource.set(
+            guidanceChunkRetrySource(error, this.document.baseURI)
+          );
           this.automaticComponent.set(null);
           this.automaticLoading.set(false);
           this.automaticError.set(true);
@@ -183,6 +235,26 @@ export class AdminGuidanceComponent {
   }
   t(key: string, params?: Record<string, unknown>): string {
     return this.i18n.t('admin.guidance.' + key, params);
+  }
+  retryAutomatic(): void {
+    if (
+      !this.guidance.available() ||
+      !this.canRetryAutomatic() ||
+      this.automaticLoading()
+    )
+      return;
+    // Loading the optional view never starts a preparation passage.
+    this.portfolioStartRequested.set(false);
+    this.automaticLoadAttempt.update((attempt) => attempt + 1);
+  }
+  retryWorkflows(): void {
+    if (
+      !this.guidance.available() ||
+      !this.canRetryWorkflows() ||
+      this.workflowLoading()
+    )
+      return;
+    this.workflowLoadAttempt.update((attempt) => attempt + 1);
   }
   startPortfolio(): void {
     if (!this.guidance.available() || this.portfolioStartDisabled()) return;

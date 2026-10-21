@@ -9,7 +9,7 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.2rem 0.65rem;
-  max-width: 28rem;
+  max-width: 100%;
   margin: 0 auto 0.6rem;
   font-size: 0.8rem;
 }
@@ -17,6 +17,47 @@
 .receipt-position > span {
   color: var(--admin-muted);
   text-align: end;
+}
+
+.receipt-slots {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin-block: 0.65rem 0.85rem;
+}
+
+.receipt-slot {
+  display: grid;
+  justify-items: center;
+  gap: 0.1rem;
+  min-width: 2.75rem;
+  min-height: 3.5rem;
+  padding: 0.4rem 0.15rem;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-panel);
+  color: var(--admin-text);
+}
+
+.receipt-slot > span {
+  font-size: 0.7rem;
+  color: var(--admin-muted);
+}
+
+.receipt-slot > strong {
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.receipt-slot[aria-current='true'] {
+  border-color: var(--admin-gold);
+  background: var(--admin-panel-raised);
+  box-shadow: inset 0 -3px var(--admin-gold);
+}
+
+@container guidance-content (max-width: 24rem) {
+  .receipt-slots {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .receipt-refresh {
@@ -54,11 +95,31 @@ progress::-moz-progress-bar {
 }
 
 .receipt-navigation {
+  position: sticky;
+  inset-block-end: 0;
+  z-index: 1;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem;
-  width: min(100%, 28rem);
+  width: 100%;
   margin: 0.6rem auto;
+  padding-block: 0.5rem;
+  background: var(--admin-panel);
+  border-block-start: 1px solid var(--admin-border);
+}
+
+@media (max-width: 30rem) {
+  .receipt-position {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .receipt-position > span {
+    grid-column: 1;
+    text-align: start;
+  }
+  .receipt-refresh {
+    grid-column: 2;
+    grid-row: 1 / 3;
+  }
 }
 
 .receipt-navigation button {

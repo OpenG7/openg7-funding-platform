@@ -116,7 +116,7 @@ gestes distincts. Les panneaux métier gardent la priorité et leurs confirmatio
 
 ### Explorer les six parcours en navigation libre
 
-Dans **Mode guidé → Six parcours**, choisir librement un parcours puis une étape
+Dans **Mode guidé → Explorer les parcours**, choisir librement un parcours puis une étape
 numérotée, ou utiliser **Étape précédente / suivante**. Le guide décrit l’action,
 son résultat attendu et son emplacement actuel.
 Les parcours couvrent l’accord, la préparation, l’autorisation, la livraison,
@@ -143,7 +143,12 @@ défilement accessibles existants, avec respect de la réduction des mouvements.
 ### Mode guidé dans l'administration
 
 Le bouton **Mode guidé**, sous la barre commune, accompagne les 20 rubriques
-administratives authentifiées. **Découvrir les rubriques** affiche **Vous êtes ici**,
+administratives authentifiées. Les quatre modes **Découvrir**, **Suivi d’un paiement**,
+**Préparation des dossiers** et **Explorer les parcours** gardent des libellés
+visibles. La rubrique courante reste affichée dans tous les modes. Le rail devient
+une grille sur petit écran ; il défile avec le contenu lorsque la hauteur est limitée.
+La bannière et le portrait princesse/lion sont décoratifs, masqués aux technologies
+d’assistance et réduits sur petit écran. **Découvrir** affiche **Vous êtes ici**,
 une seule étape de lecture et **Me montrer dans la page** pour déplacer le focus vers le repère
 correspondant. Chaque zone visible correspondant à ce repère reçoit un contour
 et un halo dorés. Trois pulsations douces accompagnent le clic, puis l'or reste
@@ -161,6 +166,11 @@ pas pendant la lecture. Les étapes suivantes restent volontaires. Ce repère
 reste accessible dans le mode Concentration du pilotage. Sur un écran étroit,
 réduire temporairement la carte dégage les contrôles recouverts ; la rouvrir
 retrouve la même étape.
+
+Un échec de chargement différé propose **Réessayer le chargement** dans la carte.
+Ce réessai conserve les repères et ne démarre pas de passage.
+Il est borné à trois tentatives sur les fichiers de l’application. Une erreur
+non récupérable localement invite à recharger la page.
 
 Dans ce guide de découverte, **Faire une pause** garde la rubrique et l'étape.
 **Reprendre mon repère** revient
@@ -219,8 +229,9 @@ parcours actif. Pendant une vérification ou après une erreur, les anciennes
 **Parcours à jour** vient des faits serveur ; une nouvelle information peut
 rouvrir une étape.
 
-Seuls l'activation, le mode choisi, le repère de découverte et, pour un parcours,
-l'UUID du paiement et sa pause sont mémorisés dans ce navigateur, par compte OIDC,
+Seuls l'activation, le mode choisi, le repère de découverte, l'UUID du paiement
+et sa pause ainsi que le parcours exploré, son étape et sa pause sont mémorisés
+dans ce navigateur, par compte OIDC,
 dans la clé `og7-admin-guidance:v1:<compte>`. Aucun statut de paiement, référence,
 résultat d'action, contenu de dossier, saisie ou information de santé n'est conservé.
 Le mode token partage ces repères entre ses utilisateurs. Un stockage bloqué conserve le repère

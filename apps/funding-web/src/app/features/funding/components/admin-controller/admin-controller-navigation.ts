@@ -127,7 +127,26 @@ export function moveControllerFocus(
   const active = document.activeElement as HTMLElement | null;
   const index = items.indexOf(active!);
   const backwards = ['previous', 'up', 'left'].includes(intent);
+  // Reading landmarks receive programmatic focus without joining the Tab order.
+  // Continue beside that landmark instead of restarting at the page navigation.
+  const adjacent =
+    index < 0 && active && active !== document.body
+      ? backwards
+        ? [...items]
+            .reverse()
+            .find(
+              (item) =>
+                active.compareDocumentPosition(item) &
+                Node.DOCUMENT_POSITION_PRECEDING
+            )
+        : items.find(
+            (item) =>
+              active.compareDocumentPosition(item) &
+              Node.DOCUMENT_POSITION_FOLLOWING
+          )
+      : undefined;
   let next =
+    adjacent ??
     items[
       index < 0
         ? 0

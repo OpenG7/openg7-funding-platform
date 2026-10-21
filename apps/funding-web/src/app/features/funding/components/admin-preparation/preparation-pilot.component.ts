@@ -71,6 +71,7 @@ import { PreparationIssueDetailComponent } from './preparation-issue-detail.comp
     '[class.has-issues]': "!ready() && receipt().status !== 'approved'",
     '[attr.data-og7-controller-owner]': 'idPrefix()',
     '[attr.data-og7-mode]': 'mode()',
+    '[class.is-guided]': 'guided()',
     '(keydown.escape)': 'escape($event)'
   }
 })
@@ -79,6 +80,7 @@ export class PreparationPilotComponent {
   readonly idPrefix = input.required<string>();
   readonly selectedId = input<string | null>(null);
   readonly canApprove = input(false);
+  readonly guided = input(false);
   readonly busy = input(false);
   readonly detailsMode = input<PreparationDetailsMode>('hidden');
   readonly canAssist = input(false);
@@ -163,6 +165,22 @@ export class PreparationPilotComponent {
           };
     });
   });
+  readonly primaryAction = computed(() =>
+    this.guided()
+      ? (this.actions().find(
+          (action) =>
+            action.id === 'preparation-open' ||
+            action.id === 'preparation-assistance-review'
+        ) ?? null)
+      : null
+  );
+  readonly secondaryActions = computed(() =>
+    this.actions().filter(
+      (action) =>
+        action.id !== this.primaryAction()?.id &&
+        (!this.guided() || action.id !== 'preparation-approve')
+    )
+  );
   private readonly i18n = inject(FundingI18nService);
   private readonly controller = inject(ControllerService);
   private readonly document = inject(DOCUMENT);
@@ -306,6 +324,19 @@ export class PreparationPilotComponent {
     if (this.mode() !== 'open') return;
     this.dispatch(request);
   }
+  requestPrimary(request: ControllerActionRequest): void {
+    if (
+      !this.guided() ||
+      this.busy() ||
+      request.actionId !== this.primaryAction()?.id ||
+      !matchesPreparationControllerContext(this.context(), request.context)
+    )
+      return;
+    // This explicit native-button gesture opens the existing command surface.
+    // The same mode, fresh descriptor and version guards still govern dispatch.
+    this.open();
+    this.request(request);
+  }
   private dispatch(request: ControllerActionRequest): void {
     if (!matchesPreparationControllerContext(this.context(), request.context))
       return;
@@ -369,7 +400,7 @@ export class PreparationPilotComponent {
         active.getAttribute('data-og7') === 'preparation-issue'
           ? active.getAttribute('data-og7-id')
           : null;
-      const issues = this.projection().issues;
+      const issues = this.list()?.navigableIssues() ?? this.projection().issues;
       const index = issues.findIndex((issue) => issue.id === issueId);
       const offset = intent === 'previous' ? -1 : 1;
       // Bumpers select adjacent issues, then leave the list in DOM order.

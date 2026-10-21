@@ -548,16 +548,20 @@ for (const validContext of [true, false]) {
   });
 }
 
-test('a failed lazy workflow chunk shows its dedicated error while discovery remains usable without a business action', async ({
+test('a failed lazy workflow chunk can retry locally and discovery remains usable without a business action', async ({
   page
 }) => {
   const f = await fixtures(page);
   const blocked: string[] = [];
+  let failImport = true;
   await page.route('**/*.js', async (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path.startsWith('/api/')) return route.fallback();
     const response = await route.fetch();
-    if ((await response.text()).includes('admin.workflowGuide.')) {
+    if (
+      failImport &&
+      (await response.text()).includes('admin.workflowGuide.')
+    ) {
       blocked.push(path);
       return route.abort();
     }
@@ -571,10 +575,20 @@ test('a failed lazy workflow chunk shows its dedicated error while discovery rem
   await hook(page, 'admin-guidance-workflows-mode').click();
   const panel = hook(page, 'admin-guidance-panel');
   await expect(panel.getByRole('alert')).toHaveText(
-    'The six journeys could not be loaded. Reload the page to try again.'
+    'The journeys could not be loaded. Retry while keeping your place.'
   );
   await expect(hook(page, 'workflow-guide')).toHaveCount(0);
   expect([...new Set(blocked)]).toHaveLength(1);
+  const currentUrl = page.url();
+  failImport = false;
+  await hook(page, 'admin-guidance-workflows-retry').click();
+  await expect(hook(page, 'workflow-guide')).toBeVisible();
+  await expect(panel.getByRole('alert')).toHaveCount(0);
+  await expect(hook(page, 'admin-guidance-workflows-mode')).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
+  expect(page.url()).toBe(currentUrl);
   await hook(page, 'admin-guidance-discovery-mode').click();
   await expect(panel.getByRole('alert')).toHaveCount(0);
   await expect(hook(page, 'admin-guidance-step')).toHaveAttribute(

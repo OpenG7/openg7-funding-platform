@@ -1464,6 +1464,8 @@
     },
     "guidance": {
       "toggle": "Guided mode",
+      "panelTitle": "OpenG7 administrative guide",
+      "panelSubtitle": "Find your way, understand and prepare each intervention.",
       "close": "Collapse the guide",
       "where": "You are here",
       "next": "One step at a time",
@@ -1484,7 +1486,8 @@
       "clearUnavailable": "Removal of the saved place could not be confirmed. It is hidden for this visit, but may return after reloading.",
       "tokenShared": "With a token sign-in, this place is shared by people using this browser.",
       "missing": "This area is not visible right now. You can keep reading the guide.",
-      "privacy": "The guide keeps the section, step and, when following a payment, its identifier and pause, per account in this browser. It saves no dossier content, form input or action result. Resuming reads fresh server facts.",
+      "privacyTitle": "Saved places and privacy",
+      "privacy": "In this browser, the guide remembers whether it is open, the selected mode, the discovery section, step and pause, the explored journey with its step and pause, and the followed payment’s identifier and pause. These places are associated with your account. They contain no dossier content, form input or action result. Resuming reads fresh server facts.",
       "forget": "Forget my place",
       "pages": {
         "dashboard": {
@@ -1755,11 +1758,14 @@
         }
       },
       "modeLabel": "Guide type",
-      "discoveryMode": "Explore the sections",
-      "automaticMode": "Automatic",
-      "workflowsMode": "Six journeys",
-      "workflowsUnavailable": "The six journeys could not be loaded. Reload the page to try again.",
-      "automaticUnavailable": "Automatic mode could not be loaded. Reload the page to try again.",
+      "discoveryMode": "Discover",
+      "paymentMode": "Follow a payment",
+      "automaticMode": "Dossier preparation",
+      "workflowsMode": "Explore the journeys",
+      "retryMode": "Retry loading",
+      "retryUnavailable": "The browser cannot retry this load here. Reload the page to resume your saved places.",
+      "workflowsUnavailable": "The journeys could not be loaded. Retry while keeping your place.",
+      "automaticUnavailable": "Dossier preparation could not be loaded. Retrying does not start a passage.",
       "paymentJourney": {
         "title": "Payment journey",
         "followCurrent": "Follow this payment",

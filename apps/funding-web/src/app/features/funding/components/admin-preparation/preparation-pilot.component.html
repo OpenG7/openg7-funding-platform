@@ -1,5 +1,5 @@
 <section
-  [class.is-ready]="ready() || receipt().status === 'approved'"
+  [class.is-ready]="!guided() && (ready() || receipt().status === 'approved')"
   [attr.aria-label]="t('pilot.title')"
 >
   <header>
@@ -34,10 +34,11 @@
     [attr.aria-label]="t('pilot.progressLabel')"
   ></progress>
   <div class="pilot-content">
-    @if (!ready() && receipt().status !== 'approved') {
+    @if (guided() || (!ready() && receipt().status !== 'approved')) {
       <openg7-preparation-issue-list
         class="pilot-issues"
         [issues]="projection().issues"
+        [grouped]="guided()"
         [selectedId]="selection()"
         [canAssist]="canAssist()"
         [assistanceSummary]="currentAssistance()"
@@ -47,7 +48,21 @@
       />
     }
     <div class="pilot-attention" data-og7="preparation-pilot-attention">
-      @if (!ready() && receipt().status !== 'approved') {
+      @if (guided()) {
+        <p class="pilot-intervention-label">
+          {{
+            t(
+              issue() && !issue()!.completed
+                ? 'pilot.nextIntervention'
+                : 'pilot.selectedControl'
+            )
+          }}
+        </p>
+      }
+      @if (
+        (guided() && (receipt().status !== 'approved' || issue())) ||
+        (!ready() && receipt().status !== 'approved')
+      ) {
         <openg7-preparation-issue-detail
           [issue]="issue()"
           [ready]="ready()"
@@ -57,6 +72,17 @@
           [assistanceError]="assistanceError()"
           (refreshRequested)="assistanceRefreshRequested.emit()"
         />
+      }
+      @if (primaryAction(); as action) {
+        <button
+          openg7-context-controller-action
+          class="pilot-primary"
+          data-og7="preparation-pilot-primary"
+          [attr.data-og7-id]="action.id"
+          [action]="action"
+          [context]="context()"
+          (actionRequested)="requestPrimary($event)"
+        ></button>
       }
       <button
         #opener
@@ -68,7 +94,7 @@
         [attr.aria-controls]="idPrefix() + '-pilot-actions'"
         (click)="open()"
       >
-        {{ t('pilot.actionsLabel') }}
+        {{ t(guided() ? 'pilot.otherActions' : 'pilot.actionsLabel') }}
       </button>
       <div
         data-og7="preparation-pilot-controller"
@@ -90,7 +116,7 @@
           [expandLabel]="t('pilot.actionsLabel')"
           [actionsId]="idPrefix() + '-pilot-actions'"
         >
-          @for (action of actions(); track action.id) {
+          @for (action of secondaryActions(); track action.id) {
             <button
               openg7-context-controller-action
               data-og7="preparation-pilot-action"

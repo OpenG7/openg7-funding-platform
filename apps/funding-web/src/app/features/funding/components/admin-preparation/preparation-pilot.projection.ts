@@ -119,12 +119,18 @@ export function projectPreparationPilot(
   };
 }
 
-/** Rereads preserve an unresolved selection; resolution moves to the next server issue. */
+/** The Guide can retain a deliberately selected satisfied control across rereads. */
 export function reconcilePreparationIssue(
   issues: readonly PreparationPilotIssue[],
-  currentId: string | null
+  currentId: string | null,
+  preserveResolved = false
 ): string | null {
-  if (issues.some((issue) => issue.id === currentId && !issue.completed))
+  if (
+    issues.some(
+      (issue) =>
+        issue.id === currentId && (preserveResolved || !issue.completed)
+    )
+  )
     return currentId;
   return issues.find((issue) => !issue.completed)?.id ?? null;
 }

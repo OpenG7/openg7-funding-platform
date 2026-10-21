@@ -43,6 +43,85 @@ const automaticWorkspaces = [
   ['setup', '/setup']
 ] as const;
 const generatedAt = '2026-10-14T12:00:00Z';
+
+for (const [locale, theme, width, height] of [
+  ['fr-CA', 'mineral', 1536, 864],
+  ['en', 'night', 390, 667],
+  ['fr-CA', 'graphite', 390, 844]
+] as const) {
+  test(`the redesigned guide keeps named modes and context usable in ${locale} ${theme} at ${width} by ${height}`, async ({
+    page
+  }, testInfo) => {
+    const f = await fixtures(page, locale);
+    await page.addInitScript((selectedTheme) => {
+      localStorage.setItem(
+        'openg7.pilotage.appearance.v1',
+        JSON.stringify({
+          theme: selectedTheme,
+          system: false,
+          density: 'comfortable'
+        })
+      );
+    }, theme);
+    await page.setViewportSize({ width, height });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto(dashboardPath);
+    await hook(page, 'toggle').click();
+    const labels =
+      locale === 'en'
+        ? [
+            'Discover',
+            'Follow a payment',
+            'Dossier preparation',
+            'Explore the journeys'
+          ]
+        : [
+            'Découvrir',
+            'Suivi d’un paiement',
+            'Préparation des dossiers',
+            'Explorer les parcours'
+          ];
+    const modeIds = ['discovery', 'payment', 'automatic', 'workflows'];
+    for (const modeId of modeIds) {
+      await hook(page, modeId + '-mode').click();
+      await expect(hook(page, modeId + '-mode')).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      );
+      const modes = hook(page, 'modes').getByRole('button');
+      await expect(modes).toHaveCount(4);
+      for (const [index, label] of labels.entries()) {
+        const mode = modes.nth(index);
+        await expect(mode).toHaveAccessibleName(label);
+        await expect(mode.locator('span')).toBeVisible();
+        await expect(mode.locator('span')).toHaveText(label);
+      }
+      await expect(hook(page, 'page')).toBeVisible();
+      await expect(hook(page, 'panel')).not.toContainText('admin.guidance.');
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+    }
+    await hook(page, 'discovery-mode').click();
+    await hook(page, 'next').focus();
+    await expect(hook(page, 'next')).toBeInViewport({ ratio: 0.98 });
+    await page.keyboard.press('Enter');
+    await expectStep(page, 'choose');
+    const audit = await new AxeBuilder({ page })
+      .include('[data-og7="admin-guidance"]')
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+      .analyze();
+    expect(audit.violations).toEqual([]);
+    await page.screenshot({
+      path: testInfo.outputPath(`guide-${locale}-${theme}-${width}.png`),
+      animations: 'disabled'
+    });
+    expect(f.mutations).toEqual([]);
+  });
+}
+
 const paymentId = '10000000-0000-4000-8000-000000000701';
 const otherPaymentId = '10000000-0000-4000-8000-000000000702';
 const paymentJourney = (id = paymentId): AdminPaymentJourney => ({

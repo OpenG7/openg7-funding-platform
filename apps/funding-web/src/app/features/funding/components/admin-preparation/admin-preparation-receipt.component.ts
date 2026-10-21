@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -36,7 +37,7 @@ import { PreparationReturnService } from './preparation-return.service.js';
 @Component({
   selector: 'openg7-admin-preparation-receipt',
   standalone: true,
-  imports: [AdminIconComponent, PreparationPilotComponent],
+  imports: [AdminIconComponent, PreparationPilotComponent, NgTemplateOutlet],
   templateUrl: './admin-preparation-receipt.component.html',
   styleUrls: [
     '../admin-ui/admin-controls.css',
@@ -48,6 +49,7 @@ export class AdminPreparationReceiptComponent {
   readonly receipt = input.required<AdminPreparationReceiptData>();
   readonly idPrefix = input.required<string>();
   readonly readOnly = input(false);
+  readonly guided = input(false);
   readonly detailsMode = input<PreparationDetailsMode>('hidden');
   readonly canApprove = input(false);
   readonly approving = input(false);

@@ -654,6 +654,11 @@ for (const [language, width] of [
     await expect(approval).toBeFocused();
     await approval.press('Enter');
     await expectReading(page, 'dossier');
+    await expect(approval).toHaveAccessibleName(
+      language === 'en'
+        ? 'Check and prepare this dossier'
+        : 'Vérifier et préparer ce dossier'
+    );
     await expect(
       page.locator(
         '[data-og7="automatic-portfolio-scope"][data-og7-guidance-highlight]'

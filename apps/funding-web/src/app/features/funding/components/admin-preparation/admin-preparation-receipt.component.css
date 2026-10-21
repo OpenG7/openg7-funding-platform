@@ -37,6 +37,106 @@
 .preparation-receipt.has-issues {
   width: min(100%, 58rem);
 }
+.preparation-receipt.is-guided {
+  width: 100%;
+  padding: 0.9rem;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-card);
+  box-shadow: none;
+}
+.is-guided::after {
+  display: none;
+}
+.is-guided .receipt-header {
+  text-align: start;
+}
+.is-guided .receipt-id {
+  justify-content: flex-start;
+}
+.is-guided .receipt-payment {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+}
+.is-guided .receipt-payment > div {
+  gap: 0.75rem;
+}
+.is-guided .receipt-money > strong {
+  margin-inline-start: 0;
+}
+.is-guided .receipt-preparation {
+  display: flex;
+  flex-direction: column;
+}
+.is-guided .receipt-pilot {
+  order: -1;
+}
+.is-guided .receipt-disclosures {
+  grid-template-columns: minmax(0, 1fr);
+}
+.receipt-offer-disclosure,
+.receipt-preparation-summary {
+  border-block-start: 1px solid var(--admin-border);
+}
+.receipt-preparation-summary {
+  padding-block: 0.4rem;
+}
+.is-guided .receipt-approval {
+  padding: 0.65rem;
+  background: var(--admin-panel-raised);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-control);
+}
+.is-guided .receipt-pilot {
+  border-block-start-style: solid;
+}
+@container guidance-content (min-width: 42rem) {
+  .preparation-receipt.is-guided {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(14rem, 1fr);
+    grid-template-areas:
+      'header payment'
+      'pilot pilot'
+      'summary approval'
+      'content approval'
+      'offer approval'
+      'confirmations confirmations';
+    column-gap: 1rem;
+  }
+  .is-guided .receipt-header {
+    grid-area: header;
+  }
+  .is-guided .receipt-payment {
+    grid-area: payment;
+    align-self: start;
+    justify-content: flex-end;
+    border: 0;
+    margin: 0;
+  }
+  .is-guided .receipt-preparation {
+    display: contents;
+  }
+  .is-guided .receipt-pilot {
+    grid-area: pilot;
+  }
+  .is-guided .receipt-disclosures {
+    grid-area: content;
+  }
+  .receipt-offer-disclosure {
+    grid-area: offer;
+  }
+  .receipt-preparation-summary {
+    grid-area: summary;
+  }
+  .is-guided .receipt-approval {
+    grid-area: approval;
+    align-self: start;
+  }
+  .is-guided .receipt-confirmations {
+    grid-area: confirmations;
+  }
+}
 .receipt-header {
   text-align: center;
 }
