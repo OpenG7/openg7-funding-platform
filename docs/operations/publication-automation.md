@@ -34,6 +34,19 @@ requires rescheduling and review; it creates no provider call or fulfilled benef
 
 ## Dossier bridge
 
+The dossier's **Overview** presents recorded service obligations from the active
+agreement, including each channel, destination and occurrence. It counts qualified
+fulfilments, recorded waivers and remaining obligations separately; drafts,
+declared social statuses and simulated deliveries do not establish fulfilment.
+Missing, unconfirmed or empty agreements remain explicit without inferred totals.
+Each service links to its exact dossier and obligation in Service fulfilment.
+Workflow reasons and responsibilities remain server facts, and the existing next
+step retains priority. Evidence dates use `America/Toronto`; current profile
+visibility is a separate OpenG7-only fact. This read-only summary disappears while
+refreshing, after a failed or denied read, and when selecting another dossier.
+It replaces the static benefits recap in Overview once the dossier is loaded,
+without adding preparation or authorization actions.
+
 The sponsorship dossier’s Publication step reads its own server preparation queue,
 unprepared commitment candidates and deliveries to show the next proposed date for
 each destination, explicitly in `America/Toronto`. An unallocated forecast is an

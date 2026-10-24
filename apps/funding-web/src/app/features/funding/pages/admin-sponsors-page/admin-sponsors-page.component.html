@@ -362,6 +362,9 @@
                 <openg7-admin-sponsor-detail-overview
                   *ngIf="selectedSponsorDetailOverview() as overview"
                   [overview]="overview"
+                  [showBenefits]="
+                    !progress() || progress()?.contributionId !== selected.id
+                  "
                   [disabled]="actionsDisabled()"
                   (sectionRequested)="openDossierSection($event)"
                   (copyReference)="copyReference(selected)"

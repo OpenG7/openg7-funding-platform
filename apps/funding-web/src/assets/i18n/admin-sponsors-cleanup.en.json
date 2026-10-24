@@ -1,5 +1,43 @@
 {
   "assistant": "Open the Assistant for this dossier",
+  "servicesSummary": {
+    "title": "Dossier service fulfilment",
+    "total": "{{ count }} recorded services",
+    "totalOne": "{{ count }} recorded service",
+    "fulfilled": "{{ count }} fulfilled",
+    "fulfilledOne": "{{ count }} fulfilled",
+    "adjusted": "{{ count }} waived",
+    "adjustedOne": "{{ count }} waived",
+    "remaining": "{{ count }} remaining",
+    "occurrence": "no. {{ ordinal }}",
+    "proofDate": "Fulfilment evidence dated {{ date }} (Toronto)",
+    "dateUnavailable": "date unavailable",
+    "waiverHelp": "The waiver ends this follow-up without recording a delivery.",
+    "proofMissing": "Fulfilment is declared, but its qualified evidence is unavailable.",
+    "trackingUnavailable": "Operational tracking is unavailable for this service.",
+    "openAgreement": "View the promised services",
+    "states": {
+      "fulfilled": "Confirmed fulfilment",
+      "adjusted": "Waived",
+      "unverified": "Evidence to verify",
+      "unavailable": "Tracking unavailable",
+      "waiting": "Waiting",
+      "action_required": "Action required",
+      "blocked": "Blocked",
+      "error": "Failed",
+      "uncertain": "Uncertain result"
+    },
+    "visibility": {
+      "visible": "Current profile visibility: public",
+      "hidden": "Current profile visibility: hidden",
+      "held": "Current profile visibility: on hold"
+    },
+    "fallback": {
+      "agreement_unknown": "The promised services have not been documented yet.",
+      "agreement_unconfirmed": "Confirm the agreement before reviewing the promised services.",
+      "empty": "No services have been recorded for this agreement yet."
+    }
+  },
   "recommendation": {
     "owner": "Responsible party",
     "ownerUnknown": "Responsibility to be determined",
