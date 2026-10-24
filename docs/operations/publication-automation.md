@@ -21,6 +21,8 @@ unchanged delivery schedule retains the exact stored instant, including seconds
 and the selected occurrence during a clock change. A new or changed delivery
 date must occur exactly once in that browser timezone; missing or repeated local
 times are rejected before saving, with the entered content kept for correction.
+After rejection, the date field receives focus and its associated error is brought
+into view within the drawer's scrollable content so the schedule can be corrected.
 
 Moving a slot with linked deliveries is transactional: the server locks the
 deliveries before calendar membership, revokes obsolete approval, releases
