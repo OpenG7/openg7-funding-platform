@@ -13,6 +13,7 @@ import type {
 import { expect, test } from './support/test.js';
 import { completeModeration, moderationFixture } from './support/moderation.js';
 import { registerPublicationNavigationTests } from './publication-navigation.ui.js';
+import { capturePublicationReview } from './support/publication-review-capture.js';
 
 interface Context {
   fixtures(
@@ -588,7 +589,7 @@ export function registerDossierPublicationScheduleTests(
       for (const historical of [false, true]) {
         test(`publication guideposts ${historical ? 'restore a historical source when two drafts share a passage and delivery' : 'keep the selected passage through content, authorization, result and evidence'} in ${language} at ${width}px`, async ({
           page
-        }) => {
+        }, testInfo) => {
           const { options, state, job, entry, controls } = await fixtures(
             page,
             context
@@ -770,6 +771,16 @@ export function registerDossierPublicationScheduleTests(
           expect(new URL(page.url()).searchParams.get('deliveryId')).toBe(
             secondDeliveryId
           );
+          await capturePublicationReview(
+            page,
+            testInfo,
+            `publication-source-${historical ? 'historical' : 'selected'}-${language}`,
+            {
+              language,
+              viewport: { width, height: 1000 },
+              access: 'fixture-with-write-controls'
+            }
+          );
           const dialog = page.getByRole('dialog', {
             name:
               language === 'en' ? 'Final publication' : 'Publication finale',
@@ -803,6 +814,17 @@ export function registerDossierPublicationScheduleTests(
                 dialog.getByRole('checkbox', { name: /I approve|J’approuve/ })
               ).not.toBeChecked();
             expect(controls.commands).toEqual([]);
+            if (step === 'content')
+              await capturePublicationReview(
+                page,
+                testInfo,
+                `publication-exact-${historical ? 'historical' : 'selected'}-${language}`,
+                {
+                  language,
+                  viewport: { width, height: 1000 },
+                  access: 'fixture-with-write-controls'
+                }
+              );
             await page.keyboard.press('Escape');
             await expect(dialog).toBeHidden();
             await expect(trigger).toBeFocused();
@@ -861,7 +883,7 @@ export function registerDossierPublicationScheduleTests(
 
       test(`publication authorization guidepost explains an unavailable decision without stealing the reader focus in ${language}`, async ({
         page
-      }) => {
+      }, testInfo) => {
         const { options, controls } = await fixtures(page, context, 'reader');
         const obligationId =
           options.progressOverrides.commitment!.obligations.find(
@@ -873,6 +895,10 @@ export function registerDossierPublicationScheduleTests(
             { ...options.progressOverrides.publications![0]!, obligationId }
           ]
         };
+        await page.setViewportSize({
+          width: language === 'en' ? 390 : 1280,
+          height: 864
+        });
         await page.addInitScript(
           (locale) => localStorage.setItem('openg7.language', locale),
           language
@@ -904,6 +930,16 @@ export function registerDossierPublicationScheduleTests(
         );
         await expect(dialog.locator('button:focus')).toHaveAccessibleName(
           language === 'en' ? 'Close' : 'Fermer'
+        );
+        await capturePublicationReview(
+          page,
+          testInfo,
+          `publication-reader-${language}`,
+          {
+            language,
+            viewport: { width: language === 'en' ? 390 : 1280, height: 864 },
+            access: 'reader'
+          }
         );
         await page.keyboard.press('Escape');
         await expect(authorization).toBeFocused();

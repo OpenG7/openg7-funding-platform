@@ -32,7 +32,7 @@ export default defineBuiltWebSuite({
     'admin-publication-automation.spec.ts',
     'admin-sponsorship-progress.spec.ts'
   ],
-  grep: /publication (drawer reliability|content review|review layout|context actions|transverse acceptance|guideposts|authorization guidepost)/,
+  grep: /publication (drawer reliability|content review|review layout|context actions|transverse acceptance|guideposts|authorization guidepost)|ten normalized collection/,
   outputDir: '../test-results/publication-review',
   projects: publicJourneyProjects(),
   reporter: [
