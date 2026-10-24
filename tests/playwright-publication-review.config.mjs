@@ -37,7 +37,17 @@ export default defineBuiltWebSuite({
   projects: publicJourneyProjects(),
   reporter: [
     ['list'],
-    ['json', { outputFile: 'test-results/publication-review/results.json' }]
+    [
+      'json',
+      {
+        outputFile: fileURLToPath(
+          new URL(
+            '../test-results/publication-review/results.json',
+            import.meta.url
+          )
+        )
+      }
+    ]
   ],
   metadata: {
     publicationReview: {
