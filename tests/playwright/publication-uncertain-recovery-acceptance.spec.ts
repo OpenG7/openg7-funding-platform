@@ -570,8 +570,12 @@ test('lost social responses survive restart and recover through verified reconci
           .getByRole('button', { name: 'Vérifier et confirmer la publication' })
           .click();
         await expect(
-          dialog.getByRole('link', { name: 'Voir la publication' })
+          dialog.getByText('Simulation · Publiée', { exact: true })
         ).toBeVisible();
+        await expect(
+          dialog.getByRole('link', { name: 'Voir la publication' })
+        ).toHaveCount(0);
+        await expect(dialog).toContainText('Simulation');
         expect(await delivery(job.id)).toMatchObject({
           status: 'published',
           attempts: 1,
@@ -588,8 +592,16 @@ test('lost social responses survive restart and recover through verified reconci
         await expect(
           page
             .getByRole('dialog', { name: 'Publication finale' })
-            .getByRole('link', { name: 'Voir la publication' })
+            .getByText('Simulation · Publiée', { exact: true })
         ).toBeVisible();
+        await expect(
+          page
+            .getByRole('dialog', { name: 'Publication finale' })
+            .getByRole('link', { name: 'Voir la publication' })
+        ).toHaveCount(0);
+        await expect(
+          page.getByRole('dialog', { name: 'Publication finale' })
+        ).toContainText('Simulation');
       }
     });
     await test.step('Reconciled account holds let the following approved jobs advance exactly once before their own lost responses require review', async () => {
