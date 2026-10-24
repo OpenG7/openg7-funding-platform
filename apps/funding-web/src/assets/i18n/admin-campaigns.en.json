@@ -1,14 +1,14 @@
 {
   "eyebrow": "Sponsor commitments",
-  "title": "Campaigns",
-  "subtitle": "Track publications promised after a confirmed payment, their preparation and their delivery evidence.",
+  "title": "Service fulfilment",
+  "subtitle": "Track services to provide after a confirmed payment, their preparation and their fulfilment evidence.",
   "refresh": "Refresh",
   "scope": "By default, current approved preparations appear first. Promised services still awaiting preparation remain upcoming, subject to completing and approving the dossier preparation.",
-  "listTitle": "Promised publications",
+  "listTitle": "Services to track",
   "count": "{{count}} promised services",
   "dossiersOnPage": "{{count}} dossiers on this page",
   "groupByDossier": "Group by dossier",
-  "loading": "Loading campaigns…",
+  "loading": "Loading services…",
   "retry": "Try again",
   "emptyTitle": "No promised services in this selection",
   "empty": "Change the filters or return after a payment is confirmed and the sponsorship commitments are recorded.",
@@ -21,7 +21,7 @@
   "conditional": "Upcoming, subject to approval",
   "adjusted": "Waived",
   "page": "Page {{page}} of {{pages}}",
-  "pagination": "Campaign pagination",
+  "pagination": "Service pagination",
   "previous": "Previous",
   "next": "Next",
   "destination": {
@@ -33,7 +33,7 @@
     "empty": "No accessible promised service matches this link. Commitments must be recorded before they appear here."
   },
   "filters": {
-    "title": "Filter campaigns",
+    "title": "Filter services",
     "search": "Find a dossier",
     "searchPlaceholder": "Sponsor or reference",
     "channel": "Channel",
@@ -83,12 +83,12 @@
     "promise": "Promised service",
     "preparation": "Preparation",
     "due": "Due date",
-    "proof": "Delivery evidence"
+    "proof": "Fulfilment evidence"
   },
   "errors": {
-    "error": "Campaigns could not be loaded. Try again to get the current data.",
-    "forbidden": "Your session does not allow you to view campaigns.",
-    "unavailable": "Campaigns are temporarily unavailable. Try again in a moment."
+    "error": "Services could not be loaded. Try again to get the current data.",
+    "forbidden": "Your session does not allow you to view services.",
+    "unavailable": "Services are temporarily unavailable. Try again in a moment."
   },
   "formats": {
     "unspecified": "As recorded in the agreement",
@@ -99,22 +99,24 @@
   },
   "detail": {
     "title": "Promised service details",
-    "choose": "Select a promised service to see its preparation, content and delivery evidence.",
+    "choose": "Select a promised service to see its preparation, content and fulfilment evidence.",
+    "backToList": "Back to the list",
     "openOwner": "Open the publication dossier",
-    "preparation": "Preparation workspace",
+    "preparation": "Dossier preparation",
     "preparationHelp": "Current dossier checks determine the next preparation step.",
-    "content": "Content and delivery",
+    "content": "Content preview",
+    "previewScope": "This preview shows the text associated with the promised service. View the image and final layout in their publication workspace.",
     "paidAt": "Confirmed payment",
     "format": "Promised format",
     "scheduled": "Scheduled delivery",
     "timezone": "(Toronto time)",
-    "nextStep": "Next step",
+    "nextStep": "Next intervention",
     "unknownReason": "Open the dossier to examine the next step.",
     "openDelivery": "Review delivery",
     "draft": "Associated draft",
     "noContent": "No content is associated with this publication. Open the publication dossier to continue preparing it.",
     "authorization": "An approved preparation does not authorize publication. The exact content, destination and schedule require their own authorization.",
-    "proof": "Delivery evidence",
+    "proof": "Fulfilment evidence",
     "delivered": "Delivery confirmed on {{date}}",
     "deliveredAt": "Confirmed delivery date",
     "proofSource": "Evidence source",

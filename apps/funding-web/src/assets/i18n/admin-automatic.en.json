@@ -1,6 +1,15 @@
 {
   "title": "Dossier preparation",
   "preparationTitle": "Prepare a dossier or admin area",
+  "views": {
+    "label": "Preparation tools",
+    "records": "Records",
+    "batch": "Batch tracking",
+    "other": "Other preparation",
+    "inProgress": "Needs attention",
+    "batchState": "Batch: {{status}}",
+    "rejoin": "Go to batch tracking"
+  },
   "portfolio": {
     "promisesTitle": "Benefits promised in the accepted offer",
     "promiseDestination": "Channel: {{channel}} · destination: {{target}} · promised quantity: {{quantity}}",
@@ -236,6 +245,10 @@
       "prepareDossierPauseHelp": "Pauses the batch check and starts preparation for this dossier."
     },
     "receipt": {
+      "noRunTitle": "View a record without a batch",
+      "noRunHelp": "View a dossier’s record in Sponsors (Publication tab) or Service fulfilment. No batch is needed; batch tracking is available for overall checks.",
+      "openDossiers": "Choose a sponsorship dossier",
+      "openCampaigns": "Open service fulfilment",
       "ticket": {
         "benefitNames": {
           "website_mention": "Website presentation",
@@ -248,6 +261,7 @@
         "preparationFor": "{{channel}} preparation",
         "authorized": "Eligible for private preparation",
         "authorizationMissing": "Incomplete",
+        "destinationsUnknown": "Services to be determined",
         "draft": "Draft",
         "drafts": "Drafts",
         "readyPrivate": "Ready · private",
@@ -261,7 +275,7 @@
       "compact": {
         "received": "Received",
         "promised": "Promised",
-        "prepared": "Prepared",
+        "prepared": "Preparation",
         "authorizations": "Authorizations",
         "checks": "Checks",
         "drafts": "Drafts",
@@ -392,7 +406,7 @@
           "inspect": "View the dossier",
           "approve": "Approve preparation",
           "details": "Preparation and traceability",
-          "campaigns": "View services in Campaigns",
+          "campaigns": "View this dossier’s services",
           "history": "Approval history",
           "back": "Back"
         }

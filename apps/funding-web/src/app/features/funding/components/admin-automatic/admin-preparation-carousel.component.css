@@ -55,8 +55,44 @@
 }
 
 @container guidance-content (max-width: 24rem) {
-  .receipt-slots {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  [data-og7='preparation-receipts-carousel'] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 2.75rem;
+    gap: 0.3rem 0.4rem;
+  }
+  [data-og7='preparation-receipts-carousel'] > * {
+    grid-column: 1 / -1;
+  }
+  .receipt-position {
+    display: contents;
+  }
+  .receipt-position > strong {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+  .receipt-position > .receipt-refresh {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: center;
+  }
+  [data-og7='preparation-receipts-carousel'] > .receipt-slots {
+    grid-column: 1;
+    grid-row: 2;
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(2.75rem, 1fr);
+    overflow-x: auto;
+    padding: 0.25rem;
+    margin: 0;
+    scrollbar-width: thin;
+  }
+  .receipt-slot {
+    min-height: 2.75rem;
+  }
+  .receipt-slot > span,
+  .receipt-position > span,
+  .receipt-position > progress {
+    display: none;
   }
 }
 

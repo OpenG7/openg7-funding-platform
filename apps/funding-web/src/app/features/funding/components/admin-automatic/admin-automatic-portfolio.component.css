@@ -8,9 +8,22 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
-[data-og7='automatic-portfolio']:focus-visible {
+[data-og7='automatic-portfolio-records'][hidden],
+[data-og7='automatic-portfolio-processing'][hidden] {
+  display: none;
+}
+[data-og7='automatic-portfolio']:focus-visible,
+[data-og7='automatic-portfolio-processing']:focus-visible {
   outline: 2px solid var(--admin-focus);
   outline-offset: 3px;
+}
+.records-empty {
+  display: grid;
+  gap: 0.7rem;
+}
+.records-empty h3,
+.records-empty p {
+  margin: 0;
 }
 .processing-details {
   margin-block: 1rem;

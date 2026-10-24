@@ -1,6 +1,15 @@
 {
   "title": "Préparation des dossiers",
   "preparationTitle": "Préparer un dossier ou une rubrique",
+  "views": {
+    "label": "Outils de préparation",
+    "records": "Fiches",
+    "batch": "Suivi du lot",
+    "other": "Autre préparation",
+    "inProgress": "À suivre",
+    "batchState": "Lot : {{status}}",
+    "rejoin": "Rejoindre le suivi"
+  },
   "portfolio": {
     "promisesTitle": "Avantages promis dans l’offre acceptée",
     "promiseDestination": "Canal : {{channel}} · destination : {{target}} · quantité promise : {{quantity}}",
@@ -236,6 +245,10 @@
       "prepareDossierPauseHelp": "Met en pause la vérification du lot et démarre la préparation ciblée de ce dossier."
     },
     "receipt": {
+      "noRunTitle": "Consulter une fiche sans lot",
+      "noRunHelp": "Consulte la fiche d’un dossier dans Commandites (onglet Publication) ou Prestations de services. Aucun lot n’est nécessaire ; le suivi du lot sert aux vérifications globales.",
+      "openDossiers": "Choisir un dossier de commandite",
+      "openCampaigns": "Ouvrir les prestations de services",
       "ticket": {
         "benefitNames": {
           "website_mention": "Présentation sur le site Web",
@@ -248,6 +261,7 @@
         "preparationFor": "Préparation {{channel}}",
         "authorized": "Admissible à la préparation privée",
         "authorizationMissing": "À compléter",
+        "destinationsUnknown": "Prestations à déterminer",
         "draft": "Brouillon",
         "drafts": "Brouillons",
         "readyPrivate": "Prêt · privé",
@@ -261,7 +275,7 @@
       "compact": {
         "received": "Reçu",
         "promised": "Promis",
-        "prepared": "Préparé",
+        "prepared": "Préparation",
         "authorizations": "Autorisations",
         "checks": "Vérifications",
         "drafts": "Brouillons",
@@ -392,7 +406,7 @@
           "inspect": "Voir le dossier",
           "approve": "Approuver la préparation",
           "details": "Préparation et traçabilité",
-          "campaigns": "Voir les prestations dans Campagnes",
+          "campaigns": "Voir les prestations de ce dossier",
           "history": "Historique des approbations",
           "back": "Retour"
         }

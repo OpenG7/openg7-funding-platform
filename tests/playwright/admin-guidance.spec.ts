@@ -351,8 +351,114 @@ async function openAutomatic(page: Page) {
   else if (!(await hook(page, 'panel').isVisible()))
     await hook(page, 'toggle').click();
   await hook(page, 'automatic-mode').click();
+  await page
+    .locator('[data-og7="automatic-view"][data-og7-id="other"]')
+    .click();
   await expect(automaticHook(page, 'scope')).toBeVisible();
 }
+
+test('preparation view navigation keeps the chosen workspace and its pending human step without a business write', async ({
+  page
+}) => {
+  const fixture = await fixtures(page);
+  await page.goto(dashboardPath);
+  await openAutomatic(page);
+  const scope = automaticHook(page, 'scope');
+  await scope.selectOption('attention');
+  await expect(scope).toHaveValue('attention');
+  await automaticHook(page, 'start').click();
+  await expect(automaticHook(page, 'state')).toHaveAttribute(
+    'data-og7-id',
+    'awaiting_confirmation'
+  );
+  await expect(page).toHaveURL(attentionPath);
+  await expect(scope).toHaveValue('attention');
+  const pendingStep = await automaticHook(page, 'state').textContent();
+  const form = (await scope.elementHandle())!;
+  const paymentReads = fixture.paymentRequests.length;
+  for (const view of ['records', 'batch', 'other']) {
+    const navigation = page.locator(
+      `[data-og7="automatic-view"][data-og7-id="${view}"]`
+    );
+    await navigation.click();
+    await expect(navigation).toHaveAttribute('aria-pressed', 'true');
+    await expect(scope).toHaveValue('attention');
+    await expect(automaticHook(page, 'state')).toHaveAttribute(
+      'data-og7-id',
+      'awaiting_confirmation'
+    );
+    await expect(automaticHook(page, 'state')).toHaveText(pendingStep!);
+    expect(fixture.mutations).toEqual([]);
+    expect(fixture.paymentRequests).toHaveLength(paymentReads);
+  }
+  await expect(scope).toBeVisible();
+  await expect(automaticHook(page, 'human-step')).toBeVisible();
+  expect(
+    await form.evaluate(
+      (element) =>
+        element.isConnected &&
+        element ===
+          element.ownerDocument.querySelector('[data-og7="automatic-scope"]')
+    )
+  ).toBe(true);
+  await form.dispose();
+});
+
+test('a targeted preparation completed behind records keeps focus and requires a manual landmark reveal after returning', async ({
+  page
+}) => {
+  const fixture = await fixtures(page);
+  const originalUrl = `${attentionPath}?contributionId=${paymentId}&paymentJourney=${paymentId}`;
+  fixture.journeys.set(
+    paymentId,
+    pendingAutomaticJourney('stripe_failed', originalUrl, 'attention-panel')
+  );
+  await page.goto(originalUrl);
+  await openAutomatic(page);
+  await automaticHook(page, 'scope').selectOption('payment');
+  let release!: () => void;
+  fixture.paymentGate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const reads = fixture.paymentRequests.length;
+  await automaticHook(page, 'start').click();
+  await expect
+    .poll(() => fixture.paymentRequests.length)
+    .toBeGreaterThan(reads);
+  await expect(automaticHook(page, 'state')).toHaveAttribute(
+    'data-og7-id',
+    'reading'
+  );
+  const records = page.locator(
+    '[data-og7="automatic-view"][data-og7-id="records"]'
+  );
+  await records.click();
+  release();
+  await expect(automaticHook(page, 'state')).toHaveAttribute(
+    'data-og7-id',
+    'awaiting_confirmation'
+  );
+  await expect(records).toHaveAttribute('aria-pressed', 'true');
+  await expect(records).toBeFocused();
+  await expect(page.locator('[data-og7="admin-automatic"]')).toBeHidden();
+  await expect(page.locator(highlighted)).toHaveCount(0);
+  await expect(page).toHaveURL(originalUrl);
+  expect(fixture.mutations).toEqual([]);
+
+  const other = page.locator(
+    '[data-og7="automatic-view"][data-og7-id="other"]'
+  );
+  await other.click();
+  await expect(automaticHook(page, 'human-step')).toBeVisible();
+  await expect(other).toBeFocused();
+  await expect(page.locator(highlighted)).toHaveCount(0);
+  await automaticHook(page, 'show').click();
+  await expect(page.locator('[data-og7="attention-panel"]')).toHaveAttribute(
+    'data-og7-guidance-highlight',
+    ''
+  );
+  expect(fixture.mutations).toEqual([]);
+});
 
 function pendingAutomaticJourney(
   reason: string,
@@ -2573,6 +2679,9 @@ test('automatic preparation can start and pause through the shared simulated Xbo
   await controller.ready();
   await controller.activate(hook(page, 'toggle'));
   await controller.activate(hook(page, 'automatic-mode'));
+  await controller.activate(
+    page.locator('[data-og7="automatic-view"][data-og7-id="other"]')
+  );
   await expect(automaticHook(page, 'scope')).toBeVisible();
   await controller.select(automaticHook(page, 'scope'), 'attention');
   await controller.activate(automaticHook(page, 'start'));

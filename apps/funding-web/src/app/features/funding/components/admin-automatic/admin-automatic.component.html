@@ -1,36 +1,83 @@
 @if (languageError()) {
   <p role="alert">{{ i18n.t('admin.guidance.automaticUnavailable') }}</p>
 } @else if (languageReady()) {
-  <openg7-admin-automatic-portfolio (prepare)="preparePayment($event)" />
-  @if (hasPortfolio()) {
-    <button
-      type="button"
-      class="admin-button other-preparation-toggle"
-      data-og7="automatic-other-preparation"
-      aria-controls="admin-automatic-other-preparation"
-      [attr.aria-expanded]="preparationExpanded()"
-      [attr.aria-disabled]="preparationRequired() ? true : null"
-      (click)="togglePreparation()"
-    >
-      <span aria-hidden="true">{{ preparationExpanded() ? '▾' : '▸' }}</span>
-      {{ t('portfolio.receipt.compact.otherPreparation') }}
-    </button>
+  <nav class="preparation-views" [attr.aria-label]="t('views.label')">
+    @for (destination of views; track destination) {
+      <button
+        type="button"
+        class="admin-button"
+        data-og7="automatic-view"
+        [attr.data-og7-id]="destination"
+        [attr.aria-pressed]="view() === destination"
+        [attr.aria-controls]="
+          destination === 'other'
+            ? 'admin-automatic-other-preparation'
+            : 'admin-automatic-' + destination
+        "
+        (click)="selectView(destination)"
+      >
+        <span>{{ t('views.' + destination) }}</span>
+        @if (destination === 'other' && preparationRequired()) {
+          <span class="view-cue">{{ t('views.inProgress') }}</span>
+        }
+      </button>
+    }
+  </nav>
+  @if (view() !== 'batch' && batchAttention()) {
+    @let state = portfolio.snapshot();
+    @let run = state.state?.run;
+    <aside class="batch-indicator" data-og7="automatic-batch-indicator">
+      <p
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        [attr.aria-label]="t('portfolio.receipt.processing')"
+      >
+        <strong>{{
+          t('views.batchState', {
+            status: t('portfolio.compact.phases.' + state.phase)
+          })
+        }}</strong>
+        @if (run && view() === 'other') {
+          <span>{{
+            t('portfolio.compact.checked', {
+              processed: run.processedCount,
+              total: run.dossierCount
+            })
+          }}</span>
+        }
+      </p>
+      <button
+        type="button"
+        class="admin-button"
+        data-og7="automatic-batch-rejoin"
+        aria-controls="admin-automatic-batch"
+        (click)="rejoinBatch()"
+      >
+        {{ t('views.rejoin') }}
+      </button>
+    </aside>
   }
+  <openg7-admin-automatic-portfolio
+    [view]="view()"
+    (prepare)="preparePayment($event)"
+  />
   <section
     id="admin-automatic-other-preparation"
     data-og7="admin-automatic"
-    [hidden]="!preparationExpanded()"
-    [attr.aria-label]="t('title')"
+    [hidden]="view() !== 'other'"
+    [attr.aria-label]="t('preparationTitle')"
   >
-    <h2>{{ t('preparationTitle') }}</h2>
+    <h2 #preparationHeading tabindex="-1">{{ t('preparationTitle') }}</h2>
     <p>{{ t('help') }}</p>
     <label for="admin-automatic-scope">{{ t('scope') }}</label>
     <select
       id="admin-automatic-scope"
       data-og7="automatic-scope"
-      [value]="automatic.selection()"
+      [ngModel]="automatic.selection()"
+      [ngModelOptions]="{ standalone: true }"
       [disabled]="automatic.busy()"
-      (change)="select($event)"
+      (ngModelChange)="select($event)"
     >
       <option
         value="payment"

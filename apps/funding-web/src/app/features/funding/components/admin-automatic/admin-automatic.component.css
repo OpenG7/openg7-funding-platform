@@ -3,12 +3,54 @@
 :host {
   @apply tw:block tw:min-w-0;
 }
-.other-preparation-toggle {
-  display: flex;
-  align-items: center;
+.preparation-views {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.5rem;
-  width: 100%;
-  margin-block: 0.65rem;
+  margin-block-end: 0.8rem;
+}
+.preparation-views .admin-button {
+  min-width: 0;
+  padding-inline: 0.5rem;
+  flex-direction: column;
+  gap: 0.15rem;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.preparation-views span {
+  max-width: 100%;
+}
+.preparation-views [aria-pressed='true'] {
+  border-color: var(--admin-gold);
+  background: var(--admin-bg);
+  box-shadow: inset 0 -2px var(--admin-gold);
+}
+.view-cue {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--admin-muted);
+}
+.batch-indicator {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.8rem;
+  margin-block-end: 0.8rem;
+  padding: 0.65rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 0.5rem;
+  background: var(--admin-bg);
+}
+.batch-indicator p {
+  flex: 1 1 6rem;
+  min-width: 0;
+  display: grid;
+  gap: 0.2rem;
+  margin: 0;
+  font-size: 0.875rem;
+}
+.batch-indicator .admin-button {
+  max-width: 60%;
 }
 [data-og7='admin-automatic'][hidden] {
   display: none;
