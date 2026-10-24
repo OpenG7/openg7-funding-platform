@@ -31,19 +31,19 @@ fonctions à construire ni une attestation de disponibilité.
 
 ## Suivi des chantiers locaux V3.3
 
-**5 chantiers réalisés sur 6 ; 1 restant.** Ce registre
+**6 chantiers réalisés sur 6 ; 0 restant dans ce périmètre local.** Ce registre
 compte des adaptations bornées, réalisées et testées localement. Il ne mesure ni
 les lots 0–6 du pack, ni ses 211 entrées, ni les fusions ou déploiements. Les
 capacités absentes recensées dans les limites restent des travaux séparés.
 
-| Nº  | Chantier                                                  | État et critère de clôture                                                                                                                            |
-| --- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Première adaptation Prestations et Guide                  | Réalisé : vocabulaire, enveloppe, détail exact, action prioritaire et protection de fermeture ; PR #370.                                              |
-| 2   | Départ du tiroir de publication                           | Réalisé : navigation interne, historique, conservation des saisies, invalidation de session et tests ; PR #371.                                       |
-| 3   | Synthèse des prestations d’un dossier — S01               | Réalisé localement : obligations exactes, état et responsabilité serveur, preuve qualifiée, dispenses distinctes, liens ciblés et tests.              |
-| 4   | Lecture, correction et revue du contenu — S02/S05/S06/S11 | Réalisé : version enregistrée, saisie locale, référence et aperçu textuels distincts, conflit sans perte, consultation lecteur et tests.              |
-| 5   | Consultation des historiques et preuves — S08/S23         | Réalisé : sources spécialisées ciblées, dates Toronto, dernière conclusion et pagination explicites, preuves et références exactes, focus et tests.   |
-| 6   | Recette transversale finale                               | À réaliser : correspondance R01–R56 applicable/existant/manquant, petite hauteur, zoom, clavier, manette simulée et captures réelles des adaptations. |
+| Nº  | Chantier                                                  | État et critère de clôture                                                                                                                                         |
+| --- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | Première adaptation Prestations et Guide                  | Réalisé : vocabulaire, enveloppe, détail exact, action prioritaire et protection de fermeture ; PR #370.                                                           |
+| 2   | Départ du tiroir de publication                           | Réalisé : navigation interne, historique, conservation des saisies, invalidation de session et tests ; PR #371.                                                    |
+| 3   | Synthèse des prestations d’un dossier — S01               | Réalisé localement : obligations exactes, état et responsabilité serveur, preuve qualifiée, dispenses distinctes, liens ciblés et tests.                           |
+| 4   | Lecture, correction et revue du contenu — S02/S05/S06/S11 | Réalisé : version enregistrée, saisie locale, référence et aperçu textuels distincts, conflit sans perte, consultation lecteur et tests.                           |
+| 5   | Consultation des historiques et preuves — S08/S23         | Réalisé : sources spécialisées ciblées, dates Toronto, dernière conclusion et pagination explicites, preuves et références exactes, focus et tests.                |
+| 6   | Recette transversale finale                               | Réalisé localement : matrice R01–R56, petites hauteurs, espace CSS équivalent à 200 %, clavier, manette simulée et captures ; qualifications matérielles séparées. |
 
 Les quatre familles de capacités hors de ce total sont l’accord client versionné avec preuve
 entrante, la rédaction générative, le catalogue complet des versions sociales et
@@ -396,3 +396,134 @@ Format, lint global/ciblé et contrôles documentaires passent ; le diff du chan
 est vérifié séparément des changements Docker apparus dans le workspace, conservés
 hors commit. L’avertissement de lint préexistant reste inchangé. Tests sur réponses
 synthétiques interceptées, sans déploiement ni action métier réelle.
+
+## Chantier 6 : recette transversale locale
+
+Recette du 24 octobre 2026 sur `codex/admin-guide-v33-acceptance`, depuis
+`ff9091fe` (PR #374). Les trois PR de cette séquence restent distinctes : chantier
+4 #373, chantier 5 #374, puis chantier 6. Aucune CI n’est attendue et aucune PR
+n’est fusionnée automatiquement. **6/6 adaptations locales réalisées** ne signifie
+ni V3.3 intégralement livrée, ni 56 critères métier intégralement qualifiés.
+
+Les huit nouvelles recettes du tiroir couvrent FR/EN aux viewports effectifs
+1536×864, 1280×520 et 768×432, dont deux recettes de manette simulée. Elles
+parcourent les contrôles avec Tab/Shift+Tab, ouvrent les références, gardent la
+saisie lors d’une annulation et restituent le focus après abandon explicite.
+Chaque action finale est focalisée, entièrement dans le viewport et atteignable
+par hit-test. La modalité native, le fond inerte, la priorité de la confirmation
+supérieure et l’absence de requête mutante pendant consultation/annulation sont
+vérifiés. Un A maintenu ne traverse pas l’ouverture d’une confirmation ; après
+retour au neutre, B ferme seulement cette confirmation.
+
+Douze cas supplémentaires exercent la synthèse des prestations, les sources
+d’historique et l’audit des preuves en FR/EN à 1280×520 et 768×432. Ils gardent les
+assertions de preuve qualifiée, d’identifiants exacts, de droits et de pagination,
+puis vérifient le contrôle focalisé et son absence de recouvrement. Les captures
+de petite hauteur montrent le viewport, sans agrandir artificiellement la page.
+
+Résultats C6 : **168 tests unitaires réussis** et **42 scénarios navigateur
+distincts réussis**, dont 20 nouveaux cas. Les 34 scénarios interespaces couvrent
+aussi les prestations/preuves/dispenses, l’obligation exacte avant pagination,
+la préparation unique, la conservation des vues du Guide, sa navigation non
+modale et la purge après refus ou expiration. Les huit recettes du tiroir sont
+exécutées séparément ; leur relance finale conserve également les mesures JSON
+sur disque, car une pièce jointe en mémoire au reporter `list` ne suffit pas à
+produire un artefact durable après succès. Les suites UI complètes et les
+intégrations de fournisseurs ne sont pas relancées.
+
+Le code de production reste celui du build Angular/SSR C5 à
+`2026-10-24T04:22:30Z` ; C6 ne change que recettes et bilan. Les sources unitaires
+exécutées sont `admin-controller`, `admin-publication-automation-http`,
+`admin-sponsorship-services-summary`, `admin-sponsorship-workspace`,
+`preparation-pilot`, `publication-automation-commands`, `publication-date-time`
+et `sponsorship-publication-workflow`, sous `tests/` avec suffixe `.test.mjs`.
+
+Les artefacts se trouvent dans `test-results/v33-c6-transverse-final/` (captures
+et mesures JSON de l’éditeur/confirmation) et
+`test-results/v33-c6-cross-workspaces/` (captures des autres surfaces). Les rendus
+FR à 768×432 et EN à 1280×520 ont été relus visuellement. Les mesures décrivent
+uniquement le viewport CSS ; 768×432 représente l’espace disponible à 200 % d’un
+viewport 1536×864, sans qualifier le zoom réel du navigateur ou de Windows.
+
+La revue indépendante de C6 a comparé les 56 lignes au pack, vérifié les trois
+boucles étendues et confirmé sur disque les 14 PNG et 14 JSON du tiroir. Aucun
+défaut actionnable ne reste dans le diff examiné. Format, TypeScript UI, lint
+ciblé, contrôles documentaires et vérification du diff du chantier passent ; le
+lint global déjà exécuté en C5 reste sans erreur, avec son avertissement
+préexistant. Les changements Docker concurrents sont préservés hors des PR.
+
+### Correspondance des 56 recettes du pack
+
+Les formulations ci-dessous condensent les critères d’origine ; le pack reste
+la référence. **T** désigne les huit recettes transverses du tiroir ; **X** les
+34 recettes interespaces ; **N** les 168 tests unitaires exécutés en C6.
+**C3/C4/C5** désignent les preuves datées des chantiers précédents, sans leur
+attribuer une nouvelle exécution C6. « Existant, non relancé » est un inventaire
+de couverture propriétaire, jamais une recette C6 réussie. Les preuves partielles
+ne valent pas validation de toutes les variantes du critère.
+
+| Recette | Critère                                                       | Capacité actuelle                    | Preuve et limite de la recette locale                                                                                                                             |
+| ------- | ------------------------------------------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R01     | Prestations identifiables, priorité unique, paiement distinct | Adapté C1/C3                         | X : synthèse exacte et navigation ; N : obligations/preuves ; pas de paiement déduit d’une URL.                                                                   |
+| R02     | Web indépendant d’un blocage social                           | Existant                             | N : workflow d’un canal conservé malgré un envoi historique non résolu sur l’autre ; accord client versionné absent.                                              |
+| R03     | Correction sans changement de l’offre historique              | Existant                             | C4 : payload d’édition du contenu seulement ; contrats d’engagement conservés, suite d’engagements non relancée C6.                                               |
+| R04     | Approbation de préparation unique, historique accessible      | Adapté C1                            | X : approbation unique et vues conservées ; C5 : accès à sa source d’historique.                                                                                  |
+| R05     | Consultation sans validation d’un contrôle incomplet          | Existant                             | X : sélection/inspection des prérequis sans mutation.                                                                                                             |
+| R06     | Compteur sans contrôles non requis ni nombre universel        | Existant                             | N : projection de préparation ; couverture navigateur détaillée existante, non relancée pour chaque nombre.                                                       |
+| R07     | Nouvelle version et invalidation des décisions affectées      | Existant, portée administrative      | N : modification exacte révoquant l’autorisation ; C4 : version 17→18 ; accord client versionné absent.                                                           |
+| R08     | Conflit visible sans perte du brouillon                       | Adapté C4                            | C4 : conflit et saisie conservée ; C6 ne rejoue pas une concurrence réelle multiutilisateur.                                                                      |
+| R09     | Restauration créant une nouvelle version                      | Manquant                             | Catalogue/restauration des anciens textes absents ; aucune commande fabriquée.                                                                                    |
+| R10     | Proposition IA limitée au brouillon                           | Manquant                             | Aucun service de rédaction générative ; pas de recette fonctionnelle annoncée.                                                                                    |
+| R11     | Suggestion IA périmée sans écrasement                         | Manquant                             | Même capacité absente ; obsolescence générative non simulée.                                                                                                      |
+| R12     | Aucun faux bouton ou succès IA                                | Adapté par absence                   | T et revue du tiroir : texte et commandes existants seulement ; aucune rédaction IA raccordée.                                                                    |
+| R13     | Médias collectifs avec portée et droits exacts                | Existant                             | Propriétaires MediaReviewWorkspace et décisions ; suites médias spécialisées non relancées C6.                                                                    |
+| R14     | Retrait de sélection sans suppression du fichier partagé      | Existant                             | Contrat d’édition et contrôleur conservés ; scénario média partagé non relancé C6.                                                                                |
+| R15     | Aucun outil riche sans contrat supporté                       | Capacité riche manquante             | T : interpolation textuelle échappée, pas de faux onglet riche.                                                                                                   |
+| R16     | Limite du bon propriétaire                                    | Existant                             | N : budget UTF-16 de livraison ; C4 : compteur réel 2900, pas de limite 500 inventée.                                                                             |
+| R17     | Aucun courriel client ajouté artificiellement                 | Adapté par conservation              | T : zéro mutation de consultation/annulation ; aucun nouveau parcours d’accord par courriel.                                                                      |
+| R18     | Preuve entrante liée à version/page exactes                   | Manquant                             | Réception d’accord client versionné absente ; preuve de réalisation non substituée.                                                                               |
+| R19     | Lacune d’accord documentée sans fausse réussite               | Documenté                            | Diagnostic et limites de ce bilan ; aucune table/API d’accord reçue ajoutée.                                                                                      |
+| R20     | Correction d’identité sans consentement inventé               | Existant                             | Contrôleur d’identité et recettes de soumission conservés ; non relancés C6.                                                                                      |
+| R21     | Aperçu de courriel puis confirmation finale                   | Partiel, propriétaire existant       | Demande d’information existante ; preuves entrantes/pièces d’accord client absentes ; pas de recette complète C6.                                                 |
+| R22     | Mise en file distincte d’accord reçu ou de réalisation        | Existant, portée sortante            | N : aucune déclaration ou simulation ne solde une prestation ; parcours courriel spécialisé non relancé.                                                          |
+| R23     | Simulation distincte de réalisation réelle                    | Existant                             | N et X : statut simulé non qualifié, preuve réelle nécessaire.                                                                                                    |
+| R24     | Programmation distincte de publication                        | Existant                             | N : travail programmé/exécuté/réessayé sans prétendre à la réalisation.                                                                                           |
+| R25     | Résultat incertain sans second envoi                          | Existant                             | N : réconciliation et commandes versionnées ; aucune preuve de persistance fournisseur réel en C6.                                                                |
+| R26     | Rattacher le résultat à l’opération existante                 | Existant                             | N : réconciliation vérifiée et observation conservée en échec ; pas de nouveau post réel.                                                                         |
+| R27     | Absence attestée et nouvelle autorisation distincte           | Existant                             | N : attestation explicite, révocation et audit des décisions ; fournisseur simulé.                                                                                |
+| R28     | Retrait concurrent arbitré par le serveur                     | Existant                             | N : commandes/verrous et annulation ; une course réelle avec fournisseur n’est pas qualifiée par cette recette UI.                                                |
+| R29     | Durée non attestée distincte de réalisation                   | Existant                             | N et X : durée en cours, preuve et observation distinctes.                                                                                                        |
+| R30     | Dispense distincte de réalisé                                 | Adapté C3                            | N et X : compteurs séparés et aucune fausse preuve.                                                                                                               |
+| R31     | Historique à portée explicite, sources spécialisées           | Adapté C5                            | X : sources du dossier, consultation, dates, pagination et focus.                                                                                                 |
+| R32     | Aucune fausse différence d’image historique                   | Comparaison manquante                | Aucun comparateur historique ajouté ; pas de recette d’images avant/après inventée.                                                                               |
+| R33     | Aucune consultation client fabriquée                          | Adapté C5                            | X : événements et sources disponibles seulement ; aucun événement « aperçu consulté » ajouté.                                                                     |
+| R34     | Comparaison indisponible sans deux versions                   | Manquant                             | Catalogue comparatif absent ; aucun bouton universel Comparer ajouté.                                                                                             |
+| R35     | Données privées exclues du contenu public/export              | Partiel, export historique manquant  | T : aperçu limité au texte saisi ; aucune garantie nouvelle d’export ni de filtrage de texte privé librement saisi.                                               |
+| R36     | Retour conservant saisie, sélection, origine et focus         | Adapté C2/C5                         | T : annulation conservant texte/focus ; X : sources et retour ; pas de navigation entre versions inexistantes.                                                    |
+| R37     | Même garde pour X/B/Échap                                     | Adapté C1/C2                         | C4 : trois fermetures ; T : garde et abandon explicite à petite hauteur.                                                                                          |
+| R38     | Fermeture de la confirmation supérieure seulement             | Existant                             | T : Échap/B conserve le tiroir et la saisie ; aucune mutation.                                                                                                    |
+| R39     | Retour Guide conservant vue/dossier/contrôle                  | Adapté C1                            | X : vues de préparation conservées ; anciens Bon/Passage/Autre non réintroduits.                                                                                  |
+| R40     | Lecture seule UI et refus API                                 | Existant, présentation corrigée C4   | N : droits et origines via guard HTTP injecté ; X : lecteur et purge ; C4 : commandes masquées. Pas de qualification OIDC réelle.                                 |
+| R41     | A maintenu sans double activation                             | Existant                             | T : maintien réel dans le simulateur puis neutre/B ; N : parseur et réarmement. Manette physique non qualifiée.                                                   |
+| R42     | Saisie/menu, légendes et retour de focus                      | Existant                             | T : parcours clavier et commandes utilisées ; N : entrées combinées ; menus non utilisés non certifiés globalement.                                               |
+| R43     | Modale accessible, fond inerte, focus restitué                | Existant                             | T : modalité native, hit-test, Tab/Shift+Tab, confirmation supérieure et retour au déclencheur.                                                                   |
+| R44     | Guide non modal sans piège de focus                           | Existant                             | X : pause/fermeture, formulaire derrière le Guide utilisable et lecteur.                                                                                          |
+| R45     | Fenêtre réelle 1920×1080 avec échelle système 125 %           | Qualification externe restante       | T vérifie 1536×864 CSS seulement ; Windows 125 % réel non exécuté.                                                                                                |
+| R46     | Petite hauteur et espace disponible à 200 %                   | Adapté/recetté localement            | T et X : 1280×520/768×432, actions atteignables et pas de débordement ; équivalence CSS, pas zoom réel qualifié.                                                  |
+| R47     | Aperçu sans réactions ou menus sociaux fictifs                | Adapté C4                            | T : rendu textuel et revue visuelle ; aucune statistique ou interaction sociale de démonstration.                                                                 |
+| R48     | États lisibles sans couleur seule                             | Adapté C3/C4/C5                      | X : mots/raisons et Axe sur les trois surfaces ; T : focus ; compréhension humaine non déduite d’Axe seul.                                                        |
+| R49     | Canal/destination exacts                                      | Existant                             | X : liens et obligation exacte avant pagination ; N : versions/destinations des commandes ; aucun envoi réel.                                                     |
+| R50     | Contribution personnelle sans prestation inventée             | Existant                             | N : projection personnelle ; nouvelle synthèse limitée aux dossiers de commandite.                                                                                |
+| R51     | Session expirée, purge et reprise sûre                        | Existant                             | X : purge après refus/expiration/changement de rôle ; N : HTTP protégé ; pas de reconnexion OIDC réelle C6.                                                       |
+| R52     | Remboursement partiel selon workflow serveur                  | Existant                             | Affichage et calcul financier inchangés ; couverture spécialisée de progression conservée, non relancée C6.                                                       |
+| R53     | Une cible interactive, chevron décoratif                      | Adapté C1/C3                         | X : ligne/détail et lien exact ; chevron du lien de prestation non interactif.                                                                                    |
+| R54     | Action primaire non dupliquée dans le menu                    | Adapté C1                            | X : approbation unique ; nouveaux liens C3/C5 ne créent pas de décision concurrente.                                                                              |
+| R55     | Horaire DST ambigu/inexistant résolu ou rejeté                | Existant, contrat selon propriétaire | N : `publication-date-time` du créneau/brouillon source ; le tiroir garde son contrat de date locale navigateur, il n’est pas requalifié contre tous les cas DST. |
+| R56     | Échec de sauvegarde sans perte ni faux succès                 | Adapté C1/C4                         | C4 : échec503/conflit gardant texte/référence ; T : annuler la sortie garde la saisie, sans nouvelle sauvegarde.                                                  |
+
+Les quatre familles fonctionnelles manquantes restent hors des six adaptations :
+accord client versionné et preuve entrante, rédaction générative, catalogue complet
+des anciennes versions sociales avec comparaison/restauration/export, et outils
+riches sans contrat de sauvegarde. Une qualification Windows/manette physique et
+les recettes d’intégration réelles restent séparées. Aucun déploiement, publication,
+courriel ou remboursement réel n’a été exécuté.

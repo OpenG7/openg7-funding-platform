@@ -100,7 +100,7 @@ export function registerSponsorshipHistoricalAuditTests(
   context: Context
 ): void {
   for (const language of ['fr-CA', 'en'] as const) {
-    for (const width of [1536, 390]) {
+    for (const width of [1536, 390, 1280, 768]) {
       test(`historical audit describes available evidence and replaces its page in ${language} at ${width}px`, async ({
         page
       }, testInfo) => {
@@ -128,7 +128,11 @@ export function registerSponsorshipHistoricalAuditTests(
           (value) => localStorage.setItem('openg7.language', value),
           language
         );
-        await page.setViewportSize({ width, height: 864 });
+        const shortViewport = width === 1280 || width === 768;
+        await page.setViewportSize({
+          width,
+          height: width === 1280 ? 520 : width === 768 ? 432 : 864
+        });
         await page.goto(context.path('publication'));
         const panel = page.locator('[data-og7="historical-evidence-audit"]');
         await panel.locator('[data-og7-id="historical-audit-load"]').click();
@@ -186,13 +190,37 @@ export function registerSponsorshipHistoricalAuditTests(
               .analyze()
           ).violations
         ).toEqual([]);
+        const next = panel.locator('[data-og7-id="historical-audit-next"]');
+        if (shortViewport) {
+          await next.focus();
+          await expect(next).toBeFocused();
+          await expect
+            .poll(() =>
+              next.evaluate((element) => {
+                const bounds = element.getBoundingClientRect();
+                const x = bounds.left + bounds.width / 2;
+                const y = bounds.top + bounds.height / 2;
+                const hit = document.elementFromPoint(x, y);
+                return (
+                  x >= 0 &&
+                  x <= innerWidth &&
+                  y >= 0 &&
+                  y <= innerHeight &&
+                  !!hit &&
+                  (hit === element || element.contains(hit))
+                );
+              })
+            )
+            .toBe(true);
+        }
         await page.screenshot({
           path: testInfo.outputPath(
             `historical-evidence-${language}-${width}.png`
           ),
+          fullPage: false,
           animations: 'disabled'
         });
-        await panel.locator('[data-og7-id="historical-audit-next"]').click();
+        await next.click();
         await expect(first).toHaveCount(1);
         await expect(first).toContainText('LinkedIn');
         await expect(first).toContainText('OpenG20');
