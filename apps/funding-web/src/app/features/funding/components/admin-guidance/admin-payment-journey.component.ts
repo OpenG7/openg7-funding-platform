@@ -24,7 +24,6 @@ import { AdminPaymentJourneyService } from './admin-payment-journey.service.js';
 })
 export class AdminPaymentJourneyComponent {
   readonly journey = inject(AdminPaymentJourneyService);
-  readonly guidance = this.journey.guidance;
   readonly i18n = inject(FundingI18nService);
   readonly show = output<string>();
 

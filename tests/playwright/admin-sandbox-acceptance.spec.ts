@@ -228,20 +228,23 @@ test('isolated mouse controller: ordinary Checkout, signed confirmation, unique 
   expect((await contributions()).contributions).toHaveLength(1);
   await hook(page, 'sandbox-payment-open-journey').click();
   await expect(page).toHaveURL(
-    origin + '/admin/fundraiser/attention?paymentJourney=' + id
+    origin + '/admin/fundraiser/contributions?contributionId=' + id
   );
-  await pad.press(3);
   await pad.activate(hook(page, 'payment-journey-refresh'));
   await expect(hook(page, 'payment-journey-complete')).toBeVisible();
   await expect(hook(page, 'payment-journey-next')).toHaveCount(0);
   await pad.activate(hook(page, 'payment-journey-pause'));
   await pad.activate(
-    page.locator('openg7-admin-nav a[href="/admin/fundraiser/contributions"]')
+    page.locator('openg7-admin-nav a[href="/admin/fundraiser/attention"]')
   );
-  await expect(page).toHaveURL(origin + '/admin/fundraiser/contributions');
+  await expect(page).toHaveURL(origin + '/admin/fundraiser/attention');
   await page.reload();
+  await expect(hook(page, 'payment-journey')).toHaveCount(0);
+  await page.goto(
+    origin + '/admin/fundraiser/contributions?contributionId=' + id
+  );
   await pad.open();
-  await pad.press(3);
+  await expect(hook(page, 'payment-journey-paused')).toBeVisible();
   await pad.activate(hook(page, 'payment-journey-resume'));
   await expect(hook(page, 'payment-journey-complete')).toBeVisible();
   await expect(hook(page, 'payment-journey-next')).toHaveCount(0);
@@ -370,7 +373,7 @@ test('isolated mouse controller: ordinary Checkout, signed confirmation, unique 
   }
   await hook(page, 'sandbox-payment-open-journey').click();
   await expect(page).toHaveURL(
-    origin + '/admin/fundraiser/attention?paymentJourney=' + companyId
+    origin + '/admin/fundraiser/contributions?contributionId=' + companyId
   );
   await expect(hook(page, 'payment-journey-next')).toBeVisible();
   await expect(hook(page, 'payment-journey-complete')).toHaveCount(0);

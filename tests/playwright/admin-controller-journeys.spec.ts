@@ -499,26 +499,49 @@ test('Xbox reads a credit note and confirms its resend to a corrected recipient'
   });
 });
 
-test('Xbox follows the floating payment guide across routes and resumes the same dossier after interruption', async ({
+test('Xbox resumes the same payment from Contributions after a route interruption', async ({
   page
 }) => {
   const state = await controllerJourneysFixtures(page);
   const pad = adminController(page);
   await page.goto(path() + '&paymentJourney=' + id);
+  await expect(page).toHaveURL(
+    '/admin/fundraiser/contributions?contributionId=' + id
+  );
   await expect(hook(page, 'payment-journey-state')).toHaveAttribute(
     'data-og7-id',
     'ready'
   );
   await pad.ready();
+  await expect(
+    hook(page, 'contributions-page').locator('[data-og7="payment-journey"]')
+  ).toBeVisible();
+  await expect(hook(page, 'admin-guidance-panel')).not.toBeVisible();
+  const next = hook(page, 'payment-journey-next');
+  await expect(next).toBeVisible();
   await pad.press('Y');
+  await expect(hook(page, 'admin-guidance-panel')).toBeVisible();
+  await expect
+    .poll(() =>
+      hook(page, 'admin-guidance').evaluate((guide) =>
+        guide.contains(document.activeElement)
+      )
+    )
+    .toBe(true);
+  await expect(next).not.toBeFocused();
+  expect(state.commands).toEqual([]);
+  await pad.press('B');
+  await expect(hook(page, 'admin-guidance-panel')).not.toBeVisible();
   await pad.activate(hook(page, 'payment-journey-pause'));
   await pad.activate(
     page.locator('openg7-admin-nav a[href="/admin/fundraiser/email-queue"]')
   );
   await expect(page).toHaveURL(/\/email-queue$/);
   await page.reload();
+  await expect(hook(page, 'payment-journey')).toHaveCount(0);
+  await page.goto('/admin/fundraiser/contributions?contributionId=' + id);
   await pad.ready();
-  await pad.press('Y');
+  await expect(hook(page, 'payment-journey-paused')).toBeVisible();
   await pad.activate(hook(page, 'payment-journey-resume'));
   await expect(hook(page, 'payment-journey')).toContainText('XBOX-401');
   await pad.activate(hook(page, 'payment-journey-next'));
@@ -871,11 +894,10 @@ test('Xbox mobile navigation reveals a control covered by the guide and requires
   const state = await controllerJourneysFixtures(page);
   const pad = adminController(page);
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(`/admin/fundraiser/email-queue?paymentJourney=${id}`);
-  await expect(hook(page, 'payment-journey-state')).toHaveAttribute(
-    'data-og7-id',
-    'ready'
-  );
+  await page.goto('/admin/fundraiser/email-queue');
+  await pad.ready();
+  await pad.press('Y');
+  await expect(hook(page, 'admin-guidance-panel')).toBeVisible();
   const retry = page.getByRole('button', { name: 'Retry', exact: true });
   await pad.reach(retry);
   const visible = () =>
@@ -905,18 +927,24 @@ test('Xbox mobile navigation reveals a control covered by the guide and requires
   expect(writes(state, '/email-queue/retry')).toHaveLength(0);
 });
 
-test('a same-route session expiry purges the Xbox editor before its private draft can be applied', async ({
+test('a late payment session rejection purges the Xbox editor without navigating the current dossier', async ({
   page
 }) => {
   const state = await controllerJourneysFixtures(page);
   const pad = adminController(page);
-  await page.goto(path('identity') + '&paymentJourney=' + id);
+  await page.goto(path('identity'));
+  await expect(hook(page, 'edit-dossier')).toBeVisible();
+  await pad.activate(
+    page.locator('openg7-admin-nav a[href="/admin/fundraiser/contributions"]')
+  );
+  await pad.activate(
+    page.locator(`[data-og7="contribution-row"][data-og7-id="${id}"]`)
+  );
   await expect(hook(page, 'payment-journey-state')).toHaveAttribute(
     'data-og7-id',
     'ready'
   );
   await pad.ready();
-  await pad.press('Y');
   let release!: () => void;
   let seen!: () => void;
   const gate = new Promise<void>((resolve) => {
@@ -954,9 +982,10 @@ test('a same-route session expiry purges the Xbox editor before its private draf
   try {
     await pad.activate(hook(page, 'payment-journey-refresh'));
     await pending;
-    // The request remains attached to this session after its guide is reduced.
-    // Its late 401 must purge the editor without reviving or navigating the guide.
-    await pad.activate(hook(page, 'admin-guidance-toggle'));
+    // Leaving Contributions invalidates the view, but the same session's late
+    // rejection must still purge an editor opened on the previous dossier.
+    await page.goBack();
+    await expect(page).toHaveURL(path('identity'));
     await expect(hook(page, 'admin-guidance-panel')).not.toBeVisible();
     await pad.activate(hook(page, 'edit-dossier'));
     await pad.activate(
@@ -969,6 +998,7 @@ test('a same-route session expiry purges the Xbox editor before its private draf
     await expect(hook(page, 'editor-preview')).toContainText('x');
     const sameUrl = page.url();
     release();
+    await expect.poll(() => sessionExpired).toBe(true);
     await expect(hook(page, 'controller-editor')).not.toBeVisible();
     await expect(hook(page, 'editor-preview')).toHaveText('|');
     expect(page.url()).toBe(sameUrl);
@@ -980,3 +1010,93 @@ test('a same-route session expiry purges the Xbox editor before its private draf
     release();
   }
 });
+
+for (const replacement of ['new session', 'new account'] as const) {
+  test(`an obsolete payment rejection preserves the Xbox editor in a ${replacement}`, async ({
+    page
+  }) => {
+    const state = await controllerJourneysFixtures(page);
+    const pad = adminController(page);
+    await page.goto(path('identity'));
+    await expect(hook(page, 'edit-dossier')).toBeVisible();
+    await pad.activate(
+      page.locator('openg7-admin-nav a[href="/admin/fundraiser/contributions"]')
+    );
+    await pad.activate(
+      page.locator(`[data-og7="contribution-row"][data-og7-id="${id}"]`)
+    );
+    await expect(hook(page, 'payment-journey-state')).toHaveAttribute(
+      'data-og7-id',
+      'ready'
+    );
+    let release!: () => void;
+    let seen!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const pending = new Promise<void>((resolve) => {
+      seen = resolve;
+    });
+    let capture = true;
+    await page.route('**/api/admin/payment-journey**', async (route) => {
+      // Only the old session's pending read is rejected. Reads belonging to the
+      // replacement session keep their ordinary successful fixture response.
+      if (!capture) return route.fallback();
+      capture = false;
+      seen();
+      await gate;
+      await route.fulfill({
+        status: 401,
+        json: { error: 'Synthetic previous session expired' }
+      });
+    });
+    try {
+      await pad.activate(hook(page, 'payment-journey-refresh'));
+      await pending;
+      state.sessionId = 'controller-fixture-replacement-session';
+      if (replacement === 'new account')
+        state.accountId = 'controller-fixture-replacement-owner';
+      const restored = page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === '/api/admin/auth/current' &&
+          response.status() === 200
+      );
+      await page.goBack();
+      await expect(page).toHaveURL(path('identity'));
+      expect(await (await restored).json()).toMatchObject({
+        id: state.accountId,
+        sessionId: state.sessionId
+      });
+      await pad.activate(hook(page, 'edit-dossier'));
+      const company = hook(page, 'edit-dossier-form').locator(
+        '[name="companyName"]'
+      );
+      const original = await company.inputValue();
+      await pad.activate(company);
+      await pad.activate(hook(page, 'editor-clear'));
+      await pad.activate(
+        page.locator('[data-og7="editor-key"][data-og7-id="x"]')
+      );
+      await expect(hook(page, 'editor-preview')).toContainText('x');
+      const currentUrl = page.url();
+      const rejected = page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === '/api/admin/payment-journey' &&
+          response.status() === 401
+      );
+      release();
+      await rejected;
+      await expect(hook(page, 'controller-editor')).toBeVisible();
+      await pad.activate(
+        page.locator('[data-og7="editor-key"][data-og7-id="y"]')
+      );
+      await expect(hook(page, 'editor-preview')).toContainText('xy');
+      expect(page.url()).toBe(currentUrl);
+      await pad.press('B');
+      await expect(company).toHaveValue(original);
+      expect(state.commands).toEqual([]);
+    } finally {
+      release();
+    }
+  });
+}

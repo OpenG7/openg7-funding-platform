@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import type {
+  AdminContributionsResponse,
   AdminEmailQueueMessageRecord,
   AdminPaymentJourney,
   AdminSponsorshipInvoiceRecord,
@@ -255,6 +256,8 @@ export async function controllerJourneysFixtures(
     email: message(),
     invoice: invoice(),
     commitment: null as SponsorshipCommitmentRecord | null,
+    accountId: 'controller-fixture-owner',
+    sessionId: 'controller-fixture-session',
     commands: [] as { path: string; body: Record<string, unknown> }[],
     unexpected: [] as string[],
     historicalVersion: 0,
@@ -279,8 +282,8 @@ export async function controllerJourneysFixtures(
     if (path.endsWith('/auth/current'))
       return route.fulfill({
         json: {
-          id: 'controller-fixture-owner',
-          sessionId: 'controller-fixture-session',
+          id: state.accountId,
+          sessionId: state.sessionId,
           displayName: 'Synthetic controller',
           role,
           expiresAt: '2099-01-01T00:00:00Z'
@@ -366,6 +369,37 @@ export async function controllerJourneysFixtures(
           context: null
         }
       });
+    if (path.endsWith('/contributions') && request.method() === 'GET') {
+      const response: AdminContributionsResponse = {
+        data_source: 'database',
+        contributions: [
+          {
+            ...state.sponsor,
+            email_private: 'company@example.test',
+            non_charity_acknowledged: true,
+            stripe_session_id: 'cs_test_controller_fixture',
+            stripe_payment_intent_id: 'pi_test_controller_fixture'
+          }
+        ].filter(
+          (contribution) =>
+            !url.searchParams.has('contributionId') ||
+            contribution.id === url.searchParams.get('contributionId')
+        ),
+        summary: {
+          total_count: 1,
+          paid_count: 1,
+          pending_count: 0,
+          sponsorship_count: 1,
+          public_display_count: 1,
+          total_received: 500,
+          total_refunded: 0,
+          total_disputed: 0,
+          currency: 'CAD'
+        },
+        last_updated_at: date
+      };
+      return route.fulfill({ json: response });
+    }
     if (path.endsWith('/payment-journey')) {
       const journey: AdminPaymentJourney = {
         contributionId: controllerId,

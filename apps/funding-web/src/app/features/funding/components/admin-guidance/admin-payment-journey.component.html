@@ -3,26 +3,14 @@
   [attr.aria-label]="t('title')"
   [attr.aria-busy]="journey.state() === 'loading'"
 >
-  <h2>{{ t('title') }}</h2>
-  @if (guidance.paymentContext(); as id) {
-    @if (id !== journey.contributionId()) {
-      <button
-        type="button"
-        class="admin-button"
-        data-og7="payment-journey-current"
-        (click)="guidance.followPayment(id)"
-      >
-        {{ t('followCurrent') }}
-      </button>
-    }
-  }
+  <h2 tabindex="-1" data-og7="payment-journey-heading">{{ t('title') }}</h2>
   @if (journey.paused()) {
     <p role="status" data-og7="payment-journey-paused">{{ t('paused') }}</p>
     <button
       type="button"
       class="admin-button admin-button--primary"
       data-og7="payment-journey-resume"
-      (click)="guidance.resumePayment()"
+      (click)="journey.resume()"
     >
       {{ t('resume') }}
     </button>
@@ -134,7 +122,7 @@
           type="button"
           class="admin-button"
           data-og7="payment-journey-pause"
-          (click)="guidance.pausePayment()"
+          (click)="journey.pause()"
         >
           {{ t('pause') }}
         </button>

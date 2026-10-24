@@ -125,6 +125,17 @@ export class AdminGuidanceService {
       this.resumeTarget.set(null);
       this.forgetFailed.set(false);
     });
+    effect(() => {
+      const requested = this.requestedPayment();
+      if (!this.ready() || !this.available() || !requested) return;
+      untracked(() => {
+        this.followPayment(requested, true);
+        void this.router.navigate(['/admin/fundraiser/contributions'], {
+          queryParams: { contributionId: requested },
+          replaceUrl: true
+        });
+      });
+    });
   }
 
   toggle(): void {
@@ -135,7 +146,7 @@ export class AdminGuidanceService {
       bookmark: current.bookmark ?? this.currentBookmark()
     });
   }
-  setMode(mode: 'discovery' | 'payment' | 'automatic' | 'workflows'): void {
+  setMode(mode: 'discovery' | 'automatic' | 'workflows'): void {
     const current = { ...this.snapshot() };
     delete current.mode;
     this.persist({ ...current, ...(mode !== 'discovery' ? { mode } : {}) });
@@ -170,8 +181,6 @@ export class AdminGuidanceService {
     const current = this.snapshot();
     this.persist({
       ...current,
-      enabled: true,
-      mode: 'payment',
       payment: {
         contributionId: id,
         paused:
@@ -194,8 +203,6 @@ export class AdminGuidanceService {
     if (current.payment)
       this.persist({
         ...current,
-        enabled: true,
-        mode: 'payment',
         payment: { ...current.payment, paused: false }
       });
   }
@@ -247,8 +254,16 @@ export class AdminGuidanceService {
   forget(): void {
     const account = this.currentAccount();
     if (!account) return;
-    this.forgetFailed.set(!this.store.clear(account));
-    this.saved.set(empty());
+    const payment = this.snapshot().payment;
+    const cleared = {
+      ...empty(),
+      ...(payment ? { payment: { ...payment } } : {})
+    };
+    const saved = payment
+      ? this.store.save(account, cleared)
+      : this.store.clear(account);
+    this.forgetFailed.set(!saved);
+    this.saved.set(cleared);
     this.storageAvailable.set(this.store.storageAvailable);
     this.resumeTarget.set(null);
   }

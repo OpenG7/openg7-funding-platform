@@ -86,19 +86,9 @@ for (const [locale, theme, width, height] of [
     await hook(page, 'toggle').click();
     const labels =
       locale === 'en'
-        ? [
-            'Discover',
-            'Follow a payment',
-            'Dossier preparation',
-            'Explore the journeys'
-          ]
-        : [
-            'Découvrir',
-            'Suivi d’un paiement',
-            'Préparation des dossiers',
-            'Explorer les parcours'
-          ];
-    const modeIds = ['discovery', 'payment', 'automatic', 'workflows'];
+        ? ['Discover', 'Dossier preparation', 'Explore the journeys']
+        : ['Découvrir', 'Préparation des dossiers', 'Explorer les parcours'];
+    const modeIds = ['discovery', 'automatic', 'workflows'];
     for (const modeId of modeIds) {
       await hook(page, modeId + '-mode').click();
       await expect(hook(page, modeId + '-mode')).toHaveAttribute(
@@ -106,7 +96,11 @@ for (const [locale, theme, width, height] of [
         'true'
       );
       const modes = hook(page, 'modes').getByRole('button');
-      await expect(modes).toHaveCount(4);
+      await expect(modes).toHaveCount(3);
+      await expect(hook(page, 'payment-mode')).toHaveCount(0);
+      await expect(guide.locator('[data-og7="payment-journey"]')).toHaveCount(
+        0
+      );
       for (const [index, label] of labels.entries()) {
         const mode = modes.nth(index);
         await expect(mode).toHaveAccessibleName(label);
@@ -141,6 +135,8 @@ for (const [locale, theme, width, height] of [
 
 const paymentId = '10000000-0000-4000-8000-000000000701';
 const otherPaymentId = '10000000-0000-4000-8000-000000000702';
+const paymentPath = (id = paymentId) =>
+  `${dashboardPath}/contributions?contributionId=${id}`;
 const paymentJourney = (id = paymentId): AdminPaymentJourney => ({
   contributionId: id,
   reference: id === paymentId ? 'DEMO-PAYMENT-701' : 'DEMO-PAYMENT-702',
@@ -161,6 +157,47 @@ const paymentJourney = (id = paymentId): AdminPaymentJourney => ({
   ],
   next: null
 });
+
+function paymentContributions(ids: string[]): AdminContributionsResponse {
+  return {
+    data_source: 'database',
+    last_updated_at: generatedAt,
+    summary: {
+      total_count: ids.length,
+      paid_count: ids.length,
+      pending_count: 0,
+      sponsorship_count: 0,
+      public_display_count: 0,
+      total_received: 25 * ids.length,
+      total_refunded: 0,
+      total_disputed: 0,
+      currency: 'CAD'
+    },
+    contributions: ids.map((id) => ({
+      id,
+      public_reference: paymentJourney(id).reference,
+      contribution_type: 'personal_support',
+      amount: 25,
+      currency: 'CAD',
+      payment_status: 'paid',
+      paid_at: generatedAt,
+      public_name: 'Personne synthétique',
+      email_private: null,
+      public_display_consent: false,
+      display_amount_consent: false,
+      non_charity_acknowledged: true,
+      sponsor_company_name: null,
+      sponsor_contact_name: null,
+      sponsor_contact_email: null,
+      sponsor_review_status: null,
+      sponsor_feed_status: null,
+      stripe_session_id: null,
+      stripe_payment_intent_id: null,
+      created_at: generatedAt,
+      updated_at: generatedAt
+    }))
+  };
+}
 
 const dashboard: AdminDashboardResponse = {
   data_source: 'database',
@@ -248,6 +285,7 @@ async function fixtures(page: Page, language = 'fr-CA') {
       [otherPaymentId, paymentJourney(otherPaymentId)]
     ]),
     paymentRequests: [] as string[],
+    contributionRequests: [] as (string | null)[],
     paymentGate: null as Promise<void> | null,
     mutations: [] as { method: string; pathname: string }[]
   };
@@ -304,6 +342,16 @@ async function fixtures(page: Page, language = 'fr-CA') {
       if (gate) await gate;
       return route.fulfill(response);
     }
+    if (pathname === '/api/admin/contributions') {
+      const requested = new URL(request.url()).searchParams.get(
+        'contributionId'
+      );
+      state.contributionRequests.push(requested);
+      const ids = [paymentId, otherPaymentId].filter(
+        (id) => !requested || id === requested
+      );
+      return route.fulfill({ json: paymentContributions(ids) });
+    }
     const cockpitBlock = pathname.match(
       /^\/api\/admin\/cockpit\/(metrics|activity|systems)$/
     )?.[1];
@@ -346,9 +394,7 @@ function automaticHook(page: Page, name: string) {
 
 async function openAutomatic(page: Page) {
   await expect(hook(page, 'toggle')).toBeVisible();
-  if (new URL(page.url()).searchParams.has('paymentJourney'))
-    await expect(hook(page, 'panel')).toBeVisible();
-  else if (!(await hook(page, 'panel').isVisible()))
+  if (!(await hook(page, 'panel').isVisible()))
     await hook(page, 'toggle').click();
   await hook(page, 'automatic-mode').click();
   await page
@@ -408,10 +454,15 @@ test('a targeted preparation completed behind records keeps focus and requires a
   page
 }) => {
   const fixture = await fixtures(page);
-  const originalUrl = `${attentionPath}?contributionId=${paymentId}&paymentJourney=${paymentId}`;
+  const originalUrl = `${attentionPath}?contributionId=${paymentId}`;
   fixture.journeys.set(
     paymentId,
     pendingAutomaticJourney('stripe_failed', originalUrl, 'attention-panel')
+  );
+  await page.goto(paymentPath());
+  await expect(paymentHook(page, 'state')).toHaveAttribute(
+    'data-og7-id',
+    'ready'
   );
   await page.goto(originalUrl);
   await openAutomatic(page);
@@ -518,6 +569,8 @@ test('a payment journey resumes from server facts and persists only its identifi
     'DEMO-PAYMENT-701'
   );
   await expect(paymentHook(page, 'complete')).toBeVisible();
+  await expect(page).toHaveURL(paymentPath());
+  await expect(hook(page, 'panel')).toHaveCount(0);
   await expect(paymentHook(page, 'next')).toHaveCount(0);
   await page.screenshot({
     path: info.outputPath('payment-journey-desktop.png')
@@ -526,7 +579,7 @@ test('a payment journey resumes from server facts and persists only its identifi
   await page.goto(attentionPath);
   await page.reload();
   const retained = await stored(page);
-  expect(retained.mode).toBe('payment');
+  expect(retained.mode).not.toBe('payment');
   expect(retained.payment).toEqual({ contributionId: paymentId, paused: true });
   expect(JSON.stringify(retained)).not.toContain('DEMO-PAYMENT');
   expect(JSON.stringify(retained)).not.toContain('complete');
@@ -544,6 +597,8 @@ test('a payment journey resumes from server facts and persists only its identifi
       target: 'stripe-event-list'
     }
   });
+  await expect(page.locator('[data-og7="payment-journey"]')).toHaveCount(0);
+  await page.goto(paymentPath());
   await paymentHook(page, 'resume').click();
   await expect(paymentHook(page, 'complete')).toHaveCount(0);
   await expect(paymentHook(page, 'next')).toHaveAttribute(
@@ -559,18 +614,16 @@ test('a payment journey resumes from server facts and persists only its identifi
   expect(fixture.mutations).toEqual([]);
 });
 
-test('opening another dossier preserves the followed payment until explicitly selected', async ({
+test('payment follow-up stays in Contributions and switches with the selected contribution', async ({
   page
 }) => {
   const fixture = await fixtures(page);
   await page.goto(`${dashboardPath}?paymentJourney=${paymentId}`);
   await expect(paymentHook(page, 'complete')).toBeVisible();
   await page.goto(`${attentionPath}?contributionId=${otherPaymentId}`);
-  await expect(page.locator('[data-og7="payment-journey"]')).toContainText(
-    'DEMO-PAYMENT-701'
-  );
+  await expect(page.locator('[data-og7="payment-journey"]')).toHaveCount(0);
   expect((await stored(page)).payment.contributionId).toBe(paymentId);
-  await paymentHook(page, 'current').click();
+  await page.goto(paymentPath(otherPaymentId));
   await expect(page.locator('[data-og7="payment-journey"]')).toContainText(
     'DEMO-PAYMENT-702'
   );
@@ -578,7 +631,7 @@ test('opening another dossier preserves the followed payment until explicitly se
   expect(fixture.mutations).toEqual([]);
 });
 
-test('sponsor context follows sponsorshipId when a stale contributionId remains in the URL', async ({
+test('an explicit legacy payment link normalizes without retaining a foreign dossier context', async ({
   page
 }) => {
   const fixture = await fixtures(page);
@@ -586,7 +639,11 @@ test('sponsor context follows sponsorshipId when a stale contributionId remains 
     `${dashboardPath}/sponsors?paymentJourney=${paymentId}&contributionId=${paymentId}&sponsorshipId=${otherPaymentId}`
   );
   await expect(paymentHook(page, 'complete')).toBeVisible();
-  await paymentHook(page, 'current').click();
+  await expect(page).toHaveURL(paymentPath());
+  await expect(page.locator('[data-og7="payment-journey"]')).toContainText(
+    'DEMO-PAYMENT-701'
+  );
+  await page.goto(paymentPath(otherPaymentId));
   await expect(page.locator('[data-og7="payment-journey"]')).toContainText(
     'DEMO-PAYMENT-702'
   );
@@ -594,7 +651,7 @@ test('sponsor context follows sponsorshipId when a stale contributionId remains 
   expect(fixture.mutations).toEqual([]);
 });
 
-test('ambiguous payment context on Attention does not offer to replace the followed payment', async ({
+test('a legacy payment URL drops conflicting Attention parameters before opening Contributions', async ({
   page
 }) => {
   const fixture = await fixtures(page);
@@ -602,12 +659,13 @@ test('ambiguous payment context on Attention does not offer to replace the follo
     `${attentionPath}?paymentJourney=${otherPaymentId}&contributionId=${paymentId}&sponsorshipId=${otherPaymentId}`
   );
   await expect(paymentHook(page, 'complete')).toBeVisible();
+  await expect(page).toHaveURL(paymentPath(otherPaymentId));
   await expect(paymentHook(page, 'current')).toHaveCount(0);
   expect((await stored(page)).payment.contributionId).toBe(otherPaymentId);
   expect(fixture.mutations).toEqual([]);
 });
 
-test('the contribution entry reopens its payment journey after collapse on the same URL', async ({
+test('the contribution follow-up remains visible independently of opening or collapsing the Guide', async ({
   page
 }) => {
   const fixture = await fixtures(page);
@@ -663,6 +721,13 @@ test('the contribution entry reopens its payment journey after collapse on the s
   await entry.click();
   await expect(paymentHook(page, 'complete')).toBeVisible();
   const currentUrl = page.url();
+  await hook(page, 'toggle').click();
+  await expect(hook(page, 'panel')).toBeVisible();
+  await expect(hook(page, 'payment-mode')).toHaveCount(0);
+  await expect(
+    hook(page, 'panel').locator('[data-og7="payment-journey"]')
+  ).toHaveCount(0);
+  await expect(paymentHook(page, 'complete')).toBeVisible();
   await hook(page, 'toggle').click();
   await expect(hook(page, 'panel')).toHaveCount(0);
   await entry.click();
@@ -724,7 +789,10 @@ test('refresh clears old payment facts while loading and a late response cannot 
   await expect(paymentHook(page, 'complete')).toHaveCount(0);
   await expect(paymentHook(page, 'next')).toHaveCount(0);
   fixture.paymentGate = null;
-  await paymentHook(page, 'current').click();
+  await page.getByRole('link', { name: 'Contributions', exact: true }).click();
+  await page
+    .locator(`[data-og7="contribution-row"][data-og7-id="${otherPaymentId}"]`)
+    .click();
   await expect(page.locator('[data-og7="payment-journey"]')).toContainText(
     'DEMO-PAYMENT-702'
   );
@@ -737,6 +805,19 @@ test('refresh clears old payment facts while loading and a late response cannot 
     'DEMO-PAYMENT-701'
   );
   expect((await stored(page)).payment.contributionId).toBe(otherPaymentId);
+  const reads = fixture.contributionRequests.length;
+  await page
+    .locator('[data-og7="contributions-page"] > header')
+    .getByRole('button', { name: 'Actualiser', exact: true })
+    .click();
+  await expect
+    .poll(() => fixture.contributionRequests.length)
+    .toBeGreaterThan(reads);
+  expect(fixture.contributionRequests.at(-1)).toBe(otherPaymentId);
+  await expect(page).toHaveURL(paymentPath(otherPaymentId));
+  await expect(page.locator('[data-og7="payment-journey"]')).toContainText(
+    'DEMO-PAYMENT-702'
+  );
   expect(fixture.mutations).toEqual([]);
 });
 
@@ -746,12 +827,98 @@ test('an invalid payment identifier is ignored and following payments stays opti
   const fixture = await fixtures(page);
   await page.goto(`${dashboardPath}?paymentJourney=private@example.test`);
   await hook(page, 'toggle').click();
-  await hook(page, 'payment-mode').click();
-  await expect(paymentHook(page, 'state')).toHaveAttribute(
-    'data-og7-id',
-    'idle'
-  );
+  await expect(hook(page, 'payment-mode')).toHaveCount(0);
+  await expect(page.locator('[data-og7="payment-journey"]')).toHaveCount(0);
   expect(fixture.paymentRequests).toEqual([]);
+  expect(fixture.mutations).toEqual([]);
+});
+
+test('a legacy payment-mode bookmark keeps its identifier without opening the Guide or navigating', async ({
+  page
+}) => {
+  const fixture = await fixtures(page);
+  await page.addInitScript(
+    ({ key, id }) =>
+      localStorage.setItem(
+        key,
+        JSON.stringify({
+          enabled: true,
+          bookmark: { pageId: 'dashboard', step: 0, paused: false },
+          mode: 'payment',
+          payment: { contributionId: id, paused: true }
+        })
+      ),
+    { key: storagePrefix + fixture.accountId, id: paymentId }
+  );
+  await page.goto(dashboardPath);
+  await expect(hook(page, 'toggle')).toHaveAttribute('aria-expanded', 'false');
+  await expect(page).toHaveURL(dashboardPath);
+  await expect(page.locator('[data-og7="payment-journey"]')).toHaveCount(0);
+  const retained = await stored(page);
+  expect(retained.payment).toEqual({ contributionId: paymentId, paused: true });
+  await hook(page, 'toggle').click();
+  expect((await stored(page)).mode).toBeUndefined();
+  await expect(hook(page, 'modes').getByRole('button')).toHaveCount(3);
+  await expect(hook(page, 'payment-mode')).toHaveCount(0);
+  expect(fixture.paymentRequests).toEqual([]);
+  expect(fixture.mutations).toEqual([]);
+});
+
+test('Contributions never substitutes another payment for a missing or ambiguous identifier', async ({
+  page
+}) => {
+  const fixture = await fixtures(page);
+  const missing = '10000000-0000-4000-8000-000000000703';
+  await page.goto(paymentPath(missing));
+  await expect(
+    page.locator('[data-og7="contribution-not-found"]')
+  ).toBeVisible();
+  await expect(page.locator('[data-og7="contribution-detail"]')).toHaveCount(0);
+  await expect(page.locator('[data-og7="payment-journey"]')).toHaveCount(0);
+  expect(fixture.contributionRequests.at(-1)).toBe(missing);
+  expect(fixture.paymentRequests).toEqual([]);
+  const reads = fixture.contributionRequests.length;
+  await page.goto(`${paymentPath()}&contributionId=${otherPaymentId}`);
+  await expect(
+    page
+      .locator('[data-og7="contributions-page"]')
+      .getByRole('alert')
+      .filter({ hasText: 'Ce paiement est introuvable' })
+  ).toBeVisible();
+  await expect(page.locator('[data-og7="contribution-detail"]')).toHaveCount(0);
+  await expect(page.locator('[data-og7="payment-journey"]')).toHaveCount(0);
+  expect(fixture.contributionRequests).toHaveLength(reads);
+  await page.goto(paymentPath());
+  await expect(paymentHook(page, 'complete')).toBeVisible();
+  await expect(hook(page, 'panel')).toHaveCount(0);
+  expect(fixture.mutations).toEqual([]);
+});
+
+test('forgetting the Guide keeps the main payment follow-up paused across reload', async ({
+  page
+}) => {
+  const fixture = await fixtures(page);
+  await page.goto(paymentPath());
+  await expect(paymentHook(page, 'complete')).toBeVisible();
+  await paymentHook(page, 'pause').click();
+  await expect(paymentHook(page, 'paused')).toBeVisible();
+  const reads = fixture.paymentRequests.length;
+  await hook(page, 'toggle').click();
+  await forget(page);
+  await expect(hook(page, 'panel')).toHaveCount(0);
+  await expect(paymentHook(page, 'paused')).toBeVisible();
+  expect(await stored(page)).toEqual({
+    enabled: false,
+    bookmark: null,
+    payment: { contributionId: paymentId, paused: true }
+  });
+  await page.reload();
+  await expect(paymentHook(page, 'paused')).toBeVisible();
+  await expect(hook(page, 'panel')).toHaveCount(0);
+  expect(fixture.paymentRequests).toHaveLength(reads);
+  await paymentHook(page, 'resume').click();
+  await expect(paymentHook(page, 'complete')).toBeVisible();
+  expect(fixture.paymentRequests.length).toBeGreaterThan(reads);
   expect(fixture.mutations).toEqual([]);
 });
 
@@ -776,7 +943,7 @@ test('opening the next action rechecks server facts and does not follow a stale 
   await paymentHook(page, 'next').click();
   await expect(paymentHook(page, 'complete')).toBeVisible();
   await expect(paymentHook(page, 'changed')).toBeVisible();
-  await expect(page).toHaveURL(`${dashboardPath}?paymentJourney=${paymentId}`);
+  await expect(page).toHaveURL(paymentPath());
   expect(
     fixture.paymentRequests.filter((id) => id === paymentId).length
   ).toBeGreaterThanOrEqual(2);
@@ -794,11 +961,11 @@ test('a payment bookmark belongs to its signed-in account and revoked sessions c
   await expect(hook(page, 'toggle')).toHaveAttribute('aria-expanded', 'false');
   expect(await stored(page, fixture.accountId)).toBeNull();
   await hook(page, 'toggle').click();
-  await hook(page, 'payment-mode').click();
-  await expect(paymentHook(page, 'state')).toHaveAttribute(
-    'data-og7-id',
-    'idle'
-  );
+  await expect(hook(page, 'payment-mode')).toHaveCount(0);
+  await expect(page.locator('[data-og7="payment-journey"]')).toHaveCount(0);
+  expect((await stored(page, fixture.accountId)).payment).toBeUndefined();
+  await page.goto(paymentPath());
+  await expect(paymentHook(page, 'complete')).toBeVisible();
   fixture.signedIn = false;
   await page.goto(attentionPath);
   await expect(page).toHaveURL(/\/admin\/login/);
@@ -819,7 +986,7 @@ test('showing a payment action is available only on its exact page and dossier',
     next: {
       reason: 'stripe_failed',
       adminUrl: `${dashboardPath}?contributionId=${paymentId}`,
-      target: 'cockpit-metrics'
+      target: 'contribution-detail'
     }
   });
   await page.goto(
@@ -827,12 +994,29 @@ test('showing a payment action is available only on its exact page and dossier',
   );
   await expect(paymentHook(page, 'next')).toBeVisible();
   await expect(paymentHook(page, 'show')).toHaveCount(0);
-  await page.goto(`${dashboardPath}?contributionId=${otherPaymentId}`);
+  fixture.journeys.set(paymentId, {
+    ...fixture.journeys.get(paymentId)!,
+    next: {
+      reason: 'stripe_failed',
+      adminUrl: paymentPath(otherPaymentId),
+      target: 'contribution-detail'
+    }
+  });
+  await paymentHook(page, 'refresh').click();
   await expect(paymentHook(page, 'next')).toBeVisible();
   await expect(paymentHook(page, 'show')).toHaveCount(0);
-  await page.goto(`${dashboardPath}?contributionId=${paymentId}`);
+  fixture.journeys.set(paymentId, {
+    ...fixture.journeys.get(paymentId)!,
+    next: {
+      reason: 'stripe_failed',
+      adminUrl: paymentPath(),
+      target: 'contribution-detail'
+    }
+  });
+  await paymentHook(page, 'refresh').click();
   await paymentHook(page, 'show').click();
-  await expectGoldenZone(page.locator('[data-og7="cockpit-metrics"]'));
+  await expectGoldenZone(page.locator('[data-og7="contribution-detail"]'));
+  await expect(hook(page, 'panel')).toHaveCount(0);
   expect(fixture.mutations).toEqual([]);
 });
 
@@ -848,7 +1032,7 @@ test('a missing payment action zone is explained without highlighting unrelated 
     steps: [{ ...current.steps[0]!, state: 'pending' }],
     next: {
       reason: 'stripe_failed',
-      adminUrl: `${dashboardPath}?contributionId=${paymentId}`,
+      adminUrl: paymentPath(),
       target: 'missing-payment-landmark'
     }
   });
@@ -856,7 +1040,7 @@ test('a missing payment action zone is explained without highlighting unrelated 
     `${dashboardPath}?paymentJourney=${paymentId}&contributionId=${paymentId}`
   );
   await paymentHook(page, 'show').click();
-  await expect(hook(page, 'panel')).toContainText(
+  await expect(paymentHook(page, 'missing-target')).toHaveText(
     'Ce repère n’est pas visible pour le moment.'
   );
   await expect(page.locator(highlighted)).toHaveCount(0);
@@ -2292,7 +2476,7 @@ test('automatic preparation discards a late payment response after pause and nev
       'attention-panel'
     )
   );
-  const originalUrl = `${dashboardPath}?paymentJourney=${paymentId}`;
+  const originalUrl = paymentPath();
   await page.goto(originalUrl);
   await openAutomatic(page);
   await automaticHook(page, 'scope').selectOption('payment');
@@ -2567,7 +2751,7 @@ test('automatic payment preparation stops on forbidden reads and shows no stale 
   );
   await expect(automaticHook(page, 'complete')).toHaveCount(0);
   await expect(automaticHook(page, 'prepare')).toHaveCount(0);
-  await expect(page).toHaveURL(`${dashboardPath}?paymentJourney=${paymentId}`);
+  await expect(page).toHaveURL(paymentPath());
   expect(fixture.mutations).toEqual([]);
 });
 

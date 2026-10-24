@@ -151,7 +151,7 @@ défilement accessibles existants, avec respect de la réduction des mouvements.
 ### Guide administratif
 
 Le bouton **Guide administratif**, sous la barre commune, accompagne les 20 rubriques
-administratives authentifiées. Les quatre modes **Découvrir**, **Suivi d’un paiement**,
+administratives authentifiées. Les trois modes **Découvrir**,
 **Préparation des dossiers** et **Explorer les parcours** gardent des libellés
 visibles. La rubrique courante reste affichée dans tous les modes. Le rail devient
 une grille sur petit écran ; il défile avec le contenu lorsque la hauteur est limitée.
@@ -188,15 +188,22 @@ conserve le repère ; **Effacer mon repère**, dans les informations de mémoris
 le retire. Le guide ne confirme aucune opération ; le résultat d'une action se
 vérifie dans son écran habituel.
 
-**Parcours du paiement** suit le travail restant sur un paiement précis. Depuis
-**Contributions**, **Suivre ce paiement** ouvre ce mode dans la carte flottante.
-Un dossier ouvert propose aussi de le suivre. Changer de rubrique ou ouvrir un
-autre dossier ne remplace pas le paiement suivi ; ce remplacement est volontaire.
-La carte présente une seule prochaine action, son motif et, à la demande,
+**Parcours du paiement** suit le travail restant sur un paiement précis dans la
+page **Contributions**, accessible depuis le menu principal. Il ne figure ni dans
+le Guide ni dans un panneau de décision. Le suivi porte sur la contribution
+explicitement sélectionnée ; un lien de suivi rejoint cette page avec son UUID.
+Le parcours présente une seule prochaine action, son motif et, à la demande,
 l'ensemble des étapes. **Ouvrir la prochaine étape** relit les faits du serveur
 avant de rejoindre l'écran habituel. Si la recommandation a changé, la carte
 présente la nouvelle situation et laisse décider à nouveau. Aucune opération
 métier n'est réalisée par cette navigation.
+
+Les anciennes URL explicites `paymentJourney=<uuid>` sont remplacées dans
+l’historique par `/admin/fundraiser/contributions?contributionId=<uuid>`, sans
+ouvrir le Guide. Les identifiants invalides ou dupliqués ne sélectionnent rien.
+Un ancien mode `payment` mémorisé devient un Guide fermé en mode Découvrir,
+sans navigation ; son UUID et sa pause restent disponibles à la préparation.
+Sélectionner ou reprendre ce contexte ne change ni le mode ni l’ouverture du Guide.
 
 `GET /api/admin/payment-journey?contributionId=<uuid>` (alias `/admin`) exige
 la session administrative et un UUID explicite unique ; les autres paramètres
@@ -211,7 +218,7 @@ renvoient 405 et n'exécutent aucune opération.
 Le parcours constitue une console de travail : les étapes de publication
 précisent la responsabilité administrative ou celle de la plateforme. Une
 publication autorisée programmée, en cours ou en reprise automatique prévue
-reste en attente des faits serveur ; le guide permet de les actualiser sans
+reste en attente des faits serveur ; le suivi permet de les actualiser sans
 demander une attestation manuelle de livraison ni rouvrir sa préparation.
 Une décision humaine encore nécessaire ailleurs dans le dossier reste proposée.
 Le succès réel enregistre automatiquement la preuve du passage correspondant ;
@@ -245,11 +252,13 @@ résultat d'action, contenu de dossier, saisie ou information de santé n'est co
 Le mode token partage ces repères entre ses utilisateurs. Un stockage bloqué conserve le repère
 en mémoire pendant la visite et affiche sa limite ; un effacement refusé est
 signalé séparément. Les guides de découverte détaillés restent disponibles.
+**Effacer mon repère** efface seulement les préférences du Guide et conserve
+l’UUID du paiement et sa pause ; ce geste ne relance pas le suivi de Contributions.
 
 La recette UI `admin-guidance.spec.ts`, avec réponses API interceptées, vérifie navigation et reprise, comptes,
 révocation, stockage indisponible ou corrompu, absence de commande métier,
 FR/EN, clavier, mobile, concentration et présence dans les 20 rubriques. Elle
-vérifie aussi reprise d'un paiement, erreurs, réponses tardives, remplacement
+vérifie aussi le suivi dans Contributions, erreurs, réponses tardives, remplacement
 volontaire du dossier et recommandation devenue obsolète. Cette recette UI ne
 prouve pas à elle seule le traitement financier ou la réalisation des engagements.
 Les recettes `personal-contribution-acceptance.spec.ts` et
@@ -299,7 +308,7 @@ la consultation d'une fiche n'ouvre pas le suivi et ne déplace pas le focus ; s
 confirmation attend un geste explicite dans le suivi.
 Sans lot, la vue **Fiches** renvoie vers les fiches existantes des commandites
 (onglet **Publication**) et de **Prestations de services**, sans créer de lot ni sélectionner
-implicitement le paiement suivi. Le carrousel du Guide conserve la liste figée du
+implicitement le contexte de paiement. Le carrousel du Guide conserve la liste figée du
 lot existant ; cette vue ne constitue pas une nouvelle file globale de priorités.
 Dans le rapport, chaque
 dossier affiche d'abord sa référence et son statut ; déplier ce dossier révèle
@@ -510,7 +519,7 @@ lot et conserve les approbations précédentes. Appliquer la procédure de
 
 ### Préparation d'un dossier ou d'une rubrique
 
-Les outils de préparation du guide flottant proposent le paiement suivi ou l’une des
+Les outils de préparation du guide flottant proposent le contexte de paiement sélectionné ou l’une des
 20 rubriques administratives. **Démarrer la préparation** montre l’étape et sa
 raison, rejoint l’écran, met la zone utile en évidence et ouvre les préparations
 explicitement déclarées par les composants propriétaires. Lorsque plusieurs
@@ -613,8 +622,9 @@ d’abord et replace le focus sur son titre. Une nouvelle pression après retour
 neutre reprend la fermeture normale du tiroir et sa garde de saisie. Une
 confirmation ou un éditeur virtuel supérieur conserve toujours la priorité.
 
-Le guide du paiement, ses liens, sa pause et sa reprise utilisent ces mêmes
-contrôles, y compris après changement de rubrique. Les coordonnées, motifs,
+Dans Contributions, le suivi du paiement, ses liens, sa pause et sa reprise utilisent
+ces mêmes contrôles. Y rejoint le Guide sans déplacer le focus vers ce suivi.
+Les coordonnées, motifs,
 preuves, dates et montants se saisissent dans un éditeur transitoire. La valeur
 d’origine reste intacte jusqu’à **Appliquer la saisie** ; **Annuler** ne la change
 pas. Les contraintes du champ restent vérifiées. Une liste conserve aussi son

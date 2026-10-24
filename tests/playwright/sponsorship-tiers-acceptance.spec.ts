@@ -512,8 +512,9 @@ for (const amount of [100, 250]) {
             await expect(admin).toHaveURL(
               new URL(journey.next!.adminUrl, admin.url()).href
             );
-            await xbox!.press('Y');
-            await xbox!.press('B');
+            await expect(
+              admin.locator('[data-og7="admin-guidance-panel"]')
+            ).not.toBeVisible();
           }
         });
 

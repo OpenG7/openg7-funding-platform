@@ -6,12 +6,15 @@ import {
   signal,
   untracked
 } from '@angular/core';
-import { Router, UrlTree } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { NavigationEnd, Router, UrlTree } from '@angular/router';
+import { filter, map } from 'rxjs';
 import type { AdminPaymentJourney } from '@openg7/funding-core';
 
 import { AdminGuidanceService } from '../../services/admin-guidance.service.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { AdminDashboardRequestError } from '../../services/funding-admin-session.js';
+import { guidanceContributionId } from '../../services/admin-guidance-state.js';
 
 export type PaymentJourneyState =
   | 'idle'
@@ -36,6 +39,14 @@ export class AdminPaymentJourneyService {
   readonly guidance = inject(AdminGuidanceService);
   private readonly admin = inject(FundingAdminService);
   private readonly router = inject(Router);
+  private readonly activeId = signal<string | null>(null);
+  private readonly navigationUrl = toSignal(
+    this.router.events.pipe(
+      filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+      map((event) => event.urlAfterRedirects)
+    ),
+    { initialValue: this.router.url }
+  );
   readonly data = signal<AdminPaymentJourney | null>(null);
   readonly state = signal<PaymentJourneyState>('idle');
   readonly changed = signal(false);
@@ -47,7 +58,7 @@ export class AdminPaymentJourneyService {
     const nextUrl = this.nextUrl();
     if (!nextUrl) return false;
     const destination = this.router.parseUrl(nextUrl);
-    const current = this.router.parseUrl(this.guidance.navigationUrl());
+    const current = this.router.parseUrl(this.navigationUrl());
     return (
       new UrlTree(destination.root).toString() ===
         new UrlTree(current.root).toString() &&
@@ -57,40 +68,26 @@ export class AdminPaymentJourneyService {
       )
     );
   });
-  readonly contributionId = computed(
-    () => this.guidance.snapshot().payment?.contributionId ?? null
-  );
-  readonly paused = computed(
-    () => this.guidance.snapshot().payment?.paused ?? false
-  );
+  readonly contributionId = this.activeId.asReadonly();
+  readonly paused = computed(() => {
+    const payment = this.guidance.snapshot().payment;
+    return payment?.contributionId === this.contributionId() && payment.paused;
+  });
   private request = 0;
-  private lastExplicit: string | null = null;
   private previous: { contributionId: string; signature: string } | null = null;
 
   constructor() {
     effect(() => {
-      const requested = this.guidance.available()
-        ? this.guidance.requestedPayment()
-        : null;
-      const key = requested
-        ? `${this.admin.sessionGeneration()}:${this.admin.identity()?.id ?? 'token'}:${requested}`
-        : null;
-      if (key === this.lastExplicit) return;
-      this.lastExplicit = key;
-      if (requested)
-        untracked(() => this.guidance.followPayment(requested, true));
+      const id = this.contributionId();
+      if (id && this.guidance.available())
+        untracked(() => this.guidance.followPayment(id, true));
     });
     effect((onCleanup) => {
       const id = this.contributionId();
-      const active =
-        this.guidance.available() &&
-        this.guidance.enabled() &&
-        this.guidance.mode() === 'payment' &&
-        !this.paused();
+      const active = this.activePage() && !this.paused();
       this.admin.sessionGeneration();
       this.admin.identity();
       this.admin.dataRevision();
-      this.guidance.navigationUrl();
       onCleanup(() => {
         ++this.request;
       });
@@ -107,9 +104,57 @@ export class AdminPaymentJourneyService {
     });
   }
 
+  /** Only the owning Contributions page activates reads; the Guide stores no facts. */
+  connect(contributionId: string | null): void {
+    const id = guidanceContributionId(contributionId);
+    if (id === this.activeId()) return;
+    this.disconnect();
+    this.activeId.set(id);
+  }
+
+  disconnect(): void {
+    ++this.request;
+    this.activeId.set(null);
+    this.data.set(null);
+    this.state.set('idle');
+    this.changed.set(false);
+    this.previous = null;
+  }
+
+  pause(): void {
+    const id = this.contributionId();
+    if (!id || !this.guidance.available()) return;
+    this.guidance.followPayment(id, true);
+    this.guidance.pausePayment();
+  }
+
+  resume(): void {
+    const id = this.contributionId();
+    if (!id || !this.guidance.available()) return;
+    this.guidance.followPayment(id, true);
+    this.guidance.resumePayment();
+  }
+
+  private activePage(): boolean {
+    // NavigationEnd triggers rereads; router.url also rejects an obsolete response
+    // during the synchronous route-parameter update before that event is emitted.
+    this.navigationUrl();
+    const current = this.router.parseUrl(this.router.url);
+    const ids = current.queryParamMap.getAll('contributionId');
+    return (
+      this.admin.hasValidAdminSession() &&
+      this.guidance.available() &&
+      new UrlTree(current.root).toString() ===
+        '/admin/fundraiser/contributions' &&
+      (ids.length === 0 ||
+        (ids.length === 1 &&
+          guidanceContributionId(ids[0]) === this.contributionId()))
+    );
+  }
+
   async refresh(): Promise<AdminPaymentJourney | null> {
     const id = this.contributionId();
-    if (!id || this.paused() || !this.guidance.available()) return null;
+    if (!id || this.paused() || !this.activePage()) return null;
     const request = ++this.request;
     const generation = this.admin.sessionGeneration();
     const identity = this.admin.identity();
@@ -117,9 +162,7 @@ export class AdminPaymentJourneyService {
       request === this.request &&
       generation === this.admin.sessionGeneration() &&
       identity === this.admin.identity() &&
-      this.guidance.available() &&
-      this.guidance.enabled() &&
-      this.guidance.mode() === 'payment' &&
+      this.activePage() &&
       this.contributionId() === id &&
       !this.paused();
     this.state.set('loading');
@@ -151,12 +194,15 @@ export class AdminPaymentJourneyService {
       const status =
         error instanceof AdminDashboardRequestError ? error.status : undefined;
       if (!current()) {
-        // A hidden guide can make its read obsolete, but its current session's
+        // Leaving Contributions can make its read obsolete, but its current session's
         // rejection must still clear private drafts held by other admin panels.
+        // Restoring the same cookie session creates a fresh identity object.
+        const currentIdentity = this.admin.identity();
         if (
           status === 401 &&
           generation === this.admin.sessionGeneration() &&
-          identity === this.admin.identity()
+          identity?.id === currentIdentity?.id &&
+          identity?.sessionId === currentIdentity?.sessionId
         )
           this.admin.clearAdminSession();
         return null;

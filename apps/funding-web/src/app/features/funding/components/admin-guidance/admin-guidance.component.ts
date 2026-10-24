@@ -22,8 +22,6 @@ import type { AdminAutomaticComponent } from '../admin-automatic/admin-automatic
 import { adminContentRegions } from '../admin-layout/admin-content-scope.js';
 
 import { highlightGuidanceRegions } from './admin-guidance-highlight.js';
-import { AdminPaymentJourneyComponent } from './admin-payment-journey.component.js';
-import { AdminPaymentJourneyService } from './admin-payment-journey.service.js';
 import {
   ADMIN_GUIDANCE_LOAD_RETRIES,
   guidanceChunkRetrySource,
@@ -39,7 +37,7 @@ import {
 @Component({
   selector: 'openg7-admin-guidance',
   standalone: true,
-  imports: [RouterLink, AdminIconComponent, AdminPaymentJourneyComponent],
+  imports: [RouterLink, AdminIconComponent],
   host: { '[class.active]': 'guidance.available() && guidance.enabled()' },
   templateUrl: './admin-guidance.component.html',
   styleUrls: [
@@ -50,7 +48,6 @@ import {
 })
 export class AdminGuidanceComponent {
   readonly guidance = inject(AdminGuidanceService);
-  readonly journey = inject(AdminPaymentJourneyService);
   readonly i18n = inject(FundingI18nService);
   readonly missing = signal(false);
   readonly placement = signal<'top' | 'bottom'>('top');
@@ -216,7 +213,6 @@ export class AdminGuidanceComponent {
       this.guidance.step();
       this.guidance.snapshot();
       this.guidance.mode();
-      this.journey.data();
       this.clearHighlight();
       this.missing.set(false);
       if (this.focusResume && this.resume()) {
@@ -306,7 +302,6 @@ export class AdminGuidanceComponent {
           )
       : [];
     this.missing.set(Boolean(hook && regions.length === 0));
-    if (this.guidance.mode() === 'payment' && regions.length === 0) return;
     const landmark = regions[0] ?? main;
     const target =
       landmark?.querySelector<HTMLElement>('h1, h2, h3, legend') ?? landmark;

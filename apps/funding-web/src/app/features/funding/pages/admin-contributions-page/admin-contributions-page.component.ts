@@ -4,7 +4,9 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
   OnInit,
+  afterRenderEffect,
   computed,
   effect,
   inject,
@@ -22,6 +24,12 @@ import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout
 import { AdminAutomaticPreparationDirective } from '../../components/admin-automatic/admin-automatic-preparation.directive.js';
 import { AdminStripeBackfillComponent } from '../../components/admin-stripe-backfill/admin-stripe-backfill.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
+import { guidanceContributionId } from '../../services/admin-guidance-state.js';
+import { AdminPaymentJourneyComponent } from '../../components/admin-guidance/admin-payment-journey.component.js';
+import { AdminPaymentJourneyService } from '../../components/admin-guidance/admin-payment-journey.service.js';
+import { highlightGuidanceRegions } from '../../components/admin-guidance/admin-guidance-highlight.js';
+import { revealGuidanceRegion } from '../../components/admin-guidance/admin-guidance-scroll.js';
+import { revealControllerFocus } from '../../components/admin-controller/admin-controller-navigation.js';
 
 import { AdminContributionsSummaryComponent } from './admin-contributions-summary.component.js';
 import { AdminContributionsFiltersComponent } from './admin-contributions-filters.component.js';
@@ -50,6 +58,7 @@ import type {
     AdminContributionsFiltersComponent,
     AdminContributionsListComponent,
     AdminContributionsDetailComponent,
+    AdminPaymentJourneyComponent,
     AdminContributionsExportComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -63,6 +72,7 @@ import type {
 })
 export class AdminContributionsPageComponent implements OnInit {
   readonly guidance = inject(AdminGuidanceService);
+  readonly journey = inject(AdminPaymentJourneyService);
   private readonly confirmation = inject(AdminConfirmationService);
   readonly i18n = inject(FundingI18nService);
   private readonly admin = inject(FundingAdminService);
@@ -70,6 +80,11 @@ export class AdminContributionsPageComponent implements OnInit {
   private readonly router = inject(Router);
   private sessionExpired = false;
   private readonly destroy = inject(DestroyRef);
+  private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly focusJourneyId = signal<string | null>(null);
+  private releaseJourneyHighlight: (() => void) | null = null;
+  readonly missingJourneyTarget = signal(false);
+  readonly invalidContributionLink = signal(false);
   readonly adminToken = signal<string>('');
   readonly canExport = computed(
     () => !this.admin.identity() || this.admin.identity()?.role === 'owner'
@@ -117,6 +132,12 @@ export class AdminContributionsPageComponent implements OnInit {
     const selected = this.selectedContribution();
     return selected ? this.rowView(selected) : null;
   });
+  readonly missingContribution = computed(
+    () =>
+      this.state() === 'ready' &&
+      !!this.selectedContributionId() &&
+      !this.selectedContributionView()
+  );
 
   constructor() {
     let identity = this.admin.identity();
@@ -136,6 +157,38 @@ export class AdminContributionsPageComponent implements OnInit {
         else void this.loadContributions();
       });
     });
+    effect(() => {
+      const id =
+        this.state() === 'ready'
+          ? (this.selectedContributionView()?.id ?? null)
+          : null;
+      this.journey.data();
+      untracked(() => {
+        this.journey.connect(id);
+        this.clearJourneyHighlight();
+      });
+    });
+    afterRenderEffect(() => {
+      const id = this.focusJourneyId();
+      if (
+        !id ||
+        id !== this.selectedContributionView()?.id ||
+        this.state() !== 'ready'
+      )
+        return;
+      const heading = this.element.nativeElement.querySelector<HTMLElement>(
+        '[data-og7="payment-journey-heading"]'
+      );
+      if (!heading) return;
+      this.focusJourneyId.set(null);
+      const active = heading.ownerDocument.activeElement;
+      if (
+        active?.matches('input, textarea, select') ||
+        heading.ownerDocument.querySelector('dialog[open]')
+      )
+        return;
+      revealControllerFocus(heading);
+    });
   }
 
   ngOnInit(): void {
@@ -143,17 +196,30 @@ export class AdminContributionsPageComponent implements OnInit {
     this.destroy.onDestroy(() => {
       this.controller.dispose();
       this.exportWorkflow.dispose();
+      this.journey.disconnect();
+      this.clearJourneyHighlight();
     });
     this.route.queryParamMap
       .pipe(takeUntilDestroyed(this.destroy))
       .subscribe((params) => {
-        this.controller.setRouteContribution(params.get('contributionId'));
+        const ids = params.getAll('contributionId');
+        const id = ids.length === 1 ? guidanceContributionId(ids[0]) : null;
+        this.invalidContributionLink.set(ids.length > 0 && !id);
+        this.focusJourneyId.set(id);
+        if (this.invalidContributionLink()) {
+          this.journey.disconnect();
+          this.controller.notifyAccessChanged();
+          return;
+        }
+        this.journey.disconnect();
+        this.controller.setRouteContribution(id);
         void this.loadContributions();
       });
   }
 
   loadContributions(): Promise<void> {
     this.exportWorkflow.clearError();
+    if (this.invalidContributionLink()) return Promise.resolve();
     return this.controller.load();
   }
 
@@ -197,8 +263,62 @@ export class AdminContributionsPageComponent implements OnInit {
   }
 
   selectContribution(contributionId: string): void {
-    this.controller.selectContribution(contributionId);
-    adminContributionsBrowser()?.selectContribution(contributionId);
+    const id = guidanceContributionId(contributionId);
+    if (!id || !this.contributions().some((item) => item.id === id)) return;
+    this.controller.selectContribution(id);
+    this.journey.connect(id);
+    this.focusJourneyId.set(id);
+    void this.router.navigate(['/admin/fundraiser/contributions'], {
+      queryParams: { contributionId: id },
+      replaceUrl: true
+    });
+  }
+
+  followPayment(contributionId: string): void {
+    if (contributionId !== this.selectedContributionView()?.id) return;
+    this.guidance.followPayment(contributionId, true);
+    this.journey.connect(contributionId);
+    this.focusJourneyId.set(contributionId);
+  }
+
+  showJourneyTarget(hook: string): void {
+    this.clearJourneyHighlight();
+    if (!/^[a-z0-9-]+$/.test(hook)) return;
+    const region = this.element.nativeElement
+      .querySelector<HTMLElement>('[data-og7="contributions-page"]')
+      ?.querySelector<HTMLElement>(`[data-og7="${hook}"]`);
+    const view = region?.ownerDocument.defaultView;
+    if (
+      !region ||
+      !view ||
+      !region.getClientRects().length ||
+      view.getComputedStyle(region).visibility === 'hidden'
+    ) {
+      this.missingJourneyTarget.set(true);
+      return;
+    }
+    const target =
+      region.querySelector<HTMLElement>('h1, h2, h3, legend') ?? region;
+    const tabindex = target.getAttribute('tabindex');
+    if (tabindex === null) target.setAttribute('tabindex', '-1');
+    const release = highlightGuidanceRegions([region], view);
+    this.releaseJourneyHighlight = () => {
+      release();
+      if (tabindex === null) target.removeAttribute('tabindex');
+    };
+    target.focus({ preventScroll: true });
+    target.scrollIntoView({
+      block: 'nearest',
+      inline: 'nearest',
+      behavior: 'instant'
+    });
+    revealGuidanceRegion(region, target, undefined, view);
+  }
+
+  private clearJourneyHighlight(): void {
+    this.releaseJourneyHighlight?.();
+    this.releaseJourneyHighlight = null;
+    this.missingJourneyTarget.set(false);
   }
 
   contributionTypeLabel(contribution: AdminContributionRecord): string {

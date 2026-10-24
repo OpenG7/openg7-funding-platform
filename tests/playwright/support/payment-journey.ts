@@ -88,15 +88,14 @@ export async function openPaymentJourney(
     `${dashboard}/contributions?contributionId=${contributionId}`
   );
   if (controller) await controller.ready();
-  const entry = page.locator('[data-og7="contribution-journey"]');
-  await expect(entry).toHaveAttribute(
-    'href',
-    `${dashboard}/contributions?contributionId=${contributionId}&paymentJourney=${contributionId}`
-  );
-  if (controller) await controller.activate(entry);
-  else await entry.click();
+  await expect(page.locator('[data-og7="contribution-detail"]')).toBeVisible();
+  await expect(
+    page.locator('[data-og7="contributions-page"] [data-og7="payment-journey"]')
+  ).toBeVisible();
+  await expect(
+    page.locator('[data-og7="admin-guidance"] [data-og7="payment-journey"]')
+  ).toHaveCount(0);
   await expect(hook(page, 'state')).toHaveAttribute('data-og7-id', 'ready');
-  if (controller) await controller.press('Y');
 }
 
 /** Completion comes from the real server, remains true after a reload and survives a pause. */
@@ -125,7 +124,6 @@ export async function expectCompletedPaymentJourney(
   await page.reload();
   if (controller) await controller.ready();
   await expect(hook(page, 'complete')).toBeVisible();
-  if (controller) await controller.press('Y');
   if (controller) {
     await controller.activate(hook(page, 'pause'));
     await controller.activate(
@@ -137,8 +135,11 @@ export async function expectCompletedPaymentJourney(
     await page.goto(`${dashboard}/attention`);
   }
   await page.reload();
+  await page.goto(
+    `${dashboard}/contributions?contributionId=${contributionId}`
+  );
   if (controller) await controller.ready();
-  if (controller) await controller.press('Y');
+  await expect(hook(page, 'paused')).toBeVisible();
   if (controller) await controller.activate(hook(page, 'resume'));
   else await hook(page, 'resume').click();
   await expect(hook(page, 'complete')).toBeVisible();
