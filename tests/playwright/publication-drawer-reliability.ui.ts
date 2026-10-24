@@ -5,6 +5,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
+import { capturePublicationReview } from './support/publication-review-capture.js';
 
 interface Context {
   setup(
@@ -89,7 +90,7 @@ export function registerPublicationDrawerReliabilityTests(
       ] as const) {
         test(`${name} delivery time is rejected without losing the draft in ${language}`, async ({
           page
-        }) => {
+        }, testInfo) => {
           const commands = await prepare(page, {});
           await page.locator(`[data-og7-id="${id}"]`).click();
           const dialog = page.getByRole('dialog', { name: dialogName });
@@ -157,6 +158,16 @@ export function registerPublicationDrawerReliabilityTests(
             );
             expect(commands).toEqual([]);
           }
+          await capturePublicationReview(
+            page,
+            testInfo,
+            `schedule-${name}-${language}`,
+            {
+              language,
+              viewport: { width: en ? 390 : 1536, height: 864 },
+              access: 'fixture-with-write-controls'
+            }
+          );
           await date.fill('2030-03-10T03:30');
           await expect(
             page.locator('[data-og7="publication-schedule-error"]')
@@ -185,7 +196,7 @@ export function registerPublicationDrawerReliabilityTests(
       ] as const) {
         test(`public result link for ${status}/${mode}/${hasUrl ? 'URL' : 'no URL'} is truthful in ${language}`, async ({
           page
-        }) => {
+        }, testInfo) => {
           const url = 'https://social.example.test/synthetic-publication';
           const commands = await prepare(page, {
             status,
@@ -220,6 +231,17 @@ export function registerPublicationDrawerReliabilityTests(
             await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
           } else await expect(link).toHaveCount(0);
           if (mode === 'mock') await expect(dialog).toContainText('Simulation');
+          if (status === 'published' && hasUrl)
+            await capturePublicationReview(
+              page,
+              testInfo,
+              `public-result-${mode}-${language}`,
+              {
+                language,
+                viewport: { width: en ? 390 : 1536, height: 864 },
+                access: 'fixture-with-write-controls'
+              }
+            );
           expect(commands).toEqual([]);
         });
       }
