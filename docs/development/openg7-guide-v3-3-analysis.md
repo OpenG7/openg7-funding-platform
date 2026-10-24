@@ -560,3 +560,8 @@ préexistant dans `scripts/smoke-public.mjs:165`. Revue indépendante du diff pa
 l’agent principal ; aucun défaut actionnable restant. Les recettes interceptent
 des API synthétiques et n’envoient aucune publication réelle. Les CI seront
 examinées à la fin de cette tranche ; leur résultat n’est pas présumé ici.
+
+Quatre recettes existantes de reprise incertaine ont aussi été exécutées avec
+succès en FR/EN, bureau/mobile. Elles utilisent une livraison réelle synthétique
+pour vérifier le lien public après réconciliation ; les simulations restent
+couvertes séparément par les cas qui exigent l’absence de ce lien.
