@@ -73,6 +73,8 @@ export function registerPublicationContentReviewTests(context: Context): void {
         );
         const local = hook(page, 'publication-local-preview');
         const reference = hook(page, 'publication-saved-reference');
+        if ((await local.getAttribute('open')) !== null)
+          await local.locator('summary').click();
         await local.locator('summary').focus();
         await page.keyboard.press('Enter');
         await expect(local).toHaveAttribute('open', '');
@@ -211,6 +213,19 @@ export function registerPublicationContentReviewTests(context: Context): void {
       ).toHaveCount(0);
       await expect(hook(page, 'publication-local-preview')).toHaveCount(0);
       await expect(dialog.getByRole('checkbox')).toHaveCount(0);
+      const expand = hook(page, 'publication-preview-expand');
+      await expand.click();
+      await expect(hook(page, 'publication-preview')).toHaveAttribute(
+        'data-expanded',
+        'true'
+      );
+      await expect(hook(page, 'publication-saved-content')).toContainText(
+        saved
+      );
+      await expect(dialog.locator('form')).toHaveCount(0);
+      await expect(page.locator('dialog:modal')).toHaveCount(1);
+      await expand.click();
+      await expect(expand).toBeFocused();
       await page.keyboard.press('Escape');
       await expect(dialog).toBeHidden();
       expect(commands).toEqual([]);
@@ -234,11 +249,192 @@ export function registerPublicationContentReviewTests(context: Context): void {
       );
       await expect(hook(page, 'publication-saved-reference')).toHaveCount(0);
       await dialog.getByLabel(messageName).fill(entered);
-      await hook(page, 'publication-local-preview').locator('summary').click();
+      await expect(hook(page, 'publication-local-preview')).toHaveJSProperty(
+        'open',
+        true
+      );
       await expect(hook(page, 'publication-local-preview')).toContainText(
         entered
       );
       expect(commands).toEqual([]);
     });
+
+    test(`publication review layout preserves the draft and discard guard from its enlarged preview in ${language}`, async ({
+      page
+    }) => {
+      const commands = await context.setup(page, {
+        job: { message: saved, version: 17 }
+      });
+      await locale(page, language);
+      await page.goto(path);
+      const trigger = page.locator(`[data-og7-id="${id}"]`);
+      await trigger.click();
+      const dialog = page.getByRole('dialog', {
+        name: dialogName,
+        exact: true
+      });
+      await dialog.getByRole('button', { name: editName, exact: true }).click();
+      const text = dialog.getByLabel(messageName);
+      await text.fill(entered);
+      const localPreview = hook(page, 'publication-local-preview');
+      await localPreview.locator('summary').click();
+      await expect(localPreview).toHaveJSProperty('open', false);
+      const expand = hook(page, 'publication-preview-expand');
+      await expand.click();
+      await expect(localPreview).toHaveJSProperty('open', true);
+      await expand.click();
+      await expect(localPreview).toHaveJSProperty('open', false);
+      await expand.click();
+      await expect(hook(page, 'publication-preview')).toBeFocused();
+      await page.keyboard.press('Escape');
+      const confirmation = page.getByRole('dialog').filter({
+        has: hook(page, 'confirm-action')
+      });
+      await expect(confirmation).toBeVisible();
+      await expect(page.locator('dialog:modal')).toHaveCount(2);
+      await page.keyboard.press('Escape');
+      await expect(confirmation).toBeHidden();
+      await expect(hook(page, 'publication-preview')).toHaveAttribute(
+        'data-expanded',
+        'true'
+      );
+      await expect(text).toHaveValue(entered);
+      expect(commands).toEqual([]);
+      await page.keyboard.press('Escape');
+      await confirmation.locator('[data-og7="confirm-action"]').click();
+      await expect(dialog).toBeHidden();
+      await trigger.click();
+      await expect(hook(page, 'publication-preview')).toHaveAttribute(
+        'data-expanded',
+        'false'
+      );
+      await expect(hook(page, 'publication-saved-content')).toContainText(
+        saved
+      );
+      expect(commands).toEqual([]);
+    });
+
+    for (const viewport of [
+      { width: 1536, height: 864 },
+      { width: 1280, height: 520 },
+      { width: 390, height: 844 }
+    ]) {
+      test(`publication review layout keeps one editor and a reversible preview in ${language} at ${viewport.width} by ${viewport.height}`, async ({
+        page
+      }, testInfo) => {
+        const commands = await context.setup(page, {
+          job: { message: saved, version: 17 }
+        });
+        await locale(page, language);
+        await page.setViewportSize(viewport);
+        await page.goto(path);
+        await page.locator(`[data-og7-id="${id}"]`).click();
+        const dialog = page.getByRole('dialog', {
+          name: dialogName,
+          exact: true
+        });
+        const editor = hook(page, 'publication-editor');
+        const preview = hook(page, 'publication-preview');
+        const expand = hook(page, 'publication-preview-expand');
+        await expect(preview).toContainText(saved);
+        await expect(expand).toHaveAccessibleName(
+          en ? 'Enlarge preview' : 'Agrandir l’aperçu'
+        );
+        await dialog
+          .getByRole('button', { name: editName, exact: true })
+          .click();
+        const text = dialog.getByLabel(messageName);
+        await text.fill(entered);
+        const originalField = await text.elementHandle();
+        await expect(dialog.locator('textarea[name="message"]')).toHaveCount(1);
+        await expect(hook(page, 'publication-editor-form')).toHaveCount(1);
+        await expect(hook(page, 'publication-save')).toHaveCount(1);
+        const savedReference = hook(page, 'publication-saved-reference');
+        await savedReference.locator('summary').click();
+        await expect(savedReference).toContainText(saved);
+        await expect(preview).toContainText(entered);
+
+        const [editorBounds, previewBounds] = await Promise.all([
+          editor.boundingBox(),
+          preview.boundingBox()
+        ]);
+        expect(editorBounds).not.toBeNull();
+        expect(previewBounds).not.toBeNull();
+        if (viewport.width > 960) {
+          expect(previewBounds!.x).toBeGreaterThanOrEqual(
+            editorBounds!.x + editorBounds!.width
+          );
+          expect(Math.abs(previewBounds!.y - editorBounds!.y)).toBeLessThan(2);
+        } else {
+          expect(previewBounds!.y).toBeGreaterThanOrEqual(
+            editorBounds!.y + editorBounds!.height
+          );
+        }
+
+        await expand.focus();
+        await page.keyboard.press('Enter');
+        await expect(preview).toHaveAttribute('data-expanded', 'true');
+        await expect(preview).toBeFocused();
+        await expect(editor).toBeHidden();
+        await expect(hook(page, 'publication-review-footer')).toBeHidden();
+        await expect(text).toHaveValue(entered);
+        expect(
+          await text.evaluate(
+            (element, previous) => element === previous,
+            originalField
+          )
+        ).toBe(true);
+        await expect(preview).toContainText(entered);
+        await expect(savedReference).toContainText(saved);
+        await expect(hook(page, 'publication-content-context')).toContainText(
+          '17'
+        );
+        await expect(page.locator('dialog:modal')).toHaveCount(1);
+        expect(commands).toEqual([]);
+        expect(
+          await dialog.evaluate(
+            (element) => element.scrollWidth <= element.clientWidth + 1
+          )
+        ).toBe(true);
+        await page.screenshot({
+          path: testInfo.outputPath(
+            `review-preview-${language}-${viewport.width}.png`
+          ),
+          animations: 'disabled'
+        });
+
+        await expand.click();
+        await expect(expand).toBeFocused();
+        await expect(preview).toHaveAttribute('data-expanded', 'false');
+        await expect(editor).toBeVisible();
+        await expect(text).toHaveValue(entered);
+        await expect(hook(page, 'publication-save')).toBeVisible();
+        await expect(hook(page, 'publication-save')).toHaveAttribute(
+          'form',
+          (await hook(page, 'publication-editor-form').getAttribute(
+            'id'
+          )) as string
+        );
+        expect(
+          (await new AxeBuilder({ page }).include('dialog[open]').analyze())
+            .violations
+        ).toEqual([]);
+        await hook(page, 'publication-save').click();
+        await expect(hook(page, 'publication-content-context')).toContainText(
+          '18'
+        );
+        await expect(hook(page, 'publication-saved-content')).toContainText(
+          entered
+        );
+        expect(commands).toEqual([
+          expect.objectContaining({
+            action: 'edit',
+            id,
+            version: 17,
+            message: entered
+          })
+        ]);
+      });
+    }
   }
 }

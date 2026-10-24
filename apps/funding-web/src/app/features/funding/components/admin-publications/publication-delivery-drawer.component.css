@@ -2,6 +2,93 @@
 :host {
   @apply tw:block tw:min-w-0;
   color: var(--admin-text);
+  --og7-admin-primary: light-dark(#075dde, #9edaff);
+  --og7-admin-on-primary: light-dark(#ffffff, #102f4e);
+}
+.review-context {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: start;
+  gap: 0.75rem 1.5rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--admin-border);
+}
+.review-context .content-context,
+.review-context .destination {
+  margin: 0;
+}
+.review-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 1.5rem;
+}
+.review-editor,
+.review-preview {
+  min-width: 0;
+}
+.review-editor[hidden],
+.review-actions[hidden],
+.review-footer[hidden] {
+  display: none;
+}
+.review-preview {
+  padding: 1.25rem;
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-card);
+}
+.preview-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding-bottom: 0.9rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--admin-border);
+}
+.preview-heading h3 {
+  margin: 0;
+}
+.preview-expanded {
+  grid-template-columns: minmax(0, 1fr);
+}
+.preview-expanded .review-preview {
+  width: 100%;
+  max-width: 68rem;
+  box-sizing: border-box;
+  justify-self: center;
+}
+.preview-expanded .preview-image {
+  max-height: 70dvh;
+}
+.review-preview:focus,
+[data-og7='publication-authorization']:focus,
+[data-og7='publication-result']:focus {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 3px;
+}
+.review-actions {
+  margin-top: 1.25rem;
+}
+.review-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem 1.25rem;
+  padding: 1rem 1.2rem;
+  background: var(--admin-panel);
+  border-top: 1px solid var(--admin-border);
+}
+.review-footer > p {
+  flex: 1 1 16rem;
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 0.9rem;
 }
 p {
   line-height: 1.6;
@@ -123,4 +210,25 @@ pre {
 }
 .check {
   min-height: var(--admin-control-height);
+}
+
+@media (max-width: 60rem) {
+  .review-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .review-preview {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 30rem) {
+  .review-footer {
+    padding: 0.75rem 1rem;
+  }
+  .review-footer > p {
+    display: none;
+  }
+  .review-footer .admin-button {
+    width: 100%;
+  }
 }

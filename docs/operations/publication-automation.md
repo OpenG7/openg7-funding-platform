@@ -16,8 +16,11 @@ slots and drafts retain the exact stored instant, including seconds and the sele
 occurrence during a clock change. New or edited dates that do not exist or occur
 twice during a clock change are rejected: choose a unique local time before saving.
 Changing a slot's timezone interprets its entered local date/time in the new timezone.
-The delivery drawer uses the browser's local timezone and minute precision; saving
-a delivery serialises that displayed time.
+The delivery drawer uses the browser's local timezone and displays minutes. An
+unchanged delivery schedule retains the exact stored instant, including seconds
+and the selected occurrence during a clock change. A new or changed delivery
+date must occur exactly once in that browser timezone; missing or repeated local
+times are rejected before saving, with the entered content kept for correction.
 
 Moving a slot with linked deliveries is transactional: the server locks the
 deliveries before calendar membership, revokes obsolete approval, releases
@@ -67,15 +70,32 @@ actions. The recorded agreement, historical qualification, adjustments and timin
 remain in **Promised services** within the dossier; Service fulfilment does not replace
 those decisions. The review drawer labels dates with the browser's timezone.
 
-The final-publication drawer identifies the saved delivery version and any local
-unsaved changes. While editing, separate collapsed sections show the entered text
-and the saved text, schedule and version; the local text preview does not simulate
-the social network's layout or establish saving. A version conflict retains the
-entries and explains how to keep useful corrections before closing and refreshing.
-Saving a draft remains distinct from authorizing it, and an edit revokes its prior
-authorization. Readers retain the saved content and specialized history, while
-creation and delivery mutation controls are hidden. API authorization remains the
-security boundary.
+The final-publication drawer uses the existing wide modal shell. Desktop review
+places one editing form beside its content preview; narrow screens stack those
+same regions. The fixed footer holds one native save submit bound to that form.
+Its blue primary action uses local theme tokens. The drawer identifies the saved
+delivery version and unsaved changes; the initially expanded entered-text preview
+is separate from the saved text, schedule and version. It neither simulates the
+social network's layout nor establishes saving.
+
+Enlarging the preview is a reversible presentation state in the same dialog. It
+keeps the form and action regions mounted, temporarily hides them from interaction,
+restores the local-preview disclosure state and returns focus to the trigger.
+The usual discard guard protects the draft in either view. Closing, changing
+delivery or changing session resets enlargement. Readers retain the saved preview,
+enlargement and specialized history without mutation controls. Media remain the
+existing private previews. No second editor, approval, source object or API is added.
+
+A version conflict keeps the entries and explains how to retain useful corrections
+before closing and refreshing. Saving a draft remains distinct from authorizing
+it, and an edit revokes its prior authorization. API authorization remains the
+security boundary. Stable regions identify the saved content, editor, preview,
+authorization, result and footer. A presentation-only translated navigation notice
+can explain a region unavailable for the current state or rights inside the drawer.
+
+The drawer's public-post link is shown only for a confirmed `published` delivery
+in `live` mode with an external URL. A mock result or an uncertain attempt may
+retain a provider reference, but that reference is not presented as a public post.
 
 The advanced settings distinguish **Public profile** (slug, public summary and
 private profile preview) from separately collapsed **Declared social tracking**
