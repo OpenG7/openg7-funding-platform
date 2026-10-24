@@ -28,6 +28,22 @@
   "audit": {
     "dossierScope": "Les preuves affichées sont limitées à ce dossier. Les compteurs du portefeuille sont consultables dans Qualité des commandites.",
     "portfolioScope": "Cette consultation couvre les preuves historiques de tous les dossiers.",
-    "dossierCounts": "{{count}} preuve(s) correspondant aux critères de ce dossier."
+    "dossierCounts": "{{count}} preuve(s) correspondant aux critères de ce dossier.",
+    "asOf": "Preuves enregistrées au plus tard le",
+    "timezone": "(Toronto)",
+    "dateUnavailable": "Date indisponible",
+    "pageCount": "Page affichée : {{count}} éléments, au maximum {{limit}} par page.",
+    "snapshotScope": "La date de l’inventaire borne les preuves consultées. Les conclusions administratives peuvent évoluer depuis cette date. Recharger reprend la première page d’un nouvel inventaire.",
+    "deliveredAt": "Réalisation enregistrée le",
+    "openEvidence": "Consulter cette prestation et sa preuve",
+    "latestReview": "Dernière conclusion disponible",
+    "reviewScope": "Seule la dernière conclusion est fournie ici ; cette lecture ne restitue pas tous les examens antérieurs.",
+    "noReview": "Aucune conclusion administrative enregistrée.",
+    "references": "Références de traçabilité",
+    "evidenceReference": "Preuve de réalisation",
+    "obligationReference": "Prestation",
+    "reviewVersion": "Version de l’examen",
+    "reviewReference": "Dernière conclusion",
+    "nextPageScope": "La page suivante remplace les éléments affichés, avec les mêmes critères et la même date d’inventaire."
   }
 }

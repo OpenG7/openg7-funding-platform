@@ -17,6 +17,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { FundingAdminService } from '../../services/funding-admin.service.js';
+import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminSponsorsQualityI18nService } from '../../services/admin-sponsors-quality-i18n.service.js';
 
 import { AdminSponsorshipHistoricalAuditController } from './admin-sponsorship-historical-audit-controller.js';
@@ -38,6 +39,7 @@ export class AdminSponsorshipHistoricalAuditComponent {
   readonly scope = input<'dossier' | 'portfolio'>('dossier');
   readonly canOwn = input.required<boolean>();
   readonly labels = inject(AdminSponsorsQualityI18nService);
+  private readonly i18n = inject(FundingI18nService);
   private readonly admin = inject(FundingAdminService);
   private readonly router = inject(Router);
   private readonly destroy = inject(DestroyRef);
@@ -87,6 +89,15 @@ export class AdminSponsorshipHistoricalAuditComponent {
   private identityKey(): string {
     const identity = this.admin.identity();
     return `${this.admin.sessionGeneration()}:${identity?.id ?? 'token'}:${identity?.sessionId ?? 'token'}:${identity?.role ?? 'owner'}`;
+  }
+  date(value: string): string | null {
+    const instant = new Date(value);
+    if (!Number.isFinite(instant.getTime())) return null;
+    return new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: 'America/Toronto'
+    }).format(instant);
   }
   setFilter(event: Event): void {
     this.c.filter.set(

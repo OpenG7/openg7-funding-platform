@@ -8,6 +8,7 @@ import {
   signal
 } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
+import { RouterLink } from '@angular/router';
 
 import type { AdminSponsorAuditHistoryView } from '../../models/admin-sponsors-ui.models.js';
 import type { SponsorHistoryDomain } from '../../models/admin-sponsor-workflow.ports.js';
@@ -16,7 +17,7 @@ import type { SponsorHistoryDomain } from '../../models/admin-sponsor-workflow.p
 @Component({
   selector: 'openg7-admin-sponsor-audit-history',
   standalone: true,
-  imports: [CommonModule, TranslatePipe],
+  imports: [CommonModule, TranslatePipe, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-sponsor-audit-history.component.html',
   styleUrls: [
@@ -28,7 +29,12 @@ import type { SponsorHistoryDomain } from '../../models/admin-sponsor-workflow.p
 })
 export class AdminSponsorAuditHistoryComponent {
   readonly view = input.required<AdminSponsorAuditHistoryView>();
+  readonly contributionId = input.required<string>();
+  readonly canReview = input(false);
+  readonly disabled = input(false);
   readonly inspect = output<void>();
+  readonly interventionsRequested = output<void>();
+  readonly moderationRequested = output<void>();
   readonly domains: readonly SponsorHistoryDomain[] = [
     'profile',
     'review',
