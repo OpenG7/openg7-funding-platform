@@ -524,10 +524,33 @@ async function expectRecordHeadingVisible(page: Page) {
       return geometry;
     })
     .toMatchObject({ visible: true })
-    .catch((error: unknown) => {
-      throw new Error(`Record header is clipped: ${JSON.stringify(geometry)}`, {
-        cause: error
+    .catch(async (error: unknown) => {
+      const layout = await heading.evaluate((element) => {
+        const ancestors = [];
+        for (
+          let current: HTMLElement | null = element as HTMLElement;
+          current && ancestors.length < 12;
+          current = current.parentElement
+        ) {
+          const bounds = current.getBoundingClientRect();
+          const style = getComputedStyle(current);
+          ancestors.push({
+            tag: current.tagName,
+            hook: current.getAttribute('data-og7'),
+            y: bounds.y,
+            height: bounds.height,
+            scrollTop: current.scrollTop,
+            clientHeight: current.clientHeight,
+            scrollHeight: current.scrollHeight,
+            overflowY: style.overflowY
+          });
+        }
+        return ancestors;
       });
+      throw new Error(
+        `Record header is clipped: ${JSON.stringify({ geometry, layout })}`,
+        { cause: error }
+      );
     });
 }
 
@@ -960,9 +983,11 @@ test('previous and next only consult the frozen manifest and never advance treat
 
 for (const [language, width] of [
   ['fr-CA', 1536],
-  ['en', 390]
+  ['fr-CA', 390],
+  ['en', 390],
+  ['en', 370]
 ] as const) {
-  test(`preparation views retain the consulted record and its selected control without a batch mutation in ${language}`, async ({
+  test(`preparation views retain the consulted record and its selected control without a batch mutation in ${language} at ${width}px`, async ({
     page
   }, testInfo) => {
     await page.setViewportSize({ width, height: 864 });
