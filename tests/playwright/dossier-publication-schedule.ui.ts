@@ -1144,6 +1144,14 @@ export function registerDossierPublicationScheduleTests(
       page
     }) => {
       const { controls } = await fixtures(page, context);
+      const mutations: string[] = [];
+      page.on('request', (request) => {
+        if (
+          new URL(request.url()).pathname.startsWith('/api/admin/') &&
+          !['GET', 'HEAD', 'OPTIONS'].includes(request.method())
+        )
+          mutations.push(request.url());
+      });
       await page.goto(context.path('publication'));
       await channel(page).locator('[data-og7="publication-slot-edit"]').click();
       const dialog = page.getByRole('dialog', { name: 'Publication finale' });
@@ -1165,11 +1173,30 @@ export function registerDossierPublicationScheduleTests(
         page.locator('[data-og7="publication-schedule-loading"]')
       ).toHaveCount(0);
       await page.keyboard.press('Escape');
+      const confirmation = page.getByRole('dialog').filter({
+        has: page.locator('[data-og7="confirm-action"]')
+      });
+      await expect(confirmation).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(confirmation).toBeHidden();
+      await expect(dialog.getByLabel('Texte exact à publier')).toHaveValue(
+        'Modification synthétique'
+      );
+      await expect(dialog.getByRole('alert')).toBeVisible();
+      await expect(save).toBeEnabled();
+      expect(controls.commands).toHaveLength(1);
+      expect(mutations).toHaveLength(1);
+
+      await page.keyboard.press('Escape');
+      await expect(confirmation).toBeVisible();
+      await confirmation.locator('[data-og7="confirm-action"]').click();
+      await expect(confirmation).toBeHidden();
       await expect(dialog).not.toBeVisible();
       await expect(
         channel(page).locator('[data-og7="publication-review"]')
       ).toBeEnabled();
       expect(controls.commands).toHaveLength(1);
+      expect(mutations).toHaveLength(1);
     });
 
     test('publication schedule proposal opens an exact historical delivery beyond the latest 200 without replacing other cards', async ({
