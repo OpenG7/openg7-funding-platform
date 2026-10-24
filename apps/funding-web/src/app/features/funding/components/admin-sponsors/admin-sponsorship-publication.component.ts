@@ -18,6 +18,7 @@ import {
 import { isPlatformBrowser } from '@angular/common';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import {
   type AdminSponsorshipProgress,
@@ -71,6 +72,7 @@ interface PublicationGuidanceLink {
   standalone: true,
   imports: [
     RouterLink,
+    FormsModule,
     TranslatePipe,
     AdminIconComponent,
     AdminAutomaticPreparationDirective,
@@ -456,16 +458,14 @@ export class AdminSponsorshipPublicationComponent {
     };
   }
 
-  selectJourney(event: Event): void {
+  selectJourney(key: string): void {
     if (
       this.scheduling.busy() ||
       this.scheduling.loading() ||
       this.scheduling.delivery.selected()
     )
       return;
-    const target = this.journeyTargets().find(
-      (item) => item.key === (event.target as HTMLSelectElement).value
-    );
+    const target = this.journeyTargets().find((item) => item.key === key);
     this.journeyOpening++;
     this.journeyNotice.set('');
     void this.router.navigate([], {

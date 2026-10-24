@@ -533,14 +533,14 @@ courriel ou remboursement réel n’a été exécuté.
 L’utilisateur a autorisé cinq adaptations supplémentaires le 24 octobre 2026,
 avec revue, tests locaux et une PR par chantier, sans attendre les CI entre les
 chantiers. Le suivi porte sur **11 adaptations planifiées**, pas sur la totalité
-des fonctions dessinées : **9 réalisées, 2 restantes** à ce stade.
+des fonctions dessinées : **10 réalisées, 1 restante** à ce stade.
 
 | Nº  | Adaptation complémentaire                                    | État                         |
 | --- | ------------------------------------------------------------ | ---------------------------- |
 | 7   | Fiabilité de l’horaire, de la copie et des liens de résultat | Réalisée localement et revue |
 | 8   | Éditeur unique, aperçu à droite et agrandissement            | Réalisée localement et revue |
 | 9   | Actions secondaires contextuelles sans doublon               | Réalisée localement et revue |
-| 10  | Navigation ciblée dans le dossier et la livraison            | En cours                     |
+| 10  | Navigation ciblée dans le dossier et la livraison            | Réalisée localement et revue |
 | 11  | Recette comparative et captures du rendu réel                | À réaliser                   |
 
 Le chantier 7 conserve l’instant serveur exact, secondes et occurrence comprises,
@@ -603,3 +603,25 @@ publication, dont les 12 nouveaux cas contextuels FR/EN et les collections de
 dix JPEG avec leur ordre et leurs empreintes vérifiés avant une seule approbation
 de la version exacte. Le build Angular/SSR, le typage UI, le lint global, le
 format et les contrôles documentaires accompagnent cette validation locale.
+
+Le chantier 10 relie les repères Contenu, Autorisation d’envoi, Publication et
+Preuves à la prestation sociale explicitement choisie. Une source unique peut
+être reconnue ; plusieurs sources ne sont jamais départagées arbitrairement.
+Les liens conservent les UUID du dossier, du brouillon, de la livraison et du
+passage, sans texte privé. Le retour des preuves conserve aussi une source
+historique partagée par deux brouillons, sans substitution par le workflow courant.
+Le propriétaire revalide la correspondance des identifiants.
+
+Les régions disponibles reçoivent le focus après ouverture de la livraison exacte.
+Une région absente selon l’état ou les droits est expliquée dans le tiroir, sans
+action fictive. Le sélecteur utilise le mécanisme Angular prévu pour réappliquer
+sa valeur après chargement des options. Les changements de sélection seuls dans
+le même dossier gardent le contexte de défilement ; le contrôle est mis en vue
+avant la mesure de recette et le seuil de 2 px reste inchangé.
+
+Validation C10 : **112 tests Node ciblés réussis** et **22 scénarios navigateur
+FR/EN réussis**, build Angular de développement/SSR (25 routes), TypeScript,
+typage UI, lint, format, documentation et diff. La revue A a conduit à conserver
+les identifiants historiques de retour et à synchroniser le sélecteur asynchrone ;
+la contre-revue ne relève plus de défaut actionnable. Aucun clic de lecture ne
+prépare, n’approuve ou n’envoie de publication.

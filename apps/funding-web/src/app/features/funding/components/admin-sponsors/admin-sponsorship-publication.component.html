@@ -24,12 +24,13 @@
       <select
         id="publication-journey-target"
         data-og7="publication-journey-target"
-        [value]="selected?.key ?? ''"
+        [ngModel]="selected?.key ?? ''"
+        [ngModelOptions]="{ standalone: true }"
         [disabled]="
           scheduling.loading() || scheduling.busy() || !journeyTargets().length
         "
         aria-describedby="publication-journey-help"
-        (change)="selectJourney($event)"
+        (ngModelChange)="selectJourney($event)"
       >
         <option value="" [disabled]="journeyTargets().length === 1">
           {{
