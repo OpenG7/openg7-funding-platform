@@ -84,6 +84,30 @@ input[type='checkbox'] {
   background: var(--admin-panel-raised);
   border-radius: var(--admin-radius-control);
 }
+.content-context {
+  @apply tw:flex tw:flex-wrap tw:gap-x-6 tw:gap-y-1;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--admin-panel-raised);
+  border-radius: var(--admin-radius-control);
+}
+.content-context p {
+  margin: 0;
+}
+.content-preview {
+  border-top: 1px solid var(--admin-control-border);
+  border-bottom: 1px solid var(--admin-control-border);
+  margin: 0.75rem 0;
+}
+.content-preview + .content-preview {
+  border-top: 0;
+}
+.content-preview .publication-copy {
+  margin: 0.75rem 0;
+}
+.preview-help {
+  font-size: 0.9rem;
+}
 
 h2,
 h3,

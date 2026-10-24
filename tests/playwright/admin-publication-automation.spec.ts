@@ -20,6 +20,7 @@ import {
 } from './publication-image-preview.ui.js';
 import { registerPublicationReliabilityTests } from './publication-reliability.ui.js';
 import { registerPublicationNavigationTests } from './publication-navigation.ui.js';
+import { registerPublicationContentReviewTests } from './publication-content-review.ui.js';
 import {
   blockAdminReviewWrites,
   captureAdminDesign,
@@ -343,6 +344,13 @@ async function fixtures(
   });
   return commands;
 }
+
+registerPublicationContentReviewTests({
+  setup: (page, options = {}) =>
+    fixtures(page, 'draft', options.conflict, [], options.job, {
+      role: options.reader ? 'reader' : undefined
+    })
+});
 
 registerPublicationImagePreviewTests({
   setup: (page, job, media, privateBatchCompose = false) =>
