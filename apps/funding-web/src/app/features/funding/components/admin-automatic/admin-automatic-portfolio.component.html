@@ -5,25 +5,52 @@
 >
   @let state = portfolio.snapshot();
   @let run = state.state?.run;
-  <h2
-    #heading
-    tabindex="-1"
-    [class.portfolio-heading-quiet]="!!run && run.dossierCount > 0"
+  <section
+    id="admin-automatic-records"
+    data-og7="automatic-portfolio-records"
+    [hidden]="view() !== 'records'"
   >
-    {{ t('title') }}
-  </h2>
-  @if (run && run.dossierCount > 0) {
-    <openg7-admin-preparation-carousel [run]="run" />
-  } @else if (run) {
-    <p data-og7="preparation-receipts-empty">{{ t('receipt.empty') }}</p>
-  }
+    <h2
+      #heading
+      tabindex="-1"
+      [class.portfolio-heading-quiet]="!!run && run.dossierCount > 0"
+    >
+      {{ t('title') }}
+    </h2>
+    @if (run && run.dossierCount > 0) {
+      <openg7-admin-preparation-carousel [run]="run" />
+    } @else if (run) {
+      <p data-og7="preparation-receipts-empty">{{ t('receipt.empty') }}</p>
+    } @else {
+      <div class="records-empty" data-og7="preparation-records-empty">
+        <h3>{{ t('receipt.noRunTitle') }}</h3>
+        <p class="quiet">{{ t('receipt.noRunHelp') }}</p>
+        <div class="actions">
+          <a
+            class="admin-button admin-button--primary"
+            routerLink="/admin/fundraiser/sponsors"
+            data-og7="preparation-records-dossiers"
+            >{{ t('receipt.openDossiers') }}</a
+          >
+          <a
+            class="admin-button"
+            routerLink="/admin/fundraiser/campaigns"
+            data-og7="preparation-records-campaigns"
+            >{{ t('receipt.openCampaigns') }}</a
+          >
+        </div>
+      </div>
+    }
+  </section>
   <details
+    id="admin-automatic-batch"
     class="processing-details"
     data-og7="automatic-portfolio-processing"
-    [open]="(!run && !!state.state) || processingExpanded()"
-    (toggle)="toggleProcessing($event)"
+    tabindex="-1"
+    [hidden]="view() !== 'batch'"
+    [open]="processingExpanded()"
   >
-    <summary class="processing-summary">
+    <summary class="processing-summary" (click)="toggleProcessing($event)">
       <span class="processing-heading">
         <span class="processing-symbol" aria-hidden="true">
           <openg7-admin-icon name="search" />

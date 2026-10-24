@@ -61,7 +61,7 @@
       "steps": {
         "obligations": {
           "title": "Lire les obligations",
-          "action": "Lire la synthèse puis suivre son lien vers Campagnes pour comparer les prestations détaillées avec l’accord de commandite enregistré.",
+          "action": "Lire la synthèse puis suivre son lien vers Prestations de services pour comparer les prestations détaillées avec l’accord de commandite enregistré.",
           "outcome": "Le périmètre de préparation est établi à partir des prestations documentées."
         },
         "prepare": {
@@ -107,12 +107,12 @@
     "delivery": {
       "title": "Suivre la livraison et ses preuves",
       "goal": "Comprendre l’état de chaque obligation et consulter les preuves de réalisation disponibles.",
-      "location": "Publication du dossier : synthèse et cartes des canaux ; Campagnes pour le détail des prestations et leurs preuves.",
+      "location": "Publication du dossier : synthèse et cartes des canaux ; espace Prestations de services pour le détail des prestations et leurs preuves.",
       "proposed": "Présenter ensemble le statut, la prochaine responsabilité et la preuve qualifiée de chaque obligation.",
       "steps": {
         "status": {
           "title": "Lire le statut courant",
-          "action": "Lire la synthèse et l’état de la publication associée : attente, programmation, envoi, échec ou réussite. Campagnes présente le détail par prestation.",
+          "action": "Lire la synthèse et l’état de la publication associée : attente, programmation, envoi, échec ou réussite. L’espace Prestations de services présente le détail par prestation.",
           "outcome": "Les faits confirmés sont distingués des opérations en attente, des simulations et des résultats incertains."
         },
         "responsibility": {
@@ -122,7 +122,7 @@
         },
         "evidence": {
           "title": "Consulter la preuve qualifiée",
-          "action": "Ouvrir volontairement Campagnes depuis le lien des prestations de cette commandite pour consulter les preuves qualifiées et les liens de publication disponibles.",
+          "action": "Ouvrir volontairement Prestations de services depuis le lien des prestations de cette commandite pour consulter les preuves qualifiées et les liens de publication disponibles.",
           "outcome": "La réalisation est vérifiable à partir de la preuve enregistrée. Aucun rattachement manuel n’est effectué par ce guide."
         }
       }

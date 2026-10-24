@@ -1111,7 +1111,7 @@ test('the guide reads and reruns compact facts without loading the private sourc
 });
 
 for (const draft of ['source', 'evidence'] as const) {
-  test(`returning to the guide protects unsaved ${draft} before restoring its receipt, position and focus`, async ({
+  test(`returning to the guide protects unsaved ${draft} before restoring its record view, receipt, position and focus`, async ({
     page
   }) => {
     const { fixture, base, receipt } = await fixtures(page);
@@ -1151,11 +1151,32 @@ for (const draft of ['source', 'evidence'] as const) {
     expect(fixture.commands).toEqual([]);
     expect(base.commands).toEqual([]);
 
+    const batchView = page.locator(
+      '[data-og7="automatic-view"][data-og7-id="batch"]'
+    );
+    const recordsView = page.locator(
+      '[data-og7="automatic-view"][data-og7-id="records"]'
+    );
+    if (!(await hook(page, 'admin-guidance-panel').isVisible()))
+      await hook(page, 'admin-guidance-toggle').click();
+    await expect(batchView).toBeVisible();
+    await batchView.click();
+    await expect(batchView).toHaveAttribute('aria-pressed', 'true');
+    await expect(hook(page, 'automatic-portfolio-records')).toBeHidden();
+    await expect(hook(page, 'automatic-portfolio-processing')).toBeVisible();
+    await expect(editor).toHaveValue(unsaved);
+    expect(fixture.commands).toEqual([]);
+    expect(base.commands).toEqual([]);
+    expect(guide.commands).toEqual([]);
+
     const reads = guide.reads.length;
     await hook(page, 'assistance-return').click();
     await expect(confirmation).toBeVisible();
     await hook(page, 'confirm-action').click();
     await expect(page).toHaveURL(/\/admin\/fundraiser\/attention$/);
+    await expect(recordsView).toHaveAttribute('aria-pressed', 'true');
+    await expect(batchView).toHaveAttribute('aria-pressed', 'false');
+    await expect(hook(page, 'automatic-portfolio-processing')).toBeHidden();
     await expect(hook(page, 'preparation-receipt-position')).toHaveText(
       'Record viewed: 2 / 2'
     );

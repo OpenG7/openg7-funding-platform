@@ -1449,7 +1449,7 @@
       "assistant": "Assistant",
       "contributions": "Contributions",
       "sponsors": "Commandites",
-      "campaigns": "Campagnes",
+      "campaigns": "Prestations de services",
       "publications": "Publications",
       "invoices": "Factures",
       "expenses": "Dépenses",
@@ -1590,7 +1590,7 @@
         },
         "campaigns": {
           "read": {
-            "title": "Lire les promesses",
+            "title": "Lire les prestations",
             "body": "Paiements confirmés : prestations à suivre."
           },
           "choose": {
@@ -2992,6 +2992,7 @@
       "approve": "Accepter et programmer",
       "cancel": "Annuler cet envoi",
       "cancelConfirm": "Annuler l’envoi programmé de cette publication ?",
+      "discardChangesConfirm": "Fermer et abandonner les modifications non enregistrées du brouillon ? Pour les conserver, annulez cette fermeture puis enregistrez le brouillon.",
       "externalId": "Identifiant de la publication déjà visible sur le réseau",
       "reconcile": "Vérifier et confirmer la publication",
       "checkVisibility": "Vérifier la visibilité actuelle",

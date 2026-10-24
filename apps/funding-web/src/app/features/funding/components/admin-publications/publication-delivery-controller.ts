@@ -94,6 +94,8 @@ export class PublicationDeliveryController {
   browserTimezone = '';
   private generation = 0;
   private disposed = false;
+  private closePending = false;
+  private compositionBaseline = '';
   private readonly visibilityRequests = new Map<string, string>();
   private readonly activeVisibility = new Set<string>();
 
@@ -156,7 +158,36 @@ export class PublicationDeliveryController {
       publicationFormat: 'collective_text',
       photoSelections: []
     };
+    this.compositionBaseline = this.draftSignature();
     void this.loadMedia();
+  }
+
+  /** Drawer dismissals share this guard; context/session cleanup still uses close(). */
+  async requestClose(): Promise<void> {
+    if (this.disposed || this.busy() || this.closePending) return;
+    if (!this.dirty()) {
+      this.close();
+      return;
+    }
+    const generation = this.generation;
+    const draft = this.draftSignature();
+    this.closePending = true;
+    try {
+      const discard = await this.ports.confirm(
+        this.ports.i18n.t('admin.publicationAutomation.discardChangesConfirm'),
+        this.selected()?.feedId ?? this.composeFeed
+      );
+      if (
+        discard &&
+        !this.disposed &&
+        !this.busy() &&
+        generation === this.generation &&
+        draft === this.draftSignature()
+      )
+        this.close();
+    } finally {
+      this.closePending = false;
+    }
   }
 
   close(): void {
@@ -212,6 +243,8 @@ export class PublicationDeliveryController {
   }
 
   dirty(): boolean {
+    if (this.composing())
+      return this.draftSignature() !== this.compositionBaseline;
     const selected = this.selected();
     return (
       !!selected &&
@@ -521,6 +554,21 @@ export class PublicationDeliveryController {
       this.selected()?.id === selected.id &&
       this.selected()?.version === selected.version
     );
+  }
+
+  private draftSignature(): string {
+    return JSON.stringify([
+      this.selected()?.id,
+      this.selected()?.version,
+      this.composing(),
+      this.composeFeed,
+      this.composeKind,
+      this.edit.message,
+      this.edit.scheduledAt,
+      this.edit.mediaId,
+      this.edit.publicationFormat,
+      this.edit.photoSelections
+    ]);
   }
 
   private localDate(date: string): string {

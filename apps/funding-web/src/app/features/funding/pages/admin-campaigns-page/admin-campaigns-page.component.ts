@@ -2,6 +2,8 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
+  Injector,
   afterNextRender,
   computed,
   effect,
@@ -32,6 +34,7 @@ import { automaticAdminUrl } from '../../components/admin-automatic/admin-automa
 import { AdminCampaignsStore } from '../../services/admin-campaigns-store.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { adminCampaignsDestination } from '../../models/admin-campaigns-navigation.js';
+import { revealControllerFocus } from '../../components/admin-controller/admin-controller-navigation.js';
 
 import { groupCampaignRows } from './admin-campaigns-controller.js';
 
@@ -68,6 +71,8 @@ export class AdminCampaignsPageComponent {
   readonly i18n = inject(FundingI18nService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
   private readonly params = toSignal(this.route.queryParamMap, {
     initialValue: this.route.snapshot.queryParamMap
   });
@@ -199,6 +204,30 @@ export class AdminCampaignsPageComponent {
     )
       return;
     void this.c.load({ ...this.c.query(), page: pagination.page + delta });
+  }
+
+  select(row: AdminCampaignItem): void {
+    this.c.select(row);
+    afterNextRender(
+      () => {
+        if (this.c.selected()?.id !== row.id) return;
+        const heading = this.element.nativeElement.querySelector<HTMLElement>(
+          '[data-og7="campaign-detail-heading"]'
+        );
+        if (heading) revealControllerFocus(heading);
+      },
+      { injector: this.injector }
+    );
+  }
+
+  returnToList(): void {
+    const selectedId = this.c.selectedId();
+    const row = Array.from(
+      this.element.nativeElement.querySelectorAll<HTMLElement>(
+        '[data-og7="campaign-row"]'
+      )
+    ).find((item) => item.getAttribute('data-og7-id') === selectedId);
+    if (row) revealControllerFocus(row);
   }
 
   date(value: string | null | undefined): string {

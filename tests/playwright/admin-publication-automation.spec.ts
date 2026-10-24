@@ -9,6 +9,10 @@ import type {
 } from '@openg7/funding-core';
 
 import { test, expect } from './support/test.js';
+import {
+  adminController,
+  installAdminController
+} from './support/admin-controller.js';
 import { moderationFixture, completeModeration } from './support/moderation.js';
 import {
   registerPublicationImagePreviewTests,
@@ -1546,6 +1550,85 @@ for (const role of ['reader', 'operator'] as const) {
     expect(commands).toHaveLength(0);
   });
 }
+for (const language of ['fr-CA', 'en']) {
+  for (const composing of [false, true]) {
+    test(`unsaved ${composing ? 'composition' : 'delivery edits'} survive X, Escape and Gamepad B until discard is confirmed in ${language}`, async ({
+      page
+    }) => {
+      const commands = await fixtures(page);
+      await installAdminController(page);
+      await page.addInitScript(
+        (locale) => localStorage.setItem('openg7.language', locale),
+        language
+      );
+      await page.goto('/admin/fundraiser/publications/automation');
+      const english = language === 'en';
+      const trigger = composing
+        ? page.getByRole('button', {
+            name: english ? 'New publication' : 'Nouvelle publication',
+            exact: true
+          })
+        : page.locator(`[data-og7-id="${initialJob.id}"]`);
+      await trigger.click();
+      const dialog = page.getByRole('dialog', {
+        name: english ? 'Final publication' : 'Publication finale',
+        exact: true
+      });
+      if (!composing)
+        await dialog
+          .getByRole('button', {
+            name: english ? 'Edit' : 'Modifier',
+            exact: true
+          })
+          .click();
+      const text = dialog.locator('textarea[name="message"]');
+      const draft = 'Synthetic unsaved publication for exit protection.';
+      await text.fill(draft);
+      const confirmation = page.getByRole('dialog').filter({
+        has: page.locator('[data-og7="confirm-action"]')
+      });
+      await dialog
+        .getByRole('button', {
+          name: english ? 'Close' : 'Fermer',
+          exact: true
+        })
+        .first()
+        .click();
+      await expect(confirmation).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(confirmation).toBeHidden();
+      await expect(text).toHaveValue(draft);
+
+      await page.keyboard.press('Escape');
+      await expect(confirmation).toBeVisible();
+      await confirmation
+        .getByRole('button', {
+          name: english ? 'Cancel' : 'Annuler',
+          exact: true
+        })
+        .last()
+        .click();
+      await expect(confirmation).toBeHidden();
+      await expect(text).toHaveValue(draft);
+      const xbox = adminController(page);
+      await xbox.press('B');
+      await expect(confirmation).toBeVisible();
+      await xbox.press('B');
+      await expect(confirmation).toBeHidden();
+      await expect(text).toHaveValue(draft);
+      expect(commands).toEqual([]);
+
+      await page.keyboard.press('Escape');
+      await expect(confirmation).toBeVisible();
+      await confirmation.locator('[data-og7="confirm-action"]').click();
+      await expect(dialog).toBeHidden();
+      await expect(confirmation).toBeHidden();
+      await expect(trigger).toBeFocused();
+      expect(commands).toEqual([]);
+    });
+  }
+}
+
 test('approves the exact destination and version only after an explicit decision; edits revoke approval', async ({
   page
 }) => {

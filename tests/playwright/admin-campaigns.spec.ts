@@ -351,7 +351,7 @@ test('campaigns show approved preparation first and upcoming promises without se
   const response = await page.goto(path);
   expect(response?.status()).toBe(200);
   await expect(
-    page.getByRole('heading', { name: 'Campagnes', exact: true })
+    page.getByRole('heading', { name: 'Prestations de services', exact: true })
   ).toBeVisible();
   await expect(hook(page, 'campaign-row')).toHaveCount(4);
   expect(fixture.queries[0]?.get('sort')).toBe('preparation');
@@ -1146,8 +1146,8 @@ test('a role change outside campaigns purges its view and a late old refusal can
 });
 
 for (const { language, width, title } of [
-  { language: 'fr-CA', width: 1440, title: 'Campagnes' },
-  { language: 'en', width: 375, title: 'Campaigns' }
+  { language: 'fr-CA', width: 1440, title: 'Prestations de services' },
+  { language: 'en', width: 375, title: 'Service fulfilment' }
 ]) {
   test(`campaigns remain accessible in ${language} at ${width}px with keyboard selection`, async ({
     page
@@ -1194,6 +1194,189 @@ for (const { language, width, title } of [
     ).toBe(true);
     expect(fixture.mutations).toEqual([]);
   });
+}
+
+for (const language of ['fr-CA', 'en'] as const) {
+  for (const viewport of [
+    { width: 1536, height: 864 },
+    { width: 390, height: 844 }
+  ]) {
+    test(`service detail preserves its selected row and filters on return in ${language} at ${viewport.width}px`, async ({
+      page
+    }, testInfo) => {
+      const fixture = await fixtures(page, language);
+      const original = fixture.rows[0]!;
+      fixture.rows[0] = {
+        ...original,
+        channel: 'linkedin',
+        target: 'openg20',
+        workflow: {
+          ...original.workflow,
+          channel: 'linkedin',
+          target: 'openg20',
+          responsibility: 'platform',
+          state: 'waiting',
+          reason: 'publication_scheduled',
+          deliveryId: 'synthetic-current-delivery',
+          scheduledAt: '2026-10-24T14:00:00Z'
+        }
+      };
+      const current = preparation(fixture.rows[0]);
+      fixture.receipts.set(approvedId, {
+        ...current,
+        acceptedOffer: {
+          version: 'synthetic-recorded-terms',
+          amountMinor: 50000,
+          currency: 'CAD',
+          benefits: [
+            {
+              id: 'linkedin_batch',
+              channel: 'linkedin',
+              target: 'openg20',
+              quantity: 2,
+              format: 'collective_text',
+              requiredElements: ['company_name', 'approved_presentation'],
+              deadlineDays: null,
+              durationDays: null
+            }
+          ]
+        },
+        checks: [
+          { code: 'payment_confirmed', state: 'complete' },
+          { code: 'accepted_offer', state: 'complete' },
+          { code: 'content_prepared', state: 'complete' }
+        ],
+        authorizations: [
+          { code: 'public_consent', state: 'complete' },
+          { code: 'sponsor_review', state: 'complete' },
+          { code: 'moderation_review', state: 'complete' }
+        ],
+        drafts: [
+          {
+            id: 'synthetic-linkedin-draft',
+            kind: 'publication',
+            version: 'synthetic-recorded-content',
+            title: 'Projet local',
+            body: 'Contenu synthétique à autoriser.',
+            disclosureText: 'Mention de commandite synthétique.',
+            channel: 'linkedin',
+            target: 'openg20',
+            status: 'draft',
+            adminUrl: `/admin/fundraiser/publications/drafts?sponsorshipId=${approvedId}`
+          }
+        ]
+      });
+      await page.setViewportSize(viewport);
+      await page.goto(path);
+      await expect(hook(page, 'campaign-row')).toHaveCount(4);
+      await hook(page, 'campaigns-search').fill('Atelier');
+      await hook(page, 'campaigns-sort').selectOption('paid_at');
+      await hook(page, 'campaigns-apply').click();
+      await expect
+        .poll(() => fixture.queries.at(-1)?.get('sort'))
+        .toBe('paid_at');
+      const readsBeforeSelection = fixture.queries.length;
+      const selected = hook(page, 'campaign-row').first();
+      await selected.focus();
+      await page.keyboard.press('Enter');
+      await expect(hook(page, 'campaign-detail-heading')).toBeFocused();
+      await expect(selected).toHaveAttribute('aria-pressed', 'true');
+      await expect(hook(page, 'campaign-content-preview')).toContainText(
+        'Contenu synthétique à autoriser.'
+      );
+      const detail = hook(page, 'campaign-detail');
+      await expect(detail).toContainText('LinkedIn · OpenG20');
+      await expect(hook(page, 'campaign-next-step')).toContainText(
+        language === 'en'
+          ? 'Next intervention: platform.'
+          : 'Prochaine intervention : plateforme.'
+      );
+      await expect(
+        hook(page, 'campaign-next-step').getByRole('link')
+      ).toHaveCount(1);
+      await expect(hook(page, 'campaign-open-delivery')).toHaveAttribute(
+        'href',
+        `/admin/fundraiser/publications/automation?sponsorshipId=${approvedId}&deliveryId=synthetic-current-delivery`
+      );
+      await expect(
+        hook(page, 'campaign-content-preview').getByRole('img')
+      ).toHaveCount(0);
+      await expect.poll(() => fixture.preparations).toContain(approvedId);
+      await hook(page, 'campaign-return-list').click();
+      await expect(selected).toBeFocused();
+      await expect(selected).toHaveAttribute('aria-pressed', 'true');
+      await expect(hook(page, 'campaigns-search')).toHaveValue('Atelier');
+      await expect(hook(page, 'campaigns-sort')).toHaveValue('paid_at');
+      expect(fixture.queries).toHaveLength(readsBeforeSelection);
+      expect(fixture.mutations).toEqual([]);
+      await page.keyboard.press('Enter');
+      await expect(hook(page, 'campaign-detail-heading')).toBeFocused();
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= window.innerWidth + 1
+        )
+      ).toBe(true);
+      await detail.screenshot({
+        path: testInfo.outputPath(
+          `service-detail-${language}-${viewport.width}.png`
+        ),
+        animations: 'disabled'
+      });
+    });
+  }
+}
+
+for (const language of ['fr-CA', 'en']) {
+  for (const hasDelivery of [false, true]) {
+    test(`preparation approval keeps the sole primary action before ${hasDelivery ? 'delivery review' : 'opening its owner'} in ${language}`, async ({
+      page
+    }) => {
+      const fixture = await fixtures(page, language);
+      fixture.identity.role = 'operator';
+      fixture.allowPreparationApproval = true;
+      const row = fixture.rows[0]!;
+      fixture.rows[0] = {
+        ...row,
+        workflow: {
+          ...row.workflow,
+          deliveryId: hasDelivery ? 'synthetic-selected-delivery' : null
+        }
+      };
+      // The detail's fresh receipt can supersede the list snapshot's approval.
+      fixture.receipts.set(row.contributionId, {
+        ...preparation(row),
+        status: 'ready',
+        canApprove: true
+      });
+      await page.goto(path);
+      await hook(page, 'campaign-row').first().click();
+      const approve = hook(page, 'campaign-preparation').locator(
+        '[data-og7="preparation-receipt-approve"]'
+      );
+      await expect(approve).toBeEnabled();
+      const primaryColor = await hook(page, 'campaigns-apply').evaluate(
+        (element) => getComputedStyle(element).backgroundColor
+      );
+      const secondaryColor = await hook(page, 'campaign-return-list').evaluate(
+        (element) => getComputedStyle(element).backgroundColor
+      );
+      await expect(approve).not.toHaveCSS('background-color', secondaryColor);
+      const owner = hook(page, 'campaign-open-owner');
+      await expect(owner).toHaveCSS('background-color', secondaryColor);
+      const next = hasDelivery ? hook(page, 'campaign-open-delivery') : owner;
+      if (hasDelivery)
+        await expect(next).toHaveCSS('background-color', secondaryColor);
+      expect(fixture.mutations).toEqual([]);
+
+      await approve.click();
+      await hook(page, 'confirm-action').click();
+      await expect(approve).toBeHidden();
+      await expect(next).toHaveCSS('background-color', primaryColor);
+      expect(fixture.mutations).toEqual([
+        'POST /api/admin/sponsorships/preparation/approve'
+      ]);
+    });
+  }
 }
 
 test('campaigns require a session and preserve their return destination', async ({

@@ -237,6 +237,18 @@ export class AdminPreparationReceiptComponent {
     return channels.filter((channel) => recorded.has(channel));
   }
 
+  preparationSummaryWithoutDestination(
+    receipt: AdminPreparationReceiptData
+  ): string {
+    const notRequired = receipt.checks.some(
+      (check) =>
+        check.code === 'content_prepared' && check.state === 'not_required'
+    );
+    return this.t(
+      notRequired ? 'checkStates.not_required' : 'ticket.destinationsUnknown'
+    );
+  }
+
   authorizationState(
     receipt: AdminPreparationReceiptData
   ): AdminPreparationCheck['state'] {

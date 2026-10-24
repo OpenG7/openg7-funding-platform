@@ -1,4 +1,4 @@
-# Campagnes et prestations promises
+# Prestations de services
 
 La rubrique `/admin/fundraiser/campaigns`, accessible depuis le menu administratif,
 regroupe les prestations enregistrées pour les achats de commandite confirmés.
@@ -9,10 +9,11 @@ publication et ne confirme aucun paiement.
 
 ## Vocabulaire des opérations
 
-Ces termes sont communs au Guide, aux dossiers de commandite et à Campagnes.
-Le menu et le titre **Campagnes** désignent le suivi des prestations promises ;
-ils ne désignent pas un regroupement éditorial ayant son propre objectif ou sa
-propre période.
+Ces termes sont communs au Guide, aux dossiers de commandite et à la rubrique
+**Prestations de services**. Ce nom remplace le libellé **Campagnes** dans le menu
+et le titre ; la route `/admin/fundraiser/campaigns` reste stable. L’espace suit
+les prestations promises, sans créer un regroupement éditorial ayant son propre
+objectif ou sa propre période.
 Les clés de traduction, identifiants et états des contrats techniques restent
 stables ; les libellés précisent leur sens dans l'interface.
 
@@ -72,7 +73,7 @@ identifiants techniques restent explicites lorsqu'ils diffèrent.
 | File de courriels | Suivre les messages réels et leur issue dans le parcours existant ; une mise en file ne prouve pas la réception. |
 | Factures et avoirs | Consulter les pièces d'une contribution dans la rubrique **Factures** ; ouvrir une pièce n'en émet pas une nouvelle. |
 | À traiter | Identifier et examiner un incident administratif avec son type et sa cible ; distinct du registre des dossiers. |
-| Suivi des prestations promises | Parcours de la rubrique **Campagnes** ; sélectionner une prestation ne limite pas à celle-ci l'approbation de préparation du dossier. |
+| Suivi des prestations promises | Parcours de la rubrique **Prestations de services** ; sélectionner une prestation ne limite pas à celle-ci l'approbation de préparation du dossier. |
 | Qualité des commandites | Consultations de portefeuille réservées au propriétaire : inventaire d'adoption et audit historique ; chaque chargement reste explicite. |
 
 **Accord de commandite** reste réservé aux conditions commerciales. Les décisions
@@ -106,7 +107,7 @@ les obligations courantes ni une preuve de livraison. Les six repères **Offre �
 Préparation → Contenu → Autorisation → Livraison → Preuve** rejoignent les
 organismes et écrans existants. Contenu et autorisation partagent les cartes
 du dossier puis le tiroir de la livraison exacte ; aucun brouillon n'est choisi
-arbitrairement. Automatisation et Campagnes restent filtrées par dossier.
+arbitrairement. Automatisation et Prestations de services restent filtrées par dossier.
 La version courante de l'accord et la version commerciale de l'offre sont
 distinctes de la version de préparation et d'une preuve historique.
 
@@ -148,7 +149,7 @@ réalisation. La vérification de réalisation Web ne garantit pas une lecture H
 de la page publique. La version historique de l'accord associée à la preuve n'est
 pas renseignée par le contrat actuel ; aucune version courante ne lui est substituée.
 
-Dans l'accord du dossier, une référence qualifiée ouvre Campagnes avec le dossier
+Dans l'accord du dossier, une référence qualifiée ouvre Prestations de services avec le dossier
 et la prestation exacts. Une référence historique non qualifiée reste du texte,
 sans lien présentant une livraison comme confirmée. Le lien et l'état livré
 exigent aussi la même prestation, version, destination et référence de preuve
@@ -160,10 +161,10 @@ non confirmée jusqu'au rafraîchissement.
 ## Entrée contextuelle et détails de l'accord
 
 Le volet **Détails de l'accord de commandite et traçabilité** de la fiche partagée est réservé à
-Campagnes (`detailsMode="inline"`). Il reste replié et conserve les clauses de
+Prestations de services (`detailsMode="inline"`). Il reste replié et conserve les clauses de
 l'offre, la date de paiement, les états de brouillons, le bilan et la version
 complète du dossier. Commandites masque ce volet et sa commande (`hidden`). Le
-Guide remplace cette commande par **Voir les prestations dans Campagnes**
+Guide remplace cette commande par **Voir les prestations de ce dossier**
 (`campaigns`). La qualification de l'accord d'origine dans Commandites, la
 relecture du contenu, l'approbation et son historique restent disponibles.
 
@@ -180,7 +181,7 @@ de l'ancienne page ou des filtres mémorisés. Une cible absente ou appartenant 
 un autre dossier renvoie zéro ligne. Des identifiants malformés, répétés ou une
 obligation sans dossier produisent un état d'entrée invalide, sans repli vers
 tous les dossiers. Un repère annonce le périmètre ciblé ; l'action de retour à
-toutes les campagnes retire explicitement ces identifiants et réinitialise la
+toutes les prestations retire explicitement ces identifiants et réinitialise la
 requête ciblée. Ce contexte n'accorde aucun droit supplémentaire.
 
 ## État de navigation et actualisation
@@ -188,14 +189,14 @@ requête ciblée. Ce contexte n'accorde aucun droit supplémentaire.
 La route fournit la feature NgRx `adminCampaigns` et sa
 [façade de lecture](../../apps/funding-web/src/app/features/funding/services/admin-campaigns-store.service.ts).
 Le store conserve en mémoire la requête appliquée, sa page, la sélection et le
-dernier résultat serveur pendant la session de navigation. Quitter Campagnes
+dernier résultat serveur pendant la session de navigation. Quitter Prestations de services
 annule la lecture en cours. Revenir dans la même session reconstruit la page
 avec la requête conservée et effectue une nouvelle lecture API ; la sélection
 est rétablie si son obligation appartient encore à la réponse. Les saisies de
 filtres non appliquées restent locales à la page et ne remplacent pas la requête.
 
 La façade observe les mutations administratives confirmées par le transport API,
-y compris lorsque Campagnes est fermée. Elle invalide alors les données en
+y compris lorsque Prestations de services est fermée. Elle invalide alors les données en
 conservant requête et sélection : la page active recharge immédiatement ; une
 page fermée attend sa prochaine ouverture. Une approbation de préparation ne
 modifie donc pas optimistement la liste ; celle-ci attend la réponse actualisée
