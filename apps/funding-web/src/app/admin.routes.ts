@@ -9,6 +9,7 @@ import { AdminCampaignsStore } from './features/funding/services/admin-campaigns
 import { adminCampaignsFeature } from './features/funding/services/admin-campaigns.store.js';
 import { FundingAdminService } from './features/funding/services/funding-admin.service.js';
 import { FundingI18nService } from './features/funding/services/funding-i18n.service.js';
+import { adminPublicationNavigationGuard } from './features/funding/services/admin-publication-navigation.service.js';
 
 /** Register once per application, before an administrative page or auth guard. */
 @Injectable({ providedIn: 'root' })
@@ -120,6 +121,8 @@ export const adminRoutes: Routes = [
   {
     path: 'fundraiser/sponsors',
     canMatch: [adminSessionRequired],
+    canDeactivate: [adminPublicationNavigationGuard],
+    runGuardsAndResolvers: 'paramsOrQueryParamsChange',
     loadComponent: () =>
       import('./features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.js').then(
         (m) => m.AdminSponsorsPageComponent
@@ -153,6 +156,8 @@ export const adminRoutes: Routes = [
     children: [
       {
         path: 'automation',
+        canDeactivate: [adminPublicationNavigationGuard],
+        runGuardsAndResolvers: 'paramsOrQueryParamsChange',
         loadComponent: () =>
           import('./features/funding/pages/admin-publication-automation-page/admin-publication-automation-page.component.js').then(
             (m) => m.AdminPublicationAutomationPageComponent
