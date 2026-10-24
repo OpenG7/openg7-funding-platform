@@ -533,13 +533,13 @@ courriel ou remboursement réel n’a été exécuté.
 L’utilisateur a autorisé cinq adaptations supplémentaires le 24 octobre 2026,
 avec revue, tests locaux et une PR par chantier, sans attendre les CI entre les
 chantiers. Le suivi porte sur **11 adaptations planifiées**, pas sur la totalité
-des fonctions dessinées : **8 réalisées, 3 restantes** à ce stade.
+des fonctions dessinées : **9 réalisées, 2 restantes** à ce stade.
 
 | Nº  | Adaptation complémentaire                                    | État                         |
 | --- | ------------------------------------------------------------ | ---------------------------- |
 | 7   | Fiabilité de l’horaire, de la copie et des liens de résultat | Réalisée localement et revue |
 | 8   | Éditeur unique, aperçu à droite et agrandissement            | Réalisée localement et revue |
-| 9   | Actions secondaires contextuelles sans doublon               | En cours                     |
+| 9   | Actions secondaires contextuelles sans doublon               | Réalisée localement et revue |
 | 10  | Navigation ciblée dans le dossier et la livraison            | En cours                     |
 | 11  | Recette comparative et captures du rendu réel                | À réaliser                   |
 
@@ -584,3 +584,22 @@ La régression complète du fichier de publication passe également : **152 scé
 navigateur réussis**, incluant les 44 cas ciblés ci-dessus. Les anciennes recettes
 de reprise incertaine utilisent une livraison réelle synthétique lorsqu’elles
 vérifient un lien public confirmé ; les cas de simulation vérifient son absence.
+
+Le chantier 9 regroupe les commandes secondaires de la livraison dans un
+disclosure contextuel natif. La correction expose une sauvegarde principale ;
+l’autorisation reste dans la revue enregistrée. Un retour sans sauvegarde exige
+des champs inchangés et rétablit le focus dans la revue. Le tiroir laisse Tab
+suivre l’ordre natif depuis ses régions de lecture programmatiquement focalisées.
+Les versions, décisions de modération et confirmations appartiennent toujours
+aux mêmes contrôleurs. Le lecteur ne reçoit aucun menu de mutation.
+
+B ou Échap replie d’abord le panneau de commandes actif ; le retour au neutre
+reste obligatoire avant de quitter le tiroir. Les confirmations supérieures
+gardent leur priorité. Revue indépendante B du regroupement et revue A des deltas
+de focus/manette : aucun défaut actionnable restant après correction.
+
+Validation C9 : **164 scénarios navigateur réussis** sur le fichier complet de
+publication, dont les 12 nouveaux cas contextuels FR/EN et les collections de
+dix JPEG avec leur ordre et leurs empreintes vérifiés avant une seule approbation
+de la version exacte. Le build Angular/SSR, le typage UI, le lint global, le
+format et les contrôles documentaires accompagnent cette validation locale.
