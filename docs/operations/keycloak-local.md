@@ -13,6 +13,40 @@ surcharge locale décrits ici appartiennent uniquement au développement.
 Les [tests d'identité](admin-identity-and-alerts.md#recette-des-accès-administrateurs)
 avec un fournisseur OIDC simulé ne remplacent pas ce démarrage Keycloak.
 
+## Recompilation Web avec API Docker
+
+Quand la pile HTTPS locale est déjà démarrée, arrêter le serveur Angular existant
+sur `4200`, puis lancer depuis la racine :
+
+```powershell
+yarn dev:web:docker
+```
+
+Ouvrir **https://localhost** : Traefik transmet les pages et le WebSocket de
+recompilation à Angular sur `127.0.0.1:4200`; `/api` continue vers l'API Docker.
+Les sauvegardes sont surveillées toutes les secondes. L'origine HTTPS, les
+cookies sécurisés, les contrôles d'origine et le callback Keycloak sont conservés.
+Le Web compilé reste accessible sur `http://localhost:8080`.
+
+Cette commande exige le profil local préparé, l'origine exacte `https://localhost`,
+les certificats existants valides et Docker Desktop capable de joindre
+`host.docker.internal`. Elle vérifie cette connexion avant de modifier uniquement
+le fichier ignoré `traefik/local/dynamic.yml`. Un fichier vide temporaire dans le
+répertoire surveillé de Traefik déclenche sa relecture sous Docker Desktop.
+Elle démarre seulement Angular, sans redémarrer de conteneur ni modifier de
+schéma, paramètre d'identité ou fichier de production.
+Ne pas relancer `docker:up` ou régénérer le profil HTTPS pendant la session.
+
+`Ctrl+C` arrête Angular et restaure le routage du Web Docker. Après un arrêt brutal,
+exécuter `yarn dev:web:docker --restore` avant de relancer. La sauvegarde locale
+est conservée pour revue si les routes ont été modifiées entre-temps.
+
+L'adresse directe `http://localhost:4200` dispose aussi d'un proxy `/api` vers
+`http://127.0.0.1:8080`, décrit par
+[proxy.docker.conf.json](../../apps/funding-web/proxy.docker.conf.json).
+Utiliser `https://localhost` pour l'administration : le port `4200` seul ne
+correspond pas à l'origine autorisée ni au retour de connexion configuré.
+
 ## Connexion locale sans double facteur
 
 Pour conserver les comptes personnels Keycloak avec seulement le nom

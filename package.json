@@ -21,6 +21,7 @@
     "menu": "node scripts/menu.mjs",
     "dev": "concurrently \"yarn dev:api\" \"yarn dev:web\"",
     "dev:web": "yarn workspace @openg7/funding-web start --proxy-config apps/funding-web/proxy.conf.json",
+    "dev:web:docker": "node scripts/dev-web-docker.mjs",
     "dev:api": "yarn workspace @openg7/funding-api start",
     "docker:up": "node scripts/docker-up.mjs",
     "docker:up:dev": "node scripts/docker-up.mjs --environment local",
