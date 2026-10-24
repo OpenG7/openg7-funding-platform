@@ -562,9 +562,6 @@ test('lost social responses survive restart and recover through verified reconci
         await expect(dialog.getByRole('alert')).toBeVisible();
         expect((await delivery(job.id)).status).toBe('uncertain');
         await dialog
-          .locator('[data-og7="publication-more-actions"] > summary')
-          .click();
-        await dialog
           .getByLabel(
             'Identifiant de la publication déjà visible sur le réseau'
           )
@@ -678,6 +675,9 @@ test('lost social responses survive restart and recover through verified reconci
           path: info.outputPath(job.feedId.split(':')[1] + '-unverified.png')
         });
         expect((await delivery(job.id)).status).toBe('uncertain');
+        await dialog
+          .locator('[data-og7="publication-more-actions"] > summary')
+          .click();
         await dialog
           .getByText('Après vérification : la publication est absente', {
             exact: true
