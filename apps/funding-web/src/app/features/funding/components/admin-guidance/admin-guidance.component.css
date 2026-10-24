@@ -303,7 +303,9 @@ p {
     font-size: 1rem;
   }
   .open .window-actions {
-    justify-content: flex-start;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
   }
   .open .guidance-bar .admin-button {
     padding: 0.45rem 0.6rem;
