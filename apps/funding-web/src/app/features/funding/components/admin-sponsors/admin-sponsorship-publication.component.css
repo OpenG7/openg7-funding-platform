@@ -89,6 +89,7 @@ footer {
   min-height: 2.75rem;
   min-width: 0;
   width: 100%;
+  white-space: normal;
   padding: 0.5rem;
   color: var(--admin-text);
   background: var(--admin-panel);

@@ -844,11 +844,50 @@ export function registerDossierPublicationScheduleTests(
           await expect(selector).toHaveValue(secondDraftId);
           await expect(page.getByRole('dialog')).toHaveCount(0);
           await expect(guide).not.toContainText('admin.dossier.');
-          expect(
-            await page.evaluate(
-              () => document.documentElement.scrollWidth <= innerWidth + 1
+          const horizontalLayout = await page.evaluate(() => ({
+            viewport: innerWidth,
+            documentWidth: document.documentElement.scrollWidth,
+            overflowing: Array.from(
+              document.querySelectorAll<HTMLElement>('body *')
             )
-          ).toBe(true);
+              .filter((element) => element.getClientRects().length > 0)
+              .map((element) => {
+                const bounds = element.getBoundingClientRect();
+                const style = getComputedStyle(element);
+                return {
+                  tag: element.tagName,
+                  hook: element.getAttribute('data-og7'),
+                  id: element.id,
+                  classes: element.getAttribute('class'),
+                  left: bounds.left,
+                  right: bounds.right,
+                  width: bounds.width,
+                  clientWidth: element.clientWidth,
+                  scrollWidth: element.scrollWidth,
+                  minWidth: style.minWidth,
+                  gridColumns: style.gridTemplateColumns,
+                  overflowX: style.overflowX,
+                  whiteSpace: style.whiteSpace
+                };
+              })
+              .filter(
+                (element) =>
+                  element.hook === 'publication-journey-target' ||
+                  element.left < -1 ||
+                  element.right > innerWidth + 1 ||
+                  element.scrollWidth > element.clientWidth + 1
+              )
+              .sort((a, b) => b.right - a.right)
+              .slice(0, 20)
+          }));
+          await test.info().attach('publication-horizontal-layout', {
+            body: JSON.stringify(horizontalLayout, null, 2),
+            contentType: 'application/json'
+          });
+          expect(
+            horizontalLayout.documentWidth,
+            JSON.stringify(horizontalLayout, null, 2)
+          ).toBeLessThanOrEqual(horizontalLayout.viewport + 1);
           expect(
             (
               await new AxeBuilder({ page })
