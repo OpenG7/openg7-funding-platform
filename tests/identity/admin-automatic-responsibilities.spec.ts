@@ -10,7 +10,14 @@ const route = '/admin/fundraiser/attention';
 const hook = (page: Page, name: string) =>
   page.locator(`[data-og7="automatic-portfolio-${name}"]`);
 
+async function openBatch(page: Page) {
+  const view = page.locator('[data-og7="automatic-view"][data-og7-id="batch"]');
+  await view.click();
+  await expect(view).toHaveAttribute('aria-pressed', 'true');
+}
+
 async function openReport(page: Page) {
+  await openBatch(page);
   const processing = hook(page, 'processing');
   await expect(processing).toBeVisible();
   if ((await processing.getAttribute('open')) === null)
@@ -115,6 +122,7 @@ test('automatic responsibilities traverse confirmed payments and retain a dated 
       expect((await read()).run).toBeNull();
       await page.locator('[data-og7="admin-guidance-toggle"]').click();
       await page.locator('[data-og7="admin-guidance-automatic-mode"]').click();
+      await openBatch(page);
       await expect(hook(page, 'state')).toHaveAttribute(
         'data-og7-id',
         'review'
@@ -188,8 +196,8 @@ test('automatic responsibilities traverse confirmed payments and retain a dated 
         'data-og7-id',
         'completed'
       );
-      // Reload returns to the compact receipt. Open its processing panel through
-      // the visible disclosure before reading the nested durable report.
+      // Reload returns to Records. Choosing Batch tracking only reads the
+      // existing report; it never starts another passage or acknowledges it.
       await expect(hook(page, 'processing')).toHaveJSProperty('open', false);
       await openReport(page);
       await expect(hook(page, 'report-entry')).toHaveCount(2);

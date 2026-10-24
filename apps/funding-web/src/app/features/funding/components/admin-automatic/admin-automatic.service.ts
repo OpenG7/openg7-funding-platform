@@ -54,6 +54,7 @@ export class AdminAutomaticService {
   });
   readonly reveal = signal<{ sequence: number; target: string } | null>(null);
   readonly selection = signal('');
+  readonly preparationView = signal<'records' | 'batch' | 'other'>('records');
   readonly lastPreparation = signal<string | null>(null);
   private readonly domRevision = signal(0);
   readonly active = computed(
@@ -244,6 +245,7 @@ export class AdminAutomaticService {
     this.run.clear();
     this.scope = null;
     this.selection.set('');
+    this.preparationView.set('records');
     this.lastPreparation.set(null);
     this.runIdentity = '';
     this.reveal.set(null);

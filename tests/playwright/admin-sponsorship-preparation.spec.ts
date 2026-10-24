@@ -525,6 +525,61 @@ for (const language of ['fr-CA', 'en']) {
   }
 }
 
+for (const language of ['fr-CA', 'en']) {
+  test(`a missing agreement is not presented as preparation being unnecessary in ${language}`, async ({
+    page
+  }) => {
+    const f = await fixture(page, language);
+    const current = f.receipts.get(firstId)!;
+    f.receipts.set(firstId, {
+      ...current,
+      acceptedOffer: null,
+      drafts: [],
+      canApprove: false,
+      status: 'incomplete',
+      checks: current.checks.map((check) =>
+        check.code === 'accepted_offer' || check.code === 'content_prepared'
+          ? { ...check, state: 'missing' }
+          : check
+      ),
+      blockers: [{ code: 'commitment_needs_confirmation', adminUrl: path() }]
+    });
+    await page.goto(path());
+    const summary = card(page).locator(
+      '[data-og7="preparation-receipt-no-destination"]'
+    );
+    await expect(summary).toContainText(
+      language === 'en'
+        ? 'Services to be determined'
+        : 'Prestations à déterminer'
+    );
+    await expect(summary).not.toContainText(
+      language === 'en' ? 'Not required' : 'Non requis'
+    );
+
+    const updated = f.receipts.get(firstId)!;
+    f.receipts.set(firstId, {
+      ...updated,
+      version: 'synthetic-explicitly-not-required',
+      checks: updated.checks.map((check) =>
+        check.code === 'content_prepared'
+          ? { ...check, state: 'not_required' }
+          : check
+      )
+    });
+    await hook(page, 'refresh').click();
+    await expect(summary).toContainText(
+      language === 'en' ? 'Not required' : 'Non requis'
+    );
+    await expect(summary).not.toContainText(
+      language === 'en'
+        ? 'Services to be determined'
+        : 'Prestations à déterminer'
+    );
+    expect(f.writes).toEqual([]);
+  });
+}
+
 test('the current sponsorship preparation stays in Publication with its offer and private content while agreement traceability belongs to Campaigns', async ({
   page
 }) => {

@@ -262,7 +262,7 @@
                       [attr.data-og7-id]="row.id"
                       [attr.aria-pressed]="c.selectedId() === row.id"
                       aria-controls="campaign-detail"
-                      (click)="c.select(row)"
+                      (click)="select(row)"
                     >
                       <span class="promise-cell">
                         @if (!grouped()) {
@@ -401,7 +401,9 @@
               <p class="eyebrow">
                 {{ t('detail.title') }} · {{ row.reference }}
               </p>
-              <h2>{{ row.companyName || t('unnamedSponsor') }}</h2>
+              <h2 data-og7="campaign-detail-heading" tabindex="-1">
+                {{ row.companyName || t('unnamedSponsor') }}
+              </h2>
               <p class="muted">
                 {{ t('channels.' + row.channel) }} ·
                 {{ t('targets.' + row.target) }} ·
@@ -410,10 +412,56 @@
                 }}
               </p>
             </div>
-            <a class="admin-button" [routerLink]="ownerUrl(row)"
-              ><openg7-admin-icon name="arrow" />{{ t('detail.openOwner') }}</a
-            >
+            <div class="detail-navigation">
+              <button
+                type="button"
+                class="admin-button"
+                data-og7="campaign-return-list"
+                (click)="returnToList()"
+              >
+                {{ t('detail.backToList') }}
+              </button>
+              <a
+                class="admin-button"
+                [class.admin-button--primary]="
+                  !row.workflow.deliveryId &&
+                  row.workflow.responsibility === 'admin' &&
+                  !preparationPanel.canApprove() &&
+                  !preparationPanel.approving()
+                "
+                [routerLink]="ownerUrl(row)"
+                data-og7="campaign-open-owner"
+                ><openg7-admin-icon name="arrow" />{{
+                  t('detail.openOwner')
+                }}</a
+              >
+            </div>
           </header>
+          <section
+            class="next-step"
+            data-og7="campaign-next-step"
+            [attr.aria-label]="t('detail.nextStep')"
+          >
+            <div>
+              <h3>{{ t('detail.nextStep') }}</h3>
+              <p>{{ workflowReason(row) }}</p>
+              <p class="muted">
+                {{ t('responsibility.' + row.workflow.responsibility) }}
+              </p>
+            </div>
+            @if (row.workflow.deliveryId) {
+              <a
+                class="admin-button"
+                [class.admin-button--primary]="
+                  !preparationPanel.canApprove() &&
+                  !preparationPanel.approving()
+                "
+                data-og7="campaign-open-delivery"
+                [routerLink]="deliveryUrl(row)"
+                >{{ t('detail.openDelivery') }}<openg7-admin-icon name="arrow"
+              /></a>
+            }
+          </section>
           <div class="detail-columns">
             <section
               class="preparation-panel"
@@ -423,6 +471,7 @@
               <h3>{{ t('detail.preparation') }}</h3>
               <p class="muted">{{ t('detail.preparationHelp') }}</p>
               <openg7-admin-sponsorship-preparation
+                #preparationPanel
                 detailsMode="inline"
                 [contributionId]="row.contributionId"
                 [refreshKey]="preparationRefreshKey()"
@@ -433,7 +482,27 @@
               data-og7="campaign-content"
               [attr.aria-label]="t('detail.content')"
             >
-              <h3>{{ t('detail.content') }}</h3>
+              <header class="preview-heading">
+                <h3>{{ t('detail.content') }}</h3>
+                <span
+                  >{{ t('channels.' + row.channel) }} ·
+                  {{ t('targets.' + row.target) }}</span
+                >
+              </header>
+              @if (row.content; as content) {
+                <article
+                  class="content-preview"
+                  data-og7="campaign-content-preview"
+                >
+                  <h4>{{ content.title || t('detail.draft') }}</h4>
+                  <p>{{ content.body }}</p>
+                </article>
+                <p class="preview-scope muted">
+                  {{ t('detail.previewScope') }}
+                </p>
+              } @else {
+                <p class="content-placeholder">{{ t('detail.noContent') }}</p>
+              }
               <dl class="facts">
                 <div>
                   <dt>{{ t('detail.paidAt') }}</dt>
@@ -457,27 +526,6 @@
                   </dd>
                 </div>
               </dl>
-              <div class="next-step" data-og7="campaign-next-step">
-                <h4>{{ t('detail.nextStep') }}</h4>
-                <p>{{ workflowReason(row) }}</p>
-                <p class="muted">
-                  {{ t('responsibility.' + row.workflow.responsibility) }}
-                </p>
-                @if (row.workflow.deliveryId) {
-                  <a class="admin-button" [routerLink]="deliveryUrl(row)"
-                    >{{ t('detail.openDelivery')
-                    }}<openg7-admin-icon name="arrow"
-                  /></a>
-                }
-              </div>
-              @if (row.content; as content) {
-                <article class="content-preview">
-                  <h4>{{ content.title || t('detail.draft') }}</h4>
-                  <p>{{ content.body }}</p>
-                </article>
-              } @else {
-                <p class="content-placeholder">{{ t('detail.noContent') }}</p>
-              }
               <aside class="authority-note">
                 <openg7-admin-icon name="audit" />
                 <p>{{ t('detail.authorization') }}</p>

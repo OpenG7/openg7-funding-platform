@@ -122,6 +122,199 @@ const fixture = (t) => {
   return { controller, ports, calls, created, revoked };
 };
 
+test('unchanged deliveries and empty new compositions close without a confirmation or a command', async (t) => {
+  for (const mode of ['edit', 'compose'])
+    await t.test(mode, async (t) => {
+      const f = fixture(t);
+      if (mode === 'edit') f.controller.open(delivery());
+      else f.controller.create();
+      assert.equal(f.controller.dirty(), false);
+      await f.controller.requestClose();
+      assert.equal(f.controller.selected(), null);
+      assert.equal(f.controller.composing(), false);
+      assert.deepEqual(f.calls.confirmations, []);
+      assert.deepEqual(f.calls.commands, []);
+    });
+});
+
+test('new composition changes to every editable field require a discard decision and cancellation preserves them', async (t) => {
+  const changes = {
+    message: (c) => (c.edit.message = 'Unsaved synthetic composition'),
+    scheduledAt: (c) => (c.edit.scheduledAt = '2026-11-05T11:30'),
+    mediaId: (c) => (c.edit.mediaId = 'synthetic-photo'),
+    publicationFormat: (c) => (c.edit.publicationFormat = 'image_collection'),
+    photoSelections: (c) =>
+      (c.edit.photoSelections = [
+        { contributionId: 'synthetic-sponsor', assetId: 'synthetic-photo' }
+      ]),
+    feed: (c) => (c.composeFeed = 'openg20:linkedin'),
+    kind: (c) => (c.composeKind = 'campaign')
+  };
+  for (const [field, change] of Object.entries(changes))
+    await t.test(field, async (t) => {
+      const f = fixture(t);
+      f.controller.create();
+      const original = structuredClone(f.controller.edit);
+      change(f.controller);
+      const draft = structuredClone(f.controller.edit);
+      const feed = f.controller.composeFeed;
+      const kind = f.controller.composeKind;
+      f.ports.confirm = async (message, title) => {
+        f.calls.confirmations.push({ message, title });
+        return false;
+      };
+      assert.equal(f.controller.dirty(), true);
+      await f.controller.requestClose();
+      assert.equal(f.controller.composing(), true);
+      assert.equal(f.controller.editing(), true);
+      assert.deepEqual(f.controller.edit, draft);
+      assert.equal(f.controller.composeFeed, feed);
+      assert.equal(f.controller.composeKind, kind);
+      assert.deepEqual(f.calls.confirmations, [
+        {
+          message: 'admin.publicationAutomation.discardChangesConfirm',
+          title: feed
+        }
+      ]);
+      assert.deepEqual(f.calls.commands, []);
+      f.controller.edit = original;
+      f.controller.composeFeed = 'openg7:facebook';
+      f.controller.composeKind = 'news';
+      assert.equal(f.controller.dirty(), false);
+    });
+});
+
+for (const mode of ['edit', 'compose']) {
+  test(`only an explicit discard closes the ${mode} draft without saving or authorizing it`, async (t) => {
+    const f = fixture(t);
+    if (mode === 'edit') f.controller.open(delivery());
+    else f.controller.create();
+    f.controller.edit.message = 'Unsaved synthetic content';
+    await f.controller.requestClose();
+    assert.equal(f.calls.confirmations.length, 1);
+    assert.equal(f.controller.selected(), null);
+    assert.equal(f.controller.composing(), false);
+    assert.equal(f.controller.editing(), false);
+    assert.deepEqual(f.calls.commands, []);
+  });
+
+  test(`a failed ${mode} save retains the draft and the error when a subsequent close is cancelled`, async (t) => {
+    const f = fixture(t);
+    if (mode === 'edit') f.controller.open(delivery());
+    else f.controller.create();
+    f.controller.edit.message = 'Draft retained after a failed save';
+    const selected = f.controller.selected();
+    const draft = structuredClone(f.controller.edit);
+    f.ports.commands.run = async (command) => {
+      f.calls.commands.push({ command });
+      f.ports.error.set('SYNTHETIC_SAVE_FAILURE');
+      return false;
+    };
+    await f.controller.save();
+    assert.equal(f.calls.commands.length, 1);
+    assert.equal(f.controller.selected(), selected);
+    assert.equal(f.controller.composing(), mode === 'compose');
+    assert.deepEqual(f.controller.edit, draft);
+    assert.equal(f.controller.dirty(), true);
+    f.ports.confirm = async () => false;
+    await f.controller.requestClose();
+    assert.equal(f.controller.selected(), selected);
+    assert.equal(f.controller.composing(), mode === 'compose');
+    assert.deepEqual(f.controller.edit, draft);
+    assert.equal(f.ports.error(), 'SYNTHETIC_SAVE_FAILURE');
+    assert.equal(f.calls.commands.length, 1);
+  });
+}
+
+test('repeated close requests share one pending discard confirmation', async (t) => {
+  const f = fixture(t);
+  f.controller.create();
+  f.controller.edit.message = 'Keep until an explicit decision';
+  const confirmation = deferred();
+  f.ports.confirm = (message, title) => {
+    f.calls.confirmations.push({ message, title });
+    return confirmation.promise;
+  };
+  const closing = f.controller.requestClose();
+  await f.controller.requestClose();
+  await f.controller.requestClose();
+  assert.equal(f.calls.confirmations.length, 1);
+  assert.equal(f.controller.composing(), true);
+  confirmation.resolve(false);
+  await closing;
+  await f.controller.requestClose();
+  assert.equal(f.calls.confirmations.length, 2);
+  assert.equal(f.controller.composing(), true);
+});
+
+test('user close cannot discard an edit while its save command is running', async (t) => {
+  const f = fixture(t);
+  f.controller.open(delivery());
+  f.controller.edit.message = 'Save in progress';
+  const saving = deferred();
+  f.ports.commands.run = async () => {
+    f.ports.busy.set(true);
+    await saving.promise;
+    f.ports.busy.set(false);
+    return false;
+  };
+  const savingDraft = f.controller.save();
+  await f.controller.requestClose();
+  assert.equal(f.controller.selected()?.id, 'synthetic-delivery');
+  assert.equal(f.controller.edit.message, 'Save in progress');
+  assert.deepEqual(f.calls.confirmations, []);
+  saving.resolve();
+  await savingDraft;
+  assert.equal(f.controller.dirty(), true);
+});
+
+test('a late discard decision cannot close a different selection, version, draft or active command', async (t) => {
+  const changes = {
+    selection: (f) => f.controller.open(delivery({ id: 'another-delivery' })),
+    version: (f) => f.controller.selected.set(delivery({ version: 8 })),
+    draft: (f) => (f.controller.edit.message = 'A newer local draft'),
+    composition: (f) => f.controller.create(),
+    busy: (f) => f.ports.busy.set(true),
+    disposed: (f) => f.controller.dispose()
+  };
+  for (const [scenario, change] of Object.entries(changes))
+    await t.test(scenario, async (t) => {
+      const f = fixture(t);
+      f.controller.open(delivery());
+      f.controller.edit.message = 'Draft awaiting a discard decision';
+      const confirmation = deferred();
+      f.ports.confirm = () => confirmation.promise;
+      const closing = f.controller.requestClose();
+      change(f);
+      const selected = f.controller.selected();
+      const composing = f.controller.composing();
+      const draft = structuredClone(f.controller.edit);
+      confirmation.resolve(true);
+      await closing;
+      assert.equal(f.controller.selected(), selected);
+      assert.equal(f.controller.composing(), composing);
+      assert.deepEqual(f.controller.edit, draft);
+      assert.deepEqual(f.calls.commands, []);
+    });
+});
+
+test('forced context cleanup bypasses draft confirmation and invalidates its pending decision', async (t) => {
+  const f = fixture(t);
+  f.controller.create();
+  f.controller.edit.message = 'Private draft from the old context';
+  const confirmation = deferred();
+  f.ports.confirm = () => confirmation.promise;
+  const closing = f.controller.requestClose();
+  f.controller.close();
+  f.controller.create();
+  f.controller.edit.message = 'New context draft';
+  confirmation.resolve(true);
+  await closing;
+  assert.equal(f.controller.composing(), true);
+  assert.equal(f.controller.edit.message, 'New context draft');
+  assert.deepEqual(f.calls.commands, []);
+});
+
 test('derived portraits preserve their exact photos and format while the source mediaId remains null', async (t) => {
   const f = fixture(t),
     photos = [
@@ -979,7 +1172,7 @@ test('drawer preserves dossier hooks, content/media/destination, translations an
   assert.match(ts, /ChangeDetectionStrategy\.OnPush/);
   assert.match(ts, /input\.required<PublicationDeliveryController>/);
   assert.match(ts, /AdminDrawerComponent/);
-  assert.match(html, /\(closed\)="c\.close\(\)"/);
+  assert.match(html, /\(closed\)="c\.requestClose\(\)"/);
   assert.match(html, /job\.feedId.*job\.accountId/);
   assert.match(html, /job\.message/);
   assert.match(html, /\[src\]="image\.url" \[alt\]="image\.alt"/);

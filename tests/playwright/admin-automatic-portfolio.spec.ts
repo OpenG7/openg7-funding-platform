@@ -22,6 +22,8 @@ const paymentIds = [1, 2, 3].map(
 const now = '2026-10-15T12:00:00Z';
 const hook = (page: Page, name: string) =>
   page.locator(`[data-og7="automatic-portfolio-${name}"]`);
+const preparationView = (page: Page, view: 'records' | 'batch' | 'other') =>
+  page.locator(`[data-og7="automatic-view"][data-og7-id="${view}"]`);
 const highlighted = '[data-og7-guidance-highlight]';
 type ReadingStep = 'scope' | 'dossier' | 'result' | 'summary';
 
@@ -397,11 +399,128 @@ async function fixture(page: Page, language = 'fr-CA') {
 }
 
 async function expandProcessing(page: Page) {
+  const batch = preparationView(page, 'batch');
+  await expect(batch).toBeVisible();
+  if ((await batch.getAttribute('aria-pressed')) !== 'true')
+    await batch.click();
   const processing = hook(page, 'processing');
   await expect(processing).toBeVisible();
   if ((await processing.getAttribute('open')) === null)
     await processing.locator(':scope > summary').click();
   await expect(processing).toHaveJSProperty('open', true);
+}
+
+for (const language of ['fr-CA', 'en']) {
+  test(`preparation opens its records without starting a batch in ${language}`, async ({
+    page
+  }) => {
+    const f = await fixture(page, language);
+    await open(page, 'review', false);
+    await expect(preparationView(page, 'records')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    await expect(hook(page, 'processing')).toBeHidden();
+    await expect(page.locator('[data-og7="admin-automatic"]')).toBeHidden();
+    await expect(
+      page.locator('[data-og7="automatic-batch-indicator"]')
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('link', {
+        name:
+          language === 'en'
+            ? 'Choose a sponsorship dossier'
+            : 'Choisir un dossier de commandite',
+        exact: true
+      })
+    ).toHaveAttribute('href', '/admin/fundraiser/sponsors');
+    expect(f.writes).toEqual([]);
+
+    await preparationView(page, 'batch').focus();
+    await page.keyboard.press('Enter');
+    await expect(hook(page, 'processing')).toBeVisible();
+    await expect(hook(page, 'processing')).toHaveJSProperty('open', true);
+    await expect(hook(page, 'start')).toBeVisible();
+    expect(f.writes).toEqual([]);
+    await preparationView(page, 'records').click();
+    await expect(hook(page, 'processing')).toBeHidden();
+    expect(f.writes).toEqual([]);
+  });
+
+  test(`a late batch checkpoint stays secondary until an explicit rejoin in ${language}`, async ({
+    page
+  }) => {
+    const f = await fixture(page, language);
+    await open(page);
+    await hook(page, 'start').click();
+    await expectReading(page, 'scope');
+    let releaseJourney!: () => void;
+    f.journeyGate = new Promise<void>((resolve) => {
+      releaseJourney = resolve;
+    });
+    await approveReading(page, 'scope');
+    await expect(hook(page, 'state')).toHaveAttribute(
+      'data-og7-id',
+      'explaining'
+    );
+    const records = preparationView(page, 'records');
+    await records.click();
+    await expect(records).toBeFocused();
+    const writesBeforeCheckpoint = f.writes.length;
+    releaseJourney();
+    await expect(hook(page, 'reading')).toHaveAttribute(
+      'data-og7-id',
+      'dossier'
+    );
+    const checkpoint = await hook(page, 'approve').getAttribute('data-og7-id');
+    await expect(records).toHaveAttribute('aria-pressed', 'true');
+    await expect(records).toBeFocused();
+    await expect(hook(page, 'processing')).toBeHidden();
+    await expect(page.locator(highlighted)).toHaveCount(0);
+    await expect(
+      page.locator('[data-og7="automatic-batch-indicator"]')
+    ).toBeVisible();
+    expect(f.writes).toHaveLength(writesBeforeCheckpoint);
+    expect(advances(f)).toHaveLength(0);
+
+    const rejoin = page.locator('[data-og7="automatic-batch-rejoin"]');
+    await rejoin.focus();
+    await page.keyboard.press('Enter');
+    await expectReading(page, 'dossier');
+    await expect(hook(page, 'approve')).toHaveAttribute(
+      'data-og7-id',
+      checkpoint!
+    );
+    expect(f.writes).toHaveLength(writesBeforeCheckpoint);
+    expect(advances(f)).toHaveLength(0);
+
+    let releaseAdvance!: () => void;
+    f.advanceGate = new Promise<void>((resolve) => {
+      releaseAdvance = resolve;
+    });
+    await approveReading(page, 'dossier');
+    await expect.poll(() => advances(f).length).toBe(1);
+    const request = advances(f)[0];
+    await records.click();
+    releaseAdvance();
+    await expect(hook(page, 'reading')).toHaveAttribute(
+      'data-og7-id',
+      'result'
+    );
+    await expect(records).toBeFocused();
+    await expect(records).toHaveAttribute('aria-pressed', 'true');
+    await expect(hook(page, 'processing')).toBeHidden();
+    await expect(page.locator(highlighted)).toHaveCount(0);
+    expect(advances(f)).toEqual([request]);
+    await rejoin.click();
+    await expectReading(page, 'result');
+    expect(advances(f)).toEqual([request]);
+    await approveReading(page, 'result');
+    await expectReading(page, 'dossier');
+    await expect(hook(page, 'dossier')).toContainText('DEMO-BALANCE-2');
+    expect(advances(f)).toEqual([request]);
+    await hook(page, 'pause').click();
+  });
 }
 
 async function open(page: Page, phase = 'review', expand = true) {
@@ -1368,6 +1487,17 @@ for (const language of ['fr-CA', 'en'] as const) {
     await expect(hook(page, 'resume')).toHaveAccessibleName(
       language === 'en' ? 'Resume reading' : 'Reprendre la lecture'
     );
+    const writesBeforeRejoin = f.writes.length;
+    await preparationView(page, 'records').click();
+    await expect(
+      page.locator('[data-og7="automatic-batch-indicator"]')
+    ).toBeVisible();
+    await expect(hook(page, 'processing')).toBeHidden();
+    expect(f.state.run?.status).toBe('completed');
+    await page.locator('[data-og7="automatic-batch-rejoin"]').click();
+    await expect(hook(page, 'processing')).toBeFocused();
+    await expect(hook(page, 'resume')).toBeEnabled();
+    expect(f.writes).toHaveLength(writesBeforeRejoin);
     await hook(page, 'resume').click();
     await approveReading(page, 'scope');
     await expectReading(page, 'result');
@@ -1529,7 +1659,7 @@ for (const [language, width] of [
   ['fr-CA', 1440],
   ['en', 390]
 ] as const) {
-  test(`batch progress stays visible and report dossiers open with the keyboard without mutations in ${language}`, async ({
+  test(`batch tracking opens on demand and report dossiers remain keyboard accessible without mutations in ${language}`, async ({
     page
   }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
@@ -1543,7 +1673,20 @@ for (const [language, width] of [
 
     const processing = hook(page, 'processing');
     const processingToggle = processing.locator(':scope > summary');
+    await expect(preparationView(page, 'records')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    await expect(processing).toBeHidden();
     await expect(processing).toHaveJSProperty('open', false);
+    await expect(hook(page, 'progress')).toBeHidden();
+    await expect(
+      page.locator('[data-og7="automatic-batch-indicator"]')
+    ).toHaveCount(0);
+    await preparationView(page, 'batch').focus();
+    await page.keyboard.press('Enter');
+    await expect(processing).toBeVisible();
+    await expect(processing).toHaveJSProperty('open', true);
     await expect(hook(page, 'state')).toBeVisible();
     await expectProgress(page, 3);
     await expect(
@@ -1551,13 +1694,9 @@ for (const [language, width] of [
         name: language === 'en' ? 'Checked dossiers' : 'Dossiers vérifiés'
       })
     ).toBeVisible();
-    await expect(hook(page, 'start')).toBeHidden();
     await processing.screenshot({
-      path: testInfo.outputPath('suivi-du-lot-replie.png')
+      path: testInfo.outputPath('suivi-du-lot-a-la-demande.png')
     });
-    await processingToggle.focus();
-    await processingToggle.press('Enter');
-    await expect(processing).toHaveJSProperty('open', true);
 
     const report = hook(page, 'report');
     const reportToggle = report.locator(':scope > summary');
@@ -1741,6 +1880,12 @@ for (const language of ['fr-CA', 'en'] as const) {
         await reportAction.getAttribute('aria-describedby')
       );
       await (origin === 'latest' ? latestAction : reportAction).click();
+      await expect(preparationView(page, 'other')).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      );
+      await expect(page.locator('[data-og7="admin-automatic"]')).toBeVisible();
+      await expect(hook(page, 'processing')).toBeHidden();
       await expect(
         page.locator('[data-og7="automatic-state"]')
       ).toHaveAttribute('data-og7-id', 'complete');

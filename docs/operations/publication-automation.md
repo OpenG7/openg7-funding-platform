@@ -48,10 +48,10 @@ The full row-by-row obligation console is replaced by this summary. A benefit
 overview from the recorded offer remains above it. Six navigation steps connect
 the offer, preparation, content, authorization, delivery and evidence owners.
 They reuse the dossier sections and the exact delivery drawer; Automation and
-Campaigns links carry the dossier identifier without selecting an arbitrary draft.
+Service fulfilment links carry the dossier identifier without selecting an arbitrary draft.
 The website/social cards retain their dates and direct delivery
 actions. The recorded agreement, historical qualification, adjustments and timing
-remain in **Promised services** within the dossier; Campaigns does not replace
+remain in **Promised services** within the dossier; Service fulfilment does not replace
 those decisions. The review drawer labels dates with the browser's timezone.
 
 The advanced settings distinguish **Public profile** (slug, public summary and
@@ -89,6 +89,12 @@ Failed reads are retryable, and a late response for one dossier cannot populate
 another dossier's cards or reopen its delivery. Recovery after a failed command
 clears pending loading state; a `401` or `403`, including on that recovery read,
 also clears cached proposals, the open drawer and its private edit fields.
+
+Closing an edited delivery or a new composition with the drawer's close button,
+Escape or controller B asks before discarding unsaved changes. Cancelling keeps
+the local fields and any save error; an active command prevents dismissal. This
+guard covers drawer dismissal, not navigation through links to other routes.
+Context and session invalidation retain their existing forced-close behavior.
 
 The advanced workspace remains accessible with `sponsorshipId=<uuid>` and optionally
 `deliveryId=<uuid>`. These filters are accepted by

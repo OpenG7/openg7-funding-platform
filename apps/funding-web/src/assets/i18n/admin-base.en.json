@@ -1449,7 +1449,7 @@
       "assistant": "Assistant",
       "contributions": "Contributions",
       "sponsors": "Sponsorships",
-      "campaigns": "Campaigns",
+      "campaigns": "Service fulfilment",
       "publications": "Publications",
       "invoices": "Invoices",
       "expenses": "Expenses",
@@ -1590,7 +1590,7 @@
         },
         "campaigns": {
           "read": {
-            "title": "Read the promises",
+            "title": "Review promised services",
             "body": "Confirmed payments and promised services."
           },
           "choose": {
@@ -2996,6 +2996,7 @@
       "approve": "Accept and schedule",
       "cancel": "Cancel delivery",
       "cancelConfirm": "Cancel this scheduled publication?",
+      "discardChangesConfirm": "Close and discard unsaved draft changes? To keep them, cancel this close request and save the draft.",
       "externalId": "ID of the post already visible on the network",
       "reconcile": "Verify and confirm publication",
       "checkVisibility": "Check current visibility",

@@ -5,7 +5,10 @@
 }
 .campaigns {
   @apply tw:grid tw:min-w-0 tw:gap-admin-card-gap tw:mx-auto;
-  max-width: 96rem;
+  --og7-admin-primary: light-dark(#075dde, #9edaff);
+  --og7-admin-on-primary: light-dark(#ffffff, #0b1727);
+  container: services / inline-size;
+  max-width: 85rem;
 }
 h1,
 h2,
@@ -18,7 +21,7 @@ dd {
   margin: 0;
 }
 h1 {
-  font-size: clamp(1.8rem, 3vw, 2.5rem);
+  font-size: clamp(1.75rem, 2.5vw, 2rem);
   letter-spacing: -0.035em;
 }
 h2 {
@@ -195,7 +198,7 @@ small {
 }
 .campaign-row[aria-pressed='true'] {
   background: var(--admin-selected);
-  box-shadow: inset 3px 0 var(--admin-gold);
+  box-shadow: inset 3px 0 var(--og7-admin-primary);
 }
 .campaign-row:not(:disabled):hover {
   background: var(--admin-subtle);
@@ -244,11 +247,23 @@ small {
 }
 .next-step {
   display: grid;
-  justify-items: start;
-  gap: 0.6rem;
-  padding: 1rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+  margin: 1.25rem 1.25rem 0;
+  padding: 1rem 1.25rem;
   background: var(--admin-selected);
   border-radius: var(--admin-radius-control);
+}
+.next-step p {
+  margin-top: 0.35rem;
+}
+.next-step .muted {
+  font-size: var(--admin-caption-size);
+}
+.next-step > a {
+  max-width: 100%;
+  white-space: normal;
 }
 .mobile-label {
   display: none;
@@ -286,6 +301,20 @@ small {
   flex: 1 1 24rem;
   min-width: 0;
 }
+.detail-header .detail-navigation {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+.detail-navigation .admin-button {
+  max-width: 100%;
+  white-space: normal;
+}
+.detail-header h2:focus {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 4px;
+}
 .detail-columns {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
@@ -305,6 +334,18 @@ small {
 .preparation-panel > h3 {
   color: var(--admin-accent);
 }
+.preview-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+}
+.preview-heading span,
+.preview-scope {
+  color: var(--admin-muted);
+  font-size: var(--admin-caption-size);
+}
 .facts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -321,7 +362,8 @@ small {
   padding: 1.25rem;
   border: 1px solid var(--admin-border);
   border-radius: var(--admin-radius-control);
-  background: var(--admin-subtle);
+  background: var(--admin-panel);
+  box-shadow: var(--admin-shadow);
 }
 .content-preview p {
   margin-top: 0.75rem;
@@ -435,11 +477,25 @@ small {
     margin-left: 0;
   }
   .page-header > button,
-  .detail-header > a {
+  .detail-header .detail-navigation,
+  .detail-navigation > .admin-button {
     width: 100%;
     justify-content: center;
   }
   .facts {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+@container services (max-width: 64rem) {
+  .detail-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .preparation-panel {
+    border-right: 0;
+    border-bottom: 1px solid var(--admin-border);
+  }
+  .next-step {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: start;
   }
 }

@@ -11,7 +11,7 @@
   [title]="'admin.publicationAutomation.preview' | translate"
   [closeLabel]="'admin.publicationAutomation.close' | translate"
   [busy]="c.busy()"
-  (closed)="c.close()"
+  (closed)="c.requestClose()"
 >
   @if (c.selected() || c.composing()) {
     @if (c.error()) {

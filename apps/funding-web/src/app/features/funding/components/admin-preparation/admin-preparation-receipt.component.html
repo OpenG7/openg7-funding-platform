@@ -148,9 +148,9 @@
               </dd>
             </div>
           } @empty {
-            <div>
+            <div data-og7="preparation-receipt-no-destination">
               <dt>{{ t('compact.prepared') }}</dt>
-              <dd>{{ t('checkStates.not_required') }}</dd>
+              <dd>{{ preparationSummaryWithoutDestination(item) }}</dd>
             </div>
           }
           <div>

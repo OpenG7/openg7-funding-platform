@@ -33,6 +33,8 @@ const hook = (page: Page, name: string) =>
 const carousel = (page: Page) =>
   page.locator('[data-og7="preparation-receipts-carousel"]');
 const card = (page: Page) => page.locator('[data-og7="preparation-receipt"]');
+const preparationView = (page: Page, view: 'records' | 'batch' | 'other') =>
+  page.locator(`[data-og7="automatic-view"][data-og7-id="${view}"]`);
 
 async function approveReceipt(
   page: Page,
@@ -324,6 +326,10 @@ async function open(page: Page, expectedReceipt = true) {
   if (!(await page.locator('[data-og7="admin-guidance-panel"]').isVisible()))
     await toggle.click();
   await page.locator('[data-og7="admin-guidance-automatic-mode"]').click();
+  await expect(preparationView(page, 'records')).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
   await expect(carousel(page)).toBeVisible();
   if (expectedReceipt) {
     await expect(card(page)).toHaveCount(1);
@@ -332,6 +338,9 @@ async function open(page: Page, expectedReceipt = true) {
   await expect(
     page.locator('[data-og7="automatic-portfolio-processing"]')
   ).toHaveJSProperty('open', false);
+  await expect(
+    page.locator('[data-og7="automatic-portfolio-processing"]')
+  ).toBeHidden();
 }
 
 for (const language of ['fr-CA', 'en']) {
@@ -468,6 +477,81 @@ async function expectInsideViewport(target: Locator) {
   expect(result.width).toBeGreaterThan(0);
   expect(result.left).toBeGreaterThanOrEqual(-1);
   expect(result.right).toBeLessThanOrEqual(result.viewport + 1);
+}
+
+async function expectRecordHeadingVisible(page: Page) {
+  const heading = card(page).locator(':scope > header h3');
+  const panel = page.locator('[data-og7="admin-guidance-panel"]');
+  const content = page.locator('[data-og7="admin-guidance-content"]');
+  const footer = carousel(page).getByRole('navigation').last();
+  let geometry: Record<string, unknown> = {};
+  await expect
+    .poll(async () => {
+      const [title, panelBounds, contentBounds, footerBounds] =
+        await Promise.all([
+          heading.boundingBox(),
+          panel.boundingBox(),
+          content.boundingBox(),
+          footer.boundingBox()
+        ]);
+      if (!title || !panelBounds || !contentBounds || !footerBounds)
+        return { visible: false };
+      const viewport = page.viewportSize()!;
+      const clip = {
+        top: Math.max(0, panelBounds.y, contentBounds.y),
+        bottom: Math.min(
+          viewport.height,
+          panelBounds.y + panelBounds.height,
+          contentBounds.y + contentBounds.height,
+          footerBounds.y
+        ),
+        left: Math.max(0, panelBounds.x, contentBounds.x),
+        right: Math.min(
+          viewport.width,
+          panelBounds.x + panelBounds.width,
+          contentBounds.x + contentBounds.width
+        )
+      };
+      geometry = {
+        visible:
+          title.y >= clip.top - 1 &&
+          title.y + title.height <= clip.bottom + 1 &&
+          title.x >= clip.left - 1 &&
+          title.x + title.width <= clip.right + 1,
+        title,
+        clip
+      };
+      return geometry;
+    })
+    .toMatchObject({ visible: true })
+    .catch(async (error: unknown) => {
+      const layout = await heading.evaluate((element) => {
+        const ancestors = [];
+        for (
+          let current: HTMLElement | null = element as HTMLElement;
+          current && ancestors.length < 12;
+          current = current.parentElement
+        ) {
+          const bounds = current.getBoundingClientRect();
+          const style = getComputedStyle(current);
+          ancestors.push({
+            tag: current.tagName,
+            hook: current.getAttribute('data-og7'),
+            y: bounds.y,
+            height: bounds.height,
+            scrollTop: current.scrollTop,
+            clientHeight: current.clientHeight,
+            scrollHeight: current.scrollHeight,
+            overflowY: style.overflowY
+          });
+        }
+        return ancestors;
+      });
+      throw new Error(
+        `Record header is clipped: ${JSON.stringify({ geometry, layout })}`,
+        { cause: error }
+      );
+    });
 }
 
 async function expectCompactReceipt(page: Page) {
@@ -690,8 +774,12 @@ test('a receipt read started during approval cannot overwrite its confirmed stam
   const processing = page.locator(
     '[data-og7="automatic-portfolio-processing"]'
   );
-  await processing.locator(':scope > summary').click();
+  await preparationView(page, 'batch').click();
   await expect(processing).toHaveJSProperty('open', true);
+  f.state = {
+    ...f.state,
+    run: { ...f.state.run!, version: f.state.run!.version + 1 }
+  };
   await page.locator('[data-og7="automatic-portfolio-refresh"]').click();
   await expect.poll(() => f.reads.length).toBeGreaterThan(1);
   expect(f.receipts.get(3)?.status).toBe('ready');
@@ -891,6 +979,156 @@ test('previous and next only consult the frozen manifest and never advance treat
   expect(f.reads).toEqual([3, 4, 5, 6, 5, 4, 3, 2, 1]);
   expect(f.state.run?.cursor).toBe(3);
   expect(f.state.run?.status).toBe('paused');
+});
+
+for (const [language, width] of [
+  ['fr-CA', 1536],
+  ['fr-CA', 390],
+  ['en', 390],
+  ['en', 370]
+] as const) {
+  test(`preparation views retain the consulted record and its selected control without a batch mutation in ${language} at ${width}px`, async ({
+    page
+  }, testInfo) => {
+    await page.setViewportSize({ width, height: 864 });
+    const f = await fixture(page, language);
+    await open(page);
+    await preparationView(page, 'records').scrollIntoViewIfNeeded();
+    await expectRecordHeadingVisible(page);
+    await expect
+      .poll(
+        () =>
+          hook(page, 'refresh').evaluate((element) => {
+            const bounds = element.getBoundingClientRect();
+            const hit = element.ownerDocument.elementFromPoint(
+              bounds.left + bounds.width / 2,
+              bounds.top + bounds.height / 2
+            );
+            return !!hit && (hit === element || element.contains(hit));
+          }),
+        { message: 'The record refresh remains accessible beside its slots.' }
+      )
+      .toBe(true);
+    await page.locator('[data-og7="admin-guidance-panel"]').screenshot({
+      path: testInfo.outputPath(`records-overview-${language}.png`),
+      animations: 'disabled'
+    });
+    if (width < 600) {
+      for (const position of [6, 3]) {
+        const slot = carousel(page).locator(
+          `[data-og7="preparation-receipt-slot"][data-og7-id="${position}"]`
+        );
+        await slot.click();
+        await expectPosition(page, position, language);
+        await expectInsideViewport(slot);
+      }
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth - window.innerWidth
+        )
+      ).toBeLessThanOrEqual(1);
+      expect(f.writes).toEqual([]);
+    }
+    await hook(page, 'previous').click();
+    await expectPosition(page, 2, language);
+    const selected = pilotIssue(page, 'content_prepared');
+    await selected.click();
+    await expect(selected).toHaveAttribute('aria-pressed', 'true');
+    const currentCard = (await card(page).elementHandle())!;
+    await page.locator('[data-og7="admin-guidance-panel"]').screenshot({
+      path: testInfo.outputPath(`records-${language}.png`),
+      animations: 'disabled'
+    });
+    await pilot(page).locator('[data-og7="preparation-pilot-actions"]').click();
+    await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'open');
+
+    await preparationView(page, 'batch').click();
+    await expect(carousel(page)).toBeHidden();
+    await expect(
+      page.locator('[data-og7="automatic-portfolio-processing"]')
+    ).toBeVisible();
+    await page.locator('[data-og7="admin-guidance-panel"]').screenshot({
+      path: testInfo.outputPath(`batch-${language}.png`),
+      animations: 'disabled'
+    });
+    expect(f.writes).toEqual([]);
+    await preparationView(page, 'other').click();
+    await expect(page.locator('[data-og7="admin-automatic"]')).toBeVisible();
+    await expect(carousel(page)).toBeHidden();
+    await expect(
+      page.locator('[data-og7="automatic-portfolio-processing"]')
+    ).toBeHidden();
+    expect(f.writes).toEqual([]);
+
+    await preparationView(page, 'records').click();
+    await expectPosition(page, 2, language);
+    await expect(selected).toHaveAttribute('aria-pressed', 'true');
+    await expect(pilot(page)).toHaveAttribute('data-og7-mode', 'open');
+    expect(
+      await currentCard.evaluate(
+        (element) =>
+          element.isConnected &&
+          element ===
+            element.ownerDocument.querySelector(
+              '[data-og7="preparation-receipt"]'
+            )
+      )
+    ).toBe(true);
+    await expect(
+      page.locator('[data-og7="automatic-batch-indicator"]')
+    ).toBeVisible();
+    await expect(
+      page.locator('[data-og7="automatic-portfolio-processing"]')
+    ).toBeHidden();
+    expect(f.writes).toEqual([]);
+    expect(f.state.run?.cursor).toBe(3);
+    expect(f.state.run?.nextContributionId).toBe(contributionId(4));
+    expect(f.state.run?.status).toBe('paused');
+    await page.locator('[data-og7="automatic-batch-rejoin"]').click();
+    await expect(
+      page.locator('[data-og7="automatic-portfolio-processing"]')
+    ).toBeFocused();
+    await expect(
+      page.locator('[data-og7="automatic-portfolio-state"]')
+    ).toHaveAttribute('data-og7-id', 'paused');
+    expect(f.writes).toEqual([]);
+    await currentCard.dispose();
+  });
+}
+
+test('Xbox navigation changes preparation views and explicitly rejoins a paused batch without executing or resetting its record', async ({
+  page
+}) => {
+  await installAdminController(page);
+  const f = await fixture(page);
+  await open(page);
+  const controller = adminController(page);
+  await controller.ready();
+  await controller.activate(hook(page, 'previous'));
+  await expectPosition(page, 2);
+  await expect(hook(page, 'previous')).toBeFocused();
+  await controller.activate(preparationView(page, 'batch'));
+  await expect(
+    page.locator('[data-og7="automatic-portfolio-processing"]')
+  ).toBeVisible();
+  await controller.activate(preparationView(page, 'other'));
+  await expect(page.locator('[data-og7="automatic-scope"]')).toBeVisible();
+  await controller.activate(preparationView(page, 'records'));
+  await expectPosition(page, 2);
+  await controller.activate(
+    page.locator('[data-og7="automatic-batch-rejoin"]')
+  );
+  await expect(
+    page.locator('[data-og7="automatic-portfolio-processing"]')
+  ).toBeFocused();
+  await expect(
+    page.locator('[data-og7="automatic-portfolio-state"]')
+  ).toHaveAttribute('data-og7-id', 'paused');
+  await controller.activate(preparationView(page, 'records'));
+  await expectPosition(page, 2);
+  expect(f.writes).toEqual([]);
+  expect(f.state.run?.status).toBe('paused');
+  expect(f.state.run?.processedCount).toBe(3);
 });
 
 test('a historical website offer names its promised presentation and its private preparation visibly', async ({
@@ -1974,8 +2212,8 @@ for (const language of ['fr-CA', 'en']) {
     const action = pilotAction(page, 'campaigns');
     await expect(action).toHaveAccessibleName(
       language === 'en'
-        ? /View services in Campaigns/
-        : /Voir les prestations dans Campagnes/
+        ? /View this dossier’s services/
+        : /Voir les prestations de ce dossier/
     );
     await action.focus();
     await page.keyboard.press('Enter');
