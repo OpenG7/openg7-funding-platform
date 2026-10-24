@@ -52,6 +52,25 @@
 .batch-indicator .admin-button {
   max-width: 60%;
 }
+@container guidance-content (max-width: 24rem) {
+  .preparation-views {
+    gap: 0.35rem;
+    margin-block-end: 0.5rem;
+  }
+  .batch-indicator {
+    gap: 0.35rem;
+    margin-block-end: 0.25rem;
+    padding: 0;
+    border-color: transparent;
+    background: transparent;
+  }
+  .batch-indicator p {
+    flex-basis: 0;
+  }
+  .batch-indicator .admin-button {
+    max-width: none;
+  }
+}
 [data-og7='admin-automatic'][hidden] {
   display: none;
 }
