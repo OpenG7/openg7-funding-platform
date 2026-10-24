@@ -33,7 +33,10 @@ import { AdminSponsorshipPreparationComponent } from '../../components/admin-spo
 import { automaticAdminUrl } from '../../components/admin-automatic/admin-automatic-run.js';
 import { AdminCampaignsStore } from '../../services/admin-campaigns-store.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
-import { adminCampaignsDestination } from '../../models/admin-campaigns-navigation.js';
+import {
+  adminCampaignsDestination,
+  adminCampaignsReturnContext
+} from '../../models/admin-campaigns-navigation.js';
 import { revealControllerFocus } from '../../components/admin-controller/admin-controller-navigation.js';
 
 import { groupCampaignRows } from './admin-campaigns-controller.js';
@@ -267,6 +270,7 @@ export class AdminCampaignsPageComponent {
       {
         queryParams: {
           sponsorshipId: row.contributionId,
+          obligationId: row.id,
           deliveryId: row.workflow.deliveryId ?? ''
         }
       }
@@ -274,10 +278,24 @@ export class AdminCampaignsPageComponent {
   }
 
   ownerUrl(row: AdminCampaignItem): UrlTree {
-    return this.router.parseUrl(
+    const deliveryId = row.workflow.deliveryId ?? row.proof?.deliveryId;
+    const returnContext = adminCampaignsReturnContext(this.params(), row);
+    const destination = this.router.parseUrl(
       automaticAdminUrl(row.adminUrl) ??
         `/admin/fundraiser/sponsors?sponsorshipId=${encodeURIComponent(row.contributionId)}&tab=publication`
     );
+    const ownerParams = { ...destination.queryParams };
+    if (returnContext) {
+      delete ownerParams['draftId'];
+      delete ownerParams['deliveryId'];
+    }
+    destination.queryParams = {
+      ...ownerParams,
+      sponsorshipId: row.contributionId,
+      obligationId: row.id,
+      ...(returnContext ?? (deliveryId ? { deliveryId } : {}))
+    };
+    return destination;
   }
 
   proofUrl(row: AdminCampaignItem): string | null {

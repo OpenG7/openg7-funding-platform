@@ -16,26 +16,133 @@
     <p id="publication-chain-help">
       {{ 'admin.dossier.publicationBridge.schedule.chain.help' | translate }}
     </p>
+    @let selected = journeyTarget();
+    <label class="journey-selector" for="publication-journey-target">
+      <span>{{
+        'admin.dossier.publicationBridge.schedule.chain.select' | translate
+      }}</span>
+      <select
+        id="publication-journey-target"
+        data-og7="publication-journey-target"
+        [ngModel]="selected?.key ?? ''"
+        [ngModelOptions]="{ standalone: true }"
+        [disabled]="
+          scheduling.loading() || scheduling.busy() || !journeyTargets().length
+        "
+        aria-describedby="publication-journey-help"
+        (ngModelChange)="selectJourney($event)"
+      >
+        <option value="" [disabled]="journeyTargets().length === 1">
+          {{
+            'admin.dossier.publicationBridge.schedule.chain.choose' | translate
+          }}
+        </option>
+        @for (target of journeyTargets(); track target.key) {
+          <option [value]="target.key">{{ journeyLabel(target) }}</option>
+        }
+      </select>
+    </label>
+    <p
+      id="publication-journey-help"
+      data-og7="publication-journey-help"
+      role="status"
+    >
+      {{
+        'admin.dossier.publicationBridge.schedule.chain.' +
+          (journeySelection().state === 'unavailable'
+            ? 'unavailable'
+            : selected
+              ? 'selectedHelp'
+              : 'chooseHelp') | translate
+      }}
+      @if (selected && !selected.obligationId) {
+        {{
+          'admin.dossier.publicationBridge.schedule.chain.noExactEvidence'
+            | translate
+        }}
+      }
+      @if (selected && !selected.deliveryId) {
+        {{
+          'admin.dossier.publicationBridge.schedule.chain.noDelivery'
+            | translate
+        }}
+      }
+    </p>
     <ol aria-describedby="publication-chain-help">
       @for (link of guidanceLinks; track link.id) {
         <li>
-          <a
-            [routerLink]="link.path"
-            [queryParams]="guidanceParams(link)"
-            [queryParamsHandling]="link.fragment ? 'merge' : ''"
-            [fragment]="link.fragment"
-            data-og7="publication-chain-link"
-            [attr.data-og7-id]="link.id"
-          >
-            <span aria-hidden="true">{{ $index + 1 }}</span>
-            {{
-              'admin.dossier.publicationBridge.schedule.chain.steps.' + link.id
-                | translate
-            }}
-          </a>
+          @if (link.id === 'offer' || link.id === 'preparation') {
+            <a
+              [routerLink]="link.path"
+              [queryParams]="guidanceParams(link)"
+              [queryParamsHandling]="link.fragment ? 'merge' : ''"
+              [fragment]="link.fragment"
+              data-og7="publication-chain-link"
+              [attr.data-og7-id]="link.id"
+            >
+              <span aria-hidden="true">{{ $index + 1 }}</span>
+              {{
+                'admin.dossier.publicationBridge.schedule.chain.steps.' +
+                  link.id | translate
+              }}
+            </a>
+          } @else if (link.id === 'evidence' && selected?.obligationId) {
+            <a
+              [routerLink]="link.path"
+              [queryParams]="guidanceParams(link)"
+              data-og7="publication-chain-link"
+              [attr.data-og7-id]="link.id"
+            >
+              <span aria-hidden="true">{{ $index + 1 }}</span>
+              {{
+                'admin.dossier.publicationBridge.schedule.chain.steps.evidence'
+                  | translate
+              }}
+            </a>
+          } @else if (
+            link.id === 'content' && selected?.draftId && !selected?.deliveryId
+          ) {
+            <a
+              routerLink="/admin/fundraiser/publications"
+              [queryParams]="guidanceParams(link)"
+              data-og7="publication-chain-link"
+              [attr.data-og7-id]="link.id"
+            >
+              <span aria-hidden="true">{{ $index + 1 }}</span>
+              {{
+                'admin.dossier.publicationBridge.schedule.chain.steps.content'
+                  | translate
+              }}
+            </a>
+          } @else {
+            <button
+              type="button"
+              data-og7="publication-chain-link"
+              [attr.data-og7-id]="link.id"
+              [disabled]="
+                link.id === 'evidence' ||
+                !selected?.deliveryId ||
+                scheduling.loading() ||
+                scheduling.busy()
+              "
+              aria-describedby="publication-journey-help"
+              (click)="openJourney(link.id)"
+            >
+              <span aria-hidden="true">{{ $index + 1 }}</span>
+              {{
+                'admin.dossier.publicationBridge.schedule.chain.steps.' +
+                  link.id | translate
+              }}
+            </button>
+          }
         </li>
       }
     </ol>
+    @if (journeyNotice()) {
+      <p role="status" data-og7="publication-journey-notice">
+        {{ journeyNotice() | translate }}
+      </p>
+    }
   </nav>
   <openg7-admin-sponsorship-preparation
     id="dossier-preparation"
@@ -402,7 +509,7 @@
               <a
                 class="admin-button"
                 routerLink="/admin/fundraiser/publications"
-                [queryParams]="{ draftId: card.publication.id }"
+                [queryParams]="params(card.publication)"
                 >{{ 'admin.dossier.openPublication' | translate }}</a
               >
             }
@@ -515,4 +622,5 @@
 <openg7-publication-delivery-drawer
   [controller]="scheduling.delivery"
   [automaticFor]="dossier().contributionId"
+  [navigationNotice]="journeyNotice()"
 />
