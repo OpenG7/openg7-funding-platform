@@ -12,6 +12,7 @@ import type {
 
 import { expect, test } from './support/test.js';
 import { completeModeration, moderationFixture } from './support/moderation.js';
+import { registerPublicationNavigationTests } from './publication-navigation.ui.js';
 
 interface Context {
   fixtures(
@@ -237,6 +238,201 @@ const channel = (page: Page) =>
 export function registerDossierPublicationScheduleTests(
   context: Context
 ): void {
+  registerPublicationNavigationTests({
+    host: 'sponsorship',
+    open: async (page, destination) => {
+      const { job, controls } = await fixtures(page, context);
+      job.sponsors.forEach((sponsor) => {
+        sponsor.reviewStatus = 'pending_review';
+      });
+      if (destination !== 'dossier') {
+        job.status = 'blocked';
+        job.errorCode =
+          destination === 'media' ? 'MEDIA_CHANGED' : 'SOURCE_CONTENT_MISSING';
+      }
+      await page.goto(context.path('publication'));
+      await channel(page).locator('[data-og7="publication-review"]').click();
+      return controls.commands;
+    }
+  });
+
+  for (const language of ['fr-CA', 'en'] as const) {
+    test(`publication navigation never blocks the login redirect after its sponsorship session expires in ${language}`, async ({
+      page
+    }) => {
+      const { job, controls } = await fixtures(page, context);
+      job.sponsors[1]!.reviewStatus = 'pending_review';
+      let expired = false;
+      await page.route('**/api/admin/auth/current', (route) =>
+        expired
+          ? route.fulfill({
+              status: 401,
+              json: { error: 'Synthetic expired publication session' }
+            })
+          : route.fallback()
+      );
+      await page.addInitScript(
+        (locale) => localStorage.setItem('openg7.language', locale),
+        language
+      );
+      const mutations: string[] = [];
+      page.on('request', (request) => {
+        if (
+          new URL(request.url()).pathname.startsWith('/api/admin/') &&
+          !['GET', 'HEAD', 'OPTIONS'].includes(request.method())
+        )
+          mutations.push(request.url());
+      });
+      await page.goto(context.path('publication'));
+      await channel(page).locator('[data-og7="publication-review"]').click();
+      const english = language === 'en';
+      const dialog = page.getByRole('dialog', {
+        name: english ? 'Final publication' : 'Publication finale',
+        exact: true
+      });
+      await dialog
+        .getByRole('button', {
+          name: english ? 'Edit' : 'Modifier',
+          exact: true
+        })
+        .click();
+      const privateText = 'Synthetic private draft from an expired session.';
+      await dialog.locator('textarea[name="message"]').fill(privateText);
+      const link = dialog
+        .locator('[data-og7="publication-sponsor-review"]')
+        .getByRole('link')
+        .last();
+      const target = await link.getAttribute('href');
+      const deniedSession = page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === '/api/admin/auth/current' &&
+          response.status() === 401
+      );
+      expired = true;
+      await link.focus();
+      await page.keyboard.press('Enter');
+      await deniedSession;
+      await expect(page.locator('[data-og7="confirm-action"]')).toHaveCount(0);
+      await expect(page).toHaveURL(/\/admin\/login\?/);
+      expect(new URL(page.url()).searchParams.get('returnUrl')).toBe(target);
+      await expect(dialog).toBeHidden();
+      await expect(page.locator('[data-og7="confirm-action"]')).toHaveCount(0);
+      await expect
+        .poll(() =>
+          page
+            .locator('textarea')
+            .evaluateAll((elements) =>
+              elements.map((element) => (element as HTMLTextAreaElement).value)
+            )
+        )
+        .not.toContain(privateText);
+      expect(
+        await page.evaluate(() =>
+          sessionStorage.getItem('openg7-admin-session-token')
+        )
+      ).toBeNull();
+      expect(controls.commands).toEqual([]);
+      expect(mutations).toEqual([]);
+    });
+
+    for (const status of [401, 403]) {
+      test(`publication navigation purges its private sponsorship draft and pending discard after a late ${status} media read in ${language}`, async ({
+        page
+      }) => {
+        const { job, controls } = await fixtures(page, context);
+        job.sponsors[1]!.reviewStatus = 'pending_review';
+        await page.addInitScript(
+          (locale) => localStorage.setItem('openg7.language', locale),
+          language
+        );
+        let release!: () => void;
+        const gate = new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        let markMediaRead!: () => void;
+        const mediaRead = new Promise<void>((resolve) => {
+          markMediaRead = resolve;
+        });
+        await page.route(
+          '**/api/admin/publication-automation/media**',
+          async (route) => {
+            markMediaRead();
+            await gate;
+            await route.fulfill({
+              status,
+              json: { code: 'SYNTHETIC_MEDIA_ACCESS_DENIED' }
+            });
+          }
+        );
+        const mutations: string[] = [];
+        page.on('request', (request) => {
+          if (
+            new URL(request.url()).pathname.startsWith('/api/admin/') &&
+            !['GET', 'HEAD', 'OPTIONS'].includes(request.method())
+          )
+            mutations.push(request.url());
+        });
+        try {
+          await page.goto(context.path('publication'));
+          await channel(page)
+            .locator('[data-og7="publication-review"]')
+            .click();
+          await mediaRead;
+          const english = language === 'en';
+          const dialog = page.getByRole('dialog', {
+            name: english ? 'Final publication' : 'Publication finale',
+            exact: true
+          });
+          await dialog
+            .getByRole('button', {
+              name: english ? 'Edit' : 'Modifier',
+              exact: true
+            })
+            .click();
+          const privateText = `Synthetic private draft awaiting ${status} cleanup.`;
+          await dialog.locator('textarea[name="message"]').fill(privateText);
+          const link = dialog
+            .locator('[data-og7="publication-sponsor-review"]')
+            .getByRole('link')
+            .last();
+          await link.focus();
+          await page.keyboard.press('Enter');
+          const confirmation = page.getByRole('dialog').filter({
+            has: page.locator('[data-og7="confirm-action"]')
+          });
+          await expect(confirmation).toBeVisible();
+          const deniedRead = page.waitForResponse(
+            (response) =>
+              new URL(response.url()).pathname ===
+                '/api/admin/publication-automation/media' &&
+              response.status() === status
+          );
+          release();
+          await deniedRead;
+          await expect(dialog).toBeHidden();
+          await expect(confirmation).toBeHidden();
+          await expect
+            .poll(() =>
+              page
+                .locator('textarea')
+                .evaluateAll((elements) =>
+                  elements.map(
+                    (element) => (element as HTMLTextAreaElement).value
+                  )
+                )
+            )
+            .not.toContain(privateText);
+          // This media read is denied; /auth/current still describes a valid
+          // fixture session. Assert private projection cleanup, not sign-out.
+          expect(controls.commands).toEqual([]);
+          expect(mutations).toEqual([]);
+        } finally {
+          release();
+        }
+      });
+    }
+  }
+
   test.describe('dossier publication schedule', () => {
     test.use({ timezoneId: 'Asia/Tokyo' });
     for (const [language, width] of [
@@ -1144,6 +1340,14 @@ export function registerDossierPublicationScheduleTests(
       page
     }) => {
       const { controls } = await fixtures(page, context);
+      const mutations: string[] = [];
+      page.on('request', (request) => {
+        if (
+          new URL(request.url()).pathname.startsWith('/api/admin/') &&
+          !['GET', 'HEAD', 'OPTIONS'].includes(request.method())
+        )
+          mutations.push(request.url());
+      });
       await page.goto(context.path('publication'));
       await channel(page).locator('[data-og7="publication-slot-edit"]').click();
       const dialog = page.getByRole('dialog', { name: 'Publication finale' });
@@ -1165,11 +1369,30 @@ export function registerDossierPublicationScheduleTests(
         page.locator('[data-og7="publication-schedule-loading"]')
       ).toHaveCount(0);
       await page.keyboard.press('Escape');
+      const confirmation = page.getByRole('dialog').filter({
+        has: page.locator('[data-og7="confirm-action"]')
+      });
+      await expect(confirmation).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(confirmation).toBeHidden();
+      await expect(dialog.getByLabel('Texte exact à publier')).toHaveValue(
+        'Modification synthétique'
+      );
+      await expect(dialog.getByRole('alert')).toBeVisible();
+      await expect(save).toBeEnabled();
+      expect(controls.commands).toHaveLength(1);
+      expect(mutations).toHaveLength(1);
+
+      await page.keyboard.press('Escape');
+      await expect(confirmation).toBeVisible();
+      await confirmation.locator('[data-og7="confirm-action"]').click();
+      await expect(confirmation).toBeHidden();
       await expect(dialog).not.toBeVisible();
       await expect(
         channel(page).locator('[data-og7="publication-review"]')
       ).toBeEnabled();
       expect(controls.commands).toHaveLength(1);
+      expect(mutations).toHaveLength(1);
     });
 
     test('publication schedule proposal opens an exact historical delivery beyond the latest 200 without replacing other cards', async ({

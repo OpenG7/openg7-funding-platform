@@ -92,9 +92,18 @@ also clears cached proposals, the open drawer and its private edit fields.
 
 Closing an edited delivery or a new composition with the drawer's close button,
 Escape or controller B asks before discarding unsaved changes. Cancelling keeps
-the local fields and any save error; an active command prevents dismissal. This
-guard covers drawer dismissal, not navigation through links to other routes.
-Context and session invalidation retain their existing forced-close behavior.
+the local fields and any save error; an active command prevents dismissal. The
+same confirmation protects Angular route navigation from the Automation and
+sponsorship editors, including dossier, media and draft links, query-parameter
+changes on the current page, and browser back/forward. A cancelled navigation
+restores the current URL and history entry without clearing the draft. An accepted
+departure retains the fields until the navigation succeeds; it neither saves nor
+authorizes the publication. A subsequent navigation cancels the pending decision;
+any new departure with unsaved edits requires a fresh confirmation. Context and
+session invalidation retain their existing forced cleanup and cancel an obsolete
+discard confirmation. Browser
+reload, tab closure and navigation outside the Angular router are not covered;
+drafts are not persisted by this guard.
 
 The advanced workspace remains accessible with `sponsorshipId=<uuid>` and optionally
 `deliveryId=<uuid>`. These filters are accepted by
