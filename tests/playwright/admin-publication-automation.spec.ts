@@ -21,6 +21,7 @@ import {
 import { registerPublicationReliabilityTests } from './publication-reliability.ui.js';
 import { registerPublicationNavigationTests } from './publication-navigation.ui.js';
 import { registerPublicationContentReviewTests } from './publication-content-review.ui.js';
+import { registerPublicationTransverseAcceptanceTests } from './publication-transverse-acceptance.ui.js';
 import {
   blockAdminReviewWrites,
   captureAdminDesign,
@@ -350,6 +351,10 @@ registerPublicationContentReviewTests({
     fixtures(page, 'draft', options.conflict, [], options.job, {
       role: options.reader ? 'reader' : undefined
     })
+});
+
+registerPublicationTransverseAcceptanceTests({
+  setup: (page, options = {}) => fixtures(page, 'draft', false, [], options.job)
 });
 
 registerPublicationImagePreviewTests({
