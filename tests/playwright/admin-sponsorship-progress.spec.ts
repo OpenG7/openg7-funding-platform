@@ -5724,10 +5724,16 @@ for (const english of [false, true]) {
       expectedAssignedTo: 'admin:' + secondId
     });
     await actions.getByRole('combobox').first().selectOption('N0');
-    await actions
-      .locator('[data-og7="moderation-resolve-reconsideration"]')
-      .click();
+    const resolve = actions.locator(
+      '[data-og7="moderation-resolve-reconsideration"]'
+    );
+    // Native keyboard activation avoids a WebKit click lost during smooth scrolling.
+    await expect(resolve).toBeEnabled();
+    await resolve.focus();
+    await expect(resolve).toBeFocused();
+    await page.keyboard.press('Enter');
     const panel = page.locator('[data-og7="moderation-decision"]');
+    await expect(panel).toBeVisible();
     await expect(
       panel.locator('[data-og7="moderation-internal-reason"]')
     ).toHaveCount(0);
