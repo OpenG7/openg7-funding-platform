@@ -1275,6 +1275,7 @@ for (const language of ['fr-CA', 'en'] as const) {
       await expect
         .poll(() => fixture.queries.at(-1)?.get('sort'))
         .toBe('paid_at');
+      await expect(hook(page, 'campaigns-refresh')).toBeEnabled();
       const readsBeforeSelection = fixture.queries.length;
       const selected = hook(page, 'campaign-row').first();
       await selected.focus();
