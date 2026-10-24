@@ -39,6 +39,7 @@ Interrompre le relais Stripe ne stoppe pas les conteneurs : utiliser l'arrêt Do
 | Installer | `corepack enable`, puis `yarn install` |
 | Web + API | `yarn dev` |
 | Web / API séparés | `yarn dev:web` / `yarn dev:api` |
+| Web avec API Docker | `yarn dev:web:docker` |
 | Compilation TypeScript | `yarn build` |
 | Build Angular | `yarn workspace @openg7/funding-web build --configuration production` |
 | Tests Node avec compilation | `yarn test` |
