@@ -176,6 +176,13 @@ explicite ; aucune prestation n'est choisie arbitrairement ni créée depuis le 
 Une origine connaissant la prestation exacte peut ajouter `obligationId=<uuid>` ;
 ce paramètre exige toujours `sponsorshipId` et ne peut élargir son périmètre.
 
+La synthèse **Suivi des prestations du dossier**, dans l’onglet Aperçu de
+Commandites, fournit ces deux identifiants pour chaque obligation enregistrée.
+Elle distingue réalisations à preuve qualifiée, dispenses et travail restant ;
+elle ne choisit pas de brouillon et ne remplace pas les décisions du propriétaire.
+Une visibilité actuelle n’est indiquée que pour la fiche Web OpenG7, séparément
+de la preuve de réalisation.
+
 Les identifiants ciblent la requête API avant tri et pagination, indépendamment
 de l'ancienne page ou des filtres mémorisés. Une cible absente ou appartenant à
 un autre dossier renvoie zéro ligne. Des identifiants malformés, répétés ou une

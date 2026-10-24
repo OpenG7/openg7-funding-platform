@@ -26,6 +26,165 @@
         }
       </div>
     } @else if (data()?.dossier; as d) {
+      @if (showSummary()) {
+        @if (servicesSummary(); as services) {
+          <section
+            class="service-summary"
+            data-og7="dossier-service-summary"
+            aria-labelledby="dossier-services-title"
+          >
+            <header class="service-summary-heading">
+              <h3 id="dossier-services-title">
+                {{ 'admin.sponsorsCleanup.servicesSummary.title' | translate }}
+              </h3>
+              @if (services.state === 'ready') {
+                <span class="service-total">{{
+                  'admin.sponsorsCleanup.servicesSummary.' +
+                    (services.total === 1 ? 'totalOne' : 'total')
+                    | translate: { count: services.total }
+                }}</span>
+              }
+            </header>
+            @if (services.state === 'ready') {
+              <p class="service-totals">
+                <span data-og7="dossier-services-fulfilled">{{
+                  'admin.sponsorsCleanup.servicesSummary.' +
+                    (services.fulfilled === 1 ? 'fulfilledOne' : 'fulfilled')
+                    | translate: { count: services.fulfilled }
+                }}</span>
+                <span data-og7="dossier-services-adjusted">{{
+                  'admin.sponsorsCleanup.servicesSummary.' +
+                    (services.adjusted === 1 ? 'adjustedOne' : 'adjusted')
+                    | translate: { count: services.adjusted }
+                }}</span>
+                <span data-og7="dossier-services-remaining">{{
+                  'admin.sponsorsCleanup.servicesSummary.remaining'
+                    | translate: { count: services.remaining }
+                }}</span>
+              </p>
+              <ul class="service-list">
+                @for (row of services.rows; track row.obligation.id) {
+                  <li
+                    class="service-row"
+                    data-og7="dossier-service-row"
+                    [attr.data-og7-id]="row.obligation.id"
+                    [attr.data-state]="row.status"
+                  >
+                    <div class="service-row-heading">
+                      <a
+                        data-og7="dossier-service-detail"
+                        routerLink="/admin/fundraiser/campaigns"
+                        [queryParams]="{
+                          sponsorshipId: d.contributionId,
+                          obligationId: row.obligation.id
+                        }"
+                      >
+                        <strong>{{
+                          'admin.commitments.channels.' + row.obligation.channel
+                            | translate
+                        }}</strong>
+                        <span>
+                          ·
+                          {{
+                            row.obligation.target === 'openg20'
+                              ? 'OpenG20'
+                              : 'OpenG7'
+                          }}</span
+                        >
+                        @if (
+                          row.occurrenceCount > 1 || row.obligation.ordinal > 1
+                        ) {
+                          <span class="service-occurrence">{{
+                            'admin.sponsorsCleanup.servicesSummary.occurrence'
+                              | translate: { ordinal: row.obligation.ordinal }
+                          }}</span>
+                        }
+                        <span aria-hidden="true"> →</span>
+                      </a>
+                      <openg7-admin-badge [tone]="serviceTone(row.status)">
+                        {{
+                          'admin.sponsorsCleanup.servicesSummary.states.' +
+                            row.status | translate
+                        }}
+                      </openg7-admin-badge>
+                    </div>
+                    @if (row.evidence; as evidence) {
+                      <p class="service-proof">
+                        {{
+                          'admin.sponsorsCleanup.servicesSummary.proofDate'
+                            | translate
+                              : { date: serviceDate(evidence.deliveredAt) }
+                        }}
+                      </p>
+                    } @else if (row.status === 'adjusted') {
+                      <p>
+                        {{
+                          'admin.sponsorsCleanup.servicesSummary.waiverHelp'
+                            | translate
+                        }}
+                      </p>
+                    } @else if (row.status === 'unverified') {
+                      <p>
+                        {{
+                          'admin.sponsorsCleanup.servicesSummary.proofMissing'
+                            | translate
+                        }}
+                      </p>
+                    } @else if (row.workflow; as workflow) {
+                      <p>{{ serviceReason(workflow.reason) }}</p>
+                      <small>{{
+                        'admin.dossier.publicationBridge.schedule.workflow.responsibility.' +
+                          workflow.responsibility | translate
+                      }}</small>
+                    } @else {
+                      <p>
+                        {{
+                          'admin.sponsorsCleanup.servicesSummary.trackingUnavailable'
+                            | translate
+                        }}
+                      </p>
+                    }
+                    @if (
+                      row.obligation.channel === 'website' &&
+                        row.obligation.target === 'openg7' &&
+                        d.website;
+                      as website
+                    ) {
+                      <small class="service-visibility">{{
+                        'admin.sponsorsCleanup.servicesSummary.visibility.' +
+                          (website.held
+                            ? 'held'
+                            : website.visible
+                              ? 'visible'
+                              : 'hidden') | translate
+                      }}</small>
+                    }
+                  </li>
+                }
+              </ul>
+            } @else {
+              <p class="service-fallback">
+                {{
+                  'admin.sponsorsCleanup.servicesSummary.fallback.' +
+                    services.state | translate
+                }}
+              </p>
+              <a
+                routerLink="/admin/fundraiser/sponsors"
+                [queryParams]="{
+                  sponsorshipId: d.contributionId,
+                  tab: 'publication'
+                }"
+                fragment="dossier-agreement"
+                >{{
+                  'admin.sponsorsCleanup.servicesSummary.openAgreement'
+                    | translate
+                }}</a
+              >
+            }
+          </section>
+        }
+      }
       <details data-og7="dossier-progress-details" [hidden]="!showSummary()">
         <summary>
           <span>{{ 'admin.dossier.stateSummary' | translate }}</span>
