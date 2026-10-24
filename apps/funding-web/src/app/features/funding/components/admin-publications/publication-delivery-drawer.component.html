@@ -11,9 +11,17 @@
   [title]="'admin.publicationAutomation.preview' | translate"
   [closeLabel]="'admin.publicationAutomation.close' | translate"
   [busy]="c.busy()"
+  [wide]="true"
+  [fixedFooter]="true"
   (closed)="c.requestClose()"
 >
   @if (c.selected() || c.composing()) {
+    @if (navigationNotice()) {
+      <p role="status" data-og7="publication-navigation-notice">
+        {{ navigationNotice() | translate }}
+      </p>
+    }
+
     @if (c.error()) {
       <p role="alert" class="alert">{{ c.error() | translate }}</p>
     }
@@ -23,276 +31,465 @@
       </p>
     }
     @if (c.selected(); as job) {
-      <section class="content-context" data-og7="publication-content-context">
-        <p>
-          {{
-            'admin.publicationAutomation.contentReview.savedVersion' | translate
-          }}
-          <strong>{{ job.version }}</strong>
-        </p>
-        <p role="status" aria-live="polite">
-          {{
-            (c.dirty()
-              ? 'admin.publicationAutomation.contentReview.unsaved'
-              : 'admin.publicationAutomation.contentReview.unchanged'
-            ) | translate
-          }}
-        </p>
-      </section>
-      <openg7-funding-moderation-actions
-        [subject]="{ type: 'publication_delivery', id: job.id }"
-        [automaticFor]="automaticTarget()"
-        [disabled]="c.busy() || c.dirty()"
-        (changed)="c.refreshModeration()"
-      />
-      <p class="destination">
-        <strong>{{ job.feedId }} · {{ job.accountId }}</strong
-        ><span
-          >{{ 'admin.publicationAutomation.modes.' + job.mode | translate }} ·
-          {{
-            'admin.publicationAutomation.status.' + job.status | translate
-          }}</span
+      <div class="review-context">
+        <section
+          class="content-context"
+          data-og7="publication-content-context"
+          tabindex="-1"
         >
-      </p>
-      @if (job.status === 'uncertain' || job.accountRecoveryRequired) {
-        <p class="alert">
-          {{ 'admin.publicationAutomation.uncertain' | translate }}
-        </p>
-        @if (job.errorCode === 'SOURCE_CONTENT_MISSING') {
-          <section data-og7="publication-content-uncertain" role="status">
-            <p>
-              {{
-                'admin.publicationAutomation.sourceContentUncertain' | translate
-              }}
-            </p>
-          </section>
-        }
-      }
-      @if (job.status === 'blocked') {
-        <p class="alert">
-          {{ 'admin.publicationAutomation.blocked' | translate }}
-        </p>
-        @if (c.mediaBlocked(job)) {
-          <section data-og7="publication-media-blocker" role="status">
-            <p>
-              {{ 'admin.publicationAutomation.mediaBlocker' | translate }}
-            </p>
-            @for (sponsor of job.sponsors; track sponsor.id) {
-              <ng-container
-                *ngTemplateOutlet="
-                  sponsorDossierLink;
-                  context: { $implicit: sponsor, tab: 'media' }
-                "
-              />
-            }
-          </section>
-        }
-        @if (job.errorCode === 'SPONSOR_REVIEW_REQUIRED') {
-          <section data-og7="publication-review-blocker" role="status">
-            <p>
-              {{
-                'admin.publicationAutomation.errors.SPONSOR_REVIEW_REQUIRED'
-                  | translate
-              }}
-            </p>
-            @for (sponsor of job.sponsors; track sponsor.id) {
-              <ng-container
-                *ngTemplateOutlet="
-                  sponsorDossierLink;
-                  context: { $implicit: sponsor }
-                "
-              />
-            }
-          </section>
-        }
-        @if (job.errorCode === 'SOURCE_CONTENT_MISSING') {
-          <section data-og7="publication-content-blocker" role="status">
-            <p>
-              {{
-                'admin.publicationAutomation.errors.SOURCE_CONTENT_MISSING'
-                  | translate
-              }}
-            </p>
-            <a routerLink="/admin/fundraiser/publications/drafts">
-              {{ 'admin.publicationAutomation.editSourceDrafts' | translate }}
-            </a>
-          </section>
-        }
-        @if (
-          job.errorCode === 'SOURCE_NOT_ELIGIBLE' ||
-          job.errorCode === 'PAYMENT_REVIEW_REQUIRED'
-        ) {
-          @for (sponsor of job.sponsors; track sponsor.id) {
-            @if (
-              sponsor.paymentStatus === 'refunded' ||
-              sponsor.paymentStatus === 'disputed'
-            ) {
-              <p data-og7="publication-payment-blocker" role="status">
-                <ng-container
-                  *ngTemplateOutlet="
-                    sponsorDossierLink;
-                    context: {
-                      $implicit: sponsor,
-                      tab:
-                        sponsor.paymentStatus === 'refunded'
-                          ? 'refund'
-                          : 'overview'
-                    }
-                  "
-                />
-                —
-                {{
-                  'admin.publicationAutomation.paymentBlocked.' +
-                    sponsor.paymentStatus | translate
-                }}
-              </p>
-            }
-          }
-        }
-        @if (job.errorCode === 'PAYMENT_REVIEW_REQUIRED') {
-          <section data-og7="publication-payment-review" role="status">
-            <p>
-              {{
-                'admin.publicationAutomation.paymentBlocked.reviewRequired'
-                  | translate
-              }}
-            </p>
-            <ul>
-              @for (sponsor of job.sponsors; track sponsor.id) {
-                <li>
-                  <ng-container
-                    *ngTemplateOutlet="
-                      sponsorDossierLink;
-                      context: { $implicit: sponsor, tab: 'overview' }
-                    "
-                  />
-                </li>
-              }
-            </ul>
-          </section>
-        }
-      }
-      @if (job.nextAttemptAt && job.status === 'approved') {
-        <p>
-          {{ 'admin.publicationAutomation.retryAt' | translate }}
-          {{ c.dateLabel(job.nextAttemptAt) }}
-        </p>
-      }
-    }
-    @if (!c.editing() || !canWrite()) {
-      @if (c.selected(); as job) {
-        <section data-og7="publication-saved-content">
-          <h3>
+          <p>
             {{
-              'admin.publicationAutomation.contentReview.savedText' | translate
+              'admin.publicationAutomation.contentReview.savedVersion'
+                | translate
             }}
-          </h3>
-          <p class="publication-copy">{{ job.message }}</p>
-        </section>
-        <p>
-          <time [attr.datetime]="job.scheduledAt">{{
-            c.dateLabel(job.scheduledAt)
-          }}</time>
-          @if (c.browserTimezone) {
-            <span> ({{ c.browserTimezone }})</span>
-          }
-        </p>
-        @if (job.publicationFormat === 'image_collection') {
-          <p>{{ 'admin.publicationAutomation.collectionHelp' | translate }}</p>
-          <ol data-og7="publication-collection-preview">
-            @for (image of c.collectionPreviews(); track image.url) {
-              <li>
-                <img
-                  class="preview-image"
-                  [src]="image.url"
-                  [alt]="image.alt"
-                />
-              </li>
-            }
-          </ol>
-        }
-        @if (c.mediaPreview(); as image) {
-          <img class="preview-image" [src]="image.url" [alt]="image.alt" />
-          <p data-og7="publication-image-preparation">
+            <strong>{{ job.version }}</strong>
+          </p>
+          <p role="status" aria-live="polite">
             {{
-              (c.previewExact()
-                ? 'funding.followup.media.exactJpeg'
-                : 'funding.followup.media.sourcePreview'
+              (c.dirty()
+                ? 'admin.publicationAutomation.contentReview.unsaved'
+                : 'admin.publicationAutomation.contentReview.unchanged'
               ) | translate
             }}
           </p>
+        </section>
+        <p class="destination" data-og7="publication-result" tabindex="-1">
+          <strong>{{ job.feedId }} · {{ job.accountId }}</strong
+          ><span
+            >{{ 'admin.publicationAutomation.modes.' + job.mode | translate }} ·
+            {{
+              'admin.publicationAutomation.status.' + job.status | translate
+            }}</span
+          >
+        </p>
+      </div>
+    } @else if (c.composing()) {
+      <p data-og7="publication-content-context" role="status">
+        {{ 'admin.publicationAutomation.contentReview.newDraft' | translate }}
+      </p>
+    }
+    <div
+      class="review-layout"
+      data-og7="publication-review-layout"
+      [class.preview-expanded]="previewExpanded()"
+    >
+      <div
+        class="review-editor"
+        data-og7="publication-editor"
+        [hidden]="previewExpanded()"
+      >
+        @if (c.selected(); as job) {
+          <openg7-funding-moderation-actions
+            [subject]="{ type: 'publication_delivery', id: job.id }"
+            [automaticFor]="automaticTarget()"
+            [disabled]="c.busy() || c.dirty()"
+            (changed)="c.refreshModeration()"
+          />
+
+          @if (job.status === 'uncertain' || job.accountRecoveryRequired) {
+            <p class="alert">
+              {{ 'admin.publicationAutomation.uncertain' | translate }}
+            </p>
+            @if (job.errorCode === 'SOURCE_CONTENT_MISSING') {
+              <section data-og7="publication-content-uncertain" role="status">
+                <p>
+                  {{
+                    'admin.publicationAutomation.sourceContentUncertain'
+                      | translate
+                  }}
+                </p>
+              </section>
+            }
+          }
+          @if (job.status === 'blocked') {
+            <p class="alert">
+              {{ 'admin.publicationAutomation.blocked' | translate }}
+            </p>
+            @if (c.mediaBlocked(job)) {
+              <section data-og7="publication-media-blocker" role="status">
+                <p>
+                  {{ 'admin.publicationAutomation.mediaBlocker' | translate }}
+                </p>
+                @for (sponsor of job.sponsors; track sponsor.id) {
+                  <ng-container
+                    *ngTemplateOutlet="
+                      sponsorDossierLink;
+                      context: { $implicit: sponsor, tab: 'media' }
+                    "
+                  />
+                }
+              </section>
+            }
+            @if (job.errorCode === 'SPONSOR_REVIEW_REQUIRED') {
+              <section data-og7="publication-review-blocker" role="status">
+                <p>
+                  {{
+                    'admin.publicationAutomation.errors.SPONSOR_REVIEW_REQUIRED'
+                      | translate
+                  }}
+                </p>
+                @for (sponsor of job.sponsors; track sponsor.id) {
+                  <ng-container
+                    *ngTemplateOutlet="
+                      sponsorDossierLink;
+                      context: { $implicit: sponsor }
+                    "
+                  />
+                }
+              </section>
+            }
+            @if (job.errorCode === 'SOURCE_CONTENT_MISSING') {
+              <section data-og7="publication-content-blocker" role="status">
+                <p>
+                  {{
+                    'admin.publicationAutomation.errors.SOURCE_CONTENT_MISSING'
+                      | translate
+                  }}
+                </p>
+                <a routerLink="/admin/fundraiser/publications/drafts">
+                  {{
+                    'admin.publicationAutomation.editSourceDrafts' | translate
+                  }}
+                </a>
+              </section>
+            }
+            @if (
+              job.errorCode === 'SOURCE_NOT_ELIGIBLE' ||
+              job.errorCode === 'PAYMENT_REVIEW_REQUIRED'
+            ) {
+              @for (sponsor of job.sponsors; track sponsor.id) {
+                @if (
+                  sponsor.paymentStatus === 'refunded' ||
+                  sponsor.paymentStatus === 'disputed'
+                ) {
+                  <p data-og7="publication-payment-blocker" role="status">
+                    <ng-container
+                      *ngTemplateOutlet="
+                        sponsorDossierLink;
+                        context: {
+                          $implicit: sponsor,
+                          tab:
+                            sponsor.paymentStatus === 'refunded'
+                              ? 'refund'
+                              : 'overview'
+                        }
+                      "
+                    />
+                    —
+                    {{
+                      'admin.publicationAutomation.paymentBlocked.' +
+                        sponsor.paymentStatus | translate
+                    }}
+                  </p>
+                }
+              }
+            }
+            @if (job.errorCode === 'PAYMENT_REVIEW_REQUIRED') {
+              <section data-og7="publication-payment-review" role="status">
+                <p>
+                  {{
+                    'admin.publicationAutomation.paymentBlocked.reviewRequired'
+                      | translate
+                  }}
+                </p>
+                <ul>
+                  @for (sponsor of job.sponsors; track sponsor.id) {
+                    <li>
+                      <ng-container
+                        *ngTemplateOutlet="
+                          sponsorDossierLink;
+                          context: { $implicit: sponsor, tab: 'overview' }
+                        "
+                      />
+                    </li>
+                  }
+                </ul>
+              </section>
+            }
+          }
+          @if (job.nextAttemptAt && job.status === 'approved') {
+            <p>
+              {{ 'admin.publicationAutomation.retryAt' | translate }}
+              {{ c.dateLabel(job.nextAttemptAt) }}
+            </p>
+          }
         }
-        @if (canWrite() && c.editable()) {
+        @if (!c.editing() && canWrite() && c.editable()) {
+          @if (c.selected(); as job) {
+            <button
+              type="button"
+              class="admin-button"
+              [disabled]="c.busy()"
+              [openg7AutomaticPrepare]="
+                c.editing() ? '' : 'publication.delivery.edit:' + job.id
+              "
+              [automaticFor]="automaticTarget()"
+              (automaticPrepare)="c.editing.set(true)"
+              (click)="c.editing.set(true)"
+            >
+              {{ 'admin.publicationAutomation.modify' | translate }}
+            </button>
+          }
+        }
+        @if (canWrite() && c.editing()) {
+          <h3>
+            {{
+              (c.composing()
+                ? 'admin.publicationAutomation.contentReview.compose'
+                : 'admin.publicationAutomation.contentReview.edit'
+              ) | translate
+            }}
+          </h3>
+          <p data-og7="publication-save-help">
+            {{
+              'admin.publicationAutomation.contentReview.saveHelp' | translate
+            }}
+          </p>
+          <form
+            [id]="editorFormId()"
+            (ngSubmit)="saveDraft()"
+            data-og7="publication-editor-form"
+            data-og7-automatic-block="editing"
+          >
+            <fieldset [disabled]="c.busy() || !c.editable()">
+              @if (c.composing()) {
+                <label
+                  >{{ 'admin.publicationAutomation.feed' | translate
+                  }}<select name="feed" [(ngModel)]="c.composeFeed">
+                    @for (feed of c.state()?.feeds; track feed.id) {
+                      <option [value]="feed.id">{{ feed.id }}</option>
+                    }
+                  </select></label
+                >
+                <label
+                  >{{ 'admin.publicationAutomation.kind' | translate
+                  }}<select name="kind" [(ngModel)]="c.composeKind">
+                    @for (kind of c.kinds; track kind) {
+                      <option [value]="kind">
+                        {{
+                          'admin.publicationAutomation.kinds.' + kind
+                            | translate
+                        }}
+                      </option>
+                    }
+                  </select></label
+                >
+              }
+              <label
+                >{{ 'admin.publicationAutomation.message' | translate
+                }}<textarea
+                  name="message"
+                  required
+                  maxlength="2900"
+                  rows="10"
+                  [ngModel]="c.edit.message"
+                  (ngModelChange)="c.changeEdit('message', $event)"
+                ></textarea
+                ><small>{{ c.edit.message.length }} / 2900</small></label
+              >
+              <label
+                >{{ 'admin.publicationAutomation.schedule' | translate }} ({{
+                  c.browserTimezone
+                }})<input
+                  #scheduleField
+                  name="date"
+                  type="datetime-local"
+                  required
+                  [ngModel]="c.edit.scheduledAt"
+                  [attr.aria-invalid]="c.dateTimeError() ? 'true' : null"
+                  [attr.aria-describedby]="
+                    c.dateTimeError() ? 'publication-schedule-error' : null
+                  "
+                  (ngModelChange)="c.changeEdit('scheduledAt', $event)"
+              /></label>
+              @if (c.dateTimeError()) {
+                <p
+                  #scheduleError
+                  id="publication-schedule-error"
+                  role="alert"
+                  data-og7="publication-schedule-error"
+                >
+                  {{ 'admin.publications.invalidLocalTime' | translate }}
+                </p>
+              }
+              @if (c.selected()?.kind === 'sponsorship') {
+                <label
+                  >{{ 'funding.offer.format' | translate }}
+                  <select
+                    name="publicationFormat"
+                    [ngModel]="c.edit.publicationFormat"
+                    (ngModelChange)="c.changeFormat($event)"
+                    data-og7="publication-format"
+                  >
+                    @for (format of c.formats; track format) {
+                      <option
+                        [value]="format"
+                        [disabled]="!c.formatAvailable(format)"
+                      >
+                        {{ 'funding.offer.formats.' + format | translate }}
+                      </option>
+                    }
+                  </select>
+                </label>
+              }
+              @if (c.derived(c.edit.publicationFormat)) {
+                <p>
+                  {{
+                    'funding.followup.media.usage.chooseOwnPhoto' | translate
+                  }}
+                </p>
+                @for (
+                  sponsor of c.selected()?.sponsors ?? [];
+                  track sponsor.id
+                ) {
+                  <label
+                    >{{ sponsor.name }}
+                    <select
+                      [name]="'photo-' + sponsor.id"
+                      [ngModel]="c.photoSelection(sponsor.id)"
+                      (ngModelChange)="c.selectPhoto(sponsor.id, $event)"
+                      [attr.data-og7-id]="'publication-photo:' + sponsor.id"
+                    >
+                      <option value="">
+                        {{
+                          'funding.followup.media.usage.choosePhoto' | translate
+                        }}
+                      </option>
+                      @for (item of c.photoOptions(sponsor.id); track item.id) {
+                        <option [value]="item.id">
+                          {{ item.alt
+                          }}{{ item.credit ? ' · ' + item.credit : '' }}
+                        </option>
+                      }
+                    </select>
+                    @for (item of c.photoOptions(sponsor.id); track item.id) {
+                      @if (
+                        item.id === c.photoSelection(sponsor.id) && item.credit
+                      ) {
+                        <p data-og7="publication-required-credit">
+                          {{
+                            'funding.followup.media.requiredCredit' | translate
+                          }}
+                          : {{ item.credit }}
+                        </p>
+                      }
+                    }
+                  </label>
+                  @if (!c.photoOptions(sponsor.id).length) {
+                    <p role="status">
+                      {{
+                        'funding.followup.media.usage.noQualifiedPhoto'
+                          | translate
+                      }}
+                    </p>
+                  }
+                  <a
+                    routerLink="/admin/fundraiser/sponsors"
+                    [queryParams]="{ sponsorshipId: sponsor.id, tab: 'media' }"
+                    >{{
+                      'funding.followup.media.usage.reviewOwnPhoto'
+                        | translate: { name: sponsor.name }
+                    }}</a
+                  >
+                }
+              } @else {
+                <label
+                  >{{ 'admin.publicationAutomation.image' | translate
+                  }}<select
+                    name="media"
+                    [ngModel]="c.edit.mediaId"
+                    (ngModelChange)="c.changeEdit('mediaId', $event)"
+                  >
+                    <option value="">
+                      {{ 'admin.publicationAutomation.noImage' | translate }}
+                    </option>
+                    @for (item of c.media(); track item.id) {
+                      <option [value]="item.id">
+                        {{ item.company }} · {{ item.alt }}
+                      </option>
+                    }
+                  </select></label
+                >
+              }
+              @if (c.edit.mediaId) {
+                @for (item of c.media(); track item.id) {
+                  @if (item.id === c.edit.mediaId && item.credit) {
+                    <p data-og7="publication-required-credit">
+                      {{ 'funding.followup.media.requiredCredit' | translate }}
+                      :
+                      {{ item.credit }}
+                    </p>
+                  }
+                }
+              }
+            </fieldset>
+          </form>
+        }
+      </div>
+      <aside
+        #previewPanel
+        class="review-preview"
+        data-og7="publication-preview"
+        [id]="previewId()"
+        tabindex="-1"
+        [attr.aria-label]="
+          'admin.publicationAutomation.contentReview.previewHeading' | translate
+        "
+        [attr.data-expanded]="previewExpanded()"
+      >
+        <header class="preview-heading">
+          <h3>
+            {{
+              'admin.publicationAutomation.contentReview.previewHeading'
+                | translate
+            }}
+          </h3>
           <button
+            #previewToggle
             type="button"
             class="admin-button"
+            data-og7="publication-preview-expand"
             [disabled]="c.busy()"
-            [openg7AutomaticPrepare]="
-              c.editing() ? '' : 'publication.delivery.edit:' + job.id
-            "
-            [automaticFor]="automaticTarget()"
-            (automaticPrepare)="c.editing.set(true)"
-            (click)="c.editing.set(true)"
+            [attr.aria-expanded]="previewExpanded()"
+            [attr.aria-controls]="previewId()"
+            (click)="togglePreview()"
           >
-            {{ 'admin.publicationAutomation.modify' | translate }}
+            {{
+              (previewExpanded()
+                ? 'admin.publicationAutomation.contentReview.reducePreview'
+                : 'admin.publicationAutomation.contentReview.expandPreview'
+              ) | translate
+            }}
           </button>
-        }
-      }
-    }
-    @if (canWrite() && c.editing()) {
-      <h3>
-        {{
-          (c.composing()
-            ? 'admin.publicationAutomation.contentReview.compose'
-            : 'admin.publicationAutomation.contentReview.edit'
-          ) | translate
-        }}
-      </h3>
-      @if (c.composing()) {
-        <p data-og7="publication-content-context" role="status">
-          {{ 'admin.publicationAutomation.contentReview.newDraft' | translate }}
-        </p>
-      }
-      <p data-og7="publication-save-help">
-        {{ 'admin.publicationAutomation.contentReview.saveHelp' | translate }}
-      </p>
-      <form (ngSubmit)="c.save()" data-og7-automatic-block="editing">
-        <fieldset [disabled]="c.busy() || !c.editable()">
-          @if (c.composing()) {
-            <label
-              >{{ 'admin.publicationAutomation.feed' | translate
-              }}<select name="feed" [(ngModel)]="c.composeFeed">
-                @for (feed of c.state()?.feeds; track feed.id) {
-                  <option [value]="feed.id">{{ feed.id }}</option>
-                }
-              </select></label
-            >
-            <label
-              >{{ 'admin.publicationAutomation.kind' | translate
-              }}<select name="kind" [(ngModel)]="c.composeKind">
-                @for (kind of c.kinds; track kind) {
-                  <option [value]="kind">
-                    {{
-                      'admin.publicationAutomation.kinds.' + kind | translate
-                    }}
-                  </option>
-                }
-              </select></label
-            >
+        </header>
+        @if (!c.editing() || !canWrite()) {
+          @if (c.selected(); as job) {
+            <section data-og7="publication-saved-content" tabindex="-1">
+              <h4>
+                {{
+                  'admin.publicationAutomation.contentReview.savedText'
+                    | translate
+                }}
+              </h4>
+              <p class="publication-copy">{{ job.message }}</p>
+            </section>
+            <p>
+              <time [attr.datetime]="job.scheduledAt">{{
+                c.dateLabel(job.scheduledAt)
+              }}</time>
+              @if (c.browserTimezone) {
+                <span> ({{ c.browserTimezone }})</span>
+              }
+            </p>
           }
-          <label
-            >{{ 'admin.publicationAutomation.message' | translate
-            }}<textarea
-              name="message"
-              required
-              maxlength="2900"
-              rows="10"
-              [ngModel]="c.edit.message"
-              (ngModelChange)="c.changeEdit('message', $event)"
-            ></textarea
-            ><small>{{ c.edit.message.length }} / 2900</small></label
+        }
+        @if (canWrite() && c.editing()) {
+          <details
+            #localPreviewDetails
+            class="content-preview"
+            data-og7="publication-local-preview"
+            open
           >
-          <details class="content-preview" data-og7="publication-local-preview">
             <summary>
               {{
                 'admin.publicationAutomation.contentReview.localPreview'
@@ -342,345 +539,242 @@
               </p>
             </details>
           }
-          <label
-            >{{ 'admin.publicationAutomation.schedule' | translate }} ({{
-              c.browserTimezone
-            }})<input
-              name="date"
-              type="datetime-local"
-              required
-              [ngModel]="c.edit.scheduledAt"
-              [attr.aria-invalid]="c.dateTimeError() ? 'true' : null"
-              [attr.aria-describedby]="
-                c.dateTimeError() ? 'publication-schedule-error' : null
-              "
-              (ngModelChange)="c.changeEdit('scheduledAt', $event)"
-          /></label>
-          @if (c.dateTimeError()) {
-            <p
-              id="publication-schedule-error"
-              role="alert"
-              data-og7="publication-schedule-error"
-            >
-              {{ 'admin.publications.invalidLocalTime' | translate }}
-            </p>
-          }
-          @if (c.selected()?.kind === 'sponsorship') {
-            <label
-              >{{ 'funding.offer.format' | translate }}
-              <select
-                name="publicationFormat"
-                [ngModel]="c.edit.publicationFormat"
-                (ngModelChange)="c.changeFormat($event)"
-                data-og7="publication-format"
-              >
-                @for (format of c.formats; track format) {
-                  <option
-                    [value]="format"
-                    [disabled]="!c.formatAvailable(format)"
-                  >
-                    {{ 'funding.offer.formats.' + format | translate }}
-                  </option>
-                }
-              </select>
-            </label>
-          }
-          @if (c.derived(c.edit.publicationFormat)) {
-            @if (c.edit.publicationFormat === 'image_collection') {
-              <p>
-                {{ 'admin.publicationAutomation.collectionHelp' | translate }}
-              </p>
-              <ol data-og7="publication-collection-preview">
-                @for (image of c.collectionPreviews(); track image.url) {
-                  <li>
-                    <img
-                      class="preview-image"
-                      [src]="image.url"
-                      [alt]="image.alt"
-                    />
-                  </li>
-                }
-              </ol>
-            }
-            <p>
-              {{ 'funding.followup.media.usage.chooseOwnPhoto' | translate }}
-            </p>
-            @for (sponsor of c.selected()?.sponsors ?? []; track sponsor.id) {
-              <label
-                >{{ sponsor.name }}
-                <select
-                  [name]="'photo-' + sponsor.id"
-                  [ngModel]="c.photoSelection(sponsor.id)"
-                  (ngModelChange)="c.selectPhoto(sponsor.id, $event)"
-                  [attr.data-og7-id]="'publication-photo:' + sponsor.id"
-                >
-                  <option value="">
-                    {{ 'funding.followup.media.usage.choosePhoto' | translate }}
-                  </option>
-                  @for (item of c.photoOptions(sponsor.id); track item.id) {
-                    <option [value]="item.id">
-                      {{ item.alt }}{{ item.credit ? ' · ' + item.credit : '' }}
-                    </option>
-                  }
-                </select>
-                @for (item of c.photoOptions(sponsor.id); track item.id) {
-                  @if (
-                    item.id === c.photoSelection(sponsor.id) && item.credit
-                  ) {
-                    <p data-og7="publication-required-credit">
-                      {{ 'funding.followup.media.requiredCredit' | translate }}
-                      : {{ item.credit }}
-                    </p>
-                  }
-                }
-              </label>
-              @if (!c.photoOptions(sponsor.id).length) {
-                <p role="status">
-                  {{
-                    'funding.followup.media.usage.noQualifiedPhoto' | translate
-                  }}
-                </p>
-              }
-              <a
-                routerLink="/admin/fundraiser/sponsors"
-                [queryParams]="{ sponsorshipId: sponsor.id, tab: 'media' }"
-                >{{
-                  'funding.followup.media.usage.reviewOwnPhoto'
-                    | translate: { name: sponsor.name }
-                }}</a
-              >
-            }
-          } @else {
-            <label
-              >{{ 'admin.publicationAutomation.image' | translate
-              }}<select
-                name="media"
-                [ngModel]="c.edit.mediaId"
-                (ngModelChange)="c.changeEdit('mediaId', $event)"
-              >
-                <option value="">
-                  {{ 'admin.publicationAutomation.noImage' | translate }}
-                </option>
-                @for (item of c.media(); track item.id) {
-                  <option [value]="item.id">
-                    {{ item.company }} · {{ item.alt }}
-                  </option>
-                }
-              </select></label
-            >
-          }
-          @if (c.edit.mediaId) {
-            @for (item of c.media(); track item.id) {
-              @if (item.id === c.edit.mediaId && item.credit) {
-                <p data-og7="publication-required-credit">
-                  {{ 'funding.followup.media.requiredCredit' | translate }} :
-                  {{ item.credit }}
-                </p>
-              }
-            }
-            @if (c.mediaPreview(); as image) {
-              <img class="preview-image" [src]="image.url" [alt]="image.alt" />
-              <p data-og7="publication-image-preparation">
-                {{
-                  (c.previewExact()
-                    ? 'funding.followup.media.exactJpeg'
-                    : 'funding.followup.media.sourcePreview'
-                  ) | translate
-                }}
-              </p>
-            }
-          }
-          @if (c.derived(c.edit.publicationFormat)) {
-            @if (c.mediaPreview(); as image) {
-              <img class="preview-image" [src]="image.url" [alt]="image.alt" />
-              <p data-og7="publication-image-preparation">
-                {{
-                  (c.previewExact()
-                    ? 'funding.followup.media.exactJpeg'
-                    : 'funding.followup.media.sourcePreview'
-                  ) | translate
-                }}
-              </p>
-            }
-          }
-          @if (c.editable()) {
-            <button
-              class="admin-button"
-              type="submit"
-              [disabled]="
-                !c.edit.message.trim() ||
-                !c.edit.scheduledAt ||
-                !c.mediaSelectionValid()
-              "
-            >
-              {{ 'admin.publicationAutomation.save' | translate }}
-            </button>
-          }
-        </fieldset>
-      </form>
-    }
-    @if (c.selected(); as job) {
-      @if (c.pendingSponsors().length) {
-        <section data-og7="publication-sponsor-review">
-          <h3>
-            {{ 'admin.publicationAutomation.sponsorReview' | translate }}
-          </h3>
-          <p>
-            {{ 'admin.publicationAutomation.sponsorReviewHelp' | translate }}
-          </p>
-          <ul>
-            @for (sponsor of c.pendingSponsors(); track sponsor.id) {
+        }
+        @if (previewFormat() === 'image_collection') {
+          <p>{{ 'admin.publicationAutomation.collectionHelp' | translate }}</p>
+          <ol data-og7="publication-collection-preview">
+            @for (image of c.collectionPreviews(); track image.url) {
               <li>
-                <a
-                  routerLink="/admin/fundraiser/sponsors"
-                  [queryParams]="{ sponsorshipId: sponsor.id }"
-                  >{{ sponsor.name }}</a
-                >
-                @if (!sponsor.presentationApproved) {
-                  <span class="alert">
-                    —
-                    {{
-                      'admin.publicationAutomation.missingPresentation'
-                        | translate
-                    }}</span
-                  >
-                }
+                <img
+                  class="preview-image"
+                  [src]="image.url"
+                  [alt]="image.alt"
+                />
               </li>
             }
-          </ul>
-        </section>
-      }
-      @if (canWrite() && job.status === 'draft') {
-        <div class="approval">
-          <p>{{ 'admin.publicationAutomation.approvalHelp' | translate }}</p>
-          <label class="check"
-            ><input
-              type="checkbox"
-              [(ngModel)]="c.approved"
-              [disabled]="c.busy() || c.dirty() || c.missingPresentation()"
-            />{{
-              (c.pendingSponsors().length
-                ? 'admin.publicationAutomation.combinedApproval'
-                : 'admin.publicationAutomation.approval'
+          </ol>
+        }
+        @if (c.mediaPreview(); as image) {
+          <img class="preview-image" [src]="image.url" [alt]="image.alt" />
+          <p data-og7="publication-image-preparation">
+            {{
+              (c.previewExact()
+                ? 'funding.followup.media.exactJpeg'
+                : 'funding.followup.media.sourcePreview'
               ) | translate
-            }}</label
-          ><button
+            }}
+          </p>
+        }
+      </aside>
+    </div>
+    <section
+      class="review-actions"
+      data-og7="publication-review-actions"
+      [hidden]="previewExpanded()"
+    >
+      @if (c.selected(); as job) {
+        @if (c.pendingSponsors().length) {
+          <section data-og7="publication-sponsor-review">
+            <h3>
+              {{ 'admin.publicationAutomation.sponsorReview' | translate }}
+            </h3>
+            <p>
+              {{ 'admin.publicationAutomation.sponsorReviewHelp' | translate }}
+            </p>
+            <ul>
+              @for (sponsor of c.pendingSponsors(); track sponsor.id) {
+                <li>
+                  <a
+                    routerLink="/admin/fundraiser/sponsors"
+                    [queryParams]="{ sponsorshipId: sponsor.id }"
+                    >{{ sponsor.name }}</a
+                  >
+                  @if (!sponsor.presentationApproved) {
+                    <span class="alert">
+                      —
+                      {{
+                        'admin.publicationAutomation.missingPresentation'
+                          | translate
+                      }}</span
+                    >
+                  }
+                </li>
+              }
+            </ul>
+          </section>
+        }
+        @if (canWrite() && job.status === 'draft') {
+          <div
+            class="approval"
+            data-og7="publication-authorization"
+            tabindex="-1"
+          >
+            <p>
+              {{ 'admin.publicationAutomation.approvalHelp' | translate }}
+            </p>
+            <label class="check"
+              ><input
+                type="checkbox"
+                [(ngModel)]="c.approved"
+                [disabled]="c.busy() || c.dirty() || c.missingPresentation()"
+              />{{
+                (c.pendingSponsors().length
+                  ? 'admin.publicationAutomation.combinedApproval'
+                  : 'admin.publicationAutomation.approval'
+                ) | translate
+              }}</label
+            ><button
+              type="button"
+              class="admin-button"
+              [disabled]="
+                c.busy() ||
+                !c.approved ||
+                c.dirty() ||
+                c.missingPresentation() ||
+                ((job.mediaId || c.derived(job.publicationFormat)) &&
+                  (!c.previewExact() ||
+                    (job.publicationFormat === 'image_collection'
+                      ? c.collectionPreviews().length < 2 ||
+                        c.collectionPreviews().length !==
+                          job.mediaImages?.length
+                      : !c.previewUrl())))
+              "
+              [openg7AutomaticPrepare]="
+                'publication.delivery.approve:' + job.id
+              "
+              [automaticFor]="automaticTarget()"
+              automaticExecutionMode="confirmation_required"
+              (automaticPrepare)="c.approve()"
+              (click)="c.approve()"
+            >
+              {{ 'admin.publicationAutomation.approve' | translate }}
+            </button>
+          </div>
+        }
+        @if (canWrite() && c.editable()) {
+          <button
             type="button"
             class="admin-button"
-            [disabled]="
-              c.busy() ||
-              !c.approved ||
-              c.dirty() ||
-              c.missingPresentation() ||
-              ((job.mediaId || c.derived(job.publicationFormat)) &&
-                (!c.previewExact() ||
-                  (job.publicationFormat === 'image_collection'
-                    ? c.collectionPreviews().length < 2 ||
-                      c.collectionPreviews().length !== job.mediaImages?.length
-                    : !c.previewUrl())))
-            "
-            [openg7AutomaticPrepare]="'publication.delivery.approve:' + job.id"
+            [disabled]="c.busy()"
+            [openg7AutomaticPrepare]="'publication.delivery.reject:' + job.id"
             [automaticFor]="automaticTarget()"
             automaticExecutionMode="confirmation_required"
-            (automaticPrepare)="c.approve()"
-            (click)="c.approve()"
+            (automaticPrepare)="c.reject()"
+            (click)="c.reject()"
           >
-            {{ 'admin.publicationAutomation.approve' | translate }}
+            {{ 'admin.publicationAutomation.reject' | translate }}
           </button>
-        </div>
-      }
-      @if (canWrite() && c.editable()) {
-        <button
-          type="button"
-          class="admin-button"
-          [disabled]="c.busy()"
-          [openg7AutomaticPrepare]="'publication.delivery.reject:' + job.id"
-          [automaticFor]="automaticTarget()"
-          automaticExecutionMode="confirmation_required"
-          (automaticPrepare)="c.reject()"
-          (click)="c.reject()"
-        >
-          {{ 'admin.publicationAutomation.reject' | translate }}
-        </button>
-      }
-      @if (canWrite() && job.status === 'approved') {
-        <button
-          type="button"
-          class="admin-button"
-          [disabled]="c.busy()"
-          [openg7AutomaticPrepare]="'publication.delivery.cancel:' + job.id"
-          [automaticFor]="automaticTarget()"
-          automaticExecutionMode="confirmation_required"
-          (automaticPrepare)="c.cancel()"
-          (click)="c.cancel()"
-        >
-          {{ 'admin.publicationAutomation.cancel' | translate }}
-        </button>
-      }
-      @if (canWrite() && job.status === 'uncertain' && !job.mediaId) {
-        <label
-          >{{ 'admin.publicationAutomation.externalId' | translate
-          }}<input [(ngModel)]="c.externalPostId" /></label
-        ><button
-          class="admin-button"
-          [disabled]="c.busy() || !c.externalPostId.trim()"
-          (click)="c.reconcile()"
-        >
-          {{ 'admin.publicationAutomation.reconcile' | translate }}
-        </button>
-      }
-      @if (
-        canWrite() &&
-        (job.status === 'uncertain' || job.accountRecoveryRequired)
-      ) {
-        <details>
-          <summary>
-            {{ 'admin.publicationAutomation.absenceTitle' | translate }}
-          </summary>
-          <p>{{ 'admin.publicationAutomation.absenceHelp' | translate }}</p>
+        }
+        @if (canWrite() && job.status === 'approved') {
+          <button
+            type="button"
+            class="admin-button"
+            [disabled]="c.busy()"
+            [openg7AutomaticPrepare]="'publication.delivery.cancel:' + job.id"
+            [automaticFor]="automaticTarget()"
+            automaticExecutionMode="confirmation_required"
+            (automaticPrepare)="c.cancel()"
+            (click)="c.cancel()"
+          >
+            {{ 'admin.publicationAutomation.cancel' | translate }}
+          </button>
+        }
+        @if (canWrite() && job.status === 'uncertain' && !job.mediaId) {
           <label
-            >{{ 'admin.publicationAutomation.absenceReason' | translate
-            }}<textarea
-              rows="3"
-              maxlength="500"
-              [(ngModel)]="c.absenceReason"
-            ></textarea></label
-          ><label class="check"
-            ><input type="checkbox" [(ngModel)]="c.absenceChecked" />{{
-              'admin.publicationAutomation.absenceCheck' | translate
-            }}</label
+            >{{ 'admin.publicationAutomation.externalId' | translate
+            }}<input [(ngModel)]="c.externalPostId" /></label
           ><button
             class="admin-button"
-            [disabled]="
-              c.busy() ||
-              !c.absenceChecked ||
-              c.absenceReason.trim().length < 20
-            "
-            (click)="c.confirmAbsent()"
+            [disabled]="c.busy() || !c.externalPostId.trim()"
+            (click)="c.reconcile()"
           >
-            {{ 'admin.publicationAutomation.absenceAction' | translate }}
+            {{ 'admin.publicationAutomation.reconcile' | translate }}
           </button>
-        </details>
+        }
+        @if (
+          canWrite() &&
+          (job.status === 'uncertain' || job.accountRecoveryRequired)
+        ) {
+          <details>
+            <summary>
+              {{ 'admin.publicationAutomation.absenceTitle' | translate }}
+            </summary>
+            <p>{{ 'admin.publicationAutomation.absenceHelp' | translate }}</p>
+            <label
+              >{{ 'admin.publicationAutomation.absenceReason' | translate
+              }}<textarea
+                rows="3"
+                maxlength="500"
+                [(ngModel)]="c.absenceReason"
+              ></textarea></label
+            ><label class="check"
+              ><input type="checkbox" [(ngModel)]="c.absenceChecked" />{{
+                'admin.publicationAutomation.absenceCheck' | translate
+              }}</label
+            ><button
+              class="admin-button"
+              [disabled]="
+                c.busy() ||
+                !c.absenceChecked ||
+                c.absenceReason.trim().length < 20
+              "
+              (click)="c.confirmAbsent()"
+            >
+              {{ 'admin.publicationAutomation.absenceAction' | translate }}
+            </button>
+          </details>
+        }
+        @if (
+          job.status === 'published' &&
+          job.mode === 'live' &&
+          job.externalPostUrl
+        ) {
+          <a
+            [href]="job.externalPostUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            >{{ 'admin.publicationAutomation.seePost' | translate }}</a
+          >
+        }
+        @if (canWrite() && job.status === 'published' && job.mode === 'live') {
+          <button
+            class="admin-button"
+            [disabled]="c.busy()"
+            (click)="c.checkVisibility()"
+          >
+            {{ 'admin.publicationAutomation.checkVisibility' | translate }}
+          </button>
+        }
       }
-      @if (
-        job.status === 'published' && job.mode === 'live' && job.externalPostUrl
-      ) {
-        <a
-          [href]="job.externalPostUrl"
-          target="_blank"
-          rel="noopener noreferrer"
-          >{{ 'admin.publicationAutomation.seePost' | translate }}</a
-        >
-      }
-      @if (canWrite() && job.status === 'published' && job.mode === 'live') {
+    </section>
+  }
+  <footer
+    adminDrawerFooter
+    class="review-footer"
+    data-og7="publication-review-footer"
+    [hidden]="!canWrite() || !c.editing() || previewExpanded()"
+  >
+    <p>
+      {{ 'admin.publicationAutomation.contentReview.footerHelp' | translate }}
+    </p>
+    @if (canWrite() && c.editing()) {
+      @if (c.editable()) {
         <button
-          class="admin-button"
-          [disabled]="c.busy()"
-          (click)="c.checkVisibility()"
+          class="admin-button admin-button--primary"
+          type="submit"
+          [attr.form]="editorFormId()"
+          data-og7="publication-save"
+          [disabled]="
+            c.busy() ||
+            !c.editable() ||
+            !c.edit.message.trim() ||
+            !c.edit.scheduledAt ||
+            !c.mediaSelectionValid()
+          "
         >
-          {{ 'admin.publicationAutomation.checkVisibility' | translate }}
+          {{ 'admin.publicationAutomation.save' | translate }}
         </button>
       }
     }
-  }
+  </footer>
 </openg7-admin-drawer>

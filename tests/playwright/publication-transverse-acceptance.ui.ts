@@ -213,6 +213,8 @@ export function registerPublicationTransverseAcceptanceTests(
         const localPreview = hook(page, 'publication-local-preview');
         const reference = hook(page, 'publication-saved-reference');
         const localSummary = localPreview.locator('summary');
+        if ((await localPreview.getAttribute('open')) !== null)
+          await localSummary.click();
         await tabTo(page, dialog, localSummary);
         await page.keyboard.press('Enter');
         await expect(localPreview).toHaveJSProperty('open', true);
