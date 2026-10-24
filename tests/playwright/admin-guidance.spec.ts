@@ -47,7 +47,9 @@ const generatedAt = '2026-10-14T12:00:00Z';
 for (const [locale, theme, width, height] of [
   ['fr-CA', 'mineral', 1536, 864],
   ['en', 'night', 390, 667],
-  ['fr-CA', 'graphite', 390, 844]
+  ['fr-CA', 'graphite', 390, 844],
+  ['fr-CA', 'mineral', 320, 667],
+  ['en', 'night', 320, 667]
 ] as const) {
   test(`the redesigned guide keeps named modes and context usable in ${locale} ${theme} at ${width} by ${height}`, async ({
     page
@@ -116,6 +118,11 @@ for (const [locale, theme, width, height] of [
       ).toBe(true);
     }
     await hook(page, 'discovery-mode').click();
+    await hook(page, 'modes').scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: testInfo.outputPath(`guide-modes-${locale}-${theme}-${width}.png`),
+      animations: 'disabled'
+    });
     await hook(page, 'next').focus();
     await expect(hook(page, 'next')).toBeInViewport({ ratio: 0.98 });
     await page.keyboard.press('Enter');
@@ -575,6 +582,9 @@ test('a payment journey resumes from server facts and persists only its identifi
   await page.screenshot({
     path: info.outputPath('payment-journey-desktop.png')
   });
+  await page.locator('[data-og7="payment-journey"]').screenshot({
+    path: info.outputPath('payment-journey-complete-desktop.png')
+  });
   await paymentHook(page, 'pause').click();
   await page.goto(attentionPath);
   await page.reload();
@@ -608,6 +618,9 @@ test('a payment journey resumes from server facts and persists only its identifi
   await expect(
     paymentHook(page, 'milestones').locator('[data-og7-id="payment"]')
   ).toHaveAttribute('data-state', 'error');
+  await page.locator('[data-og7="payment-journey"]').screenshot({
+    path: info.outputPath('payment-journey-action-desktop.png')
+  });
   expect(
     fixture.paymentRequests.filter((id) => id === paymentId).length
   ).toBeGreaterThanOrEqual(2);
@@ -1068,6 +1081,9 @@ test('English mobile payment guidance remains keyboard accessible without horizo
   ).toBe(true);
   await page.screenshot({
     path: info.outputPath('payment-journey-mobile.png')
+  });
+  await page.locator('[data-og7="payment-journey"]').screenshot({
+    path: info.outputPath('payment-journey-complete-mobile.png')
   });
   expect(fixture.mutations).toEqual([]);
 });
