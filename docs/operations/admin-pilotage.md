@@ -244,6 +244,11 @@ parcours actif. Pendant une vérification ou après une erreur, les anciennes
 **Parcours à jour** vient des faits serveur ; une nouvelle information peut
 rouvrir une étape.
 
+Quitter Contributions invalide les lectures et leur affichage. Un refus 401
+tardif purge encore les données privées de la même session, sans déplacer
+la page courante. Une nouvelle session ou un autre compte reste protégé du
+résultat d'une lecture commencée dans la session précédente.
+
 Seuls l'activation, le mode choisi, le repère de découverte, l'UUID du paiement
 et sa pause ainsi que le parcours exploré, son étape et sa pause sont mémorisés
 dans ce navigateur, par compte OIDC,

@@ -31,7 +31,8 @@ fonctions à construire ni une attestation de disponibilité.
 
 ## Suivi des chantiers locaux V3.3
 
-**6 chantiers réalisés sur 6 ; 0 restant dans ce périmètre local.** Ce registre
+**Tranche initiale : 6 chantiers réalisés sur 6. Bilan cumulatif : 12 réalisés
+sur 12**, avec les adaptations complémentaires et le recentrage ci-dessous. Ce registre
 compte des adaptations bornées, réalisées et testées localement. Il ne mesure ni
 les lots 0–6 du pack, ni ses 211 entrées, ni les fusions ou déploiements. Les
 capacités absentes recensées dans les limites restent des travaux séparés.
@@ -532,8 +533,8 @@ courriel ou remboursement réel n’a été exécuté.
 
 L’utilisateur a autorisé cinq adaptations supplémentaires le 24 octobre 2026,
 avec revue, tests locaux et une PR par chantier, sans attendre les CI entre les
-chantiers. Le suivi porte sur **11 adaptations planifiées**, pas sur la totalité
-des fonctions dessinées : **11 réalisées, 0 restante dans ce périmètre local**.
+chantiers. À la clôture de cette tranche, le suivi portait sur **11 adaptations
+planifiées : 11 réalisées**, sans compter la totalité des fonctions dessinées.
 
 | Nº  | Adaptation complémentaire                                    | État                         |
 | --- | ------------------------------------------------------------ | ---------------------------- |
@@ -660,3 +661,55 @@ Les cinq PR complémentaires sont [#377](https://github.com/OpenG7/openg7-fundin
 Les quatre familles fonctionnelles absentes et les qualifications matérielles
 recensées plus haut restent des travaux séparés. Aucun déploiement ni effet métier
 réel n’a été exécuté.
+
+## Chantier 12 — Recentrage du Guide sur la décision
+
+Le 24 octobre 2026, l’utilisateur a demandé de retirer le suivi d’un paiement du
+Guide et d’utiliser le menu principal pour cette tâche. Le bilan cumulatif est
+de **12 adaptations locales réalisées sur 12**. Les quatre familles fonctionnelles
+absentes du dossier illustré restent hors de ce compteur.
+
+Le Guide propose désormais trois modes : **Découvrir**, **Préparation des dossiers**
+et **Explorer les parcours**. Aucun onglet ou panneau de paiement n’y est conservé.
+Le composant de suivi existant est réutilisé sous le détail sélectionné dans
+**Contributions**, avec ses faits serveur, prochaine étape, pause et actualisation.
+La sélection et les relectures restent attachées au même UUID ; un identifiant
+absent, invalide ou ambigu ne choisit jamais arbitrairement un autre paiement.
+
+Un ancien lien explicite `paymentJourney=<uuid>` est remplacé dans l’historique
+par le lien Contributions canonique, sans ouvrir le Guide. Un ancien mode de
+paiement mémorisé laisse le Guide fermé, conserve le contexte de préparation et
+ne déclenche pas de navigation. Effacer le repère du Guide conserve aussi l’UUID
+du suivi et sa pause. Les réponses tardives d’une ancienne sélection sont
+écartées. Un 401 tardif invalide encore les données privées de la même session,
+tout en préservant une session de remplacement ou un autre compte.
+
+Validation locale du 24 octobre 2026 :
+
+- **7 507 tests Node réussis, 8 ignorés, aucun échec**, avec compilation TypeScript,
+  sur `d124c84b5c3d2a0ef658e9211828300a6c403c93`.
+- **93 scénarios Chromium réussis**, sans relance ni scénario ignoré, sur cette
+  même révision : fichier Guide complet, parcours Xbox et simulation. La recette
+  couvre notamment le changement de contribution, la pause après navigation et
+  rechargement, l’effacement du repère et les trois cas de session tardive.
+- La revue visuelle a détecté un mot coupé dans les modes du Guide mobile.
+  L’ajustement des icônes et retours aux espaces est couvert par **19 scénarios
+  supplémentaires réussis** sur `a560383ea597acccaa51e36fa224e466f48c5293` :
+  FR/EN à 320 et 390 px, bureau, accessibilité, focus et repères Pilotage.
+  Ces 19 exécutions recouvrent en partie la première passe.
+- Build Angular de développement réussi à `2026-10-24T19:28:59.065Z`, SSR et
+  **25 routes pré-rendues** ; typage des recettes UI réussi. Le code TypeScript
+  applicatif reste identique à la révision de la suite Node.
+- Revue indépendante du code et des captures finales : aucun défaut concret
+  restant. Les captures complètes montrent le bilan bureau/mobile et la prochaine
+  étape dans Contributions ; les vues du Guide montrent ses trois modes.
+
+Les preuves locales sont dans `test-results/v33-c12-qualified-ui/` et
+`test-results/v33-c12-mobile-final/`, hors de Git. Les recettes financières Docker
+ont été adaptées aux liens et au propriétaire Contributions, sans être réexécutées
+localement. Les API des recettes navigateur ci-dessus sont synthétiques.
+Le lint global conserve seulement son avertissement préexistant dans
+`scripts/smoke-public.mjs:165`. Format, documentation et diff accompagnent la clôture.
+La manette physique et les fournisseurs réels ne sont pas qualifiés par ces tests.
+Aucun déploiement ni action métier réelle n’a été effectué ; les CI de cette
+nouvelle PR restent à distinguer de ces résultats locaux.
