@@ -16,8 +16,11 @@ slots and drafts retain the exact stored instant, including seconds and the sele
 occurrence during a clock change. New or edited dates that do not exist or occur
 twice during a clock change are rejected: choose a unique local time before saving.
 Changing a slot's timezone interprets its entered local date/time in the new timezone.
-The delivery drawer uses the browser's local timezone and minute precision; saving
-a delivery serialises that displayed time.
+The delivery drawer uses the browser's local timezone and displays minutes. An
+unchanged delivery schedule retains the exact stored instant, including seconds
+and the selected occurrence during a clock change. A new or changed delivery
+date must occur exactly once in that browser timezone; missing or repeated local
+times are rejected before saving, with the entered content kept for correction.
 
 Moving a slot with linked deliveries is transactional: the server locks the
 deliveries before calendar membership, revokes obsolete approval, releases
@@ -76,6 +79,10 @@ Saving a draft remains distinct from authorizing it, and an edit revokes its pri
 authorization. Readers retain the saved content and specialized history, while
 creation and delivery mutation controls are hidden. API authorization remains the
 security boundary.
+
+The drawer's public-post link is shown only for a confirmed `published` delivery
+in `live` mode with an external URL. A mock result or an uncertain attempt may
+retain a provider reference, but that reference is not presented as a public post.
 
 The advanced settings distinguish **Public profile** (slug, public summary and
 private profile preview) from separately collapsed **Declared social tracking**

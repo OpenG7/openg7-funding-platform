@@ -295,8 +295,21 @@
                   type="datetime-local"
                   required
                   [ngModel]="c.edit.scheduledAt"
+                  [attr.aria-invalid]="c.dateTimeError() ? 'true' : null"
+                  [attr.aria-describedby]="
+                    c.dateTimeError() ? 'publication-schedule-error' : null
+                  "
                   (ngModelChange)="c.changeEdit('scheduledAt', $event)"
               /></label>
+              @if (c.dateTimeError()) {
+                <p
+                  id="publication-schedule-error"
+                  role="alert"
+                  data-og7="publication-schedule-error"
+                >
+                  {{ 'admin.publications.invalidLocalTime' | translate }}
+                </p>
+              }
               @if (c.selected()?.kind === 'sponsorship') {
                 <label
                   >{{ 'funding.offer.format' | translate }}
@@ -709,7 +722,11 @@
             </button>
           </details>
         }
-        @if (job.externalPostUrl) {
+        @if (
+          job.status === 'published' &&
+          job.mode === 'live' &&
+          job.externalPostUrl
+        ) {
           <a
             [href]="job.externalPostUrl"
             target="_blank"
