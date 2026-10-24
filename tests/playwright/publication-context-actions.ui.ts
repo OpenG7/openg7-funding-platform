@@ -7,6 +7,10 @@ import type {
 
 import { test, expect } from './support/test.js';
 import { completeModeration } from './support/moderation.js';
+import {
+  adminController,
+  installAdminController
+} from './support/admin-controller.js';
 
 interface Context {
   setup(
@@ -97,6 +101,9 @@ export function registerPublicationContextActionsTests(context: Context): void {
         'Synthetic local correction retained while reading actions'
       );
       await expect(
+        dialog.locator('[data-og7="publication-return-review"]')
+      ).toHaveCount(0);
+      await expect(
         dialog.getByRole('button', {
           name: en ? 'Accept and schedule' : 'Accepter et programmer',
           exact: true
@@ -167,7 +174,7 @@ export function registerPublicationContextActionsTests(context: Context): void {
       );
       await disclosure.locator('summary').first().click();
       const cancel = disclosure.getByRole('button', {
-        name: en ? 'Cancel this delivery' : 'Annuler cet envoi',
+        name: en ? 'Cancel delivery' : 'Annuler cet envoi',
         exact: true
       });
       await cancel.click();
@@ -177,6 +184,7 @@ export function registerPublicationContextActionsTests(context: Context): void {
       await expect(confirmation).toBeVisible();
       expect(commands).toEqual([]);
       await confirmation
+        .locator('footer')
         .getByRole('button', { name: en ? 'Cancel' : 'Annuler', exact: true })
         .click();
       await expect(confirmation).toBeHidden();
@@ -194,6 +202,36 @@ export function registerPublicationContextActionsTests(context: Context): void {
             confirmation: id
           })
         ]);
+    });
+
+    test(`publication context actions require neutral gamepad input before leaving the drawer in ${language}`, async ({
+      page
+    }) => {
+      await installAdminController(page);
+      const { commands, dialog } = await open(page);
+      const disclosure = dialog.locator(
+        '[data-og7="publication-more-actions"]'
+      );
+      const summary = disclosure.locator('summary').first();
+      await summary.click();
+      const reject = disclosure.getByRole('button', {
+        name: en ? 'Reject' : 'Refuser',
+        exact: true
+      });
+      const pad = adminController(page);
+      await pad.ready();
+      await pad.reach(reject);
+      await pad.hold('B');
+      await expect(reject).toBeHidden();
+      await expect(summary).toBeFocused();
+      await expect(dialog).toBeVisible();
+      await pad.hold('B');
+      await expect(dialog).toBeVisible();
+      expect(commands).toEqual([]);
+      await pad.release();
+      await pad.press('B');
+      await expect(dialog).toBeHidden();
+      expect(commands).toEqual([]);
     });
 
     test(`publication context actions remain absent for a reader in ${language}`, async ({

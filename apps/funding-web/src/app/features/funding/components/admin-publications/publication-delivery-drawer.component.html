@@ -604,6 +604,7 @@
         @if (canWrite() && job.status === 'draft' && !c.editing()) {
           <div
             class="approval"
+            #reviewAuthorization
             data-og7="publication-authorization"
             tabindex="-1"
           >
@@ -692,6 +693,19 @@
       {{ 'admin.publicationAutomation.contentReview.footerHelp' | translate }}
     </p>
     @if (canWrite() && c.editing()) {
+      @if (c.selected() && !c.dirty()) {
+        <button
+          type="button"
+          class="admin-button"
+          data-og7="publication-return-review"
+          [disabled]="c.busy()"
+          (click)="returnToReview()"
+        >
+          {{
+            'admin.publicationAutomation.contentReview.backToReview' | translate
+          }}
+        </button>
+      }
       @if (c.editable()) {
         <button
           class="admin-button admin-button--primary"

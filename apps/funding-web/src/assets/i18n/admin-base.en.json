@@ -3007,7 +3007,8 @@
         "previewHeading": "Content preview",
         "expandPreview": "Enlarge preview",
         "reducePreview": "Reduce preview",
-        "footerHelp": "Saving keeps a draft. Authorizing delivery remains a separate decision."
+        "footerHelp": "Saving keeps a draft. Authorizing delivery remains a separate decision.",
+        "backToReview": "Return to review"
       },
       "approvalHelp": "Any change revokes the previous authorization. Check the account, text, image and time above.",
       "collectionHelp": "LinkedIn collection: review every JPEG in the displayed order. One photo per sponsor, with 2 to 10 participants. Each photo retains its rights and its credit in the text.",
