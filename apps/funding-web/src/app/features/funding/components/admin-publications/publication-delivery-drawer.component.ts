@@ -2,6 +2,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   Injector,
   afterNextRender,
@@ -51,6 +52,7 @@ export class PublicationDeliveryDrawerComponent {
   private readonly navigation = inject(AdminPublicationNavigationService);
   private readonly admin = inject(FundingAdminService);
   private readonly injector = inject(Injector);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly previewPanel =
     viewChild<ElementRef<HTMLElement>>('previewPanel');
   private readonly previewToggle =
@@ -99,7 +101,7 @@ export class PublicationDeliveryDrawerComponent {
     const session = this.admin.sessionGeneration();
     const scheduledAt = controller.edit.scheduledAt;
     await controller.save();
-    if (!controller.dateTimeError()) return;
+    if (this.destroyRef.destroyed || !controller.dateTimeError()) return;
     afterNextRender(
       () => {
         if (
