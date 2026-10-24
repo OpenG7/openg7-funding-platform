@@ -18,6 +18,7 @@ import { AdminPublicationNavigationService } from '../../services/admin-publicat
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 
 import type { PublicationDeliveryController } from './publication-delivery-controller.js';
+import { PublicationDeliverySecondaryActionsComponent } from './publication-delivery-secondary-actions.component.js';
 
 /** Delivery review organism; its controller retains the exact displayed decision. */
 @Component({
@@ -30,7 +31,8 @@ import type { PublicationDeliveryController } from './publication-delivery-contr
     TranslatePipe,
     AdminDrawerComponent,
     AdminAutomaticPreparationDirective,
-    FundingModerationActionsComponent
+    FundingModerationActionsComponent,
+    PublicationDeliverySecondaryActionsComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './publication-delivery-drawer.component.html',

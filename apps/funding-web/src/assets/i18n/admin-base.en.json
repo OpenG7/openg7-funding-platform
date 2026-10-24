@@ -3122,7 +3122,8 @@
       "sponsorReview": "Sponsors to approve with this publication",
       "sponsorReviewHelp": "Accepting also approves these sponsors. Their website profiles remain private until a separate visibility decision.",
       "combinedApproval": "I approve these sponsors, this exact content and delivery to this destination at this time.",
-      "missingPresentation": "Add or approve a presentation photo in the sponsor record."
+      "missingPresentation": "Add or approve a presentation photo in the sponsor record.",
+      "otherActions": "Other actions"
     },
     "pilotage": {
       "appearance": "Appearance",

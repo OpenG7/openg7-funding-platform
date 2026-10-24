@@ -91,7 +91,7 @@ export function registerPublicationContentReviewTests(context: Context): void {
         );
         await expect(
           dialog.getByRole('checkbox', { name: /J’approuve|I approve/ })
-        ).toBeDisabled();
+        ).toHaveCount(0);
         expect(commands).toEqual([]);
         expect(
           await page.evaluate(
@@ -173,7 +173,7 @@ export function registerPublicationContentReviewTests(context: Context): void {
         );
         await expect(
           dialog.getByRole('checkbox', { name: /J’approuve|I approve/ })
-        ).toBeDisabled();
+        ).toHaveCount(0);
         expect(commands).toHaveLength(1);
         expect(commands[0]).toMatchObject({
           action: 'edit',

@@ -3118,7 +3118,8 @@
       "sponsorReview": "Commanditaires à approuver avec cette publication",
       "sponsorReviewHelp": "Accepter approuve aussi ces dossiers. Leurs fiches restent privées sur le site jusqu’à une décision de visibilité séparée.",
       "combinedApproval": "J’approuve ces commanditaires, ce contenu exact et son envoi à cette destination, à cette heure.",
-      "missingPresentation": "Photo de présentation à fournir ou à approuver dans le dossier."
+      "missingPresentation": "Photo de présentation à fournir ou à approuver dans le dossier.",
+      "otherActions": "Autres actions"
     },
     "pilotage": {
       "appearance": "Apparence",
