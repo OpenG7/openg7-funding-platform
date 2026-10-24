@@ -17,6 +17,25 @@ test(
     t.after(db.stop);
     const mail = await startDisposableProvider('mail');
     t.after(mail.stop);
+    const mailMessagesUrl = `http://127.0.0.1:${mail.ports[8025]}/api/v1/messages`;
+    // Published Docker ports do not guarantee that Mailpit is ready yet.
+    // Wait only for fixture startup, before executing any retry command.
+    const mailReadyDeadline = Date.now() + 15000;
+    while (true) {
+      try {
+        const response = await fetch(mailMessagesUrl, {
+          signal: AbortSignal.timeout(
+            Math.max(1, mailReadyDeadline - Date.now())
+          )
+        });
+        assert.equal(response.status, 200);
+        assert.ok(Array.isArray((await response.json()).messages));
+        break;
+      } catch (error) {
+        if (Date.now() >= mailReadyDeadline) throw error;
+        await setTimeout(50);
+      }
+    }
     const gate = createSmtpGate({ host: '127.0.0.1', port: mail.ports[1025] });
     gate.server.listen(0, '127.0.0.1');
     await once(gate.server, 'listening');
@@ -33,11 +52,7 @@ test(
       }
     };
     const received = async () =>
-      (
-        await (
-          await fetch(`http://127.0.0.1:${mail.ports[8025]}/api/v1/messages`)
-        ).json()
-      ).messages;
+      (await (await fetch(mailMessagesUrl)).json()).messages;
     const create = async () =>
       (
         await db.pool.query(`INSERT INTO email_messages
