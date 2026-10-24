@@ -97,6 +97,7 @@ export class AdminPublicationAutomationPageComponent {
   readonly requestedDeliveryMissing =
     this.readController.requestedDeliveryMissing;
   readonly busy = signal(false);
+  readonly canWrite = computed(() => this.admin.identity()?.role !== 'reader');
   readonly canManageWorker = computed(
     () => (this.admin.identity()?.role ?? 'owner') === 'owner'
   );

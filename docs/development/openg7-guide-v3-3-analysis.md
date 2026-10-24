@@ -31,7 +31,7 @@ fonctions à construire ni une attestation de disponibilité.
 
 ## Suivi des chantiers locaux V3.3
 
-**3 chantiers réalisés sur 6 ; 3 restants.** Ce registre
+**4 chantiers réalisés sur 6 ; 2 restants.** Ce registre
 compte des adaptations bornées, réalisées et testées localement. Il ne mesure ni
 les lots 0–6 du pack, ni ses 211 entrées, ni les fusions ou déploiements. Les
 capacités absentes recensées dans les limites restent des travaux séparés.
@@ -41,7 +41,7 @@ capacités absentes recensées dans les limites restent des travaux séparés.
 | 1   | Première adaptation Prestations et Guide                  | Réalisé : vocabulaire, enveloppe, détail exact, action prioritaire et protection de fermeture ; PR #370.                                              |
 | 2   | Départ du tiroir de publication                           | Réalisé : navigation interne, historique, conservation des saisies, invalidation de session et tests ; PR #371.                                       |
 | 3   | Synthèse des prestations d’un dossier — S01               | Réalisé localement : obligations exactes, état et responsabilité serveur, preuve qualifiée, dispenses distinctes, liens ciblés et tests.              |
-| 4   | Lecture, correction et revue du contenu — S02/S05/S06/S11 | À réaliser : formulaire et aperçu du tiroir existant, version, modifications et conflit lisibles ; sauvegarde et autorisation distinctes.             |
+| 4   | Lecture, correction et revue du contenu — S02/S05/S06/S11 | Réalisé : version enregistrée, saisie locale, référence et aperçu textuels distincts, conflit sans perte, consultation lecteur et tests.              |
 | 5   | Consultation des historiques et preuves — S08/S23         | À réaliser : sources spécialisées, portée et détails lisibles, preuves et temporalité conservées ; aucune version historique inventée.                |
 | 6   | Recette transversale finale                               | À réaliser : correspondance R01–R56 applicable/existant/manquant, petite hauteur, zoom, clavier, manette simulée et captures réelles des adaptations. |
 
@@ -321,3 +321,39 @@ encore ouverte, pour isoler le diff du chantier 3.
 
 Le chantier suivant est la lecture, correction et revue du contenu exact dans le
 tiroir existant (S02/S05/S06/S11), avant les historiques et la recette transversale.
+
+## Chantier 4 : lecture et correction du contenu exact
+
+Adaptation locale du 24 octobre 2026, sur
+`codex/admin-publication-content-review`, depuis `333f463a` (PR #372), sans attendre
+la CI. Le suivi des adaptations locales passe à **4/6 réalisés, 2 restants**.
+
+Le tiroir existant présente la version enregistrée et les modifications locales.
+Deux volets repliés distinguent le texte saisi du texte, de l’horaire et de la
+version enregistrés. L’aperçu textuel ne prétend pas reproduire un réseau social.
+Le conflit de version conserve les corrections et explique comment les garder
+avant de fermer et de relire la version courante. Aucun historique de versions,
+accord client, outil riche ou service génératif n’est simulé. Sauvegarde,
+modération et autorisation restent portées par leurs propriétaires inchangés.
+
+Les nouvelles recettes ont révélé des commandes d’édition encore proposées au
+rôle lecteur. Le tiroir et l’entrée Nouvelle publication appliquent désormais la
+condition de présentation existante de la modération ; le lecteur conserve le
+texte et les historiques disponibles. Les contrôles API restent inchangés et
+autoritaires. Une erreur du sélecteur Axe initial (`role` explicite au lieu du
+dialogue HTML natif) a également été corrigée dans la recette.
+
+Validation locale : build Angular production/SSR à `2026-10-24T04:14:03Z`, 25 routes
+pré-rendues, TypeScript projet et UI, **111 tests du contrôleur** et **23 scénarios
+navigateur réussis**, dont 12 nouveaux cas FR/EN. La passe finale couvre versions
+17→18, aperçus échappés, conflit/503, composition, lecteur, X/Échap/B, historique
+arrière et autorisation exacte. Axe passe sur les quatre rendus bureau/mobile.
+Deux lectures de revue, initiale puis complémentaire après le correctif lecteur,
+n’ont relevé aucun défaut actionnable restant. Les captures FR bureau/mobile ont
+été relues visuellement sous `test-results/v33-c4-content-review-final/`.
+
+Format, lint global/ciblé, contrôles documentaires et `git diff --check` réussis ;
+le seul avertissement de lint est celui déjà présent dans
+`scripts/smoke-public.mjs:165`. Les tests utilisent des réponses synthétiques
+interceptées, sans action réelle ni déploiement. Le chantier suivant est la
+consultation des historiques et des preuves existants (S08/S23).
