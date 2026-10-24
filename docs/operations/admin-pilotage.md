@@ -96,6 +96,10 @@ contrôle radial rejoint aussi le bandeau. À la manette, A active le contrôle
 focalisé et B depuis le bandeau revient au radial sans préparer de refus.
 LB/RB changent de décision hors dialogue. Un changement de zone ou de cible
 impose le retour au neutre. Les panneaux ouverts conservent leur priorité.
+Lorsqu’un tiroir partagé est ouvert, l’ordre effectif d’ouverture des dialogues
+natifs conserve la priorité du panneau supérieur, y compris du clavier de manette.
+Une tentative de focus vers un panneau inférieur restitue le dernier contrôle
+disponible du panneau supérieur ; sa fermeture retrouve le déclencheur du parcours.
 Les intentions différées sont revérifiées contre la cible et sa version;
 accueil et diagnostic gardent un contexte de workspace même lorsque la file est vide.
 Le stick droit fait défiler l'espace de travail ou le panneau ouvert.
