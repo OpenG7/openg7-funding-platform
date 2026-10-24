@@ -7,7 +7,7 @@
   >
 </ng-template>
 <openg7-admin-drawer
-  [opened]="!!c.selected() || c.composing()"
+  [opened]="!!c.selected() || (canWrite() && c.composing())"
   [title]="'admin.publicationAutomation.preview' | translate"
   [closeLabel]="'admin.publicationAutomation.close' | translate"
   [busy]="c.busy()"
@@ -17,7 +17,28 @@
     @if (c.error()) {
       <p role="alert" class="alert">{{ c.error() | translate }}</p>
     }
+    @if (!canWrite()) {
+      <p data-og7="publication-read-only">
+        {{ 'admin.publicationAutomation.contentReview.readOnly' | translate }}
+      </p>
+    }
     @if (c.selected(); as job) {
+      <section class="content-context" data-og7="publication-content-context">
+        <p>
+          {{
+            'admin.publicationAutomation.contentReview.savedVersion' | translate
+          }}
+          <strong>{{ job.version }}</strong>
+        </p>
+        <p role="status" aria-live="polite">
+          {{
+            (c.dirty()
+              ? 'admin.publicationAutomation.contentReview.unsaved'
+              : 'admin.publicationAutomation.contentReview.unchanged'
+            ) | translate
+          }}
+        </p>
+      </section>
       <openg7-funding-moderation-actions
         [subject]="{ type: 'publication_delivery', id: job.id }"
         [automaticFor]="automaticTarget()"
@@ -158,9 +179,16 @@
         </p>
       }
     }
-    @if (!c.editing()) {
+    @if (!c.editing() || !canWrite()) {
       @if (c.selected(); as job) {
-        <p class="publication-copy">{{ job.message }}</p>
+        <section data-og7="publication-saved-content">
+          <h3>
+            {{
+              'admin.publicationAutomation.contentReview.savedText' | translate
+            }}
+          </h3>
+          <p class="publication-copy">{{ job.message }}</p>
+        </section>
         <p>
           <time [attr.datetime]="job.scheduledAt">{{
             c.dateLabel(job.scheduledAt)
@@ -194,7 +222,7 @@
             }}
           </p>
         }
-        @if (c.editable()) {
+        @if (canWrite() && c.editable()) {
           <button
             type="button"
             class="admin-button"
@@ -211,7 +239,23 @@
         }
       }
     }
-    @if (c.editing()) {
+    @if (canWrite() && c.editing()) {
+      <h3>
+        {{
+          (c.composing()
+            ? 'admin.publicationAutomation.contentReview.compose'
+            : 'admin.publicationAutomation.contentReview.edit'
+          ) | translate
+        }}
+      </h3>
+      @if (c.composing()) {
+        <p data-og7="publication-content-context" role="status">
+          {{ 'admin.publicationAutomation.contentReview.newDraft' | translate }}
+        </p>
+      }
+      <p data-og7="publication-save-help">
+        {{ 'admin.publicationAutomation.contentReview.saveHelp' | translate }}
+      </p>
       <form (ngSubmit)="c.save()" data-og7-automatic-block="editing">
         <fieldset [disabled]="c.busy() || !c.editable()">
           @if (c.composing()) {
@@ -248,6 +292,56 @@
             ></textarea
             ><small>{{ c.edit.message.length }} / 2900</small></label
           >
+          <details class="content-preview" data-og7="publication-local-preview">
+            <summary>
+              {{
+                'admin.publicationAutomation.contentReview.localPreview'
+                  | translate
+              }}
+            </summary>
+            <p class="preview-help">
+              {{
+                'admin.publicationAutomation.contentReview.localPreviewHelp'
+                  | translate
+              }}
+            </p>
+            <p class="publication-copy">
+              {{
+                c.edit.message ||
+                  ('admin.publicationAutomation.contentReview.emptyText'
+                    | translate)
+              }}
+            </p>
+          </details>
+          @if (c.selected(); as job) {
+            <details
+              class="content-preview"
+              data-og7="publication-saved-reference"
+            >
+              <summary>
+                {{
+                  'admin.publicationAutomation.contentReview.savedReference'
+                    | translate
+                }}
+              </summary>
+              <p>
+                {{
+                  'admin.publicationAutomation.contentReview.savedVersion'
+                    | translate
+                }}
+                <strong>{{ job.version }}</strong>
+              </p>
+              <p class="publication-copy">{{ job.message }}</p>
+              <p>
+                <time [attr.datetime]="job.scheduledAt">{{
+                  c.dateLabel(job.scheduledAt)
+                }}</time>
+                @if (c.browserTimezone) {
+                  <span> ({{ c.browserTimezone }})</span>
+                }
+              </p>
+            </details>
+          }
           <label
             >{{ 'admin.publicationAutomation.schedule' | translate }} ({{
               c.browserTimezone
@@ -443,7 +537,7 @@
           </ul>
         </section>
       }
-      @if (job.status === 'draft') {
+      @if (canWrite() && job.status === 'draft') {
         <div class="approval">
           <p>{{ 'admin.publicationAutomation.approvalHelp' | translate }}</p>
           <label class="check"
@@ -482,7 +576,7 @@
           </button>
         </div>
       }
-      @if (c.editable()) {
+      @if (canWrite() && c.editable()) {
         <button
           type="button"
           class="admin-button"
@@ -496,7 +590,7 @@
           {{ 'admin.publicationAutomation.reject' | translate }}
         </button>
       }
-      @if (job.status === 'approved') {
+      @if (canWrite() && job.status === 'approved') {
         <button
           type="button"
           class="admin-button"
@@ -510,7 +604,7 @@
           {{ 'admin.publicationAutomation.cancel' | translate }}
         </button>
       }
-      @if (job.status === 'uncertain' && !job.mediaId) {
+      @if (canWrite() && job.status === 'uncertain' && !job.mediaId) {
         <label
           >{{ 'admin.publicationAutomation.externalId' | translate
           }}<input [(ngModel)]="c.externalPostId" /></label
@@ -522,7 +616,10 @@
           {{ 'admin.publicationAutomation.reconcile' | translate }}
         </button>
       }
-      @if (job.status === 'uncertain' || job.accountRecoveryRequired) {
+      @if (
+        canWrite() &&
+        (job.status === 'uncertain' || job.accountRecoveryRequired)
+      ) {
         <details>
           <summary>
             {{ 'admin.publicationAutomation.absenceTitle' | translate }}
@@ -560,7 +657,7 @@
           >{{ 'admin.publicationAutomation.seePost' | translate }}</a
         >
       }
-      @if (job.status === 'published' && job.mode === 'live') {
+      @if (canWrite() && job.status === 'published' && job.mode === 'live') {
         <button
           class="admin-button"
           [disabled]="c.busy()"
