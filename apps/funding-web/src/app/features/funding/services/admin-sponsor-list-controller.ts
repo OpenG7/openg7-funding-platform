@@ -457,8 +457,12 @@ export class AdminSponsorListController {
   async copyReference(sponsorship: AdminSponsorshipRecord): Promise<void> {
     if (this.disposed || !sponsorship.public_reference) return;
     try {
-      if (typeof navigator !== 'undefined' && navigator.clipboard)
-        await navigator.clipboard.writeText(sponsorship.public_reference);
+      if (
+        typeof navigator === 'undefined' ||
+        typeof navigator.clipboard?.writeText !== 'function'
+      )
+        throw new Error('Clipboard is unavailable.');
+      await navigator.clipboard.writeText(sponsorship.public_reference);
       if (!this.disposed)
         this.setCopyMessage(
           sponsorship.id,

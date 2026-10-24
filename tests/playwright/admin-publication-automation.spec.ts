@@ -21,6 +21,7 @@ import {
 import { registerPublicationReliabilityTests } from './publication-reliability.ui.js';
 import { registerPublicationNavigationTests } from './publication-navigation.ui.js';
 import { registerPublicationContentReviewTests } from './publication-content-review.ui.js';
+import { registerPublicationDrawerReliabilityTests } from './publication-drawer-reliability.ui.js';
 import { registerPublicationTransverseAcceptanceTests } from './publication-transverse-acceptance.ui.js';
 import {
   blockAdminReviewWrites,
@@ -345,6 +346,10 @@ async function fixtures(
   });
   return commands;
 }
+
+registerPublicationDrawerReliabilityTests({
+  setup: (page, job) => fixtures(page, 'draft', false, [], job)
+});
 
 registerPublicationContentReviewTests({
   setup: (page, options = {}) =>
@@ -2605,7 +2610,9 @@ for (const language of ['fr-CA', 'en'] as const) {
         (locale) => localStorage.setItem('openg7.language', locale),
         language
       );
-      const commands = await fixtures(page, 'uncertain');
+      const commands = await fixtures(page, 'uncertain', false, [], {
+        mode: 'live'
+      });
       const en = language === 'en';
       await page.goto(
         '/admin/fundraiser/publications/automation?deliveryId=' + initialJob.id

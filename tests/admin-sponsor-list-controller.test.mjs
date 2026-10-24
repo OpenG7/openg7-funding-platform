@@ -653,3 +653,75 @@ test('a clipboard response after destruction cannot change copy feedback', async
   await copied;
   assert.deepEqual(c.copyMessages(), {});
 });
+
+for (const locale of ['fr-CA', 'en']) {
+  test(`copy feedback reports unavailable or rejected clipboard access in ${locale}`, async (t) => {
+    for (const [name, navigatorValue] of [
+      ['no navigator', undefined],
+      ['no clipboard', {}],
+      ['no clipboard writer', { clipboard: {} }],
+      [
+        'permission denied',
+        {
+          clipboard: {
+            writeText: async () => {
+              throw new Error('Not allowed');
+            }
+          }
+        }
+      ]
+    ]) {
+      await t.test(name, async (t) => {
+        const descriptor = Object.getOwnPropertyDescriptor(
+          globalThis,
+          'navigator'
+        );
+        Object.defineProperty(globalThis, 'navigator', {
+          configurable: true,
+          value: navigatorValue
+        });
+        t.after(() =>
+          descriptor
+            ? Object.defineProperty(globalThis, 'navigator', descriptor)
+            : delete globalThis.navigator
+        );
+        const f = fixture(t, locale);
+        await f.controller.copyReference(sponsor());
+        assert.deepEqual(f.controller.copyMessages(), {
+          'synthetic-sponsor': f.ports.t('admin.messages.copie_impossible')
+        });
+      });
+    }
+  });
+
+  test(`copy feedback succeeds only after the reference is written in ${locale}`, async (t) => {
+    const pending = deferred();
+    const written = [];
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: {
+        clipboard: {
+          writeText: (value) => {
+            written.push(value);
+            return pending.promise;
+          }
+        }
+      }
+    });
+    t.after(() =>
+      descriptor
+        ? Object.defineProperty(globalThis, 'navigator', descriptor)
+        : delete globalThis.navigator
+    );
+    const f = fixture(t, locale);
+    const copying = f.controller.copyReference(sponsor());
+    assert.deepEqual(written, ['SYNTHETIC-1']);
+    assert.deepEqual(f.controller.copyMessages(), {});
+    pending.resolve();
+    await copying;
+    assert.deepEqual(f.controller.copyMessages(), {
+      'synthetic-sponsor': f.ports.t('admin.messages.reference_copiee')
+    });
+  });
+}
