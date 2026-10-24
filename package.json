@@ -99,6 +99,8 @@
     "test:e2e:selection": "node scripts/check-e2e-selection.mjs",
     "test:e2e:identity": "yarn build && yarn workspace @openg7/funding-web build --configuration production && playwright test --config tests/playwright-identity.config.mjs",
     "test:ui:admin": "yarn workspace @openg7/funding-web build && tsc -p tests/tsconfig.admin-ui.json && playwright test --config tests/playwright-admin-ui.config.mjs",
+    "test:ui:publication-review": "yarn workspace @openg7/funding-web build --configuration production && tsc --noEmit -p tests/tsconfig.admin-ui.json && playwright test --config tests/playwright-publication-review.config.mjs",
+    "test:ui:publication-review:gallery": "node scripts/build-publication-review-gallery.mjs",
     "build": "tsc -p tsconfig.build.json",
     "docs": "typedoc --options typedoc.json",
     "docs:check": "node scripts/check-project-standards.mjs && node scripts/check-agent-docs.mjs",
