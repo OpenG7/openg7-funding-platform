@@ -809,6 +809,9 @@ export class AdminSponsorsPageComponent implements OnInit {
         );
       if (!element) return;
       this.pendingSection.set(null);
+      // Resolve the new section's layout before native focus/scroll alignment.
+      // Keep scrollIntoView so nested workspaces and CSS scroll margins apply.
+      element.getBoundingClientRect();
       element.focus({ preventScroll: true });
       element.scrollIntoView({ block: 'start', behavior: 'instant' });
     });

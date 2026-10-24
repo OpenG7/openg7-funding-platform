@@ -164,11 +164,19 @@ export class PublicationDeliveryController {
 
   /** Drawer dismissals share this guard; context/session cleanup still uses close(). */
   async requestClose(): Promise<void> {
-    if (this.disposed || this.busy() || this.closePending) return;
-    if (!this.dirty()) {
+    const generation = this.generation;
+    const draft = this.draftSignature();
+    if (
+      (await this.requestDiscardChanges()) &&
+      this.currentDraft(generation, draft)
+    )
       this.close();
-      return;
-    }
+  }
+
+  /** Navigation asks for a decision without clearing a draft before it succeeds. */
+  async requestDiscardChanges(): Promise<boolean> {
+    if (this.disposed || this.busy() || this.closePending) return false;
+    if (!this.dirty()) return true;
     const generation = this.generation;
     const draft = this.draftSignature();
     this.closePending = true;
@@ -177,14 +185,7 @@ export class PublicationDeliveryController {
         this.ports.i18n.t('admin.publicationAutomation.discardChangesConfirm'),
         this.selected()?.feedId ?? this.composeFeed
       );
-      if (
-        discard &&
-        !this.disposed &&
-        !this.busy() &&
-        generation === this.generation &&
-        draft === this.draftSignature()
-      )
-        this.close();
+      return discard && this.currentDraft(generation, draft);
     } finally {
       this.closePending = false;
     }
@@ -569,6 +570,15 @@ export class PublicationDeliveryController {
       this.edit.publicationFormat,
       this.edit.photoSelections
     ]);
+  }
+
+  private currentDraft(generation: number, draft: string): boolean {
+    return (
+      !this.disposed &&
+      !this.busy() &&
+      generation === this.generation &&
+      draft === this.draftSignature()
+    );
   }
 
   private localDate(date: string): string {

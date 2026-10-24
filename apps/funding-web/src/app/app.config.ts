@@ -1,7 +1,11 @@
 import { provideHttpClient } from '@angular/common/http';
 import { ApplicationConfig } from '@angular/core';
 import { provideClientHydration } from '@angular/platform-browser';
-import { provideRouter, withInMemoryScrolling } from '@angular/router';
+import {
+  provideRouter,
+  withInMemoryScrolling,
+  withRouterConfig
+} from '@angular/router';
 import {
   provideTranslateLoader,
   provideTranslateService
@@ -16,6 +20,7 @@ export const appConfig: ApplicationConfig = {
     provideClientHydration(),
     provideRouter(
       appRoutes,
+      withRouterConfig({ canceledNavigationResolution: 'computed' }),
       withInMemoryScrolling({
         anchorScrolling: 'enabled',
         scrollPositionRestoration: 'enabled'

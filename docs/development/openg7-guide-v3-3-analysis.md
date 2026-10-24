@@ -117,10 +117,10 @@ restent des capacités à concevoir séparément. Leur absence ne bloque pas cet
 tranche. Aucun nouvel endpoint, table, dépendance, fournisseur ou moteur de priorité
 n’est nécessaire pour les adaptations retenues.
 
-La garde d’abandon couvre la fermeture du tiroir par X, Échap ou B, pas tous les
-liens de navigation vers d’autres routes. S30 reste donc partiellement traité.
-Les mécanismes de fermeture forcée restent ceux des propriétaires ; cette tranche
-ne revendique pas une nouvelle purge globale des saisies privées en mémoire.
+La première tranche protégeait la fermeture du tiroir par X, Échap ou B. Le chantier
+suivant décrit ci-dessous étend cette garde aux navigations Angular. Les mécanismes
+de fermeture forcée restent ceux des propriétaires ; ces adaptations ne
+revendiquent pas une nouvelle purge globale des saisies privées en mémoire.
 
 Les vérifications navigateur utilisent des API synthétiques interceptées. Un
 viewport CSS de 1536 × 864 représente seulement l’équivalence nominale d’un écran
@@ -172,3 +172,68 @@ Le contenu du pack est conservé ; son format est normalisé pour le dépôt. Le
 empreintes SHA-256 des neuf PNG intégrés sont identiques avant et après formatage.
 Aucune API réelle, base, seed, livraison sociale, publication Web, opération
 financière ou envoi de courriel n’a été exécuté pendant cette adaptation.
+
+## Chantier suivant : départ du tiroir de publication
+
+Adaptation locale du 23 octobre 2026, poursuivie sans attendre la CI de la première
+tranche. La confirmation commune protège maintenant les liens vers le dossier,
+les médias et les brouillons depuis les éditeurs Automation et Commandites. Elle
+couvre aussi les changements de paramètres de la même page et l’historique
+arrière/avant du navigateur. Le contrôleur fournit une décision d’abandon sans
+effacer les champs avant la réussite de la navigation.
+
+Le raccord réutilise les propriétaires : `PublicationDeliveryController`, le
+tiroir partagé, `AdminConfirmationService` et deux gardes de sortie sur les routes
+existantes. Un registre limité aux contrôleurs montés ne copie aucune saisie.
+La restauration d’historique Angular utilise `canceledNavigationResolution:
+'computed'` : refuser un retour ne doit pas remplacer l’entrée précédente et
+empêcher une nouvelle tentative.
+
+L’annulation conserve les champs et le focus ; une requête active bloque le
+départ. Une navigation concurrente invalide la décision précédente. L’expiration
+de session ou un refus d’accès conserve la purge du propriétaire et ferme sa
+confirmation devenue obsolète. Aucun enregistrement, approbation ou envoi n’est
+ajouté. Le rechargement, la fermeture de l’onglet et les sorties hors du routeur
+Angular restent hors périmètre ; aucune persistance de brouillon n’est créée.
+
+Vérifications locales de ce chantier, avec Node 22 :
+
+- Build Angular de production réussi à `2026-10-24T03:29:07Z`, avec SSR et
+  25 routes pré-rendues ; compilation TypeScript du projet et des recettes UI
+  réussie.
+- **111 tests unitaires réussis** pour le contrôleur de livraison. Les décisions
+  de navigation restent non destructives, ne se dupliquent pas et sont invalidées
+  par un changement de saisie, de contexte, de version ou de disponibilité.
+- **24 nouveaux scénarios navigateur réussis**, FR/EN : liens des deux éditeurs,
+  retour annulé puis accepté en édition et composition, retour/avance concurrents,
+  refus média tardifs `401`/`403` et redirection de session expirée. Les sorties ne
+  créent aucune commande ni requête de mutation.
+- Régression des deux espaces : **376 réussites sur 378** au premier passage.
+  Une ancienne recette attendait encore une fermeture immédiate après une
+  sauvegarde échouée : elle vérifie maintenant l’annulation conservant texte et
+  erreur, puis l’abandon explicite. Cette recette et huit vérifications de
+  navigation ont ensuite réussi : **9/9**.
+- L’autre échec concernait le défilement vers Stripe depuis le Guide sur mobile :
+  le focus atteignait la section, qui restait hors écran. Ce cas est passé lors de
+  la relance puis **4/5 répétitions**, sans changement de sa source ni de sa
+  recette. L’instrumentation minimale l’a reproduit : un seul appel natif de
+  défilement laissait la section au-dessus de la fenêtre, sans second défilement
+  JavaScript. La page mesure maintenant sa géométrie avant le focus et
+  `scrollIntoView`, pour résoudre le layout courant tout en conservant marges et
+  conteneurs défilants. La recette originale, sans instrumentation, passe ensuite
+  **20/20 répétitions**. Le mécanisme interne exact du navigateur n’est pas établi ;
+  la correction porte sur l’alignement observé, pas sur les droits ni les gardes.
+- Passe finale après les deux corrections : **51/51 scénarios réussis**, dont les
+  24 nouveaux cas, les sections du dossier, le focus mobile/bureau, la navigation
+  du pilotage, l’historique de la file de publication et les accès expirés. La suite
+  complète de 378 cas n’a pas été relancée après ces corrections ciblées.
+- Format ciblé, lint global et ciblé, contrôles documentaires et
+  `git diff --check` exécutés. Le seul avertissement de lint reste celui de
+  `scripts/smoke-public.mjs:165` déjà présent avant ce chantier.
+
+Les recettes utilisent le Web compilé et des réponses synthétiques interceptées,
+sans API réelle, base, déploiement ni action de publication. Les traces de
+régression sont dans `test-results/publication-navigation-regression/` ; les
+relances ciblées dans `publication-navigation-routing/` et
+`publication-navigation-focus-layout-fix/` sous `test-results/`. La dernière passe
+est dans `test-results/publication-navigation-release-check/`.
