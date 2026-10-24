@@ -22,6 +22,40 @@
   @apply tw:m-0;
 }
 
+.history-sources ul {
+  @apply tw:flex tw:flex-wrap tw:gap-x-6 tw:gap-y-3 tw:list-none tw:p-0 tw:m-0;
+}
+
+.history-sources li {
+  @apply tw:min-w-0;
+}
+
+.history-sources .admin-link {
+  @apply tw:inline-flex tw:items-center tw:min-h-11;
+  color: var(--admin-accent);
+  font: inherit;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+
+.history-sources button.admin-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.history-sources .admin-link:disabled,
+.history-sources .admin-link[aria-disabled='true'] {
+  color: var(--admin-muted);
+  cursor: default;
+}
+
+.history-sources .admin-link:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 4px;
+}
+
 .muted-copy {
   @apply tw:text-admin-muted;
   margin: 0.35rem 0 0;

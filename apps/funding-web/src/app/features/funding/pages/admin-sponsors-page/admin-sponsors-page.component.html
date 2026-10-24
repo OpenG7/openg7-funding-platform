@@ -510,7 +510,12 @@
                 @if (selectedSponsorAuditHistory(); as history) {
                   <openg7-admin-sponsor-audit-history
                     [view]="history"
+                    [contributionId]="selected.id"
+                    [canReview]="canManage()"
+                    [disabled]="dossierToolBusy()"
                     (inspect)="inspection.history(selected)"
+                    (interventionsRequested)="openHistoryInterventions()"
+                    (moderationRequested)="openDossierTool('moderation', false)"
                   />
                 }
               }

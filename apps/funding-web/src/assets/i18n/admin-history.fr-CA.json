@@ -19,6 +19,14 @@
   "singleEvent": "1 événement",
   "eventCount": "{{count}} événements",
   "actionCode": "Action : {{action}}",
+  "sources": {
+    "title": "Sources de l’historique",
+    "scope": "Chaque source conserve ses faits et ses limites de consultation. Ces lectures ne constituent pas un historique complet des textes sociaux.",
+    "interventions": "Journal des interventions",
+    "preparation": "Approbations de préparation",
+    "evidence": "Preuves de réalisation",
+    "moderation": "Décisions de modération"
+  },
   "interventions": {
     "privateScope": "Journal interne des démarches et du suivi du dossier.",
     "payment": "Paiement",

@@ -5,6 +5,66 @@
   tabindex="-1"
   [attr.aria-label]="'admin.legacy.historique_et_audit' | translate"
 >
+  <nav
+    class="history-sources detail-card"
+    data-og7="dossier-history-sources"
+    aria-labelledby="dossier-history-sources-title"
+  >
+    <h3 id="dossier-history-sources-title">
+      {{ 'admin.history.sources.title' | translate }}
+    </h3>
+    <p class="muted-copy">{{ 'admin.history.sources.scope' | translate }}</p>
+    <ul>
+      <li>
+        <button
+          type="button"
+          class="admin-link"
+          data-og7-id="interventions"
+          [disabled]="disabled()"
+          (click)="interventionsRequested.emit()"
+        >
+          {{ 'admin.history.sources.interventions' | translate }}
+        </button>
+      </li>
+      <li>
+        <a
+          class="admin-link"
+          data-og7-id="preparation"
+          [routerLink]="disabled() ? null : '/admin/fundraiser/sponsors'"
+          [attr.aria-disabled]="disabled() ? 'true' : null"
+          [queryParams]="{
+            sponsorshipId: contributionId(),
+            tab: 'publication'
+          }"
+          fragment="dossier-preparation"
+          >{{ 'admin.history.sources.preparation' | translate }}</a
+        >
+      </li>
+      <li>
+        <a
+          class="admin-link"
+          data-og7-id="evidence"
+          [routerLink]="disabled() ? null : '/admin/fundraiser/campaigns'"
+          [attr.aria-disabled]="disabled() ? 'true' : null"
+          [queryParams]="{ sponsorshipId: contributionId() }"
+          >{{ 'admin.history.sources.evidence' | translate }}</a
+        >
+      </li>
+      @if (canReview()) {
+        <li>
+          <button
+            type="button"
+            class="admin-link"
+            data-og7-id="moderation"
+            [disabled]="disabled()"
+            (click)="moderationRequested.emit()"
+          >
+            {{ 'admin.history.sources.moderation' | translate }}
+          </button>
+        </li>
+      }
+    </ul>
+  </nav>
   <article class="detail-card">
     <header class="history-header">
       <div>

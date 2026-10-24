@@ -9,6 +9,39 @@ section {
 li {
   @apply tw:border-admin-border;
 }
+.audit-reading-scope {
+  @apply tw:space-y-2 tw:text-admin-muted;
+  font-size: var(--admin-caption-size);
+}
+.audit-item-heading {
+  margin-block: 0;
+}
+.audit-latest-review {
+  border-inline-start: 2px solid var(--admin-border);
+  padding-inline-start: 0.75rem;
+}
+.audit-latest-review h4,
+.audit-latest-review p {
+  margin-block: 0.4rem;
+}
+.audit-references {
+  @apply tw:grid tw:gap-2 tw:min-w-0;
+}
+.audit-references div,
+.audit-references dd {
+  @apply tw:min-w-0 tw:wrap-anywhere;
+}
+.audit-references dd {
+  margin-inline-start: 0;
+}
+details > summary {
+  cursor: pointer;
+}
+details > summary:focus-visible,
+a:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 4px;
+}
 .audit-filter {
   @apply tw:grid tw:gap-2 tw:min-w-0 tw:max-w-full;
 }
