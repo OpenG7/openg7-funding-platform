@@ -603,9 +603,10 @@
             </ul>
           </section>
         }
-        @if (canWrite() && job.status === 'draft') {
+        @if (canWrite() && job.status === 'draft' && !c.editing()) {
           <div
             class="approval"
+            #reviewAuthorization
             data-og7="publication-authorization"
             tabindex="-1"
           >
@@ -625,7 +626,7 @@
               }}</label
             ><button
               type="button"
-              class="admin-button"
+              class="admin-button admin-button--primary"
               [disabled]="
                 c.busy() ||
                 !c.approved ||
@@ -651,34 +652,6 @@
             </button>
           </div>
         }
-        @if (canWrite() && c.editable()) {
-          <button
-            type="button"
-            class="admin-button"
-            [disabled]="c.busy()"
-            [openg7AutomaticPrepare]="'publication.delivery.reject:' + job.id"
-            [automaticFor]="automaticTarget()"
-            automaticExecutionMode="confirmation_required"
-            (automaticPrepare)="c.reject()"
-            (click)="c.reject()"
-          >
-            {{ 'admin.publicationAutomation.reject' | translate }}
-          </button>
-        }
-        @if (canWrite() && job.status === 'approved') {
-          <button
-            type="button"
-            class="admin-button"
-            [disabled]="c.busy()"
-            [openg7AutomaticPrepare]="'publication.delivery.cancel:' + job.id"
-            [automaticFor]="automaticTarget()"
-            automaticExecutionMode="confirmation_required"
-            (automaticPrepare)="c.cancel()"
-            (click)="c.cancel()"
-          >
-            {{ 'admin.publicationAutomation.cancel' | translate }}
-          </button>
-        }
         @if (canWrite() && job.status === 'uncertain' && !job.mediaId) {
           <label
             >{{ 'admin.publicationAutomation.externalId' | translate
@@ -691,38 +664,11 @@
             {{ 'admin.publicationAutomation.reconcile' | translate }}
           </button>
         }
-        @if (
-          canWrite() &&
-          (job.status === 'uncertain' || job.accountRecoveryRequired)
-        ) {
-          <details>
-            <summary>
-              {{ 'admin.publicationAutomation.absenceTitle' | translate }}
-            </summary>
-            <p>{{ 'admin.publicationAutomation.absenceHelp' | translate }}</p>
-            <label
-              >{{ 'admin.publicationAutomation.absenceReason' | translate
-              }}<textarea
-                rows="3"
-                maxlength="500"
-                [(ngModel)]="c.absenceReason"
-              ></textarea></label
-            ><label class="check"
-              ><input type="checkbox" [(ngModel)]="c.absenceChecked" />{{
-                'admin.publicationAutomation.absenceCheck' | translate
-              }}</label
-            ><button
-              class="admin-button"
-              [disabled]="
-                c.busy() ||
-                !c.absenceChecked ||
-                c.absenceReason.trim().length < 20
-              "
-              (click)="c.confirmAbsent()"
-            >
-              {{ 'admin.publicationAutomation.absenceAction' | translate }}
-            </button>
-          </details>
+        @if (canWrite()) {
+          <openg7-publication-delivery-secondary-actions
+            [controller]="c"
+            [automaticFor]="automaticTarget()"
+          />
         }
         @if (
           job.status === 'published' &&
@@ -735,15 +681,6 @@
             rel="noopener noreferrer"
             >{{ 'admin.publicationAutomation.seePost' | translate }}</a
           >
-        }
-        @if (canWrite() && job.status === 'published' && job.mode === 'live') {
-          <button
-            class="admin-button"
-            [disabled]="c.busy()"
-            (click)="c.checkVisibility()"
-          >
-            {{ 'admin.publicationAutomation.checkVisibility' | translate }}
-          </button>
         }
       }
     </section>
@@ -758,6 +695,19 @@
       {{ 'admin.publicationAutomation.contentReview.footerHelp' | translate }}
     </p>
     @if (canWrite() && c.editing()) {
+      @if (c.selected() && !c.dirty()) {
+        <button
+          type="button"
+          class="admin-button"
+          data-og7="publication-return-review"
+          [disabled]="c.busy()"
+          (click)="returnToReview()"
+        >
+          {{
+            'admin.publicationAutomation.contentReview.backToReview' | translate
+          }}
+        </button>
+      }
       @if (c.editable()) {
         <button
           class="admin-button admin-button--primary"

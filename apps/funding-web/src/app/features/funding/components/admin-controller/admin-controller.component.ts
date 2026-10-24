@@ -285,6 +285,22 @@ export class AdminControllerComponent {
       return true;
     }
     if (intent === 'secondary') {
+      const disclosure = active?.closest(
+        '[data-og7-controller-back="disclosure"][open]'
+      );
+      if (disclosure && scope.contains(disclosure)) {
+        const event = new KeyboardEvent('keydown', {
+          key: 'Escape',
+          code: 'Escape',
+          bubbles: true,
+          cancelable: true
+        });
+        if (!active!.dispatchEvent(event)) {
+          this.controller.reset();
+          this.markFocus();
+          return true;
+        }
+      }
       if (scope.matches('dialog[open]')) {
         const event = new Event('cancel', { cancelable: true });
         if (scope.dispatchEvent(event)) (scope as HTMLDialogElement).close();

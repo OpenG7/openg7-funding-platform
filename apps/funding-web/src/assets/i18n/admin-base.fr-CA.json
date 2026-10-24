@@ -3003,7 +3003,8 @@
         "previewHeading": "Aperçu du contenu",
         "expandPreview": "Agrandir l’aperçu",
         "reducePreview": "Réduire l’aperçu",
-        "footerHelp": "La sauvegarde conserve un brouillon. L’autorisation d’envoi reste une décision distincte."
+        "footerHelp": "La sauvegarde conserve un brouillon. L’autorisation d’envoi reste une décision distincte.",
+        "backToReview": "Revenir à la revue"
       },
       "approvalHelp": "Toute modification annule l’autorisation précédente. Vérifiez le compte, le texte, l’image et l’heure ci-dessus.",
       "collectionHelp": "Collection LinkedIn : vérifiez chaque JPEG dans l’ordre affiché. Une photo par commanditaire, de 2 à 10 participants. Chaque photo conserve ses droits et son crédit dans le texte.",
@@ -3122,7 +3123,8 @@
       "sponsorReview": "Commanditaires à approuver avec cette publication",
       "sponsorReviewHelp": "Accepter approuve aussi ces dossiers. Leurs fiches restent privées sur le site jusqu’à une décision de visibilité séparée.",
       "combinedApproval": "J’approuve ces commanditaires, ce contenu exact et son envoi à cette destination, à cette heure.",
-      "missingPresentation": "Photo de présentation à fournir ou à approuver dans le dossier."
+      "missingPresentation": "Photo de présentation à fournir ou à approuver dans le dossier.",
+      "otherActions": "Autres actions"
     },
     "pilotage": {
       "appearance": "Apparence",

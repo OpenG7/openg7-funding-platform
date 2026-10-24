@@ -160,7 +160,7 @@ export function registerNormalizedPublicationCollectionTests(
           '[data-og7="publication-collection-preview"]'
         );
         await expect(gallery.locator('img')).toHaveCount(0);
-        await expect(approve).toBeDisabled();
+        await expect(approve).toHaveCount(0);
         expect(commands).toHaveLength(0);
         releaseLastResponse();
         await expect.poll(() => completedIndexes.size).toBe(10);
@@ -207,9 +207,21 @@ export function registerNormalizedPublicationCollectionTests(
         }
         // Product approval waits for every verified Blob. Decode is observed
         // here before the human click; it is not a separate product-side gate.
+        await dialog.locator('[data-og7="publication-return-review"]').click();
+        await expect(
+          dialog.locator('[data-og7="publication-authorization"]')
+        ).toBeFocused();
+        expect(commands).toHaveLength(0);
         await expect(approve).toBeEnabled();
         expect(commands).toHaveLength(0);
-        await approve.focus();
+        await page.keyboard.press('Tab');
+        await expect(
+          dialog.getByRole('checkbox', {
+            name: english ? /I approve/ : /J’approuve/
+          })
+        ).toBeFocused();
+        await page.keyboard.press('Tab');
+        await expect(approve).toBeFocused();
         await page.keyboard.press('Enter');
         await completeModeration(page);
         await expect.poll(() => commands.length).toBe(1);

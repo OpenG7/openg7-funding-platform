@@ -27,6 +27,29 @@ const local =
   'Texte local de recette transverse.\nCorrection <b>en texte brut</b>.';
 const hook = (page: Page, name: string) => page.locator(`[data-og7="${name}"]`);
 
+async function recordModalFocus(page: Page, testInfo: TestInfo, name: string) {
+  const state = await page.evaluate(() => {
+    const describe = (element: Element | null) =>
+      element
+        ? {
+            tag: element.tagName,
+            ariaLabel: element.getAttribute('aria-label'),
+            hook: element.getAttribute('data-og7')
+          }
+        : null;
+    const active = document.activeElement;
+    return {
+      documentHasFocus: document.hasFocus(),
+      activeElement: describe(active),
+      activeDialog: describe(active?.closest('dialog') ?? null),
+      modalDialogs: [...document.querySelectorAll('dialog:modal')].map(describe)
+    };
+  });
+  const file = testInfo.outputPath(`${name}.json`);
+  await writeFile(file, JSON.stringify(state, null, 2) + '\n', 'utf8');
+  await testInfo.attach(name, { path: file, contentType: 'application/json' });
+}
+
 async function prepare(page: Page, language: string) {
   await page.addInitScript(
     (value) => localStorage.setItem('openg7.language', value),
@@ -261,8 +284,15 @@ export function registerPublicationTransverseAcceptanceTests(
         const initialCancel = cancellationButtons.first();
         const cancel = cancellationButtons.last();
         await expect(initialCancel).toBeFocused();
+        await recordModalFocus(page, testInfo, 'before-background-focus');
         await text.evaluate((element: HTMLElement) => element.focus());
-        await expect(initialCancel).toBeFocused();
+        await recordModalFocus(page, testInfo, 'after-background-focus');
+        try {
+          await expect(initialCancel).toBeFocused();
+        } catch (error) {
+          await recordModalFocus(page, testInfo, 'failed-background-focus');
+          throw error;
+        }
         const discard = confirmation.locator('[data-og7="confirm-action"]');
         await tabTo(page, confirmation, discard);
         await expectFocusedControlInsideViewport(discard);
