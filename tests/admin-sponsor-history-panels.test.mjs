@@ -4,6 +4,7 @@ import { createProgram } from '@angular/compiler-cli';
 import { TestBed } from '@angular/core/testing';
 import { BrowserTestingModule } from '@angular/platform-browser/testing';
 import { platformServer, ServerModule } from '@angular/platform-server';
+import { provideRouter } from '@angular/router';
 import { provideTranslateService, TranslateService } from '@ngx-translate/core';
 import assert from 'node:assert/strict';
 import {
@@ -139,17 +140,22 @@ const emptyRefund = Object.freeze({
 });
 
 async function fixture(t, component, value, locale = 'fr-CA') {
+  t.after(() => TestBed.resetTestingModule());
   TestBed.configureTestingModule({
     imports: [component],
-    providers: [provideTranslateService()]
+    providers: [provideRouter([]), provideTranslateService()]
   });
   const translate = TestBed.inject(TranslateService);
   translate.setTranslation(locale, catalogs[locale]);
   await firstValueFrom(translate.use(locale));
   const fixture = TestBed.createComponent(component);
   fixture.componentRef.setInput('view', value);
+  if (component === AuditHistoryComponent)
+    fixture.componentRef.setInput(
+      'contributionId',
+      '11111111-1111-4111-8111-111111111111'
+    );
   fixture.detectChanges();
-  t.after(() => TestBed.resetTestingModule());
   return fixture;
 }
 
@@ -223,7 +229,7 @@ for (const locale of ['fr-CA', 'en']) {
       )
     );
     assert.ok(root.textContent.includes(copy.history.availableScope));
-    const button = root.querySelector('button');
+    const button = root.querySelector('article header button');
     assert.equal(button.type, 'button');
     assert.equal(button.textContent.trim(), copy.history.inspect);
     const intentions = [];
@@ -302,7 +308,7 @@ for (const locale of ['fr-CA', 'en']) {
     view.componentInstance.inspect.subscribe((intent) =>
       intentions.push(intent)
     );
-    root.querySelector('button').click();
+    root.querySelector('article header button').click();
     assert.deepEqual(intentions, [undefined]);
     view.componentInstance.setDomainFilter('other');
     view.detectChanges();
@@ -538,13 +544,16 @@ test('audit panel preserves projected event order and replaces the selected doss
     catalogs['fr-CA'].admin.legacy.historique_disponible
   );
   assert.deepEqual(
-    Array.from(root.querySelectorAll('li')).map((node) =>
+    Array.from(list.querySelectorAll('li')).map((node) =>
       node.getAttribute('data-og7-id')
     ),
     ['newest', 'oldest']
   );
   assert.equal(root.querySelectorAll('small').length, 1);
-  assert.equal(root.querySelectorAll('button').length, 1);
+  assert.equal(
+    root.querySelector('article').querySelectorAll('button').length,
+    1
+  );
   assert.deepEqual(
     Array.from(list.querySelectorAll('time')).map(
       (node) => node.getAttribute('datetime') ?? null
@@ -568,7 +577,7 @@ test('audit panel preserves projected event order and replaces the selected doss
     ]
   });
   view.detectChanges();
-  assert.equal(root.querySelectorAll('li').length, 1);
+  assert.equal(list.querySelectorAll('li').length, 1);
   assert.ok(root.textContent.includes('Other dossier'));
   assert.ok(!root.textContent.includes('Private audit detail'));
   assert.ok(

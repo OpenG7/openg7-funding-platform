@@ -31,7 +31,7 @@ fonctions à construire ni une attestation de disponibilité.
 
 ## Suivi des chantiers locaux V3.3
 
-**4 chantiers réalisés sur 6 ; 2 restants.** Ce registre
+**5 chantiers réalisés sur 6 ; 1 restant.** Ce registre
 compte des adaptations bornées, réalisées et testées localement. Il ne mesure ni
 les lots 0–6 du pack, ni ses 211 entrées, ni les fusions ou déploiements. Les
 capacités absentes recensées dans les limites restent des travaux séparés.
@@ -42,7 +42,7 @@ capacités absentes recensées dans les limites restent des travaux séparés.
 | 2   | Départ du tiroir de publication                           | Réalisé : navigation interne, historique, conservation des saisies, invalidation de session et tests ; PR #371.                                       |
 | 3   | Synthèse des prestations d’un dossier — S01               | Réalisé localement : obligations exactes, état et responsabilité serveur, preuve qualifiée, dispenses distinctes, liens ciblés et tests.              |
 | 4   | Lecture, correction et revue du contenu — S02/S05/S06/S11 | Réalisé : version enregistrée, saisie locale, référence et aperçu textuels distincts, conflit sans perte, consultation lecteur et tests.              |
-| 5   | Consultation des historiques et preuves — S08/S23         | À réaliser : sources spécialisées, portée et détails lisibles, preuves et temporalité conservées ; aucune version historique inventée.                |
+| 5   | Consultation des historiques et preuves — S08/S23         | Réalisé : sources spécialisées ciblées, dates Toronto, dernière conclusion et pagination explicites, preuves et références exactes, focus et tests.   |
 | 6   | Recette transversale finale                               | À réaliser : correspondance R01–R56 applicable/existant/manquant, petite hauteur, zoom, clavier, manette simulée et captures réelles des adaptations. |
 
 Les quatre familles de capacités hors de ce total sont l’accord client versionné avec preuve
@@ -357,3 +357,42 @@ le seul avertissement de lint est celui déjà présent dans
 `scripts/smoke-public.mjs:165`. Les tests utilisent des réponses synthétiques
 interceptées, sans action réelle ni déploiement. Le chantier suivant est la
 consultation des historiques et des preuves existants (S08/S23).
+
+## Chantier 5 : sources d’historique et preuves disponibles
+
+Adaptation du 24 octobre 2026 sur `codex/admin-dossier-history-sources`, depuis
+`fa3b170b` (PR #373), sans attente de CI. **5/6 adaptations locales réalisées,
+1 restante** : la recette transversale.
+
+L’onglet Historique relie le journal d’interventions, les approbations de
+préparation, les preuves du dossier et la modération selon les droits existants.
+Chaque source conserve son périmètre ; les jalons et dernières actions disponibles
+ne sont pas annoncés comme un historique complet des textes sociaux. Les liens
+conservent le dossier exact et les ouvertures ne créent aucune décision.
+
+L’audit historique réutilisé affiche canal et destination en clair, dates de
+preuve/inventaire/conclusion à Toronto, page et limite distinctes du total filtré,
+dernière conclusion disponible et références repliables. **Suivant** remplace la
+page. Le lien Prestations cible contribution et obligation exactes ; il ne
+qualifie pas la preuve. Le DTO ne fournit ni auteur, raison ni anciennes versions
+sociales : aucun de ces éléments n’est inventé. Contrôleurs et API restent inchangés.
+
+La revue indépendante a relevé un P3 de focus : fermer la modération ouverte
+depuis l’historique renvoyait au bouton d’en-tête. Le panneau conserve désormais
+son déclencheur réel et le repli existant si ce déclencheur a disparu ou est
+masqué ; les protections de contexte restent actives. Le correctif a été relu et
+testé en FR/EN ; aucun défaut actionnable ne reste dans le diff examiné.
+
+Validation : build Angular production/SSR à `2026-10-24T04:22:30Z`, 25 routes
+pré-rendues ; TypeScript projet/UI, **16 tests du contrôleur d’audit** et
+**29 scénarios navigateur réussis**, dont huit nouveaux cas. Les recettes couvrent
+sources/droits, retour du focus et filtres, changement de page sans cumul, dates
+UTC passant au jour précédent à Toronto, conclusion minimale, liens exacts,
+conflit/reprise et outils existants. Axe passe sur les huit rendus des nouvelles
+surfaces, FR/EN et bureau/mobile. Les captures FR bureau et mobile ont été relues
+sous `test-results/v33-c5-history-review-final/`.
+
+Format, lint global/ciblé et contrôles documentaires passent ; le diff du chantier
+est vérifié séparément des changements Docker apparus dans le workspace, conservés
+hors commit. L’avertissement de lint préexistant reste inchangé. Tests sur réponses
+synthétiques interceptées, sans déploiement ni action métier réelle.

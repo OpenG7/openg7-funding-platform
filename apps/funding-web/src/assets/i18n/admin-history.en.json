@@ -19,6 +19,14 @@
   "singleEvent": "1 event",
   "eventCount": "{{count}} events",
   "actionCode": "Action: {{action}}",
+  "sources": {
+    "title": "History sources",
+    "scope": "Each source retains its own facts and reading limits. These views do not provide a complete history of social post texts.",
+    "interventions": "Intervention journal",
+    "preparation": "Preparation approvals",
+    "evidence": "Fulfilment evidence",
+    "moderation": "Moderation decisions"
+  },
   "interventions": {
     "privateScope": "Internal journal of actions and dossier follow-up.",
     "payment": "Payment",

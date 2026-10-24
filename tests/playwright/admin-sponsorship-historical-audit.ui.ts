@@ -1,5 +1,9 @@
 import type { Page } from '@playwright/test';
-import type { SponsorshipHistoricalAuditReviewRequest } from '@openg7/funding-core';
+import { AxeBuilder } from '@axe-core/playwright';
+import type {
+  SponsorshipHistoricalAuditItem,
+  SponsorshipHistoricalAuditReviewRequest
+} from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
 
@@ -11,7 +15,7 @@ interface Context {
   path(tab?: string, value?: string): string;
 }
 const evidenceId = '10000000-0000-4000-8000-000000000602';
-const item = {
+const item: SponsorshipHistoricalAuditItem = {
   evidenceId,
   obligationId: '10000000-0000-4000-8000-000000000603',
   contributionId: '10000000-0000-4000-8000-000000000401',
@@ -31,18 +35,24 @@ async function fixtures(page: Page, context: Context) {
     failure: 0,
     version: 0,
     commands: [] as SponsorshipHistoricalAuditReviewRequest[],
-    queries: [] as string[]
+    queries: [] as string[],
+    pages: {} as Record<string, readonly SponsorshipHistoricalAuditItem[]>
   };
   await page.route(
     '**/api/admin/sponsorship-commitments/historical-audit**',
     async (route) => {
       if (route.request().method() === 'GET') {
         state.queries.push(route.request().url());
+        const cursor =
+          new URL(route.request().url()).searchParams.get('cursor') ?? '';
         return route.fulfill({
           json: {
-            items: [{ ...item, reviewVersion: state.version }],
+            items: (state.pages[cursor] ?? [item]).map((entry) => ({
+              ...entry,
+              reviewVersion: state.version
+            })),
             pageSize: 25,
-            nextCursor: 'synthetic-next-cursor',
+            nextCursor: cursor ? null : 'synthetic-next-cursor',
             asOf: '2026-10-12T00:00:00.000Z',
             totals: {
               evidence: 155,
@@ -89,6 +99,122 @@ async function fixtures(page: Page, context: Context) {
 export function registerSponsorshipHistoricalAuditTests(
   context: Context
 ): void {
+  for (const language of ['fr-CA', 'en'] as const) {
+    for (const width of [1536, 390]) {
+      test(`historical audit describes available evidence and replaces its page in ${language} at ${width}px`, async ({
+        page
+      }, testInfo) => {
+        const state = await fixtures(page, context);
+        const reviewId = '10000000-0000-4000-8000-000000000604';
+        state.pages[''] = [
+          {
+            ...item,
+            latestReview: {
+              id: reviewId,
+              conclusion: 'inconclusive',
+              reviewedAt: '2026-10-05T00:00:00.000Z'
+            }
+          }
+        ];
+        const second = {
+          ...item,
+          evidenceId: '10000000-0000-4000-8000-000000000605',
+          obligationId: '10000000-0000-4000-8000-000000000606',
+          channel: 'linkedin' as const,
+          target: 'openg20' as const
+        };
+        state.pages['synthetic-next-cursor'] = [second];
+        await page.addInitScript(
+          (value) => localStorage.setItem('openg7.language', value),
+          language
+        );
+        await page.setViewportSize({ width, height: 864 });
+        await page.goto(context.path('publication'));
+        const panel = page.locator('[data-og7="historical-evidence-audit"]');
+        await panel.locator('[data-og7-id="historical-audit-load"]').click();
+        await expect(
+          panel.locator('[data-og7="historical-audit-as-of"] time')
+        ).toHaveAttribute('datetime', '2026-10-12T00:00:00.000Z');
+        await expect(
+          panel.locator('[data-og7="historical-audit-as-of"]')
+        ).toContainText('Toronto');
+        await expect(
+          panel.locator('[data-og7="historical-audit-page-summary"]')
+        ).toContainText('1');
+        await expect(
+          panel.locator('[data-og7="historical-audit-page-summary"]')
+        ).toContainText('25');
+        await expect(
+          panel.locator('[data-og7-id="historical-audit-counts"]')
+        ).toContainText('55');
+        const first = panel.locator('[data-og7-id="historical-audit-item"]');
+        await expect(first).toContainText(
+          language === 'en' ? 'Website' : 'Site Web'
+        );
+        await expect(
+          first.locator('[data-og7="historical-audit-evidence-date"]')
+        ).toContainText('30');
+        await expect(
+          first.locator('[data-og7="historical-audit-review-date"]')
+        ).toContainText('4');
+        await expect(
+          first.locator('[data-og7="historical-audit-latest-review"]')
+        ).toContainText(
+          language === 'en'
+            ? 'Latest available conclusion'
+            : 'Dernière conclusion disponible'
+        );
+        const references = first.locator(
+          '[data-og7="historical-audit-references"]'
+        );
+        await expect(references).not.toHaveAttribute('open', '');
+        await references.locator('summary').focus();
+        await page.keyboard.press('Enter');
+        await expect(references).toHaveAttribute('open', '');
+        await expect(references).toContainText(evidenceId);
+        await expect(references).toContainText(item.obligationId);
+        await expect(
+          first.locator('[data-og7="historical-audit-open-evidence"]')
+        ).toHaveAttribute(
+          'href',
+          `/admin/fundraiser/campaigns?sponsorshipId=${item.contributionId}&obligationId=${item.obligationId}`
+        );
+        expect(
+          (
+            await new AxeBuilder({ page })
+              .include('[data-og7="historical-evidence-audit"]')
+              .analyze()
+          ).violations
+        ).toEqual([]);
+        await page.screenshot({
+          path: testInfo.outputPath(
+            `historical-evidence-${language}-${width}.png`
+          ),
+          animations: 'disabled'
+        });
+        await panel.locator('[data-og7-id="historical-audit-next"]').click();
+        await expect(first).toHaveCount(1);
+        await expect(first).toContainText('LinkedIn');
+        await expect(first).toContainText('OpenG20');
+        await expect(first).not.toContainText(evidenceId);
+        await expect(
+          panel.locator('[data-og7-id="historical-audit-next"]')
+        ).toHaveCount(0);
+        expect(
+          new URL(state.queries.at(-1)!).searchParams.get('contributionId')
+        ).toBe(item.contributionId);
+        expect(new URL(state.queries.at(-1)!).searchParams.get('cursor')).toBe(
+          'synthetic-next-cursor'
+        );
+        expect(state.commands).toEqual([]);
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth + 1
+          )
+        ).toBe(true);
+      });
+    }
+  }
   for (const [locale, width] of [
     ['fr-CA', 1280],
     ['en', 390]
