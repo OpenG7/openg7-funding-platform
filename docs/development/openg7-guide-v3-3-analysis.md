@@ -533,12 +533,12 @@ courriel ou remboursement réel n’a été exécuté.
 L’utilisateur a autorisé cinq adaptations supplémentaires le 24 octobre 2026,
 avec revue, tests locaux et une PR par chantier, sans attendre les CI entre les
 chantiers. Le suivi porte sur **11 adaptations planifiées**, pas sur la totalité
-des fonctions dessinées : **7 réalisées, 4 restantes** à ce stade.
+des fonctions dessinées : **8 réalisées, 3 restantes** à ce stade.
 
 | Nº  | Adaptation complémentaire                                    | État                         |
 | --- | ------------------------------------------------------------ | ---------------------------- |
 | 7   | Fiabilité de l’horaire, de la copie et des liens de résultat | Réalisée localement et revue |
-| 8   | Éditeur unique, aperçu à droite et agrandissement            | En cours                     |
+| 8   | Éditeur unique, aperçu à droite et agrandissement            | Réalisée localement et revue |
 | 9   | Actions secondaires contextuelles sans doublon               | En cours                     |
 | 10  | Navigation ciblée dans le dossier et la livraison            | En cours                     |
 | 11  | Recette comparative et captures du rendu réel                | À réaliser                   |
@@ -565,3 +565,22 @@ Quatre recettes existantes de reprise incertaine ont aussi été exécutées ave
 succès en FR/EN, bureau/mobile. Elles utilisent une livraison réelle synthétique
 pour vérifier le lien public après réconciliation ; les simulations restent
 couvertes séparément par les cas qui exigent l’absence de ce lien.
+
+Le chantier 8 réutilise le tiroir large, une grille de revue responsive et un pied
+de sauvegarde fixe. L’aperçu à droite distingue le texte saisi, le texte enregistré
+et les médias privés disponibles. Son agrandissement reste dans le même dialogue,
+conserve le formulaire monté et rétablit le focus au retour. La sauvegarde native
+reste unique ; les versions, droits et gardes de sortie sont conservés. Aucun
+éditeur riche ou rendu social fictif n’est ajouté.
+
+Validation C8 : build Angular de développement/SSR et 25 routes, typage des
+recettes, **44 scénarios navigateur réussis** (contenu, agrandissement, clavier,
+manette simulée et régressions C7). Captures FR/EN à 1536×864, 1280×520 et 390×844
+dans `test-results/v33-c8-review-layout/` du worktree du chantier ; rendus bureau
+et petite hauteur inspectés. Revue indépendante B : aucun défaut actionnable.
+Les contrôles de forme, lint et documentation accompagnent la clôture du chantier.
+
+La régression complète du fichier de publication passe également : **152 scénarios
+navigateur réussis**, incluant les 44 cas ciblés ci-dessus. Les anciennes recettes
+de reprise incertaine utilisent une livraison réelle synthétique lorsqu’elles
+vérifient un lien public confirmé ; les cas de simulation vérifient son absence.

@@ -70,15 +70,28 @@ actions. The recorded agreement, historical qualification, adjustments and timin
 remain in **Promised services** within the dossier; Service fulfilment does not replace
 those decisions. The review drawer labels dates with the browser's timezone.
 
-The final-publication drawer identifies the saved delivery version and any local
-unsaved changes. While editing, separate collapsed sections show the entered text
-and the saved text, schedule and version; the local text preview does not simulate
-the social network's layout or establish saving. A version conflict retains the
-entries and explains how to keep useful corrections before closing and refreshing.
-Saving a draft remains distinct from authorizing it, and an edit revokes its prior
-authorization. Readers retain the saved content and specialized history, while
-creation and delivery mutation controls are hidden. API authorization remains the
-security boundary.
+The final-publication drawer uses the existing wide modal shell. Desktop review
+places one editing form beside its content preview; narrow screens stack those
+same regions. The fixed footer holds one native save submit bound to that form.
+Its blue primary action uses local theme tokens. The drawer identifies the saved
+delivery version and unsaved changes; the initially expanded entered-text preview
+is separate from the saved text, schedule and version. It neither simulates the
+social network's layout nor establishes saving.
+
+Enlarging the preview is a reversible presentation state in the same dialog. It
+keeps the form and action regions mounted, temporarily hides them from interaction,
+restores the local-preview disclosure state and returns focus to the trigger.
+The usual discard guard protects the draft in either view. Closing, changing
+delivery or changing session resets enlargement. Readers retain the saved preview,
+enlargement and specialized history without mutation controls. Media remain the
+existing private previews. No second editor, approval, source object or API is added.
+
+A version conflict keeps the entries and explains how to retain useful corrections
+before closing and refreshing. Saving a draft remains distinct from authorizing
+it, and an edit revokes its prior authorization. API authorization remains the
+security boundary. Stable regions identify the saved content, editor, preview,
+authorization, result and footer. A presentation-only translated navigation notice
+can explain a region unavailable for the current state or rights inside the drawer.
 
 The drawer's public-post link is shown only for a confirmed `published` delivery
 in `live` mode with an external URL. A mock result or an uncertain attempt may
