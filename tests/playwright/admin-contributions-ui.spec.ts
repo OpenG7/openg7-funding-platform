@@ -212,6 +212,19 @@ for (const language of ['fr-CA', 'en'] as const)
           'contributions-detail-1536',
           true
         );
+      await page
+        .getByRole('link', {
+          name:
+            language === 'en' ? 'Follow this payment' : 'Suivre ce paiement',
+          exact: true
+        })
+        .click();
+      await expect(
+        page.locator('[data-og7="payment-journey-heading"]')
+      ).toBeFocused();
+      await expect(
+        page.locator('[data-og7="admin-guidance-panel"]')
+      ).toHaveCount(0);
       if (language === 'en') {
         await page.evaluate(() => {
           document.documentElement.style.fontSize = '200%';
@@ -228,6 +241,52 @@ for (const language of ['fr-CA', 'en'] as const)
       expect(writes).toEqual([]);
     });
   }
+
+test('contribution browser history reloads the same selected contribution after a local selection', async ({
+  page
+}) => {
+  const { options } = await fixtures(page, 'fr-CA');
+  const writes = await blockAdminReviewWrites(page);
+  await page.goto('/admin/fundraiser/contributions');
+  const { filters, list } = contributionRegions(page, false);
+  await expect(list.locator('[data-og7="contribution-row"]')).toHaveCount(2);
+  const sponsorRow = list.locator(
+    `[data-og7="contribution-row"][data-og7-id="${sponsor.id}"]`
+  );
+  await sponsorRow.focus();
+  await page.keyboard.press('Space');
+  await expect(page).toHaveURL(
+    new RegExp(
+      `/admin/fundraiser/contributions\\?contributionId=${sponsor.id}$`
+    )
+  );
+  await expect(sponsorRow).toBeFocused();
+  expect(options.listLoads).toBe(1);
+  const search = filters.getByRole('searchbox');
+  await search.fill('cs_test_contribution_sponsor');
+  await expect(list.locator('[data-og7="contribution-row"]')).toHaveCount(1);
+  const canonicalUrl = page.url();
+  await page.evaluate(() => {
+    const url = new URL(location.href);
+    url.searchParams.set('historyProbe', 'synthetic');
+    history.pushState(history.state, '', url);
+  });
+  await page.goBack();
+  await expect(page).toHaveURL(canonicalUrl);
+  await expect(search).toHaveValue('cs_test_contribution_sponsor');
+  expect(options.listLoads).toBe(1);
+  await page.goForward();
+  await expect(page).toHaveURL(`${canonicalUrl}&historyProbe=synthetic`);
+  await expect.poll(() => options.listLoads).toBe(2);
+  await expect(search).toHaveValue('');
+  const detail = page.locator('[data-og7="contribution-detail"]');
+  await expect(detail).toContainText(sponsor.sponsor_company_name!);
+  await expect(detail).not.toContainText(personal.public_reference!);
+  await expect(page.locator('[data-og7="admin-guidance-panel"]')).toHaveCount(
+    0
+  );
+  expect(writes).toEqual([]);
+});
 
 for (const theme of ['mineral', 'night', 'graphite'] as const) {
   for (const { language, width } of [

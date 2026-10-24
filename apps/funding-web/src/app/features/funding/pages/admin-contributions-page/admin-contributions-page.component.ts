@@ -82,6 +82,8 @@ export class AdminContributionsPageComponent implements OnInit {
   private readonly destroy = inject(DestroyRef);
   private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly focusJourneyId = signal<string | null>(null);
+  private readonly focusRowId = signal<string | null>(null);
+  private readonly contributionSelectionNavigation = {};
   private releaseJourneyHighlight: (() => void) | null = null;
   readonly missingJourneyTarget = signal(false);
   readonly invalidContributionLink = signal(false);
@@ -151,6 +153,8 @@ export class AdminContributionsPageComponent implements OnInit {
       identity = nextIdentity;
       sessionGeneration = nextGeneration;
       untracked(() => {
+        this.focusJourneyId.set(null);
+        this.focusRowId.set(null);
         this.controller.notifyAccessChanged();
         this.exportWorkflow.clearError();
         if (sessionChanged) this.expireSession();
@@ -169,25 +173,38 @@ export class AdminContributionsPageComponent implements OnInit {
       });
     });
     afterRenderEffect(() => {
-      const id = this.focusJourneyId();
+      const journeyId = this.focusJourneyId();
+      const rowId = this.focusRowId();
+      const id = journeyId ?? rowId;
       if (
         !id ||
         id !== this.selectedContributionView()?.id ||
         this.state() !== 'ready'
       )
         return;
-      const heading = this.element.nativeElement.querySelector<HTMLElement>(
-        '[data-og7="payment-journey-heading"]'
+      const target = this.element.nativeElement.querySelector<HTMLElement>(
+        journeyId
+          ? '[data-og7="payment-journey-heading"]'
+          : `[data-og7="contribution-row"][data-og7-id="${rowId}"]`
       );
-      if (!heading) return;
+      if (!target) {
+        if (rowId) this.focusRowId.set(null);
+        return;
+      }
       this.focusJourneyId.set(null);
-      const active = heading.ownerDocument.activeElement;
+      this.focusRowId.set(null);
+      const document = target.ownerDocument;
+      const active = document.activeElement;
       if (
+        active === target ||
         active?.matches('input, textarea, select') ||
-        heading.ownerDocument.querySelector('dialog[open]')
+        document.querySelector('dialog[open]') ||
+        (rowId &&
+          active !== document.body &&
+          active !== document.documentElement)
       )
         return;
-      revealControllerFocus(heading);
+      revealControllerFocus(target);
     });
   }
 
@@ -205,11 +222,23 @@ export class AdminContributionsPageComponent implements OnInit {
         const ids = params.getAll('contributionId');
         const id = ids.length === 1 ? guidanceContributionId(ids[0]) : null;
         this.invalidContributionLink.set(ids.length > 0 && !id);
-        this.focusJourneyId.set(id);
+        if (this.focusJourneyId() !== id) this.focusJourneyId.set(null);
+        if (this.focusRowId() !== id) this.focusRowId.set(null);
         if (this.invalidContributionLink()) {
           this.journey.disconnect();
           this.controller.notifyAccessChanged();
           return;
+        }
+        if (
+          id &&
+          this.router.currentNavigation()?.extras.info ===
+            this.contributionSelectionNavigation
+        ) {
+          if (this.controller.selectRouteContribution(id)) {
+            this.journey.connect(id);
+            return;
+          }
+          this.rememberRowFocus(id);
         }
         this.journey.disconnect();
         this.controller.setRouteContribution(id);
@@ -265,17 +294,33 @@ export class AdminContributionsPageComponent implements OnInit {
   selectContribution(contributionId: string): void {
     const id = guidanceContributionId(contributionId);
     if (!id || !this.contributions().some((item) => item.id === id)) return;
-    this.controller.selectContribution(id);
-    this.journey.connect(id);
-    this.focusJourneyId.set(id);
+    this.focusJourneyId.set(null);
+    this.focusRowId.set(null);
+    if (this.controller.selectRouteContribution(id)) this.journey.connect(id);
+    else {
+      this.rememberRowFocus(id);
+      this.journey.disconnect();
+    }
     void this.router.navigate(['/admin/fundraiser/contributions'], {
       queryParams: { contributionId: id },
-      replaceUrl: true
+      replaceUrl: true,
+      info: this.contributionSelectionNavigation
     });
+  }
+
+  private rememberRowFocus(id: string): void {
+    const active = this.element.nativeElement.ownerDocument.activeElement;
+    this.focusRowId.set(
+      active?.getAttribute('data-og7') === 'contribution-row' &&
+        active.getAttribute('data-og7-id') === id
+        ? id
+        : null
+    );
   }
 
   followPayment(contributionId: string): void {
     if (contributionId !== this.selectedContributionView()?.id) return;
+    this.focusRowId.set(null);
     this.guidance.followPayment(contributionId, true);
     this.journey.connect(contributionId);
     this.focusJourneyId.set(contributionId);

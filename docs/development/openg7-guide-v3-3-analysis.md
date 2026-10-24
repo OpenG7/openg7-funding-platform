@@ -713,3 +713,30 @@ Le lint global conserve seulement son avertissement préexistant dans
 La manette physique et les fournisseurs réels ne sont pas qualifiés par ces tests.
 Aucun déploiement ni action métier réelle n’a été effectué ; les CI de cette
 nouvelle PR restent à distinguer de ces résultats locaux.
+
+### Correction du focus détectée par la CI
+
+Lors du contrôle du 24 octobre 2026, la branche de réception visuelle et sa
+PR #381 sont déjà vertes : 21 contrôles réussis sur `c07c7881`. L’échec concerne
+la PR #382 : les 14 recettes de sélection de Contributions perdent le focus de
+la ligne, car une sélection locale recharge la liste et focalise le suivi.
+
+La sélection d’un objet déjà chargé synchronise maintenant la portée de la
+prochaine lecture sans remplacer la liste ni réinitialiser les filtres. Une
+information transitoire de navigation distingue cette sélection des liens et
+retours navigateur externes, qui conservent leur chargement. Le déplacement du
+focus vers le suivi exige l’action explicite **Suivre ce paiement**. Les droits,
+l’invalidation d’export et les refus de session restent vérifiés.
+
+Avant le correctif, l’échec de focus a été reproduit localement. Après correction,
+**130 tests Node ciblés**, les **31 recettes Contributions complètes** et
+**8 recettes de suivi et de session** passent, sans relance ni cas ignoré.
+Les assertions initiales de focus, filtres et export sont conservées. Quatre
+variantes vérifient aussi le focus après le CTA explicite ; une recette supplémentaire
+vérifie qu’un retour navigateur vers le même UUID provoque bien une nouvelle
+lecture. Build Angular de développement/SSR avec 25 routes, compilation TypeScript,
+typage UI, lint, format et contrôles documentaires complètent ces preuves locales.
+L’avertissement ESLint préexistant reste le seul. Les résultats sont sous
+`test-results/v33-ci-contributions-final/` et
+`test-results/v33-ci-payment-regression/`, hors de Git ; la nouvelle CI doit être
+vérifiée sur la révision poussée du correctif.

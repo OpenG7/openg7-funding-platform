@@ -192,6 +192,9 @@ vérifie dans son écran habituel.
 page **Contributions**, accessible depuis le menu principal. Il ne figure ni dans
 le Guide ni dans un panneau de décision. Le suivi porte sur la contribution
 explicitement sélectionnée ; un lien de suivi rejoint cette page avec son UUID.
+Entrée ou Espace sur une ligne conserve le focus du registre et les filtres.
+**Suivre ce paiement** place explicitement le focus sur le titre du suivi,
+sans ouvrir le Guide. **Actualiser** relit la contribution sélectionnée.
 Le parcours présente une seule prochaine action, son motif et, à la demande,
 l'ensemble des étapes. **Ouvrir la prochaine étape** relit les faits du serveur
 avant de rejoindre l'écran habituel. Si la recommandation a changé, la carte

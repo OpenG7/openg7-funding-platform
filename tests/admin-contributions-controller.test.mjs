@@ -167,6 +167,111 @@ test('search retains all private and public searchable fields and combines the f
   assert.equal(f.controller.selectedContribution(), sponsored);
 });
 
+for (const previousTarget of [null, 'first']) {
+  test(`a loaded row selection preserves the list and filters and replaces read scope ${previousTarget ?? 'all'}`, async () => {
+    const f = fixture();
+    const first = row('first');
+    const selected = row('selected');
+    f.ports.admin.getContributions = async (token, contributionId) => {
+      f.reads.push({ token, contributionId });
+      return response([first, selected]);
+    };
+    f.controller.setRouteContribution(previousTarget);
+    await f.controller.load();
+    f.controller.setSearch('reference-selected');
+    f.controller.setTypeFilter('contribution');
+    f.controller.setStatusFilter('paid');
+    f.controller.setPublicFilter('public');
+    const loaded = f.controller.data();
+    const revision = f.controller.exportScopeRevision();
+
+    assert.equal(f.controller.selectRouteContribution(selected.id), true);
+    assert.equal(f.controller.selectedContribution(), selected);
+    assert.equal(f.controller.data(), loaded);
+    assert.equal(f.controller.search(), 'reference-selected');
+    assert.equal(f.controller.typeFilter(), 'contribution');
+    assert.equal(f.controller.statusFilter(), 'paid');
+    assert.equal(f.controller.publicFilter(), 'public');
+    assert.deepEqual(f.controller.filteredContributions(), [selected]);
+    assert.equal(f.controller.exportScopeRevision(), revision + 1);
+    assert.equal(f.reads.length, 1);
+    assert.equal(f.controller.selectRouteContribution(selected.id), true);
+    assert.equal(f.controller.exportScopeRevision(), revision + 1);
+
+    const updated = { ...selected, public_name: 'Updated synthetic name' };
+    f.ports.admin.getContributions = async (token, contributionId) => {
+      f.reads.push({ token, contributionId });
+      return response([updated]);
+    };
+    await f.controller.load();
+    assert.equal(f.reads[1].contributionId, selected.id);
+    assert.equal(f.controller.selectedContribution(), updated);
+    assert.equal(f.controller.search(), 'reference-selected');
+  });
+}
+
+test('a local selection cannot choose an unloaded target or replace a pending read', async () => {
+  const f = fixture();
+  f.ports.admin.getContributions = async () => response([row('loaded')]);
+  await f.controller.load();
+  const loaded = f.controller.data();
+  assert.equal(f.controller.selectRouteContribution('missing'), false);
+  assert.equal(f.controller.data(), loaded);
+  assert.equal(f.controller.selectedContributionId(), null);
+
+  const pending = deferred();
+  f.ports.admin.getContributions = () => pending.promise;
+  const loading = f.controller.load();
+  assert.equal(f.controller.selectRouteContribution('loaded'), false);
+  pending.resolve(response([row('newer')]));
+  await loading;
+  assert.equal(f.controller.state(), 'ready');
+  assert.equal(f.controller.contributions()[0].id, 'newer');
+});
+
+test('an external route still clears the local list and filters before an exact read', async () => {
+  const f = fixture();
+  f.ports.admin.getContributions = async (token, contributionId) => {
+    f.reads.push({ token, contributionId });
+    return response([row(contributionId ?? 'loaded')]);
+  };
+  await f.controller.load();
+  assert.equal(f.controller.selectRouteContribution('loaded'), true);
+  f.controller.setSearch('local-filter');
+  f.controller.setRouteContribution('external');
+  assert.equal(f.controller.data(), null);
+  assert.equal(f.controller.search(), '');
+  assert.equal(f.controller.selectedContributionId(), 'external');
+  await f.controller.load();
+  assert.equal(f.reads[1].contributionId, 'external');
+  assert.equal(f.controller.selectedContribution()?.id, 'external');
+});
+
+test('a local route selection rejects private data from a replaced session before page notification', async () => {
+  const f = fixture();
+  f.ports.admin.getContributions = async () => response([row('private')]);
+  await f.controller.load();
+  f.invalidateSession(false);
+  assert.equal(f.controller.selectRouteContribution('private'), false);
+  assert.equal(f.controller.data(), null);
+  assert.equal(f.controller.selectedContributionId(), null);
+  assert.equal(f.controller.state(), 'idle');
+});
+
+test('a session refusal after local selection purges the selected read scope', async () => {
+  const f = fixture();
+  f.ports.admin.getContributions = async () => response([row('private')]);
+  await f.controller.load();
+  assert.equal(f.controller.selectRouteContribution('private'), true);
+  f.ports.admin.getContributions = async () => {
+    throw new AdminDashboardRequestError(401);
+  };
+  await f.controller.load();
+  assert.equal(f.controller.data(), null);
+  assert.equal(f.controller.selectedContributionId(), null);
+  assert.equal(f.unauthorized(), 1);
+});
+
 test('filter transitions and restored access never restore an earlier export scope', async () => {
   const f = fixture();
   for (const [setter, changed, original] of [
