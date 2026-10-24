@@ -2,10 +2,15 @@ import { NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
+  Injector,
+  afterNextRender,
   computed,
   effect,
   inject,
-  input
+  input,
+  signal,
+  viewChild
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -42,8 +47,19 @@ import type { PublicationDeliveryController } from './publication-delivery-contr
 })
 export class PublicationDeliveryDrawerComponent {
   readonly controller = input.required<PublicationDeliveryController>();
+  readonly navigationNotice = input('');
   private readonly navigation = inject(AdminPublicationNavigationService);
   private readonly admin = inject(FundingAdminService);
+  private readonly injector = inject(Injector);
+  private readonly previewPanel =
+    viewChild<ElementRef<HTMLElement>>('previewPanel');
+  private readonly previewToggle =
+    viewChild<ElementRef<HTMLButtonElement>>('previewToggle');
+  private readonly localPreview = viewChild<ElementRef<HTMLDetailsElement>>(
+    'localPreviewDetails'
+  );
+  private localPreviewWasOpen = true;
+  readonly previewExpanded = signal(false);
   readonly canWrite = computed(() => this.admin.identity()?.role !== 'reader');
   readonly automaticFor = input<string | null>(null);
   readonly automaticTarget = computed(() => {
@@ -61,5 +77,56 @@ export class PublicationDeliveryDrawerComponent {
     effect((onCleanup) => {
       onCleanup(this.navigation.register(this.controller()));
     });
+    effect(() => {
+      const controller = this.controller();
+      controller.selected();
+      controller.composing();
+      this.admin.sessionGeneration();
+      this.previewExpanded.set(false);
+    });
+  }
+
+  editorFormId(): string {
+    const controller = this.controller();
+    return `publication-editor-${controller.selected()?.id ?? 'compose-' + controller.composeFeed}`;
+  }
+
+  previewId(): string {
+    return this.editorFormId() + '-preview';
+  }
+
+  previewFormat() {
+    const controller = this.controller();
+    return this.canWrite() && controller.editing()
+      ? controller.edit.publicationFormat
+      : controller.selected()?.publicationFormat;
+  }
+
+  togglePreview(): void {
+    const controller = this.controller();
+    if (controller.busy()) return;
+    const expanded = !this.previewExpanded();
+    const localPreview = this.localPreview()?.nativeElement;
+    if (localPreview) {
+      if (expanded) this.localPreviewWasOpen = localPreview.open;
+      localPreview.open = expanded || this.localPreviewWasOpen;
+    }
+    this.previewExpanded.set(expanded);
+    afterNextRender(
+      () => {
+        if (
+          this.controller() !== controller ||
+          this.previewExpanded() !== expanded ||
+          (!controller.selected() && !controller.composing())
+        )
+          return;
+        const target = expanded
+          ? this.previewPanel()?.nativeElement
+          : this.previewToggle()?.nativeElement;
+        target?.focus({ preventScroll: true });
+        target?.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+      },
+      { injector: this.injector }
+    );
   }
 }
