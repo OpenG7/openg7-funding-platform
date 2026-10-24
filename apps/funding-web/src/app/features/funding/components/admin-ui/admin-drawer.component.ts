@@ -122,7 +122,9 @@ export class AdminDrawerComponent {
       last?.focus();
     } else if (
       !event.shiftKey &&
-      (active === last || !controls.includes(active as HTMLElement))
+      (active === last ||
+        !this.dialog().nativeElement.contains(active) ||
+        !!active?.closest('[data-og7="virtual-controller"]'))
     ) {
       event.preventDefault();
       first.focus();

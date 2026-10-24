@@ -292,6 +292,9 @@ test.describe('Docker admin publication batches', () => {
     // The next attempt can then reassign the draft without bypassing its guard.
     await deliveryCard.click();
     await preview
+      .locator('[data-og7="publication-more-actions"] > summary')
+      .click();
+    await preview
       .getByRole('button', { name: 'Annuler cet envoi', exact: true })
       .click();
     const confirmation = page.getByRole('dialog', {

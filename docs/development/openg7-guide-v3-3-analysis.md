@@ -527,3 +527,60 @@ des anciennes versions sociales avec comparaison/restauration/export, et outils
 riches sans contrat de sauvegarde. Une qualification Windows/manette physique et
 les recettes d’intégration réelles restent séparées. Aucun déploiement, publication,
 courriel ou remboursement réel n’a été exécuté.
+
+## Tranche complémentaire du dossier illustré
+
+L’utilisateur a autorisé cinq adaptations supplémentaires le 24 octobre 2026,
+avec revue, tests locaux et une PR par chantier, sans attendre les CI entre les
+chantiers. Le suivi porte sur **11 adaptations planifiées**, pas sur la totalité
+des fonctions dessinées : **8 réalisées, 3 restantes** à ce stade.
+
+| Nº  | Adaptation complémentaire                                    | État                         |
+| --- | ------------------------------------------------------------ | ---------------------------- |
+| 7   | Fiabilité de l’horaire, de la copie et des liens de résultat | Réalisée localement et revue |
+| 8   | Éditeur unique, aperçu à droite et agrandissement            | Réalisée localement et revue |
+| 9   | Actions secondaires contextuelles sans doublon               | En cours                     |
+| 10  | Navigation ciblée dans le dossier et la livraison            | En cours                     |
+| 11  | Recette comparative et captures du rendu réel                | À réaliser                   |
+
+Le chantier 7 conserve l’instant serveur exact, secondes et occurrence comprises,
+lorsque l’horaire affiché n’a pas changé. Une date nouvelle ou modifiée doit
+exister une seule fois dans le fuseau du navigateur ; un refus conserve la saisie
+et associe une erreur au champ. Les helpers existants du calendrier sont réutilisés
+depuis un modèle du domaine, avec les réexports historiques conservés. Une copie
+sans API presse-papiers n’annonce plus de succès. Le lien public d’une livraison
+exige désormais un état publié en mode réel avec URL ; une simulation reste
+identifiée sans lien présenté comme un résultat public.
+
+Vérifications du chantier 7 : compilation TypeScript et typage UI, **161 tests Node
+réussis**, **16 recettes navigateur FR/EN réussies**, build Angular de développement
+avec SSR et 25 routes pré-rendues, format ciblé, ESLint global, contrôles
+documentaires et `git diff --check`. Le lint conserve son unique avertissement
+préexistant dans `scripts/smoke-public.mjs:165`. Revue indépendante du diff par
+l’agent principal ; aucun défaut actionnable restant. Les recettes interceptent
+des API synthétiques et n’envoient aucune publication réelle. Les CI seront
+examinées à la fin de cette tranche ; leur résultat n’est pas présumé ici.
+
+Quatre recettes existantes de reprise incertaine ont aussi été exécutées avec
+succès en FR/EN, bureau/mobile. Elles utilisent une livraison réelle synthétique
+pour vérifier le lien public après réconciliation ; les simulations restent
+couvertes séparément par les cas qui exigent l’absence de ce lien.
+
+Le chantier 8 réutilise le tiroir large, une grille de revue responsive et un pied
+de sauvegarde fixe. L’aperçu à droite distingue le texte saisi, le texte enregistré
+et les médias privés disponibles. Son agrandissement reste dans le même dialogue,
+conserve le formulaire monté et rétablit le focus au retour. La sauvegarde native
+reste unique ; les versions, droits et gardes de sortie sont conservés. Aucun
+éditeur riche ou rendu social fictif n’est ajouté.
+
+Validation C8 : build Angular de développement/SSR et 25 routes, typage des
+recettes, **44 scénarios navigateur réussis** (contenu, agrandissement, clavier,
+manette simulée et régressions C7). Captures FR/EN à 1536×864, 1280×520 et 390×844
+dans `test-results/v33-c8-review-layout/` du worktree du chantier ; rendus bureau
+et petite hauteur inspectés. Revue indépendante B : aucun défaut actionnable.
+Les contrôles de forme, lint et documentation accompagnent la clôture du chantier.
+
+La régression complète du fichier de publication passe également : **152 scénarios
+navigateur réussis**, incluant les 44 cas ciblés ci-dessus. Les anciennes recettes
+de reprise incertaine utilisent une livraison réelle synthétique lorsqu’elles
+vérifient un lien public confirmé ; les cas de simulation vérifient son absence.
