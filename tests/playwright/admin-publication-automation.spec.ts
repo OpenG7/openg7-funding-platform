@@ -2610,7 +2610,9 @@ for (const language of ['fr-CA', 'en'] as const) {
         (locale) => localStorage.setItem('openg7.language', locale),
         language
       );
-      const commands = await fixtures(page, 'uncertain');
+      const commands = await fixtures(page, 'uncertain', false, [], {
+        mode: 'live'
+      });
       const en = language === 'en';
       await page.goto(
         '/admin/fundraiser/publications/automation?deliveryId=' + initialJob.id
