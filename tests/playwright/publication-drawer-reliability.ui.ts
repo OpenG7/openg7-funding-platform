@@ -101,25 +101,62 @@ export function registerPublicationDrawerReliabilityTests(
             .getByLabel(messageName)
             .fill('Synthetic retained correction');
           await date.fill(invalid);
-          await dialog
-            .getByRole('button', { name: saveName, exact: true })
-            .click();
-          await expect(
-            page.locator('[data-og7="publication-schedule-error"]')
-          ).toHaveText(
-            en
-              ? 'Check the date and timezone. Choose a time that occurs once in that timezone; missing or repeated times during a clock change are rejected.'
-              : 'Vérifiez la date et le fuseau. Choisissez une heure qui existe une seule fois dans ce fuseau; les heures absentes ou répétées au changement d’heure sont refusées.'
-          );
-          await expect(date).toHaveAttribute('aria-invalid', 'true');
-          await expect(date).toHaveAccessibleDescription(
-            /missing or repeated|heures absentes ou répétées/
-          );
-          await expect(date).toHaveValue(invalid);
-          await expect(dialog.getByLabel(messageName)).toHaveValue(
-            'Synthetic retained correction'
-          );
-          expect(commands).toEqual([]);
+          const save = dialog.getByRole('button', {
+            name: saveName,
+            exact: true
+          });
+          for (const attempt of [1, 2]) {
+            if (attempt === 2) {
+              await dialog
+                .locator('[data-og7="admin-drawer-content"]')
+                .evaluate((body) => {
+                  body.scrollTop = body.scrollHeight;
+                });
+              await save.focus();
+              await expect(save).toBeFocused();
+            }
+            await save.click();
+            await expect(
+              page.locator('[data-og7="publication-schedule-error"]')
+            ).toHaveText(
+              en
+                ? 'Check the date and timezone. Choose a time that occurs once in that timezone; missing or repeated times during a clock change are rejected.'
+                : 'Vérifiez la date et le fuseau. Choisissez une heure qui existe une seule fois dans ce fuseau; les heures absentes ou répétées au changement d’heure sont refusées.'
+            );
+            await expect(date).toHaveAttribute('aria-invalid', 'true');
+            await expect(date).toHaveAccessibleDescription(
+              /missing or repeated|heures absentes ou répétées/
+            );
+            await expect(date).toBeFocused();
+            await expect
+              .poll(() =>
+                dialog
+                  .locator('[data-og7="publication-schedule-error"]')
+                  .evaluate((error) => {
+                    const body = error.closest(
+                      '[data-og7="admin-drawer-content"]'
+                    )!;
+                    const field = body.querySelector('input[name="date"]')!;
+                    const bounds = body.getBoundingClientRect();
+                    const visible = (element: Element) => {
+                      const rect = element.getBoundingClientRect();
+                      return (
+                        rect.top >= Math.max(0, bounds.top) &&
+                        rect.bottom <= Math.min(innerHeight, bounds.bottom) &&
+                        rect.left >= Math.max(0, bounds.left) &&
+                        rect.right <= Math.min(innerWidth, bounds.right)
+                      );
+                    };
+                    return { field: visible(field), message: visible(error) };
+                  })
+              )
+              .toEqual({ field: true, message: true });
+            await expect(date).toHaveValue(invalid);
+            await expect(dialog.getByLabel(messageName)).toHaveValue(
+              'Synthetic retained correction'
+            );
+            expect(commands).toEqual([]);
+          }
           await date.fill('2030-03-10T03:30');
           await expect(
             page.locator('[data-og7="publication-schedule-error"]')

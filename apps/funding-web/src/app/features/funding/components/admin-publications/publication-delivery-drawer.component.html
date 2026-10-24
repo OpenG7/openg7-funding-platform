@@ -247,7 +247,7 @@
           </p>
           <form
             [id]="editorFormId()"
-            (ngSubmit)="c.save()"
+            (ngSubmit)="saveDraft()"
             data-og7="publication-editor-form"
             data-og7-automatic-block="editing"
           >
@@ -291,6 +291,7 @@
                 >{{ 'admin.publicationAutomation.schedule' | translate }} ({{
                   c.browserTimezone
                 }})<input
+                  #scheduleField
                   name="date"
                   type="datetime-local"
                   required
@@ -303,6 +304,7 @@
               /></label>
               @if (c.dateTimeError()) {
                 <p
+                  #scheduleError
                   id="publication-schedule-error"
                   role="alert"
                   data-og7="publication-schedule-error"

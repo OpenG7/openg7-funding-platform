@@ -58,6 +58,10 @@ export class PublicationDeliveryDrawerComponent {
   private readonly localPreview = viewChild<ElementRef<HTMLDetailsElement>>(
     'localPreviewDetails'
   );
+  private readonly scheduleField =
+    viewChild<ElementRef<HTMLInputElement>>('scheduleField');
+  private readonly scheduleError =
+    viewChild<ElementRef<HTMLElement>>('scheduleError');
   private localPreviewWasOpen = true;
   readonly previewExpanded = signal(false);
   readonly canWrite = computed(() => this.admin.identity()?.role !== 'reader');
@@ -84,6 +88,44 @@ export class PublicationDeliveryDrawerComponent {
       this.admin.sessionGeneration();
       this.previewExpanded.set(false);
     });
+  }
+
+  async saveDraft(): Promise<void> {
+    const controller = this.controller();
+    const selected = controller.selected();
+    const version = selected?.version;
+    const composing = controller.composing();
+    const feed = controller.composeFeed;
+    const session = this.admin.sessionGeneration();
+    const scheduledAt = controller.edit.scheduledAt;
+    await controller.save();
+    if (!controller.dateTimeError()) return;
+    afterNextRender(
+      () => {
+        if (
+          this.controller() !== controller ||
+          controller.selected() !== selected ||
+          controller.selected()?.version !== version ||
+          controller.composing() !== composing ||
+          (composing && controller.composeFeed !== feed) ||
+          this.admin.sessionGeneration() !== session ||
+          !this.admin.hasValidAdminSession() ||
+          !this.canWrite() ||
+          !controller.editing() ||
+          !controller.dateTimeError() ||
+          controller.edit.scheduledAt !== scheduledAt ||
+          this.previewExpanded() ||
+          controller.busy()
+        )
+          return;
+        const field = this.scheduleField()?.nativeElement;
+        const error = this.scheduleError()?.nativeElement;
+        if (!field || !error) return;
+        field.focus({ preventScroll: true });
+        error.scrollIntoView({ block: 'center', behavior: 'instant' });
+      },
+      { injector: this.injector }
+    );
   }
 
   editorFormId(): string {
