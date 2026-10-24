@@ -12,13 +12,28 @@
   "details": "View detailed progress",
   "chain": {
     "title": "Publication guideposts",
-    "help": "Each guidepost opens its own tool. Only the agreement’s promised services are required; viewing or preparing does not authorize sending or establish delivery evidence.",
+    "help": "Choose a social benefit to review its content, administrative sending authorization, publication and evidence. The offer and preparation remain dossier-wide. Viewing does not authorize sending.",
+    "select": "Social benefit to review",
+    "choose": "Choose a benefit",
+    "passage": "Passage {{number}}",
+    "source": "Source {{reference}}",
+    "chooseHelp": "No benefit is selected. These guideposts do not choose a delivery for you. The website profile remains available in its card below.",
+    "selectedHelp": "These guideposts retain this source, its delivery and its benefit when they are linked. Sending authorization is decided in the publication tool, without creating client consent.",
+    "unavailable": "The requested guidepost is no longer available or its identifiers do not match. Choose a source present in this dossier; no other delivery was opened.",
+    "noExactEvidence": "This source is not linked to an exact promised benefit: use the dossier’s full progress view to look for its evidence.",
+    "noDelivery": "No delivery is linked to this source. Prepare a proposal in its card before reviewing sending authorization or publication.",
+    "regionUnavailable": "This section is unavailable for the current state or permissions. The exact publication remains open for review; no decision was made.",
+    "opened": {
+      "content": "Reading the selected delivery’s saved content. Corrections and saving remain in this tool.",
+      "authorization": "Reviewing this delivery’s administrative sending authorization. Opening it approves nothing; the usual checks and confirmation are still required.",
+      "delivery": "Reviewing the selected delivery’s destination, mode and status. Only a confirmed result establishes delivery."
+    },
     "steps": {
       "offer": "Offer",
       "preparation": "Preparation",
       "content": "Content",
-      "authorization": "Authorization",
-      "delivery": "Delivery",
+      "authorization": "Administrative sending authorization",
+      "delivery": "Publication",
       "evidence": "Evidence"
     },
     "agreementVersion": "Current recorded agreement version",

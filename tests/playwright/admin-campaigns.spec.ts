@@ -402,7 +402,7 @@ test('campaigns show approved preparation first and upcoming promises without se
     hook(page, 'campaign-detail').getByRole('link', { name: /dossier/i })
   ).toHaveAttribute(
     'href',
-    `/admin/fundraiser/sponsors?sponsorshipId=${deliveredId}&tab=publication`
+    `/admin/fundraiser/sponsors?sponsorshipId=${deliveredId}&tab=publication&obligationId=delivered-facebook&deliveryId=synthetic-delivery`
   );
   await expect.poll(() => fixture.preparations).toContain(deliveredId);
   const agreement = hook(page, 'campaign-preparation').locator(
@@ -555,7 +555,7 @@ for (const language of ['fr-CA', 'en'] as const) {
         })
       ).toHaveAttribute(
         'href',
-        `/admin/fundraiser/sponsors?sponsorshipId=${deliveredId}&tab=publication`
+        `/admin/fundraiser/sponsors?sponsorshipId=${deliveredId}&tab=publication&obligationId=${waived.id}`
       );
       await expect.poll(() => fixture.preparations).toContain(deliveredId);
       const preparationDetails = hook(page, 'campaign-preparation').locator(
@@ -858,6 +858,82 @@ test('a campaign deep link selects its exact twenty-sixth obligation before pagi
   await expect(agreement).toContainText('synthetic-preparation-v2');
   expect(fixture.mutations).toEqual([]);
 });
+
+for (const language of ['fr-CA', 'en'] as const) {
+  test(`campaign proof navigation rejects malformed or foreign source return context in ${language}`, async ({
+    page
+  }) => {
+    const fixture = await fixtures(page, language);
+    const original = fixture.rows[0]!;
+    const selectedObligation = obligationId(1);
+    const foreignObligation = obligationId(2);
+    const selectedDraft = 'd0000000-0000-4000-8000-000000000002';
+    const historicalDelivery = 'c0000000-0000-4000-8000-000000000001';
+    const currentDelivery = 'c0000000-0000-4000-8000-000000000099';
+    fixture.rows = [
+      {
+        ...original,
+        id: selectedObligation,
+        workflow: {
+          ...original.workflow,
+          obligationId: selectedObligation,
+          deliveryId: currentDelivery
+        }
+      },
+      {
+        ...fixture.rows[2]!,
+        id: foreignObligation,
+        workflow: {
+          ...fixture.rows[2]!.workflow,
+          obligationId: foreignObligation
+        }
+      }
+    ];
+    await page.goto(
+      `${path}?sponsorshipId=${approvedId}&obligationId=${selectedObligation}&draftId=malformed-source&deliveryId=${historicalDelivery}`
+    );
+    await expect(hook(page, 'campaign-row')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    let owner = new URL(
+      (await hook(page, 'campaign-open-owner').getAttribute('href'))!,
+      page.url()
+    );
+    expect(owner.searchParams.has('draftId')).toBe(false);
+    expect(owner.searchParams.get('deliveryId')).toBe(currentDelivery);
+    await page.goto(
+      `${path}?sponsorshipId=${approvedId}&obligationId=${selectedObligation}&draftId=${selectedDraft}&deliveryId=${historicalDelivery}`
+    );
+    await expect(hook(page, 'campaign-row')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    owner = new URL(
+      (await hook(page, 'campaign-open-owner').getAttribute('href'))!,
+      page.url()
+    );
+    expect(owner.searchParams.get('draftId')).toBe(selectedDraft);
+    expect(owner.searchParams.get('deliveryId')).toBe(historicalDelivery);
+    await hook(page, 'campaigns-show-all').click();
+    await expect(hook(page, 'campaign-row')).toHaveCount(2);
+    const foreign = page.locator(
+      `[data-og7="campaign-row"][data-og7-id="${foreignObligation}"]`
+    );
+    await foreign.focus();
+    await page.keyboard.press('Enter');
+    await expect(foreign).toHaveAttribute('aria-pressed', 'true');
+    owner = new URL(
+      (await hook(page, 'campaign-open-owner').getAttribute('href'))!,
+      page.url()
+    );
+    expect(owner.searchParams.get('sponsorshipId')).toBe(futureId);
+    expect(owner.searchParams.get('obligationId')).toBe(foreignObligation);
+    expect(owner.searchParams.has('draftId')).toBe(false);
+    expect(owner.searchParams.has('deliveryId')).toBe(false);
+    expect(fixture.mutations).toEqual([]);
+  });
+}
 
 test('a campaign dossier link offers an explicit choice for multiple promises and selects its sole promise', async ({
   page
@@ -1297,7 +1373,7 @@ for (const language of ['fr-CA', 'en'] as const) {
       ).toHaveCount(1);
       await expect(hook(page, 'campaign-open-delivery')).toHaveAttribute(
         'href',
-        `/admin/fundraiser/publications/automation?sponsorshipId=${approvedId}&deliveryId=synthetic-current-delivery`
+        `/admin/fundraiser/publications/automation?sponsorshipId=${approvedId}&obligationId=${fixture.rows[0]!.id}&deliveryId=synthetic-current-delivery`
       );
       await expect(
         hook(page, 'campaign-content-preview').getByRole('img')

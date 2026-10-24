@@ -101,12 +101,16 @@ export class AdminSponsorSchedulingController {
       showError: (error) => this.showError(error),
       confirmed: (command) => {
         if (command.action === 'prepare') {
-          const entry = this.entries().find(
-            (item) => item.feedId === command.feedId && item.deliveryId
-          );
-          const job = entry?.deliveryId
-            ? this.findDelivery(entry.deliveryId)
-            : undefined;
+          const ids = [
+            ...new Set(
+              this.entries().flatMap((item) =>
+                item.feedId === command.feedId && item.deliveryId
+                  ? [item.deliveryId]
+                  : []
+              )
+            )
+          ];
+          const job = ids.length === 1 ? this.findDelivery(ids[0]!) : undefined;
           if (job?.feedId === command.feedId) this.delivery.open(job);
         } else if ('id' in command) {
           const selected = this.delivery.selected();

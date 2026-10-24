@@ -156,6 +156,43 @@ test('fragment navigation keeps the current distinction between leaving a known 
   }
 });
 
+test('choosing an exact publication source retains the viewport only inside the same dossier publication workspace', () => {
+  for (const [current, target, preserve] of [
+    [
+      path('publication'),
+      path('publication') +
+        '&draftId=first&deliveryId=delivery&obligationId=passage',
+      true
+    ],
+    [
+      path('publication') + '&draftId=first#dossier-agreement',
+      path('publication') + '&draftId=second',
+      true
+    ],
+    [path('publication') + '&draftId=first', path('publication'), true],
+    [path('identity'), path('identity') + '&draftId=first', false],
+    [
+      path('publication'),
+      path('publication', 'another-sponsor') + '&draftId=first',
+      false
+    ],
+    [
+      path('publication') + '&search=before',
+      path('publication') + '&search=after&draftId=first',
+      false
+    ]
+  ]) {
+    const f = fixture();
+    f.state.url = current;
+    f.adapter.handleRouterEvent(new NavigationStart(8, target, 'imperative'));
+    assert.deepEqual(
+      f.calls,
+      [['started', 8, preserve]],
+      `${current} -> ${target}`
+    );
+  }
+});
+
 test('history and hash changes clear preservation even when they target another tab of the same dossier', () => {
   for (const trigger of ['popstate', 'hashchange']) {
     const f = fixture();
