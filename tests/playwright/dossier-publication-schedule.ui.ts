@@ -753,7 +753,9 @@ export function registerDossierPublicationScheduleTests(
           await expect(page.getByRole('dialog')).toHaveCount(0);
           for (const id of ['content', 'authorization', 'delivery', 'evidence'])
             await expect(guide.locator(`[data-og7-id="${id}"]`)).toBeDisabled();
+          await selector.scrollIntoViewIfNeeded();
           await selector.focus();
+          await expect(selector).toBeInViewport();
           const selectedScroll = await page.evaluate(() => window.scrollY);
           await selector.selectOption(secondDraftId);
           await expect(selector).toHaveValue(secondDraftId);
