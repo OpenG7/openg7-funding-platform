@@ -604,6 +604,11 @@ d’opération métier. Hors des raccourcis propres au Pilotage :
 - B : annuler le panneau supérieur ou revenir au contenu. Y rejoint le mode
   guidé. Menu/View présentent les commandes. Le stick droit fait défiler.
 
+Dans **Autres actions** d’une publication, B ou Échap depuis ce panneau le replie
+d’abord et replace le focus sur son titre. Une nouvelle pression après retour au
+neutre reprend la fermeture normale du tiroir et sa garde de saisie. Une
+confirmation ou un éditeur virtuel supérieur conserve toujours la priorité.
+
 Le guide du paiement, ses liens, sa pause et sa reprise utilisent ces mêmes
 contrôles, y compris après changement de rubrique. Les coordonnées, motifs,
 preuves, dates et montants se saisissent dans un éditeur transitoire. La valeur

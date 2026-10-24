@@ -93,6 +93,22 @@ security boundary. Stable regions identify the saved content, editor, preview,
 authorization, result and footer. A presentation-only translated navigation notice
 can explain a region unavailable for the current state or rights inside the drawer.
 
+While editing, saving the draft is the primary action; the send authorization is
+shown in the saved review instead. Returning to review without saving is possible
+only when the fields are unchanged and no command is busy. It changes presentation,
+then focuses the authorization region or the preview; it neither checks the
+approval box nor changes the delivery version. Tab follows the native reading
+order from a programmatically focused region inside the drawer.
+
+The contextual **Other actions** disclosure groups the existing rejection,
+cancellation, visibility check and recorded-absence commands according to the
+delivery state. Opening it issues no command. Escape or controller B from inside
+it closes that disclosure first and returns focus to its summary. Held B cannot
+also close the drawer: another departure requires neutral input and its usual
+discard guard. A higher confirmation or virtual editor keeps priority. Readers
+receive no mutation disclosure. The commands retain their existing permissions,
+version checks, moderation and confirmation owners.
+
 The drawer's public-post link is shown only for a confirmed `published` delivery
 in `live` mode with an external URL. A mock result or an uncertain attempt may
 retain a provider reference, but that reference is not presented as a public post.
