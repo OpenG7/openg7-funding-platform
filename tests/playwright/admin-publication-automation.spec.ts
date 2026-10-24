@@ -21,6 +21,8 @@ import {
 import { registerPublicationReliabilityTests } from './publication-reliability.ui.js';
 import { registerPublicationNavigationTests } from './publication-navigation.ui.js';
 import { registerPublicationContentReviewTests } from './publication-content-review.ui.js';
+import { registerPublicationContextActionsTests } from './publication-context-actions.ui.js';
+import { registerPublicationDrawerReliabilityTests } from './publication-drawer-reliability.ui.js';
 import { registerPublicationTransverseAcceptanceTests } from './publication-transverse-acceptance.ui.js';
 import {
   blockAdminReviewWrites,
@@ -345,6 +347,17 @@ async function fixtures(
   });
   return commands;
 }
+
+registerPublicationContextActionsTests({
+  setup: (page, options = {}) =>
+    fixtures(page, 'draft', false, [], options.job, {
+      role: options.reader ? 'reader' : undefined
+    })
+});
+
+registerPublicationDrawerReliabilityTests({
+  setup: (page, job) => fixtures(page, 'draft', false, [], job)
+});
 
 registerPublicationContentReviewTests({
   setup: (page, options = {}) =>
@@ -1915,7 +1928,7 @@ test('unsaved changes cannot be approved and stale versions never show success',
   await dialog.getByLabel('Texte exact à publier').fill('A local change');
   await expect(
     dialog.getByRole('checkbox', { name: /J’approuve/ })
-  ).toBeDisabled();
+  ).toHaveCount(0);
   expect(commands).toHaveLength(0);
   await dialog
     .getByRole('button', { name: 'Enregistrer le brouillon' })
@@ -1942,6 +1955,9 @@ test('exceptions require investigation and never offer a blind retry', async ({
   await expect(
     dialog.getByRole('button', { name: 'Annuler cet envoi' })
   ).toHaveCount(0);
+  await dialog
+    .locator('[data-og7="publication-more-actions"] > summary')
+    .click();
   await dialog
     .getByText('Après vérification : la publication est absente', {
       exact: true
@@ -2387,6 +2403,9 @@ for (const language of ['fr-CA', 'en'] as const) {
         }
       ]);
       await dialog
+        .locator('[data-og7="publication-more-actions"] > summary')
+        .click();
+      await dialog
         .locator('summary')
         .filter({
           hasText: english
@@ -2473,12 +2492,12 @@ for (const [language, width] of [
       english ? 'edit the source drafts' : 'modifiez les brouillons sources'
     );
     await expect(text).toHaveValue(incompleteMessage);
-    await expect(dialog.getByRole('checkbox')).toBeDisabled();
+    await expect(dialog.getByRole('checkbox')).toHaveCount(0);
     await expect(
       dialog.getByRole('button', {
         name: english ? 'Accept and schedule' : 'Accepter et programmer'
       })
-    ).toBeDisabled();
+    ).toHaveCount(0);
     await expect(
       page.getByText(english ? 'Saved.' : 'Enregistré.', { exact: true })
     ).toHaveCount(0);
@@ -2605,7 +2624,9 @@ for (const language of ['fr-CA', 'en'] as const) {
         (locale) => localStorage.setItem('openg7.language', locale),
         language
       );
-      const commands = await fixtures(page, 'uncertain');
+      const commands = await fixtures(page, 'uncertain', false, [], {
+        mode: 'live'
+      });
       const en = language === 'en';
       await page.goto(
         '/admin/fundraiser/publications/automation?deliveryId=' + initialJob.id
@@ -2649,6 +2670,9 @@ for (const language of ['fr-CA', 'en'] as const) {
       await page.unroute('**/api/**');
       const absenceCommands = await fixtures(page, 'uncertain');
       await page.reload();
+      await dialog
+        .locator('[data-og7="publication-more-actions"] > summary')
+        .click();
       await dialog
         .locator('summary')
         .filter({
@@ -2770,6 +2794,9 @@ test('refusing a proposal requires a decision and moves it to history', async ({
   await page.goto('/admin/fundraiser/publications/automation');
   await page.locator('[data-og7-id="' + initialJob.id + '"]').click();
   const dialog = page.getByRole('dialog', { name: 'Publication finale' });
+  await dialog
+    .locator('[data-og7="publication-more-actions"] > summary')
+    .click();
   await dialog.getByRole('button', { name: 'Refuser', exact: true }).click();
   await expect(page.locator('[data-og7="moderation-decision"]')).toBeVisible();
   expect(commands).toHaveLength(0);

@@ -1203,6 +1203,101 @@ test('invalid dates and shared command locks do not send composition or edit com
   assert.equal(f.calls.confirmations.length, 0);
 });
 
+test('unchanged browser-local delivery schedules retain the exact stored instant on content edits', async (t) => {
+  for (const scheduledAt of [
+    '2030-06-03T14:00:42.123456Z',
+    '2030-11-03T05:30:45.123Z',
+    '2030-11-03T06:30:45.123Z',
+    '2030-11-03T01:30:45.123-05:00'
+  ]) {
+    await t.test(scheduledAt, async (t) => {
+      const f = fixture(t);
+      const c = f.controller;
+      c.browserTimezone = 'America/Toronto';
+      c.open(delivery({ scheduledAt, status: 'approved' }));
+      c.changeEdit('message', 'Corrected synthetic content');
+      await c.save();
+      assert.equal(f.calls.commands.length, 1);
+      assert.equal(f.calls.commands[0].command.scheduledAt, scheduledAt);
+      assert.equal(f.calls.commands[0].command.version, 7);
+      assert.equal(c.dateTimeError(), false);
+      assert.equal(c.selected().status, 'approved');
+    });
+  }
+});
+
+test('missing, repeated and invalid local times keep the delivery draft and never send a command', async (t) => {
+  for (const composing of [false, true]) {
+    for (const scheduledAt of [
+      '',
+      'invalid',
+      '2030-02-31T10:00',
+      '2030-03-10T02:30',
+      '2030-11-03T01:30'
+    ]) {
+      await t.test(
+        `${composing ? 'compose' : 'edit'}: ${scheduledAt || 'empty'}`,
+        async (t) => {
+          const f = fixture(t);
+          const c = f.controller;
+          c.browserTimezone = 'America/Toronto';
+          if (composing) c.create();
+          else c.open(delivery());
+          c.changeEdit('message', 'Keep this synthetic correction');
+          c.changeEdit('scheduledAt', scheduledAt);
+          await c.save();
+          assert.equal(c.dateTimeError(), true);
+          assert.equal(c.edit.scheduledAt, scheduledAt);
+          assert.equal(c.edit.message, 'Keep this synthetic correction');
+          assert.equal(c.composing(), composing);
+          assert.deepEqual(f.calls.commands, []);
+          assert.deepEqual(f.calls.confirmations, []);
+          assert.deepEqual(f.calls.errors, []);
+
+          c.changeEdit('scheduledAt', '2030-03-10T03:30');
+          assert.equal(c.dateTimeError(), false);
+          await c.save();
+          assert.equal(f.calls.commands.length, 1);
+          assert.equal(
+            f.calls.commands[0].command.scheduledAt,
+            '2030-03-10T07:30:00.000Z'
+          );
+        }
+      );
+    }
+  }
+});
+
+test('delivery date conversion follows the browser zone rather than the calendar zone', async (t) => {
+  const f = fixture(t);
+  const c = f.controller;
+  c.browserTimezone = 'Asia/Kathmandu';
+  c.open(delivery({ scheduledAt: '2030-06-03T14:00:42.123Z' }));
+  assert.equal(c.edit.scheduledAt, '2030-06-03T19:45');
+  c.changeEdit('scheduledAt', '2030-06-03T20:00');
+  await c.save();
+  assert.equal(
+    f.calls.commands[0].command.scheduledAt,
+    '2030-06-03T14:15:00.000Z'
+  );
+});
+
+test('delivery local date errors clear when another drawer context opens or closes', async (t) => {
+  const c = fixture(t).controller;
+  for (const reset of [
+    () => c.open(delivery()),
+    () => c.create(),
+    () => c.clear()
+  ]) {
+    c.create();
+    c.changeEdit('scheduledAt', 'invalid');
+    await c.save();
+    assert.equal(c.dateTimeError(), true);
+    reset();
+    assert.equal(c.dateTimeError(), false);
+  }
+});
+
 for (const action of ['reject', 'cancel']) {
   test(`${action} keeps the explicit confirmation, delivery ID and displayed version`, async (t) => {
     const f = fixture(t);
