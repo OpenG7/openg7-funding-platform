@@ -450,7 +450,7 @@ test(
   }
 );
 
-test('pausing the last result can resume its reading without replaying a completed server dossier', async () => {
+async function pausedLastResult() {
   const f = fixture(false);
   f.state = state(2, 'running', entry(2));
   const pending = f.run.start();
@@ -461,6 +461,22 @@ test('pausing the last result can resume its reading without replaying a complet
   f.run.pause();
   await pending;
   assert.equal(f.snapshot.phase, 'paused');
+  return f;
+}
+
+test('reloading a paused last result preserves its local reading until explicit resume without replaying a completed server dossier', async () => {
+  const f = await pausedLastResult();
+  const beforeLoad = f.calls.length;
+  await f.run.load();
+  await f.run.load();
+  assert.equal(f.snapshot.phase, 'paused');
+  assert.equal(f.snapshot.state.run.status, 'completed');
+  assert.equal(f.snapshot.review, null);
+  assert.equal(f.run.active, false);
+  assert.deepEqual(
+    f.calls.slice(beforeLoad).map(([name]) => name),
+    ['read', 'report', 'read', 'report']
+  );
   const resumed = f.run.resume();
   const scope = await review(f, 'scope');
   f.run.approve(scope.id);
@@ -470,7 +486,86 @@ test('pausing the last result can resume its reading without replaying a complet
   assert.equal(f.snapshot.phase, 'completed');
   assert.equal(f.calls.filter(([name]) => name === 'advance').length, 1);
   assert.equal(f.calls.filter(([name]) => name === 'control').length, 0);
-  assert.equal(f.calls.filter(([name]) => name === 'read').length, 1);
+  assert.equal(f.calls.filter(([name]) => name === 'read').length, 3);
+  await f.run.load();
+  assert.equal(f.snapshot.phase, 'completed');
+  assert.equal(f.snapshot.review, null);
+  assert.equal(f.calls.filter(([name]) => name === 'advance').length, 1);
+});
+
+for (const operation of ['read', 'report']) {
+  test(`a failed ${operation} GET and explicit retry preserve a paused final reading without acknowledging it`, async () => {
+    const f = await pausedLastResult();
+    const original = f.ports[operation];
+    f.ports[operation] = async () => {
+      throw Object.assign(new Error('Synthetic read failure'), { status: 503 });
+    };
+    await f.run.load();
+    assert.equal(f.snapshot.phase, 'error');
+    assert.equal(f.snapshot.error, 'unavailable');
+    f.ports[operation] = original;
+    await f.run.load();
+    assert.equal(f.snapshot.phase, 'paused');
+    assert.equal(f.snapshot.state.run.status, 'completed');
+    assert.equal(f.snapshot.review, null);
+    assert.equal(f.run.active, false);
+    assert.equal(f.calls.filter(([name]) => name === 'advance').length, 1);
+    assert.equal(f.calls.filter(([name]) => name === 'control').length, 0);
+  });
+}
+
+for (const change of ['run', 'pass', 'session', 'forbidden']) {
+  test(`a different ${change} cannot inherit a previous completed run's paused reading`, async () => {
+    const f = await pausedLastResult();
+    const previous = f.state;
+    if (change === 'run')
+      f.state = {
+        ...f.state,
+        run: { ...f.state.run, id: '10000000-0000-4000-8000-000000000903' }
+      };
+    else if (change === 'pass')
+      f.state = { ...f.state, run: { ...f.state.run, pass: 2 } };
+    else if (change === 'session') f.run.clear();
+    else {
+      const original = f.ports.read;
+      f.ports.read = async () => {
+        throw Object.assign(new Error('Synthetic denied read'), {
+          status: 403
+        });
+      };
+      await f.run.load();
+      assert.equal(f.snapshot.state, null);
+      f.ports.read = original;
+    }
+    await f.run.load();
+    assert.equal(f.snapshot.phase, 'completed');
+    f.state = previous;
+    await f.run.load();
+    assert.equal(f.snapshot.phase, 'completed');
+    assert.equal(f.snapshot.review, null);
+    assert.equal(f.run.active, false);
+    assert.equal(f.calls.filter(([name]) => name === 'advance').length, 1);
+    assert.equal(f.calls.filter(([name]) => name === 'control').length, 0);
+  });
+}
+
+test('pausing the last in-flight dossier preserves its unread completion through a later GET', async () => {
+  const f = fixture();
+  f.state = state(2, 'running', entry(2));
+  f.advanceGate = gate();
+  const pending = f.run.start();
+  await reached(f, 'advance');
+  f.run.pause();
+  f.advanceGate.resolve();
+  await pending;
+  assert.equal(f.snapshot.phase, 'paused');
+  assert.equal(f.snapshot.state.run.status, 'completed');
+  await f.run.load();
+  assert.equal(f.snapshot.phase, 'paused');
+  assert.equal(f.snapshot.review, null);
+  assert.equal(f.run.active, false);
+  assert.equal(f.calls.filter(([name]) => name === 'advance').length, 1);
+  assert.equal(f.calls.filter(([name]) => name === 'control').length, 0);
 });
 
 test('a read-only dossier preview failure is unavailable rather than an uncertain mutation and cannot advance or reconcile', async () => {

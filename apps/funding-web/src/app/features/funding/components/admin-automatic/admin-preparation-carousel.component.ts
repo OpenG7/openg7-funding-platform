@@ -99,6 +99,10 @@ export class AdminPreparationCarouselComponent {
   private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
   private readonly returnNavigation = inject(PreparationReturnService);
+  private readonly runRevision = computed(() => {
+    const run = this.run();
+    return `${run.id}:${run.version}:${run.pass}`;
+  });
   private returnSequence = 0;
   private returnRequest: PreparationReturnRequest | null = null;
   private restoreFocus: (() => void) | null = null;
@@ -138,9 +142,10 @@ export class AdminPreparationCarouselComponent {
       });
     });
     effect(() => {
-      const run = this.run();
+      this.runRevision();
       const identity = this.identityKey();
       untracked(() => {
+        const run = this.run();
         if (run.id !== this.runId || identity !== this.identity) {
           this.runId = run.id;
           this.identity = identity;

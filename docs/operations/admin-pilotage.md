@@ -269,6 +269,9 @@ restent séparées. Le soutien personnel ne crée aucune contrepartie commercial
 
 Le carrousel affiche une seule **Fiche de préparation** à la fois. Sa position dans
 la liste figée est distincte du nombre de dossiers examinés par le serveur.
+Sur écran étroit, les numéros tiennent dans une ligne défilante et le bouton
+d'actualisation partage cette ligne. Le compteur de vérification se consulte
+dans le suivi du lot, pour préserver la place de la fiche.
 **Précédent**, **Suivant** et **Actualiser** consultent les faits actuels, y compris
 ceux d'un dossier pas encore examiné ; ils ne lancent aucune préparation,
 n'accusent réception d'aucune lecture et ne reprennent pas la vérification du lot.
@@ -276,9 +279,25 @@ La fiche présente paiement, offre acceptée, contrôles, autorisations, brouill
 privés, contenu à relire et éléments manquants. Les liens ouvrent les écrans
 propriétaires pour compléter le dossier.
 
-La zone **Suivi du lot** reste repliée à la consultation
-d'un lot existant ; sa phase et sa progression restent visibles. Son ouverture
-donne accès aux commandes, au bilan et au rapport durable. Dans le rapport, chaque
+La préparation propose **Fiches** par défaut. **Suivi du lot** et **Autre préparation**
+sont des vues accessibles sur demande ; leurs composants restent montés pour
+conserver la fiche consultée, le contrôle sélectionné et les saisies. Rejoindre
+une autre rubrique pendant une préparation ciblée conserve la vue choisie dans la
+session ; la déconnexion efface ce choix. Changer de vue ne démarre, ne suspend et
+ne reprend aucun traitement, et ne confirme aucune
+lecture. Rejoindre le suivi relit le rapport serveur sans relancer le lot ; pendant
+un passage actif, le point de lecture en mémoire reste conservé.
+
+Un indicateur compact apparaît hors du suivi lorsqu'un lot reste à vérifier,
+attend une lecture ou rencontre une erreur. **Rejoindre le suivi** ouvre ses
+commandes, son bilan et son rapport durable. Un point de lecture arrivé pendant
+la consultation d'une fiche n'ouvre pas le suivi et ne déplace pas le focus ; sa
+confirmation attend un geste explicite dans le suivi.
+Sans lot, la vue **Fiches** renvoie vers les fiches existantes des commandites
+(onglet **Publication**) et de **Prestations de services**, sans créer de lot ni sélectionner
+implicitement le paiement suivi. Le carrousel du Guide conserve la liste figée du
+lot existant ; cette vue ne constitue pas une nouvelle file globale de priorités.
+Dans le rapport, chaque
 dossier affiche d'abord sa référence et son statut ; déplier ce dossier révèle
 les faits avant/après, engagements, preuves et références d'audit. Ces ouvertures
 au clavier ou à la souris consultent le rapport sans relancer le traitement.
@@ -296,7 +315,7 @@ déjà approuvée dans sa version actuelle ne demande pas une deuxième approbat
 
 #### Pilotage de la préparation
 
-La rubrique [Campagnes](../technical/admin-campaigns.md), sous
+La rubrique [Prestations de services](../technical/admin-campaigns.md), sous
 `/admin/fundraiser/campaigns`, présente les prestations promises de chaque achat
 confirmé. Elle comprend les prestations à venir sous réserve des contrôles et
 approbations de la fiche. Par défaut, les préparations approuvées dans leur version
@@ -328,12 +347,12 @@ ces commandes ne lance aucune préparation. L’historique du Guide explicite
 l’absence d’approbation enregistrée lorsque sa liste est vide.
 
 Le Pilotage regroupe les vérifications et autorisations de la fiche. Le volet replié
-**Détails de la préparation et traçabilité** est réservé à **Campagnes**. Il conserve
+**Détails de la préparation et traçabilité** est réservé à **Prestations de services**. Il conserve
 les clauses de l’offre, la date du paiement, les états des brouillons, le bilan
 des engagements et la version complète, sans répéter ces listes de contrôles.
 Commandites masque ce volet et sa commande ; la qualification de l’accord
 d’origine reste dans son écran métier. Le Guide propose **Voir les prestations
-dans Campagnes**, avec le dossier de la fiche courante. La page reprend une prestation
+de ce dossier**, avec le dossier de la fiche courante. La page reprend une prestation
 sélectionnée de ce dossier, choisit l’unique résultat ou laisse choisir parmi
 plusieurs ; zéro résultat reste explicite. Voir le [contrat de navigation ciblée](../technical/admin-campaigns.md#entree-contextuelle-et-details-de-laccord).
 La relecture du contenu exact, l’approbation et l’historique des approbations gardent
@@ -382,7 +401,7 @@ une correction, relire la fiche pour obtenir l'état serveur; un changement de
 sélection, de dossier ou de version referme les actions et impose le retour au
 neutre. Lorsque le serveur autorise l'approbation et que le rôle le permet,
 **Approuver la préparation** ouvre la confirmation habituelle depuis le bouton
-partagé. C’est l’unique entrée d’approbation du Guide. Dans Campagnes et
+partagé. C’est l’unique entrée d’approbation du Guide. Dans Prestations de services et
 Publication, la commande correspondante du menu Actions rejoint aussi cette
 confirmation. Ces commandes sont accessibles au clavier et à la manette.
 Annuler ne transmet aucune approbation. Le
@@ -419,6 +438,9 @@ confirmation métier. Le serveur peut avoir terminé son contrôle alors que le
 résultat ou le bilan attend encore la lecture ; ces deux états restent distincts.
 Lorsque le serveur a terminé, **Reprendre la lecture** désigne uniquement la
 reprise de ces points de lecture locaux.
+Dans la même visite, relire le rapport du même lot et de la même vérification
+conserve la pause de cette lecture, même après un échec de lecture suivi d'un
+réessai. Cette relecture ne lance aucune nouvelle vérification de dossier.
 
 Au bilan, le rapport complet reste consultable par pages ; le chargement d'une
 page bloque la confirmation de lecture. Une page indisponible se réessaie sans

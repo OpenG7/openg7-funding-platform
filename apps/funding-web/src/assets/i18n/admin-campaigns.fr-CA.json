@@ -1,14 +1,14 @@
 {
   "eyebrow": "Engagements commanditaires",
-  "title": "Campagnes",
-  "subtitle": "Retrouve les publications promises après un paiement confirmé, leur préparation et leurs preuves de livraison.",
+  "title": "Prestations de services",
+  "subtitle": "Retrouve les services à fournir après un paiement confirmé, leur préparation et leurs preuves de réalisation.",
   "refresh": "Actualiser",
   "scope": "Par défaut, les préparations approuvées à jour apparaissent en premier. Les prestations encore à préparer restent à venir, sous réserve de compléter et d’approuver la préparation du dossier.",
-  "listTitle": "Publications promises",
+  "listTitle": "Prestations à suivre",
   "count": "{{count}} prestations",
   "dossiersOnPage": "{{count}} dossiers sur cette page",
   "groupByDossier": "Regrouper par dossier",
-  "loading": "Chargement des campagnes…",
+  "loading": "Chargement des prestations…",
   "retry": "Réessayer",
   "emptyTitle": "Aucune prestation dans cette sélection",
   "empty": "Modifie les filtres ou reviens après la confirmation d’un paiement et l’enregistrement des engagements de commandite.",
@@ -21,7 +21,7 @@
   "conditional": "À venir sous réserve d’approbation",
   "adjusted": "Dispensée",
   "page": "Page {{page}} sur {{pages}}",
-  "pagination": "Pagination des campagnes",
+  "pagination": "Pagination des prestations",
   "previous": "Précédente",
   "next": "Suivante",
   "destination": {
@@ -33,7 +33,7 @@
     "empty": "Aucune prestation accessible ne correspond à ce lien. Les engagements doivent être enregistrés pour apparaître ici."
   },
   "filters": {
-    "title": "Filtrer les campagnes",
+    "title": "Filtrer les prestations",
     "search": "Rechercher un dossier",
     "searchPlaceholder": "Commanditaire ou référence",
     "channel": "Canal",
@@ -83,12 +83,12 @@
     "promise": "Prestation",
     "preparation": "Préparation",
     "due": "Échéance",
-    "proof": "Preuve de livraison"
+    "proof": "Preuve de réalisation"
   },
   "errors": {
-    "error": "Les campagnes n’ont pas pu être chargées. Réessaie pour obtenir les données à jour.",
-    "forbidden": "Ta session ne permet pas de consulter les campagnes.",
-    "unavailable": "Les campagnes sont temporairement indisponibles. Réessaie dans quelques instants."
+    "error": "Les prestations n’ont pas pu être chargées. Réessaie pour obtenir les données à jour.",
+    "forbidden": "Ta session ne permet pas de consulter les prestations.",
+    "unavailable": "Les prestations sont temporairement indisponibles. Réessaie dans quelques instants."
   },
   "formats": {
     "unspecified": "Selon l’accord enregistré",
@@ -99,22 +99,24 @@
   },
   "detail": {
     "title": "Détail de la prestation",
-    "choose": "Sélectionne une prestation pour retrouver sa préparation, son contenu et sa preuve de livraison.",
+    "choose": "Sélectionne une prestation pour retrouver sa préparation, son contenu et sa preuve de réalisation.",
+    "backToList": "Retour à la liste",
     "openOwner": "Ouvrir le dossier de publication",
-    "preparation": "Poste de préparation",
+    "preparation": "Préparation du dossier",
     "preparationHelp": "Les contrôles à jour du dossier déterminent la suite de la préparation.",
-    "content": "Contenu et livraison",
+    "content": "Aperçu du contenu",
+    "previewScope": "Cet aperçu reprend le texte associé à la prestation. Le visuel et le rendu final se consultent dans leur écran de publication.",
     "paidAt": "Paiement confirmé",
     "format": "Format promis",
     "scheduled": "Livraison programmée",
     "timezone": "(heure de Toronto)",
-    "nextStep": "Prochaine étape",
+    "nextStep": "Prochaine intervention",
     "unknownReason": "Consulte le dossier pour examiner la prochaine étape.",
     "openDelivery": "Examiner la livraison",
     "draft": "Brouillon associé",
     "noContent": "Aucun contenu associé à cette publication. Ouvre le dossier de publication pour poursuivre la préparation.",
     "authorization": "Une préparation approuvée n’autorise pas la publication. Le contenu exact, la destination et la programmation conservent leur autorisation distincte.",
-    "proof": "Preuve de livraison",
+    "proof": "Preuve de réalisation",
     "delivered": "Livraison confirmée le {{date}}",
     "deliveredAt": "Date de livraison confirmée",
     "proofSource": "Source de la preuve",

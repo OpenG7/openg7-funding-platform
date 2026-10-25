@@ -75,6 +75,8 @@ export class AdminAutomaticPortfolioRun {
   private epoch = 0;
   private busy = false;
   private continuing = false;
+  // A completed server run may still have final readings paused in this visit.
+  private pausedReading: Pick<AdminAutomaticRun, 'id' | 'pass'> | null = null;
   private reviewSequence = 0;
   private reportSequence = 0;
   private pendingReview: {
@@ -95,7 +97,14 @@ export class AdminAutomaticPortfolioRun {
       this.update({ phase: 'loading', error: null });
       const state = await this.ports.read();
       if (!this.current(epoch)) return;
-      this.update({ state, phase: this.restingPhase(state) });
+      const readingPaused =
+        state.run?.status === 'completed' &&
+        this.pausedReading?.id === state.run.id &&
+        this.pausedReading.pass === state.run.pass;
+      this.update({
+        state,
+        phase: readingPaused ? 'paused' : this.restingPhase(state)
+      });
       await this.readReport(epoch);
       // Reading a durable run never resumes it, including status=running.
     });
@@ -195,6 +204,7 @@ export class AdminAutomaticPortfolioRun {
     this.busy = false;
     this.cancelReview();
     ++this.reportSequence;
+    this.pausedReading = null;
     this.snapshot = empty();
     this.ports.changed(this.snapshot);
   }
@@ -438,6 +448,17 @@ export class AdminAutomaticPortfolioRun {
 
   private update(value: Partial<AutomaticPortfolioSnapshot>): void {
     this.snapshot = { ...this.snapshot, ...value };
+    const run = this.snapshot.state?.run;
+    if (value.phase === 'paused' && run?.status === 'completed')
+      this.pausedReading = { id: run.id, pass: run.pass };
+    else if (
+      !run ||
+      run.status !== 'completed' ||
+      run.id !== this.pausedReading?.id ||
+      run.pass !== this.pausedReading.pass ||
+      value.phase === 'completed'
+    )
+      this.pausedReading = null;
     this.ports.changed(this.snapshot);
   }
 }

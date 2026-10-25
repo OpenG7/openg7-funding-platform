@@ -2,6 +2,9 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
+  Injector,
+  afterNextRender,
   afterRenderEffect,
   computed,
   effect,
@@ -10,10 +13,12 @@ import {
   signal,
   viewChild
 } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import type { AdminAutomaticRunEntry } from '@openg7/funding-core';
 
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { ADMIN_GUIDANCE_PAGES } from '../admin-guidance/admin-guidance-pages.js';
+import { PreparationReturnService } from '../admin-preparation/preparation-return.service.js';
 
 import { AdminAutomaticService } from './admin-automatic.service.js';
 import { AdminAutomaticPortfolioComponent } from './admin-automatic-portfolio.component.js';
@@ -23,7 +28,7 @@ import { AdminAutomaticPortfolioService } from './admin-automatic-portfolio.serv
 @Component({
   selector: 'openg7-admin-automatic',
   standalone: true,
-  imports: [AdminAutomaticPortfolioComponent],
+  imports: [AdminAutomaticPortfolioComponent, FormsModule],
   templateUrl: './admin-automatic.component.html',
   styleUrls: [
     '../admin-ui/admin-controls.css',
@@ -39,23 +44,29 @@ export class AdminAutomaticComponent {
   readonly languageReady = signal(false);
   readonly languageError = signal(false);
   readonly portfolioStarting = signal(false);
-  readonly hasPortfolio = computed(
-    () => !!this.portfolio.snapshot().state?.run
-  );
-  readonly otherPreparationOpen = signal(false);
+  readonly views = ['records', 'batch', 'other'] as const;
+  readonly view = this.automatic.preparationView;
+  readonly batchAttention = computed(() => {
+    const state = this.portfolio.snapshot();
+    return (
+      !!state.error ||
+      !!state.review ||
+      state.phase === 'paused' ||
+      (!!state.state?.run &&
+        (state.state.run.status !== 'completed' || this.portfolio.active()))
+    );
+  });
   readonly preparationRequired = computed(
     () =>
       this.automatic.active() ||
       ['error', 'blocked'].includes(this.automatic.snapshot().phase)
   );
-  readonly preparationExpanded = computed(
-    () =>
-      !this.hasPortfolio() ||
-      this.otherPreparationOpen() ||
-      this.preparationRequired()
-  );
   readonly show = output<string>();
   private readonly portfolioView = viewChild(AdminAutomaticPortfolioComponent);
+  private readonly preparationHeading =
+    viewChild<ElementRef<HTMLElement>>('preparationHeading');
+  private readonly injector = inject(Injector);
+  private readonly returnNavigation = inject(PreparationReturnService);
   private disposed = false;
   private shown = 0;
 
@@ -68,7 +79,8 @@ export class AdminAutomaticComponent {
       );
     inject(DestroyRef).onDestroy(() => (this.disposed = true));
     effect(() => {
-      if (this.preparationRequired()) this.otherPreparationOpen.set(true);
+      if (this.returnNavigation.restoreRequest()?.origin.kind === 'guide')
+        this.view.set('records');
     });
     effect((onCleanup) => {
       const language = this.i18n.currentLanguage();
@@ -99,7 +111,7 @@ export class AdminAutomaticComponent {
       const request = this.automatic.reveal();
       if (request && request.sequence !== this.shown) {
         this.shown = request.sequence;
-        this.show.emit(request.target);
+        if (this.view() === 'other') this.show.emit(request.target);
       }
     });
   }
@@ -132,19 +144,27 @@ export class AdminAutomaticComponent {
     return this.t('reasonUnavailable');
   }
 
-  select(event: Event): void {
+  select(selection: string): void {
     this.portfolio.pause();
     this.automatic.pause();
-    this.automatic.selection.set((event.target as HTMLSelectElement).value);
+    this.automatic.selection.set(selection);
   }
 
-  togglePreparation(): void {
-    if (!this.preparationRequired())
-      this.otherPreparationOpen.update((open) => !open);
+  selectView(view: 'records' | 'batch' | 'other'): void {
+    if (this.view() === view) return;
+    this.view.set(view);
+    // Reading the durable report never acknowledges a checkpoint or resumes a run.
+    if (view === 'batch') void this.portfolio.load();
+  }
+
+  rejoinBatch(): void {
+    this.selectView('batch');
+    if (!this.portfolio.snapshot().review) this.portfolioView()?.focus();
   }
 
   async startPortfolio(): Promise<void> {
     if (this.portfolioStarting()) return;
+    this.view.set('batch');
     this.portfolioStarting.set(true);
     try {
       await this.portfolio.load();
@@ -167,17 +187,31 @@ export class AdminAutomaticComponent {
   }
 
   startPreparation(): void {
-    this.otherPreparationOpen.set(true);
+    this.view.set('other');
     this.portfolio.pause();
     void this.automatic.start(this.automatic.selection());
   }
 
   preparePayment(entry: AdminAutomaticRunEntry): void {
-    this.otherPreparationOpen.set(true);
+    this.view.set('other');
     this.portfolio.pause();
     this.automatic.guidance.followPayment(entry.contributionId);
     this.automatic.guidance.setMode('automatic');
     this.automatic.selection.set('payment');
     void this.automatic.start('payment');
+    afterNextRender(
+      () => {
+        if (this.view() !== 'other') return;
+        const heading = this.preparationHeading()?.nativeElement;
+        const focused = heading?.ownerDocument.activeElement;
+        if (
+          focused &&
+          (focused === heading?.ownerDocument.body ||
+            focused.closest('[hidden]'))
+        )
+          heading?.focus({ preventScroll: true });
+      },
+      { injector: this.injector }
+    );
   }
 }

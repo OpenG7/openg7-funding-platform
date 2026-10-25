@@ -350,7 +350,9 @@ test('weekly programme: preview, discard, stale plan, lost response, renewed app
           exact: true
         })
       ).toBeVisible();
-      await operator.reload();
+      // Recovery is ready when the application has reread its completed receipt;
+      // unrelated assets must not gate that assertion through the load event.
+      await operator.reload({ waitUntil: 'domcontentloaded' });
       await expect(
         operator.locator('[data-og7="pilot-receipt"]')
       ).toContainText('Brouillon enregistré');

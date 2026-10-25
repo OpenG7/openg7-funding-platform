@@ -3,15 +3,18 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  Injector,
   afterNextRender,
   afterRenderEffect,
   computed,
   effect,
   inject,
+  input,
   output,
   signal,
   viewChild
 } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import type {
   AdminAutomaticRunEntry,
   SponsorshipOfferedBenefit
@@ -38,6 +41,7 @@ import { AdminPreparationCarouselComponent } from './admin-preparation-carousel.
   standalone: true,
   imports: [
     NgTemplateOutlet,
+    RouterLink,
     AdminBadgeComponent,
     AdminIconComponent,
     AdminPreparationCarouselComponent
@@ -53,6 +57,7 @@ import { AdminPreparationCarouselComponent } from './admin-preparation-carousel.
 export class AdminAutomaticPortfolioComponent {
   readonly portfolio = inject(AdminAutomaticPortfolioService);
   readonly i18n = inject(FundingI18nService);
+  readonly view = input<'records' | 'batch' | 'other'>('records');
   readonly prepare = output<AdminAutomaticRunEntry>();
   readonly processingExpanded = signal(false);
   readonly benefitMetrics = [
@@ -102,6 +107,7 @@ export class AdminAutomaticPortfolioComponent {
   private readonly reconciliation =
     viewChild<ElementRef<HTMLDialogElement>>('reconciliation');
   private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
   private readingFocusPending = false;
   private readonly reading = computed(() => {
     const state = this.portfolio.snapshot();
@@ -110,18 +116,16 @@ export class AdminAutomaticPortfolioComponent {
 
   constructor() {
     effect(() => {
-      const state = this.portfolio.snapshot();
-      if (
-        state.review ||
-        state.phase === 'explaining' ||
-        state.phase === 'advancing'
-      )
-        this.processingExpanded.set(true);
+      if (this.view() === 'batch') this.processingExpanded.set(true);
     });
     afterNextRender(() => {
       void this.portfolio.load();
     });
     afterRenderEffect((onCleanup) => {
+      if (this.view() !== 'batch' || !this.processingExpanded()) {
+        this.readingFocusPending = false;
+        return;
+      }
       const review = this.reading();
       if (!review) {
         if (this.readingFocusPending) {
@@ -174,18 +178,22 @@ export class AdminAutomaticPortfolioComponent {
   }
 
   toggleProcessing(event: Event): void {
-    this.processingExpanded.set((event.target as HTMLDetailsElement).open);
+    event.preventDefault();
+    this.processingExpanded.update((expanded) => !expanded);
   }
 
   focus(): void {
-    const region =
-      this.element.nativeElement.querySelector<HTMLElement>(
-        '[data-og7="preparation-receipt"]'
-      ) ??
-      this.element.nativeElement.querySelector<HTMLElement>(
-        '[data-og7="automatic-portfolio"]'
+    const focusVisibleBatch = (): boolean => {
+      if (this.view() !== 'batch') return false;
+      const region = this.element.nativeElement.querySelector<HTMLElement>(
+        '[data-og7="automatic-portfolio-processing"]'
       );
-    region?.focus({ preventScroll: true });
+      if (!region?.getClientRects().length) return false;
+      region.focus({ preventScroll: true });
+      return true;
+    };
+    if (!focusVisibleBatch())
+      afterNextRender(() => focusVisibleBatch(), { injector: this.injector });
   }
 
   reason(code: string): string {
