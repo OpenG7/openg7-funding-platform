@@ -1,5 +1,43 @@
 {
   "assistant": "Ouvrir l’Assistant pour ce dossier",
+  "servicesSummary": {
+    "title": "Suivi des prestations du dossier",
+    "total": "{{ count }} prestations enregistrées",
+    "totalOne": "{{ count }} prestation enregistrée",
+    "fulfilled": "{{ count }} réalisées",
+    "fulfilledOne": "{{ count }} réalisée",
+    "adjusted": "{{ count }} dispensées",
+    "adjustedOne": "{{ count }} dispensée",
+    "remaining": "{{ count }} à réaliser",
+    "occurrence": "nº {{ ordinal }}",
+    "proofDate": "Preuve de réalisation du {{ date }} (Toronto)",
+    "dateUnavailable": "date indisponible",
+    "waiverHelp": "La dispense termine ce suivi sans constituer une livraison.",
+    "proofMissing": "Une réalisation est déclarée, mais sa preuve qualifiée n’est pas disponible.",
+    "trackingUnavailable": "Le suivi opérationnel de cette prestation n’est pas disponible.",
+    "openAgreement": "Consulter les prestations promises",
+    "states": {
+      "fulfilled": "Réalisation confirmée",
+      "adjusted": "Dispensée",
+      "unverified": "Preuve à vérifier",
+      "unavailable": "Suivi indisponible",
+      "waiting": "En attente",
+      "action_required": "Intervention requise",
+      "blocked": "Bloquée",
+      "error": "Échec",
+      "uncertain": "Résultat incertain"
+    },
+    "visibility": {
+      "visible": "Visibilité actuelle de la fiche : publique",
+      "hidden": "Visibilité actuelle de la fiche : masquée",
+      "held": "Visibilité actuelle de la fiche : suspendue"
+    },
+    "fallback": {
+      "agreement_unknown": "Les prestations promises ne sont pas encore documentées.",
+      "agreement_unconfirmed": "L’accord doit être confirmé avant de récapituler les prestations.",
+      "empty": "Aucune prestation n’est encore enregistrée pour cet accord."
+    }
+  },
   "recommendation": {
     "owner": "Responsable",
     "ownerUnknown": "Responsable à déterminer",

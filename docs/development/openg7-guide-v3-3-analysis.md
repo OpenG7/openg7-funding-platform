@@ -29,6 +29,26 @@ source et 75 propositions à qualifier. Les 56 recettes sont des critères de
 vérification, pas des résultats de tests. L’ensemble ne constitue donc ni 211
 fonctions à construire ni une attestation de disponibilité.
 
+## Suivi des chantiers locaux V3.3
+
+**3 chantiers réalisés sur 6 ; 3 restants.** Ce registre
+compte des adaptations bornées, réalisées et testées localement. Il ne mesure ni
+les lots 0–6 du pack, ni ses 211 entrées, ni les fusions ou déploiements. Les
+capacités absentes recensées dans les limites restent des travaux séparés.
+
+| Nº  | Chantier                                                  | État et critère de clôture                                                                                                                            |
+| --- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Première adaptation Prestations et Guide                  | Réalisé : vocabulaire, enveloppe, détail exact, action prioritaire et protection de fermeture ; PR #370.                                              |
+| 2   | Départ du tiroir de publication                           | Réalisé : navigation interne, historique, conservation des saisies, invalidation de session et tests ; PR #371.                                       |
+| 3   | Synthèse des prestations d’un dossier — S01               | Réalisé localement : obligations exactes, état et responsabilité serveur, preuve qualifiée, dispenses distinctes, liens ciblés et tests.              |
+| 4   | Lecture, correction et revue du contenu — S02/S05/S06/S11 | À réaliser : formulaire et aperçu du tiroir existant, version, modifications et conflit lisibles ; sauvegarde et autorisation distinctes.             |
+| 5   | Consultation des historiques et preuves — S08/S23         | À réaliser : sources spécialisées, portée et détails lisibles, preuves et temporalité conservées ; aucune version historique inventée.                |
+| 6   | Recette transversale finale                               | À réaliser : correspondance R01–R56 applicable/existant/manquant, petite hauteur, zoom, clavier, manette simulée et captures réelles des adaptations. |
+
+Les quatre familles de capacités hors de ce total sont l’accord client versionné avec preuve
+entrante, la rédaction générative, le catalogue complet des versions sociales et
+les outils de mise en forme sans contrat de sauvegarde existant.
+
 ## Diagnostic avant adaptation
 
 Au départ, 19 fichiers suivis étaient déjà modifiés : vues **Fiches / Suivi du lot /
@@ -237,3 +257,67 @@ régression sont dans `test-results/publication-navigation-regression/` ; les
 relances ciblées dans `publication-navigation-routing/` et
 `publication-navigation-focus-layout-fix/` sous `test-results/`. La dernière passe
 est dans `test-results/publication-navigation-release-check/`.
+
+## Chantier 3 : synthèse des prestations du dossier
+
+Adaptation locale du 23 octobre 2026, sur
+`codex/admin-dossier-service-summary`, depuis `9aa6331f` (PR #371), sans attendre
+ni consulter sa CI. Le suivi local passe à **3/6 réalisés, 3 restants**.
+
+L’onglet **Aperçu** de Commandites présente les obligations de l’accord actif,
+avec canal, destination et occurrence. Les compteurs séparent réalisations à
+preuve qualifiée, dispenses enregistrées et travail restant. Une déclaration
+historique, une simulation ou un workflow complet sans preuve qualifiée ne devient
+pas une réalisation confirmée. Accord absent, à confirmer et accord sans
+prestations ont chacun un message explicite, sans total présumé.
+
+Le modèle de présentation réutilise `qualifiedPublicationEvidence` et le contrat
+serveur existant. `AdminSponsorshipProgress` porte le rendu et le badge partagé ;
+`AdminSponsorshipNextStep` garde l’action prioritaire. Aucun second calcul de
+priorité, endpoint, commande ou effet externe n’est ajouté. Chaque lien transmet
+`sponsorshipId` et `obligationId` exacts au propriétaire Prestations de services.
+Le récapitulatif statique des avantages est masqué une fois la synthèse chargée.
+Les dates de preuve sont explicites à Toronto. La visibilité courante de la fiche
+OpenG7 reste distincte de sa réalisation historique et n’est jamais appliquée à
+OpenG20. Rechargement, erreur, refus ou changement de dossier retirent les anciens
+faits de la synthèse.
+
+Vérifications exécutées avec Node 22 :
+
+- Build Angular de production réussi à `2026-10-24T03:52:34Z`, SSR et 25 routes
+  pré-rendues ; compilation TypeScript du projet et des recettes UI réussie.
+- **40 tests unitaires réussis**, dont 15 nouveaux groupes sur la synthèse et les
+  tests existants de qualification des preuves et de purge du contrôleur.
+- **10 nouveaux scénarios navigateur réussis**, FR/EN, bureau/mobile : six
+  occurrences pour trois avantages, preuves qualifiées ou absentes, dispenses,
+  simulation, durée, visibilité OpenG7, entrée exacte au clavier, états incomplets,
+  rechargement, `401`/`403`/`503` et changement de dossier. Les quatre rendus ont
+  passé Axe sur la synthèse et le contrôle de débordement horizontal.
+- Passe ciblée de **45 scénarios** : 43 réussites et deux anciennes assertions
+  incompatibles avec le remplacement du récapitulatif et l’ajout de liens de
+  consultation. Ces assertions ont été limitées à leur objet, sans affaiblir la
+  vérification de navigation ou de prochaine action ; **les deux relances passent**.
+  Les 45 scénarios sont ainsi validés, sans relance de la suite UI complète.
+- Revue indépendante : correction de la visibilité indûment attribuée à OpenG20,
+  puis aucun autre défaut concret relevé. Format ciblé, lint global, contrôles
+  documentaires et `git diff --check` réussis ; seul l’avertissement préexistant
+  `scripts/smoke-public.mjs:165` subsiste au lint.
+
+Les quatre captures finales sont sous
+`test-results/dossier-service-summary-final/`, nommées
+`service-summary-{fr-CA,en}-{1536,390}.png` dans les dossiers de recette.
+Le rendu français bureau et mobile a été inspecté visuellement ; le rendu bureau
+final a été relu après la correction de visibilité et de l’espacement des occurrences.
+Les deux relances sont dans `test-results/dossier-service-summary-regression-fixes/`.
+Ces tests utilisent des réponses synthétiques interceptées, sans API réelle,
+base, déploiement ni publication. La manette physique et le zoom Windows restent
+hors de cette validation ; la recette transversale est le chantier 6.
+
+La revue du 24 octobre 2026 ajoute deux lectures indépendantes, modèle et UI :
+aucun défaut actionnable supplémentaire identifié. Les validations applicatives
+ci-dessus restent celles du même code ; elles ne sont pas relancées pour cette
+revue et la préparation de la PR. La branche cible reste celle de la PR #371,
+encore ouverte, pour isoler le diff du chantier 3.
+
+Le chantier suivant est la lecture, correction et revue du contenu exact dans le
+tiroir existant (S02/S05/S06/S11), avant les historiques et la recette transversale.

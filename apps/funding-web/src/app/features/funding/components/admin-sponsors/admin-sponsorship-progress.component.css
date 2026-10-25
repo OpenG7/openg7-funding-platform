@@ -157,6 +157,72 @@ button:focus-visible,
   font-weight: 400;
   font-variant-numeric: tabular-nums;
 }
+.service-summary {
+  padding: 1rem;
+  margin-block-end: 0.5rem;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-card);
+  background: var(--admin-panel);
+}
+.service-summary-heading h3 {
+  margin: 0;
+  font-size: var(--admin-section-size);
+  overflow-wrap: anywhere;
+}
+.service-total,
+.service-occurrence {
+  color: var(--admin-muted);
+  @apply tw:text-admin-caption;
+}
+.service-occurrence {
+  margin-inline-start: 0.35rem;
+}
+.service-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.25rem;
+  padding-block: 0.75rem;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  @apply tw:text-admin-caption;
+}
+.service-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.service-row {
+  padding-block: 0.8rem;
+  border-block-start: 1px solid var(--admin-border);
+  overflow-wrap: anywhere;
+}
+.service-row:last-child {
+  padding-block-end: 0;
+}
+.service-row-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.45rem 1rem;
+  margin-block-end: 0.35rem;
+}
+.service-row-heading a {
+  min-width: 0;
+  color: var(--admin-accent);
+  text-underline-offset: 0.2em;
+}
+.service-row p {
+  margin: 0;
+  @apply tw:text-admin-caption;
+}
+.service-visibility {
+  display: block;
+  margin-block-start: 0.25rem;
+}
+.service-fallback {
+  margin-block: 0.75rem;
+}
 .status-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
