@@ -90,6 +90,17 @@ Ce dernier expose seulement identifiant, conclusion et date. Aucun message priv�
 coordonnée, référence documentaire, clé de stockage, acteur ou raison interne
 n'est retourné dans cet inventaire.
 
+La lecture UI affiche le canal et la destination en clair, les dates de preuve,
+d’inventaire et de dernière conclusion dans le fuseau `America/Toronto`, avec
+leur instant UTC conservé dans les éléments `time`. La taille de la page et sa
+limite restent distinctes du total filtré ; **Suivant** remplace la page courante.
+La date d’inventaire ne fige pas les examens ultérieurs. **Dernière conclusion
+disponible** présente uniquement les champs du DTO, sans auteur, raison ni
+historique de versions supposés. Les références preuve/prestation/examen sont
+repliables. Le lien vers Prestations transmet contribution et obligation exactes
+pour consulter les faits qualifiés chez leur propriétaire ; consulter ce lien
+ne qualifie ni ne réexamine une preuve.
+
 ## Examen explicite et reçus
 
 `POST /api/admin/sponsorship-commitments/historical-audit/review` exige le même rôle,

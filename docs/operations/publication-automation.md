@@ -93,6 +93,14 @@ inside a dossier always sends its contribution filter; it cannot switch to the
 portfolio scope in place. Its **Sponsorship quality** link carries `returnSponsorshipId` so the
 return points to that dossier's Publication tab and agreement section.
 
+The dossier's Activity tab links its specialized sources: intervention journal,
+preparation approvals and service evidence, plus moderation decisions for users
+with the existing review capability. These remain separate sources; the activity
+list contains available milestones and recent admin actions, not a complete
+history of social content versions. Links retain the exact dossier scope, and
+closing an opened tool restores focus to the entry used to open it. Consultation
+does not record a new decision or send a publication.
+
 For an existing delivery, **Review and authorize** opens its exact final-publication
 drawer within step 6. **Change proposed time** opens the same delivery's editor. The
 drawer shows the full text, available media, destination account, mode and date;
