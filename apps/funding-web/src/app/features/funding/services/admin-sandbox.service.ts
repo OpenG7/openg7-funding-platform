@@ -18,6 +18,7 @@ import type {
 import { OPENG7_FUNDING_CONFIG } from '../config/openg7-funding.config.js';
 
 import { AdminGuidanceService } from './admin-guidance.service.js';
+import { guidanceContributionId } from './admin-guidance-state.js';
 import { FundingAdminService } from './funding-admin.service.js';
 import { FundingI18nService } from './funding-i18n.service.js';
 import { FundingService } from './funding.service.js';
@@ -332,11 +333,11 @@ export class AdminSandboxService {
   }
 
   async openJourney(): Promise<void> {
-    const id = this.journey()?.contributionId;
+    const id = guidanceContributionId(this.journey()?.contributionId);
     if (!id) return;
-    this.guidance.followPayment(id);
-    await this.router.navigate(['/admin/fundraiser/attention'], {
-      queryParams: { paymentJourney: id }
+    this.guidance.followPayment(id, true);
+    await this.router.navigate(['/admin/fundraiser/contributions'], {
+      queryParams: { contributionId: id }
     });
   }
 

@@ -242,12 +242,7 @@ export class AdminControllerComponent {
     this.menu.set(false);
     this.controller.reset();
     this.document.defaultView?.requestAnimationFrame(() => {
-      const target = [
-        'payment-journey-next',
-        'payment-journey-resume',
-        'admin-guidance-show',
-        'admin-guidance-toggle'
-      ]
+      const target = ['admin-guidance-show', 'admin-guidance-toggle']
         .map((hook) =>
           this.document.querySelector<HTMLElement>(`[data-og7="${hook}"]`)
         )

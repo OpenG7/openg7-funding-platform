@@ -275,7 +275,7 @@ p {
     overflow: visible;
   }
   .mode-choice {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.35rem;
   }
   .mode-choice .admin-button {
@@ -314,7 +314,14 @@ p {
     font-size: 0.78rem;
   }
   .mode-choice .admin-button {
-    gap: 0.45rem;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.25rem;
+    padding-inline: 0.3rem;
+    text-align: center;
+  }
+  .mode-choice .admin-button span {
+    overflow-wrap: normal;
   }
   .cue-actions .admin-button {
     flex: 1 1 100%;

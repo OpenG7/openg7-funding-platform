@@ -42,6 +42,20 @@
           | translate
       }}
     </p>
+    @if (invalidContributionLink()) {
+      <p class="state state-error" role="alert">
+        {{ 'admin.guidance.paymentJourney.states.not_found' | translate }}
+      </p>
+    }
+    @if (missingContribution()) {
+      <p
+        class="state state-error"
+        role="status"
+        data-og7="contribution-not-found"
+      >
+        {{ 'admin.guidance.paymentJourney.states.not_found' | translate }}
+      </p>
+    }
 
     <ng-container *ngIf="data() as response">
       <openg7-admin-contributions-summary
@@ -75,8 +89,14 @@
       @if (selectedContributionView(); as selected) {
         <openg7-admin-contributions-detail
           [contribution]="selected"
-          (followPayment)="guidance.followPayment($event)"
+          (followPayment)="followPayment($event)"
         />
+        <openg7-admin-payment-journey (show)="showJourneyTarget($event)" />
+        @if (missingJourneyTarget()) {
+          <p role="status" data-og7="payment-journey-missing-target">
+            {{ 'admin.guidance.paymentJourney.missingTarget' | translate }}
+          </p>
+        }
       }
       <openg7-admin-contributions-list
         [rows]="contributionRows()"

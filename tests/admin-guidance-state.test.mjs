@@ -340,7 +340,7 @@ test('blank accounts never share or persist a bookmark', () => {
   assert.equal(storage.values.size, 0);
 });
 
-test('a paused payment resumes by UUID after reload without storing server facts', () => {
+test('a retired payment preference retains its preparation UUID and pause without reopening the guide', () => {
   const storage = memoryStorage();
   const state = new AdminGuidanceState(() => storage);
   const payment = {
@@ -356,7 +356,7 @@ test('a paused payment resumes by UUID after reload without storing server facts
   };
   const expected = {
     ...snapshot(),
-    mode: 'payment',
+    enabled: false,
     payment: {
       contributionId: 'abcdef00-1234-5678-9abc-abcdef123456',
       paused: true
@@ -372,11 +372,39 @@ test('a paused payment resumes by UUID after reload without storing server facts
   assert.equal(reload.load(account).payment.paused, true);
 });
 
-test('payment mode can be selected without selecting or replacing a payment', () => {
+test('a legacy payment mode without a selected payment migrates to closed discovery', () => {
   const state = new AdminGuidanceState(() => null);
   const selected = { ...snapshot(), mode: 'payment' };
   state.save(account, selected);
-  assert.deepEqual(state.load(account), selected);
+  assert.deepEqual(state.load(account), snapshot({ enabled: false }));
+});
+
+test('loading old payment preferences never reopens the guide and keeps independent reading cues', () => {
+  for (const enabled of [true, false]) {
+    for (const paused of [true, false]) {
+      for (const bookmark of [null, snapshot().bookmark]) {
+        const storage = memoryStorage();
+        const payment = {
+          contributionId: 'abcdef00-1234-5678-9abc-abcdef123456',
+          paused
+        };
+        storage.setItem(
+          key(),
+          JSON.stringify({ enabled, bookmark, mode: 'payment', payment })
+        );
+        const state = new AdminGuidanceState(() => storage);
+        const expected = { enabled: false, bookmark, payment };
+        assert.deepEqual(state.load(account), expected);
+        assert.deepEqual(state.load(account), expected);
+        assert.equal(state.save(account, state.load(account)), true);
+        assert.deepEqual(JSON.parse(storage.getItem(key())), expected);
+        assert.deepEqual(
+          new AdminGuidanceState(() => storage).load(account),
+          expected
+        );
+      }
+    }
+  }
 });
 
 test('automatic mode remembers a preference without retaining a run or authorization', () => {

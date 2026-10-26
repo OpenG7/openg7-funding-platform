@@ -10,7 +10,7 @@ export interface AdminGuidanceBookmark {
 export interface AdminGuidanceSnapshot {
   enabled: boolean;
   bookmark: AdminGuidanceBookmark | null;
-  mode?: 'payment' | 'automatic' | 'workflows';
+  mode?: 'automatic' | 'workflows';
   payment?: { contributionId: string; paused: boolean };
   workflow?: { journeyId: string; step: number; paused: boolean };
 }
@@ -90,15 +90,16 @@ function cleanSnapshot(value: unknown): AdminGuidanceSnapshot | null {
     workflow = { journeyId: definition.id, step, paused: value['paused'] };
   }
   const journey = {
-    ...(snapshot['mode'] === 'payment' ? { mode: 'payment' as const } : {}),
     ...(snapshot['mode'] === 'automatic' ? { mode: 'automatic' as const } : {}),
     ...(snapshot['mode'] === 'workflows' ? { mode: 'workflows' as const } : {}),
     ...(workflow ? { workflow } : {}),
     ...(paymentBookmark ? { payment: paymentBookmark } : {})
   };
+  // Retain preparation context without reopening the retired payment surface.
+  const enabled = snapshot['mode'] === 'payment' ? false : snapshot['enabled'];
   const bookmark = snapshot['bookmark'];
   if (bookmark === null) {
-    return { enabled: snapshot['enabled'], bookmark: null, ...journey };
+    return { enabled, bookmark: null, ...journey };
   }
   if (!bookmark || typeof bookmark !== 'object' || Array.isArray(bookmark)) {
     return null;
@@ -119,7 +120,7 @@ function cleanSnapshot(value: unknown): AdminGuidanceSnapshot | null {
     return null;
   }
   return {
-    enabled: snapshot['enabled'],
+    enabled,
     bookmark: { pageId: page.id, step, paused: candidate['paused'] },
     ...journey
   };

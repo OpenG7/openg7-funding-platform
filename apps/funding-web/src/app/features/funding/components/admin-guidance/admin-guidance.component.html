@@ -85,17 +85,6 @@
               <button
                 type="button"
                 class="admin-button"
-                data-og7="admin-guidance-payment-mode"
-                [title]="t('paymentMode')"
-                [attr.aria-pressed]="guidance.mode() === 'payment'"
-                (click)="guidance.setMode('payment')"
-              >
-                <openg7-admin-icon name="contributions" />
-                <span>{{ t('paymentMode') }}</span>
-              </button>
-              <button
-                type="button"
-                class="admin-button"
                 data-og7="admin-guidance-automatic-mode"
                 [attr.aria-pressed]="guidance.mode() === 'automatic'"
                 (click)="guidance.setMode('automatic')"
@@ -171,8 +160,6 @@
                   }
                 </div>
               }
-            } @else if (guidance.mode() === 'payment') {
-              <openg7-admin-payment-journey (show)="show($event)" />
             } @else {
               @if (guidance.bookmarkPage(); as savedPage) {
                 @if (

@@ -1,7 +1,16 @@
 @reference '../../../../../styles/tailwind.css';
 
 :host {
-  @apply tw:block;
+  @apply tw:block tw:min-w-0;
+}
+section {
+  @apply tw:p-admin-card tw:rounded-admin-card;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-panel);
+}
+[data-og7='payment-journey-heading']:focus {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 3px;
 }
 h2,
 h3 {

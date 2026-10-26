@@ -14,8 +14,7 @@
       (click)="followPayment.emit(contribution().id)"
       routerLink="/admin/fundraiser/contributions"
       [queryParams]="{
-        contributionId: contribution().id,
-        paymentJourney: contribution().id
+        contributionId: contribution().id
       }"
       >{{ 'admin.guidance.paymentJourney.followCurrent' | translate }}</a
     >

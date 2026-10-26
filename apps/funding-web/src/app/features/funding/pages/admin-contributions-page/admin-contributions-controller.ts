@@ -66,6 +66,7 @@ export class AdminContributionsController {
   private generation = 0;
   private disposed = false;
   private contributionId: string | undefined;
+  private loadedAccessRevision: number | null = null;
   private exportAccess: boolean;
 
   constructor(private readonly ports: AdminContributionsReadPorts) {
@@ -99,6 +100,7 @@ export class AdminContributionsController {
         this.contributionId
       );
       if (!this.currentAccess(generation, accessRevision)) return;
+      this.loadedAccessRevision = accessRevision;
       this.data.set(response);
       if (!this.selectedContributionId() && this.contributionId) {
         this.selectedContributionId.set(this.contributionId.trim() || null);
@@ -156,10 +158,31 @@ export class AdminContributionsController {
     this.selectedContributionId.set(contributionId);
   }
 
+  /** Select a loaded row and bind subsequent reads without replacing its list. */
+  selectRouteContribution(contributionId: string): boolean {
+    if (this.disposed || this.state() !== 'ready') return false;
+    if (this.loadedAccessRevision !== this.ports.accessRevision()) {
+      this.notifyAccessChanged();
+      return false;
+    }
+    if (!this.contributions().some((item) => item.id === contributionId))
+      return false;
+    if (
+      this.contributionId !== contributionId ||
+      this.selectedContributionId() !== contributionId
+    ) {
+      ++this.generation;
+      this.contributionId = contributionId;
+      this.selectContribution(contributionId);
+    }
+    return true;
+  }
+
   /** Notification preserves access transitions even when the role is restored. */
   notifyAccessChanged(): void {
     if (this.disposed) return;
     ++this.generation;
+    this.loadedAccessRevision = null;
     this.data.set(null);
     this.selectedContributionId.set(null);
     this.state.set('idle');

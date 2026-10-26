@@ -595,11 +595,13 @@ test('a simulated browser return cannot substitute for private payment confirmat
     });
     await hook(page, 'sandbox-payment-open-journey').click();
     await expect(page).toHaveURL(
-      new RegExp('/attention\\?paymentJourney=' + id + '$')
+      new RegExp('/contributions\\?contributionId=' + id + '$')
     );
     await expect(hook(page, 'payment-journey-complete')).toHaveCount(0);
     await expect(hook(page, 'payment-journey-next')).toBeVisible();
-    await hook(page, 'sandbox-payments-open').click();
+    if ((await hook(page, 'sandbox-payments').getAttribute('open')) === null)
+      await hook(page, 'sandbox-payments-open').click();
+    await expect(hook(page, 'sandbox-payments')).toHaveJSProperty('open', true);
     await hook(page, 'sandbox-payment-new').click();
     await expect(hook(page, 'sandbox-payment-accept')).not.toBeChecked();
     await hook(page, 'sandbox-payment-accept').check();
@@ -612,7 +614,9 @@ test('a simulated browser return cannot substitute for private payment confirmat
     expect(payments.attempts[1]!.input.idempotencyKey).not.toBe(
       payments.attempts[0]!.input.idempotencyKey
     );
-    await expect(page).toHaveURL(new RegExp('paymentJourney=' + id + '$'));
+    await expect(page).toHaveURL(
+      new RegExp('/contributions\\?contributionId=' + id + '$')
+    );
     await expect(hook(page, 'payment-journey-complete')).toHaveCount(0);
   } finally {
     releaseProvider();
