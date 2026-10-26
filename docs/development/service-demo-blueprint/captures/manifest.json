@@ -1,0 +1,445 @@
+{
+  "title": "Captures réelles de la démo des prestations OpenG7",
+  "revision": "a4370ba3133a42e4f37a9c3c615943b698149144",
+  "generated_at": "2026-10-25T14:56:24.303Z",
+  "timezone": "America/Toronto",
+  "language": "fr-CA",
+  "origin": "http://127.0.0.1:4193",
+  "source": "Build Angular production local du commit indiqué",
+  "policy": "Données fictives, état initial, aucune action de publication ou envoi. Captures intégrales sans retouche.",
+  "captures": [
+    {
+      "id": "01-liste-desktop",
+      "file": "01-liste-desktop.png",
+      "title": "Liste des prestations",
+      "route": "/demo/prestations",
+      "device": "desktop",
+      "viewport": { "width": 1536, "height": 960 },
+      "png": {
+        "width": 1536,
+        "height": 960,
+        "bytes": 159321,
+        "sha256": "6ef7234b9c784587eb73016839d4ab7551e57855b40121effff48d2fd1157c2e"
+      },
+      "state": "État initial fictif, sans modification des champs ni menu ouvert",
+      "http_status": 200,
+      "language": "fr-CA",
+      "api_requests": [],
+      "page_errors": [],
+      "captured_at": "2026-10-25T14:28:07.502Z",
+      "retained_from_initial_successful_capture": true
+    },
+    {
+      "id": "02-dossier-desktop",
+      "file": "02-dossier-desktop.png",
+      "title": "Résumé du dossier",
+      "route": "/demo/prestations/dossier/atelier-boreal",
+      "device": "desktop",
+      "viewport": { "width": 1536, "height": 960 },
+      "png": {
+        "width": 1536,
+        "height": 960,
+        "bytes": 274782,
+        "sha256": "a0f29d3b1fad902c0bb582313785d912ceadd183f1118fcdfcb3c94e261fece5"
+      },
+      "state": "État initial fictif, sans modification des champs ni menu ouvert",
+      "http_status": 200,
+      "language": "fr-CA",
+      "api_requests": [],
+      "page_errors": [],
+      "captured_at": "2026-10-25T14:28:23.773Z",
+      "retained_from_initial_successful_capture": true
+    },
+    {
+      "id": "03-contenu-desktop",
+      "file": "03-contenu-desktop.png",
+      "title": "Étape Contenu",
+      "route": "/demo/prestations/dossier/atelier-boreal/contenu",
+      "device": "desktop",
+      "viewport": { "width": 1536, "height": 960 },
+      "png": {
+        "width": 1536,
+        "height": 960,
+        "bytes": 347476,
+        "sha256": "dbaeaeac3c4406c791e4df68a3381177c66c9cfc8965fe21df56b8df1a368fd9"
+      },
+      "state": "État initial fictif, sans modification des champs ni menu ouvert",
+      "http_status": 200,
+      "language": "fr-CA",
+      "api_requests": [],
+      "page_errors": [],
+      "captured_at": "2026-10-25T14:28:39.908Z",
+      "retained_from_initial_successful_capture": true
+    },
+    {
+      "id": "04-editeur-texte-desktop",
+      "file": "04-editeur-texte-desktop.png",
+      "title": "Éditeur · Texte",
+      "route": "/demo/prestations/dossier/atelier-boreal/corriger/texte",
+      "device": "desktop",
+      "viewport": { "width": 1536, "height": 960 },
+      "png": {
+        "width": 1536,
+        "height": 960,
+        "bytes": 342068,
+        "sha256": "1d8861418c1a9db323fce383e7175f186c9bf40a111c6725bdf1df794ee3bb99"
+      },
+      "state": "État initial fictif, sans modification des champs ni menu ouvert",
+      "http_status": 200,
+      "language": "fr-CA",
+      "api_requests": [],
+      "page_errors": [],
+      "captured_at": "2026-10-25T14:28:56.075Z",
+      "retained_from_initial_successful_capture": true
+    },
+    {
+      "id": "05-editeur-image-desktop",
+      "file": "05-editeur-image-desktop.png",
+      "title": "Éditeur · Image",
+      "route": "/demo/prestations/dossier/atelier-boreal/corriger/image",
+      "device": "desktop",
+      "viewport": { "width": 1536, "height": 960 },
+      "png": {
+        "width": 1536,
+        "height": 960,
+        "bytes": 452577,
+        "sha256": "eada69efa3fdcbc9f5de923fe85b527df0b4a471ca70626ab1215fc78e7f9ffc"
+      },
+      "state": "État initial fictif, sans modification des champs ni menu ouvert",
+      "http_status": 200,
+      "language": "fr-CA",
+      "api_requests": [],
+      "page_errors": [],
+      "captured_at": "2026-10-25T14:29:12.192Z",
+      "retained_from_initial_successful_capture": true
+    },
+    {
+      "id": "06-historique-desktop",
+      "file": "06-historique-desktop.png",
+      "title": "Historique",
+      "route": "/demo/prestations/dossier/atelier-boreal/historique",
+      "device": "desktop",
+      "viewport": { "width": 1536, "height": 960 },
+      "png": {
+        "width": 1536,
+        "height": 960,
+        "bytes": 192948,
+        "sha256": "9e29f40df4d8da41b962ff94ddca6e6d0c4ea8ad765dd22d37d9c56af0b6c979"
+      },
+      "state": "État initial fictif, sans modification des champs ni menu ouvert",
+      "http_status": 200,
+      "language": "fr-CA",
+      "api_requests": [],
+      "page_errors": [],
+      "captured_at": "2026-10-25T14:29:28.216Z",
+      "retained_from_initial_successful_capture": true
+    },
+    {
+      "id": "07-consentement-desktop",
+      "file": "07-consentement-desktop.png",
+      "title": "Étape Consentement",
+      "route": "/demo/prestations/dossier/collectif-rivages/autorisation",
+      "device": "desktop",
+      "viewport": { "width": 1536, "height": 960 },
+      "png": {
+        "width": 1536,
+        "height": 960,
+        "bytes": 349695,
+        "sha256": "8d8fe2b4bdea5dfba46b030e62d96197a1fb5a165e215c54e0ba233af6743020"
+      },
+      "state": "État initial fictif, sans modification des champs ni menu ouvert",
+      "http_status": 200,
+      "language": "fr-CA",
+      "api_requests": [],
+      "page_errors": [],
+      "captured_at": "2026-10-25T14:29:44.353Z",
+      "retained_from_initial_successful_capture": true
+    },
+    {
+      "id": "08-consentement-recu-desktop",
+      "file": "08-consentement-recu-desktop.png",
+      "title": "Consentement reçu",
+      "route": "/demo/prestations/dossier/collectif-rivages/accord-recu",
+      "device": "desktop",
+      "viewport": { "width": 1536, "height": 960 },
+      "png": {
+        "width": 1536,
+        "height": 960,
+        "bytes": 156114,
+        "sha256": "e09c64ab79c5a361eccdf9e1cf6ce022a0f066a1bfac1f7ef48877eabf1ffc49"
+      },
+      "state": "État initial fictif, sans modification des champs ni menu ouvert",
+      "http_status": 200,
+      "language": "fr-CA",
+      "api_requests": [],
+      "page_errors": [],
+      "captured_at": "2026-10-25T14:30:00.390Z",
+      "retained_from_initial_successful_capture": true
+    },
+    {
+      "id": "09-publication-desktop",
+      "file": "09-publication-desktop.png",
+      "title": "Étape Publication",
+      "route": "/demo/prestations/dossier/studio-canopée/publication",
+      "device": "desktop",
+      "viewport": { "width": 1536, "height": 960 },
+      "png": {
+        "width": 1536,
+        "height": 960,
+        "bytes": 345600,
+        "sha256": "bf19108369dfdf1efffe653ff5ec8f217d6b0fd910cdcfd90bf4dd3ec9241c41"
+      },
+      "state": "État initial fictif, sans modification des champs ni menu ouvert",
+      "http_status": 200,
+      "language": "fr-CA",
+      "api_requests": [],
+      "page_errors": [],
+      "captured_at": "2026-10-25T14:32:08.005Z",
+      "heading": "Finaliser la publication"
+    },
+    {
+      "id": "10-planification-desktop",
+      "file": "10-planification-desktop.png",
+      "title": "Planification",
+      "route": "/demo/prestations/dossier/studio-canopée/planifier",
+      "device": "desktop",
+      "viewport": { "width": 1536, "height": 960 },
+      "png": {
+        "width": 1536,
+        "height": 960,
+        "bytes": 339215,
+        "sha256": "df5c3d392343a3124c1b103628b6782bba7ed0a47d73e6d282781cb87915b858"
+      },
+      "state": "État initial fictif, sans modification des champs ni menu ouvert",
+      "http_status": 200,
+      "language": "fr-CA",
+      "api_requests": [],
+      "page_errors": [],
+      "captured_at": "2026-10-25T14:32:24.244Z",
+      "heading": "Planifier la publication"
+    },
+    {
+      "id": "11-confirmation-envoi-desktop",
+      "file": "11-confirmation-envoi-desktop.png",
+      "title": "Confirmation d’envoi",
+      "route": "/demo/prestations/dossier/studio-canopée/confirmer-envoi",
+      "device": "desktop",
+      "viewport": { "width": 1536, "height": 960 },
+      "png": {
+        "width": 1536,
+        "height": 960,
+        "bytes": 356087,
+        "sha256": "a66ae566e9144c44eb91c6325a49ae0b887fc6f4da0bde93fbccdf538a2ca1b0"
+      },
+      "state": "État initial fictif, sans modification des champs ni menu ouvert",
+      "http_status": 200,
+      "language": "fr-CA",
+      "api_requests": [],
+      "page_errors": [],
+      "captured_at": "2026-10-25T14:32:40.443Z",
+      "heading": "Relire la confirmation d’envoi"
+    },
+    {
+      "id": "12-fiche-web-desktop",
+      "file": "12-fiche-web-desktop.png",
+      "title": "Présentation Web",
+      "route": "/demo/prestations/dossier/atelier-boreal/web",
+      "device": "desktop",
+      "viewport": { "width": 1536, "height": 960 },
+      "png": {
+        "width": 1536,
+        "height": 960,
+        "bytes": 369037,
+        "sha256": "c8eb0881b40e40144439ce64769f428197576ddd35ebf48e9290598d21234a42"
+      },
+      "state": "État initial fictif, sans modification des champs ni menu ouvert",
+      "http_status": 200,
+      "language": "fr-CA",
+      "api_requests": [],
+      "page_errors": [],
+      "captured_at": "2026-10-25T14:32:56.556Z",
+      "heading": "Présentation sur le site"
+    },
+    {
+      "id": "13-liste-mobile",
+      "file": "13-liste-mobile.png",
+      "title": "Liste des prestations",
+      "route": "/demo/prestations",
+      "device": "mobile",
+      "viewport": { "width": 390, "height": 844 },
+      "png": {
+        "width": 390,
+        "height": 1453,
+        "bytes": 135781,
+        "sha256": "a6becbfb9f2412f313e2b830ef314358caa6eacceb03491c5f34a208b08858db"
+      },
+      "state": "État initial fictif, sans modification des champs ni menu ouvert",
+      "http_status": 200,
+      "language": "fr-CA",
+      "api_requests": [],
+      "page_errors": [],
+      "captured_at": "2026-10-25T14:33:12.717Z",
+      "heading": "Prestations de services"
+    },
+    {
+      "id": "14-dossier-mobile",
+      "file": "14-dossier-mobile.png",
+      "title": "Résumé du dossier",
+      "route": "/demo/prestations/dossier/atelier-boreal",
+      "device": "mobile",
+      "viewport": { "width": 390, "height": 844 },
+      "png": {
+        "width": 390,
+        "height": 2111,
+        "bytes": 229240,
+        "sha256": "e0c17ce61c522e1513a0f7b6f640294608bba3e917cd93429b4395f77acfd3f0"
+      },
+      "state": "État initial fictif, sans modification des champs ni menu ouvert",
+      "http_status": 200,
+      "language": "fr-CA",
+      "api_requests": [],
+      "page_errors": [],
+      "captured_at": "2026-10-25T14:33:28.841Z",
+      "heading": "Suivi des prestations du dossier"
+    },
+    {
+      "id": "15-editeur-texte-mobile",
+      "file": "15-editeur-texte-mobile.png",
+      "title": "Éditeur · Texte",
+      "route": "/demo/prestations/dossier/atelier-boreal/corriger/texte",
+      "device": "mobile",
+      "viewport": { "width": 390, "height": 844 },
+      "png": {
+        "width": 390,
+        "height": 2231,
+        "bytes": 226382,
+        "sha256": "10d1a6d8ce04e767513b7cdb4e4557f206b75af4b7a07c9635aaa4134d6aab21"
+      },
+      "state": "État initial fictif, sans modification des champs ni menu ouvert",
+      "http_status": 200,
+      "language": "fr-CA",
+      "api_requests": [],
+      "page_errors": [],
+      "captured_at": "2026-10-25T14:33:44.934Z",
+      "heading": "Corriger le contenu"
+    },
+    {
+      "id": "16-consentement-mobile",
+      "file": "16-consentement-mobile.png",
+      "title": "Étape Consentement",
+      "route": "/demo/prestations/dossier/collectif-rivages/autorisation",
+      "device": "mobile",
+      "viewport": { "width": 390, "height": 844 },
+      "png": {
+        "width": 390,
+        "height": 2004,
+        "bytes": 239548,
+        "sha256": "5eab4c76fc344efe02a6d1db6a88db7314bd58e0667be70342f0db4f2e7a8755"
+      },
+      "state": "État initial fictif, sans modification des champs ni menu ouvert",
+      "http_status": 200,
+      "language": "fr-CA",
+      "api_requests": [],
+      "page_errors": [],
+      "captured_at": "2026-10-25T14:34:01.130Z",
+      "heading": "Vérifier le consentement"
+    },
+    {
+      "id": "17-publication-mobile",
+      "file": "17-publication-mobile.png",
+      "title": "Étape Publication",
+      "route": "/demo/prestations/dossier/studio-canopée/publication",
+      "device": "mobile",
+      "viewport": { "width": 390, "height": 844 },
+      "png": {
+        "width": 390,
+        "height": 1919,
+        "bytes": 215971,
+        "sha256": "97e220ec42910bb2fe9ea84a1fc0f2ef9c1ecfc8a2d3a85b17eb15bf06c189fe"
+      },
+      "state": "État initial fictif, sans modification des champs ni menu ouvert",
+      "http_status": 200,
+      "language": "fr-CA",
+      "api_requests": [],
+      "page_errors": [],
+      "captured_at": "2026-10-25T14:34:17.259Z",
+      "heading": "Finaliser la publication"
+    },
+    {
+      "id": "18-planification-mobile",
+      "file": "18-planification-mobile.png",
+      "title": "Planification",
+      "route": "/demo/prestations/dossier/studio-canopée/planifier",
+      "device": "mobile",
+      "viewport": { "width": 390, "height": 844 },
+      "png": {
+        "width": 390,
+        "height": 1651,
+        "bytes": 194257,
+        "sha256": "3712b99a2c0213fde55a8626e435b2c8a6bda29e12dcdb0c49bb7beed1f89a90"
+      },
+      "state": "État initial fictif, sans modification des champs ni menu ouvert",
+      "http_status": 200,
+      "language": "fr-CA",
+      "api_requests": [],
+      "page_errors": [],
+      "captured_at": "2026-10-25T14:34:33.422Z",
+      "heading": "Planifier la publication"
+    },
+    {
+      "id": "19-confirmation-envoi-mobile",
+      "file": "19-confirmation-envoi-mobile.png",
+      "title": "Confirmation d’envoi",
+      "route": "/demo/prestations/dossier/studio-canopée/confirmer-envoi",
+      "device": "mobile",
+      "viewport": { "width": 390, "height": 844 },
+      "png": {
+        "width": 390,
+        "height": 1791,
+        "bytes": 212193,
+        "sha256": "eccb0086872fb6807d4c7e28d63a18365aff981fd6d1e3649af3640ccbd70445"
+      },
+      "state": "État initial fictif, sans modification des champs ni menu ouvert",
+      "http_status": 200,
+      "language": "fr-CA",
+      "api_requests": [],
+      "page_errors": [],
+      "captured_at": "2026-10-25T14:34:49.504Z",
+      "heading": "Relire la confirmation d’envoi"
+    },
+    {
+      "id": "20-fiche-web-mobile",
+      "file": "20-fiche-web-mobile.png",
+      "title": "Présentation Web",
+      "route": "/demo/prestations/dossier/atelier-boreal/web",
+      "device": "mobile",
+      "viewport": { "width": 390, "height": 844 },
+      "png": {
+        "width": 390,
+        "height": 1906,
+        "bytes": 236094,
+        "sha256": "3df4978bb02255517949084d085518adb7fa187e918262e8c93a99af38409cc3"
+      },
+      "state": "État initial fictif, sans modification des champs ni menu ouvert",
+      "http_status": 200,
+      "language": "fr-CA",
+      "api_requests": [],
+      "page_errors": [],
+      "captured_at": "2026-10-25T14:35:05.638Z",
+      "heading": "Présentation sur le site"
+    }
+  ],
+  "missing": [],
+  "visual_review": {
+    "reviewed_files": ["01-liste-desktop.png", "13-liste-mobile.png"],
+    "result": "Échantillons desktop et mobile inspectés visuellement : texte net, labels Consentement corrects, aucun menu ouvert ni débordement horizontal visible.",
+    "scope": "Inspection par échantillons, pas une validation visuelle exhaustive des 20 captures."
+  },
+  "totals": {
+    "captures": 20,
+    "desktop": 12,
+    "mobile": 8,
+    "png_bytes": 5374386,
+    "missing": 0
+  }
+}
