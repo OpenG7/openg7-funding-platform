@@ -1,0 +1,183 @@
+{
+  "serviceDemo": {
+    "title": "Service delivery",
+    "subtitle": "Find each file and its next intervention.",
+    "workspace": "Preparation workspace",
+    "skip": "Skip to content",
+    "demoTag": "Interactive demo",
+    "demoNotice": "Fictional data · Explore the screens and prepare a local draft. No sending or publishing.",
+    "language": "Switch to French",
+    "exit": "Exit",
+    "breadcrumb": "Breadcrumb",
+    "dossierLabel": "File:",
+    "offer": "Web + Facebook sponsorship",
+    "more": "Other actions",
+    "allActions": "All file actions",
+    "history": "Change history",
+    "agreement": "Agreement and promised services",
+    "proofs": "Delivery evidence",
+    "comment": "Add an internal comment",
+    "back": "Back",
+    "backList": "Back to services",
+    "fixtureLabel": "3 demonstration files",
+    "draftChanged": "Draft changed · in memory",
+    "draftSaved": "Draft kept for this visit",
+    "localOnly": "Local exploration only",
+    "stepsLabel": "Service steps",
+    "steps": {
+      "contenu": { "title": "Content", "hint": "Text and visuals" },
+      "autorisation": {
+        "title": "Consent",
+        "hint": "Content sharing"
+      },
+      "publication": {
+        "title": "Publication",
+        "hint": "Destination and timing"
+      }
+    },
+    "metrics": {
+      "total": "Files to follow",
+      "dossiers": "files",
+      "services": "Planned services",
+      "promised": "services",
+      "next": "Next interventions",
+      "interventions": "to explore"
+    },
+    "search": "Search files…",
+    "resultCount": "{{count}} result(s)",
+    "filters": {
+      "label": "Filter files",
+      "all": "All files",
+      "contenu": "Content to review",
+      "autorisation": "Consent to review",
+      "publication": "Publication to prepare"
+    },
+    "stageLabels": {
+      "contenu": "Content to review",
+      "autorisation": "Consent to review",
+      "publication": "Publication to prepare"
+    },
+    "nextActions": {
+      "contenu": "Review content",
+      "autorisation": "Review consent",
+      "publication": "Finalize publication"
+    },
+    "empty": {
+      "title": "No files found",
+      "hint": "Try another name or remove the filter.",
+      "reset": "Reset search"
+    },
+    "listHint": "Each file brings together promised services, content to prepare and evidence to review.",
+    "web": "Website presentation",
+    "facebook": "Facebook publication",
+    "preview": {
+      "title": "Publication preview",
+      "label": "Preview · demonstration content",
+      "text": "Meet {{name}}, a committed partner alongside OpenG7. Together, we support a stronger community and projects that bring us together.",
+      "imageAlt": "Panoramic landscape used as a demonstration visual",
+      "caption": "Illustrative preview. This content is not published.",
+      "open": "View exact content"
+    },
+    "facts": {
+      "payment": "Fictional confirmed payment",
+      "consent": "Sample consent",
+      "reference": "DEMO reference · October 2026"
+    },
+    "summary": {
+      "title": "File service tracking",
+      "services": "What was promised",
+      "webHint": "Partner profile on the OpenG7 website.",
+      "facebookHint": "One publication on the OpenG7 Facebook page.",
+      "toPrepare": "To prepare",
+      "toReview": "To review",
+      "nextTitle": "The next intervention",
+      "nextHint": "Review the text and visual before examining the consent applicable to this publication.",
+      "aiTitle": "A proposal to examine",
+      "aiHint": "Explore an alternative text prepared for this demonstration.",
+      "aiAction": "Examine proposal",
+      "proofHint": "View sample attachments and results."
+    },
+    "tasks": {
+      "contenu": {
+        "title": "Review content",
+        "hint": "Review what will be presented on behalf of the partner.",
+        "noticeTitle": "Preparation remains separate from consent",
+        "notice": "These checks describe an example. You can edit the draft without approving or publishing.",
+        "action": "Examine consent"
+      },
+      "autorisation": {
+        "title": "Review consent",
+        "hint": "Find the consent to share the content, its scope and the contact who provided it.",
+        "noticeTitle": "Sample consent",
+        "notice": "The email and conditions are fictional. The next confirmation is a preview screen.",
+        "action": "View confirmation"
+      },
+      "publication": {
+        "title": "Finalize publication",
+        "hint": "Check the version, destination and proposed timing.",
+        "noticeTitle": "Demonstration publication",
+        "notice": "Explore scheduling and the recap. Real sending and scheduling are disabled.",
+        "action": "View recap"
+      }
+    },
+    "contentChecks": {
+      "text": {
+        "title": "Publication text",
+        "hint": "Read and edit the partner’s message."
+      },
+      "image": {
+        "title": "Visual and presentation",
+        "hint": "View the image used in the preview."
+      },
+      "link": {
+        "title": "Links and destination",
+        "hint": "Check the address displayed in the draft."
+      },
+      "mentions": {
+        "title": "Partner mentions",
+        "hint": "Review the name and planned mentions."
+      }
+    },
+    "authorizationChecks": {
+      "consent": {
+        "title": "Explicit consent received — sample",
+        "hint": "Email dated October 22, 2026 · fictional content."
+      },
+      "conditions": {
+        "title": "Consent conditions",
+        "hint": "Scope, channel and reviewed version."
+      },
+      "contact": {
+        "title": "File contact",
+        "hint": "Camille Example · demonstration contact."
+      }
+    },
+    "publicationChecks": {
+      "destination": {
+        "title": "Destination",
+        "hint": "OpenG7 page · Facebook · disconnected sample."
+      },
+      "version": {
+        "title": "Exact content",
+        "hint": "Read the current text, visual and link."
+      },
+      "schedule": {
+        "title": "Proposed timing",
+        "hint": "Choose a date · America/Toronto time zone."
+      }
+    },
+    "authorizationMeta": {
+      "title": "Consent details — sample",
+      "date": "Date",
+      "dateValue": "October 22, 2026, 2:18 p.m.",
+      "contact": "By",
+      "contactValue": "Camille Example",
+      "method": "Method",
+      "methodValue": "Fictional email"
+    },
+    "requestCorrection": "Request a correction",
+    "editContent": "Edit content",
+    "missingTitle": "This view could not be found",
+    "missingHint": "Find available files and screens from the list."
+  }
+}

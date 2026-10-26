@@ -1,0 +1,55 @@
+{
+  "serviceDemoHelp": {
+    "toggle": "Un repère pour cette étape",
+    "contexts": {
+      "liste": {
+        "title": "Choisir un dossier",
+        "intro": "Chaque ligne indique la prochaine intervention à explorer pour un partenaire.",
+        "first": "Recherchez un nom ou filtrez les dossiers par étape.",
+        "second": "Ouvrez le dossier pour retrouver les prestations promises et leur aperçu."
+      },
+      "dossier": {
+        "title": "Comprendre ce qui reste à préparer",
+        "intro": "Le dossier réunit les prestations prévues pour un même partenaire.",
+        "first": "La présentation Web et la publication Facebook se consultent séparément.",
+        "second": "La prochaine intervention vous conduit à l’écran utile ; l’historique reste accessible dans Autres actions."
+      },
+      "contenu": {
+        "title": "Relire le message et son rendu",
+        "intro": "Examinez le texte, le visuel et le lien ensemble avant de poursuivre.",
+        "first": "Une ligne de contrôle ouvre l’élément à examiner ou à corriger.",
+        "second": "L’aperçu affiche votre brouillon actuel. Corriger le contenu ne confirme aucun consentement."
+      },
+      "autorisation": {
+        "title": "Comprendre la portée du consentement",
+        "intro": "Reliez le consentement au bon contact, au contenu examiné et au canal prévu.",
+        "first": "Ouvrez le courriel, les conditions ou le contact pour lire les exemples fournis.",
+        "second": "L’écran de confirmation permet de revoir le consentement ; aucun consentement réel n’est créé dans la démo."
+      },
+      "publication": {
+        "title": "Préparer la destination et l’horaire",
+        "intro": "Le récapitulatif rassemble le contenu exact, la destination et la date envisagée.",
+        "first": "Choisissez la date et le fuseau dans la planification, puis relisez le récapitulatif.",
+        "second": "L’envoi réel reste désactivé. Le suivi du résultat permet d’explorer les écrans suivants."
+      },
+      "corriger": {
+        "title": "Ajuster le brouillon local",
+        "intro": "Les onglets permettent de modifier un élément à la fois, avec son rendu à côté.",
+        "first": "Le texte, le lien, l’image et les options actualisent uniquement l’aperçu.",
+        "second": "Conservez le brouillon pour poursuivre l’exploration, puis revenez à l’étape d’origine."
+      },
+      "historique": {
+        "title": "Retrouver le contexte d’une modification",
+        "intro": "La chronologie présente des événements fictifs pour explorer la lecture des versions.",
+        "first": "Choisissez un filtre puis un événement pour consulter son détail.",
+        "second": "La comparaison aide à relire deux versions ; elle ne rétablit aucun contenu publié."
+      },
+      "details": {
+        "title": "Examiner le détail avant de revenir",
+        "intro": "Cette vue approfondit un élément du dossier sans quitter son contexte.",
+        "first": "Les champs servent à préparer ou à explorer un exemple local.",
+        "second": "Le bouton Retour rejoint la vue d’origine. Les opérations externes restent désactivées."
+      }
+    }
+  }
+}

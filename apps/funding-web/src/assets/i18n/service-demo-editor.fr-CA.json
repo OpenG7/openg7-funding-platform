@@ -1,0 +1,100 @@
+{
+  "serviceDemoEditor": {
+    "title": "Corriger le contenu",
+    "heading": "Éléments à corriger",
+    "description": "Ajustez le texte, l’image et les liens, puis examinez le rendu à droite.",
+    "tabsLabel": "Éléments du contenu",
+    "tabs": {
+      "texte": "Texte",
+      "image": "Image",
+      "liens": "Liens",
+      "mentions": "Mentions",
+      "options": "Options"
+    },
+    "textLabel": "Texte de la publication",
+    "textHelp": "Brouillon de démonstration. Les modifications actualisent uniquement cet aperçu.",
+    "characterCount": "{{count}} caractères",
+    "insertLink": "Modifier le lien",
+    "aiProposal": "Examiner une proposition",
+    "aiHeading": "Suggestions de rédaction",
+    "aiHelp": "Une proposition d’exemple est disponible à la lecture. Aucune requête IA n’est envoyée.",
+    "imageHeading": "Image de démonstration",
+    "visuals": {
+      "title": "Choisir un visuel d’exemple",
+      "panorama": "Paysage panoramique",
+      "companion": "Personnages OpenG7",
+      "altLabel": "Description du visuel",
+      "altHelp": "Décrivez le visuel choisi pour les personnes qui ne peuvent pas le voir. Laissez vide pour utiliser la description d’exemple."
+    },
+    "emptyText": "Le brouillon est vide. Saisissez votre texte pour le retrouver dans l’aperçu.",
+    "linkInvalid": "Saisissez une adresse complète commençant par https:// ou http://. Aucun lien n’est ouvert.",
+    "imageHelp": "Retrouvez le visuel dans l’aperçu. Son affichage peut être activé ou désactivé localement.",
+    "includeImage": "Afficher l’image dans l’aperçu",
+    "reviewImage": "Examiner le média",
+    "linkLabel": "Lien associé au brouillon",
+    "linkHelp": "Exemple : https://exemple.test. Ce champ n’ouvre ni ne contacte la destination.",
+    "linkNotice": "La saisie du lien reste locale à la démonstration.",
+    "mentionLabel": "Mention à examiner",
+    "mentionHelp": "Saisissez un nom de démonstration pour le retrouver sous l’aperçu.",
+    "mentionNotice": "Aucun compte n’est recherché et aucune personne n’est notifiée.",
+    "mentionPreview": "Mention en cours :",
+    "linkPreview": "Lien du brouillon :",
+    "optionsHeading": "Options de l’aperçu",
+    "optionsHelp": "Ces préférences servent à explorer le rendu du brouillon.",
+    "showLink": "Afficher le lien du brouillon sous l’aperçu",
+    "optionsNotice": "La destination, le consentement et l’autorisation d’envoi se consultent dans leurs étapes respectives.",
+    "saved": "Brouillon conservé pour cette visite. Aucun contenu n’a été approuvé ni publié.",
+    "previewHelp": "Aperçu de démonstration. Modifier ou conserver le brouillon n’autorise aucune publication.",
+    "history": "Voir l’historique",
+    "restore": "Examiner une version précédente",
+    "returnTo": {
+      "contenu": "Revenir au contenu",
+      "autorisation": "Revenir au consentement",
+      "publication": "Revenir à la publication"
+    },
+    "save": "Conserver le brouillon local"
+  },
+  "serviceDemoHistory": {
+    "filtersLabel": "Filtres de l’historique",
+    "filters": {
+      "tout": "Tout l’historique",
+      "modifications": "Modifications",
+      "commentaires": "Commentaires",
+      "fichiers": "Fichiers",
+      "autorisations": "Consentements",
+      "publications": "Publications"
+    },
+    "newestFirst": "Plus récents en premier",
+    "oldestFirst": "Plus anciens en premier",
+    "date": "{{day}} oct. 2026 à {{time}}",
+    "actors": {
+      "editor": "Équipe de démonstration",
+      "client": "Client fictif"
+    },
+    "events": {
+      "textCorrection": "Correction du texte",
+      "textCorrectionHelp": "Une nouvelle rédaction est proposée pour mieux expliquer le partenariat.",
+      "comment": "Commentaire du client fictif",
+      "commentHelp": "« Nous préférons mettre l’accent sur l’impact dans notre communauté. »",
+      "agreement": "Exemple de preuve de consentement",
+      "agreementHelp": "Un courriel fictif illustre les éléments à examiner avant une décision.",
+      "imageAdded": "Visuel ajouté au brouillon",
+      "imageAddedHelp": "Le visuel de démonstration est associé à la version initiale.",
+      "initialVersion": "Version initiale créée",
+      "initialVersionHelp": "Un texte et un visuel fictifs permettent d’explorer ce parcours."
+    },
+    "detail": "Détails de la version sélectionnée",
+    "before": "Texte avant",
+    "after": "Texte après",
+    "beforeText": "Découvrez notre partenariat avec OpenG7 et les initiatives de notre communauté.",
+    "afterText": "Ensemble, soutenons les initiatives de notre communauté. Découvrez ce que rend possible notre partenariat avec OpenG7.",
+    "synthetic": "Événements fictifs de référence. Les modifications du brouillon local ne créent pas de journal officiel.",
+    "empty": "Aucune publication dans cet exemple",
+    "emptyHelp": "Ce dossier de démonstration ne contient aucun envoi effectué.",
+    "noSelection": "Aucun événement sélectionné",
+    "noSelectionHelp": "Choisissez une autre catégorie pour consulter les événements fictifs.",
+    "compare": "Comparer deux versions",
+    "addComment": "Ajouter un commentaire interne",
+    "back": "Revenir au contenu"
+  }
+}
