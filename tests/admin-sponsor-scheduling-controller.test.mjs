@@ -869,6 +869,33 @@ test('a preparation that remains deferred never opens another dossier or approve
   assert.deepEqual(f.calls.moderate, []);
 });
 
+test('preparing a destination with multiple resulting deliveries requires an explicit choice', async (t) => {
+  const f = fixture(t);
+  await f.controller.load('synthetic-sponsor');
+  const first = delivery();
+  const second = delivery({ id: 'synthetic-second-delivery' });
+  f.current.state = serverState({
+    deliveries: [first, second],
+    queue: {
+      entries: [
+        entry({ deliveryId: first.id, reason: 'AWAITING_APPROVAL' }),
+        entry({
+          draftId: 'synthetic-second-draft',
+          deliveryId: second.id,
+          reason: 'AWAITING_APPROVAL'
+        })
+      ]
+    }
+  });
+  await f.controller.prepare('openg7:facebook');
+  assert.equal(f.calls.commands.length, 1);
+  assert.equal(f.controller.delivery.selected(), null);
+  assert.deepEqual(f.calls.moderate, []);
+  await f.controller.open(second.id);
+  assert.equal(f.controller.delivery.selected(), second);
+  assert.equal(f.calls.commands.length, 1);
+});
+
 test('preparation failure grants no approval and is never retried automatically', async (t) => {
   const f = fixture(t);
   await f.controller.load('synthetic-sponsor');

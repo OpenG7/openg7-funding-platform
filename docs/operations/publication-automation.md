@@ -63,10 +63,24 @@ it does not authorize sending. The benefit workflow shows confirmed completion,
 the current responsibility and reason, with a link to
 `/admin/fundraiser/campaigns?sponsorshipId=<uuid>` for detailed benefits and evidence.
 The full row-by-row obligation console is replaced by this summary. A benefit
-overview from the recorded offer remains above it. Six navigation steps connect
-the offer, preparation, content, authorization, delivery and evidence owners.
-They reuse the dossier sections and the exact delivery drawer; Automation and
-Service fulfilment links carry the dossier identifier without selecting an arbitrary draft.
+overview from the recorded offer remains above it. Six guideposts connect the
+offer, preparation, content, send authorization, delivery and evidence owners.
+The four latter views follow the selected social service. A unique recorded target
+can be recognized directly; multiple sources or deliveries require an explicit
+choice. The selection and return links retain the exact dossier, draft, delivery
+and obligation identifiers, without editorial or private contact data in URLs.
+Only a return matching the linked dossier and obligation can retain source IDs;
+the dossier owner validates them against its current catalogue again.
+
+Content, send authorization and result focus their real regions in the exact
+delivery drawer. Opening a region neither prepares nor authorizes a command.
+An unavailable region leaves focus on the normal drawer control and explains its
+state or permission limit inside the dialog. Evidence opens Service fulfilment on
+the exact obligation only when an explicit recorded relationship exists; sharing
+a channel is insufficient. A historical selection is not replaced by the current
+workflow delivery on return. Query-only selection changes keep the focus and
+scroll context inside the same dossier's Publication tab. After private preparation,
+several resulting deliveries no longer cause the first one to open arbitrarily.
 The website/social cards retain their dates and direct delivery
 actions. The recorded agreement, historical qualification, adjustments and timing
 remain in **Promised services** within the dossier; Service fulfilment does not replace
