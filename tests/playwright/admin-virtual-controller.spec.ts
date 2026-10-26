@@ -168,6 +168,10 @@ test('quick mouse clicks retain the focused field and edit through the native mo
   await pad.press(0);
   const editor = hook(page, 'controller-editor');
   await expect(editor).toBeVisible();
+  const initialKey = hook(page, 'editor-key').first();
+  await expect(initialKey).toBeFocused();
+  await field.evaluate((element: HTMLElement) => element.focus());
+  await expect(initialKey).toBeFocused();
   expect(
     await editor.evaluate((element) =>
       element.closest('dialog')?.matches(':modal')

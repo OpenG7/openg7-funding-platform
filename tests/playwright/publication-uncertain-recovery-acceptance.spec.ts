@@ -688,6 +688,9 @@ test('lost social responses survive restart and recover through verified reconci
         });
         expect((await delivery(job.id)).status).toBe('uncertain');
         await dialog
+          .locator('[data-og7="publication-more-actions"] > summary')
+          .click();
+        await dialog
           .getByText('Après vérification : la publication est absente', {
             exact: true
           })
