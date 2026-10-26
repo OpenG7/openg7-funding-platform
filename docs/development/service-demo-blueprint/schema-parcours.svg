@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="760" viewBox="0 0 1240 760" role="img" aria-labelledby="title desc">
+  <title id="title">Carte des parcours de la démo des prestations OpenG7</title>
+  <desc id="desc">La liste ouvre un dossier. Le dossier propose Contenu, Consentement et Publication. L'éditeur, l'historique, les aperçus et les preuves sont des détours. La présentation Web et sa visibilité restent séparées de la publication sociale. Les flèches décrivent uniquement des navigations.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#61768e"/></marker>
+    <style>text{font-family:Arial,sans-serif;fill:#142843}.label{font-size:21px;font-weight:700}.small{font-size:16px;fill:#52647a}.line{fill:none;stroke:#61768e;stroke-width:2;marker-end:url(#arrow)}.box{fill:#fff;stroke:#c9d7e7;stroke-width:1.5;rx:14}</style>
+  </defs>
+  <rect width="1240" height="760" rx="22" fill="#f3f7fc"/>
+  <text x="40" y="48" font-size="28" font-weight="700">Parcours d'exploration</text>
+  <text x="40" y="77" class="small">Les flèches représentent des navigations. Aucun changement d'état métier.</text>
+  <rect x="40" y="115" width="230" height="90" class="box"/><text x="60" y="151" class="label">Liste des prestations</text><text x="60" y="178" class="small">Recherche · filtres · dossiers</text>
+  <path d="M270 160H330" class="line"/>
+  <rect x="330" y="115" width="350" height="90" class="box"/><text x="350" y="151" class="label">Synthèse du dossier</text><text x="350" y="178" class="small">Prestations promises · prochaine intervention</text>
+  <path d="M505 205V250H210V280" class="line"/>
+  <path d="M505 250H620V280" class="line"/>
+  <path d="M620 250H1030V280" class="line"/>
+  <rect x="40" y="280" width="340" height="125" rx="14" fill="#ecf4ff" stroke="#8bb9f4"/><text x="60" y="318" class="label">1 · Contenu</text><text x="60" y="348" class="small">Texte · image · lien · mentions</text><text x="60" y="376" class="small">Aperçu du contenu exact</text>
+  <rect x="450" y="280" width="340" height="125" rx="14" fill="#fff7e5" stroke="#e0c27b"/><text x="470" y="318" class="label">2 · Consentement</text><text x="470" y="348" class="small">Message reçu · portée · contact</text><text x="470" y="376" class="small">Confirmation illustrative</text>
+  <rect x="860" y="280" width="340" height="125" rx="14" fill="#eaf7ef" stroke="#8ec5a3"/><text x="880" y="318" class="label">3 · Publication</text><text x="880" y="348" class="small">Destination · version · horaire</text><text x="880" y="376" class="small">Récapitulatif d'envoi sans effet</text>
+  <path d="M380 338H450" class="line"/><path d="M790 338H860" class="line"/>
+  <path d="M210 405V450" class="line"/><path d="M620 405V450" class="line"/><path d="M1030 405V450" class="line"/>
+  <rect x="40" y="450" width="340" height="100" class="box"/><text x="60" y="485" class="label">Éditeur et comparaison</text><text x="60" y="513" class="small">5 onglets · brouillon local · rétablir</text>
+  <rect x="450" y="450" width="340" height="100" class="box"/><text x="470" y="485" class="label">Demandes et pièces</text><text x="470" y="513" class="small">Correction · consentement · nom de fichier</text>
+  <rect x="860" y="450" width="340" height="100" class="box"/><text x="880" y="485" class="label">Résultat et reprise</text><text x="880" y="513" class="small">Réconciliation · attestation illustratives</text>
+  <rect x="40" y="610" width="560" height="98" class="box"/><text x="60" y="644" class="label">Historique · preuves · aide</text><text x="60" y="675" class="small">Consultables sans transformer une visite en décision réelle.</text>
+  <rect x="640" y="610" width="560" height="98" class="box"/><text x="660" y="644" class="label">Présentation Web et visibilité</text><text x="660" y="675" class="small">Aperçu distinct; le contenu reste partagé avec Facebook.</text>
+</svg>
