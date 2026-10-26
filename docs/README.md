@@ -1,6 +1,6 @@
 # Documentation de la plateforme
 
-Révision de l’index : 18 octobre 2026.
+Révision de l’index : 25 octobre 2026.
 L'[état de la plateforme](platform-status.md) distingue fonctions livrées,
 préconditions et preuves d'exécution. Présence dans le dépôt et activation
 en production restent distinctes.
@@ -14,8 +14,8 @@ Architecture en [français](ARCHITECTURE.md) **ou** [anglais](ARCHITECTURE.en.md
 La [consolidation](development/application-consolidation.md) recense règles
 partagées, propriétaires et vérifications.
 
-Le [blueprint fonctionnel et visuel](development/platform-functional-visual-blueprint.md)
-recense positions, responsabilités et onglets des pages.
+Blueprints : [pages de la plateforme](development/platform-functional-visual-blueprint.md)
+et [démo des prestations](development/service-demo-blueprint/README.md).
 
 La [référence CSS et frameworks](development/css-frameworks.md) présente l'inventaire
 reproductible, l'intégration Tailwind et les correspondances avec Material/CDK.

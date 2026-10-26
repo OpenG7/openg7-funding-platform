@@ -16,8 +16,13 @@ slots and drafts retain the exact stored instant, including seconds and the sele
 occurrence during a clock change. New or edited dates that do not exist or occur
 twice during a clock change are rejected: choose a unique local time before saving.
 Changing a slot's timezone interprets its entered local date/time in the new timezone.
-The delivery drawer uses the browser's local timezone and minute precision; saving
-a delivery serialises that displayed time.
+The delivery drawer uses the browser's local timezone and displays minutes. An
+unchanged delivery schedule retains the exact stored instant, including seconds
+and the selected occurrence during a clock change. A new or changed delivery
+date must occur exactly once in that browser timezone; missing or repeated local
+times are rejected before saving, with the entered content kept for correction.
+After rejection, the date field receives focus and its associated error is brought
+into view within the drawer's scrollable content so the schedule can be corrected.
 
 Moving a slot with linked deliveries is transactional: the server locks the
 deliveries before calendar membership, revokes obsolete approval, releases
@@ -34,6 +39,19 @@ requires rescheduling and review; it creates no provider call or fulfilled benef
 
 ## Dossier bridge
 
+The dossier's **Overview** presents recorded service obligations from the active
+agreement, including each channel, destination and occurrence. It counts qualified
+fulfilments, recorded waivers and remaining obligations separately; drafts,
+declared social statuses and simulated deliveries do not establish fulfilment.
+Missing, unconfirmed or empty agreements remain explicit without inferred totals.
+Each service links to its exact dossier and obligation in Service fulfilment.
+Workflow reasons and responsibilities remain server facts, and the existing next
+step retains priority. Evidence dates use `America/Toronto`; current profile
+visibility is a separate OpenG7-only fact. This read-only summary disappears while
+refreshing, after a failed or denied read, and when selecting another dossier.
+It replaces the static benefits recap in Overview once the dossier is loaded,
+without adding preparation or authorization actions.
+
 The sponsorship dossier’s Publication step reads its own server preparation queue,
 unprepared commitment candidates and deliveries to show the next proposed date for
 each destination, explicitly in `America/Toronto`. An unallocated forecast is an
@@ -45,14 +63,71 @@ it does not authorize sending. The benefit workflow shows confirmed completion,
 the current responsibility and reason, with a link to
 `/admin/fundraiser/campaigns?sponsorshipId=<uuid>` for detailed benefits and evidence.
 The full row-by-row obligation console is replaced by this summary. A benefit
-overview from the recorded offer remains above it. Six navigation steps connect
-the offer, preparation, content, authorization, delivery and evidence owners.
-They reuse the dossier sections and the exact delivery drawer; Automation and
-Service fulfilment links carry the dossier identifier without selecting an arbitrary draft.
+overview from the recorded offer remains above it. Six guideposts connect the
+offer, preparation, content, send authorization, delivery and evidence owners.
+The four latter views follow the selected social service. A unique recorded target
+can be recognized directly; multiple sources or deliveries require an explicit
+choice. The selection and return links retain the exact dossier, draft, delivery
+and obligation identifiers, without editorial or private contact data in URLs.
+Only a return matching the linked dossier and obligation can retain source IDs;
+the dossier owner validates them against its current catalogue again.
+
+Content, send authorization and result focus their real regions in the exact
+delivery drawer. Opening a region neither prepares nor authorizes a command.
+An unavailable region leaves focus on the normal drawer control and explains its
+state or permission limit inside the dialog. Evidence opens Service fulfilment on
+the exact obligation only when an explicit recorded relationship exists; sharing
+a channel is insufficient. A historical selection is not replaced by the current
+workflow delivery on return. Query-only selection changes keep the focus and
+scroll context inside the same dossier's Publication tab. After private preparation,
+several resulting deliveries no longer cause the first one to open arbitrarily.
 The website/social cards retain their dates and direct delivery
 actions. The recorded agreement, historical qualification, adjustments and timing
 remain in **Promised services** within the dossier; Service fulfilment does not replace
 those decisions. The review drawer labels dates with the browser's timezone.
+
+The final-publication drawer uses the existing wide modal shell. Desktop review
+places one editing form beside its content preview; narrow screens stack those
+same regions. The fixed footer holds one native save submit bound to that form.
+Its blue primary action uses local theme tokens. The drawer identifies the saved
+delivery version and unsaved changes; the initially expanded entered-text preview
+is separate from the saved text, schedule and version. It neither simulates the
+social network's layout nor establishes saving.
+
+Enlarging the preview is a reversible presentation state in the same dialog. It
+keeps the form and action regions mounted, temporarily hides them from interaction,
+restores the local-preview disclosure state and returns focus to the trigger.
+The usual discard guard protects the draft in either view. Closing, changing
+delivery or changing session resets enlargement. Readers retain the saved preview,
+enlargement and specialized history without mutation controls. Media remain the
+existing private previews. No second editor, approval, source object or API is added.
+
+A version conflict keeps the entries and explains how to retain useful corrections
+before closing and refreshing. Saving a draft remains distinct from authorizing
+it, and an edit revokes its prior authorization. API authorization remains the
+security boundary. Stable regions identify the saved content, editor, preview,
+authorization, result and footer. A presentation-only translated navigation notice
+can explain a region unavailable for the current state or rights inside the drawer.
+
+While editing, saving the draft is the primary action; the send authorization is
+shown in the saved review instead. Returning to review without saving is possible
+only when the fields are unchanged and no command is busy. It changes presentation,
+then focuses the authorization region or the preview; it neither checks the
+approval box nor changes the delivery version. Tab follows the native reading
+order from a programmatically focused region inside the drawer.
+
+The contextual **Other actions** disclosure groups the existing rejection,
+cancellation, visibility check and recorded-absence commands according to the
+delivery state. Opening it issues no command. Escape or controller B from inside
+it closes that disclosure first and returns focus to its summary. Held B cannot
+also close the drawer: another departure requires neutral input and its usual
+discard guard. A higher confirmation or virtual editor keeps priority. Readers
+receive no mutation disclosure. The commands retain their existing permissions,
+version checks, moderation and confirmation owners.
+
+The drawer's public-post link is shown only for a confirmed `published` delivery
+in `live` mode with an external URL. A mock result or an uncertain attempt may
+retain a provider reference, but that reference is not presented as a public post.
 
 The advanced settings distinguish **Public profile** (slug, public summary and
 private profile preview) from separately collapsed **Declared social tracking**
@@ -69,6 +144,14 @@ owner-only `/admin/fundraiser/sponsors/quality` page. The historical audit kept
 inside a dossier always sends its contribution filter; it cannot switch to the
 portfolio scope in place. Its **Sponsorship quality** link carries `returnSponsorshipId` so the
 return points to that dossier's Publication tab and agreement section.
+
+The dossier's Activity tab links its specialized sources: intervention journal,
+preparation approvals and service evidence, plus moderation decisions for users
+with the existing review capability. These remain separate sources; the activity
+list contains available milestones and recent admin actions, not a complete
+history of social content versions. Links retain the exact dossier scope, and
+closing an opened tool restores focus to the entry used to open it. Consultation
+does not record a new decision or send a publication.
 
 For an existing delivery, **Review and authorize** opens its exact final-publication
 drawer within step 6. **Change proposed time** opens the same delivery's editor. The
@@ -92,9 +175,18 @@ also clears cached proposals, the open drawer and its private edit fields.
 
 Closing an edited delivery or a new composition with the drawer's close button,
 Escape or controller B asks before discarding unsaved changes. Cancelling keeps
-the local fields and any save error; an active command prevents dismissal. This
-guard covers drawer dismissal, not navigation through links to other routes.
-Context and session invalidation retain their existing forced-close behavior.
+the local fields and any save error; an active command prevents dismissal. The
+same confirmation protects Angular route navigation from the Automation and
+sponsorship editors, including dossier, media and draft links, query-parameter
+changes on the current page, and browser back/forward. A cancelled navigation
+restores the current URL and history entry without clearing the draft. An accepted
+departure retains the fields until the navigation succeeds; it neither saves nor
+authorizes the publication. A subsequent navigation cancels the pending decision;
+any new departure with unsaved edits requires a fresh confirmation. Context and
+session invalidation retain their existing forced cleanup and cancel an obsolete
+discard confirmation. Browser
+reload, tab closure and navigation outside the Angular router are not covered;
+drafts are not persisted by this guard.
 
 The advanced workspace remains accessible with `sponsorshipId=<uuid>` and optionally
 `deliveryId=<uuid>`. These filters are accepted by

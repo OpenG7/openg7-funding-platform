@@ -22,7 +22,15 @@ import type {
 
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
+import {
+  AdminBadgeComponent,
+  type AdminBadgeTone
+} from '../admin-ui/admin-badge.component.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import {
+  dossierServiceSummary,
+  type DossierServiceStatus
+} from '../../models/admin-sponsorship-services-summary.js';
 
 import { AdminSponsorshipNextStepComponent } from './admin-sponsorship-next-step.component.js';
 import { AdminSponsorshipProgressController } from './admin-sponsorship-progress-controller.js';
@@ -35,6 +43,7 @@ import { AdminSponsorshipProgressController } from './admin-sponsorship-progress
     RouterLink,
     TranslatePipe,
     AdminIconComponent,
+    AdminBadgeComponent,
     AdminSponsorshipNextStepComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -87,6 +96,37 @@ export class AdminSponsorshipProgressComponent implements OnInit, OnChanges {
   });
   readonly data = this.controller.data;
   readonly state = this.controller.state;
+  readonly servicesSummary = computed(() => {
+    const dossier = this.data()?.dossier;
+    return dossier ? dossierServiceSummary(dossier) : null;
+  });
+
+  serviceTone(status: DossierServiceStatus): AdminBadgeTone {
+    if (status === 'fulfilled') return 'success';
+    if (status === 'blocked' || status === 'error') return 'danger';
+    if (['unverified', 'action_required', 'uncertain'].includes(status))
+      return 'warning';
+    return 'neutral';
+  }
+
+  serviceReason(reason: string): string {
+    const key =
+      'admin.dossier.publicationBridge.schedule.workflow.reason.' + reason;
+    const translated = this.i18n.t(key);
+    return translated === key
+      ? this.i18n.t('admin.sponsorsCleanup.servicesSummary.trackingUnavailable')
+      : translated;
+  }
+
+  serviceDate(value: string): string {
+    const date = new Date(value);
+    return Number.isFinite(date.getTime())
+      ? new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
+          dateStyle: 'medium',
+          timeZone: 'America/Toronto'
+        }).format(date)
+      : this.i18n.t('admin.sponsorsCleanup.servicesSummary.dateUnavailable');
+  }
 
   ngOnInit(): void {
     if (isPlatformBrowser(this.platform)) {

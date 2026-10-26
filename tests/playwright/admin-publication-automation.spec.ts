@@ -19,6 +19,11 @@ import {
   syntheticPublicationJpeg
 } from './publication-image-preview.ui.js';
 import { registerPublicationReliabilityTests } from './publication-reliability.ui.js';
+import { registerPublicationNavigationTests } from './publication-navigation.ui.js';
+import { registerPublicationContentReviewTests } from './publication-content-review.ui.js';
+import { registerPublicationContextActionsTests } from './publication-context-actions.ui.js';
+import { registerPublicationDrawerReliabilityTests } from './publication-drawer-reliability.ui.js';
+import { registerPublicationTransverseAcceptanceTests } from './publication-transverse-acceptance.ui.js';
 import {
   blockAdminReviewWrites,
   captureAdminDesign,
@@ -343,6 +348,28 @@ async function fixtures(
   return commands;
 }
 
+registerPublicationContextActionsTests({
+  setup: (page, options = {}) =>
+    fixtures(page, 'draft', false, [], options.job, {
+      role: options.reader ? 'reader' : undefined
+    })
+});
+
+registerPublicationDrawerReliabilityTests({
+  setup: (page, job) => fixtures(page, 'draft', false, [], job)
+});
+
+registerPublicationContentReviewTests({
+  setup: (page, options = {}) =>
+    fixtures(page, 'draft', options.conflict, [], options.job, {
+      role: options.reader ? 'reader' : undefined
+    })
+});
+
+registerPublicationTransverseAcceptanceTests({
+  setup: (page, options = {}) => fixtures(page, 'draft', false, [], options.job)
+});
+
 registerPublicationImagePreviewTests({
   setup: (page, job, media, privateBatchCompose = false) =>
     fixtures(page, 'draft', false, job.sponsors ?? [], job, {
@@ -353,6 +380,39 @@ registerPublicationImagePreviewTests({
 registerPublicationReliabilityTests({
   setup: (page, reliability) =>
     fixtures(page, 'draft', false, [], {}, { reliability })
+});
+
+registerPublicationNavigationTests({
+  host: 'automation',
+  open: async (page, destination) => {
+    const commands = await fixtures(
+      page,
+      destination === 'dossier' ? 'draft' : 'blocked',
+      false,
+      [1, 2].map((index) => ({
+        id: `10000000-0000-4000-8000-00000000040${index}`,
+        name: `Synthetic navigation sponsor ${index}`,
+        version: 'v1',
+        reviewStatus: 'pending_review',
+        presentationApproved: true,
+        paymentStatus: 'paid'
+      })),
+      {
+        kind: 'sponsorship',
+        batchId: '10000000-0000-4000-8000-000000000402',
+        errorCode:
+          destination === 'media'
+            ? 'MEDIA_CHANGED'
+            : destination === 'drafts'
+              ? 'SOURCE_CONTENT_MISSING'
+              : null
+      }
+    );
+    await page.goto(
+      '/admin/fundraiser/publications/automation?deliveryId=' + initialJob.id
+    );
+    return commands;
+  }
 });
 
 const publicationPalettes = {
@@ -1629,6 +1689,192 @@ for (const language of ['fr-CA', 'en']) {
   }
 }
 
+for (const language of ['fr-CA', 'en'] as const) {
+  for (const composing of [false, true]) {
+    test(`publication navigation protects its ${composing ? 'composition' : 'delivery draft'} through browser back cancellation and returns to the exact dossier scope in ${language}`, async ({
+      page
+    }) => {
+      const sponsorId = '10000000-0000-4000-8000-000000000401';
+      const commands = await fixtures(page, 'draft', false, [
+        {
+          id: sponsorId,
+          name: 'Synthetic browser history sponsor',
+          version: 'v1',
+          reviewStatus: 'approved',
+          presentationApproved: true,
+          paymentStatus: 'paid'
+        }
+      ]);
+      const mutations: string[] = [];
+      page.on('request', (request) => {
+        if (
+          new URL(request.url()).pathname.startsWith('/api/admin/') &&
+          !['GET', 'HEAD', 'OPTIONS'].includes(request.method())
+        )
+          mutations.push(request.url());
+      });
+      await page.addInitScript(
+        (locale) => localStorage.setItem('openg7.language', locale),
+        language
+      );
+      const english = language === 'en';
+      await page.goto(
+        '/admin/fundraiser/publications/automation?sponsorshipId=' + sponsorId
+      );
+      const scopedUrl = page.url();
+      await page
+        .locator(
+          '[data-og7="publication-dossier-context"] a[href="/admin/fundraiser/publications/automation"]'
+        )
+        .click();
+      await expect(page).toHaveURL(
+        /\/admin\/fundraiser\/publications\/automation$/
+      );
+      const originalUrl = page.url();
+      if (composing)
+        await page
+          .getByRole('button', {
+            name: english ? 'New publication' : 'Nouvelle publication',
+            exact: true
+          })
+          .click();
+      else await page.locator(`[data-og7-id="${initialJob.id}"]`).click();
+      const dialog = page.getByRole('dialog', {
+        name: english ? 'Final publication' : 'Publication finale',
+        exact: true
+      });
+      if (!composing)
+        await dialog
+          .getByRole('button', {
+            name: english ? 'Edit' : 'Modifier',
+            exact: true
+          })
+          .click();
+      const text = dialog.locator('textarea[name="message"]');
+      const unsaved = 'Synthetic browser history draft to preserve.';
+      await text.fill(unsaved);
+      const confirmation = page.getByRole('dialog').filter({
+        has: page.locator('[data-og7="confirm-action"]')
+      });
+
+      await page.evaluate(() => history.back());
+      await expect(confirmation).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(confirmation).toBeHidden();
+      await expect(page).toHaveURL(originalUrl);
+      await expect(text).toHaveValue(unsaved);
+      await expect(text).toBeFocused();
+      expect(commands).toEqual([]);
+      expect(mutations).toEqual([]);
+
+      await page.evaluate(() => history.back());
+      await expect(confirmation).toBeVisible();
+      await confirmation.locator('[data-og7="confirm-action"]').click();
+      await expect(page).toHaveURL(scopedUrl);
+      await expect(dialog).toBeHidden();
+      await expect(confirmation).toBeHidden();
+      await expect(
+        page.locator('[data-og7="publication-dossier-context"]')
+      ).toBeVisible();
+      expect(commands).toEqual([]);
+      expect(mutations).toEqual([]);
+    });
+  }
+}
+
+for (const language of ['fr-CA', 'en'] as const) {
+  test(`publication navigation cancels an obsolete browser back decision when forward supersedes it in ${language}`, async ({
+    page
+  }) => {
+    const sponsorId = '10000000-0000-4000-8000-000000000401';
+    const commands = await fixtures(page, 'draft', false, [
+      {
+        id: sponsorId,
+        name: 'Synthetic superseded navigation sponsor',
+        version: 'v1',
+        reviewStatus: 'approved',
+        presentationApproved: true,
+        paymentStatus: 'paid'
+      }
+    ]);
+    await page.addInitScript(
+      (locale) => localStorage.setItem('openg7.language', locale),
+      language
+    );
+    const mutations: string[] = [];
+    page.on('request', (request) => {
+      if (
+        new URL(request.url()).pathname.startsWith('/api/admin/') &&
+        !['GET', 'HEAD', 'OPTIONS'].includes(request.method())
+      )
+        mutations.push(request.url());
+    });
+    await page.goto(
+      '/admin/fundraiser/publications/automation?sponsorshipId=' + sponsorId
+    );
+    const scopedUrl = page.url();
+    await page
+      .locator(
+        '[data-og7="publication-dossier-context"] a[href="/admin/fundraiser/publications/automation"]'
+      )
+      .click();
+    await expect(page).toHaveURL(
+      /\/admin\/fundraiser\/publications\/automation$/
+    );
+    const originalUrl = page.url();
+    await page.locator(`[data-og7-id="${initialJob.id}"]`).click();
+    const english = language === 'en';
+    const dialog = page.getByRole('dialog', {
+      name: english ? 'Final publication' : 'Publication finale',
+      exact: true
+    });
+    await dialog
+      .getByRole('button', {
+        name: english ? 'Edit' : 'Modifier',
+        exact: true
+      })
+      .click();
+    const text = dialog.locator('textarea[name="message"]');
+    const unsaved = 'Synthetic draft protected from an obsolete navigation.';
+    await text.fill(unsaved);
+    const confirmation = page.getByRole('dialog').filter({
+      has: page.locator('[data-og7="confirm-action"]')
+    });
+    await page.evaluate(() => history.back());
+    await expect(confirmation).toBeVisible();
+    const obsoleteDecision = await confirmation
+      .locator('[data-og7="confirm-action"]')
+      .elementHandle();
+    expect(obsoleteDecision).not.toBeNull();
+    try {
+      await page.evaluate(() => history.forward());
+      await expect(confirmation).toBeHidden();
+      await expect(page).toHaveURL(originalUrl);
+      await expect(text).toHaveValue(unsaved);
+      await expect
+        .poll(() =>
+          obsoleteDecision!.evaluate((element) => element.isConnected)
+        )
+        .toBe(false);
+      expect(commands).toEqual([]);
+      expect(mutations).toEqual([]);
+
+      await page.evaluate(() => history.back());
+      await expect(confirmation).toBeVisible();
+      await expect(text).toHaveValue(unsaved);
+      expect(commands).toEqual([]);
+      await confirmation.locator('[data-og7="confirm-action"]').click();
+      await expect(page).toHaveURL(scopedUrl);
+      await expect(dialog).toBeHidden();
+      await expect(confirmation).toBeHidden();
+      expect(commands).toEqual([]);
+      expect(mutations).toEqual([]);
+    } finally {
+      await obsoleteDecision?.dispose();
+    }
+  });
+}
+
 test('approves the exact destination and version only after an explicit decision; edits revoke approval', async ({
   page
 }) => {
@@ -1682,7 +1928,7 @@ test('unsaved changes cannot be approved and stale versions never show success',
   await dialog.getByLabel('Texte exact à publier').fill('A local change');
   await expect(
     dialog.getByRole('checkbox', { name: /J’approuve/ })
-  ).toBeDisabled();
+  ).toHaveCount(0);
   expect(commands).toHaveLength(0);
   await dialog
     .getByRole('button', { name: 'Enregistrer le brouillon' })
@@ -1709,6 +1955,9 @@ test('exceptions require investigation and never offer a blind retry', async ({
   await expect(
     dialog.getByRole('button', { name: 'Annuler cet envoi' })
   ).toHaveCount(0);
+  await dialog
+    .locator('[data-og7="publication-more-actions"] > summary')
+    .click();
   await dialog
     .getByText('Après vérification : la publication est absente', {
       exact: true
@@ -2154,6 +2403,9 @@ for (const language of ['fr-CA', 'en'] as const) {
         }
       ]);
       await dialog
+        .locator('[data-og7="publication-more-actions"] > summary')
+        .click();
+      await dialog
         .locator('summary')
         .filter({
           hasText: english
@@ -2240,12 +2492,12 @@ for (const [language, width] of [
       english ? 'edit the source drafts' : 'modifiez les brouillons sources'
     );
     await expect(text).toHaveValue(incompleteMessage);
-    await expect(dialog.getByRole('checkbox')).toBeDisabled();
+    await expect(dialog.getByRole('checkbox')).toHaveCount(0);
     await expect(
       dialog.getByRole('button', {
         name: english ? 'Accept and schedule' : 'Accepter et programmer'
       })
-    ).toBeDisabled();
+    ).toHaveCount(0);
     await expect(
       page.getByText(english ? 'Saved.' : 'Enregistré.', { exact: true })
     ).toHaveCount(0);
@@ -2372,7 +2624,9 @@ for (const language of ['fr-CA', 'en'] as const) {
         (locale) => localStorage.setItem('openg7.language', locale),
         language
       );
-      const commands = await fixtures(page, 'uncertain');
+      const commands = await fixtures(page, 'uncertain', false, [], {
+        mode: 'live'
+      });
       const en = language === 'en';
       await page.goto(
         '/admin/fundraiser/publications/automation?deliveryId=' + initialJob.id
@@ -2416,6 +2670,9 @@ for (const language of ['fr-CA', 'en'] as const) {
       await page.unroute('**/api/**');
       const absenceCommands = await fixtures(page, 'uncertain');
       await page.reload();
+      await dialog
+        .locator('[data-og7="publication-more-actions"] > summary')
+        .click();
       await dialog
         .locator('summary')
         .filter({
@@ -2537,6 +2794,9 @@ test('refusing a proposal requires a decision and moves it to history', async ({
   await page.goto('/admin/fundraiser/publications/automation');
   await page.locator('[data-og7-id="' + initialJob.id + '"]').click();
   const dialog = page.getByRole('dialog', { name: 'Publication finale' });
+  await dialog
+    .locator('[data-og7="publication-more-actions"] > summary')
+    .click();
   await dialog.getByRole('button', { name: 'Refuser', exact: true }).click();
   await expect(page.locator('[data-og7="moderation-decision"]')).toBeVisible();
   expect(commands).toHaveLength(0);

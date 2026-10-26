@@ -56,7 +56,7 @@ import type {
               </button>
             </dd>
           </div>
-          <div>
+          <div *ngIf="showBenefits()">
             <dt>{{ 'admin.legacy.avantages' | translate }}</dt>
             <dd>{{ overview().benefitsLabel }}</dd>
           </div>
@@ -252,6 +252,7 @@ export class AdminSponsorDetailOverviewComponent {
   private readonly details = viewChild<ElementRef<HTMLElement>>('details');
   readonly noteOpen = signal(false);
   readonly overview = input.required<AdminSponsorDetailOverviewView>();
+  readonly showBenefits = input(true);
   readonly disabled = input(false);
   readonly copyReference = output<void>();
   readonly sectionRequested = output<SponsorDetailsTab>();

@@ -1,4 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
+import { AxeBuilder } from '@axe-core/playwright';
 import type { AdminSponsorshipRecord } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
@@ -28,6 +29,117 @@ export function registerSponsorHistoryPanelTests({
   path,
   tabs
 }: HistoryPanelTestContext): void {
+  for (const locale of ['fr-CA', 'en'] as const) {
+    for (const width of [1536, 390, 1280, 768]) {
+      test(`history sources preserve dossier scope and consultation rights in ${locale} at ${width}px`, async ({
+        page
+      }, testInfo) => {
+        const reader = width === 390;
+        const { calls } = await fixtures(page, reader ? 'reader' : 'owner');
+        await page.addInitScript(
+          (value) => localStorage.setItem('openg7.language', value),
+          locale
+        );
+        const shortViewport = width === 1280 || width === 768;
+        await page.setViewportSize({
+          width,
+          height: width === 1280 ? 520 : width === 768 ? 432 : 864
+        });
+        await page.goto(path('audit'));
+        const history = page.locator('[data-og7="dossier-audit-history"]');
+        const sources = page.locator('[data-og7="dossier-history-sources"]');
+        await expect(sources).toBeVisible();
+        await expect(sources).toContainText(
+          locale === 'en' ? 'History sources' : 'Sources de l’historique'
+        );
+        await expect(
+          sources.locator('[data-og7-id="evidence"]')
+        ).toHaveAttribute(
+          'href',
+          `/admin/fundraiser/campaigns?sponsorshipId=${id}`
+        );
+        const preparation = sources.locator('[data-og7-id="preparation"]');
+        await expect(preparation).toHaveAttribute(
+          'href',
+          path('publication') + '#dossier-preparation'
+        );
+        await expect(sources.locator('[data-og7-id="moderation"]')).toHaveCount(
+          reader ? 0 : 1
+        );
+        const filter = history.getByRole('combobox');
+        await filter.selectOption('publication');
+        const journal = sources.locator('[data-og7-id="interventions"]');
+        await expect(journal).toBeEnabled();
+        await journal.focus();
+        await page.keyboard.press('Enter');
+        const dialog = page.locator('dialog[open]');
+        await expect(dialog).toHaveCount(1);
+        await expect(dialog).toBeVisible();
+        await page.keyboard.press('Escape');
+        await expect(dialog).toHaveCount(0);
+        await expect(journal).toBeFocused();
+        await expect(filter).toHaveValue('publication');
+        await expect(page).toHaveURL(path('audit'));
+        if (!reader) {
+          const moderation = sources.locator('[data-og7-id="moderation"]');
+          await moderation.focus();
+          await page.keyboard.press('Enter');
+          const close = page.locator('[data-og7="dossier-tool-close"]');
+          await expect(close).toBeFocused();
+          await close.click();
+          await expect(moderation).toBeFocused();
+          await expect(filter).toHaveValue('publication');
+        }
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth + 1
+          )
+        ).toBe(true);
+        expect(
+          (
+            await new AxeBuilder({ page })
+              .include('[data-og7="dossier-history-sources"]')
+              .analyze()
+          ).violations
+        ).toEqual([]);
+        if (shortViewport) {
+          const lastLink = sources.getByRole('link').last();
+          await lastLink.focus();
+          await expect(lastLink).toBeFocused();
+          await expect
+            .poll(() =>
+              lastLink.evaluate((element) => {
+                const bounds = element.getBoundingClientRect();
+                const x = bounds.left + bounds.width / 2;
+                const y = bounds.top + bounds.height / 2;
+                const hit = document.elementFromPoint(x, y);
+                return (
+                  x >= 0 &&
+                  x <= innerWidth &&
+                  y >= 0 &&
+                  y <= innerHeight &&
+                  !!hit &&
+                  (hit === element || element.contains(hit))
+                );
+              })
+            )
+            .toBe(true);
+        }
+        await page.screenshot({
+          path: testInfo.outputPath(`history-sources-${locale}-${width}.png`),
+          fullPage: false,
+          animations: 'disabled'
+        });
+        await preparation.focus();
+        await page.keyboard.press('Enter');
+        await expect(page).toHaveURL(
+          path('publication') + '#dossier-preparation'
+        );
+        await expect(page.locator('#dossier-preparation')).toBeFocused();
+        expect(calls.every((call) => call.method === 'GET')).toBe(true);
+      });
+    }
+  }
   for (const [locale, width] of [
     ['fr-CA', 1280],
     ['en', 390]

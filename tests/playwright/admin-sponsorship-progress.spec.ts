@@ -32,6 +32,7 @@ import { registerMediaReviewWorkspaceTests } from './media-review-workspace.ui.j
 import { registerSponsorPublicationCleanupTests } from './admin-sponsors-publication-cleanup.ui.js';
 import { registerSponsorToolTests } from './admin-sponsor-tools.ui.js';
 import { registerSponsorsQualityTests } from './admin-sponsors-quality.ui.js';
+import { registerDossierServiceSummaryTests } from './dossier-service-summary.ui.js';
 
 const id = '10000000-0000-4000-8000-000000000401';
 const secondId = '10000000-0000-4000-8000-000000000402';
@@ -760,6 +761,7 @@ registerSponsorResultsTests({ fixtures });
 registerSponsorPublicationCleanupTests({ fixtures, path, recordedCommitment });
 registerSponsorToolTests({ fixtures, path, secondId });
 registerSponsorsQualityTests({ fixtures, path });
+registerDossierServiceSummaryTests({ fixtures, path, recordedCommitment });
 registerContributionActivityOverlayTests({
   setup: async (page) => {
     const { options } = await fixtures(page, 'operator');
@@ -3399,7 +3401,10 @@ test('overview shortcuts keep profile, finances and internal notes reachable', a
   await page.goto(path());
   const summary = page.locator('[data-og7="dossier-overview-summary"]');
   await expect(summary.locator('code')).toHaveText('DEMO-401');
-  await expect(summary.locator('dl > div')).toHaveCount(2);
+  await expect(
+    page.locator('[data-og7="dossier-service-summary"]')
+  ).toBeVisible();
+  await expect(summary.locator('dl > div')).toHaveCount(1);
   await expect(
     summary.getByRole('button', { name: 'Copier', exact: true })
   ).toBeEnabled();
@@ -3777,7 +3782,7 @@ for (const width of [1280, 390]) {
     await expect(summary).toContainText('4 sur 6 étapes réglées');
     await expect(details).not.toHaveAttribute('open', '');
     await expect(details.locator('[data-og7-id="payment"]')).toBeHidden();
-    await expect(progress(page).getByRole('link')).toHaveCount(0);
+    await expect(details.getByRole('link')).toHaveCount(0);
     await expect(progress(page).getByRole('button')).toHaveCount(0);
     const refresh = page.locator('[data-og7="dossier-refresh"]');
     await expect(refresh).toHaveAccessibleName('Actualiser le dossier');
@@ -4123,11 +4128,10 @@ test('completed dossiers have a completion message without a next-step link in e
     ).toBeVisible();
     await expect(page.locator('[data-og7="dossier-next"]')).toHaveCount(0);
     if (url === path()) {
-      await expect(progress(page).getByRole('link')).toHaveCount(0);
-      await page
-        .locator('[data-og7="dossier-progress-details"] > summary')
-        .click();
-      await expect(progress(page).locator('[data-og7-id]')).toHaveCount(6);
+      const details = page.locator('[data-og7="dossier-progress-details"]');
+      await expect(details.getByRole('link')).toHaveCount(0);
+      await details.locator('summary').click();
+      await expect(details.locator('[data-og7-id]')).toHaveCount(6);
     } else {
       await expect(progress(page).locator('ol').getByRole('link')).toHaveCount(
         6
@@ -5720,10 +5724,16 @@ for (const english of [false, true]) {
       expectedAssignedTo: 'admin:' + secondId
     });
     await actions.getByRole('combobox').first().selectOption('N0');
-    await actions
-      .locator('[data-og7="moderation-resolve-reconsideration"]')
-      .click();
+    const resolve = actions.locator(
+      '[data-og7="moderation-resolve-reconsideration"]'
+    );
+    // Native keyboard activation avoids a WebKit click lost during smooth scrolling.
+    await expect(resolve).toBeEnabled();
+    await resolve.focus();
+    await expect(resolve).toBeFocused();
+    await page.keyboard.press('Enter');
     const panel = page.locator('[data-og7="moderation-decision"]');
+    await expect(panel).toBeVisible();
     await expect(
       panel.locator('[data-og7="moderation-internal-reason"]')
     ).toHaveCount(0);

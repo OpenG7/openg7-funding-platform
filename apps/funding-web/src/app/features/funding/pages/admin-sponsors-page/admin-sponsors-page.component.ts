@@ -150,6 +150,7 @@ type SponsorDossierTool = 'moderation' | 'access';
 export class AdminSponsorsPageComponent implements OnInit {
   readonly sponsorsList = viewChild(AdminSponsorsListPanelComponent);
   readonly dossierTool = signal<SponsorDossierTool | null>(null);
+  private dossierToolReturnTarget: HTMLElement | null = null;
   readonly visitedDossierTools = signal<ReadonlySet<SponsorDossierTool>>(
     new Set()
   );
@@ -159,6 +160,9 @@ export class AdminSponsorsPageComponent implements OnInit {
     FundingModerationActionsComponent
   );
   private readonly sponsorEdit = viewChild(AdminSponsorEditComponent);
+  private readonly sponsorInterventions = viewChild(
+    AdminSponsorshipInterventionsComponent
+  );
   readonly dossierToolBusy = computed(
     () => !!this.sponsorAccess()?.busy() || !!this.dossierModeration()?.busy()
   );
@@ -182,6 +186,10 @@ export class AdminSponsorsPageComponent implements OnInit {
     this.openDossierTool('access', false);
   }
 
+  openHistoryInterventions(): void {
+    if (!this.dossierToolBusy()) void this.sponsorInterventions()?.open();
+  }
+
   openDossierTool(tool: SponsorDossierTool, toggle = true): void {
     if (
       this.dossierToolBusy() ||
@@ -193,6 +201,10 @@ export class AdminSponsorsPageComponent implements OnInit {
       this.closeDossierTool();
       return;
     }
+    const panel = this.sponsorDetailPanel?.nativeElement;
+    const active = panel?.ownerDocument.activeElement as HTMLElement | null;
+    this.dossierToolReturnTarget =
+      active && panel?.contains(active) ? active : null;
     this.visitedDossierTools.update((visited) => new Set([...visited, tool]));
     this.dossierTool.set(tool);
     const sponsorshipId = this.selectedSponsorshipId();
@@ -225,6 +237,8 @@ export class AdminSponsorsPageComponent implements OnInit {
     event?.stopPropagation();
     const tool = this.dossierTool();
     const sponsorshipId = this.selectedSponsorshipId();
+    const returnTarget = this.dossierToolReturnTarget;
+    this.dossierToolReturnTarget = null;
     this.dossierTool.set(null);
     afterNextRender(
       () => {
@@ -234,9 +248,11 @@ export class AdminSponsorsPageComponent implements OnInit {
         )
           return;
         const trigger =
-          this.sponsorDetailPanel?.nativeElement.querySelector<HTMLElement>(
-            `[data-og7="dossier-tool-toggle"][data-og7-id="${tool}"]`
-          );
+          returnTarget?.isConnected && returnTarget.getClientRects().length
+            ? returnTarget
+            : this.sponsorDetailPanel?.nativeElement.querySelector<HTMLElement>(
+                `[data-og7="dossier-tool-toggle"][data-og7-id="${tool}"]`
+              );
         if (!trigger) return;
         trigger.focus({ preventScroll: true });
         const rect = trigger.getBoundingClientRect();
@@ -809,6 +825,9 @@ export class AdminSponsorsPageComponent implements OnInit {
         );
       if (!element) return;
       this.pendingSection.set(null);
+      // Resolve the new section's layout before native focus/scroll alignment.
+      // Keep scrollIntoView so nested workspaces and CSS scroll margins apply.
+      element.getBoundingClientRect();
       element.focus({ preventScroll: true });
       element.scrollIntoView({ block: 'start', behavior: 'instant' });
     });

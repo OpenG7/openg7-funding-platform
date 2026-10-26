@@ -98,9 +98,14 @@ export class AdminSponsorsNavigationAdapter {
       ...Object.keys(current.queryParams),
       ...Object.keys(target.queryParams)
     ]);
+    const samePublication =
+      current.queryParams['tab'] === 'publication' &&
+      target.queryParams['tab'] === 'publication';
     return [...keys].every(
       (key) =>
         key === 'tab' ||
+        (samePublication &&
+          ['draftId', 'deliveryId', 'obligationId'].includes(key)) ||
         JSON.stringify(current.queryParams[key]) ===
           JSON.stringify(target.queryParams[key])
     );

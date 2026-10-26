@@ -69,6 +69,26 @@
       <p role="status">{{ 'admin.historicalAudit.saved' | translate }}</p>
     }
     @if (c.data(); as data) {
+      <div class="audit-reading-scope">
+        <p data-og7="historical-audit-as-of">
+          {{ labels.t('audit.asOf') }}
+          @if (date(data.asOf); as asOf) {
+            <time [attr.datetime]="data.asOf">{{ asOf }}</time>
+            <span>{{ labels.t('audit.timezone') }}</span>
+          } @else {
+            {{ labels.t('audit.dateUnavailable') }}
+          }
+        </p>
+        <p data-og7="historical-audit-page-summary">
+          {{
+            labels.t('audit.pageCount', {
+              count: data.items.length,
+              limit: data.pageSize
+            })
+          }}
+        </p>
+        <p>{{ labels.t('audit.snapshotScope') }}</p>
+      </div>
       @if (scope() === 'portfolio') {
         <p data-og7-id="historical-audit-counts">
           {{
@@ -106,10 +126,40 @@
             class="space-y-2 rounded-lg border border-slate-300 p-3"
             data-og7-id="historical-audit-item"
           >
-            <p class="break-all">
-              {{ item.channel }} · {{ item.target }} · {{ item.deliveredAt
-              }}<br />{{ item.evidenceId }}
+            <p class="audit-item-heading">
+              <strong
+                >{{
+                  'admin.commitments.channels.' + item.channel | translate
+                }}
+                · {{ item.target === 'openg20' ? 'OpenG20' : 'OpenG7' }}</strong
+              >
             </p>
+            <p>
+              {{ labels.t('audit.deliveredAt') }}
+              @if (date(item.deliveredAt); as deliveredAt) {
+                <time
+                  data-og7="historical-audit-evidence-date"
+                  [attr.datetime]="item.deliveredAt"
+                  >{{ deliveredAt }}</time
+                >
+                <span>{{ labels.t('audit.timezone') }}</span>
+              } @else {
+                {{ labels.t('audit.dateUnavailable') }}
+              }
+            </p>
+            <a
+              class="admin-link"
+              [routerLink]="
+                c.saving() || c.pending() ? null : '/admin/fundraiser/campaigns'
+              "
+              [attr.aria-disabled]="c.saving() || c.pending() ? 'true' : null"
+              [queryParams]="{
+                sponsorshipId: item.contributionId,
+                obligationId: item.obligationId
+              }"
+              data-og7="historical-audit-open-evidence"
+              >{{ labels.t('audit.openEvidence') }}</a
+            >
             @if (scope() === 'portfolio') {
               <a
                 class="admin-link"
@@ -148,14 +198,65 @@
               </p>
             }
             @if (item.latestReview; as review) {
-              <p>
-                {{
-                  'admin.historicalAudit.conclusions.' + review.conclusion
-                    | translate
-                }}
-                · {{ review.reviewedAt }}
+              <section
+                class="audit-latest-review"
+                data-og7="historical-audit-latest-review"
+              >
+                <h4>{{ labels.t('audit.latestReview') }}</h4>
+                <p>
+                  {{
+                    'admin.historicalAudit.conclusions.' + review.conclusion
+                      | translate
+                  }}
+                </p>
+                <p>
+                  @if (date(review.reviewedAt); as reviewedAt) {
+                    <time
+                      data-og7="historical-audit-review-date"
+                      [attr.datetime]="review.reviewedAt"
+                      >{{ reviewedAt }}</time
+                    >
+                    <span>{{ labels.t('audit.timezone') }}</span>
+                  } @else {
+                    {{ labels.t('audit.dateUnavailable') }}
+                  }
+                </p>
+                <p>{{ labels.t('audit.reviewScope') }}</p>
+              </section>
+            } @else {
+              <p data-og7="historical-audit-no-review">
+                {{ labels.t('audit.noReview') }}
               </p>
             }
+            <details data-og7="historical-audit-references">
+              <summary>{{ labels.t('audit.references') }}</summary>
+              <dl class="audit-references">
+                <div>
+                  <dt>{{ labels.t('audit.evidenceReference') }}</dt>
+                  <dd>
+                    <code>{{ item.evidenceId }}</code>
+                  </dd>
+                </div>
+                <div>
+                  <dt>{{ labels.t('audit.obligationReference') }}</dt>
+                  <dd>
+                    <code>{{ item.obligationId }}</code>
+                  </dd>
+                </div>
+                <div>
+                  <dt>{{ labels.t('audit.reviewVersion') }}</dt>
+                  <dd>{{ item.reviewVersion }}</dd>
+                </div>
+                @if (item.latestReview; as review) {
+                  <div>
+                    <dt>{{ labels.t('audit.reviewReference') }}</dt>
+                    <dd>
+                      <code>{{ review.id }}</code>
+                    </dd>
+                  </div>
+                }
+              </dl>
+            </details>
             <button
               type="button"
               class="admin-button"
@@ -169,6 +270,7 @@
         }
       </ul>
       @if (data.nextCursor) {
+        <p>{{ labels.t('audit.nextPageScope') }}</p>
         <button
           type="button"
           class="admin-button"

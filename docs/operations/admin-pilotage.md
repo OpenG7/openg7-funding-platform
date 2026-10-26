@@ -96,6 +96,10 @@ contrôle radial rejoint aussi le bandeau. À la manette, A active le contrôle
 focalisé et B depuis le bandeau revient au radial sans préparer de refus.
 LB/RB changent de décision hors dialogue. Un changement de zone ou de cible
 impose le retour au neutre. Les panneaux ouverts conservent leur priorité.
+Lorsqu’un tiroir partagé est ouvert, l’ordre effectif d’ouverture des dialogues
+natifs conserve la priorité du panneau supérieur, y compris du clavier de manette.
+Une tentative de focus vers un panneau inférieur restitue le dernier contrôle
+disponible du panneau supérieur ; sa fermeture retrouve le déclencheur du parcours.
 Les intentions différées sont revérifiées contre la cible et sa version;
 accueil et diagnostic gardent un contexte de workspace même lorsque la file est vide.
 Le stick droit fait défiler l'espace de travail ou le panneau ouvert.
@@ -603,6 +607,11 @@ d’opération métier. Hors des raccourcis propres au Pilotage :
   sur une liste, ouvrir le choix des valeurs. X ouvre aussi la saisie.
 - B : annuler le panneau supérieur ou revenir au contenu. Y rejoint le mode
   guidé. Menu/View présentent les commandes. Le stick droit fait défiler.
+
+Dans **Autres actions** d’une publication, B ou Échap depuis ce panneau le replie
+d’abord et replace le focus sur son titre. Une nouvelle pression après retour au
+neutre reprend la fermeture normale du tiroir et sa garde de saisie. Une
+confirmation ou un éditeur virtuel supérieur conserve toujours la priorité.
 
 Le guide du paiement, ses liens, sa pause et sa reprise utilisent ces mêmes
 contrôles, y compris après changement de rubrique. Les coordonnées, motifs,

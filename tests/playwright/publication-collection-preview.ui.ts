@@ -12,6 +12,8 @@ export function registerNormalizedPublicationCollectionTests(
     test(`ten normalized collection JPEGs decode in owner order before one exact approval ${english ? 'EN mobile' : 'FR desktop'}`, async ({
       page
     }) => {
+      // Ten full JPEG decodes, hashes and keyboard review exceed 30 s on mobile WebKit.
+      test.setTimeout(60_000);
       const images = await normalizedPublicationCollection();
       await page.setViewportSize(
         english ? { width: 390, height: 844 } : { width: 1280, height: 900 }
@@ -160,7 +162,7 @@ export function registerNormalizedPublicationCollectionTests(
           '[data-og7="publication-collection-preview"]'
         );
         await expect(gallery.locator('img')).toHaveCount(0);
-        await expect(approve).toBeDisabled();
+        await expect(approve).toHaveCount(0);
         expect(commands).toHaveLength(0);
         releaseLastResponse();
         await expect.poll(() => completedIndexes.size).toBe(10);
@@ -207,9 +209,21 @@ export function registerNormalizedPublicationCollectionTests(
         }
         // Product approval waits for every verified Blob. Decode is observed
         // here before the human click; it is not a separate product-side gate.
+        await dialog.locator('[data-og7="publication-return-review"]').click();
+        await expect(
+          dialog.locator('[data-og7="publication-authorization"]')
+        ).toBeFocused();
+        expect(commands).toHaveLength(0);
         await expect(approve).toBeEnabled();
         expect(commands).toHaveLength(0);
-        await approve.focus();
+        await page.keyboard.press('Tab');
+        await expect(
+          dialog.getByRole('checkbox', {
+            name: english ? /I approve/ : /J’approuve/
+          })
+        ).toBeFocused();
+        await page.keyboard.press('Tab');
+        await expect(approve).toBeFocused();
         await page.keyboard.press('Enter');
         await completeModeration(page);
         await expect.poll(() => commands.length).toBe(1);

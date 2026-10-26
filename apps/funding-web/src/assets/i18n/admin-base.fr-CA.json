@@ -2987,6 +2987,26 @@
       "image": "Image approuvée",
       "noImage": "Sans image",
       "save": "Enregistrer le brouillon",
+      "contentReview": {
+        "readOnly": "Lecture seule : vous pouvez consulter cette publication, sans la modifier ni autoriser son envoi.",
+        "savedVersion": "Version enregistrée :",
+        "unsaved": "Modifications non enregistrées",
+        "unchanged": "Aucune modification locale",
+        "savedText": "Texte enregistré",
+        "edit": "Corriger le brouillon",
+        "compose": "Préparer un brouillon",
+        "newDraft": "Nouveau brouillon non enregistré",
+        "saveHelp": "Enregistrer conserve le brouillon et révoque toute autorisation précédente. Après confirmation de l’enregistrement, relisez la version enregistrée avant de l’autoriser. La sauvegarde ne publie pas.",
+        "localPreview": "Lire le texte saisi",
+        "localPreviewHelp": "Cet aperçu reprend votre saisie locale. Il ne confirme ni son enregistrement ni son autorisation, et ne reproduit pas la mise en page du réseau social.",
+        "emptyText": "Aucun texte saisi.",
+        "savedReference": "Relire le texte et l’horaire enregistrés",
+        "previewHeading": "Aperçu du contenu",
+        "expandPreview": "Agrandir l’aperçu",
+        "reducePreview": "Réduire l’aperçu",
+        "footerHelp": "La sauvegarde conserve un brouillon. L’autorisation d’envoi reste une décision distincte.",
+        "backToReview": "Revenir à la revue"
+      },
       "approvalHelp": "Toute modification annule l’autorisation précédente. Vérifiez le compte, le texte, l’image et l’heure ci-dessus.",
       "collectionHelp": "Collection LinkedIn : vérifiez chaque JPEG dans l’ordre affiché. Une photo par commanditaire, de 2 à 10 participants. Chaque photo conserve ses droits et son crédit dans le texte.",
       "approval": "J’approuve ce contenu exact et son envoi à cette destination, à cette heure.",
@@ -3057,7 +3077,7 @@
       },
       "errors": {
         "generic": "L’action n’a pas abouti. Actualisez la page et réessayez.",
-        "VERSION_CONFLICT": "Cette publication a changé. Fermez-la et actualisez la page avant de continuer.",
+        "VERSION_CONFLICT": "Cette publication a changé. Votre saisie est conservée, mais la version affichée est dépassée. Copiez les corrections utiles avant de fermer et d’actualiser la page pour examiner la version courante. Aucune autorisation n’a été accordée par cette tentative.",
         "WORKER_VERSION_CONFLICT": "L’état du moteur a changé depuis votre dernière consultation. Actualisez la page avant de continuer.",
         "SOURCE_CHANGED": "Un brouillon du lot a changé. Enregistrez et vérifiez à nouveau le contenu final.",
         "SOURCE_COMMITMENT_CHANGED": "Un engagement a changé depuis l’autorisation. Vérifiez ses conditions, puis préparez une nouvelle approbation. Un résultat distant incertain exige d’abord une investigation.",
@@ -3104,7 +3124,8 @@
       "sponsorReview": "Commanditaires à approuver avec cette publication",
       "sponsorReviewHelp": "Accepter approuve aussi ces dossiers. Leurs fiches restent privées sur le site jusqu’à une décision de visibilité séparée.",
       "combinedApproval": "J’approuve ces commanditaires, ce contenu exact et son envoi à cette destination, à cette heure.",
-      "missingPresentation": "Photo de présentation à fournir ou à approuver dans le dossier."
+      "missingPresentation": "Photo de présentation à fournir ou à approuver dans le dossier.",
+      "otherActions": "Autres actions"
     },
     "pilotage": {
       "appearance": "Apparence",

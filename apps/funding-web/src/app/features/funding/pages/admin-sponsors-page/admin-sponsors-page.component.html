@@ -362,6 +362,9 @@
                 <openg7-admin-sponsor-detail-overview
                   *ngIf="selectedSponsorDetailOverview() as overview"
                   [overview]="overview"
+                  [showBenefits]="
+                    !progress() || progress()?.contributionId !== selected.id
+                  "
                   [disabled]="actionsDisabled()"
                   (sectionRequested)="openDossierSection($event)"
                   (copyReference)="copyReference(selected)"
@@ -507,7 +510,12 @@
                 @if (selectedSponsorAuditHistory(); as history) {
                   <openg7-admin-sponsor-audit-history
                     [view]="history"
+                    [contributionId]="selected.id"
+                    [canReview]="canManage()"
+                    [disabled]="dossierToolBusy()"
                     (inspect)="inspection.history(selected)"
+                    (interventionsRequested)="openHistoryInterventions()"
+                    (moderationRequested)="openDossierTool('moderation', false)"
                   />
                 }
               }

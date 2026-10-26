@@ -315,6 +315,187 @@ test('forced context cleanup bypasses draft confirmation and invalidates its pen
   assert.deepEqual(f.calls.commands, []);
 });
 
+test('navigation permits unchanged deliveries and empty compositions without clearing their context', async (t) => {
+  for (const mode of ['edit', 'compose'])
+    await t.test(mode, async (t) => {
+      const f = fixture(t);
+      if (mode === 'edit') f.controller.open(delivery());
+      else f.controller.create();
+      const selected = f.controller.selected();
+      const draft = structuredClone(f.controller.edit);
+      assert.equal(await f.controller.requestDiscardChanges(), true);
+      assert.equal(f.controller.selected(), selected);
+      assert.equal(f.controller.composing(), mode === 'compose');
+      assert.deepEqual(f.controller.edit, draft);
+      assert.deepEqual(f.calls.confirmations, []);
+      assert.deepEqual(f.calls.commands, []);
+    });
+});
+
+test('a navigation discard decision leaves unsaved edits intact when a later guard may refuse departure', async (t) => {
+  for (const mode of ['edit', 'compose'])
+    for (const discard of [true, false])
+      await t.test(`${mode}: discard ${discard}`, async (t) => {
+        const f = fixture(t);
+        if (mode === 'edit') f.controller.open(delivery());
+        else f.controller.create();
+        f.controller.edit.message = 'Unsaved content retained until departure';
+        if (mode === 'compose') {
+          f.controller.composeFeed = 'openg20:linkedin';
+          f.controller.composeKind = 'campaign';
+        }
+        f.ports.error.set('SYNTHETIC_SAVE_FAILURE');
+        const selected = f.controller.selected();
+        const draft = structuredClone(f.controller.edit);
+        f.ports.confirm = async (message, title) => {
+          f.calls.confirmations.push({ message, title });
+          return discard;
+        };
+        assert.equal(await f.controller.requestDiscardChanges(), discard);
+        assert.equal(f.controller.selected(), selected);
+        assert.equal(f.controller.composing(), mode === 'compose');
+        assert.deepEqual(f.controller.edit, draft);
+        assert.equal(f.controller.dirty(), true);
+        assert.equal(f.ports.error(), 'SYNTHETIC_SAVE_FAILURE');
+        assert.deepEqual(f.calls.confirmations, [
+          {
+            message: 'admin.publicationAutomation.discardChangesConfirm',
+            title: 'openg20:linkedin'
+          }
+        ]);
+        assert.deepEqual(f.calls.commands, []);
+      });
+});
+
+test('busy or disposed controllers refuse navigation even without unsaved changes', async (t) => {
+  for (const scenario of ['busy', 'disposed'])
+    await t.test(scenario, async (t) => {
+      const f = fixture(t);
+      f.controller.open(delivery());
+      const selected = f.controller.selected();
+      if (scenario === 'busy') f.ports.busy.set(true);
+      else f.controller.dispose();
+      assert.equal(f.controller.dirty(), false);
+      assert.equal(await f.controller.requestDiscardChanges(), false);
+      assert.equal(f.controller.selected(), selected);
+      assert.deepEqual(f.calls.confirmations, []);
+      assert.deepEqual(f.calls.commands, []);
+    });
+});
+
+test('navigation and drawer close cannot reuse or duplicate a pending discard decision', async (t) => {
+  const f = fixture(t);
+  f.controller.create();
+  f.controller.edit.message = 'Pending navigation decision';
+  const confirmation = deferred();
+  f.ports.confirm = (message, title) => {
+    f.calls.confirmations.push({ message, title });
+    return confirmation.promise;
+  };
+  const navigating = f.controller.requestDiscardChanges();
+  assert.equal(await f.controller.requestDiscardChanges(), false);
+  await f.controller.requestClose();
+  assert.equal(f.calls.confirmations.length, 1);
+  confirmation.resolve(true);
+  assert.equal(await navigating, true);
+  assert.equal(f.controller.composing(), true);
+  assert.equal(f.controller.edit.message, 'Pending navigation decision');
+  f.ports.confirm = async () => false;
+  assert.equal(await f.controller.requestDiscardChanges(), false);
+  assert.equal(f.controller.composing(), true);
+  assert.deepEqual(f.calls.commands, []);
+});
+
+test('navigation refuses a late discard decision after its context, version, draft or availability changes', async (t) => {
+  const changes = {
+    selection: (f) => f.controller.open(delivery({ id: 'another-delivery' })),
+    version: (f) => f.controller.selected.set(delivery({ version: 8 })),
+    draft: (f) => (f.controller.edit.message = 'A newer local draft'),
+    composition: (f) => f.controller.create(),
+    feed: (f) => (f.controller.composeFeed = 'openg7:facebook'),
+    kind: (f) => (f.controller.composeKind = 'campaign'),
+    busy: (f) => f.ports.busy.set(true),
+    disposed: (f) => f.controller.dispose(),
+    cleanup: (f) => {
+      f.controller.close();
+      f.controller.create();
+      f.controller.edit.message = 'A private draft in the new context';
+    }
+  };
+  for (const [scenario, change] of Object.entries(changes))
+    await t.test(scenario, async (t) => {
+      const f = fixture(t);
+      if (scenario === 'feed' || scenario === 'kind') f.controller.create();
+      else f.controller.open(delivery());
+      f.controller.composeFeed = 'openg20:linkedin';
+      f.controller.edit.message = 'Draft awaiting a navigation decision';
+      const confirmation = deferred();
+      f.ports.confirm = () => confirmation.promise;
+      const navigating = f.controller.requestDiscardChanges();
+      change(f);
+      const selected = f.controller.selected();
+      const composing = f.controller.composing();
+      const draft = structuredClone(f.controller.edit);
+      confirmation.resolve(true);
+      assert.equal(await navigating, false);
+      assert.equal(f.controller.selected(), selected);
+      assert.equal(f.controller.composing(), composing);
+      assert.deepEqual(f.controller.edit, draft);
+      assert.deepEqual(f.calls.commands, []);
+    });
+});
+
+test('a failed discard confirmation releases the navigation lock and preserves the draft', async (t) => {
+  const f = fixture(t);
+  f.controller.create();
+  f.controller.edit.message = 'Retained after a confirmation failure';
+  f.ports.confirm = async () => {
+    throw new Error('SYNTHETIC_CONFIRM_FAILURE');
+  };
+  await assert.rejects(f.controller.requestDiscardChanges(), {
+    message: 'SYNTHETIC_CONFIRM_FAILURE'
+  });
+  assert.equal(f.controller.composing(), true);
+  assert.equal(
+    f.controller.edit.message,
+    'Retained after a confirmation failure'
+  );
+  f.ports.confirm = async () => false;
+  assert.equal(await f.controller.requestDiscardChanges(), false);
+  f.ports.confirm = async () => true;
+  assert.equal(await f.controller.requestDiscardChanges(), true);
+  assert.equal(f.controller.composing(), true);
+  assert.deepEqual(f.calls.commands, []);
+});
+
+test('drawer close rechecks its context after a valid discard verdict and before clearing anything', async (t) => {
+  for (const dirty of [true, false])
+    await t.test(`dirty ${dirty}`, async (t) => {
+      const f = fixture(t);
+      f.controller.open(delivery());
+      if (dirty) f.controller.edit.message = 'Discardable old draft';
+      const requestDiscardChanges = f.controller.requestDiscardChanges.bind(
+        f.controller
+      );
+      t.mock.method(f.controller, 'requestDiscardChanges', () => {
+        const decision = requestDiscardChanges();
+        void decision.then((discard) => {
+          assert.equal(discard, true);
+          f.controller.open(delivery({ id: 'new-context-delivery' }));
+          f.controller.edit.message = 'New context must remain open';
+          f.ports.error.set('NEW_CONTEXT_ERROR');
+        });
+        return decision;
+      });
+      await f.controller.requestClose();
+      assert.equal(f.controller.selected()?.id, 'new-context-delivery');
+      assert.equal(f.controller.edit.message, 'New context must remain open');
+      assert.equal(f.ports.error(), 'NEW_CONTEXT_ERROR');
+      assert.equal(f.calls.confirmations.length, dirty ? 1 : 0);
+      assert.deepEqual(f.calls.commands, []);
+    });
+});
+
 test('derived portraits preserve their exact photos and format while the source mediaId remains null', async (t) => {
   const f = fixture(t),
     photos = [
@@ -1020,6 +1201,101 @@ test('invalid dates and shared command locks do not send composition or edit com
   await f.controller.reject();
   assert.equal(f.calls.commands.length, 0);
   assert.equal(f.calls.confirmations.length, 0);
+});
+
+test('unchanged browser-local delivery schedules retain the exact stored instant on content edits', async (t) => {
+  for (const scheduledAt of [
+    '2030-06-03T14:00:42.123456Z',
+    '2030-11-03T05:30:45.123Z',
+    '2030-11-03T06:30:45.123Z',
+    '2030-11-03T01:30:45.123-05:00'
+  ]) {
+    await t.test(scheduledAt, async (t) => {
+      const f = fixture(t);
+      const c = f.controller;
+      c.browserTimezone = 'America/Toronto';
+      c.open(delivery({ scheduledAt, status: 'approved' }));
+      c.changeEdit('message', 'Corrected synthetic content');
+      await c.save();
+      assert.equal(f.calls.commands.length, 1);
+      assert.equal(f.calls.commands[0].command.scheduledAt, scheduledAt);
+      assert.equal(f.calls.commands[0].command.version, 7);
+      assert.equal(c.dateTimeError(), false);
+      assert.equal(c.selected().status, 'approved');
+    });
+  }
+});
+
+test('missing, repeated and invalid local times keep the delivery draft and never send a command', async (t) => {
+  for (const composing of [false, true]) {
+    for (const scheduledAt of [
+      '',
+      'invalid',
+      '2030-02-31T10:00',
+      '2030-03-10T02:30',
+      '2030-11-03T01:30'
+    ]) {
+      await t.test(
+        `${composing ? 'compose' : 'edit'}: ${scheduledAt || 'empty'}`,
+        async (t) => {
+          const f = fixture(t);
+          const c = f.controller;
+          c.browserTimezone = 'America/Toronto';
+          if (composing) c.create();
+          else c.open(delivery());
+          c.changeEdit('message', 'Keep this synthetic correction');
+          c.changeEdit('scheduledAt', scheduledAt);
+          await c.save();
+          assert.equal(c.dateTimeError(), true);
+          assert.equal(c.edit.scheduledAt, scheduledAt);
+          assert.equal(c.edit.message, 'Keep this synthetic correction');
+          assert.equal(c.composing(), composing);
+          assert.deepEqual(f.calls.commands, []);
+          assert.deepEqual(f.calls.confirmations, []);
+          assert.deepEqual(f.calls.errors, []);
+
+          c.changeEdit('scheduledAt', '2030-03-10T03:30');
+          assert.equal(c.dateTimeError(), false);
+          await c.save();
+          assert.equal(f.calls.commands.length, 1);
+          assert.equal(
+            f.calls.commands[0].command.scheduledAt,
+            '2030-03-10T07:30:00.000Z'
+          );
+        }
+      );
+    }
+  }
+});
+
+test('delivery date conversion follows the browser zone rather than the calendar zone', async (t) => {
+  const f = fixture(t);
+  const c = f.controller;
+  c.browserTimezone = 'Asia/Kathmandu';
+  c.open(delivery({ scheduledAt: '2030-06-03T14:00:42.123Z' }));
+  assert.equal(c.edit.scheduledAt, '2030-06-03T19:45');
+  c.changeEdit('scheduledAt', '2030-06-03T20:00');
+  await c.save();
+  assert.equal(
+    f.calls.commands[0].command.scheduledAt,
+    '2030-06-03T14:15:00.000Z'
+  );
+});
+
+test('delivery local date errors clear when another drawer context opens or closes', async (t) => {
+  const c = fixture(t).controller;
+  for (const reset of [
+    () => c.open(delivery()),
+    () => c.create(),
+    () => c.clear()
+  ]) {
+    c.create();
+    c.changeEdit('scheduledAt', 'invalid');
+    await c.save();
+    assert.equal(c.dateTimeError(), true);
+    reset();
+    assert.equal(c.dateTimeError(), false);
+  }
 });
 
 for (const action of ['reject', 'cancel']) {

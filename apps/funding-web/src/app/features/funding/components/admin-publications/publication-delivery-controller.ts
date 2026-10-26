@@ -12,6 +12,10 @@ import type {
   SponsorshipPublicationFormat
 } from '@openg7/funding-core';
 
+import {
+  publicationDateTimeLocal,
+  updatedPublicationDateTime
+} from '../../models/publication-date-time.js';
 import type { FundingAdminService } from '../../services/funding-admin.service.js';
 import type { FundingI18nService } from '../../services/funding-i18n.service.js';
 import type { FundingModerationService } from '../../services/funding-moderation.service.js';
@@ -50,6 +54,7 @@ export class PublicationDeliveryController {
   readonly selected = signal<PublicationDelivery | null>(null);
   readonly composing = signal(false);
   readonly editing = signal(false);
+  readonly dateTimeError = signal(false);
   readonly media: WritableSignal<PublicationAutomationMedia[]>;
   private readonly mediaController: PublicationDeliveryMediaController;
   readonly previewUrl: Signal<string>;
@@ -125,6 +130,7 @@ export class PublicationDeliveryController {
   open(job: PublicationDelivery): void {
     if (this.disposed) return;
     this.generation++;
+    this.dateTimeError.set(false);
     this.absenceChecked = false;
     this.absenceReason = '';
     this.selected.set(job);
@@ -164,11 +170,19 @@ export class PublicationDeliveryController {
 
   /** Drawer dismissals share this guard; context/session cleanup still uses close(). */
   async requestClose(): Promise<void> {
-    if (this.disposed || this.busy() || this.closePending) return;
-    if (!this.dirty()) {
+    const generation = this.generation;
+    const draft = this.draftSignature();
+    if (
+      (await this.requestDiscardChanges()) &&
+      this.currentDraft(generation, draft)
+    )
       this.close();
-      return;
-    }
+  }
+
+  /** Navigation asks for a decision without clearing a draft before it succeeds. */
+  async requestDiscardChanges(): Promise<boolean> {
+    if (this.disposed || this.busy() || this.closePending) return false;
+    if (!this.dirty()) return true;
     const generation = this.generation;
     const draft = this.draftSignature();
     this.closePending = true;
@@ -177,14 +191,7 @@ export class PublicationDeliveryController {
         this.ports.i18n.t('admin.publicationAutomation.discardChangesConfirm'),
         this.selected()?.feedId ?? this.composeFeed
       );
-      if (
-        discard &&
-        !this.disposed &&
-        !this.busy() &&
-        generation === this.generation &&
-        draft === this.draftSignature()
-      )
-        this.close();
+      return discard && this.currentDraft(generation, draft);
     } finally {
       this.closePending = false;
     }
@@ -197,6 +204,7 @@ export class PublicationDeliveryController {
 
   clear(): void {
     this.generation++;
+    this.dateTimeError.set(false);
     this.mediaController.clear();
     this.selected.set(null);
     this.composing.set(false);
@@ -271,6 +279,7 @@ export class PublicationDeliveryController {
   ): void {
     this.approved = false;
     this.edit[field] = value;
+    if (field === 'scheduledAt') this.dateTimeError.set(false);
     if (field === 'mediaId') {
       if (this.mediaSelectionValid()) void this.loadPreview(value);
       else this.clearPreview();
@@ -285,8 +294,20 @@ export class PublicationDeliveryController {
       !this.mediaSelectionValid()
     )
       return;
-    const timestamp = new Date(this.edit.scheduledAt);
-    if (!Number.isFinite(timestamp.getTime())) return;
+    let scheduledAt: string;
+    try {
+      const timestamp = updatedPublicationDateTime(
+        this.edit.scheduledAt,
+        this.selected()?.scheduledAt ?? null,
+        this.localTimezone()
+      );
+      if (!timestamp) throw new RangeError('Publication date is required.');
+      scheduledAt = timestamp;
+      this.dateTimeError.set(false);
+    } catch {
+      this.dateTimeError.set(true);
+      return;
+    }
     if (this.composing())
       await this.ports.commands.run(
         {
@@ -294,7 +315,7 @@ export class PublicationDeliveryController {
           feedId: this.composeFeed,
           kind: this.composeKind,
           message: this.edit.message,
-          scheduledAt: timestamp.toISOString(),
+          scheduledAt,
           mediaId: this.edit.mediaId || null
         },
         true
@@ -307,7 +328,7 @@ export class PublicationDeliveryController {
           id: selected.id,
           version: selected.version,
           message: this.edit.message,
-          scheduledAt: timestamp.toISOString(),
+          scheduledAt,
           mediaId: this.edit.mediaId || null,
           ...(selected.publicationFormat ||
           this.derived(this.edit.publicationFormat)
@@ -571,10 +592,22 @@ export class PublicationDeliveryController {
     ]);
   }
 
+  private currentDraft(generation: number, draft: string): boolean {
+    return (
+      !this.disposed &&
+      !this.busy() &&
+      generation === this.generation &&
+      draft === this.draftSignature()
+    );
+  }
+
   private localDate(date: string): string {
-    const value = new Date(date);
-    return new Date(value.getTime() - value.getTimezoneOffset() * 60000)
-      .toISOString()
-      .slice(0, 16);
+    return publicationDateTimeLocal(date, this.localTimezone());
+  }
+
+  private localTimezone(): string {
+    return (
+      this.browserTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone
+    );
   }
 }

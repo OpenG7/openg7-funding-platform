@@ -1,0 +1,95 @@
+@let c = controller();
+@if (c.selected(); as job) {
+  @if (
+    c.editable() ||
+    job.status === 'uncertain' ||
+    job.accountRecoveryRequired ||
+    (job.status === 'published' && job.mode === 'live')
+  ) {
+    <details
+      #disclosure
+      class="secondary-actions"
+      data-og7="publication-more-actions"
+      data-og7-controller-back="disclosure"
+      [open]="opened()"
+      (toggle)="syncOpened($event)"
+      (keydown.escape)="closeDisclosure($event, disclosure)"
+    >
+      <summary>
+        {{ 'admin.publicationAutomation.otherActions' | translate }}
+      </summary>
+      <div class="secondary-actions-body">
+        @if (c.editable()) {
+          <button
+            type="button"
+            class="admin-button"
+            [disabled]="c.busy()"
+            [openg7AutomaticPrepare]="'publication.delivery.reject:' + job.id"
+            [automaticFor]="automaticFor()"
+            automaticExecutionMode="confirmation_required"
+            (automaticPrepare)="c.reject()"
+            (click)="c.reject()"
+          >
+            {{ 'admin.publicationAutomation.reject' | translate }}
+          </button>
+        }
+        @if (job.status === 'approved') {
+          <button
+            type="button"
+            class="admin-button"
+            [disabled]="c.busy()"
+            [openg7AutomaticPrepare]="'publication.delivery.cancel:' + job.id"
+            [automaticFor]="automaticFor()"
+            automaticExecutionMode="confirmation_required"
+            (automaticPrepare)="c.cancel()"
+            (click)="c.cancel()"
+          >
+            {{ 'admin.publicationAutomation.cancel' | translate }}
+          </button>
+        }
+        @if (job.status === 'uncertain' || job.accountRecoveryRequired) {
+          <details class="absence">
+            <summary>
+              {{ 'admin.publicationAutomation.absenceTitle' | translate }}
+            </summary>
+            <p>{{ 'admin.publicationAutomation.absenceHelp' | translate }}</p>
+            <label>
+              {{ 'admin.publicationAutomation.absenceReason' | translate }}
+              <textarea
+                rows="3"
+                maxlength="500"
+                [(ngModel)]="c.absenceReason"
+              ></textarea>
+            </label>
+            <label class="check">
+              <input type="checkbox" [(ngModel)]="c.absenceChecked" />
+              {{ 'admin.publicationAutomation.absenceCheck' | translate }}
+            </label>
+            <button
+              type="button"
+              class="admin-button"
+              [disabled]="
+                c.busy() ||
+                !c.absenceChecked ||
+                c.absenceReason.trim().length < 20
+              "
+              (click)="c.confirmAbsent()"
+            >
+              {{ 'admin.publicationAutomation.absenceAction' | translate }}
+            </button>
+          </details>
+        }
+        @if (job.status === 'published' && job.mode === 'live') {
+          <button
+            type="button"
+            class="admin-button"
+            [disabled]="c.busy()"
+            (click)="c.checkVisibility()"
+          >
+            {{ 'admin.publicationAutomation.checkVisibility' | translate }}
+          </button>
+        }
+      </div>
+    </details>
+  }
+}

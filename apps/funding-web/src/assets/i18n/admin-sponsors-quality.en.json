@@ -28,6 +28,22 @@
   "audit": {
     "dossierScope": "Evidence shown is limited to this dossier. Portfolio counts are available in Sponsorship quality.",
     "portfolioScope": "This review covers historical evidence across all dossiers.",
-    "dossierCounts": "{{count}} evidence item(s) matching this dossier’s criteria."
+    "dossierCounts": "{{count}} evidence item(s) matching this dossier’s criteria.",
+    "asOf": "Evidence recorded on or before",
+    "timezone": "(Toronto)",
+    "dateUnavailable": "Date unavailable",
+    "pageCount": "Current page: {{count}} items, up to {{limit}} per page.",
+    "snapshotScope": "The inventory date bounds the evidence being read. Administrative conclusions may have changed since that date. Reloading starts the first page of a new inventory.",
+    "deliveredAt": "Fulfilment recorded on",
+    "openEvidence": "View this service and its evidence",
+    "latestReview": "Latest available conclusion",
+    "reviewScope": "Only the latest conclusion is provided here; this view does not reproduce every earlier review.",
+    "noReview": "No administrative conclusion recorded.",
+    "references": "Traceability references",
+    "evidenceReference": "Fulfilment evidence",
+    "obligationReference": "Service",
+    "reviewVersion": "Review version",
+    "reviewReference": "Latest conclusion",
+    "nextPageScope": "The next page replaces the displayed items while keeping the same criteria and inventory date."
   }
 }

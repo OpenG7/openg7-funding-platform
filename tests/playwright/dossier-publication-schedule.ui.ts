@@ -12,6 +12,8 @@ import type {
 
 import { expect, test } from './support/test.js';
 import { completeModeration, moderationFixture } from './support/moderation.js';
+import { registerPublicationNavigationTests } from './publication-navigation.ui.js';
+import { capturePublicationReview } from './support/publication-review-capture.js';
 
 interface Context {
   fixtures(
@@ -237,6 +239,201 @@ const channel = (page: Page) =>
 export function registerDossierPublicationScheduleTests(
   context: Context
 ): void {
+  registerPublicationNavigationTests({
+    host: 'sponsorship',
+    open: async (page, destination) => {
+      const { job, controls } = await fixtures(page, context);
+      job.sponsors.forEach((sponsor) => {
+        sponsor.reviewStatus = 'pending_review';
+      });
+      if (destination !== 'dossier') {
+        job.status = 'blocked';
+        job.errorCode =
+          destination === 'media' ? 'MEDIA_CHANGED' : 'SOURCE_CONTENT_MISSING';
+      }
+      await page.goto(context.path('publication'));
+      await channel(page).locator('[data-og7="publication-review"]').click();
+      return controls.commands;
+    }
+  });
+
+  for (const language of ['fr-CA', 'en'] as const) {
+    test(`publication navigation never blocks the login redirect after its sponsorship session expires in ${language}`, async ({
+      page
+    }) => {
+      const { job, controls } = await fixtures(page, context);
+      job.sponsors[1]!.reviewStatus = 'pending_review';
+      let expired = false;
+      await page.route('**/api/admin/auth/current', (route) =>
+        expired
+          ? route.fulfill({
+              status: 401,
+              json: { error: 'Synthetic expired publication session' }
+            })
+          : route.fallback()
+      );
+      await page.addInitScript(
+        (locale) => localStorage.setItem('openg7.language', locale),
+        language
+      );
+      const mutations: string[] = [];
+      page.on('request', (request) => {
+        if (
+          new URL(request.url()).pathname.startsWith('/api/admin/') &&
+          !['GET', 'HEAD', 'OPTIONS'].includes(request.method())
+        )
+          mutations.push(request.url());
+      });
+      await page.goto(context.path('publication'));
+      await channel(page).locator('[data-og7="publication-review"]').click();
+      const english = language === 'en';
+      const dialog = page.getByRole('dialog', {
+        name: english ? 'Final publication' : 'Publication finale',
+        exact: true
+      });
+      await dialog
+        .getByRole('button', {
+          name: english ? 'Edit' : 'Modifier',
+          exact: true
+        })
+        .click();
+      const privateText = 'Synthetic private draft from an expired session.';
+      await dialog.locator('textarea[name="message"]').fill(privateText);
+      const link = dialog
+        .locator('[data-og7="publication-sponsor-review"]')
+        .getByRole('link')
+        .last();
+      const target = await link.getAttribute('href');
+      const deniedSession = page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === '/api/admin/auth/current' &&
+          response.status() === 401
+      );
+      expired = true;
+      await link.focus();
+      await page.keyboard.press('Enter');
+      await deniedSession;
+      await expect(page.locator('[data-og7="confirm-action"]')).toHaveCount(0);
+      await expect(page).toHaveURL(/\/admin\/login\?/);
+      expect(new URL(page.url()).searchParams.get('returnUrl')).toBe(target);
+      await expect(dialog).toBeHidden();
+      await expect(page.locator('[data-og7="confirm-action"]')).toHaveCount(0);
+      await expect
+        .poll(() =>
+          page
+            .locator('textarea')
+            .evaluateAll((elements) =>
+              elements.map((element) => (element as HTMLTextAreaElement).value)
+            )
+        )
+        .not.toContain(privateText);
+      expect(
+        await page.evaluate(() =>
+          sessionStorage.getItem('openg7-admin-session-token')
+        )
+      ).toBeNull();
+      expect(controls.commands).toEqual([]);
+      expect(mutations).toEqual([]);
+    });
+
+    for (const status of [401, 403]) {
+      test(`publication navigation purges its private sponsorship draft and pending discard after a late ${status} media read in ${language}`, async ({
+        page
+      }) => {
+        const { job, controls } = await fixtures(page, context);
+        job.sponsors[1]!.reviewStatus = 'pending_review';
+        await page.addInitScript(
+          (locale) => localStorage.setItem('openg7.language', locale),
+          language
+        );
+        let release!: () => void;
+        const gate = new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        let markMediaRead!: () => void;
+        const mediaRead = new Promise<void>((resolve) => {
+          markMediaRead = resolve;
+        });
+        await page.route(
+          '**/api/admin/publication-automation/media**',
+          async (route) => {
+            markMediaRead();
+            await gate;
+            await route.fulfill({
+              status,
+              json: { code: 'SYNTHETIC_MEDIA_ACCESS_DENIED' }
+            });
+          }
+        );
+        const mutations: string[] = [];
+        page.on('request', (request) => {
+          if (
+            new URL(request.url()).pathname.startsWith('/api/admin/') &&
+            !['GET', 'HEAD', 'OPTIONS'].includes(request.method())
+          )
+            mutations.push(request.url());
+        });
+        try {
+          await page.goto(context.path('publication'));
+          await channel(page)
+            .locator('[data-og7="publication-review"]')
+            .click();
+          await mediaRead;
+          const english = language === 'en';
+          const dialog = page.getByRole('dialog', {
+            name: english ? 'Final publication' : 'Publication finale',
+            exact: true
+          });
+          await dialog
+            .getByRole('button', {
+              name: english ? 'Edit' : 'Modifier',
+              exact: true
+            })
+            .click();
+          const privateText = `Synthetic private draft awaiting ${status} cleanup.`;
+          await dialog.locator('textarea[name="message"]').fill(privateText);
+          const link = dialog
+            .locator('[data-og7="publication-sponsor-review"]')
+            .getByRole('link')
+            .last();
+          await link.focus();
+          await page.keyboard.press('Enter');
+          const confirmation = page.getByRole('dialog').filter({
+            has: page.locator('[data-og7="confirm-action"]')
+          });
+          await expect(confirmation).toBeVisible();
+          const deniedRead = page.waitForResponse(
+            (response) =>
+              new URL(response.url()).pathname ===
+                '/api/admin/publication-automation/media' &&
+              response.status() === status
+          );
+          release();
+          await deniedRead;
+          await expect(dialog).toBeHidden();
+          await expect(confirmation).toBeHidden();
+          await expect
+            .poll(() =>
+              page
+                .locator('textarea')
+                .evaluateAll((elements) =>
+                  elements.map(
+                    (element) => (element as HTMLTextAreaElement).value
+                  )
+                )
+            )
+            .not.toContain(privateText);
+          // This media read is denied; /auth/current still describes a valid
+          // fixture session. Assert private projection cleanup, not sign-out.
+          expect(controls.commands).toEqual([]);
+          expect(mutations).toEqual([]);
+        } finally {
+          release();
+        }
+      });
+    }
+  }
+
   test.describe('dossier publication schedule', () => {
     test.use({ timezoneId: 'Asia/Tokyo' });
     for (const [language, width] of [
@@ -311,17 +508,17 @@ export function registerDossierPublicationScheduleTests(
                 'Offer',
                 'Preparation',
                 'Content',
-                'Authorization',
-                'Delivery',
+                'Administrative sending authorization',
+                'Publication',
                 'Evidence'
               ]
             : [
                 'Offre',
                 'Préparation',
                 'Contenu',
-                'Autorisation',
-                'Livraison',
-                'Preuve'
+                'Autorisation administrative d’envoi',
+                'Publication',
+                'Preuves'
               ];
         for (const [index, label] of labels.entries())
           await expect(links.nth(index)).toHaveAccessibleName(label);
@@ -343,23 +540,18 @@ export function registerDossierPublicationScheduleTests(
         await expect(page.getByRole('dialog')).toHaveCount(0);
         for (const [id, fragment] of [
           ['offer', 'dossier-agreement'],
-          ['preparation', 'dossier-preparation'],
-          ['content', 'dossier-publication-content'],
-          ['authorization', 'dossier-publication-content']
+          ['preparation', 'dossier-preparation']
         ] as const) {
           await expect(guide.locator(`[data-og7-id="${id}"]`)).toHaveAttribute(
             'href',
             context.path('publication') + '#' + fragment
           );
         }
-        for (const [id, path] of [
-          ['delivery', '/admin/fundraiser/publications/automation'],
-          ['evidence', '/admin/fundraiser/campaigns']
-        ] as const)
-          await expect(guide.locator(`[data-og7-id="${id}"]`)).toHaveAttribute(
-            'href',
-            path + '?sponsorshipId=' + sponsorshipId
-          );
+        for (const id of ['content', 'authorization', 'delivery', 'evidence'])
+          await expect(guide.locator(`[data-og7-id="${id}"]`)).toBeDisabled();
+        await expect(
+          guide.locator('[data-og7="publication-journey-target"]')
+        ).toBeDisabled();
         await guide.screenshot({
           path: test
             .info()
@@ -367,8 +559,7 @@ export function registerDossierPublicationScheduleTests(
         });
         for (const [id, fragment] of [
           ['offer', 'dossier-agreement'],
-          ['preparation', 'dossier-preparation'],
-          ['content', 'dossier-publication-content']
+          ['preparation', 'dossier-preparation']
         ] as const) {
           const link = guide.locator(`[data-og7-id="${id}"]`);
           await link.focus();
@@ -393,6 +584,407 @@ export function registerDossierPublicationScheduleTests(
         ).toBe(true);
         expect(controls.commands).toEqual([]);
         expect(writes).toEqual([]);
+      });
+
+      for (const historical of [false, true]) {
+        test(`publication guideposts ${historical ? 'restore a historical source when two drafts share a passage and delivery' : 'keep the selected passage through content, authorization, result and evidence'} in ${language} at ${width}px`, async ({
+          page
+        }, testInfo) => {
+          const { options, state, job, entry, controls } = await fixtures(
+            page,
+            context
+          );
+          const commitment = options.progressOverrides.commitment!;
+          const firstObligation = commitment.obligations.find(
+            (item) => item.channel === 'facebook'
+          )!;
+          const secondDraftId = '10000000-0000-4000-8000-000000000490';
+          const secondDeliveryId = historical
+            ? deliveryId
+            : '77777777-7777-4777-8777-777777777778';
+          const currentDeliveryId = '77777777-7777-4777-8777-777777777779';
+          const secondObligation = historical
+            ? firstObligation
+            : {
+                ...firstObligation,
+                id: '10000000-0000-4000-8000-000000000491',
+                ordinal: 2
+              };
+          if (historical) {
+            job.status = 'published';
+            job.mode = 'live';
+            job.publishedAt = evaluatedAt;
+            job.approvedAt = evaluatedAt;
+            job.externalPostId = 'synthetic-historical-post';
+            job.externalPostUrl =
+              'https://example.invalid/historical-publication';
+          }
+          const secondJob = {
+            ...job,
+            id: secondDeliveryId,
+            message: historical
+              ? job.message
+              : 'Atelier Boréal\nDeuxième passage synthétique à vérifier.'
+          };
+          options.progressOverrides = {
+            ...options.progressOverrides,
+            commitment: {
+              ...commitment,
+              offer:
+                !historical && commitment.offer
+                  ? {
+                      ...commitment.offer,
+                      benefits: commitment.offer.benefits.map((benefit) =>
+                        benefit.channel === 'facebook'
+                          ? { ...benefit, quantity: 2 }
+                          : benefit
+                      )
+                    }
+                  : commitment.offer,
+              obligations: historical
+                ? commitment.obligations
+                : [...commitment.obligations, secondObligation]
+            },
+            publications: [
+              {
+                ...options.progressOverrides.publications![0]!,
+                ...(historical
+                  ? { status: 'published', batchStatus: 'published' }
+                  : {}),
+                obligationId: firstObligation.id
+              },
+              {
+                ...options.progressOverrides.publications![0]!,
+                ...(historical
+                  ? { status: 'published', batchStatus: 'published' }
+                  : {}),
+                id: secondDraftId,
+                obligationId: secondObligation.id,
+                deliveryId: secondDeliveryId
+              }
+            ]
+          };
+          if (!historical) state.deliveries.push(secondJob);
+          state.queue!.entries = historical
+            ? []
+            : [
+                entry,
+                {
+                  ...entry,
+                  draftId: secondDraftId,
+                  deliveryId: secondDeliveryId
+                }
+              ];
+          state.queue!.total = historical ? 0 : 2;
+          state.queue!.summary.retained = historical ? 0 : 2;
+          const writes: string[] = [];
+          page.on('request', (request) => {
+            if (request.method() === 'POST')
+              writes.push(new URL(request.url()).pathname);
+          });
+          await page.route('**/api/admin/campaigns**', async (route) =>
+            route.fulfill({
+              json: {
+                generatedAt: evaluatedAt,
+                items: [
+                  {
+                    id: secondObligation.id,
+                    contributionId: sponsorshipId,
+                    reference: 'DEMO-401',
+                    companyName: 'Atelier Boréal',
+                    paidAt: evaluatedAt,
+                    channel: 'facebook',
+                    target: 'openg7',
+                    ordinal: secondObligation.ordinal,
+                    quantity: historical ? 1 : 2,
+                    format: 'collective_text',
+                    obligationState: 'pending',
+                    timing: null,
+                    preparation: {
+                      status: 'incomplete',
+                      version: 'synthetic-preparation',
+                      approvedAt: null,
+                      blockers: []
+                    },
+                    workflow: {
+                      obligationId: secondObligation.id,
+                      channel: 'facebook',
+                      target: 'openg7',
+                      ordinal: secondObligation.ordinal,
+                      state: 'action_required',
+                      responsibility: 'admin',
+                      reason: 'publication_authorization_required',
+                      deliveryId: historical
+                        ? currentDeliveryId
+                        : secondDeliveryId,
+                      scheduledAt
+                    },
+                    content: {
+                      title: 'Atelier Boréal',
+                      body: secondJob.message
+                    },
+                    proof: null,
+                    adminUrl: context.path('publication')
+                  }
+                ],
+                pagination: {
+                  page: 1,
+                  pageSize: 25,
+                  totalItems: 1,
+                  totalPages: 1,
+                  hasPreviousPage: false,
+                  hasNextPage: false
+                }
+              }
+            })
+          );
+          await page.addInitScript(
+            (locale) => localStorage.setItem('openg7.language', locale),
+            language
+          );
+          await page.setViewportSize({ width, height: 1000 });
+          await page.goto(context.path('publication'));
+          const guide = page.locator('[data-og7="publication-chain"]');
+          const selector = guide.locator(
+            '[data-og7="publication-journey-target"]'
+          );
+          await expect(selector).toBeEnabled();
+          await expect(selector).toHaveValue('');
+          await expect(page.getByRole('dialog')).toHaveCount(0);
+          for (const id of ['content', 'authorization', 'delivery', 'evidence'])
+            await expect(guide.locator(`[data-og7-id="${id}"]`)).toBeDisabled();
+          await selector.scrollIntoViewIfNeeded();
+          await selector.focus();
+          await expect(selector).toBeInViewport();
+          const selectedScroll = await page.evaluate(() => window.scrollY);
+          await selector.selectOption(secondDraftId);
+          await expect(selector).toHaveValue(secondDraftId);
+          await expect(selector).toBeFocused();
+          await expect
+            .poll(async () =>
+              Math.abs(
+                (await page.evaluate(() => window.scrollY)) - selectedScroll
+              )
+            )
+            .toBeLessThanOrEqual(2);
+          await expect
+            .poll(() => new URL(page.url()).searchParams.get('obligationId'))
+            .toBe(secondObligation.id);
+          expect(new URL(page.url()).searchParams.get('deliveryId')).toBe(
+            secondDeliveryId
+          );
+          await capturePublicationReview(
+            page,
+            testInfo,
+            `publication-source-${historical ? 'historical' : 'selected'}-${language}`,
+            {
+              language,
+              viewport: { width, height: 1000 },
+              access: 'fixture-with-write-controls'
+            }
+          );
+          const dialog = page.getByRole('dialog', {
+            name:
+              language === 'en' ? 'Final publication' : 'Publication finale',
+            exact: true
+          });
+          const steps = [
+            ['content', 'publication-saved-content'],
+            ['authorization', 'publication-authorization'],
+            ['delivery', 'publication-result']
+          ] as const;
+          for (const [step, hook] of steps.filter(
+            ([step]) => !historical || step !== 'authorization'
+          )) {
+            const trigger = guide.locator(`[data-og7-id="${step}"]`);
+            await trigger.focus();
+            await page.keyboard.press('Enter');
+            await expect(dialog).toBeVisible();
+            await expect(dialog.locator(`[data-og7="${hook}"]`)).toBeFocused();
+            await expect(
+              dialog.locator('[data-og7="publication-saved-content"]')
+            ).toContainText(secondJob.message);
+            await expect(
+              dialog.locator('[data-og7="publication-navigation-notice"]')
+            ).toBeVisible();
+            if (historical)
+              await expect(
+                dialog.locator('[data-og7="publication-authorization"]')
+              ).toHaveCount(0);
+            else
+              await expect(
+                dialog.getByRole('checkbox', { name: /I approve|J’approuve/ })
+              ).not.toBeChecked();
+            expect(controls.commands).toEqual([]);
+            if (step === 'content')
+              await capturePublicationReview(
+                page,
+                testInfo,
+                `publication-exact-${historical ? 'historical' : 'selected'}-${language}`,
+                {
+                  language,
+                  viewport: { width, height: 1000 },
+                  access: 'fixture-with-write-controls'
+                }
+              );
+            await page.keyboard.press('Escape');
+            await expect(dialog).toBeHidden();
+            await expect(trigger).toBeFocused();
+            await expect(selector).toHaveValue(secondDraftId);
+          }
+          const proof = guide.locator('[data-og7-id="evidence"]');
+          const proofUrl = new URL(
+            (await proof.getAttribute('href'))!,
+            page.url()
+          );
+          expect(proofUrl.pathname).toBe('/admin/fundraiser/campaigns');
+          expect(Object.fromEntries(proofUrl.searchParams)).toEqual({
+            sponsorshipId,
+            draftId: secondDraftId,
+            deliveryId: secondDeliveryId,
+            obligationId: secondObligation.id
+          });
+          await proof.focus();
+          await page.keyboard.press('Enter');
+          await expect(
+            page.locator('[data-og7="campaign-row"][aria-pressed="true"]')
+          ).toHaveAttribute('data-og7-id', secondObligation.id);
+          const back = page.locator('[data-og7="campaign-open-owner"]');
+          const returnUrl = new URL(
+            (await back.getAttribute('href'))!,
+            page.url()
+          );
+          expect(returnUrl.searchParams.get('draftId')).toBe(secondDraftId);
+          expect(returnUrl.searchParams.get('deliveryId')).toBe(
+            secondDeliveryId
+          );
+          expect(returnUrl.searchParams.get('obligationId')).toBe(
+            secondObligation.id
+          );
+          await back.focus();
+          await page.keyboard.press('Enter');
+          await expect(selector).toHaveValue(secondDraftId);
+          await expect(page.getByRole('dialog')).toHaveCount(0);
+          await expect(guide).not.toContainText('admin.dossier.');
+          const horizontalLayout = await page.evaluate(() => ({
+            viewport: innerWidth,
+            documentWidth: document.documentElement.scrollWidth,
+            overflowing: Array.from(
+              document.querySelectorAll<HTMLElement>('body *')
+            )
+              .filter((element) => element.getClientRects().length > 0)
+              .map((element) => {
+                const bounds = element.getBoundingClientRect();
+                const style = getComputedStyle(element);
+                return {
+                  tag: element.tagName,
+                  hook: element.getAttribute('data-og7'),
+                  id: element.id,
+                  classes: element.getAttribute('class'),
+                  left: bounds.left,
+                  right: bounds.right,
+                  width: bounds.width,
+                  clientWidth: element.clientWidth,
+                  scrollWidth: element.scrollWidth,
+                  minWidth: style.minWidth,
+                  gridColumns: style.gridTemplateColumns,
+                  overflowX: style.overflowX,
+                  whiteSpace: style.whiteSpace
+                };
+              })
+              .filter(
+                (element) =>
+                  element.hook === 'publication-journey-target' ||
+                  element.left < -1 ||
+                  element.right > innerWidth + 1 ||
+                  element.scrollWidth > element.clientWidth + 1
+              )
+              .sort((a, b) => b.right - a.right)
+              .slice(0, 20)
+          }));
+          await test.info().attach('publication-horizontal-layout', {
+            body: JSON.stringify(horizontalLayout, null, 2),
+            contentType: 'application/json'
+          });
+          expect(
+            horizontalLayout.documentWidth,
+            JSON.stringify(horizontalLayout, null, 2)
+          ).toBeLessThanOrEqual(horizontalLayout.viewport + 1);
+          expect(
+            (
+              await new AxeBuilder({ page })
+                .include('[data-og7="publication-chain"]')
+                .analyze()
+            ).violations
+          ).toEqual([]);
+          expect(controls.commands).toEqual([]);
+          expect(writes).toEqual([]);
+        });
+      }
+
+      test(`publication authorization guidepost explains an unavailable decision without stealing the reader focus in ${language}`, async ({
+        page
+      }, testInfo) => {
+        const { options, controls } = await fixtures(page, context, 'reader');
+        const obligationId =
+          options.progressOverrides.commitment!.obligations.find(
+            (item) => item.channel === 'facebook'
+          )!.id;
+        options.progressOverrides = {
+          ...options.progressOverrides,
+          publications: [
+            { ...options.progressOverrides.publications![0]!, obligationId }
+          ]
+        };
+        await page.setViewportSize({
+          width: language === 'en' ? 390 : 1280,
+          height: 864
+        });
+        await page.addInitScript(
+          (locale) => localStorage.setItem('openg7.language', locale),
+          language
+        );
+        await page.goto(
+          context.path('publication') +
+            `&draftId=${otherId}&deliveryId=${deliveryId}&obligationId=${obligationId}`
+        );
+        const authorization = page.locator(
+          '[data-og7="publication-chain-link"][data-og7-id="authorization"]'
+        );
+        await expect(authorization).toBeEnabled();
+        await authorization.focus();
+        await page.keyboard.press('Enter');
+        const dialog = page.getByRole('dialog', {
+          name: language === 'en' ? 'Final publication' : 'Publication finale',
+          exact: true
+        });
+        await expect(dialog).toBeVisible();
+        await expect(
+          dialog.locator('[data-og7="publication-authorization"]')
+        ).toHaveCount(0);
+        await expect(
+          dialog.locator('[data-og7="publication-navigation-notice"]')
+        ).toContainText(
+          language === 'en'
+            ? 'unavailable for the current state or permissions'
+            : 'n’est pas proposée pour l’état ou les droits actuels'
+        );
+        await expect(dialog.locator('button:focus')).toHaveAccessibleName(
+          language === 'en' ? 'Close' : 'Fermer'
+        );
+        await capturePublicationReview(
+          page,
+          testInfo,
+          `publication-reader-${language}`,
+          {
+            language,
+            viewport: { width: language === 'en' ? 390 : 1280, height: 864 },
+            access: 'reader'
+          }
+        );
+        await page.keyboard.press('Escape');
+        await expect(authorization).toBeFocused();
+        expect(controls.commands).toEqual([]);
       });
     }
     for (const language of ['fr-CA', 'en'] as const) {
