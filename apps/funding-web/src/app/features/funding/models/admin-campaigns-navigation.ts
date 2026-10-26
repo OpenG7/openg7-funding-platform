@@ -35,3 +35,30 @@ export function adminCampaignsDestination(params: {
     }
   };
 }
+
+/** A proof-view return retains its source only for the exact linked dossier and passage. */
+export function adminCampaignsReturnContext(
+  params: { getAll(name: string): readonly string[] },
+  row: { readonly contributionId: string; readonly id: string }
+): { readonly draftId?: string; readonly deliveryId?: string } | null {
+  const destination = adminCampaignsDestination(params);
+  if (
+    destination.kind !== 'focused' ||
+    destination.focus.sponsorshipId !== row.contributionId.toLowerCase() ||
+    destination.focus.obligationId !== row.id.toLowerCase()
+  )
+    return null;
+  const drafts = params.getAll('draftId');
+  const deliveries = params.getAll('deliveryId');
+  if (
+    (!drafts.length && !deliveries.length) ||
+    drafts.length > 1 ||
+    deliveries.length > 1 ||
+    [...drafts, ...deliveries].some((value) => !identifier.test(value))
+  )
+    return null;
+  return {
+    ...(drafts.length ? { draftId: drafts[0]!.toLowerCase() } : {}),
+    ...(deliveries.length ? { deliveryId: deliveries[0]!.toLowerCase() } : {})
+  };
+}

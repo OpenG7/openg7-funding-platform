@@ -12,14 +12,29 @@
   "details": "Voir le suivi détaillé",
   "chain": {
     "title": "Repères de publication",
-    "help": "Chaque repère rejoint son outil. Seules les prestations de l’accord sont exigées ; consulter ou préparer n’autorise aucun envoi et ne constitue pas une preuve de livraison.",
+    "help": "Choisissez une prestation sociale pour vérifier son contenu, son autorisation administrative d’envoi, sa publication et ses preuves. L’offre et la préparation restent propres au dossier. Consulter n’autorise aucun envoi.",
+    "select": "Prestation sociale à consulter",
+    "choose": "Choisir une prestation",
+    "passage": "Passage {{number}}",
+    "source": "Source {{reference}}",
+    "chooseHelp": "Aucune prestation n’est sélectionnée. Les repères ne choisissent pas une livraison à votre place. La présentation Web reste accessible dans sa carte ci-dessous.",
+    "selectedHelp": "Les repères conservent cette source, sa livraison et sa prestation lorsqu’elles sont reliées. L’autorisation d’envoi se décide dans l’outil de publication, sans créer d’accord au nom du client.",
+    "unavailable": "Le repère demandé n’est plus disponible ou ses identifiants ne correspondent pas. Choisissez une source présente dans ce dossier ; aucune autre livraison n’a été ouverte.",
+    "noExactEvidence": "Cette source n’est pas rattachée à une prestation précise : consultez le suivi complet du dossier pour rechercher ses preuves.",
+    "noDelivery": "Aucune livraison n’est liée à cette source. Préparez une proposition dans sa carte avant de vérifier l’autorisation d’envoi ou la publication.",
+    "regionUnavailable": "Cette rubrique n’est pas proposée pour l’état ou les droits actuels. La publication exacte reste ouverte en consultation ; aucune décision n’a été prise.",
+    "opened": {
+      "content": "Lecture du contenu enregistré de la livraison sélectionnée. Les corrections et leur sauvegarde restent dans cet outil.",
+      "authorization": "Vérification de l’autorisation administrative d’envoi de cette livraison. L’ouverture n’approuve rien ; les contrôles et la confirmation habituels restent requis.",
+      "delivery": "Consultation de la destination, du mode et de l’état de la livraison sélectionnée. Seul un résultat confirmé constitue une réalisation."
+    },
     "steps": {
       "offer": "Offre",
       "preparation": "Préparation",
       "content": "Contenu",
-      "authorization": "Autorisation",
-      "delivery": "Livraison",
-      "evidence": "Preuve"
+      "authorization": "Autorisation administrative d’envoi",
+      "delivery": "Publication",
+      "evidence": "Preuves"
     },
     "agreementVersion": "Version courante de l’accord enregistré",
     "offerVersion": "Version de l’offre acceptée",
