@@ -7,6 +7,7 @@ import type {
 
 import { test, expect } from './support/test.js';
 import { completeModeration } from './support/moderation.js';
+import { capturePublicationReview } from './support/publication-review-capture.js';
 import {
   adminController,
   installAdminController
@@ -54,7 +55,7 @@ export function registerPublicationContextActionsTests(context: Context): void {
 
     test(`publication context actions disclose without deciding and Escape restores focus in ${language}`, async ({
       page
-    }) => {
+    }, testInfo) => {
       const { commands, dialog } = await open(page);
       const disclosure = dialog.locator(
         '[data-og7="publication-more-actions"]'
@@ -69,6 +70,17 @@ export function registerPublicationContextActionsTests(context: Context): void {
       await summary.focus();
       await page.keyboard.press('Enter');
       await expect(reject).toBeVisible();
+      await reject.scrollIntoViewIfNeeded();
+      await capturePublicationReview(
+        page,
+        testInfo,
+        `context-actions-${language}`,
+        {
+          language,
+          viewport: { width: en ? 390 : 1536, height: 864 },
+          access: 'fixture-with-write-controls'
+        }
+      );
       expect(commands).toEqual([]);
       await reject.focus();
       await page.keyboard.press('Escape');
@@ -207,6 +219,8 @@ export function registerPublicationContextActionsTests(context: Context): void {
     test(`publication context actions require neutral gamepad input before leaving the drawer in ${language}`, async ({
       page
     }) => {
+      // Mobile WebKit can spend over 30 s sampling the gamepad animation frames.
+      test.setTimeout(60_000);
       await installAdminController(page);
       const { commands, dialog } = await open(page);
       const disclosure = dialog.locator(

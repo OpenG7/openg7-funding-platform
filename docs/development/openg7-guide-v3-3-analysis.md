@@ -533,7 +533,7 @@ courriel ou remboursement réel n’a été exécuté.
 L’utilisateur a autorisé cinq adaptations supplémentaires le 24 octobre 2026,
 avec revue, tests locaux et une PR par chantier, sans attendre les CI entre les
 chantiers. Le suivi porte sur **11 adaptations planifiées**, pas sur la totalité
-des fonctions dessinées : **10 réalisées, 1 restante** à ce stade.
+des fonctions dessinées : **11 réalisées, 0 restante dans ce périmètre local**.
 
 | Nº  | Adaptation complémentaire                                    | État                         |
 | --- | ------------------------------------------------------------ | ---------------------------- |
@@ -541,7 +541,7 @@ des fonctions dessinées : **10 réalisées, 1 restante** à ce stade.
 | 8   | Éditeur unique, aperçu à droite et agrandissement            | Réalisée localement et revue |
 | 9   | Actions secondaires contextuelles sans doublon               | Réalisée localement et revue |
 | 10  | Navigation ciblée dans le dossier et la livraison            | Réalisée localement et revue |
-| 11  | Recette comparative et captures du rendu réel                | À réaliser                   |
+| 11  | Recette comparative et captures du rendu réel                | Réalisée localement et revue |
 
 Le chantier 7 conserve l’instant serveur exact, secondes et occurrence comprises,
 lorsque l’horaire affiché n’a pas changé. Une date nouvelle ou modifiée doit
@@ -625,3 +625,38 @@ typage UI, lint, format, documentation et diff. La revue A a conduit à conserve
 les identifiants historiques de retour et à synchroniser le sélecteur asynchrone ;
 la contre-revue ne relève plus de défaut actionnable. Aucun clic de lecture ne
 prépare, n’approuve ou n’envoie de publication.
+
+Le chantier 11 ajoute une recette reproductible et une galerie locale du rendu
+effectif, décrites dans la [réception visuelle](openg7-guide-v3-3-visual-acceptance.md).
+La réception a conduit à corriger trois défauts dans leurs chantiers propriétaires :
+champ et erreur DST désormais visibles après chaque refus, confinement du focus
+dans le dialogue natif supérieur sous WebKit, et largeur du sélecteur de prestation
+bornée sur mobile. Les assertions de saisie, de version, de neutralité de la manette,
+de retour au déclencheur, d’UUID, de largeur et d’absence de commande sont conservées.
+
+Preuve du 24 octobre 2026 : **264/264 scénarios navigateur réussis**, sans échec,
+instabilité ou scénario ignoré, sur Chromium, Firefox, WebKit et mobile WebKit.
+La révision testée est `3057557c2c93f8e56150f052e76f02c3166c7633`, checkout propre,
+avec deux workers. La galerie présente **176 captures issues de 136 scénarios**,
+44 images par projet, sans métadonnée manquante. Les images intactes et leurs
+empreintes restent dans `test-results/publication-review-gallery/`, hors de Git.
+La revue indépendante des captures bureau, mobile, petite hauteur, erreur et
+confirmation ne relève plus de défaut concret.
+
+Le build production/SSR (25 routes) et les **7 506 tests Node réussis, 8 ignorés**
+portent sur `8a9678c1b425aa06074cff2c71c93cef16c4c0b1`. Le code applicatif est
+identique dans la révision de réception : seul le budget local du scénario de
+manette passe à 60 secondes, sans modifier ses entrées, trames ou assertions.
+Les deux recettes de dix JPEG disposent aussi de 60 secondes. Les suites Node et
+navigateur ont été exécutées successivement pour la validation finale. Typage UI,
+lint global (aucune erreur, un avertissement préexistant), format et contrôles
+documentaires complètent les preuves locales. Ces résultats ne présument pas les CI.
+
+Les cinq PR complémentaires sont [#377](https://github.com/OpenG7/openg7-funding-platform/pull/377),
+[#378](https://github.com/OpenG7/openg7-funding-platform/pull/378),
+[#379](https://github.com/OpenG7/openg7-funding-platform/pull/379),
+[#380](https://github.com/OpenG7/openg7-funding-platform/pull/380) et
+[#381](https://github.com/OpenG7/openg7-funding-platform/pull/381).
+Les quatre familles fonctionnelles absentes et les qualifications matérielles
+recensées plus haut restent des travaux séparés. Aucun déploiement ni effet métier
+réel n’a été exécuté.
