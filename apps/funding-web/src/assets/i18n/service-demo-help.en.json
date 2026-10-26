@@ -1,0 +1,55 @@
+{
+  "serviceDemoHelp": {
+    "toggle": "A pointer for this step",
+    "contexts": {
+      "liste": {
+        "title": "Choose a file",
+        "intro": "Each row shows the next intervention to explore for a partner.",
+        "first": "Search for a name or filter files by step.",
+        "second": "Open the file to find the promised services and their preview."
+      },
+      "dossier": {
+        "title": "Understand what still needs preparation",
+        "intro": "The file brings together the services planned for one partner.",
+        "first": "The website presentation and Facebook publication have separate views.",
+        "second": "The next intervention opens the relevant screen; history remains available under Other actions."
+      },
+      "contenu": {
+        "title": "Review the message and its appearance",
+        "intro": "Examine the text, visual and link together before continuing.",
+        "first": "A check row opens the element to review or edit.",
+        "second": "The preview shows your current draft. Editing content does not confirm any consent."
+      },
+      "autorisation": {
+        "title": "Understand the scope of consent",
+        "intro": "Connect consent to the right contact, reviewed content and intended channel.",
+        "first": "Open the email, conditions or contact to read the examples provided.",
+        "second": "The confirmation screen lets you review consent; the demo creates no real consent."
+      },
+      "publication": {
+        "title": "Prepare the destination and timing",
+        "intro": "The recap brings together the exact content, destination and proposed date.",
+        "first": "Choose a date and time zone in scheduling, then review the recap.",
+        "second": "Real sending remains disabled. Result tracking lets you explore the following screens."
+      },
+      "corriger": {
+        "title": "Adjust the local draft",
+        "intro": "The tabs let you edit one element at a time with its appearance alongside.",
+        "first": "Text, link, image and option changes update the preview only.",
+        "second": "Keep the draft to continue exploring, then return to the step you came from."
+      },
+      "historique": {
+        "title": "Find the context of a change",
+        "intro": "The timeline contains fictional events for exploring version history.",
+        "first": "Choose a filter and then an event to read its details.",
+        "second": "Comparison helps you review two versions; it does not restore published content."
+      },
+      "details": {
+        "title": "Examine the detail before returning",
+        "intro": "This view explores part of the file while keeping its context.",
+        "first": "Fields let you prepare or explore a local example.",
+        "second": "Back returns to the originating view. External operations remain disabled."
+      }
+    }
+  }
+}

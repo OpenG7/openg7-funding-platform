@@ -1,0 +1,202 @@
+<section data-og7="service-demo-list">
+  <div class="metrics">
+    <article>
+      <span>{{ 'serviceDemo.metrics.total' | translate }}</span
+      ><strong
+        >{{ totalDossiers }}
+        <small>{{ 'serviceDemo.metrics.dossiers' | translate }}</small></strong
+      >
+    </article>
+    <article>
+      <span>{{ 'serviceDemo.metrics.services' | translate }}</span
+      ><strong
+        >{{ totalServices }}
+        <small>{{ 'serviceDemo.metrics.promised' | translate }}</small></strong
+      >
+    </article>
+    <article>
+      <span>{{ 'serviceDemo.metrics.next' | translate }}</span
+      ><strong
+        >{{ totalDossiers }}
+        <small>{{
+          'serviceDemo.metrics.interventions' | translate
+        }}</small></strong
+      >
+    </article>
+  </div>
+  <div class="list-toolbar">
+    <div class="search-group">
+      <label class="search-field" for="service-demo-search">
+        <openg7-admin-icon name="search" />
+        <span class="sr-only">{{ 'serviceDemo.search' | translate }}</span>
+        <input
+          #searchInput
+          id="service-demo-search"
+          type="search"
+          autocomplete="off"
+          [placeholder]="'serviceDemo.search' | translate"
+          [value]="query()"
+          (input)="search(searchInput.value)"
+          aria-describedby="service-demo-search-help"
+          data-og7="service-demo-search"
+        />
+      </label>
+      <small id="service-demo-search-help" class="search-help">{{
+        'serviceDemoList.searchHelp' | translate
+      }}</small>
+    </div>
+    <div class="list-result-summary">
+      <span
+        class="result-count"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        data-og7="service-demo-result-count"
+        >{{
+          'serviceDemoList.results'
+            | translate: { count: dossiers().length, total: totalDossiers }
+        }}</span
+      >
+      @if (hasFilters()) {
+        <button
+          class="button quiet reset-filters"
+          type="button"
+          (click)="resetFilters(); searchInput.focus()"
+          data-og7="service-demo-reset-filters"
+        >
+          {{ 'serviceDemoList.clearFilters' | translate }}
+        </button>
+      }
+    </div>
+  </div>
+  <nav
+    class="tabs filter-tabs"
+    [attr.aria-label]="'serviceDemo.filters.label' | translate"
+  >
+    @for (item of filters; track item.id) {
+      <a
+        routerLink="."
+        [queryParams]="{ etat: item.id === 'all' ? null : item.id }"
+        queryParamsHandling="merge"
+        [class.active]="selectedFilter() === item.id"
+        [attr.aria-current]="selectedFilter() === item.id ? 'page' : null"
+        data-og7="service-demo-filter"
+        [attr.data-og7-id]="item.id"
+        >{{ 'serviceDemo.filters.' + item.id | translate
+        }}<span class="filter-count" aria-hidden="true">{{
+          item.count
+        }}</span></a
+      >
+    }
+  </nav>
+  @if (hasFilters()) {
+    <div
+      class="selected-filters"
+      [attr.aria-label]="'serviceDemoList.activeFilters' | translate"
+      role="group"
+    >
+      @if (query()) {
+        <button
+          class="filter-chip"
+          type="button"
+          (click)="search(''); searchInput.focus()"
+          [attr.aria-label]="
+            'serviceDemoList.removeSearch' | translate: { query: query() }
+          "
+          data-og7="service-demo-clear-search"
+        >
+          <openg7-admin-icon name="search" /><span>« {{ query() }} »</span
+          ><openg7-admin-icon name="close" />
+        </button>
+      }
+      @if (selectedFilter() !== 'all') {
+        <button
+          class="filter-chip"
+          type="button"
+          (click)="clearFilter(); searchInput.focus()"
+          [attr.aria-label]="'serviceDemoList.removeFilter' | translate"
+        >
+          <span>{{
+            'serviceDemo.filters.' + selectedFilter() | translate
+          }}</span
+          ><openg7-admin-icon name="close" />
+        </button>
+      }
+    </div>
+  }
+  <div class="list-section-heading">
+    <h2>{{ 'serviceDemoList.filesTitle' | translate }}</h2>
+    <span>{{ 'serviceDemoList.nextAction' | translate }}</span>
+  </div>
+  <div class="dossier-list">
+    @for (dossier of dossiers(); track dossier.id) {
+      <article class="dossier-row">
+        <div
+          class="company-avatar"
+          [class]="'company-avatar ' + dossier.tone"
+          aria-hidden="true"
+        >
+          {{ dossier.initials }}
+        </div>
+        <div class="dossier-information">
+          <div class="dossier-title-line">
+            <a
+              class="dossier-name"
+              [routerLink]="['/demo/prestations/dossier', dossier.id]"
+              data-og7="service-demo-open-dossier"
+              [attr.data-og7-id]="dossier.id"
+              >{{ dossier.name }} <span aria-hidden="true">↗</span></a
+            >
+            @if (state.draftIds().includes(dossier.id)) {
+              <span
+                class="draft-badge"
+                data-og7="service-demo-draft-badge"
+                [attr.data-og7-id]="dossier.id"
+                ><openg7-admin-icon name="publications" />{{
+                  'serviceDemoList.localDraft' | translate
+                }}</span
+              >
+            }
+          </div>
+          <p>{{ 'serviceDemo.offer' | translate }}</p>
+          <div class="mini-services">
+            <span
+              ><openg7-admin-icon name="cloud" />{{
+                'serviceDemo.web' | translate
+              }}</span
+            ><span><openg7-admin-icon name="publications" />Facebook</span>
+          </div>
+        </div>
+        <div class="next-action">
+          <span class="status" [class]="'status ' + dossier.tone">{{
+            'serviceDemo.stageLabels.' + dossier.stage | translate
+          }}</span
+          ><a
+            class="button"
+            [routerLink]="[
+              '/demo/prestations/dossier',
+              dossier.id,
+              dossier.stage
+            ]"
+            >{{ 'serviceDemo.nextActions.' + dossier.stage | translate }}
+            <openg7-admin-icon name="arrow"
+          /></a>
+        </div>
+      </article>
+    } @empty {
+      <div class="empty-state" role="status">
+        <openg7-admin-icon name="search" />
+        <h2>{{ 'serviceDemo.empty.title' | translate }}</h2>
+        <p>{{ 'serviceDemo.empty.hint' | translate }}</p>
+        <button
+          class="button"
+          type="button"
+          (click)="resetFilters(); searchInput.focus()"
+        >
+          {{ 'serviceDemo.empty.reset' | translate }}
+        </button>
+      </div>
+    }
+  </div>
+  <p class="list-footnote">{{ 'serviceDemo.listHint' | translate }}</p>
+</section>

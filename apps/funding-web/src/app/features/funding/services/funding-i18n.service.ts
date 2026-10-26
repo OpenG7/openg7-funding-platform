@@ -165,10 +165,12 @@ export class FundingI18nService {
 
   private resolveLanguageFromPath(path: string): FundingLanguage {
     const normalizedPath = this.normalizePath(path);
-    // Admin URLs have no locale prefix. Keep the chosen language across
-    // admin navigation/reloads; public URLs retain their canonical locale.
+    // Admin and demo URLs have no locale prefix. Keep their chosen language
+    // across navigation/reloads; public URLs retain their canonical locale.
     if (
-      normalizedPath.startsWith('/admin/') &&
+      (normalizedPath.startsWith('/admin/') ||
+        normalizedPath === '/demo/prestations' ||
+        normalizedPath.startsWith('/demo/prestations/')) &&
       isPlatformBrowser(this.platformId)
     ) {
       try {

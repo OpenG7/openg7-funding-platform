@@ -1,0 +1,23 @@
+<details class="context-help" data-og7="service-demo-help">
+  <summary data-og7="service-demo-help-toggle">
+    <span class="help-mark" aria-hidden="true">?</span>
+    <span class="help-heading">{{ 'serviceDemoHelp.toggle' | translate }}</span>
+    <span class="help-topic">{{
+      'serviceDemoHelp.contexts.' + context() + '.title' | translate
+    }}</span>
+    <span class="help-chevron" aria-hidden="true"></span>
+  </summary>
+  <div class="help-body" data-og7="service-demo-help-content">
+    <p class="help-intro">
+      {{ 'serviceDemoHelp.contexts.' + context() + '.intro' | translate }}
+    </p>
+    <ul>
+      <li>
+        {{ 'serviceDemoHelp.contexts.' + context() + '.first' | translate }}
+      </li>
+      <li>
+        {{ 'serviceDemoHelp.contexts.' + context() + '.second' | translate }}
+      </li>
+    </ul>
+  </div>
+</details>

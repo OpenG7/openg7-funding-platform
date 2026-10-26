@@ -4,6 +4,7 @@
     "noEmit": true
   },
   "include": [
+    "playwright/service-demo.ui.spec.ts",
     "playwright/admin-audit-ui.spec.ts",
     "playwright/admin-transparency-ui.spec.ts",
     "playwright/admin-allocation-create-ui.spec.ts",

@@ -100,6 +100,12 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
 
         <footer class="login-links">
           <a
+            class="admin-button"
+            routerLink="/demo/prestations"
+            data-og7="open-service-demo"
+            >{{ 'admin.serviceDemo.open' | translate }}</a
+          >
+          <a
             class="admin-link"
             routerLink="/admin/oidc-setup"
             data-og7="identity-setup-link"
