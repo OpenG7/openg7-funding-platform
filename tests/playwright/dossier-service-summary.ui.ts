@@ -225,7 +225,7 @@ function campaignRow(
 
 export function registerDossierServiceSummaryTests(context: Context): void {
   for (const language of ['fr-CA', 'en'] as const) {
-    for (const width of [1536, 390]) {
+    for (const width of [1536, 390, 1280, 768]) {
       test(`dossier service summary preserves exact occurrences and qualified results in ${language} at ${width}px`, async ({
         page
       }, testInfo) => {
@@ -233,7 +233,11 @@ export function registerDossierServiceSummaryTests(context: Context): void {
         const facts = serviceFacts(context);
         options.progressOverrides = facts;
         await locale(page, language);
-        await page.setViewportSize({ width, height: 864 });
+        const shortViewport = width === 1280 || width === 768;
+        await page.setViewportSize({
+          width,
+          height: width === 1280 ? 520 : width === 768 ? 432 : 864
+        });
         const campaignQueries: URLSearchParams[] = [];
         const campaign = campaignRow(facts);
         await page.route('**/api/admin/campaigns?**', (route) => {
@@ -353,9 +357,34 @@ export function registerDossierServiceSummaryTests(context: Context): void {
               .analyze()
           ).violations
         ).toEqual([]);
+        if (shortViewport) {
+          const lastDetail = summary
+            .locator('[data-og7="dossier-service-detail"]')
+            .last();
+          await lastDetail.focus();
+          await expect(lastDetail).toBeFocused();
+          await expect
+            .poll(() =>
+              lastDetail.evaluate((element) => {
+                const bounds = element.getBoundingClientRect();
+                const x = bounds.left + bounds.width / 2;
+                const y = bounds.top + bounds.height / 2;
+                const hit = document.elementFromPoint(x, y);
+                return (
+                  x >= 0 &&
+                  x <= innerWidth &&
+                  y >= 0 &&
+                  y <= innerHeight &&
+                  !!hit &&
+                  (hit === element || element.contains(hit))
+                );
+              })
+            )
+            .toBe(true);
+        }
         await page.screenshot({
           path: testInfo.outputPath(`service-summary-${language}-${width}.png`),
-          fullPage: true,
+          fullPage: !shortViewport,
           animations: 'disabled'
         });
 

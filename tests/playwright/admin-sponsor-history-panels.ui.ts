@@ -30,7 +30,7 @@ export function registerSponsorHistoryPanelTests({
   tabs
 }: HistoryPanelTestContext): void {
   for (const locale of ['fr-CA', 'en'] as const) {
-    for (const width of [1536, 390]) {
+    for (const width of [1536, 390, 1280, 768]) {
       test(`history sources preserve dossier scope and consultation rights in ${locale} at ${width}px`, async ({
         page
       }, testInfo) => {
@@ -40,7 +40,11 @@ export function registerSponsorHistoryPanelTests({
           (value) => localStorage.setItem('openg7.language', value),
           locale
         );
-        await page.setViewportSize({ width, height: 864 });
+        const shortViewport = width === 1280 || width === 768;
+        await page.setViewportSize({
+          width,
+          height: width === 1280 ? 520 : width === 768 ? 432 : 864
+        });
         await page.goto(path('audit'));
         const history = page.locator('[data-og7="dossier-audit-history"]');
         const sources = page.locator('[data-og7="dossier-history-sources"]');
@@ -98,8 +102,32 @@ export function registerSponsorHistoryPanelTests({
               .analyze()
           ).violations
         ).toEqual([]);
+        if (shortViewport) {
+          const lastLink = sources.getByRole('link').last();
+          await lastLink.focus();
+          await expect(lastLink).toBeFocused();
+          await expect
+            .poll(() =>
+              lastLink.evaluate((element) => {
+                const bounds = element.getBoundingClientRect();
+                const x = bounds.left + bounds.width / 2;
+                const y = bounds.top + bounds.height / 2;
+                const hit = document.elementFromPoint(x, y);
+                return (
+                  x >= 0 &&
+                  x <= innerWidth &&
+                  y >= 0 &&
+                  y <= innerHeight &&
+                  !!hit &&
+                  (hit === element || element.contains(hit))
+                );
+              })
+            )
+            .toBe(true);
+        }
         await page.screenshot({
           path: testInfo.outputPath(`history-sources-${locale}-${width}.png`),
+          fullPage: false,
           animations: 'disabled'
         });
         await preparation.focus();
